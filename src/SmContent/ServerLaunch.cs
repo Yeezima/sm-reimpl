@@ -5,9 +5,11 @@ namespace SmContent;
 /// <param name="Bots">fix/connect-timeout, fix/hosting-bots-logs: how many bots the front end starts once the server listens (<see cref="HostBots"/>; default none); with any,
 /// the server keeps requested sides (<c>--honor-side-requests</c>) so the bots stay on theirs.</param>
 /// <param name="Map">The map the server plays (<c>--map</c>); null: the server's default (Manufactorum). <paramref name="Maps"/>: a rotation (<c>--maps all</c>, classic-maps-all), instead of a map.</param>
+/// <param name="DevTools">dev-tools (protocol 80): the server gets <c>--dev-tools</c> (and the executable and project its tools' bots run); only with "This PC only" (<paramref name="LocalOnly"/>), since the server ignores it on any other address.</param>
 /// <param name="Difficulty">Easy: the server scales the damage bots deal (<c>--bot-damage-scale</c> <see cref="HostBots.EasyDamageScale"/>); Normal: unscaled.</param>
 public sealed record HostOptions(string Mode, int Port, bool LocalOnly, string GameDir, bool AllowCustomEmblems = false, string? Content = null,
-    int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null, string? Maps = null);
+    int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null, string? Maps = null,
+    bool DevTools = false, string? DevBotExe = null, string? DevBotProject = null);
 
 /// <summary>
 /// The pure parts of starting the bundled dedicated server from the client (the process handling is in the client): where the executable is looked for,
@@ -120,6 +122,12 @@ public static class ServerLaunch
         if (!string.IsNullOrWhiteSpace(options.Map)) { args.Add("--map"); args.Add(options.Map); }   // draft 11: the client's --ashfall-layout field hosts tfw_war_field
         else if (!string.IsNullOrWhiteSpace(options.Maps)) { args.Add("--maps"); args.Add(options.Maps); }   // classic-maps-all: the lobby's ROTATION
         args.AddRange(HostBots.ServerArguments(options.Bots, options.Difficulty));   // bots: keep requested sides, Easy scales their damage
+        if (options.DevTools && options.LocalOnly)   // dev-tools: the in-game developer tools; never on a LAN / Internet host (the server would ignore it there anyway)
+        {
+            args.Add("--dev-tools");
+            if (!string.IsNullOrWhiteSpace(options.DevBotExe)) { args.Add("--dev-bot-exe"); args.Add(options.DevBotExe); }
+            if (!string.IsNullOrWhiteSpace(options.DevBotProject)) { args.Add("--dev-bot-project"); args.Add(options.DevBotProject); }
+        }
         return args;
     }
 

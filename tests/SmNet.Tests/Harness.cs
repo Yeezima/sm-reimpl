@@ -20,13 +20,13 @@ sealed class Harness
 
     /// <param name="map">The server's map; clients get <paramref name="clientOptions"/> (e.g. a map loader).</param>
     public Harness(LinkConditions link, int seed, int clients, SimConfig? config = null, ServerOptions? serverOptions = null,
-        Func<IServerTransport, IServerTransport>? wrapServer = null, GameMap? map = null, ClientOptions? clientOptions = null)
+        Func<IServerTransport, IServerTransport>? wrapServer = null, GameMap? map = null, ClientOptions? clientOptions = null, Func<IClock, IClock>? serverClock = null)
     {
         Config = config ?? new SimConfig();
         _clientOptions = clientOptions;
         Net = new LoopbackNetwork(Clock, link, seed);
         var serverTransport = wrapServer is null ? Net.Server : wrapServer(Net.Server);
-        Server = new GameServer(Config, Fingerprint, serverTransport, Clock, serverOptions, map);
+        Server = new GameServer(Config, Fingerprint, serverTransport, serverClock is null ? Clock : serverClock(Clock), serverOptions, map);
         for (int i = 0; i < clients; i++)
             Clients.Add(new GameClient(Config, Fingerprint, Net.Connect(), Clock, clientOptions, nonce: (uint)(100 + i)));
     }

@@ -404,6 +404,7 @@ public sealed partial class World
     /// <summary>One side at or over the score limit wins; both: the higher score wins, equal scores are a draw (ours).</summary>
     void CheckScoreLimit()
     {
+        if ((DevFlags & DevToolsFlags.Indefinite) != 0) return;   // developer tools: an indefinite match has no score limit
         int marines = ScoreOf(Team.SpaceMarines), chaos = ScoreOf(Team.Chaos);
         bool a = marines >= Rules!.ScoreLimit, b = chaos >= Rules.ScoreLimit;
         if (a && b) End(marines > chaos ? Team.SpaceMarines : chaos > marines ? Team.Chaos : Team.None);
@@ -463,7 +464,7 @@ public sealed partial class World
                 break;
             case MatchState.Playing:
                 if (!both) { End(marines > 0 ? Team.SpaceMarines : chaos > 0 ? Team.Chaos : Team.None); break; }
-                if (TicksLeft != uint.MaxValue && --TicksLeft == 0)
+                if (TicksLeft != uint.MaxValue && (DevFlags & DevToolsFlags.Indefinite) == 0 && --TicksLeft == 0)   // developer tools: an indefinite match's clock stands
                 {
                     int a = ScoreOf(Team.SpaceMarines), b = ScoreOf(Team.Chaos);
                     End(a > b ? Team.SpaceMarines : b > a ? Team.Chaos : Team.None);
@@ -474,6 +475,7 @@ public sealed partial class World
                 if (TicksLeft == 0)
                 {
                     _state = MatchState.Warmup;
+                    DevFlags &= ~DevToolsFlags.Indefinite;   // developer tools: the next match is not indefinite
                     Winner = Team.None;
                     Array.Clear(_teamScores);   // last round's scores and points do not linger into warm-up
                     ResetPoints();
