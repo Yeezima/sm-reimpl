@@ -19,6 +19,9 @@ public sealed class ScalableClock : IClock
         _anchorScaled = inner.Now;
     }
 
+    /// <summary>The unscaled clock this one runs on (real time): what a rate limit, a keep-alive or a stuck-state timeout must use, since this one stands still when paused.</summary>
+    public IClock Real => _inner;
+
     /// <summary>The fraction of real time that passes (0 to 1; 1: normal). Setting it counts the new rate from now.</summary>
     public double Scale
     {

@@ -55,6 +55,7 @@ public partial class NetworkView
     /// <summary>The server's time scale on this client (its clock and the engine's time scale), and on a bot the live aim values; nothing to do on a server without the tools.</summary>
     void DevTimeAndBots(DevState? state)
     {
+        // (the state's own freshness is judged on real time, GameClient.UnscaledClock: a dead server's state expires even while the clock stands still)
         double scale = state is null ? 1.0 : DevTools.TimeScales[Math.Clamp(state.TimeScale, 0, DevTools.TimeScales.Length - 1)];
         if (scale != _devScaleApplied)
         {
@@ -77,8 +78,8 @@ public partial class NetworkView
     /// <summary>Once a frame, after the network update: builds the panel when the tools are announced, runs the test script, keeps an open panel in step with the server.</summary>
     void DevToolsFrame()
     {
-        if (_client is null) return;
-        var state = _client.Dev;
+        if (_client is null) { if (_devScaleApplied != 1.0) DevTimeAndBots(null); return; }   // no connection: back to normal time at once
+        var state = _client.Status == ClientStatus.Connected ? _client.Dev : null;   // a dropped connection (a rotation rejoin included) is back to normal time too
         if (state is null && _devPanel is null && _devScaleApplied == 1.0) return;   // a normal server: nothing
         DevTimeAndBots(state);
         if (_devPanel is null && !_bot && state is not null)

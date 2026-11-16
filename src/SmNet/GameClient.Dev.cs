@@ -13,10 +13,18 @@ public sealed partial class GameClient
     DevState? _dev;
     TimeSpan _devAt;
 
-    void OnDevState(DevState s) { _dev = s; _devAt = _clock.Now; }
+    /// <summary>
+    /// The unscaled clock the developer state's freshness is judged on (set by a client whose own clock is scalable). The server repeats the state every real second while it runs slow or paused, so a
+    /// state that stops coming means the server is gone, whatever the scaled clock says; the client then returns to normal time and its own timeouts can run.
+    /// </summary>
+    public IClock? UnscaledClock { get; set; }
+
+    TimeSpan DevNow => (UnscaledClock ?? _clock).Now;
+
+    void OnDevState(DevState s) { _dev = s; _devAt = DevNow; }
 
     /// <summary>The newest developer-tools state while it is fresh, else null (a server without the tools never sends one).</summary>
-    public DevState? Dev => _dev is not null && (_clock.Now - _devAt).TotalSeconds <= DevStateLifetime ? _dev : null;
+    public DevState? Dev => _dev is not null && (DevNow - _devAt).TotalSeconds <= DevStateLifetime ? _dev : null;
 
     /// <summary>Whether the server announced the developer tools (recently).</summary>
     public bool DevActive => Dev is not null;
