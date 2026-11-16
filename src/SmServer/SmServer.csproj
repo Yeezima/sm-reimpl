@@ -18,6 +18,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SmNet\SmNet.csproj" />
     <ProjectReference Include="..\SmContent\SmContent.csproj" />
+    <!-- Added content: custom maps from the Mapmaker (docs/mapmaker.md), reached through Extras/ hooks only. -->
+    <ProjectReference Include="..\SmMapmaker\SmMapmaker.csproj" />
   </ItemGroup>
 
 </Project>

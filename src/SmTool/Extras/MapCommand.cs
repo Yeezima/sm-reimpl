@@ -42,8 +42,15 @@ public static class MapCommand
                 var file = Pos(0, "<file>");
                 if (File.Exists(file)) return Print(o, Fail("file-exists", $"'{file}' already exists."));
                 var session = MapSession.New(opts.GetValueOrDefault("name") ?? Path.GetFileNameWithoutExtension(file), library);
+                var made = new OpResult(true, [], [], []);
+                if (opts.GetValueOrDefault("template") is { } templateId)
+                {
+                    var template = MapTemplate.Find(templateId) ?? throw new ArgException($"No template '{templateId}' (smtool map templates lists them).");
+                    made = session.Apply(template.Ops());
+                    if (!made.Ok) return Print(o, made);
+                }
                 session.Save(file);
-                return Print(o, new OpResult(true, [], [], []));
+                return Print(o, made);
             }
             case "apply":
             {
@@ -100,6 +107,49 @@ public static class MapCommand
                     ["objects"] = new JsonArray(objects.Select(x => (JsonNode)ObjectNode(x.Obj, x.Index)).ToArray()),
                 };
                 o.Write(CanonicalJson.Write(root));
+                return 0;
+            }
+            case "templates":
+            {
+                var root = new JsonObject { ["ok"] = true, ["templates"] = new JsonArray(MapTemplate.All.Select(t => (JsonNode)new JsonObject { ["id"] = t.Id, ["label"] = t.Label, ["description"] = t.Description }).ToArray()) };
+                o.Write(CanonicalJson.Write(root));
+                return 0;
+            }
+            case "pieces":
+            {
+                var root = new JsonObject { ["ok"] = true, ["pieces"] = new JsonArray(PieceKind.All.Select(k => (JsonNode)new JsonObject { ["kind"] = k.Id, ["label"] = k.Label, ["tip"] = k.Tip, ["defaultSize"] = Json.Vec(k.DefaultSize), ["side"] = k.HasSide, ["solid"] = k.Solid }).ToArray()) };
+                o.Write(CanonicalJson.Write(root));
+                return 0;
+            }
+            case "check":
+            {
+                // The instant check in plain words (docs/mapmaker.md "The check"): the game install adds the bots' route (--no-bots leaves it out); --text prints a list instead of JSON.
+                var file = Pos(0, "<file>");
+                var map = CustomMaps.Load(file);
+                SmSim.SimConfig? config = null;
+                if (!opts.ContainsKey("no-bots"))
+                {
+                    try { config = SmContent.GameplayTuning.Load(SmContent.GameInstall.Locate(opts.GetValueOrDefault("game-dir"))).Config; }
+                    catch (Exception e) when (e is DirectoryNotFoundException or IOException) { }
+                }
+                var report = MapCheck.Run(map, config, opts.GetValueOrDefault("nav-cache"));
+                if (opts.ContainsKey("text")) o.Write(report.ToText());
+                else
+                {
+                    var node = report.ToNode();
+                    node["ok"] = report.AnnihilationReady || report.SeizeReady;
+                    node["name"] = map.Document.Name; node["wireName"] = map.Name; node["hash"] = map.Hash.ToString("X16");
+                    o.Write(CanonicalJson.Write(node));
+                }
+                return report.AnnihilationReady || report.SeizeReady ? 0 : 1;
+            }
+            case "tour":
+            {
+                // Camera places for the screenshot aids (client --observe-tour): "label@x,y,z,yaw,pitch|label@..." (--raw) or JSON. Test aid, derived from the map's own spawns and points.
+                var map = CustomMaps.Load(Pos(0, "<file>"));
+                var places = MapTour.Places(map);
+                if (opts.ContainsKey("raw")) o.Write(string.Join("|", places.Select(p => $"{p.Label}@{p.Pose}")));
+                else o.Write(CanonicalJson.Write(new JsonObject { ["ok"] = true, ["places"] = new JsonArray(places.Select(p => (JsonNode)new JsonObject { ["label"] = p.Label, ["pose"] = p.Pose }).ToArray()) }));
                 return 0;
             }
             case "validate":
@@ -166,7 +216,7 @@ public static class MapCommand
     {
         var pos = new List<string>();
         var opts = new Dictionary<string, string>();
-        string[] flags = ["dry-run"];
+        string[] flags = ["dry-run", "no-bots", "text", "raw"];
         for (int i = 0; i < args.Length; i++)
         {
             if (args[i] == "-") { pos.Add("-"); continue; }
@@ -179,5 +229,5 @@ public static class MapCommand
         return (pos, opts);
     }
 
-    const string Usage = "usage: smtool map new <file> [--name n] | apply <file> <ops.json|-> [--dry-run] | query <file> objects|prefabs|assets | query-sm1 <map> [--filter text] | validate <file> | preview <file> [--out svg] | import-asset <path> [--id id] [--name n] | import-prefab <path>; all take --library <dir>; --game-dir <dir> where the install is read.";
+    const string Usage = "usage: smtool map new <file> [--name n] [--template arena|open-field|blank] | templates | pieces | check <file> [--no-bots] [--text] [--game-dir d] | apply <file> <ops.json|-> [--dry-run] | query <file> objects|prefabs|assets | query-sm1 <map> [--filter text] | validate <file> | preview <file> [--out svg] | import-asset <path> [--id id] [--name n] | import-prefab <path>; all take --library <dir>; --game-dir <dir> where the install is read.";
 }

@@ -132,7 +132,7 @@ public sealed record PartOverride(string Part, bool? Visible, MapTransform? Tran
 /// <summary>One placed object: a plain asset, a linked prefab instance, or an empty group; with a parent when nested (transform local to it).</summary>
 public sealed record MapObject(
     string Id, string Name, string? Parent, string Layer, bool Visible, MapTransform Transform, AssetRef? Asset, string? Prefab,
-    IReadOnlyList<PartOverride> Overrides)
+    IReadOnlyList<PartOverride> Overrides, PieceSpec? Piece = null)
 {
     public JsonObject ToNode()
     {
@@ -141,6 +141,7 @@ public sealed record MapObject(
             ["id"] = Id, ["name"] = Name, ["parent"] = Parent, ["layer"] = Layer, ["visible"] = Visible, ["transform"] = Transform.ToNode(),
         };
         if (Asset is not null) o["asset"] = Asset.ToNode();
+        if (Piece is not null) o["piece"] = Piece.ToNode();
         if (Prefab is not null) { o["prefab"] = Prefab; o["overrides"] = new JsonArray(Overrides.Select(x => (JsonNode)x.ToNode()).ToArray()); }
         return o;
     }
@@ -154,6 +155,8 @@ public sealed record MapObject(
         var asset = o["asset"] is { } an ? AssetRef.FromNode(an, what + ".asset", "bad-file") : null;
         var prefab = Json.Str(o["prefab"], what + ".prefab", nullable: true);
         if (asset is not null && prefab is not null) throw new MapException("bad-file", $"{what}: has both asset and prefab.");
+        var piece = o["piece"] is { } pieceNode ? PieceSpec.FromNode(pieceNode, what + ".piece", "bad-file") : null;
+        if (piece is not null && (asset is not null || prefab is not null)) throw new MapException("bad-file", $"{what}: a piece has no asset or prefab.");
         var overrides = new List<PartOverride>();
         if (o["overrides"] is { } on)
             foreach (var (item, i) in Json.Arr(on, what + ".overrides").Select((x, i) => (x, i)))
@@ -166,7 +169,7 @@ public sealed record MapObject(
         if (prefab is null && overrides.Count > 0) throw new MapException("bad-file", $"{what}: overrides without a prefab.");
         return new MapObject(id, Json.Str(o["name"], what + ".name") ?? "", Json.Str(o["parent"], what + ".parent", nullable: true),
             Json.Str(o["layer"], what + ".layer", nullable: true) ?? "default", Json.Bool(o["visible"], what + ".visible", "bad-file", true),
-            MapTransform.FromNode(o["transform"], MapTransform.Identity, what + ".transform"), asset, prefab, overrides);
+            MapTransform.FromNode(o["transform"], MapTransform.Identity, what + ".transform"), asset, prefab, overrides, piece);
     }
 }
 

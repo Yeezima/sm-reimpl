@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmMapmaker\SmMapmaker.csproj" />
     <ProjectReference Include="..\..\src\SmContent\SmContent.csproj" />
+    <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" Condition="'$(SmExtras)' == 'true'" />
     <ProjectReference Include="..\..\src\SmTool\SmTool.csproj" Condition="'$(SmExtras)' == 'true'" />
   </ItemGroup>
 

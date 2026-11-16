@@ -67,6 +67,7 @@ public partial class MapmakerPlugin : EditorPlugin
         EditorInterface.Singleton.GetSelection().SelectionChanged += () => DocChanged?.Invoke();
         MapHost.RootChanged += OnRootChanged;
         MapHost.Sm1Changed += OnSm1Changed;
+        DocChanged += RecheckSoon;
         CallDeferred(MethodName.Startup);
     }
 
@@ -99,6 +100,7 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         EnsureSceneRoot();
         if (Selftest.Wanted) _ = new Selftest(this).Run();
+        else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -330,7 +332,7 @@ public partial class MapmakerPlugin : EditorPlugin
             _nodes[o.Id] = node;
             _contentKeys.Remove(o.Id);
         }
-        string key = $"{o.Asset}|{o.Prefab}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}";
+        string key = $"{o.Asset}|{o.Prefab}|{o.Piece}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}";
         node.Name = Sanitize($"{o.Name}_{o.Id}");
         if (node.GetParent() != parentNode)
         {
@@ -344,9 +346,14 @@ public partial class MapmakerPlugin : EditorPlugin
         if (force || !_contentKeys.TryGetValue(o.Id, out var old) || old != key)
         {
             var notes = new List<string>();
-            var objParts = parts.GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();
-            var world = doc.World(o.Id);
-            var content = ContentFactory.BuildObject(objParts, world, out var bounds, notes);
+            Node3D? content; Aabb bounds;
+            if (o.Piece is { } piece) content = PieceViews.Build(piece, out bounds);
+            else
+            {
+                var objParts = parts.GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();
+                var world = doc.World(o.Id);
+                content = ContentFactory.BuildObject(objParts, world, out bounds, notes);
+            }
             node.SetContent(content, bounds);
             _contentKeys[o.Id] = key;
             foreach (var n in notes.Distinct().Take(3)) GD.PushWarning("Mapmaker: " + n);
@@ -570,6 +577,7 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         var og = Frame.ToGame(origin); var dg = Frame.ToGame(direction);
         if (MapHost.Root?.BackdropVisible == true && MapHost.Sm1 is { } src && src.RayPick(ToNum(og), ToNum(dg), out float t) >= 0) return og + dg * t;
+        if (SolidHit(og, dg) is { } onPiece) return onPiece;   // a click on a block lands on it, so cover and platforms stack
         if (MathF.Abs(dg.Z) > 1e-4f && -og.Z / dg.Z is var tg && tg > 0) return og + dg * tg;
         return og + dg * 10f;
     }
@@ -577,6 +585,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public OpResult PlaceAt(LibraryItem item, Vector3 game)
     {
         if (MapHost.SnapGrid) game = new Vector3(Snap.Grid(game.X, MapHost.GridStep), Snap.Grid(game.Y, MapHost.GridStep), Snap.Grid(game.Z, MapHost.GridStep));
+        if (item.Kind == LibraryKind.Piece) return PlacePiece(item, game);
         var placed = Op("place", ("name", item.Label), ("transform", new JsonObject { ["position"] = Vec(ToNum(Frame.Round(game))) }));
         switch (item.Kind)
         {

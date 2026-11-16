@@ -35,6 +35,7 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         switch (name)
         {
             case "place": Place(op); break;
+            case "set-piece": SetPiece(op); break;
             case "transform": Transform(op); break;
             case "duplicate": Duplicate(op); break;
             case "delete": Delete(op); break;
@@ -84,16 +85,28 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
     {
         var asset = op["asset"] is { } an ? AssetRef.FromNode(an, "asset", "bad-op") : null;
         var prefab = Json.Str(op["prefab"], "prefab", "bad-op", nullable: true);
-        if ((asset is null) == (prefab is null)) throw new MapException("bad-op", "place needs exactly one of asset or prefab.");
-        if (asset is not null) CheckAsset(asset); else RequirePrefab(prefab!);
+        var piece = op["piece"] is { } pieceNode ? PieceSpec.FromNode(pieceNode, "piece", "bad-op") : null;
+        if ((asset is null ? 0 : 1) + (prefab is null ? 0 : 1) + (piece is null ? 0 : 1) != 1) throw new MapException("bad-op", "place needs exactly one of asset, prefab or piece.");
+        if (asset is not null) CheckAsset(asset); else if (prefab is not null) RequirePrefab(prefab);
         var parent = Json.Str(op["parent"], "parent", "bad-op", nullable: true);
         if (parent is not null) Doc.Get(parent);
-        var transform = MapTransform.FromNode(op["transform"], MapTransform.Identity);
-        var name = Json.Str(op["name"], "name", "bad-op", nullable: true) ?? asset?.Label ?? prefab!;
+        var transform = MapTransform.FromNode(op["transform"], piece is null ? MapTransform.Identity : MapTransform.Identity with { Scale = piece.Info.DefaultSize });
+        var name = Json.Str(op["name"], "name", "bad-op", nullable: true) ?? asset?.Label ?? prefab ?? piece!.DefaultName;
         var layer = Json.Str(op["layer"], "layer", "bad-op", nullable: true) ?? "default";
         var id = NewId();
-        Doc.Objects.Add(new MapObject(id, name, parent, layer, true, transform, asset, prefab, []));
+        Doc.Objects.Add(new MapObject(id, name, parent, layer, true, transform, asset, prefab, [], piece));
         Created.Add(id);
+    }
+
+    /// <summary>set-piece {id, side}: turns a spawn area or door to the other side.</summary>
+    void SetPiece(JsonObject op)
+    {
+        var id = ReqId(op);
+        var o = Doc.Get(id);
+        if (o.Piece is not { } p) throw new MapException("bad-op", $"'{id}' is not a piece.", id);
+        var side = Json.ReqStr(op, "side", "set-piece", "bad-op");
+        var next = PieceSpec.FromNode(new JsonObject { ["kind"] = p.Kind, ["side"] = side }, "piece", "bad-op");
+        Replace(o with { Piece = next, Name = o.Name == p.DefaultName ? next.DefaultName : o.Name });
     }
 
     void Transform(JsonObject op)

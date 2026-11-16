@@ -101,10 +101,12 @@ public partial class MapmakerDock : VBoxContainer
         var tabs = new TabContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         _tabs = tabs;
         AddChild(tabs);
-        tabs.AddChild(MapTab()); tabs.SetTabTitle(0, "Map");
-        tabs.AddChild(LibraryTab()); tabs.SetTabTitle(1, "Library");
-        tabs.AddChild(ObjectTab()); tabs.SetTabTitle(2, "Object");
-        tabs.AddChild(PrefabTab()); tabs.SetTabTitle(3, "Prefab");
+        tabs.AddChild(StartTab()); tabs.SetTabTitle((int)DockTab.Start, "Start");
+        tabs.AddChild(BuildTab()); tabs.SetTabTitle((int)DockTab.Build, "Build");
+        tabs.AddChild(ObjectTab()); tabs.SetTabTitle((int)DockTab.Object, "Object");
+        tabs.AddChild(LibraryTab()); tabs.SetTabTitle((int)DockTab.Library, "Library");
+        tabs.AddChild(MapTab()); tabs.SetTabTitle((int)DockTab.Tools, "Tools");
+        tabs.AddChild(PrefabTab()); tabs.SetTabTitle((int)DockTab.Prefab, "Prefab");
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new Vector2(280, 0);
         AddChild(_status);
         _plugin.DocChanged += Refresh;
@@ -615,19 +617,25 @@ public partial class MapmakerDock : VBoxContainer
         _toolSelect.SetPressedNoSignal(MapHost.Tool == Tool.Select); _toolPick.SetPressedNoSignal(MapHost.Tool == Tool.PickSm1); _toolPlace.SetPressedNoSignal(MapHost.Tool == Tool.Place);
         _armed.Text = MapHost.Armed is { } a ? $"Placing: {a.Label}" : "";
         _sm1Info.Text = MapHost.Sm1 is { } src ? $"{src.Map} loaded. Picked: {MapHost.PickedSm1.Count} ({string.Join(", ", MapHost.PickedSm1.Take(4).Select(src.Label))}{(MapHost.PickedSm1.Count > 4 ? ", ..." : "")})" : "No SM1 map loaded.";
-        _recent.Clear();
+        _recent.Clear(); _recentStart.Clear();
         _recent.AddItem("Recent maps..."); _recent.SetItemMetadata(0, "");
+        _recentStart.AddItem("Your maps..."); _recentStart.SetItemMetadata(0, "");
         try
         {
             if (System.IO.Directory.Exists(MapHost.Library.MapsDir))
-                foreach (var f in System.IO.Directory.EnumerateFiles(MapHost.Library.MapsDir, "*.smmap").Order().Take(30)) { _recent.AddItem(System.IO.Path.GetFileName(f)); _recent.SetItemMetadata(_recent.ItemCount - 1, f); }
+                foreach (var f in System.IO.Directory.EnumerateFiles(MapHost.Library.MapsDir, "*.smmap").OrderByDescending(System.IO.File.GetLastWriteTimeUtc).Take(30))
+                {
+                    _recent.AddItem(System.IO.Path.GetFileName(f)); _recent.SetItemMetadata(_recent.ItemCount - 1, f);
+                    _recentStart.AddItem(System.IO.Path.GetFileName(f)); _recentStart.SetItemMetadata(_recentStart.ItemCount - 1, f);
+                }
         }
         catch (Exception) { }
+        RefreshBuild();
         var sel = s is null ? new List<string>() : _plugin.SelectedIds().ToList();
         if (s is not null && sel.Count > 0)
         {
             var o = s.Document.Get(sel[0]);
-            _objInfo.Text = sel.Count > 1 ? $"{sel.Count} objects selected (edits move all by the delta of the first)" : $"{o.Id}: {(o.Asset is { } a2 ? a2.Label : o.Prefab is not null ? "prefab " + o.Prefab : "group")}";
+            _objInfo.Text = sel.Count > 1 ? $"{sel.Count} objects selected (edits move all by the delta of the first)" : $"{o.Id}: {(o.Asset is { } a2 ? a2.Label : o.Prefab is not null ? "prefab " + o.Prefab : o.Piece is { } pc ? o.Name + (o.Piece.Info.Solid ? " (solid)" : "") + ". Scale is the size in metres; position is the middle of its footprint on the ground; Rotation Z turns it" : "group")}";
             _name.Text = o.Name;
             var t = _space.Selected == 1 ? Safe(() => MapTransform.FromMatrix(s.Document.World(o.Id))) : o.Transform;
             if (t.Scale == Num.Vector3.Zero) t = o.Transform;

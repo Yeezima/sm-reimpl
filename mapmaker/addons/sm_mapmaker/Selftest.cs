@@ -162,7 +162,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
             GD.Print($"SELFTEST loaded {map}: {source.Scene.Objects.Count} placements, {source.Scene.Definitions.Count} definitions, {watch.ElapsedMilliseconds} ms, {notes.Count} notes");
             Check(MapHost.Root.Backdrop is { Instances: > 0 }, $"backdrop drawn ({MapHost.Root.Backdrop?.Instances} instances)");
             if (source.BoundsCore() is { } all) await plugin.Frame3D(all.Min, all.Max);
-            plugin.Dock!.ShowTab(1);
+            plugin.Dock!.ShowTab(DockTab.Library);
             await Frames(240);
             Shot("manufactorum-in-editor");
             await WheelZoomCheck();
@@ -266,7 +266,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
             var moved = plugin.Session!.Document.Get(idB).Transform.Position;
             Check(Math.Abs(moved.X - (6.3f + 1.0f)) < 0.3f, $"gizmo move reconciled to the document (x = {moved.X}; grid snap on)");
             await plugin.Frame3D(new Num.Vector3(-8, -8, 0), new Num.Vector3(12, 8, 6));
-            plugin.Dock!.ShowTab(2);
+            plugin.Dock!.ShowTab(DockTab.Object);
             await Frames(90);
             Shot("new-map-with-prefab-instances");
 

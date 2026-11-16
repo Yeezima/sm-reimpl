@@ -85,10 +85,10 @@ public static class MapHost
 /// <summary>A row of the library browser.</summary>
 public sealed record LibraryItem(LibraryKind Kind, string Id, string Label, string? Map = null)
 {
-    public string Key => Kind switch { LibraryKind.Sm1 => $"sm1:{Map}:{Id}", LibraryKind.Asset => $"asset:{Id}", _ => $"prefab:{Id}" };
+    public string Key => Kind switch { LibraryKind.Sm1 => $"sm1:{Map}:{Id}", LibraryKind.Asset => $"asset:{Id}", LibraryKind.Piece => $"piece:{Id}", _ => $"prefab:{Id}" };
 }
 
-public enum LibraryKind { Sm1, Asset, Prefab }
+public enum LibraryKind { Sm1, Asset, Prefab, Piece }
 
 /// <summary>A picked SM1 placement: <paramref name="Object"/> indexes the map's objects; <paramref name="Part"/> is one of its nearest-LOD parts, or -1 for the whole.</summary>
 public readonly record struct PickRef(int Object, int Part = -1);

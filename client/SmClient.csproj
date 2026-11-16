@@ -10,6 +10,8 @@
   <ItemGroup>
     <ProjectReference Include="..\src\SmContent\SmContent.csproj" />
     <ProjectReference Include="..\src\SmNet\SmNet.csproj" />
+    <!-- Added content: custom maps from the Mapmaker (docs/mapmaker.md), reached through Extras/ hooks only. -->
+    <ProjectReference Include="..\src\SmMapmaker\SmMapmaker.csproj" />
   </ItemGroup>
 
   <!-- The menus' font (DejaVu Sans Bold, licence in assets/fonts/LICENSE-DejaVu.txt): embedded, so no Godot import is needed and every build has it. -->

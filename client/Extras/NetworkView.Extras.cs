@@ -67,11 +67,11 @@ public partial class NetworkView
 
     partial void ExtrasShakeTotal(float current, float amount, ref float total) => MusouShakeTotal(current, amount, ref total);
 
-    partial void ExtrasMapContent(string name, ref MapContent? map) => TfwAshfallContent(name, ref map);
+    partial void ExtrasMapContent(string name, ref MapContent? map) { TfwAshfallContent(name, ref map); MapmakerContent(name, ref map); }
 
-    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn) => TfwAshfallVisuals(name, ref drawn);
+    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn) { TfwAshfallVisuals(name, ref drawn); MapmakerVisuals(name, ref drawn); }
 
-    partial void ExtrasMapFile(ref string file) => TfwMapFile(ref file);
+    partial void ExtrasMapFile(ref string file) { MapmakerMapFile(ref file); TfwMapFile(ref file); }
 
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash) => TfwMapCollision(name, ref world, ref hash);
 

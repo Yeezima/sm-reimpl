@@ -252,6 +252,15 @@ static string Describe(ProjectileSpec p, float blindView = 180f)
 var available = MapContent.Available(install);
 // Added content may compose its map (docs/added-content.md section 8: Musou's tfw_war, also its default map: Ashfall Citadel, generated in code; tfw_war_m09: Manufactorum from the install, the restore switch).
 var generatedMap = GameServer.GeneratedMap(contentExtras, install, ref mapName, out string? mapError);
+if (cli.CustomMap is { } customFile)
+{
+    // Mapmaker (added content): a custom map file replaces the install's map; its name on the wire is cm_<name>.
+    if (cli.Map is not null) { Console.Error.WriteLine("smserver: --custom-map replaces --map; give one of them"); return ServerCommandLine.UsageError; }
+    if (contentExtras.HasFlag(ContentExtras.Musou)) { Console.Error.WriteLine("smserver: --custom-map is Classic PvP only (not with --content musou)"); return ServerCommandLine.UsageError; }
+    string? customName = null;
+    generatedMap = GameServer.CustomMap(customFile, ref customName, out mapError);
+    mapName = customName;
+}
 if (mapError is not null)
 {
     Console.Error.WriteLine($"smserver: {mapError}");
