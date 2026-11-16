@@ -29,6 +29,9 @@ public partial class NetworkView
         if (_client is { Status: ClientStatus.Connected } client)
             foreach (var section in client.TakeExtras())
             {
+                bool warfront = false;
+                WarfrontEnvelope(section.Tag, section.Payload, ref warfront);   // WARFRONT-HOOK
+                if (warfront) continue;   // Warfront's tags (40 to 46, the squad's 32 to 34), on a Warfront server only
                 if (section.Tag == LoyalistShoutWire.Tag) _barkSections.Add(section);
                 else if (MusouWire.Owns(section.Tag)) _musouSections.Add(section);
                 else if (TfwWire.Owns(section.Tag)) _tfwSections.Add(section);
@@ -39,6 +42,7 @@ public partial class NetworkView
         MusouFrame(me, others, delta, _musouSections);
         Ph("tfw: guards, armies");   // musou/perf-pass: --frame-profile's phase
         TfwFrame(me, others, delta, _tfwSections);
+        WarfrontFrame(me, delta);   // WARFRONT-HOOK: the stage flow (commands, panels, rejoin; client/Extras/Warfront/Stage)
         SpearPoseFrame(me, others, delta);   // Musou's power spear: its clips between strikes, the fades and the spear on the hands (Musou/Arsenal/Spear/NetworkView.SpearPose.cs)
     }
 
@@ -67,9 +71,25 @@ public partial class NetworkView
 
     partial void ExtrasShakeTotal(float current, float amount, ref float total) => MusouShakeTotal(current, amount, ref total);
 
-    partial void ExtrasMapContent(string name, ref MapContent? map) { TfwAshfallContent(name, ref map); MapmakerContent(name, ref map); }
+    partial void ExtrasMapContent(string name, ref MapContent? map)
+    {
+        TfwAshfallContent(name, ref map);
+        WarfrontMapContent(name, ref map);   // WARFRONT-HOOK: a lane slot's generated band (client/Extras/Warfront/Maps)
+        MapmakerContent(name, ref map);
+    }
 
-    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn) { TfwAshfallVisuals(name, ref drawn); MapmakerVisuals(name, ref drawn); }
+    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn)
+    {
+        TfwAshfallVisuals(name, ref drawn);
+        WarfrontMapVisuals(name, ref drawn);   // WARFRONT-HOOK
+        MapmakerVisuals(name, ref drawn);
+    }
+
+    // Warfront's hooks (slice W5b; implemented under client/Extras/Warfront/, each a no-op unless the match has the Warfront flag).
+    partial void WarfrontMapContent(string name, ref MapContent? map);
+    partial void WarfrontMapVisuals(string name, ref bool drawn);
+    partial void WarfrontEnvelope(byte tag, System.ReadOnlySpan<byte> payload, ref bool handled);
+    partial void WarfrontFrame(PlayerState me, double dt);
 
     partial void ExtrasMapFile(ref string file) { MapmakerMapFile(ref file); TfwMapFile(ref file); }
 

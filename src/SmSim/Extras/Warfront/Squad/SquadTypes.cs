@@ -73,7 +73,7 @@ public sealed record SquadRosterSave(int NextName, IReadOnlyList<SquadOwnerSave>
 /// One human as the squad sees it this tick: the player id, where it is, whether it stands, whether it is downed with its revive window open (<see cref="Fallen"/>), and the squad Marine index
 /// it holds Use on (-1: none).
 /// </summary>
-public readonly record struct SquadHuman(int Id, Vector3 Position, bool Alive, bool Fallen = false, int ReviveTarget = -1);
+public readonly record struct SquadHuman(int Id, Vector3 Position, bool Alive, bool Fallen = false, int ReviveTarget = -1, float Yaw = 0f);
 
 /// <summary>A kill by a squad Marine this tick (for the owner's XP and score; W7, W15).</summary>
 public readonly record struct SquadKill(ulong Key, int Slot, ushort Enemy, SquadEnemyClass Class, MusouEnemyType? Type = null);

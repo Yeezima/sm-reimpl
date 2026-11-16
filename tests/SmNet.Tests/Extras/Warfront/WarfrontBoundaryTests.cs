@@ -38,6 +38,14 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
         ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
+        // W5b: the client's stage flow (the band view's three hooks W2 wrote are declared beside their call sites too, so a build without Warfront still compiles the calls)
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontMapContent"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontMapVisuals"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontEnvelope"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontFrame"),
+        ("client/Extras/Musou/Tfw/NetworkView.Tfw.cs", "WarfrontBandFrame"),
+        ("client/Extras/Musou/Tfw/NetworkView.TfwMap.cs", "WarfrontIsGeneratedMap"),
+        ("client/Extras/Musou/Tfw/TfwStations.cs", "WarfrontOpenWarMap"),
         ("src/SmServer/Extras/Musou/GameServer.Musou.cs", "WarfrontViewCentre"),
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontStep"),
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontKill"),
@@ -48,6 +56,7 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontMeleeCap"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontDamageTaken"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontInputLocked"),
+        ("client/Extras/FrontEndView.Extras.cs", "WarfrontMenuRows"),   // W16: the main menu's row (dispatched from ExtrasMenuRows)
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontSquadHit"),
         ("src/SmSim/Extras/Musou/Campaign/TfwFire.cs", "WarfrontCooldown"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontCooldown"),

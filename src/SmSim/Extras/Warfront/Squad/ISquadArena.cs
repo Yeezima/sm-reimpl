@@ -44,6 +44,9 @@ public interface ISquadArena
     /// <summary>A walking path (places, walk links only) from <paramref name="from"/> to <paramref name="to"/>; null when there is none. Without a graph, just the goal.</summary>
     IReadOnlyList<Vector3>? FindPath(Vector3 from, Vector3 to);
 
+    /// <summary>Whether the path the last <see cref="FindPath"/> returned stops short of the goal (a partial path with progress; W9b). False for a fake.</summary>
+    bool LastPathPartial => false;
+
     /// <summary>The next place on the flow field to the fixed <paramref name="point"/>; null while the field is built or off the graph. For fixed points only (an order's point), never a moving owner.</summary>
     Vector3? FlowNext(Vector3 from, Vector3 point);
 
@@ -134,15 +137,28 @@ public sealed class MusouSquadArena : ISquadArena
     {
         if (_nav is null) return [to];
         PathsBuilt++;
-        if (_nav.FindPath(from, to, 10f, SquadRules.SearchNodes) is not { Partial: false } path) return null;   // a partial path (the goal not reached, or past the node cap) is "no way" for a follow
+        LastPathPartial = false;
+        if (_nav.FindPath(from, to, 10f, SquadRules.SearchNodes) is not { } path) return null;
         var points = new List<Vector3>(path.Waypoints.Count);
         foreach (var w in path.Waypoints)
         {
             if (w.Kind != NavLinkKind.Walk && points.Count > 0) break;   // a jump or a drop is not a Marine's step: the path ends there
             points.Add(w.Position);
         }
-        return points.Count > 0 ? points : null;
+        if (points.Count == 0) return null;
+        if (path.Partial)
+        {
+            // the goal is not reached (a wall, or past the node cap): followed only when the end is PartialProgress nearer the goal than the squad (W9b review 1); the next refresh continues from the new place
+            float gain = MathF.Sqrt((from.X - to.X) * (from.X - to.X) + (from.Y - to.Y) * (from.Y - to.Y)) - MathF.Sqrt((points[^1].X - to.X) * (points[^1].X - to.X) + (points[^1].Y - to.Y) * (points[^1].Y - to.Y));
+            if (gain < SquadRules.PartialProgress) return null;
+            LastPathPartial = true; PartialPaths++;
+        }
+        return points;
     }
+
+    public bool LastPathPartial { get; private set; }
+    /// <summary>Partial paths with progress returned so far.</summary>
+    public int PartialPaths { get; private set; }
 
     public Vector3? FlowNext(Vector3 from, Vector3 point)
     {

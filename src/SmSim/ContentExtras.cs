@@ -111,6 +111,9 @@ public static class ContentProfiles
     /// <summary>Warfront's profile (<see cref="ContentExtras.Musou"/> | <see cref="ContentExtras.Warfront"/>, never combined with another flag).</summary>
     public const string Warfront = "warfront";
 
+    /// <summary>Musou Mode's family of servers: the Musou profile and the Warfront profile (which rides on Musou's whole simulation). Clients and the host panel recognise a Musou-style server by this, not by one name.</summary>
+    public static bool IsMusouFamily(string? profile) => profile is Musou or Warfront;
+
     /// <summary>The flags of <see cref="Warfront"/>.</summary>
     public static ContentExtras WarfrontProfile => ContentExtras.Musou | ContentExtras.Warfront;
 

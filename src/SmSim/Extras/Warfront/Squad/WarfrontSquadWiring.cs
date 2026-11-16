@@ -120,8 +120,16 @@ public sealed class WarfrontSquadWiring
     /// <summary>Whether the key has a roster.</summary>
     public bool HasRoster(ulong key) => Rosters.Has(key);
 
-    /// <summary>The first roster of a key: one retainer, once (nothing when a roster exists). False when the kept rosters are full.</summary>
-    public bool AddStartingRetainer(ulong key) => Rosters.Has(key) || Rosters.AddOwner(key);
+    /// <summary>
+    /// The first roster of a key, through the class book (a Dreadnought-first player then holds none and gets the free one on his switch): one retainer, once. Nothing when a roster exists. False when the key's player is not in the
+    /// World (the first tick aboard makes it) or the kept rosters are full.
+    /// </summary>
+    public bool AddStartingRetainer(ulong key)
+    {
+        if (Rosters.Has(key)) return true;
+        if (_rules.Progression.TryId(key, out int id) && _world.Players.ContainsKey(id)) Remember(id, key);
+        return Rosters.Has(key);
+    }
 
     /// <summary>A leaver's squad holds where it stands and keeps counting as standing (order Hold); it is not removed.</summary>
     public bool HoldSquad(ulong key)
@@ -150,7 +158,7 @@ public sealed class WarfrontSquadWiring
     {
         _squadClass[key] = squad;
         _seen.Remove(key);   // the next look at the ship re-applies it
-        if (ClassBook.LastOf(key) is { Kind: SquadOwnerKind.Librarian } && _rules.Progression.TryId(key, out int id) && _world.Players.ContainsKey(id))
+        if (_world.Tfw?.Phase == TfwRunPhase.Hub && ClassBook.LastOf(key) is { Kind: SquadOwnerKind.Librarian } && _rules.Progression.TryId(key, out int id) && _world.Players.ContainsKey(id))
             Remember(id, key);   // a Librarian aboard: his squad is rerolled now (the same class again changes nothing)
     }
 
@@ -172,25 +180,29 @@ public sealed class WarfrontSquadWiring
         };
     }
 
+    /// <summary>
+    /// The seam rule (W9b review 1): the notifying seams (<c>BattleBegan</c>, <c>BattleEnded</c>, <c>ObjectiveSecured</c>, <c>AboardStep</c>, <c>OwnerLevelUp</c>, <c>NodeEnded</c>, <c>NodeResolved</c> and the runtime's <c>Assisted</c>,
+    /// <c>HumanKill</c>, <c>Picked</c>) are subscribed with <c>+=</c>, so every slice's handler stays; the answering seams (<c>SquadTargets</c>, <c>SquadHit</c>, <c>SquadStep</c>, <c>OrderSink</c>, <c>AnyRetainerStanding</c>,
+    /// <c>RosterSize</c>) are assigned by the wiring alone and by nobody else.
+    /// </summary>
     void Connect()
     {
         var rules = _rules;
-        rules.BattleBegan = (_, _) => OnBattleBegan();
-        rules.BattleEnded = _ => OnBattleEnded();
+        rules.BattleBegan += (_, _) => OnBattleBegan();
+        rules.BattleEnded += _ => OnBattleEnded();
+        rules.ObjectiveSecured += OnObjective;
+        rules.AboardStep += OnAboardTick;
+        rules.OwnerLevelUp += key => Sim.Refill(key);   // the owner's standing Marines refill with him
         rules.SquadTargets = into => Sim.AppendTargets(into);
         rules.SquadHit = (id, damage, from) => Sim.Hit(id, damage, from);
         rules.SquadStep = OnSquadStep;
         rules.OrderSink = (player, record) => Sim.Order(player, record);
         rules.AnyRetainerStanding = () => Sim.AnyStanding;
-        rules.ObjectiveSecured = OnObjective;
         var rt = rules.Progression;
         rt.RosterSize = key => Rosters.Count(key);
-        var assisted = rt.Assisted;
-        rt.Assisted = (helper, killer, type) => { assisted?.Invoke(helper, killer, type); if (rt.TryKey(helper, out ulong key)) _feed.Assist(key); };
-        var humanKill = rt.HumanKill;
-        rt.HumanKill = kill => { humanKill?.Invoke(kill); OnHumanKill(kill); };
-        var picked = rt.Picked;
-        rt.Picked = pick => { picked?.Invoke(pick); if (pick.Card == WarfrontCard.Retainer) ClassBook.Recruit(pick.Key); };   // one pick, one recruit: never from the card count
+        rt.Assisted += (helper, killer, type) => { if (rt.TryKey(helper, out ulong key)) _feed.Assist(key); };
+        rt.HumanKill += OnHumanKill;
+        rt.Picked += pick => { if (pick.Card == WarfrontCard.Retainer) ClassBook.Recruit(pick.Key); };   // one pick, one recruit: never from the card count
     }
 
     void OnStuck(SquadStuck s)
@@ -239,17 +251,30 @@ public sealed class WarfrontSquadWiring
 
     // ---- aboard ----------------------------------------------------------------------------------------------------------------------------
 
+    /// <summary>The aboard seam's handler: every <see cref="AboardEvery"/> ticks (a compare of a few numbers per player is cheap, but it need not run at 30 Hz).</summary>
+    void OnAboardTick()
+    {
+        if (_world.Tick % AboardEvery == 0) StepAboard();
+    }
+
+    /// <summary>Ticks between two looks at the ship's loadouts [ours].</summary>
+    public const int AboardEvery = 15;
+
+    readonly List<int> _ids = [];
+
     /// <summary>
-    /// Aboard the ship (the hub and the way down), once a tick (W5a calls it; cheap, nothing happens when nothing changed): every human with a key whose class, loadout choices, appearance or squad class changed since last seen
-    /// is told to the class book. This creates a first roster of one, holds a Dreadnought's roster, gives the free retainer once and makes the squad follow its owner's loadout change.
+    /// Aboard the ship (the hub and the way down; <see cref="WarfrontBattleRules.AboardStep"/> calls it every <see cref="AboardEvery"/> ticks; public for tests): every human with a key whose class, loadout choices, appearance or squad class changed
+    /// since last seen is told to the class book. This creates a first roster of one, holds a Dreadnought's roster, gives the free retainer once and makes the squad follow its owner's loadout change. A player W12 holds (a joiner who has not
+    /// confirmed his class) is skipped, so the first kind the book sees is the confirmed one.
     /// </summary>
     public void StepAboard()
     {
         if (_world.Tfw is not { } run || run.Phase is not (TfwRunPhase.Hub or TfwRunPhase.Travel)) return;
         var rt = _rules.Progression;
-        foreach (int id in rt.Ids.OrderBy(i => i))
+        _ids.Clear(); _ids.AddRange(rt.Ids); _ids.Sort();
+        foreach (int id in _ids)
         {
-            if (!rt.TryKey(id, out ulong key) || !_world.Players.ContainsKey(id)) continue;
+            if (!rt.TryKey(id, out ulong key) || !_world.Players.ContainsKey(id) || _rules.CoopHeld?.Invoke(id) == true) continue;
             Remember(id, key);
         }
     }
@@ -259,7 +284,8 @@ public sealed class WarfrontSquadWiring
         if (_world.WarfrontChoiceOf(id) is not { } choice || !_world.Players.TryGetValue(id, out var p)) return;
         var look = LookOf?.Invoke(id) ?? AppearanceCode.Default;
         int lookHash = look.ToArray().Aggregate(17, (h, b) => h * 31 + b);
-        var kind = DreadnoughtRules.IsDreadnought(_world.Config, p.Class) ? SquadOwnerKind.Dreadnought : LibrarianRules.IsLibrarian(_world.Config, p.Class) ? SquadOwnerKind.Librarian : SquadOwnerKind.Standard;
+        // aboard, a Dreadnought pick plays as the Tactical stand-in: the pick is what counts
+        var kind = DreadnoughtRules.IsDreadnought(_world.Config, p.Class) || _world.DreadnoughtPicked(id) ? SquadOwnerKind.Dreadnought  : LibrarianRules.IsLibrarian(_world.Config, p.Class) ? SquadOwnerKind.Librarian : SquadOwnerKind.Standard;
         var squad = _squadClass.GetValueOrDefault(key, SquadClass.Tactical);
         var now = (choice, lookHash, kind, squad);
         if (_seen.TryGetValue(key, out var was) && was == now && Rosters.Has(key)) return;
@@ -292,9 +318,9 @@ public sealed class WarfrontSquadWiring
             bool fallen = !p.Alive && phase == WarfrontDownPhase.Downed;
             if (fallen) { if (_wasDowned.Add(id)) _feed.Death(key, id, tick); }   // each fall counts [interpretation]
             else _wasDowned.Remove(id);
-            int target = p.Alive && _world.WarfrontUseHeld(id) ? NearestDownedMarine(p.Position) : -1;
-            _humans[n++] = new SquadHuman(id, p.Position, p.Alive, fallen, target);
+            _humans[n++] = new SquadHuman(id, p.Position, p.Alive, fallen, -1, p.Yaw);
         }
+        HumanRevives(run, n, tick);
         ReleaseLeavers();
         RefreshScales(rt);
         Sim.Step(tick, _humans.AsSpan(0, n));
@@ -304,15 +330,24 @@ public sealed class WarfrontSquadWiring
     /// <summary>A human in the field with no fighting squad: a returning key re-binds, a new one lands at the human's own place; once per player id and battle.</summary>
     void LandIfNew(int id, ulong key, in PlayerState p)
     {
-        _playerOfKey[key] = id; _held.Remove(key);
+        bool returned = _held.Remove(key);
+        _playerOfKey[key] = id;
         if (!_tried.Add(id)) return;
         _feed.Battle(key);
         if (ClassBook.LastOf(key) is null) Remember(id, key);   // no class-book entry yet (a first-time joiner landed late): a first roster of one
         ApplyScale(_rules.Progression, key);
-        if (!Sim.Rebind(key, id)) Sim.Land(key, id, p.Position);
+        if (Sim.Rebind(key, id))
+        {
+            if (returned) for (int k = 0; k < 2 && !Sim.Order(id, new TfwCommandRecord(++_holdSequence, TfwCommand.Follow, 0)); k++) { }   // a squad put on Hold when he left follows again when he is back
+        }
+        else if (Sim.Land(key, id, p.Position) == 0 && Rosters.Has(key) && !Rosters.IsHeld(key))
+            Log?.Invoke($"warfront: no fighting slot for key {key}'s squad (four squads are fighting); it joins at the next battle");
     }
 
-    int NearestDownedMarine(Vector3 at)
+    /// <summary>The server's log line sink (W5a sets it; null: none).</summary>
+    public Action<string>? Log { get; set; }
+
+    int NearestDownedMarine(Vector3 at, out float distance)
     {
         int best = -1; float bestD = SquadRules.PlayerReviveReach;
         for (int i = 0; i < SquadRules.MaxTotal; i++)
@@ -321,8 +356,57 @@ public sealed class WarfrontSquadWiring
             float d = new Vector2(v.Position.X - at.X, v.Position.Y - at.Y).Length();
             if (d <= bestD) { bestD = d; best = i; }
         }
+        distance = bestD;
         return best;
     }
+
+    readonly Dictionary<int, (int Target, float Progress)> _revive = [];
+    readonly Dictionary<int, float> _share = [];
+    readonly List<int> _stale = [];
+
+    /// <summary>
+    /// A human holding Use (the Interact bit) with a downed Marine or a fallen human (phase Downed) within <see cref="SquadRules.PlayerReviveReach"/>: the nearer is the target, a tie goes to the human. A Marine is the sim's (its
+    /// <c>ReviveTarget</c>); a human's is held here for <see cref="SquadRules.PlayerReviveSeconds"/>, then W3's <c>WarfrontRevive</c> and one revive in the reviver's ledger. Progress is per reviver and is dropped when Use is released, the target
+    /// changes or either leaves reach; two revivers never double it (the second finds him alive).
+    /// </summary>
+    void HumanRevives(TfwRun run, int n, uint tick)
+    {
+        float dt = 1f / Math.Max(1, _world.Config.TickRate);
+        _share.Clear(); _stale.Clear();
+        for (int i = 0; i < n; i++)
+        {
+            var h = _humans[i];
+            if (!h.Alive || !_world.WarfrontUseHeld(h.Id)) continue;
+            int marine = NearestDownedMarine(h.Position, out float dm);
+            int human = -1; float dh = SquadRules.PlayerReviveReach;
+            for (int j = 0; j < n; j++)
+            {
+                var t = _humans[j];
+                if (j == i || !t.Fallen) continue;
+                float d = new Vector2(t.Position.X - h.Position.X, t.Position.Y - h.Position.Y).Length();
+                if (d <= dh) { dh = d; human = t.Id; }
+            }
+            if (human >= 0 && (marine < 0 || dh <= dm)) { _humans[i] = h with { ReviveTarget = -1 }; _stale.Add(h.Id); HumanProgress(run, h, human, dt, tick); }
+            else _humans[i] = h with { ReviveTarget = marine };
+        }
+        foreach (int id in _revive.Keys.ToList()) if (!_stale.Contains(id)) _revive.Remove(id);   // Use released, target gone: the hold starts again
+    }
+
+    void HumanProgress(TfwRun run, SquadHuman h, int target, float dt, uint tick)
+    {
+        float progress = _revive.TryGetValue(h.Id, out var was) && was.Target == target ? was.Progress + dt : dt;
+        if (progress >= SquadRules.PlayerReviveSeconds - 1e-4f)
+        {
+            _revive.Remove(h.Id); _stale.Remove(h.Id);
+            if (run.WarfrontRevive(_world, target) && _rules.Progression.TryKey(h.Id, out ulong key)) _feed.Revive(key, h.Id, tick);
+            return;
+        }
+        _revive[h.Id] = (target, progress);
+        _share[target] = Math.Max(_share.GetValueOrDefault(target), progress / SquadRules.PlayerReviveSeconds);
+    }
+
+    /// <summary>The share (0 to 1) of the hold that is reviving fallen human <paramref name="target"/> now, for the client's prompt; 0 when nobody is.</summary>
+    public float HumanReviveShare(int target) => _share.GetValueOrDefault(target);
 
     /// <summary>A key whose player left the World is held (order Hold, not removed): the squad keeps counting as standing and is re-bound on his return.</summary>
     void ReleaseLeavers()
@@ -346,7 +430,7 @@ public sealed class WarfrontSquadWiring
         if (onlyIfChanged && _scaleCards.TryGetValue(key, out int was) && was == cards) return;
         _scaleCards[key] = cards;
         var b = WarfrontStatBonuses.ForRetainer(player?.Cards ?? []);
-        Sim.SetScale(key, b.Damage, b.MaxHp);
+        Sim.SetScale(key, b.Damage * b.AttackSpeed, b.MaxHp, b.MaxArmor);   // a third of each card's magnitude: a Marine's weapon is damage per interval; the cooldown share has nothing to act on
     }
 
     void Drain(WarfrontProgressionRuntime rt, uint tick)
@@ -368,7 +452,7 @@ public sealed class WarfrontSquadWiring
         var type = k.Type ?? (k.Class == SquadEnemyClass.Boss ? MusouEnemyType.BossNob : k.Class == SquadEnemyClass.Elite ? MusouEnemyType.Nob : MusouEnemyType.Boy);
         int points = _world.Musou?.Rules.Of(type).Points ?? 0;
         var cls = WarfrontXpLedger.Classify(type);
-        if (cls == WarfrontKillClass.Ordinary && rt.Eligible?.Invoke(k.Key) == false) return false;   // a spectating joiner gets none
+        if (cls == WarfrontKillClass.Ordinary && (rt.Eligible?.Invoke(k.Key) == false || !_campaign.IsConnected(k.Key))) return false;   // a spectating joiner and an absent owner get none
         return rt.Xp.Kill(k.Key, points, cls, ((long)tick << 16) | k.Enemy).Count > 0;
     }
 }
