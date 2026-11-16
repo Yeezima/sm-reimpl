@@ -59,7 +59,7 @@ public partial class MapView : Node3D
             var placed = scene.Objects[o];
             if (MapDecor.HiddenLayers.Count > 0 && MapDecor.HiddenLayers.Contains(placed.Layer)) { layerHidden++; continue; }   // pass 2 test aid (--hide-layer)
             if (!scene.Definitions.TryGetValue(placed.Definition, out var definition)) continue;
-            var lodParts = MapDecor.LodHighestOnly ? definition.HighestLod().ToList() : definition.NearestLod().ToList();   // pass 2 test aid (--lod-highest-only)
+            var lodParts = MapDecor.LodHighestOnly ? definition.HighestLod().ToList() : definition.NearestLod().ToList();   // classic-maps-fidelity (--old-lod-rule: the old rule)
             if (MapDecor.LodHighestOnly) lodDropped += definition.NearestLod().Count() - lodParts.Count;
             foreach (var part in lodParts)
             {
@@ -71,7 +71,7 @@ public partial class MapView : Node3D
             }
         }
         if (layerHidden > 0) notes.Add($"test aid --hide-layer: {layerHidden} placements of {string.Join(",", MapDecor.HiddenLayers)} not drawn");
-        if (MapDecor.LodHighestOnly) notes.Add($"test aid --lod-highest-only: {lodDropped} part draws dropped (one member per LOD-suffix family)");
+        if (MapDecor.LodHighestOnly) notes.Add($"LOD rule: one member per LOD-suffix family ({lodDropped} part draws of the old rule not drawn; --old-lod-rule restores it)");
         var drawnObjects = new HashSet<int>();
         var meshCache = new Dictionary<(string, int, bool), ArrayMesh?>();
 

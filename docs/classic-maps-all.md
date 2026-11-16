@@ -204,3 +204,10 @@ Owner's report (2026-11-17, 11 stills from the deployed server): wrong colours a
 - Chem Refinery: 8 definitions the layers name are not in the archive (`refinery_wall_10wx10h_01`, ...; 18 placements), their `rf_` namesakes are; not drawn, as before.
 
 Reference footage: a search found no per-map frame-accurate sources readable without downloading; the only candidates were two YouTube uploads of Shattered Bridge (`watch?v=YUrMZfc-zBg`, `watch?v=K3DBRccXJZM`), not viewed.
+
+### Outcome (2026-11-17, after the owner's choices)
+
+- **LOD rule, now the default** (`--old-lod-rule` restores the old one). Cause of the missing walls on Hab Center: its walls are named `MP18_HabA_WallsB..H_LodL` and have no other member, and `NearestLod` dropped every `*lodl*` node. The families are by node-name stem and LOD suffix; one member (H, else M, else C, else L) is drawn. Difference to the old rule per map (`smtool map-emissive --lod-families --summary`): Manufactorum 4 placements (console faces), Waste Management 63, Basilica 44, Shattered Bridge 9, Hab Center 32 (25 draws dropped, 51 added), Habs Ablaze 14, Station Tertius 7, Chem Refinery 2, Aquila Canyon 0, Desolation 124, Dome Mechanicus 130. The LOD masks do not explain H, M and L (`_LodM` is often the larger mesh), so the rule is our reading (spec row, medium).
+- **Real lighting, now the default** (`--old-map-lighting` restores the old one): see spec "Classic PvP maps". Manufactorum is unchanged by construction (lowercase classes, one `l_lights` layer).
+- **Hab Center's six environment regions** follow the data's priority order; the 8 m feather, equal-priority order and the unused `BlendDuration` (a transition time) stay ours and provisional (spec row, low).
+- **Desolation's layers**: `e_dressing_mirror` (corpses, ammo crates, dragon teeth, the Chaos-half dressing) and `x_export` are kept as the data has them (owner's choice).

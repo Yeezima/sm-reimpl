@@ -388,7 +388,7 @@ public static class MapEmissiveCommand
                     }
             }
             Console.WriteLine($"{defs} definitions with LOD-suffix families, {places} placements (map {map})");
-            // what the test switch (--lod-highest-only, ObjectDefinition.HighestLod) changes against the current NearestLod: per definition, parts dropped and parts added
+            // what the default rule (ObjectDefinition.HighestLod; --old-lod-rule is NearestLod) changes against the current NearestLod: per definition, parts dropped and parts added
             int changedDefs = 0, changedPlacements = 0, droppedDraws = 0, addedDraws = 0;
             foreach (var def in scene.Definitions.Values.Where(d => counts2.ContainsKey(d.Name)).OrderBy(d => d.Name))
             {

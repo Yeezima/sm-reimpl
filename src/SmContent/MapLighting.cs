@@ -76,11 +76,11 @@ public sealed class MapLighting
         Environments.Where(e => e.Contains(p)).OrderByDescending(e => e.Priority).FirstOrDefault() ?? Global;
 
     /// <summary>
-    /// classic-maps-fidelity pass 2, **test aid, default off** (client <c>--lighting-all-layers</c>): read class names without regard to case (the dlc maps spell <c>base/OmniLight</c>, <c>base/SpotLight</c>,
+    /// classic-maps-fidelity, **default on** (owner's choice 2026-11-17; client <c>--old-map-lighting</c> turns it off): read class names without regard to case (the dlc maps spell <c>base/OmniLight</c>, <c>base/SpotLight</c>,
     /// <c>base/SunLight</c>; Manufactorum <c>base/omnilight</c>) and read every layer named <c>l_lights*</c> (<c>l_lights_engreg</c>, <c>l_lights_envreg</c>, <c>l_lights_envregs</c> hold the environment regions
-    /// of eight maps), not only <c>l_lights</c>. Off: the reading of before, which drops those lights, suns and regions.
+    /// of eight maps), not only <c>l_lights</c>. Off: the reading of before, which drops those lights, suns and regions (provisional ambient and fog stay).
     /// </summary>
-    public static bool ExtendedReading { get; set; }
+    public static bool ExtendedReading { get; set; } = true;
 
     /// <summary>The union of several layers' lighting: the first sun, all environment regions, all lights.</summary>
     public static MapLighting Combine(IEnumerable<MapLighting> parts)

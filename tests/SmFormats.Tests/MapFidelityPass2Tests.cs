@@ -33,12 +33,13 @@ public class MapFidelityPass2Tests
     }
 
     [Fact]
-    public void ExtendedReading_reads_capitalised_light_classes_only_when_switched_on()
+    public void ExtendedReading_is_on_by_default_and_reads_capitalised_light_classes_unless_switched_off()
     {
         var bytes = Document(new Struct("WorldGroup", ("Objects", new List(
             new Struct("base/OmniLight", ("Position", new Vec(1f, 2f, 3f)), ("Rotation", new Vec(0f, 0f, 0f)), ("Scale", new Vec(10f, 10f, 10f)),
                 ("Power", new F(2f)), ("Color", new Vec(1f, 0.5f, 0.2f)), ("AttenStart", new F(1f)), ("AttenEnd", new F(5f)))))));
         var root = BodDocument.Read(bytes).Root;
+        Assert.True(MapLighting.ExtendedReading);
         try
         {
             MapLighting.ExtendedReading = false;
@@ -47,7 +48,7 @@ public class MapFidelityPass2Tests
             var light = Assert.Single(MapLighting.Read(root).Lights);
             Assert.Equal(new Vector3(1f, 2f, 3f), light.Position);
         }
-        finally { MapLighting.ExtendedReading = false; }
+        finally { MapLighting.ExtendedReading = true; }
     }
 
     [Fact]

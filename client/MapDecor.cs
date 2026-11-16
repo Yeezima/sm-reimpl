@@ -57,9 +57,9 @@ public static class MapDecor
     public static bool OldSkyBoxes => _oldSky ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-sky-boxes") >= 0;
     static bool? _oldSky;
 
-    /// <summary>classic-maps-fidelity pass 2, test aid only: <c>--lod-highest-only</c> draws one member per LOD-suffix family (<see cref="ObjectDefinition.HighestLod"/>); default off.</summary>
-    public static bool LodHighestOnly => _lodHi ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--lod-highest-only") >= 0;
-    static bool? _lodHi;
+    /// <summary>classic-maps-fidelity: <c>--old-lod-rule</c> draws the parts of <see cref="ObjectDefinition.NearestLod"/> again (every node named like a low LOD dropped, _LodH and _LodM drawn together); by default one member of each LOD-suffix family is drawn (<see cref="ObjectDefinition.HighestLod"/>).</summary>
+    public static bool LodHighestOnly => !(_oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0);
+    static bool? _oldLod;
 
     /// <summary>classic-maps-fidelity pass 2, test aid only: <c>--hide-layer a,b</c> does not draw the placements of those layers (default none).</summary>
     public static HashSet<string> HiddenLayers => _hideLayers ??= ParseLayers();

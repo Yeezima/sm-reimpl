@@ -37,7 +37,7 @@ public sealed record ObjectDefinition(string Name, IReadOnlyList<VisualPart> Vis
         new(@"^(?<stem>.*?)_?(?<suf>lod[hmcl])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
-    /// classic-maps-fidelity pass 2, **test aid, not the default** (client <c>--lod-highest-only</c>): the parts of <see cref="NearestLod"/>, except that parts whose node names share a stem and differ only in a
+    /// classic-maps-fidelity, **the client's default since the owner's choice of 2026-11-17** (<c>--old-lod-rule</c> uses <see cref="NearestLod"/> again): the parts of <see cref="NearestLod"/>, except that parts whose node names share a stem and differ only in a
     /// LOD suffix (<c>_LODH</c>, <c>_LODM</c>, <c>_LODC</c>, <c>_LODL</c>) are one family of which only the best-ranked member is kept (H, else M, else C, else L). Parts without such a suffix are kept as they are.
     /// Whether the suffixes name levels of detail of the same object is **not established**; this is the experiment.
     /// </summary>
