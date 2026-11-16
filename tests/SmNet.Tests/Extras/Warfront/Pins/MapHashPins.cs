@@ -25,7 +25,7 @@ public class MapHashPins(ITestOutputHelper output)
     }
 
     [Fact]
-    [Trait("Speed", "Slow")]   // the three front bands and the composed world (minutes on a cold build)
+    [Trait("Speed", "Slow")]   // (a Trait only labels; the filter FullyQualifiedName~Warfront.Pins runs it too) the three front bands and the composed world (minutes on a cold build)
     public void The_front_bands_and_the_composed_front_build_to_their_pins()
     {
         for (int band = 0; band < AshfallFront.BandCount; band++)
