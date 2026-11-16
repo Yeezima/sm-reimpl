@@ -249,7 +249,7 @@ public sealed class CancelData
 
     // ---- file ----
     internal static string? StateName(CancelState s) => s switch { CancelState.Yes => "yes", CancelState.No => "no", CancelState.Window => "window", CancelState.Queued => "queued", CancelState.NotApplicable => "na", CancelState.Inherit => "inherit", _ => null };
-    internal static CancelState? ParseState(string? s) => s?.ToLowerInvariant() switch { "yes" => CancelState.Yes, "no" => CancelState.No, "window" => CancelState.Window, "queued" or "buffer" => CancelState.Queued, "na" or "n/a" => CancelState.NotApplicable, _ => null };
+    public static CancelState? ParseState(string? s) => s?.ToLowerInvariant() switch { "yes" => CancelState.Yes, "no" => CancelState.No, "window" => CancelState.Window, "queued" or "buffer" => CancelState.Queued, "na" or "n/a" => CancelState.NotApplicable, _ => null };
 
     /// <summary>Parses a table file (the shipped file's format). Null with <paramref name="error"/> when it is not one (unknown ids, states or a different layout).</summary>
     public static CancelData? Parse(string json, out string error) => Parse(json, out error, out _);

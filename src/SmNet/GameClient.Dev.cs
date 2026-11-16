@@ -46,12 +46,15 @@ public sealed partial class GameClient
     // ---- cancel-editor (protocol 80): the cancel table, kept the same as the server's ----
     readonly Dictionary<int, DevCancelSync> _cancelChunks = new();
     uint _cancelChunkHash;
-    TimeSpan _cancelAsked = TimeSpan.MinValue;
+    TimeSpan _cancelAsked = TimeSpan.FromHours(-1);
     /// <summary>The server's table hash from its last beacon or sync (0 before any), and when it came.</summary>
     uint _serverCancelHash;
-    TimeSpan _serverCancelAt = TimeSpan.MinValue;
+    TimeSpan _serverCancelAt = TimeSpan.FromHours(-1);
     /// <summary>How many times the server's table has replaced this client's (the panel redraws on a change).</summary>
     public int CancelSyncs { get; private set; }
+
+    /// <summary>The simulation config this client plays by (the panel reads the class and weapon names from it).</summary>
+    public SimConfig Config => _config;
 
     /// <summary>The cancel table in force on this client (its prediction plays by it).</summary>
     public CancelData CancelTable => _config.Cancel.Active;
@@ -60,7 +63,7 @@ public sealed partial class GameClient
     /// Whether this client plays by the same cancel table as the server (its hash equals the one the server last sent, and that was within the beacon's lifetime). False while no server hash arrived, so the panel
     /// can show "waiting" rather than "in sync".
     /// </summary>
-    public bool CancelInSync => _serverCancelAt != TimeSpan.MinValue && (_clock.Now - _serverCancelAt).TotalSeconds <= DevStateLifetime && _serverCancelHash == CancelTable.Hash;
+    public bool CancelInSync => _serverCancelAt > TimeSpan.FromHours(-1) && (_clock.Now - _serverCancelAt).TotalSeconds <= DevStateLifetime && _serverCancelHash == CancelTable.Hash;
 
     /// <summary>The server's table hash (0 until one arrives).</summary>
     public uint ServerCancelHash => _serverCancelHash;

@@ -168,30 +168,32 @@ public class CancelEditorNetTests
     public void A_live_edit_changes_what_the_servers_simulation_does_with_the_very_next_press()
     {
         // the same scripted play twice: a jump-pack hop, then a melee press in it. Default: the hop is cancelled (a swing); with the table edited live to "no": the hop plays on.
-        PlayerState Play(bool edit)
+        (bool Swung, bool Hopped) Play(bool edit)
         {
             var h = Make();
             Settle(h, 1.0);
             var client = h.Clients[0];
             if (edit) { client.SendCancelEdit(DevCancelOp.Apply, [Change("jp_hop", "light", new(CancelState.No))]); Settle(h, 1.0); }
             Assert.True(client.PlayerId > 0);
-            PlayerInput Input(int who, uint tick) => new(tick, 0f, 0f, 0f, who == 0 && tick == _jumpAt ? InputButtons.Jump : who == 0 && tick == _jumpAt + 8 ? InputButtons.Melee : InputButtons.None);
-            _jumpAt = client.CurrentTick + 5;
-            PlayerState seen = default;
-            for (int i = 0; i < 2000; i++)
+            uint jumpAt = 0;
+            PlayerInput Input(int who, uint tick)
+            {
+                if (jumpAt == 0) jumpAt = tick + 5;
+                return new(tick, 0f, 0f, 0f, who == 0 && tick == jumpAt ? InputButtons.Jump : who == 0 && tick == jumpAt + 6 ? InputButtons.Melee : InputButtons.None);
+            }
+            bool swung = false, hopped = false;
+            for (int i = 0; i < 1500; i++)
             {
                 h.Step(Input);
-                if (h.Server.World.Players.TryGetValue(client.PlayerId, out var s) && h.Server.World.Tick >= 0 && client.CurrentTick >= _jumpAt + 9) { seen = s; if (client.CurrentTick >= _jumpAt + 10) break; }
+                if (h.Server.World.Players.TryGetValue(client.PlayerId, out var s)) { swung |= s.MeleeStep > 0; hopped |= Evade.Evading(s); }
             }
-            return seen;
+            return (swung, hopped);
         }
         var def = Play(false);
         var edited = Play(true);
-        Assert.True(def.MeleeStep > 0 || def.MeleeLock > 0f, "default: the melee press cancelled the hop and swung");
-        Assert.True(edited.MeleeStep == 0 && Evade.Evading(edited), $"edited: the hop plays on (melee step {edited.MeleeStep}, evade ticks {edited.EvadeTicks})");
+        Assert.True(def.Hopped && def.Swung, "default: the melee press cancelled the hop and swung");
+        Assert.True(edited.Hopped && !edited.Swung, "edited: the hop plays on and no swing starts");
     }
-
-    uint _jumpAt;
 
     // ---- the file ----
 
