@@ -145,4 +145,17 @@ public sealed class ServerLaunchTests : IDisposable
         Assert.DoesNotContain("forward", local);
         Assert.StartsWith("https://github.com/Yeezima/sm-reimpl-releases", ServerLaunch.ReleasesUrl);
     }
+
+    [Fact]
+    public void Arguments_without_ExtraArgs_are_byte_identical_and_ExtraArgs_come_last()
+    {
+        var plain = new HostOptions(ServerLaunch.ModeAnnihilation, 27015, true, "game", false, "musou", 0, BotDifficulty.Easy, "m1");
+        var expected = new List<string> { "--port", "27015", "--mode", "annihilation", "--bind", "127.0.0.1", "--game-dir", "game", "--no-custom-emblems", "--content", "musou", "--map", "m1" };
+        expected.AddRange(HostBots.ServerArguments(0, BotDifficulty.Easy));
+        Assert.Equal(expected, ServerLaunch.Arguments(plain));
+        Assert.Equal(expected, ServerLaunch.Arguments(plain with { ExtraArgs = null }));
+        Assert.Equal(expected, ServerLaunch.Arguments(plain with { ExtraArgs = [] }));
+        var extra = ServerLaunch.Arguments(plain with { ExtraArgs = ["--x", "1"] });
+        Assert.Equal(expected.Concat(["--x", "1"]), extra);
+    }
 }

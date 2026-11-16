@@ -40,6 +40,7 @@ public sealed partial class UiSelfTest
             var main = _front.MainPage!;
             var wanted = new List<string> { "PLAYER VERSUS PLAYER" };
             if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");
+            if (ContentExtras.Compiled && ContentExtras.WarfrontCompiled) wanted.Add("WARFRONT");   // W16: the local campaign's row under Musou Mode
             wanted.AddRange(["OPTIONS", "CUSTOMIZER", "QUIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
             Check("menu: the title is the project's name", main.TitleLabel.Text == "SM - REIMPL", main.TitleLabel.Text);
