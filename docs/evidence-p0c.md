@@ -102,7 +102,7 @@ Result: 2 of the 16 narrowed, 14 unsettled, none settled.
 
 ## 5. Checks
 
-Author's own checks (not independent QA), run on this branch; the exact results are in section 7.
+Author's own checks (not independent QA), run on this branch; the results are in section 7.
 
 ## 6. Owner questions
 
@@ -171,9 +171,9 @@ New in this round:
 
 Author's own checks (not independent QA), on branch `claude/evidence-p0c`:
 
-- `dotnet build SmReimpl.slnx` and `dotnet build client/SmClient.csproj`: see the final message of this pass for the exact results (0 errors required).
-- `smtool.cmd refine-register` regenerated and `--check` run.
-- Filtered `dotnet test -m:4` (`PublicText`, `RefineRegister`, `Spec`); the full suite was not run.
+- `dotnet build SmReimpl.slnx` and `dotnet build client/SmClient.csproj`: both 0 errors.
+- `smtool.cmd refine-register` regenerated; `--check` ok (3344 spec rows scanned, 2376 tagged; before this pass 3330 and 2367, the difference being the P0c fact rows and the fall-damage row's lower confidence).
+- Filtered `dotnet test -m:4` (`PublicText`, `RefineRegister`, `Spec`): SmFormats 149 passed, SmNet 27 passed (the launcher test projects matched no test). The full suite was not run.
 - The probes used only the repository's `smtool` readers (`locale`, `baf-dump`, `gfx-dump`, `audio-event`, `audio-rtpcs`, `perks`, `fx-dump`), a scratch console program over `SmFormats.Audio` and a scratch Lua constant-pool lister (not committed); extracted files stayed in the private cache. No server and no Godot was started.
 
 ## 8. Playtest checklist
