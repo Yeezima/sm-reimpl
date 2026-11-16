@@ -133,6 +133,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/PreviewStage.cs", "ExtrasReadyPose"),   // PreviewStage.ExtrasReadyPose(string?, string?, ref bool), in ConfigureWeapons: an added weapon (claw, spear, autocannon) shows in the ready stance, drawn
         ("client/FrontEnd/FrontEndView.cs", "ExtrasPreviewScript"),   // FrontEndView.ExtrasPreviewScript(), per frame after the scripted views: the weapon cycle test aid (--preview-weapon-cycle: chooses the added weapons in turn and checks the preview draws each; client/Extras/Musou/Customizer/FrontEndView.WeaponCycle.cs)
         ("client/FrontEnd/FrontEndView.cs", "ExtrasScreenshotHold"),  // FrontEndView.ExtrasScreenshotHold(ref bool), in ReadyForScreenshot: the shot waits for that cycle
+        ("client/FrontEnd/FrontEndView.cs", "ExtrasMenuRows"),        // FrontEndView.ExtrasMenuRows(UiKit.MenuPage), in BuildPages after the Musou Mode row: Warfront's row (W16; client/Extras/FrontEndView.Extras.cs)
         // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
         // (the Remote Detonators' sm_mp_eq_demolition_charge is an install name, so the name alone never decides).
         ("src/SmContent/MpClasses.cs", "ExtrasMeleeMap"),           // static MpClasses.ExtrasMeleeMap(string, ref WeaponMap?), in MeleeMapFor when no data map matches: an added melee weapon on a data weapon's map

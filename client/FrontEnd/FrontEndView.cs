@@ -74,6 +74,9 @@ public sealed partial class FrontEndView : Control
     /// <summary>Hook for added content: one frame of its scripted preview run (test aid <c>--preview-weapon-cycle</c>); nothing without it.</summary>
     partial void ExtrasPreviewScript();
 
+    /// <summary>Hook for added content: rows under MUSOU MODE on the main menu (Warfront's local campaign, client/Extras/FrontEndView.Extras.cs); nothing without it.</summary>
+    partial void ExtrasMenuRows(UiKit.MenuPage main);
+
     int _switchedAt, _switchPhase;
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
@@ -260,6 +263,7 @@ public sealed partial class FrontEndView : Control
             _stopMusou = UiKit.MenuButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
+            ExtrasMenuRows(main);   // EXTRAS-HOOK: Warfront's row under Musou Mode (client/Extras/FrontEndView.Extras.cs)
         }
         main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
         main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));

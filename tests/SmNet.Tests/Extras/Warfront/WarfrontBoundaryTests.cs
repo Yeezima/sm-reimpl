@@ -38,6 +38,7 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontMeleeCap"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontDamageTaken"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontInputLocked"),
+        ("client/Extras/FrontEndView.Extras.cs", "WarfrontMenuRows"),   // W16: the main menu's row (dispatched from ExtrasMenuRows)
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontSquadHit"),
         ("src/SmSim/Extras/Musou/Campaign/TfwFire.cs", "WarfrontCooldown"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontCooldown"),
