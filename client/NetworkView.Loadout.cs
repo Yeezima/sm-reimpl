@@ -56,7 +56,16 @@ public partial class NetworkView
     /// <summary>The picker is on screen (the mouse is free and the game takes no input).</summary>
     bool PickerOpen => _pickerLayer is not null;
     /// <summary>The menu is open or being opened (the customizer is still loading): the mouse is free and the game takes no input.</summary>
-    bool PickerBusy => _pickerLayer is not null || _pickerWanted || TunerOpen || DevPanelOpen || CancelPanelOpen;   // sound/tuning-tool: the owner's mixer panel takes the game's input too
+    bool PickerBusy
+    {
+        get
+        {
+            bool busy = _pickerLayer is not null || _pickerWanted || TunerOpen || DevPanelOpen || CancelPanelOpen;   // sound/tuning-tool: the owner's mixer panel takes the game's input too
+            ExtrasPickerBusy(ref busy);   // EXTRAS-HOOK: an added content's own panel that takes the game's input (nothing in a faithful build)
+            return busy;
+        }
+    }
+    partial void ExtrasPickerBusy(ref bool busy);
 
     /// <summary>Added content's rows in the Esc menu, built each time it opens (client/Extras; nothing in a faithful build).</summary>
     partial void ExtrasMatchMenu(MatchMenu menu);
