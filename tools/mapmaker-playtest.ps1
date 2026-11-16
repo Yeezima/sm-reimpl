@@ -108,7 +108,9 @@ try {
         for ($i = 0; $i -lt $Bots; $i++) {
             $role = @('tactical', 'assault', 'devastator')[$i % 3]
             $cls = if ($s -eq 'chaos') { @{ tactical = 'chaos tactical'; assault = 'raptor'; devastator = 'havoc' }[$role] } else { $role }
-            $txt = & (Join-Path $PSScriptRoot 'godot.ps1') --background --log (Join-Path $logDir "bot-$s-$i.log") -- --connect "127.0.0.1:$Port" --bot --no-sound --side $s --class $cls *>&1 | Out-String
+            # The "--" must travel as an array element: written literally on the command line, PowerShell 5.1 swallows it and the client never sees its arguments.
+            $botArgs = @('--background', '--log', (Join-Path $logDir "bot-$s-$i.log"), '--', '--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--side', $s, '--class', $cls)
+            $txt = & (Join-Path $PSScriptRoot 'godot.ps1') @botArgs *>&1 | Out-String
             if ($txt -match 'started pid (\d+)') { $bp = Get-Process -Id ([int]$Matches[1]) -ErrorAction SilentlyContinue; if ($bp) { Record $bp } }
             else { throw "a bot did not start: $txt" }
             Start-Sleep -Milliseconds 800
@@ -147,5 +149,6 @@ finally {
 }
 Write-Host $result
 exit $(if ($result -like 'PLAYTEST ok*') { 0 } else { 1 })
+
 
 

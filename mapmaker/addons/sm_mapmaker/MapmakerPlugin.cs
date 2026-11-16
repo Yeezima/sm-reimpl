@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -52,6 +52,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public override void _EnterTree()
     {
+        GD.Print("Mapmaker: plugin entering the tree, args: " + string.Join(" ", OS.GetCmdlineUserArgs()));
         MapHost.Plugin = this;
         _sm1Adapter = new EditorSm1Source(MapHost.Sm1For, SafeInstalled());
         Thumbs = new Thumbnails { Name = "MapmakerThumbs" };
@@ -98,6 +99,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     void Startup()
     {
+        if (OS.GetCmdlineUserArgs().Length > 0) GD.Print("Mapmaker: started with " + string.Join(" ", OS.GetCmdlineUserArgs()));
         EnsureSceneRoot();
         if (Selftest.Wanted) _ = new Selftest(this).Run();
         else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
@@ -688,3 +690,4 @@ public partial class MapmakerPlugin : EditorPlugin
         if (OS.IsStdOutVerbose() || Selftest.Wanted) GD.Print($"Mapmaker frame: target {target:0.0} m, camera {d:0.0} m from the centre");
     }
 }
+

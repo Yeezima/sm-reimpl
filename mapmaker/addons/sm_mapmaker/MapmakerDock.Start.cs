@@ -29,6 +29,7 @@ public partial class MapmakerDock
     readonly SpinBox _playBots = new() { MinValue = 0, MaxValue = 6, Step = 1, Value = 3, TooltipText = "Bots on each side (0 to 6). They run in the background with no window." };
     readonly OptionButton _playSide = new() { TooltipText = "The side you start on." };
     readonly Label _playStatus = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
+    readonly Label _playStatusTop = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
     readonly Label _shareInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
     Button? _playButton;
     Label? _buildHint;
@@ -60,6 +61,10 @@ public partial class MapmakerDock
         v.AddChild(Row(Btn("New map", NewFromLayout, "Makes the map from the chosen layout, saves it and shows it."), Btn("Open map...", OpenMap, "Open a .smmap file."), _recentStart));
         _recentStart.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _recentStart.ItemSelected += i => { var p = _recentStart.GetItemMetadata((int)i).AsString(); if (p.Length > 0 && _plugin.EnsureSceneRoot()) _plugin.OpenMap(p); };
+        var quickPlay = Btn("PLAY TEST", StartPlayTest, "The same as the Play test button below (it uses the mode, bots and side chosen there): saves, starts a server on this PC only with bots, and opens the game on your map.");
+        quickPlay.CustomMinimumSize = new Vector2(0, 36);
+        v.AddChild(quickPlay);
+        v.AddChild(_playStatusTop);
         v.AddChild(new HSeparator());
         v.AddChild(Head("Game modes this map is for"));
         _modeAnnihilation.Toggled += _ => ModesChanged(); _modeSeize.Toggled += _ => ModesChanged();
@@ -87,7 +92,7 @@ public partial class MapmakerDock
             Btn("Show file", ShowFile, "Opens the folder with the map's .smmap file selected."), Btn("Copy path", CopyPath, "Copies the file's path.")));
         v.AddChild(_shareInfo);
         _plugin.CheckChanged += RefreshCheck;
-        _plugin.PlayStatusChanged += () => _playStatus.Text = _plugin.PlayStatus;
+        _plugin.PlayStatusChanged += () => { _playStatus.Text = _plugin.PlayStatus; _playStatusTop.Text = _plugin.PlayStatus; };
         RefreshCheck();
         return Scroll(v);
     }
@@ -155,7 +160,7 @@ public partial class MapmakerDock
     {
         string mode = _playMode.Selected == 1 ? "seize" : "annihilation";
         _plugin.PlayTest(mode, (int)_playBots.Value, _playSide.Selected == 1 ? "chaos" : "marines");
-        _playStatus.Text = _plugin.PlayStatus;
+        _playStatus.Text = _plugin.PlayStatus; _playStatusTop.Text = _plugin.PlayStatus;
     }
 
     void ShowFile()
@@ -254,4 +259,5 @@ static class ControlExtensions
 {
     public static T With<T>(this T c, Action<T> f) { f(c); return c; }
 }
+
 

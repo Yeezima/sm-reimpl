@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -149,18 +149,20 @@ public partial class MapmakerPlugin
         var size = b.Max - b.Min;
         var mid = (b.Min + b.Max) / 2f;
         float top = map.SolidBounds is null ? 0f : b.Max.Z;
-        // Ground level: the floor under the middle, else 0.
-        float ground = 0f;
-        if (map.SolidCount > 0 && map.ToCollisionWorld().Character.Raycast(new Num.Vector3(mid.X, mid.Y, top + 50f), -Num.Vector3.UnitZ, 400f) is { } hit) ground = hit.Point.Z;
-        switch (issue.Action)
+        // The floor under a spot: the first walkable surface found by a ray from above, else 0.
+        float GroundAt(float x, float y)
         {
-            case "add-floor":
+            if (map.SolidCount == 0) return 0f;
+            return map.ToCollisionWorld().Character.Raycast(new Num.Vector3(x, y, top + 50f), -Num.Vector3.UnitZ, 400f) is { } hit ? hit.Point.Z : 0f;
+        }
+        switch (issue.Action)
+        {            case "add-floor":
                 return PlacePieceAt("floor", new Num.Vector3(0, 0, 0));
-            case "add-spawn-marines": return PlacePieceAt("spawn-marines", new Num.Vector3(b.Min.X + 8f, mid.Y, ground));
-            case "add-spawn-chaos": return PlacePieceAt("spawn-chaos", new Num.Vector3(b.Max.X - 8f, mid.Y, ground));
+            case "add-spawn-marines": return PlacePieceAt("spawn-marines", new Num.Vector3(b.Min.X + 8f, mid.Y, GroundAt(b.Min.X + 8f, mid.Y)));
+            case "add-spawn-chaos": return PlacePieceAt("spawn-chaos", new Num.Vector3(b.Max.X - 8f, mid.Y, GroundAt(b.Max.X - 8f, mid.Y)));
             case "add-door-marines": return PlaceDoor(map, Team.SpaceMarines, "door-marines");
             case "add-door-chaos": return PlaceDoor(map, Team.Chaos, "door-chaos");
-            case "add-capture-point": return PlacePieceAt("point", new Num.Vector3(mid.X, mid.Y, ground));
+            case "add-capture-point": return PlacePieceAt("point", new Num.Vector3(mid.X, mid.Y, GroundAt(mid.X, mid.Y)));
         }
         return null;
     }
@@ -316,3 +318,4 @@ public partial class MapmakerPlugin
         return Session.Path;
     }
 }
+
