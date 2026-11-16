@@ -80,6 +80,33 @@ public static class MapEmissiveCommand
             }
             return 0;
         }
+        if (rest.Contains("--light-classes"))
+        {
+            // classic-maps-fidelity pass 2: per layer, the class names (exact spelling) of every object whose class mentions light, sun or environment, with counts: where the map's lights and environment regions are
+            string lpath = new[] { "wrld", "r000_main" }.Select(r => Path.Combine(gameDir, "data", "chunks", $"{map}__{r}.oppc")).First(File.Exists);
+            using var larc = SmFormats.Obpk.ObpkArchive.Open(lpath);
+            larc.ReadEntries(e => larc.GroupName(e) == "Layer", (e, data) =>
+            {
+                var tally = new SortedDictionary<string, int>();
+                void Walk(SmFormats.Bod.BodValue v, int depth)
+                {
+                    if (depth > 40) return;
+                    switch (v)
+                    {
+                        case SmFormats.Bod.BodStruct s:
+                            if (s.Class.Text is { } c && (c.Contains("light", StringComparison.OrdinalIgnoreCase) || c.Contains("sun", StringComparison.OrdinalIgnoreCase) || c.Contains("environment", StringComparison.OrdinalIgnoreCase)) && !c.EndsWith("Desc"))
+                                tally[c] = tally.GetValueOrDefault(c) + 1;
+                            foreach (var f in s.Fields) Walk(f.Value, depth + 1);
+                            break;
+                        case SmFormats.Bod.BodList l: foreach (var it in l.Items) Walk(it.Value, depth + 1); break;
+                        case SmFormats.Bod.BodRef r: Walk(r.Value, depth + 1); break;
+                    }
+                }
+                try { Walk(SmFormats.Bod.BodDocument.Read(data).Root, 0); } catch { return; }
+                if (tally.Count > 0) Console.WriteLine($"{e.FileName,-20} {string.Join("  ", tally.Select(t => $"{t.Key}={t.Value}"))}");
+            });
+            return 0;
+        }
         if (rest.Contains("--flags"))
         {
             // classic-maps-fidelity: per layer, how many StaticObjects have each boolean flag set (Sky, DisableCollision, DisableShadow, DisableWorldOcclusion, Instanced...) and the layer's package names
@@ -330,6 +357,48 @@ public static class MapEmissiveCommand
             foreach (var r in colRows.Where(r => r.Share <= maxShare).OrderByDescending(r => Math.Max(r.Size.X, Math.Max(r.Size.Y, r.Size.Z))))
                 Console.WriteLine($"{r.Def,-30} {r.Layer,-18} share {r.Share:0.00} size {r.Size.X,5:0}x{r.Size.Y,5:0}x{r.Size.Z,5:0} at {r.At.X,6:0},{r.At.Y,6:0},{r.At.Z,5:0}  {r.Mats}");
             Console.WriteLine($"{colRows.Count} large parts, {colRows.Count(r => r.Share <= maxShare)} with at most {maxShare:0.00} of their vertices near collision");
+            return 0;
+        }
+        if (rest.Contains("--lod-families"))
+        {
+            // classic-maps-fidelity pass 2: per definition, visual parts whose node names share a stem and differ only in a LOD suffix (LODH, LODM, LODC, LODL, LOD<n>); prints each family's parts with
+            // mask, triangle count and local box, and totals (definitions, placements) for the map. Stem = node name with the suffix cut.
+            var counts2 = scene.Objects.GroupBy(o => o.Definition, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+            var rx = new System.Text.RegularExpressions.Regex(@"^(?<stem>.*?)[_]?(?<suf>lod[hmcl]|lod\d?|lodh\d)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
+            foreach (var def in scene.Definitions.Values.Where(d => counts2.ContainsKey(d.Name)).OrderBy(d => d.Name))
+            {
+                var fam = def.Visuals.Select(v => (v, m: rx.Match(v.RefNode))).Where(x => x.m.Success).GroupBy(x => x.m.Groups["stem"].Value.ToLowerInvariant()).Where(g => g.Select(x => x.m.Groups["suf"].Value.ToLowerInvariant()).Distinct().Count() > 1).ToList();
+                if (fam.Count == 0) continue;
+                defs++; places += counts2[def.Name];
+                if (quiet) continue;
+                Console.WriteLine($"{def.Name} x{counts2[def.Name]}");
+                foreach (var g in fam)
+                    foreach (var (v, m) in g)
+                    {
+                        string info = "mesh missing";
+                        if (scene.Meshes.TryGetValue(v.MeshName, out var mesh))
+                        {
+                            var b = mesh.Blocks[Math.Min(v.MeshId, mesh.Blocks.Count - 1)];
+                            var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                            foreach (var p in b.Positions) { var w = System.Numerics.Vector3.Transform(p, v.NodeTransform); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                            info = $"tris {b.Materials.Sum(r => r.IndexCount / 3)} box {(hi - lo).X:0.#}x{(hi - lo).Y:0.#}x{(hi - lo).Z:0.#} at {(hi + lo).X / 2:0.#},{(hi + lo).Y / 2:0.#},{(hi + lo).Z / 2:0.#}";
+                        }
+                        Console.WriteLine($"    {v.RefNode,-40} id{v.MeshId} mask {v.LodLevel,3}  {info}");
+                    }
+            }
+            Console.WriteLine($"{defs} definitions with LOD-suffix families, {places} placements (map {map})");
+            // what the test switch (--lod-highest-only, ObjectDefinition.HighestLod) changes against the current NearestLod: per definition, parts dropped and parts added
+            int changedDefs = 0, changedPlacements = 0, droppedDraws = 0, addedDraws = 0;
+            foreach (var def in scene.Definitions.Values.Where(d => counts2.ContainsKey(d.Name)).OrderBy(d => d.Name))
+            {
+                var a = def.NearestLod().ToList(); var b = def.HighestLod().ToList();
+                var dropped = a.Except(b).ToList(); var added = b.Except(a).ToList();
+                if (dropped.Count == 0 && added.Count == 0) continue;
+                changedDefs++; changedPlacements += counts2[def.Name]; droppedDraws += dropped.Count * counts2[def.Name]; addedDraws += added.Count * counts2[def.Name];
+                if (!quiet) Console.WriteLine($"  B differs: {def.Name} x{counts2[def.Name]} drops [{string.Join(", ", dropped.Select(p => p.RefNode))}] adds [{string.Join(", ", added.Select(p => p.RefNode))}]");
+            }
+            Console.WriteLine($"B (HighestLod) differs from A (NearestLod) in {changedDefs} definitions, {changedPlacements} placements: {droppedDraws} part draws dropped, {addedDraws} added");
             return 0;
         }
         if (rest.Contains("--lod-audit"))

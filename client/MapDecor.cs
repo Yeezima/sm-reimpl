@@ -57,6 +57,20 @@ public static class MapDecor
     public static bool OldSkyBoxes => _oldSky ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-sky-boxes") >= 0;
     static bool? _oldSky;
 
+    /// <summary>classic-maps-fidelity pass 2, test aid only: <c>--lod-highest-only</c> draws one member per LOD-suffix family (<see cref="ObjectDefinition.HighestLod"/>); default off.</summary>
+    public static bool LodHighestOnly => _lodHi ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--lod-highest-only") >= 0;
+    static bool? _lodHi;
+
+    /// <summary>classic-maps-fidelity pass 2, test aid only: <c>--hide-layer a,b</c> does not draw the placements of those layers (default none).</summary>
+    public static HashSet<string> HiddenLayers => _hideLayers ??= ParseLayers();
+    static HashSet<string>? _hideLayers;
+    static HashSet<string> ParseLayers()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--hide-layer");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase) : new(StringComparer.OrdinalIgnoreCase);
+    }
+
     public static bool Old => _old ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-armoury-racks") >= 0;
     static bool? _old;
 

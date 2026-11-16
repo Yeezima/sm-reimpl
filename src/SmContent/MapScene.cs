@@ -33,6 +33,29 @@ public sealed record ObjectDefinition(string Name, IReadOnlyList<VisualPart> Vis
         return high.Count > 0 ? high : near;
     }
 
+    static readonly System.Text.RegularExpressions.Regex LodSuffix =
+        new(@"^(?<stem>.*?)_?(?<suf>lod[hmcl])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// classic-maps-fidelity pass 2, **test aid, not the default** (client <c>--lod-highest-only</c>): the parts of <see cref="NearestLod"/>, except that parts whose node names share a stem and differ only in a
+    /// LOD suffix (<c>_LODH</c>, <c>_LODM</c>, <c>_LODC</c>, <c>_LODL</c>) are one family of which only the best-ranked member is kept (H, else M, else C, else L). Parts without such a suffix are kept as they are.
+    /// Whether the suffixes name levels of detail of the same object is **not established**; this is the experiment.
+    /// </summary>
+    public IEnumerable<VisualPart> HighestLod()
+    {
+        var parts = Visuals.Where(v => (v.LodLevel & 1) != 0).ToList();
+        var families = parts.Select(v => (v, m: LodSuffix.Match(v.RefNode))).Where(x => x.m.Success)
+            .GroupBy(x => x.m.Groups["stem"].Value.ToLowerInvariant()).ToDictionary(g => g.Key, g => g.Min(x => Rank(x.m.Groups["suf"].Value)));
+        foreach (var v in parts)
+        {
+            var m = LodSuffix.Match(v.RefNode);
+            if (!m.Success) { yield return v; continue; }
+            if (Rank(m.Groups["suf"].Value) == families[m.Groups["stem"].Value.ToLowerInvariant()]) yield return v;
+        }
+    }
+
+    static int Rank(string suffix) => char.ToLowerInvariant(suffix[^1]) switch { 'h' => 0, 'm' => 1, 'c' => 2, _ => 3 };
+
     static bool IsLowLodName(string node) =>
         node.Contains("lodl", StringComparison.OrdinalIgnoreCase) || node.EndsWith("_lod", StringComparison.OrdinalIgnoreCase);
 }
@@ -106,7 +129,11 @@ public sealed class MapScene
                 if (archive.GroupName(e) == "Layer")
                 {
                     CollectObjects(root, e.FileName, Matrix4x4.Identity, objects, 0);
-                    if (e.FileName.Equals("l_lights", StringComparison.OrdinalIgnoreCase)) lighting = MapLighting.Read(root);
+                    if (MapLighting.ExtendedReading ? e.FileName.StartsWith("l_lights", StringComparison.OrdinalIgnoreCase) : e.FileName.Equals("l_lights", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var read = MapLighting.Read(root);
+                        lighting = lighting is null ? read : MapLighting.Combine([lighting, read]);
+                    }
                 }
                 else definitions.TryAdd(e.FileName, Definition(e.FileName, root));
             }

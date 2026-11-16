@@ -75,6 +75,20 @@ public sealed class MapLighting
     public MapEnvironment? At(Vector3 p) =>
         Environments.Where(e => e.Contains(p)).OrderByDescending(e => e.Priority).FirstOrDefault() ?? Global;
 
+    /// <summary>
+    /// classic-maps-fidelity pass 2, **test aid, default off** (client <c>--lighting-all-layers</c>): read class names without regard to case (the dlc maps spell <c>base/OmniLight</c>, <c>base/SpotLight</c>,
+    /// <c>base/SunLight</c>; Manufactorum <c>base/omnilight</c>) and read every layer named <c>l_lights*</c> (<c>l_lights_engreg</c>, <c>l_lights_envreg</c>, <c>l_lights_envregs</c> hold the environment regions
+    /// of eight maps), not only <c>l_lights</c>. Off: the reading of before, which drops those lights, suns and regions.
+    /// </summary>
+    public static bool ExtendedReading { get; set; }
+
+    /// <summary>The union of several layers' lighting: the first sun, all environment regions, all lights.</summary>
+    public static MapLighting Combine(IEnumerable<MapLighting> parts)
+    {
+        var list = parts.ToList();
+        return new MapLighting { Sun = list.Select(p => p.Sun).FirstOrDefault(s => s is not null), Environments = list.SelectMany(p => p.Environments).ToList(), Lights = list.SelectMany(p => p.Lights).ToList() };
+    }
+
     public static MapLighting Read(BodValue root)
     {
         SunLight? sun = null;
@@ -93,7 +107,7 @@ public sealed class MapLighting
             {
                 if (s["Disabled"] is BodBool { Value: true }) return;   // a disabled object hides its children too
                 var world = MapScene.Local(s) * parent;
-                switch (s.Class.Text)
+                switch (ExtendedReading ? s.Class.Text?.ToLowerInvariant() : s.Class.Text)
                 {
                     case "base/sunlight":
                         sun ??= new SunLight(Forward(world), Vec3(s["Color"]) ?? Vector3.One, Num(s["Power"]) ?? 1f,
