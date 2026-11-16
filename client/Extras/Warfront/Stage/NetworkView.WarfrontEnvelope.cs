@@ -69,6 +69,9 @@ public partial class NetworkView
             case 46:
                 WarfrontCoopSection(tag, payload, ref handled);
                 return;
+            case SmNet.Extras.Warfront.WarfrontBattleWire.EnvelopeTag:   // W13b (routed: the lead's fan-out line)
+                handled = WarfrontBattleReceive(tag, payload);
+                return;
         }
     }
 

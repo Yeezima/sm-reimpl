@@ -54,6 +54,7 @@ public partial class NetworkView
         WarfrontProgressionFrame(me, dt);
         WarfrontSquadFrame(me, dt);
         WarfrontCoopFrame(me, dt);
+        WarfrontBattleTick();   // W13b (routed: the lead's fan-out line)
     }
 
     /// <summary>The Thunderhawk's destination station: the Warfront war map instead of Musou's (the hook is called only from Musou's station code, which a Warfront server shares).</summary>
