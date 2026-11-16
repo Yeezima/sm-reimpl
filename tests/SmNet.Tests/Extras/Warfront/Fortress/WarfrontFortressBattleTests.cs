@@ -366,4 +366,42 @@ public class WarfrontFortressBattleTests
         w2.Step(_ => default);
         Assert.Equal(WarfrontPhase.Won, c.Phase);
     }
+
+    [Fact]
+    public void A_human_dropped_inside_the_walls_opens_stage_1_without_passing_an_entry()
+    {
+        var (_, battle, setup) = Fortress();
+        var plan = setup.Plan;
+        battle.FortressObserve([new Vector3(30f, -40f, 0f)]);   // mid-compound, far from both entries
+        Assert.Equal(1, battle.WarfrontFortressFlow!.Stage);
+    }
+
+    [Fact]
+    public void A_whole_fortress_battle_pays_no_capture_xp_and_the_progression_returns_nothing()
+    {
+        var (w, battle, _) = Fortress();
+        var progression = w.Tfw!.Warfront!.Progression;
+        Assert.Empty(progression.OnBattleChange(battle, TfwBattleChange.PositionSecured | TfwBattleChange.Won));
+        Assert.Empty(progression.OnBattleChange(battle, TfwBattleChange.PositionSecured));
+    }
+
+    [Fact]
+    public void The_fortress_leash_groups_meet_none_of_the_battles_own()
+    {
+        var own = typeof(TfwBattle).GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(int) && f.Name.Contains("Group")).Select(f => (int)f.GetRawConstantValue()!).ToArray();
+        Assert.NotEmpty(own);
+        var plan = WarfrontArenaLayout.Plan(new StubArena());
+        int last = WarfrontFortressBattleRules.GroupFirst + plan.ElitePosts.Count + plan.ApproachPosts.Count;
+        foreach (int g in own.Where(g => g < 100_000)) Assert.True(g + 20 < WarfrontFortressBattleRules.GroupFirst, $"a battle group {g} is near the fortress's");   // patrol columns run from 13 on, the Big Shootas to 23
+        Assert.True(last < 100_000);   // the armies' groups start at 100000
+    }
+
+    [Fact]
+    public void The_runs_id_list_and_feet_list_have_the_same_length_in_a_fortress_tick()
+    {
+        var (w, battle, _) = Fortress(humans: 2);
+        Stand(w, 5);
+        Assert.Equal(w.Players.Count(p => p.Value.Alive), battle.FortressPlayerCount);
+    }
 }

@@ -71,6 +71,9 @@ public sealed class WarfrontFortressState(WarfrontFortressSetup setup)
     bool AtEntry(Vector3 p) => (Flat(p, _plan.Gate) <= WarfrontFortressBattleRules.EntryRadius && MathF.Abs(p.Z - _plan.Gate.Z) <= WarfrontFortressBattleRules.StageReach)
         || (Flat(p, _plan.Breach) <= WarfrontFortressBattleRules.EntryRadius && MathF.Abs(p.Z - _plan.Breach.Z) <= WarfrontFortressBattleRules.StageReach);
 
+    /// <summary>Inside the walls by any way in (a jump pack over the wall, a drop pod): nearer the boss spot than the nearer entry is, less the entry radius.</summary>
+    bool InsideWalls(Vector3 p) => Flat(p, _plan.BossSpot) < MathF.Min(Flat(_plan.Gate, _plan.BossSpot), Flat(_plan.Breach, _plan.BossSpot)) - WarfrontFortressBattleRules.EntryRadius;
+
     /// <summary>One tick: the living humans' feet. Returns true on the tick the plaza is first entered (the Warboss is to be freed).</summary>
     public bool Observe(ReadOnlySpan<Vector3> humans)
     {
@@ -80,7 +83,7 @@ public sealed class WarfrontFortressState(WarfrontFortressSetup setup)
         bool entry = false, plaza = false;
         for (int i = 0; i < _count; i++)
         {
-            entry |= AtEntry(_humans[i]);
+            entry |= AtEntry(_humans[i]) || InsideWalls(_humans[i]);
             plaza |= InPlaza(_humans[i]);
         }
         bool entered = plaza && !PlazaEntered;

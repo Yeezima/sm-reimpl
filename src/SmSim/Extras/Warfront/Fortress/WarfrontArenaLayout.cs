@@ -74,6 +74,15 @@ public static class WarfrontArenaLayout
     }
 
     /// <summary>
+    /// What lands where, for an arena whose sources are s0a, s0b, s0c (stage 0), s1a, s1b, s1c (stage 1), s2a, s2b, s2c (stage 2), taking the first n (the layout's source index 0, 1, 2, 3, then the rest):
+    /// <code>
+    /// n = 2: s0a s0b s0a s0a                          stages 0 0 0 0 (every slot past the supply repeats the first of the wanted stage)
+    /// n = 3: s0a s0b s0c s0a                          stages 0 0 0 0
+    /// n = 4: s0a s0b s1a s0c                          stages 0 0 1 0 (no stage 2: slot 3 takes the next unused of stage 1 or lower)
+    /// n = 9: s0a s0b s1a s2a | s0c s1b s1c s2b s2c    stages 0 0 1 2 | 0 1 1 2 2
+    /// </code>
+    /// Each of slots 0 to 3 wants stage 0, 0, 1, 2: it takes the first unused source of exactly that stage (the highest stage there is when the arena has fewer), else the first unused of a lower stage, else any unused one,
+    /// else it repeats one of the wanted stage. The unused sources follow in stage order. Fewer than four entries repeat from the start.
     /// The sources in stage order, then the first four hoisted to <see cref="SpawnPointStages"/> (the battle spawns crowds at spawn points 0 to 3 and gates each one by source index; a stage-2 source is the fourth point), padded
     /// by repeating from the start when the arena has fewer than four (the battle indexes the first four).
     /// </summary>

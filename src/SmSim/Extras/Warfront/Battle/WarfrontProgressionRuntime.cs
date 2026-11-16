@@ -217,6 +217,7 @@ public sealed class WarfrontProgressionRuntime
     {
         SyncBattle(battle);
         _newlyPaid.Clear();
+        if (battle.IsWarfrontFortress) return _newlyPaid;   // the fortress pays boss-kill and kill XP only: its waypoints are never captures, and its Won is the Warboss's death (W14b review 1)
         if (change.HasFlag(TfwBattleChange.PositionSecured))
             for (int k = 0; k < 3 && k < battle.Objectives.Count; k++)
                 if (battle.Objectives[k].State == TfwPositionState.Secured && _paid.Add(k))

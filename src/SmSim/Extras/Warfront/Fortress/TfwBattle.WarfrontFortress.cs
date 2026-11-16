@@ -17,7 +17,7 @@ public sealed partial class TfwBattle
     /// <summary>The fortress's stage flow (null outside the fortress battle).</summary>
     public WarfrontFortressState? WarfrontFortressFlow => _fortress;
     /// <summary>Humans and others whose ids the run set this tick (<see cref="SetPlayerIds"/>): the length of the run's feet list.</summary>
-    internal int FortressPlayerCount => _stormIds.Count;
+    public int FortressPlayerCount => _stormIds.Count;
     /// <summary>The id the run set for the <paramref name="k"/>th feet entry this tick.</summary>
     internal int FortressPlayerId(int k) => _stormIds[k];
     /// <summary>The Boss Orks the fortress stood on its approaches, and the elites it stood on its posts (for tests and the report).</summary>
