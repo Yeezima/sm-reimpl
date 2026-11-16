@@ -9,8 +9,9 @@
   eye height, each control point at eye height and from 4 m back and up (third person), and three long overviews. Stills: <OutDir>\<map>\<tag>_NNN.png,
   places.txt names them in order. Only the processes it starts are stopped, by PID. Bounded by --quit-after.
 #>
-param([Parameter(Mandatory)][string]$Map, [string]$Tag = 'before', [string]$OutDir = 'D:\sm-reimpl\media\maps-visual-qa', [double]$Every = 2.5, [int]$Bots = 2, [string]$ClientArgs = '', [int]$Port = 0)
+param([Parameter(Mandatory)][string]$Map, [string]$Tag = 'before', [string]$OutDir = $env:SM_QA_MEDIA_DIR, [string]$PlaceRange = '', [string]$EngineArgs = '', [double]$Every = 2.5, [int]$Bots = 2, [string]$ClientArgs = '', [int]$Port = 0)
 $ErrorActionPreference = 'Stop'
+if (-not $OutDir) { throw 'pass -OutDir <folder> (or set SM_QA_MEDIA_DIR): stills show original assets and must stay outside the repository' }
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $RepoRoot 'tools\quiet-launch.ps1')
 $maps = @{
@@ -58,6 +59,11 @@ Add-Place 'open mid to Chaos' (Pose @($mid[0], $mid[1], ($mid[2] + 18)) $d.c 0 -
 Add-Place 'open mid to Marines' (Pose @($mid[0], $mid[1], ($mid[2] + 18)) $d.m 0 -8)
 Add-Place 'open mid down' (Pose @($mid[0], $mid[1], ($mid[2] + 60)) $mid 0 -80)
 Add-Place 'open mid up (sky)' (Pose @($mid[0], $mid[1], ($mid[2] + 2)) $d.c 0 55)
+if ($PlaceRange -match '^(\d+)-(\d+)$') {   # e.g. 19-22: the settle place plus those places (1-based, as the before/after numbering)
+    $a = [int]$Matches[1]; $b = [int]$Matches[2]
+    $keep = @(0) + @(($a - 1)..($b - 1) | Where-Object { $_ -lt $places.Count })
+    $places = [System.Collections.Generic.List[string]]($keep | ForEach-Object { $places[$_] }); $names = [System.Collections.Generic.List[string]]($keep | ForEach-Object { $names[$_] })
+}
 $tour = ($places -join ';')
 $out = Join-Path $OutDir $Map
 New-Item -ItemType Directory -Force -Path $out | Out-Null
@@ -92,7 +98,8 @@ try {
     }
     Start-Sleep -Seconds 5
     $extra = @(); if ($ClientArgs) { $extra = @($ClientArgs -split ' ' | Where-Object { $_ }) }
-    $ga = @('--windowed', '--log', (Join-Path $logDir 'client.log'), '--')
+    $eng = @(); if ($EngineArgs) { $eng = @($EngineArgs -split ' ' | Where-Object { $_ }) }
+    $ga = @('--windowed') + $eng + @('--log', (Join-Path $logDir 'client.log'), '--')
     $ca = @('--connect', "127.0.0.1:$Port", '--observe', '--observe-tour', $tour, '--no-sound', '--no-hud', '--no-markers', '--screenshot', (Join-Path $out "$Tag.png"), '--screenshot-every', "$Every", '--quit-after', "$total") + $extra
     & (Join-Path $RepoRoot 'tools\godot.ps1') @ga @ca *> $null
     Write-Host "client exited $LASTEXITCODE; stills in $out"
@@ -102,4 +109,6 @@ finally {
     # HasExited proved unreliable for the quiet-launched server (31 leaked): always kill by its own PID, ignore 'not found'.
     & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
     Get-Process -Id $server.Id -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    # the recorded PID did not always match the real server (31 leaked): also stop the dotnet process that holds this run's own port, found by its command line (only this run's port).
+    Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" | Where-Object { $_.CommandLine -match [regex]::Escape("SmServer.dll --bind 127.0.0.1 --port $Port ") -or $_.CommandLine -match [regex]::Escape("SmServer.dll") -and $_.CommandLine -match "--port $Port --map $Map " } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }

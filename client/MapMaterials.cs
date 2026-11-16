@@ -49,6 +49,10 @@ public sealed partial class MapMaterials
     public int Tinted { get; private set; }
     /// <summary>Self-lit cards (maps-visual-qa): <c>diff_emis</c> materials whose emissive map is their diffuse map, drawn unlit as the picture.</summary>
     public int SelfLit { get; private set; }
+    /// <summary>The new-map drawing rules (self-lit cards, fog-free vista cards): set by <see cref="MapView"/> for the imported Classic maps only (<see cref="MapDecorLists.IsNewClassicMap"/>); off for Manufactorum, Musou, characters and weapons.</summary>
+    public bool NewMapRules { get; set; }
+    /// <summary><c>--old-card-fog</c>: the unlit vista cards take the depth fog again (before / after aid).</summary>
+    public static readonly bool OldCardFog = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-card-fog") >= 0;
     /// <summary><c>--old-emissive-cards</c>: draw those cards lit with the picture as emission again (before / after aid).</summary>
     public static readonly bool OldEmissiveCards = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-emissive-cards") >= 0;
     /// <summary>Whether <paramref name="bmat"/> is a self-lit card: shader <c>diff_emis</c> (no normal map) with its emissive map the same texture as its diffuse map.</summary>
@@ -95,6 +99,7 @@ public sealed partial class MapMaterials
         {
             material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
             if (bmat.ShaderName?.Contains("unlit", StringComparison.Ordinal) == true) material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+            if (NewMapRules && !OldCardFog && bmat.ShaderName?.Contains("unlit", StringComparison.Ordinal) == true) material.DisableFog = true;   // maps-visual-qa: the cards carry their own painted haze
             material.RenderPriority = -2;   // far backdrops first: whatever is blended in front of them draws over them
             Blended++;
         }
@@ -127,7 +132,7 @@ public sealed partial class MapMaterials
         material.Roughness = roughness;
         material.MetallicSpecular = specular;
 
-        if (bmat.Textures.TryGetValue("EmissiveMap", out var emissiveName) && IsSelfLitCard(bmat, emissiveName, diffuseName))
+        if (bmat.Textures.TryGetValue("EmissiveMap", out var emissiveName) && NewMapRules && IsSelfLitCard(bmat, emissiveName, diffuseName))
         {
             // maps-visual-qa: a self-lit card (shader diff_emis, the emissive map IS the diffuse map: Shattered Bridge's vistacard_4b, a far building's painted silhouette). Lit as a surface plus 1.5 x its own
             // picture as emission it came out blown-out white; drawn as the picture itself, unlit (the same reading as the other vista cards, BlendMode 1 with diff_unlit). Provisional approximation.

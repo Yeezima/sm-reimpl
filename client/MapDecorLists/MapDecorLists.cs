@@ -90,8 +90,8 @@ public static class MapDecorLists
     /// </summary>
     public static bool SkipsSkyBoxes(string map, bool old) => !old && !map.Equals(Map, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>maps-visual-qa: whether a map's sky boxes are drawn as a sky decoded from their YCoCg texture: wherever <see cref="SkipsSkyBoxes"/> (never Manufactorum), unless <paramref name="off"/> (<c>--no-sky-textures</c>).</summary>
-    public static bool DrawsSkyTextures(string map, bool old, bool off) => !off && SkipsSkyBoxes(map, old);
+    /// <summary>maps-visual-qa: whether a map's sky boxes are drawn as a sky decoded from their YCoCg texture: wherever <see cref="SkipsSkyBoxes"/> (never Manufactorum), unless <paramref name="off"/> (<c>--no-sky-textures</c>) and in the Compatibility renderer (its sky drawing showed the box over the level in a test still, so the old-GPU path keeps the haze gradient).</summary>
+    public static bool DrawsSkyTextures(string map, bool old, bool off, bool compatibility = false) => !off && !compatibility && SkipsSkyBoxes(map, old) && IsNewClassicMap(map);
 
     /// <summary>
     /// maps-visual-qa: shaders whose name starts with <c>diffuv1</c> (<c>diffuv1_vtxtint_normdtluv1_specuv1</c>: Aquila Canyon's and Desolation's rock plateaus, Dome Mechanicus' wall pieces) read their diffuse,
@@ -108,6 +108,15 @@ public static class MapDecorLists
 
     /// <summary>Whether <paramref name="map"/> gets the dark floor plane (never with <paramref name="off"/>, <c>--no-void-floor</c>).</summary>
     public static bool HasVoidFloor(string map, bool off) => !off && VoidFloorMaps.Contains(map, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// maps-visual-qa: the ten imported Classic PvP maps (<c>mp_*</c> but never Manufactorum). The new drawing rules (sky textures, self-lit cards, second UV set, card fog) apply to these only: not Manufactorum,
+    /// not Musou Mode's maps, not characters or weapons (those build their materials without a map name).
+    /// </summary>
+    public static bool IsNewClassicMap(string? map) => map is not null && map.StartsWith("mp_", StringComparison.OrdinalIgnoreCase) && !map.Equals(Map, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The shader's far-plane clip z (times w) for the sky: 0 in the reversed-Z renderers (Forward+, Mobile), just inside 1 in the Compatibility renderer (OpenGL, -1..1).</summary>
+    public static float SkyFarZ(bool compatibility) => compatibility ? 0.9999f : 0f;
 
     /// <summary>The set for <paramref name="map"/>, or null (nothing is hidden there).</summary>
     public static DecorSet? For(string map) => Sets.TryGetValue(map, out var set) ? set : null;
@@ -140,4 +149,18 @@ public static class MapDecorLists
         return hidden;
     }
 
+}
+
+/// <summary>
+/// maps-visual-qa: the sky boxes' YCoCg-DXT5 decode as the shader in <c>MapSky</c> computes it, in C# so a test can pin the formula: Co in R, Cg in G, a scale in B (scale = B * 255 / 8 + 1) and the luma Y in
+/// alpha; Co and Cg are stored centred on 128/255. Inputs and outputs 0..1; the result is display (sRGB) values, clamped.
+/// </summary>
+public static class YCoCgSky
+{
+    public static (float R, float G, float B) Decode(float r, float g, float b, float a)
+    {
+        float s = b * 255f / 8f + 1f;
+        float co = (r - 128f / 255f) / s, cg = (g - 128f / 255f) / s;
+        return (Math.Clamp(a + co - cg, 0f, 1f), Math.Clamp(a + cg, 0f, 1f), Math.Clamp(a - co - cg, 0f, 1f));
+    }
 }
