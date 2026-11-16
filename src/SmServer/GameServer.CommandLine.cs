@@ -170,7 +170,6 @@ public static class ServerCommandLine
 
     static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
-<<<<<<< HEAD
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
