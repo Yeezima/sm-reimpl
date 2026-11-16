@@ -62,6 +62,9 @@ public static class AshfallFront
         return MathF.Abs(at.X - OffsetOf(band)) <= AshfallMap.Half + 20f && MathF.Abs(at.Y) <= AshfallMap.Half + 20f ? band : -1;
     }
 
+    /// <summary>A template piece's own yaw step (<paramref name="pieceYaw"/>) after the template is turned by <paramref name="templateYaw"/> steps, in the 24 steps a turn of <c>AshfallBuilder.Trig</c> (a facade keeps its facing: 6 + 6 is a half turn, 12, not 0).</summary>
+    public static int TurnedYaw(int pieceYaw, int templateYaw) => ((pieceYaw + templateYaw) % 24 + 24) % 24;
+
     /// <summary>The band whose square holds world x (nearest centre, clamped).</summary>
     public static int BandAt(float x) => Math.Clamp((int)MathF.Round(x / BandSpacing), 0, BandCount - 1);
 
@@ -565,7 +568,7 @@ public static class AshfallFront
         var list = new List<AshfallFieldStructure>();
         // the template's pieces turn with it: their offsets as well as their own yaw (a quarter turn moved the pieces but not their offsets before the re-review: a facade pair overlapped)
         void Add(string fam, float dx, float dy, Vector3 size, int y = -1) =>
-            list.Add(new("", fam, at + (yaw == 6 ? new Vector2(-dy, dx) : new Vector2(dx, dy)), size, y < 0 ? yaw : (y + yaw) % 12, prof.Name));
+            list.Add(new("", fam, at + (yaw == 6 ? new Vector2(-dy, dx) : new Vector2(dx, dy)), size, y < 0 ? yaw : TurnedYaw(y, yaw), prof.Name));
         float low(uint s) => prof.LowMin + (prof.LowMax - prof.LowMin) * (s % 3u) / 2f;
         float g = prof.ClusterGap;
         switch (prof.Kind)

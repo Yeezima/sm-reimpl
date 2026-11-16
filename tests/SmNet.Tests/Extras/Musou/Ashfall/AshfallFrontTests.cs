@@ -108,6 +108,18 @@ public class AshfallFrontTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_turned_templates_pieces_keep_their_facing()
+    {
+        // 24 yaw steps a turn: a piece at a quarter turn (6) in a template turned a quarter (6) faces a half turn (12), not back to 0 (a facade flipped 180 degrees with % 12)
+        Assert.Equal(12, AshfallFront.TurnedYaw(6, 6));
+        Assert.Equal(6, AshfallFront.TurnedYaw(0, 6));
+        Assert.Equal(6, AshfallFront.TurnedYaw(6, 0));
+        Assert.Equal(0, AshfallFront.TurnedYaw(18, 6));
+        var (s12, c12) = (MathF.Sin(12 * MathF.PI / 12f), MathF.Cos(12 * MathF.PI / 12f));
+        Assert.True(c12 < -0.99f && MathF.Abs(s12) < 1e-3f);   // step 12 is the half turn the facade's front ends at
+    }
+
+    [Fact]
     public void Gate_A_names_the_rule_a_bad_frame_breaks()
     {
         var prof = AshfallBandProfile.Wasteland;
