@@ -89,15 +89,15 @@ public class DevToolsTests
     public void The_gate_wants_the_switch_a_loopback_bind_and_a_loopback_requester()
     {
         Assert.False(DevToolsGate.Enabled(null));
-        Assert.False(DevToolsGate.Enabled(Setup(IPAddress.Any)));
-        Assert.False(DevToolsGate.Enabled(Setup(IPAddress.IPv6Any)));
+        Assert.False(DevToolsGate.Enabled(Setup(new IPAddress(new byte[4]))));
+        Assert.False(DevToolsGate.Enabled(Setup(new IPAddress(new byte[16]))));
         Assert.False(DevToolsGate.Enabled(Setup(IPAddress.Parse("192.168.1.20"))));
         Assert.True(DevToolsGate.Enabled(Setup(IPAddress.Loopback)));
         Assert.True(DevToolsGate.Enabled(Setup(IPAddress.IPv6Loopback)));
         Assert.True(DevToolsGate.Allows(Setup(), new IPEndPoint(IPAddress.Loopback, 1234)));
         Assert.True(DevToolsGate.Allows(Setup(), new IPEndPoint(IPAddress.IPv6Loopback, 1234)));
         Assert.False(DevToolsGate.Allows(Setup(), new IPEndPoint(IPAddress.Parse("10.0.0.7"), 1234)));
-        Assert.False(DevToolsGate.Allows(Setup(IPAddress.Any), new IPEndPoint(IPAddress.Loopback, 1234)));
+        Assert.False(DevToolsGate.Allows(Setup(new IPAddress(new byte[4])), new IPEndPoint(IPAddress.Loopback, 1234)));
         Assert.False(DevToolsGate.Allows(null, new IPEndPoint(IPAddress.Loopback, 1234)));
     }
 
@@ -122,7 +122,7 @@ public class DevToolsTests
     public void A_server_bound_to_every_interface_ignores_the_tools_even_with_the_switch()
     {
         var launcher = new FakeLauncher();
-        var (h, log) = Make(Setup(IPAddress.Any, launcher));
+        var (h, log) = Make(Setup(new IPAddress(new byte[4]), launcher));
         Settle(h);
         h.Clients[0].SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.Invincible, true);
         h.Clients[0].SendDevCommand(DevCommandKind.AddBot, DevSides.Loyalists, true);

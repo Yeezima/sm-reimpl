@@ -335,6 +335,7 @@ public partial class NetworkView : Node3D
             SetOwnLooks(clientOptions);   // customizer T7
             clientOptions = WithNetFeelArgs(clientOptions);   // net/responsive: the latency switches and the readout (NetworkView.Responsive.cs)
             _client = new GameClient(_config, fingerprint, clientTransport, clientClock, clientOptions, nonce: clientNonce);
+            _client.UnscaledClock = _devClock?.Real;   // dev-tools: the developer state's freshness runs on real time (a paused server repeats it every real second)
             DemoPrerollInReady();   // M40 T0: a replayed demo takes the Challenge (loads the map) and waits for the background loads before the first frame
             if (RequestedSide != Team.None) GD.Print($"--side: requesting the {SideName(RequestedSide)} side (the server may balance onto the other side)");
             GD.Print($"connecting to {endpoint}; tuning from {tuning.Source}; config {_config.Hash():X16}; idle animation {_idleAnimation ?? "none"}");

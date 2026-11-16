@@ -239,6 +239,7 @@ public sealed partial class GameServer
 
     public void Update()
     {
+        if (_options.DevTools is not null) DevKeepAlive();   // protocol 80: a slowed or paused server still tells its clients it is alive (GameServer.DevTools.cs)
         RefreshBans(_clock.Now);   // hardening (GameServer.Guard.cs): bans, per-address rules, idle kick, crash isolation
         for (int handled = 0; handled < _options.MaxPacketsPerUpdate && _transport.TryReceive(out int connection, out var packet); handled++)
         {

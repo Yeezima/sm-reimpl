@@ -90,9 +90,11 @@ public sealed partial class GameServer
         if (!DevToolsOn) { NoteDevRefused("this server was not started with --dev-tools on a loopback address"); return; }
         var remote = _transport.EndPointOf(connection);
         if (!DevToolsGate.FromLoopback(remote)) { NoteDevRefused($"{remote?.Address} is not a loopback address"); return; }
-        if (peer.Spectator) return;
+        if (peer.Spectator || peer.Bot) return;   // a bot (or a spectator) never commands the tools
+        // The rate limit counts real time: the server's clock stands still when paused, and a bucket on it would never refill (a pause that locks itself in). Changing the time scale is never limited.
+        var real = _options.DevTools?.Clock?.Real.Now ?? _clock.Now;
         peer.DevRequests ??= new TokenBucket(DevRequestRate, DevRequestRate);
-        if (!peer.DevRequests.TryTake(_clock.Now)) { Answer(DevNote.TooFast); return; }
+        if (cmd.Kind != DevCommandKind.SetTimeScale && !peer.DevRequests.TryTake(real)) { Answer(DevNote.TooFast); SendDevStates(); return; }
         switch (cmd.Kind)
         {
             case DevCommandKind.SetFlag: SetDevFlag(peer, (DevToolsFlags)cmd.Argument, cmd.Value); break;
@@ -107,7 +109,13 @@ public sealed partial class GameServer
                 else Answer(DevNote.NotPlaying);
                 break;
             case DevCommandKind.RestartMatch:
-                if (World.DevRestartMatch()) { Log?.Invoke($"dev tools: restart match, same map, fresh scores (player {peer.PlayerId}): {World.State}"); Answer(DevNote.Applied); }
+                bool wasIndefinite = (World.DevFlags & DevToolsFlags.Indefinite) != 0;
+                if (World.DevRestartMatch())
+                {
+                    Log?.Invoke($"dev tools: restart match, same map, fresh scores (player {peer.PlayerId}): {World.State}");
+                    if (wasIndefinite) Log?.Invoke("dev tools: indefinite match OFF (the match was restarted: the new match is normal)");
+                    Answer(DevNote.Applied);
+                }
                 else Answer(DevNote.NotPlaying);
                 break;
             case DevCommandKind.KillMe:
@@ -203,7 +211,7 @@ public sealed partial class GameServer
         if (!DevTools.IsSingleFlag(flag)) return;
         bool was = (World.DevFlags & flag) != 0;
         World.DevFlags = on ? World.DevFlags | flag : World.DevFlags & ~flag;
-        _devFlagsSetByCommand = World.DevFlags; _lastDevFlags = World.DevFlags;
+        _lastDevFlags = World.DevFlags;
         if (was != on) Log?.Invoke($"dev tools: {FlagName(flag)} {(on ? "ON" : "OFF")} (player {peer.PlayerId})");
         Answer(DevNote.Applied);
     }
@@ -316,12 +324,24 @@ public sealed partial class GameServer
                 Log?.Invoke("dev tools: indefinite match OFF (the next match started)");
             _lastDevFlags = flags; _devDirty = true;
         }
-        _devFlagsSetByCommand = flags;
         if (!_devDirty && _clock.Now < _nextDevState) return;
         SendDevStates();
     }
 
-    DevToolsFlags _devFlagsSetByCommand;
+    TimeSpan _nextDevKeep;
+
+    /// <summary>
+    /// Called every <see cref="Update"/>, outside the tick loop (a paused server runs no ticks): while the time scale is not 1 the state goes out once a real second, so clients can tell a paused
+    /// or slowed server from a dead one (their copy of the state expires after 3.5 real seconds and they return to normal time).
+    /// </summary>
+    void DevKeepAlive()
+    {
+        if (_devTimeScale == 0 || !DevToolsOn) return;
+        var real = _options.DevTools?.Clock?.Real.Now ?? _clock.Now;
+        if (real < _nextDevKeep) return;
+        _nextDevKeep = real + TimeSpan.FromSeconds(1);
+        SendDevStates();
+    }
 
     /// <summary>Sends the state to every player and bot on a loopback address (a bot takes the bot values and the time scale from it).</summary>
     void SendDevStates()
