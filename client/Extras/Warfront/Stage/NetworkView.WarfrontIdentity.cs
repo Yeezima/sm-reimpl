@@ -19,6 +19,14 @@ public partial class NetworkView
         return WarfrontClientKey.LoadOrCreate(WarfrontClientKey.DefaultPath());
     }
 
+    WarfrontStageModel MakeWarfrontModel()
+    {
+        ulong key = WarfrontIdentityKey();
+        var model = new WarfrontStageModel(key, WarfrontDisplayName());
+        if (WarfrontClientKey.LastProblem.Length > 0) { model.KeyNote = WarfrontClientKey.LastProblem; GD.Print("warfront: " + WarfrontClientKey.LastProblem); }
+        return model;
+    }
+
     string WarfrontDisplayName()
     {
         string? name = _client is { PlayerId: >= 0 } c ? c.NameOf(c.PlayerId) : null;
@@ -33,6 +41,7 @@ public partial class NetworkView
     {
         if (_client is not { Status: ClientStatus.Connected } client) return;
         var m = WarfrontModel;
+        m.Name = WarfrontDisplayName();   // read at send time: the name may not have been known when the model was made
         if (m.IdentifyDue(now) is { } identify)
         {
             client.SendExtrasCommand(SmNet.Extras.Warfront.WarfrontWire.CommandTag, identify);

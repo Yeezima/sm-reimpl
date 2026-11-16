@@ -19,7 +19,7 @@ public partial class NetworkView
     bool WarfrontOn => _config is { } c && c.Extras.HasFlag(ContentExtras.Warfront);
 
     /// <summary>The stage model of this connection, made on first use (the key and the name are this player's).</summary>
-    internal WarfrontStageModel WarfrontModel => _wfModel ??= new WarfrontStageModel(WarfrontIdentityKey(), WarfrontDisplayName());
+    internal WarfrontStageModel WarfrontModel => _wfModel ??= MakeWarfrontModel();
 
     // The fan-out for later slices: each declared here as a no-op; the slice that owns it implements it in its own Extras/Warfront folder.
     partial void WarfrontProgressionSection(byte tag, ReadOnlySpan<byte> payload, ref bool handled);

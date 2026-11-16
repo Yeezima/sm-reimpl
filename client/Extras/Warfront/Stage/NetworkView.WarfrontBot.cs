@@ -1,5 +1,7 @@
+using System;
 using Godot;
 using SmNet.Extras.Warfront;
+using SmNet.Extras.Musou.Campaign;
 using SmNet.Extras.Warfront.Results;
 using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Results;
@@ -62,6 +64,7 @@ public partial class NetworkView
             GD.Print($"t {now:F1} s: warfront demo: the first deployment row is pressed");
             m.Hub.RequestDeploy(v.Targets[0]);
         }
+        WarfrontStationTest(now);
         if (WarfrontResultsDemo && !_wfDemoResults && now >= 10.0)
         {
             _wfDemoResults = true;
@@ -72,5 +75,33 @@ public partial class NetworkView
             foreach (var chunk in WarfrontResultsWire.Split(WarfrontResultsWire.Encode(record), 1))
                 if (m.ApplyResults(chunk) is { } done) WarfrontRecordArrived(done);
         }
+    }
+
+    static readonly bool WarfrontStationTestOn = CmdFlag("warfront-station-test");
+    int _wfStationStep;   // 0 walking, 1 use pressed, 2 done
+    double _wfStationAt, _wfStationLog;
+
+    static void WarfrontKey(Key key, bool pressed) => Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = key, Keycode = key, Pressed = pressed });
+
+    /// <summary>
+    /// <c>--warfront-station-test</c> (windowed, not a bot; a capture aid): the player walks to the Thunderhawk's destination station with the forward key and presses the Use key (real key events through the input
+    /// system, not a call of the panel), so the one path a player will use is the one tested. It logs the distance every 2 s and the press; the war map then opens through the hook.
+    /// </summary>
+    void WarfrontStationTest(double now)
+    {
+        if (!WarfrontStationTestOn || _wfStationStep >= 2 || TfwHub is not { } hub || _client is null) return;
+        var me = _client.Predicted;
+        var goal = hub.DestinationStation;
+        float dx = goal.X - me.Position.X, dy = goal.Y - me.Position.Y;
+        float flat = MathF.Sqrt(dx * dx + dy * dy);
+        if (now - _wfStationLog >= 2.0) { _wfStationLog = now; GD.Print($"t {now:F1} s: warfront station test: {flat:F1} m from the destination station, station under the player: {_tfwAt}, step {_wfStationStep}"); }
+        if (_wfStationStep == 0)
+        {
+            if (now < 6.0 || PickerBusy) return;
+            _yaw = MathF.Atan2(-dx, dy);
+            if (_tfwAt == TfwStation.Destination) { WarfrontKey(Key.W, false); WarfrontKey(Key.E, true); _wfStationStep = 1; _wfStationAt = now; GD.Print($"t {now:F1} s: warfront station test: Use pressed at {flat:F1} m"); }
+            else WarfrontKey(Key.W, true);
+        }
+        else if (now - _wfStationAt > 0.3) { WarfrontKey(Key.E, false); _wfStationStep = 2; }
     }
 }

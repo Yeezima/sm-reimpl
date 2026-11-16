@@ -275,4 +275,34 @@ public class WarfrontClientStageTests
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Identify_never_gives_up_and_the_note_names_the_wait()
+    {
+        var m = new WarfrontStageModel(KeyB, "Beta");
+        int sent = 0;
+        for (int t = 0; t < 300; t++) if (m.IdentifyDue(t) is not null) sent++;
+        Assert.Equal(300, sent);
+        Assert.Equal("WAITING FOR THE SERVER TO KNOW YOU", m.NoteOverride(300));
+        var fresh = new WarfrontStageModel(KeyB, "Beta");
+        fresh.IdentifyDue(0);
+        Assert.Equal("", fresh.NoteOverride(2));
+        fresh.ApplyHub(HubBytes(Campaign(), KeyB));
+        Assert.Equal("", fresh.NoteOverride(30));
+    }
+
+    [Fact]
+    public void The_note_carries_a_throwaway_key_a_refusal_and_an_unanswered_deploy()
+    {
+        var m = new WarfrontStageModel(KeyA, "Alpha") { KeyNote = "THE KEY FILE CANNOT BE WRITTEN" };
+        Assert.Equal("THE KEY FILE CANNOT BE WRITTEN", m.NoteOverride(0));
+        var r = new WarfrontStageModel(KeyA, "Alpha");
+        r.ApplyHub(HubBytes(Campaign(), KeyA));
+        r.RequestDeploy(WarfrontTarget.Node(1));
+        for (int t = 0; t < 40; t++) r.DeployDue(t);
+        Assert.Equal("THE DEPLOYMENT WAS NOT ANSWERED", r.NoteOverride(40));
+        r.RequestDeploy(WarfrontTarget.Node(1));
+        r.ApplyStage(Stage(WarfrontStageState.None, status: "only the leader deploys"), 41);
+        Assert.Equal("ONLY THE LEADER DEPLOYS", r.NoteOverride(41));
+    }
 }

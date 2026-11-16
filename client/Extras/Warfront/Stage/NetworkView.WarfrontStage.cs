@@ -62,6 +62,8 @@ public partial class NetworkView
         if (!WarfrontOn) return;
         handled = true;
         if (_bot) return;
+        // the run is over and the results panel was closed: the station brings it back
+        if (WarfrontModel.Hub.IsOver && WarfrontModel.Record is { } record) { _wfPendingRecord = record; return; }
         WarfrontOpenHubPanel();
     }
 
@@ -156,6 +158,7 @@ public partial class NetworkView
             if (_wfTravel is not null)
             {
                 string destination = m.TravelDestinationText, status = m.TravelStatusText;
+                if (m.NoteOverride(now) is { Length: > 0 } travelNote) status += "    " + travelNote;
                 if (_wfTravel.DestinationLabel.Text != destination) _wfTravel.DestinationLabel.Text = destination;
                 if (_wfTravel.StatusLabel.Text != status) _wfTravel.StatusLabel.Text = status;
                 if (m.Stage is { State: SmNet.Extras.Warfront.WarfrontStageState.Preparing } s && Math.Abs(_wfTravel.Elapsed - s.ElapsedSeconds) > 1.5) _wfTravel.SetElapsed(s.ElapsedSeconds);
@@ -168,6 +171,8 @@ public partial class NetworkView
             WarfrontCloseLayer();
             GD.Print($"t {now:F1} s: warfront: the travel screen closed at the landing");
         }
+        // the war map's note line carries what needs saying about this client (a throwaway key, no answer to Identify, a refused or unanswered deploy)
+        if (_wfHubPanel is not null && m.NoteOverride(now) is { Length: > 0 } note && _wfHubPanel.NoteLabel.Text != note) _wfHubPanel.NoteLabel.Text = note;
         // the war map closes when the ship is left or the player falls
         if (_wfHubPanel is not null && (m.Hub.View.Phase != WarfrontPhase.Ship || !me.Alive)) WarfrontCloseHubPanel();
         // the results, once the record is complete and nothing else is up

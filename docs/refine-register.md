@@ -28,11 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3545 spec table rows: **2538 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
-Scanned 3549 spec table rows: **2541 tagged**, 656 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 762 rows of the changes document.
-Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
-Scanned 3601 spec table rows: **2588 tagged**, 661 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 764 rows of the changes document.
-Scanned 3662 spec table rows: **2641 tagged**, 665 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
+Scanned 3663 spec table rows: **2642 tagged**, 665 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,21 +50,21 @@ Scanned 3662 spec table rows: **2641 tagged**, 665 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 823 | 778 | 609 | 229 | 1 |
+| Core simulation (provisional values) | 824 | 779 | 610 | 229 | 1 |
 | General game design | 84 | 83 | 63 | 17 | 0 |
 | Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2641** | 2360 | 1983 | 801 | 37 |
+| **All areas** | **2642** | 2361 | 1984 | 801 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1531 |
-| confidence: low | 957 |
+| confidence: low | 958 |
 | confidence: medium | 917 |
 | notes: ours | 464 |
 | kind: interpretation | 428 |
-| kind: estimate | 225 |
+| kind: estimate | 226 |
 | notes: estimate | 210 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -2628,7 +2624,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (823)
+### Core simulation (provisional values) (824)
 
 *Spec section: Provisional values in use*
 
@@ -2780,6 +2776,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-74CAE9DD` | Warfront objective D check (W2) | D is `TfwLayout.Hq` (the stronghold centre on the through road, about (0, 138) in the band frame; capture radius `TfwMap.HqRadius` 15 m): on the walking graph (a node within 6 m horizontally, 8 m vertically), reachable on foot from the landing zone and from… (m, degrees) | kind: estimate; confidence: low | the points' approach rule of the battlefield measure applied to D | Warfront objective D check (W2): compare with SM1 with an overlaid screenshot taken from the same position. Ours: D is TfwLayout.Hq (the stronghold centre on the through road, about… | ☐ |
 | `R-61589E53` | Warfront stuck-unit log (W2) | every relocation or removal an Ork gets from the stranded or stuck failsafes is one server line (slot, unit type, position, action, failsafe) and a per-slot count in the report; no gameplay value changes (the failsafes' timings stay the existing ones, 6 s… | kind: choice; confidence: low | Warfront plan section 2 (the pilot's unprofiled stuck units) | Warfront stuck-unit log (W2): compare with SM1 by feel or video. Ours: every relocation or removal an Ork gets from the stranded or stuck… | ☐ |
 | `R-6D9D83B3` | Warfront single-band view (W2, client) | client only, no collision, not in any hash: a lane slot draws its one band as the pilot draws a band (the avenue's openings in the boundary wall, the kit look, the storm look) with the pilot's outside scenery unchanged (10-degree outside ground out to 1200 m… (m, degrees) | kind: provisional; confidence: low | Warfront plan section 2 | Warfront single-band view (W2, client): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, no collision, not in any hash: a lane slot draws its one… | ☐ |
+| `R-E4853EFB` | Warfront stage flow: client timings (W5b) | client only, nothing in a hash or on the wire beyond the commands: Identify resent every 1 s until the Hub names the viewer (no cap; the screens say "waiting for the server to know you" after 5 s); Deploy and NewRun resent every 1 s, at most 10 sends, then… (s) | kind: estimate; confidence: low | Warfront plan sections 3 and 4 (our values) | Warfront stage flow: client timings (W5b): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: client only, nothing in a hash or on the wire beyond the commands:… | ☐ |
 | `R-39BE64FA` | Ashfall drawn-box rule (draft 9) | no two placed models' drawn boxes (the whole model's bounds as placed) meet deeper than 0.3 m (the overlap rule's tolerance and moves: the later one moves, shrinks, takes the pool's next model, else is left out); bridges on their supports and the stronghold's… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "no stacked 3D objects; scale one object instead"); the tolerance and exemptions ours | Ashfall drawn-box rule (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: no two placed models' drawn boxes (the whole model's bounds as… | ☐ |
 | `R-40B787AC` | Ashfall rubble props (draft 9) | AR-001..003 (separate small rubble piles, metre scale) placed at the feet of standing walls and buildings and along the plaza's edge and the avenues' kerbs: candidates every 6 m (8 m on the edges) in a seeded order, at most 60, 10 m apart, each leaning on its… (m) | kind: ours; confidence: low | the look lead's request (2026-11-06), the owner's "rubble as separate small props, not fused into buildings"; counts, spacing and pushes ours | Ashfall rubble props (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: AR-001..003 (separate small rubble piles, metre scale) placed at the… | ☐ |
 | `R-829BC3E0` | Ashfall urban rules (draft 9) | loose debris (rubble, collapsed wall pieces; not the ring's breach rubble) is placed after the buildings, only within 8 m of a standing building's drawn box (ruin shells and corners, facades, towers, the bunker, walls over 2.5 m); built pieces (cover, walls… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "the layout follows real urban-design logic"); the 8 m reach and the rules ours | Ashfall urban rules (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: loose debris (rubble, collapsed wall pieces; not the ring's breach… | ☐ |
