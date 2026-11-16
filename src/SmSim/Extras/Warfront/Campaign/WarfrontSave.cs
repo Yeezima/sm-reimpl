@@ -42,7 +42,25 @@ public static class WarfrontSave
     /// <summary>A new run: a fresh, empty state. Reads nothing from disk.</summary>
     public static WarfrontCampaign NewRun(ulong runSeed, IWarfrontRollSource? rolls = null) => new(runSeed, rolls);
 
-    /// <summary>Moves a finished run into <c>records\</c> and removes <c>run.json</c>. Returns the record path.</summary>
+    /// <summary>
+    /// The state JSON for the archive: every campaign key (the players' and the join order's) replaced by the player's join index, so a file kept for the honor roll holds no identity.
+    /// The live <c>run.json</c> keeps the keys (rejoin needs them). Slice W15 owns this method and <see cref="Archive"/>.
+    /// </summary>
+    internal static string KeylessJson(WarfrontCampaign c)
+    {
+        var snap = c.ToSnapshot();
+        var index = new Dictionary<ulong, ulong>();
+        foreach (var k in snap.JoinOrder) index[k] = (ulong)index.Count;
+        snap.JoinOrder = snap.JoinOrder.Select(k => index[k]).ToList();
+        snap.Players = snap.Players.Select(p => new WarfrontPlayerState
+        {
+            Key = index.TryGetValue(p.Key, out var i) ? i : (ulong)index.Count, Name = p.Name, Xp = p.Xp, Level = p.Level, PicksTaken = p.PicksTaken,
+            Cards = new List<int>(p.Cards), Squad = p.Squad.Select(r => new WarfrontRetainerRecord { Id = r.Id, ClassName = r.ClassName, Name = r.Name }).ToList(), JoinGrantApplied = p.JoinGrantApplied,
+        }).ToList();
+        return JsonSerializer.Serialize(snap, WarfrontCampaign.Json);
+    }
+
+    /// <summary>Moves a finished run into <c>records\</c> (keys replaced by join index, <see cref="KeylessJson"/>) and removes <c>run.json</c>. Returns the record path.</summary>
     public static string Archive(string dir, WarfrontCampaign c, DateTime utc)
     {
         var rec = Path.Combine(dir, RecordsDir);
@@ -52,7 +70,7 @@ public static class WarfrontSave
         var path = Path.Combine(rec, stem + ".json");
         for (int n = 2; File.Exists(path); n++) path = Path.Combine(rec, stem + "-" + n + ".json");
         var tmp = path + ".tmp";
-        File.WriteAllText(tmp, c.ToJson());
+        File.WriteAllText(tmp, KeylessJson(c));
         File.Move(tmp, path);
         var run = Path.Combine(dir, RunFile);
         if (File.Exists(run)) File.Delete(run);
