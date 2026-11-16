@@ -55,8 +55,8 @@ public sealed class MapScene
     /// normal, specular and emissive maps, a second layer's diffuse and normal maps, and the blend mask).
     /// </summary>
     public required IReadOnlyDictionary<string, byte[]> Textures { get; init; }
-    /// <summary>The material texture parameters loaded into <see cref="Textures"/>; the others (second layers, masks, sky) are not read.</summary>
-    public static readonly IReadOnlyList<string> TextureParameters = ["DiffuseMap", "NormalMap", "SpecularMap", "EmissiveMap", "DiffuseMap2", "NormalMap2", "AlphaMaskMap"];
+    /// <summary>The material texture parameters loaded into <see cref="Textures"/>; the others are not read (maps-visual-qa: the sky boxes' <c>YCoCg</c> texture is, for the sky drawing).</summary>
+    public static readonly IReadOnlyList<string> TextureParameters = ["DiffuseMap", "NormalMap", "SpecularMap", "EmissiveMap", "DiffuseMap2", "NormalMap2", "AlphaMaskMap", "YCoCg"];
     /// <summary>The <c>l_lights</c> layer's sun, environment regions and placed lights (null: the map has none or it could not be read).</summary>
     public MapLighting? Lighting { get; init; }
     public required IReadOnlyList<string> Notes { get; init; }

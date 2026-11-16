@@ -30,6 +30,41 @@ public static class MapEmissiveCommand
             }
             return 0;
         }
+        if (rest.SkipWhile(a => a != "--dump-texture").Skip(1).FirstOrDefault() is { } dump)
+        {
+            // maps-visual-qa: writes the named textures (as the scene read them) to --out <dir> and prints each DDS header (size, FourCC); for inspecting a format (the sky boxes' YCoCg); nothing enters the repo.
+            string dir = rest.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault() ?? ".";
+            Directory.CreateDirectory(dir);
+            foreach (var name in dump.Split(','))
+            {
+                if (!scene.Textures.TryGetValue(name, out var bytes)) { Console.WriteLine($"{name}: not in the scene's textures"); continue; }
+                File.WriteAllBytes(Path.Combine(dir, name + ".dds"), bytes);
+                Console.WriteLine($"{name}: {bytes.Length} bytes, {BitConverter.ToInt32(bytes, 16)}x{BitConverter.ToInt32(bytes, 12)}, mips {BitConverter.ToInt32(bytes, 28)}, fourcc {System.Text.Encoding.ASCII.GetString(bytes, 84, 4)}");
+            }
+            return 0;
+        }
+        if (rest.SkipWhile(a => a != "--uv-range").Skip(1).FirstOrDefault() is { } uvMeshes)
+        {
+            // maps-visual-qa: per mesh block and material range, the position box and the UV set 0 / 1 ranges (for the sky boxes: which set carries the picture's mapping).
+            foreach (var name in uvMeshes.Split(','))
+            {
+                if (!scene.Meshes.TryGetValue(name, out var m)) { Console.WriteLine($"{name}: not in the scene"); continue; }
+                for (int b = 0; b < m.Blocks.Count; b++)
+                {
+                    var blk = m.Blocks[b];
+                    foreach (var r in blk.Materials)
+                    {
+                        var idx = Enumerable.Range(r.StartIndex, r.IndexCount).Select(i => blk.Indices[i]).Distinct().ToList();
+                        string Range(System.Numerics.Vector2[] uv) => uv.Length != blk.Positions.Length ? "none" : $"u {idx.Min(i => uv[i].X):0.###}..{idx.Max(i => uv[i].X):0.###} v {idx.Min(i => uv[i].Y):0.###}..{idx.Max(i => uv[i].Y):0.###}";
+                        var lo = new System.Numerics.Vector3(idx.Min(i => blk.Positions[i].X), idx.Min(i => blk.Positions[i].Y), idx.Min(i => blk.Positions[i].Z));
+                        var hi = new System.Numerics.Vector3(idx.Max(i => blk.Positions[i].X), idx.Max(i => blk.Positions[i].Y), idx.Max(i => blk.Positions[i].Z));
+                        if (rest.Contains("--verts")) foreach (var i in idx) Console.WriteLine($"    v{i}: pos {blk.Positions[i].X:0},{blk.Positions[i].Y:0},{blk.Positions[i].Z:0} uv0 {(blk.Uv0.Length > i ? blk.Uv0[i].X : 0):0.##},{(blk.Uv0.Length > i ? blk.Uv0[i].Y : 0):0.##}");
+                        Console.WriteLine($"{name}[{b}] {r.Name}: {idx.Count} vertices, box {lo.X:0}..{hi.X:0} x {lo.Y:0}..{hi.Y:0} x {lo.Z:0}..{hi.Z:0}; uv0 {Range(blk.Uv0)}; uv1 {Range(blk.Uv1)}");
+                    }
+                }
+            }
+            return 0;
+        }
         if (rest.Contains("--big"))
         {
             // classic-maps-all: the placements with the largest drawn extent (world box of the nearest LOD's mesh), with their materials: finds the flat slabs and backdrops that dominate a view.

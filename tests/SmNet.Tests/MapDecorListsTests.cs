@@ -110,6 +110,56 @@ public class MapDecorListsTests
         Assert.False(MapDecorLists.SkipsSkyBoxes(map, old: true));   // --old-sky-boxes restores the drawing everywhere
     }
 
+    [Theory]
+    [InlineData("mp_tdm_17", true), InlineData("mp_dlc1_map1", true), InlineData("mp_tdm_09", false), InlineData("MP_TDM_09", false)]
+    public void The_sky_boxes_are_drawn_as_a_sky_on_the_new_maps_only_and_the_switches_turn_it_off(string map, bool sky)
+    {
+        Assert.Equal(sky, MapDecorLists.DrawsSkyTextures(map, old: false, off: false));
+        Assert.False(MapDecorLists.DrawsSkyTextures(map, old: false, off: true));    // --no-sky-textures
+        Assert.False(MapDecorLists.DrawsSkyTextures(map, old: false, off: false, compatibility: true));   // the Compatibility renderer keeps the haze
+        Assert.False(MapDecorLists.DrawsSkyTextures(map, old: true, off: false));    // --old-sky-boxes
+    }
+
+    [Theory]
+    [InlineData("diffuv1_vtxtint_normdtluv1_specuv1", true), InlineData("diffuv1_vtxtint_normdtluv1_drvspec", true), InlineData("diff2_mskblenduv10_vtxtint_norm_drvspec", false), InlineData("diff_norm", false), InlineData(null, false)]
+    public void Only_the_diffuv1_shaders_read_their_base_maps_through_the_second_uv_set(string? shader, bool second) =>
+        Assert.Equal(second, MapDecorLists.UsesSecondUvSet(shader));
+
+    [Theory]
+    [InlineData("mp_tdm_11", true), InlineData("MP_TDM_11", true), InlineData("mp_tdm_09", false), InlineData("mp_tdm_17", false)]
+    public void Only_basilica_gets_the_dark_floor_plane_and_the_switch_removes_it(string map, bool floor)
+    {
+        Assert.Equal(floor, MapDecorLists.HasVoidFloor(map, off: false));
+        Assert.False(MapDecorLists.HasVoidFloor(map, off: true));
+    }
+
+    [Theory]
+    [InlineData("mp_tdm_17", true), InlineData("MP_DLC2_MAP4", true), InlineData("mp_tdm_09", false), InlineData("MP_TDM_09", false), InlineData("tfw_war", false), InlineData("", false), InlineData(null, false)]
+    public void The_new_map_drawing_rules_gate_on_the_imported_classic_maps_only(string? map, bool rules)
+    {
+        // self-lit cards, fog-free vista cards, the second UV set and the sky textures: never Manufactorum, Musou's maps, characters or weapons (no map name)
+        Assert.Equal(rules, MapDecorLists.IsNewClassicMap(map));
+        if (map is not null) Assert.Equal(rules, MapDecorLists.DrawsSkyTextures(map, old: false, off: false));
+    }
+
+    [Fact]
+    public void The_sky_sits_on_the_far_plane_of_either_depth_convention()
+    {
+        Assert.Equal(0f, MapDecorLists.SkyFarZ(compatibility: false));    // reversed-Z: far is 0
+        Assert.InRange(MapDecorLists.SkyFarZ(compatibility: true), 0.999f, 1f);   // OpenGL clip: far is +w
+    }
+
+    [Fact]
+    public void The_ycocg_decode_matches_the_shader_formula()
+    {
+        const float c = 128f / 255f;
+        static void Same((float R, float G, float B) got, float r, float g, float b) { Assert.Equal(r, got.R, 3); Assert.Equal(g, got.G, 3); Assert.Equal(b, got.B, 3); }
+        Same(YCoCgSky.Decode(c, c, 0f, 0.5f), 0.5f, 0.5f, 0.5f);                 // no chroma: grey of luma Y
+        Same(YCoCgSky.Decode(c + 0.2f, c, 0f, 0.5f), 0.7f, 0.5f, 0.3f);          // Co = 0.2: warm
+        Same(YCoCgSky.Decode(c + 0.2f, c, 8f / 255f, 0.5f), 0.6f, 0.5f, 0.4f);   // scale B = 8/255 -> 2: chroma halved
+        Same(YCoCgSky.Decode(c, c + 0.3f, 0f, 0.9f), 0.6f, 1f, 0.6f);            // Cg = 0.3: R = B = Y - Cg, G = Y + Cg (clamped)
+    }
+
     [Fact]
     public void Only_the_engines_sky_shaders_count_as_sky()
     {

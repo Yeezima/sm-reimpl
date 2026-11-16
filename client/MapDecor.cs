@@ -40,6 +40,19 @@ public static class MapDecor
     /// <summary>Whether the engine's sky-box surfaces (shader <c>sky_*</c>) are not drawn on <paramref name="map"/>: every map but Manufactorum, and never with <c>--old-sky-boxes</c>.</summary>
     public static bool SkipsSkyBoxes(string map) => MapDecorLists.SkipsSkyBoxes(map, OldSkyBoxes);
 
+    /// <summary>Whether the sky boxes are drawn as a decoded sky around the camera (<see cref="MapSky"/>) rather than not at all: the maps that skip them, unless <c>--no-sky-textures</c>.</summary>
+    public static bool DrawsSkyTextures(string map) => MapDecorLists.DrawsSkyTextures(map, OldSkyBoxes, NoSkyTextures, RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility");
+    /// <summary><c>--no-sky-textures</c>: the sky boxes are not drawn, as after classic-maps-all (before / after aid).</summary>
+    public static bool NoSkyTextures => _noSkyTex ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-sky-textures") >= 0;
+    static bool? _noSkyTex;
+
+    /// <summary><c>--old-uv-sets</c>: the diffuv1 shaders' base maps through the first UV set again (before / after aid).</summary>
+    public static bool OldUvSets => _oldUv ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-uv-sets") >= 0;
+    static bool? _oldUv;
+
+    /// <summary>Whether <paramref name="map"/> gets the dark floor plane under the level (<see cref="MapDecorLists.VoidFloorMaps"/>); <c>--no-void-floor</c> turns it off (before / after aid).</summary>
+    public static bool HasVoidFloor(string map) => MapDecorLists.HasVoidFloor(map, Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-void-floor") >= 0);
+
     /// <summary><c>--old-sky-boxes</c>: draw the sky boxes as map geometry again, as before classic-maps-all (before / after aid).</summary>
     public static bool OldSkyBoxes => _oldSky ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-sky-boxes") >= 0;
     static bool? _oldSky;
