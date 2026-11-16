@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
+Scanned 3696 spec table rows: **2672 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 770 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 407 | 349 | 347 | 114 | 12 |
+| Movement (critical) | 408 | 350 | 348 | 114 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 158 | 138 | 114 | 57 | 5 |
@@ -40,7 +40,7 @@ Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data wi
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 84 | 79 | 63 | 11 | 0 |
+| HUD and hit feedback (critical) | 85 | 80 | 64 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
@@ -51,19 +51,19 @@ Scanned 3683 spec table rows: **2661 tagged**, 666 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 830 | 785 | 615 | 230 | 1 |
-| General game design | 96 | 95 | 70 | 17 | 0 |
+| General game design | 105 | 104 | 79 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2661** | 2380 | 1997 | 803 | 37 |
+| **All areas** | **2672** | 2391 | 2008 | 803 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1547 |
-| confidence: low | 961 |
-| confidence: medium | 927 |
+| kind: ours | 1556 |
+| confidence: low | 969 |
+| confidence: medium | 930 |
 | notes: ours | 465 |
-| kind: interpretation | 430 |
+| kind: interpretation | 432 |
 | kind: estimate | 227 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (407)
+### Movement (gameplay-critical) (408)
 
 *Spec section: Extracted parameters*
 
@@ -810,6 +810,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0C212B8A` | Jump-pound and class commands | JumpPound: the sender in a battle and alive, the class has a jump pack, the mark within 60 m and on the graph, one a second. SquadClass: option 0 to 2, aboard the ship, the player's class is the Librarian (m, s) | kind: estimate; confidence: low | the brief; review 1 | Jump-pound and class commands: compare with SM1 by feel or video. Ours: JumpPound: the sender in a battle and alive, the class has a jump… | ☐ |
+
+*Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D4CD8B0B` | Falling back | only the front-most position still held can lose progress (Orks alone inside it, no human, Marine or Guardsman, for Musou's 20 s `RetakeSeconds`); K cannot fall while W holds, V not while K holds; a fallen position is lost for the battle: its ring is closed… (s) | kind: interpretation; confidence: low | brief | Falling back: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: only the front-most position still held can lose progress (Orks alone… | ☐ |
 
 ### Combat core (gameplay-critical) (24)
 
@@ -1714,7 +1720,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (84)
+### HUD and hit feedback (gameplay-critical) (85)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1879,6 +1885,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-80D71608` | Picker self-close | the panel closes itself when no open Offer record has arrived for 1.0 s, or when Progress shows fewer pending picks than when the offer opened (a lost close datagram must not leave it up); the server repeats the open record while an offer stands and sends the… (s) | kind: ours; confidence: medium | review of W8 | Picker self-close: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the panel closes itself when no open Offer record has arrived for 1.0… | ☐ |
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
+
+*Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-442F9022` | Battle HUD | under Musou's objective HUD one line ("HOLD THE KEEP WAVE 2 OF 3 IN 0:40"), the countdown below it ("SURVIVE 6:12", gold) and a centre banner for 4 s on a message ("THE WALL HAS FALLEN. FALL BACK TO THE KEEP", "THE KEEP HAS FALLEN. FALL BACK TO THE CAVES"… (s, px) | kind: ours; confidence: low | brief; owner's UI rule | Battle HUD: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: under Musou's objective HUD one line ("HOLD THE KEEP WAVE 2 OF 3 IN… | ☐ |
 
 ### Sound mix (gameplay-critical) (99)
 
@@ -3931,7 +3943,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (96)
+### General game design (105)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4056,6 +4068,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D2E3CAE7` | Keys | F4 opens the squad panel aboard the ship, J sends the jump-pound mark for a class with a jump pack in a battle ("[J] JUMP ASSAULT" on the HUD line); checked by search: neither key is used by the client's key handling, the default bindings (W S A D Shift Ctrl… | kind: ours; confidence: medium | the brief ("pick a free key") | Keys: compare with SM1 by feel or video. Ours: F4 opens the squad panel aboard the ship, J sends the jump-pound mark… | ☐ |
 | `R-8AB4A468` | Roster checks | the sender looks for roster changes twice a second (a recruit or a joining client forces the next check) and keeps the 2 s rotation; the roster section, not the Recruited event, adds a Marine on the client (Hz, s) | kind: ours; confidence: medium | review 1 (export and encode on every send were costly) | Roster checks: compare with SM1 by feel or video. Ours: the sender looks for roster changes twice a second (a recruit or a… | ☐ |
 | `R-539D50D8` | Halves path | the squad shares one extras message with the other sections only if W5a sends it so; W5a sends per slice today, so each squad section would travel in a datagram of its own (471 bytes of state at 10 Hz, about 4.7 KB/s a client, plus the roster rotation about… (bytes) | kind: ours; confidence: low | review 1 finding 9 | Halves path: compare with SM1 by feel or video. Ours: the squad shares one extras message with the other sections only if… | ☐ |
+
+*Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A160084A` | Opening | W, K and V start Secured (progress 1); no garrison, no commander, no depot, no armies, trickle or crowds; D stays Locked; the humans land in the chamber (about 220 m behind the gate) | kind: ours; confidence: low | plan section 3, brief | Opening: compare with SM1 by feel or video. Ours: W, K and V start Secured (progress 1); no garrison, no commander, no… | ☐ |
+| `R-15313AB2` | Guard squads | 4 squads start at their positions' ground posts (W 2, K 1, V 1; the brief's 5, 3, 2 held a passive defence for the whole 8 minutes in a test), by the squads' own order (fire teams round the point), never replaced; when a position falls its squads go to the… (squads) | kind: ours; confidence: low | brief ("Guardsmen take the build's posts, W first"), counts ours | Guard squads: compare with SM1 by feel or video. Ours: 4 squads start at their positions' ground posts (W 2, K 1, V 1; the… | ☐ |
+| `R-004B3BCC` | Waves | three scheduled: 300, 450 and 600 Orks (the brief's 150, 200 and 250 doubled after the measurement below) leaving the assembly ground at 0:45, 3:15 and 5:45 (every 150 s; a later one would be as big as the last); each musters leashed 20 s before it leaves… (Orks, s) | kind: ours; confidence: low | plan section 3 (sizes and times); the cap and the Boss Nobs brief | Waves: compare with SM1 by feel or video. Ours: three scheduled: 300, 450 and 600 Orks (the brief's 150, 200 and 250… | ☐ |
+| `R-B88A4CF2` | Stage sources | stage 0 (the assembly ground, six sources) always; stage 1 (the courtyard, three) opens when W falls, stage 2 (the hall, three) when K falls; each open stage takes 25 % of every later wave, and 30 Orks pour in at the stage's sources the moment its position… (m, share, Orks) | kind: ours; confidence: low | brief (the 30 m); the rest ours | Stage sources: compare with SM1 by feel or video. Ours: stage 0 (the assembly ground, six sources) always; stage 1 (the… | ☐ |
+| `R-A3969308` | Chokepoint measurement | 300 Orks sent from the assembly ground at once with no defenders (`smtool warfront-hq --measure`, the composed HQ graph of 323,328 nodes, the stranded-Ork failsafe on): the gate passed 215 Orks in its busiest minute (first through at 16.5 s; the brief assumed… (Orks, %) | kind: ours; confidence: low | brief ("report before changing any size") | Chokepoint measurement: compare with SM1 by feel or video. Ours: 300 Orks sent from the assembly ground at once with no defenders… | ☐ |
+| `R-8FE44DF5` | Captures paid | when the defence is won every position still held pays 400 XP once to every eligible player (the existing capture rule: the `PositionSecured` change with the positions Secured, once per position per battle); no D pay (800) in the HQ defence (XP) | kind: ours; confidence: medium | plan section 5 ("HQ stage held 400") | Captures paid: compare with SM1 by feel or video. Ours: when the defence is won every position still held pays 400 XP once to… | ☐ |
+| `R-C032C756` | Elite share by node | a lane battle's share from its node on Musou's own curve: node 1 `EliteShare(0)` (0.10), node 2 `EliteShare(0.5)` (0.35), node 3 `EliteShare(1)` (0.60); no new number; Warfront never counted wins (share) | kind: ours; confidence: low | review of W3 (low 5), brief | Elite share by node: compare with SM1 by feel or video. Ours: a lane battle's share from its node on Musou's own curve: node 1… | ☐ |
+| `R-97137782` | Battle section | envelope tag 47, to every identified client while a Warfront battle runs, on change and every second: kind (node 0, HQ 1, fortress 2), stage 0..3 (positions fallen), the next wave and the waves scheduled, seconds to the next wave, seconds left to survive, a… | kind: ours; confidence: medium | brief | Battle section: compare with SM1 by feel or video. Ours: envelope tag 47, to every identified client while a Warfront battle… | ☐ |
+| `R-C3894AD4` | The stage | `wf_hq` is composed with the hub (`TfwMap.Compose`), so the run, classes, squads and the ship work on it; the HQ deployment lands on it as a stage of its own, a win resets every front to node 2 with no roll and the party stays on this map's ship, a loss ends… | kind: interpretation; confidence: medium | brief | The stage: compare with SM1 by feel or video. Ours: wf_hq is composed with the hub (TfwMap.Compose), so the run, classes… | ☐ |
 
 *Spec section: Added content: Warfront: the local campaign (W16: `WarfrontLocal`, client `Extras/Warfront/FrontEnd`; no rules version change; added content, Warfront only)*
 
@@ -4805,7 +4831,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8EAA4069` | Warfront campaign (third mode): lanes, rolls, HQ defense, fortress, save and resume; not in SM1 | the owner's rules (2026-11-17); the cases they leave open ours (interpretation) | three lanes of three nodes, an Imperial HQ and an Ork fortress, up to four connected humans, a leader, and a run save that survives a restart | spec "Added content: Warfront — the campaign" | Warfront campaign (third mode): lanes, rolls, HQ defense…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17); the cases they leave open ours… | ☐ |
 | `C-D655B9CF` | Warfront squads (W9): nine lightweight retainers per player, 36 in all; not in SM1 | the owner's rules (2026-11-17: counts, 20 s downed window, out for the battle only, names and records kept, fireteam orders); the lightweight combat, revive numbers, targeting ids and defaults ours | each retainer an agent (not a World player): rule-driven ranged or melee damage by a deterministic roll, Ork targets and hits in their own id range, a revive by any player or by a safe squad-mate, service records | spec "Added content: Warfront: squads" | Warfront squads (W9): nine lightweight retainers per…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17: counts, 20 s downed window, out for… | ☐ |
 | `C-F76AF8D6` | Warfront squad classes (W11): retainers mirror their player's class, the Librarian's squad-class option, the Dreadnought hold and free retainer, jump-follow and the jump-pound order; not in SM1 | the owner's rules (2026-11-17: mirror, hold, one free retainer, whole-squad class with Classic bot loadouts, jump follow, a 5 m staggered pound with validated landings, existing ability limits); the weapon profile, hit chances, follow and landing numbers ours | each retainer wears the player's class numbers read from the Classic data, regenerates armour after the class delay, an Assault/Raptor leaps after a far owner and pounds in a ring round a marked point | spec "Added content: Warfront: squad classes" | Warfront squad classes (W11): retainers mirror their…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17: mirror, hold, one free retainer… | ☐ |
-| `C-CAE7FBDB` | Warfront squad wiring and strength ruling (W9b): the squad on the node battle's seams, squad kills pay their owner's XP, retainer third, ledger events, squad strength constants, search budget and the stranded failsafe; not in SM1 | the owner's rules (retainer kills give XP, one third of the cards, 9 per player); the strength numbers (damage dealt 0.40, damage taken 0.35, no Marine health regeneration in a battle), the search budget (one a tick, 8 000 nodes, 3 s / 10 m failed-search memory), the stranded failsafe (10 s, 40 m, 8 to 12 m from the… | squads land at the first step beside their human, fight what the Orks send, pay the owner once per kill, are re-bound on a reconnect and held when their human leaves; a squad cut off from its owner is brought to him after 10 s, behind his back; a human can revive a fallen human; the retainer third covers damage… | spec "Added content: Warfront: the squad wiring"; "squads"; "squad classes" | Warfront squad wiring and strength ruling (W9b): the squad…: compare with SM1 by feel or video. Ours: the owner's rules (retainer kills give XP, one third of the cards, 9… | ☐ |
+| `C-BA9D746F` | Warfront squad wiring and strength ruling (W9b): the squad on the node battle's seams, squad kills pay their owner's XP, retainer third, ledger events, squad strength constants, search budget and the stranded failsafe; not in SM1 | the owner's rules (retainer kills give XP, one third of the cards, 9 per player); the strength numbers (damage dealt 0.40, damage taken 0.35, no Marine health regeneration in a battle), the search budget (one a tick, 8 000 nodes, 3 s / 10 m failed-search memory), the stranded failsafe (10 s, 40 m, 8 to 12 m from the… | squads land at the first step beside their human, fight what the Orks send, pay the owner once per kill, are re-bound on a reconnect and held when their human leaves; a squad cut off from its owner is brought to him after 10 s | spec "Added content: Warfront: the squad wiring"; "squads"; "squad classes" | Warfront squad wiring and strength ruling (W9b): the squad…: compare with SM1 by feel or video. Ours: the owner's rules (retainer kills give XP, one third of the cards, 9… | ☐ |
+| `C-0B8E4B6D` | Warfront HQ defence battle (W13b): the HQ map composed with the hub, three positions held in turn, Ork waves, won by surviving 8 minutes; not in SM1 | the owner's rules (2026-11-17: the HQ defence is won by surviving 8 minutes, lost when V falls or on a wipe, waves keep their schedule until the timer ends; the three defence positions and the fall-back order from the plan); the wave sizes and times, the squad strengths, the stage sources and their clearance, the… | W (wall and gate), K (keep) and V (caves) start Secured with the Guardsmen at their posts; waves of 150, 200 and 250 Orks muster on the assembly ground and climb the ramp at 0:45, 3:15 and 5:45; only the front-most position still held can fall and a fallen one is lost for the battle; the next stage's sources open… | spec "Added content: Warfront: the HQ defence battle" | Warfront HQ defence battle (W13b): the HQ map composed with…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17: the HQ defence is won by surviving 8… | ☐ |
+| `C-BA9D746F-2` | Warfront squad wiring and strength ruling (W9b): the squad on the node battle's seams, squad kills pay their owner's XP, retainer third, ledger events, squad strength constants, search budget and the stranded failsafe; not in SM1 | the owner's rules (retainer kills give XP, one third of the cards, 9 per player); the strength numbers (damage dealt 0.40, damage taken 0.35, no Marine health regeneration in a battle), the search budget (one a tick, 8 000 nodes, 3 s / 10 m failed-search memory), the stranded failsafe (10 s, 40 m, 8 to 12 m from the… | squads land at the first step beside their human, fight what the Orks send, pay the owner once per kill, are re-bound on a reconnect and held when their human leaves; a squad cut off from its owner is brought to him after 10 s, behind his back; a human can revive a fallen human; the retainer third covers damage… | spec "Added content: Warfront: the squad wiring"; "squads"; "squad classes" | Warfront squad wiring and strength ruling (W9b): the squad…: compare with SM1 by feel or video. Ours: the owner's rules (retainer kills give XP, one third of the cards, 9… | ☐ |
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
 | `C-EDF67DCA` | Warfront progression in the node battle (W3b): XP and levels from kills and captures, level-up refill, the picker with its protection, the five stat cards (damage, attack speed, max HP and armour as a damage-taken approximation, cooldowns), Ork scaling by level, assists; not in SM1 | the owner's rules (2026-11-17); every number our estimate; one core field (`PlayerState.AttackSpeedBonus`, 0 outside Warfront) | the W7 library takes effect in a Warfront node battle through `Warfront*` hooks only; Classic and Musou are unchanged | spec "Added content: Warfront, progression in the node battle (W3b)" | Warfront progression in the node battle (W3b): XP and…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's rules (2026-11-17); every number our estimate; one core… | ☐ |
 | `C-50B9D77F` | Warfront card picker and XP HUD (W8): four cards, keys 1 to 4 or D-pad, queue header, level-up banner; not in SM1 | the owner's "1-4 / D-pad"; layout, resend interval and banner time ours | picker over a dimmed field with a countdown bar, XP HUD on the right edge, pick resent every 0.3 s, banner 2 s | spec "Added content: Warfront: card picker and XP HUD" | Warfront card picker and XP HUD (W8): four cards, keys 1 to…: compare with SM1 by feel or video. Ours: the owner's "1-4 / D-pad"; layout, resend interval and banner time… | ☐ |

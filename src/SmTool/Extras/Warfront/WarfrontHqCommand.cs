@@ -32,6 +32,7 @@ static class WarfrontHqCommand
     public static int Run(string[] rest)
     {
         bool measure = false, waves = false; int seconds = 0;
+        if (rest.Length == 2 && rest[0] == "--make-run") return MakeRun(Path.GetFullPath(rest[1]));
         for (int i = 0; i < rest.Length; i++)
         {
             switch (rest[i])
@@ -42,6 +43,24 @@ static class WarfrontHqCommand
         }
         if (measure == waves) { Console.Error.WriteLine("warfront-hq: give --measure or --waves"); return 2; }
         return Simulate(waves, seconds > 0 ? seconds : waves ? 400 : 300);
+    }
+
+    /// <summary><c>--make-run &lt;dir&gt;</c>: writes a run in Travel to the HQ (every lane advanced, at node 0, the HQ mandatory) and the stage file for <c>wf_hq</c> into a run folder, for a real-server proof (<c>SM_WF_DIR</c>).</summary>
+    static int MakeRun(string dir)
+    {
+        Directory.CreateDirectory(dir);
+        var seed = new WarfrontCampaign(5);
+        seed.Embark();
+        var node = System.Text.Json.Nodes.JsonNode.Parse(seed.ToJson())!.AsObject();
+        node["HqMandatory"] = true;
+        node["Fronts"] = new System.Text.Json.Nodes.JsonArray(0, 0, 0);
+        node["Advanced"] = new System.Text.Json.Nodes.JsonArray(true, true, true);
+        node["Phase"] = "Travel";
+        node["CurrentTarget"] = new System.Text.Json.Nodes.JsonObject { ["Kind"] = "Hq", ["Lane"] = -1 };
+        File.WriteAllText(Path.Combine(dir, "run.json"), node.ToJsonString());
+        File.WriteAllText(Path.Combine(dir, "stage.json"), System.Text.Json.JsonSerializer.Serialize(new { Map = "wf_hq", Expected = Array.Empty<ulong>(), Ship = "wf_b1" }));
+        Console.WriteLine("a run in Travel to the HQ written to " + dir);
+        return 0;
     }
 
     static SimConfig Config()
