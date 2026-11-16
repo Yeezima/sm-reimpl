@@ -278,7 +278,10 @@ public partial class CancelEditorPanel : CanvasLayer
         {
             case "export": Export(); return true;
             case "resetall": client.SendCancelEdit(DevCancelOp.ResetAll, []); Say("reset all"); return true;
-            case "import" when parts.Length == 2: ImportFile(client, System.IO.Path.IsPathRooted(parts[1]) ? parts[1] : System.IO.Path.Combine(CancelConfigStore.Folder(), parts[1])); return true;
+            case "import" when parts.Length == 2:
+                string file = parts[1] == "latest" ? CancelConfigStore.List().FirstOrDefault() ?? "" : parts[1];
+                if (file.Length == 0) { Say("import: no exports yet"); return false; }
+                ImportFile(client, System.IO.Path.IsPathRooted(file) ? file : System.IO.Path.Combine(CancelConfigStore.Folder(), file)); return true;
             case "scope" when parts.Length == 2:
                 var cw = parts[1].Split('/');
                 _scope = new CancelScope(cw[0] == "-" ? "" : cw[0], cw.Length > 1 && cw[1] != "-" ? cw[1] : "");
@@ -287,6 +290,7 @@ public partial class CancelEditorPanel : CanvasLayer
         var rc = parts[0].Split('.');
         if (rc.Length != 2 || !int.TryParse(rc[0], out int row) || !int.TryParse(rc[1], out int col) || row < 1 || col < 1 || row > CancelLayout.RowCount || col > CancelLayout.ColCount || parts.Length < 2) return false;
         row--; col--;
+        _selRow = row; _selCol = col;   // the inspector shows the cell the script touched
         if (parts[1] == "reset") { client.SendCancelEdit(DevCancelOp.ResetCell, [new CancelChange(_scope, row, col, new CancelCell(CancelState.Yes))]); Say($"reset {CancelLayout.Number(row, col)}"); return true; }
         var state = CancelData.ParseState(parts[1]);
         if (state is null || state == CancelState.NotApplicable) return false;

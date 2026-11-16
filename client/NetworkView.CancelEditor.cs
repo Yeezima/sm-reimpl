@@ -20,7 +20,7 @@ public partial class NetworkView
 
     void CancelEditorFrame()
     {
-        if (_client is null || _bot) return;
+        if (_client is null || _bot || MusouActive) return;   // Classic PvP only (and Musou's own F8 is the Ashfall look)
         if (_cancelPanel is null)
         {
             if (_client.Dev is null) return;

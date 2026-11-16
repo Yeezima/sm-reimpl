@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3387 spec table rows: **2412 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 749 rows of the changes document.
+Scanned 3399 spec table rows: **2423 tagged**, 628 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 750 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,19 +49,19 @@ Scanned 3387 spec table rows: **2412 tagged**, 627 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
+| Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2412** | 2140 | 1794 | 730 | 37 |
+| **All areas** | **2423** | 2151 | 1798 | 730 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1410 |
+| kind: ours | 1421 |
 | confidence: low | 868 |
-| confidence: medium | 817 |
+| confidence: medium | 821 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
@@ -2422,7 +2422,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (36)
+### Networking and render smoothing (47)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2504,6 +2504,22 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-558ACE53` | Instant respawn | a toggle: after each tick every dead player's death timer is 0, so it respawns on the next tick | kind: ours | the owner | Instant respawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a toggle: after each tick every dead player's death timer is 0, so it… | ☐ |
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
+
+*Spec section: Cancel table: the live animation cancel matrix editor (cancel-editor; owner 2026-11-17; protocol 80, extended in place; test aid, ours, never on a public server)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1D8F95CF` | Baseline and default | two embedded files: the baseline is what the code does (never edited; the gate leaves a cell equal to it alone, so with the default table the simulation runs exactly as before), the shipped default is what a release plays by (equal to the baseline until the… | kind: ours | ours | Baseline and default: compare with SM1 by feel or video. Ours: two embedded files: the baseline is what the code does (never edited… | ☐ |
+| `R-72F31736` | Scopes | a base cell, and overrides per class, per weapon in hand, or per class and weapon; the most specific wins (class + weapon, then weapon, then class, then base) | kind: ours | the owner ("per class, and per weapon") | Scopes: compare with SM1 by feel or video. Ours: a base cell, and overrides per class, per weapon in hand, or per… | ☐ |
+| `R-DB204FCA` | Yes | the input ends the action in progress (the data's own cancel state change: melee, charge, evade, jump-pack phase, reload, switch, raise, throw, brace, vent, charged shot, hit reaction) and starts its own, in the same tick | kind: ours; confidence: medium | the owner | Yes: compare with SM1 by feel or video. Ours: the input ends the action in progress (the data's own cancel state… | ☐ |
+| `R-6C9A5254` | No | the input is ignored while the action is in progress; its key counts as held, so it does not fire when the cell is edited back, and nothing is buffered | kind: ours | the owner | No: compare with SM1 by feel or video. Ours: the input is ignored while the action is in progress; its key counts… | ☐ |
+| `R-53A2DB96` | Window | yes from `from` to `until` seconds into the action, no outside; no times: the data's own timing; a window edited here replaces the data's window; an action whose state keeps no time (switch, raise, vent, sprint stop) always counts as inside (s) | kind: ours; confidence: medium | the owner | Window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: yes from from to until seconds into the action, no outside; no times:… | ☐ |
+| `R-12CE9027` | Queued | the input is kept in the input buffer (0.3 s window, the buffer's own replay rules) and starts when the action allows; only the six buffered presses (light, heavy or charge, jump, reload, switch, grenade) can queue, on a held input (fire, aim, sprint, the… | kind: ours; confidence: medium | the owner | Queued: compare with SM1 by feel or video. Ours: the input is kept in the input buffer (0.3 s window, the buffer's own… | ☐ |
+| `R-06C4C2B1` | Hit columns | hit stun: whether a hit may start a reaction in the action (`Reaction.CanReact`: yes forces it, no resists, a window by time); hit damage: a damage that starts no reaction ends the action (`Combat.ApplyDamage`) | kind: ours; confidence: medium | the owner | Hit columns: compare with SM1 by feel or video. Ours: hit stun: whether a hit may start a reaction in the action… | ☐ |
+| `R-AE38C31D` | Gate | edits are `DevCancelEdit` requests through the developer tools' gate (`--dev-tools`, loopback bind, loopback requester; 60 requests burst, 30 a second); the server's `World.Config.Cancel` is replaced at once (the next tick plays by it) and sent to every… | kind: ours | ours (a guard) | Gate: compare with SM1 by feel or video. Ours: edits are DevCancelEdit requests through the developer tools' gate… | ☐ |
+| `R-162331D1` | Added content | the gate does nothing with any added content (`SimConfig.Extras` not none): Musou Mode and the Ork's extras are untouched | kind: ours | the owner ("Classic PvP only") | Added content: compare with SM1 by feel or video. Ours: the gate does nothing with any added content (SimConfig.Extras not… | ☐ |
+| `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
+| `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
 ### Core simulation (provisional values) (734)
 
@@ -5148,6 +5164,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-2CF9C68E` | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and hunting instead of patrolling (bots/classic-hunt, owner 2026-11-16; test bots, no protocol or config-hash change) | Multiplayer had no bots | Ours (owner's words verbatim in spec "Hunt when nobody is left to chase" and "Cover at low health"): a retreating bot starts at 30 % health (60 % before) and rejoins at 90 % health and armour but not before 5 s and at the latest after 15 s (35 s before; Seize Ground and, since the owner's "classic pvp seize ground and… | Spec "Hunt when nobody is left to chase", "Cover at low health" | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2A54A495` | Developer tools panel (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's request, verbatim in spec "Developer tools: the in-game test panel"): F6 opens a panel for invincible players and bots, frozen bots, infinite ammunition (heat and overheat included, our choice), infinite jump pack fuel, and adding or removing a test bot per side; the server applies everything, and… | Real-match rules, a public server and the Host panel's LAN / Internet mode stay exactly as they were; with the switch off the tick loop pays one null check and no packet differs (the protocol number moved 79 to 80 for the two new messages) | Developer tools panel (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

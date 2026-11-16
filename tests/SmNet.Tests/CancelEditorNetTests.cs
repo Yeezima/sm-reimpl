@@ -72,9 +72,9 @@ public class CancelEditorNetTests
     }
 
     [Fact]
-    public void A_server_bound_to_every_interface_ignores_edits_even_with_the_switch()
+    public void A_server_bound_to_a_non_loopback_address_ignores_edits_even_with_the_switch()
     {
-        var options = new ServerOptions { DevTools = new DevToolsSetup(IPAddress.Any, null) };
+        var options = new ServerOptions { DevTools = new DevToolsSetup(IPAddress.Parse("192.168.1.20"), null) };
         var h = new Harness(Link, seed: 8, 0, Own(), options);
         h.AddClient(Own());
         Settle(h);
