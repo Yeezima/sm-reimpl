@@ -20,7 +20,7 @@ public sealed partial class World
 
     /// <summary>A pick of player <paramref name="player"/>: card slot 0 to 3 of the standing offer whose pick index is <paramref name="pickIndex"/> (a stale index or no offer: refused, nothing changes). Protection ends with it.</summary>
     public bool WarfrontPick(int player, int slot, int pickIndex) =>
-        _tfw?.Warfront?.Progression is { } rt && rt.TryKey(player, out ulong key) && rt.Picker.TryPick(key, slot, pickIndex, out _, out _);
+        _tfw?.Warfront?.Progression is { } rt && rt.TryKey(player, out ulong key) && rt.TryPick(key, slot, pickIndex);
 
     partial void WarfrontStep()
     {
@@ -43,8 +43,10 @@ public sealed partial class World
             float bonus = rt.BonusesOf(id).AttackSpeed - 1f;
             if (p.AttackSpeedBonus != bonus) _players[id] = p with { AttackSpeedBonus = bonus };
         }
-        rt.Picker.Tick(now);   // an offer open for 20 s takes card 1; the protection ends with it
-        bool aboard = !rules.InNode;
+        foreach (int id in _warfrontIds) if (LibrarianOf(id) is { } psyker) psyker.CooldownScale = rt.CooldownScale(id);   // the cooldown cards on the Shockwave and the pull
+        if (_tfw.Battle is not null && rules.SquadStep is { } squad && rules.LastFought != Tick - 1) squad();   // the field was empty last tick: TfwGuardsStep returned before the fight, so the squads still take their tick
+        rt.TickPicker(now);   // an offer open for 20 s takes card 1; the protection ends with it
+        bool aboard = _tfw.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;   // on the ship: the hub or the way down; every battle (a node, the HQ, the fortress) is the field
         foreach (int id in _warfrontIds)
         {
             if (!rt.TryKey(id, out ulong key) || rt.Campaign.Player(key) is not { PendingPicks: > 0 } || rt.Picker.Protected(key)) continue;
@@ -74,15 +76,15 @@ public sealed partial class World
 
     partial void WarfrontKill(in MusouKill kill)
     {
-        if (_tfw?.Warfront is not { InNode: true } rules) return;
+        if (_tfw is not { Battle: not null, Warfront: { } rules }) return;   // any battle of a Warfront run (a node, the HQ defence, the fortress) pays kills
         int points = _musou!.Rules.Of(kill.Type).Points;
-        rules.Progression.Kill(kill.Enemy, kill.Player, kill.Type, points, ((long)Tick << 16) | kill.Enemy, _musou.Tick, Tick / (double)Math.Max(1, Config.TickRate));
+        rules.Progression.Kill(kill.Enemy, kill.Player, kill.Type, points, ((long)Tick << 16) | kill.Enemy, _musou.Tick, Tick / (double)Math.Max(1, Config.TickRate), (uint)Tick);
     }
 
     partial void WarfrontDamageTaken(int target, ref float scale)
     {
-        if (_tfw?.Warfront?.Progression is not { } rt) return;
-        if (rt.IsProtected(target)) { scale = 0f; return; }
+        if (_tfw?.Warfront is not { Progression: { } rt } rules) return;
+        if (rt.IsProtected(target) || rules.CoopHeld?.Invoke(target) == true) { scale = 0f; return; }
         var b = rt.BonusesOf(target);
         if (b.MaxHp == 1f && b.MaxArmor == 1f || !_players.TryGetValue(target, out var p)) return;
         scale *= WarfrontStatBonuses.DamageTaken(p.Shield, b);   // provisional approximation of max HP / max armour (spec)
@@ -90,7 +92,14 @@ public sealed partial class World
 
     partial void WarfrontInputLocked(int id, ref bool locked)
     {
-        if (_tfw?.Warfront?.Progression is { } rt && rt.IsProtected(id)) locked = true;
+        if (_tfw?.Warfront is { } rules && (rules.Progression.IsProtected(id) || rules.CoopHeld?.Invoke(id) == true)) locked = true;
+    }
+
+    partial void WarfrontMeleeCap(int attacker, ref float cap)
+    {
+        if (_tfw?.Warfront?.Progression is not { } rt) return;
+        float d = rt.BonusesOf(attacker).Damage;
+        if (d != 1f) cap *= d;   // the cards multiply on top of the x2 cap (interpretation)
     }
 
     partial void WarfrontAttackerScales(MusouSim musou)
@@ -140,6 +149,8 @@ public sealed partial class World
 
     partial void WarfrontFought()
     {
-        if (_tfw?.Warfront?.SquadStep is { } step) step();
+        if (_tfw?.Warfront is not { } rules) return;
+        rules.LastFought = Tick;
+        rules.SquadStep?.Invoke();
     }
 }

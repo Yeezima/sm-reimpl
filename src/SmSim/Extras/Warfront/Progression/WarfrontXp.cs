@@ -26,6 +26,9 @@ public sealed class WarfrontXpLedger
     /// <summary>Every level-up so far, in order (the server drains it).</summary>
     public IReadOnlyList<WarfrontLevelUp> LevelUps => _levelUps;
 
+    /// <summary>Co-op's say on who shares an elite or boss kill or a capture (default null: every connected player); a spectating key is excluded here. It never limits the killer's own ordinary points.</summary>
+    public Func<ulong, bool>? Eligible { get; set; }
+
     public List<WarfrontLevelUp> Drain() { var l = new List<WarfrontLevelUp>(_levelUps); _levelUps.Clear(); return l; }
 
     /// <summary>Forget the dedupe set (a new battle; event ids are unique within one).</summary>
@@ -57,7 +60,7 @@ public sealed class WarfrontXpLedger
     {
         var paid = new List<ulong>();
         foreach (var p in _campaign.Players.OrderBy(p => p.Key))
-            if (_campaign.IsConnected(p.Key) && Grant(p.Key, points)) paid.Add(p.Key);
+            if (_campaign.IsConnected(p.Key) && (Eligible?.Invoke(p.Key) ?? true) && Grant(p.Key, points)) paid.Add(p.Key);
         return paid;
     }
 

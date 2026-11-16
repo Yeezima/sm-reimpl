@@ -71,7 +71,9 @@ public sealed partial class World
     {
         float stim = Stims.MeleeDealt(Config, state);
         float powerups = _musou!.MeleeScaleOf(attacker);
-        return powerups > 1f ? MathF.Min(stim, MusouPowerupRules.Cap / powerups) : stim;
+        float cap = MusouPowerupRules.Cap;
+        WarfrontMeleeCap(attacker, ref cap);   // WARFRONT-HOOK
+        return powerups > 1f ? MathF.Min(stim, cap / powerups) : stim;
     }
 
     /// <summary>A KO (from <see cref="MusouDropFor"/>): a powerup drop for every living player when the enemy is a boss, or an elite whose roll comes up.</summary>
@@ -126,6 +128,9 @@ public sealed partial class World
         }
         musou.SetFear(_musouFeared);
     }
+
+    /// <summary>Warfront: the melee cap of <paramref name="attacker"/> (x2) is raised by his damage cards: the cards multiply on top of the owner's x2 cap.</summary>
+    partial void WarfrontMeleeCap(int attacker, ref float cap);
 
     /// <summary>Warfront: sets the damage scales of the players the cards raise, right after the clear (a power-up's own scale below then takes them in <see cref="WarfrontAttackerScale"/>).</summary>
     partial void WarfrontAttackerScales(MusouSim musou);

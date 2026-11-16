@@ -60,6 +60,8 @@ public sealed class WarfrontBattleRules
     public SquadTargetSource? SquadTargets { get; set; }
     /// <summary>W9 seam: an Ork's attack on a squad Marine: its id (-1000 to -1035), the damage (the Ork's remembered multiplier already applied) and where it came from (default: dropped; the Guardsmen never take it).</summary>
     public Action<int, float, Vector3>? SquadHit { get; set; }
+    /// <summary>The tick the squad seam last ran from <c>WarfrontFought</c> (the World steps it from <c>WarfrontStep</c> when a tick had no fight).</summary>
+    internal uint LastFought;
     /// <summary>W9 seam: one squad tick, after the Orks moved and struck (default: none).</summary>
     public Action? SquadStep { get; set; }
     /// <summary>W9 seam: a node battle began (lane, node) / ended (its result); called from W3's creation and leave hooks (default: none).</summary>
@@ -67,6 +69,8 @@ public sealed class WarfrontBattleRules
     public Action<TfwMapResult>? BattleEnded { get; set; }
     /// <summary>W9 seam: a position's capture was credited (its index 0 to 2 for A, B, C; 3 for D), once per position per battle (default: none).</summary>
     public Action<int>? ObjectiveSecured { get; set; }
+    /// <summary>W12 seam: whether player <c>id</c> is held by the co-op rules (a first-time joiner spectating or in the customizer): his input is locked and he takes no damage while it returns true (default: none held).</summary>
+    public Func<int, bool>? CoopHeld { get; set; }
     /// <summary>W12 seam: whether a late human is landed in the battle now (false: it waits in the Stormbird; default: allowed).</summary>
     public Func<int, bool>? LateJoinAllowed { get; set; }
     /// <summary>W2's stuck-unit log seam: a failsafe removed or relocated an Ork of a node battle (default: none; W5 connects <c>WarfrontStuckLog</c>).</summary>

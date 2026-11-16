@@ -35,6 +35,7 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/Campaign/TfwRun.Coop.cs", "WarfrontJoinLate"),
         ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontAttackerScales"),
         ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontAttackerScale"),
+        ("src/SmSim/Extras/Musou/World.MusouPowerups.cs", "WarfrontMeleeCap"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontDamageTaken"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontInputLocked"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontSquadHit"),

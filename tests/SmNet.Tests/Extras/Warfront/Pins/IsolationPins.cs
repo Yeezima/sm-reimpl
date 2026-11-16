@@ -21,6 +21,7 @@ public class IsolationPins
         double clock = run.War.Clock;
         var battle = TfwRig.Deploy(w);
         Assert.False(battle.WarfrontNode);
+        foreach (var psyker in w.Librarians.Values) Assert.Equal(1f, psyker.CooldownScale);   // the Librarian's cooldown scale stays 1
         Assert.Equal(TfwBattleRules.StartTransport - TfwBattleRules.DeployCost, run.Transport);   // the deploy cost stands
         TfwRig.Seconds(w, 2f);
         Assert.True(run.War.Clock > clock);   // the war clock runs
@@ -59,5 +60,6 @@ public class IsolationPins
         Assert.Null(w.WarfrontOffer(TfwRig.Human));
         Assert.False(w.WarfrontPick(TfwRig.Human, 0, 0));
         Assert.False(battle.WarfrontNode);
+        foreach (var psyker in w.Librarians.Values) Assert.Equal(1f, psyker.CooldownScale);   // the Librarian's cooldown scale stays 1
     }
 }

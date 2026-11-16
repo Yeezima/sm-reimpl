@@ -21,8 +21,7 @@ public sealed class WarfrontAssists
     {
         if (enemy >= _first.Length || attacker <= 0) return;
         if (_first[enemy] == attacker) { _firstTick[enemy] = tick; return; }
-        if (_second[enemy] == attacker) (_first[enemy], _second[enemy], _firstTick[enemy], _secondTick[enemy]) = (attacker, _first[enemy], tick, _firstTick[enemy]);
-        else (_first[enemy], _second[enemy], _firstTick[enemy], _secondTick[enemy]) = (attacker, _first[enemy], tick, _firstTick[enemy]);
+        (_first[enemy], _second[enemy], _firstTick[enemy], _secondTick[enemy]) = (attacker, _first[enemy], tick, _firstTick[enemy]);   // the newest first; the one before is kept (a repeat of the second moves up)
     }
 
     public void Clear(ushort enemy)
@@ -45,6 +44,9 @@ public sealed class WarfrontAssists
         return n;
     }
 }
+
+/// <summary>A human credited with a kill (squad binding and stats read it): his key and player id, the enemy's pool id and type, and the World tick.</summary>
+public readonly record struct WarfrontHumanKill(ulong Key, int Player, ushort Enemy, MusouEnemyType Type, uint Tick);
 
 /// <summary>
 /// W7's progression library at work in a Warfront battle (slice W3b; plan section 5): the campaign's players and XP ledger, the server-side picker, and the lookups the hooks make (the key of a player id, the cards' bonuses, the protection of a standing
@@ -72,8 +74,12 @@ public sealed class WarfrontProgressionRuntime
     TfwBattle? _battle;
     long _serial;
 
+    readonly bool _ownsCampaign;
+
+    /// <summary>Without a campaign the runtime keeps its own stand-in and joins and leaves its players itself; with one (the server's: W5) the server alone joins and leaves, and the runtime only maps ids to keys.</summary>
     public WarfrontProgressionRuntime(WarfrontCampaign? campaign = null)
     {
+        _ownsCampaign = campaign is null;
         Campaign = campaign ?? new WarfrontCampaign(StandInSeed);
         Xp = new WarfrontXpLedger(Campaign);
         Picker = new WarfrontPicker(Campaign);
@@ -83,6 +89,45 @@ public sealed class WarfrontProgressionRuntime
     public WarfrontXpLedger Xp { get; }
     public WarfrontPicker Picker { get; }
     public WarfrontAssists Assists { get; } = new();
+
+    /// <summary>Raised when a human is credited a kill (after its XP is paid).</summary>
+    public Action<WarfrontHumanKill>? HumanKill { get; set; }
+
+    /// <summary>Raised for each pick that goes through (by the player or by the timeout).</summary>
+    public Action<WarfrontPickResult>? Picked { get; set; }
+
+    readonly List<WarfrontPickResult> _picks = new();
+
+    /// <summary>The picks taken since the last call, then cleared (a Retainer card becomes one recruit).</summary>
+    public List<WarfrontPickResult> TakePicks()
+    {
+        var taken = new List<WarfrontPickResult>(_picks);
+        _picks.Clear();
+        return taken;
+    }
+
+    /// <summary>A player's pick (through the picker; records it for <see cref="TakePicks"/> and <see cref="Picked"/>).</summary>
+    public bool TryPick(ulong key, int slot, int pickIndex)
+    {
+        if (!Picker.TryPick(key, slot, pickIndex, out var result, out _)) return false;
+        Record(result);
+        return true;
+    }
+
+    /// <summary>The picker's timeouts at <paramref name="now"/> (card 1 taken for each offer open too long).</summary>
+    public void TickPicker(double now)
+    {
+        foreach (var result in Picker.Tick(now)) Record(result);
+    }
+
+    void Record(WarfrontPickResult result)
+    {
+        _picks.Add(result);
+        Picked?.Invoke(result);
+    }
+
+    /// <summary>Co-op's say on who shares an elite or boss kill or a capture (a spectating key gets none); default: every connected player.</summary>
+    public Func<ulong, bool>? Eligible { get => Xp.Eligible; set => Xp.Eligible = value; }
 
     /// <summary>W5 seam: the campaign key of a player id (null: no key yet, the player is not counted). Default: the id itself.</summary>
     public Func<int, ulong?> KeyOf { get; set; } = id => (ulong)id;
@@ -118,7 +163,7 @@ public sealed class WarfrontProgressionRuntime
             _present.Add(id);
             if (_keys.ContainsKey(id) || KeyOf(id) is not { } key) continue;
             if (_ids.TryGetValue(key, out int other) && other != id) continue;   // one live id per key
-            if (!Campaign.Join(key, out _)) continue;
+            if (_ownsCampaign && !Campaign.Join(key, out _)) continue;
             _keys[id] = key;
             _ids[key] = id;
         }
@@ -130,7 +175,7 @@ public sealed class WarfrontProgressionRuntime
             _keys.Remove(id);
             _ids.Remove(key);
             _lastKill.Remove(key);
-            Campaign.Leave(key);
+            if (_ownsCampaign) Campaign.Leave(key);
             Picker.Leave(key);
         }
     }
@@ -142,7 +187,7 @@ public sealed class WarfrontProgressionRuntime
     /// or a puppet pays no XP here: the squad's kills are W9's own list. <paramref name="eventKey"/> identifies the death (tick and pool id). Every human who hit it within the assist window and did not land the kill has one assist,
     /// whoever landed it.
     /// </summary>
-    public void Kill(ushort enemy, int attacker, MusouEnemyType type, int points, long eventKey, uint tick, double now)
+    public void Kill(ushort enemy, int attacker, MusouEnemyType type, int points, long eventKey, uint tick, double now, uint worldTick = 0)
     {
         Span<int> helpers = stackalloc int[2];
         int n = Assists.Take(enemy, attacker, tick, helpers);
@@ -155,8 +200,11 @@ public sealed class WarfrontProgressionRuntime
         if (attacker <= 0 || !_keys.TryGetValue(attacker, out ulong key)) return;
         Xp.Kill(key, points, WarfrontXpLedger.Classify(type), eventKey);
         _lastKill[key] = now;
+        HumanKill?.Invoke(new WarfrontHumanKill(key, attacker, enemy, type, worldTick));
         Refill?.Invoke();
     }
+
+    // Squad kills (attacker 0) pay no XP here: W9's SquadKill carries the class only, so the squad binding needs the type or the points (add the type to SquadKill, or read it before the damage) and pays the owner's key through Xp.Kill.
 
     /// <summary>Seconds since the player's last credited kill (infinite when none).</summary>
     public double SecondsSinceKill(ulong key, double now) => _lastKill.TryGetValue(key, out double at) ? now - at : double.PositiveInfinity;

@@ -331,6 +331,131 @@ public class WarfrontProgressionWiringTests
         Assert.InRange(many, (uint)(1800 * 0.40) - 5, (uint)(1800 * 0.40) + 5);   // the floor (the grenade refill takes the same scale: Rt(w).CooldownScale; the test rig's class has no grenade to run it)
     }
 
+    [Fact]
+    public void The_damage_cards_multiply_on_top_of_the_melee_cap_with_a_power_up_and_without_one()
+    {
+        var w = Node();
+        Stand(w, 1);
+        Cards(w, 1, WarfrontCard.Damage, WarfrontCard.Damage, WarfrontCard.Damage);   // x1.3
+        Assert.True(w.MusouGiveBuff(1, MusouPowerup.Supercharged));                   // x2 melee: the owner's cap
+        Stand(w, 1);
+        Assert.Equal(2.6f, w.MusouMeleeMultiplier(1), 3);                              // the card is not eaten by the cap
+        var w2 = Node();
+        Stand(w2, 1);
+        Cards(w2, 1, Enumerable.Repeat(WarfrontCard.Damage, 12).ToArray());           // x2.2: past the old x2
+        Stand(w2, 1);
+        Assert.Equal(2.2f, w2.MusouMeleeMultiplier(1), 3);                             // not pulled back to the cap
+        var plain = Node();
+        Stand(plain, 1);
+        Assert.True(plain.MusouGiveBuff(1, MusouPowerup.Supercharged));
+        Stand(plain, 1);
+        Assert.Equal(2f, plain.MusouMeleeMultiplier(1), 3);                            // no cards: Musou's cap as ever
+    }
+
+    [Fact]
+    public void The_runtime_joins_and_leaves_only_its_own_campaign()
+    {
+        var own = new WarfrontProgressionRuntime();
+        own.Sync([1, 2]);
+        Assert.True(own.Campaign.IsConnected(1) && own.Campaign.IsConnected(2));
+        own.Sync([2]);
+        Assert.False(own.Campaign.IsConnected(1));
+
+        var campaign = new WarfrontCampaign(9);
+        var served = new WarfrontProgressionRuntime(campaign) { KeyOf = id => (ulong)(100 + id) };
+        served.Sync([1]);
+        Assert.True(served.TryKey(1, out ulong key));
+        Assert.Equal(101UL, key);
+        Assert.False(campaign.IsConnected(key));   // the server joins and leaves, never the sim
+        Assert.True(campaign.Join(key, out _));
+        served.Sync([]);                           // unmapped, still the server's to leave
+        Assert.False(served.TryKey(1, out _));
+        Assert.True(campaign.IsConnected(key));
+    }
+
+    [Fact]
+    public void The_squad_seam_steps_once_a_tick_and_a_tick_without_a_fight_is_made_up_at_the_next()
+    {
+        var w = Node();
+        int steps = 0;
+        var rules = w.Tfw!.Warfront!;
+        rules.SquadStep = () => steps++;
+        Stand(w, 5);
+        steps = 0;
+        Stand(w, 60);
+        Assert.InRange(steps, 60, 60);   // once a tick while the fight runs: not doubled
+        // A tick whose fight never ran (TfwGuardsStep returns early on an empty field): its record is stale.
+        typeof(WarfrontBattleRules).GetField("LastFought", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(rules, 0u);
+        steps = 0;
+        Stand(w, 1);
+        Assert.Equal(2, steps);   // the missed tick's step at the start, then this tick's own
+        Stand(w, 1);
+        Assert.Equal(3, steps);
+    }
+
+    [Fact]
+    public void The_coop_seam_holds_a_player_no_damage_and_no_input_and_others_are_untouched()
+    {
+        var w = Node(2);
+        Stand(w, 1);
+        Assert.Equal(1f, w.DamageTakenScale(1));
+        w.Tfw!.Warfront!.CoopHeld = id => id == 1;
+        Assert.Equal(0f, w.DamageTakenScale(1));
+        Assert.Equal(1f, w.DamageTakenScale(2));
+        var at = w.Players[1].Position;
+        for (int k = 0; k < 20; k++) w.Step(_ => new PlayerInput(w.Tick + 1, 0f, 1f, 0f, InputButtons.None));
+        Assert.True(Vector2.Distance(new Vector2(at.X, at.Y), new Vector2(w.Players[1].Position.X, w.Players[1].Position.Y)) < 0.05f);
+        w.Tfw.Warfront.CoopHeld = null;
+        Assert.Equal(1f, w.DamageTakenScale(1));
+    }
+
+    [Fact]
+    public void A_human_kill_raises_the_callback_and_a_taken_pick_is_reported_once()
+    {
+        var w = WarfrontBattleTests.War(2);
+        var rt = Rt(w);
+        var kills = new List<WarfrontHumanKill>();
+        var picked = new List<WarfrontPickResult>();
+        rt.HumanKill = kills.Add;
+        rt.Picked = picked.Add;
+        Stand(w, 2);
+        Aboard(w, 1);
+        Stand(w, 2);
+        var offer = w.WarfrontOffer(1)!;
+        Assert.True(w.WarfrontPick(1, 3, offer.PickIndex));   // slot 4: the Retainer card
+        var taken = rt.TakePicks();
+        Assert.Single(taken);
+        Assert.Equal(WarfrontCard.Retainer, taken[0].Card);
+        Assert.Equal(1UL, taken[0].Key);
+        Assert.Single(picked);
+        Assert.Empty(rt.TakePicks());
+        TfwRig.Deploy(w);
+        Clear(w);
+        ushort ork = Leashed(w, MusouEnemyType.Boy, Near(w));
+        Kill(w, ork, 1);
+        Stand(w, 1);
+        var k = Assert.Single(kills);
+        Assert.Equal((1UL, 1, ork, MusouEnemyType.Boy), (k.Key, k.Player, k.Enemy, k.Type));
+        Kill(w, Leashed(w, MusouEnemyType.Boy, Near(w)), 0);   // a squad's kill: not a human's
+        Stand(w, 1);
+        Assert.Single(kills);
+    }
+
+    [Fact]
+    public void A_key_the_eligible_predicate_refuses_gets_no_shared_xp_but_keeps_its_own_kills()
+    {
+        var w = Node(2);
+        Rt(w).Eligible = key => key != 2;   // player 2 spectates
+        int nob = w.Musou!.Rules.Of(MusouEnemyType.Nob).Points, boy = w.Musou.Rules.Of(MusouEnemyType.Boy).Points;
+        Kill(w, Leashed(w, MusouEnemyType.Nob, Near(w)), 1);
+        Stand(w, 1);
+        Assert.Equal(nob, Pl(w, 1).Xp);
+        Assert.Equal(0, Pl(w, 2).Xp);
+        Kill(w, Leashed(w, MusouEnemyType.Boy, Near(w)), 2);
+        Stand(w, 1);
+        Assert.Equal(boy, Pl(w, 2).Xp);   // his own ordinary kill still pays him
+    }
+
     // ---- Ork scaling -----------------------------------------------------------------------------------------------------------------------
 
     [Fact]
