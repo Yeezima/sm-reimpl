@@ -38,6 +38,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         w.Tfw.Warfront!.Target = WarfrontTargetKind.Hq;
         battle = TfwRig.Deploy(w);
         w.Musou!.Frozen = frozen;
+        battle.WeirdboyzOn = false;   // a Weirdboy teleports in 25 to 40 m from a human, which can be inside a held ring
         return w;
     }
 
@@ -57,6 +58,13 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
     {
         for (int i = 0; i < n; i++)
             w.Musou!.Spawn(MusouEnemyType.Boy, b.Layout.Positions[k] with { Z = WarfrontHqMap.PlateauZ } + new Vector3(i * 2f - 2f, 0f, 0f), 0f, 100f);
+    }
+
+    /// <summary>Keeps three frozen Boyz in each of the rings (the stranded-Ork failsafe moves a frozen Ork away after a few seconds).</summary>
+    static void Keep(World w, TfwBattle b, int t, params int[] rings)
+    {
+        if (t % 60 != 0) return;
+        foreach (int k in rings) if (!b.HqFell(k)) Occupy(w, b, k, 2);   // a fresh pair every 2 s: always some inside before the failsafe moves the older ones
     }
 
     [Fact]
@@ -87,8 +95,10 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         var fell = new List<int>();
         for (int t = 0; t < 30 * 90 && w.Tfw.Battle is not null; t++)
         {
+            Keep(w, b, t, 0, 1, 2);
             w.Step(_ => default);
-            for (int k = 0; k < 3; k++) if (b.HqFell(k) && !fell.Contains(k)) fell.Add(k);
+            for (int k = 0; k < 3; k++) if (b.HqFell(k) && !fell.Contains(k)) { fell.Add(k); output.WriteLine($"{k} fell at {t / 30f:0.0} s"); }
+            if (t % 300 == 0) output.WriteLine($"{t / 30} s: states {b.Objectives[0].State}/{b.Objectives[1].State}/{b.Objectives[2].State} p {b.Objectives[1].Progress:0.00} {b.Objectives[2].Progress:0.00} orksOn {b.OrksOn(1)} {b.OrksOn(2)} alive {w.Players[1].Alive}");
             if (!fell.Contains(0)) { Assert.Equal(TfwPositionState.Secured, b.Objectives[1].State); Assert.Equal(TfwPositionState.Secured, b.Objectives[2].State); }   // K and V cannot fall while W holds
         }
         Assert.Equal([0, 1, 2], fell);
@@ -104,7 +114,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         var w = Hq(out var b);
         TfwRig.Teleport(w, Safe);
         Occupy(w, b, 0);
-        Step(w, 30 * 25);
+        for (int t = 0; t < 30 * 25; t++) { Keep(w, b, t, 0); w.Step(_ => default); }
         Assert.True(b.HqFell(0));
         Assert.Equal(TfwPositionState.Held, b.Objectives[0].State);
         Assert.Equal(1, b.HqFallenCount);
@@ -186,11 +196,15 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         var paid = new List<int>();
         w.Tfw!.Warfront!.ObjectiveSecured = k => paid.Add(k);
         Occupy(w, b, 0);
-        Step(w, 30 * 25);
+        for (int t = 0; t < 30 * 25; t++) { Keep(w, b, t, 0); w.Step(_ => default); }
         Assert.True(b.HqFell(0));
         TfwRig.KillAll(w);
-        for (int t = 0; t < 30 * 460 && w.Tfw.Battle is not null; t++) { w.Step(_ => default); if (t % 100 == 0) TfwRig.KillAll(w); }
+        TfwMapResult? result = null;
+        w.Tfw.Warfront.NodeEnded = (_, _, r) => result = r;
+        int tEnd = 0;
+        for (int t = 0; t < 30 * 460 && w.Tfw.Battle is not null; t++) { w.Step(_ => default); if (t % 100 == 0) TfwRig.KillAll(w); tEnd = t; }
         Assert.Null(w.Tfw.Battle);
+        Assert.True(result == TfwMapResult.Won, $"{result} after {tEnd / 30f:0} s, V {b.HqFell(2)} K {b.HqFell(1)}");
         Assert.Equal([1, 2], paid.OrderBy(x => x).ToArray());
     }
 
@@ -217,7 +231,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         Assert.InRange(seconds, 44f, 45f);
         Step(w, 30 * 46);
         Assert.Equal(1, b.HqWavesSent);
-        Assert.InRange(Count(w, e => e.Position.Y < WarfrontHqMap.AssemblyNorth), 140, 160);
+        Assert.InRange(Count(w, e => e.Position.Y < WarfrontHqMap.AssemblyNorth), WarfrontHqBattleRules.WaveSizes[0] - 15, WarfrontHqBattleRules.WaveSizes[0] + 5);   // the first chunks have left
         Assert.Equal(0, Count(w, e => e.Type == MusouEnemyType.BossNob));
         Step(w, 30 * 150);
         Assert.Equal(2, b.HqWavesSent);

@@ -212,16 +212,16 @@ public sealed partial class TfwBattle
     /// <summary>Lets the next chunk of the wave leaving go when its time has come (<see cref="WarfrontHqBattleRules.ChunkGapSeconds"/> apart).</summary>
     void HqReleaseChunks(float t)
     {
-        int wave = _hqReleasing;
+        int wave = Math.Min(63, _hqReleasing);
         if (wave == 0) return;
         float leaves = WarfrontHqBattleRules.WaveLeaves(wave);
-        int chunks = _hqChunks;
+        int chunks = _hqChunkCount[wave];
         while (_hqChunksReleased < chunks && t >= leaves + _hqChunksReleased * WarfrontHqBattleRules.ChunkGapSeconds)
             _enemies.ReleaseGroup(HqGroup(wave, _hqChunksReleased++));
         if (_hqChunksReleased >= chunks) _hqReleasing = 0;
     }
 
-    int _hqChunks;
+    readonly int[] _hqChunkCount = new int[64];
 
     static int HqStageShare(int wave) => (int)MathF.Round(WarfrontHqBattleRules.WaveSize(wave) * WarfrontHqBattleRules.StageShare);
     int HqStageOrks(int wave) => HqStageShare(wave) * ((HqSourceOpen(1) ? 1 : 0) + (HqSourceOpen(2) ? 1 : 0));
@@ -231,14 +231,14 @@ public sealed partial class TfwBattle
     {
         _hqMustered = wave;
         int size = WarfrontHqBattleRules.WaveSize(wave) - HqStageOrks(wave);
-        var sources = WarfrontHqLayout.SourcesOf(0).ToArray();
+        var sources = WarfrontHqLayout.SourcesOf(0).Where(p => MathF.Abs(p.X) <= WarfrontHqBattleRules.MusterHalfWidth).ToArray();   // straight in front of the ramp: a wave mustered at the corners piled against the ramp's side
         int cap = TfwBattleRules.AliveCap(_humansNow);
         for (int n = 0; n < size; n++)
         {
             if (Counted() >= cap || PoolUsed >= TfwBattleRules.CrowdPoolRoom) { HqOrksSkipped += size - n; break; }
             HqSpawnOne(sources[n % sources.Length], leashed: true, HqGroup(wave, n / WarfrontHqBattleRules.ChunkSize));
         }
-        _hqChunks = Math.Max(1, (size + WarfrontHqBattleRules.ChunkSize - 1) / WarfrontHqBattleRules.ChunkSize);
+        _hqChunkCount[Math.Min(63, wave)] = Math.Max(1, (size + WarfrontHqBattleRules.ChunkSize - 1) / WarfrontHqBattleRules.ChunkSize);
         if (wave < WarfrontHqBattleRules.BossWave) return;
         for (int n = 0; n < WarfrontHqBattleRules.BossNobsPerHuman * _humansNow; n++)
         {

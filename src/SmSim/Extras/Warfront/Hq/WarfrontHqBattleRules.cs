@@ -18,9 +18,11 @@ public static class WarfrontHqBattleRules
     public const float MusterLeadSeconds = 20f;
     /// <summary>A wave leaves in chunks of this many Orks, one chunk every <see cref="ChunkGapSeconds"/> (about 170 an minute, under the gate's measured 214), so the 12 m gate is never jammed by a whole wave arriving at once (measured: a 300-Ork rush jammed it and 31 % of the Orks stood without headway).</summary>
     public const int ChunkSize = 20;
-    public const float ChunkGapSeconds = 7f;
+    /// <summary>A wave musters only at the assembly sources within this many metres of the ramp's centre line (the ramp is 30 m wide).</summary>
+    public const float MusterHalfWidth = 46f;
+    public const float ChunkGapSeconds = 6f;
     /// <summary>The waves' sizes (Orks); a later wave is as big as the last listed.</summary>
-    public static readonly int[] WaveSizes = [150, 200, 250];
+    public static readonly int[] WaveSizes = [300, 450, 600];
     /// <summary>The waves scheduled inside <see cref="SurviveSeconds"/> (the HUD's "OF n").</summary>
     public static int ScheduledWaves
     {
@@ -37,7 +39,7 @@ public static class WarfrontHqBattleRules
     public const int BossNobsPerHuman = 1, BossWave = 3;
 
     /// <summary>The Guard squads that start at each position's posts (W, K, V); the Guardsmen are not replaced.</summary>
-    public static readonly int[] SquadsAt = [5, 3, 2];
+    public static readonly int[] SquadsAt = [2, 1, 1];
 
     /// <summary>A stage-1 or stage-2 source never spawns within this many metres of a human, nor while a human is within <see cref="SourceSightMetres"/> (our stand-in for "in his sight": the courtyard and the hall are open to each other).</summary>
     public const float SourceClearanceMetres = 30f, SourceSightMetres = 60f;

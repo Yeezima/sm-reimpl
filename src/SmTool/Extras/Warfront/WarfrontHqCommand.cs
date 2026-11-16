@@ -137,7 +137,9 @@ static class WarfrontHqCommand
             Console.WriteLine($"stuck-log records: {stuck.Count} ({stuck.Count / 3.0:0.0} % of 300): " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()} ({string.Join("/", g.GroupBy(s => s.Why).Select(h => $"{h.Key} {h.Count()}"))})")));
         }
         else Console.WriteLine($"stuck-log records: {stuck.Count}: " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()}")));
-        foreach (var r in stuck.Take(12)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  stuck: {r.Type} {r.Why} at ({r.At.X:0}, {r.At.Y:0}, {r.At.Z:0})"));
+        foreach (var r in stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => ((int)MathF.Round(x.At.X / 10f), (int)MathF.Round(x.At.Y / 10f))).OrderByDescending(g => g.Count()).Take(8).Select(g => g.First()).Take(0)) Console.WriteLine(r);
+        foreach (var g in stuck.GroupBy(x => ((int)MathF.Round(x.At.X / 10f) * 10, (int)MathF.Round(x.At.Y / 10f) * 10)).OrderByDescending(g => g.Count()).Take(8)) Console.WriteLine($"  stuck cell x {g.Key.Item1} y {g.Key.Item2}: {g.Count()}");
+        foreach (var r in stuck.Take(0)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  stuck: {r.Type} {r.Why} at ({r.At.X:0}, {r.At.Y:0}, {r.At.Z:0})"));
         Report("tick cost, whole run", steps);
         if (waves) Report("tick cost, third wave on the field", stepsBig);
         return 0;
