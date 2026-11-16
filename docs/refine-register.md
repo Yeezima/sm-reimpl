@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3399 spec table rows: **2423 tagged**, 628 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 750 rows of the changes document.
+Scanned 3409 spec table rows: **2433 tagged**, 628 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 751 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3399 spec table rows: **2423 tagged**, 628 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
-| Sound mix (critical) | 89 | 83 | 75 | 11 | 0 |
+| Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 45 | 41 | 42 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,15 +53,15 @@ Scanned 3399 spec table rows: **2423 tagged**, 628 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2423** | 2151 | 1798 | 730 | 37 |
+| **All areas** | **2433** | 2161 | 1801 | 731 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1421 |
+| kind: ours | 1431 |
 | confidence: low | 868 |
-| confidence: medium | 821 |
+| confidence: medium | 824 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
@@ -74,8 +74,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
+| notes: interpretation | 26 |
 | kind: approximation | 25 |
-| notes: interpretation | 25 |
 | kind: placeholder | 23 |
 | kind: gap (not reproduced) | 19 |
 | notes: open question | 19 |
@@ -1820,7 +1820,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
 
-### Sound mix (gameplay-critical) (89)
+### Sound mix (gameplay-critical) (99)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1985,6 +1985,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5C0D8B0A` | Tuner distance fall-off | per group, off by default (the data's curve and the match's loudness rule): on = the voice's level at 0 m, full within the minimum distance (0.5 to 100 m, 3 m at the switch), then 0 to 24 dB per doubling of the distance (6 dB = inverse distance, the default)… (m, dB per doubling) | kind: ours; confidence: medium | the owner ("how it falls off at distance") | Tuner distance fall-off: compare with SM1 by listening A/B at the same distance and state. Ours: per group, off by default (the data's curve and the match's loudness… | ☐ |
 | `R-DA0B1EB1` | Tuner reverb | one scale 0 to 3 on the map's reverb send (the mixer has a single shared reverb on the effects bus, no per-voice send) (factor) | kind: ours; confidence: medium | the owner ("etc."); the single reverb is the mixer's limit | Tuner reverb: compare with SM1 by listening A/B at the same distance and state. Ours: one scale 0 to 3 on the map's reverb send (the mixer has a single… | ☐ |
 | `R-B986C0DF` | Tuner files | the owner's changes (only groups that differ from the defaults) in `%LOCALAPPDATA%\sm-reimpl\sound-tuning.json`, read at client start; the shipped defaults in `config/sound-tuning-defaults.json` (absent = every group 0 dB and the data's curve; written by… | kind: ours | the owner's request | Tuner files: compare with SM1 by listening A/B at the same distance and state. Ours: the owner's changes (only groups that differ from the defaults) in… | ☐ |
+
+*Spec section: The sound mix editor: per-sound adjustments, raw bypass, export (sound/mix-expand; owner 2026-11-17; client only, presentation only, not simulated)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-5D3ACB0B` | Sound id | the event name the game's banks and triggers post (`play_sm_heavy_bolter_fire`, a character line `speech/<kind>/<type>`), heard from one side: your own (the local player's emitter) or others' (other players, projectiles that follow one, and the world); one… | kind: ours | the owner's request (own and others' adjusted separately) | Sound id: compare with SM1 by listening A/B at the same distance and state. Ours: the event name the game's banks and triggers post… | ☐ |
+| `R-677EC24D` | Groups | Weapons, Player events, Combat moves, Equipment, Voices and announcer, Ambience and map, UI sounds, Other (the owner's list); the group, label and weapon or item of an event come from its name: lower-cased, the `play_`/`stop_` prefix and the faction prefix… | kind: ours; confidence: medium; notes: interpretation | interpretation of the install's event names (weapon names from the weapon files' event names) | Groups: compare with SM1 by listening A/B at the same distance and state. Ours: Weapons, Player events, Combat moves, Equipment, Voices and… | ☐ |
+| `R-3CC5965B` | Volume | -40 to +24 dB per sound, 0 = as the game plays it, added on top of the group tuner's and the Options menu's volumes (dB) | kind: ours | the owner | Volume: compare with SM1 by listening A/B at the same distance and state. Ours: -40 to +24 dB per sound, 0 = as the game plays it, added on top of… | ☐ |
+| `R-C73DD891` | Pitch | -12 to +12 semitones per sound, 0 = as the game plays it; the playback speed is scaled by 2^(n/12) (semitones) | kind: ours | the owner | Pitch: compare with SM1 by listening A/B at the same distance and state. Ours: -12 to +12 semitones per sound, 0 = as the game plays it; the… | ☐ |
+| `R-19BB76CF` | Hearing distance | x0.25 to x4 per sound, 1 = the game's own curve: the listener's distance is divided by it before the data's distance curve and its end are read (x2: heard twice as far); the panel shows the game's own hearing distance of the sound (factor) | kind: ours; confidence: medium | the owner ("hearing distance"); the divisor is our reading of it | Hearing distance: compare with SM1 by listening A/B at the same distance and state. Ours: x0.25 to x4 per sound, 1 = the game's own curve: the listener's… | ☐ |
+| `R-E583287E` | Mute and solo | mute silences a sound (-200 dB, the voice then falls under the audibility threshold); solo silences every sound that is not soloed (both sides counted separately); solo is a listening aid, never saved or exported | kind: ours | the owner | Mute and solo: compare with SM1 by listening A/B at the same distance and state. Ours: mute silences a sound (-200 dB, the voice then falls under the… | ☐ |
+| `R-9887B121` | Raw bypass | a switch for one sound or all: the sample plays as authored. Skips: the data's low-pass (the filter buses) and the on-hit high-pass; the map's reverb send and the bus limiter (a bus of its own straight into Master); the data's random pitch and volume draws… | kind: ours; confidence: medium | the owner | Raw bypass: compare with SM1 by listening A/B at the same distance and state. Ours: a switch for one sound or all: the sample plays as authored. Skips:… | ☐ |
+| `R-5CBCB33D` | Live list | the last 48 distinct sounds that started, with source (YOUR, OTHER, WORLD: own emitter, an emitter that follows something, a fixed place), distance and count; filled only while the panel is open (a voice start scans 48 rows and allocates nothing); a click… | kind: ours | the owner | Live list: compare with SM1 by listening A/B at the same distance and state. Ours: the last 48 distinct sounds that started, with source (YOUR, OTHER… | ☐ |
+| `R-B620344E` | Empty config | no override, no global raw, no solo: `Resolve` returns null and every changed line of the sound system is a no-op; the output is today's | kind: ours | the owner ("zero behaviour change") | Empty config: compare with SM1 by listening A/B at the same distance and state. Ours: no override, no global raw, no solo: Resolve returns null and every… | ☐ |
+| `R-1C6E4862` | Files | saved: `%LOCALAPPDATA%\sm-reimpl\sound-mix.json` (only his differences from the shipped defaults (a sound he put back to the game's own is `{ "reset": true }`), applied over them at client start; a missing or broken file is skipped) beside… | kind: ours | the owner ("export the config for global application to playtest release shipments") | Files: compare with SM1 by listening A/B at the same distance and state. Ours: saved: %LOCALAPPDATA%\sm-reimpl\sound-mix.json (only his differences… | ☐ |
 
 ### Effects (gameplay-critical) (95)
 
@@ -5162,6 +5177,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-4D927CA9` | Power sword F + F is a stab, not a stomp (sim/sword-ff-stab, owner 2026-11-14; Classic PvP only; config hash changes, no protocol bump here) | The original's sword Y,Y finisher is the foot stomp (`SM_MEL_CS_YATK_DSP_Stomp`, blast r 7, 25 + 50) | Ours (the owner's request, verbatim in spec "Power sword Y,Y finisher: the stab"): the second F plays the X,F strike's clip and timing without a blast and hits the primary target for 100 + 50 shield and a stagger (Furious Charge's bull rush entry, always, no perk needed), nothing for others; Musou Mode's sword keeps… | Spec "Power sword Y,Y finisher: the stab"; restore `SM_OLD_SWORD_FF=1` | Power sword F + F is a stab, not a stomp…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1D3CB771` | Melee widens the field of view (camera/melee-fov-widen, owner 2026-11-15; client camera only, no protocol change; Classic PvP and Musou Mode) | The original's camera keeps one field of view through melee | Ours (the owner's request, verbatim: "when melee attacking as any class fov should be slightly expanded by 10 until a ranged attack is executed (left mouse button)"): any melee action (swing, heavy, charge, lunge, ground pound) widens the configured horizontal field of view by 10 degrees, capped at 120, until the… | spec "Melee field-of-view widening" | Melee widens the field of view (camera/melee-fov-widen…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2CF9C68E` | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and hunting instead of patrolling (bots/classic-hunt, owner 2026-11-16; test bots, no protocol or config-hash change) | Multiplayer had no bots | Ours (owner's words verbatim in spec "Hunt when nobody is left to chase" and "Cover at low health"): a retreating bot starts at 30 % health (60 % before) and rejoins at 90 % health and armour but not before 5 s and at the latest after 15 s (35 s before; Seize Ground and, since the owner's "classic pvp seize ground and… | Spec "Hunt when nobody is left to chase", "Cover at low health" | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-293081FC` | The F7 sound mix editor: per-sound volume, pitch, hearing distance, mute, solo and raw, with export and shipped defaults (sound/mix-expand, owner 2026-11-17; client only, no protocol, wire, rules or config-hash change; every mode) | The original had no sound tuning | Ours (the owner's request, verbatim in spec "The sound mix editor"): off until the owner changes something, a shipped `config/sound-mix-defaults.json` would make a release sound different on purpose; raw plays a sample without the filters, effects and mix passes | Sound mix | The F7 sound mix editor: per-sound volume, pitch, hearing…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2A54A495` | Developer tools panel (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's request, verbatim in spec "Developer tools: the in-game test panel"): F6 opens a panel for invincible players and bots, frozen bots, infinite ammunition (heat and overheat included, our choice), infinite jump pack fuel, and adding or removing a test bot per side; the server applies everything, and… | Real-match rules, a public server and the Host panel's LAN / Internet mode stay exactly as they were; with the switch off the tick loop pays one null check and no packet differs (the protocol number moved 79 to 80 for the two new messages) | Developer tools panel (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
