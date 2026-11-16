@@ -41,8 +41,10 @@ public static class SquadClassRules
     public const float MinCostShare = 0.35f;
     /// <summary>The owner counts as airborne when this high above the walking graph's floor, and as pounding when falling faster than the speed (m/s) [ours/estimate].</summary>
     public const float OwnerAirHeight = 1.5f, OwnerPoundSpeed = 12f;
-    /// <summary>One route search (a path with jump links) per tick for the whole squad system [ours].</summary>
-    public const int RoutesPerTick = 1;
+    /// <summary>The view's Firing flag stays on this long after a round, so a 10 Hz wire sample does not miss it [ours].</summary>
+    public const float FireHold = 0.3f;
+    /// <summary>The apex of a flight under a roof (a tunnel or a cave), metres [ours/estimate].</summary>
+    public const float RoofedApex = 2.5f;
 
     // ---- the jump-pound order
     /// <summary>Impacts land within this radius of the marked point [owner: "within a 5 m radius"].</summary>

@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3548 spec table rows: **2538 tagged**, 658 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
-Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
+Scanned 3560 spec table rows: **2550 tagged**, 658 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -47,32 +46,25 @@ Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data wi
 | Game modes | 46 | 42 | 43 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
-| Customizer and paint | 60 | 53 | 38 | 19 | 0 |
+| Customizer and paint | 63 | 55 | 41 | 20 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 793 | 750 | 580 | 221 | 1 |
 | General game design | 39 | 39 | 31 | 9 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2538** | 2262 | 1899 | 777 | 37 |
-| **All areas** | **2533** | 2261 | 1892 | 775 | 37 |
+| **All areas** | **2550** | 2273 | 1907 | 780 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1465 |
-| confidence: low | 921 |
-| confidence: medium | 869 |
-| notes: ours | 447 |
-| kind: interpretation | 413 |
-| kind: estimate | 210 |
-| kind: ours | 1469 |
-| confidence: low | 918 |
-| confidence: medium | 865 |
-| notes: ours | 446 |
-| kind: interpretation | 411 |
-| kind: estimate | 208 |
+| kind: ours | 1472 |
+| confidence: low | 925 |
+| confidence: medium | 873 |
+| notes: ours | 450 |
+| kind: interpretation | 414 |
+| kind: estimate | 213 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
 | kind: provisional | 105 |
@@ -2352,7 +2344,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5AED6E4D` | Ragdoll lifecycle (client) | simulates until every body has been still (< 0.3 m/s and < 2 rad/s) for 3 s (the user's request), or 12 s at most, or the chest falls below −300 m; then the pose is kept and the physics freed; at most 16 corpses (simulating or lying; the oldest lying one goes… (s) | kind: provisional; confidence: none (low); notes: ours | user's request (3 s); the rest ours | Ragdoll lifecycle (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: simulates until every body has been still (< 0.3 m/s and < 2 rad/s)… | ☐ |
 | `R-42969A4B` | Death camera and vignette (client) | after the user's description of the original: the camera blends in 0.3 s (smoothstep) from the last view to a third-person orbit of the own ragdoll's chest, then rises to at least 0.4 rad elevation over 1.5 s and pulls back 1.2 m over 3 s (FOV to 60°), kept… (s) | kind: placeholder; confidence: none (low); notes: ours | after the user's description of the original; numbers ours | Death camera and vignette (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after the user's description of the original: the camera blends in… | ☐ |
 
-### Customizer and paint (60)
+### Customizer and paint (63)
 
 *Spec section: Armour paint (client only; not simulated)*
 
@@ -2427,12 +2419,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-153513EF` | Librarian squad class | whole squad Assault/Raptor, Tactical or Devastator/Havoc (no mixed squads); each Marine rolls one of the owner's valid Classic PvP bot presets for the class (the first legal preset from the seed's pick), seeded by a 64-bit mix of run seed, campaign key… | kind: ours; confidence: medium | owner; the seeding ours | Librarian squad class: compare with SM1 with side-by-side screenshots in the same spot. Ours: whole squad Assault/Raptor, Tactical or Devastator/Havoc (no mixed… | ☐ |
 | `R-0815F713` | Jump pack | a class with a jump pack: its power, recharge, the full jump's cost and height, a range and airtime from the pack's physics (forward speed x the rise, hang, fall and take-off times), and the ground pound's radius, damage and recovery (power, m, s) | confidence: medium | class data; range and airtime derived | Jump pack: compare with SM1 with side-by-side screenshots in the same spot. Ours: a class with a jump pack: its power, recharge, the full jump's cost… | ☐ |
 | `R-46A46F4B` | Jump follow | an Assault/Raptor Marine on Follow leaps to its place by the owner when the owner is farther than 12 m (or airborne and beyond the follow band), checked every 10 ticks; the landing is the graph's floor within 1 m of its spot (on the graph), in the pack's… (m, s) | kind: interpretation; confidence: low; notes: ours | plan section 6 (12 m); the rest ours | Jump follow: compare with SM1 with side-by-side screenshots in the same spot. Ours: an Assault/Raptor Marine on Follow leaps to its place by the owner… | ☐ |
-| `R-D446885C` | Jump follow along a route | where the walking path stops at a jump or drop link, the Marine leaps to that link's far side when it is a valid landing in range; one route search per tick for all squads | kind: interpretation; confidence: low | owner ("follow by jump where feasible") | Jump follow along a route: compare with SM1 with side-by-side screenshots in the same spot. Ours: where the walking path stops at a jump or drop link, the Marine leaps… | ☐ |
+| `R-D446885C` | Jump follow along a route | where the walking path stops at a jump or drop link, the Marine leaps to that link's far side when it is a valid landing in range; ONE route search a second per squad at most, its answer (the far side, or none: a failed search too) kept until the owner has… (s, m) | kind: interpretation; confidence: low; notes: ours | owner ("follow by jump where feasible"); the budget ours (review 1) | Jump follow along a route: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: where the walking path stops at a jump or drop link, the Marine leaps… | ☐ |
 | `R-74674E41` | Pound with the owner | a Marine in flight lands as a ground pound when its owner is airborne (1.5 m above the floor) and falling faster than 12 m/s (the owner's pound), else a plain landing (m, m/s) | kind: estimate; confidence: low | owner ("try to mirror a normal player ground pound") | Pound with the owner: compare with SM1 by timing a run over a known distance. Ours: a Marine in flight lands as a ground pound when its owner is airborne… | ☐ |
 | `R-F5D10F78` | Jump-pound order | max jump then a ground pound round the marked point: each jump-pack Marine gets its own landing within 5 m of the mark's floor, at least 1.2 m from every other, on the graph, in range, with a clear line of flight, tried over 24 spiral places; a Marine with… (m, s) | kind: estimate; confidence: medium; notes: ours | owner (5 m, stagger, validation, ability limits, no stacking); 1.2 m and 0.15 s plan section 6; the rest ours | Jump-pound order: compare with SM1 with side-by-side screenshots in the same spot. Ours: max jump then a ground pound round the marked point: each jump-pack… | ☐ |
 | `R-23B72622` | Ability limits kept | a jump needs the pack's power, power recharges at the pack's rate, a pound has its recovery; Marines do not collide in the air | confidence: medium | owner ("keep existing ability limits") | Ability limits kept: compare with SM1 with side-by-side screenshots in the same spot. Ours: a jump needs the pack's power, power recharges at the pack's rate, a… | ☐ |
+| `R-3A68B229` | Squad damage dealt | every Marine's weapon and pound damage is multiplied by `SquadRules.DamageDealt` (1): the one knob for squad strength, with `DamageTaken` (0.1) the other; the strength table (squad damage per second, time to kill, time to be downed at levels 1, 10, 20) is in… (x) | kind: estimate; confidence: low | review 1 finding 4 | Squad damage dealt: compare with SM1 by counting hits to kill and by video of the health bar. Ours: every Marine's weapon and pound damage is multiplied by… | ☐ |
+| `R-05F3F4F3` | Side | a Warfront owner carries his side (`SquadOwnerLoadout.Side`, default Space Marines): a Chaos Librarian's squad rolls Raptors and Havocs from the Chaos classes; a standard retainer mirrors the player's own class whatever the side | confidence: medium | owner text (Raptor, Havoc); review 1 finding 5 | Side: compare with SM1 with side-by-side screenshots in the same spot. Ours: a Warfront owner carries his side (SquadOwnerLoadout.Side, default… | ☐ |
+| `R-55704A69` | Leap under a roof | a flight whose middle has no clear line straight up (the HQ's tunnels, 8 m clear) keeps an apex of 2.5 m instead of the pack's height (m) | kind: estimate; confidence: low | review 1 finding 7 | Leap under a roof: compare with SM1 by measuring on a flat spot of the same map. Ours: a flight whose middle has no clear line straight up (the HQ's… | ☐ |
 | `R-C66B5369` | Rebind (mid-battle reconnect) | `Rebind(key, player)` changes only the player id the squad answers to; positions, health, armour, downed state and orders stay; `Land` is for real landings and stands everyone up at full strength | kind: ours | lead 29, defect found in W9 | Rebind (mid-battle reconnect): compare with SM1 with side-by-side screenshots in the same spot. Ours: Rebind(key, player) changes only the player id the squad answers to… | ☐ |
-| `R-8046E721` | Marine view fields | `Firing` (a round was taken this tick), `Target` (the Ork id or -1), `ReviveShare` (0 to 1 of the revive hold) | kind: ours | lead 29 (for W10's wire) | Marine view fields: compare with SM1 with side-by-side screenshots in the same spot. Ours: Firing (a round was taken this tick), Target (the Ork id or -1)… | ☐ |
+| `R-8046E721` | Marine view fields | `Firing` (a round was taken, held 0.3 s so a 10 Hz wire sample sees it), `Target` (the Ork id or -1), `ReviveShare` (0 to 1 of the revive hold), `Airborne` (in a leap or a pound's jump: the client plays the flight and does not ground-snap it; the pound itself… | kind: ours | lead 29 and review 1 (for W10's wire) | Marine view fields: compare with SM1 with side-by-side screenshots in the same spot. Ours: Firing (a round was taken, held 0.3 s so a 10 Hz wire sample sees… | ☐ |
 
 ### Animation blending (7)
 

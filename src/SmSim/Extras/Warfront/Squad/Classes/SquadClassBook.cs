@@ -2,13 +2,13 @@ namespace SmSim.Extras.Warfront.Squad;
 
 /// <summary>
 /// What a player's class is for the squad, as the ship's customizer confirms it: <see cref="Kind"/> Standard (a Classic class and loadout, <see cref="Choice"/>), Dreadnought (no retainers) or Librarian (the squad's
-/// class is <see cref="Librarian"/>). <see cref="LookCode"/> is the player's appearance code (<see cref="AppearanceCode.ToArray"/>), whose colours every retainer wears; null: the default look.
+/// class is <see cref="Librarian"/>, on side <see cref="Side"/>: a Chaos Librarian's squad rolls Raptors and Havocs). <see cref="LookCode"/> is the player's appearance code (<see cref="AppearanceCode.ToArray"/>), whose colours every retainer wears; null: the default look.
 /// </summary>
-public sealed record SquadOwnerLoadout(SquadOwnerKind Kind, LoadoutChoice Choice, byte[]? LookCode, SquadClass Librarian)
+public sealed record SquadOwnerLoadout(SquadOwnerKind Kind, LoadoutChoice Choice, byte[]? LookCode, SquadClass Librarian, Team Side = Team.SpaceMarines)
 {
     public static SquadOwnerLoadout Standard(LoadoutChoice choice, AppearanceCode look = default) => new(SquadOwnerKind.Standard, choice, look.ToArray(), SquadClass.Tactical);
     public static SquadOwnerLoadout Dreadnought() => new(SquadOwnerKind.Dreadnought, LoadoutChoice.Default, null, SquadClass.Tactical);
-    public static SquadOwnerLoadout ForLibrarian(SquadClass squad, AppearanceCode look = default) => new(SquadOwnerKind.Librarian, LoadoutChoice.Default, look.ToArray(), squad);
+    public static SquadOwnerLoadout ForLibrarian(SquadClass squad, AppearanceCode look = default, Team side = Team.SpaceMarines) => new(SquadOwnerKind.Librarian, LoadoutChoice.Default, look.ToArray(), squad, side);
 
     /// <summary>The player's look.</summary>
     public AppearanceCode LookOf() => LookCode is { Length: AppearanceCode.Size } b ? AppearanceCode.FromBytes(b) : AppearanceCode.Default;
@@ -46,12 +46,11 @@ public sealed class SquadClassBook
     readonly SimConfig _config;
     readonly SquadRosters _rosters;
     readonly ulong _runSeed;
-    readonly Team _side;
     readonly Dictionary<ulong, State> _state = [];
 
-    public SquadClassBook(SimConfig config, SquadRosters rosters, ulong runSeed, Team side = Team.SpaceMarines)
+    public SquadClassBook(SimConfig config, SquadRosters rosters, ulong runSeed)
     {
-        _config = config; _rosters = rosters; _runSeed = runSeed; _side = side;
+        _config = config; _rosters = rosters; _runSeed = runSeed;
     }
 
     /// <summary>Whether the once-per-run free retainer has been given to <paramref name="key"/>.</summary>
@@ -105,7 +104,7 @@ public sealed class SquadClassBook
             int selection = (int)owner.Librarian + 1;
             for (int slot = 0; slot < _rosters.Count(key); slot++)
             {
-                var roll = SquadLoadoutBuilder.Roll(_config, owner.Librarian, _runSeed, key, slot, selection, look, _side);
+                var roll = SquadLoadoutBuilder.Roll(_config, owner.Librarian, _runSeed, key, slot, selection, look, owner.Side);
                 if (roll is null || _rosters.Marine(key, slot) is not { } m) continue;
                 if (!Same(m.Loadout, roll)) changed++;
                 _rosters.SetLoadout(key, slot, roll);
@@ -122,7 +121,8 @@ public sealed class SquadClassBook
 
     static bool Same(SquadLoadout a, SquadLoadout b) =>
         a.ClassId == b.ClassId && a.Primary == b.Primary && a.Secondary == b.Secondary && a.Melee == b.Melee && a.Perks.SequenceEqual(b.Perks) && a.Armour.SequenceEqual(b.Armour)
-        && a.Colours.SequenceEqual(b.Colours) && a.HealthMax == b.HealthMax && a.ArmourMax == b.ArmourMax && a.Weapon == b.Weapon;
+        && a.Colours.SequenceEqual(b.Colours) && a.HealthMax == b.HealthMax && a.ArmourMax == b.ArmourMax && a.Weapon == b.Weapon && a.Jump == b.Jump
+        && a.ArmourRegenDelay == b.ArmourRegenDelay && a.ArmourRegenRate == b.ArmourRegenRate && a.HealthRegenDelay == b.HealthRegenDelay && a.HealthRegenRate == b.HealthRegenRate;
 
     /// <summary>The class state as a plain value, for the run's save.</summary>
     public SquadClassSave Export() => new(_state.OrderBy(p => p.Key).Select(p => new SquadClassKeySave(p.Key, p.Value.FirstKind, p.Value.FreeGranted, p.Value.Last)).ToList());

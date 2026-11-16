@@ -1,5 +1,6 @@
 using System.Numerics;
 using SmSim;
+using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront.Squad;
 
@@ -15,6 +16,8 @@ sealed class ClassArena : ISquadArena, ISquadJumpArena
     public (float From, float To)? Pit;
     public IReadOnlyList<SquadRouteStep>? Route;
     public int RouteCalls;
+    /// <summary>A roof over the middle of a flight: no clear line straight up.</summary>
+    public bool Roof;
 
     public Ork Add(Vector3 pos) { var o = new Ork { Id = (ushort)(Orks.Count + 1), Pos = pos }; Orks.Add(o); return o; }
 
@@ -25,6 +28,9 @@ sealed class ClassArena : ISquadArena, ISquadJumpArena
             if (n < into.Length) into[n++] = o.Id;
         return n;
     }
+
+    public MusouEnemyType EnemyType = MusouEnemyType.Nob;
+    public bool TryEnemyType(ushort id, out MusouEnemyType type) { type = EnemyType; return Orks.Any(o => o.Id == id); }
 
     public bool TryEnemy(ushort id, out Vector3 position, out SquadEnemyClass kind)
     {
@@ -42,7 +48,7 @@ sealed class ClassArena : ISquadArena, ISquadJumpArena
         return true;
     }
 
-    public bool HasSight(Vector3 from, Vector3 to) => true;
+    public bool HasSight(Vector3 from, Vector3 to) => !(Roof && to.Z - from.Z > 2f);
 
     public bool Ground(Vector3 p, out Vector3 ground)
     {
@@ -77,31 +83,32 @@ public class SquadClassesTests
         int P(string name) => perks.FindIndex(p => p.Name == name);
         var thrown = new List<ThrownSpec> { Thrown("sm_mp_eq_frag_grenade"), Thrown("sm_mp_eq_krak_grenade"), Thrown("sm_mp_eq_stimpack") };
         int W(string name, WeaponSlot slot, float damage = 20f) { weapons.Add(Gun(name, slot, damage)); return weapons.Count - 1; }
-        int boltPistol = W("sm_mp_pistol_bolt_pistol", WeaponSlot.Pistol), plasmaPistol = W("sm_mp_pistol_plasma_pistol", WeaponSlot.Pistol);
-        var primaries = new List<int> { W("sm_mp_ranged_bolter", WeaponSlot.Ranged), W("sm_mp_ranged_sniper_rifle", WeaponSlot.Ranged, 90f), W("sm_mp_ranged_plasma_gun", WeaponSlot.Ranged),
-            W("sm_mp_ranged_melta", WeaponSlot.Ranged), W("sm_mp_ranged_storm_bolter", WeaponSlot.Ranged) };
-        var classes = new List<ClassLoadout>
+        var classes = new List<ClassLoadout>();
+        foreach (var (side, team) in new[] { ("sm", Team.SpaceMarines), ("csm", Team.Chaos) })
         {
-            new("sm - tactical", primaries[0], boltPistol, SimConfig.PlaceholderMeleeSteps)
+            int boltPistol = W($"{side}_mp_pistol_bolt_pistol", WeaponSlot.Pistol), plasmaPistol = W($"{side}_mp_pistol_plasma_pistol", WeaponSlot.Pistol);
+            var primaries = new List<int> { W($"{side}_mp_ranged_bolter", WeaponSlot.Ranged), W($"{side}_mp_ranged_sniper_rifle", WeaponSlot.Ranged, 90f), W($"{side}_mp_ranged_plasma_gun", WeaponSlot.Ranged),
+                W($"{side}_mp_ranged_melta", WeaponSlot.Ranged), W($"{side}_mp_ranged_storm_bolter", WeaponSlot.Ranged) };
+            classes.Add(new ClassLoadout($"{side} - tactical", primaries[0], boltPistol, SimConfig.PlaceholderMeleeSteps)
             {
-                PrimaryChoices = primaries, PistolChoices = [boltPistol], EquipmentChoices = [0, 1, 2], Side = Team.SpaceMarines, Role = "tactical",
+                PrimaryChoices = primaries, PistolChoices = [boltPistol], EquipmentChoices = [0, 1, 2], Side = team, Role = "tactical",
                 PerkChoices = TacticalPerks.Select(P).ToList(), DefaultPerk = P("mp_perk_friendly_spawn_target"),
-            },
-        };
-        var melees = new List<MeleeCombo> { new("sm_mp_melee_chainsword", SimConfig.PlaceholderMeleeSteps), new("sm_mp_melee_powersword", SimConfig.PlaceholderMeleeSteps),
-            new("sm_mp_melee_2hand_thunder_hammer", SimConfig.PlaceholderMeleeSteps) };
-        classes.Add(new ClassLoadout("sm - assault marine", -1, boltPistol, SimConfig.PlaceholderMeleeSteps)
-        {
-            PistolChoices = [boltPistol, plasmaPistol], MeleeChoices = melees, EquipmentChoices = [0, 1, 2], Side = Team.SpaceMarines, Role = "assault",
-            PerkChoices = AssaultPerks.Select(P).ToList(), DefaultPerk = P("mp_perk_improved_bullrush"), JumpPack = 0,
-        });
-        int devPistol = W("sm_mp_pistol_bolt_pistol_devastator", WeaponSlot.Pistol);
-        var heavies = new List<int> { W("sm_mp_exotic_heavy_bolter", WeaponSlot.Ranged), W("sm_mp_exotic_las_cannon", WeaponSlot.Ranged, 200f), W("sm_mp_exotic_plasma_cannon", WeaponSlot.Ranged) };
-        classes.Add(new ClassLoadout("sm - devastator", heavies[0], devPistol, SimConfig.PlaceholderMeleeSteps)
-        {
-            PrimaryChoices = heavies, PistolChoices = [devPistol], EquipmentChoices = [0, 1, 2], Side = Team.SpaceMarines, Role = "heavy",
-            PerkChoices = HeavyPerks.Select(P).ToList(), DefaultPerk = P("mp_perk_melee_damage_resistance"),
-        });
+            });
+            var melees = new List<MeleeCombo> { new($"{side}_mp_melee_chainsword", SimConfig.PlaceholderMeleeSteps), new($"{side}_mp_melee_powersword", SimConfig.PlaceholderMeleeSteps),
+                new(side == "sm" ? "sm_mp_melee_2hand_thunder_hammer" : "csm_mp_melee_2hand_power_mace", SimConfig.PlaceholderMeleeSteps) };
+            classes.Add(new ClassLoadout($"{side} - assault marine", -1, boltPistol, SimConfig.PlaceholderMeleeSteps)
+            {
+                PistolChoices = [boltPistol, plasmaPistol], MeleeChoices = melees, EquipmentChoices = [0, 1, 2], Side = team, Role = "assault",
+                PerkChoices = AssaultPerks.Select(P).ToList(), DefaultPerk = P("mp_perk_improved_bullrush"), JumpPack = 0,
+            });
+            int devPistol = W($"{side}_mp_pistol_bolt_pistol_devastator", WeaponSlot.Pistol);
+            var heavies = new List<int> { W($"{side}_mp_exotic_heavy_bolter", WeaponSlot.Ranged), W($"{side}_mp_exotic_las_cannon", WeaponSlot.Ranged, 200f), W($"{side}_mp_exotic_plasma_cannon", WeaponSlot.Ranged) };
+            classes.Add(new ClassLoadout($"{side} - devastator", heavies[0], devPistol, SimConfig.PlaceholderMeleeSteps)
+            {
+                PrimaryChoices = heavies, PistolChoices = [devPistol], EquipmentChoices = [0, 1, 2], Side = team, Role = "heavy",
+                PerkChoices = HeavyPerks.Select(P).ToList(), DefaultPerk = P("mp_perk_melee_damage_resistance"),
+            });
+        }
         var pack = new JumpPackSpec("sm_mp_abil_jumppack", [new DistancePoint(0.1f, 2f), new DistancePoint(1f, 8f)], [new DistancePoint(0.1f, 10f), new DistancePoint(1f, 50f)],
             packPower, 10f, 20f, 5f, 0.3f, 15f, 10f, 0.5f, 0.1f)
         {
@@ -479,5 +486,89 @@ public class SquadClassesTests
         var holder = new SquadHuman(2, sim.View(1)!.Value.Position, true, false, 1);
         Run(sim, 30, human, holder);                                   // 1 s of 2 s
         Assert.InRange(sim.View(1)!.Value.ReviveShare, 0.4f, 0.6f);
+    }
+
+    // ---- second pass (review 1)
+
+    [Fact]
+    public void Route_searches_are_one_a_second_per_squad_and_kept_until_the_owner_moves_even_when_no_landing_ever_works()
+    {
+        var (sim, arena, _) = Squad(3);
+        arena.Pit = (15f, 200f);                      // every straight leap lands in the pit
+        arena.Route = [new SquadRouteStep(new Vector3(5, 0, 0), false), new SquadRouteStep(new Vector3(20, 0, 0), true)];   // and the link's far side is in it too
+        sim.JumpArena = arena;
+        var still = Owner(new Vector3(300f, 0f, 0f));
+        for (int k = 0; k < 300; k++) sim.Step(++_t, [still]);
+        Assert.Equal(1, arena.RouteCalls); Assert.Equal(1, sim.RouteSearches);          // the failed answer is kept
+        Assert.False(Enumerable.Range(0, 3).Any(sim.IsAirborne));
+        for (int k = 0; k < 300; k++) sim.Step(++_t, [Owner(new Vector3(300f + (k / 15) * 3f, 0f, 0f))]);   // the owner moves 3 m every half second
+        Assert.InRange(arena.RouteCalls, 2, 12);                                          // ten seconds: at most one a second
+    }
+
+    [Fact]
+    public void Firing_is_held_for_0_3_s_after_a_round()
+    {
+        var c = Make();
+        var r = new SquadRosters(); r.AddOwner(Key);
+        r.Mirror(Key, new SquadLoadout { Weapon = new SquadWeapon(40f, 1f, 5f, 1f) });   // one round every 5 s
+        var arena = new ClassArena(); var ork = arena.Add(new Vector3(15f, 0f, 0f)); ork.Health = 1e6f;
+        var sim = new WarfrontSquadSim(r, arena);
+        sim.Land(Key, 1, Vector3.Zero);
+        var human = Owner(Vector3.Zero);
+        int run = 0, best = 0;
+        for (int k = 0; k < 120; k++) { sim.Step(++_t, [human]); if (sim.View(0)!.Value.Firing) { run++; best = Math.Max(best, run); } else run = 0; }
+        Assert.Equal(9, best);                           // 0.3 s at 30 Hz
+    }
+
+    [Fact]
+    public void The_view_shows_a_flight_as_airborne()
+    {
+        var (sim, _, _) = Squad(2);
+        Run(sim, 1, Owner(Vector3.Zero));
+        Assert.False(sim.View(0)!.Value.Airborne);
+        sim.OrderJumpPound(1, new Vector3(10f, 0f, 0f));
+        bool air = false;
+        for (int k = 0; k < 200; k++) { sim.Step(++_t, [Owner(Vector3.Zero)]); air |= sim.View(0)!.Value.Airborne; }
+        Assert.True(air); Assert.False(sim.View(0)!.Value.Airborne);
+    }
+
+    [Fact]
+    public void The_squad_class_side_follows_the_owner_a_chaos_librarian_rolls_raptors_and_havocs()
+    {
+        var c = Make();
+        var r = new SquadRosters(); var book = new SquadClassBook(c, r, 3UL);
+        book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Assault, default, Team.Chaos));
+        Assert.StartsWith("csm - ", r.Marine(Key, 0)!.Loadout.ClassId);
+        Assert.StartsWith("csm_", r.Marine(Key, 0)!.Loadout.Melee);
+        book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Assault, default, Team.SpaceMarines));
+        Assert.StartsWith("sm - ", r.Marine(Key, 0)!.Loadout.ClassId);
+        var back = new SquadClassBook(c, new SquadRosters(), 3UL); back.Import(book.Export());
+        Assert.Equal(Team.SpaceMarines, back.LastOf(Key)!.Side);
+    }
+
+    [Fact]
+    public void A_leap_under_a_roof_keeps_a_low_arc()
+    {
+        var (sim, arena, _) = Squad(1);
+        arena.Roof = true;
+        Run(sim, 1, Owner(Vector3.Zero));
+        Assert.NotNull(sim.OrderJumpPound(1, new Vector3(10f, 0f, 0f)));
+        float top = 0f;
+        for (int k = 0; k < 200; k++) { sim.Step(++_t, [Owner(Vector3.Zero)]); top = MathF.Max(top, sim.View(0)!.Value.Position.Z); }
+        Assert.InRange(top, 0.1f, SquadClassRules.RoofedApex + 0.05f);
+    }
+
+    [Fact]
+    public void A_squad_kill_carries_the_Ork_type_for_shots_and_pounds_and_none_when_the_arena_does_not_know_it()
+    {
+        var (sim, arena, _) = Squad(2);
+        Run(sim, 1, Owner(Vector3.Zero));
+        var ork = arena.Add(new Vector3(10f, 0.5f, 0f)); ork.Health = 50f;
+        sim.OrderJumpPound(1, new Vector3(10f, 0f, 0f));
+        SquadKill? kill = null;
+        for (int k = 0; k < 300 && kill is null; k++) { sim.Step(++_t, [Owner(Vector3.Zero)]); if (sim.Kills.Count > 0) kill = sim.Kills[0]; }
+        Assert.Equal(MusouEnemyType.Nob, kill!.Value.Type);
+        Assert.Equal(ork.Id, kill.Value.Enemy);
+        Assert.Null(new SquadKill(1UL, 0, 1, SquadEnemyClass.Fodder).Type);
     }
 }

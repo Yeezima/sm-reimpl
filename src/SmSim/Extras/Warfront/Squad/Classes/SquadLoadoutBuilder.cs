@@ -42,7 +42,7 @@ public static class SquadLoadoutBuilder
             HealthMax = body.HealthMax, ArmourMax = body.ShieldMax,
             HealthRegenDelay = body.HealthRegenDelay, HealthRegenRate = body.HealthRegenRate,
             ArmourRegenDelay = body.ShieldRegenDelay, ArmourRegenRate = body.ShieldRegenRate,
-            Weapon = WeaponOf(c, s),
+            Weapon = WeaponOf(c, s),   // SquadRules.DamageDealt is applied where a Marine fires, not here
             Jump = JumpOf(c, s),
         };
     }

@@ -68,14 +68,14 @@ public static class WarfrontSquadClassOption
     /// <summary>The Librarian's squad rows, <paramref name="chosen"/> marked: one section, three choices, whole squad (no mixed squads).</summary>
     public static IReadOnlyList<MusouSection> Rows(SquadClass chosen) =>
     [
-        new("SQUAD CLASS  (your whole squad)",
+        new("SQUAD CLASS  (your whole squad; each Marine rolls its own valid loadout, kept while this choice stands, in your colours)",
         [
-            Row(SquadClass.Assault, "Assault / Raptor", "Every retainer is an Assault Marine (a Raptor for Chaos) with a jump pack: they follow by jump and ground-pound beside you. A power sword, chainsword or hammer with a pistol, as the bot loadouts have them.", chosen),
-            Row(SquadClass.Tactical, "Tactical", "Every retainer is a Tactical Marine with a bolter, plasma gun, storm bolter or sniper rifle and the class's perks and grenades.", chosen),
-            Row(SquadClass.Devastator, "Devastator / Havoc", "Every retainer is a Devastator (a Havoc for Chaos) with a lascannon or plasma cannon: slow, heavy fire from a distance.", chosen),
+            Row(SquadClass.Assault, "Assault / Raptor", "Jump-pack Marines with a blade and a pistol: they follow by jump.", chosen),
+            Row(SquadClass.Tactical, "Tactical", "Marines with a bolter, plasma gun, storm bolter or sniper rifle.", chosen),
+            Row(SquadClass.Devastator, "Devastator / Havoc", "Heavy gunners with a lascannon or plasma cannon.", chosen),
         ]),
     ];
 
     static MusouRow Row(SquadClass c, string title, string text, SquadClass chosen) =>
-        new(title, text + " Each Marine rolls its own valid loadout, kept while this choice stands, in your colours.", MusouRowKind.Choice, ActionPrefix + NameOf(c), c == chosen);
+        new(title, text, MusouRowKind.Choice, ActionPrefix + NameOf(c), c == chosen);
 }
