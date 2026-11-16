@@ -157,7 +157,7 @@ public class WarfrontBoundaryTests
     [Fact]
     public void The_build_symbol_is_used_only_in_the_pinned_files()
     {
-        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs" };
+        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs", "src/SmTool/Program.cs" };   // SmTool: the warfront-* command routes
         var offenders = new List<string>();
         foreach (var (path, lines) in Sources())
             for (int i = 0; i < lines.Length; i++)
