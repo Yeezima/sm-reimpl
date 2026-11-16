@@ -31,6 +31,13 @@ and gore are listed in their own design documents for now (the rest of section 0
 |---|---|---|---|
 | Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate (14 m clear) and an 8 m west breach, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with open 16 m (south) and 12 m (side) openings, three routes (centre, east lane, west lane by the breach), every Ork opening at least 8 m wide | Warfront fortress map profile and arena interface |
 
+### Warfront fortress battle (warfront/w14b; spec "Warfront fortress battle")
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| The fortress battle: Musou's final assault on an arena, one leashed Warboss, staged Ork sources, elite pairs on the posts, two Boss Orks on the approaches; the Warboss's death wins the campaign on that tick | the win and the wipe rule are the owner's (2026-11-17); everything else ours (not an SM1 mode), every number an estimate | elite share 0.6; stages by the humans' position (entries, plaza); no source within 30 m of a human or in sight of one in the plaza | Warfront fortress battle |
+| The three "positions" of the fortress layout are waypoints, not capture points | ours: the battle code runs without capture objectives (Secured from the start, never taken, never paid) | gate, breach, plaza gate | Warfront fortress battle |
+
 ### Controller (gamepad feature; spec "Controller (gamepad)")
 
 | What | Ours / the owner's | Value | Spec row |
