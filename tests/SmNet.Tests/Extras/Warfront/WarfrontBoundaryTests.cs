@@ -38,6 +38,14 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
         ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
+        // W5b: the client's stage flow (the band view's three hooks W2 wrote are declared beside their call sites too, so a build without Warfront still compiles the calls)
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontMapContent"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontMapVisuals"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontEnvelope"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontFrame"),
+        ("client/Extras/Musou/Tfw/NetworkView.Tfw.cs", "WarfrontBandFrame"),
+        ("client/Extras/Musou/Tfw/NetworkView.TfwMap.cs", "WarfrontIsGeneratedMap"),
+        ("client/Extras/Musou/Tfw/TfwStations.cs", "WarfrontOpenWarMap"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

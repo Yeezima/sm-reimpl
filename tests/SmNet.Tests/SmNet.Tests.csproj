@@ -33,6 +33,14 @@
     <Compile Include="..\..\client\MapDecorLists\MapDecorLists.cs" Link="ClientMapDecor\MapDecorLists.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(SmExtras)' == 'true' and '$(SmWarfront)' == 'true'">
+    <!-- Warfront W5b: the client's stage flow without Godot (the hub's view and model, the stage model, the key file), tested here. -->
+    <Compile Include="..\..\client\Extras\Warfront\Hub\WarfrontHubView.cs" Link="ClientWarfront\WarfrontHubView.cs" />
+    <Compile Include="..\..\client\Extras\Warfront\Hub\WarfrontHubModel.cs" Link="ClientWarfront\WarfrontHubModel.cs" />
+    <Compile Include="..\..\client\Extras\Warfront\Stage\WarfrontStageModel.cs" Link="ClientWarfront\WarfrontStageModel.cs" />
+    <Compile Include="..\..\client\Extras\Warfront\Stage\WarfrontClientKey.cs" Link="ClientWarfront\WarfrontClientKey.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
     <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />
