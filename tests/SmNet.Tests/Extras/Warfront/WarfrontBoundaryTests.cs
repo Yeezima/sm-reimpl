@@ -29,6 +29,15 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontSpawned"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "WarfrontOrder"),
+        // W5a: the server's stage flow
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontCreated"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontSend"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontCommand"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontPlayerCap"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontRestartDue"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
+        ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>
@@ -175,7 +184,7 @@ public class WarfrontBoundaryTests
     [Fact]
     public void The_build_symbol_is_used_only_in_the_pinned_files()
     {
-        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs", "src/SmTool/Program.cs" };   // SmTool: the warfront-* command routes
+        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs", "src/SmTool/Program.cs", "src/SmServer/Program.cs" };   // SmTool: the warfront-* command routes
         var offenders = new List<string>();
         foreach (var (path, lines) in Sources())
             for (int i = 0; i < lines.Length; i++)
