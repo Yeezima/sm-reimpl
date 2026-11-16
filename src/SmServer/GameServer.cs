@@ -165,6 +165,8 @@ public sealed partial class GameServer
         public TokenBucket? SpawnRequests;
         /// <summary>Protocol 80: the rate of developer-tools requests taken from this peer (<see cref="OnDevCommand"/>).</summary>
         public TokenBucket? DevRequests;
+        /// <summary>cancel-editor: the rate of cancel-table edits taken from this peer (<see cref="OnDevCancelEdit"/>).</summary>
+        public TokenBucket? CancelEdits;
     }
 
     /// <summary>Ticks of snapshot send times kept per peer for the ping (protocol 50): 64 ticks, 2.1 s at 30 Hz; an acknowledgement of an older snapshot gives no sample.</summary>
@@ -320,6 +322,7 @@ public sealed partial class GameServer
             case BlobChunk c when _peers.ContainsKey(connection): OnBlobChunk(connection, c); NoteActivity(connection); break;
             case ExtrasCommandMessage x when _peers.TryGetValue(connection, out var commanding) && x.Session == commanding.Session: OnExtrasCommand(commanding, x); break;
             case SpawnRequest sr when _peers.TryGetValue(connection, out var spawning) && sr.Session == spawning.Session: OnSpawnRequest(spawning, sr); break;   // protocol 58
+            case DevCancelEdit ce when _peers.TryGetValue(connection, out var cancelPeer) && ce.Session == cancelPeer.Session: OnDevCancelEdit(connection, cancelPeer, ce); break;   // cancel-editor (GameServer.DevCancel.cs)
             case DevCommand dc when _peers.TryGetValue(connection, out var devPeer) && dc.Session == devPeer.Session: OnDevCommand(connection, devPeer, dc); break;   // protocol 80 (GameServer.DevTools.cs)
             case null: RefuseOldHello(connection, packet); break;
         }

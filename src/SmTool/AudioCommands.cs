@@ -933,6 +933,23 @@ static class AudioCommands
         SoundTriggers.Load(gameDir, SoundTriggers.WargearNames(tuning.Config).Concat(OrkClass.Wargear), SoundTriggers.PlayerBlueprints,
             SmFormats.Havok.HavokBehavior.Read(model.Rig.Pack), OrkSounds.ReadGraphs(gameDir));
 
+    /// <summary>
+    /// sound/mix-expand: every event name the multiplayer client can post (the triggers', the match and menu events it posts itself, the map's emitters and regions), for
+    /// <c>smtool sound-config coverage</c>; read-only. <paramref name="rest"/> takes <c>--game</c> and <c>--map</c> as <c>audio-coverage</c> does.
+    /// </summary>
+    public static List<string> ClientEventNames(string[] rest)
+    {
+        string gameDir = GameInstall.Locate(Opt(rest, "--game"), RepoRoot());
+        string map = Opt(rest, "--map") ?? "mp_tdm_09";
+        var tuning = GameplayTuning.Load(gameDir);
+        var model = CharacterModel.LoadMarine(gameDir);
+        var triggers = LoadTriggers(gameDir, tuning, model);
+        var mapAudio = MapAudio.Load(gameDir, map);
+        string[] matchEvents = ["play_mp_point_being_captured", "stop_mp_point_being_captured", "Play_Objective_Complete", "Play_MP_Points_Total", UiSoundRules.Move, UiSoundRules.Select, UiSoundRules.Back];
+        return triggers.EventNames().Concat(matchEvents).Concat(mapAudio.Emitters.Select(e => e.Event)).Concat(mapAudio.Regions.SelectMany(r => new[] { r.EnterEvent, r.ExitEvent }))
+            .Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     static string SafeName(string s) => string.Concat(s.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
 
     static string? Opt(string[] rest, string name)

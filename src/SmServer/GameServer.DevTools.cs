@@ -125,6 +125,7 @@ public sealed partial class GameServer
             case DevCommandKind.KillBots when cmd.Argument <= 2: KillBots(peer, cmd.Argument); break;
             case DevCommandKind.Teleport: TeleportRequester(peer, cmd); break;
             case DevCommandKind.SetTimeScale: SetTimeScale(peer, cmd.Argument); break;
+            case DevCommandKind.CancelSync: SendCancelSync(connection); break;
             case DevCommandKind.SetBotAccuracy or DevCommandKind.SetBotDamage or DevCommandKind.SetBotRange: SetBotTuning(peer, cmd); break;
             default: Answer(DevNote.BadValue); break;
         }
@@ -316,6 +317,7 @@ public sealed partial class GameServer
             if (counts != _devCounts) { _devCounts = counts; _devDirty = true; }
             ApplyBotDamage();   // a bot that joined after the tools set the damage gets it
         }
+        CancelBeaconTick();
         var flags = World.DevFlags;
         if (flags != _lastDevFlags)
         {

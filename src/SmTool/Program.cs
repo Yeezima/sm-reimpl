@@ -18,6 +18,8 @@ return args switch
     ["nav-around", var gameDir, .. var rest] => SmTool.NavAroundCommand.Run(gameDir, rest),
     ["nav-stats", var gameDir, .. var rest] => SmTool.NavCommands.Stats(gameDir, Opt(rest, "--map") ?? "mp_tdm_09", (Opt(rest, "--class") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries), Opt(rest, "--cache"), int.TryParse(Opt(rest, "--top"), out var top) ? top : 0),
     ["maps-audit", var gameDir, .. var rest] => SmTool.MapsAuditCommand.Run(gameDir, rest),
+    ["cancel-config", .. var rest] => SmTool.CancelConfigCommand.Run(rest),
+    ["sound-config", .. var rest] => SmTool.SoundConfigCommand.Run(rest),
     ["refine-register", .. var rest] => SmTool.RefineRegister.Run(rest),
     ["scan-package", .. var rest] => SmTool.PackageScanCommand.Run(rest),
     ["make-tar", .. var rest] => SmTool.TarPackage.Run(rest),
@@ -118,6 +120,9 @@ static int Usage()
           smtool fx-smoke <game-dir|auto> [--map mp_tdm_09] [--all] [--textures]
                                                     fx/no-smoke: every effect the multiplayer client plays with the smoke, dust, mist and haze sprites the client no
                                                     longer draws (SmokeRules) and what each keeps; --textures sums them per atlas texture
+          smtool cancel-config list | diff FILE [--against FILE2] | apply FILE [--out config/cancel-table.json]
+                                                    the owner's exported cancel tables (F8 panel): list the exports folder, show in plain words what a file changes
+                                                    against the shipped default, or make it the release default (config/cancel-table.json)
           smtool refine-register [--spec spec/behavior.md] [--changes docs/changes-from-original.md] [--out docs/refine-register.md] [--check]
                                                     write the human-playtest checklist of every estimate, guess and interpretation in the spec;
                                                     --check writes nothing and exits 1 on malformed rows, rows with no kind, confidence or source, empty cells in the
