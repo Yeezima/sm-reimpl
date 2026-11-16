@@ -1,4 +1,5 @@
 using SmContent.Extras.Musou;
+using SmContent.Extras.Warfront;
 using SmNet.Tests.Extras.Musou.Ashfall;
 using SmSim.Extras.Musou.Ashfall;
 using SmSim.Extras.Musou.Campaign;
@@ -36,4 +37,16 @@ public class MapHashPins(ITestOutputHelper output)
         output.WriteLine($"tfw_war_front composed 0x{front!.Hash:X16}UL");
         Assert.Equal(FrontMapHash, front.Hash);
     }
+
+    /// <summary>W13b: the HQ defence map composed with the hub (the only pin this slice adds; no existing value moves).</summary>
+    [Fact]
+    public void The_hq_defence_map_composed_with_the_hub_builds_to_its_pin()
+    {
+        var hq = WarfrontMaps.Load(WarfrontMaps.HqName, out var problem);
+        Assert.Null(problem);
+        output.WriteLine($"wf_hq composed 0x{hq!.Hash:X16}UL");
+        Assert.Equal(HqMapHash, hq.Hash);
+    }
+
+    const ulong HqMapHash = 0x0FC12BFD61DBE655UL;
 }

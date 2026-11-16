@@ -380,10 +380,10 @@ public sealed partial class TfwRun
         }
         if (change.HasFlag(TfwBattleChange.Won))
         {
-            if (_fighting == TfwRunPhase.FinalAssault) { PickupTicks = 0; War.Enter(TfwRunPhase.Won); return; }
             bool leftAtOnce = false;
-            WarfrontBattleWon(w, ref leftAtOnce);   // WARFRONT-HOOK
+            WarfrontBattleWon(w, ref leftAtOnce);   // WARFRONT-HOOK (W14b: before the final assault's end, so the fortress's win leaves at once)
             if (leftAtOnce) return;
+            if (_fighting == TfwRunPhase.FinalAssault) { PickupTicks = 0; War.Enter(TfwRunPhase.Won); return; }
             Wins++;
             War.PlayerWon(War.BattleLane);
         }

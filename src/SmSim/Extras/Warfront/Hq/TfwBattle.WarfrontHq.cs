@@ -26,6 +26,8 @@ public sealed partial class TfwBattle
     public int HqOrksMade { get; private set; }
     /// <summary>Orks of a wave never made for want of room under the alive cap or the pool.</summary>
     public int HqOrksSkipped { get; private set; }
+    /// <summary>Test aid (the measurement tool): false stops the scheduled waves.</summary>
+    public bool HqWavesOn { get; set; } = true;
     /// <summary>Seconds a banner message stays.</summary>
     public const float MessageSeconds = 4f;
 
@@ -40,6 +42,7 @@ public sealed partial class TfwBattle
     /// <summary>The defence's opening (<c>WarfrontStart</c>): the three positions Secured, the Guardsmen at their posts, nothing else.</summary>
     partial void WarfrontStart(ref bool handled)
     {
+        // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
         if (!WarfrontHq) return;
         handled = true;
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, TfwPositionState.Secured, 1f, _layout.Positions[k], _layout.Radius(k));
@@ -70,6 +73,7 @@ public sealed partial class TfwBattle
     /// <summary>Only the front-most position still held can lose progress toward Held (<c>WarfrontRetake</c>).</summary>
     partial void WarfrontRetake(int position, ref bool allowed)
     {
+        // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
         if (!WarfrontHq) return;
         allowed = position == HqFront;
     }
@@ -77,6 +81,7 @@ public sealed partial class TfwBattle
     /// <summary>The battle's own crowds and trickle stay off in an HQ defence: its sources are opened by stage (<see cref="HqSourceOpen"/>) and fed by the waves (<c>WarfrontSourceActive</c>).</summary>
     partial void WarfrontSourceActive(int source, ref bool active, ref bool handled)
     {
+        // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
         if (!WarfrontHq) return;
         handled = true;
         active = false;
@@ -140,7 +145,7 @@ public sealed partial class TfwBattle
             HqSay(WarfrontHqBattleRules.MessageHolds);
             return;
         }
-        StepHqWaves(t, players);
+        if (HqWavesOn) StepHqWaves(t, players);
         if (--_hqRepostTicks <= 0) { _hqRepostTicks = Ticks(1f); HqRepost(); }
     }
 
@@ -258,6 +263,15 @@ public sealed partial class TfwBattle
             var from = open.Count > 0 ? open[n % open.Count] : home[n % home.Length];
             if (HqSpawnOne(from, leashed: false, 0) != 0) made++;
         }
+        return made;
+    }
+
+    /// <summary>Test aid: <paramref name="count"/> unleashed Orks made on the assembly ground now (they walk at once); the number made.</summary>
+    public int HqSendForTests(int count)
+    {
+        var sources = WarfrontHqLayout.SourcesOf(0).ToArray();
+        int made = 0;
+        for (int n = 0; n < count; n++) if (HqSpawnOne(sources[n % sources.Length], leashed: false, 0) != 0) made++;
         return made;
     }
 

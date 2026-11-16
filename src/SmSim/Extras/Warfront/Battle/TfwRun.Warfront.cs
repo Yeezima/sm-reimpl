@@ -50,6 +50,7 @@ public sealed partial class TfwRun
     partial void WarfrontBattlePlan(World w, TfwLane lane, int node, ref TfwLayout layout, ref bool final, ref float elite)
     {
         if (Warfront is not { } rules) return;
+        // FORTRESS-SPOT (W14b): the fortress's layout, final = true and elite share go here (a Target == Fortress case)
         switch (rules.Target)
         {
             case WarfrontTargetKind.Hq:
