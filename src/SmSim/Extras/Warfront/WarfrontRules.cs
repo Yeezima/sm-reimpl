@@ -6,6 +6,6 @@ namespace SmSim.Extras.Warfront;
 /// </summary>
 public static class WarfrontRules
 {
-    /// <summary>2: the node battle rules and hook seams (slice W3: D as a capture point, no Warboss, the fallen human's spectator time and wipe rule, +20 % Ork health per extra human). 1: the switch and the skeleton (slice W1).</summary>
-    public const uint Version = 2;
+    /// <summary>3: the co-op rules (slice W12: spectating joiners, the class gate, the deploy gate, saved JoinedAtDeployment and ClassConfirmed; the lead gives the final number at merge). 2: the node battle rules and hook seams (slice W3: D as a capture point, no Warboss, the fallen human's spectator time and wipe rule, +20 % Ork health per extra human). 1: the switch and the skeleton (slice W1).</summary>
+    public const uint Version = 3;
 }

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 760 rows of the changes document.
+Scanned 3554 spec table rows: **2545 tagged**, 656 not tagged (read from data with high confidence), 353 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 3540 spec table rows: **2533 tagged**, 655 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 793 | 750 | 580 | 221 | 1 |
+| Core simulation (provisional values) | 805 | 762 | 591 | 224 | 1 |
 | General game design | 39 | 39 | 31 | 9 | 0 |
 | Ork faction | 262 | 249 | 146 | 69 | 0 |
-| **All areas** | **2533** | 2261 | 1892 | 775 | 37 |
+| **All areas** | **2545** | 2273 | 1903 | 778 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1469 |
-| confidence: low | 918 |
-| confidence: medium | 865 |
-| notes: ours | 446 |
-| kind: interpretation | 411 |
-| kind: estimate | 208 |
+| kind: ours | 1474 |
+| confidence: low | 919 |
+| confidence: medium | 875 |
+| notes: ours | 449 |
+| kind: interpretation | 417 |
+| kind: estimate | 209 |
 | notes: estimate | 204 |
 | confidence: none (low) | 109 |
 | kind: provisional | 104 |
@@ -2561,7 +2561,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (793)
+### Core simulation (provisional values) (805)
 
 *Spec section: Provisional values in use*
 
@@ -3761,8 +3761,25 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C89BB73` | Joiner XP | median of the other players' XP, once, applied at the next ship stop (not at join); "others" are the connected others, or all others when none is connected; an even count takes the mean of the two middle values rounded down; never lowers a player's own XP (XP) | kind: interpretation; confidence: medium; notes: ours | owner; the connected-others rule, the even-count mean and the no-lowering rule our reading | Joiner XP: compare with SM1 by feel or video. Ours: median of the other players' XP, once, applied at the next ship stop… | ☐ |
 | `R-E515D7E3` | XP per level | 1500 + 500 x (level - 1) from one level to the next (level 2 at 1500, level 10 at 31500 in all) (XP) | kind: estimate; confidence: low | our estimate, to tune in a playtest | XP per level: compare with SM1 by feel or video. Ours: 1500 + 500 x (level - 1) from one level to the next (level 2 at 1500… | ☐ |
 | `R-B3999055` | Restart in a battle | the run resumes on the ship, nothing rolled or granted for that deployment; a restart in Travel keeps the phase and its target (each stage is a new process that loads the save in Travel) | kind: ours; confidence: medium | our choice | Restart in a battle: compare with SM1 by feel or video. Ours: the run resumes on the ship, nothing rolled or granted for that… | ☐ |
-| `R-5660ED7E` | Save location and format | `%LOCALAPPDATA%\sm-reimpl\warfront\run.json`, JSON version 1, written atomically (temp file then move) | kind: ours; confidence: medium | our choice | Save location and format: compare with SM1 by feel or video. Ours: %LOCALAPPDATA%\sm-reimpl\warfront\run.json, JSON version 1, written… | ☐ |
+| `R-5660ED7E` | Save location and format | `%LOCALAPPDATA%\sm-reimpl\warfront\run.json`, JSON version 3 (W12; versions 1 and 2 still load), written atomically (temp file then move) | kind: ours; confidence: medium | our choice | Save location and format: compare with SM1 by feel or video. Ours: %LOCALAPPDATA%\sm-reimpl\warfront\run.json, JSON version 3 (W12… | ☐ |
 | `R-1D6AA937` | Records | `records\<utc>-<won, lost or abandoned>.json` (a same-second name gets a suffix), written atomically and never read by a run | kind: ours; confidence: medium | owner (records only); "abandoned" ours | Records: compare with SM1 by feel or video. Ours: records\<utc>-<won, lost or abandoned>.json (a same-second name gets… | ☐ |
+
+*Spec section: Added content: Warfront: co-op rules (W12: `WarfrontCoop`, `WarfrontCoopWire`; `WarfrontRules.Version` 3; saved fields `JoinedAtDeployment`, `ClassConfirmed`, run save version 3; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1149FE2A` | Spectating is a state of the same connection (ruling 1) | a first-time joiner in a battle is a normal player of the run (one of the four places, his key in the join order at once) whose body stays aboard, input locked and unharmed, while his camera is Classic's spectator camera on the fighting squad; not a rejoin… | kind: interpretation; confidence: medium | designer ruling 1 on the owner's "uses Classic PvP's spectator camera" | Spectating is a state of the same connection (ruling 1): compare with SM1 by feel or video. Ours: a first-time joiner in a battle is a normal player of the run (one of… | ☐ |
+| `R-111BAF47` | Who must confirm (ruling 2) | every key that joins once the run's first deployment began (Travel, Battle, or one deployment done), first-time keys only; the founders are not gated; saves before version 3 load with every key confirmed | kind: interpretation; confidence: medium | designer ruling 2 | Who must confirm (ruling 2): compare with SM1 by feel or video. Ours: every key that joins once the run's first deployment began (Travel… | ☐ |
+| `R-8F35F0D8` | Class gate clock (ruling 3) | a joiner who has not confirmed his class 90 s after the ship stop is confirmed with the class he has; his catch-up cards resolve by the picker's own 20 s timeout; until then the leader's Deploy is refused with a line naming who is awaited (s) | kind: estimate; confidence: low; notes: ours | designer ruling 3; the 90 s is ours | Class gate clock (ruling 3): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a joiner who has not confirmed his class 90 s after the ship stop is… | ☐ |
+| `R-8EC6E4A4` | A leaver's squad (ruling 4) | holds where it stands (order Hold), keeps fighting and counts as standing for the wipe and the respawn rule, is not removed; when its owner returns in the same battle it is re-bound to him as it is (downed and out Marines stay so) | kind: interpretation; confidence: medium | designer ruling 4 | A leaver's squad (ruling 4): compare with SM1 by feel or video. Ours: holds where it stands (order Hold), keeps fighting and counts as… | ☐ |
+| `R-4954647C` | A returning player in a battle (ruling 5) | flown in by the late join if he was alive when he left; if he was downed or spectating he comes back as a spectator with the rest of his 60 s (a downed leaver gets the full 60 s), never a free life; a returning key that was not in the battle (aboard, or a… (s) | kind: interpretation; confidence: medium | designer ruling 5 | A returning player in a battle (ruling 5): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: flown in by the late join if he was alive when he left; if he was… | ☐ |
+| `R-90395737` | Join order and leader announcements | the order is fixed at the first join, the leader is the earliest-joined connected player; on every handoff between two connected leaders the Coop section carries "leader changed" for 4 s and the client shows one line; an open Deploy or stage preparation is… (s) | kind: ours; confidence: medium | owner (order, leader); the announcement and its 4 s ours | Join order and leader announcements: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the order is fixed at the first join, the leader is the… | ☐ |
+| `R-EA977C00` | Ship-stop grant | at the ship stop (also the moment a new key joins aboard after the first deployment): the median XP once, one starting retainer if the key has no roster, then the class gate; all the grants of one stop read the same figures (a joiner whose own grant is… | kind: interpretation; confidence: medium; notes: ours | owner (median, once); the same-figures rule ours | Ship-stop grant: compare with SM1 by feel or video. Ours: at the ship stop (also the moment a new key joins aboard after the… | ☐ |
+| `R-0176B16E` | No XP while spectating (rule 4) | shared XP goes to connected keys in the role Player or AwaitPicks; a spectating joiner and a key awaiting its class earn none | kind: interpretation; confidence: medium; notes: ours | our reading of "shared XP goes to connected players" | No XP while spectating (rule 4): compare with SM1 by feel or video. Ours: shared XP goes to connected keys in the role Player or AwaitPicks; a… | ☐ |
+| `R-39F4C1B2` | Class confirm and catch-up cards | ConfirmClass only in AwaitClass: sets `ClassConfirmed`, saves; AwaitPicks while `PendingPicks` is above 0, then Player; the picker opens the catch-up cards aboard one after another (no lull, no 45 s gap); a restart in AwaitPicks resumes as Player with the… | kind: ours; confidence: medium | owner (class through the customizer, every catch-up card); the flow ours | Class confirm and catch-up cards: compare with SM1 by feel or video. Ours: ConfirmClass only in AwaitClass: sets ClassConfirmed, saves… | ☐ |
+| `R-AD9E04AE` | Deploy gate | Deploy is refused while any CONNECTED key is in AwaitClass or AwaitPicks, with a status line "Waiting for NAME (class), NAME (2 cards)"; a gated player who disconnects stops blocking and resumes the same role on return | kind: ours; confidence: medium | owner ("every catch-up card aboard, then deploy"); the text ours | Deploy gate: compare with SM1 by feel or video. Ours: Deploy is refused while any CONNECTED key is in AwaitClass or… | ☐ |
+| `R-E3289D39` | Cap and waiting (rule 10) | 4 connected humans (`--warfront-max-humans`, at most 4); a fifth is refused with "The squad is full (4 of 4)"; a known key is admitted before an unknown one when both wait for a place that frees (players) | kind: ours; confidence: medium | owner (cap); the admission order and the text ours | Cap and waiting (rule 10): compare with SM1 by feel or video. Ours: 4 connected humans (--warfront-max-humans, at most 4); a fifth is… | ☐ |
+| `R-78F3A2F3` | Run save version 3 | adds `JoinedAtDeployment` (int) and `ClassConfirmed` (bool) per player; versions 1 and 2 load with `ClassConfirmed` true; the keyless archive copies both | kind: ours | ours | Run save version 3: compare with SM1 by timing a run over a known distance. Ours: adds JoinedAtDeployment (int) and ClassConfirmed (bool) per player… | ☐ |
 
 *Spec section: Warfront HQ defense map profile (warfront/w13a, 2026-11-17, second pass after designer review 1; added content, Warfront only; generation only, no battle rules, no protocol or wire change; level version 1)*
 
@@ -4607,6 +4624,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
 | `C-973022C6` | Warfront stats ledger (W4b): per-player kills by class, assists, deaths, revives, captures, battles, saved with the run; not in SM1 | feeds the end-of-run leaderboard; counters and guard ours | counted once per event id, kept across rejoins | spec "Warfront stats ledger" | Warfront stats ledger (W4b): per-player kills by class…: compare with SM1 by timing a run over a known distance. Ours: feeds the end-of-run leaderboard; counters and guard ours. | ☐ |
 | `C-C5762AEB` | Warfront end of run (W15): one ranked leaderboard on victory and defeat, honor roll, records, Discord copy and export; not in SM1 | the owner's brief (2026-11-17); every weight and the layout ours (estimates) | score = kills 1, elite 5, boss 25, assists 0.5, captures 30, revives 15, squad kills 0.5, squad revives 15; deaths and knockouts never add; ties on captures, revives, fewer deaths, earlier join; nothing is posted | spec "Added content: Warfront, end of run" | Warfront end of run (W15): one ranked leaderboard on…: compare with SM1 by timing a run over a known distance. Ours: the owner's brief (2026-11-17); every weight and the layout ours… | ☐ |
+| `C-10D509D8` | Warfront co-op rules (W12): a late joiner spectates aboard until the next ship stop, then the median XP, a class confirmation through the customizer and the catch-up cards before the squad deploys; leader handoff and return; a leaver's squad holds; not in SM1 | the owner's co-op rules (2026-11-17); the gate's 90 s clock, the same-connection spectating, the returning-in-battle cases and every text ours | spectating joiner held aboard (locked, unharmed, no XP), 90 s class gate, Deploy refused while a connected joiner awaits, a downed or spectating leaver returns as a spectator, a fifth human refused ("The squad is full (4 of 4)") | spec "Added content: Warfront: co-op rules" | Warfront co-op rules (W12): a late joiner spectates aboard…: compare with SM1 by feel or video. Ours: the owner's co-op rules (2026-11-17); the gate's 90 s clock, the… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
@@ -5735,6 +5753,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-060A8DDF` | Musou weight: puff budget | Musou weight and impact pass (claude/musou-weight, 2026-11-10; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only) |
 | `R-B20A1288` | Classic autocannon: config hash | Added content: Classic PvP's autocannon — the Musou autocannon in Annihilation and Seize Ground (extended profile only; owner 2026-11-11) |
 | `R-4D8893ED` | Ledge jump: wire | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor) |
+| `R-76716B41` | Coop wire | Added content: Warfront: co-op rules (W12: `WarfrontCoop`, `WarfrontCoopWire`; `WarfrontRules.Version` 3; saved fields `JoinedAtDeployment`, `ClassConfirmed`, run save version 3; added content, Warfront only) |
 | `R-5669C607` | Budget | Added content: Warfront: squads (W9: `WarfrontSquadSim`, `SquadRosters`; pure sim, not yet connected to World, the wire or the loadouts) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
