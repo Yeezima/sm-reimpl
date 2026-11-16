@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Text.Json.Nodes;
 using SmContent;
 using SmMapmaker;
@@ -86,7 +86,7 @@ public sealed class CustomMapTests : IDisposable
         var rr = MapCheck.Run(noPoints);
         Assert.True(rr.AnnihilationReady);
         Assert.False(rr.SeizeReady);
-        Assert.Equal("Ready for Annihilation. Seize Ground needs a capture point.", rr.Headline);
+        Assert.Equal("Ready to play: Annihilation. Seize Ground needs a capture point.", rr.Headline);
     }
 
     [Fact]
@@ -95,13 +95,13 @@ public sealed class CustomMapTests : IDisposable
         var doc = Layout("blank");
         var marine = doc.Objects.First(o => o.Piece is { Kind: PieceKind.SpawnArea, Side: PieceSpec.Marines });
         // lifted well above the floor: no standable ground inside the box
-        var lifted = With(doc, Lab.Op($$"""{"op":"transform","id":"{{marine.Id}}","position":[-26,0,30]}"""));
+        var lifted = With(Layout("blank"), Lab.Op($$"""{"op":"transform","id":"{{marine.Id}}","position":[-26,0,30]}"""));
         Assert.Contains(MapCheck.Run(CustomMap.Compile(lifted)).Issues, i => i.Code == "spawn-no-floor" && i.Severity == Severity.Error);
         // dragged onto the Chaos area
-        var overlap = With(doc, Lab.Op($$"""{"op":"transform","id":"{{marine.Id}}","position":[26,0,0]}"""));
+        var overlap = With(Layout("blank"), Lab.Op($$"""{"op":"transform","id":"{{marine.Id}}","position":[26,0,0]}"""));
         Assert.Contains(MapCheck.Run(CustomMap.Compile(overlap)).Issues, i => i.Code == "spawn-overlap");
         // a kill zone over the spawn
-        var killed = With(doc, Lab.Op("""{"op":"place","piece":{"kind":"kill-zone"},"transform":{"position":[-26,0,0],"scale":[20,20,6]}}"""));
+        var killed = With(Layout("blank"), Lab.Op("""{"op":"place","piece":{"kind":"kill-zone"},"transform":{"position":[-26,0,0],"scale":[20,20,6]}}"""));
         Assert.Contains(MapCheck.Run(CustomMap.Compile(killed)).Issues, i => i.Code == "in-kill-zone");
     }
 
@@ -119,7 +119,7 @@ public sealed class CustomMapTests : IDisposable
     [Fact]
     public void The_hash_is_stable_follows_every_edit_and_the_wire_name_is_a_valid_map_name()
     {
-        var doc = Layout("arena", "Çafé Arena #1 with a rather long name indeed");
+        var doc = Layout("arena", "Ã‡afÃ© Arena #1 with a rather long name indeed");
         var a = CustomMap.Compile(doc);
         var b = CustomMap.Compile(MapDocument.Parse(doc.ToJson()));
         Assert.Equal(a.Hash, b.Hash);
@@ -193,6 +193,29 @@ public sealed class CustomMapTests : IDisposable
     }
 
     [Fact]
+    public void A_map_declares_its_modes_in_any_combination_and_each_declared_mode_is_checked()
+    {
+        var doc = Layout("blank");   // no capture points
+        var seizeOnly = With(Layout("blank"), Lab.Op("""{"op":"set-modes","modes":["seize"]}"""));
+        var r = MapCheck.Run(CustomMap.Compile(seizeOnly));
+        Assert.False(r.AnnihilationReady);   // not declared
+        Assert.False(r.SeizeReady);          // declared, needs a point
+        Assert.Contains(r.Issues, i => i.Code == "no-points");
+        var annOnly = With(Layout("blank"), Lab.Op("""{"op":"set-modes","modes":["annihilation"]}"""));
+        var a = MapCheck.Run(CustomMap.Compile(annOnly));
+        Assert.True(a.AnnihilationReady);
+        Assert.False(a.SeizeReady);
+        Assert.DoesNotContain(a.Issues, i => i.Code == "no-points");   // Seize is not declared, so no point is asked for
+        var future = With(Layout("arena"), Lab.Op("""{"op":"set-modes","modes":["annihilation","seize","king-of-the-hill"]}"""));
+        var f = MapCheck.Run(CustomMap.Compile(future));
+        Assert.True(f.AnnihilationReady && f.SeizeReady);
+        Assert.Contains(f.Issues, i => i.Code == "unknown-mode");   // kept in the file, said so, not an error
+        Assert.Contains("king-of-the-hill", MapDocument.Parse(future.ToJson()).Modes);
+        Assert.DoesNotContain("modes", JsonNode.Parse(doc.ToJson())!.AsObject());   // the default is not written
+        Assert.False(new MapSession(Layout("blank"), new MapLibrary(Path.Combine(_lab.Dir, "lib"))).Apply(Lab.Op("""{"op":"set-modes","modes":[]}""")).Ok);
+    }
+
+    [Fact]
     public void Tour_places_cover_both_spawns_every_point_and_an_overview()
     {
         var places = MapTour.Places(CustomMap.Compile(Layout("arena")));
@@ -238,3 +261,4 @@ public sealed class CustomMapTests : IDisposable
         }
     }
 }
+

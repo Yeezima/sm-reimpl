@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Text;
 using System.Text.Json.Nodes;
 using SmContent;
@@ -35,23 +35,36 @@ public sealed class CheckReport
     public List<Issue> Issues { get; } = [];
     /// <summary>Plain facts about the map: sizes and counts.</summary>
     public List<string> Facts { get; } = [];
+    /// <summary>The game modes the map declares (any combination; names the checker does not know are kept for future modes).</summary>
+    public List<string> Declared { get; init; } = [.. MapDocument.DefaultModes];
     public IEnumerable<Issue> Errors => Issues.Where(i => i.Severity == Severity.Error);
-    public bool Ready(CheckMode mode) => !Issues.Any(i => i.Severity == Severity.Error && (i.Mode == CheckMode.Both || i.Mode == mode));
+    /// <summary>The map is declared for <paramref name="mode"/> and nothing blocks it.</summary>
+    public bool Ready(CheckMode mode) => Declared.Contains(mode == CheckMode.Seize ? "seize" : "annihilation") && !Issues.Any(i => i.Severity == Severity.Error && (i.Mode == CheckMode.Both || i.Mode == mode));
     public bool AnnihilationReady => Ready(CheckMode.Annihilation);
     public bool SeizeReady => Ready(CheckMode.Seize);
 
     /// <summary>The one line the editor shows above the list: what the map can be played as.</summary>
-    public string Headline =>
-        AnnihilationReady && SeizeReady ? "Ready to play: Annihilation and Seize Ground."
-        : AnnihilationReady ? "Ready for Annihilation. Seize Ground needs a capture point."
-        : SeizeReady ? "Seize Ground is ready, but something blocks Annihilation."
-        : $"Not playable yet: {Errors.Count()} thing{(Errors.Count() == 1 ? "" : "s")} to fix.";
-
+    public string Headline
+    {
+        get
+        {
+            var ready = new List<string>();
+            if (AnnihilationReady) ready.Add("Annihilation");
+            if (SeizeReady) ready.Add("Seize Ground");
+            if (ready.Count == 0)
+                return Errors.Any() ? $"Not playable yet: {Errors.Count()} thing{(Errors.Count() == 1 ? "" : "s")} to fix." : "No game mode is switched on for this map.";
+            string text = $"Ready to play: {string.Join(" and ", ready)}.";
+            if (Declared.Contains("annihilation") && !AnnihilationReady) text += " Annihilation is blocked (see below).";
+            if (Declared.Contains("seize") && !SeizeReady) text += " Seize Ground needs a capture point.";
+            return text;
+        }
+    }
     public JsonObject ToNode() => new()
     {
         ["annihilation"] = AnnihilationReady, ["seize"] = SeizeReady, ["headline"] = Headline,
         ["facts"] = new JsonArray(Facts.Select(f => (JsonNode)JsonValue.Create(f)!).ToArray()),
         ["issues"] = new JsonArray(Issues.Select(i => (JsonNode)i.ToNode()).ToArray()),
+        ["modes"] = new JsonArray(Declared.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray()),
     };
 
     public string ToText()
@@ -114,7 +127,7 @@ public static class MapCheck
     /// <summary>Checks <paramref name="map"/>. With <paramref name="config"/> the bots' route is checked too (builds, or reads from the cache, the walking graph).</summary>
     public static CheckReport Run(CustomMap map, SimConfig? config = null, string? navCache = null)
     {
-        var r = new CheckReport();
+        var r = new CheckReport { Declared = [.. map.Document.Modes] };
         var content = map.Content;
         var world = map.ToCollisionWorld();
         var mesh = world.Character;
@@ -161,9 +174,9 @@ public static class MapCheck
                     "Add a spawn door across the room's exit.", null, CheckMode.Both, side == Team.SpaceMarines ? "add-door-marines" : "add-door-chaos"));
 
         // Capture points.
-        if (content.ControlPoints.Count == 0)
+        if (content.ControlPoints.Count == 0 && map.Document.Modes.Contains("seize"))
             r.Issues.Add(new Issue(Severity.Error, "no-points", "There are no capture points, so Seize Ground cannot be played on this map (Annihilation can).", "Add a Capture point (three is the classic A, B, C).", null, CheckMode.Seize, "add-capture-point"));
-        else if (content.ControlPoints.Count < 3)
+        else if (content.ControlPoints.Count is > 0 and < 3)
             r.Issues.Add(new Issue(Severity.Info, "few-points", $"Only {content.ControlPoints.Count} capture point{(content.ControlPoints.Count == 1 ? "" : "s")}: Seize Ground plays best with 3.", null, null, CheckMode.Seize));
         if (content.ControlPoints.Count > World.MaxControlPoints)
             r.Issues.Add(new Issue(Severity.Error, "too-many-points", $"{content.ControlPoints.Count} capture points: a match takes at most {World.MaxControlPoints}.", "Delete the extra capture points.", null, CheckMode.Seize));
@@ -204,6 +217,8 @@ public static class MapCheck
         r.Facts.Add($"Spawn spots: Marines {spotsBySide.GetValueOrDefault(Team.SpaceMarines)?.Count ?? 0}, Chaos {spotsBySide.GetValueOrDefault(Team.Chaos)?.Count ?? 0}. Capture points: {content.ControlPoints.Count}. Spawn doors: {content.Blockers.Count}. Kill zones: {content.KillRegions.Count(k => k.Name != "cm_kill_floor")}.");
         r.Facts.Add($"Anyone who falls {CustomMap.KillFloorDepth:0} m below the lowest floor dies, so open edges are safe to leave.");
         foreach (var n in map.Notes) r.Issues.Add(new Issue(Severity.Info, "note", n));
+        foreach (var m in map.Document.Modes.Where(m => !MapDocument.KnownModes.Contains(m)))
+            r.Issues.Add(new Issue(Severity.Info, "unknown-mode", $"Game mode \"{m}\" is not known to this version, so nothing is checked for it and it cannot be play-tested here."));
 
         // Document-level problems (parent cycles and such) are the core's own; surface the first few.
         if (config is not null && spotsBySide.TryGetValue(Team.SpaceMarines, out var ms) && spotsBySide.TryGetValue(Team.Chaos, out var cs) && ms.Count > 0 && cs.Count > 0)
@@ -257,3 +272,4 @@ public static class MapCheck
         return true;
     }
 }
+

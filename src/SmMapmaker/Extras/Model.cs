@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Text.Json.Nodes;
 using SmContent;
 
@@ -181,6 +181,10 @@ public sealed class MapDocument
 
     public string Name { get; set; } = "Untitled";
     public int NextId { get; set; } = 1;
+    /// <summary>The game modes this map is made for (any combination; unknown names are kept for future modes). Written only when it is not the default.</summary>
+    public List<string> Modes { get; set; } = [..DefaultModes];
+    public static readonly string[] DefaultModes = ["annihilation", "seize"];
+    public static readonly string[] KnownModes = ["annihilation", "seize"];
     public List<MapObject> Objects { get; } = [];
 
     public static MapDocument Create(string name) => new() { Name = name };
@@ -238,17 +242,19 @@ public sealed class MapDocument
         return m;
     }
 
-    public JsonObject ToNode() => new()
+    public JsonObject ToNode()
     {
-        ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId,
-        ["objects"] = new JsonArray(Objects.Select(o => (JsonNode)o.ToNode()).ToArray()),
-    };
+        var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId };
+        if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
+        o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode()).ToArray());
+        return o;
+    }
 
     public string ToJson() => CanonicalJson.Write(ToNode());
 
     public MapDocument Clone()
     {
-        var d = new MapDocument { Name = Name, NextId = NextId };
+        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes] };
         d.Objects.AddRange(Objects);
         return d;
     }
@@ -260,6 +266,7 @@ public sealed class MapDocument
         if (o["formatVersion"] is null || Json.Int(o["formatVersion"], "formatVersion", "bad-file") != FormatVersion)
             throw new MapException("bad-file", $"Unsupported formatVersion (this build reads {FormatVersion}).");
         var d = new MapDocument { Name = Json.Str(o["name"], "name") ?? "", NextId = Json.Int(o["nextId"], "nextId", "bad-file") };
+        if (o["modes"] is { } modesNode) d.Modes = Json.Arr(modesNode, "modes").Select((m, i) => Json.Str(m, $"modes[{i}]")!).Where(m => m.Length > 0).Distinct().ToList();
         var seen = new HashSet<string>();
         foreach (var (n, i) in Json.Arr(o["objects"], "objects").Select((x, i) => (x, i)))
         {
@@ -305,3 +312,4 @@ public sealed class MapDocument
         return new OpResult(errors.Count == 0, [], warnings, errors);
     }
 }
+

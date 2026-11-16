@@ -142,6 +142,7 @@ public sealed class MapSession
     {
         Document.Name = from.Name;
         Document.NextId = from.NextId;
+        Document.Modes = [.. from.Modes];
         Document.Objects.Clear();
         Document.Objects.AddRange(from.Objects);
     }

@@ -22,6 +22,9 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'quiet-launch.ps1')
 $State = Join-Path $env:LOCALAPPDATA 'sm-reimpl\tmp-build\mapmaker-playtest'
+$GodotConsole = Join-Path $env:LOCALAPPDATA 'sm-reimpl\tools\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe'
+# The editor reads this file to show progress: "stage|text".
+function Say([string]$stage, [string]$text) { try { Set-Content -LiteralPath (Join-Path $State 'status.txt') -Value "$stage|$text" -Encoding utf8 } catch { } Write-Host $text }
 $RunFile = Join-Path $State 'run.json'
 New-Item -ItemType Directory -Force -Path $State | Out-Null
 
@@ -49,7 +52,7 @@ $null = Stop-Recorded   # a play test of this script still running from before: 
 $smtool = Join-Path $RepoRoot 'src\SmTool\bin\Debug\net10.0\SmTool.dll'
 $serverDll = Join-Path $RepoRoot 'src\SmServer\bin\Release\net10.0\SmServer.dll'
 if (-not $NoBuild) {
-    Write-Host 'Building (server, client, map tools)...'
+    Say 'building' 'Building the server, the client and the map tools...'
     dotnet build (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj') -nologo -v quiet | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Host 'PLAYTEST failed: the map tools did not build (dotnet build src\SmTool).'; exit 1 }
     dotnet build (Join-Path $RepoRoot 'src\SmServer\SmServer.csproj') -c Release -nologo -v quiet | Out-Null
@@ -58,6 +61,7 @@ if (-not $NoBuild) {
     if ($LASTEXITCODE -ne 0) { Write-Host 'PLAYTEST failed: the client did not build (dotnet build client\SmClient.csproj).'; exit 1 }
 }
 
+Say 'checking' 'Checking the map...'
 # The check in plain words; refuse a map that cannot be played in the chosen mode.
 $checkText = & dotnet $smtool map check $Map --text --no-bots
 $checkJson = (& dotnet $smtool map check $Map --no-bots) -join "`n"
@@ -85,7 +89,8 @@ function Record($proc) { $records.Add([pscustomobject]@{ pid = $proc.Id; start =
 $env:SM_MAPS_DIR = Split-Path -Parent $Map
 $result = 'PLAYTEST failed: unknown'
 try {
-    $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--mode', $Mode, '--custom-map', $Map, '--honor-side-requests') -WorkingDirectory $RepoRoot -StdOut (Join-Path $logDir 'server.log')
+    Say 'server' "Starting the server on 127.0.0.1:$Port (with the F6 dev tools)..."
+    $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--mode', $Mode, '--custom-map', $Map, '--dev-tools', '--dev-bot-exe', $GodotConsole, '--dev-bot-project', (Join-Path $RepoRoot 'client')) -WorkingDirectory $RepoRoot -StdOut (Join-Path $logDir 'server.log')
     Record $server
     $deadline = (Get-Date).AddSeconds(120)
     $listening = $false
@@ -97,6 +102,7 @@ try {
         $tail = (Get-Content -LiteralPath (Join-Path $logDir 'server.log') -ErrorAction SilentlyContinue | Select-Object -Last 4) -join ' | '
         throw "the server did not start: $tail"
     }
+    Say 'bots' "Starting $($Bots * 2) bots..."
     $total = if ($Test) { $Seconds } else { 4 * 3600 }
     foreach ($s in @('marines', 'chaos')) {
         for ($i = 0; $i -lt $Bots; $i++) {
@@ -128,16 +134,18 @@ try {
         Write-Host "observer exited $LASTEXITCODE; $shots still(s) in $OutDir"
         $result = if ($shots -gt 0) { "PLAYTEST ok (map $($check.wireName), mode $Mode, port $Port, $shots stills in $OutDir)" } else { "PLAYTEST failed: the observer took no stills (see $logDir\client.log)" }
     } else {
+        Say 'playing' "Playing $($check.name) ($Mode) on 127.0.0.1:$Port. F6 opens the dev tools (add or remove bots, invincible, teleport). Close the game window to stop."
         Write-Host "Playing $($check.name) ($Mode) with $Bots bots a side on 127.0.0.1:$Port. Close the game window to stop."
         & (Join-Path $PSScriptRoot 'client.ps1') --connect "127.0.0.1:$Port" --side $Side --class $Class
         $result = "PLAYTEST ok (the game was closed; server and bots stopped)"
     }
 }
-catch { $result = "PLAYTEST failed: $($_.Exception.Message)" }
+catch { $result = "PLAYTEST failed: $($_.Exception.Message)"; Say 'failed' $_.Exception.Message }
 finally {
     $ErrorActionPreference = 'Continue'
     $null = Stop-Recorded
 }
 Write-Host $result
 exit $(if ($result -like 'PLAYTEST ok*') { 0 } else { 1 })
+
 

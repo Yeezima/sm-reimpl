@@ -10,7 +10,10 @@ saved (SM1 content is streamed from your install into memory; scenes hold only i
 The dock is **Mapmaker** in the right-hand dock group next to Inspector (use the small arrows beside the tabs if it is scrolled out of view).
 The scene `Maps/Empty.tscn` opens by itself; it is just the view, the map is the `.smmap`.
 
-## Quick tour
+## Make a map in 2 minutes
+Open the **Start** tab (the first tab of the Mapmaker dock): 1. pick a layout and press **New map**; 2. press **PLAY TEST** (a server on this PC only, bots, and the game open on your map). Change things first with the **Build** tab (click a piece, click the 3D view), fix anything red in the **Check** list (Fix buttons do it for you), tick the game modes the map is for, and send the `.smmap` file to share it. Full guide: docs/mapmaker.md "How to make a map in 2 minutes".
+
+## Quick tour (the older SM1 piece workflow, Tools and Library tabs)
 1. Dock > Map > **Open SM1 map** (default mp_tdm_09): Manufactorum appears as a grey-textured reference; the tool switches to **Pick SM1**.
 2. Click objects in the 3D view (shift/ctrl adds). Yellow boxes mark them. Dock > Library > **Extract picked SM1 objects to prefab...**: name, origin
    (bounds bottom centre or first object), collision (mesh or original-cut). The prefab goes to the private library, not the repo.

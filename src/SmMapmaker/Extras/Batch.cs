@@ -36,6 +36,14 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         {
             case "place": Place(op); break;
             case "set-piece": SetPiece(op); break;
+            case "set-modes":
+            {
+                // set-modes {modes:["annihilation","seize", ...]}: the game modes this map is made for (any combination, at least one; unknown names are kept for future modes).
+                var modes = Json.Arr(op["modes"], "modes", "bad-op").Select((m, i) => Json.Str(m, $"modes[{i}]", "bad-op")!).Where(m => m.Length > 0).Distinct().ToList();
+                if (modes.Count == 0) throw new MapException("bad-op", "A map needs at least one game mode.");
+                Doc.Modes = modes;
+                break;
+            }
             case "transform": Transform(op); break;
             case "duplicate": Duplicate(op); break;
             case "delete": Delete(op); break;

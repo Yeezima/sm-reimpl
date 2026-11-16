@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -61,6 +61,9 @@ public partial class MapmakerDock
         _recentStart.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _recentStart.ItemSelected += i => { var p = _recentStart.GetItemMetadata((int)i).AsString(); if (p.Length > 0 && _plugin.EnsureSceneRoot()) _plugin.OpenMap(p); };
         v.AddChild(new HSeparator());
+        v.AddChild(Head("Game modes this map is for"));
+        _modeAnnihilation.Toggled += _ => ModesChanged(); _modeSeize.Toggled += _ => ModesChanged();
+        v.AddChild(Row(_modeAnnihilation, _modeSeize));
         v.AddChild(Head("Check"));
         v.AddChild(_checkHead);
         v.AddChild(_checkList);
@@ -89,6 +92,8 @@ public partial class MapmakerDock
         return Scroll(v);
     }
 
+    readonly CheckBox _modeAnnihilation = new() { Text = "Annihilation", ButtonPressed = true, TooltipText = "Team deathmatch. Needs a spawn area for each side." };
+    readonly CheckBox _modeSeize = new() { Text = "Seize Ground", ButtonPressed = true, TooltipText = "Capture points. Needs at least one capture point. Untick a mode your map is not made for; future modes will be listed here too." };
     readonly OptionButton _recentStart = new() { TooltipText = "Maps in your maps folder." };
 
     void NewFromLayout()
@@ -134,6 +139,18 @@ public partial class MapmakerDock
         finally { MapHost.StartingEmptyMap = false; }
     }
 
+    void ModesChanged()
+    {
+        if (_refreshing || _plugin.Session is null) return;
+        var modes = new List<string>();
+        if (_modeAnnihilation.ButtonPressed) modes.Add("annihilation");
+        if (_modeSeize.ButtonPressed) modes.Add("seize");
+        // modes this version does not know stay as they are
+        modes.AddRange(_plugin.Session.Document.Modes.Where(m => !MapDocument.KnownModes.Contains(m)));
+        if (modes.Count == 0) { _status.Text = "A map needs at least one game mode."; RefreshCheck(); return; }
+        _plugin.Do("Game modes", MapmakerPlugin.Op("set-modes", ("modes", MapmakerPlugin.Strs(modes))));
+    }
+
     void StartPlayTest()
     {
         string mode = _playMode.Selected == 1 ? "seize" : "annihilation";
@@ -165,6 +182,7 @@ public partial class MapmakerDock
             _shareInfo.Text = "";
             return;
         }
+        _modeAnnihilation.SetPressedNoSignal(r.Declared.Contains("annihilation")); _modeSeize.SetPressedNoSignal(r.Declared.Contains("seize"));
         _checkHead.Text = r.Headline + (_plugin.RouteChecking ? "  (checking the bots' route...)" : "");
         _checkHead.AddThemeColorOverride("font_color", r.AnnihilationReady || r.SeizeReady ? new Color(0.5f, 0.95f, 0.55f) : new Color(1f, 0.55f, 0.5f));
         foreach (var issue in r.Issues.Where(i => i.Code != "note").OrderBy(i => i.Severity))
@@ -236,3 +254,4 @@ static class ControlExtensions
 {
     public static T With<T>(this T c, Action<T> f) { f(c); return c; }
 }
+

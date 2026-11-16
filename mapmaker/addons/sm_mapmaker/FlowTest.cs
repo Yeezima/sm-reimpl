@@ -63,8 +63,9 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         {
             _out = Arg("--mm-out", Path.Combine(Path.GetTempPath(), "mm-flow-" + System.Environment.ProcessId));
             Directory.CreateDirectory(_out);
+            Say("flow test started");
             await Frames(30);
-            while (MapHost.Root is null) { plugin.EnsureSceneRoot(); await Frames(20); }
+            for (int wait = 0; MapHost.Root is null; wait++) { if (wait % 5 == 0) Say($"waiting for the Mapmaker scene ({wait})"); plugin.EnsureSceneRoot(); await Frames(20); }
             string lib = Arg("--mm-lib", Path.Combine(Path.GetTempPath(), "mm-flow-lib-" + System.Environment.ProcessId));
             MapHost.Library = new MapLibrary(lib);
             Say($"library {lib}");
@@ -178,4 +179,5 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Tree.Quit(_failed ? 1 : 0);
     }
 }
+
 

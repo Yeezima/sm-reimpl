@@ -4,8 +4,8 @@ setlocal
 set "ROOT=%~dp0"
 set "GODOT=%LOCALAPPDATA%\sm-reimpl\tools\godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe"
 if not exist "%GODOT%" (
-  echo Godot 4.7.2 was not found. Run client.cmd once; it downloads it.
-  exit /b 1
+  echo Godot 4.7.2 is not installed yet: downloading it ^(about 117 MB, once^)...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\get-godot.ps1" || exit /b 1
 )
 if /i "%~1"=="--restart" (
   rem After a fix: build, then restart the open editor (it saves and reopens the map), or start one. tools\mapmaker-restart.ps1
@@ -14,3 +14,4 @@ if /i "%~1"=="--restart" (
 )
 dotnet build "%ROOT%mapmaker\Mapmaker.csproj" -nologo -v quiet || exit /b 1
 start "" "%GODOT%" --editor --path "%ROOT%mapmaker"
+

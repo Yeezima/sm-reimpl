@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Godot;
 using SmContent;
 using SmMapmaker;
@@ -68,8 +68,8 @@ public static class CustomMapView
     static StandardMaterial3D Material()
     {
         var image = Image.CreateEmpty(64, 64, true, Image.Format.Rgba8);
-        image.Fill(new Color(0.62f, 0.62f, 0.64f));
-        for (int i = 0; i < 64; i++) { image.SetPixel(i, 0, new Color(0.42f, 0.42f, 0.45f)); image.SetPixel(0, i, new Color(0.42f, 0.42f, 0.45f)); }
+        image.Fill(new Color(0.46f, 0.48f, 0.52f));
+        for (int i = 0; i < 64; i++) { image.SetPixel(i, 0, new Color(0.28f, 0.3f, 0.34f)); image.SetPixel(0, i, new Color(0.28f, 0.3f, 0.34f)); }
         image.GenerateMipmaps();
         return new StandardMaterial3D
         {
@@ -104,12 +104,13 @@ public static class CustomMapView
     public static void ApplyLook(DirectionalLight3D sun, Godot.Environment env)
     {
         sun.LightColor = new Color(1f, 0.95f, 0.88f);
-        sun.LightEnergy = 1.3f;
+        sun.LightEnergy = 0.85f;
         sun.DirectionalShadowMaxDistance = 140f;
         sun.ShadowEnabled = true;
         env.BackgroundColor = new Color(0.55f, 0.62f, 0.72f);
         env.AmbientLightColor = new Color(0.7f, 0.72f, 0.78f);
-        env.AmbientLightEnergy = 1.0f;
+        env.AmbientLightEnergy = 0.55f;
         env.FogEnabled = false;
     }
 }
+
