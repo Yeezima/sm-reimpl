@@ -5,13 +5,31 @@ namespace SmNet.Tests.Extras.Warfront;
 /// <summary>
 /// Warfront W1 (docs/added-content.md section 11): the source boundary of the Warfront folders, as text. No <c>.cs</c> file outside an
 /// <c>Extras/Warfront/</c> folder names an <c>Extras.Warfront</c> namespace (the hash dispatcher <c>SimConfig.Extras.cs</c>, which writes
-/// <c>WarfrontRules.Version</c> under <c>#if SM_WARFRONT</c>, is the one exception), and the list of Warfront hooks is pinned: still empty.
+/// <c>WarfrontRules.Version</c> under <c>#if SM_WARFRONT</c>, is the one exception), and the list of Warfront hooks is pinned (W3's sixteen).
 /// A slice that adds a hook (W3, W5) adds it to <see cref="Hooks"/> here.
 /// </summary>
 public class WarfrontBoundaryTests
 {
-    /// <summary>The Warfront hooks core or Musou code may declare: (file, hook). Empty in W1.</summary>
-    static readonly HashSet<(string File, string Hook)> Hooks = [];
+    /// <summary>The Warfront hooks core or Musou code may declare: (file, hook): W3's.</summary>
+    static readonly HashSet<(string File, string Hook)> Hooks =
+    [
+        ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontStarted"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontReset"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontCommand"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontWarClock"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattleCreated"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontRetainer"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattleWon"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontDowned"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontLeft"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontPlayerScale"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontCommander"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontObjectives"),
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontSpawn"),
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontSpawned"),
+        ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "WarfrontOrder"),
+    ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>
     static readonly HashSet<string> NamespaceUsers = ["src/SmSim/Extras/SimConfig.Extras.cs"];
@@ -157,7 +175,7 @@ public class WarfrontBoundaryTests
     [Fact]
     public void The_build_symbol_is_used_only_in_the_pinned_files()
     {
-        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs" };
+        var allowed = new HashSet<string> { "src/SmSim/ContentExtras.cs", "src/SmSim/Extras/SimConfig.Extras.cs", "src/SmTool/Program.cs" };   // SmTool: the warfront-* command routes
         var offenders = new List<string>();
         foreach (var (path, lines) in Sources())
             for (int i = 0; i < lines.Length; i++)

@@ -25,6 +25,12 @@ and gore are listed in their own design documents for now (the rest of section 0
 |---|---|---|---|
 | HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 8 m clear, a cross passage halfway) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile |
 
+### Warfront fortress map (warfront/w14a; spec "Warfront fortress map profile and arena interface")
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate (14 m clear) and an 8 m west breach, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with open 16 m (south) and 12 m (side) openings, three routes (centre, east lane, west lane by the breach), every Ork opening at least 8 m wide | Warfront fortress map profile and arena interface |
+
 ### Controller (gamepad feature; spec "Controller (gamepad)")
 
 | What | Ours / the owner's | Value | Spec row |
