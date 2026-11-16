@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3428 spec table rows: **2444 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
+Scanned 3415 spec table rows: **2440 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 3428 spec table rows: **2444 tagged**, 636 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
 | **All areas** | **2444** | 2172 | 1819 | 744 | 37 |
+| Core simulation (provisional values) | 752 | 709 | 539 | 201 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 258 | 245 | 143 | 68 | 0 |
+| **All areas** | **2440** | 2168 | 1814 | 743 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -66,6 +71,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: interpretation | 400 |
 | notes: estimate | 203 |
 | kind: estimate | 175 |
+| kind: ours | 1421 |
+| confidence: low | 885 |
+| confidence: medium | 820 |
+| notes: ours | 416 |
+| kind: interpretation | 394 |
+| notes: estimate | 203 |
+| kind: estimate | 181 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2521,6 +2533,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
 ### Core simulation (provisional values) (756)
+### Core simulation (provisional values) (752)
 
 *Spec section: Provisional values in use*
 
@@ -3722,6 +3735,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B3999055` | Restart in a battle | the run resumes on the ship, nothing rolled or granted for that deployment; a restart in Travel keeps the phase and its target (each stage is a new process that loads the save in Travel) | kind: ours; confidence: medium | our choice | Restart in a battle: compare with SM1 by feel or video. Ours: the run resumes on the ship, nothing rolled or granted for that… | ☐ |
 | `R-5660ED7E` | Save location and format | `%LOCALAPPDATA%\sm-reimpl\warfront\run.json`, JSON version 1, written atomically (temp file then move) | kind: ours; confidence: medium | our choice | Save location and format: compare with SM1 by feel or video. Ours: %LOCALAPPDATA%\sm-reimpl\warfront\run.json, JSON version 1, written… | ☐ |
 | `R-1D6AA937` | Records | `records\<utc>-<won, lost or abandoned>.json` (a same-second name gets a suffix), written atomically and never read by a run | kind: ours; confidence: medium | owner (records only); "abandoned" ours | Records: compare with SM1 by feel or video. Ours: records\<utc>-<won, lost or abandoned>.json (a same-second name gets… | ☐ |
+*Spec section: Warfront HQ defense map profile (warfront/w13a, 2026-11-17, second pass after designer review 1; added content, Warfront only; generation only, no battle rules, no protocol or wire change; level version 1)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-272EC57B` | HQ map extent | 300 wide (x -150..150) by 420 long (y -210..210), a 64 m boundary wall outside (m) | kind: estimate; confidence: low | plan section 2 ("about 300 x 420 m") | HQ map extent: compare with SM1 by measuring on a flat spot of the same map. Ours: 300 wide (x -150..150) by 420 long (y -210..210), a 64 m boundary… | ☐ |
+| `R-C3ED7416` | HQ assembly ground and approach ramp | assembly ground flat at z 0, y -210..-130 (80 m deep); ramp 30 m wide (x -15..15), y -130..-46 (84 m run), rising 12 m (about 8.1 degrees), solid wedge, strips beside it stay at z 0 (m, degrees) | kind: estimate; confidence: low | plan section 2 (30 m wide, 12 m, about 8 degrees); the 84 m run follows from them (the brief's "30 m ramp" read as the plan's 30 m width) | HQ assembly ground and approach ramp: compare with SM1 with an overlaid screenshot taken from the same position. Ours: assembly ground flat at z 0, y -210..-130 (80 m deep); ramp 30 m wide… | ☐ |
+| `R-8C7174AF` | HQ plateau, retaining wall and fortress wall | plateau (courtyard and keep floor) z 12; below the wall a 12 m cliff; the fortress wall y -46..-40 (6 m thick), top z 26 (14 m above the plateau), between curtain masses at x +-90 (40 m tall, rock); one gate x -6..6 (12 m wide) and 10 m high, a 4 m lintel… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (14 m wall, 12 m gate); thickness, gate height and curtain placement ours | HQ plateau, retaining wall and fortress wall: compare with SM1 by measuring on a flat spot of the same map. Ours: plateau (courtyard and keep floor) z 12; below the wall a 12 m cliff… | ☐ |
+| `R-FF17AC6B` | HQ parapet and its stairs | walkway between two 0.5 m x 1.2 m parapets (5 m clear); two stairs on the courtyard side only (x 40..68 east, -40..-68 west; 4 m wide, 0.25 m risers, 0.5 m treads, 56 steps, 28 m run, rise 14 m from the plateau), the inner parapet open x 64..72 / -72..-64 at… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 ("a walkable parapet reached by stairs from inside"); every size ours | HQ parapet and its stairs: compare with SM1 by measuring on a flat spot of the same map. Ours: walkway between two 0.5 m x 1.2 m parapets (5 m clear); two stairs on… | ☐ |
+| `R-F8A81779` | HQ courtyard and keep | courtyard x +-90, y -40..40 (80 m deep) with two rows of low cover (twelve 6 m x 1.2 m walls: x +-70 at y -20 and 10; x +-45 at y -8 and 26; x +-82 at y -5 and 22; all outside the 8 m corridors from the gate to the doors; low platforms not added); keep x… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (keep with two 8 m doors); sizes ours | HQ courtyard and keep: compare with SM1 by measuring on a flat spot of the same map. Ours: courtyard x +-90, y -40..40 (80 m deep) with two rows of low cover… | ☐ |
+| `R-C1BC28B3` | HQ caves and last-stand chamber | two roofed tunnels 8 m wide, 8 m clear (a Boss Nob stands about 6.9 m; review 1), 50 m long (y 100..150), centre lines x +-22, a 36 m rock pillar between them cut halfway by an 8 m wide, 8 m clear cross passage (y 121..129) with two 8 m low cover walls on its… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (tunnels 8 m wide, 6 m clear, roofed, meeting in a last-stand chamber); lengths and chamber size ours | HQ caves and last-stand chamber: compare with SM1 by measuring on a flat spot of the same map. Ours: two roofed tunnels 8 m wide, 8 m clear (a Boss Nob stands about 6.9… | ☐ |
+| `R-46CEB424` | HQ defence position markers | W (0, -34, 20) radius 20, half height 9 (so the gate, the ground behind it and the wall walk over the gate count); K (0, 70, 12) radius 24 (the hall); V (0, 160, 12) radius 40 (the cross passage, the tunnels' north half and the chamber); held and lost in that… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (three positions W, K, V); places and radii ours | HQ defence position markers: compare with SM1 by measuring on a flat spot of the same map. Ours: W (0, -34, 20) radius 20, half height 9 (so the gate, the ground… | ☐ |
+| `R-7E8BF98B` | HQ own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post and spawn); a walking graph connects assembly -> W -> K -> V -> landing; every opening on the Ork route is at least 8 m… | kind: ours | plan section 2 "own gates" | HQ own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
 
 ### General game design (7)
 
@@ -4261,6 +4286,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
 | `C-40FC47B2` | Ashfall kit detail: arena models high detail, old-GPU mode low (Musou Mode) | the owner's requests of 2026-11-09 ("ensure all the 3d assets used in the main play map are high res") and 2026-11-10 ("Use low detail ashfall textures for old gpu mode users"); thresholds ours | in Forward+ the kit models placed inside the arena load 2048 px textures (re-baked from the source at arena scale) and draw finer LODs (bias 4); in old-GPU mode (safe mode: the Compatibility renderer, automatic or the OPTIONS toggle, or `--safe-mode`) and with `--ashfall-kit-detail old` every model loads at 1024 px… | none (no gameplay value) | Ashfall kit detail: arena models high detail, old-GPU mode…: compare with SM1 by feel or video. Ours: the owner's requests of 2026-11-09 ("ensure all the 3d assets used in… | ☐ |
+
+#### Warfront HQ defense map (warfront/w13a; spec "Warfront HQ defense map profile")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-F0B68338` | HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 8 m clear, a cross passage halfway) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile | HQ defense level (Helm's Deep style): compare with SM1 by feel or video. Ours: ours (plan section 2): not an SM1 map; generated in code, every size… | ☐ |
 
 #### Controller (gamepad feature; spec "Controller (gamepad)")
 

@@ -19,6 +19,12 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) |
 | Ashfall kit detail: arena models high detail, old-GPU mode low (Musou Mode) | the owner's requests of 2026-11-09 ("ensure all the 3d assets used in the main play map are high res") and 2026-11-10 ("Use low detail ashfall textures for old gpu mode users"); thresholds ours | in Forward+ the kit models placed inside the arena load 2048 px textures (re-baked from the source at arena scale) and draw finer LODs (bias 4); in old-GPU mode (safe mode: the Compatibility renderer, automatic or the OPTIONS toggle, or `--safe-mode`) and with `--ashfall-kit-detail old` every model loads at 1024 px with the plain LOD threshold (`AshfallKitDetailRule`); models placed only outside the arena are 1024 px always. No gameplay value changes | none (no gameplay value) |
 
+### Warfront HQ defense map (warfront/w13a; spec "Warfront HQ defense map profile")
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 8 m clear, a cross passage halfway) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile |
+
 ### Controller (gamepad feature; spec "Controller (gamepad)")
 
 | What | Ours / the owner's | Value | Spec row |
