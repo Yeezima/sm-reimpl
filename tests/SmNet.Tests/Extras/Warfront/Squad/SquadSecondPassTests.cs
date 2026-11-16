@@ -64,15 +64,15 @@ public class SquadSecondPassTests
     }
 
     [Fact]
-    public void A_Marine_takes_the_puppet_Marines_tenth_of_an_Ork_hit()
+    public void A_Marine_takes_its_share_of_an_Ork_hit()
     {
         var r = new SquadRosters(); r.AddOwner(1UL);
         r.Mirror(1UL, new SquadLoadout { HealthMax = 100f, ArmourMax = 0f });
         var sim = new WarfrontSquadSim(r, new FakeArena());
         sim.Land(1UL, 1, Vector3.Zero);
-        Assert.Equal(0.10f, SquadRules.DamageTaken);
-        sim.Hit(SquadRules.TargetId(0), 50f, Vector3.Zero);
-        Assert.Equal(0.95f, sim.View(0)!.Value.HealthShare, 3);
+        Assert.Equal(0.35f, SquadRules.DamageTaken);   // the ruling of 2026-11-17 (it was the puppet Marines' tenth)
+        sim.Hit(SquadRules.TargetId(0), 40f, Vector3.Zero);
+        Assert.Equal(0.86f, sim.View(0)!.Value.HealthShare, 3);
     }
 
     [Fact]

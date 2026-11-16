@@ -18,6 +18,9 @@ public static class SquadClassRules
     /// <summary>The squad class of a class role; null for a role the Librarian cannot pick.</summary>
     public static SquadClass? OfRole(string role) => role.ToLowerInvariant() switch { "assault" => SquadClass.Assault, "tactical" => SquadClass.Tactical, "heavy" => SquadClass.Devastator, _ => null };
 
+    /// <summary>Whether a Marine's health regenerates in a battle (ruling of 2026-11-17: no; health comes back by a revive and at the next battle; armour regeneration is unchanged) [ours, estimate, low].</summary>
+    public static readonly bool HealthRegen = false;
+
     // ---- the weapon profile read from the class data [ours/estimate]
     /// <summary>A ranged weapon's range is its data range, at most this (the squad does not snipe across the map).</summary>
     public const float RangeCap = 60f;
