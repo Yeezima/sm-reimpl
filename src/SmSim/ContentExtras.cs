@@ -33,6 +33,12 @@ public enum ContentExtras : uint
     /// In <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it (and its config hash changed with it, 2026-11-11); <c>--content autocannon</c> alone; never with Musou.
     /// </summary>
     Autocannon = 16,
+    /// <summary>
+    /// Warfront (experimental; docs/added-content.md section 11): the persistent campaign built on Musou Mode's battle. Its profile <c>warfront</c> is
+    /// <c>Musou | Warfront</c> (Warfront rides on Musou's whole simulation), not in <see cref="ContentExtrasInfo.All"/> and never combined with another flag.
+    /// Its own version (<c>WarfrontRules.Version</c>, <c>Extras/Warfront</c>) is hashed only when this flag is set.
+    /// </summary>
+    Warfront = 32,
 }
 
 /// <summary>The build-wide facts about <see cref="ContentExtras"/> (C# 14 static extension members: <c>ContentExtras.WireVersion</c>, <c>ContentExtras.Compiled</c>).</summary>
@@ -53,6 +59,17 @@ public static class ContentExtrasInfo
         /// </summary>
         public static bool Compiled =>
 #if SM_EXTRAS
+            true;
+#else
+            false;
+#endif
+
+        /// <summary>
+        /// True when this build compiled the <c>Extras/Warfront/</c> folders (the <c>SmWarfront</c> build property, true by default and only with
+        /// <c>SmExtras</c>; <c>-p:SmWarfront=false</c> builds everything else and refuses <c>--content warfront</c>).
+        /// </summary>
+        public static bool WarfrontCompiled =>
+#if SM_WARFRONT
             true;
 #else
             false;
@@ -91,6 +108,11 @@ public static class ContentProfiles
     public const string Extended = "extended";
     /// <summary>Musou Mode's profile (<see cref="ContentExtras.Musou"/> alone).</summary>
     public const string Musou = "musou";
+    /// <summary>Warfront's profile (<see cref="ContentExtras.Musou"/> | <see cref="ContentExtras.Warfront"/>, never combined with another flag).</summary>
+    public const string Warfront = "warfront";
+
+    /// <summary>The flags of <see cref="Warfront"/>.</summary>
+    public static ContentExtras WarfrontProfile => ContentExtras.Musou | ContentExtras.Warfront;
 
     /// <summary>
     /// The profile a server or client runs without <c>--content</c> (the owner's default, 2026-10-28: he plays the Ork and gore). A one-line change
@@ -117,6 +139,22 @@ public static class ContentProfiles
         string value = (text ?? "").Trim().ToLowerInvariant();
         if (value == Faithful) return true;
         if (value == Extended) extras = ContentExtras.All;
+        else if (value.Split(',', StringSplitOptions.TrimEntries).Contains(Warfront))
+        {
+            if (value != Warfront)
+            {
+                error = $"--content '{text}': {Warfront} is a mode of its own and takes no other added content; use --content {Warfront}";
+                return false;
+            }
+            extras = WarfrontProfile;
+            if (!ContentExtras.Compiled || !ContentExtras.WarfrontCompiled)
+            {
+                extras = ContentExtras.None;
+                error = $"--content '{text}': this build has no Warfront (built with -p:SmExtras=false or -p:SmWarfront=false); only --content {Faithful} runs";
+                return false;
+            }
+            return true;
+        }
         else
         {
             var parts = value.Split(',', StringSplitOptions.TrimEntries);
@@ -153,15 +191,16 @@ public static class ContentProfiles
     }
 
     /// <summary>What <c>--content</c> takes, for messages.</summary>
-    public static string Expected => $"{Faithful}, {Extended}, {Musou} or a list of {string.Join(", ", Flags.Where(f => f.Flag != ContentExtras.Musou).Select(f => f.Name))} (such as orks,gore)";
+    public static string Expected => $"{Faithful}, {Extended}, {Musou}, {Warfront} or a list of {string.Join(", ", Flags.Where(f => f.Flag != ContentExtras.Musou).Select(f => f.Name))} (such as orks,gore)";
 
     /// <summary>The profile's name for messages and logs: <c>faithful</c>, <c>extended</c> (every flag of <c>All</c>), <c>musou</c> or the flag list (<c>orks</c>).</summary>
     public static string Name(ContentExtras extras)
     {
         if (extras == ContentExtras.None) return Faithful;
         if (extras == ContentExtras.All) return Extended;
+        if (extras == WarfrontProfile) return Warfront;
         var names = Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name).ToList();
-        uint unknown = (uint)(extras & ~ContentExtras.Known);
+        uint unknown = (uint)(extras & ~(ContentExtras.Known | ContentExtras.Warfront));
         if (unknown != 0) names.Add($"0x{unknown:X}");
         return string.Join(",", names);
     }
