@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3583 spec table rows: **2571 tagged**, 660 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 763 rows of the changes document.
+Scanned 3593 spec table rows: **2581 tagged**, 660 not tagged (read from data with high confidence), 352 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 764 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 3583 spec table rows: **2571 tagged**, 660 not tagged (read from data wi
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
+| HUD and hit feedback (critical) | 83 | 78 | 62 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
@@ -53,15 +53,15 @@ Scanned 3583 spec table rows: **2571 tagged**, 660 not tagged (read from data wi
 | Core simulation (provisional values) | 798 | 755 | 585 | 221 | 1 |
 | General game design | 51 | 50 | 39 | 10 | 0 |
 | Ork faction | 263 | 250 | 147 | 69 | 0 |
-| **All areas** | **2571** | 2292 | 1924 | 782 | 37 |
+| **All areas** | **2581** | 2302 | 1933 | 782 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1485 |
-| confidence: low | 935 |
-| confidence: medium | 880 |
+| kind: ours | 1495 |
+| confidence: low | 938 |
+| confidence: medium | 886 |
 | notes: ours | 451 |
 | kind: interpretation | 415 |
 | kind: estimate | 215 |
@@ -1708,7 +1708,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (73)
+### HUD and hit feedback (gameplay-critical) (83)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1852,6 +1852,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
+
+*Spec section: Added content: Warfront: card picker and XP HUD (W8: `WarfrontProgressionWire`, client `Extras/Warfront/Progression`; `WarfrontRules.Version` 3; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-00A40892` | Progress record | tag 44, 22 bytes: level, xp, xp at this level, xp at the next level, pending picks, five card counts, retainer cards, attack-speed bonus in 1/1000; sent on a change and every 2 s (bytes) | kind: ours; confidence: medium | our wire design | Progress record: compare with SM1 with side-by-side screenshots in the same spot. Ours: tag 44, 22 bytes: level, xp, xp at this level, xp at the next level… | ☐ |
+| `R-BEC6B0F4` | Offer record | tag 45, 8 bytes: open flag, pick index (one byte), four cards, tenths of a second left (one byte), aboard flag; sent every tick group while an offer stands and once with open = 0 when it closes (bytes) | kind: ours; confidence: medium | our wire design | Offer record: compare with SM1 with side-by-side screenshots in the same spot. Ours: tag 45, 8 bytes: open flag, pick index (one byte), four cards, tenths… | ☐ |
+| `R-FAA807AF` | Pick resend | the command is resent every 0.3 s until the offer closes or its pick index moves on; never sent for an index the panel is not showing (s) | kind: ours; confidence: medium | our choice | Pick resend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the command is resent every 0.3 s until the offer closes or its pick… | ☐ |
+| `R-C761E298` | Level-up banner | one line "LEVEL N" for 2 s when the level rises (not on the first Progress after joining) (s) | kind: ours; confidence: medium | brief item 2; the 2 s ours | Level-up banner: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one line "LEVEL N" for 2 s when the level rises (not on the first… | ☐ |
+| `R-9806A7D4` | Pick input | keys 1 to 4 pick at once; D-pad left and right move a highlight, D-pad down or A takes it, D-pad up picks nothing; a click on a card picks it | kind: ours; confidence: medium | owner: "1-4 / D-pad"; the mapping itself ours | Pick input: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: keys 1 to 4 pick at once; D-pad left and right move a highlight… | ☐ |
+| `R-126B9F64` | Picker layout | four cards in a row over a dimmed field, header "CARD k OF n" when more than one pick is pending (a batch grows when a level is earned meanwhile), countdown bar over the server's 20 s, the notes "Card 1 is taken when the time runs out" and "You cannot be… | kind: ours; confidence: low | brief behaviour 3 and 5; layout ours | Picker layout: compare with SM1 with side-by-side screenshots in the same spot. Ours: four cards in a row over a dimmed field, header "CARD k OF n" when… | ☐ |
+| `R-53A0D905` | XP HUD layout | level, thin XP bar, "+N" while picks are pending, five counters plus the retainer count; right edge at mid height (44 from the edge, 420 from the top in the 1920 by 1080 space), hidden on a non-Warfront server and while the picker shows | kind: ours; confidence: low | brief behaviour 1; place ours | XP HUD layout: compare with SM1 with side-by-side screenshots in the same spot. Ours: level, thin XP bar, "+N" while picks are pending, five counters plus… | ☐ |
+| `R-80D71608` | Picker self-close | the panel closes itself when no open Offer record has arrived for 1.0 s, or when Progress shows fewer pending picks than when the offer opened (a lost close datagram must not leave it up); the server repeats the open record while an offer stands and sends the… (s) | kind: ours; confidence: medium | review of W8 | Picker self-close: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the panel closes itself when no open Offer record has arrived for 1.0… | ☐ |
+| `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
+| `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
 ### Sound mix (gameplay-critical) (99)
 
@@ -4672,6 +4687,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F76AF8D6` | Warfront squad classes (W11): retainers mirror their player's class, the Librarian's squad-class option, the Dreadnought hold and free retainer, jump-follow and the jump-pound order; not in SM1 | the owner's rules (2026-11-17: mirror, hold, one free retainer, whole-squad class with Classic bot loadouts, jump follow, a 5 m staggered pound with validated landings, existing ability limits); the weapon profile, hit chances, follow and landing numbers ours | each retainer wears the player's class numbers read from the Classic data, regenerates armour after the class delay, an Assault/Raptor leaps after a far owner and pounds in a ring round a marked point | spec "Added content: Warfront: squad classes" | Warfront squad classes (W11): retainers mirror their…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17: mirror, hold, one free retainer… | ☐ |
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
 | `C-EDF67DCA` | Warfront progression in the node battle (W3b): XP and levels from kills and captures, level-up refill, the picker with its protection, the five stat cards (damage, attack speed, max HP and armour as a damage-taken approximation, cooldowns), Ork scaling by level, assists; not in SM1 | the owner's rules (2026-11-17); every number our estimate; one core field (`PlayerState.AttackSpeedBonus`, 0 outside Warfront) | the W7 library takes effect in a Warfront node battle through `Warfront*` hooks only; Classic and Musou are unchanged | spec "Added content: Warfront, progression in the node battle (W3b)" | Warfront progression in the node battle (W3b): XP and…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's rules (2026-11-17); every number our estimate; one core… | ☐ |
+| `C-50B9D77F` | Warfront card picker and XP HUD (W8): four cards, keys 1 to 4 or D-pad, queue header, level-up banner; not in SM1 | the owner's "1-4 / D-pad"; layout, resend interval and banner time ours | picker over a dimmed field with a countdown bar, XP HUD on the right edge, pick resent every 0.3 s, banner 2 s | spec "Added content: Warfront: card picker and XP HUD" | Warfront card picker and XP HUD (W8): four cards, keys 1 to…: compare with SM1 by feel or video. Ours: the owner's "1-4 / D-pad"; layout, resend interval and banner time… | ☐ |
 | `C-973022C6` | Warfront stats ledger (W4b): per-player kills by class, assists, deaths, revives, captures, battles, saved with the run; not in SM1 | feeds the end-of-run leaderboard; counters and guard ours | counted once per event id, kept across rejoins | spec "Warfront stats ledger" | Warfront stats ledger (W4b): per-player kills by class…: compare with SM1 by timing a run over a known distance. Ours: feeds the end-of-run leaderboard; counters and guard ours. | ☐ |
 | `C-C5762AEB` | Warfront end of run (W15): one ranked leaderboard on victory and defeat, honor roll, records, Discord copy and export; not in SM1 | the owner's brief (2026-11-17); every weight and the layout ours (estimates) | score = kills 1, elite 5, boss 25, assists 0.5, captures 30, revives 15, squad kills 0.5, squad revives 15; deaths and knockouts never add; ties on captures, revives, fewer deaths, earlier join; nothing is posted | spec "Added content: Warfront, end of run" | Warfront end of run (W15): one ranked leaderboard on…: compare with SM1 by timing a run over a known distance. Ours: the owner's brief (2026-11-17); every weight and the layout ours… | ☐ |
 

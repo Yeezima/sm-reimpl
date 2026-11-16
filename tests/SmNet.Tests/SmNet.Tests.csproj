@@ -32,6 +32,10 @@
     <!-- fix/manufactorum-salmon-2: the names MapDecor does not draw on Manufactorum, engine-free. -->
     <Compile Include="..\..\client\MapDecorLists\MapDecorLists.cs" Link="ClientMapDecor\MapDecorLists.cs" />
   </ItemGroup>
+  <!-- Warfront: the card picker's Godot-free model (client/Extras/Warfront/Progression) gets xUnit tests here. -->
+  <ItemGroup Condition="'$(SmExtras)' == 'true' and '$(SmWarfront)' == 'true'">
+    <Compile Include="..\..\client\Extras\Warfront\Progression\WarfrontProgressModel.cs" Link="ClientWarfront\WarfrontProgressModel.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
