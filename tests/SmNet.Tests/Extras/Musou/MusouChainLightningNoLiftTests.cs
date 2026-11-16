@@ -35,16 +35,28 @@ public class MusouChainLightningNoLiftTests
         sim.TryGet(a, out var a0); sim.TryGet(b, out var b0);
         Cast(sim, p, Hold, Rate, ref tick);
         Assert.Equal(2, p.LastStruck);
-        foreach (var (id, before) in new[] { (a, a0), (b, b0) })
-        {
-            sim.TryGet(id, out var e);
-            Assert.True(e.Health < 1e6f);
-            Assert.Equal(before.Position, e.Position);   // not lifted, not knocked back
-            Assert.Equal(before.State, e.State);          // not Airborne or Knocked by the sim; the stagger is the client's flinch on the Hit event
-            Assert.Equal(Vector2.Zero, e.Velocity);
-        }
         Assert.Contains(sim.Events, e => e.Kind == MusouEventKind.Hit && e.Enemy == a && e.Value == 1);   // the hit still reads as a hit (the flinch's trigger)
+        // the sim itself runs too (lead, review M1): casting while the world steps with no Marine to chase, no Ork leaves the ground or enters a thrown/knocked state
+        var none = Array.Empty<MusouTarget>();
+        var eye = new Vector3(0f, 0f, 1f);
+        for (int k = 0; k < Rate * 2; k++)
+        {
+            sim.BeginTick(++tick);
+            p.Step(sim, new LibrarianCaster(1, Vector3.Zero, eye, 0f, 0f), Hold, Dt);
+            sim.Step(none, null, false, new List<MusouAttack>());
+            foreach (var (id, before) in new[] { (a, a0), (b, b0) })
+            {
+                Assert.True(sim.TryGet(id, out var e));
+                Assert.Equal(before.Position.Z, e.Position.Z);   // not lifted
+                Assert.True(e.State is not (MusouEnemyState.Airborne or MusouEnemyState.Knocked), $"state {e.State}");
+            }
+        }
+        foreach (var id in new[] { a, b }) { sim.TryGet(id, out var e); Assert.True(e.Health < 1e6f); }
     }
+
+    [Fact]
+    public void A_chain_kill_is_drawn_torn_in_place_not_thrown() =>
+        Assert.False(SmNet.Extras.Musou.MusouGoreRules.Thrown(MusouDeathKind.BoltBlast));   // review M2: the client's throw rule is the real fix site
 
     [Fact]
     public void A_kill_by_the_chain_is_never_a_thrown_blast()
