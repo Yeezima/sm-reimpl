@@ -18,6 +18,7 @@ return args switch
     ["nav-around", var gameDir, .. var rest] => SmTool.NavAroundCommand.Run(gameDir, rest),
     ["nav-stats", var gameDir, .. var rest] => SmTool.NavCommands.Stats(gameDir, Opt(rest, "--map") ?? "mp_tdm_09", (Opt(rest, "--class") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries), Opt(rest, "--cache"), int.TryParse(Opt(rest, "--top"), out var top) ? top : 0),
     ["maps-audit", var gameDir, .. var rest] => SmTool.MapsAuditCommand.Run(gameDir, rest),
+    ["cancel-config", .. var rest] => SmTool.CancelConfigCommand.Run(rest),
     ["sound-config", .. var rest] => SmTool.SoundConfigCommand.Run(rest),
     ["refine-register", .. var rest] => SmTool.RefineRegister.Run(rest),
     ["scan-package", .. var rest] => SmTool.PackageScanCommand.Run(rest),
@@ -35,6 +36,7 @@ return args switch
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
+    ["map", .. var mapRest] => SmTool.MapCommand.Run(mapRest),
     ["dreadnought-dump", .. var dreadRest] => SmTool.DreadnoughtDumpCommand.Run(dreadRest),
     ["ork-blood", var bloodDir] => SmTool.OrkBloodCommand.Run(bloodDir),
     ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
@@ -47,7 +49,10 @@ return args switch
     ["musou-army-routes", .. var armyRest] => SmTool.MusouArmyRoutesCommand.Run(armyRest),
     ["musou-guard-vantage", .. var vantageRest] => SmTool.MusouGuardVantageCommand.Run(vantageRest),
     ["spear-rig-dump", .. var rigRest] => SmTool.SpearRigDumpCommand.Run(rigRest),
+#if SM_WARFRONT
     ["warfront-maps", .. var warfrontMapsRest] => SmTool.WarfrontMapsCommand.Run(warfrontMapsRest),
+    ["warfront-tuning", .. var wfTuneRest] => SmTool.WarfrontTuningCommand.Run(wfTuneRest),
+#endif
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
@@ -119,6 +124,9 @@ static int Usage()
           smtool fx-smoke <game-dir|auto> [--map mp_tdm_09] [--all] [--textures]
                                                     fx/no-smoke: every effect the multiplayer client plays with the smoke, dust, mist and haze sprites the client no
                                                     longer draws (SmokeRules) and what each keeps; --textures sums them per atlas texture
+          smtool cancel-config list | diff FILE [--against FILE2] | apply FILE [--out config/cancel-table.json]
+                                                    the owner's exported cancel tables (F8 panel): list the exports folder, show in plain words what a file changes
+                                                    against the shipped default, or make it the release default (config/cancel-table.json)
           smtool refine-register [--spec spec/behavior.md] [--changes docs/changes-from-original.md] [--out docs/refine-register.md] [--check]
                                                     write the human-playtest checklist of every estimate, guess and interpretation in the spec;
                                                     --check writes nothing and exits 1 on malformed rows, rows with no kind, confidence or source, empty cells in the

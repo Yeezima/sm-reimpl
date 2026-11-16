@@ -1,0 +1,4405 @@
+{
+ "format": 1,
+ "name": "default",
+ "description": "Classic PvP animation cancel table: the state of every (action in progress, input) cell, plus per-class and per-weapon overrides. state: yes | no | window | queued | na. from/until: seconds into the action (null: the data own timing). A release default; replace this file to change the defaults (smtool cancel-config diff <file> shows what differs).",
+ "rows": [
+  {
+   "id": "melee_light",
+   "label": "Light melee combo hit (X1, X2, X3 ...; any step)",
+   "note": "Classic PvP. Steps differ only in times; Ork choppa has no BRANCH_ToRanged (OrkBalance parity). Musou melee-spam hook does not apply."
+  },
+  {
+   "id": "melee_light_last",
+   "label": "Last light step of a string (sword X4, hammer/maul X3, Devastator/Havoc kick)",
+   "note": "As melee_light except the chain rules (StringEnd) and the hammer/maul string reset."
+  },
+  {
+   "id": "melee_heavy",
+   "label": "Heavy / stun strike (F: backhand, kick, shoulder bash, hammer slam)",
+   "note": "Classic PvP. F with Shift+W is a charge, not a strike. Same lock/fire rules as light attacks."
+  },
+  {
+   "id": "melee_stomp",
+   "label": "In-place stomp (Devastator / Havoc F; heavy Y4 radial stomp)",
+   "note": "Plays to its end except the hop (BRANCH_Evade) and the 1.2 s release (owner 2026-11-14). Body held in place until MoveAt."
+  },
+  {
+   "id": "charge",
+   "label": "Charge (bull rush, ground, Shift+W+F: 1.19 s; contact until 0.667 s)",
+   "note": "Ork Boy: choppa sprint attack uses the same machinery (OrkClass.cs); MeleeCancel.Eligible excludes Orks but MeleeEndsCharge is any class; AirSteer excludes Orks."
+  },
+  {
+   "id": "charge_sprint",
+   "label": "Sprint-RMB charge (Classic PvP: RMB with Shift+W held starts the same bull rush)",
+   "note": "Same state and timings as 'charge'. Start refused (spacing / swing under way): press waits in buffer until Shift released or charge allowed. Musou keeps the swing (SprintMeleeKept hook)."
+  },
+  {
+   "id": "charge_air",
+   "label": "Ledge charge (bull rush held in the air; the 'ledge glide' reading)",
+   "note": "Ends on landing after a real fall (>= 0.5 m free-fall speed), by contact/wall, or by the inputs shown. 'Ledge glide' read as this state: see open."
+  },
+  {
+   "id": "charge_stop",
+   "label": "Charge collision stop / wall recoil (SM_NAV_Bullrush2Idle_F_Collision, 1.033 s)",
+   "note": "Entered by contact or wall (not an input). ChargeClash locks charger and victim for the first 6 ticks."
+  },
+  {
+   "id": "dash_attack",
+   "label": "Aerial tackle (jump-pack dash attack): lunge 0.833 s, then hit state / wall stop / run-out",
+   "note": "Classic PvP; Musou's AerialTackleOff hook is off here. Starts from a melee press in a hop (>= 0.333 s, <= 3 m above ground). Held in the air like a ledge charge."
+  },
+  {
+   "id": "evade_roll",
+   "label": "Roll evade (Tactical, Chaos Tactical): Jump key, 1.167 s",
+   "note": "Ork Boy has a side-only hop instead (SideOnly, OrkClass); Orks excluded from MeleeCancel."
+  },
+  {
+   "id": "evade_hop",
+   "label": "Heavy hop (Devastator, Havoc: Jump key, 0.967 s; Ork side hop)",
+   "note": "Heavies keep Fire as an exit (owner named only the roll). Ork Boy: side-only hop, same machinery."
+  },
+  {
+   "id": "jp_takeoff",
+   "label": "Jump-pack take-off (Jump press to lift-off 0.2 s; tap/hold decision at tick 5, 0.167 s)",
+   "note": "Assault Marine / Raptor. Normal ground movement meanwhile; power spent when the jump commits."
+  },
+  {
+   "id": "jp_hop",
+   "label": "Jump-pack hop (dash): flight 1.3 s, then landing part 1.033 s",
+   "note": "Classic PvP: also the only air jump (tap in hang/fall)."
+  },
+  {
+   "id": "jp_flight",
+   "label": "Jump-pack flight (ascent, hang, fall of a jump)",
+   "note": "Classic PvP: no air jump (R-61D70BF7); the pack recharges in hang and fall (descent-recharge)."
+  },
+  {
+   "id": "jp_dive",
+   "label": "Pound / slash dive (Dive phase until impact)",
+   "note": "Not cancellable by any input; ends at impact."
+  },
+  {
+   "id": "jp_recover",
+   "label": "Pound get-up 0.356 s / slash recovery 0.3 s (Recover phase)",
+   "note": "Original get-up tag BRANCH_to_Getup 0.356 s (p0b 2.5)."
+  },
+  {
+   "id": "jp_landed",
+   "label": "Jump-pack landing locks (move lock 0.333 / 0.462 s, jump lock 0.132 / 0.277 s)",
+   "note": "Phase Landed. Fire, switch and melee allowed in ours."
+  },
+  {
+   "id": "hip_fire",
+   "label": "Hip fire (trigger held / burst / raise before the first shot)",
+   "note": "Weapon raise 0.2 s rifle, 0.167 s pistol; ReadyHold 10 s (R-C64B6FB4, owner estimate)."
+  },
+  {
+   "id": "aim_fire",
+   "label": "Aimed fire (ADS held, trigger)",
+   "note": "Aim mode keeps the weapon up (no raise). Zoom is client-side; ADS ends with any attack/evade/throw/pound/reaction."
+  },
+  {
+   "id": "charged_shot",
+   "label": "Charged shot hold (plasma gun / pistol / cannon, lascannon)",
+   "note": "Fire drives it; lascannon with 1 round fires the basic shot at once (R-86255356)."
+  },
+  {
+   "id": "reload",
+   "label": "Reload (also a melta's round recharge)",
+   "note": "Only weapon switching takes it out of hand (and then it still finishes). Venting overheated plasma pauses it."
+  },
+  {
+   "id": "switch",
+   "label": "Weapon switch (timer 0.1 s with the owner's quickdraw; 0.6 s synthetic)",
+   "note": "Slot swap happens at the press; the timer only blocks fire/reload/throw. Original 0.467 s rifle, 0.667 s pistol (p0c item 8)."
+  },
+  {
+   "id": "raise",
+   "label": "Weapon raise before the first shot (rifle 0.2 s, pistol 0.167 s; ready hold 10 s)",
+   "note": "Not in the owner's list but a cancelable weapon state; always-ready weapons (heavy bolter etc.) skip it."
+  },
+  {
+   "id": "grenade",
+   "label": "Grenade throw (frag / krak: release 0.1 s, ends at release; cooldown 1 s)",
+   "note": "Original release 0.2 s, end 0.667 s; ours is the owner's quick throw (R-FE388EFD)."
+  },
+  {
+   "id": "stim",
+   "label": "Combat stimulant use (release 0.3 s, end 0.9 s; effect 5-7 s)",
+   "note": "Same key and throw machinery as a grenade; the effect (StimLeft) is not cancelled by any input, only by death/time."
+  },
+  {
+   "id": "sprint",
+   "label": "Sprint (Shift held with W; the state, not a clip)",
+   "note": "Not an animation lock; listed because inputs end it."
+  },
+  {
+   "id": "sprint_stop",
+   "label": "Sprint stop (decelerating slide, 0.833 s from full sprint)",
+   "note": "Deliberate change from the original's 0.16-0.25 s stop (feel/locks-sprint-stop, R-1B1461F0 / R-8A01DA8A)."
+  },
+  {
+   "id": "brace_enter",
+   "label": "Heavy bolter brace: entering (1.433 s)",
+   "note": "Devastator heavy bolter (Reload). Owner's recollection: the entry cannot be cancelled."
+  },
+  {
+   "id": "braced",
+   "label": "Braced (stance held)",
+   "note": "Braced fire 0.1 s cooldown. Reload starts the 1.3 s exit."
+  },
+  {
+   "id": "brace_exit",
+   "label": "Heavy bolter brace: exiting (1.300 s)",
+   "note": "Walking allowed; no fire/aim/melee/throw/switch."
+  },
+  {
+   "id": "vent",
+   "label": "Plasma vent (Reload, or automatic when overheated; ~2.1 s full gun)",
+   "note": "Not an animation lock; cancelled by anything that takes the player's hands."
+  },
+  {
+   "id": "exec_doing",
+   "label": "Execution (performing one)",
+   "note": "Not implemented and not present in the MP data we read; row kept so the owner sees the gap."
+  },
+  {
+   "id": "exec_victim",
+   "label": "Being executed",
+   "note": "As above."
+  },
+  {
+   "id": "react_interrupt",
+   "label": "Hit reaction: interrupt (reaction_mp_melee, 0.84-1.17 s; from charge secondary, aerial tackle, air slash)",
+   "note": "Since protocol 52 light melee hits start no reaction. Ours deliberately holds nobody (owner 2026-10-30)."
+  },
+  {
+   "id": "react_stun",
+   "label": "Hit reaction: stun (reaction_mp_stun 0.53-0.8 s; grenade blast, stun strike, charge, pound)",
+   "note": "Holds the victim. Source side picks the clip; the original picks it differently (p0b 2.1, p0c item 1)."
+  },
+  {
+   "id": "react_stagger",
+   "label": "Hit reaction: stagger (reaction_mp_stagger, 0.567 / 1.067 s; perk charge, stomp, heavy strikes)",
+   "note": "Holds the victim; only the pack classes' Jump escape ends it early."
+  },
+  {
+   "id": "flinch",
+   "label": "Light-melee flinch (aim thrown off: 0.5 s, up to 6 deg on shots)",
+   "note": "State only; included so the owner sees a light hit cancels nothing."
+  }
+ ],
+ "cols": [
+  {
+   "id": "light",
+   "label": "Light melee (RMB)"
+  },
+  {
+   "id": "heavy",
+   "label": "Heavy / stun melee (F, no W)"
+  },
+  {
+   "id": "charge",
+   "label": "Charge press (Shift+W+F; RMB while sprinting)"
+  },
+  {
+   "id": "roll",
+   "label": "Jump key: roll / hop (Tactical, Chaos Tactical, Devastator, Havoc; Ork side hop)"
+  },
+  {
+   "id": "pack",
+   "label": "Jump key: jump pack (Assault, Raptor)"
+  },
+  {
+   "id": "fire",
+   "label": "Fire (trigger)"
+  },
+  {
+   "id": "aim",
+   "label": "Aim (ADS)"
+  },
+  {
+   "id": "reload",
+   "label": "Reload (also brace / vent key)"
+  },
+  {
+   "id": "switch",
+   "label": "Switch weapon (1/2/3, toggle)"
+  },
+  {
+   "id": "grenade",
+   "label": "Grenade / stim key"
+  },
+  {
+   "id": "sprint",
+   "label": "Sprint (Shift)"
+  },
+  {
+   "id": "stick",
+   "label": "Move stick (W, A, D)"
+  },
+  {
+   "id": "back",
+   "label": "Move stick back (S, S+A, S+D)"
+  },
+  {
+   "id": "exec",
+   "label": "Execution key"
+  },
+  {
+   "id": "hit_react",
+   "label": "Being hit: stun / stagger / interrupt (a reaction starts)"
+  },
+  {
+   "id": "hit_plain",
+   "label": "Being hit: damage or light-melee flinch (no reaction)"
+  }
+ ],
+ "cells": {
+  "melee_light|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Press before ComboClose queues next step; starts when hit landed and ComboOpen reached (knife X1 0.50-0.77 s)",
+   "src": "src/SmSim/Combat.cs:634-659,664-674"
+  },
+  "melee_light|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Heavy press before ComboClose queues heavy n+1 (replaces a queued light); none if weapon lacks it (HeavyNext -1)",
+   "src": "src/SmSim/Combat.cs:644-649,654"
+  },
+  "melee_light|charge": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Charge press ends swing and combo once the hit landed (knife 0.28/0.384/0.533 s); before: refused, buffered 0.3 s",
+   "src": "src/SmSim/ChargeCancel.cs:106-107; src/SmSim/Combat.cs:471-475"
+  },
+  "melee_light|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump ends swing from BRANCH_Evade x0.7, never before hit (knife 0.334/0.384/0.533 s); roll same tick; earlier: buffered",
+   "src": "src/SmSim/Combat.cs:138-142,514-516,540-545"
+  },
+  "melee_light|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape: any tick of any swing; take-off or hop starts the same tick (attack not given back)",
+   "src": "src/SmSim/Combat.cs:514-516; src/SmSim/JumpEscape.cs:26-32"
+  },
+  "melee_light|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Fire ends swing from RangedAt (knife 0.433/0.500/0.604 s) and fires that tick; bolt pistol: at once if a shot leaves",
+   "src": "src/SmSim/Combat.cs:680-685"
+  },
+  "melee_light|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode needs no attack under way; resumes when the swing ends if Aim still held",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "melee_light|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Ignored during a swing; a reload in hand runs on (reload-keeps); press replays if in last 0.3 s",
+   "src": "src/SmSim/Combat.cs:876-879; src/SmSim/InputBuffer.cs:102-106"
+  },
+  "melee_light|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch needs no swing under way; waits in the 0.3 s input buffer",
+   "src": "src/SmSim/Combat.cs:706,720; InputBuffer.cs:102"
+  },
+  "melee_light|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw needs no swing under way; waits in the 0.3 s input buffer",
+   "src": "src/SmSim/Combat.cs:774; InputBuffer.cs:102"
+  },
+  "melee_light|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint bit stripped until MoveAt x0.7 (knife 0.545/0.653/0.643 s); sprinting never cancels the swing",
+   "src": "src/SmSim/Combat.cs:983-985"
+  },
+  "melee_light|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "src": "src/SmSim/Combat.cs:983-985,1025-1026"
+  },
+  "melee_light|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "src": "src/SmSim/Combat.cs:983-985,1025-1026"
+  },
+  "melee_light|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "melee_light|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A stun/stagger/interrupt clears the swing, except an attack's no-BRANCH_HitReact window",
+   "src": "src/SmSim/Combat.cs:276-296; src/SmSim/Reactions.cs:254-270"
+  },
+  "melee_light|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "melee_light_last|light": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "String-end step chains nothing; from StringResetAt (hammer/maul X3 1.544 s) a press starts a fresh X1 same tick",
+   "src": "src/SmSim/Combat.cs:622-626"
+  },
+  "melee_light_last|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "No heavy n+1 after sword X4 / hammer X3; from StringResetAt a heavy press starts strike 1 same tick",
+   "src": "src/SmSim/Combat.cs:622-626,648-649"
+  },
+  "melee_light_last|charge": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Charge press ends swing and combo once the hit landed (knife 0.28/0.384/0.533 s); before: refused, buffered 0.3 s",
+   "src": "src/SmSim/ChargeCancel.cs:106-107; src/SmSim/Combat.cs:471-475"
+  },
+  "melee_light_last|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump ends swing from BRANCH_Evade x0.7, never before hit (knife 0.334/0.384/0.533 s); roll same tick; earlier: buffered",
+   "src": "src/SmSim/Combat.cs:138-142,514-516,540-545"
+  },
+  "melee_light_last|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape: any tick of any swing; take-off or hop starts the same tick (attack not given back)",
+   "src": "src/SmSim/Combat.cs:514-516; src/SmSim/JumpEscape.cs:26-32"
+  },
+  "melee_light_last|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Fire ends swing from RangedAt (knife 0.433/0.500/0.604 s) and fires that tick; bolt pistol: at once if a shot leaves",
+   "src": "src/SmSim/Combat.cs:680-685"
+  },
+  "melee_light_last|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode needs no attack under way; resumes when the swing ends if Aim still held",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "melee_light_last|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Ignored during a swing; a reload in hand runs on (reload-keeps); press replays if in last 0.3 s",
+   "src": "src/SmSim/Combat.cs:876-879; src/SmSim/InputBuffer.cs:102-106"
+  },
+  "melee_light_last|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch needs no swing under way; waits in the 0.3 s input buffer",
+   "src": "src/SmSim/Combat.cs:706,720; InputBuffer.cs:102"
+  },
+  "melee_light_last|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw needs no swing under way; waits in the 0.3 s input buffer",
+   "src": "src/SmSim/Combat.cs:774; InputBuffer.cs:102"
+  },
+  "melee_light_last|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint bit stripped until MoveAt x0.7 (knife 0.545/0.653/0.643 s); sprinting never cancels the swing",
+   "src": "src/SmSim/Combat.cs:983-985"
+  },
+  "melee_light_last|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "src": "src/SmSim/Combat.cs:983-985,1025-1026"
+  },
+  "melee_light_last|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "src": "src/SmSim/Combat.cs:983-985,1025-1026"
+  },
+  "melee_light_last|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "melee_light_last|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A stun/stagger/interrupt clears the swing, except an attack's no-BRANCH_HitReact window",
+   "src": "src/SmSim/Combat.cs:276-296; src/SmSim/Reactions.cs:254-270"
+  },
+  "melee_light_last|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "melee_heavy|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Light press before ComboClose queues light attack 1 after a heavy strike",
+   "src": "src/SmSim/Combat.cs:646"
+  },
+  "melee_heavy|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Heavy press only in the Y-chain window (YComboOpen..Close) chains the Y,Y finisher; else ignored, buffer replay",
+   "src": "src/SmSim/Combat.cs:645"
+  },
+  "melee_heavy|charge": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Charge press ends the strike once its hit landed (the stomp is excluded); else buffered",
+   "src": "src/SmSim/Combat.cs:471-475; ChargeCancel.cs:106"
+  },
+  "melee_heavy|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump from BRANCH_Evade x0.7, never before hit (knife heavy 0.792/0.500/0.658/0.949 s); hop/roll same tick",
+   "src": "src/SmSim/Combat.cs:138-142,514-516"
+  },
+  "melee_heavy|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape: any tick of any swing; take-off or hop starts the same tick (attack not given back)",
+   "src": "src/SmSim/Combat.cs:514-516; src/SmSim/JumpEscape.cs:26-32"
+  },
+  "melee_heavy|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Fire ends swing from RangedAt (knife 0.433/0.500/0.604 s) and fires that tick; bolt pistol: at once if a shot leaves",
+   "src": "src/SmSim/Combat.cs:680-685"
+  },
+  "melee_heavy|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode needs no attack under way; resumes when the swing ends if Aim still held",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "melee_heavy|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Ignored during a swing; a reload in hand runs on (reload-keeps); press replays if in last 0.3 s",
+   "src": "src/SmSim/Combat.cs:876-879; src/SmSim/InputBuffer.cs:102-106"
+  },
+  "melee_heavy|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch needs no swing under way; waits in the 0.3 s input buffer",
+   "src": "src/SmSim/Combat.cs:706,720; InputBuffer.cs:102"
+  },
+  "melee_heavy|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw needs no swing under way; waits in the 0.3 s input buffer",
+   "src": "src/SmSim/Combat.cs:774; InputBuffer.cs:102"
+  },
+  "melee_heavy|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint bit stripped until MoveAt x0.7 (knife 0.545/0.653/0.643 s); sprinting never cancels the swing",
+   "src": "src/SmSim/Combat.cs:983-985"
+  },
+  "melee_heavy|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "src": "src/SmSim/Combat.cs:983-985,1025-1026"
+  },
+  "melee_heavy|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "src": "src/SmSim/Combat.cs:983-985,1025-1026"
+  },
+  "melee_heavy|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "melee_heavy|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction clears the strike unless a NoReact window covers it (slam/kick data: ability_displace_slam immunity)",
+   "src": "src/SmSim/Combat.cs:276-296"
+  },
+  "melee_heavy|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "melee_stomp|light": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Free at 1.2 s into the clip (release): a light press starts the next swing at once",
+   "src": "src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Heavy press ignored in the stomp (InPlace queues nothing); at the 1.2 s release it acts as from rest",
+   "src": "src/SmSim/Combat.cs:616,608-612"
+  },
+  "melee_stomp|charge": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Charge acts as from rest at the 1.2 s release; the stomp is not a charge-from-melee source (InPlace excluded)",
+   "src": "src/SmSim/ChargeCancel.cs:106; src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hop from BRANCH_Evade x0.7 (data 0.5 s), never before the hit (0.767 s): ends the stomp, hop same tick",
+   "src": "src/SmSim/Combat.cs:138-142,514-516"
+  },
+  "melee_stomp|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Stomp is Devastator/Havoc only (no jump pack)",
+   "src": ""
+  },
+  "melee_stomp|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Free at 1.2 s into the clip (release): no shot ends it earlier, pistol included (protocol 51); at 1.2 s the pistol fires at once",
+   "src": "src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|aim": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Free at 1.2 s into the clip (release): aim mode works",
+   "src": "src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|reload": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Reload press blocked; reload in hand runs on; at 1.2 s a press acts",
+   "src": "src/SmSim/Combat.cs:608-612,876-879"
+  },
+  "melee_stomp|switch": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Free at 1.2 s into the clip (release): switch acts",
+   "src": "src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|grenade": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Free at 1.2 s into the clip (release): throw acts",
+   "src": "src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|sprint": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Free at 1.2 s into the clip (release): body held in place; sprint works after",
+   "src": "src/SmSim/Combat.cs:608-612"
+  },
+  "melee_stomp|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Body held in place until MoveAt; movement returns at the 1.2 s release",
+   "src": "src/SmSim/Combat.cs:1084-1086"
+  },
+  "melee_stomp|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Body held in place until MoveAt; movement returns at the 1.2 s release",
+   "src": "src/SmSim/Combat.cs:1084-1086"
+  },
+  "melee_stomp|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "melee_stomp|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Immunity window comes from the step's NoReact data (stomp's exact window not read here)",
+   "src": "src/SmSim/Reactions.cs:254-270"
+  },
+  "melee_stomp|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "charge|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any tick (last included) ends the rush; swing starts same tick, no wait; lifts the 1 s charge spacing. Any class incl. Ork",
+   "src": "src/SmSim/Combat.cs:462-468; src/SmSim/ChargeCancel.cs:118"
+  },
+  "charge|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Heavy press only counts at MeleeAt (= clip end); no charge during a charge (1 s RushLock) [matrix said no; corrected to the code, CancelMatrixProbeTests: a heavy or charge press during a charge waits in the input buffer (InputBuffer.Locked: a charge phase holds every press) and starts when the charge ends]",
+   "src": "src/SmSim/Rush.cs:306,401"
+  },
+  "charge|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No second charge while charging; CanStart refuses and RushLock 1 s [matrix said no; corrected to the code, CancelMatrixProbeTests: a heavy or charge press during a charge waits in the input buffer (InputBuffer.Locked: a charge phase holds every press) and starts when the charge ends]",
+   "src": "src/SmSim/Rush.cs:287-330,401-403"
+  },
+  "charge|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump ends it from BRANCH_Evade 0.5 s x0.7 = 0.35 s; the roll starts same tick",
+   "src": "src/SmSim/Rush.cs:306"
+  },
+  "charge|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape ends the rush at once; hop or take-off the same tick",
+   "src": "src/SmSim/MeleeCancel.cs:26-45; src/SmSim/JumpEscape.cs"
+  },
+  "charge|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Fire dropped for the whole charge (and the tick another input ends it); never buffered",
+   "src": "src/SmSim/Combat.cs:498-508"
+  },
+  "charge|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim ignored: no aim state, no camera change (protocol 48)",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "charge|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Buttons zeroed; reload in hand runs on; press replays only if within 0.3 s of the clip end (1.19 s)",
+   "src": "src/SmSim/Combat.cs:503-508,876-879"
+  },
+  "charge|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Zeroed during the charge; replays only if within 0.3 s of the end",
+   "src": "src/SmSim/InputBuffer.cs:102-110"
+  },
+  "charge|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "A grenade press no longer ends a charge; it waits and the throw follows within 0.3 s of the end",
+   "src": "src/SmSim/ChargeCancel.cs:125-132"
+  },
+  "charge|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Input zeroed while charging; sprint changes nothing",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "charge|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "W, A and D end nothing (protocol 53); in the air A/D only bend the flight",
+   "src": "src/SmSim/ChargeCancel.cs:125-132; src/SmSim/Rush.cs:296"
+  },
+  "charge|back": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "S (S+A, S+D; stick >= 0.5) cancels from the 2nd tick: instant, speed capped to sprint, no recoil",
+   "src": "src/SmSim/ChargeCancel.cs:92-100; src/SmSim/Rush.cs:305,311"
+  },
+  "charge|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "charge|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hyper armour first 0.333 s (10 ticks) negates reactions; later any reaction ends the charge (contact/wall = collision stop)",
+   "src": "src/SmSim/Rush.cs:213; src/SmSim/Reactions.cs:254-260"
+  },
+  "charge|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "charge_sprint|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A fresh RMB press mid charge ends it and swings at once (charge>swing>charge chain); the RMB that started it is not a new press",
+   "src": "src/SmSim/Combat.cs:462-468"
+  },
+  "charge_sprint|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Heavy press only counts at MeleeAt (= clip end); no charge during a charge (1 s RushLock) [matrix said no; corrected to the code, CancelMatrixProbeTests: a heavy or charge press during a charge waits in the input buffer (InputBuffer.Locked: a charge phase holds every press) and starts when the charge ends]",
+   "src": "src/SmSim/Rush.cs:306,401"
+  },
+  "charge_sprint|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No second charge while charging; CanStart refuses and RushLock 1 s [matrix said no; corrected to the code, CancelMatrixProbeTests: a heavy or charge press during a charge waits in the input buffer (InputBuffer.Locked: a charge phase holds every press) and starts when the charge ends]",
+   "src": "src/SmSim/Rush.cs:287-330,401-403"
+  },
+  "charge_sprint|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump ends it from BRANCH_Evade 0.5 s x0.7 = 0.35 s; the roll starts same tick",
+   "src": "src/SmSim/Rush.cs:306"
+  },
+  "charge_sprint|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape ends the rush at once; hop or take-off the same tick",
+   "src": "src/SmSim/MeleeCancel.cs:26-45; src/SmSim/JumpEscape.cs"
+  },
+  "charge_sprint|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Fire dropped for the whole charge (and the tick another input ends it); never buffered",
+   "src": "src/SmSim/Combat.cs:498-508"
+  },
+  "charge_sprint|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim ignored: no aim state, no camera change (protocol 48)",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "charge_sprint|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Buttons zeroed; reload in hand runs on; press replays only if within 0.3 s of the clip end (1.19 s)",
+   "src": "src/SmSim/Combat.cs:503-508,876-879"
+  },
+  "charge_sprint|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Zeroed during the charge; replays only if within 0.3 s of the end",
+   "src": "src/SmSim/InputBuffer.cs:102-110"
+  },
+  "charge_sprint|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "A grenade press no longer ends a charge; it waits and the throw follows within 0.3 s of the end",
+   "src": "src/SmSim/ChargeCancel.cs:125-132"
+  },
+  "charge_sprint|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Shift held changes nothing during the charge; releasing it later lets RMB swing again",
+   "src": "src/SmSim/Combat.cs:460,479-483"
+  },
+  "charge_sprint|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "W, A and D end nothing (protocol 53); in the air A/D only bend the flight",
+   "src": "src/SmSim/ChargeCancel.cs:125-132; src/SmSim/Rush.cs:296"
+  },
+  "charge_sprint|back": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "S (S+A, S+D; stick >= 0.5) cancels from the 2nd tick: instant, speed capped to sprint, no recoil",
+   "src": "src/SmSim/ChargeCancel.cs:92-100; src/SmSim/Rush.cs:305,311"
+  },
+  "charge_sprint|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "charge_sprint|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hyper armour first 0.333 s (10 ticks) negates reactions; later any reaction ends the charge (contact/wall = collision stop)",
+   "src": "src/SmSim/Rush.cs:213; src/SmSim/Reactions.cs:254-260"
+  },
+  "charge_sprint|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "charge_air|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Zeroes horizontal momentum at once, ends the charge, swing steps the stick's way (ledge cancel)",
+   "src": "src/SmSim/Combat.cs:462-468"
+  },
+  "charge_air|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Held charge: no input ends it by time or branch; a heavy press is not taken [matrix said no; corrected to the code, CancelMatrixProbeTests: a heavy or charge press during a charge waits in the input buffer (InputBuffer.Locked: a charge phase holds every press) and starts when the charge ends]",
+   "src": "src/SmSim/Rush.cs:296"
+  },
+  "charge_air|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No second charge; spacing lock and airborne refuse [matrix said no; corrected to the code, CancelMatrixProbeTests: a heavy or charge press during a charge waits in the input buffer (InputBuffer.Locked: a charge phase holds every press) and starts when the charge ends]",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "charge_air|roll": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Roll classes cannot roll in the air; Held() returns before any Jump branch",
+   "src": "src/SmSim/Rush.cs:296"
+  },
+  "charge_air|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump ends it and opens the air jump: hold lifts the pack, tap hops (sim/hop-rules)",
+   "src": "src/SmSim/Combat.cs:440-445,527-528"
+  },
+  "charge_air|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Fire dropped for the whole charge",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "charge_air|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim ignored during any charge phase",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "charge_air|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Replays only if the landing is within 0.3 s of the press",
+   "src": "src/SmSim/Combat.cs:503-508; InputBuffer.cs:102"
+  },
+  "charge_air|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Replays only if the landing is within 0.3 s of the press",
+   "src": "src/SmSim/InputBuffer.cs:102-110"
+  },
+  "charge_air|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Waits; replays only within 0.3 s of the landing",
+   "src": "src/SmSim/InputBuffer.cs:102-110"
+  },
+  "charge_air|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Input zeroed",
+   "src": ""
+  },
+  "charge_air|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A/D bend the flight 60 deg/s (not Orks); nothing ends it",
+   "src": "src/SmSim/Rush.cs:296,363-375"
+  },
+  "charge_air|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "S does not cancel in the air (Held() returns before the back test)",
+   "src": "src/SmSim/Rush.cs:296-305"
+  },
+  "charge_air|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "charge_air|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Armour window = first 0.333 s of clip time (frozen while held); after it a reaction ends the charge",
+   "src": "src/SmSim/Rush.cs:213; spec 'Airborne charge: frozen windows'"
+  },
+  "charge_air|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "charge_stop|light": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Melee from BRANCH_To_Melee 0.267 s (unscaled) ends the collision stop; MeleeEndsCharge covers only the Rush phase",
+   "src": "src/SmSim/Rush.cs:306"
+  },
+  "charge_stop|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Heavy/charge press counts as the melee branch at 0.267 s; a new charge still needs the 1 s spacing",
+   "src": "src/SmSim/Rush.cs:306,287"
+  },
+  "charge_stop|charge": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "As heavy: ends it at 0.267 s; new charge refused by spacing",
+   "src": "src/SmSim/Rush.cs:306,401"
+  },
+  "charge_stop|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump from BRANCH_Sprint_Evade 0.667 s x0.7 = 0.467 s",
+   "src": "src/SmSim/Rush.cs:306"
+  },
+  "charge_stop|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape: any phase of the charge, at once",
+   "src": "src/SmSim/MeleeCancel.cs:39-45"
+  },
+  "charge_stop|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dropped (charge phases fire nothing)",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "charge_stop|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Ignored",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "charge_stop|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Replays only within 0.3 s of the clip end (1.033 s)",
+   "src": "src/SmSim/InputBuffer.cs:102"
+  },
+  "charge_stop|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Replays only within 0.3 s of the end",
+   "src": "src/SmSim/InputBuffer.cs:102"
+  },
+  "charge_stop|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No cancel; throw after the stop within 0.3 s",
+   "src": "src/SmSim/ChargeCancel.cs:125-132"
+  },
+  "charge_stop|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Input zeroed",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "charge_stop|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Any stick direction from BRANCH_Sprint_Finished 1.033 s x0.7 = 0.723 s (instant S cancel is Rush phase only)",
+   "src": "src/SmSim/Rush.cs:303-306"
+  },
+  "charge_stop|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Any stick direction from BRANCH_Sprint_Finished 1.033 s x0.7 = 0.723 s (instant S cancel is Rush phase only)",
+   "src": "src/SmSim/Rush.cs:303-306"
+  },
+  "charge_stop|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "charge_stop|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "No hyper armour in the stop; a reaction ends it",
+   "src": "src/SmSim/Combat.cs:276-296"
+  },
+  "charge_stop|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "dash_attack|light": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Lunge: no input ends it. Hit state / wall stop / run-out: melee from its branch x0.7 (run-out 0.448 s)",
+   "src": "src/SmSim/Rush.cs:296-310"
+  },
+  "dash_attack|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Same branch as melee in the after-states; lunge ignores it",
+   "src": "src/SmSim/Rush.cs:306"
+  },
+  "dash_attack|charge": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No charge during the dash attack (1 s spacing shared)",
+   "src": "src/SmSim/Rush.cs:401"
+  },
+  "dash_attack|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Dash attack is Assault/Raptor only",
+   "src": ""
+  },
+  "dash_attack|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump ends any phase at once and hops past the hop spacing (sim/hop-rules)",
+   "src": "src/SmSim/Combat.cs:445; src/SmSim/MeleeCancel.cs:39-45"
+  },
+  "dash_attack|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dropped for all charge phases",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "dash_attack|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Ignored",
+   "src": "src/SmSim/Combat.cs:501-508"
+  },
+  "dash_attack|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Replays only within 0.3 s of the end of the phase",
+   "src": "src/SmSim/InputBuffer.cs:102"
+  },
+  "dash_attack|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Replays only within 0.3 s of the end",
+   "src": "src/SmSim/InputBuffer.cs:102"
+  },
+  "dash_attack|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No cancel (protocol 66); waits",
+   "src": "src/SmSim/ChargeCancel.cs:125-132"
+  },
+  "dash_attack|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Input zeroed",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "dash_attack|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Lunge: no. After-states: stick from BRANCH_Run x0.7 (hit 0.443, wall stop 0.187, run-out 0.448 s)",
+   "src": "src/SmSim/Rush.cs:296-310"
+  },
+  "dash_attack|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Lunge: no. After-states: stick from BRANCH_Run x0.7 (hit 0.443, wall stop 0.187, run-out 0.448 s)",
+   "src": "src/SmSim/Rush.cs:296-310"
+  },
+  "dash_attack|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "dash_attack|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "No hyper armour; a reaction ends any dash-attack phase (hit cancelled)",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "dash_attack|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "evade_roll|light": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Melee from BRANCH_Melee_Combo 0.8 s (unscaled) ends the roll and swings that tick",
+   "src": "src/SmSim/Evade.cs:482-488; src/SmSim/Combat.cs:540-545"
+  },
+  "evade_roll|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Same 0.8 s branch (F without W); Shift+W+F is a charge press and does not reach the roll",
+   "src": "src/SmSim/Evade.cs:482-488; src/SmSim/Combat.cs:498"
+  },
+  "evade_roll|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Charge refused while rolling (EvadeTicks > 0); press waits in the 0.3 s buffer",
+   "src": "src/SmSim/Combat.cs:498; src/SmSim/Rush.cs:401-403"
+  },
+  "evade_roll|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Next roll from NextAt 1.167 s x0.7 = 0.817 s and spacing 0.8 s; earlier press buffered 0.3 s",
+   "src": "src/SmSim/Evade.cs:484; src/SmSim/Evade.cs:407"
+  },
+  "evade_roll|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no jump pack",
+   "src": ""
+  },
+  "evade_roll|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Trigger dead for the whole roll, nothing buffered (protocol 51)",
+   "src": "src/SmSim/Combat.cs:586-594"
+  },
+  "evade_roll|aim": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Aim ends the roll from RangedAt 0.667 s; trigger dead on that tick",
+   "src": "src/SmSim/Evade.cs:482-488; src/SmSim/Combat.cs:540"
+  },
+  "evade_roll|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "A reload in hand carries on; new press buffered; no exit on Reload",
+   "src": "src/SmSim/Combat.cs:881-885"
+  },
+  "evade_roll|switch": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Switch ends the roll from SwitchAt 0.7695 s and starts the switch; earlier buffered",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_roll|grenade": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Grenade ends the roll from RangedAt 0.667 s and throws (interpretation); earlier buffered",
+   "src": "src/SmSim/Evade.cs:482-488; src/SmSim/Combat.cs:540,545"
+  },
+  "evade_roll|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Shift alone does nothing; W (stick) ends the roll at 0.467 s regardless",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_roll|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Stick ends the roll from BRANCH_Run 0.667 x0.7 = 0.467 s (not while carried off a ledge in the air)",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_roll|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Stick ends the roll from BRANCH_Run 0.667 x0.7 = 0.467 s (not while carried off a ledge in the air)",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_roll|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "evade_roll|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hyper armour 0-0.695 s negates reactions; after it a reaction ends the roll",
+   "src": "src/SmSim/Evade.cs:311-312"
+  },
+  "evade_roll|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "evade_hop|light": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Melee from BRANCH_Melee_Combo 0.633 s (back 0.7) ends the hop and swings that tick",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|heavy": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Same branch as melee",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Charge refused while rolling (EvadeTicks > 0); press waits in the 0.3 s buffer",
+   "src": "src/SmSim/Combat.cs:498; src/SmSim/Rush.cs:401-403"
+  },
+  "evade_hop|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Next hop from NextAt x0.7: forward 0.474 s, back/sides 0.677 s; spacing 0.8 s; earlier buffered",
+   "src": "src/SmSim/Evade.cs:484"
+  },
+  "evade_hop|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no jump pack",
+   "src": ""
+  },
+  "evade_hop|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Fire ends the hop from RangedAt 0.4525 s and fires that same tick (the hop keeps Fire)",
+   "src": "src/SmSim/Evade.cs:482-488; src/SmSim/Combat.cs:540"
+  },
+  "evade_hop|aim": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Aim ends the hop from RangedAt 0.4525 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload in hand carries on; press buffered",
+   "src": "src/SmSim/Combat.cs:881-885"
+  },
+  "evade_hop|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Heavy hop has no switch branch: acts only at the clip end (0.967 s); buffer covers last 0.3 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|grenade": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Grenade ends the hop from RangedAt 0.4525 s and throws",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Shift alone does nothing; stick ends it at 0.317 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Stick from BRANCH_Run 0.452 x0.7 = 0.317 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Stick from BRANCH_Run 0.452 x0.7 = 0.317 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "evade_hop|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "evade_hop|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hyper armour first 0.322 s negates reactions; after it a reaction ends the hop",
+   "src": "src/SmSim/Evade.cs:311-312"
+  },
+  "evade_hop|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "jp_takeoff|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "A melee press is swallowed and kept as a slash start on the tick after lift-off",
+   "src": "src/SmSim/JumpPack.cs:421-424"
+  },
+  "jp_takeoff|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked while any jump phase runs; held in the 0.3 s buffer",
+   "src": "src/SmSim/Combat.cs:531; src/SmSim/InputBuffer.cs:102"
+  },
+  "jp_takeoff|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Charge refused during any jump-pack phase (Jump != None); buffered",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "jp_takeoff|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no pack",
+   "src": ""
+  },
+  "jp_takeoff|pack": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Release by 0.167 s = the hop (dash); held past it commits the jump; later release cuts the rise (tiers)",
+   "src": "src/SmSim/JumpPack.cs:353-368"
+  },
+  "jp_takeoff|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Weapon works during take-off; nothing cancels it",
+   "src": "src/SmSim/Combat.cs:876-975"
+  },
+  "jp_takeoff|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim allowed in the take-off",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "jp_takeoff|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Reload allowed; no cancel",
+   "src": "src/SmSim/Combat.cs:951-965"
+  },
+  "jp_takeoff|switch": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Switch allowed; no cancel",
+   "src": "src/SmSim/Combat.cs:706-720"
+  },
+  "jp_takeoff|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Throw allowed; take-off goes on",
+   "src": "src/SmSim/Combat.cs:774-782"
+  },
+  "jp_takeoff|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint adds nothing to the lift-off",
+   "src": "src/SmSim/JumpPack.cs:285-437"
+  },
+  "jp_takeoff|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Ground movement continues; the stick at the press latches the hop direction",
+   "src": "src/SmSim/JumpPack.cs:353-368"
+  },
+  "jp_takeoff|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Ground movement continues; the stick at the press latches the hop direction",
+   "src": "src/SmSim/JumpPack.cs:353-368"
+  },
+  "jp_takeoff|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "jp_takeoff|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "TakeOff can react; Reaction.Start clears the phase (power stays spent)",
+   "src": "src/SmSim/Reactions.cs:254-296"
+  },
+  "jp_takeoff|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "jp_hop|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Melee press at any time ends it and swings that tick (keeps 0.4 of hop speed in air); from 0.333 s and <= 3 m up it is the aerial tackle",
+   "src": "src/SmSim/MeleeCancel.cs:26-57; src/SmSim/Rush.cs:385-399"
+  },
+  "jp_hop|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No heavy exit in flight; landing part: MeleeAt branch not read here (open); else buffered",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Charge refused while EvadeTicks > 0; buffered",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "jp_hop|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Pack classes hop; no roll",
+   "src": ""
+  },
+  "jp_hop|pack": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Flight: nothing cuts it (press buffered, hop spacing 0.8 s); landing part: Jump at once (JumpAt 0) takes off",
+   "src": "src/SmSim/Evade.cs:277-282,482-488"
+  },
+  "jp_hop|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Flight: no. Landing part: Fire from RangedAt 0.378 s ends it and fires",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|aim": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Flight: no. Landing part: from 0.378 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload in hand carries on; press buffered",
+   "src": "src/SmSim/Combat.cs:881-885"
+  },
+  "jp_hop|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Waits for the end of the landing part (switch branch = end); buffer last 0.3 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|grenade": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Flight: no. Landing part: from 0.378 s ends it and throws",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Input has no effect during the hop",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Flight: no. Landing part: stick from BRANCH_Run 0.252 s x0.7 = 0.176 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Flight: no. Landing part: stick from BRANCH_Run 0.252 s x0.7 = 0.176 s",
+   "src": "src/SmSim/Evade.cs:482-488"
+  },
+  "jp_hop|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "jp_hop|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hyper armour covers the flight (ours); the landing part has none, a reaction ends it",
+   "src": "src/SmSim/Evade.cs:311-312"
+  },
+  "jp_hop|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "jp_flight|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Melee press: ground pound from >= 8 m up, air slash below 8 m; ends the flight into the Dive (no delay since protocol 73)",
+   "src": "src/SmSim/JumpPack.cs:416-434"
+  },
+  "jp_flight|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked in any jump phase (BlocksMelee); only the 0.3 s buffer if landing is near",
+   "src": "src/SmSim/Combat.cs:531"
+  },
+  "jp_flight|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Charge needs the ground and no jump phase; buffered",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "jp_flight|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no pack",
+   "src": ""
+  },
+  "jp_flight|pack": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Ascent: hold keeps rising, release cuts it; hang/fall: a tap is the air hop (spacing 0.8 s); a hold is not a 2nd jump",
+   "src": "src/SmSim/JumpPack.cs:343-349,317-319"
+  },
+  "jp_flight|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Shooting in flight is allowed; no cancel",
+   "src": "src/SmSim/Combat.cs:876-975"
+  },
+  "jp_flight|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim allowed (zoom in the air)",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "jp_flight|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Reload allowed; no cancel",
+   "src": "src/SmSim/Combat.cs:951-965"
+  },
+  "jp_flight|switch": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Switch allowed; no cancel",
+   "src": "src/SmSim/Combat.cs:706-720"
+  },
+  "jp_flight|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Throw allowed; flight continues",
+   "src": "src/SmSim/Combat.cs:774-782"
+  },
+  "jp_flight|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint not applied in the air",
+   "src": "src/SmSim/Combat.cs:1010"
+  },
+  "jp_flight|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Air control only; flight continues",
+   "src": "src/SmSim/JumpPack.cs:589-600"
+  },
+  "jp_flight|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Air control only; flight continues",
+   "src": "src/SmSim/JumpPack.cs:589-600"
+  },
+  "jp_flight|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "jp_flight|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No reaction in Ascent/Hang/Fall/Dive (CanReact false); damage only",
+   "src": "src/SmSim/Reactions.cs:254-266"
+  },
+  "jp_flight|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "jp_dive|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Melee blocked in a dive; press replays only if the recovery is within 0.3 s",
+   "src": "src/SmSim/Combat.cs:531"
+  },
+  "jp_dive|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked; buffer only",
+   "src": "src/SmSim/Combat.cs:531"
+  },
+  "jp_dive|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Refused (jump phase); buffer only",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "jp_dive|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no pack",
+   "src": ""
+  },
+  "jp_dive|pack": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Jump escape covers Recover and Landed only; a dive press is buffered",
+   "src": "src/SmSim/JumpPack.cs:317-319"
+  },
+  "jp_dive|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dive/recovery block the weapon (jumpBusy); presses lost",
+   "src": "src/SmSim/Combat.cs:532,876-879"
+  },
+  "jp_dive|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode off in dive and recovery",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "jp_dive|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked; buffered",
+   "src": "src/SmSim/Combat.cs:532"
+  },
+  "jp_dive|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked (jumpBusy); buffered",
+   "src": "src/SmSim/Combat.cs:706"
+  },
+  "jp_dive|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked (jumpBusy); buffered",
+   "src": "src/SmSim/Combat.cs:774"
+  },
+  "jp_dive|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No effect",
+   "src": ""
+  },
+  "jp_dive|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No air control in the dive",
+   "src": "src/SmSim/JumpPack.cs:589-600"
+  },
+  "jp_dive|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No air control in the dive",
+   "src": "src/SmSim/JumpPack.cs:589-600"
+  },
+  "jp_dive|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "jp_dive|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No reaction in the Dive phase",
+   "src": "src/SmSim/Reactions.cs:259"
+  },
+  "jp_dive|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "jp_recover|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Melee blocked in recovery; the 0.3 s buffer covers the slash's recovery whole, the pound's 0.356 s nearly",
+   "src": "src/SmSim/Combat.cs:531"
+  },
+  "jp_recover|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked; buffer only",
+   "src": "src/SmSim/Combat.cs:531"
+  },
+  "jp_recover|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Refused (jump phase); buffer only",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "jp_recover|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no pack",
+   "src": ""
+  },
+  "jp_recover|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape: take-off starts at once, cutting the recovery",
+   "src": "src/SmSim/JumpPack.cs:317-319"
+  },
+  "jp_recover|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Weapon blocked in recovery (jumpBusy); lost",
+   "src": "src/SmSim/Combat.cs:532"
+  },
+  "jp_recover|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode off",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "jp_recover|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked; buffered",
+   "src": "src/SmSim/Combat.cs:532"
+  },
+  "jp_recover|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked; buffered",
+   "src": "src/SmSim/Combat.cs:706"
+  },
+  "jp_recover|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked; buffered",
+   "src": "src/SmSim/Combat.cs:774"
+  },
+  "jp_recover|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No effect",
+   "src": ""
+  },
+  "jp_recover|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Turning only until the recovery ends",
+   "src": "spec 'Sword slash: recovery'"
+  },
+  "jp_recover|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Turning only until the recovery ends",
+   "src": "spec 'Sword slash: recovery'"
+  },
+  "jp_recover|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "jp_recover|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Recovery allows reactions: ends it and cancels a slash hit not yet landed",
+   "src": "src/SmSim/Reactions.cs:254-296"
+  },
+  "jp_recover|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "jp_landed|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Melee allowed in a landing",
+   "src": "src/SmSim/JumpPack.cs:296-297"
+  },
+  "jp_landed|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Heavy strike allowed in a landing (ours)",
+   "src": "src/SmSim/JumpPack.cs:296-297"
+  },
+  "jp_landed|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Charge refused while Jump != None; starts when the lock ends (buffered)",
+   "src": "src/SmSim/Rush.cs:401-403"
+  },
+  "jp_landed|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Roll classes have no pack",
+   "src": ""
+  },
+  "jp_landed|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump press cuts the landing's locks (escape); otherwise a new jump from the jump lock",
+   "src": "src/SmSim/JumpPack.cs:296-297,317-319"
+  },
+  "jp_landed|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Firing allowed; no cancel",
+   "src": "src/SmSim/Combat.cs:876-975"
+  },
+  "jp_landed|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim allowed",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "jp_landed|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Reload allowed",
+   "src": "src/SmSim/Combat.cs:951-965"
+  },
+  "jp_landed|switch": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Switch allowed",
+   "src": "src/SmSim/Combat.cs:706-720"
+  },
+  "jp_landed|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Throw allowed",
+   "src": "src/SmSim/Combat.cs:774-782"
+  },
+  "jp_landed|sprint": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Sprint/stick ignored until BRANCH_Run x0.7 (0.333 / 0.462 s data)",
+   "src": "src/SmSim/JumpPack.cs:296-297,559-570"
+  },
+  "jp_landed|stick": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Movement ignored until BRANCH_Run x0.7 (0.333 s run landing, 0.462 s idle)",
+   "src": "src/SmSim/JumpPack.cs:559-570"
+  },
+  "jp_landed|back": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Movement ignored until BRANCH_Run x0.7 (0.333 s run landing, 0.462 s idle)",
+   "src": "src/SmSim/JumpPack.cs:559-570"
+  },
+  "jp_landed|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "jp_landed|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Landed can react; Reaction.Start clears the phase",
+   "src": "src/SmSim/Reactions.cs:254-296"
+  },
+  "jp_landed|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "hip_fire|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A swing starts that tick; weapon waits until the swing ends or RangedAt; held semi-auto trigger needs a new press",
+   "src": "src/SmSim/Combat.cs:680-685,703,876-879"
+  },
+  "hip_fire|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Same as light: the strike takes the weapon",
+   "src": "src/SmSim/Combat.cs:703,876-879"
+  },
+  "hip_fire|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Charge starts: fire dropped for the whole charge, held charge / pending shot cancelled",
+   "src": "src/SmSim/Combat.cs:498-508,703-704"
+  },
+  "hip_fire|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Evade start cancels charge, pending shot and raise; trigger dead for the whole roll",
+   "src": "src/SmSim/Combat.cs:703,586-594"
+  },
+  "hip_fire|pack": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hop (tap) cancels like a roll; take-off and jump hold do not (shooting while rising is allowed)",
+   "src": "src/SmSim/Combat.cs:703,796-800"
+  },
+  "hip_fire|fire": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "This is the trigger itself",
+   "src": ""
+  },
+  "hip_fire|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "ADS blends in and the weapon counts as up; firing continues",
+   "src": "src/SmSim/Combat.cs:793-794,800"
+  },
+  "hip_fire|reload": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reload press starts a reload and stops fire this tick (clip < max, reserve > 0); an empty clip reloads on the trigger",
+   "src": "src/SmSim/Combat.cs:959-965"
+  },
+  "hip_fire|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Switch cancels burst, charge, pending shot; weapon waits 0.1 s (quickdraw; original 0.467 / 0.667 s)",
+   "src": "src/SmSim/Combat.cs:720-741"
+  },
+  "hip_fire|grenade": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Throw start drops the shot and a charge (0.1 s)",
+   "src": "src/SmSim/Combat.cs:774-782"
+  },
+  "hip_fire|sprint": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Trigger does nothing while the sprint is applied (Shift+W forward, ground, not ADS); cancels charge/raise/burst",
+   "src": "src/SmSim/Combat.cs:584-594"
+  },
+  "hip_fire|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not stop fire (charge stage scales speed)",
+   "src": "src/SmSim/Combat.cs:978-985"
+  },
+  "hip_fire|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not stop fire (charge stage scales speed)",
+   "src": "src/SmSim/Combat.cs:978-985"
+  },
+  "hip_fire|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "hip_fire|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction clears charge, pending shot, aim; trigger dead while it holds",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "hip_fire|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Light-melee flinch only widens scatter",
+   "src": "src/SmSim/Spread.cs:188-193"
+  },
+  "aim_fire|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A swing ends aim mode and firing; both resume after if held",
+   "src": "src/SmSim/Combat.cs:793-794,680-685"
+  },
+  "aim_fire|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Same as light: the strike takes the weapon",
+   "src": "src/SmSim/Combat.cs:703,876-879"
+  },
+  "aim_fire|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Charge starts: fire dropped for the whole charge, held charge / pending shot cancelled",
+   "src": "src/SmSim/Combat.cs:498-508,703-704"
+  },
+  "aim_fire|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Evade start cancels charge, pending shot and raise; trigger dead for the whole roll",
+   "src": "src/SmSim/Combat.cs:703,586-594"
+  },
+  "aim_fire|pack": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hop (tap) cancels like a roll; take-off and jump hold do not (shooting while rising is allowed)",
+   "src": "src/SmSim/Combat.cs:703,796-800"
+  },
+  "aim_fire|fire": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "This is the trigger itself",
+   "src": ""
+  },
+  "aim_fire|aim": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Aim is the state itself (release leaves ADS)",
+   "src": ""
+  },
+  "aim_fire|reload": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reload press starts a reload and stops fire; ADS stays",
+   "src": "src/SmSim/Combat.cs:959-965"
+  },
+  "aim_fire|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Switch cancels fire and charge; ADS stays",
+   "src": "src/SmSim/Combat.cs:720-741"
+  },
+  "aim_fire|grenade": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Throw start drops the shot and a charge (0.1 s)",
+   "src": "src/SmSim/Combat.cs:774-782"
+  },
+  "aim_fire|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim wins over Shift: sprint not applied in aim mode; fire works",
+   "src": "src/SmSim/Combat.cs:1010,584-585"
+  },
+  "aim_fire|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not stop fire (charge stage scales speed)",
+   "src": "src/SmSim/Combat.cs:978-985"
+  },
+  "aim_fire|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not stop fire (charge stage scales speed)",
+   "src": "src/SmSim/Combat.cs:978-985"
+  },
+  "aim_fire|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "aim_fire|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction clears charge, pending shot, aim; trigger dead while it holds",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "aim_fire|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Light-melee flinch only widens scatter",
+   "src": "src/SmSim/Spread.cs:188-193"
+  },
+  "charged_shot|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A melee attack cancels the held charge and pending shot (nothing spent)",
+   "src": "src/SmSim/Combat.cs:703"
+  },
+  "charged_shot|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Heavy strike cancels it",
+   "src": "src/SmSim/Combat.cs:703"
+  },
+  "charged_shot|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Bull rush cancels the held charge; fire dropped throughout",
+   "src": "src/SmSim/Combat.cs:498-508"
+  },
+  "charged_shot|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Evade start cancels it",
+   "src": "src/SmSim/Combat.cs:703"
+  },
+  "charged_shot|pack": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Hop cancels (evade starts); jump take-off and flight keep the charge",
+   "src": "src/SmSim/Combat.cs:703"
+  },
+  "charged_shot|fire": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Release fires the last stage reached (tap = basic shot); instant, no FireDelay (sim/instant-fire)",
+   "src": "src/SmSim/Combat.cs:912-926"
+  },
+  "charged_shot|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim does not cancel it",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "charged_shot|reload": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Cancels where reload_button_cancels_charging (plasma); lascannon ignores it; may start a reload same tick",
+   "src": "src/SmSim/Combat.cs:927"
+  },
+  "charged_shot|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Switch cancels the charge (nothing spent)",
+   "src": "src/SmSim/Combat.cs:740"
+  },
+  "charged_shot|grenade": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Throw start cancels the charge",
+   "src": "src/SmSim/Combat.cs:778"
+  },
+  "charged_shot|sprint": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Sprint applied cancels the charge on its first tick; a release fires nothing",
+   "src": "src/SmSim/Combat.cs:584-594,703"
+  },
+  "charged_shot|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving continues at the reached stage's speed multiplier",
+   "src": "src/SmSim/Combat.cs:978-979"
+  },
+  "charged_shot|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving continues at the reached stage's speed multiplier",
+   "src": "src/SmSim/Combat.cs:978-979"
+  },
+  "charged_shot|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "charged_shot|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction clears the charge",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "charged_shot|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing (an overheat from the charge does)",
+   "src": ""
+  },
+  "reload|light": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Melee starts; the reload runs on (sim/reload-keeps, owner 2026-11-03)",
+   "src": "src/SmSim/Combat.cs:876-879"
+  },
+  "reload|heavy": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Heavy strike: reload runs on",
+   "src": "src/SmSim/Combat.cs:876-879"
+  },
+  "reload|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Charge starts; reload runs on [matrix said no; corrected to the code, CancelMatrixProbeTests: a charge press during a reload ends the reload and starts the charge (probed)]",
+   "src": "src/SmSim/Combat.cs:876-879"
+  },
+  "reload|roll": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Evade: a reload in progress carries on",
+   "src": "src/SmSim/Combat.cs:881-885"
+  },
+  "reload|pack": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Hop or jump: reload runs on",
+   "src": "src/SmSim/Combat.cs:951"
+  },
+  "reload|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Trigger ignored while reloading, not buffered (a melta recharge is the exception: a shot interrupts it)",
+   "src": "src/SmSim/Combat.cs:946-951"
+  },
+  "reload|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "ADS allowed while reloading",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "reload|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A second Reload press is ignored (vent/brace weapons use R differently)",
+   "src": "src/SmSim/Combat.cs:959-965"
+  },
+  "reload|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reload leaves the hand but runs on in the holster; switching back finds what is left",
+   "src": "src/SmSim/Combat.cs:729-735,745"
+  },
+  "reload|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Throw starts; reload runs on",
+   "src": "src/SmSim/Combat.cs:876-879"
+  },
+  "reload|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Reload runs on while sprinting",
+   "src": "src/SmSim/Combat.cs:951"
+  },
+  "reload|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not affect it",
+   "src": ""
+  },
+  "reload|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not affect it",
+   "src": ""
+  },
+  "reload|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "reload|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Reaction: the reload runs on through it",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "reload|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "switch|light": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Swing starts at once; switch timer keeps running (weapon already swapped); weapon lowered, raise after",
+   "src": "src/SmSim/Combat.cs:664,796-800"
+  },
+  "switch|heavy": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Strike starts; switch timer runs on",
+   "src": "src/SmSim/Combat.cs:664"
+  },
+  "switch|charge": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Charge starts; switch timer runs on",
+   "src": "src/SmSim/Combat.cs:477"
+  },
+  "switch|roll": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Roll starts; switch timer runs on",
+   "src": "src/SmSim/Combat.cs:540-545"
+  },
+  "switch|pack": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Take-off / hop start; switch timer runs on",
+   "src": "src/SmSim/Combat.cs:527"
+  },
+  "switch|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Fire blocked until the timer ends, not buffered; first shot leaves on that tick",
+   "src": "src/SmSim/Combat.cs:894-897"
+  },
+  "switch|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "ADS allowed during the switch",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "switch|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload blocked during the switch; buffered (acts on a free tick)",
+   "src": "src/SmSim/InputBuffer.cs:102-106"
+  },
+  "switch|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A new request cancels the switch under way and starts the new one (full time)",
+   "src": "src/SmSim/Combat.cs:719-741"
+  },
+  "switch|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw blocked while switching; buffered",
+   "src": "src/SmSim/Combat.cs:774"
+  },
+  "switch|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint lowers the weapon but does not cancel the switch",
+   "src": "src/SmSim/Combat.cs:1010-1016"
+  },
+  "switch|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not affect it",
+   "src": ""
+  },
+  "switch|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not affect it",
+   "src": ""
+  },
+  "switch|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "switch|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Timer keeps running through a reaction",
+   "src": "src/SmSim/Reactions.cs:254-296"
+  },
+  "switch|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "raise|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A melee attack lowers the weapon and drops its raise and waiting shot",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Heavy strike lowers it",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Charge lowers it",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Evade lowers it",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump start / pound lowers it (hop too)",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|fire": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "The trigger starts the raise; presses meanwhile lost; a release during it fires the tap's shot at the end",
+   "src": "src/SmSim/Combat.cs:834-843,938-944"
+  },
+  "raise|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim does not shorten a raise under way; new presses find the weapon up",
+   "src": "src/SmSim/Combat.cs:800,938-944"
+  },
+  "raise|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Weapon does nothing else during a raise; Reload buffered",
+   "src": "src/SmSim/Combat.cs:938-944; src/SmSim/InputBuffer.cs:102"
+  },
+  "raise|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Switch lowers it (quickdraw: new weapon comes up in the switch)",
+   "src": "src/SmSim/Combat.cs:796-800,1014"
+  },
+  "raise|grenade": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Throw lowers it",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|sprint": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Sprint lowers it and cancels the shot waiting for it",
+   "src": "src/SmSim/Combat.cs:584-594,796-800"
+  },
+  "raise|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not affect a raise",
+   "src": ""
+  },
+  "raise|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Moving does not affect a raise",
+   "src": ""
+  },
+  "raise|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "raise|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A reaction lowers it",
+   "src": "src/SmSim/Combat.cs:796-800"
+  },
+  "raise|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "grenade|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Melee needs no throw under way; with a 0.1 s throw the press replays almost at once",
+   "src": "src/SmSim/Combat.cs:664"
+  },
+  "grenade|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked during the throw; buffered",
+   "src": "src/SmSim/Combat.cs:664"
+  },
+  "grenade|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "CanStart refuses while Throwing; buffered",
+   "src": "src/SmSim/Rush.cs:401"
+  },
+  "grenade|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Evade gate: Jump from the release (grenade end = release 0.1 s, so ~3 ticks); a stim from 0.9 s x0.7, never before release 0.3 s",
+   "src": "src/SmSim/Combat.cs:151-157"
+  },
+  "grenade|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape ends a throw before its release (nothing spent)",
+   "src": "src/SmSim/JumpEscape.cs:26-32"
+  },
+  "grenade|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Weapon neither fires nor charges while throwing; not buffered",
+   "src": "src/SmSim/Combat.cs:876-879"
+  },
+  "grenade|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode off while throwing",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "grenade|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload runs on; a new press is buffered (older spec row says consumed)",
+   "src": "src/SmSim/Combat.cs:876-879; src/SmSim/InputBuffer.cs:102"
+  },
+  "grenade|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch blocked during the throw; buffered",
+   "src": "src/SmSim/Combat.cs:706,720"
+  },
+  "grenade|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No second throw under way; cooldown 1 s from release; press buffered (stim: 0.5 s window)",
+   "src": "src/SmSim/Combat.cs:774; src/SmSim/InputBuffer.cs:248"
+  },
+  "grenade|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A throw lowers the weapon and ends nothing; sprint goes on",
+   "src": "src/SmSim/Combat.cs:1010"
+  },
+  "grenade|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking allowed during the throw",
+   "src": ""
+  },
+  "grenade|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking allowed during the throw",
+   "src": ""
+  },
+  "grenade|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "grenade|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction clears a throw before release (nothing spent); a stim's wind-up is immune (below)",
+   "src": "src/SmSim/Reactions.cs:276-296; src/SmSim/Stims.cs:92-96"
+  },
+  "grenade|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "stim|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Melee needs no throw under way; with a 0.1 s throw the press replays almost at once",
+   "src": "src/SmSim/Combat.cs:664"
+  },
+  "stim|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Blocked during the throw; buffered",
+   "src": "src/SmSim/Combat.cs:664"
+  },
+  "stim|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "CanStart refuses while Throwing; buffered",
+   "src": "src/SmSim/Rush.cs:401"
+  },
+  "stim|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Evade gate 0.9 s x0.7 = 0.63 s into the use, never before the 0.3 s release",
+   "src": "src/SmSim/Combat.cs:151-157"
+  },
+  "stim|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape ends the use before its release (0.3 s); after it the effect stays",
+   "src": "src/SmSim/JumpEscape.cs:26-32"
+  },
+  "stim|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Weapon neither fires nor charges while throwing; not buffered",
+   "src": "src/SmSim/Combat.cs:876-879"
+  },
+  "stim|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode off while throwing",
+   "src": "src/SmSim/Combat.cs:793-794"
+  },
+  "stim|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload runs on; a new press is buffered (older spec row says consumed)",
+   "src": "src/SmSim/Combat.cs:876-879; src/SmSim/InputBuffer.cs:102"
+  },
+  "stim|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch blocked during the throw; buffered",
+   "src": "src/SmSim/Combat.cs:706,720"
+  },
+  "stim|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Second press: stim cooldown 6 s from release; press kept 15 ticks (0.5 s)",
+   "src": "src/SmSim/InputBuffer.cs:248"
+  },
+  "stim|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A throw lowers the weapon and ends nothing; sprint goes on",
+   "src": "src/SmSim/Combat.cs:1010"
+  },
+  "stim|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking allowed during the throw",
+   "src": ""
+  },
+  "stim|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking allowed during the throw",
+   "src": ""
+  },
+  "stim|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "stim|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Combat stims make the use reaction-immune from the press (wind-up) and through their effect (mp_reaction_immunity)",
+   "src": "src/SmSim/Stims.cs:92-96; src/SmSim/Reactions.cs:254-262"
+  },
+  "stim|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "sprint|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "RMB with Shift+W held on the ground starts the charge, never a swing (Classic PvP); swing only after Shift is let go",
+   "src": "src/SmSim/Combat.cs:460,479-483; src/SmSim/ChargeCancel.cs:110"
+  },
+  "sprint|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "F with W held is the charge; without W a stun strike; both end the sprint",
+   "src": "src/SmSim/Combat.cs:498-504"
+  },
+  "sprint|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Shift+W+F starts the bull rush from the sprint",
+   "src": "src/SmSim/Combat.cs:477"
+  },
+  "sprint|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump rolls out of a sprint (spacing 0.8 s)",
+   "src": "src/SmSim/Combat.cs:540-545"
+  },
+  "sprint|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump starts the take-off / hop from a sprint",
+   "src": "src/SmSim/Combat.cs:527"
+  },
+  "sprint|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Trigger does nothing while sprinting; does not end the sprint; not buffered",
+   "src": "src/SmSim/Combat.cs:584-594"
+  },
+  "sprint|aim": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Aim turns sprint off (aim mode, aim speeds)",
+   "src": "src/SmSim/Combat.cs:1010; src/SmSim/Combat.cs:1173-1177"
+  },
+  "sprint|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Reload starts/runs while sprinting",
+   "src": "src/SmSim/Combat.cs:951-965"
+  },
+  "sprint|switch": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Switching allowed while sprinting; sprint continues",
+   "src": "src/SmSim/Combat.cs:706-720"
+  },
+  "sprint|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A throw lowers the weapon and ends nothing",
+   "src": "src/SmSim/Combat.cs:774-782"
+  },
+  "sprint|sprint": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "This is the state; letting go ends it (and starts the sprint stop)",
+   "src": ""
+  },
+  "sprint|stick": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Releasing W (MoveY <= 0) ends the sprint; A/D with W keep it",
+   "src": "src/SmSim/Combat.cs:1010-1011"
+  },
+  "sprint|back": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "S ends the sprint",
+   "src": "src/SmSim/Combat.cs:1010-1011"
+  },
+  "sprint|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "sprint|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction stops the body and ends the sprint",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "sprint|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "sprint_stop|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any action that moves the body ends the stop: the swing starts at once",
+   "src": "src/SmSim/Combat.cs:1091-1092"
+  },
+  "sprint_stop|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Strike ends the stop",
+   "src": "src/SmSim/Combat.cs:1091-1092"
+  },
+  "sprint_stop|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Charge ends the stop",
+   "src": "src/SmSim/Combat.cs:1091-1092"
+  },
+  "sprint_stop|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump (roll) ends the stop",
+   "src": "src/SmSim/Combat.cs:1091-1098"
+  },
+  "sprint_stop|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump (take-off/hop) ends the stop",
+   "src": "src/SmSim/Combat.cs:1091-1098"
+  },
+  "sprint_stop|fire": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Fire held ends the stop into normal braking (~0.2 s)",
+   "src": "src/SmSim/SprintStop.cs:65-66"
+  },
+  "sprint_stop|aim": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Aim held ends the stop",
+   "src": "src/SmSim/SprintStop.cs:65-66"
+  },
+  "sprint_stop|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A reload lets the stop run",
+   "src": "src/SmSim/SprintStop.cs:20-25"
+  },
+  "sprint_stop|switch": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A switch lets the stop run",
+   "src": "src/SmSim/SprintStop.cs:20-25"
+  },
+  "sprint_stop|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A throw lets the stop run",
+   "src": "src/SmSim/SprintStop.cs:20-25"
+  },
+  "sprint_stop|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Holding Shift without a stick does not end the stop",
+   "src": "src/SmSim/SprintStop.cs:65-66"
+  },
+  "sprint_stop|stick": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any movement key ends it into normal movement",
+   "src": "src/SmSim/SprintStop.cs:65-66"
+  },
+  "sprint_stop|back": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any movement key ends it into normal movement",
+   "src": "src/SmSim/SprintStop.cs:65-66"
+  },
+  "sprint_stop|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "sprint_stop|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A reaction ends it",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "sprint_stop|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "brace_enter|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked and lost; buffer keeps it (Entering is a locked state)",
+   "src": "src/SmSim/Brace.cs:150-160; src/SmSim/InputBuffer.cs:102"
+  },
+  "brace_enter|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked (heavy + sprint); buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|roll": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Jump masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Brace is refused for jump-pack classes",
+   "src": "src/SmSim/Brace.cs:100"
+  },
+  "brace_enter|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Fire masked in transitions, not buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim masked in transitions",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Ignored until braced; buffered press may replay as the exit command",
+   "src": "src/SmSim/Brace.cs:118-148; src/SmSim/InputBuffer.cs:102"
+  },
+  "brace_enter|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Grenade masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint masked",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick zeroed: planted",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick zeroed: planted",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_enter|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "brace_enter|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Brace is reaction-immune in every phase (damage still applies)",
+   "src": "src/SmSim/Brace.cs:103; src/SmSim/Reactions.cs:257"
+  },
+  "brace_enter|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "braced|light": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Masked and lost (not buffered in the stance)",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|heavy": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Masked and lost",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|charge": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Masked and lost",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|roll": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Jump masked and lost",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Brace is refused for jump-pack classes",
+   "src": "src/SmSim/Brace.cs:100"
+  },
+  "braced|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Braced fire is the action; it does not leave the stance",
+   "src": "src/SmSim/Brace.cs:128-132; src/SmSim/Combat.cs:551"
+  },
+  "braced|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim allowed; stance stays",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|reload": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reload press starts the exit (1.3 s)",
+   "src": "src/SmSim/Brace.cs:126-131"
+  },
+  "braced|switch": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Switch masked and lost",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|grenade": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Throw works; the stance stays",
+   "src": "src/SmSim/Brace.cs:128-132"
+  },
+  "braced|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint masked",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick zeroed: planted, turns with the aim",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick zeroed: planted, turns with the aim",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "braced|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "braced|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Immune to reactions (owner: stuns did not knock you out)",
+   "src": "src/SmSim/Brace.cs:103"
+  },
+  "braced|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "brace_exit|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|charge": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A Jump that starts a hop (spacing over, ground) ends the exit at once and hops",
+   "src": "src/SmSim/Brace.cs:134-139; src/SmSim/Combat.cs:379-381"
+  },
+  "brace_exit|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Brace is refused for jump-pack classes",
+   "src": "src/SmSim/Brace.cs:100"
+  },
+  "brace_exit|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Fire masked, not buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim masked",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Ignored; a buffered press can replay into a new brace after the exit",
+   "src": "src/SmSim/Brace.cs:118-148"
+  },
+  "brace_exit|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Masked; buffered",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint masked",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking allowed; the exit state does not end",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking allowed; the exit state does not end",
+   "src": "src/SmSim/Brace.cs:150-160"
+  },
+  "brace_exit|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "brace_exit|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Immune",
+   "src": "src/SmSim/Brace.cs:103"
+  },
+  "brace_exit|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "vent|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A melee attack stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Strike stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Charge stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Evade stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump-pack jump or dive stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|fire": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Fire stops it when not overheated; the shot leaves the same tick",
+   "src": "src/SmSim/Vent.cs:77-79"
+  },
+  "vent|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim does not stop it (owner 2026-11-06)",
+   "src": "src/SmSim/Vent.cs:77-79"
+  },
+  "vent|reload": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A second Reload press changes nothing",
+   "src": "src/SmSim/Vent.cs:77-79"
+  },
+  "vent|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Switch stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|grenade": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A throw stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint does not stop it (owner 2026-11-06)",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking does not stop it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Walking does not stop it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "vent|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "A reaction stops it",
+   "src": "src/SmSim/Combat.cs:707-710"
+  },
+  "vent|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "exec_doing|light": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|heavy": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|charge": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|fire": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|aim": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|reload": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|switch": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|grenade": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|sprint": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|stick": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|back": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|hit_react": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|hit_plain": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|light": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|heavy": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|charge": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|fire": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|aim": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|reload": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|switch": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|grenade": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|sprint": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|stick": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|back": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|hit_react": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_victim|hit_plain": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23"
+  },
+  "react_interrupt|light": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "First tick with any input (after the knockback) ends it and acts on that input",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|heavy": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any input ends it and acts",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|charge": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any input ends it and acts",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|roll": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any input ends it; a Jump rolls that tick",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any input, and Jump escape, ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|fire": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any button (trigger included) ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|aim": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Aim held counts as input",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|reload": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any button ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|switch": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any button ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|grenade": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any button ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|sprint": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any button ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|stick": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any stick input ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|back": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Any stick input ends it",
+   "src": "src/SmSim/Reactions.cs:154-160"
+  },
+  "react_interrupt|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "react_interrupt|hit_react": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Re-react only after the clip's ReactAt (front 0.373 s, back 0.4 s); before: immune",
+   "src": "src/SmSim/Reactions.cs:254-262"
+  },
+  "react_interrupt|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "react_stun|light": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Melee branch = the clip's end (data has none earlier); press lost, buffer replays in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stun|heavy": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Same: no earlier melee branch",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stun|charge": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Presses lost; buffered only for the last 0.3 s",
+   "src": "src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stun|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump from BRANCH_Evade 0.333 s x0.7 = 0.233 s ('stun break'); roll starts that tick; never before the knockback ends",
+   "src": "src/SmSim/Reactions.cs:161-165,181-188"
+  },
+  "react_stun|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape clears the stun at once (any time)",
+   "src": "src/SmSim/JumpEscape.cs:26-32"
+  },
+  "react_stun|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Buttons dropped; Fire never buffered",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "react_stun|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dropped; ADS off",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "react_stun|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload dropped; replayed if pressed in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-172; src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stun|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch dropped; replayed in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-172; src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stun|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw dropped; replayed in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-172; src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stun|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dropped",
+   "src": ""
+  },
+  "react_stun|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stun has no stick branch: its end 0.533 / 0.8 / 0.667 / 0.8 s (F/R/B/L)",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stun|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stun has no stick branch: its end 0.533 / 0.8 / 0.667 / 0.8 s (F/R/B/L)",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stun|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "react_stun|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No second reaction before the clip's end (ReactAt = end)",
+   "src": "src/SmSim/Reactions.cs:254-262"
+  },
+  "react_stun|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "react_stagger|light": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Melee branch = the clip's end (data has none earlier); press lost, buffer replays in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stagger|heavy": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Same: no earlier melee branch",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stagger|charge": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Presses lost; buffered only for the last 0.3 s",
+   "src": "src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stagger|roll": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stagger has no Jump branch: it plays to its end",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stagger|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape clears the stun at once (any time)",
+   "src": "src/SmSim/JumpEscape.cs:26-32"
+  },
+  "react_stagger|fire": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Buttons dropped; Fire never buffered",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "react_stagger|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dropped; ADS off",
+   "src": "src/SmSim/Combat.cs:503-508"
+  },
+  "react_stagger|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Reload dropped; replayed if pressed in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-172; src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stagger|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch dropped; replayed in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-172; src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stagger|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw dropped; replayed in the last 0.3 s",
+   "src": "src/SmSim/Reactions.cs:161-172; src/SmSim/InputBuffer.cs:102-110"
+  },
+  "react_stagger|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Dropped",
+   "src": ""
+  },
+  "react_stagger|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No stick branch: ends at 0.567 s (front) / 1.067 s (back)",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stagger|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No stick branch: ends at 0.567 s (front) / 1.067 s (back)",
+   "src": "src/SmSim/Reactions.cs:161-165"
+  },
+  "react_stagger|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Executions are not in Classic PvP versus",
+   "src": "docs/fidelity-gaps.md:23; spec/behavior.md:533 (not simulated)"
+  },
+  "react_stagger|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "No second reaction before the clip's end (ReactAt = end)",
+   "src": "src/SmSim/Reactions.cs:254-262"
+  },
+  "react_stagger|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Damage cancels nothing",
+   "src": ""
+  },
+  "flinch|light": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|heavy": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|charge": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|roll": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|pack": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|fire": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|aim": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|reload": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|switch": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|grenade": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|sprint": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|stick": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|back": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Flinch is a 0.5 s aim-scatter timer, not an action; no input acts on it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|hit_react": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A reaction does not clear it",
+   "src": "src/SmSim/Reactions.cs:276-296"
+  },
+  "flinch|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A second light hit restarts it at full; nothing shortens it",
+   "src": "src/SmSim/Spread.cs:200-204"
+  }
+ },
+ "overrides": []
+}

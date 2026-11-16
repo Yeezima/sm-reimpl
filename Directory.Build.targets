@@ -7,4 +7,9 @@
     <Compile Remove="Extras/**" />
     <EmbeddedResource Remove="Extras/**" />
   </ItemGroup>
+  <!-- Warfront: -p:SmWarfront=false drops its folders (SM_WARFRONT is not defined, ContentExtras.WarfrontCompiled is false). -->
+  <ItemGroup Condition="'$(SmWarfront)' != 'true'">
+    <Compile Remove="**/Extras/Warfront/**" />
+    <EmbeddedResource Remove="**/Extras/Warfront/**" />
+  </ItemGroup>
 </Project>

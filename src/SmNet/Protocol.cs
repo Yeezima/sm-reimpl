@@ -655,6 +655,10 @@ public static partial class Protocol
         DevCommand = 20,
         /// <summary>Protocol 80: server to client, the developer tools' state (Protocol.Dev.cs); only from a loopback-only --dev-tools server.</summary>
         DevState = 21,
+        /// <summary>Protocol 80: client to server, an edit of the cancel table (Protocol.DevCancel.cs); obeyed only through the developer-tools gate.</summary>
+        DevCancelEdit = 22,
+        /// <summary>Protocol 80: server to client, the cancel table's hash and, when it is edited, its changes against the shipped default (Protocol.DevCancel.cs).</summary>
+        DevCancelSync = 23,
     }
 
     /// <summary>
@@ -930,6 +934,8 @@ public static partial class Protocol
             case SpawnRequest sr: WriteSpawnRequest(w, sr); break;   // protocol 58 (Protocol.Spawn.cs)
             case DevCommand dc: WriteDevCommand(w, dc); break;   // protocol 80 (Protocol.Dev.cs)
             case DevState ds: WriteDevState(w, ds); break;   // protocol 80 (Protocol.Dev.cs)
+            case DevCancelEdit ce: WriteDevCancelEdit(w, ce); break;   // protocol 80 (Protocol.DevCancel.cs)
+            case DevCancelSync cs: WriteDevCancelSync(w, cs); break;
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
             case ExtrasCommandMessage c: WriteExtrasCommand(w, c); break;   // added content's commands, client to server (Protocol.Envelope.cs)
@@ -955,6 +961,8 @@ public static partial class Protocol
                 Kind.SpawnRequest => ReadSpawnRequest(ref r),   // protocol 58 (Protocol.Spawn.cs)
                 Kind.DevCommand => ReadDevCommand(ref r),   // protocol 80 (Protocol.Dev.cs)
                 Kind.DevState => ReadDevState(ref r),
+                Kind.DevCancelEdit => ReadDevCancelEdit(ref r),   // protocol 80 (Protocol.DevCancel.cs)
+                Kind.DevCancelSync => ReadDevCancelSync(ref r),
                 Kind.SetupAck => ReadSetupAck(ref r),
                 Kind.AppearanceQuery => ReadAppearanceQuery(ref r),
                 Kind.Appearance => ReadAppearance(ref r),
