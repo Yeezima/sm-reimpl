@@ -246,10 +246,20 @@ public sealed partial class TfwBattle
         _humans = Math.Max(1, humans);
         _humansNow = _humans;
         _scale = 1f + enemies.Rules.ScalePerExtraPlayer * (_humans - 1);
+        WarfrontPlayerScale(_humans, ref _scale);   // WARFRONT-HOOK
         Squads = guardsmen ? TfwBattleRules.SquadsAt(imperial) + (final ? bonus.ExtraSquads : 0) : 0;
         Array.Fill(_squadGoal, -1);
         Array.Fill(_trickleTicks, Ticks(TfwBattleRules.TrickleSeconds));
     }
+
+    /// <summary>Warfront: the Ork health scale of this many humans (the run's Warfront object is reached through the enemies' pool).</summary>
+    partial void WarfrontPlayerScale(int humans, ref float scale);
+
+    /// <summary>Warfront: the fourth position (D) becomes a capture point with its garrison in place of the Warboss (<paramref name="handled"/>).</summary>
+    partial void WarfrontCommander(ref bool handled);
+
+    /// <summary>Warfront: steps D's capture and may set the Won change.</summary>
+    partial void WarfrontObjectives(ReadOnlySpan<Vector3> players, ref TfwBattleChange change);
 
     float Dt => 1f / Math.Max(1, _enemies.TickRate);
     int Ticks(float seconds) => Math.Max(1, (int)MathF.Round(seconds * Math.Max(1, _enemies.TickRate)));
@@ -616,6 +626,7 @@ public sealed partial class TfwBattle
             _clearTick++;
             var capturers = Capturers(players);   // the allied pair never captures (AllyRules)
             for (int k = 0; k < Positions; k++) change |= StepPosition(k, capturers);
+            WarfrontObjectives(players, ref change);   // WARFRONT-HOOK
             // A position being taken is kept clear of shooters: they hold their band, which lies inside its ring (see MusouSim.KeepOut).
             for (int k = 0; k < Positions; k++)
                 if (_objectives[k].State is TfwPositionState.Clearing or TfwPositionState.Securing) _enemies.KeepOut.Add((_layout.Positions[k], _layout.Radius(k), _layout.Reach(k)));
@@ -760,6 +771,9 @@ public sealed partial class TfwBattle
         for (int field = FieldSquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
             if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), FaceCentre(_layout.LandingZone)) >= 0) _reserves--;
         if (_taken != (1 << Positions) - 1 || _commander) return change;
+        bool unlockedD = false;
+        WarfrontCommander(ref unlockedD);   // WARFRONT-HOOK
+        if (unlockedD) return change | TfwBattleChange.CommanderCame;
         SpawnCommander();
         return change | TfwBattleChange.CommanderCame;
     }

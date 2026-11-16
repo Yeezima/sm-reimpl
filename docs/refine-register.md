@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3486 spec table rows: **2490 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
+Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 3486 spec table rows: **2490 tagged**, 646 not tagged (read from data wi
 | General game design | 23 | 23 | 19 | 1 | 0 |
 | Ork faction | 260 | 247 | 144 | 69 | 0 |
 | **All areas** | **2490** | 2218 | 1853 | 755 | 37 |
+| Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
+| General game design | 19 | 19 | 17 | 7 | 0 |
+| Ork faction | 260 | 247 | 144 | 69 | 0 |
+| **All areas** | **2494** | 2222 | 1859 | 765 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -65,6 +70,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 427 |
 | kind: interpretation | 401 |
 | notes: estimate | 203 |
+| kind: ours | 1449 |
+| confidence: low | 902 |
+| confidence: medium | 848 |
+| notes: ours | 436 |
+| kind: interpretation | 406 |
+| notes: estimate | 204 |
 | kind: estimate | 194 |
 | confidence: none (low) | 109 |
 | kind: provisional | 104 |
@@ -2542,7 +2553,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (772)
+### Core simulation (provisional values) (780)
 
 *Spec section: Provisional values in use*
 
@@ -3758,6 +3769,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-46CEB424` | HQ defence position markers | W (0, -34, 20) radius 20, half height 9 (so the gate, the ground behind it and the wall walk over the gate count); K (0, 70, 12) radius 24 (the hall); V (0, 160, 12) radius 40 (the cross passage, the tunnels' north half and the chamber); held and lost in that… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (three positions W, K, V); places and radii ours | HQ defence position markers: compare with SM1 by measuring on a flat spot of the same map. Ours: W (0, -34, 20) radius 20, half height 9 (so the gate, the ground… | ☐ |
 | `R-7E8BF98B` | HQ own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post and spawn); a walking graph connects assembly -> W -> K -> V -> landing; every opening on the Ork route is at least 8 m… | kind: ours | plan section 2 "own gates" | HQ own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
 
+*Spec section: Added content: Warfront — the node battle (W3: hook seams and node rules; `WarfrontRules.Version` 2; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-AED5F6D9` | D (objective 3) | at `TfwLayout.Hq`, radius `TfwMap.HqRadius` (15 m); Locked until A, B and C have each been secured (a later retake does not lock it again, as the commander came in Musou), then Held; captured by the same rule as A to C (progress at the full rate with a… (m, s) | kind: ours; confidence: medium | plan section 2 | D (objective 3): compare with SM1 by feel or video. Ours: at TfwLayout.Hq, radius TfwMap.HqRadius (15 m); Locked until A, B and… | ☐ |
+| `R-1F6C4A1F` | D's garrison | the commander's escort as Musou spawns it (2 Nobz as the twins rule makes them, 5 'Ard Boyz; leashed, aggro 30 m) plus 1 Boss Nob 6 m from the centre, no Warboss; spawned when D unlocks; the HQ source sends Orks from then on as it did for the commander (Orks) | kind: ours; confidence: low; notes: estimate | plan section 2 | D's garrison: compare with SM1 by feel or video. Ours: the commander's escort as Musou spawns it (2 Nobz as the twins rule… | ☐ |
+| `R-503A1530` | Musou costs bypassed | deploy (leader only) costs no transport; pickup, cancel, redeploy and the host's recall are dropped; the depot gives no transport or supplies; the war clock does not tick; no extraction prompt or supply cost | kind: interpretation; confidence: medium | plan section 3 | Musou costs bypassed: compare with SM1 by feel or video. Ours: deploy (leader only) costs no transport; pickup, cancel, redeploy and… | ☐ |
+| `R-5FDBEE7A` | Revive window | 25 s (Musou's `ReviveWindowSeconds`), always open in Warfront, whoever stands (s) | kind: ours; confidence: medium | owner (25 s the decided default) | Revive window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 25 s (Musou's ReviveWindowSeconds), always open in Warfront, whoever… | ☐ |
+| `R-D98297E9` | Who revives | no puppet (the allied pair) revives a fallen human; only `TfwRun.WarfrontRevive` does, for a teammate or a squad's retainer (no input bound); overrides the brief's puppet revive | kind: interpretation; confidence: medium | designer ruling, 2026-11-17 | Who revives: compare with SM1 by feel or video. Ours: no puppet (the allied pair) revives a fallen human; only… | ☐ |
+| `R-10CD507B` | Spectator time | 60 s after the revive window ends (the other reading, 60 s from the fall, is not used): no body in play, no input, cannot be hit, respawn held; then a fresh life at the human's own landing place (s) | kind: interpretation; confidence: medium; notes: ours | owner ("respawn after 1 minute"); "from its end" our reading | Spectator time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 60 s after the revive window ends (the other reading, 60 s from the… | ☐ |
+| `R-11524DAA` | Who counts as standing | a human alive in the field, or any retainer of any squad (the `AnyRetainerStanding` seam, none until W9); downed or spectating humans, the allied pair and the Guardsmen never count | kind: interpretation; confidence: medium; notes: ours | owner; our reading | Who counts as standing: compare with SM1 by feel or video. Ours: a human alive in the field, or any retainer of any squad (the… | ☐ |
+| `R-9FEF7708` | Wipe | the tick no human is alive, none is downed with an open window and no retainer stands: the battle ends at once as a loss, everyone to the hub, pending respawn timers dropped. A spectator whose 60 s end finds nobody standing waits (it is then a wipe) | kind: interpretation; confidence: medium; notes: ours | owner; our reading | Wipe: compare with SM1 by feel or video. Ours: the tick no human is alive, none is downed with an open window and no… | ☐ |
+
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3772,6 +3796,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
 ### General game design (23)
+### General game design (19)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3810,6 +3835,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B9141926` | Honor roll | the best score, player kills, squad kills, revives, captures, best retainer, fastest victory and a total-score table by display name, over every `records\*.results.json`; equal figures go to the earlier run | kind: ours; confidence: medium | owner brief ("tally and catalogue"); the list ours | Honor roll: compare with SM1 by feel or video. Ours: the best score, player kills, squad kills, revives, captures, best… | ☐ |
 | `R-AC3E0FC8` | Record | the run's result, UTC end, duration, battles, rolls, weights and rows as `records\<stem>.results.json` beside the archived run; it holds no campaign key, only display names and join order | kind: ours | ours | Record: compare with SM1 by feel or video. Ours: the run's result, UTC end, duration, battles, rolls, weights and rows… | ☐ |
 | `R-8F612117` | Copy and export | COPY FOR DISCORD puts a fixed-width block in a code fence on the clipboard (at most 2000 characters: retainer lines, then the formula, then low rows are dropped); EXPORT writes `exports\<utc>.txt` and `.md`; nothing is posted and no Discord integration… | kind: ours | owner brief ("no automatic posting"); format ours | Copy and export: compare with SM1 by feel or video. Ours: COPY FOR DISCORD puts a fixed-width block in a code fence on the… | ☐ |
+*Spec section: Warfront fortress map profile and arena interface (warfront/w14a, 2026-11-17; added content, Warfront only; generation only, no battle rules, no Warboss spawn, no server wiring, no map name, no protocol or wire change; level version 1; second pass after designer review 1)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-989413F7` | Fortress map extent | 300 wide (x -150..150) by 320 long (y -190..130), a 64 m boundary wall outside; rock (40 m) beside and behind the compound (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (a walled compound); size ours | Fortress map extent: compare with SM1 by measuring on a flat spot of the same map. Ours: 300 wide (x -150..150) by 320 long (y -190..130), a 64 m boundary… | ☐ |
+| `R-53393EBF` | Fortress outer yard and south gate | outer yard y -190..-100 (90 m deep, the Marines' landing ground); compound south wall y -100..-92 (8 m thick), 16 m high, x +-100; a gate x -6..6 (12 m wide) with a lintel at z 14..16 (14 m clear, a roof part; the Warboss is about 13 m), and a breach x… (m) | kind: estimate; confidence: low; notes: ours | owner brief (openings Orks walk at least 8 m wide and 8 m clear; a Boss Nob is about 6.9 m); the rest ours | Fortress outer yard and south gate: compare with SM1 by measuring on a flat spot of the same map. Ours: outer yard y -190..-100 (90 m deep, the Marines' landing ground)… | ☐ |
+| `R-2073877C` | Fortress street blocks | eight solid blocks 14 m high: columns x 24..60 and 72..96 each side, rows y -84..-60 and -44..-20 (36 x 24 and 24 x 24 m); gaps between the columns 12 m, the cross streets 16 m, the central yard between the inner columns 48 m wide (m) | kind: estimate; confidence: low; notes: ours | plan section 2 ("street walls and breached blocks as the core's"; no breached block yet); sizes ours | Fortress street blocks: compare with SM1 by measuring on a flat spot of the same map. Ours: eight solid blocks 14 m high: columns x 24..60 and 72..96 each side… | ☐ |
+| `R-CEC62B8E` | Fortress arena shell and plaza | strip y -20..-1 (19 m) along the shell; shell x +-51, y -1..101, 6 m walls, 14 m high; plaza inside x +-45, y 5..95 (90 x 90, radius 45 m about the Warboss spot (0, 50)); openings: south 16 m wide, west and east 12 m wide (y 44..56), all open to the sky (no… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (plaza radius 45 m); the plaza's square footprint, the openings and the shell ours | Fortress arena shell and plaza: compare with SM1 by measuring on a flat spot of the same map. Ours: strip y -20..-1 (19 m) along the shell; shell x +-51, y -1..101, 6 m… | ☐ |
+| `R-6681ED26` | Fortress plaza and yard cover | four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four plaza cover walls (6 x 1.5 x 1.2 m) at x +-(30..36), y 38 and 61; ten more low walls in the yard, the streets, the strip and the lanes, all off the lines through the openings and clear of the… (m) | kind: estimate; confidence: low; notes: ours | ours | Fortress plaza and yard cover: compare with SM1 by measuring on a flat spot of the same map. Ours: four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four… | ☐ |
+| `R-AA8F3028` | Fortress markers | landing zone (0, -150); Warboss spot (0, 50) with the `Arena` marker radius 45, half height 12; 17 Ork sources in three stages (0: the outer streets, 6, each at least 40 m from both entries; 1: the strip and the lanes, 7; 2: the plaza, 4); 17 posts (5… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (landing zone, boss spot, Ork sources, optional points, hash); numbers ours | Fortress markers: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -150); Warboss spot (0, 50) with the Arena marker… | ☐ |
+| `R-D4BE9AC7` | Fortress own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post, route and spawn); a walking graph connects the landing zone to the Warboss spot by three routes (centre; west lane through… | kind: ours; confidence: medium | owner brief (at least two army-width routes; every elite source reachable; a stub loads through the interface) | Fortress own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
 
 ## Part B: Ork faction
 
@@ -4348,6 +4384,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-F0B68338` | HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 8 m clear, a cross passage halfway) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile | HQ defense level (Helm's Deep style): compare with SM1 by feel or video. Ours: ours (plan section 2): not an SM1 map; generated in code, every size… | ☐ |
+
+#### Warfront fortress map (warfront/w14a; spec "Warfront fortress map profile and arena interface")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-D78ECDBB` | Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate (14 m clear) and an 8 m west breach, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with open 16 m (south) and 12 m (side) openings, three routes (centre, east lane, west lane by the breach), every Ork opening at least 8 m wide | Warfront fortress map profile and arena interface | Ork fortress level and the IWarfrontArena interface…: compare with SM1 by feel or video. Ours: ours (plan section 2, slot 11): not an SM1 map; generated in code… | ☐ |
 
 #### Controller (gamepad feature; spec "Controller (gamepad)")
 
