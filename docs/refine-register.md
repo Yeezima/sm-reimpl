@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3486 spec table rows: **2490 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
-Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
+Scanned 3507 spec table rows: **2505 tagged**, 651 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,32 +50,22 @@ Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 772 | 729 | 559 | 211 | 1 |
-| General game design | 23 | 23 | 19 | 1 | 0 |
-| Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2490** | 2218 | 1853 | 755 | 37 |
 | Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
-| General game design | 19 | 19 | 17 | 7 | 0 |
+| General game design | 30 | 30 | 26 | 7 | 0 |
 | Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2494** | 2222 | 1859 | 765 | 37 |
+| **All areas** | **2505** | 2233 | 1868 | 765 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1450 |
-| confidence: low | 901 |
-| confidence: medium | 843 |
-| notes: ours | 427 |
-| kind: interpretation | 401 |
-| notes: estimate | 203 |
-| kind: ours | 1449 |
-| confidence: low | 902 |
-| confidence: medium | 848 |
+| kind: ours | 1454 |
+| confidence: low | 908 |
+| confidence: medium | 851 |
 | notes: ours | 436 |
 | kind: interpretation | 406 |
 | notes: estimate | 204 |
-| kind: estimate | 194 |
+| kind: estimate | 200 |
 | confidence: none (low) | 109 |
 | kind: provisional | 104 |
 | kind: user's knowledge | 53 |
@@ -3795,8 +3784,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (23)
-### General game design (19)
+### General game design (30)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3824,7 +3812,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-5A75BA10` | Row columns | player kills, assists, deaths, revives, captures; squad kills, knockouts, revives, members; the squad's top retainer with a reason (count) | kind: ours; confidence: medium | owner brief (column set), layout ours | Row columns: compare with SM1 by feel or video. Ours: player kills, assists, deaths, revives, captures; squad kills… | ☐ |
+| `R-5A75BA10` | Row columns | player kills, assists, deaths, revives, captures (group PLAYER); squad kills, knockouts, revives, members (group SQUAD); total kills (player plus squad); the squad's top retainer with a reason (count) | kind: ours; confidence: medium | owner brief (column set), layout ours | Row columns: compare with SM1 by feel or video. Ours: player kills, assists, deaths, revives, captures (group PLAYER)… | ☐ |
 | `R-4BF11DFE` | Kill, elite kill, boss kill | 1, 5, 25 points; elite and boss kills are subsets of kills and replace the plain kill (point) | kind: estimate; confidence: low | our estimate (plan section 7) | Kill, elite kill, boss kill: compare with SM1 by feel or video. Ours: 1, 5, 25 points; elite and boss kills are subsets of kills and… | ☐ |
 | `R-7E3B064D` | Assist | 0.5 points (point) | kind: estimate; confidence: low | our estimate | Assist: compare with SM1 by feel or video. Ours: 0.5 points. | ☐ |
 | `R-AAD7333D` | Capture | 30 points to the humans credited with a secured point (point) | kind: estimate; confidence: low | our estimate | Capture: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 points to the humans credited with a secured point. | ☐ |
@@ -3832,9 +3820,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7E3FA074` | Squad kill | 0.5 points per retainer kill, elite and boss kills flat at 0.5 too; retainer assists 0; retainer captures 0 (a point secured with the squad standing on it would otherwise multiply the capture) (point) | kind: estimate; confidence: low | our estimate | Squad kill: compare with SM1 by feel or video. Ours: 0.5 points per retainer kill, elite and boss kills flat at 0.5 too… | ☐ |
 | `R-3B7F80B4` | Tie-breaks | total score, then captures (own and squad's), revives, fewer deaths, earlier join, then name; the order is a list in the weights table | kind: estimate; confidence: low | our estimate of the order (plan section 7) | Tie-breaks: compare with SM1 by feel or video. Ours: total score, then captures (own and squad's), revives, fewer deaths… | ☐ |
 | `R-54C7275A` | Top retainer | highest squad-weight score, then more kills, fewer knockouts, name, slot; the reason names the biggest component ("most kills: 212 (9 elite, 1 boss)", "most revives: 5"), "no score yet" at 0 | kind: ours; confidence: medium | owner brief; wording ours | Top retainer: compare with SM1 by feel or video. Ours: highest squad-weight score, then more kills, fewer knockouts, name… | ☐ |
-| `R-B9141926` | Honor roll | the best score, player kills, squad kills, revives, captures, best retainer, fastest victory and a total-score table by display name, over every `records\*.results.json`; equal figures go to the earlier run | kind: ours; confidence: medium | owner brief ("tally and catalogue"); the list ours | Honor roll: compare with SM1 by feel or video. Ours: the best score, player kills, squad kills, revives, captures, best… | ☐ |
+| `R-B9141926` | Honor roll | the best score, player kills, squad kills, revives, captures, best retainer, fastest victory (with that run's players) and a total-score table grouped by display name only (no keys exist in the records; two people with one name share a line), over every… | kind: ours; confidence: medium | owner brief ("tally and catalogue"); the list ours | Honor roll: compare with SM1 by feel or video. Ours: the best score, player kills, squad kills, revives, captures, best… | ☐ |
 | `R-AC3E0FC8` | Record | the run's result, UTC end, duration, battles, rolls, weights and rows as `records\<stem>.results.json` beside the archived run; it holds no campaign key, only display names and join order | kind: ours | ours | Record: compare with SM1 by feel or video. Ours: the run's result, UTC end, duration, battles, rolls, weights and rows… | ☐ |
 | `R-8F612117` | Copy and export | COPY FOR DISCORD puts a fixed-width block in a code fence on the clipboard (at most 2000 characters: retainer lines, then the formula, then low rows are dropped); EXPORT writes `exports\<utc>.txt` and `.md`; nothing is posted and no Discord integration… | kind: ours | owner brief ("no automatic posting"); format ours | Copy and export: compare with SM1 by feel or video. Ours: COPY FOR DISCORD puts a fixed-width block in a code fence on the… | ☐ |
+
 *Spec section: Warfront fortress map profile and arena interface (warfront/w14a, 2026-11-17; added content, Warfront only; generation only, no battle rules, no Warboss spawn, no server wiring, no map name, no protocol or wire change; level version 1; second pass after designer review 1)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -5688,4 +5677,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-4D8893ED` | Ledge jump: wire | Hop rules: the ledge jump after a charge, the hop cutting the melee wait, the hop out of the aerial tackle (sim/hop-rules; protocol 72, used by the simulation; Assault Marine and Raptor) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
+| `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
 

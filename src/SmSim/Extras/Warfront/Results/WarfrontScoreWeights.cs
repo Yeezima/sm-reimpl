@@ -35,6 +35,30 @@ public sealed record WarfrontScoreWeights
     public bool IsValid => Kill >= 0 && EliteKill >= 0 && BossKill >= 0 && Assist >= 0 && Capture >= 0 && Revive >= 0 && SquadKill >= 0 && SquadEliteKill >= 0 && SquadBossKill >= 0
         && SquadAssist >= 0 && SquadRevive >= 0 && SquadCapture >= 0;
 
+    public const string OverrideFile = "score-weights.json";
+
+    /// <summary>
+    /// The weights the run is scored with: <c>score-weights.json</c> in the warfront folder when it exists and parses and <see cref="IsValid"/>, else <see cref="Default"/>. A bad file is
+    /// not an error: the defaults are used and <paramref name="log"/> gets one line. The file holds the same property names as this record (omitted ones keep their default).
+    /// </summary>
+    public static WarfrontScoreWeights LoadOverride(string dir, Action<string>? log = null)
+    {
+        var path = Path.Combine(dir, OverrideFile);
+        if (!File.Exists(path)) return Default;
+        try
+        {
+            var w = System.Text.Json.JsonSerializer.Deserialize<WarfrontScoreWeights>(File.ReadAllText(path), new System.Text.Json.JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } });
+            if (w is null || !w.IsValid || w.TieBreaks.Count == 0) { log?.Invoke(OverrideFile + " has a negative weight or no tie-breaks: the default weights are used"); return Default; }
+            log?.Invoke(OverrideFile + " applied");
+            return w;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            log?.Invoke(OverrideFile + " could not be read (" + ex.GetType().Name + "): the default weights are used");
+            return Default;
+        }
+    }
+
     /// <summary>The formula in words, shown on the panel and in the export.</summary>
     public string FormulaText()
     {

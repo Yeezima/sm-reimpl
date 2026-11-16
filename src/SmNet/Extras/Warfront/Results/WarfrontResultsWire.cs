@@ -113,4 +113,48 @@ public static class WarfrontResultsWire
         if (b.Length != n) throw new EndOfStreamException();
         return Encoding.UTF8.GetString(b);
     }
+
+    // ---- chunks: one extras section carries at most Protocol.MaxExtrasPayloadBytes, a full record (four players with nine Marines each) is a few thousand bytes ----
+
+    /// <summary>Chunk header: transfer id, index, count.</summary>
+    public const int ChunkHeader = 3;
+    /// <summary>Record bytes in a chunk, so a whole chunk fits one extras section.</summary>
+    public const int ChunkData = Protocol.MaxExtrasPayloadBytes - ChunkHeader;
+
+    /// <summary>The encoded record cut into chunks, each at most <see cref="Protocol.MaxExtrasPayloadBytes"/> bytes, to send as extras sections in order (or any order: the index says where each goes).</summary>
+    public static IReadOnlyList<byte[]> Split(byte[] whole, byte transferId)
+    {
+        int n = Math.Max(1, (whole.Length + ChunkData - 1) / ChunkData);
+        if (n > byte.MaxValue) throw new ArgumentException("record too large for the wire");
+        var list = new List<byte[]>(n);
+        for (int i = 0; i < n; i++)
+        {
+            int at = i * ChunkData, len = Math.Min(ChunkData, whole.Length - at);
+            var c = new byte[ChunkHeader + len];
+            c[0] = transferId; c[1] = (byte)i; c[2] = (byte)n;
+            Buffer.BlockCopy(whole, at, c, ChunkHeader, len);
+            list.Add(c);
+        }
+        return list;
+    }
+
+    /// <summary>Collects chunks of one transfer on the client. A chunk of another transfer id restarts the collection; a malformed chunk is ignored.</summary>
+    public sealed class Reassembler
+    {
+        byte _id; byte[]?[] _parts = Array.Empty<byte[]?>(); int _have;
+
+        /// <summary>Takes one chunk; returns the whole encoded record when the last missing part arrives, else null.</summary>
+        public byte[]? Add(ReadOnlySpan<byte> chunk)
+        {
+            if (chunk.Length < ChunkHeader || chunk.Length > Protocol.MaxExtrasPayloadBytes) return null;
+            byte id = chunk[0], index = chunk[1], count = chunk[2];
+            if (count == 0 || index >= count) return null;
+            if (_parts.Length != count || _id != id) { _id = id; _parts = new byte[count][]; _have = 0; }
+            if (_parts[index] is null) { _parts[index] = chunk[ChunkHeader..].ToArray(); _have++; }
+            if (_have < _parts.Length) return null;
+            var all = _parts.SelectMany(p => p!).ToArray();
+            _parts = Array.Empty<byte[]?>(); _have = 0;
+            return all;
+        }
+    }
 }

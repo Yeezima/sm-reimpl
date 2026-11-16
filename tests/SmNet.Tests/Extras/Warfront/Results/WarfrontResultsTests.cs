@@ -237,12 +237,12 @@ public class WarfrontResultsTests : IDisposable
             "WARFRONT - RUN ABANDONED\n" +
             "2026-11-17 14:03 UTC | run time 1:12:05 | 0 battles | rolls lost 0 of 0\n" +
             "\n" +
-            "                                          YOU              SQUAD\n" +
-            " #  PLAYER                     SCORE    K   A  D REV CAP  |     K  KO REV\n" +
-            " 1  Alpha                        778  310  40  2   5   3  |   302   6   4\n" +
-            "      top retainer: Cato (Tactical) - most kills: 212 (9 elite, 1 boss)\n" +
-            " 2  Bravo*                     157.5  120  15  0   1   0  |    30   1   0\n" +
-            "      top retainer: Dio (Devastator) - most kills: 30\n" +
+            "                                        PLAYER             SQUAD\n" +
+            " #  NAME                       SCORE    K   A  D REV CAP  |     K  KO REV  TOT K\n" +
+            " 1  Alpha                        778  310  40  2   5   3  |   302   6   4    612\n" +
+            "      Top retainer: Cato (Tactical) - most kills: 212 (9 elite, 1 boss)\n" +
+            " 2  Bravo*                     157.5  120  15  0   1   0  |    30   1   0    150\n" +
+            "      Top retainer: Dio (Devastator) - most kills: 30\n" +
             "\n" +
             "* left before the end\n" +
             "\n" +
@@ -366,9 +366,71 @@ public class WarfrontResultsTests : IDisposable
         Assert.Equal("0:50:00", roll.Entries.Single(e => e.Title == "Fastest victory").Value);
         Assert.Equal("Cato (Alpha's squad)", roll.Entries.Single(e => e.Title == "Best retainer").Holder);
         Assert.Equal("Alpha", roll.Players[0].Name);
+        Assert.Equal("Alpha, Zed", roll.Entries.Single(e => e.Title == "Fastest victory").Holder);   // that run's players, not a label
         Assert.Equal(3, roll.Players.Single(p => p.Name == "Alpha").Runs);
         var shuffled = WarfrontHonorRoll.Build(new[] { ("20261119T000000Z-lost", c), ("20261117T000000Z-abandoned", a), ("20261118T000000Z-won", b) });
         Assert.Equal(roll.Text(), shuffled.Text());
         Assert.Equal(0, WarfrontHonorRoll.Build(Array.Empty<(string, WarfrontRunRecord)>()).Runs);
+    }
+
+    // ---- second pass ----------------------------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void The_largest_legal_record_splits_into_chunks_that_each_fit_one_extras_section()
+    {
+        var rows = Enumerable.Range(0, 4).Select(i => P(new string((char)('A' + i), 24), i, kills: 99999, elite: 99, boss: 9, assists: 9999, deaths: 999, revives: 99, caps: 9, squad:
+            Enumerable.Range(0, 9).Select(m => new WarfrontRetainerStats(new string((char)('a' + m), 24), "Devastator Marine", m, 99999, 99, 9, 999, 99, 99, 9, 99)).ToArray())).ToArray();
+        var battles = Enumerable.Range(0, 60).Select(b => "#" + b + " Node lane 3: Win").ToList();
+        var rec = new WarfrontRunRecord("won", "2026-11-17T14:03:05Z", 99999, WarfrontScoreWeights.Default, battles, 60, 30, 5, Rank(null, rows));
+        var whole = WarfrontResultsWire.Encode(rec);
+        Assert.True(whole.Length > SmNet.Protocol.MaxExtrasPayloadBytes, "the test must need more than one section");
+        var chunks = WarfrontResultsWire.Split(whole, 7);
+        Assert.All(chunks, c => Assert.True(c.Length <= SmNet.Protocol.MaxExtrasPayloadBytes));
+        // each chunk really goes into an extras message
+        foreach (var c in chunks) Assert.True(SmNet.Protocol.Write(new SmNet.ExtrasUpdate(1, new[] { ((byte)1, c) })).Length <= SmNet.Protocol.MaxExtrasMessageBytes);
+        var re = new WarfrontResultsWire.Reassembler();
+        byte[]? got = null;
+        foreach (var c in chunks.Reverse()) got = re.Add(c) ?? got;   // any order
+        Assert.NotNull(got);
+        Assert.Equal(WarfrontExport.Text(rec), WarfrontExport.Text(WarfrontResultsWire.Decode(got!)));
+        Assert.Null(new WarfrontResultsWire.Reassembler().Add(new byte[] { 1, 5, 2 }));   // index past count: ignored
+        Assert.Null(new WarfrontResultsWire.Reassembler().Add(new byte[] { 1 }));
+    }
+
+    [Fact]
+    public void A_score_weights_file_overrides_the_defaults_when_valid_and_falls_back_with_a_log_line_when_not()
+    {
+        var logs = new List<string>();
+        Assert.Same(WarfrontScoreWeights.Default, WarfrontScoreWeights.LoadOverride(_dir, logs.Add));   // no file
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "score-weights.json");
+        File.WriteAllText(path, "{\"Capture\": 5, \"TieBreaks\": [\"FewerDeaths\", \"Captures\"]}");
+        var w = WarfrontScoreWeights.LoadOverride(_dir, logs.Add);
+        Assert.Equal(5m, w.Capture);
+        Assert.Equal(15m, w.Revive);   // omitted: default
+        Assert.Equal(new[] { WarfrontTieBreak.FewerDeaths, WarfrontTieBreak.Captures }, w.TieBreaks);
+        File.WriteAllText(path, "{\"Kill\": -3}");
+        Assert.Same(WarfrontScoreWeights.Default, WarfrontScoreWeights.LoadOverride(_dir, logs.Add));
+        File.WriteAllText(path, "not json");
+        Assert.Same(WarfrontScoreWeights.Default, WarfrontScoreWeights.LoadOverride(_dir, logs.Add));
+        Assert.Equal(3, logs.Count(l => l.Contains("score-weights.json")));
+    }
+
+    [Fact]
+    public void The_archived_run_holds_no_key_but_the_live_save_keeps_them()
+    {
+        var c = Campaign();
+        c.AddXp(KeyA, 2000);
+        WarfrontSave.Write(_dir, c);
+        Assert.Contains(KeyA.ToString(), File.ReadAllText(Path.Combine(_dir, "run.json")));
+        var rec = GoldenRecord();
+        var run = WarfrontResultsArchive.Archive(_dir, c, rec, DateTime.UtcNow);
+        foreach (var f in Directory.GetFiles(Path.Combine(_dir, "records")))
+            foreach (var key in new[] { KeyA, KeyB, KeyC })
+                Assert.DoesNotContain(key.ToString(), File.ReadAllText(f));
+        var text = File.ReadAllText(run);
+        Assert.Contains("Alpha", text);
+        Assert.Contains("Bravo", text);
+        Assert.Contains("\"JoinOrder\":[0,1]", text);
     }
 }

@@ -21,7 +21,7 @@ public sealed partial class WarfrontResultsPanel : Control
     static readonly (string Head, float X, float W)[] Cols =
     {
         ("K", 720f, 90f), ("A", 810f, 80f), ("D", 890f, 70f), ("REV", 960f, 80f), ("CAP", 1040f, 80f),
-        ("K", 1160f, 100f), ("KO", 1260f, 80f), ("REV", 1340f, 80f), ("MEN", 1420f, 80f),
+        ("K", 1160f, 100f), ("KO", 1260f, 80f), ("REV", 1340f, 80f), ("MEN", 1420f, 80f), ("TOTAL K", 1500f, 130f),
     };
     const int BodySize = 18, CaptionSize = 14, ButtonSize = 22;
     static readonly Color Dim = new(0.6f, 0.6f, 0.6f);
@@ -115,11 +115,11 @@ public sealed partial class WarfrontResultsPanel : Control
         ShowingHonorRoll = false;
         var rows = _record.Rows;
         const float top = 190f;
-        Line("GroupYou", "YOU", 720f, top, CaptionSize, 400f, Dim, parent: _page);
+        Line("GroupPlayer", "PLAYER", 720f, top, CaptionSize, 400f, Dim, parent: _page);
         Line("GroupSquad", "SQUAD", 1160f, top, CaptionSize, 340f, Dim, parent: _page);
         float hy = top + 24f;
         Line("HeadRank", "#", RankX, hy, CaptionSize, RankW, Dim, HorizontalAlignment.Right, _page);
-        Line("HeadName", "PLAYER", NameX, hy, CaptionSize, NameW, Dim, parent: _page);
+        Line("HeadName", "NAME", NameX, hy, CaptionSize, NameW, Dim, parent: _page);
         Line("HeadScore", "SCORE", ScoreX, hy, CaptionSize, ScoreW, Dim, HorizontalAlignment.Right, _page);
         foreach (var (head, x, w) in Cols) Line("Head" + head + x, head, x, hy, CaptionSize, w, Dim, HorizontalAlignment.Right, _page);
         bool retainers = rows.Count <= 8;
@@ -134,7 +134,7 @@ public sealed partial class WarfrontResultsPanel : Control
                 r.Player.Kills.ToString(CultureInfo.InvariantCulture), r.Player.Assists.ToString(CultureInfo.InvariantCulture), r.Player.Deaths.ToString(CultureInfo.InvariantCulture),
                 r.Player.Revives.ToString(CultureInfo.InvariantCulture), r.Player.Captures.ToString(CultureInfo.InvariantCulture),
                 r.Squad.Kills.ToString(CultureInfo.InvariantCulture), r.Squad.Knockouts.ToString(CultureInfo.InvariantCulture), r.Squad.Revives.ToString(CultureInfo.InvariantCulture),
-                r.Squad.Members.ToString(CultureInfo.InvariantCulture),
+                r.Squad.Members.ToString(CultureInfo.InvariantCulture), r.TotalKills.ToString(CultureInfo.InvariantCulture),
             };
             TableText.Add(cells);
             Line("Rank" + i, cells[0], RankX, y, BodySize, RankW, null, HorizontalAlignment.Right, _page);
@@ -142,7 +142,7 @@ public sealed partial class WarfrontResultsPanel : Control
             Line("Score" + i, cells[2], ScoreX, y, BodySize, ScoreW, null, HorizontalAlignment.Right, _page);
             for (int c = 0; c < Cols.Length; c++) Line($"Cell{i}_{c}", cells[3 + c], Cols[c].X, y, BodySize, Cols[c].W, null, HorizontalAlignment.Right, _page);
             if (retainers && r.TopRetainer is { } top1)
-                Line("Retainer" + i, "TOP RETAINER  " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + "  -  " + top1.Reason, NameX, y + 26f, CaptionSize, 1300f, Dim, parent: _page);
+                Line("Retainer" + i, "Top retainer  " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + "  -  " + top1.Reason, NameX, y + 26f, CaptionSize, 1300f, Dim, parent: _page);
         }
         var f = Line("Formula", _record.Weights.FormulaText(), Left, 800f, CaptionSize, 1500f, Dim, parent: _page);
         f.AutowrapMode = TextServer.AutowrapMode.WordSmart;

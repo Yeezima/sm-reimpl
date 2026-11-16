@@ -8,22 +8,20 @@ using SmSim.Extras.Warfront.Results;
 namespace SmClient;
 
 /// <summary>
-/// Test aid <c>--warfront-results-demo [--out dir] [--defeat]</c> (in the model viewer; needs no install, a windowed run for the pictures): the end-of-run panel with made-up figures, four
+/// Test aid, its own scene (no product hook): <c>godot.cmd --windowed --resolution 1280x720 res://Extras/Warfront/Results/WarfrontResultsDemo.tscn -- --out dir [--tag _1280] [--defeat]</c> (needs no install): the end-of-run panel with made-up figures, four
 /// players (one left before the end) and their squads. Saves <c>results.png</c>, presses COPY FOR DISCORD and EXPORT (into <c>dir\warfront</c>, never the player's real folder), writes three
 /// made-up archived runs there and saves <c>honor.png</c> of the honor roll, prints the checks as <c>WF-RESULTS</c> lines and quits.
 /// </summary>
 public sealed partial class WarfrontResultsDemoView : Node
 {
-    readonly string _out;
-    readonly bool _defeat;
+    string _out = "";
+    string _tag = "";
+    bool _defeat;
     WarfrontResultsPanel? _panel;
     int _frames;
 
-    public WarfrontResultsDemoView(Dictionary<string, string?> args)
-    {
-        _out = args.GetValueOrDefault("out") ?? Path.Combine(Path.GetTempPath(), "wf-results-demo");
-        _defeat = args.ContainsKey("defeat");
-    }
+    /// <summary>The scene's script needs no arguments: they come from the command line after <c>--</c>.</summary>
+    public WarfrontResultsDemoView() { }
 
     public static WarfrontRunRecord SampleRecord(bool defeat)
     {
@@ -42,6 +40,11 @@ public sealed partial class WarfrontResultsDemoView : Node
 
     public override void _Ready()
     {
+        var user = OS.GetCmdlineUserArgs();
+        string Arg(string name) { int i = Array.IndexOf(user, "--" + name); return i >= 0 && i + 1 < user.Length ? user[i + 1] : ""; }
+        _out = Arg("out") is { Length: > 0 } o ? o : Path.Combine(Path.GetTempPath(), "wf-results-demo");
+        _tag = Arg("tag");
+        _defeat = Array.IndexOf(user, "--defeat") >= 0;
         Directory.CreateDirectory(_out);
         var dir = Path.Combine(_out, "warfront");
         var rec = SampleRecord(_defeat);
@@ -52,7 +55,7 @@ public sealed partial class WarfrontResultsDemoView : Node
     {
         _frames++;
         if (_panel is null) return;
-        if (_frames == 20) Shot("results.png");
+        if (_frames == 20) Shot((_defeat ? "defeat" : "victory") + _tag + ".png");
         if (_frames == 22)
         {
             _panel.Copy();
@@ -70,7 +73,7 @@ public sealed partial class WarfrontResultsDemoView : Node
         if (_frames == 24) _panel.ToggleHonorRoll();
         if (_frames == 44)
         {
-            Shot("honor.png");
+            Shot("honor" + _tag + ".png");
             var files = Directory.GetFiles(Path.Combine(_out, "warfront", "exports")).Select(Path.GetFileName).ToArray();
             GD.Print("WF-RESULTS exports " + string.Join(",", files) + " rows " + _panel.TableText.Count + " honorRoll " + _panel.ShowingHonorRoll);
             GetTree().Quit();

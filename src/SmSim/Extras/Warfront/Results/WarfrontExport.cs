@@ -27,18 +27,18 @@ public static class WarfrontExport
         sb.Append((r.EndedUtc.Length >= 16 ? r.EndedUtc[..16].Replace('T', ' ') : r.EndedUtc)).Append(" UTC | run time ").Append(((int)t.TotalHours).ToString(CultureInfo.InvariantCulture))
             .Append(t.ToString(@"\:mm\:ss", CultureInfo.InvariantCulture)).Append(" | ").Append(r.Battles.Count).Append(" battles | rolls lost ").Append(r.RollsLost).Append(" of ").Append(r.RollsTotal).Append('\n');
         sb.Append('\n');
-        sb.Append("".PadRight(42)).Append("YOU".PadRight(17)).Append("SQUAD\n");
-        sb.Append(" #  ").Append(Pad("PLAYER", 24)).Append(R("SCORE", 8)).Append(R("K", 5)).Append(R("A", 4)).Append(R("D", 3)).Append(R("REV", 4)).Append(R("CAP", 4)).Append("  |")
-            .Append(R("K", 6)).Append(R("KO", 4)).Append(R("REV", 4)).Append('\n');
+        sb.Append("".PadRight(40)).Append("PLAYER".PadRight(19)).Append("SQUAD\n");
+        sb.Append(" #  ").Append(Pad("NAME", 24)).Append(R("SCORE", 8)).Append(R("K", 5)).Append(R("A", 4)).Append(R("D", 3)).Append(R("REV", 4)).Append(R("CAP", 4)).Append("  |")
+            .Append(R("K", 6)).Append(R("KO", 4)).Append(R("REV", 4)).Append(R("TOT K", 7)).Append('\n');
         bool anyLeft = false;
         foreach (var row in r.Rows)
         {
             string name = row.Connected ? row.Name : row.Name + "*";
             anyLeft |= !row.Connected;
             sb.Append(R(row.Rank, 2)).Append("  ").Append(Pad(name, 24)).Append(R(N(row.Total), 8)).Append(R(row.Player.Kills, 5)).Append(R(row.Player.Assists, 4)).Append(R(row.Player.Deaths, 3))
-                .Append(R(row.Player.Revives, 4)).Append(R(row.Player.Captures, 4)).Append("  |").Append(R(row.Squad.Kills, 6)).Append(R(row.Squad.Knockouts, 4)).Append(R(row.Squad.Revives, 4)).Append('\n');
+                .Append(R(row.Player.Revives, 4)).Append(R(row.Player.Captures, 4)).Append("  |").Append(R(row.Squad.Kills, 6)).Append(R(row.Squad.Knockouts, 4)).Append(R(row.Squad.Revives, 4)).Append(R(row.TotalKills, 7)).Append('\n');
             if (retainers && row.TopRetainer is { } top)
-                sb.Append("      top retainer: ").Append(top.Name).Append(top.ClassName.Length > 0 ? " (" + top.ClassName + ")" : "").Append(" - ").Append(top.Reason).Append('\n');
+                sb.Append("      Top retainer: ").Append(top.Name).Append(top.ClassName.Length > 0 ? " (" + top.ClassName + ")" : "").Append(" - ").Append(top.Reason).Append('\n');
         }
         if (anyLeft) sb.Append("\n* left before the end\n");
         if (formula) sb.Append('\n').Append(r.Weights.FormulaText()).Append('\n');

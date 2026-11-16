@@ -46,10 +46,10 @@ public sealed record WarfrontHonorRoll(int Runs, int Won, int Lost, int Abandone
                 }
         if (bestRet is { } br) entries.Add(new WarfrontHonorEntry("Best retainer", br.Holder, N(br.V), br.Stem));
 
-        (string Stem, int Secs)? fastest = null;
+        (string Stem, int Secs, string Who)? fastest = null;
         foreach (var (stem, rec) in all)
-            if (rec.Won && rec.DurationSeconds > 0 && (fastest is null || rec.DurationSeconds < fastest.Value.Secs)) fastest = (stem, rec.DurationSeconds);
-        if (fastest is { } f) entries.Add(new WarfrontHonorEntry("Fastest victory", "the squad", TimeSpan.FromSeconds(f.Secs).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture), f.Stem));
+            if (rec.Won && rec.DurationSeconds > 0 && (fastest is null || rec.DurationSeconds < fastest.Value.Secs)) fastest = (stem, rec.DurationSeconds, string.Join(", ", rec.Rows.OrderBy(r => r.JoinIndex).Select(r => r.Name)));
+        if (fastest is { } f) entries.Add(new WarfrontHonorEntry("Fastest victory", f.Who.Length > 0 ? f.Who : "no one listed", TimeSpan.FromSeconds(f.Secs).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture), f.Stem));
 
         var life = new Dictionary<string, (int Runs, decimal Total, decimal Best)>(StringComparer.OrdinalIgnoreCase);
         foreach (var (_, rec) in all)
