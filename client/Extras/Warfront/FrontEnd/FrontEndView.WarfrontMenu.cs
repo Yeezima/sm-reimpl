@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -40,6 +41,12 @@ public sealed partial class FrontEndView
     /// <summary>The Warfront row on the main menu, or null without the added content (self-test).</summary>
     public Button? WarfrontRow { get; private set; }
 
+    /// <summary>Self-test: the services have a configuration for the content profile in effect (it is read again after a change of profile).</summary>
+    internal bool ServicesReadyForTest => _services.Ready;
+
+    /// <summary>Self-test: the message line's text.</summary>
+    internal string MessageText => _message?.Text ?? "";
+
     string WarfrontDir => WarfrontRunDirForTest ?? WarfrontLocal.RunDir();
 
     partial void WarfrontMenuRows(UiKit.MenuPage main)
@@ -49,8 +56,7 @@ public sealed partial class FrontEndView
         main.Rows.AddChild(WarfrontRow);
         AddChild(new WarfrontMenuWatcher(WarfrontTick, WarfrontBack));
         WarfrontAtMenu();
-        // Test aid --auto-warfront [new]: presses the row and then CONTINUE (or NEW CAMPAIGN) once the menu is shown.
-        if (_args.ContainsKey("auto-warfront")) Callable.From(WarfrontAuto).CallDeferred();
+        if (_args.ContainsKey("warfront-selftest")) AddChild(new WarfrontLocalSelfTest(this));
     }
 
     /// <summary>The front end is built: a server this client started is stopped when the player left a match (a failed join keeps it for one retry).</summary>
@@ -114,6 +120,9 @@ public sealed partial class FrontEndView
         ShowPage(page);
         _page = null;   // the watcher takes this page's Esc and B (the front end's own step back leads to PLAYER VERSUS PLAYER)
     }
+
+    /// <summary>Self-test: opens the page again (it is rebuilt from the run folder each time).</summary>
+    internal void ShowWarfrontPageForTest() => ShowWarfrontPage();
 
     void WarfrontHidePages()
     {
@@ -202,7 +211,7 @@ public sealed partial class FrontEndView
         return 0;
     }
 
-    void ShowWarfrontPrep()
+    internal void ShowWarfrontPrep()
     {
         _wfPrep?.QueueFree();
         var page = new UiKit.MenuPage("WarfrontPreparing", WarfrontLocal.PageTitle) { Visible = false };
@@ -244,6 +253,7 @@ public sealed partial class FrontEndView
     /// <summary>Each frame: follows the server's start, fills the preparing screen, hides Warfront's pages when another page took over.</summary>
     void WarfrontTick()
     {
+        if (_built) WarfrontAids();
         if (_page is not null) WarfrontHidePages();   // another page took over (the front end sets _page; Warfront's pages leave it null)
         if (!_wfPending) return;
         double elapsed = Time.GetTicksMsec() / 1000.0 - _wfStartedAt;
@@ -287,6 +297,29 @@ public sealed partial class FrontEndView
         return false;
     }
 
+    /// <summary>
+    /// Test aids, once the menus are built: <c>--auto-warfront [--auto-warfront-new]</c> presses CONTINUE (or NEW CAMPAIGN) as the player would; <c>--warfront-screen page|prep|confirm</c> opens that screen for a still
+    /// (the preparing screen with sample text; nothing starts). With <c>SM_WF_DIR</c> the run folder is a synthetic one.
+    /// </summary>
+    void WarfrontAids()
+    {
+        if (_args.ContainsKey("auto-warfront")) WarfrontAuto();
+        if (_args.GetValueOrDefault("warfront-screen") is { } screen && !_wfScreenDone)
+        {
+            _wfScreenDone = true;
+            ShowWarfrontPage();
+            if (screen == "prep")
+            {
+                ShowWarfrontPrep();
+                _wfStatus!.Text = "WARFRONT: BUILDING THE WALKING GRAPH, 60 PERCENT";
+                _wfElapsed!.Text = WarfrontLocal.Elapsed(83);
+            }
+            else if (screen == "confirm") WarfrontNew(WarfrontLocal.ReadRun(WarfrontDir));
+        }
+    }
+
+    bool _wfScreenDone;
+
     /// <summary>Test aid <c>--auto-warfront [new]</c>: opens the page and presses CONTINUE (or NEW CAMPAIGN, or when there is no run, NEW CAMPAIGN) once.</summary>
     void WarfrontAuto()
     {
@@ -299,4 +332,15 @@ public sealed partial class FrontEndView
     }
 
     static bool _autoWarfrontDone;
+
+    /// <summary>Self-test: the page behaves as while a server starts (it watches the state given with <see cref="WarfrontStateForTest"/>).</summary>
+    internal void WarfrontWaitForTest(double startedSecondsAgo = 0)
+    {
+        _wfPending = true;
+        _wfStartedAt = Time.GetTicksMsec() / 1000.0 - startedSecondsAgo;
+        ShowWarfrontPrep();
+    }
+
+    /// <summary>Self-test: whether the front end is still watching a start.</summary>
+    internal bool WarfrontWaiting => _wfPending;
 }
