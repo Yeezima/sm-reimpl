@@ -43,6 +43,7 @@ public partial class NetworkView
     internal void WarfrontCoopSection(ReadOnlySpan<byte> payload, string leaderName, string watchName, string ownName, int level)
     {
         if (!WarfrontCoopWire.TryDecode(payload, out var s)) return;
+        WarfrontCoop.OwnName = ownName;
         WarfrontCoop.Apply(s, leaderName, watchName, level, WarfrontCoopModel.PicksLeftFor(s, ownName));
     }
 

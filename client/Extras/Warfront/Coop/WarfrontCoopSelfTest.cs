@@ -96,7 +96,8 @@ public sealed partial class WarfrontCoopSelfTest : Node
         Check("joiner: WATCHING NAME", _hud.WatchingLabel.Text == "WATCHING ASH", _hud.WatchingLabel.Text);
         Check("joiner: the stop line", _hud.SubLabel.Text == "YOU JOIN AT THE NEXT THUNDERHAWK STOP", _hud.SubLabel.Text);
         Check("joiner: no join panel yet", !_join.Visible);
-        FitCheck("joiner", _hud.WatchingLabel, _hud.SubLabel, _hud.AnnounceLabel);
+        Check("joiner: the bar shows the watch keys", _hud.KeysLabel.Text == "F: NEXT VIEW    SHIFT+F: PREVIOUS VIEW", _hud.KeysLabel.Text);
+        FitCheck("joiner", _hud.WatchingLabel, _hud.SubLabel, _hud.KeysLabel, _hud.AnnounceLabel);
         await Still("joiner-spectating");
         _model.StepWatch(1); _model.StepWatch(-1);
         Check("joiner: the spectate keys send Watch -1 / +1", watches.SequenceEqual(new[] { 1, -1 }), string.Join(",", watches));
@@ -107,7 +108,7 @@ public sealed partial class WarfrontCoopSelfTest : Node
         await Frames(2);
         Check("fallen: WATCHING a Marine", _hud.WatchingLabel.Text == "WATCHING BRANN'S MARINE CATO", _hud.WatchingLabel.Text);
         Check("fallen: the countdown", _hud.SubLabel.Text == "BACK IN THE FIGHT IN 0:42", _hud.SubLabel.Text);
-        FitCheck("fallen", _hud.WatchingLabel, _hud.SubLabel, _hud.AnnounceLabel);
+        FitCheck("fallen", _hud.WatchingLabel, _hud.SubLabel, _hud.KeysLabel, _hud.AnnounceLabel);
         await Still("fallen-spectating");
         _model.ApplyDown(WarfrontDownPhase.None, 0f);
         await Frames(2);
@@ -117,8 +118,10 @@ public sealed partial class WarfrontCoopSelfTest : Node
         _model.Apply(Wire(WarfrontCoopRole.AwaitClass, gate: 72), "Ash", "", 6);
         await Frames(2);
         Check("class: own panel shows", _join.Visible && _join.HeadingLabel.Text == "YOU JOIN AT LEVEL 6", _join.HeadingLabel.Text);
-        Check("class: the customizer line and the clock", _join.BodyLabel.Text == "OPEN THE CUSTOMIZER AND CONFIRM YOUR CLASS (1:12)", _join.BodyLabel.Text);
+        Check("class: the customizer line and the clock", _join.BodyLabel.Text == "CONFIRM YOUR CLASS IN THE CUSTOMIZER (1:12)", _join.BodyLabel.Text);
+        Check("class: the hint names the way in", _join.HintLabel.Text == "OPEN IT AT THE ARMOURY STATION ON THE SHIP", _join.HintLabel.Text);
         FitCheck("class", _join.Labels().ToArray());
+        Check("class: text is at the picker's sizes", _join.HeadingLabel.GetThemeFontSize("font_size") == Progression.WarfrontPickerPanel.HeadingSize && _join.BodyLabel.GetThemeFontSize("font_size") == Progression.WarfrontPickerPanel.BodySize);
         await Still("join-class");
         _model.CustomizerClosed();
         Check("class: closing without opening confirms nothing", confirms.Count == 0);
@@ -142,7 +145,9 @@ public sealed partial class WarfrontCoopSelfTest : Node
         _model.Apply(Wire(WarfrontCoopRole.Player, flags, 0, awaited: new[] { new WarfrontAwaited("Cato", WarfrontAwaitReason.Class, 3), new WarfrontAwaited("Dorn", WarfrontAwaitReason.Picks, 1) }), "Ash", "", 4);
         await Frames(2);
         Check("leader: the list shows", _join.Visible && _join.ListHeadingLabel.Text == "WAITING FOR");
-        Check("leader: one row per awaited player", _join.RowLabel(0).Text == "CATO    CLASS" && _join.RowLabel(1).Text == "DORN    1 CARD" && _join.RowLabel(2).Text == "", _join.RowLabel(0).Text + "|" + _join.RowLabel(1).Text);
+        Check("leader: one row per awaited player, the reasons in one column", _join.RowLabel(0).Text == "CATO" && _join.ReasonLabel(0).Text == "CLASS" && _join.RowLabel(1).Text == "DORN" && _join.ReasonLabel(1).Text == "1 CARD" && _join.RowLabel(2).Text == "", _join.RowLabel(0).Text + "|" + _join.ReasonLabel(1).Text);
+        Check("leader: the box is sized to its two rows", _join.ListBox.Size.Y == MathF.Round(WarfrontJoinPanel.ListRowsTop + 2 * WarfrontJoinPanel.ListRowPitch + WarfrontJoinPanel.ListBottomPad - 6f), _join.ListBox.ToString());
+        Check("leader: the reasons share one x", _join.ReasonLabel(0).Position.X == _join.ReasonLabel(1).Position.X);
         Check("leader: no own panel", _join.HeadingLabel.Text == "");
         Check("leader: the announcement line", _hud.AnnounceLabel.Text == "YOU LEAD THE SQUAD" && _hud.Visible, _hud.AnnounceLabel.Text);
         FitCheck("leader", _join.Labels().Concat(new[] { _hud.AnnounceLabel }).ToArray());

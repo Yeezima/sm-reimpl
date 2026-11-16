@@ -50,7 +50,9 @@ public class WarfrontCoopTests
         public void Win() { C.Resolve(WarfrontOutcome.Win); Co.ShipStop(); }
 
         /// <summary>After one fought battle: the founders aboard again, the first deployment done.</summary>
-        public static Rig AfterFirstBattle() { var r = Founders(); r.Deploy(); r.Win(); return r; }
+        public static Rig AfterFirstBattle() { var r = Founders(); r.Deploy(); r.Win(); r.TakeAllPicks(A); r.TakeAllPicks(B); return r; }
+
+        public void TakeAllPicks(ulong key) { while (C.TryTakePick(key, 1)) { } Co.PicksChanged(key); }
     }
 
     static (long Xp, int Level, int Picks, int Pending, string Cards, int Roster, bool Grant, bool Confirmed, int JoinedAt) Snap(Rig r, ulong key)
@@ -346,19 +348,94 @@ public class WarfrontCoopTests
     }
 
     [Fact]
-    public void A_waiting_known_key_is_admitted_before_a_waiting_unknown_key()
+    public void A_full_squad_refuses_first_come_first_served_and_a_freed_place_goes_to_whoever_connects_first()
     {
         var r = new Rig();
         r.Join(A); r.Join(B); r.Join(C); r.Join(D);
         r.Co.Left(B);                              // B knows the run
-        Assert.True(r.Join(F).Admitted);           // an unknown key takes the free place: nobody known waits
-        Assert.False(r.Join(E).Admitted);          // E (unknown) waits first ...
-        Assert.False(r.Join(B).Admitted);          // ... then B (known)
-        Assert.Equal(B, r.Co.NextWaiting());
-        r.Co.Left(D);                              // a place frees
-        Assert.False(r.Join(E).Admitted);          // E must not take it from B
+        Assert.True(r.Join(F).Admitted);           // an unknown key takes the free place: no priority list
+        Assert.False(r.Join(B).Admitted);          // B (known) is refused: the squad is full
+        r.Co.Left(D);
         Assert.True(r.Join(B).Admitted);
-        Assert.False(r.Join(E).Admitted);          // full again
+        Assert.False(r.Join(E).Admitted);
+    }
+
+    [Fact]
+    public void A_key_the_campaign_already_connected_still_gets_its_role_from_Connect()
+    {
+        var r = Rig.AfterFirstBattle();
+        r.C.Join(C, "Cato", out _);                // W5a's identify path joined through the campaign first
+        var j = r.Co.Connect(C, "Cato", 9);
+        Assert.True(j.Admitted);
+        Assert.Equal(WarfrontCoopRole.AwaitClass, j.Role);
+        Assert.True(r.C.Player(C)!.JoinGrantApplied);
+        Assert.Equal(1, r.H.Retainers);
+        Assert.Equal(WarfrontCoopRole.AwaitClass, r.Co.Connect(C, "Cato", 9).Role);   // a second call changes nothing
+        Assert.Equal(1, r.H.Retainers);
+        // in a battle: held
+        var b = Rig.Founders(); b.Deploy();
+        b.C.Join(C, "Cato", out _);
+        Assert.Equal(WarfrontCoopRole.SpectatingJoiner, b.Co.Connect(C, "Cato", 9).Role);
+        Assert.True(b.Co.IsHeld(9));
+    }
+
+    [Fact]
+    public void A_fresh_coop_object_per_run_and_a_ship_stop_on_a_finished_run_is_refused_with_a_clear_text()
+    {
+        var r = Rig.AfterFirstBattle();
+        var json = r.C.ToJson().Replace("\"Phase\":\"Ship\"", "\"Phase\":\"Won\"");
+        var over = new Rig(WarfrontSave.FromJson(json), r.H);
+        var ex = Assert.Throws<InvalidOperationException>(() => over.Co.ShipStop());
+        Assert.Contains("new WarfrontCoop", ex.Message);
+    }
+
+    [Fact]
+    public void The_seams_are_attached_to_the_battle_rules_and_the_xp_predicate()
+    {
+        var r = Rig.Founders(); r.Deploy(); r.Join(C);
+        var rules = new WarfrontBattleRules();
+        var eligible = r.Co.AttachTo(rules);
+        Assert.True(rules.CoopHeld!(3)); Assert.False(rules.CoopHeld(1));
+        Assert.False(rules.LateJoinAllowed!(3)); Assert.True(rules.LateJoinAllowed(1));
+        Assert.False(eligible(C)); Assert.True(eligible(A));
+    }
+
+    [Fact]
+    public void Picks_queued_aboard_hold_the_deploy_for_founders_too_and_a_restart_changes_nothing()
+    {
+        var r = Rig.Founders();
+        r.Deploy(); r.C.Resolve(WarfrontOutcome.Win); r.Co.ShipStop();   // A has 2 picks queued, B 1
+        Assert.Equal(WarfrontCoopRole.AwaitPicks, r.Co.RoleOf(A));
+        Assert.Equal("Waiting for P1 (2 cards), P2 (1 card)", r.Co.DeployRefusal());
+        // a restart: a new rules object over the loaded campaign, the keys connect again
+        var loaded = WarfrontSave.FromJson(r.C.ToJson());
+        loaded.ResumeAfterRestart();
+        var r2 = new Rig(loaded, r.H);
+        r2.Join(A); r2.Join(B);
+        Assert.Equal("Waiting for P1 (2 cards), P2 (1 card)", r2.Co.DeployRefusal());
+        // the picker's timeout takes card 1 every 20 s: at most 40 s for two picks
+        var picker = new WarfrontPicker(loaded);
+        double now = 0;
+        for (int i = 0; i < 2; i++)
+        {
+            if (loaded.Player(A)!.PendingPicks > 0) { Assert.NotNull(picker.TryOpen(A, now, true, false, 1, false)); }
+            if (loaded.Player(B)!.PendingPicks > 0) { Assert.NotNull(picker.TryOpen(B, now, true, false, 1, false)); }
+            now += WarfrontProgressionRules.PickTimeoutSeconds;
+            picker.Tick(now);
+            r2.Co.PicksChanged(A); r2.Co.PicksChanged(B);
+        }
+        Assert.Equal(40, now);
+        Assert.Null(r2.Co.DeployRefusal());
+    }
+
+    [Fact]
+    public void Picks_earned_while_aboard_move_a_player_to_AwaitPicks_on_the_next_tick()
+    {
+        var r = Rig.AfterFirstBattle();
+        Assert.Equal(WarfrontCoopRole.Player, r.Co.RoleOf(A));
+        r.C.AddXp(A, 3000);
+        r.Co.Tick(0.1);
+        Assert.Equal(WarfrontCoopRole.AwaitPicks, r.Co.RoleOf(A));
     }
 
     [Fact]
@@ -406,17 +483,23 @@ public class WarfrontCoopTests
     }
 
     [Fact]
-    public void A_key_that_was_aboard_when_it_left_and_returns_in_a_battle_is_held_until_the_ship_stop()
+    public void A_confirmed_key_that_was_not_in_the_battle_is_flown_in_with_its_squad_and_a_gated_one_stays_held()
     {
         var r = Rig.AfterFirstBattle();
-        r.Join(C); r.Co.ConfirmClass(C);   // C joined on the ship, took its class, picks pending
-        r.Co.Left(C);
-        r.Deploy();                        // the squad deploys without C (it does not block)
-        var back = r.Join(C);
-        Assert.Equal(WarfrontCoopRole.SpectatingJoiner, back.Role);
-        Assert.False(back.FlyIn);
+        r.Join(C); r.Co.ConfirmClass(C);   // C joined on the ship and took its class, picks pending
+        r.Join(D);                         // D never confirms
+        r.Co.Left(C); r.Co.Left(D);
+        r.Deploy();                        // the squad deploys without them (they do not block)
+        var c = r.Join(C);
+        Assert.True(c.FlyIn);
+        Assert.Equal(WarfrontCoopRole.Player, c.Role);
+        Assert.Contains((C, 5), r.H.Rebound.Select(x => (x.Key, x.Player)).Where(x => x.Item1 == C).Select(x => (x.Item1, x.Item2)));
+        var d = r.Join(D);
+        Assert.False(d.FlyIn);
+        Assert.Equal(WarfrontCoopRole.SpectatingJoiner, d.Role);
         r.C.Resolve(WarfrontOutcome.Win); r.Co.ShipStop();
-        Assert.Equal(WarfrontCoopRole.AwaitPicks, r.Co.RoleOf(C));   // resumes its picks
+        Assert.Equal(WarfrontCoopRole.AwaitPicks, r.Co.RoleOf(C));   // its picks are derived again aboard
+        Assert.Equal(WarfrontCoopRole.AwaitClass, r.Co.RoleOf(D));
     }
 
     // ---------------------------------------------------------------- the matrix: leave and rejoin in every state
@@ -481,7 +564,7 @@ public class WarfrontCoopTests
             case St.SpectatingJoiner: Assert.Equal(WarfrontCoopRole.SpectatingJoiner, back.Role); break;
             case St.AwaitClass: Assert.Equal(WarfrontCoopRole.AwaitClass, back.Role); break;
             case St.AwaitPicksOffer:
-                Assert.Equal(WarfrontCoopRole.Player, back.Role);   // a restart forgets the gate; the picks stay pending and the picker opens them aboard (reported)
+                Assert.Equal(WarfrontCoopRole.AwaitPicks, back.Role);   // derived from the saved facts: the restart changes nothing
                 var again = new WarfrontPicker(r.C).TryOpen(key, 9, aboard: true, lull: false, r.H.Rosters.Count(key), false);
                 Assert.NotNull(again);
                 Assert.Equal(offer!.PickIndex, again!.PickIndex);
@@ -506,7 +589,7 @@ public class WarfrontCoopTests
     // ---------------------------------------------------------------- the campaign save
 
     [Fact]
-    public void Version_3_round_trips_the_two_new_fields_and_the_keyless_archive_copies_them()
+    public void Version_4_round_trips_the_two_new_fields_and_the_keyless_archive_copies_them()
     {
         var r = Rig.AfterFirstBattle();
         r.Join(C);
@@ -528,6 +611,7 @@ public class WarfrontCoopTests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
     public void Older_saves_load_with_every_key_confirmed(int version)
     {
         var r = Rig.AfterFirstBattle();

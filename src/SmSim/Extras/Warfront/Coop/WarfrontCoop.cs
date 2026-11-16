@@ -70,6 +70,7 @@ public sealed class WarfrontCoop
         public int Player = -1;
         public WarfrontCoopRole Role;   // Player, AwaitClass or AwaitPicks; the hold is the flag below
         public bool Held;
+        public bool Seen;   // this object has run Connect for the key's present connection
         public float GateElapsed;
         public WarfrontWatch Watch;
         public bool GrantThisStop;
@@ -80,7 +81,6 @@ public sealed class WarfrontCoop
     readonly WarfrontCampaign _c;
     readonly IWarfrontCoopHost _host;
     readonly Dictionary<ulong, Entry> _e = new();
-    readonly List<ulong> _waiting = new();
     ulong? _lastLeader;
     double _now, _leaderChangedUntil = double.NegativeInfinity;
 
@@ -116,8 +116,19 @@ public sealed class WarfrontCoop
     /// <summary>The late join answer for a player who spawned in the Stormbird (<c>WarfrontJoinLate</c>): false while the key is a spectating joiner. Unknown players (a bot, a puppet) are allowed.</summary>
     public bool AllowsLateJoin(int player) => !IsHeld(player);
 
-    /// <summary>Rule 4: shared XP goes to connected Players only (a spectating joiner, a key awaiting its class earns nothing).</summary>
+    /// <summary>Rule 4 (a spectating joiner, a key awaiting its class: none; interpretation): shared XP goes to connected Players only (a spectating joiner, a key awaiting its class earns nothing).</summary>
     public bool EarnsXp(ulong key) => _c.IsConnected(key) && RoleOf(key) is WarfrontCoopRole.Player or WarfrontCoopRole.AwaitPicks;
+
+    /// <summary>
+    /// Connects the three seams of the battle rules and the XP ledger to these rules: <c>CoopHeld</c> (W3b: locked and unharmed), <c>LateJoinAllowed</c> (a held key waits in the Stormbird) and the returned predicate for the ledger's
+    /// <c>Eligible</c> (a spectating key gets no shared XP). The server calls this once per run object.
+    /// </summary>
+    public Func<ulong, bool> AttachTo(WarfrontBattleRules rules)
+    {
+        rules.CoopHeld = IsHeld;
+        rules.LateJoinAllowed = AllowsLateJoin;
+        return EarnsXp;
+    }
 
     public IEnumerable<ulong> XpEarners() => _c.JoinOrder.Where(EarnsXp);
 
@@ -127,21 +138,29 @@ public sealed class WarfrontCoop
     bool Underway => _c.Phase is WarfrontPhase.Travel or WarfrontPhase.Battle;
 
     /// <summary>
-    /// A human connects as <paramref name="player"/> (this process's player id). Rules 2 to 4 and 10: the cap (a known key before an unknown one when both wait), a returning key gets exactly its saved state (and in a battle ruling 5), a new key
-    /// during a battle is a spectating joiner, a new key on the ship after the first deployment is gated at once.
+    /// A human connects as <paramref name="player"/> (this process's player id). Rules 2 to 4 and 10: the cap (first come, first served), a returning key gets exactly its saved state (and in a battle ruling 5), a new key
+    /// during a battle is a spectating joiner, a new key on the ship after the first deployment is gated at once. A key the campaign already has connected (W5a's identify path may call <c>Campaign.Join</c> first) but this object has not
+    /// seen runs the whole role logic; only a key this object already connected is answered as it stands. One <see cref="WarfrontCoop"/> serves one run and one stage process: build a new one on a new run and at every stage start, then
+    /// <c>Connect</c> the carried-over players.
     /// </summary>
     public WarfrontCoopJoin Connect(ulong key, string name, int player)
     {
+        var e0 = Of(key);
+        if (e0.Seen && _c.IsConnected(key)) { e0.Player = player; return new(true, null, _c.Player(key) is null ? WarfrontJoinKind.New : WarfrontJoinKind.Returning, RoleOf(key), false, 0f); }
         bool known = _c.Player(key) is not null;
         var kind = known ? WarfrontJoinKind.Returning : WarfrontJoinKind.New;
-        if (_c.IsConnected(key)) { Of(key).Player = player; return new(true, null, kind, RoleOf(key), false, 0f); }
-        int connected = _c.Players.Count(p => _c.IsConnected(p.Key));
-        if (connected >= HumanCap) { Wait(key); return Refused(kind, FullText(HumanCap)); }
-        // a place is free: a known key waiting for it goes before an unknown one
-        if (!known && _waiting.Any(w => w != key && _c.Player(w) is not null)) { Wait(key); return Refused(kind, FullText(HumanCap)); }
-        if (!_c.Join(key, name, out kind)) { Wait(key); return Refused(kind, FullText(HumanCap)); }
-        _waiting.Remove(key);
-        var e = Of(key);
+        if (!_c.IsConnected(key))
+        {
+            int connected = _c.Players.Count(x => _c.IsConnected(x.Key));
+            if (connected >= HumanCap || !_c.Join(key, name, out kind)) return Refused(kind, FullText(HumanCap));
+        }
+        else if (known)
+        {
+            var q = _c.Player(key)!;
+            kind = q.JoinGrantApplied || q.PicksTaken > 0 || q.Xp > 0 ? WarfrontJoinKind.Returning : WarfrontJoinKind.New;   // joined through the campaign before this call
+        }
+        var e = e0;
+        e.Seen = true;
         e.Player = player;
         e.GateElapsed = 0f;
         e.Watch = default;
@@ -151,18 +170,19 @@ public sealed class WarfrontCoop
         float spectate = 0f;
         e.Held = false;
 
-        if (kind == WarfrontJoinKind.Returning && BattleUnderway)
+        if (BattleUnderway)
         {
-            _host.RebindSquad(key, player);   // the squad is the same as it was, downed and out Marines stay so
+            _host.RebindSquad(key, player);   // a key with a squad in this battle: the squad is the same as it was, downed and out Marines stay so
             if (e.LeftAs == WarfrontLeaveState.Alive) { flyIn = true; e.Role = WarfrontCoopRole.Player; }
             else if (e.LeftAs is WarfrontLeaveState.Downed or WarfrontLeaveState.Spectating)
             {
                 spectate = e.LeftSpectatorSeconds > 0f ? e.LeftSpectatorSeconds : WarfrontBattleRules.SpectatorSeconds;   // never a free life
                 e.Role = WarfrontCoopRole.Player;
             }
-            else e.Held = true;   // it was not in this battle (aboard when it left, or a joiner of it): held aboard until the ship stop
+            else if (Gated(p)) e.Held = true;   // a first-time joiner (of this battle or an earlier stop) who has not confirmed: held aboard until the ship stop
+            else { flyIn = true; e.Role = WarfrontCoopRole.Player; }   // a confirmed key that was not in this battle: its own saved state, flown in with its squad
         }
-        else if (Underway) e.Held = Gated(p);   // a new key (always gated here), or a returning key in Travel: only a gated one is held
+        else if (Underway) e.Held = Gated(p);   // Travel: a gated key is held (a new key, or one that never confirmed)
         else if (_c.Phase == WarfrontPhase.Ship)
         {
             if (Gated(p))
@@ -171,10 +191,8 @@ public sealed class WarfrontCoop
                 e.Role = WarfrontCoopRole.AwaitClass;
                 e.GateElapsed = 0f;
             }
-            else if (e.Role == WarfrontCoopRole.AwaitPicks && p.PendingPicks > 0) { }   // resumes the same role
-            else e.Role = WarfrontCoopRole.Player;
+            else e.Role = p.PendingPicks > 0 ? WarfrontCoopRole.AwaitPicks : WarfrontCoopRole.Player;   // derived: every confirmed key aboard with picks pending, founders too
         }
-        else e.Role = e.Role == WarfrontCoopRole.AwaitClass && Gated(p) ? WarfrontCoopRole.AwaitClass : e.Role;
         e.LeftAs = WarfrontLeaveState.NotInBattle;
         e.LeftSpectatorSeconds = 0f;
         NoteLeader();
@@ -182,14 +200,6 @@ public sealed class WarfrontCoop
     }
 
     static WarfrontCoopJoin Refused(WarfrontJoinKind kind, string text) => new(false, text, kind, WarfrontCoopRole.Player, false, 0f);
-
-    void Wait(ulong key) { if (!_waiting.Contains(key)) _waiting.Add(key); }
-
-    /// <summary>A refused client gave up waiting.</summary>
-    public void StopWaiting(ulong key) => _waiting.Remove(key);
-
-    /// <summary>Rule 10: who the next free place belongs to: the first waiting known key, else the first waiting unknown key.</summary>
-    public ulong? NextWaiting() => _waiting.Cast<ulong?>().FirstOrDefault(w => _c.Player(w!.Value) is not null) ?? _waiting.Cast<ulong?>().FirstOrDefault();
 
     /// <summary>True for a key whose class gate (or catch-up) is still to pass: not a founder, not yet confirmed.</summary>
     static bool Gated(WarfrontPlayerState p) => !p.ClassConfirmed;
@@ -206,7 +216,7 @@ public sealed class WarfrontCoop
     /// <summary>The key's connection ended. <paramref name="state"/> is where it stood in the battle (ruling 5); <paramref name="spectatorSecondsLeft"/> the rest of a spectating key's 60 s.</summary>
     public void Left(ulong key, WarfrontLeaveState state = WarfrontLeaveState.NotInBattle, float spectatorSecondsLeft = 0f)
     {
-        if (!_c.IsConnected(key)) { _waiting.Remove(key); return; }
+        if (!_c.IsConnected(key)) return;
         var e = Of(key);
         bool wasSpectatingJoiner = e.Held;
         if (BattleUnderway)
@@ -217,6 +227,7 @@ public sealed class WarfrontCoop
         }
         else e.LeftAs = WarfrontLeaveState.NotInBattle;
         _c.Leave(key);
+        e.Seen = false;
         e.Watch = default;
         NoteLeader();
     }
@@ -245,12 +256,13 @@ public sealed class WarfrontCoop
     /// </summary>
     public void ShipStop()
     {
+        if (_c.IsOver) throw new InvalidOperationException("the run is over: build a new WarfrontCoop for a new run (and at every stage start), then Connect the carried-over players");
         var pending = new HashSet<ulong>(_c.Players.Where(p => Gated(p) && !p.JoinGrantApplied).Select(p => p.Key));
         foreach (var k in _c.JoinOrder)
         {
             var e = Of(k);
             e.LeftAs = WarfrontLeaveState.NotInBattle;
-                e.GrantThisStop = false;
+            e.GrantThisStop = false;
             e.Held = false;
             if (!_c.IsConnected(k)) continue;
             var p = _c.Player(k)!;
@@ -260,6 +272,7 @@ public sealed class WarfrontCoop
                 e.Role = WarfrontCoopRole.AwaitClass;
                 e.GateElapsed = 0f;
             }
+            else e.Role = p.PendingPicks > 0 ? WarfrontCoopRole.AwaitPicks : WarfrontCoopRole.Player;   // derived: a confirmed key aboard with picks pending, founders too
             e.Watch = default;
         }
     }
@@ -285,7 +298,9 @@ public sealed class WarfrontCoop
                 e.GateElapsed += (float)dt;
                 if (e.GateElapsed >= ClassGateSeconds) ConfirmClass(k);
             }
-            if (e.Role == WarfrontCoopRole.AwaitPicks && (_c.Player(k)?.PendingPicks ?? 0) <= 0) e.Role = WarfrontCoopRole.Player;
+            int pending = _c.Player(k)?.PendingPicks ?? 0;
+            if (e.Role == WarfrontCoopRole.AwaitPicks && pending <= 0) e.Role = WarfrontCoopRole.Player;
+            else if (e.Role == WarfrontCoopRole.Player && !e.Held && pending > 0 && _c.Phase == WarfrontPhase.Ship && _c.Player(k)!.ClassConfirmed) e.Role = WarfrontCoopRole.AwaitPicks;   // picks queued aboard: derived, no saved flag
         }
     }
 

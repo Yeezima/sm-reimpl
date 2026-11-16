@@ -25,6 +25,8 @@ public sealed class WarfrontCoopModel
     public WarfrontCoopWire.Section Section => _s;
     public WarfrontCoopRole Role => _s.Role;
     public int GrantedLevel => _grantedLevel;
+    /// <summary>The viewer's own name as the scoreboard shows it: its row in the awaited list reads YOU.</summary>
+    public string OwnName { get; set; } = "";
     public WarfrontDownPhase DownPhase => _down;
 
     /// <summary>Something drawn changed.</summary>
@@ -108,6 +110,9 @@ public sealed class WarfrontCoopModel
     /// <summary>The leader-change line (empty after a few seconds).</summary>
     public string AnnouncementText => _announcement;
 
+    /// <summary>The two keys that change the watched body (Classic's observer keys: F next, Shift+F previous; the mouse buttons do the same).</summary>
+    public string WatchKeysText => Spectating ? "F: NEXT VIEW    SHIFT+F: PREVIOUS VIEW" : "";
+
     public static string Clock(double seconds)
     {
         int s = Math.Max(0, (int)Math.Ceiling(seconds));
@@ -115,6 +120,9 @@ public sealed class WarfrontCoopModel
     }
 
     // ---- the join panel ---------------------------------------------------------------------------------------------------------------------
+
+    /// <summary>How to reach the customizer from the ship (the armoury station; the hub's own key hint replaces this when W11 names one).</summary>
+    public string JoinHint => Role == WarfrontCoopRole.AwaitClass ? "OPEN IT AT THE ARMOURY STATION ON THE SHIP" : "";
 
     public bool ShowJoinPanel => Role is WarfrontCoopRole.AwaitClass or WarfrontCoopRole.AwaitPicks;
 
@@ -127,7 +135,7 @@ public sealed class WarfrontCoopModel
 
     public string JoinBody => Role switch
     {
-        WarfrontCoopRole.AwaitClass => $"OPEN THE CUSTOMIZER AND CONFIRM YOUR CLASS ({Clock(_s.GateSecondsLeft)})",
+        WarfrontCoopRole.AwaitClass => $"CONFIRM YOUR CLASS IN THE CUSTOMIZER ({Clock(_s.GateSecondsLeft)})",
         WarfrontCoopRole.AwaitPicks => $"{PicksLeft} LEFT",
         _ => "",
     };
@@ -148,13 +156,15 @@ public sealed class WarfrontCoopModel
 
     public string AwaitedHeading => "WAITING FOR";
 
-    public IReadOnlyList<string> AwaitedLines()
+    /// <summary>One (name, reason) pair per awaited player; the panel puts the reasons in one column. The viewer's own row reads YOU.</summary>
+    public IReadOnlyList<(string Name, string Reason)> AwaitedRows()
     {
-        var list = new List<string>();
+        var list = new List<(string, string)>();
         foreach (var a in _s.Awaited)
         {
             string name = (a.Name.Length > 0 ? a.Name : "PLAYER").ToUpperInvariant();
-            list.Add(a.Reason == WarfrontAwaitReason.Class ? $"{name}    CLASS" : $"{name}    {a.PicksLeft} {(a.PicksLeft == 1 ? "CARD" : "CARDS")}");
+            if (OwnName.Length > 0 && string.Equals(a.Name, OwnName, StringComparison.Ordinal)) name = "YOU";
+            list.Add((name, a.Reason == WarfrontAwaitReason.Class ? "CLASS" : $"{a.PicksLeft} {(a.PicksLeft == 1 ? "CARD" : "CARDS")}"));
         }
         return list;
     }

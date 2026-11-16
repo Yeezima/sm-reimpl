@@ -100,7 +100,7 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 3;
+    public const int SaveVersion = 4;
     /// <summary>The first format (no stats ledger); still loads, with an empty ledger. Version 2 (no co-op fields) loads too, every key with <c>ClassConfirmed</c> true.</summary>
     public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
@@ -404,7 +404,7 @@ public sealed class WarfrontCampaign
         foreach (var k in s.JoinOrder) c._joinOrder.Add(k);
         foreach (var p in s.Players)
         {
-            if (s.Version < 3) p.ClassConfirmed = true;   // saves before version 3 know no gate: nobody is asked again
+            if (s.Version < 4) p.ClassConfirmed = true;   // saves before version 4 know no gate: nobody is asked again
             c._players[p.Key] = p;
         }
         c._rolls.AddRange(s.Rolls);

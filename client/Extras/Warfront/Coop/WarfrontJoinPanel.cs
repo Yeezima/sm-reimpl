@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using SmClient.Customizer;
-using SmClient.Extras.Warfront.Hub;
+using SmClient.Extras.Warfront.Progression;
 
 namespace SmClient.Extras.Warfront.Coop;
 
@@ -12,23 +13,26 @@ namespace SmClient.Extras.Warfront.Coop;
 /// </summary>
 public sealed partial class WarfrontJoinPanel : Control
 {
-    public const float OwnWidth = 760f, OwnHeight = 124f, OwnTop = 860f, Pad = 24f;
-    public const float ListLeft = 1340f, ListTop = 40f, ListWidth = 460f, ListRowPitch = 26f, ListRowsTop = 78f;
+    public const float OwnWidth = 980f, OwnHeight = 176f, OwnTop = 840f, Pad = 28f;
+    public const float ListLeft = 1240f, ListTop = 40f, ListWidth = 560f, ListRowPitch = 34f, ListRowsTop = 76f, ListReasonX = 330f, ListBottomPad = 24f;
     public const int ListRows = 4;
-    public static float ListHeight => ListRowsTop + ListRows * ListRowPitch + 14f;
+    /// <summary>The box is sized to its rows (the list never shows more than <see cref="ListRows"/>).</summary>
+    public float ListHeight => ListRowsTop + Math.Max(1, _model.ShowAwaited ? _model.Section.Awaited.Length : 1) * ListRowPitch + ListBottomPad - 6f;
     public static float OwnLeft => (UiKit.VirtualWidth - OwnWidth) * 0.5f;
 
     readonly WarfrontCoopModel _model;
-    readonly Label _heading, _body, _listHeading;
-    readonly Label[] _rows = new Label[ListRows];
+    readonly Label _heading, _body, _hint, _listHeading;
+    readonly Label[] _rows = new Label[ListRows], _reasons = new Label[ListRows];
     readonly Frames _frames;
 
     public Label HeadingLabel => _heading;
     public Label BodyLabel => _body;
+    public Label HintLabel => _hint;
     public Label ListHeadingLabel => _listHeading;
     public Label RowLabel(int i) => _rows[i];
+    public Label ReasonLabel(int i) => _reasons[i];
     public Rect2 OwnBox => new(OwnLeft, OwnTop, OwnWidth, OwnHeight);
-    public Rect2 ListBox => new(ListLeft, ListTop, ListWidth, ListHeight);
+    public Rect2 ListBox => new(ListLeft, ListTop, ListWidth, MathF.Round(ListHeight));
 
     public IEnumerable<Label> Labels()
     {
@@ -66,10 +70,15 @@ public sealed partial class WarfrontJoinPanel : Control
         MouseFilter = MouseFilterEnum.Ignore;
         _frames = new Frames(this);
         AddChild(_frames);
-        _heading = Text("WarfrontJoinHeading", OwnLeft + Pad, OwnTop + 26f, WarfrontHubPanel.HeadingSize, OwnWidth - 2f * Pad);
-        _body = Text("WarfrontJoinBody", OwnLeft + Pad, OwnTop + 72f, WarfrontHubPanel.BodySize, OwnWidth - 2f * Pad);
-        _listHeading = Text("WarfrontAwaitedHeading", ListLeft + Pad, ListTop + 20f, WarfrontHubPanel.HeadingSize, ListWidth - 2f * Pad);
-        for (int i = 0; i < ListRows; i++) _rows[i] = Text("WarfrontAwaited" + i, ListLeft + Pad, ListTop + ListRowsTop + i * ListRowPitch, WarfrontHubPanel.BodySize, ListWidth - 2f * Pad);
+        _heading = Text("WarfrontJoinHeading", OwnLeft + Pad, OwnTop + 24f, WarfrontPickerPanel.HeadingSize, OwnWidth - 2f * Pad);
+        _body = Text("WarfrontJoinBody", OwnLeft + Pad, OwnTop + 72f, WarfrontPickerPanel.BodySize, OwnWidth - 2f * Pad);
+        _hint = Text("WarfrontJoinHint", OwnLeft + Pad, OwnTop + 112f, WarfrontPickerPanel.BodySize, OwnWidth - 2f * Pad);
+        _listHeading = Text("WarfrontAwaitedHeading", ListLeft + Pad, ListTop + 22f, WarfrontPickerPanel.HeadingSize, ListWidth - 2f * Pad);
+        for (int i = 0; i < ListRows; i++)
+        {
+            _rows[i] = Text("WarfrontAwaited" + i, ListLeft + Pad, ListTop + ListRowsTop + i * ListRowPitch, WarfrontPickerPanel.BodySize, ListReasonX - Pad);
+            _reasons[i] = Text("WarfrontAwaitedReason" + i, ListLeft + ListReasonX, ListTop + ListRowsTop + i * ListRowPitch, WarfrontPickerPanel.BodySize, ListWidth - ListReasonX - Pad);
+        }
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
         Refresh();
@@ -92,8 +101,13 @@ public sealed partial class WarfrontJoinPanel : Control
         Set(_heading, own ? _model.JoinHeading : "");
         Set(_body, own ? _model.JoinBody : "");
         Set(_listHeading, list ? _model.AwaitedHeading : "");
-        var lines = _model.AwaitedLines();
-        for (int i = 0; i < ListRows; i++) Set(_rows[i], list && i < lines.Count ? lines[i] : "");
+        Set(_hint, own ? _model.JoinHint : "");
+        var rows = _model.AwaitedRows();
+        for (int i = 0; i < ListRows; i++)
+        {
+            Set(_rows[i], list && i < rows.Count ? rows[i].Name : "");
+            Set(_reasons[i], list && i < rows.Count ? rows[i].Reason : "");
+        }
         Visible = own || list;
         _frames.QueueRedraw();
     }
