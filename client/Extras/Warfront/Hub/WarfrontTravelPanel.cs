@@ -5,21 +5,21 @@ namespace SmClient.Extras.Warfront.Hub;
 
 /// <summary>
 /// The travel screen (plan section 8): shown from the leader's deploy until the next battlefield is loaded and the players have rejoined. Full screen in the menus' style, no input: the title, where the
-/// Thunderhawk is going, and what the load is waiting for (<see cref="WarfrontHubModel.TravelStatus"/>, fed by <see cref="WarfrontHubModel.SetTravelProgress"/>). Three dots after the status step
-/// along unless "Reduce motion" is set. One title, one heading line and one body line, all live labels. Laid out in the 1920 by 1080 space from the top left, ours.
+/// Thunderhawk is going, and what the load is waiting for (<see cref="WarfrontHubModel.TravelStatus"/>, fed by <see cref="WarfrontHubModel.SetTravelProgress"/>). The elapsed time counts up (a first visit to a battlefield can take two to three minutes); One title, one heading line and one body line, all live labels. Laid out in the 1920 by 1080 space from the top left, ours.
 /// </summary>
 public sealed partial class WarfrontTravelPanel : Control
 {
     const float Left = UiKit.MenuLeft;
     readonly WarfrontHubModel _model;
     readonly Label _destination, _status;
+    readonly Label _elapsed;
     double _clock;
-    int _dots = -1;
 
     public Label DestinationLabel => _destination;
     public Label StatusLabel => _status;
-    /// <summary>The dots after the status right now (0 to 3; -1 before the first frame).</summary>
-    public int Dots => _dots;
+    public Label ElapsedLabel => _elapsed;
+    /// <summary>Seconds since the screen was shown.</summary>
+    public double Elapsed => _clock;
 
     public WarfrontTravelPanel(WarfrontHubModel model)
     {
@@ -37,8 +37,10 @@ public sealed partial class WarfrontTravelPanel : Control
         AddChild(title);
         _destination = Text("WarfrontTravelDestination", 300f, WarfrontHubPanel.HeadingSize, 1400f);
         _status = Text("WarfrontTravelStatus", 360f, WarfrontHubPanel.BodySize, 1400f);
+        _elapsed = Text("WarfrontTravelElapsed", 396f, WarfrontHubPanel.BodySize, 1400f);
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
+        VisibilityChanged += () => { if (Visible) SetElapsed(0); };
         Refresh();
     }
 
@@ -57,21 +59,21 @@ public sealed partial class WarfrontTravelPanel : Control
     public void Refresh()
     {
         if (_destination.Text != _model.TravelDestination) _destination.Text = _model.TravelDestination;
-        ShowStatus();
+        if (_status.Text != _model.TravelStatus) _status.Text = _model.TravelStatus;
+        SetElapsed(_clock);
     }
 
-    void ShowStatus()
+    /// <summary>Sets the clock (a test aid, and the reset when the screen is shown).</summary>
+    public void SetElapsed(double seconds)
     {
-        string text = _model.TravelStatus + (_dots > 0 ? new string('.', _dots) : "");
-        if (_status.Text != text) _status.Text = text;
+        _clock = seconds;
+        string text = WarfrontHubModel.ElapsedText(seconds);
+        if (_elapsed.Text != text) _elapsed.Text = text;
     }
 
     public override void _Process(double delta)
     {
-        _clock += delta;
-        int dots = UiKit.ReduceMotion ? 0 : (int)(_clock / 0.5) % 4;
-        if (dots == _dots) return;
-        _dots = dots;
-        ShowStatus();
+        if (!IsVisibleInTree()) return;
+        SetElapsed(_clock + delta);
     }
 }

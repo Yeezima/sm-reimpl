@@ -18,7 +18,10 @@ public sealed partial class WarfrontHubPanel : Control
     public const float Left = UiKit.MenuLeft, MapTop = 220f, LanePitch = 150f, BoxTop = 36f, BoxHeight = 84f;
     public const float HqWidth = 190f, NodeLeft = 340f, NodeWidth = 220f, NodeStep = 260f, FortressLeft = 1120f, FortressWidth = 190f, TextColumn = 1340f, TextWidth = 460f;
     public const float RowsTop = 700f, RowPitch = 40f;
+    public const float StageInset = 14f, StageHeight = 56f;
     public const int PartyRows = 6;
+    public static float StageTop(int i) => MapTop + BoxTop + 110f + 80f * i;
+    public static float WarbossTop => MapTop + BoxTop + 190f;
     public static readonly Color HereGold = new(0.98f, 0.8f, 0.12f), OrkRed = new(0.86f, 0.1f, 0.08f);
 
     readonly WarfrontHubModel _model;
@@ -27,7 +30,9 @@ public sealed partial class WarfrontHubPanel : Control
     readonly Label[] _laneNames = new Label[3], _status = new Label[3], _last = new Label[3], _floor = new Label[3], _party = new Label[PartyRows];
     readonly Label[,] _nodes = new Label[3, 3];
     readonly Label _hq, _fortress;
-    readonly Button[] _rows = new Button[4];
+    readonly Button[] _rows = new Button[WarfrontHubModel.Rows];
+    readonly Label[] _stages = new Label[3];
+    readonly Label _warboss;
     readonly Button? _closeButton;
     readonly MapDraw _map;
 
@@ -36,6 +41,8 @@ public sealed partial class WarfrontHubPanel : Control
     public Button? CloseButton => _closeButton;
     public Label NodeLabelOf(int lane, int node) => _nodes[lane, node - 1];
     public Label HqLabel => _hq;
+    public Label StageLabel(int i) => _stages[i];
+    public Label WarbossLabel => _warboss;
     public Label FortressLabel => _fortress;
     public Label NoteLabel => _note;
     public Label HeaderLabel => _header;
@@ -69,16 +76,21 @@ public sealed partial class WarfrontHubPanel : Control
         {
             var v = _m.View;
             var line = new Color(1f, 1f, 1f, 0.35f);
+            var dim = new Color(1f, 1f, 1f, 0.3f);
             float hqTop = MapTop + BoxTop, hqBottom = MapTop + 2 * LanePitch + BoxTop + BoxHeight;
-            // The HQ: red frame once a lane has broken through.
-            Frame(this, new Rect2(Left, hqTop, HqWidth, hqBottom - hqTop), 2f, v.HqMandatory ? OrkRed : new Color(1f, 1f, 1f, 0.7f));
-            // The fortress: solid when open, dim while locked.
-            Frame(this, new Rect2(FortressLeft, hqTop, FortressWidth, hqBottom - hqTop), 2f, v.FortressUnlocked ? HereGold : new Color(1f, 1f, 1f, 0.3f));
+            // One frame width (2 px) everywhere: colour and fill carry the state.
+            bool hqDanger = v.HqMandatory || v.Phase == WarfrontPhase.Lost;
+            var hqColour = hqDanger ? OrkRed : new Color(1f, 1f, 1f, 0.8f);
+            Frame(this, new Rect2(Left, hqTop, HqWidth, hqBottom - hqTop), 2f, hqColour);
+            for (int i = 0; i < 3; i++) Frame(this, new Rect2(Left + StageInset, StageTop(i), HqWidth - 2f * StageInset, StageHeight), 2f, hqDanger ? new Color(OrkRed, 0.75f) : new Color(1f, 1f, 1f, 0.5f));
+            bool fortressOpen = v.FortressUnlocked || v.Phase == WarfrontPhase.Won;
+            var fortColour = fortressOpen ? HereGold : dim;
+            Frame(this, new Rect2(FortressLeft, hqTop, FortressWidth, hqBottom - hqTop), 2f, fortColour);
+            Frame(this, new Rect2(FortressLeft + StageInset, WarbossTop, FortressWidth - 2f * StageInset, StageHeight), 2f, fortColour);
             for (int lane = 0; lane < 3; lane++)
             {
                 float y = MapTop + lane * LanePitch + BoxTop, mid = y + BoxHeight / 2f;
                 int front = v.Fronts[lane];
-                // The track under the boxes.
                 // The track runs between the boxes only (a translucent box must not show a line through its text).
                 float gapStart = Left + HqWidth;
                 for (int node = 1; node <= 3; node++)
@@ -91,27 +103,13 @@ public sealed partial class WarfrontHubPanel : Control
                 for (int node = 1; node <= 3; node++)
                 {
                     var box = new Rect2(NodeLeft + (node - 1) * NodeStep, y, NodeWidth, BoxHeight);
-                    if (node == front)
-                    {
-                        DrawRect(box, new Color(HereGold, 0.14f));
-                        Frame(this, box, 4f, HereGold);
-                    }
-                    else if (node < front)
-                    {
-                        DrawRect(box, new Color(1f, 1f, 1f, 0.10f));
-                        Frame(this, box, 2f, new Color(1f, 1f, 1f, 0.8f));
-                    }
+                    if (node == front) { DrawRect(box, new Color(HereGold, 0.28f)); Frame(this, box, 2f, HereGold); }
+                    else if (node < front) { DrawRect(box, new Color(1f, 1f, 1f, 0.10f)); Frame(this, box, 2f, new Color(1f, 1f, 1f, 0.8f)); }
                     else Frame(this, box, 2f, new Color(OrkRed, 0.75f));
                 }
-                // The marker on the track: left of the first node at the HQ, under the front node, right of the last at the fortress.
-                float mx = front switch
-                {
-                    0 => Left + HqWidth + 8f,
-                    4 => FortressLeft - 24f,
-                    _ => NodeLeft + (front - 1) * NodeStep + NodeWidth / 2f - 8f,
-                };
-                float my = front is 0 or 4 ? mid - 8f : y + BoxHeight + 8f;
-                DrawRect(new Rect2(mx, my, 16f, 16f), front == 0 ? OrkRed : HereGold);
+                // The marker only for the two states off the nodes: broken through (at the HQ) and cleared (at the fortress).
+                if (front == 0) DrawRect(new Rect2(Left + HqWidth + 8f, mid - 8f, 16f, 16f), OrkRed);
+                else if (front == 4) DrawRect(new Rect2(FortressLeft - 24f, mid - 8f, 16f, 16f), HereGold);
             }
         }
     }
@@ -139,6 +137,10 @@ public sealed partial class WarfrontHubPanel : Control
 
         _hq = Text("WarfrontHq", Left + 14f, MapTop + BoxTop + 12f, BodySize, HqWidth - 20f, lines: 2);
         _fortress = Text("WarfrontFortress", FortressLeft + 14f, MapTop + BoxTop + 12f, BodySize, FortressWidth - 20f, lines: 2);
+        string[] stages = { "WALL", "KEEP", "CAVES" };
+        for (int i = 0; i < 3; i++) { _stages[i] = Text("WarfrontStage" + i, Left + StageInset + 14f, StageTop(i) + 16f, BodySize, HqWidth - 2f * StageInset - 20f); _stages[i].Text = stages[i]; }
+        _warboss = Text("WarfrontWarboss", FortressLeft + StageInset + 14f, WarbossTop + 16f, BodySize, FortressWidth - 2f * StageInset - 20f);
+        _warboss.Text = "WARBOSS";
         for (int lane = 0; lane < 3; lane++)
         {
             float y = MapTop + lane * LanePitch;
@@ -150,7 +152,7 @@ public sealed partial class WarfrontHubPanel : Control
             _floor[lane] = Text("WarfrontFloor" + lane, TextColumn, y + BoxTop + 56f, BodySize, TextWidth);
             _laneNames[lane].Text = WarfrontHubModel.LaneName(lane);
         }
-        for (int row = 0; row < 4; row++)
+        for (int row = 0; row < WarfrontHubModel.Rows; row++)
         {
             int r = row;
             var b = UiKit.MenuButton("Deploy", () => OnRow(r));
@@ -160,7 +162,7 @@ public sealed partial class WarfrontHubPanel : Control
             AddChild(b);
             _rows[row] = b;
         }
-        _note = Text("WarfrontNote", Left, RowsTop + 4 * RowPitch + 20f, BodySize, 1200f);
+        _note = Text("WarfrontNote", Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 20f, BodySize, 1200f);
         _partyHeading = Text("WarfrontPartyHeading", TextColumn, RowsTop, HeadingSize, TextWidth);
         _partyHeading.Text = "PARTY";
         for (int i = 0; i < PartyRows; i++) _party[i] = Text("WarfrontParty" + i, TextColumn, RowsTop + 40f + i * 28f, BodySize, TextWidth);
@@ -168,7 +170,7 @@ public sealed partial class WarfrontHubPanel : Control
         {
             _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Thunderhawk (Esc, or B on a controller)");
             _closeButton.AddThemeFontSizeOverride("font_size", HeadingSize);
-            Place(_closeButton, Left, RowsTop + 4 * RowPitch + 60f, 240f, RowPitch - 2f);
+            Place(_closeButton, Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 60f, 240f, RowPitch - 2f);
             AddChild(_closeButton);
         }
         model.Changed += Refresh;
@@ -203,7 +205,7 @@ public sealed partial class WarfrontHubPanel : Control
     /// <summary>The focus on the first deployment row that can be pressed, else CLOSE.</summary>
     public void Focus()
     {
-        foreach (var b in _rows) if (!b.Disabled) { b.FocusLater(); return; }
+        foreach (var b in _rows) if (b.Visible && !b.Disabled) { b.FocusLater(); return; }
         _closeButton?.FocusLater();
     }
 
@@ -221,17 +223,41 @@ public sealed partial class WarfrontHubPanel : Control
             Set(_floor[lane], m.FloorText(lane));
             for (int node = 1; node <= 3; node++) Set(_nodes[lane, node - 1], m.NodeLabel(lane, node));
         }
-        for (int row = 0; row < 4; row++)
+        for (int row = 0; row < WarfrontHubModel.Rows; row++)
         {
             var b = _rows[row];
             string text = m.DeployRowText(row).ToUpperInvariant();
             if (b.Text != text) b.Text = text;
+            bool visible = m.RowVisible(row);
+            if (b.Visible != visible) b.Visible = visible;
             bool can = m.RowTarget(row) is { } t && m.CanDeploy(t);
             if (b.Disabled == can) b.Disabled = !can;
+            // An open target a non-leader cannot press keeps the normal colour; an unavailable one (and the locked fortress) is greyed.
+            if (m.RowOpen(row) && !can) b.AddThemeColorOverride("font_disabled_color", UiKit.MenuIdle);
+            else b.RemoveThemeColorOverride("font_disabled_color");
         }
+        WireFocus();
         Set(_note, m.Note);
         for (int i = 0; i < PartyRows; i++) Set(_party[i], m.PartyLine(i));
         _map.QueueRedraw();
+    }
+
+    public override void _Ready() => Refresh();
+
+    /// <summary>Up and down (keys, D-pad, stick) walk the rows that can be pressed, then CLOSE; they wrap.</summary>
+    void WireFocus()
+    {
+        if (!IsInsideTree()) return;
+        var chain = new System.Collections.Generic.List<Button>();
+        foreach (var b in _rows) if (b.Visible && !b.Disabled) chain.Add(b);
+        if (_closeButton is not null) chain.Add(_closeButton);
+        for (int i = 0; i < chain.Count; i++)
+        {
+            var next = chain[(i + 1) % chain.Count];
+            var prev = chain[(i + chain.Count - 1) % chain.Count];
+            chain[i].FocusNeighborBottom = chain[i].GetPathTo(next);
+            chain[i].FocusNeighborTop = chain[i].GetPathTo(prev);
+        }
     }
 
     public override void _Input(InputEvent e)

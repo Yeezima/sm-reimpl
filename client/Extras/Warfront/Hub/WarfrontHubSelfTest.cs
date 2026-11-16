@@ -74,6 +74,14 @@ public sealed partial class WarfrontHubSelfTest : Node
         int at = Array.IndexOf(args, "--wfhub-shots");
         if (at >= 0 && at + 1 < args.Length) { _shotDir = args[at + 1]; System.IO.Directory.CreateDirectory(_shotDir); }
         UiKit.EnterVirtualSpace(GetWindow());
+        int sizeAt = Array.IndexOf(args, "--wfhub-size");
+        if (sizeAt >= 0 && sizeAt + 1 < args.Length)
+        {
+            var wh = args[sizeAt + 1].Split('x');
+            GetWindow().Size = new Vector2I(int.Parse(wh[0]), int.Parse(wh[1]));
+            await Frames(10);
+            GD.Print($"SELFTEST SIZE window {GetWindow().Size} viewport {GetViewport().GetVisibleRect().Size}");
+        }
         var root = new Control { Name = "Root", Theme = UiKit.Theme };
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(root);
@@ -102,10 +110,19 @@ public sealed partial class WarfrontHubSelfTest : Node
         Check("start: Imperial HQ secure, fortress locked", _panel.HqLabel.Text == "IMPERIAL HQ\nSECURE" && _panel.FortressLabel.Text == "ORK FORTRESS\nLOCKED", _panel.HqLabel.Text + " / " + _panel.FortressLabel.Text);
         Check("start: header names the deployment", _panel.HeaderLabel.Text.Contains("DEPLOYMENT 1"));
         Check("start: the leader's three lane rows are open", Enumerable.Range(0, 3).All(r => !_panel.DeployRow(r).Disabled));
-        Check("start: the HQ row is not offered (not mandatory)", _panel.DeployRow(3).Disabled);
+        Check("start: the HQ row is not offered (not mandatory)", _panel.DeployRow(3).Disabled && _panel.DeployRow(3).Text == "IMPERIAL HQ DEFENSE: NOT AVAILABLE", _panel.DeployRow(3).Text);
+        Check("start: the locked fortress shows as a greyed row", _panel.DeployRow(4).Visible && _panel.DeployRow(4).Disabled && _panel.DeployRow(4).Text == "ORK FORTRESS: LOCKED" && !_panel.DeployRow(4).HasThemeColorOverride("font_disabled_color"));
+        Check("start: the HQ shows its three stages and the fortress the Warboss", _panel.StageLabel(0).Text == "WALL" && _panel.StageLabel(1).Text == "KEEP" && _panel.StageLabel(2).Text == "CAVES" && _panel.WarbossLabel.Text == "WARBOSS");
         Check("start: the party lists the leader and the viewer", _panel.PartyLabel(0).Text == "CAPTAIN ASH    LEADER    YOU" && _panel.PartyLabel(1).Text == "BRANN" && _panel.PartyLabel(2).Text == "PLAYER 3", _panel.PartyLabel(0).Text + "|" + _panel.PartyLabel(1).Text + "|" + _panel.PartyLabel(2).Text);
         Check("start: the note says you lead", _panel.NoteLabel.Text.StartsWith("YOU LEAD"));
         Check("start: the first open row has the focus", await FocusIs(_panel.DeployRow(0)));
+        // D-pad / keys: ui_down and ui_up walk the rows that can be pressed (the disabled HQ and fortress rows are skipped), then CLOSE, wrapping.
+        await Nav("ui_down"); Check("focus: down goes to lane B", _panel.DeployRow(1).HasFocus());
+        await Nav("ui_down"); Check("focus: down goes to lane C", _panel.DeployRow(2).HasFocus());
+        await Nav("ui_down"); Check("focus: down skips the unavailable rows to CLOSE", _panel.CloseButton!.HasFocus());
+        await Nav("ui_down"); Check("focus: down wraps to lane A", _panel.DeployRow(0).HasFocus());
+        await Nav("ui_up"); Check("focus: up wraps to CLOSE", _panel.CloseButton!.HasFocus());
+        await Nav("ui_up"); Check("focus: up goes back to lane C", _panel.DeployRow(2).HasFocus());
         requested.Clear();
         _panel.DeployRow(1).EmitSignal(BaseButton.SignalName.Pressed);
         Check("start: pressing lane B asks for node B", requested.Count == 1 && requested[0] == WarfrontTarget.Node(1), string.Join(",", requested));
@@ -114,7 +131,9 @@ public sealed partial class WarfrontHubSelfTest : Node
         // 2. A non-leader: the same map, nothing pressable, who is choosing.
         Show(c, Brann);
         await Still("start-other-player");
-        Check("other player: no row can be pressed", Enumerable.Range(0, 4).All(r => _panel.DeployRow(r).Disabled));
+        Check("other player: no row can be pressed", Enumerable.Range(0, 5).All(r => _panel.DeployRow(r).Disabled));
+        Check("other player: open targets keep the normal colour, unavailable ones are grey", Enumerable.Range(0, 3).All(r => _panel.DeployRow(r).HasThemeColorOverride("font_disabled_color")) && !_panel.DeployRow(3).HasThemeColorOverride("font_disabled_color") && _panel.DeployRow(0).Text.StartsWith("DEPLOY:"));
+        Check("other player: focus starts on CLOSE", await FocusIs(_panel.CloseButton!));
         Check("other player: sees who is choosing", _panel.NoteLabel.Text == "CAPTAIN ASH IS CHOOSING THE DEPLOYMENT", _panel.NoteLabel.Text);
         requested.Clear();
         Check("other player: the model refuses a deploy", !_model.RequestDeploy(WarfrontTarget.Node(0)) && requested.Count == 0);
@@ -162,6 +181,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Check("cleared: lane A's row deploys to the fortress", _panel.DeployRow(0).Text == "DEPLOY: ORK FORTRESS, THROUGH LANE A" && !_panel.DeployRow(0).Disabled, _panel.DeployRow(0).Text);
         requested.Clear();
         _panel.DeployRow(0).EmitSignal(BaseButton.SignalName.Pressed);
+        Check("cleared: the fortress row is gone (it is a lane row now)", !_panel.DeployRow(4).Visible);
         Check("cleared: pressing it asks for the fortress through lane A", requested.Count == 1 && requested[0] == WarfrontTarget.Fortress(0), string.Join(",", requested));
         FitCheck("cleared");
 
@@ -173,7 +193,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Show(c, Ash);
         await Still("hq-mandatory-leader");
         Check("mandatory: the HQ is marked", _panel.HqLabel.Text == "IMPERIAL HQ\nMUST BE HELD", _panel.HqLabel.Text);
-        Check("mandatory: lane A reads broken through", _panel.StatusLabel(0).Text == "BROKEN THROUGH TO THE HQ" && _panel.DeployRow(0).Text == "LANE A: BROKEN THROUGH", _panel.StatusLabel(0).Text);
+        Check("mandatory: lane A reads broken through", _panel.StatusLabel(0).Text == "BROKEN THROUGH TO THE HQ" && _panel.DeployRow(0).Text == "LANE A: NOT AVAILABLE" && _panel.DeployRow(1).Text == "LANE B: NOT AVAILABLE", _panel.StatusLabel(0).Text);
         Check("mandatory: the HQ row is the only open row", !_panel.DeployRow(3).Disabled && Enumerable.Range(0, 3).All(r => _panel.DeployRow(r).Disabled));
         Check("mandatory: the note says so", _panel.NoteLabel.Text.StartsWith("HQ DEFENSE IS MANDATORY"), _panel.NoteLabel.Text);
         Check("mandatory: the focus is on the HQ row", await FocusIs(_panel.DeployRow(3)));
@@ -208,12 +228,19 @@ public sealed partial class WarfrontHubSelfTest : Node
         c = Run();
         c.TryDeploy(Ash, WarfrontTarget.Node(1), out _);
         Show(c, Brann);
+        _travel.Visible = true;
+        Check("travel: before anyone has arrived it says it is building", _travel.StatusLabel.Text == "BUILDING THE BATTLEFIELD, FIRST VISIT CAN TAKE A FEW MINUTES", _travel.StatusLabel.Text);
+        _travel.SetElapsed(7);
+        await Still("travel-building");
         _model.SetTravelProgress(1, 3);
+        _travel.SetElapsed(142);
         await Still("travel");
         Check("travel: the travel screen replaces the map", _travel.Visible && !_panel.Visible);
         Check("travel: the destination names the lane and node", _travel.DestinationLabel.Text == "TO LANE B, NODE 1, WASTELAND", _travel.DestinationLabel.Text);
-        Check("travel: the status counts who arrived", _travel.StatusLabel.Text.StartsWith("LOADING THE BATTLEFIELD    1 OF 3 PLAYERS ARRIVED"), _travel.StatusLabel.Text);
-        Check("travel: the dots step along", await DotsStep());
+        Check("travel: the status waits for players and counts who arrived", _travel.StatusLabel.Text == "WAITING FOR PLAYERS    1 OF 3 PLAYERS ARRIVED", _travel.StatusLabel.Text);
+        Check("travel: the elapsed time counts up", await ElapsedRuns());
+        _travel.SetElapsed(65);
+        Check("travel: the elapsed time reads minutes and seconds", _travel.ElapsedLabel.Text == "ELAPSED 1:05", _travel.ElapsedLabel.Text);
         FitCheckTravel();
         _model.SetTravelProgress(3, 3);
         await Frames(2);
@@ -227,7 +254,8 @@ public sealed partial class WarfrontHubSelfTest : Node
         c.WarbossKilled();
         Show(c, Ash);
         await Still("war-won");
-        Check("won: header and note say so, nothing can be deployed", _panel.HeaderLabel.Text == "THE WAR IS WON" && _panel.NoteLabel.Text.Contains("WARBOSS") && Enumerable.Range(0, 4).All(r => _panel.DeployRow(r).Disabled));
+        Check("won: header and note say so, the deploy rows are hidden", _panel.HeaderLabel.Text == "THE WAR IS WON" && _panel.NoteLabel.Text.Contains("WARBOSS") && Enumerable.Range(0, 5).All(r => !_panel.DeployRow(r).Visible));
+        Check("won: the boxes show the result and nothing stale", _panel.FortressLabel.Text == "ORK FORTRESS\nWARBOSS SLAIN" && _panel.HqLabel.Text == "IMPERIAL HQ\nHELD" && Enumerable.Range(0, 3).All(l => _panel.LastLabel(l).Text == "" && _panel.FloorLabel(l).Text == ""));
         c = Run(false, false, false, false, false, false);
         Deployment(c, WarfrontTarget.Node(0), WarfrontOutcome.Win);
         Deployment(c, WarfrontTarget.Node(0), WarfrontOutcome.Wipe);
@@ -236,6 +264,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Show(c, Ash);
         await Still("war-lost");
         Check("lost: header and note say so", _panel.HeaderLabel.Text == "THE WAR IS LOST" && _panel.NoteLabel.Text.Contains("HQ HAS FALLEN"));
+        Check("lost: the HQ box says fallen, not must be held, and no roll lines remain", _panel.HqLabel.Text == "IMPERIAL HQ\nFALLEN" && Enumerable.Range(0, 3).All(l => _panel.LastLabel(l).Text == "") && Enumerable.Range(0, 5).All(r => !_panel.DeployRow(r).Visible));
 
         // 12. The feed: an unchanged state raises nothing; a change raises once.
         c = Run();
@@ -259,16 +288,21 @@ public sealed partial class WarfrontHubSelfTest : Node
         return b.HasFocus() || !b.IsVisibleInTree();   // a hidden desktop run may not give the window focus: the grab is what counts
     }
 
-    async Task<bool> DotsStep()
+    async Task<bool> ElapsedRuns()
     {
-        var seen = new HashSet<int>();
+        _travel.SetElapsed(0);
         ulong start = Time.GetTicksMsec();
-        while (Time.GetTicksMsec() - start < 2600 && seen.Count < 3)
-        {
-            seen.Add(_travel.Dots);
-            await Frames(1);
-        }
-        return seen.Count >= 3;
+        while (Time.GetTicksMsec() - start < 1500 && _travel.Elapsed < 0.5) await Frames(1);
+        return _travel.Elapsed >= 0.5 && _travel.ElapsedLabel.Text == WarfrontHubModel.ElapsedText(_travel.Elapsed);
+    }
+
+    /// <summary>One press of a navigation action, as a key, the D-pad or the stick sends it.</summary>
+    async Task Nav(string action)
+    {
+        Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = true });
+        await Frames(2);
+        Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = false });
+        await Frames(2);
     }
 
     /// <summary>The model takes a plain view built by hand, as W5 will.</summary>
@@ -298,7 +332,7 @@ public sealed partial class WarfrontHubSelfTest : Node
             Check($"{state}: label {l.Name} is on screen", r.Position.X >= 0 && r.Position.Y >= 0 && r.End.X <= UiKit.VirtualWidth && r.End.Y <= UiKit.VirtualHeight, r.ToString());
             rects.Add((l.Name, r));
         }
-        foreach (var b in new[] { 0, 1, 2, 3 }.Select(i => _panel.DeployRow(i)))
+        foreach (var b in Enumerable.Range(0, 5).Select(i => _panel.DeployRow(i)).Where(b => b.Visible))
         {
             var min = b.GetCombinedMinimumSize();
             Check($"{state}: row {b.Name} text fits", min.X <= b.Size.X + 0.5f, $"{min.X} in {b.Size.X} \"{b.Text}\"");
@@ -314,7 +348,7 @@ public sealed partial class WarfrontHubSelfTest : Node
 
     void FitCheckTravel()
     {
-        foreach (var l in new[] { _travel.DestinationLabel, _travel.StatusLabel })
+        foreach (var l in new[] { _travel.DestinationLabel, _travel.StatusLabel, _travel.ElapsedLabel })
         {
             var min = l.GetCombinedMinimumSize();
             Check($"travel: label {l.Name} fits", min.X <= l.Size.X + 0.5f, $"{min} in {l.Size}");

@@ -62,6 +62,7 @@ public sealed class WarfrontHubModel
     /// <summary>The target a row stands for: rows 0 to 2 the lane's node (or the fortress through it when cleared), row 3 the HQ defense. Null when the lane has no target (broken through).</summary>
     public WarfrontTarget? RowTarget(int row)
     {
+        if (row == 4) return null;
         if (row == 3) return WarfrontTarget.Hq;
         int f = _view.Fronts[row];
         return f is >= 1 and <= 3 ? WarfrontTarget.Node(row) : f == 4 ? WarfrontTarget.Fortress(row) : null;
@@ -74,13 +75,22 @@ public sealed class WarfrontHubModel
     /// <summary>The node a lane fights at, "NODE 2, OUTSKIRTS".</summary>
     public static string NodeText(int front) => $"NODE {front}, {NodeNames[Math.Clamp(front, 1, 3) - 1]}";
 
+    /// <summary>Rows 0 to 2 the lanes, 3 the HQ defense, 4 the locked fortress.</summary>
+    public const int Rows = 5;
+
+    /// <summary>The campaign offers this row's target (to anyone, whoever leads).</summary>
+    public bool RowOpen(int row) => RowTarget(row) is { } t && InShip && _view.Targets.Contains(t);
+
+    /// <summary>Rows 0 to 3 stand while the war goes on; the fortress row (4) only while the fortress is locked.</summary>
+    public bool RowVisible(int row) => !IsOver && (row < 4 || !_view.FortressUnlocked);
+
     public string DeployRowText(int row)
     {
+        if (row == 4) return "ORK FORTRESS: LOCKED";
+        if (!RowOpen(row)) return row == 3 ? "IMPERIAL HQ DEFENSE: NOT AVAILABLE" : $"{LaneName(row)}: NOT AVAILABLE";
         if (row == 3) return "DEPLOY: IMPERIAL HQ DEFENSE";
         int f = _view.Fronts[row];
-        if (f is >= 1 and <= 3) return $"DEPLOY: {LaneName(row)}, {NodeText(f)}";
-        if (f == 4) return $"DEPLOY: ORK FORTRESS, THROUGH {LaneName(row)}";
-        return $"{LaneName(row)}: BROKEN THROUGH";
+        return f == 4 ? $"DEPLOY: ORK FORTRESS, THROUGH {LaneName(row)}" : $"DEPLOY: {LaneName(row)}, {NodeText(f)}";
     }
 
     /// <summary>The text in lane <paramref name="lane"/>'s node box <paramref name="node"/> (1 to 3): its name and its state.</summary>
@@ -99,7 +109,7 @@ public sealed class WarfrontHubModel
         var f => $"FIGHTING AT {NodeText(f)}",
     };
 
-    public string LastText(int lane) => _view.Last[lane] switch
+    public string LastText(int lane) => IsOver ? "" : _view.Last[lane] switch
     {
         HubLastKind.PlayedWon => "LAST DEPLOYMENT: WON",
         HubLastKind.PlayedWiped => "LAST DEPLOYMENT: WIPED",
@@ -111,10 +121,10 @@ public sealed class WarfrontHubModel
     };
 
     /// <summary>The floor: a lane that was never advanced cannot fall below node 1.</summary>
-    public string FloorText(int lane) => _view.Fronts[lane] == 1 && !_view.Advanced[lane] ? "FLOOR: NODE 1 CANNOT FALL" : "";
+    public string FloorText(int lane) => !IsOver && _view.Fronts[lane] == 1 && !_view.Advanced[lane] ? "FLOOR: NODE 1 CANNOT FALL" : "";
 
-    public string FortressState => _view.FortressUnlocked ? "UNLOCKED" : "LOCKED";
-    public string HqState => _view.HqMandatory ? "MUST BE HELD" : _view.Fronts.Any(f => f == 0) ? "BROKEN THROUGH" : "SECURE";
+    public string FortressState => _view.Phase == WarfrontPhase.Won ? "WARBOSS SLAIN" : _view.FortressUnlocked ? "UNLOCKED" : "LOCKED";
+    public string HqState => _view.Phase == WarfrontPhase.Lost ? "FALLEN" : _view.Phase == WarfrontPhase.Won ? "HELD" : _view.HqMandatory ? "MUST BE HELD" : _view.Fronts.Any(f => f == 0) ? "BROKEN THROUGH" : "SECURE";
 
     public string Header => _view.Phase switch
     {
@@ -174,5 +184,8 @@ public sealed class WarfrontHubModel
         }
     }
 
-    public string TravelStatus => TravelTotal > 0 ? $"LOADING THE BATTLEFIELD    {TravelJoined} OF {TravelTotal} PLAYERS ARRIVED" : "LOADING THE BATTLEFIELD";
+    public string TravelStatus => TravelTotal > 0 ? $"WAITING FOR PLAYERS    {TravelJoined} OF {TravelTotal} PLAYERS ARRIVED" : "BUILDING THE BATTLEFIELD, FIRST VISIT CAN TAKE A FEW MINUTES";
+
+    /// <summary>"ELAPSED 1:05" (the first visit to a battlefield can take 100 to 180 seconds).</summary>
+    public static string ElapsedText(double seconds) => $"ELAPSED {(int)seconds / 60}:{(int)seconds % 60:00}";
 }
