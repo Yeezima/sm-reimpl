@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3436 spec table rows: **2452 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
+Scanned 3443 spec table rows: **2459 tagged**, 636 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 754 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3436 spec table rows: **2452 tagged**, 636 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 764 | 721 | 551 | 207 | 1 |
+| Core simulation (provisional values) | 771 | 728 | 558 | 213 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2452** | 2180 | 1826 | 749 | 37 |
+| **All areas** | **2459** | 2187 | 1833 | 755 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1426 |
-| confidence: low | 886 |
-| confidence: medium | 831 |
-| notes: ours | 422 |
+| kind: ours | 1427 |
+| confidence: low | 892 |
+| confidence: medium | 832 |
+| notes: ours | 428 |
 | kind: interpretation | 400 |
 | notes: estimate | 203 |
-| kind: estimate | 182 |
+| kind: estimate | 188 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2520,7 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (764)
+### Core simulation (provisional values) (771)
 
 *Spec section: Provisional values in use*
 
@@ -3736,6 +3736,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-46CEB424` | HQ defence position markers | W (0, -34, 20) radius 20, half height 9 (so the gate, the ground behind it and the wall walk over the gate count); K (0, 70, 12) radius 24 (the hall); V (0, 160, 12) radius 40 (the cross passage, the tunnels' north half and the chamber); held and lost in that… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (three positions W, K, V); places and radii ours | HQ defence position markers: compare with SM1 by measuring on a flat spot of the same map. Ours: W (0, -34, 20) radius 20, half height 9 (so the gate, the ground… | ☐ |
 | `R-7E8BF98B` | HQ own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post and spawn); a walking graph connects assembly -> W -> K -> V -> landing; every opening on the Ork route is at least 8 m… | kind: ours | plan section 2 "own gates" | HQ own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
 
+*Spec section: Warfront fortress map profile and arena interface (warfront/w14a, 2026-11-17; added content, Warfront only; generation only, no battle rules, no Warboss spawn, no server wiring, no map name, no protocol or wire change; level version 1)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-989413F7` | Fortress map extent | 300 wide (x -150..150) by 320 long (y -190..130), a 64 m boundary wall outside; rock (40 m) beside and behind the compound (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (a walled compound); size ours | Fortress map extent: compare with SM1 by measuring on a flat spot of the same map. Ours: 300 wide (x -150..150) by 320 long (y -190..130), a 64 m boundary… | ☐ |
+| `R-53393EBF` | Fortress outer yard and south gate | outer yard y -190..-100 (90 m deep, the Marines' landing ground); compound south wall y -100..-92 (8 m thick), 16 m high, x +-100; one gate x -6..6 (12 m wide), 10 m clear, its lintel (z 10..16) a roof part (m) | kind: estimate; confidence: low; notes: ours | owner brief (openings Orks walk at least 8 m wide and 8 m clear; a Boss Nob is about 6.9 m); the rest ours | Fortress outer yard and south gate: compare with SM1 by measuring on a flat spot of the same map. Ours: outer yard y -190..-100 (90 m deep, the Marines' landing ground)… | ☐ |
+| `R-2073877C` | Fortress street blocks | eight solid blocks 14 m high: columns x 24..60 and 72..96 each side, rows y -84..-60 and -44..-20 (36 x 24 and 24 x 24 m); gaps between the columns 12 m, the cross streets 16 m, the central yard between the inner columns 48 m wide (m) | kind: estimate; confidence: low; notes: ours | plan section 2 ("street walls and breached blocks as the core's"; no breached block yet); sizes ours | Fortress street blocks: compare with SM1 by measuring on a flat spot of the same map. Ours: eight solid blocks 14 m high: columns x 24..60 and 72..96 each side… | ☐ |
+| `R-CEC62B8E` | Fortress arena shell and plaza | strip y -20..-1 (19 m) along the shell; shell x +-51, y -1..101, 6 m walls, 14 m high; plaza inside x +-45, y 5..95 (90 x 90, radius 45 m about the Warboss spot (0, 50)); openings: south 16 m wide, west and east 12 m wide (y 44..56), each 10 m clear with a… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (plaza radius 45 m); the plaza's square footprint, the openings and the shell ours | Fortress arena shell and plaza: compare with SM1 by measuring on a flat spot of the same map. Ours: strip y -20..-1 (19 m) along the shell; shell x +-51, y -1..101, 6 m… | ☐ |
+| `R-6681ED26` | Fortress plaza and yard cover | four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four plaza cover walls (6 x 1.5 x 1.2 m) at x +-(30..36), y 38 and 61; ten more low walls in the yard, the streets, the strip and the lanes, all off the lines through the openings and clear of the… (m) | kind: estimate; confidence: low; notes: ours | ours | Fortress plaza and yard cover: compare with SM1 by measuring on a flat spot of the same map. Ours: four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four… | ☐ |
+| `R-AA8F3028` | Fortress markers | landing zone (0, -150); Warboss spot (0, 50) with the `Arena` marker radius 45, half height 12; 17 Ork sources in three stages (0: the outer streets, 6; 1: the strip and the lanes, 7; 2: the plaza, 4); 9 posts (5 landing, 2 gate, 2 plaza gate); three routes… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (landing zone, boss spot, Ork sources, optional points, hash); numbers ours | Fortress markers: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -150); Warboss spot (0, 50) with the Arena marker… | ☐ |
+| `R-D4BE9AC7` | Fortress own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post, route and spawn); a walking graph connects the landing zone to the Warboss spot by three routes (centre; west lane in by the… | kind: ours; confidence: medium | owner brief (at least two army-width routes; every elite source reachable; a stub loads through the interface) | Fortress own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -4280,6 +4292,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-F0B68338` | HQ defense level (Helm's Deep style) | ours (plan section 2): not an SM1 map; generated in code, every size an estimate | 300 x 420 m: assembly ground, a 30 m wide ramp rising 12 m, a 14 m wall with a 12 m gate and a parapet reached only from inside, a courtyard, the keep (two 8 m doors) and two roofed tunnels (8 m wide, 8 m clear, a cross passage halfway) to the last-stand chamber; defence positions W, K, V | Warfront HQ defense map profile | HQ defense level (Helm's Deep style): compare with SM1 by feel or video. Ours: ours (plan section 2): not an SM1 map; generated in code, every size… | ☐ |
+
+#### Warfront fortress map (warfront/w14a; spec "Warfront fortress map profile and arena interface")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-D78ECDBB` | Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with a 16 m opening south and 12 m openings each side, three routes (centre and both flank lanes), every Ork opening at least 8 m wide and 10 m clear | Warfront fortress map profile and arena interface | Ork fortress level and the IWarfrontArena interface…: compare with SM1 by feel or video. Ours: ours (plan section 2, slot 11): not an SM1 map; generated in code… | ☐ |
 
 #### Controller (gamepad feature; spec "Controller (gamepad)")
 
