@@ -1,0 +1,572 @@
+using System.Numerics;
+using SmSim.Extras.Musou;
+using SmSim.Extras.Musou.Campaign;
+
+namespace SmSim.Extras.Warfront.Squad;
+
+/// <summary>
+/// Warfront's lightweight squad (slice W9; owner, 2026-11-17: "All retainers use a lightweight squad system: 9 per player, 36 in all ... simpler rule-driven combat"). A Marine here is an
+/// agent, not a World player: a place on the ground, a health and armour, a state, an order. A battle is <see cref="BeginBattle"/>, a <see cref="Step"/> per tick, <see cref="EndBattle"/>.
+/// Orks fight it through <see cref="AppendTargets"/> (their targets, ids <see cref="SquadRules.TargetId"/>) and <see cref="Hit"/> (an attack that landed); the squad fights back by
+/// <see cref="ISquadArena"/>. Orders are Musou Mode's Follow, Hold and Attack (<see cref="Order"/>). A Marine at 0 health is downed for 20 s (any player, or a squad-mate when no Ork is
+/// within 6 m, revives it at full health), else out for the battle only. <see cref="AnyStanding"/> answers W3's spectator and wipe rule. Deterministic: agents in index order, every roll a
+/// hash of the tick and the Marine. Label: provisional approximation of player combat (no recoil, perks as numbers).
+/// </summary>
+public sealed class WarfrontSquadSim
+{
+    const int Max = SquadRules.MaxTotal;
+
+    sealed class Agent
+    {
+        public RosterMarine Marine = null!;
+        public int Owner, OwnerSlot, Slot;
+        public SquadState State;
+        public Vector3 Pos, HoldAt;
+        public float Yaw, Health, Armour, HealthMax, ArmourMax, ReviveProgress;
+        public int DownedLeft;                  // ticks
+        public uint NextShot;
+        public ushort Target;
+        public int DutyMate = -1, DutyHuman = int.MinValue, Attendant = -1, ReviverMarine = -1, ReviverHuman = -1;
+        public bool Progressed;
+    }
+
+    struct DamageNote { public int M0, M1; public uint T0, T1; }
+
+    readonly SquadRosters _rosters;
+    readonly ISquadArena _arena;
+    readonly Agent[] _a = new Agent[Max];
+    readonly SquadOrder[] _order = new SquadOrder[SquadRules.MaxOwners];
+    readonly Vector3?[] _point = new Vector3?[SquadRules.MaxOwners];
+    readonly int[] _lastSequence = [-1, -1, -1, -1];
+    readonly float[] _damageScale = [1f, 1f, 1f, 1f], _healthScale = [1f, 1f, 1f, 1f];
+    readonly Dictionary<ushort, DamageNote> _notes = [];
+    readonly Dictionary<int, int> _humanAttendant = [];
+    readonly Dictionary<int, (float Progress, uint Touched)> _humanProgress = [];
+    readonly List<SquadKill> _kills = [];
+    readonly List<SquadRevive> _revives = [], _pendingRevives = [];
+    readonly List<SquadDown> _downs = [], _pendingDowns = [];
+    readonly ushort[] _seen = new ushort[4];
+    readonly ushort[] _one = new ushort[1];
+    uint _tick;
+    bool _inStep;
+
+    public WarfrontSquadSim(SquadRosters rosters, ISquadArena arena)
+    {
+        _rosters = rosters;
+        _arena = arena;
+        for (int i = 0; i < Max; i++) _a[i] = new Agent();
+    }
+
+    /// <summary>The rosters this sim fights from.</summary>
+    public SquadRosters Rosters => _rosters;
+
+    /// <summary>Called when a Marine finishes reviving a fallen human (W3's <c>WarfrontRevive</c>); true when the revive took.</summary>
+    public Func<int, bool>? ReviveHuman { get; set; }
+
+    /// <summary>Kills by squad Marines this tick (cleared by each <see cref="Step"/>).</summary>
+    public IReadOnlyList<SquadKill> Kills => _kills;
+    /// <summary>Revives completed this tick.</summary>
+    public IReadOnlyList<SquadRevive> Revives => _revives;
+    /// <summary>Marines knocked down this tick.</summary>
+    public IReadOnlyList<SquadDown> Downs => _downs;
+
+    float Dt => 1f / Math.Max(1, _arena.TickRate);
+
+    /// <summary>Marine index of <paramref name="owner"/>'s roster slot <paramref name="slot"/>; -1 when the owner has no roster or the slot is out of range.</summary>
+    public int IndexOf(int owner, int slot)
+    {
+        int s = _rosters.OwnerSlot(owner);
+        return s >= 0 && slot >= 0 && slot < SquadRules.MaxPerPlayer ? s * SquadRules.MaxPerPlayer + slot : -1;
+    }
+
+    /// <summary>The player's damage and health multipliers for its squad (W7's stat share): damage applies at once, health to Marines landed afterwards. 1 and 1 by default.</summary>
+    public void SetScale(int owner, float damage, float health)
+    {
+        int s = _rosters.OwnerSlot(owner);
+        if (s < 0) return;
+        _damageScale[s] = Math.Max(0f, damage);
+        _healthScale[s] = Math.Max(0.01f, health);
+    }
+
+    // ---- battle
+
+    /// <summary>
+    /// A new battle: every roster not on hold lands its Marines in a ring round its owner's landing point, standing at full health, order Follow; every earlier state is dropped. The number landed.
+    /// </summary>
+    public int BeginBattle(ReadOnlySpan<(int Owner, Vector3 Landing)> landings)
+    {
+        foreach (var a in _a) { a.State = SquadState.Free; a.Attendant = -1; }
+        _notes.Clear(); _humanAttendant.Clear(); _humanProgress.Clear(); _kills.Clear(); _revives.Clear(); _downs.Clear(); _pendingDowns.Clear(); _pendingRevives.Clear();
+        int landed = 0;
+        foreach (var (owner, landing) in landings)
+        {
+            int os = _rosters.OwnerSlot(owner);
+            if (os < 0) continue;
+            _order[os] = SquadOrder.Follow; _point[os] = null; _lastSequence[os] = -1;
+            if (_rosters.IsHeldAt(os)) continue;
+            for (int slot = 0; slot < _rosters.MarinesIn(os); slot++)
+            {
+                var m = _rosters.MarineAt(os, slot)!;
+                var a = _a[os * SquadRules.MaxPerPlayer + slot];
+                float angle = slot * 2.4f, radius = SquadRules.LandRadius + slot * SquadRules.LandRadiusStep;
+                a.Marine = m; a.Owner = owner; a.OwnerSlot = os; a.Slot = slot; a.State = SquadState.Standing;
+                a.Pos = landing + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f);
+                a.HoldAt = a.Pos; a.Yaw = 0f;
+                a.HealthMax = Math.Max(1f, m.Loadout.HealthMax * _healthScale[os]); a.ArmourMax = Math.Max(0f, m.Loadout.ArmourMax * _healthScale[os]);
+                a.Health = a.HealthMax; a.Armour = a.ArmourMax;
+                a.DownedLeft = 0; a.ReviveProgress = 0f; a.NextShot = 0; a.Target = 0; a.DutyMate = -1; a.DutyHuman = int.MinValue; a.Attendant = -1; a.ReviverMarine = -1; a.ReviverHuman = -1; a.Progressed = false;
+                landed++;
+            }
+        }
+        return landed;
+    }
+
+    /// <summary>
+    /// The battle is over: every Marine still standing has survived it (service record), every other one (downed or out) comes back next battle (no permanent death). All agents are released.
+    /// The number that survived.
+    /// </summary>
+    public int EndBattle()
+    {
+        int survived = 0;
+        foreach (var a in _a)
+        {
+            if (a.State == SquadState.Standing) { a.Marine.Record.BattlesSurvived++; survived++; }
+            a.State = SquadState.Free; a.Attendant = -1;
+        }
+        _notes.Clear(); _humanAttendant.Clear(); _humanProgress.Clear();
+        return survived;
+    }
+
+    // ---- who stands (W3's wipe and respawn rule)
+
+    /// <summary>Whether any Marine stands (W3's <c>AnyRetainerStanding</c>): not downed, not out.</summary>
+    public bool AnyStanding { get { foreach (var a in _a) if (a.State == SquadState.Standing) return true; return false; } }
+
+    /// <summary>Whether any Marine is downed with its window open (not counted as standing; shown so the wipe rule can be told apart from a lull).</summary>
+    public bool AnyReviveWindowOpen { get { foreach (var a in _a) if (a.State == SquadState.Downed) return true; return false; } }
+
+    /// <summary>Marines standing in <paramref name="owner"/>'s squad.</summary>
+    public int StandingOf(int owner) { int n = 0; foreach (var a in _a) if (a.State == SquadState.Standing && a.Owner == owner) n++; return n; }
+
+    /// <summary>The state of Marine <paramref name="index"/>.</summary>
+    public SquadState StateOf(int index) => index is >= 0 and < Max ? _a[index].State : SquadState.Free;
+
+    /// <summary>A Marine for the wire and the tests; null for an index out of range or a Marine not in this battle.</summary>
+    public SquadMarineView? View(int index)
+    {
+        if (index is < 0 or >= Max || _a[index].State == SquadState.Free) return null;
+        var a = _a[index];
+        return new SquadMarineView(index, a.Owner, a.Slot, a.State, a.Pos, a.Yaw, a.HealthMax > 0 ? Math.Clamp(a.Health / a.HealthMax, 0f, 1f) : 0f, a.State == SquadState.Downed ? a.DownedLeft * Dt : 0f);
+    }
+
+    /// <summary>Every Marine in this battle as the wire shows it, in index order; the number written.</summary>
+    public int CopyTo(Span<SquadMarineView> into)
+    {
+        int n = 0;
+        for (int i = 0; i < Max && n < into.Length; i++) if (View(i) is { } v) into[n++] = v;
+        return n;
+    }
+
+    // ---- orders
+
+    /// <summary>
+    /// A player's order for its own squad (W3's <c>OrderSink</c>): Follow, Hold or Attack as Musou Mode's fireteam orders. A Hold with a point holds that place (each Marine a place round it),
+    /// else every Marine holds where it stands now; an Attack with a point goes there and fights, else it fights what it sees (40 m) while following. A resent sequence and any other command are
+    /// ignored (false).
+    /// </summary>
+    public bool Order(int player, TfwCommandRecord command)
+    {
+        int os = _rosters.OwnerSlot(player);
+        if (os < 0 || command.Command is not (TfwCommand.Follow or TfwCommand.Hold or TfwCommand.Attack)) return false;
+        if (_lastSequence[os] == command.Sequence) return false;
+        _lastSequence[os] = command.Sequence;
+        var order = command.Command switch { TfwCommand.Hold => SquadOrder.Hold, TfwCommand.Attack => SquadOrder.Attack, _ => SquadOrder.Follow };
+        bool place = command.Point != default && order != SquadOrder.Follow;
+        _order[os] = order;
+        _point[os] = place ? command.Point : null;
+        for (int slot = 0; slot < SquadRules.MaxPerPlayer; slot++)
+        {
+            var a = _a[os * SquadRules.MaxPerPlayer + slot];
+            if (a.State == SquadState.Free) continue;
+            a.HoldAt = place && order == SquadOrder.Hold ? command.Point + Ring(slot, 1f, 0.35f) : a.Pos;
+        }
+        return true;
+    }
+
+    /// <summary>The order of <paramref name="owner"/>'s squad (Follow without a roster).</summary>
+    public SquadOrder OrderOf(int owner) => _rosters.OwnerSlot(owner) is var s and >= 0 ? _order[s] : SquadOrder.Follow;
+
+    // ---- the Orks' side
+
+    /// <summary>The standing Marines as the Orks see them (ids <see cref="SquadRules.TargetId"/>), written into <paramref name="into"/>; the number written.</summary>
+    public int AppendTargets(Span<MusouTarget> into)
+    {
+        int n = 0;
+        for (int i = 0; i < Max && n < into.Length; i++)
+            if (_a[i].State == SquadState.Standing) into[n++] = new MusouTarget(SquadRules.TargetId(i), _a[i].Pos, true, SquadRules.BodyRadius);
+        return n;
+    }
+
+    /// <summary>
+    /// An Ork attack that landed on squad target <paramref name="targetId"/> (the hook line in World: an attack whose player is in the squad range): armour first, then health; at 0 the Marine is
+    /// downed for 20 s. False for another id or a Marine not standing.
+    /// </summary>
+    public bool Hit(int targetId, float damage, Vector3 from)
+    {
+        int i = SquadRules.IndexOfTarget(targetId);
+        if (i < 0 || _a[i].State != SquadState.Standing || !(damage > 0f)) return false;
+        var a = _a[i];
+        float soak = Math.Min(a.Armour, damage);
+        a.Armour -= soak; a.Health -= damage - soak;
+        if (a.Health <= 0f) GoDown(i);
+        return true;
+    }
+
+    void GoDown(int i)
+    {
+        var a = _a[i];
+        a.Health = 0f; a.State = SquadState.Downed; a.Target = 0; a.ReviveProgress = 0f; a.Attendant = -1; a.ReviverMarine = a.ReviverHuman = -1;
+        a.DownedLeft = Math.Max(1, (int)MathF.Round(SquadRules.DownedSeconds * _arena.TickRate));
+        a.DutyMate = -1; a.DutyHuman = int.MinValue;
+        a.Marine.Record.TimesDowned++;
+        _pendingDowns.Add(new SquadDown(a.Owner, a.Slot));   // reported by the next Step (a Hit comes before it)
+    }
+
+    /// <summary>Revives a downed Marine at full health and armour (W3/W12 route a player's hold here); false when it is not downed.</summary>
+    public bool Revive(int index, int byHuman = -1)
+    {
+        if (index is < 0 or >= Max || _a[index].State != SquadState.Downed) return false;
+        DoRevive(index, byHuman, -1);
+        return true;
+    }
+
+    void DoRevive(int index, int byHuman, int byMarine)
+    {
+        var a = _a[index];
+        a.State = SquadState.Standing; a.Health = a.HealthMax; a.Armour = a.ArmourMax; a.DownedLeft = 0; a.ReviveProgress = 0f; a.Attendant = -1; a.Target = 0;
+        a.HoldAt = a.Pos;
+        if (byMarine >= 0) _a[byMarine].Marine.Record.Revives++;
+        (_inStep ? _revives : _pendingRevives).Add(new SquadRevive(byHuman, byMarine, a.Owner, a.Slot, -1));
+    }
+
+    /// <summary>Marines standing within <paramref name="radius"/> of a secured point each score an objective (W3 calls it when a point is secured). The number credited.</summary>
+    public int CreditObjective(Vector3 point, float radius)
+    {
+        int n = 0;
+        foreach (var a in _a)
+            if (a.State == SquadState.Standing && Flat(a.Pos - point) <= radius) { a.Marine.Record.Objectives++; n++; }
+        return n;
+    }
+
+    /// <summary>A human killed an Ork the squad had hurt: those Marines share an assist.</summary>
+    public void NoteHumanKill(ushort enemy) => PayAssists(enemy, -1);
+
+    // ---- the tick
+
+    /// <summary>One tick: downed timers and revives, then every standing Marine in index order (target, duty, move, fire), then separation.</summary>
+    public void Step(uint tick, ReadOnlySpan<SquadHuman> humans)
+    {
+        _tick = tick;
+        _kills.Clear();
+        _revives.Clear(); _revives.AddRange(_pendingRevives); _pendingRevives.Clear();
+        _downs.Clear(); _downs.AddRange(_pendingDowns); _pendingDowns.Clear();
+        float dt = Dt;
+        _inStep = true;
+        BeginDowned(humans, dt);
+        for (int i = 0; i < Max; i++) if (_a[i].State == SquadState.Standing) StepAgent(i, humans, dt);
+        EndDowned(humans);
+        _inStep = false;
+        Separate();
+        if ((tick & 127) == 0) Prune();
+    }
+
+    void BeginDowned(ReadOnlySpan<SquadHuman> humans, float dt)
+    {
+        for (int d = 0; d < Max; d++)
+        {
+            var a = _a[d];
+            if (a.State != SquadState.Downed) continue;
+            a.Progressed = false;
+            if (--a.DownedLeft <= 0) { a.State = SquadState.Out; a.Attendant = -1; a.ReviverMarine = a.ReviverHuman = -1; continue; }
+            foreach (var h in humans)
+            {
+                if (!h.Alive || h.ReviveTarget != d || Flat(h.Position - a.Pos) > SquadRules.PlayerReviveReach) continue;
+                a.ReviveProgress += dt; a.Progressed = true; a.ReviverHuman = h.Id; a.ReviverMarine = -1;
+                break;
+            }
+        }
+    }
+
+    void EndDowned(ReadOnlySpan<SquadHuman> humans)
+    {
+        for (int d = 0; d < Max; d++)
+        {
+            var a = _a[d];
+            if (a.State != SquadState.Downed) continue;
+            if (!a.Progressed) { a.ReviveProgress = 0f; a.ReviverMarine = a.ReviverHuman = -1; continue; }
+            float need = a.ReviverHuman >= 0 ? SquadRules.PlayerReviveSeconds : SquadRules.MarineReviveSeconds;
+            if (a.ReviveProgress >= need - 1e-4f) DoRevive(d, a.ReviverHuman, a.ReviverMarine);
+        }
+        // fallen humans a Marine has been holding: complete, or reset when nobody worked on one this tick
+        List<int>? finished = null, dropped = null;
+        foreach (var (id, p) in _humanProgress)
+        {
+            if (p.Touched != _tick) (dropped ??= []).Add(id);
+            else if (p.Progress >= SquadRules.MarineReviveSeconds - 1e-4f) (finished ??= []).Add(id);
+        }
+        if (dropped is not null) foreach (int id in dropped) _humanProgress.Remove(id);
+        if (finished is null) return;
+        foreach (int id in finished)
+        {
+            int by = _humanAttendant.TryGetValue(id, out var m) ? m : -1;
+            _humanProgress.Remove(id); _humanAttendant.Remove(id);
+            if (ReviveHuman?.Invoke(id) != true) continue;
+            if (by >= 0 && _a[by].State == SquadState.Standing) _a[by].Marine.Record.Revives++;
+            _revives.Add(new SquadRevive(-1, by, -1, -1, id));
+        }
+    }
+
+    void StepAgent(int i, ReadOnlySpan<SquadHuman> humans, float dt)
+    {
+        var a = _a[i];
+        int os = a.OwnerSlot;
+        var order = _order[os];
+        bool ownerKnown = false; Vector3 ownerPos = a.Pos;
+        foreach (var h in humans) if (h.Id == a.Owner) { ownerKnown = h.Alive; ownerPos = h.Position; break; }
+        Vector3 anchor = _point[os] is { } p ? p : ownerKnown ? ownerPos : a.Pos;
+        var w = a.Marine.Loadout.Weapon;
+        bool retarget = (_tick + (uint)i) % SquadRules.RetargetTicks == 0;
+
+        // duty: a downed squad-mate or a fallen human, when no Ork is near the body
+        if (a.DutyMate >= 0 || a.DutyHuman != int.MinValue) ValidateDuty(i, humans);
+        if (a.DutyMate < 0 && a.DutyHuman == int.MinValue && retarget) ChooseDuty(i, humans);
+        if (a.DutyMate >= 0 || a.DutyHuman != int.MinValue)
+        {
+            Vector3 body = a.DutyMate >= 0 ? _a[a.DutyMate].Pos : HumanPos(humans, a.DutyHuman);
+            a.Target = 0;
+            if (Flat(body - a.Pos) > SquadRules.MarineReviveReach - 0.2f) { MoveToward(a, body, MarineRules.ReviveApproach, SquadRules.SprintSpeed, dt, anchor); }
+            else if (a.DutyMate >= 0)
+            {
+                var d = _a[a.DutyMate];
+                if (!d.Progressed) { d.ReviveProgress += dt; d.Progressed = true; d.ReviverMarine = i; d.ReviverHuman = -1; }
+            }
+            else
+            {
+                var (prog, _) = _humanProgress.TryGetValue(a.DutyHuman, out var cur) ? cur : (0f, 0u);
+                _humanProgress[a.DutyHuman] = (prog + dt, _tick);
+            }
+            return;
+        }
+
+        // target
+        if (retarget) a.Target = PickTarget(a, order, w);
+        Vector3 tpos = default; SquadEnemyClass kind = default;
+        bool haveTarget = a.Target != 0 && _arena.TryEnemy(a.Target, out tpos, out kind);
+        if (!haveTarget) a.Target = 0;
+
+        // where to stand
+        Vector3 home = HomeOf(a, order, ownerKnown, ownerPos);
+        bool sprint = false;
+        Vector3? goal = null; float stop = 0.5f;
+        if (haveTarget)
+        {
+            float d = Flat(tpos - a.Pos);
+            if (w.Melee)
+            {
+                if (order == SquadOrder.Attack || d <= MarineRules.StrikeChase) { goal = tpos; stop = MarineRules.StrikeStandOff; }
+            }
+            else if (order == SquadOrder.Attack && d > MarineRules.GunStandOff) { goal = tpos; stop = MarineRules.GunStandOff; }
+        }
+        if (goal is null)
+        {
+            switch (order)
+            {
+                case SquadOrder.Follow:
+                    if (ownerKnown && Flat(ownerPos - a.Pos) > MarineRules.FollowMax) { goal = home; stop = 1f; sprint = !haveTarget && Flat(ownerPos - a.Pos) > MarineRules.SprintBeyond; }
+                    break;
+                case SquadOrder.Hold:
+                    if (Flat(a.HoldAt - a.Pos) > MarineRules.HoldStand + 0.5f) { goal = a.HoldAt; stop = MarineRules.HoldStand; }
+                    break;
+                default:
+                    if (_point[os] is { } at) { if (Flat(at - a.Pos) > MarineRules.ArriveRadius) { goal = at; stop = MarineRules.ArriveRadius * 0.5f; sprint = !haveTarget && Flat(at - a.Pos) > MarineRules.SprintBeyond; } }
+                    else if (ownerKnown && Flat(ownerPos - a.Pos) > MarineRules.FollowMax) { goal = home; stop = 1f; }
+                    break;
+            }
+        }
+        if (goal is { } g) MoveToward(a, g, stop, sprint ? SquadRules.SprintSpeed : SquadRules.Speed, dt, anchor);
+
+        // fire
+        if (!haveTarget) return;
+        Vector3 to = tpos - a.Pos;
+        if (Flat(to) > 0.01f) a.Yaw = MathF.Atan2(to.Y, to.X);
+        if (Flat(to) > w.Range || _tick < a.NextShot) return;
+        if (!w.Melee && !_arena.HasSight(a.Pos, tpos)) return;
+        a.NextShot = _tick + (uint)Math.Max(1, (int)MathF.Round(w.Interval * _arena.TickRate));
+        if (Roll(_tick, i, 1) >= w.HitChance) return;
+        var push = Flat(to) > 0.01f ? Vector3.Normalize(new Vector3(to.X, to.Y, 0f)) : Vector3.Zero;
+        float amount = w.Damage * _damageScale[os];
+        if (!_arena.DamageEnemy(a.Target, amount, push, out bool killed)) return;
+        if (killed) Killed(i, a.Target, kind);
+        else Note(a.Target, i);
+        if (killed) a.Target = 0;
+    }
+
+    void Killed(int i, ushort enemy, SquadEnemyClass kind)
+    {
+        var a = _a[i];
+        var r = a.Marine.Record;
+        r.Kills++;
+        if (kind == SquadEnemyClass.Elite) r.EliteKills++; else if (kind == SquadEnemyClass.Boss) r.BossKills++;
+        _kills.Add(new SquadKill(a.Owner, a.Slot, enemy, kind));
+        PayAssists(enemy, i);
+    }
+
+    void Note(ushort enemy, int marine)
+    {
+        _notes.TryGetValue(enemy, out var n);
+        if (n.M0 == marine + 1 || n.M1 == marine + 1) { if (n.M0 == marine + 1) n.T0 = _tick; else n.T1 = _tick; }
+        else if (n.M0 == 0 || n.T0 <= n.T1) { n.M0 = marine + 1; n.T0 = _tick; }
+        else { n.M1 = marine + 1; n.T1 = _tick; }
+        _notes[enemy] = n;
+    }
+
+    void PayAssists(ushort enemy, int killer)
+    {
+        if (!_notes.Remove(enemy, out var n)) return;
+        uint window = (uint)(SquadRules.AssistSeconds * _arena.TickRate);
+        if (n.M0 > 0 && n.M0 - 1 != killer && _tick - n.T0 <= window && _a[n.M0 - 1].State != SquadState.Free) _a[n.M0 - 1].Marine.Record.Assists++;
+        if (n.M1 > 0 && n.M1 - 1 != killer && _tick - n.T1 <= window && _a[n.M1 - 1].State != SquadState.Free) _a[n.M1 - 1].Marine.Record.Assists++;
+    }
+
+    void Prune()
+    {
+        uint window = (uint)(SquadRules.AssistSeconds * _arena.TickRate);
+        List<ushort>? old = null;
+        foreach (var (id, n) in _notes) if (_tick - Math.Max(n.T0, n.T1) > window) (old ??= []).Add(id);
+        if (old is not null) foreach (var id in old) _notes.Remove(id);
+    }
+
+    ushort PickTarget(Agent a, SquadOrder order, SquadWeapon w)
+    {
+        Vector3 centre = order == SquadOrder.Hold ? a.HoldAt : a.Pos;
+        float radius = order switch { SquadOrder.Hold => MarineRules.HoldRadius, SquadOrder.Attack => MarineRules.AttackSight, _ => MarineRules.FollowEngage };
+        int n = _arena.QueryEnemies(centre, radius, _seen);
+        for (int k = 0; k < n; k++)
+        {
+            if (!_arena.TryEnemy(_seen[k], out var pos, out _)) continue;
+            if (!w.Melee && Flat(pos - a.Pos) > w.Range) continue;
+            if (w.Melee || _arena.HasSight(a.Pos, pos)) return _seen[k];
+        }
+        return 0;
+    }
+
+    Vector3 HomeOf(Agent a, SquadOrder order, bool ownerKnown, Vector3 ownerPos)
+    {
+        if (order == SquadOrder.Hold) return a.HoldAt;
+        if (order == SquadOrder.Attack && _point[a.OwnerSlot] is { } at) return at + Ring(a.Slot, 1.5f, 0.4f);
+        if (!ownerKnown) return a.Pos;
+        float radius = MarineRules.FollowStandNear + (a.Slot % 3) * 1f;   // 4.5 to 6.5 m: inside the band
+        return ownerPos + Ring(a.Slot, radius, 0f);
+    }
+
+    static Vector3 Ring(int slot, float radius, float step)
+    {
+        float angle = slot * 2.4f, r = radius + slot * step;
+        return new Vector3(MathF.Cos(angle) * r, MathF.Sin(angle) * r, 0f);
+    }
+
+    // ---- revive duty
+
+    void ChooseDuty(int i, ReadOnlySpan<SquadHuman> humans)
+    {
+        var a = _a[i];
+        int bestMate = -1; int bestHuman = int.MinValue; float best = SquadRules.ReviveSearch;
+        for (int d = 0; d < Max; d++)
+        {
+            var m = _a[d];
+            if (m.State != SquadState.Downed || m.OwnerSlot != a.OwnerSlot || d == i) continue;
+            if (m.Attendant >= 0 && m.Attendant != i && _a[m.Attendant].State == SquadState.Standing && _a[m.Attendant].DutyMate == d) continue;
+            float dist = Flat(m.Pos - a.Pos);
+            if (dist < best) { best = dist; bestMate = d; bestHuman = int.MinValue; }
+        }
+        foreach (var h in humans)
+        {
+            if (h.Alive || !h.Fallen) continue;
+            if (_humanAttendant.TryGetValue(h.Id, out var att) && att != i && _a[att].State == SquadState.Standing && _a[att].DutyHuman == h.Id) continue;
+            float dist = Flat(h.Position - a.Pos);
+            if (dist < best) { best = dist; bestHuman = h.Id; bestMate = -1; }
+        }
+        if (bestMate < 0 && bestHuman == int.MinValue) return;
+        Vector3 body = bestMate >= 0 ? _a[bestMate].Pos : HumanPos(humans, bestHuman);
+        if (!Safe(body)) return;
+        a.DutyMate = bestMate; a.DutyHuman = bestHuman;
+        if (bestMate >= 0) _a[bestMate].Attendant = i; else _humanAttendant[bestHuman] = i;
+    }
+
+    void ValidateDuty(int i, ReadOnlySpan<SquadHuman> humans)
+    {
+        var a = _a[i];
+        bool ok;
+        Vector3 body = a.Pos;
+        if (a.DutyMate >= 0) { ok = _a[a.DutyMate].State == SquadState.Downed; if (ok) body = _a[a.DutyMate].Pos; }
+        else { ok = false; foreach (var h in humans) if (h.Id == a.DutyHuman) { ok = !h.Alive && h.Fallen; body = h.Position; break; } }
+        if (ok && !Safe(body)) ok = false;
+        if (ok) return;
+        if (a.DutyMate >= 0 && _a[a.DutyMate].Attendant == i) _a[a.DutyMate].Attendant = -1;
+        if (a.DutyHuman != int.MinValue) { if (_humanAttendant.TryGetValue(a.DutyHuman, out var att) && att == i) _humanAttendant.Remove(a.DutyHuman); }
+        a.DutyMate = -1; a.DutyHuman = int.MinValue;
+    }
+
+    bool Safe(Vector3 body) => _arena.QueryEnemies(body, SquadRules.SafeRadius, _one) == 0;
+
+    static Vector3 HumanPos(ReadOnlySpan<SquadHuman> humans, int id)
+    {
+        foreach (var h in humans) if (h.Id == id) return h.Position;
+        return default;
+    }
+
+    // ---- movement
+
+    void MoveToward(Agent a, Vector3 goal, float stop, float speed, float dt, Vector3 anchor)
+    {
+        float left = Flat(goal - a.Pos);
+        if (left <= stop) return;
+        var wp = _arena.Steer(a.Pos, goal, anchor);
+        var way = new Vector2(wp.X - a.Pos.X, wp.Y - a.Pos.Y);
+        float len = way.Length();
+        if (len < 1e-4f) return;
+        float step = Math.Min(Math.Min(speed * dt, len), left - stop);
+        var dir = way / len;
+        a.Pos += new Vector3(dir.X * step, dir.Y * step, Math.Clamp(wp.Z - a.Pos.Z, -step, step));
+        a.Yaw = MathF.Atan2(dir.Y, dir.X);
+    }
+
+    void Separate()
+    {
+        for (int i = 0; i < Max; i++)
+        {
+            if (_a[i].State != SquadState.Standing) continue;
+            for (int j = i + 1; j < Max; j++)
+            {
+                if (_a[j].State != SquadState.Standing) continue;
+                var d = new Vector2(_a[j].Pos.X - _a[i].Pos.X, _a[j].Pos.Y - _a[i].Pos.Y);
+                float len = d.Length();
+                if (len >= SquadRules.Separation) continue;
+                var axis = len < 1e-4f ? new Vector2(MathF.Cos(i * 2.4f), MathF.Sin(i * 2.4f)) : d / len;
+                float push = (SquadRules.Separation - len) * 0.5f;
+                _a[i].Pos -= new Vector3(axis.X * push, axis.Y * push, 0f);
+                _a[j].Pos += new Vector3(axis.X * push, axis.Y * push, 0f);
+            }
+        }
+    }
+
+    static float Flat(Vector3 v) => MathF.Sqrt(v.X * v.X + v.Y * v.Y);
+
+    /// <summary>A deterministic roll in [0,1) of the tick, the Marine and a salt.</summary>
+    static float Roll(uint tick, int index, uint salt)
+    {
+        uint h = tick * 2654435761u ^ (uint)(index + 1) * 2246822519u ^ salt * 3266489917u;
+        h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
+        return (h & 0xFFFFFF) / (float)0x1000000;
+    }
+}
