@@ -31,7 +31,9 @@ public sealed partial class TfwRun
             _landingSlots[id] = _deployed.Count;   // TfwRun.Flow.cs: a redeploy comes back here
             _deployed.Add(id);
             w.TfwRespawnAt(id, at, yaw);
-            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
+            bool retainer = true;
+            WarfrontRetainer(id, ref retainer);   // WARFRONT-HOOK
+            if (retainer) w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
             LateJoins++;
         }
         _deployed.Sort();
