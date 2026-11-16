@@ -44,7 +44,9 @@ public class AshfallFrontClientRuleTests
         var composed = AshfallMap.BuildDraft5(AshfallLayout.Front).Level;
         var partsBefore = composed.Parts.ToArray();
         foreach (var (bandLevel, _) in AshfallMap.SplitFront(composed, AshfallMap.BuildDraft5(AshfallLayout.Front).Dressing)) AshfallMap.OpenFrontEdges(bandLevel);
-        Assert.Equal(partsBefore, composed.Parts);   // drawing copies only: the composed level keeps every part, the walls closed
+        Assert.Equal(partsBefore.Length, composed.Parts.Count);   // drawing copies only: the composed level keeps every part, the walls closed
+        for (int i = 0; i < partsBefore.Length; i++) Assert.Same(partsBefore[i], composed.Parts[i]);   // the very same part objects (a replaced part would carry new corners)
+        Assert.Equal(AshfallFrontWorldTests.PinnedComposedHash, composed.Hash);
         var collision = AshfallContent.ToMapContent(composed).ToCollisionWorld();
         for (int band = 0; band < AshfallFront.BandCount; band++)
             foreach (float dir in new[] { 1f, -1f })   // a ray along the avenue out of each edge meets the boundary wall
@@ -53,7 +55,7 @@ public class AshfallFrontClientRuleTests
                 var hit = collision.Character.Raycast(from, new Vector3(0f, dir, 0f), 20f);
                 Assert.True(hit is { } h && h.Distance <= 5.5f, $"band {band}: the avenue's {(dir > 0 ? "north" : "south")} exit is open in the collision");
             }
-        Assert.Equal(composed.Hash, AshfallContent.ToMapContent(composed).Hash);
+        Assert.Equal(AshfallFrontWorldTests.PinnedComposedHash, AshfallContent.ToMapContent(composed).Hash);   // the map hash the handshake compares is the pinned composed hash
         var gate = new Vector3(0f, AshfallMap.Half + 2f, 2f);   // in the north wall, on the avenue
         Assert.Contains(composed.Parts, p => p.Kind == AshfallKind.Boundary && p.Corners.Min(c => c.X) < 0f && p.Corners.Max(c => c.X) > 0f && p.Corners.Min(c => c.Y) <= gate.Y && p.Corners.Max(c => c.Y) >= gate.Y);
         Assert.True(collision.Character.Max.Y >= AshfallMap.Half + 4f - 1e-3f);

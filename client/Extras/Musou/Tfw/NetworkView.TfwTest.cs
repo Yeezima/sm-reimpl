@@ -157,6 +157,7 @@ public partial class NetworkView
         }
         double end = _connectedFor + seconds;
         var nav0 = _tfwTestNav;
+        if (nav0 is null) { TfwCheck(what, false, "no walking graph"); return false; }
         var from0 = client.Predicted.Position;
         var path = await System.Threading.Tasks.Task.Run(() => nav0.FindPath(from0, at));   // off the main thread: on the front pilot's 2.5 million-node graph a search took seconds (F4 pass 2: 16-36 s stalls)
         if (path is null || path.Partial) { TfwCheck(what, false, $"no way from {client.Predicted.Position} to {at}"); return false; }
@@ -199,13 +200,24 @@ public partial class NetworkView
                 lastReplanAt = me;
                 var nav = _tfwTestNav;
                 var from = client.Predicted.Position;
-                if (await System.Threading.Tasks.Task.Run(() => nav.FindPath(from, at)) is { Partial: false } again)   // off the main thread
+                TfwKey(Key.W, false);   // stand still while the search runs off the main thread (it may take a while: the walker must not wander meanwhile)
+                var again = await System.Threading.Tasks.Task.Run(() => nav.FindPath(from, at));
+                var now = client.Predicted.Position;   // where the walker stands after the await
+                if (again is { Partial: false })
                 {
                     points = again.Waypoints;
+                    // the nearest waypoint from where it stands now (not the first: the search began a moment ago)
                     next = 0;
-                    GD.Print($"TFWTEST note: {what}: a new way from {from}, {points.Count} waypoints");
+                    float best = float.MaxValue;
+                    for (int k = 0; k < points.Count; k++)
+                    {
+                        float d = Num.Vector3.Distance(points[k].Position, now);
+                        if (d < best) { best = d; next = k; }
+                    }
+                    GD.Print($"TFWTEST note: {what}: a new way from {from}, {points.Count} waypoints, going on from waypoint {next}");
                 }
-                last = client.Predicted.Position;
+                TfwKey(Key.W, true);
+                last = now;
             }
             await TfwFrames();
         }

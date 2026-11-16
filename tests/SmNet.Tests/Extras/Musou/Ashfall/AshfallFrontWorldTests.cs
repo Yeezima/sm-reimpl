@@ -14,6 +14,9 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 /// </summary>
 public class AshfallFrontWorldTests(ITestOutputHelper output)
 {
+    /// <summary>The composed world's level hash (front version 1, the default seed; after F5). Re-pin with the band pins after a generator change.</summary>
+    public const ulong PinnedComposedHash = 0x85544EA11A1D9794UL;
+
     [Fact]
     [Trait("Speed", "Slow")]   // builds the default bands (cached in the process) and one other seed's wasteland
     public void A_built_bands_frame_is_read_back_from_the_level_for_any_seed()
@@ -53,6 +56,7 @@ public class AshfallFrontWorldTests(ITestOutputHelper output)
         Assert.Equal(6, level.Areas.Count);
         Assert.Equal(Enumerable.Range(0, 3).Sum(b => AshfallMap.BuildFrontBand(b).Level.Parts.Count), level.Parts.Count);
         for (int k = 0; k < 3; k++) Assert.All(level.Points.Skip(3 * k).Take(3), p => Assert.Equal(k, AshfallFront.BandAt(p.Center.X)));
+        Assert.Equal(PinnedComposedHash, level.Hash);
         output.WriteLine($"composed: hash {level.Hash:X16}, {level.Parts.Count} parts, {level.SolidCorners().Length / 3} collision triangles, {whole.Dressing.Items.Count} items");
         // split back into its bands: the same parts, items and points as each band's own build
         var split = AshfallMap.SplitFront(level, whole.Dressing);
