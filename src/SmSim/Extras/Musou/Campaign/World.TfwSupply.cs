@@ -73,6 +73,7 @@ namespace SmSim
                 if (!p.Alive || Loadouts.Equipment(Config, p) is not { } item || p.Grenades >= item.Count) { _tfwGrenadeTicks.Remove(id); continue; }
                 float seconds = TfwSupplyRules.GrenadeRefillSeconds;
                 ArsenalRefillSeconds(item, ref seconds);   // Arsenal/World.Arsenal.cs: an item's own period (W4, the charge's 30 s); 15 s for every item until then
+                WarfrontCooldown(id, ref seconds);   // WARFRONT-HOOK
                 int period = Math.Max(1, (int)MathF.Round(seconds * Config.TickRate));
                 int ticks = _tfwGrenadeTicks.GetValueOrDefault(id) + 1;
                 if (ticks >= period)
@@ -84,6 +85,9 @@ namespace SmSim
             }
             if (_tfwGrenadeTicks.Count > _players.Count) foreach (int id in _tfwGrenadeTicks.Keys.Where(id => !_players.ContainsKey(id)).ToList()) _tfwGrenadeTicks.Remove(id);
         }
+
+        /// <summary>Warfront: the refill period's seconds, scaled by the player's cooldown cards.</summary>
+        partial void WarfrontCooldown(int player, ref float seconds);
 
         /// <summary>Test aid: ticks player <paramref name="id"/> has waited for its next grenade (0: none counting).</summary>
         public int TfwGrenadeWait(int id) => _tfwGrenadeTicks.GetValueOrDefault(id);

@@ -34,6 +34,8 @@ public sealed class LibrarianPsyker
     /// <summary>Seconds left on the Shockwave's cooldown (and the Warp Pull's, with the restore switch <c>pull</c> only; else 0).</summary>
     public float ShockwaveCooldown { get; private set; }
     public float PullCooldown { get; private set; }
+    /// <summary>The factor on the cooldowns a cast sets (added content's cooldown cards, Warfront; 1: none, exactly).</summary>
+    public float CooldownScale { get; set; } = 1f;
     /// <summary>Shockwaves and Warp Pulls cast (wrapping bytes: the clients play the effect when one changes; Pulls only with the restore switch).</summary>
     public byte ShockwaveCount { get; private set; }
     public byte PullCount { get; private set; }
@@ -91,7 +93,7 @@ public sealed class LibrarianPsyker
         if (!Locked && pullEdge && PullCooldown <= 0f)   // the restore switch pull only (pass 2)
         {
             Pull(sim, caster);
-            PullCooldown = LibrarianRules.Pass2.PullCooldown;
+            PullCooldown = LibrarianRules.Pass2.PullCooldown * CooldownScale;
             PullCount++;
             Stress += LibrarianRules.Pass2.PullStress;
             cast = true;
@@ -99,7 +101,7 @@ public sealed class LibrarianPsyker
         if (!Locked && !(cast && Stress >= LibrarianRules.StressMax - LockEpsilon) && shockEdge && ShockwaveCooldown <= 0f)
         {
             if (variant.OldShockwave) ShockwavePass2(sim, caster); else Shockwave(sim, caster);
-            ShockwaveCooldown = LibrarianRules.ShockwaveCooldown;
+            ShockwaveCooldown = LibrarianRules.ShockwaveCooldown * CooldownScale;
             ShockwaveCount++;
             Stress += LibrarianRules.ShockwaveStress;
             cast = true;

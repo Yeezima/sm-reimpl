@@ -71,7 +71,9 @@ public sealed partial class World
     {
         float stim = Stims.MeleeDealt(Config, state);
         float powerups = _musou!.MeleeScaleOf(attacker);
-        return powerups > 1f ? MathF.Min(stim, MusouPowerupRules.Cap / powerups) : stim;
+        float cap = MusouPowerupRules.Cap;
+        WarfrontMeleeCap(attacker, ref cap);   // WARFRONT-HOOK
+        return powerups > 1f ? MathF.Min(stim, cap / powerups) : stim;
     }
 
     /// <summary>A KO (from <see cref="MusouDropFor"/>): a powerup drop for every living player when the enemy is a boss, or an elite whose roll comes up.</summary>
@@ -98,6 +100,7 @@ public sealed partial class World
         var musou = _musou!;
         _musouFeared.Clear();
         musou.ClearAttackerScales();
+        WarfrontAttackerScales(musou);   // WARFRONT-HOOK
         if (_musouBuffs.Count == 0) { musou.SetFear(_musouFeared); return; }
         _musouBuffIds.Clear();
         foreach (int id in _musouBuffs.Keys) _musouBuffIds.Add(id);
@@ -118,12 +121,22 @@ public sealed partial class World
             float other = b.Active(MusouPowerup.DoubleDamage, Tick) ? MusouPowerupRules.DamageScale : 1f;
             // The owner's "x2 cap" (2026-11-10): Supercharged Melee and Double Damage together are x2 on melee, not x4 (a stim is held under the same cap: MusouMeleeDealt).
             float melee = MathF.Min(MusouPowerupRules.Cap, other * (b.Active(MusouPowerup.Supercharged, Tick) ? MusouPowerupRules.MeleeScale : 1f));
+            WarfrontAttackerScale(id, ref melee, ref other);   // WARFRONT-HOOK
             musou.SetAttackerScale(id, melee, other);
             float fire = b.Active(MusouPowerup.RapidFire, Tick) ? (b.RapidFire - Tick) / (float)Config.TickRate : 0f;
             if (MathF.Abs(p.FireBoostLeft - fire) > 0.5f / Config.TickRate) _players[id] = p with { FireBoostLeft = fire };
         }
         musou.SetFear(_musouFeared);
     }
+
+    /// <summary>Warfront: the melee cap of <paramref name="attacker"/> (x2) is raised by his damage cards: the cards multiply on top of the owner's x2 cap.</summary>
+    partial void WarfrontMeleeCap(int attacker, ref float cap);
+
+    /// <summary>Warfront: sets the damage scales of the players the cards raise, right after the clear (a power-up's own scale below then takes them in <see cref="WarfrontAttackerScale"/>).</summary>
+    partial void WarfrontAttackerScales(MusouSim musou);
+
+    /// <summary>Warfront: multiplies a player's cards' damage scale into the power-ups' <paramref name="melee"/> and <paramref name="other"/> scales.</summary>
+    partial void WarfrontAttackerScale(int id, ref float melee, ref float other);
 
     /// <summary>A press of <paramref name="playerId"/> whose nearest own drop in reach is the powerup <paramref name="drop"/>: its hold begins this tick (<see cref="MusouHoldsStep"/>).</summary>
     void MusouStartHold(int playerId, ushort drop) => _musouHolds[playerId] = (drop, Tick);

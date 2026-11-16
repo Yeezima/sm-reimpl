@@ -276,6 +276,7 @@ public class WarfrontBattleTests
     {
         var w = War(humans: 4);
         var battle = TfwRig.Deploy(w);
+        w.Tfw!.Warfront!.OrkLevelScale = () => (1f, 1f);   // the capturing player's XP now rises levels (W3b): this test is of the humans' factor alone
         for (int k = 0; k < 3; k++)
         {
             int p = k;

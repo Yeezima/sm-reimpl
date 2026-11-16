@@ -21,6 +21,7 @@ public class IsolationPins
         double clock = run.War.Clock;
         var battle = TfwRig.Deploy(w);
         Assert.False(battle.WarfrontNode);
+        foreach (var psyker in w.Librarians.Values) Assert.Equal(1f, psyker.CooldownScale);   // the Librarian's cooldown scale stays 1
         Assert.Equal(TfwBattleRules.StartTransport - TfwBattleRules.DeployCost, run.Transport);   // the deploy cost stands
         TfwRig.Seconds(w, 2f);
         Assert.True(run.War.Clock > clock);   // the war clock runs
@@ -40,5 +41,25 @@ public class IsolationPins
         var all = new MusouEnemy[MusouSim.Capacity];
         int n = w.Musou!.CopyTo(all);
         Assert.DoesNotContain(all.Take(n), e => e.Alive && e.Type == MusouEnemyType.Warboss);
+    }
+
+    [Fact]
+    public void Under_Musou_without_the_flag_the_progression_and_squad_hooks_change_nothing()
+    {
+        var w = TfwRig.War();
+        var battle = TfwRig.Deploy(w);
+        var ork = w.Musou!.Spawn(MusouEnemyType.Boy, w.Players[TfwRig.Human].Position + new System.Numerics.Vector3(0f, 1.2f, 0f), 0f, 100000f);
+        Assert.True(w.Musou.TryGet(ork, out var e) && e.Health == 100000f);   // no spawn scale
+        for (int k = 0; k < 150; k++)
+        {
+            w.Step(_ => default);
+            Assert.Equal(0f, w.Players[TfwRig.Human].AttackSpeedBonus);   // the one core field stays 0 through a scripted battle
+        }
+        Assert.Equal(1f, SmSim.Stims.AttackSpeed(w.Config, w.Players[TfwRig.Human]));
+        Assert.Equal(1f, w.DamageTakenScale(TfwRig.Human));
+        Assert.Null(w.WarfrontOffer(TfwRig.Human));
+        Assert.False(w.WarfrontPick(TfwRig.Human, 0, 0));
+        Assert.False(battle.WarfrontNode);
+        foreach (var psyker in w.Librarians.Values) Assert.Equal(1f, psyker.CooldownScale);   // the Librarian's cooldown scale stays 1
     }
 }

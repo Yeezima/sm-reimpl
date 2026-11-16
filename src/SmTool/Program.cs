@@ -50,6 +50,7 @@ return args switch
     ["musou-guard-vantage", .. var vantageRest] => SmTool.MusouGuardVantageCommand.Run(vantageRest),
     ["spear-rig-dump", .. var rigRest] => SmTool.SpearRigDumpCommand.Run(rigRest),
 #if SM_WARFRONT
+    ["warfront-maps", .. var warfrontMapsRest] => SmTool.WarfrontMapsCommand.Run(warfrontMapsRest),
     ["warfront-tuning", .. var wfTuneRest] => SmTool.WarfrontTuningCommand.Run(wfTuneRest),
 #endif
 #endif
