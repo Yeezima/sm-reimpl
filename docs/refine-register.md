@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
+Scanned 3495 spec table rows: **2499 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
-| General game design | 19 | 19 | 17 | 7 | 0 |
+| General game design | 24 | 24 | 20 | 7 | 0 |
 | Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2494** | 2222 | 1859 | 765 | 37 |
+| **All areas** | **2499** | 2227 | 1862 | 765 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1449 |
-| confidence: low | 902 |
-| confidence: medium | 848 |
+| kind: ours | 1454 |
+| confidence: low | 903 |
+| confidence: medium | 850 |
 | notes: ours | 436 |
 | kind: interpretation | 406 |
 | notes: estimate | 204 |
@@ -3784,7 +3784,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (19)
+### General game design (24)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -3819,6 +3819,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6681ED26` | Fortress plaza and yard cover | four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four plaza cover walls (6 x 1.5 x 1.2 m) at x +-(30..36), y 38 and 61; ten more low walls in the yard, the streets, the strip and the lanes, all off the lines through the openings and clear of the… (m) | kind: estimate; confidence: low; notes: ours | ours | Fortress plaza and yard cover: compare with SM1 by measuring on a flat spot of the same map. Ours: four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four… | ☐ |
 | `R-AA8F3028` | Fortress markers | landing zone (0, -150); Warboss spot (0, 50) with the `Arena` marker radius 45, half height 12; 17 Ork sources in three stages (0: the outer streets, 6, each at least 40 m from both entries; 1: the strip and the lanes, 7; 2: the plaza, 4); 17 posts (5… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (landing zone, boss spot, Ork sources, optional points, hash); numbers ours | Fortress markers: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -150); Warboss spot (0, 50) with the Arena marker… | ☐ |
 | `R-D4BE9AC7` | Fortress own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post, route and spawn); a walking graph connects the landing zone to the Warboss spot by three routes (centre; west lane through… | kind: ours; confidence: medium | owner brief (at least two army-width routes; every elite source reachable; a stub loads through the interface) | Fortress own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
+
+*Spec section: Warfront stats ledger (warfront/w4b, 2026-11-17; added content, Warfront only; pure, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7F639869` | Kill classes | ordinary, elite, boss by `WarfrontXpLedger.Classify`; Kills = all three (kills) | kind: ours; confidence: medium | `WarfrontStatsLedger.OnKill` | Kill classes: compare with SM1 by feel or video. Ours: ordinary, elite, boss by WarfrontXpLedger.Classify; Kills = all three. | ☐ |
+| `R-E865E464` | Other counters | assists, deaths, revives given (to the reviver), captures (A/B/C and D counted apart, leaderboard shows the sum), battles fought (count) | kind: ours; confidence: medium | `OnAssist`, `OnDeath`, `OnRevive`, `OnCapture`, `OnBattle` | Other counters: compare with SM1 by feel or video. Ours: assists, deaths, revives given (to the reviver), captures (A/B/C and… | ☐ |
+| `R-BC6EDC4A` | Duplicate guard | a nonzero event id counts once per (counter, key, id); 0 is unguarded; the guard is saved with the run | kind: ours | `WarfrontStatsLedger` | Duplicate guard: compare with SM1 by feel or video. Ours: a nonzero event id counts once per (counter, key, id); 0 is… | ☐ |
+| `R-73F0A358` | What counts as an assist, and who is credited with a revive or capture | decided by the stage-flow feeder, not here (W3b `WarfrontDamaged`, W3 downed rule) | kind: ours; confidence: low | stage-flow slice | What counts as an assist, and who is credited with a revive…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: decided by the stage-flow feeder, not here (W3b WarfrontDamaged, W3… | ☐ |
+| `R-71E34088` | Persistence | per key, never reset by disconnect or rejoin; a new run starts empty | kind: ours | `WarfrontCampaign.Stats` | Persistence: compare with SM1 by feel or video. Ours: per key, never reset by disconnect or rejoin; a new run starts empty. | ☐ |
 
 ## Part B: Ork faction
 
@@ -4530,6 +4540,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-8EAA4069` | Warfront campaign (third mode): lanes, rolls, HQ defense, fortress, save and resume; not in SM1 | the owner's rules (2026-11-17); the cases they leave open ours (interpretation) | three lanes of three nodes, an Imperial HQ and an Ork fortress, up to four connected humans, a leader, and a run save that survives a restart | spec "Added content: Warfront — the campaign" | Warfront campaign (third mode): lanes, rolls, HQ defense…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17); the cases they leave open ours… | ☐ |
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
+| `C-973022C6` | Warfront stats ledger (W4b): per-player kills by class, assists, deaths, revives, captures, battles, saved with the run; not in SM1 | feeds the end-of-run leaderboard; counters and guard ours | counted once per event id, kept across rejoins | spec "Warfront stats ledger" | Warfront stats ledger (W4b): per-player kills by class…: compare with SM1 by timing a run over a known distance. Ours: feeds the end-of-run leaderboard; counters and guard ours. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

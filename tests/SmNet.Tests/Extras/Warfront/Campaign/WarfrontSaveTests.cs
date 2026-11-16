@@ -92,7 +92,7 @@ public class WarfrontSaveTests : IDisposable
     public void Load_without_a_save_is_null_and_a_bad_version_is_refused()
     {
         Assert.Null(WarfrontSave.Load(_dir));
-        var json = Busy().ToJson().Replace("\"Version\":1", "\"Version\":99");
+        var json = Busy().ToJson().Replace("\"Version\":2", "\"Version\":99");
         Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(json));
     }
 
