@@ -25,8 +25,9 @@ public sealed class WarfrontSquadModel
     public const double RenderDelay = 0.1, DropAfter = 1.0;
     /// <summary>A Marine farther than this from its last record is placed at once, not slid there (a landing, a leap's end), metres.</summary>
     public const float SnapMetres = 12f;
-    /// <summary>Names show over the own squad's Marines within this, over the others' within the second (m) [owner's brief, 2026-11-17]; the full-detail character within <see cref="LodMetres"/> [estimate].</summary>
-    public const float OwnNameMetres = 25f, OtherNameMetres = 8f, LodMetres = 40f;
+    /// <summary>A standing Marine's name shows for the one under the crosshair within this (m), and for <see cref="EventNameSeconds"/> s after an event about it (review 1: nine names over one squad cannot be read); a downed Marine always shows its name and seconds. The full-detail character is within <see cref="LodMetres"/> [estimate].</summary>
+    public const float CrosshairNameMetres = 25f, LodMetres = 40f;
+    public const double EventNameSeconds = 2.0;
     /// <summary>A human revives a downed Marine within this (<c>SquadRules.PlayerReviveReach</c>).</summary>
     public const float ReviveReach = SmSim.Extras.Warfront.Squad.SquadRules.PlayerReviveReach;
     /// <summary>A feed line shows this long (s).</summary>
@@ -45,6 +46,7 @@ public sealed class WarfrontSquadModel
     }
 
     readonly Dictionary<int, Entry> _marines = new();
+    readonly Dictionary<int, double> _eventAt = new();
     readonly Dictionary<ulong, SquadRosterSection> _rosters = new();
     readonly Dictionary<int, (ulong Owner, SquadRosterWire Marine)> _byIndex = new();
 
@@ -91,12 +93,13 @@ public sealed class WarfrontSquadModel
     }
 
     /// <summary>The feed lines of a set of events (and the pound points are returned through <paramref name="pounds"/>); <paramref name="playerName"/> names a player id.</summary>
-    public List<string> ApplyEvents(IReadOnlyList<SquadEventWire> events, Func<int, string?> playerName, List<Vector3>? pounds = null)
+    public List<string> ApplyEvents(IReadOnlyList<SquadEventWire> events, Func<int, string?> playerName, List<Vector3>? pounds = null, double now = 0)
     {
         var lines = new List<string>();
         foreach (var e in events)
         {
             if (e.Kind == SquadEventKind.Pound) { pounds?.Add(e.Point); continue; }
+            _eventAt[e.Index] = now;
             string name = NameOfIndex(e.Index);
             string by = e.By switch
             {
@@ -106,10 +109,10 @@ public sealed class WarfrontSquadModel
             };
             lines.Add(e.Kind switch
             {
-                SquadEventKind.Downed => $"{name} is down",
-                SquadEventKind.Revived => by.Length > 0 ? $"{name} revived by {by}" : $"{name} revived",
-                SquadEventKind.Out => $"{name} is out",
-                _ => $"{name} joins the squad",
+                SquadEventKind.Downed => $"{name} IS DOWN",
+                SquadEventKind.Revived => by.Length > 0 ? $"{name} REVIVED BY {by}" : $"{name} REVIVED",
+                SquadEventKind.Out => $"{name} IS OUT",
+                _ => $"{name} JOINS THE SQUAD",
             });
         }
         return lines;
@@ -176,8 +179,11 @@ public sealed class WarfrontSquadModel
 
     // ---- the rules the views read
 
-    /// <summary>Whether a name shows over a Marine at <paramref name="distance"/> metres: 25 m for the own squad, 8 m for another.</summary>
-    public static bool NameVisible(bool own, float distance) => distance <= (own ? OwnNameMetres : OtherNameMetres);
+    /// <summary>Whether Marine <paramref name="index"/> had an event (down, revived, out, recruited) within <see cref="EventNameSeconds"/> s of <paramref name="now"/>.</summary>
+    public bool RecentEvent(int index, double now) => _eventAt.TryGetValue(index, out var at) && now - at <= EventNameSeconds && now >= at;
+
+    /// <summary>Whether a standing Marine's name shows: under the crosshair within 25 m, or an event about it a moment ago. (A downed Marine's always shows.)</summary>
+    public static bool NameVisible(bool underCrosshair, bool recentEvent, float distance) => recentEvent || underCrosshair && distance <= CrosshairNameMetres;
 
     /// <summary>Whether a Marine at <paramref name="distance"/> metres gets the full-detail character (else the low LOD).</summary>
     public static bool FullDetail(float distance) => distance <= LodMetres;

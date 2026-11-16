@@ -34,6 +34,8 @@ public sealed class WarfrontSquadSender
     /// <summary>The state rate (Hz) and the roster rotation (seconds between two owners) [ours/estimate].</summary>
     public const int StateHz = 10;
     public const double RotationSeconds = 2.0;
+    /// <summary>Roster changes are looked for this often (a second), not on every state send (export and encode cost) [ours/estimate]; a recruit or a joining client forces the next check.</summary>
+    public const int RosterChecksPerSecond = 2;
 
     readonly WarfrontSquadSim _sim;
     readonly SimConfig _config;
@@ -43,6 +45,8 @@ public sealed class WarfrontSquadSender
     readonly HashSet<int> _known = [];
     readonly List<SquadEventWire> _events = [];
     byte _phase;
+    bool _force = true;
+    uint _lastCheck;
     uint _lastRosterTick;
     int _rotation;
 
@@ -85,9 +89,6 @@ public sealed class WarfrontSquadSender
         return [C(r.Kills), C(r.EliteKills), C(r.BossKills), C(r.Assists), C(r.Revives), C(r.TimesDowned), C(r.Objectives), C(r.BattlesSurvived)];
     }
 
-    /// <summary>Adapter for W11's second-pass <c>SquadMarineView.Airborne</c> (not in the view yet: false until it is, then this one line reads it).</summary>
-    static bool AirborneOf(in SquadMarineView v) => false;
-
     /// <summary>The Marines in a battle as the wire shows them (Standing and Downed only).</summary>
     public List<SquadMarineWire> Marines()
     {
@@ -100,7 +101,7 @@ public sealed class WarfrontSquadSender
             var v = views[i];
             if (v.State is not (SquadState.Standing or SquadState.Downed)) continue;
             bool melee = _sim.Rosters.Marine(v.Key, v.Slot)?.Loadout.Weapon.Melee ?? false;
-            list.Add(SquadWire.Make(v.Index, (byte)v.State, v.Firing, melee, v.State == SquadState.Downed && v.ReviveShare > 0f, (byte)(_host.PlayerOf(v.Key) is var owner and >= 0 ? _sim.OrderOf(owner) : SquadOrder.Follow), AirborneOf(v), v.Position, v.Yaw, v.HealthShare, v.DownedLeft, v.ReviveShare, v.Target));
+            list.Add(SquadWire.Make(v.Index, (byte)v.State, v.Firing, melee, v.State == SquadState.Downed && v.ReviveShare > 0f, (byte)(_host.PlayerOf(v.Key) is var owner and >= 0 ? _sim.OrderOf(owner) : SquadOrder.Follow), v.Airborne, v.Position, v.Yaw, v.HealthShare, v.DownedLeft, v.ReviveShare, v.Target));
         }
         return list;
     }
@@ -123,13 +124,13 @@ public sealed class WarfrontSquadSender
             }
             _known.Clear();
             foreach (var m in marines) _known.Add(m.Index);
-            RosterSections(tick, outgoing);
+            if (_force || tick - _lastCheck >= (uint)Math.Max(1, _host.Rate / RosterChecksPerSecond)) { _force = false; _lastCheck = tick; RosterSections(tick, outgoing); }
         }
         return outgoing;
     }
 
     /// <summary>A client that joined (or came back): every roster again, at the next call of <see cref="Step"/>.</summary>
-    public void ClientJoined(int player) { foreach (var key in _signature.Keys.ToList()) _signature[key] = []; _ = player; }
+    public void ClientJoined(int player) { _force = true; foreach (var key in _signature.Keys.ToList()) _signature[key] = []; _ = player; }
 
     readonly List<int> _pendingRevived = [];
 
@@ -137,6 +138,7 @@ public sealed class WarfrontSquadSender
     {
         if (!_host.InBattle) { Array.Fill(_last, SquadState.Free); _pendingRevived.Clear(); return; }
         // A revive outside a step is reported by the sim's next step: the "by" of last call's revives is read now.
+        foreach (var impact in _sim.PoundImpacts) _events.Add(new SquadEventWire(SquadEventKind.Pound, (byte)Math.Clamp(impact.Index, 0, SquadWire.MaxMarines - 1), 255, impact.Position));
         foreach (int i in _pendingRevived) _events.Add(new SquadEventWire(SquadEventKind.Revived, (byte)i, ReviverOf(i)));
         _pendingRevived.Clear();
         for (int i = 0; i < SquadRules.MaxTotal; i++)
@@ -159,7 +161,7 @@ public sealed class WarfrontSquadSender
     }
 
     /// <summary>A recruit (a card pick): W3b calls this with the owner and the new Marine's slot.</summary>
-    public void NoteRecruited(int slotIndex) => _events.Add(new SquadEventWire(SquadEventKind.Recruited, (byte)Math.Clamp(slotIndex, 0, SquadWire.MaxMarines - 1), 255));
+    public void NoteRecruited(int slotIndex) { _force = true; _events.Add(new SquadEventWire(SquadEventKind.Recruited, (byte)Math.Clamp(slotIndex, 0, SquadWire.MaxMarines - 1), 255)); }
 
     void RosterSections(uint tick, List<WarfrontSquadOutgoing> outgoing)
     {

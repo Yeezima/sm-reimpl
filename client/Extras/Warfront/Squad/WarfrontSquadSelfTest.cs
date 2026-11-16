@@ -245,11 +245,11 @@ public sealed partial class WarfrontSquadSelfTest : Node
         await WaitModels(60);
         // Squad 0's eighth Marine is downed from 2.0 s and revived from 8.0 s over two seconds. Step virtual time to 9.0 s (the ring half full), the player beside it.
         while (_now < 3.2) await Step();
-        Check("a downed Marine gives a feed line and the HUD turns to DOWN", _view.Hud.FeedText.Any(t => t.EndsWith("is down")) && _view.Hud.Line == "1 DOWN", $"{string.Join("|", _view.Hud.FeedText)} / {_view.Hud.Line}");
+        Check("a downed Marine gives a feed line and the HUD turns to DOWN", _view.Hud.FeedText.Any(t => t.EndsWith("IS DOWN")) && _view.Hud.Line == "1 DOWN", $"{string.Join("|", _view.Hud.FeedText)} / {_view.Hud.Line}");
         _view.Model.TrySample(7, _now, out var downed);
         Check("the downed Marine counts its window", downed.Downed && downed.DownedLeft is > 16f and < 19.5f, $"{downed.DownedLeft}");
         while (_now < 9.0) { if (_view.Model.TrySample(7, _now, out var follow)) _player = follow.Position + new Num.Vector3(1.2f, 0.4f, 0f); await Step(); }
-        Check("the revive prompt names the Marine and the ring has progress", _view.Hud.PromptShown && _view.Hud.Prompt.StartsWith("Hold [E] to revive ") && _view.Hud.RingShown && _view.Hud.RingShare is > 0.3f and < 0.7f, $"'{_view.Hud.Prompt}' ring {_view.Hud.RingShown} {_view.Hud.RingShare}");
+        Check("the revive prompt names the Marine and the ring has progress", _view.Hud.PromptShown && _view.Hud.Prompt.StartsWith("HOLD [E] TO REVIVE ") && _view.Hud.RingShown && _view.Hud.RingShare is > 0.3f and < 0.7f, $"'{_view.Hud.Prompt}' ring {_view.Hud.RingShown} {_view.Hud.RingShare}");
         _view.Model.TrySample(7, _now, out var nowDowned);
         var dp = nowDowned.Position;
         Place(new Num.Vector3(dp.X + 4.2f, dp.Y - 5.2f, 2.6f), new Num.Vector3(dp.X, dp.Y + 1.2f, 1.1f));
@@ -257,7 +257,7 @@ public sealed partial class WarfrontSquadSelfTest : Node
         await Still("downed-marine-prompt-and-ring");
         _player = new Num.Vector3(0, 0, 0);
         while (_now < 11.0) await Step();
-        Check("the revive ends the prompt and the feed says who revived", !_view.Hud.PromptShown || _view.Hud.FeedText.Any(t => t.Contains("revived by You")), string.Join("|", _view.Hud.FeedText));
+        Check("the revive ends the prompt and the feed says who revived", !_view.Hud.PromptShown || _view.Hud.FeedText.Any(t => t.Contains("REVIVED BY You")), string.Join("|", _view.Hud.FeedText));
         Check("the revived Marine counts as standing again", _view.Hud.Line == "SQUAD 9/9", _view.Hud.Line);
 
         // ---- the panel aboard the ship ---------------------------------------------------------------------------------------------------

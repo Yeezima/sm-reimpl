@@ -22,6 +22,8 @@ sealed class FakeSquadHost : IWarfrontSquadHost
 sealed class FakeCommandHost : IWarfrontSquadCommandHost
 {
     public Dictionary<int, ulong> Keys { get; } = [];
+    public bool Librarian = true;
+    public bool IsLibrarian(int player) => Librarian;
     public bool IsAboard, IsFighting, Jump = true, Graph = true;
     public Vector3 Where;
     public double Now { get; set; }
@@ -94,12 +96,12 @@ public class SquadSenderTests(ITestOutputHelper output)
         Assert.NotEqual(1000UL, other.Handle);   // another's: the pseudonym, never the key
         Assert.Empty(sender.Step(6).Where(x => x.Tag == SquadWire.RosterTag));   // nothing changed
         Assert.True(sim.Rosters.Rename(1000, 0, "Castor"));
-        var changed = sender.Step(9).Where(x => x.Tag == SquadWire.RosterTag).ToList();
+        var changed = sender.Step(18).Where(x => x.Tag == SquadWire.RosterTag).ToList();
         Assert.Equal(2, changed.Count);   // one owner, to both clients
         Assert.True(SquadWire.TryDecodeRoster(changed[0].Payload, out var renamed));
         Assert.Equal("Castor", renamed.Marines[0].Name);
         var later = new List<WarfrontSquadOutgoing>();
-        for (uint t = 12; t <= 90; t += 3) later.AddRange(sender.Step(t));
+        for (uint t = 21; t <= 90; t += 3) later.AddRange(sender.Step(t));
         Assert.True(later.Count(x => x.Tag == SquadWire.RosterTag) >= 2, "the rotation sends one owner every 2 s");
     }
 
@@ -145,6 +147,26 @@ public class SquadSenderTests(ITestOutputHelper output)
         int biggest = all.Where(x => x.Player == 1 || x.Player == -1).Max(x => x.Payload.Length);
         Assert.True(biggest < Protocol.MaxExtrasPayloadBytes);
         output.WriteLine($"largest section {biggest} bytes (limit {Protocol.MaxExtrasPayloadBytes}); the state {SquadWire.MaxStateBytes}");
+    }
+
+    [Fact]
+    public void A_pound_is_an_event_with_its_point_and_the_roster_is_looked_at_twice_a_second()
+    {
+        var (sim, sender, host) = Battle(owners: 1, marines: 4);
+        sender.Step(3);
+        // The pound events come from the sim's impacts; none have happened, so none are sent.
+        Assert.DoesNotContain(sender.Step(6), x => x.Tag == SquadWire.EventsTag);
+        // A rename is seen at the next check (15 ticks at 30 Hz), not at every 10 Hz send.
+        Assert.True(sim.Rosters.Rename(1000, 0, "Cato"));
+        Assert.Empty(sender.Step(9).Where(x => x.Tag == SquadWire.RosterTag));
+        Assert.NotEmpty(sender.Step(21).Where(x => x.Tag == SquadWire.RosterTag));
+        // A recruit forces the next check and is an event.
+        Assert.True(sim.Rosters.Recruit(1000));
+        sender.NoteRecruited(4);
+        var recruited = sender.Step(24);
+        Assert.NotEmpty(recruited.Where(x => x.Tag == SquadWire.RosterTag));
+        Assert.True(SquadWire.TryDecodeEvents(recruited.First(x => x.Tag == SquadWire.EventsTag).Payload, out var ev));
+        Assert.Equal(SquadEventKind.Recruited, ev[0].Kind);
     }
 
     // ---- commands
@@ -222,6 +244,11 @@ public class SquadSenderTests(ITestOutputHelper output)
     public void Squad_class_is_stored_and_malformed_commands_do_nothing()
     {
         var (cmd, host, _) = Commands();
+        host.IsAboard = false;
+        Assert.False(cmd.Handle(1, SquadWire.EncodeSquadClass(2)));   // aboard only
+        host.IsAboard = true; host.Librarian = false;
+        Assert.False(cmd.Handle(1, SquadWire.EncodeSquadClass(2)));   // a Librarian only
+        host.Librarian = true;
         Assert.True(cmd.Handle(1, SquadWire.EncodeSquadClass(2)));
         Assert.Equal((byte)2, host.Option);
         host.Option = null;

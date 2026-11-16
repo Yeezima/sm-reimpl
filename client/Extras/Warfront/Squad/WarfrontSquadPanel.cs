@@ -8,7 +8,7 @@ namespace SmClient.Extras.Warfront.Squad;
 
 /// <summary>
 /// The squad panel aboard the ship (slice W10): one row per Marine of the viewer's roster (name, class, the eight service figures, state), the name editable in place (click, type, Enter sends the rename), and a
-/// second tab with the other players' squads, read only. No gear screens. One text style (<see cref="UiKit.BodySize"/>), the panel's border crisp and symmetric (<see cref="UiKit.Box"/>), every label live.
+/// second tab with the other players' squads, read only. No gear screens. One text style (<see cref="WarfrontSquadHud.TextSize"/>), the panel's border crisp and symmetric (<see cref="UiKit.Box"/>), every label live.
 /// </summary>
 public sealed partial class WarfrontSquadPanel : Control
 {
@@ -46,14 +46,14 @@ public sealed partial class WarfrontSquadPanel : Control
         AddChild(centre);
 
         var content = UiKit.VBox(12);
-        _title = UiKit.Text("SQUAD", UiKit.BodySize, UiKit.White);
+        _title = UiKit.Text("SQUAD", WarfrontSquadHud.TextSize, UiKit.White);
         var tabs = UiKit.HBox(8);
         _ownTab = UiKit.Button("YOUR SQUAD", () => Select(true), 190);
         _otherTab = UiKit.Button("OTHER SQUADS", () => Select(false), 190);
         tabs.AddChild(_title); tabs.AddChild(UiKit.Spacer()); tabs.AddChild(_ownTab); tabs.AddChild(_otherTab);
         content.AddChild(tabs);
         content.AddChild(_rows);
-        _hint = UiKit.Text("", UiKit.BodySize, UiKit.Grey);
+        _hint = UiKit.Text("", WarfrontSquadHud.TextSize, UiKit.Grey);
         var footer = UiKit.HBox(8);
         footer.AddChild(_hint); footer.AddChild(UiKit.Spacer()); footer.AddChild(UiKit.Button("CLOSE", () => CloseRequested?.Invoke(), 140));
         content.AddChild(footer);
@@ -97,8 +97,8 @@ public sealed partial class WarfrontSquadPanel : Control
         grid.AddThemeConstantOverride("h_separation", 22);
         grid.AddThemeConstantOverride("v_separation", 6);
         foreach (var h in new[] { _own ? "NAME" : "SQUAD / NAME", "CLASS" }.Concat(WarfrontSquadModel.RecordHeadings).Append("STATE"))
-            grid.AddChild(UiKit.Text(h, UiKit.BodySize, UiKit.Grey, h is "NAME" or "SQUAD / NAME" or "CLASS" or "STATE" ? HorizontalAlignment.Left : HorizontalAlignment.Right));
-        if (rows.Count == 0) { _rows.AddChild(grid); _rows.AddChild(UiKit.Text(_own ? "NO MARINES YET" : "NO OTHER SQUADS", UiKit.BodySize, UiKit.Grey)); return; }
+            grid.AddChild(UiKit.Text(h, WarfrontSquadHud.TextSize, UiKit.Grey, h is "NAME" or "SQUAD / NAME" or "CLASS" or "STATE" ? HorizontalAlignment.Left : HorizontalAlignment.Right));
+        if (rows.Count == 0) { _rows.AddChild(grid); _rows.AddChild(UiKit.Text(_own ? "NO MARINES YET" : "NO OTHER SQUADS", WarfrontSquadHud.TextSize, UiKit.Grey)); return; }
         foreach (var r in rows)
         {
             if (_own)
@@ -112,10 +112,10 @@ public sealed partial class WarfrontSquadPanel : Control
                 _edits.Add(edit);
                 grid.AddChild(edit);
             }
-            else grid.AddChild(UiKit.Text($"{OwnerLabel(r)}  {r.Name}", UiKit.BodySize, UiKit.White));
-            grid.AddChild(UiKit.Text(_className(r.Class), UiKit.BodySize, UiKit.White));
-            foreach (var figure in r.Record) grid.AddChild(UiKit.Text(figure.ToString(), UiKit.BodySize, UiKit.White, HorizontalAlignment.Right));
-            grid.AddChild(UiKit.Text(r.State, UiKit.BodySize, r.State is "DOWN" ? UiKit.LightRed : UiKit.White));
+            else grid.AddChild(UiKit.Text($"{OwnerLabel(r)}  {r.Name}", WarfrontSquadHud.TextSize, UiKit.White));
+            grid.AddChild(UiKit.Text(_className(r.Class), WarfrontSquadHud.TextSize, UiKit.White));
+            foreach (var figure in r.Record) grid.AddChild(UiKit.Text(figure.ToString(), WarfrontSquadHud.TextSize, UiKit.White, HorizontalAlignment.Right));
+            grid.AddChild(UiKit.Text(r.State, WarfrontSquadHud.TextSize, r.State is "DOWN" ? UiKit.LightRed : UiKit.White));
         }
         _rows.AddChild(grid);
     }

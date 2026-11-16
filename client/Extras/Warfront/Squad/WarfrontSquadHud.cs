@@ -13,6 +13,8 @@ public sealed partial class WarfrontSquadHud : Control
 {
     /// <summary>Lines kept on the feed.</summary>
     public const int FeedLines = 5;
+    /// <summary>The one text size of the squad's HUD: W8's body size (the Warfront HUD's two levels are 28 and 20).</summary>
+    public const int TextSize = 20;
 
     sealed partial class Ring : Control
     {
@@ -43,7 +45,7 @@ public sealed partial class WarfrontSquadHud : Control
 
     static Label Styled(string text = "", HorizontalAlignment align = HorizontalAlignment.Left)
     {
-        var l = UiKit.Text(text, UiKit.BodySize, UiKit.White, align);
+        var l = UiKit.Text(text, TextSize, UiKit.White, align);
         l.AddThemeConstantOverride("outline_size", 7);
         l.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.92f));
         return l;

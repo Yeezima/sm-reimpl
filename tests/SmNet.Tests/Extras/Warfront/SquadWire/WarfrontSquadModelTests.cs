@@ -116,8 +116,9 @@ public class WarfrontSquadModelTests
         [
             new SquadEventWire(SquadEventKind.Downed, 0, 255), new SquadEventWire(SquadEventKind.Revived, 0, 3), new SquadEventWire(SquadEventKind.Revived, 1, 202),
             new SquadEventWire(SquadEventKind.Out, 2, 255), new SquadEventWire(SquadEventKind.Recruited, 1, 255), new SquadEventWire(SquadEventKind.Pound, 0, 255, new Vector3(1, 2, 3)),
-        ], id => id == 3 ? "Ash" : null, pounds);
-        Assert.Equal(["Brother Castor is down", "Brother Castor revived by Ash", "Brother Pollux revived by Brother Remus", "Brother Remus is out", "Brother Pollux joins the squad"], lines);
+        ], id => id == 3 ? "Ash" : null, pounds, now: 10.0);
+        Assert.True(m.RecentEvent(0, 11.9)); Assert.False(m.RecentEvent(0, 12.1)); Assert.False(m.RecentEvent(5, 10.5));
+        Assert.Equal(["Brother Castor IS DOWN", "Brother Castor REVIVED BY Ash", "Brother Pollux REVIVED BY Brother Remus", "Brother Remus IS OUT", "Brother Pollux JOINS THE SQUAD"], lines);
         Assert.Equal([new Vector3(1, 2, 3)], pounds);
     }
 
@@ -164,11 +165,22 @@ public class WarfrontSquadModelTests
     }
 
     [Fact]
-    public void Name_and_detail_distances_are_the_planned_ones()
+    public void Name_and_detail_rules_are_the_planned_ones()
     {
-        Assert.True(WarfrontSquadModel.NameVisible(true, 25f)); Assert.False(WarfrontSquadModel.NameVisible(true, 25.1f));
-        Assert.True(WarfrontSquadModel.NameVisible(false, 8f)); Assert.False(WarfrontSquadModel.NameVisible(false, 8.1f));
+        Assert.True(WarfrontSquadModel.NameVisible(true, false, 25f)); Assert.False(WarfrontSquadModel.NameVisible(true, false, 25.1f));
+        Assert.False(WarfrontSquadModel.NameVisible(false, false, 5f));   // standing, not under the crosshair, no event: no name
+        Assert.True(WarfrontSquadModel.NameVisible(false, true, 60f));   // an event a moment ago
         Assert.True(WarfrontSquadModel.FullDetail(40f)); Assert.False(WarfrontSquadModel.FullDetail(40.1f));
+    }
+
+    [Fact]
+    public void A_lost_recruit_event_changes_nothing_the_roster_section_adds_the_marine()
+    {
+        var m = new WarfrontSquadModel { OwnPlayer = 3 };
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "A"), R(1, 1, "B")]));
+        Assert.Equal(2, m.PanelRows(true).Count);
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "A"), R(1, 1, "B"), R(2, 255, "C")]));   // the event was lost; the section arrives
+        Assert.Equal(3, m.PanelRows(true).Count);
     }
 
     [Fact]

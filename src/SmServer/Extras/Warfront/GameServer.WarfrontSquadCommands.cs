@@ -21,6 +21,8 @@ public interface IWarfrontSquadCommandHost
     bool OnGraph(Vector3 point);
     /// <summary>Seconds on the server's clock.</summary>
     double Now { get; }
+    /// <summary>Whether the player's class is the Librarian (only his squad class option is stored).</summary>
+    bool IsLibrarian(int player);
     /// <summary><c>WarfrontSquadSim.OrderJumpPound</c> (W11); false when refused.</summary>
     bool OrderJumpPound(int player, Vector3 mark);
     /// <summary>A Librarian's stored squad class (<c>SquadClass</c> 0 Assault, 1 Tactical, 2 Devastator).</summary>
@@ -70,6 +72,7 @@ public sealed class WarfrontSquadCommands
                 return true;
             }
             case SquadCommandKind.SquadClass:
+                if (c.Option > 2 || !_host.Aboard(player) || !_host.IsLibrarian(player)) return false;   // option 0 to 2, aboard the ship, a Librarian only
                 _host.SetSquadClass(key, c.Option);
                 return true;
         }

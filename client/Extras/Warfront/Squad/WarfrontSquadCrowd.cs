@@ -67,6 +67,7 @@ public sealed partial class WarfrontSquadCrowd : Node3D
         public bool WasDowned;
         public string? Clip;
         public int Index;
+        public float Dist;
     }
 
     readonly WarfrontSquadLooks _looks;
@@ -75,6 +76,8 @@ public sealed partial class WarfrontSquadCrowd : Node3D
     readonly Dictionary<string, WarfrontSquadClips> _clips = new();
     readonly Dictionary<string, WeaponAssets> _weapons = new();
     ulong _frame;
+    WarfrontSquadModel? _model;
+    readonly List<(Label3D Label, float Base, float Dist)> _tags = new();
 
     /// <summary>What a Marine wears and carries; the shot's end (an enemy id to a place); a shot to draw (from, to, class), game space.</summary>
     public IWarfrontSquadDresser? Dresser { get; set; }
@@ -89,6 +92,8 @@ public sealed partial class WarfrontSquadCrowd : Node3D
     public bool Weapons { get; set; } = true;
     /// <summary>Test aid (the cost measurement): no pose is applied, so the cost of drawing is told from the cost of animating.</summary>
     public bool PoseFrozen { get; set; }
+    /// <summary>The camera (names go to the Marine under its crosshair; overlapping labels are stacked upward).</summary>
+    public Camera3D? Camera { get; set; }
 
     public int Drawn => _actors.Count;
     public int WithModel => _actors.Values.Count(a => a.Viewer is not null);
@@ -110,14 +115,17 @@ public sealed partial class WarfrontSquadCrowd : Node3D
         _frame++;
         Full = Far = 0;
         var live = new HashSet<int>();
+        _model = model;
+        int under = Crosshair(model, now);
         foreach (int index in model.Indices)
         {
             if (!model.TrySample(index, now, out var s)) continue;
             live.Add(index);
             if (!_actors.TryGetValue(index, out var a)) _actors[index] = a = NewActor(index);
-            Update(a, s, now, camera, (float)delta);
+            Update(a, s, now, camera, (float)delta, index == under);
         }
         foreach (var gone in _actors.Keys.Where(i => !live.Contains(i)).ToList()) { _actors[gone].Root.QueueFree(); _actors.Remove(gone); }
+        StackLabels();
         FrameMs = watch.Elapsed.TotalMilliseconds;
     }
 
@@ -150,7 +158,7 @@ public sealed partial class WarfrontSquadCrowd : Node3D
         return set;
     }
 
-    void Update(Actor a, in WarfrontSquadShown s, double now, Num.Vector3 camera, float delta)
+    void Update(Actor a, in WarfrontSquadShown s, double now, Num.Vector3 camera, float delta, bool underCrosshair)
     {
         var p = s.Position;
         a.Root.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), s.Yaw - Mathf.Pi / 2f), new Vector3(p.X, p.Y, p.Z));   // wire yaw 0 faces +X; the model faces +Y
@@ -176,11 +184,59 @@ public sealed partial class WarfrontSquadCrowd : Node3D
 
         // The name and the downed marker, by distance and side.
         a.Name.Text = s.Name;
-        a.Name.Visible = !s.Downed && WarfrontSquadModel.NameVisible(s.Own, distance);
-        a.Down.Visible = s.Downed && (s.Own || distance <= 40f);
+        a.Dist = distance;
+        a.Name.Visible = !s.Downed && WarfrontSquadModel.NameVisible(underCrosshair, _model!.RecentEvent(s.Index, now), distance);
+        a.Down.Visible = s.Downed;   // always: the Marine to revive is found from afar
         if (a.Down.Visible) a.Down.Text = s.BeingRevived ? $"{s.Name}  REVIVING" : $"{s.Name}  DOWN {MathF.Ceiling(s.DownedLeft)}";
-        a.Down.Position = new Vector3(0, 0, s.Downed ? 1.2f : 2.85f);
+        a.Down.Position = new Vector3(0, 0, 1.5f);
+        a.Name.Position = new Vector3(0, 0, 2.45f);
         if (a.Placeholder is not null) a.Placeholder.Visible = a.Viewer is null;
+    }
+
+    /// <summary>The Marine under the crosshair within <see cref="WarfrontSquadModel.CrosshairNameMetres"/>: nearest to the camera's line of sight (within 0.6 m of it); -1 when none.</summary>
+    int Crosshair(WarfrontSquadModel model, double now)
+    {
+        if (Camera is null) return -1;
+        var origin = ToLocal(Camera.GlobalPosition);
+        var dir = (GlobalTransform.Basis.Inverse() * (-Camera.GlobalBasis.Z)).Normalized();
+        int best = -1; float bestAlong = float.MaxValue;
+        foreach (int index in model.Indices)
+        {
+            if (!model.TrySample(index, now, out var s) || s.Downed) continue;
+            var chest = new Vector3(s.Position.X, s.Position.Y, s.Position.Z + 1.3f) - origin;
+            float along = chest.Dot(dir);
+            if (along <= 0f || along > WarfrontSquadModel.CrosshairNameMetres) continue;
+            if ((chest - dir * along).Length() > 0.6f || along >= bestAlong) continue;
+            best = index; bestAlong = along;
+        }
+        return best;
+    }
+
+    /// <summary>Labels that would overlap on the screen are raised one above the other (the nearest keeps its place), never drawn through each other.</summary>
+    void StackLabels()
+    {
+        _tags.Clear();
+        foreach (var a in _actors.Values)
+        {
+            if (a.Name.Visible) _tags.Add((a.Name, 2.45f, a.Dist));
+            if (a.Down.Visible) _tags.Add((a.Down, 1.5f, a.Dist));
+        }
+        if (Camera is null) return;
+        var placed = new List<Rect2>();
+        foreach (var (label, baseHeight, _) in _tags.OrderBy(t => t.Dist))
+        {
+            label.Position = new Vector3(0, 0, baseHeight);
+            var at = Camera.UnprojectPosition(label.GlobalPosition);
+            float pxPerMetre = MathF.Max(1f, MathF.Abs(Camera.UnprojectPosition(label.GlobalPosition + Vector3.Up).Y - at.Y));
+            float w = 9f * label.Text.Length + 12f, h = 26f;
+            var rect = new Rect2(at.X - w / 2f, at.Y - h / 2f, w, h);
+            for (int guard = 0; guard < 12 && placed.Any(q => q.Intersects(rect)); guard++)
+            {
+                rect.Position -= new Vector2(0, h);
+                label.Position += new Vector3(0, 0, h / pxPerMetre);
+            }
+            placed.Add(rect);
+        }
     }
 
     void AttachViewer(Actor a, MarineAssets model, WarfrontMarineDress dress)
@@ -306,8 +362,8 @@ public sealed partial class WarfrontSquadView : Node
                 if (SmNet.Extras.Warfront.SquadWire.TryDecodeEvents(payload, out var events))
                 {
                     var pounds = new List<Num.Vector3>();
-                    foreach (var line in Model.ApplyEvents(events, PlayerName, pounds)) { Hud.AddFeed(line, now); EventLines++; }
-                    foreach (var p in pounds) Pound?.Invoke(p);
+                    foreach (var line in Model.ApplyEvents(events, PlayerName, pounds, now)) { Hud.AddFeed(line, now); EventLines++; }
+                    foreach (var p in pounds) { if (Pound is not null) Pound(p); else Puff(p); }
                 }
                 else Model.CountMalformed();
                 break;
@@ -321,6 +377,7 @@ public sealed partial class WarfrontSquadView : Node
     public void Frame(double now, double delta, Camera3D? camera, Node3D? gameSpace, Num.Vector3 player)
     {
         Model.Prune(now);
+        Crowd.Camera = camera;
         var cameraGame = camera is not null && gameSpace is not null ? gameSpace.ToLocal(camera.GlobalPosition) : new Vector3(player.X, player.Y, player.Z + 2f);
         Crowd.Frame(Model, now, new Num.Vector3(cameraGame.X, cameraGame.Y, cameraGame.Z), delta);
         var (standing, roster, downed) = Model.OwnCounts(now);
@@ -336,7 +393,7 @@ public sealed partial class WarfrontSquadView : Node
                 var world = gameSpace.ToGlobal(new Vector3(head.X, head.Y, head.Z));
                 if (!camera.IsPositionBehind(world)) ring = camera.UnprojectPosition(world);
             }
-            Hud.SetPrompt($"Hold [{UseKeyLabel}] to revive {r.Name}", ring, r.Share);
+            Hud.SetPrompt($"HOLD [{UseKeyLabel}] TO REVIVE {r.Name}", ring, r.Share);
         }
         else Hud.SetPrompt(null, null, 0f);
         Hud.Tick(now);
@@ -354,6 +411,19 @@ public sealed partial class WarfrontSquadView : Node
             if (MarkPoint() is { } mark) { Send(SmNet.Extras.Warfront.SquadWire.EncodeJumpPound(mark)); return true; }
         }
         return false;
+    }
+
+    /// <summary>The default pound effect: a ground-coloured dust puff that grows and fades (a stand-in for the pack's own pound effect; no sound here).</summary>
+    void Puff(Num.Vector3 point)
+    {
+        var material = new StandardMaterial3D { AlbedoColor = new Color(0.62f, 0.55f, 0.45f, 0.55f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+        var node = new MeshInstance3D { Mesh = new SphereMesh { Radius = 1f, Height = 1.2f }, MaterialOverride = material, Position = new Vector3(point.X, point.Y, point.Z + 0.3f), Scale = new Vector3(0.5f, 0.5f, 0.5f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        Crowd.AddChild(node);
+        var tween = node.CreateTween();
+        tween.SetParallel();
+        tween.TweenProperty(node, "scale", new Vector3(4f, 4f, 2.5f), 0.55);
+        tween.TweenProperty(material, "albedo_color:a", 0f, 0.55);
+        tween.Chain().TweenCallback(Callable.From(node.QueueFree));
     }
 
     /// <summary>The Librarian's stored squad class, after joining and on change (<c>SquadClass</c> 0 Assault, 1 Tactical, 2 Devastator).</summary>
