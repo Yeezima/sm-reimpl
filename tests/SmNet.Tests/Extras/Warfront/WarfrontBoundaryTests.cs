@@ -38,6 +38,7 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
         ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
+        ("src/SmServer/Extras/Musou/GameServer.Musou.cs", "WarfrontViewCentre"),
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontStep"),
         ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontKill"),
         ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattleChange"),

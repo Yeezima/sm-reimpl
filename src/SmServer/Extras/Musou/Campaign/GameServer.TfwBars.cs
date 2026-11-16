@@ -56,6 +56,7 @@ public sealed partial class GameServer
         {
             if (!_tfwBarClients.TryGetValue(peer.PlayerId, out var client)) _tfwBarClients[peer.PlayerId] = client = new TfwBarClient();
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) && me.Alive ? me.Position : anyone;
+            WarfrontViewCentre(peer.PlayerId, ref viewer);   // WARFRONT-HOOK
             TfwBars.Select(_tfwElites, viewer, _tfwBarsNow, _tfwBarScratch);
             var payload = TfwWire.WriteBars(_tfwBarsNow);
             bool changed = client.Last is null ? _tfwBarsNow.Count > 0 : !client.Last.AsSpan().SequenceEqual(payload);

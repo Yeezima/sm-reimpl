@@ -61,12 +61,5 @@ public sealed partial class GameServer
     partial void WarfrontPlayerCap(ref int cap);
     partial void WarfrontRestartDue(ref bool due, ref int code);
 
-    /// <summary>The Warfront supervisor's question once a loop turn: whether this stage process must leave now with <paramref name="code"/> (the next stage is due). Always false on any other profile.</summary>
-    public bool ExtrasRestartDue(out int code)
-    {
-        bool due = false;
-        code = 0;
-        WarfrontRestartDue(ref due, ref code);   // WARFRONT-HOOK
-        return due;
-    }
+        partial void ExtrasRestartDue(ref bool due, ref int code) => WarfrontRestartDue(ref due, ref code);   // WARFRONT-HOOK
 }

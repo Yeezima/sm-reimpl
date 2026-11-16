@@ -139,7 +139,7 @@ public class WarfrontStageTests : IDisposable
         Assert.Equal(1, s.Campaign.Deployments);
         Assert.Equal(2, s.Campaign.Rolls.Count);   // the two other lanes
         Assert.Contains("\"Deployments\":1", RunJson(_dir));
-        Assert.False(s.Server.ExtrasRestartDue(out _));
+        Assert.False(s.Server.RestartDue(out _));
     }
 
     [Fact]
@@ -156,9 +156,9 @@ public class WarfrontStageTests : IDisposable
         first.Tick(1);
         Assert.Equal(WarfrontPhase.Travel, first.Campaign.Phase);
         Assert.Contains(first.Heard, h => h.Tag == WarfrontWire.StageTag && WarfrontWire.TryDecode(h.Payload, out WarfrontStageWire g) && g.State == WarfrontStageState.Go && g.Map == "wf_a1");
-        Assert.False(first.Server.ExtrasRestartDue(out _));
+        Assert.False(first.Server.RestartDue(out _));
         first.Tick(2.5);
-        Assert.True(first.Server.ExtrasRestartDue(out int code));
+        Assert.True(first.Server.RestartDue(out int code));
         Assert.Equal(ServerCommandLine.WarfrontStageExit, code);
         Assert.Contains("wf_a1", File.ReadAllText(Path.Combine(_dir, "stage.json")));
         string saved = RunJson(_dir);
@@ -266,11 +266,89 @@ public class WarfrontStageTests : IDisposable
     }
 
     [Fact]
-    public void An_unidentified_player_gets_a_key_of_its_own_after_five_seconds()
+    public void A_human_stays_held_until_it_identifies_but_a_bot_gets_a_key_of_its_own_after_five_seconds()
     {
-        var s = StartStage("wf_b1", 1);
-        s.Tick(6);
+        var map = GameServer.TfwGameMap(TfwTestArena.Data, "wf_b1");
+        var h = new Harness(LinkConditions.Perfect, 5, 0, Config, new ServerOptions { Match = Rules }, map: map);
+        var loader = new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) };
+        h.AddClient(options: loader, nonce: 1);
+        h.AddClient(options: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash), Bot = true }, nonce: 2);
+        var s = new Stage { H = h };
+        s.Tick(9);
+        Assert.Single(s.Campaign.JoinOrder);   // the bot only
+        // the late human identifies after the wait and is admitted with its own key
+        s.Identify(0, 555, "Late");
+        s.Tick(1);
+        Assert.Equal(2, s.Campaign.JoinOrder.Count);
+        Assert.Contains(555UL, s.Campaign.JoinOrder);
+    }
+
+    [Fact]
+    public void A_refused_identify_is_answered_and_late_join_waits_for_identity()
+    {
+        var s = StartStage("wf_b1", 2);
+        s.Identify(0, 111, "Alpha");
+        s.Tick(1);
+        s.Identify(1, 111, "Copy");   // the same key from a second connection
+        s.Tick(1);
         Assert.Single(s.Campaign.JoinOrder);
-        Assert.NotNull(s.Server.WarfrontPlayerOfForTests(s.Campaign.JoinOrder[0]));
+        Assert.Contains(s.Heard, x => x.Tag == WarfrontWire.StageTag && WarfrontWire.TryDecode(x.Payload, out WarfrontStageWire g) && g.Status.Contains("already connected"));
+        var allowed = s.Server.World.Tfw!.Warfront!.LateJoinAllowed!;
+        int identified = s.Server.WarfrontPlayerOfForTests(111)!.Value;
+        int other = s.Server.Players.First(id => id != identified);
+        Assert.True(allowed(identified));
+        Assert.False(allowed(other));
+    }
+
+    [Fact]
+    public void A_stage_whose_supervisor_is_gone_saves_and_leaves_with_code_zero()
+    {
+        Env("SM_WF_SUPERVISOR_PID", "2147483000");   // no such process
+        var s = StartStage("wf_b1", 1);
+        s.Tick(3);
+        Assert.True(s.Server.RestartDue(out int code));
+        Assert.Equal(0, code);
+        Assert.True(File.Exists(Path.Combine(_dir, "run.json")));
+    }
+
+    [Fact]
+    public void A_run_that_is_over_when_a_stage_starts_is_finished_once_and_a_leave_after_the_end_writes_nothing_back()
+    {
+        var seed = new WarfrontCampaign(9);
+        seed.Embark();
+        var node = System.Text.Json.Nodes.JsonNode.Parse(seed.ToJson())!.AsObject();
+        node["Phase"] = "Won";
+        node["PlaySeconds"] = 321.5;
+        File.WriteAllText(Path.Combine(_dir, "run.json"), node.ToJsonString());
+        var s = StartStage("wf_b1", 1);   // finishes the run on load: the record is archived and the run file removed
+        Assert.False(File.Exists(Path.Combine(_dir, "run.json")));
+        Assert.Single(Directory.GetFiles(Path.Combine(_dir, "records"), "*.json").Where(f => !f.EndsWith(".results.json")));
+        s.Identify(0, 77, "Alpha");
+        s.Tick(7);   // the record goes to the client
+        Assert.Contains(s.Heard, x => x.Tag == WarfrontWire.ResultsTag);
+        var chunks = new SmNet.Extras.Warfront.Results.WarfrontResultsWire.Reassembler();
+        byte[]? whole = null;
+        foreach (var x in s.Heard.Where(x => x.Tag == WarfrontWire.ResultsTag)) whole = chunks.Add(x.Payload) ?? whole;
+        Assert.Equal(321, SmNet.Extras.Warfront.Results.WarfrontResultsWire.Decode(whole!).DurationSeconds);   // the saved play time, not this process's uptime
+        s.H.Clients[0].Leave();
+        s.Tick(2);
+        Assert.False(File.Exists(Path.Combine(_dir, "run.json")));   // the finished campaign is not written back
+        Assert.Single(Directory.GetFiles(Path.Combine(_dir, "records"), "*.json").Where(f => !f.EndsWith(".results.json")));
+    }
+
+    [Fact]
+    public void Play_time_counts_only_with_someone_connected_and_is_saved()
+    {
+        var c = new WarfrontCampaign(1);
+        c.Embark();
+        Assert.False(c.AddPlaySeconds(1));   // nobody connected
+        c.Join(5, "A", out _);
+        Assert.True(c.AddPlaySeconds(2.5));
+        Assert.Equal(2.5, c.PlaySeconds);
+        var back = WarfrontSave.FromJson(c.ToJson());
+        Assert.Equal(2.5, back.PlaySeconds);
+        var old = System.Text.Json.Nodes.JsonNode.Parse(c.ToJson())!.AsObject();
+        old["Version"] = 2; old.Remove("PlaySeconds");
+        Assert.Equal(0, WarfrontSave.FromJson(old.ToJsonString()).PlaySeconds);   // an older save loads with 0
     }
 }

@@ -37,7 +37,10 @@ public sealed partial class GameServer
                 WarfrontNewRun(player);
                 break;
             case WarfrontClientCommandKind.Pick:
-                break;   // W8 reads it through its own seam; until then it is dropped
+                // the wire carries the offer's pick index modulo 256: it answers the standing offer only
+                if (World.WarfrontOffer(player) is { } offer && (offer.PickIndex & 0xFF) == command.Pick) World.WarfrontPick(player, command.Slot, offer.PickIndex);
+                else WarfrontCommandsDropped++;
+                break;
         }
     }
 
@@ -49,13 +52,10 @@ public sealed partial class GameServer
         if (!old.IsOver) { WfLog($"NewRun from P{player} refused: the run is not over"); return; }
         if (old.Leader != key) { WfLog($"NewRun from P{player} refused: only the leader starts a new run"); return; }
         var fresh = WarfrontRunFiles.NewRun(s.Dir);
-        foreach (var k in old.JoinOrder)
-            if (s.KeyOf.ContainsValue(k) && old.Player(k) is { } p) fresh.Join(k, p.Name, out _);
-        s.Campaign = fresh;
+        s.Finished = false;
         s.ResultsBytes = null;
-        s.HubDirty = true;
-        s.LastHub.Clear();
-        WarfrontSave.Write(s.Dir, fresh);
+        WarfrontReplaceCampaign(s, fresh);
+        WfSave(s);
         WfLog($"a new run (seed {fresh.RunSeed:X}) on the ship; {s.KeyOf.Count} player(s) carried over");
         if (!WarfrontStagePlan.HasShip(s.Map)) WarfrontStartGo(s, WarfrontStagePlan.FirstMap, null);
         else WarfrontCoopShipStop();
