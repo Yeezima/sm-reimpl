@@ -45,4 +45,40 @@ public partial class NetworkView
         }
         return null;
     }
+
+    /// <summary>Teammates already on a point that make the next bot surplus there, how near a point an enemy must be to be worth hunting (m), and the least length of a Seize hunt (s; ours, estimates).</summary>
+    const int SeizeHoldQuota = 2;
+    const float SeizeHuntNearPoint = 60f;
+    const double SeizeHuntLatch = 8.0;
+    double _seizeHuntUntil = double.NegativeInfinity;
+    int _seizeHunts;
+
+    /// <summary>
+    /// Seize Ground (owner 2026-11-16: hunting should "clear space for their teammates to safely capture points"; the share is ours): a bot whose point already has
+    /// <see cref="SeizeHoldQuota"/> or more living teammates inside its capture zone is not needed there, and hunts while some living enemy outside its spawn room stands within
+    /// <see cref="SeizeHuntNearPoint"/> m of any point, for at least <see cref="SeizeHuntLatch"/> s (no flicker as teammates come and go); then it goes back to its point duty.
+    /// True: <see cref="BotSeizeInput"/> hands the bot to the chase and fight code, which hunts the nearest enemy.
+    /// </summary>
+    bool BotSeizeSurplusHunts(PlayerState me, SeizeGroundInfo layout, ControlPointInfo goal)
+    {
+        if (BotNoHunt || BotRetreating || me.Team == Team.None) return false;
+        if (_connectedFor < _seizeHuntUntil) return true;
+        int there = 0;
+        foreach (var o in _lastOthers)
+            if (o.Alive && o.Team == me.Team && o.PlayerId > 0 && o.PlayerId != me.PlayerId
+                && new Vector2(o.Position.X - goal.Center.X, o.Position.Y - goal.Center.Y).Length() <= goal.Radius) there++;
+        if (there < SeizeHoldQuota) return false;
+        bool near = false;
+        foreach (var o in _lastOthers)
+        {
+            if (!o.Alive || !World.Hostile(me.Team, o.Team) || InEnemyRoom(me, o)) continue;
+            foreach (var p in layout.Points)
+                if (new Vector2(o.Position.X - p.Center.X, o.Position.Y - p.Center.Y).Length() <= SeizeHuntNearPoint) { near = true; break; }
+            if (near) break;
+        }
+        if (!near) return false;
+        _seizeHuntUntil = _connectedFor + SeizeHuntLatch;
+        if (_seizeHunts++ < 200) GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} hunt {_seizeHunts} (seize): {there} teammates already on its point, enemy near the points");
+        return true;
+    }
 }

@@ -19,6 +19,8 @@ namespace SmClient;
 public partial class NetworkView
 {
     static readonly bool BotNoRetreat = CmdFlag("bot-no-retreat");
+    /// <summary><c>--bot-no-annihilation-retreat</c>: Annihilation bots do not retreat (the 2026-11-08 rollback); the owner's order of 2026-11-16 gives them the retreat again.</summary>
+    static readonly bool BotNoAnnihilationRetreat = CmdFlag("bot-no-annihilation-retreat");
     static readonly bool BotRecentAiAlways = CmdFlag("bot-recent-ai");
     /// <summary>
     /// The 2026-11-08 pass of the Classic PvP bot AI (safe pushes only, cover at low health, ramp and balcony posts) runs in Seize Ground only. Owner, 2026-11-08: "in
@@ -53,7 +55,7 @@ public partial class NetworkView
     /// </summary>
     PlayerInput? BotRetreatInput(PlayerState me, uint tick)
     {
-        if (BotNoRetreat || !BotRecentAi || _config is null || _client?.Collision is not { } world || me.Team == Team.None || !me.Alive) return null;
+        if (BotNoRetreat || (!SeizeGround && BotNoAnnihilationRetreat && !BotRecentAi) || _config is null || _client?.Collision is not { } world || me.Team == Team.None || !me.Alive) return null;
         _botRetreat ??= new BotRetreat();
         var body = Loadouts.Body(_config, me);
         bool was = _botRetreat.Active;

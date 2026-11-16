@@ -63,7 +63,7 @@ foreach ($f in Get-ChildItem $out -Filter 'bot-*.log') {
     if ($nl -match 'escapes (\d+), drops given up \d+, pit jumps (\d+)') { $esc += [int]$Matches[1]; $pit += [int]$Matches[2] }
     $unr += @($c | Where-Object { $_ -match 'unreachable' }).Count
     $retreats += @($c | Where-Object { $_ -match ' retreat \d+ to cover' }).Count
-    $hunts += @($c | Where-Object { $_ -match ' hunt \d+ on P' }).Count
+    $hunts += @($c | Where-Object { $_ -match ' hunt \d+ (on P|\(seize\))' }).Count
 }
 $falls = @(Get-Content -LiteralPath (Join-Path $out 'server.log') | Where-Object { $_ -match '^BOTFALL' }).Count
 $caps = @(Get-Content -LiteralPath (Join-Path $out 'server.log') | Where-Object { $_ -match 'point . .* (captured|neutralised) by' }).Count
