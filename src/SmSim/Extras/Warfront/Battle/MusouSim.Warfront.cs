@@ -20,7 +20,15 @@ public sealed partial class MusouSim
     partial void WarfrontSpawned(ushort id)
     {
         if (Warfront is not { } rules) return;
+        rules.Progression.Assists.Clear(id);
         rules.DamageScale[id] = rules.PendingDamage;
         rules.PendingDamage = 1f;
+    }
+
+    /// <summary>The assists' record: the last two human attackers of the Ork and when (slice W3b).</summary>
+    partial void WarfrontDamaged(ushort enemy, int attacker)
+    {
+        if (Warfront is not { } rules || attacker <= 0 || !rules.Progression.TryKey(attacker, out _)) return;   // humans only (not the AI Marines)
+        rules.Progression.Assists.Hit(enemy, attacker, Tick);
     }
 }

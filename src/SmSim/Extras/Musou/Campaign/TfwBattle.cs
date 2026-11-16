@@ -261,6 +261,9 @@ public sealed partial class TfwBattle
     /// <summary>Warfront: steps D's capture and may set the Won change.</summary>
     partial void WarfrontObjectives(ReadOnlySpan<Vector3> players, ref TfwBattleChange change);
 
+    /// <summary>Warfront: a failsafe is about to remove (<paramref name="why"/> 0 the position-clearing one, 2 the stranded one) or relocate (1) the Ork <paramref name="id"/>; the stuck-unit log's record.</summary>
+    partial void WarfrontStuck(ushort id, MusouEnemyType type, Vector3 at, byte why);
+
     float Dt => 1f / Math.Max(1, _enemies.TickRate);
     int Ticks(float seconds) => Math.Max(1, (int)MathF.Round(seconds * Math.Max(1, _enemies.TickRate)));
     float Health(MusouEnemyType type) => _enemies.Rules.Of(type).Health;
@@ -750,6 +753,7 @@ public sealed partial class TfwBattle
             { _idleInside[id] = (e.Position, _clearTick); continue; }
             if (_clearTick - seen.Since < limit) continue;
             _idleInside.Remove(id);
+            WarfrontStuck(id, e.Type, e.Position, 0);   // WARFRONT-HOOK
             _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
         }
         if (_idleInside.Count > 256) _idleInside.Clear();
@@ -995,9 +999,14 @@ public sealed partial class TfwBattle
             {
                 int source = _layout.Sources.Length - 1;
                 for (int s = 0; s < _layout.Sources.Length && s <= Positions; s++) if (SourceActive(s)) { source = s; break; }
+                WarfrontStuck(id, e.Type, e.Position, 1);   // WARFRONT-HOOK
                 _enemies.Relocate(id, SourceSpot(source));
             }
-            else _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
+            else
+            {
+                WarfrontStuck(id, e.Type, e.Position, 2);   // WARFRONT-HOOK
+                _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
+            }
         }
     }
 }
