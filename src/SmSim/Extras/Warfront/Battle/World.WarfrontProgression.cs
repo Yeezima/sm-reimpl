@@ -2,6 +2,7 @@ using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Progression;
+using SmSim.Extras.Warfront.Squad;
 
 namespace SmSim;
 
@@ -26,7 +27,7 @@ public sealed partial class World
     {
         if (_tfw?.Warfront is not { } rules) return;
         var rt = rules.Progression;
-        rt.Refill ??= () => WarfrontRefill(rt);
+        rt.Refill ??= () => WarfrontRefill(rt, rules);
         _tfw.Fire.Warfront ??= rules;
         int rate = Math.Max(1, Config.TickRate);
         rt.Assists.WindowTicks = (uint)(5 * rate);
@@ -35,7 +36,7 @@ public sealed partial class World
         foreach (int id in _players.Keys) if (!TfwContracts.IsPuppet(id)) _warfrontIds.Add(id);
         _warfrontIds.Sort();
         rt.Sync(_warfrontIds);
-        WarfrontRefill(rt);
+        WarfrontRefill(rt, rules);
         // The cards' attack speed rides on the player state (Stims.AttackSpeed): set each tick.
         foreach (int id in _warfrontIds)
         {
@@ -47,6 +48,7 @@ public sealed partial class World
         if (_tfw.Battle is not null && rules.SquadStep is { } squad && rules.LastFought != Tick - 1) squad();   // the field was empty last tick: TfwGuardsStep returned before the fight, so the squads still take their tick
         rt.TickPicker(now);   // an offer open for 20 s takes card 1; the protection ends with it
         bool aboard = _tfw.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;   // on the ship: the hub or the way down; every battle (a node, the HQ, the fortress) is the field
+        if (aboard) rules.AboardStep?.Invoke();   // W9b
         foreach (int id in _warfrontIds)
         {
             if (!rt.TryKey(id, out ulong key) || rt.Campaign.Player(key) is not { PendingPicks: > 0 } || rt.Picker.Protected(key)) continue;
@@ -63,11 +65,12 @@ public sealed partial class World
     }
 
     /// <summary>Each level-up since the last call refills that living player's health and shield to full (owner: "On level-up, refill HP and armor").</summary>
-    void WarfrontRefill(WarfrontProgressionRuntime rt)
+    void WarfrontRefill(WarfrontProgressionRuntime rt, WarfrontBattleRules? rules = null)
     {
         if (rt.Xp.LevelUps.Count == 0) return;
         foreach (var up in rt.Xp.Drain())
         {
+            rules?.OwnerLevelUp?.Invoke(up.Key);   // W9b: the owner's standing Marines refill too
             if (!rt.TryId(up.Key, out int id) || !_players.TryGetValue(id, out var p) || !p.Alive) continue;
             var body = Loadouts.Body(Config, p);
             _players[id] = p with { Health = body.HealthMax, Shield = body.ShieldMax };
@@ -143,7 +146,7 @@ public sealed partial class World
         if (attack.Player > WarfrontBattleRules.SquadIdFirst || attack.Player < WarfrontBattleRules.SquadIdLast || _tfw?.Warfront is not { } rules) return;
         handled = true;   // never the Guardsmen's
         if (rules.SquadHit is not { } hit) return;
-        float damage = attack.Damage * rules.DamageScaleOf(attack.Enemy);
+        float damage = attack.Damage * (1f + (rules.DamageScaleOf(attack.Enemy) - 1f) * SquadRules.OrkLevelDamageShare);   // W9b T1: a Marine takes none of the Orks' level damage (its durability grows with the level instead)
         hit(attack.Player, damage, attack.From);
     }
 

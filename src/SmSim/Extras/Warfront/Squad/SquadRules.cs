@@ -41,6 +41,12 @@ public static class SquadRules
     public const int TargetBase = 1000;
     /// <summary>The share of an Ork hit a Marine takes (ruling of 2026-11-17: 0.10, Musou's puppet Marines' share, to 0.35, so a busy wave drops Marines in sequence) [ours, estimate, low]. The per-Ork level multiplier is applied by W3b's hook, not here.</summary>
     public const float DamageTaken = 0.35f;
+    /// <summary>A partial path (the goal not reached) is still followed when its end is at least this much nearer the goal than the squad's centre (metres); only no progress is "no way" [ours, estimate, low] (W9b review 1).</summary>
+    public const float PartialProgress = 10f;
+    /// <summary>The share of an Ork's level damage multiplier a Marine takes (tuning ruling T1: 0, the squad's durability advances with the level as the Orks' damage does) [ours, estimate, low].</summary>
+    public const float OrkLevelDamageShare = 0f;
+    /// <summary>A place is out of a human's sight when it is behind him: more than this angle (radians, 100 degrees) from where he faces, or hidden by a wall [ours, estimate].</summary>
+    public const float ViewHalfAngle = 1.745f;
     /// <summary>A search for a path or a route expands at most this many nodes; farther is "no way" for a follow [ours, estimate].</summary>
     public const int SearchNodes = 8_000;
     /// <summary>A failed search is not repeated for this long, or until the owner has moved <see cref="FailedMoved"/> m, whichever comes first (seconds, metres) [ours, estimate].</summary>

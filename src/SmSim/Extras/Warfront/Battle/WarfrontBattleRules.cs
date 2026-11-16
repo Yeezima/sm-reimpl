@@ -62,6 +62,10 @@ public sealed class WarfrontBattleRules
     public Action<int, float, Vector3>? SquadHit { get; set; }
     /// <summary>The tick the squad seam last ran from <c>WarfrontFought</c> (the World steps it from <c>WarfrontStep</c> when a tick had no fight).</summary>
     internal uint LastFought;
+    /// <summary>W9b seam (notifying): one tick aboard the ship (the hub or the way down); the squad wiring follows its owners' loadouts there. Subscribe with <c>+=</c>.</summary>
+    public Action? AboardStep { get; set; }
+    /// <summary>W9b seam (notifying): the campaign key of a player who levelled up (called before the refill's own checks); the squad refills his standing Marines. Subscribe with <c>+=</c>.</summary>
+    public Action<ulong>? OwnerLevelUp { get; set; }
     /// <summary>W9 seam: one squad tick, after the Orks moved and struck (default: none).</summary>
     public Action? SquadStep { get; set; }
     /// <summary>W9 seam: a node battle began (lane, node) / ended (its result); called from W3's creation and leave hooks (default: none).</summary>

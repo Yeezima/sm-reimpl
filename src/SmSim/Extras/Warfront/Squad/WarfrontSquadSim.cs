@@ -45,7 +45,7 @@ public sealed partial class WarfrontSquadSim
     readonly List<Vector3>?[] _path = new List<Vector3>?[SquadRules.MaxOwners];
     readonly uint[] _pathBuilt = new uint[SquadRules.MaxOwners];
     readonly Vector3[] _pathTo = new Vector3[SquadRules.MaxOwners];
-    readonly float[] _damageScale = [1f, 1f, 1f, 1f], _healthScale = [1f, 1f, 1f, 1f];
+    readonly float[] _damageScale = [1f, 1f, 1f, 1f], _healthScale = [1f, 1f, 1f, 1f], _armourScale = [1f, 1f, 1f, 1f];
     readonly Dictionary<ushort, DamageNote> _notes = [];
     readonly Dictionary<int, int> _humanAttendant = [];
     readonly Dictionary<int, (float Progress, uint Touched)> _humanProgress = [];
@@ -59,7 +59,7 @@ public sealed partial class WarfrontSquadSim
     // the search budget (W9b bench item): one path or route search a tick for the whole system, round robin over the squads, a failed one remembered per squad
     bool _searched;
     int _searchCursor;
-    readonly bool[] _failed = new bool[SquadRules.MaxOwners];
+    readonly bool[] _failed = new bool[SquadRules.MaxOwners], _pathPartial = new bool[SquadRules.MaxOwners];
     readonly uint[] _failTick = new uint[SquadRules.MaxOwners];
     readonly Vector3[] _failOwner = new Vector3[SquadRules.MaxOwners];
     readonly bool[] _stranded = new bool[SquadRules.MaxOwners];
@@ -111,16 +111,25 @@ public sealed partial class WarfrontSquadSim
         return s >= 0 && slot >= 0 && slot < SquadRules.MaxPerPlayer ? s * SquadRules.MaxPerPlayer + slot : -1;
     }
 
-    readonly Dictionary<ulong, (float Damage, float Health)> _scale = [];
+    readonly Dictionary<ulong, (float Damage, float Health, float Armour)> _scale = [];
 
     /// <summary>
     /// A campaign key's damage and health multipliers for its squad (W7's stat share), set before or after it lands: damage applies at once, health to Marines landed afterwards. 1 and 1 by default.
     /// </summary>
-    public void SetScale(ulong key, float damage, float health)
+    public void SetScale(ulong key, float damage, float health, float armour = 1f)
     {
-        _scale[key] = (Math.Max(0f, damage), Math.Max(0.01f, health));
+        _scale[key] = (Math.Max(0f, damage), Math.Max(0.01f, health), Math.Max(0.01f, armour));
         int s = SlotOfKey(key);
-        if (s >= 0) { _damageScale[s] = _scale[key].Damage; _healthScale[s] = _scale[key].Health; }
+        if (s >= 0) { _damageScale[s] = _scale[key].Damage; _healthScale[s] = _scale[key].Health; _armourScale[s] = _scale[key].Armour; }
+    }
+
+    /// <summary>The owner levelled up (tuning ruling T3): every standing Marine of <paramref name="key"/> is back at full health and armour; downed and out ones are unchanged. The number refilled.</summary>
+    public int Refill(ulong key)
+    {
+        int n = 0;
+        foreach (var a in _a)
+            if (a.State == SquadState.Standing && a.Key == key) { a.Health = a.HealthMax; a.Armour = a.ArmourMax; n++; }
+        return n;
     }
 
     // ---- battle
@@ -162,7 +171,7 @@ public sealed partial class WarfrontSquadSim
         if (os < 0) return 0;
         _used[os] = true; _key[os] = key; _player[os] = player;
         _order[os] = SquadOrder.Follow; _point[os] = null; _lastSequence[os] = -1; _path[os] = null;
-        (_damageScale[os], _healthScale[os]) = _scale.TryGetValue(key, out var sc) ? sc : (1f, 1f);
+        (_damageScale[os], _healthScale[os], _armourScale[os]) = _scale.TryGetValue(key, out var sc) ? sc : (1f, 1f, 1f);
         int landed = 0;
         for (int slot = 0; slot < SquadRules.MaxPerPlayer; slot++)
         {
@@ -174,7 +183,7 @@ public sealed partial class WarfrontSquadSim
             a.Marine = m; a.Owner = player; a.Key = key; a.OwnerSlot = os; a.Slot = slot; a.State = SquadState.Standing;
             a.Pos = Snap(landing + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f));
             a.HoldAt = a.Pos; a.Yaw = 0f;
-            a.HealthMax = Math.Max(1f, m.Loadout.HealthMax * _healthScale[os]); a.ArmourMax = Math.Max(0f, m.Loadout.ArmourMax * _healthScale[os]);
+            a.HealthMax = Math.Max(1f, m.Loadout.HealthMax * _healthScale[os]); a.ArmourMax = Math.Max(0f, m.Loadout.ArmourMax * _armourScale[os]);
             a.Health = a.HealthMax; a.Armour = a.ArmourMax;
             a.DownedLeft = 0; a.ReviveProgress = 0f; a.NextShot = 0; a.Target = 0; a.DutyMate = -1; a.DutyHuman = int.MinValue; a.Attendant = -1; a.ReviverMarine = -1; a.ReviverHuman = -1; a.Progressed = false;
             ClassLand(a);   // W11: pack power, no flight
@@ -633,7 +642,7 @@ public sealed partial class WarfrontSquadSim
             bool known = false; Vector3 dest = default;
             foreach (var h in humans) if (h.Id == _player[os] && h.Alive) { known = true; dest = h.Position; break; }
             if (!known) { _path[os] = null; continue; }
-            if (_path[os] is not null && Flat(dest - _pathTo[os]) <= SquadRules.PathMoved) continue;
+            if (_path[os] is not null && !_pathPartial[os] && Flat(dest - _pathTo[os]) <= SquadRules.PathMoved) continue;   // a partial path is rebuilt from the new place whether or not the owner moved
             if (_failed[os] && _tick - _failTick[os] < retry && Flat(dest - _failOwner[os]) < SquadRules.FailedMoved) continue;   // a failed search waits 3 s, or until the owner has moved 10 m
             Vector3 sum = default; int count = 0;
             for (int k = 0; k < SquadRules.MaxPerPlayer; k++) { var a = _a[os * SquadRules.MaxPerPlayer + k]; if (a.State == SquadState.Standing) { sum += a.Pos; count++; } }
@@ -643,6 +652,7 @@ public sealed partial class WarfrontSquadSim
             _pathBuilt[os] = (_pathBuilt[os] == 0 ? _tick + (uint)(os * (every / 4)) : _tick); _pathTo[os] = dest;   // the first rebuild of each squad is staggered so the searches do not land on one tick
             var found = _arena.FindPath(sum / count, dest);
             _path[os] = found is null ? null : [.. found];
+            _pathPartial[os] = found is not null && _arena.LastPathPartial;
             if (found is null)
             {
                 _failed[os] = true; _failTick[os] = _tick; _failOwner[os] = dest;
@@ -669,8 +679,9 @@ public sealed partial class WarfrontSquadSim
             Vector3 sum = default; int count = 0;
             for (int k = 0; k < SquadRules.MaxPerPlayer; k++) { var a = _a[os * SquadRules.MaxPerPlayer + k]; if (a.State == SquadState.Standing && !a.Air) { sum += a.Pos; count++; } }
             if (count == 0 || Flat(sum / count - owner) <= SquadRules.StrandedDistance) continue;
-            var toward = sum / count - owner;
-            var places = RelocationPlaces(owner, MathF.Atan2(toward.Y, toward.X), humans);   // one scan of the ring for the whole squad
+            float baseAngle = MathF.PI;   // behind the owner's back: his yaw plus a half turn
+            foreach (var h in humans) if (h.Id == _player[os]) { baseAngle = h.Yaw + MathF.PI; break; }
+            var places = RelocationPlaces(owner, baseAngle, humans);   // one scan of the ring for the whole squad
             int moved = 0, next = 0;
             for (int k = 0; k < SquadRules.MaxPerPlayer && next < places.Count; k++)
             {
@@ -702,7 +713,12 @@ public sealed partial class WarfrontSquadSim
             var want = owner + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f);
             if (!_arena.Ground(want, out var g) || Flat(g - want) > 2f || !_arena.CanWalkLine(owner, g) || NearAny(hidden, g) || NearAny(seen, g)) continue;
             bool visible = false;
-            foreach (var h in humans) if (h.Alive && _arena.HasSight(h.Position, g)) { visible = true; break; }
+            foreach (var h in humans)
+            {
+                if (!h.Alive || !_arena.HasSight(h.Position, g)) continue;
+                float to = MathF.Atan2(g.Y - h.Position.Y, g.X - h.Position.X), d = MathF.Abs(MathF.IEEERemainder(to - h.Yaw, MathF.Tau));
+                if (d < SquadRules.ViewHalfAngle) { visible = true; break; }   // in his sight: a line to it and in front of him (what is behind his back is out of sight)
+            }
             (visible ? seen : hidden).Add(g);
         }
         foreach (var g in seen) { if (hidden.Count >= SquadRules.MaxPerPlayer) break; hidden.Add(g); }
@@ -724,7 +740,13 @@ public sealed partial class WarfrontSquadSim
         if (path is null || path.Count == 0) return null;
         int near = 0; float best = float.MaxValue;
         for (int k = 0; k < path.Count; k++) { float d = Flat(path[k] - a.Pos); if (d < best) { best = d; near = k; } }
+        // the nearest waypoint is the next one unless the Marine is already past it (W9b: a corner waypoint not yet reached is walked to, never skipped: a Marine stopped at a building's corner)
         int pick = Math.Min(near + 1, path.Count - 1);
+        if (near < path.Count - 1)
+        {
+            var along = path[near + 1] - path[near]; var behind = a.Pos - path[near];
+            if (along.X * behind.X + along.Y * behind.Y < 0f && Flat(path[near] - a.Pos) >= 0.5f) pick = near;
+        }
         for (int k = Math.Min(near + 8, path.Count - 1); k > pick; k--)
             if (Flat(path[k] - a.Pos) >= 1.5f && _arena.CanWalkLine(a.Pos, path[k])) { pick = k; break; }
         return path[pick];

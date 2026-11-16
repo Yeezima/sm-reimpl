@@ -516,7 +516,7 @@ public class WarfrontProgressionWiringTests
         Assert.Equal(WarfrontBattleRules.SquadIdFirst, id);
         Assert.True(steps > 0);
         float three = Hit(3f, out _, out _);
-        Assert.Equal(one * 3f, three, 2);   // the Ork's remembered multiplier is applied before the seam
+        Assert.Equal(one * (1f + 2f * SmSim.Extras.Warfront.Squad.SquadRules.OrkLevelDamageShare), three, 2);   // the Ork's remembered multiplier reaches the seam by the share a Marine takes (W9b T1: none)
     }
 
     [Fact]

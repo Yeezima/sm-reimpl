@@ -420,7 +420,7 @@ public class WarfrontSquadWiringTests
         r.DownMarine(1, 0);
         r.DownMarine(1, 1);   // both: a standing Marine would revive his mate
         var first = r.Sim.View(r.IndexOf(1, 0))!.Value;
-        Assert.True(r.Wi.AddStartingRetainer(2));
+        Assert.False(r.Wi.AddStartingRetainer(2));   // not in the world yet: the first tick aboard (or the landing) makes it
         r.W.Spawn(2, r.W.AssignClass(0));   // joins while the battle is under way: flown in
         r.Stand(60);
         Assert.True(r.Rt.TryKey(2, out _));
@@ -443,6 +443,7 @@ public class WarfrontSquadWiringTests
         Assert.Equal(SquadState.Downed, r.Sim.StateOf(r.IndexOf(1, 0)));
         Assert.Equal(first.Slot, r.Sim.View(r.IndexOf(1, 0))!.Value.Slot);
         Assert.Equal(1, r.Ledger(2)!.Battles);   // one deployment, one battle
+        Assert.Equal(SquadOrder.Follow, r.Sim.OrderOf(22));   // the squad held for his leaving follows again
     }
 
     [Fact]
@@ -477,10 +478,9 @@ public class WarfrontSquadWiringTests
         var r = Rig.Make(marines: 2);
         Assert.True(r.Wi.HasRoster(1));
         Assert.False(r.Wi.HasRoster(9));
-        Assert.True(r.Wi.AddStartingRetainer(9));
-        Assert.Equal(1, r.Wi.Rosters.Count(9));
-        Assert.True(r.Wi.AddStartingRetainer(9));   // idempotent
-        Assert.Equal(1, r.Wi.Rosters.Count(9));
+        Assert.False(r.Wi.AddStartingRetainer(9));   // no such player in the world: nothing made
+        Assert.True(r.Wi.AddStartingRetainer(1));    // idempotent: the roster exists
+        Assert.Equal(2, r.Wi.Rosters.Count(1));
         Assert.True(r.Wi.HoldSquad(1));
         Assert.Equal(SquadOrder.Hold, r.Sim.OrderOf(1));
         int saved = 0;
