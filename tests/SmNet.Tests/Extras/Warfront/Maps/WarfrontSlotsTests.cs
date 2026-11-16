@@ -104,6 +104,7 @@ public class WarfrontSlotsTests(ITestOutputHelper output)
             var data = WarfrontWorld.Compose(build.Level);   // TfwMap.Compose: the hub, the range, the hash
             Assert.Equal(3, data.Field.Points.Count);
             levels.Add((slot, build.Level.Hash, data.Hash));
+            WarfrontSlots.Release(slot);   // nine bands in one test host are a lot of memory
             output.WriteLine($"{slot.Name} seed {slot.Seed} {slot.Profile}: {build.Level.Parts.Count} parts, level {build.Level.Hash:X16}, map {data.Hash:X16}, {watch.Elapsed.TotalSeconds:0.0} s");
         }
         Assert.Equal(9, levels.Select(l => l.Hash).Distinct().Count());
@@ -233,6 +234,7 @@ public class WarfrontSlotsTests(ITestOutputHelper output)
                 Assert.True(report.Passed);
                 Assert.Equal(AshfallFront.StrongholdCentre.X, layout.Hq.X, 8f);   // D is the stronghold's centre on the through road
                 Assert.Equal(AshfallFront.StrongholdCentre.Y, layout.Hq.Y, 8f);
+                WarfrontSlots.Release(slot);
             }
         }
     }

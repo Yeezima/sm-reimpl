@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3484 spec table rows: **2491 tagged**, 643 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
-Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 757 rows of the changes document.
+Scanned 3495 spec table rows: **2499 tagged**, 646 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 758 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,33 +50,22 @@ Scanned 3490 spec table rows: **2494 tagged**, 646 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 777 | 734 | 564 | 211 | 1 |
+| Core simulation (provisional values) | 785 | 742 | 572 | 215 | 1 |
 | General game design | 19 | 19 | 17 | 7 | 0 |
 | Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2491** | 2219 | 1856 | 761 | 37 |
-| Core simulation (provisional values) | 780 | 737 | 567 | 215 | 1 |
-| General game design | 19 | 19 | 17 | 7 | 0 |
-| Ork faction | 260 | 247 | 144 | 69 | 0 |
-| **All areas** | **2494** | 2222 | 1859 | 765 | 37 |
+| **All areas** | **2499** | 2227 | 1864 | 765 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1446 |
-| confidence: low | 906 |
-| confidence: medium | 841 |
-| notes: ours | 433 |
-| kind: interpretation | 401 |
-| notes: estimate | 203 |
-| kind: estimate | 196 |
 | kind: ours | 1449 |
-| confidence: low | 902 |
+| confidence: low | 907 |
 | confidence: medium | 848 |
 | notes: ours | 436 |
 | kind: interpretation | 406 |
 | notes: estimate | 204 |
-| kind: estimate | 194 |
+| kind: estimate | 196 |
 | confidence: none (low) | 109 |
 | kind: provisional | 105 |
 | kind: user's knowledge | 53 |
@@ -2554,8 +2542,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (777)
-### Core simulation (provisional values) (780)
+### Core simulation (provisional values) (785)
 
 *Spec section: Provisional values in use*
 
