@@ -338,6 +338,7 @@ public sealed partial class GameClient
                 case Scoreboard b when Status == ClientStatus.Connected && (Scoreboard is null || b.ServerTick > Scoreboard.ServerTick): Scoreboard = b; OnScoreboardAppearances(b); NoteNames(b); break;
                 case Message m and (SetupAck or Appearance or BlobRequest or BlobChunk) when Status == ClientStatus.Connected: OnAppearanceMessage(m); break;
                 case EnemyBars eb when Status == ClientStatus.Connected: OnBars(eb); break;   // protocol 44 (GameClient.Bars.cs)
+                case DevState dev when Status == ClientStatus.Connected: OnDevState(dev); break;   // protocol 80 (GameClient.Dev.cs)
                 case PickupUpdate p when Status == ClientStatus.Connected: OnPickups(p); break;   // protocol 26 (GameClient.Pickups.cs)
                 case ExtrasUpdate x when Status == ClientStatus.Connected: OnExtras(x); break;   // added content's envelope (GameClient.Envelope.cs)
             }
@@ -436,6 +437,7 @@ public sealed partial class GameClient
             Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, lockView);
         // anim/melee-interaction: the charge's contact, stop and turn, as the server resolves them with the same view and bodies (ChargeLock.Predict).
         Predicted = PredictChargeContact(PreviousPredicted, Predicted, input, view, LastBodies);
+        Predicted = DevTopUp(Predicted);   // protocol 80: the developer tools' top-up as the server applies it (nothing unless the server announced them)
         if (events != default)
         {
             _ownEvents.Add((Tick, events));
@@ -666,6 +668,7 @@ public sealed partial class GameClient
                 state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
                     input.MeleeTarget > 0 ? LockViewAt(input.ViewTick, state) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
             state = PredictChargeContact(beforeLast, state, input, null, replayBodies);   // anim/melee-interaction
+            state = DevTopUp(state);   // protocol 80
             _history[tick] = (input, state);
         }
         LastCorrection = state.Position - Predicted.Position;

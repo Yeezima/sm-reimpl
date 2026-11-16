@@ -163,6 +163,8 @@ public sealed partial class GameServer
         public TokenBucket? Commands;
         /// <summary>Protocol 58: the rate of respawn choices taken from this peer (<see cref="OnSpawnRequest"/>).</summary>
         public TokenBucket? SpawnRequests;
+        /// <summary>Protocol 80: the rate of developer-tools requests taken from this peer (<see cref="OnDevCommand"/>).</summary>
+        public TokenBucket? DevRequests;
     }
 
     /// <summary>Ticks of snapshot send times kept per peer for the ping (protocol 50): 64 ticks, 2.1 s at 30 Hz; an acknowledgement of an older snapshot gives no sample.</summary>
@@ -237,6 +239,7 @@ public sealed partial class GameServer
 
     public void Update()
     {
+        if (_options.DevTools is not null) DevKeepAlive();   // protocol 80: a slowed or paused server still tells its clients it is alive (GameServer.DevTools.cs)
         RefreshBans(_clock.Now);   // hardening (GameServer.Guard.cs): bans, per-address rules, idle kick, crash isolation
         for (int handled = 0; handled < _options.MaxPacketsPerUpdate && _transport.TryReceive(out int connection, out var packet); handled++)
         {
@@ -273,6 +276,7 @@ public sealed partial class GameServer
             if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; TickStatsSnapshot(); }
             if (_nextTickAt > _nextScoreboardAt) { Guard("scoreboards", SendScoreboards); _nextScoreboardAt += _options.ScoreboardInterval; }
             Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
+            if (_options.DevTools is not null) Guard("dev tools", DevToolsTick);   // protocol 80: the developer tools' bots and state (GameServer.DevTools.cs); nothing without --dev-tools
             Guard("pickups", SendPickups);   // protocol 26: dropped pickups, outside the snapshots (GameServer.Pickups.cs)
             SmSim.SimProfile.End("send: core", section);
             section = SmSim.SimProfile.Begin();
@@ -300,6 +304,7 @@ public sealed partial class GameServer
             case BlobChunk c when _peers.ContainsKey(connection): OnBlobChunk(connection, c); NoteActivity(connection); break;
             case ExtrasCommandMessage x when _peers.TryGetValue(connection, out var commanding) && x.Session == commanding.Session: OnExtrasCommand(commanding, x); break;
             case SpawnRequest sr when _peers.TryGetValue(connection, out var spawning) && sr.Session == spawning.Session: OnSpawnRequest(spawning, sr); break;   // protocol 58
+            case DevCommand dc when _peers.TryGetValue(connection, out var devPeer) && dc.Session == devPeer.Session: OnDevCommand(connection, devPeer, dc); break;   // protocol 80 (GameServer.DevTools.cs)
             case null: RefuseOldHello(connection, packet); break;
         }
     }
@@ -576,8 +581,10 @@ public sealed partial class GameServer
                 peer.LastApplied = last with { Tick = tick, ViewTick = last.ViewTick == 0 ? 0 : last.ViewTick + (tick - last.Tick),
                     BodyTick = last.BodyTick == 0 ? 0 : last.BodyTick + (tick - last.Tick) };   // protocol 43: the bodies too
             }
+            if (peer.Bot && (World.DevFlags & DevToolsFlags.FreezeBots) != 0) return new PlayerInput(tick, 0, 0, peer.LastApplied.Yaw, InputButtons.None);   // protocol 80: the developer tools' frozen bots (flags are set only on a loopback-only --dev-tools server)
             return WithBoundedBody(WithBoundedView(peer.LastApplied, BoundedViewTick(peer, peer.LastApplied.ViewTick)), peer.LastAppliedAck, BodySlack);
         });
+        if (World.DevFlags != DevToolsFlags.None) World.ApplyDevTools();   // protocol 80: infinite ammunition and jump-pack power (DevTools.cs)
         foreach (var peer in byPlayer.Values)
         {
             foreach (var stale in peer.Inputs.Keys.TakeWhile(t => t <= World.Tick).ToList()) peer.Inputs.Remove(stale);

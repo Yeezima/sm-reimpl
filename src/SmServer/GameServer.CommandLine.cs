@@ -93,6 +93,12 @@ public sealed record ServerArguments
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
     public int MaxSpectators { get; init; } = Protocol.MaxSpectators;
+    /// <summary>--dev-tools (protocol 80; the owner 2026-11-17): the in-game developer tools (invincible, frozen bots, infinite ammunition and jump pack, adding and removing bots). Obeyed only when --bind is a loopback address and the request comes from one; otherwise ignored with a line in the log.</summary>
+    public bool DevTools { get; init; }
+    /// <summary>--dev-bot-exe: the Godot console executable the tools' bots run (default: the one the repository's tools download).</summary>
+    public string? DevBotExe { get; init; }
+    /// <summary>--dev-bot-project: the Godot project folder for those bots (default: the client folder of the checkout the server runs from; not needed for an exported game).</summary>
+    public string? DevBotProject { get; init; }
     public bool Help { get; init; }
 }
 
@@ -121,6 +127,10 @@ public static class ServerCommandLine
           --bot-damage-scale <f>        test aid: scale all damage dealt by test bots (client --bot) by f, 0 to 1 (default 1 = off; e.g. 0.34 = 66% less)
           --snapshot-rate <hz>          snapshots a second to every client, 1 to 30 (default 30, every tick; 20 = the rate before net/responsive)
           --name-seed <0-4294967295>    the seed of the test bots' names (per-race pools, ours; default random, printed at start): the same seed and join order give the same names
+          --dev-tools                   switch: test aid: the in-game developer tools (F6 in the client: invincible, freeze bots, infinite ammunition, infinite jump pack, add / remove a bot per side);
+                                        obeyed only with --bind on a loopback address (127.0.0.1) and for requests from loopback, so a public server ignores it (clients need protocol 80 as always)
+          --dev-bot-exe <file>          the Godot console executable the tools' bots run (default: the one godot.cmd / client.cmd downloaded)
+          --dev-bot-project <dir>       the Godot project folder for them (default: the client folder of the checkout this server runs from)
           --honor-side-requests         switch: keep the side a client asks for up to the per-side limit (test aid for bot fills; the balance applies only to joins with no side)
           --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, the barks, the autocannon), musou (the
                                         experimental Musou Mode, alone; Annihilation rules only) or a list such as orks,autocannon
@@ -155,10 +165,10 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
-         "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
+         "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -172,6 +182,7 @@ public static class ServerCommandLine
             {
                 a = flag switch
                 {
+                    "--dev-tools" => a with { DevTools = true },
                     "--rotation-child" => a with { RotationChild = true },
                     "--no-custom-emblems" => a with { CustomEmblems = false },
                     "--limit-loopback" => a with { LimitLoopback = true },
@@ -223,6 +234,8 @@ public static class ServerCommandLine
                     if (IPAddress.TryParse(value, out var address)) a = a with { Bind = address }; else bad = "an IP address such as 127.0.0.1";
                     break;
                 case "--game-dir": a = a with { GameDir = value }; break;
+                case "--dev-bot-exe": a = a with { DevBotExe = value }; break;
+                case "--dev-bot-project": a = a with { DevBotProject = value }; break;
                 case "--map": a = a with { Map = value }; break;
                 case "--maps": a = a with { Maps = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) }; break;
                 case "--mode":
