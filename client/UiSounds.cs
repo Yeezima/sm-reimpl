@@ -205,6 +205,7 @@ public partial class UiSounds : Node
             return false;
         }
         _catalog = _load.Result;
+        SoundTunerPanel.EnsureLoaded(System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), "..")));   // sound/mix-expand: a saved or shipped mix (and raw) applies to the menus too, not only after a match starts
         _sound = new SoundSystem(_catalog) { Name = "UiSoundSystem" };
         AddChild(_sound);
         var cat = _catalog;

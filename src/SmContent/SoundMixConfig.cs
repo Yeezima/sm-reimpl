@@ -151,6 +151,17 @@ public sealed class SoundMixConfig
     public SoundMixEffect? Resolve(string evt, bool own)
     {
         if (IsEmpty) return null;
+        if (_cacheVersion != Version) { _cacheOwn.Clear(); _cacheOthers.Clear(); _cacheVersion = Version; }
+        var cache = own ? _cacheOwn : _cacheOthers;
+        if (cache.TryGetValue(evt, out var hit)) return hit;
+        return cache[evt] = ResolveNew(evt, own);
+    }
+
+    readonly Dictionary<string, SoundMixEffect?> _cacheOwn = new(StringComparer.OrdinalIgnoreCase), _cacheOthers = new(StringComparer.OrdinalIgnoreCase);
+    int _cacheVersion = -1;
+
+    SoundMixEffect? ResolveNew(string evt, bool own)
+    {
         Map(own).TryGetValue(evt, out var ov);
         bool soloing = AnySolo;
         if (ov is null && !soloing) return _globalRaw ? SoundMixEffect.RawOnly : null;
@@ -190,12 +201,18 @@ public static class SoundMixFile
 
     public static string Key(string evt, bool own) => (own ? "own/" : "other/") + evt;
 
-    public static string ToJson(SoundMixConfig config, SoundTuning? tuning = null, SoundTuning? tuningBaseline = null)
+    public static string ToJson(SoundMixConfig config, SoundTuning? tuning = null, SoundTuning? tuningBaseline = null, SoundMixConfig? baseline = null)
     {
         var sounds = new JsonObject();
-        foreach (var (evt, own, v) in config.Entries().OrderBy(e => e.Event, StringComparer.OrdinalIgnoreCase).ThenByDescending(e => e.Own))
+        // With a baseline (the player's saved file over the shipped defaults) only the differences are written; a sound the player put back to the game's own is written as { "reset": true }.
+        var keys = config.Entries().Select(e => (e.Event, e.Own)).Concat(baseline?.Entries().Select(e => (e.Event, e.Own)) ?? []).Distinct()
+            .OrderBy(e => e.Event, StringComparer.OrdinalIgnoreCase).ThenByDescending(e => e.Own);
+        foreach (var (evt, own) in keys)
         {
+            var v = config.Get(evt, own);
+            if (baseline is not null && baseline.Get(evt, own) == v) continue;
             var o = new JsonObject();
+            if (v.IsDefault) { sounds[Key(evt, own)] = new JsonObject { ["reset"] = true }; continue; }
             if (v.VolumeDb != 0f) o["volumeDb"] = Math.Round(v.VolumeDb, 2);
             if (v.PitchSemitones != 0f) o["pitchSemitones"] = Math.Round(v.PitchSemitones, 2);
             if (v.DistanceScale != 1f) o["distanceScale"] = Math.Round(v.DistanceScale, 3);
@@ -204,7 +221,7 @@ public static class SoundMixFile
             sounds[Key(evt, own)] = o;
         }
         var root = new JsonObject { ["version"] = Version };
-        if (config.GlobalRaw) root["globalRaw"] = true;
+        if (baseline is null ? config.GlobalRaw : config.GlobalRaw != baseline.GlobalRaw) root["globalRaw"] = config.GlobalRaw;
         root["sounds"] = sounds;
         if (tuning is not null && JsonNode.Parse(SoundTuningFile.ToJson(tuning, tuningBaseline)) is JsonObject t
             && ((t["groups"] as JsonObject)?.Count > 0 || tuning.ReverbScale != (tuningBaseline?.ReverbScale ?? 1f)))
@@ -218,6 +235,8 @@ public static class SoundMixFile
         JsonNode? node;
         try { node = JsonNode.Parse(json); } catch (JsonException) { return false; }
         if (node is not JsonObject root || (root["sounds"] is null && root["tuning"] is null && root["globalRaw"] is null)) return false;
+        if (root["version"] is JsonValue ver && (!ver.TryGetValue<double>(out var vn) || vn > Version)) return false;   // a newer file than this client knows
+        if ((root["sounds"] is not null and not JsonObject) || (root["tuning"] is not null and not JsonObject)) return false;
         if (root["globalRaw"] is JsonValue g && g.TryGetValue<bool>(out var raw)) into.GlobalRaw = raw;
         if (root["sounds"] is JsonObject sounds)
             foreach (var (key, value) in sounds)
@@ -228,6 +247,7 @@ public static class SoundMixFile
                 else if (key.StartsWith("other/", StringComparison.OrdinalIgnoreCase)) { own = false; evt = key[6..]; }
                 else continue;
                 if (evt.Length == 0 || value is not JsonObject o) continue;
+                if (o["reset"] is JsonValue rv && rv.TryGetValue<bool>(out var isReset) && isReset) { into.Set(evt, own, SoundOverride.None); continue; }
                 float F(string name, float fallback) => o[name] is JsonValue v && v.TryGetValue<double>(out var d) && double.IsFinite(d) ? (float)d : fallback;
                 bool B(string name) => o[name] is JsonValue v && v.TryGetValue<bool>(out var b) && b;
                 into.Set(evt, own, new SoundOverride(F("volumeDb", 0f), F("pitchSemitones", 0f), F("distanceScale", 1f), B("mute"), B("raw")));
@@ -238,7 +258,7 @@ public static class SoundMixFile
 
     /// <summary>
     /// The shipped defaults (the first existing path of <paramref name="defaultsPaths"/>; its tuning section goes into <paramref name="tuningDefaults"/>) and the current mix: the owner's saved file when
-    /// it exists and is valid (a complete snapshot, so a sound he reset stays reset even if the defaults set it), else the defaults. A missing or broken file is skipped; the note says what was read.
+    /// it exists and is valid (only his differences from the defaults, applied over them, so a later shipped default still reaches him and a sound he reset stays reset), else the defaults. A missing or broken file is skipped; the note says what was read.
     /// </summary>
     public static (SoundMixConfig Defaults, SoundMixConfig Current, string Note) Load(IEnumerable<string> defaultsPaths, string? overridesPath, SoundTuning? tuningDefaults = null)
     {
@@ -256,7 +276,7 @@ public static class SoundMixFile
         {
             try
             {
-                var mine = new SoundMixConfig();
+                var mine = defaults.Clone();
                 if (TryApply(File.ReadAllText(overridesPath), mine)) { current = mine; note += (note.Length > 0 ? " + " : "") + "your sound mix"; }
                 else note += "; your sound mix file is not valid (ignored)";
             }
@@ -266,12 +286,12 @@ public static class SoundMixFile
     }
 
     /// <summary>Writes the config (and the Groups tab's tuning) to <paramref name="path"/>, creating its folder.</summary>
-    public static void Write(string path, SoundMixConfig config, SoundTuning? tuning = null)
+    public static void Write(string path, SoundMixConfig config, SoundTuning? tuning = null, SoundMixConfig? baseline = null)
     {
         string? dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir)) System.IO.Directory.CreateDirectory(dir);
         string tmp = path + ".tmp";
-        File.WriteAllText(tmp, ToJson(config, tuning));
+        File.WriteAllText(tmp, ToJson(config, tuning, null, baseline));
         File.Move(tmp, path, overwrite: true);
     }
 

@@ -80,7 +80,7 @@ public class SoundMixConfigTests
         Assert.False(config.Resolve(Heavy, true)!.Silenced);   // the soloed sound plays
         Assert.True(config.Resolve("play_sm_bolter_fire", true)!.Silenced);   // everything else is silent
         Assert.True(config.Resolve(Heavy, false)!.Silenced);   // the other side of the same sound is not soloed
-        Assert.Equal("", string.Join("", SoundMixFile.ToJson(config).Contains("solo") ? "solo saved" : ""));   // solo is a listening aid: never in a file
+        Assert.DoesNotContain("solo", SoundMixFile.ToJson(config));   // solo is a listening aid: never in a file
         config.SetSolo(Heavy, true, false);
         Assert.True(config.IsEmpty);
 
@@ -126,6 +126,9 @@ public class SoundMixConfigTests
         Assert.False(SoundMixFile.TryApply("not json", config));
         Assert.False(SoundMixFile.TryApply("[1,2]", config));
         Assert.False(SoundMixFile.TryApply("{\"hello\": 1}", config));
+        Assert.False(SoundMixFile.TryApply("{\"sounds\": 5}", config));
+        Assert.False(SoundMixFile.TryApply("{\"version\": 2, \"sounds\": {}}", config));   // a newer file than this client knows
+        Assert.False(SoundMixFile.TryApply("{\"sounds\": {}, \"tuning\": []}", config));
         Assert.True(SoundMixFile.TryApply("{\"sounds\": {\"weird/play_x\": {\"volumeDb\": 3}, \"own/\": {\"volumeDb\": 3}, \"own/play_ok\": {\"volumeDb\": \"loud\", \"mute\": true}, \"other/play_y\": 5}}", config));
         Assert.Equal(1, config.Count);
         Assert.True(config.Get("play_ok", true).Mute);
@@ -158,13 +161,27 @@ public class SoundMixConfigTests
             Assert.Equal(-3f, tuningDefaults.Of(SoundTuningGroups.Ambience).VolumeDb);
             Assert.Equal("shipped sound mix", n1);
 
-            var owner = new SoundMixConfig();   // the owner reset the shipped sound and set another
+            var owner = shipConfig.Clone();   // the owner reset the shipped sound and set another
+            owner.Set(Heavy, true, SoundOverride.None);
             owner.Set("play_sm_bolter_fire", true, new SoundOverride(VolumeDb: -2f));
-            SoundMixFile.Write(mine, owner);
+            SoundMixFile.Write(mine, owner, null, shipConfig);
+            Assert.Contains("\"reset\": true", File.ReadAllText(mine));
             var (_, c2, n2) = SoundMixFile.Load([shipped], mine);
-            Assert.Equal(0f, c2.Get(Heavy, true).VolumeDb);   // his file is a whole snapshot: the reset sticks
+            Assert.Equal(0f, c2.Get(Heavy, true).VolumeDb);   // the reset sticks
             Assert.Equal(-2f, c2.Get("play_sm_bolter_fire", true).VolumeDb);
             Assert.Contains("your sound mix", n2);
+
+            // A later shipped default reaches a player who saved before: v2 of the defaults adds a sound and changes the one he never touched.
+            var v2 = new SoundMixConfig();
+            v2.Set(Heavy, true, new SoundOverride(VolumeDb: 9f));   // he reset this one: it stays his
+            v2.Set("play_sm_stimpack", true, new SoundOverride(VolumeDb: 4f));   // new in v2: reaches him
+            File.Delete(shipped);
+            SoundMixFile.Write(shipped, v2);
+            var (_, c2b, _) = SoundMixFile.Load([shipped], mine);
+            Assert.Equal(4f, c2b.Get("play_sm_stimpack", true).VolumeDb);
+            Assert.Equal(0f, c2b.Get(Heavy, true).VolumeDb);
+            Assert.Equal(-2f, c2b.Get("play_sm_bolter_fire", true).VolumeDb);
+            SoundMixFile.Write(shipped, shipConfig, shipTuning);
 
             File.WriteAllText(mine, "{ broken");
             var (_, c3, n3) = SoundMixFile.Load([shipped], mine);
@@ -239,7 +256,7 @@ public class SoundMixConfigTests
         var rx = new Regex("\"((?:play|stop|Play|Stop)_[A-Za-z0-9_]+)\"");
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var dir in new[] { "client", "src" })
-            foreach (var file in Directory.EnumerateFiles(Path.Combine(root!, dir), "*.cs", SearchOption.AllDirectories).Where(f => !f.Contains("obj") && !f.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar)))
+            foreach (var file in Directory.EnumerateFiles(Path.Combine(root!, dir), "*.cs", SearchOption.AllDirectories).Where(f => !f.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(seg => seg is "obj" or "bin")))
                 foreach (Match m in rx.Matches(File.ReadAllText(file))) names.Add(m.Groups[1].Value);
         Assert.True(names.Count > 20, $"only {names.Count} event names found in the source");
         var counts = SoundMixCatalog.Coverage(names);

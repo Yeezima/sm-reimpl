@@ -424,7 +424,7 @@ public partial class SoundTunerPanel : CanvasLayer
         try
         {
             SoundTuningFile.SaveOverrides(SoundTuningFile.OverridesPath(), SoundTuning.Live, _defaults);
-            SoundMixFile.Write(SoundMixFile.OverridesPath(), Cfg);
+            SoundMixFile.Write(SoundMixFile.OverridesPath(), Cfg, null, _mixDefaults);   // only his differences from the shipped defaults, so later shipped defaults still reach him
             Status(@"Saved to %LOCALAPPDATA%\sm-reimpl\ (" + SoundMixFile.OverridesFileName + " and " + SoundTuningFile.OverridesFileName + "); loaded at the next start.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Status("Could not save: " + ex.Message); }
