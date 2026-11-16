@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3330 spec table rows: **2367 tagged**, 620 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
+Scanned 3344 spec table rows: **2376 tagged**, 625 not tagged (read from data with high confidence), 343 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 738 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -36,10 +36,10 @@ Scanned 3330 spec table rows: **2367 tagged**, 620 not tagged (read from data wi
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 157 | 137 | 113 | 56 | 5 |
-| Jump pack (critical) | 80 | 73 | 66 | 17 | 0 |
+| Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
-| Camera (critical) | 55 | 53 | 44 | 22 | 0 |
+| Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
 | Sound mix (critical) | 89 | 83 | 75 | 11 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
@@ -53,20 +53,20 @@ Scanned 3330 spec table rows: **2367 tagged**, 620 not tagged (read from data wi
 | Core simulation (provisional values) | 726 | 683 | 515 | 188 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 249 | 238 | 134 | 68 | 0 |
-| **All areas** | **2367** | 2103 | 1766 | 729 | 37 |
+| **All areas** | **2376** | 2106 | 1775 | 729 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1381 |
-| confidence: low | 856 |
-| confidence: medium | 802 |
+| confidence: low | 857 |
+| confidence: medium | 809 |
 | notes: ours | 403 |
-| kind: interpretation | 386 |
+| kind: interpretation | 389 |
 | notes: estimate | 203 |
 | kind: estimate | 164 |
-| confidence: none (low) | 108 |
+| confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
 | kind: choice | 42 |
@@ -1324,7 +1324,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-C778FFFB` | Melee field-of-view widening (camera/melee-fov-widen, owner 2026-11-15) | any melee action (swing, heavy strike, the charge incl. the sprint-RMB charge, the dash attack's lunge, the ground pound) adds 10 horizontal degrees to the configured field of view (`FovMath.Clamp`; unset = the data's look), capped at 120 (115 goes to 120… (horizontal degrees at the window's aspect; 0.3 s) | kind: ours | `MeleeFov`, `NetworkView.MeleeFov`, `NetworkView.RigCamera` | Melee field-of-view widening (camera/melee-fov-widen, owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: any melee action (swing, heavy strike, the charge incl. the… | ☐ |
 
-### Jump pack (gameplay-critical) (80)
+### Jump pack (gameplay-critical) (81)
 
 *Spec section: Jump pack and ground pound (M14, used by the simulation)*
 
@@ -1340,6 +1340,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C7AE2BEE` | Use again in the air | no: a jump starts only from the ground (the in-jump graph has no jump-to-jump branch) | kind: interpretation; confidence: medium | behavior graph | Use again in the air: compare with SM1 by feel or video. Ours: no: a jump starts only from the ground (the in-jump graph has no… | ☐ |
 | `R-3F38F314` | Landing | the controller (or the flat ground) grounds the player: phase Landed; movement input ignored until `BRANCH_Run` and a new jump not before `BRANCH_Jump_To_Jump` of the run landing (stick pushed at landing: 0.333 / 0.132 s) or the idle landing (0.462 / 0.277… (s) | kind: interpretation; confidence: low | `Non-Hammer Run/Idle Land Sequence` tags × clip length (0.9 / 1.2 s) | Landing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the controller (or the flat ground) grounds the player: phase Landed… | ☐ |
 | `R-628D6836` | Landing blast | the world tracks the jump's highest point; landing applies the `action_land_regular_by_height` entry with the largest `distance_from_apex_to_land` not above the drop (1e-4 m tolerance; exactly 15 m takes the 15 m entry): drop ≥ 15 m: r 4, 15 damage (no shield… (m, damage) | kind: interpretation; confidence: low; notes: ours | values extracted; "drop = apex − landing height" and the centre ours | Landing blast: compare with SM1 by measuring on a flat spot of the same map. Ours: the world tracks the jump's highest point; landing applies the… | ☐ |
+| `R-71FF1CE8` | Fall damage | none: the player blueprints' `biped_locomotion_ext/finish_falling_actions` (both races) holds only the landing sound (`play_sm_land_normal`), a 0.1 s camera effect with a small shake and the `jump_land` effect, no `do_damage`, reaction or modifier, and… | confidence: medium | `ebps` `sm_space_marine_player`, `csm_chaos_marine_player` (read in full) | Fall damage: compare with SM1 by timing a run over a known distance. Ours: none: the player blueprints' biped_locomotion_ext/finish_falling_actio… | ☐ |
 | `R-FEBBDE3E` | Ground pound start | (superseded by protocol 73, sim/pound-any-weapon: no weapon waits for this delay) a Melee press edge in the ascent, hang or fall, ≥ `smash_available_delay` (0) s after the lift-off, with `smash_can_be_used` and an `ability_groundpound`; melee presses never… (s) | kind: interpretation; confidence: low | input binding not in the data (public descriptions: melee in the air) | Ground pound start: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: (superseded by protocol 73, sim/pound-any-weapon: no weapon waits for… | ☐ |
 | `R-CF6470B5` | Dive | velocity `smash_initial_speed_boost` 50 along the aim, leaned at most `smash_limit_angle` 50° from straight down (aiming level dives at 50° from vertical in the view's heading), then gravity 75; no air control; no minimum height (the… (m/s, °) | kind: interpretation; confidence: low | values extracted | Dive: compare with SM1 by timing a run over a known distance. Ours: velocity smash_initial_speed_boost 50 along the aim, leaned at most… | ☐ |
 | `R-7F3A0CDF` | Pound impact | reaching the ground: blast from `actn_gp_hit` r 7, 25 explosive + 50 shield (multipliers 1), fall-off 0 → 1, 4.5 → 1, 7 → 0.05 (linear between, 0 beyond), line of sight against weapon collision, the pounder excluded; applied in the impact tick at the impact… (m, damage) | kind: interpretation; confidence: low; notes: ours | values extracted; timing and centre ours | Pound impact: compare with SM1 by feel or video. Ours: reaching the ground: blast from actn_gp_hit r 7, 25 explosive + 50… | ☐ |
@@ -1579,7 +1580,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4FF3ABD9` | Light melee flinch | a light melee hit (the whole normal combo, the knife's included) shows the graph's "Random Flinches" (`hkbWeightedRandomSelector`, read since this pass, entered on `Hit_Flinch`): `SM_REC_Flinch_L_High_01`, `_L_Mid_01`, `_M_High_01`, `_M_Mid_01`, `_R_High_01`… (s) | kind: ours; kind: user's knowledge; confidence: medium | graph (the clips and weights); the owner's recollection (no stagger, no interrupt); that light hits send `Hit_Flinch` is ours (the original's light hits name… | Light melee flinch: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a light melee hit (the whole normal combo, the knife's included)… | ☐ |
 | `R-5A4C9742` | Flinches never block an action | no flinch is a simulated reaction: gunfire and light melee hits on a player in a reload, a melee combo, an evade or a weapon switch leave its whole action timeline tick for tick as unhit (`HitReactionNoBlockTests`, 8 cases) | notes: user's knowledge | the owner's recollection; tests | Flinches never block an action: compare with SM1 by watching the reaction and timing it frame by frame. Ours: no flinch is a simulated reaction: gunfire and light melee hits on a… | ☐ |
 
-### Camera (gameplay-critical) (55)
+### Camera (gameplay-critical) (63)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1660,6 +1661,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-46B5E705` | Flinch strength | the additive flinch laid at **1.3** for a shot and **1.6** for the own melee hit's victim; its 0.05 s in and 0.333 s out are the owner's and unchanged (multiple) | kind: ours; confidence: low | ours; the clips are the data's | Flinch strength: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the additive flinch laid at 1.3 for a shot and 1.6 for the own melee… | ☐ |
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
+
+*Spec section: Evidence pass P0c: host options, sound fades and limits, camera sets, UI texts and the unused perk texts (2026-11-16; data only, nothing applied; report docs/evidence-p0c.md)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-6507053B` | Host options in the original | the create-game screen names seven options: Time Limit (locale 111759), Score Limit (111760), Max. Armor (111761), Armor Regeneration (111762), Friendly Fire (111763), Allow Perks (111764), Player Decorators (111765), and a label Respawn Time (103933) beside… (â€”) | confidence: none (low) | `ucs.pc` locale | Host options in the original: compare with SM1 with side-by-side screenshots in the same spot. Ours: the create-game screen names seven options: Time Limit (locale… | ☐ |
+| `R-3CD0DADF` | Legacy mode descriptions | locale 103913 "Kill the enemy players 20 times and win" (beside "Chaos Undivided") and 103915 "Team Deathmatch: Kill 15 members of the opposing team to win" are fixed texts of an earlier build; the shipped descriptions are templated (121127 "Annihilation: Be… (kills) | kind: interpretation; confidence: low | `ucs.pc` locale | Legacy mode descriptions: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 103913 "Kill the enemy players 20 times and win" (beside… | ☐ |
+| `R-306890D1` | Death and respawn texts | locale 119474 "TACTICAL INSERTION", 119475 "DEPLOY IN" (the countdown's label, interpretation), 119476 "CHANGE CAMERA", 119478 "KILLED BY:", 111808 "respawning..."; ours says "RESPAWN IN n" and shows no killer line (â€”) | kind: interpretation; confidence: medium | `ucs.pc` locale | Death and respawn texts: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: locale 119474 "TACTICAL INSERTION", 119475 "DEPLOY IN" (the… | ☐ |
+| `R-848F7671` | Camera files that are not multiplayer | `camera_melee_settings` (`melee_default`, `melee_default_new`, `melee_default_debug`, `walk_talk`: a roaming third-person "cameraman" with radius 10, fov 35, blend 0.5 s each way), `camera_marker_settings` (`thunderhawk_cam01..05`… (â€”) | confidence: medium | `camera_*.oppc` | Camera files that are not multiplayer: compare with SM1 with an overlaid screenshot taken from the same position. Ours: camera_melee_settings (melee_default, melee_default_new… | ☐ |
+| `R-01F8327D` | Camera: what no file holds | no death-camera set, no spectator set, no shoulder-swap setting and no left-shoulder curve exist in `camera_curve_settings` (the rig's side offset is +0.644 m right in every walking curve); the `CHANGE CAMERA` text is the only trace. The death camera, its… (â€”) | confidence: medium | all `camera_*` packages, locale | Camera: what no file holds: compare with SM1 with an overlaid screenshot taken from the same position. Ours: no death-camera set, no spectator set, no shoulder-swap setting and… | ☐ |
+| `R-1383DA7D` | Wwise Play fade-in and Stop fade-out (read at last) | the first `u32` of an action's parameters (the M33 layout) is a transition time: of 3,055 Play actions in the 15 multiplayer packages 559 fade in (1000 ms 271, 500 ms 57, 250 ms 35, 200 ms 32, 100 ms 27, 1500 ms 27, 2000 ms 18, 750 ms 18, 5000 ms 13, 3000 ms… (ms) | kind: interpretation; confidence: medium | `smtool audio-event` and a scratch reader of `HircAction.TransitionMilliseconds` | Wwise Play fade-in and Stop fade-out (read at last): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first u32 of an action's parameters (the M33 layout) is a… | ☐ |
+| `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… (â€”) | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
+| `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… (â€”) | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
 ### HUD and hit feedback (gameplay-critical) (73)
 
