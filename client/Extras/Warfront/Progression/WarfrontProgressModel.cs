@@ -18,6 +18,8 @@ public sealed class WarfrontProgressModel
     public const float BannerSeconds = 2f;
     /// <summary>A bot client picks this long after an offer opens (proofs only).</summary>
     public const float BotDelaySeconds = 1f;
+    /// <summary>The picker closes itself when no open Offer record has arrived for this long (the server repeats the record while the offer stands, and sends the close three times in a row; a lost close must not leave the panel up) [ours].</summary>
+    public const float SelfCloseSeconds = 1f;
 
     /// <summary>The display order of the five stat counters: the wire's card order.</summary>
     public static readonly WarfrontCard[] CounterCards = WarfrontProgressionRules.StatCards;
@@ -53,11 +55,12 @@ public sealed class WarfrontProgressModel
     /// <summary>The level rose to this number (the banner shows; no sound in this slice).</summary>
     public event Action<int>? LevelUp;
 
-    int _batchTotal, _lastPending;
-    float _bannerLeft, _resendIn, _openFor;
+    int _batchTotal, _lastPending, _pendingAtOpen;
+    float _bannerLeft, _resendIn, _openFor, _sinceOffer;
     int _bannerLevel;
 
-    public bool BannerShowing => _bannerLeft > 0f;
+    /// <summary>The LEVEL N line shows only while no offer stands (two messages at once washed one out); a banner cut short shows its remaining time after the close.</summary>
+    public bool BannerShowing => _bannerLeft > 0f && !OfferOpen;
     public string BannerText => "LEVEL " + _bannerLevel;
 
     // ---- feed -------------------------------------------------------------------------------------------------------------------------------
@@ -94,9 +97,10 @@ public sealed class WarfrontProgressModel
         for (int i = 0; i < Cards.Length; i++) Cards[i] = i < o.Cards.Count ? o.Cards[i] : WarfrontCard.None;
         SecondsLeft = o.SecondsLeft;
         Aboard = o.Aboard;
+        _sinceOffer = 0f;
         if (fresh)
         {
-            Highlight = 0; Sent = -1; _resendIn = 0f; _openFor = 0f;
+            Highlight = 0; Sent = -1; _resendIn = 0f; _openFor = 0f; _pendingAtOpen = Pending;
             if (_batchTotal < Pending) _batchTotal = Pending;
         }
         Changed?.Invoke();
@@ -125,6 +129,7 @@ public sealed class WarfrontProgressModel
         if (pending > _lastPending && (_batchTotal > 0 || OfferOpen)) _batchTotal += pending - _lastPending;
         else if (_batchTotal < pending) _batchTotal = pending;
         _lastPending = Pending = pending;
+        if (OfferOpen && pending < _pendingAtOpen) { Close(); return; }   // the pick went through (its close may have been lost)
         if (pending == 0 && !OfferOpen) _batchTotal = 0;
     }
 
@@ -132,8 +137,10 @@ public sealed class WarfrontProgressModel
 
     public void Tick(float dt)
     {
-        if (_bannerLeft > 0f) { _bannerLeft = MathF.Max(0f, _bannerLeft - dt); if (_bannerLeft == 0f) Changed?.Invoke(); }
+        if (_bannerLeft > 0f && !OfferOpen) { _bannerLeft = MathF.Max(0f, _bannerLeft - dt); if (_bannerLeft == 0f) Changed?.Invoke(); }
         if (!OfferOpen) return;
+        _sinceOffer += dt;
+        if (_sinceOffer > SelfCloseSeconds) { Close(); return; }
         SecondsLeft = MathF.Max(0f, SecondsLeft - dt);
         _openFor += dt;
         if (Bot && Sent < 0 && _openFor >= BotDelaySeconds) Pick(PickIndex % WarfrontProgressionWire.OfferSize);
@@ -204,6 +211,30 @@ public sealed class WarfrontProgressModel
         WarfrontCard.Retainer => "+1 RETAINER",
         _ => "",
     };
+
+    /// <summary>The second line: what the player has and gets. Stat cards: "NOW +20 %, THEN +30 %"; cooldown at its floor: "AT THE 40 % FLOOR"; retainer: "SQUAD 3 OF 9" (after the pick).</summary>
+    public string CardTotal(WarfrontCard c)
+    {
+        int n = Owned(c);
+        float step = c switch
+        {
+            WarfrontCard.AttackSpeed => WarfrontProgressionRules.AttackSpeedStep,
+            WarfrontCard.MaxHp => WarfrontProgressionRules.MaxHpStep,
+            WarfrontCard.Damage => WarfrontProgressionRules.DamageStep,
+            WarfrontCard.CooldownReduction => WarfrontProgressionRules.CooldownStep,
+            WarfrontCard.MaxArmor => WarfrontProgressionRules.MaxArmorStep,
+            _ => 0f,
+        };
+        if (c == WarfrontCard.Retainer) return $"SQUAD {Math.Min(n + 1, WarfrontProgressionRules.RosterMax)} OF {WarfrontProgressionRules.RosterMax}";
+        if (step <= 0f) return "";
+        if (c == WarfrontCard.CooldownReduction)
+        {
+            float max = 1f - WarfrontProgressionRules.CooldownFloor;
+            if (n * step >= max - 1e-4f) return $"AT THE {Pct(WarfrontProgressionRules.CooldownFloor)} % FLOOR";
+            return $"NOW -{Pct(n * step)} %, THEN -{Pct(MathF.Min(max, (n + 1) * step))} %";
+        }
+        return $"NOW +{Pct(n * step)} %, THEN +{Pct((n + 1) * step)} %";
+    }
 
     static int Pct(float f) => (int)MathF.Round(f * 100f);
 

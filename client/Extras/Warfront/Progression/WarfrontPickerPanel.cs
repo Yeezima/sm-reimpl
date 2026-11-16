@@ -8,13 +8,13 @@ namespace SmClient.Extras.Warfront.Progression;
 /// The card picker (slice W8; brief "Behaviour" 3 to 5): four cards in a row over a dimmed field, shown while the model's offer stands and hidden when it closes. Each card: its slot number, name, one line of effect
 /// and how many are already owned; a countdown bar from the wire's seconds left, "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" and "YOU CANNOT BE HARMED WHILE CHOOSING" (the protection is the server's; the client does not
 /// block its own input, the server drops it). Input: keys 1 to 4 pick at once (the panel marks them handled, so they do not also switch weapons here); D-pad left and right move the highlight, D-pad down or A
-/// takes it, D-pad up does nothing; a click on a card picks it. Text styles: heading 24 and body 16, every label live, boxes and bars drawn with crisp equal frames. Laid out in the 1920 by 1080 space, ours.
+/// takes it, D-pad up does nothing; a click on a card picks it. Text styles: heading 28 and body 20, every label live, boxes and bars drawn with crisp equal frames. Laid out in the 1920 by 1080 space, ours.
 /// </summary>
 public sealed partial class WarfrontPickerPanel : Control
 {
-    public const int HeadingSize = 24, BodySize = 16;
+    public const int HeadingSize = 28, BodySize = 20;
     public const float Left = 164f, CardWidth = 380f, CardHeight = 300f, CardGap = 24f, CardTop = 310f, HeaderTop = 250f;
-    public const float BarTop = 640f, BarHeight = 16f, NotesTop = 676f, NoteStep = 30f;
+    public const float BarTop = 640f, BarHeight = 16f, NotesTop = 676f, NoteStep = 34f;
     public static float CardLeft(int i) => Left + i * (CardWidth + CardGap);
     public static float RowWidth => 4 * CardWidth + 3 * CardGap;
 
@@ -79,8 +79,8 @@ public sealed partial class WarfrontPickerPanel : Control
             int slot = i;
             float x = CardLeft(i) + 20f, w = CardWidth - 40f;
             _slot[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerSlot" + i, x, CardTop + 16f, w, HeadingSize, WarfrontProgressDraw.Gold);
-            _name[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerName" + i, x, CardTop + 60f, w, HeadingSize, white);
-            _effect[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerEffect" + i, x, CardTop + 118f, w, BodySize, white);
+            _name[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerName" + i, x, CardTop + 64f, w, HeadingSize, white);
+            _effect[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerEffect" + i, x, CardTop + 124f, w, BodySize, white, lines: 2);
             _owned[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerOwned" + i, x, CardTop + CardHeight - 44f, w, BodySize);
             var hit = new Control { Name = "WarfrontPickerHit" + i, MouseFilter = MouseFilterEnum.Stop, MouseDefaultCursorShape = CursorShape.PointingHand };
             hit.SetAnchorsPreset(LayoutPreset.TopLeft);
@@ -94,7 +94,7 @@ public sealed partial class WarfrontPickerPanel : Control
         _timeout = WarfrontProgressDraw.Text(this, "WarfrontPickerTimeout", Left, NotesTop, 900f, BodySize);
         _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop + NoteStep, 900f, BodySize);
         _hint = WarfrontProgressDraw.Text(this, "WarfrontPickerHint", Left, NotesTop + 2 * NoteStep, 1200f, BodySize);
-        _seconds = WarfrontProgressDraw.Text(this, "WarfrontPickerSeconds", Left + RowWidth - 120f, HeaderTop, 120f, HeadingSize, white, HorizontalAlignment.Right);
+        _seconds = WarfrontProgressDraw.Text(this, "WarfrontPickerSeconds", Left + RowWidth - 140f, HeaderTop, 140f, HeadingSize, white, HorizontalAlignment.Right);
         _timeout.Text = WarfrontProgressModel.TimeoutNote;
         _protected.Text = WarfrontProgressModel.ProtectedNote;
         _hint.Text = WarfrontProgressModel.HintNote;
@@ -114,7 +114,7 @@ public sealed partial class WarfrontPickerPanel : Control
             var c = m.Cards[i];
             WarfrontProgressDraw.Set(_slot[i], (i + 1).ToString());
             WarfrontProgressDraw.Set(_name[i], WarfrontProgressModel.CardName(c));
-            WarfrontProgressDraw.Set(_effect[i], WarfrontProgressModel.CardEffect(c));
+            WarfrontProgressDraw.Set(_effect[i], WarfrontProgressModel.CardEffect(c) + '\n' + m.CardTotal(c));
             WarfrontProgressDraw.Set(_owned[i], m.OwnedText(c));
         }
         _draw.QueueRedraw();

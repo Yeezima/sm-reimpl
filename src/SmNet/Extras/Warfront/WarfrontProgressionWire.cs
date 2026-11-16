@@ -22,8 +22,9 @@ public sealed record WarfrontOfferWire(bool Open, int PickIndex, IReadOnlyList<W
 /// <list type="bullet">
 /// <item>Tag <see cref="ProgressTag"/>, <see cref="ProgressLength"/> bytes: <c>[u8 level][u32 xp][u32 xp at this level][u32 xp at next level][u8 pending picks][u8 x5 card counts in WarfrontCard order, AttackSpeed to MaxArmor][u8 retainer cards][u16 attack-speed bonus, 1/1000]</c>.
 /// Sent on a change and every 2 s.</item>
-/// <item>Tag <see cref="OfferTag"/>, <see cref="OfferLength"/> bytes: <c>[u8 open][u8 pick index][u8 x4 cards][u8 tenths of a second left][u8 aboard]</c>. Sent every tick group while an offer stands, and once with
-/// <c>open = 0</c> (cards and time zero) when it closes.</item>
+/// <item>Tag <see cref="OfferTag"/>, <see cref="OfferLength"/> bytes: <c>[u8 open][u8 pick index][u8 x4 cards][u8 tenths of a second left][u8 aboard]</c>. Sent every tick group while an offer stands, and with
+/// <c>open = 0</c> (cards and time zero) when it closes: the sender repeats the close record in three consecutive sends (the datagram is unreliable), and the client closes itself after
+/// <c>WarfrontProgressModel.SelfCloseSeconds</c> without an open record or when Progress shows fewer pending picks than when the offer opened.</item>
 /// </list>
 /// </summary>
 public static class WarfrontProgressionWire

@@ -26,6 +26,12 @@ public class WarfrontProgressionWireTests
     }
 
     [Fact]
+    public void The_pick_timeout_fits_one_byte_of_tenths()
+    {
+        Assert.True(WarfrontProgressionRules.PickTimeoutSeconds * 10 <= 255, "a longer timeout would clamp silently on the wire");
+    }
+
+    [Fact]
     public void Progress_round_trips_typical_and_at_its_limits()
     {
         foreach (var p in new[]

@@ -46,14 +46,14 @@ public static class WarfrontProgressDraw
 /// Warfront's XP HUD (slice W8; plan section 5, brief "Behaviour" 1 and 2): the level, a thin XP bar to the next level, "+N" while picks are pending, one row of five small counters (attack speed, max HP,
 /// damage, cooldown, max armour) and the retainer count, and the one-line LEVEL N banner for two seconds after a level rises. In the 1920 by 1080 space like the other Warfront panels, on the right edge at
 /// mid height: clear of Musou's corners (capture tiles top left, boss and vitals bottom left, kill feed top right, KO chain and weapon box bottom right) and its top call-out and bottom prompt strips. Layout ours,
-/// to check against the live Musou HUD. Two text levels (heading 24, body 16) plus the banner's own; fed by a <see cref="WarfrontProgressModel"/>, hidden until Progress arrives.
+/// to check against the live Musou HUD. Two text levels (heading 28, body 20) plus the banner's own; fed by a <see cref="WarfrontProgressModel"/>, hidden until Progress arrives.
 /// </summary>
 public sealed partial class WarfrontXpHud : Control
 {
-    public const int HeadingSize = 24, BodySize = 16, BannerSize = 40;
-    public const float Width = 372f, Height = 164f, Right = 44f, Top = 420f, Pad = 15f, BarHeight = 12f;
-    /// <summary>Whole pixels: six cells of 52 at a step of 58 span 342, the box less its two 15 px margins.</summary>
-    public const float CellWidth = 52f, CellStep = 58f;
+    public const int HeadingSize = 28, BodySize = 20, BannerSize = 44;
+    public const float Width = 420f, Height = 184f, Right = 44f, Top = 420f, Pad = 15f, BarHeight = 12f;
+    /// <summary>Whole pixels: six cells of 60 at a step of 66 span 390, the box less its two 15 px margins.</summary>
+    public const float CellWidth = 60f, CellStep = 66f;
     public static float Left => UiKit.VirtualWidth - Right - Width;
 
     readonly WarfrontProgressModel _model;
@@ -84,10 +84,10 @@ public sealed partial class WarfrontXpHud : Control
             var box = new Rect2(Left, Top, Width, Height);
             DrawRect(box, UiKit.PanelColour);
             WarfrontProgressDraw.Frame(this, box, 2f, new Color(1f, 1f, 1f, 0.8f));
-            WarfrontProgressDraw.Bar(this, new Rect2(Left + Pad, Top + 50f, Width - 2f * Pad, BarHeight), _m.XpFraction, WarfrontProgressDraw.Gold);
+            WarfrontProgressDraw.Bar(this, new Rect2(Left + Pad, Top + 54f, Width - 2f * Pad, BarHeight), _m.XpFraction, WarfrontProgressDraw.Gold);
             for (int i = 0; i < 6; i++)
             {
-                var cell = new Rect2(Left + Pad + i * CellStep, Top + 96f, CellWidth, 56f);
+                var cell = new Rect2(Left + Pad + i * CellStep, Top + 108f, CellWidth, 64f);
                 int count = i < 5 ? _m.CardCounts[i] : _m.Retainers;
                 WarfrontProgressDraw.Frame(this, cell, 2f, count > 0 ? WarfrontProgressDraw.Gold : new Color(1f, 1f, 1f, 0.35f));
             }
@@ -104,12 +104,12 @@ public sealed partial class WarfrontXpHud : Control
         _draw.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_draw);
         var white = UiKit.White;
-        _level = WarfrontProgressDraw.Text(this, "WarfrontLevel", Left + Pad, Top + 8f, 220f, HeadingSize, white);
+        _level = WarfrontProgressDraw.Text(this, "WarfrontLevel", Left + Pad, Top + 8f, 260f, HeadingSize, white);
         _pending = WarfrontProgressDraw.Text(this, "WarfrontPending", Left + Width - Pad - 120f, Top + 8f, 120f, HeadingSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Right);
-        _xp = WarfrontProgressDraw.Text(this, "WarfrontXpText", Left + Pad, Top + 66f, Width - 2f * Pad, BodySize);
+        _xp = WarfrontProgressDraw.Text(this, "WarfrontXpText", Left + Pad, Top + 72f, Width - 2f * Pad, BodySize);
         for (int i = 0; i < 6; i++)
-            _cells[i] = WarfrontProgressDraw.Text(this, "WarfrontCell" + i, Left + Pad + i * CellStep, Top + 98f, CellWidth, BodySize, white, HorizontalAlignment.Center, lines: 2);
-        _banner = WarfrontProgressDraw.Text(this, "WarfrontBanner", (UiKit.VirtualWidth - 640f) / 2f, 190f, 640f, BannerSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Center);
+            _cells[i] = WarfrontProgressDraw.Text(this, "WarfrontCell" + i, Left + Pad + i * CellStep, Top + 110f, CellWidth, BodySize, white, HorizontalAlignment.Center, lines: 2);
+        _banner = WarfrontProgressDraw.Text(this, "WarfrontBanner", (UiKit.VirtualWidth - 800f) / 2f, 180f, 800f, BannerSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Center);
         _banner.Visible = false;
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;

@@ -117,8 +117,10 @@ public sealed partial class WarfrontPickerSelfTest : Node
         Check("offer opens the picker", P.Visible && M.OfferOpen);
         Check("header single pick", P.HeaderLabel.Text == "CHOOSE A CARD", P.HeaderLabel.Text);
         Check("slot numbers 1 to 4", Enumerable.Range(0, 4).All(i => P.SlotLabel(i).Text == (i + 1).ToString()));
-        Check("card 4 is +1 RETAINER", P.NameLabel(3).Text == "RETAINER" && P.EffectLabel(3).Text == "+1 RETAINER", P.EffectLabel(3).Text);
-        Check("effect numbers from the rules", P.EffectLabel(0).Text == "+10 % DAMAGE" && P.EffectLabel(1).Text == "-8 % ABILITY COOLDOWN" && P.EffectLabel(2).Text == "+10 % ATTACK SPEED", $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(2).Text}");
+        Check("card 4 is +1 RETAINER", P.NameLabel(3).Text == "RETAINER" && P.EffectLabel(3).Text.StartsWith("+1 RETAINER"), P.EffectLabel(3).Text);
+        Check("effect numbers from the rules", P.EffectLabel(0).Text.StartsWith("+10 % DAMAGE\n") && P.EffectLabel(1).Text.StartsWith("-8 % ABILITY COOLDOWN\n") && P.EffectLabel(2).Text.StartsWith("+10 % ATTACK SPEED\n"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(2).Text}");
+        Check("effect line shows the total after the pick", P.EffectLabel(0).Text.EndsWith("NOW +20 %, THEN +30 %") && P.EffectLabel(1).Text.EndsWith("NOW -8 %, THEN -16 %") && P.EffectLabel(3).Text.EndsWith("SQUAD 3 OF 9"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(3).Text}");
+        Check("cooldown floor text", M.CardTotal(WarfrontCard.CooldownReduction) != "" && SmClientFloor());
         Check("owned counts", P.OwnedLabel(0).Text == "OWNED 2" && P.OwnedLabel(1).Text == "OWNED 1" && P.OwnedLabel(2).Text == "OWNED 1" && P.OwnedLabel(3).Text == "OWNED 2", string.Join("|", Enumerable.Range(0, 4).Select(i => P.OwnedLabel(i).Text)));
         Check("fixed notes", P.TimeoutLabel.Text == "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" && P.ProtectedLabel.Text == "YOU CANNOT BE HARMED WHILE CHOOSING");
         await Still("picker-retainer-slot4");
@@ -131,16 +133,16 @@ public sealed partial class WarfrontPickerSelfTest : Node
         Press(JoyButton.DpadRight); Press(JoyButton.DpadRight); Press(JoyButton.DpadRight); Check("highlight clamps at card 4", M.Highlight == 3);
         Press(JoyButton.DpadDown);
         Check("d-pad down confirms the highlighted card with the shown index", _sent.Count == 1 && _sent[0] == (3, 5), string.Join(",", _sent));
-        M.Tick(0.29f); Check("no resend before 0.3 s", _sent.Count == 1);
+        Keep(5, 18f, WithRetainer); M.Tick(0.29f); Check("no resend before 0.3 s", _sent.Count == 1);
         M.Tick(0.02f); Check("resend at 0.3 s", _sent.Count == 2 && _sent[1] == (3, 5));
-        M.Tick(0.3f); M.Tick(0.3f); Check("resent every 0.3 s while open", _sent.Count == 4);
+        M.Tick(0.3f); Keep(5, 17f, WithRetainer); M.Tick(0.3f); Check("resent every 0.3 s while open", _sent.Count == 4);
         PressKey(Key.Key2); Check("key 2 picks card 2 at once", _sent.Count == 5 && _sent[4] == (1, 5), string.Join(",", _sent));
         PressKey(Key.Key5); Check("key 5 does nothing", _sent.Count == 5);
 
         // 5. A new pick index replaces the offer and sends no stale pick.
         int before = _sent.Count;
         _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(6, 20f, false, FourStats)));
-        M.Tick(0.4f);
+        Keep(6, 20f, FourStats); M.Tick(0.4f);
         Check("new pick index: nothing stale sent", _sent.Count == before && M.Sent < 0 && M.PickIndex == 6);
         Check("new cards shown", _host.Picker.NameLabel(0).Text == "MAX HP" && P.NameLabel(3).Text == "COOLDOWN");
         await Frames(2);
@@ -200,9 +202,26 @@ public sealed partial class WarfrontPickerSelfTest : Node
         botHost.PickRequested += (s, i) => botSent.Add((s, i));
         AddChild(botHost);
         botHost.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(10, 20f, false, WithRetainer)));
-        botHost.Frame(0.9f); Check("bot waits one second", botSent.Count == 0);
+        botHost.Frame(0.9f); botHost.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(10, 19f, false, WithRetainer))); Check("bot waits one second", botSent.Count == 0);
         botHost.Frame(0.2f); Check("bot picks slot index % 4", botSent.Count == 1 && botSent[0] == (2, 10), string.Join(",", botSent));
         botHost.QueueFree();
+
+        // 10b. A lost close: the panel closes itself after 1.0 s without an open record; a Progress with fewer pending picks closes it too; the banner waits for the close.
+        _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(12, 20f, false, WithRetainer)));
+        M.Tick(0.9f); Check("still open at 0.9 s without a record", M.OfferOpen);
+        M.Tick(0.2f); await Frames(2); Check("self-closes after 1.0 s without an open record", !M.OfferOpen && !P.Visible);
+        _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(8, 100, 2, new byte[] { 1, 1, 3, 1, 0 }, 2, 0)));
+        _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(13, 20f, false, WithRetainer)));
+        Check("opened with two pending", M.OfferOpen && M.Header == "CARD 1 OF 2", M.Header);
+        _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(8, 100, 1, new byte[] { 1, 1, 3, 1, 0 }, 2, 0)));
+        Check("pending count dropping closes it (close datagram lost)", !M.OfferOpen);
+        _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(9, 100, 2, new byte[] { 1, 1, 3, 1, 0 }, 2, 0)));
+        _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(14, 20f, false, WithRetainer)));
+        Check("banner hidden while an offer is open", !M.BannerShowing && !_host.Hud.BannerLabel.Visible);
+        M.Tick(0.5f); Keep(14, 19f, WithRetainer); M.Tick(0.5f);
+        _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.EncodeClosed(14)); await Frames(2);
+        Check("a banner cut short shows its remaining time after the close (the offer time did not run it down)", M.BannerShowing && _host.Hud.BannerLabel.Visible && _host.Hud.BannerLabel.Text == "LEVEL 9", _host.Hud.BannerLabel.Text);
+        M.Tick(2.1f); Check("and then ends", !M.BannerShowing);
 
         // 11. Reset (a stage change) clears everything.
         M.Reset(); await Frames(2);
@@ -221,6 +240,16 @@ public sealed partial class WarfrontPickerSelfTest : Node
 
         GD.Print($"WFPICK SELFTEST RESULT passed={_passed} failed={_failed}");
         GetTree().Quit(_failed == 0 ? 0 : 1);
+    }
+
+    void Keep(int index, float seconds, WarfrontCard[] cards) => _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(index, seconds, false, cards)));
+
+    /// <summary>A card with 8 cooldown cards (64 %) reads as the floor.</summary>
+    static bool SmClientFloor()
+    {
+        var m = new WarfrontProgressModel();
+        m.Apply(new WarfrontProgressWire(10, 100, 0, 200, 0, new byte[] { 0, 0, 0, 8, 0 }, 1, 0));
+        return m.CardTotal(WarfrontCard.CooldownReduction) == "AT THE 40 % FLOOR";
     }
 
     void Press(JoyButton b) => _host.Picker._Input(new InputEventJoypadButton { ButtonIndex = b, Pressed = true });
