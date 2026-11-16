@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3405 spec table rows: **2428 tagged**, 627 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 751 rows of the changes document.
-Scanned 3409 spec table rows: **2433 tagged**, 628 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 751 rows of the changes document.
+Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,19 +53,15 @@ Scanned 3409 spec table rows: **2433 tagged**, 628 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2428** | 2156 | 1802 | 732 | 37 |
-| **All areas** | **2433** | 2161 | 1801 | 731 | 37 |
+| **All areas** | **2439** | 2167 | 1806 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1426 |
+| kind: ours | 1437 |
 | confidence: low | 871 |
-| confidence: medium | 822 |
-| kind: ours | 1431 |
-| confidence: low | 868 |
-| confidence: medium | 824 |
+| confidence: medium | 826 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
@@ -80,7 +75,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
 | notes: interpretation | 27 |
-| notes: interpretation | 26 |
 | kind: approximation | 25 |
 | kind: placeholder | 23 |
 | kind: gap (not reproduced) | 19 |
@@ -5202,7 +5196,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-293081FC` | The F7 sound mix editor: per-sound volume, pitch, hearing distance, mute, solo and raw, with export and shipped defaults (sound/mix-expand, owner 2026-11-17; client only, no protocol, wire, rules or config-hash change; every mode) | The original had no sound tuning | Ours (the owner's request, verbatim in spec "The sound mix editor"): off until the owner changes something, a shipped `config/sound-mix-defaults.json` would make a release sound different on purpose; raw plays a sample without the filters, effects and mix passes | Sound mix | The F7 sound mix editor: per-sound volume, pitch, hearing…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2A54A495` | Developer tools panel (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's request, verbatim in spec "Developer tools: the in-game test panel"): F6 opens a panel for invincible players and bots, frozen bots, infinite ammunition (heat and overheat included, our choice), infinite jump pack fuel, and adding or removing a test bot per side; the server applies everything, and… | Real-match rules, a public server and the Host panel's LAN / Internet mode stay exactly as they were; with the switch off the tick loop pays one null check and no packet differs (the protocol number moved 79 to 80 for the two new messages) | Developer tools panel (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-61593002` | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner 2026-11-17; added content, `--custom-map`; no protocol or config-hash change) | The original shipped its own maps only; no tester-made maps | Ours (the owner's request): a `.smmap` file made in the Mapmaker (solid pieces, spawn areas, doors, capture points, kill zones, declared modes) is played by the server (`--custom-map`) and by clients that find the file by its `cm_` name; the map hash is the file's; a play-test button starts a loopback server with the… | Spec "Mapmaker custom maps" | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-61593002` | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner 2026-11-17; added content, `--custom-map`; no protocol or config-hash change) | The original shipped its own maps only; no tester-made maps | Ours (the owner's request): a `.smmap` file made in the Mapmaker (solid pieces, spawn areas, doors, capture points, kill zones, declared modes) is played by the server (`--custom-map`) and by clients that find the file by its `cm_` name; the map hash is the first 8 bytes of SHA-256(compiler version + the file's… | Spec "Mapmaker custom maps" | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
