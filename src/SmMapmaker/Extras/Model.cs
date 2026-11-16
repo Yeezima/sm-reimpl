@@ -272,7 +272,6 @@ public sealed class MapDocument
             throw new MapException("bad-file", $"Unsupported formatVersion (this build reads {FormatVersion}).");
         var d = new MapDocument { Name = Json.Str(o["name"], "name") ?? "", NextId = Json.Int(o["nextId"], "nextId", "bad-file") };
         if (d.Name.Length > MaxNameLength) throw new MapException("too-big", $"The map name is longer than {MaxNameLength} characters.");
-        if (d.Name.Length > MaxNameLength) throw new MapException("too-big", $"The map name is longer than {MaxNameLength} characters.");
         if (o["modes"] is { } modesNode) d.Modes = Json.Arr(modesNode, "modes").Select((m, i) => Json.Str(m, $"modes[{i}]")!).Where(m => m.Length > 0).Distinct().ToList();
         var seen = new HashSet<string>();
         var objectNodes = Json.Arr(o["objects"], "objects");
