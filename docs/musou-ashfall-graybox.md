@@ -1097,11 +1097,16 @@ The owner-approved plan of 2026-11-16 (lead 28's audit): one Musou front is lane
 - The ring's north gate: about 34 m (x -20 to 14), the owner's chosen width (2026-11-16); no test or gate asks for 24 m.
 
 ### Client (F3)
-- The composed world is the collision; the drawing is per band: `AshfallMap.SplitFront` gives each band's level and dressing back in its own frame, drawn under a node at its offset (graybox, kit look, outside scenery). Only the band the player stands in is shown (`NetworkView.TfwFrontFrame`); the storm look is built once and follows the active band.
+- The composed world is the collision; the drawing is per band: `AshfallMap.SplitFront` gives each band's level and dressing back in its own frame, drawn under a node at its offset (graybox, kit look, outside scenery). Only the band the player stands in is shown (`NetworkView.TfwFrontFrame`, the rule `AshfallFront.BandShown`). The storm look places its fires, smoke and lane marks from a level's own spots, so it is built from the shown band's level under that band's node and built again on a band switch (the old one leaves the tree first and puts back what it wrote; re-review of 2026-11-16). The grime's option toggles re-dress every band's kit look.
 - **Outside the boundary** (`AshfallFrontScenery`; client only, no collision, never hashed): the ground out to 1.2 km, flat along the front's line and rising at 10 degrees to the east and west; the avenue on out of both edges; massing copies (one box per kit item) of the neighbouring bands 520 m north and south; 20 manufactorum stacks on the slopes; the cathedral spire (380 m) 1150 m north as the far goal. About 8 to 10 thousand triangles a band (well under the plan's cap of a quarter of a band).
 
+### Test aids (front map only; nothing changes in normal play)
+- Server `SM_TFW_FRONT_NODE=1|2|3|4` (environment): every run starts with each lane's front at n - 1 (`TfwRun.StartNode`), so the first battle on any lane is node n on its band (4: the final assault on the core). For 200 v 200 runs per band with `tools/musou-perf.ps1 -Map tfw_war_front`.
+- Client `--front-band 0|1|2`: that band is drawn whatever the camera does (free-fly captures at x = 0, 600 or 1200).
+- The scripted win-run's walker (`--tfw-test`) now loads the walking graph of the map the server runs (it took `tfw_war`'s: "no way from (598.5, -188) to (750, 50)"), off the client's main thread (building `tfw_war`'s layout there stalled the client 12 to 17 s).
+
 ### Open and for the owner
-- The boundary wall: the client draws a 24 m opening in its north and south faces where the avenue leaves the band (owner, 2026-11-16; `AshfallFrontScenery.OpenEdges`, drawing only: the collision wall stays closed and nothing changes in any hash). The concept light pass already draws the rest of the wall only to about 13 m.
+- The boundary wall: the client draws a 24 m opening in its north and south faces where the avenue leaves the band (owner, 2026-11-16; `AshfallMap.OpenFrontEdges`, drawing only: the collision wall stays closed and nothing changes in any hash). The concept light pass already draws the rest of the wall only to about 13 m.
 - The neighbouring bands are massing boxes, not the kit's low LODs.
 - The kit has no stairless building model: buildings without walkable upper floors come out as the collapsed-buttress mass AC-030 (round heaps). The owner chose more walkable upper floors in the outskirts (50 %); the other half still draws AC-030.
 - No band is drawn while the player is outside every band square or the camera is aboard the Stormbird (review of 2026-11-16: a band's outside scenery reached the hub and the Firing Range).

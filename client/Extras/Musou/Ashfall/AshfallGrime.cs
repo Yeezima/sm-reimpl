@@ -54,7 +54,11 @@ public static partial class AshfallGrime
     public static readonly Color GroundDarkTint = new(0.92f, 0.97f, 1.04f);
 
     static ShaderMaterial? _overlay;
-    static Node? _items;
+    /// <summary>Every kit look's items node the grime dressed (one on an Ashfall map; the front pilot's one a band): an option toggle re-dresses them all.</summary>
+    static readonly System.Collections.Generic.List<Node> _items = [];
+
+    /// <summary>The living items nodes (freed ones dropped).</summary>
+    static System.Collections.Generic.List<Node> LiveItems() { _items.RemoveAll(n => !GodotObject.IsInstanceValid(n)); return _items; }
     static ShaderMaterial? _top;
     static bool _overlayOn = true;
 
@@ -62,9 +66,8 @@ public static partial class AshfallGrime
     public static void SetOverlay(bool on)
     {
         _overlayOn = on;
-        if (_items is null || !GodotObject.IsInstanceValid(_items)) return;
         void Set(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Set(c); }
-        foreach (var child in _items.GetChildren()) Set(child);
+        foreach (var items in LiveItems()) foreach (var child in items.GetChildren()) Set(child);
     }
     static ShaderMaterial? _darken;
 
@@ -125,7 +128,7 @@ public static partial class AshfallGrime
     {
         if (Off || root is null) return 0;
         int all = 0;
-        foreach (var kit in root.FindChildren("KitLook", "", true, false)) all += ApplyTo(kit, quality, compat);   // the front pilot draws a kit look a band (an option toggle later re-dresses the last one's items only)
+        foreach (var kit in root.FindChildren("KitLook", "", true, false)) all += ApplyTo(kit, quality, compat);   // the front pilot draws a kit look a band 
         return all;
     }
 
@@ -154,10 +157,12 @@ public static partial class AshfallGrime
             ShaderMaterial top = overlay ? OverlayMaterial() : DarkenMaterial();
             if (overlay && darken) top.NextPass = DarkenMaterial();
             DarkenMaterial().SetShaderParameter("cheap", !overlay);   // Low and Compatibility: the blotches, streaks and soot band only (review: scale with graphics settings)
-            _items = items; _top = top;
+            bool known = LiveItems().Contains(items);
+            if (!known) _items.Add(items);
+            _top = top;
             void Give(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Give(c); }   // the overlay, or its folded materials (AshfallGrime.Folded.cs)
             foreach (var child in items.GetChildren()) Give(child);
-            items.ChildEnteredTree += Give;
+            if (!known) items.ChildEnteredTree += Give;   // once a kit look (the front pilot's storm is built again on each band it shows)
         }
         return ground;
     }

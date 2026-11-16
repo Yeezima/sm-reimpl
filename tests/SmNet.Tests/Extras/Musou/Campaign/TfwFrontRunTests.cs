@@ -125,6 +125,31 @@ public class TfwFrontRunTests
     }
 
     [Fact]
+    public void The_start_node_test_aid_lands_the_first_battle_of_every_run_on_its_band_and_nothing_elsewhere()
+    {
+        // SM_TFW_FRONT_NODE (server): every run starts at that node on every lane
+        foreach (var (node, band, lane) in new[] { (2, 1, TfwLane.B), (3, 2, TfwLane.A), (4, 2, TfwLane.C) })
+        {
+            var w = War();
+            var run = w.Tfw!;
+            run.StartNode = node;
+            Assert.Equal(band, run.ActiveBand);
+            var battle = TfwRig.Deploy(w, lane);
+            OnBand(w, battle, band, Human);
+            Assert.Equal(node == 4 ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle, run.Phase);
+            w.Remove(Human);   // a new run: the aid applies again
+            TfwRig.Steps(w, 3);
+            Assert.Equal(band, run.ActiveBand);
+            Assert.Equal(node - 1, run.War.LaneState(TfwLane.B).Front);
+        }
+        // any other map: the aid does nothing
+        var plain = TfwRig.War();
+        plain.Tfw!.StartNode = 3;
+        Assert.Equal(WarRules.StartFrontB, plain.Tfw.War.LaneState(TfwLane.B).Front);
+        Assert.Equal(0, plain.Tfw.ActiveBand);
+    }
+
+    [Fact]
     public void A_new_run_starts_on_the_first_band_again()
     {
         var w = War();

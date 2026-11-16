@@ -142,9 +142,18 @@ public partial class NetworkView
         var client = _client!;
         if (_tfwTestNav is null)
         {
-            var data = SmContent.Extras.Musou.TfwWorld.Load(_gameDir, out string? problem);
-            if (data is null || _config is null) { TfwCheck(what, false, problem ?? "no config"); return false; }
-            _tfwTestNav = SmContent.Extras.Musou.TfwWorld.Nav(data.Collision, data.Field, _config, out _);
+            // The map the server runs (the front pilot's walk failed on tfw_war's graph), loaded and its graph read off the main thread (the walk stalled the client 12 to 17 s building tfw_war's layout).
+            string map = client.MapName;
+            var config = _config;
+            if (config is null) { TfwCheck(what, false, "no config"); return false; }
+            string gameDir = _gameDir;
+            var (nav, problem) = await System.Threading.Tasks.Task.Run(() =>
+            {
+                var data = SmContent.Extras.Musou.TfwWorld.Load(gameDir, out string? p, map);
+                return data is null ? ((SmSim.NavGraph?)null, p) : (SmContent.Extras.Musou.TfwWorld.Nav(data.Collision, data.Field, config, out _), (string?)null);
+            });
+            if (nav is null) { TfwCheck(what, false, problem ?? "no graph"); return false; }
+            _tfwTestNav = nav;
         }
         double end = _connectedFor + seconds;
         var path = _tfwTestNav.FindPath(client.Predicted.Position, at);

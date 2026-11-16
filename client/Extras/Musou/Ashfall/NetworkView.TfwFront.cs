@@ -13,21 +13,35 @@ public partial class NetworkView
 {
     Node3D[]? _frontBands;
     Node3D? _frontStorm;
-    int _frontActive = -1;
+    int _frontActive = -1, _frontStormBand = -1;
+    System.Collections.Generic.IReadOnlyList<(AshfallLevel Level, AshfallDressing Dressing)>? _frontSplit;
+
+    /// <summary>
+    /// Test aid (captures and free-fly shots of the front pilot): <c>--front-band n</c> draws band n (0 the wasteland, 1 the outskirts, 2 the urban core) whatever the player or the camera does, so a camera at x = 600 or 1200 sees that
+    /// band. -1 (no switch, or a value out of range): the band the player stands in, as in play.
+    /// </summary>
+    static readonly int FrontForcedBand = ForcedFrontBand();
+
+    static int ForcedFrontBand()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = System.Array.IndexOf(args, "--front-band");
+        return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out int b) && b >= 0 && b < AshfallFront.BandCount ? b : -1;
+    }
 
     /// <summary>Draws the front's bands (called by <see cref="TfwAshfallVisuals"/> for the composed world); band 0 shown until the player stands in another.</summary>
     void TfwFrontVisuals(AshfallLevel level, AshfallDressing dressing)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        var bands = AshfallMap.SplitFront(level, dressing);
+        var bands = _frontSplit = AshfallMap.SplitFront(level, dressing);
         _frontBands = new Node3D[bands.Count];
         int sceneryTris = 0;
         for (int k = 0; k < bands.Count; k++)
         {
-            var node = new Node3D { Name = $"AshfallBand{k}", Position = new Vector3(AshfallFront.OffsetOf(k), 0f, 0f), Visible = k == 0 };
+            var node = new Node3D { Name = $"AshfallBand{k}", Position = new Vector3(AshfallFront.OffsetOf(k), 0f, 0f), Visible = k == System.Math.Max(0, FrontForcedBand) };
             _gameSpace!.AddChild(node);
             _frontBands[k] = node;
-            var drawn = AshfallFrontScenery.OpenEdges(bands[k].Level);   // drawing only: the avenue's openings in the boundary wall (the collision stays closed)
+            var drawn = AshfallMap.OpenFrontEdges(bands[k].Level);   // drawing only: the avenue's openings in the boundary wall (the collision stays closed)
             var view = AshfallView.Build(drawn);
             node.AddChild(view);
             TfwFrontKit(drawn, bands[k].Dressing, view, node);
@@ -35,19 +49,11 @@ public partial class NetworkView
             sceneryTris += AshfallFrontScenery.LastTriangles;
             node.AddChild(scenery);
         }
-        if (_sun is not null && _environment is not null)
-        {
-            AshfallView.ApplyLook(_sun, _environment);
-            if (!AshfallStorm.Off)
-            {
-                _frontStorm = new Node3D { Name = "AshfallFrontStorm" };
-                _gameSpace!.AddChild(_frontStorm);
-                try { AshfallStorm.Attach(_frontStorm, bands[0].Level, bands[0].Dressing, _sun, _environment); }
-                catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"ashfall front: the storm look failed ({e.GetType().Name}: {e.Message})"); }
-            }
-        }
-        _frontActive = 0;
-        GD.Print($"ashfall front: {bands.Count} bands drawn in {watch.ElapsedMilliseconds} ms (each in its own frame at x + {AshfallFront.BandSpacing:0} m a band; outside scenery {sceneryTris:N0} triangles a band, client only); band 0 ({AshfallBandProfile.Front[0].Name}) shown");
+        if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment);
+        _frontActive = System.Math.Max(0, FrontForcedBand);
+        TfwFrontStorm(_frontActive);
+        if (FrontForcedBand >= 0) GD.Print($"ashfall front: --front-band {FrontForcedBand}: band {FrontForcedBand} ({AshfallBandProfile.Front[FrontForcedBand].Name}) is drawn whatever the camera does (test aid)");
+        GD.Print($"ashfall front: {bands.Count} bands drawn in {watch.ElapsedMilliseconds} ms (each in its own frame at x + {AshfallFront.BandSpacing:0} m a band; outside scenery {sceneryTris:N0} triangles a band, client only); band {_frontActive} ({AshfallBandProfile.Front[_frontActive].Name}) shown");
     }
 
     /// <summary>The kit look of one band under its node (as <see cref="TfwAshfallKit"/> does for a single level); any failure leaves that band's graybox.</summary>
@@ -76,24 +82,36 @@ public partial class NetworkView
     void TfwFrontFrame(PlayerState me)
     {
         if (_frontBands is null) return;
-        int band = FrontBandShown(_client?.Predicted.Position ?? me.Position, _camera is null ? null : new System.Numerics.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y));
+        int band = FrontForcedBand >= 0 ? FrontForcedBand : FrontBandShown(_client?.Predicted.Position ?? me.Position, _camera is null ? null : new System.Numerics.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y));
         if (band == _frontActive) return;
         for (int k = 0; k < _frontBands.Length; k++) if (IsInstanceValid(_frontBands[k])) _frontBands[k].Visible = k == band;
-        if (_frontStorm is not null && IsInstanceValid(_frontStorm))
-        {
-            _frontStorm.Visible = band >= 0;
-            if (band >= 0) _frontStorm.Position = new Vector3(AshfallFront.OffsetOf(band), 0f, 0f);
-        }
+        if (band >= 0) TfwFrontStorm(band);   // a band hidden takes its storm with it (the storm lives under the band's node)
         _frontActive = band;
         GD.Print(band >= 0 ? $"ashfall front: band {band} ({AshfallBandProfile.Front[band].Name}) shown" : "ashfall front: no band shown (outside every band: the Stormbird, the Firing Range or the flight)");
     }
 
-    /// <summary>The band to draw for a player at <paramref name="at"/> with the camera at <paramref name="camera"/> (game space): the band whose square holds the player, or -1 outside every square or with the camera in the Stormbird.</summary>
-    internal int FrontBandShown(System.Numerics.Vector3 at, System.Numerics.Vector3? camera)
+    /// <summary>The band to draw for a player at <paramref name="at"/> with the camera at <paramref name="camera"/> (game space): <see cref="AshfallFront.BandShown"/>.</summary>
+    internal int FrontBandShown(System.Numerics.Vector3 at, System.Numerics.Vector3? camera) =>
+        AshfallFront.BandShown(at, camera is { } cam && TfwHub is { } hub && hub.Contains(cam));
+
+    /// <summary>
+    /// The storm look on band <paramref name="band"/> (re-review of 2026-11-16): its fires, smoke and lane marks are placed from a level's own spots, so the storm is built from the shown band's level and dressing, under that band's node
+    /// (its light pass, tints and grime reach that band's kit look). On a switch the old one leaves the tree first (it puts back what it wrote) and the new one is built; nothing on the first band again until shown.
+    /// </summary>
+    void TfwFrontStorm(int band)
     {
-        if (camera is { } cam && TfwHub is { } hub && hub.Contains(cam)) return -1;
-        int band = AshfallFront.BandAt(at.X);
-        bool inside = System.MathF.Abs(at.X - AshfallFront.OffsetOf(band)) <= AshfallMap.Half + 20f && System.MathF.Abs(at.Y) <= AshfallMap.Half + 20f;
-        return inside ? band : -1;
+        if (band == _frontStormBand || _frontSplit is null || _frontBands is null || _sun is null || _environment is null || AshfallStorm.Off) return;
+        if (_frontStorm is not null && IsInstanceValid(_frontStorm))
+        {
+            _frontStorm.GetParent()?.RemoveChild(_frontStorm);   // at once: its _ExitTree restores the environment before the new storm writes it
+            _frontStorm.QueueFree();
+        }
+        _frontStorm = null;
+        _frontStormBand = band;
+        var host = new Node3D { Name = "AshfallFrontStorm" };
+        _frontBands[band].AddChild(host);
+        _frontStorm = host;
+        try { AshfallStorm.Attach(host, _frontSplit[band].Level, _frontSplit[band].Dressing, _sun, _environment); }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"ashfall front: the storm look failed ({e.GetType().Name}: {e.Message})"); }
     }
 }

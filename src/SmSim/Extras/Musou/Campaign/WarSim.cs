@@ -62,6 +62,12 @@ public sealed class WarSim
 
     bool Ended => Phase is TfwRunPhase.Won or TfwRunPhase.Lost;
 
+    /// <summary>Test aid (the front pilot's <c>SM_TFW_FRONT_NODE</c>): every lane's front set to <paramref name="front"/> (clamped), its progress and gathering cleared, so the next battle on any lane is node front + 1.</summary>
+    public void SetFrontsForTests(sbyte front)
+    {
+        foreach (var lane in _lanes) { lane.Front = (sbyte)Math.Clamp((int)front, WarRules.FrontBesieged, WarRules.FrontStronghold); lane.Progress = 0.0; lane.GatherLeft = 0.0; }
+    }
+
     /// <summary>One second of real time.</summary>
     public void Step()
     {

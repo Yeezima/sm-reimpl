@@ -115,4 +115,39 @@ public static partial class AshfallMap
         }
         return result;
     }
+
+    /// <summary>Half the opening drawn in the boundary wall where the main avenue leaves a band (m: the avenue's 24 m).</summary>
+    public const float FrontOpeningHalf = 12f;
+
+    /// <summary>
+    /// The owner, 2026-11-16: where the avenue leaves a band, a visual opening in the 64 m boundary wall. A copy of the band's level for drawing only (the client's): the north and south boundary walls' parts (one box each) become two
+    /// boxes either side of x = +-<see cref="FrontOpeningHalf"/>, at the same part index (the dressing's hidden parts stay right); every other part, the points, areas, spawns and the hash are the level's. The collision is the composed
+    /// level's and stays closed: nobody walks through.
+    /// </summary>
+    public static AshfallLevel OpenFrontEdges(AshfallLevel level)
+    {
+        var parts = level.Parts.ToArray();
+        int opened = 0;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var p = parts[i];
+            if (p.Kind != AshfallKind.Boundary || p.Corners.Length != 36) continue;
+            Vector3 lo = p.Corners[0], hi = p.Corners[0];
+            foreach (var v in p.Corners) { lo = Vector3.Min(lo, v); hi = Vector3.Max(hi, v); }
+            bool edge = lo.X < -FrontOpeningHalf && hi.X > FrontOpeningHalf && (lo.Y >= Half - 0.01f || hi.Y <= -Half + 0.01f);
+            if (!edge) continue;
+            parts[i] = p with { Corners = [.. BoxCorners(lo, new Vector3(-FrontOpeningHalf, hi.Y, hi.Z)), .. BoxCorners(new Vector3(FrontOpeningHalf, lo.Y, lo.Z), hi)] };
+            opened++;
+        }
+        return opened == 0 ? level : level with { Parts = parts };
+    }
+
+    static Vector3[] BoxCorners(Vector3 l, Vector3 h)
+    {
+        Vector3[] q = [new(l.X, l.Y, l.Z), new(h.X, l.Y, l.Z), new(h.X, h.Y, l.Z), new(l.X, h.Y, l.Z), new(l.X, l.Y, h.Z), new(h.X, l.Y, h.Z), new(h.X, h.Y, h.Z), new(l.X, h.Y, h.Z)];
+        int[][] faces = [[3, 2, 1, 0], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [3, 0, 4, 7], [1, 2, 6, 5]];
+        var c = new List<Vector3>(36);
+        foreach (var f in faces) { c.Add(q[f[0]]); c.Add(q[f[1]]); c.Add(q[f[2]]); c.Add(q[f[0]]); c.Add(q[f[2]]); c.Add(q[f[3]]); }
+        return [.. c];
+    }
 }

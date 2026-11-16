@@ -720,7 +720,7 @@ public partial class AshfallStorm : Node3D
                 }
         }
         foreach (var child in items.GetChildren()) Dim(child);
-        items.ChildEnteredTree += Dim;
+        if (!items.HasMeta("ashfall_dim_hooked")) { items.SetMeta("ashfall_dim_hooked", true); items.ChildEnteredTree += Dim; }   // once a kit look (the front pilot builds its storm again on each band it shows)
         return n;
     }
 

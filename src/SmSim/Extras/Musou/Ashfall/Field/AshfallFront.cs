@@ -41,6 +41,17 @@ public static class AshfallFront
     /// <summary>The band's x offset in the composed world.</summary>
     public static float OffsetOf(int band) => band * BandSpacing;
 
+    /// <summary>
+    /// The band the client draws (review of 2026-11-16): the band whose square (and 20 m beyond its boundary) holds the player at world <paramref name="at"/>, or -1 when the player stands outside every band (the Stormbird, the Firing Range,
+    /// the flight) or <paramref name="cameraInHub"/> (a band's outside scenery reaches 1.2 km and would bury the hub and the range).
+    /// </summary>
+    public static int BandShown(Vector3 at, bool cameraInHub)
+    {
+        if (cameraInHub) return -1;
+        int band = BandAt(at.X);
+        return MathF.Abs(at.X - OffsetOf(band)) <= AshfallMap.Half + 20f && MathF.Abs(at.Y) <= AshfallMap.Half + 20f ? band : -1;
+    }
+
     /// <summary>The band whose square holds world x (nearest centre, clamped).</summary>
     public static int BandAt(float x) => Math.Clamp((int)MathF.Round(x / BandSpacing), 0, BandCount - 1);
 

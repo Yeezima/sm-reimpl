@@ -44,6 +44,25 @@ public sealed partial class TfwRun
     /// </summary>
     public int ActiveBand { get; private set; }
 
+    int _startNode;
+
+    /// <summary>
+    /// Test aid (the front pilot only; the server's <c>SM_TFW_FRONT_NODE=n</c>): every new run starts with each lane's front at n - 1, so the first battle on any lane is node n and lands on its band (1 the wasteland, 2 the outskirts,
+    /// 3 the urban core, 4 the final assault on the core). 0 (the default) and any map without bands: the run as always. Set before the first deploy; each new run applies it again.
+    /// </summary>
+    public int StartNode
+    {
+        get => _startNode;
+        set { _startNode = value; ApplyStartNode(); }
+    }
+
+    void ApplyStartNode()
+    {
+        if (_startNode is < 1 or > 4 || _field.Bands is not { Count: > 0 } bands || Deployed) return;
+        War.SetFrontsForTests((sbyte)(_startNode - 1));
+        ActiveBand = BandForNode(_startNode, bands.Count);
+    }
+
     /// <summary>The band of a war node on a map with <paramref name="bands"/> bands (lane B's positions 1 to 3 in order; lanes A and C start at node 2; the final assault, node 3, is on the last band).</summary>
     public static int BandForNode(int node, int bands) => bands <= 0 ? 0 : Math.Clamp(node - 1, 0, bands - 1);
 
@@ -119,6 +138,7 @@ public sealed partial class TfwRun
         Redeploys = 0;
         Deployed = false;
         ActiveBand = 0;   // the front pilot: a new run starts on the first band (review of 2026-11-16)
+        ApplyStartNode();   // the front pilot's test aid (SM_TFW_FRONT_NODE): off unless set
         Wins = 0;
         ActivePosition = null;
         _deployed.Clear();

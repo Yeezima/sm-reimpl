@@ -100,41 +100,6 @@ public static class AshfallFrontScenery
         return root;
     }
 
-    /// <summary>Half the opening drawn in the boundary wall where the main avenue leaves the band (m: the avenue's 24 m).</summary>
-    public const float OpeningHalf = 12f;
-
-    /// <summary>
-    /// The owner, 2026-11-16: where the avenue leaves the band, a visual opening in the 64 m boundary wall. A copy of the band's level for drawing only: the north and south boundary walls' parts (one box each) become two boxes
-    /// either side of x = +-<see cref="OpeningHalf"/>, at the same part index (the dressing's hidden parts stay right). The collision and the hash are the composed level's and stay closed: nobody walks through.
-    /// </summary>
-    public static AshfallLevel OpenEdges(AshfallLevel level)
-    {
-        var parts = level.Parts.ToArray();
-        int opened = 0;
-        for (int i = 0; i < parts.Length; i++)
-        {
-            var p = parts[i];
-            if (p.Kind != AshfallKind.Boundary || p.Corners.Length != 36) continue;
-            V3 lo = p.Corners[0], hi = p.Corners[0];
-            foreach (var v in p.Corners) { lo = V3.Min(lo, v); hi = V3.Max(hi, v); }
-            bool edge = lo.X < -OpeningHalf && hi.X > OpeningHalf && (lo.Y >= AshfallMap.Half - 0.01f || hi.Y <= -AshfallMap.Half + 0.01f);
-            if (!edge) continue;
-            var c = new List<V3>();
-            BoxCorners(c, lo, new V3(-OpeningHalf, hi.Y, hi.Z));
-            BoxCorners(c, new V3(OpeningHalf, lo.Y, lo.Z), hi);
-            parts[i] = p with { Corners = [.. c] };
-            opened++;
-        }
-        return opened == 0 ? level : level with { Parts = parts };
-    }
-
-    static void BoxCorners(List<V3> c, V3 l, V3 h)
-    {
-        V3[] q = [new(l.X, l.Y, l.Z), new(h.X, l.Y, l.Z), new(h.X, h.Y, l.Z), new(l.X, h.Y, l.Z), new(l.X, l.Y, h.Z), new(h.X, l.Y, h.Z), new(h.X, h.Y, h.Z), new(l.X, h.Y, h.Z)];
-        int[][] faces = [[3, 2, 1, 0], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [3, 0, 4, 7], [1, 2, 6, 5]];
-        foreach (var f in faces) { c.Add(q[f[0]]); c.Add(q[f[1]]); c.Add(q[f[2]]); c.Add(q[f[0]]); c.Add(q[f[2]]); c.Add(q[f[3]]); }
-    }
-
     /// <summary>A fixed integer hash (the scenery's places; ours).</summary>
     static uint Mix(uint seed, uint i)
     {
