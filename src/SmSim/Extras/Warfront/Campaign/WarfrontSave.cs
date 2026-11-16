@@ -57,6 +57,17 @@ public static class WarfrontSave
             Key = index.TryGetValue(p.Key, out var i) ? i : (ulong)index.Count, Name = p.Name, Xp = p.Xp, Level = p.Level, PicksTaken = p.PicksTaken,
             Cards = new List<int>(p.Cards), Squad = p.Squad.Select(r => new WarfrontRetainerRecord { Id = r.Id, ClassName = r.ClassName, Name = r.Name }).ToList(), JoinGrantApplied = p.JoinGrantApplied,
         }).ToList();
+        // the stats ledger: keys become join indices and the duplicate guard is dropped (a finished run needs none)
+        if (snap.Stats is { } st)
+            snap.Stats = new WarfrontStatsLedger.State
+            {
+                Players = (st.Players ?? new()).Select(p => new WarfrontPlayerLedger
+                {
+                    Key = index.TryGetValue(p.Key, out var i) ? i : (ulong)index.Count, OrdinaryKills = p.OrdinaryKills, EliteKills = p.EliteKills, BossKills = p.BossKills,
+                    Assists = p.Assists, Deaths = p.Deaths, Revives = p.Revives, CapturesAbc = p.CapturesAbc, CapturesD = p.CapturesD, Battles = p.Battles,
+                }).ToList(),
+                Seen = new(),
+            };
         return JsonSerializer.Serialize(snap, WarfrontCampaign.Json);
     }
 
