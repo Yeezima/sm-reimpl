@@ -98,6 +98,7 @@ public sealed partial class World
         var musou = _musou!;
         _musouFeared.Clear();
         musou.ClearAttackerScales();
+        WarfrontAttackerScales(musou);   // WARFRONT-HOOK
         if (_musouBuffs.Count == 0) { musou.SetFear(_musouFeared); return; }
         _musouBuffIds.Clear();
         foreach (int id in _musouBuffs.Keys) _musouBuffIds.Add(id);
@@ -118,12 +119,19 @@ public sealed partial class World
             float other = b.Active(MusouPowerup.DoubleDamage, Tick) ? MusouPowerupRules.DamageScale : 1f;
             // The owner's "x2 cap" (2026-11-10): Supercharged Melee and Double Damage together are x2 on melee, not x4 (a stim is held under the same cap: MusouMeleeDealt).
             float melee = MathF.Min(MusouPowerupRules.Cap, other * (b.Active(MusouPowerup.Supercharged, Tick) ? MusouPowerupRules.MeleeScale : 1f));
+            WarfrontAttackerScale(id, ref melee, ref other);   // WARFRONT-HOOK
             musou.SetAttackerScale(id, melee, other);
             float fire = b.Active(MusouPowerup.RapidFire, Tick) ? (b.RapidFire - Tick) / (float)Config.TickRate : 0f;
             if (MathF.Abs(p.FireBoostLeft - fire) > 0.5f / Config.TickRate) _players[id] = p with { FireBoostLeft = fire };
         }
         musou.SetFear(_musouFeared);
     }
+
+    /// <summary>Warfront: sets the damage scales of the players the cards raise, right after the clear (a power-up's own scale below then takes them in <see cref="WarfrontAttackerScale"/>).</summary>
+    partial void WarfrontAttackerScales(MusouSim musou);
+
+    /// <summary>Warfront: multiplies a player's cards' damage scale into the power-ups' <paramref name="melee"/> and <paramref name="other"/> scales.</summary>
+    partial void WarfrontAttackerScale(int id, ref float melee, ref float other);
 
     /// <summary>A press of <paramref name="playerId"/> whose nearest own drop in reach is the powerup <paramref name="drop"/>: its hold begins this tick (<see cref="MusouHoldsStep"/>).</summary>
     void MusouStartHold(int playerId, ushort drop) => _musouHolds[playerId] = (drop, Tick);

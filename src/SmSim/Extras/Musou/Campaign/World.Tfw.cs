@@ -41,6 +41,12 @@ public sealed partial class World
     /// <summary>Warfront (docs/added-content.md section 11): the run exists; with the Warfront flag its battle rules are attached. No-op without it.</summary>
     partial void WarfrontStarted();
 
+    /// <summary>Warfront: the progression's step (level-up refills, the picker); first line of <see cref="TfwStep"/>. No-op without the Warfront object.</summary>
+    partial void WarfrontStep();
+
+    /// <summary>Warfront: every kill of the war's tick (the XP it pays). No-op without the Warfront object.</summary>
+    partial void WarfrontKill(in MusouKill kill);
+
     /// <summary>The input of an AI Marine (<see cref="TfwRun.PuppetBrain"/>; none: it stands still, keeping its heading). Other players stay with the server's input source.</summary>
     void TfwPlayerInput(int id, ref PlayerInput input, ref bool handled)
     {
@@ -55,6 +61,7 @@ public sealed partial class World
     /// </summary>
     void TfwStep()
     {
+        WarfrontStep();   // WARFRONT-HOOK
         var run = _tfw!;
         MusouBeginTick();
         MusouArm();
@@ -115,6 +122,7 @@ public sealed partial class World
         foreach (var kill in _musouKills)
         {
             _tfw!.Battle?.NoteKill(kill);
+            WarfrontKill(in kill);   // WARFRONT-HOOK
             if (kill.Player != 0) _tfwKos++;
             if (_state != MatchState.Playing || _tfw.Battle is null) continue;
             TfwDropBox(kill);

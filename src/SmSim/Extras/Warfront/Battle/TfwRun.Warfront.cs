@@ -52,6 +52,7 @@ public sealed partial class TfwRun
         rules.Node = node;
         rules.InNode = true;
         _spectating.Clear();
+        rules.BattleBegan?.Invoke(lane, node);
     }
 
     partial void WarfrontRetainer(int player, ref bool spawn)
@@ -73,6 +74,7 @@ public sealed partial class TfwRun
         _spectating.Clear();
         rules.EndBattle();
         if (!was) return;
+        rules.BattleEnded?.Invoke(result);
         rules.NodeEnded?.Invoke(rules.Lane, rules.Node, result);
         rules.NodeResolved?.Invoke(rules.Lane, rules.Node, result == TfwMapResult.Won);
     }

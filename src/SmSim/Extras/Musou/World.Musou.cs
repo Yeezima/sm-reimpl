@@ -126,6 +126,15 @@ public sealed partial class World
     /// <summary>Warfront: that Ork's remembered damage multiplier is applied to <paramref name="damage"/>, only when it is not 1.</summary>
     partial void WarfrontOrkDamage(ushort enemy, ref float damage);
 
+    /// <summary>Warfront: an attack on a squad Marine's id is taken by the squad (<paramref name="handled"/>), never by the Guardsmen.</summary>
+    partial void WarfrontSquadHit(in MusouAttack attack, ref bool handled);
+
+    /// <summary>Warfront: a player's received-damage scale (a standing card offer: 0; the max HP and max armour cards), multiplied in.</summary>
+    partial void WarfrontDamageTaken(int target, ref float scale);
+
+    /// <summary>Warfront: a player's input is locked (a standing card offer).</summary>
+    partial void WarfrontInputLocked(int id, ref bool locked);
+
     /// <summary>
     /// An enemy's attack on a player: its damage through the player's received-damage multipliers and <see cref="Combat.ApplyDamage(PlayerState, float, float, float, SimConfig)"/>
     /// (shield first), recorded as a hit by nobody (shooter 0) so the usual feedback plays; a death by it is the world's (the hit is not marked as the killing
@@ -133,6 +142,9 @@ public sealed partial class World
     /// </summary>
     void MusouHit(MusouAttack attack)
     {
+        bool squadHit = false;
+        WarfrontSquadHit(in attack, ref squadHit);   // WARFRONT-HOOK
+        if (squadHit) return;
         if (attack.Player < 0) { TfwGuardHit(attack); return; }   // a Guard squad (Campaign/World.Tfw.cs): before the player lookup, which would drop it
         if (!_players.TryGetValue(attack.Player, out var before) || !before.Alive) return;
         if (_tfw is { } run && run.InRange.Contains(attack.Player)) return;   // the owner, 2026-11-02: at the Firing Range the Orks deal no damage
@@ -254,6 +266,7 @@ public sealed partial class World
     partial void ExtrasInputLocked(int id, ref bool locked)
     {
         if (_musou is not null) DreadnoughtInputLocked(id, ref locked);   // Dreadnought/World.Dreadnought.cs: the entrance clip
+        WarfrontInputLocked(id, ref locked);   // WARFRONT-HOOK
     }
 
     partial void ExtrasInputFilter(int id, ref PlayerInput input)
@@ -310,6 +323,7 @@ public sealed partial class World
     partial void ExtrasDamageTaken(int target, ref float scale)
     {
         if (_musou is not null) DreadnoughtDamageTaken(target, ref scale);   // Dreadnought/World.Dreadnought.cs: no damage during the entrance
+        WarfrontDamageTaken(target, ref scale);   // WARFRONT-HOOK
         if (_tfw is null) return;
         TfwDamageTaken(target, ref scale);   // Campaign/World.TfwSupply.cs: the AI Marines take a tenth
     }
