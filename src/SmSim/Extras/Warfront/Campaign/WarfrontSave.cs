@@ -56,6 +56,7 @@ public static class WarfrontSave
         {
             Key = index.TryGetValue(p.Key, out var i) ? i : (ulong)index.Count, Name = p.Name, Xp = p.Xp, Level = p.Level, PicksTaken = p.PicksTaken,
             Cards = new List<int>(p.Cards), Squad = p.Squad.Select(r => new WarfrontRetainerRecord { Id = r.Id, ClassName = r.ClassName, Name = r.Name }).ToList(), JoinGrantApplied = p.JoinGrantApplied,
+            JoinedAtDeployment = p.JoinedAtDeployment, ClassConfirmed = p.ClassConfirmed,
         }).ToList();
         // the stats ledger: keys become join indices and the duplicate guard is dropped (a finished run needs none)
         if (snap.Stats is { } st)
