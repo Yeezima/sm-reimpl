@@ -41,6 +41,7 @@ public sealed partial class TfwBattle
     {
         if (!WarfrontNode) return;
         change &= ~TfwBattleChange.DepotSecured;   // no transport or supplies from the depot in Warfront
+        if (_enemies.Warfront is { } rules) rules.PlayerScaleNow = WarfrontBattleRules.PlayerScale(_humansNow);   // the humans of now (a late joiner or a leaver changes the Orks spawned from here on)
         if (!_commander || Won) return;
         var o = _objectives[CommanderObjective];
         var at = _layout.Hq;

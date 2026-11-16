@@ -252,6 +252,74 @@ public class WarfrontBattleTests
     }
 
     [Fact]
+    public void The_damage_multiplier_reaches_the_player_through_the_Ork_that_took_it()
+    {
+        float Lost(float damageScale)
+        {
+            var w = War();
+            var battle = TfwRig.Deploy(w);
+            w.Tfw!.Warfront!.OrkLevelScale = () => (1f, damageScale);
+            var p = w.Players[TfwRig.Human];
+            float before = p.Health + p.Shield;
+            w.Musou!.Spawn(MusouEnemyType.Boy, p.Position + new Vector3(0f, 1.2f, 0f), 0f, 100000f);
+            Stand(w, 150);
+            p = w.Players[TfwRig.Human];
+            return before - (p.Health + p.Shield);
+        }
+        float one = Lost(1f), three = Lost(3f);
+        Assert.True(one > 0f);
+        Assert.True(three > one * 2f, $"{one} against {three}");
+    }
+
+    [Fact]
+    public void A_garrison_Boss_Nob_at_four_humans_has_one_point_six_times_his_health_not_two_point_five_six()
+    {
+        var w = War(humans: 4);
+        var battle = TfwRig.Deploy(w);
+        for (int k = 0; k < 3; k++)
+        {
+            int p = k;
+            Capture(w, battle.Layout.Positions[p], () => battle.Objectives[p].State == TfwPositionState.Secured);
+        }
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = w.Musou!.CopyTo(all);
+        var boss = all.Take(n).Single(e => e.Alive && e.Type == MusouEnemyType.BossNob);
+        Assert.Equal(w.Musou.Rules.Of(MusouEnemyType.BossNob).Health * 1.6f, boss.Health, 1);
+    }
+
+    [Fact]
+    public void A_spectators_timer_that_ends_with_nobody_standing_waits_and_never_respawns_into_nothing()
+    {
+        var w = Down(2, out _);
+        Assert.True(w.TfwKillForTests(1));
+        Stand(w, Window + Spectate - 200);   // the first is a spectator, 200 ticks from its return
+        Assert.True(w.TfwKillForTests(2));   // the only one standing falls: its window is open (750 ticks)
+        Stand(w, 300);                       // the first one's timer ran out meanwhile: nobody stands, so it waits
+        Assert.False(w.Players[1].Alive);
+        Assert.Equal(WarfrontDownPhase.Spectator, w.Tfw!.WarfrontDownState(1).Phase);
+        Assert.Equal(TfwRunPhase.Battle, w.Tfw.Phase);
+        Stand(w, 600);                       // the second window closes: a wipe
+        Assert.Equal(TfwRunPhase.Hub, w.Tfw.Phase);
+    }
+
+    [Fact]
+    public void A_battle_left_by_every_human_reports_Left_not_a_loss_to_the_seam_and_the_level_scale_is_the_nodes_alone()
+    {
+        var w = War();
+        var rules = w.Tfw!.Warfront!;
+        rules.OrkLevelScale = () => (2f, 1f);
+        ushort hub = w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Hub.Spawns[0].Position, 0f, 100f);
+        Assert.True(w.Musou.TryGet(hub, out var e));
+        Assert.Equal(100f, e.Health, 2);   // the hub's Orks (the Firing Range) take no level scale
+        TfwRig.Deploy(w);
+        TfwMapResult? ended = null;
+        rules.NodeEnded = (_, _, result) => ended = result;
+        w.Remove(TfwRig.Human);   // the last human goes
+        Stand(w, 3);
+        Assert.Equal(TfwMapResult.Left, ended);
+    }
+
+    [Fact]
     public void One_human_scales_nothing_and_the_hub_scales_nothing()
     {
         var w = War();

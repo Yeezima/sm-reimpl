@@ -9,6 +9,8 @@ public sealed partial class MusouSim
     partial void WarfrontSpawn(MusouEnemyType type, ref float health)
     {
         if (Warfront is not { } rules) return;
+        rules.PendingDamage = 1f;
+        if (!rules.InNode) return;   // the level's scale is a node battle's: not the hub's (the Firing Range's targets)
         var (hp, damage) = rules.OrkLevelScale();
         rules.PendingDamage = damage;
         float scale = rules.PlayerScaleNow * hp;

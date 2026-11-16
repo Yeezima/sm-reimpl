@@ -37,6 +37,8 @@ public sealed class WarfrontBattleRules
     public Func<int>? Leader { get; set; }
     /// <summary>W5 seam: a node battle ended (lane, node, won); a wipe or a battle left is a loss.</summary>
     public Action<TfwLane, int, bool>? NodeResolved { get; set; }
+    /// <summary>W5 seam: a node battle ended with its <see cref="TfwMapResult"/> (Won, Lost for a wipe, Left when every human went: W5 treats that as no result, back to the ship). Called with <see cref="NodeResolved"/>.</summary>
+    public Action<TfwLane, int, TfwMapResult>? NodeEnded { get; set; }
 
     /// <summary>The lane and node of the battle under way (set at its creation).</summary>
     public TfwLane Lane { get; internal set; }

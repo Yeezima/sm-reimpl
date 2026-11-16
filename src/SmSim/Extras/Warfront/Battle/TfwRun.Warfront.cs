@@ -72,7 +72,9 @@ public sealed partial class TfwRun
         bool was = rules.InNode;
         _spectating.Clear();
         rules.EndBattle();
-        if (was) rules.NodeResolved?.Invoke(rules.Lane, rules.Node, result == TfwMapResult.Won);
+        if (!was) return;
+        rules.NodeEnded?.Invoke(rules.Lane, rules.Node, result);
+        rules.NodeResolved?.Invoke(rules.Lane, rules.Node, result == TfwMapResult.Won);
     }
 
     /// <summary>
