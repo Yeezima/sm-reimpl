@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3375 spec table rows: **2401 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
-Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 750 rows of the changes document.
+Scanned 3412 spec table rows: **2437 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,37 +49,27 @@ Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 742 | 699 | 530 | 195 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2401** | 2129 | 1799 | 736 | 37 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| Core simulation (provisional values) | 749 | 706 | 537 | 196 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2422** | 2150 | 1797 | 731 | 37 |
+| **All areas** | **2437** | 2165 | 1812 | 738 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1390 |
-| confidence: low | 877 |
-| confidence: medium | 813 |
-| notes: ours | 410 |
-| kind: interpretation | 393 |
 | kind: ours | 1420 |
-| confidence: low | 868 |
+| confidence: low | 883 |
 | confidence: medium | 820 |
-| notes: ours | 404 |
+| notes: ours | 411 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
-| kind: estimate | 174 |
+| kind: estimate | 176 |
 | confidence: none (low) | 109 |
-| kind: provisional | 103 |
+| kind: provisional | 104 |
 | kind: user's knowledge | 53 |
-| kind: choice | 42 |
+| kind: choice | 44 |
 | notes: provisional | 41 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
@@ -2502,7 +2491,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (742)
 *Spec section: Developer tools: the in-game test panel (dev-tools; owner 2026-11-17; protocol 80; test aid, ours, never on a public server)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2532,7 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (734)
+### Core simulation (provisional values) (749)
 
 *Spec section: Provisional values in use*
 
@@ -2679,6 +2667,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-74758C52` | Musou front pilot: frontage passages | the least gap between two frontage pieces and the least alley: 3 m (the widest player body, the Dreadnought's 2 m capsule, and a metre); the core's fill pieces keep 3 m too; the big Orks (up to a 3.4 m ring) walk the corridors and breaches, not between… (m) | kind: estimate; confidence: low; notes: ours | re-review of 2026-11-16 (the gaps were 2.45-2.5 m); `DreadnoughtRules.CapsuleRadius`; value ours | Musou front pilot: frontage passages: compare with SM1 by measuring on a flat spot of the same map. Ours: the least gap between two frontage pieces and the least alley: 3 m… | ☐ |
 | `R-833F6AF4` | Musou front pilot: blend | the last 20 % of each band toward its north edge (y > 144 m) blends toward the next band: a structure there takes the next band's profile with the share (y - 144) / 96, and the coverage target lerps the same way, but outside the core never past the band's own… (share) | kind: estimate; confidence: low | owner-approved plan 2026-11-16 ("last ~20 % of each map blends toward the next band") | Musou front pilot: blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the last 20 % of each band toward its north edge (y > 144 m) blends… | ☐ |
 | `R-9108ED5A` | Musou front pilot: outside scenery (client) | client only, no collision, not in any hash: the ground beyond each band's boundary out to 1200 m from its centre, flat along the front's line (x within +-244 m) and rising at 10 degrees east and west of it; the main avenue drawn on out of both edges, through… (m, degrees) | kind: estimate; confidence: low; notes: ours | owner-approved plan 2026-11-16 ("the ground rises at ~10 degrees out to ~1.2 km ... low-LOD kit copies of neighbouring bands, manufactorum stacks along the… | Musou front pilot: outside scenery (client): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, no collision, not in any hash: the ground beyond each… | ☐ |
+| `R-855582BE` | Warfront lane slots (W2) | nine maps `wf_a1` to `wf_c3` (lane A, B, C; node 1 to 3): each is the hub plus ONE band of the front pilot, built with `AshfallFront.Plan(band, seed)` then `AshfallDraft5Pass.Run` (gate A inside the plan, gate B in the pass; either failing throws), node 1 the… | kind: estimate; confidence: low | Warfront plan section 2 (the owner's three-band front brief; no generator change) | Warfront lane slots (W2): compare with SM1 by feel or video. Ours: nine maps wf_a1 to wf_c3 (lane A, B, C; node 1 to 3): each is the hub… | ☐ |
+| `R-3995EFA5` | Warfront lane slots: seeds (W2) | pinned table, candidate `16 + 100 x lane + 10 x (node - 1)` (lane A 0, B 1, C 2): 16, 26, 36 / 116, 126, 136 / 216, 226, 236; a candidate that fails gate A or B (after the pilot's 8 deterministic retries) walks +1 until a seed passes (at most 64 steps) and… (seed) | kind: choice; confidence: low | Warfront plan section 2 | Warfront lane slots: seeds (W2): compare with SM1 by feel or video. Ours: pinned table, candidate 16 + 100 x lane + 10 x (node - 1) (lane A 0… | ☐ |
+| `R-74CAE9DD` | Warfront objective D check (W2) | D is `TfwLayout.Hq` (the stronghold centre on the through road, about (0, 138) in the band frame; capture radius `TfwMap.HqRadius` 15 m): on the walking graph (a node within 6 m horizontally, 8 m vertically), reachable on foot from the landing zone and from… (m, degrees) | kind: estimate; confidence: low | the points' approach rule of the battlefield measure applied to D | Warfront objective D check (W2): compare with SM1 with an overlaid screenshot taken from the same position. Ours: D is TfwLayout.Hq (the stronghold centre on the through road, about… | ☐ |
+| `R-61589E53` | Warfront stuck-unit log (W2) | every relocation or removal an Ork gets from the stranded or stuck failsafes is one server line (slot, unit type, position, action, failsafe) and a per-slot count in the report; no gameplay value changes (the failsafes' timings stay the existing ones, 6 s… | kind: choice; confidence: low | Warfront plan section 2 (the pilot's unprofiled stuck units) | Warfront stuck-unit log (W2): compare with SM1 by feel or video. Ours: every relocation or removal an Ork gets from the stranded or stuck… | ☐ |
+| `R-6D9D83B3` | Warfront single-band view (W2, client) | client only, no collision, not in any hash: a lane slot draws its one band as the pilot draws a band (the avenue's openings in the boundary wall, the kit look, the storm look) with the pilot's outside scenery unchanged (10-degree outside ground out to 1200 m… (m, degrees) | kind: provisional; confidence: low | Warfront plan section 2 | Warfront single-band view (W2, client): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, no collision, not in any hash: a lane slot draws its one… | ☐ |
 | `R-39BE64FA` | Ashfall drawn-box rule (draft 9) | no two placed models' drawn boxes (the whole model's bounds as placed) meet deeper than 0.3 m (the overlap rule's tolerance and moves: the later one moves, shrinks, takes the pool's next model, else is left out); bridges on their supports and the stronghold's… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "no stacked 3D objects; scale one object instead"); the tolerance and exemptions ours | Ashfall drawn-box rule (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: no two placed models' drawn boxes (the whole model's bounds as… | ☐ |
 | `R-40B787AC` | Ashfall rubble props (draft 9) | AR-001..003 (separate small rubble piles, metre scale) placed at the feet of standing walls and buildings and along the plaza's edge and the avenues' kerbs: candidates every 6 m (8 m on the edges) in a seeded order, at most 60, 10 m apart, each leaning on its… (m) | kind: ours; confidence: low | the look lead's request (2026-11-06), the owner's "rubble as separate small props, not fused into buildings"; counts, spacing and pushes ours | Ashfall rubble props (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: AR-001..003 (separate small rubble piles, metre scale) placed at the… | ☐ |
 | `R-829BC3E0` | Ashfall urban rules (draft 9) | loose debris (rubble, collapsed wall pieces; not the ring's breach rubble) is placed after the buildings, only within 8 m of a standing building's drawn box (ruin shells and corners, facades, towers, the bunker, walls over 2.5 m); built pieces (cover, walls… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "the layout follows real urban-design logic"); the 8 m reach and the rules ours | Ashfall urban rules (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: loose debris (rubble, collapsed wall pieces; not the ring's breach… | ☐ |
@@ -4354,6 +4347,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0FECB0BB` | Ashfall concept light pass (client, Musou Mode only) | the owner's concept art and his note of 2026-11-06 ("Musou currently feels too dark"); every value ours | a brighter, cooler grade with a fill light for what the sun leaves in shade, a storm sky with a warm break low behind the keep and far ruins in the haze, the boundary drawn to a ruined top (collision unchanged), cool grey ground tints and a floor wash; `--ashfall-concept v1`, `--ashfall-concept off`; never on Classic… | Ashfall concept light pass (client) | Ashfall concept light pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his note of 2026-11-06 ("Musou currently… | ☐ |
 | `C-C1F8181D` | Ashfall concept look, fable passes (client, Musou Mode only) | the owner's concept art and round-2 notes (2026-11-06); every value ours | our generated storm panorama sky with the warm break behind the keep; the kit drawn from Blender-baked, grimier, darker, matte copies of the owner's models (originals untouched, `--ashfall-kit-files source` draws them) plus a runtime multiply grime on every renderer; a cooler grade with lifted shade; camera-facing… | Ashfall concept look, fable passes (client) | Ashfall concept look, fable passes (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and round-2 notes (2026-11-06); every value… | ☐ |
 | `C-1311090C` | Musou front pilot, test map `tfw_war_front` (Musou Mode only; draft 13 stays `tfw_war`) | the owner-approved plan of 2026-11-16 (lane B's three positions as wasteland, outskirts and urban core; one main avenue through the base and the stronghold; band profiles; gates before and after the buildings; scenery outside the boundary); every place, size and threshold ours | three 480 m battlefields composed side by side (x 0, 600, 1200 m), the run's battle on the band of its node; the base and the stronghold opened to a 24 m avenue (the keep in two wings, a north gate); gate A on the empty frame and gate B on the final collision name any failed rule; client-only outside ground at 10… | Musou front pilot rows | Musou front pilot, test map tfw_war_front (Musou Mode only…: compare with SM1 by feel or video. Ours: the owner-approved plan of 2026-11-16 (lane B's three positions as… | ☐ |
+| `C-DEA6540D` | Warfront lane slot maps `wf_a1` to `wf_c3` (added content, Warfront campaign) | the Warfront plan (section 2) and the owner's three-band front brief; the seeds, the D approach rule and the single-band client view are ours | nine maps, each the hub plus one band of the front pilot (node 1 wasteland, 2 outskirts, 3 urban core on every lane), built by the pilot's generator with no change; pinned seeds 16, 26, 36 / 116, 126, 136 / 216, 226, 236; D (`TfwLayout.Hq`) on the graph, reachable from the landing zone, at least 2 army-width… | Warfront lane slots rows | Warfront lane slot maps wf_a1 to wf_c3 (added content…: compare with SM1 by feel or video. Ours: the Warfront plan (section 2) and the owner's three-band front brief… | ☐ |
 | `C-547993D2` | Musou melee feel: red / blue slash, own-hit shake, wider cleave (musou/melee-feel; `TfwRules.Version` 44) | the owner's request (2026-11-08): "bring back the slashing visual effect... red for chain weapons and the combat knife, blue for power weapons. add a bit of screen shake. increase the aoe cleave radius of all melee weapons"; the shapes, amounts and the 1.5x ours (no number given), low confidence | a glowing slash across each enemy hit by a player's or retainer's melee, whatever the gore setting (it had vanished when the original Ork blood replaced the dark gore); red for chain weapons and the knife, blue for power weapons; the own melee hit shakes the camera 0.008 rad (0.014 most a swing); the cleave's reach… | spec "Musou cleave radius", "Melee slash, red / blue", "Melee hit shake, own" | Musou melee feel: red / blue slash, own-hit shake, wider…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08): "bring back the slashing visual… | ☐ |
 | `C-EF572976` | Musou swing arc: one slash line per swing (claude/musou-slash-arc; client only, no rules, wire or hash change) | the owner's request (2026-11-10): "can we make slash strokes appear as a flat curved line that matches the cleave of the weapon swings hitbox? so it visually overlaps cleave targets in one cohesive tear line as opposed to many random small lines that don't line up"; the radius (through the enemies struck), sweep… | one thin glowing arc per swing, as wide as its cleave (the cleave's own rules) and through the enemies it struck, in place of a stroke on every enemy struck; hits with no swing (charges, the spear's impale, the air slash's landing) keep the stroke; the spear's arc is its own 15 m, 300-degree sweep; the 30 m limit is… | spec "Melee slash arc: one per swing", "Melee slash arc: sweep, fade, thickness" | Musou swing arc: one slash line per swing…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-10): "can we make slash strokes appear… | ☐ |
 | `C-3A44615C` | Musou swing arc follows the weapon tip's path (claude/musou-slash-arc-tip-path; client only, no rules, wire or hash change) | the owner's request (2026-11-14): the red and blue swing cleave visuals "match the path of the tip of the weapon through the air (in terms of their orientation and shape)", still "at the cleave distance", no line following the tip itself; the tip estimate, the sampling window, the speed and cone trimming and the… | each swing's arc takes the tilt, curve and direction of the weapon tip's path in that swing's animation, scaled out to the cleave radius; a swing with no usable path draws the level arc; `--no-musou-arc-path` restores the level arcs | spec "Melee slash arc: follows the weapon tip's path" | Musou swing arc follows the weapon tip's path…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-14): the red and blue swing cleave… | ☐ |
