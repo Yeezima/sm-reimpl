@@ -19,6 +19,59 @@ public partial class NetworkView
         if (_tuner is not null) return;
         AddChild(_tuner = new SoundTunerPanel(() => MusouActive, _sound, PreviewSound));
         if (SoundTunerArg) _tuner.SetOpen(true);
+        if (CmdArg("sound-mix-proof") is { } proof) _ = RunSoundMixProof(proof);
+    }
+
+    /// <summary>
+    /// <c>--sound-mix-proof &lt;png prefix&gt;</c> (test aid, needs <c>godot.cmd --windowed</c> for the pictures): ten seconds into the match opens the panel, picks the Heavy bolter's fire sound, raises it and
+    /// previews it, shows it in the live list, clicks a sound another player made in the live list, marks one sound raw, exports the mix and quits; a screenshot after each step
+    /// (<c>&lt;prefix&gt;_1.png</c> .. <c>_5.png</c>) and the live list and status lines in the log (<c>SOUNDMIX proof</c>).
+    /// </summary>
+    async System.Threading.Tasks.Task RunSoundMixProof(string prefix)
+    {
+        async System.Threading.Tasks.Task Wait(double s) => await ToSignal(GetTree().CreateTimer(s), SceneTreeTimer.SignalName.Timeout);
+        void Shot(int n)
+        {
+            var err = GetViewport().GetTexture().GetImage().SavePng($"{prefix}_{n}.png");
+            GD.Print($"SOUNDMIX proof shot {n}: {err} {prefix}_{n}.png");
+        }
+        await Wait(10);
+        if (_tuner is null) return;
+        _tuner.SetOpen(true);
+        _tuner.ProofSelect("play_sm_heavy_bolter_fire", own: true);
+        await Wait(0.6);
+        Shot(1);
+        _tuner.ProofPlay();
+        await Wait(0.25);
+        GD.Print("SOUNDMIX proof voices, no changes:  " + _sound?.Probe("play_sm_heavy_bolter_fire"));
+        await Wait(1.5);
+        _tuner.ProofEdit(6f, 2f);
+        _tuner.ProofPlay();
+        await Wait(0.25);
+        GD.Print("SOUNDMIX proof voices, +6 dB +2 st: " + _sound?.Probe("play_sm_heavy_bolter_fire"));
+        await Wait(1.5);
+        _tuner.ProofRaw(true);
+        _tuner.ProofPlay();
+        await Wait(0.25);
+        GD.Print("SOUNDMIX proof voices, raw too:     " + _sound?.Probe("play_sm_heavy_bolter_fire"));
+        _tuner.ProofRaw(false);
+        await Wait(1.0);
+        _tuner.ProofSelect("play_sm_heavy_bolter_fire", own: true);
+        Shot(2);
+        GD.Print("SOUNDMIX proof live after the preview: " + _tuner.LiveText);
+        var others = SoundMixLive.Snapshot().FirstOrDefault(r => r.Source == SoundSource.Other);
+        if (others.Event is not null && _tuner.ProofClickLive(others.Event)) GD.Print($"SOUNDMIX proof clicked {others.Event} in the live list");
+        else GD.Print("SOUNDMIX proof: no other player's sound in the live list");
+        await Wait(0.6);
+        Shot(3);
+        _tuner.ProofRaw(true);
+        await Wait(0.4);
+        Shot(4);
+        _tuner.ProofExport();
+        await Wait(0.4);
+        Shot(5);
+        GD.Print("SOUNDMIX proof status: " + _tuner.StatusText);
+        GetTree().Quit(0);
     }
 
     /// <summary>

@@ -476,6 +476,14 @@ public partial class SoundSystem : Node
     /// <summary>The sound system's clock, seconds (the live list stamps its rows with it).</summary>
     public double Now => _now;
 
+    /// <summary>Test aid (<c>--sound-mix-proof</c>): the player settings of the playing voices of an event: "volume dB / pitch / bus" each, so a run can show what the mix editor did.</summary>
+    public string Probe(string evt) => string.Join("; ", _active.Where(a => a.Player is not null && string.Equals(a.Event, evt, StringComparison.OrdinalIgnoreCase)).Select(a => a.Player switch
+    {
+        AudioStreamPlayer3D p3 => $"{p3.VolumeDb:0.0} dB / x{p3.PitchScale:0.000} / {p3.Bus}",
+        AudioStreamPlayer p2 => $"{p2.VolumeDb:0.0} dB / x{p2.PitchScale:0.000} / {p2.Bus}",
+        _ => "?",
+    }));
+
     public int ActiveCount => _active.Count(a => a.Player is not null);
     public int PendingCount => _pending.Count;
 

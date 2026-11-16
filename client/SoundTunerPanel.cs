@@ -312,6 +312,12 @@ public partial class SoundTunerPanel : CanvasLayer
     {
         if (_live is null) return;
         if (_live.GetGlobalRect().HasPoint(_live.GetGlobalMousePosition())) return;   // holds still under the mouse so a click lands on the row that was seen
+        RebuildLive();
+    }
+
+    void RebuildLive()
+    {
+        if (_live is null) return;
         _liveRows = SoundMixLive.Snapshot();
         double now = _sound?.Now ?? 0;
         _live.Clear();
