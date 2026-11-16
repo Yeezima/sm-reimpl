@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3375 spec table rows: **2401 tagged**, 626 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 747 rows of the changes document.
-Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 750 rows of the changes document.
+Scanned 3407 spec table rows: **2432 tagged**, 627 not tagged (read from data with high confidence), 348 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 751 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,30 +49,20 @@ Scanned 3397 spec table rows: **2422 tagged**, 627 not tagged (read from data wi
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 17 | 7 | 14 | 12 | 7 |
-| Core simulation (provisional values) | 742 | 699 | 530 | 195 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2401** | 2129 | 1799 | 736 | 37 |
 | Networking and render smoothing | 36 | 26 | 17 | 12 | 7 |
-| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| Core simulation (provisional values) | 744 | 701 | 532 | 196 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2422** | 2150 | 1797 | 731 | 37 |
+| **All areas** | **2432** | 2160 | 1807 | 738 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1390 |
-| confidence: low | 877 |
-| confidence: medium | 813 |
-| notes: ours | 410 |
-| kind: interpretation | 393 |
 | kind: ours | 1420 |
-| confidence: low | 868 |
+| confidence: low | 878 |
 | confidence: medium | 820 |
-| notes: ours | 404 |
+| notes: ours | 411 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
 | kind: estimate | 174 |
@@ -2502,7 +2491,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27330EFB` | Perf tour (`--perf-tour`) | with `--perf-probe` and `--observe-tour`, the observer's camera moves to the tour's next place at the end of each 5 s probe window and each `perf:` line names its place (s) | kind: ours | measurement aid | Perf tour (--perf-tour): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with --perf-probe and --observe-tour, the observer's camera moves to… | ☐ |
 | `R-83C63D35` | Classic maps performance result | no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms (Manufactorum 3.1), server tick mean 0.64 to 1.06 ms with 17 clients; one run per map on a busy machine (frame times noisy by about 3 ms); no change made to any map's drawing (ms) | confidence: low | measured | Classic maps performance result: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no new map clearly worse than Manufactorum: render CPU 2.0 to 4.7 ms… | ☐ |
 
-### Core simulation (provisional values) (742)
 *Spec section: Developer tools: the in-game test panel (dev-tools; owner 2026-11-17; protocol 80; test aid, ours, never on a public server)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2532,7 +2520,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-### Core simulation (provisional values) (734)
+### Core simulation (provisional values) (744)
 
 *Spec section: Provisional values in use*
 
