@@ -23,6 +23,8 @@ public sealed record AshfallBandProfile
     /// <summary>Least open ground between two islands (m) and between the buildings of one cluster or row (m).</summary>
     public required float IslandGap { get; init; }
     public required float ClusterGap { get; init; }
+    /// <summary>Least open ground round a fill piece (m; the second pass's single buildings in the gaps the templates left).</summary>
+    public required float FillGap { get; init; }
     /// <summary>The candidate grid's spacing (m; islands) before seeded jitter.</summary>
     public required float Spacing { get; init; }
     /// <summary>Building heights (m): the usual range and the tall pieces (edges and landmarks only).</summary>
@@ -66,19 +68,19 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Wasteland = new()
     {
         Kind = AshfallBandKind.Wasteland, Name = "wasteland", Fabric = AshfallFabric.Islands,
-        CoverageMin = 0.05f, CoverageMax = 0.08f, IslandGap = 12f, ClusterGap = 6f, Spacing = 16f,
+        CoverageMin = 0.05f, CoverageMax = 0.08f, IslandGap = 12f, ClusterGap = 6f, FillGap = 10f, Spacing = 16f,
         HeightMin = 4f, HeightMax = 8f, TallHeight = 14f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 0, PlazaRadius = 0f, BreachedBlocks = 0,
         Landmarks = [("wrecked hulk", "wreck", new(-84f, -44f), new(16f, 10f, 7f)), ("fallen saint", "monument", new(96f, 56f), new(9f, 9f, 14f))],
         PlatformTarget = 10,
     };
 
-    /// <summary>The outskirts (the second position): spaced ruins and blocks, courtyards, some walkable upper floors. Coverage 0.20-0.24 (draft 11's districts 8-14 %, draft 12's city 23-39 %), buildings 10-13 m, 10 % upper floors, 12 m side streets.</summary>
+    /// <summary>The outskirts (the second position): spaced ruins and blocks, courtyards, walkable upper floors. Coverage 0.20-0.24 (draft 11's districts 8-14 %, draft 12's city 23-39 %), buildings 10-13 m, half with walkable upper floors (the owner, 2026-11-16: more of them, fewer rubble heaps; the plan had 10 %), 12 m side streets.</summary>
     public static readonly AshfallBandProfile Outskirts = new()
     {
         Kind = AshfallBandKind.Outskirts, Name = "outskirts", Fabric = AshfallFabric.Islands,
-        CoverageMin = 0.20f, CoverageMax = 0.24f, IslandGap = 8f, ClusterGap = 6f, Spacing = 12f,
-        HeightMin = 10f, HeightMax = 13f, TallHeight = 26f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.10f, SideStreet = 12f,
+        CoverageMin = 0.20f, CoverageMax = 0.24f, IslandGap = 8f, ClusterGap = 6f, FillGap = 5f, Spacing = 12f,
+        HeightMin = 10f, HeightMax = 13f, TallHeight = 26f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.50f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 0, PlazaRadius = 0f, BreachedBlocks = 0,
         Landmarks = [("hab tower", "spire", new(-200f, -150f), new(16f, 16f, 30f)), ("hab tower east", "spire", new(200f, -150f), new(16f, 16f, 30f))],
         PlatformTarget = 18,
@@ -88,7 +90,7 @@ public sealed record AshfallBandProfile
     public static readonly AshfallBandProfile Core = new()
     {
         Kind = AshfallBandKind.Core, Name = "urban core", Fabric = AshfallFabric.Rows,
-        CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, Spacing = 10f,
+        CoverageMin = 0.34f, CoverageMax = 0.38f, IslandGap = 6f, ClusterGap = 6f, FillGap = 2.5f, Spacing = 10f,
         HeightMin = 13f, HeightMax = 26f, TallHeight = 44f, LowMin = 1.2f, LowMax = 2.2f, UpperFloorShare = 0.35f, SideStreet = 12f,
         BreachMin = 30f, BreachMax = 50f, BreachWidth = 8f, Plazas = 3, PlazaRadius = 44f, BreachedBlocks = 3,
         Landmarks = [("cathedral spire", "spire", new(-200f, 140f), new(20f, 20f, 42f)), ("manufactorum chimney tower", "spire", new(200f, 140f), new(20f, 20f, 42f))],

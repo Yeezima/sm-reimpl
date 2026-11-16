@@ -27,9 +27,10 @@ public partial class NetworkView
             var node = new Node3D { Name = $"AshfallBand{k}", Position = new Vector3(AshfallFront.OffsetOf(k), 0f, 0f), Visible = k == 0 };
             _gameSpace!.AddChild(node);
             _frontBands[k] = node;
-            var view = AshfallView.Build(bands[k].Level);
+            var drawn = AshfallFrontScenery.OpenEdges(bands[k].Level);   // drawing only: the avenue's openings in the boundary wall (the collision stays closed)
+            var view = AshfallView.Build(drawn);
             node.AddChild(view);
-            TfwFrontKit(bands[k].Level, bands[k].Dressing, view, node);
+            TfwFrontKit(drawn, bands[k].Dressing, view, node);
             var scenery = AshfallFrontScenery.Build(k, bands);
             sceneryTris += AshfallFrontScenery.LastTriangles;
             node.AddChild(scenery);

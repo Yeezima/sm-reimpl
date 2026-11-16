@@ -400,7 +400,7 @@ public static class AshfallFront
                 var dir = Vector2.Normalize(k.B - k.A); var nrm = new Vector2(-dir.Y, dir.X);
                 bool alongX = MathF.Abs(dir.X) > 0.5f;
                 int yaw = alongX ? 0 : 6;
-                foreach (int tier in new[] { 0, 1 })   // the frontage row (the street wall), then a back row behind it across a 6 m alley
+                foreach (int tier in new[] { 0, 1, 2 })   // the frontage row (the street wall), then two back rows behind it, each across a 6 m alley
                 foreach (int side in new[] { -1, 1 })
                 {
                     uint key = AshfallBuilder.Mix(seed * 0x9E37u + 41u, (uint)(row++));
@@ -425,13 +425,13 @@ public static class AshfallFront
                         var fp = AshfallField.Footprint(centre, size, yaw);
                         if (Free(fp, tier == 0 ? 2.45f : 6f) && !Sight(fp, height))
                         {
-                            Add(new($"{k.Name} {(tier == 0 ? "row" : "back row")} {(side < 0 ? "left" : "right")} {fam} {n}", fam, centre, size, yaw, profile.Name));
+                            Add(new($"{k.Name} {(tier == 0 ? "row" : tier == 1 ? "back row" : "second back row")} {(side < 0 ? "left" : "right")} {fam} {n}", fam, centre, size, yaw, profile.Name));
                             covered += wdt * depth;
                             sinceBreach += wdt;
                         }
                         else { t += 4f; continue; }
                         t += wdt;
-                        if (tier == 1) { t += 6f; continue; }   // the back row: alleys only
+                        if (tier >= 1) { t += 6f; continue; }   // the back rows: alleys only
                         if (sinceBreach >= nextBreach)
                         {
                             // a breach gap in the street wall (30 to 50 m apart): open ground through the row into the block behind
@@ -464,7 +464,9 @@ public static class AshfallFront
         cands.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : a.At.X != b.At.X ? a.At.X.CompareTo(b.At.X) : a.At.Y.CompareTo(b.At.Y));
         int islands = 0, breached = 0;
         // Two passes: the profile's templates, then (still under the target) single pieces that fit the gaps the first pass left.
-        foreach (var (key, at, fill) in cands.Select(c => (c.Key, c.At, false)).Concat(cands.Select(c => (c.Key, c.At, true))))
+        // the fill pass also tries a grid offset by half the spacing (the gaps between the first grid's places)
+        var offset = cands.Select(c => (Key: AshfallBuilder.Mix(c.Key, 0xF111u), At: c.At + new Vector2(profile.Spacing / 2f, profile.Spacing / 2f))).Where(c => MathF.Abs(c.At.X) < 226f && MathF.Abs(c.At.Y) < 226f).ToList();
+        foreach (var (key, at, fill) in cands.Select(c => (c.Key, c.At, false)).Concat(cands.Concat(offset).Select(c => (c.Key, c.At, true))))
         {
             if (covered >= Target(at.Y) * land) continue;
             var prof = Pick(profile, at.Y, key);
@@ -472,7 +474,7 @@ public static class AshfallFront
             var group = breachedBlock ? BreachedBlock(prof, key, at) : fill ? FillPiece(prof, key, at) : Template(prof, key, at);
             if (group.Count == 0) continue;
             var fp = group.Select(s => AshfallField.Footprint(s.Centre, s.Size, s.YawStep)).Aggregate(Union);
-            float gap = prof.Fabric == AshfallFabric.Rows ? 6f : prof.IslandGap;
+            float gap = fill ? prof.FillGap : prof.Fabric == AshfallFabric.Rows ? 6f : prof.IslandGap;   // the fill's single pieces may stand closer (a side street or an alley)
             if (!Free(fp, gap) || Sight(fp, group.Max(s => s.Size.Z))) continue;
             int q = 0;
             foreach (var s in group) Add(s with { Name = $"{prof.Name} {(breachedBlock ? "breached block" : "island")} {islands} {s.Family} {q++}", District = profile.Name });
@@ -574,8 +576,8 @@ public static class AshfallFront
     }
 
     /// <summary>
-    /// The through variants' pieces (final size, band frame; authored, outside the fabric's rules): the compound's north and south walls rebuilt with 24 m gates on the avenue (draft 10's walls there met the avenue's strip), the stronghold's
-    /// north gate jamb (the ring's north leg loses its middle to the avenue) and the keep's two wings (draft 10's keep, 64 m across the avenue, is left out; the wings stand either side of the road, the keep tower against the west one).
+    /// The through variants' pieces (final size, band frame; authored, outside the fabric's rules): the compound's north and south walls rebuilt with 24 m gates on the avenue (draft 10's walls there met the avenue's strip) and the
+    /// keep's two wings. The ring's north leg loses its middle to the avenue: the north gate is about 34 m (x -20 to 14), the owner's chosen width (2026-11-16; a jamb narrowing it to 24 m met the roadway rule) (draft 10's keep, 64 m across the avenue, is left out; the wings stand either side of the road, the keep tower against the west one).
     /// </summary>
     public static IEnumerable<AshfallFieldStructure> ThroughPieces()
     {
@@ -584,7 +586,6 @@ public static class AshfallFront
         yield return new("through compound north wall east", "wallrun", new(24.25f, -160.5f), new(23.5f, 3.4f, 3.8f), 0, d);
         yield return new("through compound south wall west", "wallrun", new(-17.75f, -215.5f), new(10.5f, 4.5f, 3.8f), 0, d);
         yield return new("through compound south wall east", "wallrun", new(17.75f, -215.5f), new(10.5f, 4.5f, 3.8f), 0, d);
-        yield return new("through ring north gate jamb", "wallrun", new(-16.75f, 218f), new(6.5f, 6f, 8.9f), 0, d);   // 1 m off the roadway strip (at 12.5 m its model met the roadway rule and was left out)
         yield return new("through keep wing west", "keepwing", new(-21f, 175.5f), new(16f, 31f, 18f), 0, d);
         yield return new("through keep wing east", "keepwing", new(23.5f, 187.5f), new(21f, 55f, 18f), 0, d);
     }

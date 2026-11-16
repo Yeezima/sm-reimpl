@@ -16,7 +16,7 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 public class AshfallFrontTests(ITestOutputHelper output)
 {
     /// <summary>The bands' level pins (front version 1, the default seed). After a change of the generator or a refit of the kit's collision, take the new values from this test's output.</summary>
-    public static readonly ulong[] PinnedBandHashes = [0x1C0E74F030BD9527UL, 0xC301BB5479451A7AUL, 0xDC77FE44619EF92DUL];
+    public static readonly ulong[] PinnedBandHashes = [0xE92AC5053BF5DC0CUL, 0x6662E1FD10FCF3A6UL, 0x17C867AC429FF0DCUL];
 
     public static readonly TheoryData<uint> Seeds = new() { AshfallFront.DefaultSeed, 1u, 2u, 3u, 4u };
 
@@ -33,7 +33,7 @@ public class AshfallFrontTests(ITestOutputHelper output)
         Assert.Equal((0.05f, 0.08f), (w.CoverageMin, w.CoverageMax));
         Assert.Equal((0.20f, 0.24f), (o.CoverageMin, o.CoverageMax));
         Assert.Equal((0.34f, 0.38f), (c.CoverageMin, c.CoverageMax));
-        Assert.Equal(0f, w.UpperFloorShare); Assert.Equal(0.10f, o.UpperFloorShare);
+        Assert.Equal(0f, w.UpperFloorShare); Assert.Equal(0.50f, o.UpperFloorShare);   // the owner, 2026-11-16: more walkable upper floors in the outskirts (the plan had 10 %)
         Assert.True(w.LowMin == 1.2f && w.LowMax == 2.2f && w.HeightMax <= 8f);
         Assert.True(o.HeightMin == 10f && o.HeightMax == 13f && o.SideStreet == 12f);
         Assert.True(c.HeightMin == 13f && c.HeightMax == 26f && c.TallHeight == 44f && c.Plazas == 3 && c.BreachMin == 30f && c.BreachMax == 50f);
@@ -78,8 +78,9 @@ public class AshfallFrontTests(ITestOutputHelper output)
                 foreach (var (name, z) in plan.Protected) Assert.False(r.X < z.Z && r.Z > z.X && r.Y < z.W && r.W > z.Y, $"{s.Name} in {name}");
                 Assert.True(r.X >= -226f && r.Z <= 226f && r.Y >= -226f && r.W <= 226f, s.Name);
             }
-            Assert.True(plan.Coverage > prof.CoverageMin * 0.6f && plan.Coverage <= prof.CoverageMax + 0.02f, $"cover {plan.Coverage:P1}");
-            Assert.Equal(7, plan.Structures.Count(Through));
+            Assert.True(plan.Coverage >= prof.CoverageMin && plan.Coverage <= prof.CoverageMax, $"cover {plan.Coverage:P1}, target {prof.CoverageMin:P0}-{prof.CoverageMax:P0}");   // the owner, 2026-11-16: the outskirts 20-24 %, the core 34-38 %
+            Assert.Equal(6, plan.Structures.Count(Through));   // the compound's four walls and the keep's two wings; no jamb: the north gate is about 34 m, the owner's choice (2026-11-16)
+            Assert.DoesNotContain(plan.Structures, s => s.Name.Contains("jamb", StringComparison.Ordinal));
             if (band == 2) Assert.Contains(plan.Structures, s => s.Name.Contains(" breached block ", StringComparison.Ordinal));
             // deterministic
             var again = AshfallFront.Plan(band, seed);
