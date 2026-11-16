@@ -18,8 +18,8 @@ public interface IDevBotProcess
 /// <summary>Starts the test bots the developer tools add (a headless <c>client --bot</c> process of this machine, on the server's own loopback address).</summary>
 public interface IDevBotLauncher
 {
-    /// <summary>Starts a bot for the slot; null when it could not be started (the reason goes to <paramref name="error"/>).</summary>
-    IDevBotProcess? Start(BotSlot slot, out string error);
+    /// <summary>Starts a bot for the slot, whose Hello carries <paramref name="token"/> as its nonce (the server ties the process to its player by it); null when it could not be started (the reason goes to <paramref name="error"/>).</summary>
+    IDevBotProcess? Start(BotSlot slot, uint token, out string error);
 }
 
 /// <summary>
@@ -31,7 +31,7 @@ public sealed class ProcessBotLauncher(string exe, string? projectPath, int port
 {
     int _started;
 
-    public IDevBotProcess? Start(BotSlot slot, out string error)
+    public IDevBotProcess? Start(BotSlot slot, uint token, out string error)
     {
         error = "";
         string logPath;
@@ -51,10 +51,12 @@ public sealed class ProcessBotLauncher(string exe, string? projectPath, int port
             WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
         };
         foreach (var a in HostBots.ClientArguments(port, slot, content, projectPath, logPath + ".godot")) info.ArgumentList.Add(a);
+        info.ArgumentList.Add("--dev-bot-token"); info.ArgumentList.Add(token.ToString(CultureInfo.InvariantCulture));   // the client's Hello nonce (NetworkView.Demo.cs)
         try
         {
             var process = Process.Start(info);
             if (process is null) { error = "the process did not start"; return null; }
+            DevBotJob.TryAssign(process);   // kill-on-close job: the bot dies with the server even on a hard kill or a crash
             return new ChildBot(process, logPath);
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)

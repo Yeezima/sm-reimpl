@@ -156,6 +156,7 @@ public partial class NetworkView
         var clock = new SystemClock();
         _demoClock = clock;
         uint nonce = (uint)System.Security.Cryptography.RandomNumberGenerator.GetInt32(1, int.MaxValue);
+        if (DevArg("--dev-bot-token") is { } token && uint.TryParse(token, out uint tokenNonce) && tokenNonce != 0) nonce = tokenNonce;   // dev-tools: the server's tie between a bot it started and its player (GameServer.DevTools.cs)
         _transport = new UdpClientTransport(endpoint!);
         IClientTransport transport = _transport;
         if (DemoRecordPath is { } record)

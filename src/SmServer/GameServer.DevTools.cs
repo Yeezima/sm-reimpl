@@ -41,8 +41,11 @@ public static class DevToolsGate
 /// </summary>
 public sealed partial class GameServer
 {
-    sealed class ToolBot(IDevBotProcess process, Team team)
+    sealed class ToolBot(IDevBotProcess process, Team team, uint token, TimeSpan startedAt)
     {
+        /// <summary>The nonce this bot's Hello carries (its own, random): the player with it is this process, whatever its side.</summary>
+        public uint Token { get; } = token;
+        public TimeSpan StartedAt { get; } = startedAt;
         public IDevBotProcess Process { get; } = process;
         public Team Team { get; } = team;
         /// <summary>The connection of the player this process became (null while it is still joining).</summary>
@@ -60,6 +63,8 @@ public sealed partial class GameServer
 
     /// <summary>Bots still joining that the tools may have waiting at once (each is a whole game client, 0.65 GB).</summary>
     public const int MaxStartingToolBots = 3;
+    /// <summary>A tool bot that has not joined after this long is stopped and its slot freed.</summary>
+    public static readonly TimeSpan ToolBotJoinTimeout = TimeSpan.FromSeconds(60);
     /// <summary>Developer-tools requests taken per peer per second.</summary>
     const double DevRequestRate = 6;
 
@@ -123,10 +128,11 @@ public sealed partial class GameServer
         string side = team == Team.Chaos ? HostBots.Chaos : HostBots.Marines;
         int index = _toolBotsStarted.GetValueOrDefault(team);
         var slot = new BotSlot(side, HostBots.ClassFor(side, index));
-        var process = launcher.Start(slot, out string error);
+        uint token = (uint)System.Security.Cryptography.RandomNumberGenerator.GetInt32(1, int.MaxValue);
+        var process = launcher.Start(slot, token, out string error);
         if (process is null) { Log?.Invoke($"dev tools: add bot ({sideName}) failed: {error}"); Answer(DevNote.LaunchFailed); return; }
         _toolBotsStarted[team] = index + 1;
-        _toolBots.Add(new ToolBot(process, team));
+        _toolBots.Add(new ToolBot(process, team, token, _clock.Now));
         Log?.Invoke($"dev tools: add bot ({sideName}, class '{slot.Class}') started, pid {process.Id} (player {peer.PlayerId} asked)");
         Answer(DevNote.BotStarting);
     }
@@ -159,22 +165,23 @@ public sealed partial class GameServer
             var bot = _toolBots[i];
             bool ended = !bot.Process.Running;
             bool playerGone = bot.Connection is { } c && !_peers.ContainsKey(c);
-            if (!ended && !playerGone) continue;
+            bool neverJoined = bot.Connection is null && _clock.Now - bot.StartedAt > ToolBotJoinTimeout;
+            if (neverJoined) Log?.Invoke($"dev tools: bot pid {bot.Process.Id} did not join within {ToolBotJoinTimeout.TotalSeconds:0} s; stopped");
+            if (!ended && !playerGone && !neverJoined) continue;
             if (!ended) bot.Process.Stop();
             _toolBots.RemoveAt(i);
             _devDirty = true;
         }
     }
 
-    /// <summary>Matches each joined bot player that no tool bot owns yet to the oldest waiting tool bot of its side (bots join in the order they were started).</summary>
+    /// <summary>Ties each tool bot to the player whose Hello nonce is its token (so a bot from <c>bots.cmd</c> or one the balance moved to another side is never taken for it).</summary>
     void BindToolBots()
     {
         if (_toolBots.All(b => b.Connection is not null)) return;
         foreach (var (connection, peer) in _peers)
         {
             if (!peer.Bot || peer.Spectator || _toolBots.Any(b => b.Connection == connection)) continue;
-            if (!World.Players.TryGetValue(peer.PlayerId, out var state)) continue;
-            var owner = _toolBots.FirstOrDefault(b => b.Connection is null && b.Team == state.Team);
+            var owner = _toolBots.FirstOrDefault(b => b.Connection is null && b.Token == peer.Nonce);
             if (owner is not null) { owner.Connection = connection; _devDirty = true; }
         }
     }

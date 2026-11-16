@@ -26,13 +26,14 @@ public class DevToolsTests
     sealed class FakeLauncher : IDevBotLauncher
     {
         public readonly List<BotSlot> Started = new();
+        public readonly List<uint> Tokens = new();
         public readonly List<FakeBot> Bots = new();
         public bool Fail;
-        public IDevBotProcess? Start(BotSlot slot, out string error)
+        public IDevBotProcess? Start(BotSlot slot, uint token, out string error)
         {
             error = Fail ? "no executable" : "";
             if (Fail) return null;
-            Started.Add(slot);
+            Started.Add(slot); Tokens.Add(token);
             var bot = new FakeBot(1000 + Bots.Count);
             Bots.Add(bot);
             return bot;
@@ -238,11 +239,13 @@ public class DevToolsTests
         Assert.Equal(DevNote.BotStarting, human.Dev!.Note);
         Assert.Contains(log, l => l.StartsWith("dev tools: add bot (chaos, class 'chaos tactical') started, pid 1000"));
         // The process becomes a player on its side; the tools tie the two together.
-        var bot = h.AddClient(nonce: 21, options: new ClientOptions { Bot = true, RequestedSide = Team.Chaos });
+        var foreign = h.AddClient(nonce: 77, options: new ClientOptions { Bot = true, RequestedSide = Team.Chaos });   // a bots.cmd bot of the same side that joined first
+        Settle(h, 1.0);
+        var bot = h.AddClient(nonce: launcher.Tokens[0], options: new ClientOptions { Bot = true, RequestedSide = Team.Chaos });   // the process the tools started: its Hello nonce is its token
         Settle(h, 2.5);
         Assert.Equal(Team.Chaos, h.Server.World.Players[bot.PlayerId].Team);
         Assert.Equal(1, human.Dev!.ToolBotsChaos);
-        Assert.Equal(1, human.Dev.PlayersChaos);
+        Assert.Equal(2, human.Dev.PlayersChaos);
         human.SendDevCommand(DevCommandKind.RemoveBot, DevSides.Loyalists, true);   // none on that side
         Settle(h, 0.3);
         Assert.Equal(DevNote.NoBotToRemove, human.Dev!.Note);
@@ -251,6 +254,7 @@ public class DevToolsTests
         Settle(h, 0.5);
         Assert.True(launcher.Bots[0].Stopped);
         Assert.DoesNotContain(bot.PlayerId, h.Server.Players);   // removed at once, not after the idle timeout
+        Assert.Contains(foreign.PlayerId, h.Server.Players);   // the other bot of that side is not the tools' to remove
         Assert.Equal(DevNote.BotRemoved, human.Dev!.Note);
         Assert.Equal(0, human.Dev.ToolBotsChaos);
         Assert.Contains(log, l => l.StartsWith("dev tools: remove bot (chaos) stopped pid 1000, player"));
@@ -311,7 +315,118 @@ public class DevToolsTests
         Assert.Equal(0, h.Server.ToolBotCount);
     }
 
+    [Fact]
+    public void A_tool_bot_that_never_joins_is_stopped_after_the_timeout_and_frees_its_slot()
+    {
+        var launcher = new FakeLauncher();
+        var (h, log) = Make(Setup(launcher: launcher), match: Teams);
+        Settle(h, 2.5);
+        h.Clients[0].SendDevCommand(DevCommandKind.AddBot, DevSides.Chaos, true);
+        Settle(h, 0.5);
+        Assert.Equal(1, h.Server.ToolBotCount);
+        Settle(h, GameServer.ToolBotJoinTimeout.TotalSeconds + 2);
+        Assert.True(launcher.Bots[0].Stopped);
+        Assert.Equal(0, h.Server.ToolBotCount);
+        Assert.Contains(log, l => l.Contains("did not join within"));
+    }
+
+    [Theory]
+    [InlineData("::1")]
+    [InlineData("::ffff:127.0.0.1")]
+    [InlineData("127.0.0.1")]
+    public void Loopback_requesters_in_every_form_are_obeyed_and_a_mapped_foreign_address_is_not(string address)
+    {
+        Assert.True(DevToolsGate.Allows(Setup(), new IPEndPoint(IPAddress.Parse(address), 1)));
+        var (h, _) = Make(Setup(), remote: new IPEndPoint(IPAddress.Parse(address), 40000));
+        Settle(h, 2.5);
+        h.Clients[0].SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.FreezeBots, true);
+        Settle(h, 0.3);
+        Assert.Equal(DevToolsFlags.FreezeBots, h.Server.World.DevFlags);
+        Assert.False(DevToolsGate.Allows(Setup(), new IPEndPoint(IPAddress.Parse("::ffff:10.1.2.3"), 1)));
+    }
+
+    [Fact]
+    public void Short_or_garbled_dev_packets_read_as_null_and_never_throw()
+    {
+        foreach (byte kind in new byte[] { 20, 21 })
+        {
+            byte[] good = Protocol.Write(kind == 20 ? new DevCommand(5, DevCommandKind.AddBot, 1, true) : new DevState(DevToolsFlags.None, 0, 0, 0, 0, DevNote.None, 0));
+            for (int length = 1; length < good.Length; length++) Assert.Null(Protocol.Read(good[..length]));   // truncated at every length
+            var random = new Random(kind);
+            for (int i = 0; i < 300; i++)
+            {
+                var junk = new byte[random.Next(1, 14)];
+                random.NextBytes(junk); junk[0] = kind;
+                Protocol.Read(junk);   // null or a valid message, never an exception
+            }
+        }
+        Assert.Null(Protocol.Read([20]));
+        Assert.Null(Protocol.Read([21, 255, 255, 255, 255, 255, 255, 255]));
+    }
+
+    [Fact]
+    public void A_garbled_dev_command_on_the_wire_changes_nothing_on_the_server()
+    {
+        var (h, _) = Make(Setup());
+        Settle(h, 2.5);
+        var raw = h.Net.Connect();
+        raw.Send([20, 1, 2]);
+        raw.Send([20, 9, 9, 9, 9, 99, 1, 1]);
+        Settle(h, 0.3);
+        Assert.Equal(DevToolsFlags.None, h.Server.World.DevFlags);
+        Assert.Equal(1, h.Server.Players.Count);
+    }
+
+    [Fact]
+    public void In_Musou_Mode_the_toggles_apply_and_bots_are_refused()
+    {
+        if (!ContentExtras.Compiled) return;   // a build without added content has no Musou Mode
+        var launcher = new FakeLauncher();
+        var config = new SimConfig { Extras = ContentExtras.Musou };
+        var options = new ServerOptions { DevTools = Setup(launcher: launcher) };
+        var h = new Harness(Link, seed: 5, clients: 1, config, options);
+        var log = new List<string>(); h.Server.Log += log.Add;
+        Settle(h, 2.5);
+        var client = h.Clients[0];
+        client.SendDevCommand(DevCommandKind.SetFlag, (byte)DevToolsFlags.Invincible, true);
+        client.SendDevCommand(DevCommandKind.AddBot, DevSides.Chaos, true);
+        Settle(h, 0.5);
+        Assert.Equal(DevToolsFlags.Invincible, h.Server.World.DevFlags);
+        Assert.Equal(DevNote.NotInThisMode, client.Dev!.Note);
+        Assert.Empty(launcher.Started);
+        Assert.Equal(0f, h.Server.World.DamageTakenScale(client.PlayerId));   // the added content's hook cannot undo it
+    }
+
     // ---- the sim ----
+
+    static readonly SimConfig MeleeConfig = new()
+    {
+        MeleeSteps = [new MeleeStep(1.0f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 10f, 5f, 3.5f), new MeleeStep(1.0f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 20f, 6f, 3.5f)],
+        MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
+    };
+
+    static (float Shield, float Health, int Hits) OneSwing(DevToolsFlags flags)
+    {
+        var world = new World(MeleeConfig, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0, 2, 0), 0f)]) { DevFlags = flags };
+        world.Spawn(1); world.Spawn(2);
+        int hits = 0;
+        for (int i = 0; i < 12; i++)
+        {
+            world.Step(id => id == 1 ? new PlayerInput(0, 0, 0, 0, i == 0 ? InputButtons.Melee : InputButtons.None) : new PlayerInput(0, 0, 0, 0, InputButtons.None));
+            hits += world.LastHits.Count;
+        }
+        return (world.Players[2].Shield, world.Players[2].Health, hits);
+    }
+
+    [Fact]
+    public void Invincible_holds_through_a_melee_blow_too_and_reactions_are_left_alone()
+    {
+        var normal = OneSwing(DevToolsFlags.None);
+        Assert.True(normal.Hits >= 1 && normal.Shield < MeleeConfig.ShieldMax, "control: the blow hurts");
+        var guarded = OneSwing(DevToolsFlags.Invincible);
+        Assert.True(guarded.Hits >= 1, "the blow still lands (flinch, stagger and knockback are not damage and stay)");
+        Assert.Equal((MeleeConfig.ShieldMax, MeleeConfig.HealthMax), (guarded.Shield, guarded.Health));
+    }
 
     static readonly SimConfig Bolter = new()
     {
