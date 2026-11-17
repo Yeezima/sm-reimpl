@@ -83,6 +83,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
         _hooked = null;
         FreeViewportTools();
+        FlushStashedMaps();
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
@@ -164,6 +165,20 @@ public partial class MapmakerPlugin : EditorPlugin
         if (MapHost.Root is not null && Session is not null) SyncView(true);
         else if (MapHost.Root is { } fresh && SceneMapOf(fresh) is { } saved && System.IO.File.Exists(saved)) OpenMap(saved);   // a reopened scene loads its map again
         DocChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// On plugin exit (editor quit), writes the changed maps of background tabs whose scene has a file: Save All saves those scenes without making them the edited
+    /// one, so their maps would otherwise be dropped with the stash (final review of 3cfa3bc0).
+    /// </summary>
+    void FlushStashedMaps()
+    {
+        foreach (var (k, v) in _stash.ToList())
+        {
+            if (!v.Dirty || v.Session is null || GodotObject.InstanceFromId(k) is not Node root || !GodotObject.IsInstanceValid(root) || SceneFileOf(root).Length == 0) continue;
+            try { SaveSceneMap(root, v.Session, true); }
+            catch (Exception e) { GD.PushWarning($"Mapmaker: the map of {SceneFileOf(root)} was not saved on exit: {e.Message}"); }
+        }
     }
 
     /// <summary>Forgets the maps of scene tabs that were closed (their root is gone).</summary>
