@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3704 spec table rows: **2680 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 772 rows of the changes document.
+Scanned 3718 spec table rows: **2692 tagged**, 670 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 774 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 3704 spec table rows: **2680 tagged**, 668 not tagged (read from data wi
 | General game design | 107 | 106 | 81 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
 | **All areas** | **2680** | 2399 | 2016 | 805 | 37 |
+| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
+| General game design | 119 | 118 | 93 | 17 | 0 |
+| Ork faction | 265 | 252 | 149 | 70 | 0 |
+| **All areas** | **2692** | 2411 | 2028 | 804 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,6 +68,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 975 |
 | confidence: medium | 932 |
 | notes: ours | 467 |
+| kind: ours | 1575 |
+| confidence: low | 979 |
+| confidence: medium | 940 |
+| notes: ours | 466 |
 | kind: interpretation | 432 |
 | kind: estimate | 229 |
 | notes: estimate | 211 |
@@ -3954,7 +3963,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (107)
+### General game design (119)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4022,6 +4031,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6681ED26` | Fortress plaza and yard cover | four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four plaza cover walls (6 x 1.5 x 1.2 m) at x +-(30..36), y 38 and 61; ten more low walls in the yard, the streets, the strip and the lanes, all off the lines through the openings and clear of the… (m) | kind: estimate; confidence: low; notes: ours | ours | Fortress plaza and yard cover: compare with SM1 by measuring on a flat spot of the same map. Ours: four pillars (3 m square, 12 m high) at x +-25, y 28 and 72; four… | ☐ |
 | `R-AA8F3028` | Fortress markers | landing zone (0, -150); Warboss spot (0, 50) with the `Arena` marker radius 45, half height 12; 17 Ork sources in three stages (0: the outer streets, 6, each at least 40 m from both entries; 1: the strip and the lanes, 7; 2: the plaza, 4); 17 posts (5… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (landing zone, boss spot, Ork sources, optional points, hash); numbers ours | Fortress markers: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -150); Warboss spot (0, 50) with the Arena marker… | ☐ |
 | `R-D4BE9AC7` | Fortress own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post, route and spawn); a walking graph connects the landing zone to the Warboss spot by three routes (centre; west lane through… | kind: ours; confidence: medium | owner brief (at least two army-width routes; every elite source reachable; a stub loads through the interface) | Fortress own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
+
+*Spec section: Warfront fortress battle (warfront/w14b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 8: the pure half and the live half (the composed map, the server landing, the Battle section, the client view))*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-682974AA` | Elite share | 0.6 (Musou's own top of the curve) (share) | kind: ours; confidence: medium | `WarfrontFortressBattleRules.EliteShare` | Elite share: compare with SM1 by feel or video. Ours: 0.6 (Musou's own top of the curve). | ☐ |
+| `R-79A29CBE` | Waypoints are not objectives | the layout's three "positions" are the gate (the entry nearest the landing zone), the breach (the next entry 8 m or more from it) and the plaza gate (the last route stop nearest the boss spot): Secured from the start, never captured, never retaken, never… | kind: ours; confidence: medium | `WarfrontArenaLayout.Plan`, `WarfrontRetake` | Waypoints are not objectives: compare with SM1 by feel or video. Ours: the layout's three "positions" are the gate (the entry nearest the… | ☐ |
+| `R-D5FC0C81` | Stages | stage 0 (the outer streets) from the landing; stage 1 (the strip and the lanes) when a human first stands within 12 m (flat, 6 m high) of the gate or the breach; stage 1 also opens when a human is nearer the boss spot than the nearer entry less the 12 m… (m) | kind: ours; confidence: low | `WarfrontFortressState.Observe`, `EntryRadius` | Stages: compare with SM1 by measuring on a flat spot of the same map. Ours: stage 0 (the outer streets) from the landing; stage 1 (the strip and… | ☐ |
+| `R-D60ACFEA` | Source spacing | a source (and, for the first three, its crowd's waypoint) sends nothing while a human stands within 30 m of where it spawns (a storey of height either way); a stage-2 source also sends nothing while a human standing in the plaza has a clear line from his eye… (m) | kind: ours; confidence: low | `WarfrontFortressState.SourceOpen`, `SourceClear`, `SpawnHidden` | Source spacing: compare with SM1 by measuring on a flat spot of the same map. Ours: a source (and, for the first three, its crowd's waypoint) sends… | ☐ |
+| `R-A6E54145` | The first four sources | the layout's sources in stage order, then the first four hoisted to stages 0, 0, 1, 2 (the battle gates its four spawn points by source index; fewer than four sources repeat from the start) (stage) | kind: ours; confidence: medium | `WarfrontArenaLayout.Order` | The first four sources: compare with SM1 by feel or video. Ours: the layout's sources in stage order, then the first four hoisted to… | ☐ |
+| `R-7F801469` | Elite posts | each of the arena's posts in the group "elite" (eight in the generated map) holds one leashed Nob and one leashed Big Shoota Nob, woken by a target within 30 m, outside the crowds' cap as Musou's big Orks are; no twin copies (Orks) | kind: ours; confidence: low | `FortressPlace` | Elite posts: compare with SM1 by feel or video. Ours: each of the arena's posts in the group "elite" (eight in the… | ☐ |
+| `R-DAC33FC6` | The Warboss's leash | leashed at the boss spot (the usual 30 m aggro) until a human first enters the plaza, then free for good; health and damage take the level and human scaling like any Ork spawned in a node (the pool's spawn hook) | kind: ours; confidence: medium | `FortressObserve`, `ReleaseGroup` | The Warboss's leash: compare with SM1 by feel or video. Ours: leashed at the boss spot (the usual 30 m aggro) until a human first… | ☐ |
+| `R-B4280569` | Boss-kill XP and D's 800 | the Warboss's death pays the shared boss-kill XP once through the kill ledger; the battle's Won does NOT pay D's 800, and no capture XP is paid at all in the fortress (`OnBattleChange` returns at once; the waypoints are never captures); the setup is set only… (XP) | kind: ours; confidence: medium | `WarfrontProgressionRuntime.OnBattleChange` | Boss-kill XP and D's 800: compare with SM1 by feel or video. Ours: the Warboss's death pays the shared boss-kill XP once through the… | ☐ |
+| `R-5849C9CA` | Composed map and ship | `wf_fortress` is composed with the hub exactly as the HQ is (`TfwMap.Compose` over the arena of `WarfrontSlots.Fortress`, the one line a handmade map changes): the plan's breach, gate and plaza gate stand in as the field's three points, the landing zone and… | kind: ours; confidence: medium | `WarfrontMaps.Load`, `WarfrontSlots.Fortress`, `WarfrontStagePlan.HasShip` | Composed map and ship: compare with SM1 by feel or video. Ours: wf_fortress is composed with the hub exactly as the HQ is… | ☐ |
+| `R-60F6ADD4` | Landing | the server sets `WarfrontBattleRules.Fortress` (the arena's plan and a sight test) only when the stage's map is `wf_fortress` and the target is the fortress, then the run's own Deploy by the leader on a node battle's frame (lane A, node 1); the plan hook… | kind: ours; confidence: medium | `WarfrontTryLand`, `WarfrontBattlePlan` | Landing: compare with SM1 by feel or video. Ours: the server sets WarfrontBattleRules.Fortress (the arena's plan and a… | ☐ |
+| `R-4C083648` | Stage 2 sight test | the server's sight test is a straight line from eye to eye (1.7 m) that no wall of the weapon collision stops (`StaticMesh.Raycast`); a fortress with a plaza human and no test supplied closes every stage-2 source (a server fault, never silent) (m) | kind: ours; confidence: low | `WarfrontFortressSetupFor`, `WarfrontFortressState.SpawnHidden` | Stage 2 sight test: compare with SM1 by measuring on a flat spot of the same map. Ours: the server's sight test is a straight line from eye to eye (1.7 m)… | ☐ |
+| `R-0ED87054` | Battle section in the fortress | kind 2; stage 0 to 2 (the fortress's stage); no wave bytes; held bits all set; the hold byte is the Warboss's health in percent in steps of 5; banner ids 6 "BREACH THE FORTRESS" (from the landing), 7 "THE WARBOSS IS IN THE ARENA" (the tick a human first… | kind: ours; confidence: medium | `WarfrontBattleWire`, `TfwBattle.FortressMessage` | Battle section in the fortress: compare with SM1 by feel or video. Ours: kind 2; stage 0 to 2 (the fortress's stage); no wave bytes; held bits… | ☐ |
 
 *Spec section: Warfront stats ledger (warfront/w4b, 2026-11-17; added content, Warfront only; pure, no wire change; second pass after designer review 1)*
 
@@ -4651,6 +4677,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-853AED62` | Ork level scale | the level part alone (health x(1 + 0.08 (L-1)), damage x(1 + 0.05 (L-1)), L the highest connected human's level) read at each spawn in a node battle; the humans' x(1 + 0.20 (humans-1)) stays W3's; living Orks and the hub's and the range's Orks are never scaled (multiplier) | kind: ours; confidence: low | owner rule, our curve | Ork level scale: compare with SM1 by feel or video. Ours: the level part alone (health x(1 + 0.08 (L-1)), damage x(1 + 0.05… | ☐ |
 
+*Spec section: Warfront fortress battle (warfront/w14b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 8: the pure half and the live half (the composed map, the server landing, the Battle section, the client view))*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-81E623C2` | Approach Boss Orks | one Boss Ork (kinds in Musou's order) leashed at the middle stop of each of the last two routes; none roam (Musou's roaming Boss Orks do not come in the final assault); an arena with one route holds one (Orks) | kind: ours; confidence: low | `FortressPlace` | Approach Boss Orks: compare with SM1 by feel or video. Ours: one Boss Ork (kinds in Musou's order) leashed at the middle stop of… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4675,6 +4707,14 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-D78ECDBB` | Ork fortress level and the `IWarfrontArena` interface (generation only) | ours (plan section 2, slot 11): not an SM1 map; generated in code behind an interface a handmade map can replace; every size an estimate | 300 x 320 m: an outer yard, a 12 m gate (14 m clear) and an 8 m west breach, eight street blocks, a 90 x 90 m plaza (radius 45 m) for the Warboss with open 16 m (south) and 12 m (side) openings, three routes (centre, east lane, west lane by the breach), every Ork opening at least 8 m wide | Warfront fortress map profile and arena interface | Ork fortress level and the IWarfrontArena interface…: compare with SM1 by feel or video. Ours: ours (plan section 2, slot 11): not an SM1 map; generated in code… | ☐ |
+
+#### Warfront fortress battle (warfront/w14b; spec "Warfront fortress battle")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-17F9F543` | The fortress battle: Musou's final assault on an arena, one leashed Warboss, staged Ork sources, elite pairs on the posts, two Boss Orks on the approaches; the Warboss's death wins the campaign on that tick | the win and the wipe rule are the owner's (2026-11-17); everything else ours (not an SM1 mode), every number an estimate | elite share 0.6; stages by the humans' position (entries, plaza); no source within 30 m of a human or in sight of one in the plaza | Warfront fortress battle | The fortress battle: Musou's final assault on an arena, one…: compare with SM1 by feel or video. Ours: the win and the wipe rule are the owner's (2026-11-17); everything… | ☐ |
+| `C-513C10AA` | The three "positions" of the fortress layout are waypoints, not capture points | ours: the battle code runs without capture objectives (Secured from the start, never taken, never paid) | gate, breach, plaza gate | Warfront fortress battle | The three "positions" of the fortress layout are waypoints…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours: the battle code runs without capture objectives (Secured from… | ☐ |
+| `C-F0087785` | The fortress is composed with the hub and has a ship; its Battle section (kind 2) reuses the hold byte as the Warboss's health | ours: the HQ's precedent; banners BREACH THE FORTRESS, THE WARBOSS IS IN THE ARENA, THE WARBOSS IS DEAD | tag 47, ids 6 to 8 | Warfront fortress battle | The fortress is composed with the hub and has a ship; its…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours: the HQ's precedent; banners BREACH THE FORTRESS, THE WARBOSS IS… | ☐ |
 
 #### Controller (gamepad feature; spec "Controller (gamepad)")
 

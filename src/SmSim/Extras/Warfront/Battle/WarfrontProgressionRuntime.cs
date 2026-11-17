@@ -217,6 +217,7 @@ public sealed class WarfrontProgressionRuntime
     {
         SyncBattle(battle);
         _newlyPaid.Clear();
+        if (battle.IsWarfrontFortress) return _newlyPaid;   // the fortress pays boss-kill and kill XP only: its waypoints are never captures, and its Won is the Warboss's death (W14b review 1)
         if (change.HasFlag(TfwBattleChange.PositionSecured))
             for (int k = 0; k < 3 && k < battle.Objectives.Count; k++)
                 if (battle.Objectives[k].State == TfwPositionState.Secured && _paid.Add(k))
@@ -224,7 +225,7 @@ public sealed class WarfrontProgressionRuntime
                     Xp.Capture(CaptureXp, (_serial << 4) | (long)k);
                     _newlyPaid.Add(k);
                 }
-        if (change.HasFlag(TfwBattleChange.Won) && !battle.WarfrontHq && _paid.Add(3))   // the HQ defence has no D: its win pays the positions still held (above), 400 each
+        if (change.HasFlag(TfwBattleChange.Won) && !battle.WarfrontHq && !battle.IsWarfrontFortress && _paid.Add(3))   // the HQ defence has no D (its win pays the positions still held, above, 400 each); the fortress's Won is the Warboss's death: boss-kill XP only, never D's 800 (W3b review, W14b)
         {
             Xp.Capture(FinalCaptureXp, (_serial << 4) | 3L);
             _newlyPaid.Add(3);

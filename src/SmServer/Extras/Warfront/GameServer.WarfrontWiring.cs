@@ -26,6 +26,7 @@ public sealed partial class GameServer
     static readonly JsonSerializerOptions WarfrontSquadJson = new() { Converters = { new JsonStringEnumConverter() }, IncludeFields = true };
 
     WarfrontSquadWiring? _wfWiring;
+    internal WarfrontSquadWiring? WarfrontWiringForTests => _wfWiring;   // a test aid (W14b): the real wipe knocks the retainers out first
     WarfrontSquadSender? _wfSender;
     WarfrontSquadSim? _wfSenderSim;
     WarfrontSquadCommands? _wfSquadCommands;

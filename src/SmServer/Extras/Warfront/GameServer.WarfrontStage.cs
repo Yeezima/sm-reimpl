@@ -3,6 +3,7 @@ using SmSim;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Fortress;
 using SmSim.Extras.Warfront.Maps;
 
 namespace SmServer;
@@ -142,22 +143,23 @@ public sealed partial class GameServer
         var c = s.Campaign;
         if (World.Tfw is not { } run)
         {
-            // the fortress (W14b composes it with the hub): no battle rules yet; the battle begins at once and only SM_WF_RESOLVE ends it.
+            // no run on this map (a map that was not composed with the hub): the battle begins at once and only SM_WF_RESOLVE ends it.
             s.Landing = false;
             c.BeginBattle(); WfSave(s);
-            WfLog($"battle begins on {s.Map} (deployment {c.Deployments + 1}); this map has no battle rules yet: it ends under SM_WF_RESOLVE only");
+            WfLog($"battle begins on {s.Map} (deployment {c.Deployments + 1}); this map has no run: it ends under SM_WF_RESOLVE only");
             WarfrontArmResolve(s);
             return;
         }
         bool hq = target.Kind == WarfrontTargetKind.Hq && s.Map == WarfrontMaps.HqName;
+        bool fortress = target.Kind == WarfrontTargetKind.Fortress && s.Map == WarfrontMaps.FortressName;
         var slot = WarfrontSlots.ByName(s.Map);
-        if (!hq && (target.Kind != WarfrontTargetKind.Node || slot is null)) { s.Landing = false; WfLog($"cannot land {target.Kind} on {s.Map}"); return; }
+        if (!hq && !fortress && (target.Kind != WarfrontTargetKind.Node || slot is null)) { s.Landing = false; WfLog($"cannot land {target.Kind} on {s.Map}"); return; }
         if (run.Phase != TfwRunPhase.Hub)
         {
             // the run took the Deploy (Travel, then the battle): the landing is under way
             s.Landing = false;
             s.Landed = true;
-            WfLog(hq ? $"landing on {s.Map}: the HQ defence; deployment {c.Deployments + 1}" : $"landing on {slot!.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
+            WfLog(hq ? $"landing on {s.Map}: the HQ defence; deployment {c.Deployments + 1}" : fortress ? $"landing on {s.Map}: the Ork fortress, through lane {(char)('A' + Math.Max(0, target.Lane))}; deployment {c.Deployments + 1}" : $"landing on {slot!.Name}: slot {slot.Number}, lane {slot.Lane}, node {slot.Node}, band {slot.Band} ({slot.Profile}), seed {slot.Seed}; deployment {c.Deployments + 1}; fronts set to node {slot.Node}");
             return;
         }
         // the run's Deploy is dropped silently unless the match is playing and the leader is alive inside the hub, so it is asked again each second until the run leaves the hub
@@ -165,9 +167,13 @@ public sealed partial class GameServer
         if (WarfrontLeaderPlayer() is not { } leader) { WarfrontLandingWait(s, "no identified leader"); return; }
         if (!World.Players.TryGetValue(leader, out var lp) || !lp.Alive || !run.Field.Hub.Contains(lp.Position)) { WarfrontLandingWait(s, "the leader is not alive aboard yet"); return; }
         if (s.LandingEnqueued != 0 && World.Tick - s.LandingEnqueued < (uint)WarfrontRate) return;
-        if (run.Warfront is { } rules) rules.Target = target.Kind;   // the run's battle plan reads it (the HQ defence's layout)
-        run.War.SetFrontsForTests(hq ? (sbyte)0 : (sbyte)(slot!.Node - 1));   // the HQ: a node battle's frame on lane A; its plan hook replaces the layout
-        if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)(hq ? 0 : slot!.Lane)))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
+        if (run.Warfront is { } rules)
+        {
+            rules.Target = target.Kind;   // the run's battle plan reads it (the HQ defence's layout)
+            rules.Fortress = fortress ? WarfrontFortressSetupFor(run) : null;   // the fortress's plan and sight test (W14b); only a fortress stage ever sets it
+        }
+        run.War.SetFrontsForTests(hq || fortress ? (sbyte)0 : (sbyte)(slot!.Node - 1));   // the HQ and the fortress: a node battle's frame on lane A; the plan hook replaces the layout
+        if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)(hq || fortress ? 0 : slot!.Lane)))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
         s.LandingEnqueued = World.Tick;
     }
 
@@ -260,5 +266,20 @@ public sealed partial class GameServer
             WfLog($"{s.Map} has no ship: back to {ship}");
             WarfrontStartGo(s, ship, null);
         }
+    }
+
+    /// <summary>The fortress's setup (W14b): the plan of <see cref="WarfrontSlots.Fortress"/> and a sight test over this stage's weapon collision (a straight eye-to-eye line that no wall stops). The stage's map is wf_fortress, one battle per process.</summary>
+    WarfrontFortressSetup WarfrontFortressSetupFor(TfwRun run)
+    {
+        var setup = WarfrontFortressSetup.For(WarfrontSlots.Fortress);
+        var weapons = Map?.Collision.Weapons;
+        if (weapons is not null)
+            setup.Sight = (from, to) =>
+            {
+                var d = to - from;
+                float len = d.Length();
+                return len < 0.01f || weapons.Raycast(from, d / len, len) is null;
+            };
+        return setup;
     }
 }

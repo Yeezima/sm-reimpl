@@ -147,7 +147,7 @@ public sealed partial class GameServer
     {
         if (Map is null || !World.Config.Extras.HasFlag(ContentExtras.Warfront)) return;
         var slot = WarfrontSlots.ByName(Map.Name);
-        bool hq = Map.Name == WarfrontMaps.HqName;
+        bool hq = Map.Name is WarfrontMaps.HqName or WarfrontMaps.FortressName;   // composed with the hub, built in code: the walk area is the field's
         if (slot is null && !hq) return;
         handled = true;
         try
