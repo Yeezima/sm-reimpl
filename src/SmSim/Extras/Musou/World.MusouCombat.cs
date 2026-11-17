@@ -283,8 +283,8 @@ public sealed partial class World
     /// <summary>Where the last <see cref="MusouCleave"/> struck an enemy (the nearest one's chest), null when it struck none: the point of the Dreadnought's Overcharge shockwave.</summary>
     Vector3? _musouCleaveHit;
 
-    /// <summary>Warfront (owner 2026-11-18): the cleave's reach scale, the target cap and whether the Orks' collision counts. No-op outside a Warfront run.</summary>
-    partial void WarfrontCleave(in PlayerState state, ref float range, ref int most, ref float bodySlack);
+    /// <summary>Warfront (owner 2026-11-18): the cleave's reach scale, the target cap and whether the Orks' collision counts, for human players and their retainers only. No-op outside a Warfront run.</summary>
+    partial void WarfrontCleave(int attacker, in PlayerState state, ref float range, ref int most, ref float bodySlack);
 
     /// <summary>The cleave of one melee step (see the class summary).</summary>
     void MusouCleave(int attacker, PlayerState state, MeleeStep step)
@@ -305,7 +305,7 @@ public sealed partial class World
         ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
         if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
         float bodySlack = 0f;   // > 0: Warfront counts an Ork whose collision (radius) reaches into the volume
-        WarfrontCleave(state, ref range, ref most, ref bodySlack);   // WARFRONT-HOOK: Warfront's reach scales, no target cap, and an Ork whose collision overlaps the volume is struck (Warfront/Battle/World.WarfrontCleave.cs)
+        WarfrontCleave(attacker, state, ref range, ref most, ref bodySlack);   // WARFRONT-HOOK: Warfront's reach scales, no target cap, and an Ork whose collision overlaps the volume is struck (Warfront/Battle/World.WarfrontCleave.cs)
         MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);

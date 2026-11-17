@@ -23,7 +23,7 @@ public partial class NetworkView
     /// <summary>Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it.</summary>
     partial void WarfrontCleaveScaleFor(int player, ref float scale)
     {
-        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Warfront) || _tfwState.War is null) return;
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Warfront) || _tfwState.War is null || SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(player)) return;   // humans only: an AI Marine's arc (a retainer's included, cosmetic) keeps Musou Mode's reach
         scale = WarfrontBattleRules.CleaveScale(ClassOf(player) is int c && DreadnoughtRules.IsDreadnought(_config, c));
     }
 

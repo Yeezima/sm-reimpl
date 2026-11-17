@@ -194,4 +194,25 @@ public class WarfrontCleaveTests
         Assert.False(WarfrontOffers.RetainerEligible(9, false));   // a full roster
         Assert.True(WarfrontOffers.RetainerEligible(0, false));
     }
+
+    [Fact]
+    public void Only_human_players_and_their_retainers_get_the_bonus_not_the_allied_Marines()
+    {
+        var w = Ready(WarfrontWorld());
+        Assert.True(w.WarfrontCleaveBonus(Human));
+        var run = w.Tfw!;
+        var retainer = run.RetainerOf(Human);
+        if (retainer is not null) Assert.True(w.WarfrontCleaveBonus(retainer.Id), "a human's retainer");
+        foreach (var ally in run.Pair) Assert.False(w.WarfrontCleaveBonus(ally.Id), "an allied AI Marine");
+        Assert.False(w.WarfrontCleaveBonus(TfwContracts.PuppetIdLast), "an unregistered puppet id");
+    }
+
+    [Fact]
+    public void The_query_slack_covers_the_largest_Ork_body()
+    {
+        var w = Ready(WarfrontWorld());
+        float biggest = Enum.GetValues<MusouEnemyType>().Max(t => w.Musou!.Body(t).Radius);
+        Assert.True(WarfrontBattleRules.CleaveBodySlack > biggest, $"slack {WarfrontBattleRules.CleaveBodySlack} against the largest body {biggest}");   // the Warboss, about 3.4 m
+        Assert.True(WarfrontBattleRules.CleaveBodySlack >= 3.5f);
+    }
 }

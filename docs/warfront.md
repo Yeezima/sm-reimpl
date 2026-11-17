@@ -54,7 +54,7 @@ opened and closed, every catch-up card is picked aboard, then the player may dep
 
 ## Melee cleave
 
-Owner 2026-11-18, Warfront only: every melee weapon cleaves 20 % farther than Musou Mode's war gives it, the Dreadnought 40 % farther (in place of the 20 %),
+Owner 2026-11-18, Warfront only, for human players and their retainers (not allied Marines, Guardsmen or contraption swings): every melee weapon cleaves 20 % farther than Musou Mode's war gives it, the Dreadnought 40 % farther (in place of the 20 %),
 with no cap on the enemies one swing strikes: an Ork is struck whenever his collision (his radius from the attacker's feet) overlaps the cleave volume. The server
 applies it through the `WarfrontCleave` hook of `World.MusouCleave` (`Extras/Warfront/Battle/World.WarfrontCleave.cs`; it acts only while the run's Warfront object
 exists); the client's drawn arc and predicted targets read the same scale. Classic PvP and Musou Mode keep their numbers. Numbers: spec "Warfront melee cleave".

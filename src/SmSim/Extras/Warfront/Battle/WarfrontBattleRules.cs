@@ -18,13 +18,13 @@ public readonly record struct WarfrontDown(WarfrontDownPhase Phase, float Second
 public sealed class WarfrontBattleRules
 {
     /// <summary>
-    /// Melee cleave (owner 2026-11-18: "increase the cleave range of all melee weapons globally by 20% (except the dreadnought - he has his own changes)"; "increase the range of dreadnought melee cleave by 40%").
+    /// Melee cleave, human players and their retainers only (owner 2026-11-18, "No the melee reach applies to players and their retainers only"; the allied AI Marines and the contraptions keep Musou Mode's): "increase the cleave range of all melee weapons globally by 20% (except the dreadnought - he has his own changes)"; "increase the range of dreadnought melee cleave by 40%").
     /// The reach of every melee swing in a Warfront run is multiplied by this, after every other scale (kind: owner, confidence: stated; Classic and Musou Mode never read it).
     /// </summary>
     public const float CleaveReachScale = 1.2f, DreadnoughtCleaveReachScale = 1.4f;
 
-    /// <summary>The slack (metres) added to the cleave's query so an Ork whose centre is outside the reach but whose body overlaps the volume is found; the largest Ork capsule is under this.</summary>
-    public const float CleaveBodySlack = 3f;
+    /// <summary>The slack (metres) added to the cleave's query so an Ork whose centre is outside the reach but whose body overlaps the volume is found: above the largest Ork capsule radius (the Warboss, 0.75 m x BossScale 4.5 = 3.375 m), pinned by a test.</summary>
+    public const float CleaveBodySlack = 4f;
 
     /// <summary>The reach scale for a Dreadnought (x1.4) or any other melee wielder (x1.2).</summary>
     public static float CleaveScale(bool dreadnought) => dreadnought ? DreadnoughtCleaveReachScale : CleaveReachScale;
