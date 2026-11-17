@@ -170,6 +170,9 @@ public static partial class UiKit
         // ui/overhaul: every menu button is a steel plate (the kit's dark plate, gold under the focus), in the one lettering.
         var b = new Button { Text = text.ToUpperInvariant(), FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "", ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Pressed += onPress;
+        // The plate's rivets sit 40 px in from each end: the plate is never narrower than its words plus both (Opus review 1: labels over rivets).
+        float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, Steel.ButtonSize).X + 2f * 44f;
+        b.CustomMinimumSize = new Vector2(Mathf.Max(minWidth, need), MinHit);
         return b;
     }
 
@@ -177,6 +180,8 @@ public static partial class UiKit
     {
         var b = new Button { Text = text.ToUpperInvariant(), ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Toggled += v => changed(v);
+        float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, Steel.ButtonSize).X + 2f * 44f;
+        b.CustomMinimumSize = new Vector2(Mathf.Max(minWidth, need), MinHit);
         return b;
     }
 

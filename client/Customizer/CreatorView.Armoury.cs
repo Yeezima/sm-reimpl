@@ -199,7 +199,7 @@ public sealed partial class CreatorView
         foreach (var role in _tabRoles)
         {
             string r = role; string label = OrkLoadout.IsOrk(role) ? OrkLoadout.ClassName : LoadoutRows.ClassName(_catalog, role, _previewRace); string lower = (role + " " + label).ToLowerInvariant();
-            string? icon = lower.Contains("tact") ? "arm-ico-tactical" : lower.Contains("assault") || lower.Contains("raptor") ? "arm-ico-assault" : lower.Contains("dev") || lower.Contains("hav") ? "arm-ico-devastator" : null;
+            string? icon = lower.Contains("tact") ? "arm-ico-tactical" : lower.Contains("assault") || lower.Contains("raptor") ? "arm-ico-assault" : lower.Contains("dev") || lower.Contains("hav") ? "arm-ico-devastator" : lower.Contains("ork") ? "glyph-ork" : null;
             rows.Add(new ArmClass(label.ToUpperInvariant(), icon, !IsEmpty && r.Equals(Role, StringComparison.OrdinalIgnoreCase), () => ChooseRole(r), RoleLabel(role)));
         }
         ExtrasArmouryClasses(rows);   // EXTRAS-HOOK: the Librarian's row first
@@ -210,6 +210,7 @@ public sealed partial class CreatorView
     void LayoutArmoury()
     {
         if (!_arm || _armCanvas is null || !IsInsideTree() || Size.X < 50f) return;
+        EngravedGlyphs.Register();
         var (s, o) = ArmMap();
         Rect2 M(Rect2 r) => new(o + r.Position * s, r.Size * s);
         void Put(Control c, Rect2 r) { var m = M(r); c.Position = m.Position; c.Size = m.Size; c.CustomMinimumSize = Vector2.Zero; }
@@ -223,9 +224,9 @@ public sealed partial class CreatorView
         Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex()); 
         bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
         _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
-        Put(_armSlotScroll, new Rect2(549, 93, 222, 277)); Put(_armPickBack, new Rect2(712, 76, 52, 14));
+        Put(_armSlotScroll, new Rect2(549, 93, 222, 223));   /* whole cards only: three of 78 */ Put(_armPickBack, new Rect2(712, 76, 52, 14));
         Put(_armInfo!, new Rect2(296, 68, 246, 24));
-        Put(_scroll, new Rect2(549, 93, 222, 277)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
+        Put(_scroll, new Rect2(549, 93, 222, 223)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
         Put(_summary, new Rect2(272, 380, 370, 13));
         Put(_armDock!, new Rect2(272, 395, 374, 40));
         var rightBox = _preview.GetParent<Control>(); Put(rightBox, new Rect2(296, 94, 246, 284));
@@ -296,7 +297,7 @@ public sealed partial class CreatorView
         wb.AddThemeStyleboxOverride("focus", PaintedButtons.Ring(s, 0.5f));
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) wb.AddThemeColorOverride(n, Colors.Transparent);
         var iconRect = new Rect2(UiTextureBuilder.ArmWeaponIcon.Position - wr.Position, UiTextureBuilder.ArmWeaponIcon.Size);
-        _armWeaponIcon!.Texture = detail.WeaponIcon is { } wi ? ConceptArt.Get(wi) : null;
+        _armWeaponIcon!.Texture = detail.WeaponIcon is { } wi ? ConceptArt.Get(wi) : ConceptArt.Get("glyph-gun");
         _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.Scale; _armWeaponIcon.Position = (iconRect.Position + new Vector2(4, 4)) * s; _armWeaponIcon.Size = new Vector2(70, 28) * s;
         _armWeaponName!.Text = detail.Weapon; ArmLabel(_armWeaponName, ArmNameSize, s, ArmLight);
         _armWeaponName.Position = new Vector2(UiTextureBuilder.ArmWeaponName.Position.X - wr.Position.X + 9f, UiTextureBuilder.ArmWeaponName.Position.Y - wr.Position.Y) * s; _armWeaponName.Size = new Vector2(UiTextureBuilder.ArmWeaponName.Size.X - 30f, UiTextureBuilder.ArmWeaponName.Size.Y) * s;
@@ -393,7 +394,7 @@ public sealed partial class CreatorView
             ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 11f) * s; cap.Size = new Vector2(126f, 11f) * s; b.AddChild(cap);
             var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
             ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 23f) * s; val.Size = new Vector2(126f, 34f) * s; b.AddChild(val);
-            if (slot.Icon is not null && ConceptArt.Get(slot.Icon) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s });
+            if (ConceptArt.Get(slot.Icon ?? EngravedGlyphs.For(slot.Slot)) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s });
             _armSlotList.AddChild(b);
         }
     }
@@ -437,7 +438,7 @@ public sealed partial class CreatorView
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) row.AddThemeColorOverride(n, Colors.Transparent);   // the name is drawn by the label below (upper case, as the concept); the row keeps its text
         row.Alignment = HorizontalAlignment.Left;
         string lower = row.Text.ToLowerInvariant();
-        string? icon = lower.Contains("force sword") || lower == "sword" ? "arm-ico-sword" : lower.Contains("chain lightning") ? "arm-ico-lightning" : lower.Contains("psychic stress") ? "arm-ico-stress" : null;
+        string? icon = lower.Contains("force sword") || lower == "sword" ? "arm-ico-sword" : lower.Contains("chain lightning") ? "arm-ico-lightning" : lower.Contains("psychic stress") ? "arm-ico-stress" : "glyph-perk";   // no picture: the faint engraved type glyph
         foreach (var child in row.GetChildren())
         {
             if (child is ColorRect bar) bar.Visible = false;

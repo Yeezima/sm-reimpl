@@ -113,21 +113,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         Button? main = null;
         foreach (var t in PrimaryTexts) { main = buttons.FirstOrDefault(b => b.Visible && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)); if (main is not null) break; }
         bool restyle = !Mathf.IsEqualApprox(_dockScale, s); _dockScale = s;
-        if (back is not null)
-        {
-            var ps = UiTextureBuilder.V2Screen;
-            float sS = Mathf.Min(Size.Y / ps.Size.Y, Size.X / ps.Size.X);
-            var o2 = (Size - ps.Size * sS) / 2f;
-            var g = UiTextureBuilder.G(UiTextureBuilder.V2Back);
-            back.TopLevel = true; back.CustomMinimumSize = Vector2.Zero;
-            back.Position = o2 + g.Position * sS; back.Size = g.Size * sS;
-            if (restyle || back.GetMeta("dock_s", 0f).AsSingle() != sS)
-            {
-                back.SetMeta("dock_s", sS);
-                PaintedButtons.Apply(back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), sS, false, paintedText: false, noGlow: false);
-                DockText(back, sS, goldRest: false);
-            }
-        }
+        if (back is not null) DockBack(back, Size);
         if (main is not null)
         {
             var r = R(new Rect2(295f, 274.5f + ExtraV2, 146.5f, 28f));
@@ -140,6 +126,21 @@ public partial class ConceptPanelPage : UiKit.MenuPage
                 DockText(main, s, goldRest: true);
             }
         }
+    }
+
+    /// <summary>The concept's BACK plate at the bottom right of a window of <paramref name="size"/>, where Options puts it (shared by every page and the keybinds).</summary>
+    public static void DockBack(Button back, Vector2 size)
+    {
+        var ps = UiTextureBuilder.V2Screen;
+        float sS = Mathf.Min(size.Y / ps.Size.Y, size.X / ps.Size.X);
+        var o2 = (size - ps.Size * sS) / 2f;
+        var g = UiTextureBuilder.G(UiTextureBuilder.V2Back);
+        back.TopLevel = true; back.CustomMinimumSize = Vector2.Zero;
+        back.Position = o2 + g.Position * sS; back.Size = g.Size * sS;
+        if (back.GetMeta("dock_s", 0f).AsSingle() == sS) return;
+        back.SetMeta("dock_s", sS);
+        PaintedButtons.Apply(back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), sS, false, paintedText: false, noGlow: false);
+        DockText(back, sS, goldRest: false);
     }
 
     static void DockText(Button b, float s, bool goldRest)

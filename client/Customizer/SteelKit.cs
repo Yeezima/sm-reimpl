@@ -17,6 +17,10 @@ public static class ConceptArt
 {
     static readonly Dictionary<string, Texture2D?> Cache = new();
 
+    /// <summary>A picture made at run time (the engraved glyphs), reachable by name like the embedded ones.</summary>
+    public static void Put(string name, Texture2D tex) => Cache[name] = tex;
+    public static bool Has(string name) => Cache.ContainsKey(name) && Cache[name] is not null;
+
     public static Texture2D? Get(string name)
     {
         if (Cache.TryGetValue(name, out var cached)) return cached;

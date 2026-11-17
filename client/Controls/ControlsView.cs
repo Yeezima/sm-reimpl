@@ -60,21 +60,19 @@ public sealed partial class ControlsView : Control
         SetAnchorsPreset(LayoutPreset.FullRect);
         Visible = false;
         if (background is not null) AddChild(background.With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
-        var margin = new MarginContainer();
-        margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        foreach (var (side, v) in new[] { ("left", 84), ("right", 84), ("top", 22), ("bottom", 20) }) margin.AddThemeConstantOverride("margin_" + side, v);
+        // ui/overhaul: the panel frame with its title plate; the content sits in the frame's strip and rows area, BACK on the concept's BACK plate.
+        _chrome = new PanelChrome("Keybinds");
+        AddChild(_chrome);
+        var margin = new MarginContainer { Name = "ControlsContent" };
+        margin.SetAnchorsPreset(LayoutPreset.TopLeft);
         AddChild(margin);
         _content = margin;
         var root = UiKit.VBox(10);
         margin.AddChild(root);
 
-        var header = UiKit.HBox(16);
-        header.AddChild(UiKit.Text("CONTROLS", UiKit.HeaderSize, UiKit.Gold));
-        header.AddChild(UiKit.Spacer());
-        _back = UiKit.Button("BACK (Esc)", () => _onBack(), 190);
+        _back = UiKit.Button("BACK", () => _onBack(), 190);
         _back.Name = "ControlsBack";
-        header.AddChild(_back);
-        root.AddChild(header);
+        AddChild(_back);
 
         var tabs = UiKit.HBox(8);
         var group = new ButtonGroup();
@@ -92,16 +90,33 @@ public sealed partial class ControlsView : Control
         root.AddChild(tabs);
 
         _hint = UiKit.Text("", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true);
-        root.AddChild(_hint);
         _status = UiKit.Text("", UiKit.CaptionSize, UiKit.White, HorizontalAlignment.Left, true);
         _status.Name = "ControlsStatus";
-        root.AddChild(_status);
 
         _scroll = UiKit.Scroll(_rows);
         _scroll.Name = "ControlsList";
         _scroll.CustomMinimumSize = new Vector2(0, 240);
-        root.AddChild(UiKit.Panel(_scroll, 10).With(p => p.SizeFlagsVertical = SizeFlags.ExpandFill));
+        root.AddChild(_scroll);
         _scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+        root.AddChild(_hint);
+        root.AddChild(_status);
+        _chrome.Changed += PlaceContent;
+        Resized += PlaceContent;
+        PlaceContent();
+    }
+
+    readonly PanelChrome _chrome;
+
+    /// <summary>The content in the frame: the tabs in the strip under the plate, the table and the two note lines in the rows area; BACK at the bottom right.</summary>
+    void PlaceContent()
+    {
+        if (_content is not MarginContainer m || _chrome is null) return;
+        var strip = _chrome.Strip; var rows = _chrome.RowsArea;
+        m.Position = new Vector2(rows.Position.X, strip.Position.Y);
+        m.Size = new Vector2(rows.Size.X, rows.End.Y - strip.Position.Y);
+        foreach (var side in new[] { "left", "right" }) m.AddThemeConstantOverride("margin_" + side, 4);
+        foreach (var side in new[] { "top", "bottom" }) m.AddThemeConstantOverride("margin_" + side, 2);
+        SmClient.FrontEnd.ConceptPanelPage.DockBack(_back, Size);
     }
 
     // ---- showing ----
@@ -130,9 +145,9 @@ public sealed partial class ControlsView : Control
         _capture = null;
         (device == BindDevice.Keyboard ? _tabKeyboard : _tabController).SetPressedNoSignal(true);
         (device == BindDevice.Keyboard ? _tabController : _tabKeyboard).SetPressedNoSignal(false);
-        _hint.Text = device == BindDevice.Keyboard
+        _hint.Text = (device == BindDevice.Keyboard
             ? "Click an entry, then press the new key or mouse button. Esc cancels. Delete or a right click clears an entry. An input used twice asks what to do. Changes apply at once."
-            : "Press A on an entry, then press the new button or trigger. Esc or Start cancels. X clears the entry. LB / RB switch tabs. The move and look sticks are fixed.";
+            : "Press A on an entry, then press the new button or trigger. Esc or Start cancels. X clears the entry. LB / RB switch tabs. The move and look sticks are fixed.").ToUpperInvariant();
         BuildRows();
     }
 
@@ -157,7 +172,7 @@ public sealed partial class ControlsView : Control
                 _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiKit.BodySize, UiKit.Gold).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
             }
             var row = UiKit.HBox(10);
-            row.AddChild(UiKit.Text(info.Label, UiKit.BodySize, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
+            row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiKit.BodySize, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
             var buttons = new List<Control>();
             for (int s = 0; s < slots; s++)
             {
@@ -198,7 +213,7 @@ public sealed partial class ControlsView : Control
         {
             if (device != _device) continue;
             bool waiting = _capture is { } c && c.Device == device && c.Action == action && c.Slot == slot;
-            button.Text = waiting ? (device == BindDevice.Keyboard ? "PRESS A KEY..." : "PRESS A BUTTON...") : BindingSet.Display(_set.Get(device, action, slot));
+            button.Text = waiting ? (device == BindDevice.Keyboard ? "PRESS A KEY..." : "PRESS A BUTTON...") : BindingSet.Display(_set.Get(device, action, slot)).ToUpperInvariant();
             button.AddThemeColorOverride("font_color", waiting ? UiKit.Gold : (_set.Get(device, action, slot) is null ? UiKit.Grey : UiKit.White));
             button.AddThemeColorOverride("font_hover_color", UiKit.Gold);
         }
@@ -206,7 +221,7 @@ public sealed partial class ControlsView : Control
 
     void Say(string text, bool problem = false)
     {
-        _status.Text = text;
+        _status.Text = text.ToUpperInvariant();
         _status.AddThemeColorOverride("font_color", problem ? UiKit.LightRed : UiKit.White);
     }
 

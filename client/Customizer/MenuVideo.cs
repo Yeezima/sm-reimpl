@@ -169,7 +169,9 @@ public sealed partial class MenuVideoBackground : Control
         // On a wider window than 16:9 the covering size already crops the picture's height, so the zoom shrinks with the aspect to keep the same part of the picture in view (the Marine's feet and the tower's top).
         float zoom = Mathf.Max(1f, MainMenuZoom * Mathf.Min(1f, (16f / 9f) / (box.X / box.Y)));
         var size = r.Size * zoom;
-        var pos = new Vector2(FocusX * box.X - size.X * FocusU, FocusY * box.Y - size.Y * FocusV);
+        // A narrower window than 16:9 gives the overlay more of the width: the Marine moves right so his backpack stays clear of the frame (Opus review 1, 5:4).
+        float focusX = Mathf.Lerp(FocusX, 0.85f, Mathf.Clamp(((16f / 9f) - box.X / box.Y) / 0.55f, 0f, 1f));
+        var pos = new Vector2(focusX * box.X - size.X * FocusU, FocusY * box.Y - size.Y * FocusV);
         pos.X = Mathf.Clamp(pos.X, box.X - size.X, 0f);
         pos.Y = Mathf.Clamp(pos.Y, box.Y - size.Y, 0f);
         return new Rect2(pos, size);
