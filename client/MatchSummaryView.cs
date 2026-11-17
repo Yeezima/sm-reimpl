@@ -87,6 +87,7 @@ public partial class MatchSummaryView : Control
     static readonly Color Gold = new(1f, 0.8f, 0f), Grey = new(0.75f, 0.75f, 0.75f), Dim = new(0.6f, 0.6f, 0.6f), White = new(1f, 1f, 1f), Red = new(1f, 0.2f, 0f);
 
     FontVariation? _font;
+    readonly SmClient.Customizer.BoardStyle _board = new();
     MatchSummaryText _text = new();
     CountUpData? _countUp;
     SummaryData? _summary;
@@ -181,6 +182,7 @@ public partial class MatchSummaryView : Control
         float w = 860f * s, left = cx - w / 2f, top = 130f * s + slide;   // names/bot-lore: wider for names of up to 24 characters (720 before)
         Panel(new Rect2(left, top, w, 440f * s), alpha);
         var gold = new Color(Gold, alpha);
+        if (alpha > 0.98f) _board.Plate(this, new Rect2(cx - 190f * s, top + 12f * s, 380f * s, 56f * s), s);   // ui/overhaul: the title on the concept's rivetted plate
         Text(_text.MatchResults, left, top + 52f * s, w, (int)(30 * s), gold, HorizontalAlignment.Center);
 
         // The big number: the team score, then the viewer's kills (the movie's stages 'teamscore' and 'playerscore').

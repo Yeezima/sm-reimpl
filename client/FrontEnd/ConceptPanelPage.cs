@@ -112,6 +112,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     /// <summary>Gives every row of the page the concept's look at scale <paramref name="s"/> (px per grid pixel): choices as the Options rows, buttons as the concept's plates, notes and fields in the one lettering.</summary>
     void Style(float s, Vector2 area)
     {
+        foreach (var n in _notes.Keys.ToList()) FitNote(n);
         if (Mathf.IsEqualApprox(_styledScale, s) && Mathf.IsEqualApprox((float)GetMeta("styled_w", 0f), area.X)) { PlaceRows(area); return; }
         _styledScale = s; SetMeta("styled_w", area.X);
         float pitchG = PagePitch, pitch = pitchG * s;
@@ -163,6 +164,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     void PlaceRows(Vector2 area)
     {
         // One narrow column sits in the middle of the frame (across and down); two columns fill the width from the top.
+        _total = Rows.ContentHeight();
         float h = _narrow ? Mathf.Min(area.Y, _total + 6f) : area.Y;
         float dy = _narrow ? Mathf.Max(0f, (area.Y - h) / 2f) : 0f;
         _scroll.Position = new Vector2(_rowsOrigin.X + (_narrow ? (area.X - _narrowW) / 2f : 0f), _rowsOrigin.Y + dy);
@@ -212,6 +214,19 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         if (rowLabel) { l.ClipText = true; return; }
         // A note: wraps inside its column; its row grows to the lines it needs.
         l.ClipText = false; l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        l.CustomMinimumSize = new Vector2(Mathf.Max(60f, width - 6f * s), 0f);
+        _notes[l] = Mathf.Max(60f, width - 6f * s);
+        FitNote(l);
+    }
+
+    /// <summary>The notes of the page and the width each wraps at (the text may change while the page is open).</summary>
+    readonly Dictionary<Label, float> _notes = new();
+
+    /// <summary>Gives a wrapping note the height its words need at its column's width (a label reports its wrapped height only after it has been laid out, too late for the page's measuring).</summary>
+    void FitNote(Label l)
+    {
+        if (!_notes.TryGetValue(l, out float w) || !IsInstanceValid(l)) return;
+        var font = UiKit.ConceptFont(); int size = l.GetThemeFontSize("font_size");
+        float h = font.GetMultilineStringSize(l.Text, HorizontalAlignment.Left, w, size, -1, TextServer.LineBreakFlag.WordBound | TextServer.LineBreakFlag.Mandatory).Y;
+        l.CustomMinimumSize = new Vector2(w, h + 4f);
     }
 }

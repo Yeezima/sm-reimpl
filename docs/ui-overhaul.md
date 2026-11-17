@@ -71,6 +71,31 @@ Everything below is a hand-over to the lead; the shared components exist on this
 * **Warfront entries in the menus** (`FrontEndView.WarfrontMenu.cs`): its page is built from `UiKit.MenuPage`; make it `new ConceptPanelPage(name, heading, title)` and the rows restyle themselves (choices, buttons, notes, fields).
 * **Custom-drawn lane map and boxes** (`WarfrontHubPanel.MapDraw`, `WarfrontJoinPanel.Frames`): swap the 2 px outline rectangles for `BoardStyle.Table` panels and `Steel.Gold` highlights; keep the in-play parts (`WarfrontXpHud`, `WarfrontSquadHud`, battle HUD, spectate HUD) as they are (HUD).
 
+## Measured fidelity (1920 x 1080, the existing UiCompare / UiComparePanel method against the owner's reference images)
+
+| Screen (reference) | Result today | Note |
+|---|---|---|
+| Main menu (panel 01 v2) | **FULL 0.974**; wall 0.997, wordmark 0.940, crest 0.971, frame 0.974, recess 0.945, gold plate 0.981, plates 0.967 to 0.996, labels 0.928 to 0.964; mean-colour dE at most 2.5 | `--ui-compare`, capture of the real client; every region meets SSIM 0.90 |
+| Options (panel 04 v2, INTERFACE tab, concept height via `--options-short`) | title and crest 0.852, frame steel 0.797, tabs 0.971 to 0.985 (INTERFACE gold 0.974), APPLY 0.984, interior bands 0.948, FULL 0.835 | The painted art is unchanged since the phase 4b-2 pass (its own measurement, FULL about 0.96, `docs/ui-concept-textures.md`). Today's lower figure comes from the capture: the frame's antialiased edge pixels now sit on the live sunset video, the reference has grey fog there. The live parts (tabs, plates, bands) are at 0.95 to 0.99. The taller frame used in the game is the same art with a mirrored plain slice and cannot be compared 1:1 with the concept's height |
+| Armoury (panel 03) | title plate and wordmark 0.985, wings and skull 0.947, row DEVASTATOR 0.903, weapon name plate 0.815; FULL 0.625 in the Classic state (the best earlier pass, 0.834, was a Librarian state on an opaque black backdrop) | **Below 0.95.** The concept's tiles and cards carry artwork (weapon and power icons) that the game has no pictures for, except the Librarian's powers; they are neutral steel tiles here (the navy backing of the concept's empty tile was removed). The rail frame region also lost points to the veil that now lets the scene show behind the screen (the concept shows a blurred scene there). Needs an owner decision, see below |
+| Every other screen | no reference exists; consistency is by construction (same plate, frame, row art, lettering and colours as the three above) and by review of the sheets | scoreboards, pages, keybinds, appearance, pause, summary |
+
+Resolutions captured (1280 x 720, 1920 x 1080, 2560 x 1440, 2560 x 1080 = 21:9, 1280 x 1024 = 5:4) for the main menu, Options GRAPHICS, Host, the Armoury and the scoreboard; the front end's own geometry check (`UiSelfTest.Menus` "fit", eight window sizes up to 3840 x 2160 and 1280 x 1024: every page's rows end in the window, all text fits, frame and actions in the window) passes. Evidence: the folder `sm-reimpl\tmp-build\ui-overhaul` under `%LOCALAPPDATA%` (`cap`, `before`, `before-res`, `res`, `cmp`, `sheets`).
+
+## Checks run
+
+* `client.cmd --ui-selftest`: 1244 passed, 1 failed. The one failure, "CONNECT joins that address on the Musou profile", fails the same way on `main` of 2026-11-18 (1071 passed, 1 failed there); it is the join test's data (no game plan in the test profile), not this work.
+* `dotnet test tests/SmNet.Tests --filter ExtrasBoundaryTests|LeanBot`: 45 passed (the front end's new aids are classified in `LeanBot.PresentationAids`).
+* `dotnet test tests/SmFormats.Tests --filter PublicTextGuard`: 32 passed.
+* `smtool.cmd refine-register` run after the `changes-from-original.md` rows were added.
+* Not run: the whole `dotnet test` (the owner approves that run).
+
 ## Open points and deviations
 
-See the end of this file (filled in after the measured passes).
+* **Armoury fidelity (owner decision).** Below the 0.95 bar for the reasons above. Options: accept neutral tiles; or fill the tiles with the class's own wargear silhouettes read from the install at run time (a small client feature, the install is the player's); no image service was used and none is proposed.
+* The Armoury's 3D preview keeps its flat dark backdrop box (the concept stands the marine in the scene); making it transparent changes the preview renderer, left for a decision.
+* Page notes are sentence case (they are written at run time and the self-tests compare them); all labels, buttons and tabs are capitals.
+* `MatchFlowView` (warm-up count, victory splash), the F6 developer panel, F3 readout, kill feed, markers, banners and the Musou M overlay are HUD and untouched, so they keep their old look.
+* The Musou hub screens that exist only on `claude/warfront` and the Warfront scoreboard are the lead's follow-up (above).
+* Controller focus: every page keeps its controls and focus chain (the self-test's pad group passes); the main menu and Options keep their painted gold focus plate, the pages use the same plates.
+* Evidence screenshots show the real client on the owner's install, including the game-found note under the Options frame; nothing of the install is committed.
