@@ -81,7 +81,7 @@ public sealed record MapKillRegion(string Name, Vector3 Position, float Yaw, Vec
 public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokCollisionLayer> Layers, IReadOnlyList<MapSpawn> Spawns, ulong Hash)
 {
     /// <summary>Bump when the way collision, spawns, points or start areas are derived from the files changes.</summary>
-    public const int LoaderVersion = 9;   // 9: the map's invisible movement walls (d_blockers, everyone_blocker_*) are solid for every player; // 4: spawn-room blockers (M22); 5: the blockers are solid for the other side; 6: weapon-layer surface materials (M25a; shot events name them); 7: the blockers reach above the level (M31); 8: movable props (the green crates) are solid and pierceable (M39)
+    public const int LoaderVersion = 9;   // 9: the map's invisible movement walls (d_blockers, everyone_blocker_*) are solid for every player, and the movable cover in Havok layer 3 is solid and pierceable like the M39 props; // 4: spawn-room blockers (M22); 5: the blockers are solid for the other side; 6: weapon-layer surface materials (M25a; shot events name them); 7: the blockers reach above the level (M31); 8: movable props (the green crates) are solid and pierceable (M39)
     /// <summary>Control points in the script's order (Seize Ground; empty when the map has none).</summary>
     public IReadOnlyList<MapControlPoint> ControlPoints { get; init; } = [];
     /// <summary>The sides' start areas.</summary>
@@ -182,6 +182,8 @@ public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokC
             if (layers.FirstOrDefault(l => l.Name == required) is not { TriangleCount: > 0 })
                 throw new InvalidDataException($"{map}: collision layer '{required}' is missing or empty.");
         spawns.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+        // The movable cover baked into the level's own collision (Havok layer "3", BodyType 3): solid props too (BakedProps).
+        props.AddRange(BakedProps.Read(layers.FirstOrDefault(l => l.Name == BakedProps.LayerName)));
 
         var notes = new List<string>(propNotes);
         var markers = new List<Marker>();
@@ -361,7 +363,7 @@ public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokC
     static ulong ComputeHash(byte[] collision, byte[] spawns, string[] missionNames, byte[][] extra)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.ASCII.GetBytes($"sm-reimpl map v{LoaderVersion}; characters {string.Join("+", CharacterLayers)}; kill regions box; spawn-room blockers box raised {SpawnBlocker.AboveLevel} m above the level, solid for the other side; world walls group 2 boxes and cylinders solid for everyone; shots {WeaponLayer}; props: moving bodies with single-part ppk shapes, solid for characters and shots, pierceable; mission {string.Join(",", missionNames)}\n"));
+        hash.AppendData(Encoding.ASCII.GetBytes($"sm-reimpl map v{LoaderVersion}; characters {string.Join("+", CharacterLayers)}; kill regions box; spawn-room blockers box raised {SpawnBlocker.AboveLevel} m above the level, solid for the other side; world walls group 2 boxes and cylinders solid for everyone; shots {WeaponLayer}; props: moving bodies with single-part ppk shapes and the shapes of Havok layer 3, solid for characters and shots, pierceable; mission {string.Join(",", missionNames)}\n"));
         Span<byte> length = stackalloc byte[8];
         foreach (var part in new[] { collision, spawns }.Concat(extra))
         {
