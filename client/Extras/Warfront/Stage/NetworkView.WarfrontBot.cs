@@ -33,7 +33,7 @@ public partial class NetworkView
         else if (_wfBotShipSince < 0) _wfBotShipSince = now;
         if (onShip && view.ViewerIsLeader && view.Targets.Count > 0 && m.PendingDeploy is null && now - _wfBotShipSince >= WarfrontBotAfter && now - _wfBotDeployAt >= 10.0)
         {
-            var target = view.Targets[0];
+            var target = CmdArg("warfront-bot-pick") == "last" ? view.Targets[^1] : view.Targets[0];   // W17 test aid: last = the fortress / the HQ when offered after the lanes
             _wfBotDeployAt = now;
             _wfBotDeploys++;
             m.RequestDeploy(target);

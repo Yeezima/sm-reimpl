@@ -270,6 +270,7 @@ public sealed partial class GameServer
             WarfrontArrivalStep(s);
             WarfrontBattleWatch(s);
             WarfrontFortressWalkAid(s);
+            WarfrontLaneWalkAid(s);
             WarfrontFallAid(s);
             WarfrontResolveAid(s);
             WarfrontPrepareWatch(s);
