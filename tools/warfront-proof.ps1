@@ -24,6 +24,7 @@ param(
     [string]$Seed = '12345',
     [string]$Out = (Join-Path $env:LOCALAPPDATA 'sm-reimpl\perf\warfront-proof'),
     [switch]$Windowed,
+    [switch]$Solo,                # fortress: one human (the owner's case: a local server and one client) instead of four
     [string]$Tag = '',
     [string]$ServerEnv = '',      # K=V;K=V added to the server's environment
     [string]$ClientArgs = ''      # added to every client
@@ -292,8 +293,9 @@ try {
         'fortress' {
             # quiet-machine measurement and stuck counts: four clients, nine retainers each (AIDED: SM_WF_ROSTERS), the fortress open from the start (AIDED: SM_WF_START=a4), the leader put at the gate, in the plaza and at the
             # gate by SM_WF_FORTRESS_WALK=60 (AIDED), humans kept standing (AIDED: SM_TFW_KEEP_HUMAN), no win aid: the plaza fight is the battle's own. TICKSTATS every 10 s are the measurement.
-            $null = Start-WfServer @('--warfront-max-humans', '4', '--warfront-new') @{ SM_WF_START = 'a4,b1,c1'; SM_WF_ROSTERS = '9'; SM_TFW_KEEP_HUMAN = '1'; SM_WF_FORTRESS_WALK = '60' }
-            foreach ($n in 'p1', 'p2', 'p3', 'p4') {
+            $humans = if ($Solo) { @('p1') } else { @('p1', 'p2', 'p3', 'p4') }
+            $null = Start-WfServer @('--warfront-max-humans', "$($humans.Count)", '--warfront-new') @{ SM_WF_START = 'a4,b1,c1'; SM_WF_ROSTERS = '9'; SM_TFW_KEEP_HUMAN = '1'; SM_WF_FORTRESS_WALK = '60' }
+            foreach ($n in $humans) {
                 if ($n -eq 'p1' -and $Windowed) { $null = Start-WfClient $n @('--bot', '--warfront-bot', '--warfront-bot-pick', 'last', '--warfront-deploy-after', '25', '--bot-full-load', '--perf-probe', '--frame-profile', '--frame-profile-warmup', '20', '--spectate', 'overview') -win }
                 else { $null = Start-WfClient $n @('--bot', '--warfront-bot', '--warfront-bot-pick', 'last', '--warfront-deploy-after', '25') }
                 Start-Sleep -Seconds 4

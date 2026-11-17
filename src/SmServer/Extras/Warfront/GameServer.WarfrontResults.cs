@@ -27,6 +27,7 @@ public sealed partial class GameServer
     {
         if (s.Finished) return;
         s.Finished = true;
+        WfSaveFlush();   // an autosave still on its way must not land after the archive removed run.json
         var c = s.Campaign;
         WarfrontRunRecord? record = null;
         try

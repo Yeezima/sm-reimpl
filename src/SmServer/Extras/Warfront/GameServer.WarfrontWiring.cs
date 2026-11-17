@@ -101,15 +101,24 @@ public sealed partial class GameServer
     /// <summary>The squads on disk, written before run.json (see the class summary).</summary>
     void WarfrontSaveSquads(WarfrontServerState s)
     {
-        if (_wfWiring is not { } wiring) return;
+        _wfWriter.Flush();
+        if (WarfrontSquadsJson() is not { } json) return;
         try
         {
             Directory.CreateDirectory(s.Dir);
             string path = Path.Combine(s.Dir, WarfrontSquadsFile), tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(wiring.Export(), WarfrontSquadJson));
+            File.WriteAllText(tmp, json);
             File.Move(tmp, path, overwrite: true);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException) { WfLog($"squads.json could not be written: {e.Message}"); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException) { WfLog($"squads.json could not be written: {e.Message}"); }
+    }
+
+    /// <summary>The squads' save text, null when there is no wiring or it could not be serialised. Runs on the tick thread, so the snapshot is consistent.</summary>
+    string? WarfrontSquadsJson()
+    {
+        if (_wfWiring is not { } wiring) return null;
+        try { return JsonSerializer.Serialize(wiring.Export(), WarfrontSquadJson); }
+        catch (Exception e) when (e is JsonException or NotSupportedException) { WfLog($"squads.json could not be written: {e.Message}"); return null; }
     }
 
     // ---- the tick, the sections, the commands ---------------------------------------------------------------------------------------------------

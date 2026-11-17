@@ -180,10 +180,13 @@ public sealed partial class GameServer
 
     partial void WarfrontRestartDue(ref bool due, ref int code)
     {
-        if (_wf is { RestartDue: true } s) { due = true; code = s.ExitCode; }
+        if (_wf is { RestartDue: true } s) { WfSaveFlush(); due = true; code = s.ExitCode; }
     }
 
     readonly WarfrontStuckLog _wfStuck = new(Console.WriteLine);
+    /// <summary>Test aid <c>SM_WF_SYNC_SAVE=1</c>: the periodic autosave writes on the tick thread as before the perf pass (for before/after numbers).</summary>
+    static readonly bool WfSyncSave = Environment.GetEnvironmentVariable("SM_WF_SYNC_SAVE") == "1";
+    readonly WarfrontAsyncWriter _wfWriter = new(m => Console.WriteLine($"warfront: {m}"));
 
     /// <summary>The progression runtime on the run's own campaign, with this server's key map (a human is a campaign player only once identified).</summary>
     void WarfrontBindProgression(WarfrontServerState s)
@@ -196,10 +199,30 @@ public sealed partial class GameServer
     void WfSave(WarfrontServerState s)
     {
         if (s.Finished || s.Leaving) return;
+        _wfWriter.Flush();   // perf pass: an autosave still on its way lands first, so the files stay in save order
         WarfrontSaveSquads(s);   // the squads first, then the run: killed between the two, a pick is offered again instead of a paid card with no Marine
         try { WarfrontSave.Write(s.Dir, s.Campaign); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WfLog($"run.json could not be written: {e.Message}"); }
     }
+
+    /// <summary>
+    /// The periodic autosave (every 30 s of play): the same two files as <see cref="WfSave"/>, serialised here on the tick thread (a consistent snapshot, squads first) and written on the thread pool,
+    /// so a slow disk never stalls a tick (perf pass; the test report measured 90 to 340 ms every 30 s with the run folder on a second drive). Every other save stays synchronous.
+    /// </summary>
+    void WfSaveAsync(WarfrontServerState s)
+    {
+        if (s.Finished || s.Leaving) return;
+        try
+        {
+            Directory.CreateDirectory(s.Dir);
+            if (WarfrontSquadsJson() is { } squads) _wfWriter.Submit(Path.Combine(s.Dir, WarfrontSquadsFile), squads);
+            _wfWriter.Submit(Path.Combine(s.Dir, WarfrontSave.RunFile), s.Campaign.ToJson());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WfLog($"the autosave could not be started: {e.Message}"); }
+    }
+
+    /// <summary>Everything handed to the autosave writer is on disk (before a stage change, the end of a run, any direct write of run.json).</summary>
+    void WfSaveFlush() => _wfWriter.Flush();
 
     /// <summary>At the end of the constructor, after the war's set-up: the campaign (loaded or new), the seams, the stage's arrival.</summary>
     partial void WarfrontCreated()
@@ -379,7 +402,7 @@ public sealed partial class GameServer
     {
         int rate = WarfrontRate;
         s.Campaign.AddPlaySeconds(1.0 / rate);
-        if (World.Tick >= s.NextPlaySave) { s.NextPlaySave = World.Tick + (uint)(30 * rate); if (s.Campaign.PlaySeconds > 0) WfSave(s); }
+        if (World.Tick >= s.NextPlaySave) { s.NextPlaySave = World.Tick + (uint)(30 * rate); if (s.Campaign.PlaySeconds > 0) { long sec = SmSim.SimProfile.Begin(); if (WfSyncSave) WfSave(s); else WfSaveAsync(s); SmSim.SimProfile.End("warfront: autosave", sec); } }
         if (s.SupervisorPid is { } pid && World.Tick >= s.NextAliveCheck)
         {
             s.NextAliveCheck = World.Tick + (uint)rate;

@@ -51,6 +51,7 @@ public sealed partial class GameServer
         if (!old.IsOver) { WfLog($"NewRun from P{player} refused: the run is not over"); return; }
         if (old.Leader != key) { WfLog($"NewRun from P{player} refused: only the leader starts a new run"); return; }
         // The wiring, the progression and the co-op rules belong to one campaign: a new run is a new stage process on the empty run (the supervisor reads it; the clients rejoin through Stage Go).
+        WfSaveFlush();
         try { File.Delete(Path.Combine(s.Dir, WarfrontSquadsFile)); } catch (IOException) { }
         var fresh = WarfrontRunFiles.NewRun(s.Dir);
         s.Leaving = true;
