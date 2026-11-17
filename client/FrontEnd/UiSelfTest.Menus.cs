@@ -23,7 +23,7 @@ public sealed partial class UiSelfTest
 
     async Task PressRow(string text, Node? root = null)
     {
-        (FindButton(root ?? _front, b => b.Text == text))?.EmitSignal(BaseButton.SignalName.Pressed);
+        (FindButton(root ?? _front, b => b.Text.Equals(text, StringComparison.OrdinalIgnoreCase)))?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(4);
     }
 
@@ -45,9 +45,9 @@ public sealed partial class UiSelfTest
             wanted.AddRange(["ARMOURY", "OPTIONS", "EXIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
             Check("menu: the title is the project's name", main.TitleLabel.Text == "SM - REIMPL", main.TitleLabel.Text);
-            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: var focusedText } && focusedText == wanted[0] || FindButton(main, b => b.Text == wanted[0]) is not null);
+            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: var focusedText } && focusedText == wanted[0] || FindButton(main, b => b.Text.Equals(wanted[0], StringComparison.OrdinalIgnoreCase)) is not null);
             foreach (var row in new[] { "CLASSIC PVP", "OPTIONS" })
-                Check($"menu: {row} is a dark-metal steel button", FindButton(main, b => b.Text == row) is { } rowButton && rowButton.ThemeTypeVariation == Steel.ButtonType && (rowButton.GetThemeStylebox("normal") is StyleBoxTexture || rowButton.GetThemeStylebox("normal") is Steel.SteelStyle { Kind: Steel.Kind.Dark }));
+                Check($"menu: {row} is a dark-metal steel button", FindButton(main, b => b.Text.Equals(row, StringComparison.OrdinalIgnoreCase)) is { } rowButton && rowButton.ThemeTypeVariation == Steel.ButtonType && (rowButton.GetThemeStylebox("normal") is StyleBoxTexture || rowButton.GetThemeStylebox("normal") is Steel.SteelStyle { Kind: Steel.Kind.Dark }));
             Check("menu: the wordmark, the crest, the frame and the nameplate are there", main is ConceptMainPage page01 && page01.Frame.IsVisibleInTree() && page01.Wordmark.IsVisibleInTree() && (main.FindChild("Crest", true, false) is not null || page01.Frame is TextureRect) && main.FindChild("Nameplate", true, false) is Label { Text: "ONE SOLDIER. MANY BATTLEFIELDS." });
 
             await PressRow("CLASSIC PVP", main);
@@ -86,7 +86,7 @@ public sealed partial class UiSelfTest
             Check("menu: the host page opens", host.Visible);
             Check("menu: the host page has the mode and reach rows", FindButton(host, b => b.Text.Equals("GAME MODE", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { Values.Count: 2 } && FindButton(host, b => b.Text.Equals("WHO CAN JOIN", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { Value: "THIS PC ONLY" });
             Check("menu: ADD LOYALIST BOT and ADD CHAOS BOT, and one difficulty", FindButton(host, b => b.Text.Equals("ADD LOYALIST BOT", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Equals("ADD CHAOS BOT", StringComparison.OrdinalIgnoreCase)) is not null
-                  && FindButton(host, b => b.Text.Equals("BOT DIFFICULTY", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Contains("ADD BOT", StringComparison.Ordinal)) is null);
+                  && FindButton(host, b => b.Text.Equals("BOT DIFFICULTY", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Contains("ADD BOT", StringComparison.OrdinalIgnoreCase)) is null);
             await SendPad(JoyButton.B);
             Check("menu: B steps back to the lobby page", lobby.Visible);
             await SendKey(Key.Escape);
@@ -113,7 +113,7 @@ public sealed partial class UiSelfTest
                     Check("menu: the Musou page's HOST LOCAL LOBBY opens the Host panel in Musou", _front.HostPage!.Visible && musouHost.Musou && musouHost.HostButtonText == "HOST MUSOU", musouHost.HostButtonText);
                     Check("menu: ... where who can join is the player's choice (co-op)", musouHost.Reach.Choosable, musouHost.Reach.ToString());
                     musouHost.ChooseReachForTest(localOnly: false);
-                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains(MusouLocal.CoopNote, StringComparison.Ordinal), musouHost.NoteText);
+                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains(MusouLocal.CoopNote, StringComparison.OrdinalIgnoreCase), musouHost.NoteText);
                     musouHost.ChooseReachForTest(localOnly: true);   // tests host this PC only
                     await SendKey(Key.Escape);
                     Check("menu: Esc on the Musou Host panel goes back to the Musou page", musouPage.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
@@ -299,9 +299,9 @@ public sealed partial class UiSelfTest
         {
             _front.ShowOptions(OptionsView.Graphics);
             await Frames(4);
-            Check("options: the page has the three tabs", new[] { "GRAPHICS", "SOUND", "CONTROLS" }.All(t => FindButton(options, b => b.Text == t) is not null));
+            Check("options: the page has the three tabs", new[] { "GRAPHICS", "SOUND", "CONTROLS" }.All(t => FindButton(options, b => b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null));
             foreach (var row in new[] { "RESOLUTION", "WINDOW MODE", "VSYNC", "FPS CAP", "SHADOW QUALITY", "ANTI-ALIASING" })
-                Check($"options: GRAPHICS has {row}", FindButton(options, b => b.Text == row) is UiKit.MenuChoice);
+                Check($"options: GRAPHICS has {row}", FindButton(options, b => b.Text.Equals(row, StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice);
             foreach (var slider in new[] { "RenderScaleSlider", "FovSlider", "BrightnessSlider" })
                 Check($"options: GRAPHICS has {slider}", options.FindChild(slider, true, false) is HSlider);
             options.ShowTab(OptionsView.Sound);

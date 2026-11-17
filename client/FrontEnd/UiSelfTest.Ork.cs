@@ -139,7 +139,7 @@ public sealed partial class UiSelfTest
             await Frames(3);
             var orkWeapons = LoadoutRows.Weapons(catalog, OrkLoadout.Role, OrkLoadout.Race, null, _services.Policy);
             Check("ork: the weapons are his fixed shoota, slugga and choppa",
-                new[] { "Shoota", "Slugga", "Choppa" }.All(t => FindButton(creator, b => b is UiKit.Row && b.Text == t) is not null)
+                new[] { "Shoota", "Slugga", "Choppa" }.All(t => FindButton(creator, b => b is UiKit.Row && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null)
                 && orkWeapons.Count == 3 && orkWeapons.All(s => !s.Selectable && s.Rows.Count == 1 && s.Rows[0].Fixed && s.Rows[0].Tags.Contains("FIXED")),
                 string.Join(", ", orkWeapons.SelectMany(s => s.Rows.Select(r => $"{r.Title} {string.Join("/", r.Tags)}"))));
             creator.OpenStep("perks");
@@ -155,9 +155,9 @@ public sealed partial class UiSelfTest
             _front.ShowAppearance();
             await Frames(4);
             Check("ork: the appearance screen is replaced by his LOOK step", creator.Visible && !_front.Appearance!.Visible && creator.CurrentStep == "LOOK");
-            int lookRows = OrkLoadout.LookChoices.Count(l => FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(l))) is not null);
+            int lookRows = OrkLoadout.LookChoices.Count(l => FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(l), StringComparison.OrdinalIgnoreCase)) is not null);
             Check("ork: the LOOK step lists automatic and the five looks", lookRows == 6, lookRows.ToString());
-            FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(1)))?.EmitSignal(BaseButton.SignalName.Pressed);
+            FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(1), StringComparison.OrdinalIgnoreCase))?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(3);
             Check("ork: choosing a look keeps it in the profile", session.Working.OrkLook == 1, session.Working.OrkLook?.ToString() ?? "automatic");
             drawn = await WaitPreview(creator.Preview, 1800);

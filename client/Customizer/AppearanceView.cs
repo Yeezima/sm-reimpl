@@ -68,9 +68,12 @@ public sealed partial class AppearanceView : Control
 
         var header = UiKit.HBox(16);
         _title = UiKit.Text("APPEARANCE", UiKit.HeaderSize, UiKit.Gold);
+        // ui/overhaul: the title on the concept's rivetted plate, like the other screens' titles.
+        if (ConceptArt.Patch("opt-plate-blank", new Vector2(70f, 40f), new Vector2(48f, 8f)) is { } plate) { _title.AddThemeStyleboxOverride("normal", plate); _title.CustomMinimumSize = new Vector2(360f, 64f); _title.HorizontalAlignment = HorizontalAlignment.Center; _title.VerticalAlignment = VerticalAlignment.Center; }
+        SteelBackdrop.EmbossTitle(_title);
         header.AddChild(_title);
         header.AddChild(_lookRow);
-        header.AddChild(UiKit.Text("Side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
+        header.AddChild(UiKit.Text("SIDE", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
         header.AddChild(_sideToggle);
         // Fills the space up to DONE and is cut (full text in its tooltip) rather than pushing DONE off the window (fix/frontend-fit).
         _classLabel = UiKit.Text("", UiKit.CaptionSize, UiKit.White, HorizontalAlignment.Right);
@@ -220,11 +223,11 @@ public sealed partial class AppearanceView : Control
         foreach (var c in _sections.GetChildren()) { _sections.RemoveChild(c); c.QueueFree(); }
         _sectionButtons.Clear();
         var names = new List<(Section, string)> { (Section.Slots, "MY APPEARANCES"), (Section.Chapter, "CHAPTER"), (Section.Armour, "ARMOUR"), (Section.Colours, "COLOURS"), (Section.Badges, "BADGES") };
-        names.Add((Section.Eyes, "EYES (lens)"));
+        names.Add((Section.Eyes, "EYES (LENS)"));
         foreach (var (section, text) in names)
         {
             var s = section;
-            var b = new Button { Text = text, Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 56) };
+            var b = new Button { Text = text, Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 56), ThemeTypeVariation = Steel.TabType };
             b.Pressed += () => { _section = s; _armourSlot = null; _slotPage = 0; Rebuild(true); };
             _sections.AddChild(b);
             _sectionButtons.Add(b);

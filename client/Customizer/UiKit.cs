@@ -180,8 +180,6 @@ public static partial class UiKit
     {
         var b = new Button { Text = text.ToUpperInvariant(), ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Toggled += v => changed(v);
-        float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, Steel.ButtonSize).X + 2f * 44f;
-        b.CustomMinimumSize = new Vector2(Mathf.Max(minWidth, need), MinHit);
         return b;
     }
 
@@ -291,7 +289,7 @@ public static partial class UiKit
         /// <param name="glyph">The icon at the left (a check for the selected row, a padlock for a locked one); every state also has its word in <paramref name="tags"/>.</param>
         public Row(string title, IEnumerable<string> tags, bool selected, bool enabled, Glyph.Kind? glyph = null, Color? tagColour = null, Color[]? swatches = null)
         {
-            Text = title;
+            Text = title.ToUpperInvariant();   // one case per level
             Alignment = HorizontalAlignment.Left;
             ClipText = true;
             FocusMode = FocusModeEnum.All;

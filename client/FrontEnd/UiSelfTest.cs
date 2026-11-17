@@ -518,7 +518,7 @@ public sealed partial class UiSelfTest : Node
                 var rect = c.GetGlobalRect();
                 ScrollContainer? scroll = null;
                 for (var n = c.GetParent(); n is not null && scroll is null; n = n.GetParent()) scroll = n as ScrollContainer;
-                bool ok = scroll is null
+                bool ok = scroll is null || c.TopLevel   // a docked BACK or main action stands outside the page's list on purpose
                     ? Encloses(view, rect)
                     : Encloses(view, scroll.GetGlobalRect()) && rect.Position.X >= scroll.GlobalPosition.X - 0.5f && rect.End.X <= scroll.GetGlobalRect().End.X + 0.5f;
                 ok &= rect.Size.X > 0f && rect.Size.Y > 0f;   // a control squeezed to nothing cannot be clicked
@@ -813,7 +813,7 @@ public sealed partial class UiSelfTest : Node
                         creator.OpenStep(stepOfKey[key]);
                         await Frames(3);
                         string title = key == "equipment" ? LoadoutRows.EquipmentTitle(item) : item.DisplayName;
-                        var row = FindButton(creator, b => b is UiKit.Row && b.Text == title);
+                        var row = FindButton(creator, b => b is UiKit.Row && b.Text.Equals(title, StringComparison.OrdinalIgnoreCase));
                         Check($"{tag}: {key} {neutral} has a row", row is not null, title);
                         if (row is null) continue;
                         Check($"{tag}: {key} {neutral} row can be pressed", !row.Disabled);
@@ -849,7 +849,7 @@ public sealed partial class UiSelfTest : Node
                         Click(b => b.ToggleMode && b.Text.StartsWith($"Perk {perkSlot + 1}", StringComparison.OrdinalIgnoreCase));
                         await Frames(3);
                         string title = options.Perks.First(p => p.Name == perk).DisplayName;
-                        var row = FindButton(creator, b => b is UiKit.Row && b.Text == title);
+                        var row = FindButton(creator, b => b is UiKit.Row && b.Text.Equals(title, StringComparison.OrdinalIgnoreCase));
                         if (row is null || row.Disabled) { Check($"{tag}: perk {perk} slot {perkSlot + 1} has a row", false, title); continue; }
                         row.EmitSignal(BaseButton.SignalName.Pressed);
                         await Frames(3);

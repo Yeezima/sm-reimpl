@@ -64,7 +64,7 @@ public sealed partial class UiSelfTest
             Check("slots: the header names the slot", HeaderText(appearance).Contains($"slot {ownSlot}"));
 
             // Enter on an empty slot saves this loadout's look there and wears it.
-            var empty = rows.First(r => r.Text.EndsWith("(empty)", StringComparison.Ordinal));
+            var empty = rows.First(r => r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase));
             int saved = SlotNumber(empty);
             empty.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(4);
@@ -79,8 +79,8 @@ public sealed partial class UiSelfTest
             // The slot's page: apply to one loadout, to all, take it off, undo.
             appearance.OpenSlot(saved);
             await Frames(4);
-            var row1 = FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 1 ", StringComparison.Ordinal));
-            Check("slots: the page lists the loadouts", row1 is not null && FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.Ordinal)) is not null);
+            var row1 = FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 1 ", StringComparison.OrdinalIgnoreCase));
+            Check("slots: the page lists the loadouts", row1 is not null && FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.OrdinalIgnoreCase)) is not null);
             row1?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(3);
             Check("slots: Enter on a loadout row puts the slot on it", session.Working.ClassAt(1)?.Appearance.SpaceMarine == copyId);
@@ -89,7 +89,7 @@ public sealed partial class UiSelfTest
             await Frames(3);
             Check("slots: Apply to all loadouts dresses every loadout and leaves the Chaos looks", session.Working.Classes.All(c => c.Appearance.SpaceMarine == copyId)
                 && session.Working.Classes.All(c => c.Appearance.Chaos == kept.ClassAt(c.Slot)?.Appearance.Chaos));
-            Click(b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.Ordinal), appearance);
+            Click(b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Enter again takes it off (the default look)", session.Working.ClassAt(6)?.Appearance.SpaceMarine is null);
             Click(b => b.Text.Equals("Undo", StringComparison.OrdinalIgnoreCase), appearance);
@@ -129,7 +129,7 @@ public sealed partial class UiSelfTest
             ClickDialog("Delete");
             await Frames(3);
             Check("slots: Delete empties the slot; its loadouts wear the default look", session.Working.Appearance(copyId) is null && session.Working.ClassAt(1)?.Appearance.SpaceMarine is null
-                && Rows(appearance).Count == AppearanceSlots.Count && Rows(appearance).Any(r => SlotNumber(r) == saved && r.Text.EndsWith("(empty)", StringComparison.Ordinal)));
+                && Rows(appearance).Count == AppearanceSlots.Count && Rows(appearance).Any(r => SlotNumber(r) == saved && r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase)));
 
             // Each side has its own ten.
             if (catalog.Race(CustomizationCatalog.Chaos) is not null)
@@ -139,7 +139,7 @@ public sealed partial class UiSelfTest
                 var chaosRows = Rows(appearance);
                 Check("slots: the Chaos side has ten slots of its own", chaosRows.Count == AppearanceSlots.Count && AppearanceSlots.Layout(session.Working, CustomizationCatalog.Chaos).All(a => a is null || a.Race == CustomizationCatalog.Chaos)
                     && AppearanceSlots.Layout(session.Working, CustomizationCatalog.Chaos).All(a => a?.Id != copyId && a?.Id != own));
-                chaosRows.First(r => r.Text.EndsWith("(empty)", StringComparison.Ordinal)).EmitSignal(BaseButton.SignalName.Pressed);
+                chaosRows.First(r => r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase)).EmitSignal(BaseButton.SignalName.Pressed);
                 await Frames(3);
                 var chaosId = session.Working.ClassAt(4)?.Appearance.Chaos;
                 Check("slots: a Chaos slot saves a Chaos look", session.Working.Appearance(chaosId)?.Race == CustomizationCatalog.Chaos && session.Working.ClassAt(4)?.Appearance.SpaceMarine == own);

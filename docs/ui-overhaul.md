@@ -71,6 +71,27 @@ Everything below is a hand-over to the lead; the shared components exist on this
 * **Warfront entries in the menus** (`FrontEndView.WarfrontMenu.cs`): its page is built from `UiKit.MenuPage`; make it `new ConceptPanelPage(name, heading, title)` and the rows restyle themselves (choices, buttons, notes, fields).
 * **Custom-drawn lane map and boxes** (`WarfrontHubPanel.MapDraw`, `WarfrontJoinPanel.Frames`): swap the 2 px outline rectangles for `BoardStyle.Table` panels and `Steel.Gold` highlights; keep the in-play parts (`WarfrontXpHud`, `WarfrontSquadHud`, battle HUD, spectate HUD) as they are (HUD).
 
+## Review round 1 (Opus, 2026-11-18): what changed
+
+* **No flat boxes.** `opt-plate-blank` and its gold twin are alpha-cut to the plate's bevel (`tools/ui-measure/frame_cleanup.py`; no dark backing rectangle is left under plates); text fields are the kit's steel recess with a quiet selection colour;
+  list rows, panels, dialogs and tables are steel.
+* **Page chrome.** The frame's seam in the separator line and the lighter patch in the top band (the concept's art differs there) are painted over with the neighbouring stretch (same script). Every page has a heading line (Musou: PLAY ALONE OR TOGETHER,
+  Pause: MATCH MENU). **One BACK and one main action everywhere:** BACK is the concept's BACK plate at the screen's bottom right (where Options puts it), the main action is the gold plate in the frame's bottom tray (where Options has APPLY); both are the
+  page's own buttons made top-level (`ConceptPanelPage.Dock`, `DockBack`), so handlers and focus are unchanged. The page's plates leave a visible gap, hover and focus are both the gold plate with dark ink, a focused choice is the pill art gone
+  gold (no rectangle), live titles carry the painted title's emboss (outline and shadow, `SteelBackdrop.EmbossTitle`), notes are capitals and centred in a narrow column.
+* **Options grid.** One pill width (the widest the tab needs), one slider width, pills and switches start at the same x, rows 29 grid px so the RENDERER line fits without a scroll bar, whole rows only; the game-found note is hidden under 900 px of window
+  height (it would draw under 10 px).
+* **Keybinds** are in the panel frame (`PanelChrome`: veil, frame, KEYBINDS plate, tabs in the strip, table in the rows area, BACK on the BACK plate); labels and binds are capitals; the Appearance title is on a plate, its sections are steel tabs (the open one gold),
+  list rows are capitals; the summary and count-up use the scoreboards' table, a painted title plate, capitals and the gold own row.
+* **Scoreboard.** Score plates carry the side's name (SPACE MARINES, CHAOS) and emblem when its picture is here, the single board has TOTAL SCORE, plates are no wider than 600 px, the demo has icons and one own row. The doc comment of `ScoreboardView` records that the owner's
+  request of 2026-11-18 supersedes the black-and-white rule of 2026-11-07 (and `docs/changes-from-original.md` has the row).
+* **Main menu at 5:4.** The overlay's lower edge fades out, the Marine is framed further right on narrow windows so his backpack stays clear of the frame, the empty nameplate carries the builds-and-issues address (a link). **Documented exception:** the main menu's five
+  labels keep the concept's own plate lettering (a glyph atlas cut from the reference, see `docs/ui-concept-textures.md` "Phase 5"); every other label of every screen is Oswald (`UiKit.ConceptFont`).
+* **Armoury.** Whole cards only (three, as the concept), icon wells hold faint engraved type glyphs drawn in code (`EngravedGlyphs`: gun, pistol, blade, grenade, perk star, Ork head; the Ork Boy has a class icon), the preview viewport is transparent so the
+  scene shows through. **Not done:** wargear and perk silhouettes rendered from the player's install at run time (the glyphs are the fallback the review allowed; the render is a feature of its own).
+* Self-test aids for the missing screens: `--menu-screen failure|dialog|tfw-range|tfw-war|tfw-score|tfw-reward|tfw-run` (the Musou ones through the `ExtrasMenuScreen` hook in `client/Extras/Musou/Tfw/FrontEndView.TfwScreens.cs`).
+* The comparison tool takes `--alpha-min a --erode n`: a masked measurement that leaves out the frame's antialiased edge pixels.
+
 ## Measured fidelity (1920 x 1080, the existing UiCompare / UiComparePanel method against the owner's reference images)
 
 | Screen (reference) | Result today | Note |

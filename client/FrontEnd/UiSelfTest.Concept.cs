@@ -44,7 +44,7 @@ public sealed partial class UiSelfTest
             var options = _front.Options!;
             await Frames(4);
             Check("concept: OPTIONS opens with the focus on its tab", options.Visible && GetViewport().GuiGetFocusOwner() is Button { Text: "GRAPHICS" } && options.Tab == OptionsView.Graphics, GetViewport().GuiGetFocusOwner()?.Name ?? "none");
-            Check("concept: OPTIONS has four category tabs, the open one gold (pressed)", new[] { "GRAPHICS", "SOUND", "CONTROLS", "INTERFACE" }.All(t => FindButton(options, b => b.Text == t && b.ThemeTypeVariation == Steel.TabType) is not null)
+            Check("concept: OPTIONS has four category tabs, the open one gold (pressed)", new[] { "GRAPHICS", "SOUND", "CONTROLS", "INTERFACE" }.All(t => FindButton(options, b => b.Text.Equals(t, StringComparison.OrdinalIgnoreCase) && b.ThemeTypeVariation == Steel.TabType) is not null)
                 && FindButton(options, b => b.Text.Equals("GRAPHICS", StringComparison.OrdinalIgnoreCase))!.ButtonPressed && !FindButton(options, b => b.Text.Equals("SOUND", StringComparison.OrdinalIgnoreCase))!.ButtonPressed);
             Check("concept: the rows are in columns by fit (two when the labels leave room, else one) on a wide window and every choice and slider wears the steel skin", options.Grid is GridContainer { Columns: 1 or 2 } && ((GridContainer)options.Grid).Columns == options.RowLayout.Columns
                 && AllButtons(options.Grid).OfType<UiKit.MenuChoice>().All(c => c.IsSteel) && options.Grid.GetChildren().OfType<UiKit.MenuSlider>().Any());
@@ -85,7 +85,7 @@ public sealed partial class UiSelfTest
             // A slider and a Settings-level option (not in GameOptions) revert too (on INTERFACE, where they live since 2026-11-15).
             options.ShowTab(OptionsView.Interface);
             await Frames(3);
-            Check("concept: INTERFACE has the four moved rows and GRAPHICS no longer has them", new[] { "REDUCE MOTION", "SHOW OTHERS' EMBLEMS" }.All(t => FindButton(options, b => b.Text == t) is UiKit.MenuChoice)
+            Check("concept: INTERFACE has the four moved rows and GRAPHICS no longer has them", new[] { "REDUCE MOTION", "SHOW OTHERS' EMBLEMS" }.All(t => FindButton(options, b => b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice)
                 && options.FindChild("CameraShakeSlider", true, false) is HSlider && options.FindChild("ScreenFlashesSlider", true, false) is HSlider);
             var emblems = FindButton(options, b => b.Text.Equals("SHOW OTHERS' EMBLEMS", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
             bool emblemsWere = _services.Settings.ShowOthersEmblems;

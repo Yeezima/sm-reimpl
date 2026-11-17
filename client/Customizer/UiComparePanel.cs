@@ -47,6 +47,11 @@ public static partial class UiComparePanel
         return m;
     }
 
+    /// <summary>Where the frame art counts as ours: <c>--alpha-min a</c> (default 0.9) and <c>--erode n</c> (default 1 pixel). A high alpha and a wider erosion leave out the antialiased edge pixels, which sit on the live background (the "masked" measurement of the review).</summary>
+    static float AlphaMin => Arg("--alpha-min") is { } v && float.TryParse(v, System.Globalization.CultureInfo.InvariantCulture, out var f) ? f : 0.9f;
+    static int ErodeBy => Arg("--erode") is { } v && int.TryParse(v, out var n) ? n : 1;
+    static string? Arg(string name) { var a = OS.GetCmdlineUserArgs(); int i = Array.IndexOf(a, name); return i >= 0 && i + 1 < a.Length ? a[i + 1] : null; }
+
     public static int Run(string targetPath, string? oursPath, string screen, string? alphaPath, string? outDir, string? tag, Vector2I alphaOrigin, int alphaScale)
     {
         if (!System.IO.File.Exists(targetPath) || oursPath is null || !System.IO.File.Exists(oursPath)) { GD.PrintErr("ui-compare-panel: --ui-compare-panel <target> --ours <capture> --screen options"); return 2; }
@@ -83,7 +88,7 @@ public static partial class UiComparePanel
             for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
                 {
                     int px = (int)((x - alphaOrigin.X + 0.5f) * alphaScale), py = (int)((y - alphaOrigin.Y + 0.5f) * alphaScale);
-                    opaque[y * W + x] = px >= 0 && py >= 0 && px < ov.GetWidth() && py < ov.GetHeight() && ov.GetPixel(px, py).A > 0.9f;
+                    opaque[y * W + x] = px >= 0 && py >= 0 && px < ov.GetWidth() && py < ov.GetHeight() && ov.GetPixel(px, py).A > AlphaMin;
                 }
         }
         var regions = new List<(string, bool[], bool)>();   // name, polygon mask, uses the overlay's alpha (false: a plate texture, always opaque)
@@ -106,7 +111,7 @@ public static partial class UiComparePanel
             if (n == 0) { report.Add(new Region(name, mask, 0, 0, 0, 0, 0)); return; }
             report.Add(new Region(name, mask, sSum / n, DeltaE(Lab((float)(mt[0] / n), (float)(mt[1] / n), (float)(mt[2] / n)), Lab((float)(mo[0] / n), (float)(mo[1] / n), (float)(mo[2] / n))), dePix / n, n, polyN == 0 ? 1 : n / (double)polyN));
         }
-        foreach (var (name, poly, usesAlpha) in regions) Measure(name, Erode(usesAlpha ? And(poly, opaque) : poly, 1), poly.Count(b => b));
+        foreach (var (name, poly, usesAlpha) in regions) Measure(name, Erode(usesAlpha ? And(poly, opaque) : poly, ErodeBy), poly.Count(b => b));
         var full = Or(report.Select(r => r.Mask).ToArray());
         Measure("FULL", full, full.Count(b => b));
         var lines = new List<string> { $"UICOMPARE {screen} {tag} scale={s:0.0000}", "region | pixels | SSIM | dE mean-colour | dE per-pixel | coverage of polygon" };

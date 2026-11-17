@@ -64,7 +64,7 @@ public sealed partial class ControlsView : Control
         _chrome = new PanelChrome("Keybinds");
         AddChild(_chrome);
         var margin = new MarginContainer { Name = "ControlsContent" };
-        margin.SetAnchorsPreset(LayoutPreset.TopLeft);
+        margin.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(margin);
         _content = margin;
         var root = UiKit.VBox(10);
@@ -112,10 +112,12 @@ public sealed partial class ControlsView : Control
     {
         if (_content is not MarginContainer m || _chrome is null) return;
         var strip = _chrome.Strip; var rows = _chrome.RowsArea;
-        m.Position = new Vector2(rows.Position.X, strip.Position.Y);
-        m.Size = new Vector2(rows.Size.X, rows.End.Y - strip.Position.Y);
-        foreach (var side in new[] { "left", "right" }) m.AddThemeConstantOverride("margin_" + side, 4);
-        foreach (var side in new[] { "top", "bottom" }) m.AddThemeConstantOverride("margin_" + side, 2);
+        if (OS.GetCmdlineUserArgs().Contains("--panel-debug")) GD.Print($"controls place: view {Size} chrome {_chrome.Size} strip {strip} rows {rows} visible {Visible}");
+        m.SetAnchorsPreset(LayoutPreset.FullRect);
+        m.AddThemeConstantOverride("margin_left", Mathf.RoundToInt(rows.Position.X));
+        m.AddThemeConstantOverride("margin_right", Mathf.RoundToInt(Mathf.Max(0f, Size.X - rows.End.X)));
+        m.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(strip.Position.Y));
+        m.AddThemeConstantOverride("margin_bottom", Mathf.RoundToInt(Mathf.Max(0f, Size.Y - rows.End.Y)));
         SmClient.FrontEnd.ConceptPanelPage.DockBack(_back, Size);
     }
 

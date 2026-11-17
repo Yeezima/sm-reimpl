@@ -74,6 +74,9 @@ public sealed partial class FrontEndView : Control
     /// <summary>Hook for added content: one frame of its scripted preview run (test aid <c>--preview-weapon-cycle</c>); nothing without it.</summary>
     partial void ExtrasPreviewScript();
 
+    /// <summary>Hook for added content (client/Extras/Musou/Tfw/FrontEndView.TfwScreens.cs): screenshot aids for its menu-type pages (<c>--menu-screen tfw-...</c>); nothing without it.</summary>
+    partial void ExtrasMenuScreen(string name, ref bool handled);   // EXTRAS-HOOK
+
     int _switchedAt, _switchPhase;
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
@@ -515,6 +518,9 @@ public sealed partial class FrontEndView : Control
             case "joinlocal": ShowPage(_joinLocalPage!); break;
             case "musou": ShowMusouPage(); break;
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
+            case "failure": HideAll(); ShowFailure("The install's data folder could not be read: made-up error for a screenshot."); break;   // screenshot aid (ui/overhaul)
+            case "dialog": { HideAll(); ShowMainMenu(); UiKit.Dialog.Open(this, this, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], _ => { }); break; }
+            case var tfw when tfw.StartsWith("tfw-", StringComparison.OrdinalIgnoreCase): { bool handled = false; ExtrasMenuScreen(tfw, ref handled); break; }
             case "scoreboard": case "scoreboard-single": ShowScoreboardDemo(name.EndsWith("single", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the Tab scoreboard with made-up rows
             case "pause": { HideAll(); var m = new MatchMenu(() => { }, () => { }, () => { }, () => { }) { Name = "PauseDemo" }; m.Banner = "Respawn in 3"; AddChild(m); m.Open(true); break; }   // screenshot aid (ui/overhaul): the in-match Esc menu
             case "summary": case "countup": ShowSummaryDemo(name.StartsWith("count", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the end-of-match screens with made-up figures
