@@ -2,7 +2,7 @@
 .SYNOPSIS
   Mapmaker "Play test" in the tester install (docs/mapmaker.md "Play test", docs/releasing.md "The Mapmaker"): from a .smmap file to playing it with bots. Added content.
 .DESCRIPTION
-  The Mapmaker's PLAY TEST button runs this when it has no repository checkout (tools/mapmaker-playtest.ps1 is the developer's version). It runs from
+  The Mapmaker's Play test button runs this when it has no repository checkout (tools/mapmaker-playtest.ps1 is the developer's version). It runs from
   <install>\mapmaker-project\ (the launcher copies it there with the rest of the shipped mapmaker\ folder) and uses the prebuilt game of the active version:
   <install>\versions\<tag>\server\SmServer.exe and \game\sm-reimpl.exe (with sm-reimpl.console.exe for the bots). Nothing is built, nothing is downloaded.
 

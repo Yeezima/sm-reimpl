@@ -121,9 +121,6 @@ public partial class MapmakerDock : VBoxContainer
         tabs.AddChild(TestTab()); tabs.SetTabTitle((int)DockTab.Test, "Test");
         AddChild(Footer());
         // Compact tab titles so all six fit a narrow dock, and drop-downs that clip a long entry instead of widening the dock.
-        foreach (var name in new[] { "tab_selected", "tab_unselected", "tab_hovered", "tab_disabled", "tab_focus" })
-            if (tabs.GetThemeStylebox(name) is { } box) { var narrow = (StyleBox)box.Duplicate(); narrow.ContentMarginLeft = 5; narrow.ContentMarginRight = 5; tabs.AddThemeStyleboxOverride(name, narrow); }
-        tabs.AddThemeFontSizeOverride("font_size", 14);
         foreach (var o in FindChildren("*", "OptionButton", true, false)) if (o is OptionButton ob) ob.ClipText = true;
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new Vector2(280, 0);
         AddChild(_status);
@@ -536,7 +533,14 @@ public partial class MapmakerDock : VBoxContainer
 
     public override void _Ready()
     {
-        if (LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new LibraryTest(_plugin, this).Run();
+        // Compact tab titles so all six fit a narrow dock; taken here, in the editor tree, so the boxes come from the editor theme.
+        if (_tabs is { } tabs)
+        {
+            foreach (var name in new[] { "tab_selected", "tab_unselected", "tab_hovered", "tab_disabled", "tab_focus" })
+                if (tabs.GetThemeStylebox(name) is { } box) { var narrow = (StyleBox)box.Duplicate(); narrow.ContentMarginLeft = 5; narrow.ContentMarginRight = 5; tabs.AddThemeStyleboxOverride(name, narrow); }
+            tabs.AddThemeFontSizeOverride("font_size", 14);
+        }
+                if (LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new LibraryTest(_plugin, this).Run();
     }
 
     public void TestShowSource(int source) { _source.Select(source); _search.Text = ""; RebuildLibrary(); }

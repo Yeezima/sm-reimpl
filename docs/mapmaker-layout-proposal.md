@@ -101,7 +101,7 @@ Reasoning: "check and play test" is the last step. **Check** (headline, issues w
 | Library | Delete selected prefab... | Library > Remove | Delete selected prefab... |
 | Library | usage paragraph | Library > Library hint | shortened |
 | Tools | map title line | Map, top | same (clips long paths, full text in tooltip) |
-| Tools | New, Open..., Save, Save As... | Map | New map is the one in New map; Open map..., Save map, Save map as... |
+| Tools | New, Open..., Save, Save As... | Map | New empty map (next to New map), Open map..., Save map, Save map as... |
 | Tools | Recent maps... (drop-down) | Map > Open and save | merged with Your maps... (see questions) |
 | Tools | SM1 map name, Open SM1 map | Map > SM1 reference map | same |
 | Tools | Show SM1 map | Map > SM1 reference map | Show SM1 map |

@@ -61,7 +61,10 @@ public partial class MapmakerDock
         v.AddChild(Row(Field("Layout", 56), _template));
         _templateInfo.AddThemeColorOverride("font_color", HintColour); _templateInfo.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_templateInfo);
-        v.AddChild(Btn("New map", NewFromLayout, "Makes the map from the chosen layout, saves it and shows it."));
+        var newMap = Btn("New map", NewFromLayout, "Makes the map from the chosen layout, saves it and shows it.");
+        var newEmpty = Btn("New empty map", NewMap, "Starts an empty map called Untitled, with no layout.");
+        newMap.SizeFlagsHorizontal = SizeFlags.ExpandFill; newEmpty.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(newMap, newEmpty));
         Section(v, "Open and save");
         var open = Btn("Open map...", OpenMap, "Open a .smmap file.");
         _recentStart.SizeFlagsHorizontal = SizeFlags.ExpandFill; _recentStart.CustomMinimumSize = new Vector2(110, 0);
