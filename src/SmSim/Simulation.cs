@@ -56,6 +56,12 @@ public enum InputButtons : ushort
     /// nothing without one. PC key 3 (owner's decision of 2026-10-30).
     /// </summary>
     SlotSecond = 16384,
+    /// <summary>
+    /// The direct stab (protocol 81; owner, 2026-11-17: "make the sword stab performed by F + F or rmb + F instead be activated on its own with no precursor move by pressing T").
+    /// The client holds it for a few ticks after a press; from rest it starts the weapon's stab strike (<see cref="MeleeStep.Stab"/>, the power sword's F + F finisher) at once. Nothing for a
+    /// weapon without a stab, and never in Musou Mode (the server drops it there). Same refusals as a heavy press (stun, evade, jump-pack flight).
+    /// </summary>
+    Stab = 32768,
 }
 
 /// <summary>

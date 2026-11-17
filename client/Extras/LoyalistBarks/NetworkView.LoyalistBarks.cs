@@ -95,7 +95,7 @@ public partial class NetworkView
         TfwTestInput(ref input);   // Musou/Tfw/NetworkView.TfwMelee.cs: the scripted player's buttons, nothing without it
         if (!BarksActive || _client is null || _config is null) return;
         var me = _client.Predicted;
-        bool canShout = me.Alive && !OwnDead && IsLoyalist(me);
+        bool canShout = me.Alive && !OwnDead && IsLoyalist(me) && ControlActions.ShoutKeyLive(_config.Extras);   // classic-stab-on-t: the voice call is Musou Mode's alone now
         if (_bot && BotShoutEvery > 0 && canShout && _connectedFor > 3.0 && _connectedFor - _botShoutAt >= BotShoutEvery)
         {
             _botShoutAt = _connectedFor;
@@ -136,7 +136,9 @@ public partial class NetworkView
     {
         if (!BarksActive || _client is not { Status: ClientStatus.Connected } client || _config is null) return;
         // The key (human players): a press, latched between input samples; nothing else reads T.
-        bool down = !_bot && !PickerBusy && ControlsInput.Held(GameAction.Shout);
+        // classic-stab-on-t (owner, 2026-11-17): T is the sword stab in Classic PvP and the voice call is off there; Musou Mode keeps it (on T, the key the stab action holds, or the shout's own binding).
+        bool musouKey = ControlActions.ShoutKeyLive(_config.Extras);
+        bool down = musouKey && !_bot && !PickerBusy && (ControlsInput.Held(GameAction.Shout) || ControlsInput.Held(GameAction.Stab));
         if (down && !_shoutKeyWasDown) _shoutLatched = true;
         _shoutKeyWasDown = down;
 

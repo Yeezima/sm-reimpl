@@ -34,6 +34,20 @@ public class ActionKeyMaskTests
         Assert.Equal(InputButtons.None, applied.Buttons & InputButtons.ExtraAction);
     }
 
+    [Theory]
+    [InlineData(ContentExtras.None, true)]
+    [InlineData(ContentExtras.Orks | ContentExtras.Gore, true)]
+    [InlineData(ContentExtras.Musou, false)]
+    public void The_stab_bit_is_kept_in_Classic_PvP_and_dropped_in_Musou_Mode(ContentExtras extras, bool kept)
+    {
+        var h = new Harness(LinkConditions.Perfect, 33, 1, new SimConfig { Extras = extras });
+        h.Run(TimeSpan.FromSeconds(1.5));
+        h.Run(TimeSpan.FromSeconds(0.5), (_, t) => new PlayerInput(t, 0, 0, 0, InputButtons.Stab | InputButtons.Fire));
+        var applied = h.Server.LastAppliedForTests(h.Clients[0].PlayerId);
+        Assert.Equal(InputButtons.Fire, applied.Buttons & InputButtons.Fire);
+        Assert.Equal(kept ? InputButtons.Stab : InputButtons.None, applied.Buttons & InputButtons.Stab);
+    }
+
     [Fact]
     public void A_faithful_server_kicks_a_player_who_only_sends_the_key()
     {

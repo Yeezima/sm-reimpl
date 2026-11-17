@@ -36,7 +36,8 @@ public class ControlBindingsTests
         Assert.Equal(new[] { "Key:Key1", "Key:Key2", "Key:Key3" }, new[] { K(GameAction.Weapon1), K(GameAction.Weapon2), K(GameAction.Weapon3) });
         Assert.Equal("Key:X", K(GameAction.NextWeapon)); Assert.Equal("Mouse:Wheel", K(GameAction.NextWeapon, 1));
         Assert.Equal("Key:Tab", K(GameAction.Scoreboard));
-        Assert.Equal("Key:T", K(GameAction.Shout));
+        Assert.Equal("Key:T", K(GameAction.Stab));   // classic-stab-on-t: T is the sword stab; the voice call has no default key (Musou Mode reads T for it from the stab action)
+        Assert.Equal("", K(GameAction.Shout));
     }
 
     [Fact]

@@ -483,7 +483,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             int f = weapon.HeavySequencers.Length;
             heavy[f] = heavy[weapon.StabHeavy - 1] with
             {
-                Stomp = null, YNext = 0, YComboOpen = 0f, YComboClose = 0f,
+                Stomp = null, YNext = 0, YComboOpen = 0f, YComboClose = 0f, Stab = true,
                 Damage = stabHit.Primary.Damage, ShieldDamage = stabHit.Primary.ShieldDamage, HealthMultiplier = stabHit.Primary.HealthMultiplier, ShieldMultiplier = stabHit.Primary.ShieldMultiplier,
                 DamageType = stabHit.Primary.Type == DamageType.Unknown ? DamageType.Melee : stabHit.Primary.Type,
                 PrimaryReaction = stabHit.Reaction, SecondaryDamage = 0f, SecondaryShieldDamage = 0f, SecondaryReaction = default,

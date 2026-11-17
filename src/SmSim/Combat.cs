@@ -69,6 +69,13 @@ public static class Combat
     }
 
     /// <summary>The attack step the player is in (light or heavy list by <see cref="PlayerState.MeleeHeavy"/>), or null.</summary>
+    /// <summary>sim/stab-key (protocol 81): the 1-based index in a heavy list of the strike the stab key starts (<see cref="MeleeStep.Stab"/>), or 0 when the weapon has none.</summary>
+    public static int StabIndex(IReadOnlyList<MeleeStep> heavy)
+    {
+        for (int i = 0; i < heavy.Count; i++) if (heavy[i].Stab) return i + 1;
+        return 0;
+    }
+
     public static MeleeStep? MeleeStepOf(SimConfig c, PlayerState s)
     {
         var list = s.MeleeHeavy ? Loadouts.MeleeHeavy(c, s) : Loadouts.Melee(c, s);
@@ -392,6 +399,8 @@ public static class Combat
         bool meleePress = meleeDown && !s.MeleeHeld;
         bool heavyDown = (input.Buttons & InputButtons.MeleeHeavy) != 0;
         bool heavyPress = heavyDown && !s.MeleeHeavyHeld;
+        // sim/stab-key (owner, 2026-11-17; protocol 81): the direct stab. The client holds the bit for a few ticks after a press of the key; from rest it starts the stab (the heavy list's MeleeStep.Stab) on its own. Never a charge, never queued.
+        bool stabPress = (input.Buttons & InputButtons.Stab) != 0 && StabIndex(Loadouts.MeleeHeavy(c, s)) > 0;
         bool fireDown = (input.Buttons & InputButtons.Fire) != 0;
         bool firePress = fireDown && !s.FireHeld;
         bool switchDown = (input.Buttons & InputButtons.Switch) != 0;
@@ -434,7 +443,7 @@ public static class Combat
         // cooldown refuses (the press then waits in the input buffer as before); the melee attack and the charge follow below.
         bool jumpEscape = jumpDown && !s.JumpHeld && JumpEscape.Eligible(c, s);
         s = JumpEscape.Apply(s, c, jumpEscape);
-        var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
+        var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress || stabPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
             anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
@@ -507,6 +516,7 @@ public static class Combat
         if (reacting || rushing)
         {
             input = input with { MoveX = 0f, MoveY = 0f, Buttons = InputButtons.None };
+            stabPress = false;
             meleeDown = meleePress = heavyDown = heavyPress = fireDown = firePress = switchDown = slotPistolDown = slotPrimaryDown = slotSecondDown = switchPress = false;
             reloadDown = reloadPress = grenadeDown = grenadePress = jumpDown = reloadBlocked = false;
         }
@@ -532,7 +542,7 @@ public static class Combat
             airOpen: c.HopRules && (s.JumpAirOpen || chargeOffLedge), hopNow: tackleCancel);
         if (jump.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (meleePress && (jump.PoundStart || (jump.Buffered && !(s.JumpSlash && s.Jump == JumpPhase.TakeOff)))) used |= InputBuffer.Bit(BufferedAction.Melee);   // the pound, the slash or its take-off buffer
-        if (jump.BlocksMelee) { meleePress = false; heavyPress = false; }
+        if (jump.BlocksMelee) { meleePress = false; heavyPress = false; stabPress = false; }
         bool jumpBusy = jump.Busy;   // dive and recovery: the weapon, switch and throw wait
         // Evade (Evade): end, chaining and start; while it lasts, melee, switch and throw presses do nothing.
         bool aimDown = (input.Buttons & InputButtons.Aim) != 0;
@@ -541,12 +551,12 @@ public static class Combat
         // sim/roll-fire-pitch (protocol 51; the owner 2026-11-01: "ensure you can never shoot while the roll animation is playing"): on the Tactical classes' roll the
         // trigger does not end the evade at the data's BRANCH_ToRanged (RangedAt) any more; Aim and a grenade still do, the stick at BRANCH_Run as before.
         bool roll = IsRoll(evadeSpec);
-        var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
+        var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress || stabPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
             jump.DashStart, jump.Started, dashDirection, world, ignoreLock: tackleCancel && jump.DashStart);
         if (meleeJumpBranch && !escapeMelee && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on (not for the jump escape)
         bool evading = evade.Active;
         if (evade.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
-        if (evading) { meleePress = false; heavyPress = false; switchPress = false; grenadePress = false; }
+        if (evading) { meleePress = false; heavyPress = false; stabPress = false; switchPress = false; grenadePress = false; }
         var lightSteps = Loadouts.Melee(c, s);
         var heavySteps = Loadouts.MeleeHeavy(c, s);
         bool heavy = s.MeleeHeavy;
@@ -617,13 +627,13 @@ public static class Combat
             // sim/stomp-uninterruptible (protocol 51; the owner 2026-11-01: "devastator/havoc stomp can only be cancelled by a hop move. shooting, aim down sight, or any
             // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
             // only the hop (a Jump press from its BRANCH_Evade, above) ends it early. The presses are left unused (the input buffer's own rules decide a replay).
-            if (m.InPlace) { meleePress = false; heavyPress = false; }
+            if (m.InPlace) { meleePress = false; heavyPress = false; stabPress = false; }
             // sim/string-reset (protocol 62; the owner's batch of 2026-11-06 late): a light attack takes a new string from its BRANCH_Melee_String_Reset (MeleeStep.StringResetAt;
             // the hammer's and the maul's X3 at 1.544 s of 2.333 s, X1 and X2 at their combo window's close): a light or heavy press from there that nothing queued ends it, and the
             // press starts attack 1 or heavy strike 1 from rest below in this same tick (the melee lock, set at the attack's start up to its combo window, is over by then).
             // sim/slam-recovery (the owner, 2026-11-07): the hammer's and the maul's Y,Y slam too (a heavy strike with a StringResetAt: its hit + the light combo's 0.633 s), so mashing
             // (presses kept by the input buffer) starts the next swing or stun strike on the reset's tick.
-            if (!queued && (meleePress || heavyPress) && time + TimeEpsilon >= m.StringResetAt)
+            if (!queued && (meleePress || heavyPress || stabPress) && time + TimeEpsilon >= m.StringResetAt)
             {
                 step = 0; time = 0f; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null;
                 goto stringReset;
@@ -665,12 +675,13 @@ public static class Combat
         }
         stringReset:
         // From rest a heavy press starts heavy strike 1 (it wins over a light press in the same tick), a light press attack 1.
-        if (step == 0 && !s.Throwing && (meleeLock <= 0f || cancelStart) && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
+        if (step == 0 && !s.Throwing && (meleeLock <= 0f || cancelStart) && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0) || stabPress))
         {
-            heavy = heavyPress && heavySteps.Count > 0;
-            used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
+            bool stabStart = stabPress && !heavyPress && !meleePress;   // a heavy or light press of the same tick wins (the stab key is the F + F follow-up's twin, not a replacement for the first strike)
+            heavy = stabStart || (heavyPress && heavySteps.Count > 0);
+            if (!stabStart) used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
             steps = heavy ? heavySteps : lightSteps;
-            step = musou && !heavy ? MeleeChain.MusouSwing(lightSteps, 0, input.Tick, s.PlayerId) : 1;
+            step = stabStart ? StabIndex(heavySteps) : musou && !heavy ? MeleeChain.MusouSwing(lightSteps, 0, input.Tick, s.PlayerId) : 1;
             time = 0f; queued = false; queuedHeavy = false; startedNow = true;
             if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
         }

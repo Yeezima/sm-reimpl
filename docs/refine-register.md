@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
+Scanned 3419 spec table rows: **2440 tagged**, 629 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 403 | 346 | 343 | 113 | 12 |
+| Movement (critical) | 404 | 347 | 344 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 157 | 137 | 113 | 56 | 5 |
@@ -53,14 +53,14 @@ Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2439** | 2167 | 1806 | 732 | 37 |
+| **All areas** | **2440** | 2168 | 1807 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1437 |
-| confidence: low | 871 |
+| kind: ours | 1438 |
+| confidence: low | 872 |
 | confidence: medium | 826 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (403)
+### Movement (gameplay-critical) (404)
 
 *Spec section: Extracted parameters*
 
@@ -628,6 +628,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-13EB912C` | Power sword Y,Y finisher: the stab (sim/sword-ff-stab, owner 2026-11-14; supersedes the row above… | the owner's request (verbatim): "currently the power sword F + F heavy attack stun strike combo results in a stomp action by assault marine/raptor. i want you to make a change that results in the F + F heavy attack stun strike combo result in the stab move… (s, damage) | confidence: medium | owner's request; wargear `ability_bullrush_01` perk entry; graph `MP_SM_MEL_PowerSword` | Power sword Y,Y finisher: the stab (sim/sword-ff-stab…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's request (verbatim): "currently the power sword F + F… | ☐ |
+| `R-4C993627` | The stab on T, on its own (classic-stab-on-t, owner 2026-11-17; Classic PvP only; protocol 81) | the owner's request (verbatim): "make the sword stab performed by F + F or rmb + F instead be activated on its own with no precursor move by pressing T. disable the T voice call feature to make space on that keybind for this action." Pressing T… (1 key) | kind: ours; confidence: low | owner's request | The stab on T, on its own (classic-stab-on-t, owner…: compare with SM1 by feel or video. Ours: the owner's request (verbatim): "make the sword stab performed by F +… | ☐ |
 | `R-8F337F3A` | Axe combo windows read from `BRANCH_Melee_Combo_MISS` | the axe's attacks carry only the MISS-named combo branch (the graph also names `BRANCH_Melee_Combo_HIT` and cleave-through branches no sequencer carries); taken as the combo window whether the attack hit or missed | kind: interpretation; confidence: medium | graph | Axe combo windows read from BRANCH_Melee_Combo_MISS: compare with SM1 by feel or video. Ours: the axe's attacks carry only the MISS-named combo branch (the graph… | ☐ |
 | `R-F47076E4` | Hammer light-to-heavy window | read from `BRANCH_Melee_Combo` (0.35–0.72 of "TH Default 1"); the graph's transition to X,Y uses `BRANCH_To_Slam` (0.34–0.70) (s) | kind: ours; confidence: medium | graph | Hammer light-to-heavy window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: read from BRANCH_Melee_Combo (0.35–0.72 of "TH Default 1"); the… | ☐ |
 | `R-BF6EB26D` | Which displace graph | `MP_SM_MEL_TB_Displace` (the heavy-weapon kick) with any weapon in hand; `MP_SM_MEL_Displace` (chainsword kick clip, no kick-to-stomp transition) is not used | kind: ours; confidence: low | graph | Which displace graph: compare with SM1 by feel or video. Ours: MP_SM_MEL_TB_Displace (the heavy-weapon kick) with any weapon in… | ☐ |
@@ -5191,6 +5192,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-6AC0F6ED` | Musou Mode: melee heal cap 5 per swing (lead 25 integration, owner 2026-11-14; `MusouSim.Version` 55) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3"): one melee swing heals for at most the first 5 enemies struck (was 3, 2026-11-12) | Musou Mode only; Classic PvP untouched | Musou Mode: melee heal cap 5 per swing (lead 25…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2E5AA696` | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client only) | Original: only the thunder hammer binds an idle light; the combat knife's perk effect (`combat_knife_idle`, warm light and gold edges) is bound but never played here; Kraken Bolts change no tracer | Ours (the owner's request): every power weapon throws the hammer's blue light, the Serrated Combat Blade gives the knife a green light and green power-field overlay, Kraken Bolts bolters draw larger red tracers (both modes). The green, red and sizes are estimates | `--no-power-light`, `--old-kraken-tracer` restore the before; Musou's claw and spear are not touched | Weapon visuals (fx/weapon-visuals, owner 2026-11-14; client…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4D927CA9` | Power sword F + F is a stab, not a stomp (sim/sword-ff-stab, owner 2026-11-14; Classic PvP only; config hash changes, no protocol bump here) | The original's sword Y,Y finisher is the foot stomp (`SM_MEL_CS_YATK_DSP_Stomp`, blast r 7, 25 + 50) | Ours (the owner's request, verbatim in spec "Power sword Y,Y finisher: the stab"): the second F plays the X,F strike's clip and timing without a blast and hits the primary target for 100 + 50 shield and a stagger (Furious Charge's bull rush entry, always, no perk needed), nothing for others; Musou Mode's sword keeps… | Spec "Power sword Y,Y finisher: the stab"; restore `SM_OLD_SWORD_FF=1` | Power sword F + F is a stab, not a stomp…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-3189CBE8` | The sword stab on T; the T voice call off in Classic PvP (classic-stab-on-t, owner 2026-11-17; protocol 81; Classic PvP only) | The original's sword stab does not exist on its own (its finisher is the foot stomp); the voice call on T is already ours | Ours (the owner's request, verbatim in spec "The stab on T, on its own"): T starts the power sword's stab from rest with no first strike (F + F and RMB + F still chain into it); a weapon without a stab ignores T; the FOR THE EMPEROR call is off in Classic PvP and the "Shout" binding has no default key; Musou Mode… | Spec "The stab on T, on its own" and "The T voice call is off in Classic PvP" | The sword stab on T; the T voice call off in Classic PvP…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1D3CB771` | Melee widens the field of view (camera/melee-fov-widen, owner 2026-11-15; client camera only, no protocol change; Classic PvP and Musou Mode) | The original's camera keeps one field of view through melee | Ours (the owner's request, verbatim: "when melee attacking as any class fov should be slightly expanded by 10 until a ranged attack is executed (left mouse button)"): any melee action (swing, heavy, charge, lunge, ground pound) widens the configured horizontal field of view by 10 degrees, capped at 120, until the… | spec "Melee field-of-view widening" | Melee widens the field of view (camera/melee-fov-widen…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2CF9C68E` | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and hunting instead of patrolling (bots/classic-hunt, owner 2026-11-16; test bots, no protocol or config-hash change) | Multiplayer had no bots | Ours (owner's words verbatim in spec "Hunt when nobody is left to chase" and "Cover at low health"): a retreating bot starts at 30 % health (60 % before) and rejoins at 90 % health and armour but not before 5 s and at the latest after 15 s (35 s before; Seize Ground and, since the owner's "classic pvp seize ground and… | Spec "Hunt when nobody is left to chase", "Cover at low health" | Classic PvP bots: retreat at 30 %, back in 5 to 15 s, and…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-293081FC` | The F7 sound mix editor: per-sound volume, pitch, hearing distance, mute, solo and raw, with export and shipped defaults (sound/mix-expand, owner 2026-11-17; client only, no protocol, wire, rules or config-hash change; every mode) | The original had no sound tuning | Ours (the owner's request, verbatim in spec "The sound mix editor"): off until the owner changes something, a shipped `config/sound-mix-defaults.json` would make a release sound different on purpose; raw plays a sample without the filters, effects and mix passes | Sound mix | The F7 sound mix editor: per-sound volume, pitch, hearing…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

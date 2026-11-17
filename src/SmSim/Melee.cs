@@ -147,6 +147,12 @@ public readonly record struct MeleeStep(
     /// </summary>
     public bool HopSwing { get; init; }
 
+    /// <summary>
+    /// sim/stab-key (owner, 2026-11-17; protocol 81): the strike is the sword's stab, which <see cref="InputButtons.Stab"/> (T) starts from rest on its own, with no precursor move
+    /// (<see cref="Combat.StabIndex"/>); F + F still chains into it. Set by the content reader on the finisher it turns into the stab (Classic PvP only). Hashed only when set.
+    /// </summary>
+    public bool Stab { get; init; }
+
     /// <summary>Writes the fields added in M28 (and M43, Weapons C) for a config hash.</summary>
     internal void WriteExtras(BinaryWriter w)
     {
@@ -171,6 +177,7 @@ public readonly record struct MeleeStep(
         if (float.IsFinite(EvadeAt)) { w.Write((byte)0xE5); w.Write(EvadeAt); }
         if (Steers) { w.Write((byte)0xA7); w.Write(SteerFrom); w.Write(SteerTo); w.Write(SteerRate); }   // sim/slam-steer: only when set
         if (HopSwing) w.Write((byte)0xA8);   // sim/hop-swing: only when set
+        if (Stab) w.Write((byte)0xA9);   // sim/stab-key: only when set
     }
 }
 
