@@ -32,4 +32,20 @@ public sealed partial class CreatorView
         Say($"{row.Title}: your whole squad. SAVE keeps it.", 4.0);
         Refresh(focusList: false);
     }
+
+    /// <summary>Test aid (<c>--warfront-hooks-test</c>): the Librarian's page on its SUPPORT ABILITIES step.</summary>
+    internal void WarfrontTestShowLibrarianSupport()
+    {
+        ChooseMusouEntry(MusouCustomizerEntry.Librarian);
+        _step = (Step)MusouCustomizer.SupportStep;
+        Refresh(focusList: false);
+    }
+
+    /// <summary>Test aid: presses the squad-class row of <paramref name="squad"/> and answers what the working profile holds after it.</summary>
+    internal string WarfrontTestPress(SmSim.Extras.Warfront.Squad.SquadClass squad)
+    {
+        var row = WarfrontSquadClassOption.Rows(squad)[0].Rows[(int)squad == 0 ? 0 : (int)squad];
+        LibrarianChoose(row);
+        return WarfrontSquadClassOption.SquadClassOf(_session.Working).ToString();
+    }
 }

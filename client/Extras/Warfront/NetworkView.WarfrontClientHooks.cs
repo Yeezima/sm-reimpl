@@ -46,13 +46,14 @@ public partial class NetworkView
         if (!WarfrontOn) return;
         handled = true;
         if (_bot) return;
-        bool held = Input.IsPhysicalKeyPressed(Key.M) && !PickerBusy;
+        bool held = (Input.IsPhysicalKeyPressed(Key.M) || _wfhHoldM) && !PickerBusy;   // _wfhHoldM: the test aid's stand-in for the key (a synthetic event does not set the polled key state)
+        _tfwMapHeld = held;   // Musou's HUD hides under the held map as it does under its own
         if (held && _wfPeek is null)
         {
             _wfPeekLayer = new CanvasLayer { Name = "WarfrontMapPeek", Layer = 50 };
             var root = new Control { Name = "WarfrontMapPeekRoot", Theme = SmClient.Customizer.UiKit.Theme, MouseFilter = Control.MouseFilterEnum.Ignore };
             _wfPeek = new WarfrontHubPanel(WarfrontModel.Hub, null) { MouseFilter = Control.MouseFilterEnum.Ignore };
-            for (int row = 0; row < WarfrontHubModel.Rows; row++) { var b = _wfPeek.DeployRow(row); b.MouseFilter = Control.MouseFilterEnum.Ignore; b.FocusMode = Control.FocusModeEnum.None; }
+            for (int row = 0; row < WarfrontHubModel.Rows; row++) { var b = _wfPeek.DeployRow(row); b.MouseFilter = Control.MouseFilterEnum.Ignore; b.FocusMode = Control.FocusModeEnum.None; b.Modulate = new Color(1f, 1f, 1f, 0f); }   // read only: no deploy rows drawn
             root.AddChild(_wfPeek);
             _wfPeekLayer.AddChild(root);
             AddChild(_wfPeekLayer);
@@ -124,6 +125,8 @@ public partial class NetworkView
         if (_hudView is not null) WarfrontCoopBuildUi(_hudView);
         WarfrontCoop.Tick(dt);
         WarfrontKeyNodeEnsure();
+        MusouEnsureCarry();   // the attack-speed carry stands from the first frame, buff lists or none
+        WarfrontHooksTestFrame(me, dt);
         bool spectating = WarfrontSpectating && !_bot;
         if (spectating)
         {

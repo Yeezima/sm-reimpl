@@ -45,6 +45,12 @@ public partial class NetworkView
             _musouBuffEnd[k] = tick + b.TicksLeft;
             if (_musouBuffEnd[k] > was[k] + 2) _musouBuffsSeen++;   // a new or restarted buff (a refresh of the same end does not count)
         }
+        MusouEnsureCarry();
+    }
+
+    /// <summary>Installs the reconcile's carry once (the first buff list, or Warfront's first frame: its cards' bonus rides on it and a server may never send a buff list).</summary>
+    void MusouEnsureCarry()
+    {
         if (!_musouCarrySet && _client is { } client)
         {
             _musouCarrySet = true;
