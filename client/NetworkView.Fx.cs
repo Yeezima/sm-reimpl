@@ -107,6 +107,7 @@ public partial class NetworkView
         var layer = new CanvasLayer { Name = "FxFlash", Layer = 2 };
         layer.AddChild(_flash);
         AddChild(layer);
+        SetUpGrenadeBlur();
         if (NoFx || PlaceholderFx || Lean) { _fxNote = Lean ? "not loaded (lean bot)" : NoFx ? "switched off (--no-fx)" : "placeholder spheres (--placeholder-fx)"; return; }   // perf/lean-bots
         string dir = _gameDir;
         bool loadDeath = !NoDeathFx;   // read on the main thread (it asks the engine for the command line)
@@ -237,6 +238,7 @@ public partial class NetworkView
     {
         if (_camera is null || _client is null || _config is null) return;
         UpdateFlash(delta);
+        GrenadeBlurFrame();   // grenade-effects: the frag blast's blur
         CharacterFlashFrame();   // fx/character-visuals: armour flashes on the models
         StimGlowFrame();   // fx/visuals-2 (item 48): the stim's red aura and cross (NetworkView.Stims.cs)
         RequestPoundRings();   // M41
@@ -757,7 +759,7 @@ public partial class NetworkView
         int blastPriority = _camera is not null && _camera.GlobalPosition.DistanceTo(pos) <= FxPriority.NearBlastMetres ? FxPriority.Hit : FxPriority.Special;   // fx-cap-priority: a blast beside the player goes after the other blasts
         if (priority is { } forced) blastPriority = forced;   // the own shot's terrain flash: the own tier
         foreach (var p in plays)
-            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, delay, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) { played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); played.BrightFlash = flashOnly; if (grenade && GrenadeKeepsSmoke(p.Name)) played.KeepGrenadeSmoke(GrenadeFx.SmokeShare); }   // grenade-effects: a frag blast's smoke and dust (owner 2026-11-17)
+            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, delay, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) { played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); played.BrightFlash = flashOnly; if (grenade && GrenadeKeepsSmoke(p.Name)) { played.KeepGrenadeSmoke(GrenadeFx.SmokeShare); if (!OldGrenadeFx) played.Collisions = true; } }   // grenade-effects: a frag blast keeps its smoke and dust (owner 2026-11-17) and its droppers (Chaos: the whole explosion; the scorch decal) start on the ground it is placed on
         if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
             if (_fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, delay, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } playedHit) { playedHit.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); playedHit.BrightFlash = flashOnly; }

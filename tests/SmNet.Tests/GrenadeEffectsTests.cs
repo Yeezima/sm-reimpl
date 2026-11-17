@@ -117,6 +117,19 @@ public class GrenadeFxTests
     }
 
     [Fact]
+    public void The_blur_follows_the_same_envelope_scales_with_the_screen_and_ends_with_the_effect()
+    {
+        Assert.Equal(1f, GrenadeFx.Envelope(0f));
+        Assert.Equal(1f, GrenadeFx.Envelope(GrenadeFx.Duration * 0.5f));
+        Assert.Equal(0.5f, GrenadeFx.Envelope(GrenadeFx.Duration * 0.75f), 3);
+        Assert.Equal(0f, GrenadeFx.Envelope(GrenadeFx.Duration));
+        Assert.Equal(6f, GrenadeFx.BlurRadius(0f, 1f, 720f), 3);          // blur power 0.5 x 12 px
+        Assert.Equal(12f, GrenadeFx.BlurRadius(0f, 1f, 1440f), 3);
+        Assert.Equal(3f, GrenadeFx.BlurRadius(0f, 0.5f, 720f), 3);
+        Assert.Equal(0f, GrenadeFx.BlurRadius(0.1f, 1f, 720f));
+    }
+
+    [Fact]
     public void Only_the_frag_blasts_keep_their_smoke()
     {
         Assert.True(GrenadeFx.KeepsSmoke("frag_grenade_explosion"));

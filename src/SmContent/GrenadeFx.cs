@@ -30,6 +30,23 @@ public static class GrenadeFx
     public static float Strength(float distance) =>
         !(distance > AttenuationStart) ? 1f : distance >= AttenuationEnd ? 0f : (AttenuationEnd - distance) / (AttenuationEnd - AttenuationStart);
 
+    /// <summary>The camera effect's blur power (original data: <c>blur_power</c> 0.5; its unit is not stated).</summary>
+    public const float BlurPower = 0.5f;
+    /// <summary>The widest blur radius in pixels at a 720-pixel-high screen for a blur power of 1 (ours / estimate: the data gives no unit; 0.5 draws a 6 px blur, scaled with the screen height).</summary>
+    public const float BlurPixels720 = 12f;
+
+    /// <summary>The share of the effect still running <paramref name="age"/> seconds after the blast: 1 until the ease out begins, then down to 0 at <see cref="Duration"/>; 0 outside it.</summary>
+    public static float Envelope(float age)
+    {
+        if (age < 0f || age >= Duration) return 0f;
+        float fadeFrom = Duration * (1f - EaseOut);
+        return age <= fadeFrom ? 1f : (Duration - age) / (Duration - fadeFrom);
+    }
+
+    /// <summary>The blur radius in pixels on a screen <paramref name="screenHeight"/> pixels high, <paramref name="age"/> seconds after a blast at <paramref name="strength"/> (see <see cref="Strength"/>).</summary>
+    public static float BlurRadius(float age, float strength, float screenHeight) =>
+        BlurPower * BlurPixels720 * (screenHeight / 720f) * strength * Envelope(age);
+
     /// <summary>The camera offset (right, up) in metres <paramref name="age"/> seconds after the blast at the given <paramref name="strength"/>; zero once <see cref="Duration"/> has passed.</summary>
     public static (float Right, float Up) Offset(float age, float strength)
     {

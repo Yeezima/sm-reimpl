@@ -42,7 +42,7 @@ Scanned 3432 spec table rows: **2450 tagged**, 632 not tagged (read from data wi
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 76 | 71 | 56 | 12 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
-| Effects (critical) | 99 | 89 | 82 | 42 | 0 |
+| Effects (critical) | 99 | 90 | 82 | 42 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
@@ -53,19 +53,19 @@ Scanned 3432 spec table rows: **2450 tagged**, 632 not tagged (read from data wi
 | Core simulation (provisional values) | 735 | 692 | 523 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2450** | 2175 | 1816 | 734 | 37 |
+| **All areas** | **2450** | 2176 | 1816 | 734 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1444 |
+| kind: ours | 1445 |
 | confidence: low | 875 |
 | confidence: medium | 832 |
 | notes: ours | 405 |
 | kind: interpretation | 395 |
 | notes: estimate | 203 |
-| kind: estimate | 167 |
+| kind: estimate | 168 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2042,7 +2042,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-546405F6` | Master-Crafted grenade look (grenade-effects, owner 2026-11-17; protocol 83) | a thrown item launched with the owner's Master-Crafted Wargear blueprint (`pp_grenade_multiplayer_upgraded`, `_chaos_upgraded`) is marked on the wire (`ProjectileFlags.Upgraded`, bit 5 of a projectile record's flag byte, thrown items only); every client draws… (scale, s) | notes: ours | ebps `pp_grenade_multiplayer*` (original data); the flag is ours | Master-Crafted grenade look (grenade-effects, owner…: compare with SM1 with side-by-side video of the same action. Ours: a thrown item launched with the owner's Master-Crafted Wargear… | ☐ |
 | `R-2F73D146` | Frag blast smoke and dust (grenade-effects, owner 2026-11-17, card G1 "Smoke on frags only") | the two frag blast effects draw their smoke and dust sprites again although the no-smoke rule is on; the krak, the bolt weapons and everything else stay without. Share of the smoke and dust sprites drawn `GrenadeFx.SmokeShare` 0.3: the data's full cloud is… (share) | kind: ours; kind: estimate; confidence: low | owner (rule); 0.3 ours | Frag blast smoke and dust (grenade-effects, owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: the two frag blast effects draw their smoke and dust sprites again… | ☐ |
 | `R-55AB0153` | Frag camera effect (grenade-effects, owner 2026-11-17, card G4 "Game's") | the blueprints' `camera_effect`: duration 0.07 s, ease out 0.5, blur 0.5, attenuation 5 m to 10 m, shake horizontal 0.05 and vertical 0.1 at 12 Hz (pitch, yaw, roll 0); replaces the placeholder shake and kick for frag blasts (krak and others unchanged). Drawn… (s, m) | kind: ours; kind: estimate; confidence: medium | ebps (values original data); units and curve ours | Frag camera effect (grenade-effects, owner 2026-11-17, card…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the blueprints' camera_effect: duration 0.07 s, ease out 0.5, blur… | ☐ |
-| `R-F97A0890` | Frag grenade sounds (grenade-effects, card G3 "Game's own loop") | unchanged from the file-driven sounds: trail loop `play_frag_grenade_trail_mp` (`play_ch_frag_grenade_trail`), stopped by `stop_*` at the blast; blast events per blueprint (see the Master-Crafted row); throw `play_sm_grenade_toss` from the wargear's fire… | confidence: medium | ebps, wargear | Frag grenade sounds (grenade-effects, card G3 "Game's own…: compare with SM1 with side-by-side video of the same action. Ours: unchanged from the file-driven sounds: trail loop… | ☐ |
+| `R-C7CC2224` | Frag grenade sounds (grenade-effects, card G3 "Game's own loop"; fix pass 2026-11-17) | file-driven, **verified by `--log-sound grenade` runs in Classic and Musou**: throw `play_sm_grenade_toss` at the release (0.1 s after the press, from the wargear's `fire_audio`); trail loop `play_frag_grenade_trail_mp` (`play_ch_frag_grenade_trail`) from the… | kind: ours; kind: estimate; confidence: medium | ebps, wargear (original data); the victim rule ours | Frag grenade sounds (grenade-effects, card G3 "Game's own…: compare with SM1 with side-by-side video of the same action. Ours: file-driven, verified by --log-sound grenade runs in Classic and… | ☐ |
 
 *Spec section: Effect rendering (M25b; client only, not simulated)*
 

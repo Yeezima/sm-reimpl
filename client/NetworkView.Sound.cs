@@ -957,6 +957,7 @@ public partial class NetworkView
         // M38: a detonation is a level impact: the armour impact state (no flesh layer) for all of its posts, whatever the own armour events left behind; restored afterwards.
         var stateBefore = BeginImpactState(flesh: false);
         if (file is not null) PostAll(file.Of("detonate_action"), at, false, "detonation");
+        if (file is not null && source == "projectile") GrenadeVictimSounds(d, file);   // grenade-effects: play_big_damage_grenade / play_grenade_damage_smack at the players the blast reaches
         if (name is not null && _soundTriggers.HitSound(name) is { } hitSound && file?.Of("detonate_action").Any(b => b.StartEvent == hitSound) != true)
         {
             _sound.Post(hitSound, at);
