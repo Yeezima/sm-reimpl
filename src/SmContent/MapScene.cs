@@ -100,6 +100,10 @@ public sealed class MapScene
     /// <summary>The <c>ssdecal</c> entries of the archive by name (their textures are in <see cref="Textures"/>).</summary>
     public IReadOnlyDictionary<string, MapDecalDefinition> DecalDefinitions { get; init; } = new Dictionary<string, MapDecalDefinition>();
 
+    /// <summary>The raw DDS bytes of a colour-grade material's <c>lookup</c> volume (a region's <see cref="ColourGradeDesc"/>); null when the material or texture is not in the archive.</summary>
+    public byte[]? GradeLookup(string material) =>
+        Materials.TryGetValue(material, out var m) && m.Textures.TryGetValue("lookup", out var name) && Textures.TryGetValue(name, out var bytes) ? bytes : null;
+
     /// <summary>Degrees about X, then Y, then Z (fixed axes).</summary>
     public static Quaternion Rotation(float xDegrees, float yDegrees, float zDegrees)
     {
@@ -198,6 +202,9 @@ public sealed class MapScene
         foreach (var name in usedDecals.Order(StringComparer.Ordinal))
             if (decalDefinitions.TryGetValue(name, out var dd)) foreach (var t in dd.TextureNames) wanted.Add(t);
             else notes.Add($"decal '{name}' not in the archive; its {decals.Count(d => d.Decal.Equals(name, StringComparison.OrdinalIgnoreCase))} placements are not drawn");
+        // The colour grades' look-up volumes (environment regions' ColourGradeEffectDesc: the material's "lookup" texture).
+        foreach (var grade in lighting?.Environments.Select(e => e.Grade).OfType<ColourGradeDesc>() ?? [])
+            if (materials.TryGetValue(grade.Material, out var gm) && gm.Textures.TryGetValue("lookup", out var lut)) wanted.Add(lut);
         var textures = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textures.TryAdd(e.FileName, data.ToArray()));
 
