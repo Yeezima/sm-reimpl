@@ -66,7 +66,7 @@ public sealed partial class MapDecalView : Node3D
                 DistanceFadeEnabled = true, DistanceFadeBegin = Range - FadeLength, DistanceFadeLength = FadeLength,
                 Modulate = new Color(tint.X, tint.Y, tint.Z, Math.Clamp(opacity, 0f, 1f)),
                 Visible = false,
-                Transform = ToGodot(d.Transform),
+                Transform = ToGodot(d.Transform) * new Transform3D(new Basis(Vector3.Up, MathF.PI), Vector3.Zero),   // the data's texture axes: a turn of half a circle about the projection axis (checked on the painted TERTIUS: upright then)
             };
             if (def.AdditiveBlend)
             {
