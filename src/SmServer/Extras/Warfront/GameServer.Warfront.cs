@@ -147,8 +147,8 @@ public sealed partial class GameServer
     {
         if (Map is null || !World.Config.Extras.HasFlag(ContentExtras.Warfront)) return;
         var slot = WarfrontSlots.ByName(Map.Name);
-        bool hq = Map.Name is WarfrontMaps.HqName or WarfrontMaps.FortressName;   // composed with the hub, built in code: the walk area is the field's
-        if (slot is null && !hq) return;
+        bool composedWithHub = Map.Name is WarfrontMaps.HqName or WarfrontMaps.FortressName;   // composed with the hub, built in code: the walk area is the field's
+        if (slot is null && !composedWithHub) return;
         handled = true;
         try
         {
@@ -227,7 +227,7 @@ public sealed partial class GameServer
         _wf = state;
         if (WarfrontStagePlan.HasShip(Map.Name) && campaign.Phase != WarfrontPhase.Travel) WarfrontRunFiles.WriteStage(dir, new(Map.Name, [], Map.Name));
         WfLog($"{how}; map {Map.Name}; at most {maxHumans} human(s)");
-        foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED" })
+        foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED", "SM_WF_FORTRESS_WALK" })
             if (Environment.GetEnvironmentVariable(aid) is { Length: > 0 } v) WfLog($"test aid {aid}={(aid == "SM_WF_DIR" ? "(set)" : v)}");
         string? resolve = Environment.GetEnvironmentVariable("SM_WF_RESOLVE");
         if (resolve is "win" or "wipe") { state.ResolveAid = true; state.ResolveWins = resolve == "win"; }
@@ -268,6 +268,7 @@ public sealed partial class GameServer
             WarfrontIdentityTimeouts(s);
             WarfrontArrivalStep(s);
             WarfrontBattleWatch(s);
+            WarfrontFortressWalkAid(s);
             WarfrontResolveAid(s);
             WarfrontPrepareWatch(s);
             WarfrontGoWatch(s);

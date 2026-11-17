@@ -171,6 +171,7 @@ public sealed partial class GameServer
         {
             rules.Target = target.Kind;   // the run's battle plan reads it (the HQ defence's layout)
             rules.Fortress = fortress ? WarfrontFortressSetupFor(run) : null;   // the fortress's plan and sight test (W14b); only a fortress stage ever sets it
+            if (rules.Fortress is { Sight: null }) WfLog($"FAULT: the fortress stage has no sight test (this map has no weapon collision): stage 2 sources stay closed to anyone in the plaza and no spawn is judged hidden");
         }
         run.War.SetFrontsForTests(hq || fortress ? (sbyte)0 : (sbyte)(slot!.Node - 1));   // the HQ and the fortress: a node battle's frame on lane A; the plan hook replaces the layout
         if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)(hq || fortress ? 0 : slot!.Lane)))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }

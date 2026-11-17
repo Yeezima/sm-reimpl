@@ -388,6 +388,9 @@ public class WarfrontFortressBattleTests
     [Fact]
     public void The_fortress_leash_groups_meet_none_of_the_battles_own()
     {
+        // The two ranges (W14b review 2): the fortress's leash groups are GroupFirst (200) up to 200 + elite posts + approach posts (the live arena: 8 + 2, so 200 to 209). Musou's own battle groups are 1 to 23 (garrisons 1 to 3, the
+        // commander 4, the positions' crowds from 6, the musters 9 to 12, the patrol columns 13 on, the Big Shootas 21 to 23), checked below with a margin of 20; groups from 1000 (the HQ defence's waves, 1000 + 100 w + c; the armies from
+        // 100000) are not checked against: an HQ battle and a fortress battle never share a process.
         var own = typeof(TfwBattle).GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)
             .Where(f => f.IsLiteral && f.FieldType == typeof(int) && f.Name.Contains("Group")).Select(f => (int)f.GetRawConstantValue()!).ToArray();
         Assert.NotEmpty(own);
