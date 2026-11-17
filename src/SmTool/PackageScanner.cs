@@ -55,6 +55,9 @@ public sealed class PackageScanner
     /// </summary>
     public HashSet<string>? AllowedExtensions { get; set; }
 
+    /// <summary>Extra allowed extensions only for entries whose package path starts with the prefix (case-insensitive, forward slashes), on top of <see cref="AllowedExtensions"/>: the Mapmaker project folder of the playtest build.</summary>
+    public Dictionary<string, HashSet<string>> ScopedExtensions { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// When set, a package must contain at least one Godot pack that parsed and lists the client's own entries (an executable with an embedded pack, or a .pck);
     /// otherwise the package is refused ("no-verified-pack"). Used for the client zip.
@@ -332,7 +335,8 @@ public sealed class PackageScanner
         if (AllowedExtensions is { } allowed && !sourceArchive)
         {
             bool bare = ext.Length == 0;
-            if (bare ? !AllowedBareNames.Contains(file, StringComparer.OrdinalIgnoreCase) : !allowed.Contains(ext))
+            bool scoped = !bare && !name.Contains("..") && ScopedExtensions.Any(kv => name.Replace('\\', '/').StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase) && kv.Value.Contains(ext));
+            if (bare ? !AllowedBareNames.Contains(file, StringComparer.OrdinalIgnoreCase) : !allowed.Contains(ext) && !scoped)
                 Add("unexpected-type", bare ? "a file without extension that the binary packages do not contain" : $"'{ext}' is not a type this package may contain");
         }
 

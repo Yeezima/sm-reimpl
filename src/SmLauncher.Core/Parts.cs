@@ -139,7 +139,7 @@ public static class PartRules
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>The parts in the order they are listed and downloaded.</summary>
-    public static readonly string[] Order = ["meta", "launcher", "engine", "dotnet", "client", "media", "ashfall", "server", "source"];
+    public static readonly string[] Order = ["meta", "launcher", "engine", "dotnet", "client", "media", "ashfall", "mapmaker", "server", "source"];
 
     public static bool IsPartName(string? name) => name is not null && PartName.IsMatch(name);
 
@@ -154,6 +154,7 @@ public static class PartRules
         switch (top)
         {
             case "source": return "source";
+            case "mapmaker": return "mapmaker";      // the Mapmaker project and its assemblies (the launcher's MAPMAKER button); the Godot editor itself is downloaded on first use, not shipped
             case "server": return s.Length == 2 && Runtime.IsMatch(leaf) ? "dotnet" : "server";
             case "game":
                 if (s.Length == 2)

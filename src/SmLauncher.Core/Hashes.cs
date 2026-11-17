@@ -34,6 +34,23 @@ public static class Hashes
         return Convert.ToHexStringLower(sha.GetHashAndReset());
     }
 
+    /// <summary>SHA-512 of a file as lower-case hex (the Godot editor and .NET runtime downloads of the Mapmaker button); <paramref name="progress"/> gets the bytes hashed so far.</summary>
+    public static async Task<string> Sha512FileAsync(string path, IProgress<long>? progress, CancellationToken ct)
+    {
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA512);
+        await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var buffer = new byte[1 << 20];
+        long done = 0;
+        int n;
+        while ((n = await fs.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+        {
+            sha.AppendData(buffer, 0, n);
+            done += n;
+            progress?.Report(done);
+        }
+        return Convert.ToHexStringLower(sha.GetHashAndReset());
+    }
+
     public static string Sha256File(string path)
     {
         using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.SequentialScan);

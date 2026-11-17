@@ -81,7 +81,7 @@ does not have it yet.
 
 - **The parts** (`PartRules` in `src/SmLauncher.Core/Parts.cs`, by path): `engine` (`game\sm-reimpl.exe`, the console wrapper, `GodotSharp.dll`),
   `dotnet` (the .NET runtime files of `game\data_*\` and `server\`, which hold the same bytes: carried once), `client` (the game's own assemblies,
-  `SmClient.deps.json`, `game\sm-reimpl.pck`), `media` (`game\assets\`), `ashfall` (`game\ashfall-kit\`), `server` (SmServer and the libraries it
+  `SmClient.deps.json`, `game\sm-reimpl.pck`), `media` (`game\assets\`), `ashfall` (`game\ashfall-kit\`), `mapmaker` (`mapmaker\`, see "The Mapmaker" below), `server` (SmServer and the libraries it
   shares with the client), `launcher` (`0 - SM Reimpl Launcher.exe`), `source` (the source offer) and `meta` (the numbered scripts, the read-me,
   `game\Launcher.ps1`, `notes\`). Files with the same bytes are carried once, by the part of the first of them in path order.
 - **Fingerprints:** a part's content id is the SHA-256 of its `<sha256> <path>` lines (sorted); its zip is `sm-reimpl-part-<part>-<first 16 hex digits>.zip`
@@ -116,6 +116,52 @@ does not have it yet.
   Linux server tar).
 - **When an upload fails half-way:** the build is not released; parts that went up are reused by the next `ship.cmd`. A part GitHub kept half-uploaded
   blocks its name: delete it with `gh release delete-asset parts <zip> --repo Yeezima/sm-reimpl-releases` and ship again.
+
+## The Mapmaker (owner, 2026-11-17: every ship carries the newest Mapmaker)
+
+The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a **MAPMAKER** button next to PLAY that opens it in a Godot editor window.
+
+- **What ships:** the folder `mapmaker\` (its own part, `mapmaker`, about 5 MB zipped, rebuilt from the commit by `release.ps1` so it changes with every ship that
+  touches the plugin or the core it uses): `project.godot`, `Mapmaker.csproj`, `Maps\Empty.tscn`, `addons\sm_mapmaker\` (the plugin's sources, `.uid` and `plugin.cfg`)
+  and `bin\` (the compiled `Mapmaker.dll` with `SmMapmaker`, `SmContent`, `SmFormats`, `SmSim` and their `.deps.json`/`.runtimeconfig.json`; built with
+  `dotnet build mapmaker -c Debug` in the clean copy because the editor loads the project's Debug assembly and a tester has no .NET SDK). No game data and nothing
+  converted from it: the plugin streams SM1 content from the player's own install in memory, found as the game finds it (Steam, the saved settings), and the scene
+  holds ids and transforms only. The guard's binary profile allows the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) for this folder.
+- **The Godot editor is not in the build: the launcher downloads it on first use (option B), and why.** Parts upload once and are reused, so bundling the
+  117 MB editor as a part would also cost nothing per later ship; but every tester would carry about 257 MB unpacked per kept version (two are kept) whether or
+  not they ever press MAPMAKER, `Check files` would hash it each time, and the first ship would upload 111 MB for a feature most testers may not use. A download
+  on first use costs only the testers who press the button, is kept once in `<install folder>\tools\godot-4.7.2\` for every later build, and needs no
+  upload. The launcher pins the official zip (`MapmakerTools` in `src/SmLauncher.Core/Mapmaker.cs`: the godotengine/godot release URL for 4.7.2-stable, exact size
+  116,582,061 bytes, SHA-512) and also fetches the release's `SHA512-SUMS.txt` first: the two must agree or nothing is downloaded; the file is hashed after the
+  download and deleted if it differs. Resumable and retried like a build download (`Downloader`), unpacked with the same safe zip code (`SafeZip`) into a `.staging`
+  folder that is renamed only when the expected files are there. Hosts allowed: github.com (and its asset hosts) and `builds.dotnet.microsoft.com`
+  (`NetPolicy.Tools`; the update check keeps the GitHub-only policy). The editor is **not** redistributed by us: Godot is MIT, named in `THIRD_PARTY_NOTICES.md`
+  (the licence text and its third-party list are already in `notes\licenses\godot\`).
+- **.NET:** the Godot .NET editor needs a .NET 10 runtime. If `DOTNET_ROOT` or Program Files has one (`shared\Microsoft.NETCore.App\10.*`) it is used; otherwise the
+  launcher also downloads Microsoft's runtime zip (`dotnet-runtime-10.0.15-win-x64.zip`, about 35 MB, SHA-512 pinned from Microsoft's `releases.json`) into
+  `tools\dotnet-10.0.15\` and starts the editor with `DOTNET_ROOT` pointing at it (Godot honours it first; checked with an empty and with a private runtime).
+- **The button** (`MainForm.OpenMapmakerAsync`): asks first when a download is needed (size, hosts, checked), then shows the usual progress bar with Cancel;
+  copies the build's project into `<install folder>\mapmaker-project\` (`MapmakerSetup.SyncProject`: only changed files, the assemblies into
+  `.godot\mono\temp\bin\Debug`, old addon files removed, the editor's import cache kept; the build's own folder is never written), does the **first-time import
+  with no window** (`--headless --editor --quit-after 600`, the console build; a progress note "first start, about a minute, once", so the window never looks frozen),
+  then opens the editor **in a visible window** (`--editor --path <project>`; with Old GPU / safe mode ticked also the Compatibility renderer) and says "The Mapmaker is open.";
+  an editor that dies within 20 s with an error code says so and points at safe mode. The SM1 install is found by the plugin itself (`GameInstall`: the same order as
+  the game: `SM_GAME_DIR`, saved settings, Steam), so there is no extra setting.
+- **Never downloaded twice (owner, 2026-11-17):** a downloaded folder carries `.sm-verified` holding the pinned SHA-512 and is written only after the hash check and the unpack
+  succeeded; `MapmakerSetup.Installed` needs the files and a marker equal to the pin, so a second press makes no request. Only a release that ships a new pin (another
+  folder name or hash in `MapmakerTools`) downloads again. The project copy follows the build through the release parts only. `.sm-build` lists the files a sync copied: only
+  those are deleted by a later sync or by removal, so a tester's own saved scenes in `mapmaker-project\Maps\` are never lost. The first-time import is the one-shot
+  `--headless --import --path` with a 3-minute limit; `.sm-imported` is written only after exit code 0 (and cleared when a sync changed files), so an early quit is retried.
+  **Uninstall:** the launcher has no uninstall yet; `--root <dir> --remove-mapmaker` (`MapmakerSetup.Remove`) deletes `tools\` and the launcher-made files of
+  `mapmaker-project\` (tester files stay; maps in the library folder are outside the install), ready for the uninstall to call.
+- **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
+- **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
+- **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print
+  `mapmaker check: ok` (the shipped project is complete; the editor, first-import and safe-mode command lines are well formed and the editor lives under the install
+  folder), then the shipped `mapmaker\` is laid out as the button lays it out and the repo's cached Godot opens it with `--headless --editor` on the hidden
+  rules (Start-QuietProcess): the plugin's log line `Mapmaker: plugin entering the tree` must appear (the assembly and its dependencies loaded). The launcher's rule
+  check also covers the tools policy and the pins. Tests: `tests/SmLauncher.Tests/MapmakerTests.cs` (command lines, sync, plan, the pinned download against a fake
+  host: wrong hash, mismatching published checksum, missing files, unsafe zip paths).
 
 ## Step timings
 
@@ -227,7 +273,7 @@ from this repository's releases and starts Play, Host and Join. The zip's number
   exception handler) or a failed self-test or swap puts the old launcher back and starts it with a notice. With the window, every way out starts a
   launcher, except when the old process is still running (nothing changed), another helper is at work, or another launcher holds the install folder.
   Checked on a test root both ways; the failure path with the test aid `SM_LAUNCHER_TEST_FAIL_AFTER_UPDATE=1` (the new window exits 3).
-- **Buttons and links:** Update / Resume update, PLAY (`2 - Play.cmd`; hosting and joining are in the game's own menu, not in the launcher since 2026-11-01), Check files (hash every file; offers to download a damaged
+- **Buttons and links:** Update / Resume update, PLAY (`2 - Play.cmd`; hosting and joining are in the game's own menu, not in the launcher since 2026-11-01), MAPMAKER (next to PLAY, same size and type; opens the Godot editor on the build's Mapmaker, see "The Mapmaker"), Check files (hash every file; offers to download a damaged
   build again), Roll back to the previous version (and back again with Update, no download), Open the release page, Report an issue (the Issues tab),
   Open the install folder, Repair: clear caches.
 - **Smoke test:** `release.cmd -Smoke` runs `0 - SM Reimpl Launcher.exe --selftest` in the unpacked zip: it must print `launcher selftest: ok` (its rules

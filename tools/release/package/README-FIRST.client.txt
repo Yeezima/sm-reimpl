@@ -48,8 +48,17 @@ THE FILES, IN ORDER
       starts a Musou Mode server that only this PC can join (co-op, up to 4 players)
   @MUSOULAN@
       starts a Musou Mode server that other PCs can join (up to 4 players together)
-  Folders: game\ (the program), server\ (the bundled dedicated server), source\ (the source code),
-  notes\ (version, licences, tester notes). You never need to open them.
+  Folders: game\ (the program), mapmaker\ (the map editor's project), server\ (the bundled dedicated server),
+  source\ (the source code), notes\ (version, licences, tester notes). You never need to open them.
+
+THE MAPMAKER (build your own maps)
+  Press MAPMAKER next to PLAY in the launcher. It opens the Mapmaker in the free Godot editor, using your own
+  Space Marine install (found like the game finds it). The first press asks before it downloads the Godot
+  editor once (about 111 MB, from godotengine's official release on GitHub, checked against its published
+  SHA-512; and Microsoft's small .NET runtime only if your PC has no .NET 10) into the launcher's folder, then
+  prepares the editor for about a minute. After that it opens in a few seconds. The Mapmaker tab "Start" has
+  New map and PLAY TEST. Maps and your library are saved under %LOCALAPPDATA%\sm-reimpl\mapmaker on your PC.
+  The build holds no game files: the editor reads your install while it runs.
 
 GETTING INTO A MATCH
   Join someone's server

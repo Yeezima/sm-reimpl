@@ -112,6 +112,13 @@ static class Cli
                 PrintStatus(localUpdater);
                 return 0;
             }
+            case "remove-mapmaker":
+                // The Mapmaker's part of an uninstall: the downloaded editor and runtime, and the project copy's launcher-made files (a tester's own files stay).
+                if (new MapmakerSetup(layout).Remove() is { } removeProblem) { Console.WriteLine(removeProblem); return 1; }
+                Console.WriteLine("mapmaker removed: tools\\ and the project copy's launcher files");
+                return 0;
+            case "mapmaker-check":
+                return MapmakerCheck(updater, layout);
             case "adopt":
             {
                 string from = a["adopt"] ?? throw new ArgumentException("--adopt needs a folder.");
@@ -122,6 +129,34 @@ static class Cli
             }
         }
         return 2;
+    }
+
+    /// <summary>
+    /// The release smoke test's check of the MAPMAKER button (never opens a window, downloads nothing, writes nothing): the active build ships the Mapmaker
+    /// project with every file the editor needs, and the button's command lines (the first-time import and the editor) resolve. Exit 0 = ok.
+    /// </summary>
+    static int MapmakerCheck(Updater updater, InstallLayout layout)
+    {
+        string? dir = updater.CurrentDir();
+        if (dir is null) { Console.WriteLine("mapmaker check: FAILED: no active version"); return 1; }
+        if (MapmakerSetup.CheckShipped(dir) is { } problem) { Console.WriteLine("mapmaker check: FAILED: " + problem); return 1; }
+        var setup = new MapmakerSetup(layout);
+        var plan = setup.Plan(dir);
+        var editor = setup.EditorCommand();
+        var import = setup.EditorCommand(headlessImport: true);
+        var safe = setup.EditorCommand(safeMode: true);
+        var bad = new List<string>();
+        if (!editor.Arguments.Contains("--editor") || !editor.Arguments.Contains("--path") || editor.Arguments.Contains("--headless")) bad.Add("editor arguments");
+        if (!import.Arguments.Contains("--headless") || !import.Arguments.Contains("--import")) bad.Add("import arguments");
+        if (!safe.Arguments.Contains("gl_compatibility")) bad.Add("safe-mode arguments");
+        if (!string.Equals(editor.WorkingDirectory, setup.WorkProject, StringComparison.OrdinalIgnoreCase) || !editor.Arguments.Contains(setup.WorkProject)) bad.Add("project path");
+        if (!Updater.IsInsideFolder(editor.FileName, layout.Root)) bad.Add("editor program is not under the install folder");
+        if (bad.Count > 0) { Console.WriteLine("mapmaker check: FAILED: " + string.Join("; ", bad)); return 1; }
+        Console.WriteLine($"mapmaker check: ok ({Path.GetFileName(dir)}, {MapmakerSetup.ShippedFiles(MapmakerSetup.Shipped(dir)).Count} project files)");
+        Console.WriteLine($"  godot editor: {(plan.NeedGodot ? $"downloaded on first use ({Format.Mb(MapmakerTools.Godot.Size)}, SHA-512 pinned)" : "installed")}");
+        Console.WriteLine($"  .net runtime: {(setup.FindRuntime() is { } r ? "this PC's .NET 10 (" + r + ")" : plan.NeedDotNet ? $"private copy downloaded on first use ({Format.Mb(MapmakerTools.DotNet.Size)})" : "private copy installed")}");
+        Console.WriteLine("  command: " + editor.Describe());
+        return 0;
     }
 
     static void PrintStatus(Updater updater)
@@ -199,6 +234,8 @@ static class Cli
             Names.IsPartAsset("sm-reimpl-part-../x-0123456789abcdef.zip")) problems.Add("parts name rule");
         if (!NetPolicy.GitHub.IsAllowed(new Uri("https://api.github.com/x")) || NetPolicy.GitHub.IsAllowed(new Uri("http://github.com/x")) || NetPolicy.GitHub.IsAllowed(new Uri("https://example.com/x")))
             problems.Add("network policy");
+        if (!NetPolicy.Tools.IsAllowed(new Uri(MapmakerTools.DotNet.Url)) || !NetPolicy.Tools.IsAllowed(new Uri(MapmakerTools.Godot.Url)) || NetPolicy.Tools.IsAllowed(new Uri("http://builds.dotnet.microsoft.com/x")) ||
+            MapmakerTools.Godot.Sha512.Length != 128 || MapmakerTools.DotNet.Sha512.Length != 128) problems.Add("mapmaker tools rule");
     }
 }
 

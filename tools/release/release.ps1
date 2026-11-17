@@ -1303,6 +1303,25 @@ if (-not $SkipBuild) {
             Write-Host "  Ashfall kit: $($kitFiles.Count) files bundled (models and the storm sky; $processedCount baked copies)"
         }
 
+        # The Mapmaker (owner, 2026-11-17: the next ship carries it; the launcher's MAPMAKER button opens it in the Godot editor). mapmaker\ holds the Godot project of the
+        # editor plugin (project.godot, Maps\, addons\sm_mapmaker\, Mapmaker.csproj) and its compiled assemblies in bin\ (built here from the clean copy: a tester has no .NET SDK;
+        # the launcher puts bin\ where the editor loads it). No game data and nothing converted from it: the plugin reads the player's own install at run time. The Godot
+        # editor itself is not in the build: the launcher downloads it on first use (docs/releasing.md "The Mapmaker").
+        Step 'Building the Mapmaker project (the editor plugin and its assemblies)'
+        $mm = Join-Path $SrcCopy 'mapmaker'
+        if (-not (Test-Path -LiteralPath (Join-Path $mm 'project.godot'))) { Fail 'mapmaker/project.godot is missing from the clean copy (it is committed).' }
+        $env:InformationalVersion = $Info; $env:DebugType = 'none'; $env:DebugSymbols = 'false'; $env:IncludeSourceRevisionInInformationalVersion = 'false'; $env:PathMap = "$SrcCopy=/sm-reimpl"
+        try { Run-Native 'dotnet build mapmaker' { dotnet build (Join-Path $mm 'Mapmaker.csproj') -c Debug -nologo -v quiet } }
+        finally { Remove-Item Env:\InformationalVersion, Env:\DebugType, Env:\DebugSymbols, Env:\IncludeSourceRevisionInInformationalVersion, Env:\PathMap -ErrorAction SilentlyContinue }
+        $mmOut = Join-Path $mm '.godot\mono\temp\bin\Debug'
+        if (-not (Test-Path -LiteralPath (Join-Path $mmOut 'Mapmaker.dll'))) { Fail 'The Mapmaker build produced no Mapmaker.dll.' }
+        $mmStage = Join-Path $Stage 'mapmaker-pkg'
+        New-Item -ItemType Directory -Force -Path (Join-Path $mmStage 'bin') | Out-Null
+        foreach ($f in 'project.godot', 'Mapmaker.csproj', 'README.md') { Copy-Item -LiteralPath (Join-Path $mm $f) -Destination $mmStage }
+        foreach ($sub in 'Maps', 'addons') { Copy-Item -LiteralPath (Join-Path $mm $sub) -Destination $mmStage -Recurse }
+        Get-ChildItem -LiteralPath $mmOut -File | Where-Object { $_.Extension -in '.dll', '.json' } | Copy-Item -Destination (Join-Path $mmStage 'bin')
+        Write-Host ("  Mapmaker: {0} files ({1:N1} MB)" -f @(Get-ChildItem -LiteralPath $mmStage -Recurse -File).Count, ((Get-ChildItem -LiteralPath $mmStage -Recurse -File | Measure-Object Length -Sum).Sum / 1MB))
+
         Time-Step 'zips'
         Step "Assembling $PlaytestName.zip"
         $d = Join-Path $Stage 'pkg-playtest'
@@ -1314,6 +1333,8 @@ if (-not $SkipBuild) {
         $game = Join-Path $d 'game'
         Copy-Item -LiteralPath $exportDir -Destination $game -Recurse
         Copy-Text (Join-Path $Template 'Launcher.ps1') (Join-Path $game 'Launcher.ps1')
+        # mapmaker\: the Mapmaker project and its assemblies (the launcher's MAPMAKER button).
+        Copy-Item -LiteralPath $mmStage -Destination (Join-Path $d 'mapmaker') -Recurse
         # server\: the bundled win64 server (HOST A MATCH and the Host scripts start it).
         Copy-Item -LiteralPath $serverWinDir -Destination (Join-Path $d 'server') -Recurse
         # source\: the GPL source offer of exactly this build.
@@ -1344,9 +1365,9 @@ if (-not $SkipBuild) {
         $root = (Resolve-Path -LiteralPath $d).ProviderPath.TrimEnd('\')
         $lines = foreach ($f in (Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName)) { '{0}  {1}' -f (Sha256 $f.FullName), $f.FullName.Substring($root.Length + 1) }
         Write-Utf8 (Join-Path $notesDir 'CONTENTS-SHA256.txt') (($lines -join "`r`n") + "`r`n")
-        # Top level: exactly the numbered files and the four folders.
+        # Top level: exactly the numbered files and the five folders.
         $top = @(Get-ChildItem -LiteralPath $d | ForEach-Object Name | Sort-Object)
-        $want = @(@($LauncherTop) + @($TopFiles.Values | ForEach-Object { $_.Name }) + @('game', 'notes', 'server', 'source') | Sort-Object)
+        $want = @(@($LauncherTop) + @($TopFiles.Values | ForEach-Object { $_.Name }) + @('game', 'mapmaker', 'notes', 'server', 'source') | Sort-Object)
         if (($top -join '|') -ne ($want -join '|')) { Fail "The playtest zip's top level is not what testers are told: $($top -join ', ')" }
         New-Zip $d $Zips.playtest '' @()
         # The same folder in parts (engine, .NET runtime, game, media, Ashfall kit, server, launcher, source, notes), each zip named by its content
@@ -1481,6 +1502,7 @@ if ($Smoke) {
     if (Test-Path -LiteralPath $smokeDir) { Remove-Item -LiteralPath $smokeDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
     $fail = $false
+    $iroot = $null
     if (Test-Path -LiteralPath $Zips.parts) {
         # 0. As a new tester gets it: the launcher part alone, unpacked; it installs the build from the parts (a local folder instead of GitHub, with
         #    every check of a real update: the manifest's hash, each part's hash, each file's hash, the build's own file list). The rest of the smoke
@@ -1513,10 +1535,10 @@ if ($Smoke) {
     $profileFile = Join-Path $smokeDir 'profile\customization.json'      # the front end's profile and settings stay in the smoke folder
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $profileFile) | Out-Null
     try {
-        # 1. The top level is the numbered files and the four folders, and the launchers are where they say.
+        # 1. The top level is the numbered files and the five folders, and the launchers are where they say.
         $top = @(Get-ChildItem -LiteralPath $pkg | ForEach-Object Name | Sort-Object)
         Write-Host "  top level: $($top -join ' | ')"
-        foreach ($p in $LauncherTop, 'game\sm-reimpl.exe', 'game\sm-reimpl.console.exe', 'game\Launcher.ps1', 'server\SmServer.exe', "source\$SourceZipName", 'notes\VERSION.txt', 'notes\LICENSE.txt') {
+        foreach ($p in $LauncherTop, 'game\sm-reimpl.exe', 'game\sm-reimpl.console.exe', 'game\Launcher.ps1', 'server\SmServer.exe', "source\$SourceZipName", 'notes\VERSION.txt', 'notes\LICENSE.txt', 'mapmaker\project.godot', 'mapmaker\bin\Mapmaker.dll') {
             if (-not (Test-Path -LiteralPath (Join-Path $pkg $p))) { $fail = $true; Write-Host "  missing: $p" -ForegroundColor Red }
         }
         # 1b. The launcher starts headless and checks the unpacked build against notes\CONTENTS-SHA256.txt (no network, writes nothing).
@@ -1540,6 +1562,43 @@ if ($Smoke) {
             $pngOk = (Test-Path -LiteralPath $lpng) -and ((Get-Item -LiteralPath $lpng).Length -gt 10000)
             if ($wcode -ne 0 -or -not $pngOk) { $fail = $true; Write-Host "  launcher window: FAILED (exit $wcode, picture drawn: $pngOk)" -ForegroundColor Red }
             else { Write-Host "  launcher window: Windows Forms started and drew the first-run panel ($lpng)" -ForegroundColor Green }
+        }
+        # 1d. The MAPMAKER button (owner, 2026-11-17), checked without a window and without a download: the launcher resolves the button's command lines against the
+        #     version it installed (--mapmaker-check: the project files are all there, the editor and first-import commands are well formed), then the shipped project is
+        #     laid out the way the button lays it out (bin\ into .godot\mono\temp\bin\Debug) and the Godot editor opens it HEADLESS: the plugin must load (its log line).
+        if ($iroot -and (Test-Path -LiteralPath $lexe)) {
+            Step "Smoke: '$LauncherTop' --mapmaker-check (the MAPMAKER button)"
+            $mout = Join-Path $smokeDir 'mapmaker-check.out.txt'; $merr = Join-Path $smokeDir 'mapmaker-check.err.txt'
+            $mp = Start-QuietProcess -FilePath $lexe -ArgumentList '--root', $iroot, '--mapmaker-check' -WorkingDirectory $pkg -StdOut $mout -StdErr $merr
+            if (-not $mp.WaitForExit(120000)) { Stop-Process -Id $mp.Id -Force; $mcode = -1 } else { $mcode = $mp.ExitCode }     # only the process started above
+            $mtext = ((Get-Content $mout -ErrorAction SilentlyContinue) + (Get-Content $merr -ErrorAction SilentlyContinue)) -join "`n"
+            ($mtext -split "`n" | ForEach-Object { Write-Host "    $_" })
+            if ($mcode -ne 0 -or $mtext -notmatch '^mapmaker check: ok') { $fail = $true; Write-Host "  mapmaker button: FAILED (exit $mcode)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker button: the build ships the project and the button''s command lines resolve' -ForegroundColor Green }
+            $mmWork = Join-Path $smokeDir 'mapmaker-project'
+            foreach ($f in Get-ChildItem -LiteralPath (Join-Path $pkg 'mapmaker') -Recurse -File) {
+                $rel = $f.FullName.Substring((Join-Path $pkg 'mapmaker').Length + 1)
+                $to = if ($rel -like 'bin\*') { Join-Path $mmWork ('.godot\mono\temp\bin\Debug\' + $rel.Substring(4)) } else { Join-Path $mmWork $rel }
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null
+                Copy-Item -LiteralPath $f.FullName -Destination $to
+            }
+            $elog = Join-Path $smokeDir 'mapmaker-editor.log'
+            Ensure-Godot
+            # the button's first-time import (--headless --import --path): must finish by itself with exit code 0
+            $ilog = Join-Path $smokeDir 'mapmaker-import.log'
+            $ip2 = Start-QuietProcess -FilePath $GodotConsole -ArgumentList @('--headless', '--import', '--path', $mmWork) -WorkingDirectory $mmWork -StdOut $ilog
+            if (-not $ip2.WaitForExit(180000)) { Stop-Process -Id $ip2.Id -Force; Write-Host '  mapmaker import: did not finish in 3 minutes (stopped)' -ForegroundColor Red; $fail = $true }     # only the process started above
+            elseif ($ip2.ExitCode -ne 0) { $fail = $true; Write-Host "  mapmaker import: FAILED (exit $($ip2.ExitCode), log: $ilog)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker import: --headless --import finished with exit code 0' -ForegroundColor Green }
+            $ep = Start-QuietProcess -FilePath $GodotConsole -ArgumentList @('--headless', '--editor', '--path', $mmWork, '--quit-after', '600') -WorkingDirectory $mmWork -StdOut $elog
+            if (-not $ep.WaitForExit(240000)) { Stop-Process -Id $ep.Id -Force; Write-Host '  mapmaker editor: did not finish in 4 minutes (stopped)' -ForegroundColor Red; $fail = $true }     # only the process started above
+            elseif (-not (Select-String -LiteralPath $elog -Pattern 'Mapmaker: plugin entering the tree' -Quiet)) { $fail = $true; Write-Host "  mapmaker editor: FAILED, the plugin did not load (log: $elog)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker editor: the Godot editor opened the shipped project headless and the plugin loaded' -ForegroundColor Green }
+            # the uninstall's Mapmaker part: nothing was downloaded into the smoke install, so it must report success and leave the build alone
+            $rp = Start-QuietProcess -FilePath $lexe -ArgumentList '--root', $iroot, '--remove-mapmaker' -WorkingDirectory $pkg -StdOut (Join-Path $smokeDir 'mapmaker-remove.out.txt')
+            if (-not $rp.WaitForExit(60000)) { Stop-Process -Id $rp.Id -Force; $rcode = -1 } else { $rcode = $rp.ExitCode }     # only the process started above
+            if ($rcode -ne 0 -or -not (Select-String -LiteralPath (Join-Path $smokeDir 'mapmaker-remove.out.txt') -Pattern '^mapmaker removed' -Quiet) -or -not (Test-Path -LiteralPath (Join-Path $pkg 'mapmaker\project.godot'))) { $fail = $true; Write-Host "  mapmaker remove: FAILED (exit $rcode)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker remove: --remove-mapmaker succeeded and left the build alone' -ForegroundColor Green }
         }
         $found = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $pkg 'game\Launcher.ps1') -FindGame
         Write-Host "  game\Launcher.ps1 -FindGame: $(if ($found) { 'found the install' } else { 'nothing (SM_GAME_DIR is used)' })"

@@ -25,7 +25,7 @@ The folder holds these files, in the order you use them:
 |---|---|
 | `@LAUNCHER@` | **The launcher.** Installs the build, keeps it up to date (download, check, roll back) and starts Play, Host and Join. Start here. |
 | `@README@` | These instructions, offline |
-| `@PLAY@` | **The game.** Join screen, HOST A MATCH, CUSTOMIZE (class creator and armour). The launcher's PLAY starts it. |
+| `@PLAY@` | **The game.** Join screen, HOST A MATCH, CUSTOMIZE (class creator and armour). The launcher's PLAY starts it. The launcher's **MAPMAKER** button next to it opens the map editor (first press: asks, then downloads the free Godot editor once, about 111 MB, checked against its published SHA-512). |
 | `@HOST@` | Starts a server only this PC can join (no bots) |
 | `@JOIN@` | Asks for a server address and joins it directly (just Enter = this PC) |
 | `@HOSTLAN@` | Starts a server other PCs can join (your network, or the internet) |

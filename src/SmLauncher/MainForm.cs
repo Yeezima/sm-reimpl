@@ -54,6 +54,7 @@ sealed class MainForm : Form
     readonly DarkLabel _progressText = new() { AutoSize = true };
     readonly Button _btnCancel = new() { Text = "Cancel", AutoSize = true };
     readonly Button _btnPlay = new() { Text = "PLAY", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
+    readonly Button _btnMapmaker = new() { Text = "MAPMAKER", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
     readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(0, 10, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
@@ -257,6 +258,7 @@ sealed class MainForm : Form
         var buttons = new TileFlow { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 10, 0, 0) };
         Accentuate(_btnPlay, PlayGreen);
         buttons.Controls.Add(_btnPlay);
+        buttons.Controls.Add(_btnMapmaker);       // next to PLAY, the theme's plain raised button (PLAY alone is green)
         for (int i = 0; i < 5; i++) grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -276,7 +278,7 @@ sealed class MainForm : Form
         Wrap(_cbSafeMode);          // the check box's text wraps inside its row instead of running past the window's edge (narrow window, large text)
         KeepRowsApart(grid, _notes, _main);
         buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then safe mode, Update, the notes
-        _btnPlay.TabIndex = 0;
+        _btnPlay.TabIndex = 0; _btnMapmaker.TabIndex = 1;
         _main.Controls.Add(grid);
 
         // the set-up panel (first run)
@@ -351,6 +353,7 @@ sealed class MainForm : Form
         _btnUpdate.Click += async (_, _) => await UpdateAsync();
         _btnCancel.Click += (_, _) => { _cts?.Cancel(); _btnCancel.Enabled = false; };
         _btnPlay.Click += (_, _) => PlayGame();
+        _btnMapmaker.Click += async (_, _) => await OpenMapmakerAsync();
         _cbSafeMode.CheckedChanged += (_, _) => SaveSafeMode();
         _lnkCheck.LinkClicked += async (_, _) => await CheckFilesAsync();
         _lnkRollback.LinkClicked += (_, _) => Rollback();
@@ -581,7 +584,7 @@ sealed class MainForm : Form
     {
         bool playable = _playable;                     // cached by RefreshInstalled: this runs on every progress report
         bool locked = _busy && _busyPhase is not null and not UpdatePhase.Downloading;
-        foreach (var b in new[] { _btnPlay }) b.Enabled = playable && !locked;
+        foreach (var b in new[] { _btnPlay, _btnMapmaker }) b.Enabled = playable && !locked;
         _btnInstall.Enabled = !_busy;
         _btnBrowse.Enabled = !_busy;
     }
@@ -921,6 +924,92 @@ sealed class MainForm : Form
         catch (Exception e) { _log?.Write("watching the game: " + e.Message); }
     }
 
+    /// <summary>
+    /// MAPMAKER: opens the Godot editor on the Mapmaker project that came with the build (docs/releasing.md "The Mapmaker"). The first press downloads the
+    /// editor (and a .NET runtime if the PC has none) after asking, with progress and Cancel; every press copies the build's project into the install
+    /// folder, does the first-time import with no window (a progress note, not a frozen window), then opens the editor in a visible window.
+    /// </summary>
+    async Task OpenMapmakerAsync()
+    {
+        string? dir = _updater?.CurrentDir();
+        if (dir is null || _layout is null || _busy) return;
+        var setup = new MapmakerSetup(_layout);
+        var plan = setup.Plan(dir);
+        if (!plan.ShippedOk) { SetLine(plan.ShippedProblem!, Bad); return; }
+        if (plan.NeedsDownload)
+        {
+            string what = plan.NeedGodot && plan.NeedDotNet ? "the free Godot editor and the .NET runtime it needs" : plan.NeedGodot ? "the free Godot editor" : "the .NET runtime the Godot editor needs";
+            string ask = $"The Mapmaker opens in {what}, which is not on this PC yet.\n\nDownload it now ({Format.Mb(plan.DownloadBytes)}, once)? It comes from the official godotengine release on GitHub" +
+                         (plan.NeedDotNet ? " and from Microsoft's download site" : "") + ", is checked against its published SHA-512 and is kept in the install folder (no administrator rights).";
+            if (DarkBox.Show(this, ask, Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        }
+        bool safe = _cbSafeMode.Checked;
+        BeginBusy(UpdatePhase.Downloading);
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+        var progress = new Progress<UpdateStatus>(OnProgress);
+        try
+        {
+            if (plan.NeedsDownload)
+            {
+                using var http = new SafeHttp(NetPolicy.Tools);
+                await setup.EnsureToolsAsync(plan, http, progress, ct);
+            }
+            ((IProgress<UpdateStatus>)progress).Report(new UpdateStatus(UpdatePhase.Downloading, "Preparing the Mapmaker project...", null));
+            int copied = await Task.Run(() => setup.SyncProject(dir), ct);
+            _log?.Write($"mapmaker: project of {Path.GetFileName(dir)} synced ({copied} files copied)");
+            if (setup.Plan(dir).NeedImport)
+            {
+                ((IProgress<UpdateStatus>)progress).Report(new UpdateStatus(UpdatePhase.Downloading, "Preparing the Mapmaker for its first start (about a minute, once)...", null));
+                int code = await MapmakerStart.RunHiddenAsync(setup.EditorCommand(headlessImport: true), TimeSpan.FromMinutes(3), ct);
+                _log?.Write($"mapmaker: first-time import finished with code {code}");
+                if (code == 0) setup.MarkImported();       // only a finished import counts: otherwise the next press runs it again
+            }
+            EndBusy();
+            var launch = setup.EditorCommand(safe);
+            _log?.Write("mapmaker: starting the editor: " + launch.Describe());
+            var launched = DateTime.UtcNow;
+            var editor = MapmakerStart.StartEditor(launch);
+            SetLine("Opening the Mapmaker (the editor window takes a few seconds)...", Muted);
+            _ = WatchMapmakerAsync(editor, launched);
+        }
+        catch (OperationCanceledException)
+        {
+            EndBusy();
+            SetLine("The Mapmaker was not opened. Press MAPMAKER to continue; what was downloaded is kept.", Warn);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            EndBusy();
+            _log?.Write($"mapmaker failed: {e.GetType().Name}: {e.Message}");
+            SetLine("The Mapmaker could not be opened: " + e.Message, e is VerificationException ? Bad : Warn);
+        }
+        finally
+        {
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    async Task WatchMapmakerAsync(System.Diagnostics.Process editor, DateTime launched)
+    {
+        try
+        {
+            using (editor)
+            {
+                using var window = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                try { await editor.WaitForExitAsync(window.Token); }
+                catch (OperationCanceledException) { if (!IsDisposed) SetLine("The Mapmaker is open.", Good); return; }
+                if (editor.ExitCode != 0 && !IsDisposed)
+                {
+                    _log?.Write($"mapmaker: the editor ended with code {editor.ExitCode} after {(DateTime.UtcNow - launched).TotalSeconds:0.0} s");
+                    SetLine("The Mapmaker editor closed right away. Tick Old GPU / safe mode and press MAPMAKER again, or use Report an issue.", Bad);
+                }
+            }
+        }
+        catch (Exception e) { _log?.Write("watching the Mapmaker: " + e.Message); }
+    }
+
     // ---- check files, rollback, caches ----------------------------------------------------------------------------------------
 
     async Task CheckFilesAsync()
@@ -1110,7 +1199,7 @@ sealed class MainForm : Form
         _btnUpdate.Visible = false;
         _progressPanel.Visible = false;
         _lnkSelfUpdate.Visible = false;
-        foreach (var b in new[] { _btnPlay }) b.Enabled = true;
+        foreach (var b in new[] { _btnPlay, _btnMapmaker }) b.Enabled = true;
         foreach (var l in new[] { _lnkCheck, _lnkRollback, _lnkRelease, _lnkIssues, _lnkFolder, _lnkCaches }) l.Enabled = true;
         _cbSafeMode.Checked = true;
         switch (state)
@@ -1127,7 +1216,7 @@ sealed class MainForm : Form
                 _progressPanel.Visible = true;
                 _progress.Value = 430;
                 _progressText.Text = "Downloading: 438.8 MB of 1,020.4 MB (43 %) · 18.4 MB/s · about 32 s left · retrying after a short pause (the connection was reset)";
-                foreach (var b in new[] { _btnPlay }) b.Enabled = false;
+                foreach (var b in new[] { _btnPlay, _btnMapmaker }) b.Enabled = false;
                 break;
             case "error":
                 SetLine("Offline: the installed build can be played. The update check failed: The remote name could not be resolved: 'api.github.com'. An unfinished update is kept and continues when GitHub is reachable.", Warn);

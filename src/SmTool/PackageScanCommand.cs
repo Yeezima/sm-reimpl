@@ -22,6 +22,10 @@ public static class PackageScanCommand
                   // and its directory is checked like an embedded one
     ];
 
+    /// <summary>Allowed only under <see cref="MapmakerPrefix"/> (the Mapmaker's Godot project in the playtest build, 2026-11-17: the plugin's own sources, scene and project files; text only, the content rules still scan them).</summary>
+    public static readonly string[] MapmakerProjectExtensions = [".cs", ".uid", ".tscn", ".cfg", ".godot", ".csproj"];
+    public const string MapmakerPrefix = "mapmaker/";
+
     /// <summary>Test hook: called with each package path right before it is scanned (a test makes it throw to prove an unexpected crash exits 2).</summary>
     internal static Action<string>? BeforeScanHook;
 
@@ -163,7 +167,11 @@ public static class PackageScanCommand
             Console.Error.WriteLine("scan-package: --require-install, but the game install was not found or had no files to compare");
             return 2;
         }
-        if (binaryProfile) scanner.AllowedExtensions = new HashSet<string>(BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
+        if (binaryProfile)
+        {
+            scanner.AllowedExtensions = new HashSet<string>(BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
+            scanner.ScopedExtensions[MapmakerPrefix] = new HashSet<string>(MapmakerProjectExtensions, StringComparer.OrdinalIgnoreCase);
+        }
         if (packages.Count == 0)
         {
             Console.Error.WriteLine("usage: smtool scan-package [--against <dir>]... [--against-install <game-dir|auto>] [--secrets <config.json>]... [--secrets-env] [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--source-archive <entry prefix>]... [--index-cache <dir> [--rehash]] <zip|tar.gz|folder|file>...");
