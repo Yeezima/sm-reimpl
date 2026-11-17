@@ -57,11 +57,14 @@ public sealed class WarfrontProgressModel
 
     int _batchTotal, _lastPending, _pendingAtOpen;
     float _bannerLeft, _resendIn, _openFor, _sinceOffer;
-    int _bannerLevel;
+    int _bannerLevel, _hiddenShown = -1;
 
     /// <summary>The LEVEL N line shows only while no offer stands (two messages at once washed one out); a banner cut short shows its remaining time after the close.</summary>
-    public bool BannerShowing => _bannerLeft > 0f && !OfferOpen;
-    public string BannerText => "LEVEL " + _bannerLevel;
+    public bool BannerShowing => PickerHidden && OfferOpen || _bannerLeft > 0f && !OfferOpen;
+    public string BannerText => PickerHidden && OfferOpen ? $"CARD PICK: CARD 1 IS TAKEN IN {(int)MathF.Ceiling(SecondsLeft)} S" : "LEVEL " + _bannerLevel;
+
+    /// <summary>The picker panel is switched off for this player (a live server until W5c's PickerBusy hook): the banner names the offer and its countdown so a frozen player knows why.</summary>
+    public bool PickerHidden { get; set; }
 
     // ---- feed -------------------------------------------------------------------------------------------------------------------------------
 
@@ -142,6 +145,7 @@ public sealed class WarfrontProgressModel
         _sinceOffer += dt;
         if (_sinceOffer > SelfCloseSeconds) { Close(); return; }
         SecondsLeft = MathF.Max(0f, SecondsLeft - dt);
+        if (PickerHidden && (int)MathF.Ceiling(SecondsLeft) is var whole && whole != _hiddenShown) { _hiddenShown = whole; Changed?.Invoke(); }   // the banner's countdown
         _openFor += dt;
         if (Bot && Sent < 0 && _openFor >= BotDelaySeconds) Pick(PickIndex % WarfrontProgressionWire.OfferSize);
         if (Sent >= 0)

@@ -38,8 +38,7 @@ public sealed partial class GameServer
                 break;
             case WarfrontClientCommandKind.Pick:
                 // the wire carries the offer's pick index modulo 256: it answers the standing offer only
-                if (World.WarfrontOffer(player) is { } offer && (offer.PickIndex & 0xFF) == command.Pick) World.WarfrontPick(player, command.Slot, offer.PickIndex);
-                else WarfrontCommandsDropped++;
+                if (!WarfrontPickFromWire(World, player, command.Slot, command.Pick)) WarfrontCommandsDropped++;
                 break;
         }
     }
