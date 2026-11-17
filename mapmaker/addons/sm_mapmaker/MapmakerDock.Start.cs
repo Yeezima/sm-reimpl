@@ -8,11 +8,11 @@ using SmMapmaker;
 namespace SmMapmakerEditor;
 
 /// <summary>The dock's tabs, in order (the index of each in the tab bar).</summary>
-public enum DockTab { Start = 0, Build = 1, Object = 2, Library = 3, Tools = 4, Prefab = 5 }
+public enum DockTab { Map = 0, Library = 1, Build = 2, Object = 3, Prefab = 4, Test = 5 }
 
 /// <summary>
-/// The Start and Build tabs of the Mapmaker dock (docs/mapmaker.md "How to make a map in 2 minutes"): the quick start, a new map from a layout, the live check with
-/// one-click fixes, the Play test button and sharing; and the palette of pieces to place.
+/// The Map, Test and Build tabs and the footer of the Mapmaker dock (docs/mapmaker.md "How to make a map in 2 minutes"): a new map from a layout, the game modes, the live check
+/// with one-click fixes, the play test settings and sharing; the palette of pieces to place; and the always-visible Play test button.
 /// </summary>
 public partial class MapmakerDock
 {
@@ -21,80 +21,107 @@ public partial class MapmakerDock
     // start
     readonly LineEdit _newName = new() { Text = "My Map", PlaceholderText = "Map name", TooltipText = "The map's name. It is shown in the game and names the file." };
     readonly OptionButton _template = new() { TooltipText = "The starting layout. You can change everything afterwards." };
-    readonly Label _templateInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
-    readonly Label _checkHead = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0), ThemeTypeVariation = "HeaderSmall" };
+    readonly Label _templateInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
+    readonly Label _checkHead = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0), ThemeTypeVariation = "HeaderSmall" };
     readonly VBoxContainer _checkList = new();
-    readonly Label _checkFacts = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
+    readonly Label _checkFacts = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
     readonly OptionButton _playMode = new() { TooltipText = "Which game mode to play. Seize Ground needs at least one capture point." };
     readonly SpinBox _playBots = new() { MinValue = 0, MaxValue = 6, Step = 1, Value = 3, TooltipText = "Bots on each side (0 to 6). They run in the background with no window." };
     readonly OptionButton _playSide = new() { TooltipText = "The side you start on." };
-    readonly Label _playStatus = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
-    readonly Label _playStatusTop = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
-    readonly Label _shareInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
+    readonly Label _playStatus = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
+    readonly Label _shareInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
     Button? _playButton;
     Label? _buildHint;
 
     public const string QuickStart =
         "How to make a map in 2 minutes\n" +
-        "1. Pick a layout below and press New map (it is saved for you).\n" +
+        "1. Map tab: pick a layout and press New map (it is saved for you).\n" +
         "2. Move things with the gizmo (W move, E turn, R size), or open the Build tab and click a piece, then click in the 3D view to place it.\n" +
-        "3. Fix anything red in the Check list. Fix buttons do it for you.\n" +
-        "4. Press Play test: a server and bots start on this PC and the game opens on your map.\n" +
-        "5. Send the .smmap file (Share). Anyone puts it in their maps folder and plays it.";
+        "3. Test tab: fix anything red in the Check list. Fix buttons do it for you.\n" +
+        "4. Press Play test (always at the bottom): a server and bots start on this PC and the game opens on your map.\n" +
+        "5. Test tab, Share: send the .smmap file. Anyone puts it in their maps folder and plays it.";
 
     ScrollContainer Scroll(Control page) => new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, Name = "Scroll", FollowFocus = true }.With(s => s.AddChild(page));
 
-    Control StartTab()
+    Control MapTab()
     {
         var v = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        v.AddChild(new Label { Text = QuickStart, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) });
-        v.AddChild(new HSeparator());
-        v.AddChild(Head("New map"));
-        v.AddChild(Row(new Label { Text = "Name" }, _newName));
+        _title.ClipText = true; _title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; _title.CustomMinimumSize = new Vector2(250, 0);
+        v.AddChild(_title);
+        var hint = Hint("Pick a layout and press New map. Hover here for the 2-minute guide.");
+        hint.TooltipText = QuickStart; hint.MouseFilter = Control.MouseFilterEnum.Stop;
+        Section(v, "New map");
+        v.AddChild(hint);
         _newName.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(Field("Name", 56), _newName));
         foreach (var t in MapTemplate.All) _template.AddItem(t.Label);
         _template.ItemSelected += i => _templateInfo.Text = MapTemplate.All[(int)i].Description;
         _templateInfo.Text = MapTemplate.All[0].Description;
-        v.AddChild(Row(new Label { Text = "Layout" }, _template));
         _template.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(Field("Layout", 56), _template));
+        _templateInfo.AddThemeColorOverride("font_color", HintColour); _templateInfo.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_templateInfo);
-        v.AddChild(Row(Btn("New map", NewFromLayout, "Makes the map from the chosen layout, saves it and shows it."), Btn("Open map...", OpenMap, "Open a .smmap file."), _recentStart));
-        _recentStart.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Btn("New map", NewFromLayout, "Makes the map from the chosen layout, saves it and shows it."));
+        Section(v, "Open and save");
+        var open = Btn("Open map...", OpenMap, "Open a .smmap file.");
+        _recentStart.SizeFlagsHorizontal = SizeFlags.ExpandFill; _recentStart.CustomMinimumSize = new Vector2(110, 0);
         _recentStart.ItemSelected += i => { var p = _recentStart.GetItemMetadata((int)i).AsString(); if (p.Length > 0 && _plugin.EnsureSceneRoot()) _plugin.OpenMap(p); };
-        var quickPlay = Btn("PLAY TEST", StartPlayTest, "The same as the Play test button below (it uses the mode, bots and side chosen there): saves, starts a server on this PC only with bots, and opens the game on your map.");
-        quickPlay.CustomMinimumSize = new Vector2(0, 36);
-        v.AddChild(quickPlay);
-        v.AddChild(_playStatusTop);
-        v.AddChild(new HSeparator());
-        v.AddChild(Head("Game modes this map is for"));
+        v.AddChild(Row(open, _recentStart));
+        var save = Btn("Save map", () => SaveMap(false), "Saves the map to its file.");
+        var saveAs = Btn("Save map as...", () => SaveMap(true), "Saves the map to a new file.");
+        save.SizeFlagsHorizontal = SizeFlags.ExpandFill; saveAs.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(save, saveAs));
+        Section(v, "Game modes", "The modes this map is made for. Untick a mode it does not support.");
         _modeAnnihilation.Toggled += _ => ModesChanged(); _modeSeize.Toggled += _ => ModesChanged();
         v.AddChild(Row(_modeAnnihilation, _modeSeize));
-        v.AddChild(Head("Check"));
+        SnapSection(v);
+        Sm1Section(v);
+        return Scroll(v);
+    }
+
+    Control TestTab()
+    {
+        var v = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _checkHead.CustomMinimumSize = new Vector2(250, 0); _checkFacts.CustomMinimumSize = new Vector2(250, 0);
+        _checkFacts.AddThemeColorOverride("font_color", HintColour); _checkFacts.AddThemeFontSizeOverride("font_size", 12);
+        Section(v, "Check", "Updates after every edit. Fix it does the common repairs; Ctrl+Z undoes them.");
         v.AddChild(_checkHead);
         v.AddChild(_checkList);
         v.AddChild(_checkFacts);
-        v.AddChild(new HSeparator());
-        v.AddChild(Head("Play test"));
+        Section(v, "Play test settings", "Play test (below) starts a server on this PC only, with bots. Closing the game stops it.");
         _playMode.AddItem("Annihilation"); _playMode.AddItem("Seize Ground");
         _playSide.AddItem("Space Marines"); _playSide.AddItem("Chaos");
-        v.AddChild(Row(new Label { Text = "Mode" }, _playMode, new Label { Text = "Bots a side" }, _playBots));
-        v.AddChild(Row(new Label { Text = "I start as" }, _playSide));
-        _playMode.SizeFlagsHorizontal = SizeFlags.ExpandFill; _playSide.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _playButton = Btn("PLAY TEST", StartPlayTest, "Saves the map, starts a server on this PC only (127.0.0.1) with bots, and opens the game on your map. Close the game window to stop.");
-        _playButton.CustomMinimumSize = new Vector2(0, 40);
-        _playButton.AddThemeFontSizeOverride("font_size", 16);
-        v.AddChild(Row(_playButton, Btn("Stop", () => _plugin.StopPlayTest(), "Stops the server and bots of the last play test (closing the game window does the same).")));
-        _playButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        v.AddChild(_playStatus);
-        v.AddChild(new HSeparator());
-        v.AddChild(Head("Share"));
-        v.AddChild(Row(Btn("Save", () => SaveMap(false), "Saves the map to its file."), Btn("Save As...", () => SaveMap(true)),
-            Btn("Show file", ShowFile, "Opens the folder with the map's .smmap file selected."), Btn("Copy path", CopyPath, "Copies the file's path.")));
+        _playMode.SizeFlagsHorizontal = SizeFlags.ExpandFill; _playSide.SizeFlagsHorizontal = SizeFlags.ExpandFill; _playBots.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(Field("Mode", 68), _playMode));
+        v.AddChild(Row(Field("Bots a side", 68), _playBots));
+        v.AddChild(Row(Field("I start as", 68), _playSide));
+        Section(v, "Share", "This one file is the whole map.");
+        var show = Btn("Show file", ShowFile, "Opens the folder with the map's .smmap file selected.");
+        var copy = Btn("Copy path", CopyPath, "Copies the file's path.");
+        show.SizeFlagsHorizontal = SizeFlags.ExpandFill; copy.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(show, copy));
+        _shareInfo.AddThemeColorOverride("font_color", HintColour); _shareInfo.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_shareInfo);
         _plugin.CheckChanged += RefreshCheck;
-        _plugin.PlayStatusChanged += () => { _playStatus.Text = _plugin.PlayStatus; _playStatusTop.Text = _plugin.PlayStatus; };
         RefreshCheck();
         return Scroll(v);
+    }
+
+    /// <summary>The row under every tab: Play test and Stop, and the play test's progress.</summary>
+    Control Footer()
+    {
+        var f = new VBoxContainer();
+        f.AddChild(new HSeparator());
+        _playButton = Btn("Play test", StartPlayTest, "Saves the map, starts a server on this PC only (127.0.0.1) with bots, and opens the game on your map. Uses the mode, bots and side on the Test tab. Close the game window to stop.");
+        _playButton.CustomMinimumSize = new Vector2(0, 40);
+        _playButton.AddThemeFontSizeOverride("font_size", 16);
+        _playButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        f.AddChild(Row(_playButton, Btn("Stop", () => _plugin.StopPlayTest(), "Stops the server and bots of the last play test (closing the game window does the same).")));
+        _playStatus.AddThemeColorOverride("font_color", HintColour); _playStatus.AddThemeFontSizeOverride("font_size", 12);
+        _playStatus.CustomMinimumSize = new Vector2(250, 0);
+        f.AddChild(_playStatus);
+        _plugin.PlayStatusChanged += () => _playStatus.Text = _plugin.PlayStatus;
+        return f;
     }
 
     readonly CheckBox _modeAnnihilation = new() { Text = "Annihilation", ButtonPressed = true, TooltipText = "Team deathmatch. Needs a spawn area for each side." };
@@ -160,7 +187,7 @@ public partial class MapmakerDock
     {
         string mode = _playMode.Selected == 1 ? "seize" : "annihilation";
         _plugin.PlayTest(mode, (int)_playBots.Value, _playSide.Selected == 1 ? "chaos" : "marines");
-        _playStatus.Text = _plugin.PlayStatus; _playStatusTop.Text = _plugin.PlayStatus;
+        _playStatus.Text = _plugin.PlayStatus;
     }
 
     void ShowFile()
@@ -182,7 +209,7 @@ public partial class MapmakerDock
         var r = _plugin.LastCheck;
         if (_plugin.Session is null || r is null)
         {
-            _checkHead.Text = "No map yet. Pick a layout above and press New map.";
+            _checkHead.Text = "No map yet. On the Map tab, pick a layout and press New map.";
             _checkFacts.Text = "";
             _shareInfo.Text = "";
             return;
@@ -207,7 +234,7 @@ public partial class MapmakerDock
         }
         _checkFacts.Text = string.Join("\n", r.Facts);
         var s = _plugin.Session;
-        _shareInfo.Text = s.Path is null ? "Not saved yet." : $"File: {s.Path}\nThis one file is the whole map. Send it; the other person puts it in {MapHost.Library.MapsDir} and picks the map in the match, or the server is started with --custom-map <file>.";
+        _shareInfo.Text = s.Path is null ? "Not saved yet." : $"File: {s.Path}\nSend it; the other person puts it in {MapHost.Library.MapsDir} and picks the map in the match, or the server is started with --custom-map <file>.";
     }
 
     // ---- Build tab -------------------------------------------------------------------------------------------------------------------------------------------
@@ -215,11 +242,10 @@ public partial class MapmakerDock
     Control BuildTab()
     {
         var v = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        v.AddChild(new Label { Text = "Click a piece, then click in the 3D view to place it (right click or Esc stops). Click a block to stack on it. Placed pieces snap to the grid on the Tools tab.", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) });
-        _buildHint = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) };
-        void Section(string title, params string[] ids)
+        _buildHint = Hint("");
+        void Group(string title, string? hint, params string[] ids)
         {
-            v.AddChild(Head(title));
+            Section(v, title, hint);
             var grid = new GridContainer { Columns = 2 };
             foreach (var id in ids)
             {
@@ -231,11 +257,12 @@ public partial class MapmakerDock
             }
             v.AddChild(grid);
         }
-        Section("Ground and cover", "floor", "wall", "cover", "ramp", "column", "invisible");
-        Section("Spawns", "spawn-marines", "spawn-chaos", "door-marines", "door-chaos");
-        Section("Objectives and hazards", "point", "kill");
+        var intro = Hint("Click a piece, then click in the 3D view to place it (right click or Esc stops). Click a block to stack on it. Pieces snap to the grid (Map tab). Type exact values on the Object tab.");
+        v.AddChild(intro);
         v.AddChild(_buildHint);
-        v.AddChild(new Label { Text = "Select a piece and use the Object tab to type its position, turn and size (metres). Rotation Z turns it; spawn areas and ramps face their green arrow (+Y).", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(270, 0) });
+        Group("Ground and cover", null, "floor", "wall", "cover", "ramp", "column", "invisible");
+        Group("Spawns", "Spawn areas and ramps face their green arrow (+Y); Rotation Z turns them.", "spawn-marines", "spawn-chaos", "door-marines", "door-chaos");
+        Group("Objectives and hazards", null, "point", "kill");
         return Scroll(v);
     }
 
@@ -243,7 +270,7 @@ public partial class MapmakerDock
 
     void ArmPreset(PiecePreset p)
     {
-        if (_plugin.Session is null) { _status.Text = "Make a map first: Start tab, New map."; foreach (var b in _presetButtons.Values) b.SetPressedNoSignal(false); ShowTab(DockTab.Start); return; }
+        if (_plugin.Session is null) { _status.Text = "Make a map first: Map tab, New map."; foreach (var b in _presetButtons.Values) b.SetPressedNoSignal(false); ShowTab(DockTab.Map); return; }
         Arm(new LibraryItem(LibraryKind.Piece, p.Id, p.Label));
         if (_buildHint is not null) _buildHint.Text = $"Placing: {p.Label}. {p.Tip}";
     }

@@ -273,7 +273,7 @@ public partial class MapmakerPlugin
         if (!report.Ready(need))
         {
             RunCheck(false);
-            Dock?.ShowTab(DockTab.Start);
+            Dock?.ShowTab(DockTab.Map);
             var first = report.Errors.Where(e => e.Mode is CheckMode.Both || e.Mode == need).Select(e => e.Message).FirstOrDefault();
             return Fail($"Not playable in {(mode == "seize" ? "Seize Ground" : "Annihilation")} yet: {first} (the Check list shows every item, with a Fix button).");
         }
