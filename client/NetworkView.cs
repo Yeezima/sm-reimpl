@@ -2121,6 +2121,7 @@ public partial class NetworkView : Node3D
                     f.AimedBar = true; f.AimedHealth = bar.Health / 255f; f.AimedShield = bar.Shield / 255f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f;
                 }
             }
+            GrenadeMarkerFrame(f, me);   // grenade effects: the own grenades' in-flight marker (NetworkView.GrenadeFx.cs)
             FillDecorators(f, me, centre.Hit);   // the allies in view (Classic) and the aimed foe; Musou: the aimed player only (NetworkView.Match.cs)
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
             f.ReticleScale = _reticleFovScale;   // ui/crosshair-fov-scale: the crosshair covers the same angle at every FOV (ReticleFovScale)

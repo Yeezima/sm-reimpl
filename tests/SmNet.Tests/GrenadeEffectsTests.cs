@@ -130,6 +130,20 @@ public class GrenadeFxTests
     }
 
     [Fact]
+    public void The_in_flight_marker_points_at_the_grenade_fades_its_arc_first_and_ends_at_the_landing()
+    {
+        Assert.Equal(0f, GrenadeRules.Angle(1f, 0f), 4);                              // at the right hand: to the right
+        Assert.Equal(MathF.PI / 2f, GrenadeRules.Angle(0f, 5f), 4);                   // thrown ahead: up
+        Assert.Equal(MathF.PI / 4f, GrenadeRules.Angle(3f, 3f), 4);
+        Assert.Equal(1f, GrenadeRules.ArcFadeShare(0.1f));
+        Assert.Equal(0f, GrenadeRules.ArcFadeShare(0.4f));
+        Assert.Equal(1f, GrenadeRules.Fade(0.3f, null));                              // in flight
+        Assert.Equal(0.5f, GrenadeRules.Fade(0.5f, GrenadeRules.LandedFade / 2f), 4);   // fading after the landing
+        Assert.Equal(0f, GrenadeRules.Fade(0.5f, GrenadeRules.LandedFade));
+        Assert.Equal(0f, GrenadeRules.Fade(GrenadeRules.MaxAge + 0.1f, null));        // a grenade lost in flight
+    }
+
+    [Fact]
     public void Only_the_frag_blasts_keep_their_smoke()
     {
         Assert.True(GrenadeFx.KeepsSmoke("frag_grenade_explosion"));

@@ -111,6 +111,49 @@ public partial class NetworkView
         }
     }
 
+    // ---- the in-flight marker (Hud.GrenadeMarker.cs) ----
+
+    /// <summary>The player's own thrown frag grenades being marked: id to (seconds since first seen, seconds since landing or null).</summary>
+    readonly Dictionary<int, (double Since, double? Landed)> _grenadeMarks = new();
+    double _ownThrowingAt = -10.0;
+    /// <summary>Markers drawn so far (test aid).</summary>
+    internal int GrenadeMarkFrames;
+
+    /// <summary>
+    /// Per frame: the markers of the own frag grenades in flight (grenade-effects, owner 2026-11-17 "match the video"). A thrown frag that appears within 1 s of the own throw and within 4 m of the player
+    /// is his; the marker shows from there until it lands (it stops resting or sticking) and fades over <see cref="GrenadeRules.LandedFade"/>. Only own throws are in the clips: others' grenades show none.
+    /// </summary>
+    void GrenadeMarkerFrame(Hud.Frame f, PlayerState me)
+    {
+        if (OldGrenadeFx || _client is null || _config is null || _camera is null || _gameSpace is null) return;
+        if (me.Throwing) _ownThrowingAt = _connectedFor;
+        var live = new HashSet<int>();
+        foreach (var q in _client.Projectiles())
+        {
+            if (!q.Thrown || q.Weapon < 0 || q.Weapon >= _config.Thrown.Count || !GrenadeFx.IsFrag(_config.Thrown[q.Weapon].Name)) continue;
+            live.Add(q.Id);
+            if (!_grenadeMarks.ContainsKey(q.Id))
+            {
+                if (_connectedFor - _ownThrowingAt > 1.0 || System.Numerics.Vector3.Distance(q.Position, me.Position) > 4f) continue;
+                _grenadeMarks[q.Id] = (_connectedFor, null);
+            }
+            var (since, landed) = _grenadeMarks[q.Id];
+            if (landed is null && (q.Flags & (ProjectileFlags.Stuck | ProjectileFlags.Attached)) != 0) _grenadeMarks[q.Id] = (since, landed = _connectedFor);
+            float age = (float)(_connectedFor - since);
+            float fade = GrenadeRules.Fade(age, landed is { } l ? (float)(_connectedFor - l) : null);
+            if (fade <= 0f) continue;
+            var cam = _camera.GlobalTransform.Basis;
+            var forward = new Vector3(-cam.Z.X, 0f, -cam.Z.Z).Normalized();
+            var right = new Vector3(cam.X.X, 0f, cam.X.Z).Normalized();
+            var d = ToGodot(q.Position) - ToGodot(me.Position);
+            f.GrenadeMarks.Add(new Hud.GrenadeMark(GrenadeRules.Angle(d.Dot(right), d.Dot(forward)), age, fade));
+            GrenadeMarkFrames++;
+        }
+        if (_grenadeMarks.Count > 0)
+            foreach (int id in new List<int>(_grenadeMarks.Keys))
+                if (!live.Contains(id)) _grenadeMarks.Remove(id);
+    }
+
     // ---- --bot-grenade-demo (capture aid for the reference comparison; not original behaviour) ----
 
     /// <summary>

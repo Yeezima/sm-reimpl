@@ -67,3 +67,35 @@ public static class GrenadeFx
     /// <summary>Whether a thrown item's wargear name is a frag grenade (<c>sm_mp_eq_frag_grenade</c>, <c>csm_mp_eq_frag_grenade</c>).</summary>
     public static bool IsFrag(string wargear) => wargear.Contains("frag_grenade", StringComparison.OrdinalIgnoreCase);
 }
+
+/// <summary>
+/// The orange in-flight grenade marker (grenade-effects, owner 2026-11-17: "Yes, match the video"; spec "Grenade in-flight marker"). **Original art**: the canister (Decorator.gfx sprite 29, a 30-frame
+/// glow pulse) and the chevron (sprite 23, 15 frames); everything else is measured from the four reference clips (**ours / estimate**): it shows for the thrower's own frag grenade from the
+/// release until it first lands, on a ring round the screen centre at the grenade's direction as seen from the camera (the release at the right hand: 0 degrees; the throw ahead: 90 degrees), with
+/// a thin arc outside the canister and the chevron beyond. Sizes are stage pixels of the 1280 x 720 stage. Whether other players' grenades show it is not in the clips (only own throws were filmed).
+/// </summary>
+public static class GrenadeRules
+{
+    /// <summary>The ring the canister sits on, in stage pixels from the centre (the clips: 0.19 of the screen height).</summary>
+    public const float RingRadius = 138f;
+    /// <summary>The canister's scale over its 16 x 32 art (the clips: about 5 % of the screen height tall).</summary>
+    public const float IconScale = 1.9f;
+    /// <summary>The arc's distance outside the canister, its half angle in radians (about 25 degrees) and its width in stage pixels.</summary>
+    public const float ArcOffset = 26f, ArcHalfAngle = 0.43f, ArcWidth = 3.5f;
+    /// <summary>The chevron's distance outside the canister and its scale.</summary>
+    public const float CaretOffset = 60f, CaretScale = 1.0f;
+    /// <summary>Seconds the marker keeps fading after the grenade lands (the clips: gone within a frame or two).</summary>
+    public const float LandedFade = 0.1f;
+    /// <summary>A marker that has not landed after this many seconds is dropped (a grenade lost in flight).</summary>
+    public const float MaxAge = 1.5f;
+
+    /// <summary>The direction on the screen (radians, 0 right, counter-clockwise up) of a point <paramref name="right"/> metres to the camera's right and <paramref name="forward"/> metres ahead of the player.</summary>
+    public static float Angle(float right, float forward) => MathF.Atan2(forward, right);
+
+    /// <summary>The share of the arc still drawn <paramref name="age"/> seconds after the release: all of it, then fading out first (the clips show the arc gone while the canister is still there).</summary>
+    public static float ArcFadeShare(float age) => Math.Clamp(1f - (age - 0.18f) / 0.15f, 0f, 1f);
+
+    /// <summary>The marker's fade: 1 in flight, down to 0 over <see cref="LandedFade"/> after the landing; 0 past <see cref="MaxAge"/>.</summary>
+    public static float Fade(float age, float? sinceLanded) =>
+        age > MaxAge ? 0f : sinceLanded is { } l ? Math.Clamp(1f - l / LandedFade, 0f, 1f) : 1f;
+}
