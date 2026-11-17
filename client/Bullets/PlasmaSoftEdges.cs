@@ -64,6 +64,23 @@ public static class PlasmaSoftEdges
     /// <summary>The shader's lateral falloff for the plasma cannon's effects (<see cref="Lateral"/> with cannon).</summary>
     public const string CannonShaderLine = "a *= pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);";
 
+    /// <summary>plasma-cannon-shots (owner 2026-11-17: "make the main projectile ball at the front larger to match the reference image"): the loyalist or Chaos cannon's charged trail effect (<c>plasma_cannon_secondary_trail</c>); only its ball rings are enlarged.</summary>
+    public const float ChargedBallScale = 3.5f;   // ours / estimate: reference 1's ball is about 3.5 times the data's
+    /// <summary>The share of violet mixed into the charged trail's streamers (ours / estimate; owner: "only the trail has traces of violet").</summary>
+    public const float VioletShare = 0.55f;
+    static readonly (float R, float G, float B) VioletRgb = (0.66f, 0.45f, 1.0f);
+
+    /// <summary>Whether a ring of the charged cannon trail is the front ball (its <c>ball</c> and <c>ball core</c> rings, not the glow, the distortion or the sparks).</summary>
+    public static bool ChargedBall(string? effect, string? ring) =>
+        effect is { } e && e.EndsWith("plasma_cannon_secondary_trail", StringComparison.OrdinalIgnoreCase) && ring is "ball" or "ball core";
+
+    /// <summary>Whether a streamer belongs to the loyalist cannon's charged trail (the Chaos one is purple already).</summary>
+    public static bool ChargedTrail(string? effect) => string.Equals(effect, "plasma_cannon_secondary_trail", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A colour with <see cref="VioletShare"/> of violet mixed in (the alpha is kept).</summary>
+    public static (float R, float G, float B, float A) Violet(float r, float g, float b, float a) =>
+        (r + (VioletRgb.R * MathF.Max(r, MathF.Max(g, b)) - r) * VioletShare, g + (VioletRgb.G * MathF.Max(r, MathF.Max(g, b)) - g) * VioletShare, b + (VioletRgb.B * MathF.Max(r, MathF.Max(g, b)) - b) * VioletShare, a);
+
     /// <summary>plasma-cannon-shots: the plasma cannon's own effects (loyalist and Chaos): its trails, muzzle and chamber effects by name, and the impacts its shots play (the charged shot's <c>plasma_gun_mp_overcharged_dmg</c>, the basic shot's <c>plasma_gun_charged_dmg</c>, with their Chaos <c>csm_</c> twins). The plasma gun's and pistol's own effects keep the plasma-soft-visuals curves.</summary>
     public static bool CannonLook(string? effectName) => effectName is { Length: > 0 } n && (n.Contains("plasma_cannon", StringComparison.OrdinalIgnoreCase) || n.EndsWith("plasma_gun_mp_overcharged_dmg", StringComparison.OrdinalIgnoreCase) || n.EndsWith("plasma_gun_charged_dmg", StringComparison.OrdinalIgnoreCase));
 }

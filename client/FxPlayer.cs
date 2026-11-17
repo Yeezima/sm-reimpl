@@ -823,6 +823,7 @@ public sealed partial class FxPlayer : Node3D
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
         float radius = At(n.Radius, t, 0.1f) * c.S * Jitter(n.EpsRadius, seed, 8);
+        if (e.CannonLook && PlasmaSoftEdges.ChargedBall(e.Name, n.Name)) radius *= PlasmaSoftEdges.ChargedBallScale;   // plasma-cannon-shots (owner 2026-11-17: the front ball larger, like reference 1; the factor is ours / estimate)
         if (e.SmokeRein < 1f && IsSmoke(n)) radius *= e.SmokeRein;   // feel/muzzle-smoke
         if (radius <= 0.0005f) return;
         var colour = Shade(Final(n, t, seed, n.Additive ? 1f : e.DustShare), e);   // musou/autocannon-dust: an alpha sprite's density
@@ -1010,6 +1011,7 @@ public sealed partial class FxPlayer : Node3D
             float f = (j + 0.5f) / N;
             float width = e.WidthAlongTrail ? MathF.Max(0f, At(n.Width, f, 0.1f)) * widthScale : width0 * (1f - 0.7f * f);   // plasma-original-fx: the width keys along the ribbon (PlasmaOriginalLook.StreamerWidth)
             var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e);
+            if (e.CannonLook && PlasmaSoftEdges.ChargedTrail(e.Name)) col = PlasmaSoftEdges.Violet(col.R, col.G, col.B, col.A) is var v ? new Color(v.R, v.G, v.B, v.A) : col;   // plasma-cannon-shots (owner: faint violet traces in the trail only; ours / estimate)
             if (e.SoftHead && f < FxEffect.SoftHeadShare)
             {
                 // fix/plasma-trail-slab (owner, 2026-11-09: the original data look, softened): the ribbon's head swells from a point and fades in instead of starting as a hard-edged rectangle.

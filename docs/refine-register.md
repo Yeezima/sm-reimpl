@@ -28,13 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3453 spec table rows: **2467 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 765 rows of the changes document.
+Scanned 3454 spec table rows: **2468 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 766 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 406 | 348 | 346 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
-| Weapons (critical) | 120 | 74 | 107 | 52 | 3 |
+| Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 159 | 139 | 115 | 56 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
@@ -53,18 +53,18 @@ Scanned 3453 spec table rows: **2467 tagged**, 635 not tagged (read from data wi
 | Core simulation (provisional values) | 738 | 695 | 525 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2467** | 2191 | 1832 | 734 | 37 |
+| **All areas** | **2468** | 2192 | 1832 | 735 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1460 |
+| kind: ours | 1461 |
 | confidence: low | 885 |
 | confidence: medium | 838 |
 | notes: ours | 405 |
 | kind: interpretation | 395 |
-| notes: estimate | 203 |
+| notes: estimate | 204 |
 | kind: estimate | 174 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
@@ -877,7 +877,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-4212C891` | Overcharge: the shockwave's damage | **none** of its own (`DreadnoughtMelee.Overcharge` damage 0): the swing and the stomp's own blast deal their damage; the wave only moves and interrupts (damage) | kind: ours; confidence: medium | the owner: "no extra damage beyond the stomp's own, if it has any"; chosen: none, because the swing already damages every Ork in the cleave | Overcharge: the shockwave's damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: none of its own (DreadnoughtMelee.Overcharge damage 0): the swing and… | ☐ |
 
-### Weapons (gameplay-critical) (120)
+### Weapons (gameplay-critical) (121)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -911,6 +911,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-64BF6BF0` | Early release | every charge ability's first stage (`1.charge_light`, at 0 s) has no shot; since M31 a release before the firing stage fires the weapon's basic shot (a tap: the owner's rule "press / tap = the normal shot, hold = the charged shot", 2026-10-28; before M31 only… | kind: interpretation; kind: user's knowledge; confidence: medium | all four charge weapons; the tap rule: user's knowledge of the original | Early release: compare with SM1 by feel or video. Ours: every charge ability's first stage (1.charge_light, at 0 s) has no… | ☐ |
 | `R-00F7A778` | Charge limits | `max_charge_time` 1.5 (lascannon) or 0 (others), `min_charge_time_multiplier` 1 by default (perks: lascannon 0.53 with max 0.8, plasma gun 0.65, plasma cannon 0.55); `reload_button_cancels_charging` true except the lascannon (s) | confidence: low; notes: open question | `charge_upgrade_list/upgradeable` | Charge limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: max_charge_time 1.5 (lascannon) or 0 (others)… | ☐ |
 | `R-739A9223` | Plasma cannon auto-release (sim/plasma-cannon-auto-release, protocol 84) | the held charge fires by itself in the tick after it reaches its firing stage (3 s; × `min_charge_time_multiplier`: 1.65 s with Improved Plasma Charge), the Fire button held or not; the stage's +50 heat per second is applied for one tick before the shot… (s) | kind: ours; confidence: low | owner 2026-11-17 ("when the charge meter reaches the maximum ... it should release automatically at full charge, whether the player let go of lmb or not")… | Plasma cannon auto-release (sim/plasma-cannon-auto-release…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the held charge fires by itself in the tick after it reaches its… | ☐ |
+| `R-37580337` | Plasma cannon charged shot: look (plasma-cannon-shots) | the front ball's two rings (`ball`, `ball core`) of `plasma_cannon_secondary_trail` (loyalist and Chaos) drawn 3.5 x the data's radius; the loyalist trail's streamers get 55 % violet (about (0.66, 0.45, 1.0) of their own brightness) mixed in, the ball, glow… (factor, share) | kind: ours; notes: estimate | owner 2026-11-17 ("only the trail has traces of violet", "make the main projectile ball at the front larger to match the reference image", reference 1); the… | Plasma cannon charged shot: look (plasma-cannon-shots): compare with SM1 by feel or video. Ours: the front ball's two rings (ball, ball core) of… | ☐ |
 | `R-929A44C1` | Projectile `plasma_altfire_mp` (plasma gun) | speed 90, lifetime 3, collision sphere 0.25, detonates on collision and at the end of its lifetime, gravity ×0 to 5 then ×0.75 from 5.1, aim +1.15; blast radius 7: 75 damage and 75 shield damage (`damage_armourshield`), shield breaker, fall-off ×1 at 2, ×0.8… (units/s, s, units) | confidence: medium | ebps | Projectile plasma_altfire_mp (plasma gun): compare with SM1 by timing a run over a known distance. Ours: speed 90, lifetime 3, collision sphere 0.25, detonates on collision… | ☐ |
 | `R-79B3E2F6` | Projectile `plasma_pistol_altfire_mp` | speed 90, lifetime 1.5, sphere 0.25, **sticky**, does not detonate on collision (detonates at lifetime end), gravity ×0.45 from 5.1; blast radius 6: 50 + 75 shield, breaker, ×1 at 2, ×0.8 to 3.5, ×0.5 at 4, ×0.1 at 6 (as above) | confidence: medium | ebps | Projectile plasma_pistol_altfire_mp: compare with SM1 by feel or video. Ours: speed 90, lifetime 1.5, sphere 0.25, sticky, does not detonate on… | ☐ |
 | `R-7F990278` | Projectile `plasma_cannon_default_mp` | speed 100, lifetime 3, sphere 0.1, detonates on collision, gravity ×0.25 from 20.1; blast radius 7: 60 (shield multipliers ×2), breaker, ×1 to 3.5, ×0.75 at 4–5, ×0.6 at 6, ×0.15 at 7 (as above) | confidence: medium | ebps | Projectile plasma_cannon_default_mp: compare with SM1 by feel or video. Ours: speed 100, lifetime 3, sphere 0.1, detonates on collision, gravity… | ☐ |
@@ -5249,6 +5250,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-35C74DBA` | Plasma cannon trail drawn soft (plasma-cannon-shots; owner 2026-11-17; client only) | The cannon's charged and normal trails drew as wide slabs with a straight cut at the young trail's start | The streamers' width keys read along the ribbon (as the plasma gun's trail does) and a young trail's tail fades over its drawn length (`FxPlayer.DrawStreamer`); look tuning is ours / estimate | The owner: "absolutely no hard lines" in the charged shot (references 1 to 4); milestones "Plasma cannon shots" | Plasma cannon trail drawn soft (plasma-cannon-shots; owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5A4CE004` | Plasma cannon effects: squared edge fades (plasma-cannon-shots; owner 2026-11-17 "no hard lines"; client only) | The cannon's trail ribbons and glow cards were cut by the data's textures with a straight edge, a bright plateau and a hard head | Ours / estimate: the cannon's own effects (loyalist and Chaos, its impacts included) fall to zero from the axis or centre, squared, with a ribbon head that fades in over twice its width; the gun, pistol and other plasma effects keep the earlier plasma-soft-visuals curves | The owner's order ("absolutely no hard lines"; keep the data's size); constants and curves are our tuning, to check by eye (`PlasmaSoftEdges.Lateral`, `Radial`, `CannonLook`) | Plasma cannon effects: squared edge fades…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CFDB3A1F` | Plasma cannon blast rim blur (plasma-cannon-shots; owner 2026-11-17 "soften it"; client only) | The cannon's impact drew a round dome and a disc with a bright rim (the `emp_ball_main`, `cloud_highlights_additive_02` and `bright_flash` cards) | Ours / estimate: those cards are read blurred (5 x 5 taps) and fade out toward their edge, flat shock-wave rings included; size and colour are the data's | The owner: "Soften it"; blur width and taps are ours (about +0.33 ms a frame measured on a fast GPU in the Compatibility renderer) | Plasma cannon blast rim blur (plasma-cannon-shots; owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-E1A87700` | Plasma cannon charged shot: larger front ball and violet trail traces (plasma-cannon-shots; owner 2026-11-17; client only) | The data's ball is small and its trail pale cyan-white | Ours / estimate: the front ball's rings are drawn 3.5 x larger; the loyalist trail's streamers carry 55 % violet; ball, glow and blast keep the data's colour and the blast its size | The owner: "only the trail has traces of violet. also make the main projectile ball at the front larger to match the reference image"; the factor 3.5 and the 55 % are our estimates | Plasma cannon charged shot: larger front ball and violet…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

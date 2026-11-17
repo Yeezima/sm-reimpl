@@ -84,4 +84,19 @@ public class PlasmaSoftEdgesTests
 
     [Fact]
     public void TheArcLeashKeepsArcsOnTheGun() => Assert.InRange(PlasmaSoftEdges.ArcLeash, 0.05f, 0.6f);   // metres after scale; the data's offset reaches 2.5 m (a blue light over the carrier's head)
+
+    [Fact]
+    public void OnlyTheChargedTrailTakesVioletAndOnlyItsBallRingsGrow()
+    {
+        Assert.True(PlasmaSoftEdges.ChargedTrail("plasma_cannon_secondary_trail"));
+        Assert.False(PlasmaSoftEdges.ChargedTrail("plasma_cannon_primary_trail"));
+        Assert.False(PlasmaSoftEdges.ChargedTrail("csm_plasma_cannon_secondary_trail"));
+        Assert.True(PlasmaSoftEdges.ChargedBall("plasma_cannon_secondary_trail", "ball"));
+        Assert.True(PlasmaSoftEdges.ChargedBall("csm_plasma_cannon_secondary_trail", "ball core"));
+        Assert.False(PlasmaSoftEdges.ChargedBall("plasma_cannon_secondary_trail", "bright"));
+        Assert.False(PlasmaSoftEdges.ChargedBall("plasma_cannon_primary_trail", "ball"));
+        var v = PlasmaSoftEdges.Violet(0.2f, 0.8f, 1f, 0.5f);
+        Assert.Equal(0.5f, v.A);
+        Assert.True(v.R > 0.2f && v.G < 0.8f);   // moved toward violet, not replaced
+    }
 }
