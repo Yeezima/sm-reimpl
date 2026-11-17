@@ -126,6 +126,63 @@ public class MapSceneTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    static Node PlacedIn(string name, string definition, string package) =>
+        new Struct("StaticObject", ("Name", new S(name)), ("ObjectName", new S(definition)), ("PackageName", new S(package)), ("Disabled", new B(false)),
+            ("Position", new Vec(0, 0, 0)), ("Rotation", new Vec(0, 0, 0)), ("Scale", new Vec(1, 1, 1)), ("ChildObjects", new List()));
+
+    static byte[] SizedMesh(float size) => SyntheticDcmWriter.Build(
+    [
+        new([new(0, 0, 0), new(size, 0, 0), new(0, size, 0)], [0, 1, 2], [new("stone", 0, 3, 0, 3)]),
+        new([new(0, 0, 0), new(size, 0, 0), new(0, size, 0)], [0, 1, 2], [new("stone", 0, 3, 0, 3)]),
+    ]);
+
+    [Fact]
+    public void A_name_the_archive_holds_twice_draws_the_definition_and_mesh_of_the_placements_package()
+    {
+        // classic-maps-fidelity: Desolation's GEO_wall (16 placements of one package, 1 of another), Shattered Bridge's gateway towers.
+        string dir = Path.Combine(Path.GetTempPath(), "sm-scene-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "data", "chunks"));
+        try
+        {
+            File.WriteAllBytes(Path.Combine(dir, "data", "chunks", "mp_test__wrld.oppc"), SyntheticObpkWriter.Build(
+            [
+                new("Layer", "e_walls", Layer(
+                    PlacedIn("w1", "Wall_A", "pkg_a"), PlacedIn("w2", "Wall_A", "pkg_b"), PlacedIn("w3", "Wall_A", "pkg_unknown"),
+                    PlacedIn("a1", "Only_A", "pkg_a"), PlacedIn("b1", "Only_B", "pkg_b"), PlacedIn("b2", "Only_B", "pkg_b"), PlacedIn("c1", "Only_C", "pkg_c"))),
+                new("O3d", "Wall_A", Definition("Wall_A_Mesh"), PackageId: 100),
+                new("O3d", "Wall_A", Definition("Wall_A_Mesh"), PackageId: 200),
+                new("O3d", "Only_A", Definition("Only_A_Mesh"), PackageId: 100),
+                new("O3d", "Only_B", Definition("Only_B_Mesh"), PackageId: 200),
+                new("O3d", "Only_C", Definition("Only_C_Mesh")),
+                new("dcm", "Wall_A_Mesh", SizedMesh(1f), PackageId: 100),
+                new("dcm", "Wall_A_Mesh", SizedMesh(5f), PackageId: 200),
+                new("dcm", "Only_A_Mesh", Mesh(), PackageId: 100),
+                new("dcm", "Only_B_Mesh", Mesh(), PackageId: 200),
+                new("dcm", "Only_C_Mesh", Mesh()),
+            ]));
+
+            var scene = MapScene.Load(dir, "mp_test");
+            var byName = scene.Objects.ToDictionary(o => o.Name);
+            Assert.Equal("pkg_a", byName["w1"].Package);
+            Assert.Equal("Wall_A@100", byName["w1"].Variant, ignoreCase: true);
+            Assert.Equal("Wall_A@200", byName["w2"].Variant, ignoreCase: true);
+            Assert.Null(byName["w3"].Variant);        // its package is not one the single definitions tell: the first definition, as before
+            Assert.Null(byName["a1"].Variant);        // a name only one package defines
+            float Extent(string placement)
+            {
+                Assert.True(scene.TryGetDefinition(byName[placement], out var def));
+                var part = def.Visuals[0];
+                return scene.Meshes[part.MeshName].Blocks[part.MeshId].Positions.Max(p => p.X);
+            }
+            Assert.Equal(1f, Extent("w1"), 3);        // package 100's mesh
+            Assert.Equal(5f, Extent("w2"), 3);        // package 200's
+            Assert.Equal(1f, Extent("w3"), 3);        // the first
+            Assert.Equal(2, scene.Variants.Count);
+            Assert.Equal(1f, scene.Meshes["Wall_A_Mesh"].Blocks[0].Positions.Max(p => p.X), 3);   // the plain name keeps the first, for readers that look it up by name
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     [Fact]
     public void Missing_definitions_and_meshes_are_noted_not_fatal()
     {

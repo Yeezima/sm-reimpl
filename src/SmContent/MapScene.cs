@@ -7,7 +7,11 @@ namespace SmContent;
 
 /// <summary>A static object placed in a map layer: its definition (<c>.O3d</c>) and its world transform.</summary>
 /// <param name="Depth">0 for objects listed directly in the layer; 1 and more for objects nested as <c>ChildObjects</c>.</param>
-public sealed record PlacedObject(string Name, string Definition, string Layer, Matrix4x4 Transform, int Depth = 0);
+/// <param name="Package">The placement's <c>PackageName</c> (the package its definition comes from; empty when absent).</param>
+/// <param name="Variant">classic-maps-fidelity: set when the archive holds more than one definition of <see cref="Definition"/> (the same
+/// file name from different packages; 5 of the 11 maps) and the placement's <see cref="Package"/> names one of them: the key in
+/// <see cref="MapScene.Variants"/> (use <see cref="MapScene.TryGetDefinition"/>). Null: the definition of that name in <see cref="MapScene.Definitions"/>.</param>
+public sealed record PlacedObject(string Name, string Definition, string Layer, Matrix4x4 Transform, int Depth = 0, string Package = "", string? Variant = null);
 
 /// <summary>One drawable part of an object definition: a mesh block, where it hangs in the object, and its LOD mask.</summary>
 /// <param name="MeshName">The <c>.dcm</c> entry.</param>
@@ -83,6 +87,19 @@ public sealed class MapScene
     public required string Map { get; init; }
     public required IReadOnlyList<PlacedObject> Objects { get; init; }
     public required IReadOnlyDictionary<string, ObjectDefinition> Definitions { get; init; }
+    /// <summary>
+    /// Every definition of a name the archive holds twice or more (the same <c>.O3d</c> file name from different packages), by
+    /// <c>name@packageId</c> (<see cref="PlacedObject.Variant"/>); <see cref="Definitions"/> keeps the first of each name. Their meshes are in
+    /// <see cref="Meshes"/> by <c>name@packageId</c> too when a mesh name is held twice.
+    /// </summary>
+    public IReadOnlyDictionary<string, ObjectDefinition> Variants { get; init; } = new Dictionary<string, ObjectDefinition>();
+
+    /// <summary>The definition a placement draws: its <see cref="PlacedObject.Variant"/> when it has one, else the one of its name.</summary>
+    public bool TryGetDefinition(PlacedObject placed, out ObjectDefinition definition)
+    {
+        if (placed.Variant is not null && Variants.TryGetValue(placed.Variant, out var variant)) { definition = variant; return true; }
+        return Definitions.TryGetValue(placed.Definition, out definition!);
+    }
     public required IReadOnlyDictionary<string, DcmMesh> Meshes { get; init; }
     public required IReadOnlyDictionary<string, BmatMaterial> Materials { get; init; }
     /// <summary>
@@ -130,6 +147,7 @@ public sealed class MapScene
         var objects = new List<PlacedObject>();
         MapLighting? lighting = null;
         var definitions = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase);
+        var o3d = new Dictionary<string, List<(uint Id, ObjectDefinition Definition)>>(StringComparer.OrdinalIgnoreCase);
         using var archive = ObpkArchive.Open(archivePath);
 
         // Pass 1: layers and object definitions.
@@ -147,7 +165,12 @@ public sealed class MapScene
                         lighting = lighting is null ? read : MapLighting.Combine([lighting, read]);
                     }
                 }
-                else definitions.TryAdd(e.FileName, Definition(e.FileName, root));
+                else
+                {
+                    var read = Definition(e.FileName, root);
+                    if (!o3d.TryGetValue(e.FileName, out var list)) o3d[e.FileName] = list = [];
+                    list.Add((PackageId(archive, e), read));
+                }
             }
             catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
             {
@@ -156,20 +179,33 @@ public sealed class MapScene
             }
         });
 
+        // The same file name can be held more than once (from different packages, told apart by the entry's package id list): the
+        // definition (and mesh) of the package a placement names is the one it draws.
+        var duplicateMeshes = archive.Entries.Where(e => archive.GroupName(e) == "dcm").GroupBy(e => e.FileName, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Select(e => PackageId(archive, e)).Distinct().Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var meshKeys = archive.Entries.Where(e => archive.GroupName(e) == "dcm" && duplicateMeshes.Contains(e.FileName)).Select(e => MeshKey(e.FileName, PackageId(archive, e))).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var variants = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase);
+        ResolveDuplicates(o3d, objects, meshKeys, definitions, variants);
+
         var used = objects.Select(o => o.Definition).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var name in used.Where(n => !definitions.ContainsKey(n)).Order(StringComparer.Ordinal))
             notes.Add($"object definition '{name}' not in the archive; its {objects.Count(o => o.Definition.Equals(name, StringComparison.OrdinalIgnoreCase))} placements are not drawn");
-        var meshNames = definitions.Values.Where(d => used.Contains(d.Name)).SelectMany(d => d.Visuals).Select(v => v.MeshName)
+        var meshNames = definitions.Values.Concat(variants.Values).Where(d => used.Contains(d.Name)).SelectMany(d => d.Visuals).Select(v => v.MeshName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Pass 2: meshes and materials.
         var meshes = new Dictionary<string, DcmMesh>(StringComparer.OrdinalIgnoreCase);
         var materials = new Dictionary<string, BmatMaterial>(StringComparer.OrdinalIgnoreCase);
-        archive.ReadEntries(e => (archive.GroupName(e) == "dcm" && meshNames.Contains(e.FileName)) || archive.GroupName(e) == "bmat", (e, data) =>
+        archive.ReadEntries(e => (archive.GroupName(e) == "dcm" && (meshNames.Contains(e.FileName) || meshNames.Contains(MeshKey(e.FileName, PackageId(archive, e))))) || archive.GroupName(e) == "bmat", (e, data) =>
         {
             try
             {
-                if (archive.GroupName(e) == "dcm") meshes.TryAdd(e.FileName, DcmMesh.Read(data));
+                if (archive.GroupName(e) == "dcm")
+                {
+                    var mesh = DcmMesh.Read(data);
+                    if (duplicateMeshes.Contains(e.FileName)) meshes.TryAdd(MeshKey(e.FileName, PackageId(archive, e)), mesh);
+                    meshes.TryAdd(e.FileName, mesh);
+                }
                 else materials.TryAdd(e.FileName, BmatMaterial.From(BodDocument.Read(data)));
             }
             catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
@@ -188,8 +224,56 @@ public sealed class MapScene
 
         return new MapScene
         {
-            Map = map, Objects = objects, Definitions = definitions, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes,
+            Map = map, Objects = objects, Definitions = definitions, Variants = variants, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes,
         };
+    }
+
+    /// <summary>The package id of an archive entry: the first value of its id list (an entry's <c>Unknown</c> indexes the archive's id lists; one id each on every entry read), or <see cref="uint.MaxValue"/> when it has none.</summary>
+    static uint PackageId(ObpkArchive archive, ObpkEntry e) =>
+        e.Unknown < (uint)archive.IdLists.Count && archive.IdLists[(int)e.Unknown].Length > 0 ? archive.IdLists[(int)e.Unknown][0] : uint.MaxValue;
+
+    /// <summary>The key of a definition or mesh that its name does not identify: <c>name@packageId</c>.</summary>
+    static string MeshKey(string name, uint package) => $"{name}@{package}";
+
+    /// <summary>
+    /// Definitions of one name held by several entries of the archive: which one each placement draws. classic-maps-fidelity (2026-11-18; spec
+    /// "Same-name definitions"): the archive keeps every package's <c>.O3d</c> and <c>.dcm</c> files, so a name can occur twice with different
+    /// contents (Shattered Bridge 4 names, Desolation <c>GEO_wall</c>, Dome Mechanicus <c>High_Gothic_wall_A</c>, Manufactorum
+    /// <c>Hab_wall_pipes</c>), an entry's package id (its id list) telling them apart; a placement's <c>PackageName</c> names its package. The
+    /// package name to id pairs are learned from the placements of names that only one package defines (every such name gave one id per
+    /// package name on the maps read, except <c>mp_maps_outreach</c> on Dome Mechanicus: 1,064 placements of one id and 54 of another, where
+    /// the commoner id wins); a placement of a duplicated name whose package maps to one of its entries draws that entry. Without such a pair it
+    /// keeps drawing the first, as before. The first entry of each name stays in <paramref name="definitions"/> (its meshes by package too).
+    /// </summary>
+    /// <param name="meshKeys">The <c>name@packageId</c> of every mesh entry whose name the archive holds more than once: a definition draws its own package's copy.</param>
+    static void ResolveDuplicates(Dictionary<string, List<(uint Id, ObjectDefinition Definition)>> o3d, List<PlacedObject> objects, HashSet<string> meshKeys,
+        Dictionary<string, ObjectDefinition> definitions, Dictionary<string, ObjectDefinition> variants)
+    {
+        ObjectDefinition WithOwnMeshes(ObjectDefinition d, uint id) => meshKeys.Count == 0 || !d.Visuals.Any(v => meshKeys.Contains(MeshKey(v.MeshName, id))) ? d
+            : d with { Visuals = [.. d.Visuals.Select(v => meshKeys.Contains(MeshKey(v.MeshName, id)) ? v with { MeshName = MeshKey(v.MeshName, id) } : v)] };
+        var duplicated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, list) in o3d)
+        {
+            definitions.TryAdd(name, WithOwnMeshes(list[0].Definition, list[0].Id));
+            if (list.Select(x => x.Id).Distinct().Count() <= 1) continue;
+            duplicated.Add(name);
+            foreach (var (id, def) in list) variants.TryAdd(MeshKey(name, id), WithOwnMeshes(def, id));
+        }
+        if (duplicated.Count == 0) return;
+        var learned = new Dictionary<string, Dictionary<uint, int>>(StringComparer.Ordinal);
+        foreach (var o in objects)
+            if (o.Package.Length > 0 && o3d.TryGetValue(o.Definition, out var one) && one.Select(x => x.Id).Distinct().Count() == 1 && one[0].Id != uint.MaxValue)
+            {
+                if (!learned.TryGetValue(o.Package, out var counts)) learned[o.Package] = counts = [];
+                counts[one[0].Id] = counts.GetValueOrDefault(one[0].Id) + 1;
+            }
+        for (int i = 0; i < objects.Count; i++)
+        {
+            var o = objects[i];
+            if (!duplicated.Contains(o.Definition) || !learned.TryGetValue(o.Package, out var counts)) continue;
+            var best = o3d[o.Definition].Select(x => x.Id).Distinct().Where(counts.ContainsKey).OrderByDescending(id => counts[id]).ThenBy(id => id).Cast<uint?>().FirstOrDefault();
+            if (best is { } id) objects[i] = o with { Variant = MeshKey(o.Definition, id) };
+        }
     }
 
     /// <summary>
@@ -206,7 +290,7 @@ public sealed class MapScene
                 if (s["Disabled"] is BodBool { Value: true }) return;   // a disabled object hides its children too
                 var world = Local(s) * parent;
                 if (s.Class.Text == "StaticObject" && s["ObjectName"] is BodString { Text: { Length: > 0 } definition })
-                    objects.Add(new PlacedObject((s["Name"] as BodString)?.Text ?? "", definition, layer, world, childDepth));
+                    objects.Add(new PlacedObject((s["Name"] as BodString)?.Text ?? "", definition, layer, world, childDepth, (s["PackageName"] as BodString)?.Text ?? ""));
                 foreach (var f in s.Fields)
                     if (f.Name.Text is "Root" or "Objects" or "ChildObjects")
                         CollectObjects(f.Value, layer, f.Name.Text == "ChildObjects" ? world : parent, objects, depth + 1, f.Name.Text == "ChildObjects" ? childDepth + 1 : childDepth);

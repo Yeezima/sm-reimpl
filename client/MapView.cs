@@ -58,7 +58,7 @@ public partial class MapView : Node3D
             if (decorHidden.Contains(o)) continue;
             var placed = scene.Objects[o];
             if (MapDecor.HiddenLayers.Count > 0 && MapDecor.HiddenLayers.Contains(placed.Layer)) { layerHidden++; continue; }   // pass 2 test aid (--hide-layer)
-            if (!scene.Definitions.TryGetValue(placed.Definition, out var definition)) continue;
+            if (!scene.TryGetDefinition(placed, out var definition)) continue;
             foreach (var part in definition.DrawnParts(MapDecor.OldLodRule))   // classic-maps-fidelity: one member per LOD-suffix family (--old-lod-rule: the old rule)
             {
                 var world = part.NodeTransform * placed.Transform;
