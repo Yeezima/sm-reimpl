@@ -371,6 +371,18 @@ public sealed class WarfrontCoop
         return Of(key).Watch = candidates[at];
     }
 
+    /// <summary>
+    /// Once a tick, the default watch (owner's rule, fallen-watch fix): a key that is spectating (a held joiner, or a fallen player in the 60 s spectator phase) always has a target, the leader else the first candidate, without waiting for the first
+    /// watch step; a key that is not spectating has none (a stale target never outlives the spectating). Returns whether the key's target changed.
+    /// </summary>
+    public bool DefaultWatch(ulong key, bool spectating, IReadOnlyList<WarfrontWatch> candidates)
+    {
+        if (!_e.TryGetValue(key, out var e)) return false;
+        var before = e.Watch;
+        if (spectating) ResolveWatch(key, candidates); else e.Watch = default;
+        return e.Watch != before;
+    }
+
     public WarfrontWatch WatchOf(ulong key) => _e.TryGetValue(key, out var e) ? e.Watch : default;
 
     // ---- the wire's content -----------------------------------------------------------------------------------------------------------------
