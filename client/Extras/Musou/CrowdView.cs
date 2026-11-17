@@ -10,7 +10,11 @@ namespace SmClient;
 /// A crowd's budgets: skinned near, vertex-animation per look, skinned without a bake, the near and half-rate distances (m), and how the dead go (s, s, m, how many are kept; the corpse floor,
 /// 2026-11-09: past <c>MaxBodies</c> only bodies past <see cref="SmNet.Extras.Musou.MusouCorpseRules.FloorSeconds"/> go, and the pool grows up to <c>HardBodies</c>).
 /// </summary>
-public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0);
+public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0, int ClipSkinned = 0, int ClipNearest = 0)
+{
+    /// <summary>The most skinned nodes the pool holds (the larger of the fallback's, the near tier's and the clip tier's cap, and eight spare); the one ceiling the pool build and the pre-warm both obey.</summary>
+    public int PoolCeiling => Math.Max(Math.Max(FallbackSkinned, MaxSkinned), ClipSkinned) + 8;
+}
 
 /// <summary>
 /// What a crowd of many characters shares (TF7a, out of <see cref="MusouCrowd"/>; design sections D and E), a node in the networked view's game space (Z up). A crowd says what to draw this
@@ -253,6 +257,9 @@ public abstract partial class CrowdView : Node3D
     }
 
     /// <summary>Draws <see cref="Items"/>.</summary>
+    /// <summary>Hysteresis at the clip tier's edge: an Ork already skinned keeps it while it is among the nearest <c>ClipNearest</c> + this many members (ours), so one stepping over the edge does not flip between baked and skinned.</summary>
+    public const int ClipEdgeSlack = 10;
+
     protected void Draw(float delta)
     {
         ulong started = ThreadClock.Mark();
@@ -279,6 +286,8 @@ public abstract partial class CrowdView : Node3D
             bool unbaked = look.Vat?.Mesh is null;
             bool near = it.Distance <= Limits.NearMetres || !OldTierSwitch && it.Distance <= Limits.NearMetres + SkinnedHoldMetres && _skinnedByKey.ContainsKey(it.Key);
             if (skinned < (unbaked ? Limits.FallbackSkinned : skinnedCap) && (near || unbaked) && TakeSkinned(it, look)) { skinned++; continue; }
+            // Reaction clips (owner 2026-11-17: "the nearest 100 orks"): a baked Ork mid-flinch among the ClipNearest nearest members is posed skinned too, up to ClipSkinned in all, so it plays the rig's clips; it stays skinned while it is near (the hold above).
+            if (!unbaked && !body && it.Kick.LengthSquared() > 1e-8f && members <= Limits.ClipNearest + (_skinnedByKey.ContainsKey(it.Key) ? ClipEdgeSlack : 0) && skinned < Limits.ClipSkinned && TakeSkinned(it, look)) { skinned++; continue; }
             if (look.Vat?.Mesh is not null && AddFar(look, it, body)) { vat++; continue; }
             left++;
         }
@@ -316,7 +325,7 @@ public abstract partial class CrowdView : Node3D
             foreach (var c in _skinned) if (c.Key == int.MinValue && !c.Used && ReferenceEquals(c.Look, look)) { s = c; break; }
             if (s is null)
             {
-                if (_skinned.Count >= Limits.FallbackSkinned + 8)
+                if (_skinned.Count >= Limits.PoolCeiling)
                 {
                     // Pool full of other looks: rebuild a free one for this look.
                     Skinned? spare = null;
@@ -346,12 +355,27 @@ public abstract partial class CrowdView : Node3D
         if (!due) return true;
         s.Clip = it.Clip;
         PoseSkinned(s, it);
-        if (bones) MusouOrkFlinchPose.Apply(s.Skeleton, s.FlinchBones!, new Basis(new Vector3(0, 0, 1), it.Yaw).Inverse() * it.Kick, look.Scale);
+        if (bones) PoseFlinch(s, it, new Basis(new Vector3(0, 0, 1), it.Yaw).Inverse() * it.Kick);
         s.Flinched = bones;
         return true;
     }
 
-    Skinned Build(MusouLooks.Look look)
+    /// <summary>The hit reaction laid over a skinned member's pose (<paramref name="kick"/> in the member's own frame): by default the procedural flinch (<see cref="MusouOrkFlinchPose.Apply"/>); the Musou crowd lays the rig's own reaction clips (owner 2026-11-17).</summary>
+    protected virtual void PoseFlinch(Skinned s, in Item it, Vector3 kick) => MusouOrkFlinchPose.Apply(s.Skeleton, s.FlinchBones!, kick, s.Look.Scale);
+
+    /// <summary>Pre-warm: builds one hidden skinned member of <paramref name="look"/> into the pool unless it already has <paramref name="target"/> (or the pool is at its ceiling), so a later promotion never builds a skeleton and meshes mid-fight. Returns the node built, or null.</summary>
+    protected Skinned? Prewarm(MusouLooks.Look look, int target)
+    {
+        int have = 0;
+        foreach (var c in _skinned) if (ReferenceEquals(c.Look, look)) have++;
+        if (have >= target || _skinned.Count >= Limits.PoolCeiling) return null;
+        var s = Build(look);
+        s.Root.Visible = false;
+        _skinned.Add(s);
+        return s;
+    }
+
+    protected Skinned Build(MusouLooks.Look look)
     {
         var skeleton = look.Assets.Model.Rig.Skeleton;
         var root = new Node3D { Name = "Skinned" + _skinned.Count };
@@ -376,7 +400,7 @@ public abstract partial class CrowdView : Node3D
         return new Skinned { Root = root, Skeleton = sk, Look = look, Rest = rest };
     }
 
-    void Pose(Skinned s, HavokBoundAnimation clip, float time)
+    protected void Pose(Skinned s, HavokBoundAnimation clip, float time)
     {
         if (_sample.Length != clip.Animation.TrackCount) _sample = new HavokTransform[clip.Animation.TrackCount];
         clip.Animation.SampleInto(time, _sample);

@@ -22,17 +22,20 @@ public partial class MusouCrowdTestView
     readonly Random _flinchRandom = new(7);
     float _flinchPrevT; int _driftK;
     double _flinchMs, _flinchMsMax; int _flinchMsN;
+    readonly List<double> _flinchMsAll = new();
 
     void FlinchFrame(MusouEnemyType kind, MusouLooks.Look look, float dt)
     {
         MusouOrkFlinchRules.TestScale = Arg(_args, "flinch-scale", 1f);
+        ThreadClock.Enabled = true;
+        MusouOrkReactClips.Measure = true;   // the stage measures the ankle drift (off in a match)
         MusouOrkFlinchPose.DebugPlant = _args.ContainsKey("plant-debug");
         _flinchMode ??= _args.GetValueOrDefault("flinch") ?? "stand";
         float t = _t += dt;
         _shown.Clear();
         var front = new System.Numerics.Vector2(-1f, 0f);   // the hit comes from the front (+X) and pushes the Ork back (-X)
         float speed = SpeedOf(kind);
-        float seconds = _flinchMode switch { "stand" => 8f, "drift" => 11f, "charge" => 5f, "blast" => 4f, "run" => 5f, "attack" => 6f, "burst" => 5f, _ => 6f };
+        float seconds = _flinchMode switch { "stand" => 8f, "drift" => 11f, "charge" => 5f, "blast" => 4f, "run" => 5f, "attack" => 6f, "burst" => 5f, "react" => 8f, _ => 6f };
         var centre = Vector3.Zero;
         void Hit(float at, ushort id, float strength) { if (_flinchPrevT < at && t >= at) _crowd!.Hit(id, front, strength, kind); }
         switch (_flinchMode)
@@ -56,6 +59,21 @@ public partial class MusouCrowdTestView
                     if (_flinchPrevT < at && t >= at) { MusouOrkFlinchPose.WorstFootDrift = 0f; _crowd!.Hit(_id, front, strengths[k], kind); _driftK = k; }
                     if (_flinchPrevT < at + 1.2f && t >= at + 1.2f) GD.Print($"FLINCHDRIFT strength {strengths[k]:0.0} (size {MusouOrkFlinchRules.Amplitude(strengths[k], kind):0.0}): worst foot drift {MusouOrkFlinchPose.WorstFootDrift * 1000f:F1} mm");
                 }
+                break;
+            }
+            case "react":   // Ork reaction clips (owner 2026-11-17): eight Orks side by side facing the camera (+X), each hit from its own direction (every 45 degrees round the Ork) by a bolter, a heavy melee, a close blast and then a burst
+            {
+                if (_flinchIds.Count == 0) for (int i = 0; i < 8; i++) _flinchIds.Add((ushort)(300 + i));
+                for (int i = 0; i < 8; i++) _shown.Add(new MusouShown(_flinchIds[i], V(0f, (i - 3.5f) * 2.4f, 0f), -MathF.PI / 2f, kind, MusouEnemyState.Seek, t));
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = i * MathF.PI / 4f;   // the direction away from the hit, 0 = straight back (-X, the hit coming from the front)
+                    var away = new System.Numerics.Vector2(-MathF.Cos(a), MathF.Sin(a));
+                    void H(float at, float strength) { if (_flinchPrevT < at && t >= at) _crowd!.Hit(_flinchIds[i], away, strength, kind); }
+                    H(1.0f, 1f); H(2.5f, MusouOrkFlinchRules.MeleeStrength("sm_mp_melee_power_sword", true, false)); H(4.0f, 2.5f);
+                    for (float k = 5.5f; k < 6.5f; k += 1f / 12f) H(k, 1f);
+                }
+                centre = new Vector3(0f, 0f, 0f);
                 break;
             }
             case "charge":   // a melee charge (2.5x) on a running Ork, then a heavy hammer strike
@@ -114,12 +132,15 @@ public partial class MusouCrowdTestView
         float height = MathF.Max(2f, LookHeight(look));
         float dist = Arg(_args, "cam-dist", _flinchMode == "crowd" ? 20f : _flinchMode == "blast" ? 9f : _flinchMode is "run" or "charge" ? 7f : height * 2.4f);
         var target = new Vector3(centre.X, 0f, _flinchMode == "crowd" ? 1f : height * 0.5f);
-        var eye = target + (_args.ContainsKey("cam-front") ? new Vector3(dist, 0f, height * 0.2f) : new Vector3(0f, -dist, _flinchMode == "crowd" ? 6f : height * 0.2f));   // --cam-front: from the side the hit comes from
+        if (_flinchMode == "react") dist = Arg(_args, "cam-dist", 15f);
+        var eye = target + (_flinchMode == "react" ? new Vector3(dist, 0f, height * 0.25f) : _args.ContainsKey("cam-front") ? new Vector3(dist, 0f, height * 0.2f) : new Vector3(0f, -dist, _flinchMode == "crowd" ? 6f : height * 0.2f));   // --cam-front: from the side the hit comes from
         _camera!.Position = GameToGodot * eye;
         _camera.LookAt(GameToGodot * target, Vector3.Up);
+        ulong cpu0 = ThreadClock.Mark();   // this thread's CPU time, so another process's load does not show as a spike
         var watch = System.Diagnostics.Stopwatch.StartNew();
         _crowd!.Frame(_shown, eye, dt);
-        if (t > 2f) { _flinchMs += watch.Elapsed.TotalMilliseconds; _flinchMsN++; _flinchMsMax = Math.Max(_flinchMsMax, watch.Elapsed.TotalMilliseconds); }
+        double cpuMs = ThreadClock.Ms(cpu0);
+        if (t > 2f) { _flinchMs += cpuMs; _flinchMsN++; _flinchMsMax = Math.Max(_flinchMsMax, cpuMs); _flinchMsAll.Add(cpuMs); string tm = _crowd.Timing(); if (cpuMs > 25) GD.Print($"FLINCHSPIKE t {t:F2} {cpuMs:F1} ms, skinned {_crowd.ShownSkinned}, {tm}"); }
         if (_flinchMode != "crowd" || true)
         {
             System.IO.Directory.CreateDirectory(_outDir);
@@ -127,8 +148,10 @@ public partial class MusouCrowdTestView
         }
         if (_flinchFrame % 6 == 0) GD.Print($"FLINCHTEST t {t:F2} flinching {_crowd.Flinching} kicks {_crowd.Kicks} foot drift {MusouOrkFlinchPose.LastFootDrift * 1000f:F1} mm");
         _flinchFrame++;
-        if (t >= seconds) { GD.Print($"FLINCHTEST done: {_flinchFrame} frames, kicks {_crowd.Kicks}, Frame() mean {_flinchMs / Math.Max(1, _flinchMsN):F2} ms, worst {_flinchMsMax:F2} ms, shown skinned {_crowd.ShownSkinned} baked {_crowd.ShownVat}, worst foot drift {MusouOrkFlinchPose.WorstFootDrift * 1000f:F1} mm"); GetTree().Quit(0); }
+        if (t >= seconds) { GD.Print($"FLINCHTEST done: {_flinchFrame} frames, kicks {_crowd.Kicks}, Frame() mean {_flinchMs / Math.Max(1, _flinchMsN):F2} ms, p99 {P99():F2} ms, worst {_flinchMsMax:F2} ms, shown skinned {_crowd.ShownSkinned} baked {_crowd.ShownVat}, worst foot drift {MusouOrkFlinchPose.WorstFootDrift * 1000f:F1} mm"); GetTree().Quit(0); }
     }
+
+    double P99() { if (_flinchMsAll.Count == 0) return 0; var a = _flinchMsAll.ToArray(); Array.Sort(a); return a[Math.Min(a.Length - 1, (int)(a.Length * 0.99))]; }
 
     static System.Numerics.Vector3 V(float x, float y, float z) => new(x, y, z);
 }
