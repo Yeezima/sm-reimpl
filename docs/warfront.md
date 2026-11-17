@@ -48,8 +48,12 @@ opened and closed, every catch-up card is picked aboard, then the player may dep
   and service records survive loadout changes. Dreadnought: no active retainers (the roster is held until he takes a squad class; a class change swaps the whole roster in place, names and records kept, and takes
   effect at the next landing). Librarian: a squad class option (Assault/Raptor, Tactical, Devastator/Havoc), and the whole group is ONE random loadout of that class
   (seeded by run seed, key and selection), never a mixed squad. An Assault/Raptor retainer fires its pistol at range, strikes within 2.5 m and uses its real jump pack (the client
-  hangs the pack on the Marine). The retainers run the lightweight squad sim, not 36 World puppets (the protocol holds 16 players and the puppet ids 12), with Musou's retainer
-  numbers (`MarineRules`: follow band, 20 m / 25 m / 40 m sight by order, 12 m stand-off, 10 m strike chase) and its orders. Orders as in Musou; Assault squads jump and pound; **J** marks a jump-pound for a jump-pack player. A Marine is downed for 20 s and is
+  hangs the pack on the Marine). The retainers run the lightweight squad sim, not 36 World puppets (the protocol holds 16 players and the puppet ids 12). Their decisions follow Musou's
+  `MarineBrain.PlanRetainer`: Follow keeps the owner within 4.5 to 6.5 m (steps in beyond, backs off inside, sprints beyond 12 m with no enemy), Hold stands within 1 m of its place,
+  Attack walks to the marked place until within 8 m, then engages (guns to 12 m, blades to 1.5 m); only Attack chases; the target is the first in sight of the 4 nearest enemies
+  (20 m Follow, 25 m Hold, 40 m Attack); a sprint fires nothing. Differences that remain (ours): one aggregate weapon profile per Marine (range, damage, rate and hit chance, no
+  recoil or ammunition) instead of the real gun; the aim error is the hit chance, not +-2 degrees; squad pathing (one shared path per squad) instead of each Marine's own way; squad-mates
+  revive each other by the squad's rules; Assault and Raptor leap by their packs (follow, pound), which Musou's retainers never do. Orders as in Musou; Assault squads jump and pound; **J** marks a jump-pound for a jump-pack player. A Marine is downed for 20 s and is
   revived by anyone; out for that battle only if not. Strength table (estimates): `tests/.../Wiring/SquadStrengthTable.cs`, copied into the test report.
 - A fallen human lies downed 25 s, is revived by a teammate or retainer, otherwise spectates for 60 s more, then returns at the landing zone while a
   teammate or retainer stands (a wipe when nobody does).

@@ -135,6 +135,47 @@ public class SquadRetainerParityTests(ITestOutputHelper output)
         Assert.True(sim.FuelOf(0) <= sim.Rosters.Marine(Key, 0)!.Loadout.Jump!.MaxPower);
     }
 
+    static SquadHuman Owner(float x = 0f) => new(1, new Vector3(x, 0f, 0f), true);
+
+    [Fact]
+    public void A_target_behind_a_wall_is_skipped_for_the_first_visible_one_even_for_a_melee_class()
+    {
+        var (_, _, sim, arena) = Setup(SquadOwnerLoadout.Standard(new LoadoutChoice(1)), 0);
+        sim.Land(Key, 1, Vector3.Zero);
+        arena.Blocked = (f, t) => t.Y < -8f;   // the nearest Ork is behind a wall
+        var hidden = arena.Add(new Vector3(0f, -12f, 0f)); hidden.Health = 1e6f;
+        var seen = arena.Add(new Vector3(0f, 14f, 0f)); seen.Health = 1e6f;
+        Run(sim, 30, Owner());
+        Assert.True(seen.Health < 1e6f, "the visible Ork is shot");
+        Assert.Equal(1e6f, hidden.Health);
+    }
+
+    [Fact]
+    public void Only_Attack_chases_a_melee_retainer_and_Follow_keeps_the_band_while_Hold_stands()
+    {
+        var (_, _, sim, arena) = Setup(SquadOwnerLoadout.Standard(new LoadoutChoice(1)), 0);
+        sim.Land(Key, 1, Vector3.Zero);
+        var ork = arena.Add(new Vector3(8f, 0f, 0f)); ork.Health = 1e6f;
+        Run(sim, 90, Owner());                       // Follow: it does not leave its owner for an Ork 8 m off
+        Assert.True(Vector3.Distance(sim.View(0)!.Value.Position, Vector3.Zero) <= MarineRules.FollowStandFar + 1.5f);
+        sim.Order(1, new TfwCommandRecord(5, TfwCommand.Attack, 0));
+        Run(sim, 120, Owner());                      // Attack: it closes to strike
+        Assert.True(Vector3.Distance(sim.View(0)!.Value.Position, ork.Pos) <= MarineRules.StrikeStandOff + 1f);
+    }
+
+    [Fact]
+    public void Hold_stands_within_a_metre_of_its_place_and_Follow_steps_in_beyond_the_band()
+    {
+        var (_, _, sim, _) = Setup(SquadOwnerLoadout.Standard(new LoadoutChoice(0)), 0);
+        sim.Land(Key, 1, Vector3.Zero);
+        sim.Order(1, new TfwCommandRecord(7, TfwCommand.Hold, 0, new Vector3(30f, 0f, 0f)));
+        Run(sim, 400, Owner());
+        Assert.True(Vector3.Distance(sim.View(0)!.Value.Position, new Vector3(30f, 0f, 0f)) <= MarineRules.HoldStand + 1.5f);
+        sim.Order(1, new TfwCommandRecord(8, TfwCommand.Follow, 0));
+        Run(sim, 400, Owner(30f));
+        Assert.True(Vector3.Distance(sim.View(0)!.Value.Position, new Vector3(30f, 0f, 0f)) <= MarineRules.FollowStandFar + 1.5f);
+    }
+
     [Fact]
     public void Thirty_six_assault_retainers_in_a_fight_cost_little_per_tick()
     {

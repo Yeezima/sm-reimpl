@@ -48,7 +48,9 @@ sealed class ClassArena : ISquadArena, ISquadJumpArena
         return true;
     }
 
-    public bool HasSight(Vector3 from, Vector3 to) => !(Roof && to.Z - from.Z > 2f);
+    /// <summary>A wall: lines it blocks have no sight.</summary>
+    public Func<Vector3, Vector3, bool>? Blocked;
+    public bool HasSight(Vector3 from, Vector3 to) => !(Roof && to.Z - from.Z > 2f) && Blocked?.Invoke(from, to) != true;
 
     public bool Ground(Vector3 p, out Vector3 ground)
     {

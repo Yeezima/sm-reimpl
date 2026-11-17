@@ -461,39 +461,34 @@ public sealed partial class WarfrontSquadSim
         bool haveTarget = a.Target != 0 && _arena.TryEnemy(a.Target, out tpos, out kind);
         if (!haveTarget) a.Target = 0;
 
-        // where to stand
+        // where to stand: MarineBrain.PlanRetainer's rules (the owner's order decides; only Attack chases or walks to a place)
         Vector3 home = HomeOf(a, order, ownerKnown, ownerPos);
         bool sprint = false;
         Vector3? goal = null; float stop = 0.5f;
-        if (haveTarget)
+        float dOwner = Flat(ownerPos - a.Pos);
+        switch (order)
         {
-            float d = Flat(tpos - a.Pos);
-            if (w.Melee)
+            case SquadOrder.Follow when ownerKnown:
+                if (dOwner > MarineRules.FollowStandFar) { goal = home; stop = 1f; sprint = !haveTarget && dOwner > MarineRules.SprintBeyond; }
+                else if (dOwner < MarineRules.FollowStandNear - 0.5f && dOwner > 1e-3f) { goal = ownerPos - (ownerPos - a.Pos) / dOwner * MarineRules.FollowStandNear; stop = 0.5f; }   // inside the band: back off
+                break;
+            case SquadOrder.Hold:
+                if (Flat(a.HoldAt - a.Pos) > MarineRules.HoldStand) { goal = a.HoldAt; stop = MarineRules.HoldStand; sprint = !haveTarget && Flat(a.HoldAt - a.Pos) > MarineRules.SprintBeyond; }
+                break;
+            case SquadOrder.Attack:
             {
-                if (order == SquadOrder.Attack || d <= MarineRules.StrikeChase) { goal = tpos; stop = MarineRules.StrikeStandOff; }
-            }
-            else if (order == SquadOrder.Attack && d > MarineRules.GunStandOff) { goal = tpos; stop = MarineRules.GunStandOff; }
-        }
-        if (goal is null)
-        {
-            switch (order)
-            {
-                case SquadOrder.Follow:
-                    if (ownerKnown && Flat(ownerPos - a.Pos) > MarineRules.FollowMax) { goal = home; stop = 1f; sprint = !haveTarget && Flat(ownerPos - a.Pos) > MarineRules.SprintBeyond; }
-                    break;
-                case SquadOrder.Hold:
-                    if (Flat(a.HoldAt - a.Pos) > MarineRules.HoldStand + 0.5f) { goal = a.HoldAt; stop = MarineRules.HoldStand; }
-                    break;
-                default:
-                    if (_point[os] is { } at) { if (Flat(at - a.Pos) > MarineRules.ArriveRadius) { goal = at; stop = MarineRules.ArriveRadius * 0.5f; sprint = !haveTarget && Flat(at - a.Pos) > MarineRules.SprintBeyond; } }
-                    else if (ownerKnown && Flat(ownerPos - a.Pos) > MarineRules.FollowMax) { goal = home; stop = 1f; }
-                    break;
+                float d = haveTarget ? Flat(tpos - a.Pos) : float.MaxValue;
+                Vector3? objective = _point[os] ?? (ownerKnown ? ownerPos : null);
+                if (w.Melee && haveTarget && d <= MarineRules.StrikeChase) { goal = tpos; stop = MarineRules.StrikeStandOff; }
+                else if (objective is { } at && Flat(at - a.Pos) > MarineRules.ArriveRadius) { goal = at; stop = MarineRules.ArriveRadius * 0.75f; sprint = !haveTarget && Flat(at - a.Pos) > MarineRules.SprintBeyond; }
+                else if (haveTarget) { goal = tpos; stop = w.Melee ? MarineRules.StrikeStandOff : MarineRules.GunStandOff; }
+                break;
             }
         }
         if (goal is { } g) MoveToward(a, g, stop, sprint ? SquadRules.SprintSpeed : SquadRules.Speed, dt);
 
         // fire
-        if (!haveTarget) return;
+        if (!haveTarget || sprint) return;   // a sprint fires nothing (MarineBrain.Decide)
         Vector3 to = tpos - a.Pos;
         if (Flat(to) > 0.01f) a.Yaw = MathF.Atan2(to.Y, to.X);
         // a melee class with a pistol (the Assault, the Raptor) fires it at range and strikes within the blade's reach, as the puppets' brain does (MarineBrain.Decide)
@@ -548,16 +543,19 @@ public sealed partial class WarfrontSquadSim
         if (old is not null) foreach (var id in old) _notes.Remove(id);
     }
 
+    /// <summary>MarineBrain's choice (TfwMarineInput): the nearest few enemies in the order's sight, the first one in sight (a blow within <see cref="MarineRules.MeleeRange"/> needs none); a ranged Marine also in its weapon's range.</summary>
     ushort PickTarget(Agent a, SquadOrder order, SquadWeapon w)
     {
         Vector3 centre = order == SquadOrder.Hold ? a.HoldAt : a.Pos;
         float radius = order switch { SquadOrder.Hold => MarineRules.HoldRadius, SquadOrder.Attack => MarineRules.AttackSight, _ => MarineRules.FollowEngage };
+        float reach = w.Melee ? (a.Marine.Loadout.Sidearm?.Range ?? float.MaxValue) : w.Range;
         int n = _arena.QueryEnemies(centre, radius, _seen);
-        for (int k = 0; k < n; k++)
+        for (int k = 0; k < n && k < MarineRules.SightCandidates; k++)
         {
             if (!_arena.TryEnemy(_seen[k], out var pos, out _)) continue;
-            if (!w.Melee && Flat(pos - a.Pos) > w.Range) continue;
-            if (w.Melee || _arena.HasSight(a.Pos, pos)) return _seen[k];
+            float d = Flat(pos - a.Pos);
+            if (d > reach) continue;
+            if (d <= MarineRules.MeleeRange || _arena.HasSight(a.Pos, pos)) return _seen[k];
         }
         return 0;
     }

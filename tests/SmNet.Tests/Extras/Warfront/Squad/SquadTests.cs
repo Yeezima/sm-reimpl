@@ -277,6 +277,7 @@ public class SquadTests
         var (r, arena, sim) = Make();
         r.Mirror(1, new SquadLoadout { Weapon = SquadWeapon.Blade with { Damage = 200f, HitChance = 1f } });
         Land(sim, Vector3.Zero, 1);
+        sim.Order(1, new TfwCommandRecord(1, TfwCommand.Attack, 0));   // only Attack chases (MarineBrain.PlanRetainer)
         arena.Add(new Vector3(8, 0, 0), 100f);
         Run(sim, Rate * 6, Owner(Vector3.Zero));
         Assert.False(arena.Orks[0].Alive);
