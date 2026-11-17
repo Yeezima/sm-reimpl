@@ -294,4 +294,182 @@ public class ModelImportTests
         File.WriteAllText(path, """{"asset":{"version":"2.0"},"extensionsUsed":["KHR_materials_unlit","KHR_texture_transform"],"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0}],"meshes":[{"primitives":[{"attributes":{"POSITION":0}}]}],"accessors":[{"min":[0,0,0],"max":[1,1,1]}]}""");
         Assert.NotNull(GltfReader.Inspect(path).Bounds);
     }
+
+    // ---- hardening: names, links, bounds on folders, image headers, glb uris ----
+
+    [Theory]
+    [InlineData("CON")]
+    [InlineData("nul.fbx")]
+    [InlineData("sub/COM1.png")]
+    [InlineData("a/lpt9.txt.png")]
+    [InlineData("name.")]
+    [InlineData("a/name .fbx/")]
+    public void WindowsDeviceNamesAndRewrittenNamesAreRejected(string entry)
+    {
+        if (entry.EndsWith('/')) entry = entry.TrimEnd('/');   // "name .fbx" keeps its trailing-space stem; the directory form is skipped
+        if (entry == "a/name .fbx") { Assert.Equal("a/name .fbx", SafeEntryPath(entry)); return; }
+        Assert.Equal("bad-archive", Assert.Throws<MapException>(() => SafeEntryPath(entry)).Code);
+    }
+
+    [Fact]
+    public void ReservedNamesInAZipAreRefused()
+    {
+        using var lab = new Lab();
+        var zip = Zip(lab.Dir, "dev.zip", ("ok.fbx", "x"), ("aux.png", "x"));
+        Assert.Equal("bad-archive", Assert.Throws<MapException>(() => ExtractZip(zip, Path.Combine(lab.Dir, "o"))).Code);
+        Assert.True(IsReservedDeviceName("Com3"));
+        Assert.False(IsReservedDeviceName("console"));
+    }
+
+    [Fact]
+    public void FolderWalkIsBounded()
+    {
+        using var lab = new Lab();
+        string deep = Path.Combine(lab.Dir, "deep", "a", "b", "c", "d", "e", "f");
+        Directory.CreateDirectory(deep);
+        File.WriteAllText(Path.Combine(deep, "toodeep.fbx"), "x");
+        File.WriteAllText(Path.Combine(lab.Dir, "deep", "a", "b", "near.fbx"), "x");
+        var files = ListFolder(Path.Combine(lab.Dir, "deep"));
+        Assert.Contains("a/b/near.fbx", files);
+        Assert.DoesNotContain(files, f => f.EndsWith("toodeep.fbx"));
+
+        string many = Path.Combine(lab.Dir, "many"); Directory.CreateDirectory(many);
+        for (int i = 0; i < MaxFolderEntries + 5; i++) File.WriteAllBytes(Path.Combine(many, $"f{i}.txt"), []);
+        Assert.Equal("bad-archive", Assert.Throws<MapException>(() => ListFolder(many)).Code);
+    }
+
+    [Fact]
+    public void ACollectionOfModelFoldersIsRefused()
+    {
+        using var lab = new Lab();
+        for (int i = 0; i < MaxModelFolders + 1; i++)
+        {
+            Directory.CreateDirectory(Path.Combine(lab.Dir, "coll", $"asset{i}"));
+            File.WriteAllText(Path.Combine(lab.Dir, "coll", $"asset{i}", "m.fbx"), "x");
+        }
+        var ex = Assert.Throws<MapException>(() => ListFolder(Path.Combine(lab.Dir, "coll")));
+        Assert.Equal("bad-archive", ex.Code);
+        Assert.Contains("single download", ex.Message);
+    }
+
+    [Fact]
+    public void JunctionsAreNotFollowed()
+    {
+        using var lab = new Lab();
+        string outside = Path.Combine(lab.Dir, "outside"); Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "secret.fbx"), "x");
+        string root = Path.Combine(lab.Dir, "root"); Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "real.fbx"), "x");
+        string link = Path.Combine(root, "link");
+        if (!TryMakeLink(link, outside)) return;   // no junction or symlink possible here: the path checks below still run
+        try
+        {
+            var files = ListFolder(root);
+            Assert.Contains("real.fbx", files);
+            Assert.DoesNotContain(files, f => f.Contains("secret"));
+            Assert.False(IsPlainUnder(root, Path.Combine(link, "secret.fbx")));
+            Assert.True(IsPlainUnder(root, Path.Combine(root, "real.fbx")));
+        }
+        finally { Directory.Delete(link); }   // the link only, never what it points at
+    }
+
+    static bool TryMakeLink(string link, string target)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"") { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true });
+                p!.WaitForExit(10000);
+                return Directory.Exists(link);
+            }
+            Directory.CreateSymbolicLink(link, target);
+            return Directory.Exists(link);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or PlatformNotSupportedException) { return false; }
+    }
+
+    [Fact]
+    public void PlainUnderRejectsOutsideAndTraversal()
+    {
+        using var lab = new Lab();
+        Directory.CreateDirectory(Path.Combine(lab.Dir, "r"));
+        File.WriteAllText(Path.Combine(lab.Dir, "r", "a.fbx"), "x");
+        File.WriteAllText(Path.Combine(lab.Dir, "b.fbx"), "x");
+        Assert.True(IsPlainUnder(Path.Combine(lab.Dir, "r"), Path.Combine(lab.Dir, "r", "a.fbx")));
+        Assert.False(IsPlainUnder(Path.Combine(lab.Dir, "r"), Path.Combine(lab.Dir, "r", "..", "b.fbx")));
+        Assert.False(IsPlainUnder(Path.Combine(lab.Dir, "r"), Path.Combine(lab.Dir, "r")));
+    }
+
+    static byte[] Png(int w, int h)
+    {
+        var b = new byte[33];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52 }.CopyTo(b, 0);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(b.AsSpan(16), w);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(b.AsSpan(20), h);
+        return b;
+    }
+
+    [Fact]
+    public void ImageHeadersGiveTheSizeBeforeDecoding()
+    {
+        using var lab = new Lab();
+        string png = Path.Combine(lab.Dir, "big.png"); File.WriteAllBytes(png, Png(40000, 30000));
+        Assert.True(TryImageSize(png, out int w, out int h));
+        Assert.Equal((40000, 30000), (w, h));
+        Assert.True((long)w * h > MaxImagePixels);
+
+        // JPEG: SOI, an APP0 segment, then SOF0 (height 300, width 500)
+        byte[] jpg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x01, 0x2C, 0x01, 0xF4, 0x01, 0x01, 0x11, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        string jp = Path.Combine(lab.Dir, "a.jpg"); File.WriteAllBytes(jp, jpg);
+        Assert.True(TryImageSize(jp, out w, out h)); Assert.Equal((500, 300), (w, h));
+
+        // BMP 20 x 10
+        var bmp = new byte[40]; bmp[0] = (byte)'B'; bmp[1] = (byte)'M'; bmp[18] = 20; bmp[22] = 10;
+        string bp = Path.Combine(lab.Dir, "a.bmp"); File.WriteAllBytes(bp, bmp);
+        Assert.True(TryImageSize(bp, out w, out h)); Assert.Equal((20, 10), (w, h));
+
+        // TGA 64 x 32, type 2, 32 bit
+        var tga = new byte[32]; tga[2] = 2; tga[12] = 64; tga[14] = 32; tga[16] = 32;
+        string tp = Path.Combine(lab.Dir, "a.tga"); File.WriteAllBytes(tp, tga);
+        Assert.True(TryImageSize(tp, out w, out h)); Assert.Equal((64, 32), (w, h));
+
+        // WebP lossless 100 x 50
+        var web = new byte[32]; "RIFF"u8.CopyTo(web); "WEBPVP8L"u8.CopyTo(web.AsSpan(8));
+        uint bits = (uint)(100 - 1) | ((uint)(50 - 1) << 14); System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(web.AsSpan(21), bits);
+        string wp = Path.Combine(lab.Dir, "a.webp"); File.WriteAllBytes(wp, web);
+        Assert.True(TryImageSize(wp, out w, out h)); Assert.Equal((100, 50), (w, h));
+
+        string junk = Path.Combine(lab.Dir, "junk.png"); File.WriteAllBytes(junk, [1, 2, 3]);
+        Assert.False(TryImageSize(junk, out _, out _));
+        Assert.False(TryImageSize(Path.Combine(lab.Dir, "missing.png"), out _, out _));
+    }
+
+    static string GlbWith(Lab lab, string name, string json)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        var padded = bytes.Concat(Enumerable.Repeat((byte)' ', (4 - bytes.Length % 4) % 4)).ToArray();
+        using var ms = new MemoryStream(); using var w = new BinaryWriter(ms);
+        w.Write(0x46546C67u); w.Write(2u); w.Write((uint)(12 + 8 + padded.Length)); w.Write((uint)padded.Length); w.Write(0x4E4F534Au); w.Write(padded);
+        var path = Path.Combine(lab.Dir, name); File.WriteAllBytes(path, ms.ToArray()); return path;
+    }
+
+    [Theory]
+    [InlineData("../outside.bin")]
+    [InlineData("C:/windows/win.ini")]
+    [InlineData("/etc/passwd")]
+    public void GlbWithOutsideUrisIsRefusedLikeGltf(string uri)
+    {
+        using var lab = new Lab();
+        var glb = GlbWith(lab, "uri.glb", $$"""{"asset":{"version":"2.0"},"images":[{"uri":"{{uri}}"}],"scenes":[{"nodes":[]}],"nodes":[]}""");
+        Assert.Equal("bad-file", Assert.Throws<MapException>(() => GltfReader.Inspect(glb)).Code);
+    }
+
+    [Fact]
+    public void GlbWithDataUrisAndNoUrisStillImports()
+    {
+        using var lab = new Lab();
+        var glb = GlbWith(lab, "ok.glb", """{"asset":{"version":"2.0"},"images":[{"uri":"data:image/png;base64,AAAA"}],"scenes":[{"nodes":[]}],"nodes":[]}""");
+        Assert.Empty(GltfReader.Inspect(glb).Companions);
+    }
 }

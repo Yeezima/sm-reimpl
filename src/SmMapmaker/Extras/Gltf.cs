@@ -49,7 +49,7 @@ public static class GltfReader
                 }
 
         var companions = new List<string>();
-        if (ext == ".gltf")
+        // A .glb is usually self-contained, but its JSON may still name outside files; the same rule applies, so "../x" or "C:/x" is refused for it too.
         {
             string dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
             foreach (var key in new[] { "buffers", "images" })

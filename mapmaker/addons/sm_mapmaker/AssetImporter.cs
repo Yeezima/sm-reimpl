@@ -53,6 +53,7 @@ public static class AssetImporter
         if (choice is null) throw new MapException("bad-file", $"No .fbx, .glb or .gltf model in '{Path.GetFileName(source)}'.");
         string modelPath = Path.Combine(workDir, choice.Path.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(modelPath)) throw new MapException("bad-file", $"The model '{choice.Path}' is missing.");
+        if (!IsPlainUnder(workDir, modelPath)) throw new MapException("bad-file", $"'{choice.Path}' is a link or lies outside the folder; import the real file.");
 
         if (choice.Format is "glb" or "gltf") GltfReader.Inspect(modelPath);   // Draco / meshopt / broken JSON / missing companions: a clear message before Godot fails silently
 
@@ -67,7 +68,10 @@ public static class AssetImporter
                 string key = new string(CleanStem(Path.GetFileNameWithoutExtension(choice.Path), source).Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
                 sets = sets.Where(set => set.Values.Any(t => { string n = new string(t.Set.Where(char.IsLetterOrDigit).ToArray()); return n.Length > 0 && key.Length > 0 && (key.Contains(n) || n.Contains(key)); })).ToList();
             }
-            var (used, flipped, materials, usedFiles) = ApplyTextures(root, workDir, sets);
+            // Reading, decoding and the per-pixel work need no Godot scene API: off the main thread, so the editor stays alive on a big download.
+            var (prepared, warnings) = await Task.Run(() => PrepareImages(sets, workDir));
+            foreach (var w in warnings) GD.PushWarning("Mapmaker import: " + w);
+            var (used, flipped, materials, usedFiles) = ApplyTextures(root, prepared);
 
             var measured = ContentFactory.MeasureBounds(root);
             if (measured.Size.LengthSquared() < 1e-12f) throw new MapException("no-mesh", $"'{choice.Path}' loaded but holds no mesh to draw.");
@@ -88,13 +92,13 @@ public static class AssetImporter
             if (err != Error.Ok || !File.Exists(glb)) throw new MapException("convert-failed", $"Could not write the converted model ({err}).");
 
             // What the download held (model and the textures used), so dropping the same download again is recognised even though the conversion is not byte-for-byte repeatable.
-            string sourceSha;
-            using (var h = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256))
+            string sourceSha = await Task.Run(() =>
             {
+                using var h = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
                 h.AppendData(File.ReadAllBytes(modelPath));
                 foreach (var t in usedFiles.Order(StringComparer.Ordinal)) { h.AppendData(System.Text.Encoding.UTF8.GetBytes("\n" + t + "\n")); h.AppendData(File.ReadAllBytes(Path.Combine(workDir, t.Replace('/', Path.DirectorySeparatorChar)))); }
-                sourceSha = Convert.ToHexStringLower(h.GetHashAndReset());
-            }
+                return Convert.ToHexStringLower(h.GetHashAndReset());
+            });
             var meta = new JsonObject
             {
                 ["source"] = kind, ["format"] = choice.Format, ["model"] = choice.Path, ["lod"] = choice.Lod, ["skippedLods"] = choice.SkippedLods.Count,
@@ -112,12 +116,15 @@ public static class AssetImporter
     static IReadOnlyList<string> SiblingFiles(string dir, string model)
     {
         var list = new List<string>();
-        foreach (var f in Directory.EnumerateFiles(dir)) if (IsModel(f) || IsImage(f)) list.Add(Path.GetFileName(f));
-        foreach (var sub in Directory.EnumerateDirectories(dir))
+        foreach (var f in Directory.EnumerateFiles(dir, "*", SafeWalk(false)))
+            if ((IsModel(f) || IsImage(f)) && IsPlainUnder(dir, f)) list.Add(Path.GetFileName(f));
+        foreach (var sub in Directory.EnumerateDirectories(dir, "*", SafeWalk(false)))
         {
             string n = Path.GetFileName(sub);
+            if (!IsPlainUnder(dir, sub)) continue;
             if (n.Contains("tex", StringComparison.OrdinalIgnoreCase) || n.Contains("maps", StringComparison.OrdinalIgnoreCase))
-                foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories).Take(500)) if (IsImage(f)) list.Add(Path.GetRelativePath(dir, f).Replace('\\', '/'));
+                foreach (var f in Directory.EnumerateFiles(sub, "*", SafeWalk()).Take(500))
+                    if (IsImage(f) && IsPlainUnder(dir, f)) list.Add(Path.GetRelativePath(dir, f).Replace('\\', '/'));
         }
         return list.Append(Path.GetFileName(model)).Distinct().ToList();
     }
@@ -155,20 +162,69 @@ public static class AssetImporter
 
     // ---- materials ----
 
-    static (int Textures, bool Flipped, int Materials, IReadOnlyCollection<string> Files) ApplyTextures(Node3D root, string dir, IReadOnlyList<IReadOnlyDictionary<TextureRole, TextureInfo>> sets)
+    /// <summary>One material's pictures, decoded and fixed (green flip, opacity into alpha, size cap) off the main thread; textures are made from them on the main thread.</summary>
+    sealed class PreparedSet
+    {
+        public string Name = "";
+        public readonly Dictionary<TextureRole, Image> Images = new();
+        public readonly HashSet<string> Files = new();
+        public bool Flipped, Cutout;
+    }
+
+    /// <summary>Decodes every texture of every set. A picture whose header states more than 8192 x 8192 pixels is refused before decoding; so is one that is a link or outside the folder.</summary>
+    static (List<PreparedSet> Sets, List<string> Warnings) PrepareImages(IReadOnlyList<IReadOnlyDictionary<TextureRole, TextureInfo>> sets, string dir)
+    {
+        var result = new List<PreparedSet>(); var warnings = new List<string>();
+        Image? Decode(TextureInfo t, PreparedSet p)
+        {
+            string path = Path.Combine(dir, t.File.Replace('/', Path.DirectorySeparatorChar));
+            if (!IsPlainUnder(dir, path)) { warnings.Add($"texture '{t.File}' skipped: not a plain file inside the folder"); return null; }
+            if (!TryImageSize(path, out int w, out int h)) { warnings.Add($"texture '{t.File}' skipped: unreadable header"); return null; }
+            if ((long)w * h > MaxImagePixels) { warnings.Add($"texture '{t.File}' skipped: {w} x {h} pixels is over the {MaxImagePixels / (8192 * 8192)} x 8192 x 8192 limit"); return null; }
+            var image = Image.LoadFromFile(path);
+            if (image is null) { warnings.Add($"texture '{t.File}' could not be read"); return null; }
+            p.Files.Add(t.File);
+            if (image.IsCompressed()) image.Decompress();
+            int big = Math.Max(image.GetWidth(), image.GetHeight());
+            if (big > MaxTextureSize)
+            {
+                float k = MaxTextureSize / (float)big;
+                image.Resize(Math.Max(1, (int)(image.GetWidth() * k)), Math.Max(1, (int)(image.GetHeight() * k)), Image.Interpolation.Lanczos);
+            }
+            return image;
+        }
+        foreach (var set in sets)
+        {
+            var p = new PreparedSet { Name = set.Values.FirstOrDefault()?.Set ?? "material" };
+            foreach (var (role, info) in set)
+            {
+                if (role == TextureRole.Opacity) continue;
+                var image = Decode(info, p);
+                if (image is null) continue;
+                if (role == TextureRole.Normal && NormalNeedsGreenFlip(info)) { FlipGreen(image); p.Flipped = true; }
+                p.Images[role] = image;
+            }
+            if (set.TryGetValue(TextureRole.Opacity, out var op) && p.Images.TryGetValue(TextureRole.Albedo, out var albedo) && Decode(op, p) is { } alpha) { MergeAlpha(albedo, alpha); p.Cutout = true; }
+            result.Add(p);
+        }
+        return (result, warnings);
+    }
+
+    static (int Textures, bool Flipped, int Materials, IReadOnlyCollection<string> Files) ApplyTextures(Node3D root, IReadOnlyList<PreparedSet> sets)
     {
         if (sets.Count == 0) return (0, false, 0, []);
         var built = new Dictionary<int, StandardMaterial3D>();
-        var imagesUsed = new HashSet<string>();
+        var files = new HashSet<string>();
         bool flipped = false;
-        int slot = 0, applied = 0;
+        int slot = 0;
         var perMaterial = new Dictionary<Material, int>();   // untextured materials in order of appearance: set picked by name, else round-robin
 
         StandardMaterial3D For(int set, string materialName)
         {
             if (built.TryGetValue(set, out var m)) return m;
-            m = BuildMaterial(sets[set], dir, materialName, imagesUsed, ref flipped);
-            built[set] = m; applied++;
+            m = BuildMaterial(sets[set], materialName);
+            files.UnionWith(sets[set].Files); flipped |= sets[set].Flipped;
+            built[set] = m;
             return m;
         }
 
@@ -184,7 +240,7 @@ public static class AssetImporter
                 if (sets.Count > 1)
                 {
                     string name = current?.ResourceName ?? "";
-                    set = Enumerable.Range(0, sets.Count).FirstOrDefault(i => sets[i].Values.Any(t => t.Set.Length > 0 && name.Contains(t.Set, StringComparison.OrdinalIgnoreCase)), -1);
+                    set = Enumerable.Range(0, sets.Count).FirstOrDefault(i => sets[i].Name.Length > 0 && name.Contains(sets[i].Name, StringComparison.OrdinalIgnoreCase), -1);
                     if (set < 0)
                     {
                         if (current is not null && perMaterial.TryGetValue(current, out var known)) set = known;
@@ -195,7 +251,7 @@ public static class AssetImporter
                 if (mesh is ArrayMesh am) am.SurfaceSetMaterial(s, mat); else mi.SetSurfaceOverrideMaterial(s, mat);
             }
         }
-        return (imagesUsed.Count, flipped, applied, imagesUsed);
+        return (files.Count, flipped, built.Count, files);
     }
 
     static IEnumerable<MeshInstance3D> AllMeshes(Node n)
@@ -204,57 +260,25 @@ public static class AssetImporter
         foreach (var c in n.GetChildren()) foreach (var m in AllMeshes(c)) yield return m;
     }
 
-    static StandardMaterial3D BuildMaterial(IReadOnlyDictionary<TextureRole, TextureInfo> set, string dir, string name, HashSet<string> used, ref bool flipped)
+    static StandardMaterial3D BuildMaterial(PreparedSet p, string name)
     {
-        var mat = new StandardMaterial3D { ResourceName = name.Length > 0 ? name : (set.Values.FirstOrDefault()?.Set ?? "material") };
-        Texture2D? Load(TextureInfo t, bool flipGreen = false, Image? alphaFrom = null)
+        var mat = new StandardMaterial3D { ResourceName = name.Length > 0 ? name : p.Name };
+        Texture2D? Tex(TextureRole r) => p.Images.TryGetValue(r, out var image) ? ImageTexture.CreateFromImage(image) : null;
+        if (Tex(TextureRole.Albedo) is { } albedo) { mat.AlbedoTexture = albedo; if (p.Cutout) mat.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor; }
+        if (Tex(TextureRole.Normal) is { } nt) { mat.NormalEnabled = true; mat.NormalTexture = nt; }
+        if (Tex(TextureRole.Orm) is { } ot)
         {
-            string path = Path.Combine(dir, t.File.Replace('/', Path.DirectorySeparatorChar));
-            var image = Image.LoadFromFile(path);
-            if (image is null) { GD.PushWarning($"Mapmaker import: could not read texture '{t.File}'"); return null; }
-            used.Add(t.File);
-            if (image.IsCompressed()) image.Decompress();
-            if (Math.Max(image.GetWidth(), image.GetHeight()) > MaxTextureSize)
-            {
-                float k = MaxTextureSize / (float)Math.Max(image.GetWidth(), image.GetHeight());
-                image.Resize(Math.Max(1, (int)(image.GetWidth() * k)), Math.Max(1, (int)(image.GetHeight() * k)), Image.Interpolation.Lanczos);
-            }
-            if (flipGreen) { FlipGreen(image); }
-            if (alphaFrom is not null) MergeAlpha(image, alphaFrom);
-            return ImageTexture.CreateFromImage(image);
-        }
-
-        if (set.TryGetValue(TextureRole.Albedo, out var albedo))
-        {
-            Image? alpha = null;
-            if (set.TryGetValue(TextureRole.Opacity, out var op))
-            {
-                alpha = Image.LoadFromFile(Path.Combine(dir, op.File.Replace('/', Path.DirectorySeparatorChar)));
-                if (alpha is not null) { used.Add(op.File); mat.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor; }
-            }
-            mat.AlbedoTexture = Load(albedo, false, alpha);
-        }
-        if (set.TryGetValue(TextureRole.Normal, out var normal))
-        {
-            bool flip = NormalNeedsGreenFlip(normal);
-            if (Load(normal, flip) is { } nt) { mat.NormalEnabled = true; mat.NormalTexture = nt; flipped |= flip; }
-        }
-        if (set.TryGetValue(TextureRole.Orm, out var orm))
-        {
-            if (Load(orm) is { } ot)
-            {
-                mat.AOEnabled = true; mat.AOTexture = ot; mat.AOTextureChannel = BaseMaterial3D.TextureChannel.Red;
-                mat.RoughnessTexture = ot; mat.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Green;
-                mat.MetallicTexture = ot; mat.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Blue; mat.Metallic = 1f;
-            }
+            mat.AOEnabled = true; mat.AOTexture = ot; mat.AOTextureChannel = BaseMaterial3D.TextureChannel.Red;
+            mat.RoughnessTexture = ot; mat.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Green;
+            mat.MetallicTexture = ot; mat.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Blue; mat.Metallic = 1f;
         }
         else
         {
-            if (set.TryGetValue(TextureRole.Roughness, out var rough) && Load(rough) is { } rt) { mat.RoughnessTexture = rt; mat.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Red; }
-            if (set.TryGetValue(TextureRole.Metallic, out var metal) && Load(metal) is { } mt) { mat.MetallicTexture = mt; mat.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Red; mat.Metallic = 1f; }
-            if (set.TryGetValue(TextureRole.Occlusion, out var ao) && Load(ao) is { } at) { mat.AOEnabled = true; mat.AOTexture = at; mat.AOTextureChannel = BaseMaterial3D.TextureChannel.Red; }
+            if (Tex(TextureRole.Roughness) is { } rt) { mat.RoughnessTexture = rt; mat.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Red; }
+            if (Tex(TextureRole.Metallic) is { } mt) { mat.MetallicTexture = mt; mat.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Red; mat.Metallic = 1f; }
+            if (Tex(TextureRole.Occlusion) is { } at) { mat.AOEnabled = true; mat.AOTexture = at; mat.AOTextureChannel = BaseMaterial3D.TextureChannel.Red; }
         }
-        if (set.TryGetValue(TextureRole.Emissive, out var em) && Load(em) is { } et) { mat.EmissionEnabled = true; mat.EmissionTexture = et; }
+        if (Tex(TextureRole.Emissive) is { } et) { mat.EmissionEnabled = true; mat.EmissionTexture = et; }
         return mat;
     }
 
@@ -271,7 +295,6 @@ public static class AssetImporter
     static void MergeAlpha(Image albedo, Image opacity)
     {
         albedo.Convert(Image.Format.Rgba8);
-        if (opacity.IsCompressed()) opacity.Decompress();
         if (opacity.GetSize() != albedo.GetSize()) opacity.Resize(albedo.GetWidth(), albedo.GetHeight());
         opacity.Convert(Image.Format.Rgba8);
         var a = albedo.GetData(); var o = opacity.GetData();

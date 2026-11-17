@@ -39,7 +39,22 @@ public static class ModelImport
         var segments = name.Split('/');
         if (segments.Any(s => s is ".." or "" ))
             throw new MapException("bad-archive", $"The archive has an entry '{entryName}' that climbs out of its folder.");
+        foreach (var seg in segments)
+        {
+            if (seg.EndsWith('.') && seg != "." || seg.EndsWith(' ')) throw new MapException("bad-archive", $"The archive has an entry '{entryName}' with a name Windows would rewrite.");
+            if (IsReservedDeviceName(seg)) throw new MapException("bad-archive", $"The archive has an entry '{entryName}' named like a Windows device (CON, NUL, COM1 ...).");
+        }
         return string.Join('/', segments.Where(s => s != "."));
+    }
+
+    static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
+    { "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+
+    /// <summary>A Windows device name (<c>CON</c>, <c>NUL.txt</c>, <c>com1.png</c>): opening it would not touch a file.</summary>
+    public static bool IsReservedDeviceName(string segment)
+    {
+        int dot = segment.IndexOf('.');
+        return ReservedNames.Contains((dot >= 0 ? segment[..dot] : segment).TrimEnd(' '));
     }
 
     /// <summary>
@@ -113,19 +128,116 @@ public static class ModelImport
         return new ModelChoice(best, Path.GetExtension(best).TrimStart('.').ToLowerInvariant(), lod, skipped);
     }
 
-    /// <summary>All the relative paths of the files an import cares about under <paramref name="folder"/> (models, images, .bin), skipping links.</summary>
-    public static IReadOnlyList<string> ListFolder(string folder, int maxFiles = 20_000)
+    public const int MaxFolderEntries = 5000, MaxFolderDepth = 5, MaxModelFolders = 6;
+
+    /// <summary>How folders are walked: no links (junctions, symlinks), nothing hidden or system, unreadable folders skipped, at most <see cref="MaxFolderDepth"/> levels down.</summary>
+    public static EnumerationOptions SafeWalk(bool recurse = true) => new()
+    {
+        RecurseSubdirectories = recurse, MaxRecursionDepth = MaxFolderDepth, IgnoreInaccessible = true, ReturnSpecialDirectories = false,
+        AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint,
+    };
+
+    /// <summary>True when <paramref name="path"/> resolves under <paramref name="root"/> and neither it nor any folder between them is a link.</summary>
+    public static bool IsPlainUnder(string root, string path)
+    {
+        try
+        {
+            string r = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string full = Path.GetFullPath(path);
+            if (!full.StartsWith(r + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return false;
+            for (string p = full; p.Length > r.Length; p = Path.GetDirectoryName(p) ?? r)
+                if (File.GetAttributes(p).HasFlag(FileAttributes.ReparsePoint)) return false;
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { return false; }
+    }
+
+    /// <summary>
+    /// The relative paths of the files an import cares about (models, images, .bin) under <paramref name="folder"/>. Bounded: at most
+    /// <see cref="MaxFolderEntries"/> files visited, <see cref="MaxFolderDepth"/> levels deep, no links, and a folder whose models sit in more than
+    /// <see cref="MaxModelFolders"/> separate folders is refused (it is a collection, not one download).
+    /// </summary>
+    public static IReadOnlyList<string> ListFolder(string folder)
     {
         string root = Path.GetFullPath(folder);
         var list = new List<string>();
-        foreach (var f in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        int visited = 0;
+        try
         {
-            if (list.Count >= maxFiles) throw new MapException("bad-archive", $"The folder has more than {maxFiles} files; not importing it.");
-            if ((File.GetAttributes(f) & FileAttributes.ReparsePoint) != 0) continue;
-            string rel = Path.GetRelativePath(root, f).Replace('\\', '/');
-            if (Wanted(rel)) list.Add(rel);
+            foreach (var f in Directory.EnumerateFiles(root, "*", SafeWalk()))
+            {
+                if (++visited > MaxFolderEntries) throw new MapException("bad-archive", $"The folder has more than {MaxFolderEntries} files; drop the folder of one download, not a whole collection.");
+                if (!IsPlainUnder(root, f)) continue;
+                string rel = Path.GetRelativePath(root, f).Replace('\\', '/');
+                if (Wanted(rel)) list.Add(rel);
+            }
         }
+        catch (Exception e) when (e is UnauthorizedAccessException or DirectoryNotFoundException or IOException) { /* what could be read is used */ }
+        int modelFolders = list.Where(IsModel).Select(p => p.Contains('/') ? p[..p.LastIndexOf('/')] : "").Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        if (modelFolders > MaxModelFolders)
+            throw new MapException("bad-archive", $"The models are spread over {modelFolders} folders; drop the folder of a single download (or one .zip) instead.");
         return list;
+    }
+
+    // ---- image headers (so a decompression bomb is refused before any decoding) ----
+
+    public const long MaxImagePixels = 8192L * 8192L;
+
+    /// <summary>The pixel size an image file's header states (PNG, JPEG, BMP, TGA, WebP), or false when it is not one of those or the header is cut short.</summary>
+    public static bool TryImageSize(string path, out int width, out int height)
+    {
+        width = height = 0;
+        try
+        {
+            using var fs = File.OpenRead(path);
+            var head = new byte[32];
+            int n = fs.Read(head, 0, head.Length);
+            return TryImageSize(head.AsSpan(0, n), fs, out width, out height);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    static bool TryImageSize(ReadOnlySpan<byte> h, Stream fs, out int w, out int ht)
+    {
+        w = ht = 0;
+        static int BE32(ReadOnlySpan<byte> b, int o) => (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3];
+        static int LE16(ReadOnlySpan<byte> b, int o) => b[o] | (b[o + 1] << 8);
+        static int LE32(ReadOnlySpan<byte> b, int o) => b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
+        if (h.Length >= 24 && h[0] == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G') { w = BE32(h, 16); ht = BE32(h, 20); return w > 0 && ht > 0; }
+        if (h.Length >= 26 && h[0] == 'B' && h[1] == 'M') { w = LE32(h, 18); ht = Math.Abs(LE32(h, 22)); return w > 0 && ht > 0; }
+        if (h.Length >= 30 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F' && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P')
+        {
+            if (h[12] == 'V' && h[13] == 'P' && h[14] == '8' && h[15] == ' ') { w = LE16(h, 26) & 0x3FFF; ht = LE16(h, 28) & 0x3FFF; }
+            else if (h[12] == 'V' && h[13] == 'P' && h[14] == '8' && h[15] == 'L') { uint b = (uint)LE32(h, 21); w = (int)(b & 0x3FFF) + 1; ht = (int)((b >> 14) & 0x3FFF) + 1; }
+            else if (h[12] == 'V' && h[13] == 'P' && h[14] == '8' && h[15] == 'X') { w = (h[24] | (h[25] << 8) | (h[26] << 16)) + 1; ht = (h[27] | (h[28] << 8) | (h[29] << 16)) + 1; }
+            return w > 0 && ht > 0;
+        }
+        if (h.Length >= 4 && h[0] == 0xFF && h[1] == 0xD8)
+        {
+            fs.Position = 2;
+            var b = new byte[9];
+            for (int guard = 0; guard < 512; guard++)
+            {
+                int c;
+                do { c = fs.ReadByte(); } while (c != 0xFF && c >= 0);
+                do { c = fs.ReadByte(); } while (c == 0xFF);
+                if (c < 0) return false;
+                if (c is 0xD8 or 0x01 or (>= 0xD0 and <= 0xD7)) continue;
+                if (fs.Read(b, 0, 2) < 2) return false;
+                int len = (b[0] << 8) | b[1];
+                if (c is >= 0xC0 and <= 0xCF and not (0xC4 or 0xC8 or 0xCC))
+                {
+                    if (fs.Read(b, 0, 5) < 5) return false;
+                    ht = (b[1] << 8) | b[2]; w = (b[3] << 8) | b[4];
+                    return w > 0 && ht > 0;
+                }
+                fs.Position += Math.Max(0, len - 2);
+            }
+            return false;
+        }
+        // TGA has no magic number: a plausible header (image type 1, 2, 3, 9, 10, 11) with the size at offset 12.
+        if (h.Length >= 18 && h[1] <= 1 && h[2] is 1 or 2 or 3 or 9 or 10 or 11 && h[16] is 8 or 15 or 16 or 24 or 32) { w = LE16(h, 12); ht = LE16(h, 14); return w > 0 && ht > 0; }
+        return false;
     }
 
     /// <summary>SHA-256 of the main file followed by each companion, the way the library's import hashes an asset (so the caller can see "already imported").</summary>

@@ -69,7 +69,13 @@ public static class ContentFactory
         return root;
     }
 
-    public static void ForgetAssets() { foreach (var n in GltfTemplates.Values) n?.QueueFree(); GltfTemplates.Clear(); }
+    public static void ForgetAssets()
+    {
+        foreach (var n in GltfTemplates.Values) n?.QueueFree();
+        GltfTemplates.Clear();
+        foreach (var n in PartTemplates.Values) n?.QueueFree();   // the clones keep the shared meshes alive
+        PartTemplates.Clear();
+    }
 
     /// <summary>
     /// The content of one document object: its resolved parts, each placed relative to the object (game frame, under a node whose basis converts to Y up).

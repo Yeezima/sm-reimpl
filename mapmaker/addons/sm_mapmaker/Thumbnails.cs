@@ -27,6 +27,13 @@ public partial class Thumbnails : Node
     readonly HashSet<string> _pending = new();
     readonly Dictionary<string, Texture2D> _memory = new();
     readonly HashSet<string> _logged = new();
+    readonly Dictionary<string, string> _latest = new();   // key -> the memory entry in use, so an older picture of changed content is dropped
+
+    void Remember(string key, string mem, Texture2D tex)
+    {
+        if (_latest.TryGetValue(key, out var old) && old != mem) _memory.Remove(old);
+        _latest[key] = mem; _memory[mem] = tex;
+    }
     bool _busy;
 
     public int Pending => _queue.Count + (_busy ? 1 : 0);
@@ -54,7 +61,7 @@ public partial class Thumbnails : Node
         var file = FileFor(key, signature);
         try
         {
-            if (File.Exists(file) && Image.LoadFromFile(file) is { } image) return _memory[mem] = ImageTexture.CreateFromImage(image);
+            if (File.Exists(file) && Image.LoadFromFile(file) is { } image) { var tex = ImageTexture.CreateFromImage(image); Remember(key, mem, tex); return tex; }
         }
         catch (Exception) { /* a damaged cache file is simply rendered again */ }
         return null;
@@ -122,7 +129,7 @@ public partial class Thumbnails : Node
                 }
                 catch (Exception) { /* cache is optional */ }
                 var texture = ImageTexture.CreateFromImage(image);
-                _memory[job.Key + "|" + Stamp(job.Signature)] = texture;
+                Remember(job.Key, job.Key + "|" + Stamp(job.Signature), texture);
                 job.Done(texture, null);
             }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))

@@ -521,7 +521,11 @@ public partial class MapmakerDock : VBoxContainer
     void OnFilesDropped(string[] files)
     {
         var mine = files.Where(f => AssetImporter.IsImportable(f) || f.EndsWith(".smprefab", StringComparison.OrdinalIgnoreCase)).ToArray();
-        if (mine.Length == 0 || (_plugin.Session is null && !IsVisibleInTree())) return;
+        if (mine.Length == 0) return;
+        // Only a drop onto the Mapmaker dock or the 3D view is ours; one onto Godot's FileSystem dock or any other panel is Godot's.
+        var at = GetWindow().GetMousePosition();
+        bool overDock = IsVisibleInTree() && GetGlobalRect().HasPoint(at);
+        if (!overDock && !_plugin.OverViewport(at)) return;
         HandleDrop(mine);
     }
 
@@ -544,14 +548,19 @@ public partial class MapmakerDock : VBoxContainer
             foreach (var path in paths)
             {
                 string label = System.IO.Path.GetFileName(path.TrimEnd('/', '\\'));
-                if (path.EndsWith(".smprefab", StringComparison.OrdinalIgnoreCase)) { ImportOp("import-prefab", path); messages.Add($"Imported prefab {label}"); continue; }
+                if (path.EndsWith(".smprefab", StringComparison.OrdinalIgnoreCase))
+                {
+                    try { ImportOp("import-prefab", path); messages.Add($"Imported prefab {label}"); }
+                    catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { messages.Add($"Could not import {label}: {e.Message}"); }
+                    continue;
+                }
                 _status.Text = $"Importing {label}...";
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);   // let the status paint before the load blocks
                 string staging = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-mapmaker-import-" + Guid.NewGuid().ToString("N"));
                 try
                 {
                     var r = await AssetImporter.Prepare(path, staging);
-                    string sha = ModelImport.ContentSha(r.GlbPath);
+                    string sha = await Task.Run(() => ModelImport.ContentSha(r.GlbPath));
                     // The same download again: found by what it held, then by the converted content (the conversion is not guaranteed byte-for-byte repeatable).
                     var same = MapHost.Library.ListAssets().FirstOrDefault(x => x.Import?["sourceSha256"]?.ToString() == r.SourceSha || x.Sha256 == sha);
                     string id = same?.Id ?? r.Id;
@@ -567,7 +576,7 @@ public partial class MapmakerDock : VBoxContainer
                     ShowImported(id);
                 }
                 catch (MapException e) { messages.Add($"Could not import {label}: {e.Message}"); }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException) { messages.Add($"Could not import {label}: {e.Message}"); }
+                catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { GD.PushWarning(e.ToString()); messages.Add($"Could not import {label}: {e.GetType().Name}: {e.Message}"); }
                 finally { try { if (System.IO.Directory.Exists(staging)) System.IO.Directory.Delete(staging, true); } catch (Exception) { } }
             }
         }
