@@ -33,7 +33,7 @@ public partial class NetworkView
     internal void WarfrontCoopBuildUi(Control parent)
     {
         if (_wfSpectateHud is not null) return;
-        _wfSpectateHud = new WarfrontSpectateHud(WarfrontCoop);
+        _wfSpectateHud = new WarfrontSpectateHud(WarfrontCoop) { BattleLineShown = () => _wfBattle is { Visible: true } };
         _wfJoinPanel = new WarfrontJoinPanel(WarfrontCoop);
         parent.AddChild(_wfSpectateHud);
         parent.AddChild(_wfJoinPanel);

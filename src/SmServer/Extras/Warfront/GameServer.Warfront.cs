@@ -227,7 +227,7 @@ public sealed partial class GameServer
         _wf = state;
         if (WarfrontStagePlan.HasShip(Map.Name) && campaign.Phase != WarfrontPhase.Travel) WarfrontRunFiles.WriteStage(dir, new(Map.Name, [], Map.Name));
         WfLog($"{how}; map {Map.Name}; at most {maxHumans} human(s)");
-        foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED", "SM_WF_FORTRESS_WALK" })
+        foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED", "SM_WF_FORTRESS_WALK", "SM_WF_FALL_TEST" })
             if (Environment.GetEnvironmentVariable(aid) is { Length: > 0 } v) WfLog($"test aid {aid}={(aid == "SM_WF_DIR" ? "(set)" : v)}");
         string? resolve = Environment.GetEnvironmentVariable("SM_WF_RESOLVE");
         if (resolve is "win" or "wipe") { state.ResolveAid = true; state.ResolveWins = resolve == "win"; }
@@ -269,6 +269,7 @@ public sealed partial class GameServer
             WarfrontArrivalStep(s);
             WarfrontBattleWatch(s);
             WarfrontFortressWalkAid(s);
+            WarfrontFallAid(s);
             WarfrontResolveAid(s);
             WarfrontPrepareWatch(s);
             WarfrontGoWatch(s);
