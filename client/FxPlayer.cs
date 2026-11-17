@@ -59,6 +59,8 @@ public sealed class FxEffect
     public const float SoftHeadShare = 0.4f;
     /// <summary>plasma-original-fx (interpretation): this effect's streamers read their width keys along the ribbon, head to tail, like their colour keys (<see cref="SmClient.Bullets.PlasmaOriginalLook.StreamerWidth"/>), instead of over the element's loop time with our 0.3 taper.</summary>
     public bool WidthAlongTrail;
+    /// <summary>plasma-cannon-shots test aid (effects view <c>--fx-skip a,b</c>): element names not drawn.</summary>
+    public static HashSet<string>? DebugSkip;
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -667,6 +669,7 @@ public sealed partial class FxPlayer : Node3D
         if (e.NoGrit && n is CSprite { Additive: false } grit && SmContent.BrightFlash.IsGrit(grit.Material.Name)) return;   // fx-cap-priority
         if (e.NoMist && n is CSprite mist && SmContent.BrightFlash.IsMistSprite(mist.Additive, mist.Material.Name)) return;   // fx/bolt-smoke
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
+        if (FxEffect.DebugSkip is { } skip && skip.Contains(n.Name)) return;   // plasma-cannon-shots test aid (effects view --fx-skip): leave named elements out
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).
         if (!ShowSmoke && !e.KeepSmoke && (n.SmokeOnly || n.Smoke)) return;
@@ -974,7 +977,7 @@ public sealed partial class FxPlayer : Node3D
             while (used < N && pts[used].DistanceSquaredTo(pts[used + 1]) >= 1e-8f) used++;
             if (used < 1) used = N;
         }
-        float u = 0f;
+        float u = 0f, headDist = 0f;
         for (int j = 0; j < N; j++)
         {
             var a = pts[j]; var b = pts[j + 1];
@@ -995,6 +998,14 @@ public sealed partial class FxPlayer : Node3D
                 width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
             }
             if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
+            if (e.SoftEdges)
+            {
+                // plasma-cannon-shots: the head end fades in (smoothstep) over twice its own width (a 5.7 m ribbon started as a straight vertical cut; the 1 m fade-in of Head() is short against it).
+                float dHead = headDist + len * 0.5f, cap = MathF.Max(0.3f, width * 2f);
+                float k = MathF.Min(1f, dHead / cap), cut = k * k * (3f - 2f * k);
+                col = n.Additive ? new Color(col.R * cut, col.G * cut, col.B * cut, col.A * cut) : new Color(col.R, col.G, col.B, col.A * cut);
+            }
+            headDist += len;
             if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(used < N ? MathF.Min(1f, (j + 0.5f) / used) : f, ribbonLength) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = n.Additive ? new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail) : new Color(col.R, col.G, col.B, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;

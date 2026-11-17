@@ -17,7 +17,7 @@ namespace SmClient.Bullets;
 public static class PlasmaSoftEdges
 {
     /// <summary>The lateral position (0 centre .. 1 edge) from which the alpha falls off; the core up to here stays as drawn.</summary>
-    public const float CoreHalfWidth = 0.2f;
+    public const float CoreHalfWidth = 0f;   // plasma-cannon-shots: no plateau (was 0.2)
     /// <summary>With a known length (metres): the fade-in at the head is at most this long, and the fade-out at the tail at most <see cref="TailMetres"/>, so a 20 to 40 m trail keeps its bright body (the data's colours already fade it along its length).</summary>
     public const float HeadMetres = 1.0f, TailMetres = 4.0f;
     /// <summary>The share of a ribbon's length (head 0 .. tail 1) from which it fades out.</summary>
@@ -40,7 +40,7 @@ public static class PlasmaSoftEdges
     }
 
     /// <summary>The alpha factor across a ribbon: <paramref name="across"/> is 0 on its axis and 1 at its edge (the shader's <c>abs(UV.y * 2 - 1)</c>).</summary>
-    public static float Lateral(float across) => 1f - Smooth(CoreHalfWidth, 1f, Math.Clamp(across, 0f, 1f));
+    public static float Lateral(float across) { float k = 1f - Smooth(CoreHalfWidth, 1f, Math.Clamp(across, 0f, 1f)); return k * k; }   // plasma-cannon-shots: squared
 
     /// <summary>The alpha factor of a camera-facing glow card at <paramref name="r"/> (0 centre .. 1 the middle of an edge): full to 0.55, then 0 at the rim, so a large square card has no straight edge.</summary>
     public static float Radial(float r) => 1f - Smooth(0.55f, 1f, Math.Clamp(r, 0f, 1.5f));
@@ -58,5 +58,5 @@ public static class PlasmaSoftEdges
     public static float EndOn(float cos) => 1f - Smooth(0.75f, 0.97f, Math.Clamp(cos, 0f, 1f));
 
     /// <summary>The shader's lateral falloff, as the source of the GLSL line (kept next to <see cref="Lateral"/> so the two stay the same curve).</summary>
-    public const string ShaderLine = "a *= 1.0 - smoothstep(0.2, 1.0, abs(UV.y * 2.0 - 1.0));";
+    public const string ShaderLine = "a *= pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);";
 }

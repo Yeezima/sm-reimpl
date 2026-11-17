@@ -57,6 +57,7 @@ public partial class FxTestView : Node3D
         if (_args.ContainsKey("pound-test") && _names.Length == 0) _names = ["jumppack_land_heavy", "jumppack_land_light"];
         // fx/impact-pass: --stomp-test plays a stomp's impact as the networked client does (StompFx): the first effect named, the others compiled for the shockwave's ring sprite.
         if (_args.ContainsKey("stomp-test")) { _args["pound-test"] = null; if (_names.Length == 0) _names = ["interrupt_stomp_dmg", "knockback_stomp_dmg_furied", "thunderhammer_dmg_displace_heavy"]; }
+        if (_args.TryGetValue("fx-skip", out var skipArg)) FxEffect.DebugSkip = new HashSet<string>(skipArg.Split(',', StringSplitOptions.RemoveEmptyEntries));
         _holdAge = _args.TryGetValue("fx-age", out var a) ? F(a, 0.1f) : null;
         _period = F(_args.GetValueOrDefault("fx-period"), 2.5f);
         _shotTimes = (_args.GetValueOrDefault("fx-shots") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => (double)F(x, 0f)).ToArray();
@@ -187,6 +188,7 @@ public partial class FxTestView : Node3D
             if (e is null) { GD.PrintErr($"fx: '{name}' not found"); continue; }
             if (_args.TryGetValue("fx-head", out var head)) e.HeadSpeed = F(head, 0f);
             // plasma-soft-visuals test aid: --fx-fly m/s flies the effect along its axis (a projectile's trail needs a moving effect: a streamer draws the path it has flown).
+            if (_args.ContainsKey("fx-no-lights")) e.NoLights = true;   // plasma-cannon-shots test aid: no dynamic light (is a hard edge the lit wall?)
             if (_args.ContainsKey("fx-along")) e.WidthAlongTrail = true;   // plasma-cannon-shots test aid: a streamer's width keys run along the ribbon (as a plasma projectile's trail does in game)
             if (_args.TryGetValue("fx-fly", out var fly)) { float speed = F(fly, 0f); var from = place; var bs = basis; e.Follow = () => (from + axis * speed * (float)Math.Max(0.0, e.Age), bs); }
             ExtrasTestEffect(e);   // EXTRAS-HOOK: musou/gpu-particles test aid: Musou's blood settings (--fx-amount, --fx-keep-smoke, --fx-gamma)
@@ -207,10 +209,14 @@ public partial class FxTestView : Node3D
         return new Basis(x, y, x.Cross(y));
     }
 
+    double _slow => _slowCache ??= Math.Max(1.0, _args.TryGetValue("fx-slow", out var sl) ? F(sl, 1f) : 1f);
+    double? _slowCache;
+
     public override void _Process(double delta)
     {
         if (_player is not { IsReady: true } || _camera is null) return;
         _frames++;
+        delta /= _slow;   // plasma-cannon-shots capture aid --fx-slow n: the effects view alone runs n times slower (never a match)
         _since += delta;
         if (_shotTimes.Length > 0 && _frames > 12)
         {
