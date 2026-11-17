@@ -342,6 +342,48 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         Assert.Equal(0, b.HqFront);
     }
 
+    /// <summary>W13c (review 2 ruling c): a fall is a rout. The Guardsmen posted to the fallen position are lost (through <c>KillOne</c>, so the deaths are counted), the squads of the later positions stay at full strength.</summary>
+    [Fact]
+    public void A_fall_is_a_rout_the_guardsmen_of_the_fallen_position_are_lost_and_the_later_squads_stay()
+    {
+        var w = Hq(out var b, guardsmen: true);
+        TfwRig.Teleport(w, Safe);
+        Step(w, 30 * 5);
+        var guards = w.TfwGuards!;
+        Assert.Equal(WarfrontHqBattleRules.SquadsAt.Sum() * GuardSim.SquadSize, guards.Alive);
+        for (int t = 0; t < 30 * 90 && !b.HqFell(0); t++)
+        {
+            if (t % 30 == 0) Occupy(w, b, 0, 60);   // frozen Boyz: they outweigh twenty Guardsmen and do not shoot
+            w.Step(_ => default);
+        }
+        Assert.True(b.HqFell(0));
+        Step(w, 30 * 3);
+        Assert.Equal((WarfrontHqBattleRules.SquadsAt[1] + WarfrontHqBattleRules.SquadsAt[2]) * GuardSim.SquadSize, guards.Alive);   // W's two squads are gone, K's and V's stand
+        Assert.Equal(0, Enumerable.Range(0, GuardSim.MaxSquads).Count(sq => guards.AliveIn(sq) > 0 && Vector3.Distance(guards.Centre(sq), b.Layout.Positions[0]) < 20f));
+    }
+
+    [Fact]
+    public void The_stage_sources_use_the_supplied_sight_ray_and_fall_back_to_sixty_metres_without_one()
+    {
+        var w = Hq(out var b);
+        var home = WarfrontHqLayout.SourcesOf(1).First();
+        TfwRig.Teleport(w, home + new Vector3(0f, 45f, 0f));   // 45 m from a courtyard source: inside the 60 m stand-in, outside the 30 m clearance
+        try
+        {
+            WarfrontHqBattleRules.Sight = null;
+            var closed = HqClearOf(b, home, w);
+            WarfrontHqBattleRules.Sight = (_, _) => false;   // a ray that no human ever has a line through
+            var open = HqClearOf(b, home, w);
+            Assert.False(closed);
+            Assert.True(open);
+            WarfrontHqBattleRules.Sight = (_, _) => true;    // a ray with a line to everything: closed as before
+            Assert.False(HqClearOf(b, home, w));
+        }
+        finally { WarfrontHqBattleRules.Sight = null; }
+    }
+
+    static bool HqClearOf(TfwBattle b, Vector3 at, World w) => TfwBattle.HqSourceClearForTests(at, [w.Players[TfwRig.Human].Position]);
+
     [Fact]
     public void The_battle_section_round_trips_and_says_what_the_hud_shows()
     {

@@ -1,4 +1,6 @@
+using System.Numerics;
 using SmSim.Extras.Musou.Campaign;
+using SmSim.Extras.Warfront.Fortress;
 
 namespace SmSim.Extras.Warfront.Hq;
 
@@ -48,9 +50,18 @@ public static class WarfrontHqBattleRules
 
     /// <summary>The Guard squads that start at each position's posts (W, K, V); the Guardsmen are not replaced.</summary>
     public static readonly int[] SquadsAt = [2, 1, 1];
+    /// <summary>The strength each Guard squad is spawned with at W, K and V (<c>GuardSim.SpawnSquad</c>'s own parameter; 1 is a full squad). W13c: the one step allowed without a ruling if the passive human still won after the rout rule.</summary>
+    public static readonly float[] GuardStrengthAt = [1f, 1f, 1f];
 
     /// <summary>A stage-1 or stage-2 source never spawns within this many metres of a human, nor while a human is within <see cref="SourceSightMetres"/> (our stand-in for "in his sight": the courtyard and the hall are open to each other).</summary>
     public const float SourceClearanceMetres = 30f, SourceSightMetres = 60f;
+    /// <summary>The height of an eye above the feet for the sight test, metres (the fortress's own: <c>WarfrontFortressBattleRules.EyeHeight</c>).</summary>
+    public const float EyeHeight = WarfrontFortressBattleRules.EyeHeight;
+    /// <summary>
+    /// The sight test (W13c): true when the line from the first point to the second is not stopped by a wall; set by the server at the HQ landing from the stage's weapon collision (<c>GameServer.WarfrontHqSight</c>), the same ray as the fortress's. It is process-wide
+    /// because the stage runs one battle per process (the same as the rules' <c>Target</c>); null means the 60 m stand-in (<see cref="SourceSightMetres"/>). Tests that set it must reset it.
+    /// </summary>
+    public static Func<Vector3, Vector3, bool>? Sight { get; set; }
     /// <summary>The share of a wave that comes from the stages' sources once they are open (each open stage takes this share of it).</summary>
     public const float StageShare = 0.25f;
     /// <summary>Orks that pour in at an opened stage's sources at the moment its position falls.</summary>
