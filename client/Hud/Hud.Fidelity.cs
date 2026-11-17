@@ -184,6 +184,14 @@ public sealed partial class Hud
     /// score limit past its end, and in Seize Ground one marker per point above it (<c>objective_marker1</c>..<c>4</c>: the frame of the point's state label, <see cref="DecoratorRules.PointLabel"/>,
     /// blinking while a point is being taken). False without the movie.
     /// </summary>
+    /// <summary>What the last default score panel drew (the ui-selftest's probe): the frame's four corners in viewport pixels, the markers drawn, the side whose emblem stood at the left and the viewport it was drawn for.</summary>
+    public sealed record ScorePanelProbe(Vector2[] Frame, int Markers, Team Emblem, Vector2 Viewport);
+
+    ScorePanelProbe? _lastScorePanel;
+
+    /// <summary>The ui-selftest's probe of the default (original-layout) score panel as last drawn; null before it is drawn or while the centred box is on.</summary>
+    public ScorePanelProbe? LastScorePanel => _lastScorePanel;
+
     bool DrawMovieScorePanel(Vector2 vs)
     {
         var d = Data;
@@ -201,6 +209,7 @@ public sealed partial class Hud
         var bandV = new Vector2[4];
         for (int i = 0; i < 4; i++) bandV[i] = root * band[i];
         float fill = layout is null ? 0.72f : 0.8f;   // the original's frame lets the ground show faintly (screenshots 1 and 3); the centred box stays opaque-ish
+        _lastScorePanel = layout is null ? new ScorePanelProbe(bandV, 0, d.OwnTeam, vs) : null;
         DrawPolygon(bandV, [new Color(0f, 0f, 0f, fill), new Color(0f, 0f, 0f, fill + 0.06f), new Color(0f, 0f, 0f, fill + 0.06f), new Color(0f, 0f, 0f, fill)]);
         var line = layout is null ? ScoreFrameLine : new Color(0.85f, 0.85f, 0.82f, 0.5f);
         DrawLine(bandV[0], bandV[1], line, layout is null ? 1.3f : 1.5f, true);
@@ -224,6 +233,7 @@ public sealed partial class Hud
                 var point = d.Points[i];
                 string slot = $"objective_marker{i + 1}";
                 int frame = markerLabels.GetValueOrDefault(PointLabel(point), 0);
+                if (_lastScorePanel is { } probe) _lastScorePanel = probe with { Markers = probe.Markers + 1 };
                 DrawWalk(text, panel.Placement.Character, 0, layout is null ? root : root * new Transform2D(0f, new Vector2(0f, -ScoreMarkerLift)), (path, _) => path == slot ? frame : null, ch => ch == marker,
                     _ => null, null, PointBlink(point), skip: path => path != slot);
             }

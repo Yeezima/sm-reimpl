@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3420 spec table rows: **2442 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
-Scanned 3422 spec table rows: **2442 tagged**, 630 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 754 rows of the changes document.
+Scanned 3425 spec table rows: **2445 tagged**, 630 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 755 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,16 +53,15 @@ Scanned 3422 spec table rows: **2442 tagged**, 630 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2442** | 2170 | 1809 | 733 | 37 |
-| **All areas** | **2442** | 2169 | 1809 | 732 | 37 |
+| **All areas** | **2445** | 2172 | 1812 | 733 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1439 |
-| confidence: low | 872 |
-| confidence: medium | 828 |
+| kind: ours | 1441 |
+| confidence: low | 873 |
+| confidence: medium | 830 |
 | notes: ours | 404 |
 | kind: interpretation | 395 |
 | notes: estimate | 203 |
@@ -4745,7 +4743,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A596F193` | Visible bullets on the damaging path (feel/bullets; superseded 2026-11-07 by "Tracers to the impact", kept behind `--bent-bullets`) | A hit-scan bullet (the weapon's own tracer effect) leaves the muzzle, meets the shot's true ray 3 m on (ours) and flies along it to where the shot ended, so past that point it is exactly the damaging path (own shots: the input actually sent; other players': the ray rebuilt from the shooter's camera, since shot records… | The original's tracer path and the real origin of other players' shots | Effect rendering (M25b): "Visible bullets on the damaging path" rows | Visible bullets on the damaging path (feel/bullets…: compare with SM1 by feel or video. Ours: A hit-scan bullet (the weapon's own tracer effect) leaves the muzzle… | ☐ |
 | `C-51505757` | Weapon smoke reined in (feel/muzzle-smoke) | **Owner's change (2026-10-29: "rein them in a bit")**: the smoke of firing a gun (the tracer's smoke beams and ignition puffballs, the heavy bolter's muzzle puff, the stop-fire smoke streamers) keeps 0.55 of its width, radius and sideways speed (ours: the number); the data's own elements are wide (smoke beams up to… | Whether the original's smoke was this wide (a beam's `Width` may be a half width) | Effect rendering (M25b): "Weapon smoke" rows | Weapon smoke reined in (feel/muzzle-smoke): compare with SM1 by feel or video. Ours: Owner's change (2026-10-29: "rein them in a bit"): the smoke of… | ☐ |
 | `C-EB2C6139` | HUD from the original movies (ui/hud-fidelity) | The reticles, hit marker, kill feed, reward lines, score panel, weapon box, Seize Ground markers and pick-up prompt are drawn from the install's HUD movies at their places and with their clips; our choices: which weapon type picks which reticle and box display (the names), the spread fraction that picks a reticle's… | The scripts that drive the movies (when a line goes, which state picks which frame, the runtime tints) | "HUD from the movies (ui/hud-fidelity)" | HUD from the original movies (ui/hud-fidelity): compare with SM1 by feel or video. Ours: The reticles, hit marker, kill feed, reward lines, score panel… | ☐ |
-| `C-001B07B7` | Bottom-left score panel 1:1 (classic-score-hud, owner 2026-11-17; client only, Classic PvP) | Seize Ground and Annihilation share one element: the side icon (loyalist aquila / Chaos star), the two score bars with their numbers (gold own, red enemy) inside a thin gold frame, the time left above and right of it, the large score limit past its end, and in Seize Ground one marker per point above it. Ours (the… | The original's frame art, the exact tilt (it varies with the camera in the screenshots), the large limit's width (about 7 % wider in ours), whether the original's blink is softer than the movie's flash loop | "Score panel" | Bottom-left score panel 1:1 (classic-score-hud, owner…: compare with SM1 by feel or video. Ours: Seize Ground and Annihilation share one element: the side icon… | ☐ |
+| `C-001B07B7` | Bottom-left score panel 1:1 (classic-score-hud, owner 2026-11-17; client only, Classic PvP) | Seize Ground and Annihilation share one element: the side icon (loyalist aquila / Chaos star), the two score bars with their numbers (gold own, red enemy) inside a thin gold frame, the time left above and right of it, the large score limit past its end, and in Seize Ground one marker per point above it. Ours (the… | The original's frame art, the exact tilt (it varies with the camera in the screenshots), the large limit's width (about 7 % wider in ours), whether the original's blink is softer than the movie's flash loop; to check in a playtest: the blink's softness, a real 4th-point map, both sides contesting at once, live bot… | "Score panel" | Bottom-left score panel 1:1 (classic-score-hud, owner…: compare with SM1 by feel or video. Ours: Seize Ground and Annihilation share one element: the side icon… | ☐ |
 | `C-C6B77E8F` | Kill hit marker (ui/hud-fidelity) | Every hit, a kill too, shows the movie's gold hit marker; M44's red kill and gold head-hit markers (ours) are gone | Whether the original marks a kill differently (the movie has one marker) | "HUD from the movies (ui/hud-fidelity)" row "Hit marker" | Kill hit marker (ui/hud-fidelity): compare with SM1 by feel or video. Ours: Every hit, a kill too, shows the movie's gold hit marker; M44's red… | ☐ |
 | `C-98D9A267` | Armour and health bar from the movie (ui/hud-2) | The bar is `unifiedhealth_mc` at the movie's own place and scale (they match the footage within 2 stage px): the dark band, the **cyan** armour bar `ironhalo_mc` cut by the armour (the movie's own colour, the footage's too; frame by fraction is ours) and the red health bar `healthbar_mc` cut by the health (frame by… | Which state of the original shows the gold bar, what triggers the flash, how the script maps fractions to frames | "Armour and health bar", "Armour bar: the gold clip" and "Iron Halo flash" rows of "HUD from the movies (ui/hud-fidelity)" | Armour and health bar from the movie (ui/hud-2): compare with SM1 by counting hits to kill and by video of the health bar. Ours: The bar is unifiedhealth_mc at the movie's own place and scale (they… | ☐ |
 | `C-4BD5C5FF` | Reward lines beyond "Kill" (ui/hud-2) | The own kills earn the data's rewards where the client can know the condition from what is sent: headshot, double to mega kill (within 2 s), killstreak x3 to x9 and the max streak, revenge, avenger (within 5 s, read as seconds), grudge, victory in death, with the movie's icons and the install's names and the data's… | The original's exact rules and its script's signals | "Reward lines beyond Kill" row of "HUD from the movies (ui/hud-fidelity)" | Reward lines beyond "Kill" (ui/hud-2): compare with SM1 by feel or video. Ours: The own kills earn the data's rewards where the client can know the… | ☐ |
