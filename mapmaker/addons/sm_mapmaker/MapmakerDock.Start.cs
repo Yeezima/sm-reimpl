@@ -62,7 +62,7 @@ public partial class MapmakerDock
         _templateInfo.AddThemeColorOverride("font_color", HintColour); _templateInfo.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_templateInfo);
         var newMap = Btn("New map", NewFromLayout, "Makes the map from the chosen layout, saves it and shows it.");
-        var newEmpty = Btn("New empty map", NewMap, "Starts an empty map called Untitled, with no layout.");
+        var newEmpty = Btn("New empty map", () => _ = StartEmptyMap(null), "Starts an empty map called Untitled, with no layout.");
         newMap.SizeFlagsHorizontal = SizeFlags.ExpandFill; newEmpty.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(Row(newMap, newEmpty));
         Section(v, "Open and save");
