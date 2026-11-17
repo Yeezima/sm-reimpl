@@ -55,7 +55,7 @@ static class WarfrontHqCommand
                 case "--measure": measure = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int a)) { seconds = a; i++; } break;
                 case "--scenario": if (i + 1 < rest.Length) { _scenario = rest[++i]; waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int c)) { seconds = c; i++; } } break;
                 case "--diagnose": _diagnose = true; break;
-                case "--solo": _solo = true; break;   // W13d part 3: a solo campaign (the server's human cap is one): the allied pair is on (the default is the co-op case, pair off)
+                case "--solo": _solo = true; break;   // W13d part 3: a solo campaign (the server's human cap is one): the human cap is one; the HQ defence gets no pair either way (owner 2026-11-17: the pair is for lane battles only)
                 case "--no-allies": _noAllies = true; break;   // test aid: the two allied Marines of the pair are not spawned (the Guardsmen and the human alone)
                 case "--waves": waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int b)) { seconds = b; i++; } break;
                 default: Console.Error.WriteLine($"warfront-hq: unknown argument \"{rest[i]}\" (usage: warfront-hq --measure [seconds] | --waves [seconds] | --scenario passive|fallback|gate9 [seconds])"); return 2; }
@@ -105,7 +105,7 @@ static class WarfrontHqCommand
         var run = w.Tfw!;
         run.Guardsmen = waves;
         run.Patrols = false;
-        run.Allies = _solo && !_noAllies;   // the pair spawns at the Deploy below; World.WarfrontAlliedPair is the server's rule (the cap is one)
+        run.Allies = SmSim.World.WarfrontAlliedPair(_solo ? 1 : 4, laneBattle: false) && !_noAllies;   // the server's rule: the HQ defence gets no pair, solo or not (owner 2026-11-17)
         w.TfwMeksOn = false;
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 30; k++) w.Step(_ => default);

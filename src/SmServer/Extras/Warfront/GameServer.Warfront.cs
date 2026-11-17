@@ -238,6 +238,7 @@ public sealed partial class GameServer
             rules.NodeEnded = (lane, node, result) => WarfrontNodeEnded(lane, node, result);
             rules.LateJoinAllowed = id => state.KeyOf.ContainsKey(id);   // a human not yet identified is not flown into a battle (W12 adds its own condition on top)
             rules.StuckSink = r => _wfStuck.Record(Map.Name, r.Type.ToString(), r.At, r.Why == WarfrontStuckWhy.Removed ? WarfrontStuckAction.Removed : WarfrontStuckAction.Relocated, r.Why == WarfrontStuckWhy.Cleared ? "position-clearing" : "stranded");
+            rules.FortressLog = WfLog;   // W13e: the fortress win tripwire
             WarfrontBindProgression(state);
             WarfrontBuildSquads(state, rules);
         }
