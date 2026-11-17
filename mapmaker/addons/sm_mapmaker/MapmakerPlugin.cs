@@ -20,6 +20,7 @@ public partial class MapmakerPlugin : EditorPlugin
 {
     sealed class Step
     {
+        public ulong RootId;   // the scene whose history holds this step; Godot keeps one history per scene, so steps outlive tab switches
         public JsonObject[] Ops = [];
         public bool Executed;
         public OpResult? Result;
@@ -69,6 +70,7 @@ public partial class MapmakerPlugin : EditorPlugin
         MapHost.RootChanged += OnRootChanged;
         MapHost.Sm1Changed += OnSm1Changed;
         DocChanged += RecheckSoon;
+        InitViewportTools();
         CallDeferred(MethodName.Startup);
     }
 
@@ -80,7 +82,9 @@ public partial class MapmakerPlugin : EditorPlugin
         try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; GetUndoRedo().HistoryChanged -= OnUndoVersionChanged; } catch (Exception) { }
         if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
         _hooked = null;
-        FreeDetachedNodes(); _nodes.Clear();
+        FreeViewportTools();
+        FlushStashedMaps();
+        FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
         Thumbs?.QueueFree(); Thumbs = null;
@@ -135,12 +139,196 @@ public partial class MapmakerPlugin : EditorPlugin
         h.VersionChanged += OnUndoVersionChanged;
     }
 
+    // Each scene tab holds its own map (owner, 2026-11-18: place an extracted prefab in a scene of another tab). Godot keeps only the edited scene in the
+    // tree, so a root leaving the tree stashes its session here, and a root entering gets its own back (or none: its first placement starts an untitled map).
+    readonly Dictionary<ulong, (MapSession? Session, bool Dirty)> _stash = new();
+    ulong _activeRoot;
+
     void OnRootChanged()
     {
+        FreeGhost();
+        var now = MapHost.Root;
+        ulong id = now is not null && GodotObject.IsInstanceValid(now) ? now.GetInstanceId() : 0;
+        if (id != _activeRoot)
+        {
+            if (_activeRoot != 0 && Session is not null) _stash[_activeRoot] = (Session, Dirty);
+            if (id == 0) { if (_activeRoot != 0) { Session = null; Dirty = false; } }
+            else if (_stash.Remove(id, out var back)) { Session = back.Session; Dirty = back.Dirty; }
+            else if (_activeRoot != 0 || Session is null) { Session = null; Dirty = false; }   // a scene of its own: no map yet
+            _activeRoot = id;
+        }
+        if (now is not null && GodotObject.IsInstanceValid(now) && SceneFileOf(now).Length > 0) _rootScene.TryAdd(id, SceneFileOf(now));
         HookHistory();
         FreeDetachedNodes();
         _nodes.Clear(); _contentKeys.Clear();
+        PruneStash();
         if (MapHost.Root is not null && Session is not null) SyncView(true);
+        else if (MapHost.Root is { } fresh && SceneMapOf(fresh) is { } saved && System.IO.File.Exists(saved)) OpenMap(saved);   // a reopened scene loads its map again
+        DocChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// On plugin exit (editor quit), writes the changed maps of background tabs whose scene has a file: Save All saves those scenes without making them the edited
+    /// one, so their maps would otherwise be dropped with the stash (final review of 3cfa3bc0).
+    /// </summary>
+    void FlushStashedMaps()
+    {
+        foreach (var (k, v) in _stash.ToList())
+        {
+            if (!v.Dirty || v.Session is null || GodotObject.InstanceFromId(k) is not Node root || !GodotObject.IsInstanceValid(root) || SceneFileOf(root).Length == 0) continue;
+            try { SaveSceneMap(root, v.Session, true); }
+            catch (Exception e) { GD.PushWarning($"Mapmaker: the map of {SceneFileOf(root)} was not saved on exit: {e.Message}"); }
+        }
+    }
+
+    /// <summary>Forgets the maps of scene tabs that were closed (their root is gone).</summary>
+    void PruneStash()
+    {
+        foreach (var k in _stash.Keys.Where(k => GodotObject.InstanceFromId(k) is null).ToList()) _stash.Remove(k);
+        foreach (var k in _rootScene.Keys.Where(k => GodotObject.InstanceFromId(k) is null).ToList()) _rootScene.Remove(k);
+        foreach (var k in _steps.Where(x => x.Value.RootId != 0 && GodotObject.InstanceFromId(x.Value.RootId) is null).Select(x => x.Key).ToList()) _steps.Remove(k);
+    }
+
+    // Which map belongs to which scene file: scene-maps.json next to the maps, { "res://a.tscn": { "map": "<file>", "uid": "uid://..." } }. The uid is the scene's own
+    // resource uid, so a new scene at a reused path never picks up an old scene's map. The file is re-read before every write (another editor may have changed it) and
+    // entries of scene files that no longer exist are dropped.
+    string SceneMapsFile => System.IO.Path.Combine(MapHost.Library.MapsDir, "scene-maps.json");
+
+    static string Str(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var t) ? t : "";
+
+    /// <summary>The recorded scene-to-map entries. A file that cannot be parsed is set aside as scene-maps.json.bad (with a warning) so it is never overwritten blindly.</summary>
+    JsonObject ReadSceneMaps()
+    {
+        string file = SceneMapsFile;
+        try
+        {
+            if (!System.IO.File.Exists(file)) return new JsonObject();
+            if (JsonNode.Parse(System.IO.File.ReadAllText(file)) is JsonObject o) return o;
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or ArgumentException) { }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException) { return new JsonObject(); }
+        try { System.IO.File.Move(file, file + ".bad", true); GD.PushWarning($"Mapmaker: {file} could not be read; kept as {file}.bad and started a new one."); }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException) { }
+        return new JsonObject();
+    }
+
+    static string SceneUid(string scene)
+    {
+        try { long id = ResourceLoader.GetResourceUid(scene); return id == -1 ? "" : ResourceUid.IdToText(id); } catch (Exception) { return ""; }
+    }
+
+    static string SceneFileOf(Node root) => (root.Owner ?? root).SceneFilePath;
+
+    static bool SameFile(string a, string b)
+    {
+        try { return string.Equals(System.IO.Path.GetFullPath(a), System.IO.Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase); }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or System.IO.PathTooLongException) { return false; }
+    }
+
+    /// <summary>The map recorded for a scene file, when the entry was written for this very scene (same uid) and the map file is there.</summary>
+    public string? SceneMapOfFile(string scene)
+    {
+        if (scene.Length == 0 || ReadSceneMaps()[scene] is not JsonObject e || Str(e["map"]) is not { Length: > 0 } map) return null;
+        string uid = Str(e["uid"]);
+        if (uid.Length > 0 && SceneUid(scene) != uid) return null;
+        return System.IO.File.Exists(map) ? map : null;
+    }
+
+    string? SceneMapOf(Node root) => SceneMapOfFile(SceneFileOf(root));
+
+    /// <summary>Another existing scene (with its own uid) that already uses this map file, or null.</summary>
+    string? OtherOwnerOfMap(string map, string scene)
+    {
+        foreach (var (k, v) in ReadSceneMaps())
+            if (k != scene && v is JsonObject e && Str(e["map"]) is { Length: > 0 } m && SameFile(m, map) && FileAccess.FileExists(k) && (Str(e["uid"]) is var u && (u.Length == 0 || SceneUid(k) == u))) return k;
+        return null;
+    }
+
+    /// <summary>A map file name that no file and no scene entry uses: <paramref name="prefix"/><paramref name="stem"/>.smmap, then -2, -3 and so on, in the library's maps folder.</summary>
+    public string UniqueMapPath(string stem, string prefix = "scene-")
+    {
+        stem = Sanitize(stem.Length > 0 ? stem : "untitled");
+        var used = ReadSceneMaps();
+        for (int i = 1; ; i++)
+        {
+            string path = System.IO.Path.Combine(MapHost.Library.MapsDir, i == 1 ? $"{prefix}{stem}.smmap" : $"{prefix}{stem}-{i}.smmap");
+            if (!System.IO.File.Exists(path) && used.All(kv => kv.Value is not JsonObject e || Str(e["map"]) is not { Length: > 0 } m || !SameFile(m, path))) return path;
+        }
+    }
+
+    string _recorded = "";
+    readonly Dictionary<ulong, string> _rootScene = new();   // the scene file each root had when last looked at, to tell a Save As (the file changed) from an explicit open
+
+    /// <summary>Adds or replaces a scene's entry (re-reading the file first, dropping entries of vanished scene files) and writes it through a temp file. False when it could not be written.</summary>
+    bool RecordSceneMap(string scene, string map)
+    {
+        try
+        {
+            var all = ReadSceneMaps();
+            foreach (var k in all.Select(x => x.Key).ToList()) if (k != scene && !FileAccess.FileExists(k)) all.Remove(k);
+            all[scene] = new JsonObject { ["map"] = map, ["uid"] = SceneUid(scene) };
+            System.IO.Directory.CreateDirectory(MapHost.Library.MapsDir);
+            string tmp = SceneMapsFile + ".tmp";
+            System.IO.File.WriteAllText(tmp, all.ToJsonString());
+            System.IO.File.Move(tmp, SceneMapsFile, true);
+            _recorded = scene + "|" + map;
+            return true;
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { return false; }
+    }
+
+    /// <summary>
+    /// Keeps one scene's map apart from every other scene's. A scene saved under a new name (Save As) while holding another scene's map gets its own copy; an
+    /// explicit open of a map another scene uses is left alone (the user chose that file). A dirty map is written only when it is asked for
+    /// (<paramref name="save"/>), and never for a scene that has no file yet (it stays in memory until the scene gets a path). Returns true when the map file was written.
+    /// </summary>
+    bool SaveSceneMap(Node root, MapSession session, bool save)
+    {
+        string scene = SceneFileOf(root);
+        ulong id = root.GetInstanceId();
+        bool renamed = _rootScene.TryGetValue(id, out var before) && before.Length > 0 && scene.Length > 0 && before != scene;
+        if (scene.Length > 0) _rootScene[id] = scene;
+        try
+        {
+            string? path = session.Path;
+            if (renamed && path is not null && SceneMapOfFile(scene) is null && OtherOwnerOfMap(path, scene) is { } owner)
+            {
+                string copy = UniqueMapPath(System.IO.Path.GetFileNameWithoutExtension(scene));
+                session.Save(copy);
+                SetStatus($"{scene} now has its own copy of the map ({copy}); {owner} keeps the original.");
+                RecordSceneMap(scene, session.Path!);
+                return true;
+            }
+            if (!save)
+            {
+                if (path is not null && scene.Length > 0 && _recorded != scene + "|" + path) RecordSceneMap(scene, path);
+                return false;
+            }
+            if (path is null)
+            {
+                if (scene.Length == 0) { SetStatus("This scene has no file yet, so its map was not saved; save the scene again once it has a name."); try { EditorInterface.Singleton.MarkSceneAsUnsaved(); } catch (Exception) { } return false; }
+                path = UniqueMapPath(System.IO.Path.GetFileNameWithoutExtension(scene));
+            }
+            session.Save(path);
+            if (scene.Length > 0) RecordSceneMap(scene, session.Path!);
+            return true;
+        }
+        catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { SetStatus("Saving the scene's map failed: " + e.Message); return false; }
+    }
+
+    /// <summary>Notes the edited scene's file against its map's file (called after saves and from a slow poll); a Save As forks the map here.</summary>
+    void SyncRootMeta()
+    {
+        if (MapHost.Root is not { } r || !GodotObject.IsInstanceValid(r) || Session is null || Session.Path is not { } p || SceneFileOf(r) is not { Length: > 0 } f) return;
+        ulong id = r.GetInstanceId();
+        if (_recorded == f + "|" + p && (!_rootScene.TryGetValue(id, out var seen) || seen == f)) return;
+        if (SaveSceneMap(r, Session, false)) { Dirty = false; DocChanged?.Invoke(); }
+    }
+
+    /// <summary>Saving the scene also saves its map. Only the edited scene's map is written: Godot does not say which scenes a save covers, so changed maps of other open tabs stay in memory until their scene is saved.</summary>
+    public override void _SaveExternalData()
+    {
+        if (Session is not null && MapHost.Root is { } r && SaveSceneMap(r, Session, Dirty)) { Dirty = false; DocChanged?.Invoke(); }
     }
 
     /// <summary>Nodes of deleted objects are kept detached so undo can reattach them; free them when the map they belong to goes away.</summary>
@@ -164,29 +352,43 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public OpResult? OpenMap(string path)
     {
-        try { Adopt(MapSession.Load(path, MapHost.Library, _sm1Adapter)); SetStatus($"Opened {path}"); return null; }
+        try
+        {
+            Adopt(MapSession.Load(path, MapHost.Library, _sm1Adapter));
+            string? shared = MapHost.Root is { } r && SceneFileOf(r) is { Length: > 0 } f ? OtherOwnerOfMap(Session!.Path!, f) : null;
+            SetStatus($"Opened {path}" + (shared is null ? "" : $". This map is also used by {shared}; edits affect both."));
+            return null;
+        }
         catch (MapException e) { SetStatus($"Open failed: {e.Code}: {e.Message}"); return OpResult.Fail(e.Code, e.Message, "open"); }
     }
 
     public bool SaveMap(string? path = null)
     {
         if (Session is null) return false;
-        try { Session.Save(path); Dirty = false; SetStatus($"Saved {Session.Path}"); DocChanged?.Invoke(); return true; }
+        try { Session.Save(path); Dirty = false; SyncRootMeta(); SetStatus($"Saved {Session.Path}"); DocChanged?.Invoke(); return true; }
         catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException) { SetStatus("Save failed: " + e.Message); return false; }
     }
 
     void Adopt(MapSession s)
     {
         HookHistory();
-        Session = s; Dirty = false; _steps.Clear();
+        Session = s; Dirty = false;
+        foreach (var k in _steps.Where(x => x.Value.RootId == _activeRoot).Select(x => x.Key).ToList()) _steps.Remove(k);   // this scene's history is cleared below; other tabs keep theirs
         foreach (var n in _nodes.Values) if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
         _nodes.Clear(); _contentKeys.Clear();
         if (MapHost.Root is { } root)
         {
-            foreach (var c in root.GetChildren().OfType<MapmakerObject>()) { root.RemoveChild(c); c.QueueFree(); }
+            var strays = root.GetChildren().OfType<MapmakerObject>().ToList();
+            if (strays.Count > 0)
+            {
+                // Object nodes saved in the scene file are not the map (the document is); they are replaced by the opened map's objects.
+                GD.PushWarning($"Mapmaker: {strays.Count} object node(s) saved in this scene are replaced by the objects of the opened map.");
+                SetStatus($"Opened a map: {strays.Count} object node(s) saved in this scene were replaced by the map's own objects.");
+            }
+            foreach (var c in strays) { root.RemoveChild(c); c.QueueFree(); }
             try { GetUndoRedo().ClearHistory(GetUndoRedo().GetObjectHistoryId(root), true); } catch (Exception) { }
         }
-        SyncView(true);
+        SyncView(true); SyncRootMeta();
         DocChanged?.Invoke();
     }
 
@@ -206,7 +408,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public OpResult Do(string label, params JsonObject[] ops)
     {
         if (Session is null) { SetStatus("No map is open: use New or Open first."); return OpResult.Fail("no-document", "No map is open: use New or Open first."); }
-        var step = new Step { Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
+        var step = new Step { RootId = _activeRoot, Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
         step.BeforeDoc = Session.Document.ToJson();
         step.BeforePrefabs = PrefabSnapshot(PrefabIds(step.Ops));
         var applied = Session.Apply(step.Ops);   // a batch is one transaction: on failure nothing changed, and no history entry is made
@@ -249,14 +451,14 @@ public partial class MapmakerPlugin : EditorPlugin
     /// <summary>Redo: the editor re-runs the step, which restores the document as it was after the batch.</summary>
     public void StepDo(int id)
     {
-        var step = _steps[id];
+        if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;   // a history entry whose step was dropped (its map was replaced), or another scene's
         Restore(step.AfterDoc, step.AfterPrefabs);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
     public void StepUndo(int id)
     {
-        var step = _steps[id];
+        if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;
         Restore(step.BeforeDoc, step.BeforePrefabs);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
@@ -279,6 +481,8 @@ public partial class MapmakerPlugin : EditorPlugin
     void AfterChange(bool prefabsChanged)
     {
         Dirty = true;
+        SyncRootMeta();
+        try { EditorInterface.Singleton.MarkSceneAsUnsaved(); } catch (Exception) { }   // so Godot's own close prompt fires for a scene whose map changed
         if (prefabsChanged)
         {
             _lastPrefabStamp++;
@@ -475,31 +679,60 @@ public partial class MapmakerPlugin : EditorPlugin
     /// <summary>The mouse is over the 3D editor view (window coordinates), whatever scene is open.</summary>
     public bool OverViewport(Vector2 window) => Viewport3D?.GetParent() is Control c && c.IsVisibleInTree() && c.GetGlobalRect().HasPoint(window);
 
+    /// <summary>The edited scene tab holds a Mapmaker root (the scene's own root, or one added under it).</summary>
+    public bool EditedHasMap
+    {
+        get
+        {
+            var edited = EditorInterface.Singleton.GetEditedSceneRoot(); var r = MapHost.Root;
+            return edited is not null && r is not null && GodotObject.IsInstanceValid(r) && r.IsInsideTree() && (edited == r || edited.IsAncestorOf(r));
+        }
+    }
+
     /// <summary>
-    /// Before a placement: the open scene tab must be the Mapmaker scene, and a map must be open. Owner's report (2026-11-05): placing on a new
-    /// Godot scene tab, or before pressing New, did nothing and said nothing. Switches to the Mapmaker scene (and asks for the click again), and
-    /// starts an untitled map when none is open.
+    /// Before a placement: the scene tab being edited must hold a Mapmaker map (owner, 2026-11-18: any tab, never a forced jump back to the first). A tab
+    /// without a Mapmaker root is offered one by the dock; a Mapmaker tab with no map yet starts an untitled one.
     /// </summary>
     public bool ReadyToPlace()
     {
         if (MapHost.StartingEmptyMap) return false;
-        if (EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot || MapHost.Root is null)
+        if (!EditedHasMap)
         {
-            // Owner's report (2026-11-05): a silent jump to the Mapmaker scene, with the SM1 backdrop in view, looked like the piece had turned into
-            // the whole map. Ask instead: a new empty map with the piece at the centre, or the open map.
-            if (Dock is { } dock) dock.AskWrongTab(MapHost.Armed);
-            else { EnsureSceneRoot(); SetStatus("That scene tab is not a Mapmaker map. Switched to the Mapmaker scene: click (or drop) again to place."); }
+            // Placement targets the scene tab being edited; it never switches tabs (owner, 2026-11-18). A tab without a Mapmaker root is offered one.
+            if (EditorInterface.Singleton.GetEditedSceneRoot() is null) { EnsureSceneRoot(); SetStatus("No scene is open. Opened the Mapmaker scene: click (or drop) again to place."); }
+            else if (Dock is { } dock) dock.AskWrongTab(MapHost.Armed);
+            else SetStatus("This scene tab has no Mapmaker map. Add one from the Mapmaker dock first.");
             return false;
         }
-        if (Session is null) { NewMap("Untitled"); SetStatus("No map was open, so a new untitled map was started (Save As to keep it)."); }
+        if (Session is null) { NewMap("Untitled"); SetStatus("This scene had no map, so a new untitled map was started here (Save As to keep it)."); }
+        return true;
+    }
+
+    /// <summary>Adds a Mapmaker map to the edited scene tab (a child node under its root, saved with the scene as a plain node) and starts an untitled map in it.</summary>
+    public async Task<bool> AddMapToCurrentScene()
+    {
+        var edited = EditorInterface.Singleton.GetEditedSceneRoot();
+        if (edited is null) return false;
+        if (!EditedHasMap)
+        {
+            var root = new MapmakerRoot { Name = "Map" };
+            edited.AddChild(root, true);
+            root.Owner = edited;
+            for (int i = 0; i < 30 && MapHost.Root != root; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (MapHost.Root != root) return false;
+        }
+        if (Session is null) NewMap("Untitled");
+        SetStatus("Added a Mapmaker map to this scene tab (untitled; Save As to keep it). Click again to place.");
         return true;
     }
 
     public override void _Input(InputEvent @event)
     {
+        if (@event is InputEventMouse mouse && !_pushingWheel) _mouse = mouse.Position;
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
             && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
+        if (GhostWheelInput(@event) || BoxSelectInput(@event)) return;
         if (@event is InputEventKey { Pressed: true } key)
         {
             if (key.Keycode == Key.Escape && MapHost.Tool != Tool.Select) { SetTool(Tool.Select); GetViewport().SetInputAsHandled(); return; }
@@ -522,7 +755,7 @@ public partial class MapmakerPlugin : EditorPlugin
         }
         else if (MapHost.Tool == Tool.Place && MapHost.Armed is { } item)
         {
-            PlaceAt(item, GamePointOnRay(o, d));
+            PlaceAt(item, GamePointOnRay(o, d), _ghostYaw, _ghostScale);   // the preview's own turn and size: the stamp is what the ghost shows
             GetViewport().SetInputAsHandled();
         }
     }
@@ -585,18 +818,12 @@ public partial class MapmakerPlugin : EditorPlugin
         return og + dg * 10f;
     }
 
-    public OpResult PlaceAt(LibraryItem item, Vector3 game)
+    /// <summary>Puts an item down at a point (snapped like the preview), optionally turned about the up axis (degrees) and scaled; one undo step.</summary>
+    public OpResult PlaceAt(LibraryItem item, Vector3 game, float? yawDegrees = null, float scale = 1f)
     {
-        if (MapHost.SnapGrid) game = new Vector3(Snap.Grid(game.X, MapHost.GridStep), Snap.Grid(game.Y, MapHost.GridStep), Snap.Grid(game.Z, MapHost.GridStep));
-        if (item.Kind == LibraryKind.Piece) return PlacePiece(item, game);
-        var placed = Op("place", ("name", item.Label), ("transform", new JsonObject { ["position"] = Vec(ToNum(Frame.Round(game))) }));
-        switch (item.Kind)
-        {
-            case LibraryKind.Sm1: placed["asset"] = new JsonObject { ["source"] = "sm1", ["map"] = item.Map, ["definition"] = item.Id }; break;
-            case LibraryKind.Asset: placed["asset"] = new JsonObject { ["source"] = "custom", ["id"] = item.Id }; break;
-            default: placed["prefab"] = item.Id; break;
-        }
-        var r = Do($"Place {item.Label}", placed);
+        game = SnapPoint(game);
+        if (item.Kind == LibraryKind.Piece) return yawDegrees is null && scale == 1f ? PlacePiece(item, game) : PlacePieceAt(item, game, yawDegrees, scale);
+        var r = Do($"Place {item.Label}", PlaceOp(item, ToNum(Frame.Round(game)), yawDegrees, scale));
         if (r.Ok && r.Created.Count > 0) Select(r.Created);
         return r;
     }
@@ -663,8 +890,15 @@ public partial class MapmakerPlugin : EditorPlugin
         {
             var at = container.GetGlobalRect().GetCenter();
             foreach (bool pressed in new[] { true, false })
-                GetTree().Root.PushInput(new InputEventMouseButton
-                { ButtonIndex = factor > 0 ? MouseButton.WheelDown : MouseButton.WheelUp, Pressed = pressed, Factor = Mathf.Abs(factor), Position = at, GlobalPosition = at });
+            {
+                _pushingWheel = true;   // the camera framing's own wheel input: the placement preview must not take it
+                try
+                {
+                    GetTree().Root.PushInput(new InputEventMouseButton
+                    { ButtonIndex = factor > 0 ? MouseButton.WheelDown : MouseButton.WheelUp, Pressed = pressed, Factor = Mathf.Abs(factor), Position = at, GlobalPosition = at });
+                }
+                finally { _pushingWheel = false; }
+            }
         }
         // 1. Collapse the editor's orbit distance to its minimum, so the pivot sits on the camera.
         Wheel(-1000f); await Settle();

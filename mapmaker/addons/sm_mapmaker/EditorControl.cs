@@ -63,7 +63,7 @@ public sealed partial class EditorControl : Node
         if (_plugin.Session is { } s)
         {
             string? path = s.Path;
-            if (path is null && s.Document.Objects.Count > 0) path = Path.Combine(MapHost.Library.MapsDir, "autosave.smmap");
+            if (path is null && s.Document.Objects.Count > 0) path = _plugin.UniqueMapPath("autosave", "");
             if (path is not null && (_plugin.Dirty || s.Path is null) && !_plugin.SaveMap(path)) { _plugin.SetStatus("Restart cancelled: the map could not be saved."); return; }
             if (path is not null) resume["map"] = path;
         }
