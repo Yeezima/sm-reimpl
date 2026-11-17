@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3756 spec table rows: **2728 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 780 rows of the changes document.
-Scanned 3736 spec table rows: **2708 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
+Scanned 3757 spec table rows: **2729 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 780 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,25 +50,18 @@ Scanned 3736 spec table rows: **2708 tagged**, 672 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 836 | 791 | 621 | 232 | 1 |
+| Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
 | General game design | 137 | 133 | 110 | 17 | 0 |
 | Ork faction | 278 | 264 | 162 | 70 | 0 |
-| **All areas** | **2728** | 2442 | 2063 | 805 | 37 |
-| Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
-| General game design | 129 | 126 | 102 | 17 | 0 |
-| Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2708** | 2424 | 2043 | 805 | 37 |
+| **All areas** | **2729** | 2443 | 2064 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1587 |
+| kind: ours | 1588 |
 | confidence: low | 1004 |
-| confidence: medium | 950 |
-| kind: ours | 1585 |
-| confidence: low | 988 |
-| confidence: medium | 946 |
+| confidence: medium | 951 |
 | notes: ours | 467 |
 | kind: interpretation | 434 |
 | kind: estimate | 245 |
