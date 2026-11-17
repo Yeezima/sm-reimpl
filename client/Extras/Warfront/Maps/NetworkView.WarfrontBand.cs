@@ -67,16 +67,29 @@ public partial class NetworkView
     /// <summary>The rest of the band's drawing, one step per frame (W5d): the band is hidden behind the travel screen and the ship while they run, and no frame carries more than the largest step.</summary>
     readonly System.Collections.Generic.Queue<(string Name, System.Action Run)> _warfrontSteps = new();
 
-    /// <summary>One queued step, then the next after a frame (a tree timer: no dependence on the dispatcher's hooks, which an observer's view does not run).</summary>
+    /// <summary>True while the band's drawing steps are still to run (W5d second pass): the Identify is held (<c>WarfrontSendCommands</c>) and the "DRAWING THE BATTLEFIELD" screen stands, so the server cannot land a player who still waits for the drawing.</summary>
+    bool WarfrontBandBusy => _warfrontSteps.Count > 0 || _warfrontStepRunning;
+    bool _warfrontStepRunning;
+    long _warfrontDrawStartUs, _warfrontLastStepUs;
+    string _warfrontSlotName = "";
+
+    /// <summary>One queued step, then the next after a frame (a tree timer: no dependence on the dispatcher's hooks, which an observer's view does not run). The callback outlives a view that a rejoin or a leave freed: it returns at once then (W5d second pass).</summary>
     void WarfrontScheduleStep()
     {
         if (_warfrontSteps.Count == 0) return;
-        if (!IsInsideTree()) { while (_warfrontSteps.Count > 0) _warfrontSteps.Dequeue().Run(); return; }   // no tree to time against: all now
-        GetTree().CreateTimer(0.05).Timeout += () =>
+        if (!IsInsideTree()) { _warfrontStepRunning = true; while (_warfrontSteps.Count > 0) _warfrontSteps.Dequeue().Run(); _warfrontStepRunning = false; return; }   // no tree to time against: all now
+        _warfrontStepRunning = true;
+        var self = this; var tree = GetTree(); var band = _warfrontBand;
+        tree.CreateTimer(0.05).Timeout += () =>
         {
-            if (_warfrontSteps.Count == 0) return;
-            _warfrontSteps.Dequeue().Run();
-            WarfrontScheduleStep();
+            // first: the view may be gone (a rejoin, a leave): nothing of it is touched, the queue is cleared
+            if (!IsInstanceValid(self) || band is null || !IsInstanceValid(band) || !self.IsInsideTree()) { if (IsInstanceValid(self)) { self._warfrontSteps.Clear(); self._warfrontStepRunning = false; } return; }
+            if (self._warfrontSteps.Count == 0) { self._warfrontStepRunning = false; return; }
+            var (stepName, run) = self._warfrontSteps.Dequeue();
+            run();
+            WarfrontFrameWatch.NoteStep(self._warfrontSlotName, stepName);
+            self._warfrontStepRunning = self._warfrontSteps.Count > 0;
+            if (self._warfrontStepRunning) self.WarfrontScheduleStep();
         };
     }
 
@@ -104,14 +117,21 @@ public partial class NetworkView
             AshfallView? view = null;
             var drawnNeighbours = new System.Collections.Generic.List<int>();
             string goal = "";
-            void Step(string what, System.Action work)
+            void Step(string what, System.Action work, bool needsView = true)
             {
                 long t0 = watch.ElapsedMilliseconds;
-                try { if (IsInstanceValid(node)) work(); }
+                try { if (IsInstanceValid(node) && (!needsView || view is not null)) work(); }
                 catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: band step \"{what}\" failed ({e.GetType().Name}: {e.Message}); the band is drawn without it"); }
                 longest = System.Math.Max(longest, watch.ElapsedMilliseconds - t0);
                 Lap(what);
             }
+            // the neighbours' layouts are taken NOW, into locals (W5d second pass): the landing's DropAll can no longer drop them before the scenery step draws their copies
+            var held = new System.Collections.Generic.Dictionary<int, (AshfallLevel Level, AshfallDressing Dressing)>();
+            if (!OldSyncBuild)
+                foreach (int k in new[] { slot.Band - 1, slot.Band + 1 })
+                    if (k >= 0 && k < AshfallFront.BandCount && WarfrontLayoutWarm.TryGet(WarfrontSlots.Of(slot.Lane, k + 1)) is { } got) held[k] = got;
+            _warfrontDrawStartUs = (long)Time.GetTicksUsec();
+            _warfrontSlotName = slot.Name;
             _warfrontSteps.Enqueue(("kit", () => Step("TfwFrontKit", () => TfwFrontKit(drawn1, dressing, view!, node))));
             _warfrontSteps.Enqueue(("scenery", () => Step("neighbours and AshfallFrontScenery.Build", () =>
             {
@@ -125,19 +145,20 @@ public partial class NetworkView
                     if (k < 0 || k >= AshfallFront.BandCount) continue;
                     // never generated here (W5d): a neighbour the warm-up has not finished is skipped, its copy missing for this landing
                     if (OldSyncBuild) { bands[k] = WarfrontLayoutCache.Build(WarfrontSlots.Of(slot.Lane, k + 1), out string neighbourNote); GD.Print($"warfront: SM_WF_SYNC_BUILD neighbour band {k} layout: {neighbourNote.Split(';')[0]}"); drawnNeighbours.Add(k); }
-                    else if (WarfrontLayoutWarm.TryGet(WarfrontSlots.Of(slot.Lane, k + 1)) is { } neighbour) { bands[k] = neighbour; drawnNeighbours.Add(k); }
+                    else if (held.TryGetValue(k, out var neighbour)) { bands[k] = neighbour; drawnNeighbours.Add(k); }
                     else GD.Print($"warfront: the neighbouring band {k} is not ready (the background warm-up is still on it); its copy is skipped, not waited for");
                 }
                 var scenery = AshfallFrontScenery.Build(slot.Band, bands);
                 goal = WarfrontFarGoal.Apply(scenery, slot.Band);
                 node.AddChild(scenery);
             })));
+            // the sun and environment look in a frame of their own (W5d second pass, after the real-time frame watch: the storm's frame was 0.9 to 1.2 s, 1.4 to 1.75 s on the first storm of a process)
+            _warfrontSteps.Enqueue(("look", () => Step("look", () => { if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment); })));
             _warfrontSteps.Enqueue(("storm", () =>
             {
-                Step("look and storm", () =>
+                Step("storm", () =>
                 {
                     if (_sun is null || _environment is null) return;
-                    AshfallView.ApplyLook(_sun, _environment);
                     if (AshfallStorm.Off) return;
                     var host = new Node3D { Name = "WarfrontStorm" };
                     node.AddChild(host);
@@ -145,6 +166,8 @@ public partial class NetworkView
                     catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: the storm look failed ({e.GetType().Name}: {e.Message}); the plain look stays"); }
                 });
                 GD.Print($"warfront: stall split for {slot.Name}: {split}; largest step {longest} ms");
+                GD.Print($"warfront: {slot.Name} last drawing step done {((long)Time.GetTicksUsec() - _warfrontDrawStartUs) / 1000} ms after the first step (the Identify is held until now; the connection is {_client?.Status.ToString() ?? "not made"})");
+                _warfrontLastStepUs = (long)Time.GetTicksUsec();
                 float spireY = WarfrontFarGoal.SpireDistance(slot.Band);
                 var points = level.Points.Select(c => $"{c.Name} {c.Center.X:F0},{c.Center.Y:F0} ({spireY - c.Center.Y:F0} m to the spire)");
                 var landing = level.Spawns.Count > 0 ? $"{level.Spawns[0].X:F0},{level.Spawns[0].Y:F0} ({spireY - level.Spawns[0].Y:F0} m to the spire)" : "none";
@@ -152,8 +175,10 @@ public partial class NetworkView
                 GD.Print($"warfront: {slot.Name} neighbour copies drawn: {(drawnNeighbours.Count == 0 ? "none" : string.Join(", ", drawnNeighbours.Select(k => "band " + k)))}");
                 GD.Print($"warfront: {slot.Name} ({slot.Profile}, seed {slot.Seed}) drawn in {watch.ElapsedMilliseconds} ms of build time (outside scenery {AshfallFrontScenery.LastTriangles:N0} triangles, client only)");
             }));
-            Step("open edges and AshfallView.Build", () => { view = AshfallView.Build(drawn1); node.AddChild(view); });
-            drawn = true;
+            Step("open edges and AshfallView.Build", () => { view = AshfallView.Build(drawn1); node.AddChild(view); }, needsView: false);
+            WarfrontFrameWatch.NoteStep(slot.Name, "graybox");
+            drawn = view is not null;   // a failed first step leaves the grey collision showing and queues nothing
+            if (view is null) _warfrontSteps.Clear();
             if (OldSyncBuild) while (_warfrontSteps.Count > 0) _warfrontSteps.Dequeue().Run();
             else WarfrontScheduleStep();
         }

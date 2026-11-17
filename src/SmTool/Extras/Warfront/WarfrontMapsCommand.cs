@@ -87,6 +87,7 @@ static class WarfrontMapsCommand
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"[{++done}/{slots.Count}] {slot.Name}: layout {layoutMs / 1000.0:0.0} s ({layoutNote}; {clientSees}); graph {nav.NodeCount:N0} nodes, {(watch.ElapsedMilliseconds - layoutMs) / 1000.0:0.0} s ({(navNote.Length > 90 ? navNote[..90] : navNote)}); slot total {watch.Elapsed.TotalSeconds:0.0} s; elapsed {total.Elapsed.TotalSeconds:0} s"));
             WarfrontSlots.Release(slot); WarfrontLayoutCache.Forget(slot);
         }
+        Console.WriteLine($"warfront-maps --prebuild: cache key {SmContent.Extras.Musou.AshfallLayoutCache.Key} (a client reads these files only when its own key is this one: the same build configuration, Debug or Release; the client logs its key in its \"warm\" lines)");
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"warfront-maps --prebuild: {done} slots, {total.Elapsed.TotalSeconds:0.0} s in all (HQ and fortress maps do not exist yet; they join the list with W13 and W14)"));
         return 0;
     }

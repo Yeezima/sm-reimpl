@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3703 spec table rows: **2679 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 772 rows of the changes document.
+Scanned 3701 spec table rows: **2677 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 771 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,11 @@ Scanned 3703 spec table rows: **2679 tagged**, 668 not tagged (read from data wi
 | General game design | 107 | 106 | 81 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
 | **All areas** | **2679** | 2398 | 2015 | 804 | 37 |
+| Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
+| Core simulation (provisional values) | 833 | 788 | 618 | 232 | 1 |
+| General game design | 105 | 104 | 79 | 17 | 0 |
+| Ork faction | 264 | 251 | 148 | 70 | 0 |
+| **All areas** | **2677** | 2396 | 2013 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,10 +67,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1562 |
 | confidence: low | 974 |
+| kind: ours | 1559 |
+| confidence: low | 972 |
 | confidence: medium | 932 |
-| notes: ours | 466 |
+| notes: ours | 467 |
 | kind: interpretation | 432 |
-| kind: estimate | 228 |
+| kind: estimate | 229 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -2645,6 +2653,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B4149D60` | Tick spread | the muster, the stage shares and the breach flood make at most 10 Orks a tick (a whole wave of up to 600 in one tick was the tick spike); the bench (`smtool warfront-hq --waves`) prints the five slowest ticks tagged with what ran; target p99 at most 20 ms and… (Orks, ms) | kind: ours; confidence: low | designer review of W13b ruling 4 | Tick spread: compare with SM1 by feel or video. Ours: the muster, the stage shares and the breach flood make at most 10… | ☐ |
 
 ### Core simulation (provisional values) (832)
+### Core simulation (provisional values) (833)
 
 *Spec section: Provisional values in use*
 
@@ -2799,6 +2808,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E4853EFB` | Warfront stage flow: client timings (W5b) | client only, nothing in a hash or on the wire beyond the commands: Identify resent every 1 s until the Hub names the viewer (no cap; the screens say "waiting for the server to know you" after 5 s); Deploy and NewRun resent every 1 s, at most 10 sends, then… (s) | kind: estimate; confidence: low | Warfront plan sections 3 and 4 (our values) | Warfront stage flow: client timings (W5b): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: client only, nothing in a hash or on the wire beyond the commands:… | ☐ |
 | `R-9E8E63F5` | Warfront layout warm-up (W5d, client) | client only, no wire, no rules version: when a Stage section (Preparing, then Go) names a lane slot, one background task reads the layouts of that slot and its two neighbours (the slot first) from ANY process kind's cache file of the current key… (s) | kind: estimate; confidence: low; notes: ours | the W5b review ruling (the stall was the neighbours' layout generation, not drawing); the 30 s neighbour wait and the four drawing steps ours | Warfront layout warm-up (W5d, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: client only, no wire, no rules version: when a Stage section… | ☐ |
 | `R-6B1BAA8B` | Warfront advancing goal (W5d, client) | client scenery only, no collision, in no hash: the far cathedral spire stands 1150 m beyond the LAST band (the pilot's composed world puts it beyond the urban core), and the lane's bands stand one 520 m neighbour offset apart as the scenery draws them, so the… (m) | kind: ours; confidence: low | pilot constants (`SpireNorth` 1150, `NeighbourOffset` 520, `BandCount` 3); the far ground and the shift of the stacks ours | Warfront advancing goal (W5d, client): compare with SM1 by measuring on a flat spot of the same map. Ours: client scenery only, no collision, in no hash: the far cathedral… | ☐ |
+| `R-B5AE6649` | Warfront band drawing gate and frame line (W5d second pass, client) | client only, nothing on the wire or in a hash: the band's drawing is five steps (graybox now, then kit, scenery, look, storm; the look is a step of its own since the real-time frame watch showed the storm's frame at 0.9 to 1.2 s, 1.4 to 1.75 s on a process's… (s) | kind: estimate; confidence: low; notes: ours | the W5d review (items 1 to 6); step spacing 0.05 s, the 120 s cap and the held Identify ours; the 1 s and 1.2 s frame lines are the review's estimates | Warfront band drawing gate and frame line (W5d second pass…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: client only, nothing on the wire or in a hash: the band's drawing is… | ☐ |
 | `R-39BE64FA` | Ashfall drawn-box rule (draft 9) | no two placed models' drawn boxes (the whole model's bounds as placed) meet deeper than 0.3 m (the overlap rule's tolerance and moves: the later one moves, shrinks, takes the pool's next model, else is left out); bridges on their supports and the stronghold's… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "no stacked 3D objects; scale one object instead"); the tolerance and exemptions ours | Ashfall drawn-box rule (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: no two placed models' drawn boxes (the whole model's bounds as… | ☐ |
 | `R-40B787AC` | Ashfall rubble props (draft 9) | AR-001..003 (separate small rubble piles, metre scale) placed at the feet of standing walls and buildings and along the plaza's edge and the avenues' kerbs: candidates every 6 m (8 m on the edges) in a seeded order, at most 60, 10 m apart, each leaning on its… (m) | kind: ours; confidence: low | the look lead's request (2026-11-06), the owner's "rubble as separate small props, not fused into buildings"; counts, spacing and pushes ours | Ashfall rubble props (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: AR-001..003 (separate small rubble piles, metre scale) placed at the… | ☐ |
 | `R-829BC3E0` | Ashfall urban rules (draft 9) | loose debris (rubble, collapsed wall pieces; not the ring's breach rubble) is placed after the buildings, only within 8 m of a standing building's drawn box (ruin shells and corners, facades, towers, the bunker, walls over 2.5 m); built pieces (cover, walls… (m) | kind: ours; confidence: low | owner's late batch 2026-11-06 (stream F: "the layout follows real urban-design logic"); the 8 m reach and the rules ours | Ashfall urban rules (draft 9): compare with SM1 by measuring on a flat spot of the same map. Ours: loose debris (rubble, collapsed wall pieces; not the ring's breach… | ☐ |

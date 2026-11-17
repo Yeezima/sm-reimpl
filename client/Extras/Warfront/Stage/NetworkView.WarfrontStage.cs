@@ -24,6 +24,7 @@ public partial class NetworkView
 
     WarfrontHubPanel? _wfHubPanel;
     WarfrontTravelPanel? _wfTravel;
+    WarfrontTravelPanel? _wfDrawing;   // W5d second pass: the screen while the band's drawing steps run
     WarfrontResultsPanel? _wfResults;
     Label? _wfDownLabel;
     CanvasLayer? _wfDownLayer;
@@ -135,7 +136,7 @@ public partial class NetworkView
     {
         if (_wfLayerNow is not null && _pickerLayer is not null && ReferenceEquals(_pickerLayer, _wfLayerNow)) return;
         _wfLayerNow = null;
-        _wfHubPanel = null; _wfTravel = null; _wfResults = null;
+        _wfHubPanel = null; _wfTravel = null; _wfResults = null; _wfDrawing = null;
     }
 
     // ---- the war map --------------------------------------------------------------------------------------------------------------------------
@@ -172,6 +173,24 @@ public partial class NetworkView
     {
         var m = WarfrontModel;
         WarfrontLayerGone();
+        // the band's drawing steps are still running (W5d second pass; the Identify is held meanwhile): the drawing screen; the travel screen, when it comes, takes over
+        if (_wfDrawing is not null && (!WarfrontBandBusy || m.TravelVisible))
+        {
+            _wfDrawing = null;
+            WarfrontCloseLayer();
+            GD.Print($"t {now:F1} s: warfront: the drawing screen closed");
+        }
+        if (WarfrontBandBusy && _wfDrawing is null && _wfTravel is null && !m.TravelVisible && _wfLayerNow is null)
+        {
+            _wfDrawing = WarfrontOpenLayer("WarfrontDrawing", () => new WarfrontTravelPanel(m.Hub));
+            if (_wfDrawing is not null)
+            {
+                _wfDrawing.DestinationLabel.Text = "THE BATTLEFIELD";
+                _wfDrawing.StatusLabel.Text = "DRAWING THE BATTLEFIELD";
+                GD.Print($"t {now:F1} s: warfront: the drawing screen opened");
+            }
+        }
+        if (_wfDrawing is not null) return;
         // the travel screen over everything
         if (m.TravelVisible)
         {

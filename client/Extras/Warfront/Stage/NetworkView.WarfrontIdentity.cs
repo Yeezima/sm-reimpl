@@ -35,6 +35,8 @@ public partial class NetworkView
     }
 
     int _wfIdentifyLogged;
+    double _wfHeldSince = -1;
+    bool _wfFirstConnectedLogged;
 
     /// <summary>Once a frame: Identify while the server does not know the key, the leader's Deploy and a NewRun while they are pending.</summary>
     void WarfrontSendCommands(double now)
@@ -42,7 +44,23 @@ public partial class NetworkView
         if (_client is not { Status: ClientStatus.Connected } client) return;
         var m = WarfrontModel;
         m.Name = WarfrontDisplayName();   // read at send time: the name may not have been known when the model was made
-        if (m.IdentifyDue(now) is { } identify)
+        if (!_wfFirstConnectedLogged)
+        {
+            _wfFirstConnectedLogged = true;
+            long sinceMs = _warfrontLastStepUs == 0 ? -1 : ((long)Time.GetTicksUsec() - _warfrontLastStepUs) / 1000;
+            GD.Print($"t {now:F1} s: warfront: first connected frame: {(WarfrontBandBusy ? "the band's drawing steps are still running (the Identify is held)" : sinceMs >= 0 ? $"the band's last drawing step ended {sinceMs} ms ago" : "no band was drawn on this view")}");
+        }
+        // W5d second pass: no Identify while the band's drawing steps are still queued, so the server cannot land a player who still sees the drawing happen; the "DRAWING THE BATTLEFIELD" screen stands meanwhile (WarfrontSyncPanels)
+        if (WarfrontBandBusy)
+        {
+            if (_wfHeldSince < 0) { _wfHeldSince = now; GD.Print($"t {now:F1} s: warfront: identify held until the band's drawing steps are done"); }
+        }
+        else if (_wfHeldSince >= 0)
+        {
+            GD.Print($"t {now:F1} s: warfront: the band's drawing steps are done; identify released after {now - _wfHeldSince:F2} s held");
+            _wfHeldSince = -1;
+        }
+        if (!WarfrontBandBusy && m.IdentifyDue(now) is { } identify)
         {
             client.SendExtrasCommand(SmNet.Extras.Warfront.WarfrontWire.CommandTag, identify);
             if (_wfIdentifyLogged++ == 0) GD.Print($"t {now:F1} s: warfront: identify sent (key {WarfrontClientKey.Tail(m.Key)}, name {m.Name})");

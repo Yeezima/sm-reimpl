@@ -29,8 +29,13 @@ public static class WarfrontFarGoal
         string note = $"spire {SpireDistance(band):F0} m north (pilot: {AshfallFrontScenery.SpireNorth:F0} m beyond the last band, plus {shift:F0} m of bands to cross)";
         if (shift <= 0f) return note;
         // game space (Z up): +Y is north; the nodes are under the band node, in that frame
+        var moved = new List<string>();
         foreach (string name in new[] { "CathedralSpire", "ManufactorumStacks" })
-            if (scenery.GetNodeOrNull<Node3D>(name) is { } node) node.Position += new Vector3(0f, shift, 0f);
+        {
+            if (scenery.GetNodeOrNull<Node3D>(name) is { } node) { node.Position += new Vector3(0f, shift, 0f); moved.Add(name); }
+            else GD.Print($"warfront: far goal: the scenery has no node named \"{name}\" (Musou's AshfallFrontScenery renamed it?); it is not moved");
+        }
+        note += $"; moved {(moved.Count == 0 ? "nothing" : string.Join(" and ", moved))}";
         float x0 = AshfallFrontScenery.Reach;
         float[] xs = [-x0, -950f, -750f, -580f, -440f, -340f, -280f, -AshfallFrontScenery.LineHalf, AshfallFrontScenery.LineHalf, 280f, 340f, 440f, 580f, 750f, 950f, x0];
         float y0 = AshfallFrontScenery.Reach, y1 = SpireDistance(band) + 400f;
