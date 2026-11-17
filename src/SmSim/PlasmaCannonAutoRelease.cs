@@ -20,6 +20,6 @@ public static class PlasmaCannonAutoRelease
 
 public sealed partial record SimConfig
 {
-    /// <summary>sim/plasma-cannon-auto-release (owner 2026-11-17, protocol 82): a plasma cannon's charge fires by itself when it reaches the firing stage. False (restore switch <c>--old-cannon-hold</c> on the server and every client; config hash): the shot waits for the release. Hashed only when false.</summary>
+    /// <summary>sim/plasma-cannon-auto-release (owner 2026-11-17, protocol 84): a plasma cannon's charge fires by itself when it reaches the firing stage. False (restore switch <c>--old-cannon-hold</c> on the server and every client; config hash): the shot waits for the release. Hashed only when false.</summary>
     public bool PlasmaCannonAutoRelease { get; init; } = true;
 }

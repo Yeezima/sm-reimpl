@@ -51,7 +51,7 @@ public partial class NetworkView
     /// <summary>sim/lascannon-tap-reload (2026-11-15) restore switch <c>--old-lascannon-reload</c> (the server needs the same: config hash).</summary>
     /// <summary>sim/lascannon-shot-first (2026-11-17) restore switch <c>--old-lascannon-shot-first</c> (the server needs the same: config hash).</summary>
     static readonly bool OldLascannonShotFirstArg = OS.GetCmdlineUserArgs().Contains("--old-lascannon-shot-first");
-    /// <summary>sim/plasma-cannon-auto-release (protocol 82) restore switch <c>--old-cannon-hold</c> (the server needs the same: config hash).</summary>
+    /// <summary>sim/plasma-cannon-auto-release (protocol 84) restore switch <c>--old-cannon-hold</c> (the server needs the same: config hash).</summary>
     static readonly bool OldCannonHoldArg = OS.GetCmdlineUserArgs().Contains("--old-cannon-hold");
     static readonly bool OldLascannonReloadArg = OS.GetCmdlineUserArgs().Contains("--old-lascannon-reload");
     static readonly bool MusouMeleeCooldownArg = OS.GetCmdlineUserArgs().Contains("--musou-melee-cooldown");

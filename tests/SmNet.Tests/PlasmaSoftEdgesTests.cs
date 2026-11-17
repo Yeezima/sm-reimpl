@@ -40,6 +40,28 @@ public class PlasmaSoftEdgesTests
     [Fact]
     public void AGlowCardHasNoStraightEdge() { Assert.Equal(1f, PlasmaSoftEdges.Radial(0.5f)); Assert.Equal(0f, PlasmaSoftEdges.Radial(1f), 5); }
 
+    [Fact]
+    public void TheCannonsCardsAndRibbonsFallFromTheCentreSquared()
+    {
+        Assert.Equal(1f, PlasmaSoftEdges.Radial(0f, cannon: true));
+        Assert.True(PlasmaSoftEdges.Radial(0.5f, cannon: true) < 0.5f);   // squared from the centre: no plateau
+        Assert.Equal(0f, PlasmaSoftEdges.Radial(1f, cannon: true), 5);
+        Assert.Equal(1f, PlasmaSoftEdges.Lateral(0f, cannon: true));
+        Assert.True(PlasmaSoftEdges.Lateral(0.2f, cannon: true) < 1f);
+        Assert.Contains("pow(", PlasmaSoftEdges.CannonShaderLine);
+        Assert.DoesNotContain("pow(", PlasmaSoftEdges.ShaderLine);
+    }
+
+    [Fact]
+    public void OnlyThePlasmaCannonsEffectsGetTheCannonLook()
+    {
+        foreach (var n in new[] { "plasma_cannon_secondary_trail", "csm_plasma_cannon_primary_trail", "plasma_gun_mp_overcharged_dmg", "csm_plasma_gun_mp_overcharged_dmg", "plasma_gun_charged_dmg", "csm_plasma_gun_charged_dmg" })
+            Assert.True(PlasmaSoftEdges.CannonLook(n), n);
+        // The gun's and pistol's own effects, and the Chaos ones, keep the plasma-soft-visuals curves.
+        foreach (var n in new[] { "plasma_gun_charged_trail", "plasma_gun_tracer", "plasma_gun_muzzle", "plasma_gun_mp_charged_dmg", "plasma_pistol_charged_tracer", "chaos_plasma_gun_trail", "csm_plasma_gun_innate_secondary", "plasma_charging_ready", "boltgun_mp_muzzle" })
+            Assert.False(PlasmaSoftEdges.CannonLook(n), n);
+    }
+
     [Theory]
     [InlineData("plasma_gun_tracer", true)]
     [InlineData("chaos_plasma_gun_trail", true)]

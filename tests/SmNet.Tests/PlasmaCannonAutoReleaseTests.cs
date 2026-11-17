@@ -3,7 +3,7 @@ using System.Numerics;
 
 namespace SmNet.Tests;
 
-/// <summary>sim/plasma-cannon-auto-release (owner 2026-11-17, protocol 82): the cannon's charge fires by itself at its firing stage, button held or not. Synthetic data only.</summary>
+/// <summary>sim/plasma-cannon-auto-release (owner 2026-11-17, protocol 84): the cannon's charge fires by itself at its firing stage, button held or not. Synthetic data only.</summary>
 public class PlasmaCannonAutoReleaseTests
 {
     static readonly WeaponSpec Cannon = ChargeTests.Cannon with { Name = "sm_mp_exotic_plasma_cannon" };
@@ -71,6 +71,29 @@ public class PlasmaCannonAutoReleaseTests
     [Fact]
     public void The_switch_is_in_the_config_hash_only_when_off()
     {
+        Assert.NotEqual(Config(Cannon).Hash(), Config(Cannon, auto: false).Hash());
+    }
+
+    [Fact]
+    public void Improved_Plasma_Charge_fires_at_1_65_seconds()
+    {
+        var fast = Cannon with { Charge = Cannon.Charge! with { MinTimeMultiplier = 0.55f } };
+        int tick = HoldUntilFired(Config(fast), 200, out _, out _);
+        Assert.InRange(tick, 50, 53);   // 1.65 s = 49.5 ticks, the shot leaves on the tick after
+    }
+
+    [Fact]
+    public void The_Havoc_cannon_by_its_csm_name_fires_by_itself_too()
+    {
+        int tick = HoldUntilFired(Config(ChargeTests.Cannon with { Name = "csm_mp_exotic_plasma_cannon" }), 200, out _, out _);
+        Assert.InRange(tick, 90, 93);
+    }
+
+    [Fact]
+    public void A_default_config_hashes_as_before_the_switch_existed()
+    {
+        // The switch is hashed only when off: the default config's hash equals one that names the field as true, and differs from the old rule's.
+        Assert.Equal(Config(Cannon).Hash(), (Config(Cannon) with { PlasmaCannonAutoRelease = true }).Hash());
         Assert.NotEqual(Config(Cannon).Hash(), Config(Cannon, auto: false).Hash());
     }
 }

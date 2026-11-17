@@ -120,7 +120,7 @@ if (cli.OldChargeMeleeChain) config = config with { ChargeMeleeChain = false };
 if (cli.OldHopRules) config = config with { HopRules = false };   // sim/hop-rules (protocol 72): restore switch, config hash
 if (cli.OldLascannonReload) config = config with { LascannonTapReload = false };   // sim/lascannon-tap-reload (protocol 78): restore switch, config hash
 if (cli.OldLascannonShotFirst) config = config with { LascannonShotFirst = false };   // sim/lascannon-shot-first (2026-11-17): restore switch, config hash
-if (cli.OldCannonHold) config = config with { PlasmaCannonAutoRelease = false };   // sim/plasma-cannon-auto-release (protocol 82): restore switch, config hash
+if (cli.OldCannonHold) config = config with { PlasmaCannonAutoRelease = false };   // sim/plasma-cannon-auto-release (protocol 84): restore switch, config hash
 if (cli.OldKickPush) config = config with { KickPushCut = false };   // sim/kick-push (2026-11-14): restore switch, config hash
 if (cli.OldSprintMelee) config = config with { SprintMeleeCharge = false };   // sim/sprint-melee-charge (protocol 77): restore switch, config hash
 if (cli.OldLedgeCancel) config = config with { LedgeChargeCancel = false };   // sim/ledge-charge-cancel (protocol 77): restore switch, config hash
