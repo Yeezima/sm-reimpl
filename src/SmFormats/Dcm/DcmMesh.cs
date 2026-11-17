@@ -66,7 +66,7 @@ public sealed class DcmMesh
 
     /// <summary>
     /// Type 2: the variants with a 16-byte trailer (the weapons' cables) and a 12-byte one (the armour's belts, cloth and fur) are decoded (<see cref="DcmSimulationData"/>);
-    /// the install's banners and props use other type-2 layouts, which stay <see cref="NotSupportedException"/> as before.
+    /// other layouts stay <see cref="NotSupportedException"/>; the 8-byte trailer of the Mechanicus banners and wall fittings (no entry) is read since classic-maps-fidelity fix 2.
     /// </summary>
     static DcmBlock ReadSimulated(ReadOnlySpan<byte> d, ReadOnlySpan<byte> body, ref int p, int b, int headerSize, int bodySize, ref long expectedOffset)
     {
@@ -110,12 +110,13 @@ public sealed class DcmMesh
         {
             // Type 2 (docs/discovery.md "Type 2"): the single material record's last u32 is a count n, and n u32 follow it, then the body offset and size
             // of a further range that starts at the next 16-byte boundary after the attribute stream and ends the block. The heavy weapons' cables (M24)
-            // have n = 2 (entries 0, 1: the 16-byte trailer), the armour's belts, cloth and fur (fix/armour-pieces) n = 1 (entry 0: 12 bytes). One
-            // reading for both, so the variants cannot overlap; the entries' meaning is not known.
+            // have n = 2 (entries 0, 1: the 16-byte trailer), the armour's belts, cloth and fur (fix/armour-pieces) n = 1 (entry 0: 12 bytes), and the Mechanicus
+            // banners and wall fittings of the multiplayer maps (classic-maps-fidelity fix 2) n = 0 (no entry: the 8-byte trailer, offset and size only). One
+            // reading for all, so the variants cannot overlap; the entries' meaning is not known.
             bool Fits(int offset, int size) => offset >= blockEnd && offset - blockEnd < 16 && size >= 0 && (long)offset + size <= bodySize;
             uint n = materials.Count == 1 ? materials[0].Unknown6 : uint.MaxValue;
-            if (n is not (1 or 2))
-                throw new InvalidDataException($"Block {b}: type-2 block with {materials.Count} material record(s) and entry count {(n == uint.MaxValue ? "-" : n.ToString())}; only one record with 1 or 2 entries is known.");
+            if (n > 2)
+                throw new InvalidDataException($"Block {b}: type-2 block with {materials.Count} material record(s) and entry count {(n == uint.MaxValue ? "-" : n.ToString())}; only one record with 0, 1 or 2 entries is known.");
             int trailer = 4 * (int)n + 8;
             Need(p, trailer, headerSize, "type-2 trailer");
             int at = p + 4 * (int)n;
@@ -123,7 +124,7 @@ public sealed class DcmMesh
                 throw new InvalidDataException($"Block {b}: type-2 range {I32(d, at)}+{I32(d, at + 4)} does not follow the attribute stream ending at {blockEnd}.");
             var entries = new uint[n];
             for (int k = 0; k < n; k++) entries[k] = (uint)I32(d, p + 4 * k);
-            simulation = new DcmSimulationData(entries[0], n == 2 ? entries[1] : n, I32(d, at), I32(d, at + 4)) { TrailerSize = trailer, Entries = entries };
+            simulation = new DcmSimulationData(n > 0 ? entries[0] : 0, n == 2 ? entries[1] : n, I32(d, at), I32(d, at + 4)) { TrailerSize = trailer, Entries = entries };
             p += trailer;
             blockEnd = (long)simulation.Offset + simulation.Size;
         }

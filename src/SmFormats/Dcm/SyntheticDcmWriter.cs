@@ -19,8 +19,10 @@ public static class SyntheticDcmWriter
     /// body bytes (filled with a recognizable pattern), placed at the next 16-byte boundary after the attribute stream.</param>
     /// <param name="ShortTrailer">With <paramref name="SimulationBytes"/>: the armour's variant (fix/armour-pieces): the material records' last u32 is 1 and
     /// the trailer is three u32 (0, offset, size) instead of the weapons' four (0, 1, offset, size).</param>
+    /// <param name="BareTrailer">With <paramref name="SimulationBytes"/>: the Mechanicus banners' and wall fittings' variant (classic-maps-fidelity fix 2): the material records' last u32 is 0 and
+    /// the trailer is two u32 (offset, size).</param>
     public sealed record Block(Vector3[] Positions, ushort[] Indices, Material[] Materials, ushort Flags = 0, Skin? Skinning = null, int? SimulationBytes = null,
-        bool ShortTrailer = false);
+        bool ShortTrailer = false, bool BareTrailer = false);
 
     public static byte[] Build(IReadOnlyList<Block> blocks)
     {
@@ -68,7 +70,7 @@ public static class SyntheticDcmWriter
             h.Write(b.SimulationBytes is null ? b.Flags : (ushort)2); h.Write(nv); h.Write(DcmMesh.StaticStride); h.Write(ni); h.Write(offset); h.Write(2); h.Write(b.Materials.Length);
             WriteBounds(h, min, max);
             h.Write(offset + 2 * ni); h.Write(offset + 2 * ni + 12 * nv);
-            WriteMaterials(h, b.Materials, lastField: b.SimulationBytes is null ? 0 : b.ShortTrailer ? 1 : 2);
+            WriteMaterials(h, b.Materials, lastField: b.SimulationBytes is null || b.BareTrailer ? 0 : b.ShortTrailer ? 1 : 2);
 
             foreach (var i in b.Indices) w.Write(i);
             foreach (var p in b.Positions) WriteVector(w, p);
@@ -87,7 +89,8 @@ public static class SyntheticDcmWriter
                 int start = (int)((body.Length + 15) / 16 * 16);
                 while (body.Length < start) w.Write((byte)0);
                 for (int k = 0; k < simBytes; k++) w.Write((byte)(0xA0 + k % 16));
-                if (b.ShortTrailer) { h.Write(0); h.Write(start); h.Write(simBytes); }
+                if (b.BareTrailer) { h.Write(start); h.Write(simBytes); }
+                else if (b.ShortTrailer) { h.Write(0); h.Write(start); h.Write(simBytes); }
                 else { h.Write(0); h.Write(1); h.Write(start); h.Write(simBytes); }
             }
         }

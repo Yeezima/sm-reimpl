@@ -45,6 +45,28 @@ public class ArmourPiecesTests
     }
 
     [Fact]
+    public void The_banners_bare_type_2_trailer_reads_and_the_next_block_follows_its_range()
+    {
+        // classic-maps-fidelity fix 2 (banner_mech, mechanicus_health, mechanicus_wallmount): the material record's last u32 is 0 and only the body offset and size follow it.
+        var mesh = DcmMesh.Read(SyntheticDcmWriter.Build([new([new(0, 0, 0), new(1, 0, 0), new(0, 1, 0)], [0, 1, 2], [new("Banner", 0, 3, 0, 3)], SimulationBytes: 33, BareTrailer: true), Tri(1)]));
+        Assert.Equal(2, mesh.Blocks.Count);
+        var sim = Assert.IsType<DcmSimulationData>(mesh.Blocks[0].Simulation);
+        Assert.Equal(0u, mesh.Blocks[0].Materials.Single().Unknown6);
+        Assert.Equal((0u, 0u, 33, 8), (sim.Unknown, sim.Count, sim.Size, sim.TrailerSize));
+        Assert.Equal(0, sim.Offset % 16);
+        Assert.Equal(new Vector3(0, 1, 1), mesh.Blocks[1].Positions[2]);
+    }
+
+    [Fact]
+    public void A_bare_trailer_whose_range_does_not_follow_the_streams_stays_not_supported()
+    {
+        var bytes = SyntheticDcmWriter.Build([new([new(0, 0, 0), new(1, 0, 0), new(0, 1, 0)], [0, 1, 2], [new("Banner", 0, 3, 0, 3)], SimulationBytes: 20, BareTrailer: true)]);
+        int headerSize = BitConverter.ToInt32(bytes, 0);
+        BitConverter.GetBytes(BitConverter.ToInt32(bytes, headerSize - 8) + 64).CopyTo(bytes, headerSize - 8);
+        Assert.Throws<NotSupportedException>(() => DcmMesh.Read(bytes));
+    }
+
+    [Fact]
     public void A_short_trailer_whose_range_does_not_follow_the_streams_stays_not_supported()
     {
         var bytes = SyntheticDcmWriter.Build([Tri(0, "cloth", simulation: 20, shortTrailer: true)]);
