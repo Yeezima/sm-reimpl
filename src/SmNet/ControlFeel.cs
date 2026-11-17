@@ -204,3 +204,28 @@ public static class FreshAim
         return (o, d);
     }
 }
+
+/// <summary>
+/// classic-stab-on-t (protocol 81; owner, 2026-11-17): the stab key as a pulse. The simulation starts a stab from rest on the bit's level, so the client sends it for
+/// <see cref="HoldTicks"/> samples after each press edge (a short buffer: a press just before the last attack ends still stabs) and not while the key stays down. One call of
+/// <see cref="Sample"/> per input tick. Engine-free (<c>StabKeyTests</c>).
+/// </summary>
+public sealed class StabPulse
+{
+    /// <summary>Samples the bit stays set after a press (4 ticks, 0.13 s: ours).</summary>
+    public const int HoldTicks = 4;
+    bool _wasDown;
+    int _left;
+
+    /// <summary>The bit for this tick from whether the key is down now.</summary>
+    public bool Sample(bool down)
+    {
+        if (down && !_wasDown) _left = HoldTicks;
+        _wasDown = down;
+        if (_left == 0) return false;
+        _left--;
+        return true;
+    }
+
+    public void Reset() { _wasDown = false; _left = 0; }
+}

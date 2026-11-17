@@ -56,6 +56,12 @@ public enum InputButtons : ushort
     /// nothing without one. PC key 3 (owner's decision of 2026-10-30).
     /// </summary>
     SlotSecond = 16384,
+    /// <summary>
+    /// The direct stab (protocol 81; owner, 2026-11-17: "make the sword stab performed by F + F or rmb + F instead be activated on its own with no precursor move by pressing T").
+    /// The client holds it for a few ticks after a press; from rest it starts the weapon's stab strike (<see cref="MeleeStep.Stab"/>, the power sword's F + F finisher) at once. Nothing for a
+    /// weapon without a stab, and never in Musou Mode (the server drops it there). Same refusals as a heavy press (stun, evade, jump-pack flight).
+    /// </summary>
+    Stab = 32768,
 }
 
 /// <summary>
@@ -863,6 +869,7 @@ public sealed partial record SimConfig
             if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
             if (!SprintMeleeCharge) w.Write("old-sprint-melee");   // sim/sprint-melee-charge (protocol 77): only when off
             if (!LedgeChargeCancel) w.Write("old-ledge-cancel");   // sim/ledge-charge-cancel (protocol 77): only when off
+            if (!LascannonShotFirst) w.Write("old-lascannon-shot-first");   // sim/lascannon-shot-first (2026-11-17): only when off
             if (!LascannonTapReload) w.Write("old-lascannon-reload");   // sim/lascannon-tap-reload (protocol 78): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.

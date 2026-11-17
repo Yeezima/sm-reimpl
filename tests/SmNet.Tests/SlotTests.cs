@@ -285,11 +285,11 @@ public class SlotTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_the_slot_buttons_and_their_held_flags()
     {
-        Assert.Equal(80, Protocol.Version);
+        Assert.Equal(81, Protocol.Version);
         var input = new PlayerInput(9, 0f, 1f, 0.5f, InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.Switch);
         Assert.Equal(input, Protocol.Quantize(input));
         Assert.Equal(input, Assert.IsType<InputBatch>(Protocol.Read(Protocol.Write(new InputBatch([input], 1, 2)))).Inputs[0]);
-        Assert.Equal(InputButtons.Fire, Protocol.Quantize(input with { Buttons = InputButtons.Fire | (InputButtons)0x8000 }).Buttons);   // bits 14..15 unknown (11 is MeleeHeavy since protocol 17, 12 Interact since 24, 13 added content's ExtraAction since extras wire 2)
+        Assert.Equal(InputButtons.Fire, Protocol.Quantize(input with { Buttons = InputButtons.Fire | (InputButtons)64 }).Buttons);   // bit 6 unknown since protocol 20 (bit 15 is Stab since protocol 81, 14 SlotSecond since 44; 11 is MeleeHeavy since protocol 17, 12 Interact since 24, 13 added content's ExtraAction since extras wire 2)
 
         foreach (var (pistolHeld, primaryHeld, grenadeHeld) in new[] { (true, false, false), (false, true, true), (true, true, true), (false, false, false) })
         {

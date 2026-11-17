@@ -570,6 +570,8 @@ public sealed partial class GameServer
             var clean = input.Sanitized();
             // Added content's action key (input bit 13) is kept only when the match runs added content that reads it (docs/added-content.md section 7).
             if ((World.Config.Extras & ContentExtras.ActionKeyUsers) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.ExtraAction };
+            // sim/stab-key (protocol 81): Musou Mode's sword keeps its stomp and its T is the shout, so the bit is dropped there (Classic and Musou stay apart).
+            if ((World.Config.Extras & ContentExtras.Musou) != 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.Stab };
             peer.Inputs[input.Tick] = clean;
             peer.AckAt.TryAdd(input.Tick, peer.AckedSnapshot);
             peer.ArrivedAt.TryAdd(input.Tick, _clock.Now);   // protocol 65: the input slack

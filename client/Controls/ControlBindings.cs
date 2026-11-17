@@ -21,6 +21,8 @@ public enum GameAction
     Fire, Aim, Melee, StunStrike, Jump, Grenade, Reload, Use,
     Weapon1, Weapon2, Weapon3, NextWeapon, ZoomCycle,
     Scoreboard, Shout,
+    /// <summary>The direct stab (classic-stab-on-t, owner 2026-11-17). Appended last so saved files and the enum's numbers stay; the screen orders it by <see cref="ControlActions.All"/>.</summary>
+    Stab,
 }
 
 /// <summary>One action's row: its label, group, the sim button it presses (None for the movement actions and the client-only ones) and where it applies.</summary>
@@ -45,6 +47,7 @@ public static class ControlActions
         new(GameAction.Aim, "Aim", "Combat", InputButtons.Aim, true, true, false, true),
         new(GameAction.Melee, "Melee strike", "Combat", InputButtons.Melee, true, true, false, true),
         new(GameAction.StunStrike, "Stun strike (charge: Sprint + forward + this)", "Combat", InputButtons.MeleeHeavy, true, true, false, true),
+        new(GameAction.Stab, "Sword stab (on its own)", "Combat", InputButtons.Stab, true, true, false, true),
         new(GameAction.Grenade, "Grenade", "Combat", InputButtons.Grenade, true, true, false, true),
         new(GameAction.Reload, "Reload / vent", "Combat", InputButtons.Reload, true, true, false, false),
         new(GameAction.Use, "Use / pick up", "Combat", InputButtons.Interact, true, true, false, true),
@@ -54,8 +57,11 @@ public static class ControlActions
         new(GameAction.NextWeapon, "Next weapon", "Weapons", InputButtons.Switch, true, true, false, true),
         new(GameAction.ZoomCycle, "Scope zoom level", "Weapons", InputButtons.None, false, true, false, false),
         new(GameAction.Scoreboard, "Scoreboard (hold)", "Interface", InputButtons.None, true, true, false, false),
-        new(GameAction.Shout, "Shout (extended content)", "Interface", InputButtons.None, true, true, true, false),
+        new(GameAction.Shout, "Shout (Musou Mode)", "Interface", InputButtons.None, true, true, true, false),
     };
+
+    /// <summary>classic-stab-on-t (owner, 2026-11-17): whether the T voice call (the loyalist shout) works in a match with these extras: in Musou Mode only; Classic PvP's T is the sword stab.</summary>
+    public static bool ShoutKeyLive(ContentExtras extras) => (extras & ContentExtras.Musou) != 0;
 
     public static ActionInfo Info(GameAction action) => All.First(a => a.Action == action);
 
@@ -98,7 +104,7 @@ public sealed class BindingSet
 
     /// <summary>
     /// Today's bindings. Keyboard (the project's documented ones): WASD, Shift sprint, left mouse fire, Left Ctrl aim, right mouse or V melee, F stun strike, Space evade / jump pack, G grenade,
-    /// R reload / vent, E use, 1 2 3 weapons, X or the mouse wheel next weapon, Tab scoreboard, T shout. Controller: the original's Xbox 360 layout (<see cref="GamepadRules.Bindings"/>).
+    /// R reload / vent, E use, 1 2 3 weapons, X or the mouse wheel next weapon, Tab scoreboard, T the sword stab (classic-stab-on-t, 2026-11-17; the T voice call is off in Classic PvP and Musou Mode reads T for its shout). Controller: the original's Xbox 360 layout (<see cref="GamepadRules.Bindings"/>).
     /// </summary>
     public static BindingSet Defaults()
     {
@@ -110,13 +116,13 @@ public sealed class BindingSet
         K(GameAction.Melee, "Mouse:Right", "Key:V"); K(GameAction.StunStrike, "Key:F"); K(GameAction.Jump, "Key:Space");
         K(GameAction.Grenade, "Key:G"); K(GameAction.Reload, "Key:R"); K(GameAction.Use, "Key:E");
         K(GameAction.Weapon1, "Key:Key1"); K(GameAction.Weapon2, "Key:Key2"); K(GameAction.Weapon3, "Key:Key3");
-        K(GameAction.NextWeapon, "Key:X", "Mouse:Wheel"); K(GameAction.ZoomCycle, null); K(GameAction.Scoreboard, "Key:Tab"); K(GameAction.Shout, "Key:T");
+        K(GameAction.NextWeapon, "Key:X", "Mouse:Wheel"); K(GameAction.ZoomCycle, null); K(GameAction.Scoreboard, "Key:Tab"); K(GameAction.Shout, null); K(GameAction.Stab, "Key:T");
         P(GameAction.MoveForward, null); P(GameAction.MoveBack, null); P(GameAction.MoveLeft, null); P(GameAction.MoveRight, null);
         P(GameAction.Sprint, "Pad:LeftStick"); P(GameAction.Fire, "Pad:RT"); P(GameAction.Aim, "Pad:LT");
         P(GameAction.Melee, "Pad:X"); P(GameAction.StunStrike, "Pad:Y"); P(GameAction.Jump, "Pad:A");
         P(GameAction.Grenade, "Pad:LeftShoulder"); P(GameAction.Reload, "Pad:RightShoulder"); P(GameAction.Use, "Pad:B");
         P(GameAction.Weapon1, "Pad:DpadUp"); P(GameAction.Weapon2, "Pad:DpadRight"); P(GameAction.Weapon3, "Pad:DpadDown");
-        P(GameAction.NextWeapon, null); P(GameAction.ZoomCycle, "Pad:RightStick"); P(GameAction.Scoreboard, "Pad:Back"); P(GameAction.Shout, null);
+        P(GameAction.NextWeapon, null); P(GameAction.ZoomCycle, "Pad:RightStick"); P(GameAction.Scoreboard, "Pad:Back"); P(GameAction.Shout, null); P(GameAction.Stab, null);
         return s;
     }
 
