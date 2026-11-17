@@ -158,6 +158,7 @@ static class WarfrontHqCommand
         var falls = new List<string>();
         int fallen = 0, kills = 0, marineClock = 0, lastStuck = 0, nAll = 0;
         bool shooter = _scenario is "fallback" or "gate9";
+        var openTicks = new int[3]; var stageOpenTicks = new int[3]; var perSource = new Dictionary<(int, int), int>();   // finding 3: the seconds each stage source was open (clear of every human's sight)
         int at = 0, wp = 0, deaths = 0; bool walking = false, wasAlive = true; float maxHp = 0f;
         for (int t = 0; t < ticks && run.Battle is not null; t++)
         {
@@ -220,6 +221,15 @@ static class WarfrontHqCommand
             nAll = n;
             if (battle.HqFallenCount != fallen) { fallen = battle.HqFallenCount; falls.Add($"{"WKV"[Math.Min(2, fallen - 1)]} fell at {t / 30f:0} s ({t / 1800}:{t / 30 % 60:00})"); }
             if (_scenario is not null && t % 450 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {t / 1800}:{t / 30 % 60:00}  front {battle.HqFront}  hold {battle.HqHold:0.00}  Orks' weight {battle.HqWeights.Orks} vs defenders' {battle.HqWeights.Defenders}  Orks alive {n}  Guardsmen {w.TfwGuards?.Alive}  Orks killed {battle.OrksKilled}  human {(w.Players[1].Alive ? "alive" : "down")} at y {w.Players[1].Position.Y:0}"));
+            if (waves && t % 10 == 0)
+                for (int st = 1; st <= 2; st++)
+                {
+                    if (!battle.HqSourceOpen(st)) continue;
+                    stageOpenTicks[st] += 10;
+                    var hp = w.Players[1].Alive ? new[] { w.Players[1].Position } : Array.Empty<Vector3>();
+                    int si = 0;
+                    foreach (var src in WarfrontHqLayout.SourcesOf(st)) { if (battle.HqSourceClear(src, hp)) { perSource[(st, si)] = perSource.GetValueOrDefault((st, si)) + 10; } si++; }
+                }
             slow.Add((ms, t, (byte)(battle.HqTickFlags | (GC.CollectionCount(2) != gc2 ? 32 : 0) | (GC.CollectionCount(0) != gc0 ? 64 : 0)), stuck.Count - lastStuck, n));
             lastStuck = stuck.Count;
             maxAlive = Math.Max(maxAlive, n);
@@ -257,6 +267,9 @@ static class WarfrontHqCommand
             Console.WriteLine($"Orks killed by the human and others: {battle.OrksKilled}; stuck-log records {stuck.Count} = {stuck.Count * 100.0 / Math.Max(1, battle.HqOrksMade):0.0} % of the Orks made");
             var relocated = stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => x.Id).ToList();
             Console.WriteLine($"stranded Orks sent back to the assembly ground: {relocated.Sum(g => g.Count())} times by {relocated.Count} Orks, {relocated.Count(g => g.Count() >= 2)} of them twice or more; removed {stuck.Count(x => x.Why == WarfrontStuckWhy.Removed)}");
+            for (int st = 1; st <= 2; st++)
+                if (stageOpenTicks[st] > 0)
+                    Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"stage {st} sources: the stage was open {stageOpenTicks[st] / 30f:0} s; seconds each source was clear of the human's sight: {string.Join(", ", Enumerable.Range(0, 3).Select(i => (perSource.GetValueOrDefault((st, i)) / 30f).ToString("0")))} (a fifth of the open time is {stageOpenTicks[st] / 150f:0} s)"));
             Console.WriteLine("slowest ticks (ms, second, what ran: 1 muster, 2 stage spawns, 4 chunk let go, 8 wave left, 16 position fell, 32 a gen 2 GC, 64 a gen 0 GC; stuck records that tick; Orks alive):");
             foreach (var x in slow.OrderByDescending(x => x.Ms).Take(5)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {x.Ms:0.0} ms at {x.Tick / 30f:0.0} s, flags {x.Flags}, stuck {x.Stuck}, alive {x.Alive}"));
         }

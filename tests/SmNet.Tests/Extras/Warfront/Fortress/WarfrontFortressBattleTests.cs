@@ -74,7 +74,7 @@ public class WarfrontFortressBattleTests
     }
 
     /// <summary>A Warfront world, the stub arena's setup on the run's rules, the fronts at the stronghold, deployed: the fortress battle.</summary>
-    static (World World, TfwBattle Battle, WarfrontFortressSetup Setup) Fortress(int humans = 1, IWarfrontArena? arena = null)
+    internal static (World World, TfwBattle Battle, WarfrontFortressSetup Setup) Fortress(int humans = 1, IWarfrontArena? arena = null)
     {
         var w = WarfrontBattleTests.War(humans);
         var setup = WarfrontFortressSetup.For(arena ?? new StubArena());

@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using SmClient.Customizer;
 using SmClient.Extras.Warfront.Progression;
@@ -12,6 +13,13 @@ namespace SmClient.Extras.Warfront.Coop;
 public sealed partial class WarfrontSpectateHud : Control
 {
     public const float StripTop = 70f, StripHeight = 136f;
+    /// <summary>The strip's top while the Battle HUD's line and clock are shown: under the clock's label (ClockTop 138 + heading 28 + 12 of room + a 12 gap), in the 1920 by 1080 space (ours, fallen-watch fix).</summary>
+    public const float StripTopUnderBattle = 190f;
+    /// <summary>Asked each frame: whether the Battle HUD's line is on screen (set by the networked view). Null: never.</summary>
+    public Func<bool>? BattleLineShown { get; set; }
+    float _top = StripTop;
+    /// <summary>The strip's current top in the design space (for the self-test and the stills).</summary>
+    public float Top => _top;
     readonly WarfrontCoopModel _model;
     readonly Label _watching, _sub, _keys, _announce;
     readonly ColorRect _strip;
@@ -38,6 +46,23 @@ public sealed partial class WarfrontSpectateHud : Control
         Refresh();
     }
 
+    public override void _Process(double delta)
+    {
+        if (Visible) Layout();
+    }
+
+    void Layout()
+    {
+        float top = BattleLineShown?.Invoke() == true ? StripTopUnderBattle : StripTop;
+        if (top == _top) return;
+        _top = top;
+        _strip.Position = new Vector2(0f, top);
+        _watching.Position = new Vector2(0f, top + 14f);
+        _sub.Position = new Vector2(0f, top + 58f);
+        _keys.Position = new Vector2(0f, top + 94f);
+        _announce.Position = new Vector2(0f, top + StripHeight + 14f);
+    }
+
     Label Line(string name, float y, int size)
     {
         var l = UiKit.MenuText("", null, clip: false);
@@ -60,6 +85,7 @@ public sealed partial class WarfrontSpectateHud : Control
         Set(_announce, _model.AnnouncementText);
         _watching.Visible = _sub.Visible = _keys.Visible = spectating;
         Visible = spectating || _model.AnnouncementText.Length > 0;
+        Layout();
     }
 
     static void Set(Label l, string text) { if (l.Text != text) l.Text = text; }

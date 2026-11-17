@@ -27,7 +27,7 @@ public partial class NetworkView
     static readonly bool WarfrontDownWatch = CmdFlag("warfront-down-watch");
     double _wfdLogAt, _wfdSince = -1, _wfdFUntil;
     int _wfdStage;
-    double _wfdWalkFrom = -1, _wfdForgedAt = -1;
+    double _wfdWalkFrom = -1, _wfdForgedAt = -1, _wfdBattleForgedAt = -1;
     bool _wfdWasSpectating;
 
     /// <summary>Test aid: prints a <c>WFDOWN</c> line every 2 s (phase, spectating, watched body, camera distance), taps F once 6 s into a watch, and saves stills at the watch's start, after the step and on the return.</summary>
@@ -54,6 +54,12 @@ public partial class NetworkView
             _wfdForgedAt = now;
             WarfrontModel.ApplyDown(WarfrontWire.Encode(new WarfrontDownWire(WarfrontDownPhase.Spectator, (float)(24.0 - now))), now);
         }
+        // --warfront-down-battle-line (with --warfront-down-forge): a Battle section of an HQ defence is fed alongside, so the Battle HUD's line and clock are up under the spectator overlay (test aid; the layout under test is the overlay's place)
+        if (CmdFlag("warfront-down-battle-line") && now >= 10.0 && now < 24.0 && now - _wfdBattleForgedAt >= 0.5)
+        {
+            _wfdBattleForgedAt = now;
+            WarfrontBattleReceive(WarfrontBattleWire.EnvelopeTag, WarfrontBattleWire.Encode(new WarfrontBattleWire.Section(1, 0, 1, 3, 40, 372, 0, 7, 100)));
+        }
         if (now - _wfdLogAt >= 2.0)
         {
             _wfdLogAt = now;
@@ -78,7 +84,8 @@ public partial class NetworkView
     {
         if (CmdArg("warfront-hooks-shots") is not { Length: > 0 } dir) return;
         Directory.CreateDirectory(dir);
-        string path = Path.Combine(dir, name + ".png");
+        var size = GetViewport().GetVisibleRect().Size;
+        string path = Path.Combine(dir, $"{name}-{(int)size.X}x{(int)size.Y}.png");
         var err = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print($"WFHOOK shot {name}: {err}");
     }

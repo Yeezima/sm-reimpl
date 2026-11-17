@@ -162,6 +162,32 @@ public class WarfrontCoopTests
         Assert.Equal(default, r.Co.Step(C, 1, Array.Empty<WarfrontWatch>()));
     }
 
+    [Fact]
+    public void A_spectating_key_gets_the_default_watch_at_once_and_a_standing_key_has_none()
+    {
+        var r = Rig.Founders();
+        r.Deploy();
+        var cands = new[] { new WarfrontWatch(WarfrontWatchKind.Player, 1), new WarfrontWatch(WarfrontWatchKind.Marine, 7) };
+        // a fallen founder (B) spectates: no F pressed, the leader is the target
+        Assert.Equal(default, r.Co.WatchOf(B));
+        Assert.True(r.Co.DefaultWatch(B, true, cands));
+        Assert.Equal(cands[0], r.Co.WatchOf(B));
+        Assert.Equal(cands[0], r.Co.ViewFor(B).Watch);
+        Assert.False(r.Co.DefaultWatch(B, true, cands));   // stable
+        // the target is gone: the next candidate, still without a key press
+        Assert.True(r.Co.DefaultWatch(B, true, new[] { cands[1] }));
+        Assert.Equal(cands[1], r.Co.WatchOf(B));
+        // no candidates at all: nothing to watch
+        Assert.True(r.Co.DefaultWatch(B, true, Array.Empty<WarfrontWatch>()));
+        Assert.Equal(default, r.Co.WatchOf(B));
+        // respawned: a stale target is dropped
+        r.Co.DefaultWatch(B, true, cands);
+        Assert.True(r.Co.DefaultWatch(B, false, cands));
+        Assert.Equal(default, r.Co.WatchOf(B));
+        // an unknown key is ignored
+        Assert.False(r.Co.DefaultWatch(999UL, true, cands));
+    }
+
     // ---------------------------------------------------------------- 5. ship stop and the median
 
     [Fact]

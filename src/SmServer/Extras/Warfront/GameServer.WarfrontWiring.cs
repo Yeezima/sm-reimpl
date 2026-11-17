@@ -115,7 +115,37 @@ public sealed partial class GameServer
     // ---- the tick, the sections, the commands ---------------------------------------------------------------------------------------------------
 
     /// <summary>The co-op clock, once a tick.</summary>
-    void WarfrontCoopTick(WarfrontServerState s) => WarfrontCoopRules?.Tick(1.0 / WarfrontRate);
+    void WarfrontCoopTick(WarfrontServerState s)
+    {
+        if (WarfrontCoopRules is not { } coop) return;
+        coop.Tick(1.0 / WarfrontRate);
+        WarfrontDefaultWatches(s, coop);
+    }
+
+    /// <summary>A spectator (a held joiner, or a fallen player past his revive window) has a watch target from the first tick, not from the first F.</summary>
+    void WarfrontDefaultWatches(WarfrontServerState s, WarfrontCoop coop)
+    {
+        if (s.KeyOf.Count == 0) return;
+        List<WarfrontWatch>? cands = null;
+        foreach (var (id, key) in s.KeyOf)
+        {
+            bool spectating = coop.RoleOf(key) == WarfrontCoopRole.SpectatingJoiner
+                || (s.Campaign.Phase == WarfrontPhase.Battle && World.Tfw?.WarfrontDownState(id).Phase == WarfrontDownPhase.Spectator);
+            if (!spectating && coop.WatchOf(key).Kind == WarfrontWatchKind.None) continue;
+            var before = coop.WatchOf(key);
+            bool changed = coop.DefaultWatch(key, spectating, spectating ? cands ??= WarfrontWatchCandidates() : []);
+            if (!changed) continue;
+            var now = coop.WatchOf(key);
+            if (spectating)
+            {
+                Vector3? centre = null;
+                WarfrontViewCentre(id, ref centre);
+                WfLog($"P{id} spectates: default watch {now.Kind} {now.Id} (was {before.Kind}); crowd data centred on {(centre is { } c ? $"({c.X:0},{c.Y:0},{c.Z:0})" : "the own body")}");
+            }
+            else if (World.Players.TryGetValue(id, out var back))
+                WfLog($"P{id} is back in the fight at ({back.Position.X:0},{back.Position.Y:0},{back.Position.Z:0}), alive {back.Alive}; the watch is dropped");
+        }
+    }
 
     partial void WarfrontSendSquad()
     {
