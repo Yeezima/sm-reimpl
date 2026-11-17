@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3760 spec table rows: **2732 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 781 rows of the changes document.
-Scanned 3741 spec table rows: **2712 tagged**, 673 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 779 rows of the changes document.
+Scanned 3766 spec table rows: **2737 tagged**, 673 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 782 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,30 +51,20 @@ Scanned 3741 spec table rows: **2712 tagged**, 673 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
-| General game design | 139 | 135 | 112 | 17 | 0 |
-| Ork faction | 279 | 265 | 163 | 70 | 0 |
-| **All areas** | **2732** | 2446 | 2067 | 805 | 37 |
-| Core simulation (provisional values) | 836 | 791 | 621 | 232 | 1 |
-| General game design | 131 | 127 | 104 | 17 | 0 |
-| Ork faction | 268 | 252 | 152 | 70 | 0 |
-| **All areas** | **2712** | 2424 | 2047 | 805 | 37 |
+| General game design | 141 | 136 | 114 | 17 | 0 |
+| Ork faction | 282 | 265 | 166 | 70 | 0 |
+| **All areas** | **2737** | 2447 | 2072 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1590 |
-| confidence: low | 1007 |
-| confidence: medium | 951 |
+| kind: ours | 1591 |
+| confidence: low | 1009 |
+| confidence: medium | 954 |
 | notes: ours | 467 |
 | kind: interpretation | 435 |
-| kind: estimate | 245 |
-| kind: ours | 1585 |
-| confidence: low | 990 |
-| confidence: medium | 948 |
-| notes: ours | 467 |
-| kind: interpretation | 434 |
-| kind: estimate | 230 |
+| kind: estimate | 246 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -3975,8 +3964,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (139)
-### General game design (131)
+### General game design (141)
 
 *Spec section: Known behavior (public, unverified)*
 
