@@ -52,25 +52,112 @@ static class RotationSupervisor
         return child;
     }
 
-    public static int Run(IReadOnlyList<string> args, List<string> maps)
+    /// <summary>The environment variables a supervisor gives its child: the file the child writes a picked map to (devtools-map-pick) and the supervisor's own process id (the child leaves when it is gone).</summary>
+    public const string PickFileVariable = "SM_ROTATION_PICK_FILE", SupervisorPidVariable = "SM_SUPERVISOR_PID";
+
+    /// <summary>The child tells its supervisor which map the developer tools picked by writing it to the file the supervisor named; nothing without one.</summary>
+    public static void WritePick(string map)
+    {
+        if (Environment.GetEnvironmentVariable(PickFileVariable) is { Length: > 0 } path)
+            try { File.WriteAllText(path, map); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.WriteLine($"rotation: the picked map could not be handed to the supervisor ({e.Message})"); }
+    }
+
+    /// <summary>The map a child left in its pick file (null: none, or not a map name); the file is removed.</summary>
+    public static string? TakePick(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            string text = File.ReadAllText(path).Trim();
+            File.Delete(path);
+            return System.Text.RegularExpressions.Regex.IsMatch(text, "^mp_[A-Za-z0-9_]{1,40}$") ? text : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>
+    /// Whether this process's supervisor is gone (the child was left behind by a kill of the supervisor alone): then the child exits too. The supervisor passes its own id in
+    /// <see cref="SupervisorPidVariable"/>; with none there is no supervisor to lose.
+    /// </summary>
+    public static bool SupervisorGone()
+    {
+        if (!int.TryParse(Environment.GetEnvironmentVariable(SupervisorPidVariable), out int pid)) return false;
+        try { using var parent = Process.GetProcessById(pid); return parent.HasExited; }
+        catch (ArgumentException) { return true; }
+        catch (InvalidOperationException) { return true; }
+    }
+
+    static (string Exe, string[] Host) Self()
     {
         string exe = Environment.ProcessPath ?? throw new InvalidOperationException("no process path");
-        string[] host = Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : [];
+        return (exe, Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : []);
+    }
+
+    /// <summary>Runs the server itself as a child with these arguments; its exit code, and the map it asked for (null: none).</summary>
+    static (int Code, string? Pick) RunChild(string exe, string[] host, IEnumerable<string> childArgs, Action<Process?> track)
+    {
+        string pickFile = Path.Combine(Path.GetTempPath(), $"sm-pick-{Environment.ProcessId}-{Guid.NewGuid():N}.txt");
+        var info = new ProcessStartInfo(exe) { UseShellExecute = false };
+        foreach (var h in host) info.ArgumentList.Add(h);
+        foreach (var a in childArgs) info.ArgumentList.Add(a);
+        info.Environment[PickFileVariable] = pickFile;
+        info.Environment[SupervisorPidVariable] = Environment.ProcessId.ToString();
+        var running = Process.Start(info) ?? throw new InvalidOperationException("the rotation child did not start");
+        track(running);
+        running.WaitForExit();
+        int code = running.ExitCode;
+        running.Dispose(); track(null);
+        return (code, TakePick(pickFile));
+    }
+
+    /// <summary>
+    /// devtools-map-pick: the supervisor of a <c>--dev-tools</c> server that plays one map. It runs the server as a child (<c>--dev-supervised</c>, the arguments as given) and, when the tools pick another map,
+    /// starts the child again on it (the picked map replaces any <c>--map</c>); the picked map stays until the next pick. Any other exit ends the supervisor with that code.
+    /// </summary>
+    public static int RunDev(IReadOnlyList<string> args)
+    {
+        var (exe, host) = Self();
+        Process? running = null;
+        Console.CancelKeyPress += (_, e) => { try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } };
+        string? map = null;
+        for (int turn = 0; ; turn++)
+        {
+            if (turn > 0) Console.WriteLine($"dev tools: starting the match on {map}");
+            var (code, pick) = RunChild(exe, host, DevChildArguments(args, map), p => running = p);
+            if (code != ServerCommandLine.RotationExit) return code;
+            map = pick ?? map;
+        }
+    }
+
+    /// <summary>The dev child's arguments: the supervisor's own plus <c>--dev-supervised</c>, with <c>--map</c> replaced by <paramref name="map"/> when one was picked.</summary>
+    public static List<string> DevChildArguments(IReadOnlyList<string> args, string? map)
+    {
+        var child = new List<string>();
+        for (int i = 0; i < args.Count; i++)
+        {
+            if (map is not null && args[i] == "--map") { i++; continue; }
+            child.Add(args[i]);
+        }
+        if (map is not null) { child.Add("--map"); child.Add(map); }
+        child.Add("--dev-supervised");
+        return child;
+    }
+
+    public static int Run(IReadOnlyList<string> args, List<string> maps)
+    {
+        var (exe, host) = Self();
         Console.WriteLine($"rotation: {maps.Count} map{(maps.Count == 1 ? "" : "s")}, one match each, then round again: {string.Join(", ", maps)}");
         Process? running = null;
         Console.CancelKeyPress += (_, e) => { try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } };
-        for (int turn = 0; ; turn++)
+        string? forced = null;   // devtools-map-pick: a map the tools picked plays next; the list's own turn is not used up by it
+        for (int turn = 0; ; )
         {
-            string map = maps[turn % maps.Count];
-            var info = new ProcessStartInfo(exe) { UseShellExecute = false };
-            foreach (var h in host) info.ArgumentList.Add(h);
-            foreach (var a in ChildArguments(args, map)) info.ArgumentList.Add(a);
-            Console.WriteLine($"rotation: match {turn + 1} on {map}");
-            running = Process.Start(info) ?? throw new InvalidOperationException("the rotation child did not start");
-            running.WaitForExit();
-            int code = running.ExitCode;
-            running.Dispose(); running = null;
+            string map = forced ?? maps[turn % maps.Count];
+            Console.WriteLine($"rotation: match {turn + 1} on {map}{(forced is not null ? " (picked with the developer tools)" : "")}");
+            var (code, pick) = RunChild(exe, host, ChildArguments(args, map), p => running = p);
             if (code != ServerCommandLine.RotationExit) return code;
+            forced = pick;
+            if (forced is null) turn++;
         }
     }
 }

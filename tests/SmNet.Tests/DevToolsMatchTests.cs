@@ -64,7 +64,7 @@ public class DevToolsMatchTests
         var bytes = Protocol.Write(state);
         var badScale = (byte[])bytes.Clone(); badScale[8] = 9;
         Assert.Null(Protocol.Read(badScale));
-        var badKind = Protocol.Write(command); badKind[5] = 15;   // 14 is the cancel table's sync request (cancel-editor)
+        var badKind = Protocol.Write(command); badKind[5] = 16;   // 14 is the cancel table's sync request (cancel-editor), 15 the map pick (protocol 85)
         Assert.Null(Protocol.Read(badKind));
         for (int length = 1; length < bytes.Length; length++) Assert.Null(Protocol.Read(bytes[..length]));
     }

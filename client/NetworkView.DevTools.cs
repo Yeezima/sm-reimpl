@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using SmContent;
 using SmNet;
 using SmSim;
 
@@ -35,7 +36,31 @@ public partial class NetworkView
 
     bool DevPanelOpen => _devPanel?.IsOpen == true;
 
-    DevToolsPanel NewDevPanel() => new(() => _client?.Dev, (kind, argument, value, extra) => _client?.SendDevCommand(kind, argument, value, extra) == true, DevTeleportTargets);
+    DevToolsPanel NewDevPanel() => new(() => _client?.Dev, (kind, argument, value, extra) => _client?.SendDevCommand(kind, argument, value, extra) == true, DevTeleportTargets, DevMapChoices, () => _client?.MapName ?? "");
+
+    IReadOnlyList<MapEntry>? _devMapCatalog;
+    GameMode? _devMapMode;
+    List<DevToolsPanel.MapChoice> _devMaps = [];
+
+    /// <summary>
+    /// devtools-map-pick (protocol 85): the maps the picker lists, by display name, in the order the server counts them (<see cref="DevMapPicks"/>: the install's playable competitive maps that offer
+    /// the server's mode, Manufactorum first). Empty in Musou Mode (its dev tools stay as they were) or when the install lists none.
+    /// </summary>
+    IReadOnlyList<DevToolsPanel.MapChoice> DevMapChoices()
+    {
+        if (_client is null || _config is null || _config.Extras.HasFlag(ContentExtras.Musou)) return [];
+        var mode = _client.Match.Mode;
+        if (_devMapCatalog is null)
+        {
+            try { _devMapCatalog = MapCatalog.Read(_gameDir); } catch (Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException or NotSupportedException) { _devMapCatalog = []; }
+        }
+        if (mode != _devMapMode)
+        {
+            _devMapMode = mode;
+            _devMaps = DevMapPicks.For(_devMapCatalog, mode).Select(m => new DevToolsPanel.MapChoice(m.Name, m.DisplayName)).ToList();
+        }
+        return _devMaps;
+    }
 
     /// <summary>The teleport list: both spawn rooms, the control points and the other players the scoreboard knows.</summary>
     List<DevToolsPanel.TeleportChoice> DevTeleportTargets()

@@ -329,10 +329,11 @@ public sealed partial class GameServer
     }
 
     /// <summary>classic-maps-all: the server follows an ended match with the next map of its rotation (--maps) and is about to exit: it answers no join any more (the clients ask again until the next map's server is up).</summary>
-    public bool RotationDue => RotationDueFor(World);
+    public bool RotationDue => RotationDueFor(World, PickedMap is not null);
 
     /// <summary>The rule of <see cref="RotationDue"/> for a world: a rotating server's ended match whose restart clock shows at most <see cref="MatchFlowWire.RotationRejoinTicks"/> ticks.</summary>
-    public static bool RotationDueFor(World world) => world.Rules is { RotatesAfterMatch: true } && world.State == MatchState.Ended && world.TicksLeft <= MatchFlowWire.RotationRejoinTicks;
+    /// <param name="mapPicked">The developer tools picked another map (<see cref="PickedMap"/>): the ended match is followed by it, as by a rotation's next map.</param>
+    public static bool RotationDueFor(World world, bool mapPicked = false) => world.Rules is { } rules && (rules.RotatesAfterMatch || mapPicked) && world.State == MatchState.Ended && world.TicksLeft <= MatchFlowWire.RotationRejoinTicks;
 
     void OnHello(int connection, Hello h)
     {
@@ -744,7 +745,7 @@ public sealed partial class GameServer
         try
         {
             var players = World.Players.Values.ToArray();
-            var match = MatchOf(World);
+            var match = MatchOf(World, PickedMap is not null);
             var points = PointsOf(World);
             foreach (var (connection, peer) in _peers)
                 try { SendSnapshotTo(connection, peer, players, match, points); }
@@ -772,8 +773,8 @@ public sealed partial class GameServer
     }
 
     /// <summary>The match block every snapshot carries.</summary>
-    public static MatchView MatchOf(World world) =>
-        new(MatchFlowWire.ToWire(world.State), world.Winner, world.TicksLeft, world.ScoreOf(Team.SpaceMarines), world.ScoreOf(Team.Chaos), world.Rules?.Mode ?? GameMode.Annihilation, world.State == MatchState.Ended && world.Rules is { RotatesAfterMatch: true });
+    public static MatchView MatchOf(World world, bool mapPicked = false) =>
+        new(MatchFlowWire.ToWire(world.State), world.Winner, world.TicksLeft, world.ScoreOf(Team.SpaceMarines), world.ScoreOf(Team.Chaos), world.Rules?.Mode ?? GameMode.Annihilation, world.State == MatchState.Ended && world.Rules is { } rules && (rules.RotatesAfterMatch || mapPicked));
 
     /// <summary>Every control point's state (protocol 11): in Seize Ground only (Annihilation and free-for-all send none).</summary>
     public static ControlPointView[] PointsOf(World world) => world.Rules is { Mode: GameMode.SeizeGround }

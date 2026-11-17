@@ -33,6 +33,8 @@ public enum DevCommandKind : byte
     SetBotRange = 13,
     /// <summary>Asks the server to send the cancel table again (cancel-editor: the client's table hash differs from the server's).</summary>
     CancelSync = 14,
+    /// <summary>Protocol 85: ends the current match at once and starts a new one on another map; argument an index into <c>DevMapPicks.For</c> (the maps of the server's mode, as the panel lists them). The server only changes map when it runs under its supervisor (a developer-tools server on loopback does); clients rejoin as they do after a rotation.</summary>
+    PickMap = 15,
 }
 
 /// <summary>The server's answer to the last request, shown under the panel (protocol 80).</summary>
@@ -40,6 +42,8 @@ public enum DevNote : byte
 {
     None = 0, Applied = 1, BotStarting = 2, BotRemoved = 3, NoBotToRemove = 4, SideFull = 5, ServerFull = 6, LauncherMissing = 7, LaunchFailed = 8, NotInThisMode = 9, TooManyStarting = 10, TooFast = 11,
     NotPlaying = 12, TeleportBlocked = 13, BadValue = 14,
+    /// <summary>Protocol 85: this server cannot change its map (it does not run under its supervisor, or it has no map list).</summary>
+    NoMapChange = 15,
 }
 
 /// <summary>Side arguments of <see cref="DevCommandKind.AddBot"/> and <see cref="DevCommandKind.RemoveBot"/>.</summary>
@@ -80,7 +84,7 @@ public static partial class Protocol
     {
         uint session = r.U32();
         int kind = r.U8(), argument = r.U8(), value = r.U8(), extra = r.U16();
-        if (kind is < (int)DevCommandKind.SetFlag or > (int)DevCommandKind.CancelSync || value > 1) return null;
+        if (kind is < (int)DevCommandKind.SetFlag or > (int)DevCommandKind.PickMap || value > 1) return null;
         return new DevCommand(session, (DevCommandKind)kind, (byte)argument, value == 1, extra);
     }
 
@@ -99,7 +103,7 @@ public static partial class Protocol
         int flags = r.U8(), bl = r.U8(), bc = r.U8(), pl = r.U8(), pc = r.U8(), note = r.U8();
         byte serial = r.U8();
         int scale = r.U8(), accuracy = r.U16(), damage = r.U16(), range = r.U16();
-        if ((flags & ~(int)DevTools.All) != 0 || bl > MaxPlayers || bc > MaxPlayers || pl > MaxPlayers || pc > MaxPlayers || note > (int)DevNote.BadValue
+        if ((flags & ~(int)DevTools.All) != 0 || bl > MaxPlayers || bc > MaxPlayers || pl > MaxPlayers || pc > MaxPlayers || note > (int)DevNote.NoMapChange
             || scale >= DevTools.TimeScales.Length || damage > 1000 || (accuracy > 1000 && accuracy != DevNoValue)) return null;
         return new DevState((DevToolsFlags)flags, bl, bc, pl, pc, (DevNote)note, serial, scale, accuracy, damage, range);
     }

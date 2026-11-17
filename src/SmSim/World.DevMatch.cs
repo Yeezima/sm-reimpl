@@ -41,6 +41,17 @@ public sealed partial class World
     }
 
     /// <summary>
+    /// The end of a match for a map change (developer tools): as <see cref="DevSkipMatch"/>, and a world that is only waiting for players (warm-up, no match to end) is ended too (a draw), so the change
+    /// has an end screen to run on. False without match rules.
+    /// </summary>
+    public bool DevPickEnd(uint restartTicks)
+    {
+        if (Rules is null) return false;
+        if (State == MatchState.Warmup) End(Team.None);
+        return DevSkipMatch(restartTicks);
+    }
+
+    /// <summary>
     /// Restarts the match on the same map with fresh scores and points: the round start of an ended match (everyone respawns at a spawn; the countdown first when the rules have one). With one side
     /// empty the world waits in warm-up as it always does. False without match rules.
     /// </summary>

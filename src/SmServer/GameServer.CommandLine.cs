@@ -21,6 +21,8 @@ public sealed record ServerArguments
     public IReadOnlyList<string>? Maps { get; init; }
     /// <summary>--rotation-child (internal): this process is one match's server under a rotation supervisor (Program.cs): it exits with <see cref="ServerCommandLine.RotationExit"/> a second before the next match would start.</summary>
     public bool RotationChild { get; init; }
+    /// <summary>--dev-supervised (internal; devtools-map-pick): this process is a <c>--dev-tools</c> server under its supervisor (RotationSupervisor.RunDev): the tools' map pick makes it exit with <see cref="ServerCommandLine.RotationExit"/> so the supervisor starts the picked map.</summary>
+    public bool DevSupervised { get; init; }
     public GameMode Mode { get; init; } = GameMode.Annihilation;
     /// <summary>False for --mode ffa (no teams).</summary>
     public bool Teams { get; init; } = true;
@@ -174,7 +176,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
@@ -193,6 +195,7 @@ public static class ServerCommandLine
                 {
                     "--dev-tools" => a with { DevTools = true },
                     "--rotation-child" => a with { RotationChild = true },
+                    "--dev-supervised" => a with { DevSupervised = true },
                     "--no-custom-emblems" => a with { CustomEmblems = false },
                     "--limit-loopback" => a with { LimitLoopback = true },
                     "--honor-side-requests" => a with { HonorSideRequests = true },

@@ -22,7 +22,7 @@ public partial class DevToolsPanel : CanvasLayer
     /// <summary>The controls, by the word a <c>--dev-script</c> uses (a bare flag word toggles, <c>:on</c> / <c>:off</c> sets; see <see cref="Press"/>).</summary>
     public static readonly string[] ControlWords =
     [
-        "inv", "freeze", "ammo", "jump", "indef", "respawn", "end", "restart", "skip", "killme", "kill:loyal", "kill:chaos", "kill:all",
+        "inv", "freeze", "ammo", "jump", "indef", "respawn", "end", "restart", "skip", "map:N|NAME", "killme", "kill:loyal", "kill:chaos", "kill:all",
         "add:loyal", "add:chaos", "rem:loyal", "rem:chaos", "tp:spawn-loyal", "tp:spawn-chaos", "tp:point:N", "tp:player:N",
         "acc:PERCENT|default", "dmg:PERCENT", "range:METRES|default", "scale:0..4",
     ];
@@ -30,15 +30,23 @@ public partial class DevToolsPanel : CanvasLayer
     /// <summary>One teleport choice: its label, kind and index (side, point or player id).</summary>
     public readonly record struct TeleportChoice(string Label, DevTeleportKind Kind, int Index);
 
+    /// <summary>One map the picker offers: the archive name and the display name (devtools-map-pick, protocol 85); its position in the list is what the wire carries.</summary>
+    public readonly record struct MapChoice(string Name, string Label);
+
     readonly Func<DevState?> _state;
     readonly Func<DevCommandKind, byte, bool, int, bool> _send;
     readonly Func<List<TeleportChoice>> _targets;
+    readonly Func<IReadOnlyList<MapChoice>> _maps;
+    readonly Func<string> _currentMapOf;
     readonly Dictionary<DevToolsFlags, Godot.Button> _toggles = new();
     readonly List<Godot.Button> _scaleButtons = new();
     PanelContainer? _panel;
     Label? _bots, _status, _off, _accValue, _dmgValue, _rangeValue;
     HSlider? _acc, _dmg, _range;
-    OptionButton? _teleport;
+    OptionButton? _teleport, _mapPick;
+    VBoxContainer? _mapBox;
+    List<MapChoice> _mapChoices = new();
+    string _mapSignature = "";
     List<TeleportChoice> _choices = new();
     string _choiceSignature = "";
     double _offUntil;
@@ -55,9 +63,9 @@ public partial class DevToolsPanel : CanvasLayer
             if (now >= due) { _pending.Remove(slider); send(); }
     }
 
-    public DevToolsPanel(Func<DevState?> state, Func<DevCommandKind, byte, bool, int, bool> send, Func<List<TeleportChoice>> targets)
+    public DevToolsPanel(Func<DevState?> state, Func<DevCommandKind, byte, bool, int, bool> send, Func<List<TeleportChoice>> targets, Func<IReadOnlyList<MapChoice>>? maps = null, Func<string>? currentMap = null)
     {
-        _state = state; _send = send; _targets = targets;
+        _state = state; _send = send; _targets = targets; _maps = maps ?? (() => []); _currentMapOf = currentMap ?? (() => "");
         Layer = 95;
         Name = "DevTools";
     }
@@ -107,6 +115,18 @@ public partial class DevToolsPanel : CanvasLayer
         Button(match, "END MATCH NOW", () => Send(DevCommandKind.EndMatch, 0, true), "Ends the match as the time limit would (the end screen, then the next match or map).");
         Button(match, "RESTART MATCH", () => Send(DevCommandKind.RestartMatch, 0, true), "Same map, fresh scores, everyone respawns.");
         Button(match, "SKIP TO NEXT", () => Send(DevCommandKind.SkipMatch, 0, true), "Ends the match and hurries to the next one (the next map in a --maps rotation).");
+        // devtools-map-pick (protocol 85): Classic PvP only (the list is empty in Musou Mode and the whole block is hidden)
+        _mapBox = new VBoxContainer { Name = "MapPick" };
+        _mapBox.AddThemeConstantOverride("separation", 4);
+        left.AddChild(_mapBox);
+        Header(_mapBox, "MAP (ends this match now, starts a new one)");
+        var pick = new HBoxContainer { Name = "MapRow" };
+        pick.AddThemeConstantOverride("separation", 8);
+        _mapBox.AddChild(pick);
+        _mapPick = new OptionButton { Name = "MapList", CustomMinimumSize = new Vector2(300, 0), TooltipText = "Every Classic PvP map this server can play (the --maps all rotation's list)." };
+        pick.AddChild(_mapPick);
+        Button(pick, "GO", PickSelectedMap, "Ends the current match at once; everyone rejoins on the chosen map in a few seconds.");
+        _mapBox.Visible = false;
         Header(left, "KILL");
         var kill = Row(left);
         Button(kill, "KILL ME", () => Send(DevCommandKind.KillMe, 0, true), "A suicide: a death on the scoreboard; you respawn at once.");
@@ -163,6 +183,12 @@ public partial class DevToolsPanel : CanvasLayer
         Button(close, "CLOSE", () => SetOpen(false), null);
         outer.AddChild(close);
         Sync();
+    }
+
+    void PickSelectedMap()
+    {
+        int i = _mapPick?.Selected ?? -1;
+        if (i >= 0 && i < _mapChoices.Count) Send(DevCommandKind.PickMap, (byte)i, true);
     }
 
     static void Header(VBoxContainer into, string text) => into.AddChild(new Label { Text = text, Modulate = Blue });
@@ -237,6 +263,13 @@ public partial class DevToolsPanel : CanvasLayer
             case "end": Send(DevCommandKind.EndMatch, 0, true); return true;
             case "restart": Send(DevCommandKind.RestartMatch, 0, true); return true;
             case "skip": Send(DevCommandKind.SkipMatch, 0, true); return true;
+            case "map" when Number(arg, out int mapIndex): Send(DevCommandKind.PickMap, (byte)mapIndex, true); return true;   // an index into the picker's list
+            case "map" when arg.Length > 0:
+            {
+                int at = _maps().ToList().FindIndex(m => m.Name.Equals(arg, StringComparison.OrdinalIgnoreCase));   // or the archive name (map:mp_tdm_17)
+                if (at < 0) return false;
+                Send(DevCommandKind.PickMap, (byte)at, true); return true;
+            }
             case "killme": Send(DevCommandKind.KillMe, 0, true); return true;
             case "kill" when arg is "loyal" or "chaos" or "all": Send(DevCommandKind.KillBots, (byte)(arg == "loyal" ? 0 : arg == "chaos" ? 1 : 2), true); return true;
             case "add" when arg is "loyal" or "chaos": Send(DevCommandKind.AddBot, arg == "chaos" ? DevSides.Chaos : DevSides.Loyalists, true); return true;
@@ -271,6 +304,7 @@ public partial class DevToolsPanel : CanvasLayer
         DevNote.NotPlaying => "That needs a match that is being played (or you are dead).",
         DevNote.TeleportBlocked => "No free spot there, or that target is gone.",
         DevNote.BadValue => "The server refused that value.",
+        DevNote.NoMapChange => "This server cannot change its map (start it with server.cmd --dev-tools).",
         _ => "",
     };
 
@@ -292,6 +326,28 @@ public partial class DevToolsPanel : CanvasLayer
             if (kept is { } k && k.Kind == choices[i].Kind && k.Index == choices[i].Index) select = i;
         }
         if (choices.Count > 0) _teleport.Select(select);
+    }
+
+    /// <summary>Rebuilds the map list when it changed (a new mode or map), keeping the choice; hides the block when there is no list (Musou Mode).</summary>
+    void RefreshMaps()
+    {
+        if (_mapPick is null || _mapBox is null) return;
+        var choices = _maps();
+        string current = _currentMapOf();
+        string signature = string.Join("|", choices.Select(c => c.Name)) + "@" + current;
+        _mapBox.Visible = choices.Count > 0;
+        if (signature == _mapSignature) return;
+        _mapSignature = signature;
+        _mapChoices = choices.ToList();
+        _mapPick.Clear();
+        int select = 0;
+        for (int i = 0; i < _mapChoices.Count; i++)
+        {
+            bool now = _mapChoices[i].Name.Equals(current, StringComparison.OrdinalIgnoreCase);
+            _mapPick.AddItem(_mapChoices[i].Label + (now ? "  (playing now)" : ""));
+            if (now) select = i;
+        }
+        if (_mapChoices.Count > 0) _mapPick.Select(select);
     }
 
     /// <summary>Redraws the controls from the server's state (a closed panel does not bother).</summary>
@@ -322,7 +378,7 @@ public partial class DevToolsPanel : CanvasLayer
             _serialSeen = true; _lastSerial = s.NoteSerial;
             if (s.Note != DevNote.None) SetStatus(NoteText(s.Note));
         }
-        if (IsOpen) RefreshTargets();
+        if (IsOpen) { RefreshTargets(); RefreshMaps(); }
         if (_off is not null && _off.Visible && Time.GetTicksMsec() / 1000.0 > _offUntil) _off.Visible = false;
     }
 

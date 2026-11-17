@@ -6,7 +6,8 @@ using SmSim;
 namespace SmServer;
 
 /// <summary>The developer tools' setup (protocol 80): the address the server listens on (the gate needs loopback), the launcher of the tools' bots (null: bots cannot be added) and the scalable clock the server runs on (null: the time scale is recorded and sent but changes nothing).</summary>
-public sealed record DevToolsSetup(IPAddress Bind, IDevBotLauncher? Launcher, ScalableClock? Clock = null);
+/// <param name="Maps">The maps the tools may switch to (<see cref="DevMapPicks.For"/>, in the panel's order), or null when this server cannot change map (it does not run under its supervisor, or Musou Mode): a map pick is then refused.</param>
+public sealed record DevToolsSetup(IPAddress Bind, IDevBotLauncher? Launcher, ScalableClock? Clock = null, IReadOnlyList<string>? Maps = null);
 
 public sealed partial record ServerOptions
 {
@@ -118,6 +119,7 @@ public sealed partial class GameServer
                 }
                 else Answer(DevNote.NotPlaying);
                 break;
+            case DevCommandKind.PickMap: PickMap(peer, cmd.Argument); break;
             case DevCommandKind.KillMe:
                 if (World.DevKill(peer.PlayerId)) { Log?.Invoke($"dev tools: kill me (player {peer.PlayerId})"); Answer(DevNote.Applied); }
                 else Answer(DevNote.NotPlaying);
@@ -131,6 +133,33 @@ public sealed partial class GameServer
         }
         _devDirty = true;
         if (DevToolsOn) SendDevStates();   // at once, not at the next tick: a paused server runs no ticks
+    }
+
+    /// <summary>The map the tools picked (the match is ending; the server's supervisor starts it), else null.</summary>
+    public string? PickedMap { get; private set; }
+
+    /// <summary>
+    /// Protocol 85: ends the match now and starts a new one on the chosen map. The server cannot swap its map in place (one process, one map), so it does what a rotation does: the match ends, the
+    /// snapshots say NEXT MAP (clients rejoin at the same address once the end clock shows a second), the server stops answering joins and leaves with the rotation's exit code, and its supervisor
+    /// starts the picked map (Program.cs, RotationSupervisor.cs). The map already being played is only restarted (fresh scores), as the restart button does.
+    /// </summary>
+    void PickMap(Peer peer, byte index)
+    {
+        if (World.Config.Extras.HasFlag(ContentExtras.Musou)) { Log?.Invoke("dev tools: map pick refused: not in Musou Mode"); Answer(DevNote.NotInThisMode); return; }
+        if (_options.DevTools?.Maps is not { Count: > 0 } maps) { Log?.Invoke("dev tools: map pick refused: this server cannot change its map (it does not run under its supervisor)"); Answer(DevNote.NoMapChange); return; }
+        if (index >= maps.Count) { Log?.Invoke($"dev tools: map pick refused: no map {index} of {maps.Count}"); Answer(DevNote.BadValue); return; }
+        if (PickedMap is not null) { Answer(DevNote.Applied); return; }   // a pick is already on its way: the second click changes nothing
+        string map = maps[index];
+        if (map.Equals(Map?.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            if (World.DevRestartMatch()) { Log?.Invoke($"dev tools: map pick {map} is the map being played: restart match, fresh scores (player {peer.PlayerId})"); Answer(DevNote.Applied); }
+            else Answer(DevNote.NotPlaying);
+            return;
+        }
+        if (!World.DevPickEnd(MatchFlowWire.RotationRejoinTicks)) { Answer(DevNote.NotPlaying); return; }
+        PickedMap = map;
+        Log?.Invoke($"dev tools: map pick {map}: the match ends now and a new one starts on it (player {peer.PlayerId}); clients rejoin as after a rotation");
+        Answer(DevNote.Applied);
     }
 
     void KillBots(Peer peer, byte which)

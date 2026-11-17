@@ -32,6 +32,11 @@ if (cli.Maps is not null)
     if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
     return RotationSupervisor.Run(args, rotation);
 }
+if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationChild && !cli.DevSupervised && !cli.Content.HasFlag(ContentExtras.Musou))
+{
+    // devtools-map-pick: a developer-tools server runs under its supervisor too, so the tools can switch its map (the supervisor starts the picked map as a rotation does); the player sees one server.
+    return RotationSupervisor.RunDev(args);
+}
 bool customEmblems = cli.CustomEmblems;
 var unlocks = cli.Unlocks;
 int port = cli.Port;
@@ -362,8 +367,14 @@ IClock serverClock = devTools ? new ScalableClock(clock) : clock;   // dev-tools
 if (devTools)
 {
     var (botExe, botProject) = ProcessBotLauncher.Locate(cli.DevBotExe, cli.DevBotProject, AppContext.BaseDirectory);
-    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()), serverClock as ScalableClock);
-    Console.WriteLine($"developer tools: ON (--dev-tools, loopback only; F6 in the client): invincible, freeze bots, infinite ammunition and jump pack, indefinite match, end / restart / skip match, teleport, instant respawn, kill me / kill bots, add / remove bots, bot difficulty, time scale and pause; bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
+    IReadOnlyList<string>? pickable = null;   // devtools-map-pick: the maps the tools may switch to, only under the supervisor (it starts the next map)
+    if ((cli.RotationChild || cli.DevSupervised) && !contentExtras.HasFlag(ContentExtras.Musou))
+    {
+        try { pickable = DevMapPicks.For(MapCatalog.Read(install), mode).Select(m => m.Name).ToList(); }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException) { Console.WriteLine($"developer tools: the map list is unreadable ({e.Message}); the map picker is off"); }
+    }
+    devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()), serverClock as ScalableClock, pickable);
+    Console.WriteLine($"developer tools: ON (--dev-tools, loopback only; F6 in the client): invincible, freeze bots, infinite ammunition and jump pack, indefinite match, end / restart / skip match, map pick{(devSetup.Maps is { Count: > 0 } picks ? $" ({picks.Count} maps)" : " (off: needs the supervisor)")}, teleport, instant respawn, kill me / kill bots, add / remove bots, bot difficulty, time scale and pause; bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
 }
 var server = new GameServer(config, fingerprint, transport, serverClock, new ServerOptions
 {
@@ -576,14 +587,16 @@ while (true)
     try
     {
         server.Update();
+        if (server.World.Tick % 120 == 0 && RotationSupervisor.SupervisorGone()) { Console.WriteLine("supervisor gone: this server exits too"); return 0; }   // a supervisor killed alone must not leave its child listening
         // classic-maps-all: a rotation child's match is over and its clients were told (protocol 79); it answers no more joins (RotationDue) and leaves a moment later for the supervisor's next map.
         if (!server.RotationDue) rotationDueAt = null;   // a rotation that is no longer due (a player joined an empty restart, say) starts its 0.8 s afresh
-        if (cli.RotationChild && server.RotationDue)
+        if ((cli.RotationChild || cli.DevSupervised) && server.RotationDue)
         {
             rotationDueAt ??= clock.Now;
             if (clock.Now - rotationDueAt > TimeSpan.FromMilliseconds(800))
             {
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts");
+                if (server.PickedMap is { } picked) RotationSupervisor.WritePick(picked);   // devtools-map-pick: the supervisor starts this map next
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts{(server.PickedMap is { } p ? $" ({p}, picked with the developer tools)" : "")}");
                 return ServerCommandLine.RotationExit;
             }
         }
