@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using SmClient.Customizer;
 using SmClient.Extras.Warfront.Progression;
@@ -14,7 +15,7 @@ namespace SmClient.Extras.Warfront.Battle;
 public sealed partial class WarfrontBattleHud : Control
 {
     public const int BodySize = 20, HeadingSize = 28, BannerSize = 44;
-    public const float LineTop = 104f, ClockTop = 138f, BannerTop = 250f, BannerSeconds = 4f;
+    public const float LineTop = 104f, ClockTop = 138f, BannerTop = 250f, BannerTopUnderStrip = 390f, BannerSeconds = 4f;
 
     readonly Label _line, _clock, _banner;
     byte _lastMessage;
@@ -22,6 +23,8 @@ public sealed partial class WarfrontBattleHud : Control
     double _bannerUntil;
     bool _have;
 
+    /// <summary>Asked each frame: whether the spectator strip is up under this HUD's line (set by the networked view); the banner is then drawn below the strip and its announcement line (fallen-watch second pass, ours).</summary>
+    public Func<bool>? StripShown { get; set; }
     public Label LineLabel => _line;
     public Label ClockLabel => _clock;
     public Label BannerLabel => _banner;
@@ -60,7 +63,12 @@ public sealed partial class WarfrontBattleHud : Control
     }
 
     /// <summary>Hides the banner when its four seconds are over.</summary>
-    public void Frame(double now) => _banner.Visible = _have && now < _bannerUntil;
+    public void Frame(double now)
+    {
+        _banner.Visible = _have && now < _bannerUntil;
+        float top = StripShown?.Invoke() == true ? BannerTopUnderStrip : BannerTop;
+        if (_banner.Position.Y != top) _banner.Position = new Vector2(_banner.Position.X, top);
+    }
 
     /// <summary>The battle is over or left: nothing is drawn.</summary>
     public void Clear()

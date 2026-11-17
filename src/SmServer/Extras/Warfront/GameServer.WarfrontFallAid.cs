@@ -8,6 +8,8 @@ public sealed partial class GameServer
     TfwBattle? _wfFallBattle;
     uint _wfFallTick;
     bool _wfFallDone;
+    /// <summary>The aid's seconds, read once (null: off or not a number).</summary>
+    static readonly double? WfFallSeconds = double.TryParse(Environment.GetEnvironmentVariable("SM_WF_FALL_TEST"), System.Globalization.CultureInfo.InvariantCulture, out double fallSeconds) && fallSeconds >= 0 ? fallSeconds : null;
 
     /// <summary>
     /// <c>SM_WF_FALL_TEST=&lt;seconds&gt;</c> (test aid; the server must be bound to 127.0.0.1): that many seconds after a node or fortress battle starts, the leader is put far from his squad and falls (the sim's own test kill: the real down path follows, the 25 s revive window then the
@@ -15,7 +17,7 @@ public sealed partial class GameServer
     /// </summary>
     void WarfrontFallAid(WarfrontServerState s)
     {
-        if (!double.TryParse(Environment.GetEnvironmentVariable("SM_WF_FALL_TEST"), System.Globalization.CultureInfo.InvariantCulture, out double seconds) || seconds < 0) return;
+        if (WfFallSeconds is not { } seconds) return;
         if (World.Tfw is not { Battle: { } battle })
         {
             _wfFallBattle = null;
