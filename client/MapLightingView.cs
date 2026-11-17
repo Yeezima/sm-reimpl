@@ -400,6 +400,7 @@ public static class MapLightingView
 
         // classic-maps-fidelity fix 4: the regions' colour grades (a region's ColourGradeEffectDesc). The grade chases its region (any weight above 0 = inside) over the data's BlendDuration seconds.
         MapGradeLut?[] _gradeLuts = [];
+        MapEnvironment[] _gradeRegions = [];   // every region (the global one too: its grade applies everywhere)
         Gradient? _curve;
         Texture? _baseCorrection;
         bool _baseAdjust;
@@ -412,9 +413,12 @@ public static class MapLightingView
         /// <summary><c>--no-colour-grade</c>: the regions' colour grades are not applied (before / after aid).</summary>
         static readonly bool NoColourGrade = Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-colour-grade") >= 0;
 
-        void SetUpGrades(Func<string, byte[]?>? lookup)
+        float GradeWeight(MapEnvironment e) => ReferenceEquals(e, _global) ? 1f : _weights[Array.IndexOf(_others, e)];
+
+        void SetUpGrades(MapLighting lighting, Func<string, byte[]?>? lookup)
         {
-            _gradeLuts = _others.Select(e => e.Grade is { } g && !NoColourGrade && lookup?.Invoke(g.Material) is { } bytes ? MapGradeLut.Read(bytes) : null).ToArray();
+            _gradeRegions = lighting.Environments.ToArray();
+            _gradeLuts = _gradeRegions.Select(e => e.Grade is { } g && !NoColourGrade && lookup?.Invoke(g.Material) is { } bytes ? MapGradeLut.Read(bytes) : null).ToArray();
             if (_gradeLuts.All(l => l is null)) return;
             _baseCorrection = _environment.AdjustmentColorCorrection;
             _baseAdjust = _environment.AdjustmentEnabled;
@@ -426,10 +430,10 @@ public static class MapLightingView
         {
             if (_gradeLuts.All(l => l is null)) return;
             int active = -1;
-            for (int i = 0; i < _others.Length; i++) if (_gradeLuts[i] is not null && _weights[i] > 0f && (active < 0 || _others[i].Priority >= _others[active].Priority)) active = i;
+            for (int i = 0; i < _gradeRegions.Length; i++) if (_gradeLuts[i] is not null && GradeWeight(_gradeRegions[i]) > 0f && (active < 0 || _gradeRegions[i].Priority >= _gradeRegions[active].Priority)) active = i;
             ulong now = Time.GetTicksMsec();
             float dt = (now - _gradeTick) / 1000f; _gradeTick = now;
-            float seconds = active >= 0 ? Math.Max(_others[active].Grade!.BlendSeconds, 0.01f) : 1f;
+            float seconds = active >= 0 ? Math.Max(_gradeRegions[active].Grade!.BlendSeconds, 0.01f) : 1f;
             float target = active >= 0 ? 1f : 0f;
             _gradeStrength = Math.Clamp(_gradeStrength + Math.Sign(target - _gradeStrength) * dt / seconds, 0f, 1f);
             if (MathF.Abs(target - _gradeStrength) < dt / seconds) _gradeStrength = target;
@@ -475,7 +479,7 @@ public static class MapLightingView
             _others = lighting.Environments.Where(e => !ReferenceEquals(e, global)).OrderBy(e => e.Priority).ToArray();
             _otherParams = _others.Select(For).ToArray();
             _weights = new float[_others.Length];
-            SetUpGrades(gradeLookup);
+            SetUpGrades(lighting, gradeLookup);
         }
 
         Params For(MapEnvironment e)
