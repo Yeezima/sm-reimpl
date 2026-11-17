@@ -1,6 +1,7 @@
 using System.Numerics;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Hq;
+using SmSim.Extras.Warfront.Fortress;
 
 namespace SmSim.Extras.Musou.Campaign;
 
@@ -46,7 +47,7 @@ public sealed partial class TfwBattle
     /// <summary>The defence's opening (<c>WarfrontStart</c>): the three positions Secured, the Guardsmen at their posts, nothing else.</summary>
     partial void WarfrontStart(ref bool handled)
     {
-        // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
+        if (_enemies.Warfront?.Fortress is { } setup) { handled = true; FortressStart(setup); return; }   // the fortress battle (W14b), before the HQ branch
         if (!WarfrontHq) return;
         handled = true;
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, TfwPositionState.Secured, 1f, _layout.Positions[k], _layout.Radius(k));
@@ -79,7 +80,7 @@ public sealed partial class TfwBattle
     /// <summary>No position loses progress by Musou's rule in an HQ defence: the fall is the defence's own weighted hold (<see cref="StepHqHold"/>), so Musou's "Orks alone for 20 s" never fires (<c>WarfrontRetake</c>).</summary>
     partial void WarfrontRetake(int position, ref bool allowed)
     {
-        // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
+        if (_fortress is not null) { allowed = false; return; }   // the fortress waypoints are never retaken (W14b)
         if (!WarfrontHq) return;
         allowed = false;
     }
@@ -87,7 +88,7 @@ public sealed partial class TfwBattle
     /// <summary>The battle's own crowds and trickle stay off in an HQ defence: its sources are opened by stage (<see cref="HqSourceOpen"/>) and fed by the waves (<c>WarfrontSourceActive</c>).</summary>
     partial void WarfrontSourceActive(int source, ref bool active, ref bool handled)
     {
-        // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
+        if (_fortress is not null) { handled = true; active = FortressSourceActive(source); return; }   // the fortress's stages (W14b)
         if (!WarfrontHq) return;
         handled = true;
         active = false;

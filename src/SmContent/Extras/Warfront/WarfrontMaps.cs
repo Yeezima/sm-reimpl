@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Diagnostics;
 using System.Globalization;
 using SmSim;
@@ -49,8 +50,16 @@ public static class WarfrontMaps
             }
             if (name == FortressName)
             {
-                var f = WarfrontFortressMap.Build();
-                return new WarfrontLoadedMap(name, f.Collision, [new SpawnPoint(f.LandingZone, 0f)], f.Level.Areas, f.Hash, null, f.WalkArea);
+                // W14b: the arena of WarfrontSlots.Fortress composed with the hub exactly as the HQ is (the one line a handmade map changes is that property). The three waypoints stand in as the
+                // composed field's three points (never an objective: the battle reads its own layout), the landing zone and the boss spot as the two start areas.
+                var arena = WarfrontSlots.Fortress;
+                var plan = WarfrontArenaLayout.Plan(arena);
+                var collision = arena is WarfrontFortressBuild generated ? AshfallContent.ToMapContent(generated.Level).ToCollisionWorld() : arena.Collision;   // the generated level is drawn by the client from its Level: same collision on both sides
+                ControlPoint[] points = [new("Breach", plan.Breach, 10f, 12f), new("Gate", plan.Gate, 12f, 12f), new("Plaza gate", plan.PlazaGate, 14f, 12f)];
+                StartArea[] areas = [new(Team.SpaceMarines, arena.LandingZone, new Vector3(60f, 24f, 8f), 0f), new(Team.Chaos, arena.BossSpot, new Vector3(80f, 80f, 8f), 0f)];
+                Vector3[] spawns = [arena.LandingZone, arena.BossSpot, .. arena.Sources.Select(x => x.Position), .. arena.Posts.Select(x => x.Position)];
+                var data = TfwMap.Compose(collision, points, areas, spawns, manufactorum: false);
+                return new WarfrontLoadedMap(name, data.Collision, data.Spawns, data.StartAreas, data.Hash, data, data.Field.WalkArea());
             }
             problem = $"{name} is not a Warfront map";
             return null;
@@ -66,7 +75,7 @@ public static class WarfrontMaps
     public static NavGraph Nav(WarfrontLoadedMap map, SimConfig config, out string note, string? cacheDirectory = null)
     {
         if (WarfrontSlots.ByName(map.Name) is { } slot && map.Tfw is { } data) return WarfrontWorld.Nav(slot, data, config, out note, cacheDirectory);
-        if (map.Name == HqName && map.Tfw is { } hq) return NavOf(HqName, hq, config, out note, cacheDirectory);
+        if (map.Name is HqName or FortressName && map.Tfw is { } composed) return NavOf(map.Name, composed, config, out note, cacheDirectory);
         var settings = NavSettings.From(config);
         var area = map.WalkArea ?? throw new InvalidOperationException(map.Name + " has no walk area");
         var mesh = map.Collision.Character;

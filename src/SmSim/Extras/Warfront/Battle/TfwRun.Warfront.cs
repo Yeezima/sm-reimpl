@@ -1,6 +1,7 @@
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Hq;
+using SmSim.Extras.Warfront.Fortress;
 
 namespace SmSim.Extras.Musou.Campaign;
 
@@ -50,7 +51,7 @@ public sealed partial class TfwRun
     partial void WarfrontBattlePlan(World w, TfwLane lane, int node, ref TfwLayout layout, ref bool final, ref float elite)
     {
         if (Warfront is not { } rules) return;
-        // FORTRESS-SPOT (W14b): the fortress's layout, final = true and elite share go here (a Target == Fortress case)
+        if (rules.Fortress is { } setup) { layout = setup.Plan.Layout; final = true; elite = WarfrontFortressBattleRules.EliteShare; return; }   // the fortress battle (W14b)
         switch (rules.Target)
         {
             case WarfrontTargetKind.Hq:

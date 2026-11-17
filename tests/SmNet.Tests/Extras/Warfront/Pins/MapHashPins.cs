@@ -48,5 +48,15 @@ public class MapHashPins(ITestOutputHelper output)
         Assert.Equal(HqMapHash, hq.Hash);
     }
 
-    const ulong HqMapHash = 0x0FC12BFD61DBE655UL;
+    /// <summary>W14b: the Ork fortress composed with the hub (the only pin this slice adds; no existing value moves).</summary>
+    [Fact]
+    public void The_fortress_map_composed_with_the_hub_builds_to_its_pin()
+    {
+        var fortress = WarfrontMaps.Load(WarfrontMaps.FortressName, out var problem);
+        Assert.Null(problem);
+        output.WriteLine($"wf_fortress composed 0x{fortress!.Hash:X16}UL");
+        Assert.Equal(FortressMapHash, fortress.Hash);
+    }
+
+    const ulong HqMapHash = 0x0FC12BFD61DBE655UL, FortressMapHash = 0xD8E65F5C51CD8DF5UL;
 }

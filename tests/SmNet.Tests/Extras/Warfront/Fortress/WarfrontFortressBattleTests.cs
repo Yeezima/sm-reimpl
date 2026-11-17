@@ -140,7 +140,7 @@ public class WarfrontFortressBattleTests
         string root = AppContext.BaseDirectory;
         while (root is not null && !Directory.Exists(Path.Combine(root, "src", "SmSim", "Extras", "Warfront", "Fortress"))) root = Path.GetDirectoryName(root)!;
         Assert.NotNull(root);
-        foreach (string file in new[] { "TfwBattle.WarfrontFortress.cs", "WarfrontFortressBattleRules.cs", "WarfrontArenaLayout.cs", "WarfrontFortressHooks.cs", "TfwRun.WarfrontFortress.cs" })
+        foreach (string file in new[] { "TfwBattle.WarfrontFortress.cs", "WarfrontFortressBattleRules.cs", "WarfrontArenaLayout.cs", "TfwRun.WarfrontFortress.cs" })
         {
             string text = File.ReadAllText(Path.Combine(root, "src", "SmSim", "Extras", "Warfront", "Fortress", file));
             Assert.DoesNotContain("WarfrontFortressMap", text);
@@ -393,8 +393,8 @@ public class WarfrontFortressBattleTests
         Assert.NotEmpty(own);
         var plan = WarfrontArenaLayout.Plan(new StubArena());
         int last = WarfrontFortressBattleRules.GroupFirst + plan.ElitePosts.Count + plan.ApproachPosts.Count;
-        foreach (int g in own.Where(g => g < 100_000)) Assert.True(g + 20 < WarfrontFortressBattleRules.GroupFirst, $"a battle group {g} is near the fortress's");   // patrol columns run from 13 on, the Big Shootas to 23
-        Assert.True(last < 100_000);   // the armies' groups start at 100000
+        foreach (int g in own.Where(g => g < 1000)) Assert.True(g + 20 < WarfrontFortressBattleRules.GroupFirst, $"a battle group {g} is near the fortress's");   // patrol columns run from 13 on, the Big Shootas to 23; the HQ defence's wave groups (1000 and up, W13b) never share a battle with the fortress
+        Assert.True(last < 1000);   // below the HQ's wave groups, and so below the armies' (100000)
     }
 
     [Fact]

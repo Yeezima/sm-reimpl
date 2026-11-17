@@ -35,6 +35,7 @@ public partial class NetworkView
     partial void WarfrontMapContent(string name, ref MapContent? map)
     {
         if (name == WarfrontMaps.HqName) { WarfrontHqContent(ref map); return; }   // W13b (WarfrontHqClient.cs)
+        if (name == WarfrontMaps.FortressName) { WarfrontFortressContent(ref map); return; }   // W14b (WarfrontFortressClient.cs)
         if (WarfrontSlots.ByName(name) is not { } slot) return;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         if (NoAshfallCache) AshfallLayoutCache.Disabled = true;
@@ -88,6 +89,7 @@ public partial class NetworkView
     partial void WarfrontMapVisuals(string name, ref bool drawn)
     {
         if (name == WarfrontMaps.HqName) { WarfrontHqVisuals(ref drawn); return; }   // W13b (WarfrontHqClient.cs)
+        if (name == WarfrontMaps.FortressName) { WarfrontFortressVisuals(ref drawn); return; }   // W14b (WarfrontFortressClient.cs)
         if (WarfrontSlots.ByName(name) is not { } slot || _warfrontLevel is null || _warfrontDressing is null || _gameSpace is null) return;
         try
         {

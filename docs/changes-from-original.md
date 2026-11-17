@@ -37,6 +37,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 |---|---|---|---|
 | The fortress battle: Musou's final assault on an arena, one leashed Warboss, staged Ork sources, elite pairs on the posts, two Boss Orks on the approaches; the Warboss's death wins the campaign on that tick | the win and the wipe rule are the owner's (2026-11-17); everything else ours (not an SM1 mode), every number an estimate | elite share 0.6; stages by the humans' position (entries, plaza); no source within 30 m of a human or in sight of one in the plaza | Warfront fortress battle |
 | The three "positions" of the fortress layout are waypoints, not capture points | ours: the battle code runs without capture objectives (Secured from the start, never taken, never paid) | gate, breach, plaza gate | Warfront fortress battle |
+| The fortress is composed with the hub and has a ship; its Battle section (kind 2) reuses the hold byte as the Warboss's health | ours: the HQ's precedent; banners BREACH THE FORTRESS, THE WARBOSS IS IN THE ARENA, THE WARBOSS IS DEAD | tag 47, ids 6 to 8 | Warfront fortress battle |
 
 ### Controller (gamepad feature; spec "Controller (gamepad)")
 

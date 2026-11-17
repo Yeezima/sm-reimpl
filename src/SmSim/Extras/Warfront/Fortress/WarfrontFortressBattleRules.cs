@@ -28,6 +28,11 @@ public static class WarfrontFortressBattleRules
     public const int GroupFirst = 200;
     /// <summary>A leashed elite or Boss Ork wakes when a target comes this close (Musou's defender aggro).</summary>
     public const float Aggro = TfwBattleRules.DefenderAggro;
+    /// <summary>The Battle section's message ids for the fortress (after the HQ's 0 to 5) and how long a banner stays, seconds.</summary>
+    public const byte MessageBreach = 6, MessageWarbossInArena = 7, MessageWarbossDead = 8;
+    public const float MessageSeconds = 4f;
+    /// <summary>The Battle section's text for those ids (one style, capitals).</summary>
+    public static string MessageText(byte id) => id switch { MessageBreach => "BREACH THE FORTRESS", MessageWarbossInArena => "THE WARBOSS IS IN THE ARENA", MessageWarbossDead => "THE WARBOSS IS DEAD", _ => "" };
     /// <summary>The Warboss's leash is released when a human enters the plaza (its radius), or wakes by the usual aggro.</summary>
     public const float WarbossAggro = TfwBattleRules.DefenderAggro;
 }

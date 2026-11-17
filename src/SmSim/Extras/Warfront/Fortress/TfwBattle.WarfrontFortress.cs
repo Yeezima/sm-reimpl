@@ -24,6 +24,26 @@ public sealed partial class TfwBattle
     public int FortressElitesMade { get; private set; }
     public int FortressBossOrksMade { get; private set; }
 
+    /// <summary>The banner the Battle section carries (<see cref="WarfrontFortressBattleRules.MessageBreach"/> and the others; 0: none), shown for <see cref="WarfrontFortressBattleRules.MessageSeconds"/>.</summary>
+    public byte FortressMessage { get; private set; }
+    int _fortressMessageTicks;
+
+    /// <summary>The Warboss's health in percent in steps of 5 (the Battle section's last byte in the fortress; 100 before he is read, 0 when he is dead).</summary>
+    public byte FortressWarbossPercent
+    {
+        get
+        {
+            if (BossId == 0 || BossMaxHealth <= 0f || !_enemies.TryGet(BossId, out var boss)) return Won ? (byte)0 : (byte)100;
+            return (byte)(Math.Clamp((int)MathF.Ceiling(boss.Health / BossMaxHealth * 20f), 0, 20) * 5);
+        }
+    }
+
+    void FortressSay(byte message)
+    {
+        FortressMessage = message;
+        _fortressMessageTicks = Ticks(WarfrontFortressBattleRules.MessageSeconds);
+    }
+
     /// <summary>The fortress's own opening: Musou's final-assault start with the Warboss leashed at the boss spot and the posts and approaches held.</summary>
     void FortressStart(WarfrontFortressSetup setup)
     {
@@ -44,6 +64,7 @@ public sealed partial class TfwBattle
         SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale * _bonus.BossHealthFactor, leashed: true);   // the one Warboss of the run, leashed to the plaza until a human enters it
         if (BossId != 0 && _enemies.TryGet(BossId, out var boss)) BossMaxHealth = boss.Health;   // the level and human scaling were applied at the spawn: the bar's full is what he stands with
         FortressPlace(setup.Plan);
+        FortressSay(WarfrontFortressBattleRules.MessageBreach);
     }
 
     /// <summary>A leashed Nob and Big Shoota Nob on each elite post; a Boss Ork leashed on each approach (all off the crowds' cap, as Musou's big Orks are).</summary>
@@ -82,8 +103,14 @@ public sealed partial class TfwBattle
     /// <summary>One tick of the fortress's stages from the living humans' feet; the plaza's first human frees the Warboss. No-op outside the fortress.</summary>
     public void FortressObserve(ReadOnlySpan<Vector3> humans)
     {
-        if (_fortress is not { } state || Won) return;
-        if (state.Observe(humans)) _enemies.ReleaseGroup(CommanderGroup);
+        if (_fortress is not { } state) return;
+        if (Won) { if (FortressMessage != WarfrontFortressBattleRules.MessageWarbossDead) FortressSay(WarfrontFortressBattleRules.MessageWarbossDead); return; }
+        if (FortressMessage != 0 && --_fortressMessageTicks <= 0) FortressMessage = 0;
+        if (state.Observe(humans))
+        {
+            _enemies.ReleaseGroup(CommanderGroup);
+            FortressSay(WarfrontFortressBattleRules.MessageWarbossInArena);
+        }
     }
 
     /// <summary>Whether source <paramref name="index"/> sends now (<see cref="WarfrontFortressState.SourceOpen"/>); the first three also check their crowd's anchor at the waypoint.</summary>
