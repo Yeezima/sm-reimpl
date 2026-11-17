@@ -541,7 +541,9 @@ public static partial class Protocol
     // 83 (grenade-effects; the owner 2026-11-17; the plasma cannon branch took 84): ProjectileFlags.Upgraded (bit 5 of a projectile record's flag byte, a thrown item only): the grenade was launched with its owner's Master-Crafted Wargear
     //     blueprint, so every client draws and sounds the upgraded blast (effect scale 1.5 against 0.6, the bigger blast sound) and trail. No sim change; the config hash is unchanged. Restore switch (client): --old-grenade-fx.
     // 84 (sim/plasma-cannon-auto-release; the owner 2026-11-17; renumbered from 82 after the grenades): no layout change. The plasma cannon's charge fires by itself when it reaches the firing stage (3 s; 1.65 s with Improved Plasma Charge), button held or not (SimConfig.PlasmaCannonAutoRelease; Classic PvP and Musou Mode). Client prediction must agree, hence the bump.
-    public const ushort Version = 84;
+    // 85 (sim/ledge-charge-hop; the owner 2026-11-17): no layout change. The hop out of a ledge charge (Assault Marine and Raptor; Classic PvP, Musou Mode and every mode sharing the simulation) keeps the charge's horizontal speed and eases it down to the hop's top speed
+    //     (LedgeHop: the body no longer stops dead while the Jump press waits for its tap, and the hop's flight adds the carried excess over its clip's speed, decaying with a 0.15 s time constant). Client prediction must agree, hence the bump. Restore switch (config hash): --old-ledge-hop.
+    public const ushort Version = 85;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

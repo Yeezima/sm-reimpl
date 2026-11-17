@@ -90,7 +90,7 @@ public class GrenadeEffectsTests
     [Fact]
     public void The_protocol_is_83_and_the_flag_needs_no_hash_change()
     {
-        Assert.Equal(84, Protocol.Version);
+        Assert.Equal(85, Protocol.Version);
         Assert.Equal(32, (int)ProjectileFlags.Upgraded);
     }
 }

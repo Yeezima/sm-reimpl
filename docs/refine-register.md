@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3455 spec table rows: **2469 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 766 rows of the changes document.
+Scanned 3460 spec table rows: **2474 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +38,7 @@ Scanned 3455 spec table rows: **2469 tagged**, 635 not tagged (read from data wi
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 159 | 139 | 115 | 56 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
-| Charge (critical) | 59 | 49 | 48 | 24 | 0 |
+| Charge (critical) | 65 | 53 | 50 | 27 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 76 | 71 | 56 | 12 | 0 |
@@ -54,17 +55,19 @@ Scanned 3455 spec table rows: **2469 tagged**, 635 not tagged (read from data wi
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
 | **All areas** | **2469** | 2193 | 1832 | 735 | 37 |
+| **All areas** | **2474** | 2196 | 1834 | 738 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1462 |
+| kind: ours | 1465 |
 | confidence: low | 885 |
-| confidence: medium | 838 |
+| confidence: medium | 840 |
 | notes: ours | 405 |
 | kind: interpretation | 395 |
-| notes: estimate | 204 |
+| notes: estimate | 207 |
 | kind: estimate | 174 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
@@ -1454,7 +1457,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0DB8F980` | Jets fade | out over 0.2 s, back over 0.25 s, linear (s) | kind: estimate; confidence: low; notes: ours | owner's "smoothly"; values ours | Jets fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: out over 0.2 s, back over 0.25 s, linear. | ☐ |
 | `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
-### Charge (gameplay-critical) (59)
+### Charge (gameplay-critical) (65)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -1554,6 +1557,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-65E068A4` | The S cancel at once | S held back ends the bull rush on the tick after its start or any later tick, with no wait for the stick branch (it was 0.467 s); keyboard S, S + A, S + D, a pad's stick in the back three of eight sectors and at least **0.5** of full length… | kind: ours; notes: estimate | owner 2026-11-12; the 0.5 ours | The S cancel at once: compare with SM1 by feel or video. Ours: S held back ends the bull rush on the tick after its start or any… | ☐ |
 | `R-712DDB84` | S held at the start | needs no rule: the start needs W (the stick's forward part at least 0.7; a keyboard's W + S cancel out), so S cannot be held on the press tick; no fresh press is needed after it, S from the second tick cancels | kind: ours; confidence: medium | ours | S held at the start: compare with SM1 by feel or video. Ours: needs no rule: the start needs W (the stick's forward part at least… | ☐ |
 | `R-A9FD2798` | What an early cancel does | as the cancel at the branch (the charge is over at once, normal movement, no stop clip, no reaction, the 1 s spacing runs on) except the horizontal speed it carries is capped at the sprint speed (the clip's opening burst of 28 to 41 m/s would otherwise slide… (m/s) | kind: ours; notes: estimate | ours | What an early cancel does: compare with SM1 by timing a run over a known distance. Ours: as the cancel at the branch (the charge is over at once, normal… | ☐ |
+
+*Spec section: Ledge charge hop: the hop out of a charge held in the air keeps the charge's speed and eases it to the hop's top speed (sim/ledge-charge-hop; owner 2026-11-17; protocol 85; Assault Marine and Raptor; Classic PvP, Musou Mode and every mode sharing the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3B8660C3` | The carried speed | a Jump press that ends a charge held in the air keeps the charge's horizontal velocity while its tap or hold is still pending in the input buffer (0.3 s; a refused or lapsed press falls back to the old stop, no walk-off drop meanwhile), and the hop's flight… (m/s) | confidence: medium | owner 2026-11-17 (the rule) | The carried speed: compare with SM1 by timing a run over a known distance. Ours: a Jump press that ends a charge held in the air keeps the charge's… | ☐ |
+| `R-AD0F2B6C` | Ease time | the excess over the hop's top speed (the press-to-tap wait) and then over the clip's speed (the flight) decays as exp(-t / **0.15 s**) per tick: a 40 m/s charge is at about 21 m/s in 0.5 s (s) | kind: ours; notes: estimate | owner 2026-11-17 | Ease time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the excess over the hop's top speed (the press-to-tap wait) and then… | ☐ |
+| `R-3AC0FA36` | The hop's top speed | the fastest horizontal speed of the dash clip's extracted motion (about 20.8 m/s on the install, all four directions alike): the speed the wait eases down to; a charge slower than it is not touched (m/s) | confidence: medium | the clip's root motion | The hop's top speed: compare with SM1 by timing a run over a known distance. Ours: the fastest horizontal speed of the dash clip's extracted motion… | ☐ |
+| `R-4D1CAFFE` | Carry slack | an excess of at most **0.25 m/s** over the clip's previous speed is ignored (collision slides, rounding) (m/s) | kind: ours; notes: estimate | owner 2026-11-17 | Carry slack: compare with SM1 by timing a run over a known distance. Ours: an excess of at most 0.25 m/s over the clip's previous speed is… | ☐ |
+| `R-5E089F7D` | What is unchanged | a hop from rest, a walk or a run, any hop not out of a ledge charge (the aerial tackle's hop takes the clip's own speed, as before), the Tactical and Devastator classes; the restore switch `--old-ledge-hop` (server and every client; config hash only when on)… | kind: ours | owner 2026-11-17 | What is unchanged: compare with SM1 by feel or video. Ours: a hop from rest, a walk or a run, any hop not out of a ledge charge… | ☐ |
+| `R-34CE6FFF` | Fall pose delay | a charge held in the air shows its clip until **0.4 s** off the ground (0.3 s before), then the fall pose, cross-faded over **0.25 s** (the stance fade and the fall legs' ramp), then the landing as always when nothing else was done (client only; own and seen… (s) | kind: ours; notes: estimate | owner 2026-11-17 ("the player should start playing the falling animation .4s into a ledge charge ... smoothly transition them to the falling animation, and… | Fall pose delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a charge held in the air shows its clip until 0.4 s off the ground… | ☐ |
 
 ### Reactions (gameplay-critical) (25)
 
@@ -5257,6 +5271,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5A4CE004` | Plasma cannon effects: squared edge fades (plasma-cannon-shots; owner 2026-11-17 "no hard lines"; client only) | The cannon's trail ribbons and glow cards were cut by the data's textures with a straight edge, a bright plateau and a hard head | Ours / estimate: the cannon's own effects (loyalist and Chaos, its impacts included) fall to zero from the axis or centre, squared, with a ribbon head that fades in over twice its width; the gun, pistol and other plasma effects keep the earlier plasma-soft-visuals curves | The owner's order ("absolutely no hard lines"; keep the data's size); constants and curves are our tuning, to check by eye (`PlasmaSoftEdges.Lateral`, `Radial`, `CannonLook`) | Plasma cannon effects: squared edge fades…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CFDB3A1F` | Plasma cannon blast rim blur (plasma-cannon-shots; owner 2026-11-17 "soften it"; client only) | The cannon's impact drew a round dome and a disc with a bright rim (the `emp_ball_main`, `cloud_highlights_additive_02` and `bright_flash` cards) | Ours / estimate: those cards are read blurred (5 x 5 taps) and fade out toward their edge, flat shock-wave rings included; size and colour are the data's | The owner: "Soften it"; blur width and taps are ours (about +0.33 ms a frame measured on a fast GPU in the Compatibility renderer) | Plasma cannon blast rim blur (plasma-cannon-shots; owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E1A87700` | Plasma cannon charged shot: larger front ball and violet trail traces (plasma-cannon-shots; owner 2026-11-17; client only) | The data's ball is small and its trail pale cyan-white | Ours / estimate: the front ball's rings are drawn 1.25 x larger (owner: "make it only 1.25x bigger"); the loyalist trail's streamers carry 55 % violet; ball, glow and blast keep the data's colour and the blast its size | The owner: "only the trail has traces of violet. also make the main projectile ball at the front larger to match the reference image"; the factor 3.5 and the 55 % are our estimates | Plasma cannon charged shot: larger front ball and violet…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-1227826A` | Ledge charge hop: the hop keeps the charge's speed (sim/ledge-charge-hop, 2026-11-17; protocol 85; Assault Marine and Raptor, every mode) and the fall pose starts 0.4 s into a ledge charge | The owner: hopping out of a ledge charge stopped the body nearly dead and then gave the hop's own speed; it should ease from the charge's fast momentum to the hop's top speed, and the fall animation should start 0.4 s into the ledge charge and blend in smoothly, then land | The Jump press that ends a charge held in the air keeps the charge's horizontal velocity while the hop waits for its tap, and the hop's flight adds the carried excess over its clip's speed, easing it off with a 0.15 s time constant (about 0.5 s from 40 m/s to the hop's about 20.8 m/s); hops from rest, a run or… | Owner 2026-11-17 (verbatim words in the spec). The 0.15 s ease, the 0.25 m/s slack and the 0.25 s cross-fade are ours. Spec "Ledge charge hop" | Ledge charge hop: the hop keeps the charge's speed…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

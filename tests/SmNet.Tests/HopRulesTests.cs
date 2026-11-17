@@ -67,7 +67,7 @@ public class HopRulesTests(ITestOutputHelper output)
         bool hopped = false;
         for (int k = 0; k < 8 && !hopped; k++) { s = Step(s, Classic, InputButtons.None, mx: 1f); hopped |= Evade.Evading(s); }
         Assert.True(hopped);
-        Assert.False(s.JumpAirOpen);
+        Assert.False(s.JumpAirOpen);   // holds only because this scenario has no excess to carry (a charge no faster than the hop): a carrying hop keeps the bit while it carries (LedgeChargeHopTests)
     }
 
     [Fact]

@@ -535,6 +535,16 @@ public static class Evade
         var right = new Vector2(forward.Y, -forward.X);
         var delta = right * local.X + forward * local.Y;
         var horizontal = dt > 0f ? delta / dt : Vector2.Zero;
+        // sim/ledge-charge-hop (protocol 85): a hop out of a ledge charge carries the charge's speed over the clip's, easing it off (LedgeHop.Extra): the extra speed along the hop's own direction.
+        bool carrying = false;
+        if (move.Flight && spec.Dash && !t.Landed && dt > 0f && horizontal.LengthSquared() > 1e-8f)
+        {
+            float clip = horizontal.Length();
+            float clipBefore = from > 0f ? (move.At(from) - move.At(MathF.Max(0f, from - dt))).Length() / dt : clip;
+            float extra = LedgeHop.Extra(c, s, new Vector2(s.Velocity.X, s.Velocity.Y).Length(), clipBefore);
+            carrying = extra > 0f;
+            if (extra > 0f) { horizontal *= (clip + extra) / clip; delta = horizontal * dt; }
+        }
         PlayerState next;
         landed = false;
         float before = move.HeightAt(from), after = move.HeightAt(to);
@@ -575,6 +585,8 @@ public static class Evade
             var achieved = new Vector2(next.Position.X - s.Position.X, next.Position.Y - s.Position.Y) - PlayerCollision.LastPush;
             wallHit = Vector2.Dot(achieved, delta / wished) <= wished * sin * sin + 1e-6f;
         }
+        // sim/ledge-charge-hop: the carry's latch, in the hop's own state: JumpAirOpen (the air jump the ledge charge's press opened) stays set while the hop carries the charge's excess speed and ends with it.
+        if (spec.Dash && move.Flight && !t.Landed) next = next with { JumpAirOpen = carrying };
         return next;
     }
 }
