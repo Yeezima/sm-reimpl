@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3757 spec table rows: **2729 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 780 rows of the changes document.
-Scanned 3736 spec table rows: **2708 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 779 rows of the changes document.
+Scanned 3760 spec table rows: **2732 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 781 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,30 +51,20 @@ Scanned 3736 spec table rows: **2708 tagged**, 672 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
-| General game design | 137 | 133 | 110 | 17 | 0 |
-| Ork faction | 278 | 264 | 162 | 70 | 0 |
-| **All areas** | **2729** | 2443 | 2064 | 805 | 37 |
-| Core simulation (provisional values) | 834 | 789 | 619 | 232 | 1 |
-| General game design | 131 | 128 | 104 | 17 | 0 |
-| Ork faction | 266 | 253 | 150 | 70 | 0 |
-| **All areas** | **2708** | 2424 | 2043 | 805 | 37 |
+| General game design | 139 | 135 | 112 | 17 | 0 |
+| Ork faction | 279 | 265 | 163 | 70 | 0 |
+| **All areas** | **2732** | 2446 | 2067 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1588 |
-| confidence: low | 1004 |
+| kind: ours | 1590 |
+| confidence: low | 1007 |
 | confidence: medium | 951 |
 | notes: ours | 467 |
-| kind: interpretation | 434 |
+| kind: interpretation | 435 |
 | kind: estimate | 245 |
-| kind: ours | 1585 |
-| confidence: low | 991 |
-| confidence: medium | 943 |
-| notes: ours | 467 |
-| kind: interpretation | 434 |
-| kind: estimate | 229 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -3975,8 +3964,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (137)
-### General game design (131)
+### General game design (139)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4721,6 +4709,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-81E623C2` | Approach Boss Orks | one Boss Ork (kinds in Musou's order) leashed at the middle stop of each of the last two routes; none roam (Musou's roaming Boss Orks do not come in the final assault); an arena with one route holds one (Orks) | kind: ours; confidence: low | `FortressPlace` | Approach Boss Orks: compare with SM1 by feel or video. Ours: one Boss Ork (kinds in Musou's order) leashed at the middle stop of… | ☐ |
 
+*Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-850D1003` | Stuck Orks inside the keep and the caves (W13d diagnosis, level version 2, drain 40 s, pair off) | 2026-11-17, in-process on the composed graph, level 5 Ork scaling, seed fixed (deterministic): `passive` 307 stuck records of 586 Orks made (52.4 %): keep hall 102, tunnels 97, chamber 71, courtyard 21, ramp and assembly 16; cells x 0 y 130 (49), x -10 y 130… (records, %) | kind: ours; confidence: low | W13d diagnosis | Stuck Orks inside the keep and the caves (W13d diagnosis…: compare with SM1 by feel or video. Ours: 2026-11-17, in-process on the composed graph, level 5 Ork scaling… | ☐ |
+
 *Spec section: Added content: Warfront dressing, part 1 (warfront/dress, 2026-11-17; the Ork fortress and the far massing of the lane nodes; client only, Warfront only; no collision, no hash, no wire, no rules version; the fortress level hash is unchanged)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -4738,11 +4732,6 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-DFF02A46` | Drawing steps | graybox at once, then one step a frame, 0.05 s apart (`WarfrontBandBusy` held while they run): plan, kit, one plated look a frame (six), bake, one piece group a frame (eight), outside ground, outside scenery, look, storm; a step that fails is logged and… (s) | kind: ours; confidence: medium | the W5d review and the dressing brief (build in steps a frame apart, report the longest real-time frame) | Drawing steps: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: graybox at once, then one step a frame, 0.05 s apart… | ☐ |
 | `R-DBBD2FA5` | Measured load frames (self-view on this PC, real time, no server) | warm shader cache: the longest step plus its frame 182 to 643 ms (the storm, which is Musou's own), the dressing's own steps 1 to 90 ms; cold cache (the shader's source changed): one frame of 1.4 to 2.0 s, the plated shader's pipeline compile, once per shader… (ms) | confidence: medium | measured by the slice | Measured load frames (self-view on this PC, real time, no…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: warm shader cache: the longest step plus its frame 182 to 643 ms (the… | ☐ |
 | `R-A45D133D` | Far massing (nodes 1 to 3) | low blocks in the band's frame between the neighbouring band's copy (from 794 m when a north neighbour exists, from 304 m for node 3) and 140 m short of the spire: rows every 34 m, blocks 16 to 63 m wide, blocks per side per row 2 growing to 8 toward the… (m) | kind: estimate; confidence: low | W5d review finding 10 and the dressing brief amendment 3 | Far massing (nodes 1 to 3): compare with SM1 by measuring on a flat spot of the same map. Ours: low blocks in the band's frame between the neighbouring band's copy… | ☐ |
-*Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-850D1003` | Stuck Orks inside the keep and the caves (W13d diagnosis, level version 2, drain 40 s, pair off) | 2026-11-17, in-process on the composed graph, level 5 Ork scaling, seed fixed (deterministic): `passive` 307 stuck records of 586 Orks made (52.4 %): keep hall 102, tunnels 97, chamber 71, courtyard 21, ramp and assembly 16; cells x 0 y 130 (49), x -10 y 130… (records, %) | kind: ours; confidence: low | W13d diagnosis | Stuck Orks inside the keep and the caves (W13d diagnosis…: compare with SM1 by feel or video. Ours: 2026-11-17, in-process on the composed graph, level 5 Ork scaling… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
