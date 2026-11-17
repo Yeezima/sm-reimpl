@@ -142,6 +142,8 @@ public sealed partial class Hud : Control
         public bool Aiming, Braced;
         /// <summary>ui/hud-3: the own player has the Iron Halo perk (the armour bar with the starburst medallion; others get the reference's bar without it).</summary>
         public bool IronHalo;
+        /// <summary>Added content keeps the own damage vignette off (Musou Mode: the Dreadnought, owner 2026-11-15); the health bar and hit sounds stay.</summary>
+        public bool DamageVignetteOff;
         /// <summary>ui/hud-3: the weapon box's bar for a recharging weapon (the melta): 0..1 progress to the next shot, or negative to use the clip's/heat's own fraction.</summary>
         public float WeaponBarFull = -1f;
         public bool AimedAtEnemy;

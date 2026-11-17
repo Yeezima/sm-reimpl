@@ -43,6 +43,9 @@ public partial class NetworkView
     }
 
     /// <summary>The attack pose's drawn strike time: the Musou weight pass's retime (MW4), then Musou's power spear shows its strike's clip at the drawn time (both Musou Mode only).</summary>
+    /// <summary>The own damage flash and HUD vignette: off while the own player is the Musou Dreadnought (owner 2026-11-15, "Turn flash off"; Musou Mode only).</summary>
+    partial void ExtrasDamageFlashOff(PlayerState me, ref bool off) { if (IsDreadnoughtClass(me.Class)) off = true; }
+
     partial void ExtrasAttackTime(PlayerState state, bool own, ref float attackTime)
     {
         MusouPunchTime(state, own, ref attackTime);
