@@ -30,9 +30,9 @@ public static partial class MusouCleaveShape
 
     /// <summary>
     /// The cleave of <paramref name="step"/> by a player wielding <paramref name="wargear"/>, in a war (<paramref name="war"/>) or in the 5-wave run. <paramref name="human"/>: a human player's character
-    /// (the war's x0.6, <see cref="TfwCombatRules.ScalesPlayer"/>); false for an AI Marine, who keeps the reach before it.
+    /// (the war's x0.6, <see cref="TfwCombatRules.ScalesPlayer"/>); false for an AI Marine, who keeps the reach before it. <paramref name="warfrontScale"/>: Warfront's own reach scale (1 elsewhere).
     /// </summary>
-    public static Shape Of(SimConfig config, MeleeStep step, bool war, string? wargear = null, bool human = true)
+    public static Shape Of(SimConfig config, MeleeStep step, bool war, string? wargear = null, bool human = true, float warfrontScale = 1f)
     {
         var rules = (config.MusouRules ?? MusouRules.Default).Combat;
         float reach = rules.CleaveRange(config.MeleeRange, step.TrackToHit, war);
@@ -47,6 +47,7 @@ public static partial class MusouCleaveShape
         }
         if (config.Extras.HasFlag(ContentExtras.Musou)) ArsenalShape(wargear, ref reach, ref half, ref most);
         if (war && human) reach *= TfwCombatRules.Default.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape, as World.MusouCleave)
+        if (warfrontScale != 1f) { reach *= warfrontScale; most = MusouSim.Capacity; }   // Warfront (owner 2026-11-18): x1.2, the Dreadnought x1.4, no cap (World.WarfrontCleave); the caller passes it only in a Warfront run
         return new Shape(reach, half, most);
     }
 

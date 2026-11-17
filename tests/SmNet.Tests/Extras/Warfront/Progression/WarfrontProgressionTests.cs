@@ -86,28 +86,24 @@ public class WarfrontProgressionTests
     // ---- offers ---------------------------------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void Offers_are_four_distinct_cards_slot_four_a_retainer_when_eligible()
+    public void An_offer_lists_every_stat_card_and_the_Retainer_last_when_eligible()
     {
         for (int pick = 0; pick < 200; pick++)
             foreach (ulong key in new[] { A, B })
             {
                 var o = WarfrontOffers.Roll(7, key, pick, true);
-                Assert.Equal(4, o.Length);
-                Assert.Equal(4, o.Distinct().Count());
-                Assert.All(o.Take(3), c => Assert.Contains(c, WarfrontProgressionRules.StatCards));
-                Assert.Equal(WarfrontCard.Retainer, o[3]);
+                Assert.Equal(6, o.Length);
+                Assert.Equal(6, o.Distinct().Count());
+                Assert.Equal(WarfrontProgressionRules.StatCards, o.Take(5));
+                Assert.Equal(WarfrontCard.Retainer, o[WarfrontProgressionRules.RetainerSlot]);
             }
     }
 
     [Fact]
-    public void Ineligible_slot_four_is_a_fourth_distinct_stat_card()
+    public void Ineligible_offers_are_the_five_stat_cards_alone()
     {
         for (int pick = 0; pick < 200; pick++)
-        {
-            var o = WarfrontOffers.Roll(7, A, pick, false);
-            Assert.Equal(4, o.Distinct().Count());
-            Assert.All(o, c => Assert.Contains(c, WarfrontProgressionRules.StatCards));
-        }
+            Assert.Equal(WarfrontProgressionRules.StatCards, WarfrontOffers.Roll(7, A, pick, false));
     }
 
     [Fact]
@@ -119,14 +115,10 @@ public class WarfrontProgressionTests
     }
 
     [Fact]
-    public void Offers_are_deterministic_and_vary_with_seed_player_and_pick()
+    public void Offers_are_deterministic_and_do_not_vary_with_seed_player_or_pick()
     {
         Assert.Equal(WarfrontOffers.Roll(7, A, 3, true), WarfrontOffers.Roll(7, A, 3, true));
-        var set = new HashSet<string>();
-        for (int pick = 0; pick < 30; pick++) set.Add(string.Join(",", WarfrontOffers.Roll(7, A, pick, true).Take(3)));
-        Assert.True(set.Count > 3);
-        Assert.NotEqual(string.Join(",", WarfrontOffers.Roll(7, A, 0, true)) + string.Join(",", WarfrontOffers.Roll(7, A, 1, true)) + string.Join(",", WarfrontOffers.Roll(7, A, 2, true)),
-                        string.Join(",", WarfrontOffers.Roll(8, A, 0, true)) + string.Join(",", WarfrontOffers.Roll(8, A, 1, true)) + string.Join(",", WarfrontOffers.Roll(8, A, 2, true)));
+        Assert.Equal(WarfrontOffers.Roll(7, A, 3, true), WarfrontOffers.Roll(8, B, 9, true));   // every option, always: nothing is drawn (owner 2026-11-18)
     }
 
     // ---- picker ---------------------------------------------------------------------------------------------------------------------------
@@ -176,7 +168,7 @@ public class WarfrontProgressionTests
         Assert.False(p.TryPick(B, 0, 0, out _, out var e2));   // B has no offer
         Assert.Equal("no open offer", e2);
         Assert.False(p.TryPick(999, 0, 0, out _, out _));   // unknown player
-        Assert.False(p.TryPick(A, 4, 0, out _, out var e3));
+        Assert.False(p.TryPick(A, 6, 0, out _, out var e3));
         Assert.Equal("no such card", e3);
         Assert.False(p.TryPick(A, -1, 0, out _, out _));
         Assert.False(p.TryPick(A, 0, 5, out _, out var e4));

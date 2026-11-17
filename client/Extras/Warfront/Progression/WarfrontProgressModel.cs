@@ -6,7 +6,7 @@ namespace SmClient.Extras.Warfront.Progression;
 
 /// <summary>
 /// The view-model of Warfront's XP HUD and card picker (slice W8; no Godot, no sockets). The server owns everything (XP, levels, offers, protection, the pick); this holds the last Progress and Offer
-/// records, answers every text the HUD and the panel show, and asks for a pick: <see cref="PickRequested"/> carries the card's slot (0 to 3, as the Pick command's slot) and the pick index the panel is
+/// records, answers every text the HUD and the panel show, and asks for a pick: <see cref="PickRequested"/> carries the card's slot (0 to 5, as the Pick command's slot) and the pick index the panel is
 /// showing, and fires at once on a press and again every <see cref="ResendSeconds"/> until the offer closes or its pick index moves on (a stale index is refused by the server anyway; the model never sends
 /// one). The host calls <see cref="Tick"/> every frame. All text is capitals (the hub's style), ours.
 /// </summary>
@@ -38,6 +38,9 @@ public sealed class WarfrontProgressModel
 
     public bool OfferOpen { get; private set; }
     public int PickIndex { get; private set; }
+    /// <summary>How many slots hold a card (5, or 6 with +1 Retainer); the cards are the first this many slots.</summary>
+    public int OfferedCount { get { int n = 0; foreach (var c in Cards) if (c != WarfrontCard.None) n++; return n; } }
+
     public WarfrontCard[] Cards { get; } = new WarfrontCard[WarfrontProgressionWire.OfferSize];
     public float SecondsLeft { get; private set; }
     public bool Aboard { get; private set; }
@@ -46,11 +49,11 @@ public sealed class WarfrontProgressModel
     /// <summary>The slot already asked for (resent until the offer closes), or -1.</summary>
     public int Sent { get; private set; } = -1;
 
-    /// <summary>A bot client (<c>--warfront-bot</c>): picks slot (pick index mod 4) after one second.</summary>
+    /// <summary>A bot client (<c>--warfront-bot</c>): picks slot (pick index mod the number of cards) after one second.</summary>
     public bool Bot { get; set; }
 
     public event Action? Changed;
-    /// <summary>Slot 0 to 3 and the pick index shown. The host encodes the Pick command from it.</summary>
+    /// <summary>Slot 0 to 5 and the pick index shown. The host encodes the Pick command from it.</summary>
     public event Action<int, int>? PickRequested;
     /// <summary>The level rose to this number (the banner shows; no sound in this slice).</summary>
     public event Action<int>? LevelUp;
@@ -147,7 +150,7 @@ public sealed class WarfrontProgressModel
         SecondsLeft = MathF.Max(0f, SecondsLeft - dt);
         if (PickerHidden && (int)MathF.Ceiling(SecondsLeft) is var whole && whole != _hiddenShown) { _hiddenShown = whole; Changed?.Invoke(); }   // the banner's countdown
         _openFor += dt;
-        if (Bot && Sent < 0 && _openFor >= BotDelaySeconds) Pick(PickIndex % WarfrontProgressionWire.OfferSize);
+        if (Bot && Sent < 0 && _openFor >= BotDelaySeconds) Pick(PickIndex % System.Math.Max(1, OfferedCount));
         if (Sent >= 0)
         {
             _resendIn -= dt;
@@ -157,7 +160,7 @@ public sealed class WarfrontProgressModel
 
     // ---- input ------------------------------------------------------------------------------------------------------------------------------
 
-    /// <summary>Asks for card <paramref name="slot"/> (0 to 3) of the standing offer. False when no offer stands or the slot is empty. A second press before the answer changes the slot asked for.</summary>
+    /// <summary>Asks for card <paramref name="slot"/> (0 to 5) of the standing offer. False when no offer stands or the slot is empty. A second press before the answer changes the slot asked for.</summary>
     public bool Pick(int slot)
     {
         if (!OfferOpen || slot < 0 || slot >= Cards.Length || Cards[slot] == WarfrontCard.None) return false;
@@ -173,7 +176,7 @@ public sealed class WarfrontProgressModel
     public void MoveHighlight(int delta)
     {
         if (!OfferOpen) return;
-        int h = Math.Clamp(Highlight + delta, 0, Cards.Length - 1);
+        int h = Math.Clamp(Highlight + delta, 0, Math.Max(0, OfferedCount - 1));
         if (h == Highlight) return;
         Highlight = h;
         Changed?.Invoke();
@@ -257,7 +260,7 @@ public sealed class WarfrontProgressModel
 
     public const string TimeoutNote = "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT";
     public const string ProtectedNote = "YOU CANNOT BE HARMED WHILE CHOOSING";
-    public const string HintNote = "PRESS 1 TO 4, OR D-PAD LEFT AND RIGHT THEN A";
+    public const string HintNote = "PRESS 1 TO 6, OR D-PAD LEFT AND RIGHT THEN A";
 
     /// <summary>0 to 1: the share of the pick time left (the countdown bar).</summary>
     public float TimeFraction => Math.Clamp(SecondsLeft / (float)WarfrontProgressionRules.PickTimeoutSeconds, 0f, 1f);

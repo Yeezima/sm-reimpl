@@ -55,8 +55,8 @@ public sealed partial class WarfrontPickerSelfTest : Node
     static WarfrontOfferWire Offer(int index, float seconds, bool aboard, params WarfrontCard[] cards) =>
         new(true, index, cards, (int)MathF.Round(seconds * 10f), aboard);
 
-    static readonly WarfrontCard[] WithRetainer = [WarfrontCard.Damage, WarfrontCard.CooldownReduction, WarfrontCard.AttackSpeed, WarfrontCard.Retainer];
-    static readonly WarfrontCard[] FourStats = [WarfrontCard.MaxHp, WarfrontCard.MaxArmor, WarfrontCard.Damage, WarfrontCard.CooldownReduction];
+    static readonly WarfrontCard[] WithRetainer = [WarfrontCard.Damage, WarfrontCard.CooldownReduction, WarfrontCard.AttackSpeed, WarfrontCard.MaxHp, WarfrontCard.MaxArmor, WarfrontCard.Retainer];
+    static readonly WarfrontCard[] FourStats = [WarfrontCard.MaxHp, WarfrontCard.MaxArmor, WarfrontCard.Damage, WarfrontCard.CooldownReduction, WarfrontCard.AttackSpeed];
 
     async Task RunAsync()
     {
@@ -110,35 +110,35 @@ public sealed partial class WarfrontPickerSelfTest : Node
         _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(5, 300, 1, new byte[] { 1, 0, 2, 1, 0 }, 2, 100)));
         Check("same level again: no banner", !M.BannerShowing && levelUps == 1);
 
-        // 3. An offer opens the panel: four cards, slot 4 = +1 Retainer.
+        // 3. An offer opens the panel: six cards, slot 6 = +1 Retainer.
         _sent.Clear();
         _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(5, 18.4f, false, WithRetainer)));
         await Frames(2);
         var P = _host.Picker;
         Check("offer opens the picker", P.Visible && M.OfferOpen);
         Check("header single pick", P.HeaderLabel.Text == "CHOOSE A CARD", P.HeaderLabel.Text);
-        Check("slot numbers 1 to 4", Enumerable.Range(0, 4).All(i => P.SlotLabel(i).Text == (i + 1).ToString()));
-        Check("card 4 is +1 RETAINER", P.NameLabel(3).Text == "RETAINER" && P.EffectLabel(3).Text.StartsWith("+1 RETAINER"), P.EffectLabel(3).Text);
+        Check("slot numbers 1 to 6", Enumerable.Range(0, 6).All(i => P.SlotLabel(i).Text == (i + 1).ToString()));
+        Check("card 6 is +1 RETAINER", P.NameLabel(5).Text == "RETAINER" && P.EffectLabel(5).Text.StartsWith("+1 RETAINER"), P.EffectLabel(5).Text);
         Check("effect numbers from the rules", P.EffectLabel(0).Text.StartsWith("+10 % DAMAGE\n") && P.EffectLabel(1).Text.StartsWith("-8 % ABILITY COOLDOWN\n") && P.EffectLabel(2).Text.StartsWith("+10 % ATTACK SPEED\n"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(2).Text}");
-        Check("effect line shows the total after the pick", P.EffectLabel(0).Text.EndsWith("NOW +20 %, THEN +30 %") && P.EffectLabel(1).Text.EndsWith("NOW -8 %, THEN -16 %") && P.EffectLabel(3).Text.EndsWith("SQUAD 3 OF 9"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(3).Text}");
+        Check("effect line shows the total after the pick", P.EffectLabel(0).Text.EndsWith("NOW +20 %, THEN +30 %") && P.EffectLabel(1).Text.EndsWith("NOW -8 %, THEN -16 %") && P.EffectLabel(5).Text.EndsWith("SQUAD 3 OF 9"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(3).Text}");
         Check("cooldown floor text", M.CardTotal(WarfrontCard.CooldownReduction) != "" && SmClientFloor());
-        Check("owned counts", P.OwnedLabel(0).Text == "OWNED 2" && P.OwnedLabel(1).Text == "OWNED 1" && P.OwnedLabel(2).Text == "OWNED 1" && P.OwnedLabel(3).Text == "OWNED 2", string.Join("|", Enumerable.Range(0, 4).Select(i => P.OwnedLabel(i).Text)));
+        Check("owned counts", P.OwnedLabel(0).Text == "OWNED 2" && P.OwnedLabel(1).Text == "OWNED 1" && P.OwnedLabel(2).Text == "OWNED 1" && P.OwnedLabel(3).Text == "OWNED 0" && P.OwnedLabel(5).Text == "OWNED 2", string.Join("|", Enumerable.Range(0, 6).Select(i => P.OwnedLabel(i).Text)));
         Check("fixed notes", P.TimeoutLabel.Text == "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" && P.ProtectedLabel.Text == "YOU CANNOT BE HARMED WHILE CHOOSING");
         await Still("picker-retainer-slot4");
 
-        // 4. Input: the D-pad moves, up picks nothing, 1-4 pick at once, resend 0.3 s.
+        // 4. Input: the D-pad moves, up picks nothing, 1-6 pick at once, resend 0.3 s.
         Press(JoyButton.DpadRight); Press(JoyButton.DpadRight);
         Check("d-pad right x2 highlights card 3", M.Highlight == 2);
         Press(JoyButton.DpadLeft); Check("d-pad left", M.Highlight == 1);
         Press(JoyButton.DpadUp); Check("d-pad up picks nothing", _sent.Count == 0 && M.Sent < 0);
-        Press(JoyButton.DpadRight); Press(JoyButton.DpadRight); Press(JoyButton.DpadRight); Check("highlight clamps at card 4", M.Highlight == 3);
+        for (int k = 0; k < 5; k++) Press(JoyButton.DpadRight); Check("highlight clamps at card 6", M.Highlight == 5);
         Press(JoyButton.DpadDown);
-        Check("d-pad down confirms the highlighted card with the shown index", _sent.Count == 1 && _sent[0] == (3, 5), string.Join(",", _sent));
+        Check("d-pad down confirms the highlighted card with the shown index", _sent.Count == 1 && _sent[0] == (5, 5), string.Join(",", _sent));
         Keep(5, 18f, WithRetainer); M.Tick(0.29f); Check("no resend before 0.3 s", _sent.Count == 1);
-        M.Tick(0.02f); Check("resend at 0.3 s", _sent.Count == 2 && _sent[1] == (3, 5));
+        M.Tick(0.02f); Check("resend at 0.3 s", _sent.Count == 2 && _sent[1] == (5, 5));
         M.Tick(0.3f); Keep(5, 17f, WithRetainer); M.Tick(0.3f); Check("resent every 0.3 s while open", _sent.Count == 4);
         PressKey(Key.Key2); Check("key 2 picks card 2 at once", _sent.Count == 5 && _sent[4] == (1, 5), string.Join(",", _sent));
-        PressKey(Key.Key5); Check("key 5 does nothing", _sent.Count == 5);
+        PressKey(Key.Key7); Check("key 7 does nothing", _sent.Count == 5);
 
         // 5. A new pick index replaces the offer and sends no stale pick.
         int before = _sent.Count;
@@ -197,14 +197,14 @@ public sealed partial class WarfrontPickerSelfTest : Node
         Check("click on card 3 sends slot 2 with the shown index", _sent.Count == 1 && _sent[0] == (2, 9), string.Join(",", _sent));
         _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.EncodeClosed(9));
 
-        // 10. Bot: after one second pick slot (index % 4).
+        // 10. Bot: after one second pick slot (index % card count).
         var botHost = new WarfrontProgressionHost(bot: true);
         var botSent = new List<(int, int)>();
         botHost.PickRequested += (s, i) => botSent.Add((s, i));
         AddChild(botHost);
         botHost.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(10, 20f, false, WithRetainer)));
         botHost.Frame(0.9f); botHost.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(10, 19f, false, WithRetainer))); Check("bot waits one second", botSent.Count == 0);
-        botHost.Frame(0.2f); Check("bot picks slot index % 4", botSent.Count == 1 && botSent[0] == (2, 10), string.Join(",", botSent));
+        botHost.Frame(0.2f); Check("bot picks slot index % card count", botSent.Count == 1 && botSent[0] == (4, 10), string.Join(",", botSent));
         botHost.QueueFree();
 
         // 10b. A lost close: the panel closes itself after 1.0 s without an open record; a Progress with fewer pending picks closes it too; the banner waits for the close.
@@ -228,7 +228,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         M.Reset(); await Frames(2);
         Check("reset hides section and picker", !_host.Board.Visible && !P.Visible && !M.OfferOpen);
 
-        // 12. Stills: HUD with pending picks and a full counter row; picker with a fourth stat card.
+        // 12. Stills: HUD with pending picks and a full counter row; picker with all five stat cards and no Retainer.
         _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(12, 2000, 3, new byte[] { 3, 2, 4, 2, 1 }, 5, 300)));
         _host.Board.Shown = true; await Still("scoreboard-section-pending-full-counters");
         _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(11, 12.3f, false, FourStats)));

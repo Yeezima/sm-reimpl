@@ -283,6 +283,9 @@ public sealed partial class World
     /// <summary>Where the last <see cref="MusouCleave"/> struck an enemy (the nearest one's chest), null when it struck none: the point of the Dreadnought's Overcharge shockwave.</summary>
     Vector3? _musouCleaveHit;
 
+    /// <summary>Warfront (owner 2026-11-18): the cleave's reach scale, the target cap and whether the Orks' collision counts. No-op outside a Warfront run.</summary>
+    partial void WarfrontCleave(in PlayerState state, ref float range, ref int most, ref float bodySlack);
+
     /// <summary>The cleave of one melee step (see the class summary).</summary>
     void MusouCleave(int attacker, PlayerState state, MeleeStep step)
     {
@@ -301,10 +304,12 @@ public sealed partial class World
         if (Extras.Musou.DreadnoughtRules.IsDreadnought(Config, state.Class)) most = MusouSim.Capacity;   // the buff (owner 2026-11-15: "cleave infinitely"): no cap for him in the 5-wave run either (its CleaveTargets is 8)
         ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
         if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
+        float bodySlack = 0f;   // > 0: Warfront counts an Ork whose collision (radius) reaches into the volume
+        WarfrontCleave(state, ref range, ref most, ref bodySlack);   // WARFRONT-HOOK: Warfront's reach scales, no target cap, and an Ork whose collision overlaps the volume is struck (Warfront/Battle/World.WarfrontCleave.cs)
         MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
-        int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
+        int n = musou.Query(state.Position, range + bodySlack, _musouNear, Config.MeleeVerticalReach);
         int struck = 0;
         float nearest = float.MaxValue;   // the Dreadnought's Overcharge: where the swing struck (the nearest enemy hit)
         for (int k = 0; k < n && struck < most; k++)
@@ -312,6 +317,7 @@ public sealed partial class World
             if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
             var flat = new Vector2(e.Position.X - state.Position.X, e.Position.Y - state.Position.Y);
             float distance = flat.Length();
+            if (bodySlack > 0f && distance - musou.Body(e.Type).Radius > range) continue;   // Warfront: the Ork's collision must reach into the volume (the query's slack let him in)
             if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;   // overlapping counts as in front, as the core's
             if (Blocked(eye, MusouSim.Chest(e.Position, musou.Body(e.Type).Height))) continue;
             struck++;

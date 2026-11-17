@@ -23,9 +23,10 @@ public static class WarfrontProgressionRules
     public static readonly WarfrontCard[] StatCards =
         [WarfrontCard.AttackSpeed, WarfrontCard.MaxHp, WarfrontCard.Damage, WarfrontCard.CooldownReduction, WarfrontCard.MaxArmor];
 
-    public const int OfferSize = 4;
-    /// <summary>Slot (0-based) that carries +1 Retainer while eligible.</summary>
-    public const int RetainerSlot = 3;
+    /// <summary>The most cards an offer holds: the five stat cards and +1 Retainer (owner 2026-11-18: all options).</summary>
+    public const int OfferSize = 6;
+    /// <summary>Slot (0-based) that carries +1 Retainer while eligible (the last).</summary>
+    public const int RetainerSlot = 5;
     public const int RosterMax = 9;
 
     /// <summary>+10 % attack speed / fire rate per card.</summary>
