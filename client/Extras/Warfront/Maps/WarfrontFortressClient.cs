@@ -9,7 +9,7 @@ namespace SmClient;
 
 /// <summary>
 /// The Ork fortress on the client (slice W14b): the level the server builds (<see cref="WarfrontSlots.Fortress"/>, deterministic, the same collision and hash) as collision, drawn as the graybox of <see cref="AshfallView"/> (a dressing slice
-/// follows). A handmade arena that is not the generated one has no drawing here: its collision is shown grey until its own client view exists. Called from <see cref="WarfrontMapContent"/> and <see cref="WarfrontMapVisuals"/> (NetworkView.WarfrontBand.cs).
+/// follows; until then the view has the look but no storm and no outside scenery, by design). A handmade arena that is not the generated one has no drawing here: its collision is shown grey until its own client view exists. Called from <see cref="WarfrontMapContent"/> and <see cref="WarfrontMapVisuals"/> (NetworkView.WarfrontBand.cs).
 /// </summary>
 public partial class NetworkView
 {

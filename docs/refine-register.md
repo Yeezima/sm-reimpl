@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3719 spec table rows: **2693 tagged**, 670 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 775 rows of the changes document.
+Scanned 3726 spec table rows: **2698 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 776 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 408 | 350 | 348 | 114 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
+| Combat core (critical) | 25 | 15 | 23 | 17 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 158 | 138 | 114 | 57 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -51,17 +51,17 @@ Scanned 3719 spec table rows: **2693 tagged**, 670 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 833 | 788 | 618 | 232 | 1 |
-| General game design | 119 | 118 | 93 | 17 | 0 |
+| General game design | 123 | 120 | 96 | 17 | 0 |
 | Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2693** | 2412 | 2029 | 805 | 37 |
+| **All areas** | **2698** | 2414 | 2033 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1575 |
-| confidence: low | 980 |
-| confidence: medium | 940 |
+| kind: ours | 1577 |
+| confidence: low | 981 |
+| confidence: medium | 943 |
 | notes: ours | 467 |
 | kind: interpretation | 432 |
 | kind: estimate | 229 |
@@ -817,7 +817,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D4CD8B0B` | Falling back | the fall is the defence's own weighted hold of the front-most position (K cannot fall while W holds, V not while K holds): each tick count inside its ring the Orks (1 each, a Nob or bigger 3) against the defenders (a standing human 6, a standing squad Marine… (s, weight) | kind: interpretation; confidence: low | designer review of W13b (ruling 2, finding 6); the first pass's "Orks alone for 20 s" (one Guardsman held a wall) replaced | Falling back: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the fall is the defence's own weighted hold of the front-most… | ☐ |
 
-### Combat core (gameplay-critical) (24)
+### Combat core (gameplay-critical) (25)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -907,6 +907,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B6869371` | Cards: damage | x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into any power-up's scale (melee and other), and the owner's x2 melee cap (power-ups and stims) is raised by the same factor, so the cards multiply on top of the cap (`WarfrontMeleeCap`)… (multiplier) | kind: interpretation; confidence: medium; notes: ours | owner; the stacking with power-ups ours | Cards: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into… | ☐ |
+
+*Spec section: Warfront fortress battle (warfront/w14b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 8: the pure half and the live half (the composed map, the server landing, the Battle section, the client view))*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-B34FB147` | Solo walk-and-gun bot at level 5 (in-process harness, measured 2026-11-17; the harness rifle is the… | the bot first falls 24.8 s after the battle's start, the party wipes 49.8 s in, and the bot gets 12 m past the landing zone (furthest y -138; stage 0; the gate stands at y -96); stood up again where it falls it stays in the yard for 150 s (hp 7 to 100) and… (s, m) | confidence: medium | `A_solo_walk_and_gun_bot_at_level_5_...` | Solo walk-and-gun bot at level 5 (in-process harness…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the bot first falls 24.8 s after the battle's start, the party wipes… | ☐ |
 
 ### Weapons (gameplay-critical) (119)
 
@@ -3954,7 +3960,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (119)
+### General game design (123)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4037,8 +4043,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B4280569` | Boss-kill XP and D's 800 | the Warboss's death pays the shared boss-kill XP once through the kill ledger; the battle's Won does NOT pay D's 800, and no capture XP is paid at all in the fortress (`OnBattleChange` returns at once; the waypoints are never captures); the setup is set only… (XP) | kind: ours; confidence: medium | `WarfrontProgressionRuntime.OnBattleChange` | Boss-kill XP and D's 800: compare with SM1 by feel or video. Ours: the Warboss's death pays the shared boss-kill XP once through the… | ☐ |
 | `R-5849C9CA` | Composed map and ship | `wf_fortress` is composed with the hub exactly as the HQ is (`TfwMap.Compose` over the arena of `WarfrontSlots.Fortress`, the one line a handmade map changes): the plan's breach, gate and plaza gate stand in as the field's three points, the landing zone and… | kind: ours; confidence: medium | `WarfrontMaps.Load`, `WarfrontSlots.Fortress`, `WarfrontStagePlan.HasShip` | Composed map and ship: compare with SM1 by feel or video. Ours: wf_fortress is composed with the hub exactly as the HQ is… | ☐ |
 | `R-60F6ADD4` | Landing | the server sets `WarfrontBattleRules.Fortress` (the arena's plan and a sight test) only when the stage's map is `wf_fortress` and the target is the fortress, then the run's own Deploy by the leader on a node battle's frame (lane A, node 1); the plan hook… | kind: ours; confidence: medium | `WarfrontTryLand`, `WarfrontBattlePlan` | Landing: compare with SM1 by feel or video. Ours: the server sets WarfrontBattleRules.Fortress (the arena's plan and a… | ☐ |
-| `R-4C083648` | Stage 2 sight test | the server's sight test is a straight line from eye to eye (1.7 m) that no wall of the weapon collision stops (`StaticMesh.Raycast`); a fortress with a plaza human and no test supplied closes every stage-2 source (a server fault, never silent) (m) | kind: ours; confidence: low | `WarfrontFortressSetupFor`, `WarfrontFortressState.SpawnHidden` | Stage 2 sight test: compare with SM1 by measuring on a flat spot of the same map. Ours: the server's sight test is a straight line from eye to eye (1.7 m)… | ☐ |
+| `R-4C083648` | Stage 2 sight test | the server's sight test is a straight line from eye to eye (1.7 m) that no wall of the weapon collision stops (`StaticMesh.Raycast`); a fortress with a plaza human and no test supplied closes every stage-2 source (a server fault, never silent: the landing… (m) | kind: ours; confidence: low | `WarfrontFortressSetupFor`, `WarfrontFortressState.SpawnHidden` | Stage 2 sight test: compare with SM1 by measuring on a flat spot of the same map. Ours: the server's sight test is a straight line from eye to eye (1.7 m)… | ☐ |
 | `R-0ED87054` | Battle section in the fortress | kind 2; stage 0 to 2 (the fortress's stage); no wave bytes; held bits all set; the hold byte is the Warboss's health in percent in steps of 5; banner ids 6 "BREACH THE FORTRESS" (from the landing), 7 "THE WARBOSS IS IN THE ARENA" (the tick a human first… | kind: ours; confidence: medium | `WarfrontBattleWire`, `TfwBattle.FortressMessage` | Battle section in the fortress: compare with SM1 by feel or video. Ours: kind 2; stage 0 to 2 (the fortress's stage); no wave bytes; held bits… | ☐ |
+| `R-30BA71AC` | Revive in the fortress (no exception) | a retainer revives a fallen human only when no Ork stands within 6 m of the body (`SquadRules.SafeRadius`), standing within 2 m for 2 s (`MarineReviveReach`, `MarineReviveSeconds`): the owner's "when safe"; a wipe needs the retainers down first (the owner's… (m, s) | kind: ours; confidence: medium | `SquadRules` | Revive in the fortress (no exception): compare with SM1 by feel or video. Ours: a retainer revives a fallen human only when no Ork stands within 6 m… | ☐ |
+| `R-014A47DB` | Fortress leash groups | the fortress's leash groups run from `GroupFirst` (200) to 200 + elite posts + approach posts (the live arena: 8 + 2, so 200 to 209); Musou's own battle groups are 1 to 23 (garrisons 1 to 3, commander 4, the positions' crowds from 6, musters 9 to 12, patrol… (group id) | kind: ours | `WarfrontFortressBattleRules.GroupFirst`, test `The_fortress_leash_groups_meet_none_of_the_battles_own` | Fortress leash groups: compare with SM1 by feel or video. Ours: the fortress's leash groups run from GroupFirst (200) to 200 + elite… | ☐ |
+| `R-727D7867` | Stuck units per opening (in-process, 150 s of the kept-alive bot and the plain bot, measured… | `warfront stuck` lines on `wf_fortress`: kept-alive run 16 (all relocated, none removed): breach 11, gate 1, plaza gate 0, elsewhere 4; plain run 5: breach 3, gate 0, plaza gate 0, elsewhere 2; the breach (8 m wide) is the trouble spot, the Orks pile on the… (count) | confidence: low | `WarfrontStuckLog` | Stuck units per opening (in-process, 150 s of the…: compare with SM1 by feel or video. Ours: warfront stuck lines on wf_fortress: kept-alive run 16 (all… | ☐ |
+| `R-71ABF36F` | The freed Warboss leaves the plaza? (in-process, measured 2026-11-17) | NOT within 90 s of any lure: with a human held outside the plaza gate (15 m), outside the south gate (19 m) or outside the breach (25 m) he walks toward it at about 0.15 to 0.3 m/s (y 49 to 31 in 90 s, 31 to 16 in the next 90 s, 16 to 6 in the last 90 s, with… (m/s) | confidence: medium | `The_freed_warboss_is_drawn_out_of_the_plaza_...` | The freed Warboss leaves the plaza? (in-process, measured…: compare with SM1 by timing a run over a known distance. Ours: NOT within 90 s of any lure: with a human held outside the plaza gate… | ☐ |
 
 *Spec section: Warfront stats ledger (warfront/w4b, 2026-11-17; added content, Warfront only; pure, no wire change; second pass after designer review 1)*
 
@@ -4706,6 +4716,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-17F9F543` | The fortress battle: Musou's final assault on an arena, one leashed Warboss, staged Ork sources, elite pairs on the posts, two Boss Orks on the approaches; the Warboss's death wins the campaign on that tick | the win and the wipe rule are the owner's (2026-11-17); everything else ours (not an SM1 mode), every number an estimate | elite share 0.6; stages by the humans' position (entries, plaza); no source within 30 m of a human or in sight of one in the plaza | Warfront fortress battle | The fortress battle: Musou's final assault on an arena, one…: compare with SM1 by feel or video. Ours: the win and the wipe rule are the owner's (2026-11-17); everything… | ☐ |
 | `C-513C10AA` | The three "positions" of the fortress layout are waypoints, not capture points | ours: the battle code runs without capture objectives (Secured from the start, never taken, never paid) | gate, breach, plaza gate | Warfront fortress battle | The three "positions" of the fortress layout are waypoints…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours: the battle code runs without capture objectives (Secured from… | ☐ |
 | `C-F0087785` | The fortress is composed with the hub and has a ship; its Battle section (kind 2) reuses the hold byte as the Warboss's health | ours: the HQ's precedent; banners BREACH THE FORTRESS, THE WARBOSS IS IN THE ARENA, THE WARBOSS IS DEAD | tag 47, ids 6 to 8 | Warfront fortress battle | The fortress is composed with the hub and has a ship; its…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours: the HQ's precedent; banners BREACH THE FORTRESS, THE WARBOSS IS… | ☐ |
+| `C-54C48E7D` | A retainer revives a fallen human in the fortress by the same rule as anywhere in Warfront (no Ork within 6 m of the body); no fortress exception | ours: the owner's "when safe" and "while a teammate or retainer still stands" (W14b review 2); the safe radius is the lever if a solo player finds the Warboss too hard to finish off | safe radius 6 m, reach 2 m, 2 s | spec "Warfront fortress battle" (Revive in the fortress) | A retainer revives a fallen human in the fortress by the…: compare with SM1 by feel or video. Ours: ours: the owner's "when safe" and "while a teammate or retainer still… | ☐ |
 
 #### Controller (gamepad feature; spec "Controller (gamepad)")
 

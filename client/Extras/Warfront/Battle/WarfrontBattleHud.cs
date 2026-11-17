@@ -18,6 +18,7 @@ public sealed partial class WarfrontBattleHud : Control
 
     readonly Label _line, _clock, _banner;
     byte _lastMessage;
+    string _loggedLine = "";
     double _bannerUntil;
     bool _have;
 
@@ -44,11 +45,14 @@ public sealed partial class WarfrontBattleHud : Control
         _have = s.Kind != 0;
         Visible = _have;
         if (!_have) { _lastMessage = 0; return; }
-        WarfrontProgressDraw.Set(_line, WarfrontBattleWire.Line(s));
+        string line = WarfrontBattleWire.Line(s);
+        if (line != _loggedLine) { _loggedLine = line; GD.Print($"warfront: battle HUD line (kind {s.Kind}, stage {s.Stage}): \"{line}\""); }
+        WarfrontProgressDraw.Set(_line, line);
         WarfrontProgressDraw.Set(_clock, WarfrontBattleWire.Countdown(s));
         if (s.Message != 0 && s.Message != _lastMessage)
         {
             WarfrontProgressDraw.Set(_banner, WarfrontBattleWire.MessageText(s.Message));
+            GD.Print($"warfront: battle banner {s.Message}: \"{WarfrontBattleWire.MessageText(s.Message)}\"");
             _bannerUntil = now + BannerSeconds;
         }
         _lastMessage = s.Message;

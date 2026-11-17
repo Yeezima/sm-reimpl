@@ -65,7 +65,7 @@ public static class WarfrontBattleWire
     /// <summary>The line under Musou's objective HUD, with the position's name at all times (A, B, C on Musou's own HUD stand for W, K, V): "HOLD THE WALL", "FALL BACK TO THE KEEP", "LAST STAND: THE CAVES", "THE WALL IS FALLING" while its hold is under half, and the wave clock.</summary>
     public static string Line(in Section s)
     {
-        if (s.IsFortress) return s.Stage switch { 0 => "BREACH THE FORTRESS", 1 => "FIGHT THROUGH TO THE ARENA", _ => $"KILL THE WARBOSS  WARBOSS {s.Hold}%" };
+        if (s.IsFortress) return s.Stage switch { 0 => "BREACH THE FORTRESS", 1 => "FIGHT THROUGH TO THE ARENA", _ => $"KILL THE WARBOSS  {s.Hold}%" };
         if (!s.IsHq) return "";
         string name = s.Stage switch { 0 => "WALL", 1 => "KEEP", _ => "CAVES" };
         string hold = s.Hold < WarfrontHqBattleRules.HoldFallingBelow * 100f && s.Stage < 3 ? $"THE {name} IS FALLING" : s.Stage switch { 0 => "HOLD THE WALL", 1 => "FALL BACK TO THE KEEP", _ => "LAST STAND: THE CAVES" };
