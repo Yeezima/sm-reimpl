@@ -34,6 +34,7 @@ static class WarfrontHqCommand
     /// <summary>The kill rate of a modelled squad Marine (Orks a second; ours, an estimate).</summary>
     const float MarineKillsPerSecond = 0.5f;
     static string? _scenario;
+    static bool _diagnose;
 
     public static int Run(string[] rest)
     {
@@ -45,6 +46,7 @@ static class WarfrontHqCommand
             {
                 case "--measure": measure = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int a)) { seconds = a; i++; } break;
                 case "--scenario": if (i + 1 < rest.Length) { _scenario = rest[++i]; waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int c)) { seconds = c; i++; } } break;
+                case "--diagnose": _diagnose = true; break;
                 case "--waves": waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int b)) { seconds = b; i++; } break;
                 default: Console.Error.WriteLine($"warfront-hq: unknown argument \"{rest[i]}\" (usage: warfront-hq --measure [seconds] | --waves [seconds] | --scenario passive|gate|gate9 [seconds])"); return 2; }
         }
@@ -98,7 +100,17 @@ static class WarfrontHqCommand
         for (int k = 0; k < 30; k++) w.Step(_ => default);
         run.Warfront!.Target = WarfrontTargetKind.Hq;
         var stuck = new List<WarfrontStuckReport>();
-        run.Warfront.StuckSink = r => stuck.Add(r);
+        var diag = new List<string>();
+        run.Warfront.StuckSink = r =>
+        {
+            stuck.Add(r);
+            if (!_diagnose || diag.Count >= 400) return;
+            // what the Ork was doing: its target (a Guard squad, with that squad's place and goal, or a player), its state and the graph node under it
+            w.Musou!.TryGet(r.Id, out var e);
+            int tgt = w.Musou.TargetOf(r.Id);
+            string who = tgt <= -2 ? $"squad {TfwContracts.SquadOf(tgt)} at ({w.TfwGuards!.Centre(TfwContracts.SquadOf(tgt)).X:0},{w.TfwGuards.Centre(TfwContracts.SquadOf(tgt)).Y:0},{w.TfwGuards.Centre(TfwContracts.SquadOf(tgt)).Z:0})" : tgt > 0 ? "player " + tgt + (w.Players.TryGetValue(tgt, out var tp) ? string.Create(CultureInfo.InvariantCulture, $" ({(tp.Alive ? "alive" : "down")}) at ({tp.Position.X:0},{tp.Position.Y:0},{tp.Position.Z:0})") : "") : "none";
+            diag.Add(string.Create(CultureInfo.InvariantCulture, $"{(run.Battle?.HqSeconds ?? 0f):0}s {r.Type} {r.Why} at ({r.At.X:0},{r.At.Y:0},{r.At.Z:0}) state {e.State} vel ({e.Velocity.X:0.0},{e.Velocity.Y:0.0}) node {e.Node} {FlowNote(w.Musou, e.Node)} target {who}"));
+        };
         run.Enqueue(1, new TfwCommandRecord(1, TfwCommand.Deploy, 0));
         for (int k = 0; k < (int)((TfwBattleRules.TravelSeconds + 0.5f) * 30); k++) w.Step(_ => default);
         if (run.Battle is not { } battle || !battle.WarfrontHq) { Console.Error.WriteLine("warfront-hq: the HQ battle did not begin"); return 1; }
@@ -228,9 +240,28 @@ static class WarfrontHqCommand
         foreach (var r in stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => ((int)MathF.Round(x.At.X / 10f), (int)MathF.Round(x.At.Y / 10f))).OrderByDescending(g => g.Count()).Take(8).Select(g => g.First()).Take(0)) Console.WriteLine(r);
         foreach (var g in stuck.GroupBy(x => ((int)MathF.Round(x.At.X / 10f) * 10, (int)MathF.Round(x.At.Y / 10f) * 10)).OrderByDescending(g => g.Count()).Take(8)) Console.WriteLine($"  stuck cell x {g.Key.Item1} y {g.Key.Item2}: {g.Count()}");
         foreach (var r in stuck.Take(0)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  stuck: {r.Type} {r.Why} at ({r.At.X:0}, {r.At.Y:0}, {r.At.Z:0})"));
+        if (_diagnose)
+            foreach (var grp in diag.GroupBy(d => d.Contains("Relocated") || d.Contains("Removed") ? Hot(d) : "other"))
+            { Console.WriteLine($"diagnosis, {grp.Key}: {grp.Count()} records, first 10:"); foreach (var d in grp.Take(10)) Console.WriteLine("  " + d); }
         Report("tick cost, whole run", steps);
         if (waves) Report("tick cost, third wave on the field", stepsBig);
         return 0;
+    }
+
+    static string FlowNote(MusouSim m, int node)
+    {
+        if (m.Flow is not { Ready: true } f || m.Walk is null || node < 0) return "flow n/a";
+        int next = f.Next(node);
+        string nx = next < 0 ? "no next" : $"next ({m.Walk.X(next):0.0},{m.Walk.Y(next):0.0},{m.Walk.Z(next):0.0}) dist {f.Distance(next):0.0}";
+        return $"flow dist {f.Distance(node):0.0} nodeAt ({m.Walk.X(node):0.0},{m.Walk.Y(node):0.0},{m.Walk.Z(node):0.0}) {nx}";
+    }
+
+    static string Hot(string d)
+    {
+        int a = d.IndexOf(" at (", StringComparison.Ordinal) + 5, b = d.IndexOf(')', a);
+        var xy = d[a..b].Split(',');
+        float x = float.Parse(xy[0], CultureInfo.InvariantCulture), y = float.Parse(xy[1], CultureInfo.InvariantCulture);
+        return y < -120f && y > -140f ? "ramp foot" : y is > -60f and < -40f ? "wall west/east of the gate" : y < -140f ? "muster/assembly" : "elsewhere";
     }
 
     static string Band(float y) => y < -46f ? "ramp and assembly" : y < -30f ? "gate" : y < 40f ? "courtyard" : y < 100f ? "keep hall" : y < 150f ? "tunnels" : "chamber";

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3703 spec table rows: **2679 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 772 rows of the changes document.
+Scanned 3704 spec table rows: **2680 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 772 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 3703 spec table rows: **2679 tagged**, 668 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
+| Core simulation (provisional values) | 833 | 788 | 618 | 231 | 1 |
 | General game design | 107 | 106 | 81 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2679** | 2398 | 2015 | 804 | 37 |
+| **All areas** | **2680** | 2399 | 2016 | 804 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1562 |
-| confidence: low | 974 |
+| kind: ours | 1563 |
+| confidence: low | 975 |
 | confidence: medium | 932 |
 | notes: ours | 466 |
 | kind: interpretation | 432 |
@@ -2644,7 +2644,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-B4149D60` | Tick spread | the muster, the stage shares and the breach flood make at most 10 Orks a tick (a whole wave of up to 600 in one tick was the tick spike); the bench (`smtool warfront-hq --waves`) prints the five slowest ticks tagged with what ran; target p99 at most 20 ms and… (Orks, ms) | kind: ours; confidence: low | designer review of W13b ruling 4 | Tick spread: compare with SM1 by feel or video. Ours: the muster, the stage shares and the breach flood make at most 10… | ☐ |
 
-### Core simulation (provisional values) (832)
+### Core simulation (provisional values) (833)
 
 *Spec section: Provisional values in use*
 
@@ -3875,7 +3875,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-896C7331` | Coop panels (client) | the picker's 28 and 20 px sizes in the 1920 x 1080 space; the awaited box is sized to its rows with the reasons in one column, the viewer's own row reads YOU; the class-gate panel names the way in ("at the Equipment station": a placeholder until the hub names… (px) | kind: ours; confidence: medium | review 1 item 9 | Coop panels (client): compare with SM1 by feel or video. Ours: the picker's 28 and 20 px sizes in the 1920 x 1080 space; the awaited… | ☐ |
 | `R-938570A2` | Run save version 4 | adds `JoinedAtDeployment` (int) and `ClassConfirmed` (bool) per player; versions 1 to 3 load with `ClassConfirmed` true; the keyless archive copies both | kind: ours | ours | Run save version 4: compare with SM1 by timing a run over a known distance. Ours: adds JoinedAtDeployment (int) and ClassConfirmed (bool) per player… | ☐ |
 
-*Spec section: Warfront HQ defense map profile (warfront/w13a, 2026-11-17, second pass after designer review 1; added content, Warfront only; generation only, no battle rules, no protocol or wire change; level version 1)*
+*Spec section: Warfront HQ defense map profile (warfront/w13a, 2026-11-17, second pass after designer review 1; W13c: level version 2; added content, Warfront only; generation only, no battle rules, no protocol or wire change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -3886,6 +3886,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F8A81779` | HQ courtyard and keep | courtyard x +-90, y -40..40 (80 m deep) with two rows of low cover (twelve 6 m x 1.2 m walls: x +-70 at y -20 and 10; x +-45 at y -8 and 26; x +-82 at y -5 and 22; all outside the 8 m corridors from the gate to the doors; low platforms not added); keep x… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (keep with two 8 m doors); sizes ours | HQ courtyard and keep: compare with SM1 by measuring on a flat spot of the same map. Ours: courtyard x +-90, y -40..40 (80 m deep) with two rows of low cover… | ☐ |
 | `R-C1BC28B3` | HQ caves and last-stand chamber | two roofed tunnels 8 m wide, 8 m clear (a Boss Nob stands about 6.9 m; review 1), 50 m long (y 100..150), centre lines x +-22, a 36 m rock pillar between them cut halfway by an 8 m wide, 8 m clear cross passage (y 121..129) with two 8 m low cover walls on its… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (tunnels 8 m wide, 6 m clear, roofed, meeting in a last-stand chamber); lengths and chamber size ours | HQ caves and last-stand chamber: compare with SM1 by measuring on a flat spot of the same map. Ours: two roofed tunnels 8 m wide, 8 m clear (a Boss Nob stands about 6.9… | ☐ |
 | `R-46CEB424` | HQ defence position markers | W (0, -34, 20) radius 20, half height 9 (so the gate, the ground behind it and the wall walk over the gate count); K (0, 70, 12) radius 24 (the hall); V (0, 160, 12) radius 40 (the cross passage, the tunnels' north half and the chamber); held and lost in that… (m) | kind: estimate; confidence: low; notes: ours | plan section 2 (three positions W, K, V); places and radii ours | HQ defence position markers: compare with SM1 by measuring on a flat spot of the same map. Ours: W (0, -34, 20) radius 20, half height 9 (so the gate, the ground… | ☐ |
+| `R-13F0D125` | HQ ramp foot and wall foot (W13c, level version 2) | the ramp's lowest 25 m fan out from 30 m to 60 m at the foot: on each side a wedge in the ramp's own plane (a vertical diagonal from x +-30 at y -130 to the rim at y -105) from 12 m up the fan on (a kerb of 1.7 m and more), and below that a side slope falling… (m, %) | kind: ours; confidence: low | designer review 1 of W13b ruling 1, review 2 (a); diagnosis of W13c | HQ ramp foot and wall foot (W13c, level version 2): compare with SM1 by feel or video. Ours: the ramp's lowest 25 m fan out from 30 m to 60 m at the foot: on each… | ☐ |
 | `R-7E8BF98B` | HQ own gates | the build is deterministic (same hash twice and across processes: pinned; the hash covers the geometry and every marker, source, post and spawn); a walking graph connects assembly -> W -> K -> V -> landing; every opening on the Ork route is at least 8 m… | kind: ours | plan section 2 "own gates" | HQ own gates: compare with SM1 by feel or video. Ours: the build is deterministic (same hash twice and across processes:… | ☐ |
 
 *Spec section: Added content: Warfront — the node battle (W3: hook seams and node rules; `WarfrontRules.Version` 2; added content, Warfront only)*

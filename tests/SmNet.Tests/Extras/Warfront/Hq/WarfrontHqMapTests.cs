@@ -13,7 +13,7 @@ namespace SmNet.Tests.Extras.Warfront.Hq;
 public class WarfrontHqMapTests(ITestOutputHelper output)
 {
     /// <summary>The level's hash, pinned: it is the same on every machine and in every process (the test passes in a fresh process each run).</summary>
-    const ulong PinnedHash = 0xBFEE19CA85F8E28EUL;
+    const ulong PinnedHash = 0x82668B965A7AFF61UL;
 
     static readonly Lazy<(WarfrontHqBuild Map, NavGraph Nav)> World = new(() =>
     {
@@ -93,6 +93,36 @@ public class WarfrontHqMapTests(ITestOutputHelper output)
         foreach (var p in m.Level.Spawns) Assert.True(nav.Nearest(p, 1f, 1f) >= 0, $"no graph node at {p}");
         Assert.All(m.Sources, s => Assert.True(nav.Nearest(s.Position, 1f, 1f) >= 0, s.Name));
         Assert.All(m.Posts, s => Assert.True(nav.Nearest(s.Position, 1f, 1f) >= 0, s.Name));
+    }
+
+    /// <summary>W13c (review 1 ruling 1): the ramp's foot is 60 m wide on the walking graph, the assembly ground within 40 m of it holds no cover or prop, and the muster rows start at least 15 m short of it.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void The_ramp_foot_fans_to_sixty_metres_with_clear_ground_before_it_and_the_muster_starts_well_short_of_it()
+    {
+        var (m, nav) = World.Value;
+        Assert.Equal(60f, WarfrontHqMap.FanWidth);
+        // the graph crosses 60 m at the foot: nodes stand near both fan edges one metre in from the foot
+        float lo = float.MaxValue, hi = float.MinValue;
+        for (int i = 0; i < nav.NodeCount; i++)
+        {
+            var p = nav.Position(i);
+            if (MathF.Abs(p.Y - (WarfrontHqMap.RampSouth + 1f)) > 0.26f || p.Z > 0.6f) continue;
+            lo = MathF.Min(lo, p.X); hi = MathF.Max(hi, p.X);
+        }
+        Assert.True(hi - lo >= 55f, $"foot row {lo}..{hi}");
+        // a fan node is a node: a point 24 m from the centre line, 8 m up the ramp, is on the graph
+        Assert.True(nav.Nearest(new Vector3(-24f, WarfrontHqMap.RampSouth + 8f, 1.1f), 1f, 1f) >= 0);
+        Assert.True(nav.Nearest(new Vector3(24f, WarfrontHqMap.RampSouth + 8f, 1.1f), 1f, 1f) >= 0);
+        // clear ground: no cover, wall or stronghold part within 40 m south of the foot
+        foreach (var part in m.Level.Parts)
+        {
+            if (part.Kind is SmSim.Extras.Musou.Ashfall.AshfallKind.Ground or SmSim.Extras.Musou.Ashfall.AshfallKind.Boundary) continue;
+            Assert.True(part.Corners.All(c => c.Y > WarfrontHqMap.RampSouth + 0.5f || c.Y < WarfrontHqMap.RampSouth - 40f), $"{part.Kind} within 40 m of the foot");
+        }
+        // the muster rows (the sources within the muster half width) stand at least 15 m short of the foot
+        var near = m.Sources.Where(x => x.Stage == 0 && MathF.Abs(x.Position.X) <= WarfrontHqBattleRules.MusterHalfWidth).Max(x => x.Position.Y);
+        Assert.True(WarfrontHqMap.RampSouth - near >= 15f, $"nearest muster source {near}");
     }
 
     /// <summary>The widest walkable row of nodes across an opening: a node sits at least 0.4 m from a wall, so an 8 m opening shows about 7.2 m of nodes.</summary>

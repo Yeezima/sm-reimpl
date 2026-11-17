@@ -48,5 +48,5 @@ public class MapHashPins(ITestOutputHelper output)
         Assert.Equal(HqMapHash, hq.Hash);
     }
 
-    const ulong HqMapHash = 0x0FC12BFD61DBE655UL;
+    const ulong HqMapHash = 0x706482308624B749UL;
 }
