@@ -79,13 +79,69 @@ public partial class NetworkView
     /// <summary>Frames the blur drew (test aid).</summary>
     internal int GrenadeBlurFrames;
 
+    // ---- who threw it (the snapshot names no owner: inferred) ----
+
+    /// <summary>A frag grenade in the world as the client follows it: its inferred thrower (-1: unknown) and side, when it was first seen, when it landed, when it was last seen.</summary>
+    sealed class GrenadeInfo
+    {
+        public int Thrower = -1; public Team Side; public double Since, LastSeen; public double? Landed; public bool Marked;
+    }
+
+    readonly Dictionary<int, GrenadeInfo> _grenades = new();
+    readonly Dictionary<int, double> _throwingAt = new();
+    readonly HashSet<int> _grenadeLive = new();
+    readonly List<int> _grenadeScratch = new();
+    double _grenadesTrackedAt = double.NegativeInfinity;
+
+    /// <summary>
+    /// Once a frame: who threw each frag grenade in the world. The snapshot's projectile record carries no owner (and no side), so the thrower is inferred: the player nearest to the grenade, within 4 m
+    /// when it first shows, who was in a throw within the last 1.2 s (the own player's state, the others' slim records' throwing flag). Ours / estimate; an unknown thrower (-1) is treated as not hostile.
+    /// Entries live 3 s after the grenade leaves the view, so its blast still finds its thrower.
+    /// </summary>
+    void GrenadeTrack(PlayerState me, IReadOnlyList<PlayerState> others)
+    {
+        if (OldGrenadeFx || _client is null || _config is null || _grenadesTrackedAt == _connectedFor) return;
+        _grenadesTrackedAt = _connectedFor;
+        if (me.Throwing) _throwingAt[me.PlayerId] = _connectedFor;
+        foreach (var p in others) if (p.Throwing) _throwingAt[p.PlayerId] = _connectedFor;
+        _grenadeLive.Clear();
+        foreach (var q in _client.Projectiles())
+        {
+            if (!q.Thrown || q.Weapon < 0 || q.Weapon >= _config.Thrown.Count || !GrenadeFx.IsFrag(_config.Thrown[q.Weapon].Name)) continue;
+            _grenadeLive.Add(q.Id);
+            if (!_grenades.TryGetValue(q.Id, out var info))
+            {
+                _grenades[q.Id] = info = new GrenadeInfo { Since = _connectedFor };
+                float best = GrenadeRules.ThrowerReach;
+                void Consider(PlayerState p)
+                {
+                    if (!_throwingAt.TryGetValue(p.PlayerId, out double at) || _connectedFor - at > GrenadeRules.ThrowerWindow) return;
+                    float d = System.Numerics.Vector3.Distance(q.Position, p.Position);
+                    if (d <= best) { best = d; info.Thrower = p.PlayerId; info.Side = p.Team; }
+                }
+                Consider(me);
+                foreach (var p in others) Consider(p);
+                if (_bot || LogSound("grenade")) GD.Print($"t {_connectedFor:F2} s: frag grenade #{q.Id} first seen {System.Numerics.Vector3.Distance(q.Position, me.Position):F1} m from this player, thrower {(info.Thrower < 0 ? "unknown" : "P" + info.Thrower + " side " + info.Side)}{(info.Thrower >= 0 && info.Thrower != me.PlayerId && World.Hostile(me.Team, info.Side) ? " (enemy)" : "")}");
+            }
+            info.LastSeen = _connectedFor;
+            if (info.Landed is null && (q.Flags & (ProjectileFlags.Stuck | ProjectileFlags.Attached)) != 0) info.Landed = _connectedFor;
+        }
+        if (_grenades.Count > 0)
+        {
+            _grenadeScratch.Clear();
+            foreach (var (id, info) in _grenades) if (!_grenadeLive.Contains(id) && _connectedFor - info.LastSeen > 3.0) _grenadeScratch.Add(id);
+            foreach (int id in _grenadeScratch) _grenades.Remove(id);
+        }
+    }
+
     // ---- victim sounds (the blast's hit_actions and player_hit_actions) ----
 
     /// <summary>
     /// A frag blast's sounds at the players it reaches (grenade-effects fix pass; the data: the damaging <c>area_of_effect</c>'s <c>hit_actions</c> post <c>play_big_damage_grenade</c> for the hit entity when it is
-    /// the local player (<c>apply_only_if_on_player</c>), its <c>player_hit_actions</c> post <c>play_grenade_damage_smack</c> at every player hit). **Ours / estimate**: the wire does not say who took damage (nor
-    /// the thrower's side), so a player counts as hit when he is alive, within the blast's radius and in line of sight of the blast point, as the data's line_of_sight blast has it; friendly-fire rules are not
-    /// known to the client. <c>--old-grenade-fx</c> leaves them out.
+    /// the local player (<c>apply_only_if_on_player</c>), its <c>player_hit_actions</c> post <c>play_grenade_damage_smack</c> at every player hit). **Ours / estimate**: the wire does not say who took damage, so a
+    /// player counts as hit when alive, within the blast's radius and in line of sight of the blast point, as the data's line_of_sight blast has it; a player on the thrower's side does not (no friendly fire
+    /// unless the server runs it: <see cref="SmNet.Scoreboard.FriendlyFire"/>) except the thrower himself. The thrower is inferred (<see cref="GrenadeTrack"/>); when unknown every player counts. No falloff:
+    /// a player at the edge of the radius hears the big-damage sound too. <c>--old-grenade-fx</c> leaves them out.
     /// </summary>
     void GrenadeVictimSounds(ProjectileView d, SoundFile file)
     {
@@ -94,6 +150,8 @@ public partial class NetworkView
         if (spec?.Splash is not { } splash) return;
         float reach = _config.ThrownBlastScale(_config.Thrown[d.Weapon]);
         float radius = splash.Radius * reach;
+        _grenades.TryGetValue(d.Id, out var info);
+        bool friendlyFire = _client.Scoreboard?.FriendlyFire ?? false;
         var own = _client.Predicted;
         var all = new List<(PlayerState P, bool Own)>();
         if (own.Alive) all.Add((own, true));
@@ -101,6 +159,7 @@ public partial class NetworkView
         var origin = d.Position + new System.Numerics.Vector3(0f, 0f, 0.5f);
         foreach (var (p, mine) in all)
         {
+            if (info is { Thrower: >= 0 } && p.PlayerId != info.Thrower && !friendlyFire && !World.Hostile(info.Side, p.Team)) continue;   // an ally of the thrower: not hurt
             var chest = p.Position + new System.Numerics.Vector3(0f, 0f, 1.0f);
             float dist = System.Numerics.Vector3.Distance(origin, chest);
             if (dist > radius) continue;
@@ -113,34 +172,31 @@ public partial class NetworkView
 
     // ---- the in-flight marker (Hud.GrenadeMarker.cs) ----
 
-    /// <summary>The player's own thrown frag grenades being marked: id to (seconds since first seen, seconds since landing or null).</summary>
-    readonly Dictionary<int, (double Since, double? Landed)> _grenadeMarks = new();
-    double _ownThrowingAt = -10.0;
-    /// <summary>Markers drawn so far (test aid).</summary>
+    /// <summary>Markers drawn so far (test aid and the proof).</summary>
     internal int GrenadeMarkFrames;
 
     /// <summary>
-    /// Per frame: the markers of the own frag grenades in flight (grenade-effects, owner 2026-11-17 "match the video"). A thrown frag that appears within 1 s of the own throw and within 4 m of the player
-    /// is his; the marker shows from there until it lands (it stops resting or sticking) and fades over <see cref="GrenadeRules.LandedFade"/>. Only own throws are in the clips: others' grenades show none.
+    /// Per frame: the markers of the frag grenades in flight (grenade-effects, owner 2026-11-17: "match the video", then "also enemy grenades near me"): the player's own, and an enemy's while it is within
+    /// <see cref="GrenadeRules.NearMargin"/> metres beyond its blast radius of the player. A teammate's, and a grenade whose thrower is not known, show none. It shows from the first sight until the grenade
+    /// lands (stops resting or sticking) and fades over <see cref="GrenadeRules.LandedFade"/>. Who threw it is inferred (<see cref="GrenadeTrack"/>: the snapshot names no owner).
     /// </summary>
     void GrenadeMarkerFrame(Hud.Frame f, PlayerState me)
     {
-        if (OldGrenadeFx || _client is null || _config is null || _camera is null || _gameSpace is null) return;
-        if (me.Throwing) _ownThrowingAt = _connectedFor;
-        var live = new HashSet<int>();
+        if (OldGrenadeFx || _client is null || _config is null || _camera is null || _gameSpace is null || _grenades.Count == 0) return;
         foreach (var q in _client.Projectiles())
         {
-            if (!q.Thrown || q.Weapon < 0 || q.Weapon >= _config.Thrown.Count || !GrenadeFx.IsFrag(_config.Thrown[q.Weapon].Name)) continue;
-            live.Add(q.Id);
-            if (!_grenadeMarks.ContainsKey(q.Id))
+            if (!q.Thrown || !_grenades.TryGetValue(q.Id, out var info) || info.Thrower < 0) continue;
+            bool own = info.Thrower == me.PlayerId;
+            if (!own)
             {
-                if (_connectedFor - _ownThrowingAt > 1.0 || System.Numerics.Vector3.Distance(q.Position, me.Position) > 4f) continue;
-                _grenadeMarks[q.Id] = (_connectedFor, null);
+                if (!World.Hostile(me.Team, info.Side)) continue;   // a teammate's grenade: nothing
+                var spec = Shots.ProjectileOf(_config, q.Weapon, q.Stage, true, q.Upgraded);
+                float radius = (spec?.Splash?.Radius ?? 0f) * _config.ThrownBlastScale(_config.Thrown[q.Weapon]);
+                if (!GrenadeRules.Near(System.Numerics.Vector3.Distance(q.Position, me.Position), radius)) continue;
             }
-            var (since, landed) = _grenadeMarks[q.Id];
-            if (landed is null && (q.Flags & (ProjectileFlags.Stuck | ProjectileFlags.Attached)) != 0) _grenadeMarks[q.Id] = (since, landed = _connectedFor);
-            float age = (float)(_connectedFor - since);
-            float fade = GrenadeRules.Fade(age, landed is { } l ? (float)(_connectedFor - l) : null);
+            if (!own && !info.Marked) { info.Marked = true; if (_bot || LogSound("grenade")) GD.Print($"t {_connectedFor:F2} s: enemy grenade #{q.Id} near: marker on"); }
+            float age = (float)(_connectedFor - info.Since);
+            float fade = GrenadeRules.Fade(age, info.Landed is { } l ? (float)(_connectedFor - l) : null);
             if (fade <= 0f) continue;
             var cam = _camera.GlobalTransform.Basis;
             var forward = new Vector3(-cam.Z.X, 0f, -cam.Z.Z).Normalized();
@@ -149,9 +205,6 @@ public partial class NetworkView
             f.GrenadeMarks.Add(new Hud.GrenadeMark(GrenadeRules.Angle(d.Dot(right), d.Dot(forward)), age, fade));
             GrenadeMarkFrames++;
         }
-        if (_grenadeMarks.Count > 0)
-            foreach (int id in new List<int>(_grenadeMarks.Keys))
-                if (!live.Contains(id)) _grenadeMarks.Remove(id);
     }
 
     // ---- --bot-grenade-demo (capture aid for the reference comparison; not original behaviour) ----

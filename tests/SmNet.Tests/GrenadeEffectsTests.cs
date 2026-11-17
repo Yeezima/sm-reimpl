@@ -144,6 +144,18 @@ public class GrenadeFxTests
     }
 
     [Fact]
+    public void An_enemy_grenade_shows_the_marker_within_its_blast_radius_plus_two_metres()
+    {
+        Assert.True(GrenadeRules.Near(5f, 10f));
+        Assert.True(GrenadeRules.Near(12f, 10f));      // radius + NearMargin
+        Assert.False(GrenadeRules.Near(12.1f, 10f));
+        Assert.True(GrenadeRules.Near(31f, 30f));
+        Assert.False(GrenadeRules.Near(1f, 0f));       // no blast: no threat
+        Assert.Equal(2f, GrenadeRules.NearMargin);
+        Assert.Equal(4f, GrenadeRules.ThrowerReach);
+    }
+
+    [Fact]
     public void Only_the_frag_blasts_keep_their_smoke()
     {
         Assert.True(GrenadeFx.KeepsSmoke("frag_grenade_explosion"));

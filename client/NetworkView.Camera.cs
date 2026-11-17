@@ -126,7 +126,7 @@ public partial class NetworkView
     }
 
     /// <summary>Whether the follow camera is the rig's: human views (and the bot's with <c>--aim-test</c>), not the spectator cameras.</summary>
-    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || GrenadeDemo || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || SwingTest || CarryTest || CameraTest || TransitionSweep && FeelShotsDir is not null) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
+    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || GrenadeDemo || CmdFlag("bot-human-camera") || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || SwingTest || CarryTest || CameraTest || TransitionSweep && FeelShotsDir is not null) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
 
     /// <summary>Hook for added content: the rig's camera offset, pivot and field of view for this frame (<paramref name="aimBlend"/>: 0 hip, 1 aimed) may be changed (Musou: the Dreadnought's data fields of view and a camera scaled to his size).</summary>
     partial void ExtrasRigCamera(PlayerState me, float aimBlend, float delta, ref System.Numerics.Vector3 cam, ref System.Numerics.Vector3 pivot, ref float fov, ref float fovRef);

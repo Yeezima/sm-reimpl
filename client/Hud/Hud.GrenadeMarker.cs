@@ -35,7 +35,8 @@ public sealed partial class Hud
             float iconTurn = godotAngle + MathF.PI / 2f;
             var iconRoot = new Transform2D(iconTurn, new Vector2(1f, 1f) * (s * GrenadeRules.IconScale), 0f, iconPos) * new Transform2D(0f, new Vector2(-8f, -16f));   // the art's origin is its top-left corner (16 x 32)
             _walkTint = new Color(1f, 0.55f, 0.12f);
-            DrawWalk(deco, GrenadeIconSprite, iconFrame, iconRoot, null, _ => false, _ => null, null, fade);
+            try { DrawWalk(deco, GrenadeIconSprite, iconFrame, iconRoot, null, _ => false, _ => null, null, fade); }
+            finally { _walkTint = Colors.White; }
             // The arc: concentric with the screen centre, fading out toward its tips.
             const int segments = 14;
             float half = GrenadeRules.ArcHalfAngle, r = (GrenadeRules.RingRadius + GrenadeRules.ArcOffset) * s;
@@ -51,8 +52,9 @@ public sealed partial class Hud
             int chevFrame = (int)(m.Age * DecoratorRules.FrameRate) % 15;
             var chevPos = c + u * (GrenadeRules.RingRadius + GrenadeRules.CaretOffset) * s;
             var chevRoot = new Transform2D(godotAngle + MathF.PI, new Vector2(1f, 1f) * (s * GrenadeRules.CaretScale), 0f, chevPos);
-            DrawWalk(deco, ChevronSprite, chevFrame, chevRoot, null, _ => false, _ => null, null, fade);
-            _walkTint = Colors.White;
+            _walkTint = new Color(1f, 0.55f, 0.12f);
+            try { DrawWalk(deco, ChevronSprite, chevFrame, chevRoot, null, _ => false, _ => null, null, fade); }
+            finally { _walkTint = Colors.White; }
         }
     }
 }

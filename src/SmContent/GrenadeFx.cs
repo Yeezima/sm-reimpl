@@ -70,7 +70,7 @@ public static class GrenadeFx
 
 /// <summary>
 /// The orange in-flight grenade marker (grenade-effects, owner 2026-11-17: "Yes, match the video"; spec "Grenade in-flight marker"). **Original art**: the canister (Decorator.gfx sprite 29, a 30-frame
-/// glow pulse) and the chevron (sprite 23, 15 frames); everything else is measured from the four reference clips (**ours / estimate**): it shows for the thrower's own frag grenade from the
+/// glow pulse) and the chevron (sprite 23, 15 frames); everything else is measured from the four reference clips (**ours / estimate**): it shows for the thrower's own frag grenade (and, since the owner's "also enemy grenades near me", an enemy's within its blast radius + 2 m of the player; a teammate's shows none) from the
 /// release until it first lands, on a ring round the screen centre at the grenade's direction as seen from the camera (the release at the right hand: 0 degrees; the throw ahead: 90 degrees), with
 /// a thin arc outside the canister and the chevron beyond. Sizes are stage pixels of the 1280 x 720 stage. Whether other players' grenades show it is not in the clips (only own throws were filmed).
 /// </summary>
@@ -86,6 +86,14 @@ public static class GrenadeRules
     public const float CaretOffset = 60f, CaretScale = 1.0f;
     /// <summary>Seconds the marker keeps fading after the grenade lands (the clips: gone within a frame or two).</summary>
     public const float LandedFade = 0.1f;
+    /// <summary>An enemy's grenade shows the marker while it is within its blast radius plus this many metres of the player (owner 2026-11-17: "enemy grenades near me"; the margin ours / estimate).</summary>
+    public const float NearMargin = 2f;
+    /// <summary>The thrower of a grenade is inferred as the player nearest to it within this many metres when it first shows, who was in a throw within <see cref="ThrowerWindow"/> seconds (ours / estimate: the snapshot names no owner).</summary>
+    public const float ThrowerReach = 4f, ThrowerWindow = 1.2f;
+
+    /// <summary>Whether a grenade <paramref name="distance"/> metres from the player, with a blast of <paramref name="radius"/> metres, is near enough to show its marker.</summary>
+    public static bool Near(float distance, float radius) => radius > 0f && distance <= radius + NearMargin;
+
     /// <summary>A marker that has not landed after this many seconds is dropped (a grenade lost in flight).</summary>
     public const float MaxAge = 1.5f;
 
