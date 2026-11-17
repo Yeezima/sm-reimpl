@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3733 spec table rows: **2705 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
+Scanned 3736 spec table rows: **2708 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 779 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,19 +51,19 @@ Scanned 3733 spec table rows: **2705 tagged**, 672 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 834 | 789 | 619 | 232 | 1 |
-| General game design | 129 | 126 | 102 | 17 | 0 |
-| Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2705** | 2421 | 2040 | 805 | 37 |
+| General game design | 131 | 128 | 104 | 17 | 0 |
+| Ork faction | 266 | 253 | 150 | 70 | 0 |
+| **All areas** | **2708** | 2424 | 2043 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1583 |
-| confidence: low | 988 |
+| kind: ours | 1585 |
+| confidence: low | 991 |
 | confidence: medium | 943 |
 | notes: ours | 467 |
-| kind: interpretation | 433 |
+| kind: interpretation | 434 |
 | kind: estimate | 229 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
@@ -3961,7 +3961,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (129)
+### General game design (131)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4129,6 +4129,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-15608F18` | Second-pass scenarios (W13c pass 2) | with the pair off and the drain at 40 s, level 5 Ork scaling, the real schedule: `passive` Lost at 3:32 (W 1:47, K 2:42; required 3:00 to 5:30: met); `fallback` Lost at 2:05 (W 1:50; he died once); `gate9` Won at 8:00 (897 modelled kills). The rout killed… (s) | kind: ours; confidence: low | designer review of W13c, ruling b and d | Second-pass scenarios (W13c pass 2): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with the pair off and the drain at 40 s, level 5 Ork scaling, the… | ☐ |
 | `R-0D144FCF` | Stage-source sight (W13c pass 2) | the HQ's stage sources close while any human has a clear eye-to-eye line to them (`WarfrontBattleRules.HqSight`, set at the HQ landing; null: no human within 60 m); no range cap (`SightRangeMetres` 0). Measured with the human at the caves (`passive`) the… (s) | kind: ours; confidence: low | designer review of W13c, finding 3 | Stage-source sight (W13c pass 2): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the HQ's stage sources close while any human has a clear eye-to-eye… | ☐ |
 | `R-CD4B8ACE` | Third-pass measurement (W13c, level version 2) | stuck records on the real schedule 23 of 932 (2.5 %), the largest cell 4; the 300-at-once rush 14.7 %; stranded Orks sent round twice: 0 (22 sent, 1 removed); tick cost on a loaded machine: see the W13c report (%) | kind: ours; confidence: low | designer brief W13c | Third-pass measurement (W13c, level version 2): compare with SM1 by feel or video. Ours: stuck records on the real schedule 23 of 932 (2.5 %), the largest… | ☐ |
+| `R-A4ACAE53` | Allied pair only for a solo campaign (W13d part 3) | Musou's two allied AI Marines (`TfwRun.Allies`) come to a Warfront landing only when the server's human cap is one (`World.WarfrontAlliedPair(maxHumans)`, set by the server at each landing, logged as "allied pair: on (solo campaign)" or "off"; the local… | kind: interpretation; confidence: low | owner 2026-11-17 ("Two extra machines only for local singleplayer"), designer ruling allied-pair-ruling | Allied pair only for a solo campaign (W13d part 3): compare with SM1 by feel or video. Ours: Musou's two allied AI Marines (TfwRun.Allies) come to a Warfront… | ☐ |
+| `R-EF12777D` | Solo HQ passive with the pair on (W13d part 3, measured, no step applied) | `smtool warfront-hq --scenario passive --solo`, level 5 scaling, drain 40 s: Won at 8:00 (W fell 1:47, K never fell; 888 Orks killed against 8 with the pair off; 932 made; stuck records 39). The pair weighs 0 in the hold rule, so step 1 of the ruling (weigh… (s) | kind: ours; confidence: low | allied-pair-ruling (b) | Solo HQ passive with the pair on (W13d part 3, measured, no…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: smtool warfront-hq --scenario passive --solo, level 5 scaling, drain… | ☐ |
 
 *Spec section: Added content: Warfront: the local campaign (W16: `WarfrontLocal`, client `Extras/Warfront/FrontEnd`; no rules version change; added content, Warfront only)*
 
@@ -4691,6 +4693,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-81E623C2` | Approach Boss Orks | one Boss Ork (kinds in Musou's order) leashed at the middle stop of each of the last two routes; none roam (Musou's roaming Boss Orks do not come in the final assault); an arena with one route holds one (Orks) | kind: ours; confidence: low | `FortressPlace` | Approach Boss Orks: compare with SM1 by feel or video. Ours: one Boss Ork (kinds in Musou's order) leashed at the middle stop of… | ☐ |
 
+*Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-850D1003` | Stuck Orks inside the keep and the caves (W13d diagnosis, level version 2, drain 40 s, pair off) | 2026-11-17, in-process on the composed graph, level 5 Ork scaling, seed fixed (deterministic): `passive` 307 stuck records of 586 Orks made (52.4 %): keep hall 102, tunnels 97, chamber 71, courtyard 21, ramp and assembly 16; cells x 0 y 130 (49), x -10 y 130… (records, %) | kind: ours; confidence: low | W13d diagnosis | Stuck Orks inside the keep and the caves (W13d diagnosis…: compare with SM1 by feel or video. Ours: 2026-11-17, in-process on the composed graph, level 5 Ork scaling… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -4897,6 +4905,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0B8E4B6D` | Warfront HQ defence battle (W13b): the HQ map composed with the hub, three positions held in turn, Ork waves, won by surviving 8 minutes; not in SM1 | the owner's rules (2026-11-17: the HQ defence is won by surviving 8 minutes, lost when V falls or on a wipe, waves keep their schedule until the timer ends; the three defence positions and the fall-back order from the plan); the wave sizes and times, the squad strengths, the stage sources and their clearance, the… | W (wall and gate), K (keep) and V (caves) start Secured with the Guardsmen at their posts; waves of 200, 300 and 400 Orks muster on the assembly ground (12 m either side of the ramp's line, in rows, at most 10 made a tick, HQ alive cap 400) and climb the ramp at 0:45, 2:45 and 4:45, the Boss Orks with the second; only… | spec "Added content: Warfront: the HQ defence battle" | Warfront HQ defence battle (W13b): the HQ map composed with…: compare with SM1 by feel or video. Ours: the owner's rules (2026-11-17: the HQ defence is won by surviving 8… | ☐ |
 | `C-FCF372CB` | Warfront HQ defence, W13c: a fall is a rout (the Guardsmen of a fallen position are lost); the ramp foot fans to 60 m and the wall foot corners are chamfered; the stage sources use the fortress's sight ray; not in SM1 | ours (designer review 2 of W13b, ruling c; the map after the diagnosis of W13c) | the defence no longer grows stronger as it retreats; stuck Orks 12.0 % to 2.5 %; the `passive` bench scenario still wins at 8:00 with the allied pair on (awaits a ruling) | "Rout rule (W13c)", "Scenario targets (W13c)", "HQ ramp foot and wall foot" | Warfront HQ defence, W13c: a fall is a rout (the Guardsmen…: compare with SM1 by timing a run over a known distance. Ours: ours (designer review 2 of W13b, ruling c; the map after the… | ☐ |
 | `C-9FE9225A` | Warfront has no allied AI Marine pair on any map, and the HQ position hold drains in 40 s (was 20 s); the HQ sight ray hangs on the run's rules, not a static; not in SM1 | ours (an interpretation of the owner's Warfront brief until he confirms; designer review of W13c) | `run.Allies` false for every Warfront run (Musou keeps it on); `passive` bench scenario Lost at 3:32 | "No allied pair in Warfront (W13c pass 2)", "Second-pass scenarios (W13c pass 2)", "Stage-source sight (W13c pass 2)" | Warfront has no allied AI Marine pair on any map, and the…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours (an interpretation of the owner's Warfront brief until he… | ☐ |
+| `C-9BC8ED89` | Warfront's allied AI Marine pair is on only in a solo campaign (the server's human cap is one); the HQ's stuck Orks are diagnosed, not fixed (W13d); not in SM1 | ours (an interpretation of the owner's "Two extra machines only for local singleplayer", 2026-11-17) | `World.WarfrontAlliedPair`, set at each landing by the server; the pair weighs 0 in the HQ hold; solo `passive` still Wins at 8:00 | "Allied pair only for a solo campaign (W13d part 3)", "Solo HQ passive with the pair on (W13d part 3, measured, no step applied)", "Stuck Orks inside the keep and the caves (W13d diagnosis ...)" | Warfront's allied AI Marine pair is on only in a solo…: compare with SM1 by feel or video. Ours: ours (an interpretation of the owner's "Two extra machines only for… | ☐ |
 | `C-BA9D746F-2` | Warfront squad wiring and strength ruling (W9b): the squad on the node battle's seams, squad kills pay their owner's XP, retainer third, ledger events, squad strength constants, search budget and the stranded failsafe; not in SM1 | the owner's rules (retainer kills give XP, one third of the cards, 9 per player); the strength numbers (damage dealt 0.40, damage taken 0.35, no Marine health regeneration in a battle), the search budget (one a tick, 8 000 nodes, 3 s / 10 m failed-search memory), the stranded failsafe (10 s, 40 m, 8 to 12 m from the… | squads land at the first step beside their human, fight what the Orks send, pay the owner once per kill, are re-bound on a reconnect and held when their human leaves; a squad cut off from its owner is brought to him after 10 s, behind his back; a human can revive a fallen human; the retainer third covers damage… | spec "Added content: Warfront: the squad wiring"; "squads"; "squad classes" | Warfront squad wiring and strength ruling (W9b): the squad…: compare with SM1 by feel or video. Ours: the owner's rules (retainer kills give XP, one third of the cards, 9… | ☐ |
 | `C-2B640412` | Warfront progression (W7): XP from own and own squad's kills, shared elite/boss/capture XP, level-up cards, picker protection, retainer third, Ork scaling; not in SM1 | the owner's rules (2026-11-17); every number our estimate | four cards per level (three distinct stat types of five, slot 4 +1 Retainer or a fourth stat), +10 % attack speed / max HP / damage, -8 % cooldown (floor 40 %), +15 % max armour, Orks spawned +8 % HP and +5 % damage per highest level, +20 % HP per extra human | spec "Added content: Warfront, progression (W7)" | Warfront progression (W7): XP from own and own squad's…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's rules (2026-11-17); every number our estimate. | ☐ |
 | `C-EDF67DCA` | Warfront progression in the node battle (W3b): XP and levels from kills and captures, level-up refill, the picker with its protection, the five stat cards (damage, attack speed, max HP and armour as a damage-taken approximation, cooldowns), Ork scaling by level, assists; not in SM1 | the owner's rules (2026-11-17); every number our estimate; one core field (`PlayerState.AttackSpeedBonus`, 0 outside Warfront) | the W7 library takes effect in a Warfront node battle through `Warfront*` hooks only; Classic and Musou are unchanged | spec "Added content: Warfront, progression in the node battle (W3b)" | Warfront progression in the node battle (W3b): XP and…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's rules (2026-11-17); every number our estimate; one core… | ☐ |

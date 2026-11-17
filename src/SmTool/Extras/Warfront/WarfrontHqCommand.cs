@@ -42,7 +42,7 @@ static class WarfrontHqCommand
         [new(0f, 8f, WarfrontHqMap.PlateauZ), new(26f, 30f, WarfrontHqMap.PlateauZ), new(26f, 52f, WarfrontHqMap.PlateauZ), new(0f, 66f, WarfrontHqMap.PlateauZ)],
         [new(22f, 80f, WarfrontHqMap.PlateauZ), new(22f, 108f, WarfrontHqMap.PlateauZ), new(22f, 146f, WarfrontHqMap.PlateauZ), new(0f, 164f, WarfrontHqMap.PlateauZ)],
     ];
-    static bool _diagnose, _noAllies;
+    static bool _diagnose, _noAllies, _solo;
 
     public static int Run(string[] rest)
     {
@@ -55,6 +55,7 @@ static class WarfrontHqCommand
                 case "--measure": measure = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int a)) { seconds = a; i++; } break;
                 case "--scenario": if (i + 1 < rest.Length) { _scenario = rest[++i]; waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int c)) { seconds = c; i++; } } break;
                 case "--diagnose": _diagnose = true; break;
+                case "--solo": _solo = true; break;   // W13d part 3: a solo campaign (the server's human cap is one): the allied pair is on (the default is the co-op case, pair off)
                 case "--no-allies": _noAllies = true; break;   // test aid: the two allied Marines of the pair are not spawned (the Guardsmen and the human alone)
                 case "--waves": waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int b)) { seconds = b; i++; } break;
                 default: Console.Error.WriteLine($"warfront-hq: unknown argument \"{rest[i]}\" (usage: warfront-hq --measure [seconds] | --waves [seconds] | --scenario passive|fallback|gate9 [seconds])"); return 2; }
@@ -104,7 +105,7 @@ static class WarfrontHqCommand
         var run = w.Tfw!;
         run.Guardsmen = waves;
         run.Patrols = false;
-        if (_noAllies) run.Allies = false;
+        run.Allies = _solo && !_noAllies;   // the pair spawns at the Deploy below; World.WarfrontAlliedPair is the server's rule (the cap is one)
         w.TfwMeksOn = false;
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 30; k++) w.Step(_ => default);
@@ -287,6 +288,8 @@ static class WarfrontHqCommand
         {
             double tEnd = battle.HqSeconds;
             Console.WriteLine($"result {(result?.ToString() ?? "still running")} at {(int)tEnd / 60}:{(int)tEnd % 60:00}; {string.Join("; ", falls)}; waves sent {battle.HqWavesSent}; Orks made {battle.HqOrksMade}, skipped {battle.HqOrksSkipped}, Weirdboyz {battle.WeirdboyzCome}; the human {(w.Players[1].Alive ? "alive" : "down")}; modelled Marine kills {kills}; Guardsmen routed {battle.HqGuardsRouted}{(_scenario == "fallback" ? $"; the fallback human's deaths {deaths}, last position held by him {"WKV"[Math.Min(2, at)]}" : "")}");
+            int pairKills = w.Scores.Where(kv => TfwContracts.IsPuppet(kv.Key)).Sum(kv => kv.Value.Kills), humanKills = w.Scores.TryGetValue(1, out var hs) ? hs.Kills : 0;
+            Console.WriteLine($"kills credited: the allied pair {pairKills}, the human {humanKills}, everyone else (the Guardsmen, the modelled Marines, the failsafe, the walls) {battle.OrksKilled - pairKills - humanKills}; the pair is {(run.Allies ? "on" : "off")}");
             Console.WriteLine($"Orks killed by the human and others: {battle.OrksKilled}; stuck-log records {stuck.Count} = {stuck.Count * 100.0 / Math.Max(1, battle.HqOrksMade):0.0} % of the Orks made");
             var relocated = stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => x.Id).ToList();
             Console.WriteLine($"stranded Orks sent back to the assembly ground: {relocated.Sum(g => g.Count())} times by {relocated.Count} Orks, {relocated.Count(g => g.Count() >= 2)} of them twice or more; removed {stuck.Count(x => x.Why == WarfrontStuckWhy.Removed)}");

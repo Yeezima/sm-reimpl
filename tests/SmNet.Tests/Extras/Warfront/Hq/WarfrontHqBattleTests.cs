@@ -22,13 +22,14 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
     static readonly Lazy<WarfrontLoadedMap> Loaded = new(() => WarfrontMaps.Load(WarfrontMaps.HqName, out _)!);
 
     /// <summary>The HQ's composed world with one human aboard and the run's target set to the HQ, deployed and landed.</summary>
-    internal static World Hq(out TfwBattle battle, bool guardsmen = false, int humans = 1, bool frozen = true)
+    internal static World Hq(out TfwBattle battle, bool guardsmen = false, int humans = 1, bool frozen = true, bool pair = false)
     {
         var map = Loaded.Value;
         var config = TfwRig.Config with { Extras = ContentProfiles.WarfrontProfile };
         var w = new World(config, map.Collision, map.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = map.StartAreas };
         Assert.True(w.StartTfw(null, map.Tfw!.Field));
         w.Tfw!.AllyUp = _ => false;
+        w.Tfw.Allies = pair;   // W13d part 3: the server sets it at the landing (World.WarfrontAlliedPair)
         w.Tfw.Guardsmen = guardsmen;
         w.Tfw.Patrols = false;
         w.TfwMeksOn = false;
