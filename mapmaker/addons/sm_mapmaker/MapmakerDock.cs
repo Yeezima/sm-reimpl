@@ -36,7 +36,7 @@ public partial class LibraryList : ItemList
     }
 }
 
-/// <summary>The Mapmaker dock: Map (files, SM1 view, tools, snap), Library, Object (numeric transform), Prefab.</summary>
+/// <summary>The Mapmaker dock, in the order of the work: Map (files, modes, snap, SM1 reference), Library (place and import), Build (gameplay pieces), Object (the selection), Prefab, Test (check, play settings, share), with the mouse tool and Undo in a bar above and Play test always in the footer.</summary>
 [Tool]
 public partial class MapmakerDock : VBoxContainer
 {
@@ -44,7 +44,7 @@ public partial class MapmakerDock : VBoxContainer
     bool _refreshing;
     TabContainer? _tabs;
 
-    /// <summary>Brings the dock to the front of its slot and shows one of its tabs (0 Map, 1 Library, 2 Object, 3 Prefab).</summary>
+    /// <summary>Brings the dock to the front of its slot and shows one of its tabs (see <see cref="DockTab"/>).</summary>
     public void ShowTab(int index)
     {
         if (_tabs is not null) _tabs.CurrentTab = index;
@@ -52,7 +52,6 @@ public partial class MapmakerDock : VBoxContainer
     }
 
     Label _title = new(), _status = new();
-    OptionButton _recent = new();
     LineEdit _sm1Map = new() { Text = "mp_tdm_09" };
     CheckBox _backdrop = new() { Text = "Show SM1 map", ButtonPressed = true };
     Label _sm1Info = new();
@@ -112,13 +111,17 @@ public partial class MapmakerDock : VBoxContainer
         CustomMinimumSize = new Vector2(300, 0);
         var tabs = new TabContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         _tabs = tabs;
+        AddChild(ToolBar());
         AddChild(tabs);
-        tabs.AddChild(StartTab()); tabs.SetTabTitle((int)DockTab.Start, "Start");
+        tabs.AddChild(MapTab()); tabs.SetTabTitle((int)DockTab.Map, "Map");
+        tabs.AddChild(LibraryTab()); tabs.SetTabTitle((int)DockTab.Library, "Library");
         tabs.AddChild(BuildTab()); tabs.SetTabTitle((int)DockTab.Build, "Build");
         tabs.AddChild(ObjectTab()); tabs.SetTabTitle((int)DockTab.Object, "Object");
-        tabs.AddChild(LibraryTab()); tabs.SetTabTitle((int)DockTab.Library, "Library");
-        tabs.AddChild(MapTab()); tabs.SetTabTitle((int)DockTab.Tools, "Tools");
         tabs.AddChild(PrefabTab()); tabs.SetTabTitle((int)DockTab.Prefab, "Prefab");
+        tabs.AddChild(TestTab()); tabs.SetTabTitle((int)DockTab.Test, "Test");
+        AddChild(Footer());
+        // Compact tab titles so all six fit a narrow dock, and drop-downs that clip a long entry instead of widening the dock.
+        foreach (var o in FindChildren("*", "OptionButton", true, false)) if (o is OptionButton ob) ob.ClipText = true;
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new Vector2(280, 0);
         AddChild(_status);
         _plugin.DocChanged += Refresh;
@@ -134,43 +137,67 @@ public partial class MapmakerDock : VBoxContainer
 
     static Button Btn(string text, Action on, string? tip = null) { var b = new Button { Text = text, TooltipText = tip ?? "" }; b.Pressed += on; return b; }
     static HBoxContainer Row(params Control[] c) { var h = new HBoxContainer(); foreach (var x in c) h.AddChild(x); return h; }
-    static HBoxContainer VecRow(string label, SpinBox[] s) => Row(new Label { Text = label, CustomMinimumSize = new Vector2(48, 0) }, s[0], s[1], s[2]);
+    static HBoxContainer VecRow(string label, SpinBox[] s) => Row(Field(label, 56), s[0], s[1], s[2]);
     static Label Head(string t) => new() { Text = t, ThemeTypeVariation = "HeaderSmall" };
 
-    VBoxContainer Page()
+    // One text style per level (owner's rule): tab titles are Godot's, a section is a separator and a Head, a field has a plain Label, a hint is a muted small Label.
+    static readonly Color HintColour = new(0.66f, 0.7f, 0.76f);
+    static Label Hint(string t)
     {
-        var v = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
-        return v;
+        var l = new Label { Text = t, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        l.AddThemeColorOverride("font_color", HintColour); l.AddThemeFontSizeOverride("font_size", 12);
+        return l;
+    }
+    static Label Field(string t, int width = 56) => new() { Text = t, CustomMinimumSize = new Vector2(width, 0) };
+
+    /// <summary>Starts a titled section on a page: a rule above it (not the first) and the heading, then an optional one-line hint.</summary>
+    static void Section(VBoxContainer v, string title, string? hint = null)
+    {
+        if (v.GetChildCount() > 0) v.AddChild(new HSeparator());
+        v.AddChild(Head(title));
+        if (hint is not null) v.AddChild(Hint(hint));
     }
 
-    // ---- Map tab ----
+    /// <summary>A tab's page: the sections stack in a column (the tab wraps it in a scroll when it is taller than the dock).</summary>
+    VBoxContainer Page() => new() { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 
-    Control MapTab()
+    // ---- Mouse tool bar (above the tabs) and the Map tab's Snap and SM1 sections ----
+
+    /// <summary>The mouse tool and Undo, always in reach: what a left click does in the 3D view.</summary>
+    Control ToolBar()
     {
-        var v = Page();
-        v.AddChild(_title);
-        v.AddChild(Row(Btn("New", NewMap), Btn("Open...", OpenMap), Btn("Save", () => SaveMap(false)), Btn("Save As...", () => SaveMap(true))));
-        v.AddChild(_recent);
-        _recent.ItemSelected += i => { if (_refreshing) return; var path = _recent.GetItemMetadata((int)i).AsString(); if (path.Length > 0) _plugin.OpenMap(path); };
-        v.AddChild(Head("SM1 map"));
-        v.AddChild(Row(_sm1Map, Btn("Open SM1 map", OpenSm1)));
-        _sm1Map.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        v.AddChild(_backdrop);
-        _backdrop.Toggled += on => { if (MapHost.Root is { } r) r.BackdropVisible = on; };
-        v.AddChild(_sm1Info);
-        v.AddChild(Head("Tool (3D view left click)"));
         _toolSelect.Pressed += () => _plugin.SetTool(Tool.Select);
         _toolPick.Pressed += () => _plugin.SetTool(Tool.PickSm1);
         _toolPlace.Pressed += () => _plugin.SetTool(Tool.Place);
-        v.AddChild(Row(_toolSelect, _toolPick, _toolPlace));
-        v.AddChild(Head("Snap"));
-        var gridOn = new CheckBox { Text = "Grid (m)", ButtonPressed = true }; gridOn.Toggled += on => MapHost.SnapGrid = on;
-        var angOn = new CheckBox { Text = "Angle (deg)", ButtonPressed = true }; angOn.Toggled += on => MapHost.SnapAngle = on;
+        _toolSelect.TooltipText = "Left click selects objects, and the gizmo moves them.";
+        _toolPick.TooltipText = "Left click picks parts of the SM1 map (Shift or Ctrl adds). Then extract them to a prefab on the Prefab tab.";
+        _toolPlace.TooltipText = "Left click places the armed Library row or Build piece.";
+        foreach (var b in new[] { _toolSelect, _toolPick, _toolPlace }) b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        var undo = Btn("Undo", () => EditorInterface.Singleton.GetEditorUndoRedo()?.Call("undo"), "Editor undo (Ctrl+Z)");
+        return Row(_toolSelect, _toolPick, _toolPlace, undo);
+    }
+
+    void SnapSection(VBoxContainer v)
+    {
+        Section(v, "Snap", "Applies to placing and gizmo moves; typed values are never snapped.");
+        var gridOn = new CheckBox { Text = "Grid (m)", ButtonPressed = true, CustomMinimumSize = new Vector2(110, 0) }; gridOn.Toggled += on => MapHost.SnapGrid = on;
+        var angOn = new CheckBox { Text = "Angle (deg)", ButtonPressed = true, CustomMinimumSize = new Vector2(110, 0) }; angOn.Toggled += on => MapHost.SnapAngle = on;
         _grid.ValueChanged += x => MapHost.GridStep = (float)x; _angle.ValueChanged += x => MapHost.AngleStep = (float)x;
+        _grid.SizeFlagsHorizontal = SizeFlags.ExpandFill; _angle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(Row(gridOn, _grid)); v.AddChild(Row(angOn, _angle));
-        v.AddChild(new Label { Text = "Snap applies to placement and to gizmo moves on release; typed values are never snapped.", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) });
-        v.AddChild(Row(Btn("Undo", () => EditorInterface.Singleton.GetEditorUndoRedo()?.Call("undo"), "Editor undo (Ctrl+Z)"), Btn("Frame SM1 map", () => { if (MapHost.Sm1 is { } s && s.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max); })));
-        return v;
+    }
+
+    void Sm1Section(VBoxContainer v)
+    {
+        Section(v, "SM1 reference map", "Shows an original map as a backdrop to place against and pick from.");
+        _sm1Map.SizeFlagsHorizontal = SizeFlags.ExpandFill; _sm1Map.CustomMinimumSize = new Vector2(90, 0);
+        v.AddChild(Row(_sm1Map, Btn("Open SM1 map", OpenSm1, "Reads the map from your game install.")));
+        v.AddChild(_backdrop);
+        _backdrop.Toggled += on => { if (MapHost.Root is { } r) r.BackdropVisible = on; };
+        _sm1Info.AutowrapMode = TextServer.AutowrapMode.WordSmart; _sm1Info.CustomMinimumSize = new Vector2(250, 0);
+        _sm1Info.AddThemeColorOverride("font_color", HintColour); _sm1Info.AddThemeFontSizeOverride("font_size", 12);
+        v.AddChild(_sm1Info);
+        v.AddChild(Btn("Frame SM1 map", () => { if (MapHost.Sm1 is { } s && s.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max); }, "Moves the 3D view to show the whole SM1 map."));
     }
 
     void NewMap()
@@ -235,9 +262,13 @@ public partial class MapmakerDock : VBoxContainer
     Control LibraryTab()
     {
         var v = Page();
+        v.SizeFlagsVertical = SizeFlags.ExpandFill;
+        Section(v, "Library", "Click a row, then click in the 3D view (Esc or right click stops). Rows can also be dragged into the view.");
+        _libInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _libInfo.CustomMinimumSize = new Vector2(250, 0);
+        _libInfo.AddThemeColorOverride("font_color", HintColour); _libInfo.AddThemeFontSizeOverride("font_size", 12);
         _source.AddItem("SM1 definitions"); _source.AddItem("Custom assets"); _source.AddItem("Prefabs");
         _source.ItemSelected += _ => RebuildLibrary();
-        _search.TextChanged += _ => RebuildLibrary(); _search.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _search.TextChanged += _ => RebuildLibrary(); _search.SizeFlagsHorizontal = SizeFlags.ExpandFill; _search.CustomMinimumSize = new Vector2(70, 0);
         v.AddChild(Row(_source, _search));
         _list.ItemAt = i => i >= 0 && i < _items.Count ? _items[i] : null;
         _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos)) MapHost.Armed = item; if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
@@ -261,18 +292,20 @@ public partial class MapmakerDock : VBoxContainer
         _renameEdit.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.Escape }) { EndRename(); _list.GrabFocus(); _renameEdit.AcceptEvent(); } };
         _list.AddChild(_renameEdit);
         v.AddChild(_list);
-        v.AddChild(_libInfo);
         v.AddChild(_armed);
-        v.AddChild(Row(Btn("Import asset (.zip/.fbx/.glb/.gltf)...", () => Pick("Import asset", FileDialog.FileModeEnum.OpenFile, "", ["*.zip,*.fbx,*.glb,*.gltf ; Quixel / Fab download or model"], p => ImportPaths([p])), "Quixel / Fab zip with FBX + textures, FBX, GLB or glTF. You can also drag the file onto the Library list or the 3D view."),
-                       Btn("Import folder...", () => Pick("Import asset folder", FileDialog.FileModeEnum.OpenDir, "", [], p => ImportPaths([p])), "An unzipped Quixel / Fab download")));
-        v.AddChild(Row(Btn("Import prefab...", () => Pick("Import .smprefab", FileDialog.FileModeEnum.OpenFile, "", ["*.smprefab ; Mapmaker prefab"], p => ImportOp("import-prefab", p)))));
-        v.AddChild(Row(Btn("Extract picked SM1 objects to prefab...", ShowExtract)));
-        v.AddChild(Row(Btn("Delete selected prefab...", () =>
+        v.AddChild(_libInfo);
+        Section(v, "Import", "Quixel / Fab zip with FBX and textures, FBX, GLB or glTF. You can also drag a file onto the list or the 3D view.");
+        var importAsset = Btn("Import asset...", () => Pick("Import asset", FileDialog.FileModeEnum.OpenFile, "", ["*.zip,*.fbx,*.glb,*.gltf ; Quixel / Fab download or model"], p => ImportPaths([p])), "A .zip, .fbx, .glb or .gltf file.");
+        var importFolder = Btn("Import folder...", () => Pick("Import asset folder", FileDialog.FileModeEnum.OpenDir, "", [], p => ImportPaths([p])), "An unzipped Quixel / Fab download.");
+        importAsset.SizeFlagsHorizontal = SizeFlags.ExpandFill; importFolder.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(importAsset, importFolder));
+        v.AddChild(Btn("Import prefab...", () => Pick("Import .smprefab", FileDialog.FileModeEnum.OpenFile, "", ["*.smprefab ; Mapmaker prefab"], p => ImportOp("import-prefab", p)), "A .smprefab file from another map maker."));
+        Section(v, "Remove");
+        v.AddChild(Btn("Delete selected prefab...", () =>
         {
             if (_source.Selected != 2 || _lastRow is not { Kind: LibraryKind.Prefab } row || !_items.Contains(row)) { _status.Text = "Choose Prefabs in the list above, click the prefab to delete, then press Delete selected prefab."; return; }
             AskDeletePrefab(row.Id);
-        })));
-        v.AddChild(new Label { Text = "Click a row, then click in the 3D view to place it (Esc or right click to stop). Rows can also be dragged into the view.", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) });
+        }, "Deletes the prefab chosen in the list above (it asks first)."));
         return v;
     }
 
@@ -500,7 +533,14 @@ public partial class MapmakerDock : VBoxContainer
 
     public override void _Ready()
     {
-        if (LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new LibraryTest(_plugin, this).Run();
+        // Compact tab titles so all six fit a narrow dock; taken here, in the editor tree, so the boxes come from the editor theme.
+        if (_tabs is { } tabs)
+        {
+            foreach (var name in new[] { "tab_selected", "tab_unselected", "tab_hovered", "tab_disabled", "tab_focus" })
+                if (tabs.GetThemeStylebox(name) is { } box) { var narrow = (StyleBox)box.Duplicate(); narrow.ContentMarginLeft = 5; narrow.ContentMarginRight = 5; tabs.AddThemeStyleboxOverride(name, narrow); }
+            tabs.AddThemeFontSizeOverride("font_size", 14);
+        }
+                if (LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new LibraryTest(_plugin, this).Run();
     }
 
     public void TestShowSource(int source) { _source.Select(source); _search.Text = ""; RebuildLibrary(); }
@@ -567,7 +607,7 @@ public partial class MapmakerDock : VBoxContainer
 
     async void ImportPaths(string[] paths)
     {
-        if (_plugin.Session is null) { Report("Open or create a map first (Map tab: New), then import again."); return; }
+        if (_plugin.Session is null) { Report("Open or create a map first (Map tab: New map), then import again."); return; }
         if (_importing) { Report("An import is still running; drop the file again when it is done."); return; }
         _importing = true;
         var messages = new List<string>();
@@ -641,7 +681,7 @@ public partial class MapmakerDock : VBoxContainer
 
     void ShowExtract()
     {
-        if (MapHost.PickedSm1.Count == 0 || MapHost.Sm1 is null) { _status.Text = "Pick SM1 objects first (Map tab: Open SM1 map, tool Pick SM1; shift/ctrl click adds)."; return; }
+        if (MapHost.PickedSm1.Count == 0 || MapHost.Sm1 is null) { _status.Text = "Pick SM1 objects first (Map tab: Open SM1 map, then the Pick SM1 tool; Shift or Ctrl click adds)."; return; }
         if (_extract is null)
         {
             _extract = new ConfirmationDialog { Title = "Extract to prefab", Exclusive = true };
@@ -753,19 +793,28 @@ public partial class MapmakerDock : VBoxContainer
     Control ObjectTab()
     {
         var v = Page();
+        Section(v, "Selection", "Click an object in the 3D view. With several selected, edits move all by the change to the first.");
+        _objInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _objInfo.CustomMinimumSize = new Vector2(250, 0);
         v.AddChild(_objInfo);
-        v.AddChild(Row(new Label { Text = "Name" }, _name));
+        v.AddChild(Row(Field("Name"), _name));
         _name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _name.TextSubmitted += t => { foreach (var id in _plugin.SelectedIds().Take(1)) _plugin.Do("Rename", MapmakerPlugin.Op("rename", ("id", id), ("name", t))); };
+        Section(v, "Transform", "Rotation is Euler degrees about X, Y, Z of the SM1 frame (Z up). Gizmo moves are stored on release.");
         _space.AddItem("Local (document values)"); _space.AddItem("World");
         _space.ItemSelected += _ => Refresh();
-        v.AddChild(_space);
+        v.AddChild(Row(Field("Space"), _space));
+        _space.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(VecRow("Position", _pos)); v.AddChild(VecRow("Rotation", _rot)); v.AddChild(VecRow("Scale", _scl));
         foreach (var s in _pos.Concat(_rot).Concat(_scl)) s.ValueChanged += _ => ApplyTransform();
-        v.AddChild(Row(Btn("Duplicate", () => _plugin.DuplicateSelected(), "Ctrl+D over the 3D view"), Btn("Delete", () => _plugin.DeleteSelected(), "Del over the 3D view")));
-        v.AddChild(Row(Btn("Group to prefab...", GroupToPrefab), Btn("Toggle visible", () => ToggleVisible())));
-        v.AddChild(new Label { Text = "Rotation is Euler degrees about X, then Y, then Z of the SM1 frame (Z up). Gizmo moves in the 3D view are stored on release.", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) });
-        return v;
+        Section(v, "Actions");
+        var dup = Btn("Duplicate", () => _plugin.DuplicateSelected(), "Ctrl+D over the 3D view");
+        var vis = Btn("Toggle visibility", () => ToggleVisible(), "Shows or hides the selected object.");
+        dup.SizeFlagsHorizontal = SizeFlags.ExpandFill; vis.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(dup, vis));
+        v.AddChild(Btn("Group to prefab...", GroupToPrefab, "Turns the selected objects into one reusable prefab."));
+        v.AddChild(new HSeparator());
+        v.AddChild(Btn("Delete", () => _plugin.DeleteSelected(), "Del over the 3D view"));
+        return Scroll(v);
     }
 
     void ToggleVisible()
@@ -818,28 +867,43 @@ public partial class MapmakerDock : VBoxContainer
     Control PrefabTab()
     {
         var v = Page();
-        v.AddChild(Row(new Label { Text = "Prefab" }, _prefab));
+        Section(v, "Create", "Pick SM1 objects (Map tab, SM1 reference map), or select objects and use Object > Group to prefab.");
+        v.AddChild(Btn("Extract picked SM1 objects...", ShowExtract, "Makes a prefab from the SM1 objects picked in the 3D view."));
+        Section(v, "Prefab");
         _prefab.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _prefab.ItemSelected += _ => LoadPrefab();
-        v.AddChild(Row(new Label { Text = "Name" }, _prefabName));
+        v.AddChild(Row(Field("Prefab", 68), _prefab));
         _prefabName.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _prefabName.TextSubmitted += t => EditPrefab(("name", t));
+        v.AddChild(Row(Field("Name", 68), _prefabName));
         _collision.AddItem("mesh"); _collision.AddItem("original-cut");
         _collision.ItemSelected += i => { if (!_refreshing) EditPrefab(("collision", _collision.GetItemText((int)i))); };
-        v.AddChild(Row(new Label { Text = "Collision" }, _collision));
-        v.AddChild(Head("Meshes (parts)"));
+        _collision.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(Field("Collision", 68), _collision));
+        _prefabInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _prefabInfo.CustomMinimumSize = new Vector2(250, 0);
+        _prefabInfo.AddThemeColorOverride("font_color", HintColour); _prefabInfo.AddThemeFontSizeOverride("font_size", 12);
+        v.AddChild(_prefabInfo);
+        Section(v, "Parts", "Part values are in prefab coordinates.");
         v.AddChild(_parts);
         _parts.ItemSelected += i => ShowPart((int)i);
         v.AddChild(VecRow("Position", _ppos)); v.AddChild(VecRow("Rotation", _prot)); v.AddChild(VecRow("Scale", _pscl));
         foreach (var s in _ppos.Concat(_prot).Concat(_pscl)) s.ValueChanged += _ => ApplyPart();
-        v.AddChild(Row(Btn("Remove part", RemovePart), Btn("Hide part on selected instance", () => OverridePart(false)), Btn("Show", () => OverridePart(true))));
-        v.AddChild(Head("Pivot / origin (point in prefab coordinates that becomes the new origin)"));
+        var hide = Btn("Hide part", () => OverridePart(false), "Hides this part on the selected instance of the prefab only.");
+        var show = Btn("Show part", () => OverridePart(true), "Shows this part again on the selected instance.");
+        hide.SizeFlagsHorizontal = SizeFlags.ExpandFill; show.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(hide, show));
+        v.AddChild(Btn("Remove part", RemovePart, "Removes the part from the prefab itself (every map that uses it)."));
+        Section(v, "Pivot", "The point, in prefab coordinates, that becomes the new origin.");
         v.AddChild(VecRow("Shift", _porg));
-        v.AddChild(Row(Btn("Apply pivot", () => EditPrefab(("origin", MapmakerPlugin.Vec(V(_porg))))), Btn("Bottom centre", () => EditPrefab(("origin", "bounds-bottom-center"))), Btn("First part", () => EditPrefab(("origin", "first")))));
-        v.AddChild(Row(Btn("Delete this prefab...", () => { if (CurrentPrefabId is { } id) AskDeletePrefab(id); else _status.Text = "No prefab chosen."; })));
-        v.AddChild(_prefabInfo);
+        var apply = Btn("Apply pivot", () => EditPrefab(("origin", MapmakerPlugin.Vec(V(_porg)))));
+        var bottom = Btn("Use bottom centre", () => EditPrefab(("origin", "bounds-bottom-center")));
+        var first = Btn("Use first part", () => EditPrefab(("origin", "first")));
+        foreach (var b in new[] { apply, bottom, first }) b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(apply); v.AddChild(Row(bottom, first));
+        Section(v, "Remove");
+        v.AddChild(Btn("Delete this prefab...", () => { if (CurrentPrefabId is { } id) AskDeletePrefab(id); else _status.Text = "No prefab chosen."; }, "Deletes the prefab chosen above (it asks first)."));
         RefreshPrefabs();
-        return v;
+        return Scroll(v);
     }
 
     string? CurrentPrefabId => _prefab.Selected >= 0 && _prefab.ItemCount > 0 ? _prefab.GetItemMetadata(_prefab.Selected).AsString() : null;
@@ -927,19 +991,18 @@ public partial class MapmakerDock : VBoxContainer
     {
         _refreshing = true;
         var s = _plugin.Session;
-        _title.Text = s is null ? "No map open (New or Open)" : $"{s.Name}{(_plugin.Dirty ? " *" : "")}  -  {(s.Path ?? "unsaved")}";
+        _title.Text = s is null ? "No map open (New map or Open map)" : $"{s.Name}{(_plugin.Dirty ? " *" : "")}  -  {(s.Path ?? "unsaved")}";
+        _title.TooltipText = _title.Text;
         _toolSelect.SetPressedNoSignal(MapHost.Tool == Tool.Select); _toolPick.SetPressedNoSignal(MapHost.Tool == Tool.PickSm1); _toolPlace.SetPressedNoSignal(MapHost.Tool == Tool.Place);
         _armed.Text = MapHost.Armed is { } a ? $"Placing: {a.Label}" : "";
         _sm1Info.Text = MapHost.Sm1 is { } src ? $"{src.Map} loaded. Picked: {MapHost.PickedSm1.Count} ({string.Join(", ", MapHost.PickedSm1.Take(4).Select(src.Label))}{(MapHost.PickedSm1.Count > 4 ? ", ..." : "")})" : "No SM1 map loaded.";
-        _recent.Clear(); _recentStart.Clear();
-        _recent.AddItem("Recent maps..."); _recent.SetItemMetadata(0, "");
+        _recentStart.Clear();
         _recentStart.AddItem("Your maps..."); _recentStart.SetItemMetadata(0, "");
         try
         {
             if (System.IO.Directory.Exists(MapHost.Library.MapsDir))
                 foreach (var f in System.IO.Directory.EnumerateFiles(MapHost.Library.MapsDir, "*.smmap").OrderByDescending(System.IO.File.GetLastWriteTimeUtc).Take(30))
                 {
-                    _recent.AddItem(System.IO.Path.GetFileName(f)); _recent.SetItemMetadata(_recent.ItemCount - 1, f);
                     _recentStart.AddItem(System.IO.Path.GetFileName(f)); _recentStart.SetItemMetadata(_recentStart.ItemCount - 1, f);
                 }
         }
@@ -959,6 +1022,10 @@ public partial class MapmakerDock : VBoxContainer
         else _objInfo.Text = "Nothing selected (click an object in the 3D view).";
         _refreshing = false;
     }
+
+    public int TestTabCount => _tabs?.GetTabCount() ?? 0;
+    public void TestShowTabIndex(int i) => ShowTab(i);
+    public string TestTabTitle(int i) => _tabs?.GetTabTitle(i) ?? "";
 
     public void TestSetExtractFields(string name, string id) { _exName.Text = name; _exId.Text = id; }
 }

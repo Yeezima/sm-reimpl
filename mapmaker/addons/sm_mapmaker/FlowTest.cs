@@ -413,7 +413,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             MapHost.Library = new MapLibrary(lib);
             Say($"library {lib}");
             var dock = plugin.Dock!;
-            dock.ShowTab(DockTab.Start);
+            dock.ShowTab(DockTab.Map);
             await Frames(30);
             await Shot("start-no-map");
 
@@ -425,6 +425,26 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             Check(plugin.Session?.Path is { } p && File.Exists(p), $"the new map was saved at once ({plugin.Session?.Path})");
             await Frames(240);
             await Shot("new-from-layout");
+
+            // 1b. Dock layout documentation (agents only): one cropped picture of every tab, with an object selected so the Object tab is filled.
+            if (Flag("--mm-docktabs"))
+            {
+                plugin.Select([plugin.Session!.Document.Objects.First(o => o.Piece is { Kind: PieceKind.Box }).Id]);
+                await Frames(20);
+                for (int i = 0; i < dock.TestTabCount; i++)
+                {
+                    dock.TestShowTabIndex(i);
+                    await Frames(20);
+                    if (!Thumbnails.CanRender) { Say($"dock tab {i}: headless, skipped"); continue; }
+                    var rect = dock.GetGlobalRect();
+                    var img = Tree.Root.GetTexture().GetImage();
+                    var region = new Rect2I((int)rect.Position.X, (int)rect.Position.Y, (int)rect.Size.X, (int)rect.Size.Y).Intersection(new Rect2I(Vector2I.Zero, img.GetSize()));
+                    string tabFile = $"{i + 1:00}-{dock.TestTabTitle(i).ToLowerInvariant()}-{Arg("--mm-tabsuffix", "shot")}.png";
+                    img.GetRegion(region).SavePng(Path.Combine(_out, tabFile));
+                    Say($"dock tab shot {tabFile} ({region.Size.X}x{region.Size.Y})");
+                }
+                dock.TestShowTabIndex(0);
+            }
 
             // 2. The check: ready for both modes.
             plugin.RunCheck(true);

@@ -56,8 +56,8 @@ THE MAPMAKER (build your own maps)
   Space Marine install (found like the game finds it). The first press asks before it downloads the Godot
   editor once (about 111 MB, from godotengine's official release on GitHub, checked against its published
   SHA-512; and Microsoft's small .NET runtime only if your PC has no .NET 10) into the launcher's folder, then
-  prepares the editor for about a minute. After that it opens in a few seconds. The Mapmaker tab "Start" has
-  New map and PLAY TEST. Maps and your library are saved under %LOCALAPPDATA%\sm-reimpl\mapmaker on your PC.
+  prepares the editor for about a minute. After that it opens in a few seconds. The Mapmaker tab "Map" has
+  New map, and the Play test button is below the tabs. Maps and your library are saved under %LOCALAPPDATA%\sm-reimpl\mapmaker on your PC.
   The build holds no game files: the editor reads your install while it runs.
 
 GETTING INTO A MATCH

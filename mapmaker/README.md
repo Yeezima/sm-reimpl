@@ -11,15 +11,15 @@ The dock is **Mapmaker** in the right-hand dock group next to Inspector (use the
 The scene `Maps/Empty.tscn` opens by itself; it is just the view, the map is the `.smmap`.
 
 ## Make a map in 2 minutes
-Open the **Start** tab (the first tab of the Mapmaker dock): 1. pick a layout and press **New map**; 2. press **PLAY TEST** (a server on this PC only, bots, and the game open on your map). Change things first with the **Build** tab (click a piece, click the 3D view), fix anything red in the **Check** list (Fix buttons do it for you), tick the game modes the map is for, and send the `.smmap` file to share it. Full guide: docs/mapmaker.md "How to make a map in 2 minutes".
+Tabs, in work order: Map, Library, Build, Object, Prefab, Test (the mouse tool and Undo above them, Play test below). On the **Map** tab: 1. pick a layout and press **New map**; 2. press **Play test** (a server on this PC only, bots, and the game open on your map). Change things first with the **Build** tab (click a piece, click the 3D view), fix anything red in the **Test** tab's Check list (Fix buttons do it for you), tick the game modes the map is for, and send the `.smmap` file to share it. Full guide: docs/mapmaker.md "How to make a map in 2 minutes".
 
-## Quick tour (the older SM1 piece workflow, Tools and Library tabs)
-1. Dock > Map > **Open SM1 map** (default mp_tdm_09): Manufactorum appears as a grey-textured reference; the tool switches to **Pick SM1**.
-2. Click objects in the 3D view (shift/ctrl adds). Yellow boxes mark them. Dock > Library > **Extract picked SM1 objects to prefab...**: name, origin
+## Quick tour (the older SM1 piece workflow, Map and Library tabs)
+1. Dock > Map > SM1 reference map > **Open SM1 map** (default mp_tdm_09): Manufactorum appears as a grey-textured reference; the tool switches to **Pick SM1**.
+2. Click objects in the 3D view (shift/ctrl adds). Yellow boxes mark them. Dock > Prefab > Create > **Extract picked SM1 objects...**: name, origin
    (bounds bottom centre or first object), collision (mesh or original-cut). The prefab goes to the private library, not the repo.
-3. Map > **New**, then Library > Prefabs: click a row, click in the 3D view to place (Esc / right click stops). Rows can be dragged into the view too.
+3. Map > **New map**, then Library > Prefabs: click a row, click in the 3D view to place (Esc / right click stops). Rows can be dragged into the view too.
 4. Select an object (click it): Godot's move/rotate/scale gizmo works (W/E/R); on release the move is stored in the document, snapped to the grid and angle
-   steps of the Map tab. The **Object** tab edits position/rotation/scale numerically (local or world), name, visibility; Duplicate (Ctrl+D) and Delete (Del)
+   steps of the Map tab (Snap). The **Object** tab edits position/rotation/scale numerically (local or world), name, visibility; Duplicate (Ctrl+D) and Delete (Del)
    over the 3D view, **Group to prefab**.
 5. **Prefab** tab: parts list with per-part transform, remove part, hide a part on one instance, pivot (shift origin), collision mode, name.
    Instances are linked: editing the prefab updates every instance; per-instance part overrides survive.
