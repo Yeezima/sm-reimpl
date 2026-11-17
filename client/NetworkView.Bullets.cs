@@ -265,6 +265,9 @@ public partial class NetworkView
         _fallbackStreaks++;
     }
 
+    partial void ExtrasStreaksLive(ref bool any);
+    partial void ExtrasDrawStreaks(Vector3 camera);
+
     void BulletDebugAdd(bool own, Vector3? rayOrigin, Vector3 end, Vector3 muzzle, Vector3? join)
     {
         if (!ShowShotRays) return;
@@ -279,6 +282,7 @@ public partial class NetworkView
         for (int i = 0; i < _streaks.Length && !any; i++) any = _streaks[i].Live;
         for (int i = 0; i < _debugRays.Length && !any; i++) any = _debugRays[i].Live;
         any |= AnyLaser();   // feel/scope-lascannon (NetworkView.Laser.cs)
+        ExtrasStreaksLive(ref any);   // EXTRAS-HOOK: Musou Dreadnought's visual torrent streaks
         if (!any)
         {
             if (_bulletMesh is not null && _bulletMesh.GetSurfaceCount() > 0) _bulletMesh.ClearSurfaces();
@@ -340,6 +344,7 @@ public partial class NetworkView
             if (r.HasJoin) { Ribbon(camera, r.Muzzle, r.Join, 0.03f, orange, orange); Ribbon(camera, r.Join, r.End, 0.03f, orange, orange); }
             else Ribbon(camera, r.Muzzle, r.End, 0.03f, orange, orange);
         }
+        ExtrasDrawStreaks(camera);   // EXTRAS-HOOK: Musou Dreadnought's visual torrent streaks
         _streakWidth = 1f;
         if (_bulletSurfaceOpen) _bulletMesh.SurfaceEnd();   // an empty surface is an engine error (a frame where every live streak was skipped)
         _bulletSurfaceOpen = false;
