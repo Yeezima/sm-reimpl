@@ -78,6 +78,9 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/NetworkView.MusouPowerups.cs", "WarfrontCarry"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontRowAction"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontLibrarianRows"),
+        // 2026-11-18: Warfront melee cleave (server and the client's drawn arc)
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleave"),
+        ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontCleaveScaleFor"),
         // W13e: the stranded failsafe's "near" (an Ork inside its goal's ring has arrived)
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "WarfrontHeadwayNear"),
     ];

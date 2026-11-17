@@ -422,7 +422,7 @@ public class WarfrontProgressionWiringTests
         Aboard(w, 1);
         Stand(w, 2);
         var offer = w.WarfrontOffer(1)!;
-        Assert.True(w.WarfrontPick(1, 3, offer.PickIndex));   // slot 4: the Retainer card
+        Assert.True(w.WarfrontPick(1, WarfrontProgressionRules.RetainerSlot, offer.PickIndex));   // slot 6: the Retainer card
         var taken = rt.TakePicks();
         Assert.Single(taken);
         Assert.Equal(WarfrontCard.Retainer, taken[0].Card);

@@ -34,7 +34,7 @@ public class WarfrontPickRefusalTests
         Assert.Equal((0, 2, true), before);
         int wire = offer.PickIndex & 0xFF;
         Assert.False(GameServer.WarfrontPickFromWire(w, 1, 0, (wire + 1) & 0xFF));   // stale
-        Assert.False(GameServer.WarfrontPickFromWire(w, 1, 4, wire));                  // slot 4
+        Assert.False(GameServer.WarfrontPickFromWire(w, 1, 6, wire));                  // slot 7: past the six
         Assert.False(GameServer.WarfrontPickFromWire(w, 1, 255, wire));
         Assert.False(GameServer.WarfrontPickFromWire(w, 1, -1, wire));
         Assert.False(GameServer.WarfrontPickFromWire(w, 2, 0, wire));                  // another player has no offer

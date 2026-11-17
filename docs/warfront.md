@@ -39,8 +39,9 @@ opened and closed, every catch-up card is picked aboard, then the player may dep
 ## XP, cards, scaling, squads
 
 - Personal XP from the player's own and squad kills; shared once per event: elite, boss, captures. XP to the next level 1500 + 500 per level; a pick
-  queues until a lull or the ship; the picker makes the player invulnerable and idle without pausing the others; one of four cards (1 to 4 or D-pad): the first
-  three are distinct stat cards (attack speed, max HP, damage, ability cooldown, max armour), the fourth is +1 Retainer while eligible. A level-up refills health
+  queues until a lull or the ship; the picker makes the player invulnerable and idle without pausing the others; every card on offer (1 to 6 or D-pad; owner 2026-11-18): all
+  five stat cards (attack speed, max HP, damage, ability cooldown, max armour), and a sixth, +1 Retainer, only for a squad-capable class with room (the Dreadnought
+  sees five); nothing is drawn. A level-up refills health
   and armour. Retainers take one third of their player's stat bonuses.
 - Ork health and damage at spawn scale with the highest player level (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) and HP x (1 + 0.2 (humans-1)); living
   Orks are never changed. All numbers are estimates. Per-level table with times to kill: `smtool.cmd warfront-tuning` (copied into the test report).
@@ -57,6 +58,13 @@ opened and closed, every catch-up card is picked aboard, then the player may dep
   revived by anyone; out for that battle only if not. Strength table (estimates): `tests/.../Wiring/SquadStrengthTable.cs`, copied into the test report.
 - A fallen human lies downed 25 s, is revived by a teammate or retainer, otherwise spectates for 60 s more, then returns at the landing zone while a
   teammate or retainer stands (a wipe when nobody does).
+
+## Melee cleave
+
+Owner 2026-11-18, Warfront only, for human players and their retainers (not allied Marines, Guardsmen or contraption swings): every melee weapon cleaves 20 % farther than Musou Mode's war gives it, the Dreadnought 40 % farther (in place of the 20 %),
+with no cap on the enemies one swing strikes: an Ork is struck whenever his collision (his radius from the attacker's feet) overlaps the cleave volume. The server
+applies it through the `WarfrontCleave` hook of `World.MusouCleave` (`Extras/Warfront/Battle/World.WarfrontCleave.cs`; it acts only while the run's Warfront object
+exists); the client's drawn arc and predicted targets read the same scale. Classic PvP and Musou Mode keep their numbers. Numbers: spec "Warfront melee cleave".
 
 ## Where things are stored
 

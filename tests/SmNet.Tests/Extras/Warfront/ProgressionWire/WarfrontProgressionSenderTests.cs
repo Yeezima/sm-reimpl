@@ -11,7 +11,7 @@ public class WarfrontProgressionSenderTests
 
     static WarfrontProgressionSnapshot Snap(int level = 3, long xp = 500, int pending = 0, bool open = false, int pickIndex = 4, double left = 20, bool aboard = false) =>
         new(level, xp, 100, 900, pending, new[] { 1, 1, 3 }, 1, 0.2f, open, pickIndex,
-            new[] { WarfrontCard.AttackSpeed, WarfrontCard.MaxHp, WarfrontCard.Damage, WarfrontCard.Retainer }, left, aboard);
+            new[] { WarfrontCard.AttackSpeed, WarfrontCard.MaxHp, WarfrontCard.Damage, WarfrontCard.CooldownReduction, WarfrontCard.MaxArmor, WarfrontCard.Retainer }, left, aboard);
 
     static int Count(List<(byte Tag, byte[] Payload)> l, byte tag) => l.Count(s => s.Tag == tag);
 

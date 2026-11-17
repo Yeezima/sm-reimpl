@@ -20,6 +20,13 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
+    /// <summary>Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it.</summary>
+    partial void WarfrontCleaveScaleFor(int player, ref float scale)
+    {
+        if (_config is null || !_config.Extras.HasFlag(ContentExtras.Warfront) || _tfwState.War is null || SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(player)) return;   // humans only: an AI Marine's arc (a retainer's included, cosmetic) keeps Musou Mode's reach
+        scale = WarfrontBattleRules.CleaveScale(ClassOf(player) is int c && DreadnoughtRules.IsDreadnought(_config, c));
+    }
+
     // ---- the picker and the squad panel take the game's input -----------------------------------------------------------------------------
 
     /// <summary>True while the card picker or the squad panel is up, or a text field has the focus: the weapon keys, the fire button and the rest of the game's input stand still (<see cref="PickerBusy"/>).</summary>

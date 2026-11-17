@@ -11,7 +11,7 @@ public class WarfrontProgressionWireTests
         new(level, xp, at, next, pending, new byte[] { 1, 2, 3, 4, 5 }, ret, speed);
 
     static WarfrontOfferWire Offer(bool open = true, int index = 3, int tenths = 150, bool aboard = false, params WarfrontCard[] cards) =>
-        new(open, index, cards.Length == 4 ? cards : [WarfrontCard.Damage, WarfrontCard.MaxHp, WarfrontCard.AttackSpeed, WarfrontCard.Retainer], tenths, aboard);
+        new(open, index, cards.Length > 0 ? cards : [WarfrontCard.Damage, WarfrontCard.MaxHp, WarfrontCard.AttackSpeed, WarfrontCard.CooldownReduction, WarfrontCard.MaxArmor, WarfrontCard.Retainer], tenths, aboard);
 
     static byte[] Mutated(byte[] b, int at, byte v) { var c = (byte[])b.Clone(); c[at] = v; return c; }
 
@@ -56,10 +56,10 @@ public class WarfrontProgressionWireTests
         Assert.True(a.Open); Assert.True(a.Aboard); Assert.Equal(255, a.PickIndex); Assert.Equal(25.5f, a.SecondsLeft, 3); Assert.Equal(open.Cards, a.Cards);
         Assert.True(WarfrontProgressionWire.TryDecode(WarfrontProgressionWire.EncodeClosed(9), out WarfrontOfferWire c));
         Assert.False(c.Open); Assert.Equal(9, c.PickIndex); Assert.Equal(0, c.TenthsLeft);
-        // The fourth stat card (no Retainer) is a valid offer too.
-        var stat = Offer(cards: [WarfrontCard.Damage, WarfrontCard.MaxHp, WarfrontCard.AttackSpeed, WarfrontCard.MaxArmor]);
+        // Five stat cards and no Retainer (the sixth slot empty) is a valid offer too.
+        var stat = Offer(cards: [WarfrontCard.Damage, WarfrontCard.MaxHp, WarfrontCard.AttackSpeed, WarfrontCard.CooldownReduction, WarfrontCard.MaxArmor]);
         Assert.True(WarfrontProgressionWire.TryDecode(WarfrontProgressionWire.Encode(stat), out WarfrontOfferWire s));
-        Assert.Equal(stat.Cards, s.Cards);
+        Assert.Equal([.. stat.Cards, WarfrontCard.None], s.Cards);
     }
 
     [Fact]
@@ -85,11 +85,12 @@ public class WarfrontProgressionWireTests
 
         var o = WarfrontProgressionWire.Encode(Offer());
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 0, 2), out WarfrontOfferWire _));                          // open flag
-        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 7, 2), out WarfrontOfferWire _));                          // aboard flag
+        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 9, 2), out WarfrontOfferWire _));                          // aboard flag
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 2, 7), out WarfrontOfferWire _));                          // unknown card
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 2, 0), out WarfrontOfferWire _));                          // empty card in an open offer
         Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 3, o[2]), out WarfrontOfferWire _));                       // a duplicate
-        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 2, (byte)WarfrontCard.Retainer), out WarfrontOfferWire _)); // Retainer outside slot 4
+        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 2, (byte)WarfrontCard.Retainer), out WarfrontOfferWire _)); // Retainer outside slot 6
+        Assert.False(WarfrontProgressionWire.TryDecode(Mutated(o, 6, 0), out WarfrontOfferWire _));                          // an empty slot before the last
     }
 
     [Fact]
