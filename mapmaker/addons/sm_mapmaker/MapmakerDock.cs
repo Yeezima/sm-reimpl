@@ -584,14 +584,14 @@ public partial class MapmakerDock : VBoxContainer
                 }
                 _status.Text = $"Importing {label}...";
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);   // let the status paint before the load blocks
-                if (!IsInstanceValid(this)) return;
+                if (!IsInstanceValid(this) || !IsInsideTree()) return;
                 string staging = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-mapmaker-import-" + Guid.NewGuid().ToString("N"));
                 try
                 {
                     var r = await AssetImporter.Prepare(path, staging);
-                    if (!IsInstanceValid(this)) return;
+                    if (!IsInstanceValid(this) || !IsInsideTree()) return;
                     string sha = await Task.Run(() => ModelImport.ContentSha(r.GlbPath));
-                    if (!IsInstanceValid(this)) return;
+                    if (!IsInstanceValid(this) || !IsInsideTree()) return;
                     // The same download again: found by what it held, then by the converted content (the conversion is not guaranteed byte-for-byte repeatable).
                     var same = MapHost.Library.ListAssets().FirstOrDefault(x => x.Import?["sourceSha256"]?.ToString() == r.SourceSha || x.Sha256 == sha);
                     string id = same?.Id ?? r.Id;
