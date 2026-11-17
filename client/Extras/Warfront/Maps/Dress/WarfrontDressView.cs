@@ -111,8 +111,9 @@ public sealed partial class WarfrontDressView : Node
     {
         long start = (long)Time.GetTicksUsec(); double longest = 0; string longestName = "";
         long last = start;
-        foreach (var (name, run) in steps)
+        for (int si = 0; si < steps.Count; si++)
         {
+            var (name, run) = steps[si];
             await Frames(2);
             long t0 = (long)Time.GetTicksUsec();
             run();
@@ -163,11 +164,12 @@ public sealed partial class WarfrontDressView : Node
         AshfallView.ApplyLook(_sun, _env);
         if (!WarfrontFarMassing.Off)
         {
-            await RunSteps(WarfrontFortressDress.Steps(node, build, view, _sun, _env), "fortress");
+            var fl = new List<(string Name, Action Run)>(); fl.AddRange(WarfrontFortressDress.Steps(node, build, view, _sun, _env, null, (n, r) => fl.Add((n, r)))); await RunSteps(fl, "fortress");
             await WaitKit(node.GetNodeOrNull<AshfallKitView>("KitLook"));
             GD.Print("DRESSVIEW " + WarfrontFortressDress.Report);
         }
         await Frames(30);
+        if (Flag("--dress-movie")) { await Walk([new(0, -150, 0), new(0, -100, 0), new(0, -60, 0), new(0, -10, 0), new(0, 6, 0), new(0, 38, 0)]); return; }
         var P = (float x, float y, float z) => new Vector3(x, y, z);
         await Shoot("1-landing-north", P(0, -150, 0), P(0, -100, 8));
         await Shoot("2-gate-from-outside", P(0, -122, 0), P(0, -96, 9));
@@ -187,6 +189,33 @@ public sealed partial class WarfrontDressView : Node
         }
     }
 
+    /// <summary>
+    /// <c>--dress-movie</c> (with <c>godot.cmd --windowed --write-movie f.avi --fixed-fps 30</c>): after the build the camera walks <paramref name="way"/> (player eye height, feet on the polyline) for 30 s at 30 frames a second, no fight, no player model; the log names the frame the walk starts at
+    /// (<c>DRESSVIEW MOVIE START frame N</c>) so the recording can be cut there (ffmpeg -ss N/30 -t 30). A walk, not a battle: the battle clip is a real-server recording.
+    /// </summary>
+    async Task Walk(Vector3[] way)
+    {
+        float total = 0f; var cum = new List<float> { 0f };
+        for (int i = 1; i < way.Length; i++) { total += way[i].DistanceTo(way[i - 1]); cum.Add(total); }
+        Vector3 At(float d)
+        {
+            d = Math.Clamp(d, 0f, total);
+            for (int i = 1; i < way.Length; i++) if (d <= cum[i]) return way[i - 1].Lerp(way[i], (d - cum[i - 1]) / Math.Max(1e-3f, cum[i] - cum[i - 1]));
+            return way[^1];
+        }
+        _standIn!.Visible = false;
+        GD.Print($"DRESSVIEW MOVIE START frame {Engine.GetFramesDrawn()} (walk {total:F0} m in 30 s)");
+        for (int f = 0; f < 900; f++)
+        {
+            float d = total * f / 899f;
+            var feet = At(d); var ahead = At(d + 14f);
+            _cam.Position = G(feet.X, feet.Y, feet.Z + 1.7f);
+            _cam.LookAt(G(ahead.X, ahead.Y, ahead.Z + 2.2f + (f > 600 ? (f - 600) * 0.01f : 0f)), Vector3.Up);
+            await Frames(1);
+        }
+        GD.Print("DRESSVIEW MOVIE END");
+    }
+
     async Task RunHq()
     {
         var build = WarfrontHqLayout.Build;
@@ -197,11 +226,12 @@ public sealed partial class WarfrontDressView : Node
         AshfallView.ApplyLook(_sun, _env);
         if (!WarfrontFarMassing.Off)
         {
-            await RunSteps(WarfrontHqDress.Steps(node, build, view, _sun, _env), "hq");
+            var hl = new List<(string Name, Action Run)>(); hl.AddRange(WarfrontHqDress.Steps(node, build, view, _sun, _env, null, (n, r) => hl.Add((n, r)))); await RunSteps(hl, "hq");
             await WaitKit(node.GetNodeOrNull<AshfallKitView>("KitLook"));
             GD.Print("DRESSVIEW " + WarfrontHqDress.Report);
         }
         await Frames(30);
+        if (Flag("--dress-movie")) { await Walk([new(0, -185, 0), new(0, -130, 0), new(0, -46, WarfrontHqMap.RampRise), new(0, -30, WarfrontHqMap.PlateauZ), new(0, 20, WarfrontHqMap.PlateauZ), new(26, 36, WarfrontHqMap.PlateauZ)]); return; }
         float Ramp(float y) => (y - WarfrontHqMap.RampSouth) * WarfrontHqMap.RampRise / (WarfrontHqMap.RampNorth - WarfrontHqMap.RampSouth);
         var P = (float x, float y, float z) => new Vector3(x, y, z);
         await Shoot("1-assembly-up-the-ramp", P(0, -175, 0), P(0, -46, 18));

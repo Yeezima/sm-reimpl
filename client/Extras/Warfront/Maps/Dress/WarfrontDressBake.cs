@@ -18,7 +18,7 @@ public static class WarfrontDressBake
     /// <summary>The plated shader's material for <paramref name="mode"/> (see <see cref="WarfrontDressShader"/>). One shader for every mode: a shader's first draw costs a pipeline compile (measured 1.4 to 1.8 s cold, once per driver cache), so the modes share it and the cost is met once.</summary>
     public static ShaderMaterial Plated(int mode, Color? tint = null)
     {
-        _shader ??= new Shader { Code = WarfrontDressShader.Code };
+        _shader ??= new Shader { Code = WarfrontDressShader.Code + (System.Environment.GetEnvironmentVariable("SM_DRESS_SHADER_SALT") is { Length: > 0 } salt ? $"{(char)10}// salt {salt}{(char)10}" : "") };
         var m = new ShaderMaterial { Shader = _shader };
         m.SetShaderParameter("mode", mode);
         m.SetShaderParameter("tint", tint ?? new Color(1f, 1f, 1f));
@@ -62,6 +62,7 @@ public static class WarfrontDressBake
         DressMat.Dais => p.Shade > 0.5f ? "Glow" : "DaisDark",
         DressMat.Stone => "Stone",
         DressMat.Masonry => "Masonry",
+        DressMat.Rock => "Rock",
         DressMat.Gold => "Gold",
         DressMat.Smoke => "Smoke",
         DressMat.ClothBlue => "Cloth",
@@ -80,6 +81,7 @@ public static class WarfrontDressBake
         "Bone" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.9f, MetallicSpecular = 0.1f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         "Stone" => Plated(7),
         "Masonry" => Plated(8),
+        "Rock" => Plated(3),
         "Gold" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.4f, Metallic = 0.7f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         "Smoke" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         "DaisDark" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.6f, Metallic = 0.4f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
@@ -183,7 +185,7 @@ public static class WarfrontDressBake
     }
 
     /// <summary>The groups in the order they are attached (one step each: a material's first draw can cost a pipeline compile, so no frame meets two of them).</summary>
-    public static readonly string[] GroupOrder = ["Plated", "Wreck", "Iron", "Cloth", "Bone", "Glow", "DaisDark", "Stone", "Masonry", "Gold", "Smoke"];
+    public static readonly string[] GroupOrder = ["Plated", "Wreck", "Iron", "Cloth", "Bone", "Glow", "DaisDark", "Stone", "Masonry", "Rock", "Gold", "Smoke"];
 
     /// <summary>Attaches one baked group as a mesh node under <paramref name="parent"/>; returns its triangles (0 when the soup has no such group).</summary>
     public static int AttachGroup(Node3D parent, Dictionary<string, Soup> soups, string group, string name, bool shadows)

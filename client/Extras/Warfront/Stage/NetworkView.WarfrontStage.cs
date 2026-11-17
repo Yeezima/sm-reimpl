@@ -69,6 +69,7 @@ public partial class NetworkView
     /// </summary>
     void WarfrontWarmFrame(WarfrontStageModel m, double now, double dt)
     {
+        if (m.Stage is { State: SmNet.Extras.Warfront.WarfrontStageState.Preparing or SmNet.Extras.Warfront.WarfrontStageState.Go } stDress) WarfrontDressWarmFrame(stDress.Map);   // dressing: the plating shader's pre-warm (WarfrontDressWarm.cs)
         if (m.Stage is { State: SmNet.Extras.Warfront.WarfrontStageState.Preparing or SmNet.Extras.Warfront.WarfrontStageState.Go } st && st.Map != _wfWarmMap && WarfrontSlots.ByName(st.Map) is { } slot)
         {
             _wfWarmMap = st.Map;

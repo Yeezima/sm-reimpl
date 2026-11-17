@@ -43,7 +43,7 @@ public enum DressRule : byte
 }
 
 /// <summary>The material a piece is baked with (<c>WarfrontDressBake</c>): the plated looks are shaders, the rest plain colours.</summary>
-public enum DressMat : byte { Plated, Wreck, Iron, Bone, ClothRed, ClothBlack, Glow, Dais, Stone, Masonry, Gold, ClothBlue, Smoke }
+public enum DressMat : byte { Plated, Wreck, Iron, Bone, ClothRed, ClothBlack, Glow, Dais, Stone, Masonry, Gold, ClothBlue, Smoke, Rock }
 
 /// <summary>The shape of a piece.</summary>
 public enum DressShape : byte
@@ -81,8 +81,41 @@ public readonly record struct DressPiece(DressShape Shape, DressMat Mat, Vector3
 }
 
 /// <summary>The dressing of one map as plain data: what the Godot half draws.</summary>
+/// <summary>
+/// One of the game's own props, read from the install at run time (read only; <c>MekModels</c>): the <see cref="Key"/> names the model (<see cref="DressPropKeys"/>), it stands on <see cref="Base"/>, turned by <see cref="Yaw"/>, scaled to <see cref="Height"/> m.
+/// When the install or the model is missing the plan's fallback pieces for that key are drawn instead.
+/// </summary>
+public readonly record struct DressProp(string Key, Vector3 Base, float Yaw, float Height);
+
+/// <summary>The install models the dressing can draw (the loaders already in the project: <c>MekModels</c>, <c>TfwBanners</c>; docs/discovery.md "Musou capture banners"), by key.</summary>
+public static class DressPropKeys
+{
+    /// <summary>The Ork totem with the WAAAGH glyph (<c>waaaghbanner</c>, 7.1 m).</summary>
+    public const string Waaagh = "waaagh";
+    /// <summary>The Space Marine banner under a winged skull (<c>sm_banner</c>).</summary>
+    public const string SmBanner = "smbanner";
+    /// <summary>An Ork scrap heap (<c>ork_junkpile_d_healthy</c>).</summary>
+    public const string Junkpile = "junkpile";
+    /// <summary>An Ork gun turret (<c>ork_turret_healthy</c>) and its wreck.</summary>
+    public const string Turret = "turret", TurretWreck = "turretwreck";
+    /// <summary>An Ork tesla tower (<c>ork_elektrik_tower_healthy</c>).</summary>
+    public const string Tower = "tower";
+    /// <summary>A spike barrier (<c>Spikes_A</c>, the DLC map's).</summary>
+    public const string Spikes = "spikes";
+    /// <summary>A crashed Ork rok (<c>ork_rok</c>).</summary>
+    public const string Rok = "rok";
+    /// <summary>All the keys.</summary>
+    public static readonly string[] All = [Waaagh, SmBanner, Junkpile, Turret, TurretWreck, Tower, Spikes, Rok];
+}
+
 public sealed record DressPlan(IReadOnlyList<DressRule> Rules, IReadOnlyList<DressPiece> Pieces, IReadOnlyList<AshfallDressItem> KitItems)
 {
+    /// <summary>The install props (read at run time) the drawing places; each key's <see cref="Fallbacks"/> are drawn when its model does not load.</summary>
+    public IReadOnlyList<DressProp> Props { get; init; } = [];
+
+    /// <summary>What stands in place of a key's props when the install or its model is missing (the drawn totem, a plated wreck, ...).</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<DressPiece>> Fallbacks { get; init; } = new Dictionary<string, IReadOnlyList<DressPiece>>();
+
     /// <summary>The level parts the kit look must not draw itself (every part with a plated rule: this slice draws those).</summary>
     public IReadOnlyList<int> HiddenParts { get; init; } = [];
 }
