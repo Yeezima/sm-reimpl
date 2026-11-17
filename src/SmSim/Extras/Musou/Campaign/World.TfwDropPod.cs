@@ -157,7 +157,10 @@ public sealed partial class World
         if (MarineBrain.Flat(p.Position, TfwPodHome(run)) <= TfwDropPodRules.HqRadius || Tick - pod.RetreatTick >= (uint)MathF.Round(TfwDropPodRules.RetreatMaxSeconds * rate)) TfwDismissMarine(m.Id);
     }
 
-    /// <summary>A pod Marine's input: in the fight he holds his place and shoots what he sees within <see cref="MarineRules.HoldRadius"/>; in the retreat he sprints to the Imperial base and fires at nothing.</summary>
+    /// <summary>
+    /// A pod Marine's input: in the fight he shoots what he sees within <see cref="MarineRules.HoldRadius"/> of himself (an Ork within <see cref="TfwDropPodRules.PatrolRadius"/> of the pod) and stands where he is while he has one; with nothing in sight
+    /// he patrols (<see cref="TfwPodPatrol"/>, owner 2026-11-17); in the retreat he sprints to the Imperial base and fires at nothing.
+    /// </summary>
     PlayerInput TfwPodMarineInput(TfwRun run, Marine m, PlayerState self)
     {
         var musou = _musou!;
@@ -170,10 +173,10 @@ public sealed partial class World
             if (!struck || (Tick + (uint)m.Id) % MarineRules.RetargetTicks == 0)
             {
                 Span<ushort> nearest = stackalloc ushort[MarineRules.SightCandidates];
-                int seen = musou.Query(m.HoldAt, MarineRules.HoldRadius, nearest);
+                int seen = musou.Query(self.Position, MarineRules.HoldRadius, nearest);
                 m.Target = 0;
                 for (int k = 0; k < seen && m.Target == 0; k++)
-                    if (TfwMarineSees(self, nearest[k])) m.Target = nearest[k];
+                    if (musou.TryGet(nearest[k], out var cand) && (m.Pod is not { } own || MarineBrain.Flat(own.At, cand.Position) <= TfwDropPodRules.PatrolRadius) && TfwMarineSees(self, nearest[k])) m.Target = nearest[k];
             }
             if (m.Target != 0 && musou.TryGet(m.Target, out var enemy) && enemy.State != MusouEnemyState.Dying)
             {
@@ -183,14 +186,87 @@ public sealed partial class World
             }
         }
         bool strikesOnly = Loadouts.Weapon(Config, self, WeaponSlot.Ranged) is null;
-        MarineGoal? goal = retreat
-            ? new MarineGoal(TfwPodHome(run), 0f, TfwDropPodRules.HqRadius * 0.5f, Sprint: true)
-            : MarineBrain.PlanRetainer(new RetainerSituation(MarineOrder.Hold, self.Position, null, false, m.HoldAt, null, enemyAt, strikesOnly));
+        MarineGoal? goal;
+        if (retreat) goal = new MarineGoal(TfwPodHome(run), 0f, TfwDropPodRules.HqRadius * 0.5f, Sprint: true);
+        else if (enemyAt is not null) goal = null;   // a target in sight: he stands and fights where he is
+        else goal = TfwPodPatrol(m, self, strikesOnly);
         if (goal is { } g && MarineBrain.Flat(self.Position, g.Point) > g.Far && TfwGuards?.Ways is { } ways)
         {
             if (m.WayGoal < 0 || MarineBrain.Flat(m.WayPoint, g.Point) > MarineRules.WayRefresh) { m.WayPoint = g.Point; m.WayGoal = ways.GoalNode(g.Point); }
             if (ways.Carrot(self.Position, m.WayGoal) is { } next) goal = g with { Via = next };
         }
         return MarineBrain.Decide(self, Loadouts.InHand(Config, self), goal, chest, distance, Config.EyeHeight, Tick);
+    }
+
+    /// <summary>
+    /// The patrol of a pod Marine with no target in sight (owner 2026-11-17): he walks (no sprint) toward the nearest Ork within <see cref="TfwDropPodRules.PatrolSeekRadius"/> of the pod, closing to a gun's or a strike's stand-off,
+    /// otherwise between wander points on the walking graph within <see cref="TfwDropPodRules.WanderMax"/> of the pod, pausing a moment at each; beyond <see cref="TfwDropPodRules.PatrolPullBack"/> of the pod he turns back to it, so he never leaves the
+    /// <see cref="TfwDropPodRules.PatrolRadius"/> ring. Null: he stands (no pod, nothing chosen).
+    /// </summary>
+    MarineGoal? TfwPodPatrol(Marine m, in PlayerState self, bool strikesOnly)
+    {
+        if (m.Pod is not { } pod) return null;
+        var musou = _musou!;
+        float stand = strikesOnly ? MarineRules.StrikeStandOff : MarineRules.GunStandOff;
+        if (MarineBrain.Flat(self.Position, pod.At) > TfwDropPodRules.PatrolPullBack)
+        {
+            m.PatrolAt = pod.At; m.PatrolSeeks = false; m.PatrolPauseUntil = 0;
+            return new MarineGoal(pod.At, 0f, TfwDropPodRules.WanderMin, Sprint: false);
+        }
+        if (((Tick + (uint)m.Id) % MarineRules.RetargetTicks) == 0 || m.PatrolAt is null)
+        {
+            Span<ushort> near = stackalloc ushort[16];
+            int n = musou.Query(pod.At, TfwDropPodRules.PatrolSeekRadius, near, 8f);
+            ushort best = 0;
+            float bestDistance = float.MaxValue;
+            for (int k = 0; k < n; k++)
+                if (musou.TryGet(near[k], out var e) && MarineBrain.Flat(self.Position, e.Position) is var d && d < bestDistance) { best = near[k]; bestDistance = d; }
+            if (best != 0 && musou.TryGet(best, out var seek)) { m.PatrolAt = seek.Position; m.PatrolSeeks = true; m.PatrolPauseUntil = 0; }
+            else if (m.PatrolSeeks) { m.PatrolAt = null; m.PatrolSeeks = false; }   // the Ork he sought is gone: a new wander point
+        }
+        if (m.PatrolSeeks && m.PatrolAt is { } ork) return new MarineGoal(ork, 0f, stand, Sprint: false);
+        int rate = Math.Max(1, Config.TickRate);
+        if (m.PatrolAt is { } here && MarineBrain.Flat(self.Position, here) <= TfwDropPodRules.WanderArrive && m.PatrolPauseUntil == 0)
+        {
+            uint h = PodHash(pod, m);
+            m.PatrolPauseUntil = Tick + (uint)MathF.Round((TfwDropPodRules.WanderPauseMin + (h & 0xffffu) / 65535f * (TfwDropPodRules.WanderPauseMax - TfwDropPodRules.WanderPauseMin)) * rate);
+        }
+        bool pausing = m.PatrolPauseUntil != 0 && Tick < m.PatrolPauseUntil;
+        if (m.PatrolAt is null || (m.PatrolPauseUntil != 0 && !pausing) || (m.PatrolGiveUp != 0 && Tick >= m.PatrolGiveUp))
+        {
+            m.PatrolAt = PodWanderPoint(pod, m, self.Position);
+            m.PatrolPauseUntil = 0;
+            m.PatrolGiveUp = Tick + (uint)MathF.Round(TfwDropPodRules.WanderGiveUpSeconds * rate);
+        }
+        else if (pausing) return null;
+        return m.PatrolAt is { } point ? new MarineGoal(point, 0f, TfwDropPodRules.WanderArrive * 0.75f, Sprint: false) : null;
+    }
+
+    static uint PodHash(TfwPod pod, Marine m)
+    {
+        uint h = (pod.SpawnTick + 1u) * 2654435761u ^ (uint)(m.Id + 1) * 2246822519u ^ (uint)(++m.PatrolSeq) * 3266489917u;
+        h ^= h >> 15; h *= 2654435761u; h ^= h >> 13;
+        return h;
+    }
+
+    /// <summary>A walkable place between <see cref="TfwDropPodRules.WanderMin"/> and <see cref="TfwDropPodRules.WanderMax"/> of the pod, from a hash of (pod, Marine, count): the same on every run; the Marine's own place when none is found.</summary>
+    Vector3 PodWanderPoint(TfwPod pod, Marine m, Vector3 fallback)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            uint h = PodHash(pod, m);
+            float angle = (h & 0xffffu) / 65536f * MathF.Tau;
+            float radius = TfwDropPodRules.WanderMin + ((h >> 16) & 0xffffu) / 65535f * (TfwDropPodRules.WanderMax - TfwDropPodRules.WanderMin);
+            var at = pod.At + new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f) * radius;
+            if (Musou?.Nav is { } nav)
+            {
+                int node = nav.Nearest(at, 6f, 10f);
+                if (node < 0) continue;
+                at = nav.Position(node);
+            }
+            else at.Z = TfwGroundBelow(at, pod.At.Z + 1f);
+            if (MarineBrain.Flat(at, pod.At) <= TfwDropPodRules.WanderMax + 4f) return at;
+        }
+        return fallback;
     }
 }

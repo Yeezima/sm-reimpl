@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
+Scanned 3418 spec table rows: **2440 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +43,7 @@ Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data wi
 | HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
-| Game modes | 46 | 42 | 43 | 19 | 1 |
+| Game modes | 47 | 43 | 44 | 20 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
@@ -53,7 +53,7 @@ Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2439** | 2167 | 1806 | 732 | 37 |
+| **All areas** | **2440** | 2168 | 1807 | 733 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,11 +61,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1437 |
 | confidence: low | 871 |
-| confidence: medium | 826 |
-| notes: ours | 404 |
+| confidence: medium | 827 |
+| notes: ours | 405 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
-| kind: estimate | 164 |
+| kind: estimate | 165 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2143,7 +2143,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0E49FD3A` | Large burst on a hit player (Classic PvP; reverses the burst part of the row above) | owner 2026-11-13 (verbatim, after the first preview): "classic pvp mode: keep all on hit effects except the one in this reference image" and "there should only be large explosive visual effects on ranged weapon shots in musou mode. in classic pvp mode its… | kind: ours | the owner (2026-11-13); the red sparks are ours | Large burst on a hit player (Classic PvP; reverses the…: compare with SM1 with side-by-side video of the same action. Ours: owner 2026-11-13 (verbatim, after the first preview): "classic pvp… | ☐ |
 | `R-6540FEFF` | Glow and sparks for every damage on a player (Classic PvP and Musou Mode; protocol 71) | owner 2026-11-13 (verbatim): "any melee damage should also trigger the glows", "charge/bull rush, air slash landing, ground pound, light melee combo, F stun strike moves, any sort of damage should trigger the sparks and glows". Driven only by damage the… | kind: ours; confidence: medium | the owner (2026-11-13); the 0.25 s, the counter's width and the reading of the bits are ours | Glow and sparks for every damage on a player (Classic PvP…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: owner 2026-11-13 (verbatim): "any melee damage should also trigger… | ☐ |
 
-### Game modes (46)
+### Game modes (47)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2209,6 +2209,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D7F8AB04` | Final boss courtyard (hotfix/boss-trickle, owner 2026-11-01: "the final boss should spawn in the… | The final assault's Warboss starts on the walking graph's open ground just outside the HQ room, not inside it: the first node (by straight distance) on the HQ's connected part that is 22 to 70 m from the HQ's centre, within 3 m of its height, has 8 m of… (m) | kind: ours; kind: estimate; confidence: low | the owner's words; the numbers ours | Final boss courtyard (hotfix/boss-trickle, owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: The final assault's Warboss starts on the walking graph's open ground… | ☐ |
 | `R-08E1FB24` | War spawn-room blockers | none: the commander stands in the Chaos room and Marines must reach him on foot (the design kept them; with them he could only be fought if he came out) | kind: ours | ours | War spawn-room blockers: compare with SM1 by feel or video. Ours: none: the commander stands in the Chaos room and Marines must reach… | ☐ |
+
+*Spec section: Added content: Musou Mode: drop pod assault (`docs/drop-pod-assault.md`, `TfwDropPod.cs`, `World.TfwDropPod.cs`, `NetworkView.TfwDropPod.cs`; `TfwRules.Version` 75, `MusouSim.Version` and `Protocol.Version` unchanged)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-57C5C08E` | Drop pod patrol (owner 2026-11-17: "tactical marines spawned in by that ability should patrol the… | with no target in sight a pod Marine walks (no sprint) toward the nearest Ork within 57 m of the pod, closing to a gun's 12 m or a strike's 1.5 m stand-off, else between wander points on the walking graph 10 to 50 m from the pod, pausing 2 to 4 s at each and… (m, s) | kind: estimate; confidence: medium; notes: ours | the 60 m ring and the behaviour: the owner; 57 / 59 m margins, wander 10 to 50 m, pause 2 to 4 s, give-up 15 s, walking pace, seek stand-off: ours | Drop pod patrol (owner 2026-11-17: "tactical marines…: compare with SM1 by feel or video. Ours: with no target in sight a pod Marine walks (no sprint) toward the… | ☐ |
 
 *Spec section: Added content: Musou Mode: every spawn faces the map's centre (musou/spawn-facing; `MusouSim.Version` 28, `TfwRules.Version` 52)*
 

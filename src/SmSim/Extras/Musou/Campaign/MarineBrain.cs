@@ -114,6 +114,12 @@ public sealed class Marine(int id, int slot, string name, MarineRole role = Mari
     /// <summary>A pod Marine's pod (null for the others), and the ticks since he fell (0: standing).</summary>
     public TfwPod? Pod { get; set; }
     public int FallenTicks { get; set; }
+    /// <summary>A pod Marine's patrol (<c>World.TfwPodPatrol</c>): the place he is heading (a wander point, or an Ork he seeks; null: none yet), whether it is an Ork, when he pauses until, when he gives the point up, and a counter for the next wander point.</summary>
+    public Vector3? PatrolAt { get; set; }
+    public bool PatrolSeeks { get; set; }
+    public uint PatrolPauseUntil { get; set; }
+    public uint PatrolGiveUp { get; set; }
+    public int PatrolSeq { get; set; }
 }
 
 /// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it). <see cref="Via"/>: the next place on the way there (the walking graph's; none: straight).</summary>
