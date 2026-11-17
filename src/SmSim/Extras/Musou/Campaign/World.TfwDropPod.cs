@@ -208,24 +208,36 @@ public sealed partial class World
         if (m.Pod is not { } pod) return null;
         var musou = _musou!;
         float stand = strikesOnly ? MarineRules.StrikeStandOff : MarineRules.GunStandOff;
+        int rate = Math.Max(1, Config.TickRate);
         if (MarineBrain.Flat(self.Position, pod.At) > TfwDropPodRules.PatrolPullBack)
         {
-            m.PatrolAt = pod.At; m.PatrolSeeks = false; m.PatrolPauseUntil = 0;
-            return new MarineGoal(pod.At, 0f, TfwDropPodRules.WanderMin, Sprint: false);
+            // Past the pull-back he turns toward a wander point inside the ring (not the pod itself, so he does not ping-pong between the edge and the pod).
+            if (m.PatrolSeeks || m.PatrolAt is not { } back || MarineBrain.Flat(back, pod.At) > TfwDropPodRules.WanderMax + 4f)
+            {
+                m.PatrolAt = PodWanderPoint(pod, m, pod.At);
+                m.PatrolSeeks = false;
+                m.PatrolGiveUp = Tick + (uint)MathF.Round(TfwDropPodRules.WanderGiveUpSeconds * rate);
+            }
+            m.PatrolPauseUntil = 0;
+            return new MarineGoal(m.PatrolAt!.Value, 0f, TfwDropPodRules.WanderArrive * 0.75f, Sprint: false);
+        }
+        if (m.PatrolSeeks && m.PatrolGiveUp != 0 && Tick >= m.PatrolGiveUp)
+        {
+            // He has sought an Ork for the give-up time without a target coming in sight (a wall, a gantry): he wanders a while before he seeks again.
+            m.PatrolAt = null; m.PatrolSeeks = false; m.PatrolGiveUp = 0;
+            m.PatrolSeekBlockedUntil = Tick + (uint)MathF.Round(TfwDropPodRules.SeekCooldownSeconds * rate);
         }
         if (((Tick + (uint)m.Id) % MarineRules.RetargetTicks) == 0 || m.PatrolAt is null)
         {
-            Span<ushort> near = stackalloc ushort[16];
-            int n = musou.Query(pod.At, TfwDropPodRules.PatrolSeekRadius, near, 8f);
-            ushort best = 0;
-            float bestDistance = float.MaxValue;
-            for (int k = 0; k < n; k++)
-                if (musou.TryGet(near[k], out var e) && MarineBrain.Flat(self.Position, e.Position) is var d && d < bestDistance) { best = near[k]; bestDistance = d; }
-            if (best != 0 && musou.TryGet(best, out var seek)) { m.PatrolAt = seek.Position; m.PatrolSeeks = true; m.PatrolPauseUntil = 0; }
-            else if (m.PatrolSeeks) { m.PatrolAt = null; m.PatrolSeeks = false; }   // the Ork he sought is gone: a new wander point
+            ushort best = Tick < m.PatrolSeekBlockedUntil ? (ushort)0 : PodSeekCandidate(pod, self.Position);
+            if (best != 0 && musou.TryGet(best, out var seek))
+            {
+                if (!m.PatrolSeeks) m.PatrolGiveUp = Tick + (uint)MathF.Round(TfwDropPodRules.WanderGiveUpSeconds * rate);
+                m.PatrolAt = seek.Position; m.PatrolSeeks = true; m.PatrolPauseUntil = 0;
+            }
+            else if (m.PatrolSeeks) { m.PatrolAt = null; m.PatrolSeeks = false; m.PatrolGiveUp = 0; }   // the Ork he sought is gone or stands in a crowd: a new wander point
         }
         if (m.PatrolSeeks && m.PatrolAt is { } ork) return new MarineGoal(ork, 0f, stand, Sprint: false);
-        int rate = Math.Max(1, Config.TickRate);
         if (m.PatrolAt is { } here && MarineBrain.Flat(self.Position, here) <= TfwDropPodRules.WanderArrive && m.PatrolPauseUntil == 0)
         {
             uint h = PodHash(pod, m);
@@ -240,6 +252,26 @@ public sealed partial class World
         }
         else if (pausing) return null;
         return m.PatrolAt is { } point ? new MarineGoal(point, 0f, TfwDropPodRules.WanderArrive * 0.75f, Sprint: false) : null;
+    }
+
+    /// <summary>The nearest Ork within <see cref="TfwDropPodRules.PatrolSeekRadius"/> of the pod that does not stand in a crowd (at most <see cref="TfwDropPodRules.SeekCrowdMax"/> other Orks within <see cref="TfwDropPodRules.SeekCrowdRadius"/> of it), so a Marine does not walk into the army; 0: none.</summary>
+    ushort PodSeekCandidate(TfwPod pod, Vector3 from)
+    {
+        var musou = _musou!;
+        Span<ushort> near = stackalloc ushort[16];
+        Span<ushort> round = stackalloc ushort[TfwDropPodRules.SeekCrowdMax + 3];
+        int n = musou.Query(pod.At, TfwDropPodRules.PatrolSeekRadius, near, 8f);
+        ushort best = 0;
+        float bestDistance = float.MaxValue;
+        for (int k = 0; k < n; k++)
+        {
+            if (!musou.TryGet(near[k], out var e)) continue;
+            float d = MarineBrain.Flat(from, e.Position);
+            if (d >= bestDistance) continue;
+            if (musou.Query(e.Position, TfwDropPodRules.SeekCrowdRadius, round, 8f) - 1 > TfwDropPodRules.SeekCrowdMax) continue;   // a crowd round him: not a place to walk to
+            best = near[k]; bestDistance = d;
+        }
+        return best;
     }
 
     static uint PodHash(TfwPod pod, Marine m)

@@ -58,6 +58,9 @@ public static class TfwDropPodRules
     public const float PatrolSeekRadius = 57f, PatrolPullBack = 59f;
     /// <summary>A wander point lies between these distances of the pod (m; ours), the Marine pauses on arriving for a time between these (s; ours) and drops a point he has not reached after this long (s; ours).</summary>
     public const float WanderMin = 10f, WanderMax = 50f, WanderPauseMin = 2f, WanderPauseMax = 4f, WanderGiveUpSeconds = 15f;
+    /// <summary>A patrol seeks only an Ork with at most <see cref="SeekCrowdMax"/> other Orks within <see cref="SeekCrowdRadius"/> of it (m; count; ours), gives a seek up after <see cref="WanderGiveUpSeconds"/> without a target in sight and then wanders for <see cref="SeekCooldownSeconds"/> (s; ours).</summary>
+    public const float SeekCrowdRadius = 12f, SeekCooldownSeconds = 10f;
+    public const int SeekCrowdMax = 4;
     /// <summary>A wandering Marine has arrived within this of his point (m; ours).</summary>
     public const float WanderArrive = 2f;
     /// <summary>The Marines' scoreboard names (placeholders, labelled so).</summary>

@@ -120,6 +120,8 @@ public sealed class Marine(int id, int slot, string name, MarineRole role = Mari
     public uint PatrolPauseUntil { get; set; }
     public uint PatrolGiveUp { get; set; }
     public int PatrolSeq { get; set; }
+    /// <summary>Until this tick he does not seek an Ork (he gave a seek up).</summary>
+    public uint PatrolSeekBlockedUntil { get; set; }
 }
 
 /// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it). <see cref="Via"/>: the next place on the way there (the walking graph's; none: straight).</summary>

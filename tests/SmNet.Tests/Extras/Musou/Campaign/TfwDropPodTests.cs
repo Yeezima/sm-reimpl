@@ -322,6 +322,66 @@ public class TfwDropPodTests
     }
 
     [Fact]
+    public void An_ork_in_a_crowd_is_not_sought_but_a_lone_one_is()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        var centre = Open + new Vector3(48f, 0f, 6f);   // over the sight's height: only a seek could bring a Marine close
+        for (int k = 0; k < 9; k++) Enemy(w, MusouEnemyType.Boy, centre + new Vector3(k % 3 * 1.5f, k / 3 * 1.5f, 0f));
+        float closest = float.MaxValue;
+        for (int k = 0; k < 20 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            if (k < w.Config.TickRate) Assert.DoesNotContain(PodMarines(w), m => m.PatrolSeeks);   // while the Orks still stand in their crowd, no seek starts
+            foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, centre));
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolRadius);
+        }
+        Assert.True(closest >= 20f, $"a Marine walked into the crowd ({closest:F1} m from its centre)");
+    }
+
+    [Fact]
+    public void A_seek_that_never_gets_a_target_in_sight_is_given_up_after_15_s()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        Enemy(w, MusouEnemyType.Boy, Open + new Vector3(40f, 0f, 6f));   // over the Marines' sight's 2.5 m of height, within the seek's 8 m: never in sight
+        bool seeking = false, gaveUp = false;
+        for (int k = 0; k < 25 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            foreach (var m in PodMarines(w)) { seeking |= m.PatrolSeeks; gaveUp |= m.PatrolSeekBlockedUntil != 0; }
+        }
+        Assert.True(seeking, "a Marine sought the Ork");
+        Assert.True(gaveUp, "a Marine gave up the seek of an Ork he could not see");
+    }
+
+    [Fact]
+    public void An_ork_near_the_edge_of_the_ring_never_draws_a_marine_past_the_turn_back()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        Enemy(w, MusouEnemyType.Boy, Open + new Vector3(0f, 56f, 0f));
+        for (int k = 0; k < 28 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolPullBack + 1.5f, "a Marine went past the turn-back");
+        }
+    }
+
+    [Fact]
+    public void The_patrol_is_deterministic()
+    {
+        static List<Vector3> Run()
+        {
+            var w = Battle();
+            LandAndStepOut(w);
+            TfwRig.Seconds(w, 12f);
+            return PodMarines(w).OrderBy(m => m.Id).Select(m => w.Players[m.Id].Position).ToList();
+        }
+        Assert.Equal(Run(), Run());
+    }
+
+    [Fact]
     public void A_marine_that_falls_is_cleared_and_a_squad_with_none_left_ends_early()
     {
         var w = Battle();
