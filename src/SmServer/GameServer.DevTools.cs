@@ -136,7 +136,12 @@ public sealed partial class GameServer
     }
 
     /// <summary>The map the tools picked (the match is ending; the server's supervisor starts it), else null.</summary>
-    public string? PickedMap { get; private set; }
+    public string? PickedMap
+    {
+        get { if (_pickedMap is not null && World.State != MatchState.Ended) _pickedMap = null; return _pickedMap; }   // a restart (or any leaving of the end screen) cancels a pick that has not left yet
+        private set => _pickedMap = value;
+    }
+    string? _pickedMap;
 
     /// <summary>
     /// Protocol 85: ends the match now and starts a new one on the chosen map. The server cannot swap its map in place (one process, one map), so it does what a rotation does: the match ends, the

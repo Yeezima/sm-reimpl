@@ -85,6 +85,35 @@ public sealed class DevMapPickTests
     }
 
     [Fact]
+    public void A_restart_after_a_pick_cancels_it()
+    {
+        var (h, _) = Make(Setup());
+        h.Clients[0].SendDevCommand(DevCommandKind.PickMap, 1, true);
+        h.Run(TimeSpan.FromSeconds(0.3));
+        Assert.Equal("mp_tdm_17", h.Server.PickedMap);
+        h.Clients[0].SendDevCommand(DevCommandKind.RestartMatch, 0, true);
+        h.Run(TimeSpan.FromSeconds(0.3));
+        Assert.Null(h.Server.PickedMap);
+        Assert.False(h.Server.RotationDue);
+        h.Server.World.DevEndMatch();   // a later normal end does not switch maps
+        Assert.Null(h.Server.PickedMap);
+    }
+
+    [Fact]
+    public void A_pick_never_comes_from_a_bot_and_does_not_use_up_a_rotation_turn()
+    {
+        var (h, _) = Make(Setup());
+        var bot = h.AddClient(nonce: 77, options: new ClientOptions { Bot = true });
+        h.Run(TimeSpan.FromSeconds(1));
+        bot.SendDevCommand(DevCommandKind.PickMap, 1, true);
+        h.Run(TimeSpan.FromSeconds(0.5));
+        Assert.Null(h.Server.PickedMap);
+        // the supervisor's forced map is separate from the list's turn: the args for a custom map are never rewritten (no supervisor for it)
+        Assert.True(ServerCommandLine.TryParse(["--bind", "127.0.0.1", "--dev-tools", "--custom-map", "x.smmap"], out var cli, out _));
+        Assert.NotNull(cli.CustomMap);
+    }
+
+    [Fact]
     public void Without_the_tools_a_pick_does_nothing()
     {
         var (h, log) = Make(null);

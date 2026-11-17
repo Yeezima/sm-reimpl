@@ -32,7 +32,7 @@ if (cli.Maps is not null)
     if (!RotationSupervisor.TryPlan(rotationInstall, cli, out var rotation, out var rotationError)) { Console.Error.WriteLine($"smserver: {rotationError}"); return 1; }
     return RotationSupervisor.Run(args, rotation);
 }
-if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationChild && !cli.DevSupervised && !cli.Content.HasFlag(ContentExtras.Musou))
+if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationChild && !cli.DevSupervised && cli.CustomMap is null && !cli.Content.HasFlag(ContentExtras.Musou))
 {
     // devtools-map-pick: a developer-tools server runs under its supervisor too, so the tools can switch its map (the supervisor starts the picked map as a rotation does); the player sees one server.
     return RotationSupervisor.RunDev(args);
@@ -568,6 +568,7 @@ Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; Environment.Exit(0); };
 var lastReport = TimeSpan.Zero;
 TimeSpan? rotationDueAt = null;
+long nextSupervisorCheck = 0;   // wall clock: the supervisor check runs every 2 s, however fast or paused the loop is
 // hotfix/musou-server-lag: on Windows the loop's 1 ms pause is a high-resolution timer (Thread.Sleep(1) slept 15.6 ms or, with the PC busy, far longer) and the process
 // runs above normal priority; pacing only (LoopPacing.cs; SM_OLD_LOOP_PACING=1 restores the old loop for tests).
 LoopPacing.Start();
@@ -587,7 +588,7 @@ while (true)
     try
     {
         server.Update();
-        if (server.World.Tick % 120 == 0 && RotationSupervisor.SupervisorGone()) { Console.WriteLine("supervisor gone: this server exits too"); return 0; }   // a supervisor killed alone must not leave its child listening
+        if (Environment.TickCount64 >= nextSupervisorCheck && (nextSupervisorCheck = Environment.TickCount64 + 2000) > 0 && RotationSupervisor.SupervisorGone()) { Console.WriteLine("supervisor gone: this server exits too"); return 0; }   // a supervisor killed alone must not leave its child listening
         // classic-maps-all: a rotation child's match is over and its clients were told (protocol 79); it answers no more joins (RotationDue) and leaves a moment later for the supervisor's next map.
         if (!server.RotationDue) rotationDueAt = null;   // a rotation that is no longer due (a player joined an empty restart, say) starts its 0.8 s afresh
         if ((cli.RotationChild || cli.DevSupervised) && server.RotationDue)
