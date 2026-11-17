@@ -58,10 +58,9 @@ public static class MapDecor
     static bool? _oldSky;
 
     /// <summary>
-    /// classic-maps-fidelity fix 1: whether the map's static level decals (<see cref="MapDecalView"/>) are drawn: on the ten new classic maps unless <c>--no-level-decals</c> (before / after aid); on
-    /// Manufactorum only with <c>--level-decals</c> (its owner-approved look stays as it was until the owner decides).
+    /// classic-maps-fidelity fix 1: whether the map's static level decals (<see cref="MapDecalView"/>) are drawn: on every map (Manufactorum too, owner 2026-11-18: "Yes, draw them") unless <c>--no-level-decals</c> (before / after aid; <c>--level-decals</c> is a no-op now).
     /// </summary>
-    public static bool DrawsLevelDecals(string map) => MapDecorLists.IsNewClassicMap(map) ? Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-level-decals") < 0 : Array.IndexOf(OS.GetCmdlineUserArgs(), "--level-decals") >= 0;
+    public static bool DrawsLevelDecals(string map) => Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-level-decals") < 0;
 
     /// <summary>classic-maps-fidelity: <c>--old-lod-rule</c> draws the parts of <see cref="ObjectDefinition.NearestLod"/> again (every node named like a low LOD dropped, _LodH and _LodM drawn together); by default one member of each LOD-suffix family is drawn (<see cref="ObjectDefinition.HighestLod"/>).</summary>
     public static bool OldLodRule => _oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0;
