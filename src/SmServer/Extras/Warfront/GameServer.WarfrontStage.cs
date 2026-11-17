@@ -1,9 +1,11 @@
+using System.Numerics;
 using SmContent.Extras.Warfront;
 using SmSim;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Fortress;
+using SmSim.Extras.Warfront.Hq;
 using SmSim.Extras.Warfront.Maps;
 
 namespace SmServer;
@@ -173,6 +175,11 @@ public sealed partial class GameServer
             rules.Fortress = fortress ? WarfrontFortressSetupFor(run) : null;   // the fortress's plan and sight test (W14b); only a fortress stage ever sets it
             if (rules.Fortress is { Sight: null }) WfLog($"FAULT: the fortress stage has no sight test (this map has no weapon collision): stage 2 sources stay closed to anyone in the plaza and no spawn is judged hidden");
         }
+        if (hq)   // the HQ's stage sources use the same ray as the fortress's (W13c); none supplied: the 60 m stand-in, said once
+        {
+            if (run.Warfront is { } hqRules) hqRules.HqSight = WarfrontSightOverStage();
+            WfLog(run.Warfront?.HqSight is null ? "HQ defence: no weapon collision on this stage, the stage sources use the 60 m sight stand-in" : "HQ defence: the stage sources are hidden by the eye-to-eye ray over this stage's weapon collision");
+        }
         run.War.SetFrontsForTests(hq || fortress ? (sbyte)0 : (sbyte)(slot!.Node - 1));   // the HQ and the fortress: a node battle's frame on lane A; the plan hook replaces the layout
         if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)(hq || fortress ? 0 : slot!.Lane)))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }
         s.LandingEnqueued = World.Tick;
@@ -273,14 +280,20 @@ public sealed partial class GameServer
     WarfrontFortressSetup WarfrontFortressSetupFor(TfwRun run)
     {
         var setup = WarfrontFortressSetup.For(WarfrontSlots.Fortress);
-        var weapons = Map?.Collision.Weapons;
-        if (weapons is not null)
-            setup.Sight = (from, to) =>
-            {
-                var d = to - from;
-                float len = d.Length();
-                return len < 0.01f || weapons.Raycast(from, d / len, len) is null;
-            };
+        setup.Sight = WarfrontSightOverStage();
         return setup;
+    }
+
+    /// <summary>A straight eye-to-eye line that no wall of this stage's weapon collision stops (the fortress's and, since W13c, the HQ's sight test); null without a collision.</summary>
+    Func<Vector3, Vector3, bool>? WarfrontSightOverStage()
+    {
+        var weapons = Map?.Collision.Weapons;
+        if (weapons is null) return null;
+        return (from, to) =>
+        {
+            var d = to - from;
+            float len = d.Length();
+            return len < 0.01f || weapons.Raycast(from, d / len, len) is null;
+        };
     }
 }

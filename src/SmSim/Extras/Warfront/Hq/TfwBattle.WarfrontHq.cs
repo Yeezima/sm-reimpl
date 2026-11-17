@@ -27,6 +27,8 @@ public sealed partial class TfwBattle
     public int HqOrksMade { get; private set; }
     /// <summary>Orks of a wave never made for want of room under the alive cap or the pool.</summary>
     public int HqOrksSkipped { get; private set; }
+    /// <summary>The Guardsmen lost to routs so far (<see cref="HqRout"/>; tests and the bench).</summary>
+    public int HqGuardsRouted { get; private set; }
     /// <summary>Test aid (the measurement tool): false stops the scheduled waves.</summary>
     public bool HqWavesOn { get; set; } = true;
     /// <summary>What the defence did on its last tick, for the bench's tagged list of the slowest ticks: 1 muster spawns, 2 stage spawns (flood or share), 4 a chunk let go, 8 a wave left, 16 a position fell.</summary>
@@ -68,7 +70,7 @@ public sealed partial class TfwBattle
                 var post = posts.Length > 0 ? posts[n % posts.Length] : _layout.Positions[k];
                 int row = posts.Length > 0 ? n / posts.Length : 0;
                 var at = Ground(post + new Vector3(0f, -2f * row, 0f), post);
-                int s = _guards.SpawnSquad(at, FaceCentre(at));
+                int s = _guards.SpawnSquad(at, FaceCentre(at), GuardSim.SquadSize, WarfrontHqBattleRules.GuardStrengthAt[k]);
                 if (s < 0) continue;
                 _squadArmy[s] = HqSquadOwner;
                 _hqGoal[s] = k;
@@ -177,6 +179,9 @@ public sealed partial class TfwBattle
         if (k >= Positions) return;
         var at = _layout.Positions[k];
         float radius = _layout.Radius(k), reach = _layout.Reach(k);
+        // Reads at most 192 Orks in the ring (W13c, review 2 low 5). The defenders' greatest weight is about 136: four humans 4 x 6 = 24, a squad of 36 Marines 36 x 2 = 72, and the 40 Guardsmen of the four squads 40 x 1 = 40. Orks counted
+        // below that weight never outweigh the defenders, and 192 Orks weigh at least 192 (a Nob or bigger 3), so cutting the read at 192 never changes the answer. A later change of a weight, of the squads or of the humans' number must
+        // keep 192 above the defenders' greatest weight (or raise this number).
         Span<ushort> ids = stackalloc ushort[192];
         int n = _enemies.Query(at, radius, ids, reach);
         int orks = 0;
@@ -220,6 +225,7 @@ public sealed partial class TfwBattle
         HqTickFlags |= 16;
         HqFallenCount++;
         _hqHold = 1f;
+        HqRout(k);
         if (_layout.Radii is { } radii && k < radii.Length) radii[k] = 0.01f;   // a ring of a centimetre: nobody is inside it, so no capture, no retake, no Guardsman holding it (the position's place stays, for the markers and the Marines' goal)
         if (k == Positions - 1)
         {
@@ -232,7 +238,22 @@ public sealed partial class TfwBattle
         _hqRepostTicks = 0;
     }
 
-    /// <summary>Every second: a squad whose position fell goes to the front-most one still held; one that stopped outside its post is sent again.</summary>
+    /// <summary>
+    /// A fall is a rout (W13c, designer review of W13b ruling c; ours, an estimate): every Guardsman posted to position <paramref name="k"/> is lost, one <see cref="GuardSim.KillOne"/> at a time so the deaths are seen (not <see cref="GuardSim.Dismiss"/>,
+    /// which takes a squad out with no death). Squads posted to a later position stay. Before this rule the survivors went on to the next position and the defence grew stronger as it retreated (a passive human won with K never reached).
+    /// </summary>
+    void HqRout(int k)
+    {
+        if (!_guardsmen) return;
+        for (int s = 0; s < GuardSim.MaxSquads; s++)
+        {
+            if (_squadArmy[s] != HqSquadOwner || _hqGoal[s] != k) continue;
+            while (_guards.AliveIn(s) > 0 && _guards.KillOne(s, _guards.Centre(s))) HqGuardsRouted++;
+            _hqGoal[s] = -1;   // nobody left to re-post
+        }
+    }
+
+    /// <summary>Every second: a squad whose position fell goes to the front-most one still held (a squad of a fallen position is gone, <see cref="HqRout"/>, so this serves the squads whose own position still stands); one that stopped outside its post is sent again.</summary>
     void HqRepost()
     {
         int front = HqFront;
@@ -279,6 +300,7 @@ public sealed partial class TfwBattle
 
     int _hqReleasing, _hqMusterLeft, _hqMusterMade, _hqBossLeft;
     readonly Queue<(int Stage, int Left)> _hqStageQueue = new();
+    readonly List<Vector3> _hqOpen = new();   // HqSpawnAtStage's list of open sources, reused
 
     /// <summary>Lets the next chunk of the wave leaving go when its time has come (<see cref="WarfrontHqBattleRules.ChunkGapSeconds"/> apart).</summary>
     void HqReleaseChunks(float t)
@@ -304,7 +326,12 @@ public sealed partial class TfwBattle
     /// The places a wave musters round: the assembly sources within <see cref="WarfrontHqBattleRules.MusterHalfWidth"/> of the ramp's centre line (the ramp is 30 m wide; a wave mustered wider piled against its side), and, so that the wave stands in depth
     /// (rows behind each other, not 200 Orks on one 11 m disc), a place every <see cref="WarfrontHqBattleRules.MusterRowMetres"/> along the line between the deepest and the nearest of them.
     /// </summary>
-    static Vector3[] HqHome()
+    static Vector3[] HqHome() => HomeSpots.Value;
+
+    /// <summary>The muster places, computed once (it allocated on every tick of a muster and in every stage spawn; lazy so a battle that is not the HQ never builds the HQ map).</summary>
+    static readonly Lazy<Vector3[]> HomeSpots = new(BuildHome);
+
+    static Vector3[] BuildHome()
     {
         var home = WarfrontHqLayout.SourcesOf(0).Where(p => MathF.Abs(p.X) <= WarfrontHqBattleRules.MusterHalfWidth).ToArray();
         if (home.Length == 0) return [.. WarfrontHqLayout.SourcesOf(0)];
@@ -389,7 +416,8 @@ public sealed partial class TfwBattle
     /// </summary>
     int HqSpawnAtStage(int stage, int count, ReadOnlySpan<Vector3> players)
     {
-        var open = new List<Vector3>();
+        var open = _hqOpen;
+        open.Clear();
         foreach (var s in WarfrontHqLayout.SourcesOf(stage)) if (HqClear(s, players)) open.Add(s);
         var home = HqHome();
         int cap = HqCap;
@@ -411,11 +439,24 @@ public sealed partial class TfwBattle
         return made;
     }
 
-    /// <summary>Whether no human is within <see cref="WarfrontHqBattleRules.SourceSightMetres"/> of <paramref name="at"/>.</summary>
-    static bool HqClear(Vector3 at, ReadOnlySpan<Vector3> players)
+    /// <summary>
+    /// Whether no human may see a stage source at <paramref name="at"/> (W13c, review 2 item 8): none within <see cref="WarfrontHqBattleRules.SourceClearanceMetres"/>, and none with a straight eye-to-eye line to it over the stage's weapon collision
+    /// (<c>WarfrontBattleRules.HqSight</c>, the fortress's own ray). With no ray supplied the 60 m stand-in applies: no human within <see cref="WarfrontHqBattleRules.SourceSightMetres"/>.
+    /// </summary>
+    /// <summary>Whether no human may see a stage source at <paramref name="at"/> now (<see cref="HqClear"/>; the bench's open-seconds print and tests).</summary>
+    public bool HqSourceClear(Vector3 at, ReadOnlySpan<Vector3> players) => HqClear(at, players);
+
+    bool HqClear(Vector3 at, ReadOnlySpan<Vector3> players)
     {
+        var sight = _enemies.Warfront?.HqSight;
+        var eyeAt = at + new Vector3(0f, 0f, WarfrontHqBattleRules.EyeHeight);
         foreach (var p in players)
-            if (Vector3.Distance(p, at) < WarfrontHqBattleRules.SourceSightMetres) return false;
+        {
+            float d = Vector3.Distance(p, at);
+            if (d < WarfrontHqBattleRules.SourceClearanceMetres) return false;
+            if (sight is null) { if (d < WarfrontHqBattleRules.SourceSightMetres) return false; }
+            else if ((WarfrontHqBattleRules.SightRangeMetres <= 0f || d <= WarfrontHqBattleRules.SightRangeMetres) && sight(p + new Vector3(0f, 0f, WarfrontHqBattleRules.EyeHeight), eyeAt)) return false;
+        }
         return true;
     }
 }

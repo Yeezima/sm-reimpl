@@ -84,6 +84,9 @@ public sealed class WarfrontBattleRules
     /// <summary>W14b: the fortress deployment's setup (the arena's plan); null for every other battle. Set by the server before the landing, and only when the stage's map is the fortress; never cleared, which holds because a stage process fights one battle. The plan hook then supplies the fortress layout and the final assault.</summary>
     public SmSim.Extras.Warfront.Fortress.WarfrontFortressSetup? Fortress { get; set; }
 
+    /// <summary>W13c: the HQ defence's sight test (true when the line from the first point to the second is not stopped by a wall), set by the server at the HQ landing from the stage's weapon collision, the same ray as the fortress's; null: the 60 m stand-in. Read by <c>TfwBattle.HqClear</c> through the battle's rules.</summary>
+    public Func<System.Numerics.Vector3, System.Numerics.Vector3, bool>? HqSight { get; set; }
+
     /// <summary>The lane and node of the battle under way (set at its creation).</summary>
     public TfwLane Lane { get; internal set; }
     public int Node { get; internal set; }

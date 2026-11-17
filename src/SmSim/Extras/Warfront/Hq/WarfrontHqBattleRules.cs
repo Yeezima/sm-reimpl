@@ -1,4 +1,6 @@
+using System.Numerics;
 using SmSim.Extras.Musou.Campaign;
+using SmSim.Extras.Warfront.Fortress;
 
 namespace SmSim.Extras.Warfront.Hq;
 
@@ -38,7 +40,7 @@ public static class WarfrontHqBattleRules
     /// <summary>The defenders' weights: a standing human, a standing squad Marine, a Guardsman.</summary>
     public const int HumanWeight = 6, MarineWeight = 2, GuardsmanWeight = 1;
     /// <summary>The position's hold drains from 1 to 0 in this many seconds while the Orks outweigh the defenders, and recovers from 0 to 1 in <see cref="HoldRecoverSeconds"/> otherwise.</summary>
-    public const float HoldDrainSeconds = 20f, HoldRecoverSeconds = 40f;
+    public const float HoldDrainSeconds = 40f, HoldRecoverSeconds = 40f;
     /// <summary>Under this hold the HUD says the position is falling ("THE WALL IS FALLING").</summary>
     public const float HoldFallingBelow = 0.5f;
     /// <summary>The elite share of the HQ battle: this fraction of Musou's own curve (<see cref="TfwBattleRules.EliteShare"/>): 1, the top (was 0.75).</summary>
@@ -48,9 +50,15 @@ public static class WarfrontHqBattleRules
 
     /// <summary>The Guard squads that start at each position's posts (W, K, V); the Guardsmen are not replaced.</summary>
     public static readonly int[] SquadsAt = [2, 1, 1];
+    /// <summary>The strength each Guard squad is spawned with at W, K and V (<c>GuardSim.SpawnSquad</c>'s own parameter; 1 is a full squad). W13c: the one step allowed without a ruling if the passive human still won after the rout rule.</summary>
+    public static readonly float[] GuardStrengthAt = [1f, 1f, 1f];
 
     /// <summary>A stage-1 or stage-2 source never spawns within this many metres of a human, nor while a human is within <see cref="SourceSightMetres"/> (our stand-in for "in his sight": the courtyard and the hall are open to each other).</summary>
     public const float SourceClearanceMetres = 30f, SourceSightMetres = 60f;
+    /// <summary>The height of an eye above the feet for the sight test, metres (the fortress's own: <c>WarfrontFortressBattleRules.EyeHeight</c>).</summary>
+    public const float EyeHeight = WarfrontFortressBattleRules.EyeHeight;
+    /// <summary>The farthest a human is taken to see a stage source by the sight ray, metres (W13c pass 2, review finding 3; ours, an estimate): 0 is no range (the ray alone). Raised to 60 (the old stand-in's distance) only if a stage's sources are open under a fifth of the time it is the front.</summary>
+    public const float SightRangeMetres = 0f;
     /// <summary>The share of a wave that comes from the stages' sources once they are open (each open stage takes this share of it).</summary>
     public const float StageShare = 0.25f;
     /// <summary>Orks that pour in at an opened stage's sources at the moment its position falls.</summary>
