@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3733 spec table rows: **2705 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
-Scanned 3728 spec table rows: **2700 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 776 rows of the changes document.
+Scanned 3735 spec table rows: **2707 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,27 +50,20 @@ Scanned 3728 spec table rows: **2700 tagged**, 672 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 834 | 789 | 619 | 232 | 1 |
+| Core simulation (provisional values) | 836 | 791 | 621 | 232 | 1 |
 | General game design | 129 | 126 | 102 | 17 | 0 |
 | Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2705** | 2421 | 2040 | 805 | 37 |
-| Core simulation (provisional values) | 835 | 790 | 620 | 232 | 1 |
-| General game design | 123 | 120 | 96 | 17 | 0 |
-| Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2700** | 2416 | 2035 | 805 | 37 |
+| **All areas** | **2707** | 2423 | 2042 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1583 |
+| kind: ours | 1584 |
 | confidence: low | 988 |
-| confidence: medium | 943 |
-| kind: ours | 1578 |
-| confidence: low | 981 |
 | confidence: medium | 945 |
 | notes: ours | 467 |
-| kind: interpretation | 433 |
+| kind: interpretation | 434 |
 | kind: estimate | 229 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
@@ -2658,8 +2650,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-B4149D60` | Tick spread | the muster, the stage shares and the breach flood make at most 10 Orks a tick (a whole wave of up to 600 in one tick was the tick spike); the bench (`smtool warfront-hq --waves`) prints the five slowest ticks tagged with what ran; target p99 at most 20 ms and… (Orks, ms) | kind: ours; confidence: low | designer review of W13b ruling 4 | Tick spread: compare with SM1 by feel or video. Ours: the muster, the stage shares and the breach flood make at most 10… | ☐ |
 
-### Core simulation (provisional values) (834)
-### Core simulation (provisional values) (835)
+### Core simulation (provisional values) (836)
 
 *Spec section: Provisional values in use*
 
