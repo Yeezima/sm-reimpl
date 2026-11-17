@@ -82,8 +82,11 @@ public static partial class UiKit
     {
         float scale = Mathf.Max(0.01f, Mathf.Min(windowPixels.X / VirtualWidth, windowPixels.Y / VirtualHeight));
         int size = Mathf.Max(MenuTextSize, Mathf.CeilToInt(MinMenuPixels / scale));
-        if (Theme.GetFontSize("font_size", MenuButtonType) == size) return;
+        if (Theme.GetFontSize("font_size", MenuButtonType) == size && Theme.GetFontSize("font_size", Steel.RowType) == Mathf.Max(Steel.RowSize, size)) return;
         foreach (var type in new[] { MenuButtonType, MenuLabelType }) Theme.SetFontSize("font_size", type, size);
+        // The steel kit's text (ui/concept-redesign) keeps its own larger sizes and is raised by the same rule, so it never draws under the least readable size.
+        foreach (var (type, baseSize) in new[] { (Steel.ButtonType, Steel.ButtonSize), (Steel.TabType, Steel.TabSize), (Steel.RowType, Steel.RowSize), (Steel.LabelType, Steel.RowSize), (Steel.SmallType, Steel.SmallSize), (Steel.PrimaryType, Steel.ButtonSize) })
+            Theme.SetFontSize("font_size", type, Mathf.Max(baseSize, Mathf.CeilToInt(MinMenuPixels / scale)));
     }
 
     /// <summary>The menus' look on the theme (from <see cref="BuildTheme"/>).</summary>
@@ -127,15 +130,21 @@ public static partial class UiKit
     {
         public MenuColumn() { MouseFilter = MouseFilterEnum.Ignore; }
 
+        /// <summary>One row's height and the gap under it: the reference's 22.5 and 0 by default; the steel main menu's button rows set their own (ui/concept-redesign).</summary>
+        float _rowHeight = MenuRowHeight, _rowGap;
+        public float RowHeight { get => _rowHeight; set { _rowHeight = value; UpdateMinimumSize(); QueueSort(); } }
+        public float RowGap { get => _rowGap; set { _rowGap = value; UpdateMinimumSize(); QueueSort(); } }
+
         /// <summary>Rows that take a second height (a wrapped note): the child's own minimum when it is taller than one row.</summary>
-        float HeightOf(Control c) => Mathf.Max(MenuRowHeight, c.GetCombinedMinimumSize().Y);
+        float HeightOf(Control c) => Mathf.Max(_rowHeight, c.GetCombinedMinimumSize().Y);
 
         public override Vector2 _GetMinimumSize()
         {
             float h = 0f, w = 0f;
+            int n = 0;
             foreach (var child in GetChildren())
-                if (child is Control { Visible: true, TopLevel: false } c) { h += HeightOf(c); w = Mathf.Max(w, c.GetCombinedMinimumSize().X); }
-            return new Vector2(w, h);
+                if (child is Control { Visible: true, TopLevel: false } c) { h += HeightOf(c); w = Mathf.Max(w, c.GetCombinedMinimumSize().X); n++; }
+            return new Vector2(w, h + Mathf.Max(0, n - 1) * _rowGap);
         }
 
         public override void _Notification(int what)
@@ -147,7 +156,7 @@ public static partial class UiKit
                 {
                     float h = HeightOf(c);
                     FitChildInRect(c, new Rect2(0f, y, Size.X, h));
-                    y += h;
+                    y += h + _rowGap;
                 }
         }
     }
@@ -161,15 +170,15 @@ public static partial class UiKit
     /// </summary>
     public partial class MenuPage : Control
     {
-        readonly Label _title, _heading;
-        readonly ScrollContainer _scroll;
+        protected readonly Label _title, _heading;
+        protected readonly ScrollContainer _scroll;
         public MenuColumn Rows { get; } = new() { Name = "Rows" };
         public Label TitleLabel => _title;
-        public Control List => _scroll;
+        public virtual Control List => _scroll;
 
         public string Heading { get => _heading.Text; set { _heading.Text = value.ToUpperInvariant(); _heading.Visible = value.Length > 0; } }
 
-        Control? _foot;
+        protected Control? _foot;
 
         /// <summary>
         /// A note under the rows that is not one of them (the main menu's OPTIONS: where the game was found, the builds' address). It sits one row under the last row shown, outside the
@@ -227,7 +236,7 @@ public static partial class UiKit
         void OnWindowChanged() { if (GetWindow() is { } w) FitMenuText(w.Size); }
 
         /// <summary>Puts the title and the rows at their height: the reference's fractions of the window's height, measured from the top.</summary>
-        void Place()
+        protected virtual void Place()
         {
             float f = Size.Y / VirtualHeight;
             var font = TitleFont;
@@ -285,16 +294,100 @@ public static partial class UiKit
             _value.OffsetLeft = MenuValueColumn; _value.OffsetRight = MenuValueColumn + 520f;
             AddChild(_value);
             Show();
-            Pressed += () => Step(1);
+            Pressed += () => { int dir = _backClick ? -1 : 1; _backClick = false; Step(dir); };
             FocusEntered += Paint; FocusExited += Paint; MouseEntered += () => Paint(true); MouseExited += () => Paint(false);
             Paint(false);
         }
 
-        void Show() => _value.Text = $"<  {_values[_index]}  >";
+        void Show() { _value.Text = _steel ? _values[_index] : $"<  {_values[_index]}  >"; QueueRedraw(); }
 
         void Paint() => Paint(false);
 
-        void Paint(bool hover) => _value.AddThemeColorOverride("font_color", Disabled ? new Color(0.56f, 0.56f, 0.56f) : hover || HasFocus() ? White : MenuIdle);
+        void Paint(bool hover)
+        {
+            _hover = hover;
+            _value.AddThemeColorOverride("font_color", _steel ? (Disabled ? Steel.TextOff : _isSwitch ? Colors.Transparent : hover || HasFocus() ? Steel.GoldHi : Steel.Text)
+                : Disabled ? new Color(0.56f, 0.56f, 0.56f) : hover || HasFocus() ? White : MenuIdle);
+            QueueRedraw();
+        }
+
+        // ---- the steel skin (ui/concept-redesign): the label in a column on the left, the value in a dark pill with arrows (or an OFF / ON switch) on the right ----
+
+        bool _steel, _isSwitch, _hover, _backClick;
+        /// <summary>The row wears the steel skin (<see cref="UseSteel"/>).</summary>
+        public bool IsSteel => _steel;
+        /// <summary>The value pill's rectangle in the row's own space (the focus glow hugs it).</summary>
+        public Rect2 PillRect => Pill();
+        float _labelWidth;
+        const float PillHeight = 36f, ArrowWidth = 30f;
+
+        /// <summary>
+        /// Draws the row as the concept's option row: the label (the button's own text) in a column of <paramref name="labelWidth"/>, then a dark recessed pill with an arrow at each end and the
+        /// value between them; two values OFF and ON are drawn as a switch with the chosen half lit gold. The row's behaviour (a click or Enter steps on, left and right step either way,
+        /// <see cref="Changed"/>) is the same. Returns the row.
+        /// </summary>
+        public MenuChoice UseSteel(float labelWidth)
+        {
+            _steel = true; _labelWidth = labelWidth;
+            _isSwitch = _values.Length == 2 && _values[0] == "OFF" && _values[1] == "ON";
+            ThemeTypeVariation = Steel.RowType;
+            ClipText = true;
+            CustomMinimumSize = new Vector2(0f, 46f);
+            _value.ThemeTypeVariation = Steel.LabelType;
+            _value.HorizontalAlignment = HorizontalAlignment.Center;
+            _value.SetAnchorsPreset(LayoutPreset.FullRect);
+            _value.OffsetLeft = labelWidth + ArrowWidth; _value.OffsetRight = -ArrowWidth; _value.OffsetTop = 0f; _value.OffsetBottom = 0f;
+            Show();
+            Paint(false);
+            return this;
+        }
+
+        static StyleBoxTexture? _pillArt;
+        static StyleBoxTexture? PillArt() => _pillArt ??= ConceptArt.Patch("pill", new Vector2(40f, 14f), Vector2.Zero);
+
+        Rect2 Pill() => _concept ? ConceptRect() : new(_labelWidth, (Size.Y - PillHeight) / 2f, Mathf.Max(40f, Size.X - _labelWidth), PillHeight);
+
+        public override void _Draw()
+        {
+            if (!_steel) return;
+            if (_concept) { DrawConcept(); return; }
+            var pill = Pill();
+            bool focus = HasFocus(), lit = (focus || _hover) && !Disabled;
+            var c = GetCanvasItem();
+            if (!_isSwitch && PillArt() is { } art)
+            {
+                // The concept's painted value pill (its arrows are in the picture); warm when it has the focus.
+                art.ModulateColor = Disabled ? new Color(0.5f, 0.5f, 0.5f) : lit ? ConceptArt.Warm : Colors.White;
+                art.Draw(c, pill);
+                return;
+            }
+            Steel.Plate(c, pill, 5f, Disabled ? new Color(0.03f, 0.03f, 0.03f) : lit ? Steel.GoldDeep : Steel.Edge);
+            Steel.Plate(c, pill.Grow(-1.4f), 4f, new Color(0.055f, 0.052f, 0.05f), new Color(0.10f, 0.095f, 0.09f));
+            var arrowColour = Disabled ? Steel.TextOff : lit ? Steel.Gold : new Color(0.78f, 0.62f, 0.26f);
+            if (_isSwitch)
+            {
+                // OFF | ON: the chosen half is a lit gold plate; the other stays dark with its word dim.
+                var half = new Rect2(pill.Position.X + pill.Size.X / 2f * _index + 3f, pill.Position.Y + 3f, pill.Size.X / 2f - 6f, pill.Size.Y - 6f);
+                Steel.Plate(c, half, 3f, Disabled ? new Color(0.22f, 0.22f, 0.22f) : _index == 1 ? new Color(1f, 0.86f, 0.40f) : new Color(0.38f, 0.38f, 0.38f), Disabled ? new Color(0.14f, 0.14f, 0.14f) : _index == 1 ? new Color(0.78f, 0.48f, 0.08f) : new Color(0.20f, 0.20f, 0.20f));
+                var font = GetThemeFont("font");
+                int size = GetThemeFontSize("font_size");
+                for (int i = 0; i < 2; i++)
+                {
+                    string word = _values[i];
+                    var colour = i == _index ? (Disabled ? Steel.TextOff : Steel.Ink) : Steel.TextDim;
+                    float w = font.GetStringSize(word, HorizontalAlignment.Left, -1, size).X;
+                    DrawString(font, new Vector2(pill.Position.X + pill.Size.X / 2f * i + (pill.Size.X / 2f - w) / 2f, pill.Position.Y + (pill.Size.Y + font.GetAscent(size) - font.GetDescent(size)) / 2f), word, HorizontalAlignment.Left, -1, size, colour);
+                }
+                return;
+            }
+            float cy = pill.Position.Y + pill.Size.Y / 2f;
+            var left = new Vector2[] { new(pill.Position.X + 20f, cy - 6f), new(pill.Position.X + 20f, cy + 6f), new(pill.Position.X + 11f, cy) };
+            var right = new Vector2[] { new(pill.End.X - 20f, cy - 6f), new(pill.End.X - 20f, cy + 6f), new(pill.End.X - 11f, cy) };
+            DrawColoredPolygon(left, arrowColour);
+            DrawColoredPolygon(right, arrowColour);
+        }
+
+        public override void _Notification(int what) { if (what == NotificationResized && _steel) QueueRedraw(); }
 
         /// <summary>Sets the value without telling <see cref="Changed"/>.</summary>
         public void SetIndex(int index) { _index = Math.Clamp(index, 0, _values.Length - 1); Show(); }
@@ -312,6 +405,9 @@ public static partial class UiKit
 
         public override void _GuiInput(InputEvent e)
         {
+            // The steel skin's left arrow (the left quarter of the pill) steps back; a click anywhere else steps on, as before.
+            if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click)
+                _backClick = _steel && !_isSwitch && click.Position.X >= Pill().Position.X && click.Position.X < Pill().Position.X + ArrowWidth + 6f;
             if (e.IsActionPressed("ui_left")) { Step(-1); AcceptEvent(); }
             else if (e.IsActionPressed("ui_right")) { Step(1); AcceptEvent(); }
         }
@@ -348,9 +444,33 @@ public static partial class UiKit
             Slider.MouseEntered += () => Paint(true); Slider.MouseExited += () => Paint(Slider.HasFocus());
         }
 
+        bool _steel;
+
         void Paint(bool hot)
         {
-            foreach (var l in new[] { _label, _value }) l.AddThemeColorOverride("font_color", hot ? White : MenuIdle);
+            foreach (var l in new[] { _label, _value }) l.AddThemeColorOverride("font_color", _steel ? (hot ? Steel.GoldHi : Steel.Text) : hot ? White : MenuIdle);
+        }
+
+        /// <summary>
+        /// The concept's slider row (ui/concept-redesign): the label in a column of <paramref name="labelWidth"/>, an amber-filled steel slider, the value on the right (right-aligned in
+        /// <paramref name="valueWidth"/>). The slider, its range, its keys and its handler are the same.
+        /// </summary>
+        public MenuSlider UseSteel(float labelWidth, float valueWidth = 70f)
+        {
+            _steel = true;
+            CustomMinimumSize = new Vector2(0f, 46f);
+            _label.ThemeTypeVariation = Steel.LabelType;
+            _label.SetAnchorsPreset(LayoutPreset.LeftWide);
+            _label.OffsetLeft = 0f; _label.OffsetRight = labelWidth - 8f;
+            Slider.ThemeTypeVariation = Steel.SliderType;
+            Slider.SetAnchorsPreset(LayoutPreset.FullRect);
+            Slider.OffsetLeft = labelWidth; Slider.OffsetRight = -valueWidth - 10f; Slider.OffsetTop = 8f; Slider.OffsetBottom = -8f;
+            _value.ThemeTypeVariation = Steel.LabelType;
+            _value.HorizontalAlignment = HorizontalAlignment.Right;
+            _value.SetAnchorsPreset(LayoutPreset.FullRect);
+            _value.OffsetLeft = -valueWidth; _value.OffsetRight = 0f; _value.OffsetTop = 0f; _value.OffsetBottom = 0f;
+            Paint(Slider.HasFocus());
+            return this;
         }
 
         /// <summary>Sets the words beside the slider (a range that moved with the window).</summary>

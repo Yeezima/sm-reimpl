@@ -156,7 +156,7 @@ public sealed partial class FrontEndView : Control
         _frames++;
         if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe), the menu's frames too (menu video, 2026-11-10)
         // The video pauses under the customizer, whose own dark background covers it.
-        if (_background is MenuVideoBackground video) video.Covered = _creator?.Visible == true || _appearance?.Visible == true;
+        if (_background is MenuVideoBackground video) { video.Covered = _creator?.Visible == true || _appearance?.Visible == true; video.MainMenuFraming = ShowsMainMenu && ConceptArt.Get("overlay-main") is not null; }
         if (!_built)
         {
             if (_services.Failed && _loading is not null && _loadingText is not null) { ShowFailure(_services.Error ?? "unknown error"); _loadingText = null; }
@@ -229,7 +229,7 @@ public sealed partial class FrontEndView : Control
         _message.Visible = false;
         _message.SetAnchorsPreset(LayoutPreset.BottomLeft);
         _message.GrowVertical = GrowDirection.Begin;
-        _message.OffsetLeft = UiKit.MenuLeft + 1f; _message.OffsetRight = UiKit.MenuLeft + 1f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
+        _message.OffsetLeft = ConceptMainPage.PillarWidth + 24f; _message.OffsetRight = ConceptMainPage.PillarWidth + 24f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
         AddChild(_message);
         if (_args.ContainsKey("ui-selftest")) AddChild(new UiSelfTest(this, _services));
         // The profile's own notices (a repaired, corrupt or read-only file) show once.
@@ -250,20 +250,22 @@ public sealed partial class FrontEndView : Control
         // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
         if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
-        var main = new UiKit.MenuPage("MainMenu");
-        var joinRow = UiKit.MenuButton("Player versus Player", () => ShowPage(_lobby!));
-        _first[main] = joinRow;
+        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. CLASSIC PVP first (the lobby: join or host Annihilation / Seize Ground; the default focus), MUSOU MODE (added content), ARMOURY (the
+        // customizer), OPTIONS, EXIT; STOP MUSOU SERVER still appears under MUSOU MODE while its server runs. The node names are the old rows' (the tests and test aids know them).
+        var main = new ConceptMainPage();
+        var joinRow = UiKit.SteelButton("Classic PvP", () => ShowPage(_lobby!), "Annihilation and Seize Ground: join a server, host one, or join a lobby", "MenuPlayerversusPlayer");
+        _first[main] = joinRow;   // the default focus (owner 2026-11-15: CLASSIC PVP above MUSOU MODE)
         main.Rows.AddChild(joinRow);
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            main.Rows.AddChild(UiKit.MenuButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together"));
-            _stopMusou = UiKit.MenuButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC");
+            main.Rows.AddChild(UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode"));
+            _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
         }
-        main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
-        main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));
-        main.Rows.AddChild(UiKit.MenuButton("Quit", () => GetTree().Quit()));
+        main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
+        main.Rows.AddChild(UiKit.SteelButton("Options", () => ShowOptions(), null, "MenuOptions"));
+        main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
         _main = main;
 
         var lobby = new UiKit.MenuPage("LobbyMenu", "Join or host lobby");
@@ -461,6 +463,7 @@ public sealed partial class FrontEndView : Control
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
             case "graphics": ShowOptions(OptionsView.Graphics); break;
             case "sound": ShowOptions(OptionsView.Sound); break;
+            case "interface": ShowOptions(OptionsView.Interface); break;
             case "controls" or "options": ShowOptions(OptionsView.Controls); break;
             default: ShowMainMenu(); break;
         }
@@ -675,7 +678,7 @@ public sealed partial class FrontEndView : Control
     {
         if (_stopMusou is null) return;
         var (running, _, musou) = MusouServerState();
-        bool show = MusouLocal.ShowStopRow(running, musou);
+        bool show = MusouLocal.ShowStopRow(running, musou) || _args.ContainsKey("menu-stop-row-demo");   // the demo flag (screenshot aid) shows the row with no server
         if (_stopMusou.Visible == show) return;
         _stopMusou.Visible = show;
         if (!show && _stopMusou.HasFocus() && _main is not null) _first.GetValueOrDefault(_main)?.FocusLater();   // the focus must not be lost with the row

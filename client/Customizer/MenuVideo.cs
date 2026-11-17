@@ -7,32 +7,42 @@ namespace SmClient.Customizer;
 /// The main menu's moving background (the owner, 2026-11-10: "use this video loop as the main menu background in the next shipped release"): his own cinematic of our Ashfall
 /// Citadel map (owner-made, not an original file), converted by <c>tools/menu-video.ps1</c> to <see cref="MenuVideoPath"/> (Ogg Theora, 1920 x 1080, a constant 30 fps, no audio,
 /// the loop's seam crossfaded in the file). It plays looping behind every screen that showed the still picture (the front end in Classic PvP and Musou alike, the game folder
-/// setup); the loading screen keeps its own picture. <c>--menu-still</c> restores the still picture; so does a missing or unplayable file. Ours (spec "Main menu video").
+/// setup); the loading screen keeps its own picture. <c>--menu-still</c> restores the still picture; so does a missing or unplayable file. Since 2026-11-15 the default is the concept's 8 s video
+/// (<see cref="MenuConceptVideoPath"/>) and <c>--menu-video</c> the older loop. Ours (spec "Main menu video").
 /// </summary>
 public static partial class UiKit
 {
-    /// <summary>Where the video is read from: beside the project in a development run, under <c>assets/menu</c> beside the game in an exported one (a folder Godot does not import).</summary>
-    // Developer aid since 2026-11-14: the release no longer ships this file (owner), so outside a checkout MenuVideoFile() is null and --menu-video shows the still picture.
+    /// <summary>
+    /// The main menu's video since 2026-11-15 (the owner's UI concept, "make the referenced video image the background of the main menu"): his 8 s clip of the Ashfall courtyard with the Librarian, converted by
+    /// <c>tools/menu-video.ps1</c> (Ogg Theora, 1920 x 1080, 24 fps, no audio, 7.5 s, the seam crossfaded, 6 MB). Read from beside the project in a development run, under <c>assets/menu</c> beside the game
+    /// in an exported one (a folder Godot does not import); shipped with the release.
+    /// </summary>
+    public const string MenuConceptVideoPath = "res://assets/menu/menu-concept-loop.ogv";
+
+    /// <summary>Where the older video loop (the owner's 31 s cinematic of 2026-11-10) is read from: a developer aid, not shipped (the release leaves it out, 20 MB), so outside a checkout MenuVideoFile() is null with <c>--menu-video</c>.</summary>
     public const string MenuVideoPath = "res://assets/menu/menu-loop.ogv";
 
-    /// <summary>The switch that restores the still picture behind the menus (<c>--menu-still</c>).</summary>
+    /// <summary>The switch that shows the still picture behind the menus (<c>--menu-still</c>; the default of 2026-11-14, restored by this switch since 2026-11-15).</summary>
     public const string MenuStillSwitch = "menu-still";
 
-    /// <summary>The switch that brings the looping video back behind the menus (<c>--menu-video</c>; the default from 2026-11-10 to 2026-11-14).</summary>
+    /// <summary>The switch that brings the older 31 s video loop back behind the menus (<c>--menu-video</c>; the default from 2026-11-10 to 2026-11-14).</summary>
     public const string MenuVideoSwitch = "menu-video";
 
     /// <summary>
-    /// The menus show the still picture: the default again since 2026-11-14 (owner: "yes the orange forgle-world city is the art to go back to", the picture of 1 to 9 November); <c>--menu-video</c> restores the video loop.
-    /// <c>--menu-still</c> is still accepted and changes nothing.
+    /// The menus show the still picture only with <c>--menu-still</c> (owner, 2026-11-15: the concept's video is the main menu's background; the 2026-11-14 forge-world city picture is what the switch keeps),
+    /// or without a playable video file.
     /// </summary>
-    public static bool MenuStill { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + MenuVideoSwitch) < 0;
+    public static bool MenuStill { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + MenuStillSwitch) >= 0 && Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + MenuVideoSwitch) < 0;
 
-    /// <summary>The video's file, or null when it is missing (development run: beside the project; exported game: beside the exe).</summary>
-    public static string? MenuVideoFile() => MenuFile(MenuVideoPath);
+    /// <summary><c>--menu-video</c>: the older 31 s loop instead of the concept's video.</summary>
+    public static bool MenuOldVideo { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--" + MenuVideoSwitch) >= 0;
+
+    /// <summary>The video's file, or null when it is missing: the older loop with <c>--menu-video</c>, else the concept's video (development run: beside the project; exported game: beside the exe).</summary>
+    public static string? MenuVideoFile() => MenuFile(MenuOldVideo ? MenuVideoPath : MenuConceptVideoPath);
 
     /// <summary>
-    /// The background of the menus: the still picture; the looping video only with <c>--menu-video</c> (and the file present) (then the still picture, or the plain dark one without it).
-    /// <paramref name="video"/> overrides the choice (the self-test builds both). The video is not played under the headless display server (nothing is drawn there).
+    /// The background of the menus: the concept's looping video by default (then the still picture when the file is missing, or the plain dark one without that); the still picture with <c>--menu-still</c>;
+    /// the older loop with <c>--menu-video</c>. <paramref name="video"/> overrides the choice (the self-test builds both). The video is not played under the headless display server (nothing is drawn there).
     /// </summary>
     public static Control MenuBackground(bool? video = null)
     {
@@ -142,9 +152,32 @@ public sealed partial class MenuVideoBackground : Control
         AddChild(UiKit.MenuStillBackground().With(n => { n.Name = "MenuStillFallback"; n.SetAnchorsPreset(LayoutPreset.FullRect); }));
     }
 
+    /// <summary>
+    /// The main menu's framing (ui/concept-redesign, 2026-11-15): the concept's overlay covers the left half of the screen, so the video is enlarged by <see cref="MainMenuZoom"/> (1.6x the covering size) and
+    /// panned so that its focus point (<see cref="FocusU"/>, <see cref="FocusV"/>: the middle of the Marine and the tower with its god rays, measured on the video's frames: the Marine at about 0.37 to 0.46 of its
+    /// width, the tower at 0.50 to 0.63) lands at <see cref="FocusX"/>, <see cref="FocusY"/> of the window, centred in the part right of the overlay. The picture always covers the window (no black edge at any aspect ratio).
+    /// Other screens show the picture as it was made.
+    /// </summary>
+    public bool MainMenuFraming { get => _framing; set { if (_framing == value) return; _framing = value; Fit(); } }
+    public const float MainMenuZoom = 1.6f, FocusU = 0.49f, FocusV = 0.565f, FocusX = 0.72f, FocusY = 0.5f;
+    bool _framing;
+
+    /// <summary>The player's rect for a window of <paramref name="box"/> with the main menu's framing (the self-test checks that it covers the window).</summary>
+    public static Rect2 FramedRect(Vector2 box, Vector2 video)
+    {
+        var r = CoverRect(box, video);
+        // On a wider window than 16:9 the covering size already crops the picture's height, so the zoom shrinks with the aspect to keep the same part of the picture in view (the Marine's feet and the tower's top).
+        float zoom = Mathf.Max(1f, MainMenuZoom * Mathf.Min(1f, (16f / 9f) / (box.X / box.Y)));
+        var size = r.Size * zoom;
+        var pos = new Vector2(FocusX * box.X - size.X * FocusU, FocusY * box.Y - size.Y * FocusV);
+        pos.X = Mathf.Clamp(pos.X, box.X - size.X, 0f);
+        pos.Y = Mathf.Clamp(pos.Y, box.Y - size.Y, 0f);
+        return new Rect2(pos, size);
+    }
+
     void Fit()
     {
-        var r = CoverRect(Size, _videoSize);
+        var r = _framing ? FramedRect(Size, _videoSize) : CoverRect(Size, _videoSize);
         Player.Position = r.Position;
         Player.Size = r.Size;
     }
