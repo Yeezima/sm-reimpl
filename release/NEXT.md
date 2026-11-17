@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Tapping Space as an Assault Marine or a Raptor now plays a single jump-pack hop sound. The extra roll-style whoosh and the doubled jump-pack burst that came with it are gone, for you and for the players you hear, in every mode.
+- The launcher has a new MAPMAKER button next to PLAY. It opens the map editor (the Mapmaker, in the free Godot editor) on your own Space Marine install, so you can build and test your own maps. The first press asks before it downloads the Godot editor once (about 111 MB; plus a small .NET download only if your PC has none) and checks it, then prepares the editor for a minute with a progress note. Press MAPMAKER again any time to open it; maps you save stay on your PC.

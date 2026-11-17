@@ -14,6 +14,9 @@ public sealed class NetPolicy
 {
     public static readonly NetPolicy GitHub = new(["api.github.com", "github.com"], [".githubusercontent.com"], allowHttpLoopback: false);
 
+    /// <summary>The Mapmaker button's downloads: GitHub (the Godot editor release) and Microsoft's .NET download host (the runtime zip). Hashes are pinned in the launcher.</summary>
+    public static readonly NetPolicy Tools = new(["api.github.com", "github.com", "builds.dotnet.microsoft.com"], [".githubusercontent.com"], allowHttpLoopback: false);
+
     readonly HashSet<string> _hosts;
     readonly string[] _suffixes;
     readonly bool _httpLoopback;

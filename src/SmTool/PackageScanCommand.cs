@@ -18,6 +18,7 @@ public static class PackageScanCommand
         ".exe", ".x86_64", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
         ".jpg",   // the owner's menu background and hub planet, copied beside the exe by release.ps1
         ".glb",   // the owner's generated Ashfall kit models (game\ashfall-kit\), copied by release.ps1 (owner, 2026-11-06); the content rules still scan them
+        ".cs", ".uid", ".tscn", ".cfg", ".godot", ".csproj",   // the Mapmaker's Godot project (mapmaker\ in the playtest build, 2026-11-17: the plugin's own sources, scene and project files; text only, the content rules still scan them)
         ".pck",   // the client's Godot pack beside the exe (tools/release-parts): only a Godot pack passes (any other .pck is a forbidden game extension),
                   // and its directory is checked like an embedded one
     ];

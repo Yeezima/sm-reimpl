@@ -620,16 +620,16 @@ public sealed class PackageScannerTests : IDisposable
     [Fact]
     public void TheSourceArchiveIsExemptFromTheTypeAllowlistOnlyUnderItsPrefix()
     {
-        byte[] source = ZipBytes(("s/Program.cs", Text("class P {}")), ("s/client/main.tscn", Text("[gd_scene]")));
+        byte[] source = ZipBytes(("s/tool.py", Text("print(1)")), ("s/client/main.vbs", Text("[gd_scene]")));
         // Under the prefix: the zip and its source files pass the binary profile.
         Assert.Empty(Scan(Zip(("game/readme.txt", Text("ok")), ("source/s.zip", source)), s => { s.AllowedExtensions = BinaryProfile(); s.SourceArchivePrefixes.Add("source/"); }));
         // Elsewhere (or without the option) the zip is an unexpected type, and its entries are scanned with the binary profile too.
         var findings = Scan(Zip(("game/extra.zip", source)), s => { s.AllowedExtensions = BinaryProfile(); s.SourceArchivePrefixes.Add("source/"); });
         Assert.Contains(findings, f => f.Rule == "unexpected-type" && f.Entry == "game/extra.zip");
-        Assert.Contains(findings, f => f.Rule == "unexpected-type" && f.Entry == "game/extra.zip!/s/Program.cs");
+        Assert.Contains(findings, f => f.Rule == "unexpected-type" && f.Entry == "game/extra.zip!/s/tool.py");
         // The profile is restored after a source archive: a later stray file is still refused.
-        var after = Scan(Zip(("source/s.zip", source), ("zz/stray.cs", Text("x"))), s => { s.AllowedExtensions = BinaryProfile(); s.SourceArchivePrefixes.Add("source/"); });
-        Assert.Contains(after, f => f.Rule == "unexpected-type" && f.Entry == "zz/stray.cs");
+        var after = Scan(Zip(("source/s.zip", source), ("zz/stray.py", Text("x"))), s => { s.AllowedExtensions = BinaryProfile(); s.SourceArchivePrefixes.Add("source/"); });
+        Assert.Contains(after, f => f.Rule == "unexpected-type" && f.Entry == "zz/stray.py");
         Assert.DoesNotContain(after, f => f.Entry.StartsWith("source/", StringComparison.Ordinal));
     }
 
@@ -650,14 +650,14 @@ public sealed class PackageScannerTests : IDisposable
     [Fact]
     public void TheSourceOfferIsExactlyOneNamedEntry()
     {
-        byte[] source = ZipBytes(("s/Program.cs", Text("class P {}")));
+        byte[] source = ZipBytes(("s/tool.py", Text("class P {}")));
         const string exact = "source/sm-reimpl-source-abc1234.zip";
         void Exact(PackageScanner s) { s.AllowedExtensions = BinaryProfile(); s.SourceArchivePrefixes.Add(exact); }
         Assert.Empty(Scan(Zip((exact, source)), Exact));
         // Another zip in the same folder is not the source offer: an unexpected type, its files checked against the allowlist.
         var other = Scan(Zip((exact, source), ("source/extra.zip", source)), Exact);
         Assert.Contains(other, f => f.Rule == "unexpected-type" && f.Entry == "source/extra.zip");
-        Assert.Contains(other, f => f.Rule == "unexpected-type" && f.Entry == "source/extra.zip!/s/Program.cs");
+        Assert.Contains(other, f => f.Rule == "unexpected-type" && f.Entry == "source/extra.zip!/s/tool.py");
         // The same name twice (a zip may hold duplicate names): only the first is the offer.
         var twice = Scan(Zip((exact, source), (exact, source)), Exact);
         Assert.Contains(twice, f => f.Rule == "duplicate-source-archive");

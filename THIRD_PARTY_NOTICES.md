@@ -10,6 +10,16 @@ under the licences below. None of it is game content.
 - Licence: the DejaVu Fonts licence (Bitstream Vera and Arev terms: free to use, copy and bundle), full text in
   `client/assets/fonts/LICENSE-DejaVu.txt`.
 
+## Godot Engine 4.7.2 and the .NET runtime (downloaded on first use by the launcher's MAPMAKER button, not distributed by us)
+
+- Godot Engine (.NET build, https://godotengine.org), Licence: MIT (Copyright (c) 2014-present Godot Engine contributors; (c) 2007-2014 Juan Linietsky, Ariel Manzur).
+  The playtest build carries the Mapmaker project (`mapmaker\`) but not the editor: the launcher downloads the official `Godot_v4.7.2-stable_mono_win64.zip`
+  from https://github.com/godotengine/godot/releases/tag/4.7.2-stable on first use, checks it against a pinned SHA-512 and the release's `SHA512-SUMS.txt`, and keeps it
+  in its own install folder. The full MIT text and the list of Godot's own third-party components are in `notes/licenses/godot/` of the playtest build.
+- Microsoft .NET runtime 10 (MIT, https://github.com/dotnet/runtime): only when the PC has no .NET 10 runtime, the launcher downloads Microsoft's official
+  `dotnet-runtime-10.0.15-win-x64.zip` (builds.dotnet.microsoft.com) the same way, SHA-512 pinned, for the editor to run on.
+- The editor window itself is Godot's; the Mapmaker plugin inside it is this project's (GPL-3.0).
+
 ## ww2ogg (port; codebook library downloaded, not distributed)
 
 - Source: https://github.com/hcs64/ww2ogg (version 0.24, tag `0.24`, commit `4b4ca8ec4079a42488aae6344c3c52165e210eec`),
