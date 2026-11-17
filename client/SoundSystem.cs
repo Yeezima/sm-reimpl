@@ -23,6 +23,8 @@ public sealed class SoundEmitter
     /// <summary>The local player's own emitter: its 3D sounds are kept at least <see cref="SoundSystem.OwnMinDistance"/> close.</summary>
     public bool Own;
     public string Label = "";
+    /// <summary>sound/editor-roll-hop: how the player last evaded (<see cref="SoundMixCatalog.EvadeKindRoll"/> or <see cref="SoundMixCatalog.EvadeKindHop"/>); null: not yet or a jump-pack dash. Read by the mix editor entries.</summary>
+    public string? EvadeKind;
     /// <summary>A crowd's sounds counted together (<see cref="SoundSystem.GroupVoices"/>) and kept off the others' voices (a full pool costs them nothing); null: none.</summary>
     public string? Group;
     /// <summary>A one-shot place (an impact, a launch, a detonation): its container histories are dropped once its voices end.</summary>
@@ -464,6 +466,8 @@ public partial class SoundSystem : Node
         public int Group = -1;
         /// <summary>sound/mix-expand: what the F7 mix editor does to this voice (null: nothing), resolved when the voice starts and again after any change of <see cref="SoundMixConfig.Version"/>.</summary>
         public SoundMixEffect? Fx;
+        /// <summary>sound/editor-roll-hop: the editor entry this voice also answers to (<see cref="SoundMixCatalog.AliasOf"/>), set at its start.</summary>
+        public string? Alias;
         public int FxVersion = -1;
     }
 
@@ -868,7 +872,7 @@ public partial class SoundSystem : Node
         }
         var a = new Active
         {
-            Voice = v, Emitter = p.Emitter, Player = null, Started = _now, Event = p.Event, Stream = stream,
+            Voice = v, Emitter = p.Emitter, Player = null, Started = _now, Event = p.Event, Stream = stream, Alias = SoundMixCatalog.AliasOf(p.Event, p.Emitter.EvadeKind),
             Params = p.Emitter.Parameters.Count > 0 ? new Dictionary<uint, float>(p.Emitter.Parameters) : null,
             PostId = p.PostId, Handle = ++_handles, Footstep = p.Footstep, Limited = p.Limited, Offset = p.Offset,
             Group = SoundTuningGroups.IndexOf(SoundTuningGroups.Resolve(p.Event, p.Emitter.Own, p.Footstep, p.Emitter.Background, p.Emitter.Threat, p.Emitter.Label)),
@@ -1044,7 +1048,7 @@ public partial class SoundSystem : Node
     SoundMixEffect? FxOf(Active a)
     {
         var config = SoundMixConfig.Live;
-        if (a.FxVersion != config.Version) { a.Fx = config.Resolve(a.Event, a.Emitter.Own); a.FxVersion = config.Version; }
+        if (a.FxVersion != config.Version) { a.Fx = config.Resolve(a.Event, a.Alias, a.Emitter.Own); a.FxVersion = config.Version; }
         return a.Fx;
     }
 

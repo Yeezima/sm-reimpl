@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Godot;
 using SmContent;
@@ -20,6 +21,7 @@ public partial class NetworkView
         AddChild(_tuner = new SoundTunerPanel(() => MusouActive, _sound, PreviewSound));
         if (SoundTunerArg) _tuner.SetOpen(true);
         if (CmdArg("sound-mix-proof") is { } proof) _ = RunSoundMixProof(proof);
+        if (CmdArg("sound-mix-roll-hop-proof") is { } rhProof) _ = RunRollHopProof(rhProof);
     }
 
     /// <summary>
@@ -75,6 +77,42 @@ public partial class NetworkView
     }
 
     /// <summary>
+    /// <c>--sound-mix-roll-hop-proof &lt;png prefix&gt;</c> (sound/editor-roll-hop test aid, needs <c>godot.cmd --windowed</c> for the pictures): ten seconds into the match opens the panel on the
+    /// Combat moves group, picks the Tactical roll, previews it (log: the voices' volume with no change, then -9 dB), shows the picture <c>&lt;prefix&gt;_roll.png</c>, picks the Devastator / Havoc hop,
+    /// raises it and shows <c>&lt;prefix&gt;_hop.png</c> (log lines <c>SOUNDMIX roll-hop proof</c>), and quits.
+    /// </summary>
+    async System.Threading.Tasks.Task RunRollHopProof(string prefix)
+    {
+        async System.Threading.Tasks.Task Wait(double s) => await ToSignal(GetTree().CreateTimer(s), SceneTreeTimer.SignalName.Timeout);
+        void Shot(string n) => GD.Print($"SOUNDMIX roll-hop proof shot {n}: {GetViewport().GetTexture().GetImage().SavePng($"{prefix}_{n}.png")}");
+        await Wait(10);
+        if (_tuner is null) return;
+        _tuner.SetOpen(true);
+        _tuner.ProofSelect(SoundMixCatalog.TacticalRollKey, own: true);
+        await Wait(0.5);
+        _tuner.ProofPlay();
+        await Wait(0.25);
+        GD.Print("SOUNDMIX roll-hop proof roll, no change: " + _sound?.Probe("play_evade_start"));
+        await Wait(1.5);
+        _tuner.ProofEdit(-9f, 0f);
+        _tuner.ProofPlay();
+        await Wait(0.25);
+        GD.Print("SOUNDMIX roll-hop proof roll, -9 dB:     " + _sound?.Probe("play_evade_start"));
+        await Wait(0.5);
+        Shot("roll");
+        await Wait(1.5);
+        _tuner.ProofSelect(SoundMixCatalog.HeavyHopKey, own: true);
+        _tuner.ProofEdit(4f, 0f);
+        _tuner.ProofPlay();
+        await Wait(0.25);
+        GD.Print("SOUNDMIX roll-hop proof hop, +4 dB:      " + _sound?.Probe("play_evade_start"));
+        await Wait(0.4);
+        Shot("hop");
+        GD.Print("SOUNDMIX roll-hop proof status: " + _tuner.StatusText);
+        GetTree().Quit(0);
+    }
+
+    /// <summary>
     /// sound/mix-expand: the editor's PLAY button. Posts the event once from where the selected side would be heard: your own (at the camera, as the own player's emitter) or another player's
     /// (6 m ahead of the camera). A sound that loops is stopped after 4 s. It goes through the same mix as any sound, so the owner's changes are heard.
     /// </summary>
@@ -85,7 +123,13 @@ public partial class NetworkView
         Vector3 at = camera is null ? Vector3.Zero : camera.GlobalPosition + (own ? Vector3.Zero : -camera.GlobalTransform.Basis.Z * 6f);
         var emitter = new SoundEmitter { Position = at, OneShot = true, Own = own, Label = "preview", Follow = null };
         if (own) emitter.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
-        _sound.Post(evt, emitter);
+        string post = evt;
+        if (SoundMixCatalog.IsAlias(evt))   // sound/editor-roll-hop: the roll and hop entries post the evade event as a player of that evade kind
+        {
+            post = "play_evade_start";
+            emitter.EvadeKind = string.Equals(evt, SoundMixCatalog.HeavyHopKey, StringComparison.OrdinalIgnoreCase) ? SoundMixCatalog.EvadeKindHop : SoundMixCatalog.EvadeKindRoll;
+        }
+        _sound.Post(post, emitter);
         GetTree().CreateTimer(4.0).Timeout += () => { if (IsInstanceValid(this)) _sound?.StopEmitter(emitter); };
     }
 
