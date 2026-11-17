@@ -29,6 +29,8 @@ public partial class MapView : Node3D
     public int Surfaces { get; private set; }
     public int TexturedSurfaces { get; private set; }
     public int Mirrored { get; private set; }
+    /// <summary>Static level decals built (<see cref="MapDecalView"/>).</summary>
+    public int LevelDecals { get; private set; }
 
     /// <summary>Builds the materials (diffuse, normal, specular, emissive maps); its counters say how many used each.</summary>
     public MapMaterials Materials { get; } = new();
@@ -118,6 +120,7 @@ public partial class MapView : Node3D
                 MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.012f, 0.010f, 0.009f), CullMode = BaseMaterial3D.CullModeEnum.Disabled },
             });
         }
+        if (MapDecor.DrawsLevelDecals(scene.Map) && MapDecalView.Build(scene, notes) is { } decals) { AddChild(decals); LevelDecals = decals.Count; }
         Meshes = drawn.Count;
         Objects = drawnObjects.Count;
         foreach (var m in missing.Order(StringComparer.Ordinal)) notes.Add($"mesh '{m}' not loaded; its placements are not drawn");
