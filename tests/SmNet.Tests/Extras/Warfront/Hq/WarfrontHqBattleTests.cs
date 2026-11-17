@@ -22,7 +22,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
     static readonly Lazy<WarfrontLoadedMap> Loaded = new(() => WarfrontMaps.Load(WarfrontMaps.HqName, out _)!);
 
     /// <summary>The HQ's composed world with one human aboard and the run's target set to the HQ, deployed and landed.</summary>
-    static World Hq(out TfwBattle battle, bool guardsmen = false, int humans = 1, bool frozen = true)
+    internal static World Hq(out TfwBattle battle, bool guardsmen = false, int humans = 1, bool frozen = true)
     {
         var map = Loaded.Value;
         var config = TfwRig.Config with { Extras = ContentProfiles.WarfrontProfile };
@@ -92,7 +92,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         w.Tfw!.Warfront!.NodeEnded = (_, _, r) => ended = r;
         for (int k = 0; k < 3; k++) Occupy(w, b, k);
         var fell = new List<int>();
-        for (int t = 0; t < 30 * 90 && w.Tfw.Battle is not null; t++)
+        for (int t = 0; t < 30 * 180 && w.Tfw.Battle is not null; t++)
         {
             Keep(w, b, t, 0, 1, 2);
             w.Step(_ => default);
@@ -113,7 +113,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         var w = Hq(out var b);
         TfwRig.Teleport(w, Safe);
         Occupy(w, b, 0);
-        for (int t = 0; t < 30 * 25; t++) { Keep(w, b, t, 0); w.Step(_ => default); }
+        for (int t = 0; t < 30 * 45; t++) { Keep(w, b, t, 0); w.Step(_ => default); }
         Assert.True(b.HqFell(0));
         Assert.Equal(TfwPositionState.Held, b.Objectives[0].State);
         Assert.Equal(1, b.HqFallenCount);
@@ -136,7 +136,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         Step(w, 30 * 30);   // wave 1 stands mustered on the assembly ground only
         Assert.Equal(0, Count(w, e => e.Position.Y > WarfrontHqMap.RampNorth));
         Occupy(w, b, 0);
-        Step(w, 30 * 25);
+        Step(w, 30 * 45);
         Assert.True(b.HqFell(0));
         Assert.True(b.HqSourceOpen(1));
         Assert.False(b.HqSourceOpen(2));
@@ -153,7 +153,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         var human = new Vector3(0f, 0f, WarfrontHqMap.PlateauZ);
         TfwRig.Teleport(w, human);
         Occupy(w, b, 0);
-        Step(w, 30 * 25);
+        Step(w, 30 * 45);
         Assert.True(b.HqFell(0));
         Assert.Equal(0, Count(w, e => e.Position.Y > -20f && e.Position.Z > 5f && Vector3.Distance(e.Position, human) < 60f));   // none near him
         Assert.True(Count(w, e => e.Position.Y < WarfrontHqMap.AssemblyNorth) >= 60);
@@ -195,7 +195,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         var paid = new List<int>();
         w.Tfw!.Warfront!.ObjectiveSecured = k => paid.Add(k);
         Occupy(w, b, 0);
-        for (int t = 0; t < 30 * 25; t++) { Keep(w, b, t, 0); w.Step(_ => default); }
+        for (int t = 0; t < 30 * 45; t++) { Keep(w, b, t, 0); w.Step(_ => default); }
         Assert.True(b.HqFell(0));
         TfwRig.KillAll(w);
         TfwMapResult? result = null;
@@ -214,7 +214,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         TfwMapResult? result = null;
         w.Tfw!.Warfront!.NodeEnded = (_, _, r) => result = r;
         Assert.True(w.TfwKillForTests(TfwRig.Human));
-        Step(w, 30 * 25 + 60);
+        Step(w, 30 * 45 + 60);
         Assert.Equal(TfwMapResult.Lost, result);
         Assert.Null(w.Tfw.Battle);
     }
@@ -235,7 +235,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         Assert.Equal(0, Count(w, e => e.Type == MusouEnemyType.BossNob));   // no Boss Ork in the first wave
         Step(w, 30 * 100);   // 2:26: the second wave stands mustered (it leaves at 2:45)
         Assert.Equal(1, Count(w, e => e.Type == MusouEnemyType.BossNob));   // one per human, from wave 2
-        Step(w, 30 * 25);
+        Step(w, 30 * 45);
         Assert.Equal(2, b.HqWavesSent);
         Step(w, 30 * 140);   // 4:51: the third has left (4:45)
         Assert.Equal(3, b.HqWavesSent);
@@ -298,30 +298,30 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void The_hold_drains_in_twenty_seconds_when_the_orks_outweigh_the_defenders_and_a_human_weighs_six()
+    public void The_hold_drains_in_forty_seconds_when_the_orks_outweigh_the_defenders_and_a_human_weighs_six()
     {
-        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Boy, 3, human: false) < 0.95f);          // three Boyz, nobody: draining
+        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Boy, 3, human: false) < 1f);          // three Boyz, nobody: draining
         Assert.Equal(1f, HoldAfterTwoSeconds(MusouEnemyType.Boy, 6, human: true));              // six against a human: not outnumbered
-        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Boy, 7, human: true) < 0.95f);           // seven against a human: draining
+        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Boy, 7, human: true) < 1f);           // seven against a human: draining
         float full = HoldAfterTwoSeconds(MusouEnemyType.Boy, 8, human: false);
-        Assert.InRange(full, 0.85f, 0.92f);                                                     // 2 s of 20 s drained (the Orks in a frozen scene may be moved)
+        Assert.InRange(full, 0.93f, 0.96f);                                                     // 2 s of 40 s drained (the Orks in a frozen scene may be moved)
     }
 
     [Fact]
     public void A_nob_counts_three_and_a_squad_marine_two()
     {
         Assert.Equal(1f, HoldAfterTwoSeconds(MusouEnemyType.Nob, 2, human: true));              // 3 + 3 = 6 against a human's 6
-        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Nob, 3, human: true) < 0.95f);           // 9 against 6
+        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Nob, 3, human: true) < 1f);           // 9 against 6
         Assert.Equal(1f, HoldAfterTwoSeconds(MusouEnemyType.Boy, 6, human: false, marines: 3)); // three Marines weigh 6
-        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Boy, 7, human: false, marines: 3) < 0.95f);
+        Assert.True(HoldAfterTwoSeconds(MusouEnemyType.Boy, 7, human: false, marines: 3) < 1f);
     }
 
     [Fact]
-    public void A_position_that_is_outnumbered_for_twenty_seconds_falls_and_the_retake_hook_answers_false()
+    public void A_position_that_is_outnumbered_for_forty_seconds_falls_and_the_retake_hook_answers_false()
     {
         var w = Hq(out var b);
         TfwRig.Teleport(w, b.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ } + new Vector3(0.5f, 0f, 0f));   // a standing human on the wall: the old rule never fell
-        for (int t = 0; t < 30 * 40 && !b.HqFell(0); t++)
+        for (int t = 0; t < 30 * 70 && !b.HqFell(0); t++)
         {
             if (t % 60 == 0) Occupy(w, b, 0, 8);
             w.Step(_ => default);
@@ -351,7 +351,7 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
         Step(w, 30 * 5);
         var guards = w.TfwGuards!;
         Assert.Equal(WarfrontHqBattleRules.SquadsAt.Sum() * GuardSim.SquadSize, guards.Alive);
-        for (int t = 0; t < 30 * 90 && !b.HqFell(0); t++)
+        for (int t = 0; t < 30 * 120 && !b.HqFell(0); t++)
         {
             if (t % 30 == 0) Occupy(w, b, 0, 60);   // frozen Boyz: they outweigh twenty Guardsmen and do not shoot
             w.Step(_ => default);
@@ -366,23 +366,17 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
     public void The_stage_sources_use_the_supplied_sight_ray_and_fall_back_to_sixty_metres_without_one()
     {
         var w = Hq(out var b);
+        var rules = w.Tfw!.Warfront!;
         var home = WarfrontHqLayout.SourcesOf(1).First();
         TfwRig.Teleport(w, home + new Vector3(0f, 45f, 0f));   // 45 m from a courtyard source: inside the 60 m stand-in, outside the 30 m clearance
-        try
-        {
-            WarfrontHqBattleRules.Sight = null;
-            var closed = HqClearOf(b, home, w);
-            WarfrontHqBattleRules.Sight = (_, _) => false;   // a ray that no human ever has a line through
-            var open = HqClearOf(b, home, w);
-            Assert.False(closed);
-            Assert.True(open);
-            WarfrontHqBattleRules.Sight = (_, _) => true;    // a ray with a line to everything: closed as before
-            Assert.False(HqClearOf(b, home, w));
-        }
-        finally { WarfrontHqBattleRules.Sight = null; }
+        Vector3[] human = [w.Players[TfwRig.Human].Position];
+        rules.HqSight = null;
+        Assert.False(b.HqSourceClear(home, human));
+        rules.HqSight = (_, _) => false;   // a ray that no human ever has a line through
+        Assert.True(b.HqSourceClear(home, human));
+        rules.HqSight = (_, _) => true;    // a ray with a line to everything: closed as before
+        Assert.False(b.HqSourceClear(home, human));
     }
-
-    static bool HqClearOf(TfwBattle b, Vector3 at, World w) => TfwBattle.HqSourceClearForTests(at, [w.Players[TfwRig.Human].Position]);
 
     [Fact]
     public void The_battle_section_round_trips_and_says_what_the_hud_shows()
