@@ -963,6 +963,7 @@ sealed class MainForm : Form
                 ((IProgress<UpdateStatus>)progress).Report(new UpdateStatus(UpdatePhase.Downloading, "Preparing the Mapmaker for its first start (about a minute, once)...", null));
                 int code = await MapmakerStart.RunHiddenAsync(setup.EditorCommand(headlessImport: true), TimeSpan.FromMinutes(3), ct);
                 _log?.Write($"mapmaker: first-time import finished with code {code}");
+                if (code == 0) setup.MarkImported();       // only a finished import counts: otherwise the next press runs it again
             }
             EndBusy();
             var launch = setup.EditorCommand(safe);

@@ -1584,6 +1584,12 @@ if ($Smoke) {
             }
             $elog = Join-Path $smokeDir 'mapmaker-editor.log'
             Ensure-Godot
+            # the button's first-time import (--headless --import --path): must finish by itself with exit code 0
+            $ilog = Join-Path $smokeDir 'mapmaker-import.log'
+            $ip2 = Start-QuietProcess -FilePath $GodotConsole -ArgumentList @('--headless', '--import', '--path', $mmWork) -WorkingDirectory $mmWork -StdOut $ilog
+            if (-not $ip2.WaitForExit(180000)) { Stop-Process -Id $ip2.Id -Force; Write-Host '  mapmaker import: did not finish in 3 minutes (stopped)' -ForegroundColor Red; $fail = $true }     # only the process started above
+            elseif ($ip2.ExitCode -ne 0) { $fail = $true; Write-Host "  mapmaker import: FAILED (exit $($ip2.ExitCode), log: $ilog)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker import: --headless --import finished with exit code 0' -ForegroundColor Green }
             $ep = Start-QuietProcess -FilePath $GodotConsole -ArgumentList @('--headless', '--editor', '--path', $mmWork, '--quit-after', '600') -WorkingDirectory $mmWork -StdOut $elog
             if (-not $ep.WaitForExit(240000)) { Stop-Process -Id $ep.Id -Force; Write-Host '  mapmaker editor: did not finish in 4 minutes (stopped)' -ForegroundColor Red; $fail = $true }     # only the process started above
             elseif (-not (Select-String -LiteralPath $elog -Pattern 'Mapmaker: plugin entering the tree' -Quiet)) { $fail = $true; Write-Host "  mapmaker editor: FAILED, the plugin did not load (log: $elog)" -ForegroundColor Red }

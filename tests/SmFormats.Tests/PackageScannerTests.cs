@@ -603,6 +603,22 @@ public sealed class PackageScannerTests : IDisposable
     static HashSet<string> BinaryProfile() => new(PackageScanCommand.BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
 
     [Fact]
+    public void TheMapmakerProjectTypesAreAllowedOnlyUnderTheMapmakerFolder()
+    {
+        void Profile(PackageScanner s)
+        {
+            s.AllowedExtensions = BinaryProfile();
+            s.ScopedExtensions[PackageScanCommand.MapmakerPrefix] = new HashSet<string>(PackageScanCommand.MapmakerProjectExtensions, StringComparer.OrdinalIgnoreCase);
+        }
+        Assert.Empty(Scan(Zip(("mapmaker/project.godot", Text("config_version=5")), ("mapmaker/Maps/Empty.tscn", Text("[gd_scene]")), ("mapmaker/addons/x/P.cs", Text("class P {}")), ("mapmaker/addons/x/plugin.cfg", Text("[plugin]"))), Profile));
+        var outside = Scan(Zip(("game/Main.tscn", Text("[gd_scene]")), ("other/P.cs", Text("class P {}")), ("mapmakerx/P.cs", Text("x"))), Profile);
+        Assert.Contains(outside, f => f.Rule == "unexpected-type" && f.Entry == "game/Main.tscn");
+        Assert.Contains(outside, f => f.Rule == "unexpected-type" && f.Entry == "other/P.cs");
+        Assert.Contains(outside, f => f.Rule == "unexpected-type" && f.Entry == "mapmakerx/P.cs");
+        Assert.DoesNotContain(PackageScanCommand.BinaryProfileExtensions, e => e == ".tscn" || e == ".cs");
+    }
+
+    [Fact]
     public void NestedZipsAreScannedEntryByEntry()
     {
         // The tester zip carries the source zip in source/: game data inside it is found, with the nested path in the finding.

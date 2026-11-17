@@ -112,6 +112,11 @@ static class Cli
                 PrintStatus(localUpdater);
                 return 0;
             }
+            case "remove-mapmaker":
+                // The Mapmaker's part of an uninstall: the downloaded editor and runtime, and the project copy's launcher-made files (a tester's own files stay).
+                new MapmakerSetup(layout).Remove();
+                Console.WriteLine("mapmaker removed: tools\\ and the project copy's launcher files");
+                return 0;
             case "mapmaker-check":
                 return MapmakerCheck(updater, layout);
             case "adopt":
@@ -142,7 +147,7 @@ static class Cli
         var safe = setup.EditorCommand(safeMode: true);
         var bad = new List<string>();
         if (!editor.Arguments.Contains("--editor") || !editor.Arguments.Contains("--path") || editor.Arguments.Contains("--headless")) bad.Add("editor arguments");
-        if (!import.Arguments.Contains("--headless") || !import.Arguments.Contains("--quit-after")) bad.Add("import arguments");
+        if (!import.Arguments.Contains("--headless") || !import.Arguments.Contains("--import")) bad.Add("import arguments");
         if (!safe.Arguments.Contains("gl_compatibility")) bad.Add("safe-mode arguments");
         if (!string.Equals(editor.WorkingDirectory, setup.WorkProject, StringComparison.OrdinalIgnoreCase) || !editor.Arguments.Contains(setup.WorkProject)) bad.Add("project path");
         if (!Updater.IsInsideFolder(editor.FileName, layout.Root)) bad.Add("editor program is not under the install folder");

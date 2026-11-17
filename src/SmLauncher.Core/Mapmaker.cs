@@ -77,7 +77,11 @@ public sealed class MapmakerSetup(InstallLayout layout)
     public string GodotDir => Path.Combine(ToolsDir, MapmakerTools.Godot.DirName);
     public string DotNetDir => Path.Combine(ToolsDir, MapmakerTools.DotNet.DirName);
     public string WorkProject => Path.Combine(layout.Root, "mapmaker-project");
+    /// <summary>.sm-build: the build id on the first line, then every file (relative to the project) a sync copied: only those are ever deleted by a later sync or by removal.</summary>
     public string BuildMarker => Path.Combine(WorkProject, ".sm-build");
+    /// <summary>Written only after the first-time import exited with code 0 (<see cref="MarkImported"/>); deleted when a sync changed files.</summary>
+    public string ImportMarker => Path.Combine(WorkProject, ".sm-imported");
+    public void MarkImported() { Directory.CreateDirectory(WorkProject); File.WriteAllText(ImportMarker, DateTime.UtcNow.ToString("O")); }
 
     public static string Shipped(string versionDir) => Path.Combine(versionDir, ShippedDir);
 
@@ -101,8 +105,17 @@ public sealed class MapmakerSetup(InstallLayout layout)
         return null;
     }
 
-    public bool GodotInstalled => HasAll(GodotDir, MapmakerTools.Godot.Required);
-    public bool PrivateRuntimeInstalled => HasAll(DotNetDir, MapmakerTools.DotNet.Required);
+    public const string VerifiedMarker = ".sm-verified";
+
+    /// <summary>Installed and verified: the files are there and the folder carries the marker written after the pinned SHA-512 matched. The same pin is never downloaded again; a new pin (another folder name or another hash) is.</summary>
+    public static bool Installed(ToolPackage pkg, string dir)
+    {
+        string marker = Path.Combine(dir, VerifiedMarker);
+        return HasAll(dir, pkg.Required) && File.Exists(marker) && File.ReadAllText(marker).Trim() == pkg.Sha512;
+    }
+
+    public bool GodotInstalled => Installed(MapmakerTools.Godot, GodotDir);
+    public bool PrivateRuntimeInstalled => Installed(MapmakerTools.DotNet, DotNetDir);
 
     static bool HasAll(string dir, string[] required) => required.All(r => File.Exists(Path.Combine(dir, r)) || Directory.Exists(Path.Combine(dir, r)));
 
@@ -126,41 +139,68 @@ public sealed class MapmakerSetup(InstallLayout layout)
     {
         string? problem = CheckShipped(versionDir);
         bool needDotNet = FindRuntime() is null && !PrivateRuntimeInstalled;
-        return new MapmakerPlan(problem is null, problem, !GodotInstalled, needDotNet, NeedSync(versionDir), !Directory.Exists(Path.Combine(WorkProject, ".godot", "imported")));
+        return new MapmakerPlan(problem is null, problem, !GodotInstalled, needDotNet, NeedSync(versionDir), !File.Exists(ImportMarker));
     }
 
     static string BuildId(string versionDir) => Path.GetFileName(Path.TrimEndingDirectorySeparator(versionDir));
 
     bool NeedSync(string versionDir) =>
-        !File.Exists(BuildMarker) || File.ReadAllText(BuildMarker).Trim() != BuildId(versionDir) || !File.Exists(Path.Combine(WorkProject, EditorAssemblyDir, "Mapmaker.dll"));
+        !File.Exists(BuildMarker) || File.ReadLines(BuildMarker).FirstOrDefault()?.Trim() != BuildId(versionDir) || !File.Exists(Path.Combine(WorkProject, EditorAssemblyDir, "Mapmaker.dll"));
+
+    /// <summary>The files an earlier sync copied (the lines after the build id of .sm-build), relative to the project.</summary>
+    List<string> TrackedFiles() => File.Exists(BuildMarker) ? File.ReadLines(BuildMarker).Skip(1).Where(l => l.Length > 0).ToList() : [];
 
     /// <summary>
     /// Copies the shipped project into <see cref="WorkProject"/>: files that are missing or differ (size, SHA-256) are copied, the assemblies go to where the
-    /// editor loads them (<see cref="EditorAssemblyDir"/>), files under addons\ and Maps\ that this build no longer ships are removed; the editor's own
-    /// .godot import cache and anything else is left alone. Returns the number of files copied.
+    /// editor loads them (<see cref="EditorAssemblyDir"/>). Only files an earlier sync copied (listed in .sm-build) and this build no longer ships are deleted:
+    /// a tester's own files (saved scenes in Maps\, anything else) and the editor's .godot cache are never touched. A sync that changed files clears the
+    /// import marker. Returns the number of files copied or removed.
     /// </summary>
     public int SyncProject(string versionDir)
     {
         if (CheckShipped(versionDir) is { } problem) throw new FileNotFoundException(problem);
         string shipped = Shipped(versionDir);
         int copied = 0;
-        var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var expected = new List<string>();
         foreach (var rel in ShippedFiles(shipped))
         {
             bool isBin = rel.StartsWith(BinDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-            string target = isBin ? Path.Combine(WorkProject, EditorAssemblyDir, rel[(BinDir.Length + 1)..]) : Path.Combine(WorkProject, rel);
-            expected.Add(Path.GetFullPath(target));
-            if (CopyIfDifferent(Path.Combine(shipped, rel), target)) copied++;
+            string targetRel = isBin ? Path.Combine(EditorAssemblyDir, rel[(BinDir.Length + 1)..]) : rel;
+            expected.Add(targetRel);
+            if (CopyIfDifferent(Path.Combine(shipped, rel), Path.Combine(WorkProject, targetRel))) copied++;
         }
-        foreach (var sub in new[] { "addons", "Maps" })
+        var keep = new HashSet<string>(expected, StringComparer.OrdinalIgnoreCase);
+        foreach (var old in TrackedFiles().Where(f => !keep.Contains(f)))
         {
-            string dir = Path.Combine(WorkProject, sub);
-            if (!Directory.Exists(dir)) continue;
-            foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-                if (!expected.Contains(Path.GetFullPath(f))) { try { File.Delete(f); } catch (IOException) { } }
+            string? full = PackageLayout.Inside(WorkProject, old);
+            if (full is not null && File.Exists(full)) { try { File.Delete(full); copied++; } catch (IOException) { } }
         }
-        File.WriteAllText(BuildMarker, BuildId(versionDir));
+        if (copied > 0) { try { File.Delete(ImportMarker); } catch (IOException) { } }
+        File.WriteAllLines(BuildMarker, new[] { BuildId(versionDir) }.Concat(expected));
         return copied;
+    }
+
+    /// <summary>
+    /// The Mapmaker's part of the launcher's uninstall (owner, 2026-11-17: "Remove it too"): deletes <c>tools\</c> (the Godot editor and the private runtime) and, in
+    /// the project copy, only the files a sync copied plus the editor's .godot cache and the launcher's markers; folders left empty go too. A tester's own
+    /// files in mapmaker-project\ stay (their maps in the library folder are outside the install and never touched).
+    /// </summary>
+    public void Remove()
+    {
+        if (Directory.Exists(ToolsDir)) Directory.Delete(ToolsDir, true);
+        if (!Directory.Exists(WorkProject)) return;
+        foreach (var rel in TrackedFiles())
+            if (PackageLayout.Inside(WorkProject, rel) is { } full && File.Exists(full)) File.Delete(full);
+        string cache = Path.Combine(WorkProject, ".godot");
+        if (Directory.Exists(cache)) Directory.Delete(cache, true);
+        foreach (var f in new[] { BuildMarker, ImportMarker }) if (File.Exists(f)) File.Delete(f);
+        PruneEmpty(WorkProject);
+    }
+
+    static void PruneEmpty(string dir)
+    {
+        foreach (var d in Directory.EnumerateDirectories(dir)) PruneEmpty(d);
+        if (!Directory.EnumerateFileSystemEntries(dir).Any()) Directory.Delete(dir);
     }
 
     static bool CopyIfDifferent(string from, string to)
@@ -174,17 +214,16 @@ public sealed class MapmakerSetup(InstallLayout layout)
 
     /// <summary>
     /// The editor's command line: the Godot editor on the work project, visible. <paramref name="safeMode"/> adds the Compatibility renderer like the game's
-    /// Old GPU mode. <paramref name="headlessImport"/> is the first-time import (no window: <c>--headless --editor --quit-after</c>, the console build).
+    /// Old GPU mode. <paramref name="headlessImport"/> is the first-time import: the official one-shot <c>--headless --import --path</c> (console build, no window; exits by itself when done).
     /// DOTNET_ROOT is set only when the private runtime is used.
     /// </summary>
     public MapmakerLaunch EditorCommand(bool safeMode = false, bool headlessImport = false)
     {
         var args = new List<string>();
-        if (headlessImport) args.Add("--headless");
-        args.Add("--editor");
+        if (headlessImport) { args.Add("--headless"); args.Add("--import"); }
+        else args.Add("--editor");
         args.Add("--path"); args.Add(WorkProject);
         if (safeMode && !headlessImport) args.AddRange(SafeModePolicy.EngineArgs);
-        if (headlessImport) { args.Add("--quit-after"); args.Add("600"); }
         var env = new Dictionary<string, string>(StringComparer.Ordinal);
         if (FindRuntime() is null) env["DOTNET_ROOT"] = DotNetDir;
         return new MapmakerLaunch(MapmakerTools.GodotExe(GodotDir, console: headlessImport), args, WorkProject, env);
@@ -201,7 +240,7 @@ public sealed class MapmakerSetup(InstallLayout layout)
 
     public async Task InstallToolAsync(ToolPackage pkg, string dest, SafeHttp http, IProgress<UpdateStatus>? progress, CancellationToken ct, DownloadOptions? options = null)
     {
-        if (HasAll(dest, pkg.Required)) return;
+        if (Installed(pkg, dest)) return;
         // The published checksum must agree with the pin before a byte of the zip is fetched.
         if (pkg.SumsUrl is not null)
         {
@@ -234,6 +273,7 @@ public sealed class MapmakerSetup(InstallLayout layout)
         }
         if (Directory.Exists(dest)) Directory.Delete(dest, true);
         Directory.Move(staging, dest);
+        File.WriteAllText(Path.Combine(dest, VerifiedMarker), pkg.Sha512);
         try { File.Delete(part); } catch (IOException) { }
     }
 

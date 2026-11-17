@@ -76,7 +76,9 @@ public class MapmakerTests
         Assert.StartsWith(t.Path, setup.WorkProject, StringComparison.OrdinalIgnoreCase);   // under the install folder, never inside the build's folder
         var import = setup.EditorCommand(headlessImport: true);
         Assert.Contains("--headless", import.Arguments);
-        Assert.Contains("--quit-after", import.Arguments);
+        Assert.Contains("--import", import.Arguments);
+        Assert.DoesNotContain("--editor", import.Arguments);
+        Assert.DoesNotContain("--quit-after", import.Arguments);
         Assert.EndsWith("_console.exe", import.FileName);
         var safe = setup.EditorCommand(safeMode: true);
         Assert.Contains("gl_compatibility", safe.Arguments);
@@ -107,18 +109,69 @@ public class MapmakerTests
         Assert.False(setup.Plan(v1).NeedSync);
         Assert.Equal(0, setup.SyncProject(v1));                          // nothing differs: nothing copied
 
-        // the editor's own cache and an old addon file that a newer build no longer ships
+        // the editor's own cache, the tester's own files, and a file this build shipped that the next build no longer does
         Directory.CreateDirectory(Path.Combine(setup.WorkProject, ".godot", "imported"));
         File.WriteAllText(Path.Combine(setup.WorkProject, ".godot", "imported", "x.import"), "cache");
-        File.WriteAllText(Path.Combine(setup.WorkProject, "addons", "sm_mapmaker", "Gone.cs"), "old");
+        string mineScene = Path.Combine(setup.WorkProject, "Maps", "Mine.tscn"), mineScript = Path.Combine(setup.WorkProject, "addons", "sm_mapmaker", "Mine.cs");
+        File.WriteAllText(mineScene, "my saved scene");
+        File.WriteAllText(mineScript, "mine");
+        Assert.True(setup.Plan(v1).NeedImport);
+        setup.MarkImported();
         Assert.False(setup.Plan(v1).NeedImport);
-        string v2 = MakeVersion(t, "tester-2026-11-18-0000002", "dll v2");
+        string v2 = MakeVersion(t, "tester-2026-11-18-0000002", "dll v2", @"addons\sm_mapmaker\Other.cs");
         Assert.True(setup.Plan(v2).NeedSync);                            // another build
-        int copied = setup.SyncProject(v2);
-        Assert.Equal(MapmakerSetup.ShippedFiles(MapmakerSetup.Shipped(v2)).Count(f => f.StartsWith("bin", StringComparison.Ordinal)), copied);
+        setup.SyncProject(v2);
         Assert.Equal("dll v2", File.ReadAllText(Path.Combine(setup.WorkProject, MapmakerSetup.EditorAssemblyDir, "Mapmaker.dll")));
-        Assert.False(File.Exists(Path.Combine(setup.WorkProject, "addons", "sm_mapmaker", "Gone.cs")));
+        Assert.False(File.Exists(Path.Combine(setup.WorkProject, "addons", "sm_mapmaker", "Other.cs")));      // shipped before, tracked, gone now
+        Assert.Equal("my saved scene", File.ReadAllText(mineScene));                                          // never deleted
+        Assert.Equal("mine", File.ReadAllText(mineScript));
         Assert.True(File.Exists(Path.Combine(setup.WorkProject, ".godot", "imported", "x.import")));
+        Assert.True(setup.Plan(v2).NeedImport);                          // files changed: the import runs again
+    }
+
+    [Fact]
+    public void Removing_the_mapmaker_deletes_the_tools_and_launcher_files_but_keeps_the_testers_own_files()
+    {
+        using var t = new TempDir();
+        var setup = Setup(t);
+        setup.SyncProject(MakeVersion(t));
+        Directory.CreateDirectory(Path.Combine(setup.GodotDir, "x")); File.WriteAllText(Path.Combine(setup.GodotDir, "x", "g.exe"), "g");
+        Directory.CreateDirectory(Path.Combine(setup.WorkProject, ".godot")); File.WriteAllText(Path.Combine(setup.WorkProject, ".godot", "c"), "c");
+        string mine = Path.Combine(setup.WorkProject, "Maps", "Mine.tscn");
+        File.WriteAllText(mine, "my saved scene");
+        setup.Remove();
+        Assert.False(Directory.Exists(setup.ToolsDir));
+        Assert.False(Directory.Exists(Path.Combine(setup.WorkProject, ".godot")));
+        Assert.False(File.Exists(Path.Combine(setup.WorkProject, "project.godot")));
+        Assert.False(File.Exists(Path.Combine(setup.WorkProject, MapmakerSetup.EditorAssemblyDir, "Mapmaker.dll")));
+        Assert.Equal("my saved scene", File.ReadAllText(mine));
+        // nothing of the tester's: the whole project copy goes
+        using var t2 = new TempDir();
+        var s2 = Setup(t2);
+        s2.SyncProject(MakeVersion(t2));
+        s2.Remove();
+        Assert.False(Directory.Exists(s2.WorkProject));
+    }
+
+    [Fact]
+    public async Task An_installed_and_verified_tool_is_never_downloaded_again_unless_the_pin_changes()
+    {
+        using var t = new TempDir();
+        var (pkg, gh, http) = Fixture(MakeZip((@"Tool/tool.exe", "exe")));
+        var setup = Setup(t);
+        string dest = Path.Combine(setup.ToolsDir, pkg.DirName);
+        await setup.InstallToolAsync(pkg, dest, http, null, default, Builds.Fast);
+        Assert.True(File.Exists(Path.Combine(dest, MapmakerSetup.VerifiedMarker)));
+        Assert.True(MapmakerSetup.Installed(pkg, dest));
+        int requests = gh.Requests.Count;
+        await setup.InstallToolAsync(pkg, dest, http, null, default, Builds.Fast);      // the second press: no request at all
+        await setup.InstallToolAsync(pkg, dest, http, null, default, Builds.Fast);
+        Assert.Equal(requests, gh.Requests.Count);
+        // a release that ships another pin (another hash for the same folder) is downloaded again
+        Assert.False(MapmakerSetup.Installed(pkg with { Sha512 = new string('1', 128) }, dest));
+        // files without the marker (a half-copied folder) do not count as installed
+        File.Delete(Path.Combine(dest, MapmakerSetup.VerifiedMarker));
+        Assert.False(MapmakerSetup.Installed(pkg, dest));
     }
 
     [Fact]

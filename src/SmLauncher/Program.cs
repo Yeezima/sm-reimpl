@@ -95,7 +95,7 @@ sealed class Args
 {
     public Dictionary<string, string?> Values { get; } = new(StringComparer.OrdinalIgnoreCase);
     static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "install-parts", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-width", "ui-workarea", "ui-state", "layout-check", "row-check" };
-    static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "install-parts", "recover", "update-launcher", "install-self", "mapmaker-check"];
+    static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "install-parts", "recover", "update-launcher", "install-self", "mapmaker-check", "remove-mapmaker"];
 
     public static Args Parse(string[] args)
     {

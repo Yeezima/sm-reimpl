@@ -147,6 +147,15 @@ The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a 
   then opens the editor **in a visible window** (`--editor --path <project>`; with Old GPU / safe mode ticked also the Compatibility renderer) and says "The Mapmaker is open.";
   an editor that dies within 20 s with an error code says so and points at safe mode. The SM1 install is found by the plugin itself (`GameInstall`: the same order as
   the game: `SM_GAME_DIR`, saved settings, Steam), so there is no extra setting.
+- **Never downloaded twice (owner, 2026-11-17):** a downloaded folder carries `.sm-verified` holding the pinned SHA-512 and is written only after the hash check and the unpack
+  succeeded; `MapmakerSetup.Installed` needs the files and a marker equal to the pin, so a second press makes no request. Only a release that ships a new pin (another
+  folder name or hash in `MapmakerTools`) downloads again. The project copy follows the build through the release parts only. `.sm-build` lists the files a sync copied: only
+  those are deleted by a later sync or by removal, so a tester's own saved scenes in `mapmaker-project\Maps\` are never lost. The first-time import is the one-shot
+  `--headless --import --path` with a 3-minute limit; `.sm-imported` is written only after exit code 0 (and cleared when a sync changed files), so an early quit is retried.
+  **Uninstall:** the launcher has no uninstall yet; `--root <dir> --remove-mapmaker` (`MapmakerSetup.Remove`) deletes `tools\` and the launcher-made files of
+  `mapmaker-project\` (tester files stay; maps in the library folder are outside the install), ready for the uninstall to call.
+- **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
+- **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
 - **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print
   `mapmaker check: ok` (the shipped project is complete; the editor, first-import and safe-mode command lines are well formed and the editor lives under the install
   folder), then the shipped `mapmaker\` is laid out as the button lays it out and the repo's cached Godot opens it with `--headless --editor` on the hidden

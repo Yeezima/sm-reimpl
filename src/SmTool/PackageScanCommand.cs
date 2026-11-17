@@ -18,10 +18,13 @@ public static class PackageScanCommand
         ".exe", ".x86_64", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
         ".jpg",   // the owner's menu background and hub planet, copied beside the exe by release.ps1
         ".glb",   // the owner's generated Ashfall kit models (game\ashfall-kit\), copied by release.ps1 (owner, 2026-11-06); the content rules still scan them
-        ".cs", ".uid", ".tscn", ".cfg", ".godot", ".csproj",   // the Mapmaker's Godot project (mapmaker\ in the playtest build, 2026-11-17: the plugin's own sources, scene and project files; text only, the content rules still scan them)
         ".pck",   // the client's Godot pack beside the exe (tools/release-parts): only a Godot pack passes (any other .pck is a forbidden game extension),
                   // and its directory is checked like an embedded one
     ];
+
+    /// <summary>Allowed only under <see cref="MapmakerPrefix"/> (the Mapmaker's Godot project in the playtest build, 2026-11-17: the plugin's own sources, scene and project files; text only, the content rules still scan them).</summary>
+    public static readonly string[] MapmakerProjectExtensions = [".cs", ".uid", ".tscn", ".cfg", ".godot", ".csproj"];
+    public const string MapmakerPrefix = "mapmaker/";
 
     /// <summary>Test hook: called with each package path right before it is scanned (a test makes it throw to prove an unexpected crash exits 2).</summary>
     internal static Action<string>? BeforeScanHook;
@@ -164,7 +167,11 @@ public static class PackageScanCommand
             Console.Error.WriteLine("scan-package: --require-install, but the game install was not found or had no files to compare");
             return 2;
         }
-        if (binaryProfile) scanner.AllowedExtensions = new HashSet<string>(BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
+        if (binaryProfile)
+        {
+            scanner.AllowedExtensions = new HashSet<string>(BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
+            scanner.ScopedExtensions[MapmakerPrefix] = new HashSet<string>(MapmakerProjectExtensions, StringComparer.OrdinalIgnoreCase);
+        }
         if (packages.Count == 0)
         {
             Console.Error.WriteLine("usage: smtool scan-package [--against <dir>]... [--against-install <game-dir|auto>] [--secrets <config.json>]... [--secrets-env] [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--source-archive <entry prefix>]... [--index-cache <dir> [--rehash]] <zip|tar.gz|folder|file>...");
