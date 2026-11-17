@@ -60,6 +60,9 @@ public sealed partial class MapMaterials
         !OldEmissiveCards && bmat.ShaderName == "diff_emis" && string.Equals(emissiveName, diffuseName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Multiply by the vertex colour where the shader name has "vtxtint". Test aid: SM_NO_TINT=1 turns it off.</summary>
+    /// <summary>Materials the data scrolls (<c>ScrollSpeedU</c> / <c>ScrollSpeedV</c>, texture widths a second; <see cref="MapView"/> moves their UV).</summary>
+    public List<(StandardMaterial3D Material, float U, float V)> Scrolling { get; } = new();
+
     public static readonly bool TintVertexColours = System.Environment.GetEnvironmentVariable("SM_NO_TINT") != "1";
     /// <summary>Whether the vertex RGB is gamma-encoded (D3DCOLOR usually is). Test aid: SM_TINT_SRGB=1 / 0 overrides the chosen default.</summary>
     public static readonly bool TintIsSrgb = System.Environment.GetEnvironmentVariable("SM_TINT_SRGB") switch { "1" => true, "0" => false, _ => false };
@@ -104,6 +107,8 @@ public sealed partial class MapMaterials
             Blended++;
         }
         if (twoSided) material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+        // classic-maps-fidelity round 2, fix 3: the data's scrolling materials (diff_norm_emis_animated: ScrollSpeedU / ScrollSpeedV in texture widths a second; Basilica's lava has V 0.04): the view moves the UV each frame.
+        if (bmat.Floats.GetValueOrDefault("ScrollSpeedU") is var scrollU && bmat.Floats.GetValueOrDefault("ScrollSpeedV") is var scrollV && (scrollU != 0f || scrollV != 0f)) Scrolling.Add((material, scrollU, scrollV));
         // Vertex tint. A StandardMaterial3D also multiplies the alpha by the vertex alpha (the layer weight, not an opacity), which would
         // punch holes in a cut-out; so cut-outs are not tinted here (no Manufactorum cut-out has a single-layer vtxtint shader).
         if (vertexColours && TintVertexColours && !cutOut && !blended && bmat.ShaderName?.Contains("vtxtint", StringComparison.Ordinal) == true)

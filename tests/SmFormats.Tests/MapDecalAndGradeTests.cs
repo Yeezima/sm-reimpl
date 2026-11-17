@@ -45,6 +45,20 @@ public class MapDecalAndGradeTests
     }
 
     [Fact]
+    public void A_looped_bezier_curve_that_turns_its_follower_four_quarters_gives_a_clockwise_spin_rate()
+    {
+        static Struct Point(float z) => new("BezierPoint", ("RotationLS", new Vec(0f, 0f, z)));
+        Struct Curve(bool loop, float seconds, params float[] zs) => new("BezierCurve", ("Loop", new B(loop)),
+            ("PathPoints", new List(zs.Select(z => (Node)Point(z)).ToArray())), ("BezierCurveAnim", new List(new Struct("BezierAnimationParameters", ("TimeToFollowCurve", new F(seconds))))));
+        static BodStruct Read(Struct s) => (BodStruct)BodDocument.Read(Document(s)).Root;
+        Assert.Equal(-72f, MapScene.CurveSpin(Read(Curve(true, 5f, 0f, -90f, -180f, 89.999f)))!.Value, 0.1f);   // -360 degrees in 5 s
+        Assert.Equal(72f, MapScene.CurveSpin(Read(Curve(true, 5f, 0f, 90f, 180f, -89.999f)))!.Value, 0.1f);
+        Assert.Null(MapScene.CurveSpin(Read(Curve(false, 5f, 0f, -90f, -180f, 89.999f))));   // not looped
+        Assert.Null(MapScene.CurveSpin(Read(Curve(true, 5f, 0f, 0f, 0f, 0f))));              // turns nothing
+        Assert.Null(MapScene.CurveSpin(Read(Curve(true, 0f, 0f, -90f, -180f, 89.999f))));    // no time
+    }
+
+    [Fact]
     public void An_environment_region_reads_its_colour_grade()
     {
         var region = new Struct("base/environmentregion", ("Name", new S("r")), ("Priority", new I(1)), ("Scale", new Vec(600f, 600f, 300f)), ("Position", new Vec(0f, 0f, 0f)),
