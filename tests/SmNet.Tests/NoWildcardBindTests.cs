@@ -12,8 +12,8 @@ public class NoWildcardBindTests
     // Files where IPAddress.Any is the server's own default bind for operators (never used by tests, which pass 127.0.0.1).
     static readonly string[] ServerDefaults = ["src/SmServer/GameServer.CommandLine.cs", "src/SmServer/Program.cs"];
 
-    // A receive buffer's placeholder end point (`EndPoint from = new IPEndPoint(IPAddress.Any, 0)`) binds nothing; nor does a comparison with the default.
-    static readonly Regex Harmless = new(@"EndPoint\s+from\s*=|IPAddress\.IPv6Any\s*:\s*IPAddress\.Any|Assert\.Equal\(IPAddress\.Any|\.Equals\(IPAddress\.Any\)", RegexOptions.Compiled);
+    // A receive buffer's placeholder end point (`EndPoint from = new IPEndPoint(IPAddress.Any, 0)`) binds nothing; nor does a comparison with the default, nor a test asserting the wildcard is absent.
+    static readonly Regex Harmless = new(@"EndPoint\s+from\s*=|IPAddress\.IPv6Any\s*:\s*IPAddress\.Any|Assert\.Equal\(IPAddress\.Any|\.Equals\(IPAddress\.Any\)|Assert\.DoesNotContain\(""0\.0\.0\.0""", RegexOptions.Compiled);
     static readonly Regex Wildcard = new(@"IPAddress\.(Any|IPv6Any)\b|""0\.0\.0\.0""|""::""", RegexOptions.Compiled);
     static readonly Regex NewUdpSocket = new(@"new\s+(System\.Net\.Sockets\.)?Socket\([^)]*SocketType\.Dgram|new\s+(System\.Net\.Sockets\.)?UdpClient\(\s*\)", RegexOptions.Compiled);
 
