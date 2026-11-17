@@ -23,6 +23,8 @@ public partial class MusouCrowd : CrowdView
     /// <summary>Bodies kept at once (ours): past this the oldest past the corpse floor go (before it: the oldest), and with none past it the pool grows up to <see cref="HardBodies"/>.</summary>
     public const int MaxBodies = 100, HardBodies = SmNet.Extras.Musou.MusouCorpseRules.OrkHardBodies;
 
+    /// <summary>The nearest Orks that play the reaction clips (owner 2026-11-17: 100); <c>--musou-clip-nearest n</c> tries another (0: none, the 40 skinned only), a test aid for the frame cost.</summary>
+    static int ClipCount() => (int?)CmdFloat("--musou-clip-nearest") ?? ClipNearest;
     static readonly int[] TypeIds = Enum.GetValues<MusouEnemyType>().Select(t => (int)t).ToArray();
 
     readonly MusouLooks _looks;
@@ -30,7 +32,7 @@ public partial class MusouCrowd : CrowdView
     readonly HashSet<int> _seen = new();
     readonly List<int> _gone = new();
 
-    public MusouCrowd(MusouLooks looks) : base(new CrowdLimits(MaxSkinned, MaxVat, FallbackSkinned, NearMetres, HalfRateMetres, SinkAfter, SinkSeconds, SinkDepth, MaxBodies, HardBodies, ClipSkinned: ClipNearest, ClipNearest: ClipNearest), DefaultVisible)
+    public MusouCrowd(MusouLooks looks) : base(new CrowdLimits(MaxSkinned, MaxVat, FallbackSkinned, NearMetres, HalfRateMetres, SinkAfter, SinkSeconds, SinkDepth, MaxBodies, HardBodies, ClipSkinned: ClipCount(), ClipNearest: ClipCount()), DefaultVisible)
     {
         _looks = looks; Name = "MusouCrowd";
     }
@@ -134,6 +136,7 @@ public partial class MusouCrowd : CrowdView
     public void Frame(IReadOnlyList<MusouShown> shown, Vector3 camera, float delta)
     {
         UpkeepLooks("musou");
+        WarmPool();
         Items.Clear();
         _seen.Clear();
         _flinchable.Clear();

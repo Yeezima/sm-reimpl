@@ -27,6 +27,7 @@ public partial class MusouCrowdTestView
     void FlinchFrame(MusouEnemyType kind, MusouLooks.Look look, float dt)
     {
         MusouOrkFlinchRules.TestScale = Arg(_args, "flinch-scale", 1f);
+        ThreadClock.Enabled = true;
         MusouOrkReactClips.Measure = true;   // the stage measures the ankle drift (off in a match)
         MusouOrkFlinchPose.DebugPlant = _args.ContainsKey("plant-debug");
         _flinchMode ??= _args.GetValueOrDefault("flinch") ?? "stand";
@@ -135,9 +136,11 @@ public partial class MusouCrowdTestView
         var eye = target + (_flinchMode == "react" ? new Vector3(dist, 0f, height * 0.25f) : _args.ContainsKey("cam-front") ? new Vector3(dist, 0f, height * 0.2f) : new Vector3(0f, -dist, _flinchMode == "crowd" ? 6f : height * 0.2f));   // --cam-front: from the side the hit comes from
         _camera!.Position = GameToGodot * eye;
         _camera.LookAt(GameToGodot * target, Vector3.Up);
+        ulong cpu0 = ThreadClock.Mark();   // this thread's CPU time, so another process's load does not show as a spike
         var watch = System.Diagnostics.Stopwatch.StartNew();
         _crowd!.Frame(_shown, eye, dt);
-        if (t > 2f) { _flinchMs += watch.Elapsed.TotalMilliseconds; _flinchMsN++; _flinchMsMax = Math.Max(_flinchMsMax, watch.Elapsed.TotalMilliseconds); _flinchMsAll.Add(watch.Elapsed.TotalMilliseconds); }
+        double cpuMs = ThreadClock.Ms(cpu0);
+        if (t > 2f) { _flinchMs += cpuMs; _flinchMsN++; _flinchMsMax = Math.Max(_flinchMsMax, cpuMs); _flinchMsAll.Add(cpuMs); string tm = _crowd.Timing(); if (cpuMs > 25) GD.Print($"FLINCHSPIKE t {t:F2} {cpuMs:F1} ms, skinned {_crowd.ShownSkinned}, {tm}"); }
         if (_flinchMode != "crowd" || true)
         {
             System.IO.Directory.CreateDirectory(_outDir);

@@ -356,6 +356,18 @@ public abstract partial class CrowdView : Node3D
     /// <summary>The hit reaction laid over a skinned member's pose (<paramref name="kick"/> in the member's own frame): by default the procedural flinch (<see cref="MusouOrkFlinchPose.Apply"/>); the Musou crowd lays the rig's own reaction clips (owner 2026-11-17).</summary>
     protected virtual void PoseFlinch(Skinned s, in Item it, Vector3 kick) => MusouOrkFlinchPose.Apply(s.Skeleton, s.FlinchBones!, kick, s.Look.Scale);
 
+    /// <summary>Pre-warm: builds one hidden skinned member of <paramref name="look"/> into the pool unless it already has <paramref name="target"/> (or the pool is at its ceiling), so a later promotion never builds a skeleton and meshes mid-fight. Returns the node built, or null.</summary>
+    protected Skinned? Prewarm(MusouLooks.Look look, int target)
+    {
+        int have = 0;
+        foreach (var c in _skinned) if (ReferenceEquals(c.Look, look)) have++;
+        if (have >= target || _skinned.Count >= Math.Max(Limits.FallbackSkinned, Limits.MaxSkinned) + 8) return null;
+        var s = Build(look);
+        s.Root.Visible = false;
+        _skinned.Add(s);
+        return s;
+    }
+
     protected Skinned Build(MusouLooks.Look look)
     {
         var skeleton = look.Assets.Model.Rig.Skeleton;
