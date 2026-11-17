@@ -79,12 +79,15 @@ public static partial class UiKit
         /// <summary>The label column's width in the row's own pixels (the fit test reads it).</summary>
         public float LabelColumn => _concept ? _labelWidth : 0f;
 
-        float ConceptControlW() => _isSwitch ? ConceptSwitchW * _cs : Mathf.Min(_cCtlW, ConceptControlWidth(_cs));
+        /// <summary>Every pill of the page is as wide as the widest one (set by the page; a switch keeps its art's width).</summary>
+        public bool FixedPill { get; set; }
+
+        float ConceptControlW() => _isSwitch ? ConceptSwitchW * _cs : FixedPill ? _cCtlW : Mathf.Min(_cCtlW, ConceptControlWidth(_cs));
 
         Rect2 ConceptRect()
         {
             float h = (_isSwitch ? ConceptSwitchH : ConceptPillH) * _cs, w = ConceptControlW();
-            float x = _labelWidth + Mathf.Min((_isSwitch ? 24f : 8f) * _cs, Mathf.Max(0f, _cCtlW - w));
+            float x = _labelWidth + Mathf.Min(8f * _cs, Mathf.Max(0f, _cCtlW - w));   // pills and switches start at the same x
             return new Rect2(x, (ConceptPitch * _cs - h) / 2f, w, h);
         }
 
@@ -92,7 +95,7 @@ public static partial class UiKit
         {
             var r = ConceptRect(); bool lit = (HasFocus() || _hover) && !Disabled;
             var c = GetCanvasItem();
-            var mod = Disabled ? new Color(0.5f, 0.5f, 0.5f) : lit ? ConceptArt.Warm : Colors.White;
+            var mod = Disabled ? new Color(0.5f, 0.5f, 0.5f) : HasFocus() ? new Color(1.75f, 1.32f, 0.58f) : lit ? ConceptArt.Warm : Colors.White;   // the focus is the painted art gone gold, not a rectangle round it
             if (_isSwitch)
             {
                 if (ConceptArt.Get(_index == 1 ? "opt-switch-on" : "opt-switch-off") is { } tex) { var art = tex.GetSize() / 4f * UiTextureBuilder.GridPerV2 * _cs; DrawTextureRect(tex, new Rect2(r.GetCenter() - art / 2f, art), false, mod); }   // each art at its own size (v2: ON 76 x 21, OFF 75 x 22 in the page's pixels), centred on the control
@@ -110,13 +113,14 @@ public static partial class UiKit
                 var patch = new StyleBoxTexture { Texture = pill, TextureMarginLeft = 72 * k, TextureMarginRight = 72 * k, TextureMarginTop = 8 * k, TextureMarginBottom = 8 * k, ModulateColor = mod, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch };
                 patch.Draw(c, r);
             }
-            if (HasFocus() && !Disabled) PaintedButtons.Ring(_cs, 0.8f).Draw(c, r);
         }
     }
 
     public sealed partial class MenuSlider
     {
         public string LabelText => _label.Text;
+        /// <summary>The row's height in concept pixels (see <see cref="MenuChoice.ConceptPitch"/>).</summary>
+        public float ConceptPitch { get; set; } = ConceptRowPitch;
         /// <summary>The track's rectangle in the row's own pixels, set by <see cref="UseConcept"/> (the comparison tool reads it).</summary>
         public Rect2 ConceptTrackRect { get; private set; }
         static readonly Dictionary<int, ImageTexture> KnobCache = new();
@@ -142,11 +146,11 @@ public static partial class UiKit
             float k = s * UiTextureBuilder.GridPerV2 / 4f;   // the art is the v2 reference at x4 (v2 pixels are 14/15 of the page's grid pixels)
             if (ConceptScaled("opt-slider-track", k) is not { } track || ConceptScaled("opt-slider-fill", k) is not { } fill) return this;
             float h = ConceptSliderH * s;
-            ConceptTrackRect = new Rect2(labelW, (ConceptRowPitch * s - h) / 2f + 3f * s, trackW, h);
-            CustomMinimumSize = new Vector2(labelW + trackW + valueW + 6f * s, ConceptRowPitch * s);
+            ConceptTrackRect = new Rect2(labelW, (ConceptPitch * s - h) / 2f + 3f * s, trackW, h);
+            CustomMinimumSize = new Vector2(labelW + trackW + valueW + 6f * s, ConceptPitch * s);
             _label.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(ConceptLabelFont * s)); _label.AddThemeFontOverride("font", ConceptFont()); _value.AddThemeFontOverride("font", ConceptFont());
             _label.VerticalAlignment = VerticalAlignment.Center;
-            _label.SetAnchorsPreset(LayoutPreset.TopLeft); _label.Position = Vector2.Zero; _label.Size = new Vector2(labelW, ConceptRowPitch * s);
+            _label.SetAnchorsPreset(LayoutPreset.TopLeft); _label.Position = Vector2.Zero; _label.Size = new Vector2(labelW, ConceptPitch * s);
             StyleBoxTexture Box(Texture2D tex, float ml, float mr, Color mod, float el, float er) => new()
             {
                 Texture = tex, TextureMarginLeft = ml * k, TextureMarginRight = mr * k, TextureMarginTop = 6 * k, TextureMarginBottom = 6 * k, ModulateColor = mod,
@@ -159,11 +163,11 @@ public static partial class UiKit
             Slider.AddThemeIconOverride("grabber", ConceptKnob(s, false)); Slider.AddThemeIconOverride("grabber_highlight", ConceptKnob(s, true)); Slider.AddThemeIconOverride("grabber_disabled", ConceptKnob(s, false));
             // The slider's own rectangle is the knob's travel (the track's caps stick out of it): from 7 px in to 7.5 px before the track's end (v2: the knob sits flush with the channel's end).
             Slider.SetAnchorsPreset(LayoutPreset.TopLeft);
-            Slider.Position = new Vector2(labelW + 7f * s, (ConceptRowPitch * s - h) / 2f + 3f * s); Slider.Size = new Vector2(trackW - 14.5f * s, h);   // the concept's sliders hang 3 px below the label's centre
+            Slider.Position = new Vector2(labelW + 7f * s, (ConceptPitch * s - h) / 2f + 3f * s); Slider.Size = new Vector2(trackW - 14.5f * s, h);   // the concept's sliders hang 3 px below the label's centre
             _value.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(ConceptValueFont * s));
             _value.HorizontalAlignment = HorizontalAlignment.Left; _value.VerticalAlignment = VerticalAlignment.Center;
             _value.SetAnchorsPreset(LayoutPreset.TopLeft);
-            _value.Position = new Vector2(labelW + trackW + 6f * s, 0f); _value.Size = new Vector2(valueW, ConceptRowPitch * s);
+            _value.Position = new Vector2(labelW + trackW + 6f * s, 0f); _value.Size = new Vector2(valueW, ConceptPitch * s);
             return this;
         }
     }

@@ -12,6 +12,8 @@ namespace SmClient.FrontEnd;
 public sealed partial class OptionsView
 {
     /// <summary>The concept's row geometry (screen pixels): content left, column width and stride, the content's width, the first row's top below the rows area.</summary>
+    /// <summary>The Options rows are a little tighter than the concept's 31.2 so the RENDERER line fits under the twelve controls without a scroll bar (Opus review 1).</summary>
+    const float RowPitch = 29f;
     const float RowsLeft = 8f, ColWidth = 272f, ColStride = 284f, ContentWidth = 542f, RowsTop = 4.4f, SliderValueWidth = 32f;
 
     /// <summary>The last layout the rows were given (the comparison tool and the self-test read it): columns, label column and control width in UI pixels.</summary>
@@ -40,19 +42,22 @@ public sealed partial class OptionsView
         _rowsMargin.AddThemeConstantOverride("margin_left", Mathf.RoundToInt(RowsLeft * s)); _rowsMargin.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(RowsTop * s));
         _rowsMargin.AddThemeConstantOverride("margin_right", 0); _rowsMargin.AddThemeConstantOverride("margin_bottom", Mathf.RoundToInt(6f * s));
         RowLayout = (two ? 2 : 1, labelWs[0], colWs[0]);
+        // One pill width, one slider width and one start x for every control of a column (Opus review 1): the widest pill the tab needs, a track as long as the tightest column leaves.
+        float pillW = rows.OfType<UiKit.MenuChoice>().Select(c => c.ConceptControlWidth(s)).DefaultIfEmpty(0f).Max();
+        float trackW = (two ? 140f : 220f) * s;
         for (int i = 0; i < rows.Count; i++)
         {
             var r = rows[i]; float labelW = labelWs[i % labelWs.Length], colW = colWs[i % colWs.Length], ctlW = colW - labelW;
             r.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
             switch (r)
             {
-                case UiKit.MenuChoice c: c.UseConcept(s, labelW, ctlW); break;
+                case UiKit.MenuChoice c: c.ConceptPitch = RowPitch; c.FixedPill = true; c.UseConcept(s, labelW, Mathf.Min(ctlW, Mathf.Max(pillW, 117f * s))); break;
                 case UiKit.MenuSlider sl:
-                    float value = (sl.Slider.Name == "FovSlider" ? 88f : SliderValueWidth) * s, track = Mathf.Clamp(ctlW - value - 8f * s, 56f * s, (two ? 140f : 220f) * s);
-                    sl.UseConcept(s, labelW, track, value);
+                    float value = (sl.Slider.Name == "FovSlider" ? 88f : SliderValueWidth) * s;
+                    sl.ConceptPitch = RowPitch; sl.UseConcept(s, labelW, Mathf.Min(trackW, Mathf.Max(56f * s, ctlW - value - 8f * s)), value);
                     break;
             }
-            r.CustomMinimumSize = new Vector2(colW, UiKit.ConceptRowPitch * s);
+            r.CustomMinimumSize = new Vector2(colW, RowPitch * s);
         }
         float labelW0 = labelWs[0];
         foreach (var w in _wide.GetChildren().OfType<Control>()) StyleWide(w, s, labelW0);
@@ -112,7 +117,7 @@ public sealed partial class OptionsView
             }
             return;
         }
-        w.CustomMinimumSize = new Vector2(0f, UiKit.ConceptRowPitch * s);
+        w.CustomMinimumSize = new Vector2(0f, RowPitch * s);
         foreach (var l in w.GetChildren().OfType<Label>())
         {
             bool caption = l.Text == "RENDERER";

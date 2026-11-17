@@ -45,7 +45,17 @@ public sealed partial class SteelBackdrop : Control
     {
         head.AddThemeFontOverride("font", UiKit.ConceptFont());
         head.AddThemeFontSizeOverride("font_size", size);
-        head.AddThemeColorOverride("font_color", new Color(0.86f, 0.85f, 0.81f));
+        EmbossTitle(head);
+    }
+
+    /// <summary>The treatment of the painted OPTIONS plate on live titles: light steel letters, a dark outline and a shadow under them.</summary>
+    public static void EmbossTitle(Label l)
+    {
+        l.AddThemeColorOverride("font_color", new Color(0.88f, 0.87f, 0.83f));
+        l.AddThemeColorOverride("font_outline_color", new Color(0.09f, 0.085f, 0.08f));
+        l.AddThemeConstantOverride("outline_size", 4);
+        l.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.65f));
+        l.AddThemeConstantOverride("shadow_offset_x", 0); l.AddThemeConstantOverride("shadow_offset_y", 3);
     }
 
     /// <summary>A line of text of the page in the redesigned lettering (the size and colour stay the page's own).</summary>
@@ -58,10 +68,11 @@ public sealed partial class SteelBackdrop : Control
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
         b.AddThemeConstantOverride("outline_size", 0);
         b.SetMeta(FocusGlow.NoGlowMeta, true);
-        PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, 1, 3, 1), new PaintedButtons.Pad(3, 1, 3, 2), 2.4f, true, paintedText: false, noGlow: true);
+        PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -2, 3, -2), new PaintedButtons.Pad(3, -2, 3, -1.5f), 2.4f, true, paintedText: false, noGlow: true);
         var light = new Color(0.84f, 0.83f, 0.80f); var dark = new Color(0.10f, 0.06f, 0.02f);
-        foreach (var c in new[] { "font_color", "font_hover_color" }) b.AddThemeColorOverride(c, light);
-        foreach (var c in new[] { "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, dark);
+        if (b.GetThemeStylebox("pressed") is { } gold) { b.AddThemeStyleboxOverride("hover", gold); b.AddThemeStyleboxOverride("hover_pressed", gold); }   // hover is the gold plate too, with dark ink
+        b.AddThemeColorOverride("font_color", light);
+        foreach (var c in new[] { "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, dark);
         b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
     }
 }

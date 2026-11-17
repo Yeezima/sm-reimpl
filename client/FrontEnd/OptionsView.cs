@@ -204,7 +204,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         }
         // The rows scroll inside the content area.
         var rows = V(new Rect2(UiTextureBuilder.V2Rows.Position, UiTextureBuilder.V2Rows.Size + new Vector2(0f, Ex)));
-        float pitchPx = UiKit.ConceptRowPitch * s, top = RowsTop * s, whole = Mathf.Max(4f, Mathf.Floor((rows.Size.Y - top - 2f * s) / pitchPx)) * pitchPx + top + 2f * s;   // whole rows only: no row is cut in half at the bottom
+        float pitchPx = 29f * s, top = RowsTop * s, whole = Mathf.Max(4f, Mathf.Floor((rows.Size.Y - top - 2f * s) / pitchPx)) * pitchPx + top + 2f * s;   // whole rows only: no row is cut in half at the bottom
         _list.Position = rows.Position; _list.Size = new Vector2(rows.Size.X, Mathf.Min(rows.Size.Y, whole));
         StyleRows(s);
         // APPLY, REVERT, BACK.
@@ -224,7 +224,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Plate(_back, UiTextureBuilder.V2Back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), false, noGlow: false);
         // The toast chip.
         var t = V(Down(UiTextureBuilder.V2Toast)); _toast.Position = t.Position; _toast.Size = t.Size;
-        if (_foot is { } foot) { foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
+        if (_foot is { } foot) { foot.Visible = (GetWindow()?.Size.Y ?? 1080) >= 900;   /* the note would draw under 10 px in a 720p window */ foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
     }
 
     /// <summary>Opens the page of a tab (null keeps the last one), takes the point REVERT goes back to, and puts the focus on its tab.</summary>

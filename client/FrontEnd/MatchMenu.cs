@@ -15,7 +15,7 @@ public sealed partial class MatchMenu : ConceptPanelPage
     readonly Label _banner;
     readonly Button _resumeButton, _loadoutButton, _leaveButton;
 
-    public MatchMenu(Action resume, Action loadout, Action options, Action? leave) : base("MatchMenu", "", "Paused", 2, 0f)
+    public MatchMenu(Action resume, Action loadout, Action options, Action? leave) : base("MatchMenu", "Match menu", "Paused", 2, 0f)
     {
         _resume = resume;
         var dim = new ColorRect { Name = "MatchDim", Color = new Color(0f, 0f, 0f, DimAlpha), MouseFilter = MouseFilterEnum.Stop };

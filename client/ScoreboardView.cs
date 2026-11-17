@@ -6,10 +6,12 @@ using SmClient.Customizer;
 namespace SmClient;
 
 /// <summary>
-/// The Tab scoreboard (the owner, 2026-11-07: "the scoreboard needs to look like the reference image except using only black and white colors ... remove any unimportant text that
-/// isn't direct game statistics"). The reference's layout, drawn in black, white and greys only: each side's big score at the top with "VS" between them, a header row of the stats'
-/// names, and a row per player: the player's icon (its shoulder emblem as it joined, grey), name, then the numbers. The own row has a subtle white accent. One column when the match
-/// has one side (Musou Mode, free-for-all). Laid out on a 1920 x 1080 stage scaled to the window. What it shows comes in <see cref="Frame"/>, built by the networked view each frame.
+/// The Tab scoreboard of every mode. Its first form (the owner, 2026-11-07: "the scoreboard needs to look like the reference image except using only black and white colors ... remove any unimportant text that
+/// isn't direct game statistics") was black, white and grey; the owner's request of 2026-11-18 ("make all the smaller ui elements match the existing UI overhaul work - scoreboard, musou/warfront mode UI") supersedes the
+/// colour rule: the board now wears the overhaul's steel look (<see cref="BoardStyle"/>: painted score plates, a steel table, warm-black rows, light steel text) with gold only for the headers, the "VS" and the own row.
+/// The layout, the columns and the numbers are the 2026-11-07 ones: each side's big score at the top (with the side's name and, when its picture is here, its emblem) and "VS" between them, a header row of the
+/// stats' names, and a row per player: the player's icon (its shoulder emblem as it joined, grey), name, then the numbers. One column when the match has one side (Musou Mode, free-for-all), with a label
+/// over its total. Laid out on a 1920 x 1080 stage scaled to the window. What it shows comes in <see cref="Frame"/>, built by the networked view each frame.
 /// </summary>
 public sealed partial class ScoreboardView : Control
 {
@@ -24,6 +26,9 @@ public sealed partial class ScoreboardView : Control
     public sealed class Side
     {
         public int Score;
+        /// <summary>The side's name on its score plate (SPACE MARINES, CHAOS) and its emblem when the picture is here.</summary>
+        public string Name = "";
+        public Texture2D? Emblem;
         public List<Row> Rows = new();
     }
 
@@ -34,6 +39,8 @@ public sealed partial class ScoreboardView : Control
         /// <summary>Show the big score over a single column (Musou: the side's total).</summary>
         public bool SingleScore = true;
         public string[] Headers = [];
+        /// <summary>The words over the single column's total (RUN SCORE in Musou Mode); empty draws none.</summary>
+        public string SingleLabel = "";
         public List<Side> Sides = new();
     }
 
@@ -88,20 +95,19 @@ public sealed partial class ScoreboardView : Control
         float bodyH = HeaderH + Math.Max(1, most) * RowH;
         float totalW = pair ? PairWidth : SingleWidth;
 
-        // The score band: the big scores on steel plates, "VS" between them.
+        // The score band: each side's score on a steel plate under its name (and emblem), "VS" between them.
+        float plateW = MathF.Min(width, 600f);
         if (pair)
         {
-            _style.Plate(this, R(left0, Top, width, ScoreBand), _scale);
-            _style.Plate(this, R(left0 + width + Gap, Top, width, ScoreBand), _scale);
-            Text(_bold, f.Sides[0].Score.ToString(), left0 + width / 2f, Top + ScoreBand / 2f, 104, White, 0);
-            Text(_bold, f.Sides[1].Score.ToString(), left0 + width + Gap + width / 2f, Top + ScoreBand / 2f, 104, White, 0);
-            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f, 70, BoardStyle.Gold, 0);
+            for (int k = 0; k < 2; k++)
+            {
+                float cx = left0 + k * (width + Gap) + width / 2f;
+                ScorePlate(cx, plateW, f.Sides[k].Name, f.Sides[k].Emblem, f.Sides[k].Score.ToString());
+            }
+            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f + 10f, 70, BoardStyle.Gold, 0);
         }
-        else
-        {
-            _style.Plate(this, R(left0, Top, totalW, ScoreBand), _scale);
-            if (f.SingleScore) Text(_bold, f.Sides[0].Score.ToString(), StageW / 2f, Top + ScoreBand / 2f, 104, White, 0);
-        }
+        else if (f.SingleScore) ScorePlate(StageW / 2f, MathF.Min(totalW, 600f), f.SingleLabel, null, f.Sides[0].Score.ToString());
+        else _style.Plate(this, R(left0, Top, totalW, ScoreBand * 0.5f), _scale);
 
         float y0 = Top + ScoreBand + 14f;
         for (int s = 0; s < (pair ? 2 : 1); s++)
@@ -109,6 +115,21 @@ public sealed partial class ScoreboardView : Control
             float x0 = left0 + s * (width + Gap);
             DrawColumn(f, f.Sides[s], x0, y0, width, bodyH);
         }
+    }
+
+    /// <summary>A score on the concept's plate: the name (small, gold) and the emblem at the top, the number big under them.</summary>
+    void ScorePlate(float cx, float w, string name, Texture2D? emblem, string score)
+    {
+        _style.Plate(this, R(cx - w / 2f, Top, w, ScoreBand), _scale);
+        bool named = name.Length > 0;
+        if (named) Text(_regular!, name, cx + (emblem is null ? 0f : 28f), Top + 30f, 28, BoardStyle.Header, 0);
+        if (emblem is not null && named)
+        {
+            float tw = _regular!.GetStringSize(name, HorizontalAlignment.Left, -1, Math.Max(8, (int)MathF.Round(28 * _scale))).X / _scale;
+            var r = R(cx - tw / 2f - 30f, Top + 12f, 36f, 36f);
+            DrawTextureRect(emblem, r, false);
+        }
+        Text(_bold, score, cx, Top + (named ? 98f : ScoreBand / 2f), 96, White, 0);
     }
 
     void DrawColumn(ScoreboardFrame f, Side side, float x0, float y0, float width, float bodyH)

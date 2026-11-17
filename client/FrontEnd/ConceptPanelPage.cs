@@ -44,7 +44,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         _overlay.Texture = PanelFrame.Texture("overlay-panel", _slices);
         _plate.Text = _titleText;
         _plate.AddThemeFontOverride("font", UiKit.ConceptFont());
-        _plate.AddThemeColorOverride("font_color", new Color(0.86f, 0.85f, 0.81f));
+        SteelBackdrop.EmbossTitle(_plate);
         AddChild(_plate);
         _scroll.ClipContents = true;
         _scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
@@ -70,7 +70,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         FitPlate(s, t.Size.X * 0.92f);
         // The strip under the title (where Options keeps its tabs) carries the page's heading line: where this page is.
         var strip = R(new Rect2(RowsX, 88f, RowsW, 23f));
-        bool show = Heading.Length > 0 && !string.Equals(Heading, _titleText, StringComparison.OrdinalIgnoreCase);
+        bool show = Heading.Length > 0;
         _heading.Visible = show;
         if (show)
         {
@@ -84,7 +84,74 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         var rows = R(new Rect2(RowsX, RowsY, RowsW, RowsBottom - RowsY + ExtraV2));
         _rowsOrigin = rows.Position;
         Style(s, rows.Size);
+        Dock(R, s);
         if (_foot is { } foot) { foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
+    }
+
+    /// <summary>Texts (any case) of the rows that become the page's main action in the bottom tray; the first one that is shown wins (the Host page's HOST A MATCH, then JOIN YOUR SERVER).</summary>
+    public string[] PrimaryTexts { get; set; } = [];
+
+    static void Collect(Node n, List<Button> into)
+    {
+        foreach (var c in n.GetChildren())
+        {
+            if (c is Button b) into.Add(b);
+            else if (c is not Label and not LineEdit) Collect(c, into);
+        }
+    }
+
+    float _dockScale;
+
+    /// <summary>
+    /// One BACK and one main action on every page (Opus review 1): BACK is the concept's own BACK plate at the screen's bottom right, exactly where Options puts it; the main action is the gold plate in the frame's bottom tray, where
+    /// Options has APPLY. Both stay the page's own buttons (same handlers, same focus chain); they only leave the column (a top-level control is not laid out by it).
+    /// </summary>
+    void Dock(Func<Rect2, Rect2> R, float s)
+    {
+        var buttons = new List<Button>(); Collect(Rows, buttons);
+        var back = buttons.FirstOrDefault(b => b.Text.Equals("BACK", StringComparison.OrdinalIgnoreCase));
+        Button? main = null;
+        foreach (var t in PrimaryTexts) { main = buttons.FirstOrDefault(b => b.Visible && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)); if (main is not null) break; }
+        bool restyle = !Mathf.IsEqualApprox(_dockScale, s); _dockScale = s;
+        if (back is not null)
+        {
+            var ps = UiTextureBuilder.V2Screen;
+            float sS = Mathf.Min(Size.Y / ps.Size.Y, Size.X / ps.Size.X);
+            var o2 = (Size - ps.Size * sS) / 2f;
+            var g = UiTextureBuilder.G(UiTextureBuilder.V2Back);
+            back.TopLevel = true; back.CustomMinimumSize = Vector2.Zero;
+            back.Position = o2 + g.Position * sS; back.Size = g.Size * sS;
+            if (restyle || back.GetMeta("dock_s", 0f).AsSingle() != sS)
+            {
+                back.SetMeta("dock_s", sS);
+                PaintedButtons.Apply(back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), sS, false, paintedText: false, noGlow: false);
+                DockText(back, sS, goldRest: false);
+            }
+        }
+        if (main is not null)
+        {
+            var r = R(new Rect2(295f, 274.5f + ExtraV2, 146.5f, 28f));
+            main.TopLevel = true; main.CustomMinimumSize = Vector2.Zero;
+            main.Position = r.Position; main.Size = r.Size;
+            if (restyle || main.GetMeta("dock_s", 0f).AsSingle() != s)
+            {
+                main.SetMeta("dock_s", s);
+                PaintedButtons.Apply(main, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, false, paintedText: false, goldRest: true, noGlow: true);
+                DockText(main, s, goldRest: true);
+            }
+        }
+    }
+
+    static void DockText(Button b, float s, bool goldRest)
+    {
+        b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
+        b.AddThemeFontOverride("font", UiKit.ConceptFont());
+        b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15f * s));
+        b.AddThemeConstantOverride("outline_size", 0);
+        var ink = goldRest ? Dark : Light;
+        foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, ink);
+        b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
+        foreach (var l in b.GetChildren().OfType<Label>()) l.Visible = false;
     }
 
     void FitPlate(float s, float room)
@@ -142,7 +209,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
             {
                 switch (c)
                 {
-                    case UiKit.MenuChoice ch: ch.ConceptPitch = pitchG; ch.UseConcept(s, labelW, Mathf.Max(ctlW, Mathf.Min(colW - labelW, ctlW * 1.3f))); break;
+                    case UiKit.MenuChoice ch: ch.ConceptPitch = pitchG; ch.FixedPill = true; ch.UseConcept(s, labelW, Mathf.Max(ctlW, Mathf.Min(colW - labelW, ctlW * 1.3f))); break;
                     case Button b when b.ThemeTypeVariation == UiKit.MenuButtonType: StylePlate(b, s, pitch); break;
                     case LineEdit le: StyleField(le, s, pitch, Mathf.Max(labelW, 120f * s), colW); break;
                     case Label l: StyleLabel(l, s, colW); break;
@@ -182,9 +249,11 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15f * s));
         b.AddThemeConstantOverride("outline_size", 0);
         // The plate hugs its row (a 1 px margin), so neighbouring plates meet without overlapping.
-        if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, 1, 3, 1), new PaintedButtons.Pad(3, 1, 3, 2), s, true, paintedText: false, noGlow: true)) return;
-        foreach (var c in new[] { "font_color", "font_hover_color" }) b.AddThemeColorOverride(c, Light);
-        foreach (var c in new[] { "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, Dark);   // a focused plate is the gold one: dark ink
+        if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -2.5f, 3, -2.5f), new PaintedButtons.Pad(3, -2.5f, 3, -2f), s, true, paintedText: false, noGlow: true)) return;
+        // Hover and focus are both the gold plate, so the ink is dark on both (the review: light ink on a gold plate under the pointer).
+        if (b.GetThemeStylebox("pressed") is { } gold) { b.AddThemeStyleboxOverride("hover", gold); b.AddThemeStyleboxOverride("hover_pressed", gold); }
+        b.AddThemeColorOverride("font_color", Light);
+        foreach (var c in new[] { "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, Dark);
         b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
         // Counters and value labels a page hangs on a button (the Host panel's bot counts) keep the lettering.
         foreach (var l in b.GetChildren().OfType<Label>()) StyleLabel(l, s, 0f);
@@ -194,10 +263,10 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     {
         le.AddThemeFontOverride("font", UiKit.ConceptFont());
         le.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
-        var flat = new StyleBoxFlat { BgColor = new Color(0.035f, 0.033f, 0.032f), BorderColor = new Color(0.42f, 0.41f, 0.39f), BorderWidthLeft = 2, BorderWidthRight = 2, BorderWidthTop = 2, BorderWidthBottom = 2, ContentMarginLeft = 10f * s, ContentMarginRight = 10f * s, ContentMarginTop = 2f * s, ContentMarginBottom = 2f * s };
-        var focus = (StyleBoxFlat)flat.Duplicate(); focus.BorderColor = Steel.Gold;
-        le.AddThemeStyleboxOverride("normal", flat); le.AddThemeStyleboxOverride("focus", focus);
-        le.AddThemeColorOverride("font_color", Light); le.AddThemeColorOverride("font_selected_color", Dark); le.AddThemeColorOverride("selection_color", Steel.Gold);
+        var recess = new Steel.SteelStyle(Steel.Kind.Recess, 5f, 10f * s, 2f * s);
+        var focus = new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 10f * s, 2f * s);
+        le.AddThemeStyleboxOverride("normal", recess); le.AddThemeStyleboxOverride("focus", focus);
+        le.AddThemeColorOverride("font_color", Light); le.AddThemeColorOverride("font_selected_color", Light); le.AddThemeColorOverride("selection_color", new Color(0.52f, 0.52f, 0.48f, 0.45f));
         le.AddThemeColorOverride("caret_color", Steel.GoldHi);
         le.OffsetTop = (pitch - UiKit.ConceptPillH * s) / 2f; le.OffsetBottom = -(pitch - UiKit.ConceptPillH * s) / 2f;
         if (le.GetParent() is Control row) { row.CustomMinimumSize = new Vector2(0f, pitch); le.OffsetLeft = labelW + 8f * s; le.OffsetRight = le.OffsetLeft + Mathf.Max(60f * s, Mathf.Min(150f * s, colW - labelW - 16f * s)); }
@@ -225,6 +294,9 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     void FitNote(Label l)
     {
         if (!_notes.TryGetValue(l, out float w) || !IsInstanceValid(l)) return;
+        string up = l.Text.ToUpperInvariant();
+        if (l.Text != up) l.Text = up;   // one case per level: notes are capitals like every other text
+        l.HorizontalAlignment = _narrow ? HorizontalAlignment.Center : HorizontalAlignment.Left;
         var font = UiKit.ConceptFont(); int size = l.GetThemeFontSize("font_size");
         float h = font.GetMultilineStringSize(l.Text, HorizontalAlignment.Left, w, size, -1, TextServer.LineBreakFlag.WordBound | TextServer.LineBreakFlag.Mandatory).Y;
         l.CustomMinimumSize = new Vector2(w, h + 4f);
