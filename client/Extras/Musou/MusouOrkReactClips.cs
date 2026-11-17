@@ -112,6 +112,7 @@ public sealed class MusouOrkReactClips
             float a = q.GetAngle();
             if (a > MathF.PI) a -= 2f * MathF.PI;   // the short way round
             var ax = q.GetAxis();
+            if (MathF.Abs(a) < 0.002f && new Vector3(buffer[t].Translation.X, buffer[t].Translation.Y, buffer[t].Translation.Z).LengthSquared() < 1e-8f) continue;   // a bone the clip leaves alone (fingers ...): nothing to lay
             bone.Add(b); axis.Add(a == 0f || !ax.IsFinite() || ax.LengthSquared() < 1e-8f ? Vector3.Up : ax.Normalized()); angle.Add(float.IsFinite(a) ? a : 0f);
             pos.Add(new Vector3(buffer[t].Translation.X, buffer[t].Translation.Y, buffer[t].Translation.Z));
         }
@@ -131,6 +132,8 @@ public sealed class MusouOrkReactClips
 
     /// <summary>Test aid: the clip taken by the last <see cref="Apply"/> and the weight it was laid at.</summary>
     public static string LastClip = ""; public static float LastWeight;
+    /// <summary>Test aid: measure the ankle drift and record the clip taken on every flinch (the stage test and <c>--log-musou-react</c> turn it on; off in a match).</summary>
+    public static bool Measure;
 
     /// <summary>
     /// Lays the flinch of <paramref name="kick"/> (horizontal, in the Ork's own frame: its length the size in reference sizes, its direction away from the hit) over the posed skeleton:
@@ -141,10 +144,11 @@ public sealed class MusouOrkReactClips
         float size = kick.Length();
         if (size < 1e-4f) return;
         size *= MusouOrkFlinchRules.TestScale;
-        int i = MusouOrkReactRules.Pick(new System.Numerics.Vector2(kick.X, kick.Y), _directions, id, out float sign);
+        int i = MusouOrkReactRules.Pick(new System.Numerics.Vector2(kick.X, kick.Y), _directions, _lengths, ReferenceLength, id, out float sign);
         if (i < 0) return;
         float w = MusouOrkReactRules.Weight(size, ReferenceLength, _lengths[i], sign);
         if (w == 0f) return;
+        if (!Measure) { Lay(sk, _peaks[i], w); return; }
         Vector3 ankleL = sk.GetBoneGlobalPose(_bones.Leg[2]).Origin, ankleR = sk.GetBoneGlobalPose(_bones.Leg[5]).Origin;
         Lay(sk, _peaks[i], w);
         LastClip = _peaks[i].Name; LastWeight = w;

@@ -61,7 +61,7 @@ public class MusouOrkReactRulesTests
     public void The_weight_scales_the_clips_head_travel_to_the_procedural_flinchs_and_never_passes_the_cap()
     {
         Assert.Equal(1f, MusouOrkReactRules.Weight(1f, 0.4f, 0.4f, 1f), 3);   // a clip that already moves the head as far
-        Assert.Equal(2f * 1f, MusouOrkReactRules.Weight(2f, 0.4f, 0.4f, 1f) / 1f, 3);   // twice the size, twice the weight (below the cap)
+        Assert.Equal(2f, MusouOrkReactRules.Weight(2f, 0.4f, 0.4f, 1f), 3);   // twice the size, twice the weight (below the cap)
         Assert.Equal(0.8f / 0.4f * 0.5f, MusouOrkReactRules.Weight(0.5f, 0.8f, 0.4f, 1f), 3);
         Assert.Equal(-MusouOrkReactRules.WeightMax, MusouOrkReactRules.Weight(MusouOrkFlinchRules.MaxStrength, 0.4f, 0.05f, -1f), 3);   // a weak clip at the biggest flinch: the cap, backwards
         Assert.Equal(0f, MusouOrkReactRules.Weight(0f, 0.4f, 0.4f, 1f));
@@ -79,5 +79,18 @@ public class MusouOrkReactRulesTests
         Assert.All(melee, n => Assert.StartsWith("BOY_1HM_REC_Flinch_", n));
         Assert.All(guns, n => Assert.StartsWith("BOY_2HR_REC_Flinch_", n));
         Assert.Equal(7, melee.Distinct().Count());
+    }
+
+    [Fact]
+    public void A_clip_too_weak_to_carry_the_flinch_is_left_out_unless_all_are()
+    {
+        // clip 0 fits the direction exactly but moves the head 0.075 against a reference of 0.414 (5.5x, past the cap); clip 1 fits less well but is strong enough
+        var dirs = new[] { new Num.Vector2(1f, 0f), new Num.Vector2(0.8f, 0.6f) };
+        var lens = new[] { 0.075f, 0.4f };
+        for (int id = 1; id < 50; id++) Assert.Equal(1, MusouOrkReactRules.Pick(new Num.Vector2(1f, 0f), dirs, lens, 0.414f, id, out _));
+        var allWeak = new[] { 0.075f, 0.08f };
+        Assert.Equal(0, MusouOrkReactRules.Pick(new Num.Vector2(1f, 0f), dirs, allWeak, 0.414f, 1, out _));   // none strong: the best fit stays
+        // size 1 on a clip that was kept reaches the full weight (the 2x rule is not cut short)
+        Assert.Equal(0.414f / 0.4f, MusouOrkReactRules.Weight(1f, 0.414f, 0.4f, 1f), 3);
     }
 }

@@ -26,28 +26,45 @@ public static class MusouOrkReactRules
     /// when it leans the opposite way, laid with a negative weight (<paramref name="sign"/> -1): a hit from behind is then answered by leaning forward. Among the clips within
     /// <see cref="PickSpread"/> of the best fit the Ork's own id picks (the same Ork always takes the same one). Returns -1 when no clip moves.
     /// </summary>
-    public static int Pick(Vector2 direction, ReadOnlySpan<Vector2> clipDirections, int id, out float sign)
+    public static int Pick(Vector2 direction, ReadOnlySpan<Vector2> clipDirections, int id, out float sign) =>
+        Pick(direction, clipDirections, default, 0f, id, out sign);
+
+    /// <summary>
+    /// As above, leaving out the clips too weak to carry the flinch: one whose head travel at weight 1 is so short that <paramref name="referenceMetres"/> / its travel passes <see cref="WeightMax"/>
+    /// would show the flinch under-sized even at size 1 (the cap would hold it at a fraction of the owner's magnitude). If every clip is that weak, they all stay in. <paramref name="clipMetres"/> empty: no such test.
+    /// </summary>
+    public static int Pick(Vector2 direction, ReadOnlySpan<Vector2> clipDirections, ReadOnlySpan<float> clipMetres, float referenceMetres, int id, out float sign)
     {
         sign = 0f;
         if (direction.LengthSquared() < 1e-8f) return -1;
         var d = Vector2.Normalize(direction);
+        Span<bool> ok = clipDirections.Length <= 32 ? stackalloc bool[clipDirections.Length] : new bool[clipDirections.Length];
+        bool strong = false;
+        for (int i = 0; i < ok.Length; i++)
+        {
+            bool moves = clipDirections[i].LengthSquared() >= 1e-8f;
+            bool tooWeak = !clipMetres.IsEmpty && i < clipMetres.Length && referenceMetres / MathF.Max(clipMetres[i], 1e-6f) > WeightMax;
+            ok[i] = moves && !tooWeak;
+            strong |= ok[i];
+        }
+        if (!strong) for (int i = 0; i < ok.Length; i++) ok[i] = clipDirections[i].LengthSquared() >= 1e-8f;   // all too weak: they stay in
         int best = -1;
         float bestFit = -1f;
         for (int i = 0; i < clipDirections.Length; i++)
         {
-            if (clipDirections[i].LengthSquared() < 1e-8f) continue;
+            if (!ok[i]) continue;
             float fit = MathF.Abs(Vector2.Dot(d, clipDirections[i]));
             if (fit > bestFit) { bestFit = fit; best = i; }
         }
         if (best < 0) return -1;
         int near = 0;
         for (int i = 0; i < clipDirections.Length; i++)
-            if (clipDirections[i].LengthSquared() >= 1e-8f && MathF.Abs(Vector2.Dot(d, clipDirections[i])) >= bestFit - PickSpread) near++;
+            if (ok[i] && MathF.Abs(Vector2.Dot(d, clipDirections[i])) >= bestFit - PickSpread) near++;
         int nth = Math.Min(near - 1, (int)(MusouOrkVariety.Roll(id, 41) * near));
         int pick = best;
         for (int i = 0, seen = 0; i < clipDirections.Length; i++)
         {
-            if (clipDirections[i].LengthSquared() < 1e-8f || MathF.Abs(Vector2.Dot(d, clipDirections[i])) < bestFit - PickSpread) continue;
+            if (!ok[i] || MathF.Abs(Vector2.Dot(d, clipDirections[i])) < bestFit - PickSpread) continue;
             if (seen++ == nth) { pick = i; break; }
         }
         sign = Vector2.Dot(d, clipDirections[pick]) >= 0f ? 1f : -1f;

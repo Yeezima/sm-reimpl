@@ -26,6 +26,7 @@ public partial class MusouCrowdTestView
     void FlinchFrame(MusouEnemyType kind, MusouLooks.Look look, float dt)
     {
         MusouOrkFlinchRules.TestScale = Arg(_args, "flinch-scale", 1f);
+        MusouOrkReactClips.Measure = true;   // the stage measures the ankle drift (off in a match)
         MusouOrkFlinchPose.DebugPlant = _args.ContainsKey("plant-debug");
         _flinchMode ??= _args.GetValueOrDefault("flinch") ?? "stand";
         float t = _t += dt;

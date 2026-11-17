@@ -33,7 +33,7 @@ public partial class MusouCrowd
     {
         if (_react.TryGetValue(s.Look, out var known)) return known;
         MusouOrkReactClips? set = null;
-        var scratch = Build(s.Look);   // a skeleton of the rig to measure on; freed again
+        var scratch = BuildScratch(s.Look);   // a bone-only skeleton of the rig to measure on (no meshes; in the tree hidden for a moment)
         try
         {
             if (s.FlinchBones is { } bones && s.Look.Clips[MusouLooks.Idle] is { } idle)
@@ -42,10 +42,11 @@ public partial class MusouCrowd
             }
         }
         catch (Exception ex) { GD.PushWarning($"musou react clips {s.Look.Name}: {ex.Message}"); }
-        finally { scratch.Root.QueueFree(); }
+        finally { scratch.Root.Free(); }
         _react[s.Look] = set;
         if (LogReact)
         {
+            MusouOrkReactClips.Measure = true;
             if (set is null) GD.Print($"MUSOU REACT {s.Look.Name}: no reaction clips (procedural flinch)");
             else
             {
@@ -54,5 +55,25 @@ public partial class MusouCrowd
             }
         }
         return set;
+    }
+
+    /// <summary>A skeleton of the look's rig with no meshes: what the clips are measured on.</summary>
+    Skinned BuildScratch(MusouLooks.Look look)
+    {
+        var skeleton = look.Assets.Model.Rig.Skeleton;
+        var sk = new Skeleton3D();
+        var rest = new Transform3D[skeleton.BoneNames.Count];
+        for (int i = 0; i < rest.Length; i++)
+        {
+            sk.AddBone(skeleton.BoneNames[i]);
+            if (skeleton.Parents[i] >= 0) sk.SetBoneParent(i, skeleton.Parents[i]);
+            rest[i] = MarineAssets.ToGodot(skeleton.ReferencePose[i]);
+            sk.SetBoneRest(i, rest[i]);
+        }
+        sk.ResetBonePoses();
+        var root = new Node3D { Visible = false };   // a Skeleton3D computes its global poses only inside the tree (seen: off it every measure read zero)
+        root.AddChild(sk);
+        AddChild(root);
+        return new Skinned { Root = root, Skeleton = sk, Look = look, Rest = rest };
     }
 }
