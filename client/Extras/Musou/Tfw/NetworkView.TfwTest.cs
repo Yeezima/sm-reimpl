@@ -598,6 +598,7 @@ public partial class NetworkView
         if (CmdFlag("tfw-zoom-capture")) { await TfwZoomCapture(); return; }   // the Librarian's zoom against another class's (Librarian/NetworkView.ZoomCapture.cs)
         if (CmdFlag("tfw-dreadnought-capture")) { await TfwDreadnoughtCapture(); return; }   // the Dreadnought's stills (Dreadnought/NetworkView.DreadnoughtCapture.cs)
         if (CmdFlag("tfw-autocannon-capture")) { await TfwAutocannonCapture(); return; }   // W1 (2026-11-10): the autocannon's screenshot gate (Arsenal/Autocannon/NetworkView.AutocannonCapture.cs)
+        if (CmdFlag("tfw-plasma-capture")) { await TfwPlasmaCapture(); return; }   // plasma-cannon-shots: the cannon's normal burst and charged shot in the open (Arsenal/Autocannon/NetworkView.PlasmaCapture.cs)
         if (CmdFlag("tfw-autocannon-impact-capture")) { await TfwAutocannonImpactCapture(); return; }   // W1c: the autocannon's impacts on a wall and the ground (Arsenal/Autocannon/NetworkView.AutocannonImpactCapture.cs)
         if (CmdFlag("tfw-spear-capture")) { await TfwSpearCapture(); return; }   // the power spear's approved clips in a match (Arsenal/Spear/NetworkView.SpearCapture.cs)
         if (CmdFlag("tfw-claw-capture")) { await TfwClawCapture(); return; }   // the lightning claw's gauntlet in the open (Arsenal/Claw/NetworkView.ClawCapture.cs)
