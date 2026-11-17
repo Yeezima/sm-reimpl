@@ -261,7 +261,7 @@ public static class InputBuffer
         }
         var carried = before.Buffered;
         if (carried == BufferedAction.None || t.Dropped) return (BufferedAction.None, 0);
-        if (t.Replayed != BufferedAction.None && ((used & Bit(carried)) != 0 || !Locked(before, carried))) return (BufferedAction.None, 0);
+        if (t.Replayed != BufferedAction.None && ((used & Bit(carried)) != 0 || (!Locked(before, carried) && (queued & Bit(carried)) == 0))) return (BufferedAction.None, 0);
         window = WindowOf(before, carried, c, window);
         int left = Math.Max(0, Math.Min(before.BufferTicks, window) - 1);
         bool held = Held(carried, real);

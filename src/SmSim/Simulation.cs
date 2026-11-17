@@ -863,6 +863,7 @@ public sealed partial record SimConfig
             if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
             if (!SprintMeleeCharge) w.Write("old-sprint-melee");   // sim/sprint-melee-charge (protocol 77): only when off
             if (!LedgeChargeCancel) w.Write("old-ledge-cancel");   // sim/ledge-charge-cancel (protocol 77): only when off
+            if (!LascannonShotFirst) w.Write("old-lascannon-shot-first");   // sim/lascannon-shot-first (2026-11-17): only when off
             if (!LascannonTapReload) w.Write("old-lascannon-reload");   // sim/lascannon-tap-reload (protocol 78): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
