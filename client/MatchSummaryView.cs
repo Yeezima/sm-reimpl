@@ -102,7 +102,7 @@ public partial class MatchSummaryView : Control
 
     public override void _Ready()
     {
-        _font = new FontVariation { BaseFont = ThemeDB.FallbackFont, VariationEmbolden = 0.55f, SpacingGlyph = 1 };
+        _font = SmClient.Customizer.UiKit.ConceptFont();   // ui/overhaul: the menus' lettering (Oswald), not the engine's fallback face
     }
 
     public void SetText(MatchSummaryText text) => _text = text;
@@ -158,11 +158,18 @@ public partial class MatchSummaryView : Control
         return text[..n] + "...";
     }
 
-    /// <summary>The dark panel with the gold edge, <paramref name="alpha"/> scaling all of it.</summary>
+    /// <summary>The steel panel (ui/overhaul: the recessed dark panel with a steel lip and a thin gold line inside, as the menus' frames), <paramref name="alpha"/> scaling all of it.</summary>
     void Panel(Rect2 rect, float alpha)
     {
-        DrawRect(rect, new Color(0.03f, 0.03f, 0.03f, 0.82f * alpha));
-        DrawRect(rect, new Color(1f, 0.8f, 0f, 0.9f * alpha), false, 2f);
+        var c = GetCanvasItem();
+        Color A(Color k) => new(k.R, k.G, k.B, k.A * alpha);
+        float ch = Math.Max(4f, rect.Size.Y * 0.018f), lip = Math.Max(3f, rect.Size.Y * 0.012f);
+        SmClient.Customizer.Steel.Plate(c, rect, ch, A(SmClient.Customizer.Steel.Edge));
+        SmClient.Customizer.Steel.Plate(c, rect.Grow(-1.5f), ch - 1f, A(new Color(0.34f, 0.35f, 0.36f)), A(new Color(0.12f, 0.125f, 0.13f)));
+        var inner = rect.Grow(-lip);
+        SmClient.Customizer.Steel.Plate(c, inner, ch - 2f, A(SmClient.Customizer.Steel.Edge));
+        SmClient.Customizer.Steel.Plate(c, inner.Grow(-1f), ch - 3f, A(new Color(0.045f, 0.043f, 0.04f, 0.94f)), A(new Color(0.025f, 0.024f, 0.022f, 0.94f)));
+        DrawRect(inner.Grow(-4f), A(new Color(SmClient.Customizer.Steel.Gold, 0.35f)), false, 1.5f);
     }
 
     void DrawCountUp(CountUpData data, float s)

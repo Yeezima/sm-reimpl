@@ -109,9 +109,16 @@ public static partial class UiKit
         t.SetStylebox("normal", "SmMenuField", Clear(1));
         t.SetStylebox("focus", "SmMenuField", Clear(1));
         // Scroll bars: wide enough to grab (a StyleBoxFlat has no size of its own, so without content margins the bar measured 0 px: fix/customizer-weapons-perks).
-        var track = new StyleBoxFlat { BgColor = new Color(1f, 1f, 1f, 0.08f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 6, ContentMarginBottom = 6 };
-        var grab = new StyleBoxFlat { BgColor = new Color(White, 0.55f), ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
-        var grabHot = new StyleBoxFlat { BgColor = White, ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
+        // ui/overhaul: a dark recessed track with a steel lip, a steel grabber that turns gold under the pointer (one scroll bar for every menu).
+        StyleBoxFlat Bar(Color bg, Color border, int margin, int radius) => new()
+        {
+            BgColor = bg, BorderColor = border, BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
+            CornerRadiusTopLeft = radius, CornerRadiusTopRight = radius, CornerRadiusBottomLeft = radius, CornerRadiusBottomRight = radius,
+            ContentMarginLeft = margin, ContentMarginRight = margin, ContentMarginTop = margin, ContentMarginBottom = margin,
+        };
+        var track = Bar(new Color(0.02f, 0.02f, 0.02f, 0.85f), new Color(0.30f, 0.31f, 0.32f, 0.9f), 6, 2);
+        var grab = Bar(new Color(0.46f, 0.47f, 0.48f), new Color(0.07f, 0.07f, 0.075f), 4, 2);
+        var grabHot = Bar(Steel.Gold, Steel.GoldEdge, 4, 2);
         foreach (var type in new[] { "VScrollBar", "HScrollBar" })
         {
             t.SetStylebox("scroll", type, track);
@@ -148,6 +155,7 @@ public static partial class UiKit
     public static Label Text(string text, int size = BodySize, Color? colour = null, HorizontalAlignment align = HorizontalAlignment.Left, bool wrap = false)
     {
         var l = new Label { Text = text, HorizontalAlignment = align, MouseFilter = Control.MouseFilterEnum.Ignore };
+        l.AddThemeFontOverride("font", ConceptFont());   // ui/overhaul: one lettering in every menu
         l.AddThemeFontSizeOverride("font_size", size);
         if (colour is { } c) l.AddThemeColorOverride("font_color", c);
         if (wrap) { l.AutowrapMode = TextServer.AutowrapMode.WordSmart; l.CustomMinimumSize = new Vector2(0, 0); }
@@ -156,14 +164,15 @@ public static partial class UiKit
 
     public static Button Button(string text, Action onPress, int minWidth = 0, string? tooltip = null)
     {
-        var b = new Button { Text = text, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "" };
+        // ui/overhaul: every menu button is a steel plate (the kit's dark plate, gold under the focus), in the one lettering.
+        var b = new Button { Text = text, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "", ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Pressed += onPress;
         return b;
     }
 
     public static Button Toggle(string text, bool on, Action<bool> changed, int minWidth = 0)
     {
-        var b = new Button { Text = text, ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit) };
+        var b = new Button { Text = text, ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Toggled += v => changed(v);
         return b;
     }
@@ -209,6 +218,7 @@ public static partial class UiKit
     public static PanelContainer Panel(Control content, int margin = 14)
     {
         var p = new PanelContainer();
+        p.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.Recess, 8f, 6f, 6f));   // ui/overhaul: the steel recess (callers that pass their own box override it)
         var m = new MarginContainer();
         foreach (var side in new[] { "left", "right", "top", "bottom" }) m.AddThemeConstantOverride("margin_" + side, margin);
         p.AddChild(m);
@@ -457,7 +467,7 @@ public static partial class UiKit
             }
             column.AddChild(row);
             var panel = Panel(column, 24);
-            panel.AddThemeStyleboxOverride("panel", Box(PanelSolid, PanelSolid, 0, 24));
+            panel.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.Recess, 10f, 14f, 12f));
             panel.SetAnchorsPreset(LayoutPreset.Center);
             panel.GrowHorizontal = GrowDirection.Both;
             panel.GrowVertical = GrowDirection.Both;

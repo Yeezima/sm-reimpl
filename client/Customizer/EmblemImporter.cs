@@ -176,7 +176,7 @@ public sealed partial class EmblemImporter : Control
         row.AddChild(right);
 
         var panel = UiKit.Panel(row, 24);
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.PanelSolid, 0, 24));
+        panel.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.Recess, 10f, 28f, 24f));
         panel.SetAnchorsPreset(LayoutPreset.Center);
         panel.GrowHorizontal = GrowDirection.Both;
         panel.GrowVertical = GrowDirection.Both;

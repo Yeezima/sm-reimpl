@@ -143,7 +143,6 @@ public sealed partial class FrontEndView : Control
         buttons.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 200));
         box.AddChild(buttons);
         var panel = UiKit.Panel(box, 28);
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.LightRed, 3, 28));
         _loading = new CenterContainer();
         _loading.SetAnchorsPreset(LayoutPreset.FullRect);
         _loading.AddChild(panel);
@@ -268,7 +267,7 @@ public sealed partial class FrontEndView : Control
         main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
         _main = main;
 
-        var lobby = new UiKit.MenuPage("LobbyMenu", "Join or host lobby");
+        var lobby = new ConceptPanelPage("LobbyMenu", "Join or host lobby", "Classic PvP");
         // The dedicated server is bundled next to the client (beside it, in server\ below it, or in ..\server: the tester zip's game\ and server\). The UI self-test always builds the
         // panel (it never presses HOST A MATCH), with or without a server next to the client.
         string? serverExe = ServerLaunch.FindExecutable(OS.GetExecutablePath().GetBaseDir(), _args.GetValueOrDefault("server-exe"))
@@ -292,7 +291,7 @@ public sealed partial class FrontEndView : Control
         lobby.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
         _lobby = lobby;
 
-        var host = new UiKit.MenuPage("HostMenu", "Host local lobby");
+        var host = new ConceptPanelPage("HostMenu", "Host local lobby", "Host lobby");
         if (serverExe is not null)
         {
             _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services, () => ShowPage(UpPage));
@@ -301,7 +300,7 @@ public sealed partial class FrontEndView : Control
         }
         _hostPage = host;
 
-        var joinLocal = new UiKit.MenuPage("JoinLocalMenu", "Join local lobby");
+        var joinLocal = new ConceptPanelPage("JoinLocalMenu", "Join local lobby", "Join lobby");
         _address = new LineEdit { Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host, PlaceholderText = "host:port", MaxLength = 253, FocusMode = FocusModeEnum.All, SelectAllOnFocus = true, Name = "LobbyAddress" };
         _address.TextSubmitted += _ => JoinLocal();
         _address.TextChanged += _ => Say("");
@@ -317,7 +316,7 @@ public sealed partial class FrontEndView : Control
         // types a friend's address. Only built with added content (the main menu's row is too).
         if (ContentExtras.Compiled)
         {
-            var musouPage = new UiKit.MenuPage("MusouMenu", "Musou Mode");
+            var musouPage = new ConceptPanelPage("MusouMenu", "Musou Mode");
             var playHere = UiKit.MenuButton("Play on this PC", StartMusou, "Starts a Musou server on this PC only and joins it");
             _first[musouPage] = playHere;
             musouPage.Rows.AddChild(playHere);
@@ -451,6 +450,29 @@ public sealed partial class FrontEndView : Control
 
     bool _opening = true, _messageProblem;
 
+    /// <summary>Screenshot aid (<c>--menu-screen scoreboard|scoreboard-single</c>): the Tab scoreboard over the menu background with made-up rows (two sides, or Musou's one column).</summary>
+    void ShowScoreboardDemo(bool single)
+    {
+        HideAll();
+        var view = new ScoreboardView { Name = "ScoreboardDemo" };
+        string[] names = ["Praetor_Valen", "Brother Castus", "Sgt. Aurelian", "Lexicanum", "Thrall of Khorne", "Iron Warrior 7", "Apothecary Dray", "Cadian_Jack"];
+        ScoreboardView.Side Make(int score, int n, int me)
+        {
+            var side = new ScoreboardView.Side { Score = score };
+            for (int i = 0; i < n; i++)
+            {
+                int k = 22 - i * 3, d = 4 + i * 2;
+                side.Rows.Add(new ScoreboardView.Row { Name = names[(i + (single ? 0 : me)) % names.Length], Me = i == 1, Cells = [k.ToString(), d.ToString(), (k / (double)d).ToString("0.0"), (i + 2).ToString(), (k * 100 + 50).ToString(), (24 + i * 7) + "ms"] });
+            }
+            return side;
+        }
+        var frame = new ScoreboardView.ScoreboardFrame { Single = single, SingleScore = !single, Headers = ["KILLS", "DEATHS", "RATIO", "ASSISTS", "SCORE", "PING"] };
+        frame.Sides.Add(Make(single ? 5200 : 41, single ? 4 : 8, 0));
+        if (!single) frame.Sides.Add(Make(37, 8, 3));
+        view.Frame = frame;
+        AddChild(view);
+    }
+
     /// <summary>Shows a page by name (<c>--menu-screen</c>, the self-test): lobby, host, joinlocal or a tab of options.</summary>
     public void ShowMenuPage(string name)
     {
@@ -461,6 +483,8 @@ public sealed partial class FrontEndView : Control
             case "joinlocal": ShowPage(_joinLocalPage!); break;
             case "musou": ShowMusouPage(); break;
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
+            case "scoreboard": case "scoreboard-single": ShowScoreboardDemo(name.EndsWith("single", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the Tab scoreboard with made-up rows
+            case "pause": { HideAll(); var m = new MatchMenu(() => { }, () => { }, () => { }, () => { }) { Name = "PauseDemo" }; m.Banner = "Respawn in 3"; AddChild(m); m.Open(true); break; }   // screenshot aid (ui/overhaul): the in-match Esc menu
             case "graphics": ShowOptions(OptionsView.Graphics); break;
             case "sound": ShowOptions(OptionsView.Sound); break;
             case "interface": ShowOptions(OptionsView.Interface); break;

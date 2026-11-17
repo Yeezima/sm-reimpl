@@ -241,7 +241,20 @@ public static partial class UiTextureBuilder
         var coverage = PolygonCoverage(overlay.GetWidth(), overlay.GetHeight(), new Vector2(reg.Position.X, reg.Position.Y), sf, [V2Steel, V2StoneLeft, MirrorV2(V2StoneLeft)]);
         for (int y = 0; y < overlay.GetHeight(); y++) for (int x = 0; x < overlay.GetWidth(); x++) { var p = overlay.GetPixel(x, y); overlay.SetPixel(x, y, new Color(p.R, p.G, p.B, coverage[y * overlay.GetWidth() + x])); }
         save("overlay-options", overlay);
+        // The same frame with the OPTIONS lettering painted out of the title plate: the shared frame of every other menu page (its title is live text, one lettering per level).
+        // The plate's lettering is replaced by a mirrored tiling of the clean stretch right of it (same rows, so the plate's light runs on).
+        var blank = (Image)overlay.Duplicate();
+        int bx0 = 1236, bx1 = 1704, by0 = 184, by1 = 292, sx0 = 1712, sx1 = 1832, sw = sx1 - sx0;
+        for (int y = by0; y < by1; y++) for (int x = bx0; x < bx1; x++)
+        {
+            int k = (x - bx0) % (2 * sw); int off = k < sw ? k : 2 * sw - 1 - k;
+            var q = overlay.GetPixel(sx0 + off, y); blank.SetPixel(x, y, new Color(q.R, q.G, q.B, 1f));
+        }
+        save("overlay-panel", blank);
     }
+
+    /// <summary>The OPTIONS lettering on the title plate, in v2 pixels (painted out for the shared frame, <c>overlay-panel</c>).</summary>
+    public static readonly Rect2 V2Title = new(356f, 66f, 114f, 27f);
 
     /// <summary>The row controls cut from v2 (rectangles measured on v2; the text on a control is painted out, the slider's gold fill replaced by the empty channel, the fill and the knob cut apart).</summary>
     static void OptionsControlTexturesV2(Image up, float sf, Action<string, Image> save)

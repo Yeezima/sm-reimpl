@@ -135,34 +135,75 @@ public static partial class UiKit
         public float RowHeight { get => _rowHeight; set { _rowHeight = value; UpdateMinimumSize(); QueueSort(); } }
         public float RowGap { get => _rowGap; set { _rowGap = value; UpdateMinimumSize(); QueueSort(); } }
 
-        /// <summary>Rows that take a second height (a wrapped note): the child's own minimum when it is taller than one row.</summary>
-        float HeightOf(Control c) => Mathf.Max(_rowHeight, c.GetCombinedMinimumSize().Y);
+        /// <summary>Rows that take a second height (a wrapped note): the child's own minimum when it is taller than one row. A gap (<see cref="MenuGap"/>) keeps its own height.</summary>
+        float HeightOf(Control c)
+        {
+            float own = c is MenuColumn nested && nested.CompactGaps ? nested.ContentHeight() : c.GetCombinedMinimumSize().Y;   // a nested steel column measures itself (its cached minimum may be a layout behind)
+            return CompactGaps && c.HasMeta(GapMeta) ? own : Mathf.Max(_rowHeight, own);
+        }
+
+        /// <summary>The height of the rows as laid out now (one column, or the taller of two).</summary>
+        public float ContentHeight() => _GetMinimumSize().Y;
+
+        /// <summary>Set on the gap rows made by <see cref="MenuGap"/>.</summary>
+        public const string GapMeta = "menu_gap";
+        /// <summary>Gap rows keep their own (scaled) height instead of a whole row (the steel pages).</summary>
+        public bool CompactGaps { get; set; }
+
+        float _wrapHeight, _columnGap;
+        /// <summary>The steel pages (ui/overhaul): when the rows are taller than this (UI pixels; 0 = never) they flow into a second column, split at the row boundary nearest the middle.</summary>
+        public float WrapHeight { get => _wrapHeight; set { _wrapHeight = value; UpdateMinimumSize(); QueueSort(); } }
+        public float ColumnGap { get => _columnGap; set { _columnGap = value; UpdateMinimumSize(); QueueSort(); } }
+
+        /// <summary>The visible rows with their heights, the total, and the index of the row that starts the second column (-1: one column).</summary>
+        (System.Collections.Generic.List<(Control C, float H)> Rows, float Total, int Break) Measure()
+        {
+            var list = new System.Collections.Generic.List<(Control, float)>();
+            float total = 0f;
+            foreach (var child in GetChildren())
+                if (child is Control { Visible: true, TopLevel: false } c) { float h = HeightOf(c); list.Add((c, h)); total += h + _rowGap; }
+            total = Mathf.Max(0f, total - _rowGap);
+            int brk = -1;
+            if (_wrapHeight > 0f && total > _wrapHeight && list.Count > 1)
+            {
+                float cum = 0f;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    cum += list[i].Item2 + _rowGap;
+                    if (cum >= total / 2f + _rowGap) { brk = Mathf.Min(i + 1, list.Count - 1); break; }
+                }
+            }
+            return (list, total, brk);
+        }
 
         public override Vector2 _GetMinimumSize()
         {
-            float h = 0f, w = 0f;
-            int n = 0;
-            foreach (var child in GetChildren())
-                if (child is Control { Visible: true, TopLevel: false } c) { h += HeightOf(c); w = Mathf.Max(w, c.GetCombinedMinimumSize().X); n++; }
-            return new Vector2(w, h + Mathf.Max(0, n - 1) * _rowGap);
+            var (rows, total, brk) = Measure();
+            float w = 0f;
+            foreach (var (c, _) in rows) w = Mathf.Max(w, c.GetCombinedMinimumSize().X);
+            if (brk < 0) return new Vector2(w, total);
+            float h1 = 0f, h2 = 0f;
+            for (int i = 0; i < rows.Count; i++) { if (i < brk) h1 += rows[i].H + _rowGap; else h2 += rows[i].H + _rowGap; }
+            return new Vector2(w * 2f + _columnGap, Mathf.Max(h1, h2) - _rowGap);
         }
 
         public override void _Notification(int what)
         {
             if (what != NotificationSortChildren) return;
-            float y = 0f;
-            foreach (var child in GetChildren())
-                if (child is Control { Visible: true, TopLevel: false } c)
-                {
-                    float h = HeightOf(c);
-                    FitChildInRect(c, new Rect2(0f, y, Size.X, h));
-                    y += h + _rowGap;
-                }
+            var (rows, _, brk) = Measure();
+            float colW = brk < 0 ? Size.X : (Size.X - _columnGap) / 2f, y = 0f;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (i == brk) y = 0f;
+                float x = brk >= 0 && i >= brk ? colW + _columnGap : 0f;
+                FitChildInRect(rows[i].C, new Rect2(x, y, colW, rows[i].H));
+                y += rows[i].H + _rowGap;
+            }
         }
     }
 
     /// <summary>An empty row (a gap in a page's rows).</summary>
-    public static Control MenuGap(float rows = 1f) => new Control { CustomMinimumSize = new Vector2(0, MenuRowHeight * rows - 0.01f), MouseFilter = Control.MouseFilterEnum.Ignore };
+    public static Control MenuGap(float rows = 1f) { var g = new Control { CustomMinimumSize = new Vector2(0, MenuRowHeight * rows - 0.01f), MouseFilter = Control.MouseFilterEnum.Ignore }; g.SetMeta(MenuColumn.GapMeta, true); return g; }
 
     /// <summary>
     /// A page of the menus: the title and the rows at the reference's positions, on nothing (the screen behind shows through). <see cref="Heading"/> is the small line above the rows that

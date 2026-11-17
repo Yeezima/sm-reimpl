@@ -48,7 +48,7 @@ public sealed partial class OptionsView
             {
                 case UiKit.MenuChoice c: c.UseConcept(s, labelW, ctlW); break;
                 case UiKit.MenuSlider sl:
-                    float value = SliderValueWidth * s, track = Mathf.Clamp(ctlW - value - 8f * s, 56f * s, (two ? 140f : 220f) * s);
+                    float value = (sl.Slider.Name == "FovSlider" ? 88f : SliderValueWidth) * s, track = Mathf.Clamp(ctlW - value - 8f * s, 56f * s, (two ? 140f : 220f) * s);
                     sl.UseConcept(s, labelW, track, value);
                     break;
             }

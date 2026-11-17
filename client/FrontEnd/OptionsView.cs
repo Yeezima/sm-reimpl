@@ -43,6 +43,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
     readonly TextureRect _overlay = new() { Name = "OptionsOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps };
     readonly Control _tabHost = new() { Name = "OptionsTabs", MouseFilter = MouseFilterEnum.Ignore };
     bool _concept;
+    /// <summary>The frame's extra slice copies (ui/overhaul: a taller frame shows more rows; <c>--options-short</c> is the concept's own height, for the comparison tool).</summary>
+    static int Slices => Array.IndexOf(OS.GetCmdlineUserArgs(), "--options-short") >= 0 ? 0 : 2;
+    static float Ex => PanelFrame.ExtraV2(Slices);
     readonly MarginContainer _rowsMargin = new() { MouseFilter = MouseFilterEnum.Ignore };
     float _rowsScale;   // the scale the rows were last styled at (0: restyle)
     FrontEndSettings _snapshot;
@@ -147,7 +150,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
     void EnterConceptLayout(Texture2D ov)
     {
         _concept = true;
-        _overlay.Texture = ov;
+        _overlay.Texture = PanelFrame.Texture("overlay-options", Slices) ?? ov;
         AddChild(_overlay); MoveChild(_overlay, 1);
         _frame.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         _frame.MouseFilter = MouseFilterEnum.Ignore;
@@ -172,6 +175,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
         return (s, new Vector2((Size.X - ps.Size.X * s) / 2f, (Size.Y - ps.Size.Y * s) / 2f));
     }
 
+    static Rect2 Down(Rect2 r) => new(r.Position + new Vector2(0f, Ex), r.Size);
+
     void PlaceConcept()
     {
         var (s, o) = PanelMap();
@@ -181,7 +186,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         var ps = UiTextureBuilder.V2Screen;
         _frame.Position = o; _frame.Size = ps.Size * s;
         var ro = UiTextureBuilder.V2OverlayRegion;
-        var region = V(new Rect2(ro.Position.X, ro.Position.Y, ro.Size.X, ro.Size.Y));
+        var region = V(new Rect2(ro.Position.X, ro.Position.Y, ro.Size.X, ro.Size.Y + Ex));
         _overlay.Position = region.Position; _overlay.Size = region.Size;
         // Tabs (the host spans the tab strip; the plates are v2's own rectangles).
         var strip = V(new Rect2(140f, 104f, 552f, 32f));
@@ -198,8 +203,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
             PaintedButtons.FocusAsPlate(b, b.ButtonPressed);
         }
         // The rows scroll inside the content area.
-        var rows = V(UiTextureBuilder.V2Rows);
-        _list.Position = rows.Position; _list.Size = rows.Size;
+        var rows = V(new Rect2(UiTextureBuilder.V2Rows.Position, UiTextureBuilder.V2Rows.Size + new Vector2(0f, Ex)));
+        float pitchPx = UiKit.ConceptRowPitch * s, top = RowsTop * s, whole = Mathf.Max(4f, Mathf.Floor((rows.Size.Y - top - 2f * s) / pitchPx)) * pitchPx + top + 2f * s;   // whole rows only: no row is cut in half at the bottom
+        _list.Position = rows.Position; _list.Size = new Vector2(rows.Size.X, Mathf.Min(rows.Size.Y, whole));
         StyleRows(s);
         // APPLY, REVERT, BACK.
         void Plate(Button b, Rect2 rect, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, bool goldFocus, bool goldRest = false, bool noGlow = true)
@@ -213,11 +219,11 @@ public sealed partial class OptionsView : UiKit.MenuPage
                 foreach (var st in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })
                     if (b.GetThemeStylebox(st) is StyleBoxTexture tb) { tb = (StyleBoxTexture)tb.Duplicate(); tb.ContentMarginTop = 3.8f * s; b.AddThemeStyleboxOverride(st, tb); }
         }
-        Plate(_apply, UiTextureBuilder.V2Apply, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
-        Plate(_revert, UiTextureBuilder.V2Revert, "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
+        Plate(_apply, Down(UiTextureBuilder.V2Apply), "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
+        Plate(_revert, Down(UiTextureBuilder.V2Revert), "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
         Plate(_back, UiTextureBuilder.V2Back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), false, noGlow: false);
         // The toast chip.
-        var t = V(UiTextureBuilder.V2Toast); _toast.Position = t.Position; _toast.Size = t.Size;
+        var t = V(Down(UiTextureBuilder.V2Toast)); _toast.Position = t.Position; _toast.Size = t.Size;
         if (_foot is { } foot) { foot.Position = new Vector2(24f, Size.Y - foot.GetCombinedMinimumSize().Y - 14f); foot.Size = new Vector2(Mathf.Min(Size.X - 48f, 1100f), foot.GetCombinedMinimumSize().Y); }
     }
 

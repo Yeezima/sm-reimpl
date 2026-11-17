@@ -8,14 +8,14 @@ namespace SmClient.FrontEnd;
 /// The in-match Esc menu (ui/menu-rebuild, the owner's menu; ours): the main menu's title and rows over a slightly opaque dark overlay, the match running behind it, no background image.
 /// RESUME closes it (as Esc or B do), LOADOUT opens the loadout picker, OPTIONS the options (controls included), LEAVE MATCH asks and leaves.
 /// </summary>
-public sealed partial class MatchMenu : UiKit.MenuPage
+public sealed partial class MatchMenu : ConceptPanelPage
 {
     public const float DimAlpha = 0.5f;
     readonly Action _resume;
     readonly Label _banner;
     readonly Button _resumeButton, _loadoutButton, _leaveButton;
 
-    public MatchMenu(Action resume, Action loadout, Action options, Action? leave) : base("MatchMenu")
+    public MatchMenu(Action resume, Action loadout, Action options, Action? leave) : base("MatchMenu", "", "Paused", 2, 0f)
     {
         _resume = resume;
         var dim = new ColorRect { Name = "MatchDim", Color = new Color(0f, 0f, 0f, DimAlpha), MouseFilter = MouseFilterEnum.Stop };

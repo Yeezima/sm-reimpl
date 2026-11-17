@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SmClient.Customizer;
 
 namespace SmClient;
 
@@ -43,9 +44,36 @@ public sealed partial class ScoreboardView : Control
     const float Top = 70f, ScoreBand = 150f, HeaderH = 46f, RowH = 64f, Gap = 24f, PairWidth = 1720f, SingleWidth = 1100f;
     const float IconSize = 48f, IconPad = 14f, NameX = IconPad + IconSize + 16f;
 
-    static readonly Color Panel = new(0f, 0f, 0f, 0.82f), RowA = new(0.04f, 0.04f, 0.04f, 0.86f), RowB = new(0.09f, 0.09f, 0.09f, 0.86f),
-        HeaderFill = new(0.16f, 0.16f, 0.16f, 0.92f), Rule = new(1f, 1f, 1f, 0.14f), White = Colors.White, Dim = new(1f, 1f, 1f, 0.62f),
-        MeFill = new(1f, 1f, 1f, 0.11f), MeBar = new(1f, 1f, 1f, 0.9f);
+    // The steel palette (ui/overhaul): dark recessed rows in warm black, light steel text, gold for the own row and the "VS".
+    static readonly Color Panel = new(0.03f, 0.03f, 0.03f, 0.9f), RowA = new(0.045f, 0.043f, 0.04f, 0.9f), RowB = new(0.075f, 0.072f, 0.066f, 0.9f),
+        Rule = new(0.55f, 0.55f, 0.52f, 0.16f), White = Steel.Text, Dim = Steel.TextDim,
+        MeFill = new(0.97f, 0.76f, 0.24f, 0.16f), MeBar = Steel.Gold;
+
+    readonly System.Collections.Generic.Dictionary<(Steel.Kind, int), Steel.SteelStyle> _styles = new();
+
+    readonly System.Collections.Generic.Dictionary<int, StyleBoxTexture> _plates = new();
+
+    /// <summary>The concept's painted plate (rivets, bevel; the title plate's steel) stretched over <paramref name="r"/>, at the buttons' scale; the steel box when the art is missing.</summary>
+    void PaintedPlate(Rect2 r)
+    {
+        int key = (int)MathF.Round(_scale * 100f);
+        if (!_plates.TryGetValue(key, out var box))
+        {
+            float k = 0.62f * _scale;
+            var art = UiKit.ConceptScaled("opt-plate-blank", k);
+            if (art is null) { Box(Steel.Kind.Plate, r, 14f); return; }
+            box = _plates[key] = new StyleBoxTexture { Texture = art, TextureMarginLeft = 70f * k, TextureMarginRight = 70f * k, TextureMarginTop = 50f * k, TextureMarginBottom = 50f * k, DrawCenter = true };
+        }
+        box.Draw(GetCanvasItem(), r);
+    }
+
+    /// <summary>A steel box (cached per kind and scale); its edge and chamfer follow the stage's scale.</summary>
+    void Box(Steel.Kind kind, Rect2 r, float chamfer)
+    {
+        var key = (kind, (int)MathF.Round(_scale * 100f));
+        if (!_styles.TryGetValue(key, out var style)) _styles[key] = style = new Steel.SteelStyle(kind, MathF.Max(2f, chamfer * _scale), 0f, 0f);
+        style.Draw(GetCanvasItem(), r);
+    }
 
     FontVariation? _regular, _bold;
 
@@ -59,16 +87,9 @@ public sealed partial class ScoreboardView : Control
 
     public override void _Ready()
     {
-        // The HUD's face (Hud._Ready: Bahnschrift, the closest system face to the original's "XBourgeoix OT"), Godot's default as the fallback.
-        var system = new SystemFont { FontNames = ["Bahnschrift", "DIN Alternate", "Arial Narrow"], Fallbacks = [ThemeDB.FallbackFont] };
-        var ts = TextServerManager.GetPrimaryInterface();
-        FontVariation Variant(int weight, int width) => new()
-        {
-            BaseFont = system,
-            VariationOpentype = new Godot.Collections.Dictionary { { ts.NameToTag("wght"), weight }, { ts.NameToTag("wdth"), width } },
-        };
-        _regular = Variant(430, 92);
-        _bold = Variant(650, 90);
+        // The menus' lettering (ui/overhaul): Oswald, the face of every redesigned screen; the HUD keeps its own.
+        _regular = UiKit.ConceptFont();
+        _bold = UiKit.ConceptFont();
     }
 
     public override void _Process(double delta) => QueueRedraw();
@@ -94,17 +115,22 @@ public sealed partial class ScoreboardView : Control
         float bodyH = HeaderH + Math.Max(1, most) * RowH;
         float totalW = pair ? PairWidth : SingleWidth;
 
-        // The score band: the big scores, "VS" between them.
-        DrawRect(R(left0, Top, totalW, ScoreBand), Colors.Black);   // opaque: the HUD's coloured score bar sits under it
+        // The score band: the big scores on steel plates, "VS" between them.
         if (pair)
         {
-            Text(_bold, f.Sides[0].Score.ToString(), left0 + width / 2f, Top + ScoreBand / 2f, 96, White, 0);
-            Text(_bold, f.Sides[1].Score.ToString(), left0 + width + Gap + width / 2f, Top + ScoreBand / 2f, 96, White, 0);
-            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f, 72, White, 0);
+            PaintedPlate(R(left0, Top, width, ScoreBand));
+            PaintedPlate(R(left0 + width + Gap, Top, width, ScoreBand));
+            Text(_bold, f.Sides[0].Score.ToString(), left0 + width / 2f, Top + ScoreBand / 2f, 104, White, 0);
+            Text(_bold, f.Sides[1].Score.ToString(), left0 + width + Gap + width / 2f, Top + ScoreBand / 2f, 104, White, 0);
+            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f, 70, Steel.Gold, 0);
         }
-        else if (f.SingleScore) Text(_bold, f.Sides[0].Score.ToString(), StageW / 2f, Top + ScoreBand / 2f, 96, White, 0);
+        else
+        {
+            PaintedPlate(R(left0, Top, totalW, ScoreBand));
+            if (f.SingleScore) Text(_bold, f.Sides[0].Score.ToString(), StageW / 2f, Top + ScoreBand / 2f, 104, White, 0);
+        }
 
-        float y0 = Top + ScoreBand + 8f;
+        float y0 = Top + ScoreBand + 14f;
         for (int s = 0; s < (pair ? 2 : 1); s++)
         {
             float x0 = left0 + s * (width + Gap);
@@ -114,34 +140,36 @@ public sealed partial class ScoreboardView : Control
 
     void DrawColumn(ScoreboardFrame f, Side side, float x0, float y0, float width, float bodyH)
     {
+        Box(Steel.Kind.Recess, R(x0 - 6f, y0 - 6f, width + 12f, bodyH + 12f), 10f);
         DrawRect(R(x0, y0, width, bodyH), Panel);
-        // The header row: the stats' names over their columns (no header over the names).
-        DrawRect(R(x0, y0, width, HeaderH), HeaderFill);
+        // The header row: the stats' names over their columns (no header over the names), on a dark steel strip.
+        Box(Steel.Kind.Dark, R(x0 + 2f, y0 + 2f, width - 4f, HeaderH - 2f), 6f);
         int cells = f.Headers.Length;
         float statsW = width - NameX - 250f;
         float cellW = cells > 0 ? MathF.Min(118f, statsW / cells) : 0f;
         float CellX(int i) => x0 + width - 20f - (cells - i - 0.5f) * cellW;
-        for (int i = 0; i < cells; i++) Text(_regular!, f.Headers[i], CellX(i), y0 + HeaderH / 2f, 22, Dim, 0);
+        for (int i = 0; i < cells; i++) Text(_regular!, f.Headers[i], CellX(i), y0 + HeaderH / 2f, 22, Steel.GoldHi, 0);
 
         float y = y0 + HeaderH;
         for (int r = 0; r < side.Rows.Count; r++, y += RowH)
         {
             var row = side.Rows[r];
-            DrawRect(R(x0, y, width, RowH), r % 2 == 0 ? RowA : RowB);
-            DrawLine(S(x0, y), S(x0 + width, y), Rule, 1f);
+            DrawRect(R(x0 + 2f, y, width - 4f, RowH), r % 2 == 0 ? RowA : RowB);
+            DrawLine(S(x0 + 2f, y), S(x0 + width - 2f, y), Rule, 1f);
             if (row.Me)
             {
-                DrawRect(R(x0, y, width, RowH), MeFill);
-                DrawRect(R(x0, y, 4f, RowH), MeBar);
+                DrawRect(R(x0 + 2f, y, width - 4f, RowH), MeFill);
+                DrawRect(R(x0 + 2f, y, 5f, RowH), MeBar);
             }
-            // The icon: the emblem in grey, framed; an empty frame while its picture is not here.
+            // The icon: the emblem in grey, in a thin steel frame; an empty frame while its picture is not here.
             var iconRect = R(x0 + IconPad, y + (RowH - IconSize) / 2f, IconSize, IconSize);
-            DrawRect(iconRect, new Color(0.18f, 0.18f, 0.18f, 1f));
+            DrawRect(iconRect, new Color(0.10f, 0.10f, 0.10f, 1f));
             if (row.Icon is { } icon) DrawTextureRect(icon, iconRect, false);
-            DrawRect(iconRect, new Color(1f, 1f, 1f, 0.55f), false, MathF.Max(1f, 1.5f * _scale));
+            DrawRect(iconRect, Steel.SteelMid, false, MathF.Max(1f, 1.5f * _scale));
             float nameRoom = width - NameX - cells * cellW - 30f;
-            Text(row.Me ? _bold! : _regular!, Fit(row.Name, nameRoom, 26), x0 + NameX, y + RowH / 2f, 26, White, -1);
-            for (int i = 0; i < cells && i < row.Cells.Length; i++) Text(row.Me ? _bold! : _regular!, row.Cells[i], CellX(i), y + RowH / 2f, 26, White, 0);
+            var ink = row.Me ? Steel.GoldHi : White;
+            Text(_regular!, Fit(row.Name, nameRoom, 28), x0 + NameX, y + RowH / 2f, 28, ink, -1);
+            for (int i = 0; i < cells && i < row.Cells.Length; i++) Text(_regular!, row.Cells[i], CellX(i), y + RowH / 2f, 28, ink, 0);
         }
     }
 
