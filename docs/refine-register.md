@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3700 spec table rows: **2676 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 771 rows of the changes document.
-Scanned 3701 spec table rows: **2677 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 770 rows of the changes document.
+Scanned 3703 spec table rows: **2679 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 771 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,25 +49,18 @@ Scanned 3701 spec table rows: **2677 tagged**, 668 not tagged (read from data wi
 | Customizer and paint | 63 | 55 | 41 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
-| General game design | 105 | 104 | 79 | 17 | 0 |
-| Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2676** | 2395 | 2012 | 804 | 37 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 830 | 785 | 615 | 230 | 1 |
+| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
 | General game design | 107 | 106 | 81 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2677** | 2396 | 2013 | 803 | 37 |
+| **All areas** | **2679** | 2398 | 2015 | 804 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1559 |
-| confidence: low | 971 |
-| kind: ours | 1561 |
-| confidence: low | 972 |
+| kind: ours | 1562 |
+| confidence: low | 974 |
 | confidence: medium | 932 |
 | notes: ours | 466 |
 | kind: interpretation | 432 |
@@ -2646,14 +2638,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (832)
 *Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B4149D60` | Tick spread | the muster, the stage shares and the breach flood make at most 10 Orks a tick (a whole wave of up to 600 in one tick was the tick spike); the bench (`smtool warfront-hq --waves`) prints the five slowest ticks tagged with what ran; target p99 at most 20 ms and… (Orks, ms) | kind: ours; confidence: low | designer review of W13b ruling 4 | Tick spread: compare with SM1 by feel or video. Ours: the muster, the stage shares and the breach flood make at most 10… | ☐ |
 
-### Core simulation (provisional values) (830)
+### Core simulation (provisional values) (832)
 
 *Spec section: Provisional values in use*
 
