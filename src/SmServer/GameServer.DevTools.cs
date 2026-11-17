@@ -144,7 +144,7 @@ public sealed partial class GameServer
     string? _pickedMap;
 
     /// <summary>
-    /// Protocol 85: ends the match now and starts a new one on the chosen map. The server cannot swap its map in place (one process, one map), so it does what a rotation does: the match ends, the
+    /// Protocol 86: ends the match now and starts a new one on the chosen map. The server cannot swap its map in place (one process, one map), so it does what a rotation does: the match ends, the
     /// snapshots say NEXT MAP (clients rejoin at the same address once the end clock shows a second), the server stops answering joins and leaves with the rotation's exit code, and its supervisor
     /// starts the picked map (Program.cs, RotationSupervisor.cs). The map already being played is only restarted (fresh scores), as the restart button does.
     /// </summary>

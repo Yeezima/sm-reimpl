@@ -30,7 +30,7 @@ public partial class DevToolsPanel : CanvasLayer
     /// <summary>One teleport choice: its label, kind and index (side, point or player id).</summary>
     public readonly record struct TeleportChoice(string Label, DevTeleportKind Kind, int Index);
 
-    /// <summary>One map the picker offers: the archive name and the display name (devtools-map-pick, protocol 85); its position in the list is what the wire carries.</summary>
+    /// <summary>One map the picker offers: the archive name and the display name (devtools-map-pick, protocol 86); its position in the list is what the wire carries.</summary>
     public readonly record struct MapChoice(string Name, string Label);
 
     readonly Func<DevState?> _state;
@@ -115,7 +115,7 @@ public partial class DevToolsPanel : CanvasLayer
         Button(match, "END MATCH NOW", () => Send(DevCommandKind.EndMatch, 0, true), "Ends the match as the time limit would (the end screen, then the next match or map).");
         Button(match, "RESTART MATCH", () => Send(DevCommandKind.RestartMatch, 0, true), "Same map, fresh scores, everyone respawns.");
         Button(match, "SKIP TO NEXT", () => Send(DevCommandKind.SkipMatch, 0, true), "Ends the match and hurries to the next one (the next map in a --maps rotation).");
-        // devtools-map-pick (protocol 85): Classic PvP only (the list is empty in Musou Mode and the whole block is hidden)
+        // devtools-map-pick (protocol 86): Classic PvP only (the list is empty in Musou Mode and the whole block is hidden)
         _mapBox = new VBoxContainer { Name = "MapPick" };
         _mapBox.AddThemeConstantOverride("separation", 4);
         left.AddChild(_mapBox);

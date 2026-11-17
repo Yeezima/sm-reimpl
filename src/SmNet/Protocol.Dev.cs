@@ -33,7 +33,7 @@ public enum DevCommandKind : byte
     SetBotRange = 13,
     /// <summary>Asks the server to send the cancel table again (cancel-editor: the client's table hash differs from the server's).</summary>
     CancelSync = 14,
-    /// <summary>Protocol 85: ends the current match at once and starts a new one on another map; argument an index into <c>DevMapPicks.For</c> (the maps of the server's mode, as the panel lists them). The server only changes map when it runs under its supervisor (a developer-tools server on loopback does); clients rejoin as they do after a rotation.</summary>
+    /// <summary>Protocol 86: ends the current match at once and starts a new one on another map; argument an index into <c>DevMapPicks.For</c> (the maps of the server's mode, as the panel lists them). The server only changes map when it runs under its supervisor (a developer-tools server on loopback does); clients rejoin as they do after a rotation.</summary>
     PickMap = 15,
 }
 
@@ -42,7 +42,7 @@ public enum DevNote : byte
 {
     None = 0, Applied = 1, BotStarting = 2, BotRemoved = 3, NoBotToRemove = 4, SideFull = 5, ServerFull = 6, LauncherMissing = 7, LaunchFailed = 8, NotInThisMode = 9, TooManyStarting = 10, TooFast = 11,
     NotPlaying = 12, TeleportBlocked = 13, BadValue = 14,
-    /// <summary>Protocol 85: this server cannot change its map (it does not run under its supervisor, or it has no map list).</summary>
+    /// <summary>Protocol 86: this server cannot change its map (it does not run under its supervisor, or it has no map list).</summary>
     NoMapChange = 15,
 }
 

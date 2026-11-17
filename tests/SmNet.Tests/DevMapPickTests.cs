@@ -8,7 +8,7 @@ using Xunit;
 namespace SmNet.Tests;
 
 /// <summary>
-/// devtools-map-pick (protocol 85; the owner 2026-11-17): the developer tools' map picker. A pick from loopback on a <c>--dev-tools</c> server that can change its map ends the match at once and
+/// devtools-map-pick (protocol 86; the owner 2026-11-17): the developer tools' map picker. A pick from loopback on a <c>--dev-tools</c> server that can change its map ends the match at once and
 /// leaves the server to its supervisor with the picked map (clients are told NEXT MAP and rejoin, as after a rotation); it is refused without the tools, from a non-loopback address and where the
 /// server cannot change map. Synthetic data only.
 /// </summary>

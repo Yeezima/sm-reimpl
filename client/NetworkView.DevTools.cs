@@ -43,7 +43,7 @@ public partial class NetworkView
     List<DevToolsPanel.MapChoice> _devMaps = [];
 
     /// <summary>
-    /// devtools-map-pick (protocol 85): the maps the picker lists, by display name, in the order the server counts them (<see cref="DevMapPicks"/>: the install's playable competitive maps that offer
+    /// devtools-map-pick (protocol 86): the maps the picker lists, by display name, in the order the server counts them (<see cref="DevMapPicks"/>: the install's playable competitive maps that offer
     /// the server's mode, Manufactorum first). Empty in Musou Mode (its dev tools stay as they were) or when the install lists none.
     /// </summary>
     IReadOnlyList<DevToolsPanel.MapChoice> DevMapChoices()
