@@ -42,7 +42,7 @@ static class WarfrontHqCommand
         [new(0f, 8f, WarfrontHqMap.PlateauZ), new(26f, 30f, WarfrontHqMap.PlateauZ), new(26f, 52f, WarfrontHqMap.PlateauZ), new(0f, 66f, WarfrontHqMap.PlateauZ)],
         [new(22f, 80f, WarfrontHqMap.PlateauZ), new(22f, 108f, WarfrontHqMap.PlateauZ), new(22f, 146f, WarfrontHqMap.PlateauZ), new(0f, 164f, WarfrontHqMap.PlateauZ)],
     ];
-    static bool _diagnose, _noAllies;
+    static bool _diagnose, _noAllies, _solo;
 
     public static int Run(string[] rest)
     {
@@ -55,12 +55,13 @@ static class WarfrontHqCommand
                 case "--measure": measure = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int a)) { seconds = a; i++; } break;
                 case "--scenario": if (i + 1 < rest.Length) { _scenario = rest[++i]; waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int c)) { seconds = c; i++; } } break;
                 case "--diagnose": _diagnose = true; break;
+                case "--solo": _solo = true; break;   // W13d part 3: a solo campaign (the server's human cap is one): the allied pair is on (the default is the co-op case, pair off)
                 case "--no-allies": _noAllies = true; break;   // test aid: the two allied Marines of the pair are not spawned (the Guardsmen and the human alone)
                 case "--waves": waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int b)) { seconds = b; i++; } break;
                 default: Console.Error.WriteLine($"warfront-hq: unknown argument \"{rest[i]}\" (usage: warfront-hq --measure [seconds] | --waves [seconds] | --scenario passive|fallback|gate9 [seconds])"); return 2; }
         }
         if (measure == waves) { Console.Error.WriteLine("warfront-hq: give --measure or --waves"); return 2; }
-        if (_scenario is not null and not ("passive" or "fallback" or "gate9")) { Console.Error.WriteLine("warfront-hq: --scenario takes passive, fallback or gate9"); return 2; }
+        if (_scenario is not null and not ("passive" or "open" or "fallback" or "gate9")) { Console.Error.WriteLine("warfront-hq: --scenario takes passive, open, fallback or gate9"); return 2; }
         return Simulate(waves, seconds > 0 ? seconds : _scenario is not null ? 500 : waves ? 400 : 300);
     }
 
@@ -104,22 +105,40 @@ static class WarfrontHqCommand
         var run = w.Tfw!;
         run.Guardsmen = waves;
         run.Patrols = false;
-        if (_noAllies) run.Allies = false;
+        run.Allies = _solo && !_noAllies;   // the pair spawns at the Deploy below; World.WarfrontAlliedPair is the server's rule (the cap is one)
         w.TfwMeksOn = false;
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 30; k++) w.Step(_ => default);
         run.Warfront!.Target = WarfrontTargetKind.Hq;
         var stuck = new List<WarfrontStuckReport>();
-        var diag = new List<string>();
+        var diag = new List<(float Y, string Band, string Line)>();
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int nAll = 0;
+        var snapNew = new Vector3[MusouSim.Capacity + 1]; var snapOld = new Vector3[MusouSim.Capacity + 1]; int snapOldAt = 0, snapNewAt = 0, nowTick = 0;   // positions 1.5 s and 3 s ago (diagnosis: the speed over the last 3 s)
         run.Warfront.StuckSink = r =>
         {
             stuck.Add(r);
-            if (!_diagnose || diag.Count >= 400) return;
-            // what the Ork was doing: its target (a Guard squad, with that squad's place and goal, or a player), its state and the graph node under it
+            if (!_diagnose || diag.Count >= 4000) return;
+            // what the Ork was doing: its target (a Guard squad, a player or a position's ring), its state, the graph node under it and the next of its way, the Orks round it, its speed over the last 3 s
             w.Musou!.TryGet(r.Id, out var e);
             int tgt = w.Musou.TargetOf(r.Id);
-            string who = tgt <= -2 ? $"squad {TfwContracts.SquadOf(tgt)} at ({w.TfwGuards!.Centre(TfwContracts.SquadOf(tgt)).X:0},{w.TfwGuards.Centre(TfwContracts.SquadOf(tgt)).Y:0},{w.TfwGuards.Centre(TfwContracts.SquadOf(tgt)).Z:0})" : tgt > 0 ? "player " + tgt + (w.Players.TryGetValue(tgt, out var tp) ? string.Create(CultureInfo.InvariantCulture, $" ({(tp.Alive ? "alive" : "down")}) at ({tp.Position.X:0},{tp.Position.Y:0},{tp.Position.Z:0})") : "") : "none";
-            diag.Add(string.Create(CultureInfo.InvariantCulture, $"{(run.Battle?.HqSeconds ?? 0f):0}s {r.Type} {r.Why} at ({r.At.X:0},{r.At.Y:0},{r.At.Z:0}) state {e.State} vel ({e.Velocity.X:0.0},{e.Velocity.Y:0.0}) node {e.Node} {FlowNote(w.Musou, e.Node)} target {who}"));
+            string who; string goalNote = "";
+            int pk = tgt - (TfwContracts.PuppetIdLast + 3);
+            if (tgt <= -2) { var c = w.TfwGuards!.Centre(TfwContracts.SquadOf(tgt)); who = string.Create(CultureInfo.InvariantCulture, $"squad {TfwContracts.SquadOf(tgt)} at ({c.X:0},{c.Y:0},{c.Z:0})"); }
+            else if (pk is >= 0 and <= 2)
+            {
+                var c = run.Battle!.Layout.Positions[pk]; float rad = WarfrontHqLayout.Radius(pk);
+                float dd = new Vector2(c.X - e.Position.X, c.Y - e.Position.Y).Length();
+                var spot = w.Musou.GoalSpotOf(r.Id);
+                who = string.Create(CultureInfo.InvariantCulture, $"ring {"WKV"[pk]} (centre {c.X:0},{c.Y:0}, radius {rad:0}) {dd:0.0} m away, {(dd <= rad ? "inside" : "outside")} the ring{(dd <= 12f ? ", within the 12 m near-rule" : ", OUTSIDE the 12 m near-rule")}");
+                goalNote = spot is { } sp ? string.Create(CultureInfo.InvariantCulture, $" spot ({sp.X:0},{sp.Y:0}) {new Vector2(sp.X - e.Position.X, sp.Y - e.Position.Y).Length():0.0} m off") : " no spot";
+            }
+            else who = tgt > 0 ? "player " + tgt : "none";
+            int near3 = 0;
+            for (int i = 0; i < nAll; i++) if (all[i].Alive && all[i].Id != r.Id && Vector3.DistanceSquared(all[i].Position, e.Position) < 9f) near3++;
+            float spd = nowTick > snapOldAt ? (e.Position - snapOld[r.Id]).Length() / ((nowTick - snapOldAt) / 30f) : 0f;
+            string band = Band(r.At.Y) + (MathF.Abs(MathF.Round(r.At.X / 10f) * 10f) < 1f && MathF.Round(r.At.Y / 10f) * 10f == 130f ? " [cross passage x0 y130]" : "");
+            diag.Add((r.At.Y, band, string.Create(CultureInfo.InvariantCulture, $"{(run.Battle?.HqSeconds ?? 0f):0}s {r.Type} {r.Why} at ({r.At.X:0},{r.At.Y:0},{r.At.Z:0}) state {e.State} speed {spd:0.00} m/s, {near3} Orks within 3 m, node {e.Node} {FlowNote(w.Musou, e.Node)} target {who}{goalNote}")));
         };
         run.Enqueue(1, new TfwCommandRecord(1, TfwCommand.Deploy, 0));
         for (int k = 0; k < (int)((TfwBattleRules.TravelSeconds + 0.5f) * 30); k++) w.Step(_ => default);
@@ -130,8 +149,8 @@ static class WarfrontHqCommand
         {
             var scale = SmSim.Extras.Warfront.Progression.WarfrontOrkScaling.LevelScale(5);
             run.Warfront.OrkLevelScale = () => (scale.Health, scale.Damage);   // level 5 Ork scaling (the review's acceptance)
-            human = _scenario == "passive" ? new Vector3(0f, 172f, WarfrontHqMap.PlateauZ) : Stand[0];
-            w.TfwRespawnAt(1, human, _scenario == "passive" ? MathF.PI : 0f);
+            human = _scenario == "passive" ? new Vector3(0f, 172f, WarfrontHqMap.PlateauZ) : _scenario == "open" ? new Vector3(0f, 160f, WarfrontHqMap.PlateauZ) : Stand[0];   // open (W13d diagnosis): passive, but standing in the open in the middle of the chamber
+            w.TfwRespawnAt(1, human, _scenario is "passive" or "open" ? MathF.PI : 0f);
             if (_scenario == "gate9")
             {
                 var ring = run.Battle!.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ };
@@ -142,7 +161,6 @@ static class WarfrontHqCommand
 
         var prev = new Vector3[MusouSim.Capacity + 1];
         var seen = new bool[MusouSim.Capacity + 1];
-        var all = new MusouEnemy[MusouSim.Capacity];
         int minutes = (seconds + 59) / 60;
         var through = new int[Chokes.Length, minutes + 1];
         var queue = new int[Chokes.Length];
@@ -156,7 +174,7 @@ static class WarfrontHqCommand
         run.Warfront.NodeEnded = (_, _, r) => result = r;
         var slow = new List<(double Ms, int Tick, byte Flags, int Stuck, int Alive)>();
         var falls = new List<string>();
-        int fallen = 0, kills = 0, marineClock = 0, lastStuck = 0, nAll = 0;
+        int fallen = 0, kills = 0, marineClock = 0, lastStuck = 0;
         bool shooter = _scenario is "fallback" or "gate9";
         var openTicks = new int[3]; var stageOpenTicks = new int[3]; var perSource = new Dictionary<(int, int), int>();   // finding 3: the seconds each stage source was open (clear of every human's sight)
         int at = 0, wp = 0, deaths = 0; bool walking = false, wasAlive = true; float maxHp = 0f;
@@ -219,6 +237,12 @@ static class WarfrontHqCommand
             }
             int n = w.Musou!.CopyTo(all);
             nAll = n;
+            nowTick = t;
+            if (_diagnose && t % 45 == 0)
+            {
+                Array.Copy(snapNew, snapOld, snapNew.Length); snapOldAt = snapNewAt; snapNewAt = t;
+                for (int i = 0; i < n; i++) snapNew[all[i].Id] = all[i].Position;
+            }
             if (battle.HqFallenCount != fallen) { fallen = battle.HqFallenCount; falls.Add($"{"WKV"[Math.Min(2, fallen - 1)]} fell at {t / 30f:0} s ({t / 1800}:{t / 30 % 60:00})"); }
             if (_scenario is not null && t % 450 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {t / 1800}:{t / 30 % 60:00}  front {battle.HqFront}  hold {battle.HqHold:0.00}  Orks' weight {battle.HqWeights.Orks} vs defenders' {battle.HqWeights.Defenders}  Orks alive {n}  Guardsmen {w.TfwGuards?.Alive}  Orks killed {battle.OrksKilled}  human {(w.Players[1].Alive ? "alive" : "down")} at y {w.Players[1].Position.Y:0}"));
             if (waves && t % 10 == 0)
@@ -264,6 +288,8 @@ static class WarfrontHqCommand
         {
             double tEnd = battle.HqSeconds;
             Console.WriteLine($"result {(result?.ToString() ?? "still running")} at {(int)tEnd / 60}:{(int)tEnd % 60:00}; {string.Join("; ", falls)}; waves sent {battle.HqWavesSent}; Orks made {battle.HqOrksMade}, skipped {battle.HqOrksSkipped}, Weirdboyz {battle.WeirdboyzCome}; the human {(w.Players[1].Alive ? "alive" : "down")}; modelled Marine kills {kills}; Guardsmen routed {battle.HqGuardsRouted}{(_scenario == "fallback" ? $"; the fallback human's deaths {deaths}, last position held by him {"WKV"[Math.Min(2, at)]}" : "")}");
+            int pairKills = w.Scores.Where(kv => TfwContracts.IsPuppet(kv.Key)).Sum(kv => kv.Value.Kills), humanKills = w.Scores.TryGetValue(1, out var hs) ? hs.Kills : 0;
+            Console.WriteLine($"kills credited: the allied pair {pairKills}, the human {humanKills}, everyone else (the Guardsmen, the modelled Marines, the failsafe, the walls) {battle.OrksKilled - pairKills - humanKills}; the pair is {(run.Allies ? "on" : "off")}");
             Console.WriteLine($"Orks killed by the human and others: {battle.OrksKilled}; stuck-log records {stuck.Count} = {stuck.Count * 100.0 / Math.Max(1, battle.HqOrksMade):0.0} % of the Orks made");
             var relocated = stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => x.Id).ToList();
             Console.WriteLine($"stranded Orks sent back to the assembly ground: {relocated.Sum(g => g.Count())} times by {relocated.Count} Orks, {relocated.Count(g => g.Count() >= 2)} of them twice or more; removed {stuck.Count(x => x.Why == WarfrontStuckWhy.Removed)}");
@@ -273,23 +299,37 @@ static class WarfrontHqCommand
             Console.WriteLine("slowest ticks (ms, second, what ran: 1 muster, 2 stage spawns, 4 chunk let go, 8 wave left, 16 position fell, 32 a gen 2 GC, 64 a gen 0 GC; stuck records that tick; Orks alive):");
             foreach (var x in slow.OrderByDescending(x => x.Ms).Take(5)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {x.Ms:0.0} ms at {x.Tick / 30f:0.0} s, flags {x.Flags}, stuck {x.Stuck}, alive {x.Alive}"));
         }
-        if (!waves)
+        if (!waves || _diagnose)
         {
-            Console.WriteLine("chokepoint                    first through   per minute (min 1..)                    most per minute   largest queue (25 m before)");
+            Console.WriteLine("chokepoint                    first through   per minute (min 1..)                    most per minute   total   largest queue (25 m before)");
             for (int c = 0; c < Chokes.Length; c++)
             {
                 var row = Enumerable.Range(0, minutes).Select(m => through[c, m]).ToArray();
-                Console.WriteLine($"{Chokes[c].Name,-28}  {(first[c] < 0 ? "never" : (first[c] / 30f).ToString("0.0", CultureInfo.InvariantCulture) + " s"),-14}  {string.Join(" ", row.Select(v => v.ToString().PadLeft(4))),-38}  {row.Max(),-16}  {queue[c]}");
+                Console.WriteLine($"{Chokes[c].Name,-28}  {(first[c] < 0 ? "never" : (first[c] / 30f).ToString("0.0", CultureInfo.InvariantCulture) + " s"),-14}  {string.Join(" ", row.Select(v => v.ToString().PadLeft(4))),-38}  {row.Max(),-16}  {row.Sum(),-6}  {queue[c]}");
             }
-            Console.WriteLine($"stuck-log records: {stuck.Count} ({stuck.Count / 3.0:0.0} % of 300): " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()} ({string.Join("/", g.GroupBy(s => s.Why).Select(h => $"{h.Key} {h.Count()}"))})")));
+            if (!waves) Console.WriteLine($"stuck-log records: {stuck.Count} ({stuck.Count / 3.0:0.0} % of 300): " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()} ({string.Join("/", g.GroupBy(s => s.Why).Select(h => $"{h.Key} {h.Count()}"))})")));
         }
-        else Console.WriteLine($"stuck-log records: {stuck.Count}: " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()}")));
+        if (waves) Console.WriteLine($"stuck-log records: {stuck.Count}: " + string.Join(", ", stuck.GroupBy(s => Band(s.At.Y)).OrderBy(g => g.Key).Select(g => $"{g.Key}: {g.Count()}")));
         foreach (var r in stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => ((int)MathF.Round(x.At.X / 10f), (int)MathF.Round(x.At.Y / 10f))).OrderByDescending(g => g.Count()).Take(8).Select(g => g.First()).Take(0)) Console.WriteLine(r);
         foreach (var g in stuck.GroupBy(x => ((int)MathF.Round(x.At.X / 10f) * 10, (int)MathF.Round(x.At.Y / 10f) * 10)).OrderByDescending(g => g.Count()).Take(8)) Console.WriteLine($"  stuck cell x {g.Key.Item1} y {g.Key.Item2}: {g.Count()}");
         foreach (var r in stuck.Take(0)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  stuck: {r.Type} {r.Why} at ({r.At.X:0}, {r.At.Y:0}, {r.At.Z:0})"));
         if (_diagnose)
-            foreach (var grp in diag.GroupBy(d => d.Contains("Relocated") || d.Contains("Removed") ? Hot(d) : "other"))
-            { Console.WriteLine($"diagnosis, {grp.Key}: {grp.Count()} records, first 10:"); foreach (var d in grp.Take(10)) Console.WriteLine("  " + d); }
+        {
+            foreach (var grp in diag.GroupBy(d => d.Band).OrderBy(g => g.Min(x => x.Y)))
+            {
+                int g10 = Math.Max(1, grp.Count() / 10);
+                Console.WriteLine($"diagnosis, {grp.Key}: {grp.Count()} records, ten spread through the run:");
+                foreach (var d in grp.Where((_, i) => i % g10 == 0).Take(10)) Console.WriteLine("  " + d.Line);
+            }
+            // which cause: the ring rule. Records whose Ork held a ring as its target, split by inside/outside and by the 12 m near-rule
+            var ringRows = diag.Where(d => d.Line.Contains(" ring ")).ToList();
+            Console.WriteLine($"records with a position's ring as the target: {ringRows.Count} of {diag.Count}; inside the ring and outside the 12 m near-rule {ringRows.Count(d => d.Line.Contains("inside the ring, OUTSIDE"))}, inside and within 12 m {ringRows.Count(d => d.Line.Contains("inside the ring, within"))}, outside the ring {ringRows.Count(d => d.Line.Contains("outside the ring"))}");
+            Console.WriteLine($"records by speed over the last seconds: under 0.2 m/s {diag.Count(d => SpeedOf(d.Line) < 0.2f)}, 0.2 to 1 {diag.Count(d => SpeedOf(d.Line) is >= 0.2f and < 1f)}, over 1 {diag.Count(d => SpeedOf(d.Line) >= 1f)}; records with 8 or more Orks within 3 m: {diag.Count(d => NearOf(d.Line) >= 8)}");
+            var round = stuck.GroupBy(x => x.Id).Select(g => g.Count()).ToList();
+            Console.WriteLine($"Orks caught more than once by the failsafe: {round.Count(c => c >= 2)} of {battle.HqOrksMade} made ({round.Count(c => c >= 2) * 100.0 / Math.Max(1, battle.HqOrksMade):0.0} %)");
+            var pr = stuck.Where(x => x.Why != WarfrontStuckWhy.Cleared).GroupBy(x => Band(x.At.Y)).Select(g => $"{g.Key} {g.Count()}");
+            Console.WriteLine("failsafe records (stranded and removed) by place: " + string.Join(", ", pr));
+        }
         Report("tick cost, whole run", steps);
         if (waves) Report("tick cost, third wave on the field", stepsBig);
         return 0;
@@ -302,6 +342,9 @@ static class WarfrontHqCommand
         string nx = next < 0 ? "no next" : $"next ({m.Walk.X(next):0.0},{m.Walk.Y(next):0.0},{m.Walk.Z(next):0.0}) dist {f.Distance(next):0.0}";
         return $"flow dist {f.Distance(node):0.0} nodeAt ({m.Walk.X(node):0.0},{m.Walk.Y(node):0.0},{m.Walk.Z(node):0.0}) {nx}";
     }
+
+    static float SpeedOf(string line) { int a = line.IndexOf(" speed ", StringComparison.Ordinal) + 7; int b = line.IndexOf(' ', a); return float.Parse(line[a..b], CultureInfo.InvariantCulture); }
+    static int NearOf(string line) { int b = line.IndexOf(" Orks within 3 m", StringComparison.Ordinal); int a = line.LastIndexOf(' ', b - 1) + 1; return int.Parse(line[a..b]); }
 
     static string Hot(string d)
     {

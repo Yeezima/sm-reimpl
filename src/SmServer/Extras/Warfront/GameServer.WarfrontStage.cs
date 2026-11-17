@@ -172,6 +172,8 @@ public sealed partial class GameServer
         if (run.Warfront is { } rules)
         {
             rules.Target = target.Kind;   // the run's battle plan reads it (the HQ defence's layout)
+            run.Allies = SmSim.World.WarfrontAlliedPair(s.MaxHumans);   // W13d part 3 (owner 2026-11-17, an interpretation): the two allied AI Marines only in a solo campaign (the cap is one); the Deploy below spawns them
+            if (s.LandingEnqueued == 0) WfLog(run.Allies ? "allied pair: on (solo campaign)" : "allied pair: off");
             rules.Fortress = fortress ? WarfrontFortressSetupFor(run) : null;   // the fortress's plan and sight test (W14b); only a fortress stage ever sets it
             if (rules.Fortress is { Sight: null }) WfLog($"FAULT: the fortress stage has no sight test (this map has no weapon collision): stage 2 sources stay closed to anyone in the plaza and no spawn is judged hidden");
         }
