@@ -65,7 +65,7 @@ public static class PlasmaSoftEdges
     public const string CannonShaderLine = "a *= pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);";
 
     /// <summary>plasma-cannon-shots (owner 2026-11-17: "make the main projectile ball at the front larger to match the reference image"): the loyalist or Chaos cannon's charged trail effect (<c>plasma_cannon_secondary_trail</c>); only its ball rings are enlarged.</summary>
-    public const float ChargedBallScale = 3.5f;   // ours / estimate: reference 1's ball is about 3.5 times the data's
+    public const float ChargedBallScale = 1.25f;   // owner 2026-11-17: "make it only 1.25x bigger"
     /// <summary>The share of violet mixed into the charged trail's streamers (ours / estimate; owner: "only the trail has traces of violet").</summary>
     public const float VioletShare = 0.55f;
     static readonly (float R, float G, float B) VioletRgb = (0.66f, 0.45f, 1.0f);
