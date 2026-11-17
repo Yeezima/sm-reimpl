@@ -154,6 +154,13 @@ The playtest build holds the Mapmaker (docs/mapmaker.md) and the launcher has a 
   `--headless --import --path` with a 3-minute limit; `.sm-imported` is written only after exit code 0 (and cleared when a sync changed files), so an early quit is retried.
   **Uninstall:** the launcher has no uninstall yet; `--root <dir> --remove-mapmaker` (`MapmakerSetup.Remove`) deletes `tools\` and the launcher-made files of
   `mapmaker-project\` (tester files stay; maps in the library folder are outside the install), ready for the uninstall to call.
+- **Play test in the install** (owner, 2026-11-18: "ensure the latest mapmaker playtest button works"): `mapmaker\playtest.ps1` ships with the project (the launcher copies it to
+  `mapmaker-project\`; `MapmakerSetup.Needed` lists it) and the editor starts with `SM_MAPMAKER_VERSION_DIR` = the active build's folder (`EditorCommand(versionDir:)`; the script
+  falls back to `current.json` beside `mapmaker-project\`). The plugin (`MapmakerPlugin.Flow.cs`) uses the checkout's `tools/mapmaker-playtest.ps1` when there is one, else this
+  script in a hidden PowerShell: it starts `server\SmServer.exe --bind 127.0.0.1 --custom-map <file> --dev-tools`, the bots (`game\sm-reimpl.console.exe --headless ... --bot`) and the
+  game window (`game\sm-reimpl.exe --connect 127.0.0.1:<port>`), and stops them by recorded pid and start time (`-Stop`, or when the game closes). `--mapmaker-check` checks the
+  script, the server and the game are all there; the release smoke (step 1d) runs the script with `-Headless` (the player's client a hidden bot) on a starter map and needs the server log
+  to show the custom map. Tests: `tests/SmLauncher.Tests/MapmakerPlaytestTests.cs` (`-Locate`).
 - **Guard scope:** the project's text types (`.cs .uid .tscn .cfg .godot .csproj`) are allowed only for entries under `mapmaker/` (`PackageScanner.ScopedExtensions`), not globally.
 - **Pins cross-checked (2026-11-17):** the .NET 10.0.15 runtime SHA-512 equals the `dotnet-runtime-win-x64.zip` entry of Microsoft's `https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json`, and the zip's Content-Length is 36,980,907.
 - **Smoke test** (release.ps1 step 1d, never a visible window and never a download): `0 - SM Reimpl Launcher.exe --root <install> --mapmaker-check` must print

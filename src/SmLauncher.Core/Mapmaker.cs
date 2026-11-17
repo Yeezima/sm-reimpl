@@ -66,7 +66,11 @@ public sealed class MapmakerSetup(InstallLayout layout)
 {
     public const string ShippedDir = "mapmaker";
     public const string BinDir = "bin";
-    public static readonly string[] Needed = ["project.godot", @"Maps\Empty.tscn", @"addons\sm_mapmaker\plugin.cfg", @"addons\sm_mapmaker\MapmakerPlugin.cs", @"bin\Mapmaker.dll", @"bin\SmMapmaker.dll", @"bin\SmContent.dll"];
+    /// <summary>The environment variable that tells the editor (and so the plugin's Play test, <c>playtest.ps1</c>) which installed build to play with.</summary>
+    public const string VersionDirVariable = "SM_MAPMAKER_VERSION_DIR";
+    /// <summary>The Play test script the build ships in <c>mapmaker\</c> (the launcher copies it into the project).</summary>
+    public const string PlaytestScript = "playtest.ps1";
+    public static readonly string[] Needed = ["project.godot", @"Maps\Empty.tscn", @"addons\sm_mapmaker\plugin.cfg", @"addons\sm_mapmaker\MapmakerPlugin.cs", PlaytestScript, @"bin\Mapmaker.dll", @"bin\SmMapmaker.dll", @"bin\SmContent.dll"];
     /// <summary>Where Godot's editor looks for the project's compiled assembly.</summary>
     public static readonly string EditorAssemblyDir = Path.Combine(".godot", "mono", "temp", "bin", "Debug");
 
@@ -240,9 +244,10 @@ public sealed class MapmakerSetup(InstallLayout layout)
     /// <summary>
     /// The editor's command line: the Godot editor on the work project, visible. <paramref name="safeMode"/> adds the Compatibility renderer like the game's
     /// Old GPU mode. <paramref name="headlessImport"/> is the first-time import: the official one-shot <c>--headless --import --path</c> (console build, no window; exits by itself when done).
-    /// DOTNET_ROOT is set only when the private runtime is used.
+    /// DOTNET_ROOT is set only when the private runtime is used. <paramref name="versionDir"/> (the active build's folder) is handed to the editor as
+    /// <see cref="VersionDirVariable"/>: the plugin's Play test runs that build's server and game (<c>playtest.ps1</c>).
     /// </summary>
-    public MapmakerLaunch EditorCommand(bool safeMode = false, bool headlessImport = false)
+    public MapmakerLaunch EditorCommand(bool safeMode = false, bool headlessImport = false, string? versionDir = null)
     {
         var args = new List<string>();
         if (headlessImport) { args.Add("--headless"); args.Add("--import"); }
@@ -251,6 +256,7 @@ public sealed class MapmakerSetup(InstallLayout layout)
         if (safeMode && !headlessImport) args.AddRange(SafeModePolicy.EngineArgs);
         var env = new Dictionary<string, string>(StringComparer.Ordinal);
         if (FindRuntime() is null) env["DOTNET_ROOT"] = DotNetDir;
+        if (!string.IsNullOrEmpty(versionDir)) env[VersionDirVariable] = Path.GetFullPath(versionDir);
         return new MapmakerLaunch(MapmakerTools.GodotExe(GodotDir, console: headlessImport), args, WorkProject, env);
     }
 

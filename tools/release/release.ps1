@@ -1317,7 +1317,7 @@ if (-not $SkipBuild) {
         if (-not (Test-Path -LiteralPath (Join-Path $mmOut 'Mapmaker.dll'))) { Fail 'The Mapmaker build produced no Mapmaker.dll.' }
         $mmStage = Join-Path $Stage 'mapmaker-pkg'
         New-Item -ItemType Directory -Force -Path (Join-Path $mmStage 'bin') | Out-Null
-        foreach ($f in 'project.godot', 'Mapmaker.csproj', 'README.md') { Copy-Item -LiteralPath (Join-Path $mm $f) -Destination $mmStage }
+        foreach ($f in 'project.godot', 'Mapmaker.csproj', 'README.md', 'playtest.ps1') { Copy-Item -LiteralPath (Join-Path $mm $f) -Destination $mmStage }
         foreach ($sub in 'Maps', 'addons') { Copy-Item -LiteralPath (Join-Path $mm $sub) -Destination $mmStage -Recurse }
         Get-ChildItem -LiteralPath $mmOut -File | Where-Object { $_.Extension -in '.dll', '.json' } | Copy-Item -Destination (Join-Path $mmStage 'bin')
         Write-Host ("  Mapmaker: {0} files ({1:N1} MB)" -f @(Get-ChildItem -LiteralPath $mmStage -Recurse -File).Count, ((Get-ChildItem -LiteralPath $mmStage -Recurse -File | Measure-Object Length -Sum).Sum / 1MB))
@@ -1599,6 +1599,23 @@ if ($Smoke) {
             if (-not $rp.WaitForExit(60000)) { Stop-Process -Id $rp.Id -Force; $rcode = -1 } else { $rcode = $rp.ExitCode }     # only the process started above
             if ($rcode -ne 0 -or -not (Select-String -LiteralPath (Join-Path $smokeDir 'mapmaker-remove.out.txt') -Pattern '^mapmaker removed' -Quiet) -or -not (Test-Path -LiteralPath (Join-Path $pkg 'mapmaker\project.godot'))) { $fail = $true; Write-Host "  mapmaker remove: FAILED (exit $rcode)" -ForegroundColor Red }
             else { Write-Host '  mapmaker remove: --remove-mapmaker succeeded and left the build alone' -ForegroundColor Green }
+            # PLAY TEST in the tester install (docs/releasing.md "The Mapmaker"): the shipped mapmaker\playtest.ps1 finds this build's server and game and plays a starter
+            # map on 127.0.0.1 with one bot a side and a hidden headless client (the tester's own run opens the game window instead): the server must load the custom map and the client join.
+            Step 'Smoke: mapmaker\playtest.ps1 (the Mapmaker PLAY TEST of the installed build)'
+            $ptMap = Join-Path $smokeDir 'playtest-arena.smmap'
+            $ptTool = Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'
+            $ptNew = @('run', '--project', $ptTool, '-c', 'Release', '--no-build', '--', 'map', 'new', $ptMap, '--template', 'arena')
+            & dotnet @ptNew | Out-Null
+            $ptOut = Join-Path $smokeDir 'playtest.out.txt'
+            $ptp = Start-QuietProcess -FilePath (Get-Command powershell.exe).Source -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $pkg 'mapmaker\playtest.ps1'), '-VersionDir', $pkg, '-Map', $ptMap, '-Bots', '1', '-Headless', '-Seconds', '25') -WorkingDirectory $pkg -StdOut $ptOut -StdErr (Join-Path $smokeDir 'playtest.err.txt')
+            if (-not $ptp.WaitForExit(180000)) { Stop-Process -Id $ptp.Id -Force; $ptcode = -1 } else { $ptcode = $ptp.ExitCode }     # only the process started above (the script stops its own server and bots)
+            $pttext = (Get-Content $ptOut -ErrorAction SilentlyContinue) -join "`n"
+            $ptLogs = if ($pttext -match 'logs in (.+)') { $Matches[1].Trim() } else { '' }
+            $ptServer = if ($ptLogs) { (Get-Content -LiteralPath (Join-Path $ptLogs 'server.log') -ErrorAction SilentlyContinue) -join "`n" } else { '' }
+            ($pttext -split "`n" | ForEach-Object { Write-Host "    $_" })
+            if ($ptcode -ne 0 -or $pttext -notmatch 'PLAYTEST ok') { $fail = $true; Write-Host "  mapmaker play test: FAILED (exit $ptcode)" -ForegroundColor Red }
+            elseif ($ptServer -notmatch 'cm_') { $fail = $true; Write-Host "  mapmaker play test: FAILED, the server log does not show the custom map (log: $ptLogs)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker play test: the installed server loaded the custom map and a client joined it' -ForegroundColor Green }
         }
         $found = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $pkg 'game\Launcher.ps1') -FindGame
         Write-Host "  game\Launcher.ps1 -FindGame: $(if ($found) { 'found the install' } else { 'nothing (SM_GAME_DIR is used)' })"

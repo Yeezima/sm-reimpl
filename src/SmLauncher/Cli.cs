@@ -142,7 +142,7 @@ static class Cli
         if (MapmakerSetup.CheckShipped(dir) is { } problem) { Console.WriteLine("mapmaker check: FAILED: " + problem); return 1; }
         var setup = new MapmakerSetup(layout);
         var plan = setup.Plan(dir);
-        var editor = setup.EditorCommand();
+        var editor = setup.EditorCommand(versionDir: dir);
         var import = setup.EditorCommand(headlessImport: true);
         var safe = setup.EditorCommand(safeMode: true);
         var bad = new List<string>();
@@ -150,6 +150,8 @@ static class Cli
         if (!import.Arguments.Contains("--headless") || !import.Arguments.Contains("--import")) bad.Add("import arguments");
         if (!safe.Arguments.Contains("gl_compatibility")) bad.Add("safe-mode arguments");
         if (!string.Equals(editor.WorkingDirectory, setup.WorkProject, StringComparison.OrdinalIgnoreCase) || !editor.Arguments.Contains(setup.WorkProject)) bad.Add("project path");
+        if (!editor.Environment.TryGetValue(MapmakerSetup.VersionDirVariable, out var vd) || !string.Equals(vd, Path.GetFullPath(dir), StringComparison.OrdinalIgnoreCase)) bad.Add("version folder for the play test");
+        if (!File.Exists(Path.Combine(MapmakerSetup.Shipped(dir), MapmakerSetup.PlaytestScript)) || !File.Exists(Path.Combine(dir, "server", "SmServer.exe")) || !File.Exists(Path.Combine(dir, "game", "sm-reimpl.exe")) || !File.Exists(Path.Combine(dir, "game", "sm-reimpl.console.exe"))) bad.Add("play test files (playtest.ps1, the server and the game with its console exe)");
         if (!Updater.IsInsideFolder(editor.FileName, layout.Root)) bad.Add("editor program is not under the install folder");
         if (bad.Count > 0) { Console.WriteLine("mapmaker check: FAILED: " + string.Join("; ", bad)); return 1; }
         Console.WriteLine($"mapmaker check: ok ({Path.GetFileName(dir)}, {MapmakerSetup.ShippedFiles(MapmakerSetup.Shipped(dir)).Count} project files)");

@@ -966,7 +966,7 @@ sealed class MainForm : Form
                 if (code == 0) setup.MarkImported();       // only a finished import counts: otherwise the next press runs it again
             }
             EndBusy();
-            var launch = setup.EditorCommand(safe);
+            var launch = setup.EditorCommand(safe, versionDir: dir);
             _log?.Write("mapmaker: starting the editor: " + launch.Describe());
             var launched = DateTime.UtcNow;
             var editor = MapmakerStart.StartEditor(launch);
