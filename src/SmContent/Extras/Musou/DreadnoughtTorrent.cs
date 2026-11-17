@@ -10,13 +10,13 @@ namespace SmContent.Extras.Musou;
 /// </summary>
 public static class DreadnoughtTorrent
 {
-    public const int PerShot = 5;
+    public const int PerShot = 6;
     public const float RingRadius = 0.45f;       // metres, the ring's radius at the barrel
-    public const float ConeDegrees = 2.0f;       // outward tilt of a streak from the aim axis
+    public const float ConeDegrees = 2.5f;       // outward tilt of a streak from the aim axis
     public const float JitterDegrees = 1.5f;     // random extra spread
     public const float SpinPerShot = 1.1f;       // radians the ring turns between shots
-    public const float StreakSpeed = 650f;       // metres per second of a streak's bright head
-    public const float TailLength = 3.5f;        // metres of fading tail
+    public const float StreakSpeed = 350f;       // metres per second of a streak's bright head
+    public const float TailLength = 8f;          // metres of fading tail
     public const float MaxLength = 70f;          // a streak never flies further than this or the real shot's length
     public const int MaxPerFrame = 24;           // spawn cap per frame (the pool's guard)
     public const float ShakeScale = 0.2f;        // the Dreadnought player's camera shake x0.2 (owner: reduce by 80 %)

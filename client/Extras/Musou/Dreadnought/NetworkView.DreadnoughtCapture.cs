@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System;
 using System.Threading.Tasks;
 using Godot;
@@ -208,12 +210,16 @@ public partial class NetworkView
         GD.Print($"DNFILM start frame {Engine.GetFramesDrawn()}");
         double begun = _connectedFor, next = begun;
         TfwAction(GameAction.Fire, true);
+        var frameMs = new List<double>();   // the firing seconds' frame times, for the torrent's before and after (DNFILM frametime)
+        ulong last = Time.GetTicksUsec();
         while (_connectedFor < begun + 8.0)
         {
             await TfwFrames();
+            ulong now = Time.GetTicksUsec(); if (!client.Predicted.Overheated) frameMs.Add((now - last) / 1000.0); last = now;
             if (_connectedFor >= next) { next += 0.5; var p = client.Predicted; GD.Print($"DNFILM frame {Engine.GetFramesDrawn()} t {_connectedFor - begun:F1} heat {p.Heat:F1} overheated {p.Overheated} clip {p.Clip}"); }
         }
         TfwAction(GameAction.Fire, false);
+        if (frameMs.Count > 10) { frameMs.Sort(); GD.Print($"DNFILM frametime while firing: {frameMs.Count} frames, mean {frameMs.Average():F2} ms, p50 {frameMs[frameMs.Count / 2]:F2}, p99 {frameMs[(int)(frameMs.Count * 0.99)]:F2}, worst {frameMs[^1]:F2} ms; torrent spawned {_torrentSpawned}, peak live {_torrentPeakLive}"); }
         while (_connectedFor < begun + 11.5)
         {
             await TfwFrames();

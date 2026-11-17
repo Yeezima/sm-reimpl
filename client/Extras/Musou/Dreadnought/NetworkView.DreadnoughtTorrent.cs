@@ -64,11 +64,11 @@ public partial class NetworkView
     partial void ExtrasDrawStreaks(Vector3 camera)
     {
         if (_torrentSpawned == 0) return;
-        var cold = new Color(1f, 0.78f, 0.35f, 0f);
-        var hot = new Color(1f, 0.93f, 0.65f, 0.9f);
+        var cold = new Color(1f, 0.35f, 0.15f, 0f);
+        var hot = new Color(1f, 0.8f, 0.45f, 1f);
         int live = 0;
         float oldWidth = _streakWidth;
-        _streakWidth = 0.7f;
+        _streakWidth = 2.2f;
         for (int i = 0; i < _torrent.Length; i++)
         {
             ref var s = ref _torrent[i];
