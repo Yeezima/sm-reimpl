@@ -9,6 +9,7 @@
   playtest.ps1 -Map <file.smmap> [-Mode annihilation|seize] [-Bots 3] [-Side marines|chaos] [-Class tactical] [-Port n]
   playtest.ps1 -Stop                         stops only the processes the last run recorded (by id and start time)
   playtest.ps1 -Locate [-VersionDir <dir>]   prints where the server and the game were found (or why not), starts nothing
+  -Plan                                      prints the command lines it would run (PLAN server|bot|client ...), starts nothing
   -Headless [-Seconds 30]                    a test aid: the player's client is a hidden bot that stays -Seconds, instead of a game window
 
   Where the build is found, in order: -VersionDir, the SM_MAPMAKER_VERSION_DIR variable (the launcher sets it when it opens the editor), then the install's
@@ -19,8 +20,8 @@
   Never binds every interface; never writes to the game install; the live servers' ports are never used.
 #>
 param(
-    [string]$Map = '', [ValidateSet('annihilation', 'seize')][string]$Mode = 'annihilation', [int]$Bots = 3, [string]$Side = 'marines', [string]$Class = 'tactical',
-    [int]$Port = 0, [switch]$Stop, [switch]$Locate, [string]$VersionDir = '', [switch]$Headless, [int]$Seconds = 30
+    [string]$Map = '', [ValidateSet('annihilation', 'seize')][string]$Mode = 'annihilation', [int]$Bots = 3, [ValidateSet('marines', 'chaos')][string]$Side = 'marines', [string]$Class = 'tactical',
+    [ValidateScript({ $_ -eq 0 -or ($_ -ge 1024 -and $_ -le 65535) })][int]$Port = 0, [switch]$Stop, [switch]$Locate, [switch]$Plan, [string]$VersionDir = '', [switch]$Headless, [int]$Seconds = 30
 )
 $ErrorActionPreference = 'Stop'
 $Data = if ($env:SM_DATA_DIR) { $env:SM_DATA_DIR } else { Join-Path $env:LOCALAPPDATA 'sm-reimpl' }
@@ -54,6 +55,17 @@ function Find-Game([string]$explicit) {
     return [pscustomobject]@{ Dir = $v; Server = $server; Game = $game; Console = $console }
 }
 
+# Windows PowerShell 5.1 joins a Start-Process argument list without quoting: quote what holds a space (the install folder is "SM Reimpl").
+function Quote([string[]]$a) { ($a | ForEach-Object { if ($_ -match '[\s"]' -or $_ -eq '') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' ' }
+# The command lines, one place (-Plan prints them; the tests check them). The game reads its own arguments only after "--" (Godot's user arguments), as Play.cmd does.
+function Get-ServerArgs($g, [int]$port) { @('--bind', '127.0.0.1', '--port', "$port", '--mode', $Mode, '--custom-map', $Map, '--dev-tools', '--dev-bot-exe', $g.Console) }
+function Get-BotArgs([int]$port, [string]$side, [string]$cls, [string]$log) { @('--headless', '--log-file', $log, '--', '--connect', "127.0.0.1:$port", '--bot', '--no-sound', '--no-hud', '--side', $side, '--class', $cls) }
+function Get-ClientArgs([int]$port) { @('--', '--connect', "127.0.0.1:$port", '--side', $Side, '--class', $Class) }
+function Get-BotClass([string]$side, [int]$i) {
+    $role = @('tactical', 'assault', 'devastator')[$i % 3]
+    if ($side -eq 'chaos') { @{ tactical = 'chaos tactical'; assault = 'raptor'; devastator = 'havoc' }[$role] } else { $role }
+}
+
 if ($Locate) {
     try { $g = Find-Game $VersionDir; Write-Host "LOCATE ok|$($g.Dir)|$($g.Server)|$($g.Game)|$($g.Console)"; exit 0 }
     catch { Write-Host "LOCATE failed: $($_.Exception.Message)"; exit 1 }
@@ -78,11 +90,19 @@ if ($Stop) { $n = Stop-Recorded; Write-Host "Stopped $n process(es) of the last 
 if (-not $Map) { Write-Host 'PLAYTEST failed: -Map <file.smmap> is required.'; exit 1 }
 if (-not (Test-Path -LiteralPath $Map)) { Say 'failed' "the map file '$Map' does not exist."; Write-Host "PLAYTEST failed: the map file '$Map' does not exist."; exit 1 }
 $Map = (Resolve-Path -LiteralPath $Map).Path
-if ($Bots -lt 0 -or $Bots -gt 6) { Write-Host 'PLAYTEST failed: -Bots takes 0 to 6 per side.'; exit 1 }
+if ($Bots -lt 0 -or $Bots -gt 6) { Say 'failed' '-Bots takes 0 to 6 per side.'; Write-Host 'PLAYTEST failed: -Bots takes 0 to 6 per side.'; exit 1 }
+if ($Plan) {
+    try {
+        $g = Find-Game $VersionDir
+        $pp = if ($Port -eq 0) { 27701 } else { $Port }
+        Write-Host ('PLAN server: ' + $g.Server + ' ' + (Quote (Get-ServerArgs $g $pp)))
+        for ($i = 0; $i -lt [Math]::Min($Bots, 1); $i++) { Write-Host ('PLAN bot: ' + $g.Console + ' ' + (Quote (Get-BotArgs $pp 'marines' (Get-BotClass 'marines' $i) 'bot.log'))) }
+        Write-Host ('PLAN client: ' + $g.Game + ' ' + (Quote (Get-ClientArgs $pp)))
+        exit 0
+    } catch { Write-Host "PLAN failed: $($_.Exception.Message)"; exit 1 }
+}
 $null = Stop-Recorded   # a play test of this script still running from before: only its own recorded processes
 
-# Windows PowerShell 5.1 joins a Start-Process argument list without quoting: quote what holds a space (the install folder is "SM Reimpl").
-function Quote([string[]]$a) { ($a | ForEach-Object { if ($_ -match '[\s"]' -or $_ -eq '') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' ' }
 
 $result = 'PLAYTEST failed: unknown'
 $records = [System.Collections.Generic.List[object]]::new()
@@ -103,7 +123,7 @@ try {
 
     Say 'server' "Starting the server on 127.0.0.1:$Port..."
     $slog = Join-Path $logDir 'server.log'
-    $sargs = @('--bind', '127.0.0.1', '--port', "$Port", '--mode', $Mode, '--custom-map', $Map, '--dev-tools', '--dev-bot-exe', $g.Console)
+    $sargs = Get-ServerArgs $g $Port
     $server = Start-Process -FilePath $g.Server -ArgumentList (Quote $sargs) -WorkingDirectory (Split-Path -Parent $g.Server) -WindowStyle Hidden -PassThru -RedirectStandardOutput $slog -RedirectStandardError (Join-Path $logDir 'server.err.log')
     Record $server
     $deadline = (Get-Date).AddSeconds(60)
@@ -120,9 +140,8 @@ try {
     if ($Bots -gt 0) { Say 'bots' "Starting $($Bots * 2) bots..." }
     foreach ($s in 'marines', 'chaos') {
         for ($i = 0; $i -lt $Bots; $i++) {
-            $role = @('tactical', 'assault', 'devastator')[$i % 3]
-            $cls = if ($s -eq 'chaos') { @{ tactical = 'chaos tactical'; assault = 'raptor'; devastator = 'havoc' }[$role] } else { $role }
-            $bargs = @('--headless', '--log-file', (Join-Path $logDir "bot-$s-$i.godot.log"), '--', '--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--no-hud', '--side', $s, '--class', $cls)
+            $cls = Get-BotClass $s $i
+            $bargs = Get-BotArgs $Port $s $cls (Join-Path $logDir "bot-$s-$i.godot.log")
             $bp = Start-Process -FilePath $g.Console -ArgumentList (Quote $bargs) -WorkingDirectory (Split-Path -Parent $g.Console) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDir "bot-$s-$i.log") -RedirectStandardError (Join-Path $logDir "bot-$s-$i.err.log")
             Record $bp
             Start-Sleep -Milliseconds 800
@@ -132,7 +151,7 @@ try {
     $name = [IO.Path]::GetFileNameWithoutExtension($Map)
     if ($Headless) {
         # test aid: the player's client is a hidden bot, so a run needs no window; it stays -Seconds
-        $cargs = @('--headless', '--log-file', (Join-Path $logDir 'client.godot.log'), '--', '--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--no-hud', '--side', $Side, '--class', $Class)
+        $cargs = Get-BotArgs $Port $Side $Class (Join-Path $logDir 'client.godot.log')
         $client = Start-Process -FilePath $g.Console -ArgumentList (Quote $cargs) -WorkingDirectory (Split-Path -Parent $g.Console) -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDir 'client.log') -RedirectStandardError (Join-Path $logDir 'client.err.log')
         Record $client
         Say 'playing' "Headless play test of $name ($Mode) on 127.0.0.1:$Port for $Seconds s."
@@ -141,12 +160,13 @@ try {
         $result = "PLAYTEST ok (headless, port $Port)"
     } else {
         Say 'playing' "Playing $name ($Mode) on 127.0.0.1:$Port. F6 opens the dev tools (add or remove bots, invincible, teleport). Close the game window to stop."
-        $cargs = @('--connect', "127.0.0.1:$Port", '--side', $Side, '--class', $Class)
+        $cargs = Get-ClientArgs $Port
         $client = Start-Process -FilePath $g.Game -ArgumentList (Quote $cargs) -WorkingDirectory (Split-Path -Parent $g.Game) -PassThru
         Record $client
         $client.WaitForExit()
         $result = 'PLAYTEST ok (the game was closed; server and bots stopped)'
     }
+    Say 'done' 'Play test over (the server and the bots are stopped).'
 }
 catch { $result = "PLAYTEST failed: $($_.Exception.Message)"; Say 'failed' $_.Exception.Message }
 finally {

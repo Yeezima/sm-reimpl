@@ -36,11 +36,14 @@ public class MapmakerPlaytestTests
         return (script, v);
     }
 
-    static (int Code, string Out) Run(string script, string? versionEnv, params string[] args)
+    static (int Code, string Out) Run(string script, string? versionEnv, params string[] args) => RunWith(script, versionEnv, null, args);
+
+    static (int Code, string Out) RunWith(string script, string? versionEnv, string? dataDir, params string[] args)
     {
         var psi = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script }.Concat(args)) psi.ArgumentList.Add(a);
         psi.Environment.Remove(MapmakerSetup.VersionDirVariable);
+        if (dataDir is not null) psi.Environment["SM_DATA_DIR"] = dataDir;
         if (versionEnv is not null) psi.Environment[MapmakerSetup.VersionDirVariable] = versionEnv;
         using var p = Process.Start(psi)!;
         string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
@@ -110,5 +113,88 @@ public class MapmakerPlaytestTests
         Assert.Equal(1, code);
         Assert.Contains("game files not found", o);
         Assert.Contains("install folder is not known", o);
+    }
+
+    /// <summary>An install and a map whose folders hold a space, an apostrophe and non-ASCII letters (a Windows user name, "SM Reimpl").</summary>
+    static (string Script, string Version, string Map) MakeAwkwardInstall(TempDir t)
+    {
+        string source = ScriptSource()!;
+        string v = t["Mein Ordnär O'Neil\\versions\\tester-2026-11-18-abc1234"];
+        Directory.CreateDirectory(Path.Combine(v, "server")); Directory.CreateDirectory(Path.Combine(v, "game"));
+        foreach (var f in new[] { @"server\SmServer.exe", @"game\sm-reimpl.exe", @"game\sm-reimpl.console.exe" }) File.WriteAllText(Path.Combine(v, f), "x");
+        string script = t["Mein Ordnär O'Neil\\mapmaker-project\\playtest.ps1"];
+        Directory.CreateDirectory(Path.GetDirectoryName(script)!);
+        File.Copy(source, script);
+        string map = t["Meine Karten über\\my map's.smmap"];
+        Directory.CreateDirectory(Path.GetDirectoryName(map)!);
+        File.WriteAllText(map, "{}");
+        return (script, v, map);
+    }
+
+    [Fact]
+    public void The_visible_client_gets_its_arguments_after_the_double_dash_like_Play_cmd_does()
+    {
+        using var t = new TempDir();
+        var (script, v) = MakeInstall(t);
+        string map = t[@"maps\a.smmap"]; Directory.CreateDirectory(Path.GetDirectoryName(map)!); File.WriteAllText(map, "{}");
+        var (code, o) = Run(script, v, "-Plan", "-Map", map, "-Side", "chaos", "-Class", "raptor", "-Port", "27705");
+        Assert.Equal(0, code);
+        var lines = o.Split('\n');
+        var client = lines.Single(l => l.StartsWith("PLAN client:"));
+        Assert.EndsWith(@"sm-reimpl.exe -- --connect 127.0.0.1:27705 --side chaos --class raptor", client.TrimEnd());
+        Assert.Contains(" -- --connect 127.0.0.1:27705 --bot ", lines.Single(l => l.StartsWith("PLAN bot:")));
+        Assert.Contains("--bind 127.0.0.1 --port 27705 --mode annihilation --custom-map", lines.Single(l => l.StartsWith("PLAN server:")));
+        Assert.DoesNotContain("0.0.0.0", o);
+    }
+
+    [Fact]
+    public void Paths_with_spaces_apostrophes_and_non_ASCII_letters_are_quoted_whole()
+    {
+        using var t = new TempDir();
+        var (script, v, map) = MakeAwkwardInstall(t);
+        var (code, o) = Run(script, v, "-Plan", "-Map", map);
+        Assert.Equal(0, code);
+        Assert.DoesNotContain("failed", o);
+        Assert.Matches("--custom-map \".*my map's\\.smmap\"", o);       // one quoted token
+        Assert.Matches("PLAN server: .*SmServer.exe --bind", o);
+        var (lc, lo) = Run(script, v, "-Locate");
+        Assert.Equal(0, lc);
+        Assert.StartsWith("LOCATE ok|", lo);
+    }
+
+    [Fact]
+    public void An_unknown_side_or_a_port_out_of_range_is_refused_before_anything_starts()
+    {
+        using var t = new TempDir();
+        var (script, v) = MakeInstall(t);
+        Assert.NotEqual(0, Run(script, v, "-Plan", "-Map", script, "-Side", "orks").Code);
+        Assert.NotEqual(0, Run(script, v, "-Plan", "-Map", script, "-Port", "80").Code);
+    }
+
+    [Fact]
+    public void Stop_ends_a_recorded_process_only_when_its_start_time_matches()
+    {
+        using var t = new TempDir();
+        var (script, _) = MakeInstall(t);
+        string data = t["data"];
+        string state = Path.Combine(data, "tmp-build", "mapmaker-playtest");
+        Directory.CreateDirectory(state);
+        using var victim = Process.Start(new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, ArgumentList = { "-NoProfile", "-Command", "Start-Sleep -Seconds 60" } })!;
+        try
+        {
+            long start = victim.StartTime.ToFileTimeUtc();
+            // a recycled id: the same pid with another start time is left alone
+            File.WriteAllText(Path.Combine(state, "run.json"), "{\"pids\":[{\"pid\":" + victim.Id + ",\"start\":" + (start + 12345) + "}]}");
+            var (c1, o1) = RunWith(script, null, data, "-Stop");
+            Assert.Equal(0, c1);
+            Assert.Contains("Stopped 0", o1);
+            Assert.False(victim.HasExited);
+            File.WriteAllText(Path.Combine(state, "run.json"), "{\"pids\":[{\"pid\":" + victim.Id + ",\"start\":" + start + "}]}");
+            var (c2, o2) = RunWith(script, null, data, "-Stop");
+            Assert.Equal(0, c2);
+            Assert.Contains("Stopped 1", o2);
+            Assert.True(victim.WaitForExit(10_000));
+        }
+        finally { if (!victim.HasExited) victim.Kill(); }     // only the process this test started
     }
 }

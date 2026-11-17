@@ -217,6 +217,7 @@ public partial class MapmakerPlugin
     // ---- play test ----------------------------------------------------------------------------------------------------------------------------------------
 
     int _playPid;
+    bool _playFromInstall;
     public string PlayStatus { get; private set; } = "";
     public event Action? PlayStatusChanged;
     public bool PlayRunning => _playPid != 0 && OS.IsProcessRunning(_playPid);
@@ -266,6 +267,7 @@ public partial class MapmakerPlugin
         var (script, lead) = PlayScript();
         if (script is null) return Fail("Play test is not available here: the Mapmaker project has no playtest.ps1. Open the Mapmaker from the launcher (the MAPMAKER button) of the newest build.");
         bool fromInstall = RepoRoot() is null;
+        _playFromInstall = fromInstall;
         var report = MapCheck.Run(Compiled()!);
         var need = mode == "seize" ? CheckMode.Seize : CheckMode.Annihilation;
         if (!report.Ready(need))
@@ -315,7 +317,15 @@ public partial class MapmakerPlugin
             string last = "";
             try { if (File.Exists(PlayStatusFile)) last = File.ReadAllText(PlayStatusFile).Trim(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
             int bar = last.IndexOf('|');
-            SetPlayStatus(last.StartsWith("failed") ? "Play test failed: " + (bar >= 0 ? last[(bar + 1)..] : last) : "Play test over (the server and the bots are stopped).");
+            if (last.StartsWith("failed")) SetPlayStatus("Play test failed: " + (bar >= 0 ? last[(bar + 1)..] : last));
+            else if (_playFromInstall && !last.StartsWith("done"))
+            {
+                // the installed script writes "done|..." as its last act: anything else means PowerShell never ran it (execution policy, a parse error) or it died early
+                string why = "Play test failed: the play test script did not run to its end (PowerShell was blocked or stopped; last state: " + (last.Length == 0 ? "none" : last) + "). Check the execution policy or run playtest.ps1 from the mapmaker-project folder in the install.";
+                GD.PushWarning("Mapmaker: " + why);
+                SetPlayStatus(why);
+            }
+            else SetPlayStatus("Play test over (the server and the bots are stopped).");
         }
     }
 
