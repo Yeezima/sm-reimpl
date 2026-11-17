@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3784 spec table rows: **2752 tagged**, 676 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 786 rows of the changes document.
+Scanned 3788 spec table rows: **2756 tagged**, 676 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 787 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,26 +51,26 @@ Scanned 3784 spec table rows: **2752 tagged**, 676 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
-| General game design | 152 | 144 | 125 | 18 | 0 |
-| Ork faction | 284 | 266 | 168 | 70 | 0 |
-| **All areas** | **2752** | 2458 | 2087 | 807 | 37 |
+| General game design | 155 | 146 | 126 | 19 | 0 |
+| Ork faction | 285 | 267 | 168 | 71 | 0 |
+| **All areas** | **2756** | 2461 | 2088 | 809 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1595 |
-| confidence: low | 1017 |
+| kind: ours | 1598 |
+| confidence: low | 1018 |
 | confidence: medium | 961 |
 | notes: ours | 469 |
 | kind: interpretation | 437 |
 | kind: estimate | 251 |
-| notes: estimate | 211 |
+| notes: estimate | 212 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 44 |
-| notes: provisional | 42 |
+| notes: provisional | 43 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
@@ -87,8 +87,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: guess | 5 |
 | kind: inferred | 3 |
 | section: approximation | 3 |
+| notes: approximation | 2 |
 | notes: unverified | 2 |
-| notes: approximation | 1 |
 
 ## Part A: gameplay areas, critical first
 
@@ -3971,7 +3971,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (152)
+### General game design (155)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4189,6 +4189,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-240B6979` | HQ install props (counts are placeholders) | 38 props: 8 Imperial banners (`sm_banner`, 9 m) along the curtain walls in the courtyard, 8 Ork totems, 10 scrap heaps and 6 more in the ditch, 4 turrets and 2 roks on the assembly ground, all 46 m or more from the ramp's foot (a test) (count) | kind: estimate; confidence: low | review 1 item 2 | HQ install props (counts are placeholders): compare with SM1 by feel or video. Ours: 38 props: 8 Imperial banners (sm_banner, 9 m) along the curtain walls… | ☐ |
 | `R-C0D55CAE` | Compatibility renderer (old-GPU switch) | one run each of the fortress and the HQ landing with `--rendering-method gl_compatibility --rendering-driver opengl3 --safe-mode`: the plating shader compiles and draws (no shader error in the log, a still of the fortress shows the plated walls), so no… | confidence: medium | review 1 item 4 | Compatibility renderer (old-GPU switch): compare with SM1 by feel or video. Ours: one run each of the fortress and the HQ landing with… | ☐ |
 | `R-92D1AB93` | Walks (videos) | 30 s walks at 30 frames a second from the landing toward the objective (fortress: landing, gate, streets, strip, plaza; HQ: assembly ground, ramp, gate, courtyard), a camera at 1.7 m on a polyline, no fight and no player model (`WarfrontDressView`… (s) | kind: ours; confidence: low | review 1 item 7 | Walks (videos): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s walks at 30 frames a second from the landing toward the… | ☐ |
+
+*Spec section: Warfront: client crowd levels of detail and the autosave off the tick (warfront/perf, 2026-11-18; client and server I/O only, Warfront only; no simulation, wire, hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-6E6841F3` | LOD error threshold | 2 (Godot's default is 1); `--crowd-lod-threshold <px>` (pixels) | kind: ours; notes: estimate | ours | LOD error threshold: compare with SM1 by feel or video. Ours: 2 (Godot's default is 1); --crowd-lod-threshold <px>. | ☐ |
+| `R-9EC5398D` | Measured effect (mean of the 5 s windows 100 to 200 s, same session) | primitives 23.1 M to 5.5 M, GPU 2.86 to 1.99 ms, draw calls unchanged (1636 to 1635); mean frame 7.15 vs 7.11 ms (vsync bound); first run without the change 8.6 ms (measured) | confidence: low | this PC's runs | Measured effect (mean of the 5 s windows 100 to 200 s, same…: compare with SM1 by feel or video. Ours: primitives 23.1 M to 5.5 M, GPU 2.86 to 1.99 ms, draw calls unchanged… | ☐ |
+| `R-E0B651E1` | Autosave | the 30 s save is serialised on the tick thread and written on the thread pool (`WarfrontAsyncWriter`); every other save, the end of a run, a new run and a stage change flush it first; `SM_WF_SYNC_SAVE=1` restores the old write (s) | kind: ours | ours (the test report's follow-up) | Autosave: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the 30 s save is serialised on the tick thread and written on the… | ☐ |
 
 ## Part B: Ork faction
 
@@ -4767,6 +4775,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-70E216E8` | Frame time with Orks on the field (the bot client at 1600x900 through a battle, mean of the 10 s… | fortress 19.6 ms dressed against 25.5 ms with `--dress off` (up to 1296 Orks known); HQ 4.9 ms against 5.7 ms (about 200); a1 16.4 ms against 18.1 ms (up to 2400); the runs differ in what the battle did, so this says only that the dressing did not make the… (ms) | confidence: low | measured by the slice | Frame time with Orks on the field (the bot client at…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: fortress 19.6 ms dressed against 25.5 ms with --dress off (up to 1296… | ☐ |
+
+*Spec section: Warfront: client crowd levels of detail and the autosave off the tick (warfront/perf, 2026-11-18; client and server I/O only, Warfront only; no simulation, wire, hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-94E18CC1` | Far-tier Ork mesh levels of detail | index-only levels made with Godot's `ImporterMesh.GenerateLods(60, 25)`; the vertex array is unchanged so the baked animation still fits; Godot picks a level per cell batch by the batch box's distance; on in Warfront only (`MusouVat.Lods`), off in Musou Mode… | kind: ours; notes: approximation; notes: provisional | ours (measured cost) | Far-tier Ork mesh levels of detail: compare with SM1 by feel or video. Ours: index-only levels made with Godot's ImporterMesh.GenerateLods(60… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -5766,6 +5780,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-06D0CC9D` | Warfront dressing, part 2 (warfront/dress): the HQ exterior (Imperial masonry wall with buttresses, banners, gate frame and crenellations, a road skin on the ramp, paving and kit barriers in the courtyard, wrecks and craters beside the ramp, the spire, stacks, wasteland ruins and smoke); the keep and caves are left… | the owner brief (a faithful Imperial wall and keep, scenery from the game's own pieces) and the lead's order; every size and colour is ours | visual only; no prop within 40 m of the ramp foot, on the fan, at the wall foot or in the gate; the first draw of the shader costs one 2 to 2.5 s frame on a cold shader cache | spec "Warfront dressing, part 2" | Warfront dressing, part 2 (warfront/dress): the HQ exterior…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-99EA7976` | Warfront dressing, second pass (warfront/dress): the fortress and HQ draw the original's own Ork and Space Marine props read from the install (WAAAGH totems, banners, scrap heaps, turrets, towers, spike barriers, roks), 136 kit ruin pieces along the fortress streets, a broken HQ rock skyline, and the plating shader is… | review 1 of the dressing slice and the owner's "the game's own pieces wherever possible"; counts and placements ours | install props read only at run time; with no install the drawn fallbacks stand in; the shader compiles on the Compatibility renderer | spec "Warfront dressing, second pass" | Warfront dressing, second pass (warfront/dress): the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-756A9770` | Warfront: melee cleave (2026-11-18, added content); not in SM1 | owner's numbers: for human players and their retainers only, melee cleave reach x1.2 (the Dreadnought x1.4), no cap on enemies struck, an Ork struck when his collision overlaps the volume; the collision reading (radius from the feet) ours | server `World.WarfrontCleave`, drawn arc and prediction through `MusouCleaveShape.Of`; Classic and Musou Mode unchanged | spec "Warfront melee cleave" | Warfront: melee cleave (2026-11-18, added content); not in…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-D8672FA6` | Warfront performance pass (2026-11-18, added content); not in SM1 | the far tier's Ork meshes get index-only levels of detail on Warfront servers (2 px threshold, `--no-crowd-lod` restores the full mesh), and the 30 s run autosave is written off the tick thread | ours (the owner: "performance in warfront wasn't great"); spec "Warfront: client crowd levels of detail and the autosave off the tick" | ours | Warfront performance pass (2026-11-18, added content); not…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

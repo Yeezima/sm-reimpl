@@ -86,6 +86,7 @@ public partial class NetworkView
     }
 
     // Warfront's hooks (slice W5b; implemented under client/Extras/Warfront/, each a no-op unless the match has the Warfront flag).
+    partial void WarfrontCrowdPerf();   // WARFRONT-HOOK: the crowd's levels of detail (client/Extras/Warfront/NetworkView.WarfrontPerf.cs), once before the looks bake
     partial void WarfrontMapContent(string name, ref MapContent? map);
     partial void WarfrontMapVisuals(string name, ref bool drawn);
     partial void WarfrontEnvelope(byte tag, System.ReadOnlySpan<byte> payload, ref bool handled);
