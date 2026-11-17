@@ -68,7 +68,6 @@ public static class Combat
         };
     }
 
-    /// <summary>The attack step the player is in (light or heavy list by <see cref="PlayerState.MeleeHeavy"/>), or null.</summary>
     /// <summary>sim/stab-key (protocol 81): the 1-based index in a heavy list of the strike the stab key starts (<see cref="MeleeStep.Stab"/>), or 0 when the weapon has none.</summary>
     public static int StabIndex(IReadOnlyList<MeleeStep> heavy)
     {
@@ -76,6 +75,7 @@ public static class Combat
         return 0;
     }
 
+    /// <summary>The attack step the player is in (light or heavy list by <see cref="PlayerState.MeleeHeavy"/>), or null.</summary>
     public static MeleeStep? MeleeStepOf(SimConfig c, PlayerState s)
     {
         var list = s.MeleeHeavy ? Loadouts.MeleeHeavy(c, s) : Loadouts.Melee(c, s);
