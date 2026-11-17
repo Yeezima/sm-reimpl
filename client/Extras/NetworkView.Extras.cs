@@ -90,6 +90,14 @@ public partial class NetworkView
     partial void WarfrontMapVisuals(string name, ref bool drawn);
     partial void WarfrontEnvelope(byte tag, System.ReadOnlySpan<byte> payload, ref bool handled);
     partial void WarfrontFrame(PlayerState me, double dt);
+    partial void WarfrontPickerBusy(ref bool busy);
+    partial void WarfrontSpectateView(PlayerState me, ref (Godot.Vector3 Eye, Godot.Vector3 Target)? view);
+
+    /// <summary>A panel of added content that takes the game's input (Warfront's card picker and squad panel).</summary>
+    partial void ExtrasPickerBusy(ref bool busy) => WarfrontPickerBusy(ref busy);   // WARFRONT-HOOK
+
+    /// <summary>The spectator camera of added content (Warfront: a fallen player's or a held joiner's watch).</summary>
+    partial void ExtrasSpectateView(PlayerState me, ref (Godot.Vector3 Eye, Godot.Vector3 Target)? view) => WarfrontSpectateView(me, ref view);   // WARFRONT-HOOK
 
     partial void ExtrasMapFile(ref string file) { MapmakerMapFile(ref file); TfwMapFile(ref file); }
 

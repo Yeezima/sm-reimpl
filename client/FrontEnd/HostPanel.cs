@@ -239,7 +239,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         {
             int count = HostedBots.Count, pending = HostedBots.Pending;
             string bots = count > 0 ? HostBots.CountText(count) + (pending > 0 ? $" ({pending} more joining)" : "") : pending > 0 ? $"{pending} bots joining" : "no bots";
-            string hosted = SmSim.ContentProfiles.IsMusouFamily(o.Content) ? $"Musou (up to {MusouLocal.MaxPlayers} players)" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
+            string hosted = SmSim.ContentProfiles.IsMusouFamily(o.Content) ? $"{(o.Content == SmSim.ContentProfiles.Warfront ? "Warfront" : "Musou")} (up to {MusouLocal.MaxPlayers} players)" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
             if (MapRunningText(o) is { } mapText && !SmSim.ContentProfiles.IsMusouFamily(o.Content)) hosted += ", " + mapText;
             _runningText.Text = ($"Hosting {hosted} on port {o.Port}, {(o.LocalOnly ? "this PC only" : "all interfaces")}" + ", " + bots + (HostedServer.Ready ? "" : " (starting...)")).ToUpperInvariant();
         }

@@ -14,10 +14,10 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>
-    /// Whether a human sees the card picker on a live server. False until W5c's <c>PickerBusy</c> hook exists (keys 1 to 4 and the pad would still switch weapons under the panel); W5c flips it to true. The HUD, the banner and the bot's
+    /// Whether a human sees the card picker on a live server. True since W5c's <c>PickerBusy</c> hook exists (keys 1 to 4 and the pad would still switch weapons under the panel); W5c flips it to true. The HUD, the banner and the bot's
     /// picks do not depend on it: a hidden picker leaves the server's 20 s timeout to take card 1.
     /// </summary>
-    internal static bool WarfrontPickerLive = false;
+    internal static bool WarfrontPickerLive = true;
 
     WarfrontProgressionHost? _wfProgression;
     WarfrontStageState _wfProgressionStage;

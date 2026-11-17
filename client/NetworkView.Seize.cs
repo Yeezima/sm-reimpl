@@ -340,12 +340,17 @@ public partial class NetworkView
     long _botSeizeWanted = -1;
     int _botSeizeRank = -1;
 
+    partial void ExtrasSpectateView(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view);
+
     /// <summary>
     /// <c>--spectate</c> camera: the raw eye and target in Godot space (before blending, body push-out and the level cast of <see cref="SpectateFollow"/>), or null for the normal camera.
     /// No allocation per frame (M40-T6): the mode is lower-cased once, the "cam:" numbers parsed once, the "action" subject chosen by a loop.
     /// </summary>
     (Vector3 Eye, Vector3 Target)? SpectateCamera(PlayerState me, Vector3 mePos, float delta)
     {
+        (Vector3 Eye, Vector3 Target)? extrasView = null;
+        ExtrasSpectateView(me, ref extrasView);   // EXTRAS-HOOK: an added content's own spectator view (nothing in a faithful build)
+        if (extrasView is not null) return extrasView;
         if (Spectate is null || _gameSpace is null) return null;
         _spectateAngle += delta;
         _spectateMode ??= Spectate.ToLowerInvariant();

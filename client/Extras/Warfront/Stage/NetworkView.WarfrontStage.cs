@@ -189,15 +189,8 @@ public partial class NetworkView
 
     WarfrontResultsPanel WarfrontBuildResults(WarfrontRunRecord record, string dir)
     {
-        var panel = new WarfrontResultsPanel(record, dir, WarfrontCloseResults);
-        var newRun = UiKit.MenuButton("New run", () => { WarfrontModel.RequestNewRun(); GD.Print($"t {_connectedFor:F1} s: warfront: new run pressed"); WarfrontCloseResults(); });
-        newRun.Name = "WarfrontNewRun";
-        newRun.AddThemeFontSizeOverride("font_size", 22);   // the results panel's own button size
-        newRun.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
-        newRun.Position = new Vector2(1260f, 1000f);
-        newRun.Size = new Vector2(360f, 38f);
-        newRun.Visible = WarfrontModel.Hub.View.ViewerIsLeader;
-        panel.AddChild(newRun);
+        var panel = new WarfrontResultsPanel(record, dir, WarfrontCloseResults, () => { WarfrontModel.RequestNewRun(); GD.Print($"t {_connectedFor:F1} s: warfront: new run pressed"); WarfrontCloseResults(); });
+        if (panel.NewRunButton is { } newRun) newRun.Visible = WarfrontModel.Hub.View.ViewerIsLeader;
         return panel;
     }
 
