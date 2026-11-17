@@ -928,9 +928,9 @@ public static class Combat
             }
             else if (charging && charge is not null)
             {
-                if (!chargeDown)
+                if (!chargeDown || PlasmaCannonAutoRelease.Fires(c, weapon, charge, chargeTime))
                 {
-                    // Release: the last reached stage with a shot fires (after its delay); none reached (a tap): the basic shot,
+                    // Release (or sim/plasma-cannon-auto-release: the cannon's charge reached its firing stage): the last reached stage with a shot fires (after its delay); none reached (a tap): the basic shot,
                     // which waits for a raise still under way (below).
                     busy = true;
                     int stage = ChargeStage(charge, chargeTime, firing: true);

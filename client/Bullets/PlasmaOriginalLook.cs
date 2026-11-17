@@ -28,9 +28,9 @@ public static class PlasmaOriginalLook
     /// <summary>Whether the original look is drawn (default) or the look before plasma-original-fx (<c>--old-plasma-look</c>).</summary>
     public static bool Original(bool oldLookFlag) => !oldLookFlag;
 
-    /// <summary>Whether a projectile trail's streamers read their width along the ribbon: the plasma gun's and pistol's charged trails, either side, in the original look. The plasma cannon keeps the old reading (not in this pass).</summary>
+    /// <summary>Whether a projectile trail's streamers read their width along the ribbon: the plasma gun's and pistol's charged trails and (plasma-cannon-shots, 2026-11-17) the plasma cannon's two trails, either side, in the original look.</summary>
     public static bool WidthAlongTrail(string wargear, bool original) =>
-        original && PlasmaBolt.IsBoltWeapon(wargear);
+        original && (PlasmaBolt.IsBoltWeapon(wargear) || wargear.Contains("plasma_cannon", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// A streamer segment's width (before the effect's scale), at <paramref name="along"/> (0 head .. 1 tail) of the ribbon and <paramref name="loopTime"/> (0..1) of the element's

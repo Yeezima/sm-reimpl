@@ -534,7 +534,8 @@ public static partial class Protocol
     //     listening on loopback alone, from a loopback address; it sends DevState only then, so a normal server's traffic is unchanged. No other layout change, no simulation change with the tools off.
     // 81 (classic-stab-on-t; the owner 2026-11-17): input bit 15, InputButtons.Stab (T): from rest it starts the power sword's stab (the F + F finisher) on its own, no precursor move (MeleeStep.Stab, Combat.StabIndex).
     //     Classic PvP only (the server drops the bit in Musou Mode); a weapon without a stab ignores it. The T voice call (FOR THE EMPEROR) is off in Classic PvP: the client sends the shout bit in Musou Mode only. F + F and RMB + F still stab.
-    public const ushort Version = 81;
+    // 82 (sim/plasma-cannon-auto-release; the owner 2026-11-17): no layout change. The plasma cannon's charge fires by itself when it reaches the firing stage (3 s; 1.65 s with Improved Plasma Charge), button held or not (SimConfig.PlasmaCannonAutoRelease; Classic PvP and Musou Mode). Client prediction must agree, hence the bump.
+    public const ushort Version = 82;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

@@ -46,7 +46,8 @@ public class PlasmaOriginalLookTests
             Assert.True(PlasmaOriginalLook.WidthAlongTrail(wargear, original: true), wargear);
             Assert.False(PlasmaOriginalLook.WidthAlongTrail(wargear, original: false), wargear);
         }
-        Assert.False(PlasmaOriginalLook.WidthAlongTrail("sm_mp_exotic_plasma_cannon", original: true));
+        Assert.True(PlasmaOriginalLook.WidthAlongTrail("sm_mp_exotic_plasma_cannon", original: true));   // plasma-cannon-shots (2026-11-17): the cannon reads it too
+        Assert.False(PlasmaOriginalLook.WidthAlongTrail("sm_mp_exotic_plasma_cannon", original: false));
         Assert.False(PlasmaOriginalLook.WidthAlongTrail("sm_mp_ranged_grenade_launcher", original: true));
     }
 

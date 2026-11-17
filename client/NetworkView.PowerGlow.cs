@@ -32,10 +32,17 @@ public partial class NetworkView
             _fireTestStart = _connectedFor + 2.0;
             _fireTestYaw = float.TryParse(CmdArg("fire-yaw"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var deg) ? deg * MathF.PI / 180f : _yaw;
         }
-        _yaw = _fireTestYaw; _pitch = 0f;
+        // plasma-cannon-shots test aid: --fire-pitch deg (view pitch), --fire-hold s (seconds Fire is held each round; a charged shot needs 3+), --fire-period s (round length).
+        float F(string key, float dflt) => float.TryParse(CmdArg(key), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : dflt;
+        // --fire-yaw-step deg: each round turns the view by this much (to find an open direction).
+        double t0 = _connectedFor - _fireTestStart;
+        float stepDeg = F("fire-yaw-step", 0f);
+        float yawNow = _fireTestYaw + (t0 >= 0 ? (float)Math.Floor(t0 / Math.Max(0.1f, F("fire-period", 1.2f))) * stepDeg * MathF.PI / 180f : 0f);
+        _yaw = yawNow; _pitch = F("fire-pitch", 0f) * MathF.PI / 180f;
         double t = _connectedFor - _fireTestStart;
-        bool fire = t >= 0 && (t % 1.2) < 0.25;
-        return new PlayerInput(tick, 0f, 0f, _fireTestYaw, fire ? InputButtons.Fire : InputButtons.None, 0f);
+        float hold = F("fire-hold", 0.25f), period = F("fire-period", 1.2f);
+        bool fire = t >= 0 && (t % period) < hold;
+        return new PlayerInput(tick, 0f, 0f, yawNow, fire ? InputButtons.Fire : InputButtons.None, _pitch);
     }
     double _fireTestStart = -1;
     float _fireTestYaw;

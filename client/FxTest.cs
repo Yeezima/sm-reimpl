@@ -187,6 +187,7 @@ public partial class FxTestView : Node3D
             if (e is null) { GD.PrintErr($"fx: '{name}' not found"); continue; }
             if (_args.TryGetValue("fx-head", out var head)) e.HeadSpeed = F(head, 0f);
             // plasma-soft-visuals test aid: --fx-fly m/s flies the effect along its axis (a projectile's trail needs a moving effect: a streamer draws the path it has flown).
+            if (_args.ContainsKey("fx-along")) e.WidthAlongTrail = true;   // plasma-cannon-shots test aid: a streamer's width keys run along the ribbon (as a plasma projectile's trail does in game)
             if (_args.TryGetValue("fx-fly", out var fly)) { float speed = F(fly, 0f); var from = place; var bs = basis; e.Follow = () => (from + axis * speed * (float)Math.Max(0.0, e.Age), bs); }
             ExtrasTestEffect(e);   // EXTRAS-HOOK: musou/gpu-particles test aid: Musou's blood settings (--fx-amount, --fx-keep-smoke, --fx-gamma)
             if (_holdAge is { } age) e.Age = age;

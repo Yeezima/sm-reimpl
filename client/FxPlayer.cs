@@ -966,7 +966,14 @@ public sealed partial class FxPlayer : Node3D
         float width0 = At(n.Width, t, 0.1f) * widthScale;
         bool neutral = PlasmaColour.NeutralTexture(e.Name, n.Material.Name, e.Tint is not null);   // fx/chaos-plasma-tracer: the Chaos trails' streamers
         float ribbonLength = 0f;
-        if (e.SoftEdges) for (int j = 0; j < N; j++) ribbonLength += pts[j].DistanceTo(pts[j + 1]);
+        int used = N;   // plasma-cannon-shots: a trail younger than its full length is drawn by the first `used` steps only (the rest lie on the launch point); its fades belong to that drawn part
+        if (e.SoftEdges)
+        {
+            for (int j = 0; j < N; j++) ribbonLength += pts[j].DistanceTo(pts[j + 1]);
+            used = 0;
+            while (used < N && pts[used].DistanceSquaredTo(pts[used + 1]) >= 1e-8f) used++;
+            if (used < 1) used = N;
+        }
         float u = 0f;
         for (int j = 0; j < N; j++)
         {
@@ -988,7 +995,7 @@ public sealed partial class FxPlayer : Node3D
                 width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
             }
             if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
-            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(f, ribbonLength) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = n.Additive ? new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail) : new Color(col.R, col.G, col.B, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
+            if (e.SoftEdges) { float tail = PlasmaSoftEdges.Ribbon(used < N ? MathF.Min(1f, (j + 0.5f) / used) : f, ribbonLength) * PlasmaSoftEdges.EndOn(MathF.Abs(ax.Dot((mid - _camPos).Normalized()))); col = n.Additive ? new Color(col.R * tail, col.G * tail, col.B * tail, col.A * tail) : new Color(col.R, col.G, col.B, col.A * tail); }   // plasma-soft-visuals: the ribbon fades in from its head and out toward its tail
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;
