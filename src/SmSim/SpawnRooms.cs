@@ -116,7 +116,7 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     /// <paramref name="level"/> plus the boxes of the blockers that stop <paramref name="side"/> (in list order); the level
     /// itself when none does.
     /// </summary>
-    internal static StaticMesh MeshFor(StaticMesh level, Team side, IReadOnlyList<SpawnBlocker>? blockers)
+    internal static StaticMesh MeshFor(StaticMesh level, Team side, IReadOnlyList<SpawnBlocker>? blockers, IReadOnlyList<WorldBlocker>? walls = null)
     {
         var vertices = new List<Vector3>();
         var indices = new List<int>();
@@ -126,6 +126,13 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             int first = vertices.Count;
             vertices.AddRange(b.Corners());
             foreach (int i in BoxIndices) indices.Add(first + i);
+        }
+        // The map's invisible walls (WorldBlocker) stop every player, after the side's own blockers.
+        foreach (var w in walls ?? [])
+        {
+            int first = vertices.Count;
+            vertices.AddRange(w.Vertices);
+            foreach (int i in w.Indices) indices.Add(first + i);
         }
         return vertices.Count == 0 ? level : level.With([.. vertices], [.. indices]);
     }

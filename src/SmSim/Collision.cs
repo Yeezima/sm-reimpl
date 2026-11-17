@@ -607,7 +607,7 @@ public sealed class StaticMesh
 public sealed partial class CollisionWorld
 {
     public CollisionWorld(StaticMesh character, StaticMesh weapons, IReadOnlyList<KillVolume>? killVolumes = null, IReadOnlyList<SpawnBlocker>? blockers = null,
-        IReadOnlyList<CollisionProp>? props = null)
+        IReadOnlyList<CollisionProp>? props = null, IReadOnlyList<WorldBlocker>? walls = null)
     {
         ArgumentNullException.ThrowIfNull(character);
         ArgumentNullException.ThrowIfNull(weapons);
@@ -623,9 +623,11 @@ public sealed partial class CollisionWorld
         KillVolumes = killVolumes?.ToArray() ?? [];
         Blockers = Raised(character, blockers);
         PlacedBlockers = SpawnBlocker.Checked(blockers).ToArray();
-        ContentHash = CollisionProp.Hash(SpawnBlocker.Hash(KillVolume.Hash(Geometry.Fnv(Geometry.Fnv(Geometry.FnvOffset, character.ContentHash), weapons.ContentHash), killVolumes), Blockers), Props);
-        _forMarines = SpawnBlocker.MeshFor(Character, Team.SpaceMarines, Blockers);
-        _forChaos = SpawnBlocker.MeshFor(Character, Team.Chaos, Blockers);
+        Walls = WorldBlocker.Checked(walls);
+        ContentHash = WorldBlocker.Hash(CollisionProp.Hash(SpawnBlocker.Hash(KillVolume.Hash(Geometry.Fnv(Geometry.Fnv(Geometry.FnvOffset, character.ContentHash), weapons.ContentHash), killVolumes), Blockers), Props), Walls);
+        _forMarines = SpawnBlocker.MeshFor(Character, Team.SpaceMarines, Blockers, Walls);
+        _forChaos = SpawnBlocker.MeshFor(Character, Team.Chaos, Blockers, Walls);
+        _forNone = SpawnBlocker.MeshFor(Character, Team.None, Blockers, Walls);
     }
 
     /// <summary>What characters walk on and bump into: the level's character mesh, then the <see cref="Props"/>' triangles.</summary>
@@ -645,6 +647,12 @@ public sealed partial class CollisionWorld
     /// <summary>The same blockers as placed in the map (not raised): what the client draws (the raised part is invisible).</summary>
     public IReadOnlyList<SpawnBlocker> PlacedBlockers { get; }
     /// <summary>
+    /// The map's invisible movement walls (<see cref="WorldBlocker"/>: <c>MissionMovementBlocker</c>s of group ALL that no script names):
+    /// solid for every player's movement on every side (<see cref="CharacterFor"/>), not for shots. None on a level without them
+    /// (Manufactorum, the Mapmaker's maps and every test world).
+    /// </summary>
+    public IReadOnlyList<WorldBlocker> Walls { get; }
+    /// <summary>
     /// FNV-1a 64 over the level's two meshes' content hashes, character first, then each kill volume's floats (none: as before M18),
     /// then each blocker's side and floats as raised (<see cref="Blockers"/>; none: as before), then each prop's
     /// surface and geometry (<see cref="CollisionProp.Hash"/>; none: as before M39).
@@ -653,6 +661,7 @@ public sealed partial class CollisionWorld
 
     readonly StaticMesh _forMarines;
     readonly StaticMesh _forChaos;
+    readonly StaticMesh _forNone;
     // Weapon-mesh triangles below this number are the level's; the props' follow, prop k from _propStarts[k].
     readonly int _levelShotTriangles;
     readonly int[] _propStarts;
@@ -673,7 +682,7 @@ public sealed partial class CollisionWorld
     {
         Team.SpaceMarines => _forMarines,
         Team.Chaos => _forChaos,
-        _ => Character,
+        _ => _forNone,
     };
 
     /// <summary>

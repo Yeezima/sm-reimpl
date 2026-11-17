@@ -39,6 +39,22 @@ public sealed record MapBlocker(string Name, Team Side, Vector3 Position, float 
 }
 
 /// <summary>
+/// One of the map's invisible movement walls (classic-maps-fidelity gameplay): a <c>base/MissionMovementBlocker</c> with
+/// <c>BlockGroup</c> 2 (ALL) and <c>BlockRace</c> 1 or 2, that is not a spawn-room blocker (those are group 3, named
+/// <c>marine_blocker_*</c> / <c>chaos_blocker_*</c>): the <c>d_blockers</c> layer's boxes and cylinders and the
+/// <c>everyone_blocker_*</c> boxes of Shattered Bridge. Position (the centre), rotation (degrees about X, then Y, then Z, as
+/// the map's objects) and scale (the full size; a cylinder's X and Y are its diameter) as in the layer; shape 1 a box, 3 a cylinder.
+/// </summary>
+public sealed record MapWall(string Name, Vector3 Position, Vector3 RotationDegrees, Vector3 Scale, int Shape, int Group, int Race)
+{
+    public WorldBlocker ToSim()
+    {
+        var world = MapScene.Transform(Position, RotationDegrees, Scale);
+        return Shape == 3 ? WorldBlocker.Cylinder(Name, world) : WorldBlocker.Box(Name, world);
+    }
+}
+
+/// <summary>
 /// A kill region (M18): a <c>base/KillRegion</c> object in the region's mission layers, read as a box (<c>Shape</c> 0) whose
 /// scale is its full size, centred on the position, turned about Z (interpretation, spec/behavior.md M18).
 /// </summary>
@@ -65,13 +81,18 @@ public sealed record MapKillRegion(string Name, Vector3 Position, float Yaw, Vec
 public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokCollisionLayer> Layers, IReadOnlyList<MapSpawn> Spawns, ulong Hash)
 {
     /// <summary>Bump when the way collision, spawns, points or start areas are derived from the files changes.</summary>
-    public const int LoaderVersion = 8;   // 4: spawn-room blockers (M22); 5: the blockers are solid for the other side; 6: weapon-layer surface materials (M25a; shot events name them); 7: the blockers reach above the level (M31); 8: movable props (the green crates) are solid and pierceable (M39)
+    public const int LoaderVersion = 9;   // 9: the map's invisible movement walls (d_blockers, everyone_blocker_*) are solid for every player; // 4: spawn-room blockers (M22); 5: the blockers are solid for the other side; 6: weapon-layer surface materials (M25a; shot events name them); 7: the blockers reach above the level (M31); 8: movable props (the green crates) are solid and pierceable (M39)
     /// <summary>Control points in the script's order (Seize Ground; empty when the map has none).</summary>
     public IReadOnlyList<MapControlPoint> ControlPoints { get; init; } = [];
     /// <summary>The sides' start areas.</summary>
     public IReadOnlyList<MapStartArea> StartAreas { get; init; } = [];
     /// <summary>The sides' spawn-room blockers (M22: they mark the rooms' exits for the spawn facing; solid for the other side's players).</summary>
     public IReadOnlyList<MapBlocker> Blockers { get; init; } = [];
+    /// <summary>
+    /// The map's invisible movement walls (group ALL, no script names them; <see cref="MapWall"/>): solid for every player's movement
+    /// (<see cref="CollisionWorld.Walls"/>). Spheres (Manufactorum's two, <c>Shape</c> 2) and other shapes are noted and not simulated.
+    /// </summary>
+    public IReadOnlyList<MapWall> Walls { get; init; } = [];
     /// <summary>Kill regions from the mission layers (M18; a living player who enters one dies).</summary>
     public IReadOnlyList<MapKillRegion> KillRegions { get; init; } = [];
     /// <summary>Movable props (M39: the green ammo crates; <see cref="MapProps"/>): solid for every player and every shot, pierced by shots with a <see cref="PierceSpec"/>.</summary>
@@ -128,7 +149,7 @@ public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokC
         {
             archive.ReadEntries(
                 e => (archive.GroupName(e) == "hkt" && e.FileName == region) || (archive.GroupName(e) == "lua" && e.FileName == region)
-                     || (archive.GroupName(e) == "Layer" && (e.FileName == "d_tdm" || e.FileName.StartsWith("d_mission", StringComparison.Ordinal))),
+                     || (archive.GroupName(e) == "Layer" && (e.FileName == "d_tdm" || e.FileName == "d_blockers" || e.FileName.StartsWith("d_mission", StringComparison.Ordinal))),
                 (e, data) =>
                 {
                     if (archive.GroupName(e) == "hkt")
@@ -182,9 +203,12 @@ public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokC
         var blockers = new List<MapBlocker>();
         foreach (var bytes in mission.Values) CollectBlockers(BodDocument.Read(bytes).Root, blockers, notes, 0);
         blockers.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+        var walls = new List<MapWall>();
+        foreach (var (key, bytes) in mission) CollectWalls(BodDocument.Read(bytes).Root, key, walls, notes, 0);
+        walls = [.. walls.OrderBy(w => w.Name, StringComparer.Ordinal)];   // stable: equal names keep the layers' order
         var extra = mission.Values.Append(scriptBytes ?? []).Concat(propSources).ToArray();
         return new MapContent(map, region, layers, spawns, ComputeHash(collisionBytes, spawnBytes ?? [], [.. mission.Keys], extra))
-        { ControlPoints = points, StartAreas = areas, KillRegions = kills, Blockers = blockers, Props = props, Notes = notes };
+        { ControlPoints = points, StartAreas = areas, KillRegions = kills, Blockers = blockers, Walls = walls, Props = props, Notes = notes };
     }
 
     readonly record struct Marker(string Name, Vector3 Position, float Yaw, Vector3 Scale, int Shape);
@@ -297,10 +321,47 @@ public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokC
         }
     }
 
+    /// <summary>The <see cref="MapWall.Group"/> read as ALL (interpretation, spec/behavior.md "World movement blockers").</summary>
+    public const int WallGroup = 2;
+
+    /// <summary>
+    /// Every enabled <c>base/MissionMovementBlocker</c> that is not a spawn-room blocker (names <c>marine_blocker*</c> /
+    /// <c>chaos_blocker*</c>), with <c>BlockGroup</c> <see cref="WallGroup"/> and <c>BlockRace</c> 1 or 2 (every blocker of
+    /// that group in the 11 maps has one of them), a box (<c>Shape</c> 1) or cylinder (<c>Shape</c> 3) of positive finite size at a
+    /// finite position and rotation. Other shapes (spheres), groups and races are noted and skipped.
+    /// </summary>
+    static void CollectWalls(BodValue value, string layer, List<MapWall> walls, List<string> notes, int depth)
+    {
+        if (depth > 64) return;
+        switch (value)
+        {
+            case BodStruct s:
+                if (string.Equals(s.Class.Text, "base/MissionMovementBlocker", StringComparison.OrdinalIgnoreCase) && s["Disabled"] is not BodBool { Value: true }
+                    && s["Name"] is BodString { Text: { } name }
+                    && !name.StartsWith("marine_blocker", StringComparison.OrdinalIgnoreCase) && !name.StartsWith("chaos_blocker", StringComparison.OrdinalIgnoreCase))
+                {
+                    int group = s["BlockGroup"] is BodInt { Value: var g } ? g : -1, race = s["BlockRace"] is BodInt { Value: var r } ? r : -1;
+                    int shape = s["Shape"] is BodInt { Value: var sh } ? sh : -1;
+                    if (group != WallGroup) notes.Add($"blocker {layer}/{name}: group {group} (only {WallGroup}, ALL, is simulated); skipped");
+                    else if (race is not (1 or 2)) notes.Add($"blocker {layer}/{name}: race {race} (only 1 and 2 are read as every race); skipped");
+                    else if (shape is not (1 or 3)) notes.Add($"blocker {layer}/{name}: shape {shape} (only a box, 1, and a cylinder, 3, are simulated); skipped");
+                    else if (Floats(s["Position"]) is not [var x, var y, var z, ..] || Floats(s["Rotation"]) is not [var rx, var ry, var rz, ..]
+                             || Floats(s["Scale"]) is not [var sx, var sy, var sz, ..])
+                        notes.Add($"blocker {layer}/{name}: no position, rotation or scale; skipped");
+                    else if (!(sx > 0f && sy > 0f && sz > 0f) || !float.IsFinite(sx + sy + sz + x + y + z + rx + ry + rz)) notes.Add($"blocker {layer}/{name}: bad scale or position; skipped");
+                    else walls.Add(new MapWall(name, new Vector3(x, y, z), new Vector3(rx, ry, rz), new Vector3(sx, sy, sz), shape, group, race));
+                }
+                foreach (var f in s.Fields) CollectWalls(f.Value, layer, walls, notes, depth + 1);
+                break;
+            case BodList l: foreach (var item in l.Items) CollectWalls(item.Value, layer, walls, notes, depth + 1); break;
+            case BodRef rf: CollectWalls(rf.Value, layer, walls, notes, depth + 1); break;
+        }
+    }
+
     static ulong ComputeHash(byte[] collision, byte[] spawns, string[] missionNames, byte[][] extra)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.ASCII.GetBytes($"sm-reimpl map v{LoaderVersion}; characters {string.Join("+", CharacterLayers)}; kill regions box; spawn-room blockers box raised {SpawnBlocker.AboveLevel} m above the level, solid for the other side; shots {WeaponLayer}; props: moving bodies with single-part ppk shapes, solid for characters and shots, pierceable; mission {string.Join(",", missionNames)}\n"));
+        hash.AppendData(Encoding.ASCII.GetBytes($"sm-reimpl map v{LoaderVersion}; characters {string.Join("+", CharacterLayers)}; kill regions box; spawn-room blockers box raised {SpawnBlocker.AboveLevel} m above the level, solid for the other side; world walls group 2 boxes and cylinders solid for everyone; shots {WeaponLayer}; props: moving bodies with single-part ppk shapes, solid for characters and shots, pierceable; mission {string.Join(",", missionNames)}\n"));
         Span<byte> length = stackalloc byte[8];
         foreach (var part in new[] { collision, spawns }.Concat(extra))
         {
@@ -353,7 +414,7 @@ public sealed record MapContent(string Name, string Region, IReadOnlyList<HavokC
         // M25a: shots report the surface material of the triangle they stop at (when the layer's materials were read).
         var surfaces = weapons.Materials.Length == weapons.TriangleCount ? weapons.Materials : null;
         return new CollisionWorld(new StaticMesh([.. vertices], [.. indices]), new StaticMesh(weapons.Vertices, weapons.Indices, surfaces),
-            KillRegions.Select(k => k.ToSim()).ToList(), SimBlockers(), Props.Select(p => p.ToSim()).ToList());
+            KillRegions.Select(k => k.ToSim()).ToList(), SimBlockers(), Props.Select(p => p.ToSim()).ToList(), Walls.Select(w => w.ToSim()).ToList());
     }
 
     public IReadOnlyList<SpawnPoint> SpawnPoints() => Spawns.Select(s => new SpawnPoint(s.Position, s.Yaw)).ToList();
