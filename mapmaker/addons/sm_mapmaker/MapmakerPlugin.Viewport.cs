@@ -165,28 +165,75 @@ public partial class MapmakerPlugin
     /// <summary>Test aid: a box is being drawn right now.</summary>
     public bool BoxDrawing => _boxActive;
 
-    /// <summary>Reach of the move/rotate/scale handles from the selection's centre, in window pixels (measured against the real gizmo by the flow test).</summary>
-    public float GizmoRadius
-    {
-        get
-        {
-            // Measured in a windowed run (flow test "gizmo"): the arrow tips reach about 1.7 x (manipulator size setting x editor scale) from the origin, the rotation ring
-            // about 1.25 x, the farthest gizmo pixel 1.9 x; 2.1 leaves a margin.
-            float size = 80f;
-            try { size = EditorInterface.Singleton.GetEditorSettings().Get("editors/3d/manipulator_gizmo_size").AsSingle(); } catch (Exception) { }
-            return 2.1f * size * EditorInterface.Singleton.GetEditorScale();
-        }
-    }
     public int StashCount => _stash.Count;
 
-    /// <summary>True when the press is within reach of the move/rotate/scale handles of the selected objects (a disc about the selection's centre).</summary>
+    /// <summary>Test aid: the press at this window position would go to Godot's gizmo (a handle of the selection) rather than start a box.</summary>
+    public bool IsOnGizmo(Vector2 window) => NearSelectionGizmo(window);
+
+    /// <summary>
+    /// True when the press lies on a handle of the gizmo of the selected objects: the three arrows (move and scale handles sit on them), the plane squares, the rotate
+    /// rings (and the outer view ring), or the small centre disc. The gizmo is drawn at a constant screen size, so its handles are projected from the selection's
+    /// centre: an axis is its world direction shortened by how much it points at the camera; lengths come from the editor's manipulator size and scale (measured by
+    /// the flow test against the real gizmo: arrow tips 2.0 x (farthest pixel 1.9 x), rotate rings 1.26 x size x scale). Global and local axes are both accepted, since the editor's
+    /// space toggle cannot be read. Everything else starts a box.
+    /// </summary>
     bool NearSelectionGizmo(Vector2 window)
     {
         var picked = EditorInterface.Singleton.GetSelection().GetSelectedNodes().OfType<MapmakerObject>().ToList();
         if (picked.Count == 0 || Viewport3D?.GetCamera3D() is not { } cam) return false;
         var centre = picked.Aggregate(Vector3.Zero, (a, n) => a + n.GlobalPosition) / picked.Count;
         if (cam.IsPositionBehind(centre)) return false;
-        return ToWindow(cam.UnprojectPosition(centre)).DistanceTo(window) < GizmoRadius;
+        float scale = EditorInterface.Singleton.GetEditorScale();
+        float size = 80f;
+        try { size = EditorInterface.Singleton.GetEditorSettings().Get("editors/3d/manipulator_gizmo_size").AsSingle(); } catch (Exception) { }
+        float tip = 2.0f * size * scale, ring = 1.26f * size * scale, reach = 10f * scale;
+        var o = ToWindow(cam.UnprojectPosition(centre));
+        var p = window - o;
+        if (p.Length() < 16f * scale) return true;
+        if (MathF.Abs(p.Length() - ring) < reach) return true;   // the outer view ring
+        var look = (centre - cam.GlobalPosition).Normalized();
+        var spaces = new List<Basis> { Basis.Identity };
+        var local = picked[0].GlobalTransform.Basis.Orthonormalized();
+        if (!local.IsEqualApprox(Basis.Identity)) spaces.Add(local);
+        foreach (var basis in spaces)
+        {
+            var axes = new Vector2[3];   // screen vectors of the three axes, in px, at ring length 1
+            for (int i = 0; i < 3; i++)
+            {
+                var a = (i == 0 ? basis.Column0 : i == 1 ? basis.Column1 : basis.Column2).Normalized();
+                var d = ToWindow(cam.UnprojectPosition(centre + a * 0.5f)) - o;
+                float frac = MathF.Sqrt(Math.Max(0f, 1f - a.Dot(look) * a.Dot(look)));
+                axes[i] = d.Length() < 1e-3f ? Vector2.Zero : d.Normalized() * frac;
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                var end = axes[i] * tip;
+                float len2 = end.LengthSquared();
+                float t = len2 < 1e-3f ? 0f : Mathf.Clamp(p.Dot(end) / len2, 0f, 1f);
+                if ((p - end * t).Length() < reach) return true;   // an arrow (move) or its scale handle
+                int j = (i + 1) % 3;
+                // the plane square between axes i and j: p = s * tip * axes[i] + t * tip * axes[j], s and t in 0.12 .. 0.38
+                float det = axes[i].X * axes[j].Y - axes[i].Y * axes[j].X;
+                if (MathF.Abs(det) > 0.05f)
+                {
+                    float s0 = (p.X * axes[j].Y - p.Y * axes[j].X) / det / tip, t0 = (axes[i].X * p.Y - axes[i].Y * p.X) / det / tip;
+                    float m = reach / tip;
+                    if (s0 > 0.12f - m && s0 < 0.38f + m && t0 > 0.12f - m && t0 < 0.38f + m) return true;
+                }
+                // the rotate ring in the plane of axes i and j
+                var prev = axes[i] * ring;
+                for (int k = 1; k <= 48; k++)
+                {
+                    float ang = k * Mathf.Tau / 48f;
+                    var pt = (axes[i] * MathF.Cos(ang) + axes[j] * MathF.Sin(ang)) * ring;
+                    var seg = pt - prev;
+                    float u = seg.LengthSquared() < 1e-6f ? 0f : Mathf.Clamp((p - prev).Dot(seg) / seg.LengthSquared(), 0f, 1f);
+                    if ((p - (prev + seg * u)).Length() < reach) return true;
+                    prev = pt;
+                }
+            }
+        }
+        return false;
     }
 
     /// <summary>

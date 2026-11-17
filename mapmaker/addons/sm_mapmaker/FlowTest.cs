@@ -112,7 +112,8 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Check(picked.Count >= 2 && picked.Contains(a.ObjectId) && picked.Contains(b.ObjectId), $"the box selected {picked.Count} objects, both blocks among them");
         Check(!plugin.BoxDrawing, "the rectangle is gone after the release");
         // Ctrl removes: a drag over b only, from outside it.
-        var one = CentreOf(b); var p0 = one + (one - from).Normalized() * (plugin.GizmoRadius + 120f); var p1 = one;   // away from a, and clear of the gizmo disc about the selection's centre
+        var one = CentreOf(b); var dirAway = (one - from).Normalized(); var p0 = one + dirAway * 70f; var p1 = one;
+        for (int k = 0; k < 20 && plugin.IsOnGizmo(p0); k++) p0 += dirAway * 20f;   // clear of the selection's gizmo handles
         Move(p0); await Frames(3);
         Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = p0, CtrlPressed = true, ButtonMask = MouseButtonMask.Left }); await Frames(3);
         for (int i = 1; i <= 4; i++) { Move(p0.Lerp(p1, i / 4f), true); await Frames(2); }
@@ -176,7 +177,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         var without = Grab();
         plugin.Select(ids); await Frames(5);
         with.SavePng(System.IO.Path.Combine(_out, "gizmo-with.png")); without.SavePng(System.IO.Path.Combine(_out, "gizmo-without.png"));
-        float far = 0; int n = 0; var radii = new List<float>();
+        float far = 0; int n = 0; var radii = new List<float>(); var gizmoPx = new List<Godot.Vector2>();
         for (int y = 0; y < with.GetHeight(); y++)
             for (int x = 0; x < with.GetWidth(); x++)
             {
@@ -185,12 +186,34 @@ public sealed class FlowTest(MapmakerPlugin plugin)
                 static float Near(Color c, float r, float g, float bl) => MathF.Abs(c.R - r) + MathF.Abs(c.G - g) + MathF.Abs(c.B - bl);
                 if (Near(a, 0.96f, 0.21f, 0.32f) > 0.3f && Near(a, 0.53f, 0.84f, 0.01f) > 0.3f && Near(a, 0.16f, 0.55f, 0.96f) > 0.3f) continue;   // only the gizmo's red, green and blue (not the selection box's orange outline)
                 if (new Godot.Vector2(x, y).DistanceTo(centre) > 320f) continue;   // the selection box of a large object runs far; the gizmo itself stays near
-                n++; float dd = new Godot.Vector2(x, y).DistanceTo(centre); radii.Add(dd); far = MathF.Max(far, dd);
+                gizmoPx.Add(new Godot.Vector2(x, y) + rect.Position); n++; float dd = new Godot.Vector2(x, y).DistanceTo(centre); radii.Add(dd); far = MathF.Max(far, dd);
             }
         radii.Sort(); Say($"gizmo radii: p50 {radii[radii.Count / 2]:0} p90 {radii[radii.Count * 9 / 10]:0} p99 {radii[radii.Count * 99 / 100]:0} centre {centre}");
-        Say($"gizmo: {n} changed pixels, farthest {far:0} px from the object's origin; editor scale {EditorInterface.Singleton.GetEditorScale()}, manipulator size setting {EditorInterface.Singleton.GetEditorSettings().Get("editors/3d/manipulator_gizmo_size")}, bypass radius {plugin.GizmoRadius:0} px");
+        Say($"gizmo: {n} changed pixels, farthest {far:0} px from the object's origin; editor scale {EditorInterface.Singleton.GetEditorScale()}, manipulator size setting {EditorInterface.Singleton.GetEditorSettings().Get("editors/3d/manipulator_gizmo_size")}");
         Check(n > 0, "the move gizmo appeared with W (measurement valid)");
-        Check(far > 100 && far <= plugin.GizmoRadius, $"the gizmo's handle tips ({far:0} px) lie inside the bypass radius ({plugin.GizmoRadius:0} px)");
+        int onHandle = gizmoPx.Count(g => plugin.IsOnGizmo(g));
+        Check(n > 0 && onHandle >= n * 0.95f, $"the hit test covers the real gizmo: {onHandle} of {n} gizmo pixels go to Godot");
+        var tipPx = gizmoPx.OrderByDescending(g => g.DistanceTo(centre + rect.Position)).First();
+        Check(plugin.IsOnGizmo(tipPx), $"the farthest arrow tip pixel ({tipPx.DistanceTo(centre + rect.Position):0} px out) goes to Godot");
+        // A press 60 px from the centre between the handles starts a box instead.
+        var origin = centre + rect.Position; Godot.Vector2? free = null;
+        float freeAt = 0;
+        for (float rad = 50f; rad <= 110f && free is null; rad += 5f)
+            for (int deg = 0; deg < 360 && free is null; deg += 5)
+            {
+                var q = origin + new Godot.Vector2(MathF.Cos(deg * Mathf.Pi / 180f), MathF.Sin(deg * Mathf.Pi / 180f)) * rad;
+                if (!plugin.IsOnGizmo(q) && !gizmoPx.Any(g => g.DistanceTo(q) < 10f)) { free = q; freeAt = rad; }
+            }
+        Check(free is not null, $"there is a spot between the handles, {freeAt:0} px from the centre (the real gizmo's rings and squares leave little room closer in)");
+        if (free is { } f0)
+        {
+            Move(f0); await Frames(3);
+            Button(f0, MouseButton.Left, true); await Frames(3);
+            for (int i = 1; i <= 4; i++) { Move(f0 + new Godot.Vector2(14, 14) * i, true); await Frames(2); }
+            Check(plugin.BoxDrawing, "a press between the handles starts a box");
+            Button(f0 + new Godot.Vector2(56, 56), MouseButton.Left, false); await Frames(8);
+            plugin.Select(ids); await Frames(5);
+        }
     }
 
     async Task TwoTabs(MapmakerDock dock)
@@ -251,6 +274,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Check(plugin.Session!.Document.Objects.Count == 1 && plugin.Session.Document.Objects[0].Prefab == "flow-piece", "the prefab was placed in tab 2");
         string doc2 = Doc(); _tab2Root = MapHost.Root!.GetInstanceId();
         await ShotView("placed-in-tab-2");
+        MapHost.Armed = null; MapHost.Tool = Tool.Select; await Frames(5);   // the box select belongs to the Select tool
         await MeasureGizmo();
         Check(EditorInterface.Singleton.SaveScene() == Error.Ok, "saved scene 2 (which also saves its map)");
         await Frames(80);   // the plugin notes which map belongs to the scene file
