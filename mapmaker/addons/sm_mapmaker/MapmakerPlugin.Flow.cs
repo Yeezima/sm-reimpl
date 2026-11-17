@@ -217,6 +217,7 @@ public partial class MapmakerPlugin
     // ---- play test ----------------------------------------------------------------------------------------------------------------------------------------
 
     int _playPid;
+    bool _playFromInstall;
     public string PlayStatus { get; private set; } = "";
     public event Action? PlayStatusChanged;
     public bool PlayRunning => _playPid != 0 && OS.IsProcessRunning(_playPid);
@@ -237,6 +238,25 @@ public partial class MapmakerPlugin
     }
 
     /// <summary>
+    /// The tester install's play test script (<c>playtest.ps1</c>, shipped in <c>mapmaker\</c> and copied by the launcher into the project the editor runs from, <c>&lt;install&gt;\mapmaker-project\</c>),
+    /// or null when this project has none. It runs the prebuilt server and game of the active version (found from SM_MAPMAKER_VERSION_DIR, which the launcher sets, or the install's current.json).
+    /// </summary>
+    public static string? InstallScript()
+    {
+        string dir = ProjectSettings.GlobalizePath("res://").TrimEnd('/', '\\');
+        string script = Path.Combine(dir, "playtest.ps1");
+        return File.Exists(script) ? script : null;
+    }
+
+    /// <summary>The script a play test runs and the arguments before its own: the checkout's tools script, else the install's. Null script when neither exists.</summary>
+    static (string? Script, string[] Lead) PlayScript()
+    {
+        if (RepoRoot() is { } root) return (Path.Combine(root, "tools", "mapmaker-playtest.ps1"), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]);
+        // the tester's play test is a hidden PowerShell: the only window is the game's
+        return (InstallScript(), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File"]);
+    }
+
+    /// <summary>
     /// The Play test button: saves the map, checks it, and starts <c>tools/mapmaker-playtest.ps1</c> (server on 127.0.0.1, bots, the game). Returns null when it started, else the reason.
     /// <paramref name="extra"/> adds script arguments (the self test's <c>-Test -OutDir ...</c>).
     /// </summary>
@@ -244,8 +264,10 @@ public partial class MapmakerPlugin
     {
         if (Session is null) return Fail("There is no map to play yet. Press New map first.");
         if (PlayRunning) return Fail("A play test is already running. Close the game window (or press Stop) first.");
-        string? root = RepoRoot();
-        if (root is null) return Fail("Play test needs the sm-reimpl checkout (tools/mapmaker-playtest.ps1 was not found next to the mapmaker folder).");
+        var (script, lead) = PlayScript();
+        if (script is null) return Fail("Play test is not available here: the Mapmaker project has no playtest.ps1. Open the Mapmaker from the launcher (the MAPMAKER button) of the newest build.");
+        bool fromInstall = RepoRoot() is null;
+        _playFromInstall = fromInstall;
         var report = MapCheck.Run(Compiled()!);
         var need = mode == "seize" ? CheckMode.Seize : CheckMode.Annihilation;
         if (!report.Ready(need))
@@ -259,11 +281,11 @@ public partial class MapmakerPlugin
         if (Session.Path is null || Dirty) { if (!SaveMap(path)) return Fail("The map could not be saved (see the message below)."); }
         path = Session.Path!;
         try { Directory.CreateDirectory(PlayDir); File.WriteAllText(PlayStatusFile, "starting|Starting the play test..."); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-        var args = new List<string> { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(root, "tools", "mapmaker-playtest.ps1"), "-Map", path, "-Mode", mode, "-Bots", bots.ToString(), "-Side", side };
+        var args = new List<string>(lead) { script, "-Map", path, "-Mode", mode, "-Bots", bots.ToString(), "-Side", side };
         if (extra is not null) args.AddRange(extra);
         _playPid = OS.CreateProcess("powershell.exe", args.ToArray(), false);
         if (_playPid <= 0) { _playPid = 0; return Fail("Could not start PowerShell for the play test."); }
-        SetPlayStatus("Starting the play test: building, then the server and the bots (the first time takes about half a minute)...");
+        SetPlayStatus(fromInstall ? "Starting the play test: the server and the bots, then the game..." : "Starting the play test: building, then the server and the bots (the first time takes about half a minute)...");
         PollPlayStatus();
         return null;
 
@@ -295,16 +317,24 @@ public partial class MapmakerPlugin
             string last = "";
             try { if (File.Exists(PlayStatusFile)) last = File.ReadAllText(PlayStatusFile).Trim(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
             int bar = last.IndexOf('|');
-            SetPlayStatus(last.StartsWith("failed") ? "Play test failed: " + (bar >= 0 ? last[(bar + 1)..] : last) : "Play test over (the server and the bots are stopped).");
+            if (last.StartsWith("failed")) SetPlayStatus("Play test failed: " + (bar >= 0 ? last[(bar + 1)..] : last));
+            else if (_playFromInstall && !last.StartsWith("done"))
+            {
+                // the installed script writes "done|..." as its last act: anything else means PowerShell never ran it (execution policy, a parse error) or it died early
+                string why = "Play test failed: the play test script did not run to its end (PowerShell was blocked or stopped; last state: " + (last.Length == 0 ? "none" : last) + "). Check the execution policy or run playtest.ps1 from the mapmaker-project folder in the install.";
+                GD.PushWarning("Mapmaker: " + why);
+                SetPlayStatus(why);
+            }
+            else SetPlayStatus("Play test over (the server and the bots are stopped).");
         }
     }
 
     /// <summary>Stop: stops only the processes the last play test recorded.</summary>
     public void StopPlayTest()
     {
-        string? root = RepoRoot();
-        if (root is null) return;
-        OS.CreateProcess("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(root, "tools", "mapmaker-playtest.ps1"), "-Stop"], false);
+        var (script, lead) = PlayScript();
+        if (script is null) return;
+        OS.CreateProcess("powershell.exe", [.. lead, script, "-Stop"], false);
         SetPlayStatus("Stopping the play test...");
     }
 
