@@ -593,9 +593,6 @@ public sealed partial class MusouSim
         return l > 1e-4f ? way / l * speed * 0.45f : Vector2.Zero;
     }
 
-    /// <summary>Warfront's fortress (<c>Fortress/MusouSim.WarfrontWallLean.cs</c>): whether this enemy leans off walls as a Boss Ork does; starts as the Boss Ork flag, a no-op without an implementation.</summary>
-    partial void WarfrontWallLean(MusouEnemyType type, ref bool lean);
-
     /// <summary>The separation (other enemies and the ring around players), then the move on the graph (or the flat ground), the facing and the velocity.</summary>
     void Move(int i, MusouTypeSpec spec, Vector2 desired, ReadOnlySpan<MusouTarget> targets, Span<int> near)
     {
@@ -666,8 +663,7 @@ public sealed partial class MusouSim
         if (len > max) v *= max / len;
         v += Driven(i);   // MU3: a knockback or the boss's charge, over the clamp
         bool boss = MusouBossOrks.Is(_type[i]), faceMove = false;
-        bool lean = boss; WarfrontWallLean(_type[i], ref lean);   // WARFRONT-HOOK: the Warboss leans off walls as a Boss Ork does (Warfront's fortress)
-        if (lean && Walk is { } nav && _node[i] >= 0 && _state[i] == MusouEnemyState.Seek)
+        if (boss && Walk is { } nav && _node[i] >= 0 && _state[i] == MusouEnemyState.Seek)
         {
             // A Boss Ork's body is 3x wide but the graph keeps only a normal Ork's margin off the walls: lean away from a wall nearer than its radius, so it does not grind along it (ours).
             float room = nav.EdgeDistance(_node[i]), want = BossWallRoom(spec.Radius);

@@ -111,6 +111,43 @@ public sealed partial class TfwBattle
             _enemies.ReleaseGroup(CommanderGroup);
             FortressSay(WarfrontFortressBattleRules.MessageWarbossInArena);
         }
+        FortressWarbossHome(state, humans);
+    }
+
+    bool _fortressBossCarried;
+    Vector3 _homeAnchor;
+    int _homeAnchorTicks;
+    /// <summary>How many times the arena-boss rule put the Warboss back on his spot (for tests and the report).</summary>
+    public int FortressWarbossHomes { get; private set; }
+
+    /// <summary>
+    /// W14e, the arena-boss rule [ours]: the freed Warboss with no living human in the plaza who makes under <see cref="WarfrontFortressBattleRules.HomeHeadway"/> m/s for <see cref="WarfrontFortressBattleRules.HomeSeconds"/> s
+    /// while seeking, or who stands more than the plaza's radius plus <see cref="WarfrontFortressBattleRules.HomeBeyond"/> m from his spot, or whom Musou's failsafe carried away, is put back on his spot with the sim's own
+    /// <c>Relocate</c> (no heal, no invulnerability, health and targets as they were). The sim offers no way to leash him again, so he seeks afresh from there.
+    /// </summary>
+    void FortressWarbossHome(WarfrontFortressState state, ReadOnlySpan<Vector3> humans)
+    {
+        if (BossId == 0 || !state.PlazaEntered || !_enemies.TryGet(BossId, out var boss) || !boss.Alive) { _fortressBossCarried = false; _homeAnchorTicks = 0; return; }
+        var spot = state.Plan.BossSpot;
+        bool inside = false;
+        foreach (var h in humans) if (state.InPlaza(h)) { inside = true; break; }
+        bool home = _fortressBossCarried;
+        float away = Vector2.Distance(new(boss.Position.X, boss.Position.Y), new(spot.X, spot.Y));
+        if (!inside && boss.State == MusouEnemyState.Seek)
+        {
+            if (away > state.Plan.ArenaRadius + WarfrontFortressBattleRules.HomeBeyond) home = true;
+            if (_homeAnchorTicks == 0) _homeAnchor = boss.Position;
+            if (++_homeAnchorTicks >= Ticks(WarfrontFortressBattleRules.HomeSeconds))
+            {
+                if (Vector2.Distance(new(boss.Position.X, boss.Position.Y), new(_homeAnchor.X, _homeAnchor.Y)) < WarfrontFortressBattleRules.HomeHeadway * WarfrontFortressBattleRules.HomeSeconds) home = true;
+                _homeAnchorTicks = 0;
+            }
+        }
+        else _homeAnchorTicks = 0;
+        if (!home) return;
+        _fortressBossCarried = false;
+        _homeAnchorTicks = 0;
+        if (_enemies.Relocate(BossId, spot)) FortressWarbossHomes++;
     }
 
     /// <summary>Whether source <paramref name="index"/> sends now (<see cref="WarfrontFortressState.SourceOpen"/>); the first three also check their crowd's anchor at the waypoint.</summary>
