@@ -1,0 +1,36 @@
+name: Refresh Round Table after main changes
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# No access via the source repository's GITHUB_TOKEN; the separate App is
+# installed only on the private feed repo, with Actions: write and no Contents write.
+permissions: {}
+
+# The receiving workflow supplies its own concurrency and always reads latest main.
+concurrency:
+  group: round-table-relay-main
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    # Leave cron as the fallback until the owner adds the secret, then the ID.
+    if: ${{ vars.ROUND_TABLE_APP_CLIENT_ID != '' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Mint a feed-only installation token
+        id: feed-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.ROUND_TABLE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ROUND_TABLE_APP_PRIVATE_KEY }}
+          owner: Yeezima
+          repositories: sm-reimpl-feed
+          permission-actions: write
+      - name: Request a feed refresh
+        env:
+          GH_TOKEN: ${{ steps.feed-token.outputs.token }}
+        run: gh workflow run live-feed-poll.yml --repo Yeezima/sm-reimpl-feed --ref main
