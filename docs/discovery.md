@@ -925,7 +925,7 @@ Compressed BOD (below). A `RegionLayer` holds `NavMesh` (a `NavMeshChunk`) and `
 list holds placed objects. TDM spawns are `base/missionmarkersphere` objects named `tdm_mkr_spawn_NN` with `Position`
 (metres), `Rotation` (degrees; facing is +Y rotated by the Z angle: on 7 maps that direction points toward the spawn
 area's centre, mean cosine 0.36–0.84, while +X gives about 0) and `Scale`. `d_blockers.Layer` holds
-`base/MissionMovementBlocker` boxes (not used yet).
+`base/MissionMovementBlocker` boxes and cylinders (group 2: solid walls for every player since classic-maps-fidelity gameplay, docs/classic-maps-all.md section 9).
 
 ### Teams and Annihilation rules — **supported by evidence for the sides; rules partly in scripts** (M15, 2026-10-27)
 
@@ -1261,7 +1261,7 @@ type 0xFF) with a read-only probe for struct classes, and walked a simulated pla
   its full size (as the M16 boxes); a living player dies when the feet's path in a tick, or the body's span at its end,
   meets it. Jump-pack players can still clear the 3 m railings and die in it. `SimConfig.KillDepth` stays as the
   fallback.
-- Other blockers, not used: `d_blockers` has two `base/MissionMovementBlocker` spheres (`Shape` 2, 9.3 m, `BlockGroup` 2,
+- Other blockers (the two spheres are still not simulated; the other maps' `d_blockers` boxes and cylinders are, since classic-maps-fidelity gameplay, docs/classic-maps-all.md section 9): `d_blockers` has two `base/MissionMovementBlocker` spheres (`Shape` 2, 9.3 m, `BlockGroup` 2,
   `BlockRace` 1) at z ≈ 15 over the middle; `d_mission_objects` has the per-race start-area blockers (`marine_blocker_01..03`
   `BlockRace` 4, `chaos_blocker_01..03` `BlockRace` 3; boxes, `BlockGroup` 3) that the script switches under
   `domination`. Neither is at an edge; which race each blocks is not established. `d_ceiling` is empty.
