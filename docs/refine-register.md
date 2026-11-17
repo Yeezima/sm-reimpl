@@ -28,16 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3419 spec table rows: **2440 tagged**, 629 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
+Scanned 3422 spec table rows: **2442 tagged**, 630 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 754 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 404 | 347 | 344 | 113 | 12 |
-Scanned 3420 spec table rows: **2441 tagged**, 629 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 405 | 347 | 345 | 113 | 12 |
+| Movement (critical) | 406 | 348 | 346 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 157 | 137 | 113 | 56 | 5 |
@@ -58,17 +53,14 @@ Scanned 3420 spec table rows: **2441 tagged**, 629 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2440** | 2168 | 1807 | 732 | 37 |
-| **All areas** | **2441** | 2168 | 1808 | 732 | 37 |
+| **All areas** | **2442** | 2169 | 1809 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1438 |
+| kind: ours | 1439 |
 | confidence: low | 872 |
-| confidence: medium | 826 |
-| confidence: low | 871 |
 | confidence: medium | 828 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
@@ -99,8 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (404)
-### Movement (gameplay-critical) (405)
+### Movement (gameplay-critical) (406)
 
 *Spec section: Extracted parameters*
 
