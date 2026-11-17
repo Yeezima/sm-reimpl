@@ -81,7 +81,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         await Frames(5);
 
         // 0. Before any Progress the HUD is hidden and the panel absent; a pick with no offer sends nothing.
-        Check("hud hidden before Progress", !_host.Hud.LevelLabel.Visible);
+        Check("scoreboard section hidden before Progress", !_host.Board.Visible && !M.HasProgress);
         Check("picker hidden before an offer", !_host.Picker.Visible);
         Check("pick with no offer sends nothing", !M.Pick(0) && _sent.Count == 0);
 
@@ -89,10 +89,11 @@ public sealed partial class WarfrontPickerSelfTest : Node
         Check("section 44 handled", _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(4, 900, 0, new byte[] { 1, 0, 2, 1, 0 }, 2, 100))));
         Check("section 99 not ours", !_host.Section(99, new byte[] { 1 }));
         await Frames(2);
-        Check("hud shows level 4", _host.Hud.LevelLabel.Visible && _host.Hud.LevelLabel.Text == "LEVEL 4", _host.Hud.LevelLabel.Text);
-        Check("no +N without pending picks", _host.Hud.PendingLabel.Text == "");
-        Check("xp text", _host.Hud.XpLabel.Text.Contains("XP"), _host.Hud.XpLabel.Text);
-        Check("counters in wire order", _host.Hud.Cell(0).Text == "SPD\n1" && _host.Hud.Cell(2).Text == "DMG\n2" && _host.Hud.Cell(5).Text == "RET\n2", string.Join("|", Enumerable.Range(0, 6).Select(i => _host.Hud.Cell(i).Text.Replace("\n", " "))));
+        Check("model holds level 4 (shown on the scoreboard only)", M.LevelText == "LEVEL 4" && !_host.Board.Visible, M.LevelText);
+        _host.Board.Shown = true; await Frames(2); Check("scoreboard section shows once the board is up", _host.Board.Visible);
+        Check("no +N without pending picks", M.PendingText == "");
+        Check("xp text", M.XpText.Contains("XP"), M.XpText);
+        Check("counters in wire order", M.CounterText(0) == "SPD\n1" && M.CounterText(2) == "DMG\n2" && M.CounterText(5) == "RET\n2");
         Check("attack speed bonus carried", MathF.Abs(M.AttackSpeedBonus - 0.1f) < 1e-4f);
         Check("no banner on the first Progress", !M.BannerShowing);
         await Still("hud-battle");
@@ -102,7 +103,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(5, 200, 1, new byte[] { 1, 0, 2, 1, 0 }, 2, 100)));
         await Frames(2);
         Check("level rise shows LEVEL 5", M.BannerShowing && _host.Hud.BannerLabel.Visible && _host.Hud.BannerLabel.Text == "LEVEL 5" && levelUps == 1, _host.Hud.BannerLabel.Text);
-        Check("pending shows +1", _host.Hud.PendingLabel.Text == "+1", _host.Hud.PendingLabel.Text);
+        Check("pending shows +1", M.PendingText == "+1", M.PendingText);
         await Still("hud-level-up-banner");
         M.Tick(1.9f); Check("banner still up at 1.9 s", M.BannerShowing);
         M.Tick(0.2f); await Frames(2); Check("banner gone after 2 s", !M.BannerShowing && !_host.Hud.BannerLabel.Visible);
@@ -225,18 +226,15 @@ public sealed partial class WarfrontPickerSelfTest : Node
 
         // 11. Reset (a stage change) clears everything.
         M.Reset(); await Frames(2);
-        Check("reset hides hud and picker", !_host.Hud.LevelLabel.Visible && !P.Visible && !M.OfferOpen);
+        Check("reset hides section and picker", !_host.Board.Visible && !P.Visible && !M.OfferOpen);
 
         // 12. Stills: HUD with pending picks and a full counter row; picker with a fourth stat card.
         _host.Section(WarfrontProgressionWire.ProgressTag, WarfrontProgressionWire.Encode(Progress(12, 2000, 3, new byte[] { 3, 2, 4, 2, 1 }, 5, 300)));
-        await Still("hud-pending-full-counters");
-        FitCheck("hud", _host.Hud.Labels());
+        _host.Board.Shown = true; await Still("scoreboard-section-pending-full-counters");
         _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(11, 12.3f, false, FourStats)));
         await Still("picker-fourth-stat-card");
 
         FitCheck("picker", P.Labels());
-        Overlap("hud cells do not overlap", Enumerable.Range(0, 6).Select(i => (_host.Hud.Cell(i).Name.ToString(), new Rect2(_host.Hud.Cell(i).Position, _host.Hud.Cell(i).Size))).ToList());
-        Check("hud clear of the right-edge margin", WarfrontXpHud.Left + WarfrontXpHud.Width <= UiKit.VirtualWidth - 40f);
 
         GD.Print($"WFPICK SELFTEST RESULT passed={_passed} failed={_failed}");
         GetTree().Quit(_failed == 0 ? 0 : 1);

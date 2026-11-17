@@ -17,6 +17,8 @@ public sealed partial class WarfrontProgressionHost : CanvasLayer
 
     public WarfrontProgressModel Model { get; }
     public WarfrontXpHud Hud { get; }
+    /// <summary>The level, XP and counters as a section of the Tab scoreboard.</summary>
+    public WarfrontXpBoard Board { get; }
     public WarfrontPickerPanel Picker { get; }
 
     /// <summary>Slot 0 to 3 and the pick index shown (the Pick command's two bytes).</summary>
@@ -31,6 +33,8 @@ public sealed partial class WarfrontProgressionHost : CanvasLayer
         AddChild(root);
         Hud = new WarfrontXpHud(Model);
         Picker = new WarfrontPickerPanel(Model);
+        Board = new WarfrontXpBoard(Model);
+        root.AddChild(Board);
         root.AddChild(Hud);
         root.AddChild(Picker);
         root.MoveChild(Hud, -1);   // the HUD box hides while an offer stands; the LEVEL N banner stays above the picker's dimming

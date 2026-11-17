@@ -55,6 +55,46 @@ public partial class NetworkView
         _wfProgressionRejoin = rejoin;
         host.Picker.Enabled = WarfrontPickerLive || (_bot && WarfrontBotFlag);
         host.Model.PickerHidden = !host.Picker.Enabled;
+        host.Board.PlayerRows = Math.Max(1, _client?.Scoreboard?.Players.Length ?? 1);
+        host.Board.Shown = _boardView is { Visible: true };   // the XP section belongs to the Tab scoreboard
         host.Frame((float)dt);
+        WarfrontXpShotFrame();
+    }
+}
+
+public partial class NetworkView
+{
+    // ---- --warfront-xp-shots <dir>: test aid (windowed): takes the cards offered with key 1, then saves "xp-in-play" (no XP panel on the field) and, with the scoreboard action held, "xp-scoreboard" ----
+    static readonly string? WarfrontXpShots = CmdArg("warfront-xp-shots");
+    double _wfxClear = -1, _wfxHeldAt = -1, _wfxPressAt;
+    int _wfxStage;
+
+    void WarfrontXpShotFrame()
+    {
+        if (WarfrontXpShots is not { Length: > 0 } dir || _wfProgression is not { } host || !host.Model.HasProgress) return;
+        double now = _connectedFor;
+        void Shot(string name)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            var size = GetViewport().GetVisibleRect().Size;
+            var err = GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(dir, $"{name}-{(int)size.X}x{(int)size.Y}.png"));
+            GD.Print($"WFXP shot {name}: {err}");
+        }
+        string board = ControlsInput.Name(GameAction.Scoreboard);
+        if (_wfxStage == 0)
+        {
+            if (host.Model.OfferOpen)
+            {
+                _wfxClear = -1;
+                if (now - _wfxPressAt > 0.8) { _wfxPressAt = now; WfhRealKey(Key.Key1, true); WfhRealKey(Key.Key1, false); }
+            }
+            else if (_wfxClear < 0) _wfxClear = now;
+            else if (now - _wfxClear > 3.0) { Shot("xp-in-play"); GD.Print($"WFXP model: {host.Model.LevelText}, {host.Model.XpText}, pending {host.Model.Pending}, board visible {host.Board.Visible}"); Input.ActionPress(board); _wfxHeldAt = now; _wfxStage = 1; }
+        }
+        else if (_wfxStage == 1 && now - _wfxHeldAt > 1.0)
+        {
+            Shot("xp-scoreboard"); GD.Print($"WFXP board visible {host.Board.Visible}");
+            Input.ActionRelease(board); _wfxStage = 2;
+        }
     }
 }

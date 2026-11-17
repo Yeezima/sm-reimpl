@@ -43,55 +43,23 @@ public static class WarfrontProgressDraw
 }
 
 /// <summary>
-/// Warfront's XP HUD (slice W8; plan section 5, brief "Behaviour" 1 and 2): the level, a thin XP bar to the next level, "+N" while picks are pending, one row of five small counters (attack speed, max HP,
-/// damage, cooldown, max armour) and the retainer count, and the one-line LEVEL N banner for two seconds after a level rises. In the 1920 by 1080 space like the other Warfront panels, on the right edge at
-/// mid height: clear of Musou's corners (capture tiles top left, boss and vitals bottom left, kill feed top right, KO chain and weapon box bottom right) and its top call-out and bottom prompt strips. Layout ours,
-/// to check against the live Musou HUD. Two text levels (heading 28, body 20) plus the banner's own; fed by a <see cref="WarfrontProgressModel"/>, hidden until Progress arrives.
+/// Warfront's in-play progression cue: only the one-line LEVEL N banner for two seconds after a level rises (or the picker-off countdown line). The level, XP bar, counters and "+N" picks no longer sit on the
+/// field: they live in the Tab scoreboard (<see cref="WarfrontXpBoard"/>; owner, 2026-11-17: the always-on box was too invasive while playing). A waiting pick needs no standing cue: the card picker opens by itself
+/// for every pick (and the banner names the countdown when the picker is switched off), so nothing else is drawn in play.
 /// </summary>
 public sealed partial class WarfrontXpHud : Control
 {
-    public const int HeadingSize = 28, BodySize = 20, BannerSize = 44;
-    public const float Width = 420f, Height = 184f, Right = 44f, Top = 420f, Pad = 15f, BarHeight = 12f;
-    /// <summary>Whole pixels: six cells of 60 at a step of 66 span 390, the box less its two 15 px margins.</summary>
-    public const float CellWidth = 60f, CellStep = 66f;
-    public static float Left => UiKit.VirtualWidth - Right - Width;
+    public const int BannerSize = 44;
 
     readonly WarfrontProgressModel _model;
-    readonly Label _level, _pending, _xp, _banner;
-    readonly Label[] _cells = new Label[6];
-    readonly Draw _draw;
+    readonly Label _banner;
 
-    public Label LevelLabel => _level;
-    public Label PendingLabel => _pending;
-    public Label XpLabel => _xp;
     public Label BannerLabel => _banner;
-    public Label Cell(int i) => _cells[i];
     public WarfrontProgressModel Model => _model;
 
     public System.Collections.Generic.IEnumerable<Label> Labels()
     {
         foreach (var n in GetChildren()) if (n is Label l) yield return l;
-    }
-
-    sealed partial class Draw : Control
-    {
-        readonly WarfrontProgressModel _m;
-        public Draw(WarfrontProgressModel m) { _m = m; Name = "WarfrontXpDraw"; MouseFilter = MouseFilterEnum.Ignore; }
-
-        public override void _Draw()
-        {
-            if (!_m.HasProgress) return;
-            var box = new Rect2(Left, Top, Width, Height);
-            DrawRect(box, UiKit.PanelColour);
-            WarfrontProgressDraw.Frame(this, box, 2f, new Color(1f, 1f, 1f, 0.8f));
-            WarfrontProgressDraw.Bar(this, new Rect2(Left + Pad, Top + 54f, Width - 2f * Pad, BarHeight), _m.XpFraction, WarfrontProgressDraw.Gold);
-            for (int i = 0; i < 6; i++)
-            {
-                var cell = new Rect2(Left + Pad + i * CellStep, Top + 108f, CellWidth, 64f);
-                int count = i < 5 ? _m.CardCounts[i] : _m.Retainers;
-                WarfrontProgressDraw.Frame(this, cell, 2f, count > 0 ? WarfrontProgressDraw.Gold : new Color(1f, 1f, 1f, 0.35f));
-            }
-        }
     }
 
     public WarfrontXpHud(WarfrontProgressModel model)
@@ -100,15 +68,6 @@ public sealed partial class WarfrontXpHud : Control
         _model = model;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
-        _draw = new Draw(model);
-        _draw.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(_draw);
-        var white = UiKit.White;
-        _level = WarfrontProgressDraw.Text(this, "WarfrontLevel", Left + Pad, Top + 8f, 260f, HeadingSize, white);
-        _pending = WarfrontProgressDraw.Text(this, "WarfrontPending", Left + Width - Pad - 120f, Top + 8f, 120f, HeadingSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Right);
-        _xp = WarfrontProgressDraw.Text(this, "WarfrontXpText", Left + Pad, Top + 72f, Width - 2f * Pad, BodySize);
-        for (int i = 0; i < 6; i++)
-            _cells[i] = WarfrontProgressDraw.Text(this, "WarfrontCell" + i, Left + Pad + i * CellStep, Top + 110f, CellWidth, BodySize, white, HorizontalAlignment.Center, lines: 2);
         _banner = WarfrontProgressDraw.Text(this, "WarfrontBanner", (UiKit.VirtualWidth - 800f) / 2f, 180f, 800f, BannerSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Center);
         _banner.Visible = false;
         model.Changed += Refresh;
@@ -119,17 +78,8 @@ public sealed partial class WarfrontXpHud : Control
     public void Refresh()
     {
         var m = _model;
-        bool show = m.HasProgress && !m.OfferOpen;   // the picker shows the owned counts itself and covers this corner
-        _draw.Visible = show;
-        _level.Visible = _pending.Visible = _xp.Visible = show;
-        foreach (var c in _cells) c.Visible = show;
-        WarfrontProgressDraw.Set(_level, m.LevelText);
-        WarfrontProgressDraw.Set(_pending, m.PendingText);
-        WarfrontProgressDraw.Set(_xp, m.XpText);
-        for (int i = 0; i < 6; i++) WarfrontProgressDraw.Set(_cells[i], m.CounterText(i));
         bool banner = m.BannerShowing;
         if (_banner.Visible != banner) _banner.Visible = banner;
         if (banner) WarfrontProgressDraw.Set(_banner, m.BannerText);
-        _draw.QueueRedraw();
     }
 }
