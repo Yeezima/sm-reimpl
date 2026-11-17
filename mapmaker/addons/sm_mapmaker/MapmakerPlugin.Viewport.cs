@@ -191,7 +191,7 @@ public partial class MapmakerPlugin
         var p = window - o;
         if (p.Length() < 16f * scale) return true;
         if (MathF.Abs(p.Length() - ring) < reach) return true;   // the outer view ring
-        var look = (centre - cam.GlobalPosition).Normalized();
+        var look = cam.Projection == Camera3D.ProjectionType.Perspective ? (centre - cam.GlobalPosition).Normalized() : -cam.GlobalTransform.Basis.Z;   // orthographic views look along the camera's forward axis
         var spaces = new List<Basis> { Basis.Identity };
         var local = picked[0].GlobalTransform.Basis.Orthonormalized();
         if (!local.IsEqualApprox(Basis.Identity)) spaces.Add(local);
@@ -201,7 +201,11 @@ public partial class MapmakerPlugin
             for (int i = 0; i < 3; i++)
             {
                 var a = (i == 0 ? basis.Column0 : i == 1 ? basis.Column1 : basis.Column2).Normalized();
-                var d = ToWindow(cam.UnprojectPosition(centre + a * 0.5f)) - o;
+                var ahead = centre + a * 0.5f;
+                Vector2 d;
+                if (!cam.IsPositionBehind(ahead)) d = ToWindow(cam.UnprojectPosition(ahead)) - o;
+                else if (!cam.IsPositionBehind(centre - a * 0.5f)) d = -(ToWindow(cam.UnprojectPosition(centre - a * 0.5f)) - o);   // the tip would be behind the camera: use the other side
+                else d = Vector2.Zero;
                 float frac = MathF.Sqrt(Math.Max(0f, 1f - a.Dot(look) * a.Dot(look)));
                 axes[i] = d.Length() < 1e-3f ? Vector2.Zero : d.Normalized() * frac;
             }

@@ -159,6 +159,64 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     }
 
     /// <summary>Owner, 2026-11-18: the map editor works in any scene tab. Prefab extracted from an SM1 map in tab 1, placed in tab 2.</summary>
+    /// <summary>Scene maps stay apart: two scenes with the same file name in different folders, and Save As, never share or overwrite a map; object nodes saved in a scene are reported when a map replaces them.</summary>
+    async Task SceneIsolation(MapmakerDock dock)
+    {
+        string dirA = "res://Maps/FlowDirA", dirB = "res://Maps/FlowDirB";
+        foreach (var d in new[] { dirA, dirB }) DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(d));
+        string sa = dirA + "/Same.tscn", sb = dirB + "/Same.tscn", copy = dirB + "/Copy.tscn";
+        foreach (var path in new[] { sa, sb })
+        {
+            var packed = new PackedScene(); var plain = new Node3D { Name = "Same" }; packed.Pack(plain); plain.Free();
+            ResourceSaver.Save(packed, path);
+        }
+        var cover = new LibraryItem(LibraryKind.Piece, "cover", "Cover block");
+        async Task Fill(string path, int copies)
+        {
+            EditorInterface.Singleton.OpenSceneFromPath(path);
+            for (int i = 0; i < 120 && EditorInterface.Singleton.GetEditedSceneRoot()?.SceneFilePath != path; i++) await Frames(3);
+            await Frames(15);
+            await plugin.AddMapToCurrentScene();
+            for (int i = 0; i < copies; i++) plugin.PlaceAt(cover, new Godot.Vector3(6 * i, 0, 0));
+            EditorInterface.Singleton.SaveScene(); await Frames(20);
+        }
+        await Fill(sa, 1);
+        await Fill(sb, 2);
+        string? ma = plugin.SceneMapOfFile(sa), mb = plugin.SceneMapOfFile(sb);
+        Check(ma is not null && mb is not null && ma != mb, $"two scenes called Same.tscn in different folders have different map files ({(ma is null ? "-" : Path.GetFileName(ma))}, {(mb is null ? "-" : Path.GetFileName(mb))})");
+        Check(ma is not null && mb is not null && MapDocument.Parse(File.ReadAllText(ma)).Objects.Count == 1 && MapDocument.Parse(File.ReadAllText(mb)).Objects.Count == 2, "each map file holds its own scene's objects (1 and 2)");
+        // Save As: the new scene gets its own copy.
+        EditorInterface.Singleton.SaveSceneAs(copy, false);
+        for (int i = 0; i < 150 && plugin.SceneMapOfFile(copy) is null; i++) await Frames(2);
+        string? mc = plugin.SceneMapOfFile(copy);
+        Check(mc is not null && mc != mb && File.Exists(mb!) && MapDocument.Parse(File.ReadAllText(mc!)).Objects.Count == 2 && plugin.SceneMapOfFile(sb) == mb,
+            $"Save As gives the new scene its own copy of the map and leaves the original's alone ({(mc is null ? "-" : Path.GetFileName(mc))} vs {(mb is null ? "-" : Path.GetFileName(mb))})");
+        // An entry written for another scene (uid mismatch, as at a reused path) is not used; entries of scene files that are gone are dropped on the next write.
+        string sidecar = Path.Combine(MapHost.Library.MapsDir, "scene-maps.json");
+        string original = File.ReadAllText(sidecar);
+        var tampered = System.Text.Json.Nodes.JsonNode.Parse(original)!.AsObject();
+        tampered[sa]!["uid"] = "uid://notthisscene";
+        tampered["res://Maps/FlowDirA/Gone.tscn"] = new System.Text.Json.Nodes.JsonObject { ["map"] = ma, ["uid"] = "" };
+        File.WriteAllText(sidecar, tampered.ToJsonString());
+        Check(plugin.SceneMapOfFile(sa) is null, "an entry whose scene uid differs (a new scene at a reused path) is not used");
+        File.WriteAllText(sidecar, tampered.ToJsonString().Replace("uid://notthisscene", System.Text.Json.Nodes.JsonNode.Parse(original)![sa]!["uid"]!.GetValue<string>()));
+        plugin.PlaceAt(new LibraryItem(LibraryKind.Piece, "cover", "Cover block"), new Godot.Vector3(40, 0, 0));
+        EditorInterface.Singleton.SaveScene(); await Frames(20);
+        Check(!File.ReadAllText(sidecar).Contains("Gone.tscn") && File.ReadAllText(sidecar).Contains("Same.tscn"), "the next write drops entries of scene files that are gone and keeps the others (the file is re-read, not overwritten from memory)");
+        // Object nodes saved in a scene are reported, not silently deleted.
+        if (MapHost.Root is { } root)
+        {
+            root.AddChild(new MapmakerObject { Name = "Stray", ObjectId = "stray" });
+            plugin.NewMap("Replaced"); await Frames(5);
+            Check(plugin.Status.Contains("replaced"), $"saved object nodes replaced by a map are reported: \"{plugin.Status}\"");
+        }
+        EditorInterface.Singleton.OpenSceneFromPath("res://Maps/Empty.tscn");
+        await Frames(140);
+        Check(plugin.StashCount == EditorInterface.Singleton.GetOpenScenes().Length - 1, $"stashed maps are exactly those of the other open tabs ({plugin.StashCount} held, {EditorInterface.Singleton.GetOpenScenes().Length} tabs open)");
+        foreach (var f in new[] { sa, sb, copy }) { try { DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath(f)); } catch (Exception) { } }
+        foreach (var d in new[] { dirA, dirB }) { try { DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath(d)); } catch (Exception) { } }
+    }
+
     ulong _tab2Root;
 
     /// <summary>Measures how far the real move gizmo reaches from the selected object's origin (pixels that appear when W is pressed), against the plugin's bypass radius.</summary>
@@ -214,6 +272,33 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             Button(f0 + new Godot.Vector2(56, 56), MouseButton.Left, false); await Frames(8);
             plugin.Select(ids); await Frames(5);
         }
+        foreach (var k in new[] { Key.Q, Key.E, Key.R }) await QModeProbe(ids, centre, k);
+    }
+
+    /// <summary>Does Godot draw gizmo handles in Select mode (Q)? Counts gizmo-coloured pixels that appear with the selection.</summary>
+    async Task QModeProbe(List<string> ids, Godot.Vector2 centre, Key key)
+    {
+        foreach (bool pressed in new[] { true, false }) Tree.Root.PushInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = pressed });
+        await Frames(15);
+        Image Grab() { var r = View.GetGlobalRect(); return Tree.Root.GetTexture().GetImage().GetRegion(new Rect2I((Vector2I)r.Position, (Vector2I)r.Size)); }
+        plugin.Select(ids); await Frames(10);
+        var with = Grab();
+        EditorInterface.Singleton.GetSelection().Clear(); await Frames(15);
+        var without = Grab();
+        plugin.Select(ids); await Frames(5);
+        static float Near(Color c, float r, float g, float bl) => MathF.Abs(c.R - r) + MathF.Abs(c.G - g) + MathF.Abs(c.B - bl);
+        int n = 0;
+        for (int y = 0; y < with.GetHeight(); y++)
+            for (int x = 0; x < with.GetWidth(); x++)
+            {
+                var a = with.GetPixel(x, y); var b = without.GetPixel(x, y);
+                if (MathF.Abs(a.R - b.R) + MathF.Abs(a.G - b.G) + MathF.Abs(a.B - b.B) < 0.25f) continue;
+                if (Near(a, 0.96f, 0.21f, 0.32f) > 0.3f && Near(a, 0.53f, 0.84f, 0.01f) > 0.3f && Near(a, 0.16f, 0.55f, 0.96f) > 0.3f) continue;
+                if (new Godot.Vector2(x, y).DistanceTo(centre) <= 320f) n++;
+            }
+        Say($"gizmo with key {key}: {n} gizmo-coloured changed pixels near the origin (with W it was thousands)");
+        foreach (bool pressed in new[] { true, false }) Tree.Root.PushInput(new InputEventKey { Keycode = Key.W, PhysicalKeycode = Key.W, Pressed = pressed });
+        await Frames(10);
     }
 
     async Task TwoTabs(MapmakerDock dock)
@@ -252,7 +337,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         // Two placements in tab 1 for the undo check after the tab switches.
         var cover = new LibraryItem(LibraryKind.Piece, "cover", "Cover block");
         plugin.PlaceAt(cover, new Godot.Vector3(20, 20, 0)); plugin.PlaceAt(cover, new Godot.Vector3(24, 20, 0));
-        string doc1 = Doc(); int count1 = plugin.Session!.Document.Objects.Count;
+        string doc1 = Doc(); int count1 = plugin.Session!.Document.Objects.Count; string map1 = plugin.Session.Path!;
         // Tab 2: a plain scene.
         var packed = new PackedScene(); var plain = new Node3D { Name = "Plain" };
         packed.Pack(plain); plain.Free();
@@ -276,7 +361,9 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         await ShotView("placed-in-tab-2");
         MapHost.Armed = null; MapHost.Tool = Tool.Select; await Frames(5);   // the box select belongs to the Select tool
         await MeasureGizmo();
+        int onDisk = MapDocument.Parse(File.ReadAllText(map1)).Objects.Count;
         Check(EditorInterface.Singleton.SaveScene() == Error.Ok, "saved scene 2 (which also saves its map)");
+        Check(onDisk < count1 && MapDocument.Parse(File.ReadAllText(map1)).Objects.Count == count1, $"saving a scene also saved the changed map of the background tab 1 ({onDisk} -> {count1} objects on disk)");
         await Frames(80);   // the plugin notes which map belongs to the scene file
         await Frames(10);
         MapHost.Armed = null; MapHost.Tool = Tool.Select; await Frames(5);
@@ -301,7 +388,8 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Check(plugin.Session is { } reopened && reopened.Document.Objects.Count == 1 && reopened.Document.Objects[0].Prefab == "flow-piece", "after closing and reopening scene 2 its map is back (loaded from the scene's map path)");
         EditorInterface.Singleton.OpenSceneFromPath("res://Maps/Empty.tscn");
         await Frames(30);
-        Check(plugin.StashCount <= 2, $"stashed maps of closed scenes are pruned ({plugin.StashCount} held)");
+        await Frames(130);   // the slow poll prunes
+        Check(plugin.StashCount == EditorInterface.Singleton.GetOpenScenes().Length - 1, $"stashed maps are exactly those of the other open tabs ({plugin.StashCount} held, {EditorInterface.Singleton.GetOpenScenes().Length} tabs open)");
         try { DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath(tab2)); } catch (Exception) { }
     }
 
@@ -416,6 +504,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
 
             // 10. Any scene tab (owner, 2026-11-18): extract a prefab from an SM1 map in tab 1, place it in a scene of tab 2; tab 1 is untouched.
             await TwoTabs(dock);
+            await SceneIsolation(dock);
 
             // 9. Share: the file is the whole map.
             string shared = plugin.ShareFile()!;
