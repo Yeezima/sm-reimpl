@@ -346,12 +346,15 @@ public abstract partial class CrowdView : Node3D
         if (!due) return true;
         s.Clip = it.Clip;
         PoseSkinned(s, it);
-        if (bones) MusouOrkFlinchPose.Apply(s.Skeleton, s.FlinchBones!, new Basis(new Vector3(0, 0, 1), it.Yaw).Inverse() * it.Kick, look.Scale);
+        if (bones) PoseFlinch(s, it, new Basis(new Vector3(0, 0, 1), it.Yaw).Inverse() * it.Kick);
         s.Flinched = bones;
         return true;
     }
 
-    Skinned Build(MusouLooks.Look look)
+    /// <summary>The hit reaction laid over a skinned member's pose (<paramref name="kick"/> in the member's own frame): by default the procedural flinch (<see cref="MusouOrkFlinchPose.Apply"/>); the Musou crowd lays the rig's own reaction clips (owner 2026-11-17).</summary>
+    protected virtual void PoseFlinch(Skinned s, in Item it, Vector3 kick) => MusouOrkFlinchPose.Apply(s.Skeleton, s.FlinchBones!, kick, s.Look.Scale);
+
+    protected Skinned Build(MusouLooks.Look look)
     {
         var skeleton = look.Assets.Model.Rig.Skeleton;
         var root = new Node3D { Name = "Skinned" + _skinned.Count };
@@ -376,7 +379,7 @@ public abstract partial class CrowdView : Node3D
         return new Skinned { Root = root, Skeleton = sk, Look = look, Rest = rest };
     }
 
-    void Pose(Skinned s, HavokBoundAnimation clip, float time)
+    protected void Pose(Skinned s, HavokBoundAnimation clip, float time)
     {
         if (_sample.Length != clip.Animation.TrackCount) _sample = new HavokTransform[clip.Animation.TrackCount];
         clip.Animation.SampleInto(time, _sample);
