@@ -231,4 +231,12 @@ public class WarfrontBoundaryTests
                 if (!IsComment(lines[i]) && lines[i].Contains("SM_WARFRONT", StringComparison.Ordinal) && !allowed.Contains(path)) offenders.Add($"{path}:{i + 1}");
         Assert.True(offenders.Count == 0, "SM_WARFRONT outside its files: " + string.Join(", ", offenders));
     }
+
+    /// <summary>W8 review 1b: the card picker is live on a human's client (W5c flipped it once <c>PickerBusy</c> existed); a flip back to false fails here.</summary>
+    [Fact]
+    public void The_card_picker_is_live()
+    {
+        var lines = Sources().First(s => s.Path == "client/Extras/Warfront/Progression/NetworkView.WarfrontProgression.cs").Lines;
+        Assert.Contains(lines, l => !IsComment(l) && l.Contains("internal static bool WarfrontPickerLive = true;", StringComparison.Ordinal));
+    }
 }

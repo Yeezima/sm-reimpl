@@ -1,12 +1,14 @@
 using System;
 using Godot;
 using SmClient.Extras.Warfront;
+using SmClient.Extras.Warfront.Coop;
 using SmClient.Extras.Warfront.Hub;
 using SmClient.Extras.Warfront.Progression;
 using SmNet;
 using SmNet.Extras.Warfront;
 using SmSim;
 using SmSim.Extras.Musou;
+using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Coop;
 using Num = System.Numerics;
 
@@ -39,6 +41,7 @@ public partial class NetworkView
     // ---- M held: the Warfront war map, read only -------------------------------------------------------------------------------------------
 
     WarfrontHubPanel? _wfPeek;
+    bool _wfPeekHeld;
     CanvasLayer? _wfPeekLayer;
 
     partial void WarfrontPeekWarMap(ref bool handled)
@@ -47,13 +50,15 @@ public partial class NetworkView
         handled = true;
         if (_bot) return;
         bool held = (Input.IsPhysicalKeyPressed(Key.M) || _wfhHoldM) && !PickerBusy;   // _wfhHoldM: the test aid's stand-in for the key (a synthetic event does not set the polled key state)
+        _wfPeekHeld = held;
         _tfwMapHeld = held;   // Musou's HUD hides under the held map as it does under its own
         if (held && _wfPeek is null)
         {
             _wfPeekLayer = new CanvasLayer { Name = "WarfrontMapPeek", Layer = 50 };
-            var root = new Control { Name = "WarfrontMapPeekRoot", Theme = SmClient.Customizer.UiKit.Theme, MouseFilter = Control.MouseFilterEnum.Ignore };
+            var root = new WarfrontUiFit { Name = "WarfrontMapPeekRoot", Theme = SmClient.Customizer.UiKit.Theme };
             _wfPeek = new WarfrontHubPanel(WarfrontModel.Hub, null) { MouseFilter = Control.MouseFilterEnum.Ignore };
             for (int row = 0; row < WarfrontHubModel.Rows; row++) { var b = _wfPeek.DeployRow(row); b.MouseFilter = Control.MouseFilterEnum.Ignore; b.FocusMode = Control.FocusModeEnum.None; b.Modulate = new Color(1f, 1f, 1f, 0f); }   // read only: no deploy rows drawn
+            _wfPeek.NoteLabel.Visible = false;   // the leader's line ("YOU LEAD: CHOOSE THE DEPLOYMENT") is not true under a read-only look
             root.AddChild(_wfPeek);
             _wfPeekLayer.AddChild(root);
             AddChild(_wfPeekLayer);
@@ -61,19 +66,13 @@ public partial class NetworkView
         if (_wfPeekLayer is null || _wfPeek is null) return;
         _wfPeekLayer.Visible = held;
         if (!held) return;
-        var size = GetViewport().GetVisibleRect().Size;
-        float scale = size.Y / 1080f;
-        if (scale > 0f && _wfPeek.GetParent() is Control peekRoot)
-        {
-            peekRoot.Scale = new Vector2(scale, scale);
-            peekRoot.Size = size / scale;
-            _wfPeek.Size = peekRoot.Size;
-        }
+        _wfPeek.Size = new Vector2(WarfrontUiFit.DesignWidth, WarfrontUiFit.DesignHeight);   // the fit root scales and centres it
     }
 
     // ---- the customizer on the ship ----------------------------------------------------------------------------------------------------
 
     int _wfSquadClassSent = -1;
+    GameClient? _wfSquadClassClient;
 
     partial void WarfrontCustomizerOpened()
     {
@@ -91,6 +90,7 @@ public partial class NetworkView
     internal void WarfrontResendSquadClass()
     {
         if (_client is not { Status: ClientStatus.Connected } c || _config is null || _pickerServices?.Session?.Saved is not { } saved) return;
+        if (!ReferenceEquals(_wfSquadClassClient, c)) { _wfSquadClassClient = c; _wfSquadClassSent = -1; }   // a new connection (each stage's rejoin) has not been told
         if (!LibrarianRules.IsLibrarian(_config, c.Predicted.Class)) return;
         byte option = (byte)WarfrontSquadClassOption.SquadClassOf(saved);
         if (option == _wfSquadClassSent) return;
@@ -112,29 +112,38 @@ public partial class NetworkView
         if (s.WatchKind == WarfrontWatchKind.Player) watch = HudName(s.WatchId);
         else if (s.WatchKind == WarfrontWatchKind.Marine && _wfSquad is { } squad) watch = squad.Model.NameOfIndex(s.WatchId);
         int level = _wfProgression?.Model.Level ?? 1;
-        string leader = WarfrontModel.Hub.LeaderName;
-        WarfrontCoopSection(payload, leader == "NOBODY" ? "" : leader, watch, own, level);
+        string leader = WarfrontModel.Hub.View.Leader is null ? "" : WarfrontModel.Hub.LeaderName;
+        WarfrontCoop.OwnName = own;   // the decoded section goes straight in: the payload is decoded once
+        WarfrontCoop.Apply(s, leader, watch, level, WarfrontCoopModel.PicksLeftFor(s, own));
     }
 
     bool _wfWasSpectating;
     bool _wfFWas;
+    bool _wfCreatorWas;
 
     partial void WarfrontCoopFrame(PlayerState me, double dt)
     {
         if (!WarfrontOn) return;
-        if (_hudView is not null) WarfrontCoopBuildUi(_hudView);
+        if (_hudView is not null) WarfrontCoopBuildUi(WarfrontFitRoot(_hudView));
         WarfrontCoop.Tick(dt);
         WarfrontKeyNodeEnsure();
         MusouEnsureCarry();   // the attack-speed carry stands from the first frame, buff lists or none
         WarfrontHooksTestFrame(me, dt);
+        WfdDownWatchFrame(me);
+        // The fallen player's state (W5a's Down section, kept by the stage model; stale after 2 s: the server sends one last None) drives the spectator view and its HUD line.
+        bool downFresh = WarfrontModel.DownLine(_connectedFor).Length > 0;
+        WarfrontCoopDown(downFresh ? WarfrontModel.Down.Phase : WarfrontDownPhase.None, downFresh ? WarfrontModel.Down.SecondsLeft : 0f);
+        // The customizer's own state, whichever way it was opened (the Equipment station or the Esc menu): shown, then gone, is the confirmation.
+        bool creator = _pickerCreator is { } cv && cv.IsVisibleInTree();
+        if (creator && !_wfCreatorWas) WarfrontCustomizerOpened();
+        else if (!creator && _wfCreatorWas) WarfrontCustomizerClosed();
+        _wfCreatorWas = creator;
         bool spectating = WarfrontSpectating && !_bot;
         if (spectating)
         {
-            bool f = Input.IsPhysicalKeyPressed(Key.F);
+            bool f = (Input.IsPhysicalKeyPressed(Key.F) || _wfhHoldF) && !PickerBusy;   // _wfhHoldF: the down-watch aid's stand-in for the key
             if (f && !_wfFWas) WarfrontCoop.StepWatch(Input.IsPhysicalKeyPressed(Key.Shift) ? -1 : 1);
             _wfFWas = f;
-            // The rig and the death camera placed the camera first; the spectator follow (springs, level cast) places it again over them.
-            if (_camera is not null && _gameSpace is not null) SpectateFollow(me, SpectateG(me.Position), (float)dt);
         }
         else if (_wfWasSpectating) _specInit = false;   // the next watch starts with a cut
         _wfWasSpectating = spectating;
@@ -152,6 +161,7 @@ public partial class NetworkView
             else foreach (var p in c.RemotePlayers().Players) if (p.PlayerId == s.WatchId && p.Alive) { at = p.Position; yaw = p.Yaw; break; }
         }
         else if (s.WatchKind == WarfrontWatchKind.Marine && _wfSquad is { } squad && squad.Model.TrySample(s.WatchId, _connectedFor, out var shown)) { at = shown.Position; yaw = shown.Yaw; }
+        if (at is null) { at = me.Position; yaw = me.Yaw; }   // nobody to watch yet (the server names the watch on the first F): the own body's place
         if (at is { } position) view = WarfrontSpectatePose(SpectateG(position), yaw);
     }
 
@@ -161,16 +171,20 @@ public partial class NetworkView
     }
 
     bool _wfPanelWas;
+    double _wfResendClock;
 
     partial void WarfrontSquadFrame(PlayerState me, double dt)
     {
         if (!WarfrontOn) return;
         WarfrontSquadAboard = WarfrontModel.Hub.View.Phase == SmSim.Extras.Warfront.Campaign.WarfrontPhase.Ship;
         WarfrontSquadTick(me, dt);
+        _wfResendClock += dt;
+        if (_wfResendClock >= 1.0) { _wfResendClock = 0.0; WarfrontResendSquadClass(); }   // a Librarian's stored option reaches the server on every connection, once a second at most
         bool open = _wfSquad is { Panel.Visible: true };
         if (open && !_wfPanelWas) Input.MouseMode = Input.MouseModeEnum.Visible;
         else if (!open && _wfPanelWas) RestoreMouse(leaving: false);
         _wfPanelWas = open;
+        if (_wfProgression is { } host) host.Hud.Modulate = open || _wfPeekHeld ? new Color(1f, 1f, 1f, 0f) : Colors.White;   // the XP HUD stays out of the way of the squad panel and the held map
     }
 
     /// <summary>A child that offers the squad's keys (F4, J, Escape on its panel) before the view's own handling: children of the view see unhandled input first.</summary>
@@ -184,6 +198,17 @@ public partial class NetworkView
     }
 
     WarfrontKeys? _wfKeys;
+
+    WarfrontUiFit? _wfFit;
+
+    /// <summary>The one 1920 by 1080 root of the squad's HUD and panel, the join panel and the spectator HUD, in the HUD layer (<see cref="WarfrontUiFit"/>).</summary>
+    internal WarfrontUiFit WarfrontFitRoot(Control parent)
+    {
+        if (_wfFit is { } fit && IsInstanceValid(fit)) return fit;
+        _wfFit = new WarfrontUiFit { Name = "WarfrontFit" };
+        parent.AddChild(_wfFit);
+        return _wfFit;
+    }
 
     void WarfrontKeyNodeEnsure()
     {

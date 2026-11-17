@@ -4,6 +4,7 @@ using Godot;
 using SmNet;
 using SmNet.Extras.Warfront;
 using SmSim;
+using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Coop;
 
 namespace SmClient;
@@ -20,7 +21,56 @@ public partial class NetworkView
     double _wfhAt, _wfhStarted = -1;
     string? _wfhHand;
     int _wfhConfirms;
-    bool _wfhWired, _wfhHoldM;
+    bool _wfhWired, _wfhHoldM, _wfhHoldF, _wfhPickWired;
+
+    // ---- --warfront-down-watch: log (and stills) of a real fall on a real server: the Down state, the spectator view on the watched body, F stepping the watch, the own view back ----
+    static readonly bool WarfrontDownWatch = CmdFlag("warfront-down-watch");
+    double _wfdLogAt, _wfdSince = -1, _wfdFUntil;
+    int _wfdStage;
+    double _wfdWalkFrom = -1, _wfdForgedAt = -1;
+    bool _wfdWasSpectating;
+
+    /// <summary>Test aid: prints a <c>WFDOWN</c> line every 2 s (phase, spectating, watched body, camera distance), taps F once 6 s into a watch, and saves stills at the watch's start, after the step and on the return.</summary>
+    void WfdDownWatchFrame(PlayerState me)
+    {
+        if (!WarfrontDownWatch || _bot || _client is not { Status: ClientStatus.Connected } c) return;
+        double now = _connectedFor;
+        bool spec = WarfrontSpectating;
+        var s = WarfrontCoop.Section;
+        Vector3? body = null;
+        if (s.WatchKind == WarfrontWatchKind.Player) { foreach (var p in c.RemotePlayers().Players) if (p.PlayerId == s.WatchId) body = SpectateG(p.Position); if (s.WatchId == c.PlayerId) body = SpectateG(me.Position); }
+        else if (s.WatchKind == WarfrontWatchKind.Marine && _wfSquad is { } squad && squad.Model.TrySample(s.WatchId, now, out var shown)) body = SpectateG(shown.Position);
+        else body = SpectateG(me.Position);
+        // --warfront-down-walk <seconds>: in a battle (not aboard) the player walks forward and holds the trigger for that long, to meet the Orks and fall (test aid).
+        if (double.TryParse(CmdArg("warfront-down-walk"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double walk) && walk > 0 && me.Alive && !WarfrontSquadAboard && WarfrontModel.Hub.View.Phase == SmSim.Extras.Warfront.Campaign.WarfrontPhase.Battle)
+        {
+            if (_wfdWalkFrom < 0) _wfdWalkFrom = now + 6.0;
+            bool go = now >= _wfdWalkFrom && now < _wfdWalkFrom + walk;
+            WfhKey("sm_moveforward", go); WfhKey("sm_fire", go);
+        }
+        // --warfront-down-forge: a Down section (Spectator, 14 s left) is fed to the stage model from 10 s on, as the server's would be, for a client that cannot be made to fall (test aid): the path under test is the stage model -> WarfrontCoopDown -> the spectator view and its HUD, and back.
+        if (CmdFlag("warfront-down-forge") && now >= 10.0 && now < 24.0 && now - _wfdForgedAt >= 0.5)
+        {
+            _wfdForgedAt = now;
+            WarfrontModel.ApplyDown(WarfrontWire.Encode(new WarfrontDownWire(WarfrontDownPhase.Spectator, (float)(24.0 - now))), now);
+        }
+        if (now - _wfdLogAt >= 2.0)
+        {
+            _wfdLogAt = now;
+            string d = _camera is not null && body is { } b ? _camera.GlobalPosition.DistanceTo(b).ToString("F1") : "-";
+            GD.Print($"WFDOWN t={now:F1} alive={me.Alive} down={WarfrontCoop.DownPhase} spectating={spec} role={WarfrontCoop.Role} watch={s.WatchKind}:{s.WatchId} cameraToBody={d} m picker={PickerBusy} fallLabel={_wfDownLabel?.Visible == true && _wfDownLayer?.Visible == true} spectateHud={_wfSpectateHud?.Visible == true} \"{WarfrontCoop.WatchingText}\" / \"{WarfrontCoop.SpectateSubText}\"");
+        }
+        if (spec && !_wfdWasSpectating) { _wfdSince = now; _wfdStage = 0; GD.Print("WFDOWN spectating begins"); }
+        if (!spec && _wfdWasSpectating) { _wfdSince = now; _wfdStage = 10; GD.Print($"WFDOWN spectating ends; alive={me.Alive}"); }
+        _wfdWasSpectating = spec;
+        _wfhHoldF = now < _wfdFUntil;
+        double since = now - _wfdSince;
+        if (_wfdSince < 0) return;
+        if (_wfdStage == 0 && since > 3) { WfhShot("down-1-spectating"); _wfdStage = 1; }
+        else if (_wfdStage == 1 && since > 6) { _wfdFUntil = now + 0.2; GD.Print($"WFDOWN F tapped (watch before {s.WatchKind}:{s.WatchId})"); _wfdStage = 2; }
+        else if (_wfdStage == 2 && since > 9) { WfhShot("down-2-after-f"); GD.Print($"WFDOWN after F: watch {s.WatchKind}:{s.WatchId}"); _wfdStage = 3; }
+        else if (_wfdStage == 10 && since > 2) { WfhShot("down-3-own-view-back"); GD.Print("WFDOWN own view back"); _wfdStage = 11; }
+    }
 
     string WfhHand(PlayerState me) => Loadouts.InHand(_config, me)?.Name ?? "-";
 
@@ -38,6 +88,13 @@ public partial class NetworkView
         if (down) Input.ActionPress(action); else Input.ActionRelease(action);
     }
 
+    /// <summary>A real key event through the input pipeline (press, then release next frame by the caller's timing); <paramref name="unicode"/> is what a text field would take.</summary>
+    static void WfhRealKey(Key key, bool pressed, int unicode = 0) =>
+        Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = key, Keycode = key, Pressed = pressed, Unicode = unicode });
+
+    int _wfhPicks, _wfhPickedSlot = -1;
+    string _wfhTyped = "";
+
     void WfhNext(double now, int step) { _wfhStep = step; _wfhAt = now; }
 
     void WarfrontHooksTestFrame(PlayerState me, double dt)
@@ -46,6 +103,7 @@ public partial class NetworkView
         double now = _connectedFor;
         if (_wfhStarted < 0) { _wfhStarted = now; WfhNext(now, 0); }
         if (!_wfhWired) { _wfhWired = true; WarfrontCoop.ConfirmRequested += () => { _wfhConfirms++; GD.Print($"WFHOOK ConfirmClass requested ({_wfhConfirms})"); }; }
+        if (_wfProgression is { } wired && !_wfhPickWired) { _wfhPickWired = true; wired.PickRequested += (slot, index) => { _wfhPicks++; _wfhPickedSlot = slot; GD.Print($"WFHOOK pick sent: slot {slot + 1}, index {index}"); }; }
         double since = now - _wfhAt;
         bool pickerUp = _wfProgression is { Picker.Visible: true };
         switch (_wfhStep)
@@ -57,17 +115,37 @@ public partial class NetworkView
                     _wfhHand = WfhHand(me);
                     GD.Print($"WFHOOK picker open: PickerBusy={PickerBusy} hand={_wfhHand}");
                     WfhShot("1-picker-open");
-                    WfhKey("sm_weapon3", true); WfhKey("sm_weapon2", true);
+                    WfhRealKey(Key.Escape, true); WfhRealKey(Key.Escape, false);   // Esc with the card picker open (item 6f): what stands?
+                    WfhNext(now, 20);
+                }
+                break;
+            case 20:
+                if (since > 0.8)
+                {
+                    GD.Print($"WFHOOK Esc over the card picker: Esc menu up={PickerOpen}, card picker still visible={_wfProgression is { Picker.Visible: true }}, PickerBusy={PickerBusy}, mouse={Input.MouseMode}");
+                    WfhShot("1b-esc-over-picker");
+                    if (PickerOpen) { WfhRealKey(Key.Escape, true); WfhRealKey(Key.Escape, false); }
+                    WfhNext(now, 21);
+                }
+                break;
+            case 21:
+                if (since > 1.0)
+                {
+                    GD.Print($"WFHOOK Esc again: Esc menu up={PickerOpen}, card picker visible={_wfProgression is { Picker.Visible: true }}");
+                    _wfhHand = WfhHand(me);
+                    WfhKey("sm_weapon2", true);   // the weapon-2 action held under the open picker ...
+                    WfhRealKey(Key.Key3, true, '3'); WfhRealKey(Key.Key3, false, '3');   // ... and the real key 3 (the picker's own: card 3) through the input pipeline
                     WfhNext(now, 1);
                 }
                 break;
             case 1:   // weapon keys held 1.2 s under the open picker
                 if (since > 1.2)
                 {
-                    WfhKey("sm_weapon3", false); WfhKey("sm_weapon2", false);
+                    WfhKey("sm_weapon2", false);
                     string after = WfhHand(me);
                     GD.Print($"WFHOOK {(after == _wfhHand ? "PASS" : "FAIL")} weapon keys under the picker: hand {_wfhHand} -> {after}; picker still up={_wfProgression is { Picker.Visible: true }}");
-                    if (_wfProgression is { } host) { int slot = Array.IndexOf(host.Model.Cards, SmSim.Extras.Warfront.Progression.WarfrontCard.AttackSpeed); host.Model.Pick(slot < 0 ? 0 : slot); GD.Print($"WFHOOK picked slot {Math.Max(slot, 0)} (attack speed card at {slot})"); }
+                    GD.Print($"WFHOOK {(_wfhPicks == 1 && _wfhPickedSlot == 2 ? "PASS" : "FAIL")} the real key 3 picked card 3 once: picks sent {_wfhPicks}, slot {_wfhPickedSlot + 1}");
+                    if (_wfhPicks == 0 && _wfProgression is { } host) { int slot = Array.IndexOf(host.Model.Cards, SmSim.Extras.Warfront.Progression.WarfrontCard.AttackSpeed); host.Model.Pick(slot < 0 ? 0 : slot); GD.Print($"WFHOOK picked slot {Math.Max(slot, 0)} (attack speed card at {slot})"); }
                     WfhNext(now, 2);
                 }
                 break;
@@ -100,7 +178,26 @@ public partial class NetworkView
                 {
                     GD.Print($"WFHOOK squad panel open: PickerBusy={PickerBusy} mouse={Input.MouseMode} (expect True, Visible)");
                     WfhShot("2-squad-panel");
-                    _wfSquad!.Panel.Close();
+                    if (_wfSquad!.Panel.NameEdits.Count > 0)
+                    {
+                        var edit = _wfSquad.Panel.NameEdits[0];
+                        edit.GrabFocus();
+                        _wfhHand = WfhHand(me);
+                        _wfhTyped = edit.Text;
+                        foreach (char ch in "2f1") { var key = ch == 'f' ? Key.F : ch == '1' ? Key.Key1 : Key.Key2; WfhRealKey(key, true, ch); WfhRealKey(key, false, ch); }
+                        WfhNext(now, 13);
+                    }
+                    else { _wfSquad.Panel.Close(); WfhNext(now, 6); }
+                }
+                break;
+            case 13:   // typing a name: the keys go to the text field, not the game
+                if (since > 0.6)
+                {
+                    var edit = _wfSquad!.Panel.NameEdits[0];
+                    string hand = WfhHand(me);
+                    GD.Print($"WFHOOK {(hand == _wfhHand && !WarfrontSpectating ? "PASS" : "FAIL")} typing in the squad name field: hand {_wfhHand} -> {hand}; field \"{_wfhTyped}\" -> \"{edit.Text}\"; PickerBusy={PickerBusy}");
+                    edit.ReleaseFocus();
+                    _wfSquad.Panel.Close();
                     WfhNext(now, 6);
                 }
                 break;

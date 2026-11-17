@@ -184,13 +184,14 @@ public partial class NetworkView
             _wfResults = WarfrontOpenLayer("WarfrontResults", () => WarfrontBuildResults(record, dir));
             if (_wfResults is not null) { _wfResults.Focus(); GD.Print($"t {now:F1} s: warfront: the results panel opened ({record.Result})"); }
         }
+        _wfResults?.ShowNewRun(m.Hub.View.ViewerIsLeader);   // the leader can change while the page stands (W5b review 9)
         if (_wfResults is not null && !WarfrontResultsDemo && m.HubSections > 0 && m.Hub.View.Phase is not (WarfrontPhase.Won or WarfrontPhase.Lost)) { _wfResults = null; WarfrontCloseLayer(); }
     }
 
     WarfrontResultsPanel WarfrontBuildResults(WarfrontRunRecord record, string dir)
     {
         var panel = new WarfrontResultsPanel(record, dir, WarfrontCloseResults, () => { WarfrontModel.RequestNewRun(); GD.Print($"t {_connectedFor:F1} s: warfront: new run pressed"); WarfrontCloseResults(); });
-        if (panel.NewRunButton is { } newRun) newRun.Visible = WarfrontModel.Hub.View.ViewerIsLeader;
+        panel.ShowNewRun(WarfrontModel.Hub.View.ViewerIsLeader);
         return panel;
     }
 
@@ -214,7 +215,7 @@ public partial class NetworkView
     /// <summary>The seconds of the viewer's down state on a line of their own, top centre (W12's spectator camera reads <see cref="WarfrontStageModel.Down"/>).</summary>
     void WarfrontDownFrame(double now)
     {
-        string line = WarfrontModel.DownLine(now);
+        string line = WarfrontSpectating ? "" : WarfrontModel.DownLine(now);   // the spectator HUD carries the line while it is up
         if (line.Length == 0)
         {
             if (_wfDownLayer is not null) _wfDownLayer.Visible = false;
