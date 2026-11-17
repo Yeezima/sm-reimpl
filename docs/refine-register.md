@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3423 spec table rows: **2442 tagged**, 631 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 755 rows of the changes document.
+Scanned 3424 spec table rows: **2443 tagged**, 631 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 755 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +51,22 @@ Scanned 3423 spec table rows: **2442 tagged**, 631 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| Core simulation (provisional values) | 735 | 692 | 523 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2442** | 2169 | 1809 | 732 | 37 |
+| **All areas** | **2443** | 2170 | 1810 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1439 |
-| confidence: low | 872 |
+| kind: ours | 1440 |
+| confidence: low | 873 |
 | confidence: medium | 828 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
-| kind: estimate | 164 |
+| kind: estimate | 165 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2550,7 +2551,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (734)
+### Core simulation (provisional values) (735)
 
 *Spec section: Provisional values in use*
 
@@ -2878,6 +2879,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B6850A96` | Call conditions | those of the artillery strike (battle on, player in it and alive, or at the Firing Range; point on the battlefield) and no pod of the player's out, 5 free puppet ids, the point 10 m or more from the caller (m) | kind: ours; confidence: medium | the strike's rules; the pod's limits ours | Call conditions: compare with SM1 by measuring on a flat spot of the same map. Ours: those of the artillery strike (battle on, player in it and alive, or… | ☐ |
+| `R-C8AEB6F6` | Drop pod patrol, how he walks (our reading of "patrol"; every number an estimate for a playtest) | he walks (no sprint) between wander points on the walking graph 10 to 50 m from the pod, pausing 2 to 4 s at each and dropping a point not reached in 15 s; beyond 59 m of the pod he turns toward a wander point inside the ring (no ping-pong to the pod). Seek… (m, s, count) | kind: ours; kind: estimate; confidence: low | ours | Drop pod patrol, how he walks (our reading of "patrol"…: compare with SM1 by feel or video. Ours: he walks (no sprint) between wander points on the walking graph 10 to… | ☐ |
 | `R-1A32283D` | Fall | the touchdown 3.0 s after the call ("a few seconds later"); the client draws the pod from 90 m up over the last 1.5 s, accelerating (about 120 m/s at the ground) (s, m) | kind: ours; confidence: low | the owner ("falls rapidly"); numbers ours | Fall: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the touchdown 3.0 s after the call ("a few seconds later"); the… | ☐ |
 | `R-ED6DA40F` | Doors | the mesh has 5 door blocks (0 to 4); their shut pose is read from the object file's rig (`RIG_DoorNN` and the mesh node under it, composed: five panels 5.5 m tall on a ring of 2.1 m; the Euler order X, Y, Z is an interpretation, judged on the picture); at… (s, degrees, m) | kind: interpretation; kind: provisional; kind: approximation; confidence: low | the owner ("the doors drop open"); the pose the install's | Doors: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the mesh has 5 door blocks (0 to 4); their shut pose is read from the… | ☐ |
 | `R-4164E372` | Trail, impact, sounds | the install's `drop_pod_trail` on the falling pod, `droppod_land_close` and `drop_pod_landing_destruction` at touchdown, `droppod_engine_cooling_down` on the wreck 25 s, the blast cloud's dust and a 12 m crater; `play_droppod_incoming` 2.4 s before touchdown… (s) | confidence: medium; notes: ours | original effects and events (master_fx, bank `vehicles`); timing ours | Trail, impact, sounds: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the install's drop_pod_trail on the falling pod, droppod_land_close… | ☐ |
@@ -5196,6 +5198,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-BFB674C7` | Musou: no aerial tackle, a light attack at any point in a hop (claude/musou-no-aerial-tackle, owner 2026-11-12, TEMPORARY; `MusouSim.Version` 49, `TfwRules.Version` 74) | The Assault and Raptor start the aerial (flying) tackle, the dash attack, with a melee press in a hop; an earlier press cancels the hop into a swing that must wait for the cancelled clip to end | Ours (added content, the owner's temporary request): in Musou Mode a melee press at any point of a hop is the light attack at once, with no wait before the next swing; the tackle never starts. The air attack keeps the hop cancel's rules (rise stopped, 0.4 of the horizontal speed carried; ours). Restore:… | Musou Mode only; Classic PvP unchanged. Spec "Musou Mode: no aerial tackle, a light attack at any point in a hop (temporary)". | Musou: no aerial tackle, a light attack at any point in a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-7241A1DE` | Musou Mode: Ork swings commit to a direction (musou/ork-swing-commit, 2026-11-12; `MusouSim.Version` 53, `TfwRules.Version` 78) | the owner's request (2026-11-12); added content, no SM1 counterpart | Ours (the idea the owner's, the values estimates): a melee Ork turns toward its target for the first 30 % of its wind-up (540 degrees a second) then holds that facing; the blow needs the target within reach and the 60 degree cone of the locked facing, so circling at a run dodges a Boy's swing (from about 4.5 m/s at… | spec "Musou Mode: Ork swing commit" | Musou Mode: Ork swings commit to a direction…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-403CD0D0` | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "let the player drop another pod immediately when the 60 second cooldown is up"): a new drop pod may be called as soon as the 60 s cooldown ends, whatever pod or squad of the player is still out; the puppet ids (12, shared with the allies and retainers) cap the… | `World.TfwDropPod`, spec "Added content: Musou Mode: drop pod assault" | Musou Mode: drop pod recast (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-D08B4A40` | Musou Mode: drop pod patrol (claude/musou-droppod-patrol, owner 2026-11-17; `MusouSim.Version` 62, `TfwRules.Version` 87) | No Musou Mode in the original | The owner's request: pod Marines with no target patrol within 60 m of the pod instead of standing at it (the 30 s fight and the retreat unchanged). Ours: they walk between wander points 10 to 50 m out and seek a not-crowded Ork within 57 m, giving a seek up after 15 s; numbers are estimates for a playtest | `World.TfwPodPatrol`, spec "Drop pod patrol" | Musou Mode: drop pod patrol (claude/musou-droppod-patrol…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CFF0666F` | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast, owner 2026-11-14; `MusouSim.Version` 54, `TfwRules.Version` 79) | No Musou Mode in the original | Ours (added content, the owner's request): the assault Marine's ground pound and air slash landing reach 1.5x as far and deal 1.5x (centre too); every player weapon's blast reaches 1.25x; the autocannon's burst 1.4x its own size (the lead's reading, to confirm: 1.75 is one constant) | `MusouCombatRules.WeaponAoeScale`, `PoundReachScale`, `AutocannonAoeScale`, spec "Added content: Musou Mode: AoE pass" | Musou Mode: AoE pass (claude/musou-aoe-droppod-recast…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-89E824F0` | Musou Mode: no melee cleave cap (lead 25 integration, owner 2026-11-14; `TfwRules.Version` 80) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "All orks within the cleave range should always be hit no matter how many"): a human swing in Musou Mode strikes every Ork inside its cleave (was at most 40; the power spear's sweep at most 12); reach, angle and the heals-per-swing cap (5 since the same day)… | Musou Mode only; Classic PvP untouched | Musou Mode: no melee cleave cap (lead 25 integration, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6AC0F6ED` | Musou Mode: melee heal cap 5 per swing (lead 25 integration, owner 2026-11-14; `MusouSim.Version` 55) | No Musou Mode in the original | Ours (added content, the owner's request, verbatim: "adjust the enemies triggering the heal effect per swing to be 5 instead of 3"): one melee swing heals for at most the first 5 enemies struck (was 3, 2026-11-12) | Musou Mode only; Classic PvP untouched | Musou Mode: melee heal cap 5 per swing (lead 25…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

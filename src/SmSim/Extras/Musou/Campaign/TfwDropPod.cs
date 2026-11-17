@@ -52,6 +52,17 @@ public static class TfwDropPodRules
         }
         return at;
     }
+    /// <summary>The patrol (owner 2026-11-17: they "should patrol the nearby area within 60m if they don't have any targets"): the ring round the pod's landing point a Marine never leaves while he fights (m; the owner's 60).</summary>
+    public const float PatrolRadius = 60f;
+    /// <summary>The Orks a patrol seeks stand within this of the pod, and a Marine that has gone beyond <see cref="PatrolPullBack"/> turns back to the pod (m; ours, kept inside the ring so a stand-off or a strike never carries him past it).</summary>
+    public const float PatrolSeekRadius = 57f, PatrolPullBack = 59f;
+    /// <summary>A wander point lies between these distances of the pod (m; ours), the Marine pauses on arriving for a time between these (s; ours) and drops a point he has not reached after this long (s; ours).</summary>
+    public const float WanderMin = 10f, WanderMax = 50f, WanderPauseMin = 2f, WanderPauseMax = 4f, WanderGiveUpSeconds = 15f;
+    /// <summary>A patrol seeks only an Ork with at most <see cref="SeekCrowdMax"/> other Orks within <see cref="SeekCrowdRadius"/> of it (m; count; ours), gives a seek up after <see cref="WanderGiveUpSeconds"/> without a target in sight and then wanders for <see cref="SeekCooldownSeconds"/> (s; ours).</summary>
+    public const float SeekCrowdRadius = 12f, SeekCooldownSeconds = 10f;
+    public const int SeekCrowdMax = 4;
+    /// <summary>A wandering Marine has arrived within this of his point (m; ours).</summary>
+    public const float WanderArrive = 2f;
     /// <summary>The Marines' scoreboard names (placeholders, labelled so).</summary>
     public static readonly string[] Names = ["Pod Brother Aurelio", "Pod Brother Cato", "Pod Brother Decimus", "Pod Brother Eusebio", "Pod Brother Flavio"];
 }

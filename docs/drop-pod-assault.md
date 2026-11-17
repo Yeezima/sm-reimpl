@@ -47,8 +47,7 @@ which reads "B DROP POD READY" / "IN n S". The own block's cooldown byte (tag 7)
 ## 4. The five Tactical Marines
 Reuse the AI Marine system (`MarineBrain`, `World.TfwPuppets.cs`): a new `MarineRole.Pod` beside Retainer and Ally. Puppets are server-side players without a peer
 (ids 65516 to 65527, **12 shared with retainers and the allied pair**), the Tactical class's default loadout (the owner's "tactical marines": `TfwMarineClass("tactical")`,
-primary 0), side Space Marines, wearing the caller's look as a retainer does. Fight phase: hold the landing point (`PlanRetainer` Hold, engaging within
-`MarineRules.HoldRadius`) for 30 s; then retreat phase: `MarineBrain.Plan` with the objective `Layout.LandingZone` (the Imperial base, the Marines' own; not `Layout.Hq`, which is the Ork commander's stronghold; the run's `Field.MarineStart` at the range), sprinting
+primary 0), side Space Marines, wearing the caller's look as a retainer does. Fight phase (30 s): with a target in sight (within `MarineRules.HoldRadius`, an Ork within 60 m of the pod) he stands and shoots; with none he patrols within 60 m of the pod (owner 2026-11-17: `World.TfwPodPatrol`, wander points 10 to 50 m out, walking; our seek of a not-crowded Ork within 57 m, given up after 15 s; spec "Drop pod patrol"); then retreat phase: `MarineBrain.Plan` with the objective `Layout.LandingZone` (the Imperial base, the Marines' own; not `Layout.Hq`, which is the Ork commander's stronghold; the run's `Field.MarineStart` at the range), sprinting
 by the walking graph, no stopping to fight; at the Imperial base or after the timeout `TfwDismissMarine`. A Marine killed is not replaced and is removed 3 s after.
 They take the AI Marines' damage scale (spec: a tenth of every hit) and burn a pod's lifetime only. **They do not follow the caller** (provisional; open question 3).
 
