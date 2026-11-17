@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3726 spec table rows: **2698 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 776 rows of the changes document.
+Scanned 3739 spec table rows: **2711 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 777 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 3726 spec table rows: **2698 tagged**, 672 not tagged (read from data wi
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 833 | 788 | 618 | 232 | 1 |
 | General game design | 123 | 120 | 96 | 17 | 0 |
-| Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2698** | 2414 | 2033 | 805 | 37 |
+| Ork faction | 278 | 264 | 162 | 70 | 0 |
+| **All areas** | **2711** | 2426 | 2046 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1577 |
-| confidence: low | 981 |
-| confidence: medium | 943 |
+| kind: ours | 1579 |
+| confidence: low | 991 |
+| confidence: medium | 946 |
 | notes: ours | 467 |
 | kind: interpretation | 432 |
-| kind: estimate | 229 |
+| kind: estimate | 239 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -4684,6 +4684,24 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-81E623C2` | Approach Boss Orks | one Boss Ork (kinds in Musou's order) leashed at the middle stop of each of the last two routes; none roam (Musou's roaming Boss Orks do not come in the final assault); an arena with one route holds one (Orks) | kind: ours; confidence: low | `FortressPlace` | Approach Boss Orks: compare with SM1 by feel or video. Ours: one Boss Ork (kinds in Musou's order) leashed at the middle stop of… | ☐ |
 
+*Spec section: Added content: Warfront dressing, part 1 (warfront/dress, 2026-11-17; the Ork fortress and the far massing of the lane nodes; client only, Warfront only; no collision, no hash, no wire, no rules version; the fortress level hash is unchanged)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-31310148` | Fortress dressing rules | every level part has one rule, found from its kind and bounds: ground and boundary (the kit's terrain and masonry, the bands' own), rock cliff (Wall, top at or over 30 m), compound wall (Wall), gate lintel (Wall, bottom at or over 10 m), street block… | kind: ours; confidence: medium | brief rule: no part left on the default grey | Fortress dressing rules: compare with SM1 by feel or video. Ours: every level part has one rule, found from its kind and bounds: ground… | ☐ |
+| `R-ECD9FECE` | Plated looks | one procedural shader, no texture: plates 4 x 2.5 m (compound wall), 2 x 1.25 m patched (street blocks, 5 % yellow, 10 % red), 4 x 3 m with a red and black hazard band at 11.6 to 13.4 m (arena shell), 1.5 m (towers), 1.2 x 0.9 m (wrecks), 2 x 1 m with a band… (m) | kind: estimate; confidence: low | brief: Ork scrap plating, spikes, glyph boards | Plated looks: compare with SM1 by measuring on a flat spot of the same map. Ours: one procedural shader, no texture: plates 4 x 2.5 m (compound wall)… | ☐ |
+| `R-017B0C10` | Wall pieces | scrap spikes along the south wall's top every 4.5 m (0.6 m wide, 2.2 to 3.6 m long, leaning 0.3 outward) and out of its face every 9 m at 10 m up (0.7 x 2.8 m); merlons on its inner edge every 4.5 m (2.4 x 1.2 x 1.2..1.7 m); spikes every 6 m on the north… (m) | kind: estimate; confidence: low | brief: scrap plating and spikes on the walls | Wall pieces: compare with SM1 by measuring on a flat spot of the same map. Ours: scrap spikes along the south wall's top every 4.5 m (0.6 m wide, 2.2… | ☐ |
+| `R-EA498812` | The gate's dressing | two gatehouse towers 8 x 7.6 x 12 m on the wall top at x +-11.5 with a brazier cap (glow cone 3 m wide, four corner spikes); a skull board 11 m wide over the lintel; jamb beams 2.6 m wide and 14 m high and a head beam 1.3 m high from z 14, all on the wall's… (m) | kind: estimate; confidence: low | brief: a frame round the opening, no lintel lower than the collision's | The gate's dressing: compare with SM1 by measuring on a flat spot of the same map. Ours: two gatehouse towers 8 x 7.6 x 12 m on the wall top at x +-11.5 with… | ☐ |
+| `R-9FF79184` | The breach's dressing | bent girders out of both broken ends (three a side, 6 to 8 m, leaning away from the gap), two plated shards a side on the wall top 2.4 and 4.6 m from the gap, the kit's rubble (AC-019, AC-021, AC-023, AC-026) on the yard side, the inner side and the wall top… (m) | kind: estimate; confidence: low | brief: the breach as a real break, rubble beside the gap, none in it | The breach's dressing: compare with SM1 by measuring on a flat spot of the same map. Ours: bent girders out of both broken ends (three a side, 6 to 8 m, leaning… | ☐ |
+| `R-4FF68502` | Street blocks and shell | a chimney pair (1.5 and 1.2 m wide, 3.5 to 7.5 m high) and roof spikes every 4 m on each street block; a glyph board (the Ork skull on red, up to 8 m wide, 5 m up) on each block face and every 15 m along each shell face (7 m wide); spikes every 3 m along the… (m) | kind: estimate; confidence: low | brief: street walls re-skinned with scrap and glyph boards | Street blocks and shell: compare with SM1 by measuring on a flat spot of the same map. Ours: a chimney pair (1.5 and 1.2 m wide, 3.5 to 7.5 m high) and roof… | ☐ |
+| `R-588BCB5C` | Plaza | the four pillars become scrap towers (collars at 3.5 and 7.5 m, a brazier cap at the top with a glow cone and four spikes, a banner on the face toward the Warboss); the four cover walls (6 x 1.5 x 1.2 m) get a wheel, an antenna and a bent plate inside their… (m) | kind: estimate; confidence: low | brief: pillars as scrap towers, covers as wrecks, a ring of banners, a boss dais mark | Plaza: compare with SM1 by measuring on a flat spot of the same map. Ours: the four pillars become scrap towers (collars at 3.5 and 7.5 m, a… | ☐ |
+| `R-A36B3580` | Elite post marks | a ground sigil (discs of 4.6, 3.9 and 1.4 m, 0.02 m steps) at each of the eight posts of the group "elite" and, 2.8 m outward, a totem: pole 11 m, crossbar 3.6 m with three skulls, a flag 3.2 m high, a spike (m) | kind: estimate; confidence: low | brief: elite posts marked by totems or banners | Elite post marks: compare with SM1 by measuring on a flat spot of the same map. Ours: a ground sigil (discs of 4.6, 3.9 and 1.4 m, 0.02 m steps) at each of… | ☐ |
+| `R-95A62FD1` | Kit items | 14 of the bands' own kit models, drawn without collision: the breach's six, two against the compound's south wall, two against the north wall, and four conquered relics (AC-030 twice, AC-027, AC-032) against the boundary (count) | kind: estimate; confidence: low | brief: the game's own pieces wherever possible | Kit items: compare with SM1 by feel or video. Ours: 14 of the bands' own kit models, drawn without collision: the… | ☐ |
+| `R-22C68AC1` | Outside scenery (fortress) | ground beyond the map's box out to 1400 m, 1.5 m below the map's ground, flat for 250 m and then rising at 6 degrees (0.105), toned per quad; the spire (a 70 x 110 x 90 m nave at y 262, a 36 m tower to 230 m at y 215, a 172 m spire to 400 m, two buttress… (m) | kind: estimate; confidence: low | brief: the spire behind the arena, the stacks at the edge, ground beyond the walls | Outside scenery (fortress): compare with SM1 by measuring on a flat spot of the same map. Ours: ground beyond the map's box out to 1400 m, 1.5 m below the map's… | ☐ |
+| `R-DFF02A46` | Drawing steps | graybox at once, then one step a frame, 0.05 s apart (`WarfrontBandBusy` held while they run): plan, kit, one plated look a frame (six), bake, one piece group a frame (eight), outside ground, outside scenery, look, storm; a step that fails is logged and… (s) | kind: ours; confidence: medium | the W5d review and the dressing brief (build in steps a frame apart, report the longest real-time frame) | Drawing steps: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: graybox at once, then one step a frame, 0.05 s apart… | ☐ |
+| `R-DBBD2FA5` | Measured load frames (self-view on this PC, real time, no server) | warm shader cache: the longest step plus its frame 182 to 643 ms (the storm, which is Musou's own), the dressing's own steps 1 to 90 ms; cold cache (the shader's source changed): one frame of 1.4 to 2.0 s, the plated shader's pipeline compile, once per shader… (ms) | confidence: medium | measured by the slice | Measured load frames (self-view on this PC, real time, no…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: warm shader cache: the longest step plus its frame 182 to 643 ms (the… | ☐ |
+| `R-A45D133D` | Far massing (nodes 1 to 3) | low blocks in the band's frame between the neighbouring band's copy (from 794 m when a north neighbour exists, from 304 m for node 3) and 140 m short of the spire: rows every 34 m, blocks 16 to 63 m wide, blocks per side per row 2 growing to 8 toward the… (m) | kind: estimate; confidence: low | W5d review finding 10 and the dressing brief amendment 3 | Far massing (nodes 1 to 3): compare with SM1 by measuring on a flat spot of the same map. Ours: low blocks in the band's frame between the neighbouring band's copy… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -5672,6 +5690,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-61593002` | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner 2026-11-17; added content, `--custom-map`; no protocol or config-hash change) | The original shipped its own maps only; no tester-made maps | Ours (the owner's request): a `.smmap` file made in the Mapmaker (solid pieces, spawn areas, doors, capture points, kill zones, declared modes) is played by the server (`--custom-map`) and by clients that find the file by its `cm_` name; the map hash is the first 8 bytes of SHA-256(compiler version + the file's… | Spec "Mapmaker custom maps" | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-231A668A` | Warfront dressing, part 1 (warfront/dress): the Ork fortress is drawn with the bands' own kit and storm plus plated scrap walls, spikes, glyph boards, totems, a boss dais, banners, an outside ground, the spire behind the arena and manufactorum stacks; the lane nodes get far massing between the neighbour copy and the… | the owner's brief (a faithful Ork stronghold, scenery from the game's own pieces wherever possible) and the W5d review (bare far ground from node 1); every size, colour and count is ours | visual only (no collision, no hash); props at the breach, the gate and the arena openings are never in the way; the wall ends of the breach stay flat boxes; the HQ is not dressed yet; the first draw of the plated shader costs one 1.4 to 2 s frame on a cold shader cache | spec "Warfront dressing, part 1" | Warfront dressing, part 1 (warfront/dress): the Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

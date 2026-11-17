@@ -27,7 +27,7 @@ public static class WarfrontFarGoal
     {
         float shift = Shift(band);
         string note = $"spire {SpireDistance(band):F0} m north (pilot: {AshfallFrontScenery.SpireNorth:F0} m beyond the last band, plus {shift:F0} m of bands to cross)";
-        if (shift <= 0f) return note;
+        if (shift <= 0f) return note + (WarfrontFarMassing.Off ? "" : "; " + WarfrontFarMassing.Add(scenery, band));   // dressing slice: the far blocks (node 3 has no ground to add, the spire is where the scenery put it)
         // game space (Z up): +Y is north; the nodes are under the band node, in that frame
         var moved = new List<string>();
         foreach (string name in new[] { "CathedralSpire", "ManufactorumStacks" })
@@ -52,6 +52,7 @@ public static class WarfrontFarGoal
             MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.47f, 0.44f, 0.41f), Roughness = 1f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         });
+        if (!WarfrontFarMassing.Off) note += "; " + WarfrontFarMassing.Add(scenery, band);   // dressing slice: low massing for the bands still to cross, growing denser toward the spire
         return note;
     }
 }

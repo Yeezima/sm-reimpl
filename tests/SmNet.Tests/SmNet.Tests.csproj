@@ -46,6 +46,10 @@
     <Compile Include="..\..\client\Extras\Warfront\Hub\WarfrontHubModel.cs" Link="ClientWarfront\WarfrontHubModel.cs" />
     <Compile Include="..\..\client\Extras\Warfront\Stage\WarfrontStageModel.cs" Link="ClientWarfront\WarfrontStageModel.cs" />
     <Compile Include="..\..\client\Extras\Warfront\Stage\WarfrontClientKey.cs" Link="ClientWarfront\WarfrontClientKey.cs" />
+    <!-- Warfront dressing part 1: the engine-free plans (kit table, fortress pieces, far massing), tested here. -->
+    <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontDressModel.cs" Link="ClientWarfront\WarfrontDressModel.cs" />
+    <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontFortressDressPlan.cs" Link="ClientWarfront\WarfrontFortressDressPlan.cs" />
+    <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontFarMassingPlan.cs" Link="ClientWarfront\WarfrontFarMassingPlan.cs" />
   </ItemGroup>
 
   <ItemGroup>
