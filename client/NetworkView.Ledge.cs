@@ -31,6 +31,8 @@ public partial class NetworkView
     static readonly bool LedgeSteer = OS.GetCmdlineUserArgs().Contains("--ledge-steer");
     /// <summary><c>--ledge-jump</c> (sim/hop-rules capture aid, with <c>--ledge-charge</c>): Space is pressed once the charge is held in the air off the ledge and kept down until the landing, so the pack lifts the body out of the charge (the full jump).</summary>
     static readonly bool LedgeJump = OS.GetCmdlineUserArgs().Contains("--ledge-jump");
+    /// <summary><c>--ledge-trace</c> (sim/ledge-charge-hop capture aid): every tick from the run's edge to the landing logs the horizontal speed, the charge and hop state (<c>LEDGETRACE</c> lines).</summary>
+    static readonly bool LedgeTrace = OS.GetCmdlineUserArgs().Contains("--ledge-trace");
     bool _ledgeJumped;
     double _ledgeStart, _ledgeChargeAt = 0.5, _ledgeLeftAt;
     bool _ledgePressed;
@@ -60,6 +62,8 @@ public partial class NetworkView
                 if (LedgeCharge) { b = InputButtons.Sprint; double since = _connectedFor - _ledgeStart; if (LedgeSteer ? !_ledgeCharged && me.Grounded && LeavesWithin(me, _ledgeYaw, 10, InputButtons.Sprint) : since >= _ledgeChargeAt && since < _ledgeChargeAt + 0.06) { b |= InputButtons.MeleeHeavy; _ledgeCharged = true; } }
                 // sim/movement-fixes capture aids: one tick of Space before the edge (the hop) or in the fall (the dash).
                 _ledgeAirTicks = me.Grounded ? 0 : _ledgeAirTicks + 1;
+                if (LedgeTrace && (!me.Grounded || Evade.Evading(me) || me.Rush != RushPhase.None))
+                    GD.Print($"LEDGETRACE t {_connectedFor:F3} air {_ledgeAirTicks} speed {MathF.Sqrt(me.Velocity.X * me.Velocity.X + me.Velocity.Y * me.Velocity.Y):F2} z {me.Position.Z:F2} rush {me.Rush} evade {(Evade.Evading(me) ? me.EvadeTicks : 0)} jump {me.Jump} grounded {me.Grounded}");
                 bool pressNow = !_ledgePressed && (LedgeHop ? me.Grounded && LeavesWithin(me, _ledgeYaw, 8) : LedgeTap && _ledgeAirTicks >= 4);
                 if (pressNow)
                 {

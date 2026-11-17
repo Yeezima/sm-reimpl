@@ -41,7 +41,7 @@ public static class LeanBot
         "frame-profile", "frame-stats", "perf-tour", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
-        "slash-trace", "claw-crackle-demo", "claw-glow-test", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
+        "slash-trace", "claw-crackle-demo", "claw-glow-test", "run-start-log", "log-sound", "sound-mix-roll-hop-proof", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
         "record-demo", "spectate", "ragdoll-debug", "death-orbit-test", "no-shader-sweep", "hit-reaction-test", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-headshot-demo", "hud-score-demo", "hud-vitals-demo", "hud-clip-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
         "pvp-hit-fx-demo", "pvp-hit-fx-every", "log-hit-fx",   // pvp-hit-fx: the shot-look demo on the nearest other player and its log
@@ -68,7 +68,7 @@ public static class LeanBot
         "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test", "tfw-librarian", "librarian-demo",   // added content Musou (TF7a; the Librarian pass 2: the Stormbird pick, the capture script): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
-        "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge", "ledge-jump", "hop-rules-test", "hop-rules-cycle", "hop-rules-at",
+        "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge", "ledge-jump", "ledge-trace", "hop-rules-test", "hop-rules-cycle", "hop-rules-at",
         "ragdoll", "ragdoll-rest", "ragdoll-delay", "screenshot-at", "screenshot-on-effect", "demo-look", "demo-profile", "demo-no-quit", "play-demo",
         "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "stomp-move-test", "swing-test", "swing-trace", "log-lunge", "carry-test", "camera-test", "log-melee-fx", "log-plasma-fx", "laser-test", "shot-test", "barrel-test", "barrel-probe", "old-barrel", "reload-test", "ork-test", "guard-test", "warboss-test", "musou-crowd-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
         // the screenshot waits

@@ -1632,7 +1632,7 @@ public partial class NetworkView : Node3D
         // Jump pack: take-off, flight, dive and impact win over a throw (the toss clip is a standing one) ...
         if (ShowJumpPose(character, JumpPose(state, airborneOnly: true))) { JumpUpperLayers(character, state, throwTime); return; }   // pass 2: the wobble and the upper-body actions in flight
         // Evade roll (protocol 13): the class's roll clip at the shown time; the simulation moves the body, the clip is in place.
-        // sim/movement-fixes: a roll or hop falling off a drop shows the fall pose after FallRules.ChargeFallDelay in the air (NetworkView.Fall.cs).
+        // sim/movement-fixes: a roll or hop falling off a drop shows the fall pose after FallRules.EvadeFallDelay in the air (NetworkView.Fall.cs).
         if (!(EvadeFallingInAir(state) && fallTrack.ChargeFall) && EvadePose(state) is { } roll && character.Pose(roll.Clip, roll.Time, ClipBlends.Evade)) return;
         // Throwing: the toss clip at the throw's time (the simulation ends the throw at ThrowDuration, before the clip's end).
         if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, TossClipTime(tt), ClipBlends.Throw))) return;   // feel/grenades-quickdraw: the wind-up fitted to the release
@@ -1644,7 +1644,7 @@ public partial class NetworkView : Node3D
         if (BracePose(character, state, own)) return;
         // Aim mode (held aim, every player's flag): the weapon class's aim stance bent by the pitch; else the idle / run choice.
         // A falling marine stands in the air (the graph's Dropping state has no direction or speed): the locomotion is posed with no horizontal velocity, the fall's layers go over it.
-        character.StanceFadeFloorOnce = JumpExitFade(state);   // anim/jump-pack-blend: the fade out of a landing
+        character.StanceFadeFloorOnce = MathF.Max(JumpExitFade(state), ChargeFallFade(fallTrack));   // anim/jump-pack-blend: the fade out of a landing; sim/ledge-charge-hop: the charge into the fall
         PlaceLocomotion(character, FallBaseState(state, fallTrack), own);
         character.StanceFadeFloorOnce = 0f;
         FallLayers(character, state, fallTrack);

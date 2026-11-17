@@ -543,7 +543,7 @@ public static class Combat
         bool heldOver = s.JumpSlash && pack?.Slash is { Snappy: true } && s.Jump == JumpPhase.Ascent;
         float aboveGround = (meleePress || heldOver) && pack?.Slash is not null && JumpPack.InFlight(s.Jump) ? JumpPack.AboveGround(s, world) : float.PositiveInfinity;
         var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump, escape: jumpEscape,
-            airOpen: c.HopRules && (s.JumpAirOpen || chargeOffLedge), hopNow: tackleCancel);
+            airOpen: c.HopRules && ((s.JumpAirOpen && s.EvadeTicks == 0) || chargeOffLedge), hopNow: tackleCancel);
         if (jump.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (meleePress && (jump.PoundStart || (jump.Buffered && !(s.JumpSlash && s.Jump == JumpPhase.TakeOff)))) used |= InputBuffer.Bit(BufferedAction.Melee);   // the pound, the slash or its take-off buffer
         if (jump.BlocksMelee) { meleePress = false; heavyPress = false; stabPress = false; }
@@ -1081,11 +1081,11 @@ public static class Combat
             }
             : evading ? Evade.Step(s, evadeSpec!, evade, c, world, out wallHit, out dashLanded) with
             {
-                // M44: a dash (jump-pack classes) keeps the pack's power and recharge; no jump runs during it.
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false,
+                // M44: a dash (jump-pack classes) keeps the pack's power and recharge; no jump runs during it. (JumpAirOpen is the ledge charge hop's carry latch here: Evade.Step sets it.)
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
                 JumpSlash = false,
             }
-            : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
+            : pack is not null ? JumpPack.Move(chargeOffLedge && c.LedgeHopCarry ? s with { JumpAirOpen = true, Buffered = BufferedAction.Jump } : s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
             with { Pitch = input.Pitch, Aiming = aiming };
         // sim/combat-pass (review note): the chosen direction holds through the hit even when the hit comes after the move-on time (the walk then uses the view's frame, the body keeps the strike's facing).
         if (step > 0 && meleeGlide is null && !reacting && !rushing && !evading && time < MathF.Max(MoveAtOf(steps[step - 1], c), steps[step - 1].HitTime + dt + TimeEpsilon))
@@ -1133,7 +1133,8 @@ public static class Combat
             ProjectilesOut = projectilesOut,
             Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft, FireBoostLeft = fireBoostLeft,
             JumpHeld = jumpDown,
-            JumpAirOpen = c.HopRules && (chargeOffLedge || s.JumpAirOpen) && !s.Grounded && !reacting && jump.Phase == JumpPhase.None && !jump.Started && !evading,   // sim/hop-rules: the air jump stays open until landing or another phase
+            JumpAirOpen = evading ? c.HopRules && c.LedgeHopCarry && s.JumpAirOpen && !s.Grounded && !reacting   // the ledge charge hop's carry latch (Evade.Step)
+                : c.HopRules && (chargeOffLedge || (s.JumpAirOpen && beforeMove.EvadeTicks == 0)) && !s.Grounded && !reacting && jump.Phase == JumpPhase.None && !jump.Started,   // sim/hop-rules: the air jump stays open until landing or another phase; a carry latch of a hop that ended this tick (ledge-charge-hop) is not an opening
             EvadeTicks = evadeTicks, EvadeDirection = evadeDirection, EvadeLock = evade.Lock, EvadeLanded = evadeLanded,
             JumpDashDirection = dashAt is not null && s.Jump == JumpPhase.TakeOff ? dashDirection : EvadeDirection.Forward,
             MeleeHeavy = step > 0 && heavy, MeleeQueuedHeavy = queued && queuedHeavy, MeleeHeavyHeld = heavyDown,

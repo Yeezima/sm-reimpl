@@ -122,6 +122,7 @@ if (cli.OldChargeAfterMelee) config = config with { ChargeAfterMelee = false };
 if (cli.OldChargeCancelDelay) config = config with { ChargeInstantCancel = false };
 // charge-melee-chain (protocol 70): --old-charge-melee-chain and --musou-melee-cooldown (restore switches; config hash).
 if (cli.OldChargeMeleeChain) config = config with { ChargeMeleeChain = false };
+if (cli.OldLedgeHop) config = config with { LedgeHopCarry = false };   // sim/ledge-charge-hop (protocol 85): restore switch, config hash
 if (cli.OldHopRules) config = config with { HopRules = false };   // sim/hop-rules (protocol 72): restore switch, config hash
 if (cli.OldLascannonReload) config = config with { LascannonTapReload = false };   // sim/lascannon-tap-reload (protocol 78): restore switch, config hash
 if (cli.OldLascannonShotFirst) config = config with { LascannonShotFirst = false };   // sim/lascannon-shot-first (2026-11-17): restore switch, config hash

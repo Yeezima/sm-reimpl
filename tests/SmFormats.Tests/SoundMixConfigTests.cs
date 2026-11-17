@@ -273,6 +273,67 @@ public class SoundMixConfigTests
         Assert.Contains(list, i => i.Event == "play_only_in_a_file");   // a name only a file mentions is still listed
     }
 
+    // ---- sound/editor-roll-hop: the Tactical roll and the Devastator / Havoc hop entries ----
+
+    [Fact]
+    public void The_roll_and_hop_entries_are_listed_labelled_and_in_Combat_moves()
+    {
+        var list = SoundMixCatalog.InGroup(SoundMixGroup.CombatMoves);
+        Assert.Contains(list, i => i.Event == SoundMixCatalog.TacticalRollKey && i.Label == "Tactical roll");
+        Assert.Contains(list, i => i.Event == SoundMixCatalog.HeavyHopKey && i.Label == "Devastator / Havoc hop");
+        Assert.Equal("Tactical roll", SoundMixCatalog.Classify(SoundMixCatalog.TacticalRollKey).Label);
+        Assert.Equal(SoundMixGroup.CombatMoves, SoundMixCatalog.Classify(SoundMixCatalog.HeavyHopKey).Group);
+    }
+
+    [Theory]
+    [InlineData("play_evade_start", "roll", SoundMixCatalog.TacticalRollKey)]
+    [InlineData("play_evade_roll", "roll", SoundMixCatalog.TacticalRollKey)]
+    [InlineData("PLAY_EVADE_END", "hop", SoundMixCatalog.HeavyHopKey)]
+    [InlineData("play_evade_start", "hop", SoundMixCatalog.HeavyHopKey)]
+    [InlineData("play_evade_start", null, null)]
+    [InlineData("play_sm_heavy_bolter_fire", "roll", null)]
+    public void Only_the_evade_events_of_a_player_who_evaded_answer_to_an_entry(string evt, string? kind, string? alias) =>
+        Assert.Equal(alias, SoundMixCatalog.AliasOf(evt, kind));
+
+    [Fact]
+    public void An_entry_changes_only_its_own_sound_and_the_event_applies_without_one()
+    {
+        var config = new SoundMixConfig();
+        Assert.Null(config.Resolve("play_evade_start", SoundMixCatalog.TacticalRollKey, true));   // empty: nothing at all
+        config.Set(SoundMixCatalog.TacticalRollKey, true, new SoundOverride(VolumeDb: -6f));
+        Assert.Equal(-6f, config.Resolve("play_evade_start", SoundMixCatalog.TacticalRollKey, true)!.VolumeDb);
+        Assert.Null(config.Resolve("play_evade_start", SoundMixCatalog.HeavyHopKey, true));        // the hop is untouched
+        Assert.Null(config.Resolve("play_evade_start", null, true));                              // so is the event with no kind
+        Assert.Null(config.Resolve("play_evade_start", SoundMixCatalog.TacticalRollKey, false));  // and others' roll
+        Assert.Null(config.Resolve(Heavy, null, true));                                           // and every other sound
+        config.Set("play_evade_start", true, new SoundOverride(VolumeDb: 3f));
+        Assert.Equal(3f, config.Resolve("play_evade_start", SoundMixCatalog.HeavyHopKey, true)!.VolumeDb);   // the event's own edit still applies to a hop
+        Assert.Equal(-6f, config.Resolve("play_evade_start", SoundMixCatalog.TacticalRollKey, true)!.VolumeDb);   // the entry wins for a roll
+        config.SetSolo(SoundMixCatalog.HeavyHopKey, true, true);
+        Assert.False(config.Resolve("play_evade_start", SoundMixCatalog.HeavyHopKey, true)!.Silenced);
+        Assert.True(config.Resolve("play_evade_start", SoundMixCatalog.TacticalRollKey, true)!.Silenced);   // soloing the hop silences the roll
+    }
+
+    [Fact]
+    public void The_entries_round_trip_through_export_and_import_and_show_in_the_diff()
+    {
+        var config = new SoundMixConfig();
+        config.Set(SoundMixCatalog.TacticalRollKey, true, new SoundOverride(VolumeDb: -3f));
+        config.Set(SoundMixCatalog.HeavyHopKey, false, new SoundOverride(PitchSemitones: 2f, Mute: true));
+        string json = SoundMixFile.ToJson(config);
+        Assert.Contains("\"own/mix:tactical_roll\"", json);
+        Assert.Contains("\"other/mix:heavy_hop\"", json);
+        var back = new SoundMixConfig();
+        Assert.True(SoundMixFile.TryApply(json, back, new SoundTuning()));
+        Assert.Equal(2, back.Count);
+        Assert.Equal(config.Get(SoundMixCatalog.TacticalRollKey, true), back.Get(SoundMixCatalog.TacticalRollKey, true));
+        Assert.Equal(config.Get(SoundMixCatalog.HeavyHopKey, false), back.Get(SoundMixCatalog.HeavyHopKey, false));
+        Assert.Equal(json, SoundMixFile.ToJson(back));
+        var lines = SoundMixFile.Describe(new SoundMixConfig(), new SoundTuning(), back, new SoundTuning());
+        Assert.Contains(lines, l => l.Contains("Tactical roll") && l.Contains("volume -3 dB"));
+        Assert.Contains(lines, l => l.Contains("Devastator / Havoc hop") && l.Contains("muted"));
+    }
+
     // ---- the diff in words ----
 
     [Fact]

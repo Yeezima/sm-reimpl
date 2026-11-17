@@ -272,9 +272,22 @@ public static class FallRules
 
     /// <summary>
     /// sim/combat-pass (item 21; the owner's playtest of 2026-10-30: "charging off a ledge: the falling animation should start about 1 s into the ledge charge"): a charge held in the air shows its
-    /// own clip (its pose as it left the ground) until the body has been off the ground this long during the charge (ours, an estimate; the owner's follow-up decision replaced "about 1 s into the charge"), then the fall pose.
+    /// own clip (its pose as it left the ground) until the body has been off the ground this long during the charge (ours, an estimate; the owner's follow-up decision replaced "about 1 s into the charge"; 0.3 s until sim/ledge-charge-hop, the owner 2026-11-17: 0.4 s), then the fall pose.
     /// </summary>
-    public const float ChargeFallDelay = 0.3f;
+    public const float ChargeFallDelay = 0.4f;
+
+    /// <summary>
+    /// sim/ledge-charge-hop (the owner, 2026-11-17: "the player should start playing the falling animation .4s into a ledge charge ... smoothly transition them to the falling animation, and then landing"): the cross-fade (s) from a
+    /// held charge's clip to the fall pose when <see cref="ChargeFallDelay"/> is reached (ours, an estimate): the stance fade and the fall legs' ramp are both at least this long, so the charge's pose flows into the fall instead of switching.
+    /// </summary>
+    public const float ChargeFallBlend = 0.25f;
+
+    /// <summary>A roll or hop carried off a drop (sim/movement-fixes) shows the fall pose after this long in the air (s; ours, the sim/combat-pass delay it always had: the ledge charge's own is <see cref="ChargeFallDelay"/>).</summary>
+    public const float EvadeFallDelay = 0.3f;
+
+    /// <summary>Whether a roll or hop carried off a drop, in the air for <paramref name="airSeconds"/>, shows the fall pose (<see cref="EvadeFallDelay"/>).</summary>
+    public static bool EvadeShowsFall(double airSeconds) =>
+        (double.IsFinite(airSeconds) ? Math.Max(0.0, airSeconds) : 0.0) >= EvadeFallDelay - 1e-6;
 
     /// <summary>Whether a charge held in the air for <paramref name="airSeconds"/> shows the fall pose (<see cref="ChargeFallDelay"/>).</summary>
     public static bool ChargeShowsFall(double airSeconds) =>

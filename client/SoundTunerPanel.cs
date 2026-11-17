@@ -286,8 +286,8 @@ public partial class SoundTunerPanel : CanvasLayer
         if (!any) { _selTitle.Text = "Select a sound from the list, or click one in the live list below."; UpdateDiff(); return; }
         var info = SoundMixCatalog.Classify(_sel);
         _selTitle.Text = $"{info.Label}   [{SoundMixCatalog.GroupLabel(info.Group)}, {(_own ? "your own" : "others'")}]   {_sel}";
-        float? reach = _sound?.AttenuationOf(_sel) is { MaxDistance: > 0f } att ? att.MaxDistance : null;
-        bool playable = _sel.StartsWith("play_", StringComparison.OrdinalIgnoreCase) || _sel.StartsWith("Play_", StringComparison.Ordinal);
+        float? reach = _sound?.AttenuationOf(SoundMixCatalog.IsAlias(_sel) ? "play_evade_start" : _sel) is { MaxDistance: > 0f } att ? att.MaxDistance : null;
+        bool playable = SoundMixCatalog.IsAlias(_sel) || _sel.StartsWith("play_", StringComparison.OrdinalIgnoreCase) || _sel.StartsWith("Play_", StringComparison.Ordinal);
         if (_selInfo is not null) _selInfo.Text = (reach is float r ? $"The game's own hearing distance: {r:0} m. " : "") + (playable ? "" : "This one cannot be previewed (a stop, a state change or a voice line). ");
         if (_playBtn is not null) _playBtn.Disabled = !playable || _preview is null;
         var o = Cfg.Get(_sel, _own);
