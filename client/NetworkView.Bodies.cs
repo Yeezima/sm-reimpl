@@ -30,7 +30,7 @@ public partial class NetworkView
     /// charge-cancel / charge-ally-bump restore switches <c>--old-charge-cancel</c> (a Grenade press ends the charge, S does not) and <c>--old-ally-bump</c> (the collision stop on an
     /// ally), the protocol 65 rules (the server needs the same: config hash).
     /// </summary>
-    static SimConfig WithChargeCancelArgs(SimConfig c0) { var c = WithChargeCancelArgs0(c0); if (OldChargeMeleeChainArg) c = c with { ChargeMeleeChain = false }; if (OldHopRulesArg) c = c with { HopRules = false }; if (OldStompReleaseArg) c = c with { StompRelease = false }; if (OldKickPushArg) c = c with { KickPushCut = false }; if (OldLascannonReloadArg) c = c with { LascannonTapReload = false }; if (OldSprintMeleeArg) c = c with { SprintMeleeCharge = false }; if (OldLedgeCancelArg) c = c with { LedgeChargeCancel = false }; if (MusouMeleeCooldownArg) c = c with { MusouMeleeCooldown = true }; if (MusouUncappedMeleeHealArg) c = c with { MusouUncappedMeleeHeal = true }; return c; }
+    static SimConfig WithChargeCancelArgs(SimConfig c0) { var c = WithChargeCancelArgs0(c0); if (OldChargeMeleeChainArg) c = c with { ChargeMeleeChain = false }; if (OldHopRulesArg) c = c with { HopRules = false }; if (OldStompReleaseArg) c = c with { StompRelease = false }; if (OldKickPushArg) c = c with { KickPushCut = false }; if (OldLascannonReloadArg) c = c with { LascannonTapReload = false }; if (OldLascannonShotFirstArg) c = c with { LascannonShotFirst = false }; if (OldSprintMeleeArg) c = c with { SprintMeleeCharge = false }; if (OldLedgeCancelArg) c = c with { LedgeChargeCancel = false }; if (MusouMeleeCooldownArg) c = c with { MusouMeleeCooldown = true }; if (MusouUncappedMeleeHealArg) c = c with { MusouUncappedMeleeHeal = true }; return c; }
     static SimConfig WithChargeCancelArgs0(SimConfig c) => ((((OldChargeCancelArg ? c with { ChargeBackCancel = false } : c) is var d && OldAllyBumpArg ? d with { ChargeAllyBump = false } : d) is var f && OldStimUseArg ? f with { StimReliable = false } : f) is var g && OldChargeAfterMeleeArg ? g with { ChargeAfterMelee = false } : g) is var h && OldChargeCancelDelayArg ? h with { ChargeInstantCancel = false } : h;
     static readonly bool OldStimUseArg = OS.GetCmdlineUserArgs().Contains("--old-stim-use");
     static readonly bool OldChargeCancelArg = OS.GetCmdlineUserArgs().Contains("--old-charge-cancel");
@@ -49,6 +49,8 @@ public partial class NetworkView
     static readonly bool OldSprintMeleeArg = OS.GetCmdlineUserArgs().Contains("--old-sprint-melee");
     static readonly bool OldLedgeCancelArg = OS.GetCmdlineUserArgs().Contains("--old-ledge-cancel");
     /// <summary>sim/lascannon-tap-reload (2026-11-15) restore switch <c>--old-lascannon-reload</c> (the server needs the same: config hash).</summary>
+    /// <summary>sim/lascannon-shot-first (2026-11-17) restore switch <c>--old-lascannon-shot-first</c> (the server needs the same: config hash).</summary>
+    static readonly bool OldLascannonShotFirstArg = OS.GetCmdlineUserArgs().Contains("--old-lascannon-shot-first");
     static readonly bool OldLascannonReloadArg = OS.GetCmdlineUserArgs().Contains("--old-lascannon-reload");
     static readonly bool MusouMeleeCooldownArg = OS.GetCmdlineUserArgs().Contains("--musou-melee-cooldown");
     /// <summary>musou/melee-heal-cap restore switch <c>--musou-uncapped-melee-heal</c> (the server needs the same: config hash).</summary>

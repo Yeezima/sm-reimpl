@@ -360,9 +360,13 @@ public static class Combat
         var gate = CancelGate.Evaluate(s, input, c);
         if (gate is not null) buffer = buffer with { State = gate.Begin(buffer.State, c), Input = gate.Filter(buffer.Input) };
         // feel/jump-pack-2: a long buffered Jump press (held past the dash's decision) takes off committed to the small jump; whether the real button is down decides if it holds on.
+        // sim/lascannon-shot-first (2026-11-17): a hop pressed with a lascannon shot due waits (at most 0.1 s, in the buffer) until the shot has left; this tick sees no Jump press.
+        bool holdHop = LascannonShotFirst.Holds(c, buffer, buffer.Input);
+        if (holdHop) buffer = buffer with { Input = buffer.Input with { Buttons = buffer.Input.Buttons & ~InputButtons.Jump } };
         var longJump = buffer.Replayed == BufferedAction.JumpLong ? ((input.Buttons & InputButtons.Jump) != 0 ? LongJump.Held : LongJump.Released) : LongJump.None;
         var next = StepPlayerCore(buffer.State, buffer.Input, c, out events, world, others, out int used, longJump);
-        next = InputBuffer.End(s, input, next, buffer, used, c, gate?.Queue ?? 0, gate?.Block ?? 0);
+        next = InputBuffer.End(s, input, next, buffer, used, c, (gate?.Queue ?? 0) | (holdHop ? InputBuffer.Bit(BufferedAction.Jump) : 0), gate?.Block ?? 0);
+        if (holdHop) next = next with { JumpHeld = (input.Buttons & InputButtons.Jump) != 0 };   // the real button's state, so the kept press replays as an edge
         if (gate is not null) next = gate.Restore(next, input);
         return Spread.After(s, next, input, c, events);   // weapons/spread: the bloom and this tick's shot's scatter (Spread.cs)
     }

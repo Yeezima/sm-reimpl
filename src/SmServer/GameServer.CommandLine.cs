@@ -81,6 +81,8 @@ public sealed record ServerArguments
     public bool OldLedgeCancel { get; init; }
     /// <summary>sim/lascannon-tap-reload (restore switch): the lascannon's full reload (<see cref="SimConfig.LascannonTapReload"/>; config hash: clients need it too).</summary>
     public bool OldLascannonReload { get; init; }
+    /// <summary>sim/lascannon-shot-first (restore switch): the hop starts at once (<see cref="SimConfig.LascannonShotFirst"/>; config hash: clients need it too).</summary>
+    public bool OldLascannonShotFirst { get; init; }
     /// <summary>musou/melee-spam (restore switch): Musou Mode keeps the melee waits (<see cref="SimConfig.MusouMeleeCooldown"/>; config hash: clients need it too).</summary>
     public bool MusouMeleeCooldown { get; init; }
     /// <summary>musou/melee-heal-cap (restore switch): no cap of 3 heals per melee swing in Musou Mode (<see cref="SimConfig.MusouUncappedMeleeHeal"/>; config hash: clients need it too).</summary>
@@ -208,6 +210,7 @@ public static class ServerCommandLine
                     "--old-sprint-melee" => a with { OldSprintMelee = true },
                     "--old-ledge-cancel" => a with { OldLedgeCancel = true },
                     "--old-lascannon-reload" => a with { OldLascannonReload = true },
+                    "--old-lascannon-shot-first" => a with { OldLascannonShotFirst = true },
                     "--musou-melee-cooldown" => a with { MusouMeleeCooldown = true },
                     "--musou-uncapped-melee-heal" => a with { MusouUncappedMeleeHeal = true },
                     "--old-stim-use" => a with { OldStimUse = true },

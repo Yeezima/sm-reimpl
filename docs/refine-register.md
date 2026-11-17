@@ -33,6 +33,11 @@ Scanned 3419 spec table rows: **2440 tagged**, 629 not tagged (read from data wi
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 404 | 347 | 344 | 113 | 12 |
+Scanned 3420 spec table rows: **2441 tagged**, 629 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
+
+| Area | Tagged rows | by kind | by confidence | by notes | by section text |
+|---|---:|---:|---:|---:|---:|
+| Movement (critical) | 405 | 347 | 345 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 157 | 137 | 113 | 56 | 5 |
@@ -54,6 +59,7 @@ Scanned 3419 spec table rows: **2440 tagged**, 629 not tagged (read from data wi
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
 | **All areas** | **2440** | 2168 | 1807 | 732 | 37 |
+| **All areas** | **2441** | 2168 | 1808 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,6 +68,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1438 |
 | confidence: low | 872 |
 | confidence: medium | 826 |
+| confidence: low | 871 |
+| confidence: medium | 828 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
@@ -92,6 +100,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 ## Part A: gameplay areas, critical first
 
 ### Movement (gameplay-critical) (404)
+### Movement (gameplay-critical) (405)
 
 *Spec section: Extracted parameters*
 
@@ -368,6 +377,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A650529C` | Lascannon reload size | 1 round from the reserve per reload (nothing when the clip is full or the reserve empty); the Reload button held on starts the next round when one ends (the sim keeps no hold timer, so a hold is a round every 0.4 s up to a full clip; whether a hold should… (rounds) | kind: ours; kind: interpretation; confidence: medium | the owner's request, 2026-11-15; hold behaviour ours | Lascannon reload size: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1 round from the reserve per reload (nothing when the clip is full or… | ☐ |
 | `R-0807BC31` | Lascannon reload animation | the normal reload clip and sounds time-scaled to 0.4 s (the sim's `ReloadLeft` clock); other players' reloads are inferred by the client from shots and use the same 0.4 s (`ReloadInference` with the sim's reload time; the clip then counts one round loaded) (s) | kind: ours; confidence: medium | the owner's request, 2026-11-15 | Lascannon reload animation: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the normal reload clip and sounds time-scaled to 0.4 s (the sim's… | ☐ |
 | `R-7135D272` | Scoped view is steady | every mode, Musou too (camera only; the owner's no-bob request named no mode, unlike the reload): while the lascannon's scope is up the camera looks exactly along the view (yaw, pitch), also under `--old-camera-collision`: the focus-point turn that re-aims… | kind: ours; kind: interpretation; confidence: medium | the owner's request, 2026-11-15 | Scoped view is steady: compare with SM1 by feel or video. Ours: every mode, Musou too (camera only; the owner's no-bob request named… | ☐ |
+
+*Spec section: Lascannon shot before the hop (sim/lascannon-shot-first; no wire change; Classic PvP)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3768E8D4` | Hop waits for a due lascannon shot | a Jump press (fresh, or replayed from the input buffer) that would start the hop while a lascannon shot is due (the Fire press of this tick with the clip, cooldown, reload, heat and switch allowing it and no sprint, or a raise still bringing the weapon up for… (ticks) | confidence: medium | the owner's request, 2026-11-17 | Hop waits for a due lascannon shot: compare with SM1 by feel or video. Ours: a Jump press (fresh, or replayed from the input buffer) that would… | ☐ |
+| `R-40CB8FCE` | What is never held | a hop with no shot due; every other weapon; Musou Mode; a jump-pack class; the air; a hop with a melee attack, throw, reaction, evade or brace under way; a game config without the input buffer. The Space press stays buffered, so a tap shorter than the wait… | kind: ours; confidence: medium | ours (scope) | What is never held: compare with SM1 by feel or video. Ours: a hop with no shot due; every other weapon; Musou Mode; a jump-pack… | ☐ |
 
 *Spec section: No firing during the roll (sim/roll-fire-pitch; protocol 51, no wire change)*
 
@@ -4510,6 +4526,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D47CCCC3` | The charge needs only W (feel/charge-directions; protocol 39; supersedes M31's sprint gate) | The locale names it "Charge Attack (while Sprinting)" (110691); M31 read the owner's earlier rule as a sprint gate (Sprint applied and faster than run + 0.25 x (sprint - run) = 7.375 m/s) | An F press with W held starts the charge from standing, a walk, a run or a sprint; aim mode and the held trigger no longer turn it into the stun strike; without W, F is the stun strike; the jump-pack classes still charge from the ground only | Owner's knowledge and decision 2026-10-29 ("charge shouldn't require you to actually sprint to initiate charge, just be holding w when you press f to initiate forward charge"); spec "Charge directions" | The charge needs only W (feel/charge-directions; protocol…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-09BB7D6D` | The charge needs the sprint; F otherwise is a stun strike in the held direction (sim/charge-needs-sprint; protocol 49; supersedes the W-only start of protocol 39) | A W + F press started the charge from standing, a walk, a run or a sprint | Shift (the pad's sprint hold) and W held at the F press start the charge; F without them is the stun strike in the direction of the held keys (all eight, forward with none); W + F without Shift is a forward stun strike; the buffered press follows the same test | Owner's decision 2026-10-31 ("you also need to be holding shift. if you are holding W, A, S, D, or a combination of them, then press f, you should do a stun strike in that direction"); spec "The charge needs the sprint" | The charge needs the sprint; F otherwise is a stun strike…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F4E85D52` | The stomp frees the player at 1.2 s (sim/stomp-release; owner 2026-11-14) | The stomp's clip locks the Devastator and the Havoc for its whole 1.667 s (only the hop cancels it, protocol 51) | From 1.2 s into the clip (after the blast at 0.767 s) the stomp ends and the player may fire (the bolt pistol shoots at once), aim, move, switch, reload, throw, melee and charge, in Classic PvP and Musou Mode; before 1.2 s the lock stays. Restore switch `--old-stomp-release` | The owner: the lock-out was a bit too long; spec "The stomp frees the player at 1.2 s" | The stomp frees the player at 1.2 s (sim/stomp-release…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-A6DB789A` | Lascannon shot before the hop (sim/lascannon-shot-first; owner 2026-11-17, Classic PvP) | A hop pressed in the tick of the lascannon's Fire press (or while its raise waits for the shot) starts at once and lowers the weapon, so the shot is lost | The Space press is held back (in the input buffer) until the shot has left, at most 0.1 s (3 ticks), then the hop starts; a hop with no shot due is never delayed; other weapons and Musou Mode unchanged. Restore switch `--old-lascannon-shot-first` | The owner: "if a player shoots it should be prioritized to go off and finish shooting before the hop initiates, but don't delay the hop by more than .1 seconds"; spec "Lascannon shot before the hop" | Lascannon shot before the hop (sim/lascannon-shot-first…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-8A2476B9` | Lascannon tap reload and steady zoom (sim/lascannon-tap-reload; owner 2026-11-15; **experimental**, Classic PvP) | A lascannon reload loads the whole clip in 2.25 s (the data's); the zoomed view follows the walking body's camera placement | A reload loads one round in 0.4 s with no shot meanwhile (reload clip time-scaled to 0.4 s; a held Reload button repeats round by round); the scope's view looks exactly along the view, so walking does not sway the crosshair (lascannon only; the Devastator's footfall camera kick is skipped there too; the stalker bolter… | The owner: "make tapping the reload bind for lascannon reload 1 round at a time, with a short .4 second inability to shoot..." and "there should be no bob when zoomed in"; spec "Lascannon tap reload and steady zoom" | Lascannon tap reload and steady zoom…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-AE3B05F5` | The kick pushes 60 % less (sim/kick-push; owner 2026-11-14) | The Devastator's and Havoc's kick (the right-mouse melee) knocks its target back by the data's distance | 40 % of it (x0.4); the stomp and Musou's enemies unchanged. Restore switch `--old-kick-push` | The owner: "only the devastator/havoc kick move (right mouse button) knocks back too far. reduce the knockback by 60%"; spec "The kick pushes 60 % less" | The kick pushes 60 % less (sim/kick-push; owner 2026-11-14): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-342607B9` | Only the hop cancels the stomp (sim/stomp-uninterruptible; protocol 51) | The stomp's sequencer lets a shot end it from its `RangedAt` branch (as every melee attack), and a melee press in a combo window chains the next attack | Once the Devastator's or Havoc's stomp starts, no shot (the pistol's quick shot included) and no melee press ends it; only the hop, from the stomp's `BRANCH_Evade`, cancels it (aim, switches, reload, grenades, the sprint and the charge were already held off by any melee attack) | Owner's decision 2026-11-01 ("can only be cancelled by a hop move. shooting, aim down sight, or any other action should never interrupt a stomp animation"); spec "Only the hop cancels the stomp" | Only the hop cancels the stomp (sim/stomp-uninterruptible…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
