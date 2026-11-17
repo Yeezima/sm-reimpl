@@ -111,7 +111,8 @@ public sealed class MapmakerSetup(InstallLayout layout)
     public static bool Installed(ToolPackage pkg, string dir)
     {
         string marker = Path.Combine(dir, VerifiedMarker);
-        return HasAll(dir, pkg.Required) && File.Exists(marker) && File.ReadAllText(marker).Trim() == pkg.Sha512;
+        try { return HasAll(dir, pkg.Required) && File.Exists(marker) && File.ReadAllText(marker).Trim() == pkg.Sha512; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
     }
 
     public bool GodotInstalled => Installed(MapmakerTools.Godot, GodotDir);
@@ -172,8 +173,8 @@ public sealed class MapmakerSetup(InstallLayout layout)
         var keep = new HashSet<string>(expected, StringComparer.OrdinalIgnoreCase);
         foreach (var old in TrackedFiles().Where(f => !keep.Contains(f)))
         {
-            string? full = PackageLayout.Inside(WorkProject, old);
-            if (full is not null && File.Exists(full)) { try { File.Delete(full); copied++; } catch (IOException) { } }
+            string? full = SafeTracked(old);
+            if (full is not null && File.Exists(full)) { try { File.Delete(full); copied++; } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } }
         }
         if (copied > 0) { try { File.Delete(ImportMarker); } catch (IOException) { } }
         File.WriteAllLines(BuildMarker, new[] { BuildId(versionDir) }.Concat(expected));
@@ -185,21 +186,45 @@ public sealed class MapmakerSetup(InstallLayout layout)
     /// the project copy, only the files a sync copied plus the editor's .godot cache and the launcher's markers; folders left empty go too. A tester's own
     /// files in mapmaker-project\ stay (their maps in the library folder are outside the install and never touched).
     /// </summary>
-    public void Remove()
+    public string? Remove()
     {
-        if (Directory.Exists(ToolsDir)) Directory.Delete(ToolsDir, true);
-        if (!Directory.Exists(WorkProject)) return;
-        foreach (var rel in TrackedFiles())
-            if (PackageLayout.Inside(WorkProject, rel) is { } full && File.Exists(full)) File.Delete(full);
-        string cache = Path.Combine(WorkProject, ".godot");
-        if (Directory.Exists(cache)) Directory.Delete(cache, true);
-        foreach (var f in new[] { BuildMarker, ImportMarker }) if (File.Exists(f)) File.Delete(f);
-        PruneEmpty(WorkProject);
+        try
+        {
+            if (Directory.Exists(ToolsDir)) Directory.Delete(ToolsDir, true);
+            if (!Directory.Exists(WorkProject)) return null;
+            foreach (var rel in TrackedFiles())
+                if (SafeTracked(rel) is { } full && File.Exists(full)) File.Delete(full);
+            string cache = Path.Combine(WorkProject, ".godot");
+            if (Directory.Exists(cache)) Directory.Delete(cache, true);
+            foreach (var f in new[] { BuildMarker, ImportMarker }) if (File.Exists(f)) File.Delete(f);
+            PruneEmpty(WorkProject);
+            return null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return "Some Mapmaker files could not be removed (is the Godot editor still open? close it and try again): " + e.Message;
+        }
+    }
+
+    /// <summary>The full path of a tracked relative path, or null when it is unsafe (".." or a drive, from a tampered .sm-build) or a folder on its way is a junction or symlink.</summary>
+    string? SafeTracked(string rel)
+    {
+        string? full = PackageLayout.Inside(WorkProject, rel);
+        if (full is null) return null;
+        string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(WorkProject));
+        string dir = Path.GetDirectoryName(full)!;
+        while (dir.Length > root.Length)
+        {
+            if (Directory.Exists(dir) && new DirectoryInfo(dir).Attributes.HasFlag(FileAttributes.ReparsePoint)) return null;
+            dir = Path.GetDirectoryName(dir)!;
+        }
+        return full;
     }
 
     static void PruneEmpty(string dir)
     {
-        foreach (var d in Directory.EnumerateDirectories(dir)) PruneEmpty(d);
+        foreach (var d in Directory.EnumerateDirectories(dir))
+            if (!new DirectoryInfo(d).Attributes.HasFlag(FileAttributes.ReparsePoint)) PruneEmpty(d);
         if (!Directory.EnumerateFileSystemEntries(dir).Any()) Directory.Delete(dir);
     }
 

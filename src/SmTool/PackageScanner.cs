@@ -335,7 +335,7 @@ public sealed class PackageScanner
         if (AllowedExtensions is { } allowed && !sourceArchive)
         {
             bool bare = ext.Length == 0;
-            bool scoped = !bare && ScopedExtensions.Any(kv => name.Replace('\\', '/').StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase) && kv.Value.Contains(ext));
+            bool scoped = !bare && !name.Contains("..") && ScopedExtensions.Any(kv => name.Replace('\\', '/').StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase) && kv.Value.Contains(ext));
             if (bare ? !AllowedBareNames.Contains(file, StringComparer.OrdinalIgnoreCase) : !allowed.Contains(ext) && !scoped)
                 Add("unexpected-type", bare ? "a file without extension that the binary packages do not contain" : $"'{ext}' is not a type this package may contain");
         }

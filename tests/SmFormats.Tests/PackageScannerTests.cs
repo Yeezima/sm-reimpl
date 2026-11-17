@@ -615,6 +615,8 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Contains(outside, f => f.Rule == "unexpected-type" && f.Entry == "game/Main.tscn");
         Assert.Contains(outside, f => f.Rule == "unexpected-type" && f.Entry == "other/P.cs");
         Assert.Contains(outside, f => f.Rule == "unexpected-type" && f.Entry == "mapmakerx/P.cs");
+        Assert.Empty(Scan(Zip((@"mapmaker\P.cs", Text("class P {}")), ("Mapmaker/Q.cs", Text("class Q {}"))), Profile));      // backslash and case
+        Assert.Contains(Scan(Zip(("mapmaker/../x/P.cs", Text("class P {}"))), Profile), f => f.Rule == "unexpected-type");
         Assert.DoesNotContain(PackageScanCommand.BinaryProfileExtensions, e => e == ".tscn" || e == ".cs");
     }
 

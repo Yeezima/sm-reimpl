@@ -154,6 +154,40 @@ public class MapmakerTests
     }
 
     [Fact]
+    public void A_tampered_build_list_never_makes_sync_or_removal_touch_files_outside_the_project()
+    {
+        using var t = new TempDir();
+        string victim = t["victim.txt"], victim2 = t["victim2.txt"];
+        File.WriteAllText(victim, "keep"); File.WriteAllText(victim2, "keep");
+        var setup = Setup(t);
+        string v = MakeVersion(t);
+        setup.SyncProject(v);
+        // the project is <root>\mapmaker-project, so ..\..\victim.txt is <t>\victim.txt
+        File.AppendAllLines(setup.BuildMarker, [@"..\..\victim.txt", victim2, @"C:\victim.txt"]);
+        setup.SyncProject(MakeVersion(t, "tester-2026-11-18-0000002"));
+        setup.Remove();
+        Assert.Equal("keep", File.ReadAllText(victim));
+        Assert.Equal("keep", File.ReadAllText(victim2));
+    }
+
+    [Fact]
+    public void A_junction_inside_the_project_is_not_followed_by_removal()
+    {
+        using var t = new TempDir();
+        var setup = Setup(t);
+        setup.SyncProject(MakeVersion(t));
+        string outside = t["outside"];
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "Other.cs"), "keep");
+        string link = Path.Combine(setup.WorkProject, "addons", "sm_mapmaker");
+        Directory.Delete(link, true);
+        try { Directory.CreateSymbolicLink(link, outside); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return; }      // no symlink right on this PC: nothing to prove
+        Assert.Null(setup.Remove());
+        Assert.Equal("keep", File.ReadAllText(Path.Combine(outside, "Other.cs")));
+    }
+
+    [Fact]
     public async Task An_installed_and_verified_tool_is_never_downloaded_again_unless_the_pin_changes()
     {
         using var t = new TempDir();
@@ -271,6 +305,7 @@ public class MapmakerTests
         var e = await Assert.ThrowsAsync<VerificationException>(() => setup.InstallToolAsync(pkg, dest, http, null, default, Builds.Fast));
         Assert.Contains("damaged", e.Message);
         Assert.False(Directory.Exists(dest));
+        Assert.False(File.Exists(Path.Combine(dest, MapmakerSetup.VerifiedMarker)));
         Assert.Empty(Directory.EnumerateFiles(Path.Combine(setup.ToolsDir, "downloads")));
     }
 

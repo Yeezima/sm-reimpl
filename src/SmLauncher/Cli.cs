@@ -114,7 +114,7 @@ static class Cli
             }
             case "remove-mapmaker":
                 // The Mapmaker's part of an uninstall: the downloaded editor and runtime, and the project copy's launcher-made files (a tester's own files stay).
-                new MapmakerSetup(layout).Remove();
+                if (new MapmakerSetup(layout).Remove() is { } removeProblem) { Console.WriteLine(removeProblem); return 1; }
                 Console.WriteLine("mapmaker removed: tools\\ and the project copy's launcher files");
                 return 0;
             case "mapmaker-check":

@@ -1594,6 +1594,11 @@ if ($Smoke) {
             if (-not $ep.WaitForExit(240000)) { Stop-Process -Id $ep.Id -Force; Write-Host '  mapmaker editor: did not finish in 4 minutes (stopped)' -ForegroundColor Red; $fail = $true }     # only the process started above
             elseif (-not (Select-String -LiteralPath $elog -Pattern 'Mapmaker: plugin entering the tree' -Quiet)) { $fail = $true; Write-Host "  mapmaker editor: FAILED, the plugin did not load (log: $elog)" -ForegroundColor Red }
             else { Write-Host '  mapmaker editor: the Godot editor opened the shipped project headless and the plugin loaded' -ForegroundColor Green }
+            # the uninstall's Mapmaker part: nothing was downloaded into the smoke install, so it must report success and leave the build alone
+            $rp = Start-QuietProcess -FilePath $lexe -ArgumentList '--root', $iroot, '--remove-mapmaker' -WorkingDirectory $pkg -StdOut (Join-Path $smokeDir 'mapmaker-remove.out.txt')
+            if (-not $rp.WaitForExit(60000)) { Stop-Process -Id $rp.Id -Force; $rcode = -1 } else { $rcode = $rp.ExitCode }     # only the process started above
+            if ($rcode -ne 0 -or -not (Select-String -LiteralPath (Join-Path $smokeDir 'mapmaker-remove.out.txt') -Pattern '^mapmaker removed' -Quiet) -or -not (Test-Path -LiteralPath (Join-Path $pkg 'mapmaker\project.godot'))) { $fail = $true; Write-Host "  mapmaker remove: FAILED (exit $rcode)" -ForegroundColor Red }
+            else { Write-Host '  mapmaker remove: --remove-mapmaker succeeded and left the build alone' -ForegroundColor Green }
         }
         $found = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $pkg 'game\Launcher.ps1') -FindGame
         Write-Host "  game\Launcher.ps1 -FindGame: $(if ($found) { 'found the install' } else { 'nothing (SM_GAME_DIR is used)' })"
