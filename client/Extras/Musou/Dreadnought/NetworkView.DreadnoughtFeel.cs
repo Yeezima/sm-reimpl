@@ -21,6 +21,8 @@ public partial class NetworkView
     readonly List<(DaShake Shake, double At, float Distance, bool Hit)> _dreadShakes = new();
     /// <summary>The sum of the shakes drawn last frame (metres, degrees), for the tests' log.</summary>
     internal (Num.Vector3 Offset, Num.Vector3 Degrees) DreadShakeNow;
+    /// <summary>The largest shake (metres, degrees) since the film last cleared it (test aid).</summary>
+    internal (float Offset, float Degrees) DreadShakePeak;
 
     /// <summary>Per Dreadnought: what the feel needs to see change between frames.</summary>
     sealed class DreadFeelState { public bool Left, WasAir, StimWas, Hurt66, Hurt33, Entered, Rush, RushOn, Sprinting; public float PrevMelee = -1f; public int PrevStep; public bool PrevHeavy; public double AirSince; public float PrevCd, FireRamp; public double LastShot = double.NegativeInfinity; public readonly List<FxEffect> Lit = new(), Pyre = new(); public bool Lights; }
@@ -87,7 +89,7 @@ public partial class NetworkView
         if (_client is null) return;
         var me = _client.Predicted.Position;
         float d = new Num.Vector2(s.Position.X - me.X, s.Position.Y - me.Y).Length();
-        if (d <= DreadnoughtMelee.AreaRadius) { _dreadShakes.Add((DreadnoughtFeel.StompArea, _connectedFor, d, true)); if (!own) DreadRumble(DreadnoughtArm.StompAreaHit); }
+        if (d <= DreadnoughtMelee.StompRadius) { _dreadShakes.Add((DreadnoughtFeel.StompArea, _connectedFor, d, true)); if (!own) DreadRumble(DreadnoughtArm.StompAreaHit); }
     }
 
     /// <summary>Per frame, per living Dreadnought: edges that fire the table (entrance, stomp's foot hit, wall hit, landing, power-up, damage thresholds). Footfalls are fired by the stride (<see cref="DreadnoughtSounds"/>).</summary>
@@ -185,7 +187,7 @@ public partial class NetworkView
             var (so, sd) = DreadnoughtFeel.CannonSustained.Sample((float)_connectedFor, sustain * DreadnoughtFeel.Scale(1f, UiKit.ReduceMotion));
             o += so; d += sd;
         }
-        DreadShakeNow = (o, d);
+        DreadShakeNow = (o, d); DreadShakePeak = (MathF.Max(DreadShakePeak.Offset, o.Length()), MathF.Max(DreadShakePeak.Degrees, d.Length()));
         offset += new Vector3(o.X, o.Y, o.Z);
         degrees += new Vector3(d.X, d.Y, d.Z);
     }
@@ -228,8 +230,7 @@ public partial class NetworkView
     void DreadArmHitShake(PlayerState s, MeleeStep step)
     {
         MusouStrikeTargets(s, step, null);
-        if (_musouStrikeTargets.Count == 0) return;
-        _dreadShakes.Add((DreadnoughtFeel.ArmHit, _connectedFor, 0f, false));
+        _dreadShakes.Add((_musouStrikeTargets.Count == 0 ? DreadnoughtFeel.ArmWhiff : DreadnoughtFeel.ArmHit, _connectedFor, 0f, false));
         if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} ArmHit shake: {_musouStrikeTargets.Count} struck");
     }
 

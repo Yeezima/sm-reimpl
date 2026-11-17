@@ -10,9 +10,10 @@ public class DreadnoughtPassFeelTests
     public void A_light_swings_hit_shakes_the_own_camera_for_a_fifth_of_a_second_and_is_a_smaller_blow_than_the_stomp()
     {
         var hit = DreadnoughtFeel.ArmHit;
-        Assert.Equal(0.1f, hit.Duration);
-        Assert.InRange(hit.Total, 0.2f, 0.25f);
+        Assert.Equal(0.12f, hit.Duration);
+        Assert.InRange(hit.Total, 0.28f, 0.32f);
         Assert.Contains(hit, DreadnoughtFeel.Shakes);
+        Assert.True(DreadnoughtFeel.ArmWhiff.Pitch.Amplitude < hit.Pitch.Amplitude && DreadnoughtFeel.ArmWhiff.Pitch.Amplitude > 0f && DreadnoughtFeel.Shakes.Contains(DreadnoughtFeel.ArmWhiff));   // a swing that strikes nothing still shakes, less
         Assert.True(hit.Pitch.Amplitude < DreadnoughtFeel.Stomp.Pitch.Amplitude && hit.Vertical.Amplitude < DreadnoughtFeel.Stomp.Vertical.Amplitude);
         Assert.Equal(1f, hit.Gain(0f));   // the own camera
         var (offset, degrees) = hit.Sample(0.05f, 1f);

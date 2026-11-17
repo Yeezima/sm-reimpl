@@ -25,6 +25,8 @@ public sealed record BodySpec(string Name,
     public float? CapsuleRadius { get; init; }
     /// <inheritdoc cref="CapsuleRadius"/>
     public float? CapsuleHeight { get; init; }
+    /// <summary>The longest a shot origin may lie from this body's eye (m; the Musou Dreadnought's, whose camera is far from it, owner 2026-11-17); null: the config's <see cref="SimConfig.MaxShotOriginOffset"/>. Hashed only when set.</summary>
+    public float? MaxShotOrigin { get; init; }
 
     /// <summary>The config's own body (its marine fields and hit volumes), as a spec (for references and tests).</summary>
     public static BodySpec Of(SimConfig c, string name = "marine") => new(name,
@@ -47,6 +49,7 @@ public sealed record BodySpec(string Name,
             w.Write(f);
         SimConfig.WriteVolumes(w, HitVolumes);
         if (CapsuleRadius is not null || CapsuleHeight is not null) { w.Write("capsule"); w.Write(CapsuleRadius ?? -1f); w.Write(CapsuleHeight ?? -1f); }   // only a big body's
+        if (MaxShotOrigin is not null) { w.Write("shot-origin"); w.Write(MaxShotOrigin.Value); }
     }
 }
 
@@ -109,7 +112,7 @@ public sealed partial record SimConfig
                 HealthMax = b.HealthMax, HealthRegenDelay = b.HealthRegenDelay, HealthRegenRate = b.HealthRegenRate,
                 ShieldMax = b.ShieldMax, ShieldRegenDelay = b.ShieldRegenDelay, ShieldRegenRate = b.ShieldRegenRate,
                 HitVolumes = b.HitVolumes ?? based.HitVolumes,
-                CapsuleRadius = b.CapsuleRadius ?? based.CapsuleRadius, CapsuleHeight = b.CapsuleHeight ?? based.CapsuleHeight,
+                CapsuleRadius = b.CapsuleRadius ?? based.CapsuleRadius, CapsuleHeight = b.CapsuleHeight ?? based.CapsuleHeight, MaxShotOriginOffset = b.MaxShotOrigin ?? based.MaxShotOriginOffset,
             };
             BodyCaches.AddOrUpdate(copy, this);
             return _copies[body] = copy;

@@ -42,6 +42,8 @@ public partial class NetworkView
         /// <summary>The frame-rate clip clocks of the arm's strike (own player: <see cref="OwnClipClock"/>, others: <see cref="ClipClock"/>).</summary>
         public readonly OwnClipClock OwnStrike = new();
         public readonly ClipClock OtherStrike = new();
+        /// <summary>Every bone's rotation last frame (<see cref="DreadnoughtArmCap"/>).</summary>
+        public Quaternion[] Cap = new Quaternion[0]; public bool CapHave; public double CapAt; public ulong CapFrame;
     }
 
     /// <summary>The Dreadnought's class index in this match's config, or -1 (Classic and every config without him), found once: every per-frame hook returns at once when it is -1.</summary>
@@ -134,9 +136,9 @@ public partial class NetworkView
             if (state.MeleeStep > 0)
             {
                 var list = state.MeleeHeavy ? DreadnoughtRig.HeavyStrikes : DreadnoughtRig.LightStrikes;
-                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], DreadnoughtStrikeClipTime(t, state, own), DreadnoughtStrikeBlend)) return;
+                if (state.MeleeStep <= list.Length && character.Pose(list[state.MeleeStep - 1], DreadnoughtStrikeClipTime(t, state, own), DreadnoughtStrikeBlend)) { DreadnoughtArmCap(character, t); return; }
             }
-            else { t.OwnStrike.Stop(); t.OtherStrike.Stop(); }
+            else { t.OwnStrike.Stop(); t.OtherStrike.Stop(); t.CapHave = false; }
         }
         DreadnoughtLocomotion(character, state);
     }
@@ -156,6 +158,64 @@ public partial class NetworkView
             ? t.OwnStrike.Step(key, simTime, _client.ClipFraction, _config.TickSeconds, float.MaxValue, _client.ClipLead)
             : t.OtherStrike.Step(key, simTime, (float)GetProcessDeltaTime(), float.MaxValue);
         return shown * DreadnoughtRules.MeleeSpeed;
+    }
+
+    /// <summary>
+    /// The turn rate (degrees a second; **ours (estimate)**) no bone of his may exceed while a strike is posed, as a limit per frame of at most 1/60 s of it (60 degrees). `DN_MEL_XATK_02_3.5m` twists `RIG_LHand` about 29 degrees per 1/60 s of clip
+    /// (the sampler is smooth: checked with `HavokSplineAnimation.SampleRaw`, no flipped control points), which at his 1.3 rate is 2260 degrees a second, 38 a frame at 60 frames a second: the authored twist passes. What the cap stops is a frame that runs
+    /// long (a hitch, a slow machine, a movie of a live run) taking the clip on by that much more, or a chained swing's first cross-fade frame, and turning a hand, hose or belt up to 180 degrees in one frame. It runs after the viewer has applied the frame
+    /// (<see cref="DreadLateNode"/>), so the entry cross-fade, which the viewer advances in its own _Process, cannot undo it.
+    /// </summary>
+    const float DreadnoughtArmTurnRate = 3600f;
+
+    /// <summary>A node that runs after every character has been posed this frame (process priority 900, before the pose-pop probe's 1000).</summary>
+    sealed partial class DreadLateNode : Node
+    {
+        public Action? Tick;
+        public override void _Process(double delta) => Tick?.Invoke();
+    }
+    DreadLateNode? _dreadLate;
+
+    void DreadnoughtLateStart()
+    {
+        if (_dreadLate is not null) return;
+        _dreadLate = new DreadLateNode { Name = "DreadLate", ProcessPriority = 900, Tick = DreadnoughtLateCaps };
+        AddChild(_dreadLate);
+    }
+
+    /// <summary>Marks the strike pose of this frame for the late cap (<see cref="DreadnoughtLateCaps"/>).</summary>
+    void DreadnoughtArmCap(CharacterViewer character, DreadnoughtTrack t)
+    {
+        DreadnoughtLateStart();
+        t.CapFrame = Engine.GetProcessFrames();
+    }
+
+    void DreadnoughtLateCaps()
+    {
+        ulong frame = Engine.GetProcessFrames();
+        foreach (var t in _dreadTracks.Values)
+        {
+            if (t.CapFrame != frame || t.Viewer is not { } v || !IsInstanceValid(v) || v.Skeleton is not { } sk) { t.CapHave = false; continue; }
+            int n = sk.GetBoneCount();
+            if (t.Cap.Length != n) { t.Cap = new Quaternion[n]; t.CapHave = false; }
+            float dt = (float)(_connectedFor - t.CapAt);
+            t.CapAt = _connectedFor;
+            bool use = t.CapHave && dt > 0f && dt < 0.25f;
+            float limit = Mathf.DegToRad(DreadnoughtArmTurnRate) * Math.Min(dt, 1f / 60f);
+            for (int i = 0; i < n; i++)
+            {
+                var q = sk.GetBonePoseRotation(i);
+                if (use)
+                {
+                    var last = t.Cap[i];
+                    if (q.Dot(last) < 0f) q = -q;
+                    float angle = 2f * MathF.Acos(Math.Min(1f, MathF.Abs(q.Dot(last))));
+                    if (angle > limit && angle > 1e-4f) { q = last.Slerp(q, limit / angle).Normalized(); sk.SetBonePoseRotation(i, q); }
+                }
+                t.Cap[i] = q;
+            }
+            t.CapHave = true;
+        }
     }
 
     /// <summary>Test aid <c>--dn-raw-strike</c>: the strike clip at the simulation's stepped time, not the frame-rate clock (the before of the smoothing's before-and-after clip).</summary>

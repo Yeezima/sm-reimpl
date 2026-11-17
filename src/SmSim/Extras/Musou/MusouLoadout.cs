@@ -37,7 +37,7 @@ public static class MusouLoadout
             defaults = [.. defaults, .. Enumerable.Repeat(-1, Math.Max(0, before - defaults.Count))];
             defaults = [.. defaults, .. Enumerable.Repeat(-1, Math.Max(0, classes.Count - 1 - defaults.Count)), classes[^1].PrimaryChoices.Count > 0 ? classes[^1].PrimaryChoices[0] : -1];
         }
-        return config with { Classes = classes, Bodies = bodies, Thrown = thrown, MusouDefaultPrimaries = defaults, MaxShotOriginOffset = DreadnoughtRules.OldShotOriginAid ? config.MaxShotOriginOffset : MathF.Max(config.MaxShotOriginOffset, DreadnoughtRules.MaxShotOriginOffset) };   // the Dreadnought's camera sits far from his eye: a shot may leave the camera ray (DreadnoughtRules.MaxShotOriginOffset)
+        return config with { Classes = classes, Bodies = bodies, Thrown = thrown, MusouDefaultPrimaries = defaults };
     }
 
     /// <summary>

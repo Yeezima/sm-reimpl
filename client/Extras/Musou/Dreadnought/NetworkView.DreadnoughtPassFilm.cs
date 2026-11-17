@@ -42,7 +42,7 @@ public partial class NetworkView
         var foot = origin + ray * along;
         float miss = (point - foot).Length(), below = point.Z - foot.Z;
         var cam = ToGame(_camera.GlobalPosition);
-        GD.Print($"DNPASS aimprobe {tag}: the crosshair meets the world {Num.Vector3.Distance(point, cam):F1} m from the camera; the round's ray passes {miss:F2} m from that point ({below:F2} m below it); origin {Num.Vector3.Distance(origin, Combat.EyePosition(me, _config)):F2} m from the eye (cut {_config.MaxShotOriginOffset:F1} m)");
+        GD.Print($"DNPASS aimprobe {tag}: the crosshair meets the world {Num.Vector3.Distance(point, cam):F1} m from the camera; the round's ray passes {miss:F2} m from that point ({below:F2} m below it); origin {Num.Vector3.Distance(origin, Combat.EyePosition(me, _config)):F2} m from the eye (cut {_config.For(me.Class).MaxShotOriginOffset:F1} m)");
     }
 
     /// <summary>Turns the view until the camera's ray meets level geometry 12 to 45 m ahead (a wall to leave an impact on); false after a full turn.</summary>
@@ -126,16 +126,15 @@ public partial class NetworkView
         }
         TfwAction(GameAction.MoveForward, false);
         Mark("spam");
-        double spamStart = _connectedFor;
+        double spamStart = _connectedFor; DreadShakePeak = default;
         for (double stop = _connectedFor + 8.0; _connectedFor < stop;)
         {
             if (_musouState.NearestTo(client.Predicted.Position, 30f) is { } near) { var me2 = client.Predicted.Position; _yaw = MathF.Atan2(-(near.X - me2.X), near.Y - me2.Y); _pitch = 0f; }
             _dnCam = _connectedFor < spamStart + 4.0 ? 1 : 0;   // the first half from the side (the chain), the second from the player's view (the cleave, the shake)
             await TfwActionTap(GameAction.Melee);
-            shakePeak = MathF.Max(shakePeak, DreadShakeNow.Offset.Length()); shakeDeg = MathF.Max(shakeDeg, DreadShakeNow.Degrees.Length());
         }
         _dnCam = 0;
-        GD.Print($"DNPASS spam done: crowd near {TfwNearCount(12f)}, peak shake offset {shakePeak:F3} m degrees {shakeDeg:F2}");
+        GD.Print($"DNPASS spam done: crowd near {TfwNearCount(12f)}, peak shake offset {DreadShakePeak.Offset:F3} m degrees {DreadShakePeak.Degrees:F2}");
         await TfwShot("dnpass-melee-spam");
         Mark("stomp");
         TfwFaceCrowd(30f);

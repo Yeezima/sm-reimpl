@@ -99,6 +99,7 @@ public sealed partial class Hud
         }
         if (!d.Alive) _vignetteAt = double.NegativeInfinity;
         _vitalsHealth = d.Health; _vitalsShield = d.Shield; _vitalsAlive = d.Alive;
+        if (d.DamageVignetteOff) { _vignetteAt = double.NegativeInfinity; return; }
         double age = _time - _vignetteAt;
         if (age < 0.0 || age >= VignetteSeconds) return;
         _vignetteTex ??= new GradientTexture2D

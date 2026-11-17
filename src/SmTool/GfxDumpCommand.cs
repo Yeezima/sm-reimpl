@@ -18,7 +18,7 @@ public static class GfxDumpCommand
     {
         if (gameDir == "auto") gameDir = GameInstall.Locate();
         string movieName = Opt(rest, "--movie") ?? "Hud";
-        string package = Opt(rest, "--package") is "common" ? UiArt.CommonPackage : UiArt.IngamePackage;
+        string package = Opt(rest, "--package") switch { "common" => UiArt.CommonPackage, "pc" => "data/packages/ui_common_pc.oppc", _ => UiArt.IngamePackage };
         string? grep = Opt(rest, "--grep");
         string? render = Opt(rest, "--render");
         bool writeFiles = Opt(rest, "--out") is not null;
@@ -44,7 +44,72 @@ public static class GfxDumpCommand
                 return (g == "gfx" && e.FileName.Equals(movieName, StringComparison.OrdinalIgnoreCase)) || (g == "dds" && e.FileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
             }, (e, d) => { if (archive.GroupName(e) == "gfx") gfx = d.ToArray(); else atlases[e.FileName] = d.ToArray(); });
         if (gfx is null) { Console.Error.WriteLine($"no movie '{movieName}' in {package}"); return 1; }
+        if (Opt(rest, "--font") is { } sample)
+        {
+            // classic-score-hud aid: the font movie's faces (names, metrics) and a sample string of each rasterised from its outlines into a PNG (--out dir; the private cache by default).
+            string? fontDir = outDir ?? SafeOutput(null, gameDir, out _);
+            if (fontDir is null) { Console.Error.WriteLine("no safe output folder"); return 2; }
+            Directory.CreateDirectory(fontDir);
+            foreach (var face in GfxFontReader.Read(gfx))
+            {
+                Console.WriteLine($"font {face.Id} '{face.Name}': {face.Contours.Length} glyphs, em {face.EmSquare}, ascent {face.Ascent} descent {face.Descent} leading {face.Leading}, digits advance {face.AdvanceEm('0'):0.###} em, colon {face.AdvanceEm(':'):0.###}");
+                Console.WriteLine($"  glyph of 7: {(face.GlyphOf.TryGetValue(55, out int g7) ? g7 : -1)}, contours {(g7 < face.Contours.Length ? face.Contours[g7].Count : -1)}, codes {face.GlyphOf.Count} first {string.Join(",", face.GlyphOf.Take(8).Select(kv => kv.Key + "=" + kv.Value))}");
+                const double px = 96;
+                int w = (int)Math.Ceiling(face.WidthEm(sample) * px) + 40, h = (int)(px * 1.6);
+                var rgba = new byte[w * h * 4];
+                for (int i = 0; i < w * h; i++) { rgba[i * 4] = 30; rgba[i * 4 + 1] = 30; rgba[i * 4 + 2] = 30; rgba[i * 4 + 3] = 255; }
+                double pen = 20, baseline = px * 1.15;
+                foreach (char ch in sample)
+                {
+                    if (face.Rasterize(ch, px) is { } g)
+                        for (int gy = 0; gy < g.Height; gy++)
+                            for (int gx = 0; gx < g.Width; gx++)
+                            {
+                                int ox = (int)pen + g.Left + gx, oy = (int)baseline + g.Top + gy;
+                                if (ox < 0 || oy < 0 || ox >= w || oy >= h) continue;
+                                int a = g.Alpha[gy * g.Width + gx];
+                                for (int k = 0; k < 3; k++) rgba[(oy * w + ox) * 4 + k] = (byte)((rgba[(oy * w + ox) * 4 + k] * (255 - a) + 255 * a) / 255);
+                            }
+                    pen += face.AdvanceEm(ch) * px;
+                }
+                string file = Path.Combine(fontDir, $"font_{face.Id}.png");
+                WritePng(file, w, h, rgba);
+                Console.WriteLine(file);
+            }
+            return 0;
+        }
+        if (rest.Contains("--tags"))
+        {
+            // Top-level tags of the movie file: code, length, the first bytes (to read a font movie's structure).
+            var raw = gfx; int pos = 8; int nb = raw[pos] >> 3; pos += (5 + nb * 4 + 7) / 8 + 4;
+            var counts = new SortedDictionary<int, (int N, int Bytes)>();
+            while (pos + 2 <= raw.Length)
+            {
+                int hdr = BitConverter.ToUInt16(raw, pos); pos += 2; int code = hdr >> 6, len = hdr & 0x3f;
+                if (len == 0x3f) { len = BitConverter.ToInt32(raw, pos); pos += 4; }
+                counts[code] = counts.TryGetValue(code, out var c0) ? (c0.N + 1, c0.Bytes + len) : (1, len);
+                if (Opt(rest, "--tag") is { } want && int.TryParse(want, out int wc) && wc == code)
+                    Console.WriteLine($"tag {code} len {len} at {pos}: {BitConverter.ToString(raw, pos, Math.Min(len, 48))}");
+                pos += len;
+            }
+            foreach (var (code, (n, bytes)) in counts) Console.WriteLine($"tag {code}: {n} x, {bytes} bytes");
+            return 0;
+        }
         var movie = GfxMovie.Parse(gfx);
+
+        if (Opt(rest, "--atlas") is { } atlasName)
+        {
+            // classic-score-hud aid: one of the movie's atlases decoded (BC3) and written as a PNG (--out dir; never inside the repository or the install).
+            string? atlasDir = outDir ?? SafeOutput(null, gameDir, out string whyNot);
+            if (atlasDir is null) { Console.Error.WriteLine("no safe output folder"); return 2; }
+            if (!atlases.TryGetValue(atlasName, out var dds) || dds.Length <= 128 || dds[84] != 'D' || dds[87] != '5') { Console.Error.WriteLine($"no BC3 atlas '{atlasName}' (have: {string.Join(" ", atlases.Keys)})"); return 1; }
+            int ah = BitConverter.ToInt32(dds, 12), aw = BitConverter.ToInt32(dds, 16);
+            Directory.CreateDirectory(atlasDir);
+            string afile = Path.Combine(atlasDir, atlasName + ".png");
+            WritePng(afile, aw, ah, Bc3.Decode(dds.AsSpan(128), aw, ah));
+            Console.WriteLine(afile);
+            return 0;
+        }
 
         if (Opt(rest, "--path") is { } path)
         {

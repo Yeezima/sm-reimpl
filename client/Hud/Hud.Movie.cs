@@ -120,6 +120,7 @@ public sealed partial class Hud
         var c0 = colour ?? new Color(t.Colour.R, t.Colour.G, t.Colour.B, t.Colour.A);
         var c = Through(c0, cx); c.A *= alpha;
         if (c.A <= 0.003f) return;
+        if (_originalFontText && OriginalFieldText(movie, t, s, xf, c, fontScale)) return;   // classic-score-hud: the score panel's text in the original's face (Hud.OriginalFont.cs)
         float sy = xf.Y.Length();
         int size = Math.Max(1, (int)MathF.Round((float)t.FontHeight * sy * fontScale));
         int style = movie.Movie.FontNames.GetValueOrDefault(t.FontId, "").Contains("Bold", StringComparison.OrdinalIgnoreCase) ? 2 : 0;

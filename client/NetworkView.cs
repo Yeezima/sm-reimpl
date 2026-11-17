@@ -2043,6 +2043,7 @@ public partial class NetworkView : Node3D
             f.WeaponBarFull = me.Cooldown > 1e-4f && melee0.ShotCooldown > 0f ? Math.Clamp(1f - me.Cooldown / melee0.ShotCooldown, 0f, 1f)
                 : me.ReloadLeft > 0f ? Math.Clamp(1f - me.ReloadLeft / MathF.Max(recharge.RoundTime, 1e-3f), 0f, 1f) : 1f;
         f.IronHalo = Loadouts.HasPerk(c, me, "mp_perk_iron_halo");   // ui/hud-3: the armour bar's medallion
+        f.DamageVignetteOff = _damageFlashOff;   // added content keeps the own damage cues off (Musou: the Dreadnought)
         var inHand = Loadouts.InHand(c, me);
         f.SlotKey = (int)me.Slot;
         if (inHand is not null)

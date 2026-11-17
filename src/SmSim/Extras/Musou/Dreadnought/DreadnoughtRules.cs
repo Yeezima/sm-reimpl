@@ -34,9 +34,16 @@ public static class DreadnoughtRules
     public const float RangedAfterHit = 0.15f;
 
     /// <summary>
-    /// The longest a shot's origin may lie from his eye (m; **ours (estimate)**), against the core's 1.5. His camera (the marine rig's offsets x 2.2) sits about 3 m from his eye (<see cref="SimConfig.EyeHeight"/> 1.6 m above his feet): the crosshair's ray passes
-    /// further than 1.5 m from the eye, the server cut the origin to 1.5 m along the way to it and the cannon's rounds ran parallel to the crosshair's ray about 1.4 m below it (spec "Dreadnought: where the cannon shoots"). With the cut at 8 m every shot leaves the
-    /// camera ray's own point nearest the eye, along the ray, so the round goes through the crosshair's point of aim. Applied to Musou's config (<see cref="MusouLoadout.Prepare"/>); a marine's camera passes within 1.5 m, so it is unchanged for them.
+    /// A light swing chained from the one before (a spam press on its hit) starts this many seconds (sim time) into its clip (**ours (estimate)**; <see cref="MeleeStep.ChainLeadIn"/>): the arm is already raised at the hit, so the next swing's first 0.26 clip seconds of wind-up
+    /// are skipped. His hits then follow each other about 0.36 s apart (before: 0.56 s) against the knife's 0.33 s.
+    /// </summary>
+    public const float ChainLeadIn = 0.2f;
+
+    /// <summary>
+    /// The longest a shot's origin may lie from HIS eye (m; **ours (estimate)**; his body alone, <see cref="BodySpec.MaxShotOrigin"/>), against the core's 1.5 m. His camera (the marine rig's offsets x2.2) passes about 4 m from his eye (3.6 to 4.0 m measured in the film;
+    /// the eye is <see cref="SimConfig.EyeHeight"/> 1.6 m above his feet): the crosshair's ray passes further than 1.5 m from the eye, the server cut the origin to 1.5 m along the way to it and the cannon's rounds ran parallel to the crosshair's ray 1.7 to 2.4 m
+    /// under it (spec "Dreadnought: where the cannon and melta shoot"). With the cut at 8 m every shot leaves the camera ray's own point nearest the eye, along the ray, so the round goes through the crosshair's point of aim; where level geometry lies between his
+    /// eye and that point the origin slides forward along the ray to the first point his eye sees (<see cref="Combat.ShotOrigin"/>). Every other class keeps the core's cut.
     /// </summary>
     public const float MaxShotOriginOffset = 8f;
 
@@ -114,7 +121,7 @@ public static class DreadnoughtRules
 
     /// <summary>His body as the sim holds it (<see cref="SimConfig.Bodies"/>): the data's speeds, the owner's health pool and the big capsule; the marine hit volumes (null: the config's).</summary>
     public static BodySpec Body() => new(BodyName, RunSpeed, StrafeSpeed, BackSpeed, SprintSpeed, WalkSpeed, AimRunSpeed, AimStrafeSpeed, AimBackSpeed,
-        Health, RegenDelay, RegenRate, Shield, 0f, 0f) { CapsuleRadius = CapsuleRadius, CapsuleHeight = CapsuleHeight };
+        Health, RegenDelay, RegenRate, Shield, 0f, 0f) { CapsuleRadius = CapsuleRadius, CapsuleHeight = CapsuleHeight, MaxShotOrigin = OldShotOriginAid ? null : MaxShotOriginOffset };
 
     /// <summary>Whether <paramref name="classIndex"/> is the Dreadnought in <paramref name="config"/>.</summary>
     public static bool IsDreadnought(SimConfig config, int classIndex) =>

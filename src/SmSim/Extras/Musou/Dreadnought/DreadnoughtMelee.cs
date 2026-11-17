@@ -14,6 +14,9 @@ public static class DreadnoughtMelee
     /// <summary>The slam of the Y01 strike (<c>actn_pound_hit</c>: 500, stun damage 1000) and the stomp's (<c>actn_stomp_hit</c>: 50) and a footfall's (<c>evt_*_stomp</c>: 25): a sphere of 10 m each (data: <c>area_of_effect/shape</c>).</summary>
     public const float AreaRadius = 10f, SlamDamage = 500f, StompDamage = 50f, FootfallDamage = 25f;
 
+    /// <summary>The stomp's and the slam's sphere (owner 2026-11-17: the cleave radius of "stomp and light melee attacks" +50 %): the data's 10 m times <see cref="DreadnoughtRules.CleaveReachScale"/>; a footfall's stays <see cref="AreaRadius"/>.</summary>
+    public const float StompRadius = AreaRadius * DreadnoughtRules.CleaveReachScale;
+
     /// <summary>Reach (metres) of the arm's strikes (<c>max_range</c>, data).</summary>
     public const float Reach = 4f;
 
@@ -24,8 +27,8 @@ public static class DreadnoughtMelee
     public static SplashSpec Overcharge => Area(0f, 0f) with { Radius = OverchargeRadius };
 
     /// <summary>The slam's, the stomp's and a footfall's blast.</summary>
-    public static SplashSpec Slam => Area(SlamDamage, 0f);
-    public static SplashSpec Stomp => Area(StompDamage, 250f);
+    public static SplashSpec Slam => Area(SlamDamage, 0f) with { Radius = StompRadius };
+    public static SplashSpec Stomp => Area(StompDamage, 250f) with { Radius = StompRadius };
     public static SplashSpec Footfall => Area(FootfallDamage, 25f);
 
     /// <summary>
@@ -46,7 +49,7 @@ public static class DreadnoughtMelee
     static IReadOnlyList<MeleeStep> Faster(IReadOnlyList<MeleeStep> steps) => [.. steps.Select(s => Faster(s, DreadnoughtRules.MeleeSpeed))];
 
     /// <summary>X01 and X02 (light): the data's tags (100 / 50 and 125 / 75, shield 250 / 100) at <see cref="DreadnoughtRules.MeleeSpeed"/>.</summary>
-    public static IReadOnlyList<MeleeStep> Light() => Faster(DataLight());
+    public static IReadOnlyList<MeleeStep> Light() => [.. Faster(DataLight()).Select(s => s with { ChainLeadIn = DreadnoughtRules.ChainLeadIn })];
 
     /// <summary>The stomp (Y from rest, 50 in 10 m) and Y01 (50 and the 500 slam), the data's tags at <see cref="DreadnoughtRules.MeleeSpeed"/>.</summary>
     public static IReadOnlyList<MeleeStep> Heavy() => Faster(DataHeavy());

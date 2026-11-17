@@ -74,10 +74,14 @@ public static class DreadnoughtFeel
     public static readonly DaShake OverchargeShake = StompArea with { Name = "overcharge wave", Horizontal = Q(StompArea.Horizontal), Vertical = Q(StompArea.Vertical), Pitch = Q(StompArea.Pitch), Yaw = Q(StompArea.Yaw), Roll = Q(StompArea.Roll) };
     static DaShakeAxis Q(DaShakeAxis a) => a with { Amplitude = a.Amplitude * 0.25f };
     /// <summary>
-    /// A light swing's hit on at least one enemy (owner 2026-11-17: "ensure there is some screen shake to his melees"; the data has none for the arm's light strikes): 0.1 s then 0.12 s fading, vertical 0.12 m at 11 Hz, pitch 0.9 degrees at 9 Hz,
-    /// yaw 0.5 at 14 Hz, roll 0.6 at 18 Hz, on the own camera (full strength within 20 m, none past 40 m). **ours (estimate)**: about a third of the stomp's, so a chain of light swings is felt without swamping the view; scaled by the Camera shake option.
+    /// A light swing's hit on at least one enemy (owner 2026-11-17: "ensure there is some screen shake to his melees"; the data has none for the arm's light strikes): 0.12 s then 0.18 s fading, vertical 0.3 m at 9 Hz, pitch 1.2 degrees at 8 Hz,
+    /// yaw 0.7 at 12 Hz, roll 0.9 at 16 Hz, on the own camera (full strength within 20 m, none past 40 m). **ours (estimate)**: about 0.6 of the stomp's (the first pass, a third, measured 0.019 m in a crowd and was faint), so every hit of a chain is felt; scaled by the Camera shake option.
     /// </summary>
-    public static readonly DaShake ArmHit = new("arm hit", 0.1f, 0f, 0.12f, A(0, 12, 0), A(0.12f, 11, 0), A(0.9f, 9, 90), A(0.5f, 14, 30), A(0.6f, 18, 0), 20f, 40f);
+    public static readonly DaShake ArmHit = new("arm hit", 0.12f, 0f, 0.18f, A(0, 12, 0), A(0.3f, 9, 0), A(1.2f, 8, 90), A(0.7f, 12, 30), A(0.9f, 16, 0), 20f, 40f);
+
+    /// <summary>A light swing that strikes nothing (**ours (estimate)**): <see cref="ArmHit"/> at 0.4 of its amplitudes, so a chain is felt all through a crowd that dies faster than he swings, and a hit is still the bigger blow.</summary>
+    public static readonly DaShake ArmWhiff = ArmHit with { Name = "arm swing", Vertical = Scaled(ArmHit.Vertical, 0.4f), Pitch = Scaled(ArmHit.Pitch, 0.4f), Yaw = Scaled(ArmHit.Yaw, 0.4f), Roll = Scaled(ArmHit.Roll, 0.4f), Horizontal = Scaled(ArmHit.Horizontal, 0.4f) };
+    static DaShakeAxis Scaled(DaShakeAxis a, float k) => a with { Amplitude = a.Amplitude * k };
 
     /// <summary>
     /// The cannon's sustained fire (owner 2026-11-17: "screen shake ... charge autocannon sustained fire"): a steady rumble of the own camera for as long as the cannon keeps firing, at <see cref="SustainRamp"/>'s strength (it builds over
@@ -97,7 +101,7 @@ public static class DreadnoughtFeel
         return Math.Clamp(current + (firing ? dt / SustainRiseSeconds : -dt / SustainFallSeconds), 0f, 1f);
     }
 
-    public static readonly DaShake[] Shakes = [Footfall, SprintFootfall, LandHeavy, LandLight, HitWall, Stomp, StompArea, Entry, DeathBlastLight, DeathBlastLong, ArmHit, CannonSustained];
+    public static readonly DaShake[] Shakes = [Footfall, SprintFootfall, LandHeavy, LandLight, HitWall, Stomp, StompArea, Entry, DeathBlastLight, DeathBlastLong, ArmHit, ArmWhiff, CannonSustained];
 
     // ---- the per-action table (the checklist docs/discovery.md "DA Dreadnought inventory" mirrors; the client plays exactly these) ----
     public static readonly DaFeel[] Table =
