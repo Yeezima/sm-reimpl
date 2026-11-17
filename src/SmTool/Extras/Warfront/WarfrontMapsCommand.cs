@@ -80,8 +80,11 @@ static class WarfrontMapsCommand
             var (level, _) = WarfrontLayoutCache.Build(slot, out string layoutNote);
             long layoutMs = watch.ElapsedMilliseconds;
             var data = WarfrontWorld.Compose(level);
+            // W5d: the client reads this file too (any process kind's file for the same key; WarfrontSharedCache), so one prebuild warms both; read it back as the client would and compare the level hash
+            var shared = SmContent.Extras.Warfront.Maps.WarfrontSharedCache.TryRead(WarfrontLayoutCache.Folder, slot, SmContent.Extras.Musou.AshfallLayoutCache.ProcessKind, out string sharedNote);
+            string clientSees = shared is { } s ? (s.Level.Hash == level.Hash ? "client-readable, same hash" : "CLIENT READ DIFFERS") : "client-readable: no (" + sharedNote + ")";
             var nav = WarfrontWorld.Nav(slot, data, new SimConfig(), out string navNote);
-            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"[{++done}/{slots.Count}] {slot.Name}: layout {layoutMs / 1000.0:0.0} s ({layoutNote}); graph {nav.NodeCount:N0} nodes, {(watch.ElapsedMilliseconds - layoutMs) / 1000.0:0.0} s ({(navNote.Length > 90 ? navNote[..90] : navNote)}); slot total {watch.Elapsed.TotalSeconds:0.0} s; elapsed {total.Elapsed.TotalSeconds:0} s"));
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"[{++done}/{slots.Count}] {slot.Name}: layout {layoutMs / 1000.0:0.0} s ({layoutNote}; {clientSees}); graph {nav.NodeCount:N0} nodes, {(watch.ElapsedMilliseconds - layoutMs) / 1000.0:0.0} s ({(navNote.Length > 90 ? navNote[..90] : navNote)}); slot total {watch.Elapsed.TotalSeconds:0.0} s; elapsed {total.Elapsed.TotalSeconds:0} s"));
             WarfrontSlots.Release(slot); WarfrontLayoutCache.Forget(slot);
         }
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"warfront-maps --prebuild: {done} slots, {total.Elapsed.TotalSeconds:0.0} s in all (HQ and fortress maps do not exist yet; they join the list with W13 and W14)"));
