@@ -25,6 +25,8 @@ public partial class NetworkView
     /// <summary>The dressing steps still to run, one per frame (dressing slice: the same stepping as the lane bands' drawing, W5d).</summary>
     readonly System.Collections.Generic.Queue<(string Name, System.Action Run)> _warfrontDressSteps = new();
     long _warfrontDressStartUs, _warfrontDressLongestUs;
+    System.Func<string> _warfrontDressReport = () => "";
+    string _warfrontDressSlot = "wf_fortress";
 
     /// <summary>
     /// Draws the fortress level: the graybox at once (it hides the grey collision), then the dressing (<see cref="WarfrontFortressDress"/>: the kit look, the plated walls, the pieces, the outside scenery, the look and the storm) one step per frame,
@@ -43,6 +45,7 @@ public partial class NetworkView
             drawn = true;
             if (WarfrontFarMassing.Off) { GD.Print("warfront: the Ork fortress drawn (graybox; --dress off)"); return; }
             _warfrontDressSteps.Clear();
+            _warfrontDressReport = () => WarfrontFortressDress.Report; _warfrontDressSlot = "wf_fortress";
             foreach (var step in WarfrontFortressDress.Steps(node, build, view, _sun, _environment)) _warfrontDressSteps.Enqueue(step);
             _warfrontDressStartUs = (long)Time.GetTicksUsec(); _warfrontDressLongestUs = 0;
             GD.Print($"warfront: the Ork fortress drawn (graybox); {_warfrontDressSteps.Count} dressing steps follow, one a frame");
@@ -70,12 +73,12 @@ public partial class NetworkView
             run();
             long us = (long)Time.GetTicksUsec() - t0;
             self._warfrontDressLongestUs = System.Math.Max(self._warfrontDressLongestUs, us);
-            GD.Print($"warfront: fortress dress step \"{name}\" {us / 1000} ms");
-            WarfrontFrameWatch.NoteStep("wf_fortress", name);
+            GD.Print($"warfront: {self._warfrontDressSlot} dress step \"{name}\" {us / 1000} ms");
+            WarfrontFrameWatch.NoteStep(self._warfrontDressSlot, name);
             if (self._warfrontDressSteps.Count == 0)
             {
                 self._warfrontStepRunning = false;
-                GD.Print($"warfront: fortress dressing done {((long)Time.GetTicksUsec() - self._warfrontDressStartUs) / 1000} ms after the graybox; largest step {self._warfrontDressLongestUs / 1000} ms; {WarfrontFortressDress.Report}");
+                GD.Print($"warfront: {self._warfrontDressSlot} dressing done {((long)Time.GetTicksUsec() - self._warfrontDressStartUs) / 1000} ms after the graybox; largest step {self._warfrontDressLongestUs / 1000} ms; {self._warfrontDressReport()}");
             }
             else self.WarfrontDressSchedule(node);
         };

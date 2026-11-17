@@ -30,10 +30,20 @@ public enum DressRule : byte
     ScrapTower,
     /// <summary>The low cover walls: wreck pieces of their collision size.</summary>
     WreckCover,
+    /// <summary>HQ only: the keep's, the tunnels', the cross passage's and the chamber's parts: not dressed in this pass (W13d may move a door or passage there); the kit look draws them in its own stone.</summary>
+    NotDressed,
+    /// <summary>HQ only: the fortress wall and the wall-foot chamfers: Imperial masonry.</summary>
+    ImperialWall,
+    /// <summary>HQ only: the parapets on the wall top: masonry.</summary>
+    Parapet,
+    /// <summary>HQ only: the two stairs to the parapet: masonry.</summary>
+    ParapetStair,
+    /// <summary>HQ only: the courtyard's cover walls: the kit's own sandbag and masonry barrier fitted to each one's size.</summary>
+    CourtCover,
 }
 
 /// <summary>The material a piece is baked with (<c>WarfrontDressBake</c>): the plated looks are shaders, the rest plain colours.</summary>
-public enum DressMat : byte { Plated, Wreck, Iron, Bone, ClothRed, ClothBlack, Glow, Dais, Stone }
+public enum DressMat : byte { Plated, Wreck, Iron, Bone, ClothRed, ClothBlack, Glow, Dais, Stone, Masonry, Gold, ClothBlue, Smoke }
 
 /// <summary>The shape of a piece.</summary>
 public enum DressShape : byte

@@ -7,6 +7,7 @@ using SmContent.Extras.Warfront.Maps;
 using SmSim.Extras.Musou.Ashfall;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront.Fortress;
+using SmSim.Extras.Warfront.Hq;
 using SmSim.Extras.Warfront.Maps;
 
 namespace SmClient;
@@ -144,7 +145,7 @@ public sealed partial class WarfrontDressView : Node
         double mem0 = OS.GetStaticMemoryUsage() / 1048576.0;
         try
         {
-            if ((Arg("--dress-set") ?? "fortress") == "far") await RunFar(); else await RunFortress();
+            switch (Arg("--dress-set") ?? "fortress") { case "far": await RunFar(); break; case "hq": await RunHq(); break; default: await RunFortress(); break; }
         }
         catch (Exception e) { GD.Print($"DRESSVIEW ERROR {e}"); }
         GD.Print($"DRESSVIEW memory: static {mem0:F0} MiB before the build, {OS.GetStaticMemoryUsage() / 1048576.0:F0} MiB after; texture memory {Performance.GetMonitor(Performance.Monitor.RenderTextureMemUsed) / 1048576.0:F0} MiB, video memory {Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed) / 1048576.0:F0} MiB");
@@ -183,6 +184,41 @@ public sealed partial class WarfrontDressView : Node
             await Perf("perf-plaza", P(0, 6, 0), P(0, 60, 4));
             await Perf("perf-gate", P(0, -122, 0), P(0, -96, 9));
             await Perf("perf-landing", P(0, -150, 0), P(0, -100, 8));
+        }
+    }
+
+    async Task RunHq()
+    {
+        var build = WarfrontHqLayout.Build;
+        var node = new Node3D { Name = "WarfrontHq" };
+        _game.AddChild(node);
+        var view = AshfallView.Build(build.Level);
+        node.AddChild(view);
+        AshfallView.ApplyLook(_sun, _env);
+        if (!WarfrontFarMassing.Off)
+        {
+            await RunSteps(WarfrontHqDress.Steps(node, build, view, _sun, _env), "hq");
+            await WaitKit(node.GetNodeOrNull<AshfallKitView>("KitLook"));
+            GD.Print("DRESSVIEW " + WarfrontHqDress.Report);
+        }
+        await Frames(30);
+        float Ramp(float y) => (y - WarfrontHqMap.RampSouth) * WarfrontHqMap.RampRise / (WarfrontHqMap.RampNorth - WarfrontHqMap.RampSouth);
+        var P = (float x, float y, float z) => new Vector3(x, y, z);
+        await Shoot("1-assembly-up-the-ramp", P(0, -175, 0), P(0, -46, 18));
+        await Shoot("2-ramp-to-the-gate", P(0, -92, Ramp(-92)), P(0, -46, 17));
+        await Shoot("3-ramp-side-wrecks", P(40, -104, 0), P(30, -70, 3));
+        await Shoot("4-gate-close", P(0, -62, Ramp(-62)), P(0, -46, 17));
+        await Shoot("5-parapet-looking-down", P(-30, -43, WarfrontHqMap.WallTop), P(0, -10, 12));
+        await Shoot("6-courtyard", P(0, -30, WarfrontHqMap.PlateauZ), P(0, 38, 16));
+        await Shoot("7-courtyard-corner", P(-72, -32, WarfrontHqMap.PlateauZ), P(50, 20, 13));
+        await Shoot("8-wall-from-the-west", P(-120, -120, 0), P(-60, -46, 14));
+        await Shoot("9-north-spire", P(0, -5, WarfrontHqMap.PlateauZ), P(0, 430, 110));
+        await Shoot("10-south-wasteland", P(0, -43, WarfrontHqMap.WallTop), P(0, -700, 60));
+        if (Flag("--dress-perf"))
+        {
+            await Perf("perf-courtyard", P(0, -30, WarfrontHqMap.PlateauZ), P(0, 38, 16));
+            await Perf("perf-ramp", P(0, -92, Ramp(-92)), P(0, -46, 17));
+            await Perf("perf-assembly", P(0, -175, 0), P(0, -46, 18));
         }
     }
 

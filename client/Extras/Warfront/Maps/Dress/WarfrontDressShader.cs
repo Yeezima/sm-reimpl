@@ -51,6 +51,44 @@ void fragment() {
 			c = vec3(0.02);
 			if (lit) em = vec3(0.95, 0.42, 0.12) * 0.9;
 		}
+	} else if (mode == 8) {
+		float course = floor(uv.y);
+		float bl = 3.0 + h11(course * 3.7);
+		float off = h11(course) * bl;
+		float col = floor((uv.x + off) / bl);
+		vec2 f = vec2(fract((uv.x + off) / bl), fract(uv.y));
+		float r = h21(vec2(col, course));
+		c = mix(vec3(0.17, 0.16, 0.145), vec3(0.27, 0.25, 0.22), r) * (0.8 + 0.4 * h21(vec2(col, course) + 7.0));
+		vec2 e = min(f * vec2(bl, 1.0), (1.0 - f) * vec2(bl, 1.0));
+		float s = min(e.x, e.y);
+		if (s < 0.04) c *= 0.35;
+		else if (s < 0.1) c *= (f.y > 0.5 ? 1.2 : 0.8);
+		float st = fbm(vec2(uv.x * 1.3, uv.y * 0.1));
+		c = mix(c, vec3(0.05), smoothstep(0.5, 0.8, st) * 0.7);
+		c *= (0.85 + 0.3 * vn(uv * 5.0)) * 0.68;
+		if (top) c *= 0.8;
+	} else if (mode == 9) {
+		vec2 g = uv / 2.0;
+		float row = floor(g.y);
+		float col = floor(g.x + 0.5 * mod(row, 2.0));
+		vec2 f = vec2(fract(g.x + 0.5 * mod(row, 2.0)), fract(g.y));
+		float r = h21(vec2(col, row));
+		c = mix(vec3(0.12, 0.115, 0.105), vec3(0.19, 0.18, 0.16), r) * (0.85 + 0.3 * vn(uv * 3.0));
+		vec2 e = min(f, 1.0 - f) * 2.0;
+		if (min(e.x, e.y) < 0.03) c *= 0.3;
+		c *= 1.0 - 0.35 * smoothstep(0.55, 0.8, fbm(uv * 0.12 + 2.0));
+		float cr = abs(fbm(uv * 0.4 + r * 5.0) - 0.5);
+		c *= mix(0.6, 1.0, smoothstep(0.002, 0.008, cr));
+	} else if (mode == 10) {
+		float n = fbm(uv * 0.3);
+		c = vec3(0.075, 0.075, 0.08) * (0.7 + 0.6 * n);
+		float cr = abs(fbm(uv * 0.35 + 4.0) - 0.5);
+		c *= mix(0.25, 1.0, smoothstep(0.006, 0.03, cr));
+		if (abs(uv.x) < 0.18 && fract(uv.y / 8.0) < 0.5) c = mix(c, vec3(0.30, 0.25, 0.09) * (0.6 + 0.4 * n), 0.7);
+		if (abs(abs(uv.x) - 11.6) < 0.15) c = mix(c, vec3(0.3, 0.3, 0.28), 0.5);
+		float pit = smoothstep(0.7, 0.8, fbm(uv * 0.07 + 9.0));
+		c = mix(c, vec3(0.03, 0.028, 0.026), pit * 0.85);
+		c *= 0.9 + 0.2 * vn(uv * 9.0);
 	} else if (mode == 3) {
 		float n = fbm(vec2(uv.x * 0.12, uv.y * 0.22));
 		float n2 = fbm(uv * 1.4);

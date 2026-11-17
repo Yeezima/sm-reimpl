@@ -30,7 +30,7 @@ public class WarfrontDressTests
     [Fact]
     public void The_kit_table_uses_every_rule_and_hides_exactly_the_plated_parts()
     {
-        foreach (var rule in Enum.GetValues<DressRule>())
+        foreach (var rule in Enum.GetValues<DressRule>().Where(r => r is not (DressRule.NotDressed or DressRule.ImperialWall or DressRule.Parapet or DressRule.ParapetStair or DressRule.CourtCover)))
             Assert.Contains(rule, Plan.Rules);   // a rule no part uses is a dead row: the table and the level agree
         for (int i = 0; i < Plan.Rules.Count; i++)
         {
@@ -171,5 +171,64 @@ public class WarfrontDressTests
         Assert.Equal(794f, a0); Assert.Equal(2190f - WarfrontFarMassingPlan.SpireClearance, a1);
         var (c0, _) = WarfrontFarMassingPlan.Range(false, 520f, 244f, 1150f);
         Assert.Equal(304f, c0);   // node 3 has no neighbour to the north: the massing starts past the band's own edge
+    }
+
+    // ---- the HQ exterior (part 2)
+    static readonly Lazy<SmSim.Extras.Warfront.Hq.WarfrontHqBuild> Hq_ = new(SmSim.Extras.Warfront.Hq.WarfrontHqMap.Build);
+    static readonly Lazy<DressPlan> HqPlan_ = new(() => WarfrontHqDressPlan.Build(Hq_.Value.Level));
+
+    [Fact]
+    public void Every_part_of_the_hq_has_a_dressing_rule_and_the_interior_is_left_alone()
+    {
+        var level = Hq_.Value.Level;
+        var bare = new List<string>();
+        for (int i = 0; i < level.Parts.Count; i++)
+            if (WarfrontHqDressPlan.Classify(level.Parts[i]) is null) bare.Add($"part {i} ({level.Parts[i].Kind})");
+        Assert.True(bare.Count == 0, "HQ parts with no dressing rule: " + string.Join(", ", bare));
+        // the keep, the tunnels, the cross passage and the chamber (y at or over 40 m, W13d's) are not dressed: nothing of the plan stands there but the outside
+        for (int i = 0; i < level.Parts.Count; i++)
+        {
+            var (mn, _) = WarfrontFortressDressPlan.Aabb(level.Parts[i]);
+            if (level.Parts[i].Kind is AshfallKind.Stronghold or AshfallKind.Floor || (level.Parts[i].Kind == AshfallKind.Cover && mn.Y >= SmSim.Extras.Warfront.Hq.WarfrontHqMap.KeepSouth))
+                Assert.Equal(DressRule.NotDressed, HqPlan_.Value.Rules[i]);
+        }
+        Assert.Contains(DressRule.ImperialWall, HqPlan_.Value.Rules); Assert.Contains(DressRule.Parapet, HqPlan_.Value.Rules);
+        Assert.Contains(DressRule.ParapetStair, HqPlan_.Value.Rules); Assert.Contains(DressRule.CourtCover, HqPlan_.Value.Rules); Assert.Contains(DressRule.RockCliff, HqPlan_.Value.Rules);
+        Assert.Equal(HqPlan_.Value.KitItems.Count(i => i.Asset == WarfrontHqDressPlan.CoverModel), HqPlan_.Value.Rules.Count(r => r == DressRule.CourtCover));   // one kit barrier a cover wall
+    }
+
+    [Fact]
+    public void Nothing_stands_within_forty_metres_of_the_ramps_foot_or_on_the_ramp_or_in_the_gate()
+    {
+        var plan = HqPlan_.Value;
+        var foot = new Vector2(0f, SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampSouth);
+        const float rampHalf = SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampWidth / 2f;
+        foreach (var p in plan.Pieces.Where(p => p.Base.Z < 20f && p.Base.Y < SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampNorth - 8f))   // everything on the south side of the wall (the wall's own skin, buttresses and banners stand at its face)
+        {
+            var f = Foot(p);
+            var nearest = new Vector2(Math.Clamp(foot.X, f.Min.X, f.Max.X), Math.Clamp(foot.Y, f.Min.Y, f.Max.Y));
+            Assert.True(Vector2.Distance(nearest, foot) >= WarfrontHqDressPlan.FootClear - 0.01f, $"{p.Shape} {p.Mat} at {p.Base} is within 40 m of the ramp's foot");
+            Assert.False(Meets(f, -rampHalf, SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampSouth, rampHalf, SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampNorth), $"{p.Shape} {p.Mat} at {p.Base} stands on the ramp");
+        }
+        foreach (var it in plan.KitItems.Where(i => i.Asset != WarfrontHqDressPlan.CoverModel && i.Position.Y < SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampNorth))
+        {
+            float r = (it.Size.X + it.Size.Y) / 2f;
+            Assert.True(Vector2.Distance(new Vector2(it.Position.X, it.Position.Y), foot) - r >= WarfrontHqDressPlan.FootClear - 0.01f, $"{it.Asset} at {it.Position} is within 40 m of the ramp's foot");
+        }
+        foreach (var p in plan.Pieces.Where(p => p.Base.Z < SmSim.Extras.Warfront.Hq.WarfrontHqMap.PlateauZ + SmSim.Extras.Warfront.Hq.WarfrontHqMap.GateHeight))
+            Assert.False(Meets(Foot(p), -SmSim.Extras.Warfront.Hq.WarfrontHqMap.GateWidth / 2f, SmSim.Extras.Warfront.Hq.WarfrontHqMap.WallSouth, SmSim.Extras.Warfront.Hq.WarfrontHqMap.GateWidth / 2f, SmSim.Extras.Warfront.Hq.WarfrontHqMap.WallNorth), $"{p.Shape} {p.Mat} at {p.Base} stands in the gate");
+    }
+
+    [Fact]
+    public void The_hq_plan_is_deterministic_and_its_kit_models_are_catalogued()
+    {
+        var again = WarfrontHqDressPlan.Build(Hq_.Value.Level);
+        Assert.Equal(HqPlan_.Value.Pieces.Count, again.Pieces.Count);
+        Assert.All(HqPlan_.Value.KitItems, it => Assert.True(AshfallKit.Get(it.Asset).RawSize.X > 0f));
+        foreach (var p in WarfrontHqDressPlan.Outside())
+        {
+            var (mn, mx) = p.Bounds();
+            Assert.True(mn.X > SmSim.Extras.Warfront.Hq.WarfrontHqMap.HalfWidth + 4f || mx.X < -SmSim.Extras.Warfront.Hq.WarfrontHqMap.HalfWidth - 4f || mn.Y > SmSim.Extras.Warfront.Hq.WarfrontHqMap.NorthEdge + 4f || mx.Y < SmSim.Extras.Warfront.Hq.WarfrontHqMap.SouthEdge - 4f, $"{p.Shape} at {p.Base} stands inside the map's box");
+        }
     }
 }

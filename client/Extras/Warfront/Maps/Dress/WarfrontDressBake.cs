@@ -29,7 +29,8 @@ public static class WarfrontDressBake
     public static int ModeOf(DressRule rule) => rule switch
     {
         DressRule.CompoundWall => 0, DressRule.StreetBlock => 1, DressRule.ArenaShell => 2, DressRule.RockCliff => 3,
-        DressRule.ScrapTower => 4, DressRule.WreckCover => 5, DressRule.GateLintel => 6, _ => -1,
+        DressRule.ScrapTower => 4, DressRule.WreckCover => 5, DressRule.GateLintel => 6,
+        DressRule.ImperialWall or DressRule.Parapet or DressRule.ParapetStair => 8, _ => -1,
     };
 
     static Color ColourOf(in DressPiece p)
@@ -44,6 +45,9 @@ public static class WarfrontDressBake
             DressMat.ClothBlack => new Color(0.05f, 0.045f, 0.045f),
             DressMat.Glow => new Color(1.0f, 0.38f + 0.2f * s, 0.07f),
             DressMat.Dais => s > 0.5f ? new Color(0.62f, 0.05f, 0.03f) : new Color(0.075f, 0.07f, 0.07f),
+            DressMat.Gold => new Color(0.50f * (0.8f + 0.4f * s), 0.36f * (0.8f + 0.4f * s), 0.09f),
+            DressMat.ClothBlue => new Color(0.04f * (0.7f + 0.6f * s), 0.07f * (0.7f + 0.6f * s), 0.20f * (0.7f + 0.6f * s)),
+            DressMat.Smoke => new Color(0.13f, 0.12f, 0.115f, 0.42f),
             DressMat.Stone => new Color(0.8f + 0.4f * s, 0.8f + 0.4f * s, 0.8f + 0.4f * s),   // a tone multiplier of the shader's own stone
             _ => new Color(k, k, k),   // plated and wreck: a tone multiplier of the shader's own palette
         };
@@ -57,6 +61,10 @@ public static class WarfrontDressBake
         DressMat.Glow => "Glow",
         DressMat.Dais => p.Shade > 0.5f ? "Glow" : "DaisDark",
         DressMat.Stone => "Stone",
+        DressMat.Masonry => "Masonry",
+        DressMat.Gold => "Gold",
+        DressMat.Smoke => "Smoke",
+        DressMat.ClothBlue => "Cloth",
         DressMat.ClothRed or DressMat.ClothBlack => "Cloth",
         DressMat.Bone => "Bone",
         _ => "Iron",
@@ -71,6 +79,9 @@ public static class WarfrontDressBake
         "Cloth" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 1f, MetallicSpecular = 0f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         "Bone" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.9f, MetallicSpecular = 0.1f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         "Stone" => Plated(7),
+        "Masonry" => Plated(8),
+        "Gold" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.4f, Metallic = 0.7f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
+        "Smoke" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         "DaisDark" => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.6f, Metallic = 0.4f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
         _ => new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.6f, Metallic = 0.5f, CullMode = BaseMaterial3D.CullModeEnum.Disabled },
     };
@@ -172,7 +183,7 @@ public static class WarfrontDressBake
     }
 
     /// <summary>The groups in the order they are attached (one step each: a material's first draw can cost a pipeline compile, so no frame meets two of them).</summary>
-    public static readonly string[] GroupOrder = ["Plated", "Wreck", "Iron", "Cloth", "Bone", "Glow", "DaisDark", "Stone"];
+    public static readonly string[] GroupOrder = ["Plated", "Wreck", "Iron", "Cloth", "Bone", "Glow", "DaisDark", "Stone", "Masonry", "Gold", "Smoke"];
 
     /// <summary>Attaches one baked group as a mesh node under <paramref name="parent"/>; returns its triangles (0 when the soup has no such group).</summary>
     public static int AttachGroup(Node3D parent, Dictionary<string, Soup> soups, string group, string name, bool shadows)
@@ -181,7 +192,7 @@ public static class WarfrontDressBake
         parent.AddChild(new MeshInstance3D
         {
             Name = $"{name}{group}", Mesh = soup.ToMesh(), MaterialOverride = MaterialOf(group),
-            CastShadow = shadows && group is not ("Glow" or "DaisDark") ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
+            CastShadow = shadows && group is not ("Glow" or "DaisDark" or "Smoke") ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
         });
         return soup.Triangles;
     }
@@ -193,5 +204,33 @@ public static class WarfrontDressBake
         int tris = 0;
         foreach (var g in GroupOrder) tris += AttachGroup(parent, soups, g, name, shadows);
         return tris;
+    }
+
+    /// <summary>The ground beyond a map's box (x +-<paramref name="half"/>, y <paramref name="south"/>..<paramref name="north"/>): a grid of quads out to 1400 m, heights from <paramref name="height"/>, toned per quad, so no edge of the world shows from the parapets, the plazas or the spires' side.</summary>
+    public static ArrayMesh OutsideGround(float half, float south, float north, Func<float, float, float> height, ref int tris)
+    {
+        float[] xs = [-1400f, -1000f, -700f, -500f, -350f, -250f, -half, half, 250f, 350f, 500f, 700f, 1000f, 1400f];
+        float[] ys = [-1400f, -1000f, -700f, -500f, south - 170f, south - 90f, south, north, north + 120f, north + 220f, 500f, 700f, 1000f, 1400f];
+        var soup = new Soup();
+        for (int i = 0; i + 1 < xs.Length; i++)
+            for (int j = 0; j + 1 < ys.Length; j++)
+            {
+                float x0 = xs[i], x1 = xs[i + 1], y0 = ys[j], y1 = ys[j + 1];
+                if (x0 >= -half && x1 <= half && y0 >= south && y1 <= north) continue;   // the map's own box
+                float tone = 0.88f + 0.24f * DressHash.Unit(91, (uint)(i * 31 + j));
+                var col = new Color(0.47f * tone, 0.44f * tone, 0.41f * tone);
+                var a = new Vector3(x0, y0, height(x0, y0)); var b = new Vector3(x1, y0, height(x1, y0)); var c = new Vector3(x1, y1, height(x1, y1)); var d = new Vector3(x0, y1, height(x0, y1));
+                var below = (a + b + c + d) / 4f - Vector3.Back * 5f;
+                soup.Tri(a, b, c, below, col); soup.Tri(a, c, d, below, col);
+            }
+        tris += soup.Triangles;
+        return soup.ToMesh();
+    }
+
+    /// <summary>A flat or sloped quad (four corners, counter-clockwise from above) in a soup, white; the shader gives the colour.</summary>
+    public static void Quad(Soup s, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+    {
+        var below = (a + b + c + d) / 4f - Vector3.Back * 5f;
+        s.Tri(a, b, c, below, Colors.White); s.Tri(a, c, d, below, Colors.White);
     }
 }

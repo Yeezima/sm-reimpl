@@ -98,25 +98,6 @@ public static class WarfrontFortressDress
         return steps;
     }
 
-    /// <summary>The ground beyond the walls (<see cref="WarfrontFortressDressPlan.OutsideHeight"/>): a grid of quads round the map's box, toned per quad, so no edge of the world shows from the parapets, the plaza or the spire's side.</summary>
-    static ArrayMesh OutsideGround(ref int tris)
-    {
-        float[] xs = [-1400f, -1000f, -700f, -500f, -350f, -250f, -HalfWidth, HalfWidth, 250f, 350f, 500f, 700f, 1000f, 1400f];
-        float[] ys = [-1400f, -1000f, -700f, -500f, -380f, -300f, SouthEdge, NorthEdge, 250f, 350f, 500f, 700f, 1000f, 1400f];
-        var soup = new WarfrontDressBake.Soup();
-        float H(float x, float y) => WarfrontFortressDressPlan.OutsideHeight(x, y);
-        for (int i = 0; i + 1 < xs.Length; i++)
-            for (int j = 0; j + 1 < ys.Length; j++)
-            {
-                float x0 = xs[i], x1 = xs[i + 1], y0 = ys[j], y1 = ys[j + 1];
-                if (x0 >= -HalfWidth && x1 <= HalfWidth && y0 >= SouthEdge && y1 <= NorthEdge) continue;   // the map's own box
-                float tone = 0.88f + 0.24f * DressHash.Unit(91, (uint)(i * 31 + j));
-                var col = new Color(0.47f * tone, 0.44f * tone, 0.41f * tone);
-                var a = new Vector3(x0, y0, H(x0, y0)); var b = new Vector3(x1, y0, H(x1, y0)); var c = new Vector3(x1, y1, H(x1, y1)); var d = new Vector3(x0, y1, H(x0, y1));
-                var below = (a + b + c + d) / 4f - Vector3.Back * 5f;
-                soup.Tri(a, b, c, below, col); soup.Tri(a, c, d, below, col);
-            }
-        tris += soup.Triangles;
-        return soup.ToMesh();
-    }
+    /// <summary>The ground beyond the walls (<see cref="WarfrontFortressDressPlan.OutsideHeight"/>): see <see cref="WarfrontDressBake.OutsideGround"/>.</summary>
+    static ArrayMesh OutsideGround(ref int tris) => WarfrontDressBake.OutsideGround(HalfWidth, SouthEdge, NorthEdge, WarfrontFortressDressPlan.OutsideHeight, ref tris);
 }

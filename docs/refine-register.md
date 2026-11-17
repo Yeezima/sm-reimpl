@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3739 spec table rows: **2711 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 777 rows of the changes document.
-Scanned 3733 spec table rows: **2705 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
+Scanned 3754 spec table rows: **2726 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 780 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,31 +50,21 @@ Scanned 3733 spec table rows: **2705 tagged**, 672 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 833 | 788 | 618 | 232 | 1 |
-| General game design | 123 | 120 | 96 | 17 | 0 |
-| Ork faction | 278 | 264 | 162 | 70 | 0 |
-| **All areas** | **2711** | 2426 | 2046 | 805 | 37 |
 | Core simulation (provisional values) | 834 | 789 | 619 | 232 | 1 |
-| General game design | 129 | 126 | 102 | 17 | 0 |
-| Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2705** | 2421 | 2040 | 805 | 37 |
+| General game design | 137 | 133 | 110 | 17 | 0 |
+| Ork faction | 278 | 264 | 162 | 70 | 0 |
+| **All areas** | **2726** | 2440 | 2061 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1579 |
-| confidence: low | 991 |
-| confidence: medium | 946 |
-| notes: ours | 467 |
-| kind: interpretation | 432 |
-| kind: estimate | 239 |
-| kind: ours | 1583 |
-| confidence: low | 988 |
-| confidence: medium | 943 |
+| kind: ours | 1586 |
+| confidence: low | 1004 |
+| confidence: medium | 948 |
 | notes: ours | 467 |
 | kind: interpretation | 433 |
-| kind: estimate | 229 |
+| kind: estimate | 245 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -3972,7 +3961,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (129)
+### General game design (137)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4157,6 +4146,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-866C9C19` | Server running | while this game's Warfront server runs the page offers REJOIN CAMPAIGN and STOP SERVER only (never New or Continue, which could join the old campaign under a "new" label); another server running: STOP SERVER alone; nothing running: CONTINUE (with a run in… | kind: ours | review 1 finding 1 | Server running: compare with SM1 by feel or video. Ours: while this game's Warfront server runs the page offers REJOIN… | ☐ |
 | `R-08211600` | Profile after a match | coming back to the menu stops the server and puts the lobby's remembered content profile back (the rebuilt services start from the last joined profile); a failed join keeps both for one retry | kind: ours | review 1 finding 2 | Profile after a match: compare with SM1 by feel or video. Ours: coming back to the menu stops the server and puts the lobby's… | ☐ |
 | `R-29C4A94A` | Status row | the preparing screen shows the server's last lower-case `warfront:` line, cut with an ellipsis inside the column (the full line is the tooltip); the server's "Warfront: enabled" banner is not a status | kind: ours; confidence: medium | review 1 finding 8 | Status row: compare with SM1 by feel or video. Ours: the preparing screen shows the server's last lower-case warfront:… | ☐ |
+
+*Spec section: Added content: Warfront dressing, part 2: the HQ exterior (warfront/dress, 2026-11-17; client only, Warfront only; no collision, no hash, no wire, no rules version; `wf_hq` is neither changed nor read by the dressing)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1F8F65C8` | HQ dressing rules | ground and boundary (the kit's own), rock cliff (Wall at x beyond +-90), Imperial wall (the fortress wall and the wall-foot chamfers), parapet (Cover from z 26), parapet stair, courtyard cover (Cover south of the keep), not dressed (the keep's Stronghold and… | kind: ours; confidence: medium | brief rule: no part left on the default grey; the lead's order not to dress the interior | HQ dressing rules: compare with SM1 by feel or video. Ours: ground and boundary (the kit's own), rock cliff (Wall at x beyond… | ☐ |
+| `R-BA521E41` | Imperial masonry | one procedural shader mode: courses 1 m high, blocks 3 to 4 m long, soot streaks, darkened to 0.68; flagstones 2 m square with joints and light cracks (the courtyard); broken asphalt with a worn yellow centre line every 8 m, edge lines at x +-11.6 and… (m) | kind: estimate; confidence: low | brief: Imperial masonry, broken road surface, paving | Imperial masonry: compare with SM1 by measuring on a flat spot of the same map. Ours: one procedural shader mode: courses 1 m high, blocks 3 to 4 m long… | ☐ |
+| `R-B8E8C113` | Wall face | a masonry skin 0.3 m proud on the cliff under the wall (z 0..12, x 15..90 each side); buttresses 3 m wide, 1.8 m deep, from the ditch to 24.5 m, every 12 m from x +-24 to +-84 with a cap and a pinnacle; Imperial banners 2.8 x 9 m between the buttresses at x… (m) | kind: estimate; confidence: low | brief: masonry and buttresses on the cliff face, a gatehouse frame round the opening (no lintel lower than 10 m), a heraldic mark | Wall face: compare with SM1 by measuring on a flat spot of the same map. Ours: a masonry skin 0.3 m proud on the cliff under the wall (z 0..12, x… | ☐ |
+| `R-4F668867` | Crenellations | merlons 1.2 m wide, 1.4 m high and as thick as the parapet (0.5 m) every 2.4 m on both parapets, none over the stairs' tops (x 64 to 72) (m) | kind: estimate; confidence: low | brief: crenellations that match the parapet's collision | Crenellations: compare with SM1 by measuring on a flat spot of the same map. Ours: merlons 1.2 m wide, 1.4 m high and as thick as the parapet (0.5 m)… | ☐ |
+| `R-07EF69DB` | Ramp, ditch and assembly ground | the road's skin 24 m wide over the ramp (0.1 m over its plane) and over the gate's passage; two craters (11 and 14 m, flat, dark) and tank hulks (7.5 to 8.5 m) a side in the ditch beside the ramp with the kit's rubble (AC-018, AC-019, AC-020, AC-024); eight… (m) | kind: estimate; confidence: low | amendment 2: no prop within 40 m of the foot, no cover on the fan or at the wall's foot | Ramp, ditch and assembly ground: compare with SM1 by measuring on a flat spot of the same map. Ours: the road's skin 24 m wide over the ramp (0.1 m over its plane) and… | ☐ |
+| `R-BFBB2CDC` | Courtyard | flagstone paving 0.06 m over the plateau (x +-89.5, y -39.9..39.9); each of the 12 cover walls gets the kit's masonry and sandbag barrier (AC-017) fitted to its own box (the grey box is not drawn); lamp posts (4.2 m) every 20 m against the curtain walls at x… (m) | kind: estimate; confidence: low | brief: paving, cover as sandbag pieces, lamp posts, crates against walls | Courtyard: compare with SM1 by measuring on a flat spot of the same map. Ours: flagstone paving 0.06 m over the plateau (x +-89.5, y -39.9..39.9)… | ☐ |
+| `R-4C93C6BB` | Outside scenery (HQ) | outside ground out to 1400 m as the fortress's; the spire (nave 70 x 110 x 90 m, tower 36 m to 230 m, spire to 400 m) at y 430 and 480 behind the keep; 18 stacks at x +-230..460; to the south a ruined skyline (the far massing's blocks, mirrored, a third of… (m) | kind: estimate; confidence: low | brief: the Orks' side shows the wasteland and the front's smoke; behind the HQ the spire far off | Outside scenery (HQ): compare with SM1 by measuring on a flat spot of the same map. Ours: outside ground out to 1400 m as the fortress's; the spire (nave 70 x… | ☐ |
+| `R-A3B56721` | HQ drawing steps and measured frames | the fortress's stepping (plan, kit, four wall looks, surfaces, bake, eleven piece groups, outside ground, outside scenery, look, storm); warm shader cache: the longest step plus its frame 340 ms (the storm, Musou's own), the dressing's own steps 0 to 90 ms… (ms) | confidence: medium | measured by the slice | HQ drawing steps and measured frames: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the fortress's stepping (plan, kit, four wall looks, surfaces, bake… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5711,6 +5713,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-61593002` | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner 2026-11-17; added content, `--custom-map`; no protocol or config-hash change) | The original shipped its own maps only; no tester-made maps | Ours (the owner's request): a `.smmap` file made in the Mapmaker (solid pieces, spawn areas, doors, capture points, kill zones, declared modes) is played by the server (`--custom-map`) and by clients that find the file by its `cm_` name; the map hash is the first 8 bytes of SHA-256(compiler version + the file's… | Spec "Mapmaker custom maps" | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-231A668A` | Warfront dressing, part 1 (warfront/dress): the Ork fortress is drawn with the bands' own kit and storm plus plated scrap walls, spikes, glyph boards, totems, a boss dais, banners, an outside ground, the spire behind the arena and manufactorum stacks; the lane nodes get far massing between the neighbour copy and the… | the owner's brief (a faithful Ork stronghold, scenery from the game's own pieces wherever possible) and the W5d review (bare far ground from node 1); every size, colour and count is ours | visual only (no collision, no hash); props at the breach, the gate and the arena openings are never in the way; the wall ends of the breach stay flat boxes; the HQ is not dressed yet; the first draw of the plated shader costs one 1.4 to 2 s frame on a cold shader cache | spec "Warfront dressing, part 1" | Warfront dressing, part 1 (warfront/dress): the Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-06D0CC9D` | Warfront dressing, part 2 (warfront/dress): the HQ exterior (Imperial masonry wall with buttresses, banners, gate frame and crenellations, a road skin on the ramp, paving and kit barriers in the courtyard, wrecks and craters beside the ramp, the spire, stacks, wasteland ruins and smoke); the keep and caves are left… | the owner brief (a faithful Imperial wall and keep, scenery from the game's own pieces) and the lead's order; every size and colour is ours | visual only; no prop within 40 m of the ramp foot, on the fan, at the wall foot or in the gate; the first draw of the shader costs one 2 to 2.5 s frame on a cold shader cache | spec "Warfront dressing, part 2" | Warfront dressing, part 2 (warfront/dress): the HQ exterior…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
