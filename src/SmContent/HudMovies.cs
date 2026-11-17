@@ -230,6 +230,8 @@ public sealed class HudMovies
     public HudMovie? Text { get; init; }
     public HudMovie? EventLog { get; init; }
     public HudMovie? Decorator { get; init; }
+    /// <summary>The faces of the install's English font movie (<c>fonts_en.gfx</c> in <c>ui_common_pc.oppc</c>: "XBourgeoix OT Medium" and "Bold Alternate"), the HUD movies' <c>$Bourgeois</c> and <c>$BourgeoisBoldAlt</c>; empty when it is missing.</summary>
+    public IReadOnlyList<GfxFontFace> Fonts { get; init; } = [];
 
     public const double StageHeight = 720.0;
 
@@ -243,9 +245,26 @@ public sealed class HudMovies
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { common = new(); }
         return new HudMovies
         {
+            Fonts = ReadFonts(Path.Combine(gameDir, FontPackage)),
             Hud = ingame.GetValueOrDefault("Hud"), Text = ingame.GetValueOrDefault("HudText"), EventLog = ingame.GetValueOrDefault("HudEventLog"),
             Decorator = common.GetValueOrDefault("Decorator"),
         };
+    }
+
+    /// <summary>The package holding the font movies.</summary>
+    public const string FontPackage = "data/packages/ui_common_pc.oppc";
+
+    static IReadOnlyList<GfxFontFace> ReadFonts(string package)
+    {
+        try
+        {
+            byte[]? bytes = null;
+            using var stream = new FileStream(package, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var archive = ObpkArchive.Open(stream);
+            archive.ReadEntries(e => archive.GroupName(e) == "gfx" && e.FileName.Equals("fonts_en", StringComparison.OrdinalIgnoreCase), (e, d) => bytes = d.ToArray());
+            return bytes is null ? [] : GfxFontReader.Read(bytes);
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException) { return []; }
     }
 
     static Dictionary<string, HudMovie?> ReadMovies(string package, string[] names)

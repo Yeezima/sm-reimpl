@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using SmContent;
 using SmFormats.Gfx;
+using SmSim;
 
 namespace SmClient;
 
@@ -29,8 +30,11 @@ public sealed partial class Hud
         Vector2 Shift,                                                  // what centres the block in the box
         float ColumnCentre, float TimerBase, float LimitBase, int TimerSize, int LimitSize, int TimerStyle, int LimitStyle);
 
-    /// <summary><c>--old-score-box</c> (before / after aid): the box and the texts as they were (the timer and the limit at the movie's own places, past the box's right edge).</summary>
-    static readonly bool OldScoreBox = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-score-box") >= 0;
+    /// <summary>
+    /// <c>--centred-score-box</c> (before / after aid): the opaque box that holds the block centred (ui/score-box-center, owner 2026-10-31). Since classic-score-hud (owner 2026-11-17: the bottom-left
+    /// element 1:1 with the original) the panel is the original's layout instead: the thin gold frame holds the scores and the bars; the timer, the limit and the markers stand outside it.
+    /// </summary>
+    static readonly bool CentredScoreBox = Array.IndexOf(OS.GetCmdlineUserArgs(), "--centred-score-box") >= 0;
 
     Rect2? _scoreBars;
 
@@ -98,7 +102,7 @@ public sealed partial class Hud
 
     ScoreBoxLayout? MeasureScoreBox(HudMovie text, string own, string enemy, string limit, string clock)
     {
-        if (OldScoreBox || FontOf(2) is null) return null;
+        if (!CentredScoreBox || FontOf(2) is null) return null;
         if (text.Find("mp_score_mc") is not { } panel) return null;
         if (ScoreBarsLocal(text) is not { } bars) return null;
         var toPanel = ToXf(panel.ToStage).AffineInverse();
@@ -156,10 +160,19 @@ public sealed partial class Hud
         return (leftGap, l.BoxRight - c.End.X, c.Position.Y - l.BoxTop, l.BoxBottom - c.End.Y, c.Position.X - l.BoxLeft);
     }
 
-    /// <summary><c>--hud-score-demo own,enemy,limit,clock[,file.png]</c> (screenshot aid): shows these scores, limit and clock in the score panel; with a file, saves the window's picture once the panel is drawn, then logs <c>score box gaps:</c>.</summary>
+    /// <summary>
+    /// <c>--hud-score-demo own,enemy,limit,clock[,file.png]</c> (screenshot aid): shows these scores, limit and clock in the score panel; with a file, saves the window's picture once the panel is drawn
+    /// (<c>--hud-score-burst n</c>: n pictures 0.25 s apart, <c>file_1.png</c> .. for the blink's phases), then quits. <c>--hud-points-demo own,neutral,enemy,own-uncap,enemy-uncap,neutral-ally,neutral-enemy</c>
+    /// (classic-score-hud): the Seize Ground points the panel shows, by state (own and enemy held; neutral; a held point whose hold is falling: an enemy is taking the player's point (own-uncap) or an ally is taking
+    /// the enemy's (enemy-uncap); a neutral point being captured by the player's side or the enemy), one marker each (the markers' slots: four).
+    /// </summary>
     static readonly string[]? ScoreDemo = ReadScoreDemo();
+    static readonly string[]? PointsDemo = ReadPointsDemo();
+    static readonly int ScoreBurst = ReadBurst();
     double _scoreDemoDrawn;
-    bool _scoreDemoShot;
+    int _scoreDemoShots;
+    double _scoreDemoLast;
+    int _pointsDemoTick;
 
     static string[]? ReadScoreDemo()
     {
@@ -168,21 +181,65 @@ public sealed partial class Hud
         return i >= 0 && i + 1 < args.Length ? args[i + 1].Split(',', 5) : null;
     }
 
+    static string[]? ReadPointsDemo()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--hud-points-demo");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : null;
+    }
+
+    static int ReadBurst()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--hud-score-burst");
+        return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out int n) ? Math.Clamp(n, 1, 12) : 1;
+    }
+
+    void RunPointsDemo()
+    {
+        if (PointsDemo is not { Length: > 0 } states) return;
+        var d = Data;
+        if (!d.Teams) return;
+        d.Seize = true;
+        d.Points.Clear();
+        _pointsDemoTick++;
+        var mine = d.OwnTeam;
+        var theirs = mine == Team.Chaos ? Team.SpaceMarines : Team.Chaos;
+        for (int i = 0; i < states.Length; i++)
+        {
+            // Progress falls slowly and steadily in the "uncap" states (the HUD reads a falling progress as an attack on the hold).
+            float falling = 0.9f - (_pointsDemoTick % 400) * 0.002f;
+            var p = new Point { Letter = ((char)('A' + i)).ToString(), Behind = true, Distance = 100f };
+            switch (states[i].ToLowerInvariant())
+            {
+                case "own": p.Owner = Rel.Own; p.OwnerTeam = mine; p.Progress = 1f; break;
+                case "enemy": p.Owner = Rel.Enemy; p.OwnerTeam = theirs; p.Progress = 1f; break;
+                case "own-uncap": p.Owner = Rel.Own; p.OwnerTeam = mine; p.Progress = falling; break;
+                case "enemy-uncap": p.Owner = Rel.Enemy; p.OwnerTeam = theirs; p.Progress = falling; break;
+                case "neutral-ally": p.Owner = Rel.None; p.OwnerTeam = Team.None; p.Side = Rel.Own; p.Progress = 0.1f + (_pointsDemoTick % 400) * 0.002f; break;
+                case "neutral-enemy": p.Owner = Rel.None; p.OwnerTeam = Team.None; p.Side = Rel.Enemy; p.Progress = 0.1f + (_pointsDemoTick % 400) * 0.002f; break;
+                default: p.Owner = Rel.None; p.OwnerTeam = Team.None; p.Progress = 0f; break;
+            }
+            d.Points.Add(p);
+        }
+    }
+
     void RunScoreDemo()
     {
+        RunPointsDemo();
         if (ScoreDemo is not { Length: >= 4 } a) return;
         var d = Data;
         if (!d.Teams) return;
         int.TryParse(a[0], out d.OwnScore); int.TryParse(a[1], out d.EnemyScore); int.TryParse(a[2], out d.ScoreLimit); d.Clock = a[3];
-        var gaps = ScoreBoxGaps();
-        if (gaps is null && !OldScoreBox) return;
+        if (CentredScoreBox ? ScoreBoxGaps() is null : _movieArt?.Movies?.Text is not { } tx || ScoreBarsLocal(tx) is null) return;
         _scoreDemoDrawn += GetProcessDeltaTime();
-        if (_scoreDemoDrawn < 1.5 || _scoreDemoShot) return;
-        _scoreDemoShot = true;
-        if (gaps is { } g) GD.Print($"score box gaps: left {g.Left:F1} (middle {g.LeftMiddle:F1}) right {g.Right:F1} top {g.Top:F1} bottom {g.Bottom:F1} (movie px; the left edge's nearest corner)");
-        else GD.Print("score box gaps: old layout");
-        if (a.Length >= 5) GD.Print(GetViewport().GetTexture().GetImage().SavePng(a[4]) == Error.Ok ? $"score box shot -> {a[4]}" : "score box shot failed");
-        if (a.Length >= 5) GetTree().Quit();
+        if (_scoreDemoDrawn < 1.5 || a.Length < 5) return;
+        if (_scoreDemoShots > 0 && _time - _scoreDemoLast < 0.25) return;
+        string file = _scoreDemoShots == 0 ? a[4] : a[4].Insert(a[4].LastIndexOf('.'), "_" + _scoreDemoShots);
+        _scoreDemoLast = _time;
+        _scoreDemoShots++;
+        GD.Print(GetViewport().GetTexture().GetImage().SavePng(file) == Error.Ok ? $"score box shot -> {file}" : "score box shot failed");
+        if (_scoreDemoShots >= ScoreBurst) GetTree().Quit();
     }
 
     /// <summary>Whether the HUD movies are still being read (the self-test waits for them).</summary>
