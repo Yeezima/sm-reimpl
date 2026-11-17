@@ -53,10 +53,14 @@ public static class WarfrontFortressDressPlan
     sealed class Acc
     {
         public readonly List<DressPiece> Pieces = [];
-        public void Box(DressMat m, float cx, float cy, float z, float sx, float sy, float sz, float yaw = 0f, float shade = 0.5f) => Pieces.Add(new(DressShape.Box, m, new(cx, cy, z), new(sx, sy, sz), yaw, null, shade));
-        public void Spike(DressMat m, float cx, float cy, float z, float d, float len, Vector3? axis = null, float shade = 0.5f) => Pieces.Add(new(DressShape.Spike, m, new(cx, cy, z), new(d, d, len), 0f, axis, shade));
-        public void Pole(DressMat m, float cx, float cy, float z, float d, float len, Vector3? axis = null, float shade = 0.5f) => Pieces.Add(new(DressShape.Pole, m, new(cx, cy, z), new(d, d, len), 0f, axis, shade));
-        public void Disc(DressMat m, float cx, float cy, float z, float d, float t, float shade) => Pieces.Add(new(DressShape.Disc, m, new(cx, cy, z), new(d, d, t), 0f, null, shade));
+        public readonly Dictionary<string, List<DressPiece>> Fallbacks = new();
+        /// <summary>When set, the pieces go to this prop key's fallback list (drawn only when the install's model does not load).</summary>
+        public string? Into;
+        List<DressPiece> Cur => Into is null ? Pieces : (Fallbacks.TryGetValue(Into, out var l) ? l : Fallbacks[Into] = []);
+        public void Box(DressMat m, float cx, float cy, float z, float sx, float sy, float sz, float yaw = 0f, float shade = 0.5f) => Cur.Add(new(DressShape.Box, m, new(cx, cy, z), new(sx, sy, sz), yaw, null, shade));
+        public void Spike(DressMat m, float cx, float cy, float z, float d, float len, Vector3? axis = null, float shade = 0.5f) => Cur.Add(new(DressShape.Spike, m, new(cx, cy, z), new(d, d, len), 0f, axis, shade));
+        public void Pole(DressMat m, float cx, float cy, float z, float d, float len, Vector3? axis = null, float shade = 0.5f) => Cur.Add(new(DressShape.Pole, m, new(cx, cy, z), new(d, d, len), 0f, axis, shade));
+        public void Disc(DressMat m, float cx, float cy, float z, float d, float t, float shade) => Cur.Add(new(DressShape.Disc, m, new(cx, cy, z), new(d, d, t), 0f, null, shade));
 
         /// <summary>A piece placed in the frame of a wall face: origin on the face, <paramref name="n"/> the face's outward normal; <paramref name="along"/> along the face, <paramref name="proud"/> out from it.</summary>
         public void OnFace(DressMat m, Vector2 origin, Vector2 n, float along, float proud, float z, float sAlong, float sOut, float sz, float shade = 0.5f)
@@ -101,6 +105,7 @@ public static class WarfrontFortressDressPlan
             if (rule.Value is not (DressRule.Ground or DressRule.Boundary)) hidden.Add(i);
         }
         var a = new Acc();
+        var props = new List<DressProp>();
         const float Top = WallTop;
 
         // ---- the south wall (y -100 outside .. -92 inside): spikes on the top and the face, merlons on the inner edge, the gatehouse, the breach
@@ -254,10 +259,13 @@ public static class WarfrontFortressDressPlan
             float x = boss.X + MathF.Cos(ang) * r, y = boss.Y + MathF.Sin(ang) * r;
             if ((MathF.Abs(y - PlazaCentreY) < 9f && MathF.Abs(x) > 30f) || (MathF.Abs(x) < 11f && y < PlazaCentreY - 25f)) continue;   // never in an opening's line
             float yaw = MathF.Atan2(-(boss.X - x), boss.Y - y);   // the cloth's face toward the dais
+            props.Add(new DressProp(DressPropKeys.Waaagh, new(x, y, 0f), yaw, 10f));
+            a.Into = DressPropKeys.Waaagh;
             a.Pole(DressMat.Iron, x, y, 0f, 0.35f, 10f, null, 0.4f);
             a.Box(DressMat.ClothRed, x, y, 3.6f, 2.4f, 0.1f, 5.6f, yaw, DressHash.Unit(81, (uint)k));
             a.Box(DressMat.ClothBlack, x, y, 6.6f, 1.1f, 0.08f, 1.6f, yaw);
             a.Spike(DressMat.Iron, x, y, 10f, 0.8f, 1.6f);
+            a.Into = null;
         }
 
         // ---- elite posts: a ground sigil and a totem beside it (a pole with a crossbar, three skulls, a flag, a spike)
@@ -267,6 +275,8 @@ public static class WarfrontFortressDressPlan
             a.Disc(DressMat.Dais, px, py, 0f, 4.6f, 0.02f, 0.9f);
             a.Disc(DressMat.Dais, px, py, 0f, 3.9f, 0.04f, 0.1f);
             a.Disc(DressMat.Dais, px, py, 0f, 1.4f, 0.06f, 0.9f);
+            props.Add(new DressProp(DressPropKeys.Waaagh, new(tx, py, 0f), side > 0 ? MathF.PI / 2f : -MathF.PI / 2f, 9.5f));
+            a.Into = DressPropKeys.Waaagh;
             a.Pole(DressMat.Iron, tx, py, 0f, 0.5f, 11f, null, 0.3f);
             a.Box(DressMat.Iron, tx, py, 8f, 0.3f, 3.6f, 0.3f);
             foreach (float k in new[] { -1.4f, 0f, 1.4f })
@@ -277,6 +287,7 @@ public static class WarfrontFortressDressPlan
             }
             a.Box(DressMat.ClothRed, tx, py, 4.6f, 0.1f, 2.6f, 3.2f, 0f, 0.6f);
             a.Spike(DressMat.Iron, tx, py, 11f, 0.8f, 2.2f);
+            a.Into = null;
         }
 
         // ---- the kit's own rubble at the breach (beside the gap, never in it) and the conquered relics against the boundary
@@ -297,7 +308,77 @@ public static class WarfrontFortressDressPlan
         Item("AC-023", -97f, GateSouth - 4f, 0f, 0.1f, 4f, 3f, 1.8f);
         Item("AC-023", 97f, GateSouth - 4f, 0f, -0.1f, 4f, 3f, 1.8f);
 
-        return new DressPlan(rules, a.Pieces, items) { HiddenParts = hidden };
+        // ---- the game's own pieces along the street walls and blocks (the brief: the urban core's wall and ruin pieces): a piece every 8 m round each street block (at its foot or on its face), every 10 m along the arena shell's outer faces
+        string[] cycle = ["AC-015", "AC-031", "AC-014", "AC-023", "AC-025", "AC-017", "AC-031", "AC-026"];
+        void Along(Vector2 origin, Vector2 n, float len, float step, uint seed, Func<float, Vector2, bool>? skip = null)
+        {
+            var t = new Vector2(n.Y, -n.X);
+            int count = Math.Max(1, (int)(len / step));
+            for (int k = 0; k < count; k++)
+            {
+                float along = (k - (count - 1) / 2f) * (len / count);
+                var at = origin + t * along;
+                if (skip is not null && skip(along, at)) continue;
+                string id = cycle[(int)(DressHash.Mix(seed, (uint)k) % (uint)cycle.Length)];
+                var (sx, sy, sz, z) = id switch { "AC-015" => (4f, 2f, 3f, 0f), "AC-031" => (4f, 0.9f, 2.8f, 3.2f), "AC-014" => (4f, 1.4f, 2f, 0f), "AC-023" => (4f, 3f, 1.8f, 0f), "AC-025" => (3f, 2f, 0.8f, 0f), "AC-017" => (4f, 2f, 1.5f, 0f), _ => (6f, 3f, 2f, 0f) };
+                var p = at + n * (sy / 2f - 0.6f);   // 0.6 m of the piece sits in the wall: it leans on it and never stands far into the street
+                items.Add(new AshfallDressItem(id, new Vector3(p.X, p.Y, z), MathF.Atan2(n.X, -n.Y), new Vector3(sx, sy, sz), false, AshfallDressRole.Decoration, -1));
+            }
+        }
+        foreach (var (rule, mn, mx) in parts.Where(p => p.Rule == DressRule.StreetBlock))
+        {
+            float cx = (mn.X + mx.X) / 2f, cy = (mn.Y + mx.Y) / 2f;
+            uint seedv = (uint)(MathF.Abs(cx) * 3f + (cy + 200f) * 7f);
+            Along(new(cx, mn.Y), new(0f, -1f), mx.X - mn.X - 4f, 8f, seedv, null);
+            Along(new(cx, mx.Y), new(0f, 1f), mx.X - mn.X - 4f, 8f, seedv + 1u, null);
+            Along(new(mn.X, cy), new(-1f, 0f), mx.Y - mn.Y - 4f, 8f, seedv + 2u, null);
+            Along(new(mx.X, cy), new(1f, 0f), mx.Y - mn.Y - 4f, 8f, seedv + 3u, null);
+        }
+        foreach (var (rule, mn, mx) in parts.Where(p => p.Rule == DressRule.ArenaShell))
+        {
+            bool alongX = mx.X - mn.X >= mx.Y - mn.Y;
+            float len = (alongX ? mx.X - mn.X : mx.Y - mn.Y) - 6f;
+            if (len < 14f) continue;
+            uint seedv = (uint)(MathF.Abs(mn.X) + MathF.Abs(mn.Y) * 5f);
+            if (alongX) { Along(new((mn.X + mx.X) / 2f, mn.Y), new(0f, -1f), len, 10f, seedv, null); Along(new((mn.X + mx.X) / 2f, mx.Y), new(0f, 1f), len, 10f, seedv + 1u, null); }
+            else
+            {
+                // a side wall: only its outer face (toward the lane) and away from the 12 m openings' lines
+                float sx = MathF.Sign(mn.X + mx.X);
+                Along(new(sx > 0 ? mx.X : mn.X, (mn.Y + mx.Y) / 2f), new(sx, 0f), len, 10f, seedv, (_, at) => MathF.Abs(at.Y - PlazaCentreY) < SideOpening / 2f + 4f);
+            }
+        }
+
+        // ---- the game's own Ork props, read from the install at run time (MekModels): the WAAAGH totem is placed above (the posts, the plaza's ring); scrap heaps at the blocks' corners and the cliffs' feet,
+        // turrets and tesla towers on the walls' tops, spike barriers along the south wall's foot, crashed roks outside. Where a model does not load the fallback pieces draw instead (the drawn totem; a plated wreck for a heap; nothing for the rest).
+        foreach (var (rule, mn, mx) in parts.Where(p => p.Rule == DressRule.StreetBlock))
+        {
+            props.Add(new DressProp(DressPropKeys.Junkpile, new(mn.X - 2f, mn.Y - 2f, 0f), DressHash.Unit(111, (uint)(mn.X * 3f + mn.Y + 500f)) * 6.28f, 3.4f));
+            props.Add(new DressProp(DressPropKeys.Junkpile, new(mx.X + 2f, mx.Y + 2f, 0f), DressHash.Unit(112, (uint)(mx.X * 3f + mx.Y + 500f)) * 6.28f, 3.0f));
+        }
+        foreach (float sx in new[] { -1f, 1f })
+            foreach (float y in new[] { 8f, 22f, 36f, 64f, 78f, 92f })
+                props.Add(new DressProp(DressPropKeys.Junkpile, new(sx * (CompoundHalf - 2.5f), y, 0f), DressHash.Unit(113, (uint)(y + sx * 50f + 100f)) * 6.28f, 3.2f));   // at the cliffs' feet in the lanes
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            foreach (float x in new[] { 30f, 56f, 84f }) props.Add(new DressProp(DressPropKeys.Turret, new(sx * x, (GateSouth + GateNorth) / 2f, Top), sx > 0 ? -MathF.PI / 2f : MathF.PI / 2f, 4.2f));
+            foreach (float y in new[] { 2f, 100f }) props.Add(new DressProp(DressPropKeys.Turret, new(sx * ShellHalf, y, ShellTop), 0f, 4f));
+            props.Add(new DressProp(DressPropKeys.Tower, new(sx * (CompoundHalf - 4f), GateSouth + 4f, Top), 0f, 13f));
+            foreach (float x in new[] { 16f, 28f, 40f, 52f, 64f, 76f, 88f })
+            {
+                float px = sx * x;
+                if (px > BreachX0 - 8f && px < BreachX1 + 8f) continue;
+                props.Add(new DressProp(DressPropKeys.Spikes, new(px, GateSouth - 0.4f, 0f), 0f, 2.4f));
+            }
+        }
+        props.Add(new DressProp(DressPropKeys.Rok, new(-250f, -60f, OutsideHeight(-250f, -60f)), 0.8f, 30f));
+        props.Add(new DressProp(DressPropKeys.Rok, new(300f, 40f, OutsideHeight(300f, 40f)), -0.5f, 26f));
+        props.Add(new DressProp(DressPropKeys.Rok, new(-300f, 210f, OutsideHeight(-300f, 210f)), 2.2f, 34f));
+        a.Into = DressPropKeys.Junkpile;   // a plated wreck stands for a missing scrap heap model
+        foreach (var pr in props.Where(p => p.Key == DressPropKeys.Junkpile)) a.Box(DressMat.Wreck, pr.Base.X, pr.Base.Y, 0f, 4.5f, 3.5f, pr.Height * 0.6f, pr.Yaw, 0.5f);
+        a.Into = null;
+
+        return new DressPlan(rules, a.Pieces, items) { HiddenParts = hidden, Props = props, Fallbacks = a.Fallbacks.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<DressPiece>)kv.Value) };
     }
 
     /// <summary>Where the outside ground begins (the level's ground top is 0; the boundary's outer wall stands on it): its height below the map's ground, and how far it reaches (m; ours).</summary>

@@ -20,7 +20,7 @@ public static class WarfrontHqDress
     public static string Report { get; private set; } = "";
 
     /// <summary>The drawing steps for the HQ under <paramref name="node"/> (game space, at the origin), after <paramref name="graybox"/> is in place; a step that fails is logged and the drawing goes on without it.</summary>
-    public static List<(string Name, Action Run)> Steps(Node3D node, WarfrontHqBuild build, AshfallView graybox, DirectionalLight3D? sun, Godot.Environment? env)
+    public static List<(string Name, Action Run)> Steps(Node3D node, WarfrontHqBuild build, AshfallView graybox, DirectionalLight3D? sun, Godot.Environment? env, string? gameDir = null, Action<string, Action>? later = null)
     {
         var steps = new List<(string, Action)>();
         DressPlan? plan = null;
@@ -84,6 +84,22 @@ public static class WarfrontHqDress
         Add("outside-ground", () =>
             dressRoot.AddChild(new MeshInstance3D { Name = "OutsideGround", Mesh = WarfrontDressBake.OutsideGround(HalfWidth, SouthEdge, NorthEdge, WarfrontHqDressPlan.OutsideHeight, ref tris), MaterialOverride = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 1f, CullMode = BaseMaterial3D.CullModeEnum.Disabled }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }));
         Add("outside-scenery", () => { if (outside is null) return; foreach (var g in new[] { "Stone", "Iron", "Glow", "Smoke" }) tris += WarfrontDressBake.AttachGroup(dressRoot, outside, g, "Outside", shadows: false); });
+        // the game's own props, read from the install a model a frame: the read starts here, the polls follow (each a frame later, queued through <paramref name="later"/> while models are still coming), then they are placed
+        var props = new WarfrontDressProps();
+        int polls = 0;
+        Action pollStep = () => { };
+        pollStep = () =>
+        {
+            try
+            {
+                if (plan is null || !GodotObject.IsInstanceValid(node)) return;
+                if (!props.Poll() && polls++ < 200 && later is not null) { later("props-poll", pollStep); return; }
+                tris += props.Place(dressRoot, plan);
+            }
+            catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or OutOfMemoryException)) { GD.Print($"warfront dress: install props failed ({e.GetType().Name}: {e.Message}); the drawing goes on without them"); }
+        };
+        Add("props-read", () => { if (plan is not null) props.Start(gameDir ?? WarfrontDressProps.GameDir(), plan); });
+        Add("props-poll", pollStep);
         Add("look", () =>
         {
             if (sun is not null && env is not null) AshfallView.ApplyLook(sun, env);

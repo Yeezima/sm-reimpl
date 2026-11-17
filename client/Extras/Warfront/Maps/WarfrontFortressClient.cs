@@ -46,7 +46,7 @@ public partial class NetworkView
             if (WarfrontFarMassing.Off) { GD.Print("warfront: the Ork fortress drawn (graybox; --dress off)"); return; }
             _warfrontDressSteps.Clear();
             _warfrontDressReport = () => WarfrontFortressDress.Report; _warfrontDressSlot = "wf_fortress";
-            foreach (var step in WarfrontFortressDress.Steps(node, build, view, _sun, _environment)) _warfrontDressSteps.Enqueue(step);
+            foreach (var step in WarfrontFortressDress.Steps(node, build, view, _sun, _environment, _gameDir, (n, r) => _warfrontDressSteps.Enqueue((n, r)))) _warfrontDressSteps.Enqueue(step);
             _warfrontDressStartUs = (long)Time.GetTicksUsec(); _warfrontDressLongestUs = 0;
             GD.Print($"warfront: the Ork fortress drawn (graybox); {_warfrontDressSteps.Count} dressing steps follow, one a frame");
             WarfrontDressSchedule(node);

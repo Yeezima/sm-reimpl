@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3756 spec table rows: **2728 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 780 rows of the changes document.
+Scanned 3767 spec table rows: **2739 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 781 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 3756 spec table rows: **2728 tagged**, 672 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 836 | 791 | 621 | 232 | 1 |
-| General game design | 137 | 133 | 110 | 17 | 0 |
-| Ork faction | 278 | 264 | 162 | 70 | 0 |
-| **All areas** | **2728** | 2442 | 2063 | 805 | 37 |
+| General game design | 147 | 140 | 120 | 17 | 0 |
+| Ork faction | 279 | 264 | 163 | 70 | 0 |
+| **All areas** | **2739** | 2449 | 2074 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1587 |
-| confidence: low | 1004 |
-| confidence: medium | 950 |
+| kind: ours | 1590 |
+| confidence: low | 1010 |
+| confidence: medium | 955 |
 | notes: ours | 467 |
 | kind: interpretation | 434 |
-| kind: estimate | 245 |
+| kind: estimate | 249 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -3963,7 +3963,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (137)
+### General game design (147)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4161,6 +4161,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-BFBB2CDC` | Courtyard | flagstone paving 0.06 m over the plateau (x +-89.5, y -39.9..39.9); each of the 12 cover walls gets the kit's masonry and sandbag barrier (AC-017) fitted to its own box (the grey box is not drawn); lamp posts (4.2 m) every 20 m against the curtain walls at x… (m) | kind: estimate; confidence: low | brief: paving, cover as sandbag pieces, lamp posts, crates against walls | Courtyard: compare with SM1 by measuring on a flat spot of the same map. Ours: flagstone paving 0.06 m over the plateau (x +-89.5, y -39.9..39.9)… | ☐ |
 | `R-4C93C6BB` | Outside scenery (HQ) | outside ground out to 1400 m as the fortress's; the spire (nave 70 x 110 x 90 m, tower 36 m to 230 m, spire to 400 m) at y 430 and 480 behind the keep; 18 stacks at x +-230..460; to the south a ruined skyline (the far massing's blocks, mirrored, a third of… (m) | kind: estimate; confidence: low | brief: the Orks' side shows the wasteland and the front's smoke; behind the HQ the spire far off | Outside scenery (HQ): compare with SM1 by measuring on a flat spot of the same map. Ours: outside ground out to 1400 m as the fortress's; the spire (nave 70 x… | ☐ |
 | `R-A3B56721` | HQ drawing steps and measured frames | the fortress's stepping (plan, kit, four wall looks, surfaces, bake, eleven piece groups, outside ground, outside scenery, look, storm); warm shader cache: the longest step plus its frame 340 ms (the storm, Musou's own), the dressing's own steps 0 to 90 ms… (ms) | confidence: medium | measured by the slice | HQ drawing steps and measured frames: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the fortress's stepping (plan, kit, four wall looks, surfaces, bake… | ☐ |
+
+*Spec section: Added content: Warfront dressing, second pass (warfront/dress, 2026-11-17; client only, Warfront only; no collision, no hash, no wire, no rules version). PLACEHOLDER DEMONSTRATION: the plating shader, the drawn skull and aquila boards and every count below are placeholders for a playtest to refine; only the install props are the original's own models.*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E11B7CB5` | Shader pre-warm | when a Stage section (Preparing or Go) names a Warfront map, once per process, the one process-wide plating shader is drawn for 4 frames on two 2 cm meshes (both vertex layouts, shadows on) in front of the camera behind the travel screen, then freed; the log… (frames) | kind: ours; confidence: medium | review 1 ruling 2 | Shader pre-warm: compare with SM1 by feel or video. Ours: when a Stage section (Preparing or Go) names a Warfront map, once per… | ☐ |
+| `R-5D3601B1` | Measured real landings (127.0.0.1 server, windowed client, a cold shader source each run, this PC… | fortress: warm-up frames 18 to 38 ms, longest dressing step plus frame 874 ms (the kit step), the Identify released after the last step; HQ: warm-up 103 ms, longest 680 ms; a1 lane: warm-up 39 to 98 ms, band steps 0.3 to 2.3 s from run to run with or without… (ms) | confidence: medium | measured by the slice | Measured real landings (127.0.0.1 server, windowed client…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: fortress: warm-up frames 18 to 38 ms, longest dressing step plus… | ☐ |
+| `R-71BC018C` | Video memory | the "up to about 460 to 480 MiB" is the TOTAL the engine reports at 1600x900 (fortress 471, HQ 479); the graybox alone (`--dress off`) reads 247 and 255, so the dressing adds about 215 to 225 MiB per map (the kit's models and textures about 36 MiB of it, the… (MiB) | confidence: medium | measured by the slice | Video memory: compare with SM1 by feel or video. Ours: the "up to about 460 to 480 MiB" is the TOTAL the engine reports at… | ☐ |
+| `R-2074D95F` | Install props (original assets loaded, read only, at run time, by the project's own loaders… | the WAAAGH totem (`waaaghbanner`), the Space Marine banner (`sm_banner`), the Ork scrap heap (`ork_junkpile_d_healthy`), the Ork turret (`ork_turret_healthy`, `ork_turret_wreck`), the tesla tower (`ork_elektrik_tower_healthy`), the spike barrier (`Spikes_A`)… | kind: ours; confidence: medium | review 1 item 2; docs/discovery.md "Musou capture banners" | Install props (original assets loaded, read only, at run…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the WAAAGH totem (waaaghbanner), the Space Marine banner (sm_banner)… | ☐ |
+| `R-35513B4F` | Fortress install props (counts are placeholders) | 83 props: 8 totems at the elite posts and 19 on the plaza's ring (9.5 to 10 m), 28 scrap heaps (3 to 3.4 m) at the blocks' corners and the cliffs' feet, 10 turrets (4 to 4.2 m) on the wall tops, 2 tesla towers (13 m), 13 spike barriers (2.4 m) along the south… (count) | kind: estimate; confidence: low | brief: the game's own pieces wherever possible | Fortress install props (counts are placeholders): compare with SM1 by feel or video. Ours: 83 props: 8 totems at the elite posts and 19 on the plaza's ring (9.5… | ☐ |
+| `R-1D09620F` | Fortress kit pieces (counts are placeholders) | 136 of the bands' own kit models drawn without collision (was 14): every 8 m round each street block and every 10 m along the arena shell's outer faces a ruin piece leaning on the wall (AC-015 buttress chunk, AC-031 relief slab at 3.2 m up, AC-014 low wall… (count) | kind: estimate; confidence: low | review 1 item 2 (aim 100 or more) | Fortress kit pieces (counts are placeholders): compare with SM1 by feel or video. Ours: 136 of the bands' own kit models drawn without collision (was 14):… | ☐ |
+| `R-A7B398FF` | HQ rock masses | the cliffs (x beyond +-90) keep a strata rock look (shader mode 3, rewritten: ridged noise, crevices, no stripes) and get 74 rock pieces: eight blocks a side on the south edge's top (6 to 14 m wide, 3 to 12 m high), twenty on the inner edge, nine ledges out… (count) | kind: estimate; confidence: low | review 1 item 3 | HQ rock masses: compare with SM1 by feel or video. Ours: the cliffs (x beyond +-90) keep a strata rock look (shader mode 3… | ☐ |
+| `R-240B6979` | HQ install props (counts are placeholders) | 38 props: 8 Imperial banners (`sm_banner`, 9 m) along the curtain walls in the courtyard, 8 Ork totems, 10 scrap heaps and 6 more in the ditch, 4 turrets and 2 roks on the assembly ground, all 46 m or more from the ramp's foot (a test) (count) | kind: estimate; confidence: low | review 1 item 2 | HQ install props (counts are placeholders): compare with SM1 by feel or video. Ours: 38 props: 8 Imperial banners (sm_banner, 9 m) along the curtain walls… | ☐ |
+| `R-C0D55CAE` | Compatibility renderer (old-GPU switch) | one run each of the fortress and the HQ landing with `--rendering-method gl_compatibility --rendering-driver opengl3 --safe-mode`: the plating shader compiles and draws (no shader error in the log, a still of the fortress shows the plated walls), so no… | confidence: medium | review 1 item 4 | Compatibility renderer (old-GPU switch): compare with SM1 by feel or video. Ours: one run each of the fortress and the HQ landing with… | ☐ |
+| `R-92D1AB93` | Walks (videos) | 30 s walks at 30 frames a second from the landing toward the objective (fortress: landing, gate, streets, strip, plaza; HQ: assembly ground, ramp, gate, courtyard), a camera at 1.7 m on a polyline, no fight and no player model (`WarfrontDressView`… (s) | kind: ours; confidence: low | review 1 item 7 | Walks (videos): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s walks at 30 frames a second from the landing toward the… | ☐ |
 
 ## Part B: Ork faction
 
@@ -4723,6 +4738,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-DFF02A46` | Drawing steps | graybox at once, then one step a frame, 0.05 s apart (`WarfrontBandBusy` held while they run): plan, kit, one plated look a frame (six), bake, one piece group a frame (eight), outside ground, outside scenery, look, storm; a step that fails is logged and… (s) | kind: ours; confidence: medium | the W5d review and the dressing brief (build in steps a frame apart, report the longest real-time frame) | Drawing steps: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: graybox at once, then one step a frame, 0.05 s apart… | ☐ |
 | `R-DBBD2FA5` | Measured load frames (self-view on this PC, real time, no server) | warm shader cache: the longest step plus its frame 182 to 643 ms (the storm, which is Musou's own), the dressing's own steps 1 to 90 ms; cold cache (the shader's source changed): one frame of 1.4 to 2.0 s, the plated shader's pipeline compile, once per shader… (ms) | confidence: medium | measured by the slice | Measured load frames (self-view on this PC, real time, no…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: warm shader cache: the longest step plus its frame 182 to 643 ms (the… | ☐ |
 | `R-A45D133D` | Far massing (nodes 1 to 3) | low blocks in the band's frame between the neighbouring band's copy (from 794 m when a north neighbour exists, from 304 m for node 3) and 140 m short of the spire: rows every 34 m, blocks 16 to 63 m wide, blocks per side per row 2 growing to 8 toward the… (m) | kind: estimate; confidence: low | W5d review finding 10 and the dressing brief amendment 3 | Far massing (nodes 1 to 3): compare with SM1 by measuring on a flat spot of the same map. Ours: low blocks in the band's frame between the neighbouring band's copy… | ☐ |
+
+*Spec section: Added content: Warfront dressing, second pass (warfront/dress, 2026-11-17; client only, Warfront only; no collision, no hash, no wire, no rules version). PLACEHOLDER DEMONSTRATION: the plating shader, the drawn skull and aquila boards and every count below are placeholders for a playtest to refine; only the install props are the original's own models.*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-70E216E8` | Frame time with Orks on the field (the bot client at 1600x900 through a battle, mean of the 10 s… | fortress 19.6 ms dressed against 25.5 ms with `--dress off` (up to 1296 Orks known); HQ 4.9 ms against 5.7 ms (about 200); a1 16.4 ms against 18.1 ms (up to 2400); the runs differ in what the battle did, so this says only that the dressing did not make the… (ms) | confidence: low | measured by the slice | Frame time with Orks on the field (the bot client at…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: fortress 19.6 ms dressed against 25.5 ms with --dress off (up to 1296… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -5716,6 +5737,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-231A668A` | Warfront dressing, part 1 (warfront/dress): the Ork fortress is drawn with the bands' own kit and storm plus plated scrap walls, spikes, glyph boards, totems, a boss dais, banners, an outside ground, the spire behind the arena and manufactorum stacks; the lane nodes get far massing between the neighbour copy and the… | the owner's brief (a faithful Ork stronghold, scenery from the game's own pieces wherever possible) and the W5d review (bare far ground from node 1); every size, colour and count is ours | visual only (no collision, no hash); props at the breach, the gate and the arena openings are never in the way; the wall ends of the breach stay flat boxes; the HQ is not dressed yet; the first draw of the plated shader costs one 1.4 to 2 s frame on a cold shader cache | spec "Warfront dressing, part 1" | Warfront dressing, part 1 (warfront/dress): the Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-06D0CC9D` | Warfront dressing, part 2 (warfront/dress): the HQ exterior (Imperial masonry wall with buttresses, banners, gate frame and crenellations, a road skin on the ramp, paving and kit barriers in the courtyard, wrecks and craters beside the ramp, the spire, stacks, wasteland ruins and smoke); the keep and caves are left… | the owner brief (a faithful Imperial wall and keep, scenery from the game's own pieces) and the lead's order; every size and colour is ours | visual only; no prop within 40 m of the ramp foot, on the fan, at the wall foot or in the gate; the first draw of the shader costs one 2 to 2.5 s frame on a cold shader cache | spec "Warfront dressing, part 2" | Warfront dressing, part 2 (warfront/dress): the HQ exterior…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-99EA7976` | Warfront dressing, second pass (warfront/dress): the fortress and HQ draw the original's own Ork and Space Marine props read from the install (WAAAGH totems, banners, scrap heaps, turrets, towers, spike barriers, roks), 136 kit ruin pieces along the fortress streets, a broken HQ rock skyline, and the plating shader is… | review 1 of the dressing slice and the owner's "the game's own pieces wherever possible"; counts and placements ours | install props read only at run time; with no install the drawn fallbacks stand in; the shader compiles on the Compatibility renderer | spec "Warfront dressing, second pass" | Warfront dressing, second pass (warfront/dress): the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

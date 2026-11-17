@@ -231,4 +231,45 @@ public class WarfrontDressTests
             Assert.True(mn.X > SmSim.Extras.Warfront.Hq.WarfrontHqMap.HalfWidth + 4f || mx.X < -SmSim.Extras.Warfront.Hq.WarfrontHqMap.HalfWidth - 4f || mn.Y > SmSim.Extras.Warfront.Hq.WarfrontHqMap.NorthEdge + 4f || mx.Y < SmSim.Extras.Warfront.Hq.WarfrontHqMap.SouthEdge - 4f, $"{p.Shape} at {p.Base} stands inside the map's box");
         }
     }
+
+    // ---- second pass: the game's own pieces and install props
+    [Fact]
+    public void The_fortress_has_a_hundred_or_more_kit_pieces_along_its_streets_and_blocks()
+    {
+        Assert.True(Plan.KitItems.Count >= 100, $"kit pieces: {Plan.KitItems.Count}");
+        Assert.True(Plan.KitItems.Select(i => i.Asset).Distinct().Count() >= 8);
+    }
+
+    [Fact]
+    public void Install_props_are_known_keys_with_fallbacks_where_they_carry_a_look_and_stand_clear_of_the_openings()
+    {
+        var all = Plan.Props.Concat(HqPlan_.Value.Props).ToList();
+        Assert.NotEmpty(Plan.Props); Assert.NotEmpty(HqPlan_.Value.Props);
+        Assert.All(all, p => Assert.Contains(p.Key, DressPropKeys.All));
+        foreach (var key in new[] { DressPropKeys.Waaagh, DressPropKeys.Junkpile }) Assert.True(Plan.Fallbacks.ContainsKey(key) && Plan.Fallbacks[key].Count > 0, key);
+        Assert.True(HqPlan_.Value.Fallbacks.ContainsKey(DressPropKeys.SmBanner));
+        foreach (var p in Plan.Props)
+        {
+            Assert.False(p.Base.X > BreachX0 - 1.5f && p.Base.X < BreachX1 + 1.5f && p.Base.Y > GateSouth - 1.5f && p.Base.Y < GateNorth + 1.5f, $"{p.Key} at {p.Base} meets the breach's gap");
+            Assert.False(MathF.Abs(p.Base.X) < GateWidth / 2f + 1.5f && p.Base.Y > GateSouth - 1.5f && p.Base.Y < GateNorth + 1.5f && p.Base.Z < GateClear, $"{p.Key} at {p.Base} stands in the gate");
+            Assert.False(MathF.Abs(p.Base.X) < SouthOpening / 2f + 1f && p.Base.Y > ShellSouth - 1f && p.Base.Y < ShellSouth + ShellWall + 1f && p.Base.Z < ShellTop, $"{p.Key} at {p.Base} stands in the south opening");
+            Assert.False(MathF.Abs(p.Base.X) > ShellHalf - ShellWall - 1f && MathF.Abs(p.Base.X) < ShellHalf + 1f && MathF.Abs(p.Base.Y - PlazaCentreY) < SideOpening / 2f + 1f && p.Base.Z < ShellTop, $"{p.Key} at {p.Base} stands in a side opening");
+        }
+        var foot = new Vector2(0f, SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampSouth);
+        foreach (var p in HqPlan_.Value.Props.Where(p => p.Base.Y < SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampNorth))
+        {
+            Assert.True(Vector2.Distance(new(p.Base.X, p.Base.Y), foot) >= WarfrontHqDressPlan.FootClear + 6f, $"{p.Key} at {p.Base} is within 40 m of the ramp's foot");
+            Assert.False(MathF.Abs(p.Base.X) < SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampWidth / 2f + 3f && p.Base.Y > SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampSouth - 20f, $"{p.Key} at {p.Base} stands on the ramp");
+        }
+    }
+
+    [Fact]
+    public void The_hq_rock_masses_get_a_broken_skyline_of_rock_pieces_and_kit_boulders_at_their_feet()
+    {
+        Assert.True(HqPlan_.Value.Pieces.Count(p => p.Mat == DressMat.Rock) >= 40);
+        Assert.Contains(HqPlan_.Value.KitItems, i => i.Asset == "AC-030");
+        var foot = new Vector2(0f, SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampSouth);
+        foreach (var it in HqPlan_.Value.KitItems.Where(i => i.Asset != WarfrontHqDressPlan.CoverModel && i.Position.Y < SmSim.Extras.Warfront.Hq.WarfrontHqMap.RampNorth))
+            Assert.True(Vector2.Distance(new(it.Position.X, it.Position.Y), foot) - (it.Size.X + it.Size.Y) / 2f >= WarfrontHqDressPlan.FootClear - 0.01f, $"{it.Asset} at {it.Position}");
+    }
 }

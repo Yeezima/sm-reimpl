@@ -90,12 +90,17 @@ void fragment() {
 		c = mix(c, vec3(0.03, 0.028, 0.026), pit * 0.85);
 		c *= 0.9 + 0.2 * vn(uv * 9.0);
 	} else if (mode == 3) {
-		float n = fbm(vec2(uv.x * 0.12, uv.y * 0.22));
-		float n2 = fbm(uv * 1.4);
-		float layer = sin(uv.y * 1.9 + n * 5.0) * 0.5 + 0.5;
-		c = mix(vec3(0.075, 0.058, 0.047), vec3(0.23, 0.175, 0.135), n) * (0.65 + 0.7 * n2) * (0.72 + 0.4 * layer);
-		if (top) c *= 0.7;
-		c *= 0.7 + 0.3 * smoothstep(0.0, 6.0, uv.y);
+		float n1 = fbm(uv * 0.07);
+		float n2 = fbm(uv * 0.3 + 7.0);
+		float n3 = fbm(uv * 1.5);
+		float ridge = 1.0 - abs(2.0 * fbm(uv * vec2(0.2, 0.09) + 3.0) - 1.0);
+		float ridge2 = 1.0 - abs(2.0 * fbm(uv * vec2(0.09, 0.3) + 11.0) - 1.0);
+		c = mix(vec3(0.07, 0.057, 0.047), vec3(0.27, 0.215, 0.17), n1 * 0.55 + n2 * 0.45) * (0.65 + 0.7 * n3);
+		c *= 0.5 + 0.6 * smoothstep(0.3, 0.9, ridge);
+		c *= 1.0 - 0.55 * smoothstep(0.86, 0.95, max(ridge, ridge2));
+		c = mix(c, c * vec3(1.25, 1.1, 0.95), smoothstep(0.55, 0.9, ridge2) * 0.4);
+		if (top) c *= 0.75;
+		c *= 0.75 + 0.25 * smoothstep(0.0, 8.0, uv.y);
 	} else {
 		float row = floor(uv.y / ps.y);
 		float off = h11(row + (top ? 7.0 : 0.0)) > 0.72 ? 0.5 * ps.x : 0.0;
