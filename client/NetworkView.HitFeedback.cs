@@ -324,7 +324,7 @@ public partial class NetworkView
         _armourFlashAge += (float)delta; _healthFlashAge += (float)delta;
         bool flashOff = NoDamageFlash;
         ExtrasDamageFlashOff(me, ref flashOff);   // EXTRAS-HOOK: added content turns the own damage flash and the HUD vignette off (Musou: the Dreadnought, owner 2026-11-15)
-        _damageFlashOff = flashOff && !NoDamageFlash;
+        _damageFlashOff = flashOff && !NoDamageFlash;   // the HUD reads it next frame (UpdateHud runs before this): at most one frame of vignette on the first Dreadnought frame
         if (flashOff) { _damageRect.Visible = false; return; }
         float armourNow = me.Alive ? ArmourPeak * FlashEnvelope(_armourFlashAge) : 0f, healthNow = me.Alive ? HealthPeak * FlashEnvelope(_healthFlashAge) : 0f;   // the death vignette (M23) takes over when dead
         _damageRect.Visible = armourNow > 0.002f || healthNow > 0.002f;
