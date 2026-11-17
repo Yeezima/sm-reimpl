@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3704 spec table rows: **2680 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 772 rows of the changes document.
-Scanned 3718 spec table rows: **2692 tagged**, 670 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 774 rows of the changes document.
+Scanned 3719 spec table rows: **2693 tagged**, 670 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 775 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,26 +51,18 @@ Scanned 3718 spec table rows: **2692 tagged**, 670 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 833 | 788 | 618 | 232 | 1 |
-| General game design | 107 | 106 | 81 | 17 | 0 |
-| Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2680** | 2399 | 2016 | 805 | 37 |
-| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
 | General game design | 119 | 118 | 93 | 17 | 0 |
 | Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2692** | 2411 | 2028 | 804 | 37 |
+| **All areas** | **2693** | 2412 | 2029 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1562 |
-| confidence: low | 975 |
-| confidence: medium | 932 |
-| notes: ours | 467 |
 | kind: ours | 1575 |
-| confidence: low | 979 |
+| confidence: low | 980 |
 | confidence: medium | 940 |
-| notes: ours | 466 |
+| notes: ours | 467 |
 | kind: interpretation | 432 |
 | kind: estimate | 229 |
 | notes: estimate | 211 |
