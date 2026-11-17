@@ -10,7 +10,11 @@ namespace SmClient;
 /// A crowd's budgets: skinned near, vertex-animation per look, skinned without a bake, the near and half-rate distances (m), and how the dead go (s, s, m, how many are kept; the corpse floor,
 /// 2026-11-09: past <c>MaxBodies</c> only bodies past <see cref="SmNet.Extras.Musou.MusouCorpseRules.FloorSeconds"/> go, and the pool grows up to <c>HardBodies</c>).
 /// </summary>
-public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0, int ClipSkinned = 0, int ClipNearest = 0);
+public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0, int ClipSkinned = 0, int ClipNearest = 0)
+{
+    /// <summary>The most skinned nodes the pool holds (the larger of the fallback's, the near tier's and the clip tier's cap, and eight spare); the one ceiling the pool build and the pre-warm both obey.</summary>
+    public int PoolCeiling => Math.Max(Math.Max(FallbackSkinned, MaxSkinned), ClipSkinned) + 8;
+}
 
 /// <summary>
 /// What a crowd of many characters shares (TF7a, out of <see cref="MusouCrowd"/>; design sections D and E), a node in the networked view's game space (Z up). A crowd says what to draw this
@@ -253,6 +257,9 @@ public abstract partial class CrowdView : Node3D
     }
 
     /// <summary>Draws <see cref="Items"/>.</summary>
+    /// <summary>Hysteresis at the clip tier's edge: an Ork already skinned keeps it while it is among the nearest <c>ClipNearest</c> + this many members (ours), so one stepping over the edge does not flip between baked and skinned.</summary>
+    public const int ClipEdgeSlack = 10;
+
     protected void Draw(float delta)
     {
         ulong started = ThreadClock.Mark();
@@ -280,7 +287,7 @@ public abstract partial class CrowdView : Node3D
             bool near = it.Distance <= Limits.NearMetres || !OldTierSwitch && it.Distance <= Limits.NearMetres + SkinnedHoldMetres && _skinnedByKey.ContainsKey(it.Key);
             if (skinned < (unbaked ? Limits.FallbackSkinned : skinnedCap) && (near || unbaked) && TakeSkinned(it, look)) { skinned++; continue; }
             // Reaction clips (owner 2026-11-17: "the nearest 100 orks"): a baked Ork mid-flinch among the ClipNearest nearest members is posed skinned too, up to ClipSkinned in all, so it plays the rig's clips; it stays skinned while it is near (the hold above).
-            if (!unbaked && !body && it.Kick.LengthSquared() > 1e-8f && members <= Limits.ClipNearest && skinned < Limits.ClipSkinned && TakeSkinned(it, look)) { skinned++; continue; }
+            if (!unbaked && !body && it.Kick.LengthSquared() > 1e-8f && members <= Limits.ClipNearest + (_skinnedByKey.ContainsKey(it.Key) ? ClipEdgeSlack : 0) && skinned < Limits.ClipSkinned && TakeSkinned(it, look)) { skinned++; continue; }
             if (look.Vat?.Mesh is not null && AddFar(look, it, body)) { vat++; continue; }
             left++;
         }
@@ -318,7 +325,7 @@ public abstract partial class CrowdView : Node3D
             foreach (var c in _skinned) if (c.Key == int.MinValue && !c.Used && ReferenceEquals(c.Look, look)) { s = c; break; }
             if (s is null)
             {
-                if (_skinned.Count >= Math.Max(Limits.FallbackSkinned, Limits.MaxSkinned) + 8)
+                if (_skinned.Count >= Limits.PoolCeiling)
                 {
                     // Pool full of other looks: rebuild a free one for this look.
                     Skinned? spare = null;
@@ -361,7 +368,7 @@ public abstract partial class CrowdView : Node3D
     {
         int have = 0;
         foreach (var c in _skinned) if (ReferenceEquals(c.Look, look)) have++;
-        if (have >= target || _skinned.Count >= Math.Max(Limits.FallbackSkinned, Limits.MaxSkinned) + 8) return null;
+        if (have >= target || _skinned.Count >= Limits.PoolCeiling) return null;
         var s = Build(look);
         s.Root.Visible = false;
         _skinned.Add(s);

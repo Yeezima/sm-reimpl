@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3431 spec table rows: **2449 tagged**, 631 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 755 rows of the changes document.
+Scanned 3435 spec table rows: **2452 tagged**, 632 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 755 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,17 +52,17 @@ Scanned 3431 spec table rows: **2449 tagged**, 631 not tagged (read from data wi
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
-| Ork faction | 265 | 249 | 150 | 69 | 0 |
-| **All areas** | **2449** | 2173 | 1816 | 733 | 37 |
+| Ork faction | 268 | 253 | 153 | 68 | 0 |
+| **All areas** | **2452** | 2177 | 1819 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1443 |
-| confidence: low | 876 |
+| kind: ours | 1447 |
+| confidence: low | 879 |
 | confidence: medium | 831 |
-| notes: ours | 405 |
+| notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
 | kind: estimate | 164 |
@@ -3968,7 +3968,10 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-D554D2D8` | Reaction clips: by direction | the clip whose head lean (measured at run time on the rig: the head's horizontal travel at the peak, in the Ork's own frame) fits the flinch's direction best (largest absolute cosine); a clip leaning the opposite way is laid with a negative weight (a hit from… (cosine) | kind: ours; confidence: low | the lead's brief: "pick the clip by hit direction where the clips are directional"; the spread ours | Reaction clips: by direction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the clip whose head lean (measured at run time on the rig: the head's… | ☐ |
 | `R-9D3DD380` | Reaction clips: weight | the flinch's size (strength by weapon, melee or blast x size scale, held at **2.5**; `MusouOrkFlinchRules.Amplitude`) times the procedural flinch's head travel at size 1 divided by the clip's head travel at weight 1, so a clip moves the head as far as the… (x) | kind: ours; confidence: low | owner 2026-11-13 (magnitude 2x of the first version, cap 2.5; the size tiers keep scaling); the cap and the match of head travel ours | Reaction clips: weight: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the flinch's size (strength by weapon, melee or blast x size scale… | ☐ |
 | `R-4EC08F5C` | Reaction clips: timing and variety | the existing track drives the pose: rise **0.04** s, hold **0.04** s, fall **0.27** s (times the Ork's duration 0.6 to 1.5), start delay 0 to 80 ms, strength 0.5 to 1.4, re-kick to the same size on each hit (no growth), side and rebound flinches; so rapid… (s) | kind: ours; confidence: low | owner 2026-11-13 timing and 2026-11-16 variety; the peak-pose reading ours | Reaction clips: timing and variety: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the existing track drives the pose: rise 0.04 s, hold 0.04 s, fall… | ☐ |
-| `R-8B30C39C` | Reaction clips: tiers | the reaction clips play on the **nearest 100** Orks (owner 2026-11-17, after seeing the first capture: "play the clips on the nearest 100 orks not the nearest 40"): the 40 nearest within 25 m are skinned as before (`MusouCrowd.MaxSkinned`); a baked Ork that… (count) | confidence: medium; notes: ours | owner 2026-11-17 (100); the promotion rule and the 100-skinned ceiling ours | Reaction clips: tiers: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the reaction clips play on the nearest 100 Orks (owner 2026-11-17… | ☐ |
+| `R-0511A8BA` | Reaction clips: promotion rule | the 40 nearest within 25 m are skinned as before (`MusouCrowd.MaxSkinned`); a baked Ork that is mid-flinch and among the 100 nearest living members (any distance inside the flinch's 70 m) is also drawn skinned, so it plays the rig's clips; an Ork already… | kind: ours; confidence: low | the lead's brief (promote only the flinching, to avoid skinning 100 every frame); the slack and hold ours | Reaction clips: promotion rule: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the 40 nearest within 25 m are skinned as before… | ☐ |
+| `R-7880CC24` | Reaction clips: skinned ceiling | at most **100** skinned members in all (`CrowdLimits.ClipSkinned`), and the pool's one ceiling `CrowdLimits.PoolCeiling` = the larger of the fallback's 80, the near tier's 40 and the clip tier's 100, plus 8 spare = 108 nodes (before 2026-11-17 the pool… (count) | kind: ours; confidence: medium | ours (the ceiling that makes the owner's 100 reachable) | Reaction clips: skinned ceiling: compare with SM1 by watching the reaction and timing it frame by frame. Ours: at most 100 skinned members in all (CrowdLimits.ClipSkinned), and the… | ☐ |
+| `R-275731D3` | Reaction clips: pre-warm | once a Boy or Shoota look is baked, one hidden skinned member a frame per look is built into the pool up to **50** per look (half the clip tier), and the look's reaction clips are measured with the first; then it stops (`--musou-no-prewarm` leaves it off). At… (count) | kind: ours; confidence: low | the lead's brief; the 50 ours | Reaction clips: pre-warm: compare with SM1 by watching the reaction and timing it frame by frame. Ours: once a Boy or Shoota look is baked, one hidden skinned member a frame… | ☐ |
+| `R-DF552B77` | Reaction clips: frame cost | on the crowd stage (`--flinch crowd`, 400 and 1000 Orks, 6 hits a frame, thread CPU ms per `Frame()`, noisy machine): see the measured line in the milestones paragraph; most p99 spikes seen first were other processes' load (the stage counts thread CPU time… (ms) | kind: ours; confidence: low | measured | Reaction clips: frame cost: compare with SM1 by watching the reaction and timing it frame by frame. Ours: on the crowd stage (--flinch crowd, 400 and 1000 Orks, 6 hits a… | ☐ |
 | `R-4FBC979D` | Reaction clips: who | the looks on the Boy rig (Boy, Shoota, 'Ard Boy, Nob and the boss placeholders on the boy body, the Warboss when it wears the boy rig); a look on another rig (Weirdboy, Stormboy, Squig, Chaos Marine) or a rig without the clips or bones keeps the procedural… | confidence: medium | owner 2026-11-13 | Reaction clips: who: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the looks on the Boy rig (Boy, Shoota, 'Ard Boy, Nob and the boss… | ☐ |
 
 *Spec section: Added content: Musou Ork variety (musou/ork-variety; 2026-11-16; client drawing only, Musou Mode only, no protocol or hash change)*

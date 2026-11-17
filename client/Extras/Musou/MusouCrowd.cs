@@ -24,7 +24,8 @@ public partial class MusouCrowd : CrowdView
     public const int MaxBodies = 100, HardBodies = SmNet.Extras.Musou.MusouCorpseRules.OrkHardBodies;
 
     /// <summary>The nearest Orks that play the reaction clips (owner 2026-11-17: 100); <c>--musou-clip-nearest n</c> tries another (0: none, the 40 skinned only), a test aid for the frame cost.</summary>
-    static int ClipCount() => (int?)CmdFloat("--musou-clip-nearest") ?? ClipNearest;
+    static readonly int ClipCountValue = (int?)CmdFloat("--musou-clip-nearest") ?? ClipNearest;
+    static int ClipCount() => ClipCountValue;
     static readonly int[] TypeIds = Enum.GetValues<MusouEnemyType>().Select(t => (int)t).ToArray();
 
     readonly MusouLooks _looks;

@@ -78,22 +78,25 @@ public partial class MusouCrowd
         return new Skinned { Root = root, Skeleton = sk, Look = look, Rest = rest };
     }
 
-    /// <summary>Pre-warm (owner 2026-11-17, the nearest 100 play the clips): once a Boy look is baked, hidden skinned members are built into the pool one a frame, up to half of the clip tier for each of the two common looks, and the look's reaction clips are measured with the first, so a promotion mid-fight builds nothing. <c>--musou-no-prewarm</c> leaves it off.</summary>
+    /// <summary>Pre-warm (owner 2026-11-17, the nearest 100 play the clips): once a Boy or Shoota look is baked, one hidden skinned member a frame per look is built into the pool, up to half of the clip tier for each, and the look's reaction clips are measured with the first, so a promotion mid-fight builds nothing. <c>--musou-no-prewarm</c> leaves it off.</summary>
+    bool _warm;   // every pre-warm target reached (or the pool's ceiling): nothing more to do
+    static readonly MusouEnemyType[] WarmTypes = [MusouEnemyType.Boy, MusouEnemyType.ShootaBoy];
     void WarmPool()
     {
-        if (NoPrewarm || ProceduralFlinch || NoOrkFlinch) return;
-        int target = ClipCount() / 2;
-        if (target <= 0) return;
-        foreach (var type in new[] { MusouEnemyType.Boy, MusouEnemyType.ShootaBoy })
+        if (_warm) return;
+        int target = ClipCountValue / 2;
+        if (NoPrewarm || ProceduralFlinch || NoOrkFlinch || target <= 0) { _warm = true; return; }
+        bool waiting = false;
+        foreach (var type in WarmTypes)
         {
-            if (_looks.For(type) is not { } look || look.Vat is null) continue;
-            for (int k = 0; k < 1; k++)
-            {
-                var s = Prewarm(look, target);
-                if (s is null) break;
-                if (!_react.ContainsKey(look)) { s.FlinchBones = MusouOrkFlinchPose.Resolve(s.Skeleton); s.FlinchResolved = true; if (s.FlinchBones is not null) ReactOf(s); }
-            }
+            if (_looks.For(type) is not { } look || look.Vat?.Mesh is null) { waiting |= !BakeFailedOf(type); continue; }
+            var s = Prewarm(look, target);
+            if (s is null) continue;
+            waiting = true;
+            if (!_react.ContainsKey(look)) { s.FlinchBones = MusouOrkFlinchPose.Resolve(s.Skeleton); s.FlinchResolved = true; if (s.FlinchBones is not null) ReactOf(s); }
         }
+        if (!waiting) _warm = true;
     }
+    bool BakeFailedOf(MusouEnemyType type) => _looks.For(type) is { BakeFailed: true };
     public static bool NoPrewarm { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-no-prewarm") >= 0;
 }
