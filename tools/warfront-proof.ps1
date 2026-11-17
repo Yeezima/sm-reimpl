@@ -7,7 +7,7 @@
   warfront-proof.ps1 -Run r1|r2|r3|r4|r5|r6|r7|r8|r9 [-Port p] [-Seconds s] [-Seed n] [-Out dir] [-Windowed] [-Tag name]
 
   Every run writes into <Out>\<run>\ : server.log, one log per client, run.json (a copy of the run folder's run.json at the end), the private
-  run folder (wf\) and summary.txt (the lines the report cites). Defaults: Out = D:\sm-reimpl\media\warfront\w17 (never in the repo).
+  run folder (wf\) and summary.txt (the lines the report cites). Defaults: Out = %LOCALAPPDATA%\sm-reimpl\perf\warfront-proof (the report's runs used a media folder on another drive; never in the repo).
   Aids used are named in each run's header below and printed in summary.txt as "AIDED:" lines; nothing aided is reported as played.
 
   r1  solo win: one bot client (--bot --warfront-bot), server --warfront-max-humans 1, SM_TFW_WIN_TEST (enemies near the human fall, so the
@@ -18,11 +18,11 @@
   Bounded: each run ends when its pass line appears, its failure line appears or -Seconds elapse. Nothing is retried into a pass.
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('r1', 'r1new', 'r2', 'slots', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'fortress-stuck', 'lane-solo')][string]$Run,
+    [Parameter(Mandatory)][ValidateSet('r1', 'r1new', 'r2', 'slots', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'fortress', 'hq', 'lane-solo', 'r1-fortress', 'clip-node', 'clip-fortress')][string]$Run,
     [int]$Port = 27431,
     [int]$Seconds = 900,
     [string]$Seed = '12345',
-    [string]$Out = 'D:\sm-reimpl\media\warfront\w17',
+    [string]$Out = (Join-Path $env:LOCALAPPDATA 'sm-reimpl\perf\warfront-proof'),
     [switch]$Windowed,
     [string]$Tag = '',
     [string]$ServerEnv = '',      # K=V;K=V added to the server's environment
@@ -287,6 +287,70 @@ try {
             Start-Sleep -Seconds 5
             $lines = @("identified: $ok")
             $lines += Grep-Log $serverLog 'warfront:.*(new run|run loaded|identified|squads|records|archived)' 20
+            Write-Summary $lines
+        }
+        'fortress' {
+            # quiet-machine measurement and stuck counts: four clients, nine retainers each (AIDED: SM_WF_ROSTERS), the fortress open from the start (AIDED: SM_WF_START=a4), the leader put at the gate, in the plaza and at the
+            # gate by SM_WF_FORTRESS_WALK=60 (AIDED), humans kept standing (AIDED: SM_TFW_KEEP_HUMAN), no win aid: the plaza fight is the battle's own. TICKSTATS every 10 s are the measurement.
+            $null = Start-WfServer @('--warfront-max-humans', '4', '--warfront-new') @{ SM_WF_START = 'a4,b1,c1'; SM_WF_ROSTERS = '9'; SM_TFW_KEEP_HUMAN = '1'; SM_WF_FORTRESS_WALK = '60' }
+            foreach ($n in 'p1', 'p2', 'p3', 'p4') {
+                if ($n -eq 'p1' -and $Windowed) { $null = Start-WfClient $n @('--bot', '--warfront-bot', '--warfront-bot-pick', 'last', '--warfront-deploy-after', '25', '--bot-full-load', '--perf-probe', '--frame-profile', '--frame-profile-warmup', '20', '--spectate', 'overview') -win }
+                else { $null = Start-WfClient $n @('--bot', '--warfront-bot', '--warfront-bot-pick', 'last', '--warfront-deploy-after', '25') }
+                Start-Sleep -Seconds 4
+            }
+            $ok = Wait-Log $serverLog 'FORTRESS_WALK: P\d+ put at 30 m south' 600
+            Start-Sleep -Seconds 75
+            if ($Windowed) {
+                $kids = Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $script:clients['p1'] -or $_.ProcessId -eq $script:clients['p1'] }
+                foreach ($k in $kids) { $pr = Get-Process -Id $k.ProcessId -ErrorAction SilentlyContinue; if ($pr) { $aided.Add("memory: $($k.Name) working set $([int]($pr.WorkingSet64/1MB)) MB, peak $([int]($pr.PeakWorkingSet64/1MB)) MB") } }
+            }
+            $lines = @("plaza-reached: $ok")
+            $lines += Grep-Log $serverLog 'warfront:.*(landing on|battle begins|FORTRESS_WALK|ROSTERS|FAULT|tick error|fortress)' 80
+            $lines += Grep-Log $serverLog '^(TICKSTATS|TICKSECTIONS|TICKPACE|TICKBYTES) ' 400
+            $lines += Grep-Log $serverLog 'warfront stuck' 400
+            Write-Summary $lines
+        }
+        'hq' {
+            # quiet-machine HQ defence with four clients and nine retainers each (AIDED: ROSTERS, KEEP_HUMAN, the breakthrough state in run.json), the whole 8 minutes; TICKSTATS every 10 s
+            $null = Start-WfServer @('--warfront-max-humans', '4', '--warfront-new') @{} 'server-1.log'
+            foreach ($n in 'p1', 'p2', 'p3', 'p4') { $null = Start-WfClient $n @('--bot', '--warfront-bot', '--warfront-deploy-after', '9999'); Start-Sleep -Seconds 4 }
+            $ok1 = Wait-Log $serverLog '(?s)identified.*identified.*identified.*identified' 120
+            Stop-All; Start-Sleep -Seconds 3
+            Set-WfRun { param($j) $j.HqMandatory = $true; $j.Fronts = @(0, 0, 0); $j.Advanced = @($true, $true, $true) }
+            $aided.Add('run.json edited: the breakthrough state')
+            $null = Start-WfServer @('--warfront-max-humans', '4') @{ SM_TFW_KEEP_HUMAN = '1'; SM_WF_ROSTERS = '9' } 'server-2.log'
+            foreach ($n in 'p1', 'p2', 'p3', 'p4') { $null = Start-WfClient $n @('--bot', '--warfront-bot'); Start-Sleep -Seconds 4 }
+            $ok = Wait-Log $serverLog 'battle \d+ ended' $Seconds
+            $lines = @("four-identified: $ok1", "battle-ended: $ok")
+            $lines += Grep-Log $serverLog 'warfront:.*(landing on|battle begins|ended|ROSTERS|FAULT|tick error)' 60
+            $lines += Grep-Log $serverLog '^(TICKSTATS|TICKSECTIONS|TICKPACE|TICKBYTES) ' 400
+            $lines += Grep-Log $serverLog 'warfront stuck' 600
+            Write-Summary $lines
+        }
+        'lane-solo' {
+            # one solo lane end to end with the allied pair and no win aid: the walk is aided (SM_WF_LANE_WALK), the fighting is real; ends at the first battle end
+            $null = Start-WfServer @('--warfront-max-humans', '1', '--warfront-new') @{ SM_WF_START = 'a1,b1,c1'; SM_WF_LANE_WALK = '6' }
+            $null = Start-WfClient 'solo' @('--bot', '--warfront-bot', '--warfront-deploy-after', '10')
+            $ok = Wait-Log $serverLog 'battle \d+ ended' $Seconds
+            $lines = @("battle-ended: $ok")
+            $lines += Grep-Log $serverLog 'warfront:.*(allied pair|landing on|battle begins|ended|FAULT|tick error|LANE_WALK)' 100
+            $lines += Grep-Log $serverLog '^(TICKSTATS) ' 100
+            $lines += Grep-Log $serverLog 'warfront stuck' 400
+            Write-Summary $lines
+        }
+        { $_ -in 'clip-node', 'clip-fortress' } {
+            # a video clip: a solo server (AIDED as r1: lane walk, win radius, nine retainers; the fortress clip starts the run with the fortress open and walks the leader to the plaza early) and ONE windowed Movie Maker
+            # client (tools\movie.ps1 on the private desktop, a lean bot client with full visuals and the action camera), recorded as AVI then converted by the caller with ffmpeg (H.264, yuv420p, +faststart)
+            $fort = $Run -eq 'clip-fortress'
+            $env = if ($fort) { @{ SM_WF_START = 'a4,b1,c1'; SM_WF_ROSTERS = '9'; SM_TFW_KEEP_HUMAN = '1'; SM_WF_FORTRESS_WALK = '12' } } else { @{ SM_WF_START = 'a1,b1,c1'; SM_WF_ROSTERS = '9'; SM_TFW_WIN_TEST = '80'; SM_TFW_KEEP_HUMAN = '1'; SM_WF_LANE_WALK = '6' } }
+            $null = Start-WfServer @('--warfront-max-humans', '1', '--warfront-new') $env
+            $avi = Join-Path $dir "$Run.avi"
+            $a = @('--movie-size', '1280x720', '--write-movie', $avi, '--fixed-fps', '30', '--connect', "127.0.0.1:$Port", '--content', 'warfront', '--no-sound', '--bot', '--bot-full-load', '--warfront-bot', '--warfront-deploy-after', '6',
+                   '--warfront-key-file', (Join-Path $dir 'key-clip.json'), '--spectate', 'action', '--quit-after', "$Seconds")
+            if ($fort) { $a += @('--warfront-bot-pick', 'last') }
+            & (Join-Path $PSScriptRoot 'movie.ps1') @a *> (Join-Path $dir 'movie-client.log')
+            $lines = @("avi: $(Test-Path $avi)")
+            $lines += Grep-Log $serverLog 'warfront:.*(landing on|battle begins|ended|FORTRESS_WALK|LANE_WALK|fortress won|FAULT)' 60
             Write-Summary $lines
         }
         default { throw "run $Run is not in this version of the script" }
