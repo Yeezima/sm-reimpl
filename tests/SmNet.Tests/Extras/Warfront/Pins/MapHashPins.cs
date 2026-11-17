@@ -58,5 +58,5 @@ public class MapHashPins(ITestOutputHelper output)
         Assert.Equal(FortressMapHash, fortress.Hash);
     }
 
-    const ulong HqMapHash = 0x0FC12BFD61DBE655UL, FortressMapHash = 0xD8E65F5C51CD8DF5UL;
+    const ulong HqMapHash = 0x706482308624B749UL, FortressMapHash = 0xD8E65F5C51CD8DF5UL;
 }

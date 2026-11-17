@@ -15,8 +15,8 @@ namespace SmTool;
 /// <c>smtool warfront-hq</c> (Warfront slice W13b): the HQ defence's measurements, in-process on the composed HQ map with its walking graph (a cold graph build is 100 s or more; the private cache keeps it).
 /// <c>--measure [seconds]</c>: 300 Orks sent from the assembly ground with no defenders and no scheduled waves; per chokepoint (the gate, the two keep doors, the keep's two rear openings, the two tunnels) the Orks through per
 /// minute, the largest queue and the stuck-log records, plus the tick cost. <c>--waves [seconds]</c>: the real schedule (waves, Guardsmen, a human at the landing zone) with the tick cost while the third wave is on the field.
-/// <c>--scenario passive|gate|gate9 [seconds]</c> (second pass): the real schedule with the human driven by a script, at level 5 Ork scaling, reporting how the defence ended and when each position fell: <c>passive</c> a human alive in the caves who never shoots;
-/// <c>gate</c> one human standing at the gate who only shoots the nearest Ork; <c>gate9</c> the same with nine squad Marines on Hold in the wall's ring (modelled: each counts 2 in the hold and kills <see cref="MarineKillsPerSecond"/> Orks a second within 40 m; not the squad's own simulation).
+/// <c>--scenario passive|fallback|gate9 [seconds]</c> (second pass): the real schedule with the human driven by a script, at level 5 Ork scaling, reporting how the defence ended and when each position fell: <c>passive</c> a human alive in the caves who never shoots;
+/// <c>fallback</c> (W13c; replaces <c>gate</c>, whose bot stood in the gate until it died and so measured the script) one human shoots the nearest Ork from inside the front position's ring and, when its hold is under half or his health under half, walks to the next position and goes on there (a death puts him back at his position; reported, not required); <c>gate9</c> one human at the gate shooting, with with nine squad Marines on Hold in the wall's ring (modelled: each counts 2 in the hold and kills <see cref="MarineKillsPerSecond"/> Orks a second within 40 m; not the squad's own simulation).
 /// In-process on the composed map and graph (the same simulation the server runs), not a Godot client. Nothing is read from the install; no socket is opened.
 /// </summary>
 static class WarfrontHqCommand
@@ -34,6 +34,15 @@ static class WarfrontHqCommand
     /// <summary>The kill rate of a modelled squad Marine (Orks a second; ours, an estimate).</summary>
     const float MarineKillsPerSecond = 0.5f;
     static string? _scenario;
+    /// <summary>The fallback human's stand point at W, K and V, and the waypoints of each walk back (to K by the east door, to V by the east tunnel).</summary>
+    static readonly Vector3[] Stand = [new(0f, -26f, WarfrontHqMap.PlateauZ), new(0f, 66f, WarfrontHqMap.PlateauZ), new(0f, 164f, WarfrontHqMap.PlateauZ)];
+    static readonly Vector3[][] Walk =
+    [
+        [],
+        [new(0f, 8f, WarfrontHqMap.PlateauZ), new(26f, 30f, WarfrontHqMap.PlateauZ), new(26f, 52f, WarfrontHqMap.PlateauZ), new(0f, 66f, WarfrontHqMap.PlateauZ)],
+        [new(22f, 80f, WarfrontHqMap.PlateauZ), new(22f, 108f, WarfrontHqMap.PlateauZ), new(22f, 146f, WarfrontHqMap.PlateauZ), new(0f, 164f, WarfrontHqMap.PlateauZ)],
+    ];
+    static bool _diagnose, _noAllies;
 
     public static int Run(string[] rest)
     {
@@ -45,11 +54,13 @@ static class WarfrontHqCommand
             {
                 case "--measure": measure = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int a)) { seconds = a; i++; } break;
                 case "--scenario": if (i + 1 < rest.Length) { _scenario = rest[++i]; waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int c)) { seconds = c; i++; } } break;
+                case "--diagnose": _diagnose = true; break;
+                case "--no-allies": _noAllies = true; break;   // test aid: the two allied Marines of the pair are not spawned (the Guardsmen and the human alone)
                 case "--waves": waves = true; if (i + 1 < rest.Length && int.TryParse(rest[i + 1], out int b)) { seconds = b; i++; } break;
-                default: Console.Error.WriteLine($"warfront-hq: unknown argument \"{rest[i]}\" (usage: warfront-hq --measure [seconds] | --waves [seconds] | --scenario passive|gate|gate9 [seconds])"); return 2; }
+                default: Console.Error.WriteLine($"warfront-hq: unknown argument \"{rest[i]}\" (usage: warfront-hq --measure [seconds] | --waves [seconds] | --scenario passive|fallback|gate9 [seconds])"); return 2; }
         }
         if (measure == waves) { Console.Error.WriteLine("warfront-hq: give --measure or --waves"); return 2; }
-        if (_scenario is not null and not ("passive" or "gate" or "gate9")) { Console.Error.WriteLine("warfront-hq: --scenario takes passive, gate or gate9"); return 2; }
+        if (_scenario is not null and not ("passive" or "fallback" or "gate9")) { Console.Error.WriteLine("warfront-hq: --scenario takes passive, fallback or gate9"); return 2; }
         return Simulate(waves, seconds > 0 ? seconds : _scenario is not null ? 500 : waves ? 400 : 300);
     }
 
@@ -93,12 +104,23 @@ static class WarfrontHqCommand
         var run = w.Tfw!;
         run.Guardsmen = waves;
         run.Patrols = false;
+        if (_noAllies) run.Allies = false;
         w.TfwMeksOn = false;
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 30; k++) w.Step(_ => default);
         run.Warfront!.Target = WarfrontTargetKind.Hq;
         var stuck = new List<WarfrontStuckReport>();
-        run.Warfront.StuckSink = r => stuck.Add(r);
+        var diag = new List<string>();
+        run.Warfront.StuckSink = r =>
+        {
+            stuck.Add(r);
+            if (!_diagnose || diag.Count >= 400) return;
+            // what the Ork was doing: its target (a Guard squad, with that squad's place and goal, or a player), its state and the graph node under it
+            w.Musou!.TryGet(r.Id, out var e);
+            int tgt = w.Musou.TargetOf(r.Id);
+            string who = tgt <= -2 ? $"squad {TfwContracts.SquadOf(tgt)} at ({w.TfwGuards!.Centre(TfwContracts.SquadOf(tgt)).X:0},{w.TfwGuards.Centre(TfwContracts.SquadOf(tgt)).Y:0},{w.TfwGuards.Centre(TfwContracts.SquadOf(tgt)).Z:0})" : tgt > 0 ? "player " + tgt + (w.Players.TryGetValue(tgt, out var tp) ? string.Create(CultureInfo.InvariantCulture, $" ({(tp.Alive ? "alive" : "down")}) at ({tp.Position.X:0},{tp.Position.Y:0},{tp.Position.Z:0})") : "") : "none";
+            diag.Add(string.Create(CultureInfo.InvariantCulture, $"{(run.Battle?.HqSeconds ?? 0f):0}s {r.Type} {r.Why} at ({r.At.X:0},{r.At.Y:0},{r.At.Z:0}) state {e.State} vel ({e.Velocity.X:0.0},{e.Velocity.Y:0.0}) node {e.Node} {FlowNote(w.Musou, e.Node)} target {who}"));
+        };
         run.Enqueue(1, new TfwCommandRecord(1, TfwCommand.Deploy, 0));
         for (int k = 0; k < (int)((TfwBattleRules.TravelSeconds + 0.5f) * 30); k++) w.Step(_ => default);
         if (run.Battle is not { } battle || !battle.WarfrontHq) { Console.Error.WriteLine("warfront-hq: the HQ battle did not begin"); return 1; }
@@ -108,7 +130,7 @@ static class WarfrontHqCommand
         {
             var scale = SmSim.Extras.Warfront.Progression.WarfrontOrkScaling.LevelScale(5);
             run.Warfront.OrkLevelScale = () => (scale.Health, scale.Damage);   // level 5 Ork scaling (the review's acceptance)
-            human = _scenario == "passive" ? new Vector3(0f, 172f, WarfrontHqMap.PlateauZ) : new Vector3(0f, -26f, WarfrontHqMap.PlateauZ);
+            human = _scenario == "passive" ? new Vector3(0f, 172f, WarfrontHqMap.PlateauZ) : Stand[0];
             w.TfwRespawnAt(1, human, _scenario == "passive" ? MathF.PI : 0f);
             if (_scenario == "gate9")
             {
@@ -135,12 +157,36 @@ static class WarfrontHqCommand
         var slow = new List<(double Ms, int Tick, byte Flags, int Stuck, int Alive)>();
         var falls = new List<string>();
         int fallen = 0, kills = 0, marineClock = 0, lastStuck = 0, nAll = 0;
-        bool shooter = _scenario is "gate" or "gate9";
+        bool shooter = _scenario is "fallback" or "gate9";
+        int at = 0, wp = 0, deaths = 0; bool walking = false, wasAlive = true; float maxHp = 0f;
         for (int t = 0; t < ticks && run.Battle is not null; t++)
         {
             if (waves && _scenario is null && !w.Players[1].Alive) w.TfwRevive(1);   // the measuring human never stays down: the tick cost is read with the whole schedule on the field
             var input = default(PlayerInput);
-            if (shooter && w.Players[1].Alive)
+            if (_scenario == "fallback")
+            {
+                var me0 = w.Players[1];
+                if (!me0.Alive) { if (wasAlive) deaths++; wasAlive = false; }
+                else
+                {
+                    if (maxHp <= 0f) maxHp = me0.Health;
+                    at = Math.Max(at, battle.HqFront);
+                    if (!wasAlive) { wasAlive = true; walking = false; w.TfwRespawnAt(1, Stand[Math.Min(2, at)], 0f); }   // a death: back at his position
+                    else if (!walking && at == battle.HqFront && at < 2 && (battle.HqHold < 0.5f || me0.Health < maxHp * 0.5f)) { at++; walking = true; wp = 0; }
+                }
+            }
+            if (_scenario == "fallback" && walking && w.Players[1].Alive)
+            {
+                var me = w.Players[1].Position;
+                var wpts = Walk[Math.Min(2, at)];
+                if (wp >= wpts.Length || new Vector2(wpts[wp].X - me.X, wpts[wp].Y - me.Y).Length() < 2.5f) { if (++wp >= wpts.Length) walking = false; }
+                if (walking)
+                {
+                    var d = wpts[wp] - me;
+                    input = new PlayerInput(w.Tick, 0f, 1f, MathF.Atan2(-d.X, d.Y), InputButtons.None, 0f);
+                }
+            }
+            else if (shooter && w.Players[1].Alive)
             {
                 var me = w.Players[1].Position + new Vector3(0f, 0f, 1.5f);
                 int best = -1; float bestD = 90f * 90f;
@@ -173,7 +219,7 @@ static class WarfrontHqCommand
             int n = w.Musou!.CopyTo(all);
             nAll = n;
             if (battle.HqFallenCount != fallen) { fallen = battle.HqFallenCount; falls.Add($"{"WKV"[Math.Min(2, fallen - 1)]} fell at {t / 30f:0} s ({t / 1800}:{t / 30 % 60:00})"); }
-            if (_scenario is not null && t % 450 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {t / 1800}:{t / 30 % 60:00}  front {battle.HqFront}  hold {battle.HqHold:0.00}  Orks' weight {battle.HqWeights.Orks} vs defenders' {battle.HqWeights.Defenders}  Orks alive {n}  human {(w.Players[1].Alive ? "alive" : "down")} at y {w.Players[1].Position.Y:0}"));
+            if (_scenario is not null && t % 450 == 0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {t / 1800}:{t / 30 % 60:00}  front {battle.HqFront}  hold {battle.HqHold:0.00}  Orks' weight {battle.HqWeights.Orks} vs defenders' {battle.HqWeights.Defenders}  Orks alive {n}  Guardsmen {w.TfwGuards?.Alive}  Orks killed {battle.OrksKilled}  human {(w.Players[1].Alive ? "alive" : "down")} at y {w.Players[1].Position.Y:0}"));
             slow.Add((ms, t, (byte)(battle.HqTickFlags | (GC.CollectionCount(2) != gc2 ? 32 : 0) | (GC.CollectionCount(0) != gc0 ? 64 : 0)), stuck.Count - lastStuck, n));
             lastStuck = stuck.Count;
             maxAlive = Math.Max(maxAlive, n);
@@ -207,7 +253,7 @@ static class WarfrontHqCommand
         if (waves)
         {
             double tEnd = battle.HqSeconds;
-            Console.WriteLine($"result {(result?.ToString() ?? "still running")} at {(int)tEnd / 60}:{(int)tEnd % 60:00}; {string.Join("; ", falls)}; waves sent {battle.HqWavesSent}; Orks made {battle.HqOrksMade}, skipped {battle.HqOrksSkipped}, Weirdboyz {battle.WeirdboyzCome}; the human {(w.Players[1].Alive ? "alive" : "down")}; modelled Marine kills {kills}");
+            Console.WriteLine($"result {(result?.ToString() ?? "still running")} at {(int)tEnd / 60}:{(int)tEnd % 60:00}; {string.Join("; ", falls)}; waves sent {battle.HqWavesSent}; Orks made {battle.HqOrksMade}, skipped {battle.HqOrksSkipped}, Weirdboyz {battle.WeirdboyzCome}; the human {(w.Players[1].Alive ? "alive" : "down")}; modelled Marine kills {kills}; Guardsmen routed {battle.HqGuardsRouted}{(_scenario == "fallback" ? $"; the fallback human's deaths {deaths}, last position held by him {"WKV"[Math.Min(2, at)]}" : "")}");
             Console.WriteLine($"Orks killed by the human and others: {battle.OrksKilled}; stuck-log records {stuck.Count} = {stuck.Count * 100.0 / Math.Max(1, battle.HqOrksMade):0.0} % of the Orks made");
             var relocated = stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => x.Id).ToList();
             Console.WriteLine($"stranded Orks sent back to the assembly ground: {relocated.Sum(g => g.Count())} times by {relocated.Count} Orks, {relocated.Count(g => g.Count() >= 2)} of them twice or more; removed {stuck.Count(x => x.Why == WarfrontStuckWhy.Removed)}");
@@ -228,9 +274,28 @@ static class WarfrontHqCommand
         foreach (var r in stuck.Where(x => x.Why == WarfrontStuckWhy.Relocated).GroupBy(x => ((int)MathF.Round(x.At.X / 10f), (int)MathF.Round(x.At.Y / 10f))).OrderByDescending(g => g.Count()).Take(8).Select(g => g.First()).Take(0)) Console.WriteLine(r);
         foreach (var g in stuck.GroupBy(x => ((int)MathF.Round(x.At.X / 10f) * 10, (int)MathF.Round(x.At.Y / 10f) * 10)).OrderByDescending(g => g.Count()).Take(8)) Console.WriteLine($"  stuck cell x {g.Key.Item1} y {g.Key.Item2}: {g.Count()}");
         foreach (var r in stuck.Take(0)) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  stuck: {r.Type} {r.Why} at ({r.At.X:0}, {r.At.Y:0}, {r.At.Z:0})"));
+        if (_diagnose)
+            foreach (var grp in diag.GroupBy(d => d.Contains("Relocated") || d.Contains("Removed") ? Hot(d) : "other"))
+            { Console.WriteLine($"diagnosis, {grp.Key}: {grp.Count()} records, first 10:"); foreach (var d in grp.Take(10)) Console.WriteLine("  " + d); }
         Report("tick cost, whole run", steps);
         if (waves) Report("tick cost, third wave on the field", stepsBig);
         return 0;
+    }
+
+    static string FlowNote(MusouSim m, int node)
+    {
+        if (m.Flow is not { Ready: true } f || m.Walk is null || node < 0) return "flow n/a";
+        int next = f.Next(node);
+        string nx = next < 0 ? "no next" : $"next ({m.Walk.X(next):0.0},{m.Walk.Y(next):0.0},{m.Walk.Z(next):0.0}) dist {f.Distance(next):0.0}";
+        return $"flow dist {f.Distance(node):0.0} nodeAt ({m.Walk.X(node):0.0},{m.Walk.Y(node):0.0},{m.Walk.Z(node):0.0}) {nx}";
+    }
+
+    static string Hot(string d)
+    {
+        int a = d.IndexOf(" at (", StringComparison.Ordinal) + 5, b = d.IndexOf(')', a);
+        var xy = d[a..b].Split(',');
+        float x = float.Parse(xy[0], CultureInfo.InvariantCulture), y = float.Parse(xy[1], CultureInfo.InvariantCulture);
+        return y < -120f && y > -140f ? "ramp foot" : y is > -60f and < -40f ? "wall west/east of the gate" : y < -140f ? "muster/assembly" : "elsewhere";
     }
 
     static string Band(float y) => y < -46f ? "ramp and assembly" : y < -30f ? "gate" : y < 40f ? "courtyard" : y < 100f ? "keep hall" : y < 150f ? "tunnels" : "chamber";

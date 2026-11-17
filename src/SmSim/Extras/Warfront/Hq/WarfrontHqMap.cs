@@ -36,12 +36,16 @@ public sealed record WarfrontHqBuild(
 public static class WarfrontHqMap
 {
     /// <summary>The level's version (hashed with the geometry): raise with any change of the generated geometry or markers.</summary>
-    public const uint Version = 1;
+    public const uint Version = 2;   // 2: the ramp's foot fans to 60 m and the wall's foot corners are chamfered (W13c)
 
     // ---- the plan (every number ours, an estimate; Dimensions lists them for spec/behavior.md)
     public const float HalfWidth = 150f, SouthEdge = -210f, NorthEdge = 210f;
     public const float AssemblyNorth = -130f;
     public const float RampWidth = 30f, RampRise = 12f, RampSouth = -130f, RampNorth = -46f;
+    /// <summary>The ramp's lowest <see cref="FanLength"/> m fan out from <see cref="RampWidth"/> to <see cref="FanWidth"/> at the foot (two wedge ramps at the ramp's own slope; W13c, review 1 ruling 1; ours, an estimate).</summary>
+    public const float FanWidth = 60f, FanLength = 25f, FanSideGradient = 0.5f, FanSkirtLength = 12f;
+    /// <summary>The wall's foot corners (where the ramp's rim meets the fortress wall's south face) are cut off by a vertical diagonal face of this leg, so a queue at the wall slides to the gate instead of standing in a corner (W13c; ours, an estimate).</summary>
+    public const float ChamferLeg = 6f;
     public const float PlateauZ = 12f;
     public const float WallSouth = -46f, WallNorth = -40f, WallTop = 26f, GateWidth = 12f, GateHeight = 10f;
     public const float StairRise = 14f, StairWidth = 4f, StairFootX = 40f, ParapetThickness = 0.5f, ParapetHeight = 1.2f;
@@ -65,6 +69,8 @@ public static class WarfrontHqMap
         new("assembly ground depth (y -210..-130)", AssemblyNorth - SouthEdge, "m"),
         .. RouteWidths,
         new("ramp run (y -130..-46)", RampNorth - RampSouth, "m"), new("ramp rise", RampRise, "m"), new("ramp pitch (about)", 8.13f, "degrees"),
+        new("ramp foot fan: width at the foot (two wedges, 25 m long, in the ramp's plane)", FanWidth, "m"), new("ramp foot fan: length", FanLength, "m"), new("ramp foot fan: outer side falls away at (rise per run)", FanSideGradient, "ratio"),
+        new("wall foot corner chamfer: leg (a vertical diagonal face each side)", ChamferLeg, "m"),
         new("plateau height (courtyard and keep floor)", PlateauZ, "m"),
         new("retaining wall: cliff under the wall", PlateauZ, "m"), new("fortress wall height above the plateau", WallTop - PlateauZ, "m"),
         new("fortress wall thickness", WallNorth - WallSouth, "m"), new("gate clear height", GateHeight, "m"),
@@ -95,7 +101,30 @@ public static class WarfrontHqMap
         b.Box(Ground, RampWidth / 2f, RampSouth, -2f, H, RampNorth, 0f);
         const float slope = RampRise / (RampNorth - RampSouth);
         b.Heightfield(Ground, -RampWidth / 2f, RampSouth, RampWidth / 2f, RampNorth, 2f, -1f, (_, y) => (y - RampSouth) * slope);
+        // the foot's fan (W13c): on each side the ramp's plane goes on out to a diagonal that runs from FanWidth / 2 at the foot to the ramp's rim FanLength on. Where the ramp's plane is under a metre high (the first 7 m; the skirt runs on to FanSkirtLength, 12 m, to leave a wide entrance)
+        // the edge is no kerb but a side slope (FanSideGradient), because a kerb under a metre is what the graph steps up and the body stops at (the first fan, a plain wedge, caught Orks there); beyond it the diagonal is a wall of
+        // a metre and more (a wedge: the first run's best result, and a side slope there made a pocket where it met the cliff, which the second run caught Orks in).
+        float fanRun = FanWidth / 2f - RampWidth / 2f, fanEdgeFall = fanRun / FanLength, skirtLen = FanSkirtLength;
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            b.Heightfield(Ground, sx < 0f ? -FanWidth / 2f : RampWidth / 2f, RampSouth, sx < 0f ? -RampWidth / 2f : FanWidth / 2f, RampSouth + skirtLen, 1f, -2f, (x, y) =>
+            {
+                float t = y - RampSouth, plane = t * slope, edge = FanWidth / 2f - t * fanEdgeFall, over = MathF.Max(0f, MathF.Abs(x) - edge);
+                return MathF.Max(0f, plane - over * FanSideGradient);
+            });
+            float y0 = RampSouth + skirtLen, x0 = FanWidth / 2f - skirtLen * fanEdgeFall, x1 = RampWidth / 2f, z0 = skirtLen * slope, z1 = FanLength * slope;
+            Vector3[] fan = [new(sx * x0, y0, z0), new(sx * x1, y0, z0), new(sx * x1, RampSouth + FanLength, z1),
+                             new(sx * x0, y0, -2f), new(sx * x1, y0, -2f), new(sx * x1, RampSouth + FanLength, -2f)];
+            b.Convex(Ground, fan, [[0, 1, 2], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]]);
+        }
         b.Box(Ground, -CurtainX, RampNorth, -2f, CurtainX, NorthEdge, P);
+        foreach (float sx in new[] { -1f, 1f })   // the wall's foot: the corner between the ramp's rim and the wall face is cut by a diagonal (the queue slides along it to the gate)
+        {
+            float rx = RampWidth / 2f, c = ChamferLeg;
+            Vector3[] cut = [new(sx * rx, RampNorth - c, -2f), new(sx * rx, RampNorth, -2f), new(sx * (rx - c), RampNorth, -2f),
+                           new(sx * rx, RampNorth - c, WallTop), new(sx * rx, RampNorth, WallTop), new(sx * (rx - c), RampNorth, WallTop)];
+            b.Convex(Wall, cut, [[0, 1, 2], [3, 4, 5], [0, 1, 4, 3], [1, 2, 5, 4], [2, 0, 3, 5]]);
+        }
         b.Box(Wall, -H, RampNorth, -2f, -CurtainX, NorthEdge, 40f);
         b.Box(Wall, CurtainX, RampNorth, -2f, H, NorthEdge, 40f);
 
