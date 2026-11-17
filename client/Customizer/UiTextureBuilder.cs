@@ -54,6 +54,7 @@ public static partial class UiTextureBuilder
         {
             var one = Image.LoadFromFile(concept1xPath); one.Convert(Image.Format.Rgba8);
             if (panels is null || panels.Contains("options")) { if (!string.IsNullOrEmpty(panel04Path) && System.IO.File.Exists(panel04Path)) OptionsTexturesV2(panel04Path, panel04X4Path, Save); else OptionsTextures(one, src, outDir, Save); }   // phase 4b-2: the v2 reference (--panel04) is the source; without it the phase 4a/4b cut from the old 4-panel concept
+            if (panels is null || panels.Contains("armoury")) ArmouryTextures(one, src, Save);   // phase 4d
         }
 
         // ---- buttons: the plate with its label removed ----

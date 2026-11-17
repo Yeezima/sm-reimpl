@@ -217,6 +217,8 @@ public sealed partial class UiSelfTest
             await Frames(4);
             _front.ShowCreator();
             await Frames(4);
+            FindButton(_front.Creator!, b => b.Text == "SLOTS" && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);   // the chips are on the Armoury's SLOTS tab
+            await Frames(3);
             Check("faithful: the creator's strip shows no Ork DEFAULTS chip after the Ork DEFAULTS were open in Extended",
                 FindButton(creator, b => b.Text.StartsWith("DEFAULTS") && b.Text.Contains("Ork", StringComparison.OrdinalIgnoreCase)) is null);
             var orkChip = FindButton(creator, b => b.Text.StartsWith($"CUSTOM {slot}\n"));

@@ -317,6 +317,7 @@ public sealed partial class UiSelfTest : Node
         await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
         await ConceptChecks();   // ui/concept-redesign phase 1: the steel kit, the main menu and OPTIONS in the concept's layout (UiSelfTest.Concept.cs)
         await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
+        await ArmouryChecks();   // ui/concept-redesign phase 4d: the Armoury (UiSelfTest.Armoury.cs)
         await FitChecks();
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
         await HeadshotMedalChecks();
@@ -723,9 +724,9 @@ public sealed partial class UiSelfTest : Node
         var plasma = FindButton(creator, b => b is UiKit.Row && b.Text == "Plasma Pistol")!;
         int before = scroll.ScrollVertical;
         bool visibleAtStart = scroll.GetGlobalRect().Encloses(sword.GetGlobalRect());
-        for (int i = 0; i < 6 && !scroll.GetGlobalRect().Encloses(sword.GetGlobalRect()); i++) await MouseWheel(plasma);
+        for (int i = 0; i < 6 && !scroll.GetGlobalRect().Encloses(sword.GetGlobalRect()); i++) await MouseWheel(FindButton(creator, b => b is UiKit.Row && b.IsVisibleInTree() && scroll.GetGlobalRect().Encloses(b.GetGlobalRect())) ?? plasma);
         Check("the mouse wheel over a row scrolls the list", scroll.ScrollVertical > before || visibleAtStart, $"scroll {before} -> {scroll.ScrollVertical}");
-        Check("the Power Sword row is fully in view after scrolling", scroll.GetGlobalRect().Encloses(sword.GetGlobalRect()));
+        Check("the Power Sword row is fully in view after scrolling", scroll.GetGlobalRect().Encloses(sword.GetGlobalRect()), $"scroll {scroll.GetGlobalRect()} row {sword.GetGlobalRect()} win {GetViewport().GetVisibleRect()}");
         await MouseClick(sword);
         Check("a mouse click on Power Sword stores it", session.Working.ClassAt(slot)?.Melee == "mp_melee_powersword", session.Working.ClassAt(slot)?.Melee ?? "null");
 
@@ -932,6 +933,8 @@ public sealed partial class UiSelfTest : Node
         session.Seed(withOrk);
         _front.ShowCreator();
         await Frames(4);
+        FindButton(_front.Creator!, b => b.Text == "SLOTS" && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);   // the chips are on the Armoury's SLOTS tab
+            await Frames(3);
         Check("the Ork slot stays in the profile", session.Working.ClassAt(9)?.Role == SmContent.OrkClass.Role);
         Check("the Ork slot is shown as unavailable in the faithful profile", FindButton(_front, b => b.TooltipText.Contains("added content", StringComparison.OrdinalIgnoreCase)) is not null);
         var faithfulPlan = _services.PlanFor(Selection.CustomSlot(9));

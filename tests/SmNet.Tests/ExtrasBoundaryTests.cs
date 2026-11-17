@@ -125,6 +125,9 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
+        ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryClasses"),   // the Armoury's class list: the Librarian's row first
+        ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryDetail"),    // the Armoury's weapon row, tiles and slot cards on the Librarian's page
+        ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryBadge"),     // the mode badge: MUSOU
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
         ("client/Customizer/CustomizerServices.cs", "ExtrasLoaded"),   // CustomizerServices.ExtrasLoaded(), the end of the services' load: Musou's own configuration is read before LoadTask completes (W1)

@@ -12,7 +12,7 @@ namespace SmClient.Customizer;
 /// background the screen sits on are left out, as are labels whose words differ from the concept's. A region is only the part of its polygon where our overlay is opaque, and the coverage column says how much
 /// of the polygon that is (so a part our overlay cut away shows as low coverage, not as a hidden miss). Deterministic.
 /// </summary>
-public static class UiComparePanel
+public static partial class UiComparePanel
 {
     static int W = 825, H = 465;
     sealed record Region(string Name, bool[] Mask, double Ssim = 0, double DeMean = 0, double DePixel = 0, int N = 0, double Cover = 1);
@@ -90,6 +90,7 @@ public static class UiComparePanel
         switch (screen)
         {
             case "options": OptionsRegions(regions); break;
+            case "armoury": ArmouryRegions(regions); break;
             default: GD.PrintErr("ui-compare-panel: unknown screen " + screen); return 2;
         }
         var report = new List<Region>();
