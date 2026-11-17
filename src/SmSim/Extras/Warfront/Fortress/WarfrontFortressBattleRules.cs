@@ -33,6 +33,8 @@ public static class WarfrontFortressBattleRules
     public const float MessageSeconds = 4f;
     /// <summary>The Battle section's text for those ids (one style, capitals).</summary>
     public static string MessageText(byte id) => id switch { MessageBreach => "BREACH THE FORTRESS", MessageWarbossInArena => "THE WARBOSS IS IN THE ARENA", MessageWarbossDead => "THE WARBOSS IS DEAD", _ => "" };
+    /// <summary>The arena-boss rule (W14e, ours, estimates): the freed Warboss with no human in the plaza who makes under <see cref="HomeHeadway"/> m/s for <see cref="HomeSeconds"/> s, or who stands more than the plaza's radius plus <see cref="HomeBeyond"/> m from his spot, is put back on it.</summary>
+    public const float HomeHeadway = 0.5f, HomeSeconds = 2f, HomeBeyond = 20f;
     /// <summary>The Warboss's leash is released when a human enters the plaza (its radius), or wakes by the usual aggro.</summary>
     public const float WarbossAggro = TfwBattleRules.DefenderAggro;
 }

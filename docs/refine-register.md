@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3760 spec table rows: **2732 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 781 rows of the changes document.
+Scanned 3741 spec table rows: **2712 tagged**, 673 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 779 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 3760 spec table rows: **2732 tagged**, 672 not tagged (read from data wi
 | General game design | 139 | 135 | 112 | 17 | 0 |
 | Ork faction | 279 | 265 | 163 | 70 | 0 |
 | **All areas** | **2732** | 2446 | 2067 | 805 | 37 |
+| Core simulation (provisional values) | 836 | 791 | 621 | 232 | 1 |
+| General game design | 131 | 127 | 104 | 17 | 0 |
+| Ork faction | 268 | 252 | 152 | 70 | 0 |
+| **All areas** | **2712** | 2424 | 2047 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -65,6 +70,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 467 |
 | kind: interpretation | 435 |
 | kind: estimate | 245 |
+| kind: ours | 1585 |
+| confidence: low | 990 |
+| confidence: medium | 948 |
+| notes: ours | 467 |
+| kind: interpretation | 434 |
+| kind: estimate | 230 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
 | kind: provisional | 106 |
@@ -3965,6 +3976,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
 ### General game design (139)
+### General game design (131)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4052,7 +4064,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-30BA71AC` | Revive in the fortress (no exception) | a retainer revives a fallen human only when no Ork stands within 6 m of the body (`SquadRules.SafeRadius`), standing within 2 m for 2 s (`MarineReviveReach`, `MarineReviveSeconds`): the owner's "when safe"; a wipe needs the retainers down first (the owner's… (m, s) | kind: ours; confidence: medium | `SquadRules` | Revive in the fortress (no exception): compare with SM1 by feel or video. Ours: a retainer revives a fallen human only when no Ork stands within 6 m… | ☐ |
 | `R-014A47DB` | Fortress leash groups | the fortress's leash groups run from `GroupFirst` (200) to 200 + elite posts + approach posts (the live arena: 8 + 2, so 200 to 209); Musou's own battle groups are 1 to 23 (garrisons 1 to 3, commander 4, the positions' crowds from 6, musters 9 to 12, patrol… (group id) | kind: ours | `WarfrontFortressBattleRules.GroupFirst`, test `The_fortress_leash_groups_meet_none_of_the_battles_own` | Fortress leash groups: compare with SM1 by feel or video. Ours: the fortress's leash groups run from GroupFirst (200) to 200 + elite… | ☐ |
 | `R-727D7867` | Stuck units per opening (in-process, 150 s of the kept-alive bot and the plain bot, measured… | `warfront stuck` lines on `wf_fortress`: kept-alive run 16 (all relocated, none removed): breach 11, gate 1, plaza gate 0, elsewhere 4; plain run 5: breach 3, gate 0, plaza gate 0, elsewhere 2; the breach (8 m wide) is the trouble spot, the Orks pile on the… (count) | confidence: low | `WarfrontStuckLog` | Stuck units per opening (in-process, 150 s of the…: compare with SM1 by feel or video. Ours: warfront stuck lines on wf_fortress: kept-alive run 16 (all… | ☐ |
-| `R-71ABF36F` | The freed Warboss leaves the plaza? (in-process, measured 2026-11-17) | NOT within 90 s of any lure: with a human held outside the plaza gate (15 m), outside the south gate (19 m) or outside the breach (25 m) he walks toward it at about 0.15 to 0.3 m/s (y 49 to 31 in 90 s, 31 to 16 in the next 90 s, 16 to 6 in the last 90 s, with… (m/s) | confidence: medium | `The_freed_warboss_is_drawn_out_of_the_plaza_...` | The freed Warboss leaves the plaza? (in-process, measured…: compare with SM1 by timing a run over a known distance. Ours: NOT within 90 s of any lure: with a human held outside the plaza gate… | ☐ |
+| `R-D9F46A70` | The freed Warboss leaves the plaza? (in-process, measured 2026-11-17; VOID: each "second" was… | NOT within 90 s of any lure: with a human held outside the plaza gate (15 m), outside the south gate (19 m) or outside the breach (25 m) he walks toward it at about 0.15 to 0.3 m/s (y 49 to 31 in 90 s, 31 to 16 in the next 90 s, 16 to 6 in the last 90 s, with… (m/s) | confidence: medium | `The_freed_warboss_is_drawn_out_of_the_plaza_...` | The freed Warboss leaves the plaza? (in-process, measured…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: NOT within 90 s of any lure: with a human held outside the plaza gate… | ☐ |
+| `R-111AFE80` | W14d: the lean hook did nothing for the Warboss (measured; the hook is REVERTED in W14e) | A one-line Musou hook (`WarfrontWallLean`) turned the Boss Orks' wall lean on for the fortress Warboss: it ran (654 calls in a 15 s case) and the six lure cases were identical with and without it (the first 5.5 m/s run to the wall, the stop on the same node… (m, s) | confidence: medium | `Cases_3_and_4_...`, `Case_1_...`, `Case_2_...`, `Case_5_...`, `The_human_walks_back_...` | W14d: the lean hook did nothing for the Warboss (measured…: compare with SM1 by feel or video. Ours: A one-line Musou hook (WarfrontWallLean) turned the Boss Orks' wall… | ☐ |
+| `R-53E78592` | W14e: the Warboss is the arena's boss (ours; arena-boss rule) | The freed fortress Warboss with no living human in the plaza who makes under **0.5 m/s** for **2 s** while seeking, or who stands more than the plaza's radius plus **20 m** from his spot, or whom Musou's stranded failsafe carried away (it moves a boss to a… (s, m/s, m) | kind: ours; kind: estimate; confidence: low | `WarfrontFortressBattleRules.HomeSeconds/HomeHeadway/HomeBeyond`, `TfwBattle.FortressWarbossHome` | W14e: the Warboss is the arena's boss (ours; arena-boss…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The freed fortress Warboss with no living human in the plaza who… | ☐ |
 
 *Spec section: Warfront stats ledger (warfront/w4b, 2026-11-17; added content, Warfront only; pure, no wire change; second pass after designer review 1)*
 
@@ -4708,6 +4722,9 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-81E623C2` | Approach Boss Orks | one Boss Ork (kinds in Musou's order) leashed at the middle stop of each of the last two routes; none roam (Musou's roaming Boss Orks do not come in the final assault); an arena with one route holds one (Orks) | kind: ours; confidence: low | `FortressPlace` | Approach Boss Orks: compare with SM1 by feel or video. Ours: one Boss Ork (kinds in Musou's order) leashed at the middle stop of… | ☐ |
+| `R-70215085` | W14d: the plaza in game seconds (in-process, one run, 90 s from the first human in the plaza: a… | Orks alive every 10 s: 569, 824, 884, 1113, 1355, 1565, 1798, 1745, 1827; Orks inside the plaza radius: 161, 266, 405, 587, 695, 837, 1023, 779, 845; average **622** inside the plaza (alive average 1298): far over the line of ten, so the waypoint half of the… (Orks, s, ms) | confidence: medium | `The_plaza_fight_measured_in_game_seconds_...` | W14d: the plaza in game seconds (in-process, one run, 90 s…: compare with SM1 by timing a run over a known distance. Ours: Orks alive every 10 s: 569, 824, 884, 1113, 1355, 1565, 1798, 1745… | ☐ |
+| `R-C5F41B29` | W14d: the lure holds again, in game seconds (in-process, 90 s each, the freed Warboss, the plaza's… | with a human held 15 m outside the plaza gate, (0, -25): he comes through the gate (within 0 m of it, south-most y -32, then stands about 3.6 m from the human); with a human 19 m outside the south gate (0, -115): he came within 4 m of the south gate and held… (m) | confidence: low | `The_freed_warboss_is_drawn_out_of_the_plaza_through_each_opening_and_back` | W14d: the lure holds again, in game seconds (in-process, 90…: compare with SM1 by measuring on a flat spot of the same map. Ours: with a human held 15 m outside the plaza gate, (0, -25): he comes… | ☐ |
+| `R-AFCC0386` | W14e: the arena-boss rule measured (in-process, a human 16 m outside each opening, 15 s, with the… | Pinned on the wall at about 8.75 to 10 s, put back at 12.0 s each time (the stand ended in the home 2.0 to 3.25 s after it began; the 4 s allowed), 0 s beyond the plaza's radius + 20 m, 0 stuck lines, health 15000 throughout; the Warboss is 45 m/s "faster" in… (s, m) | confidence: medium | `Cases_3_and_4_...`, `A_warboss_carried_off_...`, `W14e_the_breach_lure_...` | W14e: the arena-boss rule measured (in-process, a human 16…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Pinned on the wall at about 8.75 to 10 s, put back at 12.0 s each… | ☐ |
 
 *Spec section: Added content: Warfront: the HQ defence battle (warfront/w13b, 2026-11-17; added content, Warfront only; `WarfrontRules.Version` 6; `Extras/Warfront/Hq`, `WarfrontBattleWire` tag 47)*
 
@@ -4951,6 +4968,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-4D6A26B4` | Warfront client keys and panels (W5c): F next and Shift+F previous view while spectating; M held shows the war map read only (no deploy rows, no leader line, the XP HUD hidden); the card picker, the squad panel (F4) and a text field take the game's input; all Warfront panels are laid out in a 1920 x 1080 space scaled… | the owner's co-op rules and Q4 addendum 1 (a fallen player has the spectator class); the keys are Classic's observer keys (F, Shift+F); the held-M peek, the fit and every text ours | spectator view = Classic's action view on the watched body (6 m behind, 3.5 m above; a fallen player with nobody named watches the own body until the first F); the held M map mirrors Musou's own held map | spec "Added content: Warfront: co-op rules" and `docs/added-content.md` "Client hooks (W5c)" | Warfront client keys and panels (W5c): F next and Shift+F…: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: the owner's co-op rules and Q4 addendum 1 (a fallen player has the… | ☐ |
 | `C-15F6CD91` | Warfront local campaign (W16): a main-menu row and page that start this PC's Warfront server (loopback, one human), join it, and stop it when the player leaves; not in SM1 | owner answer 3 (2026-11-17): "a local campaign that only he can join. Server run by his local pc."; the page, its texts and the start limit ours | no LAN or internet option; Continue only for a run in progress; New asks first and the old run is archived as abandoned | spec "Warfront: the local campaign" | Warfront local campaign (W16): a main-menu row and page…: compare with SM1 by feel or video. Ours: owner answer 3 (2026-11-17): "a local campaign that only he can join.… | ☐ |
 | `C-7B8FBD76` | Warfront map warm-up and advancing goal (W5d): the client reads or builds the next battlefield's layouts on a background task while the travel screen runs (the rejoin waits for them), and the far spire stands nearer with each node; not in SM1 | the W5b review ruling (a 25 to 40 s main-thread stall at every deployment) and the owner's requirement that the far scenery is the goal the advance moves toward; the 30 s neighbour wait, the four drawing steps and the far ground are ours | a layout missing at the landing skips that neighbour's massing copy; a client whose cache is cold still waits on the loading screen for its slot (not on the main thread) | spec "Warfront layout warm-up (W5d, client)", "Warfront advancing goal (W5d, client)" | Warfront map warm-up and advancing goal (W5d): the client…: compare with SM1 by feel or video. Ours: the W5b review ruling (a 25 to 40 s main-thread stall at every… | ☐ |
+| `C-B025C23F` | Warfront: the Warboss does not leave the arena (W14e, added content; spec "W14e: the Warboss is the arena's boss"); not in SM1 | when the freed fortress Warboss is pinned on the way out for 2 s, or Musou's failsafe carries him off, he is put back on his spot (no heal, no invulnerability) | ours (the designer's ruling 2026-11-17; the 0.5 m/s, 2 s and 20 m are estimates in the refine register) | ours | Warfront: the Warboss does not leave the arena (W14e, added…: compare with SM1 by feel or video. Ours: when the freed fortress Warboss is pinned on the way out for 2 s, or… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

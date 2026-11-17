@@ -129,37 +129,324 @@ public class WarfrontFortressStageTests : IDisposable
         Assert.DoesNotContain(c.AvailableTargets(), t => t.Kind == WarfrontTargetKind.Fortress);
     }
 
-    /// <summary>The finding-3 and brief measurements (output only, one assert each that the plaza opened): a human stands in the plaza for 60 s with the retainer and the Orks unfrozen; the harness step time (server, client and loopback together), the Orks alive in the plaza radius every 10 s, and what the battle made.</summary>
+    /// <summary>
+    /// The finding-3 and brief measurements in game seconds (W14d: the first version stepped TickRate harness steps per "second", and a harness step is 1 ms, so its "60 s" was about two seconds of game time). A shooting human, stood up again when it falls,
+    /// stands 30 m south of the boss spot (inside the plaza) for 90 s of game time (90 000 harness steps of 1 ms) with the retainer and the Orks unfrozen; every 10 s the Orks alive and the Orks inside the plaza radius are written, and for each stage-2
+    /// source (and layout source 2) the seconds it was open (sampled every 0.1 s), the Orks alive and in the plaza averaged, and the step time.
+    /// </summary>
     [Fact]
-    public void The_plaza_fight_measured_the_stage_opens_the_warboss_is_freed_and_the_step_time_is_read()
+    [Trait("Speed", "Slow")]
+    public void The_plaza_fight_measured_in_game_seconds_the_stage_opens_and_the_plaza_average_is_read()
     {
         var h = Start(out var server);
         h.Run(TimeSpan.FromSeconds(12));
         var run = server.World.Tfw!;
         var battle = run.Battle!;
         var arena = WarfrontSlots.Fortress;
+        var plan = WarfrontFortressSetup.For(arena).Plan;
         int id = HumanOf(server);
-        Assert.True(server.World.TfwRespawnAt(id, arena.BossSpot + new System.Numerics.Vector3(0f, -30f, 0f), 0f));
-        server.World.Players.TryGetValue(id, out _);
+        var from = arena.BossSpot + new System.Numerics.Vector3(0f, -30f, 0f);
+        Assert.True(server.World.TfwRespawnAt(id, from, 0f));
         var times = new List<double>();
         var all = new MusouEnemy[MusouSim.Capacity];
         var sw = new Stopwatch();
-        int rate = server.World.Config.TickRate;
-        for (int sec = 1; sec <= 60; sec++)
+        const int stepsPerSecond = 1000;   // the harness steps 1 ms of its manual clock; the server ticks on that clock
+        int target = -1; float yaw = 0f, pitch = 0f;
+        var seen = plan.Layout.Sources.Select((_, i) => i).Where(i => plan.SourceStage[i] >= 2 || i == 2).ToArray();
+        var open = seen.ToDictionary(i => i, _ => 0.0);
+        var inPlazaSamples = new List<int>();
+        var aliveSamples = new List<int>();
+        for (int sec = 1; sec <= 90 && run.Battle is not null; sec++)
         {
-            for (int t = 0; t < rate; t++) { sw.Restart(); h.Step(); times.Add(sw.Elapsed.TotalMilliseconds); }
+            for (int t = 0; t < stepsPerSecond && run.Battle is not null; t++)
+            {
+                sw.Restart();
+                h.Step((i, tick) =>
+                {
+                    if (!server.World.Players.TryGetValue(id, out var me) || !me.Alive) return new PlayerInput(tick, 0, 0, 0, InputButtons.None);
+                    if (t % 20 == 0)
+                    {
+                        int n = server.World.Musou!.CopyTo(all);
+                        var eye = me.Position + new System.Numerics.Vector3(0, 0, 1.7f);
+                        float bestD = 25f; target = -1;
+                        for (int k = 0; k < n; k++) { if (!all[k].Alive) continue; float d = System.Numerics.Vector3.Distance(all[k].Position, me.Position); if (d < bestD) { bestD = d; target = k; } }
+                        if (target >= 0) { var d3 = all[target].Position + new System.Numerics.Vector3(0, 0, 1.2f) - eye; yaw = MathF.Atan2(-d3.X, d3.Y); pitch = MathF.Atan2(d3.Z, new System.Numerics.Vector2(d3.X, d3.Y).Length()); }
+                    }
+                    return target >= 0 ? new PlayerInput(tick, 0, 0, yaw, InputButtons.Fire, pitch) : new PlayerInput(tick, 0, 0, 0, InputButtons.None);
+                });
+                times.Add(sw.Elapsed.TotalMilliseconds);
+                if (t % 100 == 0 && battle.WarfrontFortressFlow is { } flow)
+                    foreach (int i in seen) if (flow.SourceOpen(i, plan.Layout.Sources[i], i < plan.Layout.Positions.Length ? plan.Layout.Positions[i] : null)) open[i] += 0.1;
+                if (t % 100 == 50 && server.World.Players.TryGetValue(id, out var pl) && !pl.Alive) server.World.TfwRespawnAt(id, from, 0f);
+            }
             if (sec % 10 == 0 && run.Battle is not null)
             {
                 int n = server.World.Musou!.CopyTo(all);
+                int alive = all.Take(n).Count(e => e.Alive);
                 int inPlaza = all.Take(n).Count(e => e.Alive && System.Numerics.Vector2.Distance(new(e.Position.X, e.Position.Y), new(arena.BossSpot.X, arena.BossSpot.Y)) <= arena.ArenaRadius);
-                bool alive = server.World.Players[id].Alive;
-                output.WriteLine($"{sec} s: stage {battle.WarfrontFortressFlow!.Stage}, plaza entered {battle.WarfrontFortressFlow.PlazaEntered}, orks alive {all.Take(n).Count(e => e.Alive)}, in the plaza {inPlaza}, human alive {alive}, warboss {battle.FortressWarbossPercent}%");
+                aliveSamples.Add(alive); inPlazaSamples.Add(inPlaza);
+                output.WriteLine($"{sec} s: stage {battle.WarfrontFortressFlow!.Stage}, plaza entered {battle.WarfrontFortressFlow.PlazaEntered}, orks alive {alive}, in the plaza {inPlaza}, human alive {server.World.Players[id].Alive}, warboss {battle.FortressWarbossPercent}%");
             }
-            if (run.Battle is null) { output.WriteLine($"the battle ended at {sec} s: {server.WarfrontCampaignForTests!.Phase}"); break; }
         }
         times.Sort();
-        output.WriteLine($"step ms: p50 {times[times.Count / 2]:0.00}, p99 {times[(int)(times.Count * 0.99)]:0.00}, max {times[^1]:0.00} over {times.Count} steps; elites made {battle.FortressElitesMade}, boss orks {battle.FortressBossOrksMade}");
+        output.WriteLine($"orks in the plaza: average {(inPlazaSamples.Count == 0 ? double.NaN : inPlazaSamples.Average()):0.0} over {inPlazaSamples.Count} samples (10 s apart), alive average {(aliveSamples.Count == 0 ? double.NaN : aliveSamples.Average()):0.0}");
+        output.WriteLine("seconds open of 90: " + string.Join(", ", seen.Select(i => $"source {i} (stage {plan.SourceStage[i]}, at {plan.Layout.Sources[i]}) {open[i]:0.0} s")));
+        output.WriteLine($"step ms (1 ms of game time per step): p50 {times[times.Count / 2]:0.00}, p99 {times[(int)(times.Count * 0.99)]:0.00}, max {times[^1]:0.00} over {times.Count} steps; elites made {battle.FortressElitesMade}, boss orks {battle.FortressBossOrksMade}");
         Assert.True(battle.WarfrontFortressFlow!.PlazaEntered);
+    }
+
+    static T Field<T>(object o, string name) => (T)o.GetType().GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(o)!;
+
+    /// <summary>One run of <see cref="Pace"/>: the Warboss's and the human's positions every 0.25 s (T seconds after the human was placed) and the Warboss's stuck lines.</summary>
+    sealed record PaceRun(List<(double T, System.Numerics.Vector3 Boss, System.Numerics.Vector3 Human)> Samples, string[] BossStuck, List<(double T, System.Numerics.Vector3 From, double StoodSince)> Homes, float MinHealth, float StartHealth, List<(double T, bool Attacking)> Attacks);
+
+    static float Flat(System.Numerics.Vector3 a, System.Numerics.Vector3 b) => System.Numerics.Vector2.Distance(new(a.X, a.Y), new(b.X, b.Y));
+
+    /// <summary>
+    /// W14c/W14d: the freed Warboss for <paramref name="seconds"/> s of game time (1000 harness steps of 1 ms each), printed once a second (position, speed, boss action, distance, leash, node). With <paramref name="freeFirst"/> a human enters the plaza
+    /// first (which frees the Warboss) and is then put at <paramref name="humanAt"/>; each <paramref name="jumps"/> entry puts the human somewhere else at that second. The human stands still unless <paramref name="walk"/> gives a point to walk to.
+    /// </summary>
+    PaceRun Pace(string name, System.Numerics.Vector3 humanAt, Func<double, System.Numerics.Vector3>? walk = null, bool clearOrks = false, int seconds = 30, bool freeFirst = false, (int At, System.Numerics.Vector3 To)[]? jumps = null)
+    {
+        using var capture = new ConsoleCapture();
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var run = server.World.Tfw!;
+        var battle = run.Battle!;
+        var sim = server.World.Musou!;
+        int id = HumanOf(server);
+        var all = new MusouEnemy[MusouSim.Capacity];
+        void Clear() { int n = sim.CopyTo(all); for (int k = 0; k < n; k++) if (all[k].Id != battle.BossId) sim.Remove(all[k].Id); }
+        if (freeFirst)
+        {
+            // a human enters the plaza (frees the Warboss), then stands where the case wants him
+            Assert.True(server.World.TfwRespawnAt(id, WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(0f, -20f, 0f), 0f));
+            h.Run(TimeSpan.FromMilliseconds(300));
+            Assert.False(sim.Leashed(battle.BossId));
+        }
+        if (clearOrks) Clear();
+        Assert.True(server.World.TfwRespawnAt(id, humanAt, 0f));
+        const int rate = 1000;   // the harness steps 1 ms of its manual clock: 1000 steps are one second of game time
+        sim.TryGet(battle.BossId, out var b0);
+        output.WriteLine($"== {name}: human at {humanAt}, boss at {b0.Position}, clearOrks {clearOrks}");
+        var samples = new List<(double, System.Numerics.Vector3, System.Numerics.Vector3)>();
+        var last = b0.Position; double total = 0; var begin = b0.Position;
+        var homes = new List<(double, System.Numerics.Vector3, double)>(); var attacks = new List<(double, bool)>();
+        int homesSeen = battle.FortressWarbossHomes; var prev = b0.Position; double standSince = -1; float minHealth = b0.Health; var prevAt = b0.Position;
+        for (int sec = 1; sec <= seconds; sec++)
+        {
+            foreach (var j in jumps ?? []) if (j.At == sec - 1) Assert.True(server.World.TfwRespawnAt(id, j.To, 0f));
+            for (int t = 0; t < rate; t++)
+            {
+                if (clearOrks && t % 50 == 0) Clear();
+                double now = sec - 1 + (double)t / rate;
+                h.Step((i, tick) =>
+                {
+                    if (!server.World.Players.TryGetValue(id, out var me) || !me.Alive || walk is null) return new PlayerInput(tick, 0, 0, 0, InputButtons.None);
+                    var to = walk(now) - me.Position;
+                    return new PlayerInput(tick, 0, 1f, MathF.Atan2(-to.X, to.Y), InputButtons.None);
+                });
+                if (t % 250 == 0 && sim.TryGet(battle.BossId, out var sb) && server.World.Players.TryGetValue(id, out var sp)) samples.Add((now, sb.Position, sp.Position));
+                if (t % 50 == 0 && sim.TryGet(battle.BossId, out var wb))
+                {
+                    minHealth = MathF.Min(minHealth, wb.Health);
+                    attacks.Add((now, wb.State is MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover));
+                    if (battle.FortressWarbossHomes > homesSeen) { if (server.World.Players.TryGetValue(id, out var shooter) && battle.WarfrontFortressFlow!.Setup.Sight is { } sight) output.WriteLine($"  a human at {shooter.Position} sees the pinned Warboss at {prev} through the stage's ray: {sight(shooter.Position + new System.Numerics.Vector3(0f, 0f, 1.7f), prev + new System.Numerics.Vector3(0f, 0f, 1.7f))}"); homes.Add((now, prev, now)); homesSeen = battle.FortressWarbossHomes; standSince = -1; }
+                    else if (Flat(wb.Position, prev) / 0.05 < 0.5) { if (standSince < 0) standSince = now; }   // the 0.5 m/s of the rule, read every 50 ms of game time
+                    else standSince = -1;
+                    prev = wb.Position; if (t % 250 == 0) prevAt = wb.Position;
+                }
+                if (server.World.Players.TryGetValue(id, out var pl) && !pl.Alive) server.World.TfwRespawnAt(id, pl.Position, 0f);
+            }
+            if (!sim.TryGet(battle.BossId, out var b)) { output.WriteLine($"{sec,2} s: boss gone"); break; }
+            var me2 = server.World.Players[id];
+            float step = Flat(b.Position, last);
+            total += step; last = b.Position;
+            output.WriteLine($"{sec,2} s: boss ({b.Position.X:0.0}, {b.Position.Y:0.0}) speed {step:0.00} m/s state {b.State} act {server.World.MusouBoss?.Action} dist {Flat(b.Position, me2.Position):0.0} leashed {sim.Leashed(b.Id)} node {b.Node} room {(sim.Walk is { } wk && b.Node >= 0 ? wk.EdgeDistance(b.Node).ToString("0.00") : "n/a")} (a lean wants {MusouSim.BossWallRoom(sim.Rules.Of(MusouEnemyType.Warboss).Radius):0.00} m) | human ({me2.Position.X:0.0}, {me2.Position.Y:0.0}) alive {me2.Alive}");
+        }
+        output.WriteLine($"== {name}: travelled {total:0.0} m in {seconds} s, net {Flat(begin, last):0.0} m");
+        return new PaceRun(samples, capture.Lines().Where(l => l.Contains("warfront stuck:") && l.Contains(", Warboss at")).ToArray(), homes, minHealth, b0.Health, attacks);
+    }
+
+    /// <summary>The first sample time at which <paramref name="hit"/> holds, or -1.</summary>
+    static double FirstTime(PaceRun r, Func<(double T, System.Numerics.Vector3 Boss, System.Numerics.Vector3 Human), bool> hit)
+    {
+        foreach (var s in r.Samples) if (hit(s)) return s.T;
+        return -1;
+    }
+
+    /// <summary>
+    /// W14e rule for cases 3 and 4 (the arena-boss rule replaces W14d's "through the opening"): a human stands outside an opening and the freed Warboss is drawn to the wall. Asserts: he is put back on his spot at least once; from the start of
+    /// the stand that ended in each home it is under 4 s; he lands within 2 m of his spot; he is never more than the plaza's radius plus 20 m from the spot for longer than 2 s (samples every 0.25 s); Musou's failsafe never moves him (no stuck line);
+    /// his health only ever fell (no heal). The times are written.
+    /// </summary>
+    void AssertArenaBoss(string name, PaceRun r)
+    {
+        var arena = WarfrontSlots.Fortress;
+        Assert.NotEmpty(r.Homes);
+        foreach (var h0 in r.Homes)
+        {
+            // pinned since: the earliest sample from which he stayed within 1 m of where he stood when he was put back (he shuffles 0.18 m each way on the wall)
+            double since = h0.T;
+            foreach (var smp in r.Samples.Where(x => x.T < h0.T).Reverse()) { if (Flat(smp.Boss, h0.From) <= 1f) since = smp.T; else break; }
+            var home = (h0.T, h0.From, StoodSince: since);
+            output.WriteLine($"{name}: put back at {home.T:0.00} s from {home.From} after standing since {home.StoodSince:0.00} s ({home.T - home.StoodSince:0.00} s)");
+            Assert.True(home.T - home.StoodSince <= 4.0, $"{name}: pinned {home.T - home.StoodSince:0.00} s before he was put back");
+        }
+        double beyondSince = -1, worst = 0;
+        foreach (var s in r.Samples)
+        {
+            if (Flat(s.Boss, arena.BossSpot) > arena.ArenaRadius + WarfrontFortressBattleRules.HomeBeyond) { if (beyondSince < 0) beyondSince = s.T; worst = Math.Max(worst, s.T - beyondSince); }
+            else beyondSince = -1;
+        }
+        output.WriteLine($"{name}: longest stretch beyond the plaza's radius + {WarfrontFortressBattleRules.HomeBeyond:0} m {worst:0.00} s; health {r.StartHealth:0} -> min {r.MinHealth:0}; homes {r.Homes.Count}");
+        Assert.True(worst <= 2.0, $"{name}: {worst:0.00} s beyond");
+        Assert.Empty(r.BossStuck);   // Musou's failsafe never carried him
+        Assert.True(r.MinHealth <= r.StartHealth);
+    }
+
+    static readonly System.Numerics.Vector3 South = new(0f, -11f, 0f), West = new(-61f, 50f, 0f), East = new(61f, 50f, 0f);
+
+    /// <summary>Case 1: a human 20 m south of the Warboss inside the plaza: no regression, he reaches within 6 m in under 8 s at about 5.5 m/s.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void Case_1_human_20m_in_the_plaza_the_warboss_reaches_him_in_under_8_s()
+    {
+        var r = Pace("case 1", WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(0f, -20f, 0f), seconds: 10);
+        double reach = FirstTime(r, s => Flat(s.Boss, s.Human) <= 6f);
+        output.WriteLine($"case 1: within 6 m at {reach:0.00} s");
+        Assert.InRange(reach, 0.0, 8.0);
+        var arrive = r.Samples.First(s => s.T >= reach).Boss;
+        double speed = Flat(r.Samples[0].Boss, arrive) / Math.Max(reach, 0.25);
+        output.WriteLine($"case 1: average {speed:0.00} m/s over the approach");
+        Assert.True(speed >= 2.5, $"{speed:0.00} m/s");   // the floor is set from the measured value in the W14d report
+    }
+
+    /// <summary>Case 2: a human walking the plaza's edge (38 m out, 5 m/s): the Warboss gains or keeps up.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void Case_2_a_human_circling_the_plaza_edge_does_not_get_away_from_the_warboss()
+    {
+        var c = WarfrontSlots.Fortress.BossSpot;
+        var r = Pace("case 2", c + new System.Numerics.Vector3(38f, 0f, 0f), t => { double a = t * 5.0 / 38.0; return c + new System.Numerics.Vector3(38f * MathF.Cos((float)a), 38f * MathF.Sin((float)a), 0f); }, seconds: 12);
+        double d0 = Flat(r.Samples[0].Boss, r.Samples[0].Human), d1 = Flat(r.Samples[^1].Boss, r.Samples[^1].Human);
+        output.WriteLine($"case 2: distance {d0:0.0} m at the start, {d1:0.0} m at {r.Samples[^1].T:0.0} s");
+        Assert.True(d1 <= d0 + 1f, $"{d0:0.0} -> {d1:0.0}");
+    }
+
+    /// <summary>Cases 3 and 4: a human outside each opening, with the plaza's Orks (3) and without (4).</summary>
+    [Theory]
+    [Trait("Speed", "Slow")]
+    [InlineData("south", false)]
+    [InlineData("west", false)]
+    [InlineData("east", false)]
+    [InlineData("south", true)]
+    [InlineData("west", true)]
+    [InlineData("east", true)]
+    public void Cases_3_and_4_the_warboss_goes_through_each_opening_toward_a_human_outside(string opening, bool noOrks)
+    {
+        var at = opening switch { "south" => South, "west" => West, _ => East };
+        string name = $"case {(noOrks ? 4 : 3)} {opening}";
+        var r = Pace(name, at, clearOrks: noOrks, freeFirst: true, seconds: 15);
+        AssertArenaBoss(name, r);
+    }
+
+    /// <summary>The failsafe's way (a): Musou's stranded failsafe reports the Warboss (why 1, "relocated") and carries him away; the next tick he is put back on his spot, health unchanged, never removed.</summary>
+    [Fact]
+    public void A_warboss_carried_off_by_the_failsafe_is_put_back_on_his_spot_at_once_and_not_removed()
+    {
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var battle = server.World.Tfw!.Battle!;
+        var sim = server.World.Musou!;
+        int id = HumanOf(server);
+        Assert.True(server.World.TfwRespawnAt(id, WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(0f, -20f, 0f), 0f));
+        h.Run(TimeSpan.FromMilliseconds(300));
+        Assert.False(sim.Leashed(battle.BossId));
+        Assert.True(server.World.TfwRespawnAt(id, South, 0f));   // nobody in the plaza now
+        sim.TryGet(battle.BossId, out var before);
+        var far = new System.Numerics.Vector3(0f, -160f, 0f);   // where Musou's failsafe sends a stranded boss: a still-sending outer source
+        Assert.True(sim.Relocate(battle.BossId, far));
+        typeof(TfwBattle).GetMethod("WarfrontStuck", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(battle, [battle.BossId, MusouEnemyType.Warboss, before.Position, (byte)1]);
+        int homes = battle.FortressWarbossHomes;
+        h.Run(TimeSpan.FromMilliseconds(200));
+        Assert.True(sim.TryGet(battle.BossId, out var after));
+        Assert.Equal(homes + 1, battle.FortressWarbossHomes);
+        Assert.True(Flat(after.Position, WarfrontSlots.Fortress.BossSpot) < 5f, $"{after.Position}");
+        Assert.True(after.Health <= before.Health);
+        Assert.False(battle.Won);
+    }
+
+    /// <summary>The human walks back into the plaza from outside the south opening: the Warboss follows him back in within 10 s (he is not left outside).</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void The_human_walks_back_into_the_plaza_and_the_warboss_follows_him_in_within_10_s()
+    {
+        var arena = WarfrontSlots.Fortress;
+        var inside = arena.BossSpot + new System.Numerics.Vector3(0f, -25f, 0f);
+        var r = Pace("walk back", South, freeFirst: true, seconds: 25, jumps: [(12, inside)]);
+        double back = FirstTime(r, s => s.T >= 12 && Flat(s.Boss, s.Human) <= 10f);
+        output.WriteLine($"walk back: the Warboss is within 10 m of him again at {back:0.00} s (the human went back at 12 s)");
+        Assert.InRange(back, 12.0, 22.0);
+        double attack = r.Attacks.FirstOrDefault(a => a.T >= 12 && a.Attacking).T;
+        output.WriteLine($"walk back: his first attack after the human is back in the plaza at {attack:0.00} s (homes {r.Homes.Count})");
+        Assert.InRange(attack, 12.0, 22.0);   // within 10 s of the human's return
+        Assert.Empty(r.BossStuck);
+    }
+
+    /// <summary>Case 5: a second Warboss, never leashed (a plain Spawn, no fortress rule, no boss script), on the fortress's open outer yard (no wall within 30 m) 30 m from the human; the fortress's own Warboss stays leashed in the plaza. Unchanged by the lean: he closes the 30 m.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void Case_5_a_second_warboss_on_the_open_yard_closes_30m_to_a_human()
+    {
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var sim = server.World.Musou!;
+        var battle = server.World.Tfw!.Battle!;
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = sim.CopyTo(all); for (int k = 0; k < n; k++) if (all[k].Id != battle.BossId) sim.Remove(all[k].Id);   // the fortress's own Warboss stays, leashed in the plaza (removing him would end the battle)
+        int id = HumanOf(server);
+        var human = new System.Numerics.Vector3(0f, -140f, 0f);
+        Assert.True(server.World.TfwRespawnAt(id, human, 0f));
+        var from = new System.Numerics.Vector3(0f, -170f, 0f);
+        ushort boss = sim.Spawn(MusouEnemyType.Warboss, from, 0f, 1e6f);
+        Assert.NotEqual(0, (int)boss);
+        double reach = -1;
+        for (int sec = 1; sec <= 15 && reach < 0; sec++)
+        {
+            if (sim.TryGet(boss, out var bs)) output.WriteLine($"{sec - 1} s: boss ({bs.Position.X:0.0}, {bs.Position.Y:0.0}) state {bs.State} dist {Flat(bs.Position, human):0.0}");
+            for (int t = 0; t < 1000; t++)
+            {
+                h.Step();
+                if (t % 100 == 0) { int m = sim.CopyTo(all); for (int k = 0; k < m; k++) if (all[k].Id != boss && all[k].Id != battle.BossId) sim.Remove(all[k].Id); }
+                if (t % 50 == 0 && sim.TryGet(boss, out var b) && Flat(b.Position, human) <= 10f) { reach = sec - 1 + t / 1000.0; break; }
+            }
+        }
+        output.WriteLine($"case 5: within 10 m of the human (his melee ring) at {reach:0.00} s");
+        Assert.InRange(reach, 0.0, 15.0);
+    }
+
+    /// <summary>Output only: does Musou's own Warboss (the Warfront object null) pin at the walls of a plaza opening as the fortress's did? A Musou-run Warboss is the same Move without the lean. The finding goes to the lead; Musou is not changed here.</summary>
+    [Fact(Skip = "W14d diagnostic (output only): the answer is in the W14d report; run by hand with the console logger")]
+    public void W14d_musou_own_warboss_pinned_on_a_wall_opening_with_the_warfront_object_null()
+    {
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var sim = server.World.Musou!;
+        var battle = server.World.Tfw!.Battle!;
+        typeof(MusouSim).GetProperty("Warfront", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(sim, null);   // (internal setter)  // Musou's own run: no Warfront object, so the lean hook leaves the Warboss as Musou has him
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = sim.CopyTo(all); for (int k = 0; k < n; k++) if (all[k].Id != battle.BossId) sim.Remove(all[k].Id);
+        int id = HumanOf(server);
+        Assert.True(server.World.TfwRespawnAt(id, WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(0f, -20f, 0f), 0f));
+        h.Run(TimeSpan.FromMilliseconds(300));
+        Assert.True(server.World.TfwRespawnAt(id, South, 0f));
+        var last = default(System.Numerics.Vector3);
+        for (int sec = 1; sec <= 20; sec++)
+        {
+            h.Run(TimeSpan.FromSeconds(1));
+            if (sim.TryGet(battle.BossId, out var b)) { output.WriteLine($"{sec,2} s: boss ({b.Position.X:0.0}, {b.Position.Y:0.0}) moved {Flat(b.Position, last):0.00} m, human {South}"); last = b.Position; }
+        }
     }
 
     /// <summary>The whole party falls: the retainers first (a standing one revives its fallen owner in seconds), then the human; the window and the spectator time pass, then the wipe rule ends the battle.</summary>
@@ -338,8 +625,57 @@ public class WarfrontFortressStageTests : IDisposable
         WriteStuck(r.Stuck);
     }
 
+    /// <summary>
+    /// W14e part 2 (output only, then pinned by the assert at the end): the breach lure that "ended the battle around 50 s with the Warboss gone" in W14d, run as W14d ran it (the Hold sequence up to the breach), with the Warboss's health, state, position and the
+    /// console's stuck lines written every second and at the last step before the battle ends. Asserts that the battle ends only with the Warboss dead of damage (health at or under 0 at his last sample) or not at all.
+    /// </summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void W14e_the_breach_lure_never_ends_the_battle_with_the_warboss_alive()
+    {
+        using var capture = new ConsoleCapture();
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var run = server.World.Tfw!;
+        var battle = run.Battle!;
+        var plan = run.Warfront!.Fortress!.Plan;
+        var sim = server.World.Musou!;
+        int id = HumanOf(server);
+        var last = (Time: 0.0, Pos: default(System.Numerics.Vector3), Health: 0f, State: default(MusouEnemyState), Alive: true, Leashed: false, Seen: false);
+        double t0 = 0;
+        string Line(double t) => $"{t:0.00} s: boss ({last.Pos.X:0.0}, {last.Pos.Y:0.0}) health {last.Health:0} state {last.State} alive {last.Alive} leashed {last.Leashed}";
+        bool Watch(System.Numerics.Vector3 at, int seconds, string what)
+        {
+            server.World.TfwRespawnAt(id, at, 0f);
+            for (int sec = 0; sec < seconds; sec++)
+            {
+                for (int t = 0; t < 1000; t++)
+                {
+                    h.Step();
+                    if (run.Battle is null) { output.WriteLine($"battle ended during '{what}' at {sec} s (+{t} ms): last sample " + Line(t0 + sec + t / 1000.0) + $"; the human was at {(server.World.Players.TryGetValue(id, out var hp) ? hp.Position.ToString() : "gone")}; campaign phase {server.WarfrontCampaignForTests!.Phase}; battle.Won {battle.Won}"); return false; }
+                    if (sim.TryGet(battle.BossId == 0 ? (ushort)0 : battle.BossId, out var b)) last = (t0 + sec + t / 1000.0, b.Position, b.Health, b.State, b.Alive, sim.Leashed(b.Id), true);
+                }
+                if (server.World.Players.TryGetValue(id, out var me) && !me.Alive) server.World.TfwRespawnAt(id, at, 0f);
+                if (sec % 5 == 4) output.WriteLine($"  [{what}] " + Line(t0 + sec + 1));
+            }
+            t0 += seconds;
+            return true;
+        }
+        var inPlaza = plan.BossSpot + new System.Numerics.Vector3(0f, -30f, 0f);
+        bool ok = Watch(inPlaza, 10, "in the plaza")
+            && Watch(plan.BossSpot + new System.Numerics.Vector3(0f, -12f, 0f), 30, "12 m south of him")
+            && Watch(plan.PlazaGate + new System.Numerics.Vector3(0f, -15f, 0f), 90, "outside the plaza gate")
+            && Watch(plan.Gate + new System.Numerics.Vector3(0f, -19f, 0f), 90, "outside the south gate")
+            && Watch(inPlaza, 90, "back in the plaza")
+            && Watch(plan.Breach + new System.Numerics.Vector3(0f, -25f, 0f), 90, "outside the breach");
+        foreach (var l in capture.Lines().Where(l => l.Contains("warfront stuck:") && l.Contains(", Warboss at"))) output.WriteLine("  boss stuck line: " + l);
+        output.WriteLine(ok ? "the battle ran to the end of the sequence; last sample " + Line(t0) : "the battle ended");
+        if (!ok) Assert.True(last.Health <= 0f || !last.Alive, "the battle ended with the Warboss alive: " + Line(0));
+    }
+
     /// <summary>Review 2, item 2 (output only): once the Warboss is freed, does a human outside each opening draw him through it? The human is held 90 s just outside the plaza gate, outside the south gate, back in the plaza and outside the breach; his nearest approach to each opening and his south-most y are written.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void The_freed_warboss_is_drawn_out_of_the_plaza_through_each_opening_and_back()
     {
         var h = Start(out var server);
@@ -348,7 +684,7 @@ public class WarfrontFortressStageTests : IDisposable
         var battle = run.Battle!;
         var plan = run.Warfront!.Fortress!.Plan;
         int id = HumanOf(server);
-        int rate = server.World.Config.TickRate;
+        const int rate = 1000;   // W14d: the harness steps 1 ms of game time, so 1000 steps are one second (it was TickRate steps: 60 ms)
         var inPlaza = plan.BossSpot + new System.Numerics.Vector3(0f, -30f, 0f);
         var buffer = new MusouEnemy[MusouSim.Capacity];
         float Flat(System.Numerics.Vector3 a, System.Numerics.Vector3 b) => System.Numerics.Vector2.Distance(new(a.X, a.Y), new(b.X, b.Y));
