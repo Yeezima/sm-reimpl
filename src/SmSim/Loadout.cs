@@ -481,6 +481,13 @@ public static class Shots
     /// <paramref name="index"/> of <see cref="SimConfig.Thrown"/> (stage must be 0); else shot <paramref name="stage"/> of
     /// weapon <paramref name="index"/>. Null when the config has no such projectile.
     /// </summary>
+    public static ProjectileSpec? ProjectileOf(SimConfig c, int index, int stage, bool thrown, bool upgraded)
+    {
+        if (thrown && upgraded && stage == 0 && index >= 0 && index < c.Thrown.Count && c.Thrown[index].UpgradedProjectile is { } up) return up;   // protocol 83
+        return ProjectileOf(c, index, stage, thrown);
+    }
+
+    /// <summary>As above for a record's own item (the base projectile).</summary>
     public static ProjectileSpec? ProjectileOf(SimConfig c, int index, int stage, bool thrown)
     {
         if (thrown) return stage == 0 && index >= 0 && index < c.Thrown.Count ? c.Thrown[index].Projectile : null;
@@ -521,6 +528,13 @@ public sealed record ThrownSpec(string Name, int Count, int InitialCount, float 
 
     /// <summary>The item for a player with <paramref name="upgrades"/>.</summary>
     public ThrownSpec With(PerkUpgrades upgrades) => SmSim.Variants.Pick(this, Variants, upgrades);
+
+    /// <summary>
+    /// The projectile a variant launches in place of <see cref="Projectile"/> (Master-Crafted Wargear's blueprint: bigger blast, its own sound events; protocol 83), or null when no variant
+    /// changes the blueprint. What a snapshot record marked <see cref="SmNet.ProjectileFlags.Upgraded"/> stands for.
+    /// </summary>
+    public ProjectileSpec? UpgradedProjectile => Variants.Select(v => v.Spec.Projectile)
+        .FirstOrDefault(p => !string.Equals(p.Blueprint, Projectile.Blueprint, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// perks/inert-2: combat stims (<see cref="StimSpec"/>), or null for a thrown item. A stim launches nothing: <see cref="Projectile"/> is

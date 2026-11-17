@@ -263,6 +263,11 @@ public partial class NetworkView
     /// </summary>
     static float FlashRestartAge(float age) => OldDamageFlash || age >= FlashSeconds ? 0f : Math.Min(age, FlashSeconds * 0.18f);
 
+    /// <summary>Added content may turn the own damage flash off (Musou Mode: while the own player is the Dreadnought); the HUD's damage vignette follows it (<see cref="_damageFlashOff"/>).</summary>
+    partial void ExtrasDamageFlashOff(PlayerState me, ref bool off);
+    /// <summary>True while added content keeps the own damage flash off (not set by the <c>--no-damage-flash</c> test aid); handed to the HUD so its vignette is off too.</summary>
+    bool _damageFlashOff;
+
     ColorRect? _damageRect;
     ShaderMaterial? _damageMaterial;
     float _armourFlashAge = 9f, _healthFlashAge = 9f;
@@ -317,7 +322,10 @@ public partial class NetworkView
             }
         }
         _armourFlashAge += (float)delta; _healthFlashAge += (float)delta;
-        if (NoDamageFlash) { _damageRect.Visible = false; return; }
+        bool flashOff = NoDamageFlash;
+        ExtrasDamageFlashOff(me, ref flashOff);   // EXTRAS-HOOK: added content turns the own damage flash and the HUD vignette off (Musou: the Dreadnought, owner 2026-11-15)
+        _damageFlashOff = flashOff && !NoDamageFlash;   // the HUD reads it next frame (UpdateHud runs before this): at most one frame of vignette on the first Dreadnought frame
+        if (flashOff) { _damageRect.Visible = false; return; }
         float armourNow = me.Alive ? ArmourPeak * FlashEnvelope(_armourFlashAge) : 0f, healthNow = me.Alive ? HealthPeak * FlashEnvelope(_healthFlashAge) : 0f;   // the death vignette (M23) takes over when dead
         _damageRect.Visible = armourNow > 0.002f || healthNow > 0.002f;
         if (!_damageRect.Visible) return;

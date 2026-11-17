@@ -216,15 +216,15 @@ public class TfwDropPodTests
             var p = w.Players[m.Id];
             Assert.True(p.Alive);
             Assert.Equal(Team.SpaceMarines, p.Team);
-            Assert.InRange(MarineBrain.Flat(p.Position, Open), 2f, TfwDropPodRules.DoorRing + 3f);
+            Assert.InRange(MarineBrain.Flat(p.Position, Open), 0f, TfwDropPodRules.DoorRing + 3f);   // already on patrol a moment after the doors
         });
         Assert.Equal(TfwPodPhase.Fighting, pod.Phase);
         Assert.Equal(TfwDropPodRules.Marines, marines.Select(m => m.Name).Distinct().Count());
-        // 30 s of fighting from stepping out, held on the spot: still here a little before the end, retreating just after it.
+        // 30 s of fighting from stepping out, patrolling within 60 m of the pod: still here a little before the end, retreating just after it.
         TfwRig.Seconds(w, TfwDropPodRules.FightSeconds - 3f);
         Assert.Equal(TfwPodPhase.Fighting, pod.Phase);
         Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());
-        Assert.All(PodMarines(w), m => Assert.InRange(MarineBrain.Flat(w.Players[m.Id].Position, Open), 0f, TfwDropPodRules.DoorRing + 6f));
+        Assert.All(PodMarines(w), m => Assert.InRange(MarineBrain.Flat(w.Players[m.Id].Position, Open), 0f, TfwDropPodRules.PatrolRadius));   // they patrol the ring now (owner 2026-11-17), never past it
         TfwRig.Seconds(w, 4f);
         Assert.Equal(TfwPodPhase.Retreating, pod.Phase);
         // The retreat ends at the HQ or after the longest retreat; then every Marine is gone and the wreck follows a moment later.
@@ -245,6 +245,140 @@ public class TfwDropPodTests
         Assert.Contains(records, r => r.Kind == TfwFireKind.Pod && r.To.X > 0.5f && r.Subject == Human && r.Tick == pod.EndTick);
         TfwRig.Seconds(w, TfwDropPodRules.WreckSeconds + 0.3f);
         Assert.Empty(run.Pods);
+    }
+
+    /// <summary>Lands a pod at <see cref="Open"/>, runs until the Marines step out, and returns it.</summary>
+    static TfwPod LandAndStepOut(World w)
+    {
+        Assert.True(w.TfwDropPod(Human, Open));
+        TfwRig.Seconds(w, TfwDropPodRules.LandSeconds + TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds + 0.1f);
+        Assert.Equal(TfwDropPodRules.Marines, PodMarines(w).Count());
+        return w.Tfw!.Pods[0];
+    }
+
+    static float WorstRing(World w) => PodMarines(w).Select(m => MarineBrain.Flat(w.Players[m.Id].Position, Open)).DefaultIfEmpty(0f).Max();
+
+    [Fact]
+    public void With_no_target_the_marines_wander_the_ring_and_never_leave_60_m_of_the_pod()
+    {
+        var w = Battle();
+        var pod = LandAndStepOut(w);
+        float farthest = 0f;
+        int rate = w.Config.TickRate;
+        var start = PodMarines(w).ToDictionary(m => m.Id, m => w.Players[m.Id].Position);
+        for (int k = 0; k < (int)(TfwDropPodRules.FightSeconds - 2f) * rate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            farthest = MathF.Max(farthest, WorstRing(w));
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolRadius, "a patrolling Marine left the 60 m ring");
+        }
+        Assert.Equal(TfwPodPhase.Fighting, pod.Phase);
+        Assert.True(farthest > 12f, $"they wandered off the pod ({farthest:F1} m at the farthest)");
+        Assert.Contains(PodMarines(w), m => MarineBrain.Flat(w.Players[m.Id].Position, start[m.Id]) > 8f);
+    }
+
+    [Fact]
+    public void With_no_target_in_sight_the_marines_walk_toward_an_ork_inside_60_m()
+    {
+        var w = Battle();
+        var pod = LandAndStepOut(w);
+        var ork = Enemy(w, MusouEnemyType.Boy, Open + new Vector3(48f, 0f, 0f));
+        float closest = float.MaxValue;
+        for (int k = 0; k < 20 * w.Config.TickRate && w.Musou!.TryGet(ork, out var e) && e.State != MusouEnemyState.Dying; k++)
+        {
+            TfwRig.Steps(w, 1);
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolRadius);
+            if (w.Musou.TryGet(ork, out var now)) foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, now.Position));
+        }
+        Assert.True(closest < 26f, $"a Marine closed on the Ork he could not see ({closest:F1} m at the closest, from 48 m)");
+        Assert.Equal(TfwPodPhase.Fighting, pod.Phase);
+    }
+
+    [Fact]
+    public void An_ork_outside_60_m_is_not_sought_and_the_ring_holds_with_enemies_all_round()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        foreach (float angle in new[] { 0f, 1.6f, 3.2f, 4.7f }) Enemy(w, MusouEnemyType.Boy, Open + new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f) * 75f);
+        for (int k = 0; k < 20 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolRadius, "a Marine went after an Ork past the ring");
+        }
+    }
+
+    [Fact]
+    public void An_ork_that_comes_in_sight_is_fought_and_the_30_s_retreat_is_unchanged()
+    {
+        var w = Battle();
+        var pod = LandAndStepOut(w);
+        var marine = PodMarines(w).First();
+        var near = w.Players[marine.Id].Position + new Vector3(12f, 0f, 0f);
+        var ork = Enemy(w, MusouEnemyType.Boy, near);
+        TfwRig.Seconds(w, 6f);
+        Assert.True(!w.Musou!.TryGet(ork, out var e) || e.State == MusouEnemyState.Dying || e.Health < w.Musou.Rules.Of(MusouEnemyType.Boy).Health, "the Marines fought the Ork that came in sight");
+        TfwRig.Seconds(w, TfwDropPodRules.FightSeconds);
+        Assert.Contains(pod.Phase, new[] { TfwPodPhase.Retreating, TfwPodPhase.Wreck });   // 30 s from stepping out, as before
+    }
+
+    [Fact]
+    public void An_ork_in_a_crowd_is_not_sought_but_a_lone_one_is()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        var centre = Open + new Vector3(48f, 0f, 6f);   // over the sight's height: only a seek could bring a Marine close
+        for (int k = 0; k < 9; k++) Enemy(w, MusouEnemyType.Boy, centre + new Vector3(k % 3 * 1.5f, k / 3 * 1.5f, 0f));
+        float closest = float.MaxValue;
+        for (int k = 0; k < 20 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            if (k < w.Config.TickRate) Assert.DoesNotContain(PodMarines(w), m => m.PatrolSeeks);   // while the Orks still stand in their crowd, no seek starts
+            foreach (var m in PodMarines(w)) closest = MathF.Min(closest, MarineBrain.Flat(w.Players[m.Id].Position, centre));
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolRadius);
+        }
+        Assert.True(closest >= 20f, $"a Marine walked into the crowd ({closest:F1} m from its centre)");
+    }
+
+    [Fact]
+    public void A_seek_that_never_gets_a_target_in_sight_is_given_up_after_15_s()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        Enemy(w, MusouEnemyType.Boy, Open + new Vector3(40f, 0f, 6f));   // over the Marines' sight's 2.5 m of height, within the seek's 8 m: never in sight
+        bool seeking = false, gaveUp = false;
+        for (int k = 0; k < 25 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            foreach (var m in PodMarines(w)) { seeking |= m.PatrolSeeks; gaveUp |= m.PatrolSeekBlockedUntil != 0; }
+        }
+        Assert.True(seeking, "a Marine sought the Ork");
+        Assert.True(gaveUp, "a Marine gave up the seek of an Ork he could not see");
+    }
+
+    [Fact]
+    public void An_ork_near_the_edge_of_the_ring_never_draws_a_marine_past_the_turn_back()
+    {
+        var w = Battle();
+        LandAndStepOut(w);
+        Enemy(w, MusouEnemyType.Boy, Open + new Vector3(0f, 56f, 0f));
+        for (int k = 0; k < 28 * w.Config.TickRate; k++)
+        {
+            TfwRig.Steps(w, 1);
+            Assert.True(WorstRing(w) <= TfwDropPodRules.PatrolPullBack + 1.5f, "a Marine went past the turn-back");
+        }
+    }
+
+    [Fact]
+    public void The_patrol_is_deterministic()
+    {
+        static List<Vector3> Run()
+        {
+            var w = Battle();
+            LandAndStepOut(w);
+            TfwRig.Seconds(w, 12f);
+            return PodMarines(w).OrderBy(m => m.Id).Select(m => w.Players[m.Id].Position).ToList();
+        }
+        Assert.Equal(Run(), Run());
     }
 
     [Fact]

@@ -30,9 +30,9 @@ public static partial class MusouCleaveShape
 
     /// <summary>
     /// The cleave of <paramref name="step"/> by a player wielding <paramref name="wargear"/>, in a war (<paramref name="war"/>) or in the 5-wave run. <paramref name="human"/>: a human player's character
-    /// (the war's x0.6, <see cref="TfwCombatRules.ScalesPlayer"/>); false for an AI Marine, who keeps the reach before it.
+    /// (the war's x0.6, <see cref="TfwCombatRules.ScalesPlayer"/>); false for an AI Marine, who keeps the reach before it. <paramref name="dreadnought"/>: the Dreadnought's arm (reach x<see cref="DreadnoughtRules.CleaveReachScale"/>, no count cap).
     /// </summary>
-    public static Shape Of(SimConfig config, MeleeStep step, bool war, string? wargear = null, bool human = true)
+    public static Shape Of(SimConfig config, MeleeStep step, bool war, string? wargear = null, bool human = true, bool dreadnought = false)
     {
         var rules = (config.MusouRules ?? MusouRules.Default).Combat;
         float reach = rules.CleaveRange(config.MeleeRange, step.TrackToHit, war);
@@ -47,6 +47,7 @@ public static partial class MusouCleaveShape
         }
         if (config.Extras.HasFlag(ContentExtras.Musou)) ArsenalShape(wargear, ref reach, ref half, ref most);
         if (war && human) reach *= TfwCombatRules.Default.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape, as World.MusouCleave)
+        if (dreadnought) { reach *= DreadnoughtRules.CleaveReachScale; most = MusouSim.Capacity; }   // owner 2026-11-17: his cleave +50 %, and no cap since the buff (World.MusouCleave)
         return new Shape(reach, half, most);
     }
 

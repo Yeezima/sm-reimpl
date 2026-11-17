@@ -353,17 +353,30 @@ public sealed record ShotEffects(IReadOnlyList<FxPlay> Fire, FxPlay? Muzzle, FxP
 /// </summary>
 public sealed record ThrownEffects(string Wargear, IReadOnlyList<FxBinding> Bindings, ProjectileEffects? Projectile)
 {
+    /// <summary>
+    /// The effects of the Master-Crafted Wargear blueprint (grenade-effects, protocol 83: a thrown item whose ability names a second blueprint ending
+    /// <c>_upgraded</c>, which its <c>by_upgrade</c> entry swaps in), or null when the item has none. A grenade the wire marks upgraded draws these.
+    /// </summary>
+    public ProjectileEffects? Upgraded { get; init; }
+
     public static ThrownEffects Read(string wargear, BafDocument doc, Func<string, BafDocument?>? blueprints, List<string> notes)
     {
         var delivery = doc.Root.Table("ability_data/ability_definitions/ability_utility/delivery");
         var typeEntry = WeaponTuning.DefaultEntry(delivery?.Table("ranged_delivery_type"), "entry");
-        ProjectileEffects? projectile = null;
-        if (typeEntry?.Table("type")?.String("ebp") is { Length: > 0 } path)
+        ProjectileEffects? projectile = null, upgraded = null;
+        string? basePath = typeEntry?.Table("type")?.String("ebp");
+        if (basePath is { Length: > 0 } path)
         {
             if (blueprints?.Invoke(path) is { } bp) projectile = new ProjectileEffects(path, FxBinding.Collect(bp.Root));
             else notes.Add($"{wargear}: projectile blueprint '{path}' not found; no projectile effects");
+            foreach (var other in EffectCatalogue.Strings(doc.Root, "ebp").Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (other.Equals(path, StringComparison.OrdinalIgnoreCase) || !other.EndsWith("_upgraded", StringComparison.OrdinalIgnoreCase)) continue;
+                if (blueprints?.Invoke(other) is { } ubp) { upgraded = new ProjectileEffects(other, FxBinding.Collect(ubp.Root)); break; }
+                notes.Add($"{wargear}: upgraded projectile blueprint '{other}' not found; the base effects stand in for it");
+            }
         }
-        return new ThrownEffects(wargear, FxBinding.Collect(doc.Root), projectile);
+        return new ThrownEffects(wargear, FxBinding.Collect(doc.Root), projectile) { Upgraded = upgraded };
     }
 }
 
@@ -735,7 +748,8 @@ public sealed class EffectCatalogue
             int before = Changes;
             var bindings = Bindings(t.Bindings);
             var projectile = t.Projectile is null ? null : Projectile(t.Projectile);
-            return Changes == before ? t : t with { Bindings = bindings, Projectile = projectile };
+            var upgraded = t.Upgraded is null ? null : Projectile(t.Upgraded);
+            return Changes == before ? t : t with { Bindings = bindings, Projectile = projectile, Upgraded = upgraded };
         }
     }
 

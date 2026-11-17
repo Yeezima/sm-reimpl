@@ -124,7 +124,7 @@ public partial class NetworkView
         float sin = MathF.Sin(s.Yaw), cos = MathF.Cos(s.Yaw);
         var camera = s.Position + new Num.Vector3(cam.X * cos - cam.Y * sin, cam.X * sin + cam.Y * cos, cam.Z);
         _rebuiltCamera = camera;
-        var origin = BulletPaths.OriginOnCameraRay(camera, Combat.AimDirection(s.Yaw, s.Pitch), eye, c.MaxShotOriginOffset);
+        var origin = BulletPaths.OriginOnCameraRay(camera, Combat.AimDirection(s.Yaw, s.Pitch), eye, c.For(s.Class).MaxShotOriginOffset);
         var offset = origin - eye;
         float length = offset.Length();
         if (length > 1e-6f && _client?.Collision?.Weapons.Raycast(eye, offset / length, length) is { } wall && wall.Distance <= length) return eye;

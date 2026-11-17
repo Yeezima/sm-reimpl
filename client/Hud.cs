@@ -124,6 +124,8 @@ public sealed partial class Hud : Control
         public readonly List<Point> Points = new();
         /// <summary>Fidelity gap 10: the world decorators over other players this frame (<see cref="Decorator"/>).</summary>
         public readonly List<Decorator> Decorators = new();
+        /// <summary>Grenade effects pass: the orange in-flight markers of the player's own thrown grenades this frame (Hud.GrenadeMarker.cs).</summary>
+        public readonly List<GrenadeMark> GrenadeMarks = new();
         /// <summary>ui/hud-fidelity: the interaction prompt ("Pick up Ammo"; empty: none) and its key, drawn by the HUD from the movie's prompt (NetworkView.Pickups.cs fills them).</summary>
         public string Prompt = "", PromptKey = "E";
         // Status.
@@ -142,6 +144,8 @@ public sealed partial class Hud : Control
         public bool Aiming, Braced;
         /// <summary>ui/hud-3: the own player has the Iron Halo perk (the armour bar with the starburst medallion; others get the reference's bar without it).</summary>
         public bool IronHalo;
+        /// <summary>Added content keeps the own damage vignette off (Musou Mode: the Dreadnought, owner 2026-11-15); the health bar and hit sounds stay.</summary>
+        public bool DamageVignetteOff;
         /// <summary>ui/hud-3: the weapon box's bar for a recharging weapon (the melta): 0..1 progress to the next shot, or negative to use the clip's/heat's own fraction.</summary>
         public float WeaponBarFull = -1f;
         public bool AimedAtEnemy;
@@ -439,6 +443,7 @@ public sealed partial class Hud : Control
         if (!d.InGame) { DrawHint(); FlushAdditive(); return; }
         DrawDamageVignette(vs);   // ui/hud-3: the own damage as a screen-edge flash
         DrawPlayerDecorators(vs);   // fidelity gap 10: under the panels
+        DrawGrenadeMarkers(vs);   // grenade effects pass: the in-flight marker
         DrawVitals(vs);
         DrawEvents(vs);
         DrawKillFeed(vs);

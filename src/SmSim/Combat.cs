@@ -655,7 +655,7 @@ public static class Combat
                 used |= InputBuffer.Bit(BufferedAction.Melee);
                 step = MeleeChain.MusouSwing(lightSteps, step, input.Tick, s.PlayerId);
                 m = lightSteps[step - 1];
-                time = 0f; queued = false; queuedHeavy = false; startedNow = true; meleePress = false;
+                time = ChainLead(m); queued = false; queuedHeavy = false; startedNow = true; meleePress = false;
                 if (m.HitTime <= 0f) { meleeHitStep = step; hitHeavy = false; }
                 if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, 0f, MathF.Min(dt, m.Duration));
             }
@@ -672,7 +672,7 @@ public static class Combat
                 if (queuedHeavy) { step = heavyTarget; heavy = true; }
                 else { step = musou ? MeleeChain.MusouSwing(lightSteps, heavy ? 0 : step, input.Tick, s.PlayerId) : heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
                 steps = heavy ? heavySteps : lightSteps;
-                time = 0f; queued = false; queuedHeavy = false; startedNow = true;
+                time = heavy ? 0f : ChainLead(steps[step - 1]); queued = false; queuedHeavy = false; startedNow = true;
                 if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
             }
             else if (time >= m.Duration) { step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; }
@@ -1214,6 +1214,9 @@ public static class Combat
     /// </summary>
     public static Vector3 EyePosition(PlayerState s, SimConfig c) => s.Position + new Vector3(0, 0, c.EyeHeight);
 
+    /// <summary>musou/chain-lead-in: the clip time a chained light swing of step <paramref name="m"/> starts at (<see cref="MeleeStep.ChainLeadIn"/>, kept clear of its hit so the hit still lands); 0 for every step without it.</summary>
+    static float ChainLead(MeleeStep m) => m.ChainLeadIn > 0f ? MathF.Min(m.ChainLeadIn, MathF.Max(0f, m.HitTime - 0.05f)) : 0f;
+
     /// <summary>
     /// Where a shot, projectile, thrown item or melta cone leaves from (protocol 12; rules ours, spec/behavior.md): the eye
     /// moved by the input's <see cref="PlayerInput.ShotOrigin"/>, shortened to <see cref="SimConfig.MaxShotOriginOffset"/>;
@@ -1225,10 +1228,29 @@ public static class Combat
         var offset = input.Sanitized().ShotOrigin;
         float length = offset.Length();
         if (length < 1e-6f) return eye;
-        float max = float.IsFinite(c.MaxShotOriginOffset) ? MathF.Max(0f, c.MaxShotOriginOffset) : 0f;
-        if (length > max) { offset *= max / length; length = max; }
+        var body = c.For(s.Class);   // a class body may carry its own cut (BodySpec.MaxShotOrigin: the Musou Dreadnought's)
+        float max = float.IsFinite(body.MaxShotOriginOffset) ? MathF.Max(0f, body.MaxShotOriginOffset) : 0f;
+        bool cut = length > max;
+        if (cut) { offset *= max / length; length = max; }
         if (length < 1e-6f) return eye;
-        if (world?.Weapons.Raycast(eye, offset / length, length) is { } wall && wall.Distance <= length) return eye;
+        if (world?.Weapons.Raycast(eye, offset / length, length) is { } wall && wall.Distance <= length)
+        {
+            // A body with a longer cut (the Dreadnought's camera sits about 4 m from his eye) keeps the camera ray when level geometry lies between his eye and the ray's nearest point (a wall behind him):
+            // the origin slides along the camera ray, forward, to the first point the eye sees, so the round still passes the point of aim; the eye itself when there is none within the cut.
+            if (!cut && body.MaxShotOriginOffset > c.MaxShotOriginOffset)
+            {
+                var from = eye + offset;
+                var along = ShotDirection(input, c);
+                for (float t = 0.25f; t <= max; t += 0.25f)
+                {
+                    var p = from + along * t;
+                    var seg = p - eye;
+                    float len = seg.Length();
+                    if (len < 1e-4f || world.Weapons.Raycast(eye, seg / len, len) is not { } blocked || blocked.Distance > len) return p;
+                }
+            }
+            return eye;
+        }
         return eye + offset;
     }
 

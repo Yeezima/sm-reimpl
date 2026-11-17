@@ -20,6 +20,7 @@ public partial class NetworkView
     static readonly bool DreadLightLog = CmdFlag("dn-light-log");
     double _dnLightAt, _dnEnvAt;
     string _dnDir = "";
+    static readonly int DreadFixedCam = int.TryParse(CmdArg("dn-cam"), out var fixedCam) ? fixedCam : 0;
 
     async Task DnStill(int cam, string name)
     {
@@ -52,6 +53,7 @@ public partial class NetworkView
         if (!await AutocannonDeploy()) return;
         TfwCheck("he is the Dreadnought after the landing", IsDreadnoughtClass(client.Predicted.Class), client.Predicted.Class.ToString());
         if (CmdFlag("dn-survive")) { await DnSurvive(); return; }
+        if (CmdFlag("dn-pass-film")) { await DnPassFilm(); return; }
         if (CmdFlag("dn-melee-film")) { await DnMeleeFilm(); return; }
         if (CmdFlag("dn-fire-film")) { await DnFireFilm(); return; }
         if (CmdFlag("dn-da-film")) { await DnDaFilm(); return; }
@@ -307,7 +309,8 @@ public partial class NetworkView
     /// <summary>The camera off the player for the capture's third-person views, after the game's own camera; nothing without the aid. The player is 3 m tall: 7 m off.</summary>
     void DreadnoughtCamFrame()
     {
-        if (_dnCam == 0 || _camera is not { } camera || _gameSpace is null || _client is null) return;
+        int cam = _dnCam != 0 ? _dnCam : DreadFixedCam;   // --dn-cam n: a replay of a recorded demo seen from the capture view n (the film script that sets _dnCam does not run in a replay)
+        if (cam == 0 || _camera is not { } camera || _gameSpace is null || _client is null) return;
         if (DreadLightLog && _connectedFor >= _dnEnvAt)
         {
             _dnEnvAt = _connectedFor + 0.05;
@@ -319,8 +322,8 @@ public partial class NetworkView
         var fwd = new Vector3(-MathF.Sin(_yaw), MathF.Cos(_yaw), 0f);
         var right = new Vector3(MathF.Cos(_yaw), MathF.Sin(_yaw), 0f);
         var feet = new Vector3(p.X, p.Y, p.Z);
-        var look = _dnCam switch { 4 => feet + right * 1.4f + fwd * 2.4f + Vector3.Back * 2.5f, 5 => feet + Vector3.Back * 3.4f, 6 => feet - right * 0.9f + fwd * 2.2f + Vector3.Back * 2.3f, _ => feet + Vector3.Back * 1.6f };
-        var eye = _dnCam switch
+        var look = cam switch { 4 => feet + right * 1.4f + fwd * 2.4f + Vector3.Back * 2.5f, 5 => feet + Vector3.Back * 3.4f, 6 => feet - right * 0.9f + fwd * 2.2f + Vector3.Back * 2.3f, _ => feet + Vector3.Back * 1.6f };
+        var eye = cam switch
         {
             1 => feet + right * 7f + Vector3.Back * 2.2f,
             2 => feet - fwd * 7f + right * 1.0f + Vector3.Back * 4.0f,

@@ -115,6 +115,8 @@ public sealed class FxEffect
     public float Amount = 1f;
     /// <summary>gore-original (Musou Mode's blood mist): the effect's smoke-classed sprites are drawn even with the owner's no-smoke rule on (the blood cloud is no smoke).</summary>
     public bool KeepSmoke;
+    /// <summary>grenade-effects (owner 2026-11-17, Classic PvP and Musou): a frag blast draws its smoke and dust (the no-smoke rule is lifted for it) at <paramref name="share"/> of the data's amount (<see cref="SmContent.GrenadeFx.SmokeShare"/>).</summary>
+    public void KeepGrenadeSmoke(float share) { KeepSmoke = true; DustShare *= share; }
     /// <summary>
     /// musou/autocannon-dust (ours; the owner, 2026-11-12: "kick up 50% less dust"): the share of the effect's dust and debris that is drawn. Below 1 each particle of a spray that throws alpha-blended
     /// sprites is kept by a seeded roll (<see cref="SmContent.FxAmount.Kept"/>) and each alpha-blended sprite outside a spray (a debris beam or ring) has its alpha scaled by it; additive sprites (flash, fire,

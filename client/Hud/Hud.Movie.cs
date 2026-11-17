@@ -120,6 +120,7 @@ public sealed partial class Hud
         var c0 = colour ?? new Color(t.Colour.R, t.Colour.G, t.Colour.B, t.Colour.A);
         var c = Through(c0, cx); c.A *= alpha;
         if (c.A <= 0.003f) return;
+        if (_originalFontText && OriginalFieldText(movie, t, s, xf, c, fontScale)) return;   // classic-score-hud: the score panel's text in the original's face (Hud.OriginalFont.cs)
         float sy = xf.Y.Length();
         int size = Math.Max(1, (int)MathF.Round((float)t.FontHeight * sy * fontScale));
         int style = movie.Movie.FontNames.GetValueOrDefault(t.FontId, "").Contains("Bold", StringComparison.OrdinalIgnoreCase) ? 2 : 0;
@@ -159,9 +160,12 @@ public sealed partial class Hud
             var tint = new GfxColourTransform(mr, mg, mb, 1f, ar, ag, ab, 0f);
             var pic = _movieArt.Get(key, (m, s) => Of(m, name)?.Render(ch, fr, s, colour: plain ? null : tint));
             if (pic is null) return;
-            DrawAtom(pic, xf, new Color(1f, 1f, 1f, a), item.Add);
+            DrawAtom(pic, xf, new Color(_walkTint.R, _walkTint.G, _walkTint.B, a), item.Add);
         }, skip);
     }
+
+    /// <summary>A colour every piece of the next <see cref="DrawWalk"/> is multiplied by (white: none); the grenade marker's orange (Hud.GrenadeMarker.cs) sets and clears it.</summary>
+    Color _walkTint = Colors.White;
 
     /// <summary>A colour transform value rounded to 1/20 (so a fading clip reuses a few renders).</summary>
     static float Q(float v) => MathF.Round(v * 20f) / 20f;
