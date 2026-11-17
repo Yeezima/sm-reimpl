@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3696 spec table rows: **2672 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 770 rows of the changes document.
-Scanned 3685 spec table rows: **2663 tagged**, 666 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
+Scanned 3698 spec table rows: **2674 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 770 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,8 +40,7 @@ Scanned 3685 spec table rows: **2663 tagged**, 666 not tagged (read from data wi
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 85 | 80 | 64 | 11 | 0 |
-| HUD and hit feedback (critical) | 86 | 81 | 65 | 11 | 0 |
+| HUD and hit feedback (critical) | 87 | 82 | 66 | 11 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
@@ -55,19 +53,15 @@ Scanned 3685 spec table rows: **2663 tagged**, 666 not tagged (read from data wi
 | Core simulation (provisional values) | 830 | 785 | 615 | 230 | 1 |
 | General game design | 105 | 104 | 79 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2672** | 2391 | 2008 | 803 | 37 |
-| **All areas** | **2663** | 2382 | 1999 | 803 | 37 |
+| **All areas** | **2674** | 2393 | 2010 | 803 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1556 |
+| kind: ours | 1558 |
 | confidence: low | 969 |
-| confidence: medium | 930 |
-| kind: ours | 1549 |
-| confidence: low | 961 |
-| confidence: medium | 929 |
+| confidence: medium | 932 |
 | notes: ours | 465 |
 | kind: interpretation | 432 |
 | kind: estimate | 227 |
@@ -1726,8 +1720,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (85)
-### HUD and hit feedback (gameplay-critical) (86)
+### HUD and hit feedback (gameplay-critical) (87)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
