@@ -162,6 +162,105 @@ public class WarfrontFortressStageTests : IDisposable
         Assert.True(battle.WarfrontFortressFlow!.PlazaEntered);
     }
 
+    static T Field<T>(object o, string name) => (T)o.GetType().GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(o)!;
+
+    /// <summary>W14c diagnostic: the freed Warboss for <paramref name="seconds"/> s, printed once a second (position, speed, target, distance, boss action, leash, group, pack, node, flow distance, travelled in the second).</summary>
+    void Pace(string name, System.Numerics.Vector3 humanAt, Func<double, System.Numerics.Vector3>? walk = null, bool clearOrks = false, int seconds = 30, bool freeFirst = false, bool detail = false)
+    {
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var run = server.World.Tfw!;
+        var battle = run.Battle!;
+        var sim = server.World.Musou!;
+        int id = HumanOf(server);
+        var all = new MusouEnemy[MusouSim.Capacity];
+        void Clear() { int n = sim.CopyTo(all); for (int k = 0; k < n; k++) if (all[k].Id != battle.BossId) sim.Remove(all[k].Id); }
+        if (freeFirst)
+        {
+            // a human enters the plaza (frees the Warboss), then stands where the case wants him
+            Assert.True(server.World.TfwRespawnAt(id, WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(0f, -20f, 0f), 0f));
+            h.Run(TimeSpan.FromMilliseconds(300));
+            Assert.False(sim.Leashed(battle.BossId));
+        }
+        if (detail && sim.Walk is { } probe)
+            for (float yy = 14f; yy >= -12f; yy -= 1f)
+            {
+                var row = new System.Text.StringBuilder($"   y={yy,5:0.0}: ");
+                for (float xx = -12f; xx <= 12f; xx += 2f) { int nd = probe.Nearest(new System.Numerics.Vector3(xx, yy, 0f), 0.7f, 2f); row.Append(nd < 0 ? "  .  " : $"{probe.EdgeDistance(nd),4:0.0} "); }
+                output.WriteLine(row.ToString());
+            }
+        if (clearOrks) Clear();
+        Assert.True(server.World.TfwRespawnAt(id, humanAt, 0f));
+        int rate = 1000;   // the harness steps 1 ms
+        sim.TryGet(battle.BossId, out var b0);
+        output.WriteLine($"== {name}: human at {humanAt}, boss at {b0.Position}, clearOrks {clearOrks}");
+        var last = b0.Position; double total = 0; var begin = b0.Position;
+        for (int sec = 1; sec <= seconds; sec++)
+        {
+            for (int t = 0; t < rate; t++)
+            {
+                if (detail && sec >= 8 && sec <= 14 && t % 250 == 0 && sim.TryGet(battle.BossId, out var d0) && sim.Walk is { } wk && d0.Node >= 0)
+                    output.WriteLine($"   t={sec - 1 + t / 1000.0:0.00}: pos ({d0.Position.X:0.00}, {d0.Position.Y:0.00}) yaw {d0.Yaw:0.00} node ({wk.X(d0.Node):0.0}, {wk.Y(d0.Node):0.0}) edgeDist {wk.EdgeDistance(d0.Node):0.00} grad {wk.EdgeGradient(d0.Node)} blocked {Field<byte[]>(sim, "_blocked")[d0.Id - 1]} flowTicks {Field<ushort[]>(sim, "_flowTicks")[d0.Id - 1]} flowNext {(sim.Flow!.Next(d0.Node) is var nx && nx >= 0 ? $"({wk.X(nx):0.0}, {wk.Y(nx):0.0})" : "none")}");
+                if (clearOrks && t % 50 == 0) Clear();
+                double now = sec - 1 + (double)t / rate;
+                h.Step((i, tick) =>
+                {
+                    if (!server.World.Players.TryGetValue(id, out var me) || !me.Alive || walk is null) return new PlayerInput(tick, 0, 0, 0, InputButtons.None);
+                    var to = walk(now) - me.Position;
+                    return new PlayerInput(tick, 0, 1f, MathF.Atan2(-to.X, to.Y), InputButtons.None);
+                });
+                if (server.World.Players.TryGetValue(id, out var pl) && !pl.Alive) server.World.TfwRespawnAt(id, pl.Position, 0f);
+            }
+            if (!sim.TryGet(battle.BossId, out var b)) { output.WriteLine($"{sec,2} s: boss gone"); break; }
+            var me2 = server.World.Players[id];
+            float step = System.Numerics.Vector2.Distance(new(b.Position.X, b.Position.Y), new(last.X, last.Y));
+            total += step; last = b.Position;
+            float dist = System.Numerics.Vector2.Distance(new(b.Position.X, b.Position.Y), new(me2.Position.X, me2.Position.Y));
+            string flow = sim.Flow is { Ready: true } && b.Node >= 0 ? sim.Flow.Distance(b.Node).ToString("0.0") : "n/a";
+            output.WriteLine($"{sec,2} s: boss ({b.Position.X:0.0}, {b.Position.Y:0.0}) speed {step:0.00} m/s (vel {b.Velocity.Length():0.00}) state {b.State} act {server.World.MusouBoss?.Action} target {sim.TargetOf(b.Id)} dist {dist:0.0} leashed {sim.Leashed(b.Id)} group {Field<int[]>(sim, "_group")[b.Id - 1]} pack {Field<int[]>(sim, "_pack")[b.Id - 1]} node {b.Node} flow {flow} | human ({me2.Position.X:0.0}, {me2.Position.Y:0.0}) alive {me2.Alive}");
+        }
+        output.WriteLine($"== {name}: travelled {total:0.0} m in {seconds} s, net {System.Numerics.Vector2.Distance(new(begin.X, begin.Y), new(last.X, last.Y)):0.0} m");
+    }
+
+    /// <summary>Case 5: a second Warboss, never leashed (a plain Spawn, no fortress rule, no boss script), on the fortress's open outer yard (no wall within 30 m) 30 m from the human; the fortress's own Warboss stays leashed in the plaza.</summary>
+    [Fact(Skip = "W14c diagnostic (output only): run by hand with the console logger; the finding is in the W14c report")]
+    public void W14c_case5_unleashed_warboss_on_open_ground_30m_from_a_human()
+    {
+        var h = Start(out var server);
+        h.Run(TimeSpan.FromSeconds(12));
+        var sim = server.World.Musou!;
+        var battle = server.World.Tfw!.Battle!;
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = sim.CopyTo(all); for (int k = 0; k < n; k++) if (all[k].Id != battle.BossId) sim.Remove(all[k].Id);   // the fortress's own Warboss stays, leashed in the plaza (removing him would end the battle)
+        int id = HumanOf(server);
+        var human = new System.Numerics.Vector3(0f, -140f, 0f);
+        Assert.True(server.World.TfwRespawnAt(id, human, 0f));
+        var from = new System.Numerics.Vector3(0f, -170f, 0f);
+        ushort boss = sim.Spawn(MusouEnemyType.Warboss, from, 0f, 1e6f);
+        Assert.NotEqual(0, (int)boss);
+        output.WriteLine($"== case 5: open yard, human {human}, boss {from}");
+        var last = from; double total = 0;
+        for (int sec = 1; sec <= 30; sec++)
+        {
+            for (int t = 0; t < 1000; t++) { h.Step(); if (t % 100 == 0) { int m = sim.CopyTo(all); for (int k = 0; k < m; k++) if (all[k].Id != boss && all[k].Id != battle.BossId) sim.Remove(all[k].Id); } }
+            if (!sim.TryGet(boss, out var b)) { output.WriteLine($"{sec} s: gone"); break; }
+            var me = server.World.Players[id];
+            float step = System.Numerics.Vector2.Distance(new(b.Position.X, b.Position.Y), new(last.X, last.Y)); total += step; last = b.Position;
+            output.WriteLine($"{sec,2} s: boss ({b.Position.X:0.0}, {b.Position.Y:0.0}) speed {step:0.00} m/s state {b.State} target {sim.TargetOf(b.Id)} dist {System.Numerics.Vector2.Distance(new(b.Position.X, b.Position.Y), new(me.Position.X, me.Position.Y)):0.0} leashed {sim.Leashed(b.Id)} node {b.Node} | human ({me.Position.X:0.0}, {me.Position.Y:0.0}) alive {me.Alive}");
+        }
+        output.WriteLine($"== case 5: travelled {total:0.0} m");
+    }
+
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case1_human_20m_in_plaza_standing() => Pace("case 1", WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(0f, -20f, 0f));
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case2_human_40m_walking_the_plaza_edge() => Pace("case 2", WarfrontSlots.Fortress.BossSpot + new System.Numerics.Vector3(38f, 0f, 0f),
+        t => { var c = WarfrontSlots.Fortress.BossSpot; double a = t * 5.0 / 38.0; return c + new System.Numerics.Vector3(38f * MathF.Cos((float)a), 38f * MathF.Sin((float)a), 0f); });
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case3_south() => Pace("case 3 south", new System.Numerics.Vector3(0f, -11f, 0f), freeFirst: true, detail: true);
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case3_west() => Pace("case 3 west", new System.Numerics.Vector3(-61f, 50f, 0f), freeFirst: true, detail: true);
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case3_east() => Pace("case 3 east", new System.Numerics.Vector3(61f, 50f, 0f), freeFirst: true);
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case4_south_no_orks() => Pace("case 4 south, no orks", new System.Numerics.Vector3(0f, -11f, 0f), clearOrks: true, freeFirst: true);
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case4_west_no_orks() => Pace("case 4 west, no orks", new System.Numerics.Vector3(-61f, 50f, 0f), clearOrks: true, freeFirst: true);
+    [Fact(Skip = "W14c diagnostic (output only, about 9 s each): run by hand with the console logger; the finding is in the W14c report")] public void W14c_case4_east_no_orks() => Pace("case 4 east, no orks", new System.Numerics.Vector3(61f, 50f, 0f), clearOrks: true, freeFirst: true);
+
     /// <summary>The whole party falls: the retainers first (a standing one revives its fallen owner in seconds), then the human; the window and the spectator time pass, then the wipe rule ends the battle.</summary>
     void WipeTheParty(Harness h, GameServer server, TfwRun run)
     {
