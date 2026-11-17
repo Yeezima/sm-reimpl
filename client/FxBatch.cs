@@ -175,6 +175,7 @@ void vertex() {
     float la = length(ax), lb = length(ay);
     // Fade size: the short side of a long thin quad (tracers, beams), else the long side. God rays (kind 4, 5) keep the long side, as reviewed.
     float vcode = floor(v_info.z + 0.5);
+    if (vcode > 511.5) vcode -= 512.0;   // plasma-cannon-shots: the rim-card flag
     if (vcode > 255.5) vcode -= 256.0;   // plasma-soft-visuals: the tent flag
     if (vcode > 127.5) vcode -= 128.0;   // plasma-soft-visuals: the soft-edge flag
     if (vcode > 63.5) vcode -= 64.0;   // fx/chaos-plasma-tracer: the neutral-texture flag
@@ -208,6 +209,8 @@ void fragment() {
     float code = floor(v_info.z + 0.5);
     // plasma-soft-visuals: +128 marks a plasma effect's beam or streamer quad: its alpha falls to 0 across the width (no hard line at the long sides).
     // +256 marks a ribbon segment drawn twice as long as its step, fading in and out along its length (tent): neighbours overlap by half and add up to 1, so no step shows where two segments meet.
+    bool rimcard = code > 511.5;   // plasma-cannon-shots: a camera card whose texture is a ball with a bright rim (emp_ball_main, the plasma blast's air shock wave): its radial fade ends at 0.55 of the card, not at its edge
+    if (rimcard) code -= 512.0;
     bool tent = code > 255.5;
     if (tent) code -= 256.0;
     bool soft_edge = code > 127.5;
@@ -231,6 +234,17 @@ void fragment() {
     vec2 dy = dFdy(a0);
     float u = (mode > 0.5 && mode < 1.5) ? fract(u_raw) : u_raw;
     vec4 t = textureGrad(atlas, sprite_to_atlas(vec2(u, UV.y), v_rect), dx, dy);
+    if (rimcard) {
+        // plasma-cannon-shots: the rim ball's sprite is blurred inside its own rectangle (7 x 7 taps, +-0.09 of the sprite), so the bright circle at its edge is a wide soft band.
+        vec4 acc = vec4(0.0);
+        for (int i = -3; i <= 3; i++) {
+            for (int j = -3; j <= 3; j++) {
+                vec2 q = clamp(vec2(u, UV.y) + vec2(float(i), float(j)) * 0.03, 0.0, 1.0);
+                acc += textureGrad(atlas, sprite_to_atlas(q, v_rect), dx, dy);
+            }
+        }
+        t = acc / 49.0;
+    }
     float fade = 1.0;
     if (fades) {
         float frag_d = -VERTEX.z;
@@ -265,7 +279,7 @@ void fragment() {
     if (tent) a *= 1.0 - abs(UV.x * 2.0 - 1.0);
     // Ribbons only (a glow card, the gun's own chamber glow, is never dimmed), and from a distance that grows with the ribbon's width: a 6 m trail the camera is inside fades, a 0.1 m arc on the held gun does not.
     if (soft_edge && kind > 0.5) a *= smoothstep(0.03, max(0.1, min(2.5, v_size * 0.4)), v_orig_d);   // plasma-soft-visuals: a trail the camera is inside fades out near it instead of being cut by the near plane in a straight line
-    if (soft_edge) a *= (kind < 0.5) ? pow(1.0 - smoothstep(0.0, 1.0, length(UV * 2.0 - 1.0)), 2.0) : pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);   // plasma-cannon-shots: from the axis out, squared (the plateau to 0.2 kept a bright slab with a straight edge: the cannon's 5.7 m beam_gradient trail)
+    if (soft_edge) a *= (kind < 0.5) ? pow(1.0 - smoothstep(0.0, rimcard ? 0.8 : 1.0, length(UV * 2.0 - 1.0)), 2.0) : pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);   // plasma-cannon-shots: from the axis out, squared (the plateau to 0.2 kept a bright slab with a straight edge: the cannon's 5.7 m beam_gradient trail)
     ALPHA = a;
 }
 ";
@@ -371,10 +385,10 @@ void fragment() {
     /// 0 plain, 1 wrap (repeat), 2 clamp (nothing outside 0..1), <paramref name="kind"/> what the quad is (for the M42 fades).
     /// </summary>
     public bool Add(bool additive, Vector3 centre, Vector3 x, Vector3 y, Color colour, Vector4 rect, float u0 = 0f, float u1 = 1f, int mode = 0,
-                    QuadKind kind = QuadKind.CameraBillboard, bool neutral = false, bool tent = false)
+                    QuadKind kind = QuadKind.CameraBillboard, bool neutral = false, bool tent = false, bool rim = false)
     {
         if (colour.A <= 0.003f) return true;
-        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0) + (SoftEdge && Fades && (kind is QuadKind.AxisBillboard or QuadKind.FlatCard or QuadKind.CameraBillboard) ? 128 + (tent ? 256 : 0) : 0);
+        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0) + (SoftEdge && Fades && (kind is QuadKind.AxisBillboard or QuadKind.FlatCard or QuadKind.CameraBillboard) ? 128 + (tent ? 256 : 0) + (rim && kind == QuadKind.CameraBillboard ? 512 : 0) : 0);
         if (additive)
         {
             if (_nAdd >= Capacity) { _dropped++; return false; }

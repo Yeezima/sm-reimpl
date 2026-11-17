@@ -60,7 +60,13 @@ public sealed class FxEffect
     /// <summary>plasma-original-fx (interpretation): this effect's streamers read their width keys along the ribbon, head to tail, like their colour keys (<see cref="SmClient.Bullets.PlasmaOriginalLook.StreamerWidth"/>), instead of over the element's loop time with our 0.3 taper.</summary>
     public bool WidthAlongTrail;
     /// <summary>plasma-cannon-shots test aid (effects view <c>--fx-skip a,b</c>): element names not drawn.</summary>
-    public static HashSet<string>? DebugSkip;
+    public static HashSet<string>? DebugSkip = ReadSkip();
+    static HashSet<string>? ReadSkip()
+    {
+        var a = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(a, "--fx-skip");
+        return i >= 0 && i + 1 < a.Length ? new HashSet<string>(a[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries)) : null;
+    }
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -838,7 +844,16 @@ public sealed partial class FxPlayer : Node3D
             var b = c.B * RotXYZ(ax, ay, az);
             x = b.X * (2f * radius); y = b.Z * (2f * radius);
         }
-        if (_batch.Add(n.Additive, centre, x, y, colour, rect, kind: n.Billboard ? FxBatch.QuadKind.CameraBillboard : FxBatch.QuadKind.FlatRing)) _frameQuads++;
+        if (_batch.Add(n.Additive, centre, x, y, colour, rect, kind: n.Billboard ? FxBatch.QuadKind.CameraBillboard : FxBatch.QuadKind.FlatRing, rim: RimCard(e, n))) _frameQuads++;
+    }
+
+    static bool _rimLogged;
+    /// <summary>plasma-cannon-shots: a plasma effect's camera card whose texture is a ball with a bright rim (emp_ball_main).</summary>
+    static bool RimCard(FxEffect e, CSprite n)
+    {
+        bool rim = e.SoftEdges && n.Additive && n.Material.Name is "emp_ball_main" or "cloud_highlights_additive_02" or "bright_flash";
+        if (rim && !_rimLogged) { _rimLogged = true; GD.Print($"fx: rim card drawn soft ({e.Name}, {n.Name})"); }
+        return rim;
     }
 
     void DrawBeam(FxEffect e, CBeam n, in Ctx c, double age, uint seed)
