@@ -473,6 +473,25 @@ public sealed partial class FrontEndView : Control
         AddChild(view);
     }
 
+    /// <summary>Screenshot aid (<c>--menu-screen summary|countup</c>): the battle record or the count-up of the end-of-match screens.</summary>
+    void ShowSummaryDemo(bool countUp)
+    {
+        HideAll();
+        var view = new MatchSummaryView { Name = "SummaryDemo" };
+        if (countUp)
+        {
+            var rows = new[] { new CountUpRow("Praetor_Valen", "Tactical Marine", 22, 4, false), new CountUpRow("Brother Castus", "Assault Marine", 19, 6, true), new CountUpRow("Sgt. Aurelian", "Devastator", 16, 8, false), new CountUpRow("Lexicanum", "Tactical Marine", 13, 10, false) };
+            view.SetScreen(new CountUpData("Team Score", 41, "Chaos", 37, 19, rows, new Color(0.35f, 0.55f, 1f)), null, 9.0);
+        }
+        else
+        {
+            var lines = new[] { new SummaryLine("BEST CLASS", "Assault Marine"), new SummaryLine("BEST WEAPON", "Power Sword"), new SummaryLine("ENEMY KILLS", "19"), new SummaryLine("PLAYER DEATHS", "6"), new SummaryLine("KILL RATIO", "3.2"),
+                new SummaryLine("TEAM ASSISTS", "3"), new SummaryLine("BEST KILLSTREAK", "7"), new SummaryLine("NEMESIS", "Thrall of Khorne", new Color(1f, 0.2f, 0f)), new SummaryLine("SEIZED", null) };
+            view.SetScreen(null, new SummaryData(lines, "Made-up figures for a screenshot"), 2.0);
+        }
+        AddChild(view);
+    }
+
     /// <summary>Shows a page by name (<c>--menu-screen</c>, the self-test): lobby, host, joinlocal or a tab of options.</summary>
     public void ShowMenuPage(string name)
     {
@@ -485,6 +504,7 @@ public sealed partial class FrontEndView : Control
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
             case "scoreboard": case "scoreboard-single": ShowScoreboardDemo(name.EndsWith("single", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the Tab scoreboard with made-up rows
             case "pause": { HideAll(); var m = new MatchMenu(() => { }, () => { }, () => { }, () => { }) { Name = "PauseDemo" }; m.Banner = "Respawn in 3"; AddChild(m); m.Open(true); break; }   // screenshot aid (ui/overhaul): the in-match Esc menu
+            case "summary": case "countup": ShowSummaryDemo(name.StartsWith("count", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the end-of-match screens with made-up figures
             case "graphics": ShowOptions(OptionsView.Graphics); break;
             case "sound": ShowOptions(OptionsView.Sound); break;
             case "interface": ShowOptions(OptionsView.Interface); break;

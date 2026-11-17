@@ -71,7 +71,7 @@ public sealed partial class UiSelfTest : Node
     Button? ClickDialog(string text)
     {
         var d = OpenDialog();
-        var b = d is null ? null : FindButton(d, x => x.Text == text);
+        var b = d is null ? null : FindButton(d, x => x.Text.Equals(text, StringComparison.OrdinalIgnoreCase));
         b?.EmitSignal(BaseButton.SignalName.Pressed);
         return b;
     }
@@ -252,7 +252,7 @@ public sealed partial class UiSelfTest : Node
         creator.Back();
         await Frames(4);
         var dialog = OpenDialog();
-        Check("leaving with edits asks Save / Discard / Cancel", dialog is not null && new[] { "Save", "Discard", "Cancel" }.All(t => FindButton(dialog, b => b.Text == t) is not null));
+        Check("leaving with edits asks Save / Discard / Cancel", dialog is not null && new[] { "Save", "Discard", "Cancel" }.All(t => FindButton(dialog, b => b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null));
         ClickDialog("Discard");
         await Frames(4);
         Check("Discard reverts and shows the main menu", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsMainMenu);
@@ -395,7 +395,7 @@ public sealed partial class UiSelfTest : Node
     /// <summary>A toggle button pressed as a click does it (pressed state, then the Pressed signal the panel listens to).</summary>
     static void Press(Node root, string text)
     {
-        if (FindButton(root, b => b.Text == text) is not { Disabled: false } b) return;
+        if (FindButton(root, b => b.Text.Equals(text, StringComparison.OrdinalIgnoreCase)) is not { Disabled: false } b) return;
         if (b.ToggleMode) b.SetPressedNoSignal(true);
         b.EmitSignal(BaseButton.SignalName.Pressed);
     }
@@ -846,7 +846,7 @@ public sealed partial class UiSelfTest : Node
                     {
                         session.Edit(p => LoadoutEdits.Reset(p, slot).Profile);
                         await Frames(2);
-                        Click(b => b.ToggleMode && b.Text.StartsWith($"Perk {perkSlot + 1}"));
+                        Click(b => b.ToggleMode && b.Text.StartsWith($"Perk {perkSlot + 1}", StringComparison.OrdinalIgnoreCase));
                         await Frames(3);
                         string title = options.Perks.First(p => p.Name == perk).DisplayName;
                         var row = FindButton(creator, b => b is UiKit.Row && b.Text == title);

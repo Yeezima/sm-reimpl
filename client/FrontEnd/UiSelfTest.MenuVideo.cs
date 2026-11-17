@@ -40,7 +40,9 @@ public sealed partial class UiSelfTest
                 // The customizer's own dark background covers it: paused there, going on back on the main menu.
                 _front.ShowCreator();
                 await Frames(3);
-                Check("menu video: paused under the customizer", video.Covered && (headless || player.Paused), $"covered {video.Covered}, paused {player.Paused}");
+                // ui/overhaul: the redesigned customizer is a veil over the scene (it keeps playing); the old opaque one still pauses the video.
+                bool veil = ConceptArt.Get("overlay-armoury") is not null;
+                Check("menu video: paused under an opaque customizer, playing under the veil", veil ? !video.Covered : video.Covered && (headless || player.Paused), $"covered {video.Covered}, paused {player.Paused}, veil {veil}");
                 _front.ShowMainMenu();
                 await Frames(3);
                 Check("menu video: going on back on the main menu", !video.Covered && !player.Paused, $"covered {video.Covered}, paused {player.Paused}");

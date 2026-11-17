@@ -50,7 +50,7 @@ public sealed partial class UiSelfTest
     {
         await ControlsDialogShown(view);
         var d = ControlsDialog(view);
-        var b = d is null ? null : FindButton(d, x => x.Text == text);
+        var b = d is null ? null : FindButton(d, x => x.Text.Equals(text, StringComparison.OrdinalIgnoreCase));
         if (b is null) return false;
         b.EmitSignal(BaseButton.SignalName.Pressed);
         await Until(() => ControlsDialog(view) is null && !view.DialogOpen, 5, 3);

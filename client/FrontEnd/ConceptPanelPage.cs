@@ -167,6 +167,8 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         float dy = _narrow ? Mathf.Max(0f, (area.Y - h) / 2f) : 0f;
         _scroll.Position = new Vector2(_rowsOrigin.X + (_narrow ? (area.X - _narrowW) / 2f : 0f), _rowsOrigin.Y + dy);
         _scroll.Size = new Vector2(_narrow ? _narrowW : area.X, h);
+        // A scroll bar only when the rows really are taller than the room (a layout rounding never shows one).
+        _scroll.VerticalScrollMode = Rows.ContentHeight() > h + 4f ? ScrollContainer.ScrollMode.Auto : ScrollContainer.ScrollMode.ShowNever;
     }
 
     void StylePlate(Button b, float s, float pitch)
@@ -177,17 +179,11 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
         b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15f * s));
         b.AddThemeConstantOverride("outline_size", 0);
-        float inset = 2f * s;
-        // The plate is a little shorter than its row and as wide as the column, so the rows keep a breath between them.
+        // The plate hugs its row (a 1 px margin), so neighbouring plates meet without overlapping.
         if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, 1, 3, 1), new PaintedButtons.Pad(3, 1, 3, 2), s, true, paintedText: false, noGlow: true)) return;
-        foreach (var st in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })
-            if (b.GetThemeStylebox(st) is StyleBoxTexture tb) { tb = (StyleBoxTexture)tb.Duplicate(); tb.ExpandMarginTop = Mathf.Max(0f, tb.ExpandMarginTop + 0f) - 0f; b.AddThemeStyleboxOverride(st, tb); }
-        foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, Light);
-        foreach (var c in new[] { "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, Dark);
+        foreach (var c in new[] { "font_color", "font_hover_color" }) b.AddThemeColorOverride(c, Light);
+        foreach (var c in new[] { "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, Dark);   // a focused plate is the gold one: dark ink
         b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
-        // A focused plate is the gold one: its dark ink.
-        b.AddThemeColorOverride("font_focus_color", Dark);
-        _ = inset;
         // Counters and value labels a page hangs on a button (the Host panel's bot counts) keep the lettering.
         foreach (var l in b.GetChildren().OfType<Label>()) StyleLabel(l, s, 0f);
     }
