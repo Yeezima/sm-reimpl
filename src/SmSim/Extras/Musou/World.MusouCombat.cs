@@ -298,9 +298,11 @@ public sealed partial class World
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
         if (musou.War is { } volume) { range *= volume.CleaveReachScale; minCos = volume.CleaveMinCos; }   // owner 2026-11-09: a longer, wider flat cone in the war
         int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
-        if (Extras.Musou.DreadnoughtRules.IsDreadnought(Config, state.Class)) most = MusouSim.Capacity;   // the buff (owner 2026-11-15: "cleave infinitely"): no cap for him in the 5-wave run either (its CleaveTargets is 8)
+        bool dreadnought = Extras.Musou.DreadnoughtRules.IsDreadnought(Config, state.Class);
+        if (dreadnought) most = MusouSim.Capacity;   // the buff (owner 2026-11-15: "cleave infinitely"): no cap for him in the 5-wave run either (its CleaveTargets is 8)
         ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
         if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
+        if (dreadnought) range *= Extras.Musou.DreadnoughtRules.CleaveReachScale;   // owner 2026-11-17: his cleave radius +50 % (MusouCleaveShape.Of draws the same)
         MusouSuperchargedCleave(attacker, ref range, ref minCos);   // the Supercharged Melee powerup: a wider, longer cleave (World.MusouPowerups.cs)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);

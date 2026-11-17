@@ -21,9 +21,11 @@ public partial class NetworkView
     readonly List<(DaShake Shake, double At, float Distance, bool Hit)> _dreadShakes = new();
     /// <summary>The sum of the shakes drawn last frame (metres, degrees), for the tests' log.</summary>
     internal (Num.Vector3 Offset, Num.Vector3 Degrees) DreadShakeNow;
+    /// <summary>The largest shake (metres, degrees) since the film last cleared it (test aid).</summary>
+    internal (float Offset, float Degrees) DreadShakePeak;
 
     /// <summary>Per Dreadnought: what the feel needs to see change between frames.</summary>
-    sealed class DreadFeelState { public bool Left, WasAir, StimWas, Hurt66, Hurt33, Entered, Rush, RushOn, Sprinting; public float PrevMelee = -1f; public int PrevStep; public bool PrevHeavy; public double AirSince; public readonly List<FxEffect> Lit = new(), Pyre = new(); public bool Lights; }
+    sealed class DreadFeelState { public bool Left, WasAir, StimWas, Hurt66, Hurt33, Entered, Rush, RushOn, Sprinting; public float PrevMelee = -1f; public int PrevStep; public bool PrevHeavy; public double AirSince; public float PrevCd, FireRamp; public double LastShot = double.NegativeInfinity; public readonly List<FxEffect> Lit = new(), Pyre = new(); public bool Lights; }
     readonly Dictionary<int, DreadFeelState> _dreadFeel = new();
 
     DreadFeelState FeelOf(int id) { if (!_dreadFeel.TryGetValue(id, out var f)) _dreadFeel[id] = f = new DreadFeelState(); return f; }
@@ -87,7 +89,7 @@ public partial class NetworkView
         if (_client is null) return;
         var me = _client.Predicted.Position;
         float d = new Num.Vector2(s.Position.X - me.X, s.Position.Y - me.Y).Length();
-        if (d <= DreadnoughtMelee.AreaRadius) { _dreadShakes.Add((DreadnoughtFeel.StompArea, _connectedFor, d, true)); if (!own) DreadRumble(DreadnoughtArm.StompAreaHit); }
+        if (d <= DreadnoughtMelee.StompRadius) { _dreadShakes.Add((DreadnoughtFeel.StompArea, _connectedFor, d, true)); if (!own) DreadRumble(DreadnoughtArm.StompAreaHit); }
     }
 
     /// <summary>Per frame, per living Dreadnought: edges that fire the table (entrance, stomp's foot hit, wall hit, landing, power-up, damage thresholds). Footfalls are fired by the stride (<see cref="DreadnoughtSounds"/>).</summary>
@@ -114,6 +116,7 @@ public partial class NetworkView
             }
         }
         DreadArmBeats(f, s, t, own);
+        if (own) DreadSustainedFire(f);
         f.PrevStep = s.MeleeStep; f.PrevHeavy = s.MeleeHeavy; f.PrevMelee = s.MeleeTime;
         DreadLights(f, s, t);
         float spd = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y); bool sprinting = spd > DreadnoughtRules.RunSpeed + 1.5f;
@@ -153,13 +156,38 @@ public partial class NetworkView
         _dreadShakes.Add((DreadnoughtFeel.DeathBlastLong, _connectedFor + 0.5, d, false));
     }
 
+    /// <summary>
+    /// The own cannon's sustained fire (owner 2026-11-17): a round is a rise of the predicted cooldown (the cannon's 0.1 s a shot); while rounds keep coming within <see cref="DreadnoughtFeel.SustainGapSeconds"/> of each other the shake builds up
+    /// (<see cref="DreadnoughtFeel.SustainRamp"/>), after the last it falls away. The melta (the pistol slot) never sustains.
+    /// </summary>
+    void DreadSustainedFire(DreadFeelState f)
+    {
+        if (_client is null) return;
+        var me = _client.Predicted;
+        float dt = (float)GetProcessDeltaTime();
+        bool cannon = me.Alive && me.Slot != WeaponSlot.Pistol;
+        if (cannon && me.Cooldown > f.PrevCd + 0.04f) f.LastShot = _connectedFor;
+        f.PrevCd = me.Cooldown;
+        bool firing = cannon && _connectedFor - f.LastShot <= DreadnoughtFeel.SustainGapSeconds;
+        f.FireRamp = DreadnoughtFeel.SustainRamp(f.FireRamp, firing, dt);
+        _dreadSustain = f.FireRamp; _dreadSustainAt = _connectedFor;
+    }
+    float _dreadSustain;
+    double _dreadSustainAt = double.NegativeInfinity;   // the frame's time the ramp was last kept: a Dreadnought that died or left the class stops updating it, and the shake must not stay
+
     /// <summary>The shakes of this frame for the camera (<see cref="ExtrasCameraShake"/>; the Camera shake option is applied by the caller).</summary>
     partial void ExtrasCameraShake(double delta, ref Vector3 offset, ref Vector3 degrees)
     {
-        if (_dreadShakes.Count == 0) { DreadShakeNow = default; return; }
+        float sustain = _connectedFor - _dreadSustainAt < 0.2 ? _dreadSustain : 0f;
+        if (_dreadShakes.Count == 0 && sustain <= 0f) { DreadShakeNow = default; return; }
         _dreadShakes.RemoveAll(x => _connectedFor - x.At > x.Shake.Total + 0.05);
         var (o, d) = DreadnoughtFeel.Mix(_dreadShakes.Select(x => (x.Shake, (float)(_connectedFor - x.At), x.Distance, x.Hit)), 1f, UiKit.ReduceMotion);
-        DreadShakeNow = (o, d);
+        if (sustain > 0f)
+        {
+            var (so, sd) = DreadnoughtFeel.CannonSustained.Sample((float)_connectedFor, sustain * DreadnoughtFeel.Scale(1f, UiKit.ReduceMotion));
+            o += so; d += sd;
+        }
+        DreadShakeNow = (o, d); DreadShakePeak = (MathF.Max(DreadShakePeak.Offset, o.Length()), MathF.Max(DreadShakePeak.Degrees, d.Length()));
         offset += new Vector3(o.X, o.Y, o.Z);
         degrees += new Vector3(d.X, d.Y, d.Z);
     }
@@ -189,12 +217,21 @@ public partial class NetworkView
             DreadCue(key, beat, s, t);
             if (beat == DaArmBeat.Start) DreadPlayEffects(DreadnoughtArm.EffortBig, s, t);
             if (beat == DaArmBeat.Hit && own) DreadRumble(DreadnoughtArm.ArmHit);
+            if (beat == DaArmBeat.Hit && own && !s.MeleeHeavy) DreadArmHitShake(s, steps[s.MeleeStep - 1]);   // a light swing's hit (the stomp and the slam shake at their foot hit, DreadAct)
             if (beat == DaArmBeat.Hit && s.StimLeft > 0f)   // Overcharge: the wave the server releases at a hit (drawn on each hit beat of the power-up; the sim decides whom it moves)
             {
                 DreadOverchargeWave(s, t);
                 if (own && _client is not null) _dreadShakes.Add((DreadnoughtFeel.OverchargeShake, _connectedFor, 0f, false));
             }
         }
+    }
+
+    /// <summary>The own light swing's hit shake: when the client sees at least one Ork in the swing's reach (the server's cleave, <see cref="MusouStrikeTargets"/>), a hit shakes the own camera (owner 2026-11-17).</summary>
+    void DreadArmHitShake(PlayerState s, MeleeStep step)
+    {
+        MusouStrikeTargets(s, step, null);
+        _dreadShakes.Add((_musouStrikeTargets.Count == 0 ? DreadnoughtFeel.ArmWhiff : DreadnoughtFeel.ArmHit, _connectedFor, 0f, false));
+        if (LogDreadFeel) GD.Print($"DNFEEL t {_connectedFor:F2} ArmHit shake: {_musouStrikeTargets.Count} struck");
     }
 
     /// <summary>The lights and eyes of his lifetime action, once per life, on the model's markers (following the bones); ended when he dies.</summary>

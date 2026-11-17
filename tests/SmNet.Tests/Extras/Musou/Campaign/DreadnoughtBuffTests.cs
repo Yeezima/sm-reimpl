@@ -107,7 +107,7 @@ public class DreadnoughtBuffTests
     public void A_swing_strikes_every_enemy_in_its_reach_and_not_the_one_outside()
     {
         var w = Landed();
-        var shape = MusouCleaveShape.Of(w.Config, DreadnoughtMelee.Light()[0], war: true);
+        var shape = MusouCleaveShape.Of(w.Config, DreadnoughtMelee.Light()[0], war: true, dreadnought: true);   // his reach is 1.5 times the ordinary (2026-11-17)
         Assert.True(shape.Most >= 64, $"no cap on the strike: {shape.Most}");
         var at = Me(w).Position;
         var inside = new List<ushort>();

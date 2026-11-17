@@ -153,6 +153,12 @@ public readonly record struct MeleeStep(
     /// </summary>
     public bool Stab { get; init; }
 
+    /// <summary>
+    /// musou/chain-lead-in (owner 2026-11-17: spam "like the normal space marine classes"; **ours (estimate)**; Musou Mode only): a light swing that a spam press starts from the swing before (on its hit, or queued for it) begins this many seconds into its own
+    /// clip, skipping the start of its wind-up, so chained hits land about as fast as the marines' (the clip is the same; the sim time and the client's clip clock both start at the offset). 0 (the default): from its start. Hashed only when set.
+    /// </summary>
+    public float ChainLeadIn { get; init; }
+
     /// <summary>Writes the fields added in M28 (and M43, Weapons C) for a config hash.</summary>
     internal void WriteExtras(BinaryWriter w)
     {
@@ -178,6 +184,7 @@ public readonly record struct MeleeStep(
         if (Steers) { w.Write((byte)0xA7); w.Write(SteerFrom); w.Write(SteerTo); w.Write(SteerRate); }   // sim/slam-steer: only when set
         if (HopSwing) w.Write((byte)0xA8);   // sim/hop-swing: only when set
         if (Stab) w.Write((byte)0xA9);   // sim/stab-key: only when set
+        if (ChainLeadIn > 0f) { w.Write((byte)0xAA); w.Write(ChainLeadIn); }   // musou/chain-lead-in: only when set
     }
 }
 

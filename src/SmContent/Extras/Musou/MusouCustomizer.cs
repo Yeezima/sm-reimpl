@@ -100,7 +100,7 @@ public static class MusouCustomizer
         [
             new("Assault cannon", "Hold Fire: 30 damage a round, a round every 0.06 s, a clip of 140 and a 2.5 s reload; endless reserve. Aim narrows the view.", MusouRowKind.Fixed),
             new("Melta", "Switch toggles to it: 200 damage in a cone, one shot, 0.33 s apart; the charge comes back a second later.", MusouRowKind.Fixed),
-            new("Arm", $"Melee: two crushing strikes (100 and 125). Stun strike (Y): the stomp, or after a strike the slam: {N(DreadnoughtMelee.SlamDamage)} damage within {N(DreadnoughtMelee.AreaRadius)} m. Every few steps he walks stamps {N(DreadnoughtMelee.FootfallDamage)} damage into the Orks around him (our estimate of which steps).", MusouRowKind.Fixed),
+            new("Arm", $"Melee: two crushing strikes (100 and 125). Stun strike (Y): the stomp, or after a strike the slam: {N(DreadnoughtMelee.SlamDamage)} damage within {N(DreadnoughtMelee.StompRadius)} m. Every few steps he walks stamps {N(DreadnoughtMelee.FootfallDamage)} damage into the Orks around him (our estimate of which steps).", MusouRowKind.Fixed),
         ]),
         new("ABILITIES",
         [

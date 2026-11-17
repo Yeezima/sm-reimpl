@@ -41,8 +41,8 @@ public class DreadnoughtMeleeTests
         Assert.Equal(2, c.MeleeHeavy.Count);
         var stomp = c.MeleeHeavy[0];
         var slam = c.MeleeHeavy[1];
-        Assert.Equal((10f, 50f), (stomp.Stomp!.Radius, stomp.Stomp.Damage.Damage));
-        Assert.Equal((10f, 500f, 50f), (slam.Stomp!.Radius, slam.Stomp.Damage.Damage, slam.Damage));
+        Assert.Equal((DreadnoughtMelee.StompRadius, 50f), (stomp.Stomp!.Radius, stomp.Stomp.Damage.Damage));   // the data's 10 m x1.5 (owner 2026-11-17)
+        Assert.Equal((DreadnoughtMelee.StompRadius, 500f, 50f), (slam.Stomp!.Radius, slam.Stomp.Damage.Damage, slam.Damage));
         Assert.Equal(2, c.Melee[0].HeavyNext);   // X then Y: the slam strike
         Assert.Equal(1, slam.YNext);              // Y then Y: the stomp again
         Assert.Empty(c.MeleeChoices);

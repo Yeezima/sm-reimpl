@@ -20,6 +20,8 @@ public partial class PosePopProbe : Node
 {
     public const float FlagDegrees = 25f;
     public const float AuthoredMargin = 5f;
+    /// <summary>A bone that turns more than this in one frame is a pop whatever its clip does elsewhere (2026-11-17 review: the clip-relative margin hid a 160 degree one-frame turn of the Dreadnought's hand, because the clip's own steady largest was as big). Frame hitches show here too: judge at a steady frame rate.</summary>
+    public const float HardFlagDegrees = 90f;
     /// <summary>A frame within this long after an entry belongs to its event (the longest blend used is 0.167 s).</summary>
     public const double EntryWindowSeconds = 0.2;
     const double ReportSeconds = 5.0;
@@ -66,7 +68,7 @@ public partial class PosePopProbe : Node
     }
 
     bool IsPop((string Player, string Clip, string Bone, float Max, string Trace) e) =>
-        e.Max > FlagDegrees && e.Max > (_steadyMax.TryGetValue(e.Clip, out var steady) ? steady : 0f) + AuthoredMargin;
+        e.Max > HardFlagDegrees || (e.Max > FlagDegrees && e.Max > (_steadyMax.TryGetValue(e.Clip, out var steady) ? steady : 0f) + AuthoredMargin);
 
     public override void _Process(double delta)
     {
