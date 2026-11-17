@@ -117,6 +117,40 @@ public class LedgeChargeHopTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_press_whose_hop_is_refused_glides_only_while_the_tap_can_still_resolve()
+    {
+        // the evade's cooldown refuses the hop: the press waits in the input buffer (0.3 s) and lapses; the body then falls as before (no unsteered glide to the ground)
+        var s = Held(Classic, 30f) with { EvadeLock = 60 };
+        var speeds = Tap(s, Classic, 24, out var end);
+        output.WriteLine("refused: " + string.Join(" ", speeds.Select(v => v.ToString("F1"))));
+        Assert.False(Evade.Evading(end));
+        Assert.True(speeds[0] > 20f, "the press tick keeps the charge's speed");
+        Assert.True(speeds[^1] < 0.01f, $"the body stopped after the buffer lapsed: {speeds[^1]}");
+    }
+
+    [Fact]
+    public void A_hop_that_did_not_start_from_a_ledge_charge_gets_no_extra_after_a_collision_or_slide()
+    {
+        // a plain hop whose body is suddenly faster than its clip (a push, a slide that ended): the clip's own speed
+        var s = MeleeCancelTests.Fresh(Classic);
+        s = Step(s, Classic, InputButtons.Jump); s = Step(s, Classic, InputButtons.None);
+        for (int k = 0; k < 4; k++) s = Step(s, Classic, InputButtons.None);
+        Assert.True(Evade.Evading(s));
+        s = Step(s with { Velocity = new Vector3(0f, 35f, s.Velocity.Z) }, Classic, InputButtons.None);
+        Assert.InRange(Speed(s), HopSpeed - 0.01f, HopSpeed + 0.01f);
+    }
+
+    [Fact]
+    public void A_ledge_hop_whose_excess_is_gone_never_carries_again()
+    {
+        var speeds = Tap(Held(Classic, 30f), Classic, 22, out var end);
+        Assert.True(Evade.Evading(end));
+        Assert.False(end.JumpAirOpen, "the carry has ended with its excess");
+        end = Step(end with { Velocity = new Vector3(0f, 35f, end.Velocity.Z) }, Classic, InputButtons.None);
+        Assert.InRange(Speed(end), HopSpeed - 0.01f, HopSpeed + 0.01f);
+    }
+
+    [Fact]
     public void The_restore_switch_changes_the_config_hash_only_when_on()
     {
         Assert.NotEqual(Classic.Hash(), Old.Hash());

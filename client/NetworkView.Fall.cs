@@ -133,13 +133,15 @@ public partial class NetworkView
     {
         double now = _connectedFor;
         if (NoFallPose || _config is null || FallData() is null) { t.Fall.Observe(now, false, true, 0f); return; }
-        // sim/combat-pass (item 21): a charge held in the air keeps its clip until it has run FallRules.ChargeFallDelay (0.3 s off the ground), then the fall pose.
-        bool heldInAir = ChargeHeldInAir(s) || EvadeFallingInAir(s);   // sim/movement-fixes: a roll or hop carried off a drop too
-        if (!heldInAir) { t.ChargeAirSince = double.NegativeInfinity; t.ChargeFall = false; }
+        // sim/combat-pass (item 21), sim/ledge-charge-hop: a charge held in the air keeps its clip until it has been off the ground FallRules.ChargeFallDelay (0.4 s), then the fall pose, cross-faded over
+        // FallRules.ChargeFallBlend. A roll or hop carried off a drop (sim/movement-fixes) keeps its own FallRules.EvadeFallDelay (0.3 s) and the usual blend.
+        bool chargeHeld = ChargeHeldInAir(s), heldInAir = chargeHeld || EvadeFallingInAir(s);
+        if (!heldInAir) { t.ChargeAirSince = double.NegativeInfinity; t.ChargeFall = false; t.ChargeFallCharge = false; }
         else
         {
             if (double.IsNegativeInfinity(t.ChargeAirSince)) t.ChargeAirSince = now;
-            if (!t.ChargeFall && FallRules.ChargeShowsFall(now - t.ChargeAirSince)) { t.ChargeFall = true; t.ChargeFallAt = now; }   // sim/ledge-charge-hop: the hand-over is cross-faded (ChargeFallFade)
+            if (!t.ChargeFall && (chargeHeld ? FallRules.ChargeShowsFall(now - t.ChargeAirSince) : FallRules.EvadeShowsFall(now - t.ChargeAirSince)))
+            { t.ChargeFall = true; t.ChargeFallAt = now; t.ChargeFallCharge = chargeHeld; }   // the charge's hand-over is cross-faded (ChargeFallFade)
         }
         bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && (!Evade.Evading(s) || t.ChargeFall)
                         && !(_jumpTracks.TryGetValue(s.PlayerId, out var jump) && jump.View != JumpView.None);
@@ -157,17 +159,17 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// sim/ledge-charge-hop: the shortest stance cross-fade (s) while a held charge (or a roll or hop carried off a drop) hands over from its clip to the fall pose, in the frames from the hand-over
+    /// sim/ledge-charge-hop: the shortest stance cross-fade (s) while a held charge (not a roll or hop carried off a drop) hands over from its clip to the fall pose, in the frames from the hand-over
     /// (<see cref="FallRules.ChargeFallBlend"/>); 0 otherwise. The clip's last frame fades into the standing aim-offset idle and the fall legs ramp in over the same time, own and seen players alike.
     /// </summary>
-    float ChargeFallFade(LocoTrack t) => t.ChargeFall && !CharacterViewer.NoP3 && _connectedFor - t.ChargeFallAt < 0.1 ? FallRules.ChargeFallBlend : 0f;
+    float ChargeFallFade(LocoTrack t) => t.ChargeFall && t.ChargeFallCharge && !CharacterViewer.NoP3 && _connectedFor - t.ChargeFallAt < 0.1 ? FallRules.ChargeFallBlend : 0f;
 
     void BeginFall(PlayerState s, LocoTrack t, bool own)
     {
         t.FallSet = FallSetOf(s);
         t.LandKeep = 1f;
         _fallsBegun++;
-        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(_connectedFor - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {FallRules.ChargeFallDelay:0.#} s: the fall pose, not its clip" : "")})");
+        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(_connectedFor - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {(t.ChargeFallCharge ? FallRules.ChargeFallDelay : FallRules.EvadeFallDelay):0.#} s: the fall pose, not its clip" : "")})");
     }
 
     /// <summary>The heavy bolter's states (<see cref="FallTracker.HeavyStep"/>): the drop clip from <see cref="FallSet.EnterHeight"/> above the ground, the landing clip from <see cref="FallSet.LandHeight"/> (reached before touchdown) or at touchdown.</summary>
@@ -242,7 +244,7 @@ public partial class NetworkView
         if (t.FallSet is not { } set || !s.Alive) { t.LegsWeight = 0f; return; }
         // The falling pose: the legs on the leg mask, or the heavy bolter's whole-body drop; they go out over the blend of whatever follows (the landing's, or the soft exit's).
         bool on = t.Fall.Falling && (set.Legs is not null || (t.Fall.DropStarted && !t.Fall.HeavyLanded));
-        float blendIn = Math.Max(t.ChargeFall && !CharacterViewer.NoP3 ? FallRules.ChargeFallBlend : 0.02f, set.EnterBlend), blendOut = Math.Max(0.02f, t.Fall.LandHard ? set.LandBlend : set.SoftExitBlend);
+        float blendIn = Math.Max(t.ChargeFall && t.ChargeFallCharge && !CharacterViewer.NoP3 ? FallRules.ChargeFallBlend : 0.02f, set.EnterBlend), blendOut = Math.Max(0.02f, t.Fall.LandHard ? set.LandBlend : set.SoftExitBlend);
         t.LegsWeight = Mathf.MoveToward(t.LegsWeight, on ? 1f : 0f, dt / (on ? blendIn : blendOut));
         if (t.LegsWeight > 1e-3f)
         {
@@ -308,7 +310,7 @@ public partial class NetworkView
     /// <summary>
     /// sim/movement-fixes (the owner, 2026-11-01: the hop off a ledge "should go down while still going forward"): a roll or heavy hop carried off a drop goes on in the
     /// air with its clip's travel (the simulation) and falls; past its own lift (<see cref="EvadeMove.HeightAt"/> 0) and on the way down it shows the fall pose once it has been
-    /// off the ground <see cref="FallRules.ChargeFallDelay"/> (as a charge held in the air), so a long drop is not its clip's standing frames in mid-air; on landing the
+    /// off the ground <see cref="FallRules.EvadeFallDelay"/> (0.3 s), so a long drop is not its clip's standing frames in mid-air; on landing the
     /// clip resumes. Not the jump-pack dash (its flight clip is its own fall). <c>--no-fall-pose</c> keeps the clip.
     /// </summary>
     bool EvadeFallingInAir(PlayerState s) =>

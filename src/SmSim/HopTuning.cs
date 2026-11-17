@@ -94,11 +94,11 @@ public static class LedgeHop
 
     /// <summary>
     /// The extra speed (m/s) a hop's flight tick adds to the clip's: the carried excess over the clip's previous tick, decayed one tick. <paramref name="previous"/> is the body's horizontal speed now, <paramref name="clipBefore"/>
-    /// the clip's speed on the previous tick (the first tick's own); <paramref name="first"/>: this is the hop's first tick, which only a hop out of a ledge charge (<see cref="PlayerState.JumpAirOpen"/>) carries into.
+    /// the clip's speed on the previous tick (the first tick's own); The carry is latched in <see cref="PlayerState.JumpAirOpen"/>: set by the ledge charge press, kept by <see cref="Evade.Step"/> while the hop carries (extra above 0) and cleared with it, so only a hop that started from a ledge charge carries, and one whose excess has gone (a wall, a slide) never again.
     /// </summary>
-    internal static float Extra(SimConfig c, PlayerState s, bool first, float previous, float clipBefore)
+    internal static float Extra(SimConfig c, PlayerState s, float previous, float clipBefore)
     {
-        if (!Enabled(c, s) || (first && !s.JumpAirOpen)) return 0f;
+        if (!Enabled(c, s) || !s.JumpAirOpen) return 0f;
         float over = previous - clipBefore;
         return over > Slack && float.IsFinite(over) ? over * Decay(c.TickSeconds) : 0f;
     }

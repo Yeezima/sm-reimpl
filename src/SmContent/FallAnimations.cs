@@ -282,6 +282,13 @@ public static class FallRules
     /// </summary>
     public const float ChargeFallBlend = 0.25f;
 
+    /// <summary>A roll or hop carried off a drop (sim/movement-fixes) shows the fall pose after this long in the air (s; ours, the sim/combat-pass delay it always had: the ledge charge's own is <see cref="ChargeFallDelay"/>).</summary>
+    public const float EvadeFallDelay = 0.3f;
+
+    /// <summary>Whether a roll or hop carried off a drop, in the air for <paramref name="airSeconds"/>, shows the fall pose (<see cref="EvadeFallDelay"/>).</summary>
+    public static bool EvadeShowsFall(double airSeconds) =>
+        (double.IsFinite(airSeconds) ? Math.Max(0.0, airSeconds) : 0.0) >= EvadeFallDelay - 1e-6;
+
     /// <summary>Whether a charge held in the air for <paramref name="airSeconds"/> shows the fall pose (<see cref="ChargeFallDelay"/>).</summary>
     public static bool ChargeShowsFall(double airSeconds) =>
         (double.IsFinite(airSeconds) ? Math.Max(0.0, airSeconds) : 0.0) >= ChargeFallDelay - 1e-6;

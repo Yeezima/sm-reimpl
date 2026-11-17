@@ -932,9 +932,9 @@ public static class Movement
             // steep faces, which the motor counts as standing again after that tick, still walks along them. Gravity is unchanged.
             // Only over a real drop (ours, chosen in the code review of protocol 30): while the feet are no more than SimConfig.StraightDropAbove above the ground below
             // (a curb, a stair riser, a crate edge the motor does not step down), the body keeps the velocity it left with and lands running.
-            // sim/ledge-charge-hop (protocol 85): a Jump press that ended a charge held in the air opened the air jump (JumpAirOpen): while it waits for its tap or hold the body keeps the charge's
+            // sim/ledge-charge-hop (protocol 85): a Jump press that ended a charge held in the air opened the air jump (JumpAirOpen): while its tap or hold is still pending in the input buffer (a refused or lapsed one falls back to the old stop) the body keeps the charge's
             // velocity (the excess over the hop's top speed easing off) instead of dropping straight, so the hop that follows carries it on (LedgeHop).
-            if (s.JumpAirOpen && LedgeHop.Enabled(c, s)) horizontal = LedgeHop.Pending(horizontal, c, s);
+            if (s.JumpAirOpen && s.Buffered is BufferedAction.Jump or BufferedAction.JumpLong && LedgeHop.Enabled(c, s)) horizontal = LedgeHop.Pending(horizontal, c, s);
             else if (s.Velocity.Z != 0f && horizontal != Vector2.Zero && FallsStraight(s, c, world)) horizontal = Vector2.Zero;
         }
         else
