@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3447 spec table rows: **2461 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 759 rows of the changes document.
-Scanned 3433 spec table rows: **2451 tagged**, 632 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 759 rows of the changes document.
+Scanned 3452 spec table rows: **2466 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,28 +53,19 @@ Scanned 3433 spec table rows: **2451 tagged**, 632 not tagged (read from data wi
 | Core simulation (provisional values) | 738 | 695 | 525 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2461** | 2186 | 1827 | 733 | 37 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2451** | 2177 | 1817 | 734 | 37 |
+| **All areas** | **2466** | 2190 | 1831 | 734 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1455 |
-| confidence: low | 883 |
-| confidence: medium | 835 |
-| notes: ours | 404 |
-| kind: interpretation | 395 |
-| notes: estimate | 203 |
-| kind: estimate | 170 |
-| kind: ours | 1446 |
-| confidence: low | 875 |
-| confidence: medium | 833 |
+| kind: ours | 1459 |
+| confidence: low | 884 |
+| confidence: medium | 838 |
 | notes: ours | 405 |
 | kind: interpretation | 395 |
 | notes: estimate | 203 |
-| kind: estimate | 169 |
+| kind: estimate | 174 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
