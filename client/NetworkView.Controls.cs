@@ -49,7 +49,7 @@ public partial class NetworkView
 
     /// <summary>The buttons the tap latch handles (Interact and the wheel switch have latches of their own).</summary>
     const InputButtons LatchedButtons = InputButtons.Fire | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Reload | InputButtons.Grenade
-        | InputButtons.Switch | InputButtons.Jump | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond | InputButtons.Aim | InputButtons.Sprint;
+        | InputButtons.Switch | InputButtons.Jump | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond | InputButtons.Aim | InputButtons.Sprint | InputButtons.Stab;
 
     readonly InputLatch _latch = new();
 
@@ -86,8 +86,15 @@ public partial class NetworkView
     InputButtons LatchButtons(InputButtons held)
     {
         var latched = _latch.Sample(held & LatchedButtons);
-        return NoTapLatch ? held : (held & ~LatchedButtons) | latched;
+        var buttons = NoTapLatch ? held : (held & ~LatchedButtons) | latched;
+        // classic-stab-on-t: the stab key is a pulse after each press; Musou Mode reads T as its shout, so the bit never leaves the client there.
+        bool musou = _config is { } cfg && (cfg.Extras & ContentExtras.Musou) != 0;
+        bool stab = _stabPulse.Sample((buttons & InputButtons.Stab) != 0);
+        buttons &= ~InputButtons.Stab;
+        return stab && !musou ? buttons | InputButtons.Stab : buttons;
     }
+
+    readonly StabPulse _stabPulse = new();
 
     /// <summary>Whether this frame's client update should run the next tick now (an input edge since the last sample; human players only).</summary>
     bool EarlyTickWanted => !NoEarlyTick && !_bot && _demoPlayback is null && !OwnDead && !PickerBusy && _latch.Pending;

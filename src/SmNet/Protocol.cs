@@ -532,7 +532,9 @@ public static partial class Protocol
     // 79 (classic-maps-all; the owner 2026-11-15): bit 5 of the match block's state byte is MatchView.NextMap: set while a match has ended on a server that runs a map rotation (--maps); the client then rejoins the same address when the restart clock runs out and plays the next map (its Challenge names it). No other layout change. (renumbered from 78 at integration, after the lascannon.)
     // 80 (dev-tools; the owner 2026-11-17): two new messages, DevCommand (client to server, kind 20) and DevState (server to client, kind 21; Protocol.Dev.cs): the in-game developer tools' panel (F6). A server obeys a request only when started with --dev-tools,
     //     listening on loopback alone, from a loopback address; it sends DevState only then, so a normal server's traffic is unchanged. No other layout change, no simulation change with the tools off.
-    public const ushort Version = 80;
+    // 81 (classic-stab-on-t; the owner 2026-11-17): input bit 15, InputButtons.Stab (T): from rest it starts the power sword's stab (the F + F finisher) on its own, no precursor move (MeleeStep.Stab, Combat.StabIndex).
+    //     Classic PvP only (the server drops the bit in Musou Mode); a weapon without a stab ignores it. The T voice call (FOR THE EMPEROR) is off in Classic PvP: the client sends the shout bit in Musou Mode only. F + F and RMB + F still stab.
+    public const ushort Version = 81;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -571,7 +573,7 @@ public static partial class Protocol
     /// <see cref="InputButtons.ExtraAction"/>, added content's action key, since extras wire 2: the faithful simulation never reads it); others are
     /// dropped when an input batch is read.
     /// </summary>
-    const ushort KnownButtons = 0x7FFF & ~64;   // protocol 44: bit 14 SlotSecond
+    const ushort KnownButtons = 0xFFFF & ~64;   // protocol 44: bit 14 SlotSecond; protocol 81: bit 15 Stab
     /// <summary>Most control point records in one snapshot (every point travels).</summary>
     public const int MaxSnapshotPoints = World.MaxControlPoints;
     /// <summary>
