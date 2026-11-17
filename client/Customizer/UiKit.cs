@@ -77,7 +77,7 @@ public static partial class UiKit
 
     static Theme BuildTheme()
     {
-        var t = new Theme { DefaultFont = Font, DefaultFontSize = BodySize };
+        var t = new Theme { DefaultFont = ConceptFont(), DefaultFontSize = BodySize };   // ui/overhaul: one lettering (Oswald) for every control without its own
         foreach (var type in new[] { "Label", "Button", "CheckButton", "CheckBox", "LineEdit", "OptionButton", "RichTextLabel" })
         {
             t.SetColor("font_color", type, White);
@@ -147,6 +147,9 @@ public static partial class UiKit
         t.SetFontSize("font_size", "TooltipLabel", CaptionSize);
         AddMenuTheme(t);
         Steel.AddTheme(t);   // ui/concept-redesign: the steel kit's types (SteelKit.cs)
+        // ui/overhaul: a drop-down is a steel plate too.
+        foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) t.SetStylebox(state, "OptionButton", t.GetStylebox(state, Steel.ButtonType));
+        foreach (var colour in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) t.SetColor(colour, "OptionButton", t.GetColor(colour, Steel.ButtonType));
         return t;
     }
 
@@ -165,14 +168,14 @@ public static partial class UiKit
     public static Button Button(string text, Action onPress, int minWidth = 0, string? tooltip = null)
     {
         // ui/overhaul: every menu button is a steel plate (the kit's dark plate, gold under the focus), in the one lettering.
-        var b = new Button { Text = text, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "", ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
+        var b = new Button { Text = text.ToUpperInvariant(), FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "", ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Pressed += onPress;
         return b;
     }
 
     public static Button Toggle(string text, bool on, Action<bool> changed, int minWidth = 0)
     {
-        var b = new Button { Text = text, ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
+        var b = new Button { Text = text.ToUpperInvariant(), ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Toggled += v => changed(v);
         return b;
     }
@@ -243,8 +246,10 @@ public static partial class UiKit
     public static TextureRect Background()
     {
         var gradient = new Gradient();
-        gradient.SetColor(0, BackgroundTop);
-        gradient.SetColor(1, BackgroundBottom);
+        // ui/overhaul: with the redesigned art the screen is a dark veil over the menu scene (the concept's Armoury stands in front of its battlefield); without it the old opaque gradient.
+        bool veil = ConceptArt.Get("overlay-armoury") is not null;
+        gradient.SetColor(0, veil ? new Color(BackgroundTop, 0.74f) : BackgroundTop);
+        gradient.SetColor(1, veil ? new Color(BackgroundBottom, 0.90f) : BackgroundBottom);
         var tex = new GradientTexture2D { Gradient = gradient, FillFrom = new Vector2(0.5f, 0f), FillTo = new Vector2(0.5f, 1f), Width = 8, Height = 256 };
         return new TextureRect { Texture = tex, StretchMode = TextureRect.StretchModeEnum.Scale, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, MouseFilter = Control.MouseFilterEnum.Ignore };
     }
@@ -322,19 +327,16 @@ public static partial class UiKit
             _tags.OffsetLeft = -reserved - tagWidth - 8f;
             _tags.VerticalAlignment = VerticalAlignment.Center;
             AddChild(_tags);
-            var clear = new Color(0f, 0f, 0f, 0f);
-            var normal = Box(clear, clear, 0, 6);
-            normal.ContentMarginLeft = 52;
-            normal.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
-            var hover = Box(clear, clear, 0, 6);
-            hover.ContentMarginLeft = 52;
-            hover.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
-            var disabledBox = Box(clear, clear, 0, 6);
-            disabledBox.ContentMarginLeft = 52;
-            disabledBox.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
+            // ui/overhaul: a list row is a warm-black strip with a steel hairline; the pointer or focus turns it into the kit's dark plate with a gold rim, the selected row keeps a gold bar.
+            int mr = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
+            var normal = new StyleBoxFlat { BgColor = new Color(0.045f, 0.043f, 0.04f, 0.72f), BorderColor = new Color(0.55f, 0.55f, 0.52f, 0.16f), BorderWidthBottom = 1, ContentMarginLeft = 52, ContentMarginRight = mr, ContentMarginTop = 6, ContentMarginBottom = 6 };
+            var hover = new Steel.SteelStyle(Steel.Kind.Hot, 6f, 52f, 6f); hover.SetContentMargin(Side.Right, mr);
+            var disabledBox = (StyleBoxFlat)normal.Duplicate(); disabledBox.BgColor = new Color(0.03f, 0.03f, 0.03f, 0.6f);
+            _bar.Color = Steel.Gold;
+            SetMeta(FocusGlow.NoGlowMeta, true);
             AddThemeStyleboxOverride("normal", normal);
             AddThemeStyleboxOverride("hover", hover);
-            AddThemeStyleboxOverride("pressed", hover);
+            AddThemeStyleboxOverride("pressed", hover); AddThemeStyleboxOverride("focus", hover); AddThemeStyleboxOverride("hover_pressed", hover);
             AddThemeStyleboxOverride("disabled", disabledBox);
             if (!enabled) AddThemeColorOverride("font_color", Grey);
             FocusEntered += () => Focused?.Invoke();

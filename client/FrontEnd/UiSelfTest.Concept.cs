@@ -45,7 +45,7 @@ public sealed partial class UiSelfTest
             await Frames(4);
             Check("concept: OPTIONS opens with the focus on its tab", options.Visible && GetViewport().GuiGetFocusOwner() is Button { Text: "GRAPHICS" } && options.Tab == OptionsView.Graphics, GetViewport().GuiGetFocusOwner()?.Name ?? "none");
             Check("concept: OPTIONS has four category tabs, the open one gold (pressed)", new[] { "GRAPHICS", "SOUND", "CONTROLS", "INTERFACE" }.All(t => FindButton(options, b => b.Text == t && b.ThemeTypeVariation == Steel.TabType) is not null)
-                && FindButton(options, b => b.Text == "GRAPHICS")!.ButtonPressed && !FindButton(options, b => b.Text == "SOUND")!.ButtonPressed);
+                && FindButton(options, b => b.Text.Equals("GRAPHICS", StringComparison.OrdinalIgnoreCase))!.ButtonPressed && !FindButton(options, b => b.Text.Equals("SOUND", StringComparison.OrdinalIgnoreCase))!.ButtonPressed);
             Check("concept: the rows are in columns by fit (two when the labels leave room, else one) on a wide window and every choice and slider wears the steel skin", options.Grid is GridContainer { Columns: 1 or 2 } && ((GridContainer)options.Grid).Columns == options.RowLayout.Columns
                 && AllButtons(options.Grid).OfType<UiKit.MenuChoice>().All(c => c.IsSteel) && options.Grid.GetChildren().OfType<UiKit.MenuSlider>().Any());
             int graphicsRows = options.Grid.GetChildCount() + options.FindChild("OptionsWide", true, false)!.GetChildCount();
@@ -59,7 +59,7 @@ public sealed partial class UiSelfTest
 
             // ---- APPLY, REVERT: the options are live and saved at once; REVERT goes back to how the page was opened ----
             await PressRow("GRAPHICS", options);   // back to the page's first tab, as the player would
-            var vsync = FindButton(options, b => b.Text == "VSYNC") as UiKit.MenuChoice;
+            var vsync = FindButton(options, b => b.Text.Equals("VSYNC", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
             Check("concept: VSYNC is an OFF / ON switch", vsync is { IsSteel: true } && vsync.Values.SequenceEqual(["OFF", "ON"]));
             if (vsync is not null)
             {
@@ -72,12 +72,12 @@ public sealed partial class UiSelfTest
                 Check("concept: APPLY says the settings are applied", options.Toast.Visible && options.Toast.Text.Contains("SETTINGS APPLIED", StringComparison.Ordinal), options.Toast.Text);
                 Check("concept: ... and leaves them as they are, saved", _services.Settings.Options.Vsync == (vsync.Index == 1) && FrontEndSettings.Load(_services.SettingsDirectory).Options.Vsync == (vsync.Index == 1));
                 int applied = vsync.Index;
-                var again = FindButton(options, b => b.Text == "VSYNC") as UiKit.MenuChoice;
+                var again = FindButton(options, b => b.Text.Equals("VSYNC", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
                 again!.Step(1);
                 Check("concept: a further change is saved at once, before any APPLY", _services.Settings.Options.Vsync == (again.Index == 1) && again.Index != applied);
                 options.RevertButton.EmitSignal(BaseButton.SignalName.Pressed);
                 await Frames(3);
-                var after = FindButton(options, b => b.Text == "VSYNC") as UiKit.MenuChoice;
+                var after = FindButton(options, b => b.Text.Equals("VSYNC", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
                 Check("concept: REVERT puts it back to the last APPLY, shown and saved", after is not null && after.Index == applied && _services.Settings.Options.Vsync == (applied == 1)
                     && FrontEndSettings.Load(_services.SettingsDirectory).Options.Vsync == (applied == 1), $"row {after?.Index} applied {applied}");
                 Check("concept: REVERT says so and gives the focus to APPLY", options.Toast.Text.Contains("REVERTED", StringComparison.Ordinal) && options.ApplyButton.HasFocus(), options.Toast.Text);
@@ -87,7 +87,7 @@ public sealed partial class UiSelfTest
             await Frames(3);
             Check("concept: INTERFACE has the four moved rows and GRAPHICS no longer has them", new[] { "REDUCE MOTION", "SHOW OTHERS' EMBLEMS" }.All(t => FindButton(options, b => b.Text == t) is UiKit.MenuChoice)
                 && options.FindChild("CameraShakeSlider", true, false) is HSlider && options.FindChild("ScreenFlashesSlider", true, false) is HSlider);
-            var emblems = FindButton(options, b => b.Text == "SHOW OTHERS' EMBLEMS") as UiKit.MenuChoice;
+            var emblems = FindButton(options, b => b.Text.Equals("SHOW OTHERS' EMBLEMS", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
             bool emblemsWere = _services.Settings.ShowOthersEmblems;
             emblems?.Step(1);
             var shake = options.FindChild("CameraShakeSlider", true, false) as HSlider;
@@ -121,7 +121,7 @@ public sealed partial class UiSelfTest
             options.ShowTab(OptionsView.Sound);
             await Frames(3);
             Check("concept: SOUND shows its four sliders and the mute switch in the steel skin", new[] { "MasterVolumeSlider", "MusicVolumeSlider", "EffectsVolumeSlider", "VoiceVolumeSlider" }.All(n => options.FindChild(n, true, false) is HSlider { ThemeTypeVariation: var t } && t == Steel.SliderType)
-                && FindButton(options, b => b.Text == "MUTE WHEN UNFOCUSED") is UiKit.MenuChoice { IsSteel: true });
+                && FindButton(options, b => b.Text.Equals("MUTE WHEN UNFOCUSED", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { IsSteel: true });
             options.ShowTab(OptionsView.Controls);
             await Frames(3);
             Check("concept: CONTROLS keeps KEYBINDS as a steel button under the rows", FindButton(options, b => b.Name == "ControlsButton") is { } keybinds && keybinds.ThemeTypeVariation == Steel.ButtonType && !options.Grid.IsAncestorOf(keybinds));

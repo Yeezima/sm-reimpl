@@ -18,13 +18,9 @@ public abstract partial class TfwPagePanel : Control
         Name = name;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = name + "Dim", Color = new Color(0f, 0f, 0f, 0.88f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
-        var head = new Label { Name = name + "Title", Text = title, MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        head.AddThemeFontOverride("font", UiKit.TitleFont);
-        head.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        head.AddThemeColorOverride("font_color", UiKit.White);
+        var head = new Label { Name = name + "Title", Text = title, MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left + 8f, 62f) };
+        SteelBackdrop.StyleTitle(head);
+        AddChild(new SteelBackdrop(name + "Dim", head, 0.7f));   // ui/overhaul: the steel board and the title plate behind the page
         AddChild(head);
     }
 
@@ -40,6 +36,7 @@ public abstract partial class TfwPagePanel : Control
         var l = UiKit.MenuText(text, colour, clip: false);
         l.Name = name;
         l.AddThemeFontSizeOverride("font_size", size);
+        SteelBackdrop.StyleLine(l);
         Place(l, x, y, width, size + 8f);
         AddChild(l);
         return l;
@@ -49,6 +46,7 @@ public abstract partial class TfwPagePanel : Control
     {
         var b = UiKit.MenuButton(text, act);
         b.AddThemeFontSizeOverride("font_size", size);
+        SteelBackdrop.StylePlate(b);
         Place(b, x, y, width, size + 16f);
         AddChild(b);
         return b;

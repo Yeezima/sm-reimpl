@@ -84,9 +84,9 @@ public sealed partial class UiSelfTest
             await PressRow("HOST LOCAL LOBBY", lobby);
             var host = _front.HostPage!;
             Check("menu: the host page opens", host.Visible);
-            Check("menu: the host page has the mode and reach rows", FindButton(host, b => b.Text == "GAME MODE") is UiKit.MenuChoice { Values.Count: 2 } && FindButton(host, b => b.Text == "WHO CAN JOIN") is UiKit.MenuChoice { Value: "THIS PC ONLY" });
-            Check("menu: ADD LOYALIST BOT and ADD CHAOS BOT, and one difficulty", FindButton(host, b => b.Text == "ADD LOYALIST BOT") is not null && FindButton(host, b => b.Text == "ADD CHAOS BOT") is not null
-                  && FindButton(host, b => b.Text == "BOT DIFFICULTY") is not null && FindButton(host, b => b.Text.Contains("ADD BOT", StringComparison.Ordinal)) is null);
+            Check("menu: the host page has the mode and reach rows", FindButton(host, b => b.Text.Equals("GAME MODE", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { Values.Count: 2 } && FindButton(host, b => b.Text.Equals("WHO CAN JOIN", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { Value: "THIS PC ONLY" });
+            Check("menu: ADD LOYALIST BOT and ADD CHAOS BOT, and one difficulty", FindButton(host, b => b.Text.Equals("ADD LOYALIST BOT", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Equals("ADD CHAOS BOT", StringComparison.OrdinalIgnoreCase)) is not null
+                  && FindButton(host, b => b.Text.Equals("BOT DIFFICULTY", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Contains("ADD BOT", StringComparison.Ordinal)) is null);
             await SendPad(JoyButton.B);
             Check("menu: B steps back to the lobby page", lobby.Visible);
             await SendKey(Key.Escape);
@@ -207,14 +207,14 @@ public sealed partial class UiSelfTest
                 }
 
                 // fix/musou-local-server: STOP MUSOU SERVER under MUSOU MODE, only while a Musou server of this client runs; a press while it starts waits.
-                Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, true, false);   // another profile's server (the Host panel's)
                 await Frames(3);
-                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, false, true);   // Musou, still starting
                 await Frames(3);
-                var stopRow = FindButton(main, b => b.Text == "STOP MUSOU SERVER");
-                var musouRow = FindButton(main, b => b.Text == "MUSOU MODE");
+                var stopRow = FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase));
+                var musouRow = FindButton(main, b => b.Text.Equals("MUSOU MODE", StringComparison.OrdinalIgnoreCase));
                 Check("menu: a starting Musou server shows STOP MUSOU SERVER directly under MUSOU MODE", stopRow is not null && musouRow is not null
                       && stopRow.GetParent() == musouRow.GetParent() && stopRow.GetIndex() == musouRow.GetIndex() + 1);
                 musouStarted = false; joined = null;
@@ -233,13 +233,13 @@ public sealed partial class UiSelfTest
                 Check("menu: STOP MUSOU SERVER puts the lobby's profile back", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
                 _front.MusouStateForTest = (false, false, false); // the process ended
                 await Frames(3);
-                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, true, true);
                 await Frames(3);
-                Check("menu: the row follows a Musou server again (back from a match)", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is not null);
+                Check("menu: the row follows a Musou server again (back from a match)", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is not null);
                 _front.MusouStateForTest = (false, false, false); // the server died by itself
                 await Frames(3);
-                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = null;
                 _services.Content = _services.Settings.ContentExtras;
             }
@@ -270,7 +270,7 @@ public sealed partial class UiSelfTest
             escMenu.QueueFree();
 
             // The bundled font and the one colour.
-            Check("menu: every menu uses the bundled font", UiKit.Theme.DefaultFont is FontVariation { BaseFont: FontFile { Data.Length: > 100000 } });
+            Check("menu: every menu uses the one bundled lettering (Oswald, ui/overhaul)", ReferenceEquals(UiKit.Theme.DefaultFont, UiKit.ConceptFont()));
             Check("menu: the highlight colour is the text colour", UiKit.Gold == UiKit.White);
             Check("menu: the background constant names one file", UiKit.MenuBackgroundPath == "res://assets/menu/background.jpg");
         }
@@ -308,15 +308,15 @@ public sealed partial class UiSelfTest
             await Frames(3);
             foreach (var slider in new[] { "MasterVolumeSlider", "MusicVolumeSlider", "EffectsVolumeSlider", "VoiceVolumeSlider" })
                 Check($"options: SOUND has {slider}", options.FindChild(slider, true, false) is HSlider);
-            Check("options: SOUND has MUTE WHEN UNFOCUSED", FindButton(options, b => b.Text == "MUTE WHEN UNFOCUSED") is UiKit.MenuChoice);
+            Check("options: SOUND has MUTE WHEN UNFOCUSED", FindButton(options, b => b.Text.Equals("MUTE WHEN UNFOCUSED", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice);
             options.ShowTab(OptionsView.Controls);
             await Frames(3);
             foreach (var slider in new[] { "MouseSensitivitySlider", "AimSensitivitySlider", "PadLookSlider" })
                 Check($"options: CONTROLS has {slider}", options.FindChild(slider, true, false) is HSlider);
-            Check("options: CONTROLS has INVERT Y, INVERT GAMEPAD Y and the keybinds", FindButton(options, b => b.Text == "INVERT Y") is UiKit.MenuChoice && FindButton(options, b => b.Text == "INVERT GAMEPAD Y") is UiKit.MenuChoice && FindButton(options, b => b.Text == "KEYBINDS") is not null);
+            Check("options: CONTROLS has INVERT Y, INVERT GAMEPAD Y and the keybinds", FindButton(options, b => b.Text.Equals("INVERT Y", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice && FindButton(options, b => b.Text.Equals("INVERT GAMEPAD Y", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice && FindButton(options, b => b.Text.Equals("KEYBINDS", StringComparison.OrdinalIgnoreCase)) is not null);
 
             // A change applies at once and is saved.
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "INVERT Y")!).Step(1);
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("INVERT Y", StringComparison.OrdinalIgnoreCase))!).Step(1);
             await Frames(2);
             Check("options: Invert Y turns the mouse's vertical look", LiveOptions.MouseVertical == -1f);
             string observer = System.IO.File.Exists(ProjectSettings.GlobalizePath("res://NetworkView.Observer.cs")) ? System.IO.File.ReadAllText(ProjectSettings.GlobalizePath("res://NetworkView.Observer.cs")) : "";
@@ -324,7 +324,7 @@ public sealed partial class UiSelfTest
             ((HSlider)options.FindChild("AimSensitivitySlider", true, false)!).Value = 0.5;
             await Frames(2);
             Check("options: the aim sensitivity scales the mouse while aiming only", Mathf.IsEqualApprox(LiveOptions.MouseAim(true), 0.5f) && LiveOptions.MouseAim(false) == 1f);
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "INVERT GAMEPAD Y")!).Step(1);
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("INVERT GAMEPAD Y", StringComparison.OrdinalIgnoreCase))!).Step(1);
             ((HSlider)options.FindChild("PadLookSlider", true, false)!).Value = 2.0;
             await Frames(2);
             Check("options: the gamepad look settings reach the look", LiveOptions.PadVertical == -1f && Mathf.IsEqualApprox(LiveOptions.PadLook, 2f));
@@ -342,11 +342,11 @@ public sealed partial class UiSelfTest
 
             options.ShowTab(OptionsView.Graphics);
             await Frames(3);
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "FPS CAP")!).Step(2);
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("FPS CAP", StringComparison.OrdinalIgnoreCase))!).Step(2);
             ((HSlider)options.FindChild("RenderScaleSlider", true, false)!).Value = 0.75;
             ((HSlider)options.FindChild("BrightnessSlider", true, false)!).Value = 1.25;
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "WINDOW MODE")!).Step(1);
-            var resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "RESOLUTION")!;
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("WINDOW MODE", StringComparison.OrdinalIgnoreCase))!).Step(1);
+            var resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("RESOLUTION", StringComparison.OrdinalIgnoreCase))!;
             await Frames(3);
             Check("options: the FPS cap reaches the engine", Engine.MaxFps == 60, Engine.MaxFps.ToString());
             Check("options: the render scale reaches the viewport", Mathf.IsEqualApprox(GetTree().Root.Scaling3DScale, 0.75f), GetTree().Root.Scaling3DScale.ToString());
@@ -374,8 +374,8 @@ public sealed partial class UiSelfTest
             // F11 (ours): the same setting and the same save as the WINDOW MODE row, with the Options screen open (it follows at once); a held key does not repeat.
             options.ShowTab(OptionsView.Graphics);
             await Frames(3);
-            var windowRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "WINDOW MODE")!;
-            resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "RESOLUTION")!;
+            var windowRow = (UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("WINDOW MODE", StringComparison.OrdinalIgnoreCase))!;
+            resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("RESOLUTION", StringComparison.OrdinalIgnoreCase))!;
             Check("F11: starts on BORDERLESS", _services.Settings.Options.Window == WindowChoice.Borderless && windowRow.Index == (int)WindowChoice.Borderless);
             await SendKey(Key.F11);
             Check("F11: borderless goes to the window, the open row and the resolution follow", _services.Settings.Options.Window == WindowChoice.Windowed && windowRow.Value == "WINDOWED" && !resolutionRow.Disabled, windowRow.Value);
@@ -418,8 +418,8 @@ public sealed partial class UiSelfTest
         var main = _front.MainPage!;
         float f = view.Size.Y / UiKit.VirtualHeight;
         var concept = (ConceptMainPage)main;
-        var firstRow = FindButton(main.Rows, b => b.Text == "CLASSIC PVP")!;
-        var exit = FindButton(main.Rows, b => b.Text == "EXIT")!;
+        var firstRow = FindButton(main.Rows, b => b.Text.Equals("CLASSIC PVP", StringComparison.OrdinalIgnoreCase))!;
+        var exit = FindButton(main.Rows, b => b.Text.Equals("EXIT", StringComparison.OrdinalIgnoreCase))!;
         // The overlay (2026-11-15): the rows are evenly spaced steel buttons inside the window of the picture; the picture and its wordmark are in the window and keep to the left half.
         var rowButtons = AllButtons(main.Rows).Where(x => x.IsVisibleInTree()).OrderBy(x => x.GlobalPosition.Y).ToList();
         float pitch0 = rowButtons.Count > 1 ? rowButtons[1].GlobalPosition.Y - rowButtons[0].GlobalPosition.Y : 0f;

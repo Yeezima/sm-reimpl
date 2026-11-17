@@ -155,7 +155,7 @@ public sealed partial class FrontEndView : Control
         _frames++;
         if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe), the menu's frames too (menu video, 2026-11-10)
         // The video pauses under the customizer, whose own dark background covers it.
-        if (_background is MenuVideoBackground video) { video.Covered = _creator?.Visible == true || _appearance?.Visible == true; video.MainMenuFraming = ShowsMainMenu && ConceptArt.Get("overlay-main") is not null; }
+        if (_background is MenuVideoBackground video) { video.Covered = (_creator?.Visible == true || _appearance?.Visible == true) && ConceptArt.Get("overlay-armoury") is null; video.MainMenuFraming = ShowsMainMenu && ConceptArt.Get("overlay-main") is not null; }
         if (!_built)
         {
             if (_services.Failed && _loading is not null && _loadingText is not null) { ShowFailure(_services.Error ?? "unknown error"); _loadingText = null; }
@@ -336,8 +336,8 @@ public sealed partial class FrontEndView : Control
         }
 
         var foot = UiKit.VBox(2);
-        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => l.TooltipText = GameFoundNote));
-        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontSizeOverride("font_size", UiKit.MenuTextSize); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
+        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", 16); }));
+        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", 16); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
         foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }
@@ -466,7 +466,7 @@ public sealed partial class FrontEndView : Control
             }
             return side;
         }
-        var frame = new ScoreboardView.ScoreboardFrame { Single = single, SingleScore = !single, Headers = ["KILLS", "DEATHS", "RATIO", "ASSISTS", "SCORE", "PING"] };
+        var frame = new ScoreboardView.ScoreboardFrame { Single = single, SingleScore = true, Headers = ["KILLS", "DEATHS", "RATIO", "ASSISTS", "SCORE", "PING"] };
         frame.Sides.Add(Make(single ? 5200 : 41, single ? 4 : 8, 0));
         if (!single) frame.Sides.Add(Make(37, 8, 3));
         view.Frame = frame;

@@ -70,13 +70,24 @@ public sealed partial class WarMapPanel : Control
         _close = close;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = deploy is null ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = "WarMapDim", Color = new Color(0f, 0f, 0f, deploy is null ? 0.62f : 0.88f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
         var title = new Label { Name = "WarMapTitle", Text = "WAR MAP", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        title.AddThemeFontOverride("font", UiKit.TitleFont);
-        title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", UiKit.White);
+        if (deploy is not null)
+        {
+            // The station's screen (a menu) wears the redesigned steel board and plate; the M overlay in a battle keeps its plain dim (it is part of the play view).
+            title.Position = new Vector2(Left + 8f, 62f);
+            SteelBackdrop.StyleTitle(title);
+            _steel = true;
+            AddChild(new SteelBackdrop("WarMapDim", title, 0.7f));
+        }
+        else
+        {
+            var dim = new ColorRect { Name = "WarMapDim", Color = new Color(0f, 0f, 0f, 0.62f), MouseFilter = MouseFilterEnum.Ignore };
+            dim.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(dim);
+            title.AddThemeFontOverride("font", UiKit.TitleFont);
+            title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
+            title.AddThemeColorOverride("font_color", UiKit.White);
+        }
         AddChild(title);
         _clock = Text("WarMapClock", Left, 146f, 16, 1200f);
         _reserves = Text("WarMapReserves", Left, 170f, 16, 1200f);
@@ -91,7 +102,9 @@ public sealed partial class WarMapPanel : Control
         }
         _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Stormbird (Esc, or B on a controller)");
         Place(_closeButton, Left, Top + 60f + 3 * LaneHeight, 240f, 30f);
-        _closeButton.AddThemeFontSizeOverride("font_size", 18);
+        _closeButton.AddThemeFontSizeOverride("font_size", 22);
+        _closeButton.Size = new Vector2(280f, 48f);
+        SteelBackdrop.StylePlate(_closeButton);
         AddChild(_closeButton);
     }
 
@@ -107,10 +120,13 @@ public sealed partial class WarMapPanel : Control
         var l = UiKit.MenuText("", null, clip: false);
         l.Name = name;
         l.AddThemeFontSizeOverride("font_size", size);
+        if (_steel) SteelBackdrop.StyleLine(l);
         Place(l, x, y, width, size + 8f);
         AddChild(l);
         return l;
     }
+
+    bool _steel;
 
     Row MakeRow(TfwLane lane, float y)
     {
@@ -125,7 +141,7 @@ public sealed partial class WarMapPanel : Control
         if (_deploy is { } act)
         {
             deploy = UiKit.MenuButton("Deploy " + lane, () => act(lane));
-            deploy.AddThemeFontSizeOverride("font_size", 22);
+            deploy.AddThemeFontSizeOverride("font_size", 22); SteelBackdrop.StylePlate(deploy);
             Place(deploy, DeployColumn, y + 38f, 340f, 44f);
             AddChild(deploy);
         }

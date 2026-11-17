@@ -36,6 +36,8 @@ public static partial class UiKit
     {
         bool _concept;
         float _cs = 1f, _cCtlW;
+        /// <summary>The row's height in concept pixels (the concept's own 31.2; the steel pages use a tighter pitch so a long page fits two columns).</summary>
+        public float ConceptPitch { get; set; } = ConceptRowPitch;
 
         /// <summary>The width the control needs at scale <paramref name="s"/> (a pill grows past the concept's 117 for a long value).</summary>
         public float ConceptControlWidth(float s)
@@ -53,7 +55,7 @@ public static partial class UiKit
         {
             UseSteel(labelW);
             _concept = true; _cs = s; _cCtlW = ctlW;
-            CustomMinimumSize = new Vector2(labelW + ctlW, ConceptRowPitch * s);
+            CustomMinimumSize = new Vector2(labelW + ctlW, ConceptPitch * s);
             AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(ConceptLabelFont * s)); AddThemeFontOverride("font", ConceptFont());
             ClipText = false;
             _value.AddThemeFontOverride("font", ConceptFont());
@@ -83,7 +85,7 @@ public static partial class UiKit
         {
             float h = (_isSwitch ? ConceptSwitchH : ConceptPillH) * _cs, w = ConceptControlW();
             float x = _labelWidth + Mathf.Min((_isSwitch ? 24f : 8f) * _cs, Mathf.Max(0f, _cCtlW - w));
-            return new Rect2(x, (ConceptRowPitch * _cs - h) / 2f, w, h);
+            return new Rect2(x, (ConceptPitch * _cs - h) / 2f, w, h);
         }
 
         void DrawConcept()

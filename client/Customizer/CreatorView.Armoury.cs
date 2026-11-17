@@ -390,9 +390,9 @@ public sealed partial class CreatorView
             b.AddThemeStyleboxOverride("normal", Box(Colors.White)); b.AddThemeStyleboxOverride("hover", Box(ConceptArt.Warm)); b.AddThemeStyleboxOverride("pressed", Box(gold)); b.AddThemeStyleboxOverride("focus", Box(gold)); b.AddThemeStyleboxOverride("disabled", Box(Colors.Gray));
             foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(n, Colors.Transparent);
             var cap = new Label { Text = slot.Slot.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
-            ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 6f) * s; cap.Size = new Vector2(126f, 14f) * s; b.AddChild(cap);
+            ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 11f) * s; cap.Size = new Vector2(126f, 11f) * s; b.AddChild(cap);
             var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
-            ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 22f) * s; val.Size = new Vector2(126f, 40f) * s; b.AddChild(val);
+            ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 23f) * s; val.Size = new Vector2(126f, 34f) * s; b.AddChild(val);
             if (slot.Icon is not null && ConceptArt.Get(slot.Icon) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s });
             _armSlotList.AddChild(b);
         }

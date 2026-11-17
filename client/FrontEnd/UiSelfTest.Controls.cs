@@ -114,8 +114,8 @@ public sealed partial class UiSelfTest
             await Arm(controls, GameAction.Grenade, 0);
             await SendKey(Key.Q);
             await ControlsDialogShown(controls);
-            Check("controls: a used key asks Swap, Replace or Cancel", ControlsDialog(controls) is { } d && FindButton(d, b => b.Text == "Swap") is not null && FindButton(d, b => b.Text == "Replace") is not null
-                && FindButton(d, b => b.Text == "Cancel") is not null && controls.Status.Contains("already used", StringComparison.Ordinal), controls.Status);
+            Check("controls: a used key asks Swap, Replace or Cancel", ControlsDialog(controls) is { } d && FindButton(d, b => b.Text.Equals("Swap", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(d, b => b.Text.Equals("Replace", StringComparison.OrdinalIgnoreCase)) is not null
+                && FindButton(d, b => b.Text.Equals("Cancel", StringComparison.OrdinalIgnoreCase)) is not null && controls.Status.Contains("already used", StringComparison.Ordinal), controls.Status);
             await AnswerControlsDialog(controls, "Cancel");
             Check("controls: Cancel changes nothing", controls.Working.Get(KB, GameAction.Grenade, 0) == "Key:G" && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:Q");
             await Arm(controls, GameAction.Grenade, 0);

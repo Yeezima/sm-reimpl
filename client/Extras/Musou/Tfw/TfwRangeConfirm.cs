@@ -16,23 +16,19 @@ public sealed partial class TfwRangeConfirm : Control
         _cancel = cancel;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = "RangeDim", Color = new Color(0f, 0f, 0f, 0.8f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
-        var title = new Label { Name = "RangeTitle", Text = "FIRING RANGE", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(560f, 340f) };
-        title.AddThemeFontOverride("font", UiKit.TitleFont);
-        title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", UiKit.White);
+        var title = new Label { Name = "RangeTitle", Text = "FIRING RANGE", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(580f, 330f) };
+        SteelBackdrop.StyleTitle(title, 44);
+        AddChild(new SteelBackdrop("RangeDim", title, 0.78f, new Rect2(500f, 290f, 920f, 350f)));   // ui/overhaul: the steel board and plate
         AddChild(title);
         var text = new Label { Name = "RangeText", Text = "A 100 m square test ground with 200 Orks, for the artillery strike and the new features.\nTeleport there from the Stormbird?", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(560f, 420f) };
         text.AddThemeColorOverride("font_color", UiKit.White);
-        text.AddThemeFontSizeOverride("font_size", 18);
+        text.AddThemeFontSizeOverride("font_size", 22); SteelBackdrop.StyleLine(text);
         AddChild(text);
         _go = UiKit.MenuButton("Teleport", () => go(), "Go to the Firing Range");
-        _go.Position = new Vector2(560f, 500f); _go.Size = new Vector2(240f, 30f);
+        _go.Position = new Vector2(560f, 520f); _go.Size = new Vector2(380f, 56f); _go.AddThemeFontSizeOverride("font_size", 26); SteelBackdrop.StylePlate(_go);
         AddChild(_go);
         var back = UiKit.MenuButton("Cancel", () => cancel(), "Stay in the Stormbird (Esc, or B on a controller)");
-        back.Position = new Vector2(560f, 540f); back.Size = new Vector2(240f, 30f);
+        back.Position = new Vector2(980f, 520f); back.Size = new Vector2(380f, 56f); back.AddThemeFontSizeOverride("font_size", 26); SteelBackdrop.StylePlate(back);
         AddChild(back);
     }
 

@@ -145,12 +145,12 @@ public sealed partial class UiSelfTest : Node
         assaultRow?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         Check("choosing a class creates it", session.Working.ClassAt(4)?.Role == "assault");
-        Check("the session is dirty and Save is enabled", session.Dirty && FindButton(creator, b => b.Text.StartsWith("SAVE"))?.Disabled == false);
+        Check("the session is dirty and Save is enabled", session.Dirty && FindButton(creator, b => b.Text.StartsWith("SAVE", StringComparison.OrdinalIgnoreCase))?.Disabled == false);
 
         // 2. the pistol-slot bolter needs True Grit.
         creator.OpenStep("weapons");
         await Frames(3);
-        var pistolBolter = FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith("Bolter", StringComparison.OrdinalIgnoreCase) && !b.Text.Contains("Relic") && b.Text.Length < 12);
+        var pistolBolter = FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith("Bolter", StringComparison.OrdinalIgnoreCase) && !b.Text.Contains("Relic", StringComparison.OrdinalIgnoreCase) && b.Text.Length < 12);
         Check("the pistol-slot Bolter is listed", pistolBolter is not null);
         pistolBolter?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
@@ -160,7 +160,7 @@ public sealed partial class UiSelfTest : Node
         var grit = FindButton(creator, b => b is UiKit.Row && b.Text.Contains("True Grit", StringComparison.OrdinalIgnoreCase));
         Check("True Grit is listed as a perk", grit is not null);
         // Perk 2 first (any perk in either slot), then back to the weapons.
-        Click(b => b.ToggleMode && b.Text.StartsWith("Perk 2"));
+        Click(b => b.ToggleMode && b.Text.StartsWith("Perk 2", StringComparison.OrdinalIgnoreCase));
         await Frames(4);
         FindButton(creator, b => b is UiKit.Row && b.Text.Contains("True Grit", StringComparison.OrdinalIgnoreCase))?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
@@ -173,7 +173,7 @@ public sealed partial class UiSelfTest : Node
         // The same perk in both slots is refused.
         creator.OpenStep("perks");
         await Frames(3);
-        Click(b => b.ToggleMode && b.Text.StartsWith("Perk 1"));
+        Click(b => b.ToggleMode && b.Text.StartsWith("Perk 1", StringComparison.OrdinalIgnoreCase));
         await Frames(4);
         FindButton(creator, b => b is UiKit.Row && b.Text.Contains("True Grit", StringComparison.OrdinalIgnoreCase))?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
@@ -181,7 +181,7 @@ public sealed partial class UiSelfTest : Node
         Check("a perk never sits in both slots", perksNow.Count(x => x == "mp_perk_bolter_in_place_of_pistol") <= 1, string.Join(",", perksNow));
         // Choosing a perk that is already in a slot clears that slot; True Grit going takes the pistol Bolter with it.
         Check("choosing a chosen perk again clears it and resets the pistol", session.Working.ClassAt(4)!.Perk(1) is null && session.Working.ClassAt(4)!.Pistol is null);
-        Click(b => b.ToggleMode && b.Text.StartsWith("Perk 2"));
+        Click(b => b.ToggleMode && b.Text.StartsWith("Perk 2", StringComparison.OrdinalIgnoreCase));
         await Frames(4);
         FindButton(creator, b => b is UiKit.Row && b.Text.Contains("True Grit", StringComparison.OrdinalIgnoreCase))?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
@@ -192,7 +192,7 @@ public sealed partial class UiSelfTest : Node
         Check("the pistol Bolter is back", session.Working.ClassAt(4)?.Pistol is not null);
 
         // 3. rename through the prompt.
-        Click(b => b.Text.StartsWith("Rename"));
+        Click(b => b.Text.StartsWith("Rename", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         var edit = FindEdit(_front);
         Check("the rename prompt opens", edit is not null);
@@ -201,7 +201,7 @@ public sealed partial class UiSelfTest : Node
         Check("the loadout is renamed (trimmed)", session.Working.ClassAt(4)?.Name == "Zed the Bold", session.Working.ClassAt(4)?.Name ?? "null");
 
         // 4. copy to slot 7.
-        Click(b => b.Text.StartsWith("Copy to"));
+        Click(b => b.Text.StartsWith("Copy to", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         edit = FindEdit(_front);
         if (edit is not null) { edit.Text = "7"; edit.EmitSignal(LineEdit.SignalName.TextSubmitted, "7"); }
@@ -209,7 +209,7 @@ public sealed partial class UiSelfTest : Node
         Check("copy to slot 7", session.Working.ClassAt(7)?.Name == "Zed the Bold (copy)", session.Working.ClassAt(7)?.Name ?? "null");
 
         // 5. save writes the file and clears the unsaved mark.
-        Click(b => b.Text.StartsWith("SAVE"));
+        Click(b => b.Text.StartsWith("SAVE", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         Check("save writes the profile file", System.IO.File.Exists(_services.Store.ProfilePath) && !session.Dirty);
         var reloaded = ProfileSession.Open(catalog, _services.Store);
@@ -218,12 +218,12 @@ public sealed partial class UiSelfTest : Node
         // 6. set active and clear.
         creator.OpenSelection(Selection.CustomSlot(4));
         await Frames(3);
-        Click(b => b.Text == "SET ACTIVE");
+        Click(b => b.Text.Equals("SET ACTIVE", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         Check("set active selects slot 4", session.Working.Selected == Selection.CustomSlot(4));
         creator.OpenSelection(Selection.CustomSlot(7));
         await Frames(3);
-        Click(b => b.Text == "Clear");
+        Click(b => b.Text.Equals("Clear", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         Check("clear asks first", OpenDialog() is not null);
         ClickDialog("Clear");
@@ -234,13 +234,13 @@ public sealed partial class UiSelfTest : Node
         session.Save();
         creator.OpenSelection(Selection.CustomSlot(4));
         await Frames(3);
-        var resetButton = Click(b => b.Text == "Reset");
+        var resetButton = Click(b => b.Text.Equals("Reset", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         Check("reset asks first", resetButton is { Disabled: false } && OpenDialog() is not null, $"disabled={resetButton?.Disabled}");
         ClickDialog("Reset");
         await Frames(4);
         Check("reset makes the slot dirty", session.Dirty);
-        Click(b => b.Text == "Revert");
+        Click(b => b.Text.Equals("Revert", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         ClickDialog("Revert");
         await Frames(4);
@@ -281,11 +281,11 @@ public sealed partial class UiSelfTest : Node
         await LensChecks(appearance);
         appearance.OpenSection("badges");
         await Frames(5);
-        Click(b => b.Text == "None" && b is UiKit.Row);
+        Click(b => b.Text.Equals("None", StringComparison.OrdinalIgnoreCase) && b is UiKit.Row);
         await Frames(4);
         look = session.Working.Appearance(session.Working.ClassAt(4)?.Appearance.SpaceMarine);
         Check("None clears the badge", look?.Decals.GetValueOrDefault("leftshoulder")?.None == true);
-        Click(b => b.Text == "Undo");
+        Click(b => b.Text.Equals("Undo", StringComparison.OrdinalIgnoreCase));
         await Frames(4);
         look = session.Working.Appearance(session.Working.ClassAt(4)?.Appearance.SpaceMarine);
         Check("undo steps back", look?.Decals.GetValueOrDefault("leftshoulder")?.None != true);
@@ -339,11 +339,11 @@ public sealed partial class UiSelfTest : Node
         Check("host: This PC only starts no bots by default, on Easy", panel.BotCount == 0 && panel.Difficulty == BotDifficulty.Easy && HostBots.PlanSides(0, 0, false).Count == 0, $"{panel.BotCount} {panel.Difficulty}");
         Check("host: the rows show no bots", panel.BotsShown == ("0", "0", "EASY"), panel.BotsShown.ToString());
         Check("host: CLEAR BOTS is disabled with no bots", FindButton(panel, b => b.Name == "ClearBots") is { Disabled: true });
-        Check("host: STOP SERVER is disabled with no server of this game running", FindButton(panel, b => b.Text == "STOP SERVER")?.Disabled == true || HostedServer.Running);
+        Check("host: STOP SERVER is disabled with no server of this game running", FindButton(panel, b => b.Text.Equals("STOP SERVER", StringComparison.OrdinalIgnoreCase))?.Disabled == true || HostedServer.Running);
         panel.ShowRunningForTest("Hosting Annihilation on port 27015, this PC only, no bots");
         await Frames(3);
-        Check("host: the running rows have JOIN YOUR SERVER and STOP SERVER and no bot buttons", FindButton(panel, b => b.Text == "STOP SERVER") is not null
-              && FindButton(panel, b => b.Text == "JOIN YOUR SERVER") is not null && FindButton(panel, b => b.Name == "AddLoyalistBot") is null && FindButton(panel, b => b.Name == "AddChaosBot") is null);
+        Check("host: the running rows have JOIN YOUR SERVER and STOP SERVER and no bot buttons", FindButton(panel, b => b.Text.Equals("STOP SERVER", StringComparison.OrdinalIgnoreCase)) is not null
+              && FindButton(panel, b => b.Text.Equals("JOIN YOUR SERVER", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(panel, b => b.Name == "AddLoyalistBot") is null && FindButton(panel, b => b.Name == "AddChaosBot") is null);
         panel.ShowRunningForTest(null);
         await Frames(2);
 
@@ -359,10 +359,10 @@ public sealed partial class UiSelfTest : Node
         await Frames(2);
         Check("host: the sides stop at 15 bots beside the human (7 and 8), the buttons disabled there", panel.BotCount == HostBots.MaxBots && panel.Bots == (7, 8)
               && FindButton(panel, b => b.Name == "AddLoyalistBot") is { Disabled: true } && FindButton(panel, b => b.Name == "AddChaosBot") is { Disabled: true }, panel.Bots.ToString());
-        ((UiKit.MenuChoice)FindButton(panel, b => b.Text == "WHO CAN JOIN")!).Step(1);
+        ((UiKit.MenuChoice)FindButton(panel, b => b.Text.Equals("WHO CAN JOIN", StringComparison.OrdinalIgnoreCase))!).Step(1);
         await Frames(2);
         Check("host: the numbers stay when the reach changes", panel.BotCount == HostBots.MaxBots);
-        ((UiKit.MenuChoice)FindButton(panel, b => b.Text == "WHO CAN JOIN")!).Step(1);
+        ((UiKit.MenuChoice)FindButton(panel, b => b.Text.Equals("WHO CAN JOIN", StringComparison.OrdinalIgnoreCase))!).Step(1);
         FindButton(panel, b => b.Name == "ClearBots")?.EmitSignal(BaseButton.SignalName.Pressed);
         panel.ChooseForTest(0, 0, BotDifficulty.Normal);
         await Frames(2);
@@ -612,7 +612,7 @@ public sealed partial class UiSelfTest : Node
         var on = await Settled(s => s.On && Near(s.Colour, colour));
         Check("a lens colour recolours the helmet's lens in its material", on is { On: true } s1 && Near(s1.Colour, colour), $"{on} vs {colour}");
         Check("the lens colour adds no glow node to the character", on is { GlowNodes: 0 }, on?.GlowNodes.ToString() ?? "no character");
-        FindButton(appearance, b => b.Text.StartsWith("Default (original look)"))?.EmitSignal(BaseButton.SignalName.Pressed);
+        FindButton(appearance, b => b.Text.StartsWith("Default (original look)", StringComparison.OrdinalIgnoreCase))?.EmitSignal(BaseButton.SignalName.Pressed);
         var off = await Settled(s => !s.On);
         Check("Default (original look) switches the lens recolour off", off is { On: false, GlowNodes: 0 }, off?.ToString() ?? "no character");
     }
@@ -638,7 +638,7 @@ public sealed partial class UiSelfTest : Node
         await Frames(4);
         int slot = LoadoutEdits.FirstEmptySlot(session.Working);
         Check("a slot is free for the copy", slot > 0);
-        var sword = FindButton(creator, b => b is UiKit.Row && b.Text == "Power Sword");
+        var sword = FindButton(creator, b => b is UiKit.Row && b.Text.Equals("Power Sword", StringComparison.OrdinalIgnoreCase));
         Check("DEFAULTS Assault lists the Power Sword", sword is not null);
         sword?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(4);
@@ -655,14 +655,14 @@ public sealed partial class UiSelfTest : Node
         creator.OpenStep("perks");
         await Frames(4);
         int second = LoadoutEdits.FirstEmptySlot(session.Working);
-        var perkRow = FindButton(creator, b => b is UiKit.Row && b.Text == "Larraman's Blessing");
+        var perkRow = FindButton(creator, b => b is UiKit.Row && b.Text.Equals("Larraman's Blessing", StringComparison.OrdinalIgnoreCase));
         Check("DEFAULTS Tactical lists Larraman's Blessing", perkRow is not null);
         perkRow?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(4);
         Check("choosing a perk on DEFAULTS makes an editable copy with it", session.Working.ClassAt(second) is { Role: "tactical" } t && t.Perk(0) == "mp_perk_shield_recharge", string.Join(",", session.Working.ClassAt(second)?.Perks ?? []));
 
         // Reverting the copy goes back to the DEFAULTS it came from, not to an empty slot.
-        Click(b => b.Text == "Revert");
+        Click(b => b.Text.Equals("Revert", StringComparison.OrdinalIgnoreCase));
         await Frames(3);
         ClickDialog("Revert");
         await Frames(4);
@@ -718,10 +718,10 @@ public sealed partial class UiSelfTest : Node
         var scroll = FindScroll(creator);
         Check("the list is a scroll container", scroll is not null);
         if (scroll is null) return;
-        var sword = FindButton(creator, b => b is UiKit.Row && b.Text == "Power Sword");
+        var sword = FindButton(creator, b => b is UiKit.Row && b.Text.Equals("Power Sword", StringComparison.OrdinalIgnoreCase));
         Check("the Power Sword row exists", sword is not null);
         if (sword is null) return;
-        var plasma = FindButton(creator, b => b is UiKit.Row && b.Text == "Plasma Pistol")!;
+        var plasma = FindButton(creator, b => b is UiKit.Row && b.Text.Equals("Plasma Pistol", StringComparison.OrdinalIgnoreCase))!;
         int before = scroll.ScrollVertical;
         bool visibleAtStart = scroll.GetGlobalRect().Encloses(sword.GetGlobalRect());
         for (int i = 0; i < 6 && !scroll.GetGlobalRect().Encloses(sword.GetGlobalRect()); i++) await MouseWheel(FindButton(creator, b => b is UiKit.Row && b.IsVisibleInTree() && scroll.GetGlobalRect().Encloses(b.GetGlobalRect())) ?? plasma);
@@ -732,7 +732,7 @@ public sealed partial class UiSelfTest : Node
 
         creator.OpenStep("perks");
         await Frames(4);
-        var slotTwo = FindButton(creator, b => b.ToggleMode && b.Text.StartsWith("Perk 2"));
+        var slotTwo = FindButton(creator, b => b.ToggleMode && b.Text.StartsWith("Perk 2", StringComparison.OrdinalIgnoreCase));
         if (slotTwo is not null) await MouseClick(slotTwo);
         bool Power(Button b) => b is UiKit.Row && b.Text.Contains("Power Sword", StringComparison.OrdinalIgnoreCase);
         bool FirstRow(Button b) => b is UiKit.Row && b.IsVisibleInTree() && scroll!.GetGlobalRect().Encloses(b.GetGlobalRect());
@@ -893,7 +893,7 @@ public sealed partial class UiSelfTest : Node
         var originalContent = _services.Content;
         _front.ShowMenuPage("lobby");
         await Frames(4);
-        var row = FindButton(_front.LobbyPage!, b => b.Text == "CONTENT") as UiKit.MenuChoice;
+        var row = FindButton(_front.LobbyPage!, b => b.Text.Equals("CONTENT", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
         Check("the lobby page has the content choice", row is not null);
 
         // Extended is the default and the one that adds content; Faithful removes it, and the choice is remembered next to the profile.
@@ -922,7 +922,7 @@ public sealed partial class UiSelfTest : Node
         _front.ShowCreator();
         await Frames(5);
         Check("faithful: the class creator shows no Ork", FindButton(_front.Creator!, b => b.Text.Contains("Ork", StringComparison.OrdinalIgnoreCase)) is null
-            && FindButton(_front.Creator!, b => b.Text == "Space Marines") is not null && FindButton(_front.Creator!, b => b.Text == "Chaos") is not null);
+            && FindButton(_front.Creator!, b => b.Text.Equals("Space Marines", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(_front.Creator!, b => b.Text.Equals("Chaos", StringComparison.OrdinalIgnoreCase)) is not null);
         _front.ShowAppearance();
         await Frames(6);
         Check("faithful: the appearance editor shows no Ork", FindButton(_front.Appearance!, b => b.Text.Contains("Ork", StringComparison.OrdinalIgnoreCase)) is null);
@@ -933,7 +933,7 @@ public sealed partial class UiSelfTest : Node
         session.Seed(withOrk);
         _front.ShowCreator();
         await Frames(4);
-        FindButton(_front.Creator!, b => b.Text == "SLOTS" && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);   // the chips are on the Armoury's SLOTS tab
+        FindButton(_front.Creator!, b => b.Text.Equals("SLOTS", StringComparison.OrdinalIgnoreCase) && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);   // the chips are on the Armoury's SLOTS tab
             await Frames(3);
         Check("the Ork slot stays in the profile", session.Working.ClassAt(9)?.Role == SmContent.OrkClass.Role);
         Check("the Ork slot is shown as unavailable in the faithful profile", FindButton(_front, b => b.TooltipText.Contains("added content", StringComparison.OrdinalIgnoreCase)) is not null);

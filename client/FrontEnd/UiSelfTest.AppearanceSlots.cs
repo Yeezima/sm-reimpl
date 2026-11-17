@@ -85,21 +85,21 @@ public sealed partial class UiSelfTest
             await Frames(3);
             Check("slots: Enter on a loadout row puts the slot on it", session.Working.ClassAt(1)?.Appearance.SpaceMarine == copyId);
             await SlotShot(shot, "page");
-            Click(b => b is UiKit.Row && b.Text == "Apply to all loadouts", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Apply to all loadouts", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Apply to all loadouts dresses every loadout and leaves the Chaos looks", session.Working.Classes.All(c => c.Appearance.SpaceMarine == copyId)
                 && session.Working.Classes.All(c => c.Appearance.Chaos == kept.ClassAt(c.Slot)?.Appearance.Chaos));
             Click(b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.Ordinal), appearance);
             await Frames(3);
             Check("slots: Enter again takes it off (the default look)", session.Working.ClassAt(6)?.Appearance.SpaceMarine is null);
-            Click(b => b.Text == "Undo", appearance);
+            Click(b => b.Text.Equals("Undo", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Undo puts it back", session.Working.ClassAt(6)?.Appearance.SpaceMarine == copyId);
             Check("slots: the header says the look is shared, its tooltip by which loadouts", HeaderText(appearance).Contains($"slot {saved}, shared with 3") && HeaderTip(appearance).Contains("also worn by loadouts 1, 2 and 6"), HeaderText(appearance) + " | " + HeaderTip(appearance));
 
             // B leaves the page for the list, not the editor.
             await SendPad(JoyButton.B);
-            Check("slots: B on a slot's page goes back to the ten slots", appearance.Visible && Rows(appearance).Count == AppearanceSlots.Count && FindButton(appearance, b => b.Text == "Apply to all loadouts") is null);
+            Check("slots: B on a slot's page goes back to the ten slots", appearance.Visible && Rows(appearance).Count == AppearanceSlots.Count && FindButton(appearance, b => b.Text.Equals("Apply to all loadouts", StringComparison.OrdinalIgnoreCase)) is null);
             await SlotShot(shot, "list");
 
             // Save over a filled slot: asks, then the old slot holds this look and the loadout wears it.
@@ -107,7 +107,7 @@ public sealed partial class UiSelfTest
             await Frames(3);
             session.Edit(p => AppearanceEdits.ReplaceAppearance(p, AppearanceEdits.ResetPaint(p.Appearance(copyId)!)));   // make the two differ
             await Frames(3);
-            Click(b => b is UiKit.Row && b.Text == "Save this loadout's look here", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Save this loadout's look here", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: saving over a filled slot asks first", OpenDialog() is not null);
             ClickDialog("Save over");
@@ -118,13 +118,13 @@ public sealed partial class UiSelfTest
             // Rename and delete through the page's dialogs.
             appearance.OpenSlot(saved);
             await Frames(3);
-            Click(b => b is UiKit.Row && b.Text == "Rename", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Rename", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             if (OpenDialog() is { } prompt && FindEdit(prompt) is { } edit) edit.Text = "Second Company";
             ClickDialog("Rename");
             await Frames(3);
             Check("slots: Rename names the slot", session.Working.Appearance(copyId)?.Name == "Second Company");
-            Click(b => b is UiKit.Row && b.Text == "Delete", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Delete", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             ClickDialog("Delete");
             await Frames(3);

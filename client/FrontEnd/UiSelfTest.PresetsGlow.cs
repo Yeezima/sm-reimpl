@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Godot;
@@ -18,7 +19,7 @@ public sealed partial class UiSelfTest
         {
             _front.ShowOptions(OptionsView.Graphics);
             await Frames(4);
-            var row = FindButton(options, b => b.Text == "LIGHTING PRESET") as UiKit.MenuChoice;
+            var row = FindButton(options, b => b.Text.Equals("LIGHTING PRESET", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
             Check("presets: GRAPHICS has LIGHTING PRESET", row is not null);
             if (row is null) return;
             Check("presets: the ten looks in the owner's order", row.Values.SequenceEqual(LightingPresets.Labels.Select(l => l.ToUpperInvariant())) && row.Values.Count == 10, string.Join(", ", row.Values));

@@ -78,8 +78,8 @@ public sealed partial class ControlsView : Control
 
         var tabs = UiKit.HBox(8);
         var group = new ButtonGroup();
-        _tabKeyboard = new Button { Text = "KEYBOARD & MOUSE", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(360, UiKit.MinHit), Name = "TabKeyboard" };
-        _tabController = new Button { Text = "CONTROLLER", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(280, UiKit.MinHit), Name = "TabController" };
+        _tabKeyboard = new Button { Text = "KEYBOARD & MOUSE", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(360, UiKit.MinHit), Name = "TabKeyboard", ThemeTypeVariation = Steel.TabType };
+        _tabController = new Button { Text = "CONTROLLER", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(280, UiKit.MinHit), Name = "TabController", ThemeTypeVariation = Steel.TabType };
         _tabKeyboard.Pressed += () => SetDevice(BindDevice.Keyboard);
         _tabController.Pressed += () => SetDevice(BindDevice.Controller);
         tabs.AddChild(_tabKeyboard);
@@ -163,7 +163,7 @@ public sealed partial class ControlsView : Control
             {
                 int slot = s;
                 var action = info.Action;
-                var b = new Button { Text = "", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(BindWidth, UiKit.MinHit), ClipText = true, Name = $"Bind_{info.Action}_{slot}",
+                var b = new Button { Text = "", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(BindWidth, UiKit.MinHit), ClipText = true, ThemeTypeVariation = Steel.TabType, Name = $"Bind_{info.Action}_{slot}",
                     TooltipText = "Click, then press the new input. Delete or a right click clears it." };
                 b.Pressed += () => BeginCapture(action, slot);
                 b.GuiInput += ev => { if (ev is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } && _capture is null) { Accept(); ClearBinding(action, slot); } };

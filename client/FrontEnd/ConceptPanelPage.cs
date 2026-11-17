@@ -68,6 +68,19 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         _plate.Position = t.Position; _plate.Size = t.Size;
         float s = sv * 15f / 14f;   // the lettering's units ("grid" pixels: v2 x 14/15)
         FitPlate(s, t.Size.X * 0.92f);
+        // The strip under the title (where Options keeps its tabs) carries the page's heading line: where this page is.
+        var strip = R(new Rect2(RowsX, 88f, RowsW, 23f));
+        bool show = Heading.Length > 0 && !string.Equals(Heading, _titleText, StringComparison.OrdinalIgnoreCase);
+        _heading.Visible = show;
+        if (show)
+        {
+            _heading.Position = strip.Position; _heading.Size = strip.Size;
+            _heading.VerticalAlignment = VerticalAlignment.Center; _heading.HorizontalAlignment = HorizontalAlignment.Left;
+            _heading.AddThemeFontOverride("font", UiKit.ConceptFont());
+            _heading.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
+            _heading.AddThemeColorOverride("font_color", Steel.GoldHi);
+            _heading.ClipText = true;
+        }
         var rows = R(new Rect2(RowsX, RowsY, RowsW, RowsBottom - RowsY + ExtraV2));
         _rowsOrigin = rows.Position;
         Style(s, rows.Size);
@@ -90,6 +103,8 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     static readonly Color Light = new(0.84f, 0.83f, 0.80f), Dark = new(0.10f, 0.06f, 0.02f);
 
     /// <summary>One column narrower than the rows area and centred in it (the page's rows fit one column), or the whole width in two columns.</summary>
+    /// <summary>The rows' pitch on these pages in lettering units (the concept's Options rows are 31.2; a little tighter so the longest page, HOST, fits two columns without scrolling).</summary>
+    const float PagePitch = 25.5f;
     bool _narrow;
     float _narrowW;
     Vector2 _rowsOrigin;
@@ -99,7 +114,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     {
         if (Mathf.IsEqualApprox(_styledScale, s) && Mathf.IsEqualApprox((float)GetMeta("styled_w", 0f), area.X)) { PlaceRows(area); return; }
         _styledScale = s; SetMeta("styled_w", area.X);
-        float pitch = UiKit.ConceptRowPitch * s;
+        float pitchG = PagePitch, pitch = pitchG * s;
         var all = new List<Control>(); var columns = new List<UiKit.MenuColumn> { Rows };
         void Walk(Node n)
         {
@@ -126,26 +141,32 @@ public partial class ConceptPanelPage : UiKit.MenuPage
             {
                 switch (c)
                 {
-                    case UiKit.MenuChoice ch: ch.UseConcept(s, labelW, Mathf.Max(ctlW, Mathf.Min(colW - labelW, ctlW * 1.3f))); break;
+                    case UiKit.MenuChoice ch: ch.ConceptPitch = pitchG; ch.UseConcept(s, labelW, Mathf.Max(ctlW, Mathf.Min(colW - labelW, ctlW * 1.3f))); break;
                     case Button b when b.ThemeTypeVariation == UiKit.MenuButtonType: StylePlate(b, s, pitch); break;
-                    case LineEdit le: StyleField(le, s, pitch, Mathf.Max(labelW, 120f * s)); break;
+                    case LineEdit le: StyleField(le, s, pitch, Mathf.Max(labelW, 120f * s), colW); break;
                     case Label l: StyleLabel(l, s, colW); break;
                 }
-                if (c.HasMeta(UiKit.MenuColumn.GapMeta)) c.CustomMinimumSize = new Vector2(0f, pitch * 0.45f);
+                if (c.HasMeta(UiKit.MenuColumn.GapMeta)) c.CustomMinimumSize = new Vector2(0f, pitch * 0.3f);
             }
             foreach (var mc in columns) mc.UpdateMinimumSize();
             float total = Rows.ContentHeight();
             if (OS.GetCmdlineUserArgs().Contains("--panel-debug")) GD.Print($"panel {Name}: s {s:0.00} pass {pass} narrow {_narrow} total {total:0} area {area.Y:0} rows {all.Count}");
+            _total = total;
             if (!_narrow || total <= area.Y - 2f * s) break;
             _narrow = false;
         }
         PlaceRows(area);
     }
 
+    float _total;
+
     void PlaceRows(Vector2 area)
     {
-        _scroll.Position = new Vector2(_rowsOrigin.X + (_narrow ? (area.X - _narrowW) / 2f : 0f), _rowsOrigin.Y);
-        _scroll.Size = new Vector2(_narrow ? _narrowW : area.X, area.Y);
+        // One narrow column sits in the middle of the frame (across and down); two columns fill the width from the top.
+        float h = _narrow ? Mathf.Min(area.Y, _total + 6f) : area.Y;
+        float dy = _narrow ? Mathf.Max(0f, (area.Y - h) / 2f) : 0f;
+        _scroll.Position = new Vector2(_rowsOrigin.X + (_narrow ? (area.X - _narrowW) / 2f : 0f), _rowsOrigin.Y + dy);
+        _scroll.Size = new Vector2(_narrow ? _narrowW : area.X, h);
     }
 
     void StylePlate(Button b, float s, float pitch)
@@ -158,7 +179,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         b.AddThemeConstantOverride("outline_size", 0);
         float inset = 2f * s;
         // The plate is a little shorter than its row and as wide as the column, so the rows keep a breath between them.
-        if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, true, paintedText: false, noGlow: true)) return;
+        if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, 1, 3, 1), new PaintedButtons.Pad(3, 1, 3, 2), s, true, paintedText: false, noGlow: true)) return;
         foreach (var st in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })
             if (b.GetThemeStylebox(st) is StyleBoxTexture tb) { tb = (StyleBoxTexture)tb.Duplicate(); tb.ExpandMarginTop = Mathf.Max(0f, tb.ExpandMarginTop + 0f) - 0f; b.AddThemeStyleboxOverride(st, tb); }
         foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, Light);
@@ -171,7 +192,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         foreach (var l in b.GetChildren().OfType<Label>()) StyleLabel(l, s, 0f);
     }
 
-    void StyleField(LineEdit le, float s, float pitch, float labelW)
+    void StyleField(LineEdit le, float s, float pitch, float labelW, float colW)
     {
         le.AddThemeFontOverride("font", UiKit.ConceptFont());
         le.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
@@ -181,7 +202,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         le.AddThemeColorOverride("font_color", Light); le.AddThemeColorOverride("font_selected_color", Dark); le.AddThemeColorOverride("selection_color", Steel.Gold);
         le.AddThemeColorOverride("caret_color", Steel.GoldHi);
         le.OffsetTop = (pitch - UiKit.ConceptPillH * s) / 2f; le.OffsetBottom = -(pitch - UiKit.ConceptPillH * s) / 2f;
-        if (le.GetParent() is Control row) { row.CustomMinimumSize = new Vector2(0f, pitch); le.OffsetLeft = labelW + 8f * s; le.OffsetRight = le.OffsetLeft + 170f * s; }
+        if (le.GetParent() is Control row) { row.CustomMinimumSize = new Vector2(0f, pitch); le.OffsetLeft = labelW + 8f * s; le.OffsetRight = le.OffsetLeft + Mathf.Max(60f * s, Mathf.Min(150f * s, colW - labelW - 16f * s)); }
     }
 
     void StyleLabel(Label l, float s, float width)

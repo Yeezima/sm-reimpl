@@ -22,7 +22,7 @@ public sealed partial class UiSelfTest
         if (!creator.ArmouryOn) return;
         creator.OpenSelection(Selection.DefaultFor(ProfileStore.FirstRole(catalog)));
         await Frames(6);
-        FindButton(creator, b => b.Text == "CLASS" && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);
+        FindButton(creator, b => b.Text.Equals("CLASS", StringComparison.OrdinalIgnoreCase) && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         var rows = Enumerable.Range(0, 4).Select(i => FindButton(creator, b => b.Name == "ArmClass" + i)).Where(b => b is not null).ToList();
         Check("armoury: the class list has plate rows (one per class)", rows.Count >= 3, rows.Count.ToString());
