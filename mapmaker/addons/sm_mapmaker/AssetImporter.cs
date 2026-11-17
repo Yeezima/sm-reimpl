@@ -45,7 +45,7 @@ public static class AssetImporter
         else if (IsModel(source))
         {
             kind = "file"; workDir = Path.GetDirectoryName(Path.GetFullPath(source))!;
-            files = SiblingFiles(workDir, source);
+            files = await Task.Run(() => SiblingFiles(workDir, source));
         }
         else throw new MapException("bad-file", $"'{Path.GetFileName(source)}' is not a .zip, .fbx, .glb, .gltf or a folder.");
 
@@ -71,6 +71,7 @@ public static class AssetImporter
             // Reading, decoding and the per-pixel work need no Godot scene API: off the main thread, so the editor stays alive on a big download.
             var (prepared, warnings) = await Task.Run(() => PrepareImages(sets, workDir));
             foreach (var w in warnings) GD.PushWarning("Mapmaker import: " + w);
+            warnings = warnings.Where(w => w.Contains("skipped") || w.Contains("could not")).ToList();
             var (used, flipped, materials, usedFiles) = ApplyTextures(root, prepared);
 
             var measured = ContentFactory.MeasureBounds(root);
@@ -106,7 +107,8 @@ public static class AssetImporter
                 ["maxTexture"] = MaxTextureSize, ["sourceSha256"] = sourceSha,
             };
             string scale = guess.Scale == 1f ? "scale 1" : $"scale {guess.Scale:0.###} ({guess.Why})";
-            string summary = $"{scale}, {used} texture{(used == 1 ? "" : "s")}" + (choice.Lod > 0 || choice.SkippedLods.Count > 0 ? $", LOD{choice.Lod}" : "");
+            string summary = $"{scale}, {used} texture{(used == 1 ? "" : "s")}" + (choice.Lod > 0 || choice.SkippedLods.Count > 0 ? $", LOD{choice.Lod}" : "")
+                + (warnings.Count > 0 ? $"; {warnings.Count} texture note{(warnings.Count == 1 ? "" : "s")}: {string.Join(" / ", warnings.Take(2))}" : "");
             return new ImportResult(glb, stem, id, bounds, meta, summary, Path.GetFileName(source), sourceSha);
         }
         finally { root.Free(); }
@@ -116,9 +118,9 @@ public static class AssetImporter
     static IReadOnlyList<string> SiblingFiles(string dir, string model)
     {
         var list = new List<string>();
-        foreach (var f in Directory.EnumerateFiles(dir, "*", SafeWalk(false)))
+        foreach (var f in Directory.EnumerateFiles(dir, "*", SafeWalk(false)).Take(MaxFolderEntries))
             if ((IsModel(f) || IsImage(f)) && IsPlainUnder(dir, f)) list.Add(Path.GetFileName(f));
-        foreach (var sub in Directory.EnumerateDirectories(dir, "*", SafeWalk(false)))
+        foreach (var sub in Directory.EnumerateDirectories(dir, "*", SafeWalk(false)).Take(MaxFolderEntries))
         {
             string n = Path.GetFileName(sub);
             if (!IsPlainUnder(dir, sub)) continue;
@@ -180,7 +182,7 @@ public static class AssetImporter
             string path = Path.Combine(dir, t.File.Replace('/', Path.DirectorySeparatorChar));
             if (!IsPlainUnder(dir, path)) { warnings.Add($"texture '{t.File}' skipped: not a plain file inside the folder"); return null; }
             if (!TryImageSize(path, out int w, out int h)) { warnings.Add($"texture '{t.File}' skipped: unreadable header"); return null; }
-            if ((long)w * h > MaxImagePixels) { warnings.Add($"texture '{t.File}' skipped: {w} x {h} pixels is over the {MaxImagePixels / (8192 * 8192)} x 8192 x 8192 limit"); return null; }
+            if ((long)w * h > MaxImagePixels) { warnings.Add($"texture '{t.File}' skipped: {w} x {h} pixels is over the 8192 x 8192 pixel limit"); return null; }
             var image = Image.LoadFromFile(path);
             if (image is null) { warnings.Add($"texture '{t.File}' could not be read"); return null; }
             p.Files.Add(t.File);

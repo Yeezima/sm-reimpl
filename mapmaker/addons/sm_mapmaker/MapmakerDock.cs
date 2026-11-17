@@ -515,17 +515,45 @@ public partial class MapmakerDock : VBoxContainer
 
     // ---- import (drag and drop, buttons) ----
 
-    public override void _EnterTree() { base._EnterTree(); GetWindow().FilesDropped += OnFilesDropped; }
-    public override void _ExitTree() { GetWindow().FilesDropped -= OnFilesDropped; base._ExitTree(); }
+    Window.FilesDroppedEventHandler? _dockDrop, _mainDrop;
+    Window? _dockWindow, _mainWindow;
 
-    void OnFilesDropped(string[] files)
+    public override void _EnterTree()
     {
+        base._EnterTree();
+        // The dock's own window, and the editor's main window too when the dock floats; each event is judged in its own window.
+        _dockWindow = GetWindow();
+        _dockWindow.FilesDropped += _dockDrop = f => OnFilesDropped(_dockWindow, f);
+        var main = EditorInterface.Singleton.GetBaseControl()?.GetWindow();
+        if (main is not null && main != _dockWindow) { _mainWindow = main; main.FilesDropped += _mainDrop = f => OnFilesDropped(main, f); }
+    }
+
+    public override void _ExitTree()
+    {
+        if (_dockDrop is not null && _dockWindow is not null && GodotObject.IsInstanceValid(_dockWindow)) _dockWindow.FilesDropped -= _dockDrop;
+        if (_mainDrop is not null && _mainWindow is not null && GodotObject.IsInstanceValid(_mainWindow)) _mainWindow.FilesDropped -= _mainDrop;
+        _dockDrop = _mainDrop = null;
+        base._ExitTree();
+    }
+
+    /// <summary>The mouse in a window's own (content-scaled) coordinates, the frame the controls' global rects use. The window's own mouse position can be stale while
+    /// the OS drags a file over it (no motion events), so this reads the screen position.</summary>
+    static Vector2 LocalMouse(Window w)
+    {
+        var screen = DisplayServer.MouseGetPosition();
+        return w.GetFinalTransform().AffineInverse() * new Vector2(screen.X - w.Position.X, screen.Y - w.Position.Y);
+    }
+
+    void OnFilesDropped(Window? window, string[] files)
+    {
+        if (window is null) return;
         var mine = files.Where(f => AssetImporter.IsImportable(f) || f.EndsWith(".smprefab", StringComparison.OrdinalIgnoreCase)).ToArray();
         if (mine.Length == 0) return;
         // Only a drop onto the Mapmaker dock or the 3D view is ours; one onto Godot's FileSystem dock or any other panel is Godot's.
-        var at = GetWindow().GetMousePosition();
-        bool overDock = IsVisibleInTree() && GetGlobalRect().HasPoint(at);
-        if (!overDock && !_plugin.OverViewport(at)) return;
+        var at = LocalMouse(window);
+        bool overDock = window == GetWindow() && IsVisibleInTree() && GetGlobalRect().HasPoint(at);
+        bool overView = window == EditorInterface.Singleton.GetBaseControl()?.GetWindow() && _plugin.OverViewport(at);
+        if (!overDock && !overView) { Report("Drop ignored: drop files on the Mapmaker panel or the 3D view to import them."); return; }
         HandleDrop(mine);
     }
 
@@ -556,11 +584,14 @@ public partial class MapmakerDock : VBoxContainer
                 }
                 _status.Text = $"Importing {label}...";
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);   // let the status paint before the load blocks
+                if (!IsInstanceValid(this)) return;
                 string staging = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-mapmaker-import-" + Guid.NewGuid().ToString("N"));
                 try
                 {
                     var r = await AssetImporter.Prepare(path, staging);
+                    if (!IsInstanceValid(this)) return;
                     string sha = await Task.Run(() => ModelImport.ContentSha(r.GlbPath));
+                    if (!IsInstanceValid(this)) return;
                     // The same download again: found by what it held, then by the converted content (the conversion is not guaranteed byte-for-byte repeatable).
                     var same = MapHost.Library.ListAssets().FirstOrDefault(x => x.Import?["sourceSha256"]?.ToString() == r.SourceSha || x.Sha256 == sha);
                     string id = same?.Id ?? r.Id;
@@ -580,8 +611,8 @@ public partial class MapmakerDock : VBoxContainer
                 finally { try { if (System.IO.Directory.Exists(staging)) System.IO.Directory.Delete(staging, true); } catch (Exception) { } }
             }
         }
-        finally { _importing = false; }
-        Report(string.Join("; ", messages));
+        finally { if (IsInstanceValid(this)) _importing = false; }
+        if (IsInstanceValid(this)) Report(string.Join("; ", messages));
     }
 
     /// <summary>The box as JSON numbers the operation reader accepts (it reads doubles; a float-valued node is refused).</summary>

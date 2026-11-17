@@ -61,13 +61,11 @@ public static class GltfReader
                         if (entry["uri"] is not JsonValue uv || !uv.TryGetValue<string>(out var uri)) throw new MapException("bad-file", $"The glTF {key} uri is not a string.");
                         if (uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
                         string rel = Uri.UnescapeDataString(uri).Replace('\\', '/');
-                        if (rel.Length == 0 || rel.Contains(':') || rel.Contains('\0') || rel.StartsWith('/') || rel.Split('/').Any(seg => seg is "" or "." or ".."))
+                        if (rel.Length == 0 || rel.Contains(':') || rel.Contains('\0') || rel.StartsWith('/') || rel.Split('/').Any(seg => seg is "" or "." or ".." || seg.EndsWith('.') || seg.EndsWith(' ') || ModelImport.IsReservedDeviceName(seg)))
                             throw new MapException("bad-file", $"The glTF refers to '{uri}', which is not a plain relative file under its folder.");
                         string full = Path.GetFullPath(Path.Combine(dir, rel));
-                        if (!full.StartsWith(Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                            throw new MapException("bad-file", $"The glTF refers to '{uri}' outside its folder.");
                         if (!File.Exists(full)) throw new MapException("bad-file", $"The glTF refers to missing file '{rel}'.");
-                        if ((File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) throw new MapException("bad-file", $"'{rel}' is a link, not a plain file.");
+                        if (!ModelImport.IsPlainUnder(dir, full)) throw new MapException("bad-file", $"The glTF refers to '{uri}', which lies outside its folder or is (or sits behind) a link.");
                         if (!companions.Contains(rel)) companions.Add(rel);
                     }
         }
