@@ -38,6 +38,16 @@ public static class GltfReader
         if (root["asset"] is not JsonObject asset || !(asset["version"]?.ToString() ?? "").StartsWith('2'))
             throw new MapException("bad-file", "Not a glTF 2.0 file (asset.version).");
 
+        // Godot cannot decode these; the model would load as nothing (the "empty bounding box"). Say so at import.
+        foreach (var key in new[] { "extensionsRequired", "extensionsUsed" })
+            if (root[key] is JsonArray exts)
+                foreach (var e in exts)
+                {
+                    string name = e?.ToString() ?? "";
+                    if (name is "KHR_draco_mesh_compression" or "EXT_meshopt_compression")
+                        throw new MapException("unsupported-compression", $"'{Path.GetFileName(path)}' is compressed with {(name.StartsWith("KHR_draco", StringComparison.Ordinal) ? "Draco" : "meshopt")} ({name}), which the editor cannot read. Download the uncompressed glTF/GLB (or the FBX) instead, or decompress it (for example with gltf-transform).");
+                }
+
         var companions = new List<string>();
         if (ext == ".gltf")
         {

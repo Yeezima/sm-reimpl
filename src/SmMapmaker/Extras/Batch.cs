@@ -441,20 +441,32 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         var id = Json.Str(op["id"], "id", "bad-op", nullable: true) ?? Json.Slug(stem);
         if (id.Length == 0) id = "asset";
         if (!Json.IsSlug(id)) throw new MapException("bad-id", $"'{id}' is not a valid asset id (lowercase letters, digits, '-' and '_').");
-        var sha = ContentHash(path, info);
+        var sha = HashOf(path, info);
         if (GetAsset(id) is { } existing)
         {
             if (existing.Sha256 == sha) { Warnings.Add($"Asset '{id}' is already in the library with the same content."); return; }
             throw new MapException("duplicate-id", $"Asset '{id}' already exists with different content.");
         }
-        var asset = new AssetInfo(id, Json.Str(op["name"], "name", "bad-op", nullable: true) ?? stem, info.FileName, info.Bounds, sha, Path.GetFileName(path));
+        // The editor plugin's converter measures the loaded meshes and passes the box (glTF frame, Y up); it wins over the accessors' min/max.
+        var bounds = info.Bounds;
+        if (op["bounds"] is { } bn)
+        {
+            var given = Bounds.FromNode(bn, "bounds");
+            if (!IsFinite(given.Min) || !IsFinite(given.Max) || given.Min.X > given.Max.X || given.Min.Y > given.Max.Y || given.Min.Z > given.Max.Z)
+                throw new MapException("bad-op", "import-asset: bounds must be finite with min <= max.");
+            bounds = given;
+        }
+        var from = Json.Str(op["from"], "from", "bad-op", nullable: true);
+        if (from is { Length: > 200 }) from = from[..200];
+        var meta = op["import"] is JsonObject io ? (JsonObject)io.DeepClone() : null;
+        var asset = new AssetInfo(id, Json.Str(op["name"], "name", "bad-op", nullable: true) ?? stem, info.FileName, bounds, sha, from ?? Path.GetFileName(path)) { Import = meta };
         Assets[id] = new StagedAsset(asset, Path.GetDirectoryName(Path.GetFullPath(path))!, info.FileName, info.Companions);
         CreatedAssets.Add(id);
-        if (info.Bounds is null) Warnings.Add($"Asset '{id}': no POSITION min/max in the glTF, so its bounds are unknown.");
+        if (bounds is null) Warnings.Add($"Asset '{id}': no POSITION min/max in the glTF, so its bounds are unknown (the editor measures the loaded mesh instead).");
     }
 
     /// <summary>SHA-256 of the main file followed by each companion (name and bytes, sorted), so a changed buffer or image is different content.</summary>
-    static string ContentHash(string path, GltfInfo info)
+    internal static string HashOf(string path, GltfInfo info)
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         h.AppendData(File.ReadAllBytes(path));
@@ -466,6 +478,8 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         }
         return Convert.ToHexStringLower(h.GetHashAndReset());
     }
+
+    static bool IsFinite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 
     void ImportPrefab(JsonObject op)
     {
