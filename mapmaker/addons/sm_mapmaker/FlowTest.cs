@@ -191,6 +191,13 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         string? mc = plugin.SceneMapOfFile(copy);
         Check(mc is not null && mc != mb && File.Exists(mb!) && MapDocument.Parse(File.ReadAllText(mc!)).Objects.Count == 2 && plugin.SceneMapOfFile(sb) == mb,
             $"Save As gives the new scene its own copy of the map and leaves the original's alone ({(mc is null ? "-" : Path.GetFileName(mc))} vs {(mb is null ? "-" : Path.GetFileName(mb))})");
+        // An explicit open of a map another scene uses keeps the chosen file (no silent copy), and says so.
+        int filesBefore = Directory.GetFiles(MapHost.Library.MapsDir, "*.smmap").Length;
+        plugin.OpenMap(ma!);
+        bool saidShared = plugin.Status.Contains("also used by");
+        await Frames(140);
+        Check(saidShared && plugin.Session?.Path is { } opened && Path.GetFullPath(opened) == Path.GetFullPath(ma!) && Directory.GetFiles(MapHost.Library.MapsDir, "*.smmap").Length == filesBefore,
+            $"opening a map another scene uses keeps that file, says it is shared, and makes no copy (status: \"{plugin.Status}\")");
         // An entry written for another scene (uid mismatch, as at a reused path) is not used; entries of scene files that are gone are dropped on the next write.
         string sidecar = Path.Combine(MapHost.Library.MapsDir, "scene-maps.json");
         string original = File.ReadAllText(sidecar);
@@ -363,7 +370,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         await MeasureGizmo();
         int onDisk = MapDocument.Parse(File.ReadAllText(map1)).Objects.Count;
         Check(EditorInterface.Singleton.SaveScene() == Error.Ok, "saved scene 2 (which also saves its map)");
-        Check(onDisk < count1 && MapDocument.Parse(File.ReadAllText(map1)).Objects.Count == count1, $"saving a scene also saved the changed map of the background tab 1 ({onDisk} -> {count1} objects on disk)");
+        Check(onDisk < count1 && MapDocument.Parse(File.ReadAllText(map1)).Objects.Count == onDisk, $"saving scene 2 leaves the changed map of background tab 1 alone ({onDisk} objects on disk, {count1} in memory)");
         await Frames(80);   // the plugin notes which map belongs to the scene file
         await Frames(10);
         MapHost.Armed = null; MapHost.Tool = Tool.Select; await Frames(5);

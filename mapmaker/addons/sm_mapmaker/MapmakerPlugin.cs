@@ -156,6 +156,7 @@ public partial class MapmakerPlugin : EditorPlugin
             else if (_activeRoot != 0 || Session is null) { Session = null; Dirty = false; }   // a scene of its own: no map yet
             _activeRoot = id;
         }
+        if (now is not null && GodotObject.IsInstanceValid(now) && SceneFileOf(now).Length > 0) _rootScene.TryAdd(id, SceneFileOf(now));
         HookHistory();
         FreeDetachedNodes();
         _nodes.Clear(); _contentKeys.Clear();
@@ -169,6 +170,7 @@ public partial class MapmakerPlugin : EditorPlugin
     void PruneStash()
     {
         foreach (var k in _stash.Keys.Where(k => GodotObject.InstanceFromId(k) is null).ToList()) _stash.Remove(k);
+        foreach (var k in _rootScene.Keys.Where(k => GodotObject.InstanceFromId(k) is null).ToList()) _rootScene.Remove(k);
         foreach (var k in _steps.Where(x => x.Value.RootId != 0 && GodotObject.InstanceFromId(x.Value.RootId) is null).Select(x => x.Key).ToList()) _steps.Remove(k);
     }
 
@@ -177,10 +179,21 @@ public partial class MapmakerPlugin : EditorPlugin
     // entries of scene files that no longer exist are dropped.
     string SceneMapsFile => System.IO.Path.Combine(MapHost.Library.MapsDir, "scene-maps.json");
 
+    static string Str(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var t) ? t : "";
+
+    /// <summary>The recorded scene-to-map entries. A file that cannot be parsed is set aside as scene-maps.json.bad (with a warning) so it is never overwritten blindly.</summary>
     JsonObject ReadSceneMaps()
     {
-        try { if (System.IO.File.Exists(SceneMapsFile) && JsonNode.Parse(System.IO.File.ReadAllText(SceneMapsFile)) is JsonObject o) return o; }
-        catch (Exception e) when (e is System.IO.IOException or System.Text.Json.JsonException or UnauthorizedAccessException) { }
+        string file = SceneMapsFile;
+        try
+        {
+            if (!System.IO.File.Exists(file)) return new JsonObject();
+            if (JsonNode.Parse(System.IO.File.ReadAllText(file)) is JsonObject o) return o;
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or ArgumentException) { }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException) { return new JsonObject(); }
+        try { System.IO.File.Move(file, file + ".bad", true); GD.PushWarning($"Mapmaker: {file} could not be read; kept as {file}.bad and started a new one."); }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException) { }
         return new JsonObject();
     }
 
@@ -191,60 +204,79 @@ public partial class MapmakerPlugin : EditorPlugin
 
     static string SceneFileOf(Node root) => (root.Owner ?? root).SceneFilePath;
 
-    static bool SameFile(string a, string b) => string.Equals(System.IO.Path.GetFullPath(a), System.IO.Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+    static bool SameFile(string a, string b)
+    {
+        try { return string.Equals(System.IO.Path.GetFullPath(a), System.IO.Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase); }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or System.IO.PathTooLongException) { return false; }
+    }
 
     /// <summary>The map recorded for a scene file, when the entry was written for this very scene (same uid) and the map file is there.</summary>
     public string? SceneMapOfFile(string scene)
     {
-        if (scene.Length == 0 || ReadSceneMaps()[scene] is not JsonObject e || e["map"]?.GetValue<string>() is not { Length: > 0 } map) return null;
-        string uid = e["uid"]?.GetValue<string>() ?? "";
+        if (scene.Length == 0 || ReadSceneMaps()[scene] is not JsonObject e || Str(e["map"]) is not { Length: > 0 } map) return null;
+        string uid = Str(e["uid"]);
         if (uid.Length > 0 && SceneUid(scene) != uid) return null;
         return System.IO.File.Exists(map) ? map : null;
     }
 
     string? SceneMapOf(Node root) => SceneMapOfFile(SceneFileOf(root));
 
-    /// <summary>Another existing scene (with its own uid) that already owns this map file, or null.</summary>
+    /// <summary>Another existing scene (with its own uid) that already uses this map file, or null.</summary>
     string? OtherOwnerOfMap(string map, string scene)
     {
         foreach (var (k, v) in ReadSceneMaps())
-            if (k != scene && v is JsonObject e && e["map"]?.GetValue<string>() is { } m && SameFile(m, map) && FileAccess.FileExists(k) && ((e["uid"]?.GetValue<string>() ?? "") is var u && (u.Length == 0 || SceneUid(k) == u))) return k;
+            if (k != scene && v is JsonObject e && Str(e["map"]) is { Length: > 0 } m && SameFile(m, map) && FileAccess.FileExists(k) && (Str(e["uid"]) is var u && (u.Length == 0 || SceneUid(k) == u))) return k;
         return null;
     }
 
-    string UniqueMapPath(string stem)
+    /// <summary>A map file name that no file and no scene entry uses: <paramref name="prefix"/><paramref name="stem"/>.smmap, then -2, -3 and so on, in the library's maps folder.</summary>
+    public string UniqueMapPath(string stem, string prefix = "scene-")
     {
         stem = Sanitize(stem.Length > 0 ? stem : "untitled");
+        var used = ReadSceneMaps();
         for (int i = 1; ; i++)
         {
-            string path = System.IO.Path.Combine(MapHost.Library.MapsDir, i == 1 ? $"scene-{stem}.smmap" : $"scene-{stem}-{i}.smmap");
-            if (!System.IO.File.Exists(path) && ReadSceneMaps().All(kv => kv.Value is not JsonObject e || e["map"]?.GetValue<string>() is not { } m || !SameFile(m, path))) return path;
+            string path = System.IO.Path.Combine(MapHost.Library.MapsDir, i == 1 ? $"{prefix}{stem}.smmap" : $"{prefix}{stem}-{i}.smmap");
+            if (!System.IO.File.Exists(path) && used.All(kv => kv.Value is not JsonObject e || Str(e["map"]) is not { Length: > 0 } m || !SameFile(m, path))) return path;
         }
     }
 
     string _recorded = "";
+    readonly Dictionary<ulong, string> _rootScene = new();   // the scene file each root had when last looked at, to tell a Save As (the file changed) from an explicit open
 
-    void RecordSceneMap(string scene, string map)
+    /// <summary>Adds or replaces a scene's entry (re-reading the file first, dropping entries of vanished scene files) and writes it through a temp file. False when it could not be written.</summary>
+    bool RecordSceneMap(string scene, string map)
     {
-        var all = ReadSceneMaps();
-        foreach (var k in all.Select(x => x.Key).ToList()) if (k != scene && !FileAccess.FileExists(k)) all.Remove(k);
-        all[scene] = new JsonObject { ["map"] = map, ["uid"] = SceneUid(scene) };
-        try { System.IO.Directory.CreateDirectory(MapHost.Library.MapsDir); System.IO.File.WriteAllText(SceneMapsFile, all.ToJsonString()); }
-        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException) { }
-        _recorded = scene + "|" + map;
+        try
+        {
+            var all = ReadSceneMaps();
+            foreach (var k in all.Select(x => x.Key).ToList()) if (k != scene && !FileAccess.FileExists(k)) all.Remove(k);
+            all[scene] = new JsonObject { ["map"] = map, ["uid"] = SceneUid(scene) };
+            System.IO.Directory.CreateDirectory(MapHost.Library.MapsDir);
+            string tmp = SceneMapsFile + ".tmp";
+            System.IO.File.WriteAllText(tmp, all.ToJsonString());
+            System.IO.File.Move(tmp, SceneMapsFile, true);
+            _recorded = scene + "|" + map;
+            return true;
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { return false; }
     }
 
     /// <summary>
-    /// Keeps one scene's map apart from every other scene's: a scene that was saved under a new name (Save As) while holding another scene's map gets its own copy,
-    /// a dirty untitled map gets a file of its own, and the scene file is noted against it. <paramref name="saved"/> is false when nothing could be saved.
+    /// Keeps one scene's map apart from every other scene's. A scene saved under a new name (Save As) while holding another scene's map gets its own copy; an
+    /// explicit open of a map another scene uses is left alone (the user chose that file). A dirty map is written only when it is asked for
+    /// (<paramref name="save"/>), and never for a scene that has no file yet (it stays in memory until the scene gets a path). Returns true when the map file was written.
     /// </summary>
-    bool SaveSceneMap(Node root, MapSession session, bool dirty)
+    bool SaveSceneMap(Node root, MapSession session, bool save)
     {
         string scene = SceneFileOf(root);
+        ulong id = root.GetInstanceId();
+        bool renamed = _rootScene.TryGetValue(id, out var before) && before.Length > 0 && scene.Length > 0 && before != scene;
+        if (scene.Length > 0) _rootScene[id] = scene;
         try
         {
             string? path = session.Path;
-            if (path is not null && scene.Length > 0 && SceneMapOfFile(scene) is not { } own && OtherOwnerOfMap(path, scene) is { } owner)
+            if (renamed && path is not null && SceneMapOfFile(scene) is null && OtherOwnerOfMap(path, scene) is { } owner)
             {
                 string copy = UniqueMapPath(System.IO.Path.GetFileNameWithoutExtension(scene));
                 session.Save(copy);
@@ -252,33 +284,36 @@ public partial class MapmakerPlugin : EditorPlugin
                 RecordSceneMap(scene, session.Path!);
                 return true;
             }
-            if (!dirty) { if (path is not null && scene.Length > 0 && _recorded != scene + "|" + path) RecordSceneMap(scene, path); return false; }
-            path ??= UniqueMapPath(scene.Length > 0 ? System.IO.Path.GetFileNameWithoutExtension(scene) : "untitled");
+            if (!save)
+            {
+                if (path is not null && scene.Length > 0 && _recorded != scene + "|" + path) RecordSceneMap(scene, path);
+                return false;
+            }
+            if (path is null)
+            {
+                if (scene.Length == 0) { SetStatus("This scene has no file yet, so its map was not saved; save the scene again once it has a name."); try { EditorInterface.Singleton.MarkSceneAsUnsaved(); } catch (Exception) { } return false; }
+                path = UniqueMapPath(System.IO.Path.GetFileNameWithoutExtension(scene));
+            }
             session.Save(path);
             if (scene.Length > 0) RecordSceneMap(scene, session.Path!);
             return true;
         }
-        catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException) { SetStatus("Saving the scene's map failed: " + e.Message); return false; }
+        catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { SetStatus("Saving the scene's map failed: " + e.Message); return false; }
     }
 
-    /// <summary>Notes the edited scene's file against its map's file (called after saves and from a slow poll).</summary>
+    /// <summary>Notes the edited scene's file against its map's file (called after saves and from a slow poll); a Save As forks the map here.</summary>
     void SyncRootMeta()
     {
         if (MapHost.Root is not { } r || !GodotObject.IsInstanceValid(r) || Session is null || Session.Path is not { } p || SceneFileOf(r) is not { Length: > 0 } f) return;
-        if (_recorded == f + "|" + p) return;
-        if (SaveSceneMap(r, Session, false) ) { Dirty = false; DocChanged?.Invoke(); }
+        ulong id = r.GetInstanceId();
+        if (_recorded == f + "|" + p && (!_rootScene.TryGetValue(id, out var seen) || seen == f)) return;
+        if (SaveSceneMap(r, Session, false)) { Dirty = false; DocChanged?.Invoke(); }
     }
 
-    /// <summary>Saving scenes also saves their maps: the edited one, and (Save All) the stashed maps of the other open tabs that are changed.</summary>
+    /// <summary>Saving the scene also saves its map. Only the edited scene's map is written: Godot does not say which scenes a save covers, so changed maps of other open tabs stay in memory until their scene is saved.</summary>
     public override void _SaveExternalData()
     {
         if (Session is not null && MapHost.Root is { } r && SaveSceneMap(r, Session, Dirty)) { Dirty = false; DocChanged?.Invoke(); }
-        foreach (var id in _stash.Keys.ToList())
-        {
-            var (sess, dirty) = _stash[id];
-            if (sess is null || GodotObject.InstanceFromId(id) is not Node other) continue;
-            if (SaveSceneMap(other, sess, dirty)) _stash[id] = (sess, false);
-        }
     }
 
     /// <summary>Nodes of deleted objects are kept detached so undo can reattach them; free them when the map they belong to goes away.</summary>
@@ -302,7 +337,13 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public OpResult? OpenMap(string path)
     {
-        try { Adopt(MapSession.Load(path, MapHost.Library, _sm1Adapter)); SetStatus($"Opened {path}"); return null; }
+        try
+        {
+            Adopt(MapSession.Load(path, MapHost.Library, _sm1Adapter));
+            string? shared = MapHost.Root is { } r && SceneFileOf(r) is { Length: > 0 } f ? OtherOwnerOfMap(Session!.Path!, f) : null;
+            SetStatus($"Opened {path}" + (shared is null ? "" : $". This map is also used by {shared}; edits affect both."));
+            return null;
+        }
         catch (MapException e) { SetStatus($"Open failed: {e.Code}: {e.Message}"); return OpResult.Fail(e.Code, e.Message, "open"); }
     }
 
