@@ -15,11 +15,14 @@ namespace SmClient;
 /// The client's layout warm-up (slice W5d; client only, no wire, no rules version). A lane slot's band needs its own layout and its two neighbours' (the massing copies). Generating one is 19 to 27 s; reading its cache file is well under a second; the
 /// server's and <c>smtool warfront-maps --prebuild</c>'s files hold the same bytes under another process kind (<see cref="WarfrontSharedCache"/>). So: the Stage flow names the next map while the client is still on the old connection, this starts ONE background
 /// task for the slot and its two neighbours (the slot first), each read from any kind's file and generated only when none exists, into a static holder that survives the view's rebuild at the rejoin. The main thread only ever takes
-/// from it (never generates). At most <see cref="MaxHeld"/> levels are kept; <see cref="DropAll"/> at the landing.
+/// from it (never generates). At most <see cref="MaxHeld"/> levels are kept; <see cref="DropAll"/> at a human client's landing (the travel screen's close; a bot has no travel screen, so it keeps its three levels until its next warm-up replaces them). The drawing takes the neighbours into locals when its steps are queued, so the landing cannot drop them first.
 /// </summary>
 public static class WarfrontLayoutWarm
 {
     public const int MaxHeld = 3;
+
+    /// <summary>The cap of <see cref="WaitFor"/> on the main thread (bots, <c>--sync-map-load</c>, a join that skipped Preparing), seconds [ours, estimate].</summary>
+    public const double WaitForCapSeconds = 120.0;
 
     sealed class Entry(WarfrontSlot slot)
     {
@@ -77,7 +80,7 @@ public static class WarfrontLayoutWarm
         }
         e.Ms = watch.ElapsedMilliseconds;
         e.Done = true;
-        GD.Print($"warfront: warm {e.Slot.Name}: {e.Note} ({e.Ms} ms, background)");
+        GD.Print($"warfront: warm {e.Slot.Name}: {e.Note} ({e.Ms} ms, background; this client's cache key {AshfallLayoutCache.Key}, kind {AshfallLayoutCache.ProcessKind})");
     }
 
     /// <summary>Whether the slot's own layout (or its failure) is in.</summary>
@@ -99,8 +102,9 @@ public static class WarfrontLayoutWarm
         Warm(slot, cacheOff);
         Entry? entry;
         lock (Gate) Held.TryGetValue(slot.Name, out entry);
-        while (entry is { Done: false }) System.Threading.Thread.Sleep(20);
+        while (entry is { Done: false } && watch.Elapsed.TotalSeconds < WaitForCapSeconds) System.Threading.Thread.Sleep(20);
         waitedMs = watch.ElapsedMilliseconds;
+        if (entry is { Done: false }) { GD.Print($"warfront: gave up waiting for {slot.Name} after {waitedMs} ms (cap {WaitForCapSeconds:F0} s); the caller builds it itself"); return null; }
         return entry?.Built;
     }
 

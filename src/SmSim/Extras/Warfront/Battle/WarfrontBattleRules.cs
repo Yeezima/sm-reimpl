@@ -81,6 +81,9 @@ public sealed class WarfrontBattleRules
     /// <summary>W2's stuck-unit log seam: a failsafe removed or relocated an Ork of a node battle (default: none; W5 connects <c>WarfrontStuckLog</c>).</summary>
     public Action<WarfrontStuckReport>? StuckSink { get; set; }
 
+    /// <summary>W14b: the fortress deployment's setup (the arena's plan); null for every other battle. Set by the server before the landing, and only when the stage's map is the fortress; never cleared, which holds because a stage process fights one battle. The plan hook then supplies the fortress layout and the final assault.</summary>
+    public SmSim.Extras.Warfront.Fortress.WarfrontFortressSetup? Fortress { get; set; }
+
     /// <summary>The lane and node of the battle under way (set at its creation).</summary>
     public TfwLane Lane { get; internal set; }
     public int Node { get; internal set; }

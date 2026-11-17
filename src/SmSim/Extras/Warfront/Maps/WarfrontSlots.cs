@@ -64,6 +64,11 @@ public static class WarfrontSlots
 
     static WarfrontSlot Slot(int number, TfwLane lane, int node, uint seed) => new(number, NameOf(lane, node), lane, node, BandOfNode(node), seed);
 
+    static readonly Lazy<global::SmSim.Extras.Warfront.Fortress.IWarfrontArena> FortressArena = new(() => global::SmSim.Extras.Warfront.Fortress.WarfrontFortressMap.Build());
+
+    /// <summary>The arena of slot 11, the Ork fortress (W14b): the one line to change when a handmade map (a Mapmaker export that supplies <see cref="global::SmSim.Extras.Warfront.Fortress.IWarfrontArena"/>) replaces the generated one. Built once, deterministic.</summary>
+    public static global::SmSim.Extras.Warfront.Fortress.IWarfrontArena Fortress => FortressArena.Value;
+
     /// <summary>The slot of a map name, or null (the HQ and the fortress are not lane slots).</summary>
     public static WarfrontSlot? ByName(string? name) => name is null ? null : All.FirstOrDefault(s => s.Name == name);
 

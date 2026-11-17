@@ -8,6 +8,7 @@ public sealed partial class TfwRun
     partial void WarfrontBattleChange(TfwBattleChange change)
     {
         if (Warfront is not { } rules || Battle is not { } battle) return;
+        WarfrontFortressObserve(battle);   // W14b: the fortress's stages follow the humans (no-op in any other battle)
         foreach (int index in rules.Progression.OnBattleChange(battle, change)) rules.ObjectiveSecured?.Invoke(index);
     }
 
