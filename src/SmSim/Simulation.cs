@@ -864,6 +864,7 @@ public sealed partial record SimConfig
             if (!ChargeAfterMelee) w.Write("old-charge-after-melee");   // charge-responsive (protocol 69): only when off (older hashes unchanged)
             if (!ChargeInstantCancel) w.Write("old-charge-cancel-delay");   // charge-responsive (protocol 69): only when off
             if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
+            if (!LedgeHopCarry) w.Write("old-ledge-hop");   // sim/ledge-charge-hop (protocol 85): only when off
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
             if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
@@ -931,7 +932,10 @@ public static class Movement
             // steep faces, which the motor counts as standing again after that tick, still walks along them. Gravity is unchanged.
             // Only over a real drop (ours, chosen in the code review of protocol 30): while the feet are no more than SimConfig.StraightDropAbove above the ground below
             // (a curb, a stair riser, a crate edge the motor does not step down), the body keeps the velocity it left with and lands running.
-            if (s.Velocity.Z != 0f && horizontal != Vector2.Zero && FallsStraight(s, c, world)) horizontal = Vector2.Zero;
+            // sim/ledge-charge-hop (protocol 85): a Jump press that ended a charge held in the air opened the air jump (JumpAirOpen): while it waits for its tap or hold the body keeps the charge's
+            // velocity (the excess over the hop's top speed easing off) instead of dropping straight, so the hop that follows carries it on (LedgeHop).
+            if (s.JumpAirOpen && LedgeHop.Enabled(c, s)) horizontal = LedgeHop.Pending(horizontal, c, s);
+            else if (s.Velocity.Z != 0f && horizontal != Vector2.Zero && FallsStraight(s, c, world)) horizontal = Vector2.Zero;
         }
         else
         {

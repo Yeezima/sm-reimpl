@@ -1644,7 +1644,7 @@ public partial class NetworkView : Node3D
         if (BracePose(character, state, own)) return;
         // Aim mode (held aim, every player's flag): the weapon class's aim stance bent by the pitch; else the idle / run choice.
         // A falling marine stands in the air (the graph's Dropping state has no direction or speed): the locomotion is posed with no horizontal velocity, the fall's layers go over it.
-        character.StanceFadeFloorOnce = JumpExitFade(state);   // anim/jump-pack-blend: the fade out of a landing
+        character.StanceFadeFloorOnce = MathF.Max(JumpExitFade(state), ChargeFallFade(fallTrack));   // anim/jump-pack-blend: the fade out of a landing; sim/ledge-charge-hop: the charge into the fall
         PlaceLocomotion(character, FallBaseState(state, fallTrack), own);
         character.StanceFadeFloorOnce = 0f;
         FallLayers(character, state, fallTrack);

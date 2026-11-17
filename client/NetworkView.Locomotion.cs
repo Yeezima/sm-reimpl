@@ -75,6 +75,7 @@ public partial class NetworkView
     {
         public bool Sprint;          // hysteresis: in the sprint
         public double ChargeAirSince = double.NegativeInfinity;   // sim/combat-pass: when the charge held in the air left the ground (render clock)
+        public double ChargeFallAt = double.NegativeInfinity;   // sim/ledge-charge-hop: when the held charge handed over to the fall pose (render clock)
         public bool ChargeFall;      // sim/combat-pass: the held charge shows the fall pose (FallRules.ChargeFallDelay)
         public double SprintBlockedUntil;   // no sprint before this (_connectedFor): a roll, charge, reaction or jump just ended
         public bool Walk;            // hysteresis between the walk and run bands

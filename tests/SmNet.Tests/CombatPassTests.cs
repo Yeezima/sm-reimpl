@@ -329,10 +329,11 @@ public class CombatPassTests(ITestOutputHelper output)
 
     [Theory]
     [InlineData(0.1, false)]
-    [InlineData(0.29, false)]
-    [InlineData(0.3, true)]
+    [InlineData(0.3, false)]
+    [InlineData(0.39, false)]
+    [InlineData(0.4, true)]
     [InlineData(2.0, true)]
     [InlineData(double.NaN, false)]
-    public void A_charge_held_in_the_air_shows_the_fall_pose_0_3_s_after_the_body_leaves_the_ground(double inAir, bool falls) =>
+    public void A_charge_held_in_the_air_shows_the_fall_pose_0_4_s_after_the_body_leaves_the_ground(double inAir, bool falls) =>
         Assert.Equal(falls, FallRules.ChargeShowsFall(inAir));
 }

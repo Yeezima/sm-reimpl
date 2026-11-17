@@ -139,7 +139,7 @@ public partial class NetworkView
         else
         {
             if (double.IsNegativeInfinity(t.ChargeAirSince)) t.ChargeAirSince = now;
-            t.ChargeFall = t.ChargeFall || FallRules.ChargeShowsFall(now - t.ChargeAirSince);
+            if (!t.ChargeFall && FallRules.ChargeShowsFall(now - t.ChargeAirSince)) { t.ChargeFall = true; t.ChargeFallAt = now; }   // sim/ledge-charge-hop: the hand-over is cross-faded (ChargeFallFade)
         }
         bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && (!Evade.Evading(s) || t.ChargeFall)
                         && !(_jumpTracks.TryGetValue(s.PlayerId, out var jump) && jump.View != JumpView.None);
@@ -155,6 +155,12 @@ public partial class NetworkView
         }
         if (fall.Falling && t.FallSet is { } heavy && heavy.Family.WholeBodyDrop()) HeavyDropStep(s, t, heavy, own);
     }
+
+    /// <summary>
+    /// sim/ledge-charge-hop: the shortest stance cross-fade (s) while a held charge (or a roll or hop carried off a drop) hands over from its clip to the fall pose, in the frames from the hand-over
+    /// (<see cref="FallRules.ChargeFallBlend"/>); 0 otherwise. The clip's last frame fades into the standing aim-offset idle and the fall legs ramp in over the same time, own and seen players alike.
+    /// </summary>
+    float ChargeFallFade(LocoTrack t) => t.ChargeFall && !CharacterViewer.NoP3 && _connectedFor - t.ChargeFallAt < 0.1 ? FallRules.ChargeFallBlend : 0f;
 
     void BeginFall(PlayerState s, LocoTrack t, bool own)
     {
@@ -236,7 +242,7 @@ public partial class NetworkView
         if (t.FallSet is not { } set || !s.Alive) { t.LegsWeight = 0f; return; }
         // The falling pose: the legs on the leg mask, or the heavy bolter's whole-body drop; they go out over the blend of whatever follows (the landing's, or the soft exit's).
         bool on = t.Fall.Falling && (set.Legs is not null || (t.Fall.DropStarted && !t.Fall.HeavyLanded));
-        float blendIn = Math.Max(0.02f, set.EnterBlend), blendOut = Math.Max(0.02f, t.Fall.LandHard ? set.LandBlend : set.SoftExitBlend);
+        float blendIn = Math.Max(t.ChargeFall && !CharacterViewer.NoP3 ? FallRules.ChargeFallBlend : 0.02f, set.EnterBlend), blendOut = Math.Max(0.02f, t.Fall.LandHard ? set.LandBlend : set.SoftExitBlend);
         t.LegsWeight = Mathf.MoveToward(t.LegsWeight, on ? 1f : 0f, dt / (on ? blendIn : blendOut));
         if (t.LegsWeight > 1e-3f)
         {

@@ -535,6 +535,14 @@ public static class Evade
         var right = new Vector2(forward.Y, -forward.X);
         var delta = right * local.X + forward * local.Y;
         var horizontal = dt > 0f ? delta / dt : Vector2.Zero;
+        // sim/ledge-charge-hop (protocol 85): a hop out of a ledge charge carries the charge's speed over the clip's, easing it off (LedgeHop.Extra): the extra speed along the hop's own direction.
+        if (move.Flight && spec.Dash && !t.Landed && dt > 0f && horizontal.LengthSquared() > 1e-8f)
+        {
+            float clip = horizontal.Length();
+            float clipBefore = from > 0f ? (move.At(from) - move.At(MathF.Max(0f, from - dt))).Length() / dt : clip;
+            float extra = LedgeHop.Extra(c, s, t.Ticks <= 1, new Vector2(s.Velocity.X, s.Velocity.Y).Length(), clipBefore);
+            if (extra > 0f) { horizontal *= (clip + extra) / clip; delta = horizontal * dt; }
+        }
         PlayerState next;
         landed = false;
         float before = move.HeightAt(from), after = move.HeightAt(to);

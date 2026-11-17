@@ -1085,7 +1085,7 @@ public static class Combat
                 JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpAirOpen = false,
                 JumpSlash = false,
             }
-            : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
+            : pack is not null ? JumpPack.Move(chargeOffLedge && c.LedgeHopCarry ? s with { JumpAirOpen = true } : s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
             with { Pitch = input.Pitch, Aiming = aiming };
         // sim/combat-pass (review note): the chosen direction holds through the hit even when the hit comes after the move-on time (the walk then uses the view's frame, the body keeps the strike's facing).
         if (step > 0 && meleeGlide is null && !reacting && !rushing && !evading && time < MathF.Max(MoveAtOf(steps[step - 1], c), steps[step - 1].HitTime + dt + TimeEpsilon))

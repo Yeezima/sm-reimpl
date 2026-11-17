@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Hopping out of a charge that runs off a ledge (Assault Marine and Raptor; Classic PvP and Musou Mode): tap Space, with or without a direction, while falling in the charge and you no longer stop almost dead; you keep the charge's speed and ease down smoothly to the hop's top speed. A charge off a ledge now shows its charge pose for 0.4 seconds, then blends into the falling pose, and lands normally if you do nothing else. This build does not play with earlier ones: everyone must update.
