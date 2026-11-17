@@ -28,6 +28,8 @@ public sealed partial class TfwBattle
     public int HqOrksSkipped { get; private set; }
     /// <summary>Test aid (the measurement tool): false stops the scheduled waves.</summary>
     public bool HqWavesOn { get; set; } = true;
+    /// <summary>What the defence did on its last tick, for the bench's tagged list of the slowest ticks: 1 muster spawns, 2 stage spawns (flood or share), 4 a chunk let go, 8 a wave left, 16 a position fell.</summary>
+    public byte HqTickFlags { get; private set; }
     /// <summary>Seconds a banner message stays.</summary>
     public const float MessageSeconds = 4f;
 
@@ -52,6 +54,8 @@ public sealed partial class TfwBattle
         Secured = Positions;
         Armies = false;     // no armies, garrisons or retreats
         Trickle = false;    // no trickle: the waves are this file's
+        WeirdboyzOn = false;   // no Weirdboyz in the HQ defence [ours]: Orks teleported inside a held ring would remove the stage the player stands on (review of W13b, ruling 3)
+        _hqHold = 1f;
         _reserves = 0;
         Array.Fill(_hqGoal, -1);
         for (int k = 0; k < Positions && _guardsmen; k++)
@@ -72,12 +76,12 @@ public sealed partial class TfwBattle
         }
     }
 
-    /// <summary>Only the front-most position still held can lose progress toward Held (<c>WarfrontRetake</c>).</summary>
+    /// <summary>No position loses progress by Musou's rule in an HQ defence: the fall is the defence's own weighted hold (<see cref="StepHqHold"/>), so Musou's "Orks alone for 20 s" never fires (<c>WarfrontRetake</c>).</summary>
     partial void WarfrontRetake(int position, ref bool allowed)
     {
         // FORTRESS-SPOT (W14b): if (rules.Fortress is not null) { ...fortress call...; return; } goes here, before the HQ branch
         if (!WarfrontHq) return;
-        allowed = position == HqFront;
+        allowed = false;
     }
 
     /// <summary>The battle's own crowds and trickle stay off in an HQ defence: its sources are opened by stage (<see cref="HqSourceOpen"/>) and fed by the waves (<c>WarfrontSourceActive</c>).</summary>
@@ -120,6 +124,14 @@ public sealed partial class TfwBattle
         }
     }
 
+    float _hqHold = 1f;
+    /// <summary>The front position's hold, 1 (firm) to 0 (it falls): drains while the Orks in its ring outweigh the defenders, recovers otherwise (<see cref="StepHqHold"/>).</summary>
+    public float HqHold => HqFront >= Positions ? 0f : _hqHold;
+    /// <summary>The hold in percent, in steps of 5 (the Battle section's byte).</summary>
+    public byte HqHoldPercent => (byte)(Math.Clamp((int)MathF.Round(HqHold * 20f), 0, 20) * 5);
+    /// <summary>The Orks' weight and the defenders' weight inside the front position's ring on the last tick (tests and the bench).</summary>
+    public (int Orks, int Defenders) HqWeights { get; private set; }
+
     /// <summary>The positions still held as bits (bit 0 W, 1 K, 2 V).</summary>
     public byte HqHeldBits
     {
@@ -135,9 +147,12 @@ public sealed partial class TfwBattle
     void StepHq(ReadOnlySpan<Vector3> players, ref TfwBattleChange change)
     {
         if (HqMessage != 0 && --_hqMessageTicks <= 0) HqMessage = 0;
+        HqTickFlags = 0;
         if (Won || HqLost) return;
         for (int k = 0; k < Positions; k++)
             if (!_hqFallen[k] && _objectives[k].State != TfwPositionState.Secured) HqPositionFell(k, players);
+        if (HqLost) return;
+        StepHqHold(players);
         if (HqLost) return;
         float t = HqSeconds;
         if (t >= WarfrontHqBattleRules.SurviveSeconds)
@@ -151,6 +166,46 @@ public sealed partial class TfwBattle
         if (--_hqRepostTicks <= 0) { _hqRepostTicks = Ticks(1f); HqRepost(); }
     }
 
+    /// <summary>
+    /// The fall rule (designer review of W13b, ruling 2; every number ours): inside the front position's ring each Ork counts 1 (a Nob or bigger 3) against the defenders' weight, a standing human 6, a standing squad Marine 2, a Guardsman 1.
+    /// While the Orks outweigh the defenders the hold drains from 1 to 0 in <see cref="WarfrontHqBattleRules.HoldDrainSeconds"/>, otherwise it recovers in <see cref="WarfrontHqBattleRules.HoldRecoverSeconds"/>; at 0 the position falls.
+    /// </summary>
+    void StepHqHold(ReadOnlySpan<Vector3> players)
+    {
+        int k = HqFront;
+        if (k >= Positions) return;
+        var at = _layout.Positions[k];
+        float radius = _layout.Radius(k), reach = _layout.Reach(k);
+        Span<ushort> ids = stackalloc ushort[192];
+        int n = _enemies.Query(at, radius, ids, reach);
+        int orks = 0;
+        for (int i = 0; i < n; i++)
+            if (_enemies.TryGet(ids[i], out var e) && e.Alive && !_enemies.Leashed(ids[i]))
+                orks += TfwBattleRules.Big(e.Type) ? WarfrontHqBattleRules.BigOrkWeight : WarfrontHqBattleRules.OrkWeight;
+        int defenders = 0;
+        if (orks > 0)
+        {
+            float r2 = radius * radius;
+            foreach (var p in Capturers(players))
+                if (MathF.Abs(p.Z - at.Z) <= reach && new Vector2(p.X - at.X, p.Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.HumanWeight;
+            defenders += _guards.CountInside(at, radius) * WarfrontHqBattleRules.GuardsmanWeight;
+            if (_enemies.Warfront?.SquadTargets is { } source)
+            {
+                Span<MusouTarget> marines = stackalloc MusouTarget[WarfrontBattleRules.MaxSquadTargets];
+                int m = Math.Clamp(source(marines), 0, marines.Length);
+                for (int i = 0; i < m; i++)
+                    if (MathF.Abs(marines[i].Position.Z - at.Z) <= reach && new Vector2(marines[i].Position.X - at.X, marines[i].Position.Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.MarineWeight;
+            }
+        }
+        HqWeights = (orks, defenders);
+        if (orks > defenders) _hqHold -= Dt / WarfrontHqBattleRules.HoldDrainSeconds;
+        else _hqHold = MathF.Min(1f, _hqHold + Dt / WarfrontHqBattleRules.HoldRecoverSeconds);
+        if (_hqHold > 0f) return;
+        _objectives[k] = _objectives[k] with { State = TfwPositionState.Held, Progress = 0f };
+        Secured--;
+        HqPositionFell(k, players);
+    }
+
     void HqSay(byte message)
     {
         HqMessage = message;
@@ -161,7 +216,9 @@ public sealed partial class TfwBattle
     void HqPositionFell(int k, ReadOnlySpan<Vector3> players)
     {
         _hqFallen[k] = true;
+        HqTickFlags |= 16;
         HqFallenCount++;
+        _hqHold = 1f;
         if (_layout.Radii is { } radii && k < radii.Length) radii[k] = 0.01f;   // a ring of a centimetre: nobody is inside it, so no capture, no retake, no Guardsman holding it (the position's place stays, for the markers and the Marines' goal)
         if (k == Positions - 1)
         {
@@ -170,7 +227,7 @@ public sealed partial class TfwBattle
             return;
         }
         HqSay(k == 0 ? WarfrontHqBattleRules.MessageWallFell : WarfrontHqBattleRules.MessageKeepFell);
-        HqSpawnAtStage(k + 1, WarfrontHqBattleRules.BreachFlood, players);
+        _hqStageQueue.Enqueue((k + 1, WarfrontHqBattleRules.BreachFlood));   // made over the next ticks, SpawnsPerTick at a time
         _hqRepostTicks = 0;
     }
 
@@ -189,25 +246,38 @@ public sealed partial class TfwBattle
         }
     }
 
-    /// <summary>The waves: a wave musters (leashed) on the assembly ground <see cref="WarfrontHqBattleRules.MusterLeadSeconds"/> before it leaves, and is let go at its time; from then each open stage sends its share at once.</summary>
+    /// <summary>
+    /// The waves: a wave begins to muster (leashed) on the assembly ground <see cref="WarfrontHqBattleRules.MusterLeadSeconds"/> before it leaves, at most <see cref="WarfrontHqBattleRules.SpawnsPerTick"/> Orks a tick; at its time what is mustered is let
+    /// go in chunks and each open stage's share is made at the stages' sources (the same spread). Three waves in all (<see cref="WarfrontHqBattleRules.ScheduledWaves"/>).
+    /// </summary>
     void StepHqWaves(float t, ReadOnlySpan<Vector3> players)
     {
         HqReleaseChunks(t);   // the chunks of the wave being let go (the earlier wave's rest goes on while the next one musters)
+        int budget = WarfrontHqBattleRules.SpawnsPerTick;
+        StepHqStageQueue(players, ref budget);
         int wave = HqWavesSent + 1;
+        if (wave > WarfrontHqBattleRules.ScheduledWaves) return;
         float leaves = WarfrontHqBattleRules.WaveLeaves(wave);
-        if (leaves >= WarfrontHqBattleRules.SurviveSeconds) return;
-        if (_hqMustered < wave && t >= leaves - WarfrontHqBattleRules.MusterLeadSeconds) HqMuster(wave);
+        if (_hqMustered < wave && t >= leaves - WarfrontHqBattleRules.MusterLeadSeconds) HqBeginMuster(wave);
+        if (_hqMustered == wave && (_hqMusterLeft > 0 || _hqBossLeft > 0)) StepHqMuster(wave, ref budget);
         if (_hqMustered != wave || t < leaves) return;
+        // it leaves: what could not be made under the cap is lost, the rest goes in chunks
+        HqOrksSkipped += _hqMusterLeft;
+        _hqMusterLeft = 0;
+        _hqBossLeft = 0;
         HqWavesSent = wave;
+        HqTickFlags |= 8;
+        _hqChunkCount[Math.Min(63, wave)] = Math.Max(1, (_hqMusterMade + WarfrontHqBattleRules.ChunkSize - 1) / WarfrontHqBattleRules.ChunkSize);
         _hqReleasing = wave;
         _hqChunksReleased = 0;
         HqSay(WarfrontHqBattleRules.MessageWave);
         for (int stage = 1; stage <= 2; stage++)
-            if (HqSourceOpen(stage)) HqSpawnAtStage(stage, HqStageShare(wave), players);
+            if (HqSourceOpen(stage)) _hqStageQueue.Enqueue((stage, HqStageShare(wave)));
         HqReleaseChunks(t);
     }
 
-    int _hqReleasing;
+    int _hqReleasing, _hqMusterLeft, _hqMusterMade, _hqBossLeft;
+    readonly Queue<(int Stage, int Left)> _hqStageQueue = new();
 
     /// <summary>Lets the next chunk of the wave leaving go when its time has come (<see cref="WarfrontHqBattleRules.ChunkGapSeconds"/> apart).</summary>
     void HqReleaseChunks(float t)
@@ -217,7 +287,7 @@ public sealed partial class TfwBattle
         float leaves = WarfrontHqBattleRules.WaveLeaves(wave);
         int chunks = _hqChunkCount[wave];
         while (_hqChunksReleased < chunks && t >= leaves + _hqChunksReleased * WarfrontHqBattleRules.ChunkGapSeconds)
-            _enemies.ReleaseGroup(HqGroup(wave, _hqChunksReleased++));
+        { _enemies.ReleaseGroup(HqGroup(wave, _hqChunksReleased++)); HqTickFlags |= 4; }
         if (_hqChunksReleased >= chunks) _hqReleasing = 0;
     }
 
@@ -226,22 +296,50 @@ public sealed partial class TfwBattle
     static int HqStageShare(int wave) => (int)MathF.Round(WarfrontHqBattleRules.WaveSize(wave) * WarfrontHqBattleRules.StageShare);
     int HqStageOrks(int wave) => HqStageShare(wave) * ((HqSourceOpen(1) ? 1 : 0) + (HqSourceOpen(2) ? 1 : 0));
 
-    /// <summary>Wave <paramref name="wave"/> musters: its assembly-ground share (all of it before a stage opens) made leashed; the Boss Orks come with the wave from <see cref="WarfrontHqBattleRules.BossWave"/> on.</summary>
-    void HqMuster(int wave)
+    /// <summary>The Orks the defence may have alive: the lesser of <see cref="WarfrontHqBattleRules.AliveCapHq"/> and the battle's own cap for the humans in the field.</summary>
+    int HqCap => Math.Min(WarfrontHqBattleRules.AliveCapHq, TfwBattleRules.AliveCap(_humansNow));
+
+    /// <summary>
+    /// The places a wave musters round: the assembly sources within <see cref="WarfrontHqBattleRules.MusterHalfWidth"/> of the ramp's centre line (the ramp is 30 m wide; a wave mustered wider piled against its side), and, so that the wave stands in depth
+    /// (rows behind each other, not 200 Orks on one 11 m disc), a place every <see cref="WarfrontHqBattleRules.MusterRowMetres"/> along the line between the deepest and the nearest of them.
+    /// </summary>
+    static Vector3[] HqHome()
+    {
+        var home = WarfrontHqLayout.SourcesOf(0).Where(p => MathF.Abs(p.X) <= WarfrontHqBattleRules.MusterHalfWidth).ToArray();
+        if (home.Length == 0) return [.. WarfrontHqLayout.SourcesOf(0)];
+        float lo = home.Min(p => p.Y), hi = home.Max(p => p.Y);
+        var z = home[0].Z;
+        var rows = new List<Vector3>();
+        for (float y = lo; y <= hi + 0.01f; y += WarfrontHqBattleRules.MusterRowMetres) rows.Add(new Vector3(home[0].X, y, z));
+        return [.. rows];
+    }
+
+    /// <summary>Wave <paramref name="wave"/> begins to muster: its assembly-ground share (all of it before a stage opens) is owed, and the Boss Orks, from the wave <see cref="WarfrontHqBattleRules.BossWave"/> on, one per human.</summary>
+    void HqBeginMuster(int wave)
     {
         _hqMustered = wave;
-        int size = WarfrontHqBattleRules.WaveSize(wave) - HqStageOrks(wave);
-        var sources = WarfrontHqLayout.SourcesOf(0).Where(p => MathF.Abs(p.X) <= WarfrontHqBattleRules.MusterHalfWidth).ToArray();   // straight in front of the ramp: a wave mustered at the corners piled against the ramp's side
-        int cap = TfwBattleRules.AliveCap(_humansNow);
-        for (int n = 0; n < size; n++)
+        _hqMusterLeft = WarfrontHqBattleRules.WaveSize(wave) - HqStageOrks(wave);
+        _hqMusterMade = 0;
+        _hqBossLeft = wave >= WarfrontHqBattleRules.BossWave ? WarfrontHqBattleRules.BossNobsPerHuman * _humansNow : 0;
+    }
+
+    /// <summary>One tick of the muster: up to <paramref name="budget"/> leashed Orks (none while the alive cap or the pool is full: it waits, and what is still owed when the wave leaves is lost), then the Boss Orks.</summary>
+    void StepHqMuster(int wave, ref int budget)
+    {
+        var sources = HqHome();
+        int cap = HqCap;
+        while (budget > 0 && _hqMusterLeft > 0)
         {
-            if (Counted() >= cap || PoolUsed >= TfwBattleRules.CrowdPoolRoom) { HqOrksSkipped += size - n; break; }
-            HqSpawnOne(sources[n % sources.Length], leashed: true, HqGroup(wave, n / WarfrontHqBattleRules.ChunkSize));
+            if (Counted() >= cap || PoolUsed >= TfwBattleRules.CrowdPoolRoom) break;
+            budget--;
+            _hqMusterLeft--;
+            HqTickFlags |= 1;
+            if (HqSpawnOne(sources[_hqMusterMade % sources.Length], leashed: true, HqGroup(wave, _hqMusterMade / WarfrontHqBattleRules.ChunkSize)) != 0) _hqMusterMade++;
         }
-        _hqChunkCount[Math.Min(63, wave)] = Math.Max(1, (size + WarfrontHqBattleRules.ChunkSize - 1) / WarfrontHqBattleRules.ChunkSize);
-        if (wave < WarfrontHqBattleRules.BossWave) return;
-        for (int n = 0; n < WarfrontHqBattleRules.BossNobsPerHuman * _humansNow; n++)
+        while (budget > 0 && _hqMusterLeft == 0 && _hqBossLeft > 0)
         {
+            budget--;
+            int n = --_hqBossLeft;
             var at = DiscSpot(sources[n % sources.Length]);
             ushort id = _enemies.SpawnLeashed(MusouEnemyType.BossNob, at, FaceCentre(at), Health(MusouEnemyType.BossNob), HqGroup(wave, 0), TfwBattleRules.CrowdAggro);
             if (id == 0) continue;
@@ -267,30 +365,46 @@ public sealed partial class TfwBattle
         return id;
     }
 
+    /// <summary>One tick of the stages' queue (the breach floods and the waves' stage shares): up to <paramref name="budget"/> Orks across the entries, in order.</summary>
+    void StepHqStageQueue(ReadOnlySpan<Vector3> players, ref int budget)
+    {
+        int entries = _hqStageQueue.Count;
+        while (budget > 0 && entries-- > 0)
+        {
+            var (stage, left) = _hqStageQueue.Dequeue();
+            int take = Math.Min(budget, left);
+            int tried = HqSpawnAtStage(stage, take, players);
+            if (tried > 0) HqTickFlags |= 2;
+            budget -= tried;
+            left -= tried;
+            if (left > 0 && tried >= take) _hqStageQueue.Enqueue((stage, left));
+            else if (left > 0) HqOrksSkipped += left;   // the alive cap or the pool stopped it: the rest is dropped (counted)
+        }
+    }
+
     /// <summary>
-    /// <paramref name="count"/> Orks (unleashed: they walk at once) at the sources of <paramref name="stage"/>, a source only while no human is within <see cref="WarfrontHqBattleRules.SourceSightMetres"/> of it (so none within
-    /// <see cref="WarfrontHqBattleRules.SourceClearanceMetres"/>). What no open source could take is made on the assembly ground instead. Returns the number made.
+    /// Up to <paramref name="count"/> Orks (unleashed: they walk at once) at the sources of <paramref name="stage"/>, a source only while no human is within <see cref="WarfrontHqBattleRules.SourceSightMetres"/> of it (so none within
+    /// <see cref="WarfrontHqBattleRules.SourceClearanceMetres"/>). What no open source could take is made on the assembly ground instead. Returns the number tried (fewer than <paramref name="count"/>: the alive cap or the pool stopped it).
     /// </summary>
     int HqSpawnAtStage(int stage, int count, ReadOnlySpan<Vector3> players)
     {
-        int made = 0;
         var open = new List<Vector3>();
         foreach (var s in WarfrontHqLayout.SourcesOf(stage)) if (HqClear(s, players)) open.Add(s);
-        var home = WarfrontHqLayout.SourcesOf(0).ToArray();
-        int cap = TfwBattleRules.AliveCap(_humansNow);
+        var home = HqHome();
+        int cap = HqCap;
         for (int n = 0; n < count; n++)
         {
-            if (Counted() >= cap || PoolUsed >= TfwBattleRules.CrowdPoolRoom) { HqOrksSkipped += count - n; break; }
+            if (Counted() >= cap || PoolUsed >= TfwBattleRules.CrowdPoolRoom) return n;
             var from = open.Count > 0 ? open[n % open.Count] : home[n % home.Length];
-            if (HqSpawnOne(from, leashed: false, 0) != 0) made++;
+            HqSpawnOne(from, leashed: false, 0);
         }
-        return made;
+        return count;
     }
 
     /// <summary>Test aid: <paramref name="count"/> unleashed Orks made on the assembly ground now (they walk at once); the number made.</summary>
     public int HqSendForTests(int count)
     {
-        var sources = WarfrontHqLayout.SourcesOf(0).ToArray();
+        var sources = HqHome();
         int made = 0;
         for (int n = 0; n < count; n++) if (HqSpawnOne(sources[n % sources.Length], leashed: false, 0) != 0) made++;
         return made;

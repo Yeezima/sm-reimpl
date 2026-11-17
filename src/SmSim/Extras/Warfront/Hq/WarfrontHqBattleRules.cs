@@ -12,31 +12,39 @@ public static class WarfrontHqBattleRules
     public const float SurviveSeconds = 480f;
     /// <summary>When the first wave leaves the assembly ground, seconds after the landing (so nobody meets Orks at the gate before he can walk there: the chamber is about 220 m behind it).</summary>
     public const float FirstWaveSeconds = 45f;
-    /// <summary>The time between two waves leaving, seconds (0:45, 3:15, 5:45 in the plan).</summary>
-    public const float WaveIntervalSeconds = 150f;
+    /// <summary>The time between two waves leaving, seconds (0:45, 2:45, 4:45: designer review of W13b, ruling 2; the last one matters, from 5:45 it reached the wall as the clock ran out).</summary>
+    public const float WaveIntervalSeconds = 120f;
     /// <summary>How long before it leaves a wave stands mustered (leashed) on the assembly ground, seconds.</summary>
     public const float MusterLeadSeconds = 20f;
-    /// <summary>A wave leaves in chunks of this many Orks, one chunk every <see cref="ChunkGapSeconds"/> (about 170 an minute, under the gate's measured 214), so the 12 m gate is never jammed by a whole wave arriving at once (measured: a 300-Ork rush jammed it and 31 % of the Orks stood without headway).</summary>
+    /// <summary>A wave leaves in chunks of this many Orks, one chunk every <see cref="ChunkGapSeconds"/> (240 a minute at most, the gate carries about 214 at best), so the 12 m gate is never jammed by a whole wave arriving at once (measured: a 300-Ork rush jammed it and 31 % of the Orks stood without headway).</summary>
     public const int ChunkSize = 20;
-    /// <summary>A wave musters only at the assembly sources within this many metres of the ramp's centre line (the ramp is 30 m wide).</summary>
-    public const float MusterHalfWidth = 46f;
-    public const float ChunkGapSeconds = 6f;
-    /// <summary>The waves' sizes (Orks); a later wave is as big as the last listed.</summary>
-    public static readonly int[] WaveSizes = [300, 450, 600];
-    /// <summary>The waves scheduled inside <see cref="SurviveSeconds"/> (the HUD's "OF n").</summary>
-    public static int ScheduledWaves
-    {
-        get
-        {
-            int n = 0;
-            for (float t = FirstWaveSeconds; t < SurviveSeconds; t += WaveIntervalSeconds) n++;
-            return n;
-        }
-    }
-    /// <summary>The elite share of the HQ battle: this fraction of Musou's own curve (<see cref="TfwBattleRules.EliteShare"/>).</summary>
-    public const float EliteProgress = 0.75f;
-    /// <summary>Boss Orks per human the wave from <see cref="BossWave"/> on brings (the third).</summary>
-    public const int BossNobsPerHuman = 1, BossWave = 3;
+    /// <summary>A wave musters only at the assembly sources within this many metres of the ramp's centre line (the ramp is 30 m wide: 12 is inside it, the wave musters in depth; designer review of W13b, ruling 1; was 46, which sent the flanks into the ramp's side).</summary>
+    public const float MusterHalfWidth = 12f;
+    public const float ChunkGapSeconds = 5f;
+    /// <summary>The distance between the rows a wave stands in on the assembly ground (ours).</summary>
+    public const float MusterRowMetres = 8f;
+    /// <summary>Most Orks the defence makes in one tick (the muster and the breach flood are spread: a whole wave in one tick was the tick spike; designer review ruling 4).</summary>
+    public const int SpawnsPerTick = 10;
+    /// <summary>The HQ's own alive cap (the lesser of this and <c>AliveCap(humans)</c>; ruling 2 and 4).</summary>
+    public const int AliveCapHq = 400;
+    /// <summary>The waves' sizes (Orks): 200, 300 and 400 (designer review ruling 2: what the gate can carry).</summary>
+    public static readonly int[] WaveSizes = [200, 300, 400];
+    /// <summary>The waves scheduled (the HUD's "OF n"): one for each size listed; none after the last.</summary>
+    public static int ScheduledWaves => WaveSizes.Length;
+
+    // The fall rule (ruling 2): inside the front position's ring the Orks' weight against the defenders' weight; the hold drains while the Orks outweigh, recovers otherwise.
+    /// <summary>An Ork's weight; a Nob or bigger counts <see cref="BigOrkWeight"/>.</summary>
+    public const int OrkWeight = 1, BigOrkWeight = 3;
+    /// <summary>The defenders' weights: a standing human, a standing squad Marine, a Guardsman.</summary>
+    public const int HumanWeight = 6, MarineWeight = 2, GuardsmanWeight = 1;
+    /// <summary>The position's hold drains from 1 to 0 in this many seconds while the Orks outweigh the defenders, and recovers from 0 to 1 in <see cref="HoldRecoverSeconds"/> otherwise.</summary>
+    public const float HoldDrainSeconds = 20f, HoldRecoverSeconds = 40f;
+    /// <summary>Under this hold the HUD says the position is falling ("THE WALL IS FALLING").</summary>
+    public const float HoldFallingBelow = 0.5f;
+    /// <summary>The elite share of the HQ battle: this fraction of Musou's own curve (<see cref="TfwBattleRules.EliteShare"/>): 1, the top (was 0.75).</summary>
+    public const float EliteProgress = 1f;
+    /// <summary>Boss Orks per human the wave from <see cref="BossWave"/> on brings (the second; was the third).</summary>
+    public const int BossNobsPerHuman = 1, BossWave = 2;
 
     /// <summary>The Guard squads that start at each position's posts (W, K, V); the Guardsmen are not replaced.</summary>
     public static readonly int[] SquadsAt = [2, 1, 1];
