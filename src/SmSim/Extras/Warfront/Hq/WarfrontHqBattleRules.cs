@@ -40,7 +40,7 @@ public static class WarfrontHqBattleRules
     /// <summary>The defenders' weights: a standing human, a standing squad Marine, a Guardsman.</summary>
     public const int HumanWeight = 6, MarineWeight = 2, GuardsmanWeight = 1;
     /// <summary>The position's hold drains from 1 to 0 in this many seconds while the Orks outweigh the defenders, and recovers from 0 to 1 in <see cref="HoldRecoverSeconds"/> otherwise.</summary>
-    public const float HoldDrainSeconds = 20f, HoldRecoverSeconds = 40f;
+    public const float HoldDrainSeconds = 40f, HoldRecoverSeconds = 40f;
     /// <summary>Under this hold the HUD says the position is falling ("THE WALL IS FALLING").</summary>
     public const float HoldFallingBelow = 0.5f;
     /// <summary>The elite share of the HQ battle: this fraction of Musou's own curve (<see cref="TfwBattleRules.EliteShare"/>): 1, the top (was 0.75).</summary>
@@ -57,11 +57,8 @@ public static class WarfrontHqBattleRules
     public const float SourceClearanceMetres = 30f, SourceSightMetres = 60f;
     /// <summary>The height of an eye above the feet for the sight test, metres (the fortress's own: <c>WarfrontFortressBattleRules.EyeHeight</c>).</summary>
     public const float EyeHeight = WarfrontFortressBattleRules.EyeHeight;
-    /// <summary>
-    /// The sight test (W13c): true when the line from the first point to the second is not stopped by a wall; set by the server at the HQ landing from the stage's weapon collision (<c>GameServer.WarfrontHqSight</c>), the same ray as the fortress's. It is process-wide
-    /// because the stage runs one battle per process (the same as the rules' <c>Target</c>); null means the 60 m stand-in (<see cref="SourceSightMetres"/>). Tests that set it must reset it.
-    /// </summary>
-    public static Func<Vector3, Vector3, bool>? Sight { get; set; }
+    /// <summary>The farthest a human is taken to see a stage source by the sight ray, metres (W13c pass 2, review finding 3; ours, an estimate): 0 is no range (the ray alone). Raised to 60 (the old stand-in's distance) only if a stage's sources are open under a fifth of the time it is the front.</summary>
+    public const float SightRangeMetres = 0f;
     /// <summary>The share of a wave that comes from the stages' sources once they are open (each open stage takes this share of it).</summary>
     public const float StageShare = 0.25f;
     /// <summary>Orks that pour in at an opened stage's sources at the moment its position falls.</summary>

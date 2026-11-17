@@ -177,8 +177,8 @@ public sealed partial class GameServer
         }
         if (hq)   // the HQ's stage sources use the same ray as the fortress's (W13c); none supplied: the 60 m stand-in, said once
         {
-            WarfrontHqBattleRules.Sight = WarfrontSightOverStage();
-            WfLog(WarfrontHqBattleRules.Sight is null ? "HQ defence: no weapon collision on this stage, the stage sources use the 60 m sight stand-in" : "HQ defence: the stage sources are hidden by the eye-to-eye ray over this stage's weapon collision");
+            if (run.Warfront is { } hqRules) hqRules.HqSight = WarfrontSightOverStage();
+            WfLog(run.Warfront?.HqSight is null ? "HQ defence: no weapon collision on this stage, the stage sources use the 60 m sight stand-in" : "HQ defence: the stage sources are hidden by the eye-to-eye ray over this stage's weapon collision");
         }
         run.War.SetFrontsForTests(hq || fortress ? (sbyte)0 : (sbyte)(slot!.Node - 1));   // the HQ and the fortress: a node battle's frame on lane A; the plan hook replaces the layout
         if (!run.Enqueue(leader, new TfwCommandRecord(++s.CommandSeq, TfwCommand.Deploy, (byte)(hq || fortress ? 0 : slot!.Lane)))) { WarfrontLandingWait(s, "the run refused the Deploy"); return; }

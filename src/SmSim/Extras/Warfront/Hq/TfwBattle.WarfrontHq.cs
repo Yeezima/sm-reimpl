@@ -441,21 +441,21 @@ public sealed partial class TfwBattle
 
     /// <summary>
     /// Whether no human may see a stage source at <paramref name="at"/> (W13c, review 2 item 8): none within <see cref="WarfrontHqBattleRules.SourceClearanceMetres"/>, and none with a straight eye-to-eye line to it over the stage's weapon collision
-    /// (<see cref="WarfrontHqBattleRules.Sight"/>, the fortress's own ray). With no ray supplied the 60 m stand-in applies: no human within <see cref="WarfrontHqBattleRules.SourceSightMetres"/>.
+    /// (<c>WarfrontBattleRules.HqSight</c>, the fortress's own ray). With no ray supplied the 60 m stand-in applies: no human within <see cref="WarfrontHqBattleRules.SourceSightMetres"/>.
     /// </summary>
-    /// <summary>Test aid: <see cref="HqClear"/>.</summary>
-    public static bool HqSourceClearForTests(Vector3 at, ReadOnlySpan<Vector3> players) => HqClear(at, players);
+    /// <summary>Whether no human may see a stage source at <paramref name="at"/> now (<see cref="HqClear"/>; the bench's open-seconds print and tests).</summary>
+    public bool HqSourceClear(Vector3 at, ReadOnlySpan<Vector3> players) => HqClear(at, players);
 
-    static bool HqClear(Vector3 at, ReadOnlySpan<Vector3> players)
+    bool HqClear(Vector3 at, ReadOnlySpan<Vector3> players)
     {
-        var sight = WarfrontHqBattleRules.Sight;
+        var sight = _enemies.Warfront?.HqSight;
         var eyeAt = at + new Vector3(0f, 0f, WarfrontHqBattleRules.EyeHeight);
         foreach (var p in players)
         {
             float d = Vector3.Distance(p, at);
             if (d < WarfrontHqBattleRules.SourceClearanceMetres) return false;
             if (sight is null) { if (d < WarfrontHqBattleRules.SourceSightMetres) return false; }
-            else if (sight(p + new Vector3(0f, 0f, WarfrontHqBattleRules.EyeHeight), eyeAt)) return false;
+            else if ((WarfrontHqBattleRules.SightRangeMetres <= 0f || d <= WarfrontHqBattleRules.SightRangeMetres) && sight(p + new Vector3(0f, 0f, WarfrontHqBattleRules.EyeHeight), eyeAt)) return false;
         }
         return true;
     }
