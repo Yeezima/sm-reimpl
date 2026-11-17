@@ -28,7 +28,7 @@ static class CancelCol
 /// with the default table the gate returns at its first line and the simulation runs exactly as before. An edited cell then (a) Yes: ends the action in progress and lets the input start its
 /// own; (b) No: drops the input (its button stays "held" so it does not fire the moment the key is let go and pressed again); (c) Window: Yes inside from-until seconds of the action, No outside;
 /// (d) Queued: drops the input now and keeps it in the input buffer (<see cref="InputBuffer"/>) so it starts when the action ends. Fire, Aim, Sprint and the stick are held inputs: they are
-/// tested every tick they are down; Queued on them acts as No. Only Classic PvP: never with added content. Shared by the server and the client's prediction (pure).
+/// tested every tick they are down; Queued on them acts as No. Only Classic PvP (any content profile, the default extended included); never Musou Mode. Shared by the server and the client's prediction (pure).
 /// </summary>
 public static class CancelGate
 {
@@ -69,7 +69,7 @@ public static class CancelGate
     }
 
     /// <summary>Whether the gate can do anything for this config: the table in force differs from the code's behaviour and the mode is Classic PvP. One property read and one flag test when it cannot.</summary>
-    public static bool Active(SimConfig c) => c.Cancel.Active.DiffersFromBaseline && c.Extras == ContentExtras.None;
+    public static bool Active(SimConfig c) => c.Cancel.Active.DiffersFromBaseline && (c.Extras & ContentExtras.Musou) == 0;   // Classic PvP with any content profile (the default is extended); never Musou (owner 2026-11-17: the edits were not felt in a default match)
 
     /// <summary>Whether the gate would do anything with this input now (the plan is not empty): false for every state and input with the default table.</summary>
     public static bool Acts(PlayerState s, PlayerInput input, SimConfig c) => Evaluate(s, input, c) is not null;

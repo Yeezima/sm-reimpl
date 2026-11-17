@@ -49,7 +49,9 @@ public class CancelGateTests(ITestOutputHelper output)
         Assert.False(CancelGate.Active(c));
         c = Plays(MeleeCancelTests.Pack, Edit("jp_hop", "light", new(CancelState.No)));
         Assert.True(CancelGate.Active(c));
-        Assert.False(CancelGate.Active(c with { Extras = ContentExtras.Musou }));              // never with added content
+        Assert.False(CancelGate.Active(c with { Extras = ContentExtras.Musou }));              // never in Musou Mode
+        Assert.True(CancelGate.Active(c with { Extras = ContentProfiles.Default }));             // Classic with the default content profile (extended): the owner's edits apply
+        Assert.True(CancelGate.Active(c with { Extras = ContentExtras.Orks | ContentExtras.Gore }));
     }
 
     static PlayerState Hopping(SimConfig c, int ticks = 3)

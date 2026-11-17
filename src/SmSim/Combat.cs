@@ -356,7 +356,7 @@ public static class Combat
         // feel/buffer-speed: a buffered press is replayed into the tick (InputBuffer.Begin) and the buffer updated from what started (InputBuffer.End).
         // A replayed melee press goes through the melee lock like a fresh one (the input's MeleeTarget is the tick's own).
         var buffer = InputBuffer.Begin(s, input, c);
-        // cancel-editor (developer tools): the owner's edited cancel table (CancelGate); null, and nothing else here, with the default table, in every mode with added content and on a real server.
+        // cancel-editor (developer tools): the owner's edited cancel table (CancelGate); null, and nothing else here, with the default table, in Musou Mode and on a real server.
         var gate = CancelGate.Evaluate(s, input, c);
         if (gate is not null) buffer = buffer with { State = gate.Begin(buffer.State, c), Input = gate.Filter(buffer.Input) };
         // feel/jump-pack-2: a long buffered Jump press (held past the dash's decision) takes off committed to the small jump; whether the real button is down decides if it holds on.
