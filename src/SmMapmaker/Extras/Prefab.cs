@@ -115,6 +115,9 @@ public sealed record Prefab(
 /// <summary>A library asset (<c>library/assets/&lt;id&gt;/asset.json</c>). <see cref="Bounds"/> are in the glTF file's own frame (Y up, as imported).</summary>
 public sealed record AssetInfo(string Id, string Name, string File, Bounds? Bounds, string Sha256, string ImportedFrom)
 {
+    /// <summary>What the importer did (scale applied, textures, source format, LOD); free-form, read by the editor's toast and docs only.</summary>
+    public JsonObject? Import { get; init; }
+
     /// <summary>"gltf-y-up": the stored bounds and the file are in glTF's frame; the document frame is Z up (<see cref="BoundsInDocumentFrame"/>).</summary>
     public const string Frame = "gltf-y-up";
 
@@ -125,6 +128,7 @@ public sealed record AssetInfo(string Id, string Name, string File, Bounds? Boun
         o["sha256"] = Sha256;
         o["importedFrom"] = ImportedFrom;
         o["frame"] = Frame;
+        if (Import is { } meta) o["import"] = meta.DeepClone();
         return o;
     }
 
@@ -136,7 +140,10 @@ public sealed record AssetInfo(string Id, string Name, string File, Bounds? Boun
         var file = Json.ReqStr(o, "file", "asset");
         if (!IsPlainFileName(file)) throw new MapException("bad-file", $"asset.json: '{file}' is not a plain file name.");
         return new AssetInfo(id, Json.Str(o["name"], "name", nullable: true) ?? id, file,
-            o["bounds"] is { } bn ? SmMapmaker.Bounds.FromNode(bn, "bounds") : null, Json.Str(o["sha256"], "sha256", nullable: true) ?? "", Json.Str(o["importedFrom"], "importedFrom", nullable: true) ?? "");
+            o["bounds"] is { } bn ? SmMapmaker.Bounds.FromNode(bn, "bounds") : null, Json.Str(o["sha256"], "sha256", nullable: true) ?? "", Json.Str(o["importedFrom"], "importedFrom", nullable: true) ?? "")
+        {
+            Import = o["import"] is JsonObject meta ? (JsonObject)meta.DeepClone() : null,
+        };
     }
 
     /// <summary>A name with no folder, no "..", no drive or stream colon.</summary>

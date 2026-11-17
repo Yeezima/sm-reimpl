@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -64,6 +65,17 @@ public partial class MapmakerDock : VBoxContainer
     LibraryList _list = new() { IconMode = ItemList.IconModeEnum.Top, MaxTextLines = 2, FixedIconSize = new Vector2I(Thumbnails.Size / 2, Thumbnails.Size / 2), SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 220) };
     List<LibraryItem> _items = new();
     Label _armed = new();
+    Label _libInfo = new() { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) };
+    readonly Dictionary<string, string> _sigs = new();          // thumbnail content signature per item key (asset hash, prefab text hash)
+    readonly Dictionary<string, string> _reasons = new();       // why a row shows a placeholder
+    readonly HashSet<string> _requested = new();
+    int _background;                                            // next row the background pass looks at
+    double _thumbClock;
+    int _hiddenEmpty;
+    LineEdit _renameEdit = new() { Visible = false, SelectAllOnFocus = true };
+    PopupMenu _rowMenu = new();
+    int _renameIndex = -1;
+    bool _importing;
 
     // object
     LineEdit _name = new();
@@ -110,6 +122,7 @@ public partial class MapmakerDock : VBoxContainer
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new Vector2(280, 0);
         AddChild(_status);
         _plugin.DocChanged += Refresh;
+        SetProcess(true);
         _plugin.StatusChanged += s => _status.Text = s;
         MapHost.Sm1Changed += () => { RebuildLibrary(); Refresh(); };
         MapHost.PickedChanged += Refresh;
@@ -181,7 +194,7 @@ public partial class MapmakerDock : VBoxContainer
 
     void Pick(string title, FileDialog.FileModeEnum mode, string dir, string[] filters, Action<string> done)
     {
-        if (_files is null) { _files = new FileDialog { Access = FileDialog.AccessEnum.Filesystem, Exclusive = true, InitialPosition = Window.WindowInitialPosition.CenterMainWindowScreen, Size = new Vector2I(700, 460) }; _files.FileSelected += p => _filePicked?.Invoke(p); AddChild(_files); }
+        if (_files is null) { _files = new FileDialog { Access = FileDialog.AccessEnum.Filesystem, Exclusive = true, InitialPosition = Window.WindowInitialPosition.CenterMainWindowScreen, Size = new Vector2I(700, 460) }; _files.FileSelected += p => _filePicked?.Invoke(p); _files.DirSelected += p => _filePicked?.Invoke(p); AddChild(_files); }
         _files.Title = title; _files.FileMode = mode; _files.Filters = filters;
         try { System.IO.Directory.CreateDirectory(dir); _files.CurrentDir = dir; } catch (Exception) { }
         _filePicked = done;
@@ -229,11 +242,30 @@ public partial class MapmakerDock : VBoxContainer
         _list.ItemAt = i => i >= 0 && i < _items.Count ? _items[i] : null;
         _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos)) MapHost.Armed = item; if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
         _list.ItemSelected += i => { _lastRow = _items[(int)i]; Arm(_items[(int)i]); };
-        _list.ItemActivated += i => Arm(_items[(int)i]);
+        _list.ItemActivated += i => { if (_items[(int)i].Kind is LibraryKind.Asset or LibraryKind.Prefab) BeginRename((int)i); else Arm(_items[(int)i]); };   // double click edits the name; SM1 rows are read-only
+        _list.ItemClicked += (i, pos, button) =>
+        {
+            if ((MouseButton)button != MouseButton.Right || i < 0 || i >= _items.Count) return;
+            _list.Select((int)i); _lastRow = _items[(int)i];
+            _rowMenu.Clear();
+            bool editable = _items[(int)i].Kind is LibraryKind.Asset or LibraryKind.Prefab;
+            _rowMenu.AddItem(editable ? "Rename...   (F2)" : "Rename (SM1 definitions are read-only)", 1);
+            _rowMenu.SetItemDisabled(0, !editable);
+            _rowMenu.Position = (Vector2I)DisplayServer.MouseGetPosition(); _rowMenu.Popup();
+        };
+        _list.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.F2 } && _list.GetSelectedItems() is { Length: > 0 } sel) { BeginRename(sel[0]); _list.AcceptEvent(); } };
+        _rowMenu.IdPressed += id => { if (id == 1 && _list.GetSelectedItems() is { Length: > 0 } sel) BeginRename(sel[0]); };
+        AddChild(_rowMenu);
+        _renameEdit.TextSubmitted += CommitRename;
+        _renameEdit.FocusExited += () => { if (_renameIndex >= 0 && _renameEdit.Visible) EndRename(); };
+        _renameEdit.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.Escape }) { EndRename(); _list.GrabFocus(); _renameEdit.AcceptEvent(); } };
+        _list.AddChild(_renameEdit);
         v.AddChild(_list);
+        v.AddChild(_libInfo);
         v.AddChild(_armed);
-        v.AddChild(Row(Btn("Import asset (.glb/.gltf)...", () => Pick("Import glTF", FileDialog.FileModeEnum.OpenFile, "", ["*.glb,*.gltf ; glTF 2.0"], p => ImportOp("import-asset", p))),
-                       Btn("Import prefab...", () => Pick("Import .smprefab", FileDialog.FileModeEnum.OpenFile, "", ["*.smprefab ; Mapmaker prefab"], p => ImportOp("import-prefab", p)))));
+        v.AddChild(Row(Btn("Import asset (.zip/.fbx/.glb/.gltf)...", () => Pick("Import asset", FileDialog.FileModeEnum.OpenFile, "", ["*.zip,*.fbx,*.glb,*.gltf ; Quixel / Fab download or model"], p => ImportPaths([p])), "Quixel / Fab zip with FBX + textures, FBX, GLB or glTF. You can also drag the file onto the Library list or the 3D view."),
+                       Btn("Import folder...", () => Pick("Import asset folder", FileDialog.FileModeEnum.OpenDir, "", [], p => ImportPaths([p])), "An unzipped Quixel / Fab download")));
+        v.AddChild(Row(Btn("Import prefab...", () => Pick("Import .smprefab", FileDialog.FileModeEnum.OpenFile, "", ["*.smprefab ; Mapmaker prefab"], p => ImportOp("import-prefab", p)))));
         v.AddChild(Row(Btn("Extract picked SM1 objects to prefab...", ShowExtract)));
         v.AddChild(Row(Btn("Delete selected prefab...", () =>
         {
@@ -257,23 +289,51 @@ public partial class MapmakerDock : VBoxContainer
         if (r.Ok) MapHost.NotifyLibraryChanged();
     }
 
+    readonly Dictionary<string, int> _rowOf = new();
+
+    static string ShortHash(string text) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)))[..16];
+
+    /// <summary>Everything that changes how a prefab looks: its file text and the content hash of every custom asset it draws (so a changed asset renews the picture).</summary>
+    static string PrefabSignature(string id)
+    {
+        try
+        {
+            if (MapHost.Library.GetPrefab(id) is not { } p) return "";
+            var text = new System.Text.StringBuilder(p.ToJson());
+            foreach (var part in p.Parts.Where(x => x.Asset is { IsSm1: false }).Select(x => x.Asset!.Id!).Distinct().Order(StringComparer.Ordinal))
+                text.Append('|').Append(part).Append(':').Append(MapHost.Library.GetAsset(part)?.Sha256 ?? "");
+            return ShortHash(text.ToString());
+        }
+        catch (MapException) { return ""; }
+    }
+
     void RebuildLibrary()
     {
-        _list.Clear(); _items = new();
+        EndRename();
+        _list.Clear(); _items = new(); _sigs.Clear(); _reasons.Clear(); _requested.Clear(); _rowOf.Clear(); _background = 0; _hiddenEmpty = 0;
+        MapmakerPlugin.Thumbs?.ClearPending();
         string f = _search.Text.Trim();
         bool Match(string s) => f.Length == 0 || s.Contains(f, StringComparison.OrdinalIgnoreCase);
         switch (_source.Selected)
         {
             case 0:
                 if (MapHost.Sm1 is { } src)
-                    foreach (var name in src.DefinitionNames.Where(n => Match(n) && src.HasDefinition(n)).Take(400))
+                    foreach (var name in src.DefinitionNames.Where(Match))
+                    {
+                        // Definitions with no visual part (markers, lights, groups of child references) cannot be placed as something visible: counted, not listed.
+                        if (!src.HasDefinition(name)) { _hiddenEmpty++; continue; }
                         _items.Add(new LibraryItem(LibraryKind.Sm1, name, name, src.Map));
+                    }
                 break;
             case 1:
                 try
                 {
                     var skipped = new List<string>();
-                    foreach (var a in MapHost.Library.ListAssets(skipped).Where(a => Match(a.Name) || Match(a.Id))) _items.Add(new LibraryItem(LibraryKind.Asset, a.Id, a.Name));
+                    foreach (var a in MapHost.Library.ListAssets(skipped).Where(a => Match(a.Name) || Match(a.Id)).OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(a => a.Id, StringComparer.Ordinal))
+                    {
+                        var item = new LibraryItem(LibraryKind.Asset, a.Id, a.Name);
+                        _items.Add(item); _sigs[item.Key] = a.Sha256;
+                    }
                     if (skipped.Count > 0) _status.Text = $"{skipped.Count} asset(s) skipped: {string.Join("; ", skipped.Take(2))}";
                 }
                 catch (MapException) { }
@@ -282,7 +342,11 @@ public partial class MapmakerDock : VBoxContainer
                 try
                 {
                     var skipped = new List<string>();
-                    foreach (var p in MapHost.Library.ListPrefabs(skipped).Where(p => Match(p.Name) || Match(p.Id))) _items.Add(new LibraryItem(LibraryKind.Prefab, p.Id, p.Name));
+                    foreach (var p in MapHost.Library.ListPrefabs(skipped).Where(p => Match(p.Name) || Match(p.Id)).OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(p => p.Id, StringComparer.Ordinal))
+                    {
+                        var item = new LibraryItem(LibraryKind.Prefab, p.Id, p.Name);
+                        _items.Add(item); _sigs[item.Key] = PrefabSignature(p.Id);
+                    }
                     if (skipped.Count > 0) _status.Text = $"{skipped.Count} prefab file(s) skipped: {string.Join("; ", skipped.Take(2))}";
                 }
                 catch (MapException) { }
@@ -291,35 +355,288 @@ public partial class MapmakerDock : VBoxContainer
         for (int i = 0; i < _items.Count; i++)
         {
             var item = _items[i];
-            int row = _list.AddItem(item.Label, MapmakerPlugin.Thumbs?.Cached(item.Key));
-            if (MapmakerPlugin.Thumbs?.Cached(item.Key) is null && i < 60) RequestThumbnail(item);
+            int row = _list.AddItem(item.Label, MapmakerPlugin.Thumbs?.Cached(item.Key, SigOf(item)));
+            _list.SetItemTooltip(row, item.Kind is LibraryKind.Sm1 ? item.Id : $"{item.Label}  ({item.Id})");
+            _rowOf[item.Key] = row;
         }
+        _libInfo.Text = $"{_items.Count} item(s)" + (_hiddenEmpty > 0 ? $"; {_hiddenEmpty} definition(s) without a visual part (markers, lights, groups) are not listed" : "")
+            + (_source.Selected is 1 or 2 ? ". Double-click a name or press F2 to rename." : "") + (Thumbnails.CanRender ? "" : " (No previews in headless runs.)");
     }
 
-    void RequestThumbnail(LibraryItem item)
+    string SigOf(LibraryItem item) => _sigs.TryGetValue(item.Key, out var s) ? s : "";
+
+    /// <summary>Called a few times a second: the rows in view get their pictures first, then the rest are filled in the background (a few at a time, so the editor stays responsive).</summary>
+    public override void _Process(double delta)
     {
-        MapmakerPlugin.Thumbs?.Request(item.Key, () =>
+        if ((_thumbClock += delta) < 0.15) return;
+        _thumbClock = 0;
+        if (MapmakerPlugin.Thumbs is not { } th || !Thumbnails.CanRender || _items.Count == 0 || _tabs is null || _tabs.CurrentTab != (int)DockTab.Library || !IsVisibleInTree()) return;
+        var visible = new SortedSet<int>();
+        var size = _list.Size;
+        for (float y = 4; y < size.Y; y += 20)
+            for (float x = 4; x < size.X; x += 24)
+                if (_list.GetItemAtPosition(new Vector2(x, y), false) is var i and >= 0) visible.Add(i);
+        foreach (var i in visible) RequestRow(i, true);
+        if (th.Pending < 4)
+            for (int n = 0; n < 6 && _background < _items.Count;)
+                if (RequestRow(_background++, false)) n++;
+    }
+
+    bool RequestRow(int row, bool urgent)
+    {
+        if (row < 0 || row >= _items.Count || _list.GetItemIcon(row) is not null) return false;
+        var item = _items[row];
+        bool first = _requested.Add(item.Key);
+        if (!first && !urgent) return false;
+        RequestThumbnail(item, urgent);
+        return first;
+    }
+
+    void RequestThumbnail(LibraryItem item, bool urgent = true)
+    {
+        MapmakerPlugin.Thumbs?.Request(item.Key, SigOf(item), () => BuildThumb(item), (tex, reason) =>
         {
+            if (!_rowOf.TryGetValue(item.Key, out int idx) || idx >= _list.ItemCount || _list.GetItemText(idx) != item.Label) return;
+            _list.SetItemIcon(idx, tex);
+            if (reason is not null)
+            {
+                _reasons[item.Key] = reason;
+                _list.SetItemTooltip(idx, $"{(item.Kind is LibraryKind.Sm1 ? item.Id : $"{item.Label}  ({item.Id})")}\nNo preview: {reason}");
+            }
+        }, urgent);
+    }
+
+    /// <summary>A reason for the placeholder icon from what the factory noted while building.</summary>
+    static string ReasonFromNotes(IReadOnlyList<string> notes)
+    {
+        string n = notes.FirstOrDefault() ?? "";
+        if (n.Contains("not loaded yet", StringComparison.Ordinal)) return "map not loaded";
+        if (n.Contains("has no mesh", StringComparison.Ordinal) || n.Contains("nothing to draw", StringComparison.Ordinal)) return "no mesh";
+        if (n.Contains("not in the library", StringComparison.Ordinal)) return "missing asset";
+        return "load failed";
+    }
+
+    Thumbnails.ThumbBuild BuildThumb(LibraryItem item)
+    {
+        var notes = new List<string>();
+        try
+        {
+            if (item.Kind == LibraryKind.Sm1)
+            {
+                if (MapHost.Sm1For(item.Map!) is not { } src) return new(null, default, "map not loaded");
+                var sm1 = src.Instantiate(item.Id);
+                if (sm1 is null)
+                {
+                    string why = ContentFactory.WhySm1Empty(src, item.Id);
+                    // Left out of the map on purpose, but it is a real model: draw it for the library anyway.
+                    if (why == "hidden decor" && ContentFactory.BuildHiddenSm1Preview(src, item.Id) is { } hidden) return new(hidden, ContentFactory.MeasureBounds(hidden));
+                    return new(null, default, why);
+                }
+                return new(sm1, ContentFactory.MeasureBounds(sm1));   // measured from what is drawn: the definition's stored box follows another LOD rule
+            }
             var parts = new List<ResolvedPart>();
-            AssetRef? asset = item.Kind switch { LibraryKind.Sm1 => AssetRef.Sm1(item.Map!, item.Id), LibraryKind.Asset => AssetRef.Custom(item.Id), _ => null };
-            if (asset is not null) parts.Add(new ResolvedPart("t", null, item.Label, asset, Num.Matrix4x4.Identity, true, null));
+            if (item.Kind == LibraryKind.Asset) parts.Add(new ResolvedPart("t", null, item.Label, AssetRef.Custom(item.Id), Num.Matrix4x4.Identity, true, null));
             else
             {
+                if (MapHost.Library.GetPrefab(item.Id) is null) return new(null, default, "unreadable");
                 var ctx = new MapContext(MapHost.Library, null);
                 var doc = MapDocument.Create("t");
                 doc.Objects.Add(new MapObject("o1", item.Label, null, "default", true, MapTransform.Identity, null, item.Id, []));
                 parts.AddRange(MapResolver.Flatten(doc, ctx));
+                if (parts.Count == 0) return new(null, default, "empty prefab");
             }
-            var node = ContentFactory.BuildObject(parts, Num.Matrix4x4.Identity, out var bounds);
-            if (bounds.Size == Vector3.Zero && node is not null && asset is { IsSm1: true } && MapHost.Sm1For(asset.Map!)?.BoundsOf(asset.Definition!) is { } b)
-                bounds = ContentFactory.ToGodot(new Bounds(b.Min, b.Max));
-            if (bounds.Size == Vector3.Zero) bounds = new Aabb(new Vector3(-1, 0, -1), new Vector3(2, 2, 2));
-            return (node, bounds);
-        }, tex =>
+            var node = ContentFactory.BuildObject(parts, Num.Matrix4x4.Identity, out var bounds, notes);
+            // A part whose SM1 map is not loaded yet leaves a hole: do not cache that picture (the placeholder is shown and renewed when the map loads).
+            if (notes.Any(n => n.Contains("not loaded yet", StringComparison.Ordinal))) return new(node, bounds, "map not loaded");
+            if (node is null) return new(null, default, notes.Count > 0 ? ReasonFromNotes(notes) : "no mesh");
+            if (bounds.Size.LengthSquared() < 1e-10f && notes.Count > 0) return new(node, bounds, ReasonFromNotes(notes));
+            return new(node, bounds);
+        }
+        catch (MapException e) { return new(null, default, e.Code is "unknown-asset" ? "missing asset" : e.Code is "unknown-prefab" ? "missing prefab" : "unreadable"); }
+    }
+
+    // ---- rename (custom assets and prefabs; SM1 definitions are read-only) ----
+
+    void BeginRename(int row)
+    {
+        if (row < 0 || row >= _items.Count) return;
+        var item = _items[row];
+        if (item.Kind is not (LibraryKind.Asset or LibraryKind.Prefab)) { _status.Text = "SM1 definitions are read-only and cannot be renamed. Extract them to a prefab to get an item you can name."; return; }
+        _renameIndex = row;
+        var rect = _list.GetItemRect(row);
+        _renameEdit.Text = item.Label;
+        _renameEdit.Position = new Vector2(Mathf.Max(0, rect.Position.X - 2), rect.End.Y - 30);
+        _renameEdit.Size = new Vector2(Mathf.Max(rect.Size.X + 4, 150), 28);
+        _renameEdit.Visible = true;
+        _renameEdit.GrabFocus();
+        _renameEdit.SelectAll();
+        _status.Text = $"Renaming '{item.Label}': Enter confirms, Esc cancels.";
+    }
+
+    void EndRename()
+    {
+        if (_renameIndex < 0) return;
+        _renameIndex = -1;
+        _renameEdit.Visible = false;
+    }
+
+    void CommitRename(string text)
+    {
+        if (_renameIndex < 0 || _renameIndex >= _items.Count) { EndRename(); return; }
+        var item = _items[_renameIndex];
+        try
         {
-            int idx = _items.FindIndex(x => x.Key == item.Key);
-            if (idx >= 0 && idx < _list.ItemCount && _list.GetItemText(idx) == item.Label) _list.SetItemIcon(idx, tex);
-        });
+            string name = item.Kind == LibraryKind.Asset ? MapHost.Library.RenameAsset(item.Id, text) : MapHost.Library.RenamePrefab(item.Id, text);
+            EndRename();
+            _status.Text = name == item.Label ? $"'{name}' is unchanged." : $"Renamed '{item.Label}' to '{name}'. Maps keep using it (they refer to its id, {item.Id}).";
+            MapHost.NotifyLibraryChanged();
+            if (_items.FindIndex(x => x.Key == item.Key) is var at and >= 0) { _list.Select(at); _list.EnsureCurrentIsVisible(); _lastRow = _items[at]; }
+        }
+        catch (MapException e) { _status.Text = e.Message; _renameEdit.GrabFocus(); }   // stays open so the name can be fixed
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _status.Text = $"Could not save the new name: {e.Message}"; }
+    }
+
+    // ---- test aids (LibraryTest) ----
+
+    public override void _Ready()
+    {
+        if (LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new LibraryTest(_plugin, this).Run();
+    }
+
+    public void TestShowSource(int source) { _source.Select(source); _search.Text = ""; RebuildLibrary(); }
+
+    /// <summary>Rows, rows that show a picture (real or placeholder) and rows that show a placeholder.</summary>
+    public (int Rows, int WithPicture, int Placeholders) LibraryStats() =>
+        (_items.Count, Enumerable.Range(0, _items.Count).Count(i => _list.GetItemIcon(i) is not null), _reasons.Count);
+
+    public int TestRowOf(string id) => _items.FindIndex(x => x.Id == id);
+
+    public string TestRename(int row, string text) { BeginRename(row); CommitRename(text); var m = _status.Text; EndRename(); return m; }
+
+    // ---- import (drag and drop, buttons) ----
+
+    Window.FilesDroppedEventHandler? _dockDrop, _mainDrop;
+    Window? _dockWindow, _mainWindow;
+
+    public override void _EnterTree()
+    {
+        base._EnterTree();
+        // The dock's own window, and the editor's main window too when the dock floats; each event is judged in its own window.
+        _dockWindow = GetWindow();
+        _dockWindow.FilesDropped += _dockDrop = f => OnFilesDropped(_dockWindow, f);
+        var main = EditorInterface.Singleton.GetBaseControl()?.GetWindow();
+        if (main is not null && main != _dockWindow) { _mainWindow = main; main.FilesDropped += _mainDrop = f => OnFilesDropped(main, f); }
+    }
+
+    public override void _ExitTree()
+    {
+        if (_dockDrop is not null && _dockWindow is not null && GodotObject.IsInstanceValid(_dockWindow)) _dockWindow.FilesDropped -= _dockDrop;
+        if (_mainDrop is not null && _mainWindow is not null && GodotObject.IsInstanceValid(_mainWindow)) _mainWindow.FilesDropped -= _mainDrop;
+        _dockDrop = _mainDrop = null;
+        base._ExitTree();
+    }
+
+    /// <summary>The mouse in a window's own (content-scaled) coordinates, the frame the controls' global rects use. The window's own mouse position can be stale while
+    /// the OS drags a file over it (no motion events), so this reads the screen position.</summary>
+    static Vector2 LocalMouse(Window w)
+    {
+        var screen = DisplayServer.MouseGetPosition();
+        return w.GetFinalTransform().AffineInverse() * new Vector2(screen.X - w.Position.X, screen.Y - w.Position.Y);
+    }
+
+    void OnFilesDropped(Window? window, string[] files)
+    {
+        if (window is null) return;
+        var mine = files.Where(f => AssetImporter.IsImportable(f) || f.EndsWith(".smprefab", StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (mine.Length == 0) return;
+        // Only a drop onto the Mapmaker dock or the 3D view is ours; one onto Godot's FileSystem dock or any other panel is Godot's.
+        var at = LocalMouse(window);
+        bool overDock = window == GetWindow() && IsVisibleInTree() && GetGlobalRect().HasPoint(at);
+        bool overView = window == EditorInterface.Singleton.GetBaseControl()?.GetWindow() && _plugin.OverViewport(at);
+        if (!overDock && !overView) { Report("Drop ignored: drop files on the Mapmaker panel or the 3D view to import them."); return; }
+        HandleDrop(mine);
+    }
+
+    /// <summary>What a drop does (also the test aid's entry): every .zip, .fbx, .glb, .gltf, folder or .smprefab is imported with no further prompt.</summary>
+    public void HandleDrop(string[] files) { ShowTab((int)DockTab.Library); ImportPaths(files); }
+
+    /// <summary>The asset imported last: its id and the message shown (test aids read these).</summary>
+    public string? LastImportId { get; private set; }
+    public string LastImportMessage { get; private set; } = "";
+    public bool Importing => _importing;
+
+    async void ImportPaths(string[] paths)
+    {
+        if (_plugin.Session is null) { Report("Open or create a map first (Map tab: New), then import again."); return; }
+        if (_importing) { Report("An import is still running; drop the file again when it is done."); return; }
+        _importing = true;
+        var messages = new List<string>();
+        try
+        {
+            foreach (var path in paths)
+            {
+                string label = System.IO.Path.GetFileName(path.TrimEnd('/', '\\'));
+                if (path.EndsWith(".smprefab", StringComparison.OrdinalIgnoreCase))
+                {
+                    try { ImportOp("import-prefab", path); messages.Add($"Imported prefab {label}"); }
+                    catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { messages.Add($"Could not import {label}: {e.Message}"); }
+                    continue;
+                }
+                _status.Text = $"Importing {label}...";
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);   // let the status paint before the load blocks
+                if (!IsInstanceValid(this) || !IsInsideTree()) return;
+                string staging = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-mapmaker-import-" + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    var r = await AssetImporter.Prepare(path, staging);
+                    if (!IsInstanceValid(this) || !IsInsideTree()) return;
+                    string sha = await Task.Run(() => ModelImport.ContentSha(r.GlbPath));
+                    if (!IsInstanceValid(this) || !IsInsideTree()) return;
+                    // The same download again: found by what it held, then by the converted content (the conversion is not guaranteed byte-for-byte repeatable).
+                    var same = MapHost.Library.ListAssets().FirstOrDefault(x => x.Import?["sourceSha256"]?.ToString() == r.SourceSha || x.Sha256 == sha);
+                    string id = same?.Id ?? r.Id;
+                    for (int n = 2; same is null && MapHost.Library.GetAsset(id) is not null; n++) id = $"{r.Id}-{n}";
+                    bool already = same is not null;
+                    if (already) { LastImportId = id; messages.Add($"{r.Name} is already in the library ({id})"); ShowImported(id); continue; }
+                    var box = new SmMapmaker.Bounds(new Num.Vector3(r.Bounds.Position.X, r.Bounds.Position.Y, r.Bounds.Position.Z), new Num.Vector3(r.Bounds.End.X, r.Bounds.End.Y, r.Bounds.End.Z));
+                    var res = _plugin.Do("Import asset", MapmakerPlugin.Op("import-asset", ("path", r.GlbPath), ("id", id), ("name", r.Name), ("from", r.From), ("bounds", DoubleBox(box)), ("import", r.Meta)));
+                    if (!res.Ok) { messages.Add($"Could not import {label}: {res.Errors.FirstOrDefault()?.Message ?? "unknown error"}"); continue; }
+                    LastImportId = id;
+                    messages.Add(already ? $"{r.Name} is already in the library ({id})" : $"Imported {r.Name} ({r.Summary})");
+                    MapHost.NotifyLibraryChanged();
+                    ShowImported(id);
+                }
+                catch (MapException e) { messages.Add($"Could not import {label}: {e.Message}"); }
+                catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { GD.PushWarning(e.ToString()); messages.Add($"Could not import {label}: {e.GetType().Name}: {e.Message}"); }
+                finally { try { if (System.IO.Directory.Exists(staging)) System.IO.Directory.Delete(staging, true); } catch (Exception) { } }
+            }
+        }
+        finally { if (IsInstanceValid(this)) _importing = false; }
+        if (IsInstanceValid(this)) Report(string.Join("; ", messages));
+    }
+
+    /// <summary>The box as JSON numbers the operation reader accepts (it reads doubles; a float-valued node is refused).</summary>
+    static System.Text.Json.Nodes.JsonObject DoubleBox(SmMapmaker.Bounds b)
+    {
+        static System.Text.Json.Nodes.JsonArray V(Num.Vector3 v) => new(System.Text.Json.Nodes.JsonValue.Create((double)v.X), System.Text.Json.Nodes.JsonValue.Create((double)v.Y), System.Text.Json.Nodes.JsonValue.Create((double)v.Z));
+        return new System.Text.Json.Nodes.JsonObject { ["min"] = V(b.Min), ["max"] = V(b.Max) };
+    }
+
+    void Report(string message)
+    {
+        LastImportMessage = message;
+        _status.Text = message;
+        GD.Print("Mapmaker import: " + message);
+        try { EditorInterface.Singleton.GetEditorToaster()?.PushToast(message, message.Contains("Could not") ? EditorToaster.Severity.Warning : EditorToaster.Severity.Info); } catch (Exception) { }
+    }
+
+    /// <summary>Shows Custom assets with the new asset selected (without arming it).</summary>
+    void ShowImported(string id)
+    {
+        _search.Text = "";
+        _source.Select(1);
+        RebuildLibrary();
+        if (_items.FindIndex(x => x.Kind == LibraryKind.Asset && x.Id == id) is var at and >= 0) { _list.Select(at); _list.EnsureCurrentIsVisible(); _lastRow = _items[at]; }
     }
 
     void ShowExtract()

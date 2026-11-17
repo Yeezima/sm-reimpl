@@ -81,6 +81,44 @@ while the part id still exists; overrides of removed parts are dropped with a wa
 `{ id, name, file, bounds, sha256, importedFrom }` (bounds from the POSITION accessors' min/max with node transforms). `import-prefab` copies
 a `.smprefab` into the library after validation (unknown asset ids are errors).
 
+**Import from Quixel / Fab (no prompts).** Drag a `.zip`, `.fbx`, `.glb`, `.gltf` or an unzipped folder onto the Library list or the 3D view, or use
+"Import asset" / "Import folder" (a map must be open). Core (`ModelImport`, tested without Godot): zip extraction with a zip-slip guard (no `..`, no
+rooted or drive paths; at most 20 000 entries and 2 GB unpacked, counted while unpacking, not from the headers) and only models, images and `.bin`
+files are unpacked; the model is chosen by lowest LOD (`_LOD0`; a name with no LOD counts as 0), then `.glb` over `.gltf` over `.fbx`, then the
+shallowest and first path (variation folders resolve to the first). Plugin (`AssetImporter`): loads FBX with Godot's runtime FBX reader and glTF with
+`GltfDocument`, turns Godot's `ImporterMeshInstance3D` nodes into real `MeshInstance3D` nodes (see "Why previews and bounds were empty"), builds a
+material from Megascans / Fab / Unreal texture names for surfaces that have no albedo picture (Albedo/BaseColor/Diffuse/BC, Normal/N, Roughness,
+Metalness, AO, ORM, Opacity into albedo alpha, Emissive; Displacement/Height ignored; a normal map named DX/DirectX gets its green channel flipped,
+GL/OpenGL not, and an unmarked Megascans-style `<id>_4K_Normal` is read as DirectX per the owner's note: **ours, a refine item**; textures above
+2048 px are scaled down), guesses the unit (a model whose largest side is over 30 m is read as centimetres, x0.01, or millimetres, x0.001; ours),
+measures the bounds from the loaded meshes and writes one self-contained `.glb`, which `import-asset` stores. `import-asset` also takes optional
+`bounds` (min/max in the glTF frame; wins over the accessors), `from` (the source name) and `import` (free-form record kept in `asset.json`: source,
+format, model, lod, scale, units, textures, normalGreenFlipped, sourceSha256). The same download dropped again is recognised by `sourceSha256` and not
+imported twice. Draco and meshopt files are refused at import with a message (`unsupported-compression`); other failures are named in the dock status
+and an editor toast ("Imported Rock (scale 0.01 (centimetres), 3 textures, LOD0)").
+
+**Why previews and bounds were empty.** (1) Godot's runtime glTF/FBX reader returns `ImporterMeshInstance3D` nodes, which never draw in a running scene,
+so every custom asset loaded to nothing and its box stayed empty; they are now converted. (2) A glTF whose POSITION accessors lack min/max has unknown
+bounds, and one such primitive discarded the box of the others; the editor now measures the loaded mesh when the library has no box. (3) Draco and
+meshopt files load as nothing. (4) The library list requested pictures only for the first 60 rows and capped SM1 definitions at 400; every row is
+now rendered lazily (rows in view first, the rest in the background). (5) A part that failed or an empty model was skipped silently; it now shows a
+placeholder tile that names the reason (`no mesh`, `load failed`, `map not loaded`, `no geometry`, `empty prefab`, `missing asset`, `unreadable`) and
+is logged once. (6) A picture of a prefab whose SM1 map was not loaded yet was cached with holes; it is a placeholder until the map loads, and the
+cache file name now carries the content (asset hash, prefab text plus its assets' hashes) and a render version, so changed content is drawn again and
+the old file is deleted. (7) SM1 definitions that Manufactorum's armoury rule hides (`MapDecor.Hidden`) built to nothing; they are drawn for the
+library under another name. Definitions with no visual part at all (markers, lights, child-only groups) are counted under the list, not listed.
+
+**Extracted single part (owner's report 2026-11-18).** A prefab made from one picked part of a composite SM1 placement (for example one generator block of `tarmacgroundplane`) stores `asset.part`, and every view of it (thumbnail, ghost, placed instance) now draws that part alone (`ContentFactory.BuildSm1Part`). The old build copied the whole definition with `with { Visuals = ... }`, which kept its cached `HighestLod()` list and so drew every neighbouring part. The core's bounds and the extract origin already used the part's own box. Checked by the selftest ("the part prefab draws only that part") and `--mm-libtest` (1 of 48 instances). The game's custom-map view draws graybox pieces only, so it never drew SM1 parts.
+
+**Rename.** Custom assets and prefabs: F2, double click on the name, or right click "Rename..." in the Library list (Enter confirms, Esc cancels). Only
+the display name changes (`asset.json` / the `.smprefab`); the id and folder stay, and maps and prefabs refer to the id, so they keep resolving. The name
+is trimmed with inner whitespace made one space, 1 to 80 characters, no control characters; a name another item of the same kind already has is
+rejected (`duplicate-name`, compared without case; an asset and a prefab may share a name). Not undoable. SM1 definitions are read-only.
+
+Test aid: `godot.cmd --windowed --editor --path mapmaker -- --mm-libtest --mm-out <dir>` (with `SM_MAPMAKER_CONTROL` set to a scratch folder) builds
+synthetic fixtures (an ASCII FBX zip at three LODs with Megascans-named textures, a loose glb, a zip-slip zip, a Draco glTF), imports them by drop,
+checks the previews of all three sources, the placeholders, rename and takes screenshots.
+
 ## Operations (one JSON object each; a batch is one transaction: all apply or none)
 `place {asset|prefab, name?, parent?, layer?, transform?}` -> new id Â· `transform {id, position?, rotation?, scale?}` (set) or
 `{id, move?, rotate?, scaleBy?}` (delta) Â· `duplicate {ids, offset?}` -> new ids Â· `delete {ids}` (children too) Â·

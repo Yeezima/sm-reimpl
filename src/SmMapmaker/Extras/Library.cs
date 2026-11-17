@@ -83,6 +83,46 @@ public sealed class MapLibrary
         return list;
     }
 
+    public const int MaxNameLength = 80;
+
+    /// <summary>A display name as it will be stored: trimmed, inner runs of whitespace made one space. Throws <c>bad-name</c> for an empty, over-long or control-character name.</summary>
+    public static string CleanName(string? name)
+    {
+        string n = string.Join(' ', (name ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (n.Length == 0) throw new MapException("bad-name", "A name cannot be empty.");
+        if (n.Length > MaxNameLength) throw new MapException("bad-name", $"A name can be at most {MaxNameLength} characters.");
+        if (n.Any(char.IsControl)) throw new MapException("bad-name", "A name cannot contain control characters.");
+        return n;
+    }
+
+    /// <summary>
+    /// Renames a custom asset's display name (asset.json). The id and folder stay, so every map and prefab that refers to the asset still resolves it.
+    /// A name another asset already has is rejected (<c>duplicate-name</c>, compared without case) so the list stays unambiguous. Returns the stored name.
+    /// </summary>
+    public string RenameAsset(string id, string newName)
+    {
+        var name = CleanName(newName);
+        var asset = GetAsset(id) ?? throw new MapException("unknown-asset", $"There is no asset '{id}' in the library.");
+        if (asset.Name == name) return name;
+        if (ListAssets().Any(a => a.Id != id && a.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            throw new MapException("duplicate-name", $"Another custom asset is already called '{name}'. Choose a different name.");
+        WriteAtomic(Path.Combine(AssetDir(id), "asset.json"), CanonicalJson.Bytes((asset with { Name = name }).ToNode()));
+        RebuildIndex();
+        return name;
+    }
+
+    /// <summary>Renames a prefab's display name (its file). The id and file name stay, so instances in maps and parts in other prefabs still resolve it. Duplicates are rejected as for assets.</summary>
+    public string RenamePrefab(string id, string newName)
+    {
+        var name = CleanName(newName);
+        var prefab = GetPrefab(id) ?? throw new MapException("unknown-prefab", $"There is no prefab '{id}' in the library.");
+        if (prefab.Name == name) return name;
+        if (ListPrefabs().Any(p => p.Id != id && p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            throw new MapException("duplicate-name", $"Another prefab is already called '{name}'. Choose a different name.");
+        SavePrefab(prefab with { Name = name });
+        return name;
+    }
+
     /// <summary>Writes the prefab file (atomically) and refreshes the index.</summary>
     public void SavePrefab(Prefab p)
     {
