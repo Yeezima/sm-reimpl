@@ -28,9 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3698 spec table rows: **2674 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 770 rows of the changes document.
-Scanned 3684 spec table rows: **2662 tagged**, 666 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
-Scanned 3685 spec table rows: **2663 tagged**, 666 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 769 rows of the changes document.
+Scanned 3700 spec table rows: **2676 tagged**, 668 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 771 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,34 +50,20 @@ Scanned 3685 spec table rows: **2663 tagged**, 666 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 830 | 785 | 615 | 230 | 1 |
+| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
 | General game design | 105 | 104 | 79 | 17 | 0 |
 | Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2674** | 2393 | 2010 | 803 | 37 |
-| **All areas** | **2662** | 2381 | 1998 | 803 | 37 |
-| Core simulation (provisional values) | 832 | 787 | 617 | 231 | 1 |
-| General game design | 96 | 95 | 70 | 17 | 0 |
-| Ork faction | 264 | 251 | 148 | 70 | 0 |
-| **All areas** | **2663** | 2382 | 1999 | 804 | 37 |
+| **All areas** | **2676** | 2395 | 2012 | 804 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1558 |
-| confidence: low | 969 |
+| kind: ours | 1559 |
+| confidence: low | 971 |
 | confidence: medium | 932 |
-| kind: ours | 1548 |
-| confidence: low | 961 |
-| confidence: medium | 928 |
-| notes: ours | 465 |
-| kind: interpretation | 432 |
-| kind: estimate | 227 |
-| kind: ours | 1548 |
-| confidence: low | 963 |
-| confidence: medium | 927 |
 | notes: ours | 466 |
-| kind: interpretation | 430 |
+| kind: interpretation | 432 |
 | kind: estimate | 228 |
 | notes: estimate | 211 |
 | confidence: none (low) | 109 |
