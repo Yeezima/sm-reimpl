@@ -24,6 +24,8 @@ public sealed partial class WarfrontSquadSim
         /// <summary>A planned pound: waits standing until <see cref="LaunchTick"/>, then launches.</summary>
         public bool Pending;
         public uint LaunchTick, WalkUntil, FiredAt;
+        /// <summary>Whether the last round was a blow (the wire's melee flag): a Marine with a pistol and a blade does both.</summary>
+        public bool ShotMelee;
         /// <summary>A Marine with no valid landing walks here instead.</summary>
         public Vector3? Walk;
     }
@@ -49,6 +51,9 @@ public sealed partial class WarfrontSquadSim
 
     /// <summary>Whether Marine <paramref name="index"/> is in flight (a leap or a pound's jump).</summary>
     public bool IsAirborne(int index) => index is >= 0 and < Max && _a[index].Air;
+
+    /// <summary>Whether Marine <paramref name="index"/>'s latest round was a blow; before any, whether its main weapon is the blade.</summary>
+    public bool FiringMelee(int index) => index is >= 0 and < Max && (_a[index].FiredAt != 0 ? _a[index].ShotMelee : _a[index].Marine?.Loadout.Weapon.Melee == true);
 
     /// <summary>The jump-pack power Marine <paramref name="index"/> has left (0 for a Marine without a pack).</summary>
     public float FuelOf(int index) => index is >= 0 and < Max ? _a[index].Fuel : 0f;

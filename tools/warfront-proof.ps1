@@ -348,6 +348,7 @@ try {
             $a = @('--movie-size', '1280x720', '--write-movie', $avi, '--fixed-fps', '30', '--connect', "127.0.0.1:$Port", '--content', 'warfront', '--no-sound', '--bot', '--bot-full-load', '--warfront-bot', '--warfront-deploy-after', '6',
                    '--warfront-key-file', (Join-Path $dir 'key-clip.json'), '--spectate', 'action', '--quit-after', "$Seconds")
             if ($fort) { $a += @('--warfront-bot-pick', 'last') }
+            if ($ClientArgs) { $a += ($ClientArgs -split ' ' | Where-Object { $_ }) }   # e.g. --class assault: the clip's leader plays that class and so do his retainers
             & (Join-Path $PSScriptRoot 'movie.ps1') @a *> (Join-Path $dir 'movie-client.log')
             $lines = @("avi: $(Test-Path $avi)")
             $lines += Grep-Log $serverLog 'warfront:.*(landing on|battle begins|ended|FORTRESS_WALK|LANE_WALK|fortress won|FAULT)' 60

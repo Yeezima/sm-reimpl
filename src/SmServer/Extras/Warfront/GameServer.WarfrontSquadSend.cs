@@ -100,7 +100,7 @@ public sealed class WarfrontSquadSender
         {
             var v = views[i];
             if (v.State is not (SquadState.Standing or SquadState.Downed)) continue;
-            bool melee = _sim.Rosters.Marine(v.Key, v.Slot)?.Loadout.Weapon.Melee ?? false;
+            bool melee = _sim.FiringMelee(v.Index);
             list.Add(SquadWire.Make(v.Index, (byte)v.State, v.Firing, melee, v.State == SquadState.Downed && v.ReviveShare > 0f, (byte)(_host.PlayerOf(v.Key) is var owner and >= 0 ? _sim.OrderOf(owner) : SquadOrder.Follow), v.Airborne, v.Position, v.Yaw, v.HealthShare, v.DownedLeft, v.ReviveShare, v.Target));
         }
         return list;

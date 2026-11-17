@@ -42,6 +42,7 @@ public static class SquadLoadoutBuilder
             HealthMax = body.HealthMax, ArmourMax = body.ShieldMax,
             HealthRegenDelay = body.HealthRegenDelay, HealthRegenRate = body.HealthRegenRate,
             ArmourRegenDelay = body.ShieldRegenDelay, ArmourRegenRate = body.ShieldRegenRate,
+            Sidearm = SidearmOf(c, s),
             Weapon = WeaponOf(c, s),   // SquadRules.DamageDealt is applied where a Marine fires, not here
             Jump = JumpOf(c, s),
         };
@@ -57,6 +58,10 @@ public static class SquadLoadoutBuilder
         foreach (var st in steps) { damage += st.Damage * Math.Max(0.01f, st.HealthMultiplier); time += Math.Max(0.1f, st.Duration); }
         return new SquadWeapon(SquadClassRules.MeleeReach, damage / steps.Count, Math.Max(SquadClassRules.MinInterval, time / steps.Count), SquadClassRules.HitMelee, true);
     }
+
+    /// <summary>The pistol as a ranged profile for a class with no primary (the Assault and Raptor fire it at range and strike up close, as the Marine puppets' brain does: a blow within <see cref="MarineRules.MeleeRange"/>, else the trigger); null for a class with a primary or no pistol.</summary>
+    public static SquadWeapon? SidearmOf(SimConfig c, PlayerState s) =>
+        Loadouts.Weapon(c, s, WeaponSlot.Ranged) is null && Loadouts.Weapon(c, s, WeaponSlot.Pistol) is { } pistol ? RangedOf(pistol) : null;
 
     /// <summary>A ranged wargear row as the squad's weapon: range (capped), damage per trigger pull (bursts and a blast's share included), seconds between pulls with the reload spread over the clip.</summary>
     public static SquadWeapon RangedOf(WeaponSpec w)

@@ -198,8 +198,8 @@ public class SquadClassesTests
         Assert.NotEqual(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(99, Key, 3, 1));
         Assert.NotEqual(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(99, Key, 4, 2));
         Assert.NotEqual(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(98, Key, 3, 2));
-        // the owner's presets are spread over the squad (three tactical presets, nine Marines)
-        Assert.True(Enumerable.Range(0, 9).Select(s => r.Marine(Key, s)!.Loadout.Primary + r.Marine(Key, s)!.Loadout.Secondary).Distinct().Count() > 1);
+        // the group is uniform (owner, 2026-11-18): one roll for every Marine, whatever the roster slot
+        Assert.Single(Enumerable.Range(0, 9).Select(s => r.Marine(Key, s)!.Loadout.Primary + r.Marine(Key, s)!.Loadout.Secondary).Distinct());
         // changing the selection rerolls the whole squad, to the new class
         var change = book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Devastator));
         Assert.Equal(9, change.Changed);

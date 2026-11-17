@@ -31,8 +31,8 @@ public sealed record SquadClassSave(IReadOnlyList<SquadClassKeySave> Keys);
 /// <summary>
 /// The squad classes of a run (slice W11; owner, 2026-11-17): who the retainers copy. A standard player's retainers mirror his class, weapons, perks, armour and colours; the roster of a Dreadnought is on hold
 /// (no active retainers) and comes back, with its names and records, when he switches to an eligible class; a player whose first class this run was the Dreadnought gets one free retainer on his first switch to
-/// an eligible class, once per run (kept across a save); the Librarian sets his whole squad to Assault/Raptor, Tactical or Devastator/Havoc, each Marine rolling a valid Classic PvP bot loadout
-/// (<see cref="BotLoadouts"/>) of the class, stable while the selection stays (<see cref="SquadLoadoutBuilder.RollSeed"/>: run seed, key, roster slot, selection). Names and service records never change here.
+/// an eligible class, once per run (kept across a save); the Librarian sets his whole squad to Assault/Raptor, Tactical or Devastator/Havoc, one valid Classic PvP bot loadout
+/// (<see cref="BotLoadouts"/>) of the class rolled for the whole group (uniform, owner 2026-11-18), stable while the selection stays (<see cref="SquadLoadoutBuilder.RollSeed"/>: run seed, key, slot 0, selection). Names and service records never change here.
 /// </summary>
 public sealed class SquadClassBook
 {
@@ -102,9 +102,10 @@ public sealed class SquadClassBook
         if (owner.Kind == SquadOwnerKind.Librarian)
         {
             int selection = (int)owner.Librarian + 1;
+            // one roll for the whole group (owner, 2026-11-18: "randomly selected but all uniform class and loadout"): the roll of roster slot 0, so a retainer recruited later wears it too
+            var roll = SquadLoadoutBuilder.Roll(_config, owner.Librarian, _runSeed, key, 0, selection, look, owner.Side);
             for (int slot = 0; slot < _rosters.Count(key); slot++)
             {
-                var roll = SquadLoadoutBuilder.Roll(_config, owner.Librarian, _runSeed, key, slot, selection, look, owner.Side);
                 if (roll is null || _rosters.Marine(key, slot) is not { } m) continue;
                 if (!Same(m.Loadout, roll)) changed++;
                 _rosters.SetLoadout(key, slot, roll);
@@ -121,7 +122,7 @@ public sealed class SquadClassBook
 
     static bool Same(SquadLoadout a, SquadLoadout b) =>
         a.ClassId == b.ClassId && a.Primary == b.Primary && a.Secondary == b.Secondary && a.Melee == b.Melee && a.Perks.SequenceEqual(b.Perks) && a.Armour.SequenceEqual(b.Armour)
-        && a.Colours.SequenceEqual(b.Colours) && a.HealthMax == b.HealthMax && a.ArmourMax == b.ArmourMax && a.Weapon == b.Weapon && a.Jump == b.Jump
+        && a.Colours.SequenceEqual(b.Colours) && a.HealthMax == b.HealthMax && a.ArmourMax == b.ArmourMax && a.Weapon == b.Weapon && a.Sidearm == b.Sidearm && a.Jump == b.Jump
         && a.ArmourRegenDelay == b.ArmourRegenDelay && a.ArmourRegenRate == b.ArmourRegenRate && a.HealthRegenDelay == b.HealthRegenDelay && a.HealthRegenRate == b.HealthRegenRate;
 
     /// <summary>The class state as a plain value, for the run's save.</summary>

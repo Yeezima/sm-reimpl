@@ -496,13 +496,16 @@ public sealed partial class WarfrontSquadSim
         if (!haveTarget) return;
         Vector3 to = tpos - a.Pos;
         if (Flat(to) > 0.01f) a.Yaw = MathF.Atan2(to.Y, to.X);
-        if (Flat(to) > w.Range || _tick < a.NextShot) return;
-        if (!w.Melee && !_arena.HasSight(a.Pos, tpos)) return;
-        a.NextShot = _tick + (uint)Math.Max(1, (int)MathF.Round(w.Interval * _arena.TickRate));
+        // a melee class with a pistol (the Assault, the Raptor) fires it at range and strikes within the blade's reach, as the puppets' brain does (MarineBrain.Decide)
+        var p = w.Melee && a.Marine.Loadout.Sidearm is { } side && Flat(to) > MarineRules.MeleeRange ? side : w;
+        if (Flat(to) > p.Range || _tick < a.NextShot) return;
+        if (!p.Melee && !_arena.HasSight(a.Pos, tpos)) return;
+        a.NextShot = _tick + (uint)Math.Max(1, (int)MathF.Round(p.Interval * _arena.TickRate));
         a.FiredAt = _tick;   // W11 addition: the wire's Firing flag
-        if (Roll(_tick, i, 1) >= w.HitChance) return;
+        a.ShotMelee = p.Melee;
+        if (Roll(_tick, i, 1) >= p.HitChance) return;
         var push = Flat(to) > 0.01f ? Vector3.Normalize(new Vector3(to.X, to.Y, 0f)) : Vector3.Zero;
-        float amount = w.Damage * _damageScale[os] * SquadRules.DamageDealt;
+        float amount = p.Damage * _damageScale[os] * SquadRules.DamageDealt;
         MusouEnemyType? type = _arena.TryEnemyType(a.Target, out var et) ? et : null;
         if (!_arena.DamageEnemy(a.Target, amount, push, out bool killed)) return;
         if (killed) Killed(i, a.Target, kind, type);

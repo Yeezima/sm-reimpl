@@ -40,7 +40,9 @@ public partial class NetworkView
             string? Weapon(ushort id) => id < config.Weapons.Count ? config.Weapons[id].Name : null;
             string? melee = s.Melee0 < info.MeleeChoices.Count ? info.MeleeChoices[s.Melee0].Wargear : null;
             var carried = new[] { Weapon(s.Primary), Weapon(s.Secondary), melee }.Where(n => !string.IsNullOrEmpty(n)).Cast<string>().ToList();
-            return new WarfrontMarineDress(cls.Key, WarfrontSquadModel.LookCode(owner, s.OwnPieces), carried, Weapon(s.Primary), Weapon(s.Secondary), melee);
+            // the class's real jump pack (Assault, Raptor): hung on the back and drawn like a player's; none for the others
+            string? pack = info.JumpPack >= 0 && info.JumpPack < config.JumpPacks.Count ? config.JumpPacks[info.JumpPack].Name : null;
+            return new WarfrontMarineDress(cls.Key, WarfrontSquadModel.LookCode(owner, s.OwnPieces), carried, Weapon(s.Primary), Weapon(s.Secondary), melee, pack);
         }
     }
 

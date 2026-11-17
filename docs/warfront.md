@@ -45,8 +45,11 @@ opened and closed, every catch-up card is picked aboard, then the player may dep
 - Ork health and damage at spawn scale with the highest player level (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) and HP x (1 + 0.2 (humans-1)); living
   Orks are never changed. All numbers are estimates. Per-level table with times to kill: `smtool.cmd warfront-tuning` (copied into the test report).
 - Each eligible player owns a roster of up to nine retainers (36 at four players), mirroring the player's class, weapons, perks, armour and colours; names
-  and service records survive loadout changes. Dreadnought: no active retainers (the roster is held). Librarian: a squad class option (Assault/Raptor, Tactical,
-  Devastator/Havoc). Orders as in Musou; Assault squads jump and pound; **J** marks a jump-pound for a jump-pack player. A Marine is downed for 20 s and is
+  and service records survive loadout changes. Dreadnought: no active retainers (the roster is held until he takes a squad class; a class change swaps the whole roster in place, names and records kept, and takes
+  effect at the next landing). Librarian: a squad class option (Assault/Raptor, Tactical, Devastator/Havoc), and the whole group is ONE random loadout of that class
+  (seeded by run seed, key and selection), never a mixed squad. An Assault/Raptor retainer fires its pistol at range, strikes within 2.5 m and uses its real jump pack (the client
+  hangs the pack on the Marine). The retainers run the lightweight squad sim, not 36 World puppets (the protocol holds 16 players and the puppet ids 12), with Musou's retainer
+  numbers (`MarineRules`: follow band, 20 m / 25 m / 40 m sight by order, 12 m stand-off, 10 m strike chase) and its orders. Orders as in Musou; Assault squads jump and pound; **J** marks a jump-pound for a jump-pack player. A Marine is downed for 20 s and is
   revived by anyone; out for that battle only if not. Strength table (estimates): `tests/.../Wiring/SquadStrengthTable.cs`, copied into the test report.
 - A fallen human lies downed 25 s, is revived by a teammate or retainer, otherwise spectates for 60 s more, then returns at the landing zone while a
   teammate or retainer stands (a wipe when nobody does).

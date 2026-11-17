@@ -35,6 +35,8 @@ public sealed record SquadLoadout
     public float HealthMax { get; init; } = SquadRules.DefaultHealth;
     public float ArmourMax { get; init; } = SquadRules.DefaultArmour;
     public SquadWeapon Weapon { get; init; } = new();
+    /// <summary>The class's pistol as a ranged profile when its main weapon is melee (the Assault's and Raptor's bolt or plasma pistol): fired at an enemy farther than <see cref="MarineRules.MeleeRange"/>; null: none.</summary>
+    public SquadWeapon? Sidearm { get; init; }
     /// <summary>W11: seconds after the last hit before armour (the shield) and health regenerate, and how much a second; 0 rate: none (the W9 default). From the class data (<c>Loadouts.Body</c>).</summary>
     public float ArmourRegenDelay { get; init; }
     public float ArmourRegenRate { get; init; }
