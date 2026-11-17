@@ -29,6 +29,22 @@ public class MapDecalAndGradeTests
     }
 
     [Fact]
+    public void An_ortho_light_reads_its_box_mask_and_upward_direction_when_turned_over()
+    {
+        var light = new Struct("base/OrthoLight", ("Power", new F(6f)), ("Width", new F(10f)), ("Height", new F(20f)), ("MaskName", new S("light_mask_soft_square_dif")),
+            ("Position", new Vec(1f, 2f, 3f)), ("Rotation", new Vec(-180f, 0f, 0f)), ("Scale", new Vec(20f, 20f, 20f)), ("Color", new Vec(1f, 0.5f, 0f)), ("AttenEnd", new F(20f)));
+        var off = new Struct("base/OrthoLight", ("Enabled", new B(false)), ("MaskName", new S("m")), ("Position", new Vec(0f, 0f, 0f)));
+        var maskless = new Struct("base/OrthoLight", ("MaskName", new S("")), ("Position", new Vec(0f, 0f, 0f)));
+        var lighting = MapLighting.Read(BodDocument.Read(Document(new Struct("RegionLayer", ("Objects", new List(light, off, maskless))))).Root);
+        var o = Assert.Single(lighting.OrthoLights);
+        Assert.Equal(("light_mask_soft_square_dif", 10f, 20f, 20f, 6f), (o.MaskName, o.Width, o.Height, o.Depth, o.Power));
+        Assert.Equal(new Vector3(1f, 2f, 3f), o.Position);
+        Assert.True(Vector3.Distance(o.Forward, Vector3.UnitZ) < 1e-4f);   // local -Z turned half a circle about X: up
+        Assert.True(Vector3.Distance(o.Right, Vector3.UnitX) < 1e-4f);
+        Assert.Empty(MapLighting.Combine([lighting, new MapLighting()]).OrthoLights.Skip(1));
+    }
+
+    [Fact]
     public void An_environment_region_reads_its_colour_grade()
     {
         var region = new Struct("base/environmentregion", ("Name", new S("r")), ("Priority", new I(1)), ("Scale", new Vec(600f, 600f, 300f)), ("Position", new Vec(0f, 0f, 0f)),

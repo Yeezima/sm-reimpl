@@ -205,6 +205,8 @@ public sealed class MapScene
         // The colour grades' look-up volumes (environment regions' ColourGradeEffectDesc: the material's "lookup" texture).
         foreach (var grade in lighting?.Environments.Select(e => e.Grade).OfType<ColourGradeDesc>() ?? [])
             if (materials.TryGetValue(grade.Material, out var gm) && gm.Textures.TryGetValue("lookup", out var lut)) wanted.Add(lut);
+        // The orthographic lights' mask pictures (light_mask_*: in the region archive).
+        foreach (var ol in lighting?.OrthoLights ?? []) wanted.Add(ol.MaskName);
         var textures = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textures.TryAdd(e.FileName, data.ToArray()));
 

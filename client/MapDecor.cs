@@ -62,6 +62,9 @@ public static class MapDecor
     /// </summary>
     public static bool DrawsLevelDecals(string map) => Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-level-decals") < 0;
 
+    /// <summary>classic-maps-fidelity round 2: whether the map's <c>base/OrthoLight</c> projectors (<see cref="MapOrthoLightView"/>) are drawn: on the ten new classic maps unless <c>--no-ortho-lights</c> (before / after aid); on Manufactorum only with <c>--ortho-lights</c> (its approved look stays).</summary>
+    public static bool DrawsOrthoLights(string map) => MapDecorLists.IsNewClassicMap(map) ? Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-ortho-lights") < 0 : Array.IndexOf(OS.GetCmdlineUserArgs(), "--ortho-lights") >= 0;
+
     /// <summary>classic-maps-fidelity: <c>--old-lod-rule</c> draws the parts of <see cref="ObjectDefinition.NearestLod"/> again (every node named like a low LOD dropped, _LodH and _LodM drawn together); by default one member of each LOD-suffix family is drawn (<see cref="ObjectDefinition.HighestLod"/>).</summary>
     public static bool OldLodRule => _oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0;
     static bool? _oldLod;

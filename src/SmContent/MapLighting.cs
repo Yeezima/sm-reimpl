@@ -6,6 +6,13 @@ namespace SmContent;
 public enum MapLightKind { Omni, Spot }
 
 /// <summary>
+/// A <c>base/OrthoLight</c>: an orthographic projector (window panes, grates, lava glow) that lights what lies in a box with a mask picture (<c>MaskName</c>, a texture of the region archive,
+/// package <c>light_masks</c>). The box starts at <paramref name="Position"/>, runs <paramref name="Depth"/> metres (<c>AttenEnd</c>) along <paramref name="Forward"/> (local -Z, as the other lights: **provisional**)
+/// and is <paramref name="Width"/> by <paramref name="Height"/> metres across, along the object's own X and Y (<paramref name="Right"/> is X). Colour and Power as the other lights.
+/// </summary>
+public sealed record OrthoLight(string Name, Vector3 Position, Vector3 Forward, Vector3 Right, float Width, float Height, float Depth, Vector3 Colour, float Power, string MaskName);
+
+/// <summary>
 /// A placed light (<c>base/omnilight</c> or <c>base/spotlight</c> in a layer). <paramref name="Power"/> is the
 /// original's unit-less multiplier (0.5 to 5 in Manufactorum). <paramref name="AttenStart"/> and
 /// <paramref name="AttenEnd"/> are metres: full strength inside the first, nothing beyond the second (the object's
@@ -73,6 +80,8 @@ public sealed class MapLighting
     public SunLight? Sun { get; init; }
     public IReadOnlyList<MapEnvironment> Environments { get; init; } = [];
     public IReadOnlyList<MapLight> Lights { get; init; } = [];
+    /// <summary>The orthographic projector lights (<c>base/OrthoLight</c>); read only with the extended class spelling (<c>--old-map-lighting</c> leaves them out).</summary>
+    public IReadOnlyList<OrthoLight> OrthoLights { get; init; } = [];
 
     /// <summary>The map-wide region (lowest priority number): what applies where no other region does.</summary>
     public MapEnvironment? Global => Environments.OrderBy(e => e.Priority).FirstOrDefault();
@@ -85,7 +94,7 @@ public sealed class MapLighting
     public static MapLighting Combine(IEnumerable<MapLighting> parts)
     {
         var list = parts.ToList();
-        return new MapLighting { Sun = list.Select(p => p.Sun).FirstOrDefault(s => s is not null), Environments = list.SelectMany(p => p.Environments).ToList(), Lights = list.SelectMany(p => p.Lights).ToList() };
+        return new MapLighting { Sun = list.Select(p => p.Sun).FirstOrDefault(s => s is not null), Environments = list.SelectMany(p => p.Environments).ToList(), Lights = list.SelectMany(p => p.Lights).ToList(), OrthoLights = list.SelectMany(p => p.OrthoLights).ToList() };
     }
 
     public static MapLighting Read(BodValue root, bool extended = true)
@@ -93,11 +102,12 @@ public sealed class MapLighting
         SunLight? sun = null;
         var environments = new List<MapEnvironment>();
         var lights = new List<MapLight>();
-        Walk(root, Matrix4x4.Identity, 0, extended, ref sun, environments, lights);
-        return new MapLighting { Sun = sun, Environments = environments, Lights = lights };
+        var ortho = new List<OrthoLight>();
+        Walk(root, Matrix4x4.Identity, 0, extended, ref sun, environments, lights, ortho);
+        return new MapLighting { Sun = sun, Environments = environments, Lights = lights, OrthoLights = ortho };
     }
 
-    static void Walk(BodValue value, Matrix4x4 parent, int depth, bool extended, ref SunLight? sun, List<MapEnvironment> environments, List<MapLight> lights)
+    static void Walk(BodValue value, Matrix4x4 parent, int depth, bool extended, ref SunLight? sun, List<MapEnvironment> environments, List<MapLight> lights, List<OrthoLight> ortho)
     {
         if (depth > 64) return;
         switch (value)
@@ -123,17 +133,25 @@ public sealed class MapLighting
                             s["CastShadows"] is BodBool { Value: true }, s["Static"] is BodBool { Value: true }));
                         break;
                     }
+                    case "base/ortholight" when s["Enabled"] is not BodBool { Value: false } && s["MaskName"] is BodString { Text: { Length: > 0 } mask }:
+                    {
+                        var right = Vector3.TransformNormal(Vector3.UnitX, world);
+                        ortho.Add(new OrthoLight((s["Name"] as BodString)?.Text ?? "", new Vector3(world.M41, world.M42, world.M43), Forward(world),
+                            right.LengthSquared() > 1e-12f ? Vector3.Normalize(right) : Vector3.UnitX, Math.Max(Num(s["Width"]) ?? 1f, 0.01f), Math.Max(Num(s["Height"]) ?? 1f, 0.01f),
+                            Math.Max(Num(s["AttenEnd"]) ?? 10f, 0.01f), Vec3(s["Color"]) ?? Vector3.One, Num(s["Power"]) ?? 1f, mask));
+                        break;
+                    }
                     case "base/environmentregion" when s["Enabled"] is not BodBool { Value: false }:
                         environments.Add(Environment(s, world));
                         break;
                 }
                 foreach (var f in s.Fields)
                     if (f.Name.Text is "Root" or "Objects" or "ChildObjects")
-                        Walk(f.Value, f.Name.Text == "ChildObjects" ? world : parent, depth + 1, extended, ref sun, environments, lights);
+                        Walk(f.Value, f.Name.Text == "ChildObjects" ? world : parent, depth + 1, extended, ref sun, environments, lights, ortho);
                 break;
             }
-            case BodList l: foreach (var item in l.Items) Walk(item.Value, parent, depth + 1, extended, ref sun, environments, lights); break;
-            case BodRef r: Walk(r.Value, parent, depth + 1, extended, ref sun, environments, lights); break;
+            case BodList l: foreach (var item in l.Items) Walk(item.Value, parent, depth + 1, extended, ref sun, environments, lights, ortho); break;
+            case BodRef r: Walk(r.Value, parent, depth + 1, extended, ref sun, environments, lights, ortho); break;
         }
     }
 

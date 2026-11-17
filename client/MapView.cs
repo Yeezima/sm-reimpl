@@ -31,6 +31,8 @@ public partial class MapView : Node3D
     public int Mirrored { get; private set; }
     /// <summary>Static level decals built (<see cref="MapDecalView"/>).</summary>
     public int LevelDecals { get; private set; }
+    /// <summary>Orthographic projector lights built (<see cref="MapOrthoLightView"/>).</summary>
+    public int OrthoLights { get; private set; }
 
     /// <summary>Builds the materials (diffuse, normal, specular, emissive maps); its counters say how many used each.</summary>
     public MapMaterials Materials { get; } = new();
@@ -121,6 +123,7 @@ public partial class MapView : Node3D
             });
         }
         if (MapDecor.DrawsLevelDecals(scene.Map) && MapDecalView.Build(scene, notes) is { } decals) { AddChild(decals); LevelDecals = decals.Count; }
+        if (MapDecor.DrawsOrthoLights(scene.Map) && MapOrthoLightView.Build(scene, notes) is { } ortho) { AddChild(ortho); OrthoLights = ortho.Count; }
         Meshes = drawn.Count;
         Objects = drawnObjects.Count;
         foreach (var m in missing.Order(StringComparer.Ordinal)) notes.Add($"mesh '{m}' not loaded; its placements are not drawn");
