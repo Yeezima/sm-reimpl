@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3735 spec table rows: **2707 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
+Scanned 3736 spec table rows: **2708 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 778 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 3735 spec table rows: **2707 tagged**, 672 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 836 | 791 | 621 | 232 | 1 |
+| Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
 | General game design | 129 | 126 | 102 | 17 | 0 |
 | Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2707** | 2423 | 2042 | 805 | 37 |
+| **All areas** | **2708** | 2424 | 2043 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1584 |
+| kind: ours | 1585 |
 | confidence: low | 988 |
-| confidence: medium | 945 |
+| confidence: medium | 946 |
 | notes: ours | 467 |
 | kind: interpretation | 434 |
 | kind: estimate | 229 |
@@ -2650,7 +2650,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-B4149D60` | Tick spread | the muster, the stage shares and the breach flood make at most 10 Orks a tick (a whole wave of up to 600 in one tick was the tick spike); the bench (`smtool warfront-hq --waves`) prints the five slowest ticks tagged with what ran; target p99 at most 20 ms and… (Orks, ms) | kind: ours; confidence: low | designer review of W13b ruling 4 | Tick spread: compare with SM1 by feel or video. Ours: the muster, the stage shares and the breach flood make at most 10… | ☐ |
 
-### Core simulation (provisional values) (836)
+### Core simulation (provisional values) (837)
 
 *Spec section: Provisional values in use*
 
@@ -3880,6 +3880,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-583FA939` | Rules object lifetime and Connect | one `WarfrontCoop` per run and per stage process (a new run replaces the campaign: build a new one, then `Connect` the carried-over players); `Connect` runs the whole role logic for a key the campaign already has connected but this object has not seen (W5a's… | kind: interpretation; confidence: medium; notes: ours | review 1 findings 1 and 5; the Travel hold is our reading | Rules object lifetime and Connect: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one WarfrontCoop per run and per stage process (a new run replaces… | ☐ |
 | `R-226DA43B` | Spectator camera pose | the raw eye 6 m behind the watched body's facing and 3.5 m up, looking 1.2 m above it; the springs, cut and level cast are `SpectateFollow`'s (m) | kind: estimate; confidence: low; notes: ours | ours | Spectator camera pose: compare with SM1 by measuring on a flat spot of the same map. Ours: the raw eye 6 m behind the watched body's facing and 3.5 m up… | ☐ |
 | `R-17C62142` | Default watch of a spectator (fallen-watch fix, 2026-11-17) | once a tick the server gives every spectating key a watch target without waiting for the first F: a held joiner, and a fallen player in the 60 s spectator phase (not in the 25 s revive window, which keeps the body's own view); the leader if he stands, else… (tick) | kind: interpretation; confidence: medium | owner (Q4 addendum: a fallen human has the spectator class during the 60 s) | Default watch of a spectator (fallen-watch fix, 2026-11-17): compare with SM1 by feel or video. Ours: once a tick the server gives every spectating key a watch target… | ☐ |
+| `R-12F0DAA1` | Death texts hidden for a fallen Warfront player (fallen-watch second pass, 2026-11-17) | while the stage model's fresh Down section says Downed or Spectator: Classic's "[ESC] CHANGE LOADOUT" hint is hidden by the Warfront frame, and Musou's whole HUD view (`TfwHud`: "KILLED", the station prompt, "ENTER: DEPLOY AT THE LANDING ZONE (1 SUPPLY)", the… | kind: ours; confidence: medium | owner (the fallen waits for a revive or the respawn; no redeploy for supplies); the hiding ours | Death texts hidden for a fallen Warfront player…: compare with SM1 by feel or video. Ours: while the stage model's fresh Down section says Downed or Spectator:… | ☐ |
 | `R-32974E40` | Spectator overlay below the Battle line (fallen-watch fix, 2026-11-17) | in the 1920 by 1080 space the dim strip and its three lines start at y 70 (was always 70); while the Battle HUD's line and clock are shown they start at y 190 (the clock's label ends at 178, a 12 px gap), so nothing overlaps the Battle line at y 104; the… (px) | kind: ours; confidence: medium | the lead's brief for the fallen-watch fix | Spectator overlay below the Battle line (fallen-watch fix…: compare with SM1 by feel or video. Ours: in the 1920 by 1080 space the dim strip and its three lines start at… | ☐ |
 | `R-896C7331` | Coop panels (client) | the picker's 28 and 20 px sizes in the 1920 x 1080 space; the awaited box is sized to its rows with the reasons in one column, the viewer's own row reads YOU; the class-gate panel names the way in ("at the Equipment station": a placeholder until the hub names… (px) | kind: ours; confidence: medium | review 1 item 9 | Coop panels (client): compare with SM1 by feel or video. Ours: the picker's 28 and 20 px sizes in the 1920 x 1080 space; the awaited… | ☐ |
 | `R-938570A2` | Run save version 4 | adds `JoinedAtDeployment` (int) and `ClassConfirmed` (bool) per player; versions 1 to 3 load with `ClassConfirmed` true; the keyless archive copies both | kind: ours | ours | Run save version 4: compare with SM1 by timing a run over a known distance. Ours: adds JoinedAtDeployment (int) and ClassConfirmed (bool) per player… | ☐ |

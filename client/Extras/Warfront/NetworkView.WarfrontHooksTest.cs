@@ -28,6 +28,7 @@ public partial class NetworkView
     double _wfdLogAt, _wfdSince = -1, _wfdFUntil;
     int _wfdStage;
     double _wfdWalkFrom = -1, _wfdForgedAt = -1, _wfdBattleForgedAt = -1;
+    bool _wfdBannerShot1, _wfdBannerShot2;
     bool _wfdWasSpectating;
 
     /// <summary>Test aid: prints a <c>WFDOWN</c> line every 2 s (phase, spectating, watched body, camera distance), taps F once 6 s into a watch, and saves stills at the watch's start, after the step and on the return.</summary>
@@ -55,11 +56,15 @@ public partial class NetworkView
             WarfrontModel.ApplyDown(WarfrontWire.Encode(new WarfrontDownWire(WarfrontDownPhase.Spectator, (float)(24.0 - now))), now);
         }
         // --warfront-down-battle-line (with --warfront-down-forge): a Battle section of an HQ defence is fed alongside, so the Battle HUD's line and clock are up under the spectator overlay (test aid; the layout under test is the overlay's place)
-        if (CmdFlag("warfront-down-battle-line") && now >= 10.0 && now < 24.0 && now - _wfdBattleForgedAt >= 0.5)
+        if (CmdFlag("warfront-down-battle-line") && now >= 5.0 && now < 24.0 && now - _wfdBattleForgedAt >= 0.5)
         {
             _wfdBattleForgedAt = now;
-            WarfrontBattleReceive(WarfrontBattleWire.EnvelopeTag, WarfrontBattleWire.Encode(new WarfrontBattleWire.Section(1, 0, 1, 3, 40, 372, 0, 7, 100)));
+            // a banner message once before the spectating (the banner at 250) and once at its start (under the strip: 390), then none
+            byte message = now is >= 6.0 and < 6.6 || now is >= 11.8 and < 12.4 ? SmSim.Extras.Warfront.Hq.WarfrontHqBattleRules.MessageWallFell : (byte)0;
+            WarfrontBattleReceive(WarfrontBattleWire.EnvelopeTag, WarfrontBattleWire.Encode(new WarfrontBattleWire.Section(1, 0, 1, 3, 40, 372, message, 7, 100)));
         }
+        if (CmdFlag("warfront-down-battle-line") && !_wfdBannerShot1 && now >= 7.0) { _wfdBannerShot1 = true; WfhShot("down-banner-250"); }
+        if (CmdFlag("warfront-down-battle-line") && !_wfdBannerShot2 && now >= 13.0) { _wfdBannerShot2 = true; WfhShot("down-banner-390"); }
         if (now - _wfdLogAt >= 2.0)
         {
             _wfdLogAt = now;

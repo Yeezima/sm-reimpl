@@ -23,7 +23,7 @@ public partial class NetworkView
         if (_hudView is null || !WarfrontBattleWire.TryDecode(payload, out var section)) return true;
         if (_wfBattle is null)
         {
-            _wfBattle = new WarfrontBattleHud();
+            _wfBattle = new WarfrontBattleHud { StripShown = () => WarfrontSpectating };
             WarfrontFitRoot(_hudView).AddChild(_wfBattle);   // the 1920 by 1080 design space fitted to the window, like the spectator overlay that sits under its line (fallen-watch fix)
         }
         _wfBattleAt = Time.GetTicksMsec() / 1000.0;

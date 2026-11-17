@@ -51,7 +51,7 @@ public partial class NetworkView
         if (_bot) return;
         bool held = (Input.IsPhysicalKeyPressed(Key.M) || _wfhHoldM) && !PickerBusy;   // _wfhHoldM: the test aid's stand-in for the key (a synthetic event does not set the polled key state)
         _wfPeekHeld = held;
-        _tfwMapHeld = held;   // Musou's HUD hides under the held map as it does under its own
+        _tfwMapHeld = held || WarfrontFallen;   // Musou's HUD (its prompts: KILLED, the deploy line; the station and capture bar) hides under the held map as it does under its own, and for a fallen player (second pass)
         if (held && _wfPeek is null)
         {
             _wfPeekLayer = new CanvasLayer { Name = "WarfrontMapPeek", Layer = 50 };
@@ -68,6 +68,9 @@ public partial class NetworkView
         if (!held) return;
         _wfPeek.Size = new Vector2(WarfrontUiFit.DesignWidth, WarfrontUiFit.DesignHeight);   // the fit root scales and centres it
     }
+
+    /// <summary>The viewer is down or spectating as a fallen player (the stage model's fresh Down section): the death texts of Classic and Musou are not true for him (second pass).</summary>
+    internal bool WarfrontFallen => WarfrontOn && WarfrontModel.DownLine(_connectedFor).Length > 0 && WarfrontModel.Down.Phase != WarfrontDownPhase.None;
 
     // ---- the customizer on the ship ----------------------------------------------------------------------------------------------------
 
@@ -128,6 +131,7 @@ public partial class NetworkView
         WarfrontCoop.Tick(dt);
         WarfrontKeyNodeEnsure();
         MusouEnsureCarry();   // the attack-speed carry stands from the first frame, buff lists or none
+        if (WarfrontFallen && _loadoutHint is not null) _loadoutHint.Visible = false;   // "[ESC] CHANGE LOADOUT": the loadout is changed aboard the ship, not here
         WarfrontHooksTestFrame(me, dt);
         WfdDownWatchFrame(me);
         // The fallen player's state (W5a's Down section, kept by the stage model; stale after 2 s: the server sends one last None) drives the spectator view and its HUD line.

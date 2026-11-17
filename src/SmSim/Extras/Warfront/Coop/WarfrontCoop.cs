@@ -371,6 +371,15 @@ public sealed class WarfrontCoop
         return Of(key).Watch = candidates[at];
     }
 
+    /// <summary>The watchable targets in their fixed order: the living humans (ids ascending), then the standing Marines (slot order). Empty when everyone is down: the watch is then None and the client shows the own body.</summary>
+    public static List<WarfrontWatch> Candidates(IEnumerable<int> livingHumans, IEnumerable<int> standingMarines)
+    {
+        var list = new List<WarfrontWatch>();
+        foreach (int id in livingHumans.OrderBy(i => i)) list.Add(new WarfrontWatch(WarfrontWatchKind.Player, id));
+        foreach (int i in standingMarines) list.Add(new WarfrontWatch(WarfrontWatchKind.Marine, i));
+        return list;
+    }
+
     /// <summary>
     /// Once a tick, the default watch (owner's rule, fallen-watch fix): a key that is spectating (a held joiner, or a fallen player in the 60 s spectator phase) always has a target, the leader else the first candidate, without waiting for the first
     /// watch step; a key that is not spectating has none (a stale target never outlives the spectating). Returns whether the key's target changed.

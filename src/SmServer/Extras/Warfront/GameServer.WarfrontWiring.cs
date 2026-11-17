@@ -123,6 +123,8 @@ public sealed partial class GameServer
     }
 
     /// <summary>A spectator (a held joiner, or a fallen player past his revive window) has a watch target from the first tick, not from the first F.</summary>
+    readonly Dictionary<int, int> _wfWatchMoves = new();
+
     void WarfrontDefaultWatches(WarfrontServerState s, WarfrontCoop coop)
     {
         if (s.KeyOf.Count == 0) return;
@@ -136,14 +138,19 @@ public sealed partial class GameServer
             bool changed = coop.DefaultWatch(key, spectating, spectating ? cands ??= WarfrontWatchCandidates() : []);
             if (!changed) continue;
             var now = coop.WatchOf(key);
-            if (spectating)
+            if (spectating && before.Kind == WarfrontWatchKind.None)
             {
                 Vector3? centre = null;
                 WarfrontViewCentre(id, ref centre);
-                WfLog($"P{id} spectates: default watch {now.Kind} {now.Id} (was {before.Kind}); crowd data centred on {(centre is { } c ? $"({c.X:0},{c.Y:0},{c.Z:0})" : "the own body")}");
+                _wfWatchMoves[id] = 0;
+                WfLog($"P{id} spectates: default watch {now.Kind} {now.Id}; crowd data centred on {(centre is { } c ? $"({c.X:0},{c.Y:0},{c.Z:0})" : "the own body")}");
             }
+            else if (spectating) _wfWatchMoves[id] = _wfWatchMoves.GetValueOrDefault(id) + 1;   // a watched body fell: counted, logged with the drop
             else if (World.Players.TryGetValue(id, out var back))
-                WfLog($"P{id} is back in the fight at ({back.Position.X:0},{back.Position.Y:0},{back.Position.Z:0}), alive {back.Alive}; the watch is dropped");
+            {
+                WfLog($"P{id} is back in the fight at ({back.Position.X:0},{back.Position.Y:0},{back.Position.Z:0}), alive {back.Alive}; the watch is dropped ({_wfWatchMoves.GetValueOrDefault(id)} later change(s) while spectating)");
+                _wfWatchMoves.Remove(id);
+            }
         }
     }
 
@@ -190,13 +197,12 @@ public sealed partial class GameServer
     /// <summary>The watchable targets in order: living humans, then standing Marines.</summary>
     List<WarfrontWatch> WarfrontWatchCandidates()
     {
-        var list = new List<WarfrontWatch>();
-        if (_wf is not { } s) return list;
-        foreach (int id in s.KeyOf.Keys.OrderBy(i => i))
-            if (World.Players.TryGetValue(id, out var p) && p.Alive && WarfrontCoopRules?.RoleOf(s.KeyOf[id]) == WarfrontCoopRole.Player) list.Add(new WarfrontWatch(WarfrontWatchKind.Player, id));
+        if (_wf is not { } s) return [];
+        var humans = s.KeyOf.Where(kv => World.Players.TryGetValue(kv.Key, out var p) && p.Alive && WarfrontCoopRules?.RoleOf(kv.Value) == WarfrontCoopRole.Player).Select(kv => kv.Key);
+        var marines = new List<int>();
         if (_wfWiring is { } w)
-            for (int i = 0; i < SquadRules.MaxTotal; i++) if (w.Sim.View(i) is { State: SquadState.Standing }) list.Add(new WarfrontWatch(WarfrontWatchKind.Marine, i));
-        return list;
+            for (int i = 0; i < SquadRules.MaxTotal; i++) if (w.Sim.View(i) is { State: SquadState.Standing }) marines.Add(i);
+        return WarfrontCoop.Candidates(humans, marines);
     }
 
     /// <summary>A spectating client's crowd data is centred on the Marine or player it watches.</summary>
