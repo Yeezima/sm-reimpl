@@ -20,6 +20,7 @@ public partial class MapmakerPlugin : EditorPlugin
 {
     sealed class Step
     {
+        public ulong RootId;   // the scene whose history holds this step; Godot keeps one history per scene, so steps outlive tab switches
         public JsonObject[] Ops = [];
         public bool Executed;
         public OpResult? Result;
@@ -150,16 +151,68 @@ public partial class MapmakerPlugin : EditorPlugin
         if (id != _activeRoot)
         {
             if (_activeRoot != 0 && Session is not null) _stash[_activeRoot] = (Session, Dirty);
-            if (id == 0) { if (_activeRoot != 0) { Session = null; Dirty = false; _steps.Clear(); } }
-            else if (_stash.Remove(id, out var back)) { Session = back.Session; Dirty = back.Dirty; _steps.Clear(); }
-            else if (_activeRoot != 0 || Session is null) { Session = null; Dirty = false; _steps.Clear(); }   // a scene of its own: no map yet
+            if (id == 0) { if (_activeRoot != 0) { Session = null; Dirty = false; } }
+            else if (_stash.Remove(id, out var back)) { Session = back.Session; Dirty = back.Dirty; }
+            else if (_activeRoot != 0 || Session is null) { Session = null; Dirty = false; }   // a scene of its own: no map yet
             _activeRoot = id;
         }
         HookHistory();
         FreeDetachedNodes();
         _nodes.Clear(); _contentKeys.Clear();
+        PruneStash();
         if (MapHost.Root is not null && Session is not null) SyncView(true);
+        else if (MapHost.Root is { } fresh && SceneMapOf(fresh) is { } saved && System.IO.File.Exists(saved)) OpenMap(saved);   // a reopened scene loads its map again
         DocChanged?.Invoke();
+    }
+
+    /// <summary>Forgets the maps of scene tabs that were closed (their root is gone).</summary>
+    void PruneStash()
+    {
+        foreach (var k in _stash.Keys.Where(k => GodotObject.InstanceFromId(k) is null).ToList()) _stash.Remove(k);
+    }
+
+    // Which map belongs to which scene file: a small file next to the maps (scene-maps.json), so closing and reopening a scene brings its map back.
+    Dictionary<string, string>? _sceneMaps;
+    string _sceneMapsFile = "";
+    string SceneMapsFile => System.IO.Path.Combine(MapHost.Library.MapsDir, "scene-maps.json");
+
+    Dictionary<string, string> SceneMaps()
+    {
+        if (_sceneMaps is not null && _sceneMapsFile == SceneMapsFile) return _sceneMaps;
+        _sceneMapsFile = SceneMapsFile; _sceneMaps = new();
+        try { if (System.IO.File.Exists(_sceneMapsFile)) _sceneMaps = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(_sceneMapsFile)) ?? new(); }
+        catch (Exception e) when (e is System.IO.IOException or System.Text.Json.JsonException or UnauthorizedAccessException) { }
+        return _sceneMaps;
+    }
+
+    static string SceneFileOf(Node root) => (root.Owner ?? root).SceneFilePath;
+    string? SceneMapOf(Node root) => SceneFileOf(root) is { Length: > 0 } f && SceneMaps().TryGetValue(f, out var m) ? m : null;
+
+    /// <summary>Notes the edited scene's file against its map's file (called after saves and from a slow poll).</summary>
+    void SyncRootMeta()
+    {
+        if (MapHost.Root is not { } r || !GodotObject.IsInstanceValid(r) || Session?.Path is not { } p || SceneFileOf(r) is not { Length: > 0 } f) return;
+        var maps = SceneMaps();
+        if (maps.TryGetValue(f, out var old) && old == p) return;
+        maps[f] = p;
+        try { System.IO.File.WriteAllText(_sceneMapsFile, System.Text.Json.JsonSerializer.Serialize(maps)); }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Saving the scene also saves its map (to its file, or for an untitled map to an autosave named after the scene).</summary>
+    public override void _SaveExternalData()
+    {
+        if (Session is not null && MapHost.Root is not null && Dirty)
+        {
+            string? path = Session.Path;
+            if (path is null)
+            {
+                string scene = System.IO.Path.GetFileNameWithoutExtension(EditorInterface.Singleton.GetEditedSceneRoot()?.SceneFilePath ?? "");
+                path = System.IO.Path.Combine(MapHost.Library.MapsDir, $"scene-{(scene.Length > 0 ? scene : "untitled")}.smmap");
+            }
+            SaveMap(path);
+        }
+        SyncRootMeta();
     }
 
     /// <summary>Nodes of deleted objects are kept detached so undo can reattach them; free them when the map they belong to goes away.</summary>
@@ -190,14 +243,15 @@ public partial class MapmakerPlugin : EditorPlugin
     public bool SaveMap(string? path = null)
     {
         if (Session is null) return false;
-        try { Session.Save(path); Dirty = false; SetStatus($"Saved {Session.Path}"); DocChanged?.Invoke(); return true; }
+        try { Session.Save(path); Dirty = false; SyncRootMeta(); SetStatus($"Saved {Session.Path}"); DocChanged?.Invoke(); return true; }
         catch (Exception e) when (e is MapException or System.IO.IOException or UnauthorizedAccessException) { SetStatus("Save failed: " + e.Message); return false; }
     }
 
     void Adopt(MapSession s)
     {
         HookHistory();
-        Session = s; Dirty = false; _steps.Clear();
+        Session = s; Dirty = false;
+        foreach (var k in _steps.Where(x => x.Value.RootId == _activeRoot).Select(x => x.Key).ToList()) _steps.Remove(k);   // this scene's history is cleared below; other tabs keep theirs
         foreach (var n in _nodes.Values) if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
         _nodes.Clear(); _contentKeys.Clear();
         if (MapHost.Root is { } root)
@@ -205,7 +259,7 @@ public partial class MapmakerPlugin : EditorPlugin
             foreach (var c in root.GetChildren().OfType<MapmakerObject>()) { root.RemoveChild(c); c.QueueFree(); }
             try { GetUndoRedo().ClearHistory(GetUndoRedo().GetObjectHistoryId(root), true); } catch (Exception) { }
         }
-        SyncView(true);
+        SyncView(true); SyncRootMeta();
         DocChanged?.Invoke();
     }
 
@@ -225,7 +279,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public OpResult Do(string label, params JsonObject[] ops)
     {
         if (Session is null) { SetStatus("No map is open: use New or Open first."); return OpResult.Fail("no-document", "No map is open: use New or Open first."); }
-        var step = new Step { Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
+        var step = new Step { RootId = _activeRoot, Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
         step.BeforeDoc = Session.Document.ToJson();
         step.BeforePrefabs = PrefabSnapshot(PrefabIds(step.Ops));
         var applied = Session.Apply(step.Ops);   // a batch is one transaction: on failure nothing changed, and no history entry is made
@@ -268,14 +322,14 @@ public partial class MapmakerPlugin : EditorPlugin
     /// <summary>Redo: the editor re-runs the step, which restores the document as it was after the batch.</summary>
     public void StepDo(int id)
     {
-        var step = _steps[id];
+        if (!_steps.TryGetValue(id, out var step)) return;   // a history entry whose step was dropped (its map was replaced)
         Restore(step.AfterDoc, step.AfterPrefabs);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
     public void StepUndo(int id)
     {
-        var step = _steps[id];
+        if (!_steps.TryGetValue(id, out var step)) return;
         Restore(step.BeforeDoc, step.BeforePrefabs);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
@@ -298,6 +352,8 @@ public partial class MapmakerPlugin : EditorPlugin
     void AfterChange(bool prefabsChanged)
     {
         Dirty = true;
+        SyncRootMeta();
+        try { EditorInterface.Singleton.MarkSceneAsUnsaved(); } catch (Exception) { }   // so Godot's own close prompt fires for a scene whose map changed
         if (prefabsChanged)
         {
             _lastPrefabStamp++;

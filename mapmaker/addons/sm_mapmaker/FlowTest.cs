@@ -112,7 +112,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Check(picked.Count >= 2 && picked.Contains(a.ObjectId) && picked.Contains(b.ObjectId), $"the box selected {picked.Count} objects, both blocks among them");
         Check(!plugin.BoxDrawing, "the rectangle is gone after the release");
         // Ctrl removes: a drag over b only, from outside it.
-        var one = CentreOf(b); var p0 = one + (one - from).Normalized() * 70f; var p1 = one;   // away from a, and clear of the gizmo disc about the selection's centre
+        var one = CentreOf(b); var p0 = one + (one - from).Normalized() * (plugin.GizmoRadius + 120f); var p1 = one;   // away from a, and clear of the gizmo disc about the selection's centre
         Move(p0); await Frames(3);
         Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = p0, CtrlPressed = true, ButtonMask = MouseButtonMask.Left }); await Frames(3);
         for (int i = 1; i <= 4; i++) { Move(p0.Lerp(p1, i / 4f), true); await Frames(2); }
@@ -158,23 +158,77 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     }
 
     /// <summary>Owner, 2026-11-18: the map editor works in any scene tab. Prefab extracted from an SM1 map in tab 1, placed in tab 2.</summary>
+    ulong _tab2Root;
+
+    /// <summary>Measures how far the real move gizmo reaches from the selected object's origin (pixels that appear when W is pressed), against the plugin's bypass radius.</summary>
+    async Task MeasureGizmo()
+    {
+        var ids = plugin.SelectedIds().ToList();
+        if (ids.Count != 1 || plugin.NodeOf(ids[0]) is not { } node) { Say("gizmo: nothing selected, skipped"); return; }
+        if (!Thumbnails.CanRender) { Say("gizmo: headless, skipped"); return; }
+        var rect = View.GetGlobalRect(); var centre = Win(node.GlobalPosition) - rect.Position;
+        Move(Win(node.GlobalPosition) + new Godot.Vector2(300, 300)); await Frames(4);
+        Image Grab() { var r = View.GetGlobalRect(); return Tree.Root.GetTexture().GetImage().GetRegion(new Rect2I((Vector2I)r.Position, (Vector2I)r.Size)); }
+        foreach (bool pressed in new[] { true, false }) Tree.Root.PushInput(new InputEventKey { Keycode = Key.W, PhysicalKeycode = Key.W, Pressed = pressed });
+        await Frames(15);
+        var with = Grab();
+        EditorInterface.Singleton.GetSelection().Clear(); await Frames(15);
+        var without = Grab();
+        plugin.Select(ids); await Frames(5);
+        with.SavePng(System.IO.Path.Combine(_out, "gizmo-with.png")); without.SavePng(System.IO.Path.Combine(_out, "gizmo-without.png"));
+        float far = 0; int n = 0; var radii = new List<float>();
+        for (int y = 0; y < with.GetHeight(); y++)
+            for (int x = 0; x < with.GetWidth(); x++)
+            {
+                var a = with.GetPixel(x, y); var b = without.GetPixel(x, y);
+                if (MathF.Abs(a.R - b.R) + MathF.Abs(a.G - b.G) + MathF.Abs(a.B - b.B) < 0.25f) continue;
+                static float Near(Color c, float r, float g, float bl) => MathF.Abs(c.R - r) + MathF.Abs(c.G - g) + MathF.Abs(c.B - bl);
+                if (Near(a, 0.96f, 0.21f, 0.32f) > 0.3f && Near(a, 0.53f, 0.84f, 0.01f) > 0.3f && Near(a, 0.16f, 0.55f, 0.96f) > 0.3f) continue;   // only the gizmo's red, green and blue (not the selection box's orange outline)
+                if (new Godot.Vector2(x, y).DistanceTo(centre) > 320f) continue;   // the selection box of a large object runs far; the gizmo itself stays near
+                n++; float dd = new Godot.Vector2(x, y).DistanceTo(centre); radii.Add(dd); far = MathF.Max(far, dd);
+            }
+        radii.Sort(); Say($"gizmo radii: p50 {radii[radii.Count / 2]:0} p90 {radii[radii.Count * 9 / 10]:0} p99 {radii[radii.Count * 99 / 100]:0} centre {centre}");
+        Say($"gizmo: {n} changed pixels, farthest {far:0} px from the object's origin; editor scale {EditorInterface.Singleton.GetEditorScale()}, manipulator size setting {EditorInterface.Singleton.GetEditorSettings().Get("editors/3d/manipulator_gizmo_size")}, bypass radius {plugin.GizmoRadius:0} px");
+        Check(n > 0, "the move gizmo appeared with W (measurement valid)");
+        Check(far > 100 && far <= plugin.GizmoRadius, $"the gizmo's handle tips ({far:0} px) lie inside the bypass radius ({plugin.GizmoRadius:0} px)");
+    }
+
     async Task TwoTabs(MapmakerDock dock)
     {
         string tab2 = "res://Maps/FlowTab2.tscn";
         Say("two tabs: start");
         Sm1Source? source = null;
-        try { source = await Task.Run(() => Sm1Source.Load("mp_tdm_09")); }
-        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { Say("two tabs: SM1 map not available here (" + e.Message + "), skipped"); return; }
+        try { if (!Flag("--mm-no-sm1")) source = await Task.Run(() => Sm1Source.Load("mp_tdm_09")); }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { Say("two tabs: SM1 map not available here (" + e.Message + "); using a prefab made from two blocks instead"); }
         var root1 = MapHost.Root!;
-        MapHost.Root!.ShowBackdrop(source, []);
-        MapHost.Register(source);
-        var core = source.BoundsAll()!.Value; var mid = (core.Min + core.Max) / 2;
-        var near = Enumerable.Range(0, source.Scene.Objects.Count).Where(i => !source.Hidden.Contains(i) && source.Scene.Objects[i].Name.Length > 0 && source.WorldBounds(i) is not null)
-            .OrderBy(i => (source.Scene.Objects[i].Transform.Translation - mid).Length()).Take(3).ToList();
-        MapHost.PickedSm1.Clear(); MapHost.PickedSm1.AddRange(near.Select(i => new PickRef(i))); plugin.RefreshPicked();
-        var r = dock.Extract("Flow piece", "flow-piece", "bounds-bottom-center", "mesh");
-        Check(r.Ok && MapHost.Library.GetPrefab("flow-piece") is not null, "extracted a prefab from the SM1 map in tab 1");
-        MapHost.PickedSm1.Clear(); plugin.RefreshPicked();
+        if (source is not null)
+        {
+            MapHost.Root!.ShowBackdrop(source, []);
+            MapHost.Register(source);
+            var core = source.BoundsAll()!.Value; var mid = (core.Min + core.Max) / 2;
+            var near = Enumerable.Range(0, source.Scene.Objects.Count).Where(i => !source.Hidden.Contains(i) && source.Scene.Objects[i].Name.Length > 0 && source.WorldBounds(i) is not null)
+                .OrderBy(i => (source.Scene.Objects[i].Transform.Translation - mid).Length()).Take(3).ToList();
+            MapHost.PickedSm1.Clear(); MapHost.PickedSm1.AddRange(near.Select(i => new PickRef(i))); plugin.RefreshPicked();
+            var r = dock.Extract("Flow piece", "flow-piece", "bounds-bottom-center", "mesh");
+            Check(r.Ok && MapHost.Library.GetPrefab("flow-piece") is not null, "extracted a prefab from the SM1 map in tab 1");
+            MapHost.PickedSm1.Clear(); plugin.RefreshPicked();
+        }
+        else
+        {
+            // A one-triangle glTF written here, imported as an asset, placed, and grouped into the prefab.
+            var bytes = new byte[36]; Buffer.BlockCopy(new float[] { 0, 0, 0, 1, 0, 0, 0, 1, 0 }, 0, bytes, 0, 36);
+            string gltf = Path.Combine(_out, "flow-tri.gltf");
+            File.WriteAllText(gltf, "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0}}]}],"
+                + "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":36}],"
+                + "\"buffers\":[{\"byteLength\":36,\"uri\":\"data:application/octet-stream;base64," + Convert.ToBase64String(bytes) + "\"}]}");
+            var imp = plugin.Do("Import asset", MapmakerPlugin.Op("import-asset", ("path", gltf), ("id", "flow-tri"), ("name", "Flow triangle")));
+            var put = plugin.PlaceAt(new LibraryItem(LibraryKind.Asset, "flow-tri", "Flow triangle"), new Godot.Vector3(30, 30, 0));
+            var grp = put.Ok && put.Created.Count > 0 ? plugin.Do("Group to prefab", MapmakerPlugin.Op("group-to-prefab", ("ids", MapmakerPlugin.Strs(put.Created)), ("prefab", "flow-piece"), ("name", "Flow piece"), ("origin", "bounds-bottom-center"))) : put;
+            Check(imp.Ok && grp.Ok && MapHost.Library.GetPrefab("flow-piece") is not null, "made a synthetic prefab from an imported one-triangle glTF in tab 1 (" + string.Join("; ", imp.Errors.Concat(grp.Errors).Select(e => e.Message)) + ")");
+        }
+        // Two placements in tab 1 for the undo check after the tab switches.
+        var cover = new LibraryItem(LibraryKind.Piece, "cover", "Cover block");
+        plugin.PlaceAt(cover, new Godot.Vector3(20, 20, 0)); plugin.PlaceAt(cover, new Godot.Vector3(24, 20, 0));
         string doc1 = Doc(); int count1 = plugin.Session!.Document.Objects.Count;
         // Tab 2: a plain scene.
         var packed = new PackedScene(); var plain = new Node3D { Name = "Plain" };
@@ -195,20 +249,35 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Check(plugin.GhostNode is not null && plugin.GhostNode.GetParent() == MapHost.Root, "the armed ghost was rebuilt in tab 2's scene");
         await Click(WinGame(0, 0, 0));
         Check(plugin.Session!.Document.Objects.Count == 1 && plugin.Session.Document.Objects[0].Prefab == "flow-piece", "the prefab was placed in tab 2");
-        string doc2 = Doc();
+        string doc2 = Doc(); _tab2Root = MapHost.Root!.GetInstanceId();
         await ShotView("placed-in-tab-2");
+        await MeasureGizmo();
+        Check(EditorInterface.Singleton.SaveScene() == Error.Ok, "saved scene 2 (which also saves its map)");
+        await Frames(80);   // the plugin notes which map belongs to the scene file
+        await Frames(10);
         MapHost.Armed = null; MapHost.Tool = Tool.Select; await Frames(5);
         // Back to tab 1: untouched, still holding the SM1 map.
         EditorInterface.Singleton.OpenSceneFromPath("res://Maps/Empty.tscn");
         for (int i = 0; i < 120 && MapHost.Root != root1; i++) await Frames(3);
         await Frames(20);
-        Check(MapHost.Root == root1 && Doc() == doc1 && plugin.Session!.Document.Objects.Count == count1 && MapHost.Sm1For("mp_tdm_09") is not null, "tab 1 is untouched and still has its map and the SM1 map");
+        Check(MapHost.Root == root1 && Doc() == doc1 && plugin.Session!.Document.Objects.Count == count1 && (source is null || MapHost.Sm1For("mp_tdm_09") is not null), "tab 1 is untouched and still has its map and the SM1 map");
+        var hist = plugin.History.GetHistoryUndoRedo(plugin.History.GetObjectHistoryId(root1));
+        hist.Undo(); await Frames(8);
+        Check(plugin.Session!.Document.Objects.Count == count1 - 1, $"Ctrl+Z still works in tab 1 after the tab switches ({count1} -> {plugin.Session.Document.Objects.Count})");
+        hist.Redo(); await Frames(8);
+        Check(Doc() == doc1, "Ctrl+Y brings the placement back, byte for byte");
         EditorInterface.Singleton.OpenSceneFromPath(tab2);
         for (int i = 0; i < 120 && EditorInterface.Singleton.GetEditedSceneRoot()?.SceneFilePath != tab2; i++) await Frames(3);
         await Frames(20);
         Check(plugin.Session is not null && Doc() == doc2, "tab 2 kept its own map when switching back");
+        // Close and reopen scene 2 (a reload makes a new root): its map is loaded again from the scene's saved map path.
+        EditorInterface.Singleton.ReloadSceneFromPath(tab2);
+        for (int i = 0; i < 120 && !(MapHost.Root is { } rr && rr.GetInstanceId() != _tab2Root); i++) await Frames(3);
+        await Frames(30);
+        Check(plugin.Session is { } reopened && reopened.Document.Objects.Count == 1 && reopened.Document.Objects[0].Prefab == "flow-piece", "after closing and reopening scene 2 its map is back (loaded from the scene's map path)");
         EditorInterface.Singleton.OpenSceneFromPath("res://Maps/Empty.tscn");
         await Frames(30);
+        Check(plugin.StashCount <= 2, $"stashed maps of closed scenes are pruned ({plugin.StashCount} held)");
         try { DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath(tab2)); } catch (Exception) { }
     }
 

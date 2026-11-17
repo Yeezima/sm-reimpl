@@ -71,7 +71,13 @@ public partial class MapmakerPlugin
         MapHost.Sm1Changed -= FreeGhost;
     }
 
-    public override void _Process(double delta) => UpdateGhost(delta);
+    int _slow;
+
+    public override void _Process(double delta)
+    {
+        UpdateGhost(delta);
+        if (++_slow % 60 == 0) { SyncRootMeta(); PruneStash(); }
+    }
 
     // ---- box select --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -159,6 +165,20 @@ public partial class MapmakerPlugin
     /// <summary>Test aid: a box is being drawn right now.</summary>
     public bool BoxDrawing => _boxActive;
 
+    /// <summary>Reach of the move/rotate/scale handles from the selection's centre, in window pixels (measured against the real gizmo by the flow test).</summary>
+    public float GizmoRadius
+    {
+        get
+        {
+            // Measured in a windowed run (flow test "gizmo"): the arrow tips reach about 1.7 x (manipulator size setting x editor scale) from the origin, the rotation ring
+            // about 1.25 x, the farthest gizmo pixel 1.9 x; 2.1 leaves a margin.
+            float size = 80f;
+            try { size = EditorInterface.Singleton.GetEditorSettings().Get("editors/3d/manipulator_gizmo_size").AsSingle(); } catch (Exception) { }
+            return 2.1f * size * EditorInterface.Singleton.GetEditorScale();
+        }
+    }
+    public int StashCount => _stash.Count;
+
     /// <summary>True when the press is within reach of the move/rotate/scale handles of the selected objects (a disc about the selection's centre).</summary>
     bool NearSelectionGizmo(Vector2 window)
     {
@@ -166,7 +186,7 @@ public partial class MapmakerPlugin
         if (picked.Count == 0 || Viewport3D?.GetCamera3D() is not { } cam) return false;
         var centre = picked.Aggregate(Vector3.Zero, (a, n) => a + n.GlobalPosition) / picked.Count;
         if (cam.IsPositionBehind(centre)) return false;
-        return ToWindow(cam.UnprojectPosition(centre)).DistanceTo(window) < 70f * EditorInterface.Singleton.GetEditorScale();
+        return ToWindow(cam.UnprojectPosition(centre)).DistanceTo(window) < GizmoRadius;
     }
 
     /// <summary>
@@ -334,9 +354,9 @@ public partial class MapmakerPlugin
     bool GhostWheelInput(InputEvent e)
     {
         if (e is not InputEventMouseButton { ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } w || _pushingWheel) return false;
-        if (MapHost.Tool != Tool.Place || MapHost.Armed is not { } item || !ViewportHovered(w.Position)) return false;
+        if (MapHost.Tool != Tool.Place || MapHost.Armed is not { } item || _ghost is null || !ViewportHovered(w.Position)) return false;   // no ghost (nothing to draw): the wheel is the camera's
         GetViewport().SetInputAsHandled();
-        if (!w.Pressed || _ghost is null) return true;
+        if (!w.Pressed) return true;
         int dir = w.ButtonIndex == MouseButton.WheelUp ? 1 : -1;
         if (w.ShiftPressed) _ghostScale = Mathf.Clamp(MathF.Round(_ghostScale * MathF.Pow(1.1f, dir), 4), 0.05f, 20f);
         else
