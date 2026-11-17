@@ -24,7 +24,7 @@ public static partial class UiKit
     public static readonly Color BackgroundTop = new(0.07f, 0.075f, 0.09f), BackgroundBottom = new(0.02f, 0.02f, 0.025f);
 
     public const int VirtualWidth = 1920, VirtualHeight = 1080;
-    public const int BodySize = 18, CaptionSize = 15, HeaderSize = 26, TitleSize = 34, MinHit = 44;
+    public const int BodySize = 22, CaptionSize = 18, HeaderSize = 30, TitleSize = 38, MinHit = 44;   // ui/overhaul: Oswald is narrower and lower than the DejaVu these were set for, so one step up
 
     /// <summary>"Reduce motion": no camera moves, no turntable, no fades (set from the front end's settings).</summary>
     public static bool ReduceMotion { get; set; }
