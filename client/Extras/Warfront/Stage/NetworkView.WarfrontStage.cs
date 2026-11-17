@@ -38,6 +38,7 @@ public partial class NetworkView
         var m = WarfrontModel;
         m.Tick(now);
         WarfrontSendCommands(now);
+        WarfrontWarmFrame(m, now, dt);
         if (!_bot)
         {
             WarfrontSyncPanels(me, now);
@@ -54,6 +55,31 @@ public partial class NetworkView
         WarfrontProgressionFrame(me, dt);
         WarfrontSquadFrame(me, dt);
         WarfrontCoopFrame(me, dt);
+    }
+
+    // ---- the background layout warm-up (W5d) ---------------------------------------------------------------------------------------------
+
+    string? _wfWarmMap;
+
+    /// <summary>
+    /// Once a frame: the Stage section names the next map while this client is still on the old connection (Preparing, then Go): the layouts of that slot and its neighbours start on a background task (<see cref="WarfrontLayoutWarm"/>), into a static holder that
+    /// survives the rejoin. The Go-to-landing window's main-thread frame gaps are counted (<see cref="WarfrontFrameWatch"/>).
+    /// </summary>
+    void WarfrontWarmFrame(WarfrontStageModel m, double now, double dt)
+    {
+        if (m.Stage is { State: SmNet.Extras.Warfront.WarfrontStageState.Preparing or SmNet.Extras.Warfront.WarfrontStageState.Go } st && st.Map != _wfWarmMap && WarfrontSlots.ByName(st.Map) is { } slot)
+        {
+            _wfWarmMap = st.Map;
+            WarfrontFrameWatch.Begin();
+            if (System.Environment.GetEnvironmentVariable("SM_WF_SYNC_BUILD") != "1") WarfrontLayoutWarm.Warm(slot, NoAshfallCache);
+        }
+    }
+
+    /// <summary>The landing: the travel window's frame summary, and the held layouts go.</summary>
+    void WarfrontLandingFrameSummary(double now)
+    {
+        WarfrontFrameWatch.End("Preparing to the landing");
+        WarfrontLayoutWarm.DropAll();
     }
 
     /// <summary>The Thunderhawk's destination station: the Warfront war map instead of Musou's (the hook is called only from Musou's station code, which a Warfront server shares).</summary>
@@ -170,6 +196,7 @@ public partial class NetworkView
             _wfTravel = null;
             WarfrontCloseLayer();
             GD.Print($"t {now:F1} s: warfront: the travel screen closed at the landing");
+            WarfrontLandingFrameSummary(now);
         }
         // the war map's note line carries what needs saying about this client (a throwaway key, no answer to Identify, a refused or unanswered deploy)
         if (_wfHubPanel is not null && m.NoteOverride(now) is { Length: > 0 } note && _wfHubPanel.NoteLabel.Text != note) _wfHubPanel.NoteLabel.Text = note;

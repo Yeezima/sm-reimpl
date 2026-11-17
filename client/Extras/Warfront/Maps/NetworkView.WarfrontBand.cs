@@ -22,6 +22,10 @@ public partial class NetworkView
     Node3D? _warfrontBand;
     bool _warfrontShown = true;
 
+    /// <summary>Test aid (ours): <c>SM_WF_SYNC_BUILD=1</c> runs the W5b path (every layout built or read on the main thread) to measure the stall before W5d; never set in play.</summary>
+    const double NeighbourWaitSeconds = 30.0;
+    static readonly bool OldSyncBuild = System.Environment.GetEnvironmentVariable("SM_WF_SYNC_BUILD") == "1";
+
     // The hooks W5 calls from the dispatchers (client/Extras/NetworkView.Extras.cs, Musou/Tfw/NetworkView.Tfw.cs): declared here as partial methods of this class, implemented below, so the
     // file compiles without callers and an unused hook costs nothing; a build without Warfront (-p:SmWarfront=false) leaves this folder out and nothing refers to it.
     // (declared in client/Extras/NetworkView.Extras.cs and client/Extras/Musou/Tfw/NetworkView.Tfw.cs with their call sites, W5b: a build without Warfront still compiles the calls)
@@ -33,67 +37,122 @@ public partial class NetworkView
         var watch = System.Diagnostics.Stopwatch.StartNew();
         if (NoAshfallCache) AshfallLayoutCache.Disabled = true;
         SetLoadingCaption("READING THE WARFRONT BATTLEFIELD");
-        (_warfrontLevel, _warfrontDressing) = WarfrontLayoutCache.Build(slot, out string note);
+        // the layout comes from the background warm-up (W5d: started when the Stage section named this map, shared with the server's and the prebuild's cache files); this thread only takes it
+        var got = OldSyncBuild ? null : WarfrontLayoutWarm.TryGet(slot);
+        string note = "taken from the background warm-up";
+        if (OldSyncBuild) note = "SM_WF_SYNC_BUILD=1: the W5b path, built on this thread";
+        else if (got is null)
+        {
+            got = WarfrontLayoutWarm.WaitFor(slot, NoAshfallCache, out long waited);
+            note = $"the warm-up had not finished: waited {waited} ms for it (a cold cache, or a join that skipped the Preparing section; the map load runs on a worker, the loading screen keeps drawing)";
+            GD.Print($"warfront: {note}");
+        }
+        if (got is null) { got = WarfrontLayoutCache.Build(slot, out string fallback); note = "warm-up failed; built here: " + fallback; }
+        (_warfrontLevel, _warfrontDressing) = got.Value;
+        if (!OldSyncBuild) WarfrontLayoutWarm.Warm(slot, NoAshfallCache);   // the neighbours, if the join skipped the Preparing section
+        // this runs on the map load's worker (the loading screen keeps drawing; bots and --sync-map-load run it on the main thread and draw nothing): give the neighbours' copies up to 30 s, so the stage-2 drawing finds them
+        if (!OldSyncBuild && OS.GetThreadCallerId() != OS.GetMainThreadId())
+        {
+            SetLoadingCaption("READING THE NEIGHBOURING BATTLEFIELDS");
+            int ready = WarfrontLayoutWarm.WaitForNeighbours(slot, NeighbourWaitSeconds, out long neighbourWait);
+            GD.Print($"warfront: {slot.Name} neighbours ready {ready} of {WarfrontLayoutWarm.Needed(slot).Count - 1} after {neighbourWait} ms on the load worker");
+            SetLoadingCaption("READING THE WARFRONT BATTLEFIELD");
+        }
         map = AshfallContent.ToMapContent(_warfrontLevel);
-        GD.Print($"warfront: {note}; content in {watch.ElapsedMilliseconds} ms, hash {_warfrontLevel.Hash:X16}; nothing read from the install");
+        GD.Print($"warfront: {slot.Name} {note}; content in {watch.ElapsedMilliseconds} ms, hash {_warfrontLevel.Hash:X16}; nothing read from the install");
     }
 
-    /// <summary>Draws a lane slot's band (graybox, kit look, storm, outside scenery) under one node at the origin; any failure leaves the grey collision.</summary>
+    /// <summary>The rest of the band's drawing, one step per frame (W5d): the band is hidden behind the travel screen and the ship while they run, and no frame carries more than the largest step.</summary>
+    readonly System.Collections.Generic.Queue<(string Name, System.Action Run)> _warfrontSteps = new();
+
+    /// <summary>One queued step, then the next after a frame (a tree timer: no dependence on the dispatcher's hooks, which an observer's view does not run).</summary>
+    void WarfrontScheduleStep()
+    {
+        if (_warfrontSteps.Count == 0) return;
+        if (!IsInsideTree()) { while (_warfrontSteps.Count > 0) _warfrontSteps.Dequeue().Run(); return; }   // no tree to time against: all now
+        GetTree().CreateTimer(0.05).Timeout += () =>
+        {
+            if (_warfrontSteps.Count == 0) return;
+            _warfrontSteps.Dequeue().Run();
+            WarfrontScheduleStep();
+        };
+    }
+
+    /// <summary>
+    /// Draws a lane slot's band (graybox, kit look, outside scenery, storm) under one node at the origin; any failure leaves the grey collision. W5d: the pure work is already done (the layouts come from <see cref="WarfrontLayoutWarm"/>); the drawing itself
+    /// is cut into four steps, the first now (the node and the graybox view, which hide the grey collision), the kit, the scenery and the storm one per frame after it (<see cref="WarfrontScheduleStep"/>), so no single frame carries all of it.
+    /// <c>SM_WF_SYNC_BUILD=1</c> runs them all here, as before.
+    /// </summary>
     partial void WarfrontMapVisuals(string name, ref bool drawn)
     {
         if (WarfrontSlots.ByName(name) is not { } slot || _warfrontLevel is null || _warfrontDressing is null || _gameSpace is null) return;
         try
         {
+            var level = _warfrontLevel; var dressing = _warfrontDressing;
             var watch = System.Diagnostics.Stopwatch.StartNew();
             var split = new System.Text.StringBuilder();
-            long mark = 0;
-            void Lap(string what) { split.Append($"{(split.Length > 0 ? ", " : "")}{what} {watch.ElapsedMilliseconds - mark} ms"); mark = watch.ElapsedMilliseconds; }
+            long mark = 0, longest = 0;
+            void Lap(string what) { long now = watch.ElapsedMilliseconds; split.Append($"{(split.Length > 0 ? ", " : "")}{what} {now - mark} ms"); mark = now; }
             var node = new Node3D { Name = $"WarfrontBand{slot.Band}" };
             _gameSpace.AddChild(node);
             _warfrontBand = node;
-            var drawn1 = AshfallMap.OpenFrontEdges(_warfrontLevel);   // drawing only: the avenue's openings in the boundary wall (the collision stays closed)
-            Lap("open edges");
-            var view = AshfallView.Build(drawn1);
-            node.AddChild(view);
-            Lap("AshfallView.Build");
-            TfwFrontKit(drawn1, _warfrontDressing, view, node);
-            Lap("TfwFrontKit");
-            // the scenery draws the neighbouring bands as massing copies: the same lane's adjacent slots (node - 1 south, node + 1 north), read through the layout cache; node 3 has none to the north (the spire and the stacks stand there)
-            var empty = new AshfallDressing([], [], _warfrontDressing.Version);
-            var bands = new (AshfallLevel Level, AshfallDressing Dressing)[AshfallFront.BandCount];
-            for (int k = 0; k < bands.Length; k++) bands[k] = (_warfrontLevel, empty);
-            bands[slot.Band] = (_warfrontLevel, _warfrontDressing);
+            _warfrontSteps.Clear();
+            var drawn1 = AshfallMap.OpenFrontEdges(level);   // drawing only: the avenue's openings in the boundary wall (the collision stays closed)
+            AshfallView? view = null;
             var drawnNeighbours = new System.Collections.Generic.List<int>();
-            foreach (int k in new[] { slot.Band - 1, slot.Band + 1 })
+            string goal = "";
+            void Step(string what, System.Action work)
             {
-                if (k < 0 || k >= AshfallFront.BandCount) continue;
-                try { bands[k] = WarfrontLayoutCache.Build(WarfrontSlots.Of(slot.Lane, k + 1), out string neighbourNote); Lap($"neighbour band {k} layout ({neighbourNote.Split(';')[0]})"); drawnNeighbours.Add(k); }
-                catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: the neighbouring band {k} could not be built ({e.GetType().Name}: {e.Message}); no copy of it is drawn"); }
+                long t0 = watch.ElapsedMilliseconds;
+                try { if (IsInstanceValid(node)) work(); }
+                catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: band step \"{what}\" failed ({e.GetType().Name}: {e.Message}); the band is drawn without it"); }
+                longest = System.Math.Max(longest, watch.ElapsedMilliseconds - t0);
+                Lap(what);
             }
-            node.AddChild(AshfallFrontScenery.Build(slot.Band, bands));
-            Lap("AshfallFrontScenery.Build");
-            if (_sun is not null && _environment is not null)
+            _warfrontSteps.Enqueue(("kit", () => Step("TfwFrontKit", () => TfwFrontKit(drawn1, dressing, view!, node))));
+            _warfrontSteps.Enqueue(("scenery", () => Step("neighbours and AshfallFrontScenery.Build", () =>
             {
-                AshfallView.ApplyLook(_sun, _environment);
-                if (!AshfallStorm.Off)
+                // the scenery draws the neighbouring bands as massing copies: the same lane's adjacent slots (node - 1 south, node + 1 north); node 3 has none to the north (the spire and the stacks stand there)
+                var empty = new AshfallDressing([], [], dressing.Version);
+                var bands = new (AshfallLevel Level, AshfallDressing Dressing)[AshfallFront.BandCount];
+                for (int k = 0; k < bands.Length; k++) bands[k] = (level, empty);
+                bands[slot.Band] = (level, dressing);
+                foreach (int k in new[] { slot.Band - 1, slot.Band + 1 })
                 {
+                    if (k < 0 || k >= AshfallFront.BandCount) continue;
+                    // never generated here (W5d): a neighbour the warm-up has not finished is skipped, its copy missing for this landing
+                    if (OldSyncBuild) { bands[k] = WarfrontLayoutCache.Build(WarfrontSlots.Of(slot.Lane, k + 1), out string neighbourNote); GD.Print($"warfront: SM_WF_SYNC_BUILD neighbour band {k} layout: {neighbourNote.Split(';')[0]}"); drawnNeighbours.Add(k); }
+                    else if (WarfrontLayoutWarm.TryGet(WarfrontSlots.Of(slot.Lane, k + 1)) is { } neighbour) { bands[k] = neighbour; drawnNeighbours.Add(k); }
+                    else GD.Print($"warfront: the neighbouring band {k} is not ready (the background warm-up is still on it); its copy is skipped, not waited for");
+                }
+                var scenery = AshfallFrontScenery.Build(slot.Band, bands);
+                goal = WarfrontFarGoal.Apply(scenery, slot.Band);
+                node.AddChild(scenery);
+            })));
+            _warfrontSteps.Enqueue(("storm", () =>
+            {
+                Step("look and storm", () =>
+                {
+                    if (_sun is null || _environment is null) return;
+                    AshfallView.ApplyLook(_sun, _environment);
+                    if (AshfallStorm.Off) return;
                     var host = new Node3D { Name = "WarfrontStorm" };
                     node.AddChild(host);
-                    try { AshfallStorm.Attach(host, _warfrontLevel, _warfrontDressing, _sun, _environment); }
+                    try { AshfallStorm.Attach(host, level, dressing, _sun, _environment); }
                     catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException)) { GD.Print($"warfront: the storm look failed ({e.GetType().Name}: {e.Message}); the plain look stays"); }
-                }
-            }
-            Lap("look and storm");
+                });
+                GD.Print($"warfront: stall split for {slot.Name}: {split}; largest step {longest} ms");
+                float spireY = WarfrontFarGoal.SpireDistance(slot.Band);
+                var points = level.Points.Select(c => $"{c.Name} {c.Center.X:F0},{c.Center.Y:F0} ({spireY - c.Center.Y:F0} m to the spire)");
+                var landing = level.Spawns.Count > 0 ? $"{level.Spawns[0].X:F0},{level.Spawns[0].Y:F0} ({spireY - level.Spawns[0].Y:F0} m to the spire)" : "none";
+                GD.Print($"warfront: {slot.Name} ({slot.Profile}): the {goal}; spire distances by node 1/2/3: {string.Join("/", Enumerable.Range(0, AshfallFront.BandCount).Select(b => WarfrontFarGoal.SpireDistance(b).ToString("F0")))} m; first spawn {landing}; control points {string.Join("; ", points)}");
+                GD.Print($"warfront: {slot.Name} neighbour copies drawn: {(drawnNeighbours.Count == 0 ? "none" : string.Join(", ", drawnNeighbours.Select(k => "band " + k)))}");
+                GD.Print($"warfront: {slot.Name} ({slot.Profile}, seed {slot.Seed}) drawn in {watch.ElapsedMilliseconds} ms of build time (outside scenery {AshfallFrontScenery.LastTriangles:N0} triangles, client only)");
+            }));
+            Step("open edges and AshfallView.Build", () => { view = AshfallView.Build(drawn1); node.AddChild(view); });
             drawn = true;
-            GD.Print($"warfront: stall split for {slot.Name}: {split}");
-            {
-                float spireY = AshfallFrontScenery.SpireNorth;
-                var points = _warfrontLevel.Points.Select(c => $"{c.Name} {c.Center.X:F0},{c.Center.Y:F0} ({spireY - c.Center.Y:F0} m to the spire)");
-                var landing = _warfrontLevel.Spawns.Count > 0 ? $"{_warfrontLevel.Spawns[0].X:F0},{_warfrontLevel.Spawns[0].Y:F0} ({spireY - _warfrontLevel.Spawns[0].Y:F0} m to the spire)" : "none";
-                GD.Print($"warfront: {slot.Name} ({slot.Profile}): the spire stands {spireY:F0} m north of the origin whatever the band; first spawn {landing}; control points {string.Join("; ", points)}");
-            }
-            GD.Print($"warfront: {slot.Name} neighbour copies drawn: {(drawnNeighbours.Count == 0 ? "none" : string.Join(", ", drawnNeighbours.Select(k => "band " + k)))}");
-            GD.Print($"warfront: {slot.Name} ({slot.Profile}, seed {slot.Seed}) drawn in {watch.ElapsedMilliseconds} ms (outside scenery {AshfallFrontScenery.LastTriangles:N0} triangles, client only)");
+            if (OldSyncBuild) while (_warfrontSteps.Count > 0) _warfrontSteps.Dequeue().Run();
+            else WarfrontScheduleStep();
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
         {
