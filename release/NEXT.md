@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Tapping Space as an Assault Marine or a Raptor now plays a single jump-pack hop sound. The extra roll-style whoosh and the doubled jump-pack burst that came with it are gone, for you and for the players you hear, in every mode.

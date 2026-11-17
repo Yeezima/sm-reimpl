@@ -76,3 +76,21 @@ public static class JumpLaunchSoundRules
         return previous is SmSim.JumpPhase.Hang or SmSim.JumpPhase.Fall && current is SmSim.JumpPhase.TakeOff or SmSim.JumpPhase.Ascent;   // an air jump
     }
 }
+
+/// <summary>
+/// A Space tap of an Assault Marine or a Raptor is one jump-pack hop with one sound (owner, 2026-11-17). The tap starts the jump (its launch sound) and 0.1 s later the
+/// simulation turns it into a short dash, whose data would post a second launch, the evade start (<c>play_bull_rush_dash</c>) and a half launch. In a dash the launch sound
+/// already heard stands for all of them; when none was heard just before (a remote player seen only as a dash), the dash posts its own launch, once.
+/// </summary>
+public static class HopSoundRules
+{
+    /// <summary>How long after a launch sound the dash start counts as the same hop.</summary>
+    public const double SameHopSeconds = 0.6;
+
+    /// <summary>The clip tags of a jump-pack dash that would sound again beside the launch (the evade start and the take-off): not posted for a jump-pack dash.</summary>
+    public static bool IsDashExtraTag(string tag) =>
+        tag.Equals("fx_evade_start", StringComparison.OrdinalIgnoreCase) || tag.Equals("actn_dash_takeoff", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the dash start posts its launch sound: only when no launch sound was heard within <see cref="SameHopSeconds"/>.</summary>
+    public static bool DashPostsLaunch(double now, double lastLaunchAt) => now - lastLaunchAt > SameHopSeconds;
+}

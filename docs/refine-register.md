@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3454 spec table rows: **2468 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 766 rows of the changes document.
+Scanned 3455 spec table rows: **2469 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 766 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3454 spec table rows: **2468 tagged**, 635 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 76 | 71 | 56 | 12 | 0 |
-| Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
+| Sound mix (critical) | 100 | 94 | 78 | 12 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,13 +53,13 @@ Scanned 3454 spec table rows: **2468 tagged**, 635 not tagged (read from data wi
 | Core simulation (provisional values) | 738 | 695 | 525 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2468** | 2192 | 1832 | 735 | 37 |
+| **All areas** | **2469** | 2193 | 1832 | 735 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1461 |
+| kind: ours | 1462 |
 | confidence: low | 885 |
 | confidence: medium | 838 |
 | notes: ours | 405 |
@@ -1835,7 +1835,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
 
-### Sound mix (gameplay-critical) (99)
+### Sound mix (gameplay-critical) (100)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2015,6 +2015,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5CBCB33D` | Live list | the last 48 distinct sounds that started, with source (YOUR, OTHER, WORLD: own emitter, an emitter that follows something, a fixed place), distance and count; filled only while the panel is open (a voice start scans 48 rows and allocates nothing); a click… | kind: ours | the owner | Live list: compare with SM1 by listening A/B at the same distance and state. Ours: the last 48 distinct sounds that started, with source (YOUR, OTHER… | ☐ |
 | `R-B620344E` | Empty config | no override, no global raw, no solo: `Resolve` returns null and every changed line of the sound system is a no-op; the output is today's | kind: ours | the owner ("zero behaviour change") | Empty config: compare with SM1 by listening A/B at the same distance and state. Ours: no override, no global raw, no solo: Resolve returns null and every… | ☐ |
 | `R-1C6E4862` | Files | saved: `%LOCALAPPDATA%\sm-reimpl\sound-mix.json` (only his differences from the shipped defaults (a sound he put back to the game's own is `{ "reset": true }`), applied over them at client start; a missing or broken file is skipped) beside… | kind: ours | the owner ("export the config for global application to playtest release shipments") | Files: compare with SM1 by listening A/B at the same distance and state. Ours: saved: %LOCALAPPDATA%\sm-reimpl\sound-mix.json (only his differences… | ☐ |
+
+*Spec section: Jump-pack hop sound (owner 2026-11-17)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7B173771` | Hop sound | a Space tap of an Assault Marine or a Raptor plays one jump-pack launch sound; the dash it turns into posts none of its own launch (within 0.6 s of a launch) nor the evade-start and take-off tags; a dash seen with no launch just before posts its launch once (s) | kind: ours | the owner ("only 1 jump pack hop sound") | Hop sound: compare with SM1 by listening A/B at the same distance and state. Ours: a Space tap of an Assault Marine or a Raptor plays one jump-pack… | ☐ |
 
 ### Effects (gameplay-critical) (100)
 
