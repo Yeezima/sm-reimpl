@@ -68,6 +68,7 @@ public partial class MapmakerPlugin : EditorPlugin
         GetUndoRedo().HistoryChanged += OnUndoVersionChanged;
         EditorInterface.Singleton.GetSelection().SelectionChanged += () => DocChanged?.Invoke();
         MapHost.RootChanged += OnRootChanged;
+        SceneSaved += OnSceneSaved;
         MapHost.Sm1Changed += OnSm1Changed;
         DocChanged += RecheckSoon;
         InitViewportTools();
@@ -83,7 +84,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
         _hooked = null;
         FreeViewportTools();
-        FlushStashedMaps();
+        SceneSaved -= OnSceneSaved;
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
@@ -168,16 +169,17 @@ public partial class MapmakerPlugin : EditorPlugin
     }
 
     /// <summary>
-    /// On plugin exit (editor quit), writes the changed maps of background tabs whose scene has a file: Save All saves those scenes without making them the edited
-    /// one, so their maps would otherwise be dropped with the stash (final review of 3cfa3bc0).
+    /// A scene saved while it is a background tab (Save All, or the close prompt's Save) writes its own map too: _SaveExternalData only sees the edited
+    /// scene, so the stashed session whose root holds that scene file is saved here and marked clean. A tab the user chose not to save is never written
+    /// (review of the exit flush, 2026-11-18).
     /// </summary>
-    void FlushStashedMaps()
+    void OnSceneSaved(string filepath)
     {
         foreach (var (k, v) in _stash.ToList())
         {
-            if (!v.Dirty || v.Session is null || GodotObject.InstanceFromId(k) is not Node root || !GodotObject.IsInstanceValid(root) || SceneFileOf(root).Length == 0) continue;
-            try { SaveSceneMap(root, v.Session, true); }
-            catch (Exception e) { GD.PushWarning($"Mapmaker: the map of {SceneFileOf(root)} was not saved on exit: {e.Message}"); }
+            if (!v.Dirty || v.Session is null || GodotObject.InstanceFromId(k) is not Node root || !GodotObject.IsInstanceValid(root) || SceneFileOf(root) != filepath) continue;
+            try { if (SaveSceneMap(root, v.Session, true)) _stash[k] = (v.Session, false); }
+            catch (Exception e) { GD.PushWarning($"Mapmaker: the map of {filepath} was not saved: {e.Message}"); }
         }
     }
 
