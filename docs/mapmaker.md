@@ -106,3 +106,13 @@ drag-drop placement; Godot's move/rotate/scale gizmo plus a numeric transform pa
 undo via `EditorUndoRedoManager`, each step applying core operations. Godot nodes are a **view** of the core document: every change goes
 through the core, and the scene file never holds SM1 meshes.
 
+**Viewport controls (2026-11-18).** *Always box-select:* with the Select tool a left drag from anywhere in the 3D view, also from over a placed
+object or an SM1 piece, draws a rectangle and selects what it covers on release (placed objects when their box overlaps it, SM1 pieces when their box
+centre is inside it); Shift adds, Ctrl removes; a plain click behaves as before. Objects move only with the gizmo handles (W/E/R); a press within about 70 px
+of the selection's centre goes to Godot so the handles keep working. *Keys + stamp:* arming an item (a library row, a Build button, a drop) shows a see-through
+preview of the real model at the cursor, snapped like the placed copy; the mouse wheel turns it (15 degrees or the angle snap), Shift + wheel scales it
+(10 %), the wheel never zooms the camera while armed; LMB places a copy with the preview's exact position, turn and size and the item stays armed; Esc or
+right click removes the preview and disarms; the preview hides while the mouse is outside the view. *Any scene tab:* each scene tab holds its own map (the
+session follows the edited scene); placing never switches tabs. A tab without a Mapmaker root is offered one ("Add a Mapmaker map here", a `MapmakerRoot` node
+under the scene's root); the SM1 map and the prefab library are shared, so a prefab extracted in one tab is placeable in any other. The flow test
+(`--mm-flow`) covers all three.

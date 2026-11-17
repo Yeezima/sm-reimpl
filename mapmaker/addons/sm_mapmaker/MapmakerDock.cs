@@ -351,17 +351,14 @@ public partial class MapmakerDock : VBoxContainer
         if (_wrongTab is { Visible: true }) return;
         if (_wrongTab is null)
         {
-            _wrongTab = new ConfirmationDialog { Title = "Not a Mapmaker map", Exclusive = true, OkButtonText = "New empty map", CancelButtonText = "Go to the open map" };
-            _wrongTab.Confirmed += () => _ = StartEmptyMap(_wrongTabItem);
-            _wrongTab.Canceled += () => { _plugin.EnsureSceneRoot(); _status.Text = "Switched to the Mapmaker scene with the open map; click (or drop) to place."; };
+            _wrongTab = new ConfirmationDialog { Title = "Not a Mapmaker map", Exclusive = true, OkButtonText = "Add a Mapmaker map here", CancelButtonText = "Cancel" };
+            _wrongTab.Confirmed += () => _ = _plugin.AddMapToCurrentScene();   // placement follows the tab being edited; it never switches tabs
+            _wrongTab.Canceled += () => _status.Text = "Nothing placed.";
             AddChild(_wrongTab);
         }
         _wrongTabItem = item;
-        var s = _plugin.Session;
-        string open = s is null ? "" : $"\n\nThe open map is \"{s.Name}\"{(_plugin.Dirty ? (s.Path is null ? " (unsaved changes, no file yet: Save As first)" : " (unsaved changes: New empty map saves them to its file first)") : "")}.";
-        _wrongTab.DialogText = "This scene tab is a plain Godot scene, not a Mapmaker map (Godot's + tab makes an ordinary scene). " +
-            "Mapmaker maps are edited in the Mapmaker scene tab." + open +
-            (item is null ? "" : $"\n\nNew empty map: starts a map with the SM1 backdrop hidden and places {item.Label} at its centre.");
+        _wrongTab.DialogText = "This scene tab has no Mapmaker map. Add one here (a Mapmaker node under the scene's root, with its own untitled map), " +
+            "then click or drop " + (item is null ? "the item" : item.Label) + " again to place it. The other tabs and their maps are left alone; the SM1 map and the prefab library stay available.";
         _wrongTab.PopupCentered(new Vector2I(460, 200));
     }
 
