@@ -14,7 +14,7 @@ public sealed class ClassicMapsRotationTests
     [Fact]
     public void Protocol_is_80_and_the_next_map_bit_travels_with_the_ended_match()
     {
-        Assert.Equal(81, Protocol.Version);
+        Assert.Equal(83, Protocol.Version);
         var ended = new MatchView(MatchState.Ended, Team.Chaos, 12, 41, 7, GameMode.SeizeGround, NextMap: true);
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(WithMatch(ended))));
         Assert.Equal(ended, back.Match);

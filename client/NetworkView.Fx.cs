@@ -124,7 +124,7 @@ public partial class NetworkView
             var names = new HashSet<string>(StringComparer.Ordinal);
             void Add(IEnumerable<FxBinding> bindings) { foreach (var b in bindings) if (b.Play is { Name.Length: > 0 } p) names.Add(p.Name); }
             foreach (var w in catalogue.Weapons.Values) { Add(w.Bindings); foreach (var pr in w.Projectiles) Add(pr.Bindings); }
-            foreach (var t in catalogue.Thrown.Values) { Add(t.Bindings); if (t.Projectile is { } tp) Add(tp.Bindings); }
+            foreach (var t in catalogue.Thrown.Values) { Add(t.Bindings); if (t.Projectile is { } tp) Add(tp.Bindings); if (t.Upgraded is { } tu) Add(tu.Bindings); }
             foreach (var table in catalogue.Containers.Values)
                 foreach (var surface in table.Effects.Values) foreach (var plays in surface.Values) foreach (var p in plays) names.Add(p.Name);
             // M38: the effects on a player hit on raised / broken armour (health_ext armourshield_hit / armourshield_inactive_hit).
@@ -687,7 +687,8 @@ public partial class NetworkView
         if (q.Thrown)
         {
             string name = q.Weapon >= 0 && q.Weapon < _config.Thrown.Count ? _config.Thrown[q.Weapon].Name : "";
-            return _catalogue.Thrown.GetValueOrDefault(name)?.Projectile;
+            var item = _catalogue.Thrown.GetValueOrDefault(name);
+            return GrenadeUpgradedFx(q) && item?.Upgraded is { } upgraded ? upgraded : item?.Projectile;   // grenade-effects (protocol 83): Master-Crafted Wargear's blueprint (blast scale 1.5)
         }
         if (q.Weapon < 0 || q.Weapon >= _config.Weapons.Count) return null;
         return _catalogue.ProjectileFor(_config.Weapons[q.Weapon].Name, Shots.ProjectileOf(_config, q.Weapon, q.Stage, false)?.Blueprint);
@@ -739,7 +740,7 @@ public partial class NetworkView
     /// it hit). Returns whether the original explosion plays (the placeholder blast sphere is then not drawn). <paramref name="scale"/> sizes every effect it plays (1: the data's; Musou Mode's bolt
     /// blast alone passes less, NetworkView.TfwBoltBlast.cs).
     /// </summary>
-    bool FxDetonation(ProjectileView d, float scale = 1f, float dustShare = 1f, bool flashOnly = false, bool pictureOnly = false, double delay = 0.0, int? priority = null)
+    bool FxDetonation(ProjectileView d, float scale = 1f, float dustShare = 1f, bool flashOnly = false, bool pictureOnly = false, double delay = 0.0, int? priority = null, bool grenade = false)
     {
         if (!FxActive || _config is null) return false;
         var fx = FxProjectileOf(d);
@@ -756,7 +757,7 @@ public partial class NetworkView
         int blastPriority = _camera is not null && _camera.GlobalPosition.DistanceTo(pos) <= FxPriority.NearBlastMetres ? FxPriority.Hit : FxPriority.Special;   // fx-cap-priority: a blast beside the player goes after the other blasts
         if (priority is { } forced) blastPriority = forced;   // the own shot's terrain flash: the own tier
         foreach (var p in plays)
-            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, delay, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) { played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); played.BrightFlash = flashOnly; }
+            if (_fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, delay, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } played) { played.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); played.BrightFlash = flashOnly; if (grenade && GrenadeKeepsSmoke(p.Name)) played.KeepGrenadeSmoke(GrenadeFx.SmokeShare); }   // grenade-effects: a frag blast's smoke and dust (owner 2026-11-17)
         if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
             if (_fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, delay, false, blastPriority, tint: RaceTint(shooterWargear, p.Name)) is { } playedHit) { playedHit.DustShare = dustShare * BoltSmoke.ShareFor(shooterWargear, OldBoltSmokeFx); playedHit.BrightFlash = flashOnly; }
@@ -767,8 +768,13 @@ public partial class NetworkView
             float radius = d.Thrown ? 4f : 6f;
             bool feel = true;
             ExtrasBlastFeel(d, distance, ref feel);   // EXTRAS-HOOK: added content's thinning of blast jolts (Musou weight pass: within 12 m, the strongest a 0.25 s window, the own grenades always)
-            if (feel && distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
-            if (feel) CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
+            if (grenade && GrenadeCameraData(d))
+                GrenadeJolt(distance);   // grenade-effects (owner 2026-11-17: "the game's camera shake"): the blueprint's camera_effect instead of the placeholder shake and kick
+            else
+            {
+                if (feel && distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
+                if (feel) CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
+            }
             string name = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.Thrown[d.Weapon].Name : "";
             if (name.Contains("krak", StringComparison.OrdinalIgnoreCase) && client.Predicted.Alive && distance < 7f)
             {
@@ -836,7 +842,7 @@ public partial class NetworkView
         if (_camera is null) return;
         float accessibility = SmClient.Customizer.Model.LiveOptions.CameraShake;   // the Options menu's camera shake (combat feel 2026-11-09; 1 = as before)
         float amount = _shake.X * accessibility;
-        var bob = LandShakeOffset() * accessibility;   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
+        var bob = (LandShakeOffset() + GrenadeJoltOffset()) * accessibility;   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
         bool rotate = amount >= 0.0004f;
         if (!rotate) _shake = Vector3.Zero;
         float punch = (PunchNow() + CameraImpulseNow(delta)) * accessibility;   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
