@@ -369,6 +369,7 @@ public partial class NetworkView
         var p = t.Prev;
         // The speed game parameter: the larger of this and the last frame's speed, so a landing is heard at the speed it hit with (interpretation).
         t.Emitter.Parameters[VoiceMixer.Speed] = Math.Max(s.Velocity.Length(), p.Velocity.Length());
+        EvadeMixKind(t, s);   // sound/editor-roll-hop: which evade this player last did (the mix editor's Tactical roll / Devastator and Havoc hop entries)
         var blueprint = BlueprintFile(s);
         // Spawn and death. A life's looping sounds end with it (sound/shield-regen: the broken-shield warning of a player who died with the shield down
         // pulsed every 0.7 s for the rest of the session).

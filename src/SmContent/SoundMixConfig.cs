@@ -157,6 +157,15 @@ public sealed class SoundMixConfig
         return cache[evt] = ResolveNew(evt, own);
     }
 
+    /// <summary>
+    /// <see cref="Resolve"/> for a voice that also answers to an alias entry (<see cref="SoundMixCatalog.AliasOf"/>): the alias' override or solo wins when it has one, else the event's own applies.
+    /// </summary>
+    public SoundMixEffect? Resolve(string evt, string? alias, bool own)
+    {
+        if (alias is not null && !IsEmpty && (Map(own).ContainsKey(alias) || Solo(own).Contains(alias))) return Resolve(alias, own);
+        return Resolve(evt, own);
+    }
+
     readonly Dictionary<string, SoundMixEffect?> _cacheOwn = new(StringComparer.OrdinalIgnoreCase), _cacheOthers = new(StringComparer.OrdinalIgnoreCase);
     int _cacheVersion = -1;
 

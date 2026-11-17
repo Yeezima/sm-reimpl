@@ -74,6 +74,33 @@ public static class SoundMixCatalog
             "smack", "explo", "blast", "overheat", "venting", "mode_switch"),
     ];
 
+    /// <summary>
+    /// sound/editor-roll-hop (owner, 2026-11-17: "add a sound editor tool option for tactical hop and devastator roll", read as the Tactical roll and the Devastator / Havoc hop): two editor
+    /// entries that are not events of the game. The Tactical and Chaos Tactical roll (<c>sm_mp_core_abil_evade</c>) and the Devastator and Havoc hop (<c>sm_mp_core_abil_heavy_evade</c>) post the same
+    /// three events (<c>play_evade_start</c>, <c>play_evade_roll</c>, <c>play_evade_end</c>; the install's two files bind them identically), so the editor could not tell them apart by event name. A voice
+    /// of one of those events made by a player who last evaded with the roll (or the hop) takes the entry's override first (<see cref="AliasOf"/>), else the event's own; nothing is changed until an
+    /// entry is edited. Ours (editor presentation, the evidence is the trigger files above).
+    /// </summary>
+    public const string TacticalRollKey = "mix:tactical_roll", HeavyHopKey = "mix:heavy_hop";
+
+    /// <summary>The evade kinds a player's emitter carries: set when it starts an evade (<c>NetworkView.EvadeMixKind</c>), read by <see cref="AliasOf"/>.</summary>
+    public const string EvadeKindRoll = "roll", EvadeKindHop = "hop";
+
+    static readonly string[] EvadeEvents = ["play_evade_start", "play_evade_roll", "play_evade_end"];
+
+    /// <summary>The two entries that are not game events, listed in the Combat moves group.</summary>
+    public static IReadOnlyList<string> Aliases { get; } = [TacticalRollKey, HeavyHopKey];
+
+    /// <summary>True for an entry of <see cref="Aliases"/>.</summary>
+    public static bool IsAlias(string evt) => Aliases.Contains(evt, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The entry a voice of <paramref name="evt"/> also answers to, given the evade kind of its emitter (null: none).</summary>
+    public static string? AliasOf(string evt, string? evadeKind)
+    {
+        if (evadeKind is null || !EvadeEvents.Contains(evt, StringComparer.OrdinalIgnoreCase)) return null;
+        return evadeKind == EvadeKindHop ? HeavyHopKey : evadeKind == EvadeKindRoll ? TacticalRollKey : null;
+    }
+
     static readonly (string Prefix, string Faction)[] Factions = [("sm_", "Marine"), ("ch_", "Chaos"), ("or_", "Ork"), ("ig_", "Guard")];
 
     static readonly ConcurrentDictionary<string, SoundMixInfo> Cache = new(StringComparer.OrdinalIgnoreCase);
@@ -99,6 +126,8 @@ public static class SoundMixCatalog
     static SoundMixInfo Compute(string evt)
     {
         string e = evt.ToLowerInvariant();
+        if (e == TacticalRollKey) return new(evt, SoundMixGroup.CombatMoves, "Tactical roll", "Tactical roll");
+        if (e == HeavyHopKey) return new(evt, SoundMixGroup.CombatMoves, "Devastator / Havoc hop", "Devastator / Havoc hop");
         if (e.StartsWith("speech/", StringComparison.Ordinal))
             return new(evt, SoundMixGroup.Voices, "Voice line: " + e["speech/".Length..].Replace('/', ' ').Replace('_', ' '), "Character voice");
         bool stop = e.StartsWith("stop_", StringComparison.Ordinal);
@@ -132,7 +161,7 @@ public static class SoundMixCatalog
     // ---- the events the client knows ----
 
     static readonly object KnownLock = new();
-    static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase);
+    static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { TacticalRollKey, HeavyHopKey };
     static List<string>? _knownSorted;
 
     /// <summary>Adds event names to the editor's list (the client registers every name its triggers and map can post, then each name it plays).</summary>
