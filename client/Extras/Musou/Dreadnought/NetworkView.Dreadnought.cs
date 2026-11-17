@@ -49,6 +49,15 @@ public partial class NetworkView
     int DreadIndex => _dreadIndex != -2 ? _dreadIndex : _config is null ? -1 : _dreadIndex = DreadnoughtClassIndex();
     bool IsDreadnoughtClass(int playerClass) => DreadIndex >= 0 && playerClass == DreadIndex;
 
+    /// <summary>Whether player <paramref name="id"/> (the own or one seen) is a Dreadnought now: his swing's cleave and drawn arc are 1.5 times as long (<see cref="DreadnoughtRules.CleaveReachScale"/>).</summary>
+    bool DreadnoughtPlayer(int id)
+    {
+        if (DreadIndex < 0 || _client is null) return false;
+        if (id == _client.PlayerId) return IsDreadnoughtClass(_client.Predicted.Class);
+        foreach (var o in _lastOthers) if (o.PlayerId == id) return IsDreadnoughtClass(o.Class);
+        return false;
+    }
+
     /// <summary>The characters wearing his model (a set: no per-frame string work; empty without a Dreadnought in the match).</summary>
     readonly HashSet<CharacterViewer> _dreadCharacters = new();
     bool IsDreadnoughtCharacter(CharacterViewer c) => _dreadCharacters.Count > 0 && _dreadCharacters.Contains(c);

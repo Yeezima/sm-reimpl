@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3422 spec table rows: **2442 tagged**, 630 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 754 rows of the changes document.
+Scanned 3428 spec table rows: **2447 tagged**, 631 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 755 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 406 | 348 | 346 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
-| Melee (critical) | 157 | 137 | 113 | 56 | 5 |
+| Melee (critical) | 159 | 139 | 115 | 56 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
@@ -50,22 +50,22 @@ Scanned 3422 spec table rows: **2442 tagged**, 630 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
+| Core simulation (provisional values) | 737 | 694 | 524 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2442** | 2169 | 1809 | 732 | 37 |
+| **All areas** | **2447** | 2174 | 1813 | 732 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1439 |
-| confidence: low | 872 |
-| confidence: medium | 828 |
+| kind: ours | 1444 |
+| confidence: low | 875 |
+| confidence: medium | 829 |
 | notes: ours | 404 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
-| kind: estimate | 164 |
+| kind: estimate | 168 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -1033,7 +1033,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (157)
+### Melee (gameplay-critical) (159)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1330,6 +1330,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-AD7D2FAC` | Dreadnought: melee repetition (owner 2026-11-17: "the same rules player has") | **unchanged and checked:** he follows the marines' Musou melee rules (`SimConfig.MeleeSpam`: no cooldown, no combo window; a press before a swing's hit queues the next swing for the tick the hit lands, a press after it starts the next at once, the other swing… (s) | kind: ours; kind: estimate; confidence: medium | `DreadnoughtMelee.Faster`, `DreadnoughtRules.RangedAfterHit`; tests `DreadnoughtPassTests` | Dreadnought: melee repetition (owner 2026-11-17: "the same…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: unchanged and checked: he follows the marines' Musou melee rules… | ☐ |
+| `R-8959C3C4` | Dreadnought: animation pass, checked and left (owner 2026-11-17: "especially the light melee… | measured with `--pose-pop-probe` in a real-time run (about 50 frames a second) of a Dreadnought chaining light swings and a stomp: **no pop event** (a clip entry whose bone turns above 25 degrees a frame and 5 above its clip's own largest) on his clips; the… (degrees a frame) | kind: ours; confidence: low | `NetworkView.DreadnoughtStrikeClipTime`, `ExtrasPlace` (unchanged) | Dreadnought: animation pass, checked and left (owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: measured with --pose-pop-probe in a real-time run (about 50 frames a… | ☐ |
 | `R-C778FFFB` | Melee field-of-view widening (camera/melee-fov-widen, owner 2026-11-15) | any melee action (swing, heavy strike, the charge incl. the sprint-RMB charge, the dash attack's lunge, the ground pound) adds 10 horizontal degrees to the configured field of view (`FovMath.Clamp`; unset = the data's look), capped at 120 (115 goes to 120… (horizontal degrees at the window's aspect; 0.3 s) | kind: ours | `MeleeFov`, `NetworkView.MeleeFov`, `NetworkView.RigCamera` | Melee field-of-view widening (camera/melee-fov-widen, owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: any melee action (swing, heavy strike, the charge incl. the… | ☐ |
 
 ### Jump pack (gameplay-critical) (81)
@@ -2550,7 +2552,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (734)
+### Core simulation (provisional values) (737)
 
 *Spec section: Provisional values in use*
 
@@ -3725,6 +3727,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C3ADC386` | Dreadnought: lights of the scaled-up effects | a data light's range scales with its effect (`autocannon_muzzle` atten 10 x1.75, `powersource_glow` x11 and x12, `cl_force_field` x3) and lit the volumetric fog, tinting the whole view: a sepia flicker with each burst of the cannon, a red-orange wash for the… (m) | kind: ours; kind: estimate; confidence: medium | the film of 2026-11-15 (clips 03 to 05) | Dreadnought: lights of the scaled-up effects: compare with SM1 by measuring on a flat spot of the same map. Ours: a data light's range scales with its effect (autocannon_muzzle atten… | ☐ |
 | `R-3F132D6F` | Dreadnought: the entrance cue and the death | the entrance (`evt_spawn_in`: portal clouds, force field, krak and hammer-swing glows) plays when a LIVING body starts a life (0.3 s window, once), never on a corpse (`DreadnoughtFeel.EntryDue`: the film's respawn test aid stood him up 0.02 s after… (s) | kind: ours; kind: estimate; confidence: medium | docs/discovery.md "DA Dreadnought inventory"; the film's logs | Dreadnought: the entrance cue and the death: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the entrance (evt_spawn_in: portal clouds, force field, krak and… | ☐ |
 | `R-337A2379` | Dreadnought: film aids | server `SM_DN_TEST_GUARD=1` tops up every living Dreadnought's health each step (filming among the Orks only); client `--dn-da-close` (cannon, melta and head close-ups: camera modes 4 to 6), `--dn-muzzle-log` (the flash marker's place and the model's reach)… | kind: ours | this pass | Dreadnought: film aids: compare with SM1 by feel or video. Ours: server SM_DN_TEST_GUARD=1 tops up every living Dreadnought's health… | ☐ |
+| `R-9D7354DB` | Dreadnought: where the cannon and melta shoot (aim pass, owner 2026-11-17) | **why it shot low:** a shot leaves the point of the camera's ray nearest the eye, and the server cuts that origin to `MaxShotOriginOffset` **1.5** m from the eye (`Combat.ShotOrigin`); the core's eye is 1.6 m above the feet for every body, but his camera is… (m) | kind: ours; kind: estimate | `DreadnoughtRules.MaxShotOriginOffset`, `MusouLoadout.Prepare`; tests `DreadnoughtPassTests` | Dreadnought: where the cannon and melta shoot (aim pass…: compare with SM1 by measuring on a flat spot of the same map. Ours: why it shot low: a shot leaves the point of the camera's ray nearest… | ☐ |
+| `R-87990371` | Dreadnought: shake of a light swing's hit (owner 2026-11-17: "screen shake ... to his melees") | the own camera shakes 0.1 s then 0.12 s fading when a light swing's hit lands on at least one enemy the client sees in the cleave (`DreadnoughtFeel.ArmHit`): vertical 0.12 m at 11 Hz, pitch 0.9 degrees at 9 Hz, yaw 0.5 at 14 Hz, roll 0.6 at 18 Hz; about a… (m, degrees) | kind: ours; kind: estimate; confidence: low | `DreadnoughtFeel.ArmHit`, `NetworkView.DreadArmHitShake` | Dreadnought: shake of a light swing's hit (owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own camera shakes 0.1 s then 0.12 s fading when a light swing's… | ☐ |
+| `R-E5905B13` | Dreadnought: shake of the cannon's sustained fire (owner 2026-11-17: "charge autocannon sustained… | a steady rumble of the own camera while the cannon keeps firing (a round within 0.25 s of the last: `SustainGapSeconds`): strength builds over 0.6 s of continuous fire and falls in 0.3 s after the last round (`SustainRamp`); at full: horizontal 0.015 m at 12… (m, degrees) | kind: ours; kind: estimate; confidence: low | `DreadnoughtFeel.CannonSustained`, `SustainRamp`, `NetworkView.DreadSustainedFire` | Dreadnought: shake of the cannon's sustained fire (owner…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a steady rumble of the own camera while the cannon keeps firing (a… | ☐ |
 
 ### General game design (12)
 
@@ -4389,6 +4394,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-DFD75858` | Musou: the damage answers (claude/musou-damage-answers, owner 2026-11-11; `TfwRules.Version` 69, `MusouSim.Version` 45) | the owner (2026-11-11): "alliedmarine should not lose range falloff"; "a shot should not lose 15% of its damage for each ork it passes through - but only for the players"; "melta should keep its full 200 damage out to 20m"; "double damage should not affect orbital strikes" | the AI Marines' guns get their range fall-off back (the no-fall-off rule above is the human players'), a human's hit-scan shot loses nothing per Ork it goes through (an AI Marine's keeps the 0.85 share), the melta's full 200 to 20 m for a player and Double Damage never on an orbital strike are pinned by tests; Classic… | Musou: no range fall-off | Musou: the damage answers (claude/musou-damage-answers…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner (2026-11-11): "alliedmarine should not lose range falloff"… | ☐ |
 | `C-6E22FB59` | Musou Dreadnought, the Dreadnought Assault Dreadnought (claude/musou-dreadnought-da, 2026-11-15; `MusouSim.Version` 59, `TfwRules.Version` 84, no protocol change) | the Dreadnought of Dreadnought Assault: its camera shake, footfall, stomp, entrance, landing, wall-hit, power-up, damage-state and death effects and sounds, its own cannon sounds and effects, the engine loop, walk 6.5 and sprint 11 m/s, 8000 health | Musou only: all of those from the data (shake at the data's numbers for the own view and nearby, fall-off by distance, scaled by Camera shake and Reduce motion); **ours:** the shake's units (metres, degrees) and its linear fall-off, the effect marker heights, the damage-state thresholds on Musou's 2000 health, Musou's… | the owner's orders of 2026-11-15 (decisions/2026-11-15-musou-dreadnought-weapon-buff.md); spec "Musou Dreadnought becomes the Dreadnought Assault Dreadnought"; docs/discovery.md "DA Dreadnought inventory" | Musou Dreadnought, the Dreadnought Assault Dreadnought…: compare with SM1 by feel or video. Ours: the Dreadnought of Dreadnought Assault: its camera shake, footfall… | ☐ |
 | `C-B2AF66F5` | Musou Dreadnought power-up: Overcharge (claude/musou-dreadnought-da, owner 2026-11-15; `MusouSim.Version` 60, `TfwRules.Version` 85, no protocol change) | the original's Dreadnought power-up gives regeneration x2 and reaction immunity; Musou keeps them for 30 s and adds Overcharge: the cannon builds no heat and fires without stopping, and each melee swing that strikes releases one 3 m shockwave (knockback and interrupt, no damage of its own) at the hit; the wave's… | ours (added content, Musou only) | low | Musou Dreadnought power-up: Overcharge…: compare with SM1 by feel or video. Ours: the original's Dreadnought power-up gives regeneration x2 and… | ☐ |
+| `C-123C0495` | Musou Dreadnought pass: the cannon through the crosshair, a 1.5 times cleave, the gun after a swing, the shakes, a chain that plays on (claude/musou-dreadnought-pass, owner 2026-11-17; `MusouSim.Version` 62, `TfwRules.Version` 87, no protocol change; Musou Mode only) | the original's Dreadnought is a campaign and Dreadnought Assault body; Musou's has: the cannon and melta shoot from the camera ray's own point (the shot-origin cut is 8 m in Musou's config, not the core's 1.5 m: his camera sits about 4 m from his eye, so his rounds ran about 2 m under the crosshair); his cleave… | ours (added content, Musou only) | medium | Musou Dreadnought pass: the cannon through the crosshair, a…: compare with SM1 by feel or video. Ours: the original's Dreadnought is a campaign and Dreadnought Assault… | ☐ |
 
 #### Classic PvP's autocannon (`Autocannon`, in the extended profile; spec "Added content: Classic PvP's autocannon")
 

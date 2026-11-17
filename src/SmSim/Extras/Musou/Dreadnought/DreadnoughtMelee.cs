@@ -38,7 +38,7 @@ public static class DreadnoughtMelee
         return step with
         {
             Duration = step.Duration / speed, HitTime = step.HitTime / speed, ComboOpen = step.ComboOpen / speed, ComboClose = step.ComboClose / speed,
-            RangedAt = step.RangedAt / speed, MoveAt = step.MoveAt / speed, YComboOpen = step.YComboOpen / speed, YComboClose = step.YComboClose / speed,
+            RangedAt = MathF.Min(step.RangedAt / speed, step.HitTime / speed + DreadnoughtRules.RangedAfterHit), MoveAt = step.MoveAt / speed, YComboOpen = step.YComboOpen / speed, YComboClose = step.YComboClose / speed,
             NoReactFrom = step.NoReactFrom / speed, NoReactTo = step.NoReactTo / speed, EvadeAt = T(step.EvadeAt, speed), StringResetAt = T(step.StringResetAt, speed),
         };
     }

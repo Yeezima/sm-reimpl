@@ -22,6 +22,28 @@ public static class DreadnoughtRules
     public const float MeleeSpeed = 1.3f;
 
     /// <summary>
+    /// His cleave reaches this many times as far as every other Musou swing's (owner, 2026-11-17: "increase the cleave radius of his attacks by 50% - stomp and light melee attacks"; **owner's value**): the reach of every cleave of his arm
+    /// (light X, the stomp, Y01) is the ordinary Musou cleave's (core range, the cleave's extra, the war's scales) times this (<c>World.MusouCleave</c>; the client's drawn arc and predicted pick read it through <see cref="MusouCleaveShape.Of"/>).
+    /// </summary>
+    public const float CleaveReachScale = 1.5f;
+
+    /// <summary>
+    /// How soon after a light swing's hit his gun may cancel the swing (s; **ours (estimate)**: the Tactical's knife, the marines' own rule, lets Fire cancel 0.12 to 0.15 s after its hit, <c>BRANCH_ToRanged</c> 0.433 s against the hit's 0.280 s and
+    /// 0.500 against 0.384). The data's tag for his arm is 1.0 s after the hit, so a swing that had hit still held his cannon for a second. The melee-spam rule (a press after the hit starts the next swing) is the marines' own and unchanged.
+    /// </summary>
+    public const float RangedAfterHit = 0.15f;
+
+    /// <summary>
+    /// The longest a shot's origin may lie from his eye (m; **ours (estimate)**), against the core's 1.5. His camera (the marine rig's offsets x 2.2) sits about 3 m from his eye (<see cref="SimConfig.EyeHeight"/> 1.6 m above his feet): the crosshair's ray passes
+    /// further than 1.5 m from the eye, the server cut the origin to 1.5 m along the way to it and the cannon's rounds ran parallel to the crosshair's ray about 1.4 m below it (spec "Dreadnought: where the cannon shoots"). With the cut at 8 m every shot leaves the
+    /// camera ray's own point nearest the eye, along the ray, so the round goes through the crosshair's point of aim. Applied to Musou's config (<see cref="MusouLoadout.Prepare"/>); a marine's camera passes within 1.5 m, so it is unchanged for them.
+    /// </summary>
+    public const float MaxShotOriginOffset = 8f;
+
+    /// <summary>Test aid (environment variable <c>SM_DN_OLD_SHOT_ORIGIN=1</c> on the server and the client; never in a real match): the core's 1.5 m cut stays, the before of the aim pass's before-and-after stills.</summary>
+    public static readonly bool OldShotOriginAid = Environment.GetEnvironmentVariable("SM_DN_OLD_SHOT_ORIGIN") == "1";
+
+    /// <summary>
     /// The Dreadnought's melta, scaled up from the Tactical's (owner, 2026-11-15: "a larger scaled up version of the tactical marine melta (1.5x damage, faster reload, bigger range, still does full damage at max range, infinite ammo)").
     /// Damage x1.5 is the owner's; the reload at 0.6 of the Tactical's and the reach at 1.5 times are **estimates** (ours; the owner gave no numbers: refine register).
     /// </summary>
