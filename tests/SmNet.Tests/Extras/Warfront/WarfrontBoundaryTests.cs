@@ -78,6 +78,8 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/NetworkView.MusouPowerups.cs", "WarfrontCarry"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontRowAction"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontLibrarianRows"),
+        // W13e: the stranded failsafe's "near" (an Ork inside its goal's ring has arrived)
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "WarfrontHeadwayNear"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

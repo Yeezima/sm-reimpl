@@ -265,6 +265,9 @@ public sealed partial class MusouSim
         return node;
     }
 
+    /// <summary>Warfront: an Ork inside an alive goal target's ring counts as near (the failsafe's "arrived"). No-op without the Warfront object.</summary>
+    partial void WarfrontHeadwayNear(Vector3 position, ReadOnlySpan<MusouTarget> targets, ref bool near);
+
     /// <summary>
     /// The stranded-enemy failsafe's bookkeeping (ours): headway is a step of 1 m nearer a player (by the flow field, else straight), 2 m away from where
     /// it last made some, being near a player (12 m; a shooter within its band's far edge plus 3 m), attacking, or there being no player to go for. An
@@ -278,6 +281,7 @@ public sealed partial class MusouSim
         float arrived = spec.Ranged ? MathF.Max(12f, spec.RangedMax + 3f) : 12f;
         float metric = Flow is { Ready: true } && _node[i] >= 0 && !float.IsPositiveInfinity(Flow.Distance(_node[i])) ? Flow.Distance(_node[i]) : straight;
         bool near = float.IsPositiveInfinity(straight) || straight <= arrived;
+        WarfrontHeadwayNear(p, targets, ref near);   // WARFRONT-HOOK: an Ork inside the ring it was sent to has arrived (Warfront's rings are wider than 12 m)
         if (near || _state[i] != MusouEnemyState.Seek || metric < _best[i] - 1f || Vector3.DistanceSquared(p, _anchor[i]) > 4f)
         {
             _headwayTick[i] = Tick; _anchor[i] = p;

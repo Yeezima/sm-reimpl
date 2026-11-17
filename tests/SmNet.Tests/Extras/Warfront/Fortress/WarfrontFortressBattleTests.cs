@@ -238,6 +238,55 @@ public class WarfrontFortressBattleTests
         Assert.True(battle.WarfrontFortressFlow!.PlazaEntered);
     }
 
+    // ---- W13e: the win tripwire and the arena boss at home
+
+    [Fact]
+    public void A_win_by_the_warbosss_death_logs_his_last_health_and_no_fault()
+    {
+        var (w, battle, _) = Fortress();
+        var lines = new List<string>();
+        w.Tfw!.Warfront!.FortressLog = lines.Add;
+        Stand(w, 60);
+        Assert.True(w.Musou!.Damage(battle.BossId, TfwRig.Human, 1e7f, Vector3.Zero, out _));
+        w.Step(_ => default);
+        Stand(w, 5);
+        Assert.True(battle.Won);
+        var line = Assert.Single(lines);
+        Assert.StartsWith("fortress won:", line);
+        Assert.DoesNotContain("FAULT", line);
+        Assert.Contains("killed", line);
+        Assert.Contains("last health", line);
+    }
+
+    [Fact]
+    public void A_win_by_the_warboss_vanishing_without_a_death_logs_a_fault_with_his_last_health()
+    {
+        var (w, battle, _) = Fortress();
+        var lines = new List<string>();
+        w.Tfw!.Warfront!.FortressLog = lines.Add;
+        Stand(w, 60);
+        Assert.True(w.Musou!.Remove(battle.BossId));   // a test call: no death
+        w.Step(_ => default);
+        Stand(w, 5);
+        Assert.True(battle.Won);
+        var line = Assert.Single(lines);
+        Assert.StartsWith("FAULT: the fortress was won with the Warboss at 100 %", line);
+        Assert.Contains("no death recorded", line);
+        Assert.Equal(line, battle.FortressWinReport);
+    }
+
+    [Fact]
+    public void A_warboss_standing_on_his_spot_is_not_put_back_on_it()
+    {
+        var (w, battle, setup) = Fortress();
+        Stand(w, 30);
+        battle.FortressObserve([setup.Plan.BossSpot + new Vector3(0f, -20f, 0f)]);   // freed
+        Assert.True(w.Musou!.TryGet(battle.BossId, out var boss));
+        Assert.True(Vector2.Distance(new(boss.Position.X, boss.Position.Y), new(setup.Plan.BossSpot.X, setup.Plan.BossSpot.Y)) <= WarfrontFortressBattleRules.HomeAlready);
+        for (int k = 0; k < 400; k++) battle.FortressObserve([setup.Plan.Gate]);   // 8 s with no step: he stands still on his spot, nobody in the plaza
+        Assert.Equal(0, battle.FortressWarbossHomes);
+    }
+
     // ---- the stages
 
     [Fact]

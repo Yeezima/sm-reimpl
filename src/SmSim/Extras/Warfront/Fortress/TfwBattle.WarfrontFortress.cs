@@ -104,7 +104,7 @@ public sealed partial class TfwBattle
     public void FortressObserve(ReadOnlySpan<Vector3> humans)
     {
         if (_fortress is not { } state) return;
-        if (Won) { if (FortressMessage != WarfrontFortressBattleRules.MessageWarbossDead) FortressSay(WarfrontFortressBattleRules.MessageWarbossDead); return; }
+        if (Won) { FortressWinTripwire(); if (FortressMessage != WarfrontFortressBattleRules.MessageWarbossDead) FortressSay(WarfrontFortressBattleRules.MessageWarbossDead); return; }
         if (FortressMessage != 0 && --_fortressMessageTicks <= 0) FortressMessage = 0;
         if (state.Observe(humans))
         {
@@ -112,6 +112,33 @@ public sealed partial class TfwBattle
             FortressSay(WarfrontFortressBattleRules.MessageWarbossInArena);
         }
         FortressWarbossHome(state, humans);
+        if (BossId != 0 && _enemies.TryGet(BossId, out var seen) && seen.Alive && BossMaxHealth > 0f) { _tripBossId = BossId; _tripPercent = seen.Health / BossMaxHealth * 100f; _tripSeen = true; }
+    }
+
+    ushort _tripBossId;
+    float _tripPercent = 100f;
+    bool _tripSeen, _tripDone;
+    /// <summary>The win tripwire's one line (W13e; empty before the fortress is won): the Warboss's last health and how he ended. Starts with <c>FAULT</c> when he was above 5 % the tick before or vanished without a death.</summary>
+    public string FortressWinReport { get; private set; } = "";
+
+    /// <summary>
+    /// W13e (W14e review, follow-up 1): the first observe after the fortress turned Won writes one line with the Warboss's last health (the tick before) and how he ended: killed (his slot is dying, or he was seen at 5 % or less),
+    /// or missing from the pool without a death. A <c>FAULT</c> when he is missing without a death and was above <see cref="WarfrontFortressBattleRules.WinFaultPercent"/> % the tick before (or never seen); a death is never a fault, whatever his last health. Logs through <see cref="WarfrontBattleRules.FortressLog"/>.
+    /// </summary>
+    void FortressWinTripwire()
+    {
+        if (_tripDone) return;
+        _tripDone = true;
+        string last = _tripSeen ? _tripPercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " %" : "never seen";
+        bool dying = _tripBossId != 0 && _enemies.TryGet(_tripBossId, out var end) && !end.Alive;
+        string how = dying ? "killed (his slot is dying)" : "missing from the pool, no death recorded";
+        bool fault = !dying && (!_tripSeen || _tripPercent > WarfrontFortressBattleRules.WinFaultPercent);
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        string pct = _tripSeen ? _tripPercent.ToString("0", ci) : "?";
+        FortressWinReport = fault
+            ? $"FAULT: the fortress was won with the Warboss at {pct} % (last health the tick before {last}; {how})"
+            : $"fortress won: the Warboss's last health {last}; {how}";
+        _enemies.Warfront?.FortressLog?.Invoke(FortressWinReport);
     }
 
     bool _fortressBossCarried;
@@ -129,6 +156,7 @@ public sealed partial class TfwBattle
     {
         if (BossId == 0 || !state.PlazaEntered || !_enemies.TryGet(BossId, out var boss) || !boss.Alive) { _fortressBossCarried = false; _homeAnchorTicks = 0; return; }
         var spot = state.Plan.BossSpot;
+        if (Vector2.Distance(new(boss.Position.X, boss.Position.Y), new(spot.X, spot.Y)) <= WarfrontFortressBattleRules.HomeAlready) { _fortressBossCarried = false; _homeAnchorTicks = 0; return; }   // W13e: already home: no relocation, no count, no restarted seek
         bool inside = false;
         foreach (var h in humans) if (state.InPlaza(h)) { inside = true; break; }
         bool home = _fortressBossCarried;
