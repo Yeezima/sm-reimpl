@@ -6247,3 +6247,9 @@ Owner (2026-11-17, verbatim): "build me a configuration tool in game that allows
 | Added content | the gate does nothing with any added content (`SimConfig.Extras` not none): Musou Mode and the Ork's extras are untouched | - | - | `CancelGate.Active` | the owner ("Classic PvP only") | ours | high |
 | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note and source), class and weapon selectors with an "inherits" line, RESET CELL, RESET ALL, the difference count, the in-sync mark, EXPORT and IMPORT | key | live | `CancelEditorPanel`, `NetworkView.CancelEditor.cs` | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | ours | high |
 | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff FILE` lists the changes against the shipped default in plain words | - | on request | `CancelConfigStore`, `CancelConfigCommand` | the owner ("hands changes over as an export file") | ours | high |
+
+## Jump-pack hop sound (owner 2026-11-17)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Hop sound | a Space tap of an Assault Marine or a Raptor plays one jump-pack launch sound; the dash it turns into posts none of its own launch (within 0.6 s of a launch) nor the evade-start and take-off tags; a dash seen with no launch just before posts its launch once | s | per tap | `HopSoundRules` | the owner ("only 1 jump pack hop sound") | ours | high |

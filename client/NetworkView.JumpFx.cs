@@ -325,6 +325,8 @@ public partial class NetworkView
     void DashSound(PlayerState s, EvadeSpec dash, bool own)
     {
         if (_sound is null || _soundTriggers?.File(dash.Name) is not { } file || !_soundTracks.TryGetValue(s.PlayerId, out var track)) return;
+        if (!HopSoundRules.DashPostsLaunch(_connectedFor, track.LaunchAt)) return;   // the tap's launch sound was just heard: one hop, one sound
+        track.LaunchAt = _connectedFor;
         PostAll(file.Tag("fx_jump_evade"), track.Emitter, own, "dash");
     }
 

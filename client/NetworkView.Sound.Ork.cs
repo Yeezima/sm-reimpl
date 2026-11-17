@@ -210,6 +210,8 @@ public partial class NetworkView
         // fix/camera-zoom-misc test aid: --log-sound reload prints every reload-tag post (own: "reload", others: "reload other") with the event and what it resolved to, to count the posts of one reload.
         if (kind.StartsWith("reload", StringComparison.Ordinal) && LogSound("reload")) GD.Print($"RELOAD SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} | {VoicesText(play)}");
         if ((kind is "throw" or "trail" or "detonation" or "grenade victim") && LogSound("grenade")) GD.Print($"GRENADE SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} stop '{b.StopEvent}' | {VoicesText(play)}");   // grenade-effects test aid: --log-sound grenade
+        // fix/jump-pack-hop-sound test aid: --log-sound jump prints every post that is not a footstep (kind, trigger, event), to count the sounds of one Space tap.
+        if (LogSound("jump") && kind != "footstep") GD.Print($"JUMP SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent}");
         if (!LogSound("ork") || !_orkEmitterIds.Contains(e.Id)) return;
         GD.Print($"ORK SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} | {VoicesText(play)}");
     }
