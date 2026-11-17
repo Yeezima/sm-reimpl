@@ -27,6 +27,7 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontObjectives"),
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontSpawn"),
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontSpawned"),
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "WarfrontWallLean"),
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "WarfrontOrder"),
         // W5a: the server's stage flow

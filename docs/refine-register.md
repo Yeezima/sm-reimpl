@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3730 spec table rows: **2702 tagged**, 672 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 777 rows of the changes document.
+Scanned 3734 spec table rows: **2705 tagged**, 673 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 777 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 3730 spec table rows: **2702 tagged**, 672 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 834 | 789 | 619 | 232 | 1 |
-| General game design | 126 | 123 | 99 | 17 | 0 |
-| Ork faction | 265 | 252 | 149 | 70 | 0 |
-| **All areas** | **2702** | 2418 | 2037 | 805 | 37 |
+| General game design | 127 | 123 | 100 | 17 | 0 |
+| Ork faction | 267 | 252 | 151 | 70 | 0 |
+| **All areas** | **2705** | 2418 | 2040 | 805 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1581 |
-| confidence: low | 985 |
-| confidence: medium | 943 |
+| confidence: low | 986 |
+| confidence: medium | 945 |
 | notes: ours | 467 |
 | kind: interpretation | 432 |
 | kind: estimate | 229 |
@@ -3961,7 +3961,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (126)
+### General game design (127)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4049,7 +4049,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-30BA71AC` | Revive in the fortress (no exception) | a retainer revives a fallen human only when no Ork stands within 6 m of the body (`SquadRules.SafeRadius`), standing within 2 m for 2 s (`MarineReviveReach`, `MarineReviveSeconds`): the owner's "when safe"; a wipe needs the retainers down first (the owner's… (m, s) | kind: ours; confidence: medium | `SquadRules` | Revive in the fortress (no exception): compare with SM1 by feel or video. Ours: a retainer revives a fallen human only when no Ork stands within 6 m… | ☐ |
 | `R-014A47DB` | Fortress leash groups | the fortress's leash groups run from `GroupFirst` (200) to 200 + elite posts + approach posts (the live arena: 8 + 2, so 200 to 209); Musou's own battle groups are 1 to 23 (garrisons 1 to 3, commander 4, the positions' crowds from 6, musters 9 to 12, patrol… (group id) | kind: ours | `WarfrontFortressBattleRules.GroupFirst`, test `The_fortress_leash_groups_meet_none_of_the_battles_own` | Fortress leash groups: compare with SM1 by feel or video. Ours: the fortress's leash groups run from GroupFirst (200) to 200 + elite… | ☐ |
 | `R-727D7867` | Stuck units per opening (in-process, 150 s of the kept-alive bot and the plain bot, measured… | `warfront stuck` lines on `wf_fortress`: kept-alive run 16 (all relocated, none removed): breach 11, gate 1, plaza gate 0, elsewhere 4; plain run 5: breach 3, gate 0, plaza gate 0, elsewhere 2; the breach (8 m wide) is the trouble spot, the Orks pile on the… (count) | confidence: low | `WarfrontStuckLog` | Stuck units per opening (in-process, 150 s of the…: compare with SM1 by feel or video. Ours: warfront stuck lines on wf_fortress: kept-alive run 16 (all… | ☐ |
-| `R-71ABF36F` | The freed Warboss leaves the plaza? (in-process, measured 2026-11-17) | NOT within 90 s of any lure: with a human held outside the plaza gate (15 m), outside the south gate (19 m) or outside the breach (25 m) he walks toward it at about 0.15 to 0.3 m/s (y 49 to 31 in 90 s, 31 to 16 in the next 90 s, 16 to 6 in the last 90 s, with… (m/s) | confidence: medium | `The_freed_warboss_is_drawn_out_of_the_plaza_...` | The freed Warboss leaves the plaza? (in-process, measured…: compare with SM1 by timing a run over a known distance. Ours: NOT within 90 s of any lure: with a human held outside the plaza gate… | ☐ |
+| `R-D9F46A70` | The freed Warboss leaves the plaza? (in-process, measured 2026-11-17; VOID: each "second" was… | NOT within 90 s of any lure: with a human held outside the plaza gate (15 m), outside the south gate (19 m) or outside the breach (25 m) he walks toward it at about 0.15 to 0.3 m/s (y 49 to 31 in 90 s, 31 to 16 in the next 90 s, 16 to 6 in the last 90 s, with… (m/s) | confidence: medium | `The_freed_warboss_is_drawn_out_of_the_plaza_...` | The freed Warboss leaves the plaza? (in-process, measured…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: NOT within 90 s of any lure: with a human held outside the plaza gate… | ☐ |
+| `R-FE183027` | W14d: the lean hook does nothing for the Warboss (in-process, measured) | `WarfrontWallLean` (hook in `MusouSim.Ai.cs` `Move`, body in `Fortress/MusouSim.WarfrontWallLean.cs`) turns the Boss Orks' wall lean on for the fortress Warboss: it runs (654 calls in a 15 s case) and the six lure cases are identical with and without it (the… (m, s) | confidence: medium | `Cases_3_and_4_...` (skipped), `Case_1_...`, `Case_2_...`, `Case_5_...`, `The_human_walks_back_...` | W14d: the lean hook does nothing for the Warboss…: compare with SM1 by feel or video. Ours: WarfrontWallLean (hook in MusouSim.Ai.cs Move, body in… | ☐ |
 
 *Spec section: Warfront stats ledger (warfront/w4b, 2026-11-17; added content, Warfront only; pure, no wire change; second pass after designer review 1)*
 
@@ -4687,6 +4688,8 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-81E623C2` | Approach Boss Orks | one Boss Ork (kinds in Musou's order) leashed at the middle stop of each of the last two routes; none roam (Musou's roaming Boss Orks do not come in the final assault); an arena with one route holds one (Orks) | kind: ours; confidence: low | `FortressPlace` | Approach Boss Orks: compare with SM1 by feel or video. Ours: one Boss Ork (kinds in Musou's order) leashed at the middle stop of… | ☐ |
+| `R-70215085` | W14d: the plaza in game seconds (in-process, one run, 90 s from the first human in the plaza: a… | Orks alive every 10 s: 569, 824, 884, 1113, 1355, 1565, 1798, 1745, 1827; Orks inside the plaza radius: 161, 266, 405, 587, 695, 837, 1023, 779, 845; average **622** inside the plaza (alive average 1298): far over the line of ten, so the waypoint half of the… (Orks, s, ms) | confidence: medium | `The_plaza_fight_measured_in_game_seconds_...` | W14d: the plaza in game seconds (in-process, one run, 90 s…: compare with SM1 by timing a run over a known distance. Ours: Orks alive every 10 s: 569, 824, 884, 1113, 1355, 1565, 1798, 1745… | ☐ |
+| `R-C5F41B29` | W14d: the lure holds again, in game seconds (in-process, 90 s each, the freed Warboss, the plaza's… | with a human held 15 m outside the plaza gate, (0, -25): he comes through the gate (within 0 m of it, south-most y -32, then stands about 3.6 m from the human); with a human 19 m outside the south gate (0, -115): he came within 4 m of the south gate and held… (m) | confidence: low | `The_freed_warboss_is_drawn_out_of_the_plaza_through_each_opening_and_back` | W14d: the lure holds again, in game seconds (in-process, 90…: compare with SM1 by measuring on a flat spot of the same map. Ours: with a human held 15 m outside the plaza gate, (0, -25): he comes… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
