@@ -1134,7 +1134,7 @@ public static class Combat
             Grenades = grenades, GrenadeCooldown = grenadeCooldown, Throwing = throwing, ThrowTime = throwTime, GrenadeHeld = grenadeDown, StimLeft = stimLeft, FireBoostLeft = fireBoostLeft,
             JumpHeld = jumpDown,
             JumpAirOpen = evading ? c.HopRules && c.LedgeHopCarry && s.JumpAirOpen && !s.Grounded && !reacting   // the ledge charge hop's carry latch (Evade.Step)
-                : c.HopRules && (chargeOffLedge || s.JumpAirOpen) && !s.Grounded && !reacting && jump.Phase == JumpPhase.None && !jump.Started,   // sim/hop-rules: the air jump stays open until landing or another phase
+                : c.HopRules && (chargeOffLedge || (s.JumpAirOpen && beforeMove.EvadeTicks == 0)) && !s.Grounded && !reacting && jump.Phase == JumpPhase.None && !jump.Started,   // sim/hop-rules: the air jump stays open until landing or another phase; a carry latch of a hop that ended this tick (ledge-charge-hop) is not an opening
             EvadeTicks = evadeTicks, EvadeDirection = evadeDirection, EvadeLock = evade.Lock, EvadeLanded = evadeLanded,
             JumpDashDirection = dashAt is not null && s.Jump == JumpPhase.TakeOff ? dashDirection : EvadeDirection.Forward,
             MeleeHeavy = step > 0 && heavy, MeleeQueuedHeavy = queued && queuedHeavy, MeleeHeavyHeld = heavyDown,

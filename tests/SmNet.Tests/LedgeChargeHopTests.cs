@@ -151,6 +151,60 @@ public class LedgeChargeHopTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_carry_latch_ends_with_the_hop_clip_and_leaves_no_air_jump_open()
+    {
+        // a short hop clip (0.5 s, so it ends in the air above a 30 m ledge) out of a very fast charge: still carrying when the clip ends
+        var fast = JumpPackDashTests.Dash with { Forward = JumpPackDashTests.Dash.Forward with { Duration = 0.5f } };
+        var c = Classic with { Evades = [fast] };
+        var s = Held(c, 70f);
+        s = Step(s, c, InputButtons.Jump); s = Step(s, c, InputButtons.None);
+        bool carried = false;
+        for (int k = 0; k < 40 && !(carried && !Evade.Evading(s)); k++)
+        {
+            s = Step(s, c, InputButtons.None);
+            if (Evade.Evading(s) && s.JumpAirOpen) carried = true;
+        }
+        Assert.True(carried, "the hop carried");
+        Assert.False(Evade.Evading(s));
+        Assert.False(s.Grounded);
+        Assert.False(s.JumpAirOpen, "no air jump left open once the hop is over");
+        var phases = new List<JumpPhase>();
+        for (int k = 0; k < 12; k++) { s = Step(s, c, InputButtons.Jump); phases.Add(s.Jump); }
+        Assert.DoesNotContain(JumpPhase.Ascent, phases);
+    }
+
+    [Fact]
+    public void A_carrying_hop_tick_round_trips_the_wire()
+    {
+        var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, false)
+        {
+            Alive = true, Jump = JumpPhase.None, JumpAirOpen = true, Grounded = false, EvadeTicks = 4, EvadeDirection = EvadeDirection.Forward, JumpPower = 45f,
+        };
+        var read = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [me], Self: 3)))).Players[0];
+        Assert.True(read.JumpAirOpen);
+        Assert.Equal(4, read.EvadeTicks);
+        Assert.Equal(me, read);
+    }
+
+    [Fact]
+    public void A_state_taken_from_the_wire_mid_carry_goes_on_as_the_original()
+    {
+        // prediction / reconcile: the own record in the middle of a carrying hop, replayed with the same inputs, matches the uninterrupted run
+        var s = Held(Classic, 30f);
+        s = Step(s, Classic, InputButtons.Jump);
+        s = Step(s, Classic, InputButtons.None);
+        for (int k = 0; k < 4; k++) s = Step(s, Classic, InputButtons.None);
+        Assert.True(Evade.Evading(s) && s.JumpAirOpen);
+        var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [s], Self: s.PlayerId)))).Players[0];
+        var a = s; var b = back;
+        for (int k = 0; k < 12; k++)
+        {
+            a = Step(a, Classic, InputButtons.None); b = Step(b, Classic, InputButtons.None);
+            Assert.True(Vector3.Distance(a.Position, b.Position) < 0.01f, $"tick {k}: {a.Position} against {b.Position}");
+        }
+    }
+
+    [Fact]
     public void The_restore_switch_changes_the_config_hash_only_when_on()
     {
         Assert.NotEqual(Classic.Hash(), Old.Hash());
