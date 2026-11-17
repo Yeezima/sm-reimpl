@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 752 rows of the changes document.
+Scanned 3420 spec table rows: **2442 tagged**, 628 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 753 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data wi
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 73 | 68 | 53 | 11 | 0 |
+| HUD and hit feedback (critical) | 76 | 71 | 56 | 12 | 0 |
 | Sound mix (critical) | 99 | 93 | 78 | 12 | 0 |
 | Effects (critical) | 95 | 87 | 79 | 41 | 0 |
 | Game modes | 46 | 42 | 43 | 19 | 1 |
@@ -53,17 +53,17 @@ Scanned 3417 spec table rows: **2439 tagged**, 628 not tagged (read from data wi
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2439** | 2167 | 1806 | 732 | 37 |
+| **All areas** | **2442** | 2170 | 1809 | 733 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1437 |
-| confidence: low | 871 |
-| confidence: medium | 826 |
+| kind: ours | 1439 |
+| confidence: low | 872 |
+| confidence: medium | 828 |
 | notes: ours | 404 |
-| kind: interpretation | 394 |
+| kind: interpretation | 395 |
 | notes: estimate | 203 |
 | kind: estimate | 164 |
 | confidence: none (low) | 109 |
@@ -77,8 +77,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 27 |
 | kind: approximation | 25 |
 | kind: placeholder | 23 |
+| notes: open question | 20 |
 | kind: gap (not reproduced) | 19 |
-| notes: open question | 19 |
 | notes: placeholder | 19 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
@@ -1675,7 +1675,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (73)
+### HUD and hit feedback (gameplay-critical) (76)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1742,7 +1742,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-920F9F9E` | Reward line | `Hud.gfx` `score_mc` lines (`xp_event_1_mc` .. `4_mc`, 32.65 stage px apart): the experience right-aligned ("+50"), the reward's icon (`icon_mc` frame by the reward's `frame_name`) and its name (the install's locale), stamped in by the movie's clips (icon… (stage px, s) | kind: ours; confidence: medium | layout and clips: `Hud.gfx`; the 50 and the name: reference footage (id 121089 "Kill" sits next to the table's names); the order and the 3.5 s: ours | Reward line: compare with SM1 with side-by-side screenshots in the same spot. Ours: Hud.gfx score_mc lines (xp_event_1_mc .. 4_mc, 32.65 stage px apart):… | ☐ |
 | `R-36EBF2DB` | Reward lines beyond "Kill" (ui/hud-2) | the data's table `xp_settings_pvp/rewards` (global attribute data) with the rules in its `display_description`s, for what the client can know from the wire (every kill in the feed, the own kills, the own death, the own hit reports): **Headshot** 35 (a killing… (experience, s) | kind: interpretation; kind: gap (not reproduced); confidence: low; notes: ours | `xp_settings_pvp/rewards` (names, frames, experience, criteria); the rules' client reading: ours | Reward lines beyond "Kill" (ui/hud-2): compare with SM1 with side-by-side screenshots in the same spot. Ours: the data's table xp_settings_pvp/rewards (global attribute data) with… | ☐ |
 | `R-EF52CA94` | Score panel | `HudText.gfx` `mp_score_mc` (bottom left): own score (gold) and enemy score (red) right-aligned in `marine_kills` / `chaos_kills`, the bars `sm_bar_mc` (gold) for the viewer's side and `chaos_bar_mc` (red) at frame score / limit x 100 of their 105-frame fill… (stage px) | kind: interpretation; confidence: medium | `HudText.gfx` | Score panel: compare with SM1 with side-by-side screenshots in the same spot. Ours: HudText.gfx mp_score_mc (bottom left): own score (gold) and enemy… | ☐ |
-| `R-A807C5A6` | Score panel: placement | shifted 17 stage px right of the movie's place and turned -1.5 degrees (the footage's panel rises to the right: the original projects it), with M44's dark band behind it in the panel's frame (stage px, degrees) | kind: ours; confidence: low | reference footage t 8 s, side by side | Score panel: placement: compare with SM1 with an overlaid screenshot taken from the same position. Ours: shifted 17 stage px right of the movie's place and turned -1.5… | ☐ |
+| `R-A807C5A6` | Score panel: placement | shifted 17 stage px right of the movie's place and turned -2.3 degrees (the owner's three screenshots of the original: the frame's lines rise 2.4 to 2.8 degrees to the right; before classic-score-hud 1.5 from video footage), laid out as the movie lays it out… (stage px, degrees) | kind: ours; confidence: low | the owner's screenshots 1 to 3 (classic-score-hud, 2026-11-17), side by side | Score panel: placement: compare with SM1 with an overlaid screenshot taken from the same position. Ours: shifted 17 stage px right of the movie's place and turned -2.3… | ☐ |
+| `R-3D621D02` | Score panel: frame (classic-score-hud, owner 2026-11-17: the bottom-left element 1:1 with the… | A thin gold frame (line about 1 movie px, a dark fill at 0.72 to 0.78) holds only the two scores and the two bars: 46 movie px before the bars, 8 past them, 2 above the upper and 5 below the lower, its left end slanted 9 px; the time left stands above and… (movie px) | kind: ours; confidence: low | the owner's screenshots 1 to 3 (ref 1: scores 786 / 576, limit 1000, time 4:10) | Score panel: frame (classic-score-hud, owner 2026-11-17:…: compare with SM1 with side-by-side screenshots in the same spot. Ours: A thin gold frame (line about 1 movie px, a dark fill at 0.72 to… | ☐ |
+| `R-60086011` | Score panel: text face | The fields' text in the original's own face: `$Bourgeois` / `$BourgeoisBoldAlt` of the HUD movies are "XBourgeoix OT Medium" / "Bold Alternate" in the install's font movie (`ui_common_pc.oppc` `fonts_en.gfx`, DefineFont3 outlines, slashed zero), filled at the… (movie px) | kind: ours; confidence: medium; notes: open question | `fonts_en.gfx`; the owner's screenshots (the large limit is about 7 % wider in ours than in the original at the same height: cause unknown) | Score panel: text face: compare with SM1 with side-by-side screenshots in the same spot. Ours: The fields' text in the original's own face: $Bourgeois /… | ☐ |
+| `R-E2886088` | Score panel: point markers | One marker per control point in the movie's four slots (`objective_marker1` .. `4`, 45 movie px apart, left to right; the 4th shows only on a map with a 4th point, none on Manufactorum's three), each at the frame of its state: the player's side holds it (gold… (movie px, frames) | kind: interpretation; confidence: medium | `HudText.gfx` `objective_marker1`..`4` (17 labels); the owner's words and the game's loading tip 122000 | Score panel: point markers: compare with SM1 with side-by-side screenshots in the same spot. Ours: One marker per control point in the movie's four slots… | ☐ |
 | `R-64EE72FB` | Weapon box | `Hud.gfx` `weaponInfo_Slide` at the end of its slide-in (bottom right): the frame (`frame_nogren_mc`, whose winged skull and ornaments the footage shows; `frame_gren_mc`'s frames hold almost nothing as read), the grenades held (`grenade00` .. `04`, the… | kind: interpretation; confidence: medium | `Hud.gfx` (names, frames, fields); which display a weapon shows: interpretation of the names | Weapon box: compare with SM1 with side-by-side screenshots in the same spot. Ours: Hud.gfx weaponInfo_Slide at the end of its slide-in (bottom right):… | ☐ |
 | `R-4F851BCD` | Weapon box: grenade launcher rounds (ui/hud-2) | the launcher's display `loadout_grenaderounddisplay_mc` has eighteen round slots `round00` .. `round17` over dark underlays (the launcher's clip 1 and reserve 17): a slot shows while its index is below the rounds left (clip + reserve), the others show only… (rounds) | kind: interpretation; confidence: low | `Hud.gfx` (names, slots) | Weapon box: grenade launcher rounds (ui/hud-2): compare with SM1 with side-by-side screenshots in the same spot. Ours: the launcher's display loadout_grenaderounddisplay_mc has eighteen… | ☐ |
 | `R-0252D78C` | Weapon box: heat bar | a heat weapon's bar drains as it heats (full when cool) | confidence: medium | reference footage (the bar shortens while firing and refills as it cools; M44 drew it filling) | Weapon box: heat bar: compare with SM1 with side-by-side screenshots in the same spot. Ours: a heat weapon's bar drains as it heats (full when cool). | ☐ |
@@ -4731,6 +4734,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A596F193` | Visible bullets on the damaging path (feel/bullets; superseded 2026-11-07 by "Tracers to the impact", kept behind `--bent-bullets`) | A hit-scan bullet (the weapon's own tracer effect) leaves the muzzle, meets the shot's true ray 3 m on (ours) and flies along it to where the shot ended, so past that point it is exactly the damaging path (own shots: the input actually sent; other players': the ray rebuilt from the shooter's camera, since shot records… | The original's tracer path and the real origin of other players' shots | Effect rendering (M25b): "Visible bullets on the damaging path" rows | Visible bullets on the damaging path (feel/bullets…: compare with SM1 by feel or video. Ours: A hit-scan bullet (the weapon's own tracer effect) leaves the muzzle… | ☐ |
 | `C-51505757` | Weapon smoke reined in (feel/muzzle-smoke) | **Owner's change (2026-10-29: "rein them in a bit")**: the smoke of firing a gun (the tracer's smoke beams and ignition puffballs, the heavy bolter's muzzle puff, the stop-fire smoke streamers) keeps 0.55 of its width, radius and sideways speed (ours: the number); the data's own elements are wide (smoke beams up to… | Whether the original's smoke was this wide (a beam's `Width` may be a half width) | Effect rendering (M25b): "Weapon smoke" rows | Weapon smoke reined in (feel/muzzle-smoke): compare with SM1 by feel or video. Ours: Owner's change (2026-10-29: "rein them in a bit"): the smoke of… | ☐ |
 | `C-EB2C6139` | HUD from the original movies (ui/hud-fidelity) | The reticles, hit marker, kill feed, reward lines, score panel, weapon box, Seize Ground markers and pick-up prompt are drawn from the install's HUD movies at their places and with their clips; our choices: which weapon type picks which reticle and box display (the names), the spread fraction that picks a reticle's… | The scripts that drive the movies (when a line goes, which state picks which frame, the runtime tints) | "HUD from the movies (ui/hud-fidelity)" | HUD from the original movies (ui/hud-fidelity): compare with SM1 by feel or video. Ours: The reticles, hit marker, kill feed, reward lines, score panel… | ☐ |
+| `C-001B07B7` | Bottom-left score panel 1:1 (classic-score-hud, owner 2026-11-17; client only, Classic PvP) | Seize Ground and Annihilation share one element: the side icon (loyalist aquila / Chaos star), the two score bars with their numbers (gold own, red enemy) inside a thin gold frame, the time left above and right of it, the large score limit past its end, and in Seize Ground one marker per point above it. Ours (the… | The original's frame art, the exact tilt (it varies with the camera in the screenshots), the large limit's width (about 7 % wider in ours), whether the original's blink is softer than the movie's flash loop | "Score panel" | Bottom-left score panel 1:1 (classic-score-hud, owner…: compare with SM1 by feel or video. Ours: Seize Ground and Annihilation share one element: the side icon… | ☐ |
 | `C-C6B77E8F` | Kill hit marker (ui/hud-fidelity) | Every hit, a kill too, shows the movie's gold hit marker; M44's red kill and gold head-hit markers (ours) are gone | Whether the original marks a kill differently (the movie has one marker) | "HUD from the movies (ui/hud-fidelity)" row "Hit marker" | Kill hit marker (ui/hud-fidelity): compare with SM1 by feel or video. Ours: Every hit, a kill too, shows the movie's gold hit marker; M44's red… | ☐ |
 | `C-98D9A267` | Armour and health bar from the movie (ui/hud-2) | The bar is `unifiedhealth_mc` at the movie's own place and scale (they match the footage within 2 stage px): the dark band, the **cyan** armour bar `ironhalo_mc` cut by the armour (the movie's own colour, the footage's too; frame by fraction is ours) and the red health bar `healthbar_mc` cut by the health (frame by… | Which state of the original shows the gold bar, what triggers the flash, how the script maps fractions to frames | "Armour and health bar", "Armour bar: the gold clip" and "Iron Halo flash" rows of "HUD from the movies (ui/hud-fidelity)" | Armour and health bar from the movie (ui/hud-2): compare with SM1 by counting hits to kill and by video of the health bar. Ours: The bar is unifiedhealth_mc at the movie's own place and scale (they… | ☐ |
 | `C-4BD5C5FF` | Reward lines beyond "Kill" (ui/hud-2) | The own kills earn the data's rewards where the client can know the condition from what is sent: headshot, double to mega kill (within 2 s), killstreak x3 to x9 and the max streak, revenge, avenger (within 5 s, read as seconds), grudge, victory in death, with the movie's icons and the install's names and the data's… | The original's exact rules and its script's signals | "Reward lines beyond Kill" row of "HUD from the movies (ui/hud-fidelity)" | Reward lines beyond "Kill" (ui/hud-2): compare with SM1 by feel or video. Ours: The own kills earn the data's rewards where the client can know the… | ☐ |

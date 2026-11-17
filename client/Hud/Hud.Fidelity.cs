@@ -154,16 +154,35 @@ public sealed partial class Hud
     /// The panel's slight tilt on the footage (its lines rise to the right, about 1.5 degrees; the movie draws it flat, the original projects it): measured (ours). The dark band behind
     /// it is not in the movie either (footage; M44's band, placed in the panel's frame).
     /// </summary>
-    const float ScoreTilt = -1.5f, ScoreShift = 17f;
+    const float ScoreTilt = -2.3f, ScoreShift = 17f;
 
     /// <summary>The dark band's edges in the panel's frame (ui/hud-camera-2, owner 2026-10-30: opaque, and it holds the timer, the scores, the bars and the limit; ui/hud-3: 330 before; side by side with the owner's frame the band ends at the bars' end, not 55 px past it; ours).</summary>
     const float BandRight = 362f, BandTop = 24f, BandBottom = 98f;
 
     /// <summary>
-    /// The team score panel from <c>HudText.gfx</c> <c>mp_score_mc</c>, anchored bottom left: the own score (gold) and the enemy's (red) right-aligned in their fields, the movie's bars
-    /// (<c>sm_bar_mc</c> gold for the viewer's side, <c>chaos_bar_mc</c> red for the enemy: frame = score / limit x 100 of their 105-frame fill clips), the score limit, the time left, and
-    /// in Seize Ground the points' markers (<c>objective_marker1</c>..<c>3</c>: the frame of the point's state label, <see cref="DecoratorRules.PointLabel"/>). The side emblem is the M44
-    /// one (the movie's is a picture the renderer does not place). False without the movie.
+    /// The thin frame's edges (classic-score-hud, owner 2026-11-17: the original's element 1:1), in the panel's frame, from the owner's three screenshots of the original (measured, ours): it runs from
+    /// <see cref="ScoreFrameLeft"/> movie pixels before the bars to <see cref="ScoreFrameRight"/> past them, from <see cref="ScoreFrameTop"/> above the upper bar to <see cref="ScoreFrameBottom"/> below the lower
+    /// one, its left end slanted by <see cref="ScoreFrameSlant"/>; only the scores and the bars are inside it (the timer, the limit and the markers stand outside).
+    /// </summary>
+    const float ScoreFrameLeft = 46f, ScoreFrameRight = 8f, ScoreFrameTop = 2f, ScoreFrameBottom = 5f, ScoreFrameSlant = 9f;
+
+    /// <summary>The frame's corners (panel frame) around the two bars' extent: top-left, top-right, bottom-right, bottom-left.</summary>
+    static Vector2[] ScoreFrameCorners(Rect2 bars) =>
+        [new(bars.Position.X - ScoreFrameLeft + ScoreFrameSlant / 2f, bars.Position.Y - ScoreFrameTop), new(bars.End.X + ScoreFrameRight, bars.Position.Y - ScoreFrameTop),
+         new(bars.End.X + ScoreFrameRight, bars.End.Y + ScoreFrameBottom), new(bars.Position.X - ScoreFrameLeft - ScoreFrameSlant / 2f, bars.End.Y + ScoreFrameBottom)];
+
+    /// <summary>How far up (movie pixels) the enemy's score and the limit stand against the movie's own places, side by side with the owner's screenshots (measured, ours).</summary>
+    const float ScoreRowNudge = 2.4f;
+
+    /// <summary>The frame's line (the original's thin gold line, about 1 movie pixel).</summary>
+    static readonly Color ScoreFrameLine = new(0.93f, 0.78f, 0.22f, 0.9f);
+
+    /// <summary>
+    /// The team score panel from <c>HudText.gfx</c> <c>mp_score_mc</c>, anchored bottom left, laid out as the movie lays it out: the side emblem (<c>team_2</c>, the movie's own image: the loyalist
+    /// aquila for Space Marines, the Chaos star for Chaos, in both modes), the own score (gold) and the enemy's (red) right-aligned in their fields, the movie's bars (<c>sm_bar_mc</c> gold for the
+    /// viewer's side, <c>chaos_bar_mc</c> red for the enemy: frame = score / limit x 100 of their 105-frame fill clips) inside the thin gold frame, the time left above and right of it, the large
+    /// score limit past its end, and in Seize Ground one marker per point above it (<c>objective_marker1</c>..<c>4</c>: the frame of the point's state label, <see cref="DecoratorRules.PointLabel"/>,
+    /// blinking while a point is being taken). False without the movie.
     /// </summary>
     bool DrawMovieScorePanel(Vector2 vs)
     {
@@ -173,17 +192,19 @@ public sealed partial class Hud
         // The footage's panel sits 17 stage pixels right of the movie's place (its emblem where the movie's would be): measured side by side (ours).
         var root = Stage(vs, -1) * new Transform2D(0f, new Vector2(ScoreShift, 0f)) * ToXf(panel.ToStage);
         root *= new Transform2D(Mathf.DegToRad(ScoreTilt), new Vector2(200f, 70f)) * new Transform2D(0f, new Vector2(-200f, -70f));
-        // ui/score-box-center (owner, 2026-10-31): the box is laid out around the block (scores, bars, timer over the limit) and the block is centred in it (Hud.ScoreBox.cs); until the bars are
-        // measured the earlier box and drawing stand.
+        // The centred box of ui/score-box-center is kept behind --centred-score-box (Hud.ScoreBox.cs); the default is the original's layout.
         var layout = LayoutScoreBox(text, d.OwnScore, d.EnemyScore, d.ScoreLimit, d.Clock);
-        var band = layout is { } l0 ? ScoreBoxCorners(l0) : new Vector2[] { new(104f, BandTop), new(BandRight, BandTop), new(BandRight, BandBottom), new(92f, BandBottom) };
+        Vector2[] band;
+        if (layout is { } l0) band = ScoreBoxCorners(l0);
+        else if (ScoreBarsLocal(text) is { } measured) band = ScoreFrameCorners(measured);
+        else return true;   // the bars are still being built: nothing for a moment (the frame is sized by them)
         var bandV = new Vector2[4];
         for (int i = 0; i < 4; i++) bandV[i] = root * band[i];
-        DrawPolygon(bandV, [new Color(0f, 0f, 0f, 0.8f), new Color(0f, 0f, 0f, 0.86f), new Color(0f, 0f, 0f, 0.86f), new Color(0f, 0f, 0f, 0.8f)]);
-        var line = new Color(0.85f, 0.85f, 0.82f, 0.5f);
-        DrawLine(bandV[0], bandV[1], line, 1.5f, true);
-        DrawLine(bandV[3], bandV[2], line, 1.5f, true);
-        SideEmblem(d.OwnTeam, root * new Vector2(72f - ScoreShift, 71f), 88f, Rel.Own);   // the footage's size (the aquila 74 stage pixels wide)
+        float fill = layout is null ? 0.72f : 0.8f;   // the original's frame lets the ground show faintly (screenshots 1 and 3); the centred box stays opaque-ish
+        DrawPolygon(bandV, [new Color(0f, 0f, 0f, fill), new Color(0f, 0f, 0f, fill + 0.06f), new Color(0f, 0f, 0f, fill + 0.06f), new Color(0f, 0f, 0f, fill)]);
+        var line = layout is null ? ScoreFrameLine : new Color(0.85f, 0.85f, 0.82f, 0.5f);
+        DrawLine(bandV[0], bandV[1], line, layout is null ? 1.3f : 1.5f, true);
+        DrawLine(bandV[3], bandV[2], line, layout is null ? 1.3f : 1.5f, true);
         float limit = MathF.Max(d.ScoreLimit, 1);
         int Fill(int score) => Math.Clamp((int)MathF.Round(Math.Clamp(score / limit, 0f, 1f) * 100f), 0, 100);
         int own = Fill(d.OwnScore), enemy = Fill(d.EnemyScore);
@@ -191,31 +212,45 @@ public sealed partial class Hud
         int marker = text.Find("mp_score_mc/objective_marker1")?.Placement.Character ?? -1;
         var markerLabels = marker >= 0 ? text.Labels(marker) : new Dictionary<string, int>();
         bool IsMarker(string path) => path.StartsWith("objective_marker", StringComparison.Ordinal);
-        // The points' markers sit above the box, where the movie puts them.
+        // The emblem: the original's picture (hud_i7: the loyalist aquila for Space Marines, the Chaos star for Chaos, in both modes) at the footage's size and place (the movie's own team_2 places
+        // whole atlas images the engine crops, which the renderer cannot; M44).
+        // The aquila's and the star's own sizes and centres, from the owner's screenshots 1 and 3 (the star's spikes reach further left, its centre sits lower and nearer the scores; measured, ours).
+        if (d.OwnTeam == Team.Chaos) SideEmblem(d.OwnTeam, root * new Vector2(75f, 84f), 80f, Rel.Own);
+        else SideEmblem(d.OwnTeam, root * new Vector2(63f, 76f), 88f, Rel.Own);
+        // The points' markers sit above the frame where the movie puts them, one slot each (the movie has four); each blinks by its own state.
         if (d.Seize)
-            DrawWalk(text, panel.Placement.Character, 0, layout is null ? root : root * new Transform2D(0f, new Vector2(0f, -ScoreMarkerLift)), (path, _) => path switch
+            for (int i = 0; i < d.Points.Count && i < 4; i++)
             {
-                "objective_marker1" or "objective_marker2" or "objective_marker3" => PointIndex(path) is int i && i < d.Points.Count ? markerLabels.GetValueOrDefault(PointLabel(d.Points[i]), 0) : 0,
-                _ => null,
-            }, ch => ch == marker, _ => null, null, 1f,
-                skip: path => !IsMarker(path) || path == "objective_marker4" || (PointIndex(path) is int j && j >= d.Points.Count));
-        // The block: moved to the box's middle; the timer and the limit are centred on the right column's line.
+                var point = d.Points[i];
+                string slot = $"objective_marker{i + 1}";
+                int frame = markerLabels.GetValueOrDefault(PointLabel(point), 0);
+                DrawWalk(text, panel.Placement.Character, 0, layout is null ? root : root * new Transform2D(0f, new Vector2(0f, -ScoreMarkerLift)), (path, _) => path == slot ? frame : null, ch => ch == marker,
+                    _ => null, null, PointBlink(point), skip: path => path != slot);
+            }
+        // The block: in the original's layout where the movie has it (the timer above and right of the frame, the limit past its end); with the centred box moved to the box's middle.
         var content = layout is { } l1 ? root * new Transform2D(0f, l1.Shift) : root;
+        _originalFontText = layout is null;
         DrawWalk(text, panel.Placement.Character, 0, content, (path, _) => path switch
         {
             "sm_bar_mc" => own,
             "chaos_bar_mc" => enemy,
             _ => null,
         }, ch => ch == ownSprite || ch == enemySprite,
-            path => path switch
+            path =>
             {
-                "marine_kills" => d.OwnScore.ToString(),
-                "chaos_kills" => d.EnemyScore.ToString(),
-                "kill_number" when layout is null => d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-",
-                "mp_timer_txt" when layout is null => d.Clock,
-                _ => null,
+                _fieldNudge = path switch { "chaos_kills" => -ScoreRowNudge, "kill_number" => -ScoreRowNudge, _ => 0f };
+                return path switch
+                {
+                    "marine_kills" => d.OwnScore.ToString(),
+                    "chaos_kills" => d.EnemyScore.ToString(),
+                    "kill_number" when layout is null => d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-",
+                    "mp_timer_txt" when layout is null => d.Clock,
+                    _ => null,
+                };
             }, path => path == "marine_kills" ? MovieGold : path == "chaos_kills" ? MovieRed : null,
             1f, skip: path => path is "team_1" or "team_2" || IsMarker(path));
+        _originalFontText = false;
+        _fieldNudge = 0f;
         if (layout is { } l)
         {
             var timerField = text.Movie.EditTexts[text.Find("mp_score_mc/mp_timer_txt")!.Value.Placement.Character];

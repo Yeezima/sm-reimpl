@@ -16,6 +16,8 @@ public sealed partial class UiSelfTest
     async Task ScoreBoxChecks()
     {
         string? dir = _services.GameDir;
+        // classic-score-hud (owner 2026-11-17): the centred box is only drawn with --centred-score-box; the default panel is the original's layout.
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--centred-score-box") < 0) { Check("score box: fit (the centred box is off by default since classic-score-hud: skipped)", true); return; }
         if (string.IsNullOrEmpty(dir)) { Check("score box: fit (no game install: skipped)", true); return; }
         var hud = new Hud { GameDir = dir };
         hud.Data.Teams = true; hud.Data.OwnTeam = Team.SpaceMarines;
