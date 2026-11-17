@@ -28,16 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3423 spec table rows: **2443 tagged**, 630 not tagged (read from data with high confidence), 350 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 756 rows of the changes document.
-Scanned 3452 spec table rows: **2466 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 761 rows of the changes document.
+Scanned 3453 spec table rows: **2467 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 763 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 406 | 348 | 346 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 120 | 74 | 107 | 52 | 3 |
-| Melee (critical) | 157 | 137 | 113 | 56 | 5 |
-| Weapons (critical) | 119 | 73 | 106 | 52 | 3 |
 | Melee (critical) | 159 | 139 | 115 | 56 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 59 | 49 | 48 | 24 | 0 |
@@ -55,22 +52,15 @@ Scanned 3452 spec table rows: **2466 tagged**, 635 not tagged (read from data wi
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 738 | 695 | 525 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
-| Ork faction | 258 | 245 | 143 | 68 | 0 |
-| **All areas** | **2443** | 2170 | 1810 | 732 | 37 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2466** | 2190 | 1831 | 734 | 37 |
+| **All areas** | **2467** | 2191 | 1832 | 734 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1440 |
-| confidence: low | 873 |
-| confidence: medium | 828 |
-| notes: ours | 404 |
-| kind: interpretation | 394 |
-| kind: ours | 1459 |
-| confidence: low | 884 |
+| kind: ours | 1460 |
+| confidence: low | 885 |
 | confidence: medium | 838 |
 | notes: ours | 405 |
 | kind: interpretation | 395 |
@@ -920,7 +910,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2F1279A8` | Grenade launcher | projectile `grenade_launcher_grenade_multiplayer`, 10 direct-hit damage (`hit_sim`), at most 3 grenades active (5 with `mp_perk_weap_gren_launcher_automatic`), cooldown 0, clip 1 / 17, reload 0.6; detonated by `ability_utility` (`detonate_projectile`, input… (s) | confidence: medium | `sm_mp_ranged_grenade_launcher` | Grenade launcher: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: projectile grenade_launcher_grenade_multiplayer, 10 direct-hit damage… | ☐ |
 | `R-64BF6BF0` | Early release | every charge ability's first stage (`1.charge_light`, at 0 s) has no shot; since M31 a release before the firing stage fires the weapon's basic shot (a tap: the owner's rule "press / tap = the normal shot, hold = the charged shot", 2026-10-28; before M31 only… | kind: interpretation; kind: user's knowledge; confidence: medium | all four charge weapons; the tap rule: user's knowledge of the original | Early release: compare with SM1 by feel or video. Ours: every charge ability's first stage (1.charge_light, at 0 s) has no… | ☐ |
 | `R-00F7A778` | Charge limits | `max_charge_time` 1.5 (lascannon) or 0 (others), `min_charge_time_multiplier` 1 by default (perks: lascannon 0.53 with max 0.8, plasma gun 0.65, plasma cannon 0.55); `reload_button_cancels_charging` true except the lascannon (s) | confidence: low; notes: open question | `charge_upgrade_list/upgradeable` | Charge limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: max_charge_time 1.5 (lascannon) or 0 (others)… | ☐ |
-| `R-407E35FD` | Plasma cannon auto-release (sim/plasma-cannon-auto-release, protocol 82) | the held charge fires by itself in the tick after it reaches its firing stage (3 s; × `min_charge_time_multiplier`: 1.65 s with Improved Plasma Charge), the Fire button held or not; the +50 heat per second of the stage is never reached (1 tick at most)… (s) | kind: ours; confidence: low | owner 2026-11-17 ("when the charge meter reaches the maximum ... it should release automatically at full charge, whether the player let go of lmb or not")… | Plasma cannon auto-release (sim/plasma-cannon-auto-release…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the held charge fires by itself in the tick after it reaches its… | ☐ |
+| `R-739A9223` | Plasma cannon auto-release (sim/plasma-cannon-auto-release, protocol 84) | the held charge fires by itself in the tick after it reaches its firing stage (3 s; × `min_charge_time_multiplier`: 1.65 s with Improved Plasma Charge), the Fire button held or not; the +50 heat per second of the stage is never reached (1 tick at most)… (s) | kind: ours; confidence: low | owner 2026-11-17 ("when the charge meter reaches the maximum ... it should release automatically at full charge, whether the player let go of lmb or not")… | Plasma cannon auto-release (sim/plasma-cannon-auto-release…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the held charge fires by itself in the tick after it reaches its… | ☐ |
 | `R-929A44C1` | Projectile `plasma_altfire_mp` (plasma gun) | speed 90, lifetime 3, collision sphere 0.25, detonates on collision and at the end of its lifetime, gravity ×0 to 5 then ×0.75 from 5.1, aim +1.15; blast radius 7: 75 damage and 75 shield damage (`damage_armourshield`), shield breaker, fall-off ×1 at 2, ×0.8… (units/s, s, units) | confidence: medium | ebps | Projectile plasma_altfire_mp (plasma gun): compare with SM1 by timing a run over a known distance. Ours: speed 90, lifetime 3, collision sphere 0.25, detonates on collision… | ☐ |
 | `R-79B3E2F6` | Projectile `plasma_pistol_altfire_mp` | speed 90, lifetime 1.5, sphere 0.25, **sticky**, does not detonate on collision (detonates at lifetime end), gravity ×0.45 from 5.1; blast radius 6: 50 + 75 shield, breaker, ×1 at 2, ×0.8 to 3.5, ×0.5 at 4, ×0.1 at 6 (as above) | confidence: medium | ebps | Projectile plasma_pistol_altfire_mp: compare with SM1 by feel or video. Ours: speed 90, lifetime 1.5, sphere 0.25, sticky, does not detonate on… | ☐ |
 | `R-7F990278` | Projectile `plasma_cannon_default_mp` | speed 100, lifetime 3, sphere 0.1, detonates on collision, gravity ×0.25 from 20.1; blast radius 7: 60 (shield multipliers ×2), breaker, ×1 to 3.5, ×0.75 at 4–5, ×0.6 at 6, ×0.15 at 7 (as above) | confidence: medium | ebps | Projectile plasma_cannon_default_mp: compare with SM1 by feel or video. Ours: speed 100, lifetime 3, sphere 0.1, detonates on collision, gravity… | ☐ |
@@ -5255,7 +5245,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CE9CC037` | Developer tools, second batch (dev-tools, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no developer tools | Ours (the owner's picks, spec "Developer tools, second batch"): an indefinite match (this match only), end now, restart and skip, teleport (requester only, onto the world's own spawn, point and Teleport Homer spots), instant respawn, kill me and kill bots, live bot accuracy, damage and range, and a time scale with… | A real match is unchanged; the time scale wraps the clocks only on such a server and on clients of it (a client's clock is a pass-through at scale 1) | Developer tools, second batch (dev-tools, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-61593002` | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner 2026-11-17; added content, `--custom-map`; no protocol or config-hash change) | The original shipped its own maps only; no tester-made maps | Ours (the owner's request): a `.smmap` file made in the Mapmaker (solid pieces, spawn areas, doors, capture points, kill zones, declared modes) is played by the server (`--custom-map`) and by clients that find the file by its `cm_` name; the map hash is the first 8 bytes of SHA-256(compiler version + the file's… | Spec "Mapmaker custom maps" | Mapmaker custom maps in Classic PvP (mapmaker-ux, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-544A2A28` | Cancel matrix editor (cancel-editor, owner 2026-11-17; protocol 80; test aid) | Multiplayer had no editor for its animation cancel rules | Ours (the owner's request, verbatim in spec "Cancel table"): F8, on the developer tools' gate (`--dev-tools`, loopback), edits the Classic PvP cancel table (state, from and until seconds, per class and weapon) live; the default table changes nothing (the gate acts only on a cell that differs from what the code does)… | Ours | Cancel matrix editor (cancel-editor, owner 2026-11-17…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-0374E13A` | Plasma cannon auto-release (sim/plasma-cannon-auto-release; owner 2026-11-17; protocol 82; every mode with the cannon) | The cannon's charged shot waited in the barrel until the Fire button was released (the heat running toward an overheat) | The shot leaves by itself in the tick after the charge reaches its firing stage (3 s, 1.65 s with Improved Plasma Charge), button held or not; other charge weapons unchanged. Restore switch `--old-cannon-hold` | The owner: "when the charge meter reaches the maximum ... it should release automatically at full charge, whether the player let go of lmb or not" (reference clip 3); spec "Plasma cannon auto-release" | Plasma cannon auto-release (sim/plasma-cannon-auto-release…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-28606C66` | Plasma cannon auto-release (sim/plasma-cannon-auto-release; owner 2026-11-17; protocol 84; every mode with the cannon) | The cannon's charged shot waited in the barrel until the Fire button was released (the heat running toward an overheat) | The shot leaves by itself in the tick after the charge reaches its firing stage (3 s, 1.65 s with Improved Plasma Charge), button held or not; other charge weapons unchanged. Restore switch `--old-cannon-hold` | The owner: "when the charge meter reaches the maximum ... it should release automatically at full charge, whether the player let go of lmb or not" (reference clip 3); spec "Plasma cannon auto-release" | Plasma cannon auto-release (sim/plasma-cannon-auto-release…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-35C74DBA` | Plasma cannon trail drawn soft (plasma-cannon-shots; owner 2026-11-17; client only) | The cannon's charged and normal trails drew as wide slabs with a straight cut at the young trail's start | The streamers' width keys read along the ribbon (as the plasma gun's trail does) and a young trail's tail fades over its drawn length (`FxPlayer.DrawStreamer`); look tuning is ours / estimate | The owner: "absolutely no hard lines" in the charged shot (references 1 to 4); milestones "Plasma cannon shots" | Plasma cannon trail drawn soft (plasma-cannon-shots; owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay

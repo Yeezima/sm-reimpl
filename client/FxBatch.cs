@@ -279,7 +279,7 @@ void fragment() {
     if (tent) a *= 1.0 - abs(UV.x * 2.0 - 1.0);
     // Ribbons only (a glow card, the gun's own chamber glow, is never dimmed), and from a distance that grows with the ribbon's width: a 6 m trail the camera is inside fades, a 0.1 m arc on the held gun does not.
     if (soft_edge && kind > 0.5) a *= smoothstep(0.03, max(0.1, min(2.5, v_size * 0.4)), v_orig_d);   // plasma-soft-visuals: a trail the camera is inside fades out near it instead of being cut by the near plane in a straight line
-    if (soft_edge) a *= (kind < 0.5) ? pow(1.0 - smoothstep(0.0, rimcard ? 0.8 : 1.0, length(UV * 2.0 - 1.0)), 2.0) : pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);   // plasma-cannon-shots: from the axis out, squared (the plateau to 0.2 kept a bright slab with a straight edge: the cannon's 5.7 m beam_gradient trail)
+    if (soft_edge) a *= (kind < 0.5 || (rimcard && flat_ring)) ? pow(1.0 - smoothstep(0.0, rimcard ? 0.8 : 1.0, length(UV * 2.0 - 1.0)), 2.0) : pow(1.0 - smoothstep(0.0, 1.0, abs(UV.y * 2.0 - 1.0)), 2.0);   // plasma-cannon-shots: from the axis out, squared (the plateau to 0.2 kept a bright slab with a straight edge: the cannon's 5.7 m beam_gradient trail)
     ALPHA = a;
 }
 ";
@@ -388,7 +388,7 @@ void fragment() {
                     QuadKind kind = QuadKind.CameraBillboard, bool neutral = false, bool tent = false, bool rim = false)
     {
         if (colour.A <= 0.003f) return true;
-        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0) + (SoftEdge && Fades && (kind is QuadKind.AxisBillboard or QuadKind.FlatCard or QuadKind.CameraBillboard) ? 128 + (tent ? 256 : 0) + (rim && kind == QuadKind.CameraBillboard ? 512 : 0) : 0);
+        mode = Math.Clamp(mode, 0, 3) + 4 * (int)kind + (SoftGround && Fades && !NoGroundSoft ? 32 : 0) + (neutral ? 64 : 0) + (SoftEdge && Fades && (kind is QuadKind.AxisBillboard or QuadKind.FlatCard or QuadKind.CameraBillboard || (rim && kind == QuadKind.FlatRing)) ? 128 + (tent ? 256 : 0) + (rim && kind is QuadKind.CameraBillboard or QuadKind.FlatRing ? 512 : 0) : 0);
         if (additive)
         {
             if (_nAdd >= Capacity) { _dropped++; return false; }
