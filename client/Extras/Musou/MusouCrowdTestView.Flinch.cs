@@ -22,6 +22,7 @@ public partial class MusouCrowdTestView
     readonly Random _flinchRandom = new(7);
     float _flinchPrevT; int _driftK;
     double _flinchMs, _flinchMsMax; int _flinchMsN;
+    readonly List<double> _flinchMsAll = new();
 
     void FlinchFrame(MusouEnemyType kind, MusouLooks.Look look, float dt)
     {
@@ -136,7 +137,7 @@ public partial class MusouCrowdTestView
         _camera.LookAt(GameToGodot * target, Vector3.Up);
         var watch = System.Diagnostics.Stopwatch.StartNew();
         _crowd!.Frame(_shown, eye, dt);
-        if (t > 2f) { _flinchMs += watch.Elapsed.TotalMilliseconds; _flinchMsN++; _flinchMsMax = Math.Max(_flinchMsMax, watch.Elapsed.TotalMilliseconds); }
+        if (t > 2f) { _flinchMs += watch.Elapsed.TotalMilliseconds; _flinchMsN++; _flinchMsMax = Math.Max(_flinchMsMax, watch.Elapsed.TotalMilliseconds); _flinchMsAll.Add(watch.Elapsed.TotalMilliseconds); }
         if (_flinchMode != "crowd" || true)
         {
             System.IO.Directory.CreateDirectory(_outDir);
@@ -144,8 +145,10 @@ public partial class MusouCrowdTestView
         }
         if (_flinchFrame % 6 == 0) GD.Print($"FLINCHTEST t {t:F2} flinching {_crowd.Flinching} kicks {_crowd.Kicks} foot drift {MusouOrkFlinchPose.LastFootDrift * 1000f:F1} mm");
         _flinchFrame++;
-        if (t >= seconds) { GD.Print($"FLINCHTEST done: {_flinchFrame} frames, kicks {_crowd.Kicks}, Frame() mean {_flinchMs / Math.Max(1, _flinchMsN):F2} ms, worst {_flinchMsMax:F2} ms, shown skinned {_crowd.ShownSkinned} baked {_crowd.ShownVat}, worst foot drift {MusouOrkFlinchPose.WorstFootDrift * 1000f:F1} mm"); GetTree().Quit(0); }
+        if (t >= seconds) { GD.Print($"FLINCHTEST done: {_flinchFrame} frames, kicks {_crowd.Kicks}, Frame() mean {_flinchMs / Math.Max(1, _flinchMsN):F2} ms, p99 {P99():F2} ms, worst {_flinchMsMax:F2} ms, shown skinned {_crowd.ShownSkinned} baked {_crowd.ShownVat}, worst foot drift {MusouOrkFlinchPose.WorstFootDrift * 1000f:F1} mm"); GetTree().Quit(0); }
     }
+
+    double P99() { if (_flinchMsAll.Count == 0) return 0; var a = _flinchMsAll.ToArray(); Array.Sort(a); return a[Math.Min(a.Length - 1, (int)(a.Length * 0.99))]; }
 
     static System.Numerics.Vector3 V(float x, float y, float z) => new(x, y, z);
 }

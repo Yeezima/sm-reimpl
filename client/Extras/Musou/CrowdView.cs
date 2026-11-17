@@ -10,7 +10,7 @@ namespace SmClient;
 /// A crowd's budgets: skinned near, vertex-animation per look, skinned without a bake, the near and half-rate distances (m), and how the dead go (s, s, m, how many are kept; the corpse floor,
 /// 2026-11-09: past <c>MaxBodies</c> only bodies past <see cref="SmNet.Extras.Musou.MusouCorpseRules.FloorSeconds"/> go, and the pool grows up to <c>HardBodies</c>).
 /// </summary>
-public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0);
+public sealed record CrowdLimits(int MaxSkinned, int MaxVat, int FallbackSkinned, float NearMetres, float HalfRateMetres, float SinkAfter, float SinkSeconds, float SinkDepth, int MaxBodies, int HardBodies = 0, int ClipSkinned = 0, int ClipNearest = 0);
 
 /// <summary>
 /// What a crowd of many characters shares (TF7a, out of <see cref="MusouCrowd"/>; design sections D and E), a node in the networked view's game space (Z up). A crowd says what to draw this
@@ -279,6 +279,8 @@ public abstract partial class CrowdView : Node3D
             bool unbaked = look.Vat?.Mesh is null;
             bool near = it.Distance <= Limits.NearMetres || !OldTierSwitch && it.Distance <= Limits.NearMetres + SkinnedHoldMetres && _skinnedByKey.ContainsKey(it.Key);
             if (skinned < (unbaked ? Limits.FallbackSkinned : skinnedCap) && (near || unbaked) && TakeSkinned(it, look)) { skinned++; continue; }
+            // Reaction clips (owner 2026-11-17: "the nearest 100 orks"): a baked Ork mid-flinch among the ClipNearest nearest members is posed skinned too, up to ClipSkinned in all, so it plays the rig's clips; it stays skinned while it is near (the hold above).
+            if (!unbaked && !body && it.Kick.LengthSquared() > 1e-8f && members <= Limits.ClipNearest && skinned < Limits.ClipSkinned && TakeSkinned(it, look)) { skinned++; continue; }
             if (look.Vat?.Mesh is not null && AddFar(look, it, body)) { vat++; continue; }
             left++;
         }
@@ -316,7 +318,7 @@ public abstract partial class CrowdView : Node3D
             foreach (var c in _skinned) if (c.Key == int.MinValue && !c.Used && ReferenceEquals(c.Look, look)) { s = c; break; }
             if (s is null)
             {
-                if (_skinned.Count >= Limits.FallbackSkinned + 8)
+                if (_skinned.Count >= Math.Max(Limits.FallbackSkinned, Limits.MaxSkinned) + 8)
                 {
                     // Pool full of other looks: rebuild a free one for this look.
                     Skinned? spare = null;

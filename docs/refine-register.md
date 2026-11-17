@@ -52,8 +52,8 @@ Scanned 3431 spec table rows: **2449 tagged**, 631 not tagged (read from data wi
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 734 | 691 | 522 | 189 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
-| Ork faction | 265 | 249 | 150 | 68 | 0 |
-| **All areas** | **2449** | 2173 | 1816 | 732 | 37 |
+| Ork faction | 265 | 249 | 150 | 69 | 0 |
+| **All areas** | **2449** | 2173 | 1816 | 733 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -62,7 +62,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1443 |
 | confidence: low | 876 |
 | confidence: medium | 831 |
-| notes: ours | 404 |
+| notes: ours | 405 |
 | kind: interpretation | 394 |
 | notes: estimate | 203 |
 | kind: estimate | 164 |
@@ -3968,7 +3968,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-D554D2D8` | Reaction clips: by direction | the clip whose head lean (measured at run time on the rig: the head's horizontal travel at the peak, in the Ork's own frame) fits the flinch's direction best (largest absolute cosine); a clip leaning the opposite way is laid with a negative weight (a hit from… (cosine) | kind: ours; confidence: low | the lead's brief: "pick the clip by hit direction where the clips are directional"; the spread ours | Reaction clips: by direction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the clip whose head lean (measured at run time on the rig: the head's… | ☐ |
 | `R-9D3DD380` | Reaction clips: weight | the flinch's size (strength by weapon, melee or blast x size scale, held at **2.5**; `MusouOrkFlinchRules.Amplitude`) times the procedural flinch's head travel at size 1 divided by the clip's head travel at weight 1, so a clip moves the head as far as the… (x) | kind: ours; confidence: low | owner 2026-11-13 (magnitude 2x of the first version, cap 2.5; the size tiers keep scaling); the cap and the match of head travel ours | Reaction clips: weight: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the flinch's size (strength by weapon, melee or blast x size scale… | ☐ |
 | `R-4EC08F5C` | Reaction clips: timing and variety | the existing track drives the pose: rise **0.04** s, hold **0.04** s, fall **0.27** s (times the Ork's duration 0.6 to 1.5), start delay 0 to 80 ms, strength 0.5 to 1.4, re-kick to the same size on each hit (no growth), side and rebound flinches; so rapid… (s) | kind: ours; confidence: low | owner 2026-11-13 timing and 2026-11-16 variety; the peak-pose reading ours | Reaction clips: timing and variety: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the existing track drives the pose: rise 0.04 s, hold 0.04 s, fall… | ☐ |
-| `R-8B30C39C` | Reaction clips: tiers | near (skinned) Orks of the Boy rig take the clips; the far (baked, vertex-texture) tier keeps its whole-body lean and jolt: the bake holds one clip per instance with no blend and the additive flinch needs the base pose beneath it, so baking would mean the 7… | confidence: medium | owner 2026-11-13 ("full flinch on near Orks, a cheap jolt on far crowd Orks") | Reaction clips: tiers: compare with SM1 by watching the reaction and timing it frame by frame. Ours: near (skinned) Orks of the Boy rig take the clips; the far (baked… | ☐ |
+| `R-8B30C39C` | Reaction clips: tiers | the reaction clips play on the **nearest 100** Orks (owner 2026-11-17, after seeing the first capture: "play the clips on the nearest 100 orks not the nearest 40"): the 40 nearest within 25 m are skinned as before (`MusouCrowd.MaxSkinned`); a baked Ork that… (count) | confidence: medium; notes: ours | owner 2026-11-17 (100); the promotion rule and the 100-skinned ceiling ours | Reaction clips: tiers: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the reaction clips play on the nearest 100 Orks (owner 2026-11-17… | ☐ |
 | `R-4FBC979D` | Reaction clips: who | the looks on the Boy rig (Boy, Shoota, 'Ard Boy, Nob and the boss placeholders on the boy body, the Warboss when it wears the boy rig); a look on another rig (Weirdboy, Stormboy, Squig, Chaos Marine) or a rig without the clips or bones keeps the procedural… | confidence: medium | owner 2026-11-13 | Reaction clips: who: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the looks on the Boy rig (Boy, Shoota, 'Ard Boy, Nob and the boss… | ☐ |
 
 *Spec section: Added content: Musou Ork variety (musou/ork-variety; 2026-11-16; client drawing only, Musou Mode only, no protocol or hash change)*
