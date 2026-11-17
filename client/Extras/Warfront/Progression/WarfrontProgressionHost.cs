@@ -27,8 +27,7 @@ public sealed partial class WarfrontProgressionHost : CanvasLayer
         Name = "WarfrontProgression";
         Layer = LayerNumber;
         Model = new WarfrontProgressModel { Bot = bot };
-        var root = new Control { Name = "WarfrontProgressionRoot", Theme = UiKit.Theme, MouseFilter = Control.MouseFilterEnum.Ignore };
-        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        var root = new WarfrontUiFit { Name = "WarfrontProgressionRoot", Theme = UiKit.Theme };   // the 1920 by 1080 design space, fitted to the window and centred (W5c second pass)
         AddChild(root);
         Hud = new WarfrontXpHud(Model);
         Picker = new WarfrontPickerPanel(Model);

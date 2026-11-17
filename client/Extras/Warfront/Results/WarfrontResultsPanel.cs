@@ -77,6 +77,22 @@ public sealed partial class WarfrontResultsPanel : Control
         HonorButton = Row("Honor roll", ToggleHonorRoll, 940f, Left + 2 * ButtonPitch, ButtonWidth);
         if (newRun is not null) { NewRunButton = Row("New run", newRun, 940f, Left + 3 * ButtonPitch, ButtonWidth); NewRunButton.Name = "WarfrontNewRun"; }
         CloseButton = Row("Close", () => _close?.Invoke(), 940f, Left + 4 * ButtonPitch, ButtonWidth);
+        LayoutButtons();
+    }
+
+    /// <summary>NEW RUN is the leader's: shown or hidden as the viewer leads or not (the page follows the leader), the buttons that stand spaced evenly with no hole.</summary>
+    public void ShowNewRun(bool visible)
+    {
+        if (NewRunButton is null || NewRunButton.Visible == visible) return;
+        NewRunButton.Visible = visible;
+        LayoutButtons();
+    }
+
+    void LayoutButtons()
+    {
+        int i = 0;
+        foreach (var b in new[] { CopyButton, ExportButton, HonorButton, NewRunButton, CloseButton })
+            if (b is not null && (b != NewRunButton || b.Visible)) b.Position = new Vector2(Left + i++ * ButtonPitch, b.Position.Y);
     }
 
     static void Place(Control c, float x, float y, float w, float h)

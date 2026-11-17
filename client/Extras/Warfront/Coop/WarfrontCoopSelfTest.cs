@@ -119,7 +119,7 @@ public sealed partial class WarfrontCoopSelfTest : Node
         await Frames(2);
         Check("class: own panel shows", _join.Visible && _join.HeadingLabel.Text == "YOU JOIN AT LEVEL 6", _join.HeadingLabel.Text);
         Check("class: the customizer line and the clock", _join.BodyLabel.Text == "CONFIRM YOUR CLASS IN THE CUSTOMIZER (1:12)", _join.BodyLabel.Text);
-        Check("class: the hint names the way in", _join.HintLabel.Text == "OPEN IT AT THE ARMOURY STATION ON THE SHIP", _join.HintLabel.Text);
+        Check("class: the hint names the way in", _join.HintLabel.Text == "OPEN IT AT THE EQUIPMENT STATION ON THE SHIP", _join.HintLabel.Text);
         FitCheck("class", _join.Labels().ToArray());
         Check("class: text is at the picker's sizes", _join.HeadingLabel.GetThemeFontSize("font_size") == Progression.WarfrontPickerPanel.HeadingSize && _join.BodyLabel.GetThemeFontSize("font_size") == Progression.WarfrontPickerPanel.BodySize);
         await Still("join-class");

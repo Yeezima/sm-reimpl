@@ -121,8 +121,8 @@ public sealed class WarfrontCoopModel
 
     // ---- the join panel ---------------------------------------------------------------------------------------------------------------------
 
-    /// <summary>How to reach the customizer from the ship (the armoury station; the hub's own key hint replaces this when W11 names one).</summary>
-    public string JoinHint => Role == WarfrontCoopRole.AwaitClass ? "OPEN IT AT THE ARMOURY STATION ON THE SHIP" : "";
+    /// <summary>How to reach the customizer from the ship (the Equipment station; the hub's own key hint replaces this when W11 names one).</summary>
+    public string JoinHint => Role == WarfrontCoopRole.AwaitClass ? "OPEN IT AT THE EQUIPMENT STATION ON THE SHIP" : "";
 
     public bool ShowJoinPanel => Role is WarfrontCoopRole.AwaitClass or WarfrontCoopRole.AwaitPicks;
 

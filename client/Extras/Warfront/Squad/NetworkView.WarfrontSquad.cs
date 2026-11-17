@@ -44,11 +44,15 @@ public partial class NetworkView
         }
     }
 
+    /// <summary>A class's display name in capitals ("TACTICAL MARINE"), as the customizer names it; the config's key when the catalogue has no name.</summary>
+    string SquadClassDisplay(ClassLoadout info) =>
+        (_lookCatalog is { } catalog ? SmClient.Customizer.Model.LoadoutRows.ClassName(catalog, info.Role, info.Side == Team.Chaos ? SmContent.CustomizationCatalog.Chaos : SmContent.CustomizationCatalog.SpaceMarine) : info.Name).ToUpperInvariant();
+
     void WarfrontSquadEnsure()
     {
         if (_wfSquad is not null || Lean || _gameSpace is null || _hudView is null || !LooksReady || _looks is null || _lookCatalog is null || _config is null) return;
         var looks = new WarfrontSquadLooks(_looks, _lookCatalog);
-        var view = new WarfrontSquadView(looks, _gameDir, id => id < _config.Classes.Count ? _classLabels is { } l && id < l.Length ? l[id] : _config.Classes[id].Name : "?")
+        var view = new WarfrontSquadView(looks, _gameDir, id => id < _config.Classes.Count ? SquadClassDisplay(_config.Classes[id]) : "?")
         {
             PlayerName = id => HudName(id),
             OwnHasJumpPack = () => _client is { } c && _config.Classes.Count > c.Predicted.Class && c.Predicted.Class >= 0 && _config.Classes[c.Predicted.Class].Role == "assault",
@@ -60,8 +64,9 @@ public partial class NetworkView
         view.Crowd.EnemyAt = WarfrontEnemyAt;
         view.Crowd.Shot = WarfrontSquadShotFx;
         _gameSpace.AddChild(view.Crowd);
-        _hudView.AddChild(view.Hud);
-        _hudView.AddChild(view.Panel);
+        var fit = WarfrontFitRoot(_hudView);   // the squad's HUD and panel are laid out in the 1920 by 1080 space: fitted to the window and centred (W5c second pass)
+        fit.AddChild(view.Hud);
+        fit.AddChild(view.Panel);
         AddChild(view);
         _wfSquad = view;
     }

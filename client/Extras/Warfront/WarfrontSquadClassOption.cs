@@ -68,11 +68,11 @@ public static class WarfrontSquadClassOption
     /// <summary>The Librarian's squad rows, <paramref name="chosen"/> marked: one section, three choices, whole squad (no mixed squads).</summary>
     public static IReadOnlyList<MusouSection> Rows(SquadClass chosen) =>
     [
-        new("SQUAD CLASS  (your whole squad; each Marine rolls its own valid loadout, kept while this choice stands, in your colours)",
+        new("SQUAD CLASS",
         [
-            Row(SquadClass.Assault, "Assault / Raptor", "Jump-pack Marines with a blade and a pistol: they follow by jump.", chosen),
-            Row(SquadClass.Tactical, "Tactical", "Marines with a bolter, plasma gun, storm bolter or sniper rifle.", chosen),
-            Row(SquadClass.Devastator, "Devastator / Havoc", "Heavy gunners with a lascannon or plasma cannon.", chosen),
+            Row(SquadClass.Assault, "Assault / Raptor", "Your whole squad: jump-pack Marines with a blade and a pistol; they follow by jump.", chosen),
+            Row(SquadClass.Tactical, "Tactical", "Your whole squad: a bolter, plasma gun, storm bolter or sniper rifle each.", chosen),
+            Row(SquadClass.Devastator, "Devastator / Havoc", "Your whole squad: heavy gunners with a lascannon or plasma cannon.", chosen),
         ]),
     ];
 

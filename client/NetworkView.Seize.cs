@@ -342,6 +342,9 @@ public partial class NetworkView
 
     partial void ExtrasSpectateView(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view);
 
+    /// <summary>Whether an added content wants its own spectator view this frame (nothing in a faithful build: the hook leaves the view null).</summary>
+    bool ExtrasSpectateWanted(PlayerState me) { (Vector3 Eye, Vector3 Target)? v = null; ExtrasSpectateView(me, ref v); return v is not null; }   // EXTRAS-HOOK
+
     /// <summary>
     /// <c>--spectate</c> camera: the raw eye and target in Godot space (before blending, body push-out and the level cast of <see cref="SpectateFollow"/>), or null for the normal camera.
     /// No allocation per frame (M40-T6): the mode is lower-cased once, the "cam:" numbers parsed once, the "action" subject chosen by a loop.
