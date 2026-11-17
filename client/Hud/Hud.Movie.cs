@@ -160,9 +160,12 @@ public sealed partial class Hud
             var tint = new GfxColourTransform(mr, mg, mb, 1f, ar, ag, ab, 0f);
             var pic = _movieArt.Get(key, (m, s) => Of(m, name)?.Render(ch, fr, s, colour: plain ? null : tint));
             if (pic is null) return;
-            DrawAtom(pic, xf, new Color(1f, 1f, 1f, a), item.Add);
+            DrawAtom(pic, xf, new Color(_walkTint.R, _walkTint.G, _walkTint.B, a), item.Add);
         }, skip);
     }
+
+    /// <summary>A colour every piece of the next <see cref="DrawWalk"/> is multiplied by (white: none); the grenade marker's orange (Hud.GrenadeMarker.cs) sets and clears it.</summary>
+    Color _walkTint = Colors.White;
 
     /// <summary>A colour transform value rounded to 1/20 (so a fading clip reuses a few renders).</summary>
     static float Q(float v) => MathF.Round(v * 20f) / 20f;

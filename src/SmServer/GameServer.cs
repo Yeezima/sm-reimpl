@@ -692,14 +692,14 @@ public sealed partial class GameServer
         {
             var d = detonations[i];
             if (!listed.Add(d.Projectile & 0xFFFF)) continue;
-            views.Add(new ProjectileView(d.Projectile & 0xFFFF, d.Weapon, d.Stage, d.Position, ProjectileFlags.Detonated | (d.Thrown ? ProjectileFlags.Thrown : 0)));
+            views.Add(new ProjectileView(d.Projectile & 0xFFFF, d.Weapon, d.Stage, d.Position, ProjectileFlags.Detonated | (d.Thrown ? ProjectileFlags.Thrown : 0) | (d.Thrown && d.Upgraded ? ProjectileFlags.Upgraded : 0)));
         }
         foreach (var q in projectiles.OrderBy(q => Vector3.DistanceSquared(q.Position, viewer)).ThenBy(q => q.Id))
         {
             if (views.Count >= Protocol.MaxSnapshotProjectiles) break;
             if (!listed.Add(q.Id & 0xFFFF)) continue;
             var flags = q.Motion switch { ProjectileMotion.Stuck => ProjectileFlags.Stuck, ProjectileMotion.Attached => ProjectileFlags.Attached, _ => ProjectileFlags.None };
-            views.Add(new ProjectileView(q.Id & 0xFFFF, q.Weapon, q.Stage, q.Position, flags | (q.Thrown ? ProjectileFlags.Thrown : 0)));
+            views.Add(new ProjectileView(q.Id & 0xFFFF, q.Weapon, q.Stage, q.Position, flags | (q.Thrown ? ProjectileFlags.Thrown : 0) | (q.Thrown && q.Upgraded ? ProjectileFlags.Upgraded : 0)));
 
         }
         return views.ToArray();

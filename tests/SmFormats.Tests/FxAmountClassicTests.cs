@@ -53,8 +53,26 @@ public class FxAmountClassicTests
         var offenders = Directory.EnumerateFiles(client, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}.godot{Path.DirectorySeparatorChar}") && setter.IsMatch(File.ReadAllText(f)))
             .Select(f => Path.GetRelativePath(client, f).Replace('\\', '/'))
-            .Where(f => !f.StartsWith("Extras/Musou/", StringComparison.Ordinal) && f != "FxPlayer.cs")   // FxPlayer.cs declares the defaults (checked above)
+            .Where(f => !f.StartsWith("Extras/Musou/", StringComparison.Ordinal) && f != "FxPlayer.cs")   // FxPlayer.cs declares the defaults (checked above); its one core exception is KeepGrenadeSmoke, whose callers the next test pins
             .ToList();
         Assert.Empty(offenders);
+    }
+
+    /// <summary>
+    /// grenade-effects (owner 2026-11-17, card G1 "Smoke on frags only"): the one sanctioned core exception to the no-smoke rule. <c>FxEffect.KeepGrenadeSmoke</c> (FxPlayer.cs) sets <c>KeepSmoke</c> for the
+    /// frag blasts; exactly one place outside FxPlayer.cs and Musou's files may call it (<c>FxDetonation</c>, behind <c>GrenadeFx.KeepsSmoke</c>), so a second Classic path cannot lift the rule unseen.
+    /// </summary>
+    [Fact]
+    public void Exactly_one_core_caller_lifts_the_no_smoke_rule_for_the_frag_blasts()
+    {
+        string client = Path.Combine(Root(), "client");
+        var callers = Directory.EnumerateFiles(client, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}.godot{Path.DirectorySeparatorChar}"))
+            .Select(f => (File: Path.GetRelativePath(client, f).Replace('\\', '/'), Count: Regex.Matches(File.ReadAllText(f), @"\.KeepGrenadeSmoke\(").Count))
+            .Where(x => x.Count > 0 && x.File != "FxPlayer.cs" && !x.File.StartsWith("Extras/Musou/", StringComparison.Ordinal))
+            .ToList();
+        var only = Assert.Single(callers);
+        Assert.Equal("NetworkView.Fx.cs", only.File);
+        Assert.Equal(1, only.Count);
     }
 }

@@ -271,6 +271,7 @@ public partial class NetworkView
     void UpdateSound(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
         if (_client is null || _config is null) return;
+        GrenadeTrack(me, others);   // grenade effects: who threw each frag in the world (NetworkView.GrenadeFx.cs)
         if (!SoundReady() || _sound is null || _soundTriggers is null) { SoundMeleeOthers(me, others); return; }   // hit reactions: others' inferred melee hits still flinch their victims without sound
         ClassicRecordMixFrame();   // --record-mix (test aid)
         int ownId = _client.PlayerId;
@@ -891,10 +892,10 @@ public partial class NetworkView
             GD.Print($"HIT CONFIRM t {_connectedFor:F3} mode {HitConfirmArg} event {confirmEvent}{(stalker ? " (stalker rule)" : "")} victim P{hits.LastVictim} {(armoured ? "armour" : "flesh")}{(kill ? " kill" : "")} offset {offset} | {VoiceMixText(play, at, offset)}");
     }
 
-    string? ProjectileFile(int weapon, int stage, bool thrown)
+    string? ProjectileFile(int weapon, int stage, bool thrown, bool upgraded = false)
     {
         if (_config is null) return null;
-        var spec = Shots.ProjectileOf(_config, weapon, stage, thrown);
+        var spec = Shots.ProjectileOf(_config, weapon, stage, thrown, upgraded && !OldGrenadeFx);   // grenade-effects (protocol 83): Master-Crafted Wargear's blueprint carries the bigger blast sound
         return spec?.Blueprint is { Length: > 0 } bp ? bp.Split('\\', '/')[^1] : null;
     }
 
@@ -911,7 +912,7 @@ public partial class NetworkView
             if (_projectileSounds.ContainsKey(q.Id)) continue;
             int id = q.Id;
             var emitter = new SoundEmitter { Position = pos, Follow = () => _projectilePositions.TryGetValue(id, out var x) ? x : null, Label = $"projectile {id}" };
-            var file = ProjectileFile(q.Weapon, q.Stage, q.Thrown) is { } name ? _soundTriggers.File(name) : null;
+            var file = ProjectileFile(q.Weapon, q.Stage, q.Thrown, q.Upgraded) is { } name ? _soundTriggers.File(name) : null;
             var trail = file?.Of("lifetime_action") ?? [];
             _projectileSounds[q.Id] = (emitter, trail);
             PostAll(trail, emitter, false, "trail");
@@ -944,7 +945,7 @@ public partial class NetworkView
     void SoundDetonation(ProjectileView d, string source = "projectile")
     {
         if (_soundTriggers is null || _sound is null) return;
-        var name = ProjectileFile(d.Weapon, d.Stage, d.Thrown);
+        var name = ProjectileFile(d.Weapon, d.Stage, d.Thrown, d.Upgraded);
         var file = name is null ? null : _soundTriggers.File(name);
         DetonationSounds[source] = DetonationSounds.GetValueOrDefault(source) + 1;
         if ((LogSound("detonation") || LogSound("mixab")) && _detonationsLogged.Add(source + "|" + name))
@@ -957,6 +958,7 @@ public partial class NetworkView
         // M38: a detonation is a level impact: the armour impact state (no flesh layer) for all of its posts, whatever the own armour events left behind; restored afterwards.
         var stateBefore = BeginImpactState(flesh: false);
         if (file is not null) PostAll(file.Of("detonate_action"), at, false, "detonation");
+        if (file is not null && source == "projectile") GrenadeVictimSounds(d, file);   // grenade-effects: play_big_damage_grenade / play_grenade_damage_smack at the players the blast reaches
         if (name is not null && _soundTriggers.HitSound(name) is { } hitSound && file?.Of("detonate_action").Any(b => b.StartEvent == hitSound) != true)
         {
             _sound.Post(hitSound, at);

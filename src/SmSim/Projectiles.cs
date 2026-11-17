@@ -33,6 +33,8 @@ public readonly record struct ProjectileState(int Id, int Owner, int Weapon, int
     public float DetonateIn { get; init; }
     /// <summary>A thrown item: <see cref="ProjectileState.Weapon"/> indexes <see cref="SimConfig.Thrown"/> (protocol 8).</summary>
     public bool Thrown { get; init; }
+    /// <summary>A thrown item launched with its owner's perk-variant blueprint, not the config's base item's (Master-Crafted Wargear; protocol 83, the wire's Upgraded flag).</summary>
+    public bool Upgraded { get; init; }
     /// <summary>A rigid body that has touched the ground: its ground fuse (<see cref="ProjectileSpec.GroundLifetime"/>) runs.</summary>
     public bool Landed { get; init; }
     /// <summary>Seconds counted on the ground fuse: 0 when it lands; the landing tick's own check then stores dt, and each later tick adds dt.</summary>
@@ -68,6 +70,8 @@ public readonly record struct DetonationEvent(uint Tick, int Projectile, int Own
 {
     /// <summary>A thrown item's detonation: <see cref="Weapon"/> indexes <see cref="SimConfig.Thrown"/>.</summary>
     public bool Thrown { get; init; }
+    /// <summary>A thrown item launched with its owner's perk-variant blueprint (Master-Crafted Wargear; protocol 83).</summary>
+    public bool Upgraded { get; init; }
 }
 
 /// <summary>What a hit-scan or cone shot ended on (M25a; for effects: tracer end and impact kind).</summary>
@@ -194,7 +198,7 @@ public sealed partial class World
             _nextProjectileId++;
         var p = new ProjectileState(_nextProjectileId++, owner, weapon, stage, origin, direction * spec.Speed)
         {
-            LaunchTick = Tick, Thrown = thrown, Remote = !thrown && stage == 0 && Shots.RemoteDetonated(source ?? Config.Weapons[weapon]),
+            LaunchTick = Tick, Thrown = thrown, Upgraded = thrown && IsUpgradedBlueprint(weapon, spec), Remote = !thrown && stage == 0 && Shots.RemoteDetonated(source ?? Config.Weapons[weapon]),
             Spec = spec, Source = thrown ? null : source,
         };
         _projectiles.Add(p);
@@ -209,6 +213,10 @@ public sealed partial class World
             Detonate(waiting[0].Id, waiting[0].Position, -1, HitZone.None);
         }
     }
+
+    /// <summary>Whether a thrown item's launched blueprint is not the base item's (protocol 83): Master-Crafted Wargear swapped it.</summary>
+    bool IsUpgradedBlueprint(int item, ProjectileSpec spec) =>
+        item >= 0 && item < Config.Thrown.Count && !string.Equals(Config.Thrown[item].Projectile.Blueprint, spec.Blueprint, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The owner's waiting remote projectiles go off after the weapon's delays, oldest first.</summary>
     void DetonateRemotely(int owner)
@@ -455,7 +463,7 @@ public sealed partial class World
         }
         var dealt = _hits.Skip(first).ToList();
         var e = new DetonationEvent(Tick, p.Id, p.Owner, p.Weapon, p.Stage, point, spec.AllSplashes.Select(x => x.Radius).DefaultIfEmpty(0f).Max() * reach,
-            dealt.Select(h => h.Target).Distinct().Count(), dealt.Sum(h => h.ShieldDamage), dealt.Sum(h => h.HealthDamage), dealt.Count(h => h.Killed)) { Thrown = p.Thrown };
+            dealt.Select(h => h.Target).Distinct().Count(), dealt.Sum(h => h.ShieldDamage), dealt.Sum(h => h.HealthDamage), dealt.Count(h => h.Killed)) { Thrown = p.Thrown, Upgraded = p.Upgraded };
         _detonations.Add(e);
         _recentDetonations.Add(e);
     }

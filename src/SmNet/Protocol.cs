@@ -305,7 +305,9 @@ public enum ProjectileFlags : byte
     Detonated = 4,
     /// <summary>A thrown item (protocol 8): <see cref="ProjectileView.Weapon"/> indexes <see cref="SimConfig.Thrown"/> and the stage is 0.</summary>
     Thrown = 16,
-    All = Stuck | Attached | Detonated | Thrown,
+    /// <summary>A thrown item launched with its owner's Master-Crafted Wargear blueprint (protocol 83; only with <see cref="Thrown"/>): draw the upgraded blast and trail.</summary>
+    Upgraded = 32,
+    All = Stuck | Attached | Detonated | Thrown | Upgraded,
 }
 
 /// <summary>
@@ -318,6 +320,8 @@ public readonly record struct ProjectileView(int Id, int Weapon, int Stage, Vect
 {
     /// <summary>A thrown item's record.</summary>
     public bool Thrown => (Flags & ProjectileFlags.Thrown) != 0;
+    /// <summary>A thrown item of the Master-Crafted blueprint (protocol 83).</summary>
+    public bool Upgraded => (Flags & ProjectileFlags.Upgraded) != 0;
 }
 
 /// <summary>Binary wire format: one type byte, then fixed little-endian fields. Malformed packets are rejected.</summary>
@@ -534,7 +538,9 @@ public static partial class Protocol
     //     listening on loopback alone, from a loopback address; it sends DevState only then, so a normal server's traffic is unchanged. No other layout change, no simulation change with the tools off.
     // 81 (classic-stab-on-t; the owner 2026-11-17): input bit 15, InputButtons.Stab (T): from rest it starts the power sword's stab (the F + F finisher) on its own, no precursor move (MeleeStep.Stab, Combat.StabIndex).
     //     Classic PvP only (the server drops the bit in Musou Mode); a weapon without a stab ignores it. The T voice call (FOR THE EMPEROR) is off in Classic PvP: the client sends the shout bit in Musou Mode only. F + F and RMB + F still stab.
-    public const ushort Version = 81;
+    // 83 (grenade-effects; the owner 2026-11-17; the plasma cannon branch claims 82): ProjectileFlags.Upgraded (bit 5 of a projectile record's flag byte, a thrown item only): the grenade was launched with its owner's Master-Crafted Wargear
+    //     blueprint, so every client draws and sounds the upgraded blast (effect scale 1.5 against 0.6, the bigger blast sound) and trail. No sim change; the config hash is unchanged. Restore switch (client): --old-grenade-fx.
+    public const ushort Version = 83;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
@@ -1077,6 +1083,7 @@ public static partial class Protocol
             int id = r.U16(), weapon = r.U8(), stage = r.U8(), flags = r.U8();
             if (weapon == NoIndex || (flags & ~(int)ProjectileFlags.All) != 0) return null;   // no weapon, unknown flags
             if ((flags & (int)ProjectileFlags.Thrown) != 0 && stage != 0) return null;         // thrown items have no stages
+            if ((flags & (int)ProjectileFlags.Upgraded) != 0 && (flags & (int)ProjectileFlags.Thrown) == 0) return null;   // protocol 83: the upgraded mark is a thrown item's
             var position = new Vector3(r.I24(), r.I24(), r.I24()) / PositionScale;
             for (int j = 0; j < k; j++) if (projectiles[j].Id == id) return null;   // one record per projectile
             projectiles[k] = new ProjectileView(id, weapon, stage, position, (ProjectileFlags)flags);

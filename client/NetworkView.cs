@@ -743,6 +743,7 @@ public partial class NetworkView : Node3D
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
         if (_bot && FovDemo) return FovDemoInput(tick);   // camera/melee-fov-widen test aid (NetworkView.MeleeFov.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+        if (_bot && GrenadeDemo) return GrenadeDemoInput(tick);   // grenade-effects capture aid (NetworkView.GrenadeFx.cs)
         if (_bot && BotStimDemoEvery > 0 && StimOf(_client!.Predicted) is not null) return BotStimDemoInput(tick);   // stim-original test aid (NetworkView.Stims.cs)
         if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)
         if (_bot && BotGait) return BotGaitInput(tick);   // M36 test aid
@@ -1200,7 +1201,7 @@ public partial class NetworkView : Node3D
             // M25b: the original explosion replaces the placeholder blast spheres (lingering areas stay; --placeholder-fx keeps the spheres).
             Ph("blasts: effects");
             float reach = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.ThrownBlastScale(_config.Thrown[d.Weapon]) : 1f;   // Musou Mode's frag: 2x (owner 2026-11-09), the effect as large as the blast
-            bool original = FxDetonation(d, reach);
+            bool original = FxDetonation(d, reach, grenade: true);
             Ph("projectiles and blasts");
             // Without a splash (none read), a small flash so the detonation is still visible.
             if (splashes.Count == 0 && !original) AddBlast(position, colour, 0.5f);
@@ -2120,6 +2121,7 @@ public partial class NetworkView : Node3D
                     f.AimedBar = true; f.AimedHealth = bar.Health / 255f; f.AimedShield = bar.Shield / 255f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f;
                 }
             }
+            GrenadeMarkerFrame(f, me);   // grenade effects: the own grenades' in-flight marker (NetworkView.GrenadeFx.cs)
             FillDecorators(f, me, centre.Hit);   // the allies in view (Classic) and the aimed foe; Musou: the aimed player only (NetworkView.Match.cs)
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
             f.ReticleScale = _reticleFovScale;   // ui/crosshair-fov-scale: the crosshair covers the same angle at every FOV (ReticleFovScale)
