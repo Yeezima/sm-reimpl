@@ -27,4 +27,20 @@ public class HopSoundRulesTests
         Assert.True(HopSoundRules.DashPostsLaunch(4.610, double.NegativeInfinity));
         Assert.True(HopSoundRules.DashPostsLaunch(10.0, 3.0));
     }
+
+    [Fact]
+    public void The_boundary_is_exactly_the_window()
+    {
+        Assert.False(HopSoundRules.DashPostsLaunch(HopSoundRules.SameHopSeconds, 0.0));   // exactly 0.6 s: still the same hop
+        Assert.True(HopSoundRules.DashPostsLaunch(HopSoundRules.SameHopSeconds + 0.001, 0.0));
+    }
+
+    [Fact]
+    public void Only_jump_pack_classes_have_a_dash_evade()
+    {
+        var c = MeleeCancelTests.Pack;
+        for (int k = 0; k < c.Classes.Count; k++)
+            if (SmSim.Loadouts.Evade(c, k) is { Dash: true })
+                Assert.NotNull(SmSim.Loadouts.JumpPack(c, k));   // the sound rule treats a Dash evade as a jump-pack hop
+    }
 }

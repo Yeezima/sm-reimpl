@@ -80,7 +80,7 @@ public partial class NetworkView
     sealed class SoundTrack
     {
         public PlayerState Prev;
-        public double LaunchAt = double.NegativeInfinity;   // the connection time of the last jump-pack launch sound (HopSoundRules: a tap's dash does not sound again)
+        public double LaunchAt = double.NegativeInfinity, DashLaunchAt = double.NegativeInfinity;   // the connection time of the last jump-pack launch sound (HopSoundRules: a tap's dash does not sound again)
         public bool Has;
         public string? Clip;
         public float Fraction;
@@ -518,7 +518,7 @@ public partial class NetworkView
     void TagSound(string tag, SoundTrack t, PlayerState s, bool own)
     {
         // A Space tap of a jump-pack class is one hop sound (HopSoundRules): the dash clip's evade-start and take-off tags stay silent beside the launch.
-        if (HopSoundRules.IsDashExtraTag(tag) && _config is not null && Loadouts.Evade(_config, s) is { Dash: true }) return;
+        if (HopSoundRules.IsDashExtraTag(tag) && _config is not null && Evade.Evading(s) && Loadouts.Evade(_config, s) is { Dash: true }) return;
         // One footfall, one post, whichever clip (run blend, sprint clip) fires it (sound/footsteps-2).
         if (!FootstepLevel.AdmitFootfall(t.FootPostedAt, tag, _connectedFor))
         {
@@ -601,7 +601,7 @@ public partial class NetworkView
         var pack = Loadouts.JumpPack(_config!, s) is { } j ? _soundTriggers!.File(j.Name) : null;
         if (pack is not null)
         {
-            if (SmContent.JumpLaunchSoundRules.LaunchesNow(p.Jump, s.Jump)) { t.TopZ = s.Position.Z; t.LaunchAt = _connectedFor; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic)); }   // sound/mix-and-reloads: the first burst stays, the tail fades
+            if (SmContent.JumpLaunchSoundRules.LaunchesNow(p.Jump, s.Jump)) { t.TopZ = s.Position.Z; if (HopSoundRules.DashPostsLaunch(_connectedFor, t.DashLaunchAt)) { t.LaunchAt = _connectedFor; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic)); } }   // sound/mix-and-reloads: the first burst stays, the tail fades
             // M45: the own player's thrust ends at the release that cuts the rise (SmContent.ThrustEndRules), as its effect does; others' at the apex.
             if (SmContent.ThrustEndRules.EndsNow(JumpPack.Jumping(s.Jump), p.Velocity.Z, s.Velocity.Z, own && p.JumpCut, own && s.JumpCut))
                 PostAll(pack.Of("action_apex"), t.Emitter, own, s.JumpCut ? "jump thrust cut" : "jump apex", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic));
