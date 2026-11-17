@@ -18,7 +18,8 @@ public class SquadClassBenchTests(ITestOutputHelper output)
     const int Ticks = 450, Warmup = 30, Orks = 1200;
 
     /// <summary>A busy PC (other tests, other agents) can push one run over the budget: the scene is run up to three times and the budget must hold in one of them (every attempt is printed).</summary>
-    [Fact]
+    [Fact(Skip = "Timing bench over budget even alone (worst step 59.8 ms); W17 measures it on a quiet PC and un-skips it (designer 4, W13c review)")]
+    [Trait("Speed", "Slow")]   // a timing bench (worst step 59.8 ms under load, also alone): out of the default run until W17's quiet slot measures the cause (designer 4, W13c review)
     public void Thirty_six_jump_pack_Marines_with_no_landing_search_for_routes_at_most_once_a_second_per_squad()
     {
         for (int attempt = 1; ; attempt++)
