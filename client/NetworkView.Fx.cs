@@ -390,6 +390,8 @@ public partial class NetworkView
 
     /// <summary>An added mode's camera shake this frame: offset (camera space, metres) and angles (degrees: pitch, yaw, roll); before the Camera shake option's factor. Musou's Dreadnought (the data's camera effects).</summary>
     partial void ExtrasCameraShake(double delta, ref Vector3 offset, ref Vector3 degrees);
+    partial void ExtrasShakeScale(ref float scale);
+    partial void ExtrasShotTorrent(int shooter, string wargear, Vector3 muzzle, Vector3 end, bool own);
 
     /// <summary>The origin of the last <see cref="TraceOwn"/> (game space).</summary>
     Num.Vector3 _traceOwnStart;
@@ -525,6 +527,7 @@ public partial class NetworkView
         played.Clear();
         float travel = 0f;
         bool tracered = false;
+        Vector3? tracerFrom = null;
         // fx/tracers-impact: a shot that launches a projectile (a charged plasma shot, the plasma cannon, the launcher) draws its fire effects only; the projectile is its body and its
         // detonation, when it gets there, its impact and decal (TracerRules.DrawnAtFire). --old-charged-impact: traced and impacted at once, as before.
         bool projectileShot = !TracerRules.DrawnAtFire(spec, stage), atFire = OldChargedImpact || !projectileShot;
@@ -555,6 +558,7 @@ public partial class NetworkView
                 }
                 else travel = MathF.Max(travel, PlayTracer(p, w, place.Position, end, rayOrigin, rayDir, own, shooter));
                 tracered = true;
+                tracerFrom ??= place.Position;
             }
             else
             {
@@ -565,6 +569,7 @@ public partial class NetworkView
                 if (played1 is not null && p.Attached) MeltaFollowNote(played1, shooter, p.Marker, w.Wargear);   // fx/melta-attached: --log-melta-follow
             }
         }
+        if (tracerFrom is { } torrentFrom && atFire) ExtrasShotTorrent(shooter, w.Wargear, torrentFrom, end, own);   // EXTRAS-HOOK: Musou Dreadnought's torrent of visual-only tracers (owner 2026-11-18)
         if (lightBall && (FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var lightFrom && lightFrom.Position.DistanceTo(end) >= 0.4f)
         {
             travel = MathF.Max(travel, LightBallLaunch(shooter, spec, w, weaponIndex, lightFrom.Position, end));
@@ -843,6 +848,7 @@ public partial class NetworkView
     {
         if (_camera is null) return;
         float accessibility = SmClient.Customizer.Model.LiveOptions.CameraShake;   // the Options menu's camera shake (combat feel 2026-11-09; 1 = as before)
+        ExtrasShakeScale(ref accessibility);   // EXTRAS-HOOK: Musou's Dreadnought player shakes at 0.2 (owner 2026-11-18)
         float amount = _shake.X * accessibility;
         var bob = (LandShakeOffset() + GrenadeJoltOffset()) * accessibility;   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
         bool rotate = amount >= 0.0004f;
