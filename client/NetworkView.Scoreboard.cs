@@ -89,6 +89,7 @@ public partial class NetworkView
         string score = _scoreWord;
         var frame = new ScoreboardView.ScoreboardFrame
         {
+            SingleLabel = single && board.Teams ? "TOTAL SCORE" : "",
             Single = single, SingleScore = board.Teams,   // free-for-all: no side score; Musou Mode: the column's total
             Headers = assists ? [t.Kills, t.Deaths, t.Ratio, t.Assists, score, "PING"] : [t.Kills, t.Deaths, score, "PING"],
         };
@@ -102,6 +103,7 @@ public partial class NetworkView
             var column = new ScoreboardView.Side
             {
                 Score = side == Team.SpaceMarines ? match.MarineScore : side == Team.Chaos ? match.ChaosScore : entries.Sum(scoreOf),
+                Name = side == Team.SpaceMarines ? "SPACE MARINES" : side == Team.Chaos ? "CHAOS" : "",
             };
             foreach (var e in entries)
             {

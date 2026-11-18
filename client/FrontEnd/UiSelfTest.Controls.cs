@@ -50,7 +50,7 @@ public sealed partial class UiSelfTest
     {
         await ControlsDialogShown(view);
         var d = ControlsDialog(view);
-        var b = d is null ? null : FindButton(d, x => x.Text == text);
+        var b = d is null ? null : FindButton(d, x => x.Text.Equals(text, StringComparison.OrdinalIgnoreCase));
         if (b is null) return false;
         b.EmitSignal(BaseButton.SignalName.Pressed);
         await Until(() => ControlsDialog(view) is null && !view.DialogOpen, 5, 3);
@@ -91,7 +91,7 @@ public sealed partial class UiSelfTest
                 {
                     var b = controls.BindButton(info.Action, slot);
                     string want = BindingSet.Display(BindingSet.Defaults().Get(KB, info.Action, slot));
-                    if (b is null || b.Text != want) { listed = false; missing += $" {info.Action}/{slot}={b?.Text ?? "none"}(want {want})"; }
+                    if (b is null || !b.Text.Equals(want, StringComparison.OrdinalIgnoreCase)) { listed = false; missing += $" {info.Action}/{slot}={b?.Text ?? "none"}(want {want})"; }
                 }
             Check("controls: every keyboard action is listed with its default binding", listed, missing);
 
@@ -114,8 +114,8 @@ public sealed partial class UiSelfTest
             await Arm(controls, GameAction.Grenade, 0);
             await SendKey(Key.Q);
             await ControlsDialogShown(controls);
-            Check("controls: a used key asks Swap, Replace or Cancel", ControlsDialog(controls) is { } d && FindButton(d, b => b.Text == "Swap") is not null && FindButton(d, b => b.Text == "Replace") is not null
-                && FindButton(d, b => b.Text == "Cancel") is not null && controls.Status.Contains("already used", StringComparison.Ordinal), controls.Status);
+            Check("controls: a used key asks Swap, Replace or Cancel", ControlsDialog(controls) is { } d && FindButton(d, b => b.Text.Equals("Swap", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(d, b => b.Text.Equals("Replace", StringComparison.OrdinalIgnoreCase)) is not null
+                && FindButton(d, b => b.Text.Equals("Cancel", StringComparison.OrdinalIgnoreCase)) is not null && controls.Status.Contains("already used", StringComparison.OrdinalIgnoreCase), controls.Status);
             await AnswerControlsDialog(controls, "Cancel");
             Check("controls: Cancel changes nothing", controls.Working.Get(KB, GameAction.Grenade, 0) == "Key:G" && controls.Working.Get(KB, GameAction.Reload, 0) == "Key:Q");
             await Arm(controls, GameAction.Grenade, 0);
@@ -140,7 +140,7 @@ public sealed partial class UiSelfTest
             await Until(() => Input.IsMouseButtonPressed(MouseButton.Middle), 5, 2);
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Middle, Pressed = false });
             await Until(() => !Input.IsMouseButtonPressed(MouseButton.Middle), 5, 2);
-            Check("controls: a mouse button binds", controls.Working.Get(KB, GameAction.Jump, 1) == "Mouse:Middle" && controls.BindButton(GameAction.Jump, 1)?.Text == "Middle mouse");
+            Check("controls: a mouse button binds", controls.Working.Get(KB, GameAction.Jump, 1) == "Mouse:Middle" && controls.BindButton(GameAction.Jump, 1)?.Text == "MIDDLE MOUSE");
             await Arm(controls, GameAction.Weapon1, 1);
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Factor = 1f });
             await ControlsDialogShown(controls);

@@ -260,7 +260,7 @@ public sealed partial class PreviewStage : SubViewportContainer
         CustomMinimumSize = new Vector2(400, 300);
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
         SizeFlagsVertical = SizeFlags.ExpandFill;
-        _viewport = new SubViewport { OwnWorld3D = true, TransparentBg = false, HandleInputLocally = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
+        _viewport = new SubViewport { OwnWorld3D = true, TransparentBg = ConceptArt.Get("overlay-armoury") is not null,   /* ui/overhaul: the scene shows through the preview */ HandleInputLocally = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
         RenderQuality.Apply(_viewport);   // a SubViewport does not inherit the project's anti-aliasing
         AddChild(_viewport);
         _status = UiKit.Text("", UiKit.BodySize, UiKit.White, HorizontalAlignment.Center);
@@ -284,7 +284,7 @@ public sealed partial class PreviewStage : SubViewportContainer
         _viewport.AddChild(fill);
         var environment = new Godot.Environment
         {
-            BackgroundMode = Godot.Environment.BGMode.Color,
+            BackgroundMode = ConceptArt.Get("overlay-armoury") is not null ? Godot.Environment.BGMode.ClearColor : Godot.Environment.BGMode.Color,
             BackgroundColor = new Color(0.045f, 0.05f, 0.06f),
             AmbientLightSource = Godot.Environment.AmbientSource.Color,
             AmbientLightColor = new Color(0.5f, 0.52f, 0.58f),

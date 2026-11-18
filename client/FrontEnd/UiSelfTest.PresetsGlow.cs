@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Godot;
@@ -18,7 +19,7 @@ public sealed partial class UiSelfTest
         {
             _front.ShowOptions(OptionsView.Graphics);
             await Frames(4);
-            var row = FindButton(options, b => b.Text == "LIGHTING PRESET") as UiKit.MenuChoice;
+            var row = FindButton(options, b => b.Text.Equals("LIGHTING PRESET", StringComparison.OrdinalIgnoreCase)) as UiKit.MenuChoice;
             Check("presets: GRAPHICS has LIGHTING PRESET", row is not null);
             if (row is null) return;
             Check("presets: the ten looks in the owner's order", row.Values.SequenceEqual(LightingPresets.Labels.Select(l => l.ToUpperInvariant())) && row.Values.Count == 10, string.Join(", ", row.Values));
@@ -60,7 +61,7 @@ public sealed partial class UiSelfTest
             await SendKey(Key.Down);
             await Frames(2);
             var focused = GetViewport().GuiGetFocusOwner();
-            Check("glow: it follows the focus", focused != row && FocusGlow.Target == focused, focused?.Name ?? "none");
+            Check("glow: it follows the focus (a painted plate wears its own focus look instead)", focused != row && (FocusGlow.Target == focused || focused?.HasMeta(FocusGlow.NoGlowMeta) == true), focused?.Name ?? "none");
 
             // The mouse: moving onto a row gives it the focus, so only one row glows.
             // (A headless run's window is small and the menu rows' text is drawn very large, so the pointer goes to a probe button of known place on a layer of its own.)

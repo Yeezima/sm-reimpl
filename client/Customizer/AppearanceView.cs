@@ -68,9 +68,12 @@ public sealed partial class AppearanceView : Control
 
         var header = UiKit.HBox(16);
         _title = UiKit.Text("APPEARANCE", UiKit.HeaderSize, UiKit.Gold);
+        // ui/overhaul: the title on the concept's rivetted plate, like the other screens' titles.
+        if (ConceptArt.Patch("opt-plate-blank", new Vector2(60f, 30f), new Vector2(40f, 10f)) is { } plate) { _title.AddThemeStyleboxOverride("normal", plate); _title.CustomMinimumSize = new Vector2(380f, 84f); _title.HorizontalAlignment = HorizontalAlignment.Center; _title.VerticalAlignment = VerticalAlignment.Center; }
+        SteelBackdrop.EmbossTitle(_title);
         header.AddChild(_title);
         header.AddChild(_lookRow);
-        header.AddChild(UiKit.Text("Side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
+        header.AddChild(UiKit.Text("SIDE", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
         header.AddChild(_sideToggle);
         // Fills the space up to DONE and is cut (full text in its tooltip) rather than pushing DONE off the window (fix/frontend-fit).
         _classLabel = UiKit.Text("", UiKit.CaptionSize, UiKit.White, HorizontalAlignment.Right);
@@ -90,9 +93,11 @@ public sealed partial class AppearanceView : Control
         sectionsColumn.AddChild(_lookTools);
         var sectionsPanel = UiKit.Panel(sectionsColumn, 10);
         sectionsPanel.CustomMinimumSize = new Vector2(230, 0);
+        sectionsPanel.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());   // no grey outline round the navigation (Opus review 2)
         main.AddChild(sectionsPanel);
         _scroll = UiKit.Scroll(_panel);
         _scroll.CustomMinimumSize = new Vector2(660, 0);
+        _scroll.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         _scroll.SizeFlagsHorizontal = SizeFlags.Fill;
         main.AddChild(_scroll);
         var right = UiKit.VBox(10);
@@ -220,11 +225,11 @@ public sealed partial class AppearanceView : Control
         foreach (var c in _sections.GetChildren()) { _sections.RemoveChild(c); c.QueueFree(); }
         _sectionButtons.Clear();
         var names = new List<(Section, string)> { (Section.Slots, "MY APPEARANCES"), (Section.Chapter, "CHAPTER"), (Section.Armour, "ARMOUR"), (Section.Colours, "COLOURS"), (Section.Badges, "BADGES") };
-        names.Add((Section.Eyes, "EYES (lens)"));
+        names.Add((Section.Eyes, "EYES (LENS)"));
         foreach (var (section, text) in names)
         {
             var s = section;
-            var b = new Button { Text = text, Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 56) };
+            var b = new Button { Text = text, Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 56), ThemeTypeVariation = Steel.TabType };
             b.Pressed += () => { _section = s; _armourSlot = null; _slotPage = 0; Rebuild(true); };
             _sections.AddChild(b);
             _sectionButtons.Add(b);
@@ -239,9 +244,10 @@ public sealed partial class AppearanceView : Control
         var looks = profile.AppearancesFor(_race).ToList();
         var own = Class?.Appearance.For(_race);
         _lookPicker = new OptionButton { CustomMinimumSize = new Vector2(250, UiKit.MinHit), FocusMode = FocusModeEnum.All, Disabled = Class is null };
-        _lookPicker.AddItem("Default look", 0);
-        for (int i = 0; i < looks.Count; i++) _lookPicker.AddItem($"{AppearanceSlots.SlotOf(profile, _race, looks[i].Id)}: {looks[i].Name}", i + 1);
-        _lookPicker.AddItem(looks.Count < CustomizationProfile.MaxAppearancesPerRace ? "New look..." : "(library full)", looks.Count + 1);
+        _lookPicker.AddThemeConstantOverride("arrow_margin", 52);   // the arrow clear of the plate's rivet (Opus review 3)
+        _lookPicker.AddItem("DEFAULT LOOK", 0);
+        for (int i = 0; i < looks.Count; i++) _lookPicker.AddItem($"{AppearanceSlots.SlotOf(profile, _race, looks[i].Id)}: {looks[i].Name}".ToUpperInvariant(), i + 1);
+        _lookPicker.AddItem(looks.Count < CustomizationProfile.MaxAppearancesPerRace ? "NEW LOOK..." : "(LIBRARY FULL)", looks.Count + 1);
         int selected = own is null ? 0 : looks.FindIndex(l => l.Id == own) + 1;
         _lookPicker.Select(Math.Max(selected, 0));
         _lookPicker.ItemSelected += index =>
@@ -281,7 +287,7 @@ public sealed partial class AppearanceView : Control
         int keep = focusedBefore is Button fb ? _panel.GetChildren().OfType<Control>().SelectMany(Flatten).OfType<Button>().ToList().IndexOf(fb) : -1;
         var profile = _session.Working;
         var shared = SharedNote();
-        _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Short}";
+        _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Short}".ToUpperInvariant();
         _classLabel.TooltipText = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Long}";
         for (int i = 0; i < _sectionButtons.Count; i++)
         {
@@ -335,7 +341,7 @@ public sealed partial class AppearanceView : Control
         }
     }
 
-    static Label Note(string text, Color? colour = null) => UiKit.Text(text, UiKit.CaptionSize, colour ?? UiKit.Grey, HorizontalAlignment.Left, true);
+    static Label Note(string text, Color? colour = null) => UiKit.Text(text.ToUpperInvariant(), UiKit.CaptionSize, colour ?? UiKit.Grey, HorizontalAlignment.Left, true);
     static Label Heading(string text) => UiKit.Text(text, UiKit.CaptionSize, UiKit.Gold).With(l => { l.CustomMinimumSize = new Vector2(0, 30); l.ClipText = true; l.TooltipText = text; });
 
     // ---- focus previews (docs/customizer-design.md Z2): focusing or hovering a choice shows it on the model, Enter commits, leaving it puts the look back ----
@@ -825,9 +831,9 @@ public sealed partial class AppearanceView : Control
         var row = UiKit.HBox(12);
         var text = UiKit.VBox(4);
         text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        text.AddChild(UiKit.Text(title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true));
-        if (body.Length > 0) text.AddChild(UiKit.Text(body, UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true));
-        if (extra.Length > 0) text.AddChild(UiKit.Text(extra, UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true));
+        text.AddChild(UiKit.Text(title.ToUpperInvariant(), UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true));
+        if (body.Length > 0) text.AddChild(UiKit.Text(body.ToUpperInvariant(), UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true));
+        if (extra.Length > 0) text.AddChild(UiKit.Text(extra.ToUpperInvariant(), UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true));
         row.AddChild(text);
         if (picture is not null) row.AddChild(new TextureRect { Texture = picture, CustomMinimumSize = new Vector2(128, 128), StretchMode = TextureRect.StretchModeEnum.Scale, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize });
         _card.AddChild(row);
@@ -835,7 +841,7 @@ public sealed partial class AppearanceView : Control
 
     void Say(string text)
     {
-        _status.Text = text;
+        _status.Text = text.ToUpperInvariant();
         _status.AddThemeColorOverride("font_color", UiKit.White);
         _statusUntil = Time.GetTicksMsec() / 1000.0 + 2.5;
     }

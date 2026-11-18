@@ -129,6 +129,9 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
+        ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryClasses"),   // the Armoury's class list: the Librarian's row first
+        ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryDetail"),    // the Armoury's weapon row, tiles and slot cards on the Librarian's page
+        ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryBadge"),     // the mode badge: MUSOU
         ("client/Customizer/CustomizerServices.cs", "ExtrasFactions"),   // CustomizerServices.ExtrasFactions(ref List<(string, string)>), the factions offered: the Space Marines alone in Musou
         ("client/Customizer/CustomizerServices.cs", "ExtrasProfileView"),   // CustomizerServices.ExtrasProfileView(ref IProfileView?), the profile view: Musou's own loadout slots (musou/loadout-slots)
         ("client/Customizer/CustomizerServices.cs", "ExtrasLoaded"),   // CustomizerServices.ExtrasLoaded(), the end of the services' load: Musou's own configuration is read before LoadTask completes (W1)
@@ -137,6 +140,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/PreviewStage.cs", "ExtrasWeapons"),     // PreviewStage.ExtrasWeapons(ref string?, ref string?, ref string?, ref bool), in ConfigureWeapons: his force sword in hand, no gun
         ("client/Customizer/PreviewStage.cs", "ExtrasReadyPose"),   // PreviewStage.ExtrasReadyPose(string?, string?, ref bool), in ConfigureWeapons: an added weapon (claw, spear, autocannon) shows in the ready stance, drawn
         ("client/FrontEnd/FrontEndView.cs", "ExtrasPreviewScript"),   // FrontEndView.ExtrasPreviewScript(), per frame after the scripted views: the weapon cycle test aid (--preview-weapon-cycle: chooses the added weapons in turn and checks the preview draws each; client/Extras/Musou/Customizer/FrontEndView.WeaponCycle.cs)
+        ("client/FrontEnd/FrontEndView.cs", "ExtrasMenuScreen"),   // FrontEndView.ShowMenuPage: --menu-screen tfw-... screenshot aids for the Musou menu pages (ui/overhaul)
         ("client/FrontEnd/FrontEndView.cs", "ExtrasScreenshotHold"),  // FrontEndView.ExtrasScreenshotHold(ref bool), in ReadyForScreenshot: the shot waits for that cycle
         // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
         // (the Remote Detonators' sm_mp_eq_demolition_charge is an install name, so the name alone never decides).

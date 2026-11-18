@@ -133,6 +133,10 @@ public partial class ModelViewer : Node3D
         MarineAssets.PaintOverride = args.GetValueOrDefault("paint");
         EmblemFile = args.GetValueOrDefault("emblem-file");
         _screenshot = args.GetValueOrDefault("screenshot");
+        if (args.ContainsKey("ui-compare-panel")) { var ao = (args.GetValueOrDefault("alpha-origin") ?? "44,20").Split(","); GetTree().Quit(SmClient.Customizer.UiComparePanel.Run(args["ui-compare-panel"], args.GetValueOrDefault("ours"), args.GetValueOrDefault("screen") ?? "options", args.GetValueOrDefault("alpha"), args.GetValueOrDefault("out"), args.GetValueOrDefault("tag"), new Godot.Vector2I(int.Parse(ao[0]), int.Parse(ao[1])), int.Parse(args.GetValueOrDefault("alpha-scale") ?? "4"))); return; }   // dev tool: a redesigned screen against its concept panel (UiComparePanel)
+        if (args.ContainsKey("ui-compare")) { GetTree().Quit(SmClient.Customizer.UiCompare.Run(args["ui-compare"], args.GetValueOrDefault("ours"), args.GetValueOrDefault("out"), args.GetValueOrDefault("tag"))); return; }   // dev tool: the main menu against the concept crop (UiCompare)
+        if (args.ContainsKey("build-panel01")) { GetTree().Quit(SmClient.Customizer.UiTextureBuilder.BuildPanel01(args["build-panel01"], args.GetValueOrDefault("upscaled"), args.GetValueOrDefault("out"))); return; }   // dev tool: the main menu overlay and plates from the panel 01 v2 reference (phase 5)
+        if (args.ContainsKey("build-ui-textures")) { GetTree().Quit(SmClient.Customizer.UiTextureBuilder.Run(args["build-ui-textures"], args.GetValueOrDefault("out"), args.GetValueOrDefault("owner-crop"), args.GetValueOrDefault("upscaled"), args.GetValueOrDefault("masonry"), args.GetValueOrDefault("concept1x"), args.GetValueOrDefault("panels"), args.GetValueOrDefault("panel04"), args.GetValueOrDefault("panel04-x4"))); return; }   // dev tool: rebuilds client/assets/ui from the concept image (UiTextureBuilder)
         _quit = args.ContainsKey("quit");
         _onEffect = args.ContainsKey("screenshot-on-effect");
         _screenshotEvery = args.GetValueOrDefault("screenshot-every") is { } se && double.TryParse(se, System.Globalization.CultureInfo.InvariantCulture, out var every) && every > 0 ? every : null;
@@ -295,7 +299,8 @@ public partial class ModelViewer : Node3D
         _lookingLayer.AddChild(label);
         AddChild(_lookingLayer);
         string? explicitDir = args.GetValueOrDefault("game-dir");
-        _locating = System.Threading.Tasks.Task.Run(() => GameInstall.TryLocate(explicitDir, repoRoot));
+        bool showSetup = args.ContainsKey("show-setup");   // screenshot aid (ui/overhaul): the game-folder page as if nothing were found
+        _locating = System.Threading.Tasks.Task.Run(() => showSetup ? null : GameInstall.TryLocate(explicitDir, repoRoot));
     }
 
     /// <summary>The lookup finished: the front end when the install was found, else the game-folder screen. Any failure here is shown, never silent.</summary>

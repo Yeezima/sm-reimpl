@@ -5,7 +5,7 @@ using SmClient.Customizer;
 
 namespace SmClient.FrontEnd;
 
-// The main menu's video loop (the owner, 2026-11-10): the front end's background is the looping video beside the project, sized to cover the window at any aspect ratio
+// The main menu's video loop (the owner, 2026-11-10; the concept's 8 s video the default since 2026-11-15): the front end's background is the looping video beside the project, sized to cover the window at any aspect ratio
 // without a letterbox, not played headless; --menu-still (and a missing file) gives the still picture.
 public sealed partial class UiSelfTest
 {
@@ -13,10 +13,11 @@ public sealed partial class UiSelfTest
     {
         _front.ShowMainMenu();
         await Frames(3);
-        Check("menu video: the constant names one file", UiKit.MenuVideoPath == "res://assets/menu/menu-loop.ogv");
-        Check("menu video: the switch's name", UiKit.MenuStillSwitch == "menu-still");
-        string file = ProjectSettings.GlobalizePath(UiKit.MenuVideoPath);
+        Check("menu video: the constants name the concept's video (the default) and the older loop (--menu-video)", UiKit.MenuConceptVideoPath == "res://assets/menu/menu-concept-loop.ogv" && UiKit.MenuVideoPath == "res://assets/menu/menu-loop.ogv");
+        Check("menu video: the switches' names", UiKit.MenuStillSwitch == "menu-still" && UiKit.MenuVideoSwitch == "menu-video");
+        string file = ProjectSettings.GlobalizePath(UiKit.MenuOldVideo ? UiKit.MenuVideoPath : UiKit.MenuConceptVideoPath);
         Check("menu video: the file is beside the project", System.IO.File.Exists(file) && UiKit.MenuVideoFile() == file, file);
+        Check("menu video: the concept's video is committed and small (under 30 MB)", System.IO.File.Exists(ProjectSettings.GlobalizePath(UiKit.MenuConceptVideoPath)) && new System.IO.FileInfo(ProjectSettings.GlobalizePath(UiKit.MenuConceptVideoPath)).Length < 30_000_000);
 
         var background = _front.MenuBackground;
         if (UiKit.MenuStill)
@@ -39,7 +40,9 @@ public sealed partial class UiSelfTest
                 // The customizer's own dark background covers it: paused there, going on back on the main menu.
                 _front.ShowCreator();
                 await Frames(3);
-                Check("menu video: paused under the customizer", video.Covered && (headless || player.Paused), $"covered {video.Covered}, paused {player.Paused}");
+                // ui/overhaul: the redesigned customizer is a veil over the scene (it keeps playing); the old opaque one still pauses the video.
+                bool veil = ConceptArt.Get("overlay-armoury") is not null;
+                Check("menu video: paused under an opaque customizer, playing under the veil", veil ? !video.Covered : video.Covered && (headless || player.Paused), $"covered {video.Covered}, paused {player.Paused}, veil {veil}");
                 _front.ShowMainMenu();
                 await Frames(3);
                 Check("menu video: going on back on the main menu", !video.Covered && !player.Paused, $"covered {video.Covered}, paused {player.Paused}");
@@ -60,6 +63,17 @@ public sealed partial class UiSelfTest
         }
         Check("menu video: cover-fit at 16:9, 21:9, 4:3, 5:4, 16:10 and portrait", fits, worst);
         Check("menu video: an unknown video size fits as the converted one", MenuVideoBackground.CoverRect(new Vector2(2560, 1080), Vector2.Zero) == MenuVideoBackground.CoverRect(new Vector2(2560, 1080), MenuVideoBackground.ConvertedSize));
+
+        // The main menu's framing (the Marine, the tower and its god rays right of the overlay) covers the window at every aspect ratio, with no black edge.
+        bool framed = true;
+        string badFrame = "";
+        foreach (var box in new[] { new Vector2(1920, 1080), new Vector2(2560, 1080), new Vector2(3440, 1440), new Vector2(1920, 1440), new Vector2(1920, 1200), new Vector2(1920, 1536) })
+        {
+            var r = MenuVideoBackground.FramedRect(box, MenuVideoBackground.ConvertedSize);
+            if (r.Position.X > 0.01f || r.Position.Y > 0.01f || r.End.X < box.X - 0.01f || r.End.Y < box.Y - 0.01f) { framed = false; badFrame = $"{box}: {r}"; }
+        }
+        Check("menu video: the main menu's framing covers the window at 16:9, 21:9, 32:9, 4:3 and 16:10", framed, badFrame);
+        Check("menu video: the framing is a 1.6x zoom at 16:9 (less on wider windows)", Mathf.IsEqualApprox(MenuVideoBackground.MainMenuZoom, 1.6f));
 
         // The still picture on request (the switch's path), built and freed here.
         var still = UiKit.MenuBackground(video: false);

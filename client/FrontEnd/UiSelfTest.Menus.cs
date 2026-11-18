@@ -23,7 +23,7 @@ public sealed partial class UiSelfTest
 
     async Task PressRow(string text, Node? root = null)
     {
-        (FindButton(root ?? _front, b => b.Text == text))?.EmitSignal(BaseButton.SignalName.Pressed);
+        (FindButton(root ?? _front, b => b.Text.Equals(text, StringComparison.OrdinalIgnoreCase)))?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(4);
     }
 
@@ -38,16 +38,19 @@ public sealed partial class UiSelfTest
             _front.ShowMainMenu();
             await Frames(4);
             var main = _front.MainPage!;
-            var wanted = new List<string> { "PLAYER VERSUS PLAYER" };
-            if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");
-            wanted.AddRange(["OPTIONS", "CUSTOMIZER", "QUIT"]);
+            // ui/concept-redesign: the concept's order and words (MUSOU MODE first where added content is built; STOP MUSOU SERVER only while its server runs).
+            var wanted = new List<string>();
+            if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");   // owner 2026-11-18: the concept's order, MUSOU MODE first and the default focus
+            wanted.Add("CLASSIC PVP");
+            wanted.AddRange(["ARMOURY", "OPTIONS", "EXIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
             Check("menu: the title is the project's name", main.TitleLabel.Text == "SM - REIMPL", main.TitleLabel.Text);
-            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "PLAYER VERSUS PLAYER" } || FindButton(main, b => b.Text == "PLAYER VERSUS PLAYER") is not null);
-            foreach (var row in new[] { "PLAYER VERSUS PLAYER", "OPTIONS" })
-                Check($"menu: {row} is transparent (no box)", FindButton(main, b => b.Text == row)?.GetThemeStylebox("normal") is StyleBoxEmpty);
+            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: var focusedText } && focusedText == wanted[0] || FindButton(main, b => b.Text.Equals(wanted[0], StringComparison.OrdinalIgnoreCase)) is not null);
+            foreach (var row in new[] { "CLASSIC PVP", "OPTIONS" })
+                Check($"menu: {row} is a dark-metal steel button", FindButton(main, b => b.Text.Equals(row, StringComparison.OrdinalIgnoreCase)) is { } rowButton && rowButton.ThemeTypeVariation == Steel.ButtonType && (rowButton.GetThemeStylebox("normal") is StyleBoxTexture || rowButton.GetThemeStylebox("normal") is Steel.SteelStyle { Kind: Steel.Kind.Dark }));
+            Check("menu: the wordmark, the crest, the frame and the nameplate are there", main is ConceptMainPage page01 && page01.Frame.IsVisibleInTree() && page01.Wordmark.IsVisibleInTree() && (main.FindChild("Crest", true, false) is not null || page01.Frame is TextureRect) && main.FindChild("Nameplate", true, false) is Label { Text: "ONE SOLDIER. MANY BATTLEFIELDS." });
 
-            await PressRow("PLAYER VERSUS PLAYER", main);
+            await PressRow("CLASSIC PVP", main);
             var lobby = _front.LobbyPage!;
             Check("menu: the lobby page opens", lobby.Visible && !_front.ShowsMainMenu);
             var lobbyRows = RowTexts(lobby);
@@ -81,9 +84,9 @@ public sealed partial class UiSelfTest
             await PressRow("HOST LOCAL LOBBY", lobby);
             var host = _front.HostPage!;
             Check("menu: the host page opens", host.Visible);
-            Check("menu: the host page has the mode and reach rows", FindButton(host, b => b.Text == "GAME MODE") is UiKit.MenuChoice { Values.Count: 2 } && FindButton(host, b => b.Text == "WHO CAN JOIN") is UiKit.MenuChoice { Value: "THIS PC ONLY" });
-            Check("menu: ADD LOYALIST BOT and ADD CHAOS BOT, and one difficulty", FindButton(host, b => b.Text == "ADD LOYALIST BOT") is not null && FindButton(host, b => b.Text == "ADD CHAOS BOT") is not null
-                  && FindButton(host, b => b.Text == "BOT DIFFICULTY") is not null && FindButton(host, b => b.Text.Contains("ADD BOT", StringComparison.Ordinal)) is null);
+            Check("menu: the host page has the mode and reach rows", FindButton(host, b => b.Text.Equals("GAME MODE", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { Values.Count: 2 } && FindButton(host, b => b.Text.Equals("WHO CAN JOIN", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice { Value: "THIS PC ONLY" });
+            Check("menu: ADD LOYALIST BOT and ADD CHAOS BOT, and one difficulty", FindButton(host, b => b.Text.Equals("ADD LOYALIST BOT", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Equals("ADD CHAOS BOT", StringComparison.OrdinalIgnoreCase)) is not null
+                  && FindButton(host, b => b.Text.Equals("BOT DIFFICULTY", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(host, b => b.Text.Contains("ADD BOT", StringComparison.OrdinalIgnoreCase)) is null);
             await SendPad(JoyButton.B);
             Check("menu: B steps back to the lobby page", lobby.Visible);
             await SendKey(Key.Escape);
@@ -110,7 +113,7 @@ public sealed partial class UiSelfTest
                     Check("menu: the Musou page's HOST LOCAL LOBBY opens the Host panel in Musou", _front.HostPage!.Visible && musouHost.Musou && musouHost.HostButtonText == "HOST MUSOU", musouHost.HostButtonText);
                     Check("menu: ... where who can join is the player's choice (co-op)", musouHost.Reach.Choosable, musouHost.Reach.ToString());
                     musouHost.ChooseReachForTest(localOnly: false);
-                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains(MusouLocal.CoopNote, StringComparison.Ordinal), musouHost.NoteText);
+                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains(MusouLocal.CoopNote, StringComparison.OrdinalIgnoreCase), musouHost.NoteText);
                     musouHost.ChooseReachForTest(localOnly: true);   // tests host this PC only
                     await SendKey(Key.Escape);
                     Check("menu: Esc on the Musou Host panel goes back to the Musou page", musouPage.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
@@ -204,14 +207,14 @@ public sealed partial class UiSelfTest
                 }
 
                 // fix/musou-local-server: STOP MUSOU SERVER under MUSOU MODE, only while a Musou server of this client runs; a press while it starts waits.
-                Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, true, false);   // another profile's server (the Host panel's)
                 await Frames(3);
-                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, false, true);   // Musou, still starting
                 await Frames(3);
-                var stopRow = FindButton(main, b => b.Text == "STOP MUSOU SERVER");
-                var musouRow = FindButton(main, b => b.Text == "MUSOU MODE");
+                var stopRow = FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase));
+                var musouRow = FindButton(main, b => b.Text.Equals("MUSOU MODE", StringComparison.OrdinalIgnoreCase));
                 Check("menu: a starting Musou server shows STOP MUSOU SERVER directly under MUSOU MODE", stopRow is not null && musouRow is not null
                       && stopRow.GetParent() == musouRow.GetParent() && stopRow.GetIndex() == musouRow.GetIndex() + 1);
                 musouStarted = false; joined = null;
@@ -230,20 +233,20 @@ public sealed partial class UiSelfTest
                 Check("menu: STOP MUSOU SERVER puts the lobby's profile back", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
                 _front.MusouStateForTest = (false, false, false); // the process ended
                 await Frames(3);
-                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, true, true);
                 await Frames(3);
-                Check("menu: the row follows a Musou server again (back from a match)", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is not null);
+                Check("menu: the row follows a Musou server again (back from a match)", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is not null);
                 _front.MusouStateForTest = (false, false, false); // the server died by itself
                 await Frames(3);
-                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = null;
                 _services.Content = _services.Settings.ContentExtras;
             }
 
             // The customizer stands on its own dark background.
-            await PressRow("CUSTOMIZER", main);
-            Check("menu: CUSTOMIZER opens the creator", _front.Creator!.Visible && !_front.ShowsMainMenu);
+            await PressRow("ARMOURY", main);
+            Check("menu: ARMOURY opens the creator", _front.Creator!.Visible && !_front.ShowsMainMenu);
             Check("menu: the customizer has the 3D preview", _front.Creator.Preview is not null);
             var dark = _front.Creator.GetChild(0) as TextureRect;
             Check("menu: the customizer's background is the dark one, not the image", dark is { } && dark.Texture is GradientTexture2D && dark.Name != "MenuBackground");
@@ -267,7 +270,7 @@ public sealed partial class UiSelfTest
             escMenu.QueueFree();
 
             // The bundled font and the one colour.
-            Check("menu: every menu uses the bundled font", UiKit.Theme.DefaultFont is FontVariation { BaseFont: FontFile { Data.Length: > 100000 } });
+            Check("menu: every menu uses the one bundled lettering (Oswald, ui/overhaul)", ReferenceEquals(UiKit.Theme.DefaultFont, UiKit.ConceptFont()));
             Check("menu: the highlight colour is the text colour", UiKit.Gold == UiKit.White);
             Check("menu: the background constant names one file", UiKit.MenuBackgroundPath == "res://assets/menu/background.jpg");
         }
@@ -296,24 +299,24 @@ public sealed partial class UiSelfTest
         {
             _front.ShowOptions(OptionsView.Graphics);
             await Frames(4);
-            Check("options: the page has the three tabs", new[] { "GRAPHICS", "SOUND", "CONTROLS" }.All(t => FindButton(options, b => b.Text == t) is not null));
-            foreach (var row in new[] { "RESOLUTION", "WINDOW MODE", "VSYNC", "FPS CAP", "SHADOW QUALITY", "ANTI-ALIASING", "REDUCE MOTION", "SHOW OTHERS' EMBLEMS" })
-                Check($"options: GRAPHICS has {row}", FindButton(options, b => b.Text == row) is UiKit.MenuChoice);
+            Check("options: the page has the three tabs", new[] { "GRAPHICS", "SOUND", "CONTROLS" }.All(t => FindButton(options, b => b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null));
+            foreach (var row in new[] { "RESOLUTION", "WINDOW MODE", "VSYNC", "FPS CAP", "SHADOW QUALITY", "ANTI-ALIASING" })
+                Check($"options: GRAPHICS has {row}", FindButton(options, b => b.Text.Equals(row, StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice);
             foreach (var slider in new[] { "RenderScaleSlider", "FovSlider", "BrightnessSlider" })
                 Check($"options: GRAPHICS has {slider}", options.FindChild(slider, true, false) is HSlider);
             options.ShowTab(OptionsView.Sound);
             await Frames(3);
             foreach (var slider in new[] { "MasterVolumeSlider", "MusicVolumeSlider", "EffectsVolumeSlider", "VoiceVolumeSlider" })
                 Check($"options: SOUND has {slider}", options.FindChild(slider, true, false) is HSlider);
-            Check("options: SOUND has MUTE WHEN UNFOCUSED", FindButton(options, b => b.Text == "MUTE WHEN UNFOCUSED") is UiKit.MenuChoice);
+            Check("options: SOUND has MUTE WHEN UNFOCUSED", FindButton(options, b => b.Text.Equals("MUTE WHEN UNFOCUSED", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice);
             options.ShowTab(OptionsView.Controls);
             await Frames(3);
             foreach (var slider in new[] { "MouseSensitivitySlider", "AimSensitivitySlider", "PadLookSlider" })
                 Check($"options: CONTROLS has {slider}", options.FindChild(slider, true, false) is HSlider);
-            Check("options: CONTROLS has INVERT Y, INVERT GAMEPAD Y and the keybinds", FindButton(options, b => b.Text == "INVERT Y") is UiKit.MenuChoice && FindButton(options, b => b.Text == "INVERT GAMEPAD Y") is UiKit.MenuChoice && FindButton(options, b => b.Text == "KEYBINDS") is not null);
+            Check("options: CONTROLS has INVERT Y, INVERT GAMEPAD Y and the keybinds", FindButton(options, b => b.Text.Equals("INVERT Y", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice && FindButton(options, b => b.Text.Equals("INVERT GAMEPAD Y", StringComparison.OrdinalIgnoreCase)) is UiKit.MenuChoice && FindButton(options, b => b.Text.Equals("KEYBINDS", StringComparison.OrdinalIgnoreCase)) is not null);
 
             // A change applies at once and is saved.
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "INVERT Y")!).Step(1);
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("INVERT Y", StringComparison.OrdinalIgnoreCase))!).Step(1);
             await Frames(2);
             Check("options: Invert Y turns the mouse's vertical look", LiveOptions.MouseVertical == -1f);
             string observer = System.IO.File.Exists(ProjectSettings.GlobalizePath("res://NetworkView.Observer.cs")) ? System.IO.File.ReadAllText(ProjectSettings.GlobalizePath("res://NetworkView.Observer.cs")) : "";
@@ -321,7 +324,7 @@ public sealed partial class UiSelfTest
             ((HSlider)options.FindChild("AimSensitivitySlider", true, false)!).Value = 0.5;
             await Frames(2);
             Check("options: the aim sensitivity scales the mouse while aiming only", Mathf.IsEqualApprox(LiveOptions.MouseAim(true), 0.5f) && LiveOptions.MouseAim(false) == 1f);
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "INVERT GAMEPAD Y")!).Step(1);
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("INVERT GAMEPAD Y", StringComparison.OrdinalIgnoreCase))!).Step(1);
             ((HSlider)options.FindChild("PadLookSlider", true, false)!).Value = 2.0;
             await Frames(2);
             Check("options: the gamepad look settings reach the look", LiveOptions.PadVertical == -1f && Mathf.IsEqualApprox(LiveOptions.PadLook, 2f));
@@ -339,11 +342,11 @@ public sealed partial class UiSelfTest
 
             options.ShowTab(OptionsView.Graphics);
             await Frames(3);
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "FPS CAP")!).Step(2);
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("FPS CAP", StringComparison.OrdinalIgnoreCase))!).Step(2);
             ((HSlider)options.FindChild("RenderScaleSlider", true, false)!).Value = 0.75;
             ((HSlider)options.FindChild("BrightnessSlider", true, false)!).Value = 1.25;
-            ((UiKit.MenuChoice)FindButton(options, b => b.Text == "WINDOW MODE")!).Step(1);
-            var resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "RESOLUTION")!;
+            ((UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("WINDOW MODE", StringComparison.OrdinalIgnoreCase))!).Step(1);
+            var resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("RESOLUTION", StringComparison.OrdinalIgnoreCase))!;
             await Frames(3);
             Check("options: the FPS cap reaches the engine", Engine.MaxFps == 60, Engine.MaxFps.ToString());
             Check("options: the render scale reaches the viewport", Mathf.IsEqualApprox(GetTree().Root.Scaling3DScale, 0.75f), GetTree().Root.Scaling3DScale.ToString());
@@ -371,8 +374,8 @@ public sealed partial class UiSelfTest
             // F11 (ours): the same setting and the same save as the WINDOW MODE row, with the Options screen open (it follows at once); a held key does not repeat.
             options.ShowTab(OptionsView.Graphics);
             await Frames(3);
-            var windowRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "WINDOW MODE")!;
-            resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "RESOLUTION")!;
+            var windowRow = (UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("WINDOW MODE", StringComparison.OrdinalIgnoreCase))!;
+            resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text.Equals("RESOLUTION", StringComparison.OrdinalIgnoreCase))!;
             Check("F11: starts on BORDERLESS", _services.Settings.Options.Window == WindowChoice.Borderless && windowRow.Index == (int)WindowChoice.Borderless);
             await SendKey(Key.F11);
             Check("F11: borderless goes to the window, the open row and the resolution follow", _services.Settings.Options.Window == WindowChoice.Windowed && windowRow.Value == "WINDOWED" && !resolutionRow.Disabled, windowRow.Value);
@@ -414,10 +417,18 @@ public sealed partial class UiSelfTest
         await Frames(4);
         var main = _front.MainPage!;
         float f = view.Size.Y / UiKit.VirtualHeight;
-        var firstRow = FindButton(main.Rows, b => b.Text == "PLAYER VERSUS PLAYER")!;
-        var quit = FindButton(main.Rows, b => b.Text == "QUIT")!;
-        Check($"fit {at}: the rows start at the reference's height", Mathf.Abs(firstRow.GetGlobalRect().GetCenter().Y - UiKit.MenuFirstRowCentre * f) < 1.5f && Mathf.Abs(firstRow.GlobalPosition.X - 119f) < 1.5f, firstRow.GetGlobalRect().ToString());
-        Check($"fit {at}: the rows are 22.5 apart", Mathf.Abs(quit.GlobalPosition.Y - firstRow.GlobalPosition.Y - 22.5f * (RowTexts(main).Count - 1)) < 1.5f);
+        var concept = (ConceptMainPage)main;
+        var firstRow = FindButton(main.Rows, b => b.Text.Equals("CLASSIC PVP", StringComparison.OrdinalIgnoreCase))!;
+        var exit = FindButton(main.Rows, b => b.Text.Equals("EXIT", StringComparison.OrdinalIgnoreCase))!;
+        // The overlay (2026-11-15): the rows are evenly spaced steel buttons inside the window of the picture; the picture and its wordmark are in the window and keep to the left half.
+        var rowButtons = AllButtons(main.Rows).Where(x => x.IsVisibleInTree()).OrderBy(x => x.GlobalPosition.Y).ToList();
+        float pitch0 = rowButtons.Count > 1 ? rowButtons[1].GlobalPosition.Y - rowButtons[0].GlobalPosition.Y : 0f;
+        Check($"fit {at}: the rows are evenly spaced and all inside the window picture", rowButtons.Count == RowTexts(main).Count && rowButtons.Zip(rowButtons.Skip(1), (p, q) => Mathf.Abs(q.GlobalPosition.Y - p.GlobalPosition.Y - pitch0) < 1.5f).All(ok => ok)
+            && rowButtons.All(rb => concept.Frame.GetGlobalRect().Encloses(rb.GetGlobalRect())), firstRow.GetGlobalRect().ToString());
+        Check($"fit {at}: the picture and the wordmark are in the window and keep to its left half, clear of the Marine", Encloses(view, concept.Frame.GetGlobalRect()) && Encloses(view, concept.Wordmark.GetGlobalRect())
+            && concept.Frame.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.5f + 1f && concept.Wordmark.GetGlobalRect().End.X <= view.Position.X + view.Size.X * 0.5f + 1f, concept.Frame.GetGlobalRect().ToString());
+        var plateRect = ((Control)main.FindChild("Nameplate", true, false)!).GetGlobalRect();
+        Check($"fit {at}: the nameplate sits on the frame's lower edge, inside its width, in the window", plateRect.Position.X >= concept.Frame.GetGlobalRect().Position.X && plateRect.End.X <= concept.Frame.GetGlobalRect().End.X && plateRect.Intersects(concept.Frame.GetGlobalRect()) && Encloses(view, plateRect), plateRect.ToString());
         int size = firstRow.GetThemeFontSize("font_size");
         float pixels = size * Mathf.Min(GetWindow().Size.X / (float)UiKit.VirtualWidth, GetWindow().Size.Y / (float)UiKit.VirtualHeight);
         Check($"fit {at}: the rows' text is drawn at {UiKit.MinMenuPixels} px or more", pixels >= UiKit.MinMenuPixels - 0.01f, pixels.ToString());
@@ -441,7 +452,7 @@ public sealed partial class UiSelfTest
         _front.ShowMenuPage("joinlocal");
         await Frames(4);
         CheckPage($"fit {at}: join local lobby", _front.JoinLocalPage!, view);
-        foreach (var tab in new[] { "graphics", "sound", "controls" })
+        foreach (var tab in new[] { "graphics", "sound", "controls", "interface" })
         {
             _front.ShowMenuPage(tab);
             await Frames(4);
@@ -460,12 +471,20 @@ public sealed partial class UiSelfTest
         foreach (var b in AllButtons(page).Where(x => x.IsVisibleInTree()))
         {
             float need = UiKit.TextNeed(b);
-            float room = b is UiKit.MenuChoice ? UiKit.MenuValueColumn : b.Size.X;
+            float room = b is UiKit.MenuChoice { IsSteel: true } c ? (c.LabelColumn > 0f ? c.LabelColumn : OptionsView.LabelWidth) : b is UiKit.MenuChoice ? UiKit.MenuValueColumn : b.Size.X;
             if (need > room + 1f) cut.Add($"{b.Text} needs {need:F0}, has {room:F0}");
         }
         foreach (var l in AllLabels(page).Where(x => x.IsVisibleInTree() && !x.ClipText && x.Name.ToString() == "Value"))
             if (l.GetMinimumSize().X > l.Size.X + 1f) cut.Add($"{l.Text} needs {l.GetMinimumSize().X:F0}, has {l.Size.X:F0}");
         Check($"{name}: all text fits", cut.Count == 0, string.Join("; ", cut.Take(5)));
+        if (page is OptionsView options)
+        {
+            // ui/concept-redesign: the frame is in the window with its actions; only the rows scroll; the tabs, APPLY, REVERT and BACK are whole and in view.
+            Check($"{name}: the frame and its list are in the window", Encloses(view, options.Frame.GetGlobalRect()) && Encloses(view, options.List.GetGlobalRect()), $"frame {options.Frame.GetGlobalRect()} view {view}");
+            foreach (var action in new Control[] { options.ApplyButton, options.RevertButton, options.BackButton, options.TabRow })
+                Check($"{name}: {action.Name} is in the window and in the frame", Encloses(view, action.GetGlobalRect()) && options.Frame.GetGlobalRect().Encloses(action.GetGlobalRect()), action.GetGlobalRect().ToString());
+            return;
+        }
         var bottom = page.Rows.GetGlobalRect().End.Y;
         Check($"{name}: the rows end in the window", page.List.GetGlobalRect().End.Y <= view.End.Y + 0.5f && (bottom <= page.List.GetGlobalRect().End.Y + 0.5f), $"rows end {bottom:F0} list end {page.List.GetGlobalRect().End.Y:F0}");
         // The main menu's OPTIONS note (where the game was found, the builds' address) is the page's foot: under the list, whole in the window.

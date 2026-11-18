@@ -87,6 +87,7 @@ public partial class MatchSummaryView : Control
     static readonly Color Gold = new(1f, 0.8f, 0f), Grey = new(0.75f, 0.75f, 0.75f), Dim = new(0.6f, 0.6f, 0.6f), White = new(1f, 1f, 1f), Red = new(1f, 0.2f, 0f);
 
     FontVariation? _font;
+    readonly SmClient.Customizer.BoardStyle _board = new();
     MatchSummaryText _text = new();
     CountUpData? _countUp;
     SummaryData? _summary;
@@ -102,7 +103,7 @@ public partial class MatchSummaryView : Control
 
     public override void _Ready()
     {
-        _font = new FontVariation { BaseFont = ThemeDB.FallbackFont, VariationEmbolden = 0.55f, SpacingGlyph = 1 };
+        _font = SmClient.Customizer.UiKit.ConceptFont();   // ui/overhaul: the menus' lettering (Oswald), not the engine's fallback face
     }
 
     public void SetText(MatchSummaryText text) => _text = text;
@@ -129,7 +130,7 @@ public partial class MatchSummaryView : Control
     void Text(string text, float x, float baseline, float width, int size, Color colour, HorizontalAlignment align)
     {
         if (size < 4) return;
-        text = Fit(text, size, width);
+        text = Fit(text.ToUpperInvariant(), size, width);   // one case per level: capitals, like every other screen
         var outline = new Color(0, 0, 0, colour.A * 0.8f);
         int o = Math.Max(1, size / 22);
         foreach (var d in new[] { new Vector2(o, o), new Vector2(-o, o), new Vector2(o, -o), new Vector2(-o, -o) })
@@ -158,11 +159,19 @@ public partial class MatchSummaryView : Control
         return text[..n] + "...";
     }
 
-    /// <summary>The dark panel with the gold edge, <paramref name="alpha"/> scaling all of it.</summary>
+    /// <summary>The steel panel (ui/overhaul: the recessed dark panel with a steel lip and a thin gold line inside, as the menus' frames), <paramref name="alpha"/> scaling all of it.</summary>
     void Panel(Rect2 rect, float alpha)
     {
-        DrawRect(rect, new Color(0.03f, 0.03f, 0.03f, 0.82f * alpha));
-        DrawRect(rect, new Color(1f, 0.8f, 0f, 0.9f * alpha), false, 2f);
+        if (alpha > 0.98f) { _board.Table(this, rect, Math.Min(Size.Y / Stage, Size.X / 1280f)); return; }   // the scoreboards' own steel table once it is fully in
+        var c = GetCanvasItem();
+        Color A(Color k) => new(k.R, k.G, k.B, k.A * alpha);
+        float ch = Math.Max(4f, rect.Size.Y * 0.018f), lip = Math.Max(3f, rect.Size.Y * 0.012f);
+        SmClient.Customizer.Steel.Plate(c, rect, ch, A(SmClient.Customizer.Steel.Edge));
+        SmClient.Customizer.Steel.Plate(c, rect.Grow(-1.5f), ch - 1f, A(new Color(0.34f, 0.35f, 0.36f)), A(new Color(0.12f, 0.125f, 0.13f)));
+        var inner = rect.Grow(-lip);
+        SmClient.Customizer.Steel.Plate(c, inner, ch - 2f, A(SmClient.Customizer.Steel.Edge));
+        SmClient.Customizer.Steel.Plate(c, inner.Grow(-1f), ch - 3f, A(new Color(0.045f, 0.043f, 0.04f, 0.94f)), A(new Color(0.025f, 0.024f, 0.022f, 0.94f)));
+        DrawRect(inner.Grow(-4f), A(new Color(SmClient.Customizer.Steel.Gold, 0.35f)), false, 1.5f);
     }
 
     void DrawCountUp(CountUpData data, float s)
@@ -171,24 +180,27 @@ public partial class MatchSummaryView : Control
         var (stage, stageTime) = CountUp.StageAt(_time);
         float alpha = stage == 0 ? (float)CountUp.Intro(stageTime) : 1f;   // the panel eases in once, with the first stage
         float slide = (1f - alpha) * 60f * s;   // the panel rises into place while it fades in (the movie's block moves 80 px over its intro)
-        float w = 860f * s, left = cx - w / 2f, top = 130f * s + slide;   // names/bot-lore: wider for names of up to 24 characters (720 before)
-        Panel(new Rect2(left, top, w, 440f * s), alpha);
+        float w = 860f * s, left = cx - w / 2f, top = (Size.Y - 430f * s) / 2f + slide;   // the block is centred vertically (Opus review 3)   // names/bot-lore: wider for names of up to 24 characters (720 before)
+        Panel(new Rect2(left, top, w, 430f * s), alpha);
         var gold = new Color(Gold, alpha);
+        if (alpha > 0.98f) _board.Plate(this, new Rect2(cx - 190f * s, top + 12f * s, 380f * s, 56f * s), s);   // ui/overhaul: the title on the concept's rivetted plate
         Text(_text.MatchResults, left, top + 52f * s, w, (int)(30 * s), gold, HorizontalAlignment.Center);
 
+        if (alpha > 0.98f) _board.Box(this, SmClient.Customizer.Steel.Kind.Recess, new Rect2(left + 30f * s, top + 82f * s, w - 60f * s, 124f * s), 8f, s);   // the big number's well, under its text
         // The big number: the team score, then the viewer's kills (the movie's stages 'teamscore' and 'playerscore').
         double stageAlpha = stage == 0 ? 1.0 : CountUp.Intro(stageTime);
         string label = stage == 0 ? _text.TeamScore : _text.Kills;
         int target = stage == 0 ? data.TeamScore : data.ViewerKills;
         var colour = stage == 0 ? data.SideColour : White;
-        Text(label, left, top + 100f * s, w, (int)(22 * s), new Color(Grey, alpha * (float)stageAlpha), HorizontalAlignment.Center);
-        Text(CountUp.Value(target, stageTime).ToString(), left, top + 168f * s, w, (int)(64 * s), new Color(colour, alpha * (float)stageAlpha), HorizontalAlignment.Center);
+        Text(label, left, top + 122f * s, w, (int)(22 * s), new Color(Grey, alpha * (float)stageAlpha), HorizontalAlignment.Center);
+        Text(CountUp.Value(target, stageTime).ToString(), left, top + 182f * s, w, (int)(64 * s), new Color(colour, alpha * (float)stageAlpha), HorizontalAlignment.Center);
         if (stage == 0 && data.OtherLabel is { } other)
-            Text($"{other}  {CountUp.Value(data.OtherScore, stageTime)}", left, top + 204f * s, w, (int)(22 * s), new Color(Dim, alpha), HorizontalAlignment.Center);
+            Text($"{other}  {CountUp.Value(data.OtherScore, stageTime)}", left, top + 212f * s, w, (int)(22 * s), new Color(Dim, alpha), HorizontalAlignment.Center);
 
         // The side's best players, their kills and deaths counting up with the first stage.
         float colName = left + 40f * s, colClass = left + 340f * s, colKills = left + w - 170f * s, colDeaths = left + w - 60f * s;
-        float y = top + 262f * s;
+        float y = top + 240f * s;
+        if (alpha > 0.98f) _board.HeaderStrip(this, new Rect2(left + 22f * s, y - 26f * s, w - 44f * s, 38f * s), s);   // the column headings' strip
         var head = new Color(Grey, alpha);
         Text(_text.Player, colName, y, 290f * s, (int)(18 * s), head, HorizontalAlignment.Left);
         Text(_text.Kills, colKills - 70f * s, y, 70f * s, (int)(18 * s), head, HorizontalAlignment.Right);
@@ -196,9 +208,12 @@ public partial class MatchSummaryView : Control
         DrawRect(new Rect2(left + 30f * s, y + 8f * s, w - 60f * s, 1.5f), new Color(1f, 0.8f, 0f, 0.5f * alpha));
         y += 40f * s;
         double firstStage = stage == 0 ? stageTime : CountUp.StageSeconds;   // the rows count with the first stage and stay
+        int rowNo = 0;
         foreach (var row in data.Rows)
         {
-            var c = row.IsViewer ? new Color(0.6f, 1f, 0.6f, alpha) : new Color(White, alpha);
+            if (alpha > 0.98f) _board.Row(this, new Rect2(left + 24f * s, y - 26f * s, w - 48f * s, 36f * s), rowNo % 2 == 1, row.IsViewer, s);
+            rowNo++;
+            var c = row.IsViewer ? new Color(SmClient.Customizer.Steel.GoldHi, alpha) : new Color(White, alpha);   // the own row is gold, as on the scoreboard
             Text(Named(row.Name, row.IsViewer, (int)(22 * s), 290f * s), colName, y, 290f * s, (int)(22 * s), c, HorizontalAlignment.Left);
             Text(row.Class, colClass, y, 255f * s, (int)(16 * s), new Color(Dim, alpha), HorizontalAlignment.Left);
             Text(CountUp.Value(row.Kills, firstStage).ToString(), colKills - 70f * s, y, 70f * s, (int)(22 * s), c, HorizontalAlignment.Right);
@@ -211,18 +226,21 @@ public partial class MatchSummaryView : Control
     {
         float cx = Size.X / 2f;
         float alpha = (float)Math.Clamp(_time / 0.3, 0.0, 1.0);
-        float w = 860f * s, left = cx - w / 2f, top = 130f * s;   // names/bot-lore: room for a long NEMESIS name (720 before)
-        Panel(new Rect2(left, top, w, 440f * s), alpha);
+        float w = 860f * s, left = cx - w / 2f, top = (Size.Y - 430f * s) / 2f;   // names/bot-lore: room for a long NEMESIS name (720 before)
+        Panel(new Rect2(left, top, w, 430f * s), alpha);
         // The tab strip of the original's summary: the scoreboard tab, then the battle record, the active one gold.
         float tabW = w / 2f;
+        if (alpha > 0.98f) _board.HeaderStrip(this, new Rect2(left + 22f * s, top + 10f * s, w - 44f * s, 62f * s), s);   // the strip the two tabs sit in
+        if (alpha > 0.98f) _board.GoldPlate(this, new Rect2(left + tabW + 70f * s, top + 14f * s, tabW - 140f * s, 54f * s), s);   // the selected tab is the gold plate, with dark ink (Opus review 3)
         Text(_text.Scoreboard, left, top + 50f * s, tabW, (int)(24 * s), new Color(Dim, alpha), HorizontalAlignment.Center);
-        Text(_text.BattleRecord, left + tabW, top + 50f * s, tabW, (int)(24 * s), new Color(Gold, alpha), HorizontalAlignment.Center);
-        DrawRect(new Rect2(left + tabW + 40f * s, top + 62f * s, tabW - 80f * s, 3f), new Color(Gold, alpha));
+        Text(_text.BattleRecord, left + tabW, top + 50f * s, tabW, (int)(24 * s), new Color(0.10f, 0.06f, 0.02f, alpha), HorizontalAlignment.Center);
         DrawRect(new Rect2(left + 30f * s, top + 68f * s, w - 60f * s, 1.5f), new Color(1f, 0.8f, 0f, 0.35f * alpha));
 
-        float y = top + 112f * s;
+        float y = top + 112f * s; int idx = 0;
         foreach (var line in data.Lines)
         {
+            if (alpha > 0.98f) _board.Row(this, new Rect2(left + 24f * s, y - 26f * s, w - 48f * s, 34f * s), idx % 2 == 1, false, s);   // banded rows, as the scoreboard tables
+            idx++;
             Text(line.Label, left + 44f * s, y, 256f * s, (int)(22 * s), new Color(Grey, alpha), HorizontalAlignment.Left);
             bool has = line.Value is not null;
             var c = has ? line.Colour ?? White : Dim;

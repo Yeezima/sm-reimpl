@@ -60,26 +60,24 @@ public sealed partial class ControlsView : Control
         SetAnchorsPreset(LayoutPreset.FullRect);
         Visible = false;
         if (background is not null) AddChild(background.With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
-        var margin = new MarginContainer();
+        // ui/overhaul: the panel frame with its title plate; the content sits in the frame's strip and rows area, BACK on the concept's BACK plate.
+        _chrome = new PanelChrome("Keybinds");
+        AddChild(_chrome);
+        var margin = new MarginContainer { Name = "ControlsContent" };
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        foreach (var (side, v) in new[] { ("left", 84), ("right", 84), ("top", 22), ("bottom", 20) }) margin.AddThemeConstantOverride("margin_" + side, v);
         AddChild(margin);
         _content = margin;
-        var root = UiKit.VBox(10);
+        var root = UiKit.VBox(4);
         margin.AddChild(root);
 
-        var header = UiKit.HBox(16);
-        header.AddChild(UiKit.Text("CONTROLS", UiKit.HeaderSize, UiKit.Gold));
-        header.AddChild(UiKit.Spacer());
-        _back = UiKit.Button("BACK (Esc)", () => _onBack(), 190);
+        _back = UiKit.Button("BACK", () => _onBack(), 190);
         _back.Name = "ControlsBack";
-        header.AddChild(_back);
-        root.AddChild(header);
+        AddChild(_back);
 
         var tabs = UiKit.HBox(8);
         var group = new ButtonGroup();
-        _tabKeyboard = new Button { Text = "KEYBOARD & MOUSE", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(360, UiKit.MinHit), Name = "TabKeyboard" };
-        _tabController = new Button { Text = "CONTROLLER", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(280, UiKit.MinHit), Name = "TabController" };
+        _tabKeyboard = new Button { Text = "KEYBOARD & MOUSE", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(360, UiKit.MinHit), Name = "TabKeyboard", ThemeTypeVariation = Steel.TabType };
+        _tabController = new Button { Text = "CONTROLLER", ToggleMode = true, ButtonGroup = group, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(280, UiKit.MinHit), Name = "TabController", ThemeTypeVariation = Steel.TabType };
         _tabKeyboard.Pressed += () => SetDevice(BindDevice.Keyboard);
         _tabController.Pressed += () => SetDevice(BindDevice.Controller);
         tabs.AddChild(_tabKeyboard);
@@ -87,21 +85,101 @@ public sealed partial class ControlsView : Control
         tabs.AddChild(UiKit.Spacer());
         _reset = UiKit.Button("RESET TO DEFAULTS", AskReset, 340, "Puts every binding of this tab back to the game's own");
         _reset.Name = "ControlsReset";
-        tabs.AddChild(_reset);
+        AddChild(_reset);   // the main action stands in the frame's bottom tray, as on the other pages (placed by PlaceContent)
         UiKit.ChainHorizontal([_tabKeyboard, _tabController, _reset]);
         root.AddChild(tabs);
 
         _hint = UiKit.Text("", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true);
-        root.AddChild(_hint);
         _status = UiKit.Text("", UiKit.CaptionSize, UiKit.White, HorizontalAlignment.Left, true);
         _status.Name = "ControlsStatus";
-        root.AddChild(_status);
+        foreach (var note in new[] { _hint, _status }) { note.AddThemeFontOverride("font", UiKit.NoteFont()); note.AddThemeFontSizeOverride("font_size", 19); }
 
         _scroll = UiKit.Scroll(_rows);
         _scroll.Name = "ControlsList";
         _scroll.CustomMinimumSize = new Vector2(0, 240);
-        root.AddChild(UiKit.Panel(_scroll, 10).With(p => p.SizeFlagsVertical = SizeFlags.ExpandFill));
+        root.AddChild(_scroll);
         _scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+        root.AddChild(_hint);
+        root.AddChild(_status);
+        _chrome.Changed += PlaceContent;
+        Resized += PlaceContent;
+        PlaceContent();
+    }
+
+    readonly PanelChrome _chrome;
+    TextureRect? _fade;
+
+    /// <summary>The table fades out over its last 36 px instead of cutting a row in half (Opus review 1); follows the list's rectangle.</summary>
+    public override void _Process(double delta)
+    {
+        if (!Visible) return;
+        if (_fade is null)
+        {
+            var g = new Gradient();
+            g.SetColor(0, new Color(0.04f, 0.038f, 0.036f, 0f));
+            g.SetColor(1, new Color(0.04f, 0.038f, 0.036f, 1f));
+            _fade = new TextureRect
+            {
+                Name = "TableFade",
+                Texture = new GradientTexture2D { Gradient = g, FillFrom = new Vector2(0f, 0f), FillTo = new Vector2(0f, 1f), Width = 4, Height = 64 },
+                StretchMode = TextureRect.StretchModeEnum.Scale,
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            AddChild(_fade);
+        }
+        var r = _scroll.GetGlobalRect();
+        r.Position -= GlobalPosition;
+        _fade.Position = new Vector2(r.Position.X, r.End.Y - 36f);
+        _fade.Size = new Vector2(Mathf.Max(0f, r.Size.X - 14f), 36f);
+    }
+
+    /// <summary>The content in the frame: the tabs in the strip under the plate, the table and the two note lines in the rows area; BACK at the bottom right.</summary>
+    void PlaceContent()
+    {
+        if (_content is not MarginContainer m || _chrome is null) return;
+        var strip = _chrome.Strip; var rows = _chrome.RowsArea;
+        if (OS.GetCmdlineUserArgs().Contains("--panel-debug")) GD.Print($"controls place: view {Size} chrome {_chrome.Size} strip {strip} rows {rows} visible {Visible}");
+        m.SetAnchorsPreset(LayoutPreset.FullRect);
+        m.AddThemeConstantOverride("margin_left", Mathf.RoundToInt(rows.Position.X));
+        m.AddThemeConstantOverride("margin_right", Mathf.RoundToInt(Mathf.Max(0f, Size.X - rows.End.X)));
+        m.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(strip.Position.Y));
+        m.AddThemeConstantOverride("margin_bottom", Mathf.RoundToInt(Mathf.Max(0f, Size.Y - rows.End.Y)));
+        SmClient.FrontEnd.ConceptPanelPage.DockBack(_back, Size);
+        StylePlates();
+    }
+
+    float _platesScale;
+
+    /// <summary>The Options tab art for the two tabs, the kit's tray plate for RESET TO DEFAULTS, one lettering (Opus review 2: no lemon plates with round rivets).</summary>
+    void StylePlates()
+    {
+        float s = _chrome.Scale;
+        if (s <= 0f || Mathf.IsEqualApprox(_platesScale, s) || ConceptArt.Get("opt-tab-controls-dark") is null) return;
+        _platesScale = s;
+        var light = new Color(0.84f, 0.83f, 0.80f); var dark = new Color(0.10f, 0.06f, 0.02f);
+        void Text(Button b, float size, bool goldRest)
+        {
+            b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
+            b.AddThemeFontOverride("font", UiKit.ConceptFont());
+            b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+            b.AddThemeConstantOverride("outline_size", 0);
+            foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, goldRest ? dark : light);
+            foreach (var c in new[] { "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, dark);
+            b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
+        }
+        foreach (var t in new[] { _tabKeyboard, _tabController })
+        {
+            t.CustomMinimumSize = new Vector2(t == _tabKeyboard ? 190f * s : 150f * s, _chrome.Strip.Size.Y);
+            PaintedButtons.Apply(t, "opt-tab-controls-dark", "opt-tab-controls-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
+            Text(t, 13.4f, false);
+            if (t.GetThemeStylebox("pressed") is { } goldTab) t.AddThemeStyleboxOverride("focus", goldTab);   // focus is the gold plate: no rectangle outline (Opus review 3)
+        }
+        var tray = _chrome.Tray;
+        _reset.TopLevel = true; _reset.CustomMinimumSize = Vector2.Zero; _reset.Position = tray.Position + GlobalPosition; _reset.Size = tray.Size;
+        PaintedButtons.Apply(_reset, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, true, paintedText: false, goldRest: false, noGlow: true);
+        Text(_reset, 12f, false);
+        _reset.Text = "RESET TO DEFAULTS";
     }
 
     // ---- showing ----
@@ -130,9 +208,9 @@ public sealed partial class ControlsView : Control
         _capture = null;
         (device == BindDevice.Keyboard ? _tabKeyboard : _tabController).SetPressedNoSignal(true);
         (device == BindDevice.Keyboard ? _tabController : _tabKeyboard).SetPressedNoSignal(false);
-        _hint.Text = device == BindDevice.Keyboard
+        _hint.Text = (device == BindDevice.Keyboard
             ? "Click an entry, then press the new key or mouse button. Esc cancels. Delete or a right click clears an entry. An input used twice asks what to do. Changes apply at once."
-            : "Press A on an entry, then press the new button or trigger. Esc or Start cancels. X clears the entry. LB / RB switch tabs. The move and look sticks are fixed.";
+            : "Press A on an entry, then press the new button or trigger. Esc or Start cancels. X clears the entry. LB / RB switch tabs. The move and look sticks are fixed.").ToUpperInvariant();
         BuildRows();
     }
 
@@ -154,16 +232,16 @@ public sealed partial class ControlsView : Control
             if (info.Group != group)
             {
                 group = info.Group;
-                _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiKit.BodySize, UiKit.Gold).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
+                _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiKit.BodySize, new Color(0.97f, 0.82f, 0.4f)).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
             }
             var row = UiKit.HBox(10);
-            row.AddChild(UiKit.Text(info.Label, UiKit.BodySize, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
+            row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiKit.BodySize, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
             var buttons = new List<Control>();
             for (int s = 0; s < slots; s++)
             {
                 int slot = s;
                 var action = info.Action;
-                var b = new Button { Text = "", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(BindWidth, UiKit.MinHit), ClipText = true, Name = $"Bind_{info.Action}_{slot}",
+                var b = new Button { Text = "", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(BindWidth, UiKit.MinHit), ClipText = true, ThemeTypeVariation = Steel.TabType, Name = $"Bind_{info.Action}_{slot}",
                     TooltipText = "Click, then press the new input. Delete or a right click clears it." };
                 b.Pressed += () => BeginCapture(action, slot);
                 b.GuiInput += ev => { if (ev is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } && _capture is null) { Accept(); ClearBinding(action, slot); } };
@@ -198,7 +276,7 @@ public sealed partial class ControlsView : Control
         {
             if (device != _device) continue;
             bool waiting = _capture is { } c && c.Device == device && c.Action == action && c.Slot == slot;
-            button.Text = waiting ? (device == BindDevice.Keyboard ? "PRESS A KEY..." : "PRESS A BUTTON...") : BindingSet.Display(_set.Get(device, action, slot));
+            button.Text = waiting ? (device == BindDevice.Keyboard ? "PRESS A KEY..." : "PRESS A BUTTON...") : BindingSet.Display(_set.Get(device, action, slot)).ToUpperInvariant();
             button.AddThemeColorOverride("font_color", waiting ? UiKit.Gold : (_set.Get(device, action, slot) is null ? UiKit.Grey : UiKit.White));
             button.AddThemeColorOverride("font_hover_color", UiKit.Gold);
         }
@@ -206,7 +284,7 @@ public sealed partial class ControlsView : Control
 
     void Say(string text, bool problem = false)
     {
-        _status.Text = text;
+        _status.Text = text.ToUpperInvariant();
         _status.AddThemeColorOverride("font_color", problem ? UiKit.LightRed : UiKit.White);
     }
 

@@ -61,10 +61,10 @@ public sealed partial class UiSelfTest
             var ownRow = rows.FirstOrDefault(r => SlotNumber(r) == ownSlot);
             Check("slots: the loadout's own look is in its slot, marked as worn", ownSlot >= 1 && ownRow is { IsSelected: true }, $"slot {ownSlot}");
             Check("slots: the focus starts on the worn slot", GetViewport().GuiGetFocusOwner() == ownRow);
-            Check("slots: the header names the slot", HeaderText(appearance).Contains($"slot {ownSlot}"));
+            Check("slots: the header names the slot", HeaderText(appearance).Contains($"slot {ownSlot}", StringComparison.OrdinalIgnoreCase));
 
             // Enter on an empty slot saves this loadout's look there and wears it.
-            var empty = rows.First(r => r.Text.EndsWith("(empty)", StringComparison.Ordinal));
+            var empty = rows.First(r => r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase));
             int saved = SlotNumber(empty);
             empty.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(4);
@@ -79,27 +79,27 @@ public sealed partial class UiSelfTest
             // The slot's page: apply to one loadout, to all, take it off, undo.
             appearance.OpenSlot(saved);
             await Frames(4);
-            var row1 = FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 1 ", StringComparison.Ordinal));
-            Check("slots: the page lists the loadouts", row1 is not null && FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.Ordinal)) is not null);
+            var row1 = FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 1 ", StringComparison.OrdinalIgnoreCase));
+            Check("slots: the page lists the loadouts", row1 is not null && FindButton(appearance, b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.OrdinalIgnoreCase)) is not null);
             row1?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(3);
             Check("slots: Enter on a loadout row puts the slot on it", session.Working.ClassAt(1)?.Appearance.SpaceMarine == copyId);
             await SlotShot(shot, "page");
-            Click(b => b is UiKit.Row && b.Text == "Apply to all loadouts", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Apply to all loadouts", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Apply to all loadouts dresses every loadout and leaves the Chaos looks", session.Working.Classes.All(c => c.Appearance.SpaceMarine == copyId)
                 && session.Working.Classes.All(c => c.Appearance.Chaos == kept.ClassAt(c.Slot)?.Appearance.Chaos));
-            Click(b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.Ordinal), appearance);
+            Click(b => b is UiKit.Row && b.Text.StartsWith("Loadout 6 ", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Enter again takes it off (the default look)", session.Working.ClassAt(6)?.Appearance.SpaceMarine is null);
-            Click(b => b.Text == "Undo", appearance);
+            Click(b => b.Text.Equals("Undo", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Undo puts it back", session.Working.ClassAt(6)?.Appearance.SpaceMarine == copyId);
-            Check("slots: the header says the look is shared, its tooltip by which loadouts", HeaderText(appearance).Contains($"slot {saved}, shared with 3") && HeaderTip(appearance).Contains("also worn by loadouts 1, 2 and 6"), HeaderText(appearance) + " | " + HeaderTip(appearance));
+            Check("slots: the header says the look is shared, its tooltip by which loadouts", HeaderText(appearance).Contains($"slot {saved}, shared with 3", StringComparison.OrdinalIgnoreCase) && HeaderTip(appearance).Contains("also worn by loadouts 1, 2 and 6"), HeaderText(appearance) + " | " + HeaderTip(appearance));
 
             // B leaves the page for the list, not the editor.
             await SendPad(JoyButton.B);
-            Check("slots: B on a slot's page goes back to the ten slots", appearance.Visible && Rows(appearance).Count == AppearanceSlots.Count && FindButton(appearance, b => b.Text == "Apply to all loadouts") is null);
+            Check("slots: B on a slot's page goes back to the ten slots", appearance.Visible && Rows(appearance).Count == AppearanceSlots.Count && FindButton(appearance, b => b.Text.Equals("Apply to all loadouts", StringComparison.OrdinalIgnoreCase)) is null);
             await SlotShot(shot, "list");
 
             // Save over a filled slot: asks, then the old slot holds this look and the loadout wears it.
@@ -107,7 +107,7 @@ public sealed partial class UiSelfTest
             await Frames(3);
             session.Edit(p => AppearanceEdits.ReplaceAppearance(p, AppearanceEdits.ResetPaint(p.Appearance(copyId)!)));   // make the two differ
             await Frames(3);
-            Click(b => b is UiKit.Row && b.Text == "Save this loadout's look here", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Save this loadout's look here", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: saving over a filled slot asks first", OpenDialog() is not null);
             ClickDialog("Save over");
@@ -118,18 +118,18 @@ public sealed partial class UiSelfTest
             // Rename and delete through the page's dialogs.
             appearance.OpenSlot(saved);
             await Frames(3);
-            Click(b => b is UiKit.Row && b.Text == "Rename", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Rename", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             if (OpenDialog() is { } prompt && FindEdit(prompt) is { } edit) edit.Text = "Second Company";
             ClickDialog("Rename");
             await Frames(3);
             Check("slots: Rename names the slot", session.Working.Appearance(copyId)?.Name == "Second Company");
-            Click(b => b is UiKit.Row && b.Text == "Delete", appearance);
+            Click(b => b is UiKit.Row && b.Text.Equals("Delete", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             ClickDialog("Delete");
             await Frames(3);
             Check("slots: Delete empties the slot; its loadouts wear the default look", session.Working.Appearance(copyId) is null && session.Working.ClassAt(1)?.Appearance.SpaceMarine is null
-                && Rows(appearance).Count == AppearanceSlots.Count && Rows(appearance).Any(r => SlotNumber(r) == saved && r.Text.EndsWith("(empty)", StringComparison.Ordinal)));
+                && Rows(appearance).Count == AppearanceSlots.Count && Rows(appearance).Any(r => SlotNumber(r) == saved && r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase)));
 
             // Each side has its own ten.
             if (catalog.Race(CustomizationCatalog.Chaos) is not null)
@@ -139,7 +139,7 @@ public sealed partial class UiSelfTest
                 var chaosRows = Rows(appearance);
                 Check("slots: the Chaos side has ten slots of its own", chaosRows.Count == AppearanceSlots.Count && AppearanceSlots.Layout(session.Working, CustomizationCatalog.Chaos).All(a => a is null || a.Race == CustomizationCatalog.Chaos)
                     && AppearanceSlots.Layout(session.Working, CustomizationCatalog.Chaos).All(a => a?.Id != copyId && a?.Id != own));
-                chaosRows.First(r => r.Text.EndsWith("(empty)", StringComparison.Ordinal)).EmitSignal(BaseButton.SignalName.Pressed);
+                chaosRows.First(r => r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase)).EmitSignal(BaseButton.SignalName.Pressed);
                 await Frames(3);
                 var chaosId = session.Working.ClassAt(4)?.Appearance.Chaos;
                 Check("slots: a Chaos slot saves a Chaos look", session.Working.Appearance(chaosId)?.Race == CustomizationCatalog.Chaos && session.Working.ClassAt(4)?.Appearance.SpaceMarine == own);
@@ -177,7 +177,7 @@ public sealed partial class UiSelfTest
     {
         foreach (var c in root.GetChildren())
         {
-            if (c is Label { ClipText: true, HorizontalAlignment: HorizontalAlignment.Right } l && l.Text.StartsWith("Loadout ", StringComparison.Ordinal)) return l;
+            if (c is Label { ClipText: true, HorizontalAlignment: HorizontalAlignment.Right } l && l.Text.StartsWith("Loadout ", StringComparison.OrdinalIgnoreCase)) return l;
             if (HeaderLabel(c) is { } found) return found;
         }
         return null;

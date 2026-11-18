@@ -82,7 +82,8 @@ public sealed partial class CreatorView : Control
     readonly SlotStrip _strip;
     readonly Label _banner, _title, _summary, _status, _unsaved, _activeLabel;
     readonly HBoxContainer _tabs = UiKit.HBox(8), _actions = UiKit.HBox(8);
-    readonly VBoxContainer _steps = UiKit.VBox(8), _list = UiKit.VBox(8), _card = UiKit.VBox(6);
+    BoxContainer _steps = UiKit.VBox(8);   // the armoury layout swaps it for a horizontal box (the step pills)
+    readonly VBoxContainer _list = UiKit.VBox(8), _card = UiKit.VBox(6);
     readonly ScrollContainer _scroll;
     readonly PreviewStage _preview;
     readonly List<Button> _stepButtons = new(), _tabButtons = new();
@@ -192,6 +193,7 @@ public sealed partial class CreatorView : Control
         BuildStepButtons();
         _session.Changed += OnSessionChanged;
         Refresh(focusList: false);
+        EnterArmoury(margin, right, stepsPanel);   // the concept's Armoury layout (phase 4d)
     }
 
     Control Host => (Control)(GetParent() ?? this);
@@ -212,6 +214,7 @@ public sealed partial class CreatorView : Control
     {
         if (selection != _open) _perkSlot = 0;   // a loadout opened by the shell starts at perk 1, as a click on its chip does
         _open = selection;
+        _armSlotsTab = true;   // a loadout opened by the shell (the picker, --loadout): the SLOTS tab shows where it sits
         _open = ValidOpen();   // never the Ork's loadouts without the Orks (ui/customizer-ork)
         Refresh(focusList: false);
     }
@@ -228,7 +231,7 @@ public sealed partial class CreatorView : Control
 
     public void OpenStep(string name)
     {
-        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
+        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; _armPicking = true; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
     }
 
     /// <summary>The step shown now (test aid).</summary>
@@ -243,6 +246,7 @@ public sealed partial class CreatorView : Control
     public void Reenter()
     {
         ReturnFromRevertedCopy();
+        _armSlotsTab = false; _armPicking = false;   // the Armoury opens on its CLASS tab with the slot cards
         _open = ValidOpen();
         // The content profile may have changed on the lobby menu (ui/customizer-ork): the remembered DEFAULTS role, the factions and the class tabs follow it.
         if (_lastDefaultsRole is { } last && !_services.Roles().Contains(last, StringComparer.OrdinalIgnoreCase)) _lastDefaultsRole = null;
@@ -379,7 +383,7 @@ public sealed partial class CreatorView : Control
         {
             int index = i;
             var b = new Button { Text = $"{i + 1}  {StepNames[i]}", Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 44) };
-            b.Pressed += () => { _step = (Step)index; Refresh(focusList: true); };
+            b.Pressed += () => { _step = (Step)index; _armPicking = true; Refresh(focusList: true); };
             _steps.AddChild(b);
             _stepButtons.Add(b);
         }
@@ -400,7 +404,7 @@ public sealed partial class CreatorView : Control
     {
         bool handled = false;
         ExtrasRefresh(focusList, ref handled);   // EXTRAS-HOOK: an added page drawn in this frame instead (Musou Mode: the Librarian and the Heretic)
-        if (handled) return;
+        if (handled) { ArmouryDirty(); return; }
         var profile = _session.Working;
         var active = LoadoutEdits.Active(profile, _catalog, out _);
         string role = Role;
@@ -433,8 +437,9 @@ public sealed partial class CreatorView : Control
         string slotName = defaults ? $"DEFAULTS - {LoadoutRows.ClassName(_catalog, role, _previewRace)}" : empty ? $"CUSTOM {_open.Slot} - empty" : $"CUSTOM {_open.Slot} - {OpenClass!.Name}";
         _title.Text = "LOADOUTS";
         _summary.Text = empty ? $"{slotName}. Choose a class to start." :
-            defaults ? $"{slotName}: {LoadoutRows.DefaultSummary(_catalog, role, _previewRace)}  (choose anything to edit a copy)" :
+            defaults ? $"{slotName}: {LoadoutRows.DefaultSummary(_catalog, role, _previewRace)}{(_arm ? "" : "  (choose anything to edit a copy)")}" :
             $"{slotName}: {LoadoutRows.Summary(_catalog, OpenClass!, _previewRace)}";
+        if (_arm) _summary.Text = _summary.Text.ToUpperInvariant();   // one case per level (Opus review 2)
 
         bool dirty = _session.Dirty;
         _unsaved.Text = dirty ? "* UNSAVED" : "";
@@ -457,6 +462,7 @@ public sealed partial class CreatorView : Control
         if (_step != Step.Look) _previewOrkLook = null;
         RebuildList(focusList);
         UpdatePreview();
+        ArmouryDirty();
     }
 
     string ActiveName(CustomizationProfile profile, Selection active)
@@ -670,11 +676,13 @@ public sealed partial class CreatorView : Control
     void ShowTextCard(string title, string body, string extra = "", Color? extraColour = null)
     {
         foreach (var c in _card.GetChildren()) { _card.RemoveChild(c); c.QueueFree(); }
-        _cardTitle = UiKit.Text(title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true);
+        _cardTitle = UiKit.Text(_arm ? title.ToUpperInvariant() : title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true);
+        if (_arm) _cardTitle.AddThemeFontOverride("font", UiKit.ConceptFont());   // one face on the Armoury page
         _card.AddChild(_cardTitle);
         var text = UiKit.VBox(6);
-        _cardBody = body.Length > 0 ? UiKit.Text(body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
-        _cardExtra = extra.Length > 0 ? UiKit.Text(extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
+        _cardBody = body.Length > 0 ? UiKit.Text(_arm ? body.ToUpperInvariant() : body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
+        _cardExtra = extra.Length > 0 ? UiKit.Text(_arm ? extra.ToUpperInvariant() : extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
+        if (_arm) foreach (var l in new[] { _cardBody, _cardExtra }) { l?.AddThemeFontOverride("font", UiKit.NoteFont()); }
         if (_cardBody is not null) text.AddChild(_cardBody);
         if (_cardExtra is not null) text.AddChild(_cardExtra);
         _cardScroll = UiKit.Scroll(text);
@@ -768,6 +776,7 @@ public sealed partial class CreatorView : Control
     public override void _Process(double delta)
     {
         if (_status.Text.Length > 0 && Time.GetTicksMsec() / 1000.0 > _statusUntil) _status.Text = "";
+        ArmouryPoll(delta);
     }
 
     void ChooseRole(string role)
@@ -1022,7 +1031,7 @@ public sealed partial class CreatorView : Control
         if (IsEmpty && !AddedPage) return;   // an empty slot has only its class list; an added page has steps of its own whatever the hidden slot holds
         int n = StepNames.Length, s = (int)_step;
         for (int k = 0; k < n; k++) { s = (s + delta + n) % n; if (StepShown(s)) break; }
-        _step = (Step)s;
+        _step = (Step)s; _armPicking = true;
         Refresh(focusList: false);
     }
 

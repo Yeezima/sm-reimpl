@@ -15,7 +15,7 @@ namespace SmClient;
 /// </summary>
 public sealed partial class WarMapPanel : Control
 {
-    const float Left = UiKit.MenuLeft, Top = 196f, LaneHeight = 196f, BarWidth = 620f, BarHeight = 34f, DeployColumn = Left + BarWidth + 48f;
+    const float Left = UiKit.MenuLeft, Top = 232f, LaneHeight = 204f, BarWidth = 860f, BarHeight = 40f, DeployColumn = Left + BarWidth + 56f;
     static readonly Color HereGold = new(0.98f, 0.8f, 0.12f);
 
     /// <summary>A front's pips (-1 to 3) and its progress, from the middle: to the right the Imperials are winning, to the left the Orks.</summary>
@@ -31,13 +31,16 @@ public sealed partial class WarMapPanel : Control
             for (int i = 0; i < count; i++)
             {
                 var box = new Rect2(i * (pip + gap), 0f, pip, Size.Y);
-                DrawRect(box, i < Pips ? UiKit.White : new Color(1f, 1f, 1f, 0.12f));
+                // steel pips: a lit gold lamp or a dark recess with a bronze rim
+                DrawRect(box, i < Pips ? new Color(0.95f, 0.78f, 0.22f) : new Color(0.05f, 0.045f, 0.04f));
+                DrawRect(box, new Color(0.45f, 0.38f, 0.26f, 0.9f), false, 1.5f);
             }
             float x = count * (pip + gap) + 18f, w = Size.X - x, mid = x + w / 2f, h = Size.Y;
-            DrawRect(new Rect2(x, 0f, w, h), new Color(1f, 1f, 1f, 0.08f));
+            DrawRect(new Rect2(x, 0f, w, h), new Color(0.05f, 0.045f, 0.04f));
             float fill = Math.Clamp(Progress, -1f, 1f) * w / 2f;
-            if (fill >= 0f) DrawRect(new Rect2(mid, 0f, fill, h), new Color(0.95f, 0.8f, 0.2f));
-            else DrawRect(new Rect2(mid + fill, 0f, -fill, h), new Color(0.86f, 0.1f, 0.08f));
+            if (fill >= 0f) DrawRect(new Rect2(mid, 2f, fill, h - 4f), new Color(0.95f, 0.8f, 0.2f));
+            else DrawRect(new Rect2(mid + fill, 2f, -fill, h - 4f), new Color(0.78f, 0.12f, 0.09f));
+            DrawRect(new Rect2(x, 0f, w, h), new Color(0.45f, 0.38f, 0.26f, 0.9f), false, 2f);
             DrawRect(new Rect2(mid - 1f, -4f, 2f, h + 8f), UiKit.White);
         }
     }
@@ -70,18 +73,29 @@ public sealed partial class WarMapPanel : Control
         _close = close;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = deploy is null ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = "WarMapDim", Color = new Color(0f, 0f, 0f, deploy is null ? 0.62f : 0.88f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
         var title = new Label { Name = "WarMapTitle", Text = "WAR MAP", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        title.AddThemeFontOverride("font", UiKit.TitleFont);
-        title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", UiKit.White);
+        if (deploy is not null)
+        {
+            // The station's screen (a menu) wears the redesigned steel board and plate; the M overlay in a battle keeps its plain dim (it is part of the play view).
+            title.Position = new Vector2(Left + 30f, 70f);
+            SteelBackdrop.StyleTitle(title);
+            _steel = true;
+            AddChild(new SteelBackdrop("WarMapDim", title, 0.7f) { FitContent = true });
+        }
+        else
+        {
+            var dim = new ColorRect { Name = "WarMapDim", Color = new Color(0f, 0f, 0f, 0.62f), MouseFilter = MouseFilterEnum.Ignore };
+            dim.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(dim);
+            title.AddThemeFontOverride("font", UiKit.TitleFont);
+            title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
+            title.AddThemeColorOverride("font_color", UiKit.White);
+        }
         AddChild(title);
-        _clock = Text("WarMapClock", Left, 146f, 16, 1200f);
-        _reserves = Text("WarMapReserves", Left, 170f, 16, 1200f);
+        _clock = Text("WarMapClock", Left, 172f, 22, 1400f);
+        _reserves = Text("WarMapReserves", Left, 204f, 22, 1400f);
         for (int l = 0; l < 3; l++) _rows[l] = MakeRow((TfwLane)l, Top + 30f + l * LaneHeight);
-        _note = Text("WarMapNote", Left, Top + 30f + 3 * LaneHeight, 16, 1200f);
+        _note = Text("WarMapNote", Left, Top + 30f + 3 * LaneHeight, 22, 1400f);
         if (deploy is null)
         {
             _battle = new TfwBattlePanel { Name = "TfwBattlePanel", Visible = false };
@@ -90,8 +104,10 @@ public sealed partial class WarMapPanel : Control
             return;
         }
         _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Stormbird (Esc, or B on a controller)");
-        Place(_closeButton, Left, Top + 60f + 3 * LaneHeight, 240f, 30f);
-        _closeButton.AddThemeFontSizeOverride("font_size", 18);
+        Place(_closeButton, Left, Top + 76f + 3 * LaneHeight, 240f, 30f);
+        _closeButton.AddThemeFontSizeOverride("font_size", 26);
+        _closeButton.Size = new Vector2(300f, 56f);
+        SteelBackdrop.StylePlate(_closeButton);
         AddChild(_closeButton);
     }
 
@@ -107,26 +123,29 @@ public sealed partial class WarMapPanel : Control
         var l = UiKit.MenuText("", null, clip: false);
         l.Name = name;
         l.AddThemeFontSizeOverride("font_size", size);
+        if (_steel) SteelBackdrop.StyleLine(l);
         Place(l, x, y, width, size + 8f);
         AddChild(l);
         return l;
     }
 
+    bool _steel;
+
     Row MakeRow(TfwLane lane, float y)
     {
-        var name = Text("Lane" + lane, Left, y, 24, 240f);
-        var lord = Text("Lord" + lane, Left + 240f, y + 6f, 14, 400f);
+        var name = Text("Lane" + lane, Left, y, 32, 300f);
+        var lord = Text("Lord" + lane, Left + 300f, y + 10f, 22, 560f);
         var bar = new LaneBar { Name = "Bar" + lane, MouseFilter = MouseFilterEnum.Ignore };
-        Place(bar, Left, y + 44f, BarWidth, BarHeight);
+        Place(bar, Left, y + 52f, BarWidth, BarHeight);
         AddChild(bar);
-        var status = Text("Status" + lane, Left, y + 90f, 16, BarWidth);
-        var strengths = Text("Strengths" + lane, Left, y + 116f, 16, BarWidth);
+        var status = Text("Status" + lane, Left, y + 104f, 22, BarWidth);
+        var strengths = Text("Strengths" + lane, Left, y + 138f, 22, BarWidth);
         Button? deploy = null;
         if (_deploy is { } act)
         {
             deploy = UiKit.MenuButton("Deploy " + lane, () => act(lane));
-            deploy.AddThemeFontSizeOverride("font_size", 22);
-            Place(deploy, DeployColumn, y + 38f, 340f, 44f);
+            deploy.AddThemeFontSizeOverride("font_size", 26); SteelBackdrop.StylePlate(deploy);
+            Place(deploy, DeployColumn, y + 46f, 420f, 56f);
             AddChild(deploy);
         }
         return new Row(name, lord, bar, status, strengths, deploy);

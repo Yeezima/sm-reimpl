@@ -25,6 +25,8 @@ public sealed partial class SlotStrip : VBoxContainer
     public Selection? Open { get; set; }
 
     readonly bool _compact;
+    /// <summary>Compact chips wrap onto several rows instead of one (the Armoury's SLOTS tab, phase 4d).</summary>
+    public bool Wrap { get; set; }
     /// <summary>Compact (creator): one row, one DEFAULTS chip for the role of <see cref="DefaultsRole"/> (the creator's tabs choose it) followed by CUSTOM 1 to 10.</summary>
     public string? DefaultsRole { get; set; }
 
@@ -51,10 +53,10 @@ public sealed partial class SlotStrip : VBoxContainer
         var active = LoadoutEdits.Active(profile, catalog, out _);
         var saved = session.Saved;
 
-        HBoxContainer? single = null;
+        Container? single = null;
         if (_compact)
         {
-            single = UiKit.HBox(8);
+            single = Wrap ? new HFlowContainer().With(f => { f.AddThemeConstantOverride("h_separation", 8); f.AddThemeConstantOverride("v_separation", 8); }) : UiKit.HBox(8);
             // Only a role the profile offers (ui/customizer-ork: no Ork DEFAULTS chip in Faithful).
             string role = DefaultsRole is { } wanted && _services.Roles().Contains(wanted, StringComparer.OrdinalIgnoreCase) ? wanted : ProfileStore.FirstRole(catalog);
             var sel = Selection.DefaultFor(role);
@@ -78,7 +80,7 @@ public sealed partial class SlotStrip : VBoxContainer
             }
             AddChild(row);
         }
-        var custom = single ?? UiKit.HBox(8);
+        Container custom = single ?? UiKit.HBox(8);
         if (single is null) custom.AddChild(Caption("CUSTOM"));
         for (int slot = 1; slot <= CustomizationProfile.MaxCustomClasses; slot++)
         {

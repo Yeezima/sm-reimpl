@@ -24,7 +24,7 @@ public static partial class UiKit
     public static readonly Color BackgroundTop = new(0.07f, 0.075f, 0.09f), BackgroundBottom = new(0.02f, 0.02f, 0.025f);
 
     public const int VirtualWidth = 1920, VirtualHeight = 1080;
-    public const int BodySize = 18, CaptionSize = 15, HeaderSize = 26, TitleSize = 34, MinHit = 44;
+    public const int BodySize = 22, CaptionSize = 18, HeaderSize = 30, TitleSize = 38, MinHit = 44;   // ui/overhaul: Oswald is narrower and lower than the DejaVu these were set for, so one step up
 
     /// <summary>"Reduce motion": no camera moves, no turntable, no fades (set from the front end's settings).</summary>
     public static bool ReduceMotion { get; set; }
@@ -77,7 +77,7 @@ public static partial class UiKit
 
     static Theme BuildTheme()
     {
-        var t = new Theme { DefaultFont = Font, DefaultFontSize = BodySize };
+        var t = new Theme { DefaultFont = ConceptFont(), DefaultFontSize = BodySize };   // ui/overhaul: one lettering (Oswald) for every control without its own
         foreach (var type in new[] { "Label", "Button", "CheckButton", "CheckBox", "LineEdit", "OptionButton", "RichTextLabel" })
         {
             t.SetColor("font_color", type, White);
@@ -100,8 +100,8 @@ public static partial class UiKit
         }
         t.SetStylebox("panel", "PanelContainer", Clear(12));
         t.SetStylebox("panel", "Panel", Clear(12));
-        t.SetStylebox("normal", "LineEdit", Clear(6));
-        t.SetStylebox("focus", "LineEdit", Clear(6));
+        t.SetStylebox("normal", "LineEdit", new Steel.SteelStyle(Steel.Kind.Recess, 5f, 12f, 6f));   // ui/overhaul: a text field is the kit's steel recess (the menu rows' own field type stays clear)
+        t.SetStylebox("focus", "LineEdit", new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 12f, 6f));
         t.SetColor("caret_color", "LineEdit", White);
         t.SetColor("selection_color", "LineEdit", new Color(White, 0.3f));
         t.SetTypeVariation("SmMenuField", "LineEdit");
@@ -109,9 +109,16 @@ public static partial class UiKit
         t.SetStylebox("normal", "SmMenuField", Clear(1));
         t.SetStylebox("focus", "SmMenuField", Clear(1));
         // Scroll bars: wide enough to grab (a StyleBoxFlat has no size of its own, so without content margins the bar measured 0 px: fix/customizer-weapons-perks).
-        var track = new StyleBoxFlat { BgColor = new Color(1f, 1f, 1f, 0.08f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 6, ContentMarginBottom = 6 };
-        var grab = new StyleBoxFlat { BgColor = new Color(White, 0.55f), ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
-        var grabHot = new StyleBoxFlat { BgColor = White, ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
+        // ui/overhaul: a dark recessed track with a steel lip, a steel grabber that turns gold under the pointer (one scroll bar for every menu).
+        StyleBoxFlat Bar(Color bg, Color border, int margin, int radius) => new()
+        {
+            BgColor = bg, BorderColor = border, BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
+            CornerRadiusTopLeft = radius, CornerRadiusTopRight = radius, CornerRadiusBottomLeft = radius, CornerRadiusBottomRight = radius,
+            ContentMarginLeft = margin, ContentMarginRight = margin, ContentMarginTop = margin, ContentMarginBottom = margin,
+        };
+        var track = Bar(new Color(0.02f, 0.02f, 0.02f, 0.85f), new Color(0.30f, 0.31f, 0.32f, 0.9f), 6, 2);
+        var grab = Bar(new Color(0.46f, 0.47f, 0.48f), new Color(0.07f, 0.07f, 0.075f), 4, 2);
+        var grabHot = Bar(Steel.Gold, Steel.GoldEdge, 4, 2);
         foreach (var type in new[] { "VScrollBar", "HScrollBar" })
         {
             t.SetStylebox("scroll", type, track);
@@ -139,14 +146,30 @@ public static partial class UiKit
         t.SetColor("font_color", "TooltipLabel", White);
         t.SetFontSize("font_size", "TooltipLabel", CaptionSize);
         AddMenuTheme(t);
+        Steel.AddTheme(t);   // ui/concept-redesign: the steel kit's types (SteelKit.cs)
+        // ui/overhaul: a drop-down is a steel plate too.
+        foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) t.SetStylebox(state, "OptionButton", t.GetStylebox(state, Steel.ButtonType));
+        foreach (var colour in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) t.SetColor(colour, "OptionButton", t.GetColor(colour, Steel.ButtonType));
         return t;
     }
 
     // ---- widgets ----
 
+    /// <summary>A page title on the concept's rivetted plate with the painted title's emboss (the failure and set-up pages).</summary>
+    public static Label PlateTitle(string text, Color? ink = null)
+    {
+        var l = new Label { Text = text.ToUpperInvariant(), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(420f, 84f) };
+        l.AddThemeFontOverride("font", ConceptFont()); l.AddThemeFontSizeOverride("font_size", 40);
+        SteelBackdrop.EmbossTitle(l);
+        if (ink is { } c) l.AddThemeColorOverride("font_color", c);
+        if (ConceptArt.Patch("opt-plate-blank", new Vector2(60f, 30f), new Vector2(40f, 10f)) is { } plate) l.AddThemeStyleboxOverride("normal", plate);
+        return l;
+    }
+
     public static Label Text(string text, int size = BodySize, Color? colour = null, HorizontalAlignment align = HorizontalAlignment.Left, bool wrap = false)
     {
         var l = new Label { Text = text, HorizontalAlignment = align, MouseFilter = Control.MouseFilterEnum.Ignore };
+        l.AddThemeFontOverride("font", ConceptFont());   // ui/overhaul: one lettering in every menu
         l.AddThemeFontSizeOverride("font_size", size);
         if (colour is { } c) l.AddThemeColorOverride("font_color", c);
         if (wrap) { l.AutowrapMode = TextServer.AutowrapMode.WordSmart; l.CustomMinimumSize = new Vector2(0, 0); }
@@ -155,14 +178,19 @@ public static partial class UiKit
 
     public static Button Button(string text, Action onPress, int minWidth = 0, string? tooltip = null)
     {
-        var b = new Button { Text = text, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "" };
+        // ui/overhaul: every menu button is a steel plate (the kit's dark plate, gold under the focus), in the one lettering.
+        var b = new Button { Text = text.ToUpperInvariant(), FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "", ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Pressed += onPress;
+        b.SetMeta(FocusGlow.NoGlowMeta, true);   // the plate's own gold is the focus cue: no halo behind it (Opus review 3)
+        // The plate's rivets sit 40 px in from each end: the plate is never narrower than its words plus both (Opus review 1: labels over rivets).
+        float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, Steel.ButtonSize).X + 2f * 52f;
+        b.CustomMinimumSize = new Vector2(Mathf.Max(minWidth, need), MinHit);
         return b;
     }
 
     public static Button Toggle(string text, bool on, Action<bool> changed, int minWidth = 0)
     {
-        var b = new Button { Text = text, ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit) };
+        var b = new Button { Text = text.ToUpperInvariant(), ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Toggled += v => changed(v);
         return b;
     }
@@ -208,6 +236,7 @@ public static partial class UiKit
     public static PanelContainer Panel(Control content, int margin = 14)
     {
         var p = new PanelContainer();
+        p.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.PaintedRecess, 8f, 22f, 20f) { Scale = 0.45f });   // ui/overhaul: the painted steel ring round a dark floor (callers that pass their own box override it)
         var m = new MarginContainer();
         foreach (var side in new[] { "left", "right", "top", "bottom" }) m.AddThemeConstantOverride("margin_" + side, margin);
         p.AddChild(m);
@@ -232,8 +261,10 @@ public static partial class UiKit
     public static TextureRect Background()
     {
         var gradient = new Gradient();
-        gradient.SetColor(0, BackgroundTop);
-        gradient.SetColor(1, BackgroundBottom);
+        // ui/overhaul: with the redesigned art the screen is a dark veil over the menu scene (the concept's Armoury stands in front of its battlefield); without it the old opaque gradient.
+        bool veil = ConceptArt.Get("overlay-armoury") is not null;
+        gradient.SetColor(0, veil ? new Color(BackgroundTop, 0.74f) : BackgroundTop);
+        gradient.SetColor(1, veil ? new Color(BackgroundBottom, 0.90f) : BackgroundBottom);
         var tex = new GradientTexture2D { Gradient = gradient, FillFrom = new Vector2(0.5f, 0f), FillTo = new Vector2(0.5f, 1f), Width = 8, Height = 256 };
         return new TextureRect { Texture = tex, StretchMode = TextureRect.StretchModeEnum.Scale, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, MouseFilter = Control.MouseFilterEnum.Ignore };
     }
@@ -270,7 +301,7 @@ public static partial class UiKit
         /// <param name="glyph">The icon at the left (a check for the selected row, a padlock for a locked one); every state also has its word in <paramref name="tags"/>.</param>
         public Row(string title, IEnumerable<string> tags, bool selected, bool enabled, Glyph.Kind? glyph = null, Color? tagColour = null, Color[]? swatches = null)
         {
-            Text = title;
+            Text = title.ToUpperInvariant();   // one case per level
             Alignment = HorizontalAlignment.Left;
             ClipText = true;
             FocusMode = FocusModeEnum.All;
@@ -311,19 +342,16 @@ public static partial class UiKit
             _tags.OffsetLeft = -reserved - tagWidth - 8f;
             _tags.VerticalAlignment = VerticalAlignment.Center;
             AddChild(_tags);
-            var clear = new Color(0f, 0f, 0f, 0f);
-            var normal = Box(clear, clear, 0, 6);
-            normal.ContentMarginLeft = 52;
-            normal.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
-            var hover = Box(clear, clear, 0, 6);
-            hover.ContentMarginLeft = 52;
-            hover.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
-            var disabledBox = Box(clear, clear, 0, 6);
-            disabledBox.ContentMarginLeft = 52;
-            disabledBox.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
+            // ui/overhaul: a list row is a warm-black strip with a steel hairline; the pointer or focus turns it into the kit's dark plate with a gold rim, the selected row keeps a gold bar.
+            int mr = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
+            var normal = new StyleBoxFlat { BgColor = new Color(0.045f, 0.043f, 0.04f, 0.72f), BorderColor = new Color(0.55f, 0.55f, 0.52f, 0.16f), BorderWidthBottom = 1, ContentMarginLeft = 52, ContentMarginRight = mr, ContentMarginTop = 6, ContentMarginBottom = 6 };
+            var hover = new Steel.SteelStyle(Steel.Kind.Hot, 6f, 52f, 6f); hover.SetContentMargin(Side.Right, mr);
+            var disabledBox = (StyleBoxFlat)normal.Duplicate(); disabledBox.BgColor = new Color(0.03f, 0.03f, 0.03f, 0.6f);
+            _bar.Color = Steel.Gold;
+            SetMeta(FocusGlow.NoGlowMeta, true);
             AddThemeStyleboxOverride("normal", normal);
             AddThemeStyleboxOverride("hover", hover);
-            AddThemeStyleboxOverride("pressed", hover);
+            AddThemeStyleboxOverride("pressed", hover); AddThemeStyleboxOverride("focus", hover); AddThemeStyleboxOverride("hover_pressed", hover);
             AddThemeStyleboxOverride("disabled", disabledBox);
             if (!enabled) AddThemeColorOverride("font_color", Grey);
             FocusEntered += () => Focused?.Invoke();
@@ -439,8 +467,8 @@ public static partial class UiKit
             AddChild(new ColorRect { Color = new Color(0, 0, 0, 0.65f), MouseFilter = MouseFilterEnum.Ignore, AnchorRight = 1, AnchorBottom = 1 });
             var column = VBox(14);
             column.CustomMinimumSize = new Vector2(760, 0);
-            column.AddChild(Text(title, HeaderSize, titleColour ?? Gold));
-            if (body.Length > 0) { var b = Text(body, BodySize, White, HorizontalAlignment.Left, true); b.CustomMinimumSize = new Vector2(740, 0); column.AddChild(b); }
+            var plateTitle = PlateTitle(title, titleColour); plateTitle.SizeFlagsHorizontal = SizeFlags.ShrinkBegin; column.AddChild(plateTitle);
+            if (body.Length > 0) { var b = Text(body.ToUpperInvariant(), BodySize, White, HorizontalAlignment.Left, true); b.AddThemeFontOverride("font", NoteFont()); b.CustomMinimumSize = new Vector2(740, 0); column.AddChild(b); }
             if (input is not null)
             {
                 _input = new LineEdit { Text = input, MaxLength = Model.LoadoutEdits.MaxNameLength, CustomMinimumSize = new Vector2(0, MinHit), SelectAllOnFocus = true };
@@ -456,7 +484,7 @@ public static partial class UiKit
             }
             column.AddChild(row);
             var panel = Panel(column, 24);
-            panel.AddThemeStyleboxOverride("panel", Box(PanelSolid, PanelSolid, 0, 24));
+            panel.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.PaintedRecess, 10f, 30f, 28f) { Scale = 0.6f });
             panel.SetAnchorsPreset(LayoutPreset.Center);
             panel.GrowHorizontal = GrowDirection.Both;
             panel.GrowVertical = GrowDirection.Both;

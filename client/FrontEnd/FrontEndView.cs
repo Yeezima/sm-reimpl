@@ -74,6 +74,9 @@ public sealed partial class FrontEndView : Control
     /// <summary>Hook for added content: one frame of its scripted preview run (test aid <c>--preview-weapon-cycle</c>); nothing without it.</summary>
     partial void ExtrasPreviewScript();
 
+    /// <summary>Hook for added content (client/Extras/Musou/Tfw/FrontEndView.TfwScreens.cs): screenshot aids for its menu-type pages (<c>--menu-screen tfw-...</c>); nothing without it.</summary>
+    partial void ExtrasMenuScreen(string name, ref bool handled);   // EXTRAS-HOOK
+
     int _switchedAt, _switchPhase;
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
@@ -133,17 +136,16 @@ public sealed partial class FrontEndView : Control
         _loading?.QueueFree();
         var box = UiKit.VBox(16);
         box.CustomMinimumSize = new Vector2(900, 0);
-        box.AddChild(UiKit.Text("ERROR", UiKit.HeaderSize, UiKit.LightRed));
-        box.AddChild(UiKit.Text("The game install could not be read:", UiKit.BodySize, UiKit.White));
-        box.AddChild(UiKit.Text(error, UiKit.BodySize, UiKit.LightRed, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(860, 0)));
-        box.AddChild(UiKit.Text("Check that Warhammer 40,000: Space Marine is installed (or pass --game-dir), then try again.", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(860, 0)));
+        box.AddChild(UiKit.PlateTitle("Error", new Color(1f, 0.55f, 0.48f)).With(t => t.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin));
+        box.AddChild(UiKit.Text("The game install could not be read:".ToUpperInvariant(), UiKit.BodySize, UiKit.White));
+        box.AddChild(UiKit.Text(error.ToUpperInvariant(), UiKit.BodySize, UiKit.LightRed, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(860, 0)));
+        box.AddChild(UiKit.Text("Check that Warhammer 40,000: Space Marine is installed (or pass --game-dir), then try again.".ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(860, 0)));
         var buttons = UiKit.HBox(12);
         var retry = UiKit.Button("RETRY", () => { _services = _makeServices(); _loading?.QueueFree(); ShowLoading("Reading your Space Marine install..."); }, 200);
         buttons.AddChild(retry);
         buttons.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 200));
         box.AddChild(buttons);
         var panel = UiKit.Panel(box, 28);
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.LightRed, 3, 28));
         _loading = new CenterContainer();
         _loading.SetAnchorsPreset(LayoutPreset.FullRect);
         _loading.AddChild(panel);
@@ -156,7 +158,7 @@ public sealed partial class FrontEndView : Control
         _frames++;
         if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe), the menu's frames too (menu video, 2026-11-10)
         // The video pauses under the customizer, whose own dark background covers it.
-        if (_background is MenuVideoBackground video) video.Covered = _creator?.Visible == true || _appearance?.Visible == true;
+        if (_background is MenuVideoBackground video) { video.Covered = (_creator?.Visible == true || _appearance?.Visible == true) && ConceptArt.Get("overlay-armoury") is null; video.MainMenuFraming = ShowsMainMenu && ConceptArt.Get("overlay-main") is not null; }
         if (!_built)
         {
             if (_services.Failed && _loading is not null && _loadingText is not null) { ShowFailure(_services.Error ?? "unknown error"); _loadingText = null; }
@@ -229,7 +231,7 @@ public sealed partial class FrontEndView : Control
         _message.Visible = false;
         _message.SetAnchorsPreset(LayoutPreset.BottomLeft);
         _message.GrowVertical = GrowDirection.Begin;
-        _message.OffsetLeft = UiKit.MenuLeft + 1f; _message.OffsetRight = UiKit.MenuLeft + 1f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
+        _message.OffsetLeft = ConceptMainPage.PillarWidth + 24f; _message.OffsetRight = ConceptMainPage.PillarWidth + 24f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
         AddChild(_message);
         if (_args.ContainsKey("ui-selftest")) AddChild(new UiSelfTest(this, _services));
         // The profile's own notices (a repaired, corrupt or read-only file) show once.
@@ -250,23 +252,28 @@ public sealed partial class FrontEndView : Control
         // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
         if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
-        var main = new UiKit.MenuPage("MainMenu");
-        var joinRow = UiKit.MenuButton("Player versus Player", () => ShowPage(_lobby!));
+        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. CLASSIC PVP first (the lobby: join or host Annihilation / Seize Ground; the default focus), MUSOU MODE (added content), ARMOURY (the
+        // customizer), OPTIONS, EXIT; STOP MUSOU SERVER still appears under MUSOU MODE while its server runs. The node names are the old rows' (the tests and test aids know them).
+        var main = new ConceptMainPage();
+        var joinRow = UiKit.SteelButton("Classic PvP", () => ShowPage(_lobby!), "Annihilation and Seize Ground: join a server, host one, or join a lobby", "MenuPlayerversusPlayer");
+        // The concept's order again (owner, 2026-11-18: "match the menu 1:1"): MUSOU MODE first where added content is built, and the default focus; a faithful build starts with CLASSIC PVP.
         _first[main] = joinRow;
-        main.Rows.AddChild(joinRow);
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            main.Rows.AddChild(UiKit.MenuButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together"));
-            _stopMusou = UiKit.MenuButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC");
+            var musouRow = UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode");
+            main.Rows.AddChild(musouRow);
+            _first[main] = musouRow;
+            _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
         }
-        main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
-        main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));
-        main.Rows.AddChild(UiKit.MenuButton("Quit", () => GetTree().Quit()));
+        main.Rows.AddChild(joinRow);
+        main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
+        main.Rows.AddChild(UiKit.SteelButton("Options", () => ShowOptions(), null, "MenuOptions"));
+        main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
         _main = main;
 
-        var lobby = new UiKit.MenuPage("LobbyMenu", "Join or host lobby");
+        var lobby = new ConceptPanelPage("LobbyMenu", "Join or host lobby", "Classic PvP") { PrimaryTexts = ["JOIN SERVER"] };
         // The dedicated server is bundled next to the client (beside it, in server\ below it, or in ..\server: the tester zip's game\ and server\). The UI self-test always builds the
         // panel (it never presses HOST A MATCH), with or without a server next to the client.
         string? serverExe = ServerLaunch.FindExecutable(OS.GetExecutablePath().GetBaseDir(), _args.GetValueOrDefault("server-exe"))
@@ -290,7 +297,7 @@ public sealed partial class FrontEndView : Control
         lobby.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
         _lobby = lobby;
 
-        var host = new UiKit.MenuPage("HostMenu", "Host local lobby");
+        var host = new ConceptPanelPage("HostMenu", "Host local lobby", "Host lobby") { PrimaryTexts = ["HOST A MATCH", "HOST MUSOU", "JOIN YOUR SERVER"] };
         if (serverExe is not null)
         {
             _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services, () => ShowPage(UpPage));
@@ -299,7 +306,7 @@ public sealed partial class FrontEndView : Control
         }
         _hostPage = host;
 
-        var joinLocal = new UiKit.MenuPage("JoinLocalMenu", "Join local lobby");
+        var joinLocal = new ConceptPanelPage("JoinLocalMenu", "Join local lobby", "Join lobby") { PrimaryTexts = ["CONNECT"] };
         _address = new LineEdit { Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host, PlaceholderText = "host:port", MaxLength = 253, FocusMode = FocusModeEnum.All, SelectAllOnFocus = true, Name = "LobbyAddress" };
         _address.TextSubmitted += _ => JoinLocal();
         _address.TextChanged += _ => Say("");
@@ -315,7 +322,7 @@ public sealed partial class FrontEndView : Control
         // types a friend's address. Only built with added content (the main menu's row is too).
         if (ContentExtras.Compiled)
         {
-            var musouPage = new UiKit.MenuPage("MusouMenu", "Musou Mode");
+            var musouPage = new ConceptPanelPage("MusouMenu", "Play alone or together", "Musou Mode") { PrimaryTexts = ["PLAY ON THIS PC"] };
             var playHere = UiKit.MenuButton("Play on this PC", StartMusou, "Starts a Musou server on this PC only and joins it");
             _first[musouPage] = playHere;
             musouPage.Rows.AddChild(playHere);
@@ -335,8 +342,8 @@ public sealed partial class FrontEndView : Control
         }
 
         var foot = UiKit.VBox(2);
-        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => l.TooltipText = GameFoundNote));
-        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontSizeOverride("font_size", UiKit.MenuTextSize); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
+        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", 16); }));
+        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", 16); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
         foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }
@@ -431,7 +438,12 @@ public sealed partial class FrontEndView : Control
         RefreshContent();
         if (page == _hostPage) _hostPanel?.FocusFirst();
         else if (page == _joinLocalPage) { _address!.Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host; _address.FocusLater(); }
-        else _first.GetValueOrDefault(page)?.FocusLater();
+        else
+        {
+            var first = _first.GetValueOrDefault(page);
+            if (first is Button { Disabled: true }) first = page.Rows.GetChildren().OfType<Button>().FirstOrDefault(b => b.Visible && !b.Disabled);   // a disabled row cannot hold the focus
+            first?.FocusLater();
+        }
     }
 
     /// <summary>The main menu. A session's Musou ends here: the lobby's remembered profile is back (unless a server fixes it, or <c>--content musou</c> asked for it).</summary>
@@ -449,6 +461,61 @@ public sealed partial class FrontEndView : Control
 
     bool _opening = true, _messageProblem;
 
+    /// <summary>Screenshot aid (<c>--menu-screen scoreboard|scoreboard-single</c>): the Tab scoreboard over the menu background with made-up rows (two sides, or Musou's one column).</summary>
+    void ShowScoreboardDemo(bool single)
+    {
+        HideAll();
+        var view = new ScoreboardView { Name = "ScoreboardDemo" };
+        string[] names = ["Praetor_Valen", "Brother Castus", "Sgt. Aurelian", "Lexicanum", "Thrall of Khorne", "Iron Warrior 7", "Apothecary Dray", "Cadian_Jack"];
+        // Made-up shoulder emblems (grey, like the real board's): a ring, a cross, a diamond, a bar.
+        var icons = new Texture2D[4];
+        for (int k = 0; k < 4; k++)
+        {
+            var img = Image.CreateEmpty(48, 48, false, Image.Format.Rgba8);
+            for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++)
+            {
+                float dx = x - 23.5f, dy = y - 23.5f, d = Mathf.Sqrt(dx * dx + dy * dy);
+                bool on = k switch { 0 => d > 13f && d < 18f, 1 => Mathf.Abs(dx) < 3f || Mathf.Abs(dy) < 3f, 2 => Mathf.Abs(dx) + Mathf.Abs(dy) < 17f, _ => Mathf.Abs(dy) < 5f };
+                img.SetPixel(x, y, on ? new Color(0.6f, 0.58f, 0.53f) : new Color(0f, 0f, 0f, 0f));
+            }
+            icons[k] = ImageTexture.CreateFromImage(img);
+        }
+        ScoreboardView.Side Make(int score, int n, int me, string sideName, bool mine)
+        {
+            var side = new ScoreboardView.Side { Score = score, Name = sideName, Emblem = icons[me % 4] };
+            for (int i = 0; i < n; i++)
+            {
+                int k = 22 - i * 3, d = 4 + i * 2;
+                side.Rows.Add(new ScoreboardView.Row { Name = names[(i + (single ? 0 : me)) % names.Length], Icon = icons[(i + me) % 4], Me = mine && i == 1, Cells = [k.ToString(), d.ToString(), (k / (double)d).ToString("0.0"), (i + 2).ToString(), (k * 100 + 50).ToString(), (24 + i * 7) + "ms"] });
+            }
+            return side;
+        }
+        var frame = new ScoreboardView.ScoreboardFrame { Single = single, SingleScore = true, SingleLabel = single ? "TOTAL SCORE" : "", Headers = ["KILLS", "DEATHS", "RATIO", "ASSISTS", "SCORE", "PING"] };
+        frame.Sides.Add(Make(single ? 5200 : 41, single ? 4 : 8, 0, "SPACE MARINES", true));
+        if (!single) frame.Sides.Add(Make(37, 8, 3, "CHAOS", false));
+        view.Frame = frame;
+        AddChild(view);
+    }
+
+    /// <summary>Screenshot aid (<c>--menu-screen summary|countup</c>): the battle record or the count-up of the end-of-match screens.</summary>
+    void ShowSummaryDemo(bool countUp)
+    {
+        HideAll();
+        var view = new MatchSummaryView { Name = "SummaryDemo" };
+        if (countUp)
+        {
+            var rows = new[] { new CountUpRow("Praetor_Valen", "Tactical Marine", 22, 4, false), new CountUpRow("Brother Castus", "Assault Marine", 19, 6, true), new CountUpRow("Sgt. Aurelian", "Devastator", 16, 8, false), new CountUpRow("Lexicanum", "Tactical Marine", 13, 10, false) };
+            view.SetScreen(new CountUpData("Team Score", 41, "Chaos", 37, 19, rows, new Color(0.35f, 0.55f, 1f)), null, 9.0);
+        }
+        else
+        {
+            var lines = new[] { new SummaryLine("BEST CLASS", "Assault Marine"), new SummaryLine("BEST WEAPON", "Power Sword"), new SummaryLine("ENEMY KILLS", "19"), new SummaryLine("PLAYER DEATHS", "6"), new SummaryLine("KILL RATIO", "3.2"),
+                new SummaryLine("TEAM ASSISTS", "3"), new SummaryLine("BEST KILLSTREAK", "7"), new SummaryLine("NEMESIS", "Thrall of Khorne", new Color(1f, 0.2f, 0f)), new SummaryLine("SEIZED", null) };
+            view.SetScreen(null, new SummaryData(lines, "Made-up figures for a screenshot"), 2.0);
+        }
+        AddChild(view);
+    }
+
     /// <summary>Shows a page by name (<c>--menu-screen</c>, the self-test): lobby, host, joinlocal or a tab of options.</summary>
     public void ShowMenuPage(string name)
     {
@@ -459,8 +526,15 @@ public sealed partial class FrontEndView : Control
             case "joinlocal": ShowPage(_joinLocalPage!); break;
             case "musou": ShowMusouPage(); break;
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
+            case "failure": HideAll(); ShowFailure("The install's data folder could not be read: made-up error for a screenshot."); break;   // screenshot aid (ui/overhaul)
+            case "dialog": { HideAll(); ShowMainMenu(); UiKit.Dialog.Open(this, this, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], _ => { }); break; }
+            case var tfw when tfw.StartsWith("tfw-", StringComparison.OrdinalIgnoreCase): { bool handled = false; ExtrasMenuScreen(tfw, ref handled); break; }   // EXTRAS-HOOK
+            case "scoreboard": case "scoreboard-single": ShowScoreboardDemo(name.EndsWith("single", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the Tab scoreboard with made-up rows
+            case "pause": { HideAll(); var m = new MatchMenu(() => { }, () => { }, () => { }, () => { }) { Name = "PauseDemo" }; m.Banner = "Respawn in 3"; AddChild(m); m.Open(true); break; }   // screenshot aid (ui/overhaul): the in-match Esc menu
+            case "summary": case "countup": ShowSummaryDemo(name.StartsWith("count", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the end-of-match screens with made-up figures
             case "graphics": ShowOptions(OptionsView.Graphics); break;
             case "sound": ShowOptions(OptionsView.Sound); break;
+            case "interface": ShowOptions(OptionsView.Interface); break;
             case "controls" or "options": ShowOptions(OptionsView.Controls); break;
             default: ShowMainMenu(); break;
         }
@@ -675,7 +749,7 @@ public sealed partial class FrontEndView : Control
     {
         if (_stopMusou is null) return;
         var (running, _, musou) = MusouServerState();
-        bool show = MusouLocal.ShowStopRow(running, musou);
+        bool show = MusouLocal.ShowStopRow(running, musou) || _args.ContainsKey("menu-stop-row-demo");   // the demo flag (screenshot aid) shows the row with no server
         if (_stopMusou.Visible == show) return;
         _stopMusou.Visible = show;
         if (!show && _stopMusou.HasFocus() && _main is not null) _first.GetValueOrDefault(_main)?.FocusLater();   // the focus must not be lost with the row

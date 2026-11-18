@@ -86,7 +86,7 @@ public sealed partial class UiSelfTest
             Input.ParseInputEvent(new InputEventMouseButton { Position = to, GlobalPosition = to, ButtonIndex = MouseButton.Left, Pressed = false });
             await Frames(2);
             Check("a mouse drag turns the figure", appearance.Preview.Yaw - beforeDrag > 5f, $"{beforeDrag:F1} -> {appearance.Preview.Yaw:F1}");
-            Click(b => b.Text == "Undo");   // the colour above
+            Click(b => b.Text.Equals("Undo", StringComparison.OrdinalIgnoreCase));   // the colour above
             await Frames(3);
             session.Seed(keptProfile);
             await Frames(3);
@@ -123,23 +123,23 @@ public sealed partial class UiSelfTest
             // The customizer's DEFAULTS row has the Ork Boy.
             _front.ShowCreator();
             await Frames(4);
-            Check("extended: the customizer offers the Ork Boy's DEFAULTS", FindButton(creator, b => b.Text.Contains("Ork Boy")) is not null);
+            Check("extended: the customizer offers the Ork Boy's DEFAULTS", FindButton(creator, b => b.Text.Contains("Ork Boy", StringComparison.OrdinalIgnoreCase)) is not null);
 
             // The creator: faction button, class tab, DEFAULTS preview on the Ork rig in his idle.
             _front.ShowCreator();
             await Frames(4);
             Check("extended: the creator has the Orks faction and the Ork Boy tab",
-                FindButton(creator, b => b.Text == "Orks") is not null && FindButton(creator, b => b.Text == "Ork Boy" && b.ToggleMode) is not null);
+                FindButton(creator, b => b.Text.Equals("Orks", StringComparison.OrdinalIgnoreCase)) is not null && FindButton(creator, b => b.Text.Equals("Ork Boy", StringComparison.OrdinalIgnoreCase) && b.ToggleMode) is not null);
             creator.OpenSelection(Selection.DefaultFor(OrkLoadout.Role));
             bool drawn = await WaitPreview(creator.Preview, 1800);
             Check("ork: the preview draws the Ork Boy on his own rig", drawn && creator.Preview.ShowsOrk, $"drawn {drawn}; {creator.Preview.Description}");
             Check("ork: the preview stands in the boy's own idle", RigProfiles.OrkBoy.Clips.PreviewIdleCandidates.Contains(creator.Preview.IdleClip ?? ""), creator.Preview.IdleClip ?? "none");
-            Check("ork: the Orks faction button is the pressed one", FindButton(creator, b => b.Text == "Orks")?.ButtonPressed == true && FindButton(creator, b => b.Text == "Space Marines")?.ButtonPressed == false);
+            Check("ork: the Orks faction button is the pressed one", FindButton(creator, b => b.Text.Equals("Orks", StringComparison.OrdinalIgnoreCase))?.ButtonPressed == true && FindButton(creator, b => b.Text.Equals("Space Marines", StringComparison.OrdinalIgnoreCase))?.ButtonPressed == false);
             creator.OpenStep("weapons");
             await Frames(3);
             var orkWeapons = LoadoutRows.Weapons(catalog, OrkLoadout.Role, OrkLoadout.Race, null, _services.Policy);
             Check("ork: the weapons are his fixed shoota, slugga and choppa",
-                new[] { "Shoota", "Slugga", "Choppa" }.All(t => FindButton(creator, b => b is UiKit.Row && b.Text == t) is not null)
+                new[] { "Shoota", "Slugga", "Choppa" }.All(t => FindButton(creator, b => b is UiKit.Row && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null)
                 && orkWeapons.Count == 3 && orkWeapons.All(s => !s.Selectable && s.Rows.Count == 1 && s.Rows[0].Fixed && s.Rows[0].Tags.Contains("FIXED")),
                 string.Join(", ", orkWeapons.SelectMany(s => s.Rows.Select(r => $"{r.Title} {string.Join("/", r.Tags)}"))));
             creator.OpenStep("perks");
@@ -149,15 +149,15 @@ public sealed partial class UiSelfTest
             Check("ork: his perks are the Tactical Marine's", orkPerks == tacticalPerks && orkPerks > 0, $"{orkPerks} / {tacticalPerks}");
 
             // APPEARANCE on the Ork opens his LOOK step, not the armour and colour editors.
-            Click(b => b.Text == "ORK LOOK...");
+            Click(b => b.Text.Equals("ORK LOOK...", StringComparison.OrdinalIgnoreCase));
             await Frames(4);
             Check("ork: the look button opens his LOOK step", creator.CurrentStep == "LOOK" && creator.Visible && !_front.Appearance!.Visible, creator.CurrentStep);
             _front.ShowAppearance();
             await Frames(4);
             Check("ork: the appearance screen is replaced by his LOOK step", creator.Visible && !_front.Appearance!.Visible && creator.CurrentStep == "LOOK");
-            int lookRows = OrkLoadout.LookChoices.Count(l => FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(l))) is not null);
+            int lookRows = OrkLoadout.LookChoices.Count(l => FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(l), StringComparison.OrdinalIgnoreCase)) is not null);
             Check("ork: the LOOK step lists automatic and the five looks", lookRows == 6, lookRows.ToString());
-            FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(1)))?.EmitSignal(BaseButton.SignalName.Pressed);
+            FindButton(creator, b => b is UiKit.Row && b.Text.StartsWith(OrkLoadout.LookTitle(1), StringComparison.OrdinalIgnoreCase))?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(3);
             Check("ork: choosing a look keeps it in the profile", session.Working.OrkLook == 1, session.Working.OrkLook?.ToString() ?? "automatic");
             drawn = await WaitPreview(creator.Preview, 1800);
@@ -167,12 +167,12 @@ public sealed partial class UiSelfTest
             int slot = LoadoutEdits.FirstEmptySlot(session.Working);
             creator.OpenSelection(Selection.CustomSlot(slot));
             await Frames(3);
-            Click(b => b.Text == "Orks");
+            Click(b => b.Text.Equals("Orks", StringComparison.OrdinalIgnoreCase));
             await Frames(4);
             Check("ork: the Orks faction button makes an Ork Boy loadout in an empty slot", session.Working.ClassAt(slot)?.Role == OrkLoadout.Role, session.Working.ClassAt(slot)?.Role ?? "empty");
             creator.OpenStep("perks");
             await Frames(3);
-            Click(b => b.ToggleMode && b.Text.StartsWith("Perk 2"));
+            Click(b => b.ToggleMode && b.Text.StartsWith("Perk 2", StringComparison.OrdinalIgnoreCase));
             await Frames(4);
             var perkRow = FindButton(creator, b => b is UiKit.Row { IsSelected: false } && b.Disabled == false);
             perkRow?.EmitSignal(BaseButton.SignalName.Pressed);
@@ -198,7 +198,7 @@ public sealed partial class UiSelfTest
             // Space Marines from the Ork goes back to a marine class.
             creator.OpenSelection(Selection.CustomSlot(slot));
             await Frames(3);
-            Click(b => b.Text == "Space Marines");
+            Click(b => b.Text.Equals("Space Marines", StringComparison.OrdinalIgnoreCase));
             await Frames(4);
             if (OpenDialog() is not null) { ClickDialog("Change class"); await Frames(4); }
             Check("ork: Space Marines turns the Ork loadout back into a marine class", session.Working.ClassAt(slot)?.Role is { } back && !OrkLoadout.IsOrk(back), session.Working.ClassAt(slot)?.Role ?? "empty");
@@ -217,8 +217,10 @@ public sealed partial class UiSelfTest
             await Frames(4);
             _front.ShowCreator();
             await Frames(4);
+            FindButton(_front.Creator!, b => b.Text.Equals("SLOTS", StringComparison.OrdinalIgnoreCase) && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);   // the chips are on the Armoury's SLOTS tab
+            await Frames(3);
             Check("faithful: the creator's strip shows no Ork DEFAULTS chip after the Ork DEFAULTS were open in Extended",
-                FindButton(creator, b => b.Text.StartsWith("DEFAULTS") && b.Text.Contains("Ork", StringComparison.OrdinalIgnoreCase)) is null);
+                FindButton(creator, b => b.Text.StartsWith("DEFAULTS", StringComparison.OrdinalIgnoreCase) && b.Text.Contains("Ork", StringComparison.OrdinalIgnoreCase)) is null);
             var orkChip = FindButton(creator, b => b.Text.StartsWith($"CUSTOM {slot}\n"));
             orkChip?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(4);
@@ -232,8 +234,8 @@ public sealed partial class UiSelfTest
             Check("faithful: opening the Ork DEFAULTS directly falls back to a marine loadout", !creator.IsOrkOpen);
             _front.ShowCreator();
             await Frames(4);
-            Check("faithful: the customizer offers no Ork DEFAULTS", FindButton(creator, b => b.Text.Contains("Ork Boy (either side)")) is null);
-            Check("faithful: the creator has no Orks faction and no Ork Boy tab", FindButton(creator, b => b.Text == "Orks") is null && FindButton(creator, b => b.Text == "Ork Boy" && b.ToggleMode) is null);
+            Check("faithful: the customizer offers no Ork DEFAULTS", FindButton(creator, b => b.Text.Contains("Ork Boy (either side)", StringComparison.OrdinalIgnoreCase)) is null);
+            Check("faithful: the creator has no Orks faction and no Ork Boy tab", FindButton(creator, b => b.Text.Equals("Orks", StringComparison.OrdinalIgnoreCase)) is null && FindButton(creator, b => b.Text.Equals("Ork Boy", StringComparison.OrdinalIgnoreCase) && b.ToggleMode) is null);
             var faithfulPlan = _services.PlanFor(Selection.CustomSlot(slot));
             Check("faithful: the saved Ork loadout joins as the side's default class with no Ork look",
                 faithfulPlan is not null && faithfulPlan.Choice.Class != orkClass && faithfulPlan.OrkLook == Races.OrkLookAutomatic && faithfulPlan.Summary.Contains("added content"), faithfulPlan?.Summary ?? "null");

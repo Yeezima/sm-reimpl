@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 3482 spec table rows: **2494 tagged**, 637 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 776 rows of the changes document.
 Scanned 3462 spec table rows: **2476 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
+Scanned 3466 spec table rows: **2479 tagged**, 636 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 773 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -56,6 +57,10 @@ Scanned 3462 spec table rows: **2476 tagged**, 635 not tagged (read from data wi
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
 | **All areas** | **2494** | 2215 | 1852 | 741 | 37 |
 | **All areas** | **2476** | 2198 | 1834 | 738 | 37 |
+| Core simulation (provisional values) | 742 | 699 | 529 | 189 | 1 |
+| General game design | 12 | 12 | 10 | 1 | 0 |
+| Ork faction | 268 | 253 | 153 | 68 | 0 |
+| **All areas** | **2479** | 2201 | 1838 | 738 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -68,11 +73,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 407 |
 | kind: ours | 1467 |
 | confidence: low | 885 |
-| confidence: medium | 840 |
+| confidence: medium | 844 |
 | notes: ours | 405 |
 | kind: interpretation | 395 |
 | notes: estimate | 207 |
 | kind: estimate | 175 |
+| kind: estimate | 176 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
@@ -2599,6 +2605,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
 ### Core simulation (provisional values) (751)
+### Core simulation (provisional values) (742)
 
 *Spec section: Provisional values in use*
 
@@ -3512,6 +3519,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9C0F0760` | Main menu video | `client/assets/menu/menu-loop.ogv` (committed as a developer aid; since 2026-11-14 the release no longer copies it beside the exe, and the source zip leaves it out): Ogg Theora, 1920 x 1080, 4:2:0, a constant 30 fps, 939 frames (31.3 s), quality 7 of 10… (px, fps, s) | notes: ours | the owner (the video and its use); fit and no dim: ours | Main menu video: compare with SM1 by feel or video. Ours: client/assets/menu/menu-loop.ogv (committed as a developer aid; since… | ☐ |
 | `R-5CD35826` | Menu video loop seam | the source's last frame does not meet its first (SSIM 0.94 where a frame step of its slow start is about 0.997, so debris and embers jump): its last 15 frames (0.5 s) fade into its first 15, its 16th plays unblended last and the loop starts on its 17th, so… (s, frames) | kind: ours; confidence: medium | ours | Menu video loop seam: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the source's last frame does not meet its first (SSIM 0.94 where a… | ☐ |
 | `R-4FAE2E57` | Menu video pause and fallback | paused while the customizer (its own dark background) covers it, going on where it was; not played under the headless display server; a video that shows no frame after 2.0 s of drawn frames (an unplayable file) gives way to the still picture; a missing file… (s) | kind: ours; confidence: medium | ours | Menu video pause and fallback: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: paused while the customizer (its own dark background) covers it… | ☐ |
+
+*Spec section: UI concept redesign (2026-11-15, client only; branch `claude/ui-concept-redesign`)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7804224F` | Main menu layout | a stone pillar down the left edge (120 UI px), the SM-REIMPL wordmark (640 px wide) and the winged crest above a steel frame 540 px wide with an amber-lit recess holding five 62 px dark-metal buttons 12 px apart (CLASSIC PVP, MUSOU MODE, ARMOURY, OPTIONS… (UI px (1920 x 1080 space)) | kind: estimate; confidence: medium | the concept art, panel 01 (measured by eye); order and words as the concept's (the rows were PLAYER VERSUS PLAYER, MUSOU MODE, OPTIONS, CUSTOMIZER, QUIT) | Main menu layout: compare with SM1 by feel or video. Ours: a stone pillar down the left edge (120 UI px), the SM-REIMPL wordmark… | ☐ |
+| `R-8F6E0963` | Options layout | a centred steel frame (at most 1340 px wide) with the winged crest and an OPTIONS plate over its top edge, wrapping category tabs (GRAPHICS, SOUND, CONTROLS, INTERFACE: the last holds REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES and SHOW OTHERS' EMBLEMS, moved… (UI px) | kind: estimate; confidence: medium | the concept art, panel 04 | Options layout: compare with SM1 by feel or video. Ours: a centred steel frame (at most 1340 px wide) with the winged crest… | ☐ |
+| `R-122DFD37` | Options APPLY, REVERT | APPLY keeps the options as they are (they apply and save at once, as before) as the point REVERT returns to and shows SETTINGS APPLIED for 3 s; REVERT puts every option the page edits (`GameOptions`, field of view, mouse sensitivity, reduce motion, others'… (s) | kind: ours; confidence: medium | the owner's brief ("distinct Apply/Revert/Back actions", "keep the existing settings and their current save/apply behavior"); the semantics are ours | Options APPLY, REVERT: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: APPLY keeps the options as they are (they apply and save at once, as… | ☐ |
+| `R-DD4EB753` | Steel kit | colours: gold (0.97, 0.76, 0.24) for focus and selection, dark gunmetal for inactive rows, amber (0.62, 0.34, 0.06) for the recess light, bone and steel for the crest; since 2026-11-15 (owner: "add painted textures ... match exactly the reference concept… | kind: ours; confidence: medium | ours | Steel kit: compare with SM1 by feel or video. Ours: colours: gold (0.97, 0.76, 0.24) for focus and selection, dark… | ☐ |
 
 *Spec section: Musou rejoin (2026-11-07, client only)*
 
@@ -5119,6 +5135,16 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3C0DF39C` | World movement walls | The `d_blockers` boxes and cylinders and Shattered Bridge's `everyone_blocker_*` (group 2, read as ALL) are solid invisible walls for every player in every movement mode, shots pass. A cylinder is a 16-sided prism and a sphere an 80-triangle polyhedron that contain them. No face of a wall may be stood on (ours: a… | That group 2 is ALL and stops players is read from the scripts' use of the same groups, not from engine code; the enum values of race 1 and 2 | World movement blockers (4 rows) | World movement walls: compare with SM1 by timing a run over a known distance. Ours: The d_blockers boxes and cylinders and Shattered Bridge's… | ☐ |
 | `C-D4B646D6` | Movable cover in the level's collision | Hab Center's 35 crates, Chem Refinery's 3 exploding barrels, Aquila Canyon's rubble cover and Desolation's crates, sandbag piles and rubble cover (Havok layer 3) are static solid props, pierceable like the M39 crates, never destroyed | The original's destruction states (`crate_a_healthy` and its damaged forms) and their physics | Movable cover baked into Havok layer 3 (2 rows) | Movable cover in the level's collision: compare with SM1 by feel or video. Ours: Hab Center's 35 crates, Chem Refinery's 3 exploding barrels, Aquila… | ☐ |
 | `C-A9DDF750` | Havok layers 7 and 12 | Not read: layer 7 (character-collision proxies) would change only Shattered Bridge's walkable level, by 12.6 %; layer 12 is the camera's | How Shattered Bridge's proxies are used by the original's characters | Havok layer names; layers 7 and 12 are not used | Havok layers 7 and 12: compare with SM1 by feel or video. Ours: Not read: layer 7 (character-collision proxies) would change only… | ☐ |
+#### UI concept redesign (owner 2026-11-15; client only; phase 1: the main menu and Options)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-C3FBE611` | Main menu video, default again | Ours (the owner's request: "make the referenced video image the background of the main menu"): the main menu, its pages and the game folder setup play his new 8 s clip (`menu-concept-loop.ogv`, 5.8 MB, Ogg Theora, no audio, looped) behind the menu; `--menu-still` shows the still forge-world picture (the 2026-11-14… | whether the owner wants the loading screen on the new video too (it keeps its own picture) | "UI concept redesign" | Main menu video, default again: compare with SM1 by feel or video. Ours: Ours (the owner's request: "make the referenced video image the… | ☐ |
+| `C-8C7073C7` | Main menu, concept layout | Ours (the owner's concept panel 01): a stone pillar, the SM-REIMPL wordmark, the winged crest, a heavy steel frame with an amber recess and five dark-metal buttons, the frame's bottom bar without the concept's nameplate text (removed at the owner's word, 2026-11-15); the rows are renamed to the concept's words and… | the original's own front end looked different (the owner's choice) | "UI concept redesign" | Main menu, concept layout: compare with SM1 by feel or video. Ours: Ours (the owner's concept panel 01): a stone pillar, the SM-REIMPL… | ☐ |
+| `C-B88BBBFA` | Options, concept layout | Ours (the owner's concept panel 04): a centred steel frame, tabs, two columns of option rows (value pills with arrows, OFF / ON switches, amber sliders), APPLY, REVERT and BACK; every option and default is as before and still applies and saves at once; APPLY and REVERT are new buttons over that (APPLY keeps the… | a fourth INTERFACE tab (owner 2026-11-15) holds REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES and SHOW OTHERS' EMBLEMS, moved from GRAPHICS with no change; the concept's example INTERFACE settings do not exist and none was added | "UI concept redesign" | Options, concept layout: compare with SM1 by feel or video. Ours: Ours (the owner's concept panel 04): a centred steel frame, tabs, two… | ☐ |
+| `C-4FE3855C` | UI overhaul, every other menu (2026-11-18) | Ours (the owner: "continue the UI overhaul work ... update all the buttons ... only menus and the scoreboards of all modes"): Classic PvP, Host, Join, Musou Mode and the in-match Esc menu are `ConceptPanelPage`s (the Options frame with a clean title plate, a taller body, the concept's pills, switches and plates); the… | Whether the owner wants the page notes (sentence case, written at run time) in capitals too | docs/ui-overhaul.md | UI overhaul, every other menu (2026-11-18): compare with SM1 by feel or video. Ours: Ours (the owner: "continue the UI overhaul work ... update all the… | ☐ |
+| `C-C2499297` | Scoreboards in the steel look (2026-11-18) | Ours (the owner, 2026-11-18: scoreboards of all modes match the overhaul; this replaces his black-and-white rule of 2026-11-07 for colour only): painted score plates, a steel table, a dark header strip, warm-black rows, a gold wash and bar on the own row, "VS" in gold, Oswald; the columns, sort order and numbers are… | Whether the gold own-row accent should stay grey for colour-blind readability (the bar and the brighter text carry it) | docs/ui-overhaul.md | Scoreboards in the steel look (2026-11-18): compare with SM1 by feel or video. Ours: Ours (the owner, 2026-11-18: scoreboards of all modes match the… | ☐ |
+| `C-F5363E87` | Options frame taller (2026-11-18) | Ours: the Options frame is taller than the concept's (a slice of its plain interior is mirrored in) so 12 rows show without scrolling; the concept's own height stays available with `--options-short`. | - | docs/ui-overhaul.md | Options frame taller (2026-11-18): compare with SM1 by feel or video. Ours: Ours: the Options frame is taller than the concept's (a slice of its… | ☐ |
 
 ### Not yet reproduced
 

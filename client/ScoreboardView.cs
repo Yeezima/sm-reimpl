@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SmClient.Customizer;
 
 namespace SmClient;
 
 /// <summary>
-/// The Tab scoreboard (the owner, 2026-11-07: "the scoreboard needs to look like the reference image except using only black and white colors ... remove any unimportant text that
-/// isn't direct game statistics"). The reference's layout, drawn in black, white and greys only: each side's big score at the top with "VS" between them, a header row of the stats'
-/// names, and a row per player: the player's icon (its shoulder emblem as it joined, grey), name, then the numbers. The own row has a subtle white accent. One column when the match
-/// has one side (Musou Mode, free-for-all). Laid out on a 1920 x 1080 stage scaled to the window. What it shows comes in <see cref="Frame"/>, built by the networked view each frame.
+/// The Tab scoreboard of every mode. Its first form (the owner, 2026-11-07: "the scoreboard needs to look like the reference image except using only black and white colors ... remove any unimportant text that
+/// isn't direct game statistics") was black, white and grey; the owner's request of 2026-11-18 ("make all the smaller ui elements match the existing UI overhaul work - scoreboard, musou/warfront mode UI") supersedes the
+/// colour rule: the board now wears the overhaul's steel look (<see cref="BoardStyle"/>: painted score plates, a steel table, warm-black rows, light steel text) with gold only for the headers, the "VS" and the own row.
+/// The layout, the columns and the numbers are the 2026-11-07 ones: each side's big score at the top (with the side's name and, when its picture is here, its emblem) and "VS" between them, a header row of the
+/// stats' names, and a row per player: the player's icon (its shoulder emblem as it joined, grey), name, then the numbers. One column when the match has one side (Musou Mode, free-for-all), with a label
+/// over its total. Laid out on a 1920 x 1080 stage scaled to the window. What it shows comes in <see cref="Frame"/>, built by the networked view each frame.
 /// </summary>
 public sealed partial class ScoreboardView : Control
 {
@@ -23,6 +26,9 @@ public sealed partial class ScoreboardView : Control
     public sealed class Side
     {
         public int Score;
+        /// <summary>The side's name on its score plate (SPACE MARINES, CHAOS) and its emblem when the picture is here.</summary>
+        public string Name = "";
+        public Texture2D? Emblem;
         public List<Row> Rows = new();
     }
 
@@ -33,6 +39,8 @@ public sealed partial class ScoreboardView : Control
         /// <summary>Show the big score over a single column (Musou: the side's total).</summary>
         public bool SingleScore = true;
         public string[] Headers = [];
+        /// <summary>The words over the single column's total (RUN SCORE in Musou Mode); empty draws none.</summary>
+        public string SingleLabel = "";
         public List<Side> Sides = new();
     }
 
@@ -43,9 +51,9 @@ public sealed partial class ScoreboardView : Control
     const float Top = 70f, ScoreBand = 150f, HeaderH = 46f, RowH = 64f, Gap = 24f, PairWidth = 1720f, SingleWidth = 1100f;
     const float IconSize = 48f, IconPad = 14f, NameX = IconPad + IconSize + 16f;
 
-    static readonly Color Panel = new(0f, 0f, 0f, 0.82f), RowA = new(0.04f, 0.04f, 0.04f, 0.86f), RowB = new(0.09f, 0.09f, 0.09f, 0.86f),
-        HeaderFill = new(0.16f, 0.16f, 0.16f, 0.92f), Rule = new(1f, 1f, 1f, 0.14f), White = Colors.White, Dim = new(1f, 1f, 1f, 0.62f),
-        MeFill = new(1f, 1f, 1f, 0.11f), MeBar = new(1f, 1f, 1f, 0.9f);
+    // The steel look (ui/overhaul) is BoardStyle's: the same plates, panels, header strips and rows for every board drawn on a stage.
+    static readonly Color White = BoardStyle.Text, Dim = BoardStyle.Dim;
+    readonly BoardStyle _style = new();
 
     FontVariation? _regular, _bold;
 
@@ -59,16 +67,9 @@ public sealed partial class ScoreboardView : Control
 
     public override void _Ready()
     {
-        // The HUD's face (Hud._Ready: Bahnschrift, the closest system face to the original's "XBourgeoix OT"), Godot's default as the fallback.
-        var system = new SystemFont { FontNames = ["Bahnschrift", "DIN Alternate", "Arial Narrow"], Fallbacks = [ThemeDB.FallbackFont] };
-        var ts = TextServerManager.GetPrimaryInterface();
-        FontVariation Variant(int weight, int width) => new()
-        {
-            BaseFont = system,
-            VariationOpentype = new Godot.Collections.Dictionary { { ts.NameToTag("wght"), weight }, { ts.NameToTag("wdth"), width } },
-        };
-        _regular = Variant(430, 92);
-        _bold = Variant(650, 90);
+        // The menus' lettering (ui/overhaul): Oswald, the face of every redesigned screen; the HUD keeps its own.
+        _regular = UiKit.ConceptFont();
+        _bold = UiKit.ConceptFont();
     }
 
     public override void _Process(double delta) => QueueRedraw();
@@ -94,17 +95,21 @@ public sealed partial class ScoreboardView : Control
         float bodyH = HeaderH + Math.Max(1, most) * RowH;
         float totalW = pair ? PairWidth : SingleWidth;
 
-        // The score band: the big scores, "VS" between them.
-        DrawRect(R(left0, Top, totalW, ScoreBand), Colors.Black);   // opaque: the HUD's coloured score bar sits under it
+        // The score band: each side's score on a steel plate under its name (and emblem), "VS" between them.
+        float plateW = MathF.Min(width, 600f);
         if (pair)
         {
-            Text(_bold, f.Sides[0].Score.ToString(), left0 + width / 2f, Top + ScoreBand / 2f, 96, White, 0);
-            Text(_bold, f.Sides[1].Score.ToString(), left0 + width + Gap + width / 2f, Top + ScoreBand / 2f, 96, White, 0);
-            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f, 72, White, 0);
+            for (int k = 0; k < 2; k++)
+            {
+                float cx = left0 + k * (width + Gap) + width / 2f;
+                ScorePlate(cx, plateW, f.Sides[k].Name, f.Sides[k].Emblem, f.Sides[k].Score.ToString());
+            }
+            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f + 10f, 70, BoardStyle.Gold, 0);
         }
-        else if (f.SingleScore) Text(_bold, f.Sides[0].Score.ToString(), StageW / 2f, Top + ScoreBand / 2f, 96, White, 0);
+        else if (f.SingleScore) ScorePlate(StageW / 2f, MathF.Min(totalW, 600f), f.SingleLabel, null, f.Sides[0].Score.ToString());
+        else _style.Plate(this, R(left0, Top, totalW, ScoreBand * 0.5f), _scale);
 
-        float y0 = Top + ScoreBand + 8f;
+        float y0 = Top + ScoreBand + 14f;
         for (int s = 0; s < (pair ? 2 : 1); s++)
         {
             float x0 = left0 + s * (width + Gap);
@@ -112,36 +117,46 @@ public sealed partial class ScoreboardView : Control
         }
     }
 
+    /// <summary>A score on the concept's plate: the name (small, gold) and the emblem at the top, the number big under them.</summary>
+    void ScorePlate(float cx, float w, string name, Texture2D? emblem, string score)
+    {
+        _style.Plate(this, R(cx - w / 2f, Top, w, ScoreBand), _scale);
+        bool named = name.Length > 0;
+        if (named) Text(_regular!, name, cx + (emblem is null ? 0f : 28f), Top + 44f, 28, BoardStyle.Header, 0);
+        if (emblem is not null && named)
+        {
+            float tw = _regular!.GetStringSize(name, HorizontalAlignment.Left, -1, Math.Max(8, (int)MathF.Round(28 * _scale))).X / _scale;
+            var r = R(cx - tw / 2f - 30f, Top + 26f, 36f, 36f);
+            DrawTextureRect(emblem, r, false);
+        }
+        Text(_bold, score, cx, Top + (named ? 100f : ScoreBand / 2f), 72, White, 0);   // inside the plate's lower bevel (Opus review 2)
+    }
+
     void DrawColumn(ScoreboardFrame f, Side side, float x0, float y0, float width, float bodyH)
     {
-        DrawRect(R(x0, y0, width, bodyH), Panel);
-        // The header row: the stats' names over their columns (no header over the names).
-        DrawRect(R(x0, y0, width, HeaderH), HeaderFill);
+        _style.Table(this, R(x0, y0, width, bodyH), _scale);
+        // The header row: the stats' names over their columns (no header over the names), on a dark steel strip.
+        _style.HeaderStrip(this, R(x0, y0, width, HeaderH), _scale);
         int cells = f.Headers.Length;
         float statsW = width - NameX - 250f;
         float cellW = cells > 0 ? MathF.Min(118f, statsW / cells) : 0f;
         float CellX(int i) => x0 + width - 20f - (cells - i - 0.5f) * cellW;
-        for (int i = 0; i < cells; i++) Text(_regular!, f.Headers[i], CellX(i), y0 + HeaderH / 2f, 22, Dim, 0);
+        for (int i = 0; i < cells; i++) Text(_regular!, f.Headers[i], CellX(i), y0 + HeaderH / 2f, 22, BoardStyle.Header, 0);
 
         float y = y0 + HeaderH;
         for (int r = 0; r < side.Rows.Count; r++, y += RowH)
         {
             var row = side.Rows[r];
-            DrawRect(R(x0, y, width, RowH), r % 2 == 0 ? RowA : RowB);
-            DrawLine(S(x0, y), S(x0 + width, y), Rule, 1f);
-            if (row.Me)
-            {
-                DrawRect(R(x0, y, width, RowH), MeFill);
-                DrawRect(R(x0, y, 4f, RowH), MeBar);
-            }
-            // The icon: the emblem in grey, framed; an empty frame while its picture is not here.
+            _style.Row(this, R(x0, y, width, RowH), r % 2 == 1, row.Me, _scale);
+            // The icon: the emblem in grey, in a thin steel frame; an empty frame while its picture is not here.
             var iconRect = R(x0 + IconPad, y + (RowH - IconSize) / 2f, IconSize, IconSize);
-            DrawRect(iconRect, new Color(0.18f, 0.18f, 0.18f, 1f));
+            DrawRect(iconRect, new Color(0.10f, 0.10f, 0.10f, 1f));
             if (row.Icon is { } icon) DrawTextureRect(icon, iconRect, false);
-            DrawRect(iconRect, new Color(1f, 1f, 1f, 0.55f), false, MathF.Max(1f, 1.5f * _scale));
+            DrawRect(iconRect, Steel.SteelMid, false, MathF.Max(1f, 1.5f * _scale));
             float nameRoom = width - NameX - cells * cellW - 30f;
-            Text(row.Me ? _bold! : _regular!, Fit(row.Name, nameRoom, 26), x0 + NameX, y + RowH / 2f, 26, White, -1);
-            for (int i = 0; i < cells && i < row.Cells.Length; i++) Text(row.Me ? _bold! : _regular!, row.Cells[i], CellX(i), y + RowH / 2f, 26, White, 0);
+            var ink = BoardStyle.Ink(row.Me);
+            Text(_regular!, Fit(row.Name, nameRoom, 28), x0 + NameX, y + RowH / 2f, 28, ink, -1);
+            for (int i = 0; i < cells && i < row.Cells.Length; i++) Text(_regular!, row.Cells[i], CellX(i), y + RowH / 2f, 28, ink, 0);
         }
     }
 
