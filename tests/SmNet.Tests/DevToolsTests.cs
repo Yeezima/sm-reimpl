@@ -169,6 +169,22 @@ public class DevToolsTests
         Assert.DoesNotContain("--dev-tools", ServerLaunch.Arguments(new HostOptions(ServerLaunch.ModeAnnihilation, 27590, true, "")));   // default off
     }
 
+    [Fact]
+    public void The_host_panel_always_starts_the_tools_for_a_local_classic_match_and_nowhere_else()
+    {
+        Assert.True(ServerLaunch.HostStartsDevTools(localOnly: true, musou: false));    // This PC only, Classic PvP: on
+        Assert.False(ServerLaunch.HostStartsDevTools(localOnly: false, musou: false));  // LAN / Internet: unchanged
+        Assert.False(ServerLaunch.HostStartsDevTools(localOnly: true, musou: true));    // Musou: unchanged
+        Assert.False(ServerLaunch.HostStartsDevTools(localOnly: false, musou: true));
+        foreach (var mode in new[] { ServerLaunch.ModeAnnihilation, ServerLaunch.ModeSeize })
+        {
+            var args = ServerLaunch.Arguments(new HostOptions(mode, 27590, true, "", DevTools: ServerLaunch.HostStartsDevTools(true, false)));
+            Assert.Contains("--dev-tools", args);
+            Assert.Contains("127.0.0.1", args);   // the server obeys the switch only on this loopback bind
+        }
+        Assert.DoesNotContain("--dev-tools", ServerLaunch.Arguments(new HostOptions(ServerLaunch.ModeSeize, 27590, false, "", DevTools: ServerLaunch.HostStartsDevTools(false, false))));
+    }
+
     // ---- the toggles through a real server ----
 
     [Fact]

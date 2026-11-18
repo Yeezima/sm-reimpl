@@ -302,8 +302,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         ExtrasHostMap(ref map);   // EXTRAS-HOOK: Musou Mode's Ashfall layout choice (--ashfall-layout field, draft 11; HostPanel.AshfallLayout.cs); null = the server's default map
         var (chosenMap, chosenMaps) = ChosenMap();   // classic-maps-all: the MAP row (Manufactorum: neither; Musou keeps its own map)
         map ??= chosenMap;
-        // dev-tools (protocol 80): the test aid --host-dev-tools starts the server with the in-game developer tools (F6), This PC only; the bots they add run this game's own console build.
-        bool devTools = _args.ContainsKey("host-dev-tools") && _localOnly && !musou;
+        // dev-tools (protocol 80; devtools-local-host 2026-11-18): a Classic PvP match hosted This PC only always gets the in-game developer tools (F6); the bots they add run this game's own console build.
+        // --host-dev-tools is kept as a no-op for old scripts.
+        bool devTools = ServerLaunch.HostStartsDevTools(_localOnly, musou);
         string? devExe = devTools ? HostBots.BotExecutable(OS.GetExecutablePath()) : null;
         string? devProject = devTools && !OS.HasFeature("template") ? ProjectSettings.GlobalizePath("res://").TrimEnd('/', '\\') : null;
         var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null, devTools, devExe, devProject);

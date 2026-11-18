@@ -131,6 +131,12 @@ public static class ServerLaunch
         return args;
     }
 
+    /// <summary>
+    /// devtools-local-host (owner 2026-11-18): the Host panel always starts the in-game developer tools for a Classic PvP match hosted with "This PC only"; no flag, no toggle.
+    /// LAN / Internet hosts and Musou Mode keep the old rule (none). The server still decides for itself: it obeys <c>--dev-tools</c> only on a loopback bind and only for loopback requests.
+    /// </summary>
+    public static bool HostStartsDevTools(bool localOnly, bool musou) => localOnly && !musou;
+
     /// <summary>The host to put in the Join screen's server field for a server started here.</summary>
     public static string LocalHost(int port) => $"{LocalAddress}:{port}";
 
