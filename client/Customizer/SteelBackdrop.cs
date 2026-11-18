@@ -29,6 +29,7 @@ public sealed partial class SteelBackdrop : Control
     /// <summary>When set, the board is cut to the page's content (the visible siblings' extent plus a margin) instead of filling the screen, so a short page is a compact steel board, not a mostly empty slab.</summary>
     public bool FitContent { get; set; }
     Rect2 _fitted;
+    Vector2 _applied;   // how far the page's content has been moved to the middle of the window
 
     Rect2 Fitted()
     {
@@ -38,15 +39,24 @@ public sealed partial class SteelBackdrop : Control
             if (c is Control k && k != this && k.Visible && k.Size.X > 0f && k.Size.Y > 0f)
             {
                 float kw = k is Label lab && lab.Text.Length > 0 ? Mathf.Min(k.Size.X, lab.GetThemeFont("font").GetStringSize(lab.Text, HorizontalAlignment.Left, -1, lab.GetThemeFontSize("font_size")).X + 8f) : k.Size.X;
-                right = Mathf.Max(right, k.Position.X + kw); bottom = Mathf.Max(bottom, k.Position.Y + k.Size.Y); }
+                right = Mathf.Max(right, k.Position.X - _applied.X + kw); bottom = Mathf.Max(bottom, k.Position.Y - _applied.Y + k.Size.Y);
+            }
         float w = Mathf.Clamp(right + 54f - _board.Position.X, 700f, _board.Size.X), h = Mathf.Clamp(bottom + 46f - _board.Position.Y, 320f, _board.Size.Y);
         return new Rect2(_board.Position, new Vector2(w, h));
     }
 
     public override void _Process(double delta)
     {
-        if (!FitContent) return;
+        if (!FitContent || GetParent() is not Control parent) return;
         var f = Fitted();
+        // The fitted board and its content stand in the middle of the window (a short page is a compact board, not a left-hand slab).
+        var want = new Vector2(Mathf.Max(0f, (Size.X - f.Size.X) / 2f - f.Position.X), Mathf.Max(0f, (Size.Y - f.Size.Y) / 2f - f.Position.Y));
+        var move = want - _applied;
+        if (move.LengthSquared() > 0.25f)
+        {
+            foreach (var c in parent.GetChildren()) if (c is Control k && k != this) k.Position += move;
+            _applied = want;
+        }
         if (f != _fitted) { _fitted = f; QueueRedraw(); }
     }
 
@@ -56,7 +66,7 @@ public sealed partial class SteelBackdrop : Control
 
         var o = Vector2.Zero;   // the pages lay out from the top left of the UI space, so the board does too
         var b0 = FitContent ? Fitted() : _board;
-        var board = new Rect2(b0.Position + o, b0.Size);
+        var board = new Rect2(b0.Position + o + (FitContent ? _applied : Vector2.Zero), b0.Size);
         _style.Table(this, board, 1f);
         if (_title is null || !_title.Visible) return;
         var font = UiKit.ConceptFont();

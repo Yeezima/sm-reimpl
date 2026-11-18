@@ -147,6 +147,8 @@ public static partial class UiKit
 
         /// <summary>Set on the gap rows made by <see cref="MenuGap"/>.</summary>
         public const string GapMeta = "menu_gap";
+        /// <summary>Set on a row that must start the second column when the rows flow into two (a group that belongs together).</summary>
+        public const string BreakMeta = "menu_break";
         /// <summary>Gap rows keep their own (scaled) height instead of a whole row (the steel pages).</summary>
         public bool CompactGaps { get; set; }
 
@@ -172,6 +174,7 @@ public static partial class UiKit
                     cum += list[i].Item2 + _rowGap;
                     if (cum >= total / 2f + _rowGap) { brk = Mathf.Min(i + 1, list.Count - 1); break; }
                 }
+                for (int i = 1; i < list.Count; i++) if (list[i].Item1.HasMeta(BreakMeta)) { brk = i; break; }
             }
             return (list, total, brk);
         }

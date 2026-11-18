@@ -19,6 +19,8 @@ public sealed partial class PanelChrome : Control
     /// <summary>The strip under the title and the rows area, in this node's pixels, and the lettering's scale (px per grid pixel).</summary>
     public Rect2 Strip { get; private set; }
     public Rect2 RowsArea { get; private set; }
+    /// <summary>The bottom tray where the page's main action stands (the same rectangle the other pages use), in this node's pixels.</summary>
+    public Rect2 Tray { get; private set; }
     public float Scale { get; private set; } = 1f;
     public event Action? Changed;
     public bool Painted => _overlay.Texture is not null;
@@ -53,6 +55,7 @@ public sealed partial class PanelChrome : Control
         _title.AddThemeFontSizeOverride("font_size", size);
         Strip = R(new Rect2(RowsX, 86f, RowsW, 26f));
         RowsArea = R(new Rect2(RowsX, RowsY, RowsW, RowsBottom - RowsY + extra));
+        Tray = R(new Rect2(295f, 274.5f + extra, 146.5f, 28f));
         Changed?.Invoke();
     }
 }

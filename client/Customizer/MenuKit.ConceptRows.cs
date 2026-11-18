@@ -32,6 +32,10 @@ public static partial class UiKit
     /// <summary>The concept's row lettering: Oswald squeezed to 84 % in width (the concept's face is narrower than Oswald at the same cap height).</summary>
     public static FontVariation ConceptFont() => _conceptFont ??= new FontVariation { BaseFont = Steel.CondensedFont(), VariationTransform = new Transform2D(new Vector2(0.84f, 0f), new Vector2(0f, 1f), Vector2.Zero), VariationEmbolden = 0.32f, SpacingGlyph = -1 };
 
+    static FontVariation? _noteFont;
+    /// <summary>The lettering of running capital notes: the concept face with open tracking (the row face is squeezed for labels and reads too tight over a whole sentence in capitals).</summary>
+    public static FontVariation NoteFont() => _noteFont ??= new FontVariation { BaseFont = Steel.CondensedFont(), VariationEmbolden = 0.1f, SpacingGlyph = 1, SpacingSpace = 3 };
+
     public sealed partial class MenuChoice
     {
         bool _concept;
@@ -143,11 +147,12 @@ public static partial class UiKit
         public MenuSlider UseConcept(float s, float labelW, float trackW, float valueW)
         {
             UseSteel(labelW, valueW);
+            float tx = labelW + 8f * s;   // the track starts where the pills and switches do (one control x per column)
             float k = s * UiTextureBuilder.GridPerV2 / 4f;   // the art is the v2 reference at x4 (v2 pixels are 14/15 of the page's grid pixels)
             if (ConceptScaled("opt-slider-track", k) is not { } track || ConceptScaled("opt-slider-fill", k) is not { } fill) return this;
             float h = ConceptSliderH * s;
-            ConceptTrackRect = new Rect2(labelW, (ConceptPitch * s - h) / 2f + 3f * s, trackW, h);
-            CustomMinimumSize = new Vector2(labelW + trackW + valueW + 6f * s, ConceptPitch * s);
+            ConceptTrackRect = new Rect2(tx, (ConceptPitch * s - h) / 2f + 3f * s, trackW, h);
+            CustomMinimumSize = new Vector2(tx + trackW + valueW + 6f * s, ConceptPitch * s);
             _label.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(ConceptLabelFont * s)); _label.AddThemeFontOverride("font", ConceptFont()); _value.AddThemeFontOverride("font", ConceptFont());
             _label.VerticalAlignment = VerticalAlignment.Center;
             _label.SetAnchorsPreset(LayoutPreset.TopLeft); _label.Position = Vector2.Zero; _label.Size = new Vector2(labelW, ConceptPitch * s);
@@ -163,11 +168,11 @@ public static partial class UiKit
             Slider.AddThemeIconOverride("grabber", ConceptKnob(s, false)); Slider.AddThemeIconOverride("grabber_highlight", ConceptKnob(s, true)); Slider.AddThemeIconOverride("grabber_disabled", ConceptKnob(s, false));
             // The slider's own rectangle is the knob's travel (the track's caps stick out of it): from 7 px in to 7.5 px before the track's end (v2: the knob sits flush with the channel's end).
             Slider.SetAnchorsPreset(LayoutPreset.TopLeft);
-            Slider.Position = new Vector2(labelW + 7f * s, (ConceptPitch * s - h) / 2f + 3f * s); Slider.Size = new Vector2(trackW - 14.5f * s, h);   // the concept's sliders hang 3 px below the label's centre
+            Slider.Position = new Vector2(tx + 7f * s, (ConceptPitch * s - h) / 2f + 3f * s); Slider.Size = new Vector2(trackW - 14.5f * s, h);   // the concept's sliders hang 3 px below the label's centre
             _value.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(ConceptValueFont * s));
             _value.HorizontalAlignment = HorizontalAlignment.Left; _value.VerticalAlignment = VerticalAlignment.Center;
             _value.SetAnchorsPreset(LayoutPreset.TopLeft);
-            _value.Position = new Vector2(labelW + trackW + 6f * s, 0f); _value.Size = new Vector2(valueW, ConceptPitch * s);
+            _value.Position = new Vector2(tx + trackW + 6f * s, 0f); _value.Size = new Vector2(valueW, ConceptPitch * s);
             return this;
         }
     }

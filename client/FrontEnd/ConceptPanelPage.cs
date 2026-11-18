@@ -122,8 +122,8 @@ public partial class ConceptPanelPage : UiKit.MenuPage
             if (restyle || main.GetMeta("dock_s", 0f).AsSingle() != s)
             {
                 main.SetMeta("dock_s", s);
-                PaintedButtons.Apply(main, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, false, paintedText: false, goldRest: true, noGlow: true);
-                DockText(main, s, goldRest: true);
+                PaintedButtons.Apply(main, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, true, paintedText: false, goldRest: false, noGlow: true);   // steel until focused: one gold cue on the page, not two (Opus review 2)
+                DockText(main, s, goldRest: false, goldOnFocus: true);
             }
         }
     }
@@ -143,7 +143,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         DockText(back, sS, goldRest: false);
     }
 
-    static void DockText(Button b, float s, bool goldRest)
+    static void DockText(Button b, float s, bool goldRest, bool goldOnFocus = false)
     {
         b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
@@ -151,6 +151,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         b.AddThemeConstantOverride("outline_size", 0);
         var ink = goldRest ? Dark : Light;
         foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, ink);
+        if (goldOnFocus) foreach (var c in new[] { "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, Dark);   // dark ink wherever the plate is gold
         b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
         foreach (var l in b.GetChildren().OfType<Label>()) l.Visible = false;
     }
@@ -212,7 +213,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
                 {
                     case UiKit.MenuChoice ch: ch.ConceptPitch = pitchG; ch.FixedPill = true; ch.UseConcept(s, labelW, Mathf.Max(ctlW, Mathf.Min(colW - labelW, ctlW * 1.3f))); break;
                     case Button b when b.ThemeTypeVariation == UiKit.MenuButtonType: StylePlate(b, s, pitch); break;
-                    case LineEdit le: StyleField(le, s, pitch, Mathf.Max(labelW, 120f * s), colW); break;
+                    case LineEdit le: StyleField(le, s, pitch, choices.Count == 0 ? 0f : labelW, colW); break;
                     case Label l: StyleLabel(l, s, colW); break;
                 }
                 if (c.HasMeta(UiKit.MenuColumn.GapMeta)) c.CustomMinimumSize = new Vector2(0f, pitch * 0.3f);
@@ -264,12 +265,18 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     {
         le.AddThemeFontOverride("font", UiKit.ConceptFont());
         le.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
-        var recess = new Steel.SteelStyle(Steel.Kind.Recess, 5f, 10f * s, 2f * s);
         var focus = new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 10f * s, 2f * s);
-        le.AddThemeStyleboxOverride("normal", recess); le.AddThemeStyleboxOverride("focus", focus);
+        le.AddThemeStyleboxOverride("normal", focus); le.AddThemeStyleboxOverride("focus", focus);   // the gold-rim recess at rest too, as the join address (Opus review 2)
         le.AddThemeColorOverride("font_color", Light); le.AddThemeColorOverride("font_selected_color", Light); le.AddThemeColorOverride("selection_color", new Color(0.52f, 0.52f, 0.48f, 0.45f));
         le.AddThemeColorOverride("caret_color", Steel.GoldHi);
         le.OffsetTop = (pitch - UiKit.ConceptPillH * s) / 2f; le.OffsetBottom = -(pitch - UiKit.ConceptPillH * s) / 2f;
+        if (le.GetParent() is Control own)
+        {
+            // With no option rows to line up with (the join address) the field starts right after its own label.
+            float lw = 0f; var lf = UiKit.ConceptFont();
+            foreach (var l in own.GetChildren().OfType<Label>()) lw = Mathf.Max(lw, lf.GetStringSize(l.Text, HorizontalAlignment.Left, -1, Mathf.RoundToInt(UiKit.ConceptLabelFont * s)).X + 14f * s);
+            labelW = Mathf.Max(labelW, Mathf.Max(lw, 70f * s));
+        }
         if (le.GetParent() is Control row) { row.CustomMinimumSize = new Vector2(0f, pitch); le.OffsetLeft = labelW + 8f * s; le.OffsetRight = le.OffsetLeft + Mathf.Max(60f * s, Mathf.Min(150f * s, colW - labelW - 16f * s)); }
     }
 
@@ -283,6 +290,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         if (onButton) { l.ClipText = true; l.OffsetLeft = 0; l.HorizontalAlignment = HorizontalAlignment.Right; l.OffsetRight = -14f * s; return; }
         if (rowLabel) { l.ClipText = true; return; }
         // A note: wraps inside its column; its row grows to the lines it needs.
+        l.AddThemeFontOverride("font", UiKit.NoteFont());   // open tracking for running capitals
         l.ClipText = false; l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _notes[l] = Mathf.Max(60f, width - 6f * s);
         FitNote(l);

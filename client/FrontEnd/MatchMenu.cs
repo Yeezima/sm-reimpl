@@ -18,6 +18,7 @@ public sealed partial class MatchMenu : ConceptPanelPage
     public MatchMenu(Action resume, Action loadout, Action options, Action? leave) : base("MatchMenu", "Match menu", "Paused", 2, 0f)
     {
         _resume = resume;
+        PrimaryTexts = ["RESUME"];   // RESUME is the tray's main action, as the other pages' (Opus review 2)
         var dim = new ColorRect { Name = "MatchDim", Color = new Color(0f, 0f, 0f, DimAlpha), MouseFilter = MouseFilterEnum.Stop };
         dim.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(dim);

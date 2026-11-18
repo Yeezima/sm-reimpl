@@ -70,6 +70,9 @@ public sealed partial class CreatorView
         _armCanvas.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_armCanvas);
         TextureRect Tex(string name, string art, Control parent) { var t = new TextureRect { Name = name, Texture = ConceptArt.Get(art), MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps }; parent.AddChild(t); return t; }
+        // The concept shows the battlefield blurred behind the rail and the cards: two panes that blur the screen under them (a high mip of the screen texture), under the painted frame.
+        var blur = new ShaderMaterial { Shader = new Shader { Code = "shader_type canvas_item;\nuniform sampler2D scr : hint_screen_texture, filter_linear_mipmap;\nvoid fragment() { vec3 c = textureLod(scr, SCREEN_UV, 4.0).rgb; COLOR = vec4(c * 0.78, 1.0); }" } };
+        _armBlurRail = new ColorRect { Name = "ArmouryBlur", MouseFilter = MouseFilterEnum.Ignore, Material = blur }; _armBlurRail.SetAnchorsPreset(LayoutPreset.FullRect); _armCanvas.AddChild(_armBlurRail);   // the whole scene is out of focus behind the screen, ghosts of the video included
         _armOverlay = Tex("ArmouryOverlay", "overlay-armoury", _armCanvas);
         _armTitle = Tex("ArmouryTitle", "arm-title", _armCanvas);
         void Move(Control c, Control to) { c.GetParent()?.RemoveChild(c); to.AddChild(c); }
@@ -122,7 +125,7 @@ public sealed partial class CreatorView
         _armBadge = Tex("ArmouryBadge", "arm-badge", _armCanvas);
         _armBadgeText = new Label { MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }; _armCanvas.AddChild(_armBadgeText);
         _armDock = new HFlowContainer { Name = "ArmouryDock" };
-        _armDock.AddThemeConstantOverride("h_separation", 6); _armDock.AddThemeConstantOverride("v_separation", 3);
+        _armDock.AddThemeConstantOverride("h_separation", 3); _armDock.AddThemeConstantOverride("v_separation", 3);
         _armCanvas.AddChild(_armDock);
         foreach (var b in new Button?[] { _rename, _copy, _reset, _clear, _revert, _save, _setActive, _look, _deployButton }) if (b is not null) { b.CustomMinimumSize = Vector2.Zero; Move(b, _armDock); }
         Move(_unsaved, _armDock); Move(_status, _armDock);
@@ -152,6 +155,7 @@ public sealed partial class CreatorView
     }
 
     ArmDetail? _armDetailNow;
+    ColorRect? _armBlurRail;
 
     // The install's own weapon pictures (ui/overhaul, review round 2): the HUD art is read once, on a worker thread, from the player's install (read-only; nothing is written anywhere); a picture is its white silhouette, drawn
     // as a faint engraving. Until it is ready, or when the install has none (perks), the engraved type glyph stands in.
@@ -178,8 +182,15 @@ public sealed partial class CreatorView
     readonly HashSet<Texture2D> _armSilhouettes = new();
     Color ArmInk(Texture2D tex) => _armSilhouettes.Contains(tex) ? ArmEngrave : Colors.White;
 
+    /// <summary>An engraved look for an install silhouette: a one-pixel dark copy behind it (inner shadow), so a thin shape reads at tile size.</summary>
+    void ArmShadow(TextureRect icon, float s)
+    {
+        if (icon.Texture is not { } tex || !_armSilhouettes.Contains(tex)) return;
+        icon.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = icon.StretchMode, TextureFilter = icon.TextureFilter, Position = new Vector2(Mathf.Max(1f, s), Mathf.Max(1f, s)), Size = icon.Size, SelfModulate = new Color(0f, 0f, 0f, 0.85f), ShowBehindParent = true });
+    }
+
     /// <summary>The ink of an install silhouette: a faint engraving like the glyphs.</summary>
-    static readonly Color ArmEngrave = new(0.66f, 0.58f, 0.42f, 0.55f);
+    static readonly Color ArmEngrave = new(0.88f, 0.80f, 0.62f, 0.95f);
 
     ArmDetail ArmouryDetail()
     {
@@ -336,6 +347,8 @@ public sealed partial class CreatorView
         _armWeaponIcon!.Texture = ArmIcon(detail.WeaponIcon, "glyph-gun"); _armWeaponIcon.Modulate = detail.WeaponIcon?.StartsWith("install:", StringComparison.Ordinal) == true ? ArmEngrave : Colors.White;
         _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
         _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.Scale; _armWeaponIcon.Position = (iconRect.Position + new Vector2(4, 4)) * s; _armWeaponIcon.Size = new Vector2(70, 28) * s;
+        foreach (var old in _armWeaponIcon.GetChildren()) { _armWeaponIcon.RemoveChild(old); old.QueueFree(); }
+        ArmShadow(_armWeaponIcon, s);
         _armWeaponName!.Text = detail.Weapon; ArmLabel(_armWeaponName, ArmNameSize, s, ArmLight);
         _armWeaponName.Position = new Vector2(UiTextureBuilder.ArmWeaponName.Position.X - wr.Position.X + 9f, UiTextureBuilder.ArmWeaponName.Position.Y - wr.Position.Y) * s; _armWeaponName.Size = new Vector2(UiTextureBuilder.ArmWeaponName.Size.X - 30f, UiTextureBuilder.ArmWeaponName.Size.Y) * s;
         // ---- the tiles ----
@@ -352,9 +365,9 @@ public sealed partial class CreatorView
             PaintedButtons.Apply(b, "arm-tile-dark", "arm-tile-gold", new PaintedButtons.Pad(1, 2, 1, 2), new PaintedButtons.Pad(3, 3, 3, 3), s, true, paintedText: true, noGlow: true);
             int paren = t.Label.IndexOf(" (", StringComparison.Ordinal); var l = new Label { Text = (paren > 0 ? t.Label[..paren] : t.Label).ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, AutowrapMode = TextServer.AutowrapMode.Word };
             ArmLabel(l, ArmTileSize, s, t.Selected ? new Color(1f, 0.95f, 0.8f) : ArmLight);
-            l.Position = new Vector2(3f, 30f) * s; l.Size = new Vector2(68f, 31f) * s; b.AddChild(l);
+            l.Position = new Vector2(7f, 30f) * s; l.Size = new Vector2(60f, 31f) * s; b.AddChild(l);   // clear of the bezels
             if (ArmIcon(t.Icon, i == 0 ? "glyph-grenade" : "glyph-perk") is { } tex)
-                b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(14f, 6f) * s, Size = new Vector2(46f, 30f) * s, Modulate = ArmInk(tex) });
+            { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(14f, 6f) * s, Size = new Vector2(46f, 30f) * s, Modulate = ArmInk(tex) }; b.AddChild(ic); ArmShadow(ic, s); }
         }
         // ---- the header tab strip: CLASS, SLOTS, ARMOUR & PAINT ----
         _armTabClass!.SetPressedNoSignal(!_armSlotsTab); _armTabSlots!.SetPressedNoSignal(_armSlotsTab);
@@ -394,8 +407,8 @@ public sealed partial class CreatorView
                 b.AddThemeConstantOverride("h_separation", 0);
                 b.CustomMinimumSize = new Vector2(0, 17f * s);
                 PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
-                ArmText(b, ArmPlateSize, s, ArmLight, ArmDark);
-                foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 7f * s; sb.ContentMarginRight = 7f * s; }
+                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark);
+                foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 4f * s; sb.ContentMarginRight = 4f * s; }
             }
             else if (c is Label l) ArmLabel(l, ArmPlateSize, s, ArmLight);
         }
@@ -431,7 +444,7 @@ public sealed partial class CreatorView
             ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 11f) * s; cap.Size = new Vector2(126f, 11f) * s; b.AddChild(cap);
             var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
             ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 23f) * s; val.Size = new Vector2(126f, 34f) * s; b.AddChild(val);
-            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s, Modulate = ArmInk(tex) });
+            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s, Modulate = ArmInk(tex) }; b.AddChild(ic); ArmShadow(ic, s); }
             _armSlotList.AddChild(b);
         }
     }

@@ -34,7 +34,7 @@ public sealed partial class OptionsView
         float avail = (ContentWidth - RowsLeft - 6f) * s, gap = 8f * s;
         bool two = rows.Count > 1 && need2[0] + gap + need2[1] <= avail;
         if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--dump-rows") >= 0) GD.Print($"options rows: need {need2[0] / s:0.0} + {need2[1] / s:0.0} + gap vs {avail / s:0.0}; labels {two2[0] / s:0.0} {two2[1] / s:0.0}");
-        float stride = two ? Mathf.Clamp(avail - need2[1], need2[0] + gap, ColStride * s) : 0f;
+        float stride = two ? Mathf.Clamp(ColStride * s, need2[0] + gap, avail - 100f * s) : 0f;   // the second column starts at the same x on every tab
         var labelWs = two ? two2 : [Mathf.Max(Col(1)[0], 150f * s)];
         var colWs = two ? new[] { need2[0], Mathf.Min(need2[1], avail - stride) } : [(ContentWidth - RowsLeft - 12f) * s];
         _grid.Columns = two ? 2 : 1;
@@ -45,6 +45,10 @@ public sealed partial class OptionsView
         // One pill width, one slider width and one start x for every control of a column (Opus review 1): the widest pill the tab needs, a track as long as the tightest column leaves.
         float pillW = rows.OfType<UiKit.MenuChoice>().Select(c => c.ConceptControlWidth(s)).DefaultIfEmpty(0f).Max();
         float trackW = (two ? 140f : 220f) * s;
+        // One value width and one track width for every slider of the tab (Opus review 2): the widest value any slider shows, the shortest track the columns leave.
+        var sliders = rows.OfType<UiKit.MenuSlider>().ToList();
+        float valueAll = (sliders.Any(x => x.Slider.Name == "FovSlider") ? 88f : SliderValueWidth) * s;
+        float trackAll = sliders.Count == 0 ? trackW : sliders.Min(x => { int k = rows.IndexOf(x); return Mathf.Min(trackW, Mathf.Max(56f * s, colWs[k % colWs.Length] - labelWs[k % labelWs.Length] - valueAll - 16f * s)); });
         for (int i = 0; i < rows.Count; i++)
         {
             var r = rows[i]; float labelW = labelWs[i % labelWs.Length], colW = colWs[i % colWs.Length], ctlW = colW - labelW;
@@ -53,8 +57,7 @@ public sealed partial class OptionsView
             {
                 case UiKit.MenuChoice c: c.ConceptPitch = RowPitch; c.FixedPill = true; c.UseConcept(s, labelW, Mathf.Min(ctlW, Mathf.Max(pillW, 117f * s))); break;
                 case UiKit.MenuSlider sl:
-                    float value = (sl.Slider.Name == "FovSlider" ? 88f : SliderValueWidth) * s;
-                    sl.ConceptPitch = RowPitch; sl.UseConcept(s, labelW, Mathf.Min(trackW, Mathf.Max(56f * s, ctlW - value - 8f * s)), value);
+                    sl.ConceptPitch = RowPitch; sl.UseConcept(s, labelW, trackAll, valueAll);
                     break;
             }
             r.CustomMinimumSize = new Vector2(colW, RowPitch * s);

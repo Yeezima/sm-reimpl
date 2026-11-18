@@ -231,6 +231,7 @@ public static partial class Steel
             Plate(c, inner.Grow(-1f), ch - 3f, new Color(0.075f, 0.072f, 0.07f), new Color(0.04f, 0.038f, 0.036f));
             Bevel(c, r.Grow(-1.5f), ch - 1f, 1f, new Color(1f, 1f, 1f, 0.28f), new Color(0f, 0f, 0f, 0.5f));
             if (gold) Bevel(c, inner, ch - 2f, 1.6f, Gold, GoldDeep);
+            else Bevel(c, inner.Grow(-2f), ch - 4f, 1f, new Color(Gold, 0.30f), new Color(GoldDeep, 0.16f));   // the thin warm line inside the lip, as the concept's frames (Opus review 2)
         }
 
         StyleBoxTexture? _ring;
@@ -337,7 +338,7 @@ public static partial class Steel
     {
         var face = CondensedFont();
         foreach (var type in new[] { ButtonType, TabType, RowType, LabelType, PrimaryType, SmallType }) t.SetFont("font", type, face);
-        foreach (var (type, size, mx, my) in new[] { (ButtonType, ButtonSize, 22f, 10f), (TabType, TabSize, 18f, 7f) })
+        foreach (var (type, size, mx, my) in new[] { (ButtonType, ButtonSize, 44f, 10f), (TabType, TabSize, 30f, 7f) })
         {
             t.SetTypeVariation(type, "Button");
             bool tab = type == TabType;

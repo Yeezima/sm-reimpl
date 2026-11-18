@@ -129,7 +129,7 @@ public sealed partial class ScoreboardView : Control
             var r = R(cx - tw / 2f - 30f, Top + 26f, 36f, 36f);
             DrawTextureRect(emblem, r, false);
         }
-        Text(_bold, score, cx, Top + (named ? 108f : ScoreBand / 2f), 88, White, 0);
+        Text(_bold, score, cx, Top + (named ? 100f : ScoreBand / 2f), 72, White, 0);   // inside the plate's lower bevel (Opus review 2)
     }
 
     void DrawColumn(ScoreboardFrame f, Side side, float x0, float y0, float width, float bodyH)

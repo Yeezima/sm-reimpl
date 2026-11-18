@@ -186,6 +186,7 @@ public partial class MatchSummaryView : Control
         if (alpha > 0.98f) _board.Plate(this, new Rect2(cx - 190f * s, top + 12f * s, 380f * s, 56f * s), s);   // ui/overhaul: the title on the concept's rivetted plate
         Text(_text.MatchResults, left, top + 52f * s, w, (int)(30 * s), gold, HorizontalAlignment.Center);
 
+        if (alpha > 0.98f) _board.HeaderStrip(this, new Rect2(left + 22f * s, top + 80f * s, w - 44f * s, 140f * s), s);   // the big number's well, under its text
         // The big number: the team score, then the viewer's kills (the movie's stages 'teamscore' and 'playerscore').
         double stageAlpha = stage == 0 ? 1.0 : CountUp.Intro(stageTime);
         string label = stage == 0 ? _text.TeamScore : _text.Kills;
@@ -199,6 +200,7 @@ public partial class MatchSummaryView : Control
         // The side's best players, their kills and deaths counting up with the first stage.
         float colName = left + 40f * s, colClass = left + 340f * s, colKills = left + w - 170f * s, colDeaths = left + w - 60f * s;
         float y = top + 240f * s;
+        if (alpha > 0.98f) _board.HeaderStrip(this, new Rect2(left + 22f * s, y - 26f * s, w - 44f * s, 38f * s), s);   // the column headings' strip
         var head = new Color(Grey, alpha);
         Text(_text.Player, colName, y, 290f * s, (int)(18 * s), head, HorizontalAlignment.Left);
         Text(_text.Kills, colKills - 70f * s, y, 70f * s, (int)(18 * s), head, HorizontalAlignment.Right);
@@ -206,8 +208,11 @@ public partial class MatchSummaryView : Control
         DrawRect(new Rect2(left + 30f * s, y + 8f * s, w - 60f * s, 1.5f), new Color(1f, 0.8f, 0f, 0.5f * alpha));
         y += 40f * s;
         double firstStage = stage == 0 ? stageTime : CountUp.StageSeconds;   // the rows count with the first stage and stay
+        int rowNo = 0;
         foreach (var row in data.Rows)
         {
+            if (alpha > 0.98f) _board.Row(this, new Rect2(left + 24f * s, y - 26f * s, w - 48f * s, 36f * s), rowNo % 2 == 1, row.IsViewer, s);
+            rowNo++;
             var c = row.IsViewer ? new Color(SmClient.Customizer.Steel.GoldHi, alpha) : new Color(White, alpha);   // the own row is gold, as on the scoreboard
             Text(Named(row.Name, row.IsViewer, (int)(22 * s), 290f * s), colName, y, 290f * s, (int)(22 * s), c, HorizontalAlignment.Left);
             Text(row.Class, colClass, y, 255f * s, (int)(16 * s), new Color(Dim, alpha), HorizontalAlignment.Left);
@@ -225,14 +230,17 @@ public partial class MatchSummaryView : Control
         Panel(new Rect2(left, top, w, 430f * s), alpha);
         // The tab strip of the original's summary: the scoreboard tab, then the battle record, the active one gold.
         float tabW = w / 2f;
+        if (alpha > 0.98f) _board.HeaderStrip(this, new Rect2(left + 22f * s, top + 10f * s, w - 44f * s, 62f * s), s);   // the strip the two tabs sit in
         if (alpha > 0.98f) _board.Plate(this, new Rect2(left + tabW + 70f * s, top + 14f * s, tabW - 140f * s, 54f * s), s);   // the active tab is a painted plate, not an underline
         Text(_text.Scoreboard, left, top + 50f * s, tabW, (int)(24 * s), new Color(Dim, alpha), HorizontalAlignment.Center);
         Text(_text.BattleRecord, left + tabW, top + 50f * s, tabW, (int)(24 * s), new Color(Gold, alpha), HorizontalAlignment.Center);
         DrawRect(new Rect2(left + 30f * s, top + 68f * s, w - 60f * s, 1.5f), new Color(1f, 0.8f, 0f, 0.35f * alpha));
 
-        float y = top + 112f * s;
+        float y = top + 112f * s; int idx = 0;
         foreach (var line in data.Lines)
         {
+            if (alpha > 0.98f) _board.Row(this, new Rect2(left + 24f * s, y - 26f * s, w - 48f * s, 34f * s), idx % 2 == 1, false, s);   // banded rows, as the scoreboard tables
+            idx++;
             Text(line.Label, left + 44f * s, y, 256f * s, (int)(22 * s), new Color(Grey, alpha), HorizontalAlignment.Left);
             bool has = line.Value is not null;
             var c = has ? line.Colour ?? White : Dim;

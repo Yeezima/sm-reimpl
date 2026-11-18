@@ -110,8 +110,12 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
         var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
         _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
-        _link.Position = _nameplate.Position; _link.Size = _nameplate.Size;
-        _link.AddThemeFontSizeOverride("font_size", Mathf.Max(9, Mathf.RoundToInt(np.Size.Y * s * 0.46f)));
+        int linkSize = Mathf.Max(9, Mathf.RoundToInt(np.Size.Y * s * 0.46f));
+        _link.AddThemeFontSizeOverride("font_size", linkSize);
+        // The address sits in the middle of the plate (Opus review 2).
+        float linkW = UiKit.ConceptFont().GetStringSize(_link.Text, HorizontalAlignment.Left, -1, linkSize).X + 4f;
+        _link.Size = new Vector2(linkW, _nameplate.Size.Y);
+        _link.Position = _nameplate.Position + new Vector2((_nameplate.Size.X - linkW) / 2f, 0f);
         int n = System.Math.Max(1, VisibleRows());
         const float areaTop = Panel01.RowsAreaTop, areaH = Panel01.RowsAreaH, centre = Panel01.PlateTop1 + (4f * Panel01.PlatePitch + Panel01.PlateH) / 2f;
         float pitch = System.Math.Min(Panel01.PlatePitch, (areaH - 4f) / n);

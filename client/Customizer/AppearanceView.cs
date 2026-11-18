@@ -93,9 +93,11 @@ public sealed partial class AppearanceView : Control
         sectionsColumn.AddChild(_lookTools);
         var sectionsPanel = UiKit.Panel(sectionsColumn, 10);
         sectionsPanel.CustomMinimumSize = new Vector2(230, 0);
+        sectionsPanel.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());   // no grey outline round the navigation (Opus review 2)
         main.AddChild(sectionsPanel);
         _scroll = UiKit.Scroll(_panel);
         _scroll.CustomMinimumSize = new Vector2(660, 0);
+        _scroll.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         _scroll.SizeFlagsHorizontal = SizeFlags.Fill;
         main.AddChild(_scroll);
         var right = UiKit.VBox(10);
@@ -284,7 +286,7 @@ public sealed partial class AppearanceView : Control
         int keep = focusedBefore is Button fb ? _panel.GetChildren().OfType<Control>().SelectMany(Flatten).OfType<Button>().ToList().IndexOf(fb) : -1;
         var profile = _session.Working;
         var shared = SharedNote();
-        _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Short}";
+        _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Short}".ToUpperInvariant();
         _classLabel.TooltipText = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Long}";
         for (int i = 0; i < _sectionButtons.Count; i++)
         {
@@ -338,7 +340,7 @@ public sealed partial class AppearanceView : Control
         }
     }
 
-    static Label Note(string text, Color? colour = null) => UiKit.Text(text, UiKit.CaptionSize, colour ?? UiKit.Grey, HorizontalAlignment.Left, true);
+    static Label Note(string text, Color? colour = null) => UiKit.Text(text.ToUpperInvariant(), UiKit.CaptionSize, colour ?? UiKit.Grey, HorizontalAlignment.Left, true);
     static Label Heading(string text) => UiKit.Text(text, UiKit.CaptionSize, UiKit.Gold).With(l => { l.CustomMinimumSize = new Vector2(0, 30); l.ClipText = true; l.TooltipText = text; });
 
     // ---- focus previews (docs/customizer-design.md Z2): focusing or hovering a choice shows it on the model, Enter commits, leaving it puts the look back ----
@@ -828,9 +830,9 @@ public sealed partial class AppearanceView : Control
         var row = UiKit.HBox(12);
         var text = UiKit.VBox(4);
         text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        text.AddChild(UiKit.Text(title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true));
-        if (body.Length > 0) text.AddChild(UiKit.Text(body, UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true));
-        if (extra.Length > 0) text.AddChild(UiKit.Text(extra, UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true));
+        text.AddChild(UiKit.Text(title.ToUpperInvariant(), UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true));
+        if (body.Length > 0) text.AddChild(UiKit.Text(body.ToUpperInvariant(), UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true));
+        if (extra.Length > 0) text.AddChild(UiKit.Text(extra.ToUpperInvariant(), UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true));
         row.AddChild(text);
         if (picture is not null) row.AddChild(new TextureRect { Texture = picture, CustomMinimumSize = new Vector2(128, 128), StretchMode = TextureRect.StretchModeEnum.Scale, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize });
         _card.AddChild(row);
@@ -838,7 +840,7 @@ public sealed partial class AppearanceView : Control
 
     void Say(string text)
     {
-        _status.Text = text;
+        _status.Text = text.ToUpperInvariant();
         _status.AddThemeColorOverride("font_color", UiKit.White);
         _statusUntil = Time.GetTicksMsec() / 1000.0 + 2.5;
     }

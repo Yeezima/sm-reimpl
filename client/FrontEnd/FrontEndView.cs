@@ -467,8 +467,8 @@ public sealed partial class FrontEndView : Control
             for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++)
             {
                 float dx = x - 23.5f, dy = y - 23.5f, d = Mathf.Sqrt(dx * dx + dy * dy);
-                bool on = k switch { 0 => d > 11f && d < 19f, 1 => Mathf.Abs(dx) < 5f || Mathf.Abs(dy) < 5f, 2 => Mathf.Abs(dx) + Mathf.Abs(dy) < 20f, _ => Mathf.Abs(dy) < 8f };
-                img.SetPixel(x, y, on ? new Color(0.78f, 0.78f, 0.76f) : new Color(0f, 0f, 0f, 0f));
+                bool on = k switch { 0 => d > 13f && d < 18f, 1 => Mathf.Abs(dx) < 3f || Mathf.Abs(dy) < 3f, 2 => Mathf.Abs(dx) + Mathf.Abs(dy) < 17f, _ => Mathf.Abs(dy) < 5f };
+                img.SetPixel(x, y, on ? new Color(0.6f, 0.58f, 0.53f) : new Color(0f, 0f, 0f, 0f));
             }
             icons[k] = ImageTexture.CreateFromImage(img);
         }

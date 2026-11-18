@@ -67,7 +67,7 @@ public sealed partial class ControlsView : Control
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(margin);
         _content = margin;
-        var root = UiKit.VBox(10);
+        var root = UiKit.VBox(4);
         margin.AddChild(root);
 
         _back = UiKit.Button("BACK", () => _onBack(), 190);
@@ -85,13 +85,14 @@ public sealed partial class ControlsView : Control
         tabs.AddChild(UiKit.Spacer());
         _reset = UiKit.Button("RESET TO DEFAULTS", AskReset, 340, "Puts every binding of this tab back to the game's own");
         _reset.Name = "ControlsReset";
-        tabs.AddChild(_reset);
+        AddChild(_reset);   // the main action stands in the frame's bottom tray, as on the other pages (placed by PlaceContent)
         UiKit.ChainHorizontal([_tabKeyboard, _tabController, _reset]);
         root.AddChild(tabs);
 
         _hint = UiKit.Text("", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true);
         _status = UiKit.Text("", UiKit.CaptionSize, UiKit.White, HorizontalAlignment.Left, true);
         _status.Name = "ControlsStatus";
+        foreach (var note in new[] { _hint, _status }) { note.AddThemeFontOverride("font", UiKit.NoteFont()); note.AddThemeFontSizeOverride("font_size", 19); }
 
         _scroll = UiKit.Scroll(_rows);
         _scroll.Name = "ControlsList";
@@ -145,6 +146,40 @@ public sealed partial class ControlsView : Control
         m.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(strip.Position.Y));
         m.AddThemeConstantOverride("margin_bottom", Mathf.RoundToInt(Mathf.Max(0f, Size.Y - rows.End.Y)));
         SmClient.FrontEnd.ConceptPanelPage.DockBack(_back, Size);
+        StylePlates();
+    }
+
+    float _platesScale;
+
+    /// <summary>The Options tab art for the two tabs, the kit's tray plate for RESET TO DEFAULTS, one lettering (Opus review 2: no lemon plates with round rivets).</summary>
+    void StylePlates()
+    {
+        float s = _chrome.Scale;
+        if (s <= 0f || Mathf.IsEqualApprox(_platesScale, s) || ConceptArt.Get("opt-tab-controls-dark") is null) return;
+        _platesScale = s;
+        var light = new Color(0.84f, 0.83f, 0.80f); var dark = new Color(0.10f, 0.06f, 0.02f);
+        void Text(Button b, float size, bool goldRest)
+        {
+            b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
+            b.AddThemeFontOverride("font", UiKit.ConceptFont());
+            b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+            b.AddThemeConstantOverride("outline_size", 0);
+            foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, goldRest ? dark : light);
+            foreach (var c in new[] { "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, dark);
+            b.AddThemeColorOverride("font_disabled_color", Steel.TextOff);
+        }
+        foreach (var t in new[] { _tabKeyboard, _tabController })
+        {
+            t.CustomMinimumSize = new Vector2(t == _tabKeyboard ? 190f * s : 150f * s, _chrome.Strip.Size.Y);
+            PaintedButtons.Apply(t, "opt-tab-controls-dark", "opt-tab-controls-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
+            Text(t, 13.4f, false);
+            PaintedButtons.FocusAsPlate(t, t.ButtonPressed);
+        }
+        var tray = _chrome.Tray;
+        _reset.TopLevel = true; _reset.CustomMinimumSize = Vector2.Zero; _reset.Position = tray.Position + GlobalPosition; _reset.Size = tray.Size;
+        PaintedButtons.Apply(_reset, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, true, paintedText: false, goldRest: false, noGlow: true);
+        Text(_reset, 12f, false);
+        _reset.Text = "RESET TO DEFAULTS";
     }
 
     // ---- showing ----
@@ -197,7 +232,7 @@ public sealed partial class ControlsView : Control
             if (info.Group != group)
             {
                 group = info.Group;
-                _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiKit.BodySize, UiKit.Gold).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
+                _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiKit.BodySize, new Color(0.97f, 0.82f, 0.4f)).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
             }
             var row = UiKit.HBox(10);
             row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiKit.BodySize, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));

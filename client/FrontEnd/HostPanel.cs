@@ -71,7 +71,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _emblemsRow = new UiKit.MenuChoice("Players' emblems", ["OFF", "ON"], _emblems ? 1 : 0, i => _emblems = i == 1, "Hosted games show everyone the badge unless you allow custom emblem images");
         _difficultyRow = new UiKit.MenuChoice("Bot difficulty", ["EASY", "NORMAL"], Difficulty == BotDifficulty.Easy ? 0 : 1, i => ChooseDifficulty(i == 0 ? BotDifficulty.Easy : BotDifficulty.Normal), "Easy: bots deal a third of the damage (the server's --bot-damage-scale 0.34). Normal: full damage.");
         _addLoyalist = UiKit.MenuButton("Add Loyalist bot", () => AddBot(HostBots.Marines, 1), BotsTooltip);
-        _addLoyalist.Name = "AddLoyalistBot";
+        _addLoyalist.Name = "AddLoyalistBot"; _addLoyalist.SetMeta(UiKit.MenuColumn.BreakMeta, true);   // the bot buttons stand together in the second column
         _addChaos = UiKit.MenuButton("Add Chaos bot", () => AddBot(HostBots.Chaos, 1), BotsTooltip);
         _addChaos.Name = "AddChaosBot";
         _loyalistCount = CountLabel(_addLoyalist, HostBots.Marines);
@@ -83,7 +83,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _stopOther = UiKit.MenuButton("Stop server", StopOtherServers, "Stop the server of this game that is running on this PC (started by the host launcher or an earlier menu). Never stops other programs.");
         _stopOther.Disabled = true;
         _mapRow = BuildMapRow();   // classic-maps-all: the install's competitive maps (HostPanel.Maps.cs); null when there is nothing to choose
-        foreach (var row in new Control?[] { _modeRow, _mapRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, UiKit.MenuGap(0.5f), _hostButton, _stopOther })
+        foreach (var row in new Control?[] { _modeRow, _mapRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
         {
             if (row is null) continue;
             AddChild(row);

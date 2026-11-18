@@ -61,7 +61,7 @@ public sealed partial class UiSelfTest
             var ownRow = rows.FirstOrDefault(r => SlotNumber(r) == ownSlot);
             Check("slots: the loadout's own look is in its slot, marked as worn", ownSlot >= 1 && ownRow is { IsSelected: true }, $"slot {ownSlot}");
             Check("slots: the focus starts on the worn slot", GetViewport().GuiGetFocusOwner() == ownRow);
-            Check("slots: the header names the slot", HeaderText(appearance).Contains($"slot {ownSlot}"));
+            Check("slots: the header names the slot", HeaderText(appearance).Contains($"slot {ownSlot}", StringComparison.OrdinalIgnoreCase));
 
             // Enter on an empty slot saves this loadout's look there and wears it.
             var empty = rows.First(r => r.Text.EndsWith("(empty)", StringComparison.OrdinalIgnoreCase));
@@ -95,7 +95,7 @@ public sealed partial class UiSelfTest
             Click(b => b.Text.Equals("Undo", StringComparison.OrdinalIgnoreCase), appearance);
             await Frames(3);
             Check("slots: Undo puts it back", session.Working.ClassAt(6)?.Appearance.SpaceMarine == copyId);
-            Check("slots: the header says the look is shared, its tooltip by which loadouts", HeaderText(appearance).Contains($"slot {saved}, shared with 3") && HeaderTip(appearance).Contains("also worn by loadouts 1, 2 and 6"), HeaderText(appearance) + " | " + HeaderTip(appearance));
+            Check("slots: the header says the look is shared, its tooltip by which loadouts", HeaderText(appearance).Contains($"slot {saved}, shared with 3", StringComparison.OrdinalIgnoreCase) && HeaderTip(appearance).Contains("also worn by loadouts 1, 2 and 6"), HeaderText(appearance) + " | " + HeaderTip(appearance));
 
             // B leaves the page for the list, not the editor.
             await SendPad(JoyButton.B);
@@ -177,7 +177,7 @@ public sealed partial class UiSelfTest
     {
         foreach (var c in root.GetChildren())
         {
-            if (c is Label { ClipText: true, HorizontalAlignment: HorizontalAlignment.Right } l && l.Text.StartsWith("Loadout ", StringComparison.Ordinal)) return l;
+            if (c is Label { ClipText: true, HorizontalAlignment: HorizontalAlignment.Right } l && l.Text.StartsWith("Loadout ", StringComparison.OrdinalIgnoreCase)) return l;
             if (HeaderLabel(c) is { } found) return found;
         }
         return null;

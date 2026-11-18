@@ -207,6 +207,10 @@ public sealed partial class OptionsView : UiKit.MenuPage
         float pitchPx = 29f * s, top = RowsTop * s, whole = Mathf.Max(4f, Mathf.Floor((rows.Size.Y - top - 2f * s) / pitchPx)) * pitchPx + top + 2f * s;   // whole rows only: no row is cut in half at the bottom
         _list.Position = rows.Position; _list.Size = new Vector2(rows.Size.X, Mathf.Min(rows.Size.Y, whole));
         StyleRows(s);
+        // No scroll bar when the whole page fits the frame (Opus review 2): the RENDERER line then keeps its room instead of the whole-rows cut.
+        { float content = _list.GetChildCount() > 0 && _list.GetChild(0) is Control cc ? cc.GetCombinedMinimumSize().Y : 0f; bool fits = content > 0f && content <= rows.Size.Y + 1f;
+          if (fits) _list.Size = new Vector2(rows.Size.X, rows.Size.Y);
+          _list.VerticalScrollMode = fits ? ScrollContainer.ScrollMode.ShowNever : ScrollContainer.ScrollMode.Auto; }
         // APPLY, REVERT, BACK.
         void Plate(Button b, Rect2 rect, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, bool goldFocus, bool goldRest = false, bool noGlow = true)
         {

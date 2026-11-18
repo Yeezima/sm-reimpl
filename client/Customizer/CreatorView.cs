@@ -439,6 +439,7 @@ public sealed partial class CreatorView : Control
         _summary.Text = empty ? $"{slotName}. Choose a class to start." :
             defaults ? $"{slotName}: {LoadoutRows.DefaultSummary(_catalog, role, _previewRace)}  (choose anything to edit a copy)" :
             $"{slotName}: {LoadoutRows.Summary(_catalog, OpenClass!, _previewRace)}";
+        if (_arm) _summary.Text = _summary.Text.ToUpperInvariant();   // one case per level (Opus review 2)
 
         bool dirty = _session.Dirty;
         _unsaved.Text = dirty ? "* UNSAVED" : "";
