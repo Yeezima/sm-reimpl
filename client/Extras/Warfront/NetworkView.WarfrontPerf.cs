@@ -14,9 +14,11 @@ public partial class NetworkView
 
     partial void WarfrontCrowdPerf()
     {
-        if (!WarfrontOn) return;
-        CrowdView.FarNoShadow = true;   // owner 2026-11-18: far-tier Orks cast no sun shadows (Warfront only)
-        MusouCrowd.VisibleOverride = MusouCrowd.WarfrontVisible;   // owner 2026-11-18: 1200 visible Orks, was 1800
+        // These are process-wide statics: set every one on each match start so a Musou match after a Warfront match in the same client gets Musou's own values back (review).
+        CrowdView.FarNoShadow = WarfrontOn || CrowdView.FarNoShadowFlag;   // owner 2026-11-18: far-tier Orks cast no sun shadows (Warfront only; --crowd-no-shadow anywhere)
+        MusouCrowd.VisibleOverride = WarfrontOn ? MusouCrowd.WarfrontVisible : 0;   // owner 2026-11-18: 1200 visible Orks in Warfront, Musou keeps 1800
+        SmClient.MusouVat.Lods = false;
+        if (!WarfrontOn) return;   // the viewport's LOD threshold is left to its owners outside Warfront (Musou's Ashfall kit view sets and restores its own)
         if (CmdFlag("no-crowd-lod")) return;
         SmClient.MusouVat.Lods = true;
         var args = OS.GetCmdlineUserArgs();
