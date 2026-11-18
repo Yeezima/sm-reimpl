@@ -595,7 +595,7 @@ public partial class SoundSystem : Node
     {
         if (string.IsNullOrEmpty(eventName) || _catalog is null) return null;
         Posts++;
-        var play = _catalog.Post(eventName, ClassicAutocannonSound.ShotSwitches(Scape != ScapeMode.Old, eventName, emitter.Switches), emitter.Id);   // sound/classic-autocannon: the own shot resolves as the default case
+        var play = _catalog.Post(ClassicAutocannonSound.Resolve(Scape != ScapeMode.Old, eventName), ClassicAutocannonSound.ShotSwitches(Scape != ScapeMode.Old, eventName, emitter.Switches), emitter.Id);   // sound/classic-autocannon-turret: the Classic autocannon plays the campaign turret's event (the own shot as the default case)
         var (p, v) = ByEvent.GetValueOrDefault(eventName);
         ByEvent[eventName] = (p + 1, v + play.Voices.Count);
         if (NetworkView.LogSoundKinds.Contains("post")) GD.Print($"POST {eventName} label '{emitter.Label}' at {emitter.Current.X:F1},{emitter.Current.Y:F1},{emitter.Current.Z:F1} found {play.Found} voices {play.Voices.Count}");   // --log-sound post (map-silence test aid)
@@ -861,7 +861,6 @@ public partial class SoundSystem : Node
     void Start(Pending p, AudioStreamOggVorbis stream)
     {
         var v = p.Voice;
-        if (ClassicAutocannonSound.Applies(Scape != ScapeMode.Old, p.Event, v)) { FreeSpeech(p.Event, p.Emitter); return; }   // sound/classic-autocannon: the shot's footstep body (a Dreadnought-like walking thud) is never played; the shot's own layers are
         if (SoundMixLive.Enabled)   // sound/mix-expand: the F7 panel's live list (only while the panel is open; no allocation)
             SoundMixLive.Note(p.Event, p.Emitter.Own ? SoundSource.Own : p.Emitter.Follow is not null ? SoundSource.Other : SoundSource.World, Distance(p.Emitter, IsSpeech(p.Event)) is var (_, liveD) ? liveD : 0f, _now);
         if (p.Emitter.AttenuationOverride is { } curve && ((v.Is3D && v.Attenuation is not null) || p.Emitter.Positioned)) v = v with { Attenuation = curve, Is3D = true };
