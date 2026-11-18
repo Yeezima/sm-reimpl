@@ -858,7 +858,7 @@ public sealed partial record SimConfig
             if (QuickdrawSwitch) w.Write("quickdraw-switch");   // feel/grenades-quickdraw: only when on (older hashes unchanged)
             if (MeleeLungeScale != 1f) { w.Write("lunge-scale"); w.Write(MeleeLungeScale); }   // feel/melee-charge-2: only when not the default (older hashes unchanged)
             if (MeleeFlinchDegrees != 6f || MeleeFlinchSeconds != 0.5f) { w.Write("melee-flinch"); w.Write(MeleeFlinchDegrees); w.Write(MeleeFlinchSeconds); }   // sim/light-melee-flinch: only when not the default
-            if (CancelData.Shipped.Hash != CancelData.Baseline.Hash) w.Write("cancel-table " + CancelData.Shipped.Hash);   // cancel-editor: a build with an owner's table as its default only meets builds with the same one (only when it differs: older hashes unchanged)
+            if ((Extras & ContentExtras.Musou) == 0 && CancelData.Shipped.Hash != CancelData.Baseline.Hash) w.Write("cancel-table " + CancelData.Shipped.Hash);   // cancel-editor: a build with an owner's table as its default only meets builds with the same one (only when it differs: older hashes unchanged); not in Musou Mode, where the gate never acts (same condition as CancelGate.Active), so Musou hashes stay as before the 2026-11-19 default
             if (!ChargeBackCancel) w.Write("old-charge-cancel");   // charge-cancel (protocol 66): only when off (older hashes unchanged)
             if (!StimReliable) w.Write("old-stim-use");   // stims-classic (protocol 68): only when off (older hashes unchanged)
             if (!ChargeAfterMelee) w.Write("old-charge-after-melee");   // charge-responsive (protocol 69): only when off (older hashes unchanged)

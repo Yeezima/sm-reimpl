@@ -52,10 +52,11 @@ public class OrkSimTests
         // Pinned before Ork O4 (main cda1272) and computed again on main a822478 without O4: the same values, so every existing config hashes as it did.
         // Re-pinned for the owner's blind grenade by facing (2026-10-28: SimConfig.BlindViewHalfAngle is hashed, so every config's hash moved once;
         // before: B9AE0B048FDE504D, 192D6A8FD5B02B56, DA9A87CAC1337ED8, C4400831F020CBF3). Class bodies still add nothing for a config without them.
-        Assert.Equal(0xA57B097C29D78EABUL, new SimConfig().Hash());
-        Assert.Equal(0x24C00662A26C4F7AUL, EvadeTests.Config.Hash());
-        Assert.Equal(0x9214E4F961AAB3ABUL, EvadeTests.HopConfig.Hash());
-        Assert.Equal(0x0CCE9A750CE539F1UL, new SimConfig { HitVolumes = [HitVolume.Sphere("Head", HitZone.Head, new(0, 0, 1.9f), 0.2f)] }.Hash());
+        // Recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not); the values before it are 0xA57B097C29D78EAB, 0x24C00662A26C4F7A, 0x9214E4F961AAB3AB, 0x0CCE9A750CE539F1.
+        Assert.Equal(0x6CF1391DEE14706DUL, new SimConfig().Hash());
+        Assert.Equal(0x94646468D41FC4ADUL, EvadeTests.Config.Hash());
+        Assert.Equal(0x02F60D5A99CC6755UL, EvadeTests.HopConfig.Hash());
+        Assert.Equal(0xF532CED5745B5095UL, new SimConfig { HitVolumes = [HitVolume.Sphere("Head", HitZone.Head, new(0, 0, 1.9f), 0.2f)] }.Hash());
     }
 
     [Fact]

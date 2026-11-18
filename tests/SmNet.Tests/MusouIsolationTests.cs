@@ -54,7 +54,8 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the goldens (captured on main 35deb39, before MU0's hooks)
 
-    const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0xA3A5F813DCFC7B6BUL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0xC14C777D6C269AB0UL;
+    const ulong FixtureFaithfulHash = 0x35158504E31B93BCUL, FixtureExtendedHash = 0xE8355E5F3FA671B8UL, DefaultFaithfulHash = 0x6CF1391DEE14706DUL, DefaultExtendedHash = 0x85685DCCFA9091C1UL;
+    // Recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not); before: 0x2235C9DFF926583F, 0xA3A5F813DCFC7B6B, 0xA57B097C29D78EAB, 0xC14C777D6C269AB0. Musou's own hash and the replays below are untouched (the replays run by the baseline table).
     // claude/autocannon-pass (2026-11-11): Classic PvP's autocannon joined the extended profile (ContentExtras.Autocannon in ContentExtras.All), so both extended pins moved with the flags
     // (0x54B88195AFC434B4 and 0x0CA292E1A0338C00 before); a Classic change, not a Musou one: the faithful pins are as they were.
     // sim/light-melee-flinch (protocol 52): the classic baseline changed (the script's 49 light melee hits now flinch instead of interrupting), so both goldens moved together
@@ -84,7 +85,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     void AssertReplay(SimConfig config, string golden)
     {
-        var (hash, stats) = Replay(config);
+        var (hash, stats) = Replay(config with { Cancel = CancelLive.Of(CancelData.Baseline) });   // the golden predates the cancel default (2026-11-19): replayed by the code's own table, it still holds
         output.WriteLine($"replay {hash}: {stats}");
         // The script exercises every system it is meant to pin (a retuned fixture that stops shooting, throwing, striking or charging fails here).
         Assert.True(stats.Shots > 0 && stats.Throws > 0 && stats.MeleeHits > 0 && stats.Rushes > 0 && stats.Kills > 0 && stats.Detonations > 0, stats.ToString());

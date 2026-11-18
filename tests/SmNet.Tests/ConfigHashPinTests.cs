@@ -18,7 +18,7 @@ namespace SmNet.Tests;
 public class ConfigHashPinTests(ITestOutputHelper output)
 {
     /// <summary>The faithful profile's match config (Annihilation and Seize Ground, no added content), captured on main 61c152b7.</summary>
-    const ulong FaithfulHash = 0x373BFF6EB6DBB857UL;   // recaptured with classic-stab-on-t (2026-11-17: MeleeStep.Stab on the sword's stab finisher; 0x40E5ADF50CD19EBDUL before); earlier: sim/sword-ff-stab (2026-11-14): the Classic power sword's F + F finisher is the X,F thrust at Furious Charge damage (0x5277E16C8E7F6260 before)
+    const ulong FaithfulHash = 0x9A51A5967232F621UL;   // recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not) (0x373BFF6EB6DBB857UL before); earlier: recaptured with classic-stab-on-t (2026-11-17: MeleeStep.Stab on the sword's stab finisher; 0x40E5ADF50CD19EBDUL before); earlier: sim/sword-ff-stab (2026-11-14): the Classic power sword's F + F finisher is the X,F thrust at Furious Charge damage (0x5277E16C8E7F6260 before)
 
     /// <summary>
     /// The extended profile's (the Ork, gore, the loyalist barks and, since claude/autocannon-pass of 2026-11-11, Classic PvP's autocannon; the playtest default): recaptured with the autocannon's flag and
@@ -27,7 +27,7 @@ public class ConfigHashPinTests(ITestOutputHelper output)
     /// (0x7556F708CE2FD9A2 before).
     /// Recaptured with claude/autocannon-accuracy (2026-11-14): the Classic autocannon's scatter is the Stalker's (0x479768E19E322CCA before).
     /// </summary>
-    const ulong ExtendedHash = 0xC5456B1648DE53E7UL;   // recaptured with classic-stab-on-t (2026-11-17; 0x25C0E0FF4304DC7EUL before); earlier: sim/sword-ff-stab (2026-11-14) (0x4470226340FFAB58 before)
+    const ulong ExtendedHash = 0xAA043E124F4E81FAUL;   // recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not) (0xC5456B1648DE53E7UL before); earlier: recaptured with classic-stab-on-t (2026-11-17; 0x25C0E0FF4304DC7EUL before); earlier: sim/sword-ff-stab (2026-11-14) (0x4470226340FFAB58 before)
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
 

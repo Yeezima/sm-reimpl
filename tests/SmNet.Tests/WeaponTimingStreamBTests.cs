@@ -164,6 +164,7 @@ public class WeaponTimingStreamBTests(ITestOutputHelper output)
         // X1 alone (no press in its combo window, 0.933..1.92 s): a press from its reset (1.92 s) starts X1 again; before, nothing until its end (2.667 s).
         var c = new SimConfig
         {
+            Cancel = CancelLive.Of(CancelData.Baseline),   // string-reset mechanics, by the code's own table
             Classes = [new ClassLoadout("hammer", -1, -1, [X1 with { StringResetAt = 1.92f }, X2, X3(1.544f)]) { Evade = -1 }],
             MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
         };

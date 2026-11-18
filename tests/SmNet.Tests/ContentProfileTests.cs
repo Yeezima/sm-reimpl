@@ -31,7 +31,7 @@ public class ContentProfileTests
     };
 
     /// <summary>Captured on main a4f560c before E1 (the same config, the same code path, no <see cref="SimConfig.Extras"/> yet).</summary>
-    const ulong GoldenHash = 0x6696D7978B3D933CUL, DefaultHash = 0xA57B097C29D78EABUL;
+    const ulong GoldenHash = 0x76BEC6D1DE5B69CFUL, DefaultHash = 0x6CF1391DEE14706DUL;   // recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not) (0x6696D7978B3D933CUL and 0xA57B097C29D78EABUL before)
 
     // ---------------------------------------------------------------- the hash
 
