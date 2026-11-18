@@ -122,7 +122,7 @@ public sealed partial class CreatorView
         _armBadge = Tex("ArmouryBadge", "arm-badge", _armCanvas);
         _armBadgeText = new Label { MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }; _armCanvas.AddChild(_armBadgeText);
         _armDock = new HFlowContainer { Name = "ArmouryDock" };
-        _armDock.AddThemeConstantOverride("h_separation", 3); _armDock.AddThemeConstantOverride("v_separation", 2);
+        _armDock.AddThemeConstantOverride("h_separation", 6); _armDock.AddThemeConstantOverride("v_separation", 3);
         _armCanvas.AddChild(_armDock);
         foreach (var b in new Button?[] { _rename, _copy, _reset, _clear, _revert, _save, _setActive, _look, _deployButton }) if (b is not null) { b.CustomMinimumSize = Vector2.Zero; Move(b, _armDock); }
         Move(_unsaved, _armDock); Move(_status, _armDock);
@@ -153,15 +153,51 @@ public sealed partial class CreatorView
 
     ArmDetail? _armDetailNow;
 
+    // The install's own weapon pictures (ui/overhaul, review round 2): the HUD art is read once, on a worker thread, from the player's install (read-only; nothing is written anywhere); a picture is its white silhouette, drawn
+    // as a faint engraving. Until it is ready, or when the install has none (perks), the engraved type glyph stands in.
+    HudArt? _armArt;
+    readonly Dictionary<string, string> _armIds = new();
+    bool _armArtReady, _armPending;
+
+    /// <summary>The picture of an icon name: <c>install:&lt;wargear&gt;</c> is the install's silhouette (null while not ready), anything else a painted or engraved piece.</summary>
+    Texture2D? ArmIcon(string? name, string glyph)
+    {
+        if (name is null) return ConceptArt.Get(glyph);
+        if (!name.StartsWith("install:", StringComparison.Ordinal)) return ConceptArt.Get(name);
+        _armArt ??= new HudArt(_services.GameDir);
+        if (_armArt.Ready && _armArt.WeaponIcon(name[8..]) is { } tex)
+        {
+            if (_armArt.Silhouette(tex) is { } sil) { _armArtReady = true; _armSilhouettes.Add(sil); return sil; }
+            _armPending = true;   // the silhouette is being made on a worker thread: lay the page out again shortly
+        }
+        else if (!_armArt.Ready && _armArt.Error.Length == 0) _armPending = true;   // the art is still loading
+        return ConceptArt.Get(glyph);
+    }
+
+    /// <summary>White for painted pieces and the glyphs (they carry their own tone), the engraving ink for an install silhouette.</summary>
+    readonly HashSet<Texture2D> _armSilhouettes = new();
+    Color ArmInk(Texture2D tex) => _armSilhouettes.Contains(tex) ? ArmEngrave : Colors.White;
+
+    /// <summary>The ink of an install silhouette: a faint engraving like the glyphs.</summary>
+    static readonly Color ArmEngrave = new(0.66f, 0.58f, 0.42f, 0.55f);
+
     ArmDetail ArmouryDetail()
     {
         ArmDetail? added = null;
         ExtrasArmouryDetail(ref added);   // EXTRAS-HOOK: the Librarian's weapon row, tiles and slot cards
         if (added is not null) return added;
-        string race = _previewRace; string weapon = "";
-        foreach (var section in LoadoutRows.Weapons(_catalog, Role, race, OpenClass, _services.Policy)) { var sel = section.Rows.FirstOrDefault(r => r.Selected); if (sel is not null) { weapon = sel.Title; break; } }
+        string race = _previewRace; string weapon = ""; string? weaponId = null;
+        _armIds.Clear();
+        foreach (var section in LoadoutRows.Weapons(_catalog, Role, race, OpenClass, _services.Policy))
+        {
+            foreach (var r in section.Rows) if (r.Id.Length > 0) _armIds[r.Title.ToUpperInvariant()] = r.Id;
+            var sel = section.Rows.FirstOrDefault(r => r.Selected); if (sel is not null && weapon.Length == 0) { weapon = sel.Title; weaponId = sel.Id; }
+        }
         var options = LoadoutRows.Options(_catalog, Role, race);
-        string equip = LoadoutRows.Equipment(_catalog, Role, race, OpenClass, _services.Policy).Rows.FirstOrDefault(r => r.Selected)?.Title ?? "NONE";
+        var equipSection = LoadoutRows.Equipment(_catalog, Role, race, OpenClass, _services.Policy);
+        foreach (var r in equipSection.Rows) if (r.Id.Length > 0) _armIds[r.Title.ToUpperInvariant()] = r.Id;
+        var equipRow = equipSection.Rows.FirstOrDefault(r => r.Selected);
+        string equip = equipRow?.Title ?? "NONE";
         string Perk(int i)
         {
             string? name = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1);
@@ -169,9 +205,9 @@ public sealed partial class CreatorView
         }
         void Go(Step step, int perk) { _step = step; if (perk >= 0) _perkSlot = perk; Refresh(focusList: true); }
         bool perks = _step == Step.Perks;
-        return new ArmDetail(IsEmpty ? "NO CLASS" : weapon.Length > 0 ? weapon.ToUpperInvariant() : "WEAPONS", null, () => Go(Step.Weapons, -1),
+        return new ArmDetail(IsEmpty ? "NO CLASS" : weapon.Length > 0 ? weapon.ToUpperInvariant() : "WEAPONS", weaponId is { Length: > 0 } ? "install:" + weaponId : null, () => Go(Step.Weapons, -1),
         [
-            new ArmTile(equip, null, _step == Step.Equipment, () => Go(Step.Equipment, -1)),
+            new ArmTile(equip, equipRow is { Id.Length: > 0 } ? "install:" + equipRow.Id : null, _step == Step.Equipment, () => Go(Step.Equipment, -1)),
             new ArmTile(Perk(0), null, perks && _perkSlot == 0, () => Go(Step.Perks, 0)),
             new ArmTile(Perk(1), null, perks && _perkSlot == 1, () => Go(Step.Perks, 1)),
         ], IsEmpty ? null : ArmClassSlots(equip, Perk));
@@ -185,9 +221,9 @@ public sealed partial class CreatorView
         foreach (var section in LoadoutRows.Weapons(_catalog, Role, _previewRace, OpenClass, _services.Policy))
         {
             var sel = section.Rows.FirstOrDefault(r => r.Selected); string heading = section.Heading; int cut = heading.IndexOf("  (", StringComparison.Ordinal); if (cut > 0) heading = heading[..cut];
-            slots.Add(new ArmSlot(heading, sel?.Title ?? "NONE", null, () => Pick(Step.Weapons, -1)));
+            slots.Add(new ArmSlot(heading, sel?.Title ?? "NONE", sel is { Id.Length: > 0 } ? "install:" + sel.Id : null, () => Pick(Step.Weapons, -1)));
         }
-        slots.Add(new ArmSlot("EQUIPMENT", equip, null, () => Pick(Step.Equipment, -1)));
+        slots.Add(new ArmSlot("EQUIPMENT", equip, _armIds.TryGetValue(equip.ToUpperInvariant(), out var eqId) ? "install:" + eqId : null, () => Pick(Step.Equipment, -1)));
         slots.Add(new ArmSlot("PERK 1", perk(0), null, () => Pick(Step.Perks, 0)));
         slots.Add(new ArmSlot("PERK 2", perk(1), null, () => Pick(Step.Perks, 1)));
         return slots;
@@ -220,12 +256,12 @@ public sealed partial class CreatorView
         var detail0 = ArmouryDetail();
         Put(_armWeapon!, UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName));
         Put(_armTilesHost!, new Rect2(36, 276, 238, 74));
-        Put(_armTopRow!, new Rect2(296, 5, 330, 20)); _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
+        Put(_armTopRow!, new Rect2(296, 70, 246, 20));   /* the faction tabs stand right over the preview they switch (Opus review 1) */ _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
         Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex()); 
         bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
         _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
         Put(_armSlotScroll, new Rect2(549, 93, 222, 223));   /* whole cards only: three of 78 */ Put(_armPickBack, new Rect2(712, 76, 52, 14));
-        Put(_armInfo!, new Rect2(296, 68, 246, 24));
+        Put(_armInfo!, new Rect2(296, 68, 246, 24)); _armInfo!.Visible = false;   // the "ACTIVE:" line is not in the concept; the active loadout is the badge and the summary line
         Put(_scroll, new Rect2(549, 93, 222, 223)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
         Put(_summary, new Rect2(272, 380, 370, 13));
         Put(_armDock!, new Rect2(272, 395, 374, 40));
@@ -297,7 +333,8 @@ public sealed partial class CreatorView
         wb.AddThemeStyleboxOverride("focus", PaintedButtons.Ring(s, 0.5f));
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) wb.AddThemeColorOverride(n, Colors.Transparent);
         var iconRect = new Rect2(UiTextureBuilder.ArmWeaponIcon.Position - wr.Position, UiTextureBuilder.ArmWeaponIcon.Size);
-        _armWeaponIcon!.Texture = detail.WeaponIcon is { } wi ? ConceptArt.Get(wi) : ConceptArt.Get("glyph-gun");
+        _armWeaponIcon!.Texture = ArmIcon(detail.WeaponIcon, "glyph-gun"); _armWeaponIcon.Modulate = detail.WeaponIcon?.StartsWith("install:", StringComparison.Ordinal) == true ? ArmEngrave : Colors.White;
+        _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
         _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.Scale; _armWeaponIcon.Position = (iconRect.Position + new Vector2(4, 4)) * s; _armWeaponIcon.Size = new Vector2(70, 28) * s;
         _armWeaponName!.Text = detail.Weapon; ArmLabel(_armWeaponName, ArmNameSize, s, ArmLight);
         _armWeaponName.Position = new Vector2(UiTextureBuilder.ArmWeaponName.Position.X - wr.Position.X + 9f, UiTextureBuilder.ArmWeaponName.Position.Y - wr.Position.Y) * s; _armWeaponName.Size = new Vector2(UiTextureBuilder.ArmWeaponName.Size.X - 30f, UiTextureBuilder.ArmWeaponName.Size.Y) * s;
@@ -316,8 +353,8 @@ public sealed partial class CreatorView
             int paren = t.Label.IndexOf(" (", StringComparison.Ordinal); var l = new Label { Text = (paren > 0 ? t.Label[..paren] : t.Label).ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, AutowrapMode = TextServer.AutowrapMode.Word };
             ArmLabel(l, ArmTileSize, s, t.Selected ? new Color(1f, 0.95f, 0.8f) : ArmLight);
             l.Position = new Vector2(3f, 30f) * s; l.Size = new Vector2(68f, 31f) * s; b.AddChild(l);
-            if (t.Icon is not null && ConceptArt.Get(t.Icon) is { } tex)
-                b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(14f, 6f) * s, Size = new Vector2(46f, 30f) * s });
+            if (ArmIcon(t.Icon, i == 0 ? "glyph-grenade" : "glyph-perk") is { } tex)
+                b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(14f, 6f) * s, Size = new Vector2(46f, 30f) * s, Modulate = ArmInk(tex) });
         }
         // ---- the header tab strip: CLASS, SLOTS, ARMOUR & PAINT ----
         _armTabClass!.SetPressedNoSignal(!_armSlotsTab); _armTabSlots!.SetPressedNoSignal(_armSlotsTab);
@@ -394,7 +431,7 @@ public sealed partial class CreatorView
             ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 11f) * s; cap.Size = new Vector2(126f, 11f) * s; b.AddChild(cap);
             var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
             ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 23f) * s; val.Size = new Vector2(126f, 34f) * s; b.AddChild(val);
-            if (ConceptArt.Get(slot.Icon ?? EngravedGlyphs.For(slot.Slot)) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s });
+            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) b.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s, Modulate = ArmInk(tex) });
             _armSlotList.AddChild(b);
         }
     }
@@ -446,8 +483,9 @@ public sealed partial class CreatorView
             else if (child is Control glyph && glyph.GetType().Name == "Glyph") { glyph.Position = new Vector2(570f - 549f + 12f, 118f - 93f - 12f) * s; glyph.Size = new Vector2(26f, 26f) * s; glyph.Visible = icon is null; }
         }
         foreach (var old in row.GetChildren().OfType<Node>().Where(n => n.HasMeta("arm_card")).ToList()) { row.RemoveChild(old); old.QueueFree(); }
-        if (icon is not null && ConceptArt.Get(icon) is { } tex)
-            row.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s }.With(t => t.SetMeta("arm_card", true)));
+        if (icon == "glyph-perk" && _armIds.TryGetValue(row.Text.ToUpperInvariant(), out var wargearId)) icon = "install:" + wargearId;   // a weapon or grenade of the install: its own silhouette
+        if (icon is not null && ArmIcon(icon, "glyph-perk") is { } tex)
+            row.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = icon.StartsWith("install:", StringComparison.Ordinal) ? TextureRect.StretchModeEnum.KeepAspectCentered : TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s, Modulate = ArmInk(tex) }.With(t => t.SetMeta("arm_card", true)));
         var name = new Label { Text = row.Text.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true };
         name.SetMeta("arm_card", true); ArmLabel(name, ArmNameSize, s, ArmLight);
         name.Position = new Vector2(79f, 3f) * s; name.Size = new Vector2(104f, 61f) * s; row.AddChild(name);
@@ -455,7 +493,7 @@ public sealed partial class CreatorView
 
     /// <summary>A step's rows were rebuilt or the page changed: restyle at the next layout.</summary>
     double _armPoll;
-    void ArmouryPoll(double delta) { if (!_arm) return; _armPoll += delta; if (_armPoll > 0.25) { _armPoll = 0; LayoutArmoury(); } }
+    void ArmouryPoll(double delta) { if (!_arm) return; _armPoll += delta; if (_armPoll > 0.25) { _armPoll = 0; if (_armPending) { _armPending = false; _armSig = ""; } LayoutArmoury(); } }
 
     void ArmouryDirty() { _armSig = ""; if (_arm) Callable.From(LayoutArmoury).CallDeferred(); }
 

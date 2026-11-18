@@ -31,13 +31,16 @@ public sealed partial class WarMapPanel : Control
             for (int i = 0; i < count; i++)
             {
                 var box = new Rect2(i * (pip + gap), 0f, pip, Size.Y);
-                DrawRect(box, i < Pips ? UiKit.White : new Color(1f, 1f, 1f, 0.12f));
+                // steel pips: a lit gold lamp or a dark recess with a bronze rim
+                DrawRect(box, i < Pips ? new Color(0.95f, 0.78f, 0.22f) : new Color(0.05f, 0.045f, 0.04f));
+                DrawRect(box, new Color(0.45f, 0.38f, 0.26f, 0.9f), false, 1.5f);
             }
             float x = count * (pip + gap) + 18f, w = Size.X - x, mid = x + w / 2f, h = Size.Y;
-            DrawRect(new Rect2(x, 0f, w, h), new Color(1f, 1f, 1f, 0.08f));
+            DrawRect(new Rect2(x, 0f, w, h), new Color(0.05f, 0.045f, 0.04f));
             float fill = Math.Clamp(Progress, -1f, 1f) * w / 2f;
-            if (fill >= 0f) DrawRect(new Rect2(mid, 0f, fill, h), new Color(0.95f, 0.8f, 0.2f));
-            else DrawRect(new Rect2(mid + fill, 0f, -fill, h), new Color(0.86f, 0.1f, 0.08f));
+            if (fill >= 0f) DrawRect(new Rect2(mid, 2f, fill, h - 4f), new Color(0.95f, 0.8f, 0.2f));
+            else DrawRect(new Rect2(mid + fill, 2f, -fill, h - 4f), new Color(0.78f, 0.12f, 0.09f));
+            DrawRect(new Rect2(x, 0f, w, h), new Color(0.45f, 0.38f, 0.26f, 0.9f), false, 2f);
             DrawRect(new Rect2(mid - 1f, -4f, 2f, h + 8f), UiKit.White);
         }
     }
@@ -77,7 +80,7 @@ public sealed partial class WarMapPanel : Control
             title.Position = new Vector2(Left + 8f, 62f);
             SteelBackdrop.StyleTitle(title);
             _steel = true;
-            AddChild(new SteelBackdrop("WarMapDim", title, 0.7f));
+            AddChild(new SteelBackdrop("WarMapDim", title, 0.7f) { FitContent = true });
         }
         else
         {

@@ -20,7 +20,7 @@ public abstract partial class TfwPagePanel : Control
         MouseFilter = MouseFilterEnum.Stop;
         var head = new Label { Name = name + "Title", Text = title, MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left + 8f, 62f) };
         SteelBackdrop.StyleTitle(head);
-        AddChild(new SteelBackdrop(name + "Dim", head, 0.7f));   // ui/overhaul: the steel board and the title plate behind the page
+        AddChild(new SteelBackdrop(name + "Dim", head, 0.7f) { FitContent = true });   // ui/overhaul: the steel board and the title plate behind the page
         AddChild(head);
     }
 

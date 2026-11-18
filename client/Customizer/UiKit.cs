@@ -100,8 +100,8 @@ public static partial class UiKit
         }
         t.SetStylebox("panel", "PanelContainer", Clear(12));
         t.SetStylebox("panel", "Panel", Clear(12));
-        t.SetStylebox("normal", "LineEdit", Clear(6));
-        t.SetStylebox("focus", "LineEdit", Clear(6));
+        t.SetStylebox("normal", "LineEdit", new Steel.SteelStyle(Steel.Kind.Recess, 5f, 12f, 6f));   // ui/overhaul: a text field is the kit's steel recess (the menu rows' own field type stays clear)
+        t.SetStylebox("focus", "LineEdit", new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 12f, 6f));
         t.SetColor("caret_color", "LineEdit", White);
         t.SetColor("selection_color", "LineEdit", new Color(White, 0.3f));
         t.SetTypeVariation("SmMenuField", "LineEdit");
@@ -154,6 +154,17 @@ public static partial class UiKit
     }
 
     // ---- widgets ----
+
+    /// <summary>A page title on the concept's rivetted plate with the painted title's emboss (the failure and set-up pages).</summary>
+    public static Label PlateTitle(string text, Color? ink = null)
+    {
+        var l = new Label { Text = text.ToUpperInvariant(), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(420f, 84f) };
+        l.AddThemeFontOverride("font", ConceptFont()); l.AddThemeFontSizeOverride("font_size", 40);
+        SteelBackdrop.EmbossTitle(l);
+        if (ink is { } c) l.AddThemeColorOverride("font_color", c);
+        if (ConceptArt.Patch("opt-plate-blank", new Vector2(60f, 30f), new Vector2(40f, 10f)) is { } plate) l.AddThemeStyleboxOverride("normal", plate);
+        return l;
+    }
 
     public static Label Text(string text, int size = BodySize, Color? colour = null, HorizontalAlignment align = HorizontalAlignment.Left, bool wrap = false)
     {

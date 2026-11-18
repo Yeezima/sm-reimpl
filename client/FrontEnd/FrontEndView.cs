@@ -136,7 +136,7 @@ public sealed partial class FrontEndView : Control
         _loading?.QueueFree();
         var box = UiKit.VBox(16);
         box.CustomMinimumSize = new Vector2(900, 0);
-        box.AddChild(UiKit.Text("ERROR", UiKit.HeaderSize, UiKit.LightRed));
+        box.AddChild(UiKit.PlateTitle("Error", new Color(1f, 0.55f, 0.48f)));
         box.AddChild(UiKit.Text("The game install could not be read:", UiKit.BodySize, UiKit.White));
         box.AddChild(UiKit.Text(error, UiKit.BodySize, UiKit.LightRed, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(860, 0)));
         box.AddChild(UiKit.Text("Check that Warhammer 40,000: Space Marine is installed (or pass --game-dir), then try again.", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(860, 0)));

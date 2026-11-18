@@ -26,12 +26,37 @@ public sealed partial class SteelBackdrop : Control
         SetAnchorsPreset(LayoutPreset.FullRect);
     }
 
+    /// <summary>When set, the board is cut to the page's content (the visible siblings' extent plus a margin) instead of filling the screen, so a short page is a compact steel board, not a mostly empty slab.</summary>
+    public bool FitContent { get; set; }
+    Rect2 _fitted;
+
+    Rect2 Fitted()
+    {
+        if (!FitContent || GetParent() is not Control parent) return _board;
+        float right = 0f, bottom = 0f;
+        foreach (var c in parent.GetChildren())
+            if (c is Control k && k != this && k.Visible && k.Size.X > 0f && k.Size.Y > 0f)
+            {
+                float kw = k is Label lab && lab.Text.Length > 0 ? Mathf.Min(k.Size.X, lab.GetThemeFont("font").GetStringSize(lab.Text, HorizontalAlignment.Left, -1, lab.GetThemeFontSize("font_size")).X + 8f) : k.Size.X;
+                right = Mathf.Max(right, k.Position.X + kw); bottom = Mathf.Max(bottom, k.Position.Y + k.Size.Y); }
+        float w = Mathf.Clamp(right + 54f - _board.Position.X, 700f, _board.Size.X), h = Mathf.Clamp(bottom + 46f - _board.Position.Y, 320f, _board.Size.Y);
+        return new Rect2(_board.Position, new Vector2(w, h));
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!FitContent) return;
+        var f = Fitted();
+        if (f != _fitted) { _fitted = f; QueueRedraw(); }
+    }
+
     public override void _Draw()
     {
         DrawRect(new Rect2(Vector2.Zero, Size), new Color(0f, 0f, 0f, _veil));
-        
+
         var o = Vector2.Zero;   // the pages lay out from the top left of the UI space, so the board does too
-        var board = new Rect2(_board.Position + o, _board.Size);
+        var b0 = FitContent ? Fitted() : _board;
+        var board = new Rect2(b0.Position + o, b0.Size);
         _style.Table(this, board, 1f);
         if (_title is null || !_title.Visible) return;
         var font = UiKit.ConceptFont();

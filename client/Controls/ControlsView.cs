@@ -106,6 +106,32 @@ public sealed partial class ControlsView : Control
     }
 
     readonly PanelChrome _chrome;
+    TextureRect? _fade;
+
+    /// <summary>The table fades out over its last 36 px instead of cutting a row in half (Opus review 1); follows the list's rectangle.</summary>
+    public override void _Process(double delta)
+    {
+        if (!Visible) return;
+        if (_fade is null)
+        {
+            var g = new Gradient();
+            g.SetColor(0, new Color(0.04f, 0.038f, 0.036f, 0f));
+            g.SetColor(1, new Color(0.04f, 0.038f, 0.036f, 1f));
+            _fade = new TextureRect
+            {
+                Name = "TableFade",
+                Texture = new GradientTexture2D { Gradient = g, FillFrom = new Vector2(0f, 0f), FillTo = new Vector2(0f, 1f), Width = 4, Height = 64 },
+                StretchMode = TextureRect.StretchModeEnum.Scale,
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            AddChild(_fade);
+        }
+        var r = _scroll.GetGlobalRect();
+        r.Position -= GlobalPosition;
+        _fade.Position = new Vector2(r.Position.X, r.End.Y - 36f);
+        _fade.Size = new Vector2(Mathf.Max(0f, r.Size.X - 14f), 36f);
+    }
 
     /// <summary>The content in the frame: the tabs in the strip under the plate, the table and the two note lines in the rows area; BACK at the bottom right.</summary>
     void PlaceContent()

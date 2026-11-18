@@ -45,6 +45,7 @@ public sealed partial class GameFolderSetup : Control
         title.AddChild(UiKit.Text("SPACE MARINE", UiKit.TitleSize, UiKit.Gold));
         title.AddChild(UiKit.Text("MULTIPLAYER", UiKit.TitleSize, UiKit.White));
         box.AddChild(title);
+        box.AddChild(UiKit.PlateTitle("Game not found", new Color(1f, 0.55f, 0.48f)));
         box.AddChild(UiKit.Text("Space Marine (2011, Steam) not found", UiKit.HeaderSize, UiKit.LightRed));
         box.AddChild(UiKit.Text(
             "This game plays with the files of your own copy of Warhammer 40,000: Space Marine (the 2011 Steam version). Nothing from it is copied or changed. " +

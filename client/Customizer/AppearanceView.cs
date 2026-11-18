@@ -242,9 +242,9 @@ public sealed partial class AppearanceView : Control
         var looks = profile.AppearancesFor(_race).ToList();
         var own = Class?.Appearance.For(_race);
         _lookPicker = new OptionButton { CustomMinimumSize = new Vector2(250, UiKit.MinHit), FocusMode = FocusModeEnum.All, Disabled = Class is null };
-        _lookPicker.AddItem("Default look", 0);
-        for (int i = 0; i < looks.Count; i++) _lookPicker.AddItem($"{AppearanceSlots.SlotOf(profile, _race, looks[i].Id)}: {looks[i].Name}", i + 1);
-        _lookPicker.AddItem(looks.Count < CustomizationProfile.MaxAppearancesPerRace ? "New look..." : "(library full)", looks.Count + 1);
+        _lookPicker.AddItem("DEFAULT LOOK", 0);
+        for (int i = 0; i < looks.Count; i++) _lookPicker.AddItem($"{AppearanceSlots.SlotOf(profile, _race, looks[i].Id)}: {looks[i].Name}".ToUpperInvariant(), i + 1);
+        _lookPicker.AddItem(looks.Count < CustomizationProfile.MaxAppearancesPerRace ? "NEW LOOK..." : "(LIBRARY FULL)", looks.Count + 1);
         int selected = own is null ? 0 : looks.FindIndex(l => l.Id == own) + 1;
         _lookPicker.Select(Math.Max(selected, 0));
         _lookPicker.ItemSelected += index =>

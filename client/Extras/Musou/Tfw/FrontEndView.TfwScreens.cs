@@ -18,7 +18,13 @@ public sealed partial class FrontEndView
         switch (name.ToLowerInvariant())
         {
             case "tfw-range": { var p = new TfwRangeConfirm(() => { }, () => { }); page = p; p.Focus(); break; }
-            case "tfw-war": page = new WarMapPanel(_ => { }, () => { }); break;
+            case "tfw-war":
+            {
+                var p = new WarMapPanel(_ => { }, () => { });
+                p.Show(new TfwWarView(TfwRunPhase.Hub, TfwLane.A, 5025f, 1f, 3, 12, 0,
+                    new TfwLaneState(1, 0.35f, 420f, 310f, 3, 0f, 0), new TfwLaneState(0, -0.2f, 300f, 360f, 1, 18f, 0), new TfwLaneState(2, 0.7f, 520f, 150f, 7, 0f, 0)), true);
+                page = p; p.Focus(); break;
+            }
             case "tfw-score": { var p = new TfwScorePanel(Map(4, TfwMapResult.Won, 312, 48, 12840), 40250u, () => { }); page = p; p.Focus(); break; }
             case "tfw-reward":
             {
