@@ -842,7 +842,8 @@ public partial class MapmakerDock : VBoxContainer
         var ops = new List<JsonObject>();
         var first = doc.Get(ids[0]);
         MapTransform firstNow = _space.Selected == 1 ? Safe(() => MapTransform.FromMatrix(doc.World(first.Id))) : first.Transform;
-        foreach (var id in ids)
+        // Only the selected objects are edited; one whose ancestor is also selected rides on that ancestor's entry (no double turn), a lone selected child turns alone.
+        foreach (var id in TransformTargets.Roots(doc, ids))
         {
             var o = doc.Get(id);
             // A multi-selection moves by the delta of the first object's edit; one object takes the typed values.
