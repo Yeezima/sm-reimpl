@@ -67,6 +67,8 @@ public static class MapDecorLists
         ["backpanel_a", "tech_panel_c", "tech_panel_d", "tech_panel_pipe_a", "tech_panel_pipe_b", .. WasteManagementPosters], Near,
         [("tech_panel_pipe_g", "tech_stations"), ("tech_interface_a", "tech_stations"), ("tech_interface_a", "backPanel"), ("Pipe_Piece_A", "console_dif")]);
 
+    /// <summary>Basilica (<c>mp_tdm_11</c>, owner 2026-11-19): the <c>tech_interface_a</c> consoles' olive plates and red keypads (<c>backPanel</c>, <c>tech_stations</c> 0.28/0.02/0.01) and the red gauge stacks (<c>tech_panel_pipe_a/c/d</c>).</summary>
+    public static readonly DecorSet BasilicaSet = new(["tech_panel_pipe_a", "tech_panel_pipe_c", "tech_panel_pipe_d"], Near, [("tech_interface_a", "tech_stations"), ("tech_interface_a", "backPanel"), ("GEO_FLOOR", "tech_stations"), ("GEO_FLOOR", "backpanel")]);
     /// <summary>Station Tertius (<c>mp_dlc1_map2</c>): four <c>tech_interface_a</c> consoles with the salmon and olive surfaces.</summary>
     public static readonly DecorSet StationTertiusSet = new([], Near, [("tech_interface_a", "tech_stations"), ("tech_interface_a", "backPanel")]);
 
@@ -84,6 +86,7 @@ public static class MapDecorLists
     {
         [Map] = ManufactorumSet,
         ["mp_tdm_01"] = WasteManagementSet,
+        ["mp_tdm_11"] = BasilicaSet,
         ["mp_dlc1_map2"] = StationTertiusSet,
         ["mp_dlc2_map1"] = ChemRefinerySet,
         ["mp_dlc2_map3"] = DesolationSet,

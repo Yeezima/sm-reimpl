@@ -54,6 +54,10 @@ public static class MapDecor
     public static bool OldMaskTiling => _oldMask ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-mask-tiling") >= 0;
     static bool? _oldMask;
 
+    /// <summary><c>--old-candles</c>: the tall stations' candles at emission 1.5 (flat white) again (before / after aid).</summary>
+    public static bool OldCandles => _oldCandles ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-candles") >= 0;
+    static bool? _oldCandles;
+
     /// <summary>Whether <paramref name="map"/> gets the dark floor plane under the level (<see cref="MapDecorLists.VoidFloorMaps"/>); <c>--no-void-floor</c> turns it off (before / after aid).</summary>
     public static bool HasVoidFloor(string map) => MapDecorLists.HasVoidFloor(map, Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-void-floor") >= 0);
 

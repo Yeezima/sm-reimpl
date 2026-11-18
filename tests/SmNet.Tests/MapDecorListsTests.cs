@@ -29,7 +29,7 @@ public class MapDecorListsTests
     }
 
     [Theory]
-    [InlineData("mp_tdm_17"), InlineData("mp_tdm_11"), InlineData("mp_tdm_18"), InlineData("mp_dlc1_map1"), InlineData("mp_dlc2_map2"), InlineData("none")]
+    [InlineData("mp_tdm_17"), InlineData("mp_tdm_18"), InlineData("mp_dlc1_map1"), InlineData("mp_dlc2_map2"), InlineData("none")]
     public void A_map_without_a_set_hides_nothing(string map)
     {
         Assert.Null(MapDecorLists.For(map));
@@ -89,8 +89,8 @@ public class MapDecorListsTests
     [Fact]
     public void Maps_that_hide_nothing_are_the_ones_whose_audit_found_no_salmon_or_olive_board_kit()
     {
-        foreach (var map in new[] { "mp_tdm_11", "mp_tdm_17", "mp_tdm_18", "mp_dlc1_map1", "mp_dlc2_map2" }) Assert.Null(MapDecorLists.For(map));
-        Assert.Equal(6, MapDecorLists.Sets.Count);
+        foreach (var map in new[] { "mp_tdm_17", "mp_tdm_18", "mp_dlc1_map1", "mp_dlc2_map2" }) Assert.Null(MapDecorLists.For(map));
+        Assert.Equal(7, MapDecorLists.Sets.Count);
     }
 
     [Fact]
@@ -122,6 +122,19 @@ public class MapDecorListsTests
         Assert.DoesNotContain(0, hidden);   // the console itself stays
         // the anchor is Manufactorum's alone: Chem Refinery's papers are unchanged by a tech_interface_a
         Assert.DoesNotContain(1, MapDecorLists.Hidden("mp_dlc2_map1", false, [("tech_interface_a", 10f, 10f), ("acc_scroll_01", 11f, 10f)]));
+    }
+
+    [Fact]
+    public void Basilica_hides_the_console_plates_keypads_and_gauge_stacks_and_nothing_else_of_them()
+    {
+        // owner 2026-11-19: olive screens, red keypads and red gauge stacks on the wall consoles
+        Assert.True(MapDecorLists.HidesSurface("mp_tdm_11", "tech_interface_a", "backPanel", old: false));
+        Assert.True(MapDecorLists.HidesSurface("mp_tdm_11", "tech_interface_a", "tech_stations", old: false));
+        Assert.True(MapDecorLists.HidesSurface("mp_tdm_11", "GEO_FLOOR", "backpanel", old: false));
+        Assert.False(MapDecorLists.HidesSurface("mp_tdm_11", "GEO_FLOOR", "tech_stations_tall", old: false));   // the candles' material stays
+        Assert.False(MapDecorLists.HidesSurface("mp_tdm_11", "tech_interface_a", "backPanel", old: true));
+        Assert.Contains(0, MapDecorLists.Hidden("mp_tdm_11", false, [("tech_panel_pipe_a", 0f, 0f)]));
+        Assert.Empty(MapDecorLists.Hidden("mp_tdm_11", true, [("tech_panel_pipe_a", 0f, 0f)]));
     }
     [Fact]
     public void Nothing_is_listed_twice_and_no_definition_is_both_always_and_near()
