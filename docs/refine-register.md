@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3791 spec table rows: **2759 tagged**, 676 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 787 rows of the changes document.
+Scanned 3792 spec table rows: **2760 tagged**, 676 not tagged (read from data with high confidence), 356 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 787 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,9 +51,9 @@ Scanned 3791 spec table rows: **2759 tagged**, 676 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 837 | 792 | 622 | 232 | 1 |
-| General game design | 156 | 147 | 126 | 20 | 0 |
+| General game design | 157 | 147 | 127 | 20 | 0 |
 | Ork faction | 287 | 269 | 168 | 73 | 0 |
-| **All areas** | **2759** | 2464 | 2088 | 812 | 37 |
+| **All areas** | **2760** | 2464 | 2089 | 812 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -66,7 +66,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: interpretation | 437 |
 | kind: estimate | 251 |
 | notes: estimate | 215 |
-| confidence: none (low) | 109 |
+| confidence: none (low) | 110 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 44 |
@@ -3971,7 +3971,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (156)
+### General game design (157)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4198,6 +4198,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9EC5398D` | Measured effect (mean of the 5 s windows 100 to 200 s, same session) | primitives 23.1 M to 5.5 M, GPU 2.86 to 1.99 ms, draw calls unchanged (1636 to 1635); mean frame 7.15 vs 7.11 ms (vsync bound); first run without the change 8.6 ms (measured) | confidence: low | this PC's runs | Measured effect (mean of the 5 s windows 100 to 200 s, same…: compare with SM1 by feel or video. Ours: primitives 23.1 M to 5.5 M, GPU 2.86 to 1.99 ms, draw calls unchanged… | ☐ |
 | `R-E0B651E1` | Autosave | the 30 s save is serialised on the tick thread and written on the thread pool (`WarfrontAsyncWriter`); every other save, the end of a run, a new run and a stage change flush it first; `SM_WF_SYNC_SAVE=1` restores the old write (s) | kind: ours | ours (the test report's follow-up) | Autosave: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the 30 s save is serialised on the tick thread and written on the… | ☐ |
 | `R-460F013F` | LOD error threshold (changed 2026-11-18) | 4 (was 2; Godot's default is 1); `--crowd-lod-threshold <px>` (pixels) | kind: ours; notes: estimate | owner pick 2026-11-18: "switch distant Orks to the coarser LOD sooner ... raise that threshold moderately" | LOD error threshold (changed 2026-11-18): compare with SM1 by feel or video. Ours: 4 (was 2; Godot's default is 1); --crowd-lod-threshold <px>. | ☐ |
+| `R-3F05F74D` | Measured effect of the 2026-11-18 picks (means of the 5 s windows 100 to 200 s, same scenario, a… | draw calls 1766 to 1048 and 1131 (two runs), objects 2420 to 1675 and 1796, primitives 5.69 M to 5.25 M and 5.51 M, GPU 2.01 to 1.90 and 1.96 ms; mean frame 7.48 ms before vs 10.72 and 9.85 ms after, but the after runs ran while other agents loaded the PC… (measured) | confidence: none (low) | this PC runs | Measured effect of the 2026-11-18 picks (means of the 5 s…: compare with SM1 by feel or video. Ours: draw calls 1766 to 1048 and 1131 (two runs), objects 2420 to 1675 and… | ☐ |
 
 ## Part B: Ork faction
 
