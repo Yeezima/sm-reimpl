@@ -257,8 +257,8 @@
  ],
  "cells": {
   "melee_light|light": {
-   "state": "queued",
-   "from": null,
+   "state": "window",
+   "from": 0.5,
    "until": null,
    "note": "Press before ComboClose queues next step; starts when hit landed and ComboOpen reached (knife X1 0.50-0.77 s)",
    "src": "src/SmSim/Combat.cs:634-659,664-674"
@@ -272,7 +272,7 @@
   },
   "melee_light|charge": {
    "state": "window",
-   "from": null,
+   "from": 0.5,
    "until": null,
    "note": "Charge press ends swing and combo once the hit landed (knife 0.28/0.384/0.533 s); before: refused, buffered 0.3 s",
    "src": "src/SmSim/ChargeCancel.cs:106-107; src/SmSim/Combat.cs:471-475"
@@ -705,8 +705,8 @@
    "src": ""
   },
   "charge|light": {
-   "state": "yes",
-   "from": null,
+   "state": "window",
+   "from": 1,
    "until": null,
    "note": "Any tick (last included) ends the rush; swing starts same tick, no wait; lifts the 1 s charge spacing. Any class incl. Ork",
    "src": "src/SmSim/Combat.cs:462-468; src/SmSim/ChargeCancel.cs:118"
@@ -817,8 +817,8 @@
    "src": ""
   },
   "charge_sprint|light": {
-   "state": "yes",
-   "from": null,
+   "state": "window",
+   "from": 1,
    "until": null,
    "note": "A fresh RMB press mid charge ends it and swings at once (charge>swing>charge chain); the RMB that started it is not a new press",
    "src": "src/SmSim/Combat.cs:462-468"
@@ -1153,7 +1153,7 @@
    "src": ""
   },
   "dash_attack|light": {
-   "state": "window",
+   "state": "yes",
    "from": null,
    "until": null,
    "note": "Lunge: no input ends it. Hit state / wall stop / run-out: melee from its branch x0.7 (run-out 0.448 s)",
