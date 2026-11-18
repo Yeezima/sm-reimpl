@@ -100,6 +100,79 @@ public sealed class MapScene
         if (placed.Variant is not null && Variants.TryGetValue(placed.Variant, out var variant)) { definition = variant; return true; }
         return Definitions.TryGetValue(placed.Definition, out definition!);
     }
+    /// <summary>
+    /// hab-center-floor (2026-11-19): the parts a placement of <paramref name="definition"/> draws. <paramref name="oldRule"/> (<c>--old-lod-rule</c>): <see cref="ObjectDefinition.NearestLod"/>. Otherwise
+    /// <see cref="ObjectDefinition.HighestLod"/>, and with <paramref name="keepUncovered"/> also every part of a LOD-suffix family that the family rule dropped but whose box the better-ranked members of its
+    /// family do not cover (<see cref="UncoveredFamilyMembers"/>). Cached per definition (one answer per flag combination).
+    /// </summary>
+    public IReadOnlyList<VisualPart> DrawnParts(ObjectDefinition definition, bool oldRule, bool keepUncovered)
+    {
+        if (oldRule || !keepUncovered) return [.. definition.DrawnParts(oldRule)];
+        if (_covered.TryGetValue(definition, out var cached)) return cached;
+        var highest = definition.HighestLod();
+        var extra = UncoveredFamilyMembers(definition);
+        var list = extra.Count == 0 ? highest : [.. definition.Visuals.Where(v => highest.Contains(v) || extra.Contains(v))];
+        _covered[definition] = list;
+        return list;
+    }
+    readonly Dictionary<ObjectDefinition, IReadOnlyList<VisualPart>> _covered = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>A dropped LOD-suffix member counts as covered when at least this share of its box volume lies inside the box of the better-ranked members of its family (ours; spec "LOD-suffix coverage").</summary>
+    public const float CoverShare = 0.5f;
+
+    /// <summary>
+    /// hab-center-floor: the parts <see cref="ObjectDefinition.HighestLod"/> drops (a lower-ranked member of a LOD-suffix family whose better-ranked member is kept) that the kept members do not cover. The family
+    /// rule assumed the suffixes name levels of detail of one piece, so a lower member is a coarser copy of a better one. Where the better members' box holds under <see cref="CoverShare"/> of the lower member's
+    /// box volume (Hab Center's <c>MP18_HabA_FloorA_LodL</c>, 58 x 90 x 26 m of floor, next to <c>_LODM</c>, a 38 x 23 x 7 m patch: 4.5 %) the two are different pieces and the lower one is the only drawing of the
+    /// rest (that floor was missing: see-through). Members are taken best rank first, and one that is added then counts as cover for the next (a coarser copy of an added member stays dropped).
+    /// **Interpretation** from the boxes (spec "LOD-suffix coverage", low). Parts whose mesh is not loaded stay as the rule had them.
+    /// </summary>
+    public HashSet<VisualPart> UncoveredFamilyMembers(ObjectDefinition definition)
+    {
+        var result = new HashSet<VisualPart>();
+        var kept = definition.HighestLod();
+        var near = definition.Visuals.Where(v => (v.LodLevel & 1) != 0).ToList();
+        var droppedByStem = near.Where(v => !kept.Contains(v)).Select(v => (Part: v, Family: ObjectDefinition.LodFamily(v.RefNode))).Where(x => x.Family is not null)
+            .GroupBy(x => x.Family!.Value.Stem).ToList();
+        foreach (var group in droppedByStem)
+        {
+            var cover = kept.Where(k => ObjectDefinition.LodFamily(k.RefNode) is { } f && f.Stem == group.Key).Select(PartBox).ToList();
+            if (cover.Count == 0 || cover.Any(b => b is null)) continue;
+            var lo = cover.Select(b => b!.Value.Lo).Aggregate(Vector3.Min); var hi = cover.Select(b => b!.Value.Hi).Aggregate(Vector3.Max);
+            foreach (var (part, _) in group.OrderBy(x => x.Family!.Value.Rank).ThenBy(x => x.Part.MeshId))
+            {
+                if (PartBox(part) is not { } box) continue;
+                if (OverlapShare(box.Lo, box.Hi, lo, hi) >= CoverShare) continue;
+                result.Add(part);
+                lo = Vector3.Min(lo, box.Lo); hi = Vector3.Max(hi, box.Hi);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>The share of box A's volume inside box B grown by a quarter metre on every side (per axis the overlap over A's extent, so a flat or thin box is not penalised for its thinness).</summary>
+    static float OverlapShare(Vector3 aLo, Vector3 aHi, Vector3 bLo, Vector3 bHi)
+    {
+        const float grow = 0.25f;
+        static float Axis(float aLo, float aHi, float bLo, float bHi)
+        {
+            float over = Math.Min(aHi, bHi) - Math.Max(aLo, bLo), extent = aHi - aLo;
+            if (over < 0f) return 0f;
+            return extent <= 1e-3f ? 1f : Math.Clamp(over / extent, 0f, 1f);
+        }
+        return Axis(aLo.X, aHi.X, bLo.X - grow, bHi.X + grow) * Axis(aLo.Y, aHi.Y, bLo.Y - grow, bHi.Y + grow) * Axis(aLo.Z, aHi.Z, bLo.Z - grow, bHi.Z + grow);
+    }
+
+
+    /// <summary>The object-space box of a part's mesh block (its node transform applied); null when the mesh or block is not loaded or empty.</summary>
+    (Vector3 Lo, Vector3 Hi)? PartBox(VisualPart part)
+    {
+        if (!Meshes.TryGetValue(part.MeshName, out var mesh) || part.MeshId < 0 || part.MeshId >= mesh.Blocks.Count) return null;
+        var lo = new Vector3(float.MaxValue); var hi = new Vector3(float.MinValue);
+        foreach (var p in mesh.Blocks[part.MeshId].Positions) { var w = Vector3.Transform(p, part.NodeTransform); lo = Vector3.Min(lo, w); hi = Vector3.Max(hi, w); }
+        return lo.X > hi.X ? null : (lo, hi);
+    }
+
     public required IReadOnlyDictionary<string, DcmMesh> Meshes { get; init; }
     public required IReadOnlyDictionary<string, BmatMaterial> Materials { get; init; }
     /// <summary>

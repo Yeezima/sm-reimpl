@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3488 spec table rows: **2499 tagged**, 638 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 786 rows of the changes document.
+Scanned 3489 spec table rows: **2500 tagged**, 638 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 787 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,20 +50,20 @@ Scanned 3488 spec table rows: **2499 tagged**, 638 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 755 | 711 | 540 | 192 | 1 |
+| Core simulation (provisional values) | 756 | 712 | 541 | 193 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2499** | 2220 | 1856 | 741 | 37 |
+| **All areas** | **2500** | 2221 | 1857 | 742 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1471 |
-| confidence: low | 891 |
+| confidence: low | 892 |
 | confidence: medium | 856 |
-| kind: interpretation | 412 |
-| notes: ours | 407 |
+| kind: interpretation | 413 |
+| notes: ours | 408 |
 | notes: estimate | 207 |
 | kind: estimate | 177 |
 | confidence: none (low) | 109 |
@@ -83,8 +83,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
+| notes: guess | 6 |
 | kind: guess | 5 |
-| notes: guess | 5 |
 | kind: inferred | 3 |
 | section: approximation | 3 |
 | notes: unverified | 2 |
@@ -2591,7 +2591,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (755)
+### Core simulation (provisional values) (756)
 
 *Spec section: Provisional values in use*
 
@@ -3184,6 +3184,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-919221A1` | Sky boxes not drawn | surfaces whose material shader starts with `sky_` (`seq_NN_sky`, YCoCg textures) are not drawn as map geometry; the lighting's sky shows | kind: interpretation; confidence: medium | in-game views before and after (`smtool map-emissive --material Around,TopBottom`) | Sky boxes not drawn: compare with SM1 by feel or video. Ours: surfaces whose material shader starts with sky_ (seq_NN_sky, YCoCg… | ☐ |
 | `R-0B5A6BE0` | Sky boxes drawn as a sky | the sky-box surfaces (shader `sky_*`; only on the ten new maps, never Manufactorum) are drawn round the camera from their `YCoCg` texture (DXT5: Co R, Cg G, scale B, luma Y in alpha; V read as V+1) first in the opaque pass with a depth just in front of the… | kind: interpretation; confidence: medium | in-game views before and after (the decoded texture shows a sunset); `--no-sky-textures` | Sky boxes drawn as a sky: compare with SM1 by feel or video. Ours: the sky-box surfaces (shader sky_*; only on the ten new maps, never… | ☐ |
 | `R-260E1409` | LOD-suffix family rule (classic-maps-fidelity, 2026-11-17; client drawing only) | of an object's parts with LODLevel bit 0, nodes whose names differ only in a LOD suffix (`_LODH`, `_LODM`, `_LODC`, `_LODL`, also `lod_l`, a number after the kind (`_LODL01`), a variant tag (`_LODL_b`, `LODHB`) or a bare `_LOD` read as low; stem equal, case… | kind: interpretation; confidence: medium; notes: ours | A/B stills (Hab Center walls restored); `smtool map-emissive --lod-families`, `--lod-names` (all 1034 node names containing `lod` on the 11 maps read as… | LOD-suffix family rule (classic-maps-fidelity, 2026-11-17…: compare with SM1 by feel or video. Ours: of an object's parts with LODLevel bit 0, nodes whose names differ… | ☐ |
+| `R-D1397985` | LOD-suffix coverage (hab-center-floor, 2026-11-19; client drawing only, the ten new classic maps… | a part the family rule drops (a lower-ranked member of a LOD-suffix family whose better member is kept) is drawn again when under 50 % of its object-space box volume lies inside the box (grown 0.25 m) of the better members, taken best rank first with each… | kind: interpretation; confidence: low; notes: ours; notes: guess | before/after stills of Hab Center; `smtool map-emissive --map m --lod-cover`, `--floor-audit`; `--old-lod-cover` restores the earlier drawing | LOD-suffix coverage (hab-center-floor, 2026-11-19; client…: compare with SM1 by feel or video. Ours: a part the family rule drops (a lower-ranked member of a LOD-suffix… | ☐ |
 | `R-0E4E6CB9` | Static level decals drawn (classic-maps-fidelity fix 1, 2026-11-18; client drawing only) | every `ScreenSpaceDecal` object of a layer (`SSDName` = the archive's `ssdecal` entry: diffuse, normal, emissive maps, `AdditiveBlend`, colour, opacity) is a projected box: the node's rotation and translation, its Scale as the box size, the projection along… (160 / 70 m / 20 m) | kind: interpretation; confidence: medium; notes: ours | the data's box sizes equal the `ssdecal` Width / Depth / Height (painted number 1: 1 x 0.1 x 2); before / after stills in the owner's media folder | Static level decals drawn (classic-maps-fidelity fix 1…: compare with SM1 by feel or video. Ours: every ScreenSpaceDecal object of a layer (SSDName = the archive's… | ☐ |
 | `R-96CF0C57` | Orthographic projector lights drawn (classic-maps-fidelity round 2, fix 1, 2026-11-18; client… | every enabled `base/OrthoLight` of the layers (Basilica 8, Waste Management 11, Hab Center 14, Station Tertius 8, Aquila Canyon 5, Habs Ablaze 2; the lowercase class spelling is read, so `--old-map-lighting` leaves them out) with a `MaskName` (a… (Width / Height / AttenEnd from the data; energy 0.125 x…) | kind: interpretation; confidence: low; notes: ours | before / after stills on Basilica (an orange patch on the wall and the skull wheel above the lava lights) in the owner's media folder | Orthographic projector lights drawn (classic-maps-fidelity…: compare with SM1 by feel or video. Ours: every enabled base/OrthoLight of the layers (Basilica 8, Waste… | ☐ |
 | `R-C2D1D17A` | Moving map parts (classic-maps-fidelity round 2, fix 3, 2026-11-18; client drawing only) | (a) **Fan blades**: a `BezierCurve` (Loop, `BezierCurveAnim` `TimeToFollowCurve` seconds, path points whose `RotationLS` Z steps 0, -90, -180, -270 degrees) listed just before a `PhoenixEntity` whose blueprint name ends in an O3d name of the archive… (72 deg/s; 0.04 /s) | kind: interpretation; confidence: medium | stills of Basilica's fan at two times in the owner's media folder (`map-fidelity\fans-basilica`: blades in different positions) | Moving map parts (classic-maps-fidelity round 2, fix 3…: compare with SM1 by feel or video. Ours: (a) Fan blades: a BezierCurve (Loop, BezierCurveAnim… | ☐ |
@@ -5224,6 +5225,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-00926829` | Basilica: a dark floor plane under the level (maps-visual-qa, 2026-11-16; client drawing only; Basilica only) | The level under Basilica's floor grates is not known (the data shows no geometry there and the map has no sky box) | A near-black unlit plane 1.5 m under the lowest drawn geometry, instead of the engine background (the white sky-ground colour) showing as pure white slats through every grate. Ours, a guess at what the original showed. `--no-void-floor` removes it | Before and after views. Spec "Classic PvP maps": dark floor plane | Basilica: a dark floor plane under the level…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-0DAFD38D` | Waste Management's wall stations and fittings are not drawn (classic-maps-all, 2026-11-15; client drawing only) | The wall stations' boards and pipe runs draw with emissive maps tinted salmon (`tech_stations` 0.55/0.14/0.12) and olive (`backPanel`) | The Manufactorum removals (`MapDecorLists`) apply to `mp_tdm_01`, which uses the same objects and materials, plus `tech_panel_d`, the `console_dif` surface of `Pipe_Piece_A` and the `backPanel` surface of `tech_interface_a` (its own emissive audit). Other new maps hide nothing: their audits and in-game views are in… | Owner's brief 2026-11-15: the fixes reused where the same cause shows, not copied blindly. Same reasoning as Manufactorum's rows above | Waste Management's wall stations and fittings are not drawn…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-7F61823E` | LOD-suffix rule and the new maps' real lighting (classic-maps-fidelity, 2026-11-17; client drawing only) | The engine picks LODs by distance and reads each map's own lights, sun and environment regions | One member of each `_LODH/_LODM/_LODC/_LODL` family is drawn (ours: the original's choice is not known), which restores walls and details the earlier rule dropped; lights, sun and regions are read from every `l_lights*` layer without regard to the class's case (data reading). The blend of overlapping regions… | Owner's choices 2026-11-17 after A/B sheets. Spec "Classic PvP maps": LOD-suffix family rule, lighting read from every `l_lights*` layer, environment regions | LOD-suffix rule and the new maps' real lighting…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-38EFA9FB` | Hab Center's floors and what hangs on them: LOD-suffix members the box test says are pieces (hab-center-floor, 2026-11-19; client drawing only, the ten new classic maps) | The engine's own LOD choice (not known); the owner saw Hab Center's floor see-through and its middle empty | A lower-ranked LOD-suffix member (`_LodL`, `_LodM`) is drawn beside the better one when that one covers under half of its box (`MapScene.UncoveredFamilyMembers`; ours, interpretation); coarser copies stay dropped; Manufactorum unchanged; `--old-lod-cover` restores the earlier drawing | The family rule of 2026-11-17 kept one member per family and so lost the floor pieces named `_LodL` beside a small `_LODM` patch. Spec "Classic PvP maps": LOD-suffix coverage | Hab Center's floors and what hangs on them: LOD-suffix…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AD717A23` | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision, 2026-11-06; protocol 57) | Ours (the original's character collision and charge contact are engine code; the owner's playtest: "players never pass directly through other players", "an outer hitbox") | The server stops opponents' moves that would bring their axes within 0.45 m (0.75 m with a charger) as they really stand (a correction when a client's picture was wrong); the charge is met at the first touch of its swept reach anywhere in front and stops at that point; a charge also meets the bodies as they really… | spec "Solid bodies: no passing through, the charge meets what it runs into" | Solid bodies: no passing through, the charge meets what it…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4CC73B37` | Swing step-forward × 1.5 (sim/swing-step, protocol 59) | Each light strike moves the body by its clips' root motion (× 1.625 since feel/melee-charge-2) | Every melee weapon's light strikes (knife, chainsword, power sword, power / chain axe, Ork choppa) × 1.5 more (2.4375 × the clip's): chainsword free swings 5.36 / 3.88 / 5.19 / 3.68 m (were 3.58 / 2.56 / 3.46 / 2.46). Heavy strikes, the heavy classes' kick, the charge and the dash attack unchanged | Owner's request 2026-11-06; the factor is the owner's, an **estimate**; "swing" = light strike is ours; spec "Swing step, the lock-on's lunge and the air jump by mode"; refine register | Swing step-forward × 1.5 (sim/swing-step, protocol 59): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CE8558E0` | Hammer and maul swings step 30 % less (sim/swing-step, protocol 59) | As above (0.82 × 1.625 since anim/hammer-swing) | The thunder hammer's light strikes × 0.7 more (0.574 × 1.625): 5.63 / 5.35 / 4.19 m (were 8.05 / 7.65 / 6.02); the daemon maul the same (**our assumption**: the owner named the hammer) | Owner's request 2026-11-06, an **estimate**; same spec section | Hammer and maul swings step 30 % less (sim/swing-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

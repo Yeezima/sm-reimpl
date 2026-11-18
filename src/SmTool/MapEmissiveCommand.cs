@@ -26,6 +26,35 @@ public static class MapEmissiveCommand
                 { if (parts[0].Equals("lua", StringComparison.OrdinalIgnoreCase)) Console.WriteLine(System.Text.Encoding.Latin1.GetString(data).Replace("\0", ".")); else Dump(SmFormats.Bod.BodDocument.Read(data).Root, 0, "", maxDepth, listLimit); });
             return 0;
         }
+        if (rest.Contains("--classes"))
+        {
+            // hab-center-floor audit: every struct class of every layer of the map's region archive with its count (and the first few object names), to see which placed things the scene reader does not take
+            // (it reads StaticObject, ScreenSpaceDecal and the PhoenixEntity after a BezierCurve only).
+            string cpath = new[] { "wrld", "r000_main" }.Select(r => Path.Combine(gameDir, "data", "chunks", $"{map}__{r}.oppc")).First(File.Exists);
+            using var carc = SmFormats.Obpk.ObpkArchive.Open(cpath);
+            var counts = new SortedDictionary<string, (int N, List<string> Names)>(StringComparer.Ordinal);
+            void Walk(SmFormats.Bod.BodValue v, string layer, int depth)
+            {
+                if (depth > 64) return;
+                switch (v)
+                {
+                    case SmFormats.Bod.BodStruct s:
+                    {
+                        string key = $"{layer,-22} {s.Class.Text}" + (s["Disabled"] is SmFormats.Bod.BodBool { Value: true } ? " (disabled)" : "");
+                        var cur = counts.GetValueOrDefault(key, (0, new List<string>()));
+                        if (cur.Item2.Count < 4) cur.Item2.Add(((s["ObjectName"] ?? s["BlueprintName"] ?? s["Name"]) as SmFormats.Bod.BodString)?.Text ?? "");
+                        counts[key] = (cur.Item1 + 1, cur.Item2);
+                        foreach (var f in s.Fields) Walk(f.Value, layer, depth + 1);
+                        break;
+                    }
+                    case SmFormats.Bod.BodList l: foreach (var i in l.Items) Walk(i.Value, layer, depth + 1); break;
+                    case SmFormats.Bod.BodRef r: Walk(r.Value, layer, depth + 1); break;
+                }
+            }
+            carc.ReadEntries(e => carc.GroupName(e) == "Layer", (e, data) => { try { Walk(SmFormats.Bod.BodDocument.Read(data).Root, e.FileName, 0); } catch (Exception ex) { Console.WriteLine($"{e.FileName}: unreadable: {ex.Message}"); } });
+            foreach (var (k, (n, names)) in counts) Console.WriteLine($"{k,-60} {n,5}  {string.Join(", ", names.Distinct())}");
+            return 0;
+        }
         if (rest.Contains("--visual-fields"))
         {
             // classic-maps-fidelity: every distinct value of the StaticMeshVisual fields LODType, FadeStartDistance, FadeEndDistance, DrawOrder, LODLevel, IsStatic, DecalReceiver and Renderable over the map's object
@@ -322,6 +351,86 @@ public static class MapEmissiveCommand
                 Console.WriteLine($"{k,-52} x{n,3} scale e.g. {sc.X:0.##},{sc.Y:0.##},{sc.Z:0.##}: S*R*T {a / n:0.00}   R*S*T {b / n:0.00}");
             return 0;
         }
+        if (rest.Contains("--floor-audit"))
+        {
+            // hab-center-floor audit: walkable floor (an upward-facing triangle of the character collision, normal.Z > 0.5) with no drawn surface within 0.5 m of its height at the same X,Y.
+            // Samples every --step m (default 2) over the box --box x0,y0,x1,y1 (default: the box of the placements); the drawn surfaces are every triangle of the placed parts'
+            // nearest-LOD meshes (sky boxes left out). "bare": nothing drawn there; "cutout": only BlendMode 8/10 surfaces (alpha cut-outs); "ok": an opaque surface.
+            var world = MapContent.Load(gameDir, map).ToCollisionWorld();
+            float step = float.TryParse(rest.SkipWhile(a => a != "--step").Skip(1).FirstOrDefault(), out var st) ? st : 2f;
+            const float cell = 8f;
+            var grid = new Dictionary<(int, int), List<(System.Numerics.Vector3 A, System.Numerics.Vector3 B, System.Numerics.Vector3 C, bool Cut, string Name)>>();
+            var box = new[] { float.MaxValue, float.MaxValue, float.MinValue, float.MinValue };
+            foreach (var o in scene.Objects)
+            {
+                var t = o.Transform.Translation; box[0] = Math.Min(box[0], t.X); box[1] = Math.Min(box[1], t.Y); box[2] = Math.Max(box[2], t.X); box[3] = Math.Max(box[3], t.Y);
+                if (!scene.TryGetDefinition(o, out var def)) continue;
+                foreach (var v in def.DrawnParts(false))
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh) || v.MeshId >= mesh.Blocks.Count) continue;
+                    var block = mesh.Blocks[v.MeshId]; var m = v.NodeTransform * o.Transform;
+                    foreach (var range in block.Materials)
+                    {
+                        var bm = scene.Materials.GetValueOrDefault(range.Name);
+                        if (bm?.ShaderName is { } sh && sh.StartsWith("sky_", StringComparison.Ordinal)) continue;
+                        bool cut = bm is not null && bm.BlendMode != 255;
+                        int count = range.IndexCount - range.IndexCount % 3;
+                        if (count < 3 || range.StartIndex < 0 || range.StartIndex + count > block.Indices.Length) continue;
+                        for (int i = 0; i < count; i += 3)
+                        {
+                            int a = block.Indices[range.StartIndex + i], b = block.Indices[range.StartIndex + i + 1], c = block.Indices[range.StartIndex + i + 2];
+                            if (a >= block.Positions.Length || b >= block.Positions.Length || c >= block.Positions.Length) continue;
+                            var pa = System.Numerics.Vector3.Transform(block.Positions[a], m); var pb = System.Numerics.Vector3.Transform(block.Positions[b], m); var pc = System.Numerics.Vector3.Transform(block.Positions[c], m);
+                            int x0 = (int)Math.Floor(Math.Min(pa.X, Math.Min(pb.X, pc.X)) / cell), x1 = (int)Math.Floor(Math.Max(pa.X, Math.Max(pb.X, pc.X)) / cell);
+                            int y0 = (int)Math.Floor(Math.Min(pa.Y, Math.Min(pb.Y, pc.Y)) / cell), y1 = (int)Math.Floor(Math.Max(pa.Y, Math.Max(pb.Y, pc.Y)) / cell);
+                            if ((x1 - x0 + 1) * (y1 - y0 + 1) > 400) continue;
+                            for (int gx = x0; gx <= x1; gx++) for (int gy = y0; gy <= y1; gy++)
+                            { if (!grid.TryGetValue((gx, gy), out var l)) grid[(gx, gy)] = l = []; l.Add((pa, pb, pc, cut, o.Definition + "/" + v.MeshName + "#" + v.MeshId + " " + range.Name)); }
+                        }
+                    }
+                }
+            }
+            if (rest.SkipWhile(a => a != "--box").Skip(1).FirstOrDefault() is { } bx && bx.Split(',').Select(s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray() is { Length: 4 } bv) box = bv;
+            // 0 = ok (opaque), 1 = cutout only, 2 = bare
+            var zr = (rest.SkipWhile(a => a != "--z").Skip(1).FirstOrDefault() ?? "-1000,1000").Split(',').Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray(); float zLo = zr[0], zHi = zr[1];
+            int ok = 0, cutN = 0, bare = 0;
+            var ascii = new SortedDictionary<float, System.Text.StringBuilder>();
+            var bareList = new List<System.Numerics.Vector3>();
+            for (float y = box[1]; y <= box[3]; y += step)
+            {
+                var sb = new System.Text.StringBuilder();
+                for (float x = box[0]; x <= box[2]; x += step)
+                {
+                    char ch = ' '; float z0 = 200f;
+                    for (int level = 0; level < 8; level++)
+                    {
+                        var hit = world.Character.Raycast(new System.Numerics.Vector3(x, y, z0), -System.Numerics.Vector3.UnitZ, 400f);
+                        if (hit is null) break;
+                        z0 = hit.Value.Point.Z - 0.05f;
+                        if (hit.Value.Normal.Z < 0.5f) continue;
+                        float fz = hit.Value.Point.Z; if (fz < zLo || fz > zHi) continue; bool opaque = false, cutout = false;
+                        if (grid.TryGetValue(((int)Math.Floor(x / cell), (int)Math.Floor(y / cell)), out var tris))
+                            foreach (var (a, b, c, cut, name) in tris)
+                            {
+                                float d = (b.Y - c.Y) * (a.X - c.X) + (c.X - b.X) * (a.Y - c.Y); if (Math.Abs(d) < 1e-9f) continue;
+                                float u = ((b.Y - c.Y) * (x - c.X) + (c.X - b.X) * (y - c.Y)) / d, w = ((c.Y - a.Y) * (x - c.X) + (a.X - c.X) * (y - c.Y)) / d, r = 1 - u - w;
+                                if (u < 0 || w < 0 || r < 0) continue;
+                                if (rest.Contains("--probe")) Console.WriteLine($"  probe {x:0},{y:0} floor {fz:0.0}: tri z {u * a.Z + w * b.Z + r * c.Z:0.0} {name}{(cut ? " (cut-out)" : "")}");
+                                if (Math.Abs(u * a.Z + w * b.Z + r * c.Z - fz) <= 0.5f) { if (cut) cutout = true; else opaque = true; }
+                            }
+                        char here = opaque ? '#' : cutout ? 'o' : '.';
+                        if (here == '#') ok++; else if (here == 'o') cutN++; else { bare++; if (bareList.Count < 4000) bareList.Add(new System.Numerics.Vector3(x, y, fz)); }
+                        if (ch == ' ' || here == '.' || (here == 'o' && ch == '#')) ch = here;   // the worst floor of the column
+                    }
+                    sb.Append(ch);
+                }
+                ascii[y] = sb;
+            }
+            Console.WriteLine($"{map} floor audit step {step} m over {box[0]:0},{box[1]:0} to {box[2]:0},{box[3]:0}: opaque {ok}, cut-out only {cutN}, bare {bare} (collision floor samples)");
+            if (rest.Contains("--ascii")) foreach (var (y, sb) in ascii.Reverse()) Console.WriteLine($"{y,6:0} {sb}");
+            foreach (var p in bareList.Take(rest.Contains("--all-bare") ? 4000 : 60)) Console.WriteLine($"  bare {p.X:0},{p.Y:0},{p.Z:0.0}");
+            return 0;
+        }
         if (rest.Contains("--col-audit"))
         {
             // classic-maps-fidelity: for every drawn placement (nearest LOD) with a large box, the share of sampled vertices that lie within 0.6 m of the level's character or weapon collision
@@ -366,6 +475,27 @@ public static class MapEmissiveCommand
             var names = scene.Definitions.Values.Where(d => placed.Contains(d.Name)).SelectMany(d => d.Visuals.Select(v => v.RefNode)).Where(n => n.Contains("lod", StringComparison.OrdinalIgnoreCase)).ToList();
             var unmatched = names.Where(n => ObjectDefinition.LodFamily(n) is null).GroupBy(n => n).OrderBy(g => g.Key).ToList();
             Console.WriteLine($"{map}: {names.Count} node names with 'lod', {names.Count(n => ObjectDefinition.LodFamily(n) is not null)} read as family members, {unmatched.Sum(g => g.Count())} not read ({unmatched.Count} distinct){(unmatched.Count > 0 ? ": " + string.Join(", ", unmatched.Take(12).Select(g => g.Key)) : "")}");
+            return 0;
+        }
+        if (rest.Contains("--lod-cover"))
+        {
+            // hab-center-floor: the family members the LOD-suffix family rule drops that MapScene.DrawnParts(keepUncovered) draws again (their better-ranked siblings do not cover their box), per definition
+            // with the placements, triangles and the member's and the siblings' boxes; totals for the map.
+            var counts3 = scene.Objects.GroupBy(o => o.Definition, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+            int cDefs = 0, cPlaces = 0; long cTris = 0;
+            foreach (var def in scene.Definitions.Values.Where(d => counts3.ContainsKey(d.Name)).OrderBy(d => d.Name))
+            {
+                var extra = scene.UncoveredFamilyMembers(def);
+                if (extra.Count == 0) continue;
+                cDefs++; cPlaces += counts3[def.Name];
+                foreach (var v in def.Visuals.Where(extra.Contains))
+                {
+                    int tris = scene.Meshes.TryGetValue(v.MeshName, out var mesh) && v.MeshId < mesh.Blocks.Count ? mesh.Blocks[v.MeshId].Indices.Length / 3 : 0;
+                    cTris += (long)tris * counts3[def.Name];
+                    Console.WriteLine($"{def.Name} x{counts3[def.Name]}: {v.RefNode} id{v.MeshId} mask {v.LodLevel} tris {tris}");
+                }
+            }
+            Console.WriteLine($"{map}: {cDefs} definitions, {cPlaces} placements get extra family members; {cTris} extra triangles in all");
             return 0;
         }
         if (rest.Contains("--lod-families"))
@@ -438,6 +568,31 @@ int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
                 if (flagged.Count == 0) continue;
                 Console.WriteLine($"{def.Name} x{counts[def.Name]}");
                 foreach (var i in flagged.Order()) { var p = parts[i]; Console.WriteLine($"    {p.v.MeshName} id{p.v.MeshId} node {p.v.RefNode} lod {p.v.LodLevel} tris {p.tris} box {(p.hi - p.lo).X:0.#}x{(p.hi - p.lo).Y:0.#}x{(p.hi - p.lo).Z:0.#}"); }
+            }
+            return 0;
+        }
+        if (rest.SkipWhile(a => a != "--placements").Skip(1).FirstOrDefault() is { } around && around.Split(',') is [var ax, var ay, var ar]
+            && float.TryParse(ax, out var pcx) && float.TryParse(ay, out var pcy) && float.TryParse(ar, out var pcr))
+        {
+            // hab-center-floor audit: every placement whose position is within pcr metres (game X,Y) of the point: layer, definition, whether it resolves, the drawn parts and whether their meshes
+            // loaded, each part's world box. Tells placements the scene lacks (no definition, no mesh) from ones it has but the view loses.
+            foreach (var o in scene.Objects.Where(o => { var t = o.Transform.Translation; return (t.X - pcx) * (t.X - pcx) + (t.Y - pcy) * (t.Y - pcy) <= pcr * pcr; })
+                         .OrderBy(o => o.Layer, StringComparer.Ordinal).ThenBy(o => o.Definition, StringComparer.Ordinal))
+            {
+                var t = o.Transform.Translation;
+                if (!scene.TryGetDefinition(o, out var def)) { Console.WriteLine($"{o.Layer,-20} {o.Definition,-34} at {t.X,6:0},{t.Y,6:0},{t.Z,6:0}  NO DEFINITION"); continue; }
+                var parts = def.DrawnParts(false).ToList();
+                var desc = new List<string>();
+                foreach (var v in parts)
+                {
+                    if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) { desc.Add($"{v.MeshName}:NO MESH"); continue; }
+                    var lo = new System.Numerics.Vector3(float.MaxValue); var hi = new System.Numerics.Vector3(float.MinValue);
+                    var m = v.NodeTransform * o.Transform;
+                    if (v.MeshId < mesh.Blocks.Count) foreach (var p in mesh.Blocks[v.MeshId].Positions) { var w = System.Numerics.Vector3.Transform(p, m); lo = System.Numerics.Vector3.Min(lo, w); hi = System.Numerics.Vector3.Max(hi, w); }
+                    var mats = v.MeshId < mesh.Blocks.Count ? string.Join("/", mesh.Blocks[v.MeshId].Materials.Select(r => $"{r.Name}[{scene.Materials.GetValueOrDefault(r.Name)?.BlendMode.ToString() ?? "?"},{scene.Materials.GetValueOrDefault(r.Name)?.CullMode.ToString() ?? "?"}]")) : "NO BLOCK";
+                    desc.Add($"{v.MeshName}#{v.MeshId} lod{v.LodLevel} box {(hi - lo).X:0.#}x{(hi - lo).Y:0.#}x{(hi - lo).Z:0.#} z {lo.Z:0.#}..{hi.Z:0.#} {mats}");
+                }
+                Console.WriteLine($"{o.Layer,-20} {o.Definition,-34} at {t.X,6:0},{t.Y,6:0},{t.Z,6:0}  {(parts.Count == 0 ? "NO DRAWN PART" : string.Join(" | ", desc))}");
             }
             return 0;
         }

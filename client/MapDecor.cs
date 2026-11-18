@@ -73,6 +73,10 @@ public static class MapDecor
     public static bool OldLodRule => _oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0;
     static bool? _oldLod;
 
+    /// <summary>hab-center-floor: <c>--old-lod-cover</c> is the before aid: only one member per LOD-suffix family is drawn even where its better-ranked sibling covers a small part of it (Hab Center's floors were missing).</summary>
+    public static bool OldLodCover => _oldCover ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-cover") >= 0;
+    static bool? _oldCover;
+
     /// <summary>classic-maps-fidelity: <c>--old-map-lighting</c> reads only the layer <c>l_lights</c> and lowercase light classes, as before (every <c>MapScene.Load</c> of the client passes this).</summary>
     public static bool OldMapLighting => _oldLight ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-map-lighting") >= 0;
     static bool? _oldLight;
