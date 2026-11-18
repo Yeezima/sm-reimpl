@@ -125,9 +125,9 @@ public partial class NetworkView
         if (_musouLooks is null)
         {
             if (Orks() is not { } orks) return;
-            WarfrontCrowdPerf();   // Warfront perf pass (NetworkView.WarfrontPerf.cs): before any look bakes
+            WarfrontCrowdPerf();   // WARFRONT-HOOK: Warfront perf pass (NetworkView.WarfrontPerf.cs): before any look bakes
             _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook, guns: MusouGunsOn);
-            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween, OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
+            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? (MusouCrowd.VisibleOverride > 0 ? MusouCrowd.VisibleOverride : MusouCrowd.DefaultVisible), NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween, OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_musouCrowd);
         }
         var watch = System.Diagnostics.Stopwatch.StartNew();

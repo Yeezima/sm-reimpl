@@ -91,7 +91,7 @@ public abstract partial class CrowdView : Node3D
     /// <summary>Test aid: the tier switch before crowd-smooth (no <see cref="SkinnedHoldMetres"/>).</summary>
     public bool OldTierSwitch { get; set; }
     /// <summary>Test aid (warfront perf pass): <c>--crowd-no-shadow</c>, the far tier casts no shadows (to measure what the sun's cascades cost; the look changes, so it is not a default).</summary>
-    public static bool FarNoShadow { get; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--crowd-no-shadow") >= 0;
+    public static bool FarNoShadow { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--crowd-no-shadow") >= 0;
     /// <summary>Test aid: <c>--musou-crowd-one-batch</c>, one far batch per look over the whole crowd (before musou/perf-pass).</summary>
     public static bool OneBatch { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-crowd-one-batch") >= 0;
     /// <summary>Far batches with members this frame (the profile's).</summary>
