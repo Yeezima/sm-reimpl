@@ -12,7 +12,7 @@ internal sealed record StagedAsset(AssetInfo Info, string SourceDir, string Main
 /// One batch in flight: a working copy of the document plus pending prefabs and assets. Nothing reaches the library or the session until the
 /// session commits it, so a failing operation leaves no trace (docs/mapmaker.md "one transaction").
 /// </summary>
-internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1) : MapContext(library, sm1)
+internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1) : MapContext(library, sm1)
 {
     public MapDocument Doc { get; } = doc;
     public SortedDictionary<string, Prefab> Prefabs { get; } = new(StringComparer.Ordinal);
@@ -57,6 +57,7 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
             case "import-asset": ImportAsset(op); break;
             case "import-prefab": ImportPrefab(op); break;
             case "extract-sm1": ExtractSm1(op); break;
+            case "import-sm1-map": ImportSm1Map(op); break;
             default: throw new MapException("bad-op", $"Unknown operation '{name}'.");
         }
     }
