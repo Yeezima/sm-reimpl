@@ -342,6 +342,7 @@ public sealed class PackageScannerTests : IDisposable
         Assert.DoesNotContain(findings, f => f.Entry == "game/assets/menu/menu-concept-loop.ogv");
         Assert.Contains(findings, f => f.Entry == "game/assets/menu/menu.mp4");
         Assert.Contains(findings, f => f.Entry == "a/odd.xyz");
+        Assert.Contains(findings, f => f.Entry == "a/noext");
     }
 
     /// <summary>A Godot pack of format 4 as the 4.7.2 exporter writes it: header (112 bytes), directory of length-prefixed padded names, then (embedded) size and "GDPC".</summary>
