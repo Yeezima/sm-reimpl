@@ -209,7 +209,7 @@ public partial class NetworkView
                 try
                 {
                     if (_sun is not null && _environment is not null
-                        && MapLightingView.Apply(scene.Lighting, _sun, _environment, visualNotes, out lightingNote, out _blender) is { } placed)
+                        && MapLightingView.Apply(scene.Lighting, _sun, _environment, visualNotes, out lightingNote, out _blender, scene.GradeLookup) is { } placed)
                         _gameSpace?.AddChild(placed);
                 }
                 catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))

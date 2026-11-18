@@ -95,6 +95,14 @@ public sealed class MapScene
     /// <summary>The <c>l_lights</c> layer's sun, environment regions and placed lights (null: the map has none or it could not be read).</summary>
     public MapLighting? Lighting { get; init; }
     public required IReadOnlyList<string> Notes { get; init; }
+    /// <summary>The static level decals (<c>ScreenSpaceDecal</c> objects of the layers); empty when a map has none or the scene was built without them.</summary>
+    public IReadOnlyList<PlacedDecal> Decals { get; init; } = [];
+    /// <summary>The <c>ssdecal</c> entries of the archive by name (their textures are in <see cref="Textures"/>).</summary>
+    public IReadOnlyDictionary<string, MapDecalDefinition> DecalDefinitions { get; init; } = new Dictionary<string, MapDecalDefinition>();
+
+    /// <summary>The raw DDS bytes of a colour-grade material's <c>lookup</c> volume (a region's <see cref="ColourGradeDesc"/>); null when the material or texture is not in the archive.</summary>
+    public byte[]? GradeLookup(string material) =>
+        Materials.TryGetValue(material, out var m) && m.Textures.TryGetValue("lookup", out var name) && Textures.TryGetValue(name, out var bytes) ? bytes : null;
 
     /// <summary>Degrees about X, then Y, then Z (fixed axes).</summary>
     public static Quaternion Rotation(float xDegrees, float yDegrees, float zDegrees)
@@ -128,24 +136,30 @@ public sealed class MapScene
     {
         var notes = new List<string>();
         var objects = new List<PlacedObject>();
+        var decals = new List<PlacedDecal>();
+        var decalDefinitions = new Dictionary<string, MapDecalDefinition>(StringComparer.OrdinalIgnoreCase);
         MapLighting? lighting = null;
         var definitions = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase);
         using var archive = ObpkArchive.Open(archivePath);
 
         // Pass 1: layers and object definitions.
-        archive.ReadEntries(e => archive.GroupName(e) is "Layer" or "O3d", (e, data) =>
+        archive.ReadEntries(e => archive.GroupName(e) is "Layer" or "O3d" or "ssdecal", (e, data) =>
         {
             try
             {
                 var root = BodDocument.Read(data).Root;
                 if (archive.GroupName(e) == "Layer")
                 {
-                    CollectObjects(root, e.FileName, Matrix4x4.Identity, objects, 0);
+                    CollectObjects(root, e.FileName, Matrix4x4.Identity, objects, 0, decals);
                     if (extendedLighting ? e.FileName.StartsWith("l_lights", StringComparison.OrdinalIgnoreCase) : e.FileName.Equals("l_lights", StringComparison.OrdinalIgnoreCase))
                     {
                         var read = MapLighting.Read(root, extendedLighting);
                         lighting = lighting is null ? read : MapLighting.Combine([lighting, read]);
                     }
+                }
+                else if (archive.GroupName(e) == "ssdecal")
+                {
+                    if (MapDecalDefinition.Read(e.FileName, root) is { } decal) decalDefinitions.TryAdd(e.FileName, decal);
                 }
                 else definitions.TryAdd(e.FileName, Definition(e.FileName, root));
             }
@@ -183,12 +197,20 @@ public sealed class MapScene
         var wanted = meshes.Values.SelectMany(m => m.Blocks).SelectMany(b => b.Materials).Select(r => r.Name).Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(n => materials.GetValueOrDefault(n)).OfType<BmatMaterial>()
             .SelectMany(m => TextureParameters.Select(p => m.Textures.GetValueOrDefault(p))).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // The level decals' textures (the definitions the placements name).
+        var usedDecals = decals.Select(d => d.Decal).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in usedDecals.Order(StringComparer.Ordinal))
+            if (decalDefinitions.TryGetValue(name, out var dd)) foreach (var t in dd.TextureNames) wanted.Add(t);
+            else notes.Add($"decal '{name}' not in the archive; its {decals.Count(d => d.Decal.Equals(name, StringComparison.OrdinalIgnoreCase))} placements are not drawn");
+        // The colour grades' look-up volumes (environment regions' ColourGradeEffectDesc: the material's "lookup" texture).
+        foreach (var grade in lighting?.Environments.Select(e => e.Grade).OfType<ColourGradeDesc>() ?? [])
+            if (materials.TryGetValue(grade.Material, out var gm) && gm.Textures.TryGetValue("lookup", out var lut)) wanted.Add(lut);
         var textures = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textures.TryAdd(e.FileName, data.ToArray()));
 
         return new MapScene
         {
-            Map = map, Objects = objects, Definitions = definitions, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes,
+            Map = map, Objects = objects, Definitions = definitions, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions,
         };
     }
 
@@ -196,7 +218,7 @@ public sealed class MapScene
     /// Enabled <c>StaticObject</c>s anywhere in a layer's tree. Objects nested as <c>ChildObjects</c> of a group are
     /// placed relative to it (the group's own transform, when it has one).
     /// </summary>
-    static void CollectObjects(BodValue value, string layer, Matrix4x4 parent, List<PlacedObject> objects, int depth, int childDepth = 0)
+    static void CollectObjects(BodValue value, string layer, Matrix4x4 parent, List<PlacedObject> objects, int depth, List<PlacedDecal> decals, int childDepth = 0)
     {
         if (depth > 64) return;
         switch (value)
@@ -207,14 +229,30 @@ public sealed class MapScene
                 var world = Local(s) * parent;
                 if (s.Class.Text == "StaticObject" && s["ObjectName"] is BodString { Text: { Length: > 0 } definition })
                     objects.Add(new PlacedObject((s["Name"] as BodString)?.Text ?? "", definition, layer, world, childDepth));
+                else if (s.Class.Text == "ScreenSpaceDecal" && s["SSDName"] is BodString { Text: { Length: > 0 } decal } && PlacedDecalFrom(s, decal, layer, world) is { } placed)
+                    decals.Add(placed);
                 foreach (var f in s.Fields)
                     if (f.Name.Text is "Root" or "Objects" or "ChildObjects")
-                        CollectObjects(f.Value, layer, f.Name.Text == "ChildObjects" ? world : parent, objects, depth + 1, f.Name.Text == "ChildObjects" ? childDepth + 1 : childDepth);
+                        CollectObjects(f.Value, layer, f.Name.Text == "ChildObjects" ? world : parent, objects, depth + 1, decals, f.Name.Text == "ChildObjects" ? childDepth + 1 : childDepth);
                 break;
             }
-            case BodList l: foreach (var item in l.Items) CollectObjects(item.Value, layer, parent, objects, depth + 1, childDepth); break;
-            case BodRef r: CollectObjects(r.Value, layer, parent, objects, depth + 1, childDepth); break;
+            case BodList l: foreach (var item in l.Items) CollectObjects(item.Value, layer, parent, objects, depth + 1, decals, childDepth); break;
+            case BodRef r: CollectObjects(r.Value, layer, parent, objects, depth + 1, decals, childDepth); break;
         }
+    }
+
+    /// <summary>A <c>ScreenSpaceDecal</c>'s box: the world transform split into rotation and translation and the size (the scale's magnitudes); null for a degenerate transform.</summary>
+    static PlacedDecal? PlacedDecalFrom(BodStruct s, string decal, string layer, Matrix4x4 world)
+    {
+        if (!Matrix4x4.Decompose(world, out var scale, out var rotation, out var translation)) return null;
+        var size = Vector3.Abs(scale);
+        if (!(size.X > 1e-4f && size.Y > 1e-4f && size.Z > 1e-4f)) return null;
+        static bool Flag(BodStruct s, string name) => s[name] is BodBool { Value: true };
+        return new PlacedDecal((s["Name"] as BodString)?.Text ?? "", decal, layer, Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(translation), size,
+            Flag(s, "OverrideColor") ? MapDecalDefinition.Rgb(s["Color"], Vector3.One) : null,
+            Flag(s, "OverrideEmissiveColor") ? MapDecalDefinition.Rgb(s["EmissiveColor"], Vector3.One) : null,
+            Flag(s, "OverrideOpacity") ? MapDecalDefinition.Number(s["Opacity"], 1f) : null,
+            s["DrawOrder"] is BodInt { Value: var order } ? order : 0);
     }
 
     /// <summary>Position, Rotation and Scale of a struct; each missing or malformed one defaults (0, 0, 1) on its own.</summary>

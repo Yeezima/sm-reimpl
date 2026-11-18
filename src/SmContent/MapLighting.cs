@@ -27,6 +27,9 @@ public sealed record FogDesc(Vector4 NearColour, Vector4 FarColour, float Range,
 /// <summary>An <c>AmbientDesc</c>: hemisphere ambient colours (lower = ground side, upper = sky side).</summary>
 public sealed record AmbientDesc(Vector3 Lower, Vector3 Upper, float Saturation, float SsaoMultiplier, bool SsaoDisabled);
 
+/// <summary>An environment region's <c>ColourGradeEffectDesc</c>: a colour-grade material (<c>colourgrade</c> shader, a 32x32x32 volume texture named by its <c>lookup</c> parameter) and the seconds it blends in over.</summary>
+public sealed record ColourGradeDesc(string Material, float BlendSeconds);
+
 public sealed record HdrDesc(float BrightThresholdMin, float BrightThresholdMax, float BloomIntensity, float BloomPersistence);
 
 /// <summary>
@@ -36,6 +39,9 @@ public sealed record HdrDesc(float BrightThresholdMin, float BrightThresholdMax,
 public sealed record MapEnvironment(string Name, int Priority, Vector3 Centre, Vector3 Size, FogDesc? Fog, AmbientDesc? Ambient,
     SunLight? Sun, HdrDesc? Hdr)
 {
+    /// <summary>The region's colour grade (classic-maps-fidelity fix 4); null when it has none (every region but Dome Mechanicus' <c>_EnvReg_trainstation</c>).</summary>
+    public ColourGradeDesc? Grade { get; init; }
+
     /// <summary>0 outside the box; inside, rising smoothly (smoothstep) from 0 at a face to 1 at <paramref name="feather"/> metres in.</summary>
     public float Weight(Vector3 p, float feather)
     {
@@ -133,7 +139,7 @@ public sealed class MapLighting
 
     static MapEnvironment Environment(BodStruct s, Matrix4x4 world)
     {
-        FogDesc? fog = null; AmbientDesc? ambient = null; SunLight? sun = null; HdrDesc? hdr = null;
+        FogDesc? fog = null; AmbientDesc? ambient = null; SunLight? sun = null; HdrDesc? hdr = null; ColourGradeDesc? grade = null;
         foreach (var d in Items(s["EnvironmentDescs"]).OfType<BodStruct>())
             switch (d.Class.Text)
             {
@@ -157,6 +163,9 @@ public sealed class MapLighting
                         (int)(Num(d["NumSunSplits"]) ?? 4f), Num(d["FarSunDistance"]) ?? 400f);
                     break;
                 }
+                case "ColourGradeEffectDesc" when d["MaterialName"] is BodString { Text: { Length: > 0 } material }:
+                    grade = new ColourGradeDesc(material, Num(d["BlendDuration"]) ?? 0f);
+                    break;
                 case "HDRDesc":
                     hdr = new HdrDesc(Num(d["BrightThresholdMin"]) ?? 0f, Num(d["BrightThresholdMax"]) ?? 1f, Num(d["BloomIntensity"]) ?? 1f, Num(d["BloomPersistence"]) ?? 0f);
                     break;
@@ -164,7 +173,7 @@ public sealed class MapLighting
         // The region's Scale is its box size, so only the position comes from the transform.
         var size = Vec3(s["Scale"]) ?? Vector3.One;
         return new MapEnvironment((s["Name"] as BodString)?.Text ?? "", (int)(Num(s["Priority"]) ?? 0f),
-            new Vector3(world.M41, world.M42, world.M43), size, fog, ambient, sun, hdr);
+            new Vector3(world.M41, world.M42, world.M43), size, fog, ambient, sun, hdr) { Grade = grade };
     }
 
     /// <summary>One gradient stop: an array [position, [r, g, b, a]] with the colour as bytes (0-255) or floats.</summary>

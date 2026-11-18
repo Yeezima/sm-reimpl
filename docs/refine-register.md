@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3461 spec table rows: **2475 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
+Scanned 3464 spec table rows: **2478 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 767 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,20 +50,20 @@ Scanned 3461 spec table rows: **2475 tagged**, 635 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 738 | 695 | 525 | 189 | 1 |
+| Core simulation (provisional values) | 741 | 697 | 527 | 191 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2475** | 2197 | 1834 | 738 | 37 |
+| **All areas** | **2478** | 2199 | 1836 | 740 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1466 |
-| confidence: low | 885 |
-| confidence: medium | 840 |
-| notes: ours | 405 |
-| kind: interpretation | 395 |
+| confidence: low | 886 |
+| confidence: medium | 841 |
+| notes: ours | 406 |
+| kind: interpretation | 397 |
 | notes: estimate | 207 |
 | kind: estimate | 174 |
 | confidence: none (low) | 109 |
@@ -77,7 +77,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 27 |
 | kind: approximation | 25 |
 | kind: placeholder | 23 |
-| notes: open question | 20 |
+| notes: open question | 21 |
 | kind: gap (not reproduced) | 19 |
 | notes: placeholder | 19 |
 | notes: not reproduced (gap) | 13 |
@@ -2579,7 +2579,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (738)
+### Core simulation (provisional values) (741)
 
 *Spec section: Provisional values in use*
 
@@ -3172,6 +3172,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-919221A1` | Sky boxes not drawn | surfaces whose material shader starts with `sky_` (`seq_NN_sky`, YCoCg textures) are not drawn as map geometry; the lighting's sky shows | kind: interpretation; confidence: medium | in-game views before and after (`smtool map-emissive --material Around,TopBottom`) | Sky boxes not drawn: compare with SM1 by feel or video. Ours: surfaces whose material shader starts with sky_ (seq_NN_sky, YCoCg… | ☐ |
 | `R-0B5A6BE0` | Sky boxes drawn as a sky | the sky-box surfaces (shader `sky_*`; only on the ten new maps, never Manufactorum) are drawn round the camera from their `YCoCg` texture (DXT5: Co R, Cg G, scale B, luma Y in alpha; V read as V+1) first in the opaque pass with a depth just in front of the… | kind: interpretation; confidence: medium | in-game views before and after (the decoded texture shows a sunset); `--no-sky-textures` | Sky boxes drawn as a sky: compare with SM1 by feel or video. Ours: the sky-box surfaces (shader sky_*; only on the ten new maps, never… | ☐ |
 | `R-260E1409` | LOD-suffix family rule (classic-maps-fidelity, 2026-11-17; client drawing only) | of an object's parts with LODLevel bit 0, nodes whose names differ only in a LOD suffix (`_LODH`, `_LODM`, `_LODC`, `_LODL`, also `lod_l`, a number after the kind (`_LODL01`), a variant tag (`_LODL_b`, `LODHB`) or a bare `_LOD` read as low; stem equal, case… | kind: interpretation; confidence: medium; notes: ours | A/B stills (Hab Center walls restored); `smtool map-emissive --lod-families`, `--lod-names` (all 1034 node names containing `lod` on the 11 maps read as… | LOD-suffix family rule (classic-maps-fidelity, 2026-11-17…: compare with SM1 by feel or video. Ours: of an object's parts with LODLevel bit 0, nodes whose names differ… | ☐ |
+| `R-0E4E6CB9` | Static level decals drawn (classic-maps-fidelity fix 1, 2026-11-18; client drawing only) | every `ScreenSpaceDecal` object of a layer (`SSDName` = the archive's `ssdecal` entry: diffuse, normal, emissive maps, `AdditiveBlend`, colour, opacity) is a projected box: the node's rotation and translation, its Scale as the box size, the projection along… (160 / 70 m / 20 m) | kind: interpretation; confidence: medium; notes: ours | the data's box sizes equal the `ssdecal` Width / Depth / Height (painted number 1: 1 x 0.1 x 2); before / after stills in the owner's media folder | Static level decals drawn (classic-maps-fidelity fix 1…: compare with SM1 by feel or video. Ours: every ScreenSpaceDecal object of a layer (SSDName = the archive's… | ☐ |
+| `R-8637DCD9` | DCM type-2 block with a bare trailer (classic-maps-fidelity fix 2) | a type-2 block whose single material record's last u32 is 0 has no entry u32: only `offset`, `size` (8 bytes) follow the record; the range starts at the next 16-byte boundary after the attribute stream and ends the block, as with the 1- and 2-entry variants.… (0 entries) | notes: open question | the four meshes read with exact body coverage; synthetic fixture in `ArmourPiecesTests` | DCM type-2 block with a bare trailer (classic-maps-fidelity…: compare with SM1 by feel or video. Ours: a type-2 block whose single material record's last u32 is 0 has no… | ☐ |
+| `R-E712BCE5` | Environment region colour grade (classic-maps-fidelity fix 4) | a region's `ColourGradeEffectDesc` (`BlendDuration` seconds, `MaterialName` of a `colourgrade` material whose `lookup` is a 32x32x32 DDS volume, 32 bit) is applied as Godot's 3D colour-correction texture after the tone mapping, mixed with the ungraded image… (3 s) | kind: interpretation; confidence: low | the data dump (the desc is on that one map of 11); before / after stills | Environment region colour grade (classic-maps-fidelity fix…: compare with SM1 by feel or video. Ours: a region's ColourGradeEffectDesc (BlendDuration seconds, MaterialName… | ☐ |
 | `R-60B0A5EF` | Environment regions of the new maps: priority and blend (classic-maps-fidelity, 2026-11-17) | Hab Center has six regions (`_globalEnvReg` priority 1, 700 m box; `_globalEnvReg_Long_Hall` and `_Side_warm` priority 2, smaller boxes, others): the client applies the lowest priority as the map-wide one and the others over it in ascending priority, each… (m, s) | kind: ours; confidence: low | Hab Center region dump (`smtool map-emissive --bod Layer:l_lights_envregs`) | Environment regions of the new maps: priority and blend…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Hab Center has six regions (_globalEnvReg priority 1, 700 m box… | ☐ |
 | `R-16083E13` | Self-lit cards unlit | `diff_emis` materials whose `EmissiveMap` equals their `DiffuseMap` draw as the picture, unlit, with no emission | kind: interpretation; confidence: low | before and after views (Shattered Bridge, Aquila Canyon) | Self-lit cards unlit: compare with SM1 by feel or video. Ours: diff_emis materials whose EmissiveMap equals their DiffuseMap draw as… | ☐ |
 | `R-B0993FDD` | Second UV set for `diffuv1` shaders | materials whose shader name starts with `diffuv1` take diffuse, normal and specular through UV set 1 | kind: interpretation; confidence: medium | the shader name; the rock normal map is a unique bake | Second UV set for diffuv1 shaders: compare with SM1 by feel or video. Ours: materials whose shader name starts with diffuv1 take diffuse, normal… | ☐ |

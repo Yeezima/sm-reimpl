@@ -150,7 +150,7 @@ public static class MapLightingView
     /// returns the lights node (game space, Z up) to add under the map; null when the map has no lighting data.
     /// </summary>
     public static Node3D? Apply(MapLighting? lighting, DirectionalLight3D sun, Godot.Environment environment, List<string> notes, out string summary,
-                                out EnvironmentBlender? blender)
+                                out EnvironmentBlender? blender, Func<string, byte[]?>? gradeLookup = null)
     {
         summary = "lighting: provisional approximation (no l_lights data)";
         blender = null;
@@ -163,7 +163,7 @@ public static class MapLightingView
         PendingGlobal.Clear();
         try
         {
-            var placed = ApplyCore(lighting, sun, environment, notes, out summary, out blender);
+            var placed = ApplyCore(lighting, sun, environment, notes, out summary, out blender, gradeLookup);
             foreach (var apply in PendingGlobal) apply();
             return placed;
         }
@@ -204,7 +204,7 @@ public static class MapLightingView
     }
 
     static Node3D? ApplyCore(MapLighting lighting, DirectionalLight3D sun, Godot.Environment environment, List<string> notes, out string summary,
-                             out EnvironmentBlender? blender)
+                             out EnvironmentBlender? blender, Func<string, byte[]?>? gradeLookup = null)
     {
         summary = "lighting: provisional approximation (no l_lights data)";
         blender = null;
@@ -222,7 +222,7 @@ public static class MapLightingView
         }
         if (region is not null)
         {
-            blender = new EnvironmentBlender(lighting, region, sunData, sun, environment);
+            blender = new EnvironmentBlender(lighting, region, sunData, sun, environment, gradeLookup);
             blender.Update(region.Centre);
         }
 
@@ -398,7 +398,55 @@ public static class MapLightingView
         record struct Params(float SunPower, Num.Vector3 SunColour, Num.Vector3 Upper, Num.Vector3 Lower, Num.Vector4 FogNear, Num.Vector4 FogFar, float FogRange,
                              float Bloom, float HdrMin, float HdrMax, float SsaoMultiplier);
 
-        public EnvironmentBlender(MapLighting lighting, MapEnvironment global, SunLight? sunData, DirectionalLight3D sun, Godot.Environment environment)
+        // classic-maps-fidelity fix 4: the regions' colour grades (a region's ColourGradeEffectDesc). The grade chases its region (any weight above 0 = inside) over the data's BlendDuration seconds.
+        MapGradeLut?[] _gradeLuts = [];
+        MapEnvironment[] _gradeRegions = [];   // every region (the global one too: its grade applies everywhere)
+        Gradient? _curve;
+        Texture? _baseCorrection;
+        bool _baseAdjust;
+        float _gradeStrength;
+        int _gradeQuant;
+        ulong _gradeTick;
+        /// <summary>The colour grade's strength now (0..1; 0 when no region with a grade has been entered).</summary>
+        public float GradeStrength => _gradeStrength;
+
+        /// <summary><c>--no-colour-grade</c>: the regions' colour grades are not applied (before / after aid).</summary>
+        static readonly bool NoColourGrade = Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-colour-grade") >= 0;
+
+        float GradeWeight(MapEnvironment e) => ReferenceEquals(e, _global) ? 1f : _weights[Array.IndexOf(_others, e)];
+
+        void SetUpGrades(MapLighting lighting, Func<string, byte[]?>? lookup)
+        {
+            _gradeRegions = lighting.Environments.ToArray();
+            _gradeLuts = _gradeRegions.Select(e => e.Grade is { } g && !NoColourGrade && lookup?.Invoke(g.Material) is { } bytes ? MapGradeLut.Read(bytes) : null).ToArray();
+            if (_gradeLuts.All(l => l is null)) return;
+            _baseCorrection = _environment.AdjustmentColorCorrection;
+            _baseAdjust = _environment.AdjustmentEnabled;
+            _curve = (_baseCorrection as GradientTexture1D)?.Gradient;
+            _gradeTick = Time.GetTicksMsec();
+        }
+
+        void UpdateGrade()
+        {
+            if (_gradeLuts.All(l => l is null)) return;
+            int active = -1;
+            for (int i = 0; i < _gradeRegions.Length; i++) if (_gradeLuts[i] is not null && GradeWeight(_gradeRegions[i]) > 0f && (active < 0 || _gradeRegions[i].Priority >= _gradeRegions[active].Priority)) active = i;
+            ulong now = Time.GetTicksMsec();
+            float dt = (now - _gradeTick) / 1000f; _gradeTick = now;
+            float seconds = active >= 0 ? Math.Max(_gradeRegions[active].Grade!.BlendSeconds, 0.01f) : 1f;
+            float target = active >= 0 ? 1f : 0f;
+            _gradeStrength = Math.Clamp(_gradeStrength + Math.Sign(target - _gradeStrength) * dt / seconds, 0f, 1f);
+            if (MathF.Abs(target - _gradeStrength) < dt / seconds) _gradeStrength = target;
+            int quant = (int)MathF.Round(_gradeStrength * 12f);
+            if (quant == _gradeQuant) return;
+            _gradeQuant = quant;
+            if (quant == 0) { _environment.AdjustmentColorCorrection = _baseCorrection; _environment.AdjustmentEnabled = _baseAdjust; return; }
+            var lut = _gradeLuts[active >= 0 ? active : Array.FindIndex(_gradeLuts, l => l is not null)]!;
+            _environment.AdjustmentEnabled = true;
+            _environment.AdjustmentColorCorrection = lut.Build(quant / 12f, _curve);
+        }
+
+        public EnvironmentBlender(MapLighting lighting, MapEnvironment global, SunLight? sunData, DirectionalLight3D sun, Godot.Environment environment, Func<string, byte[]?>? gradeLookup = null)
         {
             _global = global; _sunData = sunData; _sun = sun; _environment = environment;
             if (global.Ambient is { } ambient)
@@ -431,6 +479,7 @@ public static class MapLightingView
             _others = lighting.Environments.Where(e => !ReferenceEquals(e, global)).OrderBy(e => e.Priority).ToArray();
             _otherParams = _others.Select(For).ToArray();
             _weights = new float[_others.Length];
+            SetUpGrades(lighting, gradeLookup);
         }
 
         Params For(MapEnvironment e)
@@ -466,6 +515,7 @@ public static class MapLightingView
                 _weights[i] = w;
                 if (w > 0f) p = Lerp(p, _otherParams[i], w);
             }
+            UpdateGrade();
             // Re-setting sky colours makes Godot rebuild the radiance map: skip changes too small to see.
             if (_last is { } last && Near(last, p)) return;
             _last = p;
