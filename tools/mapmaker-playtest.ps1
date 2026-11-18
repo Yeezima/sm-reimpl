@@ -109,7 +109,7 @@ try {
             $role = @('tactical', 'assault', 'devastator')[$i % 3]
             $cls = if ($s -eq 'chaos') { @{ tactical = 'chaos tactical'; assault = 'raptor'; devastator = 'havoc' }[$role] } else { $role }
             # The "--" must travel as an array element: written literally on the command line, PowerShell 5.1 swallows it and the client never sees its arguments.
-            $botArgs = @('--background', '--log', (Join-Path $logDir "bot-$s-$i.log"), '--', '--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--side', $s, '--class', $cls)
+            $botArgs = @('--background', '--log', (Join-Path $logDir "bot-$s-$i.log"), '--', '--connect', "127.0.0.1:$Port", '--custom-map', $Map, '--bot', '--no-sound', '--side', $s, '--class', $cls)
             $txt = & (Join-Path $PSScriptRoot 'godot.ps1') @botArgs *>&1 | Out-String
             if ($txt -match 'started pid (\d+)') { $bp = Get-Process -Id ([int]$Matches[1]) -ErrorAction SilentlyContinue; if ($bp) { Record $bp } }
             else { throw "a bot did not start: $txt" }
@@ -130,7 +130,7 @@ try {
         (@('001: first view (settling)') + $list) | Set-Content (Join-Path $OutDir 'places.txt')
         $frames = [int]($Every * ($poses.Count + 3) + 90)
         $ga = @('--windowed', '--log', (Join-Path $logDir 'client.log'), '--')
-        $ca = @('--connect', "127.0.0.1:$Port", '--observe', '--observe-tour', $tourArg, '--no-sound', '--no-hud', '--no-markers', '--screenshot', (Join-Path $OutDir 'view.png'), '--screenshot-every', "$Every", '--quit-after', "$frames")
+        $ca = @('--connect', "127.0.0.1:$Port", '--custom-map', $Map, '--observe', '--observe-tour', $tourArg, '--no-sound', '--no-hud', '--no-markers', '--screenshot', (Join-Path $OutDir 'view.png'), '--screenshot-every', "$Every", '--quit-after', "$frames")
         & (Join-Path $PSScriptRoot 'godot.ps1') @ga @ca *> $null
         $shots = @(Get-ChildItem -LiteralPath $OutDir -Filter '*.png' -ErrorAction SilentlyContinue).Count
         Write-Host "observer exited $LASTEXITCODE; $shots still(s) in $OutDir"
@@ -138,7 +138,7 @@ try {
     } else {
         Say 'playing' "Playing $($check.name) ($Mode) on 127.0.0.1:$Port. F6 opens the dev tools (add or remove bots, invincible, teleport). Close the game window to stop."
         Write-Host "Playing $($check.name) ($Mode) with $Bots bots a side on 127.0.0.1:$Port. Close the game window to stop."
-        & (Join-Path $PSScriptRoot 'client.ps1') --connect "127.0.0.1:$Port" --side $Side --class $Class
+        & (Join-Path $PSScriptRoot 'client.ps1') --connect "127.0.0.1:$Port" --custom-map $Map --side $Side --class $Class
         $result = "PLAYTEST ok (the game was closed; server and bots stopped)"
     }
 }

@@ -198,6 +198,31 @@ public sealed class CustomMapTests : IDisposable
     }
 
     [Fact]
+    public void An_older_file_with_the_same_map_name_does_not_hide_the_file_given_explicitly()
+    {
+        // The playtest bug: "My Map" saved as my-map-2.smmap beside an older my-map.smmap (same name, other content). The server plays the file it was given; the client, told only
+        // "cm_my_map", used to find my-map.smmap by file name and refused with a hash mismatch.
+        string dir = Path.Combine(_lab.Dir, "dupes");
+        Directory.CreateDirectory(dir);
+        var older = Layout("blank", "My Map");
+        var played = Layout("arena", "My Map");
+        string oldFile = Path.Combine(dir, "my-map.smmap"), playedFile = Path.Combine(dir, "my-map-2.smmap");
+        File.WriteAllText(oldFile, older.ToJson());
+        File.WriteAllText(playedFile, played.ToJson());
+        Environment.SetEnvironmentVariable("SM_MAPS_DIR", dir);
+        try
+        {
+            var server =CustomMaps.Load(playedFile).Hash;
+            Assert.NotEqual(CustomMap.Compile(older).Hash, server);
+            // the file the user chose is the one the client plays, whatever else the folder holds
+            Assert.Equal(server, CustomMaps.LoadForPlay("cm_my_map", playedFile).Hash);
+            // by name alone, one of the two is found (both are "My Map"); the explicit file is what makes it exact
+            Assert.NotNull(CustomMaps.Locate("cm_my_map"));
+        }
+        finally { Environment.SetEnvironmentVariable("SM_MAPS_DIR", null); }
+    }
+
+    [Fact]
     public void Shared_files_are_limited_in_size_count_and_magnitude()
     {
         var doc = Layout("blank");
