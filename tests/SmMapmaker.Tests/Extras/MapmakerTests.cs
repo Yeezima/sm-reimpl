@@ -460,6 +460,49 @@ public class MapmakerTests
     }
 
     [Fact]
+    public void DeleteReimportDeleteKeepsBothTrashedCopiesAndUndoRestoresTheRightOne()
+    {
+        using var lab = new Lab();
+        var s = lab.Session();
+        lab.ImportBox(s, "pillar");
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete-asset","asset":"pillar"}""")).Ok);
+        var first = s.LastTrashed.Single().Slot;
+        lab.ImportBox(s, "pillar");
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete-asset","asset":"pillar"}""")).Ok);
+        var second = s.LastTrashed.Single().Slot;
+        Assert.NotEqual(first, second);
+        Assert.True(Directory.Exists(Path.Combine(lab.Library.TrashAssetsDir, first)));
+        Assert.True(Directory.Exists(Path.Combine(lab.Library.TrashAssetsDir, second)));
+        Assert.True(s.Undo().Ok);
+        Assert.NotNull(lab.Library.GetAsset("pillar"));
+        Assert.False(Directory.Exists(Path.Combine(lab.Library.TrashAssetsDir, second)));
+        Assert.True(Directory.Exists(Path.Combine(lab.Library.TrashAssetsDir, first)));
+    }
+
+    [Fact]
+    public void MapsUsingFindsOtherSavedMaps()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        Directory.CreateDirectory(lab.Library.MapsDir);
+        s.Save(Path.Combine(lab.Library.MapsDir, "other.smmap"));
+        Assert.Equal(["other"], lab.Library.MapsUsing("pillar", null));
+        Assert.Empty(lab.Library.MapsUsing("pillar", null, Path.Combine(lab.Library.MapsDir, "other.smmap")));
+        Assert.Empty(lab.Library.MapsUsing("nothing", "nothing"));
+    }
+
+    [Fact]
+    public void GroupToPrefabWarnsAboutHiddenObjects()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        Assert.True(s.Apply(Lab.Op("""{"op":"set-visible","id":"o1","visible":false}""")).Ok);
+        var r = s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o1","o2"],"prefab":"pair"}"""));
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Contains(r.Warnings, w => w.Contains("o1") && w.Contains("hidden"));
+    }
+
+    [Fact]
     public void DeleteAssetIsRefusedWhileAPrefabUsesIt()
     {
         using var lab = new Lab();

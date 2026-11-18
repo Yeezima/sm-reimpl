@@ -132,26 +132,50 @@ public sealed class MapLibrary
 
     public string TrashAssetsDir => Path.Combine(Root, "library", "trash", "assets");
 
-    /// <summary>Moves a custom asset's folder to the library trash (one slot per id, so a later delete replaces it); <see cref="RestoreAsset"/> brings it back (undo).</summary>
-    public void TrashAsset(string id)
+    /// <summary>Moves a custom asset's folder to a new folder in the library trash and returns its slot; <see cref="RestoreAsset"/> with that slot brings it back (undo).</summary>
+    public string TrashAsset(string id) => TrashAsset(id, id + "-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N")[..6]);
+
+    /// <summary>Moves the asset folder to its own trash folder (<paramref name="slot"/>; every deleted copy keeps its own, so deleting, re-importing and deleting again loses nothing). Returns the slot.</summary>
+    public string TrashAsset(string id, string slot)
     {
         var src = AssetDir(id);
-        if (!Directory.Exists(src)) return;
-        var dst = Path.Combine(TrashAssetsDir, id);
-        if (Directory.Exists(dst)) Directory.Delete(dst, true);
+        if (!Directory.Exists(src)) return slot;
+        var dst = Path.Combine(TrashAssetsDir, slot);
         Directory.CreateDirectory(TrashAssetsDir);
         Directory.Move(src, dst);
         RebuildIndex();
+        return slot;
     }
 
-    public void RestoreAsset(string id)
+    public void RestoreAsset(string id, string slot)
     {
-        var src = Path.Combine(TrashAssetsDir, CheckId(id));
+        var src = Path.Combine(TrashAssetsDir, slot);
         var dst = AssetDir(id);
         if (!Directory.Exists(src) || Directory.Exists(dst)) return;
         Directory.CreateDirectory(AssetsDir);
         Directory.Move(src, dst);
         RebuildIndex();
+    }
+
+    /// <summary>Saved maps in the library's maps folder (other than <paramref name="except"/>) that place the custom asset or the prefab; unreadable files are skipped.</summary>
+    public IReadOnlyList<string> MapsUsing(string? assetId, string? prefabId, string? except = null)
+    {
+        var found = new List<string>();
+        if (!Directory.Exists(MapsDir)) return found;
+        string? skip = except is null ? null : Path.GetFullPath(except);
+        foreach (var f in Directory.EnumerateFiles(MapsDir, "*.smmap").Order(StringComparer.OrdinalIgnoreCase))
+        {
+            if (skip is not null && string.Equals(Path.GetFullPath(f), skip, StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                if (new FileInfo(f).Length > 8_000_000) continue;
+                var doc = MapDocument.Parse(File.ReadAllText(f));
+                if (doc.Objects.Any(o => (assetId is not null && o.Asset is { IsSm1: false } a && a.Id == assetId) || (prefabId is not null && o.Prefab == prefabId)))
+                    found.Add(Path.GetFileNameWithoutExtension(f));
+            }
+            catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException) { }
+        }
+        return found;
     }
 
     public void DeletePrefab(string id)
