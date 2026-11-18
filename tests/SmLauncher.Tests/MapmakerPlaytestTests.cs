@@ -141,8 +141,13 @@ public class MapmakerPlaytestTests
         Assert.Equal(0, code);
         var lines = o.Split('\n');
         var client = lines.Single(l => l.StartsWith("PLAN client:"));
-        Assert.EndsWith(@"sm-reimpl.exe -- --connect 127.0.0.1:27705 --side chaos --class raptor", client.TrimEnd());
-        Assert.Contains(" -- --connect 127.0.0.1:27705 --bot ", lines.Single(l => l.StartsWith("PLAN bot:")));
+        // the exact chosen file goes to the client and the bots too (a lookup by name could find another file of the same map name: hash mismatch)
+        Assert.Contains(@"sm-reimpl.exe -- --connect 127.0.0.1:27705 --custom-map ", client);
+        Assert.EndsWith(" --side chaos --class raptor", client.TrimEnd());
+        Assert.Contains(Path.GetFullPath(map), client);
+        var bot = lines.Single(l => l.StartsWith("PLAN bot:"));
+        Assert.Contains(" -- --connect 127.0.0.1:27705 --custom-map ", bot);
+        Assert.Contains(Path.GetFullPath(map), bot);
         Assert.Contains("--bind 127.0.0.1 --port 27705 --mode annihilation --custom-map", lines.Single(l => l.StartsWith("PLAN server:")));
         Assert.DoesNotContain("0.0.0.0", o);
     }

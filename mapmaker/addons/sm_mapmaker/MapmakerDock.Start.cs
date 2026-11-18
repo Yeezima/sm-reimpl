@@ -38,7 +38,7 @@ public partial class MapmakerDock
         "1. Map tab: pick a layout and press New map (it is saved for you).\n" +
         "2. Move things with the gizmo (W move, E turn, R size), or open the Build tab and click a piece, then click in the 3D view to place it.\n" +
         "3. Test tab: fix anything red in the Check list. Fix buttons do it for you.\n" +
-        "4. Press Play test (always at the bottom): a server and bots start on this PC and the game opens on your map.\n" +
+        "4. Save map, then press Play test (always at the bottom) and choose the saved file: a server and bots start on this PC and the game opens on that file.\n" +
         "5. Test tab, Share: send the .smmap file. Anyone puts it in their maps folder and plays it.";
 
     ScrollContainer Scroll(Control page) => new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, Name = "Scroll", FollowFocus = true }.With(s => s.AddChild(page));
@@ -115,7 +115,7 @@ public partial class MapmakerDock
     {
         var f = new VBoxContainer();
         f.AddChild(new HSeparator());
-        _playButton = Btn("Play test", StartPlayTest, "Saves the map, starts a server on this PC only (127.0.0.1) with bots, and opens the game on your map. Uses the mode, bots and side on the Test tab. Close the game window to stop.");
+        _playButton = Btn("Play test", StartPlayTest, "Asks which saved .smmap file to play (unsaved edits are not played: Save map first), starts a server on this PC only (127.0.0.1) with bots, and opens the game on that file. Uses the mode, bots and side on the Test tab. Close the game window to stop.");
         _playButton.CustomMinimumSize = new Vector2(0, 40);
         _playButton.AddThemeFontSizeOverride("font_size", 16);
         _playButton.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -148,7 +148,7 @@ public partial class MapmakerDock
     public void TestArmPreset(string id) { if (PiecePreset.Find(id) is { } p) ArmPreset(p); }
 
     /// <summary>Test aid: the same as pressing the Play test button with these choices.</summary>
-    public string? TestPlay(string mode, int bots, string side, string[] extra) => _plugin.PlayTest(mode, bots, side, extra);
+    public string? TestPlay(string file, string mode, int bots, string side, string[] extra) => _plugin.PlayTest(file, mode, bots, side, extra);
 
     async System.Threading.Tasks.Task NewFromLayoutAsync()
     {
@@ -186,10 +186,29 @@ public partial class MapmakerDock
         _plugin.Do("Game modes", MapmakerPlugin.Op("set-modes", ("modes", MapmakerPlugin.Strs(modes))));
     }
 
+    EditorFileDialog? _playFiles;
+
+    /// <summary>The Play test button: a file dialog first (owner, 2026-11-18); the play test uses only the saved file chosen there. Unsaved edits are not played: Save map first.</summary>
     void StartPlayTest()
     {
+        if (_plugin.PlayRunning) { _plugin.PlayTest("", "annihilation", 0, "marines"); _playStatus.Text = _plugin.PlayStatus; return; }
+        if (_playFiles is null)
+        {
+            _playFiles = new EditorFileDialog { Access = EditorFileDialog.AccessEnum.Filesystem, FileMode = EditorFileDialog.FileModeEnum.OpenFile, Title = "Play test: choose a saved map (.smmap)", Size = new Vector2I(760, 480) };
+            _playFiles.AddFilter("*.smmap", "Mapmaker map");
+            _playFiles.FileSelected += PlayFilePicked;
+            AddChild(_playFiles);
+        }
+        string start = _plugin.Session?.Path is { } p ? System.IO.Path.GetDirectoryName(p) ?? MapHost.Library.MapsDir : MapHost.Library.MapsDir;
+        try { System.IO.Directory.CreateDirectory(start); _playFiles.CurrentDir = start; if (_plugin.Session?.Path is { } cur) _playFiles.CurrentFile = System.IO.Path.GetFileName(cur); } catch (Exception) { }
+        _playStatus.Text = "Choose the saved .smmap file to play. Unsaved edits in the editor are not played: press Save map first.";
+        _playFiles.PopupCenteredRatio(0.6f);
+    }
+
+    void PlayFilePicked(string file)
+    {
         string mode = _playMode.Selected == 1 ? "seize" : "annihilation";
-        _plugin.PlayTest(mode, (int)_playBots.Value, _playSide.Selected == 1 ? "chaos" : "marines");
+        _plugin.PlayTest(file, mode, (int)_playBots.Value, _playSide.Selected == 1 ? "chaos" : "marines");
         _playStatus.Text = _plugin.PlayStatus;
     }
 

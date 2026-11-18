@@ -59,8 +59,9 @@ function Find-Game([string]$explicit) {
 function Quote([string[]]$a) { ($a | ForEach-Object { if ($_ -match '[\s"]' -or $_ -eq '') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' ' }
 # The command lines, one place (-Plan prints them; the tests check them). The game reads its own arguments only after "--" (Godot's user arguments), as Play.cmd does.
 function Get-ServerArgs($g, [int]$port) { @('--bind', '127.0.0.1', '--port', "$port", '--mode', $Mode, '--custom-map', $Map, '--dev-tools', '--dev-bot-exe', $g.Console) }
-function Get-BotArgs([int]$port, [string]$side, [string]$cls, [string]$log) { @('--headless', '--log-file', $log, '--', '--connect', "127.0.0.1:$port", '--bot', '--no-sound', '--no-hud', '--side', $side, '--class', $cls) }
-function Get-ClientArgs([int]$port) { @('--', '--connect', "127.0.0.1:$port", '--side', $Side, '--class', $Class) }
+# Clients and bots get the exact file too (--custom-map): looking a map up by its name could pick another file with the same name and a different hash.
+function Get-BotArgs([int]$port, [string]$side, [string]$cls, [string]$log) { @('--headless', '--log-file', $log, '--', '--connect', "127.0.0.1:$port", '--custom-map', $Map, '--bot', '--no-sound', '--no-hud', '--side', $side, '--class', $cls) }
+function Get-ClientArgs([int]$port) { @('--', '--connect', "127.0.0.1:$port", '--custom-map', $Map, '--side', $Side, '--class', $Class) }
 function Get-BotClass([string]$side, [int]$i) {
     $role = @('tactical', 'assault', 'devastator')[$i % 3]
     if ($side -eq 'chaos') { @{ tactical = 'chaos tactical'; assault = 'raptor'; devastator = 'havoc' }[$role] } else { $role }

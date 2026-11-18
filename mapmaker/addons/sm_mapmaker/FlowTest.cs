@@ -511,6 +511,9 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             Check(Doc() == saved, "reopening the file gives the same document");
             Check(plugin.Compiled()!.Hash == CustomMap.HashOf(MapDocument.Parse(saved)), $"the compiled map's hash is the file's hash ({plugin.Compiled()!.Hash:X16})");
 
+            // 7b. The server loads the chosen file by path and a client is given the same file (--custom-map): the same hash, whatever else is in the maps folder.
+            Check(CustomMaps.LoadForPlay(plugin.Compiled()!.Name, file).Hash == CustomMaps.Load(file).Hash, "the server's and the client's load of the chosen file have the same hash");
+
             // 8. Play test, both modes (the real thing: server on 127.0.0.1, bots, an observer on the test desktop).
             if (Flag("--mm-play"))
             {
@@ -518,7 +521,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
                 {
                     string shots = Path.Combine(_out, "ingame-" + mode);
                     var w = System.Diagnostics.Stopwatch.StartNew();
-                    string? err = dock.TestPlay(mode, 2, "marines", ["-Test", "-OutDir", shots, "-Seconds", "50"]);
+                    string? err = dock.TestPlay(plugin.Session!.Path!, mode, 2, "marines", ["-Test", "-OutDir", shots, "-Seconds", "50"]);
                     Check(err is null, $"Play test ({mode}) started" + (err is null ? "" : ": " + err));
                     if (err is not null) continue;
                     await Shot("play-test-started-" + mode);

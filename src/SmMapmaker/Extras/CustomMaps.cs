@@ -53,10 +53,12 @@ public static class CustomMaps
             try { if (Directory.Exists(dir)) files.AddRange(Directory.EnumerateFiles(dir, "*.smmap").Order(StringComparer.OrdinalIgnoreCase)); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
-        foreach (var file in files)
-            if (CustomMap.WireName(Path.GetFileNameWithoutExtension(file)) == wireName) return file;
+        // The wire name is made from the map's name field, not its file name: a file called my-map-2.smmap can hold the map "My Map" (cm_my_map) while an older my-map.smmap holds another
+        // copy of it. So the name field decides first; the file name is only a fallback for a file whose name field cannot be read.
         foreach (var file in files)
             if (WireNameOfFile(file) == wireName) return file;
+        foreach (var file in files)
+            if (WireNameOfFile(file) is null && CustomMap.WireName(Path.GetFileNameWithoutExtension(file)) == wireName) return file;
         return null;
     }
 

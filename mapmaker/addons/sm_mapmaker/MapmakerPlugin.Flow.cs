@@ -257,35 +257,38 @@ public partial class MapmakerPlugin
     }
 
     /// <summary>
-    /// The Play test button: saves the map, checks it, and starts <c>tools/mapmaker-playtest.ps1</c> (server on 127.0.0.1, bots, the game). Returns null when it started, else the reason.
+    /// The Play test button (after its file dialog): checks the saved map file <paramref name="mapFile"/> and starts <c>tools/mapmaker-playtest.ps1</c> (server on 127.0.0.1, bots, the game) with exactly
+    /// that file: the server, the bots and the game all load it by path. Unsaved edits in the editor are never played (owner, 2026-11-18): save with Save map first. Returns null when it started, else the reason.
     /// <paramref name="extra"/> adds script arguments (the self test's <c>-Test -OutDir ...</c>).
     /// </summary>
-    public string? PlayTest(string mode, int bots, string side, string[]? extra = null)
+    public string? PlayTest(string mapFile, string mode, int bots, string side, string[]? extra = null)
     {
-        if (Session is null) return Fail("There is no map to play yet. Press New map first.");
         if (PlayRunning) return Fail("A play test is already running. Close the game window (or press Stop) first.");
+        if (!File.Exists(mapFile)) return Fail($"The map file '{mapFile}' does not exist.");
         var (script, lead) = PlayScript();
         if (script is null) return Fail("Play test is not available here: the Mapmaker project has no playtest.ps1. Open the Mapmaker from the launcher (the MAPMAKER button) of the newest build.");
         bool fromInstall = RepoRoot() is null;
         _playFromInstall = fromInstall;
-        var report = MapCheck.Run(Compiled()!);
+        string path = Path.GetFullPath(mapFile);
+        CustomMap played;
+        try { played = CustomMaps.Load(path); }
+        catch (MapException e) { return Fail($"The file {Path.GetFileName(path)} cannot be played: {e.Message}"); }
+        var report = MapCheck.Run(played);
         var need = mode == "seize" ? CheckMode.Seize : CheckMode.Annihilation;
         if (!report.Ready(need))
         {
-            RunCheck(false);
-            Dock?.ShowTab(DockTab.Map);
             var first = report.Errors.Where(e => e.Mode is CheckMode.Both || e.Mode == need).Select(e => e.Message).FirstOrDefault();
-            return Fail($"Not playable in {(mode == "seize" ? "Seize Ground" : "Annihilation")} yet: {first} (the Check list shows every item, with a Fix button).");
+            return Fail($"{Path.GetFileName(path)} is not playable in {(mode == "seize" ? "Seize Ground" : "Annihilation")} yet: {first} (fix it in the editor, save with Save map, and pick the file again).");
         }
-        string path = Session.Path ?? NewMapPath(Session.Name);
-        if (Session.Path is null || Dirty) { if (!SaveMap(path)) return Fail("The map could not be saved (see the message below)."); }
-        path = Session.Path!;
+        string unsaved = Session is not null && Dirty && Session.Path is { } open && string.Equals(Path.GetFullPath(open), path, StringComparison.OrdinalIgnoreCase)
+            ? " (the editor has unsaved changes; they are not in this file)" : "";
         try { Directory.CreateDirectory(PlayDir); File.WriteAllText(PlayStatusFile, "starting|Starting the play test..."); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         var args = new List<string>(lead) { script, "-Map", path, "-Mode", mode, "-Bots", bots.ToString(), "-Side", side };
         if (extra is not null) args.AddRange(extra);
         _playPid = OS.CreateProcess("powershell.exe", args.ToArray(), false);
         if (_playPid <= 0) { _playPid = 0; return Fail("Could not start PowerShell for the play test."); }
-        SetPlayStatus(fromInstall ? "Starting the play test: the server and the bots, then the game..." : "Starting the play test: building, then the server and the bots (the first time takes about half a minute)...");
+        string head = $"Playing the saved file {Path.GetFileName(path)}{unsaved}. ";
+        SetPlayStatus(head + (fromInstall ? "Starting the play test: the server and the bots, then the game..." : "Starting the play test: building, then the server and the bots (the first time takes about half a minute)..."));
         PollPlayStatus();
         return null;
 

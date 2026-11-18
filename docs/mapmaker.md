@@ -156,3 +156,5 @@ right click removes the preview and disarms; the preview hides while the mouse i
 session follows the edited scene); placing never switches tabs. A tab without a Mapmaker root is offered one ("Add a Mapmaker map here", a `MapmakerRoot` node
 under the scene's root); the SM1 map and the prefab library are shared, so a prefab extracted in one tab is placeable in any other. The flow test
 (`--mm-flow`) covers all three.
+
+**Play test picks a saved file (2026-11-18).** Play test now opens a file dialog (`EditorFileDialog`) and plays exactly the `.smmap` file chosen there; the server, the bots and the game all get that path (`--custom-map <file>`), so the hash always matches. Unsaved edits are never played: press Save map first (the dialog and status say so). Cause of the old "map could not be loaded here, or differs" error: only the server got the file; the client looked it up by the wire name (`cm_my_map`), and an older `my-map.smmap` with the same map name in the same folder (the new map was saved as `my-map-2.smmap`) was found first, with another hash. `CustomMaps.Locate` now also trusts the file's `name` field before its file name.
