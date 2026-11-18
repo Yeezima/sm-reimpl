@@ -130,6 +130,30 @@ public sealed class MapLibrary
         RebuildIndex();
     }
 
+    public string TrashAssetsDir => Path.Combine(Root, "library", "trash", "assets");
+
+    /// <summary>Moves a custom asset's folder to the library trash (one slot per id, so a later delete replaces it); <see cref="RestoreAsset"/> brings it back (undo).</summary>
+    public void TrashAsset(string id)
+    {
+        var src = AssetDir(id);
+        if (!Directory.Exists(src)) return;
+        var dst = Path.Combine(TrashAssetsDir, id);
+        if (Directory.Exists(dst)) Directory.Delete(dst, true);
+        Directory.CreateDirectory(TrashAssetsDir);
+        Directory.Move(src, dst);
+        RebuildIndex();
+    }
+
+    public void RestoreAsset(string id)
+    {
+        var src = Path.Combine(TrashAssetsDir, CheckId(id));
+        var dst = AssetDir(id);
+        if (!Directory.Exists(src) || Directory.Exists(dst)) return;
+        Directory.CreateDirectory(AssetsDir);
+        Directory.Move(src, dst);
+        RebuildIndex();
+    }
+
     public void DeletePrefab(string id)
     {
         var path = PrefabPath(id);

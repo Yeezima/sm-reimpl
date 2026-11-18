@@ -302,6 +302,20 @@ public sealed class LibraryTest(MapmakerPlugin plugin, MapmakerDock dock)
         msg = dock.TestRename(dock.TestRowOf("crate"), "rock_pillar");
         Check(MapHost.Library.GetAsset("crate")?.Name == "Blue crate" && msg.Contains("already"), $"duplicate name rejected ({msg})");
 
+        // Delete (right-click menu): refused while a prefab uses the asset; an unused one goes, with its placed copy, and Ctrl+Z brings both back
+        msg = dock.ConfirmDeleteAsset("crate");
+        Check(MapHost.Library.GetAsset("crate") is not null && msg.Contains("crate-pair"), $"deleting an asset a prefab uses is refused ({msg})");
+        {
+            var ph = plugin.Do("place", MapmakerPlugin.Op("place", ("asset", new System.Text.Json.Nodes.JsonObject { ["source"] = "custom", ["id"] = "broken-model" }), ("name", "doomed")));
+            int objs = plugin.Session!.Document.Objects.Count;
+            msg = dock.ConfirmDeleteAsset("broken-model");
+            await Frames(5);
+            Check(ph.Ok && MapHost.Library.GetAsset("broken-model") is null && plugin.Session.Document.Objects.Count == objs - 1 && dock.TestRowOf("broken-model") < 0, $"unused asset deleted with its placed copy ({msg})");
+            plugin.History.GetHistoryUndoRedo(plugin.History.GetObjectHistoryId(MapHost.Root!)).Undo();
+            await Frames(5);
+            Check(MapHost.Library.GetAsset("broken-model") is not null && plugin.Session.Document.Objects.Count == objs, "undo brings the asset and its placed copy back");
+        }
+
         // The imported FBX asset in the viewport
         if (pillar is not null && Thumbnails.CanRender)
         {
