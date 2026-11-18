@@ -113,7 +113,7 @@ public sealed class MapScene
         var qx = Quaternion.CreateFromAxisAngle(Vector3.UnitX, xDegrees * k);
         var qy = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yDegrees * k);
         var qz = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, zDegrees * k);
-        // Hamilton product qzÂ·qyÂ·qx: x is applied first. System.Numerics' Concatenate(a, b) means "a, then b" = bÂ·a.
+        // Hamilton product qz·qy·qx: x is applied first. System.Numerics' Concatenate(a, b) means "a, then b" = b·a.
         return Quaternion.Concatenate(Quaternion.Concatenate(qx, qy), qz);
     }
 
@@ -223,7 +223,7 @@ public sealed class MapScene
     /// Enabled <c>StaticObject</c>s anywhere in a layer's tree. Objects nested as <c>ChildObjects</c> of a group are
     /// placed relative to it (the group's own transform, when it has one).
     /// </summary>
-    static void CollectObjects(BodValue value, string layer, Matrix4x4 parent, List<PlacedObject> objects, int depth, List<PlacedDecal> decals, Dictionary<int, float> spin, int childDepth = 0)
+    internal static void CollectObjects(BodValue value, string layer, Matrix4x4 parent, List<PlacedObject> objects, int depth, List<PlacedDecal> decals, Dictionary<int, float> spin, int childDepth = 0)
     {
         if (depth > 64) return;
         switch (value)
@@ -255,7 +255,9 @@ public sealed class MapScene
                         string definition = blueprint[(blueprint.LastIndexOfAny(['\\', '/']) + 1)..];
                         objects.Add(new PlacedObject((entity["Name"] as BodString)?.Text ?? "", definition, layer, Local(entity) * parent, childDepth));
                         spin[objects.Count - 1] = degrees;
+                        curveSpin = null;   // a curve carries only the entity that follows it
                     }
+                    else curveSpin = null;   // anything else between a curve and its entity ends the pairing
                     CollectObjects(item.Value, layer, parent, objects, depth + 1, decals, spin, childDepth);
                 }
                 break;

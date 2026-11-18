@@ -9,7 +9,7 @@ namespace SmClient;
 /// classic-maps-fidelity round 2, fix 1: the map's <c>base/OrthoLight</c> projectors (window and grate light patterns, lava glow; Basilica 8, Waste Management 11, Hab Center 14, Tertius 8, Aquila 5, Habs Ablaze 2)
 /// drawn as Godot <see cref="Decal"/> boxes that add light only (emission): the box is the light's Width by Height across and its AttenEnd deep, starting at the light and running along its forward
 /// direction, the mask picture (<c>light_mask_*</c>, a texture of the region archive) tinted by the light's colour. **Interpretation** (low-medium): the engine's orthographic light is a real projected light that
-/// also lights characters and moving things; ours paints only the level (render layer 1) and adds, it does not shade. The energy (a quarter of Power, 0.1 to 3) and the fade along the depth are ours.
+/// also lights characters and moving things; ours paints only the level (render layer 1) and adds, it does not shade. The energy (an eighth of Power, 0.05 to 1.5) and the fade along the depth are ours.
 /// At most 14 per map, so no distance culling beyond the engine's own decal fade.
 /// </summary>
 public sealed partial class MapOrthoLightView : Node3D
@@ -43,8 +43,8 @@ public sealed partial class MapOrthoLightView : Node3D
                 CullMask = 1u,
                 AlbedoMix = 0f,
                 TextureEmission = texture,
-                EmissionEnergy = Math.Clamp(l.Power * 0.25f, 0.1f, 3f),
-                LowerFade = 2f,
+                EmissionEnergy = Math.Clamp(l.Power * 0.125f, 0.05f, 1.5f),
+                UpperFade = 2f, LowerFade = 5f,   // soft top edge and a strong fade along the depth (ours)
                 DistanceFadeEnabled = true, DistanceFadeBegin = Range - 20f, DistanceFadeLength = 20f,
                 Transform = new Transform3D(basis, new Vector3(l.Position.X, l.Position.Y, l.Position.Z) + forward * (l.Depth * 0.5f)),
             };

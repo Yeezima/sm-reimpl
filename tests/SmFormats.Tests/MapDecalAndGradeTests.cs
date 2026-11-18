@@ -59,6 +59,22 @@ public class MapDecalAndGradeTests
     }
 
     [Fact]
+    public void A_curve_turns_only_the_entity_that_follows_it()
+    {
+        static Struct Point(float z) => new("BezierPoint", ("RotationLS", new Vec(0f, 0f, z)));
+        var curve = new Struct("BezierCurve", ("Loop", new B(true)), ("PathPoints", new List(new Node[] { Point(0f), Point(-90f), Point(-180f), Point(89.999f) })),
+            ("BezierCurveAnim", new List(new Struct("BezierAnimationParameters", ("TimeToFollowCurve", new F(5f))))));
+        Struct Entity(string name, float x) => new("PhoenixEntity", ("BlueprintName", new S(@"ebps\environments\" + name)), ("Name", new S(name)), ("Position", new Vec(x, 0f, 0f)));
+        var root = BodDocument.Read(Document(new Struct("RegionLayer", ("Root", new Struct("WorldGroup",
+            ("Objects", new List(curve, Entity("fan_blades", 1f), Entity("second_entity", 2f), curve, new Struct("StaticObject", ("ObjectName", new S("body"))), Entity("third_entity", 3f))))))));
+        var objects = new List<PlacedObject>(); var spin = new Dictionary<int, float>();
+        MapScene.CollectObjects(root.Root, "e_splinamation", Matrix4x4.Identity, objects, 0, new List<PlacedDecal>(), spin);
+        Assert.Equal(["fan_blades", "body"], objects.Select(o => o.Definition));   // the second and third entities are not added
+        Assert.Equal([0], spin.Keys);
+        Assert.Equal(-72f, spin[0], 0.1f);
+    }
+
+    [Fact]
     public void An_environment_region_reads_its_colour_grade()
     {
         var region = new Struct("base/environmentregion", ("Name", new S("r")), ("Priority", new I(1)), ("Scale", new Vec(600f, 600f, 300f)), ("Position", new Vec(0f, 0f, 0f)),

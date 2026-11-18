@@ -65,6 +65,10 @@ public static class MapDecor
     /// <summary>classic-maps-fidelity round 2: whether the map's <c>base/OrthoLight</c> projectors (<see cref="MapOrthoLightView"/>) are drawn: on the ten new classic maps unless <c>--no-ortho-lights</c> (before / after aid); on Manufactorum only with <c>--ortho-lights</c> (its approved look stays).</summary>
     public static bool DrawsOrthoLights(string map) => MapDecorLists.IsNewClassicMap(map) ? Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-ortho-lights") < 0 : Array.IndexOf(OS.GetCmdlineUserArgs(), "--ortho-lights") >= 0;
 
+    /// <summary>classic-maps-fidelity round 2, fix 3: whether the map's moving parts (fan blades turned by their BezierCurve, scrolling materials) are drawn and moved; <c>--no-moving-parts</c> is the before aid (the blades are then not drawn at all, as before).</summary>
+    public static bool MovingParts => _moving ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-moving-parts") < 0;
+    static bool? _moving;
+
     /// <summary>classic-maps-fidelity: <c>--old-lod-rule</c> draws the parts of <see cref="ObjectDefinition.NearestLod"/> again (every node named like a low LOD dropped, _LodH and _LodM drawn together); by default one member of each LOD-suffix family is drawn (<see cref="ObjectDefinition.HighestLod"/>).</summary>
     public static bool OldLodRule => _oldLod ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-lod-rule") >= 0;
     static bool? _oldLod;

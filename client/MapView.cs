@@ -46,7 +46,7 @@ public partial class MapView : Node3D
     public override void _Process(double delta)
     {
         _spinClock += delta;
-        foreach (var (material, su, sv) in Materials.Scrolling) material.Uv1Offset = new Vector3((float)((_spinClock * su) % 1.0), (float)((_spinClock * sv) % 1.0), 0f);
+        if (MapDecor.MovingParts) foreach (var (material, su, sv) in Materials.Scrolling) material.Uv1Offset = new Vector3((float)((_spinClock * su) % 1.0), (float)((_spinClock * sv) % 1.0), 0f);
         if (_spinners.Count == 0) return;
         foreach (var (node, pivot, rate) in _spinners)
             node.Transform = new Transform3D(Basis.Identity, pivot) * new Transform3D(new Basis(Vector3.Back, Mathf.DegToRad((float)(_spinClock * rate) % 360f)), Vector3.Zero) * new Transform3D(Basis.Identity, -pivot);
@@ -77,6 +77,7 @@ public partial class MapView : Node3D
             var placed = scene.Objects[o];
             if (MapDecor.HiddenLayers.Count > 0 && MapDecor.HiddenLayers.Contains(placed.Layer)) { layerHidden++; continue; }   // pass 2 test aid (--hide-layer)
             if (!scene.Definitions.TryGetValue(placed.Definition, out var definition)) continue;
+            if (!MapDecor.MovingParts && scene.Spinning.ContainsKey(o)) continue;   // --no-moving-parts: the turned blades were not drawn before
             foreach (var part in definition.DrawnParts(MapDecor.OldLodRule))   // classic-maps-fidelity: one member per LOD-suffix family (--old-lod-rule: the old rule)
             {
                 var world = part.NodeTransform * placed.Transform;

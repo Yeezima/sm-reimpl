@@ -59,10 +59,10 @@ public sealed partial class MapMaterials
     public static bool IsSelfLitCard(BmatMaterial bmat, string emissiveName, string diffuseName) =>
         !OldEmissiveCards && bmat.ShaderName == "diff_emis" && string.Equals(emissiveName, diffuseName, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Multiply by the vertex colour where the shader name has "vtxtint". Test aid: SM_NO_TINT=1 turns it off.</summary>
     /// <summary>Materials the data scrolls (<c>ScrollSpeedU</c> / <c>ScrollSpeedV</c>, texture widths a second; <see cref="MapView"/> moves their UV).</summary>
     public List<(StandardMaterial3D Material, float U, float V)> Scrolling { get; } = new();
 
+    /// <summary>Multiply by the vertex colour where the shader name has "vtxtint". Test aid: SM_NO_TINT=1 turns it off.</summary>
     public static readonly bool TintVertexColours = System.Environment.GetEnvironmentVariable("SM_NO_TINT") != "1";
     /// <summary>Whether the vertex RGB is gamma-encoded (D3DCOLOR usually is). Test aid: SM_TINT_SRGB=1 / 0 overrides the chosen default.</summary>
     public static readonly bool TintIsSrgb = System.Environment.GetEnvironmentVariable("SM_TINT_SRGB") switch { "1" => true, "0" => false, _ => false };
