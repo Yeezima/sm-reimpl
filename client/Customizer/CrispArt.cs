@@ -10,6 +10,25 @@ namespace SmClient.Customizer;
 /// </summary>
 public static class CrispArt
 {
+    static readonly System.Collections.Generic.Dictionary<(string, int, int), ImageTexture> Fits = new();
+
+    /// <summary>
+    /// A painted piece that carries words (the main menu's plates) resampled once, with Lanczos, to the exact window pixels it will cover (<paramref name="virtualSize"/> times the window scale), so it is drawn
+    /// 1:1: the lettering keeps the edge it was painted with instead of being averaged by a mipmap or skipped by a point sample. Cached by size.
+    /// </summary>
+    public static Texture2D? Fitted(string name, Vector2 virtualSize)
+    {
+        if (ConceptArt.Get(name) is not { } src) return null;
+        float w = UiType.WindowScale;
+        int pw = Mathf.Max(2, Mathf.RoundToInt(virtualSize.X * w)), ph = Mathf.Max(2, Mathf.RoundToInt(virtualSize.Y * w));
+        if (Fits.TryGetValue((name, pw, ph), out var cached)) return cached;
+        var img = (Image)src.GetImage().Duplicate();
+        img.Decompress();
+        if (img.HasMipmaps()) img.ClearMipmaps();
+        img.Resize(pw, ph, Image.Interpolation.Lanczos);
+        return Fits[(name, pw, ph)] = ImageTexture.CreateFromImage(img);
+    }
+
     /// <summary>
     /// Draws <paramref name="tex"/> into <paramref name="dest"/> as a nine-patch with margins in art pixels (<paramref name="ml"/>, <paramref name="mr"/>, <paramref name="mt"/>, <paramref name="mb"/>), the margins
     /// drawn <paramref name="k"/> virtual pixels per art pixel.
