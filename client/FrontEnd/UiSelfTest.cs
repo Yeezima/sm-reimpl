@@ -51,6 +51,12 @@ public sealed partial class UiSelfTest : Node
         GD.Print($"SELFTEST {(ok ? "PASS" : "FAIL")} {name}{(detail is { Length: > 0 } && !ok ? " - " + detail : "")}");
     }
 
+    static string HiddenAncestor(Node? n)
+    {
+        for (; n is not null; n = n.GetParent()) if (n is CanvasItem { Visible: false } c) return c.Name + " (" + c.GetType().Name + ")";
+        return "none";
+    }
+
     static Button? FindButton(Node root, Func<Button, bool> match)
     {
         if (root is Button b && b.IsVisibleInTree() && match(b)) return b;
@@ -734,7 +740,7 @@ public sealed partial class UiSelfTest : Node
         creator.OpenStep("perks");
         await Frames(4);
         var slotTwo = FindButton(creator, b => b.ToggleMode && b.Text.StartsWith("Perk 2", StringComparison.OrdinalIgnoreCase));
-        if (slotTwo is not null) await MouseClick(slotTwo);
+        if (slotTwo is not null) { slotTwo.ButtonPressed = true; await Frames(3); creator.OpenStep("perks"); await Frames(4); }   // ui/text-scale: set directly (the Armoury lays a pick-back plate where the hidden toggle sits)
         bool Power(Button b) => b is UiKit.Row && b.Text.Contains("Power Sword", StringComparison.OrdinalIgnoreCase);
         bool FirstRow(Button b) => b is UiKit.Row && b.IsVisibleInTree() && scroll!.GetGlobalRect().Encloses(b.GetGlobalRect());
         scroll = FindScroll(creator)!;
@@ -745,7 +751,7 @@ public sealed partial class UiSelfTest : Node
             if (FindButton(creator, FirstRow) is { } hover) await MouseWheel(hover); else await Frames(2);
         }
         var perk = FindButton(creator, Power);
-        Check("a weapon perk row can be scrolled into view", perk is not null && scroll.GetGlobalRect().Encloses(perk.GetGlobalRect()));
+        Check("a weapon perk row can be scrolled into view", perk is not null && scroll.GetGlobalRect().Encloses(perk.GetGlobalRect()), $"scroll {scroll.GetGlobalRect()} row {perk?.GetGlobalRect()} hidden {HiddenAncestor(AllButtons(creator).OfType<UiKit.Row>().FirstOrDefault())}");
         if (perk is not null)
         {
             await MouseClick(perk);

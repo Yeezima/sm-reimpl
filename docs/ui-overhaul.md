@@ -182,7 +182,7 @@ The owner's request: "all text consistent in size and scale, no blurry text, but
 
 **Open points and deviations**
 
-* The main menu's five plate labels are still painted words (the owner's reference lettering); they are now drawn 1:1 and sharp, but they are the one place where a painted word differs from the live Oswald of every other label. Owner question: turn them into live Oswald on blank plates (a different look from the reference, no blur at any window size)?
+* **Owner decision (2026-11-18, "Keep painted words"):** the main menu's five plate labels stay the painted reference lettering, drawn 1:1 (resampled once to their window pixels, `CrispArt.Fitted`). This is the one deliberate exception to live text; every other label of every screen is live Oswald.
 * The emblem importer's zoom slider (`ConceptSliderStyle`) keeps its prescaled boxes (one rarely used control); the Armoury's and Appearance's dense captions use the caption and small levels (24 and 18), not the 30 and 36 of the concept pages, because their art is laid out at that density.
 * The slider's hit area is the knob's travel (as before); the channel's caps (7 UI px each side) are art only.
 * `MatchSummaryView` (count-up, battle record) snaps its computed sizes to whole window pixels but keeps its stage-scaled sizes (it composes its own 1280 x 720 stage).

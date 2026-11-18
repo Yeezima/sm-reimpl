@@ -114,7 +114,7 @@ public sealed class HudArt
     }
 
     /// <summary>The original's own front-end picture of a wargear or perk (<see cref="UiArt.Picture"/>) as its colour texture, or null (not ready, or the install has none).</summary>
-    public Texture2D? Picture(string id) => Art is { } art && art.Picture(id) is { } name ? Texture(name) : null;
+    public Texture2D? Picture(string id, bool chaos = false) => Art is { } art && art.Picture(id, chaos) is { } name ? Texture(name) : null;
 
     /// <summary>The weapon picture's texture name for a wargear file, or null.</summary>
     public string? WeaponIcon(string wargear)

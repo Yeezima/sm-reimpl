@@ -408,13 +408,16 @@ public sealed class UiArt
     /// that picture is in the install. <paramref name="id"/> is the wargear file name or a perk's neutral name (<c>mp_perk_</c> is tried in front). Null when the file names no picture or the picture is missing (the Armoury then keeps
     /// its own shape for that one).
     /// </summary>
-    public string? Picture(string id)
+    public string? Picture(string id, bool chaos = false)
     {
         if (id.Length == 0) return null;
-        foreach (var key in new[] { id, "mp_perk_" + id, id.StartsWith("sm_", StringComparison.OrdinalIgnoreCase) ? id[3..] : id, id.StartsWith("csm_", StringComparison.OrdinalIgnoreCase) ? id[4..] : id })
-            if (_iconPaths.TryGetValue(key, out var path) && Has(path)) return path;
-        return null;
+        // Rows name the side-less item (mp_ranged_bolter); the files are sm_ or csm_ (the player's side first), perks mp_perk_.
+        string first = chaos ? "csm_" : "sm_", second = chaos ? "sm_" : "csm_";
+        return Lookup(id) ?? Lookup("mp_perk_" + id) ?? Lookup(first + id) ?? Lookup(second + id)
+            ?? (id.StartsWith("sm_", StringComparison.OrdinalIgnoreCase) ? Lookup(id[3..]) : id.StartsWith("csm_", StringComparison.OrdinalIgnoreCase) ? Lookup(id[4..]) : null);
     }
+
+    string? Lookup(string key) => _iconPaths.TryGetValue(key, out var path) && Has(path) ? path : null;
 
     public string? WeaponIcon(string wargear) => wargear.Length == 0 ? null : HudRules.IconFor(wargear, WeaponType(wargear), Has);
 

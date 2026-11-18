@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 
 namespace SmClient.Customizer;
@@ -22,6 +23,7 @@ public static class CrispArt
         float w = UiType.WindowScale;
         int pw = Mathf.Max(2, Mathf.RoundToInt(virtualSize.X * w)), ph = Mathf.Max(2, Mathf.RoundToInt(virtualSize.Y * w));
         if (Fits.TryGetValue((name, pw, ph), out var cached)) return cached;
+        foreach (var old in Fits.Keys.Where(k => k.Item1 == name).ToList()) Fits.Remove(old);   // only the current size of a plate is kept (a dragged window would otherwise keep every size)
         var img = (Image)src.GetImage().Duplicate();
         img.Decompress();
         if (img.HasMipmaps()) img.ClearMipmaps();
