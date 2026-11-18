@@ -197,7 +197,7 @@ public static class MapEmissiveCommand
             var centre = new System.Numerics.Vector3(ocx, ocy, ocz);
             foreach (var o in scene.Objects)
             {
-                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                if (!scene.TryGetDefinition(o, out var def)) continue;
                 foreach (var v in def.Visuals)
                 {
                     if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
@@ -227,7 +227,7 @@ public static class MapEmissiveCommand
                 var agg = new Dictionary<(string, string), (int N, float[] Sum)>();
                 foreach (var o in scene.Objects)
                 {
-                    if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                    if (!scene.TryGetDefinition(o, out var def)) continue;
                     foreach (var v in def.NearestLod())
                     {
                         if (v.NodeTransform.IsIdentity || !scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
@@ -258,7 +258,7 @@ public static class MapEmissiveCommand
             var names = variantDefs.Split(',').ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var o in scene.Objects.Where(o => names.Contains(o.Definition)))
             {
-                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                if (!scene.TryGetDefinition(o, out var def)) continue;
                 foreach (var v in def.Visuals)
                 {
                     if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
@@ -293,7 +293,7 @@ public static class MapEmissiveCommand
             var agg = new Dictionary<string, (int N, float A, float B, System.Numerics.Vector3 Scale, System.Numerics.Vector3 Rot)>();
             foreach (var o in scene.Objects)
             {
-                if (o.Depth != 0 || !scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                if (o.Depth != 0 || !scene.TryGetDefinition(o, out var def)) continue;
                 if (!System.Numerics.Matrix4x4.Decompose(o.Transform, out var sc, out var rot, out var tr)) continue;
                 float lo = Math.Min(sc.X, Math.Min(sc.Y, sc.Z)), hi = Math.Max(sc.X, Math.Max(sc.Y, sc.Z));
                 if (lo <= 0 || hi / lo < 1.1f) continue;
@@ -332,7 +332,7 @@ public static class MapEmissiveCommand
             var colRows = new List<(string Def, string Mesh, string Layer, float Share, System.Numerics.Vector3 Size, System.Numerics.Vector3 At, string Mats)>();
             foreach (var o in scene.Objects)
             {
-                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                if (!scene.TryGetDefinition(o, out var def)) continue;
                 foreach (var v in def.NearestLod())
                 {
                     if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;
@@ -454,7 +454,7 @@ int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
             var big = new List<(string Name, string Def, string Mesh, System.Numerics.Vector3 Size, System.Numerics.Vector3 Centre, string Mats)>();
             foreach (var o in scene.Objects)
             {
-                if (!scene.Definitions.TryGetValue(o.Definition, out var def)) continue;
+                if (!scene.TryGetDefinition(o, out var def)) continue;
                 foreach (var v in def.NearestLod())
                 {
                     if (!scene.Meshes.TryGetValue(v.MeshName, out var mesh)) continue;

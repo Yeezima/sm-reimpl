@@ -810,6 +810,14 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 |---|---|---|---|
 | Main menu video | Ours (the owner's request, "use this video loop as the main menu background in the next shipped release"): the main menu, its pages and the game folder setup play a looping 31.3 s video behind the menu (the owner's own cinematic of our Ashfall Citadel map, a Space Marine with a glowing power sword; owner-made 2026-11-10, our own media, not an original file), covering the window at any aspect ratio, paused under the customizer; it replaced the still picture of 2026-11-09, which `--menu-still` (and a missing or unplayable file) brings back. Since 2026-11-14 the still picture is the default again and the video file is no longer shipped in the tester release, the launcher parts or the source zip (it stays in the repository as a developer aid: `--menu-video` plays it where the file is present, and falls back to the still without it). SM1's front end had no such video | — (ours: SM1's menu backgrounds are not reproduced) | Main menu video |
 
+### Classic PvP maps: gameplay fidelity (classic-maps-fidelity gameplay, 2026-11-18; the map hash changes on every map; protocol 87, no wire change)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| World movement walls | The `d_blockers` boxes and cylinders and Shattered Bridge's `everyone_blocker_*` (group 2, read as ALL) are solid invisible walls for every player in every movement mode, shots pass. A cylinder is a 16-sided prism and a sphere an 80-triangle polyhedron that contain them. No face of a wall may be stood on (ours: a player landing on a top slides off, the bots have no cell there); no spawn, point or start area is inside one. Manufactorum's two spheres (z 15, reachable by jump pack only) are simulated too | That group 2 is ALL and stops players is read from the scripts' use of the same groups, not from engine code; the enum values of race 1 and 2 | World movement blockers (4 rows) |
+| Movable cover in the level's collision | Hab Center's 35 crates, Chem Refinery's 3 exploding barrels, Aquila Canyon's rubble cover and Desolation's crates, sandbag piles and rubble cover (Havok layer 3) are static solid props, pierceable like the M39 crates, never destroyed | The original's destruction states (`crate_a_healthy` and its damaged forms) and their physics | Movable cover baked into Havok layer 3 (2 rows) |
+| Havok layers 7 and 12 | Not read: layer 7 (character-collision proxies) would change only Shattered Bridge's walkable level, by 12.6 %; layer 12 is the camera's | How Shattered Bridge's proxies are used by the original's characters | Havok layer names; layers 7 and 12 are not used |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

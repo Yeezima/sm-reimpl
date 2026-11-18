@@ -10,7 +10,8 @@ namespace SmFormats.Obpk;
 /// </summary>
 public static class SyntheticObpkWriter
 {
-    public sealed record File(string Group, string Name, byte[] Data, string Folder = "\\");
+    /// <param name="PackageId">Nonzero: the entry's ID list holds this one value (the real archives' per-package id, classic-maps-fidelity); 0: no ID list, as before.</param>
+    public sealed record File(string Group, string Name, byte[] Data, string Folder = "\\", uint PackageId = 0);
 
     public static byte[] Build(IReadOnlyList<File> files, int signatureBlobLength = 288) =>
         Build(files, files.Select(f => f.Group).Distinct().ToList(), signatureBlobLength);
@@ -22,7 +23,9 @@ public static class SyntheticObpkWriter
         var table = new MemoryStream();
         var w = new BinaryWriter(table, Encoding.ASCII);
 
-        w.Write(1u); w.Write(1u); w.Write(0x12345678u);            // one ID list with one value
+        var packageIds = files.Select(f => f.PackageId).Where(id => id != 0).Distinct().Order().ToList();
+        w.Write(1u + (uint)packageIds.Count); w.Write(1u); w.Write(0x12345678u);   // an ID list with one value, then one such list per package id
+        foreach (uint id in packageIds) { w.Write(1u); w.Write(id); }
         // Name table: string pool without duplicates, each group's type name then its file names.
         var pool = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -42,7 +45,7 @@ public static class SyntheticObpkWriter
             {
                 WriteString(w, f.Name);
                 WriteString(w, f.Folder);
-                w.Write((uint)f.Data.Length); w.Write(0xFFFFFFFFu); w.Write((uint)f.Data.Length);
+                w.Write((uint)f.Data.Length); w.Write(f.PackageId == 0 ? 0xFFFFFFFFu : (uint)(1 + packageIds.IndexOf(f.PackageId))); w.Write((uint)f.Data.Length);
                 w.Write(0UL);
                 w.Write((byte)4); w.Write((uint)f.Data.Length);   // real 4-byte extras repeat the size
             }

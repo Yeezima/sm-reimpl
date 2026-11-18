@@ -146,7 +146,7 @@ public class SeizeGroundContentTests
             Assert.NotEqual(h, MapContent.Load(c, "mp_test").Hash);
             Assert.NotEqual(h, MapContent.Load(d, "mp_test").Hash);
             Assert.NotEqual(h, MapContent.Load(e, "mp_test").Hash);
-            Assert.Equal(8, MapContent.LoaderVersion);   // M18: characters use layers 2 + 8, kill regions; M22: spawn-room blockers; 5: blockers solid for the other side; 6: M25a surface materials; 7: M31 blockers reach above the level; 8: M39 props
+            Assert.Equal(9, MapContent.LoaderVersion);   // M18: characters use layers 2 + 8, kill regions; M22: spawn-room blockers; 5: blockers solid for the other side; 6: M25a surface materials; 7: M31 blockers reach above the level; 8: M39 props; 9: the map's invisible movement walls (d_blockers)
         }
         finally { foreach (var x in new[] { a, b, c, d, e }) Directory.Delete(x, recursive: true); }
     }

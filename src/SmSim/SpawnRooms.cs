@@ -112,11 +112,17 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
         return list;
     }
 
+    /// <summary>How far (m) above the level's floor a wall's upward face may lie and still count as part of it (the step height; ours).</summary>
+    const float WallTopFloorStep = 0.4f;
+    /// <summary>How far (m) below a sample the level's floor is looked for (a face slightly under the floor is part of it too).</summary>
+    const float WallTopFloorReach = 0.5f;
+
     /// <summary>
-    /// <paramref name="level"/> plus the boxes of the blockers that stop <paramref name="side"/> (in list order); the level
-    /// itself when none does.
+    /// <paramref name="level"/> plus the boxes of the blockers that stop <paramref name="side"/> (in list order), then the map's world walls
+    /// (<paramref name="walls"/>: their faces may not be stood on, except an upward face that lies on the level's own floor); the level
+    /// itself when there is none.
     /// </summary>
-    internal static StaticMesh MeshFor(StaticMesh level, Team side, IReadOnlyList<SpawnBlocker>? blockers)
+    internal static StaticMesh MeshFor(StaticMesh level, Team side, IReadOnlyList<SpawnBlocker>? blockers, IReadOnlyList<WorldBlocker>? walls = null)
     {
         var vertices = new List<Vector3>();
         var indices = new List<int>();
@@ -127,7 +133,36 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             vertices.AddRange(b.Corners());
             foreach (int i in BoxIndices) indices.Add(first + i);
         }
-        return vertices.Count == 0 ? level : level.With([.. vertices], [.. indices]);
+        var mesh = vertices.Count == 0 ? level : level.With([.. vertices], [.. indices]);
+        // The map's invisible walls (WorldBlocker) stop every player, after the side's own blockers; their faces may not be stood on.
+        var wv = new List<Vector3>();
+        var wi = new List<int>();
+        var wc = new List<Vector3>();
+        var wf = new List<bool>();
+        foreach (var w in walls ?? [])
+        {
+            int first = wv.Count;
+            wv.AddRange(w.Vertices);
+            foreach (int i in w.Indices) wi.Add(first + i);
+            for (int k = 0; k < w.Indices.Length / 3; k++)
+            {
+                wc.Add((w.Min + w.Max) / 2f);
+                // An upward face lying at (or within a step of) the level's own floor is part of that floor, not a ledge: standing there is standing on the floor, so it keeps ground
+                // (no sideways shove, no bob). Every other face may not be stood on.
+                var a = w.Vertices[w.Indices[3 * k]]; var b = w.Vertices[w.Indices[3 * k + 1]]; var c = w.Vertices[w.Indices[3 * k + 2]];
+                var n = Vector3.Cross(b - a, c - a);
+                bool up = n.LengthSquared() > 1e-12f && MathF.Abs(n.Z) / n.Length() >= 0.5f;
+                // Every vertex and every sample must find the level's floor within reach, and the face may be at most a step above it everywhere: a box top that is flush at
+                // one end and high at the other (on a slope) is a ledge, so it stays no-stand.
+                bool atFloor = up;
+                if (up)
+                    foreach (var p in new[] { a, b, c, (a + b + c) / 3f, (a * 2f + b + c) / 4f, (a + b * 2f + c) / 4f, (a + b + c * 2f) / 4f })
+                        if (!(level.Raycast(p + new Vector3(0, 0, WallTopFloorReach), -Vector3.UnitZ, 2f * WallTopFloorReach) is { } hit && hit.Normal.Z >= 0.5f
+                              && p.Z - hit.Point.Z <= WallTopFloorStep + 1e-3f)) { atFloor = false; break; }
+                wf.Add(!atFloor);
+            }
+        }
+        return wv.Count == 0 ? mesh : mesh.With([.. wv], [.. wi], addedWallCentres: [.. wc], addedNoStandFlags: [.. wf]);
     }
 
     /// <summary>FNV-1a 64 of <paramref name="h"/> and each blocker's side and floats (centre, size, yaw); none: <paramref name="h"/>.</summary>

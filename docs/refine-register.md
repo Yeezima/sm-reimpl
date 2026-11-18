@@ -28,12 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3466 spec table rows: **2480 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 771 rows of the changes document.
-Scanned 3463 spec table rows: **2476 tagged**, 636 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 769 rows of the changes document.
+Scanned 3482 spec table rows: **2494 tagged**, 637 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 776 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 406 | 348 | 346 | 113 | 12 |
+| Movement (critical) | 412 | 354 | 352 | 113 | 12 |
 | Combat core (critical) | 21 | 12 | 19 | 14 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 159 | 139 | 115 | 56 | 5 |
@@ -44,36 +43,27 @@ Scanned 3463 spec table rows: **2476 tagged**, 636 not tagged (read from data wi
 | HUD and hit feedback (critical) | 76 | 71 | 56 | 12 | 0 |
 | Sound mix (critical) | 100 | 94 | 78 | 12 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
-| Game modes | 46 | 42 | 43 | 19 | 1 |
+| Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
 | Customizer and paint | 46 | 43 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 743 | 699 | 529 | 192 | 1 |
+| Core simulation (provisional values) | 751 | 707 | 536 | 192 | 1 |
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2480** | 2201 | 1838 | 741 | 37 |
-| Core simulation (provisional values) | 739 | 696 | 526 | 189 | 1 |
-| General game design | 12 | 12 | 10 | 1 | 0 |
-| Ork faction | 268 | 253 | 153 | 68 | 0 |
-| **All areas** | **2476** | 2198 | 1835 | 738 | 37 |
+| **All areas** | **2494** | 2215 | 1852 | 741 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1466 |
-| confidence: low | 887 |
-| confidence: medium | 842 |
+| kind: ours | 1468 |
+| confidence: low | 891 |
+| confidence: medium | 852 |
+| kind: interpretation | 412 |
 | notes: ours | 407 |
-| kind: interpretation | 399 |
-| kind: ours | 1467 |
-| confidence: low | 886 |
-| confidence: medium | 840 |
-| notes: ours | 405 |
-| kind: interpretation | 395 |
 | notes: estimate | 207 |
 | kind: estimate | 175 |
 | confidence: none (low) | 109 |
@@ -88,8 +78,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: approximation | 25 |
 | kind: placeholder | 23 |
 | notes: open question | 21 |
-| kind: gap (not reproduced) | 19 |
 | notes: placeholder | 19 |
+| kind: gap (not reproduced) | 18 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -101,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (406)
+### Movement (gameplay-critical) (412)
 
 *Spec section: Extracted parameters*
 
@@ -762,6 +752,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-2F9CF38F` | First-hit smack, back (fourth follow-up 2026-11-09: "lower the volume by 40% and make the sound… | `play_bolter_smack` (the data's flesh smack) on the first Ork a shot hits, with the blast: level **-2.44 dB** = 0.6 x linear of the last version that had it (+2 dB, itself half the first pass's +8), i.e. **0.755 x the source event's level** (0 dB), plus the… (dB, cents, x) | kind: ours; confidence: low | owner 2026-11-09; event and numbers ours | First-hit smack, back (fourth follow-up 2026-11-09: "lower…: compare with SM1 by listening A/B at the same distance and state. Ours: play_bolter_smack (the data's flesh smack) on the first Ork a shot… | ☐ |
+
+*Spec section: Classic PvP maps: gameplay fidelity (classic-maps-fidelity gameplay, 2026-11-18; `MapContent.LoaderVersion` 9, so the map hash changes on every map; protocol 87, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-997DEC3F` | World movement blockers: which | every enabled `base/MissionMovementBlocker` that is not a spawn-room blocker (names not `marine_blocker*` / `chaos_blocker*`) with `BlockGroup` 2 and `BlockRace` 1 or 2, a box (`Shape` 1), a sphere (`Shape` 2) or a cylinder (`Shape` 3): the whole `d_blockers`… (m) | kind: interpretation; confidence: medium | the layers; see the next rows | World movement blockers: which: compare with SM1 by timing a run over a known distance. Ours: every enabled base/MissionMovementBlocker that is not a spawn-room… | ☐ |
+| `R-BD8AB0F8` | World movement blockers: what they are | solid invisible walls for **every** player of both sides and players with no side, in every way of moving (the shared movement step on the side's character mesh: walk, sprint, jump, evade, charge, jump-pack flight and dive, falling), like the spawn-room… | kind: interpretation; confidence: medium | as the next row | World movement blockers: what they are: compare with SM1 by timing a run over a known distance. Ours: solid invisible walls for every player of both sides and players with… | ☐ |
+| `R-60C017CF` | World movement blockers: evidence | (1) `util/doors.lua` closes a door by `MovementBlocker_SetGroupCategory` `COLLISION_ENTITY_GROUP_CATEGORY_ALL` (with `MovementBlocker_SetRaceCategory` `COLLISION_ENTITY_RACE_CATEGORY_NONE` when the blocker is made) and opens it by `..._GROUP_CATEGORY_NONE`… | kind: interpretation; confidence: medium | `util.oppc` (`doors`, `multiplayer`), the region scripts, the campaign layers (`part_*` archives), the ten maps' `d_blockers` | World movement blockers: evidence: compare with SM1 by timing a run over a known distance. Ours: (1) util/doors.lua closes a door by MovementBlocker_SetGroupCategory… | ☐ |
+| `R-95811D55` | World movement blockers: tops are not standable | a wall is a closed solid, but the original almost certainly had no invisible ledges (without the rule 163 cells on Shattered Bridge stood on the 46-degree slabs `everyone_blocker_01` and `_04`, 146 of them over the chasm with no level surface within 40 m… (cells) | kind: ours; confidence: medium | ours | World movement blockers: tops are not standable: compare with SM1 by timing a run over a known distance. Ours: a wall is a closed solid, but the original almost certainly had no… | ☐ |
+| `R-8136EFB0` | Havok layers 7 and 12 are not used for movement | layer 7 as a character layer would change little: the walking graph loses and gains cells against layers 2 and 8 alone on Manufactorum 0, Waste Management 6 / 2, Hab Center 0, Habs Ablaze 0, Chem Refinery 0, Aquila Canyon 24 / 0, Desolation 28 / 47, Dome… (cells) | kind: interpretation; confidence: low | measured | Havok layers 7 and 12 are not used for movement: compare with SM1 by timing a run over a known distance. Ours: layer 7 as a character layer would change little: the walking graph… | ☐ |
+| `R-A6BEF8DF` | Kill region scale | `Scale` is the **full size** (as read since M18): read as a half size, Waste Management's 200 x 200 x 5 slab at z -9 would stand at z -14 to -4, above floors at z -5 (8,374 of 81,895 walkable cells, 10.2 %, and 2 markers inside: players would die standing)… (m) | kind: interpretation; confidence: medium | the ten maps | Kill region scale: compare with SM1 by walking into the region on the map and noting where the player dies. Ours: Scale is the full size (as read since M18): read as a half size… | ☐ |
 
 *Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
 
@@ -2235,7 +2236,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC2A1FAC` | Blocker shield (visual) | a faint translucent plane (alpha 0.16) through each box's middle across its thin axis, its long side and full height (since M31 the raised box's: up to 25 m above the level's top), in the owning side's colour (Space Marines blue, Chaos orange), drawn for… | kind: placeholder; confidence: none (low) | the original plays `prop_mp_allies_shield` or `prop_mp_enemy_shield` (`FXObject_SetFXNames` with `Player_GetTeam` / `Player_GetLocal`: per the local player's… | Blocker shield (visual): compare with SM1 by counting hits to kill and by video of the health bar. Ours: a faint translucent plane (alpha 0.16) through each box's middle… | ☐ |
 | `R-A0B73F6E` | Spawn facing (M22) | **out of the spawn room toward its exit** (user's decision, replacing the first M22 rule "toward the map's middle"). The exit: the side's `MissionMovementBlocker`s (`marine_blocker_*`, `chaos_blocker_*`). Computed once per start area: the room's floor is a… (rad) | kind: interpretation; confidence: low; notes: ours | user's decision; blockers **original asset loaded**; path, waypoint and sharing rules ours | Spawn facing: compare with SM1 by feel or video. Ours: out of the spawn room toward its exit (user's decision, replacing the… | ☐ |
 | `R-C9A2A7A1` | Spawns | each side in its start area (`mkr_start_marine`; `mkr_start_ork` for Chaos): a 2 m grid 1 m in from the edge, nearest the centre first, each spot dropped onto the lowest walkable character collision between the area's top and 1 m below its bottom (height at… (m) | kind: interpretation; kind: provisional; confidence: low; notes: ours | areas **original asset loaded**; `SetSpawnLocation` / start markers in `multiplayer.lua` (constant pool), spot choice ours | Spawns: compare with SM1 by measuring on a flat spot of the same map. Ours: each side in its start area (mkr_start_marine; mkr_start_ork for… | ☐ |
-| `R-B09717B2` | Other movement blockers | the spawn-room blockers are simulated (rows above); `d_blockers`' two `MissionMovementBlocker` spheres (`Shape` 2, 9.3 m, `BlockGroup` 2, `BlockRace` 1, z ≈ 15 over the middle; no script names them) are not | kind: gap (not reproduced) | layer data | Other movement blockers: compare with SM1 by timing a run over a known distance. Ours: the spawn-room blockers are simulated (rows above); d_blockers' two… | ☐ |
+| `R-B09717B2` | Other movement blockers | the spawn-room blockers are simulated (rows above), and so are the group 2 boxes, spheres and cylinders (`d_blockers`, Shattered Bridge's `everyone_blocker_*`; the rows "World movement blockers" under "Classic PvP maps: gameplay fidelity"), Manufactorum's two… | kind: interpretation; confidence: medium | layer data | Other movement blockers: compare with SM1 by timing a run over a known distance. Ours: the spawn-room blockers are simulated (rows above), and so are the… | ☐ |
 | `R-C24BB3E8` | Match flow | as Annihilation (warm-up, the start countdown, end, 15 s restart); points capture only while playing (not during the countdown: they stay neutral and capture counts from the tick after play begins); at each round start points return to neutral and the score… | kind: provisional; confidence: none (low); notes: ours | ours | Match flow: compare with SM1 by feel or video. Ours: as Annihilation (warm-up, the start countdown, end, 15 s restart)… | ☐ |
 
 *Spec section: Provisional values in use*
@@ -2589,8 +2590,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (743)
-### Core simulation (provisional values) (739)
+### Core simulation (provisional values) (751)
 
 *Spec section: Provisional values in use*
 
@@ -3194,6 +3194,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6854DD93` | Vista cards unfogged | materials with `BlendMode` 1 and an `unlit` shader draw without the depth fog on the ten new maps | kind: interpretation; confidence: low | before and after views (Aquila Canyon) | Vista cards unfogged: compare with SM1 by feel or video. Ours: materials with BlendMode 1 and an unlit shader draw without the depth… | ☐ |
 | `R-4CC08CC1` | New-map rules gate | self-lit cards, unfogged cards, the second UV set and the sky textures apply on `mp_*` maps except `mp_tdm_09` only; never Musou's maps, characters or weapons | kind: ours | tests | New-map rules gate: compare with SM1 by feel or video. Ours: self-lit cards, unfogged cards, the second UV set and the sky… | ☐ |
 | `R-90649C55` | Dark floor plane (Basilica) | a 6000 m near-black (0.012/0.010/0.009) unlit plane 1.5 m under the lowest drawn point of the map, on `mp_tdm_11` only (m) | kind: ours; confidence: low | before and after views (white slats through the grates) | Dark floor plane (Basilica): compare with SM1 by measuring on a flat spot of the same map. Ours: a 6000 m near-black (0.012/0.010/0.009) unlit plane 1.5 m under the… | ☐ |
+
+*Spec section: Classic PvP maps: gameplay fidelity (classic-maps-fidelity gameplay, 2026-11-18; `MapContent.LoaderVersion` 9, so the map hash changes on every map; protocol 87, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-DFADCA53` | Desolation's walkable level west of x -29 | the five 50 m walls (x -39 to -19) cut 24,870 cells (17.2 % of the walking graph; before, a player could walk to x -73): playtest Desolation in the original for what the west side was (reachable ground, or a dead end behind the wall) (cells) | kind: interpretation; confidence: low | measured | Desolation's walkable level west of x -29: compare with SM1 by feel or video. Ours: the five 50 m walls (x -39 to -19) cut 24,870 cells (17.2 % of the… | ☐ |
+| `R-E7E024BA` | Chem Refinery's roofs and upper decks | the 129 walls (many 10 m wide, standing from z 0.4 up to z 50) take 7,208 cells (7.3 %) above 4.9 m in the middle of the map (x -50 to 20, y -73 to 63): playtest whether the original lets a player on the pipe roofs and decks there (cells) | kind: interpretation; confidence: low | measured | Chem Refinery's roofs and upper decks: compare with SM1 by feel or video. Ours: the 129 walls (many 10 m wide, standing from z 0.4 up to z 50) take… | ☐ |
+| `R-CEA190E6` | Movable cover baked into Havok layer 3: which | the layer named by a number is the `BodyType` of the bodies in it (next row); `BodyType` 3 is the movable and destructible cover. Layer "3" exists on Hab Center (420 triangles = 35 `crate_a_healthy`, 12 each), Chem Refinery (144 = 3… (triangles) | kind: interpretation; confidence: medium | `.hkt` layers; the definitions' `Bodies` (`BodyType` 3); placement counts | Movable cover baked into Havok layer 3: which: compare with SM1 by feel or video. Ours: the layer named by a number is the BodyType of the bodies in it (next… | ☐ |
+| `R-2A48C4DF` | Movable cover baked into Havok layer 3: rule | one prop per connected set of layer-3 triangles (triangles that share vertices: a crate, a barrel, a pile; 35, 3, 14 and 21 props), read exactly as the M39 props: solid for every player of both sides in every movement mode and for every shot, cone, projectile… | kind: interpretation; confidence: medium | M39 | Movable cover baked into Havok layer 3: rule: compare with SM1 by feel or video. Ours: one prop per connected set of layer-3 triangles (triangles that share… | ☐ |
+| `R-D2783935` | Havok layer names | a layer's number is the `BodyType` of the object bodies it holds: layer "12" has triangles at every placement of `WB_SgleRail_Cam_5m` (bodies 7 and 12 only, 19 to 22 and 1 to 2 triangles within 3 m), layer "3" the crates above, the kill region's `BodyType` is… | kind: interpretation; confidence: medium | the definitions' `Bodies` and node names | Havok layer names: compare with SM1 by feel or video. Ours: a layer's number is the BodyType of the object bodies it holds: layer… | ☐ |
+| `R-FB354BE6` | Far collision outside the kill boxes | not reachable by a player: the walkable level from the spawns (the whole level, not the bots' area) ends at x -73 on Desolation (x -29 with the walls) and at ±75 m on Dome Mechanicus; Desolation's far collision (about 31,000 m2 at x -275 to -360, y 187:… (m) | kind: interpretation; confidence: medium | measured | Far collision outside the kill boxes: compare with SM1 by measuring on a flat spot of the same map. Ours: not reachable by a player: the walkable level from the spawns (the… | ☐ |
+| `R-FC1AAAC5` | Same-name definitions (client drawing; `MapScene`) | a region archive keeps every package's `.O3d` and `.dcm` files, so one file name can occur twice with different contents: Shattered Bridge `gateway_centerarch_LODH`, `gateway_tower2B_LODH`, `slanted_rib_LODH`, `slanted_wall_LODH` (4 names, 62 placements)… | kind: interpretation | the archives' id lists; the layers' `PackageName` | Same-name definitions (client drawing; MapScene): compare with SM1 by feel or video. Ours: a region archive keeps every package's .O3d and .dcm files, so one… | ☐ |
 
 *Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
 
@@ -5091,6 +5103,14 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-12CF93EE` | Main menu video | Ours (the owner's request, "use this video loop as the main menu background in the next shipped release"): the main menu, its pages and the game folder setup play a looping 31.3 s video behind the menu (the owner's own cinematic of our Ashfall Citadel map, a Space Marine with a glowing power sword; owner-made… | — (ours: SM1's menu backgrounds are not reproduced) | Main menu video | Main menu video: compare with SM1 by feel or video. Ours: Ours (the owner's request, "use this video loop as the main menu… | ☐ |
+
+#### Classic PvP maps: gameplay fidelity (classic-maps-fidelity gameplay, 2026-11-18; the map hash changes on every map; protocol 87, no wire change)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-3C0DF39C` | World movement walls | The `d_blockers` boxes and cylinders and Shattered Bridge's `everyone_blocker_*` (group 2, read as ALL) are solid invisible walls for every player in every movement mode, shots pass. A cylinder is a 16-sided prism and a sphere an 80-triangle polyhedron that contain them. No face of a wall may be stood on (ours: a… | That group 2 is ALL and stops players is read from the scripts' use of the same groups, not from engine code; the enum values of race 1 and 2 | World movement blockers (4 rows) | World movement walls: compare with SM1 by timing a run over a known distance. Ours: The d_blockers boxes and cylinders and Shattered Bridge's… | ☐ |
+| `C-D4B646D6` | Movable cover in the level's collision | Hab Center's 35 crates, Chem Refinery's 3 exploding barrels, Aquila Canyon's rubble cover and Desolation's crates, sandbag piles and rubble cover (Havok layer 3) are static solid props, pierceable like the M39 crates, never destroyed | The original's destruction states (`crate_a_healthy` and its damaged forms) and their physics | Movable cover baked into Havok layer 3 (2 rows) | Movable cover in the level's collision: compare with SM1 by feel or video. Ours: Hab Center's 35 crates, Chem Refinery's 3 exploding barrels, Aquila… | ☐ |
+| `C-A9DDF750` | Havok layers 7 and 12 | Not read: layer 7 (character-collision proxies) would change only Shattered Bridge's walkable level, by 12.6 %; layer 12 is the camera's | How Shattered Bridge's proxies are used by the original's characters | Havok layer names; layers 7 and 12 are not used | Havok layers 7 and 12: compare with SM1 by feel or video. Ours: Not read: layer 7 (character-collision proxies) would change only… | ☐ |
 
 ### Not yet reproduced
 
