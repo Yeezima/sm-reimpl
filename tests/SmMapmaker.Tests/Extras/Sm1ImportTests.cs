@@ -38,6 +38,12 @@ public sealed class Sm1ImportTests : IDisposable
         }
     }
 
+    static void Fill(MapSession s, int count)
+    {
+        var ops = Enumerable.Range(0, count).Select(_ => Lab.Op("""{"op":"place","asset":{"source":"sm1","map":"mp_fake","definition":"def_wall"}}""")).ToList();
+        Assert.True(s.Apply(ops).Ok);
+    }
+
     MapSession Session(int extra = 0) => MapSession.New("imported", _lab.Library, new ImportSm1(extra));
 
     [Fact]
@@ -113,4 +119,31 @@ public sealed class Sm1ImportTests : IDisposable
         Assert.True(json.Length < MapDocument.MaxChars, $"{json.Length} chars");
         Assert.Equal(Sm1Import.MaxObjects + 1, MapDocument.Parse(json).Objects.Count);
     }
-}
+
+    [Fact]
+    public void A_second_import_keeps_the_whole_map_under_the_object_limit()
+    {
+        var s = Session(extra: 12000);
+        Assert.True(s.Apply(Lab.Op("""{"op":"import-sm1-map","map":"mp_fake"}""")).Ok);
+        var r = s.Apply(Lab.Op("""{"op":"import-sm1-map","map":"mp_fake","name":"again"}"""));
+        Assert.True(r.Ok, r.ToJson());
+        Assert.True(s.Document.Objects.Count <= MapDocument.MaxObjects, s.Document.Objects.Count.ToString());
+        Assert.Contains(r.Warnings, w => w.Contains("left out") && w.Contains(MapDocument.MaxObjects.ToString()));
+        Assert.Equal(s.Document.Objects.Count, MapDocument.Parse(s.Document.ToJson()).Objects.Count);   // reopens
+    }
+
+    [Fact]
+    public void Import_into_a_nearly_full_map_takes_what_fits_and_a_full_map_is_refused()
+    {
+        var s = Session(extra: 30);
+        Fill(s, MapDocument.MaxObjects - 10);
+        var r = s.Apply(Lab.Op("""{"op":"import-sm1-map","map":"mp_fake"}"""));
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Equal(MapDocument.MaxObjects, s.Document.Objects.Count);   // filled to the limit exactly (the group plus what fits)
+        Assert.Contains(r.Warnings, w => w.Contains("left out"));
+        Assert.Equal(s.Document.Objects.Count, MapDocument.Parse(s.Document.ToJson()).Objects.Count);
+        Fill(s, MapDocument.MaxObjects - s.Document.Objects.Count);
+        var full = s.Apply(Lab.Op("""{"op":"import-sm1-map","map":"mp_fake"}"""));
+        Assert.False(full.Ok);
+        Assert.Equal("too-big", full.Errors[0].Code);
+    }}

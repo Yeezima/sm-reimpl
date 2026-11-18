@@ -197,7 +197,7 @@ public partial class MapmakerDock : VBoxContainer
         _sm1Info.AutowrapMode = TextServer.AutowrapMode.WordSmart; _sm1Info.CustomMinimumSize = new Vector2(250, 0);
         _sm1Info.AddThemeColorOverride("font_color", HintColour); _sm1Info.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_sm1Info);
-        v.AddChild(Btn("Import SM1 map for editing", () => _ = _plugin.ImportSm1ForEditing(_sm1Map.Text), "Copies every piece of this original map into your map as editable objects, grouped under a node named after it (Scene tree). Save as... keeps it as a new map; the file holds references only."));
+        v.AddChild(Btn("Import SM1 map for editing", () => _ = _plugin.ImportSm1ForEditing(_sm1Map.Text), "Copies every piece of this original map into your map as editable objects, grouped under a node named after it (Scene tree). Save asks for a new file; the file holds references only."));
         v.AddChild(Btn("Frame SM1 map",() => { if (MapHost.Sm1 is { } s && s.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max); }, "Moves the 3D view to show the whole SM1 map."));
     }
 
