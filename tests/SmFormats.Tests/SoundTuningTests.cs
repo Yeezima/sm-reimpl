@@ -148,46 +148,30 @@ public class SoundTuningTests
         Assert.EndsWith(Path.Combine("sm-reimpl", "sound-tuning.json"), path);
     }
 
-    static SoundVoice Voice(params uint[] path) => new(1, 1, 0f, -10f, 0f, 1, true, null, 50, path);
-
     [Fact]
-    public void The_autocannons_footstep_body_alone_is_dropped()
+    public void The_classic_autocannon_plays_the_campaign_turret_event_in_the_classic_mix_only()
     {
-        Assert.True(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, ClassicAutocannonSound.BodyNode, 2)));
-        Assert.False(ClassicAutocannonSound.IsBody(ClassicAutocannonSound.Event, Voice(1, 2)));   // the shot's own layers (tail, click) stay as the data has them
-        Assert.False(ClassicAutocannonSound.IsBody("play_sm_heavy_bolter_fire", Voice(ClassicAutocannonSound.BodyNode)));   // no other weapon
-        // A simulated post of the event: the tail, the body (the footstep samples), the click. Classic keeps the tail and the click only; the old mix keeps all three.
-        var post = new[] { Voice(11, 12), Voice(21, ClassicAutocannonSound.BodyNode, 22), Voice(31) };
-        var played = post.Where(v => !ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, v)).ToList();
-        Assert.Equal([post[0], post[2]], played);
-        Assert.Equal(3, post.Count(v => !ClassicAutocannonSound.Applies(false, ClassicAutocannonSound.Event, v)));
-        Assert.Equal("play_ch_autocannon_fire", ClassicAutocannonSound.Event);   // the one event the weapon files post: no dreadnought or footstep event joins it
+        Assert.Equal("play_ch_autocannon_fire", ClassicAutocannonSound.Event);
+        Assert.Equal("play_autocannon_turret_fire", ClassicAutocannonSound.TurretEvent);
+        Assert.Equal(ClassicAutocannonSound.TurretEvent, ClassicAutocannonSound.Resolve(true, ClassicAutocannonSound.Event));
+        Assert.Equal(ClassicAutocannonSound.Event, ClassicAutocannonSound.Resolve(false, ClassicAutocannonSound.Event));   // --old-classic-mix, and the mix Musou Mode runs in
+        Assert.Equal("play_sm_bolter_stalker_fire", ClassicAutocannonSound.Resolve(true, "play_sm_bolter_stalker_fire"));   // Musou's autocannon plays the Stalker's event
+        Assert.Equal("play_sm_heavy_bolter_fire", ClassicAutocannonSound.Resolve(true, "play_sm_heavy_bolter_fire"));       // no other weapon
+        Assert.Equal(ClassicAutocannonSound.TurretEvent, ClassicAutocannonSound.Resolve(true, ClassicAutocannonSound.TurretEvent));
     }
 
     [Fact]
-    public void The_own_shot_resolves_as_the_default_case_and_plays_the_tail_not_the_body()
+    public void The_own_shot_resolves_as_the_default_case()
     {
         var own = new SoundSwitches().Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue).Set(7u, 9u);
         var shot = ClassicAutocannonSound.ShotSwitches(true, ClassicAutocannonSound.Event, own);
-        Assert.Null(shot.Get(AudioCatalog.PlayerGroup));   // the default case: the map bank's tail layer, not the unloaded local objects
+        Assert.Null(shot.Get(AudioCatalog.PlayerGroup));
         Assert.Equal(9u, shot.Get(7u));
         Assert.Equal(AudioCatalog.LocalPlayerValue, own.Get(AudioCatalog.PlayerGroup));   // the emitter itself is untouched
         Assert.Same(own, ClassicAutocannonSound.ShotSwitches(false, ClassicAutocannonSound.Event, own));   // --old-classic-mix, Musou's mix
         Assert.Same(own, ClassicAutocannonSound.ShotSwitches(true, "play_sm_heavy_bolter_fire", own));    // no other event
-        // and the body is dropped for that own shot too
-        Assert.True(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, Voice(ClassicAutocannonSound.BodyNode)));
     }
 
-    [Fact]
-    public void The_classic_gate_leaves_the_old_mix_musou_and_other_weapons_alone()
-    {
-        var body = Voice(ClassicAutocannonSound.BodyNode);
-        Assert.True(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, body));
-        Assert.False(ClassicAutocannonSound.Applies(false, ClassicAutocannonSound.Event, body));   // --old-classic-mix, and the mix Musou Mode runs in
-        Assert.False(ClassicAutocannonSound.Applies(true, "play_sm_bolter_stalker_fire", body));    // Musou's autocannon plays the Stalker's event
-        Assert.False(ClassicAutocannonSound.Applies(true, "play_sm_heavy_bolter_fire", body));
-        Assert.False(ClassicAutocannonSound.Applies(true, ClassicAutocannonSound.Event, Voice(5)));
-    }
 
     [Fact]
     public void A_group_gain_lifts_a_quiet_voice_over_the_cull_threshold_and_a_custom_curve_ends_where_the_owner_set_it()

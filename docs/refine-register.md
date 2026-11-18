@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 3482 spec table rows: **2494 tagged**, 637 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 776 rows of the changes document.
+Scanned 3462 spec table rows: **2476 tagged**, 635 not tagged (read from data with high confidence), 351 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 768 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +42,7 @@ Scanned 3482 spec table rows: **2494 tagged**, 637 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 76 | 71 | 56 | 12 | 0 |
-| Sound mix (critical) | 100 | 94 | 78 | 12 | 0 |
+| Sound mix (critical) | 101 | 95 | 78 | 12 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -54,6 +55,7 @@ Scanned 3482 spec table rows: **2494 tagged**, 637 not tagged (read from data wi
 | General game design | 12 | 12 | 10 | 1 | 0 |
 | Ork faction | 268 | 253 | 153 | 68 | 0 |
 | **All areas** | **2494** | 2215 | 1852 | 741 | 37 |
+| **All areas** | **2476** | 2198 | 1834 | 738 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -64,12 +66,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: medium | 852 |
 | kind: interpretation | 412 |
 | notes: ours | 407 |
+| kind: ours | 1467 |
+| confidence: low | 885 |
+| confidence: medium | 840 |
+| notes: ours | 405 |
+| kind: interpretation | 395 |
 | notes: estimate | 207 |
 | kind: estimate | 175 |
 | confidence: none (low) | 109 |
 | kind: provisional | 103 |
 | kind: user's knowledge | 53 |
-| kind: choice | 42 |
+| kind: choice | 43 |
 | notes: provisional | 41 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
@@ -1857,7 +1864,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
 
-### Sound mix (gameplay-critical) (100)
+### Sound mix (gameplay-critical) (101)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2015,7 +2022,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-13518CA8` | Autocannon footstep body dropped | the body voices (switch 0x06921B84, the Chaos marine footstep samples) are never played in Classic PvP's autocannon shot, whatever the shooter's speed; every other layer of the post (the map bank's tail layer, the click) and every other event is untouched.… | kind: ours | the owner's report ("completely remove that and ensure its only the autocannon shooting sound effect") | Autocannon footstep body dropped: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices (switch 0x06921B84, the Chaos marine footstep… | ☐ |
+| `R-892F69E9` | Autocannon footstep body dropped (superseded 2026-11-18 by the turret event below) | the body voices (switch 0x06921B84, the Chaos marine footstep samples) are never played in Classic PvP's autocannon shot, whatever the shooter's speed; every other layer of the post (the map bank's tail layer, the click) and every other event is untouched.… | kind: ours | the owner's report ("completely remove that and ensure its only the autocannon shooting sound effect") | Autocannon footstep body dropped (superseded 2026-11-18 by…: compare with SM1 by listening A/B at the same distance and state. Ours: the body voices (switch 0x06921B84, the Chaos marine footstep… | ☐ |
+| `R-0372248E` | Classic autocannon plays the campaign turret's event | in the Classic mix (not `--old-classic-mix`, not Musou Mode) a post of `play_ch_autocannon_fire` (both factions' `*_mp_exotic_auto_cannon`) resolves `play_autocannon_turret_fire` (bank `In_Game_Default`, samples in `Ambiences`, both loaded by default) at the… | kind: ours; kind: choice | owner 2026-11-18 ("Yes, use 05 for both", after hearing a preview) | Classic autocannon plays the campaign turret's event: compare with SM1 by listening A/B at the same distance and state. Ours: in the Classic mix (not --old-classic-mix, not Musou Mode) a post of… | ☐ |
 | `R-A8D24B08` | Autocannon sound scope | Classic PvP's autocannon of the extended profile only (the event is posted only there: Musou Mode's autocannon plays the Stalker Bolter's files); `--old-classic-mix` plays the data's again | kind: ours | the owner | Autocannon sound scope: compare with SM1 by listening A/B at the same distance and state. Ours: Classic PvP's autocannon of the extended profile only (the event is… | ☐ |
 | `R-5E86FA86` | Tuner groups | 25 groups (master; your gun, melee, jump pack, footsteps, voice, other; other players' bolters and pistols, heavy bolter and autocannon, plasma, melta, lascannon, other; their footsteps, jump packs, melee, voices; melee and bullet impacts, explosions… | kind: ours; confidence: medium | the owner's list; the name rules are our reading of the install's event names | Tuner groups: compare with SM1 by listening A/B at the same distance and state. Ours: 25 groups (master; your gun, melee, jump pack, footsteps, voice… | ☐ |
 | `R-DE2F7D1B` | Tuner volume | each group -40 to +24 dB in 0.5 dB steps, added to the voice on top of the Options menu's volumes; the master group adds to every group's (dB) | kind: ours | the owner | Tuner volume: compare with SM1 by listening A/B at the same distance and state. Ours: each group -40 to +24 dB in 0.5 dB steps, added to the voice on top… | ☐ |
@@ -5312,6 +5320,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CFDB3A1F` | Plasma cannon blast rim blur (plasma-cannon-shots; owner 2026-11-17 "soften it"; client only) | The cannon's impact drew a round dome and a disc with a bright rim (the `emp_ball_main`, `cloud_highlights_additive_02` and `bright_flash` cards) | Ours / estimate: those cards are read blurred (5 x 5 taps) and fade out toward their edge, flat shock-wave rings included; size and colour are the data's | The owner: "Soften it"; blur width and taps are ours (about +0.33 ms a frame measured on a fast GPU in the Compatibility renderer) | Plasma cannon blast rim blur (plasma-cannon-shots; owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E1A87700` | Plasma cannon charged shot: larger front ball and violet trail traces (plasma-cannon-shots; owner 2026-11-17; client only) | The data's ball is small and its trail pale cyan-white | Ours / estimate: the front ball's rings are drawn 1.25 x larger (owner: "make it only 1.25x bigger"); the loyalist trail's streamers carry 55 % violet; ball, glow and blast keep the data's colour and the blast its size | The owner: "only the trail has traces of violet. also make the main projectile ball at the front larger to match the reference image"; the factor 3.5 and the 55 % are our estimates | Plasma cannon charged shot: larger front ball and violet…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1227826A` | Ledge charge hop: the hop keeps the charge's speed (sim/ledge-charge-hop, 2026-11-17; protocol 85; Assault Marine and Raptor, every mode) and the fall pose starts 0.4 s into a ledge charge | The owner: hopping out of a ledge charge stopped the body nearly dead and then gave the hop's own speed; it should ease from the charge's fast momentum to the hop's top speed, and the fall animation should start 0.4 s into the ledge charge and blend in smoothly, then land | The Jump press that ends a charge held in the air keeps the charge's horizontal velocity while the hop waits for its tap, and the hop's flight adds the carried excess over its clip's speed, easing it off with a 0.15 s time constant (about 0.5 s from 40 m/s to the hop's about 20.8 m/s); hops from rest, a run or… | Owner 2026-11-17 (verbatim words in the spec). The 0.15 s ease, the 0.25 m/s slack and the 0.25 s cross-fade are ours. Spec "Ledge charge hop" | Ledge charge hop: the hop keeps the charge's speed…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-03EE2A96` | Classic autocannon plays the campaign turret's fire sound (sound/classic-autocannon-turret, 2026-11-18; client sound only, Classic PvP, both factions) | The owner, after hearing a preview of the install's `play_autocannon_turret_fire`: "Yes, use 05 for both" | In the Classic mix the autocannon's shot (`play_ch_autocannon_fire` in the weapon files) plays `play_autocannon_turret_fire`, the campaign turret's event, at the shooter's position, own shot included. `--old-classic-mix` and Musou Mode (the Stalker's files) are unchanged | Owner's choice of sound over the data's own event; a singleplayer content dependency (docs/discovery.md "Classic autocannon"). Spec "Classic autocannon plays the campaign turret's event" | Classic autocannon plays the campaign turret's fire sound…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

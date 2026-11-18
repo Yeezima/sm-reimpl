@@ -58,7 +58,7 @@ static class AudioRender
             if (spec.MaterialType is not null) sw.Set("material_type", spec.MaterialType);
             if (spec.Local) sw.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
             SoundPlay play;
-            try { play = catalog.Post(spec.Event, spec.ClassicAutocannon ? ClassicAutocannonSound.ShotSwitches(true, spec.Event, sw) : sw, 1); }
+            try { play = spec.ClassicAutocannon ? catalog.Post(ClassicAutocannonSound.Resolve(true, spec.Event), ClassicAutocannonSound.ShotSwitches(true, spec.Event, sw), 1) : catalog.Post(spec.Event, sw, 1); }
             finally
             {
                 catalog.SetState(ImpactStateGroup, beforeImpact ?? AudioCatalog.NoneState);
@@ -70,7 +70,6 @@ static class AudioRender
             {
                 var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = spec.Speed };
                 var offset = spec.Offset;
-                if (spec.ClassicAutocannon && ClassicAutocannonSound.IsBody(spec.Event, v)) continue;   // sound/classic-autocannon: the footstep body is never played
                 var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap).With(offset);
                 var pcm = Decode(catalog, v.WemId, out int ch, out int rate);
                 if (pcm is null) { missing++; lines.Add($"wem {v.WemId}: no media / decode failed"); continue; }
