@@ -9,7 +9,10 @@ namespace SmMapmaker;
 /// </summary>
 public sealed class MapSession
 {
-    sealed record Entry(string DocBefore, string DocAfter, IReadOnlyList<(string Id, string? Before, string? After)> Prefabs, IReadOnlyList<string>? DeletedAssets = null);
+    sealed record Entry(string DocBefore, string DocAfter, IReadOnlyList<(string Id, string? Before, string? After)> Prefabs, IReadOnlyList<(string Id, string Slot)>? DeletedAssets = null);
+
+    /// <summary>Assets (id, trash slot) the last committed batch moved to the library trash (the editor keeps them for its own undo step).</summary>
+    public IReadOnlyList<(string Id, string Slot)> LastTrashed { get; private set; } = [];
 
     readonly List<Entry> _undo = [];
     readonly List<Entry> _redo = [];
@@ -106,11 +109,12 @@ public sealed class MapSession
         }
         foreach (var id in batch.DeletedPrefabs.Where(d => !batch.Prefabs.ContainsKey(d)))
             if (Library.ReadPrefabText(id) is { } was) prefabChanges.Add((id, was, null));
-        var trashed = batch.DeletedAssets.ToList();
-        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashed.Count == 0) return;
+        var trashIds = batch.DeletedAssets.ToList();
+        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) return;
 
         foreach (var staged in batch.Assets.Values) WriteAsset(staged);
-        foreach (var id in trashed) Library.TrashAsset(id);
+        var trashed = trashIds.Select(id => (id, Library.TrashAsset(id))).ToList();
+        LastTrashed = trashed;
         foreach (var (id, _, now) in prefabChanges)
         {
             if (now is null) File.Delete(Library.PrefabPath(id));
@@ -161,7 +165,7 @@ public sealed class MapSession
     {
         if (_undo.Count == 0) return OpResult.Fail("nothing-to-undo", "There is nothing to undo.", "undo");
         var e = _undo[^1];
-        try { Restore(e.DocBefore, e.Prefabs.Select(p => (p.Id, p.Before))); foreach (var a in e.DeletedAssets ?? []) Library.RestoreAsset(a); }
+        try { Restore(e.DocBefore, e.Prefabs.Select(p => (p.Id, p.Before))); foreach (var (a, slot) in e.DeletedAssets ?? []) Library.RestoreAsset(a, slot); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return OpResult.Fail("io-error", ex.Message, "undo"); }
         _undo.RemoveAt(_undo.Count - 1);
         _redo.Add(e);
@@ -173,7 +177,7 @@ public sealed class MapSession
     {
         if (_redo.Count == 0) return OpResult.Fail("nothing-to-redo", "There is nothing to redo.", "redo");
         var e = _redo[^1];
-        try { Restore(e.DocAfter, e.Prefabs.Select(p => (p.Id, p.After))); foreach (var a in e.DeletedAssets ?? []) Library.TrashAsset(a); }
+        try { Restore(e.DocAfter, e.Prefabs.Select(p => (p.Id, p.After))); foreach (var (a, slot) in e.DeletedAssets ?? []) Library.TrashAsset(a, slot); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return OpResult.Fail("io-error", ex.Message, "redo"); }
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(e);

@@ -221,6 +221,9 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
             foreach (var n in Doc.Subtree(root))
             {
                 if (n.Asset is null && n.Prefab is null) continue;
+                bool hidden = false;
+                for (var cur = n; cur is not null && !hidden; cur = cur.Parent is null ? null : Doc.Find(cur.Parent)) hidden = !cur.Visible;
+                if (hidden) Warnings.Add($"'{n.Id}' is hidden; prefab parts have no visibility, so it is a visible part of the new prefab.");
                 if (n.Prefab is not null && n.Overrides.Count > 0)
                 {
                     // An instance with part overrides is unfolded into its parts, as drawn, so moved parts stay put and hidden parts stay hidden (left out).

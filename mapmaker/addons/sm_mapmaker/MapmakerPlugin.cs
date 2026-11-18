@@ -26,7 +26,7 @@ public partial class MapmakerPlugin : EditorPlugin
         public OpResult? Result;
         public string BeforeDoc = "", AfterDoc = "";
         public Dictionary<string, string?> BeforePrefabs = new(), AfterPrefabs = new();
-        public string[] DeletedAssets = [];   // custom assets this step moved to the library trash (undo moves them back)
+        public (string Id, string Slot)[] DeletedAssets = [];   // custom assets this step moved to the library trash (undo moves them back)
     }
 
     MapmakerDock? _dock;
@@ -421,7 +421,7 @@ public partial class MapmakerPlugin : EditorPlugin
             return applied;
         }
         step.Result = applied;
-        step.DeletedAssets = step.Ops.Where(o => o["op"]?.ToString() == "delete-asset").Select(o => o["asset"]?.ToString()).OfType<string>().ToArray();
+        step.DeletedAssets = step.Ops.Any(o => o["op"]?.ToString() == "delete-asset") ? Session.LastTrashed.ToArray() : [];
         step.AfterDoc = Session.Document.ToJson();
         step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
         foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
@@ -457,7 +457,7 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;   // a history entry whose step was dropped (its map was replaced), or another scene's
         Restore(step.AfterDoc, step.AfterPrefabs);
-        foreach (var a in step.DeletedAssets) MapHost.Library.TrashAsset(a);
+        foreach (var (a, slot) in step.DeletedAssets) MapHost.Library.TrashAsset(a, slot);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
@@ -465,7 +465,7 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;
         Restore(step.BeforeDoc, step.BeforePrefabs);
-        foreach (var a in step.DeletedAssets) MapHost.Library.RestoreAsset(a);
+        foreach (var (a, slot) in step.DeletedAssets) MapHost.Library.RestoreAsset(a, slot);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 

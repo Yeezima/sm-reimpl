@@ -785,8 +785,16 @@ public partial class MapmakerDock : VBoxContainer
         _deleteAsset.DialogText = $"Delete the asset \"{name}\" ({id}) from the library?" +
             (n > 0 ? $"\n\nIt is placed {n} time(s) in this map; those copies are deleted too." : "") +
             "\n\nIf a prefab uses it, nothing is deleted: edit that prefab first." +
+            SavedMapsNote(assetId: id) +
             "\n\nEdit > Undo (Ctrl+Z) brings it back.";
-        _deleteAsset.PopupCentered(new Vector2I(420, 190));
+        _deleteAsset.PopupCentered(new Vector2I(440, 230));
+    }
+
+    /// <summary>A confirmation paragraph naming the other saved maps that use the item: they are not edited and will show it as missing.</summary>
+    string SavedMapsNote(string? assetId = null, string? prefabId = null)
+    {
+        var maps = MapHost.Library.MapsUsing(assetId, prefabId, _plugin.Session?.Path);
+        return maps.Count == 0 ? "" : $"\n\n{maps.Count} other saved map(s) use it ({string.Join(", ", maps.Take(4))}{(maps.Count > 4 ? ", ..." : "")}); they are not changed and will show it as missing.";
     }
 
     /// <summary>Deletes the asset (and its placed copies); returns the status line shown.</summary>
@@ -813,8 +821,9 @@ public partial class MapmakerDock : VBoxContainer
         string name = MapHost.Library.ListPrefabs().FirstOrDefault(p => p.Id == id)?.Name ?? id;
         _deletePrefab.DialogText = $"Delete the prefab \"{name}\" ({id}) from the library?" +
             (n > 0 ? $"\n\nIt is placed {n} time(s) in this map; those copies are deleted too{(all > n ? $", with {all - n} object(s) parented under them" : "")}." : "") +
+            SavedMapsNote(prefabId: id) +
             "\n\nEdit > Undo (Ctrl+Z) brings it back.";
-        _deletePrefab.PopupCentered(new Vector2I(420, 160));
+        _deletePrefab.PopupCentered(new Vector2I(440, 200));
     }
 
     static string Slug(string s)
