@@ -380,6 +380,30 @@ public class MapmakerTests
         Assert.Equal(100f, parts[0].World.M41, 3); Assert.Equal(104f, parts[1].World.M41, 3);
     }
 
+    [Theory]
+    [InlineData("first")]
+    [InlineData("bounds-bottom-center")]
+    [InlineData("[7,-3,2]")]
+    public void GroupToPrefabKeepsEveryWorldTransform(string origin)
+    {
+        using var lab = new Lab();
+        var s = lab.Session();
+        lab.ImportBox(s, "pillar");
+        var originJson = origin.StartsWith('[') ? origin : $"\"{origin}\"";
+        Assert.True(s.Apply([
+            Lab.Op("""{"op":"place","asset":{"source":"custom","id":"pillar"},"name":"a","transform":{"position":[100.25,50.5,3],"rotation":[10,35,-70],"scale":[1.5,0.75,2]}}"""),
+            Lab.Op("""{"op":"place","asset":{"source":"custom","id":"pillar"},"name":"b","transform":{"position":[-12,8.125,-4],"rotation":[0,0,90],"scale":[1,1,1]}}"""),
+            Lab.Op("""{"op":"place","asset":{"source":"custom","id":"pillar"},"name":"c","transform":{"position":[2,3,4],"rotation":[45,-20,15],"scale":[3,3,3]}}"""),
+        ]).Ok);
+        var before = s.Resolve().Select(x => x.World).ToList();
+        var r = s.Apply(Lab.Op($$"""{"op":"group-to-prefab","ids":["o1","o2","o3"],"prefab":"trio","origin":{{originJson}},"replace":true}"""));
+        Assert.True(r.Ok, r.ToJson());
+        var after = s.Resolve().Select(x => x.World).ToList();
+        Assert.Equal(before.Count, after.Count);
+        for (int i = 0; i < before.Count; i++)
+            Assert.True(TransformMath.Close(before[i], after[i], 1e-3f), $"part {i} moved ({origin})");
+    }
+
     [Fact]
     public void BottomCenterOriginUsesAssetBounds()
     {
@@ -391,6 +415,60 @@ public class MapmakerTests
         // glTF box is 2 x 4 x 2 with Y up; document Z up gives a height of 4 above the foot... the foot is the min Z of the world box.
         Assert.Equal(1f, p.Parts.Min(x => x.Transform.Position.Z), 3);   // the foot (box min Z = -1) is the origin, so parts sit 1 m above it
         Assert.Equal(102f, p.Origin.X, 3);
+    }
+
+    [Fact]
+    public void GroupToPrefabKeepsInstancePartOverridesAndRotatedInstances()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o1","o2"],"prefab":"pair","origin":"first","replace":true}"""));
+        Assert.True(s.Apply([
+            Lab.Op("""{"op":"place","prefab":"pair","transform":{"position":[10,20,5],"rotation":[0,0,33],"scale":[2,2,2]}}"""),
+            Lab.Op("""{"op":"instance-override","id":"o4","part":"p2","transform":{"position":[9,1,2],"rotation":[5,6,7]}}"""),
+            Lab.Op("""{"op":"place","asset":{"source":"custom","id":"pillar"},"name":"x","transform":{"position":[-3,4,1],"rotation":[0,20,0]}}"""),
+        ]).Ok);
+        var before = s.Resolve().Where(p => p.ObjectId is "o4" or "o5").Select(p => p.World).ToList();
+        var r = s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o4","o5"],"prefab":"mix","replace":true}"""));
+        Assert.True(r.Ok, r.ToJson());
+        var after = s.Resolve().Where(p => p.ObjectId == r.Created[0]).Select(p => p.World).ToList();
+        Assert.Equal(before.Count, after.Count);
+        foreach (var b in before) Assert.Contains(after, a => TransformMath.Close(a, b, 1e-3f));
+    }
+
+    [Fact]
+    public void DeleteAssetIsRefusedWhileUsedAndUndoable()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);   // o1, o2 use "pillar"
+        var r = s.Apply(Lab.Op("""{"op":"delete-asset","asset":"pillar"}"""));
+        Assert.False(r.Ok);
+        Assert.Equal("asset-in-use", r.Errors[0].Code);
+        Assert.NotNull(lab.Library.GetAsset("pillar"));
+        // delete the placed copies and the asset in one batch
+        r = s.Apply([Lab.Op("""{"op":"delete","ids":["o1","o2"]}"""), Lab.Op("""{"op":"delete-asset","asset":"pillar"}""")]);
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Null(lab.Library.GetAsset("pillar"));
+        Assert.Empty(s.Document.Objects);
+        Assert.True(s.Undo().Ok);
+        Assert.NotNull(lab.Library.GetAsset("pillar"));
+        Assert.Equal(2, s.Document.Objects.Count);
+        Assert.True(s.Validate().Ok);
+        Assert.True(s.Redo().Ok);
+        Assert.Null(lab.Library.GetAsset("pillar"));
+        Assert.Equal("unknown-asset", s.Apply(Lab.Op("""{"op":"delete-asset","asset":"pillar"}""")).Errors[0].Code);
+    }
+
+    [Fact]
+    public void DeleteAssetIsRefusedWhileAPrefabUsesIt()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        Assert.True(s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o1","o2"],"prefab":"pair","replace":true}""")).Ok);
+        var r = s.Apply(Lab.Op("""{"op":"delete-asset","asset":"pillar"}"""));
+        Assert.False(r.Ok);
+        Assert.Equal("asset-in-use", r.Errors[0].Code);
+        Assert.Contains("pair", r.Errors[0].Message);
     }
 
     [Fact]

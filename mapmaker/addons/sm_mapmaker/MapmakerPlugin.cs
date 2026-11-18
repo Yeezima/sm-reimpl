@@ -26,6 +26,7 @@ public partial class MapmakerPlugin : EditorPlugin
         public OpResult? Result;
         public string BeforeDoc = "", AfterDoc = "";
         public Dictionary<string, string?> BeforePrefabs = new(), AfterPrefabs = new();
+        public string[] DeletedAssets = [];   // custom assets this step moved to the library trash (undo moves them back)
     }
 
     MapmakerDock? _dock;
@@ -420,6 +421,7 @@ public partial class MapmakerPlugin : EditorPlugin
             return applied;
         }
         step.Result = applied;
+        step.DeletedAssets = step.Ops.Where(o => o["op"]?.ToString() == "delete-asset").Select(o => o["asset"]?.ToString()).OfType<string>().ToArray();
         step.AfterDoc = Session.Document.ToJson();
         step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
         foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
@@ -448,13 +450,14 @@ public partial class MapmakerPlugin : EditorPlugin
     }
 
     static bool StepTouchesLibrary(Step step) =>
-        step.Result is { CreatedPrefabs.Count: > 0 } || step.BeforePrefabs.Count > 0 || step.Ops.Any(o => o["op"]?.ToString() is "import-asset" or "import-prefab");
+        step.Result is { CreatedPrefabs.Count: > 0 } || step.BeforePrefabs.Count > 0 || step.Ops.Any(o => o["op"]?.ToString() is "import-asset" or "import-prefab" or "delete-asset");
 
     /// <summary>Redo: the editor re-runs the step, which restores the document as it was after the batch.</summary>
     public void StepDo(int id)
     {
         if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;   // a history entry whose step was dropped (its map was replaced), or another scene's
         Restore(step.AfterDoc, step.AfterPrefabs);
+        foreach (var a in step.DeletedAssets) MapHost.Library.TrashAsset(a);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
@@ -462,6 +465,7 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;
         Restore(step.BeforeDoc, step.BeforePrefabs);
+        foreach (var a in step.DeletedAssets) MapHost.Library.RestoreAsset(a);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
@@ -845,6 +849,19 @@ public partial class MapmakerPlugin : EditorPlugin
         if (users.Count > 0) ops.Add(Op("delete", ("ids", Strs(users))));
         ops.Add(Op("delete-prefab", ("prefab", prefabId)));
         return Do($"Delete prefab {prefabId}", ops.ToArray());
+    }
+
+    /// <summary>Objects of the open map that place the custom asset <paramref name="assetId"/> directly.</summary>
+    public List<string> AssetUsers(string assetId) => Session?.Document.Objects.Where(o => o.Asset is { IsSm1: false } a && a.Id == assetId).Select(o => o.Id).ToList() ?? new List<string>();
+
+    /// <summary>Deletes a custom asset with its placed copies in the open map, as one undo step (Ctrl+Z brings both back). Refused (nothing changes) while a prefab uses it.</summary>
+    public OpResult DeleteAsset(string assetId)
+    {
+        var users = AssetUsers(assetId);
+        var ops = new List<JsonObject>();
+        if (users.Count > 0) ops.Add(Op("delete", ("ids", Strs(users))));
+        ops.Add(Op("delete-asset", ("asset", assetId)));
+        return Do($"Delete asset {assetId}", ops.ToArray());
     }
 
     public OpResult DeleteSelected() => Do("Delete", Op("delete", ("ids", Strs(SelectedIds()))));

@@ -21,11 +21,12 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
     public List<string> CreatedPrefabs { get; } = [];
     public SortedSet<string> DeletedPrefabs { get; } = new(StringComparer.Ordinal);
     public List<string> CreatedAssets { get; } = [];
+    public SortedSet<string> DeletedAssets { get; } = new(StringComparer.Ordinal);
     public List<string> Warnings { get; } = [];
     public List<KeyValuePair<string, string>> Mapping { get; } = [];
 
     public override Prefab? GetPrefab(string id) => Prefabs.TryGetValue(id, out var p) ? p : DeletedPrefabs.Contains(id) ? null : base.GetPrefab(id);
-    public override AssetInfo? GetAsset(string id) => Assets.TryGetValue(id, out var a) ? a.Info : base.GetAsset(id);
+    public override AssetInfo? GetAsset(string id) => DeletedAssets.Contains(id) ? null : Assets.TryGetValue(id, out var a) ? a.Info : base.GetAsset(id);
 
     record Item(string Name, AssetRef? Asset, string? Prefab, Matrix4x4 World, MapTransform Comp);
 
@@ -53,6 +54,7 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
             case "group-to-prefab": GroupToPrefab(op); break;
             case "prefab-edit": PrefabEdit(op); break;
             case "delete-prefab": DeletePrefab(op); break;
+            case "delete-asset": DeleteAsset(op); break;
             case "instance-override": InstanceOverride(op); break;
             case "import-asset": ImportAsset(op); break;
             case "import-prefab": ImportPrefab(op); break;
@@ -218,7 +220,19 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
             foreach (var n in Doc.Subtree(root))
             {
                 if (n.Asset is null && n.Prefab is null) continue;
-                if (n.Overrides.Count > 0) Warnings.Add($"'{n.Id}' is a prefab instance with overrides; they are not carried into the new prefab.");
+                if (n.Prefab is not null && n.Overrides.Count > 0)
+                {
+                    // An instance with part overrides is unfolded into its parts, as drawn, so moved parts stay put and hidden parts stay hidden (left out).
+                    foreach (var rp in MapResolver.Flatten(Doc, this).Where(x => x.ObjectId == n.Id && x.Visible))
+                    {
+                        MapTransform pc;
+                        try { pc = TransformMath.Decompose(rp.World); }
+                        catch (MapException e) { throw new MapException(e.Code, e.Message, n.Id); }
+                        items.Add(new Item(rp.Name, rp.Asset, null, rp.World, pc));
+                    }
+                    Warnings.Add($"'{n.Id}' is a prefab instance with overrides; it was unfolded into its parts so they stay where they are.");
+                    continue;
+                }
                 MapTransform comp;
                 try { comp = n.Parent is null ? n.Transform : TransformMath.Decompose(Doc.World(n.Id)); }
                 catch (MapException e) { throw new MapException(e.Code, e.Message, n.Id); }
@@ -313,6 +327,23 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         Prefabs.Remove(id);
         CreatedPrefabs.Remove(id);
         DeletedPrefabs.Add(id);
+    }
+
+    /// <summary>Removes a custom asset from the library (its folder goes to the library trash; undo brings it back). Refused while an object of this map or a prefab still uses it.</summary>
+    void DeleteAsset(JsonObject op)
+    {
+        var id = Json.ReqStr(op, "asset", "delete-asset", "bad-op");
+        if (GetAsset(id) is null) throw new MapException("unknown-asset", $"No custom asset '{id}'.");
+        bool Uses(AssetRef? a) => a is { IsSm1: false } && a.Id == id;
+        var users = Doc.Objects.Where(o => Uses(o.Asset)).Select(o => o.Id).ToList();
+        if (users.Count > 0)
+            throw new MapException("asset-in-use", $"Asset '{id}' is placed {users.Count} time(s) in this map ({string.Join(", ", users.Take(5))}{(users.Count > 5 ? ", ..." : "")}); delete those first.", users[0]);
+        var all = Library.ListPrefabs().Select(p => p.Id).Concat(Prefabs.Keys).Distinct();
+        foreach (var other in all)
+            if (GetPrefab(other) is { } p && p.Parts.Any(part => Uses(part.Asset)))
+                throw new MapException("asset-in-use", $"Asset '{id}' is a part of prefab '{other}'; remove it there first.");
+        DeletedAssets.Add(id);
+        CreatedAssets.Remove(id);
     }
 
     void PrefabEdit(JsonObject op)

@@ -117,6 +117,10 @@ the display name changes (`asset.json` / the `.smprefab`); the id and folder sta
 is trimmed with inner whitespace made one space, 1 to 80 characters, no control characters; a name another item of the same kind already has is
 rejected (`duplicate-name`, compared without case; an asset and a prefab may share a name). Not undoable. SM1 definitions are read-only.
 
+r
+**Delete.** Right click a custom asset or prefab in the Library list and choose "Delete..." (SM1 rows are read-only). A dialog asks first and says how many placed copies in the open map go with it. A prefab goes with its placed copies (and whatever is parented under them); a custom asset (`delete-asset {asset}`) goes with the objects that place it, but is refused (`asset-in-use`, nothing changes) while a prefab still uses it: edit that prefab first. Both are one undo step; an asset's folder moves to `library/trash/assets/<id>` and Ctrl+Z moves it back. Nothing is left pointing at a missing item.
+
+**Group to prefab keeps every part where it was** (owner, 2026-11-18). The prefab's part transforms are the parts' world transforms relative to the chosen origin and the replacing instance sits at that origin with no rotation or scale, so every part's world position, rotation and scale is unchanged (any origin; tested with rotated, scaled and offset parts). The one case that used to shift parts: an instance with part overrides (moved or hidden parts) lost its overrides when grouped, so its parts jumped back to the prefab's own places. Such an instance is now unfolded into its parts as drawn (hidden parts are left out) and a warning says so. SM1 pieces (boxes, ramps, spawn areas) cannot be prefab parts and are not part of a group.
 Test aid: `godot.cmd --windowed --editor --path mapmaker -- --mm-libtest --mm-out <dir>` (with `SM_MAPMAKER_CONTROL` set to a scratch folder) builds
 synthetic fixtures (an ASCII FBX zip at three LODs with Megascans-named textures, a loose glb, a zip-slip zip, a Draco glTF), imports them by drop,
 checks the previews of all three sources, the placeholders, rename and takes screenshots.
@@ -126,7 +130,7 @@ checks the previews of all three sources, the placeholders, rename and takes scr
 `{id, move?, rotate?, scaleBy?}` (delta) Â· `duplicate {ids, offset?}` -> new ids Â· `delete {ids}` (children too) Â·
 `rename {id, name}` Â· `set-parent {id, parent}` (keeps world position) Â· `set-visible {id, visible}` Â·
 `group-to-prefab {ids, prefab, name, origin: "bounds-bottom-center"|"first"|[x,y,z], collision?, replace?}` (replace: swaps the selection for one
-linked instance at the same place) Â· `prefab-edit {prefab, origin?, addParts?, removeParts?, setPart?}` Â· `delete-prefab {prefab}` (refused with `prefab-in-use` while this map or another prefab uses it; undo restores the file) Â· `instance-override {id, part, visible?, transform?}` Â·
+linked instance at the same place) Â· `prefab-edit {prefab, origin?, addParts?, removeParts?, setPart?}` Â· `delete-asset {asset}` (refused with `asset-in-use` while an object or prefab uses it; undo restores the folder from the library trash) · `delete-prefab {prefab}` (refused with `prefab-in-use` while this map or another prefab uses it; undo restores the file) Â· `instance-override {id, part, visible?, transform?}` Â·
 `import-asset {path, id?, name?}` Â· `import-prefab {path}` Â· `extract-sm1 {map, objects:[names | {index, part?}], prefab, name, origin?, collision?}` (provenance keeps `indices`, and `parts` when a part was taken).
 Snapping is applied by the caller (`Snap.Grid`, `Snap.Angle` helpers in the core) so a typed value is never re-snapped.
 Results: `{ ok, created:[ids], warnings:[...], errors:[{ code, message, op, id? }] }`. Error codes are stable strings (`unknown-id`,

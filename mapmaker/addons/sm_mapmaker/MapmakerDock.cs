@@ -282,10 +282,16 @@ public partial class MapmakerDock : VBoxContainer
             bool editable = _items[(int)i].Kind is LibraryKind.Asset or LibraryKind.Prefab;
             _rowMenu.AddItem(editable ? "Rename...   (F2)" : "Rename (SM1 definitions are read-only)", 1);
             _rowMenu.SetItemDisabled(0, !editable);
+            _rowMenu.AddItem(editable ? "Delete..." : "Delete (SM1 definitions are read-only)", 2);
+            _rowMenu.SetItemDisabled(1, !editable);
             _rowMenu.Position = (Vector2I)DisplayServer.MouseGetPosition(); _rowMenu.Popup();
         };
         _list.GuiInput += e => { if (e is InputEventKey { Pressed: true, Keycode: Key.F2 } && _list.GetSelectedItems() is { Length: > 0 } sel) { BeginRename(sel[0]); _list.AcceptEvent(); } };
-        _rowMenu.IdPressed += id => { if (id == 1 && _list.GetSelectedItems() is { Length: > 0 } sel) BeginRename(sel[0]); };
+        _rowMenu.IdPressed += id =>
+        {
+            if (_list.GetSelectedItems() is not { Length: > 0 } sel) return;
+            if (id == 1) BeginRename(sel[0]); else if (id == 2) AskDeleteRow(sel[0]);
+        };
         AddChild(_rowMenu);
         _renameEdit.TextSubmitted += CommitRename;
         _renameEdit.FocusExited += () => { if (_renameIndex >= 0 && _renameEdit.Visible) EndRename(); };
@@ -748,6 +754,47 @@ public partial class MapmakerDock : VBoxContainer
         Bounds? b = item.Kind == LibraryKind.Prefab ? MapHost.Library.ListPrefabs().FirstOrDefault(p => p.Id == item.Id)?.Bounds : null;
         await _plugin.Frame3D(b?.Min ?? new Num.Vector3(-10, -10, 0), b?.Max ?? new Num.Vector3(10, 10, 4));
         _status.Text = $"New empty map with {item.Label} at the centre (SM1 backdrop hidden; tick Show SM1 map to see it). Save As to keep it.";
+    }
+
+    /// <summary>Right-click Delete on a library row: custom assets and prefabs ask first; SM1 rows are read-only.</summary>
+    public void AskDeleteRow(int row)
+    {
+        if (row < 0 || row >= _items.Count) return;
+        var item = _items[row];
+        if (item.Kind == LibraryKind.Prefab) AskDeletePrefab(item.Id);
+        else if (item.Kind == LibraryKind.Asset) AskDeleteAsset(item.Id);
+        else _status.Text = "SM1 definitions are read-only and cannot be deleted.";
+    }
+
+    ConfirmationDialog? _deleteAsset;
+    string? _deleteAssetId;
+
+    void AskDeleteAsset(string id)
+    {
+        if (_plugin.Session is null) { _status.Text = "Open or create a map first."; return; }
+        if (_deleteAsset is null)
+        {
+            _deleteAsset = new ConfirmationDialog { Title = "Delete asset", Exclusive = true, OkButtonText = "Delete" };
+            _deleteAsset.Confirmed += () => { if (_deleteAssetId is { } d) ConfirmDeleteAsset(d); };
+            AddChild(_deleteAsset);
+        }
+        _deleteAssetId = id;
+        int n = _plugin.AssetUsers(id).Count;
+        string name = MapHost.Library.GetAsset(id)?.Name ?? id;
+        _deleteAsset.DialogText = $"Delete the asset \"{name}\" ({id}) from the library?" +
+            (n > 0 ? $"\n\nIt is placed {n} time(s) in this map; those copies are deleted too." : "") +
+            "\n\nIf a prefab uses it, nothing is deleted: edit that prefab first." +
+            "\n\nEdit > Undo (Ctrl+Z) brings it back.";
+        _deleteAsset.PopupCentered(new Vector2I(420, 190));
+    }
+
+    /// <summary>Deletes the asset (and its placed copies); returns the status line shown.</summary>
+    public string ConfirmDeleteAsset(string id)
+    {
+        var r = _plugin.DeleteAsset(id);
+        if (r.Ok) _lastRow = null;
+        _status.Text = r.Ok ? $"Deleted asset {id}. Ctrl+Z brings it back." : r.Errors.FirstOrDefault()?.Message ?? "Could not delete the asset.";
+        return _status.Text;
     }
 
     /// <summary>Asks before deleting a prefab from the library; its placed copies in the open map go with it, and Ctrl+Z undoes both.</summary>
