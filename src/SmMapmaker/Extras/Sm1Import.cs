@@ -21,6 +21,9 @@ internal sealed partial class Batch
         var scene = source.LoadMap(map);
         var groupName = Json.Str(op["name"], "name", "bad-op", nullable: true) ?? map;
         var layer = "default";
+        // The map may already hold objects (an earlier import, the owner's own): the whole document must stay under the loader's limits.
+        int room = Math.Min(MaxImported, MapDocument.MaxObjects - Doc.Objects.Count - 1);
+        if (room <= 0) throw new MapException("too-big", $"This map already holds {Doc.Objects.Count} objects; a map file holds at most {MapDocument.MaxObjects}, so nothing could be imported.");
         var groupId = NewId();
         Doc.Objects.Add(new MapObject(groupId, groupName, null, layer, true, MapTransform.Identity, null, null, [], null));
         Created.Add(groupId);
@@ -30,17 +33,25 @@ internal sealed partial class Batch
             var o = scene.Objects[i];
             if (scene.Hidden?.Contains(i) == true) { noVisual++; continue; }
             if (!scene.Definitions.TryGetValue(o.Definition, out var def) || def.Visuals == 0) { noVisual++; continue; }
-            if (imported >= MaxImported) { over++; continue; }
+            if (imported >= room) { over++; continue; }
             MapTransform t;
             try { t = TransformMath.Decompose(o.Transform); }
             catch (MapException) { sheared++; continue; }
             Doc.Objects.Add(new MapObject(NewId(), o.Name.Length > 0 ? o.Name : o.Definition, groupId, layer, true, t, AssetRef.Sm1(map, o.Definition), null, [], null));
             imported++;
         }
+        // The 8 MB file limit: drop the last imported objects until the document fits (a map full of long names may reach it before the object limit).
+        int bySize = 0;
+        while (imported > 0 && Doc.ToJson().Length > MapDocument.MaxChars)
+        {
+            int drop = Math.Max(1, imported / 20);
+            Doc.Objects.RemoveRange(Doc.Objects.Count - drop, drop); imported -= drop; bySize += drop;
+        }
         Warnings.Add($"Imported {imported} of {scene.Objects.Count} placements of '{map}' under '{groupName}'.");
         if (noVisual > 0) Warnings.Add($"{noVisual} placements draw nothing (markers, lights, empty groups) and were left out.");
         if (sheared > 0) Warnings.Add($"{sheared} placements have a sheared matrix the editor cannot hold and were left out.");
-        if (over > 0) Warnings.Add($"{over} placements were left out: the map file holds at most {MaxImported} imported objects.");
+        if (over > 0) Warnings.Add($"{over} placements were left out: a map file holds at most {MapDocument.MaxObjects} objects (and imports stop at {MaxImported}).");
+        if (bySize > 0) Warnings.Add($"{bySize} placements were left out to keep the map file under {MapDocument.MaxChars / 1_000_000} MB.");
         Warnings.Add("Not imported: decals, lights, terrain, collision and the original's spawns and logic. SM1 pieces are drawn in the editor only; put Invisible walls round them to make them solid.");
     }
 }

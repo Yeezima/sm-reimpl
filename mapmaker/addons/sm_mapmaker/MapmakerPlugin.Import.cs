@@ -29,14 +29,17 @@ public partial class MapmakerPlugin
             }
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { SetStatus($"Could not read {map}: {e.Message}"); return null; }
+        // Always a new, unsaved map (owner: "save them as a new map"): with a saved map open, its content moves to an unnamed copy, so a plain Save asks
+        // for a new file and never overwrites the original map file.
         if (Session is null) NewMap($"Remix of {map}");
+        else if (Session.Path is not null) OpenMapFromJson(Session.Document.ToJson());
         _sm1Adapter?.Invalidate();
         var result = Do($"Import SM1 map {map}", Op("import-sm1-map", ("map", map)));
         if (result.Ok)
         {
             MapHost.Root?.ShowBackdrop(null, new System.Collections.Generic.List<string>());
             if (MapHost.Sm1For(map)?.BoundsCore() is { } b) _ = Frame3D(b.Min, b.Max);
-            SetStatus(string.Join(" ", result.Warnings) + " Use Save as... to keep it as a new map.");
+            SetStatus(string.Join(" ", result.Warnings) + " Save asks for a new file name; the map you had open is not touched.");
         }
         return result;
     }
