@@ -50,6 +50,10 @@ public static class MapDecor
     public static bool OldUvSets => _oldUv ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-uv-sets") >= 0;
     static bool? _oldUv;
 
+    /// <summary><c>--old-mask-tiling</c>: the advvtxbld noise mask tiled at UV x VtxBlendParams.z again (the camouflage look), not UV / z (before / after aid).</summary>
+    public static bool OldMaskTiling => _oldMask ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-mask-tiling") >= 0;
+    static bool? _oldMask;
+
     /// <summary>Whether <paramref name="map"/> gets the dark floor plane under the level (<see cref="MapDecorLists.VoidFloorMaps"/>); <c>--no-void-floor</c> turns it off (before / after aid).</summary>
     public static bool HasVoidFloor(string map) => MapDecorLists.HasVoidFloor(map, Array.IndexOf(OS.GetCmdlineUserArgs(), "--no-void-floor") >= 0);
 

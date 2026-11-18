@@ -26,6 +26,8 @@ public static class MapDecorLists
     public static readonly (string Mesh, string Material)[] Surfaces =
     [
         ("tech_interface_b", "backPanel"),
+        // owner 2026-11-19 ("check for this yellow thing"): the same two flat olive plates on the `tech_interface_a` consoles (4 placements), a monitor above the plates with a banner pinned on the left one.
+        ("tech_interface_a", "backPanel"),
         // owner 2026-11-14 (fix/manufactorum-salmon-2): the salmon `tech_stations` surfaces of the objects that stay: the big horizontal pipe's collars and slabs
         // (Pipe_detail_A, 1 placement) and the console cabinets' glowing parts (tech_interface_a 4, tech_interface_b 10 placements).
         // Also the salmon surface of the vertical pipe runs (tech_panel_pipe_g, 16 placements) and the tanks (tech_panel_tank_a, 7), which stay as plain dark pipes and
@@ -145,7 +147,7 @@ public static class MapDecorLists
         {
             var (d, x, y) = placements[i];
             // The boards' places (backpanel_*, and the cabinets whose plates are not drawn) anchor the Near rule.
-            if (d.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || d.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase)) boards.Add((x, y));
+            if (d.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || d.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase) || (d.Equals("tech_interface_a", StringComparison.OrdinalIgnoreCase) && map.Equals(Map, StringComparison.OrdinalIgnoreCase))) boards.Add((x, y));
             if (always.Contains(d)) hidden.Add(i);
         }
         for (int i = 0; i < placements.Count; i++)

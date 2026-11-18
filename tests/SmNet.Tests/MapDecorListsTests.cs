@@ -108,6 +108,21 @@ public class MapDecorListsTests
     public void Salmon_and_olive_surfaces_of_the_objects_that_stay_are_removed(string mesh, string material) =>
         Assert.Contains(MapDecorLists.Surfaces, s => s.Mesh.Equals(mesh, StringComparison.OrdinalIgnoreCase) && s.Material.Equals(material, StringComparison.OrdinalIgnoreCase));
 
+
+    [Fact]
+    public void Manufactorum_loses_the_olive_plates_of_the_tech_interface_a_consoles_and_the_papers_beside_them()
+    {
+        // owner 2026-11-19 ("check for this yellow thing"): a monitor above two flat olive plates with a banner pinned on
+        Assert.True(MapDecorLists.HidesSurface("mp_tdm_09", "tech_interface_a", "backPanel", old: false));
+        Assert.False(MapDecorLists.HidesSurface("mp_tdm_09", "tech_interface_a", "backPanel", old: true));
+        Assert.False(MapDecorLists.HidesSurface("mp_tdm_09", "tech_interface_a", "Pipes_1m_LODH", old: false));   // the console's other surfaces stay
+        var hidden = MapDecorLists.Hidden("mp_tdm_09", false, [("tech_interface_a", 10f, 10f), ("acc_scroll_01", 11f, 10f), ("acc_scroll_01", 90f, 90f)]);
+        Assert.Contains(1, hidden);      // the banner beside the console
+        Assert.DoesNotContain(2, hidden);   // a paper far from any board stays
+        Assert.DoesNotContain(0, hidden);   // the console itself stays
+        // the anchor is Manufactorum's alone: Chem Refinery's papers are unchanged by a tech_interface_a
+        Assert.DoesNotContain(1, MapDecorLists.Hidden("mp_dlc2_map1", false, [("tech_interface_a", 10f, 10f), ("acc_scroll_01", 11f, 10f)]));
+    }
     [Fact]
     public void Nothing_is_listed_twice_and_no_definition_is_both_always_and_near()
     {

@@ -174,6 +174,7 @@ public sealed partial class MapMaterials
         material.SetShaderParameter("normal2", normal2);
         if (mask is not null) material.SetShaderParameter("mask", mask);
         material.SetShaderParameter("mode", mode);
+        material.SetShaderParameter("mask_div", NewMapRules && !MapDecor.OldMaskTiling);
         material.SetShaderParameter("tile2", new Vector2(bmat.Floats.GetValueOrDefault("TileU", 1f), bmat.Floats.GetValueOrDefault("TileV", 1f)));
         if (bmat.Vectors.TryGetValue("VtxBlendParams", out var p) && p.Length >= 4)
             material.SetShaderParameter("blend_params", new Vector4(Math.Clamp(p[0], 0.5f, 100f), Math.Clamp(p[1], -2f, 2f), Math.Clamp(p[2], 0.1f, 64f), p[3]));
@@ -227,6 +228,7 @@ public sealed partial class MapMaterials
         uniform sampler2D mask : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
         uniform vec2 tile2 = vec2(1.0);
         uniform int mode = 0;
+        uniform bool mask_div = false;
         uniform vec4 blend_params = vec4(4.0, 1.0, 20.0, 0.0);
         uniform vec2 rough = vec2(0.8);
         uniform vec2 spec = vec2(0.35);
@@ -239,7 +241,7 @@ public sealed partial class MapMaterials
             float w = 1.0 - COLOR.a;   // layer 2's weight; vertex alpha 255 (the default white) selects layer 1
             float f = w;
             if (mode == 1) {
-                float m = texture(mask, UV * blend_params.z).r;
+                float m = texture(mask, mask_div ? UV / blend_params.z : UV * blend_params.z).r;
                 f = clamp(((w + (m - 0.5) * blend_params.y) - 0.5) * blend_params.x + 0.5, 0.0, 1.0);
             } else if (mode == 2) {
                 f = texture(mask, UV).r;
