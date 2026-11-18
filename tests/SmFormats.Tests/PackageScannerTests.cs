@@ -334,13 +334,14 @@ public sealed class PackageScannerTests : IDisposable
     public void ExtensionsOutsideTheAllowlistAreRefusedInTheBinaryProfile()
     {
         void Profile(PackageScanner s) => s.AllowedExtensions = new HashSet<string>(PackageScanCommand.BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
-        // game/assets/menu/menu-loop.ogv: the main menu's video loop is no longer shipped (owner, 2026-11-14), so a binary package holding an .ogv is refused.
+        // game/assets/menu/menu-concept-loop.ogv: the owner's menu video ships beside the exe (2026-11-15), so an .ogv is an allowed type (its header packets are still
+        // scanned); the 20 MB menu-loop.ogv is kept out by the release's copy list (PartsTests). An .mp4 is not a type the binary package may hold.
         var findings = Scan(Zip(("a/x.dll", Filler(100)), ("a/run.sh", Text("echo")), ("a/LICENSE", Text("x")), ("a/SmServer", Filler(100)), ("a/odd.xyz", Filler(100)), ("a/noext", Filler(100)),
-            ("game/assets/menu/menu-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0])), Profile);
+            ("game/assets/menu/menu-concept-loop.ogv", [0x4F, 0x67, 0x67, 0x53, 0, 2, 0, 0]), ("game/assets/menu/menu.mp4", Filler(100))), Profile);
         Assert.Equal(3, findings.Count(f => f.Rule == "unexpected-type"));
-        Assert.Contains(findings, f => f.Entry == "game/assets/menu/menu-loop.ogv");
+        Assert.DoesNotContain(findings, f => f.Entry == "game/assets/menu/menu-concept-loop.ogv");
+        Assert.Contains(findings, f => f.Entry == "game/assets/menu/menu.mp4");
         Assert.Contains(findings, f => f.Entry == "a/odd.xyz");
-        Assert.Contains(findings, f => f.Entry == "a/noext");
     }
 
     /// <summary>A Godot pack of format 4 as the 4.7.2 exporter writes it: header (112 bytes), directory of length-prefixed padded names, then (embedded) size and "GDPC".</summary>

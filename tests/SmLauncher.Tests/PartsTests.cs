@@ -86,13 +86,13 @@ public class PartsTests
     {
         // Owner 2026-11-14: menu-loop.ogv (20 MB, a dev aid behind --menu-video) is out of the release: not copied beside the exe, left out of the source zip
         // (owner 2026-11-15: the 6 MB menu-concept-loop.ogv, his own video, is the default menu background and is copied beside the exe;
-        // the content guard still refuses an .ogv in a binary package: PackageScannerTests).
+        // the content guard allows an .ogv and scans its header packets: PackageScannerTests).
         var root = AppContext.BaseDirectory;
         while (root is not null && !File.Exists(Path.Combine(root, "SmReimpl.slnx"))) root = Path.GetDirectoryName(root);
         Assert.NotNull(root);
         var script = File.ReadAllLines(Path.Combine(root!, "tools", "release", "release.ps1"));
         var copyList = script.Single(l => l.Contains("assets/menu/background.jpg") && l.Contains("foreach"));
-        Assert.DoesNotContain("menu-loop.ogv'", copyList);   // the 20 MB dev loop stays out
+        Assert.DoesNotMatch(@"(?<!concept-)menu-loop\.ogv", copyList);   // the 20 MB dev loop stays out, however it is quoted
         Assert.Contains("assets/menu/menu-concept-loop.ogv", copyList);   // the owner's 6 MB concept video is the main menu background since 2026-11-15 and ships beside the exe
         Assert.Contains(script, l => l.Contains("'client/assets/menu/menu-loop.ogv'"));
     }

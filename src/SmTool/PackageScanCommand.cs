@@ -17,6 +17,8 @@ public static class PackageScanCommand
     [
         ".exe", ".x86_64", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
         ".jpg",   // the owner's menu background and hub planet, copied beside the exe by release.ps1
+        ".ogv",   // the owner's own 6 MB main-menu video (menu-concept-loop.ogv, the menu background since 2026-11-15), copied beside the exe by release.ps1; the 20 MB
+                  // dev loop menu-loop.ogv stays out of the copy list (owner 2026-11-14; PartsTests); the Ogg header rules still scan every .ogv
         ".glb",   // the owner's generated Ashfall kit models (game\ashfall-kit\), copied by release.ps1 (owner, 2026-11-06); the content rules still scan them
         ".pck",   // the client's Godot pack beside the exe (tools/release-parts): only a Godot pack passes (any other .pck is a forbidden game extension),
                   // and its directory is checked like an embedded one
