@@ -51,7 +51,7 @@ public sealed class WarfrontAsyncWriter
                 File.Move(tmp, path, overwrite: true);
                 Interlocked.Increment(ref _written);
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _log($"{Path.GetFileName(path)} could not be written: {e.Message}"); }
+            catch (Exception e) { _log($"{Path.GetFileName(path)} could not be written: {e.GetType().Name}: {e.Message}"); }   // any failure is logged; a throw on the pool thread would end the server (review)
         }
     }
 
