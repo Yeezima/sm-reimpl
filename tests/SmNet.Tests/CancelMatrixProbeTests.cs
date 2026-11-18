@@ -182,8 +182,8 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
             {
                 var want = Reviewed[r][c] switch { 'Y' => CancelState.Yes, '.' => CancelState.No, 'W' => CancelState.Window, 'Q' => CancelState.Queued, _ => CancelState.NotApplicable };
                 Assert.True(want == CancelData.Baseline.Base(r, c).State, $"baseline {CancelLayout.Number(r, c)} {CancelLayout.Rows[r]} x {CancelLayout.Cols[c]}");
-                Assert.True(want == CancelData.Shipped.Base(r, c).State, $"shipped {CancelLayout.Number(r, c)} {CancelLayout.Rows[r]} x {CancelLayout.Cols[c]}");
-                Assert.False(CancelData.Shipped.Base(r, c).HasTimes);
+                if (!CancelDefaultTests.IsExportCell(r, c)) Assert.True(want == CancelData.Shipped.Base(r, c).State, $"shipped {CancelLayout.Number(r, c)} {CancelLayout.Rows[r]} x {CancelLayout.Cols[c]}");   // the 5 exported cells are checked in CancelDefaultTests
+                if (!CancelDefaultTests.IsExportCell(r, c)) Assert.False(CancelData.Shipped.Base(r, c).HasTimes);
             }
         Assert.Equal(37 * 16, CancelLayout.RowCount * CancelLayout.ColCount);
     }

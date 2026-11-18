@@ -19,6 +19,7 @@ public class MeleeCancelTests(ITestOutputHelper output)
     {
         Classes = [JumpPackDashTests.Config.Classes[0] with { MeleeRush = RushTests.Spec }, JumpPackDashTests.Config.Classes[1]],
         JumpPacks = [JumpPackDashTests.Config.JumpPacks[0] with { HoldTiers = true }],   // the three jumps by the hold, and the input buffer (the install's)
+        Cancel = CancelLive.Of(CancelData.Baseline),
         InputBufferWindow = 0.3f,
         RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
     };

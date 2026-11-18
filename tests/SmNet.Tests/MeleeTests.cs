@@ -25,6 +25,7 @@ public class MeleeTests(ITestOutputHelper output)
 
     static readonly SimConfig Config = new()
     {
+        Cancel = CancelLive.Of(CancelData.Baseline),
         MeleeSteps = [Step(10f, 5f), Step(20f, 6f), Step(30f, 7f)],
         MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
         // Shield and health take raw damage, so ShieldDamage + HealthDamage is the damage dealt.

@@ -45,6 +45,7 @@ public class MeleeWeaponsCTests(ITestOutputHelper output)
 
     static readonly SimConfig Config = new()
     {
+        Cancel = CancelLive.Of(CancelData.Baseline),
         Classes =
         [
             new ClassLoadout("axe", -1, -1, [Light(70f, 250f), Light(70f, 250f)]) { Side = Team.SpaceMarines },
@@ -287,7 +288,10 @@ public class MeleeWeaponsCTests(ITestOutputHelper output)
         var blast = new SplashSpec(7f, new DamageSpec(25f, 50f, 1f, 1f, 1f, 1f, false), [new(0f, 1f), new(4.5f, 1f), new(7f, 0.15f)], true, true, "target_all")
             { Reactions = [new(0.8f, ReactionKind.Stagger), new(0f, ReactionKind.Interrupt)] };
         var stomp = new MeleeStep(2.033f, 0.9f, 0f, 0f, 1.356f, 1.661f, 0f, 0f, 3.5f) { Stomp = blast, NoReactFrom = 0.644f, NoReactTo = 1.423f };
-        Assert.Equal(0xA051E9CC9852E014UL, new SimConfig { MeleeSteps = [light, light with { HitTime = 0.384f }, stomp] }.Hash());
+        // the config hash mixes in a shipped cancel default that differs from the baseline (Simulation.cs), so the pre-Weapons-C value holds only while the two are equal
+        var knife = new SimConfig { MeleeSteps = [light, light with { HitTime = 0.384f }, stomp] };
+        if (CancelData.Shipped.Hash == CancelData.Baseline.Hash) Assert.Equal(0xA051E9CC9852E014UL, knife.Hash());
+        else Assert.NotEqual(0xA051E9CC9852E014UL, knife.Hash());
 
         var plain = new SimConfig { MeleeSteps = [Light(10f)] };
         var same = new SimConfig { MeleeSteps = [Light(10f) with { ShieldDamage = 0f, StringEnd = false, HeavyNext = 0, YNext = 0 }] };

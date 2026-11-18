@@ -18,6 +18,7 @@ public class HitReactionNoBlockTests(ITestOutputHelper output)
 
     static readonly SimConfig Config = new()
     {
+        Cancel = CancelLive.Of(CancelData.Baseline),
         Weapons = [Rifle, Pistol],
         Classes =
         [

@@ -18,17 +18,18 @@ public class InputBufferTests(ITestOutputHelper output)
     const float Dt = 1f / 30f;
     const float Window = 0.3f;   // GameplayTuning.OwnerInputBuffer
 
-    static SimConfig On(SimConfig c) => c with { InputBufferWindow = Window };
+    static SimConfig On(SimConfig c) => c with { InputBufferWindow = Window, Cancel = CancelLive.Of(CancelData.Baseline) };
 
     /// <summary>The M14 pack (no dash) with the feel/jump-pack air control and snappy slash (0.3 s recovery), as the content loader sets them.</summary>
     static readonly JumpPackSpec SlashPack = JumpPackTests.Pack with { AirSpeed = 8f, AirAcceleration = 15f, Slash = JumpPackFeelTests.Snappy, MaxPower = 300f };
     static readonly SimConfig PackConfig = JumpPackTests.Config with
     {
+        Cancel = CancelLive.Of(CancelData.Baseline),
         JumpPacks = [SlashPack],
         RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
     };
     /// <summary>The same with the jump-pack dash (the Assault / Raptor of M44: a tap dashes, a hold jumps).</summary>
-    static readonly SimConfig DashConfig = JumpPackDashTests.Config with { JumpPacks = [SlashPack] };
+    static readonly SimConfig DashConfig = JumpPackDashTests.Config with { Cancel = CancelLive.Of(CancelData.Baseline), JumpPacks = [SlashPack] };
 
     static PlayerState Fresh(SimConfig c, int cls) => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = cls }, c);
 

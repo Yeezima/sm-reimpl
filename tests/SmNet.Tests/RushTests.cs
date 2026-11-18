@@ -31,6 +31,7 @@ public class RushTests(ITestOutputHelper output)
 
     internal static readonly SimConfig Config = new()
     {
+        Cancel = CancelLive.Of(CancelData.Baseline),   // the mechanics tests run by the code's own table, not the shipped default
         Weapons = [Rifle],
         Classes =
         [

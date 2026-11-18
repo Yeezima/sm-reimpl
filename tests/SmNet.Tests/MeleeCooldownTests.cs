@@ -12,7 +12,7 @@ public class MeleeCooldownTests
 {
     static float T(float ticks) => ticks / 30f;
     static MeleeStep Step() => new(T(30.5f), T(6.5f), T(12.5f), T(18.5f), T(8.5f), T(21.5f), 10f, 5f, 3.5f);
-    static readonly SimConfig Classic = new() { MeleeSteps = [Step(), Step(), Step()], MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f };
+    static readonly SimConfig Classic = new() { Cancel = CancelLive.Of(CancelData.Baseline), MeleeSteps = [Step(), Step(), Step()], MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f };
     static readonly SimConfig Musou = Classic with { Extras = ContentExtras.Musou };
 
     sealed class Run(SimConfig c)

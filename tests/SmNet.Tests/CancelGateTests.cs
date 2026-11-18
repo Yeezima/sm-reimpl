@@ -14,10 +14,10 @@ public class CancelGateTests(ITestOutputHelper output)
     static int Col(string id) => CancelLayout.ColIndex(id) is var i and >= 0 ? i : throw new ArgumentException(id);
 
     /// <summary>The config with its own holder playing by <paramref name="table"/> (a copy made with <c>with</c> would share the static config's).</summary>
-    internal static SimConfig Plays(SimConfig c, CancelData? table) => c with { Cancel = CancelLive.Of(table) };
+    internal static SimConfig Plays(SimConfig c, CancelData? table) => c with { Cancel = CancelLive.Of(table ?? CancelData.Baseline) };
 
     internal static CancelData Edit(string row, string col, CancelCell cell, CancelScope? scope = null) =>
-        CancelData.Shipped.With(scope ?? CancelScope.Any, Row(row), Col(col), cell);
+        CancelData.Baseline.With(scope ?? CancelScope.Any, Row(row), Col(col), cell);
 
     static PlayerState Step(PlayerState s, SimConfig c, InputButtons b, float my = 0f) =>
         Combat.StepPlayer(s, new PlayerInput(0, 0f, my, 0f, b), c, out _);
@@ -25,12 +25,13 @@ public class CancelGateTests(ITestOutputHelper output)
     // ---- the pieces ----
 
     [Fact]
-    public void The_shipped_table_is_the_baseline_and_makes_the_gate_do_nothing()
+    public void The_shipped_table_is_the_baseline_plus_the_five_exported_cells_and_the_baseline_makes_the_gate_do_nothing()
     {
-        Assert.Equal(CancelData.Baseline.Hash, CancelData.Shipped.Hash);
-        Assert.False(CancelData.Shipped.DiffersFromBaseline);
-        Assert.False(CancelGate.Active(new SimConfig()));
+        // the shipped default is the owner's 11-18 export: the baseline plus exactly 5 cells (CancelDefaultTests checks which); the baseline itself is what the code does
+        Assert.Equal(5, CancelData.Shipped.DiffAgainst(CancelData.Baseline).Count);
         Assert.Empty(CancelData.Shipped.DiffFromShipped());
+        Assert.False(CancelData.Baseline.DiffersFromBaseline);
+        Assert.False(CancelGate.Active(new SimConfig() with { Cancel = CancelLive.Of(CancelData.Baseline) }));
     }
 
     [Fact]
@@ -52,7 +53,8 @@ public class CancelGateTests(ITestOutputHelper output)
         Assert.False(CancelGate.Active(c with { Extras = ContentExtras.Musou }));              // never in Musou Mode
         Assert.True(CancelGate.Active(c with { Extras = ContentExtras.All }));             // Classic with the extended set (the default profile): the owner's edits apply
         Assert.True(CancelGate.Active(c with { Extras = ContentExtras.Orks | ContentExtras.Gore }));
-        Assert.False(CancelGate.Active(new SimConfig() with { Extras = ContentExtras.All }));   // the shipped default table stays off under extended content too
+        Assert.True(CancelGate.Active(new SimConfig() with { Extras = ContentExtras.All }));    // the shipped default (5 cells off the baseline) plays under extended content too
+        Assert.False(CancelGate.Active(new SimConfig() with { Extras = ContentExtras.Musou }));
     }
 
     static PlayerState Hopping(SimConfig c, int ticks = 3)

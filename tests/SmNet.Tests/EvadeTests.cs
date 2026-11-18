@@ -28,6 +28,7 @@ public class EvadeTests(ITestOutputHelper output)
 
     internal static readonly SimConfig Config = new()
     {
+        Cancel = CancelLive.Of(CancelData.Baseline),   // these tests are about the code's own timing, not the shipped cancel default
         Weapons = [Pistol, Rifle],
         Classes =
         [

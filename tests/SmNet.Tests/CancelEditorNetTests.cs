@@ -15,7 +15,7 @@ public class CancelEditorNetTests
     static int Row(string id) => CancelLayout.RowIndex(id);
     static int Col(string id) => CancelLayout.ColIndex(id);
 
-    static SimConfig Own() => CancelGateTests.Plays(MeleeCancelTests.Pack, null);
+    static SimConfig Own() => MeleeCancelTests.Pack with { Cancel = new CancelLive() };   // a holder of its own, unedited: it plays the shipped default
 
     static Harness Make(bool tools = true, int clients = 1)
     {
@@ -65,7 +65,7 @@ public class CancelEditorNetTests
         var client = h.Clients[0];
         Assert.True(client.SendCancelEdit(DevCancelOp.Apply, [Change("jp_hop", "light", new(CancelState.No))]));
         Settle(h);
-        Assert.False(h.Server.CancelTable.DiffersFromBaseline);
+        Assert.Equal(CancelData.Shipped.Hash, h.Server.CancelTable.Hash);   // still the shipped default (the baseline plus the 11-18 export), unedited
         Assert.False(h.Server.World.Config.Cancel.Edited);
         Assert.Equal(0, client.CancelSyncs);
         Assert.False(client.CancelInSync);   // no beacon ever came
