@@ -31,11 +31,27 @@ public partial class MapView : Node3D
     public int Mirrored { get; private set; }
     /// <summary>Static level decals built (<see cref="MapDecalView"/>).</summary>
     public int LevelDecals { get; private set; }
+    /// <summary>Orthographic projector lights built (<see cref="MapOrthoLightView"/>).</summary>
+    public int OrthoLights { get; private set; }
 
     /// <summary>Builds the materials (diffuse, normal, specular, emissive maps); its counters say how many used each.</summary>
     public MapMaterials Materials { get; } = new();
     readonly Dictionary<(string, bool), Material> _materials = new();
     StandardMaterial3D? _neutral;
+    readonly List<(MultiMeshInstance3D Node, Vector3 Pivot, float DegreesPerSecond)> _spinners = new();   // classic-maps-fidelity round 2, fix 3: BezierCurve-turned fan blades
+    double _spinClock;
+    /// <summary>Spinning objects built (the ceiling fans' blades).</summary>
+    public int Spinners => _spinners.Count;
+
+    public override void _Process(double delta)
+    {
+        _spinClock += delta;
+        if (MapDecor.MovingParts) foreach (var (material, su, sv) in Materials.Scrolling) material.Uv1Offset = new Vector3((float)((_spinClock * su) % 1.0), (float)((_spinClock * sv) % 1.0), 0f);
+        if (_spinners.Count == 0) return;
+        foreach (var (node, pivot, rate) in _spinners)
+            node.Transform = new Transform3D(Basis.Identity, pivot) * new Transform3D(new Basis(Vector3.Back, Mathf.DegToRad((float)(_spinClock * rate) % 360f)), Vector3.Zero) * new Transform3D(Basis.Identity, -pivot);
+    }
+
     readonly HashSet<ArrayMesh> _skyMeshes = new();   // meshes with a sky-box surface: drawn round the camera, so never frustum-culled by their world box
 
     /// <summary>Builds the map's visuals under a new node. Problems are added to <paramref name="notes"/>; nothing throws for one bad part.</summary>
@@ -51,7 +67,7 @@ public partial class MapView : Node3D
     {
         // Group world transforms by (mesh, block, mirrored, casts shadows), remembering which placements each group draws.
         Materials.NewMapRules = MapDecorLists.IsNewClassicMap(scene.Map);
-        var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows), List<(Transform3D Transform, int Object)>>();
+        var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows, int Spin), List<(Transform3D Transform, int Object)>>();
         var decorHidden = MapDecor.Hidden(scene);   // fix/manufactorum-fluorescent: the olive boards and salmon fittings are not drawn
         if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of Manufactorum's wall stations and salmon fittings are not drawn (owner's requests 2026-11-04, 2026-11-07, 2026-11-14; --old-armoury-racks draws them)");
         int layerHidden = 0;
@@ -61,11 +77,12 @@ public partial class MapView : Node3D
             var placed = scene.Objects[o];
             if (MapDecor.HiddenLayers.Count > 0 && MapDecor.HiddenLayers.Contains(placed.Layer)) { layerHidden++; continue; }   // pass 2 test aid (--hide-layer)
             if (!scene.Definitions.TryGetValue(placed.Definition, out var definition)) continue;
+            if (!MapDecor.MovingParts && scene.Spinning.ContainsKey(o)) continue;   // --no-moving-parts: the turned blades were not drawn before
             foreach (var part in definition.DrawnParts(MapDecor.OldLodRule))   // classic-maps-fidelity: one member per LOD-suffix family (--old-lod-rule: the old rule)
             {
                 var world = part.NodeTransform * placed.Transform;
                 bool mirrored = world.GetDeterminant() < 0f;
-                var key = (part.MeshName.ToLowerInvariant(), part.MeshId, mirrored, part.CastShadows);
+                var key = (part.MeshName.ToLowerInvariant(), part.MeshId, mirrored, part.CastShadows, scene.Spinning.ContainsKey(o) ? o : -1);   // a spinning object is a group of its own (its node turns)
                 if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<(Transform3D, int)>();
                 list.Add((ToGodot(world), o));
             }
@@ -78,8 +95,8 @@ public partial class MapView : Node3D
         float minZ = float.MaxValue;
         var drawn = new HashSet<(string, int)>();
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var ((meshName, block, mirrored, shadows), placements) in groups.OrderBy(g => g.Key.Mesh, StringComparer.Ordinal)
-                     .ThenBy(g => g.Key.Block).ThenBy(g => g.Key.Mirrored).ThenBy(g => g.Key.Shadows))
+        foreach (var ((meshName, block, mirrored, shadows, spinObject), placements) in groups.OrderBy(g => g.Key.Mesh, StringComparer.Ordinal)
+                     .ThenBy(g => g.Key.Block).ThenBy(g => g.Key.Mirrored).ThenBy(g => g.Key.Shadows).ThenBy(g => g.Key.Spin))
         {
             var transforms = placements.Select(p => p.Transform).ToList();
             if (!scene.Meshes.TryGetValue(meshName, out var dcm)) { missing.Add(meshName); continue; }
@@ -108,6 +125,11 @@ public partial class MapView : Node3D
             };
             if (_skyMeshes.Contains(mesh)) { instance.CustomAabb = new Aabb(new Vector3(-1e6f, -1e6f, -1e6f), new Vector3(2e6f, 2e6f, 2e6f)); instance.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off; }
             AddChild(instance);
+            if (spinObject >= 0)
+            {
+                var at = scene.Objects[spinObject].Transform.Translation;
+                _spinners.Add((instance, new Vector3(at.X, at.Y, at.Z), scene.Spinning[spinObject]));
+            }
             Instances += transforms.Count;
             if (mirrored) Mirrored += transforms.Count;
         }
@@ -121,6 +143,9 @@ public partial class MapView : Node3D
             });
         }
         if (MapDecor.DrawsLevelDecals(scene.Map) && MapDecalView.Build(scene, notes) is { } decals) { AddChild(decals); LevelDecals = decals.Count; }
+        if (MapDecor.DrawsOrthoLights(scene.Map) && MapOrthoLightView.Build(scene, notes) is { } ortho) { AddChild(ortho); OrthoLights = ortho.Count; }
+        if (Materials.Scrolling.Count > 0) notes.Add($"{Materials.Scrolling.Count} scrolling materials (ScrollSpeedU/V of the data; provisional approximation)");
+        if (_spinners.Count > 0) notes.Add($"{_spinners.Count} fan blades turned by their BezierCurve (provisional approximation)");
         Meshes = drawn.Count;
         Objects = drawnObjects.Count;
         foreach (var m in missing.Order(StringComparer.Ordinal)) notes.Add($"mesh '{m}' not loaded; its placements are not drawn");

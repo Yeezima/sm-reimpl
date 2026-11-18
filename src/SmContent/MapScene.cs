@@ -97,6 +97,8 @@ public sealed class MapScene
     public required IReadOnlyList<string> Notes { get; init; }
     /// <summary>The static level decals (<c>ScreenSpaceDecal</c> objects of the layers); empty when a map has none or the scene was built without them.</summary>
     public IReadOnlyList<PlacedDecal> Decals { get; init; } = [];
+    /// <summary>Placed objects (indexes into <see cref="Objects"/>) that a <c>BezierCurve</c> turns about the vertical through their position: degrees a second, negative clockwise (the ceiling fans' blades; <see cref="CurveSpin"/>).</summary>
+    public IReadOnlyDictionary<int, float> Spinning { get; init; } = new Dictionary<int, float>();
     /// <summary>The <c>ssdecal</c> entries of the archive by name (their textures are in <see cref="Textures"/>).</summary>
     public IReadOnlyDictionary<string, MapDecalDefinition> DecalDefinitions { get; init; } = new Dictionary<string, MapDecalDefinition>();
 
@@ -137,6 +139,7 @@ public sealed class MapScene
         var notes = new List<string>();
         var objects = new List<PlacedObject>();
         var decals = new List<PlacedDecal>();
+        var spin = new Dictionary<int, float>();
         var decalDefinitions = new Dictionary<string, MapDecalDefinition>(StringComparer.OrdinalIgnoreCase);
         MapLighting? lighting = null;
         var definitions = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase);
@@ -150,7 +153,7 @@ public sealed class MapScene
                 var root = BodDocument.Read(data).Root;
                 if (archive.GroupName(e) == "Layer")
                 {
-                    CollectObjects(root, e.FileName, Matrix4x4.Identity, objects, 0, decals);
+                    CollectObjects(root, e.FileName, Matrix4x4.Identity, objects, 0, decals, spin);
                     if (extendedLighting ? e.FileName.StartsWith("l_lights", StringComparison.OrdinalIgnoreCase) : e.FileName.Equals("l_lights", StringComparison.OrdinalIgnoreCase))
                     {
                         var read = MapLighting.Read(root, extendedLighting);
@@ -205,12 +208,14 @@ public sealed class MapScene
         // The colour grades' look-up volumes (environment regions' ColourGradeEffectDesc: the material's "lookup" texture).
         foreach (var grade in lighting?.Environments.Select(e => e.Grade).OfType<ColourGradeDesc>() ?? [])
             if (materials.TryGetValue(grade.Material, out var gm) && gm.Textures.TryGetValue("lookup", out var lut)) wanted.Add(lut);
+        // The orthographic lights' mask pictures (light_mask_*: in the region archive).
+        foreach (var ol in lighting?.OrthoLights ?? []) wanted.Add(ol.MaskName);
         var textures = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textures.TryAdd(e.FileName, data.ToArray()));
 
         return new MapScene
         {
-            Map = map, Objects = objects, Definitions = definitions, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions,
+            Map = map, Objects = objects, Definitions = definitions, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions, Spinning = spin,
         };
     }
 
@@ -218,7 +223,7 @@ public sealed class MapScene
     /// Enabled <c>StaticObject</c>s anywhere in a layer's tree. Objects nested as <c>ChildObjects</c> of a group are
     /// placed relative to it (the group's own transform, when it has one).
     /// </summary>
-    static void CollectObjects(BodValue value, string layer, Matrix4x4 parent, List<PlacedObject> objects, int depth, List<PlacedDecal> decals, int childDepth = 0)
+    internal static void CollectObjects(BodValue value, string layer, Matrix4x4 parent, List<PlacedObject> objects, int depth, List<PlacedDecal> decals, Dictionary<int, float> spin, int childDepth = 0)
     {
         if (depth > 64) return;
         switch (value)
@@ -233,12 +238,49 @@ public sealed class MapScene
                     decals.Add(placed);
                 foreach (var f in s.Fields)
                     if (f.Name.Text is "Root" or "Objects" or "ChildObjects")
-                        CollectObjects(f.Value, layer, f.Name.Text == "ChildObjects" ? world : parent, objects, depth + 1, decals, f.Name.Text == "ChildObjects" ? childDepth + 1 : childDepth);
+                        CollectObjects(f.Value, layer, f.Name.Text == "ChildObjects" ? world : parent, objects, depth + 1, decals, spin, f.Name.Text == "ChildObjects" ? childDepth + 1 : childDepth);
                 break;
             }
-            case BodList l: foreach (var item in l.Items) CollectObjects(item.Value, layer, parent, objects, depth + 1, decals, childDepth); break;
-            case BodRef r: CollectObjects(r.Value, layer, parent, objects, depth + 1, decals, childDepth); break;
+            case BodList l:
+            {
+                // A BezierCurve followed by the PhoenixEntity it carries (the editor's way to spin a fan): the entity's blueprint name ends in an O3d name of the archive.
+                float? curveSpin = null;
+                foreach (var item in l.Items)
+                {
+                    var v = item.Value is BodRef ir ? ir.Value : item.Value;
+                    if (v is BodStruct { Class.Text: "BezierCurve" } curve) curveSpin = CurveSpin(curve);
+                    else if (v is BodStruct { Class.Text: "PhoenixEntity" } entity && curveSpin is { } degrees && entity["Disabled"] is not BodBool { Value: true }
+                        && entity["BlueprintName"] is BodString { Text: { Length: > 0 } blueprint })
+                    {
+                        string definition = blueprint[(blueprint.LastIndexOfAny(['\\', '/']) + 1)..];
+                        objects.Add(new PlacedObject((entity["Name"] as BodString)?.Text ?? "", definition, layer, Local(entity) * parent, childDepth));
+                        spin[objects.Count - 1] = degrees;
+                        curveSpin = null;   // a curve carries only the entity that follows it
+                    }
+                    else curveSpin = null;   // anything else between a curve and its entity ends the pairing
+                    CollectObjects(item.Value, layer, parent, objects, depth + 1, decals, spin, childDepth);
+                }
+                break;
+            }
+            case BodRef r: CollectObjects(r.Value, layer, parent, objects, depth + 1, decals, spin, childDepth); break;
         }
+    }
+
+    /// <summary>
+    /// classic-maps-fidelity round 2, fix 3: the turn rate (degrees a second about Z, negative clockwise) of a <c>BezierCurve</c> whose looped path rotates its follower about the curve's Z
+    /// (the fans' <c>ceiling_fan</c> curves: four points at 0, -90, -180 and -270 degrees, <c>TimeToFollowCurve</c> 5 s). **Interpretation**: the curve's tiny circle of translation (about 1.4 cm) is ignored;
+    /// null when the curve turns nothing or does not loop.
+    /// </summary>
+    public static float? CurveSpin(BodStruct curve)
+    {
+        if (curve["Loop"] is not BodBool { Value: true }) return null;
+        float seconds = Items(Unwrap(curve["BezierCurveAnim"])).Select(Unwrap).OfType<BodStruct>().Select(a => a["TimeToFollowCurve"] switch { BodFloat f => f.Value, BodInt i => i.Value, _ => 0f }).FirstOrDefault();
+        var zs = Items(Unwrap(curve["PathPoints"])).Select(Unwrap).OfType<BodStruct>().Select(p => Floats(p["RotationLS"]) is [_, _, var z, ..] ? z : 0f).ToList();
+        if (seconds <= 0f || zs.Count < 2) return null;
+        static float Wrap(float d) => ((d + 180f) % 360f + 360f) % 360f - 180f;
+        float total = Wrap(zs[0] - zs[^1]);
+        for (int i = 1; i < zs.Count; i++) total += Wrap(zs[i] - zs[i - 1]);
+        return MathF.Abs(total) < 1f ? null : total / seconds;
     }
 
     /// <summary>A <c>ScreenSpaceDecal</c>'s box: the world transform split into rotation and translation and the size (the scale's magnitudes); null for a degenerate transform.</summary>

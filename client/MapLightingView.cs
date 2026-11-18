@@ -406,6 +406,7 @@ public static class MapLightingView
         bool _baseAdjust;
         float _gradeStrength;
         int _gradeQuant;
+        int _gradeActive = -1;   // the region whose LUT is built now (a switch between two graded regions rebuilds)
         ulong _gradeTick;
         /// <summary>The colour grade's strength now (0..1; 0 when no region with a grade has been entered).</summary>
         public float GradeStrength => _gradeStrength;
@@ -438,12 +439,13 @@ public static class MapLightingView
             _gradeStrength = Math.Clamp(_gradeStrength + Math.Sign(target - _gradeStrength) * dt / seconds, 0f, 1f);
             if (MathF.Abs(target - _gradeStrength) < dt / seconds) _gradeStrength = target;
             int quant = (int)MathF.Round(_gradeStrength * 12f);
-            if (quant == _gradeQuant) return;
-            _gradeQuant = quant;
+            int which = quant == 0 ? -1 : active >= 0 ? active : Array.FindIndex(_gradeLuts, l => l is not null);
+            if (quant == _gradeQuant && which == _gradeActive) return;
+            _gradeQuant = quant; _gradeActive = which;
             if (quant == 0) { _environment.AdjustmentColorCorrection = _baseCorrection; _environment.AdjustmentEnabled = _baseAdjust; return; }
-            var lut = _gradeLuts[active >= 0 ? active : Array.FindIndex(_gradeLuts, l => l is not null)]!;
+            var lut = _gradeLuts[which]!;
             _environment.AdjustmentEnabled = true;
-            _environment.AdjustmentColorCorrection = lut.Build(quant / 12f, _curve);
+            _environment.AdjustmentColorCorrection = lut.Get(quant, 12, _curve);
         }
 
         public EnvironmentBlender(MapLighting lighting, MapEnvironment global, SunLight? sunData, DirectionalLight3D sun, Godot.Environment environment, Func<string, byte[]?>? gradeLookup = null)
@@ -829,3 +831,4 @@ public static class MapLightingView
         }
     }
 }
+

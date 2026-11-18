@@ -29,6 +29,52 @@ public class MapDecalAndGradeTests
     }
 
     [Fact]
+    public void An_ortho_light_reads_its_box_mask_and_upward_direction_when_turned_over()
+    {
+        var light = new Struct("base/OrthoLight", ("Power", new F(6f)), ("Width", new F(10f)), ("Height", new F(20f)), ("MaskName", new S("light_mask_soft_square_dif")),
+            ("Position", new Vec(1f, 2f, 3f)), ("Rotation", new Vec(-180f, 0f, 0f)), ("Scale", new Vec(20f, 20f, 20f)), ("Color", new Vec(1f, 0.5f, 0f)), ("AttenEnd", new F(20f)));
+        var off = new Struct("base/OrthoLight", ("Enabled", new B(false)), ("MaskName", new S("m")), ("Position", new Vec(0f, 0f, 0f)));
+        var maskless = new Struct("base/OrthoLight", ("MaskName", new S("")), ("Position", new Vec(0f, 0f, 0f)));
+        var lighting = MapLighting.Read(BodDocument.Read(Document(new Struct("RegionLayer", ("Objects", new List(light, off, maskless))))).Root);
+        var o = Assert.Single(lighting.OrthoLights);
+        Assert.Equal(("light_mask_soft_square_dif", 10f, 20f, 20f, 6f), (o.MaskName, o.Width, o.Height, o.Depth, o.Power));
+        Assert.Equal(new Vector3(1f, 2f, 3f), o.Position);
+        Assert.True(Vector3.Distance(o.Forward, Vector3.UnitZ) < 1e-4f);   // local -Z turned half a circle about X: up
+        Assert.True(Vector3.Distance(o.Right, Vector3.UnitX) < 1e-4f);
+        Assert.Empty(MapLighting.Combine([lighting, new MapLighting()]).OrthoLights.Skip(1));
+    }
+
+    [Fact]
+    public void A_looped_bezier_curve_that_turns_its_follower_four_quarters_gives_a_clockwise_spin_rate()
+    {
+        static Struct Point(float z) => new("BezierPoint", ("RotationLS", new Vec(0f, 0f, z)));
+        Struct Curve(bool loop, float seconds, params float[] zs) => new("BezierCurve", ("Loop", new B(loop)),
+            ("PathPoints", new List(zs.Select(z => (Node)Point(z)).ToArray())), ("BezierCurveAnim", new List(new Struct("BezierAnimationParameters", ("TimeToFollowCurve", new F(seconds))))));
+        static BodStruct Read(Struct s) => (BodStruct)BodDocument.Read(Document(s)).Root;
+        Assert.Equal(-72f, MapScene.CurveSpin(Read(Curve(true, 5f, 0f, -90f, -180f, 89.999f)))!.Value, 0.1f);   // -360 degrees in 5 s
+        Assert.Equal(72f, MapScene.CurveSpin(Read(Curve(true, 5f, 0f, 90f, 180f, -89.999f)))!.Value, 0.1f);
+        Assert.Null(MapScene.CurveSpin(Read(Curve(false, 5f, 0f, -90f, -180f, 89.999f))));   // not looped
+        Assert.Null(MapScene.CurveSpin(Read(Curve(true, 5f, 0f, 0f, 0f, 0f))));              // turns nothing
+        Assert.Null(MapScene.CurveSpin(Read(Curve(true, 0f, 0f, -90f, -180f, 89.999f))));    // no time
+    }
+
+    [Fact]
+    public void A_curve_turns_only_the_entity_that_follows_it()
+    {
+        static Struct Point(float z) => new("BezierPoint", ("RotationLS", new Vec(0f, 0f, z)));
+        var curve = new Struct("BezierCurve", ("Loop", new B(true)), ("PathPoints", new List(new Node[] { Point(0f), Point(-90f), Point(-180f), Point(89.999f) })),
+            ("BezierCurveAnim", new List(new Struct("BezierAnimationParameters", ("TimeToFollowCurve", new F(5f))))));
+        Struct Entity(string name, float x) => new("PhoenixEntity", ("BlueprintName", new S(@"ebps\environments\" + name)), ("Name", new S(name)), ("Position", new Vec(x, 0f, 0f)));
+        var root = BodDocument.Read(Document(new Struct("RegionLayer", ("Root", new Struct("WorldGroup",
+            ("Objects", new List(curve, Entity("fan_blades", 1f), Entity("second_entity", 2f), curve, new Struct("StaticObject", ("ObjectName", new S("body"))), Entity("third_entity", 3f))))))));
+        var objects = new List<PlacedObject>(); var spin = new Dictionary<int, float>();
+        MapScene.CollectObjects(root.Root, "e_splinamation", Matrix4x4.Identity, objects, 0, new List<PlacedDecal>(), spin);
+        Assert.Equal(["fan_blades", "body"], objects.Select(o => o.Definition));   // the second and third entities are not added
+        Assert.Equal([0], spin.Keys);
+        Assert.Equal(-72f, spin[0], 0.1f);
+    }
+
+    [Fact]
     public void An_environment_region_reads_its_colour_grade()
     {
         var region = new Struct("base/environmentregion", ("Name", new S("r")), ("Priority", new I(1)), ("Scale", new Vec(600f, 600f, 300f)), ("Position", new Vec(0f, 0f, 0f)),

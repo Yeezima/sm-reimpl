@@ -130,7 +130,7 @@ public sealed partial class MapDecalView : Node3D
         var near = new List<(float Distance, Item Item)>();
         foreach (var item in _items)
         {
-            float d = item.Position.DistanceTo(at) - item.Radius;
+            float d = item.Position.DistanceTo(at);   // Godot fades a decal from its origin, so the choice measures to the origin too
             if (d < Range) near.Add((d, item));
         }
         near.Sort((a, b) => a.Distance.CompareTo(b.Distance));
