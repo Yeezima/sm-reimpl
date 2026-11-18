@@ -32,7 +32,13 @@ public partial class NetworkView
         var args = OS.GetCmdlineUserArgs();
         int at = System.Array.IndexOf(args, "--crowd-lod-threshold");
         float px = at >= 0 && at + 1 < args.Length && float.TryParse(args[at + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : CrowdLodThreshold;
-        _preWarfrontLodThreshold ??= GetViewport().MeshLodThreshold;
+        if (_preWarfrontLodThreshold is null)
+        {
+            _preWarfrontLodThreshold = GetViewport().MeshLodThreshold;
+            var viewport = GetViewport();
+            // Restore as this match's view leaves the tree: before the next match builds its map views (Musou's Ashfall kit view caches the threshold when it enters) (review).
+            TreeExiting += () => { if (_preWarfrontLodThreshold is { } before && GodotObject.IsInstanceValid(viewport)) viewport.MeshLodThreshold = before; _preWarfrontLodThreshold = null; };
+        }
         GetViewport().MeshLodThreshold = px;
         GD.Print($"warfront: crowd levels of detail on, threshold {px:0.#} px");
     }
