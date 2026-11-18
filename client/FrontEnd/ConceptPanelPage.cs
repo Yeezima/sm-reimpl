@@ -102,6 +102,19 @@ public partial class ConceptPanelPage : UiKit.MenuPage
 
     float _dockScale;
 
+    /// <summary>A disabled plate takes no focus: Godot draws the focus box over a focused disabled button, which showed the gold plate under the grey disabled ink (Opus reviews 2 to 4).</summary>
+    public override void _Process(double delta)
+    {
+        if (!_concept || !Visible) return;
+        var buttons = new List<Button>(); Collect(Rows, buttons);
+        foreach (var b in buttons)
+        {
+            var want = b.Disabled ? FocusModeEnum.None : FocusModeEnum.All;
+            if (b.FocusMode != want) b.FocusMode = want;
+            if (b.Disabled && b.HasFocus()) b.ReleaseFocus();
+        }
+    }
+
     /// <summary>
     /// One BACK and one main action on every page (Opus review 1): BACK is the concept's own BACK plate at the screen's bottom right, exactly where Options puts it; the main action is the gold plate in the frame's bottom tray, where
     /// Options has APPLY. Both stay the page's own buttons (same handlers, same focus chain); they only leave the column (a top-level control is not laid out by it).

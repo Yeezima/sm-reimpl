@@ -9,7 +9,7 @@ namespace SmClient.Customizer;
 /// </summary>
 public static class EngravedGlyphs
 {
-    public static readonly string[] Names = ["glyph-gun", "glyph-pistol", "glyph-blade", "glyph-grenade", "glyph-perk", "glyph-ork"];
+    public static readonly string[] Names = ["glyph-gun", "glyph-pistol", "glyph-blade", "glyph-grenade", "glyph-perk", "glyph-ork", "glyph-pistol-fill", "glyph-grenade-fill"];
 
     /// <summary>Makes the glyphs once and puts them in the art cache.</summary>
     public static void Register()
@@ -29,6 +29,7 @@ public static class EngravedGlyphs
 
     static ImageTexture Make(string name)
     {
+        if (name.EndsWith("-fill", StringComparison.Ordinal)) return MakeFill(name);
         var img = Image.CreateEmpty(N, N, false, Image.Format.Rgba8);
         for (int y = 0; y < N; y++)
             for (int x = 0; x < N; x++)
@@ -38,6 +39,21 @@ public static class EngravedGlyphs
                 float edge = Mathf.Clamp(1f - shade * 0.7f, 0f, 1f);
                 var c = new Color(0.62f - 0.2f * edge, 0.55f - 0.18f * edge, 0.40f - 0.14f * edge, 0.34f);
                 img.SetPixel(x, y, c);
+            }
+        img.GenerateMipmaps();
+        return ImageTexture.CreateFromImage(img);
+    }
+
+    /// <summary>The solid white shape (alpha only, like the install's silhouettes), for the two slots whose install picture is too small to read: it takes the same engraved ink as the bolter's and the knife's.</summary>
+    static ImageTexture MakeFill(string name)
+    {
+        var img = Image.CreateEmpty(N, N, false, Image.Format.Rgba8);
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+            {
+                float a = 0f;
+                for (int sy = 0; sy < 3; sy++) for (int sx = 0; sx < 3; sx++) a += Cover(name, x + (sx + 0.5f) / 3f, y + (sy + 0.5f) / 3f);
+                img.SetPixel(x, y, new Color(1f, 1f, 1f, a / 9f));
             }
         img.GenerateMipmaps();
         return ImageTexture.CreateFromImage(img);
@@ -55,6 +71,23 @@ public static class EngravedGlyphs
                 return Math.Max(Math.Max(Box(x, y, 10, 38, 78, 50), Box(x, y, 54, 50, 66, 74)), Math.Max(Box(x, y, 8, 34, 30, 60), Math.Max(Box(x, y, 78, 41, 90, 47), Box(x, y, 30, 50, 48, 58))));
             case "glyph-pistol":
                 return Math.Max(Math.Max(Box(x, y, 22, 36, 76, 50), Box(x, y, 22, 50, 38, 74)), Box(x, y, 76, 40, 86, 46));
+            case "glyph-pistol-fill":
+            {
+                // a side arm: the slide and barrel, the angled grip, the trigger guard, the hammer
+                float slide = Box(x, y, 12, 30, 76, 46), muzzle = Box(x, y, 76, 33, 88, 43), sight = Box(x, y, 14, 26, 20, 30);
+                float gx = x - (y - 46f) * 0.28f, grip = y >= 46 && y <= 82 && gx >= 20 && gx <= 42 ? 1f : 0f;
+                float guard = Math.Max(0f, Disc(x, y, 52, 54, 9) - Disc(x, y, 52, 54, 5.5f)) * (y >= 46 ? 1f : 0f);
+                return Math.Max(Math.Max(Math.Max(slide, muzzle), Math.Max(sight, grip)), guard);
+            }
+            case "glyph-grenade-fill":
+            {
+                // a fragmentation grenade: the ribbed body, the neck, the lever and the pin ring
+                float body = Disc(x, y, 48, 58, 25);
+                bool groove = body > 0f && (Mathf.PosMod(x - 48f + 2f, 12f) < 2.2f || Mathf.PosMod(y - 58f + 2f, 12f) < 2.2f);
+                float neck = Box(x, y, 40, 24, 58, 36), lever = Box(x, y, 56, 22, 78, 29) + Box(x, y, 70, 22, 78, 44);
+                float ring = Math.Max(0f, Disc(x, y, 30, 24, 7.5f) - Disc(x, y, 30, 24, 4.2f));
+                return Math.Max(Math.Max(groove ? 0f : body, neck), Math.Max(Math.Min(1f, lever), ring));
+            }
             case "glyph-blade":
             {
                 // a sword on the diagonal: the blade, the guard, the grip, the pommel

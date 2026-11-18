@@ -10,10 +10,10 @@ namespace SmClient.Customizer;
 public sealed partial class SteelBackdrop : Control
 {
     /// <summary>The board's rectangle in the UI space and the title plate's margins.</summary>
-    public static readonly Rect2 Board = new(64f, 24f, 1792f, 1032f);
+    public static readonly Rect2 Board = new(40f, 8f, 1840f, 1064f);
     readonly Label? _title;
     readonly BoardStyle _style = new();
-    readonly Steel.SteelStyle _ring = new(Steel.Kind.PaintedRecess, 10f, 0f, 0f) { Scale = 0.62f };
+    readonly Steel.SteelStyle _ring = new(Steel.Kind.PaintedRecess, 10f, 0f, 0f) { Scale = 0.5f };
     readonly float _veil;
     readonly Rect2 _board;
 

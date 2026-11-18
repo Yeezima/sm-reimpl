@@ -256,15 +256,18 @@ public sealed partial class FrontEndView : Control
         // customizer), OPTIONS, EXIT; STOP MUSOU SERVER still appears under MUSOU MODE while its server runs. The node names are the old rows' (the tests and test aids know them).
         var main = new ConceptMainPage();
         var joinRow = UiKit.SteelButton("Classic PvP", () => ShowPage(_lobby!), "Annihilation and Seize Ground: join a server, host one, or join a lobby", "MenuPlayerversusPlayer");
-        _first[main] = joinRow;   // the default focus (owner 2026-11-15: CLASSIC PVP above MUSOU MODE)
-        main.Rows.AddChild(joinRow);
+        // The concept's order again (owner, 2026-11-18: "match the menu 1:1"): MUSOU MODE first where added content is built, and the default focus; a faithful build starts with CLASSIC PVP.
+        _first[main] = joinRow;
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            main.Rows.AddChild(UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode"));
+            var musouRow = UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode");
+            main.Rows.AddChild(musouRow);
+            _first[main] = musouRow;
             _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
         }
+        main.Rows.AddChild(joinRow);
         main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
         main.Rows.AddChild(UiKit.SteelButton("Options", () => ShowOptions(), null, "MenuOptions"));
         main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
@@ -435,7 +438,12 @@ public sealed partial class FrontEndView : Control
         RefreshContent();
         if (page == _hostPage) _hostPanel?.FocusFirst();
         else if (page == _joinLocalPage) { _address!.Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host; _address.FocusLater(); }
-        else _first.GetValueOrDefault(page)?.FocusLater();
+        else
+        {
+            var first = _first.GetValueOrDefault(page);
+            if (first is Button { Disabled: true }) first = page.Rows.GetChildren().OfType<Button>().FirstOrDefault(b => b.Visible && !b.Disabled);   // a disabled row cannot hold the focus
+            first?.FocusLater();
+        }
     }
 
     /// <summary>The main menu. A session's Musou ends here: the lobby's remembered profile is back (unless a server fixes it, or <c>--content musou</c> asked for it).</summary>

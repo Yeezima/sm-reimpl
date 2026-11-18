@@ -192,8 +192,8 @@ public partial class MatchSummaryView : Control
         string label = stage == 0 ? _text.TeamScore : _text.Kills;
         int target = stage == 0 ? data.TeamScore : data.ViewerKills;
         var colour = stage == 0 ? data.SideColour : White;
-        Text(label, left, top + 118f * s, w, (int)(22 * s), new Color(Grey, alpha * (float)stageAlpha), HorizontalAlignment.Center);
-        Text(CountUp.Value(target, stageTime).ToString(), left, top + 178f * s, w, (int)(64 * s), new Color(colour, alpha * (float)stageAlpha), HorizontalAlignment.Center);
+        Text(label, left, top + 122f * s, w, (int)(22 * s), new Color(Grey, alpha * (float)stageAlpha), HorizontalAlignment.Center);
+        Text(CountUp.Value(target, stageTime).ToString(), left, top + 182f * s, w, (int)(64 * s), new Color(colour, alpha * (float)stageAlpha), HorizontalAlignment.Center);
         if (stage == 0 && data.OtherLabel is { } other)
             Text($"{other}  {CountUp.Value(data.OtherScore, stageTime)}", left, top + 212f * s, w, (int)(22 * s), new Color(Dim, alpha), HorizontalAlignment.Center);
 

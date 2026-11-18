@@ -41,12 +41,7 @@ public sealed partial class GameFolderSetup : Control
 
         var box = UiKit.VBox(16);
         box.CustomMinimumSize = new Vector2(1000, 0);
-        var title = UiKit.HBox(16);
-        title.AddChild(UiKit.Text("SPACE MARINE", UiKit.TitleSize, UiKit.Gold));
-        title.AddChild(UiKit.Text("MULTIPLAYER", UiKit.TitleSize, UiKit.White));
-        box.AddChild(title);
         box.AddChild(UiKit.PlateTitle("Game not found", new Color(1f, 0.55f, 0.48f)).With(t => t.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin));
-        box.AddChild(UiKit.Text("Space Marine (2011, Steam) not found".ToUpperInvariant(), UiKit.HeaderSize, UiKit.LightRed));
         box.AddChild(UiKit.Text((
             "This game plays with the files of your own copy of Warhammer 40,000: Space Marine (the 2011 Steam version). Nothing from it is copied or changed. " +
             "Install it on Steam and press RETRY, or choose the folder that contains its \"data\" folder.").ToUpperInvariant(),
@@ -54,7 +49,7 @@ public sealed partial class GameFolderSetup : Control
         box.AddChild(UiKit.Text(("Usually: ...\\steamapps\\common\\" + GameInstall.DefaultInstallDir).ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true));
 
         var row = UiKit.HBox(12);
-        _path = new LineEdit { PlaceholderText = "game folder", CustomMinimumSize = new Vector2(640, UiKit.MinHit), FocusMode = FocusModeEnum.All, SelectAllOnFocus = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _path = new LineEdit { PlaceholderText = "GAME FOLDER", CustomMinimumSize = new Vector2(640, UiKit.MinHit), FocusMode = FocusModeEnum.All, SelectAllOnFocus = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _path.TextSubmitted += TryText;
         row.AddChild(_path);
         _browse = UiKit.Button("BROWSE...", Browse, 200, "Choose the game folder");
@@ -73,7 +68,7 @@ public sealed partial class GameFolderSetup : Control
         bar.AddChild(UiKit.Spacer());
         bar.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 160));
         box.AddChild(bar);
-        box.AddChild(new LinkButton { Text = "Help, builds and issues: " + ServerLaunch.ReleasesUrl, Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
+        box.AddChild(new LinkButton { Text = ("Help, builds and issues: " + ServerLaunch.ReleasesUrl).ToUpperInvariant(), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
 
         var panel = UiKit.Panel(box, 28);
         var center = new CenterContainer();

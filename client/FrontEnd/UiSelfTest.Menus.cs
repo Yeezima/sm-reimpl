@@ -40,8 +40,8 @@ public sealed partial class UiSelfTest
             var main = _front.MainPage!;
             // ui/concept-redesign: the concept's order and words (MUSOU MODE first where added content is built; STOP MUSOU SERVER only while its server runs).
             var wanted = new List<string>();
-            wanted.Add("CLASSIC PVP");   // owner 2026-11-15: CLASSIC PVP above MUSOU MODE, the default focus
-            if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");
+            if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");   // owner 2026-11-18: the concept's order, MUSOU MODE first and the default focus
+            wanted.Add("CLASSIC PVP");
             wanted.AddRange(["ARMOURY", "OPTIONS", "EXIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
             Check("menu: the title is the project's name", main.TitleLabel.Text == "SM - REIMPL", main.TitleLabel.Text);

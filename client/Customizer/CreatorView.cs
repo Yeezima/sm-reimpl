@@ -680,9 +680,9 @@ public sealed partial class CreatorView : Control
         if (_arm) _cardTitle.AddThemeFontOverride("font", UiKit.ConceptFont());   // one face on the Armoury page
         _card.AddChild(_cardTitle);
         var text = UiKit.VBox(6);
-        _cardBody = body.Length > 0 ? UiKit.Text(body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
-        _cardExtra = extra.Length > 0 ? UiKit.Text(extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
-        if (_arm) foreach (var l in new[] { _cardBody, _cardExtra }) l?.AddThemeFontOverride("font", UiKit.ConceptFont());
+        _cardBody = body.Length > 0 ? UiKit.Text(_arm ? body.ToUpperInvariant() : body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
+        _cardExtra = extra.Length > 0 ? UiKit.Text(_arm ? extra.ToUpperInvariant() : extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
+        if (_arm) foreach (var l in new[] { _cardBody, _cardExtra }) { l?.AddThemeFontOverride("font", UiKit.NoteFont()); }
         if (_cardBody is not null) text.AddChild(_cardBody);
         if (_cardExtra is not null) text.AddChild(_cardExtra);
         _cardScroll = UiKit.Scroll(text);

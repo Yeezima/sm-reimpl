@@ -18,7 +18,7 @@ public abstract partial class TfwPagePanel : Control
         Name = name;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var head = new Label { Name = name + "Title", Text = title, MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left + 8f, 62f) };
+        var head = new Label { Name = name + "Title", Text = title, MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left + 30f, 70f) };
         SteelBackdrop.StyleTitle(head);
         AddChild(new SteelBackdrop(name + "Dim", head, 0.7f) { FitContent = true });   // ui/overhaul: the steel board and the title plate behind the page
         AddChild(head);
@@ -48,7 +48,7 @@ public abstract partial class TfwPagePanel : Control
         var b = UiKit.MenuButton(text, act);
         b.AddThemeFontSizeOverride("font_size", size);
         SteelBackdrop.StylePlate(b);
-        Place(b, x, y, width, size + 30f);
+        Place(b, x, y, width, Math.Max(size + 30f, 58f));
         AddChild(b);
         return b;
     }
@@ -79,7 +79,7 @@ public sealed partial class TfwScorePanel : TfwPagePanel
     {
         _close = close;
         MapPoints = Number(map.Points);
-        Line("ScoreMap", MapName(map), Left, 146f, 16, 1200f);
+        Line("ScoreMap", MapName(map), Left, 172f, 16, 1200f);
         Line("ScoreKosLabel", "KOS", Left, 220f, 18, 300f);
         Line("ScoreKos", Number(map.Kos), Left + 320f, 212f, 30, 400f);
         Line("ScoreChainLabel", "BEST CHAIN", Left, 276f, 18, 300f);
@@ -88,7 +88,7 @@ public sealed partial class TfwScorePanel : TfwPagePanel
         Line("ScorePoints", MapPoints, Left + 320f, 324f, 30, 400f);
         Line("ScoreTotalLabel", "RUN TOTAL", Left, 400f, 18, 300f);
         _total = Line("ScoreTotal", Number(runTotal), Left + 320f, 388f, 40, 500f, new Color(0.98f, 0.8f, 0.12f));
-        _continue = Row("Continue", close, 480f);
+        _continue = Row("Continue", close, 470f);
     }
 
     public void Focus() => _continue.FocusLater();
@@ -111,7 +111,7 @@ public sealed partial class TfwRewardPanel : TfwPagePanel
 
     public TfwRewardPanel(in TfwRewardOffer offer, Func<TfwRewardCard, string> name, Action<byte> pick) : base("TfwRewardPanel", "CHOOSE A REWARD")
     {
-        Line("RewardNote", "ONE FOR THE REST OF THIS RUN. A WEAPON GOES IN KEY 3, 4 OR 5 AND NEVER REPLACES YOUR PRIMARY.", Left, 146f, 16, 1400f);
+        Line("RewardNote", "ONE FOR THE REST OF THIS RUN. A WEAPON GOES IN KEY 3, 4 OR 5 AND NEVER REPLACES YOUR PRIMARY.", Left, 172f, 16, 1400f);
         ReadOnlySpan<TfwRewardCard> cards = [offer.First, offer.Second, offer.Third];
         for (int k = 0; k < cards.Length; k++)
         {
@@ -158,7 +158,7 @@ public sealed partial class TfwRunPanel : TfwPagePanel
         Total = Number(total);
         Result = result;
         var rows = new List<string>(maps.Count);
-        float y = 150f;
+        float y = 178f;
         for (int k = 0; k < maps.Count; k++, y += 36f)
         {
             var m = maps[k];
@@ -178,7 +178,7 @@ public sealed partial class TfwRunPanel : TfwPagePanel
             y += 8f;
         }
         CopyButton = Row("Copy result", copy, y + 12f);
-        _closeButton = Row("Close", close, y + 56f);
+        _closeButton = Row("Close", close, y + 86f);
     }
 
     public void Focus() => CopyButton.FocusLater();

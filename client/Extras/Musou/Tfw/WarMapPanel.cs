@@ -15,7 +15,7 @@ namespace SmClient;
 /// </summary>
 public sealed partial class WarMapPanel : Control
 {
-    const float Left = UiKit.MenuLeft, Top = 196f, LaneHeight = 214f, BarWidth = 860f, BarHeight = 40f, DeployColumn = Left + BarWidth + 56f;
+    const float Left = UiKit.MenuLeft, Top = 232f, LaneHeight = 204f, BarWidth = 860f, BarHeight = 40f, DeployColumn = Left + BarWidth + 56f;
     static readonly Color HereGold = new(0.98f, 0.8f, 0.12f);
 
     /// <summary>A front's pips (-1 to 3) and its progress, from the middle: to the right the Imperials are winning, to the left the Orks.</summary>
@@ -77,7 +77,7 @@ public sealed partial class WarMapPanel : Control
         if (deploy is not null)
         {
             // The station's screen (a menu) wears the redesigned steel board and plate; the M overlay in a battle keeps its plain dim (it is part of the play view).
-            title.Position = new Vector2(Left + 8f, 62f);
+            title.Position = new Vector2(Left + 30f, 70f);
             SteelBackdrop.StyleTitle(title);
             _steel = true;
             AddChild(new SteelBackdrop("WarMapDim", title, 0.7f) { FitContent = true });
@@ -92,8 +92,8 @@ public sealed partial class WarMapPanel : Control
             title.AddThemeColorOverride("font_color", UiKit.White);
         }
         AddChild(title);
-        _clock = Text("WarMapClock", Left, 140f, 22, 1400f);
-        _reserves = Text("WarMapReserves", Left, 174f, 22, 1400f);
+        _clock = Text("WarMapClock", Left, 172f, 22, 1400f);
+        _reserves = Text("WarMapReserves", Left, 204f, 22, 1400f);
         for (int l = 0; l < 3; l++) _rows[l] = MakeRow((TfwLane)l, Top + 30f + l * LaneHeight);
         _note = Text("WarMapNote", Left, Top + 30f + 3 * LaneHeight, 22, 1400f);
         if (deploy is null)

@@ -169,7 +169,11 @@ public sealed partial class CreatorView
         if (name is null) return GlyphTex(glyph);
         if (!name.StartsWith("install:", StringComparison.Ordinal)) return ConceptArt.Get(name);
         // The install's pistol and grenade pictures are too small and soft to read as a silhouette at tile size: those two slots keep the engraved glyphs (Opus review 3).
-        if (name.Contains("pistol", StringComparison.OrdinalIgnoreCase) || name.Contains("grenade", StringComparison.OrdinalIgnoreCase)) return GlyphTex(glyph);
+        if (name.Contains("pistol", StringComparison.OrdinalIgnoreCase) || name.Contains("grenade", StringComparison.OrdinalIgnoreCase))
+        {
+            EngravedGlyphs.Register();
+            if (ConceptArt.Get(name.Contains("pistol", StringComparison.OrdinalIgnoreCase) ? "glyph-pistol-fill" : "glyph-grenade-fill") is { } fill) { _armSilhouettes.Add(fill); return fill; }   // solid shapes in the same ink as the bolter's and the knife's (Opus review 4)
+        }
         _armArt ??= new HudArt(_services.GameDir);
         if (_armArt.Ready && _armArt.WeaponIcon(name[8..]) is { } tex)
         {
