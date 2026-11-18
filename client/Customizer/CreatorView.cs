@@ -436,9 +436,14 @@ public sealed partial class CreatorView : Control
 
         string slotName = defaults ? $"DEFAULTS - {LoadoutRows.ClassName(_catalog, role, _previewRace)}" : empty ? $"CUSTOM {_open.Slot} - empty" : $"CUSTOM {_open.Slot} - {OpenClass!.Name}";
         _title.Text = "LOADOUTS";
+        // The slot's name is said once (owner, 2026-11-18): a summary that already starts with the name or the class needs only the slot's number.
+        string DefaultsBody = defaults ? LoadoutRows.DefaultSummary(_catalog, role, _previewRace) : "";
+        string customBody = !empty && !defaults ? LoadoutRows.Summary(_catalog, OpenClass!, _previewRace) : "";
+        if (defaults && DefaultsBody.StartsWith(LoadoutRows.ClassName(_catalog, role, _previewRace), StringComparison.OrdinalIgnoreCase)) slotName = "DEFAULTS";
+        if (!defaults && !empty && OpenClass!.Name.Equals($"Custom {_open.Slot}", StringComparison.OrdinalIgnoreCase)) slotName = $"CUSTOM {_open.Slot}";
         _summary.Text = empty ? $"{slotName}. Choose a class to start." :
-            defaults ? $"{slotName}: {LoadoutRows.DefaultSummary(_catalog, role, _previewRace)}{(_arm ? "" : "  (choose anything to edit a copy)")}" :
-            $"{slotName}: {LoadoutRows.Summary(_catalog, OpenClass!, _previewRace)}";
+            defaults ? $"{slotName}: {DefaultsBody}{(_arm ? "" : "  (choose anything to edit a copy)")}" :
+            $"{slotName}: {customBody}";
         if (_arm) _summary.Text = _summary.Text.ToUpperInvariant();   // one case per level (Opus review 2)
 
         bool dirty = _session.Dirty;
