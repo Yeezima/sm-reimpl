@@ -47,7 +47,7 @@ public abstract partial class TfwPagePanel : Control
         var b = UiKit.MenuButton(text, act);
         b.AddThemeFontSizeOverride("font_size", size);
         SteelBackdrop.StylePlate(b);
-        Place(b, x, y, width, size + 16f);
+        Place(b, x, y, width, size + 30f);
         AddChild(b);
         return b;
     }

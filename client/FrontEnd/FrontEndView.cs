@@ -520,7 +520,7 @@ public sealed partial class FrontEndView : Control
             case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
             case "failure": HideAll(); ShowFailure("The install's data folder could not be read: made-up error for a screenshot."); break;   // screenshot aid (ui/overhaul)
             case "dialog": { HideAll(); ShowMainMenu(); UiKit.Dialog.Open(this, this, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], _ => { }); break; }
-            case var tfw when tfw.StartsWith("tfw-", StringComparison.OrdinalIgnoreCase): { bool handled = false; ExtrasMenuScreen(tfw, ref handled); break; }
+            case var tfw when tfw.StartsWith("tfw-", StringComparison.OrdinalIgnoreCase): { bool handled = false; ExtrasMenuScreen(tfw, ref handled); break; }   // EXTRAS-HOOK
             case "scoreboard": case "scoreboard-single": ShowScoreboardDemo(name.EndsWith("single", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the Tab scoreboard with made-up rows
             case "pause": { HideAll(); var m = new MatchMenu(() => { }, () => { }, () => { }, () => { }) { Name = "PauseDemo" }; m.Banner = "Respawn in 3"; AddChild(m); m.Open(true); break; }   // screenshot aid (ui/overhaul): the in-match Esc menu
             case "summary": case "countup": ShowSummaryDemo(name.StartsWith("count", StringComparison.OrdinalIgnoreCase)); break;   // screenshot aid (ui/overhaul): the end-of-match screens with made-up figures
