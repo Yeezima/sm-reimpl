@@ -148,7 +148,13 @@ public class MapSceneTests
             [
                 new("Layer", "e_walls", Layer(
                     PlacedIn("w1", "Wall_A", "pkg_a"), PlacedIn("w2", "Wall_A", "pkg_b"), PlacedIn("w3", "Wall_A", "pkg_unknown"),
-                    PlacedIn("a1", "Only_A", "pkg_a"), PlacedIn("b1", "Only_B", "pkg_b"), PlacedIn("b2", "Only_B", "pkg_b"), PlacedIn("c1", "Only_C", "pkg_c"))),
+                    PlacedIn("a1", "Only_A", "pkg_a"), PlacedIn("b1", "Only_B", "pkg_b"), PlacedIn("b2", "Only_B", "pkg_b"), PlacedIn("c1", "Only_C", "pkg_c"),
+                    // The tie-break: pkg_x is told by two placements of a package-100 name and one of a package-200 name; the commoner id wins.
+                    PlacedIn("w4", "Wall_A", "pkg_x"), PlacedIn("x1", "Only_A2", "pkg_x"), PlacedIn("x2", "Only_A2", "pkg_x"), PlacedIn("x3", "Only_B2", "pkg_x"))),
+                new("O3d", "Only_A2", Definition("Only_A2_Mesh"), PackageId: 100),
+                new("O3d", "Only_B2", Definition("Only_B2_Mesh"), PackageId: 200),
+                new("dcm", "Only_A2_Mesh", Mesh(), PackageId: 100),
+                new("dcm", "Only_B2_Mesh", Mesh(), PackageId: 200),
                 new("O3d", "Wall_A", Definition("Wall_A_Mesh"), PackageId: 100),
                 new("O3d", "Wall_A", Definition("Wall_A_Mesh"), PackageId: 200),
                 new("O3d", "Only_A", Definition("Only_A_Mesh"), PackageId: 100),
@@ -168,6 +174,7 @@ public class MapSceneTests
             Assert.Equal("Wall_A@200", byName["w2"].Variant, ignoreCase: true);
             Assert.Null(byName["w3"].Variant);        // its package is not one the single definitions tell: the first definition, as before
             Assert.Null(byName["a1"].Variant);        // a name only one package defines
+            Assert.Equal("Wall_A@100", byName["w4"].Variant, ignoreCase: true);   // the tie-break: the id told by more placements
             float Extent(string placement)
             {
                 Assert.True(scene.TryGetDefinition(byName[placement], out var def));

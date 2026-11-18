@@ -43,6 +43,19 @@ public sealed class StaticMesh
     // Surface material id per source triangle number (empty: none).
     readonly int[] _materials;
 
+    // classic-maps-fidelity: per source triangle, true for triangles that may not be stood on (the world walls' faces, WorldBlocker): the
+    // character controller treats them as too steep whatever their slope. Null: none.
+    bool[]? _noStand;
+
+    /// <summary>Whether source triangle <paramref name="triangle"/> (as <see cref="RayHit.Triangle"/>) is one a character may not stand on (a world wall's face).</summary>
+    public bool IsNoStand(int triangle) => _noStand is not null && (uint)triangle < (uint)_noStand.Length && _noStand[triangle];
+
+    /// <summary>Whether the triangle in tree slot <paramref name="slot"/> may not be stood on.</summary>
+    internal bool NoStandSlot(int slot) => _noStand is not null && IsNoStand(_tri[slot]);
+
+    /// <summary>The centre of the triangle in tree slot <paramref name="slot"/>.</summary>
+    internal Vector3 TriangleCentre(int slot) => _v0[slot] + (_e1[slot] + _e2[slot]) / 3f;
+
     /// <summary>
     /// The surface material id of triangle <paramref name="triangle"/> (numbered as in the index buffer, as
     /// <see cref="RayHit.Triangle"/>), or -1 when the mesh has no materials or the triangle is out of range (M25a; the level's
@@ -152,7 +165,20 @@ public sealed class StaticMesh
     /// </summary>
     /// <param name="addedMaterials">Surface material ids of the added triangles (one per triangle; M39 props), or null for none (-1).
     /// Given to a mesh without materials, its own triangles get -1.</param>
-    public StaticMesh With(Vector3[] vertices, int[] indices, int[]? addedMaterials = null)
+    public StaticMesh With(Vector3[] vertices, int[] indices, int[]? addedMaterials = null, bool addedNoStand = false)
+    {
+        var result = WithCore(vertices, indices, addedMaterials);
+        if (_noStand is not null || addedNoStand)
+        {
+            var flags = new bool[result.SourceTriangles];
+            if (_noStand is not null) Array.Copy(_noStand, flags, Math.Min(_noStand.Length, SourceTriangles));
+            if (addedNoStand) for (int k = SourceTriangles; k < result.SourceTriangles; k++) flags[k] = true;
+            result._noStand = flags;
+        }
+        return result;
+    }
+
+    StaticMesh WithCore(Vector3[] vertices, int[] indices, int[]? addedMaterials)
     {
         if (addedMaterials is not null && addedMaterials.Length != indices.Length / 3)
             throw new ArgumentException($"{addedMaterials.Length} materials for {indices.Length / 3} triangles", nameof(addedMaterials));
@@ -496,13 +522,18 @@ public sealed class StaticMesh
     /// a hit at once (a face's drop is then negative: the lift that puts the sphere back on it). On a hit,
     /// <paramref name="point"/> is the contact point and <paramref name="face"/> says it is on a face's interior.
     /// </summary>
-    internal bool SweepDown(Vector3 c, float r, float maxDrop, List<int> slots, out float drop, out Vector3 point, out bool face)
+    internal bool SweepDown(Vector3 c, float r, float maxDrop, List<int> slots, out float drop, out Vector3 point, out bool face) =>
+        SweepDown(c, r, maxDrop, slots, out drop, out point, out face, out _);
+
+    /// <summary>The sweep that also says which slot it hit (-1: none).</summary>
+    internal bool SweepDown(Vector3 c, float r, float maxDrop, List<int> slots, out float drop, out Vector3 point, out bool face, out int hitSlot)
     {
         const float tolerance = 1e-4f;
-        drop = float.MaxValue; point = default; face = false;
+        drop = float.MaxValue; point = default; face = false; hitSlot = -1;
         float bottom = c.Z - r - maxDrop - tolerance, top = c.Z + r;
         foreach (int slot in slots)
         {
+            float dropBefore = drop;
             var v0 = _v0[slot]; var v1 = v0 + _e1[slot]; var v2 = v0 + _e2[slot];
             if (MathF.Max(v0.Z, MathF.Max(v1.Z, v2.Z)) < bottom || MathF.Min(v0.Z, MathF.Min(v1.Z, v2.Z)) > top) continue;
             if (MathF.Min(v0.X, MathF.Min(v1.X, v2.X)) > c.X + r || MathF.Max(v0.X, MathF.Max(v1.X, v2.X)) < c.X - r) continue;
@@ -527,6 +558,7 @@ public sealed class StaticMesh
             Corner(c, r, v0, maxDrop, ref drop, ref point, ref face);
             Corner(c, r, v1, maxDrop, ref drop, ref point, ref face);
             Corner(c, r, v2, maxDrop, ref drop, ref point, ref face);
+            if (drop < dropBefore) hitSlot = slot;
         }
         return drop != float.MaxValue;
 
@@ -783,7 +815,7 @@ internal static class CharacterMotor
     const float Tolerance = 0.01f;      // penetration left after push-outs that still counts as clear
 
     [Flags]
-    internal enum Touch { None = 0, Ground = 1, Wall = 2, Ceiling = 4 }
+    internal enum Touch { None = 0, Ground = 1, Wall = 2, Ceiling = 4, Slide = 8 }
 
     readonly struct Shape(SimConfig c)
     {
@@ -903,7 +935,7 @@ internal static class CharacterMotor
                 float before = pos.Z;
                 touched |= Move(mesh, shape, ref pos, new Vector3(0, 0, dz), ref air, scratch);
                 // Falling but held up (wedged between steep surfaces it cannot slide down): it stands there.
-                if (dz < 0f && pos.Z - before > 0.5f * dz) touched |= Touch.Ground;
+                if (dz < 0f && pos.Z - before > 0.5f * dz && (touched & Touch.Slide) == 0) touched |= Touch.Ground;
             }
             if ((touched & Touch.Ground) != 0 && vz <= 0f) { grounded = true; vz = 0f; }
             if ((touched & Touch.Ceiling) != 0 && vz > 0f) vz = 0f;
@@ -933,10 +965,10 @@ internal static class CharacterMotor
     {
         Gather(mesh, shape, pos, pos - new Vector3(0, 0, distance), scratch);
         var centre = pos + new Vector3(0, 0, shape.R);
-        if (!mesh.SweepDown(centre, shape.R, distance, scratch.Near, out float drop, out var point, out bool face)) return Landing.None;
+        if (!mesh.SweepDown(centre, shape.R, distance, scratch.Near, out float drop, out var point, out bool face, out int hitSlot)) return Landing.None;
         var n = centre - new Vector3(0, 0, drop) - point;
         n = n.LengthSquared() > 1e-12f ? Vector3.Normalize(n) : Vector3.UnitZ;
-        bool ground = point.Z <= maxGroundZ && (n.Z >= shape.CosMax || (edgeSupport && !face && n.Z >= 0.2f));
+        bool ground = point.Z <= maxGroundZ && (n.Z >= shape.CosMax || (edgeSupport && !face && n.Z >= 0.2f)) && !(hitSlot >= 0 && mesh.NoStandSlot(hitSlot));
         if (!ground) return face ? Landing.Steep : Landing.Edge;
         if (slopeRun >= 0f && drop > shape.StepHeight + 1e-3f)
         {
@@ -1029,7 +1061,17 @@ internal static class CharacterMotor
                     if (sweep == 0 && !face) continue;
                     float amount = depth + Skin;
                     Vector3 push;
-                    if (n.Z >= shape.CosMax && (face || point.Z <= groundZ + shape.StepHeight))
+                    if (n.Z >= shape.CosMax && mesh.NoStandSlot(near[i]))
+                    {
+                        // A world wall's top (or any upward face): never ground. Out of it vertically and a little away from the triangle's
+                        // centre, so a player that lands on it slides off instead of standing (classic-maps-fidelity).
+                        var centre = mesh.TriangleCentre(near[i]);
+                        var away = new Vector2(pos.X - centre.X, pos.Y - centre.Y);
+                        away = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : Vector2.UnitX;
+                        push = new Vector3(away * 0.05f, amount / n.Z);
+                        touched |= Touch.Wall | Touch.Slide;
+                    }
+                    else if (n.Z >= shape.CosMax && (face || point.Z <= groundZ + shape.StepHeight))
                     {
                         push = new Vector3(0, 0, amount / n.Z);
                         touched |= Touch.Ground;

@@ -158,6 +158,34 @@ public class WorldBlockerTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_wall_top_is_not_ground_a_player_landing_on_it_slides_off_and_the_bot_graph_has_no_cell_there()
+    {
+        // 6 x 6 x 10 m wall on a floor at 0: its top is at z 10, flat. In the original there is no invisible ledge to stand on.
+        var level = Level(Box(new Vector3(0, 0, 5), new Vector3(6, 6, 10)));
+        foreach (var team in Everyone)
+        {
+            var s = Fresh(team, Tactical, new Vector3(0.3f, 0.2f, 12f), 0f) with { Grounded = false, Velocity = Vector3.Zero };
+            bool stoodOnTop = false;
+            for (int t = 0; t < 400; t++)
+            {
+                s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _, level);
+                if (s.Grounded && s.Position.Z > 5f) stoodOnTop = true;
+            }
+            output.WriteLine($"{team}: end {s.Position}, grounded {s.Grounded}");
+            Assert.False(stoodOnTop, $"{team} stood on the wall's top");
+            Assert.True(s.Position.Z < 1f && s.Grounded, $"{team} ended at {s.Position}, not on the floor");
+        }
+        var mesh = level.CharacterFor(Team.Chaos);
+        Assert.NotNull(mesh.Raycast(new Vector3(0, 0, 20), -Vector3.UnitZ, 20f));
+        Assert.True(mesh.IsNoStand(mesh.Raycast(new Vector3(0, 0, 20), -Vector3.UnitZ, 20f)!.Value.Triangle));
+        Assert.False(level.Character.IsNoStand(0));
+        var graph = NavGraph.Build(mesh, null, NavSettings.From(Config), NavArea.Around([new Vector3(-20, 0, 0), new Vector3(20, 0, 0)], 20f));
+        for (int i = 0; i < graph.NodeCount; i++) Assert.True(graph.Position(i).Z < 1f, $"a bot cell at {graph.Position(i)}");
+        var bareGraph = NavGraph.Build(Level().Character, null, NavSettings.From(Config), NavArea.Around([new Vector3(-20, 0, 0), new Vector3(20, 0, 0)], 20f));
+        Assert.True(bareGraph.NodeCount > graph.NodeCount);
+    }
+
+    [Fact]
     public void Shots_pass_through_walls_and_a_level_without_them_is_untouched()
     {
         var wall = Box(new Vector3(3, 0, 10), new Vector3(1, 100, 40));

@@ -127,14 +127,17 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             vertices.AddRange(b.Corners());
             foreach (int i in BoxIndices) indices.Add(first + i);
         }
-        // The map's invisible walls (WorldBlocker) stop every player, after the side's own blockers.
+        var mesh = vertices.Count == 0 ? level : level.With([.. vertices], [.. indices]);
+        // The map's invisible walls (WorldBlocker) stop every player, after the side's own blockers; their faces may not be stood on.
+        var wv = new List<Vector3>();
+        var wi = new List<int>();
         foreach (var w in walls ?? [])
         {
-            int first = vertices.Count;
-            vertices.AddRange(w.Vertices);
-            foreach (int i in w.Indices) indices.Add(first + i);
+            int first = wv.Count;
+            wv.AddRange(w.Vertices);
+            foreach (int i in w.Indices) wi.Add(first + i);
         }
-        return vertices.Count == 0 ? level : level.With([.. vertices], [.. indices]);
+        return wv.Count == 0 ? mesh : mesh.With([.. wv], [.. wi], addedNoStand: true);
     }
 
     /// <summary>FNV-1a 64 of <paramref name="h"/> and each blocker's side and floats (centre, size, yaw); none: <paramref name="h"/>.</summary>

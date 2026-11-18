@@ -263,7 +263,7 @@ public sealed partial class NavGraph
                 {
                     if (character.Raycast(o, -Vector3.UnitZ, o.Z - bottom) is not { } hit) break;
                     float z = hit.Point.Z;
-                    if (hit.Normal.Z >= cosMax && (floors.Count == 0 || floors[^1].Item1 - z > FloorSpacing) && Roomy(character, kills, settings, px, py, z))
+                    if (hit.Normal.Z >= cosMax && !character.IsNoStand(hit.Triangle) && (floors.Count == 0 || floors[^1].Item1 - z > FloorSpacing) && Roomy(character, kills, settings, px, py, z))
                         floors.Add((z, hit.Normal.Z));
                     o = new Vector3(px, py, z - ProbeStep);
                 }

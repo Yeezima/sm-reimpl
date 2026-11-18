@@ -19,6 +19,35 @@ public class BakedPropsContentTests
         [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]);
     static readonly CollisionPlacement At0 = new(0, Vector3.Zero, Quaternion.Identity, Vector3.One);
 
+    /// <summary>The same crate as a soup: every triangle has its own three vertices (nothing shared by index).</summary>
+    static readonly CollisionMesh SoupCrate = new(
+        Crate.Triangles.SelectMany(t => new[] { Crate.Vertices[t.A], Crate.Vertices[t.B], Crate.Vertices[t.C] }).ToArray(),
+        Enumerable.Range(0, 12).Select(i => (3 * i, 3 * i + 1, 3 * i + 2)).ToArray());
+
+    static string InstallCrates(CollisionMesh mesh, params float[] xs)
+    {
+        var variants = new List<CollisionVariant> { new("2", [Floor], [At0]), new("8", [Floor], [At0]),
+            new("3", [mesh], xs.Select(x => new CollisionPlacement(0, new Vector3(x, 0, 0), Quaternion.Identity, Vector3.One)).ToArray()) };
+        string dir = Path.Combine(Path.GetTempPath(), "sm-baked-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "data", "chunks"));
+        File.WriteAllBytes(Path.Combine(dir, "data", "chunks", "mp_test__wrld.oppc"), SyntheticObpkWriter.Build([new("hkt", "wrld", BuildWorldCollision([.. variants]))]));
+        return dir;
+    }
+
+    [Fact]
+    public void An_unwelded_soup_of_one_crate_is_one_prop_and_crates_that_share_corners_are_one_prop()
+    {
+        // 1.2 m wide crates: at x -3 and -1.8 the second one's -X face is the first one's +X face (corners coincide).
+        string soup = InstallCrates(SoupCrate, 0f), apart = InstallCrates(SoupCrate, -5f, 5f), touching = InstallCrates(Crate, -3f, -1.8f);
+        try
+        {
+            Assert.Equal(12, Assert.Single(MapContent.Load(soup, "mp_test").Props).Indices.Length / 3);
+            Assert.Equal(2, MapContent.Load(apart, "mp_test").Props.Count);
+            Assert.Equal(24, Assert.Single(MapContent.Load(touching, "mp_test").Props).Indices.Length / 3);
+        }
+        finally { foreach (var x in new[] { soup, apart, touching }) Directory.Delete(x, recursive: true); }
+    }
+
     static string Install(bool withCrates, float secondCrateX = -5f)
     {
         var variants = new List<CollisionVariant> { new("2", [Floor], [At0]), new("8", [Floor], [At0]) };

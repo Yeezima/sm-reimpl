@@ -32,13 +32,16 @@ public static class BakedProps
         var parent = new int[triangles];
         for (int i = 0; i < triangles; i++) parent[i] = i;
         int Find(int x) { while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
-        var owner = new Dictionary<int, int>();   // vertex index -> a triangle that uses it
+        // Triangles are joined when they use the same vertex (an index) or vertices at the same place (welded to 1 mm): an unwelded soup of a
+        // crate's faces is still one crate; two boxes that touch only at shared corners are one prop too (stacks pierce as one).
+        var owner = new Dictionary<(long, long, long), int>();   // welded vertex position -> a triangle that uses it
         for (int t = 0; t < triangles; t++)
             for (int k = 0; k < 3; k++)
             {
-                int v = layer.Indices[3 * t + k];
-                if (owner.TryGetValue(v, out int other)) parent[Find(t)] = Find(other);
-                else owner[v] = t;
+                var v = layer.Vertices[layer.Indices[3 * t + k]];
+                var key = ((long)MathF.Round(v.X * 1000f), (long)MathF.Round(v.Y * 1000f), (long)MathF.Round(v.Z * 1000f));
+                if (owner.TryGetValue(key, out int other)) parent[Find(t)] = Find(other);
+                else owner[key] = t;
             }
         var sets = new Dictionary<int, List<int>>();
         for (int t = 0; t < triangles; t++)

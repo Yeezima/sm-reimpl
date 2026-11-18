@@ -77,6 +77,42 @@ public sealed class WorldBlocker
         return new WorldBlocker(name, vertices, [.. indices]);
     }
 
+    /// <summary>
+    /// The unit sphere (diameter 1) carried to the world by <paramref name="world"/> as a polyhedron: an icosahedron with each face split in four (80 triangles),
+    /// scaled so that every face plane is 0.5 from the centre, so the solid contains the true sphere (Manufactorum's two group 2 spheres, 9.3 m).
+    /// </summary>
+    public static WorldBlocker Sphere(string name, Matrix4x4 world)
+    {
+        float t = (1f + MathF.Sqrt(5f)) / 2f;
+        var v = new List<Vector3>
+        {
+            new(-1, t, 0), new(1, t, 0), new(-1, -t, 0), new(1, -t, 0), new(0, -1, t), new(0, 1, t), new(0, -1, -t), new(0, 1, -t), new(t, 0, -1), new(t, 0, 1), new(-t, 0, -1), new(-t, 0, 1),
+        };
+        for (int i = 0; i < v.Count; i++) v[i] = Vector3.Normalize(v[i]);
+        int[] faces = [0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11, 1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8, 3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1];
+        var mid = new Dictionary<(int, int), int>();
+        int Mid(int a, int b)
+        {
+            var key = a < b ? (a, b) : (b, a);
+            if (!mid.TryGetValue(key, out int m)) { m = v.Count; v.Add(Vector3.Normalize((v[a] + v[b]) / 2f)); mid[key] = m; }
+            return m;
+        }
+        var tris = new List<int>();
+        for (int f = 0; f < faces.Length; f += 3)
+        {
+            int a = faces[f], b = faces[f + 1], c = faces[f + 2], ab = Mid(a, b), bc = Mid(b, c), ca = Mid(c, a);
+            tris.AddRange([a, ab, ca, b, bc, ab, c, ca, bc, ab, bc, ca]);
+        }
+        float nearest = float.MaxValue;
+        for (int k = 0; k < tris.Count; k += 3)
+        {
+            var n = Vector3.Normalize(Vector3.Cross(v[tris[k + 1]] - v[tris[k]], v[tris[k + 2]] - v[tris[k]]));
+            nearest = MathF.Min(nearest, MathF.Abs(Vector3.Dot(n, v[tris[k]])));
+        }
+        float scale = 0.5f / nearest;
+        return new WorldBlocker(name, [.. v.Select(p => Vector3.Transform(p * scale, world))], [.. tris]);
+    }
+
     /// <summary>The list, copied, after checking that no entry is null.</summary>
     internal static WorldBlocker[] Checked(IEnumerable<WorldBlocker>? walls)
     {
