@@ -378,6 +378,58 @@ public partial class NetworkView
         GD.Print("ragdoll world: " + _ragdollWorldNote);
     }
 
+    /// <summary>map-load stall: <c>--old-ragdoll-world</c> builds the ragdoll world's whole concave shape in the map build's one frame, as before.</summary>
+    static readonly bool OldRagdollWorld = CmdFlag("old-ragdoll-world");
+
+    const int RagdollChunkTriangles = 12000;
+
+    /// <summary>The ragdoll world's triangles cut into slices of about <see cref="RagdollChunkTriangles"/> by their centre's game x (any thread). Together they collide exactly as the one shape.</summary>
+    static List<Vector3[]> RagdollWorldChunks(List<Vector3> faces)
+    {
+        int tris = faces.Count / 3;
+        int count = Math.Max(1, (tris + RagdollChunkTriangles - 1) / RagdollChunkTriangles);
+        var order = new int[tris];
+        var keys = new float[tris];
+        for (int t = 0; t < tris; t++) { order[t] = t; keys[t] = faces[3 * t].X + faces[3 * t + 1].X + faces[3 * t + 2].X; }
+        Array.Sort(keys, order);
+        var chunks = new List<Vector3[]>(count);
+        for (int c = 0; c < count; c++)
+        {
+            int from = (int)((long)tris * c / count), to = (int)((long)tris * (c + 1) / count);
+            var data = new Vector3[(to - from) * 3];
+            for (int i = from; i < to; i++) { int t = order[i]; data[(i - from) * 3] = faces[3 * t]; data[(i - from) * 3 + 1] = faces[3 * t + 1]; data[(i - from) * 3 + 2] = faces[3 * t + 2]; }
+            chunks.Add(data);
+        }
+        return chunks;
+    }
+
+    /// <summary>Main thread, cheap: the ragdoll world's empty static body and its lowest point; the shape's slices are added one a frame by <see cref="RagdollWorldChunk"/>.</summary>
+    StaticBody3D? BeginRagdollWorld(List<Vector3> faces)
+    {
+        _ragdollWorld?.QueueFree();
+        _ragdollWorld = null;
+        if (_gameSpace is null) return null;
+        if (faces.Count == 0) { _ragdollWorldNote = "map has no character collision; flat floor"; return null; }
+        float lowest = float.MaxValue;
+        foreach (var f in faces) if (f.Z < lowest) lowest = f.Z;
+        Ragdoll.LostBelowY = (_gameSpace.Transform * new Vector3(0, 0, lowest - 50f)).Y;
+        var body = new StaticBody3D { Name = "RagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
+        _gameSpace.AddChild(body);
+        _ragdollWorld = body;
+        _ragdollWorldNote = $"map character collision, {faces.Count / 3:N0} triangles (shape built in slices over the load's frames)";
+        return body;
+    }
+
+    void RagdollWorldChunk(MapStage1 s, List<Vector3[]> chunks)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var data = chunks[s.RagdollChunkNext++];
+        if (s.RagdollBody is { } body && IsInstanceValid(body))
+            body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = data, BackfaceCollision = true } });
+        s.RagdollChunksMs += watch.ElapsedMilliseconds;
+        if (s.RagdollChunkNext == chunks.Count) GD.Print($"ragdoll world: {chunks.Count} slices, {s.RagdollChunksMs} ms in total over {chunks.Count} frames");
+    }
+
     /// <summary>On flat ground (no map loaded) the ragdolls lie on the plane at game z = 0.</summary>
     void EnsureRagdollWorld()
     {

@@ -38,6 +38,10 @@ public partial class NetworkView
         public MapScene? Scene;
         public string? SceneError;
         public List<Vector3>? RagdollFaces;
+        public List<Vector3[]>? RagdollChunks;   // the faces cut into spatial slices, one concave shape each, made one a frame by WarmupStep (not --old-ragdoll-world)
+        public StaticBody3D? RagdollBody;
+        public int RagdollChunkNext;
+        public long RagdollChunksMs;
         public long ContentMs, WorldMs, SceneMs, WorkerMs, VisualsDoneMs;
         public int WarmupStep;
         public bool Async;
@@ -127,7 +131,7 @@ public partial class NetworkView
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
         long worldMs = watch.ElapsedMilliseconds;
         var stage = new MapStage1 { Name = name, File = file, Map = map, World = world, Hash = hash, Generated = generated is not null, ContentMs = contentMs, WorldMs = worldMs, Watch = watch, Async = !onMainThread };
-        if (!Lean) stage.RagdollFaces = RagdollWorldFaces(map);   // P2: the ragdoll world's triangles gathered here, its body and shape made on the main thread (P3: a shape made on this worker crashed the Compatibility renderer's load)
+        if (!Lean) { stage.RagdollFaces = RagdollWorldFaces(map); if (!OldRagdollWorld) stage.RagdollChunks = RagdollWorldChunks(stage.RagdollFaces); }   // P2: the ragdoll world's triangles gathered here, its body and shape made on the main thread (P3: a shape made on this worker crashed the Compatibility renderer's load)
         if (!Lean && !NoSound && !MapAudioInPlay && file != "none")
         {
             // P3: the map's sound emitters and regions read here (engine-free), not in the first frame of play (measured: 145 ms of that frame, in every join with sound).
@@ -174,7 +178,12 @@ public partial class NetworkView
         Ph("map load: collision and content");
         _stage2StartMs = watch.ElapsedMilliseconds;
         _mapAudioAhead = s.Audio is null ? null : (s.File, s.Audio, s.AudioNotes ?? []);   // P3: for SetUpMapSound (NetworkView.Sound.cs)
-        if (!Lean) BuildRagdollWorld(s.RagdollFaces ?? RagdollWorldFaces(map));
+        if (!Lean)
+        {
+            var faces = s.RagdollFaces ?? RagdollWorldFaces(map);
+            if (OldRagdollWorld) BuildRagdollWorld(faces);
+            else { s.RagdollBody = BeginRagdollWorld(faces); s.RagdollChunks ??= RagdollWorldChunks(faces); }
+        }
         _ragdollMs = watch.ElapsedMilliseconds;
         PrepareNavigation(map, world); MemStep("navigation");
         _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
@@ -308,6 +317,11 @@ public partial class NetworkView
     bool WarmupStep(MapStage1 s)
     {
         Ph("map load: looks");
+        if (s.RagdollChunks is { } chunks && s.RagdollChunkNext < chunks.Count)
+        {
+            RagdollWorldChunk(s, chunks);   // one slice of the ragdoll world's shape a frame (map-load stall: the whole shape in the build's frame held it for 0.3 s on Manufactorum, 1.2 s on Ashfall)
+            return true;
+        }
         int step = s.WarmupStep++;
         switch (step)
         {
