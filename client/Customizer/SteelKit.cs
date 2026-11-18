@@ -152,6 +152,8 @@ public static partial class Steel
         CardGold,
         /// <summary>Only a gold outline, no fill: the focus ring over a selected (gold) tab or primary button.</summary>
         Rim,
+        /// <summary>A dark panel in the concept's painted steel ring (the Options frame's art at <see cref="SteelStyle.Scale"/>), for dialogs, cards and the pages' boards (Opus review 3).</summary>
+        PaintedRecess,
     }
 
     /// <summary>
@@ -162,6 +164,8 @@ public static partial class Steel
     {
         public Kind Kind { get; init; }
         public float Chamfer { get; init; } = 7f;
+        /// <summary>The size of the painted ring of <see cref="Kind.PaintedRecess"/> as a factor of the art's own pixels.</summary>
+        public float Scale { get; init; } = 0.5f;
 
         public SteelStyle() { }
 
@@ -185,6 +189,7 @@ public static partial class Steel
                 case Kind.Recess: DrawRecess(toCanvasItem, rect, false); break;
                 case Kind.CardGold: DrawRecess(toCanvasItem, rect, true); break;
                 case Kind.Plate: DrawPlate(toCanvasItem, rect); break;
+                case Kind.PaintedRecess: DrawPaintedRecess(toCanvasItem, rect); break;
                 case Kind.Rim: Bevel(toCanvasItem, rect.Grow(-1f), Chamfer, 2.4f, GoldHi, Gold); Bevel(toCanvasItem, rect.Grow(-3.6f), Chamfer - 2f, 1.2f, new Color(0.25f, 0.13f, 0.02f, 0.9f), new Color(0.25f, 0.13f, 0.02f, 0.9f)); break;
             }
         }
@@ -232,6 +237,24 @@ public static partial class Steel
             Bevel(c, r.Grow(-1.5f), ch - 1f, 1f, new Color(1f, 1f, 1f, 0.28f), new Color(0f, 0f, 0f, 0.5f));
             if (gold) Bevel(c, inner, ch - 2f, 1.6f, Gold, GoldDeep);
             else Bevel(c, inner.Grow(-2f), ch - 4f, 1f, new Color(Gold, 0.30f), new Color(GoldDeep, 0.16f));   // the thin warm line inside the lip, as the concept's frames (Opus review 2)
+        }
+
+        StyleBoxTexture? _scaledRing;
+
+        /// <summary>The Options frame's painted ring, scaled down, round a dark floor; the plain recess when the art is missing.</summary>
+        void DrawPaintedRecess(Rid c, Rect2 r)
+        {
+            if (UiKit.ConceptScaled("frame-options", Scale) is not { } art) { DrawRecess(c, r, false); return; }
+            var ring = ConceptArt.OptionsRing; var corner = ConceptArt.OptionsCorner;
+            var floor = new Rect2(r.Position.X + ring.X * Scale - 2f, r.Position.Y + ring.Y * Scale - 2f, r.Size.X - (ring.X + ring.Z) * Scale + 4f, r.Size.Y - (ring.Y + ring.W) * Scale + 4f);
+            if (floor.Size.X > 4f && floor.Size.Y > 4f) Plate(c, floor, 3f, new Color(0.05f, 0.047f, 0.044f), new Color(0.03f, 0.028f, 0.026f));
+            _scaledRing ??= new StyleBoxTexture
+            {
+                Texture = art, DrawCenter = false,
+                TextureMarginLeft = corner.X * Scale, TextureMarginRight = corner.X * Scale, TextureMarginTop = corner.Y * Scale, TextureMarginBottom = corner.Y * Scale,
+                AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
+            };
+            _scaledRing.Draw(c, r);
         }
 
         StyleBoxTexture? _ring;

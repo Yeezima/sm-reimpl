@@ -437,7 +437,7 @@ public sealed partial class CreatorView : Control
         string slotName = defaults ? $"DEFAULTS - {LoadoutRows.ClassName(_catalog, role, _previewRace)}" : empty ? $"CUSTOM {_open.Slot} - empty" : $"CUSTOM {_open.Slot} - {OpenClass!.Name}";
         _title.Text = "LOADOUTS";
         _summary.Text = empty ? $"{slotName}. Choose a class to start." :
-            defaults ? $"{slotName}: {LoadoutRows.DefaultSummary(_catalog, role, _previewRace)}  (choose anything to edit a copy)" :
+            defaults ? $"{slotName}: {LoadoutRows.DefaultSummary(_catalog, role, _previewRace)}{(_arm ? "" : "  (choose anything to edit a copy)")}" :
             $"{slotName}: {LoadoutRows.Summary(_catalog, OpenClass!, _previewRace)}";
         if (_arm) _summary.Text = _summary.Text.ToUpperInvariant();   // one case per level (Opus review 2)
 

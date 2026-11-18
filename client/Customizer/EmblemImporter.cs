@@ -139,22 +139,23 @@ public sealed partial class EmblemImporter : Control
         _crop.Changed += OnCropChanged;
         var left = UiKit.VBox(8);
         left.AddChild(_crop);
-        left.AddChild(UiKit.Text("Drag to move. Mouse wheel or the slider to zoom. Arrow keys and + / - work too.", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(540, 0)));
+        left.AddChild(UiKit.Text("Drag to move. Mouse wheel or the slider to zoom. Arrow keys and + / - work too.".ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(540, 0)));
         row.AddChild(left);
 
         var right = UiKit.VBox(10);
         right.CustomMinimumSize = new Vector2(400, 0);
-        right.AddChild(UiKit.Text("SHOULDER EMBLEM", UiKit.HeaderSize, UiKit.Gold));
+        right.AddChild(UiKit.PlateTitle("SHOULDER EMBLEM").With(t => t.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
         right.AddChild(_fileText);
-        right.AddChild(UiKit.Text("Actual size (128 x 128); keep important parts inside the dotted line", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(380, 0)));
+        right.AddChild(UiKit.Text("Actual size (128 x 128); keep important parts inside the dotted line".ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(380, 0)));
         var previews = UiKit.HBox(16);
         previews.AddChild(_preview128);
         previews.AddChild(_pad);
         right.AddChild(previews);
-        var zoomRow = UiKit.HBox(8);
-        zoomRow.AddChild(UiKit.Text("Zoom", UiKit.BodySize, UiKit.White));
+        var zoomRow = UiKit.HBox(26);
+        zoomRow.AddChild(UiKit.Text("ZOOM", UiKit.BodySize, UiKit.White));
         _slider = new HSlider { MinValue = _crop.MinZoom, MaxValue = EmblemPipeline.MaxZoom, Step = 0.01, Value = _crop.Zoom, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, UiKit.MinHit), FocusMode = FocusModeEnum.All };
         _slider.ValueChanged += v => _crop.SetZoom((float)v);
+        UiKit.ConceptSliderStyle(_slider, 1.7f);   // the Options slider's own art (Opus review 3)
         zoomRow.AddChild(_slider);
         right.AddChild(zoomRow);
         right.AddChild(_zoomText);
@@ -192,7 +193,7 @@ public sealed partial class EmblemImporter : Control
     {
         if (_crop is null || _slider is null) return;
         _slider.SetValueNoSignal(_crop.Zoom);
-        _zoomText.Text = $"Zoom {_crop.Zoom:F2}x   (window {_crop.CropWindow.Side:F0} px of the image)";
+        _zoomText.Text = $"Zoom {_crop.Zoom:F2}x   (window {_crop.CropWindow.Side:F0} px of the image)".ToUpperInvariant();
         _previewAt = _time + 0.12;
     }
 

@@ -35,6 +35,22 @@ public sealed class BoardStyle
         box.Draw(c.GetCanvasItem(), r);
     }
 
+    readonly Dictionary<int, StyleBoxTexture> _goldPlates = new();
+
+    /// <summary>The concept's gold plate (the focused or selected state of <see cref="Plate"/>), for a selected tab: dark ink goes on it.</summary>
+    public void GoldPlate(Control c, Rect2 r, float scale)
+    {
+        int key = (int)MathF.Round(scale * 100f);
+        if (!_goldPlates.TryGetValue(key, out var box))
+        {
+            float k = 0.62f * scale;
+            var art = UiKit.ConceptScaled("opt-plate-gold-blank", k);
+            if (art is null) { Box(c, Steel.Kind.Gold, r, 14f, scale); return; }
+            box = _goldPlates[key] = new StyleBoxTexture { Texture = art, TextureMarginLeft = 70f * k, TextureMarginRight = 70f * k, TextureMarginTop = 50f * k, TextureMarginBottom = 50f * k, DrawCenter = true };
+        }
+        box.Draw(c.GetCanvasItem(), r);
+    }
+
     /// <summary>A steel box of the kit (cached per kind and scale).</summary>
     public void Box(Control c, Steel.Kind kind, Rect2 r, float chamfer, float scale)
     {

@@ -20,9 +20,9 @@ public sealed partial class TfwRangeConfirm : Control
         SteelBackdrop.StyleTitle(title, 44);
         AddChild(new SteelBackdrop("RangeDim", title, 0.78f, new Rect2(500f, 290f, 920f, 350f)));   // ui/overhaul: the steel board and plate
         AddChild(title);
-        var text = new Label { Name = "RangeText", Text = "A 100 m square test ground with 200 Orks, for the artillery strike and the new features.\nTeleport there from the Stormbird?", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(560f, 420f) };
+        var text = new Label { Name = "RangeText", Text = "A 100 m square test ground with 200 Orks, for the artillery strike and the new features.\nTeleport there from the Stormbird?".ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(560f, 420f) };
         text.AddThemeColorOverride("font_color", UiKit.White);
-        text.AddThemeFontSizeOverride("font_size", 22); SteelBackdrop.StyleLine(text);
+        text.AddThemeFontSizeOverride("font_size", 24); SteelBackdrop.StyleLine(text); text.AddThemeFontOverride("font", UiKit.NoteFont());
         AddChild(text);
         _go = UiKit.MenuButton("Teleport", () => go(), "Go to the Firing Range");
         _go.Position = new Vector2(560f, 520f); _go.Size = new Vector2(380f, 56f); _go.AddThemeFontSizeOverride("font_size", 26); SteelBackdrop.StylePlate(_go);

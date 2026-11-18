@@ -265,8 +265,9 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     {
         le.AddThemeFontOverride("font", UiKit.ConceptFont());
         le.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
+        var recess = new Steel.SteelStyle(Steel.Kind.Recess, 5f, 10f * s, 2f * s);
         var focus = new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 10f * s, 2f * s);
-        le.AddThemeStyleboxOverride("normal", focus); le.AddThemeStyleboxOverride("focus", focus);   // the gold-rim recess at rest too, as the join address (Opus review 2)
+        le.AddThemeStyleboxOverride("normal", recess); le.AddThemeStyleboxOverride("focus", focus);   // steel rim at rest, gold under the focus (Opus review 3)
         le.AddThemeColorOverride("font_color", Light); le.AddThemeColorOverride("font_selected_color", Light); le.AddThemeColorOverride("selection_color", new Color(0.52f, 0.52f, 0.48f, 0.45f));
         le.AddThemeColorOverride("caret_color", Steel.GoldHi);
         le.OffsetTop = (pitch - UiKit.ConceptPillH * s) / 2f; le.OffsetBottom = -(pitch - UiKit.ConceptPillH * s) / 2f;

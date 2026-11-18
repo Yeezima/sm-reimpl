@@ -181,6 +181,7 @@ public static partial class UiKit
         // ui/overhaul: every menu button is a steel plate (the kit's dark plate, gold under the focus), in the one lettering.
         var b = new Button { Text = text.ToUpperInvariant(), FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit), TooltipText = tooltip ?? "", ThemeTypeVariation = Steel.ButtonType, Alignment = HorizontalAlignment.Center };
         b.Pressed += onPress;
+        b.SetMeta(FocusGlow.NoGlowMeta, true);   // the plate's own gold is the focus cue: no halo behind it (Opus review 3)
         // The plate's rivets sit 40 px in from each end: the plate is never narrower than its words plus both (Opus review 1: labels over rivets).
         float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, Steel.ButtonSize).X + 2f * 52f;
         b.CustomMinimumSize = new Vector2(Mathf.Max(minWidth, need), MinHit);
@@ -235,7 +236,7 @@ public static partial class UiKit
     public static PanelContainer Panel(Control content, int margin = 14)
     {
         var p = new PanelContainer();
-        p.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.Recess, 8f, 6f, 6f));   // ui/overhaul: the steel recess (callers that pass their own box override it)
+        p.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.PaintedRecess, 8f, 22f, 20f) { Scale = 0.45f });   // ui/overhaul: the painted steel ring round a dark floor (callers that pass their own box override it)
         var m = new MarginContainer();
         foreach (var side in new[] { "left", "right", "top", "bottom" }) m.AddThemeConstantOverride("margin_" + side, margin);
         p.AddChild(m);
@@ -466,8 +467,8 @@ public static partial class UiKit
             AddChild(new ColorRect { Color = new Color(0, 0, 0, 0.65f), MouseFilter = MouseFilterEnum.Ignore, AnchorRight = 1, AnchorBottom = 1 });
             var column = VBox(14);
             column.CustomMinimumSize = new Vector2(760, 0);
-            column.AddChild(Text(title, HeaderSize, titleColour ?? Gold));
-            if (body.Length > 0) { var b = Text(body, BodySize, White, HorizontalAlignment.Left, true); b.CustomMinimumSize = new Vector2(740, 0); column.AddChild(b); }
+            var plateTitle = PlateTitle(title, titleColour); plateTitle.SizeFlagsHorizontal = SizeFlags.ShrinkBegin; column.AddChild(plateTitle);
+            if (body.Length > 0) { var b = Text(body.ToUpperInvariant(), BodySize, White, HorizontalAlignment.Left, true); b.AddThemeFontOverride("font", NoteFont()); b.CustomMinimumSize = new Vector2(740, 0); column.AddChild(b); }
             if (input is not null)
             {
                 _input = new LineEdit { Text = input, MaxLength = Model.LoadoutEdits.MaxNameLength, CustomMinimumSize = new Vector2(0, MinHit), SelectAllOnFocus = true };
@@ -483,7 +484,7 @@ public static partial class UiKit
             }
             column.AddChild(row);
             var panel = Panel(column, 24);
-            panel.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.Recess, 10f, 14f, 12f));
+            panel.AddThemeStyleboxOverride("panel", new Steel.SteelStyle(Steel.Kind.PaintedRecess, 10f, 30f, 28f) { Scale = 0.6f });
             panel.SetAnchorsPreset(LayoutPreset.Center);
             panel.GrowHorizontal = GrowDirection.Both;
             panel.GrowVertical = GrowDirection.Both;

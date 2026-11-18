@@ -45,13 +45,13 @@ public sealed partial class GameFolderSetup : Control
         title.AddChild(UiKit.Text("SPACE MARINE", UiKit.TitleSize, UiKit.Gold));
         title.AddChild(UiKit.Text("MULTIPLAYER", UiKit.TitleSize, UiKit.White));
         box.AddChild(title);
-        box.AddChild(UiKit.PlateTitle("Game not found", new Color(1f, 0.55f, 0.48f)));
-        box.AddChild(UiKit.Text("Space Marine (2011, Steam) not found", UiKit.HeaderSize, UiKit.LightRed));
-        box.AddChild(UiKit.Text(
+        box.AddChild(UiKit.PlateTitle("Game not found", new Color(1f, 0.55f, 0.48f)).With(t => t.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin));
+        box.AddChild(UiKit.Text("Space Marine (2011, Steam) not found".ToUpperInvariant(), UiKit.HeaderSize, UiKit.LightRed));
+        box.AddChild(UiKit.Text((
             "This game plays with the files of your own copy of Warhammer 40,000: Space Marine (the 2011 Steam version). Nothing from it is copied or changed. " +
-            "Install it on Steam and press RETRY, or choose the folder that contains its \"data\" folder.",
-            UiKit.BodySize, UiKit.White, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(960, 0)));
-        box.AddChild(UiKit.Text("Usually: ...\\steamapps\\common\\" + GameInstall.DefaultInstallDir, UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true));
+            "Install it on Steam and press RETRY, or choose the folder that contains its \"data\" folder.").ToUpperInvariant(),
+            UiKit.BodySize, UiKit.White, HorizontalAlignment.Left, true).With(l => { l.CustomMinimumSize = new Vector2(960, 0); l.AddThemeFontOverride("font", UiKit.NoteFont()); }));
+        box.AddChild(UiKit.Text(("Usually: ...\\steamapps\\common\\" + GameInstall.DefaultInstallDir).ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true));
 
         var row = UiKit.HBox(12);
         _path = new LineEdit { PlaceholderText = "game folder", CustomMinimumSize = new Vector2(640, UiKit.MinHit), FocusMode = FocusModeEnum.All, SelectAllOnFocus = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -76,7 +76,6 @@ public sealed partial class GameFolderSetup : Control
         box.AddChild(new LinkButton { Text = "Help, builds and issues: " + ServerLaunch.ReleasesUrl, Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
 
         var panel = UiKit.Panel(box, 28);
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.PanelSolid, 0, 28));
         var center = new CenterContainer();
         center.SetAnchorsPreset(LayoutPreset.FullRect);
         center.AddChild(panel);
@@ -171,7 +170,7 @@ public sealed partial class GameFolderSetup : Control
     void Say(string text, bool problem)
     {
         if (_message is null) return;
-        _message.Text = text;
+        _message.Text = text.ToUpperInvariant();
         GD.Print("game folder setup: " + text);
         _message.AddThemeColorOverride("font_color", problem ? UiKit.LightRed : UiKit.White);
     }

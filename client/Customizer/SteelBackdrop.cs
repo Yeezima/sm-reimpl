@@ -13,6 +13,7 @@ public sealed partial class SteelBackdrop : Control
     public static readonly Rect2 Board = new(64f, 24f, 1792f, 1032f);
     readonly Label? _title;
     readonly BoardStyle _style = new();
+    readonly Steel.SteelStyle _ring = new(Steel.Kind.PaintedRecess, 10f, 0f, 0f) { Scale = 0.62f };
     readonly float _veil;
     readonly Rect2 _board;
 
@@ -67,7 +68,7 @@ public sealed partial class SteelBackdrop : Control
         var o = Vector2.Zero;   // the pages lay out from the top left of the UI space, so the board does too
         var b0 = FitContent ? Fitted() : _board;
         var board = new Rect2(b0.Position + o + (FitContent ? _applied : Vector2.Zero), b0.Size);
-        _style.Table(this, board, 1f);
+        _ring.Draw(GetCanvasItem(), board);   // the painted steel ring round a dark floor (Opus review 3)
         if (_title is null || !_title.Visible) return;
         var font = UiKit.ConceptFont();
         float w = font.GetStringSize(_title.Text, HorizontalAlignment.Left, -1, _title.GetThemeFontSize("font_size")).X;

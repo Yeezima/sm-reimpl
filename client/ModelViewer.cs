@@ -299,7 +299,8 @@ public partial class ModelViewer : Node3D
         _lookingLayer.AddChild(label);
         AddChild(_lookingLayer);
         string? explicitDir = args.GetValueOrDefault("game-dir");
-        _locating = System.Threading.Tasks.Task.Run(() => GameInstall.TryLocate(explicitDir, repoRoot));
+        bool showSetup = args.ContainsKey("show-setup");   // screenshot aid (ui/overhaul): the game-folder page as if nothing were found
+        _locating = System.Threading.Tasks.Task.Run(() => showSetup ? null : GameInstall.TryLocate(explicitDir, repoRoot));
     }
 
     /// <summary>The lookup finished: the front end when the install was found, else the game-folder screen. Any failure here is shown, never silent.</summary>

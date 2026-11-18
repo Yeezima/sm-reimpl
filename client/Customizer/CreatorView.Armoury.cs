@@ -166,8 +166,10 @@ public sealed partial class CreatorView
     /// <summary>The picture of an icon name: <c>install:&lt;wargear&gt;</c> is the install's silhouette (null while not ready), anything else a painted or engraved piece.</summary>
     Texture2D? ArmIcon(string? name, string glyph)
     {
-        if (name is null) return ConceptArt.Get(glyph);
+        if (name is null) return GlyphTex(glyph);
         if (!name.StartsWith("install:", StringComparison.Ordinal)) return ConceptArt.Get(name);
+        // The install's pistol and grenade pictures are too small and soft to read as a silhouette at tile size: those two slots keep the engraved glyphs (Opus review 3).
+        if (name.Contains("pistol", StringComparison.OrdinalIgnoreCase) || name.Contains("grenade", StringComparison.OrdinalIgnoreCase)) return GlyphTex(glyph);
         _armArt ??= new HudArt(_services.GameDir);
         if (_armArt.Ready && _armArt.WeaponIcon(name[8..]) is { } tex)
         {
@@ -175,12 +177,14 @@ public sealed partial class CreatorView
             _armPending = true;   // the silhouette is being made on a worker thread: lay the page out again shortly
         }
         else if (!_armArt.Ready && _armArt.Error.Length == 0) _armPending = true;   // the art is still loading
-        return ConceptArt.Get(glyph);
+        return GlyphTex(glyph);
     }
 
     /// <summary>White for painted pieces and the glyphs (they carry their own tone), the engraving ink for an install silhouette.</summary>
     readonly HashSet<Texture2D> _armSilhouettes = new();
-    Color ArmInk(Texture2D tex) => _armSilhouettes.Contains(tex) ? ArmEngrave : Colors.White;
+    readonly HashSet<Texture2D> _armGlyphs = new();
+    Texture2D? GlyphTex(string glyph) { var t = ConceptArt.Get(glyph); if (t is not null) _armGlyphs.Add(t); return t; }
+    Color ArmInk(Texture2D tex) => _armSilhouettes.Contains(tex) ? ArmEngrave : _armGlyphs.Contains(tex) ? new Color(2.1f, 1.9f, 1.5f) : Colors.White;   // the engraved glyphs are painted dim: lifted so they read at tile size
 
     /// <summary>An engraved look for an install silhouette: a one-pixel dark copy behind it (inner shadow), so a thin shape reads at tile size.</summary>
     void ArmShadow(TextureRect icon, float s)
@@ -407,7 +411,7 @@ public sealed partial class CreatorView
                 b.AddThemeConstantOverride("h_separation", 0);
                 b.CustomMinimumSize = new Vector2(0, 17f * s);
                 PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
-                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark);
+                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", Mathf.Max(11, Mathf.RoundToInt(ArmPlateSize * 0.86f * s)));
                 foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 4f * s; sb.ContentMarginRight = 4f * s; }
             }
             else if (c is Label l) ArmLabel(l, ArmPlateSize, s, ArmLight);

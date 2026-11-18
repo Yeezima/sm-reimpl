@@ -15,7 +15,7 @@ namespace SmClient;
 /// </summary>
 public sealed partial class WarMapPanel : Control
 {
-    const float Left = UiKit.MenuLeft, Top = 196f, LaneHeight = 196f, BarWidth = 620f, BarHeight = 34f, DeployColumn = Left + BarWidth + 48f;
+    const float Left = UiKit.MenuLeft, Top = 196f, LaneHeight = 214f, BarWidth = 860f, BarHeight = 40f, DeployColumn = Left + BarWidth + 56f;
     static readonly Color HereGold = new(0.98f, 0.8f, 0.12f);
 
     /// <summary>A front's pips (-1 to 3) and its progress, from the middle: to the right the Imperials are winning, to the left the Orks.</summary>
@@ -92,10 +92,10 @@ public sealed partial class WarMapPanel : Control
             title.AddThemeColorOverride("font_color", UiKit.White);
         }
         AddChild(title);
-        _clock = Text("WarMapClock", Left, 146f, 16, 1200f);
-        _reserves = Text("WarMapReserves", Left, 170f, 16, 1200f);
+        _clock = Text("WarMapClock", Left, 140f, 22, 1400f);
+        _reserves = Text("WarMapReserves", Left, 174f, 22, 1400f);
         for (int l = 0; l < 3; l++) _rows[l] = MakeRow((TfwLane)l, Top + 30f + l * LaneHeight);
-        _note = Text("WarMapNote", Left, Top + 30f + 3 * LaneHeight, 16, 1200f);
+        _note = Text("WarMapNote", Left, Top + 30f + 3 * LaneHeight, 22, 1400f);
         if (deploy is null)
         {
             _battle = new TfwBattlePanel { Name = "TfwBattlePanel", Visible = false };
@@ -104,9 +104,9 @@ public sealed partial class WarMapPanel : Control
             return;
         }
         _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Stormbird (Esc, or B on a controller)");
-        Place(_closeButton, Left, Top + 60f + 3 * LaneHeight, 240f, 30f);
-        _closeButton.AddThemeFontSizeOverride("font_size", 22);
-        _closeButton.Size = new Vector2(280f, 48f);
+        Place(_closeButton, Left, Top + 76f + 3 * LaneHeight, 240f, 30f);
+        _closeButton.AddThemeFontSizeOverride("font_size", 26);
+        _closeButton.Size = new Vector2(300f, 56f);
         SteelBackdrop.StylePlate(_closeButton);
         AddChild(_closeButton);
     }
@@ -133,19 +133,19 @@ public sealed partial class WarMapPanel : Control
 
     Row MakeRow(TfwLane lane, float y)
     {
-        var name = Text("Lane" + lane, Left, y, 24, 240f);
-        var lord = Text("Lord" + lane, Left + 240f, y + 6f, 14, 400f);
+        var name = Text("Lane" + lane, Left, y, 32, 300f);
+        var lord = Text("Lord" + lane, Left + 300f, y + 10f, 22, 560f);
         var bar = new LaneBar { Name = "Bar" + lane, MouseFilter = MouseFilterEnum.Ignore };
-        Place(bar, Left, y + 44f, BarWidth, BarHeight);
+        Place(bar, Left, y + 52f, BarWidth, BarHeight);
         AddChild(bar);
-        var status = Text("Status" + lane, Left, y + 90f, 16, BarWidth);
-        var strengths = Text("Strengths" + lane, Left, y + 116f, 16, BarWidth);
+        var status = Text("Status" + lane, Left, y + 104f, 22, BarWidth);
+        var strengths = Text("Strengths" + lane, Left, y + 138f, 22, BarWidth);
         Button? deploy = null;
         if (_deploy is { } act)
         {
             deploy = UiKit.MenuButton("Deploy " + lane, () => act(lane));
-            deploy.AddThemeFontSizeOverride("font_size", 22); SteelBackdrop.StylePlate(deploy);
-            Place(deploy, DeployColumn, y + 38f, 340f, 44f);
+            deploy.AddThemeFontSizeOverride("font_size", 26); SteelBackdrop.StylePlate(deploy);
+            Place(deploy, DeployColumn, y + 46f, 420f, 56f);
             AddChild(deploy);
         }
         return new Row(name, lord, bar, status, strengths, deploy);

@@ -32,6 +32,24 @@ public static partial class UiKit
     /// <summary>The concept's row lettering: Oswald squeezed to 84 % in width (the concept's face is narrower than Oswald at the same cap height).</summary>
     public static FontVariation ConceptFont() => _conceptFont ??= new FontVariation { BaseFont = Steel.CondensedFont(), VariationTransform = new Transform2D(new Vector2(0.84f, 0f), new Vector2(0f, 1f), Vector2.Zero), VariationEmbolden = 0.32f, SpacingGlyph = -1 };
 
+    /// <summary>A bare slider (the emblem importer's zoom) in the Options slider's own art at the window's scale <paramref name="s"/> (px per concept pixel): channel, amber fill and knob; the slider keeps its range, keys and focus.</summary>
+    public static void ConceptSliderStyle(HSlider slider, float s)
+    {
+        float k = s * UiTextureBuilder.GridPerV2 / 4f;
+        if (ConceptScaled("opt-slider-track", k) is not { } track || ConceptScaled("opt-slider-fill", k) is not { } fill) return;
+        float h = ConceptSliderH * s;
+        StyleBoxTexture Box(Texture2D tex, float ml, float mr, Color mod, float el, float er) => new()
+        {
+            Texture = tex, TextureMarginLeft = ml * k, TextureMarginRight = mr * k, TextureMarginTop = 6 * k, TextureMarginBottom = 6 * k, ModulateColor = mod,
+            AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
+            ContentMarginTop = h / 2f, ContentMarginBottom = h / 2f, ExpandMarginLeft = el, ExpandMarginRight = er,
+        };
+        slider.AddThemeStyleboxOverride("slider", Box(track, 56, 64, Colors.White, 7f * s, 7.5f * s));
+        slider.AddThemeStyleboxOverride("grabber_area", Box(fill, 22, 6, Colors.White, 0f, 0f));
+        slider.AddThemeStyleboxOverride("grabber_area_highlight", Box(fill, 22, 6, ConceptArt.Warm, 0f, 0f));
+        slider.AddThemeIconOverride("grabber", MenuSlider.ConceptKnob(s, false)); slider.AddThemeIconOverride("grabber_highlight", MenuSlider.ConceptKnob(s, true)); slider.AddThemeIconOverride("grabber_disabled", MenuSlider.ConceptKnob(s, false));
+    }
+
     static FontVariation? _noteFont;
     /// <summary>The lettering of running capital notes: the concept face with open tracking (the row face is squeezed for labels and reads too tight over a whole sentence in capitals).</summary>
     public static FontVariation NoteFont() => _noteFont ??= new FontVariation { BaseFont = Steel.CondensedFont(), VariationEmbolden = 0.1f, SpacingGlyph = 1, SpacingSpace = 3 };
@@ -130,7 +148,7 @@ public static partial class UiKit
         static readonly Dictionary<int, ImageTexture> KnobCache = new();
 
         /// <summary>The knob scaled to the window (cached by scale), optionally warmed for the focus.</summary>
-        static ImageTexture ConceptKnob(float s, bool warm)
+        internal static ImageTexture ConceptKnob(float s, bool warm)
         {
             int key = Mathf.RoundToInt(s * 20f) * 2 + (warm ? 1 : 0);
             if (KnobCache.TryGetValue(key, out var cached)) return cached;

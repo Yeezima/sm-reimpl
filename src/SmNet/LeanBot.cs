@@ -57,7 +57,7 @@ public static class LeanBot
         "tfw-zoom-capture",   // added content Musou (2026-11-12): the Librarian's zoom stills next to a Tactical's
         "dn-buff-probe", "dn-da-clean", "dn-da-close", "dn-da-death", "dn-da-film", "dn-da-overcharge", "dn-da-wreck", "dn-feel-log", "dn-muzzle-log", "no-damage-vignette", "no-damage-flash", "dn-light-log", "dn-orks", "dn-da-melta", "dn-film", "dn-fire-film", "dn-melee-film", "dn-pick", "dn-raw-strike", "dn-survive", "chaos-dreadnought",   // Musou Dreadnought film and capture aids (2026-11-15): a lean bot given one loads what it needs
         "tfw-dreadnought-capture",   // added content Musou (Dreadnought D2+, 2026-11-15): the Dreadnought's scripted stills and film
-        "menu-stop-row-demo", "panel-debug", "options-short", "dump-rows", "options-toast",   // ui/overhaul menu screenshot aids (the front end is never a bot)
+        "menu-stop-row-demo", "show-setup", "panel-debug", "options-short", "dump-rows", "options-toast",   // ui/overhaul menu screenshot aids (the front end is never a bot)
         "log-fx-plays",   // effects (2026-11-15): logs every effect play for the bolt-smoke and autocannon-dust checks
         "tfw-pod-test",   // added content Musou (2026-11-12): the drop pod assault's scripted check (record, landing, marines, retreat) and its captures
         "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures

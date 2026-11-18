@@ -173,7 +173,7 @@ public sealed partial class ControlsView : Control
             t.CustomMinimumSize = new Vector2(t == _tabKeyboard ? 190f * s : 150f * s, _chrome.Strip.Size.Y);
             PaintedButtons.Apply(t, "opt-tab-controls-dark", "opt-tab-controls-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
             Text(t, 13.4f, false);
-            PaintedButtons.FocusAsPlate(t, t.ButtonPressed);
+            if (t.GetThemeStylebox("pressed") is { } goldTab) t.AddThemeStyleboxOverride("focus", goldTab);   // focus is the gold plate: no rectangle outline (Opus review 3)
         }
         var tray = _chrome.Tray;
         _reset.TopLevel = true; _reset.CustomMinimumSize = Vector2.Zero; _reset.Position = tray.Position + GlobalPosition; _reset.Size = tray.Size;

@@ -33,8 +33,9 @@ public abstract partial class TfwPagePanel : Control
 
     protected Label Line(string name, string text, float x, float y, int size, float width, Color? colour = null)
     {
-        var l = UiKit.MenuText(text, colour, clip: false);
+        var l = UiKit.MenuText(text.ToUpperInvariant(), colour, clip: false);
         l.Name = name;
+        size = size <= 18 ? 24 : size <= 22 ? 26 : size;   // page-size lettering: the row labels and notes read at the pages' own size (Opus review 3)
         l.AddThemeFontSizeOverride("font_size", size);
         SteelBackdrop.StyleLine(l);
         Place(l, x, y, width, size + 8f);
@@ -158,7 +159,7 @@ public sealed partial class TfwRunPanel : TfwPagePanel
         Result = result;
         var rows = new List<string>(maps.Count);
         float y = 150f;
-        for (int k = 0; k < maps.Count; k++, y += 28f)
+        for (int k = 0; k < maps.Count; k++, y += 36f)
         {
             var m = maps[k];
             rows.Add($"{MapName(m)}   {TfwBest.ResultText(m.Result)}   KOS {Number(m.Kos)}   CHAIN {Number(m.BestChain)}   {Number(m.Points)}");
@@ -170,10 +171,10 @@ public sealed partial class TfwRunPanel : TfwPagePanel
         Line("RunTotal", Total, Left + 240f, y, 40, 500f, new Color(0.98f, 0.8f, 0.12f));
         if (newBest) Line("RunNewBest", "NEW BEST", Left + 620f, y + 8f, 22, 300f, new Color(0.35f, 0.85f, 0.4f));
         y += 64f;
-        if (best is not null) { Line("RunBest", $"BEST ON THIS PC  {Number(best.Total)}  ({best.Date})", Left, y, 16, 900f); y += 30f; }
+        if (best is not null) { Line("RunBest", $"BEST ON THIS PC  {Number(best.Total)}  ({best.Date})", Left, y, 16, 900f); y += 38f; }
         if (ranked.Count > 1)
         {
-            for (int k = 0; k < ranked.Count; k++, y += 26f) Line("RunRank" + k, $"{k + 1}.  {ranked[k].Name}   {Number(ranked[k].Total)}", Left, y, 16, 900f);
+            for (int k = 0; k < ranked.Count; k++, y += 34f) Line("RunRank" + k, $"{k + 1}.  {ranked[k].Name}   {Number(ranked[k].Total)}", Left, y, 16, 900f);
             y += 8f;
         }
         CopyButton = Row("Copy result", copy, y + 12f);
