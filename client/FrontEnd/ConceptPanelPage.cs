@@ -250,7 +250,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15f * s));
         b.AddThemeConstantOverride("outline_size", 0);
         // The plate hugs its row (a 1 px margin), so neighbouring plates meet without overlapping.
-        if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -2.5f, 3, -2.5f), new PaintedButtons.Pad(3, -2.5f, 3, -2f), s, true, paintedText: false, noGlow: true)) return;
+        if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -0.5f, 3, -0.5f), new PaintedButtons.Pad(3, -0.5f, 3, 0f), s, true, paintedText: false, noGlow: true)) return;
         // Hover and focus are both the gold plate, so the ink is dark on both (the review: light ink on a gold plate under the pointer).
         if (b.GetThemeStylebox("pressed") is { } gold) { b.AddThemeStyleboxOverride("hover", gold); b.AddThemeStyleboxOverride("hover_pressed", gold); }
         b.AddThemeColorOverride("font_color", Light);

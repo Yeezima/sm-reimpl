@@ -68,7 +68,7 @@ public sealed partial class SteelBackdrop : Control
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
         b.AddThemeConstantOverride("outline_size", 0);
         b.SetMeta(FocusGlow.NoGlowMeta, true);
-        PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -2, 3, -2), new PaintedButtons.Pad(3, -2, 3, -1.5f), 2.4f, true, paintedText: false, noGlow: true);
+        PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -0.5f, 3, -0.5f), new PaintedButtons.Pad(3, -0.5f, 3, 0f), 2.4f, true, paintedText: false, noGlow: true);
         var light = new Color(0.84f, 0.83f, 0.80f); var dark = new Color(0.10f, 0.06f, 0.02f);
         if (b.GetThemeStylebox("pressed") is { } gold) { b.AddThemeStyleboxOverride("hover", gold); b.AddThemeStyleboxOverride("hover_pressed", gold); }   // hover is the gold plate too, with dark ink
         b.AddThemeColorOverride("font_color", light);

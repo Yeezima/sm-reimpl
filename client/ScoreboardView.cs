@@ -122,14 +122,14 @@ public sealed partial class ScoreboardView : Control
     {
         _style.Plate(this, R(cx - w / 2f, Top, w, ScoreBand), _scale);
         bool named = name.Length > 0;
-        if (named) Text(_regular!, name, cx + (emblem is null ? 0f : 28f), Top + 30f, 28, BoardStyle.Header, 0);
+        if (named) Text(_regular!, name, cx + (emblem is null ? 0f : 28f), Top + 44f, 28, BoardStyle.Header, 0);
         if (emblem is not null && named)
         {
             float tw = _regular!.GetStringSize(name, HorizontalAlignment.Left, -1, Math.Max(8, (int)MathF.Round(28 * _scale))).X / _scale;
-            var r = R(cx - tw / 2f - 30f, Top + 12f, 36f, 36f);
+            var r = R(cx - tw / 2f - 30f, Top + 26f, 36f, 36f);
             DrawTextureRect(emblem, r, false);
         }
-        Text(_bold, score, cx, Top + (named ? 98f : ScoreBand / 2f), 96, White, 0);
+        Text(_bold, score, cx, Top + (named ? 108f : ScoreBand / 2f), 88, White, 0);
     }
 
     void DrawColumn(ScoreboardFrame f, Side side, float x0, float y0, float width, float bodyH)

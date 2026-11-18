@@ -69,7 +69,7 @@ public sealed partial class AppearanceView : Control
         var header = UiKit.HBox(16);
         _title = UiKit.Text("APPEARANCE", UiKit.HeaderSize, UiKit.Gold);
         // ui/overhaul: the title on the concept's rivetted plate, like the other screens' titles.
-        if (ConceptArt.Patch("opt-plate-blank", new Vector2(70f, 40f), new Vector2(48f, 8f)) is { } plate) { _title.AddThemeStyleboxOverride("normal", plate); _title.CustomMinimumSize = new Vector2(360f, 64f); _title.HorizontalAlignment = HorizontalAlignment.Center; _title.VerticalAlignment = VerticalAlignment.Center; }
+        if (ConceptArt.Patch("opt-plate-blank", new Vector2(60f, 30f), new Vector2(40f, 10f)) is { } plate) { _title.AddThemeStyleboxOverride("normal", plate); _title.CustomMinimumSize = new Vector2(380f, 84f); _title.HorizontalAlignment = HorizontalAlignment.Center; _title.VerticalAlignment = VerticalAlignment.Center; }
         SteelBackdrop.EmbossTitle(_title);
         header.AddChild(_title);
         header.AddChild(_lookRow);
