@@ -474,6 +474,35 @@ int defs = 0, places = 0; bool quiet = rest.Contains("--summary");
                 Console.WriteLine($"{b.Def,-34} {b.Mesh,-34} size {b.Size.X,7:0}x{b.Size.Y,7:0}x{b.Size.Z,7:0} at {b.Centre.X,7:0},{b.Centre.Y,7:0},{b.Centre.Z,6:0}  {b.Mats}");
             return 0;
         }
+        if (rest.Contains("--vertex-colours"))
+        {
+            // classic-maps-all: per material of the placed meshes, the vertex colour the client tints "vtxtint" shaders with: vertices, mean R/G/B/A, and the share whose RGB is not one grey
+            // (spread above 0.12: a coloured tint, the cause of tinted-salmon metal), with the shader and the meshes. Read-only.
+            var stats = new Dictionary<string, (long N, double R, double G, double B, double A, long Colour, List<string> Meshes)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in scene.Definitions.Values)
+                foreach (var v in d.NearestLod())
+                    if (scene.Meshes.TryGetValue(v.MeshName, out var mesh))
+                        foreach (var block in mesh.Blocks)
+                            foreach (var range in block.Materials)
+                            {
+                                if (block.Colors.Length != block.Positions.Length) continue;
+                                if (!stats.TryGetValue(range.Name, out var s)) s = (0, 0, 0, 0, 0, 0, []);
+                                for (int i = 0; i < range.VertexCount && range.FirstVertex + i < block.Colors.Length; i++)
+                                {
+                                    var c = SmContent.VertexColour.Unpack(block.Colors[range.FirstVertex + i]);
+                                    s.N++; s.R += c.X; s.G += c.Y; s.B += c.Z; s.A += c.W;
+                                    if (Math.Max(c.X, Math.Max(c.Y, c.Z)) - Math.Min(c.X, Math.Min(c.Y, c.Z)) > 0.12f) s.Colour++;
+                                }
+                                if (!s.Meshes.Contains(v.MeshName, StringComparer.OrdinalIgnoreCase)) s.Meshes.Add(v.MeshName);
+                                stats[range.Name] = s;
+                            }
+            foreach (var (name, s) in stats.OrderByDescending(p => p.Value.N == 0 ? 0 : (double)p.Value.Colour / p.Value.N))
+            {
+                if (s.N == 0 || !scene.Materials.TryGetValue(name, out var bm)) continue;
+                Console.WriteLine($"{name,-26} {bm.ShaderName,-44} verts {s.N,7} rgb {s.R / s.N:0.00}/{s.G / s.N:0.00}/{s.B / s.N:0.00} a {s.A / s.N:0.00} coloured {100.0 * s.Colour / s.N,5:0}%  {string.Join(",", s.Meshes.Take(4))}");
+            }
+            return 0;
+        }
         if (rest.Contains("--blend"))
         {
             // classic-maps-all: every material of the placed meshes by blend and cull mode and shader (which of them the client's material builder reads: BlendMode 8 only, CullMode 0), with the meshes that use it.

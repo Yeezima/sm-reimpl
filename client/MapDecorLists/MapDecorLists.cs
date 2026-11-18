@@ -53,9 +53,16 @@ public static class MapDecorLists
     // ones Manufactorum's lists already name; the pipes and tanks near a board go whole as on Manufactorum (Near), and their salmon surface goes everywhere. Nothing else of Manufactorum's lists is
     // applied (a definition the map does not place with such a material stays). The red, blue, cyan, white and amber lamps stay.
 
+    /// <summary>
+    /// Waste Management (2026-11-19, owner: "salmon colored objects in the spawn"): the seals and scrolls (22 placements, 10 in the two spawn rooms) are pinned on the <c>tech_interface_a</c> consoles. The
+    /// Manufactorum rule removes them only within 6 m of a board (<see cref="Near"/>); here the consoles' own boards are surfaces of <c>tech_interface_a</c>, not placements, so no board anchors the rule and the
+    /// papers (cream and orange, <c>acc_skull_small_grey</c> vertex colour 0.62/0/0) floated on the bare cabinets. They go everywhere on this map, as on Manufactorum.
+    /// </summary>
+    static readonly string[] WasteManagementPosters = ["acc_seal_01", "acc_seal_02", "acc_seal_03", "acc_seal_04", "acc_seal_05", "acc_seal_06", "acc_scroll_01", "acc_scroll_02", "acc_scroll_03"];
+
     /// <summary>Waste Management (<c>mp_tdm_01</c>): <c>backpanel_a</c>, <c>tech_panel_c/d</c>, <c>tech_panel_pipe_a/b</c>, the <c>tech_panel_pipe_g</c> runs' salmon surface, <c>tech_interface_a</c>'s salmon and olive surfaces and <c>Pipe_Piece_A</c>'s salmon <c>console_dif</c>.</summary>
     public static readonly DecorSet WasteManagementSet = new(
-        ["backpanel_a", "tech_panel_c", "tech_panel_d", "tech_panel_pipe_a", "tech_panel_pipe_b"], Near,
+        ["backpanel_a", "tech_panel_c", "tech_panel_d", "tech_panel_pipe_a", "tech_panel_pipe_b", .. WasteManagementPosters], Near,
         [("tech_panel_pipe_g", "tech_stations"), ("tech_interface_a", "tech_stations"), ("tech_interface_a", "backPanel"), ("Pipe_Piece_A", "console_dif")]);
 
     /// <summary>Station Tertius (<c>mp_dlc1_map2</c>): four <c>tech_interface_a</c> consoles with the salmon and olive surfaces.</summary>

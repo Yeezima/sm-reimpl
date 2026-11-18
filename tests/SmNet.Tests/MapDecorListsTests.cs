@@ -56,6 +56,19 @@ public class MapDecorListsTests
     }
 
     [Theory]
+    [InlineData("acc_seal_01"), InlineData("acc_seal_04"), InlineData("acc_seal_06"), InlineData("acc_scroll_01"), InlineData("acc_scroll_03")]
+    public void Waste_management_removes_the_console_seals_and_scrolls_even_far_from_a_board(string definition)
+    {
+        // 2026-11-19: no board placement anchors the Near rule beside the tech_interface_a consoles, so the papers stayed (salmon in the spawn rooms).
+        Assert.Contains(0, MapDecorLists.Hidden("mp_tdm_01", false, [(definition, 500f, 500f)]));
+        Assert.Empty(MapDecorLists.Hidden("mp_tdm_01", true, [(definition, 500f, 500f)]));   // the restore switch
+        // Manufactorum is unchanged: its seals and scrolls still go only near a board; other maps hide nothing of them
+        Assert.Empty(MapDecorLists.Hidden("mp_tdm_09", false, [(definition, 500f, 500f)]));
+        Assert.Empty(MapDecorLists.Hidden("mp_dlc2_map1", false, [(definition, 500f, 500f)]));
+        Assert.DoesNotContain(definition, MapDecorLists.Always, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("mp_dlc1_map2", "tech_interface_a", "tech_stations"), InlineData("mp_dlc1_map2", "tech_interface_a", "backPanel")]
     [InlineData("mp_dlc2_map3", "tech_panel_tank_a", "tech_stations"), InlineData("mp_dlc2_map4", "Pipe_detail_A", "tech_stations")]
     public void The_other_kit_maps_hide_the_surfaces_their_audit_found(string map, string mesh, string material)
