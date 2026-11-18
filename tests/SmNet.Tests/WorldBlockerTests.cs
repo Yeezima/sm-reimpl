@@ -207,6 +207,25 @@ public class WorldBlockerTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_box_top_flush_uphill_and_high_downhill_on_a_ramp_is_a_ledge_nobody_stands_on()
+    {
+        // Floor z = x tan 20 deg. A box on x 0..5.49 whose flat top is at z 2: flush with the floor at its uphill end, 2 m above it at its downhill end.
+        float tan = MathF.Tan(20f * MathF.PI / 180f), run = 2f / tan;
+        Vector3[] v = [new(-30, -30, -30 * tan), new(30, -30, 30 * tan), new(30, 30, 30 * tan), new(-30, 30, -30 * tan)];
+        var ramp = new StaticMesh(v, [0, 1, 2, 0, 2, 3]);
+        var level = new CollisionWorld(ramp, ramp, null, null, null, [Box(new Vector3(run / 2, 0, -0.5f), new Vector3(run, 10, 5))]);
+        foreach (var team in Everyone)
+        {
+            var s = Fresh(team, Tactical, new Vector3(run * 0.4f, 0f, 3f), 0f) with { Grounded = false, Velocity = Vector3.Zero };
+            for (int t = 0; t < 300; t++)
+            {
+                s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _, level);
+                Assert.False(s.Grounded && s.Position.Z > 0.5f && s.Position.X > 0f && s.Position.X < run, $"{team} stood on the ledge at {s.Position} (tick {t})");
+            }
+        }
+    }
+
+    [Fact]
     public void Shots_pass_through_walls_and_a_level_without_them_is_untouched()
     {
         var wall = Box(new Vector3(3, 0, 10), new Vector3(1, 100, 40));
