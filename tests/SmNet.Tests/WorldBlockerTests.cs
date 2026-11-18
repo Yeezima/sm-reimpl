@@ -166,12 +166,18 @@ public class WorldBlockerTests(ITestOutputHelper output)
         {
             var s = Fresh(team, Tactical, new Vector3(0.3f, 0.2f, 12f), 0f) with { Grounded = false, Velocity = Vector3.Zero };
             bool stoodOnTop = false;
+            int onFloorAt = -1;
+            float fastest = 0f;
             for (int t = 0; t < 400; t++)
             {
                 s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _, level);
                 if (s.Grounded && s.Position.Z > 5f) stoodOnTop = true;
+                if (t > 30 && s.Position.Z > 9.5f) fastest = MathF.Min(fastest, s.Velocity.Z);
+                if (onFloorAt < 0 && s.Grounded && s.Position.Z < 1f) onFloorAt = t;
             }
-            output.WriteLine($"{team}: end {s.Position}, grounded {s.Grounded}");
+            output.WriteLine($"{team}: end {s.Position}, grounded {s.Grounded}, on the floor at tick {onFloorAt}, fastest fall while on the top {fastest:F2} m/s");
+            Assert.InRange(onFloorAt, 0, 150);   // it gets off within 5 s
+            Assert.True(fastest > -5f, $"{team} carried {fastest} m/s off the top");
             Assert.False(stoodOnTop, $"{team} stood on the wall's top");
             Assert.True(s.Position.Z < 1f && s.Grounded, $"{team} ended at {s.Position}, not on the floor");
         }
@@ -183,6 +189,21 @@ public class WorldBlockerTests(ITestOutputHelper output)
         for (int i = 0; i < graph.NodeCount; i++) Assert.True(graph.Position(i).Z < 1f, $"a bot cell at {graph.Position(i)}");
         var bareGraph = NavGraph.Build(Level().Character, null, NavSettings.From(Config), NavArea.Around([new Vector3(-20, 0, 0), new Vector3(20, 0, 0)], 20f));
         Assert.True(bareGraph.NodeCount > graph.NodeCount);
+    }
+
+    [Fact]
+    public void A_wall_top_flush_with_the_floor_is_part_of_the_floor_no_shove_no_bob()
+    {
+        // A 10 x 10 box buried in the floor with its top 0.1 m above it: standing there is standing on the floor.
+        var level = Level(Box(new Vector3(0, 0, -4.9f), new Vector3(10, 10, 10)));
+        foreach (var team in Everyone)
+        {
+            var s = Fresh(team, Tactical, new Vector3(1f, 1f, 0.1f), 0f);
+            for (int t = 0; t < 90; t++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _, level);
+            Assert.True(s.Grounded, $"{team} not grounded at {s.Position}");
+            Assert.True(Vector2.Distance(new Vector2(s.Position.X, s.Position.Y), new Vector2(1f, 1f)) < 0.02f, $"{team} drifted to {s.Position}");
+            Assert.InRange(s.Position.Z, -0.01f, 0.15f);
+        }
     }
 
     [Fact]

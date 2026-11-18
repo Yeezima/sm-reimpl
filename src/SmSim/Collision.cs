@@ -46,6 +46,12 @@ public sealed class StaticMesh
     // classic-maps-fidelity: per source triangle, true for triangles that may not be stood on (the world walls' faces, WorldBlocker): the
     // character controller treats them as too steep whatever their slope. Null: none.
     bool[]? _noStand;
+    // The centre of the wall each no-stand triangle belongs to, per source triangle (the slide on a flat top goes away from it).
+    Vector3[]? _wallCentre;
+
+    /// <summary>The centre of the wall the triangle in tree slot <paramref name="slot"/> belongs to (its own centre when none was given).</summary>
+    internal Vector3 WallCentreSlot(int slot) =>
+        _wallCentre is not null && (uint)_tri[slot] < (uint)_wallCentre.Length ? _wallCentre[_tri[slot]] : TriangleCentre(slot);
 
     /// <summary>Whether source triangle <paramref name="triangle"/> (as <see cref="RayHit.Triangle"/>) is one a character may not stand on (a world wall's face).</summary>
     public bool IsNoStand(int triangle) => _noStand is not null && (uint)triangle < (uint)_noStand.Length && _noStand[triangle];
@@ -165,15 +171,23 @@ public sealed class StaticMesh
     /// </summary>
     /// <param name="addedMaterials">Surface material ids of the added triangles (one per triangle; M39 props), or null for none (-1).
     /// Given to a mesh without materials, its own triangles get -1.</param>
-    public StaticMesh With(Vector3[] vertices, int[] indices, int[]? addedMaterials = null, bool addedNoStand = false)
+    public StaticMesh With(Vector3[] vertices, int[] indices, int[]? addedMaterials = null, bool addedNoStand = false, Vector3[]? addedWallCentres = null, bool[]? addedNoStandFlags = null)
     {
         var result = WithCore(vertices, indices, addedMaterials);
-        if (_noStand is not null || addedNoStand)
+        if (_noStand is not null || addedNoStand || addedNoStandFlags is not null)
         {
             var flags = new bool[result.SourceTriangles];
             if (_noStand is not null) Array.Copy(_noStand, flags, Math.Min(_noStand.Length, SourceTriangles));
             if (addedNoStand) for (int k = SourceTriangles; k < result.SourceTriangles; k++) flags[k] = true;
+            if (addedNoStandFlags is not null) for (int k = 0; k < addedNoStandFlags.Length && SourceTriangles + k < flags.Length; k++) flags[SourceTriangles + k] = addedNoStandFlags[k];
             result._noStand = flags;
+        }
+        if (_wallCentre is not null || addedWallCentres is not null)
+        {
+            var centres = new Vector3[result.SourceTriangles];
+            if (_wallCentre is not null) Array.Copy(_wallCentre, centres, Math.Min(_wallCentre.Length, SourceTriangles));
+            if (addedWallCentres is not null) for (int k = 0; k < addedWallCentres.Length && SourceTriangles + k < centres.Length; k++) centres[SourceTriangles + k] = addedWallCentres[k];
+            result._wallCentre = centres;
         }
         return result;
     }
@@ -814,6 +828,9 @@ internal static class CharacterMotor
     const int Passes = 4;               // push-out sweeps over the nearby triangles per sub-step
     const float Tolerance = 0.01f;      // penetration left after push-outs that still counts as clear
 
+    /// <summary>The vertical speed (m/s) a player keeps while it touches a wall top it slides off (ours).</summary>
+    const float SlideFallSpeed = 2f;
+
     [Flags]
     internal enum Touch { None = 0, Ground = 1, Wall = 2, Ceiling = 4, Slide = 8 }
 
@@ -939,6 +956,8 @@ internal static class CharacterMotor
             }
             if ((touched & Touch.Ground) != 0 && vz <= 0f) { grounded = true; vz = 0f; }
             if ((touched & Touch.Ceiling) != 0 && vz > 0f) vz = 0f;
+            // Sliding off a wall's top (classic-maps-fidelity): the fall starts again from a crawl, so leaving it carries no fall speed into a hard landing.
+            if ((touched & Touch.Slide) != 0 && vz < -SlideFallSpeed) vz = -SlideFallSpeed;
         }
 
         if ((touched & Touch.Wall) != 0 && dt > 0f)
@@ -1065,8 +1084,11 @@ internal static class CharacterMotor
                     {
                         // A world wall's top (or any upward face): never ground. Out of it vertically and a little away from the triangle's
                         // centre, so a player that lands on it slides off instead of standing (classic-maps-fidelity).
-                        var centre = mesh.TriangleCentre(near[i]);
-                        var away = new Vector2(pos.X - centre.X, pos.Y - centre.Y);
+                        // Tilted face: downhill (the horizontal part of its normal); a flat top: away from the WALL's centre (not the triangle's,
+                        // so the two triangles of a box top never push toward each other).
+                        var flat = new Vector2(n.X, n.Y);
+                        var wallCentre = mesh.WallCentreSlot(near[i]);
+                        var away = flat.Length() > 0.05f ? flat : new Vector2(pos.X - wallCentre.X, pos.Y - wallCentre.Y);
                         away = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : Vector2.UnitX;
                         push = new Vector3(away * 0.05f, amount / n.Z);
                         touched |= Touch.Wall | Touch.Slide;
