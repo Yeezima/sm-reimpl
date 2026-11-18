@@ -110,7 +110,7 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
         var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
         _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
-        int linkSize = Mathf.Max(9, Mathf.RoundToInt(np.Size.Y * s * 0.46f));
+        int linkSize = UiType.Px(UiType.Small);
         _link.AddThemeFontSizeOverride("font_size", linkSize);
         // The address sits in the middle of the plate (Opus review 2).
         float linkW = UiKit.ConceptFont().GetStringSize(_link.Text, HorizontalAlignment.Left, -1, linkSize).X + 4f;
@@ -142,14 +142,17 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
             StyleBoxTexture Box(Texture2D tex, bool isGold, Color mod)
             {
                 float top = isGold ? Panel01.TexGoldTop : Panel01.TexDarkV, bottom = isGold ? Panel01.TexGoldBottom : Panel01.TexDarkV;
+                // ui/text-scale: the plate carries its label, so it is resampled once to the window pixels it covers and drawn 1:1 (a mipmap or a point sample of the 4x art blurred or jagged the words).
+                var fitted = CrispArt.Fitted("btn-" + id + (isGold ? "-gold" : "-dark"), new Vector2((Panel01.PlateX1 - Panel01.PlateX0) * s + 2f * Panel01.TexSide * s, Rows.RowHeight + (top + bottom) * k * s));
                 return new StyleBoxTexture
                 {
-                    Texture = tex, ModulateColor = mod, DrawCenter = true,
+                    Texture = fitted ?? tex, ModulateColor = mod, DrawCenter = true,
                     ExpandMarginLeft = Panel01.TexSide * s, ExpandMarginRight = Panel01.TexSide * s, ExpandMarginTop = top * k * s, ExpandMarginBottom = bottom * k * s,
                     AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
                 };
             }
             b.SetMeta(FocusGlow.NoGlowMeta, true);   // the gold plate is the focus: no white halo washing it out
+            b.TextureFilter = TextureFilterEnum.Linear;   // 1:1 plates: no mipmap blend
             b.AddThemeStyleboxOverride("normal", Box(dark, false, Colors.White));
             b.AddThemeStyleboxOverride("hover", Box(dark, false, ConceptArt.Warm));
             b.AddThemeStyleboxOverride("pressed", Box(gold, true, Colors.White));

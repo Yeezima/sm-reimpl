@@ -369,10 +369,12 @@ public sealed class UiArt
     readonly Dictionary<string, string> _weaponTypes;
     readonly Dictionary<string, string> _weaponNames;
     readonly Dictionary<string, string> _killedBy;
+    readonly Dictionary<string, string> _iconPaths;
 
     public UiArt(IReadOnlyDictionary<string, byte[]> textures, IReadOnlyDictionary<string, string> weaponTypes, IReadOnlyDictionary<string, string>? weaponNames = null,
-        IReadOnlyDictionary<string, string>? killedBy = null)
+        IReadOnlyDictionary<string, string>? killedBy = null, IReadOnlyDictionary<string, string>? iconPaths = null)
     {
+        _iconPaths = new Dictionary<string, string>(iconPaths ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
         _killedBy = new Dictionary<string, string>(killedBy ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
         _textures = new Dictionary<string, byte[]>(textures, StringComparer.OrdinalIgnoreCase);
         _weaponTypes = new Dictionary<string, string>(weaponTypes, StringComparer.OrdinalIgnoreCase);
@@ -401,6 +403,22 @@ public sealed class UiArt
     public string? FeedLabel(string wargear) => wargear.Length == 0 ? null : HudRules.FeedLabel(wargear, WeaponType(wargear), KilledByType(wargear));
 
     /// <summary>The weapon picture's texture name for a wargear file (<see cref="HudRules.IconFor"/>), or null.</summary>
+    /// <summary>
+    /// The picture the original's own front end shows for a weapon, grenade, equipment or perk: the wargear file's <c>ui_data/icon_path</c> (a 96 x 64 weapon picture or a 96 x 96 perk icon, DDS in <c>ui_ingame.oppc</c>), when
+    /// that picture is in the install. <paramref name="id"/> is the wargear file name or a perk's neutral name (<c>mp_perk_</c> is tried in front). Null when the file names no picture or the picture is missing (the Armoury then keeps
+    /// its own shape for that one).
+    /// </summary>
+    public string? Picture(string id, bool chaos = false)
+    {
+        if (id.Length == 0) return null;
+        // Rows name the side-less item (mp_ranged_bolter); the files are sm_ or csm_ (the player's side first), perks mp_perk_.
+        string first = chaos ? "csm_" : "sm_", second = chaos ? "sm_" : "csm_";
+        return Lookup(id) ?? Lookup("mp_perk_" + id) ?? Lookup(first + id) ?? Lookup(second + id)
+            ?? (id.StartsWith("sm_", StringComparison.OrdinalIgnoreCase) ? Lookup(id[3..]) : id.StartsWith("csm_", StringComparison.OrdinalIgnoreCase) ? Lookup(id[4..]) : null);
+    }
+
+    string? Lookup(string key) => _iconPaths.TryGetValue(key, out var path) && Has(path) ? path : null;
+
     public string? WeaponIcon(string wargear) => wargear.Length == 0 ? null : HudRules.IconFor(wargear, WeaponType(wargear), Has);
 
     /// <summary>
@@ -426,6 +444,7 @@ public sealed class UiArt
         var types = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var killedBy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var nameIds = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var iconPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         using (var stream = new FileStream(Path.Combine(gameDir, WargearPackage), FileMode.Open, FileAccess.Read, FileShare.Read))
         using (var archive = ObpkArchive.Open(stream))
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && (CameraTuning.IsMultiplayerWargear(e.FileName) || e.FileName.StartsWith("mp_perk_", StringComparison.OrdinalIgnoreCase)), (e, d) =>
@@ -435,6 +454,7 @@ public sealed class UiArt
                 if (!CameraTuning.IsMultiplayerWargear(e.FileName)) { try { doc = BafDocument.Read(d); } catch (Exception ex) when (ex is InvalidDataException or ArgumentException or IndexOutOfRangeException or EndOfStreamException) { return; } }
                 else doc = BafDocument.Read(d);
                 if (doc.Root.Table("ui_data") is not { } ui) return;
+                if (ui.String("icon_path") is { Length: > 0 } iconPath) iconPaths[e.FileName] = iconPath;
                 if (ui.String("killed_by_weapon_type") is { Length: > 0 } feed) killedBy[e.FileName] = feed;
                 if (!CameraTuning.IsMultiplayerWargear(e.FileName)) return;
                 if (ui.String("weapon_type") is { Length: > 0 } type) types[e.FileName] = type;
@@ -444,7 +464,7 @@ public sealed class UiArt
         if (nameIds.Count > 0 && CatalogData.ReadLocale(gameDir, "english", []) is { } locale)
             foreach (var (wargear, id) in nameIds)
                 if (CatalogData.Text(locale, id) is { } text) names[wargear] = text.Trim();
-        return new UiArt(textures, types, names, killedBy);
+        return new UiArt(textures, types, names, killedBy, iconPaths);
     }
 
     /// <summary>Picture names: no Scaleform atlas (<c>name_i1f</c>), no <c>.png</c> leftovers.</summary>

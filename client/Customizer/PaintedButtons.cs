@@ -41,6 +41,7 @@ public static class PaintedButtons
     public static bool Apply(Button b, string dark, string gold, Pad darkPad, Pad goldPad, float s, bool goldFocus, bool paintedText, bool goldRest = false, bool noGlow = true)
     {
         if (ConceptArt.Get(dark) is not { } d || ConceptArt.Get(gold) is not { } g) return false;
+        b.TextureFilter = CanvasItem.TextureFilterEnum.LinearWithMipmaps;   // ui/text-scale: the 4x plate is shrunk once with its mipmaps, not point-skipped
         var rest = goldRest ? Box(g, goldPad, s, Colors.White) : Box(d, darkPad, s, Colors.White);
         b.AddThemeStyleboxOverride("normal", rest);
         b.AddThemeStyleboxOverride("hover", goldRest ? Box(g, goldPad, s, new Color(1.08f, 1.05f, 1f)) : Box(d, darkPad, s, ConceptArt.Warm));

@@ -168,6 +168,10 @@ public sealed partial class CreatorView
     {
         if (name is null) return GlyphTex(glyph);
         if (!name.StartsWith("install:", StringComparison.Ordinal)) return ConceptArt.Get(name);
+        // The original's own front-end picture (owner, 2026-11-18: "ported from the original game 1:1"): the wargear or perk file names it (ui_data/icon_path), the player's install holds it (read-only, read once on a worker
+        // thread, never written anywhere). Only where the file names none, or the install lacks the picture, the older shapes below stand in.
+        _armArt ??= new HudArt(_services.GameDir);
+        if (_armArt.Ready && _armArt.Picture(name[8..], _previewRace == SmContent.CustomizationCatalog.Chaos) is { } picture) { _armArtReady = true; return picture; }
         // The install's pistol and grenade pictures are too small and soft to read as a silhouette at tile size: those two slots keep the engraved glyphs (Opus review 3).
         if (name.Contains("pistol", StringComparison.OrdinalIgnoreCase) || name.Contains("grenade", StringComparison.OrdinalIgnoreCase))
         {
@@ -215,8 +219,10 @@ public sealed partial class CreatorView
         var options = LoadoutRows.Options(_catalog, Role, race);
         var equipSection = LoadoutRows.Equipment(_catalog, Role, race, OpenClass, _services.Policy);
         foreach (var r in equipSection.Rows) if (r.Id.Length > 0) _armIds[r.Title.ToUpperInvariant()] = r.Id;
+        foreach (var p in _catalog.Perks.All) _armIds.TryAdd(p.DisplayName.ToUpperInvariant(), p.Name);   // a perk row's picture is its file's own icon
         var equipRow = equipSection.Rows.FirstOrDefault(r => r.Selected);
         string equip = equipRow?.Title ?? "NONE";
+        string? PerkId(int i) { string? n = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1); return n is null ? null : "install:" + (_catalog.Perks.Perk(n)?.Name ?? n); }
         string Perk(int i)
         {
             string? name = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1);
@@ -227,13 +233,13 @@ public sealed partial class CreatorView
         return new ArmDetail(IsEmpty ? "NO CLASS" : weapon.Length > 0 ? weapon.ToUpperInvariant() : "WEAPONS", weaponId is { Length: > 0 } ? "install:" + weaponId : null, () => Go(Step.Weapons, -1),
         [
             new ArmTile(equip, equipRow is { Id.Length: > 0 } ? "install:" + equipRow.Id : null, _step == Step.Equipment, () => Go(Step.Equipment, -1)),
-            new ArmTile(Perk(0), null, perks && _perkSlot == 0, () => Go(Step.Perks, 0)),
-            new ArmTile(Perk(1), null, perks && _perkSlot == 1, () => Go(Step.Perks, 1)),
-        ], IsEmpty ? null : ArmClassSlots(equip, Perk));
+            new ArmTile(Perk(0), PerkId(0), perks && _perkSlot == 0, () => Go(Step.Perks, 0)),
+            new ArmTile(Perk(1), PerkId(1), perks && _perkSlot == 1, () => Go(Step.Perks, 1)),
+        ], IsEmpty ? null : ArmClassSlots(equip, Perk, PerkId));
     }
 
     /// <summary>The card per loadout slot of a class: each weapon section (primary, sidearm, melee, ...), the equipment, the two perks; a press opens that slot's choices in the right column.</summary>
-    List<ArmSlot> ArmClassSlots(string equip, Func<int, string> perk)
+    List<ArmSlot> ArmClassSlots(string equip, Func<int, string> perk, Func<int, string?> perkId)
     {
         var slots = new List<ArmSlot>();
         void Pick(Step step, int perkSlot) { _step = step; if (perkSlot >= 0) _perkSlot = perkSlot; _armPicking = true; Refresh(focusList: true); }
@@ -243,8 +249,8 @@ public sealed partial class CreatorView
             slots.Add(new ArmSlot(heading, sel?.Title ?? "NONE", sel is { Id.Length: > 0 } ? "install:" + sel.Id : null, () => Pick(Step.Weapons, -1)));
         }
         slots.Add(new ArmSlot("EQUIPMENT", equip, _armIds.TryGetValue(equip.ToUpperInvariant(), out var eqId) ? "install:" + eqId : null, () => Pick(Step.Equipment, -1)));
-        slots.Add(new ArmSlot("PERK 1", perk(0), null, () => Pick(Step.Perks, 0)));
-        slots.Add(new ArmSlot("PERK 2", perk(1), null, () => Pick(Step.Perks, 1)));
+        slots.Add(new ArmSlot("PERK 1", perk(0), perkId(0), () => Pick(Step.Perks, 0)));
+        slots.Add(new ArmSlot("PERK 2", perk(1), perkId(1), () => Pick(Step.Perks, 1)));
         return slots;
     }
 
@@ -276,7 +282,7 @@ public sealed partial class CreatorView
         Put(_armWeapon!, UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName));
         Put(_armTilesHost!, new Rect2(36, 276, 238, 74));
         Put(_armTopRow!, new Rect2(296, 70, 246, 20));   /* the faction tabs stand right over the preview they switch (Opus review 1) */ _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
-        Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex()); 
+        Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); if (_armWell.GetIndex() > _armStripScroll.GetIndex()) _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex());   /* the well under the chips, once: moving it to the chips' index every layout swapped the two each time, which made the slots flash (owner, 2026-11-18) */ 
         bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
         _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
         Put(_armSlotScroll, new Rect2(549, 93, 222, 223));   /* whole cards only: three of 78 */ Put(_armPickBack, new Rect2(712, 76, 52, 14));
@@ -292,16 +298,19 @@ public sealed partial class CreatorView
         var detail = detail0; _armDetailNow = detail; var classes = ArmouryClasses();
         string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length + string.Join("", _strip.Chips.Select(c => c.GetInstanceId())) + _armSlotsTab + _armPicking + string.Join("|", detail.Slots?.Select(x => x.Slot + x.Value) ?? []);
         if (sig == _armSig) return;
-        _armSig = sig; _armScale = s;
+        _armSig = sig; _armScale = s; _armPendingTries = 0;   // a real change of the page re-arms the wait for install art
         StyleArmoury(s, classes, detail, badge);
     }
 
 
     /// <summary>The one lettering of the page: the row face (<see cref="UiKit.ConceptFont"/>) at <paramref name="size"/> concept pixels, light on a dark plate and dark ink on gold.</summary>
+    /// <summary>The page's concept-pixel size as a size of the one table (UiType): 17 and up the primary action, 11.5 and up labels and plates, 8.5 and up captions, smaller ones the small level.</summary>
+    static int ArmPx(float size) => UiType.Px(size >= 17f ? UiType.Primary : size >= 11.5f ? UiType.Label : size >= 8.5f ? UiType.Caption : UiType.Small);
+
     static void ArmText(Control c, float size, float s, Color rest, Color pressed)
     {
         c.AddThemeFontOverride("font", UiKit.ConceptFont());
-        c.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+        c.AddThemeFontSizeOverride("font_size", ArmPx(size));
         c.AddThemeConstantOverride("outline_size", 0);
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_disabled_color" }) c.AddThemeColorOverride(n, rest);
         foreach (var n in new[] { "font_pressed_color", "font_hover_pressed_color" }) c.AddThemeColorOverride(n, pressed);
@@ -310,7 +319,7 @@ public sealed partial class CreatorView
     static void ArmLabel(Label l, float size, float s, Color colour)
     {
         l.AddThemeFontOverride("font", UiKit.ConceptFont());
-        l.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+        l.AddThemeFontSizeOverride("font_size", ArmPx(size));
         l.AddThemeConstantOverride("outline_size", 0);
         l.AddThemeConstantOverride("line_spacing", -Mathf.RoundToInt(0.32f * size * s));
         l.AddThemeColorOverride("font_color", colour);
@@ -399,6 +408,10 @@ public sealed partial class CreatorView
             foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (chip.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 12f * s; sb.ContentMarginRight = 3f * s; }
             chip.AddThemeConstantOverride("line_spacing", -Mathf.RoundToInt(2.6f * s));
             foreach (var l in chip.GetChildren().OfType<Label>()) l.Visible = false;
+            // Two lines inside the plate (owner, 2026-11-18: the third line was cut): the slot, then its name (or its class when the name is only the slot again); the star sits in the left margin.
+            var lines = chip.Text.Split((char)10);
+            if (lines.Length > 2) chip.Text = lines[0] + "\n" + (lines[1].Equals(lines[0], StringComparison.OrdinalIgnoreCase) ? lines[2] : lines[1]);
+            foreach (var star in chip.GetChildren().OfType<UiKit.Glyph>()) { star.Size = new Vector2(10f, 10f) * s; star.CustomMinimumSize = star.Size; star.Position = new Vector2(1.5f * s, 31f * s / 2f - 5f * s); }
         }
         // ---- CONFIRM LOADOUT, BACK, the badge ----
         ArmPlate(_armConfirm!, "arm-confirm", "arm-confirm", new PaintedButtons.Pad(0), new PaintedButtons.Pad(0), s, false);
@@ -415,7 +428,7 @@ public sealed partial class CreatorView
                 b.AddThemeConstantOverride("h_separation", 0);
                 b.CustomMinimumSize = new Vector2(0, 17f * s);
                 PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
-                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", Mathf.Max(11, Mathf.RoundToInt(ArmPlateSize * 0.86f * s)));
+                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", ArmPx(ArmPlateSize * 0.86f));
                 foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 4f * s; sb.ContentMarginRight = 4f * s; }
             }
             else if (c is Label l) ArmLabel(l, ArmPlateSize, s, ArmLight);
@@ -438,21 +451,23 @@ public sealed partial class CreatorView
     void BuildArmSlotCards(float s, ArmDetail detail)
     {
         foreach (var c in _armSlotList!.GetChildren()) { _armSlotList.RemoveChild(c); c.QueueFree(); }
-        _armSlotList.AddThemeConstantOverride("separation", Mathf.RoundToInt((UiTextureBuilder.ArmCardPitch - UiTextureBuilder.ArmCard.Size.Y) * s));
         if (ConceptArt.Get("arm-card") is not { } card || detail.Slots is null) return;
+        // The slot cards shrink together until all of them fit the column (owner, 2026-11-18), never under 23 concept pixels pitch (a card of about 20).
+        float k = detail.Slots.Count <= 0 ? 1f : Mathf.Clamp((223f * s - 8f * s) / (detail.Slots.Count * UiTextureBuilder.ArmCardPitch * s), 19f / UiTextureBuilder.ArmCardPitch, 1f);
+        _armSlotList.AddThemeConstantOverride("separation", Mathf.RoundToInt((UiTextureBuilder.ArmCardPitch - UiTextureBuilder.ArmCard.Size.Y) * s * k));
         foreach (var slot in detail.Slots)
         {
-            var b = new Button { Text = slot.Slot + ": " + slot.Value, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s), TooltipText = slot.Slot + ": " + slot.Value, ClipText = true, Name = "ArmSlot" + _armSlotList.GetChildCount() };
+            var b = new Button { Text = slot.Slot + ": " + slot.Value, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s * k), TooltipText = slot.Slot + ": " + slot.Value, ClipText = true, Name = "ArmSlot" + _armSlotList.GetChildCount() };
             var press = slot.Press; b.Pressed += () => press();
             StyleBoxTexture Box(Color mod) => new() { Texture = card, ModulateColor = mod, DrawCenter = true, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch };
             var gold = new Color(1.3f, 1.12f, 0.78f);
             b.AddThemeStyleboxOverride("normal", Box(Colors.White)); b.AddThemeStyleboxOverride("hover", Box(ConceptArt.Warm)); b.AddThemeStyleboxOverride("pressed", Box(gold)); b.AddThemeStyleboxOverride("focus", Box(gold)); b.AddThemeStyleboxOverride("disabled", Box(Colors.Gray));
             foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(n, Colors.Transparent);
             var cap = new Label { Text = slot.Slot.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
-            ArmLabel(cap, ArmTileSize * 0.85f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, 11f) * s; cap.Size = new Vector2(126f, 11f) * s; b.AddChild(cap);
+            ArmLabel(cap, ArmTileSize * 0.75f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, Mathf.Min(11f * k, 1.5f)) * s; cap.Size = new Vector2(126f, 9f) * s; b.AddChild(cap);
             var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
-            ArmLabel(val, ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, 23f) * s; val.Size = new Vector2(126f, 34f) * s; b.AddChild(val);
-            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s, Modulate = ArmInk(tex) }; b.AddChild(ic); ArmShadow(ic, s); }
+            ArmLabel(val, k < 0.85f ? ArmTileSize : ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, k < 0.85f ? 7.5f : 23f * k) * s; val.Size = new Vector2(126f, k < 0.85f ? 67f * k - 8.5f : 34f * k) * s; b.AddChild(val);
+            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f * s, 67f * s * k * 0.07f), Size = new Vector2(50f * s, 67f * s * k * 0.86f), Modulate = ArmInk(tex) }; b.AddChild(ic); ArmShadow(ic, s); }
             _armSlotList.AddChild(b);
         }
     }
@@ -463,7 +478,12 @@ public sealed partial class CreatorView
         // The first heading of the step is the column's title above the first card (so the first card stands where the concept's does); later headings stay in the list.
         _armColumnTitle!.Text = ""; ArmLabel(_armColumnTitle, ArmTileSize, s, new Color(0.97f, 0.82f, 0.4f));
         if (_list.GetChildCount() > 0 && _list.GetChild(0) is Label first) { _armColumnTitle.Text = first.Text; first.Visible = false; }
-        _list.AddThemeConstantOverride("separation", Mathf.RoundToInt((UiTextureBuilder.ArmCardPitch - UiTextureBuilder.ArmCard.Size.Y) * s));
+        // Every option of the step fits the window without a scroll bar (owner, 2026-11-18: "scale down the options on the right so that they all fit"): the cards shrink together (art, icon well and name) until
+        // the list fits the column, never under 23 concept pixels pitch (a card of about 20); a longer list scrolls as before.
+        int rowsN = _list.GetChildren().OfType<UiKit.Row>().Count(), headsN = _list.GetChildren().OfType<Label>().Count(l => l.Visible && l != _list.GetChildOrNull<Label>(0));
+        float areaH = 223f * s - 10f * s - headsN * 19f * s;
+        _armCardK = rowsN <= 0 ? 1f : Mathf.Clamp(areaH / (rowsN * UiTextureBuilder.ArmCardPitch * s), 19f / UiTextureBuilder.ArmCardPitch, 1f);
+        _list.AddThemeConstantOverride("separation", Mathf.RoundToInt((UiTextureBuilder.ArmCardPitch - UiTextureBuilder.ArmCard.Size.Y) * s * _armCardK));
         if (!_list.GetChildren().Any(n => n.Name == "ArmPad")) _list.AddChild(new Control { Name = "ArmPad", CustomMinimumSize = new Vector2(0, 8f * s), MouseFilter = MouseFilterEnum.Ignore });   // room under the last card so it scrolls fully into view
         foreach (var c in _list.GetChildren())
         {
@@ -475,10 +495,13 @@ public sealed partial class CreatorView
         }
     }
 
+    float _armCardK = 1f;
+
     void StyleArmCard(UiKit.Row row, float s)
     {
+        float k = _armCardK;
         if (ConceptArt.Get("arm-card") is not { } card) return;
-        row.CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s);
+        row.CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s * k);
         row.AutowrapMode = TextServer.AutowrapMode.Word; row.ClipText = false;
         StyleBoxTexture Box(Color mod, float grow) => new()
         {
@@ -492,7 +515,7 @@ public sealed partial class CreatorView
         row.AddThemeStyleboxOverride("pressed", Box(gold, 0f));
         row.AddThemeStyleboxOverride("focus", Box(gold, 0f));
         row.AddThemeStyleboxOverride("disabled", Box(new Color(0.55f, 0.55f, 0.55f), 0f));
-        ArmText(row, ArmNameSize, s, ArmLight, ArmLight);
+        ArmText(row, k < 0.85f ? 6f : ArmNameSize, s, ArmLight, ArmLight);   // its own text is transparent (the name label draws it): a shrunk card must not be held open by that text
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) row.AddThemeColorOverride(n, Colors.Transparent);   // the name is drawn by the label below (upper case, as the concept); the row keeps its text
         row.Alignment = HorizontalAlignment.Left;
         string lower = row.Text.ToLowerInvariant();
@@ -506,15 +529,36 @@ public sealed partial class CreatorView
         foreach (var old in row.GetChildren().OfType<Node>().Where(n => n.HasMeta("arm_card")).ToList()) { row.RemoveChild(old); old.QueueFree(); }
         if (icon == "glyph-perk" && _armIds.TryGetValue(row.Text.ToUpperInvariant(), out var wargearId)) icon = "install:" + wargearId;   // a weapon or grenade of the install: its own silhouette
         if (icon is not null && ArmIcon(icon, "glyph-perk") is { } tex)
-            row.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = icon.StartsWith("install:", StringComparison.Ordinal) ? TextureRect.StretchModeEnum.KeepAspectCentered : TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f, 8f) * s, Size = new Vector2(50f, 50f) * s, Modulate = ArmInk(tex) }.With(t => t.SetMeta("arm_card", true)));
+            row.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = icon.StartsWith("install:", StringComparison.Ordinal) ? TextureRect.StretchModeEnum.KeepAspectCentered : TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f * s, 67f * s * k * 0.07f), Size = new Vector2(50f * s, 67f * s * k * 0.86f), Modulate = ArmInk(tex) }.With(t => t.SetMeta("arm_card", true)));
         var name = new Label { Text = row.Text.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true };
-        name.SetMeta("arm_card", true); ArmLabel(name, ArmNameSize, s, ArmLight);
-        name.Position = new Vector2(79f, 3f) * s; name.Size = new Vector2(104f, 61f) * s; row.AddChild(name);
+        name.SetMeta("arm_card", true); ArmLabel(name, k < 0.85f ? ArmTileSize : ArmNameSize, s, ArmLight);   // a shrunk card: the caption level, one line, centred, so the name is always whole
+        if (k < 0.85f) { name.AutowrapMode = TextServer.AutowrapMode.Off; name.ClipText = true; }
+        name.Position = new Vector2(79f * s, 3f * s * k); name.Size = new Vector2(125f * s, 61f * s * k); row.AddChild(name);
     }
 
     /// <summary>A step's rows were rebuilt or the page changed: restyle at the next layout.</summary>
     double _armPoll;
-    void ArmouryPoll(double delta) { if (!_arm) return; _armPoll += delta; if (_armPoll > 0.25) { _armPoll = 0; if (_armPending) { _armPending = false; _armSig = ""; } LayoutArmoury(); } }
+    int _armPendingTries; int _armSilCount;
+    /// <summary>
+    /// Lays the page out again after a quarter second only while install art is still arriving, and styles it again only when something new has arrived (the art became ready, or one more silhouette). It used to restyle every
+    /// quarter second for as long as any silhouette was missing, which redrew every tile and card constantly (owner, 2026-11-18: "the slots are flashing"); it now gives up after ten seconds.
+    /// </summary>
+    void ArmouryPoll(double delta)
+    {
+        if (!_arm) return;
+        _armPoll += delta;
+        if (_armPoll <= 0.25) return;
+        _armPoll = 0;
+        if (_armPending)
+        {
+            _armPending = false;
+            bool arrived = (_armArt?.Ready == true) != _armArtReadySeen || _armSilhouettes.Count != _armSilCount;
+            if (arrived) { _armArtReadySeen = _armArt?.Ready == true; _armSilCount = _armSilhouettes.Count; _armSig = ""; }
+            else if (++_armPendingTries <= 40) _armPending = true;
+        }
+        LayoutArmoury();
+    }
+    bool _armArtReadySeen;
 
     void ArmouryDirty() { _armSig = ""; if (_arm) Callable.From(LayoutArmoury).CallDeferred(); }
 

@@ -24,7 +24,7 @@ public static partial class UiKit
     public static readonly Color BackgroundTop = new(0.07f, 0.075f, 0.09f), BackgroundBottom = new(0.02f, 0.02f, 0.025f);
 
     public const int VirtualWidth = 1920, VirtualHeight = 1080;
-    public const int BodySize = 22, CaptionSize = 18, HeaderSize = 30, TitleSize = 38, MinHit = 44;   // ui/overhaul: Oswald is narrower and lower than the DejaVu these were set for, so one step up
+    public const int BodySize = UiType.Caption, CaptionSize = UiType.Small, HeaderSize = UiType.Value, TitleSize = UiType.Label, MinHit = 44;   // ui/overhaul: Oswald is narrower and lower than the DejaVu these were set for, so one step up
 
     /// <summary>"Reduce motion": no camera moves, no turntable, no fades (set from the front end's settings).</summary>
     public static bool ReduceMotion { get; set; }
@@ -159,7 +159,7 @@ public static partial class UiKit
     public static Label PlateTitle(string text, Color? ink = null)
     {
         var l = new Label { Text = text.ToUpperInvariant(), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(420f, 84f) };
-        l.AddThemeFontOverride("font", ConceptFont()); l.AddThemeFontSizeOverride("font_size", 40);
+        l.AddThemeFontOverride("font", ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Label));
         SteelBackdrop.EmbossTitle(l);
         if (ink is { } c) l.AddThemeColorOverride("font_color", c);
         if (ConceptArt.Patch("opt-plate-blank", new Vector2(60f, 30f), new Vector2(40f, 10f)) is { } plate) l.AddThemeStyleboxOverride("normal", plate);
@@ -170,7 +170,7 @@ public static partial class UiKit
     {
         var l = new Label { Text = text, HorizontalAlignment = align, MouseFilter = Control.MouseFilterEnum.Ignore };
         l.AddThemeFontOverride("font", ConceptFont());   // ui/overhaul: one lettering in every menu
-        l.AddThemeFontSizeOverride("font_size", size);
+        l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Level(size)));
         if (colour is { } c) l.AddThemeColorOverride("font_color", c);
         if (wrap) { l.AutowrapMode = TextServer.AutowrapMode.WordSmart; l.CustomMinimumSize = new Vector2(0, 0); }
         return l;
@@ -183,7 +183,7 @@ public static partial class UiKit
         b.Pressed += onPress;
         b.SetMeta(FocusGlow.NoGlowMeta, true);   // the plate's own gold is the focus cue: no halo behind it (Opus review 3)
         // The plate's rivets sit 40 px in from each end: the plate is never narrower than its words plus both (Opus review 1: labels over rivets).
-        float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, Steel.ButtonSize).X + 2f * 52f;
+        float need = ConceptFont().GetStringSize(b.Text, HorizontalAlignment.Left, -1, UiType.Px(Steel.ButtonSize)).X + 2f * 52f;
         b.CustomMinimumSize = new Vector2(Mathf.Max(minWidth, need), MinHit);
         return b;
     }
@@ -272,15 +272,27 @@ public static partial class UiKit
     /// <summary>The window's UI scaling for the menu: a 1920 x 1080 virtual space (restored with <see cref="LeaveVirtualSpace"/> when a match starts).</summary>
     public static void EnterVirtualSpace(Window window)
     {
+        // ui/text-scale: the scale is a whole number of sixths (UiType) and follows the window; drawing snaps to window pixels.
         window.ContentScaleSize = new Vector2I(VirtualWidth, VirtualHeight);
         window.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
         window.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
+        _spaceWindow = window;
+        if (!_spaceHooked) { _spaceHooked = true; window.SizeChanged += OnSpaceWindowChanged; }
+        UiType.ApplyWindow(window);
+    }
+
+    static Window? _spaceWindow;
+    static bool _spaceHooked;
+    static void OnSpaceWindowChanged()
+    {
+        if (_spaceWindow is { } window && GodotObject.IsInstanceValid(window) && window.ContentScaleMode == Window.ContentScaleModeEnum.CanvasItems) UiType.ApplyWindow(window);
     }
 
     public static void LeaveVirtualSpace(Window window)
     {
         window.ContentScaleMode = Window.ContentScaleModeEnum.Disabled;
         window.ContentScaleSize = Vector2I.Zero;
+        UiType.ReleaseWindow(window);
     }
 
     // ---- a selectable row ----

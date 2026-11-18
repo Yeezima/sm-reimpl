@@ -68,7 +68,7 @@ public sealed partial class GameFolderSetup : Control
         bar.AddChild(UiKit.Spacer());
         bar.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 160));
         box.AddChild(bar);
-        box.AddChild(new LinkButton { Text = ("Help, builds and issues: " + ServerLaunch.ReleasesUrl).ToUpperInvariant(), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
+        box.AddChild(new LinkButton { Text = ("Help, builds and issues: " + ServerLaunch.ReleasesUrl).ToUpperInvariant(), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiType.Px(UiKit.CaptionSize))));
 
         var panel = UiKit.Panel(box, 28);
         var center = new CenterContainer();

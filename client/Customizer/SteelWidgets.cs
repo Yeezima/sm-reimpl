@@ -22,7 +22,7 @@ public static partial class UiKit
     {
         var l = new Label { Name = "Nameplate", Text = text.ToUpperInvariant(), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore, ClipText = true };
         l.AddThemeFontOverride("font", new FontVariation { BaseFont = BundledFont(), SpacingGlyph = 2 });
-        l.AddThemeFontSizeOverride("font_size", Steel.SmallSize);
+        l.AddThemeFontSizeOverride("font_size", UiType.Px(Steel.SmallSize));
         l.AddThemeColorOverride("font_color", new Color(0.78f, 0.76f, 0.70f));
         if (ConceptArt.Patch("nameplate", new Vector2(20f, 12f), new Vector2(14f, 4f)) is { } art)
         {

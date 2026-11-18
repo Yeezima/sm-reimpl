@@ -18,12 +18,36 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     const float OverlayW = 736f, OverlayH = 342f, RowsX = 79.4f, RowsY = 124f, RowsW = 580f, RowsBottom = 262f;
     static readonly Rect2 TitleRect = new(268f, 41f, 198f, 33f);
 
-    readonly TextureRect _overlay = new() { Name = "PanelOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.Linear };
+    /// <summary>The title plate of the shared frame in the picture's own v2 pixels (Options places its live title with it).</summary>
+    public static Rect2 TitleRectV2 => TitleRect;
+    /// <summary>The picture's width in v2 pixels.</summary>
+    public const float FrameW = OverlayW;
+
+    /// <summary>A live title on the frame's plate: the page lettering at the title level, embossed like the painted plate (Options and the panel pages).</summary>
+    public static void StyleTitle(Label plate, string text)
+    {
+        plate.Text = text.ToUpperInvariant(); plate.Visible = true;
+        plate.HorizontalAlignment = HorizontalAlignment.Center; plate.VerticalAlignment = VerticalAlignment.Center; plate.MouseFilter = MouseFilterEnum.Ignore;
+        plate.AddThemeStyleboxOverride("normal", new StyleBoxEmpty());
+        plate.AddThemeFontOverride("font", UiKit.ConceptFont());
+        SteelBackdrop.EmbossTitle(plate);
+    }
+
+    /// <summary>The title's size: the title level, smaller only when the words do not fit the plate (<paramref name="room"/> px).</summary>
+    public static void FitTitle(Label plate, float room)
+    {
+        var font = UiKit.ConceptFont();
+        int size = UiType.Px(UiType.Title);
+        while (size > 8 && font.GetStringSize(plate.Text, HorizontalAlignment.Left, -1, size).X > room) size--;
+        plate.AddThemeFontSizeOverride("font_size", UiType.Snap(size));
+    }
+
+    readonly TextureRect _overlay = new() { Name = "PanelOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps };
     readonly ColorRect _dim = new() { Name = "PanelDim", Color = new Color(0f, 0f, 0f, 0.38f), MouseFilter = MouseFilterEnum.Ignore };
     readonly Label _plate = new() { Name = "PanelTitle", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
     readonly int _slices;   // inserted copies of the slice: 0 or 2 (even, so the mirrored joins stay continuous)
     readonly bool _concept;
-    float _styledScale;
+    float _styledScale; int _styledKey;
     string _titleText = "";
 
     /// <summary>The frame at the window's scale the last time it was placed (the self-test and the capture read it): px per v2 pixel.</summary>
@@ -77,7 +101,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
             _heading.Position = strip.Position; _heading.Size = strip.Size;
             _heading.VerticalAlignment = VerticalAlignment.Center; _heading.HorizontalAlignment = HorizontalAlignment.Left;
             _heading.AddThemeFontOverride("font", UiKit.ConceptFont());
-            _heading.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
+            _heading.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Value));
             _heading.AddThemeColorOverride("font_color", Steel.GoldHi);
             _heading.ClipText = true;
         }
@@ -100,7 +124,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         }
     }
 
-    float _dockScale;
+    float _dockScale; int _dockKey;
 
     /// <summary>A disabled plate takes no focus: Godot draws the focus box over a focused disabled button, which showed the gold plate under the grey disabled ink (Opus reviews 2 to 4).</summary>
     public override void _Process(double delta)
@@ -125,7 +149,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         var back = buttons.FirstOrDefault(b => b.Text.Equals("BACK", StringComparison.OrdinalIgnoreCase));
         Button? main = null;
         foreach (var t in PrimaryTexts) { main = buttons.FirstOrDefault(b => b.Visible && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)); if (main is not null) break; }
-        bool restyle = !Mathf.IsEqualApprox(_dockScale, s); _dockScale = s;
+        bool restyle = !Mathf.IsEqualApprox(_dockScale, s) || _dockKey != UiType.Key; _dockScale = s; _dockKey = UiType.Key;
         if (back is not null) DockBack(back, Size);
         if (main is not null)
         {
@@ -150,8 +174,8 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         var g = UiTextureBuilder.G(UiTextureBuilder.V2Back);
         back.TopLevel = true; back.CustomMinimumSize = Vector2.Zero;
         back.Position = o2 + g.Position * sS; back.Size = g.Size * sS;
-        if (back.GetMeta("dock_s", 0f).AsSingle() == sS) return;
-        back.SetMeta("dock_s", sS);
+        if (back.GetMeta("dock_s", 0f).AsSingle() == sS && back.GetMeta("dock_k", 0).AsInt32() == UiType.Key) return;
+        back.SetMeta("dock_s", sS); back.SetMeta("dock_k", UiType.Key);
         PaintedButtons.Apply(back, "opt-back-dark", "opt-back-dark", new PaintedButtons.Pad(0, 0, 0, 0), new PaintedButtons.Pad(0, 0, 0, 0), sS, false, paintedText: false, noGlow: false);
         DockText(back, sS, goldRest: false);
     }
@@ -160,7 +184,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     {
         b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
-        b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15f * s));
+        b.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate));
         b.AddThemeConstantOverride("outline_size", 0);
         var ink = goldRest ? Dark : Light;
         foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, ink);
@@ -169,13 +193,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         foreach (var l in b.GetChildren().OfType<Label>()) l.Visible = false;
     }
 
-    void FitPlate(float s, float room)
-    {
-        var font = UiKit.ConceptFont();
-        int size = Mathf.RoundToInt(21f * s);
-        while (size > 8 && font.GetStringSize(_plate.Text, HorizontalAlignment.Left, -1, size).X > room) size--;
-        _plate.AddThemeFontSizeOverride("font_size", size);
-    }
+    void FitPlate(float s, float room) => FitTitle(_plate, room);
 
     /// <summary>The page's title (the plate's live text).</summary>
     public string PlateTitle { get => _titleText; set { _titleText = value.ToUpperInvariant(); if (_plate is not null) { _plate.Text = _titleText; QueueSortPlate(); } } }
@@ -195,8 +213,8 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     void Style(float s, Vector2 area)
     {
         foreach (var n in _notes.Keys.ToList()) FitNote(n);
-        if (Mathf.IsEqualApprox(_styledScale, s) && Mathf.IsEqualApprox((float)GetMeta("styled_w", 0f), area.X)) { PlaceRows(area); return; }
-        _styledScale = s; SetMeta("styled_w", area.X);
+        if (Mathf.IsEqualApprox(_styledScale, s) && _styledKey == UiType.Key && Mathf.IsEqualApprox((float)GetMeta("styled_w", 0f), area.X)) { PlaceRows(area); return; }
+        _styledScale = s; _styledKey = UiType.Key; SetMeta("styled_w", area.X);
         float pitchG = PagePitch, pitch = pitchG * s;
         var all = new List<Control>(); var columns = new List<UiKit.MenuColumn> { Rows };
         void Walk(Node n)
@@ -261,7 +279,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         b.ClipText = false;
         b.CustomMinimumSize = new Vector2(0f, pitch);
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
-        b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15f * s));
+        b.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate));
         b.AddThemeConstantOverride("outline_size", 0);
         // The plate hugs its row (a 1 px margin), so neighbouring plates meet without overlapping.
         if (!PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -0.5f, 3, -0.5f), new PaintedButtons.Pad(3, -0.5f, 3, 0f), s, true, paintedText: false, noGlow: true)) return;
@@ -277,7 +295,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
     void StyleField(LineEdit le, float s, float pitch, float labelW, float colW)
     {
         le.AddThemeFontOverride("font", UiKit.ConceptFont());
-        le.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(UiKit.ConceptValueFont * s));
+        le.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Value));
         var recess = new Steel.SteelStyle(Steel.Kind.Recess, 5f, 10f * s, 2f * s);
         var focus = new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 10f * s, 2f * s);
         le.AddThemeStyleboxOverride("normal", recess); le.AddThemeStyleboxOverride("focus", focus);   // steel rim at rest, gold under the focus (Opus review 3)
@@ -288,7 +306,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         {
             // With no option rows to line up with (the join address) the field starts right after its own label.
             float lw = 0f; var lf = UiKit.ConceptFont();
-            foreach (var l in own.GetChildren().OfType<Label>()) lw = Mathf.Max(lw, lf.GetStringSize(l.Text, HorizontalAlignment.Left, -1, Mathf.RoundToInt(UiKit.ConceptLabelFont * s)).X + 14f * s);
+            foreach (var l in own.GetChildren().OfType<Label>()) lw = Mathf.Max(lw, lf.GetStringSize(l.Text, HorizontalAlignment.Left, -1, UiType.Px(UiType.Label)).X + 14f * s);
             labelW = Mathf.Max(labelW, Mathf.Max(lw, 70f * s));
         }
         if (le.GetParent() is Control row) { row.CustomMinimumSize = new Vector2(0f, pitch); le.OffsetLeft = labelW + 8f * s; le.OffsetRight = le.OffsetLeft + Mathf.Max(60f * s, Mathf.Min(150f * s, colW - labelW - 16f * s)); }
@@ -299,7 +317,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         bool onButton = l.GetParent() is Button;
         bool rowLabel = !onButton && l.GetParent() is Control p && p is not UiKit.MenuColumn;
         l.AddThemeFontOverride("font", UiKit.ConceptFont());
-        l.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt((rowLabel ? UiKit.ConceptLabelFont : UiKit.ConceptValueFont) * s));
+        l.AddThemeFontSizeOverride("font_size", UiType.Px(onButton ? UiType.Value : rowLabel ? UiType.Label : UiType.Caption));   // notes are the caption level
         l.VerticalAlignment = VerticalAlignment.Center;
         if (onButton) { l.ClipText = true; l.OffsetLeft = 0; l.HorizontalAlignment = HorizontalAlignment.Right; l.OffsetRight = -14f * s; return; }
         if (rowLabel) { l.ClipText = true; return; }
