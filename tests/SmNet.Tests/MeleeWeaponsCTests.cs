@@ -291,7 +291,7 @@ public class MeleeWeaponsCTests(ITestOutputHelper output)
         // the config hash mixes in a shipped cancel default that differs from the baseline (Simulation.cs), so the pre-Weapons-C value holds only while the two are equal
         var knife = new SimConfig { MeleeSteps = [light, light with { HitTime = 0.384f }, stomp] };
         if (CancelData.Shipped.Hash == CancelData.Baseline.Hash) Assert.Equal(0xA051E9CC9852E014UL, knife.Hash());
-        else Assert.NotEqual(0xA051E9CC9852E014UL, knife.Hash());
+        else Assert.Equal(0xF233084F288BD4B1UL, knife.Hash());   // recaptured 2026-11-19 with the owner's 11-18 cancel default (Classic hash); the steps part is unchanged
 
         var plain = new SimConfig { MeleeSteps = [Light(10f)] };
         var same = new SimConfig { MeleeSteps = [Light(10f) with { ShieldDamage = 0f, StringEnd = false, HeavyNext = 0, YNext = 0 }] };
