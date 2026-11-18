@@ -21,6 +21,8 @@
     <Compile Include="..\client\MapDecor.cs" Link="Client\MapDecor.cs" />
     <Compile Include="..\client\MapDecorLists\MapDecorLists.cs" Link="Client\MapDecorLists.cs" />
     <Compile Include="..\client\MapSky.cs" Link="Client\MapSky.cs" />
+    <Compile Include="..\client\MapDecalView.cs" Link="Client\MapDecalView.cs" />
+    <Compile Include="..\client\MapOrthoLightView.cs" Link="Client\MapOrthoLightView.cs" />
   </ItemGroup>
 
 </Project>
