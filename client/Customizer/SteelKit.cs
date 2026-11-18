@@ -76,7 +76,7 @@ public static partial class Steel
         FrameType = "SmSteelFrame", AmberFrameType = "SmSteelAmberFrame", RecessType = "SmSteelRecess", SmallType = "SmSteelSmall", PrimaryType = "SmSteelPrimary";
 
     /// <summary>Base text sizes (virtual 1920 x 1080 pixels) of the kit's text types; <see cref="UiKit.FitMenuText"/> raises them when the window is too small to read them.</summary>
-    public const int ButtonSize = 27, TabSize = 23, RowSize = 21, SmallSize = 16;
+    public const int ButtonSize = UiType.Value, TabSize = UiType.Caption, RowSize = UiType.Caption, SmallSize = UiType.Small;   // ui/text-scale: every size of the kit is a size of the one table (UiType)
 
     public static Color Mix(Color a, Color b, float t) => a.Lerp(b, Mathf.Clamp(t, 0f, 1f));
 

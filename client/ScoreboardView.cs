@@ -104,7 +104,7 @@ public sealed partial class ScoreboardView : Control
                 float cx = left0 + k * (width + Gap) + width / 2f;
                 ScorePlate(cx, plateW, f.Sides[k].Name, f.Sides[k].Emblem, f.Sides[k].Score.ToString());
             }
-            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f + 10f, 70, BoardStyle.Gold, 0);
+            Text(_bold, "VS", StageW / 2f, Top + ScoreBand / 2f + 10f, UiType.Score, BoardStyle.Gold, 0);
         }
         else if (f.SingleScore) ScorePlate(StageW / 2f, MathF.Min(totalW, 600f), f.SingleLabel, null, f.Sides[0].Score.ToString());
         else _style.Plate(this, R(left0, Top, totalW, ScoreBand * 0.5f), _scale);
@@ -122,14 +122,14 @@ public sealed partial class ScoreboardView : Control
     {
         _style.Plate(this, R(cx - w / 2f, Top, w, ScoreBand), _scale);
         bool named = name.Length > 0;
-        if (named) Text(_regular!, name, cx + (emblem is null ? 0f : 28f), Top + 44f, 28, BoardStyle.Header, 0);
+        if (named) Text(_regular!, name, cx + (emblem is null ? 0f : 28f), Top + 44f, UiType.Value, BoardStyle.Header, 0);
         if (emblem is not null && named)
         {
-            float tw = _regular!.GetStringSize(name, HorizontalAlignment.Left, -1, Math.Max(8, (int)MathF.Round(28 * _scale))).X / _scale;
+            float tw = _regular!.GetStringSize(name, HorizontalAlignment.Left, -1, Math.Max(8, UiType.Snap((int)MathF.Round(UiType.Value * _scale)))).X / _scale;
             var r = R(cx - tw / 2f - 30f, Top + 26f, 36f, 36f);
             DrawTextureRect(emblem, r, false);
         }
-        Text(_bold, score, cx, Top + (named ? 100f : ScoreBand / 2f), 72, White, 0);   // inside the plate's lower bevel (Opus review 2)
+        Text(_bold, score, cx, Top + (named ? 100f : ScoreBand / 2f), UiType.Score, White, 0);   // inside the plate's lower bevel (Opus review 2)
     }
 
     void DrawColumn(ScoreboardFrame f, Side side, float x0, float y0, float width, float bodyH)
@@ -141,7 +141,7 @@ public sealed partial class ScoreboardView : Control
         float statsW = width - NameX - 250f;
         float cellW = cells > 0 ? MathF.Min(118f, statsW / cells) : 0f;
         float CellX(int i) => x0 + width - 20f - (cells - i - 0.5f) * cellW;
-        for (int i = 0; i < cells; i++) Text(_regular!, f.Headers[i], CellX(i), y0 + HeaderH / 2f, 22, BoardStyle.Header, 0);
+        for (int i = 0; i < cells; i++) Text(_regular!, f.Headers[i], CellX(i), y0 + HeaderH / 2f, UiType.Caption, BoardStyle.Header, 0);
 
         float y = y0 + HeaderH;
         for (int r = 0; r < side.Rows.Count; r++, y += RowH)
@@ -155,8 +155,8 @@ public sealed partial class ScoreboardView : Control
             DrawRect(iconRect, Steel.SteelMid, false, MathF.Max(1f, 1.5f * _scale));
             float nameRoom = width - NameX - cells * cellW - 30f;
             var ink = BoardStyle.Ink(row.Me);
-            Text(_regular!, Fit(row.Name, nameRoom, 28), x0 + NameX, y + RowH / 2f, 28, ink, -1);
-            for (int i = 0; i < cells && i < row.Cells.Length; i++) Text(_regular!, row.Cells[i], CellX(i), y + RowH / 2f, 28, ink, 0);
+            Text(_regular!, Fit(row.Name, nameRoom, UiType.Value), x0 + NameX, y + RowH / 2f, UiType.Value, ink, -1);
+            for (int i = 0; i < cells && i < row.Cells.Length; i++) Text(_regular!, row.Cells[i], CellX(i), y + RowH / 2f, UiType.Value, ink, 0);
         }
     }
 
@@ -175,7 +175,7 @@ public sealed partial class ScoreboardView : Control
     void Text(Font font, string text, float x, float cy, int size, Color colour, int align)
     {
         if (text.Length == 0) return;
-        int px = Math.Max(8, (int)MathF.Round(size * _scale));
+        int px = Math.Max(8, UiType.Snap((int)MathF.Round(size * _scale)));
         float w = font.GetStringSize(text, HorizontalAlignment.Left, -1, px).X;
         float ascent = font.GetAscent(px), descent = font.GetDescent(px);
         var at = S(x, cy);

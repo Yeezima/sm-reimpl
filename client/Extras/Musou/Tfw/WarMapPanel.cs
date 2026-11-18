@@ -88,7 +88,7 @@ public sealed partial class WarMapPanel : Control
             dim.SetAnchorsPreset(LayoutPreset.FullRect);
             AddChild(dim);
             title.AddThemeFontOverride("font", UiKit.TitleFont);
-            title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
+            title.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Title));
             title.AddThemeColorOverride("font_color", UiKit.White);
         }
         AddChild(title);
@@ -105,7 +105,7 @@ public sealed partial class WarMapPanel : Control
         }
         _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Stormbird (Esc, or B on a controller)");
         Place(_closeButton, Left, Top + 76f + 3 * LaneHeight, 240f, 30f);
-        _closeButton.AddThemeFontSizeOverride("font_size", 26);
+        _closeButton.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate));
         _closeButton.Size = new Vector2(300f, 56f);
         SteelBackdrop.StylePlate(_closeButton);
         AddChild(_closeButton);
@@ -122,7 +122,7 @@ public sealed partial class WarMapPanel : Control
     {
         var l = UiKit.MenuText("", null, clip: false);
         l.Name = name;
-        l.AddThemeFontSizeOverride("font_size", size);
+        l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Level(size)));
         if (_steel) SteelBackdrop.StyleLine(l);
         Place(l, x, y, width, size + 8f);
         AddChild(l);
@@ -144,7 +144,7 @@ public sealed partial class WarMapPanel : Control
         if (_deploy is { } act)
         {
             deploy = UiKit.MenuButton("Deploy " + lane, () => act(lane));
-            deploy.AddThemeFontSizeOverride("font_size", 26); SteelBackdrop.StylePlate(deploy);
+            deploy.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate)); SteelBackdrop.StylePlate(deploy);
             Place(deploy, DeployColumn, y + 46f, 420f, 56f);
             AddChild(deploy);
         }

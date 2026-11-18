@@ -298,10 +298,13 @@ public sealed partial class CreatorView
 
 
     /// <summary>The one lettering of the page: the row face (<see cref="UiKit.ConceptFont"/>) at <paramref name="size"/> concept pixels, light on a dark plate and dark ink on gold.</summary>
+    /// <summary>The page's concept-pixel size as a size of the one table (UiType): 17 and up the primary action, 11.5 and up labels and plates, 8.5 and up captions, smaller ones the small level.</summary>
+    static int ArmPx(float size) => UiType.Px(size >= 17f ? UiType.Primary : size >= 11.5f ? UiType.Label : size >= 8.5f ? UiType.Caption : UiType.Small);
+
     static void ArmText(Control c, float size, float s, Color rest, Color pressed)
     {
         c.AddThemeFontOverride("font", UiKit.ConceptFont());
-        c.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+        c.AddThemeFontSizeOverride("font_size", ArmPx(size));
         c.AddThemeConstantOverride("outline_size", 0);
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_disabled_color" }) c.AddThemeColorOverride(n, rest);
         foreach (var n in new[] { "font_pressed_color", "font_hover_pressed_color" }) c.AddThemeColorOverride(n, pressed);
@@ -310,7 +313,7 @@ public sealed partial class CreatorView
     static void ArmLabel(Label l, float size, float s, Color colour)
     {
         l.AddThemeFontOverride("font", UiKit.ConceptFont());
-        l.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+        l.AddThemeFontSizeOverride("font_size", ArmPx(size));
         l.AddThemeConstantOverride("outline_size", 0);
         l.AddThemeConstantOverride("line_spacing", -Mathf.RoundToInt(0.32f * size * s));
         l.AddThemeColorOverride("font_color", colour);
@@ -415,7 +418,7 @@ public sealed partial class CreatorView
                 b.AddThemeConstantOverride("h_separation", 0);
                 b.CustomMinimumSize = new Vector2(0, 17f * s);
                 PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
-                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", Mathf.Max(11, Mathf.RoundToInt(ArmPlateSize * 0.86f * s)));
+                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", ArmPx(ArmPlateSize * 0.86f));
                 foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 4f * s; sb.ContentMarginRight = 4f * s; }
             }
             else if (c is Label l) ArmLabel(l, ArmPlateSize, s, ArmLight);

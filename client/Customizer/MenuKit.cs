@@ -81,12 +81,16 @@ public static partial class UiKit
     public static void FitMenuText(Vector2 windowPixels)
     {
         float scale = Mathf.Max(0.01f, Mathf.Min(windowPixels.X / VirtualWidth, windowPixels.Y / VirtualHeight));
-        int size = Mathf.Max(MenuTextSize, Mathf.CeilToInt(MinMenuPixels / scale));
-        if (Theme.GetFontSize("font_size", MenuButtonType) == size && Theme.GetFontSize("font_size", Steel.RowType) == Mathf.Max(Steel.RowSize, size)) return;
+        int size = UiType.Snap(Mathf.Max(MenuTextSize, Mathf.CeilToInt(MinMenuPixels / scale)));
+        // ui/text-scale: every theme size is a size of the table (UiType) moved to a whole number of window pixels; the loose ones follow the scale too.
+        Theme.DefaultFontSize = UiType.Snap(BodySize);
+        foreach (var type in new[] { "Label", "Button", "CheckButton", "CheckBox", "LineEdit", "OptionButton", "RichTextLabel", "PopupMenu" }) Theme.SetFontSize("font_size", type, UiType.Snap(BodySize));
+        Theme.SetFontSize("font_size", "TooltipLabel", UiType.Snap(CaptionSize));
+        if (Theme.GetFontSize("font_size", MenuButtonType) == size && Theme.GetFontSize("font_size", Steel.RowType) == UiType.Snap(Mathf.Max(Steel.RowSize, size))) return;
         foreach (var type in new[] { MenuButtonType, MenuLabelType }) Theme.SetFontSize("font_size", type, size);
         // The steel kit's text (ui/concept-redesign) keeps its own larger sizes and is raised by the same rule, so it never draws under the least readable size.
         foreach (var (type, baseSize) in new[] { (Steel.ButtonType, Steel.ButtonSize), (Steel.TabType, Steel.TabSize), (Steel.RowType, Steel.RowSize), (Steel.LabelType, Steel.RowSize), (Steel.SmallType, Steel.SmallSize), (Steel.PrimaryType, Steel.ButtonSize) })
-            Theme.SetFontSize("font_size", type, Mathf.Max(baseSize, Mathf.CeilToInt(MinMenuPixels / scale)));
+            Theme.SetFontSize("font_size", type, UiType.Snap(Mathf.Max(baseSize, Mathf.CeilToInt(MinMenuPixels / scale))));
     }
 
     /// <summary>The menus' look on the theme (from <see cref="BuildTheme"/>).</summary>

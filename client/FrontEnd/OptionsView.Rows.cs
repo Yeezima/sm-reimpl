@@ -21,8 +21,8 @@ public sealed partial class OptionsView
 
     void StyleRows(float s)
     {
-        if (!_concept || Mathf.IsEqualApprox(_rowsScale, s)) return;
-        _rowsScale = s;
+        if (!_concept || (Mathf.IsEqualApprox(_rowsScale, s) && _rowsKey == UiType.Key)) return;
+        _rowsScale = s; _rowsKey = UiType.Key;
         var rows = _grid.GetChildren().OfType<Control>().ToList();
         float LabelOf(Control r) => r switch { UiKit.MenuChoice c => c.ConceptLabelWidth(s), UiKit.MenuSlider sl => sl.ConceptLabelWidth(s), _ => 0f };
         float CtlNeed(Control r) => r switch { UiKit.MenuChoice c => c.ConceptControlWidth(s), UiKit.MenuSlider => (60f + SliderValueWidth + 4f) * s, _ => 0f };
@@ -96,7 +96,7 @@ public sealed partial class OptionsView
     static void PlateText(Button b, float s, float size, bool goldPressed, bool goldRest = false)
     {
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
-        b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+        b.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate));
         b.AddThemeConstantOverride("outline_size", 0);
         var light = new Color(0.84f, 0.83f, 0.80f); var dark = new Color(0.10f, 0.06f, 0.02f);
         foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color", "font_disabled_color" }) b.AddThemeColorOverride(c, goldRest ? dark : light);
@@ -111,7 +111,7 @@ public sealed partial class OptionsView
         {
             b.CustomMinimumSize = new Vector2(Mathf.Max(190f * s, 150f * s), 26.5f * s);
             b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-            b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(15.5f * s));
+            b.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate));
             if (ConceptArt.Get("opt-plate-blank") is not null && ConceptArt.Get("opt-plate-gold-blank") is not null)
             {
                 PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, true, paintedText: false, noGlow: false);
@@ -124,7 +124,7 @@ public sealed partial class OptionsView
         foreach (var l in w.GetChildren().OfType<Label>())
         {
             bool caption = l.Text == "RENDERER";
-            l.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt((caption ? UiKit.ConceptLabelFont : UiKit.ConceptValueFont) * s)); l.AddThemeFontOverride("font", UiKit.ConceptFont());
+            l.AddThemeFontSizeOverride("font_size", UiType.Px(caption ? UiType.Label : UiType.Value)); l.AddThemeFontOverride("font", UiKit.ConceptFont());
             l.VerticalAlignment = VerticalAlignment.Center;
             if (caption) { l.OffsetRight = labelW; l.AddThemeColorOverride("font_color", new Color(0.93f, 0.92f, 0.89f)); }
             else { l.OffsetLeft = labelW; l.AutowrapMode = TextServer.AutowrapMode.Off; }

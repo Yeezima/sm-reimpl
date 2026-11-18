@@ -137,7 +137,7 @@ public sealed partial class SlotStrip : VBoxContainer
             TooltipText = tags.Count > 0 ? string.Join(" - ", tags) : "",
             ClipText = true,
         };
-        chip.AddThemeFontSizeOverride("font_size", _compact ? 13 : UiKit.CaptionSize);
+        chip.AddThemeFontSizeOverride("font_size", UiType.Px(_compact ? 13 : UiKit.CaptionSize));
         var clear = new Color(0f, 0f, 0f, 0f);
         var normal = UiKit.Box(clear, clear, 0, 8);
         normal.ContentMarginTop = 28;

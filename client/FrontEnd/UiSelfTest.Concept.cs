@@ -107,11 +107,11 @@ public sealed partial class UiSelfTest
                 await Frames(3);
                 // Measured at the kit's base sizes (a headless window is tiny, so the theme's size, raised to stay readable there, is not the one at 1080p).
                 var cut = new System.Collections.Generic.List<string>();
-                float Need(string text) => Steel.CondensedFont().GetStringSize(text, HorizontalAlignment.Left, -1, Steel.RowSize).X;
+                float Need(string text) => UiKit.ConceptFont().GetStringSize(text, HorizontalAlignment.Left, -1, UiType.Px(UiType.Label)).X;   // ui/text-scale: the row labels are the label level
                 foreach (var l in AllLabels(options.Grid).Where(x => x.IsVisibleInTree() && x.ThemeTypeVariation == Steel.LabelType && x.GetParent() is UiKit.MenuSlider && !x.Name.ToString().EndsWith("Value", StringComparison.Ordinal)))
-                    if (Need(l.Text) > OptionsView.LabelWidth - 8f) cut.Add($"{l.Text} {Need(l.Text):F0}");
+                    if (Need(l.Text) > l.Size.X + 0.5f) cut.Add($"{l.Text} {Need(l.Text):F0}");
                 foreach (var b in AllButtons(options.Grid).OfType<UiKit.MenuChoice>().Where(x => x.IsVisibleInTree()))
-                    if (Need(b.Text) > OptionsView.LabelWidth - 8f) cut.Add($"{b.Text} {Need(b.Text):F0}");
+                    if (Need(b.Text) > b.LabelColumn + 0.5f) cut.Add($"{b.Text} {Need(b.Text):F0}");
                 Check($"concept: every label on {tab} is whole in its column", cut.Count == 0, string.Join(", ", cut));
             }
             options.ShowTab(OptionsView.Graphics);

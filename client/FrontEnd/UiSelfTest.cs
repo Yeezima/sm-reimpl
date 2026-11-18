@@ -444,6 +444,7 @@ public sealed partial class UiSelfTest : Node
 
                 Check($"fit {at}: the front end has the Host panel (forced on in the self-test)", _front.HasHostPanel);
                 await MenuFitChecks(view, at);   // ui/menu-rebuild (UiSelfTest.Menus.cs)
+                await TextLevelChecks(at);   // ui/text-scale (UiSelfTest.TextLevels.cs)
 
                 _front.ShowCreator();
                 creator.OpenSelection(Selection.CustomSlot(10));

@@ -47,7 +47,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
     static int Slices => Array.IndexOf(OS.GetCmdlineUserArgs(), "--options-short") >= 0 ? 0 : 2;
     static float Ex => PanelFrame.ExtraV2(Slices);
     readonly MarginContainer _rowsMargin = new() { MouseFilter = MouseFilterEnum.Ignore };
-    float _rowsScale;   // the scale the rows were last styled at (0: restyle)
+    float _rowsScale; int _rowsKey;   // the scale the rows were last styled at (0: restyle)
     FrontEndSettings _snapshot;
     public string Tab { get; private set; } = Graphics;
     UiKit.MenuChoice? _windowRow, _resolutionRow;   // the Graphics rows F11 changes behind the player's back
@@ -119,7 +119,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         var space = new Control { CustomMinimumSize = new Vector2(80f, 0f), MouseFilter = MouseFilterEnum.Ignore };
         actions.AddChild(_apply); actions.AddChild(_revert); actions.AddChild(space); actions.AddChild(_back);
         var toastBox = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(0f, 38f) };
-        _toast.AddThemeFontSizeOverride("font_size", Steel.RowSize);
+        _toast.AddThemeFontSizeOverride("font_size", UiType.Px(Steel.RowSize));
         _toast.AddThemeColorOverride("font_color", Steel.GoldHi);
         _toast.AddThemeStyleboxOverride("normal", new Steel.SteelStyle(Steel.Kind.Recess, 6f, 22f, 5f));
         _toast.CustomMinimumSize = new Vector2(280f, 34f);
@@ -150,11 +150,12 @@ public sealed partial class OptionsView : UiKit.MenuPage
     void EnterConceptLayout(Texture2D ov)
     {
         _concept = true;
-        _overlay.Texture = PanelFrame.Texture("overlay-options", Slices) ?? ov;
+        _overlay.Texture = PanelFrame.Texture("overlay-panel", Slices) ?? PanelFrame.Texture("overlay-options", Slices) ?? ov;   // ui/text-scale: the frame with a blank title plate; OPTIONS is live Oswald like every page title (never a painted word)
         AddChild(_overlay); MoveChild(_overlay, 1);
         _frame.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         _frame.MouseFilter = MouseFilterEnum.Ignore;
-        foreach (var c in new Control[] { _pillarLeft, _pillarRight, _crest, _plate, _skull }) c.Visible = false;
+        foreach (var c in new Control[] { _pillarLeft, _pillarRight, _crest, _skull }) c.Visible = false;
+        if (ConceptArt.Get("overlay-panel") is not null) ConceptPanelPage.StyleTitle(_plate, "OPTIONS"); else _plate.Visible = false;
         _frame.RemoveChild(_inner);
         _inner.QueueFree();
         AddChild(_tabHost);
@@ -188,6 +189,12 @@ public sealed partial class OptionsView : UiKit.MenuPage
         var ro = UiTextureBuilder.V2OverlayRegion;
         var region = V(new Rect2(ro.Position.X, ro.Position.Y, ro.Size.X, ro.Size.Y + Ex));
         _overlay.Position = region.Position; _overlay.Size = region.Size;
+        if (_plate.Visible)   // the live title on the blank plate (ui/text-scale)
+        {
+            var tr = ConceptPanelPage.TitleRectV2; float kk = _overlay.Size.X / ConceptPanelPage.FrameW;
+            _plate.Position = _overlay.Position + tr.Position * kk; _plate.Size = tr.Size * kk;
+            ConceptPanelPage.FitTitle(_plate, _plate.Size.X * 0.92f);
+        }
         // Tabs (the host spans the tab strip; the plates are v2's own rectangles).
         var strip = V(new Rect2(140f, 104f, 552f, 32f));
         _tabHost.Position = strip.Position; _tabHost.Size = strip.Size;
@@ -196,10 +203,10 @@ public sealed partial class OptionsView : UiKit.MenuPage
         {
             var b = _tabs[Tabs[i]]; var r = V(UiTextureBuilder.V2Tabs[i]);
             b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position - strip.Position; b.Size = r.Size;
-            if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) continue;
-            b.SetMeta("painted_s", s);
+            if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s) && b.GetMeta("painted_k", 0).AsInt32() == UiType.Key) continue;
+            b.SetMeta("painted_s", s); b.SetMeta("painted_k", UiType.Key);
             PaintedButtons.Apply(b, "opt-tab-" + ids[i] + "-dark", "opt-tab-" + ids[i] + "-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
-            PlateText(b, s, 13.4f, goldPressed: true);   // one lettering for all four tabs (owner 2026-11-15: text of one level renders identically)
+            PlateText(b, s, UiType.Plate, goldPressed: true);   // one lettering for all four tabs (owner 2026-11-15: text of one level renders identically)
             PaintedButtons.FocusAsPlate(b, b.ButtonPressed);
         }
         // The rows scroll inside the content area.
@@ -215,10 +222,10 @@ public sealed partial class OptionsView : UiKit.MenuPage
         void Plate(Button b, Rect2 rect, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, bool goldFocus, bool goldRest = false, bool noGlow = true)
         {
             var r = V(rect); b.CustomMinimumSize = Vector2.Zero; b.Position = r.Position; b.Size = r.Size;
-            if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s)) return;
-            b.SetMeta("painted_s", s);
+            if (Mathf.IsEqualApprox((float)b.GetMeta("painted_s", 0f), s) && b.GetMeta("painted_k", 0).AsInt32() == UiType.Key) return;
+            b.SetMeta("painted_s", s); b.SetMeta("painted_k", UiType.Key);
             PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: false, goldRest: goldRest, noGlow: noGlow);
-            PlateText(b, s, 15f, goldPressed: gold != dark, goldRest: goldRest);   // APPLY, REVERT and BACK: one lettering
+            PlateText(b, s, UiType.Plate, goldPressed: gold != dark, goldRest: goldRest);   // APPLY, REVERT and BACK: one lettering
             if (b != _back)   // v2 sets APPLY and REVERT's lettering 2 px below the plate's centre
                 foreach (var st in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })
                     if (b.GetThemeStylebox(st) is StyleBoxTexture tb) { tb = (StyleBoxTexture)tb.Duplicate(); tb.ContentMarginTop = 3.8f * s; b.AddThemeStyleboxOverride(st, tb); }
@@ -258,7 +265,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         }
         _grid.UpdateMinimumSize(); _wide.UpdateMinimumSize();
         _list.ScrollVertical = 0;
-        _rowsScale = 0f;
+        _rowsScale = 0f; _rowsKey = 0;
         Place();
     }
 

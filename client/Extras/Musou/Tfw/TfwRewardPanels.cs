@@ -36,7 +36,7 @@ public abstract partial class TfwPagePanel : Control
         var l = UiKit.MenuText(text.ToUpperInvariant(), colour, clip: false);
         l.Name = name;
         size = size <= 18 ? 24 : size <= 22 ? 26 : size;   // page-size lettering: the row labels and notes read at the pages' own size (Opus review 3)
-        l.AddThemeFontSizeOverride("font_size", size);
+        l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Level(size)));
         SteelBackdrop.StyleLine(l);
         Place(l, x, y, width, size + 8f);
         AddChild(l);
@@ -46,7 +46,7 @@ public abstract partial class TfwPagePanel : Control
     protected Button Row(string text, Action act, float y, int size = 22, float x = Left, float width = 900f)
     {
         var b = UiKit.MenuButton(text, act);
-        b.AddThemeFontSizeOverride("font_size", size);
+        b.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Plate));
         SteelBackdrop.StylePlate(b);
         Place(b, x, y, width, Math.Max(size + 30f, 58f));
         AddChild(b);

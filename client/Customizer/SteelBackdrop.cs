@@ -77,10 +77,10 @@ public sealed partial class SteelBackdrop : Control
     }
 
     /// <summary>A page title in the plate's lettering: Oswald, light steel, at <paramref name="size"/> UI pixels.</summary>
-    public static void StyleTitle(Label head, int size = 56)
+    public static void StyleTitle(Label head, int size = UiType.Title)
     {
         head.AddThemeFontOverride("font", UiKit.ConceptFont());
-        head.AddThemeFontSizeOverride("font_size", size);
+        head.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Level(size)));
         EmbossTitle(head);
     }
 

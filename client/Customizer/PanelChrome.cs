@@ -11,7 +11,7 @@ public sealed partial class PanelChrome : Control
 {
     const float OverlayW = PanelFrame.OverlayW, OverlayH = PanelFrame.OverlayH, RowsX = 79.4f, RowsW = 580f, StripY = 84f, RowsY = 124f, RowsBottom = 262f;
     static readonly Rect2 TitleRect = new(268f, 41f, 198f, 33f);
-    readonly TextureRect _overlay = new() { Name = "ChromeOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.Linear };
+    readonly TextureRect _overlay = new() { Name = "ChromeOverlay", MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps };
     readonly ColorRect _dim = new() { Name = "ChromeDim", Color = new Color(0f, 0f, 0f, 0.38f), MouseFilter = MouseFilterEnum.Ignore };
     readonly Label _title = new() { Name = "ChromeTitle", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
     readonly int _slices = 2;
@@ -50,9 +50,9 @@ public sealed partial class PanelChrome : Control
         _overlay.Position = o; _overlay.Size = new Vector2(OverlayW, totalH) * sv;
         var t = R(TitleRect); _title.Position = t.Position; _title.Size = t.Size;
         Scale = sv * 15f / 14f;
-        var font = UiKit.ConceptFont(); int size = Mathf.RoundToInt(21f * Scale);
+        var font = UiKit.ConceptFont(); int size = UiType.Px(UiType.Title);
         while (size > 8 && font.GetStringSize(_title.Text, HorizontalAlignment.Left, -1, size).X > t.Size.X * 0.92f) size--;
-        _title.AddThemeFontSizeOverride("font_size", size);
+        _title.AddThemeFontSizeOverride("font_size", UiType.Snap(size));
         Strip = R(new Rect2(RowsX, 86f, RowsW, 26f));
         RowsArea = R(new Rect2(RowsX, RowsY, RowsW, RowsBottom - RowsY + extra));
         Tray = R(new Rect2(295f, 274.5f + extra, 146.5f, 28f));

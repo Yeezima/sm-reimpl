@@ -92,7 +92,7 @@ public sealed partial class ControlsView : Control
         _hint = UiKit.Text("", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true);
         _status = UiKit.Text("", UiKit.CaptionSize, UiKit.White, HorizontalAlignment.Left, true);
         _status.Name = "ControlsStatus";
-        foreach (var note in new[] { _hint, _status }) { note.AddThemeFontOverride("font", UiKit.NoteFont()); note.AddThemeFontSizeOverride("font_size", 19); }
+        foreach (var note in new[] { _hint, _status }) { note.AddThemeFontOverride("font", UiKit.NoteFont()); note.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Caption)); }
 
         _scroll = UiKit.Scroll(_rows);
         _scroll.Name = "ControlsList";
@@ -162,7 +162,7 @@ public sealed partial class ControlsView : Control
         {
             b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
             b.AddThemeFontOverride("font", UiKit.ConceptFont());
-            b.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(size * s));
+            b.AddThemeFontSizeOverride("font_size", UiType.Px((int)size));
             b.AddThemeConstantOverride("outline_size", 0);
             foreach (var c in new[] { "font_color", "font_hover_color", "font_focus_color" }) b.AddThemeColorOverride(c, goldRest ? dark : light);
             foreach (var c in new[] { "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, dark);
@@ -172,13 +172,13 @@ public sealed partial class ControlsView : Control
         {
             t.CustomMinimumSize = new Vector2(t == _tabKeyboard ? 190f * s : 150f * s, _chrome.Strip.Size.Y);
             PaintedButtons.Apply(t, "opt-tab-controls-dark", "opt-tab-controls-gold", new PaintedButtons.Pad(3, 3, 3, 3), new PaintedButtons.Pad(3, 4, 3, 5), s, goldFocus: false, paintedText: false);
-            Text(t, 13.4f, false);
+            Text(t, UiType.Plate, false);
             if (t.GetThemeStylebox("pressed") is { } goldTab) t.AddThemeStyleboxOverride("focus", goldTab);   // focus is the gold plate: no rectangle outline (Opus review 3)
         }
         var tray = _chrome.Tray;
         _reset.TopLevel = true; _reset.CustomMinimumSize = Vector2.Zero; _reset.Position = tray.Position + GlobalPosition; _reset.Size = tray.Size;
         PaintedButtons.Apply(_reset, "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), s, true, paintedText: false, goldRest: false, noGlow: true);
-        Text(_reset, 12f, false);
+        Text(_reset, UiType.Plate, false);
         _reset.Text = "RESET TO DEFAULTS";
     }
 
@@ -222,8 +222,8 @@ public sealed partial class ControlsView : Control
         foreach (var key in _binds.Keys.Where(k => k.Item1 == _device).ToList()) _binds.Remove(key);
         int slots = BindingSet.Slots(_device);
         var head = UiKit.HBox(10);
-        head.AddChild(UiKit.Text("ACTION", UiKit.CaptionSize, UiKit.Grey).With(l => l.SizeFlagsHorizontal = SizeFlags.ExpandFill));
-        for (int s = 0; s < slots; s++) head.AddChild(UiKit.Text(slots == 1 ? "BUTTON" : s == 0 ? "PRIMARY" : "SECONDARY", UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Center).With(l => l.CustomMinimumSize = new Vector2(BindWidth, 0)));
+        head.AddChild(UiKit.Text("ACTION", UiType.Caption, UiKit.Grey).With(l => l.SizeFlagsHorizontal = SizeFlags.ExpandFill));
+        for (int s = 0; s < slots; s++) head.AddChild(UiKit.Text(slots == 1 ? "BUTTON" : s == 0 ? "PRIMARY" : "SECONDARY", UiType.Caption, UiKit.Grey, HorizontalAlignment.Center).With(l => l.CustomMinimumSize = new Vector2(BindWidth, 0)));
         _rows.AddChild(head);
         string group = "";
         Button? first = null;
@@ -232,10 +232,10 @@ public sealed partial class ControlsView : Control
             if (info.Group != group)
             {
                 group = info.Group;
-                _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiKit.BodySize, new Color(0.97f, 0.82f, 0.4f)).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
+                _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiType.Value, new Color(0.97f, 0.82f, 0.4f)).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
             }
             var row = UiKit.HBox(10);
-            row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiKit.BodySize, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
+            row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiType.Value, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
             var buttons = new List<Control>();
             for (int s = 0; s < slots; s++)
             {
@@ -243,6 +243,7 @@ public sealed partial class ControlsView : Control
                 var action = info.Action;
                 var b = new Button { Text = "", FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(BindWidth, UiKit.MinHit), ClipText = true, ThemeTypeVariation = Steel.TabType, Name = $"Bind_{info.Action}_{slot}",
                     TooltipText = "Click, then press the new input. Delete or a right click clears it." };
+                b.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Value));   // ui/text-scale: a table cell is the value level
                 b.Pressed += () => BeginCapture(action, slot);
                 b.GuiInput += ev => { if (ev is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } && _capture is null) { Accept(); ClearBinding(action, slot); } };
                 row.AddChild(b);
@@ -254,15 +255,15 @@ public sealed partial class ControlsView : Control
             _rows.AddChild(row);
         }
         // What cannot be rebound, so nobody looks for it.
-        _rows.AddChild(UiKit.Text("FIXED", UiKit.BodySize, UiKit.Gold).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
+        _rows.AddChild(UiKit.Text("FIXED", UiType.Value, UiKit.Gold).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
         var fixedRows = _device == BindDevice.Keyboard
             ? new[] { ("Look", "Mouse"), ("Turn (keyboard)", "Left / Right arrows"), ("Game menu", "Esc"), ("Info overlay", "F1"), ("Fullscreen", "F11") }
             : new[] { ("Move", "Left stick"), ("Look", "Right stick"), ("Game menu", "Start") };
         foreach (var (label, value) in fixedRows)
         {
             var row = UiKit.HBox(10);
-            row.AddChild(UiKit.Text(label, UiKit.BodySize, UiKit.Grey).With(l => l.SizeFlagsHorizontal = SizeFlags.ExpandFill));
-            row.AddChild(UiKit.Text(value, UiKit.BodySize, UiKit.Grey, HorizontalAlignment.Center).With(l => l.CustomMinimumSize = new Vector2(BindWidth, 0)));
+            row.AddChild(UiKit.Text(label, UiType.Value, UiKit.Grey).With(l => l.SizeFlagsHorizontal = SizeFlags.ExpandFill));
+            row.AddChild(UiKit.Text(value, UiType.Value, UiKit.Grey, HorizontalAlignment.Center).With(l => l.CustomMinimumSize = new Vector2(BindWidth, 0)));
             _rows.AddChild(row);
         }
         RefreshTexts();

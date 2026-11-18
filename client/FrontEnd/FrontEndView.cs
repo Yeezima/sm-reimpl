@@ -98,6 +98,7 @@ public sealed partial class FrontEndView : Control
         Name = "FrontEnd";
         SetAnchorsPreset(LayoutPreset.FullRect);
         Theme = UiKit.Theme;
+        TextureFilter = TextureFilterEnum.LinearWithMipmaps;   // ui/text-scale: every painted piece of the menus is shrunk once with its mipmaps (the art is 4x)
     }
 
     /// <summary>The screen's background: the looping video (2026-11-10) or, with <c>--menu-still</c>, the still picture.</summary>
@@ -342,8 +343,8 @@ public sealed partial class FrontEndView : Control
         }
 
         var foot = UiKit.VBox(2);
-        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", 16); }));
-        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", 16); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
+        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); }));
+        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
         foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }

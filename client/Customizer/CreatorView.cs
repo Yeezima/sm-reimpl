@@ -590,7 +590,7 @@ public sealed partial class CreatorView : Control
             var b = UiKit.Toggle($"Perk {i + 1}: {Trim(label, 22)}", _perkSlot == i, on => { if (on) _perkSlot = slot; Callable.From(() => RebuildList(true)).CallDeferred(); }, 0);
             b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             b.ClipText = true;
-            b.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize);
+            b.AddThemeFontSizeOverride("font_size", UiType.Px(UiKit.CaptionSize));
             slotRow.AddChild(b);
             slotButtons.Add(b);
         }
@@ -722,7 +722,7 @@ public sealed partial class CreatorView : Control
         float available = panel - chrome;
         int fitted = CardTextMax;
         while (fitted > CardTextMin && Height(fitted) > available) fitted--;
-        foreach (var l in new[] { _cardBody, _cardExtra }) l?.AddThemeFontSizeOverride("font_size", fitted);
+        foreach (var l in new[] { _cardBody, _cardExtra }) l?.AddThemeFontSizeOverride("font_size", UiType.Snap(fitted, CardTextMin));
         _cardNeeded = Height(fitted); _cardAvailable = available;
     }
 

@@ -110,7 +110,7 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
         var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
         _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
-        int linkSize = Mathf.Max(9, Mathf.RoundToInt(np.Size.Y * s * 0.46f));
+        int linkSize = UiType.Px(UiType.Small);
         _link.AddThemeFontSizeOverride("font_size", linkSize);
         // The address sits in the middle of the plate (Opus review 2).
         float linkW = UiKit.ConceptFont().GetStringSize(_link.Text, HorizontalAlignment.Left, -1, linkSize).X + 4f;

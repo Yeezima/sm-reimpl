@@ -721,6 +721,8 @@ public partial class ModelViewer : Node3D
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         var err = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print(err == Error.Ok ? $"screenshot -> {path}" : $"screenshot failed: {err}");
+        if (_launchArgs.GetValueOrDefault("text-audit") is { Length: > 0 } auditFile && _frontEnd is not null)   // ui/text-scale aid: the live text of the screen with its sizes (menus only)
+            System.IO.File.WriteAllText(System.IO.Path.GetFullPath(auditFile), SmClient.Customizer.UiTextAudit.Dump(_frontEnd));
         if (_screenshotEvery is { } interval) { _nextSeriesShot = _elapsed + interval; _network?.ObserveTourAdvance(); return; }
         _screenshot = null;
         if (_quit && _quitAfter is null) GetTree().Quit(err == Error.Ok ? 0 : 1);
