@@ -19,6 +19,8 @@ public sealed class Sm1Map(string map, IReadOnlyList<Sm1Object> objects, IReadOn
     public IReadOnlyList<Sm1Object> Objects { get; } = objects;
     public IReadOnlyDictionary<string, Sm1Definition> Definitions { get; } = definitions;
     public IReadOnlyList<string> Notes { get; } = notes;
+    /// <summary>Indices of placements the game does not draw either (armoury wall stations on Manufactorum); an import leaves them out. Null: none known.</summary>
+    public IReadOnlySet<int>? Hidden { get; init; }
 }
 
 /// <summary>Where SM1 map data comes from. The installed game in production; a synthetic fake in tests.</summary>
@@ -57,7 +59,7 @@ public sealed class InstalledSm1Source(string gameDir) : ISm1Source
         foreach (var d in scene.Definitions.Values.OrderBy(d => d.Name, StringComparer.Ordinal))
             definitions[d.Name] = new Sm1Definition(d.Name, d.Visuals.Count, BoundsOf(scene, d), PartBounds(scene, d), d.NearestLod().Select(v => v.RefNode).ToList());
         var objects = scene.Objects.Select(o => new Sm1Object(o.Name, o.Definition, o.Layer, o.Transform, o.Depth)).ToList();
-        return _cache[map] = new Sm1Map(map, objects, definitions, scene.Notes);
+        return _cache[map] = new Sm1Map(map, objects, definitions, scene.Notes);   // Hidden stays null: MapDecor lives in the client, so only the editor's source knows those placements.
     }
 
     /// <summary>Each nearest-LOD part's box in the definition's frame (null when its mesh block is missing).</summary>

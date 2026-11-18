@@ -132,6 +132,15 @@ checks the previews of all three sources, the placeholders, rename and takes scr
 `group-to-prefab {ids, prefab, name, origin: "bounds-bottom-center"|"first"|[x,y,z], collision?, replace?}` (replace: swaps the selection for one
 linked instance at the same place) Â· `prefab-edit {prefab, origin?, addParts?, removeParts?, setPart?}` Â· `delete-asset {asset}` (refused with `asset-in-use` while an object or prefab uses it; undo restores the folder from the library trash) · `delete-prefab {prefab}` (refused with `prefab-in-use` while this map or another prefab uses it; undo restores the file) Â· `instance-override {id, part, visible?, transform?}` Â·
 `import-asset {path, id?, name?}` Â· `import-prefab {path}` Â· `extract-sm1 {map, objects:[names | {index, part?}], prefab, name, origin?, collision?}` (provenance keeps `indices`, and `parts` when a part was taken).
+`import-sm1-map {map, name?}` -> the group's id (the owner's "edit an original map", 2026-11-18): every drawn placement of the original map becomes an ordinary
+object (`asset {source: sm1, map, definition}`, the exact placement decomposed once) under one group named after the map (`name` overrides), all one undo step.
+Left out, each said in the result's warnings: placements whose definition draws nothing (markers, lights, empty groups), the armoury stations the game also hides
+(editor source only), a sheared matrix, and anything past 15000 objects (`Sm1Import.MaxObjects`, under the 8 MB / 20000 file limits). Not in the document at
+all: decals, lights, terrain, collision, the original's spawns and logic, and composite placements (Manufactorum's `tarmacgroundplane`) come in whole, not part by part.
+Plugin: Map tab > SM1 reference map > **Import SM1 map for editing** (`MapmakerPlugin.ImportSm1ForEditing`) reads the map if needed, opens a "Remix of ..." map when
+none is open, imports, hides the read-only backdrop and frames the view; each object is a node in the Scene tree under the group (select, move, delete there or with
+the gizmo). **Save as...** stores it as a new map: the file holds references (map, definition, transform) only, no original bytes; the game install is only read.
+The imported pieces are not solid in play (see "Not in v1"): add a Floor and Invisible walls (or the Fix it buttons) before Play test.
 Snapping is applied by the caller (`Snap.Grid`, `Snap.Angle` helpers in the core) so a typed value is never re-snapped.
 Results: `{ ok, created:[ids], warnings:[...], errors:[{ code, message, op, id? }] }`. Error codes are stable strings (`unknown-id`,
 `unknown-asset`, `unknown-prefab`, `prefab-cycle`, `bad-transform`, `missing-install`, `bad-file`, ...).
