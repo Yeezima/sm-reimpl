@@ -49,7 +49,7 @@ public static class Sm1Catalog
         try { dir = Sm1Source.GameDir(); } catch (Exception) { }
         if (dir is null) { lock (Gate) _problem = "The Space Marine install was not found, so the SM1 definitions cannot be listed."; Bump(); return; }
         string cache = Sm1Index.DefaultCacheDir;
-        _ = Task.Run(() => Work(dir, cache));
+        Task.Run(() => Work(dir, cache)).ContinueWith(t => { lock (Gate) _problem = "The SM1 definitions could not be listed: " + t.Exception?.GetBaseException().Message; Bump(); }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     static void Bump() => Interlocked.Increment(ref _revision);
@@ -74,12 +74,12 @@ public static class Sm1Catalog
                 }
                 if (next is null) break;
                 try { var entry = Sm1Index.Load(gameDir, next, cache); lock (Gate) Entries[next.Name] = entry; }
-                catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { lock (Gate) Failed[next.Name] = e.Message; }
+                catch (Exception e) { lock (Gate) Failed[next.Name] = e is OutOfMemoryException ? "Out of memory while indexing this map." : e.Message; }   // OOM too: one big map must not stall the list
                 Bump();
                 GC.Collect();   // each map's meshes and textures were only read for their names
             }
         }
-        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        catch (Exception e)
         {
             lock (Gate) _problem = "The SM1 definitions could not be listed: " + e.Message;
             Bump();

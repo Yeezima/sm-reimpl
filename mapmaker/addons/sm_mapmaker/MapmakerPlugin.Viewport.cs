@@ -112,6 +112,7 @@ public partial class MapmakerPlugin
             bool drew = _boxActive; var press = _boxPress; bool alt = _boxAlt;
             CancelBox();
             GetViewport().SetInputAsHandled();
+            if (drew || alt) _dblPendingAt = 0;
             if (drew) FinishBox(new Rect2(_boxFrom, Vector2.Zero).Expand(b.Position), b.ShiftPressed, b.CtrlPressed);
             else if (press is not null && !alt) _ = ReplayClick(press, (InputEventMouseButton)b.Duplicate());
             return true;
@@ -130,9 +131,15 @@ public partial class MapmakerPlugin
 
     async Task ReplayClick(InputEventMouseButton press, InputEventMouseButton release)
     {
-        _replaying = true; try { GetTree().Root.PushInput(press); } finally { _replaying = false; }
-        for (int i = 0; i < 2; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        _replaying = true; try { GetTree().Root.PushInput(release); } finally { _replaying = false; }
+        _replayInFlight = true;
+        try
+        {
+            _replaying = true; try { GetTree().Root.PushInput(press); } finally { _replaying = false; }
+            for (int i = 0; i < 2; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            _replaying = true; try { GetTree().Root.PushInput(release); } finally { _replaying = false; }
+        }
+        finally { _replayInFlight = false; }
+        await ExpandPending();   // a double-click's group expansion goes after the replayed release, which would otherwise select the single object again
     }
 
     void CancelBox()

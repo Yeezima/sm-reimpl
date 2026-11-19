@@ -1069,7 +1069,7 @@ sealed class MainForm : Form
                 await setup.EnsureToolsAsync(setup.Plan(versionDir), http, progress, _cts.Token);
             }
             int changed = await Task.Run(() => setup.Repair(versionDir));
-            var after = setup.Verify(versionDir);
+            var after = await Task.Run(() => setup.Verify(versionDir));
             _log?.Write($"mapmaker repair for {tag}: {changed} files changed; now: {after.Describe()}");
             EndBusy();
             SetLine(after.Ok ? "The Mapmaker was repaired." : "The Mapmaker still has problems: " + after.Describe(), after.Ok ? Good : Warn);
