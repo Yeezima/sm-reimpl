@@ -153,17 +153,21 @@ public static class MapDecorLists
         var always = new HashSet<string>(set.Always, StringComparer.OrdinalIgnoreCase);
         var near = new HashSet<string>(set.Near, StringComparer.OrdinalIgnoreCase);
         var boards = new List<(float X, float Y)>();
+        var paperAnchors = new List<(float X, float Y)>();
         for (int i = 0; i < placements.Count; i++)
         {
             var (d, x, y) = placements[i];
             // The boards' places (backpanel_*, and the cabinets whose plates are not drawn) anchor the Near rule.
-            if (d.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || d.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase) || (d.Equals("tech_interface_a", StringComparison.OrdinalIgnoreCase) && map.Equals(Map, StringComparison.OrdinalIgnoreCase))) boards.Add((x, y));
+            if (d.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || d.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase)) boards.Add((x, y));
+            if (d.Equals("tech_interface_a", StringComparison.OrdinalIgnoreCase) && map.Equals(Map, StringComparison.OrdinalIgnoreCase)) paperAnchors.Add((x, y));   // Manufactorum's consoles anchor the papers only
             if (always.Contains(d)) hidden.Add(i);
         }
         for (int i = 0; i < placements.Count; i++)
         {
             var (d, x, y) = placements[i];
             if (near.Contains(d) && boards.Any(b => (b.X - x) * (b.X - x) + (b.Y - y) * (b.Y - y) <= NearRadius * NearRadius)) hidden.Add(i);
+            else if (near.Contains(d) && (d.StartsWith("acc_seal", StringComparison.OrdinalIgnoreCase) || d.StartsWith("acc_scroll", StringComparison.OrdinalIgnoreCase))
+                     && paperAnchors.Any(b => (b.X - x) * (b.X - x) + (b.Y - y) * (b.Y - y) <= NearRadius * NearRadius)) hidden.Add(i);
         }
         return hidden;
     }

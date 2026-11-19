@@ -122,6 +122,11 @@ public class MapDecorListsTests
         Assert.DoesNotContain(0, hidden);   // the console itself stays
         // the anchor is Manufactorum's alone: Chem Refinery's papers are unchanged by a tech_interface_a
         Assert.DoesNotContain(1, MapDecorLists.Hidden("mp_dlc2_map1", false, [("tech_interface_a", 10f, 10f), ("acc_scroll_01", 11f, 10f)]));
+        // only the papers: a pipe run and a tank beside a tech_interface_a console are kept on Manufactorum (reviewer, 2026-11-19)
+        var kept = MapDecorLists.Hidden("mp_tdm_09", false, [("tech_interface_a", 10f, 10f), ("tech_panel_pipe_g", 12f, 10f), ("tech_panel_tank_a", 11f, 11f), ("acc_seal_01", 11f, 9f)]);
+        Assert.DoesNotContain(1, kept);
+        Assert.DoesNotContain(2, kept);
+        Assert.Contains(3, kept);
     }
 
     [Fact]
