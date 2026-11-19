@@ -96,7 +96,7 @@ public sealed partial class FrontEndView : Control
     public AppearanceView? Appearance => _appearance;
     public bool ShowsMainMenu => _main?.Visible == true;
 
-    readonly string? _startMessage;
+    string? _startMessage;
 
     /// <param name="startMessage">Shown on the main menu when it opens (why the last join failed).</param>
     public FrontEndView(Func<CustomizerServices> makeServices, Action<JoinRequest> join, StartScreen start, Dictionary<string, string?> args, string? startMessage = null)

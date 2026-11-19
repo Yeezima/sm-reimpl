@@ -71,6 +71,7 @@ public sealed partial class FrontEndView
     /// <summary>The front end is built: a server this client started is stopped when the player left a match (a failed join keeps it for one retry).</summary>
     void WarfrontAtMenu()
     {
+        _startMessage = WarfrontOnline.Message(_startMessage);   // a failed online join says the campaign is not reachable
         var (running, _, warfront) = WarfrontServerState();
         bool ours = running && warfront;
         switch (WarfrontLocal.AtMenu(ours, WarfrontMenuState.Joined, WarfrontMessageForTest ?? _startMessage, WarfrontMenuState.Retries))
@@ -144,6 +145,7 @@ public sealed partial class FrontEndView
         else if (running) { hostRow.Disabled = true; hostRow.TooltipText = "A server of this game is running. Stop it first."; }
         page.Rows.AddChild(hostRow);
         page.Rows.AddChild(UiKit.MenuButton(WarfrontLocal.JoinRow, () => ShowPage(_joinLocalPage!), "A Warfront hosted on another PC: type its address"));
+        if (WarfrontOnline.Enabled) page.Rows.AddChild(UiKit.MenuButton(WarfrontOnline.Row, WarfrontJoinOnline, WarfrontOnline.RowTooltip));
         page.Rows.AddChild(UiKit.MenuButton("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
         page.Rows.AddChild(UiKit.MenuGap(0.5f));
         page.Rows.AddChild(UiKit.MenuText(WarfrontLocal.CoopNote.ToUpperInvariant(), UiKit.Grey).With(l => l.TooltipText = WarfrontLocal.CoopNote));
@@ -278,6 +280,13 @@ public sealed partial class FrontEndView
         if (!CommandLineMusou) _services.Content = _services.Settings.ContentExtras;
         ShowWarfrontPage();
         Say(WarfrontLocal.StoppedText, false);
+    }
+
+    /// <summary>ONLINE WARFRONT: the shared campaign on the public host, nothing to type; the session is on the Warfront profile (as the friend join), the address is not remembered.</summary>
+    void WarfrontJoinOnline()
+    {
+        _services.Content = ContentProfiles.WarfrontProfile;
+        TryJoin(WarfrontOnline.Address, remember: false);
     }
 
     void WarfrontJoin()
