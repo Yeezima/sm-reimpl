@@ -129,12 +129,65 @@ public sealed record PartOverride(string Part, bool? Visible, MapTransform? Tran
     }
 }
 
+/// <summary>
+/// Where an object came from in a Classic map (docs/mapmaker.md "Classic link"): the SM1 map name, a stable <paramref name="Key"/> for the item in that map, a fingerprint <paramref name="Fp"/> of
+/// what it was (so a later "Refresh from Classic" can tell a changed item from an unchanged one), what it is (<see cref="Kinds"/>) and whether Classic hides it. EDITOR-ONLY: never part of the map's
+/// hash, never read by the game, kept by clones, copies and undo (the object record carries it). Repaired on read: a malformed link is dropped, the map is never refused for it.
+/// </summary>
+public sealed record MapObjectSrc(string Map, string Key, string Fp, string Kind, bool ClassicHidden)
+{
+    public const string Placement = "placement", Wall = "wall", Kill = "kill", Cover = "cover";
+    public static readonly string[] Kinds = [Placement, Wall, Kill, Cover];
+    public const int MaxText = 200;
+
+    public JsonObject ToNode()
+    {
+        var o = new JsonObject { ["map"] = Map, ["key"] = Key, ["fp"] = Fp, ["kind"] = Kind };
+        if (ClassicHidden) o["classicHidden"] = true;
+        return o;
+    }
+
+    /// <summary>The link in <paramref name="n"/>, or null when it is missing or not a valid one (editor-only data is repaired, never refused).</summary>
+    public static MapObjectSrc? FromNode(JsonNode? n)
+    {
+        if (n is not JsonObject o) return null;
+        static string? Text(JsonNode? x) => x is JsonValue v && v.TryGetValue<string>(out var t) ? t : null;
+        var map = Text(o["map"]); var key = Text(o["key"]); var fp = Text(o["fp"]) ?? ""; var kind = Text(o["kind"]);
+        if (map is null || !MapLook.IsMapName(map) || key is not { Length: > 0 } || key.Length > MaxText || fp.Length > MaxText || kind is null || !Kinds.Contains(kind)) return null;
+        bool hidden = o["classicHidden"] is JsonValue h && h.TryGetValue<bool>(out var hb) && hb;
+        return new MapObjectSrc(map, key, fp, kind, hidden);
+    }
+}
+
+/// <summary>
+/// The map's look in play (optional top-level <c>look</c>): <paramref name="Sm1Map"/> names the Classic map whose lighting, sky, fog and decals the map is drawn with. GAME-VISIBLE: part of the
+/// map's hash (the client draws it, and a PC without that map refuses to join). <c>mp_</c> plus lowercase letters, digits and '_'.
+/// </summary>
+public sealed record MapLook(string Sm1Map)
+{
+    public const int MaxName = 44;
+
+    public static bool IsMapName(string? name) =>
+        name is { Length: > 3 and <= MaxName } && name.StartsWith("mp_", StringComparison.Ordinal) && name.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_');
+
+    public JsonObject ToNode() => new() { ["sm1Map"] = Sm1Map };
+
+    public static MapLook FromNode(JsonNode? n)
+    {
+        var o = Json.Obj(n, "look");
+        var map = Json.ReqStr(o, "sm1Map", "look", "bad-file");
+        if (!IsMapName(map)) throw new MapException("bad-file", $"look.sm1Map '{map}' is not an SM1 multiplayer map name (mp_ and lowercase letters, digits, '_').");
+        return new MapLook(map);
+    }
+}
+
 /// <summary>One placed object: a plain asset, a linked prefab instance, or an empty group; with a parent when nested (transform local to it).</summary>
 public sealed record MapObject(
     string Id, string Name, string? Parent, string Layer, bool Visible, MapTransform Transform, AssetRef? Asset, string? Prefab,
-    IReadOnlyList<PartOverride> Overrides, PieceSpec? Piece = null)
+    IReadOnlyList<PartOverride> Overrides, PieceSpec? Piece = null, MapObjectSrc? Src = null)
 {
-    public JsonObject ToNode()
+    /// <summary><paramref name="editorOnly"/> false leaves out the Classic link (<see cref="Src"/>), which is what the map's hash covers.</summary>
+    public JsonObject ToNode(bool editorOnly = true)
     {
         var o = new JsonObject
         {
@@ -142,6 +195,7 @@ public sealed record MapObject(
         };
         if (Asset is not null) o["asset"] = Asset.ToNode();
         if (Piece is not null) o["piece"] = Piece.ToNode();
+        if (editorOnly && Src is not null) o["src"] = Src.ToNode();
         if (Prefab is not null) { o["prefab"] = Prefab; o["overrides"] = new JsonArray(Overrides.Select(x => (JsonNode)x.ToNode()).ToArray()); }
         return o;
     }
@@ -169,7 +223,7 @@ public sealed record MapObject(
         if (prefab is null && overrides.Count > 0) throw new MapException("bad-file", $"{what}: overrides without a prefab.");
         return new MapObject(id, Json.Str(o["name"], what + ".name") ?? "", Json.Str(o["parent"], what + ".parent", nullable: true),
             Json.Str(o["layer"], what + ".layer", nullable: true) ?? "default", Json.Bool(o["visible"], what + ".visible", "bad-file", true),
-            MapTransform.FromNode(o["transform"], MapTransform.Identity, what + ".transform"), asset, prefab, overrides, piece);
+            MapTransform.FromNode(o["transform"], MapTransform.Identity, what + ".transform"), asset, prefab, overrides, piece, MapObjectSrc.FromNode(o["src"]));
     }
 }
 
@@ -192,12 +246,12 @@ public sealed record MapGroup(string Id, string Name, IReadOnlyList<string> Memb
 }
 
 /// <summary>
-/// A <c>.smmap</c> document (formatVersion 2; version 1 files are read through <see cref="MapUpgrade"/>; the optional <c>groups</c> list needs no version step). Mutable; sessions edit a clone and swap it in when a batch succeeds.
+/// A <c>.smmap</c> document (formatVersion 3; older files are read through <see cref="MapUpgrade"/>; the optional <c>groups</c> list needs no version step; 3: the optional object <c>src</c> and map <c>look</c>). Mutable; sessions edit a clone and swap it in when a batch succeeds.
 /// </summary>
 public sealed class MapDocument
 {
     public const string FormatName = "smmap";
-    public const int FormatVersion = 2;
+    public const int FormatVersion = 3;
 
     /// <summary>The format version the file declared when it was parsed (older than <see cref="FormatVersion"/>: the editor backs the file up before it writes the upgrade).</summary>
     public int LoadedVersion { get; private set; } = FormatVersion;
@@ -218,6 +272,8 @@ public sealed class MapDocument
     public List<MapGroup> Groups { get; } = [];
     /// <summary>The 3D view's grid (editor only, no effect in the game, not in the map's hash; docs/mapmaker.md "Grid"). Written only when it is not <see cref="MapGrid.Default"/>.</summary>
     public MapGrid Grid { get; set; } = MapGrid.Default;
+    /// <summary>The Classic map whose lighting, sky and fog the map is drawn with (game-visible, in the hash; docs/mapmaker.md "Classic link"). Null: the plain daylight look.</summary>
+    public MapLook? Look { get; set; }
 
     public MapGroup? FindGroup(string id) => Groups.FirstOrDefault(g => g.Id == id);
 
@@ -330,12 +386,13 @@ public sealed class MapDocument
         return m;
     }
 
-    /// <summary><paramref name="editorOnly"/> false leaves out what only the editor uses (the grid), which is what the map's hash covers.</summary>
+    /// <summary><paramref name="editorOnly"/> false leaves out what only the editor uses (the grid and every object's Classic link), which is what the map's hash covers.</summary>
     public JsonObject ToNode(bool editorOnly = true)
     {
         var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId };
         if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
-        o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode()).ToArray());
+        o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode(editorOnly)).ToArray());
+        if (Look is not null) o["look"] = Look.ToNode();
         if (EmbeddedPrefabs.Count > 0) o["prefabs"] = new JsonArray(EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => (JsonNode)p.ToNode()).ToArray());
         if (Groups.Count > 0) o["groups"] = new JsonArray(Groups.Select(x => (JsonNode)x.ToNode()).ToArray());
         if (editorOnly && Grid != MapGrid.Default) o["grid"] = Grid.ToNode();
@@ -349,7 +406,7 @@ public sealed class MapDocument
 
     public MapDocument Clone()
     {
-        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid };
+        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid, Look = Look };
         d.Objects.AddRange(Objects);
         d.Groups.AddRange(Groups);
         return d;
@@ -400,6 +457,7 @@ public sealed class MapDocument
         }
         if (o["groups"] is { } groupsNode) ParseGroups(d, Json.Arr(groupsNode, "groups"));
         d.Grid = MapGrid.FromNode(o["grid"]);
+        if (o["look"] is { } lookNode) d.Look = MapLook.FromNode(lookNode);
         return d;
     }
 

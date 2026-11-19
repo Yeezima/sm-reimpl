@@ -16,7 +16,7 @@ public enum PieceGroup { Build, Gameplay }
 public sealed record PieceKind(string Id, string Label, string Tip, PieceGroup Group, Vector3 DefaultSize, bool HasSide, bool Solid)
 {
     public const string Box = "box", Ramp = "ramp", Column = "column", CollisionBox = "collision-box",
-        SpawnArea = "spawn-area", Blocker = "blocker", CapturePoint = "capture-point", KillZone = "kill-zone";
+        SpawnArea = "spawn-area", Blocker = "blocker", CapturePoint = "capture-point", KillZone = "kill-zone", MoveWall = "move-wall", Cover = "cover";
 
     /// <summary>The pieces, in the order the editor lists them.</summary>
     public static readonly IReadOnlyList<PieceKind> All =
@@ -25,6 +25,8 @@ public sealed record PieceKind(string Id, string Label, string Tip, PieceGroup G
         new(Ramp, "Ramp", "A solid slope that rises toward its +Y side (the green arrow). Rotate it to point uphill where you want.", PieceGroup.Build, new(4, 8, 2), false, true),
         new(Column, "Column", "A solid round pillar. Good cover that does not block the whole lane.", PieceGroup.Build, new(1.5f, 1.5f, 4), false, true),
         new(CollisionBox, "Invisible wall", "A solid block that is not drawn in the game. Put it around decoration (SM1 pieces, imported models) that should stop players.", PieceGroup.Build, new(4, 4, 3), false, true),
+        new(MoveWall, "Invisible wall (players only)", "A wall that is not drawn and stops walking players only: shots fly through it, as Classic's own invisible walls do. A box, or a cylinder (see its shape). Not solid for shots, unlike Invisible wall.", PieceGroup.Build, new(4, 1, 3), false, false),
+        new(Cover, "Cover (shoot-through)", "A solid crate-like box that stops players but that strong weapons (lascannon, kraken rounds...) shoot through, like Classic's movable cover. Not drawn: put the decoration on it.", PieceGroup.Build, new(1.2f, 3f, 1.5f), false, false),
         new(SpawnArea, "Spawn area", "Where one side appears (and respawns). Players spawn on the floor inside this box, facing its +Y side (the green arrow). Every side needs one.", PieceGroup.Gameplay, new(10, 10, 3), true, false),
         new(Blocker, "Spawn door", "A shield that only the other side cannot cross, across the exit of a spawn room. It also tells spawning players which way to face.", PieceGroup.Gameplay, new(8, 1, 6), true, false),
         new(CapturePoint, "Capture point", "A Seize Ground point: a cylinder (diameter, diameter, height). The side standing on it captures it. Place 3 for the classic A, B, C.", PieceGroup.Gameplay, new(8, 8, 4), false, false),
@@ -38,9 +40,14 @@ public sealed record PieceKind(string Id, string Label, string Tip, PieceGroup G
 /// A gameplay piece on an object: the kind and, for spawn areas and doors, the side (<c>marines</c> or <c>chaos</c>). A piece has no asset or prefab; its
 /// transform is its place: position = the middle of its footprint on the ground, scale = size in metres, rotation Z = facing in degrees.
 /// </summary>
-public sealed record PieceSpec(string Kind, string? Side = null)
+public sealed record PieceSpec(string Kind, string? Side = null, string? Shape = null)
 {
     public const string Marines = "marines", Chaos = "chaos";
+    /// <summary>The shapes of an <see cref="PieceKind.MoveWall"/> (the others are boxes; a null shape is a box).</summary>
+    public const string BoxShape = "box", CylinderShape = "cylinder";
+
+    /// <summary>A cylinder movement wall (its scale X and Y are the diameter, Z the height).</summary>
+    public bool IsCylinder => Shape == CylinderShape;
 
     public PieceKind Info => PieceKind.Find(Kind) ?? throw new MapException("bad-piece", $"Unknown piece kind '{Kind}'.");
 
@@ -48,6 +55,7 @@ public sealed record PieceSpec(string Kind, string? Side = null)
     {
         var o = new JsonObject { ["kind"] = Kind };
         if (Side is not null) o["side"] = Side;
+        if (Shape is not null) o["shape"] = Shape;
         return o;
     }
 
@@ -59,9 +67,13 @@ public sealed record PieceSpec(string Kind, string? Side = null)
         var side = Json.Str(o["side"], what + ".side", code, nullable: true);
         if (info.HasSide && side is not (Marines or Chaos)) throw new MapException(code, $"{what}: a {info.Label.ToLowerInvariant()} needs \"side\": \"marines\" or \"chaos\".");
         if (!info.HasSide && side is not null) throw new MapException(code, $"{what}: a {info.Label.ToLowerInvariant()} has no side.");
-        return new PieceSpec(kind, side);
+        var shape = Json.Str(o["shape"], what + ".shape", code, nullable: true);
+        if (shape is not null && kind != PieceKind.MoveWall) throw new MapException(code, $"{what}: a {info.Label.ToLowerInvariant()} has no shape.");
+        if (shape is not null && shape is not (BoxShape or CylinderShape)) throw new MapException(code, $"{what}.shape must be \"box\" or \"cylinder\".");
+        if (shape == BoxShape) shape = null;   // a box is the default: one way to write it, so the same wall hashes the same
+        return new PieceSpec(kind, side, shape);
     }
 
     /// <summary>A readable name for a new piece: "Marine spawn area", "Block".</summary>
-    public string DefaultName => (Side == Marines ? "Marine " : Side == Chaos ? "Chaos " : "") + (Side is null ? Info.Label : Info.Label.ToLowerInvariant());
+    public string DefaultName => Kind == PieceKind.MoveWall && IsCylinder ? "Invisible wall (players only, round)" : (Side == Marines ? "Marine " : Side == Chaos ? "Chaos " : "") + (Side is null ? Info.Label : Info.Label.ToLowerInvariant());
 }

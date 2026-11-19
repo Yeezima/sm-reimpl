@@ -45,6 +45,14 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
                 Doc.Modes = modes;
                 break;
             }
+            case "set-look":
+            {
+                // set-look {sm1Map: "mp_..."} or {sm1Map: null}: the Classic map whose lighting and sky the map is drawn with (game-visible, in the hash)
+                var m = Json.Str(op["sm1Map"], "sm1Map", "bad-op", nullable: true);
+                if (m is not null && !MapLook.IsMapName(m)) throw new MapException("bad-op", $"'{m}' is not an SM1 multiplayer map name (mp_ and lowercase letters, digits, '_').");
+                Doc.Look = m is null ? null : new MapLook(m);
+                break;
+            }
             case "set-grid": Doc.Grid = Doc.Grid.Apply(op); break;   // editor only: the 3D view's grid (docs/mapmaker.md "Grid")
             case "transform": Transform(op); break;
             case "duplicate": Duplicate(op); break;
@@ -111,19 +119,24 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
         var transform = MapTransform.FromNode(op["transform"], piece is null ? MapTransform.Identity : MapTransform.Identity with { Scale = piece.Info.DefaultSize });
         var name = Json.Str(op["name"], "name", "bad-op", nullable: true) ?? asset?.Label ?? prefab ?? piece!.DefaultName;
         var layer = Json.Str(op["layer"], "layer", "bad-op", nullable: true) ?? "default";
+        var src = op["src"] is { } sn ? MapObjectSrc.FromNode(sn) ?? throw new MapException("bad-op", "src is not a Classic link {map, key, fp, kind, classicHidden}.") : null;
+        bool visible = Json.Bool(op["visible"], "visible", "bad-op", true);
         var id = NewId();
-        Doc.Objects.Add(new MapObject(id, name, parent, layer, true, transform, asset, prefab, [], piece));
+        Doc.Objects.Add(new MapObject(id, name, parent, layer, visible, transform, asset, prefab, [], piece, src));
         Created.Add(id);
     }
 
-    /// <summary>set-piece {id, side}: turns a spawn area or door to the other side.</summary>
+    /// <summary>set-piece {id, side?, shape?}: turns a spawn area or door to the other side, or makes an invisible wall (players only) a box or a cylinder.</summary>
     void SetPiece(JsonObject op)
     {
         var id = ReqId(op);
         var o = Doc.Get(id);
         if (o.Piece is not { } p) throw new MapException("bad-op", $"'{id}' is not a piece.", id);
-        var side = Json.ReqStr(op, "side", "set-piece", "bad-op");
-        var next = PieceSpec.FromNode(new JsonObject { ["kind"] = p.Kind, ["side"] = side }, "piece", "bad-op");
+        if (!op.ContainsKey("side") && !op.ContainsKey("shape")) throw new MapException("bad-op", "set-piece needs a side or a shape.", id);
+        var node = new JsonObject { ["kind"] = p.Kind };
+        if (op.ContainsKey("side")) node["side"] = Json.ReqStr(op, "side", "set-piece", "bad-op"); else if (p.Side is not null) node["side"] = p.Side;
+        if (op.ContainsKey("shape")) node["shape"] = Json.ReqStr(op, "shape", "set-piece", "bad-op"); else if (p.Shape is not null) node["shape"] = p.Shape;
+        var next = PieceSpec.FromNode(node, "piece", "bad-op");
         Replace(o with { Piece = next, Name = o.Name == p.DefaultName ? next.DefaultName : o.Name });
     }
 
@@ -168,7 +181,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
     {
         var id = NewId();
         var t = src.Transform;
-        Doc.Objects.Add(src with { Id = id, Parent = parent, Transform = t with { Position = t.Position + offset } });
+        Doc.Objects.Add(src with { Id = id, Parent = parent, Src = null, Transform = t with { Position = t.Position + offset } });
         Mapping.Add(new(src.Id, id));
         foreach (var child in Doc.ChildrenOf(src.Id).ToList()) CopyTree(child, id, Vector3.Zero);
         return id;

@@ -179,6 +179,7 @@ public sealed class MapSession
         Document.Groups.Clear();
         Document.Groups.AddRange(from.Groups);
         Document.Grid = from.Grid;
+        Document.Look = from.Look;
     }
 
     void Touch()

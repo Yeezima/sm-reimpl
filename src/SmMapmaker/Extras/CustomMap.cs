@@ -93,10 +93,14 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 5;   // 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
+    public const int CompilerVersion = 6;   // 6: the new piece kinds move-wall and cover fill MapContent.Walls and MapContent.Props, and the document gained look (so every custom map's hash changes: the server and every client must run the same build); 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
+    /// <summary>The surface id a cover piece's triangles give a shot that hits them (the id of Classic's crate metal, <c>CrateSurface</c> in the prop tests; ours).</summary>
+    public const int CoverSurface = 4;
+    /// <summary><see cref="MapWall.Group"/> of a movement wall: ALL (every player is stopped; the group Classic's own walls have).</summary>
+    const int WallGroup = 2;
 
     public required MapDocument Document { get; init; }
     /// <summary>The name on the wire: <c>cm_</c> and the map's name as a slug, at most 24 characters (<see cref="WireName"/>).</summary>
@@ -156,8 +160,10 @@ public sealed class CustomMap
         var areas = new List<MapStartArea>();
         var blockers = new List<MapBlocker>();
         var kills = new List<MapKillRegion>();
+        var walls = new List<MapWall>();
+        var props = new List<MapProp>();
         Bounds? solid = null;
-        int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0;
+        int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
         foreach (var o in doc.Objects)
         {
             if (o.Piece is not { } piece) continue;
@@ -179,6 +185,17 @@ public sealed class CustomMap
                 var b = new Bounds(moved.Aggregate(Vector3.Min), moved.Aggregate(Vector3.Max));
                 solid = solid is { } s ? s.Union(b) : b;
                 solidCount++;
+                continue;
+            }
+            if (piece.Kind == PieceKind.Cover)
+            {
+                // Cover: the unit box carried to the world, a prop (solid for movement and shots; pierce-capable shots pass it, as Classic's BakedProps).
+                var (cv, ctri) = PieceMesh.MarkerBox();
+                Vector3[] cmoved;
+                try { cmoved = cv.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray(); }
+                catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
+                coverNumber++;
+                props.Add(new MapProp($"cm_cover_{coverNumber}", "custom cover", "cover", CoverSurface, cmoved, ctri));
                 continue;
             }
             // Markers: boxes (or a cylinder) in the document frame whose bottom is the piece's z. Only a turn about Z counts; a tilt is noted.
@@ -213,6 +230,11 @@ public sealed class CustomMap
                 case PieceKind.CapturePoint:
                     pointNumber++;
                     points.Add(new MapControlPoint($"mkr_objective_{pointNumber}", centre, yaw, new Vector3(size.X, size.X, size.Z), 3));
+                    break;
+                case PieceKind.MoveWall:
+                    // a movement-only wall (MapWall -> CollisionWorld.Walls): position = the centre, rotation about Z in degrees, scale = the full size
+                    wallNumber++;
+                    walls.Add(new MapWall($"cm_wall_{wallNumber}", centre, new Vector3(0, 0, (float)YawDegreesOf(doc, o)), size, piece.IsCylinder ? 3 : 1, WallGroup, 1));
                     break;
                 case PieceKind.KillZone:
                     killNumber++;
@@ -259,7 +281,7 @@ public sealed class CustomMap
         var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", a.Position - new Vector3(0, 0, a.Scale.Z / 2f), a.Yaw)).ToList();
         var content = new MapContent(name, "custom", layers, spawns, hash)
         {
-            ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Notes = notes,
+            ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
         return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor };
     }
@@ -275,11 +297,14 @@ public sealed class CustomMap
     static float Wrap(float deg) { deg %= 360f; if (deg > 180f) deg -= 360f; if (deg < -180f) deg += 360f; return deg; }
 
     /// <summary>The marker's facing (radians, counterclockwise from above, 0 = +Y): the sum of the snapped Z turns of the object and its parents, from the document's own numbers (no Atan2: a turn of z degrees about Z turns the +Y side by exactly z).</summary>
-    static float YawOf(MapDocument doc, MapObject o)
+    static float YawOf(MapDocument doc, MapObject o) => (float)(YawDegreesOf(doc, o) * SmContent.DetTransform.DegToRad);
+
+    /// <summary>The same turn in degrees (snapped to 1/1000 degree).</summary>
+    static double YawDegreesOf(MapDocument doc, MapObject o)
     {
         double degrees = 0;
         int guard = 0;
         for (var cur = o; cur is not null && guard++ < 1000; cur = cur.Parent is { } p ? doc.Find(p) : null) degrees += DetMath.SnapDegrees(cur.Transform.Rotation.Z);
-        return (float)(DetMath.SnapDegrees(degrees) * SmContent.DetTransform.DegToRad);
+        return DetMath.SnapDegrees(degrees);
     }
 }

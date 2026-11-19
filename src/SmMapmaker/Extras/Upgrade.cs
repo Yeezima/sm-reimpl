@@ -10,10 +10,11 @@ namespace SmMapmaker;
 /// </summary>
 public static class MapUpgrade
 {
-    /// <summary>version n -> n + 1. 1 -> 2: files carry the definitions of the prefabs they use (<c>prefabs</c>, empty until the editor embeds them on open or save); nothing else changes.</summary>
+    /// <summary>version n -> n + 1. 1 -> 2: files carry the definitions of the prefabs they use (<c>prefabs</c>, empty until the editor embeds them on open or save); nothing else changes. 2 -> 3: objects may carry an editor-only <c>src</c> and the map a game-visible <c>look</c> (docs/mapmaker.md "Classic link"); an identity step. An older Mapmaker refuses a version 3 file with the "newer Mapmaker" message.</summary>
     public static readonly IReadOnlyDictionary<int, Func<JsonObject, JsonObject>> Steps = new Dictionary<int, Func<JsonObject, JsonObject>>
     {
         [1] = o => o,
+        [2] = o => o,   // 2 -> 3: the optional object "src" (editor-only Classic link) and map "look"; both are absent in an older file, so there is nothing to rewrite
     };
 
     /// <summary>

@@ -68,7 +68,7 @@ public sealed class DecorCache
             for (var cur = o; cur.Parent is { } p && byId.TryGetValue(p, out var parent) && guard++ < 1000; cur = parent) needed.Add(parent.Id);
         }
         var sb = new System.Text.StringBuilder(tag).Append('\n');
-        foreach (var o in doc.Objects) if (needed.Contains(o.Id)) sb.Append(o.ToNode().ToJsonString()).Append('\n');
+        foreach (var o in doc.Objects) if (needed.Contains(o.Id)) sb.Append(o.ToNode(editorOnly: false).ToJsonString()).Append('\n');
         foreach (var p in doc.EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal)) sb.Append(p.ToNode().ToJsonString()).Append('\n');
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sb.ToString())));
     }

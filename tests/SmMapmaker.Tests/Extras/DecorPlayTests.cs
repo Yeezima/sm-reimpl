@@ -181,7 +181,7 @@ public sealed class DecorPlayTests : IDisposable
         Assert.Equal(a.Decor!.Digest(), b.Decor!.Digest());
         Assert.NotEqual(a.Hash, taller.Hash);                                // same file, a different install: another world
         Assert.NotEqual(CustomMap.HashOf(doc), a.Hash);                       // the document alone no longer names a decorated map's world
-        Assert.Equal(5, CustomMap.CompilerVersion);
+        Assert.Equal(6, CustomMap.CompilerVersion);
         // a map of pieces only keeps hashing the document alone
         var pieces = Doc("""{"op":"place","piece":{"kind":"box"},"transform":{"scale":[4,4,1]}}""");
         Assert.Equal(CustomMap.HashOf(pieces), CustomMap.Compile(pieces, Options()).Hash);
