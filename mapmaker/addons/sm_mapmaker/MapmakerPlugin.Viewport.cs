@@ -66,7 +66,7 @@ public partial class MapmakerPlugin
     {
         FreeGhost();
         if (_overlay is not null && GodotObject.IsInstanceValid(_overlay)) _overlay.QueueFree();
-        _overlay = null; _boxPending = false; _boxActive = false;
+        _overlay = null; _boxPending = false; _boxActive = false; _dblPendingAt = 0;
         MapHost.LibraryChanged -= FreeGhost;
         MapHost.Sm1Changed -= FreeGhost;
     }
@@ -144,7 +144,7 @@ public partial class MapmakerPlugin
 
     void CancelBox()
     {
-        _boxPending = false; _boxActive = false; _boxPress = null; _boxAlt = false;
+        _boxPending = false; _boxActive = false; _boxPress = null; _boxAlt = false; _dblPendingAt = 0;   // an aborted box never leaves a double-click waiting for the next click (review)
         _boxRect = null;
         if (_overlay is not null && GodotObject.IsInstanceValid(_overlay)) _overlay.QueueRedraw();
     }
