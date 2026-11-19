@@ -60,6 +60,28 @@ public sealed class PlaytestIdentityTests : IDisposable
     }
 
     [Fact]
+    public void An_older_map_with_groups_keeps_them_and_its_save_time_through_the_upgrade()
+    {
+        string path = MakeTesterShapedMap("grouped.smmap", _lab.Library, asVersion1: true);
+        var o = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var ids = o["objects"]!.AsArray().Select(x => (string)x!["id"]!).ToList();
+        o["groups"] = new JsonArray(
+            new JsonObject { ["id"] = "g1", ["name"] = "inner", ["members"] = new JsonArray(ids[0], ids[1]) },
+            new JsonObject { ["id"] = "g2", ["name"] = "outer", ["members"] = new JsonArray("g1") });
+        File.WriteAllText(path, CanonicalJson.Write(o));
+        var savedAt = new DateTime(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(path, savedAt);
+
+        var s = MapSession.Load(path, _lab.Library, _lab.Sm1);
+        Assert.True(File.Exists(path + ".bak-v1"));
+        Assert.Equal(MapDocument.FormatVersion, MapUpgrade.VersionOfFile(path));
+        Assert.Equal(2, s.Document.Groups.Count);
+        Assert.Equal(savedAt, File.GetLastWriteTimeUtc(path));                         // opening never makes it the newest copy of its name
+        var again = MapSession.Load(path, _lab.Library, _lab.Sm1);                     // and it reads back with its groups
+        Assert.Equal(2, again.Document.Groups.Count);
+    }
+
+    [Fact]
     public void A_map_newer_than_this_build_is_refused_in_plain_words_and_a_missing_step_is_named()
     {
         var o = JsonNode.Parse(MapDocument.Create("x").ToJson())!.AsObject();

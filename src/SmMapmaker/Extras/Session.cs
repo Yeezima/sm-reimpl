@@ -40,10 +40,14 @@ public sealed class MapSession
             try
             {
                 string backup = MapUpgrade.Backup(path, from);
+                // The upgrade rewrite keeps the file's own save time, so merely opening an old map never makes it the "newest" copy of its name
+                // for CustomMaps.Locate's newest-file fallback (review, pass 3).
+                var savedAt = File.GetLastWriteTimeUtc(path);
                 session.Save();
+                try { File.SetLastWriteTimeUtc(path, savedAt); } catch (Exception t) when (t is IOException or UnauthorizedAccessException) { }
                 notes.Add($"This map was saved by an older Mapmaker (file format {from}); it was upgraded to format {MapDocument.FormatVersion}. The original is kept as {System.IO.Path.GetFileName(backup)}.");
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or MapException)
             {
                 session.Dirty = true;
                 notes.Add($"This map was saved by an older Mapmaker (file format {from}) and is read as format {MapDocument.FormatVersion}, but the file could not be backed up and rewritten ({e.Message}); Save map will write it.");
