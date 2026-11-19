@@ -114,10 +114,10 @@ fi
 
 run systemctl daemon-reload
 run systemctl enable sm-warfront
+since=$(date '+%Y-%m-%d %H:%M:%S')   # taken before the start: Type=simple returns at fork, the ready line may come within the same second (review)
 if [ "$dry" = 0 ] && systemctl is-active --quiet sm-warfront 2>/dev/null; then run systemctl restart sm-warfront; else run systemctl start sm-warfront; fi
 
 if [ "$dry" = 1 ]; then echo "[dry-run] would wait up to 60 s for 'smserver on UDP $port; protocol' in the journal"; exit 0; fi
-since=$(date '+%Y-%m-%d %H:%M:%S')
 i=0
 while [ "$i" -lt 60 ]; do
   line=$(journalctl -u sm-warfront --since "$since" --no-pager -o cat 2>/dev/null | grep -m 1 "smserver on UDP $port; protocol" || true)

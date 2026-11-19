@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3869 spec table rows: **2824 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
+Scanned 3877 spec table rows: **2832 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3869 spec table rows: **2824 tagged**, 688 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 229 | 213 | 184 | 30 | 0 |
+| Sound mix (critical) | 237 | 219 | 190 | 32 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,20 +53,20 @@ Scanned 3869 spec table rows: **2824 tagged**, 688 not tagged (read from data wi
 | Core simulation (provisional values) | 862 | 816 | 644 | 239 | 1 |
 | General game design | 35 | 34 | 27 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2824** | 2521 | 2143 | 825 | 37 |
+| **All areas** | **2832** | 2527 | 2149 | 827 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1638 |
-| confidence: low | 1041 |
+| kind: ours | 1644 |
+| confidence: low | 1046 |
 | confidence: medium | 992 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
-| notes: estimate | 222 |
-| confidence: none (low) | 110 |
+| notes: estimate | 224 |
+| confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
@@ -1913,7 +1913,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (229)
+### Sound mix (gameplay-critical) (237)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2278,6 +2278,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E0B651E1` | Autosave | the 30 s save is serialised on the tick thread and written on the thread pool (`WarfrontAsyncWriter`); every other save, the end of a run, a new run and a stage change flush it first; `SM_WF_SYNC_SAVE=1` restores the old write (s) | kind: ours | ours (the test report's follow-up) | Autosave: compare with SM1 by listening A/B at the same distance and state. Ours: the 30 s save is serialised on the tick thread and written on the… | ☐ |
 | `R-460F013F` | LOD error threshold (changed 2026-11-18) | 4 (was 2; Godot's default is 1); `--crowd-lod-threshold <px>` (pixels) | kind: ours; notes: estimate | owner pick 2026-11-18: "switch distant Orks to the coarser LOD sooner ... raise that threshold moderately" | LOD error threshold (changed 2026-11-18): compare with SM1 by listening A/B at the same distance and state. Ours: 4 (was 2; Godot's default is 1); --crowd-lod-threshold <px>. | ☐ |
 | `R-3F05F74D` | Measured effect of the 2026-11-18 picks (means of the 5 s windows 100 to 200 s, same scenario, a… | draw calls 1766 to 1048 and 1131 (two runs), objects 2420 to 1675 and 1796, primitives 5.69 M to 5.25 M and 5.51 M, GPU 2.01 to 1.90 and 1.96 ms; mean frame 7.48 ms before vs 10.72 and 9.85 ms after, but the after runs ran while other agents loaded the PC… (measured) | confidence: none (low) | this PC runs | Measured effect of the 2026-11-18 picks (means of the 5 s…: compare with SM1 by listening A/B at the same distance and state. Ours: draw calls 1766 to 1048 and 1131 (two runs), objects 2420 to 1675 and… | ☐ |
+
+*Spec section: Warfront dedicated server, slice S1 (warfront/wf-dedicated-s1, 2026-11-19; added content, Warfront only, supervisor process only: no simulation, wire, hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-37CE3DBA` | Stage restart backoff (dedicated supervisor, stage child ended with a code other than 0, 1, 2, 3… | 2, 5, 10, 30; the last repeats (seconds) | kind: ours; confidence: low | ours (owner 2026-11-19 asked for a restart loop with backoff; the values are the lead's suggestion) | Stage restart backoff (dedicated supervisor, stage child…: compare with SM1 by listening A/B at the same distance and state. Ours: 2, 5, 10, 30; the last repeats. | ☐ |
+| `R-594DABFD` | Backoff reset | a stage that ran 60 s or more before it crashed starts the backoff again at 2 s (seconds) | kind: ours; confidence: low | ours (lead's suggestion: "reset after a stable minute") | Backoff reset: compare with SM1 by listening A/B at the same distance and state. Ours: a stage that ran 60 s or more before it crashed starts the backoff… | ☐ |
+| `R-79364297` | Stop grace after SIGTERM / Ctrl+C | 20 s for the stage to save and leave (it looks at `stop.request` once a second, then saves); then it is killed and the supervisor exits 0 (seconds) | kind: ours; confidence: low | ours | Stop grace after SIGTERM / Ctrl+C: compare with SM1 by listening A/B at the same distance and state. Ours: 20 s for the stage to save and leave (it looks at stop.request once a… | ☐ |
+| `R-70A838D3` | Map warm-up start | the supervisor (dedicated only) starts one `--warfront-prebuild` child once a stage child has run 30 s without ending (the stage has loaded the game data and listens: "ready"); once per supervisor, never restarted when it fails (logged once); ended with the… (seconds) | kind: ours; confidence: low | owner decision 2026-11-20 (build every map at start, in the background, players may join meanwhile); the 30 s is ours | Map warm-up start: compare with SM1 by listening A/B at the same distance and state. Ours: the supervisor (dedicated only) starts one --warfront-prebuild child… | ☐ |
+| `R-835FA1BF` | Map warm-up work | every Warfront map (nine lane slots, HQ, fortress: 11) in turn, one map at a time at below-normal priority: layout plus walking graph through `WarfrontMaps.Prebuild`; a warm map costs a read of its files; a failed map is logged and the next goes on; exit 0… (maps) | kind: ours; confidence: low | ours | Map warm-up work: compare with SM1 by listening A/B at the same distance and state. Ours: every Warfront map (nine lane slots, HQ, fortress: 11) in turn, one… | ☐ |
+
+*Spec section: Warfront dedicated server, slice S2 (warfront/wf-dedicated-s2, 2026-11-19; added content, Warfront only, only with `--warfront-dedicated`; server operation: no simulation, wire, hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A79203CA` | Default deploy for an idle leader | no deployment accepted for 90 s: the server deploys for the leader through the normal Deploy path: the HQ defence when mandatory, else the node of the lane with the lowest front (ties lane A, B, C), else the fortress through the lowest cleared lane; announced… (seconds) | kind: ours; notes: estimate | owner rule 2026-11-19 (the 90 s); the target order is the owner's rule, the clock's start and reset are ours | Default deploy for an idle leader: compare with SM1 by listening A/B at the same distance and state. Ours: no deployment accepted for 90 s: the server deploys for the leader… | ☐ |
+| `R-51DC640A` | Automatic new run | 120 s after the results stand with a human connected; at once when no human is connected; the leader may start it earlier (seconds) | notes: estimate | owner rule 2026-11-19 | Automatic new run: compare with SM1 by listening A/B at the same distance and state. Ours: 120 s after the results stand with a human connected; at once when no… | ☐ |
+| `R-729F58FD` | Empty server | the process and the run stay; the play clock stops; a battle left with nobody ends as no result (back on the ship, nothing rolled; also the tick the last human drops); the next joiner continues the same run; no pause beyond that; an unfinished run never… | confidence: none (low) | owner rule 2026-11-19 | Empty server: compare with SM1 by listening A/B at the same distance and state. Ours: the process and the run stay; the play clock stops; a battle left… | ☐ |
 
 ### Effects (gameplay-critical) (100)
 
