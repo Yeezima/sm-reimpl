@@ -45,14 +45,45 @@ public partial class MapmakerPlugin
     CustomMap? _compiled;
     string _compiledJson = "";
 
-    /// <summary>The open map compiled for play (cached until the document changes); null when no map is open.</summary>
-    public CustomMap? Compiled()
+    bool _compiledPiecesOnly;
+    DecorWorker? _decorWorker;
+
+    /// <summary>The decoration of the open map is being compiled in the background: <see cref="Compiled"/> holds the pieces only until it lands.</summary>
+    public bool DecorPending => _compiledPiecesOnly || _decorWorker?.Pending == true;
+
+    /// <summary>
+    /// The open map compiled for play (cached until the document changes); null when no map is open. The SM1 pieces, prefabs and models are never compiled on the main thread unless
+    /// <paramref name="wait"/>: a miss compiles the pieces at once and asks the <see cref="DecorWorker"/> for the decoration (debounced, latest edit wins), and the check runs when it lands.
+    /// Pass <paramref name="wait"/> where the full result is needed now (tests, saving a hash).
+    /// </summary>
+    public CustomMap? Compiled(bool wait = false)
     {
         if (Session is null) return null;
         string json = Session.Document.ToJson();
         string key = json + "\n" + EditorScenes.StateKey();   // a map loaded later brings its SM1 pieces into the collision
-        if (_compiled is null || key != _compiledJson) { _compiled = CustomMap.Compile(Session.Document.Clone(), EditorScenes.Options()); _compiledJson = key; }
+        if (_compiled is not null && key == _compiledJson && !(wait && _compiledPiecesOnly)) return _compiled;
+        var doc = Session.Document.Clone();
+        var options = EditorScenes.Options();
+        if (wait || !CustomMaps.NeedsContent(doc) || EditorScenes.Cache.TryGet(DecorCache.KeyOf(doc, options.CacheTag), out _))
+        {
+            _compiled = CustomMap.Compile(doc, options);
+            _compiledPiecesOnly = false;
+        }
+        else
+        {
+            _compiled = CustomMap.Compile(doc);   // pieces only: fast
+            _compiledPiecesOnly = true;
+            _decorWorker ??= new DecorWorker(EditorScenes.Cache, TimeSpan.FromMilliseconds(400), a => Callable.From(a).CallDeferred(), OnDecorReady);
+            _decorWorker.Request(doc.Clone(), options, DecorCache.KeyOf(doc, options.CacheTag));
+        }
+        _compiledJson = key;
         return _compiled;
+    }
+
+    void OnDecorReady()
+    {
+        _compiledJson = "";   // the next Compiled() finds the decoration in the cache
+        RunCheck();
     }
 
     /// <summary>Where a ray first meets a solid piece (document frame), or null.</summary>
@@ -117,6 +148,14 @@ public partial class MapmakerPlugin
         string json = Session.Document.ToJson();
         _checkedJson = json;
         var map = Compiled()!;
+        if (_compiledPiecesOnly)
+        {
+            // the decoration is still compiling: the check would judge a map without its SM1 pieces; it runs when they land
+            RouteChecking = true;
+            CheckChanged?.Invoke();
+            return;
+        }
+        RouteChecking = false;
         LastCheck = MapCheck.Run(map);
         CheckChanged?.Invoke();
         if (!withRoute || !LastCheck.Ready(CheckMode.Annihilation) && !LastCheck.Ready(CheckMode.Seize)) return;

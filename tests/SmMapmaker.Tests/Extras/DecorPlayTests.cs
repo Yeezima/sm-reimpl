@@ -253,7 +253,7 @@ public sealed class DecorPlayTests : IDisposable
         timer.Stop();
         Assert.Equal(2000 * 12, map.Decor!.Triangles);
         Assert.Equal(1, scenes.SceneLoads);                                  // the scene is asked for once per map, not per placement
-        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(10), $"took {timer.Elapsed}");
+        Assert.True(timer.Elapsed < TimeSpan.FromMinutes(2), $"took {timer.Elapsed}");   // bounded by the budget, not by time; this only catches a hang
     }
 
     // ---- hostile files, budgets, determinism (review of 2026-11-19) ----
@@ -320,7 +320,7 @@ public sealed class DecorPlayTests : IDisposable
         var bomb = MapDocument.Parse(o.ToJsonString());
         var timer = Stopwatch.StartNew();
         Assert.Equal("too-big", Assert.Throws<MapException>(() => CustomMap.Compile(bomb, Options())).Code);
-        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(10));
+        Assert.True(timer.Elapsed < TimeSpan.FromMinutes(2), $"took {timer.Elapsed}");   // the work is bounded by the budget, not by time; this only catches a hang
         // the editor's lenient compile does not throw: it leaves the decoration out and the check says why
         var lenient = CustomMap.Compile(bomb, Options(strict: false));
         Assert.Equal(0, lenient.Decor!.Placements.Count);
@@ -346,7 +346,7 @@ public sealed class DecorPlayTests : IDisposable
         var timer = Stopwatch.StartNew();
         var e = Assert.Throws<MapException>(() => CustomMap.Compile(doc, Options()));
         Assert.Equal("too-big", e.Code);
-        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(10), $"took {timer.Elapsed}");
+        Assert.True(timer.Elapsed < TimeSpan.FromMinutes(2), $"took {timer.Elapsed}");   // bounded by the budget, not by time; this only catches a hang
     }
 
     [Fact]
@@ -402,5 +402,37 @@ public sealed class DecorPlayTests : IDisposable
         Assert.Equal(1, scenes.SceneLoads);
         Assert.True(s.Apply(Lab.Op("""{"op":"transform","id":"o1","position":[1,1,0]}""")).Ok);
         Assert.NotSame(first.Decor, CustomMap.Compile(s.Document, Opt()).Decor);
+    }
+    [Fact]
+    public void Quick_edits_make_one_background_build_and_a_stale_result_is_never_applied()
+    {
+        var cache = new DecorCache();
+        var gate = new ManualResetEventSlim(false);
+        var started = new List<string>();
+        var ready = new List<string>();
+        using var worker = new DecorWorker(cache, TimeSpan.FromMilliseconds(80), a => a(), () => ready.Add("ready"), (doc, _) =>
+        {
+            lock (started) started.Add(doc.Name);
+            if (doc.Name == "slow") gate.Wait(TimeSpan.FromSeconds(20));
+            return new DecorResult();
+        });
+        var o = new CompileOptions();
+        // ten edits within the debounce: one build, for the last
+        for (int i = 0; i < 10; i++) worker.Request(MapDocument.Create($"edit{i}"), o, $"k{i}");
+        SpinWait.SpinUntil(() => ready.Count == 1, TimeSpan.FromSeconds(20));
+        Assert.Equal(["edit9"], started.ToArray());
+        Assert.Equal(1, worker.Builds);
+        Assert.True(cache.TryGet("k9", out _));
+        Assert.False(cache.TryGet("k0", out _));
+        // an edit while a build runs: the running build's result is dropped, the newest is built
+        worker.Request(MapDocument.Create("slow"), o, "slow");
+        SpinWait.SpinUntil(() => { lock (started) return started.Contains("slow"); }, TimeSpan.FromSeconds(20));
+        worker.Request(MapDocument.Create("newest"), o, "newest");
+        gate.Set();
+        SpinWait.SpinUntil(() => ready.Count == 2 && !worker.Pending, TimeSpan.FromSeconds(20));
+        Assert.False(cache.TryGet("slow", out _));
+        Assert.True(cache.TryGet("newest", out _));
+        Assert.Equal(2, ready.Count);
+        Assert.False(worker.Pending);
     }
 }

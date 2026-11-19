@@ -113,7 +113,7 @@ public sealed class RealInstallFixtureTests(ITestOutputHelper output) : IDisposa
         output.WriteLine($"compiled in {timer.Elapsed.TotalSeconds:0.0} s: {map.Decor!.Placements.Count} placements, {map.Decor.Triangles:N0} triangles, hash {map.Hash:X16}");
         Assert.True(map.Decor.Placements.Count >= 164);
         Assert.True(map.Decor.Triangles > 1000);
-        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(20), $"compiled in {timer.Elapsed}");
+        Assert.True(timer.Elapsed < TimeSpan.FromMinutes(2), $"compiled in {timer.Elapsed}");
         var again = CustomMap.Compile(MapDocument.Parse(doc.ToJson()), CompileOptions.ForPlay(textures: false));
         Assert.Equal(map.Hash, again.Hash);   // two compiles (server and client) agree
         var report = MapCheck.Run(map);

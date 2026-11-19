@@ -543,10 +543,10 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             plugin.OpenMap(file);
             await Frames(30);
             Check(Doc() == saved, "reopening the file gives the same document");
-            Check(plugin.Compiled()!.Hash == CustomMap.HashOf(MapDocument.Parse(saved)), $"the compiled map's hash is the file's hash ({plugin.Compiled()!.Hash:X16})");
+            Check(plugin.Compiled(wait: true)!.Hash == CustomMap.HashOf(MapDocument.Parse(saved)), $"the compiled map's hash is the file's hash ({plugin.Compiled(wait: true)!.Hash:X16})");
 
             // 7b. The server loads the chosen file by path and a client is given the same file (--custom-map): the same hash, whatever else is in the maps folder.
-            Check(CustomMaps.LoadForPlay(plugin.Compiled()!.Name, file).Hash == CustomMaps.Load(file).Hash, "the server's and the client's load of the chosen file have the same hash");
+            Check(CustomMaps.LoadForPlay(plugin.Compiled(wait: true)!.Name, file).Hash == CustomMaps.Load(file).Hash, "the server's and the client's load of the chosen file have the same hash");
 
             // 8. Play test, both modes (the real thing: server on 127.0.0.1, bots, an observer on the test desktop).
             if (Flag("--mm-play"))
@@ -575,7 +575,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             string other = Path.Combine(_out, "shared");
             Directory.CreateDirectory(other);
             File.Copy(shared, Path.Combine(other, Path.GetFileName(shared)), true);
-            Check(CustomMaps.Load(Path.Combine(other, Path.GetFileName(shared))).Hash == plugin.Compiled()!.Hash, "a copy of the file elsewhere compiles to the same hash (shareable as one file)");
+            Check(CustomMaps.Load(Path.Combine(other, Path.GetFileName(shared))).Hash == plugin.Compiled(wait: true)!.Hash, "a copy of the file elsewhere compiles to the same hash (shareable as one file)");
         }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
         {

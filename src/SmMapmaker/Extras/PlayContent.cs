@@ -27,6 +27,13 @@ public sealed class DecorCache
     string? _key;
     DecorResult? _result;
 
+    public bool TryGet(string key, out DecorResult? result)
+    {
+        lock (_gate) { result = _key == key ? _result : null; return result is not null; }
+    }
+
+    public void Set(string key, DecorResult result) { lock (_gate) { _key = key; _result = result; } }
+
     public DecorResult GetOrBuild(string key, Func<DecorResult> build)
     {
         lock (_gate)
