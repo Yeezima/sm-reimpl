@@ -1050,6 +1050,8 @@ public partial class MapmakerDock : VBoxContainer
         _refreshing = true;
         _parts.Clear(); _partList = new();
         var id = CurrentPrefabId;
+        // Every route that changes the prefab (the dropdown, SelectPrefab, a list rebuild) comes through here; a typed pivot shift never carries over to another prefab (review).
+        if (id != _pivotPrefabId) { _pivotPrefabId = id; ResetPivot(); }
         Prefab? p = null;
         try { p = id is null ? null : MapHost.Library.GetPrefab(id); } catch (MapException) { }
         if (p is not null)
@@ -1072,8 +1074,8 @@ public partial class MapmakerDock : VBoxContainer
         _refreshing = false;
     }
 
-    /// <summary>A part spin edit changes one component of the stored part transform; the other eight values are the stored ones.</summary>
     readonly bool[] _porgTouched = new bool[3];
+    string? _pivotPrefabId;   // the prefab the pivot spins' touched flags belong to
 
     /// <summary>Apply pivot sends a shift for the axes touched since the last load only; the others are zero (no shift), whatever the spin box shows.</summary>
     void ApplyPivot()
@@ -1090,6 +1092,7 @@ public partial class MapmakerDock : VBoxContainer
         _refreshing = r;
     }
 
+    /// <summary>A part spin edit changes one component of the stored part transform; the other eight values are the stored ones.</summary>
     void ApplyPart(TransformProp prop, int axis, float value)
     {
         if (_refreshing || CurrentPrefabId is null || _parts.GetSelectedItems().Length == 0) return;
