@@ -77,8 +77,12 @@ public sealed class InstalledSm1Source(string gameDir) : ISm1Source
         foreach (var d in scene.Definitions.Values.OrderBy(d => d.Name, StringComparer.Ordinal))
             definitions[d.Name] = new Sm1Definition(d.Name, d.Visuals.Count, BoundsOf(scene, d), PartBounds(scene, d), d.NearestLod().Select(v => v.RefNode).ToList());
         var objects = scene.Objects.Select(o => new Sm1Object(o.Name, o.Definition, o.Layer, o.Transform, o.Depth)).ToList();
-        return _cache[map] = new Sm1Map(map, objects, definitions, scene.Notes);   // Hidden stays null: MapDecor lives in the client, so only the editor's source knows those placements.
+        return _cache[map] = new Sm1Map(map, objects, definitions, scene.Notes) { Hidden = HiddenPlacements(map, objects) };   // the same placements Classic hides (shared SmContent.MapDecorLists)
     }
+
+    /// <summary>The placements Classic does not draw on <paramref name="map"/> (indices into <paramref name="objects"/>), from the lists the client uses (<see cref="MapDecorLists"/>); <paramref name="old"/> is the client's <c>--old-armoury-racks</c> restore switch (off by default).</summary>
+    public static IReadOnlySet<int> HiddenPlacements(string map, IReadOnlyList<Sm1Object> objects, bool old = false) =>
+        MapDecorLists.Hidden(map, old, objects.Select(o => (o.Definition, o.Transform.Translation.X, o.Transform.Translation.Y)).ToList());
 
     /// <summary>Each nearest-LOD part's box in the definition's frame (null when its mesh block is missing).</summary>
     public static IReadOnlyList<Bounds?> PartBounds(MapScene scene, ObjectDefinition d) =>
