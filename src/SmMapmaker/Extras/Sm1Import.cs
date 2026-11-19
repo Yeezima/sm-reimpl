@@ -93,6 +93,12 @@ internal sealed partial class Batch
             Doc.Objects.AddRange(hiddenObjs);
         }
         if (MapLook.IsMapName(map)) Doc.Look = new MapLook(map);   // the original lighting, sky and fog in play (slice S4 draws it)
+        // The spawns go in before the size trim, so the 8 MB limit counts them too (the loop below only ever drops placements).
+        Vector3 low = new(float.MaxValue), high = new(float.MinValue);
+        foreach (var x in shownObjs.Concat(hiddenObjs)) { low = Vector3.Min(low, x.Transform.Position); high = Vector3.Max(high, x.Transform.Position); }
+        bool any = shownObjs.Count + hiddenObjs.Count > 0;
+        var spawnNotes = spawnsFit ? AddSpawns(spawnPlan, groupId, layer, any ? (low + high) / 2f : Vector3.Zero, any ? low.Z : 0f)
+            : ["The map file is nearly full, so the spawn areas, doors and capture points were not added; the check will ask for them."];
         // The 8 MB file limit: drop the placements Classic hides first, then the visible ones (last first); the gameplay pieces always stay.
         int bySize = 0, hiddenBySize = 0;
         while ((shownObjs.Count > 0 || hiddenObjs.Count > 0) && Doc.ToJson().Length > MapDocument.MaxChars)
@@ -107,11 +113,6 @@ internal sealed partial class Batch
         }
         if (hiddenGroup is not null && hiddenObjs.Count == 0) Doc.Objects.RemoveAll(x => x.Id == hiddenGroup);
         int imported = shownObjs.Count, hiddenImported = hiddenObjs.Count;
-        Vector3 low = new(float.MaxValue), high = new(float.MinValue);
-        foreach (var x in shownObjs.Concat(hiddenObjs)) { low = Vector3.Min(low, x.Transform.Position); high = Vector3.Max(high, x.Transform.Position); }
-        bool any = imported + hiddenImported > 0;
-        var spawnNotes = spawnsFit ? AddSpawns(spawnPlan, groupId, layer, any ? (low + high) / 2f : Vector3.Zero, any ? low.Z : 0f)
-            : ["The map file is nearly full, so the spawn areas, doors and capture points were not added; the check will ask for them."];
         Warnings.Add($"Imported {imported} of {scene.Objects.Count} placements of '{map}' under '{groupName}'.");
         if (gameplay is null) Warnings.Add("The original's invisible walls, kill boxes and cover were not available for this map (no install reader, or a map the game server does not load), so none were imported.");
         else Warnings.Add($"Classic's own gameplay came in as editable pieces: {nWalls} invisible wall(s) (players only), {nKills} kill box(es) and {nCover} cover box(es) (shoot-through crates and barrels, one box each); see the Walls, Kill boxes and Cover groups.");
