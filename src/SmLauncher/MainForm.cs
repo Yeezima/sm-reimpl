@@ -933,9 +933,10 @@ sealed class MainForm : Form
     {
         string? dir = _updater?.CurrentDir();
         if (dir is null || _layout is null || _busy) return;
-        var setup = new MapmakerSetup(_layout);
+        var setup = new MapmakerSetup(_layout) { Log = s => _log?.Write(s) };
         var plan = setup.Plan(dir);
-        if (!plan.ShippedOk) { SetLine(plan.ShippedProblem!, Bad); return; }
+        _log?.Write($"mapmaker: button pressed for {Path.GetFileName(dir)}: shipped ok {plan.ShippedOk}, need editor {plan.NeedGodot}, need runtime {plan.NeedDotNet}, need sync {plan.NeedSync}, need import {plan.NeedImport}");
+        if (!plan.ShippedOk) { _log?.Write("mapmaker: " + plan.ShippedProblem); SetLine(plan.ShippedProblem!, Bad); return; }
         if (plan.NeedsDownload)
         {
             string what = plan.NeedGodot && plan.NeedDotNet ? "the free Godot editor and the .NET runtime it needs" : plan.NeedGodot ? "the free Godot editor" : "the .NET runtime the Godot editor needs";
@@ -963,7 +964,8 @@ sealed class MainForm : Form
                 ((IProgress<UpdateStatus>)progress).Report(new UpdateStatus(UpdatePhase.Downloading, "Preparing the Mapmaker for its first start (about a minute, once)...", null));
                 int code = await MapmakerStart.RunHiddenAsync(setup.EditorCommand(headlessImport: true), TimeSpan.FromMinutes(3), ct);
                 _log?.Write($"mapmaker: first-time import finished with code {code}");
-                if (code == 0) setup.MarkImported();       // only a finished import counts: otherwise the next press runs it again
+                if (code == 0) setup.MarkImported();       // only a finished import counts: the next press tries again, twice at most
+                else setup.NoteImportFailed(code == -1 ? "it ran over 3 minutes and was stopped" : $"exit code {code}");
             }
             EndBusy();
             var launch = setup.EditorCommand(safe, versionDir: dir);
@@ -1022,11 +1024,24 @@ sealed class MainForm : Form
         var progress = new Progress<(int Done, int Total)>(x => OnProgress(new UpdateStatus(UpdatePhase.Verifying, $"Checking the files of {tag} ({x.Done} of {x.Total})", (double)x.Done / Math.Max(1, x.Total))));
         var updater = _updater;
         ManifestReport report;
-        try { report = await Task.Run(() => updater.CheckFiles(tag, progress)); }
+        MapmakerReport? mm = null;
+        var mapSetup = new MapmakerSetup(_layout!) { Log = s => _log?.Write(s) };
+        string? versionDir = updater.CurrentDir();
+        try
+        {
+            report = await Task.Run(() => updater.CheckFiles(tag, progress));
+            // The Mapmaker's data (project copy, editor assemblies, tools) is checked too, when the Mapmaker has been used on this PC.
+            if (versionDir is not null) mm = await Task.Run(() => mapSetup.Verify(versionDir));
+        }
         finally { EndBusy(); }
-        _log?.Write($"check files {tag}: {report.Describe()}");
-        if (report.Ok) { DarkBox.Show(this, $"All {report.Checked} files of {tag} are intact.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-        string problem = $"{tag} is damaged: {report.Describe()}.";
+        _log?.Write($"check files {tag}: {report.Describe()}; mapmaker: {mm?.Describe() ?? "not checked"}");
+        if (report.Ok)
+        {
+            string note = mm is { InUse: true, Ok: true } ? $"\nThe Mapmaker's {mm.Checked} files and tools are intact too." : "";
+            if (mm is { InUse: true, Ok: false }) { await RepairMapmakerAsync(mapSetup, mm, versionDir!, tag, $"All {report.Checked} files of {tag} are intact, but the Mapmaker has problems: "); return; }
+            DarkBox.Show(this, $"All {report.Checked} files of {tag} are intact.{note}", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return;
+        }
+        string problem = $"{tag} is damaged: {report.Describe()}." + (mm is { InUse: true, Ok: false } ? $"\nThe Mapmaker also has problems ({mm.Describe()}); use Check files again after this is repaired." : "");
         if (_newest?.Tag == tag)
         {
             if (DarkBox.Show(this, problem + "\n\nDownload this build again? Your profile and settings are kept.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
@@ -1036,6 +1051,36 @@ sealed class MainForm : Form
             DarkBox.Show(this, problem + "\n\nUpdate to the newest build to replace it" + (p.Previous is not null ? ", or roll back to " + p.Previous : "") + ".", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         else
             DarkBox.Show(this, problem + "\n\nConnect to the internet and use Check files again to download it anew" + (p.Previous is not null ? ", or roll back to " + p.Previous : "") + ".", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    /// <summary>Check files found Mapmaker problems: asks, then copies the project again and downloads the tools that are missing or damaged. The tester's own maps are never touched.</summary>
+    async Task RepairMapmakerAsync(MapmakerSetup setup, MapmakerReport mm, string versionDir, string tag, string lead)
+    {
+        string ask = lead + mm.Describe() + ".\n\nRepair the Mapmaker now?" + (mm.NeedsDownload ? " This downloads the missing editor files (once). " : " ") + "Your own maps are not touched. Close the Mapmaker (Godot) window first.";
+        if (DarkBox.Show(this, ask, Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        BeginBusy(UpdatePhase.Downloading);
+        _cts = new CancellationTokenSource();
+        var progress = new Progress<UpdateStatus>(OnProgress);
+        try
+        {
+            if (mm.NeedsDownload)
+            {
+                using var http = new SafeHttp(NetPolicy.Tools);
+                await setup.EnsureToolsAsync(setup.Plan(versionDir), http, progress, _cts.Token);
+            }
+            int changed = await Task.Run(() => setup.Repair(versionDir));
+            var after = await Task.Run(() => setup.Verify(versionDir));
+            _log?.Write($"mapmaker repair for {tag}: {changed} files changed; now: {after.Describe()}");
+            EndBusy();
+            SetLine(after.Ok ? "The Mapmaker was repaired." : "The Mapmaker still has problems: " + after.Describe(), after.Ok ? Good : Warn);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            EndBusy();
+            _log?.Write($"mapmaker repair failed: {e.GetType().Name}: {e.Message}");
+            SetLine(e is OperationCanceledException ? "The Mapmaker repair is paused." : "The Mapmaker repair failed: " + e.Message, Warn);
+        }
+        finally { _cts?.Dispose(); _cts = null; }
     }
 
     async Task RepairAsync()

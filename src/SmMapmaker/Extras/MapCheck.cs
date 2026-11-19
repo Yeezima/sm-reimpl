@@ -133,6 +133,9 @@ public static class MapCheck
         var mesh = world.Character;
         static IReadOnlyList<string> ids(IEnumerable<DrawPiece> ps) => ps.Select(p => p.Id).ToList();
 
+        // What the editor's lenient compile left out and play would refuse: never "ready" while a real match would not start.
+        foreach (var problem in map.Decor?.Problems ?? [])
+            r.Issues.Add(new Issue(Severity.Error, "decoration-missing", problem, "Load the Space Marine map in the Library (or fix the model or prefab), or remove the piece."));
         if (map.SolidCount == 0)
             r.Issues.Add(new Issue(Severity.Error, "no-ground", "The map has no solid ground. Players would fall straight through.", "Add a Block for the floor (Pieces > Block) or start from a template.", null, CheckMode.Both, "add-floor"));
 

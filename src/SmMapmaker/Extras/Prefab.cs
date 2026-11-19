@@ -162,25 +162,60 @@ public sealed record AssetInfo(string Id, string Name, string File, Bounds? Boun
     }
 }
 
-/// <summary>Walks prefab-in-prefab references.</summary>
+/// <summary>Walks prefab-in-prefab references (iteratively: a hostile chain of thousands of prefabs must not overflow the stack).</summary>
 public static class PrefabGraph
 {
+    /// <summary>Most prefab levels one instance may nest (the compiler's own limit: an instance's prefab is level 0, so 17 prefabs deep).</summary>
+    public const int MaxLevels = 17;
+
     /// <summary>A cycle reachable from <paramref name="start"/> as "a -> b -> a", or null. Unknown prefabs end a path.</summary>
-    public static string? FindCycle(string start, Func<string, Prefab?> get)
+    /// <exception cref="MapException"><c>too-big</c>: nested deeper than <see cref="MaxLevels"/>.</exception>
+    public static string? FindCycle(string start, Func<string, Prefab?> get) => FindCycle([start], get);
+
+    /// <summary>
+    /// The first cycle reachable from any of <paramref name="starts"/>, or null; one walk state is shared by all starts, so checking every prefab of a file costs one visit per prefab and edge.
+    /// </summary>
+    public static string? FindCycle(IEnumerable<string> starts, Func<string, Prefab?> get)
     {
+        var state = new Dictionary<string, int>(StringComparer.Ordinal);   // 1: on the current path, 2: finished
+        var height = new Dictionary<string, int>(StringComparer.Ordinal);
         var path = new List<string>();
-        string? Walk(string id)
+        var iterators = new List<IEnumerator<string>>();
+        var best = new List<int>();
+        static IEnumerator<string> Children(Prefab p) => p.Parts.Where(x => x.Prefab is not null).Select(x => x.Prefab!).Distinct().GetEnumerator();
+        foreach (var start in starts)
         {
-            int at = path.IndexOf(id);
-            if (at >= 0) return string.Join(" -> ", path.Skip(at).Append(id));
-            if (get(id) is not { } p) return null;
-            path.Add(id);
-            foreach (var child in p.Parts.Where(x => x.Prefab is not null).Select(x => x.Prefab!).Distinct())
-                if (Walk(child) is { } c) return c;
-            path.RemoveAt(path.Count - 1);
-            return null;
+            if (state.ContainsKey(start) || get(start) is not { } root) continue;
+            path.Add(start); iterators.Add(Children(root)); best.Add(0); state[start] = 1;
+            while (path.Count > 0)
+            {
+                int top = path.Count - 1;
+                if (iterators[top].MoveNext())
+                {
+                    string child = iterators[top].Current;
+                    if (state.TryGetValue(child, out int s))
+                    {
+                        if (s == 1) return string.Join(" -> ", path.Skip(path.IndexOf(child)).Append(child));
+                        if (path.Count + height[child] > MaxLevels) throw new MapException("too-big", $"Prefabs are nested more than {MaxLevels} levels deep (at '{child}').");   // the same answer in any order of listing
+                        best[top] = Math.Max(best[top], height[child]);
+                    }
+                    else if (get(child) is { } p)
+                    {
+                        if (path.Count >= MaxLevels) throw new MapException("too-big", $"Prefabs are nested more than {MaxLevels} levels deep (at '{child}').");
+                        path.Add(child); iterators.Add(Children(p)); best.Add(0); state[child] = 1;
+                    }
+                }
+                else
+                {
+                    int h = best[top] + 1;
+                    string id = path[top];
+                    state[id] = 2; height[id] = h;
+                    path.RemoveAt(top); iterators.RemoveAt(top); best.RemoveAt(top);
+                    if (top > 0) best[top - 1] = Math.Max(best[top - 1], h);
+                }
+            }
         }
-        return Walk(start);
+        return null;
     }
 
     public static string? FindCycle(string start, MapLibrary lib) => FindCycle(start, lib.GetPrefab);

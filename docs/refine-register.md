@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3864 spec table rows: **2821 tagged**, 686 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 827 rows of the changes document.
+Scanned 3864 spec table rows: **2821 tagged**, 686 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -5078,6 +5078,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B025C23F` | Warfront: the Warboss does not leave the arena (W14e, added content; spec "W14e: the Warboss is the arena's boss"); not in SM1 | when the freed fortress Warboss is pinned on the way out for 2 s, or Musou's failsafe carries him off, he is put back on his spot (no heal, no invulnerability; not when he already stands within 2 m of it, W13e; he seeks again at once because the sim has no way to leash him a second time) | ours (the designer's ruling 2026-11-17; the 0.5 m/s, 2 s and 20 m are estimates in the refine register) | ours | Warfront: the Warboss does not leave the arena (W14e, added…: compare with SM1 by feel or video. Ours: when the freed fortress Warboss is pinned on the way out for 2 s, or… | ☐ |
 | `C-219A8C79` | Warfront: Orks inside their goal's ring count as arrived for Musou's stranded failsafe (W13e, added content; spec "W13e: Orks inside their goal's ring have arrived"); not in SM1 | an Ork inside a capture ring (24 m or 40 m) is no longer listed as stranded and carried off by the 12 m rule; the hook is `MusouSim.WarfrontHeadwayNear`, a no-op outside Warfront | ours (designer W13d review 1) | ours | Warfront: Orks inside their goal's ring count as arrived…: compare with SM1 by feel or video. Ours: an Ork inside a capture ring (24 m or 40 m) is no longer listed as… | ☐ |
 | `C-CEF7CF64` | Warfront: the fortress win tripwire (W13e, added content); not in SM1 | one server log line when the fortress is won, a `FAULT` line if the Warboss vanished without a death while above 5 % health | ours (W14e review 1) | ours | Warfront: the fortress win tripwire (W13e, added content)…: compare with SM1 by feel or video. Ours: one server log line when the fortress is won, a FAULT line if the… | ☐ |
+
+#### Mapmaker (custom maps; added content, --custom-map; docs/mapmaker.md)
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-8619F81F` | Mapmaker SM1 pieces in play (owner 2026-11-19; added content; protocol and config hash unchanged, `CompilerVersion` 5) | Maps are the original's baked collision; there is no tester-placed decoration | Ours (the owner's decision "drawn means solid"): in a custom map every SM1 placement, prefab part and imported model is both drawn and solid, with collision built from the drawn meshes (so cables, cards and other thin decoration collide), each machine from its own install; `original-cut` prefabs take the original… | docs/mapmaker.md "SM1 pieces in play"; the owner's decision of 2026-11-19 | Mapmaker SM1 pieces in play (owner 2026-11-19; added…: compare with SM1 by feel or video. Ours: Maps are the original's baked collision; there is no tester-placed… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

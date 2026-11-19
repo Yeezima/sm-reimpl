@@ -33,6 +33,7 @@ public partial class MapmakerPlugin : EditorPlugin
     ObjectGizmoPlugin? _gizmo;
     readonly Dictionary<int, Step> _steps = new();
     int _stepId;
+    (Step Step, string Label, int Hold)? _holdStep;   // the undo step a held spin arrow keeps folding its repeats into
     bool _busy;
     int _lastPrefabStamp;
     readonly Dictionary<string, MapmakerObject> _nodes = new();
@@ -78,6 +79,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public override void _ExitTree()
     {
+        _decorWorker?.Dispose(); _decorWorker = null;   // no background build is applied to a plugin that is gone
         if (PlayRunning) StopPlayTest();   // closing the editor mid-test stops that test's server and bots (only the processes it recorded)
         MapHost.RootChanged -= OnRootChanged;
         MapHost.Sm1Changed -= OnSm1Changed;
@@ -110,6 +112,7 @@ public partial class MapmakerPlugin : EditorPlugin
         EnsureSceneRoot();
         if (Selftest.Wanted) _ = new Selftest(this).Run();
         else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
+        else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -359,7 +362,7 @@ public partial class MapmakerPlugin : EditorPlugin
         {
             Adopt(MapSession.Load(path, MapHost.Library, _sm1Adapter));
             string? shared = MapHost.Root is { } r && SceneFileOf(r) is { Length: > 0 } f ? OtherOwnerOfMap(Session!.Path!, f) : null;
-            SetStatus($"Opened {path}" + (shared is null ? "" : $". This map is also used by {shared}; edits affect both."));
+            SetStatus($"Opened {path}" + (shared is null ? "" : $". This map is also used by {shared}; edits affect both.") + string.Concat(Session!.OpenNotes.Select(n => " " + n)));
             return null;
         }
         catch (MapException e) { SetStatus($"Open failed: {e.Code}: {e.Message}"); return OpResult.Fail(e.Code, e.Message, "open"); }
@@ -425,8 +428,17 @@ public partial class MapmakerPlugin : EditorPlugin
         step.AfterDoc = Session.Document.ToJson();
         step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
         foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
+        // A held spin-box arrow repeats many edits: the first makes the undo step, the rest fold into it (one hold = one undo step).
+        if (SpinArrows.Holding && _holdStep is { } held && held.Step.RootId == step.RootId && held.Label == label && held.Hold == SpinArrows.HoldId && _steps.ContainsValue(held.Step))
+        {
+            held.Step.AfterDoc = step.AfterDoc; held.Step.AfterPrefabs = step.AfterPrefabs; held.Step.Result = applied;
+            AfterChange(prefabsChanged: StepTouchesLibrary(step));
+            SetStatus(label);
+            return applied;
+        }
         int id = ++_stepId;
         _steps[id] = step;
+        _holdStep = SpinArrows.Holding ? (step, label, SpinArrows.HoldId) : null;
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
         var ur = GetUndoRedo();
         ur.CreateAction(label, UndoRedo.MergeMode.Disable, MapHost.Root);
@@ -596,7 +608,7 @@ public partial class MapmakerPlugin : EditorPlugin
             try
             {
                 var source = await System.Threading.Tasks.Task.Run(() => Sm1Source.Load(map));
-                if (MapHost.Sm1For(map) is null) MapHost.Register(source);
+                if (MapHost.Sm1For(map) is null) MapHost.Register(source, makeCurrent: false);
                 SetStatus($"Loaded {map} from the install; its pieces are drawn.");
             }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { SetStatus($"Could not load {map} to draw its pieces: {e.Message}"); }
@@ -632,6 +644,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public void Reconcile()
     {
         if (_busy || Session is null) return;
+        if (ReconcileParents()) return;   // a drag in the Scene dock: becomes set-parent (then the view is synced to the document)
         var doc = Session.Document;
         var ops = new List<JsonObject>();
         foreach (var o in doc.Objects)
@@ -738,6 +751,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
             && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
+        GroupDoubleClick(@event);
         if (GhostWheelInput(@event) || BoxSelectInput(@event)) return;
         if (@event is InputEventKey { Pressed: true } key)
         {
@@ -868,7 +882,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public OpResult DuplicateSelected()
     {
-        var r = Do("Duplicate", Op("duplicate", ("ids", Strs(SelectedIds())), ("offset", Vec(new Num.Vector3(MapHost.GridStep, MapHost.GridStep, 0)))));
+        var r = Do("Duplicate", Op("duplicate", ("ids", Strs(SelectedIds())), ("offset", Vec(Num.Vector3.Zero))));   // the copy stays exactly on the original (owner 2026-11-19)
         if (r.Ok) Select(r.Created);
         return r;
     }

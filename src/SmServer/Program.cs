@@ -275,7 +275,7 @@ if (cli.CustomMap is { } customFile)
     if (cli.Map is not null) { Console.Error.WriteLine("smserver: --custom-map replaces --map; give one of them"); return ServerCommandLine.UsageError; }
     if (contentExtras.HasFlag(ContentExtras.Musou)) { Console.Error.WriteLine("smserver: --custom-map is Classic PvP only (not with --content musou)"); return ServerCommandLine.UsageError; }
     string? customName = null;
-    generatedMap = GameServer.CustomMap(customFile, ref customName, out mapError);
+    generatedMap = GameServer.CustomMap(customFile, ref customName, out mapError, install);
     mapName = customName;
 }
 if (mapError is not null)

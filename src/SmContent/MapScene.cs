@@ -18,7 +18,11 @@ public sealed record PlacedObject(string Name, string Definition, string Layer, 
 /// <param name="MeshId">Which block of that mesh (blocks are the object's LODs).</param>
 /// <param name="NodeTransform">The <c>RefNode</c>'s transform within the object (its node chain composed).</param>
 /// <param name="LodLevel">Bit mask of the LODs this part draws in; bit 0 is the nearest (-1: all).</param>
-public sealed record VisualPart(string MeshName, int MeshId, string RefNode, Matrix4x4 NodeTransform, int LodLevel, bool CastShadows);
+public sealed record VisualPart(string MeshName, int MeshId, string RefNode, Matrix4x4 NodeTransform, int LodLevel, bool CastShadows)
+{
+    /// <summary>The same node transform rebuilt from the raw node data with <see cref="DetTransform"/> (bit-identical on every OS); used only by the Mapmaker's custom-map collision. <see cref="NodeTransform"/> is unchanged.</summary>
+    public DetMatrix? DetNode { get; init; }
+}
 
 /// <param name="CollisionNodes">Node transforms of the definition's rigid bodies (to check placements against level collision).</param>
 public sealed record ObjectDefinition(string Name, IReadOnlyList<VisualPart> Visuals, IReadOnlyList<(string Node, Matrix4x4 Transform)> CollisionNodes)
@@ -212,19 +216,21 @@ public sealed class MapScene
         Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(Rotation(rotationDegrees.X, rotationDegrees.Y, rotationDegrees.Z))
         * Matrix4x4.CreateTranslation(position);
 
-    public static MapScene Load(string gameDir, string map, bool extendedLighting = true)
+    public static MapScene Load(string gameDir, string map, bool extendedLighting = true, IReadOnlySet<string>? onlyDefinitions = null, bool textures = true)
     {
         if (map.Length == 0 || map.Length > 64 || map.Any(c => !(char.IsAsciiLetterOrDigit(c) || c == '_')))
             throw new ArgumentException($"'{map}' is not a map name.", nameof(map));
         foreach (var region in new[] { "wrld", "r000_main" })
         {
             string path = Path.Combine(gameDir, "data", "chunks", $"{map}__{region}.oppc");
-            if (File.Exists(path)) return Read(path, map, extendedLighting);
+            if (File.Exists(path)) return Read(path, map, extendedLighting, onlyDefinitions, textures);
         }
         throw new FileNotFoundException($"No region archive for '{map}'.");
     }
 
-    public static MapScene Read(string archivePath, string map, bool extendedLighting = true)
+    /// <param name="onlyDefinitions">Mapmaker (custom maps play SM1 pieces, docs/mapmaker.md): when set, only these definitions' meshes are read (the placements and definitions are all kept); null: every used one.</param>
+    /// <param name="textures">False: no texture bytes are read (the server builds collision from the meshes and never draws).</param>
+    public static MapScene Read(string archivePath, string map, bool extendedLighting = true, IReadOnlySet<string>? onlyDefinitions = null, bool textures = true)
     {
         var notes = new List<string>();
         var objects = new List<PlacedObject>();
@@ -277,7 +283,7 @@ public sealed class MapScene
         var variants = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase);
         ResolveDuplicates(o3d, objects, meshKeys, definitions, variants);
 
-        var used = objects.Select(o => o.Definition).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var used = objects.Select(o => o.Definition).Where(d => onlyDefinitions is null || onlyDefinitions.Contains(d)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var name in used.Where(n => !definitions.ContainsKey(n)).Order(StringComparer.Ordinal))
             notes.Add($"object definition '{name}' not in the archive; its {objects.Count(o => o.Definition.Equals(name, StringComparison.OrdinalIgnoreCase))} placements are not drawn");
         var meshNames = definitions.Values.Concat(variants.Values).Where(d => used.Contains(d.Name)).SelectMany(d => d.Visuals).Select(v => v.MeshName)
@@ -319,12 +325,12 @@ public sealed class MapScene
             if (materials.TryGetValue(grade.Material, out var gm) && gm.Textures.TryGetValue("lookup", out var lut)) wanted.Add(lut);
         // The orthographic lights' mask pictures (light_mask_*: in the region archive).
         foreach (var ol in lighting?.OrthoLights ?? []) wanted.Add(ol.MaskName);
-        var textures = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textures.TryAdd(e.FileName, data.ToArray()));
+        var textureBytes = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        if (textures) archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textureBytes.TryAdd(e.FileName, data.ToArray()));
 
         return new MapScene
         {
-            Map = map, Objects = objects, Definitions = definitions, Variants = variants, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions, Spinning = spin,
+            Map = map, Objects = objects, Definitions = definitions, Variants = variants, Meshes = meshes, Materials = materials, Textures = textureBytes, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions, Spinning = spin,
         };
     }
 
@@ -465,13 +471,15 @@ public sealed class MapScene
         if (root is not BodStruct { Class.Text: "Object3D" } o) throw new InvalidDataException($"'{name}' is not an Object3D.");
         var nodes = new Dictionary<string, Matrix4x4>(StringComparer.OrdinalIgnoreCase);
         CollectNodes(Unwrap(o["Skeleton"]), Matrix4x4.Identity, nodes, 0);
+        var detNodes = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        CollectDetNodes(Unwrap(o["Skeleton"]), DetTransform.Identity(), detNodes, 0);
         var visuals = new List<VisualPart>();
         foreach (var v in Items(o["Visuals"]).OfType<BodStruct>().Where(v => v.Class.Text == "StaticMeshVisual"))
         {
             if (v["MeshName"] is not BodString { Text: { Length: > 0 } mesh } || v["Renderable"] is BodBool { Value: false }) continue;
             string node = (v["RefNode"] as BodString)?.Text ?? "";
             visuals.Add(new VisualPart(mesh, (v["MeshID"] as BodInt)?.Value ?? 0, node, nodes.GetValueOrDefault(node, Matrix4x4.Identity),
-                (v["LODLevel"] as BodInt)?.Value ?? -1, v["CastShadows"] is not BodBool { Value: false }));
+                (v["LODLevel"] as BodInt)?.Value ?? -1, v["CastShadows"] is not BodBool { Value: false }) { DetNode = new DetMatrix(detNodes.TryGetValue(node, out var det) ? det : DetTransform.Identity()) });
         }
         var bodies = Items(o["Bodies"]).OfType<BodStruct>()
             .Select(b => (b["NodeName"] as BodString)?.Text).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase)
@@ -485,6 +493,23 @@ public sealed class MapScene
         var world = Local(s) * parent;
         if (s["Name"] is BodString { Text: { } name }) nodes.TryAdd(name, world);
         foreach (var child in Items(s["Children"])) CollectNodes(child, world, nodes, depth + 1);
+    }
+
+    /// <summary>Position, Rotation and Scale of a struct as <see cref="DetTransform.Local"/> takes them (the same defaults as <see cref="Local"/>).</summary>
+    static double[] LocalDet(BodStruct s)
+    {
+        float[] p = Floats(s["Position"]) is [var px, var py, var pz, ..] ? [px, py, pz] : [0, 0, 0];
+        float[] r = Floats(s["Rotation"]) is [var rx, var ry, var rz, ..] ? [rx, ry, rz] : [0, 0, 0];
+        float[] sc = Floats(s["Scale"]) is [var sx, var sy, var sz, ..] ? [sx, sy, sz] : [1, 1, 1];
+        return DetTransform.Local(p[0], p[1], p[2], r[0], r[1], r[2], sc[0], sc[1], sc[2]);
+    }
+
+    static void CollectDetNodes(BodValue? value, double[] parent, Dictionary<string, double[]> nodes, int depth)
+    {
+        if (depth > 64 || value is not BodStruct s) return;
+        var world = DetTransform.Mul(LocalDet(s), parent);
+        if (s["Name"] is BodString { Text: { } name }) nodes.TryAdd(name, world);
+        foreach (var child in Items(s["Children"])) CollectDetNodes(child, world, nodes, depth + 1);
     }
 
     static BodValue? Unwrap(BodValue? v) => v is BodRef r ? r.Value : v;

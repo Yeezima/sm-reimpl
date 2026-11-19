@@ -24,8 +24,21 @@ public partial class NetworkView
     void MapmakerContent(string name, ref MapContent? map)
     {
         if (!CustomMap.IsCustomName(name)) return;
-        try { _customMap = CustomMaps.LoadForPlay(name, CustomMapFile); }
+        try
+        {
+            if (string.IsNullOrEmpty(CustomMapFile) && CustomMaps.LocateAll(name) is { Count: > 1 } many)
+                GD.PrintErr($"custom map {name}: {many.Count} files have this map's name ({string.Join(", ", many.Select(System.IO.Path.GetFileName))}); using the newest, {System.IO.Path.GetFileName(many[0])}. Start with --custom-map <file> to name the exact one.");
+            // SM1 pieces, prefabs and imported models come from this PC's install and library: solid here exactly as on the server, and drawn below (a PC that lacks one refuses, see CustomMapDecor).
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            _customMap = CustomMaps.LoadForPlay(name, CustomMapFile, CompileOptions.ForPlay(_gameDir, textures: true));
+            if (_customMap.Decor is { Placements.Count: > 0 } decor)
+                GD.Print($"custom map {name}: {decor.Placements.Count} SM1 / model placements, {decor.Triangles:N0} solid triangles from this install ({started.Elapsed.TotalSeconds:0.0} s)");
+        }
         catch (MapException e) { throw new System.InvalidOperationException(e.Message); }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.InvalidProgramException or System.InvalidOperationException))
+        {
+            throw new System.InvalidOperationException($"The custom map could not be compiled ({e.GetType().Name}: {e.Message}).");
+        }
         map = _customMap.Content;
         GD.Print($"custom map {name}: {_customMap.SolidCount} solid pieces, {map.StartAreas.Count} start areas, {map.ControlPoints.Count} capture points; hash {_customMap.Hash:X16}; nothing read from the install");
     }
@@ -43,6 +56,21 @@ public partial class NetworkView
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
         {
             GD.Print($"custom map: the view failed ({e.GetType().Name}: {e.Message}); the grey collision is drawn instead");
+        }
+        try
+        {
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            var notes = new System.Collections.Generic.List<string>();
+            if (CustomMapDecor.Build(_customMap, notes) is { } decoration)
+            {
+                _gameSpace.AddChild(decoration);
+                GD.Print($"custom map decoration built in {started.Elapsed.TotalSeconds:0.00} s");
+            }
+            foreach (var note in notes) GD.Print("custom map decoration: " + note);
+        }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
+        {
+            GD.PrintErr($"custom map: the decoration could not be drawn ({e.GetType().Name}: {e.Message}); its collision is still solid");
         }
     }
 }

@@ -125,7 +125,7 @@ public static class MapCommand
             {
                 // The instant check in plain words (docs/mapmaker.md "The check"): the game install adds the bots' route (--no-bots leaves it out); --text prints a list instead of JSON.
                 var file = Pos(0, "<file>");
-                var map = CustomMaps.Load(file);
+                var map = CustomMaps.Load(file, CompileOptions.ForPlay(opts.GetValueOrDefault("game-dir")));
                 SmSim.SimConfig? config = null;
                 if (!opts.ContainsKey("no-bots"))
                 {
@@ -146,7 +146,7 @@ public static class MapCommand
             case "tour":
             {
                 // Camera places for the screenshot aids (client --observe-tour): "label@x,y,z,yaw,pitch|label@..." (--raw) or JSON. Test aid, derived from the map's own spawns and points.
-                var map = CustomMaps.Load(Pos(0, "<file>"));
+                var map = CustomMaps.Load(Pos(0, "<file>"), CompileOptions.ForPlay(opts.GetValueOrDefault("game-dir")));
                 var places = MapTour.Places(map);
                 if (opts.ContainsKey("raw")) o.Write(string.Join("|", places.Select(p => $"{p.Label}@{p.Pose}")));
                 else o.Write(CanonicalJson.Write(new JsonObject { ["ok"] = true, ["places"] = new JsonArray(places.Select(p => (JsonNode)new JsonObject { ["label"] = p.Label, ["pose"] = p.Pose }).ToArray()) }));

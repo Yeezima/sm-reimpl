@@ -16,7 +16,8 @@
 #>
 param(
     [string]$Map = '', [ValidateSet('annihilation', 'seize')][string]$Mode = 'annihilation', [int]$Bots = 3, [string]$Side = 'marines', [string]$Class = 'tactical',
-    [int]$Port = 0, [switch]$NoBuild, [switch]$Test, [string]$OutDir = '', [int]$Seconds = 60, [switch]$Stop, [double]$Every = 3
+    [int]$Port = 0, [switch]$NoBuild, [switch]$Test, [string]$OutDir = '', [int]$Seconds = 60, [switch]$Stop, [double]$Every = 3,
+    [string]$ExpectHash = '', [string]$ExtraPlaces = ''   # -Test only: more camera places, 'label@x,y,z,yaw,pitch|label@...' (added after the map's own tour)
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -102,6 +103,14 @@ try {
         $tail = (Get-Content -LiteralPath (Join-Path $logDir 'server.log') -ErrorAction SilentlyContinue | Select-Object -Last 4) -join ' | '
         throw "the server did not start: $tail"
     }
+    # The server must be playing exactly this file (its log names the custom map and its hash; the editor passes the file's own as -ExpectHash): else stop loudly, never open a game on the default arena.
+    $served = (Get-Content -LiteralPath (Join-Path $logDir 'server.log') -ErrorAction SilentlyContinue) -join "`n"
+    $cm = [regex]::Match($served, 'custom map (cm_\w+) [^\n]*?map hash ([0-9A-Fa-f]{16})')
+    if (-not $cm.Success) { throw "the server is not playing a custom map (it would have loaded the default arena). Its log has no 'custom map' line; see $logDir\server.log" }
+    if ($ExpectHash -and $cm.Groups[2].Value.ToUpperInvariant() -ne $ExpectHash.ToUpperInvariant()) {
+        throw "the server loaded another map than '$([IO.Path]::GetFileName($Map))' (map hash $($cm.Groups[2].Value), this file's is $ExpectHash). Not starting the game; see $logDir\server.log"
+    }
+    Write-Host "server map: $($cm.Groups[1].Value), hash $($cm.Groups[2].Value) (this file)"
     Say 'bots' "Starting $($Bots * 2) bots..."
     $total = if ($Test) { $Seconds } else { 4 * 3600 }
     foreach ($s in @('marines', 'chaos')) {
@@ -122,6 +131,7 @@ try {
         New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
         $tour = (& dotnet $smtool map tour $Map --raw) -join ''
         $places = @($tour -split '\|' | Where-Object { $_ })
+        if ($ExtraPlaces) { $places += @($ExtraPlaces -split '\|' | Where-Object { $_ }) }
         $poses = @($places | ForEach-Object { ($_ -split '@')[1] })
         $names = @($places | ForEach-Object { ($_ -split '@')[0] })
         $first = $poses[0]
