@@ -173,7 +173,7 @@ public partial class MapmakerDock
         if (_refreshDialog is null)
         {
             _refreshDialog = new ConfirmationDialog { Name = RefreshDialogName, Title = "Refresh from Classic", Exclusive = true, OkButtonText = "Apply selected", CancelButtonText = "Cancel", MinSize = new Vector2I(520, 420) };
-            _refreshDialog.AddButton("Apply all I haven't edited", false, "all");
+            _refreshDialog.AddButton("Apply all I haven't edited", false, "all").TooltipText = "Applies every removed or changed item you have not edited, whatever its tick; edited items are left alone. Deleted items come back only when ticked.";   // review: the ticks do not count here
             var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(500, 380) };
             _refreshBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             scroll.AddChild(_refreshBody);
