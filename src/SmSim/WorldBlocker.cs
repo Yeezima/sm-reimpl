@@ -67,6 +67,12 @@ public sealed class WorldBlocker
             vertices[i] = Vector3.Transform(new Vector3(r * c, r * s, -0.5f), world);
             vertices[n + i] = Vector3.Transform(new Vector3(r * c, r * s, 0.5f), world);
         }
+        return new WorldBlocker(name, vertices, CylinderIndices(n));
+    }
+
+    /// <summary>The triangles of the <paramref name="n"/>-sided prism <see cref="Cylinder"/> builds, over vertices 0..n-1 (bottom ring) and n..2n-1 (top ring): the two fans, then the sides.</summary>
+    public static int[] CylinderIndices(int n)
+    {
         var indices = new List<int>();
         for (int i = 1; i + 1 < n; i++) indices.AddRange([0, i + 1, i, n, n + i, n + i + 1]);   // the bottom and top fans
         for (int i = 0; i < n; i++)
@@ -74,7 +80,7 @@ public sealed class WorldBlocker
             int j = (i + 1) % n;
             indices.AddRange([i, j, n + j, i, n + j, n + i]);
         }
-        return new WorldBlocker(name, vertices, [.. indices]);
+        return [.. indices];
     }
 
     /// <summary>
