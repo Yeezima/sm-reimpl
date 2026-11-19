@@ -39,7 +39,7 @@ if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationCh
 }
 #if SM_WARFRONT
 // Warfront: this process only supervises; each stage (one deployment's hub and battlefield) runs in a child server (WarfrontSupervisor.cs).
-if (cli.Content.HasFlag(ContentExtras.Warfront) && !cli.WarfrontStage) return WarfrontSupervisor.Run(args, cli);
+if (cli.Content.HasFlag(ContentExtras.Warfront) && !cli.WarfrontStage && !cli.WarfrontPrebuild) return WarfrontSupervisor.Run(args, cli);
 #endif
 bool customEmblems = cli.CustomEmblems;
 var unlocks = cli.Unlocks;
@@ -158,6 +158,10 @@ Console.WriteLine(config.PlayerBodies
     : "player collision: OFF (--no-player-collision, test aid; clients need --no-player-collision too)");
 Console.WriteLine($"tuning from {tuning.Source}: run {config.RunSpeed}, strafe {config.StrafeSpeed}, back {config.BackSpeed}, sprint {config.SprintSpeed} m/s; placeholders: {string.Join(", ", tuning.Placeholders)}");
 foreach (var note in tuning.Notes) Console.WriteLine("note: " + note);
+#if SM_WARFRONT
+// Warfront map warm-up child (dedicated only): builds every map's cache with the config a stage would have, binds nothing, then exits.
+if (cli.WarfrontPrebuild) return WarfrontPrebuildRun.Run(config);
+#endif
 // Fidelity gap 1: what a death drops (weights, reach, lifetime, amounts per weapon and item).
 foreach (var t in config.Pickups?.Types ?? [])
     Console.WriteLine($"drop {t.Blueprint} ({t.Kind}): weight {t.Weight} of {config.Pickups!.TotalWeight}, reach {t.Radius} m, lifetime {t.Lifetime} s; " +

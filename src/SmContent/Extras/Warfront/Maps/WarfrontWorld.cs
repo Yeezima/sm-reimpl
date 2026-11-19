@@ -81,7 +81,7 @@ public static class WarfrontLayoutCache
         try
         {
             Directory.CreateDirectory(folder);
-            string temp = $"{path}.{Environment.ProcessId}.tmp";
+            string temp = $"{path}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";   // unique per writer (another process, or a thread here): the rename below is the only step a reader can see
             try
             {
                 using (var stream = File.Create(temp)) AshfallLayoutCache.Write(stream, slot.Layout, built.Level, built.Dressing);

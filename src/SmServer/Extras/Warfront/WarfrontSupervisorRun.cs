@@ -22,6 +22,12 @@ interface IWarfrontStageLauncher
     IWarfrontStageProcess Start(string map);
 }
 
+/// <summary>Starts the map warm-up child (<c>--warfront-prebuild</c>, low priority; the tests inject a fake).</summary>
+interface IWarfrontPrebuildLauncher
+{
+    IWarfrontStageProcess Start();
+}
+
 /// <summary>The supervisor's timing (docs/warfront.md "Dedicated mode"; all kind=ours in spec/behavior.md).</summary>
 sealed record WarfrontSupervisorTiming
 {
@@ -35,6 +41,8 @@ sealed record WarfrontSupervisorTiming
     public int CrashLoopAfter { get; init; } = 5;
     /// <summary>How often the loop looks at the stop request while the child runs.</summary>
     public int PollMilliseconds { get; init; } = 250;
+    /// <summary>The map warm-up starts once one stage child has run this long without ending (it has loaded the game data and listens: "ready"); it starts once per supervisor, dedicated mode only.</summary>
+    public TimeSpan PrebuildAfter { get; init; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>The lock on a run folder: <c>supervisor.lock</c> opened with <c>FileShare.None</c> and held for the supervisor's whole life (the OS releases it when the process dies, however it dies: flock on Linux, a sharing violation on Windows). A second supervisor on the same folder is refused. The file's text (the PID) is informational only; a leftover file nobody holds is simply taken.</summary>
@@ -103,7 +111,21 @@ static class WarfrontSupervisor
     /// <summary>One log line with a UTC ISO timestamp, the form the server's own lines use.</summary>
     public static string Stamp(string message) => $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] warfront: {message}";
 
-    sealed class RealLauncher(string exe, string[] host, IReadOnlyList<string> args) : IWarfrontStageLauncher
+    /// <summary>The warm-up child's arguments: the supervisor's own without <c>--warfront-new</c>, <c>--warfront-stage</c> and <c>--map</c>, plus <c>--warfront-prebuild</c>.</summary>
+    public static List<string> PrebuildArguments(IReadOnlyList<string> args)
+    {
+        var child = new List<string>();
+        for (int i = 0; i < args.Count; i++)
+        {
+            if (args[i] is "--warfront-new" or "--warfront-stage" or "--warfront-prebuild") continue;
+            if (args[i] == "--map") { i++; continue; }
+            child.Add(args[i]);
+        }
+        child.Add("--warfront-prebuild");
+        return child;
+    }
+
+    sealed class RealLauncher(string exe, string[] host, IReadOnlyList<string> args) : IWarfrontStageLauncher, IWarfrontPrebuildLauncher
     {
         sealed class Real(Process p) : IWarfrontStageProcess
         {
@@ -120,6 +142,56 @@ static class WarfrontSupervisor
             foreach (var h in host) info.ArgumentList.Add(h);
             foreach (var a in ChildArguments(args, map)) info.ArgumentList.Add(a);
             return new Real(Process.Start(info) ?? throw new InvalidOperationException("the Warfront stage did not start"));
+        }
+
+        IWarfrontStageProcess IWarfrontPrebuildLauncher.Start()
+        {
+            var info = new ProcessStartInfo(exe) { UseShellExecute = false };
+            info.Environment[WarfrontRunFiles.SupervisorPidVariable] = Environment.ProcessId.ToString(CultureInfo.InvariantCulture);
+            foreach (var h in host) info.ArgumentList.Add(h);
+            foreach (var a in PrebuildArguments(args)) info.ArgumentList.Add(a);
+            var p = Process.Start(info) ?? throw new InvalidOperationException("the Warfront map warm-up did not start");
+            // Low priority (nice on Linux): the warm-up must never compete with the stage that serves the players.
+            try { p.PriorityClass = ProcessPriorityClass.BelowNormal; }
+            catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or PlatformNotSupportedException) { }
+            return new Real(p);
+        }
+    }
+
+    /// <summary>The warm-up child while the loop runs: started at most once, logged once when it ends, killed when the supervisor stops or the loop ends.</summary>
+    sealed class PrebuildHold
+    {
+        public bool Started;
+        public IWarfrontStageProcess? Child;
+        DateTime _began;
+
+        public void Start(IWarfrontPrebuildLauncher launcher, Action<string> log)
+        {
+            Started = true;
+            try { Child = launcher.Start(); _began = DateTime.UtcNow; log(Stamp("map warm-up started (low priority, one map at a time; players can join meanwhile)")); }
+            catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
+            { log(Stamp($"map warm-up did not start ({e.Message}); the first deployment to each map builds it")); }
+        }
+
+        /// <summary>Notices the child's end (logged once, never restarted).</summary>
+        public void Poll(Action<string> log)
+        {
+            if (Child is not { } c) return;
+            bool ended;
+            try { ended = c.WaitForExit(0); } catch (InvalidOperationException) { ended = true; }
+            if (!ended) return;
+            int code = SafeExitCode(c);
+            double s = (DateTime.UtcNow - _began).TotalSeconds;
+            log(Stamp(code == 0 ? $"map warm-up finished after {s:0} s" : $"map warm-up ended with code {code} after {s:0} s; not restarted (the first deployment to a map it missed builds it)"));
+            c.Dispose(); Child = null;
+        }
+
+        public void Stop(Action<string> log)
+        {
+            if (Child is not { } c) return;
+            c.Kill(); try { c.WaitForExit(5000); } catch (InvalidOperationException) { }
+            log(Stamp("map warm-up stopped"));
+            c.Dispose(); Child = null;
         }
     }
 
@@ -177,11 +249,18 @@ static class WarfrontSupervisor
             Console.CancelKeyPress += (_, e) => { try { _running?.Kill(); } catch (InvalidOperationException) { } };
         }
         using (term)
-            return Loop(dir, launcher, cli.WarfrontDedicated, new WarfrontSupervisorTiming(), stop, Console.WriteLine);
+            return Loop(dir, launcher, cli.WarfrontDedicated, new WarfrontSupervisorTiming(), stop, Console.WriteLine, cli.WarfrontDedicated ? launcher : null);
     }
 
     /// <summary>The supervisor's loop: injectable launcher, stop event and log, so the tests run it with a fake child and a short timing.</summary>
-    public static int Loop(string dir, IWarfrontStageLauncher launcher, bool dedicated, WarfrontSupervisorTiming timing, ManualResetEventSlim stop, Action<string> log)
+    public static int Loop(string dir, IWarfrontStageLauncher launcher, bool dedicated, WarfrontSupervisorTiming timing, ManualResetEventSlim stop, Action<string> log, IWarfrontPrebuildLauncher? prebuild = null)
+    {
+        var hold = new PrebuildHold();
+        try { return LoopCore(dir, launcher, dedicated, timing, stop, log, dedicated ? prebuild : null, hold); }
+        finally { hold.Stop(log); }   // whatever ends the loop ends the warm-up child too
+    }
+
+    static int LoopCore(string dir, IWarfrontStageLauncher launcher, bool dedicated, WarfrontSupervisorTiming timing, ManualResetEventSlim stop, Action<string> log, IWarfrontPrebuildLauncher? prebuild, PrebuildHold hold)
     {
         string stopFile = Path.Combine(dir, WarfrontRunFiles.StopFile);
         try { File.Delete(stopFile); } catch (IOException) { }   // a stop request left by an earlier supervisor must not stop this one's first child
@@ -203,9 +282,15 @@ static class WarfrontSupervisor
             TimeSpan deadline = TimeSpan.Zero;
             while (!child.WaitForExit(dedicated ? timing.PollMilliseconds : Timeout.Infinite))
             {
+                if (prebuild is not null && !stop.IsSet)
+                {
+                    if (!hold.Started && watch.Elapsed >= timing.PrebuildAfter) hold.Start(prebuild, log);   // this stage has run long enough to count as ready
+                    hold.Poll(log);
+                }
                 if (!stop.IsSet) continue;
                 if (!stopping)
                 {
+                    hold.Stop(log);   // nothing to save there (cache writes are atomic): it goes at once, the stage gets the grace
                     stopping = true; deadline = watch.Elapsed + timing.StopGrace;
                     log(Stamp("stop requested: the stage is asked to save and leave"));
                     try { File.WriteAllText(stopFile, "stop"); }

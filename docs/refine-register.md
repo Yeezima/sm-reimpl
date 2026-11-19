@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3870 spec table rows: **2827 tagged**, 686 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
+Scanned 3872 spec table rows: **2829 tagged**, 686 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3870 spec table rows: **2827 tagged**, 686 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 235 | 217 | 188 | 32 | 0 |
+| Sound mix (critical) | 237 | 219 | 190 | 32 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,14 +53,14 @@ Scanned 3870 spec table rows: **2827 tagged**, 686 not tagged (read from data wi
 | Core simulation (provisional values) | 859 | 813 | 641 | 236 | 1 |
 | General game design | 35 | 34 | 27 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2827** | 2522 | 2144 | 824 | 37 |
+| **All areas** | **2829** | 2524 | 2146 | 824 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1639 |
-| confidence: low | 1042 |
+| kind: ours | 1641 |
+| confidence: low | 1044 |
 | confidence: medium | 991 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
@@ -1913,7 +1913,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (235)
+### Sound mix (gameplay-critical) (237)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2286,6 +2286,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-37CE3DBA` | Stage restart backoff (dedicated supervisor, stage child ended with a code other than 0, 1, 2, 3… | 2, 5, 10, 30; the last repeats (seconds) | kind: ours; confidence: low | ours (owner 2026-11-19 asked for a restart loop with backoff; the values are the lead's suggestion) | Stage restart backoff (dedicated supervisor, stage child…: compare with SM1 by listening A/B at the same distance and state. Ours: 2, 5, 10, 30; the last repeats. | ☐ |
 | `R-594DABFD` | Backoff reset | a stage that ran 60 s or more before it crashed starts the backoff again at 2 s (seconds) | kind: ours; confidence: low | ours (lead's suggestion: "reset after a stable minute") | Backoff reset: compare with SM1 by listening A/B at the same distance and state. Ours: a stage that ran 60 s or more before it crashed starts the backoff… | ☐ |
 | `R-79364297` | Stop grace after SIGTERM / Ctrl+C | 20 s for the stage to save and leave (it looks at `stop.request` once a second, then saves); then it is killed and the supervisor exits 0 (seconds) | kind: ours; confidence: low | ours | Stop grace after SIGTERM / Ctrl+C: compare with SM1 by listening A/B at the same distance and state. Ours: 20 s for the stage to save and leave (it looks at stop.request once a… | ☐ |
+| `R-70A838D3` | Map warm-up start | the supervisor (dedicated only) starts one `--warfront-prebuild` child once a stage child has run 30 s without ending (the stage has loaded the game data and listens: "ready"); once per supervisor, never restarted when it fails (logged once); ended with the… (seconds) | kind: ours; confidence: low | owner decision 2026-11-20 (build every map at start, in the background, players may join meanwhile); the 30 s is ours | Map warm-up start: compare with SM1 by listening A/B at the same distance and state. Ours: the supervisor (dedicated only) starts one --warfront-prebuild child… | ☐ |
+| `R-835FA1BF` | Map warm-up work | every Warfront map (nine lane slots, HQ, fortress: 11) in turn, one map at a time at below-normal priority: layout plus walking graph through `WarfrontMaps.Prebuild`; a warm map costs a read of its files; a failed map is logged and the next goes on; exit 0… (maps) | kind: ours; confidence: low | ours | Map warm-up work: compare with SM1 by listening A/B at the same distance and state. Ours: every Warfront map (nine lane slots, HQ, fortress: 11) in turn, one… | ☐ |
 
 *Spec section: Warfront dedicated server, slice S2 (warfront/wf-dedicated-s2, 2026-11-19; added content, Warfront only, only with `--warfront-dedicated`; server operation: no simulation, wire, hash or rules-version change)*
 
