@@ -93,11 +93,13 @@ implies `--content warfront` and `--warfront-max-humans 4` (a given cap wins), r
 (`WarfrontRunFiles.Dedicated` for server code). S1 adds only the flag and a hardened supervisor; later slices hang the behaviour (a new run when the
 campaign ends, default deploy, an empty server) on it. In this mode the supervisor:
 
-- **locks the run folder**: `supervisor.lock` holds its PID; a second supervisor on the same folder prints why and exits 5; a lock whose PID is dead is taken over.
+- **locks the run folder**: `supervisor.lock` is opened with an exclusive OS lock (`FileShare.None`: flock on Linux) and held for the supervisor's life, so the OS frees it however the supervisor dies (no PID check, no reused-PID or container-PID-1 trap); a second supervisor on the same folder prints why and exits 5; a leftover file nobody holds is simply taken. The PID inside is informational.
 - **restarts a crashed stage** from the last save: a stage child that ends with any code except 0 (clean leave), 1 (no install, run or map unreadable), 2 (command line), 3 (port taken) and 12
   (next stage) is started again after 2, 5, 10, 30 s (the last repeats; a stage that ran a minute starts the steps again), each restart logged. Exit 4 (the simulation kept failing) restarts too.
 - **stops on SIGTERM** (and Ctrl+C): it writes `stop.request` into the run folder; the stage child sees it at its next once-a-second check (the check that also notices a vanished supervisor), saves and leaves with 0;
-  the supervisor waits 20 s (then kills the child) and exits 0. (A `systemd` unit's `TimeoutStopSec` should be above 25 s.)
+  the supervisor waits 20 s (then kills the child) and exits 0. The stage child also handles SIGTERM and Ctrl+C itself (dedicated mode only): it sets the same save-and-leave flag and exits 0 after the save,
+  so a `systemd` `KillMode=control-group` that signals the whole group saves too. Recommended unit settings: `Restart=on-failure` (or `always`), `KillMode=mixed` (belt and braces: SIGTERM to the supervisor, then SIGKILL to the rest after the timeout), `TimeoutStopSec=30` or more (above the 20 s grace).
+- **logs a crash loop**: five failures in a row, each before the stage ran a minute, log a `CRASH LOOP` line on every further cycle; the retries go on at the 30 s step.
 - **timestamps** every supervisor line `[2026-11-19T12:00:00Z] warfront: ...` (the player-hosted supervisor too).
 
 Exit codes of the supervisor: 0 stopped, 1 run unreadable or a stage ended with 1, 2 command line, 3 port taken, 5 another supervisor holds the folder. Tests: `tests/SmNet.Tests/Extras/Warfront/Dedicated`

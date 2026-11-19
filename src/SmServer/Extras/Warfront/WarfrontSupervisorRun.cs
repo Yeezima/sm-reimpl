@@ -31,11 +31,13 @@ sealed record WarfrontSupervisorTiming
     public TimeSpan StableAfter { get; init; } = TimeSpan.FromSeconds(60);
     /// <summary>After SIGTERM: how long the child gets to save and leave (it checks once a second) before it is killed.</summary>
     public TimeSpan StopGrace { get; init; } = TimeSpan.FromSeconds(20);
+    /// <summary>This many failures in a row, each before <see cref="StableAfter"/>, log a "child keeps crashing" line on every further cycle (the retries go on).</summary>
+    public int CrashLoopAfter { get; init; } = 5;
     /// <summary>How often the loop looks at the stop request while the child runs.</summary>
     public int PollMilliseconds { get; init; } = 250;
 }
 
-/// <summary>The lock on a run folder (<c>supervisor.lock</c> holding the supervisor's process id). A second supervisor on the same folder is refused; a lock whose process is gone is taken over.</summary>
+/// <summary>The lock on a run folder: <c>supervisor.lock</c> opened with <c>FileShare.None</c> and held for the supervisor's whole life (the OS releases it when the process dies, however it dies: flock on Linux, a sharing violation on Windows). A second supervisor on the same folder is refused. The file's text (the PID) is informational only; a leftover file nobody holds is simply taken.</summary>
 sealed class WarfrontSupervisorLock : IDisposable
 {
     public const string FileName = "supervisor.lock";
@@ -43,58 +45,31 @@ sealed class WarfrontSupervisorLock : IDisposable
     public const int ExitCode = 5;
 
     readonly FileStream _stream;
-    readonly string _path;
-    WarfrontSupervisorLock(FileStream stream, string path) { _stream = stream; _path = path; }
+    WarfrontSupervisorLock(FileStream stream) { _stream = stream; }
 
-    /// <summary>Takes the lock, or says which process holds it.</summary>
+    /// <summary>Takes the lock, or says why not (null).</summary>
     public static WarfrontSupervisorLock? TryAcquire(string dir, out string? refusal)
     {
         refusal = null;
         Directory.CreateDirectory(dir);
         string path = Path.Combine(dir, FileName);
-        for (int attempt = 0; attempt < 3; attempt++)
+        FileStream stream;
+        try { stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+        catch (IOException)
         {
-            try
-            {
-                var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-                var bytes = System.Text.Encoding.ASCII.GetBytes(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
-                stream.Write(bytes); stream.Flush();
-                return new WarfrontSupervisorLock(stream, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                int pid = ReadPid(path);
-                if (pid > 0 && Alive(pid)) { refusal = $"another Warfront supervisor (pid {pid}) already runs on this run folder ({path}); stop it first"; return null; }
-                try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }   // stale: its process is gone (or the file is junk)
-            }
+            refusal = $"another Warfront supervisor already holds the run folder's lock ({path}); stop it first";
+            return null;
         }
-        refusal = $"the lock file {path} could not be taken";
-        return null;
+        stream.SetLength(0);
+        var bytes = System.Text.Encoding.ASCII.GetBytes(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        stream.Write(bytes); stream.Flush();
+        return new WarfrontSupervisorLock(stream);
     }
 
-    static int ReadPid(string path)
-    {
-        try
-        {
-            // The holder has the file open for writing: read it with every share flag (a plain ReadAllText is refused on Windows).
-            using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var r = new StreamReader(s);
-            return int.TryParse(r.ReadToEnd().Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int pid) ? pid : 0;
-        }
-        catch (IOException) { return 0; }
-    }
-
-    static bool Alive(int pid)
-    {
-        try { using var p = Process.GetProcessById(pid); return !p.HasExited; }
-        catch (ArgumentException) { return false; }
-        catch (InvalidOperationException) { return false; }
-    }
-
+    /// <summary>Releases the lock. The file stays (deleting it would race a new holder); the next supervisor reuses it.</summary>
     public void Dispose()
     {
         try { _stream.Dispose(); } catch (IOException) { }
-        try { File.Delete(_path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 }
 
@@ -211,7 +186,7 @@ static class WarfrontSupervisor
         string stopFile = Path.Combine(dir, WarfrontRunFiles.StopFile);
         try { File.Delete(stopFile); } catch (IOException) { }   // a stop request left by an earlier supervisor must not stop this one's first child
         string? lastShip = null;
-        int stage = 1, restarts = 0;
+        int stage = 1, restarts = 0, rapid = 0;
         while (true)
         {
             if (stop.IsSet) { log(Stamp("stop requested: no stage started, exiting 0")); return 0; }
@@ -247,13 +222,14 @@ static class WarfrontSupervisor
             int code = SafeExitCode(child);
             TimeSpan ran = watch.Elapsed;
             log(Stamp($"stage {stage} ended with code {code} after {ran.TotalSeconds:0.#} s"));
-            if (stopping) { try { File.Delete(stopFile); } catch (IOException) { } log(Stamp("stopped: exiting 0")); return 0; }
+            if (stopping || stop.IsSet) { try { File.Delete(stopFile); } catch (IOException) { } log(Stamp("stopped: exiting 0")); return 0; }
             if (code == ServerCommandLine.WarfrontStageExit) { stage++; restarts = 0; continue; }
             if (!dedicated || EndsSupervisor(code)) return code;
-            if (ran >= timing.StableAfter) restarts = 0;
+            if (ran >= timing.StableAfter) { restarts = 0; rapid = 0; } else rapid++;
             TimeSpan wait = timing.Backoff[Math.Min(restarts, timing.Backoff.Length - 1)];
             restarts++;
             log(Stamp($"stage {stage} ended unexpectedly (code {code}): restart {restarts} from the last save in {wait.TotalSeconds:0.#} s"));
+            if (rapid >= timing.CrashLoopAfter) log(Stamp($"CRASH LOOP: the stage child has failed {rapid} times in a row without running {timing.StableAfter.TotalSeconds:0.#} s; still retrying every {wait.TotalSeconds:0.#} s (look at the stage's own log)"));
             if (stop.Wait(wait)) { log(Stamp("stop requested while waiting: exiting 0")); return 0; }
         }
     }

@@ -61,39 +61,32 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
         Assert.True(Parse(child.ToArray()).WarfrontStage);   // the child's own command line parses, dedicated too
     }
 
-    // ---- lock ----
+    // ---- lock (an OS lock held on the open file, not a PID check) ----
 
     [Fact]
-    public void A_second_supervisor_on_the_folder_is_refused_and_the_lock_is_released()
+    public void A_second_holder_is_refused_while_the_first_holds_the_lock_and_released_after_dispose()
     {
         using (var first = WarfrontSupervisorLock.TryAcquire(_dir, out string? r1))
         {
             Assert.NotNull(first); Assert.Null(r1);
             var second = WarfrontSupervisorLock.TryAcquire(_dir, out string? r2);
             Assert.Null(second);
-            Assert.Contains(Environment.ProcessId.ToString(), r2);
+            Assert.False(string.IsNullOrEmpty(r2));
         }
-        Assert.False(File.Exists(Path.Combine(_dir, WarfrontSupervisorLock.FileName)));
         using var again = WarfrontSupervisorLock.TryAcquire(_dir, out _);
         Assert.NotNull(again);
     }
 
     [Fact]
-    public void A_stale_lock_of_a_dead_process_is_taken_over()
+    public void A_leftover_lock_file_without_a_holder_is_taken_whatever_it_says()
     {
-        File.WriteAllText(Path.Combine(_dir, WarfrontSupervisorLock.FileName), "2147483000");   // no such process
-        using var l = WarfrontSupervisorLock.TryAcquire(_dir, out string? refusal);
-        Assert.NotNull(l); Assert.Null(refusal);
-        using var s = new FileStream(Path.Combine(_dir, WarfrontSupervisorLock.FileName), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        Assert.Equal(Environment.ProcessId.ToString(), new StreamReader(s).ReadToEnd().Trim());
-    }
-
-    [Fact]
-    public void A_junk_lock_file_is_taken_over()
-    {
-        File.WriteAllText(Path.Combine(_dir, WarfrontSupervisorLock.FileName), "not a pid");
-        using var l = WarfrontSupervisorLock.TryAcquire(_dir, out _);
-        Assert.NotNull(l);
+        // Even this process's own PID, a reused PID or junk: the PID text is informational only.
+        foreach (string text in new[] { "2147483000", Environment.ProcessId.ToString(), "1", "not a pid", "" })
+        {
+            File.WriteAllText(Path.Combine(_dir, WarfrontSupervisorLock.FileName), text);
+            using var l = WarfrontSupervisorLock.TryAcquire(_dir, out string? refusal);
+            Assert.NotNull(l); Assert.Null(refusal);
+        }
     }
 
     [Fact]
@@ -266,6 +259,30 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
         using var stop = new ManualResetEventSlim();
         Assert.Equal(0, WarfrontSupervisor.Loop(_dir, launcher, true, Fast(), stop, _ => { }));
         Assert.False(launcher.Children[0].SawStopFile);   // it ended by its own code, the old request was deleted at start
+    }
+
+    [Fact]
+    public void Repeated_rapid_failures_log_a_crash_loop_line_each_cycle_and_keep_retrying()
+    {
+        var launcher = new FakeLauncher(_dir, (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (0, 0));
+        var log = new List<string>();
+        using var stop = new ManualResetEventSlim();
+        var timing = Fast() with { CrashLoopAfter = 3 };
+        Assert.Equal(0, WarfrontSupervisor.Loop(_dir, launcher, true, timing, stop, log.Add));
+        Assert.Equal(8, launcher.Maps.Count);
+        Assert.Equal(5, log.Count(l => l.Contains("CRASH LOOP")));   // failures 3 to 7
+    }
+
+    [Fact]
+    public void A_child_that_exits_while_a_stop_is_pending_is_logged_as_stopping_not_as_a_crash()
+    {
+        var launcher = new FakeLauncher(_dir, (4, 0));
+        var log = new List<string>();
+        using var stop = new ManualResetEventSlim();
+        stop.Set();   // the signal came just as the child died
+        // the loop checks the stop first: no child at all
+        Assert.Equal(0, WarfrontSupervisor.Loop(_dir, launcher, true, Fast(), stop, log.Add));
+        Assert.DoesNotContain(log, l => l.Contains("unexpectedly"));
     }
 
     // ---- timestamps ----

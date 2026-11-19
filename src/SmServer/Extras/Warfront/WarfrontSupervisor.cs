@@ -25,6 +25,9 @@ static class WarfrontRunFiles
     /// <summary><c>--warfront-dedicated</c>, set by Program.cs before the server is built: the always-on shared campaign. Later dedicated-server slices (auto new run, default deploy, empty server) read it here.</summary>
     internal static bool Dedicated;
 
+    /// <summary>Set by a dedicated stage child's SIGTERM or Ctrl+C handler: the stage saves and leaves with code 0 at its next tick.</summary>
+    internal static volatile bool StopSignal;
+
     /// <summary>Written into the run folder by a dedicated supervisor that got SIGTERM: the stage child saves and leaves with code 0 at its next once-a-second check (same path as "the supervisor is gone").</summary>
     public const string StopFile = "stop.request";
 

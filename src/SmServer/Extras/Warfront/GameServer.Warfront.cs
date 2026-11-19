@@ -403,6 +403,12 @@ public sealed partial class GameServer
         int rate = WarfrontRate;
         s.Campaign.AddPlaySeconds(1.0 / rate);
         if (World.Tick >= s.NextPlaySave) { s.NextPlaySave = World.Tick + (uint)(30 * rate); if (s.Campaign.PlaySeconds > 0) { long sec = SmSim.SimProfile.Begin(); if (WfSyncSave) WfSave(s); else WfSaveAsync(s); SmSim.SimProfile.End("warfront: autosave", sec); } }
+        if (WarfrontRunFiles.StopSignal && !s.RestartDue)
+        {
+            WfSave(s);
+            s.ExitCode = 0; s.RestartDue = true;
+            WfLog("SIGTERM or Ctrl+C: the run is saved, this stage leaves with code 0");
+        }
         if (s.SupervisorPid is { } pid && World.Tick >= s.NextAliveCheck)
         {
             s.NextAliveCheck = World.Tick + (uint)rate;
