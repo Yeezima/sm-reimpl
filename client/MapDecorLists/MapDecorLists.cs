@@ -122,6 +122,13 @@ public static class MapDecorLists
     public static bool HasVoidFloor(string map, bool off) => !off && VoidFloorMaps.Contains(map, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// hab-center-floor (2026-11-19): whether a map draws the LOD-suffix family members the family rule dropped but their better-ranked siblings do not cover (MapScene.DrawnParts with keepUncovered):
+    /// the ten new classic maps, never Manufactorum (whose drawing is pinned), never with <paramref name="off"/> (<c>--old-lod-cover</c>, the before aid).
+    /// </summary>
+    public static bool KeepsUncoveredLodMembers(string? map, bool off) => !off && IsNewClassicMap(map);
+
+
+    /// <summary>
     /// maps-visual-qa: the ten imported Classic PvP maps (<c>mp_*</c> but never Manufactorum). The new drawing rules (sky textures, self-lit cards, second UV set, card fog) apply to these only: not Manufactorum,
     /// not Musou Mode's maps, not characters or weapons (those build their materials without a map name).
     /// </summary>

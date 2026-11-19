@@ -78,7 +78,7 @@ public partial class MapView : Node3D
             if (MapDecor.HiddenLayers.Count > 0 && MapDecor.HiddenLayers.Contains(placed.Layer)) { layerHidden++; continue; }   // pass 2 test aid (--hide-layer)
             if (!scene.TryGetDefinition(placed, out var definition)) continue;
             if (!MapDecor.MovingParts && scene.Spinning.ContainsKey(o)) continue;   // --no-moving-parts: the turned blades were not drawn before
-            foreach (var part in definition.DrawnParts(MapDecor.OldLodRule))   // classic-maps-fidelity: one member per LOD-suffix family (--old-lod-rule: the old rule)
+            foreach (var part in scene.DrawnParts(definition, MapDecor.OldLodRule, MapDecorLists.KeepsUncoveredLodMembers(scene.Map, MapDecor.OldLodCover)))   // classic-maps-fidelity: one member per LOD-suffix family (--old-lod-rule: the old rule)
             {
                 var world = part.NodeTransform * placed.Transform;
                 bool mirrored = world.GetDeterminant() < 0f;

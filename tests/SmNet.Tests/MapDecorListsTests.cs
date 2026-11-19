@@ -208,4 +208,13 @@ public class MapDecorListsTests
         Assert.False(MapDecorLists.IsSkyShader("diff_unlit"));
         Assert.False(MapDecorLists.IsSkyShader(null));
     }
+
+    [Theory]
+    [InlineData("mp_tdm_18", false, true)]
+    [InlineData("mp_dlc2_map3", false, true)]
+    [InlineData("mp_tdm_09", false, false)]     // Manufactorum: its drawing is pinned
+    [InlineData("mp_tdm_18", true, false)]      // --old-lod-cover
+    [InlineData(null, false, false)]
+    public void Only_the_new_classic_maps_draw_the_lod_family_members_their_siblings_do_not_cover(string? map, bool off, bool expected) =>
+        Assert.Equal(expected, MapDecorLists.KeepsUncoveredLodMembers(map, off));
 }
