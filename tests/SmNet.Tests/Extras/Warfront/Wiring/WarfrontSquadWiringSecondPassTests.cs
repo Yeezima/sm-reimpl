@@ -168,7 +168,7 @@ public class WarfrontSquadWiringSecondPassTests
         Cards(r, card, card, card);
         var b = WarfrontStatBonuses.ForRetainer(r.Campaign.Player(1)!.Cards);
         r.Deploy();
-        float expected = card == WarfrontCard.CooldownReduction ? 1f : b.Damage * b.AttackSpeed;
+        float expected = (card == WarfrontCard.CooldownReduction ? 1f : b.Damage * b.AttackSpeed) * WarfrontSquadWiring.SquadLevelScale(4).Damage;   // S1 (owner 2026-11-19): three cards = level 4, and the level scales damage too
         float ratio = DamageRatio(r);
         Assert.True(ratio > 0f);
         Assert.Equal(expected, ratio, 2);
@@ -183,7 +183,7 @@ public class WarfrontSquadWiringSecondPassTests
         var l = hp.Wi.Rosters.Marine(1, 0)!.Loadout;
         var b = WarfrontStatBonuses.ForRetainer(hp.Campaign.Player(1)!.Cards);
         var body = hp.Sim.BodyOf(hp.IndexOf(1, 0));
-        Assert.Equal(l.HealthMax * b.MaxHp, body.Health, 1);
+        Assert.Equal(l.HealthMax * b.MaxHp * WarfrontSquadWiring.SquadLevelScale(3).Health, body.Health, 1);   // S1: two cards = level 3
         Assert.Equal(l.ArmourMax, body.Armour, 1);   // the health card gives the armour nothing
 
         var ar = Rig.Make(marines: 1, deploy: false);
@@ -191,7 +191,7 @@ public class WarfrontSquadWiringSecondPassTests
         ar.Deploy();
         var b2 = WarfrontStatBonuses.ForRetainer(ar.Campaign.Player(1)!.Cards);
         var body2 = ar.Sim.BodyOf(ar.IndexOf(1, 0));
-        Assert.Equal(l.HealthMax, body2.Health, 1);
+        Assert.Equal(l.HealthMax * WarfrontSquadWiring.SquadLevelScale(3).Health, body2.Health, 1);   // S1: the level part still applies
         Assert.Equal(l.ArmourMax * b2.MaxArmor, body2.Armour, 1);
     }
 

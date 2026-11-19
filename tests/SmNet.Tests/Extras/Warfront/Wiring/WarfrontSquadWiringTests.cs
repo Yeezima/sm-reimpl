@@ -323,14 +323,15 @@ public class WarfrontSquadWiringTests
         for (int t = 0; t < 120 && drop == 0f; t++) { r.Stand(1); if (r.W.Musou.TryGet(ork, out var e) && e.Health < full) drop = full - e.Health; }
         Assert.True(drop > 0f);
         float one = r.Wi.Rosters.Marine(1, 0)!.Loadout.Weapon.Damage * SquadRules.DamageDealt;
-        Assert.True(MathF.Abs(drop / one - 1.1f) < 0.02f || MathF.Abs(drop / one / 1.1f - MathF.Round(drop / one / 1.1f)) < 0.02f, $"drop {drop} against {one} x 1.1");
+        float scale = 1.1f * WarfrontSquadWiring.SquadLevelScale(4).Damage;   // the cards' third times the level part (S1, owner 2026-11-19: three cards = level 4)
+        Assert.True(MathF.Abs(drop / one - scale) < 0.02f || MathF.Abs(drop / one / scale - MathF.Round(drop / one / scale)) < 0.02f, $"drop {drop} against {one} x {scale}");
 
         var h = Rig.Make(marines: 2, deploy: false);
         Cards(h, 1, WarfrontCard.MaxHp, WarfrontCard.MaxHp);
         h.Deploy();
         float share = WarfrontStatBonuses.ForRetainer(h.Campaign.Player(1)!.Cards).MaxHp;
         Assert.True(share > 1f);
-        Assert.Equal(h.Wi.Rosters.Marine(1, 0)!.Loadout.HealthMax * share, h.Sim.BodyOf(h.IndexOf(1, 0)).Health, 1);
+        Assert.Equal(h.Wi.Rosters.Marine(1, 0)!.Loadout.HealthMax * share * WarfrontSquadWiring.SquadLevelScale(3).Health, h.Sim.BodyOf(h.IndexOf(1, 0)).Health, 1);   // S1: two cards = level 3
     }
 
     // ---- the class book aboard ------------------------------------------------------------------------------------------------------------

@@ -49,7 +49,7 @@ never answers shows "The online campaign is not reachable right now. Try again l
   queues until a lull or the ship; the picker makes the player invulnerable and idle without pausing the others; every card on offer (1 to 6 or D-pad; owner 2026-11-18): all
   five stat cards (attack speed, max HP, damage, ability cooldown, max armour), and a sixth, +1 Retainer, only for a squad-capable class with room (the Dreadnought
   sees five); nothing is drawn. A level-up refills health
-  and armour. Retainers take one third of their player's stat bonuses.
+  and armour. Retainers take one third of their player's stat bonuses, and (retainer AI slice S1, owner 2026-11-19) their damage and health also grow with the player's level on the Orks' curve (damage +5 %, health +8 % per level above 1: level 10 is x1.45 and x1.72).
 - Ork health and damage at spawn scale with the highest player level (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) and HP x (1 + 0.2 (humans-1)); living
   Orks are never changed. All numbers are estimates. Per-level table with times to kill: `smtool.cmd warfront-tuning` (copied into the test report).
 - Each eligible player owns a roster of up to nine retainers (36 at four players), mirroring the player's class, weapons, perks, armour and colours; names
@@ -147,3 +147,11 @@ The Musou and core hook list, with the pin tests, is in `docs/added-content.md` 
 See `docs/warfront-test-report.md` ("Unproven") for the current list. In short: the dressing is a first draft; Warboss pace and pinning at the fortress
 openings; a short freeze on the travel screen while the new view is built; allied pair on solo; every tuning number, squad strength and difficulty is an
 estimate awaiting playtests (`docs/refine-register.md`).
+
+
+## Retainer combat (slice S1, owner 2026-11-19)
+
+Retainers fight like the Classic PvP bots and stay on the squad leash and orders. Slice S1 gives them the bots' aim (a retainer makes 40 % of the misses of a Classic-aimed shot, 0.87 hit chance at weapon chance 0.7 against 0.68 for a Classic bot, the bots' own hit-chance formula
+copied into `SquadAim` and pinned to `BotAimModel` by a test), a target they hold for about a second (threats to the owner or a downed Marine come first, a clearly nearer Ork can still take over: `SquadTargeting`), and the level
+scaling above. The old strength cap (a Marine deals 0.08 to 0.25 of a bolter player) is superseded: retainers deal clearly more. Still to come: movement (strafing, spread, avoiding blasts), combat moves (roll, block, melee,
+charge, jump, grenade) and the client animations. Spec: "Added content: Warfront: squad combat". `WarfrontRules.Version` 16.

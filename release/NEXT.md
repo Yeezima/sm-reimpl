@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Warfront: a retainer's jump pack (Assault and Raptor squads) is now painted like the backpack colours you picked in the customizer, instead of the side's default paint.
+- Warfront: your Marine retainers now shoot like the practice bots but miss far less, stick to the Ork they are fighting for about a second instead of flipping targets, favour Orks that attack you or a downed squad-mate, and grow tougher and hit harder as your level rises. Everyone must update: Warfront games from older builds will not match.
