@@ -79,6 +79,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public override void _ExitTree()
     {
+        _decorWorker?.Dispose(); _decorWorker = null;   // no background build is applied to a plugin that is gone
         if (PlayRunning) StopPlayTest();   // closing the editor mid-test stops that test's server and bots (only the processes it recorded)
         MapHost.RootChanged -= OnRootChanged;
         MapHost.Sm1Changed -= OnSm1Changed;

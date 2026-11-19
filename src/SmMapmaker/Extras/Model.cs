@@ -371,9 +371,9 @@ public sealed class MapDocument
             }
         // A hostile file: prefabs that contain themselves (directly or through others) are refused when the file is read, so nothing downstream has to unfold them.
         if (d.EmbeddedPrefabs.Count > 5000) throw new MapException("too-big", "The map file carries more than 5000 prefab definitions.");
-        foreach (var embedded in d.EmbeddedPrefabs)
-            if (PrefabGraph.FindCycle(embedded.Id, id => d.EmbeddedPrefabs.FirstOrDefault(p => p.Id == id)) is { } cycle)
-                throw new MapException("prefab-cycle", $"The prefab '{embedded.Id}' in the map file contains itself: {cycle}.");
+        var embeddedById = d.EmbeddedPrefabs.ToDictionary(p => p.Id, StringComparer.Ordinal);   // built once; the walk is iterative and shares one state across all prefabs
+        if (PrefabGraph.FindCycle(d.EmbeddedPrefabs.Select(p => p.Id), id => embeddedById.GetValueOrDefault(id)) is { } cycle)
+            throw new MapException("prefab-cycle", $"A prefab in the map file contains itself: {cycle}.");
         if (d.Name.Length > MaxNameLength) throw new MapException("too-big", $"The map name is longer than {MaxNameLength} characters.");
         if (o["modes"] is { } modesNode) d.Modes = Json.Arr(modesNode, "modes").Select((m, i) => Json.Str(m, $"modes[{i}]")!).Where(m => m.Length > 0).Distinct().ToList();
         var seen = new HashSet<string>();

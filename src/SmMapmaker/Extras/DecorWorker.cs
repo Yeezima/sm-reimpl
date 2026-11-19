@@ -16,6 +16,7 @@ public sealed class DecorWorker : IDisposable
     long _generation;
     (MapDocument Doc, CompileOptions Options, string Key, long Generation)? _pending;
     bool _building;
+    bool _disposed;
 
     public TimeSpan Debounce { get; }
     /// <summary>Builds actually started (a test counts them).</summary>
@@ -36,6 +37,7 @@ public sealed class DecorWorker : IDisposable
     {
         lock (_gate)
         {
+            if (_disposed) return;
             _generation++;
             _pending = (doc, options, key, _generation);
             _timer.Change(Debounce, Timeout.InfiniteTimeSpan);
@@ -47,7 +49,7 @@ public sealed class DecorWorker : IDisposable
         (MapDocument Doc, CompileOptions Options, string Key, long Generation) job;
         lock (_gate)
         {
-            if (_pending is not { } p) return;
+            if (_disposed || _pending is not { } p) return;
             if (_building) { _timer.Change(Debounce, Timeout.InfiniteTimeSpan); return; }   // one build at a time; the next starts when it ends
             job = p; _pending = null; _building = true; Builds++;
         }
@@ -61,13 +63,18 @@ public sealed class DecorWorker : IDisposable
             lock (_gate) { if (_pending is not null) _timer.Change(Debounce, Timeout.InfiniteTimeSpan); }
             return;   // stale: a newer edit exists, its own build is coming
         }
+        lock (_gate) { if (_disposed) return; }
         if (result is not null) _cache.Set(job.Key, result);
         _post(() =>
         {
-            lock (_gate) { if (job.Generation != _generation) return; }   // an edit arrived while this was waiting to be applied
+            lock (_gate) { if (_disposed || job.Generation != _generation) return; }   // an edit arrived while this was waiting to be applied
             _onReady();
         });
     }
 
-    public void Dispose() => _timer.Dispose();
+    public void Dispose()
+    {
+        lock (_gate) { _disposed = true; _pending = null; }
+        _timer.Dispose();
+    }
 }

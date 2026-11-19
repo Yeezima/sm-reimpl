@@ -20,41 +20,59 @@ public interface ISm1Scenes
     (Vector3[] Vertices, int[] Indices) OriginalCollision(string map);
 }
 
-/// <summary>One remembered <see cref="DecorResult"/> and the key it was built for.</summary>
+/// <summary>One remembered <see cref="DecorResult"/> and the key it was built for. A build never runs under the lock, so <see cref="TryGet"/> and <see cref="Set"/> (the main thread) never wait for one.</summary>
 public sealed class DecorCache
 {
     readonly object _gate = new();
     string? _key;
-    DecorResult? _result;
+    Lazy<DecorResult>? _lazy;
 
+    /// <summary>The result for <paramref name="key"/> when it is already built; never waits for a build in progress.</summary>
     public bool TryGet(string key, out DecorResult? result)
-    {
-        lock (_gate) { result = _key == key ? _result : null; return result is not null; }
-    }
-
-    public void Set(string key, DecorResult result) { lock (_gate) { _key = key; _result = result; } }
-
-    public DecorResult GetOrBuild(string key, Func<DecorResult> build)
     {
         lock (_gate)
         {
-            if (_key == key && _result is not null) return _result;
-            var built = build();
-            _key = key; _result = built;
-            return built;
+            result = _key == key && _lazy is { IsValueCreated: true } l ? l.Value : null;
+            return result is not null;
         }
     }
 
-    /// <summary>The key of everything in <paramref name="doc"/> that decoration depends on: its objects that are not pieces (placements, groups, prefab instances with overrides) and the embedded prefabs.</summary>
+    public void Set(string key, DecorResult result)
+    {
+        lock (_gate) { _key = key; _lazy = new Lazy<DecorResult>(() => result); _ = _lazy.Value; }
+    }
+
+    /// <summary>The result for <paramref name="key"/>; a caller that needs it and finds none builds it, and a second caller for the same key waits for that one build (outside the lock).</summary>
+    public DecorResult GetOrBuild(string key, Func<DecorResult> build)
+    {
+        Lazy<DecorResult> lazy;
+        lock (_gate)
+        {
+            if (_key == key && _lazy is not null) lazy = _lazy;
+            else { lazy = new Lazy<DecorResult>(build, LazyThreadSafetyMode.ExecutionAndPublication); _key = key; _lazy = lazy; }
+        }
+        try { return lazy.Value; }
+        catch { lock (_gate) { if (ReferenceEquals(_lazy, lazy)) { _lazy = null; _key = null; } } throw; }   // a failed build is not remembered
+    }
+
+    /// <summary>The key of everything in <paramref name="doc"/> that decoration depends on: its objects that are not pieces (placements, groups, prefab instances with overrides), the pieces that are their parents (a parent moves its children), and the embedded prefabs.</summary>
     public static string KeyOf(MapDocument doc, string tag)
     {
+        var byId = doc.Objects.ToDictionary(o => o.Id, StringComparer.Ordinal);
+        var needed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var o in doc.Objects)
+        {
+            if (o.Piece is not null) continue;
+            needed.Add(o.Id);
+            int guard = 0;
+            for (var cur = o; cur.Parent is { } p && byId.TryGetValue(p, out var parent) && guard++ < 1000; cur = parent) needed.Add(parent.Id);
+        }
         var sb = new System.Text.StringBuilder(tag).Append('\n');
-        foreach (var o in doc.Objects) if (o.Piece is null) sb.Append(o.ToNode().ToJsonString()).Append('\n');
+        foreach (var o in doc.Objects) if (needed.Contains(o.Id)) sb.Append(o.ToNode().ToJsonString()).Append('\n');
         foreach (var p in doc.EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal)) sb.Append(p.ToNode().ToJsonString()).Append('\n');
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sb.ToString())));
     }
 }
-
 /// <summary>Reads maps from the user's install (read-only), each map once per process: scenes are cached by map and loaded again only when a later request needs more definitions.</summary>
 public sealed class InstalledSm1Scenes : ISm1Scenes
 {

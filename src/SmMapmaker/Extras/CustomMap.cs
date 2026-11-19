@@ -93,7 +93,7 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 3;   // 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
+    public const int CompilerVersion = 4;   // 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;

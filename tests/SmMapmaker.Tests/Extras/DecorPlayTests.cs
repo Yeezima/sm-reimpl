@@ -181,7 +181,7 @@ public sealed class DecorPlayTests : IDisposable
         Assert.Equal(a.Decor!.Digest(), b.Decor!.Digest());
         Assert.NotEqual(a.Hash, taller.Hash);                                // same file, a different install: another world
         Assert.NotEqual(CustomMap.HashOf(doc), a.Hash);                       // the document alone no longer names a decorated map's world
-        Assert.Equal(3, CustomMap.CompilerVersion);
+        Assert.Equal(4, CustomMap.CompilerVersion);
         // a map of pieces only keeps hashing the document alone
         var pieces = Doc("""{"op":"place","piece":{"kind":"box"},"transform":{"scale":[4,4,1]}}""");
         Assert.Equal(CustomMap.HashOf(pieces), CustomMap.Compile(pieces, Options()).Hash);
@@ -434,5 +434,109 @@ public sealed class DecorPlayTests : IDisposable
         Assert.True(cache.TryGet("newest", out _));
         Assert.Equal(2, ready.Count);
         Assert.False(worker.Pending);
+    }
+    [Fact]
+    public void The_deterministic_sin_cos_matches_pinned_bit_patterns_and_stays_within_tolerance_of_Math_Sin()
+    {
+        // pinned: these bits are what every OS must produce (only IEEE + - * / are used)
+        (double Degrees, long Sin, long Cos)[] pins =
+        [
+            (0.0, 0x0000000000000000, 0x3FF0000000000000), (30.0, 0x3FDFFFFFFFFFFFFF, 0x3FEBB67AE8584CAB), (45.0, 0x3FE6A09E667F3BCC, 0x3FE6A09E667F3BCD),
+            (90.0, 0x3FF0000000000000, unchecked((long)0x8000000000000000)), (123.456, 0x3FEAB2A9B25A9AB9, unchecked((long)0xBFE1A43870D371F9)), (-77.7, unchecked((long)0xBFEF43F5149CD4EB), 0x3FCB4494670D7988),
+            (179.999, 0x3EF24D15211596EE, unchecked((long)0xBFEFFFFFFFEB111D)), (270.0, unchecked((long)0xBFF0000000000000), 0x0000000000000000), (33.333, 0x3FE19589A8A6B2D1, 0x3FEABC57A399BA6B), (1.0, 0x3F91DF0B2B89DD1E, 0x3FEFFEC097F5AF8A),
+        ];
+        foreach (var (d, sin, cos) in pins)
+        {
+            var (s, c) = DetMath.SinCosDegrees(d);
+            Assert.Equal(sin, BitConverter.DoubleToInt64Bits(s));
+            Assert.Equal(cos, BitConverter.DoubleToInt64Bits(c));
+        }
+        for (double d = -720; d <= 720; d += 0.37)
+        {
+            var (s, c) = DetMath.SinCosDegrees(d);
+            double snapped = DetMath.SnapDegrees(d) * Math.PI / 180.0;
+            Assert.InRange(Math.Abs(s - Math.Sin(snapped)), 0, 1e-14);
+            Assert.InRange(Math.Abs(c - Math.Cos(snapped)), 0, 1e-14);
+        }
+        // the same placement as MapScene.Transform (scale, then X, Y, Z rotation, then translation) to float precision
+        var t = new MapTransform(new Vector3(12.5f, -3.25f, 4f), new Vector3(20f, -35f, 110f), new Vector3(1.5f, 2f, 0.5f));
+        var expected = t.ToMatrix(); var got = DetMath.Local(t);
+        var gotF = DetMath.ToFloat(got);
+        foreach (var (a, b) in new[] { (expected.M11, gotF.M11), (expected.M12, gotF.M12), (expected.M13, gotF.M13), (expected.M21, gotF.M21), (expected.M22, gotF.M22), (expected.M23, gotF.M23), (expected.M31, gotF.M31), (expected.M32, gotF.M32), (expected.M33, gotF.M33), (expected.M41, gotF.M41), (expected.M42, gotF.M42), (expected.M43, gotF.M43) })
+            Assert.InRange(Math.Abs(a - b), 0, 1e-5);
+        Assert.Throws<MapException>(() => DetMath.Local(new MapTransform(new Vector3(float.NaN, 0, 0), Vector3.Zero, Vector3.One)));
+        Assert.Throws<MapException>(() => DetMath.Local(new MapTransform(new Vector3(2e7f, 0, 0), Vector3.Zero, Vector3.One)));
+    }
+
+    [Fact]
+    public void A_five_thousand_prefab_chain_is_refused_quickly_without_deep_recursion()
+    {
+        var doc = PairDoc();
+        var o = WithPrefabs(doc, a =>
+        {
+            for (int k = 0; k < 4990; k++)
+            {
+                var f = (JsonObject)JsonNode.Parse(a[0]!.ToJsonString())!;
+                f["id"] = $"c{k}"; f["name"] = $"c{k}";
+                f["parts"] = JsonNode.Parse($$$"""[{"id":"p1","name":"x","prefab":"{{{(k < 4989 ? $"c{k + 1}" : "c0")}}}","transform":{"position":[0,0,0]}}]""");
+                a.Add(f);
+            }
+        });
+        string text = o.ToJsonString();
+        MapException? error = null;
+        var timer = Stopwatch.StartNew();
+        var thread = new Thread(() => { try { MapDocument.Parse(text); } catch (MapException e) { error = e; } }, 512 * 1024);   // a small stack: a recursive walk of 5000 levels would not fit
+        thread.Start(); thread.Join();
+        Assert.NotNull(error);
+        Assert.Equal("too-big", error!.Code);
+        Assert.True(timer.Elapsed < TimeSpan.FromMinutes(1), $"took {timer.Elapsed}");
+        // five thousand prefabs that do not nest are fine and cost one visit each
+        var flat = WithPrefabs(doc, a => { for (int k = 0; k < 4990; k++) { var f = (JsonObject)JsonNode.Parse(a[0]!.ToJsonString())!; f["id"] = $"w{k}"; f["name"] = $"w{k}"; a.Add(f); } });
+        Assert.Equal(4991, MapDocument.Parse(flat.ToJsonString()).EmbeddedPrefabs.Count);
+    }
+
+    [Fact]
+    public void A_prefab_only_in_this_PCs_library_is_part_of_the_digest()
+    {
+        var doc = PairDoc();
+        var plain = (JsonObject)JsonNode.Parse(doc.ToJson())!;
+        var prefab = (JsonObject)JsonNode.Parse(plain["prefabs"]![0]!.ToJsonString())!;
+        plain.Remove("prefabs");
+        Directory.CreateDirectory(_lab.Library.PrefabsDir);
+        File.WriteAllText(_lab.Library.PrefabPath("pair"), prefab.ToJsonString());
+        var libraryOnly = MapDocument.Parse(plain.ToJsonString());
+        var a = CustomMap.Compile(libraryOnly, Options());
+        Assert.Contains("prefab pair", a.Decor!.Sources.Keys);
+        // another PC's library holds another "pair": a different world, a different digest and hash
+        ((JsonObject)((JsonArray)prefab["parts"]!)[0]!["transform"]!)["position"] = JsonNode.Parse("[1,2,3]");
+        File.WriteAllText(_lab.Library.PrefabPath("pair"), prefab.ToJsonString());
+        var b = CustomMap.Compile(libraryOnly, Options());
+        Assert.NotEqual(a.Decor.Digest(), b.Decor!.Digest());
+        Assert.NotEqual(a.Hash, b.Hash);
+    }
+
+    [Fact]
+    public void The_cache_key_follows_the_parent_chain_and_a_build_never_blocks_the_readers()
+    {
+        var s = _lab.Session();
+        Assert.True(s.Apply(Lab.Op("""{"op":"place","piece":{"kind":"box"},"name":"holder","transform":{"scale":[4,4,1]}}""")).Ok);
+        Assert.True(s.Apply(Lab.Op("""{"op":"place","piece":{"kind":"box"},"name":"other","transform":{"scale":[4,4,1]}}""")).Ok);
+        Assert.True(s.Apply(Lab.Op("""{"op":"place","asset":{"source":"sm1","map":"mp_fake","definition":"def_wall"}}""")).Ok);
+        var o = (JsonObject)JsonNode.Parse(s.Document.ToJson())!;
+        var objects = (JsonArray)o["objects"]!;
+        objects[2]!["parent"] = "o1";   // the wall hangs under the first box
+        string Key(Action<JsonArray> edit) { var c = (JsonObject)JsonNode.Parse(o.ToJsonString())!; edit((JsonArray)c["objects"]!); return DecorCache.KeyOf(MapDocument.Parse(c.ToJsonString()), "t"); }
+        string baseKey = Key(_ => { });
+        Assert.NotEqual(baseKey, Key(a => a[0]!["transform"] = JsonNode.Parse("""{"position":[5,0,0],"rotation":[0,0,0],"scale":[4,4,1]}""")));   // moving the parent moves the wall
+        Assert.Equal(baseKey, Key(a => a[1]!["transform"] = JsonNode.Parse("""{"position":[5,0,0],"rotation":[0,0,0],"scale":[4,4,1]}""")));   // an unrelated piece does not
+        // a slow build does not hold the lock the main thread reads under
+        var cache = new DecorCache();
+        var gate = new ManualResetEventSlim(false);
+        var building = new ManualResetEventSlim(false);
+        var task = Task.Run(() => cache.GetOrBuild("slow", () => { building.Set(); gate.Wait(TimeSpan.FromSeconds(30)); return new DecorResult(); }));
+        Assert.True(building.Wait(TimeSpan.FromSeconds(30)));
+        var reader = Task.Run(() => { cache.TryGet("slow", out _); cache.Set("other", new DecorResult()); });
+        Assert.True(reader.Wait(TimeSpan.FromSeconds(30)), "the readers waited for the build");
+        gate.Set(); task.Wait();
     }
 }

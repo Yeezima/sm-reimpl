@@ -113,30 +113,31 @@ public static class DecorGeometry
         }
 
         // 1. The parts, in document order (prefabs unfolded the way the editor unfolds them).
-        var parts = new List<(string ObjectId, string Name, AssetRef Asset, Matrix4x4 World, bool Solid)>();
-        var cuts = new List<(string ObjectId, Prefab Prefab, Matrix4x4 World)>();
+        var parts = new List<(string ObjectId, string Name, AssetRef Asset, double[] World, bool Solid)>();
+        var cuts = new List<(string ObjectId, Prefab Prefab, double[] World)>();
         var prefabCache = new Dictionary<string, Prefab?>();
+        var embeddedById = doc.EmbeddedPrefabs.ToDictionary(p => p.Id, StringComparer.Ordinal);
         Prefab? GetPrefab(string id)
         {
-            if (prefabCache.TryGetValue(id, out var have)) return have;
-            Prefab? found = doc.EmbeddedPrefabs.FirstOrDefault(p => p.Id == id);
-            if (found is null)
-                try { found = options?.Library?.GetPrefab(id); }
-                catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or InvalidOperationException or FormatException or OverflowException) { }
+            var found = GetPrefabNoCycle(id);
             if (found is not null && PrefabGraph.FindCycle(id, GetPrefabNoCycle) is { } cyc)
                 throw new MapException("prefab-cycle", $"The prefab '{id}' contains itself: {cyc}.");
-            return prefabCache[id] = found;
+            return found;
         }
         Prefab? GetPrefabNoCycle(string id)
         {
             if (prefabCache.TryGetValue(id, out var have)) return have;
-            Prefab? found = doc.EmbeddedPrefabs.FirstOrDefault(p => p.Id == id);
+            Prefab? found = embeddedById.GetValueOrDefault(id);
             if (found is null)
+            {
                 try { found = options?.Library?.GetPrefab(id); }
                 catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or InvalidOperationException or FormatException or OverflowException) { }
-            return found;
+                // A prefab that only this PC's library has is part of the world: its definition goes into the digest, so another PC with another copy is refused.
+                if (found is not null) result.Sources[$"prefab {id}"] = DecorResult.HashOf(System.Text.Encoding.UTF8.GetBytes(found.ToJson()));
+            }
+            return prefabCache[id] = found;   // walked-through prefabs are cached too: a library chain is read once
         }
-        void Expand(string objectId, string name, string prefabId, Matrix4x4 world, bool visible, IReadOnlyList<PartOverride> overrides, int depth, bool solid)
+        void Expand(string objectId, string name, string prefabId, double[] world, bool visible, IReadOnlyList<PartOverride> overrides, int depth, bool solid)
         {
             budget.Part();
             if (depth > 16) { Problem("bad-prefab", $"'{objectId}': prefab nesting is too deep at '{prefabId}'."); return; }
@@ -153,7 +154,7 @@ public static class DecorGeometry
             {
                 budget.Part();
                 var ov = depth == 0 ? overrides.FirstOrDefault(x => x.Part == part.Id) : null;
-                var matrix = (ov?.Transform ?? part.Transform).ToMatrix() * world;
+                var matrix = DetMath.Mul(DetMath.Local(ov?.Transform ?? part.Transform), world);
                 bool vis = visible && (ov?.Visible ?? true);
                 if (part.Asset is { } a) { if (vis) parts.Add((objectId, part.Name.Length > 0 ? part.Name : name, a, matrix, solid && !cut)); }
                 else Expand(objectId, name, part.Prefab!, matrix, vis, overrides, depth + 1, solid && !cut);
@@ -164,9 +165,9 @@ public static class DecorGeometry
             if (o.Piece is not null || (o.Asset is null && o.Prefab is null)) continue;
             if (!VisibleChain(doc, o)) continue;
             budget.Part();
-            Matrix4x4 world;
-            try { world = doc.World(o.Id); }
-            catch (MapException e) { result.Notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
+            double[] world;
+            try { world = WorldOf(doc, o); }
+            catch (MapException e) when (e.Code != "bad-transform") { result.Notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             if (o.Asset is { } asset) parts.Add((o.Id, o.Name, asset, world, true));
             else Expand(o.Id, o.Name, o.Prefab!, world, true, o.Overrides, 0, true);
         }
@@ -212,13 +213,14 @@ public static class DecorGeometry
                         Problem("missing-sm1-definition", $"The Space Marine map '{asset.Map}' on this PC has no {(asset.Part is { } pp ? $"part {pp} of " : "")}definition '{asset.Definition}' (used by '{name}', {objectId}), or it has nothing to draw. This PC's install is a different version than the map was made with.");
                 }
                 if (visuals is null) continue;
-                result.Placements.Add(new DecorPlacement(objectId, name, asset, world, solid));
+                result.Placements.Add(new DecorPlacement(objectId, name, asset, DetMath.ToFloat(world), solid));
                 if (!solid) continue;
                 foreach (var v in visuals) if (scene.Meshes.TryGetValue(v.MeshName, out var mesh) && v.MeshId >= 0 && v.MeshId < mesh.Blocks.Count)
                     {
                         var b = mesh.Blocks[v.MeshId];
                         budget.Add(b.Positions.Length, b.Indices.Length);
-                        result.Sources.TryAdd($"sm1 {asset.Map}/{v.MeshName}#{v.MeshId}", Sm1Geometry.BlockHash(scene, b));
+                        string sourceKey = $"sm1 {asset.Map}/{v.MeshName}#{v.MeshId}";
+                        if (!result.Sources.ContainsKey(sourceKey)) result.Sources[sourceKey] = Sm1Geometry.BlockHash(scene, b);
                     }
                 int before = result.Indices.Count;
                 Sm1Geometry.AddTriangles(scene, visuals, world, result.Vertices, result.Indices);
@@ -242,7 +244,7 @@ public static class DecorGeometry
                             else
                             {
                                 mesh = GltfGeometry.Read(file);
-                                result.Sources.TryAdd($"model {id}", DecorResult.HashOf(GltfGeometry.FileBytesForHash(file)));
+                                result.Sources[$"model {id}"] = DecorResult.HashOf(GltfGeometry.FileBytesForHash(file));
                             }
                         }
                     }
@@ -250,12 +252,12 @@ public static class DecorGeometry
                     customCache[id] = mesh;
                 }
                 if (mesh is not { } m) continue;
-                result.Placements.Add(new DecorPlacement(objectId, name, asset, world, solid));
+                result.Placements.Add(new DecorPlacement(objectId, name, asset, DetMath.ToFloat(world), solid));
                 if (!solid) continue;
                 budget.Add(m.Vertices.Length, m.Indices.Length);
                 if (m.Indices.Length == 0) Problem("empty-asset", $"The imported model '{id}' has no triangles.");
                 int first = result.Vertices.Count;
-                foreach (var v in m.Vertices) result.Vertices.Add(Quantise(Vector3.Transform(v, world)));
+                foreach (var v in m.Vertices) { var (x, y, z) = DetMath.Transform(v.X, v.Y, v.Z, world); result.Vertices.Add(DetMath.Grid(x, y, z)); }
                 foreach (int i in m.Indices) result.Indices.Add(first + i);
             }
         }
@@ -285,10 +287,24 @@ public static class DecorGeometry
             }
             budget.Add(cut.Vertices.Length, cut.Indices.Length);
             int first = result.Vertices.Count;
-            foreach (var v in cut.Vertices) result.Vertices.Add(Quantise(Vector3.Transform(v, world)));
+            foreach (var v in cut.Vertices) { var (x, y, z) = DetMath.Transform(v.X, v.Y, v.Z, world); result.Vertices.Add(DetMath.Grid(x, y, z)); }
             foreach (int i in cut.Indices) result.Indices.Add(first + i);
         }
     }
+    /// <summary>The object's world matrix, in double, through <see cref="DetMath"/>: its local matrix times its parent chain's (row vectors), the same on every OS.</summary>
+    static double[] WorldOf(MapDocument doc, MapObject o)
+    {
+        var m = DetMath.Local(o.Transform);
+        int guard = 0;
+        for (var cur = o; cur.Parent is { } p; )
+        {
+            if (++guard > 1000) throw new MapException("parent-cycle", $"'{o.Id}' is in a parent cycle.", o.Id);
+            cur = doc.Find(p) ?? throw new MapException("unknown-id", $"'{cur.Id}' has unknown parent '{p}'.", cur.Id);
+            m = DetMath.Mul(m, DetMath.Local(cur.Transform));
+        }
+        return m;
+    }
+
     static bool VisibleChain(MapDocument doc, MapObject o)
     {
         int guard = 0;
@@ -401,13 +417,13 @@ public static class Sm1Geometry
     public static bool IsSky(MapScene scene, string material) => scene.Materials.TryGetValue(material, out var m) && m.ShaderName?.StartsWith("sky_", StringComparison.Ordinal) == true;
 
     /// <summary>Adds the triangles of <paramref name="visuals"/> placed by <paramref name="world"/> (the placement's matrix; each part's own node transform comes first). Surfaces are two-sided in the collision, so mirrored placements need no flipping.</summary>
-    public static void AddTriangles(MapScene scene, IReadOnlyList<VisualPart> visuals, Matrix4x4 world, List<Vector3> vertices, List<int> indices)
+    public static void AddTriangles(MapScene scene, IReadOnlyList<VisualPart> visuals, double[] world, List<Vector3> vertices, List<int> indices)
     {
         foreach (var part in visuals)
         {
             if (!scene.Meshes.TryGetValue(part.MeshName, out var mesh) || part.MeshId < 0 || part.MeshId >= mesh.Blocks.Count) continue;
             var block = mesh.Blocks[part.MeshId];
-            var matrix = part.NodeTransform * world;
+            var matrix = DetMath.Mul(DetMath.FromFloat(part.NodeTransform), world);
             // Only the ranges that will be used decide which vertices are copied; the block's positions are moved once.
             var ranges = new List<(int Start, int Count)>();
             foreach (var range in block.Materials)
@@ -419,7 +435,7 @@ public static class Sm1Geometry
             }
             if (ranges.Count == 0) continue;
             int first = vertices.Count;
-            foreach (var p in block.Positions) vertices.Add(DecorGeometry.Quantise(Vector3.Transform(p, matrix)));
+            foreach (var p in block.Positions) { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, matrix); vertices.Add(DetMath.Grid(x, y, z)); }
             foreach (var (start, count) in ranges)
                 for (int i = start; i < start + count; i += 3)
                 {

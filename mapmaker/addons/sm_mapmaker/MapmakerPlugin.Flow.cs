@@ -82,6 +82,7 @@ public partial class MapmakerPlugin
 
     void OnDecorReady()
     {
+        if (!GodotObject.IsInstanceValid(this) || Session is null) return;   // the plugin was closed or the map was closed while the build ran
         _compiledJson = "";   // the next Compiled() finds the decoration in the cache
         RunCheck();
     }

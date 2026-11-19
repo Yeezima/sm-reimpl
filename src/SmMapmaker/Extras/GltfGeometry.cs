@@ -86,22 +86,29 @@ public static class GltfGeometry
         var indices = new List<int>();
         int primitives = 0;
 
-        void AddPrimitive(JsonObject prim, Matrix4x4 world)
+        void AddPrimitive(JsonObject prim, double[] world)
         {
             if (++primitives > MaxPrimitives) throw new InvalidOperationException($"the node tree draws more than {MaxPrimitives:N0} mesh primitives");
             int mode = prim["mode"] is { } mn ? GltfReader.Index(mn) : 4;
             if (mode is not (4 or 5 or 6)) return;
             int acc = GltfReader.Index(prim["attributes"]?["POSITION"]);
             if (acc < 0 || acc >= accessors.Count || accessors[acc] is not JsonObject pa) return;
+            // the caps come first: nothing is allocated for an accessor that already exceeds them
+            int declared = GltfReader.Index(pa["count"]);
+            if (declared < 0 || declared > MaxVertices - vertices.Count) throw new InvalidOperationException($"the model has more than {MaxVertices:N0} vertices");
             var positions = ReadVec3(pa, views, buffers);
-            if (vertices.Count + positions.Length > MaxVertices) throw new InvalidOperationException($"the model has more than {MaxVertices:N0} vertices");
             int[] source;
             int ia = GltfReader.Index(prim["indices"]);
+            if (ia >= 0 && ia < accessors.Count && GltfReader.Index(accessors[ia]?["count"]) is var indexCount && (indexCount < 0 || indexCount > MaxIndices - indices.Count)) throw new InvalidOperationException($"the model has more than {MaxIndices:N0} indices");
             if (ia >= 0) source = ReadIndices(ia < accessors.Count ? accessors[ia] as JsonObject : null, views, buffers, positions.Length);
             else source = Enumerable.Range(0, positions.Length).ToArray();
             if (indices.Count + source.Length > MaxIndices) throw new InvalidOperationException($"the model has more than {MaxIndices:N0} indices");
             int first = vertices.Count;
-            foreach (var p in positions) vertices.Add(Vector3.Transform(p, world));
+            foreach (var p in positions)
+            {
+                var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, world);
+                vertices.Add(new Vector3((float)x, (float)-z, (float)y));   // glTF (x, y, z) to the document frame (x, -z, y)
+            }
             switch (mode)
             {
                 case 4:
@@ -118,11 +125,11 @@ public static class GltfGeometry
         }
 
         int visits = 0;
-        void Walk(int index, Matrix4x4 parent, int depth)
+        void Walk(int index, double[] parent, int depth)
         {
             if (++visits > 100_000) throw new InvalidOperationException("the node tree is too large or cyclic");
             if (nodes is null || index < 0 || index >= nodes.Count || nodes[index] is not JsonObject node || depth > 64) return;
-            var world = GltfReader.Local(node) * parent;
+            var world = DetMath.Mul(LocalD(node), parent);
             int mi = GltfReader.Index(node["mesh"]);
             if (mi >= 0 && mi < meshes.Count && meshes[mi]?["primitives"] is JsonArray prims)
                 foreach (var prim in prims) if (prim is JsonObject po) AddPrimitive(po, world);
@@ -141,8 +148,40 @@ public static class GltfGeometry
             var children = nodes.SelectMany(n => (n?["children"] as JsonArray)?.Select(GltfReader.Index) ?? []).ToHashSet();
             roots.AddRange(Enumerable.Range(0, nodes.Count).Where(i => !children.Contains(i)));
         }
-        foreach (var r in roots) Walk(r, Matrix4x4.Identity, 0);
-        return ([.. vertices.Select(ToDocumentFrame)], [.. indices]);
+        foreach (var r in roots) Walk(r, DetMath.Identity(), 0);
+        return ([.. vertices], [.. indices]);
+    }
+
+    static double D(JsonNode? n)
+    {
+        double v = n is JsonValue j ? j.GetValue<double>() : 0.0;
+        if (!double.IsFinite(v) || Math.Abs(v) > DetMath.Limit) throw new InvalidOperationException("a node transform is not a finite number within range");
+        return v;
+    }
+
+    /// <summary>A node's local matrix in double (row-vector form): its <c>matrix</c>, or scale, then rotation (a normalised quaternion), then translation; only IEEE operations, so it is the same on every OS.</summary>
+    static double[] LocalD(JsonObject node)
+    {
+        if (node["matrix"] is JsonArray { Count: 16 } m) return m.Select(D).ToArray();
+        double tx = 0, ty = 0, tz = 0, sx = 1, sy = 1, sz = 1, qx = 0, qy = 0, qz = 0, qw = 1;
+        if (node["translation"] is JsonArray { Count: 3 } t) { tx = D(t[0]); ty = D(t[1]); tz = D(t[2]); }
+        if (node["scale"] is JsonArray { Count: 3 } s) { sx = D(s[0]); sy = D(s[1]); sz = D(s[2]); }
+        if (node["rotation"] is JsonArray { Count: 4 } r)
+        {
+            qx = D(r[0]); qy = D(r[1]); qz = D(r[2]); qw = D(r[3]);
+            double len = Math.Sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
+            if (len > 0) { qx /= len; qy /= len; qz /= len; qw /= len; } else { qx = qy = qz = 0; qw = 1; }
+        }
+        double[] R =
+        [
+            1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy + qz * qw), 2 * (qx * qz - qy * qw), 0,
+            2 * (qx * qy - qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz + qx * qw), 0,
+            2 * (qx * qz + qy * qw), 2 * (qy * qz - qx * qw), 1 - 2 * (qx * qx + qy * qy), 0,
+            0, 0, 0, 1,
+        ];
+        double[] S = [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz, 0, 0, 0, 0, 1];
+        double[] T = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, tx, ty, tz, 1];
+        return DetMath.Mul(DetMath.Mul(S, R), T);
     }
 
     static (byte[] Data, int Offset, int Stride, int Length) View(JsonObject accessor, JsonArray views, List<byte[]?> buffers, int elementSize)
