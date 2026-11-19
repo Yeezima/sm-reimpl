@@ -42,6 +42,9 @@ public sealed partial class SpinArrows : Node
 
     void Stop() { _dir = 0; Holding = false; SetProcess(false); }
 
+    /// <summary>One arrow step: Step is the stored precision now (0.001), so the arrow increment is CustomArrowStep.</summary>
+    double Arrow => _spin.CustomArrowStep > 0 ? _spin.CustomArrowStep : _spin.Step;
+
     void Add(double amount) {
         if (_spin.Step <= 0) { _spin.Value += amount; return; }
         _spin.Value = Math.Round((_spin.Value + amount) / _spin.Step) * _spin.Step; }
@@ -59,7 +62,7 @@ public sealed partial class SpinArrows : Node
         else if (b.ButtonIndex == MouseButton.Left)
         {
             HoldId++; Holding = true;
-            Add(dir * _spin.Step);
+            Add(dir * Arrow);
             _dir = dir; _held = 0; SetProcess(true);
             _spin.AcceptEvent();
         }
@@ -70,6 +73,6 @@ public sealed partial class SpinArrows : Node
         if (_dir == 0 || !Input.IsMouseButtonPressed(MouseButton.Left)) { Stop(); return; }
         double before = _held; _held += delta;
         int n = SpinSteps.RepeatsBetween(before, _held);
-        if (n > 0) Add(_dir * n * _spin.Step * SpinSteps.HoldMultiplier(_held));
+        if (n > 0) Add(_dir * n * Arrow * SpinSteps.HoldMultiplier(_held));
     }
 }

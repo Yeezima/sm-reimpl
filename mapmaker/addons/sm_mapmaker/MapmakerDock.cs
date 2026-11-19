@@ -78,14 +78,14 @@ public partial class MapmakerDock : VBoxContainer
 
     // object
     LineEdit _name = new();
-    readonly SpinBox[] _pos = Spins(-100000, 100000, 0.01), _rot = Spins(-360, 360, 0.1), _scl = Spins(0.001, 1000, 0.01);
+    readonly SpinBox[] _pos = Spins(-100000, 100000, 0.001, 0.01), _rot = Spins(-360, 360, 0.001, 0.1), _scl = Spins(0.001, 1000, 0.001, 0.01);
     OptionButton _space = new();
     Label _objInfo = new();
 
     // prefab
     OptionButton _prefab = new();
     ItemList _parts = new() { CustomMinimumSize = new Vector2(0, 110) };
-    readonly SpinBox[] _ppos = Spins(-100000, 100000, 0.01), _prot = Spins(-360, 360, 0.1), _pscl = Spins(0.001, 1000, 0.01), _porg = Spins(-100000, 100000, 0.01);
+    readonly SpinBox[] _ppos = Spins(-100000, 100000, 0.001, 0.01), _prot = Spins(-360, 360, 0.001, 0.1), _pscl = Spins(0.001, 1000, 0.001, 0.01), _porg = Spins(-100000, 100000, 0.001, 0.01);
     OptionButton _collision = new();
     LineEdit _prefabName = new();
     Label _prefabInfo = new();
@@ -102,8 +102,9 @@ public partial class MapmakerDock : VBoxContainer
     FileDialog? _files;
     Action<string>? _filePicked;
 
-    static SpinBox[] Spins(double min, double max, double step) =>
-        Enumerable.Range(0, 3).Select(_ => new SpinBox { MinValue = min, MaxValue = max, Step = step, AllowGreater = true, AllowLesser = true, CustomMinimumSize = new Vector2(62, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }).ToArray();
+    /// <summary>Step is the stored precision (a Range rounds its value to it, so it must be finer than anything the document holds to show); CustomArrowStep keeps the arrow increment.</summary>
+    static SpinBox[] Spins(double min, double max, double step, double arrow) =>
+        Enumerable.Range(0, 3).Select(_ => new SpinBox { MinValue = min, MaxValue = max, Step = step, CustomArrowStep = arrow, AllowGreater = true, AllowLesser = true, CustomMinimumSize = new Vector2(62, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }).ToArray();
 
     public MapmakerDock(MapmakerPlugin plugin)
     {
@@ -873,7 +874,8 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Row(Field("Space"), _space));
         _space.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(VecRow("Position", _pos)); v.AddChild(VecRow("Rotation", _rot)); v.AddChild(VecRow("Scale", _scl));
-        foreach (var s in _pos.Concat(_rot).Concat(_scl)) s.ValueChanged += _ => ApplyTransform();
+        foreach (var (spins, prop) in new[] { (_pos, TransformProp.Position), (_rot, TransformProp.Rotation), (_scl, TransformProp.Scale) })
+            for (int axis = 0; axis < 3; axis++) { int ax = axis; var pr = prop; spins[axis].ValueChanged += v => ApplyTransform(pr, ax, (float)v); }
         Section(v, "Actions");
         var dup = Btn("Duplicate", () => _plugin.DuplicateSelected(), "Ctrl+D over the 3D view");
         var vis = Btn("Toggle visibility", () => ToggleVisible(), "Shows or hides the selected object.");
@@ -931,31 +933,41 @@ public partial class MapmakerDock : VBoxContainer
         foreach (var s in _scl.Concat(_pscl)) SpinArrows.Attach(s, SpinKind.Scale);
     }
 
-    void ApplyTransform()
+    /// <summary>
+    /// One spin box edit changes exactly one component (owner 2026-11-19: the other axes "stay 100% static"): each target starts from its stored transform,
+    /// takes the edited axis of the edited property, and keeps every other component bit for bit (<see cref="ComponentEdit"/>). The other spin boxes are never read.
+    /// </summary>
+    void ApplyTransform(TransformProp prop, int axis, float value)
     {
         if (_refreshing || _plugin.Session is null) return;
         var ids = _plugin.SelectedIds().ToList();
         if (ids.Count == 0) return;
         var doc = _plugin.Session.Document;
-        var target = new MapTransform(V(_pos), V(_rot), V(_scl));
-        var ops = new List<JsonObject>();
+        bool world = _space.Selected == 1;
         var first = doc.Get(ids[0]);
-        MapTransform firstNow = _space.Selected == 1 ? Safe(() => MapTransform.FromMatrix(doc.World(first.Id))) : first.Transform;
+        float firstNow = 0;
+        if (ids.Count > 1)
+        {
+            var ft = world ? Safe(() => MapTransform.FromMatrix(doc.World(first.Id))) : first.Transform;
+            firstNow = ComponentEdit.Get(ComponentEdit.Of(ft, prop), axis);
+        }
+        var ops = new List<JsonObject>();
         // Only the selected objects are edited; one whose ancestor is also selected rides on that ancestor's entry (no double turn), a lone selected child turns alone.
         foreach (var id in TransformTargets.Roots(doc, ids))
         {
             var o = doc.Get(id);
-            // A multi-selection moves by the delta of the first object's edit; one object takes the typed values.
             MapTransform local;
-            if (ids.Count == 1)
+            try
             {
-                local = target;
-                if (_space.Selected == 1 && o.Parent is not null && Num.Matrix4x4.Invert(doc.World(o.Parent), out var inv)) local = Safe(() => MapTransform.FromMatrix(target.ToMatrix() * inv));
+                if (ids.Count == 1)
+                    local = world ? ComponentEdit.World(o.Transform, o.Parent is null ? null : doc.World(o.Parent), prop, axis, value) : ComponentEdit.Local(o.Transform, prop, axis, value);
+                else local = ComponentEdit.Delta(o.Transform, prop, axis, firstNow, value);
             }
-            else local = new MapTransform(o.Transform.Position + (target.Position - firstNow.Position), o.Transform.Rotation + (target.Rotation - firstNow.Rotation), o.Transform.Scale * (target.Scale / firstNow.Scale));
+            catch (MapException e) { _status.Text = e.Message; continue; }
+            // The op carries the whole transform, but every component but the edited one is the stored value, untouched.
             ops.Add(MapmakerPlugin.Op("transform", ("id", id), ("position", MapmakerPlugin.Vec(local.Position)), ("rotation", MapmakerPlugin.Vec(local.Rotation)), ("scale", MapmakerPlugin.Vec(local.Scale))));
         }
-        _plugin.Do("Set transform", ops.ToArray());
+        if (ops.Count > 0) _plugin.Do("Set transform", ops.ToArray());
     }
 
     static T Safe<T>(Func<T> f) { try { return f(); } catch (MapException) { return default!; } }
@@ -987,7 +999,8 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(_parts);
         _parts.ItemSelected += i => ShowPart((int)i);
         v.AddChild(VecRow("Position", _ppos)); v.AddChild(VecRow("Rotation", _prot)); v.AddChild(VecRow("Scale", _pscl));
-        foreach (var s in _ppos.Concat(_prot).Concat(_pscl)) s.ValueChanged += _ => ApplyPart();
+        foreach (var (spins, prop) in new[] { (_ppos, TransformProp.Position), (_prot, TransformProp.Rotation), (_pscl, TransformProp.Scale) })
+            for (int axis = 0; axis < 3; axis++) { int ax = axis; var pr = prop; spins[axis].ValueChanged += v => ApplyPart(pr, ax, (float)v); }
         var hide = Btn("Hide part", () => OverridePart(false), "Hides this part on the selected instance of the prefab only.");
         var show = Btn("Show part", () => OverridePart(true), "Shows this part again on the selected instance.");
         hide.SizeFlagsHorizontal = SizeFlags.ExpandFill; show.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -1027,7 +1040,7 @@ public partial class MapmakerDock : VBoxContainer
         for (int i = 0; i < _prefab.ItemCount; i++) if (_prefab.GetItemMetadata(i).AsString() == id && _prefab.Selected != i) { _prefab.Select(i); LoadPrefab(); }
     }
 
-    void LoadPrefab()
+    void LoadPrefab(int keepPart = 0)
     {
         _refreshing = true;
         _parts.Clear(); _partList = new();
@@ -1042,7 +1055,7 @@ public partial class MapmakerDock : VBoxContainer
         }
         else _prefabInfo.Text = "No prefab selected. Extract SM1 objects or import one.";
         _refreshing = false;
-        if (_partList.Count > 0) { _parts.Select(0); ShowPart(0); }
+        if (_partList.Count > 0) { int k = keepPart < _partList.Count ? keepPart : 0; _parts.Select(k); ShowPart(k); }
     }
 
     void ShowPart(int i)
@@ -1054,12 +1067,15 @@ public partial class MapmakerDock : VBoxContainer
         _refreshing = false;
     }
 
-    void ApplyPart()
+    /// <summary>A part spin edit changes one component of the stored part transform; the other eight values are the stored ones.</summary>
+    void ApplyPart(TransformProp prop, int axis, float value)
     {
-        if (_refreshing || CurrentPrefabId is not { } id || _parts.GetSelectedItems().Length == 0) return;
-        var part = _partList[_parts.GetSelectedItems()[0]];
-        var tr = new JsonObject { ["position"] = MapmakerPlugin.Vec(V(_ppos)), ["rotation"] = MapmakerPlugin.Vec(V(_prot)), ["scale"] = MapmakerPlugin.Vec(V(_pscl)) };
-        EditPrefab(("setPart", new JsonArray(new JsonObject { ["id"] = part.Id, ["transform"] = tr })));
+        if (_refreshing || CurrentPrefabId is null || _parts.GetSelectedItems().Length == 0) return;
+        int index = _parts.GetSelectedItems()[0];
+        var part = _partList[index];
+        var t = ComponentEdit.Local(part.Transform, prop, axis, value);
+        var tr = new JsonObject { ["position"] = MapmakerPlugin.Vec(t.Position), ["rotation"] = MapmakerPlugin.Vec(t.Rotation), ["scale"] = MapmakerPlugin.Vec(t.Scale) };
+        EditPrefab(index, ("setPart", new JsonArray(new JsonObject { ["id"] = part.Id, ["transform"] = tr })));
     }
 
     void RemovePart()
@@ -1076,12 +1092,14 @@ public partial class MapmakerDock : VBoxContainer
             _plugin.Do("Part visibility", MapmakerPlugin.Op("instance-override", ("id", id), ("part", part), ("visible", visible)));
     }
 
-    OpResult? EditPrefab(params (string Key, JsonNode? Value)[] fields)
+    OpResult? EditPrefab(params (string Key, JsonNode? Value)[] fields) => EditPrefab(0, fields);
+
+    OpResult? EditPrefab(int keepPart, params (string Key, JsonNode? Value)[] fields)
     {
         if (CurrentPrefabId is not { } id) return null;
         var op = MapmakerPlugin.Op("prefab-edit", [("prefab", id), .. fields]);
         var r = _plugin.Do("Edit prefab", op);
-        LoadPrefab();
+        LoadPrefab(keepPart);
         return r;
     }
 

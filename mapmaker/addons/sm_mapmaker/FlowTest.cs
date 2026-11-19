@@ -153,8 +153,26 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             Check(Math.Abs(spin.Value - v0) < 1e-6, $"a right click on the down arrow subtracts 10 ({spin.Value})");
             r = spin.GetGlobalRect(); up = new Godot.Vector2(r.End.X - 5, r.Position.Y + 3); Move(up); await Frames(3);
             Button(up, MouseButton.Left, true); await Frames(3); Button(up, MouseButton.Left, false); await Frames(4);
-            Check(Math.Abs(spin.Value - (v0 + spin.Step)) < 1e-6, $"a left click on the up arrow adds one step ({spin.Value})");
+            Check(Math.Abs(spin.Value - (v0 + spin.CustomArrowStep)) < 1e-6, $"a left click on the up arrow adds one step ({spin.Value})");
             spin.Value = v0;
+            // Axis drift (owner 2026-11-19): a typed X leaves Y, Z, rotation and scale exactly as stored, even values finer than the old display step.
+            var only = plugin.SelectedIds().ToList();
+            if (only.Count == 1)
+            {
+                var origT = plugin.Session!.Document.Get(only[0]).Transform;
+                var oddT = new MapTransform(new Num.Vector3(3.5f, -164.983f, 0.123f), new Num.Vector3(12.345f, -7.891f, 33.333f), new Num.Vector3(1.001f, 2.345f, 0.777f));
+                plugin.Do("axis drift setup", MapmakerPlugin.Op("transform", ("id", only[0]), ("position", MapmakerPlugin.Vec(oddT.Position)), ("rotation", MapmakerPlugin.Vec(oddT.Rotation)), ("scale", MapmakerPlugin.Vec(oddT.Scale))));
+                await Frames(6);
+                spin.Value = 42.5;
+                await Frames(6);
+                var now = plugin.Session!.Document.Get(only[0]).Transform;
+                Check(now.Position.X == 42.5f, $"typing X stores it ({now.Position.X})");
+                Check(now.Position.Y == oddT.Position.Y && now.Position.Z == oddT.Position.Z, $"typing X leaves Y and Z exactly as stored ({now.Position})");
+                Check(now.Rotation == oddT.Rotation && now.Scale == oddT.Scale, $"typing X leaves rotation and scale exactly as stored ({now.Rotation}, {now.Scale})");
+                plugin.Do("axis drift restore", MapmakerPlugin.Op("transform", ("id", only[0]), ("position", MapmakerPlugin.Vec(origT.Position)), ("rotation", MapmakerPlugin.Vec(origT.Rotation)), ("scale", MapmakerPlugin.Vec(origT.Scale))));
+                await Frames(4);
+            }
+            else Check(false, "axis drift step needs exactly one selected object");
         }
         sel.Clear(); await Frames(5);
 
