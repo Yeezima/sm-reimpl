@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Warfront: a retainer's jump pack (Assault and Raptor squads) is now painted like the backpack colours you picked in the customizer, instead of the side's default paint.
