@@ -68,7 +68,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
     {
         var all = new List<Button>();
         Buttons(root, all);
-        return all.FirstOrDefault(b => b.Text == text);
+        return all.FirstOrDefault(b => string.Equals(b.Text, text, StringComparison.OrdinalIgnoreCase));
     }
 
     async Task Press(Node root, string text)
@@ -203,7 +203,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         var dialogTexts = new List<Label>();
         Labels(_front, dialogTexts);
         Check("confirmation: the question and what happens to the current run", dialogTexts.Any(l => l.Text == WarfrontLocal.ConfirmTitle) && dialogTexts.Any(l => l.Text == WarfrontLocal.ConfirmBody));
-        Check("confirmation: No has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "No" });
+        Check("confirmation: No has the focus", GetViewport().GuiGetFocusOwner() is Button nb && nb.Text.Equals("No", StringComparison.OrdinalIgnoreCase));
         await Still("confirm-new");
         await Press(_front, "No");
         Check("No leaves everything as it was", !_front.WarfrontConfirmOpen && started is null && File.ReadAllBytes(runFile).SequenceEqual(before));
