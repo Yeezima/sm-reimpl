@@ -403,6 +403,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         await MeasureGizmo();
         int onDisk = MapDocument.Parse(File.ReadAllText(map1)).Objects.Count;
         Check(EditorInterface.Singleton.SaveScene() == Error.Ok, "saved scene 2 (which also saves its map)");
+        doc2 = Doc();   // a save embeds the prefabs the map uses (pass 3), so tab 2's map is compared as saved
         Check(onDisk < count1 && MapDocument.Parse(File.ReadAllText(map1)).Objects.Count == onDisk, $"saving scene 2 leaves the changed map of background tab 1 alone ({onDisk} objects on disk, {count1} in memory)");
         await Frames(80);   // the plugin notes which map belongs to the scene file
         await Frames(10);

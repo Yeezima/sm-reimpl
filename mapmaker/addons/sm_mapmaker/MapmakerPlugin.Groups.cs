@@ -116,12 +116,32 @@ public partial class MapmakerPlugin
     /// <summary>A double-click on an object of a group in the 3D view selects the whole group (the next one, soon after, the group around it).</summary>
     void GroupDoubleClick(InputEvent e)
     {
+        if (_replaying) return;   // the box select's replayed press carries the same DoubleClick flag: the original press already counted
         if (e is not InputEventMouseButton { Pressed: true, DoubleClick: true, ButtonIndex: MouseButton.Left } b || MapHost.Tool != Tool.Select || Session is null) return;
-        if (!TryRay(b.Position, out _, out _)) return;
-        _ = ExpandToGroup();
+        if (b.AltPressed || !TryRay(b.Position, out _, out _)) return;   // Alt is a box, never a single selection
+        _dblPendingAt = Time.GetTicksMsec();
+        _ = ExpandUnlessBoxed();
     }
 
-    async Task ExpandToGroup()
+    ulong _dblPendingAt;   // 0 = none; a double-click press waits for its click to finish (the box select holds the press back and replays it)
+    bool _replayInFlight;
+
+    async Task ExpandUnlessBoxed()
+    {
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (_boxPending || _replayInFlight) return;   // the replay (or the box) takes over
+        await ExpandPending();
+    }
+
+    /// <summary>Runs the expansion of a pending double-click once (the click's own selection has landed by now).</summary>
+    async Task ExpandPending()
+    {
+        if (_dblPendingAt == 0 || Time.GetTicksMsec() - _dblPendingAt > 2000) { _dblPendingAt = 0; return; }
+        _dblPendingAt = 0;
+        await ExpandToGroup();
+    }
+
+    internal async Task ExpandToGroup()
     {
         for (int i = 0; i < 2; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         if (Session is null) return;

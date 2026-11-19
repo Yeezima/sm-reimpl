@@ -33,6 +33,7 @@ public partial class MapmakerPlugin : EditorPlugin
     ObjectGizmoPlugin? _gizmo;
     readonly Dictionary<int, Step> _steps = new();
     int _stepId;
+    (Step Step, string Label, int Hold)? _holdStep;   // the undo step a held spin arrow keeps folding its repeats into
     bool _busy;
     int _lastPrefabStamp;
     readonly Dictionary<string, MapmakerObject> _nodes = new();
@@ -426,8 +427,17 @@ public partial class MapmakerPlugin : EditorPlugin
         step.AfterDoc = Session.Document.ToJson();
         step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
         foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
+        // A held spin-box arrow repeats many edits: the first makes the undo step, the rest fold into it (one hold = one undo step).
+        if (SpinArrows.Holding && _holdStep is { } held && held.Step.RootId == step.RootId && held.Label == label && held.Hold == SpinArrows.HoldId && _steps.ContainsValue(held.Step))
+        {
+            held.Step.AfterDoc = step.AfterDoc; held.Step.AfterPrefabs = step.AfterPrefabs; held.Step.Result = applied;
+            AfterChange(prefabsChanged: StepTouchesLibrary(step));
+            SetStatus(label);
+            return applied;
+        }
         int id = ++_stepId;
         _steps[id] = step;
+        _holdStep = SpinArrows.Holding ? (step, label, SpinArrows.HoldId) : null;
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
         var ur = GetUndoRedo();
         ur.CreateAction(label, UndoRedo.MergeMode.Disable, MapHost.Root);

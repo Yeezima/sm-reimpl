@@ -280,7 +280,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
             Check(file.Contains("selftest-piece") && !file.Contains("ArrayMesh") && !file.Contains("vertices"), ".smmap holds references only");
             Check(file == plugin.Session.Document.ToJson(), "saved bytes equal canonical document JSON");
             var reopened = MapSession.Load(savePath, MapHost.Library);
-            Check(reopened.Document.ToJson() == json, "reload round trip is byte identical");
+            Check(reopened.Document.ToJson() == file, "reload round trip is byte identical");   // the saved file (since pass 3 a save also embeds the prefabs the map uses)
 
             // 4b. Owner's question (2026-11-05): deleting a prefab made by mistake. Its placed copies go with it; editor undo brings both back.
             {

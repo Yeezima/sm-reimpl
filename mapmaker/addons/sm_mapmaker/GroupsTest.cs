@@ -65,6 +65,14 @@ public sealed class GroupsTest(MapmakerPlugin plugin)
             Check(plugin.SelectedIds().SequenceEqual(["o2"]), "clicking one object selects just it");
             Check(doc().Objects.Count == 6 && doc().Groups.Count == 3, "groups changed no objects");
 
+            // Double-click on a member of a nested group (the click selected the single object; the expansion runs after it): innermost group, then the one around it.
+            plugin.Select(["o2"]);
+            await plugin.ExpandToGroup();
+            Check(plugin.SelectedIds().OrderBy(x => x).SequenceEqual(["o1", "o2", "o3"]), "double-click on a member selects its innermost group (Gate)");
+            plugin.Select(["o2"]);   // the second double-click's own click
+            await plugin.ExpandToGroup();
+            Check(plugin.SelectedIds().OrderBy(x => x).SequenceEqual(["o1", "o2", "o3", "o4", "o5", "o6"]), "a second double-click takes the group around it (Everything)");
+
             await Frames(3);
             dock.ShowTab(DockTab.Scene);
             await Frames(10);

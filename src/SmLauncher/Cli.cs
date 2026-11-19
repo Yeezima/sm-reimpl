@@ -74,7 +74,8 @@ static class Cli
                 if (mm is not null) Console.WriteLine($"verify mapmaker: {mm.Describe()}");
                 if (mm is { InUse: true, Ok: false } && a.Has("repair-mapmaker") && vdir is not null)
                 {
-                    mapSetup.Repair(vdir);
+                    try { mapSetup.Repair(vdir); }
+                    catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.WriteLine("mapmaker repair failed: " + e.Message); return 1; }   // MapmakerSyncException is an IOException
                     mm = mapSetup.Verify(vdir);
                     Console.WriteLine($"mapmaker repaired: {mm.Describe()}");
                 }

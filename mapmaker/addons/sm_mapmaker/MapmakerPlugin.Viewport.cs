@@ -66,7 +66,7 @@ public partial class MapmakerPlugin
     {
         FreeGhost();
         if (_overlay is not null && GodotObject.IsInstanceValid(_overlay)) _overlay.QueueFree();
-        _overlay = null; _boxPending = false; _boxActive = false;
+        _overlay = null; _boxPending = false; _boxActive = false; _dblPendingAt = 0;
         MapHost.LibraryChanged -= FreeGhost;
         MapHost.Sm1Changed -= FreeGhost;
     }
@@ -112,6 +112,7 @@ public partial class MapmakerPlugin
             bool drew = _boxActive; var press = _boxPress; bool alt = _boxAlt;
             CancelBox();
             GetViewport().SetInputAsHandled();
+            if (drew || alt) _dblPendingAt = 0;
             if (drew) FinishBox(new Rect2(_boxFrom, Vector2.Zero).Expand(b.Position), b.ShiftPressed, b.CtrlPressed);
             else if (press is not null && !alt) _ = ReplayClick(press, (InputEventMouseButton)b.Duplicate());
             return true;
@@ -130,14 +131,20 @@ public partial class MapmakerPlugin
 
     async Task ReplayClick(InputEventMouseButton press, InputEventMouseButton release)
     {
-        _replaying = true; try { GetTree().Root.PushInput(press); } finally { _replaying = false; }
-        for (int i = 0; i < 2; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        _replaying = true; try { GetTree().Root.PushInput(release); } finally { _replaying = false; }
+        _replayInFlight = true;
+        try
+        {
+            _replaying = true; try { GetTree().Root.PushInput(press); } finally { _replaying = false; }
+            for (int i = 0; i < 2; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            _replaying = true; try { GetTree().Root.PushInput(release); } finally { _replaying = false; }
+        }
+        finally { _replayInFlight = false; }
+        await ExpandPending();   // a double-click's group expansion goes after the replayed release, which would otherwise select the single object again
     }
 
     void CancelBox()
     {
-        _boxPending = false; _boxActive = false; _boxPress = null; _boxAlt = false;
+        _boxPending = false; _boxActive = false; _boxPress = null; _boxAlt = false; _dblPendingAt = 0;   // an aborted box never leaves a double-click waiting for the next click (review)
         _boxRect = null;
         if (_overlay is not null && GodotObject.IsInstanceValid(_overlay)) _overlay.QueueRedraw();
     }
