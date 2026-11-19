@@ -34,6 +34,9 @@ public interface ISm1Source
 
     /// <summary>The map's start areas and spawn doors (what the dedicated server spawns players by), or null when the source cannot read them (an import then adds placeholders).</summary>
     Sm1Spawns? LoadSpawns(string map) => null;
+
+    /// <summary>What Classic adds to the map besides drawn placements (invisible walls, kill boxes, movable cover), or null when the source cannot read it (an import then brings none; slice S3).</summary>
+    Sm1Gameplay? LoadGameplay(string map) => null;
 }
 
 /// <summary>Reads maps from the user's install with <see cref="MapScene"/> (read-only; results are cached in memory per instance).</summary>
@@ -47,17 +50,21 @@ public sealed class InstalledSm1Source(string gameDir) : ISm1Source
     public static InstalledSm1Source? TryCreate(string? explicitDir = null) =>
         GameInstall.TryLocate(explicitDir, repoRoot: null) is { } loc ? new InstalledSm1Source(loc.Dir) : null;
 
-    readonly Dictionary<string, Sm1Spawns?> _spawns = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, MapContent?> _contents = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Reads the map with the game server's own loader (<see cref="MapContent"/>, which also parses collision: seconds). Null for a map that loader cannot read (co-op arenas).</summary>
-    public Sm1Spawns? LoadSpawns(string map)
+    /// <summary>The game server's own reading of the map (<see cref="MapContent"/>, which also parses collision: seconds), once per map; null for a map that loader cannot read (co-op arenas).</summary>
+    MapContent? Content(string map)
     {
-        if (_spawns.TryGetValue(map, out var cached)) return cached;
-        Sm1Spawns? result = null;
-        try { var c = MapContent.Load(GameDir, map); result = new Sm1Spawns(c.StartAreas, c.Blockers, c.ControlPoints); }
+        if (_contents.TryGetValue(map, out var cached)) return cached;
+        MapContent? result = null;
+        try { result = MapContent.Load(GameDir, map); }
         catch (Exception e) when (e is ArgumentException or FileNotFoundException or DirectoryNotFoundException or InvalidDataException or IOException or UnauthorizedAccessException) { }
-        return _spawns[map] = result;
+        return _contents[map] = result;
     }
+
+    public Sm1Spawns? LoadSpawns(string map) => Content(map) is { } c ? new Sm1Spawns(c.StartAreas, c.Blockers, c.ControlPoints) : null;
+
+    public Sm1Gameplay? LoadGameplay(string map) => Content(map) is { } c ? new Sm1Gameplay(c.Walls, c.KillRegions, c.Props) : null;
 
     public Sm1Map LoadMap(string map)
     {

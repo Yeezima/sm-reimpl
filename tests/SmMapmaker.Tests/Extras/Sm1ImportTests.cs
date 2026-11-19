@@ -61,7 +61,7 @@ public sealed class Sm1ImportTests : IDisposable
         Assert.Equal("mp_fake", group.Name);
         Assert.Null(group.Asset);
         var kids = s.Document.ChildrenOf(group.Id).Where(k => k.Asset is not null).ToList();
-        Assert.Equal(3, kids.Count);   // wall_a, tilted and the unnamed one; marker (no visual), shear and the hidden armoury piece are left out
+        Assert.Equal(3, kids.Count);   // wall_a, tilted and the unnamed one (the armoury piece Classic hides is imported switched off, under its sub-group); marker (no visual) and shear are left out
         Assert.All(kids, k => Assert.Equal(AssetRef.Sm1("mp_fake", "def_wall"), k.Asset));
         Assert.True(TransformMath.Close(kids[0].Transform.ToMatrix(), ImportSm1.A, 1e-4f));
         Assert.True(TransformMath.Close(kids[1].Transform.ToMatrix(), ImportSm1.B, 1e-4f));
@@ -86,14 +86,14 @@ public sealed class Sm1ImportTests : IDisposable
         var back = MapSession.Load(path, _lab.Library, new ImportSm1());
         Assert.Equal(s.Document.ToJson(), back.Document.ToJson());
         Assert.Equal("My Remix", back.Document.Objects.Single(o => o.Parent is null).Name);
-        Assert.Equal(4 + Placeholders, back.Document.Objects.Count);
+        Assert.Equal(6 + Placeholders, back.Document.Objects.Count);   // the group, its Hidden by Classic sub-group, 3 shown and 1 hidden placement, plus the placeholders
         // the imported objects are ordinary objects: move one, delete one, undo both
         var kid = back.Document.Objects.First(o => o.Parent is not null);
         Assert.True(back.Apply(Lab.Op($$"""{"op":"transform","id":"{{kid.Id}}","move":[5,0,0]}""")).Ok);
         Assert.True(back.Apply(Lab.Op($$"""{"op":"delete","ids":["{{kid.Id}}"]}""")).Ok);
-        Assert.Equal(3 + Placeholders, back.Document.Objects.Count);
+        Assert.Equal(5 + Placeholders, back.Document.Objects.Count);
         Assert.True(back.Undo().Ok);
-        Assert.Equal(4 + Placeholders, back.Document.Objects.Count);
+        Assert.Equal(6 + Placeholders, back.Document.Objects.Count);   // the group, its Hidden by Classic sub-group, 3 shown and 1 hidden placement, plus the placeholders
     }
 
     [Fact]

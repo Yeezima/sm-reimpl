@@ -9,7 +9,8 @@ namespace SmMapmaker;
 /// source map. Objects keep the SM1 reference (map + definition) and the exact placement (decomposed once, see TransformMath), never any mesh data.
 /// Left out (said in the result's warnings): placements whose definition draws nothing (markers, lights, child-only groups), placements whose matrix
 /// does not decompose (shear), anything past <see cref="MaxImported"/> (the .smmap size limit), and what the document cannot hold at all
-/// (decals, lights, terrain, collision, the map's own spawns and logic).
+/// (decals, lights, terrain, the script logic). Classic's own walls, kill boxes and cover come in as pieces and the placements Classic hides come in switched
+/// off (see Sm1ImportGameplay.cs, docs/mapmaker.md "As Classic plays it").
 /// </summary>
 internal sealed partial class Batch
 {
@@ -33,37 +34,98 @@ internal sealed partial class Batch
         var spawnPlan = PlanSpawns(source.LoadSpawns(map));
         bool spawnsFit = spawnPlan.Objects <= room;   // a nearly full map keeps its placements and gets no spawn pieces (said below)
         if (spawnsFit) room -= spawnPlan.Objects;
-        int imported = 0, noVisual = 0, sheared = 0, over = 0;
-        Vector3 low = new(float.MaxValue), high = new(float.MinValue);
+        // Classic's own gameplay (invisible walls, kill boxes, movable cover) and the placements, planned first so the caps can be applied in order:
+        // spawns (above), walls, kill boxes, cover, visible placements, then the placements Classic hides (imported switched off).
+        var gameplay = source.LoadGameplay(map);
+        var counts = new GameplayCounts();
+        var walls = gameplay is null ? [] : PlanWalls(map, gameplay, counts);
+        var kills = gameplay is null ? [] : PlanKills(map, gameplay, counts);
+        var cover = gameplay is null ? [] : PlanCover(map, gameplay, counts);
+        var placementKeys = Sm1ClassicKeys.PlacementKeys(scene.Objects);   // over the whole list, so a later refresh computes the same keys
+        var shownPlan = new List<(Sm1Object O, string Key, MapTransform T)>();
+        var hiddenPlan = new List<(Sm1Object O, string Key, MapTransform T)>();
+        int noVisual = 0, sheared = 0, over = 0;
         for (int i = 0; i < scene.Objects.Count; i++)
         {
             var o = scene.Objects[i];
-            if (scene.Hidden?.Contains(i) == true) { noVisual++; continue; }
             if (!scene.Definitions.TryGetValue(o.Definition, out var def) || def.Visuals == 0) { noVisual++; continue; }
-            if (imported >= room) { over++; continue; }
             MapTransform t;
             try { t = TransformMath.Decompose(o.Transform); }
             catch (MapException) { sheared++; continue; }
-            Doc.Objects.Add(new MapObject(NewId(), o.Name.Length > 0 ? o.Name : o.Definition, groupId, layer, true, t, AssetRef.Sm1(map, o.Definition), null, [], null));
-            low = Vector3.Min(low, t.Position); high = Vector3.Max(high, t.Position);
-            imported++;
+            (scene.Hidden?.Contains(i) == true ? hiddenPlan : shownPlan).Add((o, placementKeys[i], t));
         }
-        // The 8 MB file limit: drop the last imported objects until the document fits (a map full of long names may reach it before the object limit).
-        int bySize = 0;
-        while (imported > 0 && Doc.ToJson().Length > MapDocument.MaxChars)
+        // A sub-group costs one object; it is only made for a category that gets at least one.
+        int Take(int wanted, bool subGroup)
         {
-            int drop = Math.Max(1, imported / 20);
-            Doc.Objects.RemoveRange(Doc.Objects.Count - drop, drop); imported -= drop; bySize += drop;
+            int n = Math.Min(wanted, room - (subGroup ? 1 : 0));
+            if (n <= 0) { over += wanted; return 0; }
+            room -= n + (subGroup ? 1 : 0);
+            over += wanted - n;
+            return n;
         }
-        var spawnNotes = spawnsFit ? AddSpawns(spawnPlan, groupId, layer, imported > 0 ? (low + high) / 2f : Vector3.Zero, imported > 0 ? low.Z : 0f)
+        string SubGroup(string name)
+        {
+            var id = NewId();
+            Doc.Objects.Add(new MapObject(id, name, groupId, layer, true, MapTransform.Identity, null, null, [], null));
+            return id;
+        }
+        void AddPlanned(List<Planned> plan, int n, string subGroupName)
+        {
+            if (n == 0) return;
+            var sub = SubGroup(subGroupName);
+            foreach (var p in plan.Take(n)) Doc.Objects.Add(new MapObject(NewId(), p.Name, sub, layer, true, p.Transform, null, null, [], p.Piece, p.Src));
+        }
+        int nWalls = Take(walls.Count, true), nKills = Take(kills.Count, true), nCover = Take(cover.Count, true);
+        AddPlanned(walls, nWalls, "Walls"); AddPlanned(kills, nKills, "Kill boxes"); AddPlanned(cover, nCover, "Cover");
+        MapObject Placement(Sm1Object o, string key, MapTransform t, string parent, bool hidden) =>
+            new(NewId(), o.Name.Length > 0 ? o.Name : o.Definition, parent, layer, !hidden, t, AssetRef.Sm1(map, o.Definition), null, [],
+                null, new MapObjectSrc(map, key, Sm1ClassicKeys.PlacementFp(o, hidden), MapObjectSrc.Placement, hidden));
+        var shownObjs = new List<MapObject>();
+        var hiddenObjs = new List<MapObject>();
+        foreach (var (o, key, t) in shownPlan.Take(Take(shownPlan.Count, false))) shownObjs.Add(Placement(o, key, t, groupId, false));
+        Doc.Objects.AddRange(shownObjs);
+        string? hiddenGroup = null;
+        int nHidden = Take(hiddenPlan.Count, true);
+        if (nHidden > 0)
+        {
+            hiddenGroup = SubGroup("Hidden by Classic");
+            foreach (var (o, key, t) in hiddenPlan.Take(nHidden)) hiddenObjs.Add(Placement(o, key, t, hiddenGroup, true));
+            Doc.Objects.AddRange(hiddenObjs);
+        }
+        if (MapLook.IsMapName(map)) Doc.Look = new MapLook(map);   // the original lighting, sky and fog in play (slice S4 draws it)
+        // The 8 MB file limit: drop the placements Classic hides first, then the visible ones (last first); the gameplay pieces always stay.
+        int bySize = 0, hiddenBySize = 0;
+        while ((shownObjs.Count > 0 || hiddenObjs.Count > 0) && Doc.ToJson().Length > MapDocument.MaxChars)
+        {
+            var from = hiddenObjs.Count > 0 ? hiddenObjs : shownObjs;
+            int drop = Math.Max(1, (shownObjs.Count + hiddenObjs.Count) / 20);
+            drop = Math.Min(drop, from.Count);
+            var gone = from.GetRange(from.Count - drop, drop).Select(x => x.Id).ToHashSet();
+            from.RemoveRange(from.Count - drop, drop);
+            Doc.Objects.RemoveAll(x => gone.Contains(x.Id));
+            if (ReferenceEquals(from, hiddenObjs)) hiddenBySize += drop; else bySize += drop;
+        }
+        if (hiddenGroup is not null && hiddenObjs.Count == 0) Doc.Objects.RemoveAll(x => x.Id == hiddenGroup);
+        int imported = shownObjs.Count, hiddenImported = hiddenObjs.Count;
+        Vector3 low = new(float.MaxValue), high = new(float.MinValue);
+        foreach (var x in shownObjs.Concat(hiddenObjs)) { low = Vector3.Min(low, x.Transform.Position); high = Vector3.Max(high, x.Transform.Position); }
+        bool any = imported + hiddenImported > 0;
+        var spawnNotes = spawnsFit ? AddSpawns(spawnPlan, groupId, layer, any ? (low + high) / 2f : Vector3.Zero, any ? low.Z : 0f)
             : ["The map file is nearly full, so the spawn areas, doors and capture points were not added; the check will ask for them."];
         Warnings.Add($"Imported {imported} of {scene.Objects.Count} placements of '{map}' under '{groupName}'.");
+        if (gameplay is null) Warnings.Add("The original's invisible walls, kill boxes and cover were not available for this map (no install reader, or a map the game server does not load), so none were imported.");
+        else Warnings.Add($"Classic's own gameplay came in as editable pieces: {nWalls} invisible wall(s) (players only), {nKills} kill box(es) and {nCover} cover box(es) (shoot-through crates and barrels, one box each); see the Walls, Kill boxes and Cover groups.");
+        if (hiddenPlan.Count > 0) Warnings.Add($"{hiddenImported} placement(s) Classic hides were imported switched off under 'Hidden by Classic'; turn one on in the Scene list to bring it back.");
+        if (counts.Spheres > 0) Warnings.Add($"{counts.Spheres} round invisible wall(s) (spheres) have no piece and were left out.");
+        if (counts.Tilted > 0) Warnings.Add($"{counts.Tilted} invisible wall(s) are tilted in the original; only their turn about the vertical axis was kept.");
+        if (counts.Degenerate > 0) Warnings.Add($"{counts.Degenerate} walls, kill boxes or cover props have no usable size and were left out.");
         if (noVisual > 0) Warnings.Add($"{noVisual} placements draw nothing (markers, lights, empty groups) and were left out.");
         if (sheared > 0) Warnings.Add($"{sheared} placements have a sheared matrix the editor cannot hold and were left out.");
-        if (over > 0) Warnings.Add($"{over} placements were left out: a map file holds at most {MapDocument.MaxObjects} objects (and imports stop at {MaxImported}).");
-        if (bySize > 0) Warnings.Add($"{bySize} placements were left out to keep the map file under {MapDocument.MaxChars / 1_000_000} MB.");
+        if (over > 0) Warnings.Add($"{over} objects were left out: a map file holds at most {MapDocument.MaxObjects} objects (and imports stop at {MaxImported}).");
+        if (bySize + hiddenBySize > 0) Warnings.Add($"{bySize + hiddenBySize} placements ({hiddenBySize} of them hidden by Classic) were left out to keep the map file under {MapDocument.MaxChars / 1_000_000} MB.");
         Warnings.AddRange(spawnNotes);
-        Warnings.Add("Not imported: decals, lights, terrain, collision and the original's script logic. SM1 pieces are drawn in the editor only; put Invisible walls round them to make them solid (the spawn areas only get a thin placeholder floor).");
+        if (MapLook.IsMapName(map)) Warnings.Add($"The map's look is set to '{map}': Classic's lighting, sky and fog in play (Map tab, Look).");
+        Warnings.Add("Not imported: decals, lights, terrain and the original's script logic. SM1 placements are drawn in the editor and solid in play; the spawn areas only get a thin placeholder floor.");
     }
 
     /// <summary>What the import adds besides placements: a spawn area (and a floor under it) and door per original marker, and what the data lacked.</summary>
