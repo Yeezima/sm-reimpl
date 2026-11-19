@@ -30,7 +30,27 @@ public sealed class MapSession
     public static MapSession Load(string path, MapLibrary library, ISm1Source? sm1 = null)
     {
         if (!File.Exists(path)) throw new MapException("bad-file", $"No file '{path}'.");
-        return new MapSession(MapDocument.Parse(File.ReadAllText(path)), library, sm1, System.IO.Path.GetFullPath(path));
+        var session = new MapSession(MapDocument.Parse(File.ReadAllText(path)), library, sm1, System.IO.Path.GetFullPath(path));
+        var notes = new List<string>();
+        session.RestoreEmbeddedPrefabs(notes);
+        if (session.Document.LoadedVersion < MapDocument.FormatVersion)
+        {
+            // An older file: the original is kept first, never replaced, then the file is written in the current format (nothing in it is lost: the upgrade steps only add).
+            int from = session.Document.LoadedVersion;
+            try
+            {
+                string backup = MapUpgrade.Backup(path, from);
+                session.Save();
+                notes.Add($"This map was saved by an older Mapmaker (file format {from}); it was upgraded to format {MapDocument.FormatVersion}. The original is kept as {System.IO.Path.GetFileName(backup)}.");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                session.Dirty = true;
+                notes.Add($"This map was saved by an older Mapmaker (file format {from}) and is read as format {MapDocument.FormatVersion}, but the file could not be backed up and rewritten ({e.Message}); Save map will write it.");
+            }
+        }
+        session.OpenNotes = notes;
+        return session;
     }
 
     /// <summary>The live document. Read it; change it only through <see cref="Apply(IEnumerable{JsonObject}, bool)"/>.</summary>
@@ -201,9 +221,50 @@ public sealed class MapSession
     public void Save(string? path = null)
     {
         path ??= Path ?? throw new MapException("bad-args", "This map has no file yet; pass a path.");
+        EmbedUsedPrefabs();
         MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(Document.ToJson()));
         Path = System.IO.Path.GetFullPath(path);
         Dirty = false;
+    }
+
+    /// <summary>
+    /// Puts the definition of every prefab the objects use (and the prefabs those use) into the document, so the saved file brings them along (a map sent to another PC no longer has
+    /// "unknown prefab" instances). A prefab the library lacks but an earlier save embedded stays embedded.
+    /// </summary>
+    void EmbedUsedPrefabs()
+    {
+        var wanted = new SortedSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<string>(Document.Objects.Where(o => o.Prefab is not null).Select(o => o.Prefab!));
+        var result = new List<Prefab>();
+        while (queue.Count > 0)
+        {
+            string id = queue.Dequeue();
+            if (!wanted.Add(id)) continue;
+            Prefab? p = null;
+            try { p = Library.GetPrefab(id); } catch (MapException) { }
+            p ??= Document.EmbeddedPrefabs.FirstOrDefault(e => e.Id == id);
+            if (p is null) continue;
+            result.Add(p);
+            foreach (var part in p.Parts.Where(x => x.Prefab is not null)) queue.Enqueue(part.Prefab!);
+        }
+        Document.EmbeddedPrefabs = result;
+    }
+
+    /// <summary>
+    /// What opening a file did that the maker should be told: prefabs that came with the map and were added to the library, a library prefab that differs from the saved one (the library's is used,
+    /// never overwritten), and an upgrade of an older file format (the original kept as <c>.bak-v&lt;n&gt;</c>, then the file rewritten in the current format).
+    /// </summary>
+    public IReadOnlyList<string> OpenNotes { get; private set; } = [];
+
+    void RestoreEmbeddedPrefabs(List<string> notes)
+    {
+        foreach (var emb in Document.EmbeddedPrefabs)
+        {
+            Prefab? have = null;
+            try { have = Library.GetPrefab(emb.Id); } catch (MapException) { }
+            if (have is null) { Library.SavePrefab(emb); notes.Add($"The prefab '{emb.Id}' came with this map and was added to your library."); }
+            else if (have.ToJson() != emb.ToJson()) notes.Add($"Your library's prefab '{emb.Id}' differs from the copy saved in this map; yours is used and was not changed.");
+        }
     }
 
     public OpResult Validate() => Document.Validate(Library);

@@ -359,7 +359,7 @@ public partial class MapmakerPlugin : EditorPlugin
         {
             Adopt(MapSession.Load(path, MapHost.Library, _sm1Adapter));
             string? shared = MapHost.Root is { } r && SceneFileOf(r) is { Length: > 0 } f ? OtherOwnerOfMap(Session!.Path!, f) : null;
-            SetStatus($"Opened {path}" + (shared is null ? "" : $". This map is also used by {shared}; edits affect both."));
+            SetStatus($"Opened {path}" + (shared is null ? "" : $". This map is also used by {shared}; edits affect both.") + string.Concat(Session!.OpenNotes.Select(n => " " + n)));
             return null;
         }
         catch (MapException e) { SetStatus($"Open failed: {e.Code}: {e.Message}"); return OpResult.Fail(e.Code, e.Message, "open"); }

@@ -283,8 +283,11 @@ public partial class MapmakerPlugin
         string unsaved = Session is not null && Dirty && Session.Path is { } open && string.Equals(Path.GetFullPath(open), path, StringComparison.OrdinalIgnoreCase)
             ? " (the editor has unsaved changes; they are not in this file)" : "";
         try { Directory.CreateDirectory(PlayDir); File.WriteAllText(PlayStatusFile, "starting|Starting the play test..."); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-        var args = new List<string>(lead) { script, "-Map", path, "-Mode", mode, "-Bots", bots.ToString(), "-Side", side };
+        // The script checks the server's log against this hash: a server that loaded another map (or the default arena) stops the play test with a plain reason.
+        var args = new List<string>(lead) { script, "-Map", path, "-Mode", mode, "-Bots", bots.ToString(), "-Side", side, "-ExpectHash", played.Hash.ToString("X16") };
         if (extra is not null) args.AddRange(extra);
+        var sameName = CustomMaps.SameNameAs(path);
+        if (sameName.Count > 0) unsaved += $" ({sameName.Count} other saved file{(sameName.Count == 1 ? " has" : "s have")} the same map name \"{played.Document.Name}\"; this exact file is played, but rename the map to tell them apart)";
         _playPid = OS.CreateProcess("powershell.exe", args.ToArray(), false);
         if (_playPid <= 0) { _playPid = 0; return Fail("Could not start PowerShell for the play test."); }
         string head = $"Playing the saved file {Path.GetFileName(path)}{unsaved}. ";

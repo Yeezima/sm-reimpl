@@ -130,6 +130,83 @@ public class MapmakerTests
     }
 
     [Fact]
+    public void A_sync_blocked_by_a_running_editor_says_why_keeps_the_old_marker_and_succeeds_once_the_file_is_free()
+    {
+        using var t = new TempDir();
+        var log = new List<string>();
+        var setup = new MapmakerSetup(new InstallLayout(t[@"root"])) { RuntimeRoots = () => [], Log = log.Add, CopyAttempts = 2, CopyRetryDelay = TimeSpan.FromMilliseconds(10) };
+        string v1 = MakeVersion(t, "tester-2026-11-17-0000001", "dll v1");
+        setup.SyncProject(v1);
+        string v2 = MakeVersion(t, "tester-2026-11-18-0000002", "dll v2");
+        string dll = Path.Combine(setup.WorkProject, MapmakerSetup.EditorAssemblyDir, "Mapmaker.dll");
+        using (var held = new FileStream(dll, FileMode.Open, FileAccess.Read, FileShare.Read))      // the editor holds its assembly
+        {
+            var ex = Assert.Throws<MapmakerSyncException>(() => setup.SyncProject(v2));
+            Assert.Contains("Close the Mapmaker", ex.Message);
+            Assert.Contains("Mapmaker.dll", ex.Message);
+            Assert.Contains(log, l => l.Contains("could not update") && l.Contains("Mapmaker.dll"));
+            Assert.Equal("tester-2026-11-17-0000001", File.ReadLines(setup.BuildMarker).First());   // the marker still says the old build: the next press repeats the sync
+            Assert.True(setup.Plan(v2).NeedSync);
+        }
+        Assert.NotEqual(0, setup.SyncProject(v2));
+        Assert.Equal("dll v2", File.ReadAllText(dll));
+        Assert.False(File.Exists(dll + ".sm-new"));
+        Assert.False(setup.Plan(v2).NeedSync);
+    }
+
+    [Fact]
+    public void A_failing_first_time_import_is_tried_twice_then_left_to_the_editor()
+    {
+        using var t = new TempDir();
+        var setup = Setup(t);
+        string v = MakeVersion(t);
+        setup.SyncProject(v);
+        Assert.True(setup.Plan(v).NeedImport);
+        setup.NoteImportFailed("it ran over 3 minutes and was stopped");
+        Assert.True(setup.Plan(v).NeedImport);
+        setup.NoteImportFailed("exit code 1");
+        Assert.False(setup.Plan(v).NeedImport);                         // not a third wait of minutes
+        MakeVersion(t, "tester-2026-11-18-0000002", "dll v2");
+        setup.SyncProject(t[@"root\versions\tester-2026-11-18-0000002"]);
+        Assert.True(setup.Plan(t[@"root\versions\tester-2026-11-18-0000002"]).NeedImport);   // a new build gets its attempts again
+    }
+
+    [Fact]
+    public void Check_files_finds_a_stale_or_damaged_project_and_repair_fixes_it_without_touching_the_testers_files()
+    {
+        using var t = new TempDir();
+        var setup = Setup(t, FakeRuntime(t));
+        string v = MakeVersion(t);
+        Assert.False(setup.Verify(v).InUse);                           // never used: nothing to check, nothing reported
+        setup.SyncProject(v);
+        string godot = setup.GodotDir;
+        foreach (var rel in MapmakerTools.Godot.Required) { string p = Path.Combine(godot, rel); if (rel.EndsWith(".exe")) { Directory.CreateDirectory(Path.GetDirectoryName(p)!); File.WriteAllText(p, "x"); } else Directory.CreateDirectory(p); }
+        File.WriteAllText(Path.Combine(godot, MapmakerSetup.VerifiedMarker), MapmakerTools.Godot.Sha512);
+        Assert.True(setup.Verify(v).Ok);
+        // damage: a changed editor assembly, a missing plugin file, a half-finished unpack
+        string dll = Path.Combine(setup.WorkProject, MapmakerSetup.EditorAssemblyDir, "Mapmaker.dll");
+        File.WriteAllText(dll, "old build");
+        File.Delete(Path.Combine(setup.WorkProject, "project.godot"));
+        Directory.CreateDirectory(setup.GodotDir + ".staging");
+        string mine = Path.Combine(setup.WorkProject, "Maps", "Mine.tscn");
+        File.WriteAllText(mine, "my saved scene");
+        var report = setup.Verify(v);
+        Assert.False(report.Ok);
+        Assert.Contains(report.Problems, p => p.Contains("missing") && p.Contains("project.godot"));
+        Assert.Contains(report.Problems, p => p.Contains("differ") && p.Contains("Mapmaker.dll"));
+        Assert.Contains(report.Problems, p => p.Contains("half-finished"));
+        setup.Repair(v);
+        Assert.True(setup.Verify(v).Ok);
+        Assert.Equal("dll v1", File.ReadAllText(dll));
+        Assert.Equal("my saved scene", File.ReadAllText(mine));
+        // a damaged editor install is reported as one to download again
+        File.Delete(Path.Combine(godot, MapmakerSetup.VerifiedMarker));
+        var tools = setup.Verify(v);
+        Assert.True(tools.NeedGodot);
+        Assert.Contains(tools.Problems, p => p.Contains("Godot editor"));
+    }
+
+    [Fact]
     public void Removing_the_mapmaker_deletes_the_tools_and_launcher_files_but_keeps_the_testers_own_files()
     {
         using var t = new TempDir();

@@ -67,7 +67,18 @@ static class Cli
                 if (p.Current is null) { Console.WriteLine("nothing installed"); return 1; }
                 var r = updater.CheckFiles(p.Current);
                 Console.WriteLine($"verify {p.Current}: {r.Describe()}");
-                return r.Ok ? 0 : 1;
+                // The Mapmaker's data too (only when it has been used on this PC); --repair-mapmaker copies the project again (no downloads here: use the MAPMAKER button for tools).
+                var mapSetup = new MapmakerSetup(layout);
+                string? vdir = updater.CurrentDir();
+                var mm = vdir is null ? null : mapSetup.Verify(vdir);
+                if (mm is not null) Console.WriteLine($"verify mapmaker: {mm.Describe()}");
+                if (mm is { InUse: true, Ok: false } && a.Has("repair-mapmaker") && vdir is not null)
+                {
+                    mapSetup.Repair(vdir);
+                    mm = mapSetup.Verify(vdir);
+                    Console.WriteLine($"mapmaker repaired: {mm.Describe()}");
+                }
+                return r.Ok && (mm is null || mm.Ok) ? 0 : 1;
             }
             case "rollback":
                 Console.WriteLine($"rolled back to {updater.Rollback()}");
