@@ -137,7 +137,7 @@ public sealed class CustomMap
     {
         // A map with SM1 placements, prefabs or imported models also hashes the triangles they made on this machine (DecorResult.Digest), so a PC whose install or models differ is refused.
         string tail = decorDigest is { } d ? $"\ndecoration {d:X16}" : "";
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"sm-reimpl custom map v{CompilerVersion}\n{doc.ToJson()}{tail}"));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"sm-reimpl custom map v{CompilerVersion}\n{doc.ToGameJson()}{tail}"));
         return BitConverter.ToUInt64(bytes, 0);
     }
 

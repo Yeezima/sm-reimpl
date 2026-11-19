@@ -152,6 +152,25 @@ form a tree. Clicking an object selects only it (it moves alone); clicking a gro
 member, so selecting two groups and grouping nests them), Rename, Add selected, Remove selected, Ungroup, Delete group (objects stay); dragging an object onto a group row adds it.
 Test aid: `godot.cmd --windowed --editor --path mapmaker -- --mm-groups --mm-out <dir>`.
 
+## Grid (owner's request, 2026-11-20; editor only)
+The Map tab's **Grid** section (after Snap, before SM1 reference map) configures the reference grid of the 3D view: **Show grid**, **Colour** (with alpha), **Cell size (m)**, **Height (m)**
+(SM1 Z, Z up; **From selection** takes the lowest point of the selected objects' boxes, parents, rotation and scale included) and **Draw over objects** (on: no depth test, the grid
+shows through pieces; off: pieces hide it). It is independent of the Snap step (`MapHost.GridStep` is untouched).
+- **Static.** `EditorGrid` draws one fixed `ArrayMesh` of line segments (unshaded, 1 px GPU lines): lines every cell size metres over a fixed 400 m x 400 m area centred on the origin
+  (`MapGrid.HalfExtent` 200 m; cell sizes 0.1 to 100 m, so at most 4001 lines per direction). Nothing about the camera reaches it: no subdivision, no fade. The mesh is rebuilt only when
+  the cell size changes. Far away, lines of a small cell size alias (moire) because they stay 1 px: that is the cost of "never changes".
+- **Godot's own grid** subdivides with zoom, so it is switched off while a Mapmaker scene is open: every "View Grid" check item of the 3D editor (its View menu and each viewport's menu)
+  is unchecked through its own menu (`id_pressed`), remembering which were on; they are checked again when the Mapmaker scene closes or the plugin unloads (`EditorGrid.HideBuiltIn` /
+  `RestoreBuiltIn`). Godot re-applies a scene's own grid state a moment after a scene opens, so the plugin repeats the hide for 1.5 s after a Mapmaker scene becomes the edited one
+  (`HoldEditorGrid`); a user who switches Godot's grid on by hand later is left alone.
+- **Data.** The optional top-level `grid` object of the `.smmap`: `{ "show": true, "colour": "#rrggbbaa", "cellSize": 1, "height": 0, "drawOver": false }`, written only when it differs from
+  the defaults (shown, `#80808080` grey 50% alpha, 1 m, 0, off), so formatVersion stays 2 and old files open with the defaults. Out-of-range or odd values in a file are repaired, not refused.
+  The grid is not part of the map's game meaning: `MapDocument.ToGameJson()` (the text the map hash covers) leaves it out, so changing it never changes the hash, the compiled
+  map or whether two testers can meet. (Groups are still inside the hashed text; unchanged.)
+- **Editing.** `set-grid {show?, colour?, cellSize?, height?, drawOver?}` goes through the normal batch, so every edit marks the map changed and is one undo step (a held spin arrow folds
+  into one step; the colour picker previews live and makes one step when it closes). With no map open the section is disabled and the defaults are drawn.
+- Test aid: `godot.cmd --editor --path mapmaker -- --mm-grid --mm-lib <dir>` (add `--windowed --mm-out <dir>` for two pictures); core tests `GridTests`.
+
 ## Operations (one JSON object each; a batch is one transaction: all apply or none)
 `place {asset|prefab, name?, parent?, layer?, transform?}` -> new id Â· `transform {id, position?, rotation?, scale?}` (set) or
 `{id, move?, rotate?, scaleBy?}` (delta) Â· `duplicate {ids, offset?}` -> new ids Â· `delete {ids}` (children too) Â·

@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Mapmaker: the Map tab has a new Grid section (below Snap). Tick Show grid, pick the grid's colour, set the cell size in metres and the height (or press From selection to put it at the bottom of the selected object), and tick Draw over objects to see the grid through pieces. The grid never changes when you zoom, is saved with your map and does not change how the map plays.

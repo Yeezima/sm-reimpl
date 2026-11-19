@@ -24,6 +24,9 @@ Tabs, in work order: Map, Library, Build, Object, Prefab, Test (the mouse tool a
 5. **Prefab** tab: parts list with per-part transform, remove part, hide a part on one instance, pivot (shift origin), collision mode, name.
    Instances are linked: editing the prefab updates every instance; per-instance part overrides survive.
 6. Library > **Import asset** (.glb/.gltf) and **Import prefab** (.smprefab). Map > **Save / Save As** write `.smmap` (default folder: the library's `maps/`).
+7. Map > **Grid** (after Snap): show, colour, cell size, height (**From selection** = lowest point of the selection) and draw-over-objects for the 3D view's fixed grid. It never
+   changes with zoom (Godot's own grid is switched off while a Mapmaker scene is open and given back afterwards), is saved with the map (editor only: no effect in the game or
+   its hash) and each change is one undo step. Test aid: `--mm-grid`.
 Undo/redo is Godot's own (Ctrl+Z / Ctrl+Shift+Z); every step restores the document (and prefab files) as they were.
 
 ## Notes

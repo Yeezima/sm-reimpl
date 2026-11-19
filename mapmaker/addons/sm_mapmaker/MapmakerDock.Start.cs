@@ -78,6 +78,7 @@ public partial class MapmakerDock
         _modeAnnihilation.Toggled += _ => ModesChanged(); _modeSeize.Toggled += _ => ModesChanged();
         v.AddChild(Row(_modeAnnihilation, _modeSeize));
         SnapSection(v);
+        GridSection(v);
         Sm1Section(v);
         return Scroll(v);
     }

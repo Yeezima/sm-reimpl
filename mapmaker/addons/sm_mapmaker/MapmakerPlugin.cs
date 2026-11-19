@@ -87,6 +87,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
         _hooked = null;
         FreeViewportTools();
+        EditorGrid.RestoreBuiltIn();   // Godot's own grid comes back with the user's setting
         SceneSaved -= OnSceneSaved;
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
@@ -113,6 +114,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (Selftest.Wanted) _ = new Selftest(this).Run();
         else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
         else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
+        else if (GridTest.Wanted) _ = new GridTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -167,6 +169,7 @@ public partial class MapmakerPlugin : EditorPlugin
         FreeDetachedNodes();
         _nodes.Clear(); _contentKeys.Clear();
         PruneStash();
+        HoldEditorGrid();
         if (MapHost.Root is not null && Session is not null) SyncView(true);
         else if (MapHost.Root is { } fresh && SceneMapOf(fresh) is { } saved && System.IO.File.Exists(saved)) OpenMap(saved);   // a reopened scene loads its map again
         DocChanged?.Invoke();
@@ -528,6 +531,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public void SyncView(bool force)
     {
         var root = MapHost.Root;
+        ApplyGrid();
         if (root is null || Session is null) return;
         _busy = true;
         try

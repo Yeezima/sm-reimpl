@@ -216,6 +216,8 @@ public sealed class MapDocument
     public List<MapObject> Objects { get; } = [];
     /// <summary>Editing groups (no effect in the game); written only when there are any.</summary>
     public List<MapGroup> Groups { get; } = [];
+    /// <summary>The 3D view's grid (editor only, no effect in the game, not in the map's hash; docs/mapmaker.md "Grid"). Written only when it is not <see cref="MapGrid.Default"/>.</summary>
+    public MapGrid Grid { get; set; } = MapGrid.Default;
 
     public MapGroup? FindGroup(string id) => Groups.FirstOrDefault(g => g.Id == id);
 
@@ -328,21 +330,26 @@ public sealed class MapDocument
         return m;
     }
 
-    public JsonObject ToNode()
+    /// <summary><paramref name="editorOnly"/> false leaves out what only the editor uses (the grid), which is what the map's hash covers.</summary>
+    public JsonObject ToNode(bool editorOnly = true)
     {
         var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId };
         if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
         o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode()).ToArray());
         if (EmbeddedPrefabs.Count > 0) o["prefabs"] = new JsonArray(EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => (JsonNode)p.ToNode()).ToArray());
         if (Groups.Count > 0) o["groups"] = new JsonArray(Groups.Select(x => (JsonNode)x.ToNode()).ToArray());
+        if (editorOnly && Grid != MapGrid.Default) o["grid"] = Grid.ToNode();
         return o;
     }
 
     public string ToJson() => CanonicalJson.Write(ToNode());
 
+    /// <summary>The canonical text without the editor-only data: what the map's hash is made of.</summary>
+    public string ToGameJson() => CanonicalJson.Write(ToNode(editorOnly: false));
+
     public MapDocument Clone()
     {
-        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs] };
+        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid };
         d.Objects.AddRange(Objects);
         d.Groups.AddRange(Groups);
         return d;
@@ -392,6 +399,7 @@ public sealed class MapDocument
             d.Objects.Add(obj);
         }
         if (o["groups"] is { } groupsNode) ParseGroups(d, Json.Arr(groupsNode, "groups"));
+        d.Grid = MapGrid.FromNode(o["grid"]);
         return d;
     }
 
