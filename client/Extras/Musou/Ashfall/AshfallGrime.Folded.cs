@@ -45,9 +45,9 @@ public static partial class AshfallGrime
         bool folded = _foldChoice || _foldForFsr || FoldedForSafeMode;
         if (_folded == folded) return;
         _folded = folded;
-        if (_items is null || !GodotObject.IsInstanceValid(_items) || _top is null) return;
+        if (_top is null) return;
         void Set(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Set(c); }
-        foreach (var child in _items.GetChildren()) Set(child);
+        foreach (var items in LiveItems()) foreach (var child in items.GetChildren()) Set(child);
     }
 
     /// <summary>One kit model: the overlay (exact) or its folded materials (fast), as the option says.</summary>

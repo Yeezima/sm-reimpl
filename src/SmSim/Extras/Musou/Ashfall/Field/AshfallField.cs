@@ -6,7 +6,7 @@ namespace SmSim.Extras.Musou.Ashfall;
 /// Which generator builds Ashfall (owner, 2026-11-09: "full redesign - but keep the current version as a path to easily roll back to"). <see cref="Draft10"/> is the shipped layout (map <c>tfw_war</c>, hash pinned);
 /// <see cref="Field"/> is the battlefield ruleset of docs/ashfall-layout-brief.md (map <c>tfw_war_field</c>; docs/musou-ashfall-graybox.md "Draft 11 battlefield layout").
 /// </summary>
-public enum AshfallLayout : byte { Draft10 = 0, Field = 1, City = 2, Heights = 3 }
+public enum AshfallLayout : byte { Draft10 = 0, Field = 1, City = 2, Heights = 3, FrontWasteland = 4, FrontOutskirts = 5, FrontCore = 6, Front = 7 }
 
 /// <summary>Draft 12: what the layouts share.</summary>
 public static class AshfallLayouts
@@ -15,12 +15,33 @@ public static class AshfallLayouts
     public static bool Planned(this AshfallLayout layout) => layout != AshfallLayout.Draft10;
 
     /// <summary>The default plan of a planned layout (null for draft 10).</summary>
-    public static AshfallFieldPlan? PlanOf(this AshfallLayout layout) => layout switch { AshfallLayout.Field => AshfallField.Default, AshfallLayout.City => AshfallCity.Default, AshfallLayout.Heights => AshfallHeights.Default, _ => null };
+    public static AshfallFieldPlan? PlanOf(this AshfallLayout layout) => layout switch
+    {
+        AshfallLayout.Field => AshfallField.Default, AshfallLayout.City => AshfallCity.Default, AshfallLayout.Heights => AshfallHeights.Default,
+        AshfallLayout.FrontWasteland or AshfallLayout.FrontOutskirts or AshfallLayout.FrontCore => AshfallFront.Default(AshfallFront.BandOf(layout)),   // the front pilot's bands (the composed world, Front, has no single plan)
+        _ => null,
+    };
+
+    /// <summary>
+    /// The plan a level's corridors, aprons and assembly areas come from: a front band's own frame, read back from the level (<see cref="AshfallFront.FrameOf"/>: cheap, and right for any seed; review of 2026-11-16), else
+    /// <see cref="PlanOf(AshfallLayout)"/>. The readers of a built level (the roadway strips, the atmosphere's clear ground, the stair-access start) use this.
+    /// </summary>
+    public static AshfallFieldPlan? PlanOf(this AshfallLevel level) => level.Layout.IsFrontBand() ? AshfallFront.FrameOf(level) : level.Layout.PlanOf();
 
     /// <summary>The layout's name in the tools' and the client's switches (<c>--layout</c>, <c>--ashfall-layout</c>).</summary>
-    public static AshfallLayout Parse(string? name) => name switch { "field" => AshfallLayout.Field, "draft10" => AshfallLayout.Draft10, "city" => AshfallLayout.City, "heights" => AshfallLayout.Heights, _ => AshfallLayout.City };
+    public static AshfallLayout Parse(string? name) => name switch
+    {
+        "field" => AshfallLayout.Field, "draft10" => AshfallLayout.Draft10, "city" => AshfallLayout.City, "heights" => AshfallLayout.Heights,
+        "front" => AshfallLayout.Front, "front-wasteland" => AshfallLayout.FrontWasteland, "front-outskirts" => AshfallLayout.FrontOutskirts, "front-core" => AshfallLayout.FrontCore,
+        _ => AshfallLayout.City,
+    };
 
-    public static string Key(this AshfallLayout layout) => layout switch { AshfallLayout.Field => "field", AshfallLayout.City => "city", AshfallLayout.Heights => "heights", _ => "draft10" };
+    public static string Key(this AshfallLayout layout) => layout switch
+    {
+        AshfallLayout.Field => "field", AshfallLayout.City => "city", AshfallLayout.Heights => "heights",
+        AshfallLayout.Front => "front", AshfallLayout.FrontWasteland => "front-wasteland", AshfallLayout.FrontOutskirts => "front-outskirts", AshfallLayout.FrontCore => "front-core",
+        _ => "draft10",
+    };
 }
 
 /// <summary>
@@ -152,6 +173,12 @@ public sealed record AshfallFieldPlan(
     public uint HashVersion { get; init; } = AshfallField.HashVersion;
     /// <summary>Draft 12: the city's blocks (name, buildable rectangle inside its roads), for the overlays; empty for the field.</summary>
     public IReadOnlyList<(string Name, Vector4 Rect)> Blocks { get; init; } = [];
+    /// <summary>The front pilot: the band this plan builds (0 to 2; -1 for every other layout), its skeleton, gate A's rules on the empty frame, the free land and the fabric's drawn cover of it.</summary>
+    public int Band { get; init; } = -1;
+    public AshfallFront.Skeleton? Skeleton { get; init; }
+    public IReadOnlyList<AshfallGateRule> GateA { get; init; } = [];
+    public float FreeLand { get; init; }
+    public float Coverage { get; init; }
 
     /// <summary>The open ring kept round each point (centre, radius).</summary>
     public IEnumerable<(string Name, Vector2 Centre, float Radius)> ClearZones => Points.Select(p => (p.Name, new Vector2(p.Center.X, p.Center.Y), p.Radius + Params.ObjectiveClear));
@@ -436,7 +463,7 @@ public static class AshfallField
     static float EdgeDistance(Vector2 p) => AshfallMap.Half - MathF.Max(MathF.Abs(p.X), MathF.Abs(p.Y));
 
     /// <summary>Whether an axis rectangle meets a turned box (separating axes: the rectangle's two and the box's two).</summary>
-    internal static bool RectMeetsBox(Vector4 r, AshfallBox b)
+    public static bool RectMeetsBox(Vector4 r, AshfallBox b)
     {
         var rc = new Vector2((r.X + r.Z) / 2f, (r.Y + r.W) / 2f); var rh = new Vector2((r.Z - r.X) / 2f, (r.W - r.Y) / 2f);
         var bc = new Vector2(b.Cx, b.Cy); var ax = b.AxisX; var ay = b.AxisY; float hx = b.Length / 2f, hy = b.Depth / 2f;

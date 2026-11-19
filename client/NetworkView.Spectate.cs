@@ -328,6 +328,7 @@ public partial class NetworkView
         if (_camera is null || _gameSpace is null) return;
         _camProbeSource = "placeholder";
         MeleeFovUpdate(me, delta);   // camera/melee-fov-widen: before the death camera so a death ends the widening
+        if (ExtrasSpectateWanted(me) && SpectateFollow(me, _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z), delta)) return;   // EXTRAS-HOOK: an added content's spectator view (a fallen player, a joiner held aboard) before the death camera
         if (DeathCamera(me, delta)) return;   // dead: the view of the own ragdoll (NetworkView.Death.cs)
         if (RigCameraWanted && RigCamera(me, delta)) return;   // the original rig (NetworkView.Camera.cs); else the placeholder below
         _camera.Fov = DefaultFov;

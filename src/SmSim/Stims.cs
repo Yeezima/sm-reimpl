@@ -74,7 +74,7 @@ public static class Stims
     public static float LifetimeOf(SimConfig c, StimSpec stim) => stim.Lifetime * c.StimBoost.Lifetime;
 
     /// <summary>The speed of melee swings and the fire rate of <paramref name="s"/> now (1 without a stim, or outside Musou Mode).</summary>
-    public static float AttackSpeed(SimConfig c, PlayerState s) => s.StimLeft > 0f && Active(c, s) is not null ? c.StimBoost.Speed : 1f;
+    public static float AttackSpeed(SimConfig c, PlayerState s) => (s.StimLeft > 0f && Active(c, s) is not null ? c.StimBoost.Speed : 1f) * (1f + s.AttackSpeedBonus);   // AttackSpeedBonus: added content's cards (0 elsewhere: x1 exactly)
 
     /// <summary>Whether the gun in hand builds no heat now (the Dreadnought's Overcharge: <see cref="StimSpec.NoHeat"/>); heat already built cools as usual.</summary>
     public static bool NoHeat(SimConfig c, PlayerState s) => Active(c, s)?.NoHeat == true;

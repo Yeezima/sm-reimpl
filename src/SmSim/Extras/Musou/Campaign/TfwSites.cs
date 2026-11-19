@@ -35,12 +35,13 @@ public sealed class TfwSites
     readonly CollisionWorld? _world;
     readonly int[] _open;
 
-    public TfwSites(TfwBattlefield field, NavGraph? nav, CollisionWorld? world)
+    /// <param name="within">The front pilot: only the graph's nodes inside this box count (a band of the composed world; its largest connected part there); null: the whole graph, as before.</param>
+    public TfwSites(TfwBattlefield field, NavGraph? nav, CollisionWorld? world, MusouBox? within = null)
     {
         _field = field;
         _nav = nav is { NodeCount: > 0 } ? nav : null;
         _world = world;
-        _open = _nav is null ? [] : OpenNodes(_nav);
+        _open = _nav is null ? [] : OpenNodes(_nav, within);
     }
 
     /// <summary>
@@ -80,10 +81,16 @@ public sealed class TfwSites
     public int Candidates => _open.Length;
 
     /// <summary>The nodes of the largest connected part (links taken both ways) with room round them, in node order.</summary>
-    static int[] OpenNodes(NavGraph nav)
+    static int[] OpenNodes(NavGraph nav, MusouBox? within = null)
     {
         int n = nav.NodeCount;
         var part = new int[n];
+        if (within is { } box)   // the front pilot: the nodes outside the band's box take no part (-1)
+            for (int a = 0; a < n; a++)
+            {
+                var at = nav.Position(a);
+                if (at.X < box.Min.X || at.X > box.Max.X || at.Y < box.Min.Y || at.Y > box.Max.Y) part[a] = -1;
+            }
         var back = new List<int>[n];
         for (int a = 0; a < n; a++)
             foreach (var (to, _, _) in nav.Links(a)) (back[to] ??= new List<int>(4)).Add(a);

@@ -76,13 +76,15 @@ public sealed partial class FrontEndView : Control
 
     /// <summary>Hook for added content (client/Extras/Musou/Tfw/FrontEndView.TfwScreens.cs): screenshot aids for its menu-type pages (<c>--menu-screen tfw-...</c>); nothing without it.</summary>
     partial void ExtrasMenuScreen(string name, ref bool handled);   // EXTRAS-HOOK
+    /// <summary>Hook for added content: rows under MUSOU MODE on the main menu (Warfront's local campaign, client/Extras/FrontEndView.Extras.cs); nothing without it.</summary>
+    partial void ExtrasMenuRows(UiKit.MenuPage main);
 
     int _switchedAt, _switchPhase;
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
 
     /// <summary>The player launched with <c>--content musou</c> (a test aid that keeps working and never overwrites the remembered profile).</summary>
-    bool CommandLineMusou => _args.GetValueOrDefault("content") == ContentProfiles.Musou;
+    bool CommandLineMusou => ContentProfiles.IsMusouFamily(_args.GetValueOrDefault("content"));
 
     public CustomizerServices Services => _services;
     public CreatorView? Creator => _creator;
@@ -267,6 +269,7 @@ public sealed partial class FrontEndView : Control
             _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
             _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
             main.Rows.AddChild(_stopMusou);
+            ExtrasMenuRows(main);   // EXTRAS-HOOK: Warfront's row under Musou Mode (client/Extras/FrontEndView.Extras.cs)
         }
         main.Rows.AddChild(joinRow);
         main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
@@ -723,7 +726,7 @@ public sealed partial class FrontEndView : Control
 
     /// <summary>The server this client started: running, listening, and Musou. (Self-test: <see cref="MusouStateForTest"/> stands in.)</summary>
     (bool Running, bool Ready, bool Musou) MusouServerState() =>
-        MusouStateForTest ?? (HostedServer.Running, HostedServer.Ready, HostedServer.Options is { Content: ContentProfiles.Musou });
+        MusouStateForTest ?? (HostedServer.Running, HostedServer.Ready, HostedServer.Options is { Content: var content } && ContentProfiles.IsMusouFamily(content));
 
     public (bool Running, bool Ready, bool Musou)? MusouStateForTest { get; set; }
 

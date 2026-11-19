@@ -15,6 +15,9 @@ public sealed partial record SimConfig
         // Musou: its own version (simulation and wire sections), so a Musou-only change never touches ContentExtras.WireVersion or the extended hash.
         // Musou Mode's war rules: their version sits in the same block.
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); if (AerialTackleRestored) w.Write("aerial-tackle"); }
+#if SM_WARFRONT
+        if (Extras.HasFlag(ContentExtras.Warfront)) { w.Write("warfront"); w.Write(SmSim.Extras.Warfront.WarfrontRules.Version); }   // Warfront (docs/added-content.md section 11): only under its flag, so every other profile hashes as before
+#endif
         if (Extras.HasFlag(ContentExtras.Musou) && MusouUncappedMeleeHeal) w.Write("uncapped-melee-heal");   // musou/melee-heal-cap: the restore switch --musou-uncapped-melee-heal, only when on
         if (Extras.HasFlag(ContentExtras.Musou) && MusouMeleeCooldown) w.Write("melee-cooldown");   // musou/melee-spam: the restore switch --musou-melee-cooldown, only when on
         if (Extras.HasFlag(ContentExtras.Musou) && MusouOrkSwingTracking) w.Write("ork-swing-tracking");   // musou/ork-swing-commit: the restore switch --musou-ork-swing-tracking, only when on

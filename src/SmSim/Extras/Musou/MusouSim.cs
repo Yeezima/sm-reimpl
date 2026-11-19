@@ -112,6 +112,7 @@ public sealed partial class MusouSim
         if (!keepYaw && SpawnCentre is { } centre && new Vector2(centre.X - position.X, centre.Y - position.Y) is { } way && way.LengthSquared() > 1f) yaw = MathF.Atan2(-way.X, way.Y);
         if (_free.Count == 0 || !float.IsFinite(health) || !float.IsFinite(yaw) || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return 0;
         if ((int)type >= Rules.Types.Count) return 0;
+        WarfrontSpawn(type, ref health);   // WARFRONT-HOOK
         int i = _free.Dequeue();
         _used[i] = true;
         _type[i] = type; _state[i] = MusouEnemyState.Spawning;
@@ -121,8 +122,18 @@ public sealed partial class MusouSim
         _target[i] = 0; _stateTicks[i] = 0; _token[i] = 0;
         SpawnedAi(i);
         Count++; Alive++;
+        WarfrontSpawned((ushort)(i + 1));   // WARFRONT-HOOK
         return (ushort)(i + 1);
     }
+
+    /// <summary>Warfront: the health an enemy spawns with (a multiplier). No-op without the Warfront object.</summary>
+    partial void WarfrontSpawn(MusouEnemyType type, ref float health);
+
+    /// <summary>Warfront: an enemy took slot <paramref name="id"/>; its damage multiplier is remembered.</summary>
+    partial void WarfrontSpawned(ushort id);
+
+    /// <summary>Warfront: a hit by <paramref name="attacker"/> (a player id; 0 for none) on the enemy <paramref name="enemy"/>, before it is applied (the assists' record).</summary>
+    partial void WarfrontDamaged(ushort enemy, int attacker);
 
     /// <summary>
     /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
@@ -185,6 +196,7 @@ public sealed partial class MusouSim
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
+        WarfrontDamaged(id, attacker);   // WARFRONT-HOOK
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
         if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)
         if (_shield[i] > 0f && ShieldTakes(i, attacker, amount, cause)) return true;   // the Weirdboy's shield (MusouSim.Weirdboy.cs)

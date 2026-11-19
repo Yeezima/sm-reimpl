@@ -81,7 +81,7 @@ public readonly record struct TfwStrafe(ushort Subject, uint Start, Vector3 From
 /// class holds the schedule, the shells in flight, the run under way and tag 11's records. Every roll comes from a hash of the tick (<see cref="Salt"/> is the balance harness's seed), so a replay
 /// falls the same way. A client flies the aircraft from the run's one record (<see cref="TfwFireRules.RunSpeed"/>).
 /// </summary>
-public sealed class TfwFire
+public sealed partial class TfwFire
 {
     readonly List<TfwShell> _shells = new();
     readonly List<TfwFireEvent> _events = new();
@@ -170,7 +170,15 @@ public sealed class TfwFire
     /// <summary>A battle strike by <paramref name="player"/> on <paramref name="tick"/>: the cooldown starts (a strike at the Firing Range does not call this).</summary>
     /// <summary>Test aid: the player's support cooldown is over (as after 60 s, without running them).</summary>
     public void OrbitalClearForTests(int player) => _orbitalReady.Remove(player);
-    internal void OrbitalCalled(int player, uint tick, int rate) => _orbitalReady[player] = tick + (uint)MathF.Ceiling(TfwFireRules.OrbitalCooldownSeconds * rate - 1e-3f);
+    internal void OrbitalCalled(int player, uint tick, int rate)
+    {
+        float seconds = TfwFireRules.OrbitalCooldownSeconds;
+        WarfrontCooldown(player, ref seconds);   // WARFRONT-HOOK
+        _orbitalReady[player] = tick + (uint)MathF.Ceiling(seconds * rate - 1e-3f);
+    }
+
+    /// <summary>Warfront: the support cooldown's seconds, scaled by the player's cooldown cards (the drop pod shares it).</summary>
+    partial void WarfrontCooldown(int player, ref float seconds);
 
     internal void Started(uint tick)
     {

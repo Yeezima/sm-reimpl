@@ -114,6 +114,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasMapVisuals"),             // NetworkView.ExtrasMapVisuals(string, MapContent, ref bool), in LoadMap for a generated map (tfw_war: the graybox view)
         ("client/NetworkView.cs", "ExtrasMapCollisionVisuals"),    // polish pass P2: NetworkView.ExtrasMapCollisionVisuals(), in the map load's main-thread stage (NetworkView.MapLoad.cs Stage2Visuals): the nodes of what ExtrasMapCollision composed on the worker (tfw_war: the Stormbird and the Firing Range)
         // Musou Mode co-op (2026-11-06): up to 4 players.
+        ("src/SmServer/GameServer.Envelope.cs", "ExtrasRestartDue"),   // GameServer.RestartDue(out int), once a loop turn in Program.cs: Warfront's stage change (exit code for the supervisor)
         ("src/SmServer/GameServer.cs", "ExtrasPlayerCap"),         // GameServer.ExtrasPlayerCap(ref int), in PlayerCap when Extras is not None (Musou: at most 4 players)
         ("client/NetworkView.cs", "ExtrasBotInput"),               // NetworkView.ExtrasBotInput(PlayerState, uint, ref PlayerInput?), in BotInput after the countdown (Musou Mode: the co-op bot fights the Orks)
         ("client/NetworkView.Death.cs", "ExtrasCorpseHold"),      // NetworkView.ExtrasCorpseHold(Ragdoll, Vector3?, ref bool), before a Marine ragdoll is dropped (Musou Mode: the corpse floor holds it 10 s)
@@ -124,6 +125,8 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasRefresh"),      // CreatorView.ExtrasRefresh(bool, ref bool), at the start of Refresh: the Librarian's and the Heretic's pages
         ("client/Customizer/CreatorView.cs", "ExtrasRoleLabel"),    // CreatorView.ExtrasRoleLabel(string, ref string), the class tabs and rows: the Space Marine name alone
         ("client/Customizer/CreatorView.cs", "ExtrasOwnPage"),      // CreatorView.ExtrasOwnPage(ref bool), AddedPage: the Librarian's / Heretic's page hides the slot (no rename, copy, reset, clear; step keys work)
+        ("client/NetworkView.Loadout.cs", "ExtrasPickerBusy"),       // PickerBusy ors in an added content's own panel that takes the game's input (Warfront W5c: the card picker, the squad panel)
+        ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),       // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
         ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
@@ -142,6 +145,7 @@ public class ExtrasBoundaryTests
         ("client/FrontEnd/FrontEndView.cs", "ExtrasPreviewScript"),   // FrontEndView.ExtrasPreviewScript(), per frame after the scripted views: the weapon cycle test aid (--preview-weapon-cycle: chooses the added weapons in turn and checks the preview draws each; client/Extras/Musou/Customizer/FrontEndView.WeaponCycle.cs)
         ("client/FrontEnd/FrontEndView.cs", "ExtrasMenuScreen"),   // FrontEndView.ShowMenuPage: --menu-screen tfw-... screenshot aids for the Musou menu pages (ui/overhaul)
         ("client/FrontEnd/FrontEndView.cs", "ExtrasScreenshotHold"),  // FrontEndView.ExtrasScreenshotHold(ref bool), in ReadyForScreenshot: the shot waits for that cycle
+        ("client/FrontEnd/FrontEndView.cs", "ExtrasMenuRows"),        // FrontEndView.ExtrasMenuRows(UiKit.MenuPage), in BuildPages after the Musou Mode row: Warfront's row (W16; client/Extras/FrontEndView.Extras.cs)
         // W0, Musou's arsenal (docs/new-weapons-design.md section 8: the autocannon, lightning claw, power spear and Remote Detonators, Musou only); each does nothing without Musou's content
         // (the Remote Detonators' sm_mp_eq_demolition_charge is an install name, so the name alone never decides).
         ("src/SmContent/MpClasses.cs", "ExtrasMeleeMap"),           // static MpClasses.ExtrasMeleeMap(string, ref WeaponMap?), in MeleeMapFor when no data map matches: an added melee weapon on a data weapon's map
@@ -225,6 +229,8 @@ public class ExtrasBoundaryTests
     [
         ("src/SmNet/GameClient.Bodies.cs", "public Func<PlayerState, uint, PlayerState>? ExtrasCarry { get; set; }", false),   // the Musou powerups (2026-11-10): Rapid Fire's PlayerState.FireBoostLeft at a reconcile
         ("src/SmNet/GameClient.cs", "if (ExtrasCarry is { } carry) mine = carry(mine, s.ServerTick);", true),                   // in the reconcile, after Stims.Carry, before the replay
+        ("client/NetworkView.Seize.cs", "bool ExtrasSpectateWanted(PlayerState me) {", true),   // Warfront W5c: asks the spectator-view hook whether it set a view (null without added content)
+        ("client/NetworkView.Spectate.cs", "if (ExtrasSpectateWanted(me) && SpectateFollow(", true),   // FollowCamera: the added content's spectator view before the death camera (a no-op without added content)
     ];
 
     /// <summary>

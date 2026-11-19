@@ -6,10 +6,12 @@ namespace SmContent;
 /// the server keeps requested sides (<c>--honor-side-requests</c>) so the bots stay on theirs.</param>
 /// <param name="Map">The map the server plays (<c>--map</c>); null: the server's default (Manufactorum). <paramref name="Maps"/>: a rotation (<c>--maps all</c>, classic-maps-all), instead of a map.</param>
 /// <param name="DevTools">dev-tools (protocol 80): the server gets <c>--dev-tools</c> (and the executable and project its tools' bots run); only with "This PC only" (<paramref name="LocalOnly"/>), since the server ignores it on any other address.</param>
+/// <param name="ExtraArgs">Extra server arguments appended last, verbatim (added content that starts its own kind of server, e.g. the local Warfront campaign); null: none, the list is unchanged.</param>
 /// <param name="Difficulty">Easy: the server scales the damage bots deal (<c>--bot-damage-scale</c> <see cref="HostBots.EasyDamageScale"/>); Normal: unscaled.</param>
 public sealed record HostOptions(string Mode, int Port, bool LocalOnly, string GameDir, bool AllowCustomEmblems = false, string? Content = null,
     int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null, string? Maps = null,
-    bool DevTools = false, string? DevBotExe = null, string? DevBotProject = null);
+    bool DevTools = false, string? DevBotExe = null, string? DevBotProject = null,
+    IReadOnlyList<string>? ExtraArgs = null);
 
 /// <summary>
 /// The pure parts of starting the bundled dedicated server from the client (the process handling is in the client): where the executable is looked for,
@@ -128,6 +130,7 @@ public static class ServerLaunch
             if (!string.IsNullOrWhiteSpace(options.DevBotExe)) { args.Add("--dev-bot-exe"); args.Add(options.DevBotExe); }
             if (!string.IsNullOrWhiteSpace(options.DevBotProject)) { args.Add("--dev-bot-project"); args.Add(options.DevBotProject); }
         }
+        if (options.ExtraArgs is { Count: > 0 }) args.AddRange(options.ExtraArgs);   // added content: its own flags, after everything else
         return args;
     }
 

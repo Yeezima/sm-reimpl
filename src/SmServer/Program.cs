@@ -37,6 +37,10 @@ if (cli.DevTools && System.Net.IPAddress.IsLoopback(cli.Bind) && !cli.RotationCh
     // devtools-map-pick: a developer-tools server runs under its supervisor too, so the tools can switch its map (the supervisor starts the picked map as a rotation does); the player sees one server.
     return RotationSupervisor.RunDev(args);
 }
+#if SM_WARFRONT
+// Warfront: this process only supervises; each stage (one deployment's hub and battlefield) runs in a child server (WarfrontSupervisor.cs).
+if (cli.Content.HasFlag(ContentExtras.Warfront) && !cli.WarfrontStage) return WarfrontSupervisor.Run(args, cli);
+#endif
 bool customEmblems = cli.CustomEmblems;
 var unlocks = cli.Unlocks;
 int port = cli.Port;
@@ -77,6 +81,8 @@ ulong fingerprint = ContentFingerprint.Compute(install);
 var contentExtras = cli.Content;
 Console.WriteLine($"content: {ContentProfiles.Describe(contentExtras)}{(contentExtras == ContentExtras.None ? " (SM1 multiplayer alone: no added content)" : "")}; " +
     $"build {(ContentExtras.Compiled ? "with" : "without")} added content; clients need --content {ContentProfiles.Name(contentExtras)}");
+if (contentExtras.HasFlag(ContentExtras.Warfront))
+    Console.WriteLine($"Warfront: enabled (the persistent campaign on Musou Mode; profile {ContentProfiles.Name(contentExtras)}, extras wire {ContentExtras.WireVersion}; its rules version is in the config hash)");
 // Musou (added content, experimental): the mode comes from the profile alone (there is no --mode musou). It plays on Annihilation's rules, endless (no score
 // or time limit: its own flow ends a round); any other --mode is refused.
 if (contentExtras.HasFlag(ContentExtras.Musou))
@@ -156,7 +162,7 @@ foreach (var note in tuning.Notes) Console.WriteLine("note: " + note);
 foreach (var t in config.Pickups?.Types ?? [])
     Console.WriteLine($"drop {t.Blueprint} ({t.Kind}): weight {t.Weight} of {config.Pickups!.TotalWeight}, reach {t.Radius} m, lifetime {t.Lifetime} s; " +
         string.Join(", ", config.Weapons.Select((w, i) => (w.Name, A: t.WeaponAmount(i))).Concat(config.Thrown.Select((x, i) => (x.Name, A: t.ThrownAmount(i)))).Where(x => x.A > 0).Select(x => $"{x.Name} +{x.A}")));
-Console.WriteLine($"melee {tuning.Melee?.Weapon ?? "placeholder"}: reach {config.MeleeRange} m, cone ±{config.MeleeConeDegrees}°, vertical ±{config.MeleeVerticalReach} m");
+Console.WriteLine($"melee {tuning.Melee?.Weapon ?? "placeholder"}: reach {config.MeleeRange} m, cone Â±{config.MeleeConeDegrees}Â°, vertical Â±{config.MeleeVerticalReach} m");
 for (int i = 0; i < config.MeleeSteps.Count; i++)
 {
     var m = config.MeleeSteps[i];
@@ -188,8 +194,8 @@ foreach (var t in config.Thrown)
     if (t.Stim is not null)
         foreach (var v in t.Variants) Console.WriteLine($"    with {string.Join(" + ", v.Upgrades)}: {v.Spec.Count} carried; {(v.Spec.Stim is { } vs ? StimText(vs) : "no stim")}");
     if (t.Projectile.Rigid is { } r)
-        Console.WriteLine($"    rigid: ground ≤{r.GroundAngle}° (keeps h {r.GroundHorizontalReduction} v {r.GroundVerticalReduction}), entity keeps h {r.EntityHorizontalReduction} v {r.EntityVerticalReduction}, " +
-            $"wall keeps [{string.Join(" ", r.WallHorizontalReduction.Select(q => $"{q.Distance}° from the surface:{q.Value}"))}], no collision for {r.DelayBeforeCollision} s, stop at max bounce {t.Projectile.StopAtMaxBounce}; ground fuse {t.Projectile.GroundLifetime} s");
+        Console.WriteLine($"    rigid: ground â‰¤{r.GroundAngle}Â° (keeps h {r.GroundHorizontalReduction} v {r.GroundVerticalReduction}), entity keeps h {r.EntityHorizontalReduction} v {r.EntityVerticalReduction}, " +
+            $"wall keeps [{string.Join(" ", r.WallHorizontalReduction.Select(q => $"{q.Distance}Â° from the surface:{q.Value}"))}], no collision for {r.DelayBeforeCollision} s, stop at max bounce {t.Projectile.StopAtMaxBounce}; ground fuse {t.Projectile.GroundLifetime} s");
 }
 for (int i = 0; i < config.JumpPacks.Count; i++)
 {
@@ -199,11 +205,11 @@ for (int i = 0; i < config.JumpPacks.Count; i++)
         $"cost by hold [{string.Join(" ", j.PowerCost.Select(q => $"{q.Distance}s:{q.Value}"))}] of {j.MaxPower} power (+{j.RechargeRate}/s on the ground); " +
         $"gravity rise {j.JumpingGravity}, hang {j.HangGravity} for {j.HangTime} s, fall {j.FallingGravity}; forward {j.ForwardSpeed} m/s, air gain {j.MoveGain}/{j.DriftGain}");
     Console.WriteLine($"    timing: lift-off {j.TakeOffDelay:F3} s; landing move/jump locks {JumpPack.MoveLock(j, true, config):F3}/{JumpPack.JumpLock(j, true, config):F3} s (moving), " +
-        $"{JumpPack.MoveLock(j, false, config):F3}/{JumpPack.JumpLock(j, false, config):F3} s (idle; × the lock scale {config.ActionLockScale}: data {j.LandMoveLock:F3}/{j.LandJumpLock:F3}, {j.LandIdleMoveLock:F3}/{j.LandIdleJumpLock:F3}); pound recovery {j.PoundRecovery:F3} s");
+        $"{JumpPack.MoveLock(j, false, config):F3}/{JumpPack.JumpLock(j, false, config):F3} s (idle; Ã— the lock scale {config.ActionLockScale}: data {j.LandMoveLock:F3}/{j.LandJumpLock:F3}, {j.LandIdleMoveLock:F3}/{j.LandIdleJumpLock:F3}); pound recovery {j.PoundRecovery:F3} s");
     if (j.HoldTiers) Console.WriteLine($"    three jumps by the hold (feel/jump-pack-2, owner's decision): with a dash, Space let go by the dash's decision tick = the dash, let go before the hold reaches {j.MaxHold:F3} s = the small jump (one apex), held to it = the full jump");
     else if (j.ReleaseCut) Console.WriteLine($"    middle jump (M45): letting go of Space while rising cuts the rise after {j.ReleaseCutDelay:F3} s (decay {j.ReleaseCutDecay:F3} s)");
     string Blast(SplashSpec? s) => s is null ? "none" : $"r {s.Radius} m: {s.Damage.Damage} + {s.Damage.ShieldDamage} shield, fall-off [{string.Join(" ", s.FallOff.Select(q => $"{q.Distance}:{q.Value}"))}], LOS {s.LineOfSight}, ignore self {s.IgnoreSelf}, {s.TargetFilter}";
-    Console.WriteLine($"    ground pound {(j.PoundEnabled ? "on melee in flight" : "off")}: after {j.PoundDelay} s, speed {j.PoundSpeed} m/s within {j.PoundLimitAngle}° of down, gravity {j.PoundGravity}; blast {Blast(j.Pound)}" +
+    Console.WriteLine($"    ground pound {(j.PoundEnabled ? "on melee in flight" : "off")}: after {j.PoundDelay} s, speed {j.PoundSpeed} m/s within {j.PoundLimitAngle}Â° of down, gravity {j.PoundGravity}; blast {Blast(j.Pound)}" +
         (j.PoundReactions.Count > 0 ? $"; reactions {string.Join(", ", j.PoundReactions.Select(r => $"{r.Reaction} from {r.Intensity}"))}" : ""));
     foreach (var l in j.Landings) Console.WriteLine($"    landing from a drop of {l.MinDrop} m: blast {Blast(l.Blast)}");
 }
@@ -220,7 +226,7 @@ foreach (var w in config.Weapons)
     if (w.Projectile is { } basic)
         Console.WriteLine($"    projectile: {Describe(basic)}; {w.AmmoPerShot} ammo per shot{(Shots.RemoteDetonated(w) ? $"; remote detonation (reload), delays [{string.Join(", ", w.DetonationDelays)}] s" : "")}");
     if (w.Cone is { } cone)
-        Console.WriteLine($"    cone: length {cone.Length} m, angle {cone.Angle}° (half {cone.Angle / 2}°), apex {cone.StartLength} m behind; {cone.Damage.Damage} + {cone.Damage.ShieldDamage} shield; " +
+        Console.WriteLine($"    cone: length {cone.Length} m, angle {cone.Angle}Â° (half {cone.Angle / 2}Â°), apex {cone.StartLength} m behind; {cone.Damage.Damage} + {cone.Damage.ShieldDamage} shield; " +
             $"fall-off [{string.Join(" ", cone.FallOff.Select(q => $"{q.Distance}:{q.Value}"))}], coverage [{string.Join(" ", cone.CoverageFallOff.Select(q => $"{q.Distance}:{q.Value}"))}]");
     if (w.Recharge is { } recharge)
         Console.WriteLine($"    recharging clip: {recharge.PerSecond}/s after {recharge.Delay} s ({recharge.RoundTime} s per round)");
@@ -241,7 +247,7 @@ foreach (var w in config.Weapons)
 
 static string Pierce(PierceSpec p) =>
     $"{p.Points} points, {p.PropCost} per prop" + (p.Exit is { } e
-        ? $"; past each: cone {e.Length} m, {e.Angle}°, {e.Damage.Damage} damage (head x{e.Damage.HeadMultiplier}, body x{e.Damage.BodyMultiplier}){(p.ExitHitsAllies ? ", allies too" : "")}"
+        ? $"; past each: cone {e.Length} m, {e.Angle}Â°, {e.Damage.Damage} damage (head x{e.Damage.HeadMultiplier}, body x{e.Damage.BodyMultiplier}){(p.ExitHitsAllies ? ", allies too" : "")}"
         : "; nothing is hit past a prop");
 
 // perks/inert-2: combat stims in the startup listing.
@@ -253,7 +259,7 @@ static string Describe(ProjectileSpec p, float blindView = 180f)
 {
     string blast = p.AllSplashes.Any()
         ? string.Join("; ", p.AllSplashes.Select(s => s.BlindOnly
-            ? $"blinding blast r {s.Radius} m: blind {s.Blindness} s (line of sight to the eye; " + (blindView < 180f ? $"only players facing it, within {blindView}° of their view: owner's change from SM1, which blinds by distance" : "whatever the facing: SM1's rule") + "; no damage, no reaction)"
+            ? $"blinding blast r {s.Radius} m: blind {s.Blindness} s (line of sight to the eye; " + (blindView < 180f ? $"only players facing it, within {blindView}Â° of their view: owner's change from SM1, which blinds by distance" : "whatever the facing: SM1's rule") + "; no damage, no reaction)"
             : $"blast r {s.Radius} m: {s.Damage.Damage} + {s.Damage.ShieldDamage} shield{(s.Lingers ? $" every {s.Period} s for {s.Lifetime} s" : "")}"))
         : "no blast";
     string direct = p.DetonateDamage is { } d ? $", direct {d.Damage} on detonation" : "";
@@ -377,6 +383,9 @@ if (devTools)
     devSetup = new DevToolsSetup(bind, botExe is null ? null : new ProcessBotLauncher(botExe, botProject, port, ContentProfiles.Name(contentExtras), ProcessBotLauncher.DefaultLogFolder()), serverClock as ScalableClock, pickable);
     Console.WriteLine($"developer tools: ON (--dev-tools, loopback only; F6 in the client): invincible, freeze bots, infinite ammunition and jump pack, indefinite match, end / restart / skip match, map pick{(devSetup.Maps is { Count: > 0 } picks ? $" ({picks.Count} maps)" : " (off: needs the supervisor)")}, teleport, instant respawn, kill me / kill bots, add / remove bots, bot difficulty, time scale and pause; bots {(botExe is null ? "unavailable: no Godot executable found (--dev-bot-exe)" : $"run {Path.GetFileName(botExe)}{(botProject is null ? "" : " with the client project")}, logs in " + ProcessBotLauncher.DefaultLogFolder())}; requests from other addresses are ignored");
 }
+#if SM_WARFRONT
+WarfrontRunFiles.MaxHumans = cli.WarfrontMaxHumans ?? 4;
+#endif
 var server = new GameServer(config, fingerprint, transport, serverClock, new ServerOptions
 {
     DefaultClass = defaultClass, Match = match, AppearanceRules = appearanceRules, CustomEmblems = customEmblems, Unlocks = unlocks,
@@ -601,6 +610,12 @@ while (true)
                 Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] rotation: the match on {mapName} is over; the next map starts{(server.PickedMap is { } p ? $" ({p}, picked with the developer tools)" : "")}");
                 return ServerCommandLine.RotationExit;
             }
+        }
+        if (server.RestartDue(out int restartCode))
+        {
+            // Warfront: the stage change is due (the next stage's map was prepared and the clients told); the supervisor starts it.
+            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] stage change: leaving with code {restartCode}");
+            return restartCode;
         }
         if (server.FatalError is { } fatal)
         {

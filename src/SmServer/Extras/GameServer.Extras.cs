@@ -16,6 +16,7 @@ public sealed partial class GameServer
         SendMusou();
         SendTfw();
         LogTfwCoop();   // Musou Mode co-op: late joins in the log
+        WarfrontSend();   // WARFRONT-HOOK
     }
 
     /// <summary>At the end of the constructor (only with added content): Musou's set-up, or on the war's map the war's.</summary>
@@ -23,11 +24,15 @@ public sealed partial class GameServer
     {
         CreateMusou();
         CreateTfw();
+        WarfrontCreated();   // WARFRONT-HOOK
     }
 
     /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
     partial void ExtrasCommand(int player, byte tag, byte[] payload)
     {
+        bool warfrontHandled = false;
+        WarfrontCommand(player, tag, payload, ref warfrontHandled);   // WARFRONT-HOOK
+        if (warfrontHandled) return;
         if (OnLibrarianCommand(player, tag, payload)) return;   // Musou: the Librarian's cast at the press (Librarian/GameServer.TfwLibrarian.cs)
         OnTfwCommand(player, tag, payload);
     }
@@ -39,8 +44,22 @@ public sealed partial class GameServer
     partial void ExtrasPuppetAppearance(int playerId, ref (ushort Version, Race Race, AppearanceCode Code)? look) => TfwPuppetAppearance(playerId, ref look);
 
     /// <summary>The players a match admits: Musou Mode's co-op takes at most 4.</summary>
-    partial void ExtrasPlayerCap(ref int cap) => TfwPlayerCap(ref cap);
+    partial void ExtrasPlayerCap(ref int cap)
+    {
+        TfwPlayerCap(ref cap);
+        WarfrontPlayerCap(ref cap);   // WARFRONT-HOOK
+    }
 
     /// <summary>A map generated in code: Musou Mode's.</summary>
     static partial void ExtrasGeneratedMap(ContentExtras extras, string install, ref string? name, ref GameMap? map, ref string? error) => TfwGeneratedMap(extras, install, ref name, ref map, ref error);
+
+    // ---- Warfront (docs/added-content.md section 11): each call above is marked and implemented under Extras/Warfront/; every implementation returns at once unless the match has the Warfront flag. ----
+
+    partial void WarfrontCreated();
+    partial void WarfrontSend();
+    partial void WarfrontCommand(int player, byte tag, byte[] payload, ref bool handled);
+    partial void WarfrontPlayerCap(ref int cap);
+    partial void WarfrontRestartDue(ref bool due, ref int code);
+
+        partial void ExtrasRestartDue(ref bool due, ref int code) => WarfrontRestartDue(ref due, ref code);   // WARFRONT-HOOK
 }

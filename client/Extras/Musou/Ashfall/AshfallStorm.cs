@@ -665,7 +665,17 @@ public partial class AshfallStorm : Node3D
     /// <summary>Sets the kit boundary's drawn top (<see cref="AshfallKitView"/>'s masonry shader, <c>top_cut</c>) under <paramref name="root"/>; returns how many materials took it. Drawing only: the collision is unchanged.</summary>
     static int CutBoundary(Node? root, float top)
     {
-        if (root?.FindChild("KitLook", true, false) is not Node kit || kit.GetNodeOrNull("Remainder/Boundary") is not MeshInstance3D { MaterialOverride: ShaderMaterial sm }
+        int n = 0;
+        foreach (var kit in KitLooks(root)) n += CutBoundaryOf(kit, top);   // the front pilot draws a kit look a band
+        return n;
+    }
+
+    /// <summary>Every kit look under <paramref name="root"/> (one on an Ashfall map; the front pilot's one a band).</summary>
+    static IEnumerable<Node> KitLooks(Node? root) => root is null ? [] : root.FindChildren("KitLook", "", true, false);
+
+    static int CutBoundaryOf(Node kit, float top)
+    {
+        if (kit.GetNodeOrNull("Remainder/Boundary") is not MeshInstance3D { MaterialOverride: ShaderMaterial sm }
             || sm.Shader?.Code.Contains("uniform float top_cut") != true) return 0;
         sm.SetShaderParameter("top_cut", top);
         sm.SetShaderParameter("desat", 0.7f);   // the concept's cool grey wall, not the masonry texture's brown (ours)
@@ -682,7 +692,14 @@ public partial class AshfallStorm : Node3D
     /// </summary>
     static int DimKit(Node? root, float k)
     {
-        if (root?.FindChild("KitLook", true, false) is not Node kit || kit.GetNodeOrNull("Items") is not Node items) return 0;
+        int total = 0;
+        foreach (var kit in KitLooks(root)) total += DimKitOf(kit, k);
+        return total;
+    }
+
+    static int DimKitOf(Node kit, float k)
+    {
+        if (kit.GetNodeOrNull("Items") is not Node items) return 0;
         int n = 0;
         void Dim(Node node)
         {
@@ -703,7 +720,7 @@ public partial class AshfallStorm : Node3D
                 }
         }
         foreach (var child in items.GetChildren()) Dim(child);
-        items.ChildEnteredTree += Dim;
+        if (!items.HasMeta("ashfall_dim_hooked")) { items.SetMeta("ashfall_dim_hooked", true); items.ChildEnteredTree += Dim; }   // once a kit look (the front pilot builds its storm again on each band it shows)
         return n;
     }
 
@@ -809,7 +826,7 @@ public partial class AshfallStorm : Node3D
 
     static void TintGround(Node? root)
     {
-        if (root?.FindChild("KitLook", true, false) is not Node kit) return;
+        foreach (var kit in KitLooks(root))
         foreach (var (kind, tint) in GroundTints)
             if (kit.GetNodeOrNull("Remainder/" + kind) is MeshInstance3D { MaterialOverride: ShaderMaterial sm } && sm.Shader?.Code.Contains("uniform vec4 tint") == true)
                 sm.SetShaderParameter("tint", tint);

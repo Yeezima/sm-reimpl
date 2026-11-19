@@ -332,6 +332,11 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     /// 0 at death and respawn, set only by added content (always 0 in Classic PvP). Not on the wire: the client sets it from its own powerup state at a reconcile (<c>GameClient.ExtrasCarry</c>).
     /// </summary>
     public float FireBoostLeft { get; init; }
+    /// <summary>
+    /// Added content's attack-speed bonus (Warfront's level-up cards, 2026-11-17): the swings and the guns run <c>1 + AttackSpeedBonus</c> times as fast on top of a stim (<see cref="Stims.AttackSpeed"/>). 0 in Classic PvP and Musou, set each tick by Warfront only;
+    /// not on the wire, in no hash.
+    /// </summary>
+    public float AttackSpeedBonus { get; init; }
 
     // ---- jump pack (see JumpPack; protocol 9). Canonical zeros for players without a pack. ----
     /// <summary>Where the player is in a jump-pack jump.</summary>

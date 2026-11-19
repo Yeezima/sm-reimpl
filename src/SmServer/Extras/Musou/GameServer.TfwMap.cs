@@ -18,6 +18,11 @@ public sealed partial class GameServer
     /// <summary>The graph for <see cref="CreateTfw"/>; a failed build leaves the war without one (noted) and the server starts, as <see cref="CreateMusou"/> does.</summary>
     NavGraph? TfwNav(TfwBattlefield field, out string note)
     {
+        NavGraph? warfrontNav = null;
+        string warfrontNote = "";
+        bool warfrontHandled = false;
+        WarfrontNav(field, ref warfrontNav, ref warfrontNote, ref warfrontHandled);   // WARFRONT-HOOK
+        if (warfrontHandled) { note = warfrontNote; return warfrontNav; }
         try
         {
             var nav = BuildTfwNav(Map!, field, World.Config, out string built);
@@ -30,6 +35,8 @@ public sealed partial class GameServer
             return null;
         }
     }
+
+    partial void WarfrontNav(TfwBattlefield field, ref NavGraph? nav, ref string note, ref bool handled);
 
     /// <summary>The wire's box until the war's director sets one: the map's, not the graph's (<see cref="SendMusou"/> would read the battlefield alone).</summary>
     void TfwUseWireBox()

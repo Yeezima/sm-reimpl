@@ -18,18 +18,53 @@ public sealed partial class TfwRun
     double _nextHqTransport;
     int _warTicks;
 
-    public TfwRun(TfwBattlefield field, TfwSites? sites = null)
+    /// <param name="bandSites">The front pilot: each band's places (<see cref="TfwBattlefield.Bands"/>, in band order); null builds them without a graph.</param>
+    public TfwRun(TfwBattlefield field, TfwSites? sites = null, IReadOnlyList<TfwSites>? bandSites = null)
     {
-        Field = field;
-        Sites = sites ?? new TfwSites(field, null, null);
+        _field = field;
+        _sites = sites ?? new TfwSites(field, null, null);
+        _bandSites = field.Bands is { Count: > 0 } bands ? bandSites ?? [.. bands.Select(b => new TfwSites(b, null, null))] : null;
         Reset();
         ReviveWindow = ReviveOpen;
     }
 
-    /// <summary>The places of the battlefield.</summary>
-    public TfwBattlefield Field { get; }
-    /// <summary>Where a battle's drawn places fall.</summary>
-    public TfwSites Sites { get; }
+    readonly TfwBattlefield _field;
+    readonly TfwSites _sites;
+    readonly IReadOnlyList<TfwSites>? _bandSites;
+
+    /// <summary>The places of the battlefield (the front pilot: the active band's).</summary>
+    public TfwBattlefield Field => _field.Bands is { Count: > 0 } bands ? bands[ActiveBand] : _field;
+    /// <summary>Where a battle's drawn places fall (the front pilot: on the active band).</summary>
+    public TfwSites Sites => _bandSites?[ActiveBand] ?? _sites;
+    /// <summary>The whole world's battlefield (the front pilot: every band; otherwise <see cref="Field"/>).</summary>
+    public TfwBattlefield WholeField => _field;
+    /// <summary>
+    /// The front pilot: the band the battle under way (or the last one) is fought on, set at each landing from the battle's node (<c>AshfallFront.BandForNode</c>'s rule: node 1 the wasteland, 2 the outskirts, 3 and the final
+    /// assault the urban core). Always 0 on a map without bands.
+    /// </summary>
+    public int ActiveBand { get; private set; }
+
+    int _startNode;
+
+    /// <summary>
+    /// Test aid (the front pilot only; the server's <c>SM_TFW_FRONT_NODE=n</c>): every new run starts with each lane's front at n - 1, so the first battle on any lane is node n and lands on its band (1 the wasteland, 2 the outskirts,
+    /// 3 the urban core, 4 the final assault on the core). 0 (the default) and any map without bands: the run as always. Set before the first deploy; each new run applies it again.
+    /// </summary>
+    public int StartNode
+    {
+        get => _startNode;
+        set { _startNode = value; ApplyStartNode(); }
+    }
+
+    void ApplyStartNode()
+    {
+        if (_startNode is < 1 or > 4 || _field.Bands is not { Count: > 0 } bands || Deployed) return;
+        War.SetFrontsForTests((sbyte)(_startNode - 1));
+        ActiveBand = BandForNode(_startNode, bands.Count);
+    }
+
+    /// <summary>The band of a war node on a map with <paramref name="bands"/> bands (lane B's positions 1 to 3 in order; lanes A and C start at node 2; the final assault, node 3, is on the last band).</summary>
+    public static int BandForNode(int node, int bands) => bands <= 0 ? 0 : Math.Clamp(node - 1, 0, bands - 1);
 
     /// <summary>The war of this run.</summary>
     public WarSim War { get; private set; } = new();
@@ -69,6 +104,9 @@ public sealed partial class TfwRun
     public bool VictoryWave { get; set; } = true;
 
     /// <summary>The wins a run needs on <paramref name="lane"/> from its start.</summary>
+    /// <summary>The wins this run needs on <paramref name="lane"/>: <see cref="WinsNeeded(TfwLane)"/>, or from the front the front pilot's <see cref="StartNode"/> test aid set (re-review of 2026-11-16).</summary>
+    public int WinsNeededNow(TfwLane lane) => _startNode is >= 1 and <= 4 && _field.Bands is { Count: > 0 } ? Math.Max(0, WarRules.FrontStronghold - (_startNode - 1)) : WinsNeeded(lane);
+
     public static int WinsNeeded(TfwLane lane) => WarRules.FrontStronghold - (lane switch { TfwLane.A => WarRules.StartFrontA, TfwLane.B => WarRules.StartFrontB, _ => WarRules.StartFrontC });
 
     /// <summary>Wall-clock milliseconds of the last landing and of its sites' draw (for the cost report).</summary>
@@ -102,6 +140,8 @@ public sealed partial class TfwRun
         _landingSlots.Clear();
         Redeploys = 0;
         Deployed = false;
+        ActiveBand = 0;   // the front pilot: a new run starts on the first band (review of 2026-11-16)
+        ApplyStartNode();   // the front pilot's test aid (SM_TFW_FRONT_NODE): off unless set
         Wins = 0;
         ActivePosition = null;
         _deployed.Clear();
@@ -110,7 +150,38 @@ public sealed partial class TfwRun
         _warTicks = 0;
         Rewards.NewRun();
         Score.NewRun();
+        WarfrontReset();   // WARFRONT-HOOK
     }
+
+    /// <summary>Warfront: clears the battle state of a new run. No-op without the Warfront object.</summary>
+    partial void WarfrontReset();
+
+    /// <summary>Warfront: a command of the queue, before the switch; <paramref name="handled"/> true takes it out of the run's own rules.</summary>
+    partial void WarfrontCommand(World w, int player, TfwCommandRecord c, int rate, ref bool handled);
+
+    /// <summary>Warfront: whether the Musou war's clock runs this tick (false: Warfront's war does not move by itself).</summary>
+    partial void WarfrontWarClock(ref bool tick);
+
+    /// <summary>Warfront: the battle's plan, after Musou's own layout and elite share and before the battle is built: HQ and fortress supply their own layout, the fortress sets <paramref name="final"/>, every Warfront battle sets its elite share.</summary>
+    partial void WarfrontBattlePlan(World w, TfwLane lane, int node, ref TfwLayout layout, ref bool final, ref float elite);
+
+    /// <summary>Warfront: a node battle is built, before it starts.</summary>
+    partial void WarfrontBattleCreated(World w, TfwBattle battle, TfwLane lane, int node);
+
+    /// <summary>Warfront: whether a human's retainer is landed (false: none).</summary>
+    partial void WarfrontRetainer(int player, ref bool spawn);
+
+    /// <summary>Warfront: a won battle leaves at once (<paramref name="handled"/>).</summary>
+    partial void WarfrontBattleWon(World w, ref bool handled);
+
+    /// <summary>Warfront: the fallen, spectator and wipe rule in place of <c>Downed</c> (<paramref name="handled"/>).</summary>
+    partial void WarfrontDowned(World w, int rate, ref bool handled);
+
+    /// <summary>Warfront: the battle was left with <paramref name="result"/>.</summary>
+    partial void WarfrontLeft(World w, TfwMapResult result);
+
+    /// <summary>Warfront: what the battle's step changed (a position secured, the node won), right after it.</summary>
+    partial void WarfrontBattleChange(TfwBattleChange change);
 
     /// <summary>One tick in play, before the fight.</summary>
     internal void Step(World w)
@@ -118,7 +189,9 @@ public sealed partial class TfwRun
         int rate = Math.Max(1, w.Config.TickRate);
         Commands(w, rate);
         if (Ended) return;
-        if (++_warTicks >= rate)
+        bool warTick = true;
+        WarfrontWarClock(ref warTick);   // WARFRONT-HOOK
+        if (warTick && ++_warTicks >= rate)
         {
             _warTicks = 0;
             War.Step();
@@ -138,6 +211,9 @@ public sealed partial class TfwRun
         while (TryDequeue(out int player, out var c))
         {
             if (w is null || Ended) continue;
+            bool taken = false;
+            WarfrontCommand(w, player, c, rate, ref taken);   // WARFRONT-HOOK
+            if (taken) continue;
             switch (c.Command)
             {
                 case TfwCommand.Deploy: Deploy(w, player, c.Argument, rate); break;
@@ -206,8 +282,11 @@ public sealed partial class TfwRun
         var state = War.LaneState(lane);
         bool final = state.Front == WarRules.FrontStronghold;
         int node = final ? WarRules.Positions : state.Front + 1;
+        ActiveBand = BandForNode(node, _field.Bands?.Count ?? 0);   // the front pilot: this battle's band (no change on any other map)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var layout = Sites.Layout(lane, node, w.Tick);
+        float elite = TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeededNow(lane), final));
+        WarfrontBattlePlan(w, lane, node, ref layout, ref final, ref elite);   // WARFRONT-HOOK
         LastSitesMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         var bonus = final ? War.FinalBonus(lane) : default;
         w.TfwClearField();
@@ -215,7 +294,8 @@ public sealed partial class TfwRun
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
         _dreadSlots.Clear();   // a new landing: every Dreadnought's place is chosen afresh (LandingAt)
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, elite, Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
+        WarfrontBattleCreated(w, Battle, lane, node);   // WARFRONT-HOOK
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
@@ -227,7 +307,9 @@ public sealed partial class TfwRun
             var at = LandingAt(w, layout, id, k);
             _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
-            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
+            bool retainer = true;
+            WarfrontRetainer(id, ref retainer);   // WARFRONT-HOOK
+            if (retainer) w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
         }
         w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
         if (Allies) w.TfwSpawnAllies(layout.LandingZone, yaw);   // the owner, 2026-11-08: two allied Marines besides the retainers, whatever the number of players (no lord or Defender)
@@ -290,6 +372,7 @@ public sealed partial class TfwRun
         int humans = 0;
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) humans++;
         var change = battle.Step(_feet.AsSpan(0, n), humans);
+        WarfrontBattleChange(change);   // WARFRONT-HOOK
         if (change.HasFlag(TfwBattleChange.DepotSecured))
         {
             Transport += TfwBattleRules.DepotTransport;
@@ -297,6 +380,9 @@ public sealed partial class TfwRun
         }
         if (change.HasFlag(TfwBattleChange.Won))
         {
+            bool leftAtOnce = false;
+            WarfrontBattleWon(w, ref leftAtOnce);   // WARFRONT-HOOK (W14b: before the final assault's end, so the fortress's win leaves at once)
+            if (leftAtOnce) return;
             if (_fighting == TfwRunPhase.FinalAssault) { PickupTicks = 0; War.Enter(TfwRunPhase.Won); return; }
             Wins++;
             War.PlayerWon(War.BattleLane);
@@ -313,6 +399,9 @@ public sealed partial class TfwRun
     /// </summary>
     void Downed(World w, int rate)
     {
+        bool taken = false;
+        WarfrontDowned(w, rate, ref taken);   // WARFRONT-HOOK
+        if (taken) return;
         bool fighting = false, waiting = false;
         foreach (int id in _deployed)
         {
@@ -363,6 +452,7 @@ public sealed partial class TfwRun
         _deployed.Clear();
         _reviveTicks.Clear();
         War.Enter(TfwRunPhase.Hub, War.BattleLane);
+        WarfrontLeft(w, result);   // WARFRONT-HOOK
     }
 
     /// <summary>Test aid: the battle is left at once.</summary>

@@ -33,6 +33,21 @@ public sealed partial class GameServer
     /// </summary>
     partial void ExtrasSend();
 
+    /// <summary>
+    /// Whether this process must leave now (added content's stage change: Warfront's supervisor starts the next stage) and with which exit code; always false without added content. Asked once a loop turn.
+    /// </summary>
+    public bool RestartDue(out int code)
+    {
+        bool due = false;
+        int c = 0;
+        if (World.Config.Extras != ContentExtras.None) ExtrasRestartDue(ref due, ref c);   // EXTRAS-HOOK: Warfront's stage change
+        code = c;
+        return due;
+    }
+
+    /// <summary>Hook for added content, called by <see cref="RestartDue"/>: sets <paramref name="due"/> and <paramref name="code"/> when the process must leave. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.</summary>
+    partial void ExtrasRestartDue(ref bool due, ref int code);
+
     /// <summary>Added-content commands passed to the hook, and commands dropped: the match reads none, a spectator's, or over the rate.</summary>
     public int ExtrasCommandsAccepted { get; private set; }
     public int ExtrasCommandsDropped { get; private set; }

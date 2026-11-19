@@ -317,7 +317,9 @@ public sealed partial class CreatorView
         _deployButton.Disabled = MusouLibrarianDeploy is null;
         _deployButton.TooltipText = MusouLibrarianDeploy is null ? "Pick him in the Stormbird: Esc, PLAY AS LIBRARIAN" : "Become the Librarian now (in the Stormbird)";
 
-        MusouList(MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData, picks, MusouSlots.SupportOf(profile, MusouSlots.LibrarianSupportKey)), focusList, picks is null ? MusouCustomizer.LibrarianNote : MusouCustomizer.LibrarianOwnNote);
+        var librarianRows = MusouCustomizer.LibrarianStep((int)_step, activeName, LibrarianData, picks, MusouSlots.SupportOf(profile, MusouSlots.LibrarianSupportKey));
+        WarfrontLibrarianRows((int)_step, ref librarianRows);   // WARFRONT-HOOK: the squad-class section under the support rows
+        MusouList(librarianRows, focusList, picks is null ? MusouCustomizer.LibrarianNote : MusouCustomizer.LibrarianOwnNote);
 
         _preview.MusouLibrarian = true;
         _preview.MusouLibrarianMelee = picks?.Chosen.Melee is { } melee ? "sm_" + melee : null;   // his own melee choice (stored without the side prefix), else the force sword
@@ -434,6 +436,9 @@ public sealed partial class CreatorView
         if (rows[target] is UiKit.Row first) first.Focused?.Invoke();
     }
 
+    partial void WarfrontRowAction(MusouRow row, ref bool handled);
+    partial void WarfrontLibrarianRows(int step, ref IReadOnlyList<MusouSection> sections);
+
     void MusouCard(MusouRow row)
     {
         string extra = row.Kind switch
@@ -460,6 +465,9 @@ public sealed partial class CreatorView
     /// <summary>A choice row of the Librarian's own loadout pressed: the edit of his class in <see cref="MusouSlots.LibrarianSlot"/> (the session folds it back into his loadout).</summary>
     void LibrarianChoose(MusouRow row)
     {
+        bool warfront = false;
+        WarfrontRowAction(row, ref warfront);   // WARFRONT-HOOK: the squad-class rows
+        if (warfront) return;
         if (row.Action is not { } action || action.IndexOf(':') is not (> 0 and var colon)) return;
         string what = action[..colon], arg = action[(colon + 1)..];
         string? name = arg.Length == 0 ? null : arg;

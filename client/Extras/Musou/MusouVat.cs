@@ -224,6 +224,9 @@ public static class MusouVat
 
     static Shader? _shader;
 
+    /// <summary>Warfront perf pass: build the far mesh with levels of detail (<see cref="Upload"/>). The Warfront client sets it before the looks bake; <c>--no-crowd-lod</c> (test aid) leaves it off.</summary>
+    public static bool Lods { get; set; }
+
     const string ShaderCode = @"
 shader_type spatial;
 render_mode cull_back, depth_draw_opaque;
@@ -263,7 +266,11 @@ void fragment() {
         _shader ??= new Shader { Code = ShaderCode };
         var pos = ImageTexture.CreateFromImage(Image.CreateFromData(Width, b.Height, false, Image.Format.Rgbah, b.Positions));
         var nrm = ImageTexture.CreateFromImage(Image.CreateFromData(Width, b.Height, false, Image.Format.Rgba8, b.Normals));
+        // Warfront perf pass (ours): with Lods the far mesh is built through ImporterMesh, which adds index-only levels of detail (the vertex array, so VERTEX_ID, is unchanged and the baked frames still fit);
+        // Godot picks a level per batch by its box's distance. Off for Musou Mode and PvP (their look is unchanged) and with --no-crowd-lod.
+        var importer = Lods ? new ImporterMesh() : null;
         var mesh = new ArrayMesh();
+        var materials = new ShaderMaterial[b.Surfaces.Length];
         for (int s = 0; s < b.Surfaces.Length; s++)
         {
             var sd = b.Surfaces[s];
@@ -273,8 +280,9 @@ void fragment() {
             arrays[(int)Mesh.ArrayType.Normal] = sd.Normals;
             arrays[(int)Mesh.ArrayType.TexUV] = sd.Uv;
             arrays[(int)Mesh.ArrayType.Index] = sd.Indices;
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            var m = new ShaderMaterial { Shader = _shader };
+            if (importer is not null) importer.AddSurface(Mesh.PrimitiveType.Triangles, arrays);
+            else mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            var m = materials[s] = new ShaderMaterial { Shader = _shader };
             m.SetShaderParameter("vat_pos", pos);
             m.SetShaderParameter("vat_nrm", nrm);
             m.SetShaderParameter("vat_width", Width);
@@ -293,8 +301,20 @@ void fragment() {
                 if ((sm.GetShaderParameter("albedo_tex").Obj ?? sm.GetShaderParameter("albedo1").Obj) is Texture2D t) m.SetShaderParameter("albedo_tex", t);
                 if (sm.GetShaderParameter("primary").VariantType == Variant.Type.Color) m.SetShaderParameter("albedo_color", sm.GetShaderParameter("primary").AsColor());
             }
-            mesh.SurfaceSetMaterial(s, m);
         }
+        if (importer is not null)
+        {
+            importer.GenerateLods(60f, 25f, []);
+            mesh = importer.GetMesh() as ArrayMesh ?? mesh;
+            int full = 0, coarse = 0;
+            for (int s = 0; s < b.Surfaces.Length; s++)
+            {
+                int n = importer.GetSurfaceLodCount(s), all = b.Surfaces[s].Indices.Length / 3;
+                full += all; coarse += n > 0 ? importer.GetSurfaceLodIndices(s, n - 1).Length / 3 : all;
+            }
+            GD.Print($"crowd lod: {full} triangles, coarsest level {coarse}");
+        }
+        for (int s = 0; s < materials.Length; s++) mesh.SurfaceSetMaterial(s, materials[s]);
         // The vertices move far from the bind pose (a body lying down): a generous box, so no instance is culled while on screen.
         mesh.CustomAabb = new Aabb(new Vector3(-2.5f, -2.5f, -1.5f), new Vector3(5f, 5f, 4.5f));
         b.Mesh = mesh;

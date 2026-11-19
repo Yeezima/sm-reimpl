@@ -60,6 +60,7 @@ public sealed partial class GameServer
             int id = peer.PlayerId;
             if (!_tfwInterest.TryGetValue(id, out var interest)) _tfwInterest[id] = interest = new TfwGuardInterest { OldShare = TfwOldGuardShare };
             Vector3? viewer = World.Players.TryGetValue(id, out var me) ? me.Position : anyone;
+            WarfrontViewCentre(id, ref viewer);   // WARFRONT-HOOK
             byte[]? war = feed.War is { } front ? TfwWire.WriteWar(front.View(feed.Transport, feed.Supplies, _tfwCommandEcho.GetValueOrDefault(id)) with { Own = World.TfwOwn(id) }) : null;
             float musouBytes = interest.MusouBytes(_musouInterest.TryGetValue(id, out var musou) ? musou.Tokens : null, tickRate);
             foreach (var sections in interest.Plan(tick, tickRate, war, objectives, guards, viewer, box, events, musouBytes))

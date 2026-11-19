@@ -49,6 +49,11 @@ return args switch
     ["musou-army-routes", .. var armyRest] => SmTool.MusouArmyRoutesCommand.Run(armyRest),
     ["musou-guard-vantage", .. var vantageRest] => SmTool.MusouGuardVantageCommand.Run(vantageRest),
     ["spear-rig-dump", .. var rigRest] => SmTool.SpearRigDumpCommand.Run(rigRest),
+#if SM_WARFRONT
+    ["warfront-maps", .. var warfrontMapsRest] => SmTool.WarfrontMapsCommand.Run(warfrontMapsRest),
+    ["warfront-tuning", .. var wfTuneRest] => SmTool.WarfrontTuningCommand.Run(wfTuneRest),
+    ["warfront-hq", .. var wfHqRest] => SmTool.WarfrontHqCommand.Run(wfHqRest),
+#endif
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),

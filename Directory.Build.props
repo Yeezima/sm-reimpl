@@ -20,6 +20,9 @@
   <PropertyGroup>
     <SmExtras Condition="'$(SmExtras)' == ''">true</SmExtras>
     <DefineConstants Condition="'$(SmExtras)' == 'true'">$(DefineConstants);SM_EXTRAS</DefineConstants>
+    <!-- Warfront (docs/added-content.md section 11): its own switch inside the added content; -p:SmWarfront=false leaves Extras/Warfront out. -->
+    <SmWarfront Condition="'$(SmWarfront)' == ''">true</SmWarfront>
+    <DefineConstants Condition="'$(SmExtras)' == 'true' and '$(SmWarfront)' == 'true'">$(DefineConstants);SM_WARFRONT</DefineConstants>
   </PropertyGroup>
 
   <!--

@@ -505,9 +505,9 @@ public partial class ModelViewer : Node3D
         if (!_fromFrontEnd || _network is not { ConnectionFailed: true } failed || FrontEndLaunch.Current is not { } request) return false;
         var services = request.Services;
         var joined = request.Content ?? services.Content;
-        bool commandLineMusou = _launchArgs.GetValueOrDefault("content") == SmSim.ContentProfiles.Musou;
+        bool commandLineMusou = SmSim.ContentProfiles.IsMusouFamily(_launchArgs.GetValueOrDefault("content"));
         var hosted = HostedServer.Options;
-        var decision = SmNet.MusouJoinRetry.Decide(failed.RejectedBecause, HostedServer.Running, hosted is { Content: SmSim.ContentProfiles.Musou },
+        var decision = SmNet.MusouJoinRetry.Decide(failed.RejectedBecause, HostedServer.Running, hosted is { Content: var hostedContent } && SmSim.ContentProfiles.IsMusouFamily(hostedContent),
             joined.HasFlag(SmSim.ContentExtras.Musou), services.Settings.ContentExtras.HasFlag(SmSim.ContentExtras.Musou), commandLineMusou,
             hosted is { } h && SmNet.MusouJoinRetry.IsHostedTarget(request.Host, h.Port), _musouRetried);
         if (decision != SmNet.JoinRetryDecision.StopMusouAndRetry) return false;
