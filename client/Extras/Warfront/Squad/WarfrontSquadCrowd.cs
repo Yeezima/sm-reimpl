@@ -177,6 +177,7 @@ public sealed partial class WarfrontSquadCrowd : Node3D
             viewer.PoseLocked = throttled || PoseFrozen;
             if ((!throttled || a.Clip is null) && !PoseFrozen) Pose(a, viewer, clips, s, now);
             if (Weapons && full && dress is not null) EnsureRig(a, viewer, dress);
+            a.Rig?.SetPackPaint(WarfrontSquadModel.PackPaintFor(dress?.Pack, model?.PackPaint));   // the pack wears the owner's backpack-slot paint, like a player's (cheap when unchanged)
             if (a.Rig is not null) { a.Rig.Update(WeaponSlot.Ranged, s.Melee && s.Firing, !s.Downed, throttled ? 0f : delta, 0.6f); }
             viewer.Visible = true;
         }

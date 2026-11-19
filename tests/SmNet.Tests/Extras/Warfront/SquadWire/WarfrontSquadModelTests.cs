@@ -208,4 +208,16 @@ public class WarfrontSquadModelTests
         Assert.Equal((byte)10, coloursOnly.Palette(ArmourSlot.Torso, 0)); Assert.Equal((byte)30, coloursOnly.Palette(ArmourSlot.Torso, 2));
         Assert.True(coloursOnly.PatternOn(ArmourSlot.Torso));
     }
+
+    [Fact]
+    public void A_retainers_jump_pack_takes_the_owners_backpack_paint_not_the_sides_default()
+    {
+        // 2026-11-19: the squad crowd never gave the rig the look's pack paint, so the pack kept the default scheme. The crowd now passes WarfrontSquadModel.PackPaintFor(pack, model.PackPaint).
+        SmContent.Customization.ResolvedColour C(string n) => new(n, [0.1f, 0.2f, 0.3f], [0f, 0f, 0f]);
+        var backpack = new SmContent.Customization.ResolvedPaint(C("Red"), C("Gold"), null, true);
+        Assert.Same(backpack, WarfrontSquadModel.PackPaintFor("sm_mp_abil_jumppack", backpack));
+        Assert.Null(WarfrontSquadModel.PackPaintFor(null, backpack));   // no pack worn: nothing to paint
+        Assert.Null(WarfrontSquadModel.PackPaintFor("", backpack));
+        Assert.Null(WarfrontSquadModel.PackPaintFor("sm_mp_abil_jumppack", null));   // a look without backpack paint keeps the default
+    }
 }

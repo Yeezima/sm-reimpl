@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using SmContent.Customization;
 using SmNet.Extras.Warfront;
 using SmSim;
 
@@ -248,6 +249,12 @@ public sealed class WarfrontSquadModel
     public static readonly string[] RecordHeadings = ["KILLS", "ELITE", "BOSS", "ASSISTS", "REVIVES", "DOWNED", "OBJECTIVES", "BATTLES"];
 
     // ---- the look of a Marine
+
+    /// <summary>
+    /// The paint a Marine's worn jump pack takes: the look's pack paint (<see cref="WornPackPaint"/>: the backpack slot's colours, as a player's own pack) for a Marine that wears a pack, else null.
+    /// A null keeps the side's default scheme, which was the bug (2026-11-19): the retainer's pack never took the owner's backpack paint. Pure, so the rule is tested.
+    /// </summary>
+    public static ResolvedPaint? PackPaintFor(string? packWargear, ResolvedPaint? lookPackPaint) => string.IsNullOrEmpty(packWargear) ? null : lookPackPaint;
 
     /// <summary>
     /// The appearance code a Marine wears: the owner's own pieces and colours (<paramref name="ownPieces"/>, a standard retainer), or the class's own armour in the owner's colours (a Librarian's squad: pieces
