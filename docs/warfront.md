@@ -105,7 +105,7 @@ campaign ends, default deploy, an empty server) on it. In this mode the supervis
 ### Operation of the stage (slice S2; estimates, spec "Warfront dedicated server, slice S2")
 
 - **Default deploy**: the leader (earliest-joined connected player) deploys as always. When the ship has been idle for 90 s (on the ship, an identified leader, no preparation, Go, landing or arrival; the clock restarts when any of that stops holding or the leader changes), the server
-  deploys for the leader through the normal path: the HQ defence when mandatory, else the node of the lowest-front lane (ties A, B, C), else the fortress; the Stage text says so for 5 s. It never fires with nobody connected, and a deployment the co-op gate holds is asked again every 5 s.
+  deploys for the leader through the normal path: the HQ defence when mandatory, else the node of the lowest-front lane (ties A, B, C), else the fortress; the Stage text says so for 5 s. It never fires with nobody connected, and it passes the co-op gate (a player still choosing a class or cards had the 90 s; otherwise an absent one would hold the ship forever).
 - **New run**: the leader's NewRun works as before; otherwise a new run starts 2 minutes after the results stand, and at once when no human is connected.
 - **Empty server**: the process and the run stay and the play clock stops; a battle left with nobody is no result (back on the ship, nothing rolled); the next joiner continues the run. An unfinished run never restarts by itself.
 - Player-hosted play does none of this. Code: `GameServer.WarfrontDedicated.cs`; tests `WarfrontDedicatedOperationTests`.

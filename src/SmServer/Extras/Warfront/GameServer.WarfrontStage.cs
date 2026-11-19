@@ -16,7 +16,7 @@ public sealed partial class GameServer
     // ---- deploy ------------------------------------------------------------------------------------------------------------------------------------
 
     /// <summary>The leader's Deploy (plan section 3): only from the leader, only on the ship, only a listed target. Same map: land at once; another map: prepare it, then Go.</summary>
-    void WarfrontDeploy(int player, WarfrontTarget target)
+    void WarfrontDeploy(int player, WarfrontTarget target, bool serverFallback = false)
     {
         if (_wf is not { } s) return;
         var c = s.Campaign;
@@ -25,7 +25,7 @@ public sealed partial class GameServer
         if (c.Phase != WarfrontPhase.Ship) { WfLog($"deploy from P{player} refused: the campaign is in {c.Phase}"); return; }
         if (c.Leader != key) { WfLog($"deploy from P{player} refused: only the leader deploys"); return; }
         if (!c.AvailableTargets().Contains(target)) { WfLog($"deploy from P{player} refused: {target.Kind} lane {target.Lane} is not an available target"); return; }
-        string? refusal = WarfrontCoopDeployGate();   // the co-op rules: a joiner still choosing a class or picking cards holds the deployment
+        string? refusal = serverFallback ? null : WarfrontCoopDeployGate();   // the dedicated server's own deploy after 90 s passes the gate (an absent player choosing cards must not hold the ship forever)   // the co-op rules: a joiner still choosing a class or picking cards holds the deployment
         if (refusal is not null) { WfLog($"deploy from P{player} refused: {refusal}"); s.GateRefusal = refusal; s.GateRefusalTick = World.Tick; return; }
 
         string map = WarfrontStagePlan.MapOf(c, target);

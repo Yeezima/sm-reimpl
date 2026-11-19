@@ -17,7 +17,7 @@ public sealed partial class GameServer
     /// <summary>With nobody connected the new run waits this long after the results first stood (clients of a restarted stage reconnect in that time; an estimate, ours).</summary>
     internal static double WarfrontEmptyGraceSeconds = 10;
 
-    /// <summary>How often a deployment the co-op gate refused (a joiner still choosing) is asked again.</summary>
+    /// <summary>How often a deployment that did not start (refused for another reason) is asked again.</summary>
     const double WarfrontFallbackRetrySeconds = 5;
 
     // The ship clock: since when this leader has had an idle ship (null: not counting). The results clock: since when the results stand with someone to read them.
@@ -70,7 +70,7 @@ public sealed partial class GameServer
         WfLog($"dedicated: no deployment in {(int)WarfrontDeployFallbackSeconds} s; the server deploys to {what}");
         s.GateRefusal = $"No deployment chosen: the server sends the squad to {what}";   // the Stage None text, shown for 5 s (WarfrontStageSection)
         s.GateRefusalTick = World.Tick;
-        WarfrontDeploy(player, target);   // the normal path: the co-op gate may still hold it, then it is asked again after the retry time
+        WarfrontDeploy(player, target, serverFallback: true);   // the normal path, except the co-op gate: whoever is still choosing a class or cards had 90 s
     }
 
     /// <summary>

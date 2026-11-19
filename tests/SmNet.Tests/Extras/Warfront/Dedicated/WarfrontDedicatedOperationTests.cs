@@ -170,7 +170,8 @@ public class WarfrontDedicatedOperationTests : IDisposable
         s.Tick(70);
         Assert.Equal(1, s.Campaign.Deployments);   // the leader's own deploy did not leave a running clock
         s.Tick(40);
-        Assert.Equal(2, s.Campaign.Deployments);   // the server's own, 90 s after the return
+        Assert.NotEqual(WarfrontPhase.Ship, s.Campaign.Phase);   // the server's own deploy, 90 s after the return (the clock restarted when the ship was reached again)
+        Assert.Equal(WarfrontTarget.Node(1), s.Campaign.CurrentTarget);
     }
 
     [Fact]
@@ -284,5 +285,24 @@ public class WarfrontDedicatedOperationTests : IDisposable
         s.Tick(300);                               // an empty ship never deploys and never starts a new run
         Assert.Equal(WarfrontPhase.Ship, s.Campaign.Phase);
         Assert.Equal(0, s.Campaign.Deployments);
+    }
+
+    [Fact]
+    public void A_stop_signal_saves_the_run_and_leaves_with_code_0()
+    {
+        Seed([2, 1, 2]);
+        var s = StartStage(1);
+        s.Identify(0, 111, "Alpha");
+        s.Tick(2);
+        File.Delete(Path.Combine(_dir, "run.json"));
+        try
+        {
+            WarfrontRunFiles.StopSignal = true;
+            s.Tick(1);
+            Assert.True(RunFileExists);   // saved by the signal
+            Assert.True(s.Server.RestartDue(out int code));
+            Assert.Equal(0, code);
+        }
+        finally { WarfrontRunFiles.StopSignal = false; }
     }
 }
