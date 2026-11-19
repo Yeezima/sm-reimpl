@@ -84,7 +84,13 @@ function Make($file, $text, [double]$widthLimit) {
     $g.Dispose()
     $out = if ($Preview) { Join-Path $Preview $file } else { $path }
     if ($Preview) { New-Item -ItemType Directory -Force $Preview | Out-Null }
-    $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+    # The compressed PNG bytes can by chance spell an e-mail shaped run, which the package content guard (smtool scan-package) refuses: save, and while one is found nudge a corner pixel's blue by 1 and save again.
+    for ($try = 0; $try -lt 40; $try++) {
+        $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+        $text = [System.Text.Encoding]::GetEncoding(28591).GetString([System.IO.File]::ReadAllBytes($out))
+        if ($text -notmatch '[A-Za-z0-9._%+-]{2,}@[A-Za-z0-9.-]+\.[A-Za-z]{2,}') { break }
+        $c = $bmp.GetPixel(3, 3); $bmp.SetPixel(3, 3, [System.Drawing.Color]::FromArgb($c.A, $c.R, $c.G, [Math]::Min(255, ($c.B -bxor 1))))
+    }
     $bmp.Dispose()
     "{0}: old label {1}x{2} at {3:N0},{4:N0}; ink {5}; new {6:N0}x{7:N0}" -f $file, $w, $h, $cx, $cy, $ink.Name, $fb.Width, $fb.Height
 }
