@@ -41,8 +41,9 @@ public class ClassicMatchPin(ITestOutputHelper output)
         HealthMax = 150f, ShieldMax = 50f, RespawnTime = 2f,
     };
 
+    // Recaptured 2026-11-19 on main 1809fa31 (main moved after 5428594e); this tree and an untouched main give the same value.
     // None and All hash identically: the fixture has no weapon, class or rule that an extended flag changes (the Classic extras only add content that this fixture lacks).
-    const string NoneReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB", AllReplay = "8A5833FDFB6C629D0E09BB2F4B84F8CECFE4C9E51142F31118C7D1F8CB1D5EBB";
+    const string NoneReplay = "1A6C8AC48FDD26A34300BFDF27134041FD22476A9910DD52B7D2225CA89A18AD", AllReplay = "1A6C8AC48FDD26A34300BFDF27134041FD22476A9910DD52B7D2225CA89A18AD";
 
     [Fact]
     public void The_classic_replay_with_no_extras_is_as_before_Warfront()

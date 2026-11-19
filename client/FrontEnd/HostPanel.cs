@@ -139,9 +139,12 @@ public sealed partial class HostPanel : UiKit.MenuColumn
 
     /// <summary>
     /// The lobby's profile is Musou (added content): the hosted server is Annihilation's rules without bots (the enemies are the server's own); who can join is chosen as for a match
-    /// (co-op, the owner 2026-11-06: THIS PC ONLY, or LAN / INTERNET for up to <see cref="MusouLocal.MaxPlayers"/> players). MUSOU MODE's PLAY ON THIS PC hosts this PC only.
+    /// (co-op, the owner 2026-11-06: THIS PC ONLY, or LAN / INTERNET for up to <see cref="MusouLocal.MaxPlayers"/> players). The WARFRONT page's HOST FOR FRIENDS shows it on the Warfront profile (its NEW CAMPAIGN starts a this-PC-only server without it).
     /// </summary>
     public bool Musou => _content().HasFlag(SmSim.ContentExtras.Musou);
+
+    /// <summary>The lobby's profile is Warfront (Musou's systems plus Warfront's rules; the WARFRONT page's Host panel): the same lock, with Warfront's words.</summary>
+    public bool Warfront => _content() == SmSim.ContentProfiles.WarfrontProfile;
 
     /// <summary>The reach row (self-test): whether it can be changed, and whether it says THIS PC ONLY.</summary>
     public (bool Choosable, bool LocalOnly) Reach => (!_reachRow.Disabled, _localOnly);
@@ -164,8 +167,8 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _modeRow.SetDisabled(musou); _modeRow.SetIndex(_mode == ServerLaunch.ModeSeize ? 1 : 0);
         _mapRow?.SetDisabled(musou);   // classic-maps-all: Musou Mode plays its own map
         _reachRow.SetIndex(_localOnly ? 0 : 1);
-        _hostButton.Text = musou ? "HOST MUSOU" : "HOST A MATCH";
-        _hostButton.TooltipText = musou ? $"Start a Musou server on this PC for up to {MusouLocal.MaxPlayers} players and join it" : "Start a server on this PC and join it";
+        _hostButton.Text = musou ? (Warfront ? "HOST WARFRONT" : "HOST MUSOU") : "HOST A MATCH";
+        _hostButton.TooltipText = musou ? $"Start a {(Warfront ? "Warfront" : "Musou")} server on this PC for up to {MusouLocal.MaxPlayers} players and join it" : "Start a server on this PC and join it";
         RefreshNote();
     }
 
@@ -277,7 +280,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     PortHolder HolderOf(IReadOnlyList<int> owners) => InstallServers.HolderOf(owners, _exe);
 
     /// <summary>
-    /// Starts hosting with the rows' choices (HOST A MATCH, HOST MUSOU; MUSOU MODE's PLAY ON THIS PC passes <paramref name="thisPcOnly"/>, which sets the reach row to THIS PC ONLY first);
+    /// Starts hosting with the rows' choices (HOST A MATCH, HOST WARFRONT; <paramref name="thisPcOnly"/> (tests), which sets the reach row to THIS PC ONLY first);
     /// the started server is joined by itself.
     /// </summary>
     public void StartHosting() => StartHosting(thisPcOnly: false);
@@ -316,7 +319,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         Refresh();
     }
 
-    /// <summary>Stops the server this client started (STOP SERVER here; STOP MUSOU SERVER on the main menu): only that process, and a start still being watched is dropped.</summary>
+    /// <summary>Stops the server this client started (STOP SERVER here; STOP WARFRONT SERVER on the main menu): only that process, and a start still being watched is dropped.</summary>
     public void StopHosted(string message = "Server stopped.")
     {
         HostedServer.Stop();
@@ -347,7 +350,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     {
         _frames++;
         if (!_autoDone && _args.ContainsKey("auto-host") && _frames > 20 && !HostedServer.Running) { _autoDone = true; StartHosting(); return; }
-        // The start is watched on every page: MUSOU MODE starts the server from the main menu, with this page hidden.
+        // The start is watched on every page: the main menu's WARFRONT rows start a server with this page hidden.
         if (_pendingJoin)
         {
             int port = HostedServer.Options?.Port ?? ServerLaunch.DefaultPort;

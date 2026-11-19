@@ -16,7 +16,7 @@ namespace SmClient.FrontEnd;
 /// <summary>
 /// Self-test of the Warfront menu (slice W16), headless: <c>godot.cmd -- --warfront-selftest --server-exe &lt;any existing file&gt; --profile &lt;temp file&gt;</c> (the server is never started: the press stops at
 /// <see cref="FrontEndView.WarfrontOverride"/>, the join at <see cref="FrontEndView.JoinOverride"/>; the run folder is a temp folder, never the owner's save). Drives the real rows through their own
-/// buttons: the main menu's rows (Musou's and Classic's unchanged), the page in its three cases (no run, a run, a finished run), the New confirmation, a server already running, the preparing screen and
+/// buttons: the main menu's rows (Warfront first, Musou Mode gone, Classic's unchanged), the page in its three cases (no run, a run, a finished run), the New confirmation, a server already running, the preparing screen and
 /// Esc. Add <c>--warfront-shots &lt;dir&gt;</c> in a windowed run to save a still of each. One SELFTEST PASS or FAIL line per check, then WARFRONT SELFTEST RESULT; quits non-zero on a failure.
 /// </summary>
 public sealed partial class WarfrontLocalSelfTest : Node
@@ -125,27 +125,20 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowMainMenu();
         await Frames(4);
 
-        // ---- the main menu: the row, in place; Musou's and Classic's rows as before ----
+        // ---- the main menu: the row, in Musou Mode's old place; Classic's rows as before ----
         var main = _front.MainPage!;
         bool added = ContentExtras.Compiled && ContentExtras.WarfrontCompiled;
-        var wanted = new List<string> { "PLAYER VERSUS PLAYER" };
-        if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");
+        var wanted = new List<string>();
         if (added) wanted.Add("WARFRONT");
-        wanted.AddRange(["OPTIONS", "CUSTOMIZER", "QUIT"]);
-        Check("main menu: the rows, Warfront under Musou Mode", Rows(main).SequenceEqual(wanted), string.Join(", ", Rows(main)));
+        wanted.AddRange(["CLASSIC PVP", "ARMOURY", "OPTIONS", "EXIT"]);
+        Check("main menu: WARFRONT first in Musou Mode's old place, no Musou Mode row", Rows(main).SequenceEqual(wanted) && Find(main, "MUSOU MODE") is null, string.Join(", ", Rows(main)));
         Check("main menu: the row exists only with added content and the Warfront build", (_front.WarfrontRow is not null) == added);
         if (!added) { Check("no Warfront row in this build", Find(main, "WARFRONT") is null); return; }
         Check("main menu: the row's tooltip", _front.WarfrontRow!.TooltipText == WarfrontLocal.RowTooltip, _front.WarfrontRow.TooltipText);
-        Check("main menu: the row is a transparent menu row like Musou's", _front.WarfrontRow.GetThemeStylebox("normal") is StyleBoxEmpty
-            && Find(main, "MUSOU MODE")!.ThemeTypeVariation == _front.WarfrontRow.ThemeTypeVariation);
+        Check("main menu: the row is a steel plate like its neighbours", _front.WarfrontRow.ThemeTypeVariation == Find(main, "CLASSIC PVP")!.ThemeTypeVariation && _front.WarfrontRow.Name.ToString().Contains("MenuWarfront"), _front.WarfrontRow.Name);
         await Still("main-menu");
 
-        await Press(main, "MUSOU MODE");
-        var rowsMusou = Rows(_front.MusouPage);
-        Check("Musou's page is unchanged", rowsMusou.Take(3).SequenceEqual(["PLAY ON THIS PC", "HOST LOCAL LOBBY", "JOIN LOCAL LOBBY"]) && rowsMusou[^1] == "BACK", string.Join(", ", rowsMusou));
-        _front.ShowMainMenu();
-        await Frames(3);
-        await Press(main, "PLAYER VERSUS PLAYER");
+        await Press(main, "CLASSIC PVP");
         Check("Classic's lobby page is unchanged", Rows(_front.LobbyPage).Take(3).SequenceEqual(["HOST LOCAL LOBBY", "JOIN SERVER", "JOIN LOCAL LOBBY"]));
         _front.ShowMainMenu();
         await Frames(3);
@@ -154,7 +147,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Press(main, "WARFRONT");
         var page = _front.WarfrontPage;
         Check("page: opens and the main menu is hidden", page is { Visible: true } && !_front.ShowsMainMenu);
-        Check("page: no run gives New campaign, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: no run gives New campaign, Host for friends, Join a friend, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: no summary line without a run", !Texts(page).Any(t => t.StartsWith("DEPLOYMENTS", StringComparison.Ordinal)));
         Check("page: the first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "NEW CAMPAIGN" });
         await Still("page-no-run");
@@ -176,7 +169,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         var before = File.ReadAllBytes(runFile);
         await Press(main, "WARFRONT");
         page = _front.WarfrontPage;
-        Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: the run's one line", Texts(page).Contains("DEPLOYMENTS 0, FRONTS 1 / 1 / 1, LEVEL 1"), string.Join(" | ", Texts(page)));
         Check("page: Continue has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "CONTINUE CAMPAIGN" });
         await Still("page-with-run");
@@ -207,12 +200,12 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("another server running: the page says so and offers Stop server alone", Rows(page).SequenceEqual(["STOP SERVER", "CUSTOMIZER", "BACK"]) && Texts(page).Contains("A SERVER IS RUNNING. STOP IT FIRST."), string.Join(" | ", Rows(page)) + " / " + string.Join(" | ", Texts(page)));
+        Check("another server running: the page says so and offers Stop server alone", Rows(page).SequenceEqual(["STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) && Texts(page).Contains("A SERVER IS RUNNING. STOP IT FIRST."), string.Join(" | ", Rows(page)) + " / " + string.Join(" | ", Texts(page)));
         _front.WarfrontStateForTest = (true, true, true);
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("this game's Warfront server running: only Rejoin and Stop (no New, no Continue)", Rows(page).SequenceEqual(["REJOIN CAMPAIGN", "STOP SERVER", "CUSTOMIZER", "BACK"]) && Find(page!, "NEW CAMPAIGN") is null && Find(page!, "CONTINUE CAMPAIGN") is null, string.Join(", ", Rows(page)));
+        Check("this game's Warfront server running: only Rejoin and Stop (no New, no Continue)", Rows(page).SequenceEqual(["REJOIN CAMPAIGN", "STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) && Find(page!, "NEW CAMPAIGN") is null && Find(page!, "CONTINUE CAMPAIGN") is null, string.Join(", ", Rows(page)));
         Check("this game's Warfront server running: the page says so first", Texts(page).FirstOrDefault() == "THE WARFRONT SERVER IS RUNNING.", string.Join(" | ", Texts(page)));
         await Press(page!, "REJOIN CAMPAIGN");   // sets the Warfront profile; its configuration is read in the background (as while a real server starts)
         for (int i = 0; i < 1200 && !_front.ServicesReadyForTest; i++) await Frames(1);
@@ -263,7 +256,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("page: a finished run gives only New campaign", Rows(page).SequenceEqual(["NEW CAMPAIGN", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: a finished run gives only New campaign", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: the honor roll line", Texts(page).Contains("RUNS 1, VICTORIES 1, FASTEST 41:20"), string.Join(" | ", Texts(page)));
         await Still("page-finished");
         await Press(page!, "NEW CAMPAIGN");

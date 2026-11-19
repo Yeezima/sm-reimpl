@@ -44,10 +44,10 @@ THE FILES, IN ORDER
       asks for a server address and joins it directly (just Enter = this PC)
   @HOSTLAN@
       starts a server that other PCs can join (your network, or the internet)
-  @MUSOU@
-      starts a Musou Mode server that only this PC can join (co-op, up to 4 players)
-  @MUSOULAN@
-      starts a Musou Mode server that other PCs can join (up to 4 players together)
+  @WARFRONT@
+      starts a Warfront server that only this PC can join (the co-op campaign, up to 4 players)
+  @WARFRONTLAN@
+      starts a Warfront server that other PCs can join (up to 4 players together)
   Folders: game\ (the program), mapmaker\ (the map editor's project), server\ (the bundled dedicated server),
   source\ (the source code), notes\ (version, licences, tester notes). You never need to open them.
 
@@ -79,13 +79,13 @@ GETTING INTO A MATCH
     (the server window lists this PC's addresses). Over the internet, forward UDP port 27015 on your router
     to your PC; that does not work behind carrier-grade NAT (CGNAT), where a VPN such as Tailscale or
     ZeroTier does.
-  Musou Mode together (up to 4 players against the Orks)
-    In "@PLAY@" choose MUSOU MODE. PLAY ON THIS PC starts a Musou server for you alone and joins it.
-    HOST LOCAL LOBBY works as for a match: choose "This PC only" or "LAN / Internet" and press
-    HOST MUSOU; friends choose MUSOU MODE, then JOIN LOCAL LOBBY, and type your address (port 27015).
-    Or run "@MUSOULAN@" (or "@MUSOU@" for this PC only) and everyone joins it the same way.
+  Warfront (the campaign, alone or with up to 4 players)
+    In "@PLAY@" choose WARFRONT. NEW CAMPAIGN (or CONTINUE CAMPAIGN) starts a Warfront server for you alone
+    and joins it. HOST FOR FRIENDS opens the host panel: choose "This PC only" or "LAN / Internet" and press
+    HOST WARFRONT; friends choose WARFRONT, then JOIN A FRIEND, and type your address (port 27015).
+    Or run "@WARFRONTLAN@" (or "@WARFRONT@" for this PC only) and everyone joins it the same way.
     All players are Space Marines on one side; a Deploy takes the whole team, and a friend who joins
-    during a battle lands at the landing zone. STOP SERVER in the HOST panel, or STOP MUSOU SERVER
+    during a battle lands at the landing zone. STOP SERVER in the HOST panel, or STOP WARFRONT SERVER
     on the main menu, stops it.
   Everyone in a match must use this same build. Different versions refuse each other on purpose.
 

@@ -9,8 +9,8 @@ public class WarfrontProfileTests
     static readonly SimConfig Config = new();
 
     // Captured on the tree before W1 (claude/warfront 5428594e, the W0 baseline): the switch must not move any of them.
-    const uint MusouSimVersion = 61, ExtrasWireVersion = 2;
-    const ushort ProtocolVersion = 80;
+    const uint MusouSimVersion = 63, ExtrasWireVersion = 2;   // main's numbers since 2026-11-19 (were 61 and 80 on the Warfront branch)
+    const ushort ProtocolVersion = 87;
 
     [Fact]
     public void The_profile_is_musou_and_warfront_and_not_in_extended()
@@ -72,7 +72,7 @@ public class WarfrontProfileTests
         Assert.Equal(ExtrasWireVersion, ContentExtras.WireVersion);
         Assert.Equal(ProtocolVersion, Protocol.Version);
         Assert.Equal(MusouSimVersion, SmSim.Extras.Musou.MusouSim.Version);
-        Assert.Equal(86u, SmSim.Extras.Musou.Campaign.TfwRules.Version);
+        Assert.Equal(88u, SmSim.Extras.Musou.Campaign.TfwRules.Version);
         // Only the faithful hash is literal-pinned elsewhere (ContentProfileTests); literal pins of the extended and Musou hashes come in the separate W0 pins slice.
     }
 

@@ -13,10 +13,10 @@ public class VersionPins
     [Fact]
     public void The_versions_and_flag_sets_are_as_before_Warfront()
     {
-        Assert.Equal(80, (int)Protocol.Version);
+        Assert.Equal(87, (int)Protocol.Version);   // recaptured 2026-11-19 on main 1809fa31 (it was 80, 61 and 86 on 5428594e); Warfront moves none of them
         Assert.Equal(2u, ContentExtras.WireVersion);
-        Assert.Equal(61u, MusouSim.Version);
-        Assert.Equal(86u, TfwRules.Version);
+        Assert.Equal(63u, MusouSim.Version);
+        Assert.Equal(88u, TfwRules.Version);
         Assert.Equal(31u, (uint)ContentExtras.Known);
         Assert.Equal(23u, (uint)ContentExtras.All);
     }

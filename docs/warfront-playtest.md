@@ -38,7 +38,7 @@ Discord is written to `exports\`.
 - The fortress Warboss: with you waiting outside the plaza he walks to an opening, pins on the wall for 2 to 3 s and is put back on his spot (about every 10 s); he
   is at full pace once anyone is inside. His model stands about 5.9 m while his hit body is 13 m (Musou's own row).
 - At the HQ the Orks queue at the keep's doors during the collapse (about 8 % of them); a failsafe lifts them out.
-- The customizer's Back returns to the main menu, not the Warfront page; the Warfront row of the host panel and some page headers say "Musou Mode".
+- (Fixed 2026-11-19, claude/warfront-replaces-musou: the customizer's Back returns to the Warfront page, and the host panel, the armoury badge, the sound tab and the customizer caption say Warfront.)
 
 ## What to check (at most fifteen)
 

@@ -18,7 +18,7 @@ public enum StartScreen { Join, Creator, Appearance }
 public sealed record JoinRequest(string Host, JoinPlan Plan, CustomizerServices Services, SmSim.ContentExtras? Content = null, bool Spectate = false);
 
 /// <summary>
-/// The front end (ui/menu-rebuild, the owner's Half-Life 2 style menu): a shell that waits for the install to be read, then shows the main menu (PLAYER VERSUS PLAYER, MUSOU MODE, OPTIONS,
+/// The front end (ui/menu-rebuild, the owner's Half-Life 2 style menu): a shell that waits for the install to be read, then shows the main menu (PLAYER VERSUS PLAYER, WARFRONT, OPTIONS,
 /// CUSTOMIZER, QUIT) over the shared background image and its pages in turn; the customizer keeps its own dark background. It owns the 1920 x 1080 UI space of the window while it is shown
 /// and gives it back when a match starts. A join goes through <see cref="JoinRequest"/>; <c>ModelViewer</c> turns it into the existing connect path.
 /// </summary>
@@ -35,7 +35,7 @@ public sealed partial class FrontEndView : Control
     CreatorView? _creator;
     AppearanceView? _appearance;
     ControlsView? _controls;
-    UiKit.MenuPage? _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _page;
+    UiKit.MenuPage? _main, _lobby, _hostPage, _joinLocalPage, _extrasPage, _page;
     OptionsView? _options;
     readonly Dictionary<UiKit.MenuPage, Control> _first = new();
     LineEdit? _address;
@@ -48,8 +48,8 @@ public sealed partial class FrontEndView : Control
     public UiKit.MenuPage? LobbyPage => _lobby;
     public UiKit.MenuPage? HostPage => _hostPage;
     public UiKit.MenuPage? JoinLocalPage => _joinLocalPage;
-    /// <summary>MUSOU MODE's page (co-op, 2026-11-06): play on this PC, host a lobby for up to 4 players, join one by address.</summary>
-    public UiKit.MenuPage? MusouPage => _musouPage;
+    /// <summary>The added mode's page (WARFRONT, since 2026-11-19; Musou Mode's before it): campaign, host for friends, join; null before its row was pressed.</summary>
+    public UiKit.MenuPage? ExtrasPage => _extrasPage;
     public OptionsView? Options => _options;
     /// <summary>The Host panel, or null when no server executable was found.</summary>
     public HostPanel? JoinHostPanel => _hostPanel;
@@ -76,7 +76,7 @@ public sealed partial class FrontEndView : Control
 
     /// <summary>Hook for added content (client/Extras/Musou/Tfw/FrontEndView.TfwScreens.cs): screenshot aids for its menu-type pages (<c>--menu-screen tfw-...</c>); nothing without it.</summary>
     partial void ExtrasMenuScreen(string name, ref bool handled);   // EXTRAS-HOOK
-    /// <summary>Hook for added content: rows under MUSOU MODE on the main menu (Warfront's local campaign, client/Extras/FrontEndView.Extras.cs); nothing without it.</summary>
+    /// <summary>Hook for added content: the added mode's rows on the main menu (WARFRONT first, then its STOP SERVER row; client/Extras/FrontEndView.Extras.cs); nothing without it.</summary>
     partial void ExtrasMenuRows(UiKit.MenuPage main);
 
     int _switchedAt, _switchPhase;
@@ -252,24 +252,18 @@ public sealed partial class FrontEndView : Control
     /// <summary>The tree of pages (the owner's menu, 2026-11-01): main, PLAYER VERSUS PLAYER, HOST LOCAL LOBBY, JOIN LOCAL LOBBY and OPTIONS; the customizer and the keybinds are their own screens.</summary>
     void BuildPages()
     {
-        // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
+        // The remembered Musou of an earlier build is not a lobby profile any more: WARFRONT is the way in (a --content musou or warfront launch keeps it).
         if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
-        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. CLASSIC PVP first (the lobby: join or host Annihilation / Seize Ground; the default focus), MUSOU MODE (added content), ARMOURY (the
-        // customizer), OPTIONS, EXIT; STOP MUSOU SERVER still appears under MUSOU MODE while its server runs. The node names are the old rows' (the tests and test aids know them).
+        // The main menu (ui/concept-redesign, panel 01): the concept's order and words. CLASSIC PVP (the lobby: join or host Annihilation / Seize Ground), WARFRONT first and the default focus where added content is built (added content), ARMOURY (the
+        // customizer), OPTIONS, EXIT; STOP WARFRONT SERVER still appears under WARFRONT while its server runs. The node names are the old rows' (the tests and test aids know them).
         var main = new ConceptMainPage();
         var joinRow = UiKit.SteelButton("Classic PvP", () => ShowPage(_lobby!), "Annihilation and Seize Ground: join a server, host one, or join a lobby", "MenuPlayerversusPlayer");
-        // The concept's order again (owner, 2026-11-18: "match the menu 1:1"): MUSOU MODE first where added content is built, and the default focus; a faithful build starts with CLASSIC PVP.
+        // The concept's order again (owner, 2026-11-18: "match the menu 1:1"): WARFRONT (Musou Mode's place, 2026-11-19) first where added content is built, and the default focus; a faithful build starts with CLASSIC PVP.
         _first[main] = joinRow;
         if (ContentExtras.Compiled)   // added content: never in a faithful build
         {
-            var musouRow = UiKit.SteelButton("Musou Mode", ShowMusouPage, "The war of the three fronts: alone on this PC, or up to 4 players together", "MenuMusouMode");
-            main.Rows.AddChild(musouRow);
-            _first[main] = musouRow;
-            _stopMusou = UiKit.SteelButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC", "MenuStopMusouserver");
-            _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
-            main.Rows.AddChild(_stopMusou);
-            ExtrasMenuRows(main);   // EXTRAS-HOOK: Warfront's row under Musou Mode (client/Extras/FrontEndView.Extras.cs)
+            ExtrasMenuRows(main);   // EXTRAS-HOOK: Warfront's row first and the default focus, then its STOP SERVER row (client/Extras/FrontEndView.Extras.cs)
         }
         main.Rows.AddChild(joinRow);
         main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
@@ -301,7 +295,7 @@ public sealed partial class FrontEndView : Control
         lobby.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
         _lobby = lobby;
 
-        var host = new ConceptPanelPage("HostMenu", "Host local lobby", "Host lobby") { PrimaryTexts = ["HOST A MATCH", "HOST MUSOU", "JOIN YOUR SERVER"] };
+        var host = new ConceptPanelPage("HostMenu", "Host local lobby", "Host lobby") { PrimaryTexts = ["HOST A MATCH", "HOST WARFRONT", "JOIN YOUR SERVER"] };
         if (serverExe is not null)
         {
             _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services, () => ShowPage(UpPage));
@@ -321,36 +315,14 @@ public sealed partial class FrontEndView : Control
         joinLocal.Rows.AddChild(UiKit.MenuButton("Back", () => ShowPage(UpPage)));
         _joinLocalPage = joinLocal;
 
-        // MUSOU MODE (co-op, the owner 2026-11-06): the same three ways in as PLAYER VERSUS PLAYER's local lobby, on the Musou profile. PLAY ON THIS PC is the one-press start of
-        // 2026-11-01 (this PC only, joined by itself); HOST LOCAL LOBBY is the Host panel with its reach choice (THIS PC ONLY or LAN / INTERNET, up to 4 players); JOIN LOCAL LOBBY
-        // types a friend's address. Only built with added content (the main menu's row is too).
-        if (ContentExtras.Compiled)
-        {
-            var musouPage = new ConceptPanelPage("MusouMenu", "Play alone or together", "Musou Mode") { PrimaryTexts = ["PLAY ON THIS PC"] };
-            var playHere = UiKit.MenuButton("Play on this PC", StartMusou, "Starts a Musou server on this PC only and joins it");
-            _first[musouPage] = playHere;
-            musouPage.Rows.AddChild(playHere);
-            var musouHost = UiKit.MenuButton("Host local lobby", () => ShowPage(_hostPage!), $"Host Musou Mode for up to {MusouLocal.MaxPlayers} players: this PC only, or LAN / Internet for friends");
-            if (serverExe is null) { musouHost.Disabled = true; musouHost.TooltipText = "No server was found next to the game."; }
-            musouPage.Rows.AddChild(musouHost);
-            musouPage.Rows.AddChild(UiKit.MenuButton("Join local lobby", () => ShowPage(_joinLocalPage!), "A Musou lobby hosted on another PC: type its address"));
-            // Musou Mode's customizer (owner 2026-11-10): the creator on the Musou profile shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns here.
-            // The main menu's CUSTOMIZER stays Classic's. --musou-old-customizer (restore switch) leaves the row out, as before.
-            if (!_args.ContainsKey("musou-old-customizer"))
-                musouPage.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Your Musou loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
-            musouPage.Rows.AddChild(UiKit.MenuGap(0.5f));
-            musouPage.Rows.AddChild(UiKit.MenuText(MusouLocal.CoopNote.ToUpperInvariant(), UiKit.Grey).With(l => l.TooltipText = MusouLocal.CoopNote));
-            musouPage.Rows.AddChild(UiKit.MenuGap(0.5f));
-            musouPage.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
-            _musouPage = musouPage;
-        }
+        // The added mode's page (Warfront's, built by its partial when the row is pressed) is not built here.
 
         var foot = UiKit.VBox(2);
         if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); }));
         foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
-        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }
+        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _extrasPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }
         RefreshContent();
     }
 
@@ -359,7 +331,7 @@ public sealed partial class FrontEndView : Control
     /// <summary>
     /// CONTENT in the lobby menu: Faithful (SM1 multiplayer alone) or Extended (the added content this build has: the Ork Boy, later gore). The choice is remembered next to the profile, is what
     /// the joins and the host use, and must match the server's (a server with another profile refuses the client and says which it runs). A build without added content has only Faithful.
-    /// Musou is not a choice here: it has its own row on the main menu (the owner, 2026-11-01).
+    /// Warfront (and the hidden Musou) is not a choice here: it has its own row on the main menu (the owner, 2026-11-01).
     /// </summary>
     Control BuildContentRow()
     {
@@ -382,7 +354,7 @@ public sealed partial class FrontEndView : Control
         if (hosting == _contentLocked) return;
         _contentLocked = hosting;
         _contentRow.SetDisabled(hosting);
-        if (!hosting && _services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !_inMusou) _services.Content = _services.Settings.ContentExtras;   // a stopped Musou server ends the session's Musou (not while on MUSOU MODE's pages)
+        if (!hosting && _services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !_inExtras) _services.Content = _services.Settings.ContentExtras;   // a stopped Warfront or Musou server ends the session's added mode (not while on WARFRONT's pages)
         RefreshContent();
     }
 
@@ -426,7 +398,7 @@ public sealed partial class FrontEndView : Control
 
     void HideAll()
     {
-        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _musouPage, _options }) if (page is not null) page.Visible = false;
+        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _extrasPage, _options }) if (page is not null) page.Visible = false;
         _controls?.Close();
         _creator!.Visible = false; _appearance!.Visible = false;
         _page = null;
@@ -450,11 +422,11 @@ public sealed partial class FrontEndView : Control
         }
     }
 
-    /// <summary>The main menu. A session's Musou ends here: the lobby's remembered profile is back (unless a server fixes it, or <c>--content musou</c> asked for it).</summary>
+    /// <summary>The main menu. A session's Warfront ends here: the lobby's remembered profile is back (unless a server fixes it, or <c>--content musou|warfront</c> asked for it).</summary>
     public void ShowMainMenu()
     {
         if (!_built) return;
-        _inMusou = false;
+        _inExtras = false;
         if (_services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !HostedServer.Running) _services.Content = _services.Settings.ContentExtras;
         SyncMusouRow();
         string kept = _message?.Text ?? "";
@@ -528,8 +500,8 @@ public sealed partial class FrontEndView : Control
             case "lobby": ShowPage(_lobby!); break;
             case "host": ShowPage(_hostPage!); break;
             case "joinlocal": ShowPage(_joinLocalPage!); break;
-            case "musou": ShowMusouPage(); break;
-            case "musouhost": ShowMusouPage(); ShowPage(_hostPage!); break;
+            case "warfront": ShowWarfrontEntry(); break;
+            case "warfronthost": ShowWarfrontEntry(); ShowPage(_hostPage!); break;
             case "failure": HideAll(); ShowFailure("The install's data folder could not be read: made-up error for a screenshot."); break;   // screenshot aid (ui/overhaul)
             case "dialog": { HideAll(); ShowMainMenu(); UiKit.Dialog.Open(this, this, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], _ => { }); break; }
             case var tfw when tfw.StartsWith("tfw-", StringComparison.OrdinalIgnoreCase): { bool handled = false; ExtrasMenuScreen(tfw, ref handled); break; }   // EXTRAS-HOOK
@@ -574,10 +546,10 @@ public sealed partial class FrontEndView : Control
         _creator.FocusList();
     }
 
-    /// <summary>The creator's BACK: to MUSOU MODE's page when it was opened from there (the session stays Musou), else the main menu.</summary>
+    /// <summary>The creator's BACK: to WARFRONT's page when it was opened from there (the session stays Warfront), else the main menu.</summary>
     void CreatorBack()
     {
-        if (_inMusou && _musouPage is not null) ShowMusouPage();
+        if (_inExtras && _extrasPage is not null) ShowExtrasPage();
         else ShowMainMenu();
     }
 
@@ -628,7 +600,7 @@ public sealed partial class FrontEndView : Control
     {
         if (_page is null || _page == _main || !_page.IsVisibleInTree() || !PadHost.IsBack(e)) return;
         GetViewport().SetInputAsHandled();
-        if (_page == _lobby || _page == _musouPage) ShowMainMenu(); else ShowPage(UpPage);
+        if (_page == _lobby || _page == _extrasPage) ShowMainMenu(); else ShowPage(UpPage);
     }
 
     // ---- joining ----
@@ -659,70 +631,17 @@ public sealed partial class FrontEndView : Control
         if (JoinOverride is { } test) test(request); else _join(request);
     }
 
-    /// <summary>MUSOU MODE's PLAY ON THIS PC (the owner, 2026-11-01; the main menu's one press until the co-op page of 2026-11-06): Musou Mode as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
-    void StartMusou()
+    /// <summary>The added mode's page again (the creator's BACK, the Host panel's and JOIN's): nothing before its row was pressed.</summary>
+    void ShowExtrasPage()
     {
-        var (running, ready, musou) = MusouServerState();
-        switch (MusouLocal.OnPress(_hostPanel is not null, running, ready, musou))
-        {
-            case MusouPress.NoServer: Say("No server was found next to the game, so Musou cannot start.", true); return;
-            case MusouPress.OtherServer: Say("A server is running. Stop it in HOST LOCAL LOBBY first.", true); return;
-            case MusouPress.Wait:   // the first press started it and the Host panel joins by itself once it listens: no second server, no early join
-                Say(MusouLocal.StartingText, false);
-                return;
-            case MusouPress.Join:
-                _services.Content = ContentExtras.Musou;
-                TryJoin(ServerLaunch.LocalHost(HostedServer.Options?.Port ?? ServerLaunch.DefaultPort), remember: false);
-                return;
-        }
-        _services.Content = ContentExtras.Musou;
-        if (MusouOverride is { } test) { test(); return; }
-        _hostPanel!.StartHosting(thisPcOnly: true);   // PLAY ON THIS PC: 127.0.0.1 only, whatever the Host panel's reach row says
-        if (!HostedServer.Running && !_inMusou) _services.Content = _services.Settings.ContentExtras;   // it could not start: the message says why (MUSOU MODE's page keeps the session Musou)
+        if (_extrasPage is null) return;
+        ShowPage(_extrasPage);
     }
 
-    /// <summary>
-    /// Test aid <c>--auto-musou --musou-cycle</c> (fix/musou-local-server end-to-end run): after the first press, presses MUSOU MODE again while the server starts, lets the
-    /// start finish and the client join (the join is logged instead of loading a match), presses it a third time (joins the running server), presses STOP MUSOU SERVER
-    /// and logs whether the very process it started is gone, then quits. Every step prints a "musou-cycle:" line.
-    /// </summary>
-    async void StartMusouCycle()
-    {
-        int joins = 0;
-        JoinOverride = r => { joins++; GD.Print($"musou-cycle: join #{joins} -> {r.Host}, content {ContentProfiles.Name(r.Content ?? ContentExtras.None)}"); };
-        int? pid = HostedServer.ProcessId;
-        GD.Print($"musou-cycle: first press started server pid {pid}, ready {HostedServer.Ready}, bind this PC only {HostedServer.Options?.LocalOnly}, port {HostedServer.Options?.Port}, content {HostedServer.Options?.Content}");
-        await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
-        StartMusou();   // second press while it starts
-        GD.Print($"musou-cycle: second press while starting: server pid {HostedServer.ProcessId} (same: {HostedServer.ProcessId == pid}), joins {joins}, stop row shown {_stopMusou?.Visible}");
-        for (int i = 0; i < 600 && joins < 1 && HostedServer.Running; i++) await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
-        GD.Print($"musou-cycle: start finished: ready {HostedServer.Ready}, joins {joins}");
-        StartMusou();   // third press: a running Musou server is joined
-        GD.Print($"musou-cycle: press on the ready server: joins {joins}, server pid {HostedServer.ProcessId} (same: {HostedServer.ProcessId == pid}), stop row shown {_stopMusou?.Visible}");
-        StopMusou();
-        bool alive = false;
-        if (pid is { } p) { try { alive = !System.Diagnostics.Process.GetProcessById(p).WaitForExit(5000); } catch (ArgumentException) { } }
-        GD.Print($"musou-cycle: STOP MUSOU SERVER: pid {pid} still alive {alive}, running {HostedServer.Running}, stop row shown {_stopMusou?.Visible}, content {ContentProfiles.Name(_services.Content)}");
-        GetTree().Quit();
-    }
+    /// <summary>The page one step up from the Host panel and JOIN LOCAL LOBBY: WARFRONT's while the session is on its pages, else PLAYER VERSUS PLAYER's.</summary>
+    bool _inExtras;   // on WARFRONT's pages (the page, its Host panel or JOIN): the session stays on the Warfront profile there
 
-    /// <summary>
-    /// MUSOU MODE on the main menu: its page, with the session on the Musou profile (the Host panel hosts Musou and a join is a Musou join from here on; the lobby's remembered profile is
-    /// not touched). A running server of another profile keeps its own (the Host panel shows it; a Musou join is still possible).
-    /// </summary>
-    void ShowMusouPage()
-    {
-        if (_musouPage is null) { StartMusou(); return; }
-        var (running, _, musou) = MusouServerState();
-        if (!running || musou) _services.Content = ContentExtras.Musou;
-        _inMusou = true;
-        ShowPage(_musouPage);
-    }
-
-    /// <summary>The page one step up from the Host panel and JOIN LOCAL LOBBY: MUSOU MODE's while the session is Musou, else PLAYER VERSUS PLAYER's.</summary>
-    bool _inMusou;   // on MUSOU MODE's pages (the page, its Host panel or JOIN LOCAL LOBBY): the session stays Musou there
-
-    UiKit.MenuPage UpPage => _musouPage is not null && _inMusou ? _musouPage : _lobby!;
+    UiKit.MenuPage UpPage => _extrasPage is not null && _inExtras ? _extrasPage : _lobby!;
 
     /// <summary>The server this client started: running, listening, and Musou. (Self-test: <see cref="MusouStateForTest"/> stands in.)</summary>
     (bool Running, bool Ready, bool Musou) MusouServerState() =>
@@ -730,16 +649,16 @@ public sealed partial class FrontEndView : Control
 
     public (bool Running, bool Ready, bool Musou)? MusouStateForTest { get; set; }
 
-    /// <summary>STOP MUSOU SERVER: stops the server this client started (only that process), puts the lobby's profile back and hides the row.</summary>
+    /// <summary>STOP WARFRONT SERVER: stops the server this client started (only that process), puts the lobby's profile back and hides the row.</summary>
     void StopMusou()
     {
-        _hostPanel?.StopHosted(MusouLocal.StoppedText);   // HostedServer.Stop: the one process started here; the Host panel's own state is reset with it
+        _hostPanel?.StopHosted("Server stopped.");   // HostedServer.Stop: the one process started here; the Host panel's own state is reset with it
         if (!CommandLineMusou) _services.Content = _services.Settings.ContentExtras;
         SyncMusouRow();
     }
 
     /// <summary>
-    /// STOP MUSOU SERVER's work without the menu (a join's silent retry, <c>ModelViewer</c>, 2026-11-07): stops the server this client started (<see cref="HostedServer.Stop"/>: only that
+    /// STOP WARFRONT SERVER's work without the menu (a join's silent retry, <c>ModelViewer</c>, 2026-11-07): stops the server this client started (<see cref="HostedServer.Stop"/>: only that
     /// process, by its handle) and puts the lobby's remembered profile back, as <see cref="StopMusou"/> does. <paramref name="commandLineMusou"/>: <c>--content musou</c> keeps the profile.
     /// </summary>
     public static void StopOwnMusouServer(CustomizerServices services, bool commandLineMusou)
@@ -748,7 +667,7 @@ public sealed partial class FrontEndView : Control
         if (!commandLineMusou) services.Content = services.Settings.ContentExtras;
     }
 
-    /// <summary>The row follows the server: it is shown while a Musou server of this client runs, wherever the player came from (a match, the Host panel) and when the server dies by itself.</summary>
+    /// <summary>The row follows the server: it is shown while a Warfront (or Musou) server of this client runs, wherever the player came from (a match, the Host panel) and when the server dies by itself.</summary>
     void SyncMusouRow()
     {
         if (_stopMusou is null) return;
@@ -763,9 +682,7 @@ public sealed partial class FrontEndView : Control
 
     /// <summary>Self-test: receives what a join would hand over, so no match starts.</summary>
     public Action<JoinRequest>? JoinOverride { get; set; }
-    /// <summary>Self-test: MUSOU MODE stops before starting the server.</summary>
-    public Action? MusouOverride { get; set; }
-    /// <summary>What the last join asked for.</summary>
+        /// <summary>What the last join asked for.</summary>
     public JoinRequest? LastJoin { get; private set; }
 
     /// <summary>Sets the message line (empty hides it).</summary>
@@ -798,8 +715,6 @@ public sealed partial class FrontEndView : Control
         }
         // --menu-screen lobby|host|joinlocal|graphics|sound|controls: opens that page (screenshots).
         if (args.GetValueOrDefault("menu-screen") is { } menuScreen) ShowMenuPage(menuScreen);
-        if (args.ContainsKey("auto-musou")) StartMusou();   // test aid: presses MUSOU MODE once
-        if (args.ContainsKey("auto-musou") && args.ContainsKey("musou-cycle")) StartMusouCycle();
         if (args.ContainsKey("demo-look")) DemoLook();
         // --loadout <default:role|1..10>: the loadout to open with (held in memory, not saved), as at a --connect launch.
         if (args.GetValueOrDefault("loadout") is { } wanted && LaunchOptions.ParseLoadout(wanted, _services.Catalog!) is { } chosen && LoadoutEdits.IsValid(_services.Session!.Working, chosen))

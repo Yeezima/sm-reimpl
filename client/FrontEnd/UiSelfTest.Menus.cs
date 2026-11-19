@@ -11,7 +11,7 @@ using SmSim;
 namespace SmClient.FrontEnd;
 
 // ui/menu-rebuild (the owner's menu, 2026-11-01): the tree of pages, the fixed JOIN SERVER address, the one address field, the two bot buttons, Musou's row, Esc and B stepping back, the options'
-// persistence and live effects, the layout at the reference's positions. Nothing here starts a server or a match (FrontEndView.JoinOverride, MusouOverride).
+// persistence and live effects, the layout at the reference's positions. Nothing here starts a server or a match (FrontEndView.JoinOverride).
 public sealed partial class UiSelfTest
 {
     static List<string> RowTexts(UiKit.MenuPage page)
@@ -31,16 +31,14 @@ public sealed partial class UiSelfTest
     {
         JoinRequest? joined = null;
         _front.JoinOverride = r => joined = r;
-        bool musouStarted = false;
-        _front.MusouOverride = () => musouStarted = true;
         try
         {
             _front.ShowMainMenu();
             await Frames(4);
             var main = _front.MainPage!;
-            // ui/concept-redesign: the concept's order and words (MUSOU MODE first where added content is built; STOP MUSOU SERVER only while its server runs).
+            // ui/concept-redesign: the concept's order and words (WARFRONT first where added content is built, in Musou Mode's old place; STOP WARFRONT SERVER only while its server runs).
             var wanted = new List<string>();
-            if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");   // owner 2026-11-18: the concept's order, MUSOU MODE first and the default focus
+            if (ContentExtras.Compiled && ContentExtras.WarfrontCompiled) wanted.Add("WARFRONT");   // owner 2026-11-18/19: the concept's order, the added mode first and the default focus
             wanted.Add("CLASSIC PVP");
             wanted.AddRange(["ARMOURY", "OPTIONS", "EXIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
@@ -94,43 +92,42 @@ public sealed partial class UiSelfTest
             await SendKey(Key.Escape);
             Check("menu: Esc stays on the main menu", _front.ShowsMainMenu);
 
-            // Musou: a row of its own; the --musou gate is gone; the remembered profile is not touched. Co-op (2026-11-06): its page has PvP's three ways in.
-            if (ContentExtras.Compiled)
+            // WARFRONT (owner 2026-11-19: it replaced Musou Mode in the menu): a row of its own; the remembered profile is not touched; its page has the campaign, the Host panel (up to 4 friends) and the address page.
+            if (ContentExtras.Compiled && ContentExtras.WarfrontCompiled)
             {
                 string saved = FrontEndSettings.Load(_services.SettingsDirectory).Content;
-                await PressRow("MUSOU MODE", main);
-                var musouPage = _front.MusouPage!;
-                Check("menu: MUSOU MODE opens its page on the Musou profile", musouPage.Visible && !_front.ShowsMainMenu && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                await PressRow("WARFRONT", main);
+                var musouPage = _front.WarfrontPage!;
+                Check("menu: WARFRONT opens its page on the Warfront profile", musouPage.Visible && !_front.ShowsMainMenu && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());
                 var musouRows = RowTexts(musouPage);
-                Check("menu: the Musou page has the three ways in", musouRows.Take(3).SequenceEqual(["PLAY ON THIS PC", "HOST LOCAL LOBBY", "JOIN LOCAL LOBBY"]), string.Join(", ", musouRows));
-                await PressRow("PLAY ON THIS PC", musouPage);
-                Check("menu: PLAY ON THIS PC plays --content musou on this PC", musouStarted && _services.Content == ContentExtras.Musou, _services.Content.ToString());
-                Check("menu: the Host panel's Musou path has no bots", _front.JoinHostPanel is { Musou: true, BotCount: 0 });
-                Check("menu: MUSOU MODE does not change the remembered content", FrontEndSettings.Load(_services.SettingsDirectory).Content == saved);
+                Check("menu: the Warfront page has the campaign, the friends' two ways in, the customizer and Back", musouRows.SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) || musouRows.SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", musouRows));
+                Check("menu: Musou Mode has no row and no page any more", FindButton(main, b => b.Text.Equals("MUSOU MODE", StringComparison.OrdinalIgnoreCase)) is null && !musouRows.Contains("PLAY ON THIS PC"));
+                Check("menu: WARFRONT does not change the remembered content", FrontEndSettings.Load(_services.SettingsDirectory).Content == saved);
                 if (_front.JoinHostPanel is { } musouHost)
                 {
-                    await PressRow("HOST LOCAL LOBBY", musouPage);
-                    Check("menu: the Musou page's HOST LOCAL LOBBY opens the Host panel in Musou", _front.HostPage!.Visible && musouHost.Musou && musouHost.HostButtonText == "HOST MUSOU", musouHost.HostButtonText);
+                    await PressRow("HOST FOR FRIENDS", musouPage);
+                    Check("menu: the Warfront page's HOST FOR FRIENDS opens the Host panel on the Warfront profile, without bots", _front.HostPage!.Visible && musouHost is { Musou: true, Warfront: true, BotCount: 0 } && musouHost.HostButtonText == "HOST WARFRONT", musouHost.HostButtonText);
                     Check("menu: ... where who can join is the player's choice (co-op)", musouHost.Reach.Choosable, musouHost.Reach.ToString());
                     musouHost.ChooseReachForTest(localOnly: false);
                     Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains(MusouLocal.CoopNote, StringComparison.OrdinalIgnoreCase), musouHost.NoteText);
                     musouHost.ChooseReachForTest(localOnly: true);   // tests host this PC only
                     await SendKey(Key.Escape);
-                    Check("menu: Esc on the Musou Host panel goes back to the Musou page", musouPage.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                    Check("menu: Esc on the Warfront Host panel goes back to the Warfront page", musouPage.Visible && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());
                 }
-                await PressRow("JOIN LOCAL LOBBY", musouPage);
-                Check("menu: the Musou page's JOIN LOCAL LOBBY opens the address page", _front.JoinLocalPage!.Visible);
+                for (int ready = 0; ready < 1200 && !_front.ServicesReadyForTest; ready++) await Frames(1);   // the Warfront profile's configuration is read in the background after the change of profile (a join before it is refused: the game data is not ready)
+                await PressRow("JOIN A FRIEND", musouPage);
+                Check("menu: the Warfront page's JOIN A FRIEND opens the address page", _front.JoinLocalPage!.Visible);
                 joined = null;
                 if (FindEdit(_front.JoinLocalPage!) is { } musouAddress) { musouAddress.Text = "127.0.0.1:27199"; await PressRow("CONNECT", _front.JoinLocalPage!); }
-                Check("menu: ... and CONNECT joins that address on the Musou profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentExtras.Musou, joined?.Host ?? "no join");
+                Check("menu: ... and CONNECT joins that address on the Warfront profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentProfiles.WarfrontProfile, joined?.Host ?? "no join");
                 await SendKey(Key.Escape);
-                Check("menu: Esc there goes back to the Musou page", musouPage.Visible);
+                Check("menu: Esc there goes back to the Warfront page", musouPage.Visible);
                 // Musou Mode's customizer (owner 2026-11-10): the Musou page's CUSTOMIZER shows Standard Marines, Librarian and Heretic in place of the factions; BACK returns to the page.
                 if (_front.Creator is { } musouCreator && _services.Session is { Dirty: false })
                 {
                     await PressRow("CUSTOMIZER", musouPage);
                     await Frames(3);
-                    Check("musou customizer: the Musou page's CUSTOMIZER opens the creator on the Musou profile", musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                    Check("musou customizer: the Warfront page's CUSTOMIZER opens the creator on the Warfront profile", musouCreator.Visible && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());
                     Check("musou customizer: Standard Marines, Librarian and Heretic in place of the factions",
                         musouCreator.FindChild("MusouStandardMarines", true, false) is not null && musouCreator.FindChild("MusouLibrarian", true, false) is not null
                         && musouCreator.FindChild("MusouHeretic", true, false) is not null && musouCreator.FindChild("FactionChaos", true, false) is null);
@@ -183,15 +180,15 @@ public sealed partial class UiSelfTest
                                 && session.Stored.Set("musou")?.ClassAt(free) is not null;
                             session.Revert();
                         }
-                        Check("musou customizer: a loadout made on the Musou page goes into Musou's slots, not Classic's", apart && !session.Dirty
+                        Check("musou customizer: a loadout made on the Warfront page goes into the Musou loadout slots, not Classic's", apart && !session.Dirty
                             && session.Working.ClassAt(SmContent.Customization.CustomizationProfile.MaxCustomClasses + 1) is null, $"slot {free}");
                     }
                     await SendKey(Key.Escape);
                     await Frames(2);
-                    Check("musou customizer: BACK returns to the Musou page", musouPage.Visible && !musouCreator.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                    Check("musou customizer: BACK returns to the Warfront page", musouPage.Visible && !musouCreator.Visible && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());
                 }
                 await SendKey(Key.Escape);
-                Check("menu: Esc on the Musou page goes to the main menu", _front.ShowsMainMenu);
+                Check("menu: Esc on the Warfront page goes to the main menu", _front.ShowsMainMenu);
                 joined = null;
                 _front.ShowMainMenu();
                 await Frames(3);
@@ -206,41 +203,30 @@ public sealed partial class UiSelfTest
                     await Frames(3);
                 }
 
-                // fix/musou-local-server: STOP MUSOU SERVER under MUSOU MODE, only while a Musou server of this client runs; a press while it starts waits.
-                Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
+                // STOP WARFRONT SERVER under WARFRONT, only while a Warfront (or Musou) server of this client runs.
+                Check("menu: no server, no STOP WARFRONT SERVER row", FindButton(main, b => b.Text.Equals("STOP WARFRONT SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, true, false);   // another profile's server (the Host panel's)
                 await Frames(3);
-                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
-                _front.MusouStateForTest = (true, false, true);   // Musou, still starting
+                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text.Equals("STOP WARFRONT SERVER", StringComparison.OrdinalIgnoreCase)) is null);
+                _front.MusouStateForTest = (true, false, true);   // Warfront, still starting
                 await Frames(3);
-                var stopRow = FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase));
-                var musouRow = FindButton(main, b => b.Text.Equals("MUSOU MODE", StringComparison.OrdinalIgnoreCase));
-                Check("menu: a starting Musou server shows STOP MUSOU SERVER directly under MUSOU MODE", stopRow is not null && musouRow is not null
+                var stopRow = FindButton(main, b => b.Text.Equals("STOP WARFRONT SERVER", StringComparison.OrdinalIgnoreCase));
+                var musouRow = FindButton(main, b => b.Text.Equals("WARFRONT", StringComparison.OrdinalIgnoreCase));
+                Check("menu: a starting Warfront server shows STOP WARFRONT SERVER directly under WARFRONT", stopRow is not null && musouRow is not null
                       && stopRow.GetParent() == musouRow.GetParent() && stopRow.GetIndex() == musouRow.GetIndex() + 1);
-                musouStarted = false; joined = null;
-                await PressRow("MUSOU MODE", main);
-                await PressRow("PLAY ON THIS PC", _front.MusouPage!);
-                Check("menu: a press while the server starts neither starts a second server nor joins", !musouStarted && joined is null);
-                Check("menu: ... and the player is told it is starting", AllLabels(_front).Any(l => l.Visible && l.Text == MusouLocal.StartingText));
-                _front.MusouStateForTest = (true, true, true);    // listening
-                await Frames(2);
-                await PressRow("MUSOU MODE", main);
-                await PressRow("PLAY ON THIS PC", _front.MusouPage!);
-                Check("menu: a press on a ready Musou server joins it on this PC, Musou", !musouStarted && joined is { Host: var h } && h.StartsWith("127.0.0.1", StringComparison.Ordinal) && _services.Content == ContentExtras.Musou, joined?.Host ?? "no join");
                 _front.ShowMainMenu();
                 await Frames(3);
-                await PressRow("STOP MUSOU SERVER", main);
-                Check("menu: STOP MUSOU SERVER puts the lobby's profile back", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
+                await PressRow("STOP WARFRONT SERVER", main);
+                Check("menu: STOP WARFRONT SERVER puts the lobby's profile back", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
                 _front.MusouStateForTest = (false, false, false); // the process ended
                 await Frames(3);
-                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
+                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text.Equals("STOP WARFRONT SERVER", StringComparison.OrdinalIgnoreCase)) is null);
                 _front.MusouStateForTest = (true, true, true);
                 await Frames(3);
-                Check("menu: the row follows a Musou server again (back from a match)", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is not null);
+                Check("menu: the row follows a Warfront server again (back from a match)", FindButton(main, b => b.Text.Equals("STOP WARFRONT SERVER", StringComparison.OrdinalIgnoreCase)) is not null);
                 _front.MusouStateForTest = (false, false, false); // the server died by itself
                 await Frames(3);
-                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text.Equals("STOP MUSOU SERVER", StringComparison.OrdinalIgnoreCase)) is null);
-                _front.MusouStateForTest = null;
+                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text.Equals("STOP WARFRONT SERVER", StringComparison.OrdinalIgnoreCase)) is null);                _front.MusouStateForTest = null;
                 _services.Content = _services.Settings.ContentExtras;
             }
 
@@ -277,7 +263,7 @@ public sealed partial class UiSelfTest
         finally
         {
             _front.JoinOverride = null;
-            _front.MusouOverride = null;
+        
             _front.ShowMainMenu();
             await Frames(2);
         }

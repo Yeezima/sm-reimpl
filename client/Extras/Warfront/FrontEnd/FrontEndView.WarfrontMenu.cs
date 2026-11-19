@@ -12,8 +12,8 @@ using SmSim;
 namespace SmClient.FrontEnd;
 
 /// <summary>
-/// The main menu's WARFRONT row and its pages (slice W16; owner's answer 3: a local campaign only he can join, the server run by his PC). Pages: CONTINUE CAMPAIGN (only with a run in progress, with its
-/// one-line summary), NEW CAMPAIGN (asks first when a run is on disk), the Musou customizer and BACK; PREPARING THE BATTLEFIELD while the server starts. The server is the Warfront supervisor, started
+/// The main menu's WARFRONT row and its pages (slice W16; owner's answer 3: a local campaign only he can join, the server run by his PC; since 2026-11-19 the row that replaced Musou Mode). Pages: CONTINUE CAMPAIGN (only with a run in progress, with its
+/// one-line summary), NEW CAMPAIGN (asks first when a run is on disk), HOST FOR FRIENDS (the Host panel on the Warfront profile), JOIN A FRIEND (the address page), the customizer and BACK; PREPARING THE BATTLEFIELD while the server starts. The server is the Warfront supervisor, started
 /// through <see cref="HostedServer"/> (<c>--bind 127.0.0.1</c>, one human, <see cref="WarfrontLocal.Options"/>); the page joins it once it listens. The rules and texts are <see cref="WarfrontLocal"/>.
 /// The pages use the menu's own rows, tooltips and text sizes; no painted labels. A server this client started is stopped when the player comes back to the menu (a failed join keeps it for one retry).
 /// </summary>
@@ -61,13 +61,17 @@ public sealed partial class FrontEndView
     partial void WarfrontMenuRows(UiKit.MenuPage main)
     {
         if (!ContentExtras.WarfrontCompiled) return;
-        WarfrontRow = UiKit.MenuButton(WarfrontLocal.RowText, ShowWarfrontPage, WarfrontLocal.RowTooltip);
+        // WARFRONT replaces Musou Mode in its place (owner 2026-11-19): the first row and the default focus; STOP WARFRONT SERVER right under it while this game's server runs.
+        WarfrontRow = UiKit.SteelButton(WarfrontLocal.RowText, ShowWarfrontEntry, WarfrontLocal.RowTooltip, "MenuWarfront");
         main.Rows.AddChild(WarfrontRow);
+        _first[main] = WarfrontRow;
+        _stopMusou = UiKit.SteelButton(WarfrontLocal.StopServerRowText, StopMusou, "Stops the Warfront server this game started on this PC", "MenuStopWarfrontserver");
+        _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
+        main.Rows.AddChild(_stopMusou);
         AddChild(new WarfrontMenuWatcher(WarfrontTick, WarfrontBack));
         WarfrontAtMenu();
         if (_args.ContainsKey("warfront-selftest")) AddChild(new WarfrontLocalSelfTest(this));
     }
-
     /// <summary>The front end is built: a server this client started is stopped when the player left a match (a failed join keeps it for one retry).</summary>
     void WarfrontAtMenu()
     {
@@ -96,14 +100,20 @@ public sealed partial class FrontEndView
     (bool Running, bool Ready, bool Warfront) WarfrontServerState() =>
         WarfrontStateForTest ?? (HostedServer.Running, HostedServer.Ready, HostedServer.Options is { Content: ContentProfiles.Warfront });
 
+    /// <summary>The WARFRONT row: the page, with the session on the Warfront profile (the Host panel hosts Warfront and a join is a Warfront join from here on; the lobby's remembered profile is not touched).</summary>
+    void ShowWarfrontEntry() => ShowWarfrontPage();
+
     void ShowWarfrontPage()
     {
         if (!_built) return;
         var (running, _, warfront) = WarfrontServerState();
+        if (!running || warfront) _services.Content = ContentProfiles.WarfrontProfile;
+        _inExtras = true;
         var run = WarfrontLocal.ReadRun(WarfrontDir);
         string? honor = WarfrontLocal.HonorLine(WarfrontDir);
         _wfPage?.QueueFree();
-        var page = new UiKit.MenuPage("WarfrontMenu", WarfrontLocal.PageTitle) { Visible = false };
+        // The page of the concept redesign (the same frame as every menu that is not the main menu): its rows are the menu's own, one lettering per level, no painted labels.
+        var page = new ConceptPanelPage("WarfrontMenu", WarfrontLocal.PageHeading, WarfrontLocal.PageTitle) { Visible = false, PrimaryTexts = [WarfrontLocal.ContinueRow.ToUpperInvariant(), WarfrontLocal.RejoinRow.ToUpperInvariant(), WarfrontLocal.NewRow.ToUpperInvariant()] };
         Control? first = null;
         var choices = WarfrontLocal.Choices(run, running, warfront);
         if (running)
@@ -127,22 +137,30 @@ public sealed partial class FrontEndView
                 page.Rows.AddChild(cont);
                 page.Rows.AddChild(UiKit.MenuText(run.Line, UiKit.Grey).With(l => l.TooltipText = run.Line));
             }
-            var fresh = UiKit.MenuButton(WarfrontLocal.NewRow, () => WarfrontNew(run), "Starts a new campaign");
+            var fresh = UiKit.MenuButton(WarfrontLocal.NewRow, () => WarfrontNew(run), "Starts a new campaign on this PC: only you can join it");
             first ??= fresh;
             page.Rows.AddChild(fresh);
         }
         if (honor is not null) page.Rows.AddChild(UiKit.MenuText(honor, UiKit.Grey).With(l => l.TooltipText = honor));
+        // The friends' ways in, the same two as Classic PvP's lobby: the Host panel on the Warfront profile (this PC only, or LAN / Internet, up to 4 players) and the address page.
+        var hostRow = UiKit.MenuButton(WarfrontLocal.HostRow, () => ShowPage(_hostPage!), $"Host the Warfront for up to {WarfrontLocal.MaxFriends} players: this PC only, or LAN / Internet for friends");
+        if (!HasHostPanel) { hostRow.Disabled = true; hostRow.TooltipText = WarfrontLocal.NoServerText; }
+        else if (running) { hostRow.Disabled = true; hostRow.TooltipText = "A server of this game is running. Stop it first."; }
+        page.Rows.AddChild(hostRow);
+        page.Rows.AddChild(UiKit.MenuButton(WarfrontLocal.JoinRow, () => ShowPage(_joinLocalPage!), "A Warfront hosted on another PC: type its address"));
+        page.Rows.AddChild(UiKit.MenuButton("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
         page.Rows.AddChild(UiKit.MenuGap(0.5f));
-        page.Rows.AddChild(UiKit.MenuButton("Customizer", WarfrontCustomizer, "Your Musou loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
+        page.Rows.AddChild(UiKit.MenuText(WarfrontLocal.CoopNote.ToUpperInvariant(), UiKit.Grey).With(l => l.TooltipText = WarfrontLocal.CoopNote));
+        page.Rows.AddChild(UiKit.MenuGap(0.5f));
         page.Rows.AddChild(UiKit.MenuButton("Back", WarfrontBackToMain));
         _first[page] = first;
         AddChild(page);
         _wfPage = page;
+        _extrasPage = page;
         WarfrontHidePages();
         ShowPage(page);
         _page = null;   // the watcher takes this page's Esc and B (the front end's own step back leads to PLAYER VERSUS PLAYER)
     }
-
     /// <summary>Self-test: opens the page again (it is rebuilt from the run folder each time).</summary>
     internal void ShowWarfrontPageForTest() => ShowWarfrontPage();
 
@@ -161,7 +179,7 @@ public sealed partial class FrontEndView
     void WarfrontCustomizer()
     {
         WarfrontHidePages();
-        _services.Content = ContentExtras.Musou;   // the Musou profile's creator, as Musou Mode's page opens it; its BACK returns to the main menu, which puts the lobby's profile back
+        _services.Content = ContentProfiles.WarfrontProfile;   // the creator on the Warfront profile (Musou's loadouts: Standard Marines, the Librarian, the Heretic); its BACK (CreatorBack, _inExtras) returns to this page
         ShowCreator();
     }
 
@@ -286,7 +304,7 @@ public sealed partial class FrontEndView
     void WarfrontTick()
     {
         if (_built) WarfrontAids();
-        if (_page is not null) WarfrontHidePages();   // another page took over (the front end sets _page; Warfront's pages leave it null)
+        if (_page is not null && _page != _wfPage) WarfrontHidePages();   // another page took over (the front end sets _page; Warfront's pages leave it null)
         if (!_wfPending) return;
         WarfrontLogServerLines();
         double elapsed = Time.GetTicksMsec() / 1000.0 - _wfStartedAt;

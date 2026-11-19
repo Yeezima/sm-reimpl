@@ -49,8 +49,15 @@ public sealed record WarfrontRunInfo(WarfrontRunKind Kind, string Line)
 public static class WarfrontLocal
 {
     public const string RowText = "Warfront";
-    public const string RowTooltip = "A campaign of three fronts on this PC: your squad against the Ork fortress";
+    public const string RowTooltip = "A campaign of three fronts: your squad against the Ork fortress, alone on this PC or with up to 4 friends";
     public const string PageTitle = "Warfront";
+    /// <summary>The strip under the page's title (where the page is).</summary>
+    public const string PageHeading = "Campaign alone or together";
+    /// <summary>Most players in one Warfront (the server's <c>--warfront-max-humans</c> default and cap).</summary>
+    public const int MaxFriends = 4;
+    public const string HostRow = "Host for friends", JoinRow = "Join a friend";
+    public const string StopServerRowText = "Stop Warfront server";
+    public const string CoopNote = "Up to 4 players fight together as Space Marines and their squads. New campaign and Continue play on this PC alone; host for friends (LAN / Internet) and they join by address.";
 
     public const string ConfirmTitle = "START A NEW CAMPAIGN?";
     public const string ConfirmBody = "THE CURRENT ONE IS ARCHIVED AS ABANDONED.";

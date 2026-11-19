@@ -408,8 +408,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
         // polish pass P1 (2026-11-10): in safe mode (the Compatibility renderer) the grime is always FAST (SafeMode.GrimeFoldedInSafeMode, a core flag: nothing from Extras/ here); the row shows it and rests.
         bool grimeForced = SafeMode.GrimeFoldedInSafeMode;
         var grimeRow = new UiKit.MenuChoice("Ashfall grime", ["EXACT (OVERLAY)", "FAST (FOLDED, WEAK GPUS)"], grimeForced || O.GrimeFast ? 1 : 0, i => Set(x => x with { GrimeFast = i == 1 }),
-            grimeForced ? "Musou Mode's Ashfall only. In old GPU / safe mode the grime is always FAST (worked into the ruins' own materials): the extra overlay pass is what the Compatibility renderer pays most for."
-                        : "Musou Mode's Ashfall only. EXACT draws the dirt and soot as an extra pass over the ruins. FAST works it into the ruins' own materials: the ruins are drawn once instead of three times, the look is close but not exact. Takes effect at once.");
+            grimeForced ? "Warfront's Ashfall only. In old GPU / safe mode the grime is always FAST (worked into the ruins' own materials): the extra overlay pass is what the Compatibility renderer pays most for."
+                        : "Warfront's Ashfall only. EXACT draws the dirt and soot as an extra pass over the ruins. FAST works it into the ruins' own materials: the ruins are drawn once instead of three times, the look is close but not exact. Takes effect at once.");
         grimeRow.Name = "AshfallGrimeRow";
         grimeRow.SetDisabled(grimeForced);
         Add(grimeRow);
@@ -440,7 +440,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Add(new UiKit.MenuSlider("Camera shake", 0, 1, GameOptions.AccessibilityStep, O.CameraShake, Percent, v => Set(x => x with { CameraShake = (float)v }), "CameraShakeSlider",
             "How much the camera shakes and kicks at blasts, hits, landings and heavy shots. 100% is the game's own; 0% turns it off."));
         Add(new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
-            "How strong the flashes over the whole screen are (a krak grenade close by, Musou Mode's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
+            "How strong the flashes over the whole screen are (a krak grenade close by, Warfront's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
         Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
     }
 

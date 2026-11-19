@@ -16,7 +16,7 @@ public static partial class UiTextureBuilder
     /// <summary>Margins of the button textures around the plate rectangle: sides, a dark plate's top and bottom, the gold plate's top and bottom (the gold plate is taller; its glow reaches above and below).</summary>
     public const float TexSide = 4f, TexDarkV = 3.85f, TexGoldTop = 7.7f, TexGoldBottom = 4f;
     /// <summary>The five labels, in the order of the live rows; <c>Id</c> names the texture files.</summary>
-    public static readonly (string Id, string Text)[] ButtonLabels = [("classic", "CLASSIC PVP"), ("musou", "MUSOU MODE"), ("armoury", "ARMOURY"), ("options", "OPTIONS"), ("exit", "EXIT"), ("stop", "STOP MUSOU SERVER")];
+    public static readonly (string Id, string Text)[] ButtonLabels = [("classic", "CLASSIC PVP"), ("musou", "WARFRONT"), ("armoury", "ARMOURY"), ("options", "OPTIONS"), ("exit", "EXIT"), ("stop", "STOP WARFRONT SERVER")];
 
     // Where each label stands in the concept: the plate's top (measured on the crop) and the painted text's box (x, y, w, h), crop pixels. Row 0 is the gold MUSOU MODE plate (top is its glow's top).
     static readonly float[] SrcTop = [284f, 334.6f, 376.7f, 419.7f, 462.9f];
