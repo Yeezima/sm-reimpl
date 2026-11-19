@@ -19,6 +19,9 @@ public partial class MapmakerRoot : Node3D
 
     public MapView? Backdrop => _backdrop;
 
+    /// <summary>The SM1 map the backdrop draws (null when none is shown).</summary>
+    public Sm1Source? BackdropSource { get; private set; }
+
     public override void _EnterTree()
     {
         // A saved scene may carry owned object nodes from an earlier session; the document is the truth, so they are rebuilt from it.
@@ -32,6 +35,7 @@ public partial class MapmakerRoot : Node3D
     public void ShowBackdrop(Sm1Source? source, List<string> notes)
     {
         if (_backdropSpace is not null) { RemoveChild(_backdropSpace); _backdropSpace.QueueFree(); _backdropSpace = null; _backdrop = null; }
+        BackdropSource = source;
         if (source is null) return;
         _backdrop = source.BuildBackdrop(notes);
         // MapView lives in game space (Z up); the parent converts to Y up. No owner is set on purpose.

@@ -270,6 +270,7 @@ public sealed class LibraryTest(MapmakerPlugin plugin, MapmakerDock dock)
         {
             if (source == 0 && !sm1) continue;
             dock.TestShowSource(source);
+            if (source == 0 && MapHost.Sm1 is { } opened) dock.TestFilterMap(opened.Map);   // pictures need the map in memory: list just the opened one
             var stats = (0, 0, 0);
             bool settled = await Until(() => { stats = dock.LibraryStats(); return stats.Item1 > 0 && stats.Item2 + 0 >= Math.Min(stats.Item1, source == 0 ? 80 : stats.Item1) && true; }, source == 0 ? 120 : 60);
             await Frames(20);
@@ -284,6 +285,7 @@ public sealed class LibraryTest(MapmakerPlugin plugin, MapmakerDock dock)
         if (sm1 && Thumbnails.CanRender)
         {
             dock.TestShowSource(0);
+            if (MapHost.Sm1 is { } opened0) dock.TestFilterMap(opened0.Map);
             await Until(() => dock.LibraryStats() is var st && st.Item2 >= Math.Min(st.Item1, 300), 120);
             var st2 = dock.LibraryStats();
             Check(st2.Item2 >= Math.Min(st2.Item1, 300), $"background queue goes past the old 60-row limit ({st2.Item2}/{st2.Item1})");
