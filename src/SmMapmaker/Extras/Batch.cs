@@ -45,6 +45,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
                 Doc.Modes = modes;
                 break;
             }
+            case "set-grid": Doc.Grid = Doc.Grid.Apply(op); break;   // editor only: the 3D view's grid (docs/mapmaker.md "Grid")
             case "transform": Transform(op); break;
             case "duplicate": Duplicate(op); break;
             case "delete": Delete(op); break;

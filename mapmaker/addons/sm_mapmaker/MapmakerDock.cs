@@ -1134,6 +1134,7 @@ public partial class MapmakerDock : VBoxContainer
     {
         _refreshing = true;
         var s = _plugin.Session;
+        RefreshGrid();
         _title.Text = s is null ? "No map open (New map or Open map)" : $"{s.Name}{(_plugin.Dirty ? " *" : "")}  -  {(s.Path ?? "unsaved")}";
         _title.TooltipText = _title.Text;
         _toolSelect.SetPressedNoSignal(MapHost.Tool == Tool.Select); _toolPick.SetPressedNoSignal(MapHost.Tool == Tool.PickSm1); _toolPlace.SetPressedNoSignal(MapHost.Tool == Tool.Place);

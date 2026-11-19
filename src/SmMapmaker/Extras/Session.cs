@@ -178,6 +178,7 @@ public sealed class MapSession
         Document.Objects.AddRange(from.Objects);
         Document.Groups.Clear();
         Document.Groups.AddRange(from.Groups);
+        Document.Grid = from.Grid;
     }
 
     void Touch()
