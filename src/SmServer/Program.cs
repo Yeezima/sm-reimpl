@@ -578,10 +578,9 @@ server.Stepped += world =>
 Console.WriteLine($"smserver on UDP {port}; protocol {Protocol.Version}; content {fingerprint:X16}; config {config.Hash():X16}; {config.TickRate} Hz");
 #if SM_WARFRONT
 // Dedicated Warfront stage: SIGTERM (systemd's KillMode=control-group reaches the child too) and Ctrl+C ask for the same save-and-leave as stop.request; the loop below exits 0 after the save.
-System.Runtime.InteropServices.PosixSignalRegistration? warfrontTerm = null;
 if (cli.WarfrontDedicated && cli.WarfrontStage)
 {
-    try { warfrontTerm = System.Runtime.InteropServices.PosixSignalRegistration.Create(System.Runtime.InteropServices.PosixSignal.SIGTERM, ctx => { ctx.Cancel = true; WarfrontRunFiles.StopSignal = true; }); }
+    try { WarfrontRunFiles.TermRegistration = System.Runtime.InteropServices.PosixSignalRegistration.Create(System.Runtime.InteropServices.PosixSignal.SIGTERM, ctx => { ctx.Cancel = true; WarfrontRunFiles.StopSignal = true; }); }
     catch (Exception e) when (e is PlatformNotSupportedException or NotSupportedException) { }
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; WarfrontRunFiles.StopSignal = true; };
 }

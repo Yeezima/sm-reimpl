@@ -27,6 +27,8 @@ static class WarfrontRunFiles
 
     /// <summary>Set by a dedicated stage child's SIGTERM or Ctrl+C handler: the stage saves and leaves with code 0 at its next tick.</summary>
     internal static volatile bool StopSignal;
+    /// <summary>The stage child's SIGTERM registration, held for the process life (a local could be collected and unregister the handler).</summary>
+    internal static IDisposable? TermRegistration;
 
     /// <summary>Written into the run folder by a dedicated supervisor that got SIGTERM: the stage child saves and leaves with code 0 at its next once-a-second check (same path as "the supervisor is gone").</summary>
     public const string StopFile = "stop.request";
