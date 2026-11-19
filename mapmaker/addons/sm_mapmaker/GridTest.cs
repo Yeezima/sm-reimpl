@@ -149,7 +149,7 @@ public sealed class GridTest(MapmakerPlugin plugin)
             var saved = plugin.CurrentGrid;
             Check(plugin.SaveMap(path), "saved");
             string text = File.ReadAllText(path);
-            Check(text.Contains("\"grid\"") && !text.Contains("formatVersion\": 3"), "the file carries a grid object, formatVersion unchanged");
+            Check(text.Contains("\"grid\"") && text.Contains($"\"formatVersion\": {MapDocument.FormatVersion}"), "the file carries a grid object and the current formatVersion");
             plugin.NewMap("other");
             await Frames(3);
             Check(plugin.CurrentGrid == MapGrid.Default, "another new map has the defaults again");

@@ -19,6 +19,9 @@ public sealed class EditorSm1Source : ISm1Source
 
     public Sm1Spawns? LoadSpawns(string map) => _fallback?.LoadSpawns(map);
 
+    /// <summary>Classic's walls, kill boxes and cover come from the core's reader (the game server's view of the map); without this an import and a refresh would bring none.</summary>
+    public Sm1Gameplay? LoadGameplay(string map) => _fallback?.LoadGameplay(map);
+
     /// <summary>Forget what was derived (after a map was reloaded).</summary>
     public void Invalidate() => _cache.Clear();
 

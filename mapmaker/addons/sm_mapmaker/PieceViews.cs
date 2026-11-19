@@ -11,7 +11,7 @@ namespace SmMapmakerEditor;
 /// </summary>
 public static class PieceViews
 {
-    public static readonly Color Marines = new(0.25f, 0.5f, 1f), Chaos = new(1f, 0.3f, 0.25f), Point = new(1f, 0.85f, 0.2f), Kill = new(0.9f, 0.15f, 0.55f), Solid = new(0.62f, 0.64f, 0.68f);
+    public static readonly Color Marines = new(0.25f, 0.5f, 1f), Chaos = new(1f, 0.3f, 0.25f), Point = new(1f, 0.85f, 0.2f), Kill = new(0.9f, 0.15f, 0.55f), Wall = new(0.15f, 0.85f, 0.8f), Cover = new(1f, 0.6f, 0.15f), Solid = new(0.62f, 0.64f, 0.68f);
 
     public static Color ColourOf(PieceSpec p) => p.Kind switch
     {
@@ -20,6 +20,8 @@ public static class PieceViews
         PieceKind.KillZone => Kill,
         PieceKind.Ramp => new Color(0.55f, 0.7f, 0.85f),
         PieceKind.CollisionBox => new Color(0.8f, 0.8f, 0.8f),
+        PieceKind.MoveWall => Wall,   // teal, see-through: the players-only wall (distinct from the grey Invisible wall)
+        PieceKind.Cover => Cover,     // orange, see-through: the shoot-through cover
         _ => Solid,
     };
 
@@ -29,7 +31,7 @@ public static class PieceViews
         var root = new Node3D { Basis = Frame.C };
         var colour = ColourOf(piece);
         var info = piece.Info;
-        (System.Numerics.Vector3[] V, int[] I) shape = piece.Kind == PieceKind.CapturePoint ? PieceMesh.Cylinder(40)
+        (System.Numerics.Vector3[] V, int[] I) shape = piece.Kind == PieceKind.CapturePoint || piece is { Kind: PieceKind.MoveWall, Shape: PieceSpec.CylinderShape } ? PieceMesh.Cylinder(40)
             : PieceMesh.Unit(piece.Kind) ?? PieceMesh.MarkerBox();
         var mesh = Flat(shape.V, shape.I);
         StandardMaterial3D material;
@@ -38,7 +40,7 @@ public static class PieceViews
         else
             material = new StandardMaterial3D
             {
-                AlbedoColor = new Color(colour, piece.Kind == PieceKind.CollisionBox ? 0.18f : 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                AlbedoColor = new Color(colour, piece.Kind == PieceKind.CollisionBox ? 0.18f : piece.Kind is PieceKind.MoveWall or PieceKind.Cover ? 0.24f : 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             };
         root.AddChild(new MeshInstance3D { Name = "Shape", Mesh = mesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
@@ -48,7 +50,23 @@ public static class PieceViews
         if (arrow || wire)
         {
             var lines = new ImmediateMesh();
-            if (wire)
+            if (wire && piece.IsCylinder)
+            {
+                lines.SurfaceBegin(Mesh.PrimitiveType.Lines);
+                const int n = 24;
+                for (int i = 0; i < n; i++)
+                {
+                    float a0 = i * Mathf.Tau / n, a1 = (i + 1) * Mathf.Tau / n;
+                    foreach (float z in new[] { 0f, 1f })
+                    {
+                        lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a0), 0.5f * Mathf.Sin(a0), z));
+                        lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a1), 0.5f * Mathf.Sin(a1), z));
+                    }
+                    if (i % 6 == 0) { lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a0), 0.5f * Mathf.Sin(a0), 0)); lines.SurfaceAddVertex(new Vector3(0.5f * Mathf.Cos(a0), 0.5f * Mathf.Sin(a0), 1)); }
+                }
+                lines.SurfaceEnd();
+            }
+            else if (wire)
             {
                 lines.SurfaceBegin(Mesh.PrimitiveType.Lines);
                 foreach (var (a, b) in new[] { (0, 1), (2, 3), (4, 5), (6, 7), (0, 2), (1, 3), (4, 6), (5, 7), (0, 4), (1, 5), (2, 6), (3, 7) })

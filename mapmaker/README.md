@@ -27,6 +27,7 @@ Tabs, in work order: Map, Library, Build, Object, Prefab, Test (the mouse tool a
 7. Map > **Grid** (after Snap): show, colour, cell size, height (**From selection** = lowest point of the selection) and draw-over-objects for the 3D view's fixed grid. It never
    changes with zoom (Godot's own grid is switched off while a Mapmaker scene is open and given back afterwards), is saved with the map (editor only: no effect in the game or
    its hash) and each change is one undo step. Test aid: `--mm-grid`.
+8. Map > **Look** (**Look from SM1 map**: draws the map in play with an original map's lighting and sky; players need that map installed) and, in SM1 reference map, **Refresh from Classic**: compares an imported map with what Classic has now and opens a dialog (Added is inserted automatically; Removed, Changed and your deletions have checkboxes; edited-by-you items are marked); **Apply selected**, **Apply all I haven't edited** or Cancel, one undo step. Build > **Classic walls and cover** has Invisible wall (players only) and Cover (shoot-through); the Object tab sets a wall's shape; the Scene tab greys objects Classic hides and can list only those. Test aid: `--mm-classic`.
 Undo/redo is Godot's own (Ctrl+Z / Ctrl+Shift+Z); every step restores the document (and prefab files) as they were.
 
 ## Notes

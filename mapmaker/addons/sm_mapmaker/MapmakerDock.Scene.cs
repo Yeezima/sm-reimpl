@@ -65,6 +65,7 @@ public partial class MapmakerDock
     {
         var v = Page();
         Section(v, "Objects", "Drag an object onto another to make it a child (it then follows its parent). Drag onto empty space to unparent. Works for any kind of object. Dragging in Godot's Scene dock does the same.");
+        HiddenFilterRow(v);
         v.AddChild(_objectTree);
         v.AddChild(Row(Btn("Make child of...", ShowParentPicker, "Choose the parent for the selected objects."), Btn("Unparent", () => _plugin.SetParentOf(_plugin.SelectedIds().ToList(), null), "Takes the selected objects out of their parent; they stay where they are.")));
         Section(v, "Groups", "A group is a named set of objects you select together. Click an object to select only it; click a group (or double-click one of its objects in the 3D view) to select the whole group. Groups can hold smaller groups. They are only for editing: nothing changes in the game.");
@@ -145,18 +146,35 @@ public partial class MapmakerDock
 
     static string RowText(MapObject o) => $"{o.Name}  ({o.Id})";
 
+    /// <summary>One Objects row; an object that is switched off (Classic hides it, or you did) is greyed.</summary>
+    TreeItem AddRow(TreeItem parent, MapObject o)
+    {
+        var item = _objectTree.CreateItem(parent);
+        item.SetText(0, TreeText(o)); item.SetMetadata(0, o.Id); item.SetTooltipText(0, o.Src is { ClassicHidden: true } ? $"{o.Id}: Classic hides this object in play" : o.Id);
+        if (!o.Visible) item.SetCustomColor(0, OffColour);
+        return item;
+    }
+
     void BuildObjectTree(MapDocument? doc)
     {
         _objectTree.Clear();
         if (doc is null) return;
         var root = _objectTree.CreateItem();
         int count = 0;
+        if (_hiddenFilter.ButtonPressed)
+        {
+            // The filter lists what Classic hides, flat: a way to find those objects, switch them on and select them.
+            var hidden = MapmakerPlugin.ClassicHidden(doc).ToList();
+            foreach (var o in hidden.Take(SceneRowCap)) AddRow(root, o);
+            if (hidden.Count == 0) { var none = _objectTree.CreateItem(root); none.SetText(0, "No objects hidden by Classic in this map."); none.SetMetadata(0, ""); none.SetSelectable(0, false); }
+            else if (hidden.Count > SceneRowCap) { var more = _objectTree.CreateItem(root); more.SetText(0, $"... {hidden.Count - SceneRowCap} more (not listed)"); more.SetMetadata(0, ""); more.SetSelectable(0, false); }
+            return;
+        }
         void Add(TreeItem parent, MapObject o, int depth)
         {
             if (count >= SceneRowCap || depth > 200) return;
             count++;
-            var item = _objectTree.CreateItem(parent);
-            item.SetText(0, RowText(o)); item.SetMetadata(0, o.Id); item.SetTooltipText(0, o.Id);
+            var item = AddRow(parent, o);
             foreach (var c in doc.ChildrenOf(o.Id)) Add(item, c, depth + 1);
             item.Collapsed = _collapsed.Contains(o.Id);
         }

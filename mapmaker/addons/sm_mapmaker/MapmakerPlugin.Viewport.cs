@@ -318,7 +318,7 @@ public partial class MapmakerPlugin
         Node3D? content = null;
         if (item.Kind == LibraryKind.Piece)
         {
-            if (PiecePreset.Find(item.Id) is { } preset) content = PieceViews.Build(new PieceSpec(preset.Kind, preset.Side), out _);
+            if (PiecePreset.Find(item.Id) is { } preset) content = PieceViews.Build(new PieceSpec(preset.Kind, preset.Side, preset.Shape), out _);
         }
         else
         {

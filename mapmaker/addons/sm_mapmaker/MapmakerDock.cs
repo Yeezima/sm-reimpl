@@ -176,7 +176,7 @@ public partial class MapmakerDock : VBoxContainer
         _toolPick.TooltipText = "Left click picks parts of the SM1 map (Shift or Ctrl adds). Then extract them to a prefab on the Prefab tab.";
         _toolPlace.TooltipText = "Left click places the armed Library row or Build piece.";
         foreach (var b in new[] { _toolSelect, _toolPick, _toolPlace }) b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        var undo = Btn("Undo", () => EditorInterface.Singleton.GetEditorUndoRedo()?.Call("undo"), "Editor undo (Ctrl+Z)");
+        var undo = Btn("Undo", () => _plugin.UndoLast(), "Undo the last Mapmaker edit (Ctrl+Z)");
         return Row(_toolSelect, _toolPick, _toolPlace, undo);
     }
 
@@ -201,6 +201,8 @@ public partial class MapmakerDock : VBoxContainer
         _sm1Info.AddThemeColorOverride("font_color", HintColour); _sm1Info.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_sm1Info);
         v.AddChild(Btn("Import SM1 map for editing", () => _ = _plugin.ImportSm1ForEditing(_sm1Map.Text), "Copies every piece of this original map into your map as editable objects, grouped under a node named after it (Scene tree). Save asks for a new file; the file holds references only."));
+        v.AddChild(RefreshClassicButtonBuild());
+        v.AddChild(RefreshResultLabel());
         v.AddChild(RemoveBackdropButton());
         v.AddChild(Btn("Frame SM1 map",() => { if (MapHost.Sm1 is { } s && s.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max); }, "Moves the 3D view to show the whole SM1 map."));
     }
@@ -876,6 +878,7 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(VecRow("Position", _pos)); v.AddChild(VecRow("Rotation", _rot)); v.AddChild(VecRow("Scale", _scl));
         foreach (var (spins, prop) in new[] { (_pos, TransformProp.Position), (_rot, TransformProp.Rotation), (_scl, TransformProp.Scale) })
             for (int axis = 0; axis < 3; axis++) { int ax = axis; var pr = prop; spins[axis].ValueChanged += v => ApplyTransform(pr, ax, (float)v); }
+        WallShapeSection(v);
         Section(v, "Actions");
         var dup = Btn("Duplicate", () => _plugin.DuplicateSelected(), "Ctrl+D over the 3D view");
         var vis = Btn("Toggle visibility", () => ToggleVisible(), "Shows or hides the selected object.");
@@ -1135,6 +1138,7 @@ public partial class MapmakerDock : VBoxContainer
         _refreshing = true;
         var s = _plugin.Session;
         RefreshGrid();
+        RefreshLook();
         _title.Text = s is null ? "No map open (New map or Open map)" : $"{s.Name}{(_plugin.Dirty ? " *" : "")}  -  {(s.Path ?? "unsaved")}";
         _title.TooltipText = _title.Text;
         _toolSelect.SetPressedNoSignal(MapHost.Tool == Tool.Select); _toolPick.SetPressedNoSignal(MapHost.Tool == Tool.PickSm1); _toolPlace.SetPressedNoSignal(MapHost.Tool == Tool.Place);
@@ -1164,6 +1168,7 @@ public partial class MapmakerDock : VBoxContainer
             if (o.Prefab is { } pid) SelectPrefab(pid);
         }
         else _objInfo.Text = "Nothing selected (click an object in the 3D view).";
+        RefreshWallShape(s is not null && sel.Count > 0 ? s.Document.Get(sel[0]) : null);
         _refreshing = false;
     }
 
