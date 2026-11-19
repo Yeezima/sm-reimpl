@@ -64,9 +64,9 @@ public static class PieceMesh
         var v = new List<Vector3>();
         for (int i = 0; i < sides; i++)
         {
-            float a = i * MathF.Tau / sides;
-            v.Add(new Vector3(0.5f * MathF.Cos(a), 0.5f * MathF.Sin(a), 0));
-            v.Add(new Vector3(0.5f * MathF.Cos(a), 0.5f * MathF.Sin(a), 1));
+            var (cos, sin) = DetMath.Ring(i, sides);   // deterministic: the cylinder's collision must be the same bits on every OS
+            v.Add(new Vector3((float)(0.5 * cos), (float)(0.5 * sin), 0));
+            v.Add(new Vector3((float)(0.5 * cos), (float)(0.5 * sin), 1));
         }
         int bc = v.Count; v.Add(new Vector3(0, 0, 0));
         int tc = v.Count; v.Add(new Vector3(0, 0, 1));
@@ -93,7 +93,7 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 4;   // 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
+    public const int CompilerVersion = 5;   // 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
@@ -162,8 +162,8 @@ public sealed class CustomMap
         {
             if (o.Piece is not { } piece) continue;
             Matrix4x4 world;
-            MapTransform t;
-            try { world = doc.World(o.Id); t = TransformMath.Decompose(world); }
+            double[] worldD;
+            try { worldD = DecorGeometry.WorldOf(doc, o); world = DetMath.ToFloat(worldD); }   // the same deterministic path as the decoration: pieces are placed in double, bit-identical on every OS
             catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             pieces.Add(new DrawPiece(o.Id, o.Name, piece, world, o.Visible && IsVisibleChain(doc, o)));
             var info = piece.Info;
@@ -171,7 +171,9 @@ public sealed class CustomMap
             {
                 var (v, tri) = PieceMesh.Unit(piece.Kind)!.Value;
                 int first = vertices.Count;
-                var moved = v.Select(p => Vector3.Transform(p, world)).ToArray();
+                Vector3[] moved;
+                try { moved = v.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray(); }
+                catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
                 vertices.AddRange(moved);
                 indices.AddRange(tri.Select(i => first + i));
                 var b = new Bounds(moved.Aggregate(Vector3.Min), moved.Aggregate(Vector3.Max));
@@ -180,11 +182,18 @@ public sealed class CustomMap
                 continue;
             }
             // Markers: boxes (or a cylinder) in the document frame whose bottom is the piece's z. Only a turn about Z counts; a tilt is noted.
-            if (MathF.Abs(Wrap(t.Rotation.X)) > 0.5f || MathF.Abs(Wrap(t.Rotation.Y)) > 0.5f)
+            if (MathF.Abs(Wrap(o.Transform.Rotation.X)) > 0.5f || MathF.Abs(Wrap(o.Transform.Rotation.Y)) > 0.5f)
                 notes.Add($"'{o.Name}' ({o.Id}) is tilted; only its turn about the vertical axis is used.");
-            float yaw = YawOf(world);
-            var size = new Vector3(MathF.Abs(t.Scale.X), MathF.Abs(t.Scale.Y), MathF.Abs(t.Scale.Z));
-            var centre = t.Position + new Vector3(0, 0, size.Z / 2f);
+            float yaw = YawOf(doc, o);
+            Vector3 size, at;
+            try
+            {
+                // size = the lengths of the matrix rows (IEEE sqrt), position = its translation on the 1/4096 m grid
+                size = new Vector3((float)Math.Sqrt(worldD[0] * worldD[0] + worldD[1] * worldD[1] + worldD[2] * worldD[2]), (float)Math.Sqrt(worldD[4] * worldD[4] + worldD[5] * worldD[5] + worldD[6] * worldD[6]), (float)Math.Sqrt(worldD[8] * worldD[8] + worldD[9] * worldD[9] + worldD[10] * worldD[10]));
+                at = DetMath.Grid(worldD[12], worldD[13], worldD[14]);
+            }
+            catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
+            var centre = at + new Vector3(0, 0, size.Z / 2f);
             switch (piece.Kind)
             {
                 case PieceKind.SpawnArea:
@@ -265,11 +274,12 @@ public sealed class CustomMap
 
     static float Wrap(float deg) { deg %= 360f; if (deg > 180f) deg -= 360f; if (deg < -180f) deg += 360f; return deg; }
 
-    /// <summary>The marker's facing as the simulation takes it: the angle (radians, counterclockwise from above) of the piece's +Y side measured from +Y, the same number as an install marker's rotation about Z.</summary>
-    static float YawOf(Matrix4x4 world)
+    /// <summary>The marker's facing (radians, counterclockwise from above, 0 = +Y): the sum of the snapped Z turns of the object and its parents, from the document's own numbers (no Atan2: a turn of z degrees about Z turns the +Y side by exactly z).</summary>
+    static float YawOf(MapDocument doc, MapObject o)
     {
-        var forward = new Vector3(world.M21, world.M22, 0);   // the piece's local +Y in the document frame
-        if (forward.LengthSquared() < 1e-8f) return 0f;
-        return MathF.Atan2(-forward.X, forward.Y);
+        double degrees = 0;
+        int guard = 0;
+        for (var cur = o; cur is not null && guard++ < 1000; cur = cur.Parent is { } p ? doc.Find(p) : null) degrees += DetMath.SnapDegrees(cur.Transform.Rotation.Z);
+        return (float)(DetMath.SnapDegrees(degrees) * SmContent.DetTransform.DegToRad);
     }
 }

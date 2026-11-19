@@ -119,10 +119,7 @@ public static class DecorGeometry
         var embeddedById = doc.EmbeddedPrefabs.ToDictionary(p => p.Id, StringComparer.Ordinal);
         Prefab? GetPrefab(string id)
         {
-            var found = GetPrefabNoCycle(id);
-            if (found is not null && PrefabGraph.FindCycle(id, GetPrefabNoCycle) is { } cyc)
-                throw new MapException("prefab-cycle", $"The prefab '{id}' contains itself: {cyc}.");
-            return found;
+            return GetPrefabNoCycle(id);   // the cycle and depth check ran once over everything the objects use (below)
         }
         Prefab? GetPrefabNoCycle(string id)
         {
@@ -160,6 +157,9 @@ public static class DecorGeometry
                 else Expand(objectId, name, part.Prefab!, matrix, vis, overrides, depth + 1, solid && !cut);
             }
         }
+        // One walk over every prefab the objects use (and everything reachable from them): a pass covers them all, so Expand does not walk again. Its cost is one visit per prefab and edge.
+        if (PrefabGraph.FindCycle(doc.Objects.Where(x => x.Prefab is not null).Select(x => x.Prefab!).Distinct(), GetPrefabNoCycle) is { } cyc)
+            throw new MapException("prefab-cycle", $"A prefab contains itself: {cyc}.");
         foreach (var o in doc.Objects)
         {
             if (o.Piece is not null || (o.Asset is null && o.Prefab is null)) continue;
@@ -292,7 +292,7 @@ public static class DecorGeometry
         }
     }
     /// <summary>The object's world matrix, in double, through <see cref="DetMath"/>: its local matrix times its parent chain's (row vectors), the same on every OS.</summary>
-    static double[] WorldOf(MapDocument doc, MapObject o)
+    internal static double[] WorldOf(MapDocument doc, MapObject o)
     {
         var m = DetMath.Local(o.Transform);
         int guard = 0;
@@ -423,7 +423,7 @@ public static class Sm1Geometry
         {
             if (!scene.Meshes.TryGetValue(part.MeshName, out var mesh) || part.MeshId < 0 || part.MeshId >= mesh.Blocks.Count) continue;
             var block = mesh.Blocks[part.MeshId];
-            var matrix = DetMath.Mul(DetMath.FromFloat(part.NodeTransform), world);
+            var matrix = DetMath.Mul(part.DetNode?.Values ?? DetMath.FromFloat(part.NodeTransform), world);   // the node transform rebuilt in double from the raw node data
             // Only the ranges that will be used decide which vertices are copied; the block's positions are moved once.
             var ranges = new List<(int Start, int Count)>();
             foreach (var range in block.Materials)

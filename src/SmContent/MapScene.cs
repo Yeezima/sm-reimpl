@@ -18,7 +18,11 @@ public sealed record PlacedObject(string Name, string Definition, string Layer, 
 /// <param name="MeshId">Which block of that mesh (blocks are the object's LODs).</param>
 /// <param name="NodeTransform">The <c>RefNode</c>'s transform within the object (its node chain composed).</param>
 /// <param name="LodLevel">Bit mask of the LODs this part draws in; bit 0 is the nearest (-1: all).</param>
-public sealed record VisualPart(string MeshName, int MeshId, string RefNode, Matrix4x4 NodeTransform, int LodLevel, bool CastShadows);
+public sealed record VisualPart(string MeshName, int MeshId, string RefNode, Matrix4x4 NodeTransform, int LodLevel, bool CastShadows)
+{
+    /// <summary>The same node transform rebuilt from the raw node data with <see cref="DetTransform"/> (bit-identical on every OS); used only by the Mapmaker's custom-map collision. <see cref="NodeTransform"/> is unchanged.</summary>
+    public DetMatrix? DetNode { get; init; }
+}
 
 /// <param name="CollisionNodes">Node transforms of the definition's rigid bodies (to check placements against level collision).</param>
 public sealed record ObjectDefinition(string Name, IReadOnlyList<VisualPart> Visuals, IReadOnlyList<(string Node, Matrix4x4 Transform)> CollisionNodes)
@@ -467,13 +471,15 @@ public sealed class MapScene
         if (root is not BodStruct { Class.Text: "Object3D" } o) throw new InvalidDataException($"'{name}' is not an Object3D.");
         var nodes = new Dictionary<string, Matrix4x4>(StringComparer.OrdinalIgnoreCase);
         CollectNodes(Unwrap(o["Skeleton"]), Matrix4x4.Identity, nodes, 0);
+        var detNodes = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        CollectDetNodes(Unwrap(o["Skeleton"]), DetTransform.Identity(), detNodes, 0);
         var visuals = new List<VisualPart>();
         foreach (var v in Items(o["Visuals"]).OfType<BodStruct>().Where(v => v.Class.Text == "StaticMeshVisual"))
         {
             if (v["MeshName"] is not BodString { Text: { Length: > 0 } mesh } || v["Renderable"] is BodBool { Value: false }) continue;
             string node = (v["RefNode"] as BodString)?.Text ?? "";
             visuals.Add(new VisualPart(mesh, (v["MeshID"] as BodInt)?.Value ?? 0, node, nodes.GetValueOrDefault(node, Matrix4x4.Identity),
-                (v["LODLevel"] as BodInt)?.Value ?? -1, v["CastShadows"] is not BodBool { Value: false }));
+                (v["LODLevel"] as BodInt)?.Value ?? -1, v["CastShadows"] is not BodBool { Value: false }) { DetNode = new DetMatrix(detNodes.TryGetValue(node, out var det) ? det : DetTransform.Identity()) });
         }
         var bodies = Items(o["Bodies"]).OfType<BodStruct>()
             .Select(b => (b["NodeName"] as BodString)?.Text).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase)
@@ -487,6 +493,23 @@ public sealed class MapScene
         var world = Local(s) * parent;
         if (s["Name"] is BodString { Text: { } name }) nodes.TryAdd(name, world);
         foreach (var child in Items(s["Children"])) CollectNodes(child, world, nodes, depth + 1);
+    }
+
+    /// <summary>Position, Rotation and Scale of a struct as <see cref="DetTransform.Local"/> takes them (the same defaults as <see cref="Local"/>).</summary>
+    static double[] LocalDet(BodStruct s)
+    {
+        float[] p = Floats(s["Position"]) is [var px, var py, var pz, ..] ? [px, py, pz] : [0, 0, 0];
+        float[] r = Floats(s["Rotation"]) is [var rx, var ry, var rz, ..] ? [rx, ry, rz] : [0, 0, 0];
+        float[] sc = Floats(s["Scale"]) is [var sx, var sy, var sz, ..] ? [sx, sy, sz] : [1, 1, 1];
+        return DetTransform.Local(p[0], p[1], p[2], r[0], r[1], r[2], sc[0], sc[1], sc[2]);
+    }
+
+    static void CollectDetNodes(BodValue? value, double[] parent, Dictionary<string, double[]> nodes, int depth)
+    {
+        if (depth > 64 || value is not BodStruct s) return;
+        var world = DetTransform.Mul(LocalDet(s), parent);
+        if (s["Name"] is BodString { Text: { } name }) nodes.TryAdd(name, world);
+        foreach (var child in Items(s["Children"])) CollectDetNodes(child, world, nodes, depth + 1);
     }
 
     static BodValue? Unwrap(BodValue? v) => v is BodRef r ? r.Value : v;

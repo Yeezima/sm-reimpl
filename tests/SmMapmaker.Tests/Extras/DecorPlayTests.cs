@@ -181,7 +181,7 @@ public sealed class DecorPlayTests : IDisposable
         Assert.Equal(a.Decor!.Digest(), b.Decor!.Digest());
         Assert.NotEqual(a.Hash, taller.Hash);                                // same file, a different install: another world
         Assert.NotEqual(CustomMap.HashOf(doc), a.Hash);                       // the document alone no longer names a decorated map's world
-        Assert.Equal(4, CustomMap.CompilerVersion);
+        Assert.Equal(5, CustomMap.CompilerVersion);
         // a map of pieces only keeps hashing the document alone
         var pieces = Doc("""{"op":"place","piece":{"kind":"box"},"transform":{"scale":[4,4,1]}}""");
         Assert.Equal(CustomMap.HashOf(pieces), CustomMap.Compile(pieces, Options()).Hash);
@@ -538,5 +538,54 @@ public sealed class DecorPlayTests : IDisposable
         var reader = Task.Run(() => { cache.TryGet("slow", out _); cache.Set("other", new DecorResult()); });
         Assert.True(reader.Wait(TimeSpan.FromSeconds(30)), "the readers waited for the build");
         gate.Set(); task.Wait();
+    }
+    [Fact]
+    public void The_nesting_limit_gives_the_same_answer_in_any_order_of_listing()
+    {
+        var doc = PairDoc();
+        string Chain(bool tailFirst)
+        {
+            var o = WithPrefabs(doc, a =>
+            {
+                var ids = Enumerable.Range(0, 20).ToList();
+                if (tailFirst) ids.Reverse();
+                foreach (int k in ids)
+                {
+                    var f = (JsonObject)JsonNode.Parse(a[0]!.ToJsonString())!;
+                    f["id"] = $"c{k}"; f["name"] = $"c{k}";
+                    f["parts"] = JsonNode.Parse($$$"""[{"id":"p1","name":"x","prefab":"{{{(k < 19 ? $"c{k + 1}" : "pair")}}}","transform":{"position":[0,0,0]}}]""");
+                    a.Add(f);
+                }
+            });
+            return o.ToJsonString();
+        }
+        var head = Record.Exception(() => MapDocument.Parse(Chain(false)));
+        var tail = Record.Exception(() => MapDocument.Parse(Chain(true)));
+        Assert.True(head is MapException { Code: "too-big" }, $"head-first: {head?.GetType().Name} {head?.Message}");
+        Assert.True(tail is MapException { Code: "too-big" }, $"tail-first: {tail?.GetType().Name} {tail?.Message}");
+    }
+
+    [Fact]
+    public void Pieces_markers_and_cylinders_are_placed_on_the_deterministic_path_and_overflow_is_refused()
+    {
+        var doc = Doc("""{"op":"place","piece":{"kind":"box"},"transform":{"position":[1.23456,2.5,0.1],"rotation":[0,0,33.3333],"scale":[3,2,1]}}""",
+            """{"op":"place","piece":{"kind":"column"},"transform":{"position":[10,0,0],"scale":[2,2,4]}}""",
+            """{"op":"place","piece":{"kind":"spawn-area","side":"marines"},"transform":{"position":[-20.123456,5,0],"rotation":[0,0,90],"scale":[12,12,3]}}""");
+        var map = CustomMap.Compile(doc);
+        Assert.Equal(2, map.SolidCount);
+        var verts = map.ToCollisionWorld().Character;
+        var area = map.Content.StartAreas.Single();
+        Assert.Equal(MathF.PI / 2f, area.Yaw, 5);                                  // the document's own 90 degrees, not an Atan2 of a float matrix
+        Assert.InRange(MathF.Abs(area.Position.X - -20.123456f), 0f, 1f / 4096f);   // the grid, no more
+        Assert.Equal(12f, area.Scale.X, 4);
+        // every collision vertex of a piece is on the 1/4096 m grid
+        var compiled = map.Content.Layers[0];
+        Assert.All(compiled.Vertices, v => { Assert.Equal(v.X, MathF.Round(v.X * 4096f) / 4096f); Assert.Equal(v.Y, MathF.Round(v.Y * 4096f) / 4096f); Assert.Equal(v.Z, MathF.Round(v.Z * 4096f) / 4096f); });
+        // nested scales that overflow a float, or a vertex beyond a million metres, are refused (never an Inf in the collision)
+        var chain = DetMath.Identity();
+        for (int k = 0; k < 8; k++) chain = DetMath.Mul(chain, DetMath.Local(new MapTransform(Vector3.Zero, Vector3.Zero, new Vector3(1e6f, 1e6f, 1e6f))));
+        Assert.Equal("bad-transform", Assert.Throws<MapException>(() => DetMath.ToFloat(chain)).Code);
+        Assert.Equal("bad-transform", Assert.Throws<MapException>(() => DetMath.Grid(2e6, 0, 0)).Code);
+        Assert.Equal("bad-transform", Assert.Throws<MapException>(() => DetMath.Grid(double.PositiveInfinity, 0, 0)).Code);
     }
 }

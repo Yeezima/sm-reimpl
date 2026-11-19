@@ -127,4 +127,24 @@ public sealed class RealInstallFixtureTests(ITestOutputHelper output) : IDisposa
         Assert.NotEmpty(spots);
         Assert.All(spots, s => Assert.InRange(s.Z, PlatformTop - 0.3f, PlatformTop + 0.3f));   // they stand on the SM1 roof slab, 6 m above the field's floor
     }
+    [Fact]
+    public void The_deterministic_node_transforms_of_real_definitions_match_the_float_ones()
+    {
+        var gameDir = SmContent.GameInstall.TryLocate(null, null)?.Dir;
+        if (gameDir is null) return;
+        var scene = SmContent.MapScene.Load(gameDir, "mp_tdm_09", extendedLighting: false, onlyDefinitions: null, textures: false);
+        int checkedParts = 0;
+        foreach (var def in scene.Definitions.Values)
+            foreach (var part in def.Visuals)
+            {
+                Assert.NotNull(part.DetNode);
+                var f = part.NodeTransform; var d = part.DetNode!.Values;
+                float[] floats = [f.M11, f.M12, f.M13, f.M21, f.M22, f.M23, f.M31, f.M32, f.M33, f.M41, f.M42, f.M43];
+                int[] index = [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14];
+                for (int i = 0; i < floats.Length; i++) Assert.InRange(Math.Abs(floats[i] - d[index[i]]), 0, 1e-3 * Math.Max(1, Math.Abs(floats[i])));
+                checkedParts++;
+            }
+        output.WriteLine($"{checkedParts} node transforms agree");
+        Assert.True(checkedParts > 0);
+    }
 }

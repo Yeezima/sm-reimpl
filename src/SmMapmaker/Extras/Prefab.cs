@@ -196,6 +196,7 @@ public static class PrefabGraph
                     if (state.TryGetValue(child, out int s))
                     {
                         if (s == 1) return string.Join(" -> ", path.Skip(path.IndexOf(child)).Append(child));
+                        if (path.Count + height[child] > MaxLevels) throw new MapException("too-big", $"Prefabs are nested more than {MaxLevels} levels deep (at '{child}').");   // the same answer in any order of listing
                         best[top] = Math.Max(best[top], height[child]);
                     }
                     else if (get(child) is { } p)
