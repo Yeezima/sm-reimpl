@@ -211,7 +211,8 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
         var log = new List<string>();
         using var stop = new ManualResetEventSlim();
         var task = Task.Run(() => WarfrontSupervisor.Loop(_dir, launcher, true, Fast(), stop, log.Add));
-        Thread.Sleep(100); stop.Set();
+        while (launcher.Children.Count == 0) Thread.Sleep(5);   // under load a fixed sleep could stop the loop before the child started (flake seen in a full run)
+        stop.Set();
         Assert.True(task.Wait(TimeSpan.FromSeconds(10)));
         Assert.Equal(0, task.Result);
         Assert.True(launcher.Children[0].SawStopFile);
