@@ -123,6 +123,39 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         sel.Clear(); await Frames(5);
         await Click(CentreOf(a)); await Frames(10);
         Check(plugin.SelectedIds().Count() == 1, $"a plain click still selects one object ({plugin.SelectedIds().Count()})");
+        // Alt held (owner 2026-11-19): a press over an object, even on the selection's gizmo, never single-selects; a drag boxes.
+        var ca = CentreOf(a); var cb = CentreOf(b);
+        Move(cb); await Frames(3);
+        Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = cb, AltPressed = true, ButtonMask = MouseButtonMask.Left }); await Frames(3);
+        Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = cb, AltPressed = true }); await Frames(10);
+        Check(plugin.SelectedIds().Count() == 1 && !plugin.SelectedIds().Contains(b.ObjectId), "Alt + click over another object does not select it");
+        var altTo = ca + new Godot.Vector2(MathF.Sign(cb.X - ca.X) * 20f, 40f);
+        Move(ca); await Frames(3);
+        Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = ca, AltPressed = true, ButtonMask = MouseButtonMask.Left }); await Frames(3);
+        for (int i = 1; i <= 4; i++) { Move(ca.Lerp(altTo, i / 4f), true); await Frames(2); }
+        Check(plugin.BoxDrawing, "Alt + drag from over the selected object (on its gizmo) draws a box");
+        await ShotView("alt-box-select");
+        Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = altTo, AltPressed = true }); await Frames(10);
+        Check(!plugin.BoxDrawing && plugin.SelectedIds().Contains(a.ObjectId), "the Alt box ends on release and selects what it covers");
+        // Spin arrows (owner 2026-11-19): a right click steps by 10, never jumps to the limit; a held arrow starts slowly.
+        dock.ShowTab(DockTab.Object); await Frames(10);
+        var spin = dock.FindChildren("*", "SpinBox", true, false).OfType<SpinBox>().FirstOrDefault(s => s.IsVisibleInTree() && s.GetNodeOrNull("SpinArrows") is not null && s.MinValue == -100000);
+        Check(spin is not null, "the Object tab's position spin boxes are in view");
+        if (spin is not null)
+        {
+            var r = spin.GetGlobalRect(); var up = new Godot.Vector2(r.End.X - 5, r.Position.Y + 3); var down = new Godot.Vector2(r.End.X - 5, r.End.Y - 3);
+            double v0 = spin.Value;
+            r = spin.GetGlobalRect(); up = new Godot.Vector2(r.End.X - 5, r.Position.Y + 3); Move(up); await Frames(3);
+            Button(up, MouseButton.Right, true); await Frames(2); Button(up, MouseButton.Right, false); await Frames(4);
+            Check(Math.Abs(spin.Value - (v0 + 10)) < 1e-6, $"a right click on the up arrow adds 10 ({v0} -> {spin.Value})");
+            r = spin.GetGlobalRect(); down = new Godot.Vector2(r.End.X - 5, r.End.Y - 3); Move(down); await Frames(3);
+            Button(down, MouseButton.Right, true); await Frames(2); Button(down, MouseButton.Right, false); await Frames(4);
+            Check(Math.Abs(spin.Value - v0) < 1e-6, $"a right click on the down arrow subtracts 10 ({spin.Value})");
+            r = spin.GetGlobalRect(); up = new Godot.Vector2(r.End.X - 5, r.Position.Y + 3); Move(up); await Frames(3);
+            Button(up, MouseButton.Left, true); await Frames(3); Button(up, MouseButton.Left, false); await Frames(4);
+            Check(Math.Abs(spin.Value - (v0 + spin.Step)) < 1e-6, $"a left click on the up arrow adds one step ({spin.Value})");
+            spin.Value = v0;
+        }
         sel.Clear(); await Frames(5);
 
         // 5c. The placement ghost.

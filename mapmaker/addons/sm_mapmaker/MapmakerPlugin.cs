@@ -868,7 +868,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public OpResult DuplicateSelected()
     {
-        var r = Do("Duplicate", Op("duplicate", ("ids", Strs(SelectedIds())), ("offset", Vec(new Num.Vector3(MapHost.GridStep, MapHost.GridStep, 0)))));
+        var r = Do("Duplicate", Op("duplicate", ("ids", Strs(SelectedIds())), ("offset", Vec(Num.Vector3.Zero))));   // the copy stays exactly on the original (owner 2026-11-19)
         if (r.Ok) Select(r.Created);
         return r;
     }

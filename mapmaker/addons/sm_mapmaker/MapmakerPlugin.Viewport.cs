@@ -86,6 +86,7 @@ public partial class MapmakerPlugin
     Vector2 _boxFrom;
     bool _boxPending, _boxActive, _replaying;
     InputEventMouseButton? _boxPress;
+    bool _boxAlt;   // the press began with Alt held: a left drag is a box and a release without a drag selects nothing
 
     /// <summary>
     /// The Select tool's left button. A press over the view is held back (Godot never sees it, so it cannot start moving the body under the cursor); a drag
@@ -100,17 +101,19 @@ public partial class MapmakerPlugin
         {
             if (b.Pressed)
             {
-                if (_boxPending || b.AltPressed || !ViewportHovered(b.Position) || !TryRay(b.Position, out _, out _) || NearSelectionGizmo(b.Position)) return false;
+                // Alt held: any left press in the view starts a box, over objects and near the gizmo too (owner 2026-11-19); Shift and Ctrl still add and remove.
+                if (_boxPending || !ViewportHovered(b.Position) || !TryRay(b.Position, out _, out _) || (!b.AltPressed && NearSelectionGizmo(b.Position))) return false;
+                _boxAlt = b.AltPressed;
                 _boxFrom = b.Position; _boxPending = true; _boxActive = false; _boxPress = (InputEventMouseButton)b.Duplicate();
                 GetViewport().SetInputAsHandled();
                 return true;
             }
             if (!_boxPending) return false;
-            bool drew = _boxActive; var press = _boxPress;
+            bool drew = _boxActive; var press = _boxPress; bool alt = _boxAlt;
             CancelBox();
             GetViewport().SetInputAsHandled();
             if (drew) FinishBox(new Rect2(_boxFrom, Vector2.Zero).Expand(b.Position), b.ShiftPressed, b.CtrlPressed);
-            else if (press is not null) _ = ReplayClick(press, (InputEventMouseButton)b.Duplicate());
+            else if (press is not null && !alt) _ = ReplayClick(press, (InputEventMouseButton)b.Duplicate());
             return true;
         }
         if (e is InputEventMouseMotion m && _boxPending)
@@ -134,7 +137,7 @@ public partial class MapmakerPlugin
 
     void CancelBox()
     {
-        _boxPending = false; _boxActive = false; _boxPress = null;
+        _boxPending = false; _boxActive = false; _boxPress = null; _boxAlt = false;
         _boxRect = null;
         if (_overlay is not null && GodotObject.IsInstanceValid(_overlay)) _overlay.QueueRedraw();
     }
