@@ -146,6 +146,7 @@ public partial class NetworkView
             SetLoadingCaption("READING THE MAP'S MESHES AND TEXTURES");
             LoadScene(stage, file);
         }
+        if (generated is not null && !Lean) ExtrasMapLook(name);   // EXTRAS-HOOK: a Mapmaker map drawn with a Classic map's look reads that map's scene here, on the worker (client/Extras/Mapmaker)
         stage.SceneMs = watch.ElapsedMilliseconds;
         stage.WorkerMs = stage.SceneMs;
         return stage;
@@ -158,6 +159,32 @@ public partial class NetworkView
 
     /// <summary>polish pass P3 (measurement aid): <c>--scene-on-main</c> reads the map scene in the main thread's stage instead of on the worker (to tell whether the worker's read is what holds a frame).</summary>
     static readonly bool SceneOnMain = CmdFlag("scene-on-main");
+
+    /// <summary>Set (any thread) by added content that refuses to load a map on this PC (Mapmaker: the look's map is not installed); shown as the join's plain error instead of the server's generic map mismatch.</summary>
+    volatile string? _mapRefusal;
+
+    /// <summary>Hook for added content (Mapmaker, docs/mapmaker.md "Look in play"): on the worker, for a generated map, reads the scene of the Classic map whose look the map is drawn with. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapLook(string name);
+
+    /// <summary>
+    /// The map's original lighting, shared by the Classic view and a custom map drawn with a Classic map's look (Mapmaker): the sun, the ambient and fog, the environment regions and the colour grade of
+    /// <paramref name="scene"/> applied to this view's sun and environment, with the placed lights added to the game space. A failure leaves the provisional look and a note (the half-built lights were freed by Apply).
+    /// </summary>
+    void ApplyMapLighting(MapScene scene, List<string> visualNotes, ref string lightingNote)
+    {
+        try
+        {
+            if (_sun is not null && _environment is not null
+                && MapLightingView.Apply(scene.Lighting, _sun, _environment, visualNotes, out lightingNote, out _blender, scene.GradeLookup) is { } placed)
+                _gameSpace?.AddChild(placed);
+        }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
+        {
+            // The map stays drawn with the provisional sun and fog; the half-built lights were freed by Apply.
+            _blender = null;
+            visualNotes.Add($"the map's lighting failed ({e.GetType().Name}: {e.Message}); the provisional look stays");
+        }
+    }
 
     void LoadScene(MapStage1 stage, string file)
     {
@@ -215,18 +242,7 @@ public partial class NetworkView
             else
             {
                 _gameSpace?.AddChild(view);
-                try
-                {
-                    if (_sun is not null && _environment is not null
-                        && MapLightingView.Apply(scene.Lighting, _sun, _environment, visualNotes, out lightingNote, out _blender, scene.GradeLookup) is { } placed)
-                        _gameSpace?.AddChild(placed);
-                }
-                catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
-                {
-                    // The map stays drawn with the provisional sun and fog; the half-built lights were freed by Apply.
-                    _blender = null;
-                    visualNotes.Add($"the map's lighting failed ({e.GetType().Name}: {e.Message}); the provisional look stays");
-                }
+                ApplyMapLighting(scene, visualNotes, ref lightingNote);
             }
         }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))

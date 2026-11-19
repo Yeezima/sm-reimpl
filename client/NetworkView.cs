@@ -484,6 +484,7 @@ public partial class NetworkView : Node3D
             if (_client.Status == ClientStatus.Rejected && !_goneNoted)
             {
                 _goneNoted = true;   // added content E1: say why in the console too (a --content or --ork-data mismatch names the server's profile)
+                if (_mapRefusal is not null) GD.PrintErr(_mapRefusal);   // a map this PC refused to load (Mapmaker look in play): the plain reason first
                 GD.PrintErr($"rejected by the server: {_client.RejectedBecause}{(string.IsNullOrEmpty(_client.RejectDetail) ? "" : " (" + _client.RejectDetail + ")")}" +
                             (_bot ? "; the bot ends (exit code 4)." : ""));
                 if (_bot) GetTree().Quit(4);   // a refused bot (bots.cmd against a server with another profile) must not idle forever
@@ -1958,7 +1959,7 @@ public partial class NetworkView : Node3D
         {
             ClientStatus.Connecting => ($"Connecting to {_target} ...", false),
             ClientStatus.Connected => _client.MapError is { } mapError ? ("Map not loaded: " + mapError, true) : ("", false),
-            ClientStatus.Rejected => (ConnectFailure.RejectText(_client.RejectedBecause, _client.RejectDetail), true),   // fix/connect-timeout: why, in plain words
+            ClientStatus.Rejected => (_mapRefusal ?? ConnectFailure.RejectText(_client.RejectedBecause, _client.RejectDetail), true),   // fix/connect-timeout: why, in plain words (a map this PC refused to load says so: _mapRefusal)
             ClientStatus.NoAnswer => (ConnectFailure.NoAnswerText(_target), true),
             _ => ("Disconnected (no snapshot from the server)", true),
         };
@@ -1980,7 +1981,7 @@ public partial class NetworkView : Node3D
             {
                 ClientStatus.Connecting => $"Connecting to {_target} ...",
                 ClientStatus.Connected => $"Connected to {_target}, id {_client.PlayerId}",
-                ClientStatus.Rejected => ConnectFailure.RejectText(_client.RejectedBecause, _client.RejectDetail),
+                ClientStatus.Rejected => _mapRefusal ?? ConnectFailure.RejectText(_client.RejectedBecause, _client.RejectDetail),
                 ClientStatus.NoAnswer => ConnectFailure.NoAnswerText(_target),
                 _ => "Disconnected (no snapshot from the server)",
             };

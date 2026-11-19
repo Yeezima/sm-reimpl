@@ -29,6 +29,8 @@ public static class CustomMapDecor
             var definitions = new Dictionary<string, ObjectDefinition>(System.StringComparer.OrdinalIgnoreCase);
             var names = new Dictionary<(string, int), string>();
             var objects = new List<PlacedObject>();
+            var spinDefinitions = LookCheck.SpinningDefinitions(source);
+            var spin = new Dictionary<int, float>();
             foreach (var p in group)
             {
                 var key = (p.Asset.Definition!.ToLowerInvariant(), p.Asset.Part ?? -1);
@@ -39,12 +41,15 @@ public static class CustomMapDecor
                     names[key] = name = $"decor{names.Count}";
                     definitions[name] = new ObjectDefinition(name, visuals, source.Definitions[p.Asset.Definition!].CollisionNodes);
                 }
+                if (spinDefinitions.TryGetValue(p.Asset.Definition!, out var degrees)) spin[objects.Count] = degrees;
                 objects.Add(new PlacedObject($"{p.ObjectId}", name, "custom-map", p.World));
             }
             if (objects.Count == 0) continue;
             var scene = new MapScene
             {
                 Map = source.Map, Objects = objects, Definitions = definitions, Meshes = source.Meshes, Materials = source.Materials, Textures = source.Textures, Notes = [],
+                // Imported fans turn as Classic's do: keyed off the definition (the source map's BezierCurve-carried placements name it), every placement of it spins (docs/mapmaker.md "Look in play").
+                Spinning = spin,
             };
             var viewNotes = new List<string>();
             var view = MapView.Build(scene, viewNotes);

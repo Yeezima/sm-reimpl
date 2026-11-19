@@ -52,6 +52,9 @@ public partial class MapView : Node3D
             node.Transform = new Transform3D(Basis.Identity, pivot) * new Transform3D(new Basis(Vector3.Back, Mathf.DegToRad((float)(_spinClock * rate) % 360f)), Vector3.Zero) * new Transform3D(Basis.Identity, -pivot);
     }
 
+    bool _skyOnly;          // BuildLook (a custom map's original look): only the sky surfaces are drawn, never the source map's geometry
+    float? _voidFloorZ;     // BuildLook: where the void floor goes (the custom map's lowest solid), as the source geometry is not drawn
+
     readonly HashSet<ArrayMesh> _skyMeshes = new();   // meshes with a sky-box surface: drawn round the camera, so never frustum-culled by their world box
 
     /// <summary>Builds the map's visuals under a new node. Problems are added to <paramref name="notes"/>; nothing throws for one bad part.</summary>
@@ -63,13 +66,41 @@ public partial class MapView : Node3D
         return view;
     }
 
+    /// <summary>
+    /// Mapmaker (docs/mapmaker.md "Look in play"): the non-geometry look of <paramref name="source"/> for a custom map drawn with it: the sky, the void floor at <paramref name="voidFloorZ"/> (none when null), the level decals and
+    /// the ortho lights, exactly as the Classic view builds them (the same code, <see cref="AddLevelLook"/>); the source map's own geometry is not drawn (the custom map's pieces are the geometry).
+    /// </summary>
+    public static MapView BuildLook(MapScene source, float? voidFloorZ, List<string> notes)
+    {
+        var view = new MapView { Name = "MapLook", _skyOnly = true, _voidFloorZ = voidFloorZ };
+        try { view.Populate(source, notes); }
+        catch { view.Free(); throw; }
+        return view;
+    }
+
+    /// <summary>The void floor, the level decals and the ortho lights of <paramref name="scene"/> (shared by the Classic view and a custom map's look); <paramref name="minZ"/> is the lowest drawn point (float.MaxValue: none).</summary>
+    void AddLevelLook(MapScene scene, float minZ, List<string> notes)
+    {
+        if (MapDecor.HasVoidFloor(scene.Map) && minZ < float.MaxValue)
+        {
+            // maps-visual-qa: a dark unlit plane just under the lowest drawn geometry (see MapDecorLists.VoidFloorMaps); ours.
+            AddChild(new MeshInstance3D
+            {
+                Name = "VoidFloor", Mesh = new QuadMesh { Size = new Vector2(6000f, 6000f) }, Position = new Vector3(0f, 0f, minZ - 1.5f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.012f, 0.010f, 0.009f), CullMode = BaseMaterial3D.CullModeEnum.Disabled },
+            });
+        }
+        if (MapDecor.DrawsLevelDecals(scene.Map) && MapDecalView.Build(scene, notes) is { } decals) { AddChild(decals); LevelDecals = decals.Count; }
+        if (MapDecor.DrawsOrthoLights(scene.Map) && MapOrthoLightView.Build(scene, notes) is { } ortho) { AddChild(ortho); OrthoLights = ortho.Count; }
+    }
+
     void Populate(MapScene scene, List<string> notes)
     {
         // Group world transforms by (mesh, block, mirrored, casts shadows), remembering which placements each group draws.
         Materials.NewMapRules = MapDecorLists.IsNewClassicMap(scene.Map);
         var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows, int Spin), List<(Transform3D Transform, int Object)>>();
         var decorHidden = MapDecor.Hidden(scene);   // fix/manufactorum-fluorescent: the olive boards and salmon fittings are not drawn
-        if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of Manufactorum's wall stations and salmon fittings are not drawn (owner's requests 2026-11-04, 2026-11-07, 2026-11-14; --old-armoury-racks draws them)");
+        if (decorHidden.Count > 0 && !_skyOnly) notes.Add($"{decorHidden.Count} placements of Manufactorum's wall stations and salmon fittings are not drawn (owner's requests 2026-11-04, 2026-11-07, 2026-11-14; --old-armoury-racks draws them)");
         int layerHidden = 0;
         for (int o = 0; o < scene.Objects.Count; o++)
         {
@@ -88,7 +119,7 @@ public partial class MapView : Node3D
             }
         }
         if (layerHidden > 0) notes.Add($"test aid --hide-layer: {layerHidden} placements of {string.Join(",", MapDecor.HiddenLayers)} not drawn");
-        if (!MapDecor.OldLodRule) notes.Add("LOD rule: one member per LOD-suffix family is drawn (--old-lod-rule restores the earlier rule)");
+        if (!MapDecor.OldLodRule && !_skyOnly) notes.Add("LOD rule: one member per LOD-suffix family is drawn (--old-lod-rule restores the earlier rule)");
         var drawnObjects = new HashSet<int>();
         var meshCache = new Dictionary<(string, int, bool), ArrayMesh?>();
 
@@ -117,7 +148,7 @@ public partial class MapView : Node3D
                 InstanceCount = transforms.Count,
             };
             for (int i = 0; i < transforms.Count; i++) multimesh.SetInstanceTransform(i, transforms[i]);
-            { var box = mesh.GetAabb(); foreach (var t in transforms) minZ = Mathf.Min(minZ, (t * box).Position.Z); }   // the lowest drawn point (game Z), for the void floor
+            if (!_skyOnly) { var box = mesh.GetAabb(); foreach (var t in transforms) minZ = Mathf.Min(minZ, (t * box).Position.Z); }   // the lowest drawn point (game Z), for the void floor
             var instance = new MultiMeshInstance3D
             {
                 Name = $"{meshName}_{block}{(mirrored ? "_mirrored" : "")}{(shadows ? "" : "_noshadow")}", Multimesh = multimesh,
@@ -133,17 +164,7 @@ public partial class MapView : Node3D
             Instances += transforms.Count;
             if (mirrored) Mirrored += transforms.Count;
         }
-        if (MapDecor.HasVoidFloor(scene.Map) && minZ < float.MaxValue)
-        {
-            // maps-visual-qa: a dark unlit plane just under the lowest drawn geometry (see MapDecorLists.VoidFloorMaps); ours.
-            AddChild(new MeshInstance3D
-            {
-                Name = "VoidFloor", Mesh = new QuadMesh { Size = new Vector2(6000f, 6000f) }, Position = new Vector3(0f, 0f, minZ - 1.5f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.012f, 0.010f, 0.009f), CullMode = BaseMaterial3D.CullModeEnum.Disabled },
-            });
-        }
-        if (MapDecor.DrawsLevelDecals(scene.Map) && MapDecalView.Build(scene, notes) is { } decals) { AddChild(decals); LevelDecals = decals.Count; }
-        if (MapDecor.DrawsOrthoLights(scene.Map) && MapOrthoLightView.Build(scene, notes) is { } ortho) { AddChild(ortho); OrthoLights = ortho.Count; }
+        AddLevelLook(scene, _skyOnly ? _voidFloorZ ?? float.MaxValue : minZ, notes);
         if (Materials.Scrolling.Count > 0) notes.Add($"{Materials.Scrolling.Count} scrolling materials (ScrollSpeedU/V of the data; provisional approximation)");
         if (_spinners.Count > 0) notes.Add($"{_spinners.Count} fan blades turned by their BezierCurve (provisional approximation)");
         Meshes = drawn.Count;
@@ -171,6 +192,7 @@ public partial class MapView : Node3D
                 if (!MapDecor.DrawsSkyTextures(scene.Map)) continue;
                 isSky = true;
             }
+            if (_skyOnly && !isSky) continue;   // BuildLook: the sky only
             int count = range.IndexCount - range.IndexCount % 3;
             if (count < 3 || range.StartIndex < 0 || range.StartIndex + count > block.Indices.Length) continue;
             // Vertex window of this range; fall back to the whole block if an index falls outside the declared window.
@@ -233,7 +255,7 @@ public partial class MapView : Node3D
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, material);
             if (countSurfaces) { Surfaces++; if (textured) TexturedSurfaces++; }
         }
-        if (mesh.GetSurfaceCount() == 0) { notes.Add($"mesh '{meshName}': no drawable range"); return null; }
+        if (mesh.GetSurfaceCount() == 0) { if (!_skyOnly) notes.Add($"mesh '{meshName}': no drawable range"); return null; }
         return mesh;
     }
 

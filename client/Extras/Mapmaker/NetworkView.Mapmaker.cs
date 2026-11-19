@@ -39,8 +39,38 @@ public partial class NetworkView
         {
             throw new System.InvalidOperationException($"The custom map could not be compiled ({e.GetType().Name}: {e.Message}).");
         }
+        // The map's look (docs/mapmaker.md "Look in play"): a PC without that Classic map refuses the map here, before the Hello is sent (owner 2026-11-20: no daylight fallback). A lean bot draws nothing and does not need it.
+        if (_customMap.Document.Look is { } look && !Lean && LookCheck.Refusal(_gameDir, look.Sm1Map, LookDisplayName(look.Sm1Map)) is { } refusal)
+        {
+            _mapRefusal = refusal;   // the join's plain error (the server only sees a map it never got a hash for)
+            throw new System.InvalidOperationException(refusal);
+        }
         map = _customMap.Content;
         GD.Print($"custom map {name}: {_customMap.SolidCount} solid pieces, {map.StartAreas.Count} start areas, {map.ControlPoints.Count} capture points; hash {_customMap.Hash:X16}; nothing read from the install");
+    }
+
+    /// <summary>The scene of the Classic map a custom map is drawn with (read on the worker by <see cref="ExtrasMapLook"/>; null: no look set, plain daylight).</summary>
+    MapScene? _lookScene;
+
+    /// <summary>The map's name as the install's front end lists it (the archive name when it cannot be read); only for the refusal's sentence.</summary>
+    string? LookDisplayName(string map)
+    {
+        try { return MapCatalog.Read(_gameDir).FirstOrDefault(m => m.Name == map)?.DisplayName; }
+        catch (System.Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or System.ArgumentException or System.NotSupportedException or System.UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>On the worker: reads the look map's scene (sun, regions, fog, colour grade, decals, sky and meshes) like Classic's <c>LoadScene</c>. A scene that cannot be read refuses the map like a missing one.</summary>
+    partial void ExtrasMapLook(string name)
+    {
+        _lookScene = null;
+        if (!CustomMap.IsCustomName(name) || _customMap?.Document.Look is not { } look) return;
+        try { _lookScene = MapScene.Load(_gameDir, look.Sm1Map, extendedLighting: !MapDecor.OldMapLighting); }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException))
+        {
+            string reason = $"This map uses the look of {LookDisplayName(look.Sm1Map) ?? look.Sm1Map}, which could not be read from your game install ({e.GetType().Name}: {e.Message}).";
+            _mapRefusal = reason;
+            throw new System.InvalidOperationException(reason);
+        }
     }
 
     void MapmakerVisuals(string name, ref bool drawn)
@@ -50,12 +80,32 @@ public partial class NetworkView
         {
             var view = CustomMapView.Build(_customMap);
             _gameSpace.AddChild(view);
-            if (_sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
+            if (_lookScene is null && _sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
             drawn = true;
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
         {
             GD.Print($"custom map: the view failed ({e.GetType().Name}: {e.Message}); the grey collision is drawn instead");
+        }
+        if (_lookScene is { } look)
+        {
+            // The original look of the Classic map (the same code Classic uses): its sun, ambient, fog, regions and grade, the sky, the void floor, the decals and the ortho lights. Its geometry is not drawn.
+            try
+            {
+                var notes = new System.Collections.Generic.List<string>();
+                string lightingNote = "lighting: the original map's";
+                float? floor = _customMap.SolidBounds is { } b ? (float?)b.Min.Z : null;
+                var lookView = MapView.BuildLook(look, floor, notes);
+                _gameSpace.AddChild(lookView);
+                ApplyMapLighting(look, notes, ref lightingNote);
+                GD.Print($"custom map look of {look.Map}: {lightingNote}; {lookView.LevelDecals} decals, {lookView.OrthoLights} ortho lights");
+                foreach (var note in notes) GD.Print("  look note: " + note);
+            }
+            catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
+            {
+                GD.PrintErr($"custom map: the Classic look could not be drawn ({e.GetType().Name}: {e.Message}); the plain daylight look stays");
+                if (_sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
+            }
         }
         try
         {
