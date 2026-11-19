@@ -118,6 +118,7 @@ public partial class NetworkView
     MapStage1 Stage1(string name, bool onMainThread)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
+        _mapRefusal = null;   // a refusal belongs to one map load, never to the next (review)
         string file = MapFileOf(name);
         if (onMainThread) Ph("map load: collision and content");
         MemStep("before map"); MapContent? generated = null;

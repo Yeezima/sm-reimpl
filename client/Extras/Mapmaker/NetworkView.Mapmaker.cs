@@ -106,6 +106,7 @@ public partial class NetworkView
                 GD.PrintErr($"custom map: the Classic look could not be drawn ({e.GetType().Name}: {e.Message}); the plain daylight look stays");
                 if (_sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
             }
+            _lookScene = null;   // drawn: drop the source scene's meshes and textures for the rest of the match (review)
         }
         try
         {
