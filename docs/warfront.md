@@ -86,6 +86,23 @@ Four players: `.\server.cmd --content warfront --bind 127.0.0.1 --port 27200 --w
 `.\client.cmd --connect 127.0.0.1:27200 --content warfront --warfront-key-file <own file>` per player. Switch and build property: `--content warfront`;
 `-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 13.
 
+## Dedicated mode (`--warfront-dedicated`, slice S1)
+
+The project's server runs one shared, always-on campaign with up to four humans dropping in and out. `server.cmd --warfront-dedicated --bind <addr> --port <p>`
+implies `--content warfront` and `--warfront-max-humans 4` (a given cap wins), refuses `--warfront-new` and `--maps`, and is passed on to every stage child
+(`WarfrontRunFiles.Dedicated` for server code). S1 adds only the flag and a hardened supervisor; later slices hang the behaviour (a new run when the
+campaign ends, default deploy, an empty server) on it. In this mode the supervisor:
+
+- **locks the run folder**: `supervisor.lock` holds its PID; a second supervisor on the same folder prints why and exits 5; a lock whose PID is dead is taken over.
+- **restarts a crashed stage** from the last save: a stage child that ends with any code except 0 (clean leave), 1 (no install, run or map unreadable), 2 (command line), 3 (port taken) and 12
+  (next stage) is started again after 2, 5, 10, 30 s (the last repeats; a stage that ran a minute starts the steps again), each restart logged. Exit 4 (the simulation kept failing) restarts too.
+- **stops on SIGTERM** (and Ctrl+C): it writes `stop.request` into the run folder; the stage child sees it at its next once-a-second check (the check that also notices a vanished supervisor), saves and leaves with 0;
+  the supervisor waits 20 s (then kills the child) and exits 0. (A `systemd` unit's `TimeoutStopSec` should be above 25 s.)
+- **timestamps** every supervisor line `[2026-11-19T12:00:00Z] warfront: ...` (the player-hosted supervisor too).
+
+Exit codes of the supervisor: 0 stopped, 1 run unreadable or a stage ended with 1, 2 command line, 3 port taken, 5 another supervisor holds the folder. Tests: `tests/SmNet.Tests/Extras/Warfront/Dedicated`
+(a fake stage child; SIGTERM delivery itself is Linux-only and not tested on Windows).
+
 ## Hooks, pins, versions
 
 The Musou and core hook list, with the pin tests, is in `docs/added-content.md` section 11 (W3 sixteen, W3b seventeen, W13b four, W5a, W5c, W16, W13e

@@ -409,11 +409,13 @@ public sealed partial class GameServer
             bool alive;
             try { alive = !System.Diagnostics.Process.GetProcessById(pid).HasExited; }
             catch (Exception e) when (e is ArgumentException or InvalidOperationException) { alive = false; }
-            if (!alive && !s.RestartDue)
+            bool stopAsked = false;
+            if (alive) try { stopAsked = File.Exists(Path.Combine(WarfrontRunFiles.Dir, WarfrontRunFiles.StopFile)); } catch (IOException) { }
+            if ((!alive || stopAsked) && !s.RestartDue)
             {
                 WfSave(s);
                 s.ExitCode = 0; s.RestartDue = true;
-                WfLog($"the supervisor (pid {pid}) is gone: the run is saved, this stage leaves with code 0");
+                WfLog(stopAsked ? $"the supervisor (pid {pid}) asked to stop: the run is saved, this stage leaves with code 0" : $"the supervisor (pid {pid}) is gone: the run is saved, this stage leaves with code 0");
             }
         }
     }

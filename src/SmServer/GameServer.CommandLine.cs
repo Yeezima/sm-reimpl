@@ -116,6 +116,8 @@ public sealed record ServerArguments
     public bool WarfrontNew { get; init; }
     /// <summary>--warfront-max-humans (Warfront): humans admitted, 1 to 4 (default 4).</summary>
     public int? WarfrontMaxHumans { get; init; }
+    /// <summary>--warfront-dedicated (Warfront, added content): the always-on shared campaign of the project's server: implies --content warfront and --warfront-max-humans 4 (unless given), refuses --warfront-new, and the supervisor restarts a crashed stage, locks the run folder and stops on SIGTERM (docs/warfront.md "Dedicated mode").</summary>
+    public bool WarfrontDedicated { get; init; }
     public bool Help { get; init; }
 }
 
@@ -186,10 +188,11 @@ public static class ServerCommandLine
           --warfront-stage              switch: (--content warfront) this process is one stage child of the Warfront supervisor (internal)
           --warfront-new                switch: (--content warfront) start a new campaign run; an unfinished one is archived as abandoned
           --warfront-max-humans <1-4>   (--content warfront) humans admitted (default 4; 1 for a local campaign)
+          --warfront-dedicated          switch: the always-on shared Warfront campaign (implies --content warfront; up to 4 humans unless --warfront-max-humans; refuses --warfront-new; the supervisor restarts a crashed stage, locks the run folder, stops on SIGTERM)
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
@@ -239,6 +242,7 @@ public static class ServerCommandLine
                     "--log-overlaps" => a with { LogOverlaps = true },
                     "--warfront-stage" => a with { WarfrontStage = true },
                     "--warfront-new" => a with { WarfrontNew = true },
+                    "--warfront-dedicated" => a with { WarfrontDedicated = true },
                     _ => a with { Help = true },
                 };
                 continue;
@@ -329,6 +333,11 @@ public static class ServerCommandLine
                 error = $"{flag} '{value}': expected {bad}";
                 return false;
             }
+        }
+        if (a.WarfrontDedicated)
+        {
+            if (a.WarfrontNew) { error = "--warfront-dedicated refuses --warfront-new (the shared campaign is never restarted by a command line)"; return false; }
+            a = a with { Content = a.Content | ContentExtras.Warfront, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
         }
         if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null) && !a.Content.HasFlag(ContentExtras.Warfront))
         {

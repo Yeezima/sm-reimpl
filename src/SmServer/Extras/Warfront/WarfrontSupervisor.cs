@@ -22,6 +22,12 @@ static class WarfrontRunFiles
     /// <summary>Humans admitted (<c>--warfront-max-humans</c>), set by Program.cs before the server is built; one source for the stage child and the tests.</summary>
     internal static int MaxHumans = 4;
 
+    /// <summary><c>--warfront-dedicated</c>, set by Program.cs before the server is built: the always-on shared campaign. Later dedicated-server slices (auto new run, default deploy, empty server) read it here.</summary>
+    internal static bool Dedicated;
+
+    /// <summary>Written into the run folder by a dedicated supervisor that got SIGTERM: the stage child saves and leaves with code 0 at its next once-a-second check (same path as "the supervisor is gone").</summary>
+    public const string StopFile = "stop.request";
+
     /// <summary>The environment variable the supervisor gives its child: its own process id. The child leaves (saved, exit code 0) when that process is gone.</summary>
     public const string SupervisorPidVariable = "SM_WF_SUPERVISOR_PID";
 
@@ -133,74 +139,3 @@ static class WarfrontStagePlan
     }
 }
 
-/// <summary>
-/// The Warfront supervisor (slice W5a; modelled on <see cref="RotationSupervisor"/>): reads <c>run.json</c> (creates a run with <c>--warfront-new</c> or when none exists), starts the stage child on the right map
-/// (the same arguments plus <c>--map &lt;name&gt; --warfront-stage</c>), waits, and starts the next stage when the child exits with <see cref="ServerCommandLine.WarfrontStageExit"/>; any other exit code ends the
-/// supervisor with it. It binds nothing itself. Closing the supervisor (Ctrl+C) kills the running child; the run on disk is whatever the last save wrote, and the next start resumes from it.
-/// </summary>
-static class WarfrontSupervisor
-{
-    /// <summary>The child's arguments: the supervisor's own without <c>--warfront-new</c>, <c>--map</c> and its value, plus <c>--map name --warfront-stage</c>.</summary>
-    public static List<string> ChildArguments(IReadOnlyList<string> args, string map)
-    {
-        var child = new List<string>();
-        for (int i = 0; i < args.Count; i++)
-        {
-            if (args[i] is "--warfront-new" or "--warfront-stage") continue;
-            if (args[i] == "--map") { i++; continue; }
-            child.Add(args[i]);
-        }
-        child.Add("--map"); child.Add(map); child.Add("--warfront-stage");
-        return child;
-    }
-
-    public static int Run(IReadOnlyList<string> args, ServerArguments cli)
-    {
-        string dir = WarfrontRunFiles.Dir;
-        try
-        {
-            if (cli.WarfrontNew && WarfrontSave.Exists(dir))
-            {
-                var old = WarfrontSave.Load(dir);
-                if (old is not null) Console.WriteLine($"warfront: --warfront-new: the run on disk is archived ({(old.IsOver ? "finished" : "unfinished, as abandoned")}): {Path.GetFileName(WarfrontSave.Archive(dir, old, DateTime.UtcNow))}");
-                try { File.Delete(Path.Combine(dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }
-            }
-            if (!WarfrontSave.Exists(dir))
-            {
-                var fresh = WarfrontRunFiles.NewRun(dir);
-                Console.WriteLine($"warfront: a new run (seed {fresh.RunSeed:X}) on the ship");
-            }
-        }
-        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
-        {
-            Console.Error.WriteLine($"smserver: the Warfront run could not be read or created: {e.Message}");
-            return 1;
-        }
-
-        string exe = Environment.ProcessPath ?? throw new InvalidOperationException("no process path");
-        string[] host = Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : [];
-        Process? running = null;
-        Console.CancelKeyPress += (_, e) => { try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } };
-        string? lastShip = null;
-        for (int stage = 1; ; stage++)
-        {
-            WarfrontCampaign? run;
-            try { run = WarfrontSave.Load(dir); }
-            catch (Exception e) when (e is IOException or InvalidDataException or JsonException) { Console.Error.WriteLine($"smserver: run.json is unreadable: {e.Message}"); return 1; }
-            string map = WarfrontStagePlan.NextMap(run, lastShip ?? WarfrontRunFiles.ReadStage(dir)?.Ship);
-            if (WarfrontStagePlan.HasShip(map)) lastShip = map;
-            var info = new ProcessStartInfo(exe) { UseShellExecute = false };
-            info.Environment[WarfrontRunFiles.SupervisorPidVariable] = Environment.ProcessId.ToString(CultureInfo.InvariantCulture);
-            foreach (var h in host) info.ArgumentList.Add(h);
-            foreach (var a in ChildArguments(args, map)) info.ArgumentList.Add(a);
-            Console.WriteLine($"warfront: stage {stage} on {map} ({(run is null ? "no run" : run.Phase.ToString())})");
-            var watch = Stopwatch.StartNew();
-            running = Process.Start(info) ?? throw new InvalidOperationException("the Warfront stage did not start");
-            running.WaitForExit();
-            int code = running.ExitCode;
-            running.Dispose(); running = null;
-            Console.WriteLine($"warfront: stage {stage} ended with code {code} after {watch.Elapsed.TotalSeconds:0.#} s");
-            if (code != ServerCommandLine.WarfrontStageExit) return code;
-        }
-    }
-}

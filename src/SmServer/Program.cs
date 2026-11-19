@@ -385,6 +385,7 @@ if (devTools)
 }
 #if SM_WARFRONT
 WarfrontRunFiles.MaxHumans = cli.WarfrontMaxHumans ?? 4;
+WarfrontRunFiles.Dedicated = cli.WarfrontDedicated;
 #endif
 var server = new GameServer(config, fingerprint, transport, serverClock, new ServerOptions
 {
