@@ -23,7 +23,7 @@ public sealed partial class GameServer
     // The ship clock: since when this leader has had an idle ship (null: not counting). The results clock: since when the results stand with someone to read them.
     ulong? _wfShipLeader;
     uint _wfShipSince, _wfShipNextTry;
-    uint? _wfResultsSince;
+    uint? _wfResultsSince, _wfEmptySince;
 
     /// <summary>
     /// The deployment the server picks for an idle leader: the HQ defence when it is mandatory, else the node of the lane with the lowest front (ties: lane A, B, C), else the fortress through the lowest
@@ -68,9 +68,11 @@ public sealed partial class GameServer
             _ => $"lane {(char)('A' + target.Lane)}",
         };
         WfLog($"dedicated: no deployment in {(int)WarfrontDeployFallbackSeconds} s; the server deploys to {what}");
+        WarfrontDeploy(player, target, serverFallback: true);   // the normal path, except the co-op gate: whoever is still choosing a class or cards had 90 s
+        bool started = s.Prep is not null || s.Go is not null || s.Landing || s.Arriving || s.RestartDue || c.Phase != WarfrontPhase.Ship;
+        if (!started) { WfLog("dedicated: the server's deployment did not start; retrying"); return; }   // no banner for a deployment that never began (review)
         s.GateRefusal = $"No deployment chosen: the server sends the squad to {what}";   // the Stage None text, shown for 5 s (WarfrontStageSection)
         s.GateRefusalTick = World.Tick;
-        WarfrontDeploy(player, target, serverFallback: true);   // the normal path, except the co-op gate: whoever is still choosing a class or cards had 90 s
     }
 
     /// <summary>
@@ -79,11 +81,14 @@ public sealed partial class GameServer
     /// </summary>
     void WarfrontAutoNewRunStep(WarfrontServerState s)
     {
-        if (!s.Finished || s.Leaving || s.Go is not null || !s.Campaign.IsOver) { _wfResultsSince = null; return; }
+        if (!s.Finished || s.Leaving || s.Go is not null || !s.Campaign.IsOver) { _wfResultsSince = null; _wfEmptySince = null; return; }
         _wfResultsSince ??= World.Tick;
         double elapsed = (double)(World.Tick - _wfResultsSince.Value) / WarfrontRate;
         bool nobody = s.KeyOf.Count == 0 && s.Waiting.Count == 0;
-        if (nobody && elapsed >= WarfrontEmptyGraceSeconds) { WarfrontBeginNewRun(s, "dedicated: nobody is connected"); return; }
+        // The empty grace counts from the moment the server emptied (review): a player who drops briefly at 100 s still gets the grace to reconnect.
+        if (nobody) _wfEmptySince ??= World.Tick; else _wfEmptySince = null;
+        double empty = _wfEmptySince is { } since ? (double)(World.Tick - since) / WarfrontRate : 0;
+        if (nobody && empty >= WarfrontEmptyGraceSeconds) { WarfrontBeginNewRun(s, "dedicated: nobody is connected"); return; }
         if (elapsed >= WarfrontAutoNewRunSeconds) WarfrontBeginNewRun(s, $"dedicated: the leader did not start one in {(int)WarfrontAutoNewRunSeconds} s");
     }
 }
