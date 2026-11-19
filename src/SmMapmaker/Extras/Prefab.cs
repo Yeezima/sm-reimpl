@@ -169,15 +169,17 @@ public static class PrefabGraph
     public static string? FindCycle(string start, Func<string, Prefab?> get)
     {
         var path = new List<string>();
+        var clean = new HashSet<string>();   // fully walked without a cycle: a diamond of prefabs is not walked once per path
         string? Walk(string id)
         {
             int at = path.IndexOf(id);
             if (at >= 0) return string.Join(" -> ", path.Skip(at).Append(id));
-            if (get(id) is not { } p) return null;
+            if (clean.Contains(id) || get(id) is not { } p) return null;
             path.Add(id);
             foreach (var child in p.Parts.Where(x => x.Prefab is not null).Select(x => x.Prefab!).Distinct())
                 if (Walk(child) is { } c) return c;
             path.RemoveAt(path.Count - 1);
+            clean.Add(id);
             return null;
         }
         return Walk(start);

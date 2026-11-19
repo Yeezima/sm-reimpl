@@ -15,6 +15,16 @@ sealed class FakeScenes : ISm1Scenes
     public float WallHeight { get; init; } = 3f;
     public int SceneLoads;
     public bool HasWall { get; init; } = true;
+    public bool Explode { get; init; }
+
+    /// <summary>A 40 x 40 vertex grid at z = 0 (7,500 triangles).</summary>
+    static DcmBlock Grid()
+    {
+        var p = new List<Vector3>(); var t = new List<ushort>();
+        for (int y = 0; y < 40; y++) for (int x = 0; x < 40; x++) p.Add(new Vector3(x, y, 0));
+        for (int y = 0; y < 39; y++) for (int x = 0; x < 39; x++) { ushort a = (ushort)(y * 40 + x); t.AddRange([a, (ushort)(a + 1), (ushort)(a + 40), (ushort)(a + 1), (ushort)(a + 41), (ushort)(a + 40)]); }
+        return new DcmBlock(0, Vector3.Zero, new(39, 39, 0), [new DcmMaterialRange("mat", 0, 0, 1600, 0, t.Count, 0, 0)], [.. t], [.. p], [], [], [], [], [], null);
+    }
 
     static DcmBlock Box(Vector3 lo, Vector3 hi)
     {
@@ -26,17 +36,22 @@ sealed class FakeScenes : ISm1Scenes
 
     public MapScene Scene(string map, IReadOnlySet<string> definitions)
     {
+        if (Explode) throw new InvalidOperationException("boom");
         if (map != "mp_fake") throw new MapException("unknown-map", $"The Space Marine install on this PC has no map '{map}'.");
         SceneLoads++;
         var meshes = new Dictionary<string, DcmMesh>(StringComparer.OrdinalIgnoreCase)
         {
             ["wall.dcm"] = DcmMesh.FromBlocks([Box(new(-2, -0.5f, 0), new(2, 0.5f, WallHeight))]),
+            ["big.dcm"] = DcmMesh.FromBlocks([Grid()]),
+            ["empty.dcm"] = DcmMesh.FromBlocks([new DcmBlock(0, Vector3.Zero, Vector3.One, [], [], [Vector3.Zero], [], [], [], [], [], null)]),
             ["floor.dcm"] = DcmMesh.FromBlocks([Box(new(-50, -50, 0), new(50, 50, 0.1f)), Box(new(10, -2, 0), new(14, 2, 8))]),
         };
         var defs = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase)
         {
             ["def_composite"] = new("def_composite", [new("floor.dcm", 0, "Floor", Matrix4x4.Identity, -1, true), new("floor.dcm", 1, "Gate_a", Matrix4x4.Identity, -1, true)], []),
         };
+        defs["def_big"] = new("def_big", [new("big.dcm", 0, "Big", Matrix4x4.Identity, -1, true)], []);
+        defs["def_empty"] = new("def_empty", [new("empty.dcm", 0, "Empty", Matrix4x4.Identity, -1, true)], []);
         if (HasWall) defs["def_wall"] = new("def_wall", [new("wall.dcm", 0, "Wall", Matrix4x4.Identity, -1, true)], []);
         return new MapScene { Map = map, Objects = [], Definitions = defs, Meshes = meshes, Materials = new Dictionary<string, BmatMaterial>(), Textures = new Dictionary<string, byte[]>(), Notes = [] };
     }
@@ -166,7 +181,7 @@ public sealed class DecorPlayTests : IDisposable
         Assert.Equal(a.Decor!.Digest(), b.Decor!.Digest());
         Assert.NotEqual(a.Hash, taller.Hash);                                // same file, a different install: another world
         Assert.NotEqual(CustomMap.HashOf(doc), a.Hash);                       // the document alone no longer names a decorated map's world
-        Assert.Equal(2, CustomMap.CompilerVersion);
+        Assert.Equal(3, CustomMap.CompilerVersion);
         // a map of pieces only keeps hashing the document alone
         var pieces = Doc("""{"op":"place","piece":{"kind":"box"},"transform":{"scale":[4,4,1]}}""");
         Assert.Equal(CustomMap.HashOf(pieces), CustomMap.Compile(pieces, Options()).Hash);
@@ -239,5 +254,153 @@ public sealed class DecorPlayTests : IDisposable
         Assert.Equal(2000 * 12, map.Decor!.Triangles);
         Assert.Equal(1, scenes.SceneLoads);                                  // the scene is asked for once per map, not per placement
         Assert.True(timer.Elapsed < TimeSpan.FromSeconds(10), $"took {timer.Elapsed}");
+    }
+
+    // ---- hostile files, budgets, determinism (review of 2026-11-19) ----
+
+    static JsonObject WithPrefabs(MapDocument doc, Action<JsonArray> edit)
+    {
+        var o = (JsonObject)JsonNode.Parse(doc.ToJson())!;
+        edit((JsonArray)o["prefabs"]!);
+        return o;
+    }
+
+    MapDocument PairDoc()
+    {
+        var s = _lab.Session();
+        foreach (var op in new[] { Wall + ""","name":"a"}""", Wall + ""","name":"b","transform":{"position":[10,0,0]}}""",
+            """{"op":"group-to-prefab","ids":["o1","o2"],"prefab":"pair","name":"pair","origin":[0,0,0],"replace":true}""" }) Assert.True(s.Apply(Lab.Op(op)).Ok);
+        string file = Path.Combine(_lab.Dir, "pair.smmap");
+        s.Save(file);   // saving embeds the prefab
+        return MapDocument.Parse(File.ReadAllText(file));
+    }
+
+    [Fact]
+    public void A_prefab_that_contains_itself_is_refused_when_the_file_is_read_and_when_it_comes_from_the_library()
+    {
+        var doc = PairDoc();
+        var cyc = WithPrefabs(doc, a => ((JsonArray)a[0]!["parts"]!).Add(JsonNode.Parse("""{"id":"p9","name":"self","prefab":"pair","transform":{"position":[0,0,0]}}""")));
+        Assert.Equal("prefab-cycle", Assert.Throws<MapException>(() => MapDocument.Parse(cyc.ToJsonString())).Code);
+        // through two prefabs
+        var twoStep = WithPrefabs(doc, a =>
+        {
+            var b = (JsonObject)JsonNode.Parse(a[0]!.ToJsonString())!;
+            b["id"] = "other"; b["parts"] = JsonNode.Parse("""[{"id":"p1","name":"x","prefab":"pair","transform":{"position":[0,0,0]}}]""");
+            ((JsonArray)a[0]!["parts"]!).Add(JsonNode.Parse("""{"id":"p9","name":"loop","prefab":"other","transform":{"position":[0,0,0]}}"""));
+            a.Add(b);
+        });
+        Assert.Equal("prefab-cycle", Assert.Throws<MapException>(() => MapDocument.Parse(twoStep.ToJsonString())).Code);
+        // a library prefab (not in the file) that contains itself: the compiler refuses it too
+        var plain = (JsonObject)JsonNode.Parse(doc.ToJson())!;
+        var prefab = (JsonObject)JsonNode.Parse(plain["prefabs"]![0]!.ToJsonString())!;
+        ((JsonArray)prefab["parts"]!).Add(JsonNode.Parse("""{"id":"p9","name":"self","prefab":"pair","transform":{"position":[0,0,0]}}"""));
+        Directory.CreateDirectory(_lab.Library.PrefabsDir);
+        File.WriteAllText(_lab.Library.PrefabPath("pair"), prefab.ToJsonString());
+        plain.Remove("prefabs");
+        var noEmbedded = MapDocument.Parse(plain.ToJsonString());
+        Assert.Equal("prefab-cycle", Assert.Throws<MapException>(() => CustomMap.Compile(noEmbedded, Options())).Code);
+    }
+
+    [Fact]
+    public void A_fan_out_bomb_of_nested_prefabs_is_refused_with_too_big_and_fast()
+    {
+        var doc = PairDoc();
+        var o = WithPrefabs(doc, a =>
+        {
+            for (int k = 1; k <= 14; k++)
+            {
+                var f = (JsonObject)JsonNode.Parse(a[0]!.ToJsonString())!;
+                f["id"] = $"f{k}"; f["name"] = $"f{k}";
+                string child = k == 1 ? "pair" : $"f{k - 1}";
+                f["parts"] = JsonNode.Parse("[" + string.Join(",", Enumerable.Range(1, 6).Select(i => $$$"""{"id":"p{{{i}}}","name":"x","prefab":"{{{child}}}","transform":{"position":[{{{i}}},0,0]}}""")) + "]");
+                a.Add(f);
+            }
+        });
+        o["objects"]![0]!["prefab"] = "f14";   // the one instance now stands for the top of the pyramid: 6^14 parts
+        var bomb = MapDocument.Parse(o.ToJsonString());
+        var timer = Stopwatch.StartNew();
+        Assert.Equal("too-big", Assert.Throws<MapException>(() => CustomMap.Compile(bomb, Options())).Code);
+        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(10));
+        // the editor's lenient compile does not throw: it leaves the decoration out and the check says why
+        var lenient = CustomMap.Compile(bomb, Options(strict: false));
+        Assert.Equal(0, lenient.Decor!.Placements.Count);
+        Assert.Contains(MapCheck.Run(lenient).Issues, i => i.Code == "decoration-missing");
+    }
+
+    [Fact]
+    public void Twenty_thousand_placements_of_a_big_definition_are_refused_with_too_big_and_fast()
+    {
+        var one = Doc("""{"op":"place","asset":{"source":"sm1","map":"mp_fake","definition":"def_big"}}""");
+        var o = (JsonObject)JsonNode.Parse(one.ToJson())!;
+        var objects = (JsonArray)o["objects"]!;
+        var template = objects[0]!.ToJsonString();
+        objects.Clear();
+        for (int i = 1; i <= 20000; i++)
+        {
+            var n = (JsonObject)JsonNode.Parse(template)!;
+            n["id"] = $"o{i}"; n["name"] = $"big {i}";
+            objects.Add(n);
+        }
+        o["nextId"] = 20001;
+        var doc = MapDocument.Parse(o.ToJsonString());
+        var timer = Stopwatch.StartNew();
+        var e = Assert.Throws<MapException>(() => CustomMap.Compile(doc, Options()));
+        Assert.Equal("too-big", e.Code);
+        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(10), $"took {timer.Elapsed}");
+    }
+
+    [Fact]
+    public void A_scene_source_that_throws_something_odd_is_a_clean_refusal_not_a_crash()
+    {
+        var doc = Doc(Wall + "}");
+        var e = Assert.Throws<MapException>(() => CustomMap.Compile(doc, Options(new FakeScenes { Explode = true })));
+        Assert.Equal("bad-file", e.Code);
+        Assert.Contains("boom", e.Message);
+        // lenient: noted, and the check refuses to call the map ready
+        var lenient = CustomMap.Compile(doc, Options(new FakeScenes { Explode = true }, strict: false));
+        Assert.Contains(MapCheck.Run(lenient).Issues, i => i.Code == "decoration-missing");
+    }
+
+    [Fact]
+    public void A_definition_with_no_triangles_is_a_refusal_and_a_mirrored_placement_is_still_solid()
+    {
+        var empty = Doc("""{"op":"place","asset":{"source":"sm1","map":"mp_fake","definition":"def_wall"}}""");
+        var json = empty.ToJson().Replace("def_wall", "def_empty");
+        Assert.Equal("empty-sm1-definition", Assert.Throws<MapException>(() => CustomMap.Compile(MapDocument.Parse(json), Options())).Code);
+        var mirrored = Doc(Wall + ""","transform":{"position":[0,0,0],"scale":[-1,1,1]}}""");
+        var map = CustomMap.Compile(mirrored, Options());
+        Assert.Equal(3f, Down(map, 1, 0)!.Value, 3);                        // two-sided collision: mirroring needs no winding flip
+        Assert.Equal(3f, Down(map, -1, 0)!.Value, 3);
+    }
+
+    [Fact]
+    public void The_digest_does_not_move_with_last_bit_float_noise_but_does_with_the_content()
+    {
+        var a = Doc(Wall + ""","transform":{"position":[10.123456,20.654321,5],"rotation":[0,0,33.3333]}}""");
+        var b = MapDocument.Parse(a.ToJson().Replace("10.123456", "10.1234561").Replace("33.3333", "33.33330001"));
+        var one = CustomMap.Compile(a, Options()); var two = CustomMap.Compile(b, Options());
+        Assert.Equal(one.Decor!.Digest(), two.Decor!.Digest());
+        Assert.NotEqual(one.Decor.Digest(), CustomMap.Compile(a, Options(new FakeScenes { WallHeight = 3.25f })).Decor!.Digest());
+        // positions are on the 1/4096 m grid before they reach the collision
+        Assert.All(one.Decor.Vertices, v => { Assert.Equal(v.X, MathF.Round(v.X * 4096f) / 4096f); Assert.Equal(v.Z, MathF.Round(v.Z * 4096f) / 4096f); });
+        Assert.Equal(DecorGeometry.Quantise(new Vector3(1.00001f, 2.00001f, 3f)), DecorGeometry.Quantise(new Vector3(1.0000101f, 2.0000099f, 3f)));
+    }
+
+    [Fact]
+    public void The_editors_cache_keeps_the_decoration_while_only_pieces_change()
+    {
+        var scenes = new FakeScenes();
+        var cache = new DecorCache();
+        CompileOptions Opt() => new() { Scenes = scenes, Library = _lab.Library, Cache = cache, CacheTag = "x" };
+        var s = _lab.Session();
+        Assert.True(s.Apply(Lab.Op("""{"op":"place","asset":{"source":"sm1","map":"mp_fake","definition":"def_wall"}}""")).Ok);
+        Assert.True(s.Apply(Lab.Op("""{"op":"place","piece":{"kind":"box"},"transform":{"scale":[4,4,1]}}""")).Ok);
+        var first = CustomMap.Compile(s.Document, Opt());
+        Assert.True(s.Apply(Lab.Op("""{"op":"transform","id":"o2","position":[5,5,0]}""")).Ok);
+        var second = CustomMap.Compile(s.Document, Opt());
+        Assert.Same(first.Decor, second.Decor);
+        Assert.Equal(1, scenes.SceneLoads);
+        Assert.True(s.Apply(Lab.Op("""{"op":"transform","id":"o1","position":[1,1,0]}""")).Ok);
+        Assert.NotSame(first.Decor, CustomMap.Compile(s.Document, Opt()).Decor);
     }
 }

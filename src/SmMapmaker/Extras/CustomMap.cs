@@ -93,7 +93,7 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 2;   // 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
+    public const int CompilerVersion = 3;   // 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
@@ -213,7 +213,9 @@ public sealed class CustomMap
         }
         if (areaMarines > 1 || areaChaos > 1) notes.Add("Only the first spawn area of each side is used by the match; the others are ignored.");
         // SM1 placements, prefab instances and imported models: drawn by the client and solid here, the same triangles on every machine (DecorGeometry).
-        DecorResult? decor = options is null ? null : DecorGeometry.Build(doc, options);
+        DecorResult? decor = options is null ? null
+            : options.Cache is { } cache ? cache.GetOrBuild(DecorCache.KeyOf(doc, options.CacheTag), () => DecorGeometry.Build(doc, options))
+            : DecorGeometry.Build(doc, options);
         if (decor is not null)
         {
             notes.AddRange(decor.Notes);

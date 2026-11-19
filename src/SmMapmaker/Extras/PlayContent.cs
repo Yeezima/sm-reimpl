@@ -20,6 +20,34 @@ public interface ISm1Scenes
     (Vector3[] Vertices, int[] Indices) OriginalCollision(string map);
 }
 
+/// <summary>One remembered <see cref="DecorResult"/> and the key it was built for.</summary>
+public sealed class DecorCache
+{
+    readonly object _gate = new();
+    string? _key;
+    DecorResult? _result;
+
+    public DecorResult GetOrBuild(string key, Func<DecorResult> build)
+    {
+        lock (_gate)
+        {
+            if (_key == key && _result is not null) return _result;
+            var built = build();
+            _key = key; _result = built;
+            return built;
+        }
+    }
+
+    /// <summary>The key of everything in <paramref name="doc"/> that decoration depends on: its objects that are not pieces (placements, groups, prefab instances with overrides) and the embedded prefabs.</summary>
+    public static string KeyOf(MapDocument doc, string tag)
+    {
+        var sb = new System.Text.StringBuilder(tag).Append('\n');
+        foreach (var o in doc.Objects) if (o.Piece is null) sb.Append(o.ToNode().ToJsonString()).Append('\n');
+        foreach (var p in doc.EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal)) sb.Append(p.ToNode().ToJsonString()).Append('\n');
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sb.ToString())));
+    }
+}
+
 /// <summary>Reads maps from the user's install (read-only), each map once per process: scenes are cached by map and loaded again only when a later request needs more definitions.</summary>
 public sealed class InstalledSm1Scenes : ISm1Scenes
 {
@@ -39,6 +67,11 @@ public sealed class InstalledSm1Scenes : ISm1Scenes
 
     public MapScene Scene(string map, IReadOnlySet<string> definitions)
     {
+        lock (_gate) return SceneLocked(map, definitions);
+    }
+
+    MapScene SceneLocked(string map, IReadOnlySet<string> definitions)
+    {
         if (_scenes.TryGetValue(map, out var have) && definitions.All(have.Definitions.Contains)) return have.Scene;
         var wanted = new HashSet<string>(definitions, StringComparer.OrdinalIgnoreCase);
         if (have.Definitions is not null) wanted.UnionWith(have.Definitions);
@@ -55,7 +88,14 @@ public sealed class InstalledSm1Scenes : ISm1Scenes
         return scene;
     }
 
+    readonly object _gate = new();
+
     public (Vector3[] Vertices, int[] Indices) OriginalCollision(string map)
+    {
+        lock (_gate) return OriginalCollisionLocked(map);
+    }
+
+    (Vector3[] Vertices, int[] Indices) OriginalCollisionLocked(string map)
     {
         if (_collision.TryGetValue(map, out var have)) return have;
         MapContent content;
@@ -88,6 +128,10 @@ public sealed class CompileOptions
     public ISm1Scenes? Scenes { get; init; }
     public MapLibrary? Library { get; init; }
     public bool Strict { get; init; }
+    /// <summary>The editor keeps the last decoration here, so dragging a piece or a spawn area does not unfold and triangulate every SM1 placement again (null: no caching).</summary>
+    public DecorCache? Cache { get; init; }
+    /// <summary>Part of the cache key that is not in the document: what the scene source holds right now (the editor's loaded maps).</summary>
+    public string CacheTag { get; init; } = "";
 
     /// <summary>The way a server, a client or a tool plays or checks a map file: this PC's install and library, strict.</summary>
     /// <param name="gameDir">An explicit install folder (<c>--game-dir</c>), or null to look.</param>

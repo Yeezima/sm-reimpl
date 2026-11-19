@@ -16,6 +16,9 @@ public sealed class EditorScenes : ISm1Scenes
 {
     static InstalledSm1Scenes? _installed;
     static bool _tried;
+    static readonly object Gate = new();
+    /// <summary>The last decoration, so dragging a piece does not triangulate every SM1 placement again.</summary>
+    public static readonly DecorCache Cache = new();
     readonly Dictionary<string, MapScene> _loaded;
 
     EditorScenes(Dictionary<string, MapScene> loaded) { _loaded = loaded; }
@@ -27,14 +30,19 @@ public sealed class EditorScenes : ISm1Scenes
     /// <summary>Changes when a map is loaded or dropped, so a cached compile is made again.</summary>
     public static string StateKey() => string.Join(",", MapHost.LoadedMaps.Order(StringComparer.OrdinalIgnoreCase));
 
-    public static CompileOptions Options() => new() { Scenes = Snapshot(), Library = MapHost.Library, Strict = false };
+    public static CompileOptions Options() => new() { Scenes = Snapshot(), Library = MapHost.Library, Strict = false, Cache = Cache, CacheTag = StateKey() + "|" + MapHost.Library.Root };
 
     public MapScene Scene(string map, IReadOnlySet<string> definitions) =>
         _loaded.TryGetValue(map, out var scene) ? scene : throw new MapException("missing-install", $"the Space Marine map '{map}' is not loaded in the editor yet");
 
     public (Vector3[] Vertices, int[] Indices) OriginalCollision(string map)
     {
-        if (!_tried) { _tried = true; _installed = InstalledSm1Scenes.TryCreate(null, textures: false); }
-        return (_installed ?? throw new MapException("missing-install", "no Space Marine install was found")).OriginalCollision(map);
+        InstalledSm1Scenes? installed;
+        lock (Gate)
+        {
+            if (!_tried) { _tried = true; _installed = InstalledSm1Scenes.TryCreate(null, textures: false); }
+            installed = _installed;
+        }
+        return (installed ?? throw new MapException("missing-install", "no Space Marine install was found")).OriginalCollision(map);
     }
 }

@@ -15,6 +15,11 @@ public sealed partial class GameServer
         // SM1 placements, prefabs and imported models are solid here (docs/mapmaker.md "SM1 pieces in play"): meshes only, from this server's install and library; a PC that lacks one refuses.
         try { compiled = CustomMaps.Load(file, CompileOptions.ForPlay(install, textures: false)); }
         catch (MapException e) { error = $"cannot play '{file}': {e.Message}"; return; }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or InvalidProgramException))
+        {
+            // A damaged or hostile file (out of memory, a number out of range, bad JSON in a prefab): a clean refusal, exit code 2, never a crash.
+            error = $"cannot play '{file}': the map could not be compiled ({e.GetType().Name}: {e.Message})"; return;
+        }
         var c = compiled.Content;
         name = compiled.Name;
         map = new GameMap(compiled.Name, compiled.ToCollisionWorld(), c.SpawnPoints(), compiled.Hash, c.SimControlPoints(), c.SimStartAreas(), c.SimBlockers()) { AddedContent = compiled };

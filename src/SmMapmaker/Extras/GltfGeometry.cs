@@ -12,7 +12,16 @@ namespace SmMapmaker;
 /// </summary>
 public static class GltfGeometry
 {
-    public const int MaxVertices = 4_000_000;
+    public const int MaxVertices = 4_000_000, MaxIndices = 12_000_000, MaxPrimitives = 20_000;
+    /// <summary>Largest model file read for collision (a shared library folder is somebody else's input).</summary>
+    public const long MaxFileBytes = 64_000_000;
+
+    /// <summary>The file's bytes, for hashing (the same cap as reading).</summary>
+    public static byte[] FileBytesForHash(string path)
+    {
+        if (new FileInfo(path).Length > MaxFileBytes) throw new MapException("bad-asset", $"The model '{Path.GetFileName(path)}' is larger than {MaxFileBytes / 1_000_000} MB.");
+        return File.ReadAllBytes(path);
+    }
 
     /// <summary>glTF (x, y, z) to the document frame (x, -z, y): the same turn as <c>AssetInfo.GltfToDocument</c> and the editor's view.</summary>
     public static Vector3 ToDocumentFrame(Vector3 v) => new(v.X, -v.Z, v.Y);
@@ -29,7 +38,7 @@ public static class GltfGeometry
 
     static (Vector3[], int[]) ReadCore(string path)
     {
-        byte[] bytes = File.ReadAllBytes(path);
+        byte[] bytes = FileBytesForHash(path);
         string ext = Path.GetExtension(path).ToLowerInvariant();
         byte[]? glbBin = null;
         string jsonText;
@@ -75,9 +84,11 @@ public static class GltfGeometry
 
         var vertices = new List<Vector3>();
         var indices = new List<int>();
+        int primitives = 0;
 
         void AddPrimitive(JsonObject prim, Matrix4x4 world)
         {
+            if (++primitives > MaxPrimitives) throw new InvalidOperationException($"the node tree draws more than {MaxPrimitives:N0} mesh primitives");
             int mode = prim["mode"] is { } mn ? GltfReader.Index(mn) : 4;
             if (mode is not (4 or 5 or 6)) return;
             int acc = GltfReader.Index(prim["attributes"]?["POSITION"]);
@@ -88,6 +99,7 @@ public static class GltfGeometry
             int ia = GltfReader.Index(prim["indices"]);
             if (ia >= 0) source = ReadIndices(ia < accessors.Count ? accessors[ia] as JsonObject : null, views, buffers, positions.Length);
             else source = Enumerable.Range(0, positions.Length).ToArray();
+            if (indices.Count + source.Length > MaxIndices) throw new InvalidOperationException($"the model has more than {MaxIndices:N0} indices");
             int first = vertices.Count;
             foreach (var p in positions) vertices.Add(Vector3.Transform(p, world));
             switch (mode)

@@ -35,6 +35,10 @@ public partial class NetworkView
                 GD.Print($"custom map {name}: {decor.Placements.Count} SM1 / model placements, {decor.Triangles:N0} solid triangles from this install ({started.Elapsed.TotalSeconds:0.0} s)");
         }
         catch (MapException e) { throw new System.InvalidOperationException(e.Message); }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.InvalidProgramException or System.InvalidOperationException))
+        {
+            throw new System.InvalidOperationException($"The custom map could not be compiled ({e.GetType().Name}: {e.Message}).");
+        }
         map = _customMap.Content;
         GD.Print($"custom map {name}: {_customMap.SolidCount} solid pieces, {map.StartAreas.Count} start areas, {map.ControlPoints.Count} capture points; hash {_customMap.Hash:X16}; nothing read from the install");
     }

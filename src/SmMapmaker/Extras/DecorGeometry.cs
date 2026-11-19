@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using SmContent;
+using SmFormats.Dcm;
 
 namespace SmMapmaker;
 
@@ -24,18 +25,31 @@ public sealed class DecorResult
     /// <summary>How many SM1 and custom pieces were placed (drawn), and how many of them are solid.</summary>
     public int Drawn => Placements.Count;
 
-    /// <summary>First 8 bytes of SHA-256 over every vertex and index: two machines whose installs or models differ get different digests, so the map hash refuses to match.</summary>
+    /// <summary>Things the editor's lenient compile left out that play would refuse (a missing model, an unreadable one, a map not loaded yet): the check reports each as an error.</summary>
+    public List<string> Problems { get; } = [];
+    /// <summary>The source data the triangles were made from, by name: a hash of each used mesh block of the install, each model file and each original collision.</summary>
+    public SortedDictionary<string, string> Sources { get; } = new(StringComparer.Ordinal);
+
+    public void Clear() { Placements.Clear(); Vertices.Clear(); Indices.Clear(); Sources.Clear(); }
+
+    /// <summary>
+    /// First 8 bytes of SHA-256 over the **source data** of the triangles (the install's mesh blocks, the model files, the original collision), not the transformed result: floating-point
+    /// last bits differ between machines (Linux server, Windows clients), the files do not. Two machines whose installs or models differ get different digests, so the map hash refuses to match.
+    /// </summary>
     public ulong Digest()
     {
-        using var sha = SHA256.Create();
-        var v = Vertices.ToArray();
-        var i = Indices.ToArray();
-        sha.TransformBlock(BitConverter.GetBytes(v.Length), 0, 4, null, 0);
-        var vb = MemoryMarshal.AsBytes<Vector3>(v).ToArray();
-        sha.TransformBlock(vb, 0, vb.Length, null, 0);
-        var ib = MemoryMarshal.AsBytes<int>(i).ToArray();
-        sha.TransformFinalBlock(ib, 0, ib.Length);
-        return BitConverter.ToUInt64(sha.Hash!, 0);
+        var sb = new System.Text.StringBuilder("decoration sources\n");
+        foreach (var (k, v) in Sources) sb.Append(k).Append('=').Append(v).Append('\n');
+        sb.Append("placements=").Append(Placements.Count).Append('\n');
+        return BitConverter.ToUInt64(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sb.ToString())), 0);
+    }
+
+    /// <summary>Hex SHA-256 of raw arrays (vertex and index data as stored).</summary>
+    public static string HashOf(params byte[][] parts)
+    {
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var part in parts) sha.AppendData(part);
+        return Convert.ToHexString(sha.GetHashAndReset());
     }
 }
 
@@ -46,13 +60,55 @@ public sealed class DecorResult
 /// </summary>
 public static class DecorGeometry
 {
+    /// <summary>Most prefab parts (and prefab nodes) one map may unfold to, counted over all instances: a hostile file can nest prefabs to fan out without bound.</summary>
+    public const int MaxParts = 100_000;
+    /// <summary>Most vertices and indices (three per triangle) all the decoration of one map may add, original-cut copies included.</summary>
+    public const int MaxVertices = 10_000_000, MaxIndices = 30_000_000;
+    /// <summary>Positions are rounded to this grid (1/4096 m, a power of two, so the rounding is exact) before they reach the collision.</summary>
+    public const float Grid = 4096f;
+
+    public static Vector3 Quantise(Vector3 v) => new(MathF.Round(v.X * Grid) / Grid, MathF.Round(v.Y * Grid) / Grid, MathF.Round(v.Z * Grid) / Grid);
+
+    sealed class Budget
+    {
+        int _parts;
+        long _vertices, _indices;
+        public void Part()
+        {
+            if (++_parts > MaxParts) throw new MapException("too-big", $"The map's prefabs unfold to more than {MaxParts:N0} parts; the file is refused.");
+        }
+        public void Add(int vertices, int indices)
+        {
+            _vertices += vertices; _indices += indices;
+            if (_vertices > MaxVertices || _indices > MaxIndices)
+                throw new MapException("too-big", $"The map's SM1 pieces, models and prefabs need more than {MaxIndices / 3:N0} triangles of collision (the limit is {MaxIndices / 3:N0} triangles and {MaxVertices:N0} vertices); the file is refused.");
+        }
+    }
+
     public static DecorResult Build(MapDocument doc, CompileOptions? options)
     {
         var result = new DecorResult { Library = options?.Library };
         bool strict = options?.Strict == true;
+        try { BuildCore(doc, options, result, new Budget()); }
+        catch (MapException e) when (!strict) { result.Clear(); result.Problems.Add(e.Message); result.Notes.Add(e.Message); }
+        catch (MapException) { throw; }
+        catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or InvalidProgramException))
+        {
+            // Anything else a hostile or damaged file can provoke (a number out of range, a prefab that is not JSON, memory): a clean refusal, never a crash.
+            var refusal = new MapException("bad-file", $"The map's SM1 pieces, prefabs or models could not be compiled ({e.GetType().Name}: {e.Message}).");
+            if (strict) throw refusal;
+            result.Clear(); result.Problems.Add(refusal.Message); result.Notes.Add(refusal.Message);
+        }
+        return result;
+    }
+
+    static void BuildCore(MapDocument doc, CompileOptions? options, DecorResult result, Budget budget)
+    {
+        bool strict = options?.Strict == true;
         void Problem(string code, string message)
         {
             if (strict) throw new MapException(code, message);
+            result.Problems.Add(message);
             result.Notes.Add(message);
         }
 
@@ -66,11 +122,23 @@ public static class DecorGeometry
             Prefab? found = doc.EmbeddedPrefabs.FirstOrDefault(p => p.Id == id);
             if (found is null)
                 try { found = options?.Library?.GetPrefab(id); }
-                catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException) { }
+                catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or InvalidOperationException or FormatException or OverflowException) { }
+            if (found is not null && PrefabGraph.FindCycle(id, GetPrefabNoCycle) is { } cyc)
+                throw new MapException("prefab-cycle", $"The prefab '{id}' contains itself: {cyc}.");
             return prefabCache[id] = found;
+        }
+        Prefab? GetPrefabNoCycle(string id)
+        {
+            if (prefabCache.TryGetValue(id, out var have)) return have;
+            Prefab? found = doc.EmbeddedPrefabs.FirstOrDefault(p => p.Id == id);
+            if (found is null)
+                try { found = options?.Library?.GetPrefab(id); }
+                catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or InvalidOperationException or FormatException or OverflowException) { }
+            return found;
         }
         void Expand(string objectId, string name, string prefabId, Matrix4x4 world, bool visible, IReadOnlyList<PartOverride> overrides, int depth, bool solid)
         {
+            budget.Part();
             if (depth > 16) { Problem("bad-prefab", $"'{objectId}': prefab nesting is too deep at '{prefabId}'."); return; }
             if (GetPrefab(prefabId) is not { } prefab)
             {
@@ -79,9 +147,11 @@ public static class DecorGeometry
             }
             bool cut = solid && prefab.Collision == "original-cut" && prefab.Provenance is { Source: "sm1", Map: not null };
             if (solid && prefab.Collision == "original-cut" && !cut) result.Notes.Add($"prefab '{prefab.Id}' asks for original-cut collision but does not come from one SM1 map; its meshes are used.");
+            if (cut && depth == 0 && overrides.Count > 0) result.Notes.Add($"'{name}' ({objectId}) moves or hides parts of the original-cut prefab '{prefab.Id}': the original collision is cut for the whole prefab as it was extracted, the overrides change only what is drawn.");
             if (cut && visible) cuts.Add((objectId, prefab, world));
             foreach (var part in prefab.Parts)
             {
+                budget.Part();
                 var ov = depth == 0 ? overrides.FirstOrDefault(x => x.Part == part.Id) : null;
                 var matrix = (ov?.Transform ?? part.Transform).ToMatrix() * world;
                 bool vis = visible && (ov?.Visible ?? true);
@@ -93,13 +163,14 @@ public static class DecorGeometry
         {
             if (o.Piece is not null || (o.Asset is null && o.Prefab is null)) continue;
             if (!VisibleChain(doc, o)) continue;
+            budget.Part();
             Matrix4x4 world;
             try { world = doc.World(o.Id); }
             catch (MapException e) { result.Notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             if (o.Asset is { } asset) parts.Add((o.Id, o.Name, asset, world, true));
             else Expand(o.Id, o.Name, o.Prefab!, world, true, o.Overrides, 0, true);
         }
-        if (parts.Count == 0) return result;
+        if (parts.Count == 0 && cuts.Count == 0) return;
 
         // 2. The SM1 scenes (one read per map, only the definitions used).
         var wanted = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
@@ -126,7 +197,6 @@ public static class DecorGeometry
         }
         var customCache = new Dictionary<string, (Vector3[] Vertices, int[] Indices)?>();
         var visualCache = new Dictionary<(string Map, string Definition, int Part), IReadOnlyList<VisualPart>?>();
-        var warnedMissing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // 3. One drawn placement per part that can be drawn on this PC; the solid ones add triangles.
         foreach (var (objectId, name, asset, world, solid) in parts)
@@ -138,12 +208,22 @@ public static class DecorGeometry
                 if (!visualCache.TryGetValue(key, out var visuals))
                 {
                     visualCache[key] = visuals = Sm1Geometry.DrawnVisuals(scene, asset.Definition!, asset.Part);
-                    if (visuals is null && warnedMissing.Add($"{asset.Map}/{asset.Definition}/{asset.Part}"))
-                        Problem("missing-sm1-definition", $"The Space Marine map '{asset.Map}' on this PC has no {(asset.Part is { } pp ? $"part {pp} of " : "")}definition '{asset.Definition}' (used by '{name}', {objectId}). This PC's install is a different version than the map was made with.");
+                    if (visuals is null)
+                        Problem("missing-sm1-definition", $"The Space Marine map '{asset.Map}' on this PC has no {(asset.Part is { } pp ? $"part {pp} of " : "")}definition '{asset.Definition}' (used by '{name}', {objectId}), or it has nothing to draw. This PC's install is a different version than the map was made with.");
                 }
                 if (visuals is null) continue;
                 result.Placements.Add(new DecorPlacement(objectId, name, asset, world, solid));
-                if (solid) Sm1Geometry.AddTriangles(scene, visuals, world, result.Vertices, result.Indices);
+                if (!solid) continue;
+                foreach (var v in visuals) if (scene.Meshes.TryGetValue(v.MeshName, out var mesh) && v.MeshId >= 0 && v.MeshId < mesh.Blocks.Count)
+                    {
+                        var b = mesh.Blocks[v.MeshId];
+                        budget.Add(b.Positions.Length, b.Indices.Length);
+                        result.Sources.TryAdd($"sm1 {asset.Map}/{v.MeshName}#{v.MeshId}", Sm1Geometry.BlockHash(scene, b));
+                    }
+                int before = result.Indices.Count;
+                Sm1Geometry.AddTriangles(scene, visuals, world, result.Vertices, result.Indices);
+                if (result.Indices.Count == before)
+                    Problem("empty-sm1-definition", $"The Space Marine definition '{asset.Definition}' (used by '{name}', {objectId}) has no triangles to collide with on this PC.");
             }
             else
             {
@@ -159,7 +239,11 @@ public static class DecorGeometry
                         {
                             string file = options!.Library!.AssetFilePath(info);
                             if (!File.Exists(file)) Problem("missing-asset", $"The imported model '{id}' has no file '{info.File}' in this PC's library.");
-                            else mesh = GltfGeometry.Read(file);
+                            else
+                            {
+                                mesh = GltfGeometry.Read(file);
+                                result.Sources.TryAdd($"model {id}", DecorResult.HashOf(GltfGeometry.FileBytesForHash(file)));
+                            }
                         }
                     }
                     catch (MapException e) when (!strict || e.Code is "bad-asset") { Problem(e.Code, e.Message); }
@@ -168,8 +252,10 @@ public static class DecorGeometry
                 if (mesh is not { } m) continue;
                 result.Placements.Add(new DecorPlacement(objectId, name, asset, world, solid));
                 if (!solid) continue;
+                budget.Add(m.Vertices.Length, m.Indices.Length);
+                if (m.Indices.Length == 0) Problem("empty-asset", $"The imported model '{id}' has no triangles.");
                 int first = result.Vertices.Count;
-                foreach (var v in m.Vertices) result.Vertices.Add(Vector3.Transform(v, world));
+                foreach (var v in m.Vertices) result.Vertices.Add(Quantise(Vector3.Transform(v, world)));
                 foreach (int i in m.Indices) result.Indices.Add(first + i);
             }
         }
@@ -189,19 +275,20 @@ public static class DecorGeometry
                 try
                 {
                     var box = PrefabBox(prefab, GetPrefab, result.Scenes, depth: 0);
-                    cut = box is { } b ? CutOriginal(scenes.OriginalCollision(map), b, prefab.Origin) : ([], []);
+                    var original = scenes.OriginalCollision(map);
+                    result.Sources.TryAdd($"original {map}", DecorResult.HashOf(MemoryMarshal.AsBytes<Vector3>(original.Vertices).ToArray(), MemoryMarshal.AsBytes<int>(original.Indices).ToArray()));
+                    cut = box is { } b ? CutOriginal(original, b, prefab.Origin) : ([], []);
                     if (box is null) result.Notes.Add($"prefab '{prefab.Id}' (original-cut): its box is not known, so it has no collision.");
                 }
                 catch (MapException e) { Problem(e.Code, e.Message); cut = ([], []); }
                 cutTriangles[prefab.Id] = cut;
             }
+            budget.Add(cut.Vertices.Length, cut.Indices.Length);
             int first = result.Vertices.Count;
-            foreach (var v in cut.Vertices) result.Vertices.Add(Vector3.Transform(v, world));
+            foreach (var v in cut.Vertices) result.Vertices.Add(Quantise(Vector3.Transform(v, world)));
             foreach (int i in cut.Indices) result.Indices.Add(first + i);
         }
-        return result;
     }
-
     static bool VisibleChain(MapDocument doc, MapObject o)
     {
         int guard = 0;
@@ -332,7 +419,7 @@ public static class Sm1Geometry
             }
             if (ranges.Count == 0) continue;
             int first = vertices.Count;
-            foreach (var p in block.Positions) vertices.Add(Vector3.Transform(p, matrix));
+            foreach (var p in block.Positions) vertices.Add(DecorGeometry.Quantise(Vector3.Transform(p, matrix)));
             foreach (var (start, count) in ranges)
                 for (int i = start; i < start + count; i += 3)
                 {
@@ -341,6 +428,14 @@ public static class Sm1Geometry
                     indices.Add(first + a); indices.Add(first + b); indices.Add(first + c);
                 }
         }
+    }
+
+    /// <summary>Hex SHA-256 of a mesh block as the install stores it (positions, indices, and which ranges are used or skipped as sky): the same on every OS for the same install.</summary>
+    public static string BlockHash(MapScene scene, DcmBlock block)
+    {
+        var ranges = new System.Text.StringBuilder();
+        foreach (var r in block.Materials) ranges.Append(r.StartIndex).Append(':').Append(r.IndexCount).Append(':').Append(IsSky(scene, r.Name) ? 1 : 0).Append(';');
+        return DecorResult.HashOf(System.Runtime.InteropServices.MemoryMarshal.AsBytes<Vector3>(block.Positions).ToArray(), System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(block.Indices).ToArray(), System.Text.Encoding.UTF8.GetBytes(ranges.ToString()));
     }
 
     /// <summary>The box (in the definition's own frame) of what a placement draws, from the blocks' stored boxes; null when nothing is known.</summary>

@@ -92,21 +92,6 @@ public sealed class RealInstallFixtureTests(ITestOutputHelper output) : IDisposa
     }
 
     [Fact]
-    public void Explore_slabs()
-    {
-        var install = InstalledSm1Source.TryCreate();
-        if (install is null || Environment.GetEnvironmentVariable("SM_EXPLORE") is null) return;
-        foreach (var map in new[] { "mp_tdm_09", "mp_tdm_17", "mp_dlc1_map2" })
-        {
-            var sm1 = install.LoadMap(map);
-            foreach (var (o, i) in sm1.Objects.Select((o, i) => (o, i)).Where(x => sm1.Hidden?.Contains(x.i) != true && sm1.Definitions.TryGetValue(x.o.Definition, out var d) && d.Bounds is not null)
-                .Select(x => (x.o, x.i, b: sm1.Definitions[x.o.Definition].Bounds!.Value.Transformed(x.o.Transform))).Where(x => (x.b.Max.X - x.b.Min.X) is > 8 and < 40 && (x.b.Max.Y - x.b.Min.Y) is > 8 and < 40 && (x.b.Max.Z - x.b.Min.Z) < 2.5f)
-                .OrderByDescending(x => (x.b.Max.X - x.b.Min.X) * (x.b.Max.Y - x.b.Min.Y)).Take(6).Select(x => (x.o, x.i)))
-                output.WriteLine($"{map}: {o.Name} def {o.Definition} #{i} size {sm1.Definitions[o.Definition].Bounds!.Value.Transformed(o.Transform).Max - sm1.Definitions[o.Definition].Bounds!.Value.Transformed(o.Transform).Min}");
-        }
-    }
-
-    [Fact]
     public void A_tester_shaped_map_from_the_real_install_compiles_in_seconds_and_is_solid()
     {
         var install = InstalledSm1Source.TryCreate();
