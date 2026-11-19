@@ -110,6 +110,7 @@ public partial class MapmakerPlugin : EditorPlugin
         EnsureSceneRoot();
         if (Selftest.Wanted) _ = new Selftest(this).Run();
         else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
+        else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -632,6 +633,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public void Reconcile()
     {
         if (_busy || Session is null) return;
+        if (ReconcileParents()) return;   // a drag in the Scene dock: becomes set-parent (then the view is synced to the document)
         var doc = Session.Document;
         var ops = new List<JsonObject>();
         foreach (var o in doc.Objects)
@@ -738,6 +740,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
             && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
+        GroupDoubleClick(@event);
         if (GhostWheelInput(@event) || BoxSelectInput(@event)) return;
         if (@event is InputEventKey { Pressed: true } key)
         {

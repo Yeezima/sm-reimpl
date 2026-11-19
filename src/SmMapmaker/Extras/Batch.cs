@@ -51,6 +51,12 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
             case "rename": Rename(op); break;
             case "set-parent": SetParent(op); break;
             case "set-visible": SetVisible(op); break;
+            case "group": CreateGroup(op); break;
+            case "group-rename": RenameGroup(op); break;
+            case "group-add": GroupAdd(op); break;
+            case "group-remove": GroupRemove(op); break;
+            case "ungroup": Ungroup(op); break;
+            case "delete-group": DeleteGroup(op); break;
             case "group-to-prefab": GroupToPrefab(op); break;
             case "prefab-edit": PrefabEdit(op); break;
             case "delete-prefab": DeletePrefab(op); break;
@@ -173,6 +179,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
         var gone = new HashSet<string>();
         foreach (var id in ids) foreach (var o in Doc.Subtree(id)) gone.Add(o.Id);
         Doc.Objects.RemoveAll(o => gone.Contains(o.Id));
+        Doc.DetachFromGroups(gone);
     }
 
     void Rename(JsonObject op)

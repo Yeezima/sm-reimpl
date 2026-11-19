@@ -120,6 +120,7 @@ public partial class MapmakerDock : VBoxContainer
         tabs.AddChild(ObjectTab()); tabs.SetTabTitle((int)DockTab.Object, "Object");
         tabs.AddChild(PrefabTab()); tabs.SetTabTitle((int)DockTab.Prefab, "Prefab");
         tabs.AddChild(TestTab()); tabs.SetTabTitle((int)DockTab.Test, "Test");
+        tabs.AddChild(SceneTab()); tabs.SetTabTitle((int)DockTab.Scene, "Scene");
         AddChild(Footer());
         // Compact tab titles so all six fit a narrow dock, and drop-downs that clip a long entry instead of widening the dock.
         foreach (var o in FindChildren("*", "OptionButton", true, false)) if (o is OptionButton ob) ob.ClipText = true;

@@ -174,7 +174,25 @@ public sealed record MapObject(
 }
 
 /// <summary>
-/// A <c>.smmap</c> document (formatVersion 2; version 1 files are read through <see cref="MapUpgrade"/>). Mutable; sessions edit a clone and swap it in when a batch succeeds.
+/// A named set of objects and smaller groups, shown in the Groups list (docs/mapmaker.md "Groups"). Editing aid only: it has no parent/child
+/// transform and the map compiler ignores it. Each object or group belongs to at most one group directly, so groups form a tree.
+/// Members are object ids (<c>o&lt;N&gt;</c>) and group ids (<c>g&lt;N&gt;</c>).
+/// </summary>
+public sealed record MapGroup(string Id, string Name, IReadOnlyList<string> Members)
+{
+    public JsonObject ToNode() => new() { ["id"] = Id, ["name"] = Name, ["members"] = new JsonArray(Members.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray()) };
+
+    public static bool TryIdNumber(string id, out int n)
+    {
+        n = 0;
+        return id.Length > 1 && id[0] == 'g' && id.Skip(1).All(char.IsAsciiDigit) && id.Length <= 10 && int.TryParse(id.AsSpan(1), out n) && n >= 1 && id == "g" + n;
+    }
+
+    public static bool IsGroupId(string id) => TryIdNumber(id, out _);
+}
+
+/// <summary>
+/// A <c>.smmap</c> document (formatVersion 2; version 1 files are read through <see cref="MapUpgrade"/>; the optional <c>groups</c> list needs no version step). Mutable; sessions edit a clone and swap it in when a batch succeeds.
 /// </summary>
 public sealed class MapDocument
 {
@@ -196,6 +214,64 @@ public sealed class MapDocument
     public static readonly string[] DefaultModes = ["annihilation", "seize"];
     public static readonly string[] KnownModes = ["annihilation", "seize"];
     public List<MapObject> Objects { get; } = [];
+    /// <summary>Editing groups (no effect in the game); written only when there are any.</summary>
+    public List<MapGroup> Groups { get; } = [];
+
+    public MapGroup? FindGroup(string id) => Groups.FirstOrDefault(g => g.Id == id);
+
+    public MapGroup GetGroup(string id) => FindGroup(id) ?? throw new MapException("unknown-group", $"No group '{id}'.", id);
+
+    /// <summary>The group that directly holds this object or group, if any.</summary>
+    public MapGroup? GroupOf(string memberId) => Groups.FirstOrDefault(g => g.Members.Contains(memberId));
+
+    public string NewGroupId() => "g" + (Groups.Select(g => MapGroup.TryIdNumber(g.Id, out var n) ? n : 0).DefaultIfEmpty(0).Max() + 1);
+
+    /// <summary>Every object in the group and its smaller groups, in member order, without repeats.</summary>
+    public List<string> GroupObjects(string groupId)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>();
+        void Walk(string gid, int depth)
+        {
+            if (depth > 1000 || !seen.Add(gid) || FindGroup(gid) is not { } g) return;
+            foreach (var m in g.Members)
+                if (MapGroup.IsGroupId(m)) Walk(m, depth + 1);
+                else if (!result.Contains(m)) result.Add(m);
+        }
+        Walk(groupId, 0);
+        return result;
+    }
+
+    /// <summary>True when <paramref name="id"/> is the group itself or lies anywhere inside it.</summary>
+    public bool GroupContains(string groupId, string id)
+    {
+        if (id == groupId) return true;
+        int guard = 0;
+        for (var cur = GroupOf(id); cur is not null; cur = GroupOf(cur.Id))
+        {
+            if (cur.Id == groupId) return true;
+            if (++guard > 1000) break;
+        }
+        return false;
+    }
+
+    /// <summary>Takes the ids out of whatever group holds them now (used by operations that move members, and when objects are deleted).</summary>
+    public void DetachFromGroups(IReadOnlyCollection<string> ids)
+    {
+        for (int i = 0; i < Groups.Count; i++)
+            if (Groups[i].Members.Any(ids.Contains)) Groups[i] = Groups[i] with { Members = Groups[i].Members.Where(m => !ids.Contains(m)).ToList() };
+    }
+
+    /// <summary>Drops group members whose object is gone (a safety net after any batch: operations that remove objects need not know about groups).</summary>
+    public void PruneGroups()
+    {
+        if (Groups.Count == 0) return;
+        var objects = Objects.Select(o => o.Id).ToHashSet();
+        var groups = Groups.Select(g => g.Id).ToHashSet();
+        for (int i = 0; i < Groups.Count; i++)
+            if (Groups[i].Members.Any(m => MapGroup.IsGroupId(m) ? !groups.Contains(m) : !objects.Contains(m)))
+                Groups[i] = Groups[i] with { Members = Groups[i].Members.Where(m => MapGroup.IsGroupId(m) ? groups.Contains(m) : objects.Contains(m)).ToList() };
+    }
 
     public static MapDocument Create(string name) => new() { Name = name };
 
@@ -258,6 +334,7 @@ public sealed class MapDocument
         if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
         o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode()).ToArray());
         if (EmbeddedPrefabs.Count > 0) o["prefabs"] = new JsonArray(EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => (JsonNode)p.ToNode()).ToArray());
+        if (Groups.Count > 0) o["groups"] = new JsonArray(Groups.Select(x => (JsonNode)x.ToNode()).ToArray());
         return o;
     }
 
@@ -267,11 +344,12 @@ public sealed class MapDocument
     {
         var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs] };
         d.Objects.AddRange(Objects);
+        d.Groups.AddRange(Groups);
         return d;
     }
 
     /// <summary>Limits on a document read from a file someone else made (shared maps): total text, objects, pieces, and the size of any position or scale.</summary>
-    public const int MaxChars = 8_000_000, MaxObjects = 20_000, MaxPieces = 5_000, MaxNameLength = 200;
+    public const int MaxChars = 8_000_000, MaxObjects = 20_000, MaxPieces = 5_000, MaxNameLength = 200, MaxGroups = 5_000;
     public const float MaxPosition = 100_000f, MaxScale = 10_000f;
 
     public static MapDocument Parse(string json)
@@ -308,7 +386,46 @@ public sealed class MapDocument
             if (!seen.Add(obj.Id)) throw new MapException("bad-file", $"Duplicate object id '{obj.Id}'.", obj.Id);
             d.Objects.Add(obj);
         }
+        if (o["groups"] is { } groupsNode) ParseGroups(d, Json.Arr(groupsNode, "groups"));
         return d;
+    }
+
+    /// <summary>
+    /// Reads the optional groups. Groups are an editing aid, so a file that lists a member that no longer exists, or lists a member twice, is repaired
+    /// (the stray entries are dropped) rather than refused; a malformed entry or a duplicate group id is refused.
+    /// </summary>
+    static void ParseGroups(MapDocument d, JsonArray nodes)
+    {
+        if (nodes.Count > MaxGroups) throw new MapException("too-big", $"The map has more than {MaxGroups} groups.");
+        var raw = new List<(string Id, string Name, List<string> Members)>();
+        var ids = new HashSet<string>();
+        foreach (var (n, i) in nodes.Select((x, i) => (x, i)))
+        {
+            string what = $"groups[{i}]";
+            var g = Json.Obj(n, what);
+            var id = Json.ReqStr(g, "id", what);
+            if (!MapGroup.IsGroupId(id)) throw new MapException("bad-file", $"{what}: '{id}' is not a group id (g<N>).");
+            if (!ids.Add(id)) throw new MapException("bad-file", $"Duplicate group id '{id}'.", id);
+            var name = Json.Str(g["name"], what + ".name") ?? "";
+            if (name.Length > MaxNameLength) throw new MapException("too-big", $"A group name is longer than {MaxNameLength} characters.");
+            raw.Add((id, name, Json.Arr(g["members"], what + ".members").Select((m, k) => Json.Str(m, $"{what}.members[{k}]")!).ToList()));
+        }
+        var used = new HashSet<string>();
+        foreach (var (id, name, members) in raw)
+        {
+            var kept = new List<string>();
+            foreach (var m in members)
+            {
+                bool exists = MapGroup.IsGroupId(m) ? ids.Contains(m) && m != id : d.Find(m) is not null;
+                if (exists && used.Add(m)) kept.Add(m);
+            }
+            d.Groups.Add(new MapGroup(id, name, kept));
+        }
+        // A group inside itself (through others) cannot be drawn as a tree: that member is dropped.
+        foreach (var g in d.Groups.ToList())
+            foreach (var m in d.GetGroup(g.Id).Members.Where(MapGroup.IsGroupId).ToList())
+                if (d.GroupContains(m, g.Id))
+                    d.Groups[d.Groups.FindIndex(x => x.Id == g.Id)] = d.GetGroup(g.Id) with { Members = d.GetGroup(g.Id).Members.Where(x => x != m).ToList() };
     }
 
     /// <summary>

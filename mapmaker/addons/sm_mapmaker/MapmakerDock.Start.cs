@@ -8,7 +8,7 @@ using SmMapmaker;
 namespace SmMapmakerEditor;
 
 /// <summary>The dock's tabs, in order (the index of each in the tab bar).</summary>
-public enum DockTab { Map = 0, Library = 1, Build = 2, Object = 3, Prefab = 4, Test = 5 }
+public enum DockTab { Map = 0, Library = 1, Build = 2, Object = 3, Prefab = 4, Test = 5, Scene = 6 }
 
 /// <summary>
 /// The Map, Test and Build tabs and the footer of the Mapmaker dock (docs/mapmaker.md "How to make a map in 2 minutes"): a new map from a layout, the game modes, the live check
