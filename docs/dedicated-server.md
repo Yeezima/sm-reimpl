@@ -124,6 +124,35 @@ timeout /t 5 /nobreak >nul
 goto again
 ```
 
+## The Warfront server (`sm-warfront`, ours)
+
+One shared, always-on Warfront campaign (`--warfront-dedicated`, docs/warfront.md "Dedicated mode") runs as the systemd service `sm-warfront` on UDP 27016, next to the
+Classic service `smserver` (UDP 27015), which the script never touches (nor the `smbot-*` units). `tools/release/setup-warfront-service.sh` installs it (as root on the VM, safe to run again):
+
+```sh
+curl -fsSLo /root/setup-warfront-service.sh https://raw.githubusercontent.com/Yeezima/sm-reimpl/main/tools/release/setup-warfront-service.sh
+sh /root/setup-warfront-service.sh --dry-run           # prints every action and the unit; changes nothing
+sh /root/setup-warfront-service.sh [server-dir]        # installs, starts, waits up to 60 s for the ready line
+```
+
+- **Which build.** `server-dir` is a server package folder (the one `vm-build-server.sh` and `setup-smserver.sh` lay out, holding `SmServer`). Default: the folder `/opt/smserver/current`
+  points to, resolved when the script runs and written into the unit as that versioned path. Reason: a Classic update moves the symlink, and a service that followed it would restart
+  Warfront on a new build the next time it restarts (a crash, a reboot), possibly with a changed protocol and a run saved by older rules. Warfront changes build only when you run the script again.
+  `--follow-current` writes the symlink instead (not advised).
+- **The unit.** `User=smwarfront` (system user, no login, created if missing), `WorkingDirectory=/var/lib/sm-warfront`, `Environment=SM_WF_DIR=/var/lib/sm-warfront` (the run: `run.json`, saves, `supervisor.lock`, `stage.json`, results),
+  `Environment=SM_DATA_DIR=/var/lib/sm-warfront/data` (the map layout and walking-graph caches: the first visit to each map builds its layout, 100 to 180 s, later ones read the cache),
+  `ExecStart=<server-dir>/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --ban-file /var/lib/sm-warfront/bans.txt`, `Restart=on-failure`, `RestartSec=5`,
+  `RestartPreventExitStatus=1 2 3 5` (run unreadable, command line, port taken, another supervisor holds the run folder: a restart cannot fix them), `KillMode=mixed` and `TimeoutStopSec=40`
+  (above the supervisor's 20 s save-and-leave grace). No `--bind` (all interfaces, like `smserver`), no `--mode` or `--map` (the supervisor chooses the stage maps; `--maps` is refused). `--port` and `--game-dir` can be changed with the script's options of those names.
+- **The old Musou service.** If `sm-musou` exists and is enabled or active, the script runs `systemctl disable --now sm-musou` (it held UDP 27016). Its unit file and data
+  stay; no script step deletes the Warfront run either.
+- **Logs and state.** `journalctl -u sm-warfront -f` (every supervisor line is stamped in UTC), `systemctl status sm-warfront`; the ready line is `smserver on UDP 27016; protocol ...`.
+  The campaign survives restarts: SIGTERM (a `systemctl stop` or restart) saves and leaves, a crash restarts the stage from the last save.
+- **Update** (after a ship, only while nobody is in the campaign; the run survives in `/var/lib/sm-warfront`): build the server on the VM as for Classic ("Updating the Vultr server" in docs/releasing.md), then
+  `sh /root/setup-warfront-service.sh /opt/smserver/sm-reimpl-server-linux-x64-<version>` (or no argument right after the Classic update has moved `current`).
+- **Rollback.** `sh /root/setup-warfront-service.sh --rollback` stops and disables `sm-warfront` and enables the old `sm-musou` again (pinned to the archive build, with its own data folder).
+- **Map warm-up is not built in**: the 11 map layouts are built on first use (the travel wait builds the next map while everyone stays connected); plan in docs/warfront.md "Dedicated mode".
+
 ## Bots on a Linux server (`smbots`, ours)
 
 Test aid for a demo server: the owner adds bots over SSH. The bots are the headless Godot client (`--bot --no-sound`, lean mode) run on the

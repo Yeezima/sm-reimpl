@@ -110,6 +110,17 @@ campaign ends, default deploy, an empty server) on it. In this mode the supervis
 - **Empty server**: the process and the run stay and the play clock stops; a battle left with nobody is no result (back on the ship, nothing rolled); the next joiner continues the run. An unfinished run never restarts by itself.
 - Player-hosted play does none of this. Code: `GameServer.WarfrontDedicated.cs`; tests `WarfrontDedicatedOperationTests`.
 
+### The service (slice S4)
+
+On the project's VM the mode runs as the systemd service `sm-warfront` (UDP 27016), installed by `tools/release/setup-warfront-service.sh` (docs/dedicated-server.md "The Warfront server"):
+`SM_WF_DIR=/var/lib/sm-warfront` (the run), `SM_DATA_DIR=/var/lib/sm-warfront/data` (layout caches), `ExecStart=<versioned server folder>/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --ban-file /var/lib/sm-warfront/bans.txt`,
+`Restart=on-failure`, `RestartPreventExitStatus=1 2 3 5`, `KillMode=mixed`, `TimeoutStopSec=40`. It replaces the old `sm-musou` service (kept for `--rollback`).
+
+**Map warm-up (not built; plan).** The server builds a map's layout and walking graph on first use: `WarfrontMaps.Prebuild` (the travel wait's work, 100 to 180 s cold), cached under `SM_DATA_DIR`. Building all 11 at start is
+possible with that call, but it is more than a hook: it loads the game data and needs a `SimConfig`, which only a stage process has, it holds hundreds of MB while the stage runs, and two processes writing one cache file
+need the cache's atomic write verified. Plan: a separate low-priority child of the supervisor (`--warfront-prebuild`, same arguments, `nice`d) that builds the maps one at a time, skips those with a warm cache, starts after the first stage
+reports ready and pauses while a stage is preparing a map itself; test with a fake launcher like the S1 tests. Until then the first deploy to each map pays the travel wait; running a deploy through each lane once after an install warms the cache.
+
 Exit codes of the supervisor: 0 stopped, 1 run unreadable or a stage ended with 1, 2 command line, 3 port taken, 5 another supervisor holds the folder. Tests: `tests/SmNet.Tests/Extras/Warfront/Dedicated`
 (a fake stage child; SIGTERM delivery itself is Linux-only and not tested on Windows).
 
