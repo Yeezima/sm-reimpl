@@ -41,7 +41,7 @@ public sealed class PlaytestIdentityTests : IDisposable
         string original = File.ReadAllText(path);
         Assert.Equal(1, MapUpgrade.VersionOfFile(path));
         // reading it is the same everywhere: in memory the file is upgraded, deterministically (server, client and editor get one hash)
-        var a = CustomMaps.Load(path); var b = CustomMaps.Load(path);
+        var a = CustomMaps.Load(path, new CompileOptions()); var b = CustomMaps.Load(path, new CompileOptions());   // no content source: this test is about the file upgrade
         Assert.Equal(a.Hash, b.Hash);
         Assert.Equal(1, a.Document.LoadedVersion);
 
@@ -128,13 +128,16 @@ public sealed class PlaytestIdentityTests : IDisposable
     }
 
     [Fact]
-    public void A_tester_shaped_map_is_ready_to_play_and_decoration_is_not_collision()
+    public void A_tester_shaped_map_plays_its_SM1_pieces_as_solid_and_a_PC_without_the_content_refuses()
     {
-        // The tester's file: 164 SM1 placements, 34 prefab instances, only 8 pieces (2 of them solid). In play only the pieces exist: SM1 placements and prefabs are decoration for the
-        // editor, so a map made mostly of them has almost no floor. The check says what is there.
+        // The tester's file: SM1 placements and prefab instances plus a few pieces. Since pass 3 the SM1 pieces are drawn and solid in play (docs/mapmaker.md "SM1 pieces in play"); this PC (the tests have none
+        // of the install's maps) is refused in plain words, never given a world without them.
         string path = MakeTesterShapedMap("shape.smmap", _lab.Library, asVersion1: false);
-        var map = CustomMaps.Load(path);
-        Assert.Equal(1, map.SolidCount);
+        var refused = Assert.Throws<MapException>(() => CustomMaps.Load(path, new CompileOptions { Strict = true }));
+        Assert.Equal("missing-install", refused.Code);
+        Assert.Contains("mp_fake", refused.Message);
+        var map = CustomMaps.Load(path, new CompileOptions { Scenes = new FakeScenes(), Library = _lab.Library, Strict = true });
+        Assert.Equal(5, map.SolidCount);   // the floor piece and the two instances of the wall pair (2 parts each)
         Assert.Equal("cm_my_map", map.Name);
         Assert.Equal(3, map.Document.Objects.Count);
     }

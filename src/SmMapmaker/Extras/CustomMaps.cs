@@ -24,7 +24,7 @@ public static class CustomMaps
     }
 
     /// <summary>Compiles the map file at <paramref name="path"/> (a path its user chose); a plain <see cref="MapException"/> (<c>bad-file</c>, <c>too-big</c>) when it is not a readable <c>.smmap</c>.</summary>
-    public static CustomMap Load(string path)
+    public static CustomMap Load(string path, CompileOptions? options = null)
     {
         string text;
         try
@@ -33,8 +33,13 @@ public static class CustomMaps
             text = File.ReadAllText(path);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new MapException("bad-file", $"Cannot read the map file '{path}': {e.Message}"); }
-        return CustomMap.Compile(MapDocument.Parse(text));
+        // Play and tools: SM1 placements, prefabs and imported models come from this PC's install and library, and a PC that lacks one refuses (docs/mapmaker.md "SM1 pieces in play").
+        var doc = MapDocument.Parse(text);
+        return CustomMap.Compile(doc, options ?? (NeedsContent(doc) ? CompileOptions.ForPlay() : new CompileOptions { Strict = true }));
     }
+
+    /// <summary>Whether the document has any object that places an SM1 definition, a prefab or an imported model (a graybox-only map needs no install and no library).</summary>
+    public static bool NeedsContent(MapDocument doc) => doc.Objects.Any(o => o.Asset is not null || o.Prefab is not null);
 
     /// <summary>True for a wire name that is only letters, digits and '_' after <c>cm_</c> (so it can never name a path).</summary>
     public static bool IsPlainWireName(string? name) =>
@@ -112,7 +117,7 @@ public static class CustomMaps
     /// Loads the map a client was told to play: <paramref name="explicitFile"/> (typed by the user with <c>--custom-map</c>) when it exists, else the file for <paramref name="wireName"/> (from the
     /// server) found in the search folders, with a message that says what to do when it is missing.
     /// </summary>
-    public static CustomMap LoadForPlay(string wireName, string? explicitFile)
+    public static CustomMap LoadForPlay(string wireName, string? explicitFile, CompileOptions? options = null)
     {
         if (!IsPlainWireName(wireName)) throw new MapException("bad-map-name", "The server named a custom map in a form this client does not accept.");
         // A file the user named is the file, or the client says so: never fall back to looking a map up by name (that is how another map with the same name was played instead).
@@ -122,7 +127,7 @@ public static class CustomMaps
         if (file is null)
             throw new MapException("missing-map", $"This server is playing the custom map '{wireName}', and its .smmap file is not on this PC. " +
                 $"Get the file from whoever made the map and put it in {new MapLibrary(null).MapsDir} (or start the client with --custom-map <file>).");
-        var map = Load(file);
+        var map = Load(file, options);
         if (map.Name != wireName)
             throw new MapException("wrong-map", $"The file {Path.GetFileName(file)} is the map '{map.Name}', but the server is playing '{wireName}'.");
         return map;

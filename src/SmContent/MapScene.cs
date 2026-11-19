@@ -212,19 +212,21 @@ public sealed class MapScene
         Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(Rotation(rotationDegrees.X, rotationDegrees.Y, rotationDegrees.Z))
         * Matrix4x4.CreateTranslation(position);
 
-    public static MapScene Load(string gameDir, string map, bool extendedLighting = true)
+    public static MapScene Load(string gameDir, string map, bool extendedLighting = true, IReadOnlySet<string>? onlyDefinitions = null, bool textures = true)
     {
         if (map.Length == 0 || map.Length > 64 || map.Any(c => !(char.IsAsciiLetterOrDigit(c) || c == '_')))
             throw new ArgumentException($"'{map}' is not a map name.", nameof(map));
         foreach (var region in new[] { "wrld", "r000_main" })
         {
             string path = Path.Combine(gameDir, "data", "chunks", $"{map}__{region}.oppc");
-            if (File.Exists(path)) return Read(path, map, extendedLighting);
+            if (File.Exists(path)) return Read(path, map, extendedLighting, onlyDefinitions, textures);
         }
         throw new FileNotFoundException($"No region archive for '{map}'.");
     }
 
-    public static MapScene Read(string archivePath, string map, bool extendedLighting = true)
+    /// <param name="onlyDefinitions">Mapmaker (custom maps play SM1 pieces, docs/mapmaker.md): when set, only these definitions' meshes are read (the placements and definitions are all kept); null: every used one.</param>
+    /// <param name="textures">False: no texture bytes are read (the server builds collision from the meshes and never draws).</param>
+    public static MapScene Read(string archivePath, string map, bool extendedLighting = true, IReadOnlySet<string>? onlyDefinitions = null, bool textures = true)
     {
         var notes = new List<string>();
         var objects = new List<PlacedObject>();
@@ -277,7 +279,7 @@ public sealed class MapScene
         var variants = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase);
         ResolveDuplicates(o3d, objects, meshKeys, definitions, variants);
 
-        var used = objects.Select(o => o.Definition).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var used = objects.Select(o => o.Definition).Where(d => onlyDefinitions is null || onlyDefinitions.Contains(d)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var name in used.Where(n => !definitions.ContainsKey(n)).Order(StringComparer.Ordinal))
             notes.Add($"object definition '{name}' not in the archive; its {objects.Count(o => o.Definition.Equals(name, StringComparison.OrdinalIgnoreCase))} placements are not drawn");
         var meshNames = definitions.Values.Concat(variants.Values).Where(d => used.Contains(d.Name)).SelectMany(d => d.Visuals).Select(v => v.MeshName)
@@ -319,12 +321,12 @@ public sealed class MapScene
             if (materials.TryGetValue(grade.Material, out var gm) && gm.Textures.TryGetValue("lookup", out var lut)) wanted.Add(lut);
         // The orthographic lights' mask pictures (light_mask_*: in the region archive).
         foreach (var ol in lighting?.OrthoLights ?? []) wanted.Add(ol.MaskName);
-        var textures = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textures.TryAdd(e.FileName, data.ToArray()));
+        var textureBytes = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        if (textures) archive.ReadEntries(e => archive.GroupName(e) == "dds" && wanted.Contains(e.FileName), (e, data) => textureBytes.TryAdd(e.FileName, data.ToArray()));
 
         return new MapScene
         {
-            Map = map, Objects = objects, Definitions = definitions, Variants = variants, Meshes = meshes, Materials = materials, Textures = textures, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions, Spinning = spin,
+            Map = map, Objects = objects, Definitions = definitions, Variants = variants, Meshes = meshes, Materials = materials, Textures = textureBytes, Lighting = lighting, Notes = notes, Decals = decals, DecalDefinitions = decalDefinitions, Spinning = spin,
         };
     }
 

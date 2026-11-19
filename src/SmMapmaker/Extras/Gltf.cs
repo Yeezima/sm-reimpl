@@ -72,7 +72,7 @@ public static class GltfReader
         return new GltfInfo(Path.GetFileName(path), SceneBounds(root), companions);
     }
 
-    static string GlbJson(byte[] b)
+    internal static string GlbJson(byte[] b)
     {
         if (b.Length < 20 || BitConverter.ToUInt32(b, 0) != GlbMagic) throw new MapException("bad-file", "Not a .glb file (magic).");
         if (BitConverter.ToUInt32(b, 4) != 2) throw new MapException("bad-file", "Only glTF 2 binaries are supported.");
@@ -122,12 +122,12 @@ public static class GltfReader
         return unknown ? null : result;
     }
 
-    static int Index(JsonNode? n) => n is JsonValue v && v.TryGetValue<int>(out var i) ? i : -1;
+    internal static int Index(JsonNode? n) => n is JsonValue v && v.TryGetValue<int>(out var i) ? i : -1;
 
-    static float F(JsonNode? n) => n is JsonValue v ? (float)v.GetValue<double>() : 0f;
+    internal static float F(JsonNode? n) => n is JsonValue v ? (float)v.GetValue<double>() : 0f;
 
     /// <summary>A node's local matrix (row-vector form): its <c>matrix</c> (column-major in the file, which reads row-major here) or translation, rotation, scale.</summary>
-    static Matrix4x4 Local(JsonObject node)
+    internal static Matrix4x4 Local(JsonObject node)
     {
         if (node["matrix"] is JsonArray { Count: 16 } m)
         {

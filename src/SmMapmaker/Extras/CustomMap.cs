@@ -93,7 +93,7 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 1;
+    public const int CompilerVersion = 2;   // 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
@@ -110,6 +110,8 @@ public sealed class CustomMap
     public IReadOnlyList<string> Notes { get; init; } = [];
     /// <summary>How many solid pieces made the collision.</summary>
     public int SolidCount { get; init; }
+    /// <summary>The SM1 placements, prefab instances and imported models: what the client draws and the triangles they added to the collision (null: compiled without a content source).</summary>
+    public DecorResult? Decor { get; init; }
 
     public CollisionWorld ToCollisionWorld() => Content.ToCollisionWorld();
 
@@ -131,14 +133,20 @@ public sealed class CustomMap
     public static bool IsCustomName(string? name) => name is not null && name.StartsWith(Prefix, StringComparison.Ordinal) && name.Length > Prefix.Length;
 
     /// <summary>The hash both sides compare: the compiler version and the document's canonical text (the whole file: decoration too, so two testers with different edits do not meet).</summary>
-    public static ulong HashOf(MapDocument doc)
+    public static ulong HashOf(MapDocument doc, ulong? decorDigest = null)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"sm-reimpl custom map v{CompilerVersion}\n{doc.ToJson()}"));
+        // A map with SM1 placements, prefabs or imported models also hashes the triangles they made on this machine (DecorResult.Digest), so a PC whose install or models differ is refused.
+        string tail = decorDigest is { } d ? $"\ndecoration {d:X16}" : "";
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"sm-reimpl custom map v{CompilerVersion}\n{doc.ToJson()}{tail}"));
         return BitConverter.ToUInt64(bytes, 0);
     }
 
-    /// <summary>Compiles <paramref name="doc"/>. Never throws for a map that merely lacks things: <see cref="MapCheck"/> says what is missing.</summary>
-    public static CustomMap Compile(MapDocument doc)
+    /// <summary>
+    /// Compiles <paramref name="doc"/>. Never throws for a map that merely lacks things: <see cref="MapCheck"/> says what is missing. <paramref name="options"/> (null: none) says where the SM1
+    /// placements, prefabs and imported models get their meshes; without it they are not compiled. With <see cref="CompileOptions.Strict"/> a placement whose content this PC lacks throws a
+    /// <see cref="MapException"/> (<c>missing-install</c>, <c>unknown-map</c>, <c>missing-sm1-definition</c>, <c>missing-asset</c>, <c>missing-prefab</c>, <c>bad-asset</c>).
+    /// </summary>
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null)
     {
         var notes = new List<string>();
         var vertices = new List<Vector3>();
@@ -204,6 +212,21 @@ public sealed class CustomMap
             }
         }
         if (areaMarines > 1 || areaChaos > 1) notes.Add("Only the first spawn area of each side is used by the match; the others are ignored.");
+        // SM1 placements, prefab instances and imported models: drawn by the client and solid here, the same triangles on every machine (DecorGeometry).
+        DecorResult? decor = options is null ? null : DecorGeometry.Build(doc, options);
+        if (decor is not null)
+        {
+            notes.AddRange(decor.Notes);
+            if (decor.Triangles > 0)
+            {
+                int first = vertices.Count;
+                vertices.AddRange(decor.Vertices);
+                indices.AddRange(decor.Indices.Select(i => first + i));
+                var db = new Bounds(decor.Vertices.Aggregate(Vector3.Min), decor.Vertices.Aggregate(Vector3.Max));
+                solid = solid is { } s0 ? s0.Union(db) : db;
+                solidCount += decor.Placements.Count(p => p.Solid);
+            }
+        }
         if (solid is { } sb)
         {
             // The pit under the map: anyone who falls this far below the lowest solid piece dies (a map with no walls round it is safe to build).
@@ -220,14 +243,14 @@ public sealed class CustomMap
             new(MapContent.WeaponLayer, verts, inds),
         };
         string name = WireName(doc.Name);
-        ulong hash = HashOf(doc);
+        ulong hash = HashOf(doc, decor is { Placements.Count: > 0 } ? decor.Digest() : null);
         // MapContent.Spawns: one per start area, on the area's floor (World.Spawns is never empty for a team map).
         var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", a.Position - new Vector3(0, 0, a.Scale.Z / 2f), a.Yaw)).ToList();
         var content = new MapContent(name, "custom", layers, spawns, hash)
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Notes = notes,
         };
-        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount };
+        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor };
     }
 
     static bool IsVisibleChain(MapDocument doc, MapObject o)

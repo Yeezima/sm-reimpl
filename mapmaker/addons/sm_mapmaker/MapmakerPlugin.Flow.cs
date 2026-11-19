@@ -50,7 +50,8 @@ public partial class MapmakerPlugin
     {
         if (Session is null) return null;
         string json = Session.Document.ToJson();
-        if (_compiled is null || json != _compiledJson) { _compiled = CustomMap.Compile(Session.Document.Clone()); _compiledJson = json; }
+        string key = json + "\n" + EditorScenes.StateKey();   // a map loaded later brings its SM1 pieces into the collision
+        if (_compiled is null || key != _compiledJson) { _compiled = CustomMap.Compile(Session.Document.Clone(), EditorScenes.Options()); _compiledJson = key; }
         return _compiled;
     }
 
@@ -121,13 +122,14 @@ public partial class MapmakerPlugin
         if (!withRoute || !LastCheck.Ready(CheckMode.Annihilation) && !LastCheck.Ready(CheckMode.Seize)) return;
         RouteChecking = true;
         CheckChanged?.Invoke();
+        var routeOptions = EditorScenes.Options();   // taken on the main thread: a snapshot of the loaded maps
         _ = Task.Run(() =>
         {
             CheckReport? route = null;
             try
             {
                 if (!_configTried) { _configTried = true; try { _config = GameplayTuning.Load(GameInstall.Locate()).Config; } catch (Exception e) when (e is IOException or DirectoryNotFoundException) { } }
-                var copy = CustomMap.Compile(MapDocument.Parse(json));
+                var copy = CustomMap.Compile(MapDocument.Parse(json), routeOptions);
                 route = MapCheck.Run(copy, _config);
             }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { GD.PushWarning("Mapmaker: route check: " + e.Message); }
