@@ -198,6 +198,7 @@ public partial class MapmakerDock : VBoxContainer
         _sm1Info.AddThemeColorOverride("font_color", HintColour); _sm1Info.AddThemeFontSizeOverride("font_size", 12);
         v.AddChild(_sm1Info);
         v.AddChild(Btn("Import SM1 map for editing", () => _ = _plugin.ImportSm1ForEditing(_sm1Map.Text), "Copies every piece of this original map into your map as editable objects, grouped under a node named after it (Scene tree). Save asks for a new file; the file holds references only."));
+        v.AddChild(RemoveBackdropButton());
         v.AddChild(Btn("Frame SM1 map",() => { if (MapHost.Sm1 is { } s && s.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max); }, "Moves the 3D view to show the whole SM1 map."));
     }
 
@@ -271,13 +272,14 @@ public partial class MapmakerDock : VBoxContainer
         _source.ItemSelected += _ => RebuildLibrary();
         _search.TextChanged += _ => RebuildLibrary(); _search.SizeFlagsHorizontal = SizeFlags.ExpandFill; _search.CustomMinimumSize = new Vector2(70, 0);
         v.AddChild(Row(_source, _search));
-        _list.ItemAt = i => i >= 0 && i < _items.Count ? _items[i] : null;
+        v.AddChild(BuildMapFilterRow());
+        _list.ItemAt = i => i >= 0 && i < _items.Count && !_items[i].IsHeader ? _items[i] : null;
         _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos)) MapHost.Armed = item; if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
         _list.ItemSelected += i => { _lastRow = _items[(int)i]; Arm(_items[(int)i]); };
         _list.ItemActivated += i => { if (_items[(int)i].Kind is LibraryKind.Asset or LibraryKind.Prefab) BeginRename((int)i); else Arm(_items[(int)i]); };   // double click edits the name; SM1 rows are read-only
         _list.ItemClicked += (i, pos, button) =>
         {
-            if ((MouseButton)button != MouseButton.Right || i < 0 || i >= _items.Count) return;
+            if ((MouseButton)button != MouseButton.Right || i < 0 || i >= _items.Count || _items[(int)i].IsHeader) return;
             _list.Select((int)i); _lastRow = _items[(int)i];
             _rowMenu.Clear();
             bool editable = _items[(int)i].Kind is LibraryKind.Asset or LibraryKind.Prefab;
@@ -319,6 +321,7 @@ public partial class MapmakerDock : VBoxContainer
     void Arm(LibraryItem item)
     {
         MapHost.Armed = item; MapHost.Tool = Tool.Place;
+        if (item.Kind == LibraryKind.Sm1 && item.Map is { } armedMap && MapHost.Sm1For(armedMap) is null) { _status.Text = $"Loading {armedMap} from the install to draw {item.Id}..."; _plugin.RequestSm1Load(armedMap); }
         _plugin.NotifyDoc();
     }
 
@@ -357,13 +360,8 @@ public partial class MapmakerDock : VBoxContainer
         switch (_source.Selected)
         {
             case 0:
-                if (MapHost.Sm1 is { } src)
-                    foreach (var name in src.DefinitionNames.Where(Match))
-                    {
-                        // Definitions with no visual part (markers, lights, groups of child references) cannot be placed as something visible: counted, not listed.
-                        if (!src.HasDefinition(name)) { _hiddenEmpty++; continue; }
-                        _items.Add(new LibraryItem(LibraryKind.Sm1, name, name, src.Map));
-                    }
+                // Every Classic PvP map's definitions, from the background index (definitions with no visual part are counted, not listed); see MapmakerDock.Sm1Library.cs.
+                FillSm1Items(Match);
                 break;
             case 1:
                 try
@@ -395,12 +393,20 @@ public partial class MapmakerDock : VBoxContainer
         for (int i = 0; i < _items.Count; i++)
         {
             var item = _items[i];
+            if (item.IsHeader)
+            {
+                int head = _list.AddItem(item.Label, null, false);
+                _list.SetItemCustomFgColor(head, HintColour); _list.SetItemTooltip(head, item.Map ?? "");
+                continue;
+            }
             int row = _list.AddItem(item.Label, MapmakerPlugin.Thumbs?.Cached(item.Key, SigOf(item)));
-            _list.SetItemTooltip(row, item.Kind is LibraryKind.Sm1 ? item.Id : $"{item.Label}  ({item.Id})");
+            _list.SetItemTooltip(row, item.Kind is LibraryKind.Sm1 ? (_filterMap.Length == 0 ? $"{item.Id}  ({item.Map})" : item.Id) : $"{item.Label}  ({item.Id})");
             _rowOf[item.Key] = row;
         }
-        _libInfo.Text = $"{_items.Count} item(s)" + (_hiddenEmpty > 0 ? $"; {_hiddenEmpty} definition(s) without a visual part (markers, lights, groups) are not listed" : "")
-            + (_source.Selected is 1 or 2 ? ". Double-click a name or press F2 to rename." : "") + (Thumbnails.CanRender ? "" : " (No previews in headless runs.)");
+        _mapFilter.Visible = _source.Selected == 0;
+        _libInfo.Text = $"{_items.Count(x => !x.IsHeader)} item(s)" + (_hiddenEmpty > 0 ? $"; {_hiddenEmpty} definition(s) without a visual part (markers, lights, groups) are not listed" : "")
+            + (_source.Selected is 1 or 2 ? ". Double-click a name or press F2 to rename." : "") + (Thumbnails.CanRender ? "" : " (No previews in headless runs.)")
+            + (_source.Selected == 0 ? Sm1IndexNote() : "");
     }
 
     string SigOf(LibraryItem item) => _sigs.TryGetValue(item.Key, out var s) ? s : "";
@@ -410,6 +416,7 @@ public partial class MapmakerDock : VBoxContainer
     {
         if ((_thumbClock += delta) < 0.15) return;
         _thumbClock = 0;
+        PollCatalog();
         if (MapmakerPlugin.Thumbs is not { } th || !Thumbnails.CanRender || _items.Count == 0 || _tabs is null || _tabs.CurrentTab != (int)DockTab.Library || !IsVisibleInTree()) return;
         var visible = new SortedSet<int>();
         var size = _list.Size;
@@ -426,6 +433,7 @@ public partial class MapmakerDock : VBoxContainer
     {
         if (row < 0 || row >= _items.Count || _list.GetItemIcon(row) is not null) return false;
         var item = _items[row];
+        if (item.IsHeader || NeedsMapLoad(item)) return false;   // a picture needs the map's meshes in memory: pick the map in the filter, or place from it
         bool first = _requested.Add(item.Key);
         if (!first && !urgent) return false;
         RequestThumbnail(item, urgent);
@@ -548,6 +556,7 @@ public partial class MapmakerDock : VBoxContainer
             tabs.AddThemeFontSizeOverride("font_size", 14);
         }
                 if (LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new LibraryTest(_plugin, this).Run();
+        if (Sm1LibraryTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new Sm1LibraryTest(_plugin, this).Run();
     }
 
     public void TestShowSource(int source) { _source.Select(source); _search.Text = ""; RebuildLibrary(); }

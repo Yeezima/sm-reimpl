@@ -596,7 +596,7 @@ public partial class MapmakerPlugin : EditorPlugin
             try
             {
                 var source = await System.Threading.Tasks.Task.Run(() => Sm1Source.Load(map));
-                if (MapHost.Sm1For(map) is null) MapHost.Register(source);
+                if (MapHost.Sm1For(map) is null) MapHost.Register(source, makeCurrent: false);
                 SetStatus($"Loaded {map} from the install; its pieces are drawn.");
             }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { SetStatus($"Could not load {map} to draw its pieces: {e.Message}"); }

@@ -74,10 +74,11 @@ public static class MapHost
         if (Loaded.Remove(map, out var s)) { if (Sm1 == s) Sm1 = null; s.Release(); }
     }
 
-    public static void Register(Sm1Source source)
+    /// <summary>Keeps a loaded map. With <paramref name="makeCurrent"/> false (a background load for the library or for placed pieces) it does not become the pick / backdrop map.</summary>
+    public static void Register(Sm1Source source, bool makeCurrent = true)
     {
         Loaded[source.Map] = source;
-        Sm1 = source;
+        if (makeCurrent) Sm1 = source;
         Sm1Changed?.Invoke();
     }
 }
@@ -85,6 +86,8 @@ public static class MapHost
 /// <summary>A row of the library browser.</summary>
 public sealed record LibraryItem(LibraryKind Kind, string Id, string Label, string? Map = null)
 {
+    /// <summary>A map heading in the SM1 list (not an item; not selectable).</summary>
+    public bool IsHeader => Kind == LibraryKind.Sm1 && Id.Length == 0;
     public string Key => Kind switch { LibraryKind.Sm1 => $"sm1:{Map}:{Id}", LibraryKind.Asset => $"asset:{Id}", LibraryKind.Piece => $"piece:{Id}", _ => $"prefab:{Id}" };
 }
 

@@ -17,6 +17,8 @@ public sealed class EditorSm1Source : ISm1Source
 
     public EditorSm1Source(Func<string, Sm1Source?> loaded, ISm1Source? fallback) { _loaded = loaded; _fallback = fallback; }
 
+    public Sm1Spawns? LoadSpawns(string map) => _fallback?.LoadSpawns(map);
+
     /// <summary>Forget what was derived (after a map was reloaded).</summary>
     public void Invalidate() => _cache.Clear();
 

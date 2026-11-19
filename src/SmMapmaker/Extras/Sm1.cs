@@ -23,11 +23,17 @@ public sealed class Sm1Map(string map, IReadOnlyList<Sm1Object> objects, IReadOn
     public IReadOnlySet<int>? Hidden { get; init; }
 }
 
+/// <summary>An original map's start areas and spawn-room blockers as the game's own reader finds them (the data the server spawns players from).</summary>
+public sealed record Sm1Spawns(IReadOnlyList<MapStartArea> StartAreas, IReadOnlyList<MapBlocker> Blockers, IReadOnlyList<MapControlPoint>? ControlPoints = null);
+
 /// <summary>Where SM1 map data comes from. The installed game in production; a synthetic fake in tests.</summary>
 public interface ISm1Source
 {
     /// <exception cref="MapException"><c>missing-install</c> (no install), <c>unknown-map</c> (the install has no such map), <c>bad-file</c>.</exception>
     Sm1Map LoadMap(string map);
+
+    /// <summary>The map's start areas and spawn doors (what the dedicated server spawns players by), or null when the source cannot read them (an import then adds placeholders).</summary>
+    Sm1Spawns? LoadSpawns(string map) => null;
 }
 
 /// <summary>Reads maps from the user's install with <see cref="MapScene"/> (read-only; results are cached in memory per instance).</summary>
@@ -40,6 +46,18 @@ public sealed class InstalledSm1Source(string gameDir) : ISm1Source
     /// <summary>Finds the install (explicit folder, SM_GAME_DIR, settings.json, Steam); never reads config/local.json. Null when none is found.</summary>
     public static InstalledSm1Source? TryCreate(string? explicitDir = null) =>
         GameInstall.TryLocate(explicitDir, repoRoot: null) is { } loc ? new InstalledSm1Source(loc.Dir) : null;
+
+    readonly Dictionary<string, Sm1Spawns?> _spawns = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Reads the map with the game server's own loader (<see cref="MapContent"/>, which also parses collision: seconds). Null for a map that loader cannot read (co-op arenas).</summary>
+    public Sm1Spawns? LoadSpawns(string map)
+    {
+        if (_spawns.TryGetValue(map, out var cached)) return cached;
+        Sm1Spawns? result = null;
+        try { var c = MapContent.Load(GameDir, map); result = new Sm1Spawns(c.StartAreas, c.Blockers, c.ControlPoints); }
+        catch (Exception e) when (e is ArgumentException or FileNotFoundException or DirectoryNotFoundException or InvalidDataException or IOException or UnauthorizedAccessException) { }
+        return _spawns[map] = result;
+    }
 
     public Sm1Map LoadMap(string map)
     {
