@@ -9,3 +9,28 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- Everyone should update. Custom Mapmaker maps play only between players on the same build.
+### Warfront (new; replaces Musou Mode)
+- WARFRONT is now the first row of the main menu: a 30 to 60 minute campaign, solo or with up to four friends. Fight across three fronts against the Orks, defend the Imperial HQ when a front breaks, and take the Ork fortress to win.
+- Start a New campaign or Continue a saved one, Host for friends or Join a friend, and set up your Marine in the customizer from the Warfront page.
+- Musou Mode leaves the menus. The previous build stays on the releases page as the Musou Mode archive, and the Musou server keeps running for it.
+- Warfront has not been playtested by people yet: please tell us what breaks, what drags and what feels good.
+### Classic PvP maps
+- Waste Management: no more salmon-coloured patches in the spawn areas, and the camouflage pattern on the walls is back to its proper size.
+- Basilica: the tall candle stations no longer glow white all over; console plates, keypads and gauges look right, and the floors are fixed.
+- Manufactorum: the olive console plates and loose papers no longer cover the pipe runs and tanks.
+### Mapmaker
+- Pieces taken from the original maps, prefabs and imported models are now solid in a play test and in matches, not just drawn.
+- PLAY TEST checks that the server is really running the map you are testing.
+- The SM1 library lists every original map's pieces at all times, with a filter by map; no need to open a map first.
+- A new button removes an opened SM1 backdrop from the map file (not just hides it).
+- Importing an original map also places its Marine and Chaos spawn areas, spawn gates and Seize Ground capture points at the original spots, as editable pieces.
+- Hold Alt to make any left drag a selection box.
+- Duplicate places the copy exactly on the original.
+- Coordinate spin arrows: right-click steps by 10; holding an arrow starts slow and speeds up after a few seconds; one undo per held arrow; fine steps of 0.001.
+- Editing one rotation or position value in the Object or Prefab tab changes only that value; the others no longer drift.
+- Group to prefab asks for the prefab's name first.
+- Put any object under any other object from the Scene list, and keep named groups (also nested) that select all their members with one click.
+- Maps made in older Mapmaker versions upgrade when you open them.
+- The launcher's Check files now also checks and repairs the Mapmaker.
