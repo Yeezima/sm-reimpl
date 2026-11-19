@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Warfront: your Marine retainers now shoot like the practice bots but miss far less, stick to the Ork they are fighting for about a second instead of flipping targets, favour Orks that attack you or a downed squad-mate, and grow tougher and hit harder as your level rises. Everyone must update: Warfront games from older builds will not match.

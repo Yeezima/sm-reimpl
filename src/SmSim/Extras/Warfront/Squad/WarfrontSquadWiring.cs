@@ -36,7 +36,7 @@ public sealed class WarfrontSquadWiring
     readonly Dictionary<ulong, SquadClass> _squadClass = [];
     readonly Dictionary<ulong, (LoadoutChoice Choice, int LookHash, SquadOwnerKind Kind, SquadClass Squad)> _seen = [];
     readonly Dictionary<ulong, int> _playerOfKey = [];       // the player id each key was last fighting under (a leaver's squad is held through it)
-    readonly Dictionary<ulong, int> _scaleCards = [];        // the card count a key's scale was last set for
+    readonly Dictionary<ulong, (int Cards, int Level)> _scaleCards = [];        // the card count and level a key's scale was last set for
     readonly HashSet<int> _tried = [];                       // player ids already offered a landing this battle
     readonly HashSet<int> _wasDowned = [];
     readonly HashSet<ulong> _held = [];                      // keys whose squad was put on Hold because the player left
@@ -426,11 +426,22 @@ public sealed class WarfrontSquadWiring
     void ApplyScale(WarfrontProgressionRuntime rt, ulong key, bool onlyIfChanged = false)
     {
         var player = _campaign.Player(key);
-        int cards = player?.Cards.Count ?? 0;
-        if (onlyIfChanged && _scaleCards.TryGetValue(key, out int was) && was == cards) return;
-        _scaleCards[key] = cards;
+        int cards = player?.Cards.Count ?? 0, level = Math.Max(1, player?.Level ?? 1);
+        if (onlyIfChanged && _scaleCards.TryGetValue(key, out var was) && was == (cards, level)) return;
+        _scaleCards[key] = (cards, level);
         var b = WarfrontStatBonuses.ForRetainer(player?.Cards ?? []);
-        Sim.SetScale(key, b.Damage * b.AttackSpeed, b.MaxHp, b.MaxArmor);   // a third of each card's magnitude: a Marine's weapon is damage per interval; the cooldown share has nothing to act on
+        var (levelHealth, levelDamage) = SquadLevelScale(level);
+        Sim.SetScale(key, b.Damage * b.AttackSpeed * levelDamage, b.MaxHp * levelHealth, b.MaxArmor);   // a third of each card's magnitude: a Marine's weapon is damage per interval; the cooldown share has nothing to act on
+    }
+
+    /// <summary>
+    /// The level part of a retainer's strength (owner 2026-11-19): health x (1 + 0.08 (L-1)) and damage x (1 + 0.05 (L-1)), the Orks' own per-level curve (<see cref="WarfrontProgressionRules.OrkHealthPerLevel"/> and
+    /// <see cref="WarfrontProgressionRules.OrkDamagePerLevel"/>; without the Orks' base knobs), on top of the cards' third. Level 1: exactly 1 and 1. Health applies to Marines landed after (a level-up refills the standing ones), damage at once.
+    /// </summary>
+    public static (float Health, float Damage) SquadLevelScale(int level)
+    {
+        int l = Math.Max(1, level);
+        return (1f + WarfrontProgressionRules.OrkHealthPerLevel * (l - 1), 1f + WarfrontProgressionRules.OrkDamagePerLevel * (l - 1));
     }
 
     void Drain(WarfrontProgressionRuntime rt, uint tick)

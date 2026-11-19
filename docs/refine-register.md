@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3864 spec table rows: **2821 tagged**, 686 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
+Scanned 3869 spec table rows: **2824 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 3864 spec table rows: **2821 tagged**, 686 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 859 | 813 | 641 | 236 | 1 |
+| Core simulation (provisional values) | 862 | 816 | 644 | 239 | 1 |
 | General game design | 35 | 34 | 27 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2821** | 2518 | 2140 | 822 | 37 |
+| **All areas** | **2824** | 2521 | 2143 | 825 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1635 |
-| confidence: low | 1039 |
-| confidence: medium | 991 |
+| kind: ours | 1638 |
+| confidence: low | 1041 |
+| confidence: medium | 992 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
-| notes: estimate | 219 |
+| notes: estimate | 222 |
 | confidence: none (low) | 110 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -2688,7 +2688,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-74674E41` | Pound with the owner | a Marine in flight lands as a ground pound when its owner is airborne (1.5 m above the floor) and falling faster than 12 m/s (the owner's pound), else a plain landing (m, m/s) | kind: estimate; confidence: low | owner ("try to mirror a normal player ground pound") | Pound with the owner: compare with SM1 by timing a run over a known distance. Ours: a Marine in flight lands as a ground pound when its owner is airborne… | ☐ |
 | `R-F5D10F78` | Jump-pound order | max jump then a ground pound round the marked point: each jump-pack Marine gets its own landing within 5 m of the mark's floor, at least 1.2 m from every other, on the graph, in range, with a clear line of flight, tried over 24 spiral places; a Marine with… (m, s) | kind: estimate; confidence: medium; notes: ours | owner (5 m, stagger, validation, ability limits, no stacking); 1.2 m and 0.15 s plan section 6; the rest ours | Jump-pound order: compare with SM1 with side-by-side screenshots in the same spot. Ours: max jump then a ground pound round the marked point: each jump-pack… | ☐ |
 | `R-23B72622` | Ability limits kept | a jump needs the pack's power, power recharges at the pack's rate, a pound has its recovery; Marines do not collide in the air | confidence: medium | owner ("keep existing ability limits") | Ability limits kept: compare with SM1 with side-by-side screenshots in the same spot. Ours: a jump needs the pack's power, power recharges at the pack's rate, a… | ☐ |
-| `R-3A68B229` | Squad damage dealt | every Marine's weapon and pound damage is multiplied by `SquadRules.DamageDealt` (**0.40** since the ruling of 2026-11-17, was 1): one Marine deals 0.08 to 0.25 of a bolter player's damage (0.26 tactical, 0.24 devastator, 0.13 assault on the spec's weapon… (x) | kind: ours; confidence: low; notes: estimate | the designer's ruling (a playtest value to refine) | Squad damage dealt: compare with SM1 by counting hits to kill and by video of the health bar. Ours: every Marine's weapon and pound damage is multiplied by… | ☐ |
+| `R-3A68B229` | Squad damage dealt | every Marine's weapon and pound damage is multiplied by `SquadRules.DamageDealt` (**0.40** since the ruling of 2026-11-17, was 1; the strength cap below is SUPERSEDED on 2026-11-19: retainers now deal clearly more, see "Added content: Warfront: squad combat"… (x) | kind: ours; confidence: low; notes: estimate | the designer's ruling (a playtest value to refine) | Squad damage dealt: compare with SM1 by counting hits to kill and by video of the health bar. Ours: every Marine's weapon and pound damage is multiplied by… | ☐ |
 | `R-05F3F4F3` | Side | a Warfront owner carries his side (`SquadOwnerLoadout.Side`, default Space Marines): a Chaos Librarian's squad rolls Raptors and Havocs from the Chaos classes; a standard retainer mirrors the player's own class whatever the side | confidence: medium | owner text (Raptor, Havoc); review 1 finding 5 | Side: compare with SM1 with side-by-side screenshots in the same spot. Ours: a Warfront owner carries his side (SquadOwnerLoadout.Side, default… | ☐ |
 | `R-55704A69` | Leap under a roof | a flight whose middle has no clear line straight up (the HQ's tunnels, 8 m clear) keeps an apex of 2.5 m instead of the pack's height (m) | kind: estimate; confidence: low | review 1 finding 7 | Leap under a roof: compare with SM1 by measuring on a flat spot of the same map. Ours: a flight whose middle has no clear line straight up (the HQ's… | ☐ |
 | `R-C66B5369` | Rebind (mid-battle reconnect) | `Rebind(key, player)` changes only the player id the squad answers to; positions, health, armour, downed state and orders stay; `Land` is for real landings and stands everyone up at full strength | kind: ours | lead 29, defect found in W9 | Rebind (mid-battle reconnect): compare with SM1 with side-by-side screenshots in the same spot. Ours: Rebind(key, player) changes only the player id the squad answers to… | ☐ |
@@ -2848,7 +2848,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (859)
+### Core simulation (provisional values) (862)
 
 *Spec section: Provisional values in use*
 
@@ -4159,6 +4159,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-39E61109` | Revive by a Marine | a standing Marine revives a downed member of its own squad, or a fallen human whose window is open (any squad), standing within 2 m for 2 s, only when no Ork is within 6 m of the body (checked every tick); one Marine per body (m, s) | kind: ours; confidence: medium | owner ("a retainer can help downed members of its own squad when safe"); the human case and the numbers ours (plan section 6) | Revive by a Marine: compare with SM1 by feel or video. Ours: a standing Marine revives a downed member of its own squad, or a… | ☐ |
 | `R-BCF793A2` | Who stands | `AnyStanding`: a Marine neither downed nor out; a downed Marine in its window does not stand (`AnyReviveWindowOpen` tells the cases apart) | kind: interpretation; confidence: medium | W3's rule ("any retainer is standing"); downed not counting ours | Who stands: compare with SM1 by feel or video. Ours: AnyStanding: a Marine neither downed nor out; a downed Marine in its… | ☐ |
 | `R-0CBA316B` | Stat scale | a campaign key's damage multiplier applies at once, its health multiplier to Marines landed afterwards (W7 feeds the one-third share) (x) | kind: ours; confidence: medium | owner (retainers get one third of the bonus); mechanism ours | Stat scale: compare with SM1 by feel or video. Ours: a campaign key's damage multiplier applies at once, its health… | ☐ |
+
+*Spec section: Added content: Warfront: squad combat (retainer AI slice S1, `Extras/Warfront/Squad/Combat`; `WarfrontRules.Version` 16; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C4EACF7C` | Hit chance of a round | the weapon's own hit chance x the aim's chance of landing on the body, `1 - exp(-(r/d)^2 / 2 sigma^2)` with r 0.5 m, sigma = r / 15 / sqrt(-2 ln(1 - accuracy)) x the distance scale (clamp(15 / d, 0.1, 4)): a copy of `BotAimModel` (pinned by… (fraction) | kind: ours; confidence: medium; notes: estimate | owner 2026-11-19 ("fight like the Classic bots"); the formula is the bots' (ours, a test aid) | Hit chance of a round: compare with SM1 by feel or video. Ours: the weapon's own hit chance x the aim's chance of landing on the… | ☐ |
+| `R-B5A9E369` | Target held | a retainer keeps its target for **1 s** unless one threatens the owner (and the held one does not) or one is nearer than **0.5** of the held distance; after that a new one replaces it when nearer than **0.75** of the held distance; a held target that left… (s, share) | kind: ours; confidence: low; notes: estimate | owner 2026-11-19 (about 1 s); margins ours | Target held: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a retainer keeps its target for 1 s unless one threatens the owner… | ☐ |
+| `R-956FC410` | Threat preference | an Ork within **6 m** (flat) of the owner or of a downed squad-mate of the same owner is preferred over a nearer harmless one (the nearest threat first) (m) | kind: ours; confidence: low; notes: estimate | owner 2026-11-19 (prefer threats to the owner and the downed); radius ours | Threat preference: compare with SM1 by measuring on a flat spot of the same map. Ours: an Ork within 6 m (flat) of the owner or of a downed squad-mate of… | ☐ |
 
 *Spec section: Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger)*
 

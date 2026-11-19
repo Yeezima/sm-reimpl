@@ -27,6 +27,7 @@ public sealed partial class WarfrontSquadSim
         public int DownedLeft;                  // ticks
         public uint NextShot;
         public ushort Target;
+        public uint TargetSince;                // the tick the current target was chosen (S1: sticky targeting)
         public int DutyMate = -1, DutyHuman = int.MinValue, Attendant = -1, ReviverMarine = -1, ReviverHuman = -1;
         public bool Progressed;
     }
@@ -456,7 +457,7 @@ public sealed partial class WarfrontSquadSim
         }
 
         // target
-        if (retarget) a.Target = PickTarget(a, order, w);
+        if (retarget) a.Target = PickTarget(i, a, order, w, ownerKnown, ownerPos);
         Vector3 tpos = default; SquadEnemyClass kind = default;
         bool haveTarget = a.Target != 0 && _arena.TryEnemy(a.Target, out tpos, out kind);
         if (!haveTarget) a.Target = 0;
@@ -498,7 +499,7 @@ public sealed partial class WarfrontSquadSim
         a.NextShot = _tick + (uint)Math.Max(1, (int)MathF.Round(p.Interval * _arena.TickRate));
         a.FiredAt = _tick;   // W11 addition: the wire's Firing flag
         a.ShotMelee = p.Melee;
-        if (Roll(_tick, i, 1) >= p.HitChance) return;
+        if (Roll(_tick, i, 1) >= SquadAim.HitChance(p.HitChance, p.Melee, Flat(to))) return;   // S1: the weapon's chance times the Classic-bot aim chance (retainer accuracy 0.988)
         var push = Flat(to) > 0.01f ? Vector3.Normalize(new Vector3(to.X, to.Y, 0f)) : Vector3.Zero;
         float amount = p.Damage * _damageScale[os] * SquadRules.DamageDealt;
         MusouEnemyType? type = _arena.TryEnemyType(a.Target, out var et) ? et : null;
@@ -543,21 +544,46 @@ public sealed partial class WarfrontSquadSim
         if (old is not null) foreach (var id in old) _notes.Remove(id);
     }
 
-    /// <summary>MarineBrain's choice (TfwMarineInput): the nearest few enemies in the order's sight, the first one in sight (a blow within <see cref="MarineRules.MeleeRange"/> needs none); a ranged Marine also in its weapon's range.</summary>
-    ushort PickTarget(Agent a, SquadOrder order, SquadWeapon w)
+    /// <summary>
+    /// MarineBrain's choice (TfwMarineInput): the nearest few enemies in the order's sight, the first one in sight (a blow within <see cref="MarineRules.MeleeRange"/> needs none); a ranged Marine also in its weapon's range.
+    /// S1 (owner 2026-11-19): an Ork threatening the owner or a downed squad-mate comes first, and the held target is kept for a second unless a threat or a much nearer Ork appears (<see cref="SquadTargeting"/>).
+    /// </summary>
+    ushort PickTarget(int self, Agent a, SquadOrder order, SquadWeapon w, bool ownerKnown, Vector3 ownerPos)
     {
         Vector3 centre = order == SquadOrder.Hold ? a.HoldAt : a.Pos;
         float radius = order switch { SquadOrder.Hold => MarineRules.HoldRadius, SquadOrder.Attack => MarineRules.AttackSight, _ => MarineRules.FollowEngage };
         float reach = w.Melee ? (a.Marine.Loadout.Sidearm?.Range ?? float.MaxValue) : w.Range;
+        Span<Vector3> guarded = stackalloc Vector3[SquadRules.MaxPerPlayer + 1];
+        int g = 0;
+        if (ownerKnown) guarded[g++] = ownerPos;
+        for (int m = 0; m < Max && g < guarded.Length; m++)
+            if (m != self && _a[m].State == SquadState.Downed && _a[m].OwnerSlot == a.OwnerSlot) guarded[g++] = _a[m].Pos;
+        var watch = guarded[..g];
+
+        ushort best = 0; float bestD = 0f; bool bestThreat = false;
         int n = _arena.QueryEnemies(centre, radius, _seen);
         for (int k = 0; k < n && k < MarineRules.SightCandidates; k++)
         {
             if (!_arena.TryEnemy(_seen[k], out var pos, out _)) continue;
             float d = Flat(pos - a.Pos);
             if (d > reach) continue;
-            if (d <= MarineRules.MeleeRange || _arena.HasSight(a.Pos, pos)) return _seen[k];
+            if (d > MarineRules.MeleeRange && !_arena.HasSight(a.Pos, pos)) continue;
+            bool threat = SquadTargeting.Threatens(pos, watch);
+            if (best == 0 || (threat && !bestThreat)) { best = _seen[k]; bestD = d; bestThreat = threat; }   // the nearest in sight, unless one threatens
         }
-        return 0;
+
+        if (a.Target != 0 && a.Target != best && _arena.TryEnemy(a.Target, out var hp, out _))
+        {
+            float hd = Flat(hp - a.Pos);
+            bool inReach = hd <= reach && Flat(hp - centre) <= radius && (hd <= MarineRules.MeleeRange || _arena.HasSight(a.Pos, hp));
+            if (inReach)
+            {
+                float held = (_tick - a.TargetSince) / (float)_arena.TickRate;
+                if (best == 0 || !SquadTargeting.PreferNew(held, hd, SquadTargeting.Threatens(hp, watch), bestD, bestThreat)) return a.Target;
+            }
+        }
+        if (best != a.Target) a.TargetSince = _tick;
+        return best;
     }
 
     Vector3 HomeOf(Agent a, SquadOrder order, bool ownerKnown, Vector3 ownerPos)
