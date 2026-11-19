@@ -125,6 +125,20 @@ Test aid: `godot.cmd --windowed --editor --path mapmaker -- --mm-libtest --mm-ou
 synthetic fixtures (an ASCII FBX zip at three LODs with Megascans-named textures, a loose glb, a zip-slip zip, a Draco glTF), imports them by drop,
 checks the previews of all three sources, the placeholders, rename and takes screenshots.
 
+## Nesting and groups (owner's pass 3, 2026-11-19)
+Two ways to hold objects together, both in the file, both undoable.
+**Nesting** is the `parent` field: a child's transform is local to its parent, so it follows when the parent moves. Any object can be the parent of any other, whatever
+their kinds (assets, prefab instances, pieces, empty objects); the compiler and the play test read the nested world transforms. The Scene tab's Objects list (drag a row onto
+another to nest it, onto empty space to unparent; **Make child of...**, **Unparent**) and a drag in Godot's Scene dock all become `set-parent` operations, which keep the object's world
+position and refuse cycles. (The editor's own history keeps its entry for a Scene-dock drag too; undo that step with the Mapmaker step above it first.)
+**Groups** are an editing aid with no transform and no effect in the game (the compiler never reads them): a named set of objects and smaller groups, saved in the file as an
+optional top-level `"groups": [ { "id": "g1", "name": "Gate", "members": ["o1", "o2", "g2"] } ]` (written only when there are groups; `formatVersion` stays 1 and a file
+without the key opens as before; a file that lists a missing object or lists a member twice is repaired on open, not refused). An object or group is in at most one group, so groups
+form a tree. Clicking an object selects only it (it moves alone); clicking a group row in the Scene tab selects every object in it, as does a double-click on a member in the 3D view
+(again, soon after: the group around it); any mix of selected objects moves together with the gizmo. Actions: New group from selection (whole groups in the selection become one
+member, so selecting two groups and grouping nests them), Rename, Add selected, Remove selected, Ungroup, Delete group (objects stay); dragging an object onto a group row adds it.
+Test aid: `godot.cmd --windowed --editor --path mapmaker -- --mm-groups --mm-out <dir>`.
+
 ## Operations (one JSON object each; a batch is one transaction: all apply or none)
 `place {asset|prefab, name?, parent?, layer?, transform?}` -> new id Â· `transform {id, position?, rotation?, scale?}` (set) or
 `{id, move?, rotate?, scaleBy?}` (delta) Â· `duplicate {ids, offset?}` -> new ids Â· `delete {ids}` (children too) Â·
@@ -142,6 +156,10 @@ none is open, else a copy of the open one (so a plain Save asks for a new file a
 the gizmo). **Save as...** stores it as a new map: the file holds references (map, definition, transform) only, no original bytes; the game install is only read.
 The imported pieces are not solid in play (see "Not in v1"): add a Floor and Invisible walls (or the Fix it buttons) before Play test.
 Snapping is applied by the caller (`Snap.Grid`, `Snap.Angle` helpers in the core) so a typed value is never re-snapped.
+Group operations (editing groups, see "Nesting and groups"): `group {ids: [objects and groups], name?}` -> the new group's id (`g<N>`; each member leaves the group that held it, and the
+new group sits inside the group that held the first member) - `group-rename {id, name}` - `group-add {group, ids}` (refuses a group inside itself: `group-cycle`) - `group-remove {ids}` (out of
+their group, still in the map) - `ungroup {id}` (dissolves the group; members go to the group around it) - `delete-group {id}` (the group and the smaller groups in it; objects stay).
+Unknown group: `unknown-group`. Deleting an object takes it out of its group.
 Results: `{ ok, created:[ids], warnings:[...], errors:[{ code, message, op, id? }] }`. Error codes are stable strings (`unknown-id`,
 `unknown-asset`, `unknown-prefab`, `prefab-cycle`, `bad-transform`, `missing-install`, `bad-file`, ...).
 Undo/redo: the session keeps a journal of applied batches with their inverse; one batch = one undo step.

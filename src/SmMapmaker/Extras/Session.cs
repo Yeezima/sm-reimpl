@@ -82,6 +82,7 @@ public sealed class MapSession
                 return Failure(new OpError("bad-op", $"Malformed operation: {e.Message}", name) { Index = i }, dryRun);
             }
         }
+        batch.Doc.PruneGroups();
         var result = new OpResult(true, batch.Created, batch.Warnings, [])
         {
             CreatedPrefabs = batch.CreatedPrefabs, CreatedAssets = batch.CreatedAssets, Mapping = batch.Mapping, DryRun = dryRun,
@@ -151,6 +152,8 @@ public sealed class MapSession
         Document.Modes = [.. from.Modes];
         Document.Objects.Clear();
         Document.Objects.AddRange(from.Objects);
+        Document.Groups.Clear();
+        Document.Groups.AddRange(from.Groups);
     }
 
     void Touch()
