@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using SmClient.Customizer;
+using SmClient.Customizer.Model;
 using SmContent;
 using SmContent.Extras.Warfront;
 using SmSim;
@@ -67,7 +68,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
     {
         var all = new List<Button>();
         Buttons(root, all);
-        return all.FirstOrDefault(b => b.Text == text);
+        return all.FirstOrDefault(b => string.Equals(b.Text, text, StringComparison.OrdinalIgnoreCase));
     }
 
     async Task Press(Node root, string text)
@@ -155,6 +156,27 @@ public sealed partial class WarfrontLocalSelfTest : Node
         Check("new without a run starts at once (no question)", started == true && !_front.WarfrontConfirmOpen, $"started {started}");
         started = null;
 
+        // ---- ONLINE WARFRONT: off by default (the server is not live yet); forced on, one more row that joins the public host's Warfront port with no typing ----
+        Check("online: the row is hidden while the gate is off", !WarfrontOnline.EnabledByDefault && !Rows(page).Contains("ONLINE WARFRONT"));
+        WarfrontOnline.ForceForTest = true;
+        _front.ShowWarfrontPageForTest();
+        await Frames(4);
+        page = _front.WarfrontPage;
+        Check("online: forced on, the page lists it after Join a friend", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "ONLINE WARFRONT", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("online: the row takes focus (keyboard and pad)", Find(page!, "ONLINE WARFRONT") is { Disabled: false, FocusMode: not Control.FocusModeEnum.None });
+        joined = null;
+        for (int i = 0; i < 300 && joined is null; i++) await Press(page!, "ONLINE WARFRONT");   // the game data's plan loads in the background: press until it is ready
+        string onlineHost = JoinTargets.PublicServer[..JoinTargets.PublicServer.LastIndexOf(':')] + ":27016";
+        Check("online: joins the public host on port 27016 with Warfront content", joined?.Host == onlineHost && joined.Host == WarfrontOnline.Address && joined.Content == ContentProfiles.WarfrontProfile, (joined?.Host ?? "null") + " / " + _front.MessageText);
+        Check("online: the join does not remember the address", joined?.Services.Settings.Host != onlineHost);
+        Check("online: no answer reads as not reachable", WarfrontOnline.Message(SmNet.ConnectFailure.NoAnswerText(onlineHost)) == WarfrontOnline.NotReachableText);
+        Check("online: a refusal keeps its plain words", WarfrontOnline.Message(SmNet.ConnectFailure.RejectText(SmNet.RejectReason.ProtocolMismatch, null)) == SmNet.ConnectFailure.RejectText(SmNet.RejectReason.ProtocolMismatch, null));
+        WarfrontOnline.ForceForTest = false;
+        _front.ShowWarfrontPageForTest();
+        await Frames(4);
+        page = _front.WarfrontPage;
+        joined = null;
+
         // Esc steps back to the main menu (not to Player versus Player)
         Input.ParseInputEvent(new InputEventAction { Action = "ui_cancel", Pressed = true });
         await Frames(4);
@@ -181,7 +203,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         var dialogTexts = new List<Label>();
         Labels(_front, dialogTexts);
         Check("confirmation: the question and what happens to the current run", dialogTexts.Any(l => l.Text == WarfrontLocal.ConfirmTitle) && dialogTexts.Any(l => l.Text == WarfrontLocal.ConfirmBody));
-        Check("confirmation: No has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "No" });
+        Check("confirmation: No has the focus", GetViewport().GuiGetFocusOwner() is Button nb && nb.Text.Equals("No", StringComparison.OrdinalIgnoreCase));
         await Still("confirm-new");
         await Press(_front, "No");
         Check("No leaves everything as it was", !_front.WarfrontConfirmOpen && started is null && File.ReadAllBytes(runFile).SequenceEqual(before));

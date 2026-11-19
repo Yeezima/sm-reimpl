@@ -36,6 +36,13 @@ something only on a standalone server; no host migration is claimed). A returnin
 first-time joiner during a battle spectates (Classic's spectator camera) until the next ship stop; then XP = the median of the others, the customizer must be
 opened and closed, every catch-up card is picked aboard, then the player may deploy. Nothing is granted twice on a rejoin.
 
+**ONLINE WARFRONT row (slice S5, owner 2026-11-19; hidden for now).** The project's VM is to host one shared, always-on Warfront campaign on UDP 27016 (up to 4 players drop in and out). The
+Warfront page gets a row ONLINE WARFRONT after JOIN A FRIEND: it sets the Warfront profile (as the friend join does) and joins the public Classic server's host (`JoinTargets.PublicServer`, never a second
+written address) on port 27016 with nothing to type (`WarfrontOnline.Address`, `TryJoin(..., remember: false)`). **The gate is OFF:** `WarfrontOnline.EnabledByDefault = false` (client/Extras/Warfront/FrontEnd/WarfrontOnline.cs), so no
+tester sees the row until the server is live; flip the constant then (and add the tester bullet to release/NEXT.md). Test aids: environment `SM_WF_ONLINE=1` shows the row in a normal client, and the
+self-test forces it with `WarfrontOnline.ForceForTest`. A refused join (another protocol, game files or config) shows the handshake's plain-words text on the menu (`ConnectFailure.RejectText`); a server that
+never answers shows "The online campaign is not reachable right now. Try again later." (the 10 s connect timeout, no hang).
+
 ## XP, cards, scaling, squads
 
 - Personal XP from the player's own and squad kills; shared once per event: elite, boss, captures. XP to the next level 1500 + 500 per level; a pick
