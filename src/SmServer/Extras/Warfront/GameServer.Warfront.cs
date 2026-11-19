@@ -299,6 +299,7 @@ public sealed partial class GameServer
             WarfrontPrepareWatch(s);
             WarfrontGoWatch(s);
             WarfrontMeasureStep(s);
+            WarfrontDedicatedStep(s);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {

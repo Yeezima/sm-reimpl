@@ -254,7 +254,7 @@ public sealed partial class GameServer
         if (c.Phase != WarfrontPhase.Battle) return;
         bool? forced = s.ForcedWin; s.ForcedWin = null;
         s.ResolveAtTick = null;
-        if (forced is null && result == TfwMapResult.Left && s.KeyOf.Count == 0)
+        if (forced is null && result == TfwMapResult.Left && (s.KeyOf.Count == 0 || s.KeyOf.Keys.All(id => !World.Players.ContainsKey(id))))   // the last human may have dropped this very tick: the roster below is synced after the step
         {
             c.ResumeAfterRestart();
             WfSave(s);

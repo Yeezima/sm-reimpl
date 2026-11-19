@@ -50,12 +50,19 @@ public sealed partial class GameServer
         var old = s.Campaign;
         if (!old.IsOver) { WfLog($"NewRun from P{player} refused: the run is not over"); return; }
         if (old.Leader != key) { WfLog($"NewRun from P{player} refused: only the leader starts a new run"); return; }
+        WarfrontBeginNewRun(s, "the leader started it");
+    }
+
+    /// <summary>The new run itself, with no leader check (the leader's command, and the dedicated server's own timer: GameServer.WarfrontDedicated.cs). Only when the run is over.</summary>
+    void WarfrontBeginNewRun(WarfrontServerState s, string why)
+    {
+        if (!s.Campaign.IsOver || s.Leaving) return;
         // The wiring, the progression and the co-op rules belong to one campaign: a new run is a new stage process on the empty run (the supervisor reads it; the clients rejoin through Stage Go).
         WfSaveFlush();
         try { File.Delete(Path.Combine(s.Dir, WarfrontSquadsFile)); } catch (IOException) { }
         var fresh = WarfrontRunFiles.NewRun(s.Dir);
         s.Leaving = true;
-        WfLog($"a new run (seed {fresh.RunSeed:X}) on the ship: this stage restarts on it");
+        WfLog($"a new run (seed {fresh.RunSeed:X}) on the ship ({why}): this stage restarts on it");
         WarfrontStartGo(s, WarfrontStagePlan.HasShip(s.Map) ? s.Map : WarfrontStagePlan.FirstMap, null);
     }
 }

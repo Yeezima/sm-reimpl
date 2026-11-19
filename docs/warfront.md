@@ -86,7 +86,7 @@ Four players: `.\server.cmd --content warfront --bind 127.0.0.1 --port 27200 --w
 `.\client.cmd --connect 127.0.0.1:27200 --content warfront --warfront-key-file <own file>` per player. Switch and build property: `--content warfront`;
 `-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 13.
 
-## Dedicated mode (`--warfront-dedicated`, slice S1)
+## Dedicated mode (`--warfront-dedicated`, slices S1 and S2)
 
 The project's server runs one shared, always-on campaign with up to four humans dropping in and out. `server.cmd --warfront-dedicated --bind <addr> --port <p>`
 implies `--content warfront` and `--warfront-max-humans 4` (a given cap wins), refuses `--warfront-new` and `--maps`, and is passed on to every stage child
@@ -101,6 +101,14 @@ campaign ends, default deploy, an empty server) on it. In this mode the supervis
   so a `systemd` `KillMode=control-group` that signals the whole group saves too. Recommended unit settings: `Restart=on-failure` (or `always`), `KillMode=mixed` (belt and braces: SIGTERM to the supervisor, then SIGKILL to the rest after the timeout), `TimeoutStopSec=30` or more (above the 20 s grace).
 - **logs a crash loop**: five failures in a row, each before the stage ran a minute, log a `CRASH LOOP` line on every further cycle; the retries go on at the 30 s step.
 - **timestamps** every supervisor line `[2026-11-19T12:00:00Z] warfront: ...` (the player-hosted supervisor too).
+
+### Operation of the stage (slice S2; estimates, spec "Warfront dedicated server, slice S2")
+
+- **Default deploy**: the leader (earliest-joined connected player) deploys as always. When the ship has been idle for 90 s (on the ship, an identified leader, no preparation, Go, landing or arrival; the clock restarts when any of that stops holding or the leader changes), the server
+  deploys for the leader through the normal path: the HQ defence when mandatory, else the node of the lowest-front lane (ties A, B, C), else the fortress; the Stage text says so for 5 s. It never fires with nobody connected, and a deployment the co-op gate holds is asked again every 5 s.
+- **New run**: the leader's NewRun works as before; otherwise a new run starts 2 minutes after the results stand, and at once when no human is connected.
+- **Empty server**: the process and the run stay and the play clock stops; a battle left with nobody is no result (back on the ship, nothing rolled); the next joiner continues the run. An unfinished run never restarts by itself.
+- Player-hosted play does none of this. Code: `GameServer.WarfrontDedicated.cs`; tests `WarfrontDedicatedOperationTests`.
 
 Exit codes of the supervisor: 0 stopped, 1 run unreadable or a stage ended with 1, 2 command line, 3 port taken, 5 another supervisor holds the folder. Tests: `tests/SmNet.Tests/Extras/Warfront/Dedicated`
 (a fake stage child; SIGTERM delivery itself is Linux-only and not tested on Windows).
