@@ -17,7 +17,7 @@
 param(
     [string]$Map = '', [ValidateSet('annihilation', 'seize')][string]$Mode = 'annihilation', [int]$Bots = 3, [string]$Side = 'marines', [string]$Class = 'tactical',
     [int]$Port = 0, [switch]$NoBuild, [switch]$Test, [string]$OutDir = '', [int]$Seconds = 60, [switch]$Stop, [double]$Every = 3,
-    [string]$ExpectHash = ''
+    [string]$ExpectHash = '', [string]$ExtraPlaces = ''   # -Test only: more camera places, 'label@x,y,z,yaw,pitch|label@...' (added after the map's own tour)
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -131,6 +131,7 @@ try {
         New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
         $tour = (& dotnet $smtool map tour $Map --raw) -join ''
         $places = @($tour -split '\|' | Where-Object { $_ })
+        if ($ExtraPlaces) { $places += @($ExtraPlaces -split '\|' | Where-Object { $_ }) }
         $poses = @($places | ForEach-Object { ($_ -split '@')[1] })
         $names = @($places | ForEach-Object { ($_ -split '@')[0] })
         $first = $poses[0]

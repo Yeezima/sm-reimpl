@@ -240,17 +240,17 @@ public sealed partial class GameServer
     /// The map of a Mapmaker file (<c>--custom-map</c>, docs/mapmaker.md "Playing a map"), compiled for play, or null with <paramref name="error"/> saying why not (a build without added content
     /// always answers that it has no custom maps). <paramref name="name"/> becomes the map's name on the wire.
     /// </summary>
-    public static GameMap? CustomMap(string file, ref string? name, out string? error)
+    public static GameMap? CustomMap(string file, ref string? name, out string? error, string? install = null)
     {
         GameMap? map = null;
         error = null;
-        ExtrasCustomMap(file, ref name, ref map, ref error);   // EXTRAS-HOOK: the Mapmaker's custom maps
+        ExtrasCustomMap(file, install, ref name, ref map, ref error);   // EXTRAS-HOOK: the Mapmaker's custom maps
         if (map is null && error is null) error = "this build has no custom maps (built without added content)";
         return map;
     }
 
     /// <summary>Hook for added content, called by <see cref="CustomMap"/>: sets <paramref name="map"/> and <paramref name="name"/> for the Mapmaker file, or <paramref name="error"/>. Implemented in an <c>Extras/</c> folder.</summary>
-    static partial void ExtrasCustomMap(string file, ref string? name, ref GameMap? map, ref string? error);
+    static partial void ExtrasCustomMap(string file, string? install, ref string? name, ref GameMap? map, ref string? error);
 
     /// <summary>Hook for added content, called by <see cref="GeneratedMap"/>: sets <paramref name="map"/> (and <paramref name="name"/>) for a map it generates, or <paramref name="error"/>. Implemented in an <c>Extras/</c> folder.</summary>
     static partial void ExtrasGeneratedMap(ContentExtras extras, string install, ref string? name, ref GameMap? map, ref string? error);
