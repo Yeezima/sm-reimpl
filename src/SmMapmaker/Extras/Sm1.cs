@@ -24,7 +24,7 @@ public sealed class Sm1Map(string map, IReadOnlyList<Sm1Object> objects, IReadOn
 }
 
 /// <summary>An original map's start areas and spawn-room blockers as the game's own reader finds them (the data the server spawns players from).</summary>
-public sealed record Sm1Spawns(IReadOnlyList<MapStartArea> StartAreas, IReadOnlyList<MapBlocker> Blockers);
+public sealed record Sm1Spawns(IReadOnlyList<MapStartArea> StartAreas, IReadOnlyList<MapBlocker> Blockers, IReadOnlyList<MapControlPoint>? ControlPoints = null);
 
 /// <summary>Where SM1 map data comes from. The installed game in production; a synthetic fake in tests.</summary>
 public interface ISm1Source
@@ -54,7 +54,7 @@ public sealed class InstalledSm1Source(string gameDir) : ISm1Source
     {
         if (_spawns.TryGetValue(map, out var cached)) return cached;
         Sm1Spawns? result = null;
-        try { var c = MapContent.Load(GameDir, map); result = new Sm1Spawns(c.StartAreas, c.Blockers); }
+        try { var c = MapContent.Load(GameDir, map); result = new Sm1Spawns(c.StartAreas, c.Blockers, c.ControlPoints); }
         catch (Exception e) when (e is ArgumentException or FileNotFoundException or DirectoryNotFoundException or InvalidDataException or IOException or UnauthorizedAccessException) { }
         return _spawns[map] = result;
     }

@@ -31,7 +31,8 @@ internal sealed partial class Batch
         Created.Add(groupId);
         // The spawn areas and doors come first, so the file limit never costs the map its spawns (at most ~30 objects).
         var spawnPlan = PlanSpawns(source.LoadSpawns(map));
-        room = Math.Max(0, room - spawnPlan.Objects);
+        bool spawnsFit = spawnPlan.Objects <= room;   // a nearly full map keeps its placements and gets no spawn pieces (said below)
+        if (spawnsFit) room -= spawnPlan.Objects;
         int imported = 0, noVisual = 0, sheared = 0, over = 0;
         Vector3 low = new(float.MaxValue), high = new(float.MinValue);
         for (int i = 0; i < scene.Objects.Count; i++)
@@ -54,7 +55,8 @@ internal sealed partial class Batch
             int drop = Math.Max(1, imported / 20);
             Doc.Objects.RemoveRange(Doc.Objects.Count - drop, drop); imported -= drop; bySize += drop;
         }
-        var spawnNotes = AddSpawns(spawnPlan, groupId, layer, imported > 0 ? (low + high) / 2f : Vector3.Zero, imported > 0 ? low.Z : 0f);
+        var spawnNotes = spawnsFit ? AddSpawns(spawnPlan, groupId, layer, imported > 0 ? (low + high) / 2f : Vector3.Zero, imported > 0 ? low.Z : 0f)
+            : ["The map file is nearly full, so the spawn areas, doors and capture points were not added; the check will ask for them."];
         Warnings.Add($"Imported {imported} of {scene.Objects.Count} placements of '{map}' under '{groupName}'.");
         if (noVisual > 0) Warnings.Add($"{noVisual} placements draw nothing (markers, lights, empty groups) and were left out.");
         if (sheared > 0) Warnings.Add($"{sheared} placements have a sheared matrix the editor cannot hold and were left out.");
@@ -68,7 +70,9 @@ internal sealed partial class Batch
     sealed record SpawnPlan(List<(string Name, string Kind, string Side, Vector3 Position, float YawDegrees, Vector3 Size)> Pieces, int Cylinders, bool Unreadable)
     {
         /// <summary>Every object the spawns will add: the pieces, a floor under each area, and an area with a floor for each side the data lacks.</summary>
-        public int Objects => Pieces.Count + Pieces.Count(p => p.Kind == PieceKind.SpawnArea) + 2 * MissingSides.Count();
+        public int Objects => Pieces.Count + Pieces.Count(p => p.Kind is PieceKind.SpawnArea or PieceKind.CapturePoint) + 2 * MissingSides.Count() + (HasPoints ? 0 : 2 * PlaceholderPoints);
+        public bool HasPoints => Pieces.Any(p => p.Kind == PieceKind.CapturePoint);
+        public const int PlaceholderPoints = 3;
         public IEnumerable<string> MissingSides => new[] { PieceSpec.Marines, PieceSpec.Chaos }.Where(s => !Pieces.Any(p => p.Kind == PieceKind.SpawnArea && p.Side == s));
     }
 
@@ -87,6 +91,10 @@ internal sealed partial class Batch
             foreach (var b in spawns.Blockers)
                 pieces.Add((Label(b.Side, "spawn door", b.Name), PieceKind.Blocker, SideId(b.Side), b.Position, b.Yaw * 180f / MathF.PI, b.Scale));
         }
+        // Seize Ground points, in the script order the server uses (the first is A); the piece order is what names them mkr_objective_N when compiled.
+        if (spawns?.ControlPoints is { } points)
+            foreach (var p in points)
+                pieces.Add(($"Capture point ({p.Name})", PieceKind.CapturePoint, "", p.Position, p.Yaw * 180f / MathF.PI, new Vector3(p.Scale.X, p.Scale.X, p.Scale.Z)));
         return new SpawnPlan(pieces, cylinders, spawns is null);
     }
 
@@ -111,13 +119,14 @@ internal sealed partial class Batch
         void Floor(string name, Vector3 bottomCentre, float yawDegrees, Vector3 size) =>
             Add(name, PieceKind.CollisionBox, null, bottomCentre - new Vector3(0, 0, Floor1), yawDegrees, new Vector3(size.X, size.Y, Floor1));
 
-        int areas = 0, doors = 0;
+        int areas = 0, doors = 0, points = 0;
         var sides = new HashSet<string>();
         foreach (var (name, kind, side, position, yaw, size) in plan.Pieces)
         {
             var bottom = position - new Vector3(0, 0, size.Z / 2f);
-            Add(name, kind, side, bottom, yaw, size);
+            Add(name, kind, kind == PieceKind.CapturePoint ? null : side, bottom, yaw, size);
             if (kind == PieceKind.SpawnArea) { areas++; sides.Add(side); Floor("Spawn floor (placeholder)", bottom, yaw, size); }
+            else if (kind == PieceKind.CapturePoint) { points++; Floor("Point floor (placeholder)", bottom, yaw, size); }
             else doors++;
         }
         var missing = new List<string>();
@@ -130,6 +139,17 @@ internal sealed partial class Batch
             Floor("Spawn floor (placeholder)", at, 0f, size);
             missing.Add(label);
         }
+        if (!plan.HasPoints)
+            for (int i = 0; i < SpawnPlan.PlaceholderPoints; i++)
+            {
+                var psize = PieceKind.Find(PieceKind.CapturePoint)!.DefaultSize;
+                var pat = new Vector3(centre.X, centre.Y + (i - 1) * 25f, floorZ);
+                Add($"Capture point {(char)('A' + i)} (placeholder)", PieceKind.CapturePoint, null, pat, 0f, psize);
+                Floor("Point floor (placeholder)", pat, 0f, psize);
+            }
+        if (!plan.Unreadable && !plan.HasPoints) notes.Add("The original's data has no Seize Ground capture points, so three placeholder points (A, B, C) were added in a row; move them onto the floor.");
+        else if (plan.Unreadable) notes.Add("The original's capture points could not be read either, so three placeholder points were added.");
+        if (plan.HasPoints) notes.Add($"Seize Ground: {points} capture point(s) were placed where the original's are (the server's own reader, in its order: A first).");
         if (plan.Unreadable) notes.Add("The original's spawn data could not be read for this map (no install reader, or a map the game server does not load), so both spawn areas are placeholders.");
         else if (missing.Count > 0) notes.Add($"The original's data has no {string.Join(" or ", missing)} start area, so a placeholder was added; move it onto the floor.");
         if (!plan.Unreadable)

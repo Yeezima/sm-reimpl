@@ -154,6 +154,10 @@ public sealed class Sm1LibraryTest(MapmakerPlugin plugin, MapmakerDock dock)
         Say("map check: " + (report?.Headline ?? "none"));
         foreach (var i in report?.Issues ?? []) Say($"  [{i.Severity}] {i.Message}");
         Check(report is { AnnihilationReady: true }, "the imported map passes the check for Annihilation");
+        var pts = doc.Objects.Where(o => o.Piece?.Kind == PieceKind.CapturePoint).ToList();
+        foreach (var o in pts) Say($"  {o.Name}: pos {o.Transform.Position}, size {o.Transform.Scale}");
+        Check(pts.Count >= 1 && pts.All(p => !p.Name.Contains("placeholder")), $"capture points from the original ({pts.Count})");
+        Check(report is { SeizeReady: true }, "the imported map passes the check for Seize Ground");
 
         await plugin.Frame3D(new Num.Vector3(180, -960, 0), new Num.Vector3(275, -870, 25));
         await Frames(60);

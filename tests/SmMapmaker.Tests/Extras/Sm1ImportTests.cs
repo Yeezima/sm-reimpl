@@ -46,8 +46,8 @@ public sealed class Sm1ImportTests : IDisposable
         Assert.True(s.Apply(ops).Ok);
     }
 
-    /// <summary>With no spawn data the import adds a placeholder spawn area and floor for each side: four pieces.</summary>
-    const int Placeholders = 4;
+    /// <summary>With no spawn data the import adds a placeholder spawn area and floor for each side and three capture points with floors: ten pieces.</summary>
+    const int Placeholders = 10;
 
     MapSession Session(int extra = 0) => MapSession.New("imported", _lab.Library, new ImportSm1(extra));
 
@@ -155,7 +155,7 @@ public sealed class Sm1ImportTests : IDisposable
 
     // ---- spawns and doors (owner 2026-11-19): the original's start areas and blockers become editable pieces ----
 
-    static Sm1Spawns FakeSpawns(bool chaosToo = true) => new(
+    static Sm1Spawns FakeSpawns(bool chaosToo = true, bool points = true) => new(
         [
             new MapStartArea("mkr_start_marine", SmSim.Team.SpaceMarines, new Vector3(50, -30, 5.5f), 0f, new Vector3(10, 8, 5), 1),
             .. chaosToo ? [new MapStartArea("mkr_Start_Ork", SmSim.Team.Chaos, new Vector3(-40, 20, 5.5f), MathF.PI, new Vector3(10, 8, 5), 1)] : Array.Empty<MapStartArea>(),
@@ -163,7 +163,8 @@ public sealed class Sm1ImportTests : IDisposable
         [
             new MapBlocker("marine_blocker_01", SmSim.Team.SpaceMarines, new Vector3(60, -30, 8), MathF.PI / 2f, new Vector3(1, 11, 15)),
             new MapBlocker("chaos_blocker_01", SmSim.Team.Chaos, new Vector3(-50, 20, 8), 0f, new Vector3(11, 1, 15)),
-        ]);
+        ],
+        points ? [new MapControlPoint("mkr_objective_1", new Vector3(5, 0, 2), 0f, new Vector3(8, 8, 4), 3), new MapControlPoint("mkr_objective_2", new Vector3(5, 30, 2), 0f, new Vector3(6, 6, 4), 3)] : []);
 
     [Fact]
     public void Import_places_the_originals_spawn_areas_and_doors_as_pieces_at_the_marker_places()
@@ -239,5 +240,36 @@ public sealed class Sm1ImportTests : IDisposable
         s.Save(path);
         var back = MapSession.Load(path, _lab.Library, new ImportSm1(spawns: FakeSpawns()));
         Assert.Equal(s.Document.ToJson(), back.Document.ToJson());
+    }
+
+    [Fact]
+    public void Capture_points_come_from_the_originals_data_in_its_order_and_both_modes_pass_the_check()
+    {
+        var s = MapSession.New("imported", _lab.Library, new ImportSm1(spawns: FakeSpawns()));
+        var r = s.Apply(Lab.Op("""{"op":"import-sm1-map","map":"mp_fake"}"""));
+        Assert.True(r.Ok, r.ToJson());
+        var points = s.Document.Objects.Where(o => o.Piece?.Kind == PieceKind.CapturePoint).ToList();
+        Assert.Equal(2, points.Count);
+        Assert.DoesNotContain(points, p => p.Name.Contains("placeholder"));
+        Assert.Equal(new Vector3(5, 0, 0), points[0].Transform.Position);   // the centre's z (2) minus half the height (2)
+        Assert.Equal(new Vector3(8, 8, 4), points[0].Transform.Scale);
+        Assert.Equal(new Vector3(6, 6, 4), points[1].Transform.Scale);
+        Assert.Contains(r.Warnings, w => w.StartsWith("Seize Ground: 2 capture point(s)"));
+        var map = CustomMap.Compile(s.Document);
+        Assert.Equal(new Vector3(5, 0, 2), map.Content.ControlPoints[0].Position);
+        var report = MapCheck.Run(map);
+        Assert.True(report.AnnihilationReady && report.SeizeReady, report.ToText());
+    }
+
+    [Fact]
+    public void A_map_whose_data_has_no_capture_points_gets_three_placeholders_and_a_warning()
+    {
+        var s = MapSession.New("imported", _lab.Library, new ImportSm1(spawns: FakeSpawns(points: false)));
+        var r = s.Apply(Lab.Op("""{"op":"import-sm1-map","map":"mp_fake"}"""));
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Equal(3, s.Document.Objects.Count(o => o.Piece?.Kind == PieceKind.CapturePoint && o.Name.Contains("placeholder")));
+        Assert.Contains(r.Warnings, w => w.Contains("no Seize Ground capture points") && w.Contains("placeholder"));
+        var report = MapCheck.Run(CustomMap.Compile(s.Document));
+        Assert.True(report.AnnihilationReady && report.SeizeReady, report.ToText());
     }
 }
