@@ -81,4 +81,68 @@ public class ComponentEditTests
         var r = ComponentEdit.Delta(Odd, TransformProp.Scale, 0, 1f, 2f);
         Same(Odd.Scale.X * 2f, r.Scale.X); Same(Odd.Scale.Y, r.Scale.Y); Same(Odd.Scale.Z, r.Scale.Z);
     }
+
+    static MapTransform Odd2 => new(new Vector3(1.234f, -164.983f, 0.1234f), new Vector3(200f, 17.123f, -33.333f), new Vector3(1.001f, 2.345f, 0.777f));
+
+    [Fact]
+    public void WorldPositionUnderATranslatedScaledUnrotatedParentChangesOnlyThatAxisBitExactly()
+    {
+        var parent = new MapTransform(new Vector3(5, -3, 2), Vector3.Zero, new Vector3(2, 4, 0.5f)).ToMatrix();
+        for (int axis = 0; axis < 3; axis++)
+        {
+            var r = ComponentEdit.World(Odd2, parent, TransformProp.Position, axis, 10.5f);
+            for (int a = 0; a < 3; a++)
+                if (a != axis) Same(ComponentEdit.Get(Odd2.Position, a), ComponentEdit.Get(r.Position, a));
+            Assert.Equal(Odd2.Rotation, r.Rotation); Assert.Equal(Odd2.Scale, r.Scale);
+            float s = axis == 0 ? 2 : axis == 1 ? 4 : 0.5f, t = axis == 0 ? 5 : axis == 1 ? -3 : 2;
+            Assert.Equal((10.5f - t) / s, ComponentEdit.Get(r.Position, axis));
+        }
+    }
+
+    [Fact]
+    public void WorldRotationUnderAnUnrotatedParentLeavesTheOtherAxesIdentical()
+    {
+        var parent = new MapTransform(new Vector3(5, -3, 2), Vector3.Zero, new Vector3(2, 2, 2)).ToMatrix();
+        var r = ComponentEdit.World(Odd2, parent, TransformProp.Rotation, 1, 45f);
+        Same(200f, r.Rotation.X); Same(-33.333f, r.Rotation.Z); Same(45f, r.Rotation.Y);
+        Assert.Equal(Odd2.Position, r.Position); Assert.Equal(Odd2.Scale, r.Scale);
+    }
+
+    [Fact]
+    public void WorldScaleUnderAnUnrotatedParentDividesByTheParentScaleOnThatAxisOnly()
+    {
+        var parent = new MapTransform(Vector3.Zero, Vector3.Zero, new Vector3(2, 4, 0.5f)).ToMatrix();
+        var r = ComponentEdit.World(Odd2, parent, TransformProp.Scale, 1, 8f);
+        Same(2f, r.Scale.Y); Same(Odd2.Scale.X, r.Scale.X); Same(Odd2.Scale.Z, r.Scale.Z);
+    }
+
+    [Fact]
+    public void RotatedParentKeepsUntouchedAxesWithinToleranceOrExact()
+    {
+        var parent = new MapTransform(new Vector3(5, -3, 2), new Vector3(0, 0, 40), Vector3.One).ToMatrix();
+        var cur = new MapTransform(new Vector3(1.234f, -164.983f, 3.1234f), new Vector3(0, 0, 10), new Vector3(1.001f, 1.001f, 1.001f));
+        var world = TransformMath.Decompose(cur.ToMatrix() * parent);
+        var r = ComponentEdit.World(cur, parent, TransformProp.Position, 0, world.Position.X);   // a rotated parent couples the axes for a real move; an edit that restores the same value must not add noise
+        Same(-164.983f, r.Position.Y); Same(3.1234f, r.Position.Z);
+        var rr = ComponentEdit.World(cur, parent, TransformProp.Rotation, 2, world.Rotation.Z + 5f);
+        Same(0f, rr.Rotation.X); Same(0f, rr.Rotation.Y); Assert.Equal(15f, rr.Rotation.Z, 2);
+        Assert.Equal(cur.Position, rr.Position); Assert.Equal(cur.Scale, rr.Scale);
+    }
+
+    [Fact]
+    public void MultiSelectScaleWithANearZeroFirstComponentSetsTheValueAbsolutely()
+    {
+        Assert.True(ComponentEdit.RatioUnusable(TransformProp.Scale, 0f));
+        Assert.True(ComponentEdit.RatioUnusable(TransformProp.Scale, 0.0005f));
+        Assert.False(ComponentEdit.RatioUnusable(TransformProp.Position, 0f));
+        var r = ComponentEdit.Delta(Odd2, TransformProp.Scale, 0, 0.0005f, 3f);
+        Same(3f, r.Scale.X); Same(Odd2.Scale.Y, r.Scale.Y);
+    }
+
+    [Fact]
+    public void PivotTakesOnlyTheTouchedAxes()
+    {
+        var r = ComponentEdit.Pivot(Vector3.Zero, [false, true, false], new Vector3(9, 2.5f, 7));
+        Assert.Equal(new Vector3(0, 2.5f, 0), r);
+    }
 }

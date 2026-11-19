@@ -961,7 +961,11 @@ public partial class MapmakerDock : VBoxContainer
             {
                 if (ids.Count == 1)
                     local = world ? ComponentEdit.World(o.Transform, o.Parent is null ? null : doc.World(o.Parent), prop, axis, value) : ComponentEdit.Local(o.Transform, prop, axis, value);
-                else local = ComponentEdit.Delta(o.Transform, prop, axis, firstNow, value);
+                else
+                {
+                    if (ComponentEdit.RatioUnusable(prop, firstNow)) _status.Text = "The first selected object's scale is near zero here, so the typed scale is set on each object as it is (no ratio).";
+                    local = ComponentEdit.Delta(o.Transform, prop, axis, firstNow, value);
+                }
             }
             catch (MapException e) { _status.Text = e.Message; continue; }
             // The op carries the whole transform, but every component but the edited one is the stored value, untouched.
@@ -983,7 +987,7 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Btn("Extract picked SM1 objects...", ShowExtract, "Makes a prefab from the SM1 objects picked in the 3D view."));
         Section(v, "Prefab");
         _prefab.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _prefab.ItemSelected += _ => LoadPrefab();
+        _prefab.ItemSelected += _ => { ResetPivot(); LoadPrefab(); };
         v.AddChild(Row(Field("Prefab", 68), _prefab));
         _prefabName.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _prefabName.TextSubmitted += t => EditPrefab(("name", t));
@@ -1008,7 +1012,8 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Btn("Remove part", RemovePart, "Removes the part from the prefab itself (every map that uses it)."));
         Section(v, "Pivot", "The point, in prefab coordinates, that becomes the new origin.");
         v.AddChild(VecRow("Shift", _porg));
-        var apply = Btn("Apply pivot", () => EditPrefab(("origin", MapmakerPlugin.Vec(V(_porg)))));
+        var apply = Btn("Apply pivot", ApplyPivot, "Only the axes you changed are shifted; the others stay put.");
+        for (int i = 0; i < 3; i++) { int ax = i; _porg[i].ValueChanged += _ => { if (!_refreshing) _porgTouched[ax] = true; }; }
         var bottom = Btn("Use bottom centre", () => EditPrefab(("origin", "bounds-bottom-center")));
         var first = Btn("Use first part", () => EditPrefab(("origin", "first")));
         foreach (var b in new[] { apply, bottom, first }) b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -1068,6 +1073,23 @@ public partial class MapmakerDock : VBoxContainer
     }
 
     /// <summary>A part spin edit changes one component of the stored part transform; the other eight values are the stored ones.</summary>
+    readonly bool[] _porgTouched = new bool[3];
+
+    /// <summary>Apply pivot sends a shift for the axes touched since the last load only; the others are zero (no shift), whatever the spin box shows.</summary>
+    void ApplyPivot()
+    {
+        var shift = ComponentEdit.Pivot(Num.Vector3.Zero, _porgTouched, V(_porg));
+        EditPrefab(("origin", MapmakerPlugin.Vec(shift)));
+        ResetPivot();
+    }
+
+    void ResetPivot()
+    {
+        bool r = _refreshing; _refreshing = true;
+        Set(_porg, Num.Vector3.Zero); Array.Clear(_porgTouched);
+        _refreshing = r;
+    }
+
     void ApplyPart(TransformProp prop, int axis, float value)
     {
         if (_refreshing || CurrentPrefabId is null || _parts.GetSelectedItems().Length == 0) return;
