@@ -1,21 +1,18 @@
 namespace SmSim.Extras.Warfront.Squad;
 
 /// <summary>
-/// A retainer's aim (Warfront retainer AI, slice S1; owner 2026-11-19): the hit chance of a ranged shot is the weapon's own chance (its spread) times the aim's chance of landing on the body, worked out as the
+/// A retainer's aim (Warfront retainer AI, slice S1; owner 2026-11-19): the hit chance of a Classic-aimed ranged shot is the weapon's own chance (its spread) times the aim's chance of landing on the body, worked out as the
 /// Classic PvP bots do. The formula is a copy of <c>SmNet.BotAimModel</c> (SmSim cannot reference SmNet; <c>SquadAimParityTests</c> pins the two together): for an accuracy <c>a</c> the per-axis error sigma is
 /// <c>r / 15 / sqrt(-2 ln(1 - a))</c> (r = <see cref="BodyRadius"/>, 15 m = <see cref="ReferenceDistance"/>), the error angle shrinks with the distance (<see cref="DistanceScale"/>), and a shot at distance d lands with chance
-/// <c>1 - exp(-(r/d)^2 / 2 sigma^2)</c>. A retainer is stronger than a Classic bot: its misses are <see cref="MissShare"/> (40 %, 60 % fewer) of the Classic bot's, so its accuracy is 0.988 against Classic's 0.97.
+/// <c>1 - exp(-(r/d)^2 / 2 sigma^2)</c>. A retainer is stronger than a Classic bot: its misses are <see cref="MissShare"/> (40 %, 60 % fewer) of a Classic-aimed shot's (see <see cref="HitChance"/>).
 /// Melee blows keep the weapon's own chance (a bot's aim error is a ranged one). The roll stays the sim's own deterministic hash.
 /// </summary>
 public static class SquadAim
 {
     /// <summary>The Classic bots' default accuracy (<c>NetworkView.DefaultBotAccuracy</c>, client/NetworkView.BotAim.cs) [owner, 2026-11-19: "like the Classic bots"].</summary>
     public const float ClassicAccuracy = 0.97f;
-    /// <summary>The share of a Classic bot's misses a retainer makes: 0.40, 60 % fewer [owner, 2026-11-19].</summary>
+    /// <summary>The share of a Classic-aimed shot's misses a retainer makes: 0.40, 60 % fewer [owner, 2026-11-19].</summary>
     public const float MissShare = 0.40f;
-    /// <summary>A retainer's aim accuracy: 1 - (1 - <see cref="ClassicAccuracy"/>) x <see cref="MissShare"/> = 0.988.</summary>
-    public const float RetainerAccuracy = 1f - (1f - ClassicAccuracy) * MissShare;
-
     /// <summary>The BotAimModel constants (copied): the distance at which the accuracy is the hit fraction (m), the body radius (m), and the limits of the distance scale.</summary>
     public const float ReferenceDistance = 15f, BodyRadius = 0.5f, MinScaleDistance = 3f, MinScale = 0.1f, MaxScale = 4f;
     const float Perfect = 0.999f, Floor = 0.01f;
@@ -40,9 +37,15 @@ public static class SquadAim
         return 1f - MathF.Exp(-theta * theta / (2f * sigma * sigma));
     }
 
-    /// <summary>A retainer's aim chance at <paramref name="distance"/>.</summary>
-    public static float RetainerAimChance(float distance) => AimChance(RetainerAccuracy, distance);
+    /// <summary>A Classic-aimed round's hit chance: the weapon's chance times the Classic bot's aim chance (accuracy 0.97) at <paramref name="distance"/>.</summary>
+    public static float ClassicHitChance(float weaponHitChance, float distance) => weaponHitChance * AimChance(ClassicAccuracy, distance);
 
-    /// <summary>The hit chance of one round: the weapon's chance, times the retainer's aim chance for a ranged weapon (a blow keeps the weapon's own chance).</summary>
-    public static float HitChance(float weaponHitChance, bool melee, float distance) => melee ? weaponHitChance : weaponHitChance * RetainerAimChance(distance);
+    /// <summary>
+    /// A retainer's hit chance for one round: its misses are <see cref="MissShare"/> (40 %) of a Classic-aimed shot's, <c>1 - (1 - classic) x 0.4</c>, clamped to 0..1 (0.7 weapon chance at 15 m: 0.68 classic, 0.87 retainer). A melee blow keeps the weapon's own chance.
+    /// </summary>
+    public static float HitChance(float weaponHitChance, bool melee, float distance)
+    {
+        if (melee) return weaponHitChance;
+        return Math.Clamp(1f - (1f - ClassicHitChance(weaponHitChance, distance)) * MissShare, 0f, 1f);
+    }
 }

@@ -499,7 +499,7 @@ public sealed partial class WarfrontSquadSim
         a.NextShot = _tick + (uint)Math.Max(1, (int)MathF.Round(p.Interval * _arena.TickRate));
         a.FiredAt = _tick;   // W11 addition: the wire's Firing flag
         a.ShotMelee = p.Melee;
-        if (Roll(_tick, i, 1) >= SquadAim.HitChance(p.HitChance, p.Melee, Flat(to))) return;   // S1: the weapon's chance times the Classic-bot aim chance (retainer accuracy 0.988)
+        if (Roll(_tick, i, 1) >= SquadAim.HitChance(p.HitChance, p.Melee, Flat(to))) return;   // S1: the weapon's chance times the Classic-bot aim chance (retainer misses 0.4 of a Classic-aimed shot's)
         var push = Flat(to) > 0.01f ? Vector3.Normalize(new Vector3(to.X, to.Y, 0f)) : Vector3.Zero;
         float amount = p.Damage * _damageScale[os] * SquadRules.DamageDealt;
         MusouEnemyType? type = _arena.TryEnemyType(a.Target, out var et) ? et : null;

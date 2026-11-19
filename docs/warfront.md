@@ -100,7 +100,7 @@ estimate awaiting playtests (`docs/refine-register.md`).
 
 ## Retainer combat (slice S1, owner 2026-11-19)
 
-Retainers fight like the Classic PvP bots and stay on the squad leash and orders. Slice S1 gives them the bots' aim (a retainer makes 40 % of a Classic bot's misses: accuracy 0.988 against 0.97, the bots' own hit-chance formula
+Retainers fight like the Classic PvP bots and stay on the squad leash and orders. Slice S1 gives them the bots' aim (a retainer makes 40 % of the misses of a Classic-aimed shot, 0.87 hit chance at weapon chance 0.7 against 0.68 for a Classic bot, the bots' own hit-chance formula
 copied into `SquadAim` and pinned to `BotAimModel` by a test), a target they hold for about a second (threats to the owner or a downed Marine come first, a clearly nearer Ork can still take over: `SquadTargeting`), and the level
 scaling above. The old strength cap (a Marine deals 0.08 to 0.25 of a bolter player) is superseded: retainers deal clearly more. Still to come: movement (strafing, spread, avoiding blasts), combat moves (roll, block, melee,
 charge, jump, grenade) and the client animations. Spec: "Added content: Warfront: squad combat". `WarfrontRules.Version` 16.

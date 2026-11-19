@@ -14,7 +14,7 @@ public class SquadAimParityTests
         Assert.Equal(BotAimModel.MinScaleDistance, SquadAim.MinScaleDistance);
         Assert.Equal(BotAimModel.MinScale, SquadAim.MinScale);
         Assert.Equal(BotAimModel.MaxScale, SquadAim.MaxScale);
-        foreach (float acc in new[] { 0.3f, 0.49f, SquadAim.ClassicAccuracy, SquadAim.RetainerAccuracy })
+        foreach (float acc in new[] { 0.3f, 0.49f, SquadAim.ClassicAccuracy, 0.988f })
         {
             Assert.Equal(BotAimModel.SigmaFor(acc), SquadAim.SigmaFor(acc), 6);
             foreach (float d in new[] { 0.5f, 2f, 3f, 3.75f, 8f, 15f, 25f, 50f, 100f, 200f })
@@ -27,26 +27,32 @@ public class SquadAimParityTests
     }
 
     [Fact]
-    public void The_Classic_accuracy_is_the_clients_default_and_a_retainer_misses_forty_percent_as_often()
+    public void The_Classic_accuracy_is_the_clients_default()
     {
         string src = File.ReadAllText(Path.Combine(RepoRoot(), "client", "NetworkView.BotAim.cs"));
         var m = Regex.Match(src, @"DefaultBotAccuracy\s*=\s*([0-9.]+)f");
         Assert.True(m.Success);
         Assert.Equal(float.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), SquadAim.ClassicAccuracy);
-        Assert.Equal(0.988f, SquadAim.RetainerAccuracy, 5);
-        Assert.Equal(0.988f, SquadAim.RetainerAimChance(15f), 4);
-        foreach (float d in new[] { 8f, 15f, 30f, 60f })
-        {
-            float classicMiss = 1f - SquadAim.AimChance(SquadAim.ClassicAccuracy, d), retainerMiss = 1f - SquadAim.RetainerAimChance(d);
-            Assert.InRange(retainerMiss / classicMiss, 0.38f, 0.42f);   // 0.4 at the reference range
-        }
     }
 
     [Fact]
-    public void A_blow_keeps_the_weapons_own_chance_and_a_round_is_the_weapons_chance_times_the_aim()
+    public void A_retainers_misses_are_forty_percent_of_a_Classic_shots_and_it_beats_the_flat_weapon_chance_at_every_range()
+    {
+        foreach (float weapon in new[] { 0.5f, 0.65f, 0.7f, 0.8f, 0.9f })   // the ranged weapons run 0.65 to 0.8; a flat 1.0 could not be beaten by 1 - 0.4 x misses
+            foreach (float d in new[] { 1f, 3f, 8f, 15f, 30f, 60f, 100f })
+            {
+                float classic = SquadAim.ClassicHitChance(weapon, d), retainer = SquadAim.HitChance(weapon, melee: false, d);
+                Assert.Equal((1f - classic) * 0.4f, 1f - retainer, 5);
+                Assert.True(retainer > weapon - 1e-6f, $"weapon {weapon} at {d} m: {retainer}");   // beats today's flat HitChance
+                Assert.InRange(retainer, 0f, 1f);
+            }
+        Assert.Equal(0.87f, SquadAim.HitChance(0.7f, melee: false, 15f), 2);
+    }
+
+    [Fact]
+    public void A_blow_keeps_the_weapons_own_chance()
     {
         Assert.Equal(0.7f, SquadAim.HitChance(0.7f, melee: true, 2f));
-        Assert.Equal(0.7f * 0.988f, SquadAim.HitChance(0.7f, melee: false, 15f), 4);
     }
 
     static string RepoRoot()
