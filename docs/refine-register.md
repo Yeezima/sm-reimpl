@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3877 spec table rows: **2832 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
+Scanned 3880 spec table rows: **2835 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 415 | 356 | 355 | 114 | 12 |
+| Movement (critical) | 416 | 357 | 356 | 114 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -51,17 +51,17 @@ Scanned 3877 spec table rows: **2832 tagged**, 688 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 862 | 816 | 644 | 239 | 1 |
-| General game design | 35 | 34 | 27 | 2 | 0 |
+| General game design | 37 | 36 | 29 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2832** | 2527 | 2149 | 827 | 37 |
+| **All areas** | **2835** | 2530 | 2152 | 827 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1644 |
-| confidence: low | 1046 |
-| confidence: medium | 992 |
+| kind: ours | 1647 |
+| confidence: low | 1047 |
+| confidence: medium | 994 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (415)
+### Movement (gameplay-critical) (416)
 
 *Spec section: Extracted parameters*
 
@@ -816,6 +816,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; every step (walking and the push between Marines closer than 0.9 m) is taken only if it stays on the walking graph, the height taken from the floor, sliding along a wall on one axis… (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
+
+*Spec section: Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map")*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-2947570F` | Custom movement wall group and race | `BlockGroup` 2 (ALL: every side is stopped) and race 1, the same as every Classic invisible wall; shots, thrown items and blasts pass; the piece is not drawn (group id) | kind: ours; confidence: medium | `SmContent.MapContent` Classic wall rule | Custom movement wall group and race: compare with SM1 by timing a run over a known distance. Ours: BlockGroup 2 (ALL: every side is stopped) and race 1, the same as… | ☐ |
 
 *Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
 
@@ -4220,7 +4226,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (35)
+### General game design (37)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4240,7 +4246,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-A08BBB82` | Collision of solid pieces | one triangle mesh for characters and shots from the unit shapes (box, wedge, 12-sided column) moved by each piece's world matrix; no surface materials (triangles) | kind: ours; confidence: low; notes: interpretation | interpretation of "a map's collision" | Collision of solid pieces: compare with SM1 by feel or video. Ours: one triangle mesh for characters and shots from the unit shapes (box… | ☐ |
 | `R-788CF7B9` | Marker pieces | spawn area = start area box centred half its height above the piece position; spawn door = spawn-room blocker box; capture point = cylinder (X scale diameter, Z scale height) centred half its height up; kill zone = box; facing = the piece's +Y measured as the… (metres, radians) | kind: ours; confidence: medium | the install's marker conventions (`MapContent`) | Marker pieces: compare with SM1 by feel or video. Ours: spawn area = start area box centred half its height above the piece… | ☐ |
-| `R-B52A43ED` | Kill floor | a kill box 6 m below the lowest solid piece's underside, 40 m deep and 200 m wider than the pieces all round, so open edges are safe (metres) | kind: ours; confidence: low | ours | Kill floor: compare with SM1 by feel or video. Ours: a kill box 6 m below the lowest solid piece's underside, 40 m deep… | ☐ |
+| `R-B52A43ED` | Kill floor | a kill box 6 m below the lowest solid piece's underside (solid pieces, cover pieces and SM1 decoration count; invisible movement walls do not), 40 m deep and 200 m wider than the pieces all round, so open edges are safe (metres) | kind: ours; confidence: low | ours | Kill floor: compare with SM1 by feel or video. Ours: a kill box 6 m below the lowest solid piece's underside (solid… | ☐ |
+| `R-0CDD6CF8` | Cover piece surface id | the surface id a shot that hits a custom cover piece's triangles reports: 4 (the id of Classic's crate metal in the prop tests); the piece is the unit box carried by its world matrix, solid for movement and shots, pierce-capable shots pass it (surface id) | kind: ours; confidence: low | the Classic crate surface id used in the prop tests | Cover piece surface id: compare with SM1 by feel or video. Ours: the surface id a shot that hits a custom cover piece's triangles… | ☐ |
+| `R-6CD6E8E6` | Custom wall cylinder shape | a 16-sided prism whose corners lie on a circle of radius 0.5 / cos(pi/16) (circumscribes the cylinder), as Classic's `WorldBlocker.Cylinder`; built in double with the deterministic ring and yaw maths (`DetMath`, no libm) so the bits are the same on every OS… (sides, metres) | kind: ours; confidence: medium | `SmSim.WorldBlocker.Cylinder` (shape); determinism rule of `CompilerVersion` 4/5 | Custom wall cylinder shape: compare with SM1 by feel or video. Ours: a 16-sided prism whose corners lie on a circle of radius 0.5 /… | ☐ |
 | `R-011AA592` | Declared modes | a document lists the modes it is made for (default annihilation and seize; any combination, unknown names kept for future modes); a declared mode is playable only when no error of that mode remains: Seize Ground needs at least one capture point (at most 8)… (modes) | kind: ours | owner's words 2026-11-17 | Declared modes: compare with SM1 by feel or video. Ours: a document lists the modes it is made for (default annihilation and… | ☐ |
 | `R-3DAFFBD3` | Bots on custom maps | the new-map bot rules (stuck escape, strict drops, walk-first jump build) apply to `cm_` maps (rule) | kind: ours; confidence: low | bots/new-maps rules | Bots on custom maps: compare with SM1 by feel or video. Ours: the new-map bot rules (stuck escape, strict drops, walk-first jump… | ☐ |
 

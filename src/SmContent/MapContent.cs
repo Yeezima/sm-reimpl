@@ -47,8 +47,14 @@ public sealed record MapBlocker(string Name, Team Side, Vector3 Position, float 
 /// </summary>
 public sealed record MapWall(string Name, Vector3 Position, Vector3 RotationDegrees, Vector3 Scale, int Shape, int Group, int Race)
 {
+    /// <summary>World-space vertices built by the caller (custom maps: the Mapmaker builds them with deterministic maths so every OS gets the same bits); null: built from the placement here (every Classic wall).</summary>
+    public Vector3[]? Vertices { get; init; }
+    /// <summary>The triangles over <see cref="Vertices"/> (set together with it).</summary>
+    public int[]? Indices { get; init; }
+
     public WorldBlocker ToSim()
     {
+        if (Vertices is not null && Indices is not null) return new WorldBlocker(Name, Vertices, Indices);
         var world = MapScene.Transform(Position, RotationDegrees, Scale);
         return Shape switch { 3 => WorldBlocker.Cylinder(Name, world), 2 => WorldBlocker.Sphere(Name, world), _ => WorldBlocker.Box(Name, world) };
     }

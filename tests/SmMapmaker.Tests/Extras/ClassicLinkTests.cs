@@ -65,7 +65,63 @@ public sealed class ClassicLinkTests
         var world = map.ToCollisionWorld();
         Assert.Equal(2, world.Walls.Count);
         Assert.Single(world.Props);
-        Assert.Equal(1, map.SolidCount);   // only the floor piece is terrain: a wall and cover are not
+        Assert.Equal(2, map.SolidCount);   // the floor piece and the cover count; a movement wall (invisible, movement-only) does not
+    }
+
+    [Fact]
+    public void Wall_vertices_are_exactly_the_deterministic_values()
+    {
+        using var lab = new Lab();
+        var map = CustomMap.Compile(Map(lab,
+            """{"op":"place","piece":{"kind":"move-wall"},"transform":{"position":[3,4,0],"rotation":[0,0,33.3333],"scale":[1,20,3]}}""",
+            """{"op":"place","piece":{"kind":"move-wall","shape":"cylinder"},"transform":{"position":[-5,2,0],"rotation":[0,0,17],"scale":[2,2,3]}}""").Document);
+        var box = map.Content.Walls[0]; var cyl = map.Content.Walls[1];
+        // reference: the same double maths written out here (DetMath, no libm)
+        double[] M(MapWall w) => DetTransform.Local(w.Position.X, w.Position.Y, w.Position.Z, 0, 0, w.RotationDegrees.Z, w.Scale.X, w.Scale.Y, w.Scale.Z);
+        Vector3 P(double[] m, double x, double y, double z) { var (a, b, c) = DetMath.Transform(x, y, z, m); return new Vector3((float)a, (float)b, (float)c); }
+        var mb = M(box);
+        for (int k = 0; k < 8; k++)
+        {
+            (double x, double y) = (k % 4) switch { 0 => (-0.5, -0.5), 1 => (0.5, -0.5), 2 => (0.5, 0.5), _ => (-0.5, 0.5) };
+            Assert.Equal(P(mb, x, y, k < 4 ? -0.5 : 0.5), box.Vertices![k]);
+        }
+        var mc = M(cyl);
+        double r = 0.5 / 0.98078528040323044913;
+        Assert.Equal(32, cyl.Vertices!.Length);
+        for (int i = 0; i < 16; i++)
+        {
+            var (c, sn) = DetMath.Ring(i, 16);
+            Assert.Equal(P(mc, r * c, r * sn, -0.5), cyl.Vertices[i]);
+            Assert.Equal(P(mc, r * c, r * sn, 0.5), cyl.Vertices[16 + i]);
+        }
+        Assert.Equal(WorldBlocker.CylinderIndices(16), cyl.Indices);
+        // the built blocker carries exactly those vertices
+        var sim = map.ToCollisionWorld().Walls;
+        Assert.Equal(box.Vertices, sim[0].Vertices);
+        Assert.Equal(cyl.Vertices, sim[1].Vertices);
+    }
+
+    [Fact]
+    public void A_classic_wall_without_prebuilt_vertices_is_built_as_before()
+    {
+        var w = new MapWall("w", new Vector3(1, 2, 3), new Vector3(0, 0, 30), new Vector3(2, 4, 6), 3, 2, 1);
+        var a = w.ToSim();
+        var b = WorldBlocker.Cylinder("w", MapScene.Transform(w.Position, w.RotationDegrees, w.Scale));
+        Assert.Equal(b.Vertices, a.Vertices);
+        Assert.Equal(b.Indices, a.Indices);
+    }
+
+    [Fact]
+    public void A_map_with_only_cover_gets_a_kill_floor_under_it()
+    {
+        using var lab = new Lab();
+        var s = lab.Session();
+        Assert.True(Run(s, """{"op":"place","piece":{"kind":"cover"},"transform":{"position":[0,0,10],"scale":[2,2,2]}}""").Ok);
+        var map = CustomMap.Compile(s.Document);
+        Assert.Equal(1, map.SolidCount);
+        Assert.Equal(10f, map.SolidBounds!.Value.Min.Z);
+        var floor = Assert.Single(map.Content.KillRegions, k => k.Name == "cm_kill_floor");
+        Assert.True(floor.Position.Z < 10f - CustomMap.KillFloorDepth);
     }
 
     [Fact]

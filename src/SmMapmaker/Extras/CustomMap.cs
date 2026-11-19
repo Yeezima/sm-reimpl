@@ -196,6 +196,9 @@ public sealed class CustomMap
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
                 coverNumber++;
                 props.Add(new MapProp($"cm_cover_{coverNumber}", "custom cover", "cover", CoverSurface, cmoved, ctri));
+                var cb = new Bounds(cmoved.Aggregate(Vector3.Min), cmoved.Aggregate(Vector3.Max));   // cover counts for the kill floor and SolidCount (walls do not: movement-only, invisible)
+                solid = solid is { } cs ? cs.Union(cb) : cb;
+                solidCount++;
                 continue;
             }
             // Markers: boxes (or a cylinder) in the document frame whose bottom is the piece's z. Only a turn about Z counts; a tilt is noted.
@@ -234,7 +237,8 @@ public sealed class CustomMap
                 case PieceKind.MoveWall:
                     // a movement-only wall (MapWall -> CollisionWorld.Walls): position = the centre, rotation about Z in degrees, scale = the full size
                     wallNumber++;
-                    walls.Add(new MapWall($"cm_wall_{wallNumber}", centre, new Vector3(0, 0, (float)YawDegreesOf(doc, o)), size, piece.IsCylinder ? 3 : 1, WallGroup, 1));
+                    var (wv, wi) = WallMesh(centre, size, YawDegreesOf(doc, o), piece.IsCylinder);
+                    walls.Add(new MapWall($"cm_wall_{wallNumber}", centre, new Vector3(0, 0, (float)YawDegreesOf(doc, o)), size, piece.IsCylinder ? 3 : 1, WallGroup, 1) { Vertices = wv, Indices = wi });
                     break;
                 case PieceKind.KillZone:
                     killNumber++;
@@ -284,6 +288,39 @@ public sealed class CustomMap
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
         return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor };
+    }
+
+    /// <summary>cos(pi / 16) as a literal (no libm): the circumscribed 16-sided prism's corner radius is 0.5 / this, as <see cref="WorldBlocker.Cylinder"/>.</summary>
+    const double CosHalfStep16 = 0.98078528040323044913;
+
+    /// <summary>
+    /// A movement wall's world vertices, built in double with the deterministic maths only (the same shape <see cref="WorldBlocker.Box"/> / <see cref="WorldBlocker.Cylinder"/> make for Classic: a box, or a
+    /// <see cref="WorldBlocker.CylinderSides"/>-sided prism whose corners lie at 0.5 / cos(pi / sides)); <c>MapWall.ToSim</c> would use float sin/cos, which may differ between operating systems.
+    /// </summary>
+    internal static (Vector3[] Vertices, int[] Indices) WallMesh(Vector3 centre, Vector3 size, double yawDegrees, bool cylinder)
+    {
+        var m = DetTransform.Local(centre.X, centre.Y, centre.Z, 0, 0, yawDegrees, size.X, size.Y, size.Z);
+        Vector3 At(double x, double y, double z) { var (px, py, pz) = DetMath.Transform(x, y, z, m); return new Vector3((float)px, (float)py, (float)pz); }
+        if (!cylinder)
+        {
+            var v = new Vector3[8];
+            for (int k = 0; k < 8; k++)
+            {
+                (double x, double y) = (k % 4) switch { 0 => (-0.5, -0.5), 1 => (0.5, -0.5), 2 => (0.5, 0.5), _ => (-0.5, 0.5) };
+                v[k] = At(x, y, k < 4 ? -0.5 : 0.5);
+            }
+            return (v, [.. SpawnBlocker.BoxIndices]);
+        }
+        int n = WorldBlocker.CylinderSides;
+        double r = 0.5 / CosHalfStep16;
+        var cv = new Vector3[2 * n];
+        for (int i = 0; i < n; i++)
+        {
+            var (c, s) = DetMath.Ring(i, n);
+            cv[i] = At(r * c, r * s, -0.5);
+            cv[n + i] = At(r * c, r * s, 0.5);
+        }
+        return (cv, WorldBlocker.CylinderIndices(n));
     }
 
     static bool IsVisibleChain(MapDocument doc, MapObject o)
