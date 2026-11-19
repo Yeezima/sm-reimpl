@@ -150,8 +150,8 @@ public sealed partial class MapMaterials
             material.EmissionEnabled = true;
             material.Emission = c;
             material.EmissionTexture = emissive;
-            // maps-visual-qa (Basilica, owner 2026-11-19): the tall stations (EmissiveColor 1/1/1, emissive map a small candle shape) drew their candles as flat white at 1.5; at 0.3 the diffuse detail shows. Provisional.
-            material.EmissionEnergyMultiplier = NewMapRules && !MapDecor.OldCandles && c.R >= 0.99f && c.G >= 0.99f && c.B >= 0.99f && emissiveName == "tech_station_01_emi" ? 0.3f : 1.5f;
+            // maps-visual-qa (Basilica, owner 2026-11-19): the tall stations (EmissiveColor 1/1/1) drew as flat white silhouettes at 1.5 and still pale at 0.3: read through their UVs the emissive map covers the whole body, so no emission is drawn and the diffuse shows (dark gothic towers). Provisional.
+            material.EmissionEnergyMultiplier = NewMapRules && !MapDecor.OldCandles && c.R >= 0.99f && c.G >= 0.99f && c.B >= 0.99f && emissiveName == "tech_station_01_emi" ? 0f : 1.5f;
             Emissive++;
         }
         return material;
