@@ -246,10 +246,23 @@ public sealed partial class TfwBattle
         _humans = Math.Max(1, humans);
         _humansNow = _humans;
         _scale = 1f + enemies.Rules.ScalePerExtraPlayer * (_humans - 1);
+        WarfrontPlayerScale(_humans, ref _scale);   // WARFRONT-HOOK
         Squads = guardsmen ? TfwBattleRules.SquadsAt(imperial) + (final ? bonus.ExtraSquads : 0) : 0;
         Array.Fill(_squadGoal, -1);
         Array.Fill(_trickleTicks, Ticks(TfwBattleRules.TrickleSeconds));
     }
+
+    /// <summary>Warfront: the Ork health scale of this many humans (the run's Warfront object is reached through the enemies' pool).</summary>
+    partial void WarfrontPlayerScale(int humans, ref float scale);
+
+    /// <summary>Warfront: the fourth position (D) becomes a capture point with its garrison in place of the Warboss (<paramref name="handled"/>).</summary>
+    partial void WarfrontCommander(ref bool handled);
+
+    /// <summary>Warfront: steps D's capture and may set the Won change.</summary>
+    partial void WarfrontObjectives(ReadOnlySpan<Vector3> players, ref TfwBattleChange change);
+
+    /// <summary>Warfront: a failsafe is about to remove (<paramref name="why"/> 0 the position-clearing one, 2 the stranded one) or relocate (1) the Ork <paramref name="id"/>; the stuck-unit log's record.</summary>
+    partial void WarfrontStuck(ushort id, MusouEnemyType type, Vector3 at, byte why);
 
     float Dt => 1f / Math.Max(1, _enemies.TickRate);
     int Ticks(float seconds) => Math.Max(1, (int)MathF.Round(seconds * Math.Max(1, _enemies.TickRate)));
@@ -314,7 +327,22 @@ public sealed partial class TfwBattle
     }
 
     /// <summary>Whether <paramref name="index"/> (a position, or 3 the HQ) sends Orks: a position only while Held, the HQ from the commander's coming until victory; all four in the final assault.</summary>
-    public bool SourceActive(int index) => !Won && (_final || (index < Positions ? _objectives[index].State == TfwPositionState.Held : _commander));
+    public bool SourceActive(int index)
+    {
+        bool active = false, handled = false;
+        WarfrontSourceActive(index, ref active, ref handled);   // WARFRONT-HOOK
+        if (handled) return active;
+        return !Won && (_final || (index < Positions ? _objectives[index].State == TfwPositionState.Held : _commander));
+    }
+
+    /// <summary>Warfront: which Ork sources are open (HQ and fortress open them by stage); <paramref name="handled"/> true takes <paramref name="active"/> as the answer.</summary>
+    partial void WarfrontSourceActive(int source, ref bool active, ref bool handled);
+
+    /// <summary>Warfront: whether a Secured position with Orks alone on it may lose progress toward Held (HQ and fortress: only the front-most position still held).</summary>
+    partial void WarfrontRetake(int position, ref bool allowed);
+
+    /// <summary>Warfront: the battle's own opening (the defence); <paramref name="handled"/> true skips <see cref="Start"/>'s.</summary>
+    partial void WarfrontStart(ref bool handled);
 
     /// <summary>The secured positions as places for the Orks to retake (<see cref="MusouTarget.Goal"/>), written from <paramref name="into"/>'s start; the number written.</summary>
     public int AppendGoals(Span<MusouTarget> into)
@@ -329,6 +357,9 @@ public sealed partial class TfwBattle
     /// <summary>The start: the crowds part-grown at their points, the field's squads at the landing zone and, in the final assault, the Warboss.</summary>
     public void Start()
     {
+        bool opened = false;
+        WarfrontStart(ref opened);   // WARFRONT-HOOK
+        if (opened) return;
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : TfwPositionState.Held, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
         _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
         int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
@@ -616,6 +647,7 @@ public sealed partial class TfwBattle
             _clearTick++;
             var capturers = Capturers(players);   // the allied pair never captures (AllyRules)
             for (int k = 0; k < Positions; k++) change |= StepPosition(k, capturers);
+            WarfrontObjectives(players, ref change);   // WARFRONT-HOOK
             // A position being taken is kept clear of shooters: they hold their band, which lies inside its ring (see MusouSim.KeepOut).
             for (int k = 0; k < Positions; k++)
                 if (_objectives[k].State is TfwPositionState.Clearing or TfwPositionState.Securing) _enemies.KeepOut.Add((_layout.Positions[k], _layout.Radius(k), _layout.Reach(k)));
@@ -645,7 +677,9 @@ public sealed partial class TfwBattle
         {
             bool imperial = capturers || _guards.CountInside(o.Position, _layout.Radius(k)) > 0 || (Armies && ArmyGuardsOn(k));
             float change = Dt / TfwBattleRules.RetakeSeconds;
-            float held = orks && !imperial ? o.Progress - change : MathF.Min(1f, o.Progress + change);
+            bool retake = true;
+            WarfrontRetake(k, ref retake);   // WARFRONT-HOOK
+            float held = orks && !imperial && retake ? o.Progress - change : MathF.Min(1f, o.Progress + change);
             if (held > 0f) { _objectives[k] = o with { Progress = held }; return TfwBattleChange.None; }
             _objectives[k] = o with { State = TfwPositionState.Held, Progress = 0f };
             Secured--;
@@ -739,6 +773,7 @@ public sealed partial class TfwBattle
             { _idleInside[id] = (e.Position, _clearTick); continue; }
             if (_clearTick - seen.Since < limit) continue;
             _idleInside.Remove(id);
+            WarfrontStuck(id, e.Type, e.Position, 0);   // WARFRONT-HOOK
             _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
         }
         if (_idleInside.Count > 256) _idleInside.Clear();
@@ -760,6 +795,9 @@ public sealed partial class TfwBattle
         for (int field = FieldSquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
             if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), FaceCentre(_layout.LandingZone)) >= 0) _reserves--;
         if (_taken != (1 << Positions) - 1 || _commander) return change;
+        bool unlockedD = false;
+        WarfrontCommander(ref unlockedD);   // WARFRONT-HOOK
+        if (unlockedD) return change | TfwBattleChange.CommanderCame;
         SpawnCommander();
         return change | TfwBattleChange.CommanderCame;
     }
@@ -981,9 +1019,14 @@ public sealed partial class TfwBattle
             {
                 int source = _layout.Sources.Length - 1;
                 for (int s = 0; s < _layout.Sources.Length && s <= Positions; s++) if (SourceActive(s)) { source = s; break; }
+                WarfrontStuck(id, e.Type, e.Position, 1);   // WARFRONT-HOOK
                 _enemies.Relocate(id, SourceSpot(source));
             }
-            else _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
+            else
+            {
+                WarfrontStuck(id, e.Type, e.Position, 2);   // WARFRONT-HOOK
+                _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
+            }
         }
     }
 }

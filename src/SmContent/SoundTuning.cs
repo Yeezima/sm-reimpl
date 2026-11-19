@@ -47,8 +47,8 @@ public static class SoundTuningGroups
         new(Ambience, "World", "Ambience and map", "The map's own sounds and the environment."),
         new(Ui, "World", "Interface", "Menu, countdown and match-result sounds."),
         new(Other, "World", "Everything else", "Sounds no other group claims."),
-        new(MusouWar, "Musou Mode", "The far war", "Musou Mode: the battle's background.", MusouOnly: true),
-        new(MusouThreat, "Musou Mode", "Close threat cues", "Musou Mode: the close-threat warnings.", MusouOnly: true),
+        new(MusouWar, "Warfront", "The far war", "Warfront: the battle's background.", MusouOnly: true),
+        new(MusouThreat, "Warfront", "Close threat cues", "Warfront: the close-threat warnings.", MusouOnly: true),
     ];
 
     static readonly Dictionary<string, int> Indices = All.Select((g, i) => (g.Id, i)).ToDictionary(t => t.Id, t => t.i, StringComparer.Ordinal);

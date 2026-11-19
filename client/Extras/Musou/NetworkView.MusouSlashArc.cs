@@ -142,6 +142,10 @@ public partial class NetworkView
         _musouArcLast[player] = (a.Tick, a.StepIndex, a.Heavy, _connectedFor);
     }
 
+    /// <summary>Warfront's cleave reach scale for <paramref name="player"/>'s swing (1 outside a Warfront match; the server's <c>World.WarfrontCleave</c> applies the same).</summary>
+    float CleaveReachScaleFor(int player) { float scale = 1f; WarfrontCleaveScaleFor(player, ref scale); return scale; }   // WARFRONT-HOOK
+    partial void WarfrontCleaveScaleFor(int player, ref float scale);
+
     /// <summary>
     /// One arc round the swinger's feet <paramref name="feet"/> (game space) along heading <paramref name="yaw"/>, for <paramref name="step"/>, through enemies struck at a mean flat distance
     /// <paramref name="struck"/> and a mean chest height <paramref name="height"/> above the feet.
@@ -150,7 +154,7 @@ public partial class NetworkView
     {
         if (_camera is null || _gameSpace is null || _config is null || _client is null) return;
         if (Num.Vector3.Distance(feet, ToGame(_camera.GlobalPosition)) > MusouSlashRules.Metres) return;   // the strokes' 30 m limit (owner, 2026-11-10), from the swinger
-        var shape = MusouCleaveShape.Of(_config, step, _tfwState.War is not null, wargear, human: SmSim.Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker), dreadnought: DreadnoughtPlayer(attacker));   // an AI Marine's arc keeps the reach before the owner's x0.6 (2026-11-11)
+        var shape = MusouCleaveShape.Of(_config, step, _tfwState.War is not null, wargear, human: SmSim.Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker), dreadnought: DreadnoughtPlayer(attacker), warfrontScale: CleaveReachScaleFor(attacker));   // an AI Marine's arc keeps the reach before the owner's x0.6 (2026-11-11)
         float radius = MusouSlashArcRules.Radius(shape, struck, MusouSlashArcReachShare);
         if (!float.IsFinite(height) || height < 0.3f || height > 2.5f) height = MusouSlashArcRules.DefaultHeight;
         var centre = feet + new Num.Vector3(0f, 0f, height);

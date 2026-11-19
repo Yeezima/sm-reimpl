@@ -688,6 +688,7 @@ public sealed partial class TfwBattle
         {
             int n = _enemies.Query(point, reach, near[..1], ClashReach(k) + 2f);
             if (n == 0 || !_enemies.TryGet(near[0], out var e)) { _realDebt[o] = 0f; break; }
+            if (near[0] == BossId) { _realDebt[o] = 0f; break; }   // the Warboss never pays an unseen clash's losses (Warfront W14e: a human far off left the plaza's Warboss as the nearest real Ork to a far clash and the fortress was won at 100 % health, tick 6961; he dies to the players' damage only)
             _enemies.Damage(near[0], 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.Shot);
             _realDebt[o] -= 1f;
         }

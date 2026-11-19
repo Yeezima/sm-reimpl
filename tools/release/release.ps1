@@ -9,8 +9,8 @@
         3 - Host a match on this PC.cmd             the bundled server, this PC only
         4 - Join a server by address.cmd            asks for host:port and joins
         5 - Host a match for friends (LAN).cmd      the bundled server on every interface
-        6 - Host Musou Mode on this PC.cmd          Musou Mode co-op (up to 4 players) on the bundled server, this PC only
-        7 - Host Musou Mode for friends (LAN).cmd   the same on every interface
+        6 - Host Warfront on this PC.cmd            Warfront co-op campaign (up to 4 players) on the bundled server, this PC only
+        7 - Host Warfront for friends (LAN).cmd     the same on every interface
         game\     the Godot Windows export (self-contained .NET) and Launcher.ps1
         server\   the win64 dedicated server (self-contained)
         source\   sm-reimpl-source-<ver>.zip (the GPL source offer)
@@ -207,8 +207,8 @@ $TopFiles = [ordered]@{
     HOST    = @{ Name = '3 - Host a match on this PC.cmd';         Template = 'Host.cmd' }
     JOIN    = @{ Name = '4 - Join a server by address.cmd';        Template = 'Join.cmd' }
     HOSTLAN = @{ Name = '5 - Host a match for friends (LAN).cmd';  Template = 'HostLan.cmd' }
-    MUSOU   = @{ Name = '6 - Host Musou Mode on this PC.cmd';      Template = 'HostMusou.cmd' }
-    MUSOULAN = @{ Name = '7 - Host Musou Mode for friends (LAN).cmd'; Template = 'HostMusouLan.cmd' }
+    WARFRONT = @{ Name = '6 - Host Warfront on this PC.cmd';        Template = 'HostWarfront.cmd' }
+    WARFRONTLAN = @{ Name = '7 - Host Warfront for friends (LAN).cmd'; Template = 'HostWarfrontLan.cmd' }
 }
 # The launcher (src/SmLauncher, a self-contained single-file exe) sits above them, numbered 0 so it is the first thing a tester sees. It keeps the
 # tester's install up to date from the releases of $Repo (docs/releasing.md, "The launcher"). Token @LAUNCHER@ in the templates.
@@ -1697,29 +1697,32 @@ if ($Smoke) {
         } else { Write-Host '  front end: game\sm-reimpl.exe started by the Play launcher; HOST A MATCH found server\ and started it on 127.0.0.1 only' -ForegroundColor Green }
         Stop-SmokeProcesses $pkg
 
-        # 5. MUSOU MODE (fix/musou-local-server): --auto-musou presses the main menu's button; the shipped server\ must start with --content musou (it is built with the
-        # added content) on 127.0.0.1 only, and the game must be able to join it (the player joins as soon as the server listens).
-        $port3 = Free-Port ($port2 + 1) @($port, $port2)
-        Step "Smoke: MUSOU MODE (front end, headless) on 127.0.0.1:$port3"
-        $env:SM_ENGINE_ARGS = "--headless --log-file `"$(Join-Path $smokeDir 'musou.log')`""
+        # 5. WARFRONT (the main menu's first row, which replaced Musou Mode on 2026-11-19): --auto-warfront --auto-warfront-new presses NEW CAMPAIGN; the shipped server\ must start (a supervisor with
+        # --content warfront, built with the added content) on 127.0.0.1 only. SM_WF_DIR keeps the run folder in the smoke folder, so the owner's own campaign (%LOCALAPPDATA%\sm-reimpl\warfront) is never
+        # read, archived or written. The server's first start maps the battlefield for minutes, so the smoke checks the process and its arguments, not a join.
+        Step "Smoke: WARFRONT (front end, headless; a new campaign starts the server on this PC only)"
+        $env:SM_ENGINE_ARGS = "--headless --log-file `"$(Join-Path $smokeDir 'warfront.log')`""
         $env:SM_NO_WATCH = '1'
-        $mp = Start-QuietProcess -FilePath "$env:ComSpec" -RawArguments "/d /c `"`"$playCmd`" --profile `"$profileFile`" --auto-musou --host-port $port3 --quit-after 40`"" -WorkingDirectory $pkg `
-            -StdOut (Join-Path $smokeDir 'musou.out.txt')
+        $env:SM_WF_DIR = Join-Path $smokeDir 'warfront-run'
+        $mp = Start-QuietProcess -FilePath "$env:ComSpec" -RawArguments "/d /c `"`"$playCmd`" --profile `"$profileFile`" --auto-warfront --auto-warfront-new --quit-after 40`"" -WorkingDirectory $pkg `
+            -StdOut (Join-Path $smokeDir 'warfront.out.txt')
         $null = $mp.WaitForExit(30000)
         Remove-Item Env:\SM_ENGINE_ARGS -ErrorAction SilentlyContinue
         Remove-Item Env:\SM_NO_WATCH -ErrorAction SilentlyContinue
-        $musouProc = $null
-        for ($i = 0; $i -lt 120 -and -not $musouProc; $i++) {
-            $musouProc = Get-CimInstance Win32_Process -Filter "Name = 'SmServer.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and (Is-Inside $_.ExecutablePath $serverDir) -and $_.CommandLine -match "--port $port3(\s|$)" } | Select-Object -First 1
-            if (-not $musouProc) { Start-Sleep -Seconds 1 }
+        $wfProc = $null
+        for ($i = 0; $i -lt 120 -and -not $wfProc; $i++) {
+            $wfProc = Get-CimInstance Win32_Process -Filter "Name = 'SmServer.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and (Is-Inside $_.ExecutablePath $serverDir) -and $_.CommandLine -match '--content warfront' } | Select-Object -First 1
+            if (-not $wfProc) { Start-Sleep -Seconds 1 }
         }
-        $musouOk = $musouProc -and ($musouProc.CommandLine -match '--bind 127\.0\.0\.1') -and ($musouProc.CommandLine -match '--content musou')
-        $musouGame = Get-CimInstance Win32_Process -Filter "Name = 'sm-reimpl.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and (Is-Inside $_.ExecutablePath $pkg) } | Select-Object -First 1
-        if ($musouGame) { Wait-Process -Id $musouGame.ProcessId -Timeout 90 -ErrorAction SilentlyContinue }
-        if (-not $musouOk) { $fail = $true; Write-Host "  musou: FAILED (the shipped server did not start with --content musou on 127.0.0.1 after --auto-musou)" -ForegroundColor Red }
-        else { Write-Host '  musou: MUSOU MODE started server\SmServer.exe with --content musou on 127.0.0.1 only' -ForegroundColor Green }
+        $wfOk = $wfProc -and ($wfProc.CommandLine -match '--bind 127\.0\.0\.1') -and ($wfProc.CommandLine -match '--warfront-max-humans 1')
+        $wfGame = Get-CimInstance Win32_Process -Filter "Name = 'sm-reimpl.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and (Is-Inside $_.ExecutablePath $pkg) } | Select-Object -First 1
+        if ($wfGame) { Wait-Process -Id $wfGame.ProcessId -Timeout 90 -ErrorAction SilentlyContinue }
+        Remove-Item Env:\SM_WF_DIR -ErrorAction SilentlyContinue
+        if (-not $wfOk) { $fail = $true; Write-Host "  warfront: FAILED (the shipped server did not start with --content warfront --bind 127.0.0.1 --warfront-max-humans 1 after --auto-warfront)" -ForegroundColor Red }
+        else { Write-Host '  warfront: WARFRONT started server\SmServer.exe with --content warfront on 127.0.0.1 only, one human' -ForegroundColor Green }
     } finally {
         Remove-Item Env:\SM_ENGINE_ARGS -ErrorAction SilentlyContinue
+        Remove-Item Env:\SM_WF_DIR -ErrorAction SilentlyContinue
         Stop-SmokeProcesses $pkg
         Remove-Item Env:\SM_GAME_DIR -ErrorAction SilentlyContinue
     }

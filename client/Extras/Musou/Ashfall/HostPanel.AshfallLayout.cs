@@ -14,5 +14,6 @@ public sealed partial class HostPanel
         else if (layout == "draft10") map = SmSim.Extras.Musou.Campaign.TfwMap.Draft10Name;
         else if (layout == "heights") map = SmSim.Extras.Musou.Campaign.TfwMap.HeightsName;   // draft 13: the high-ground layout (also tfw_war's)
         else if (layout == "city") map = SmSim.Extras.Musou.Campaign.TfwMap.CityName;   // draft 12's rollback since tfw_war builds draft 13
+        else if (layout == "front") map = SmSim.Extras.Musou.Campaign.TfwMap.FrontName;   // the front pilot (test map): three bands side by side, the active band per node
     }
 }

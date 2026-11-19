@@ -95,7 +95,7 @@ public partial class NetworkView
         _musouStrikeTargetsOf = of;
         _musouStrikeTargets.Clear();
         var config = _config!;
-        var shape = MusouCleaveShape.Of(config, step, _tfwState.War is not null, wargear, dreadnought: IsDreadnoughtClass(me.Class));   // the server's volume: x1.5 x1.3 and 120 degrees each side in the war, the spear's 15 m and 150
+        var shape = MusouCleaveShape.Of(config, step, _tfwState.War is not null, wargear, dreadnought: IsDreadnoughtClass(me.Class), warfrontScale: CleaveReachScaleFor(me.PlayerId));   // the server's volume: x1.5 x1.3 and 120 degrees each side in the war, the spear's 15 m and 150
         float reach = shape.Reach, minCos = shape.MinCos;
         int most = Math.Min(MusouContactRules.MaxTargets, shape.Most);   // and its count, drawn at most MaxTargets (40) a swing: the server strikes every Ork in the war and the spear's sweep since 2026-11-14 (owner: no cap), 8 in the skirmish; past 40 the hits play from the server's events alone
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));

@@ -16,6 +16,8 @@ namespace SmClient;
 /// </summary>
 public partial class MusouCrowd : CrowdView
 {
+    public const int WarfrontVisible = 1200;   // owner 2026-11-18 (was 1800), used only when a Warfront client sets VisibleOverride
+    public static int VisibleOverride { get; set; }
     public const int DefaultVisible = 1800, MaxSkinned = 40, ClipNearest = 100, MaxVat = 1000, FallbackSkinned = 80;   // 900 and 500 before the owner's third doubling (2026-11-06); ClipNearest: the reaction clips play on the nearest 100 Orks (owner 2026-11-17): a flinching one among them is drawn skinned beyond the 40 (at most 100 skinned in all)
     public const float NearMetres = 25f, HalfRateMetres = 12f, SinkSeconds = 1.5f, SinkDepth = 1.2f;
     /// <summary>Seconds a body lies whole before it sinks: the corpse floor's 10 s (the owner, 2026-11-09; <see cref="SmNet.Extras.Musou.MusouCorpseRules"/>), 3 s before it (<c>--musou-old-corpses</c>).</summary>

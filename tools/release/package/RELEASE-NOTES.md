@@ -29,8 +29,8 @@ The folder holds these files, in the order you use them:
 | `@HOST@` | Starts a server only this PC can join (no bots) |
 | `@JOIN@` | Asks for a server address and joins it directly (just Enter = this PC) |
 | `@HOSTLAN@` | Starts a server other PCs can join (your network, or the internet) |
-| `@MUSOU@` | Starts a Musou Mode server only this PC can join (co-op, up to 4 players) |
-| `@MUSOULAN@` | Starts a Musou Mode server other PCs can join (up to 4 players together) |
+| `@WARFRONT@` | Starts a Warfront server only this PC can join (the co-op campaign, up to 4 players) |
+| `@WARFRONTLAN@` | Starts a Warfront server other PCs can join (up to 4 players together) |
 
 The folders `game`, `server`, `source` and `notes` hold the program, the bundled server, the source code and the notes. You never need to open them.
 
@@ -41,7 +41,7 @@ The folders `game`, `server`, `source` and `notes` hold the program, the bundled
 - **Stop a server:** **STOP SERVER** in the HOST panel stops the server you hosted (and its bots), or one started by `@HOST@`. If the port is taken by another program, the menu says so and does not join.
 - **Host for friends:** run `@HOSTLAN@`, or in `@PLAY@` choose **LAN / Internet** and press **HOST A MATCH**. Windows Firewall asks once: allow it. Friends on your network join your PC's address with port 27015 (the `@HOSTLAN@` window lists this PC's addresses). Over the internet, forward UDP port 27015 on your router to your PC; that does not work behind carrier-grade NAT (CGNAT), where a VPN such as Tailscale or ZeroTier does.
 
-- **Musou Mode together (up to 4 players):** in `@PLAY@` choose **MUSOU MODE**. **PLAY ON THIS PC** starts a Musou server for you alone; **HOST LOCAL LOBBY** works as for a match (**This PC only** or **LAN / Internet**, then **HOST MUSOU**), and friends choose **MUSOU MODE**, **JOIN LOCAL LOBBY** and type your address (port 27015). Or run `@MUSOULAN@` (`@MUSOU@` for this PC only). Everyone is a Space Marine on one side; a Deploy takes the whole team, and a friend who joins during a battle lands at the landing zone.
+- **Warfront (the campaign, alone or with up to 4 players):** in `@PLAY@` choose **WARFRONT**. **NEW CAMPAIGN** (or **CONTINUE CAMPAIGN**) starts a Warfront server for you alone; **HOST FOR FRIENDS** opens the host panel (**This PC only** or **LAN / Internet**, then **HOST WARFRONT**), and friends choose **WARFRONT**, **JOIN A FRIEND** and type your address (port 27015). Or run `@WARFRONTLAN@` (`@WARFRONT@` for this PC only). Everyone is a Space Marine on one side; a Deploy takes the whole team, and a friend who joins during a battle lands at the landing zone.
 
 Everyone in a match must use this same build: different versions refuse each other on purpose.
 

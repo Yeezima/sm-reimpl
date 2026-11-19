@@ -71,7 +71,7 @@ public static class MusouCustomizer
     public const string SharedSlotsFlag = "musou-shared-slots";
 
     /// <summary>The caption in front of the entries (Classic's says "Faction:" or "Preview side:").</summary>
-    public const string Caption = "Musou Mode:";
+    public const string Caption = "Warfront:";
 
     /// <summary>Whether the customizer shows the Musou layout: the profile it serves is Musou's and the restore flag is not given.</summary>
     public static bool Uses(ContentExtras content, bool oldCustomizer) => content.HasFlag(ContentExtras.Musou) && !oldCustomizer;
@@ -186,7 +186,7 @@ public static class MusouCustomizer
                 if (powerCount > 0) carries.Add($"{powerCount} psychic power{(powerCount == 1 ? "" : "s")} on one Psychic Stress scale");
                 carries.Add(loadout.Equipment.Count > 0 ? string.Join(" or ", loadout.Equipment).ToLowerInvariant() : "no grenades");
                 carries.Add(loadout.Guns.Count > 0 ? string.Join(", ", loadout.Guns).ToLowerInvariant() : "no gun or pistol");
-                return [new("CLASS", [new("Librarian", $"A psyker of the Chapter, Musou Mode's own class on the Tactical Marine's body: {string.Join(", ", carries)}.", MusouRowKind.Fixed)])];
+                return [new("CLASS", [new("Librarian", $"A psyker of the Chapter, Warfront's own class on the Tactical Marine's body: {string.Join(", ", carries)}.", MusouRowKind.Fixed)])];
             }
             case 1:
             {

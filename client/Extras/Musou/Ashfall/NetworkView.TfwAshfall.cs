@@ -36,6 +36,7 @@ public partial class NetworkView
         {
             var (level, dressing) = (_ashfallLevel, _ashfallDressing);   // the level the collision came from: its parts index the HiddenParts and the Skin items
             var watch = System.Diagnostics.Stopwatch.StartNew();
+            if (level.Layout == AshfallLayout.Front) { TfwFrontVisuals(level, dressing); drawn = true; return; }   // the front pilot: one band drawn at a time (NetworkView.TfwFront.cs)
             var view = AshfallView.Build(level);
             _gameSpace.AddChild(view);
             if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment);

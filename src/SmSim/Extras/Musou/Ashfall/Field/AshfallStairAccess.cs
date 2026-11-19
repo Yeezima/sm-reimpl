@@ -145,13 +145,14 @@ public static class AshfallStairAccess
         var auth = new HashSet<int>();
         foreach (var p in d.Placements)
             if (p.Item >= 0 && IsAuthored(p.Group, p.Family, p.Asset)) auth.Add(p.Item);
-        var start = d.Level.Layout.PlanOf() is { } plan ? new Vector2((plan.Assembly[0].Rect.X + plan.Assembly[0].Rect.Z) / 2f, (plan.Assembly[0].Rect.Y + plan.Assembly[0].Rect.W) / 2f) : new Vector2(0f, -150f);
+        var start = d.Level.PlanOf() is { } plan ? new Vector2((plan.Assembly[0].Rect.X + plan.Assembly[0].Rect.Z) / 2f, (plan.Assembly[0].Rect.Y + plan.Assembly[0].Rect.W) / 2f) : new Vector2(0f, -150f);
         return Check(d.Level, d.Dressing, auth.Contains, start);
     }
 
     /// <summary>Whether a placed structure is one of the authored exceptions (the stronghold and its pieces, the Imperial compound's walls, the bridges).</summary>
     public static bool IsAuthored(string group, string family, string asset) =>
-        family.StartsWith("stronghold", StringComparison.Ordinal) || family is "terrace" or "outerwall" || group == "keep bridge" || AshfallDraft5Pass.IsTransplanted(group) || AshfallDraft5Pass.BridgeIds.Contains(asset);
+        family.StartsWith("stronghold", StringComparison.Ordinal) || family is "terrace" or "outerwall" || group == "keep bridge" || AshfallDraft5Pass.IsTransplanted(group) || AshfallDraft5Pass.BridgeIds.Contains(asset)
+        || group.StartsWith("through ", StringComparison.Ordinal);   // the front pilot's through variants (the compound's walls with their gates, the north gate jamb, the keep's wings): authored as the fortress
 
     /// <summary>The grid cells joined to <paramref name="start"/> over ground with <see cref="FloodClearance"/>.</summary>
     static bool[] Flood(AshfallGrid g, Vector2 start)

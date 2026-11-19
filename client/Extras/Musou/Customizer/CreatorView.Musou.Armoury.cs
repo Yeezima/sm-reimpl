@@ -53,6 +53,6 @@ public sealed partial class CreatorView
 
     partial void ExtrasArmouryBadge(ref string text)
     {
-        if (MusouLayout) text = "MUSOU";
+        if (MusouLayout) text = "WARFRONT";   // the Musou layout is Warfront's since 2026-11-19 (Musou Mode has no menu)
     }
 }

@@ -1,6 +1,6 @@
 namespace SmContent;
 
-/// <summary>What pressing MUSOU MODE does (fix/musou-local-server).</summary>
+/// <summary>What pressing the old MUSOU MODE row did (fix/musou-local-server; the row went to WARFRONT on 2026-11-19, the rules stay as Musou's dev-switch tests).</summary>
 public enum MusouPress
 {
     /// <summary>No server executable was found next to the game: nothing can start.</summary>
@@ -15,7 +15,7 @@ public enum MusouPress
     OtherServer,
 }
 
-/// <summary>The engine-free rules of the MUSOU MODE button and of the STOP MUSOU SERVER row under it (the owner, 2026-11-01).</summary>
+/// <summary>The engine-free rules of the old MUSOU MODE button and of the STOP MUSOU SERVER row under it (the owner, 2026-11-01; replaced by WARFRONT, see WarfrontLocal; kept for the tests of the shared code).</summary>
 public static class MusouLocal
 {
     /// <param name="hasServerExe">A server executable was found (next to the client or given with <c>--server-exe</c>).</param>
@@ -30,7 +30,7 @@ public static class MusouLocal
         return ready ? MusouPress.Join : MusouPress.Wait;
     }
 
-    /// <summary>STOP MUSOU SERVER shows only while a Musou server started by this client runs (starting or ready).</summary>
+    /// <summary>The old STOP MUSOU SERVER row showed only while a Musou server started by this client runs (starting or ready).</summary>
     public static bool ShowStopRow(bool running, bool musouProfile) => running && musouProfile;
 
     /// <summary>Musou Mode's first run builds its walking graph before the server listens: 3 s on 12 cores, 72 s on one busy core (measured), and an interrupted build starts over, so this start may run longer than a match server's.</summary>
@@ -43,7 +43,7 @@ public static class MusouLocal
     /// texts use it; the server enforces it.
     /// </summary>
     public const int MaxPlayers = 4;
-    /// <summary>The note on MUSOU MODE's page and under the Host panel in Musou.</summary>
+    /// <summary>The note under the Host panel in Musou and Warfront (the old MUSOU MODE page had it too).</summary>
     public const string CoopNote = "Up to 4 players fight together as Space Marines against the Orks. Host a local lobby (LAN / Internet) and your friends join it by address.";
 
     public const string StartingText = "The Musou server is starting (it reads the game files first, this can take a minute). You join when it is ready.";

@@ -57,7 +57,7 @@ public static class ControlActions
         new(GameAction.NextWeapon, "Next weapon", "Weapons", InputButtons.Switch, true, true, false, true),
         new(GameAction.ZoomCycle, "Scope zoom level", "Weapons", InputButtons.None, false, true, false, false),
         new(GameAction.Scoreboard, "Scoreboard (hold)", "Interface", InputButtons.None, true, true, false, false),
-        new(GameAction.Shout, "Shout (Musou Mode)", "Interface", InputButtons.None, true, true, true, false),
+        new(GameAction.Shout, "Shout (Warfront)", "Interface", InputButtons.None, true, true, true, false),
     };
 
     /// <summary>classic-stab-on-t (owner, 2026-11-17): whether the T voice call (the loyalist shout) works in a match with these extras: in Musou Mode only; Classic PvP's T is the sword stab.</summary>

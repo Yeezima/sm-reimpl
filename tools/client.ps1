@@ -45,29 +45,32 @@ if (-not (Test-Path -LiteralPath (Join-Path $client '.godot'))) { & $Godot --hea
 # desktop (godot.cmd --windowed), --bot headless with no console window (godot.cmd); --on-desktop (stripped here) keeps the old visible
 # window for a bot someone wants to watch.
 $userArgs = @($args)
-if ($userArgs -contains '--on-desktop') { $userArgs = @($userArgs | Where-Object { $_ -ne '--on-desktop' }) }
-elseif ($userArgs -contains '--test-window' -or $userArgs -contains '--bot') {
-    $mode = @(if ($userArgs -contains '--test-window') { '--windowed' })
-    & (Join-Path $PSScriptRoot 'godot.ps1') @mode '--' @userArgs
-    exit $LASTEXITCODE
-}
+$onDesktop = $userArgs -contains '--on-desktop'
+if ($onDesktop) { $userArgs = @($userArgs | Where-Object { $_ -ne '--on-desktop' }) }
 # fix/musou-local-server: the editor binary lives in Godot's tools folder, so the client finds no SmServer next to itself (a released build carries one).
-# Build the server and hand it over with --server-exe (MUSOU MODE and HOST LOCAL LOBBY need it), unless the caller gave one or the run has no front end. A failed build
+# Build the server and hand it over with --server-exe (WARFRONT and HOST LOCAL LOBBY need it), unless the caller gave one or the run has no front end. A failed build
 # never stops the client: an exe already there (a running server locks it) is still handed over.
 if (-not ($userArgs -contains '--server-exe' -or $userArgs -contains '--viewer' -or $userArgs -contains '--archive')) {
     # hotfix/musou-server-lag: Release, as server.cmd and the tester zip run it. The Debug build (no JIT optimisation) ran a one-player Musou battle at 13 to 88 ms a
     # tick against the 33 ms the 30 Hz tick allows: ticks skipped, the world rubber-banding.
     $serverExe = Join-Path $RepoRoot 'src\SmServer\bin\Release\net10.0\SmServer.exe'
     $built = $false
+    $headlessRun = $userArgs -contains '--test-window' -or $userArgs -contains '--bot'   # a bot or test window run reuses a server exe that is already built (many launches: no rebuild each)
+    $skipBuild = $headlessRun -and (Test-Path -LiteralPath $serverExe)
     try {
-        dotnet build (Join-Path $RepoRoot 'src\SmServer\SmServer.csproj') -c Release -nologo -v quiet | Out-Null
-        $built = $LASTEXITCODE -eq 0
+        if (-not $skipBuild) { dotnet build (Join-Path $RepoRoot 'src\SmServer\SmServer.csproj') -c Release -nologo -v quiet | Out-Null }
+        $built = $skipBuild -or $LASTEXITCODE -eq 0
     } catch { }
     if (Test-Path -LiteralPath $serverExe) {
         if (-not $built) { Write-Host 'The dedicated server did not build: using the one built before, which may be out of date.' -ForegroundColor Yellow }
         $userArgs = @('--server-exe', $serverExe) + $userArgs
     }
-    else { Write-Host 'The dedicated server did not build: the client starts without MUSOU MODE and HOST LOCAL LOBBY (dotnet build src\SmServer).' -ForegroundColor Yellow }
+    else { Write-Host 'The dedicated server did not build: the client starts without WARFRONT and HOST LOCAL LOBBY (dotnet build src\SmServer).' -ForegroundColor Yellow }
+}
+if (-not $onDesktop -and ($userArgs -contains '--test-window' -or $userArgs -contains '--bot')) {
+    $mode = @(if ($userArgs -contains '--test-window') { '--windowed' })
+    & (Join-Path $PSScriptRoot 'godot.ps1') @mode '--' @userArgs
+    exit $LASTEXITCODE
 }
 # Quoted so the separator always reaches Godot; arguments after it go to the client (OS.GetCmdlineUserArgs).
 & $Godot --path $client '--' @userArgs

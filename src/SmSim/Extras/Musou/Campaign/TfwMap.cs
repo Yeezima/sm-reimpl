@@ -192,6 +192,12 @@ public sealed record TfwRange(Vector3 Centre)
 /// </summary>
 public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds, TfwRange? Range = null, bool BaseLanding = false)
 {
+    /// <summary>
+    /// The Musou front pilot (<see cref="TfwMap.FrontName"/>): the battlefields of the composed world's bands, each its own points, commander, start, seeds and bounds (sharing this hub and range); the run fights each battle on
+    /// the band of its node (<see cref="TfwRun.ActiveBand"/>). Null on every other map: one battlefield, as before.
+    /// </summary>
+    public IReadOnlyList<TfwBattlefield>? Bands { get; init; }
+
     /// <summary>Where the enemies walk: around the map's own markers. No cell of the Stormbird: no marker is there and the box leaves it out.</summary>
     public NavArea WalkArea() => NavArea.Around(WalkSeeds, TfwMap.WalkMargin);
 
@@ -224,12 +230,17 @@ public static class TfwMap
     public const string HeightsName = "tfw_war_heights";
     /// <summary>Draft 12's rollback switch since <see cref="Name"/> builds draft 13 (2026-11-14): the city layout (<c>AshfallLayout.City</c>, docs/musou-ashfall-graybox.md "Draft 12 city layout").</summary>
     public const string CityName = "tfw_war_city";
+    /// <summary>
+    /// The Musou front pilot (test map; docs/musou-ashfall-graybox.md "Front pilot"): lane B's three positions as three battlefields (wasteland, outskirts, urban core) composed side by side in one world
+    /// (<c>AshfallLayout.Front</c>), the run switching the active band per node (<see cref="TfwBattlefield.Bands"/>). <see cref="Name"/> stays draft 13.
+    /// </summary>
+    public const string FrontName = "tfw_war_front";
     /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/>, <see cref="FieldName"/>, <see cref="Draft10Name"/> or <see cref="ManufactorumName"/>).</summary>
-    public static bool IsWarMap(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName or ManufactorumName;
+    public static bool IsWarMap(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName or FrontName or ManufactorumName;
     /// <summary>Whether <paramref name="name"/> is an Ashfall Citadel map (generated in code: <see cref="Name"/>, <see cref="FieldName"/> or <see cref="Draft10Name"/>).</summary>
-    public static bool IsAshfall(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName;
+    public static bool IsAshfall(string? name) => name is Name or FieldName or Draft10Name or HeightsName or CityName or FrontName;
     /// <summary>The Ashfall layout of a map name (<see cref="FieldName"/>: the field; <see cref="Draft10Name"/>: draft 10; <see cref="CityName"/>: the city, draft 12; anything else, <see cref="Name"/> included: the heights, draft 13).</summary>
-    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name switch { FieldName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Field, Draft10Name => SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10, CityName => SmSim.Extras.Musou.Ashfall.AshfallLayout.City, _ => SmSim.Extras.Musou.Ashfall.AshfallLayout.Heights };
+    public static SmSim.Extras.Musou.Ashfall.AshfallLayout LayoutOf(string? name) => name switch { FieldName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Field, Draft10Name => SmSim.Extras.Musou.Ashfall.AshfallLayout.Draft10, CityName => SmSim.Extras.Musou.Ashfall.AshfallLayout.City, FrontName => SmSim.Extras.Musou.Ashfall.AshfallLayout.Front, _ => SmSim.Extras.Musou.Ashfall.AshfallLayout.Heights };
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";   // Manufactorum: the 5-wave test aid's map and the battlefield of ManufactorumName
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box; 8: Ashfall Citadel replaces Manufactorum under <see cref="Name"/>; the Manufactorum composition keeps <see cref="ManufactorumVersion"/>).</summary>
@@ -304,5 +315,30 @@ public static class TfwMap
         var range = TfwRange.For(level);
         var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, [.. seeds, range.Centre], bounds, range, BaseLanding: !manufactorum);   // the range's seed last: its own part of the graph; Ashfall always lands at its Imperial base (owner, 2026-11-08)
         return new TfwMapData(world, hub.Spawns, [hub.Area, chaos], hash, field);
+    }
+
+    /// <summary>
+    /// The front pilot's war world (<see cref="FrontName"/>): <see cref="Compose"/> on the composed level (the hub, the range and the hash as for any Ashfall map), its battlefield the whole world's (every band's seeds in the walking
+    /// graph's area, the bounds round all of them), and one battlefield per band in <see cref="TfwBattlefield.Bands"/>: band <c>k</c>'s three points, its Chaos and Space Marine start areas, the seeds standing in its square
+    /// (<paramref name="bandOf"/>) and their bounds. <paramref name="points"/> and <paramref name="areas"/> are in band order (three points and two areas a band).
+    /// </summary>
+    public static TfwMapData ComposeFront(CollisionWorld level, IReadOnlyList<ControlPoint> points, IReadOnlyList<StartArea> areas, IReadOnlyList<Vector3> spawns, int bandCount, Func<float, int> bandOf)
+    {
+        if (points.Count < PointsNeeded * bandCount || areas.Count < 2 * bandCount) throw new InvalidDataException($"the front map has {points.Count} points and {areas.Count} start areas; {bandCount} bands need {PointsNeeded * bandCount} and {2 * bandCount}");
+        var data = Compose(level, points, areas, spawns, manufactorum: false);
+        var whole = data.Field;
+        var bands = new List<TfwBattlefield>();
+        for (int k = 0; k < bandCount; k++)
+        {
+            var pts = points.Skip(PointsNeeded * k).Take(PointsNeeded).ToList();
+            var ar = areas.Skip(2 * k).Take(2).ToList();
+            var marines = ar.First(a => a.Side == Team.SpaceMarines); var chaos = ar.First(a => a.Side == Team.Chaos);
+            var seeds = spawns.Where(s => bandOf(s.X) == k).Concat(pts.Select(p => p.Center)).Concat(ar.Select(a => a.Center)).ToArray();
+            var margin = new Vector3(WalkMargin, WalkMargin, 0f);
+            var low = seeds.Aggregate(seeds[0], Vector3.Min) - margin; var high = seeds.Aggregate(seeds[0], Vector3.Max) + margin;
+            var bounds = new MusouBox(low with { Z = whole.Bounds.Min.Z }, high with { Z = whole.Bounds.Max.Z });
+            bands.Add(new TfwBattlefield(whole.Hub, pts.Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, seeds, bounds, whole.Range, BaseLanding: true));
+        }
+        return data with { Field = whole with { Bands = bands } };
     }
 }

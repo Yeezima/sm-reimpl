@@ -25,15 +25,27 @@ public sealed partial class World
     public bool StartTfw(NavGraph? nav, TfwBattlefield field)
     {
         if (!StartMusou(nav)) return false;
-        _tfw ??= new TfwRun(field, new TfwSites(field, nav, Collision));
+        _tfw ??= field.Bands is { Count: > 0 } bands
+            ? new TfwRun(field, null, [.. bands.Select(b => new TfwSites(b, nav, Collision, b.Bounds))])   // the front pilot: each band's places on its own part of the graph
+            : new TfwRun(field, new TfwSites(field, nav, Collision));
         _musou!.Swarm = MusouSwarmRules.Default;   // the 5-wave run never gets it (MusouSkirmishPinTests)
         _musou!.War = TfwCombatRules.Default;   // nor this
         _musou!.WidenBox(field.Hub.Box);   // the Stormbird lies outside the graph
         _musou!.WidenBox(field.Bounds);   // a jump goes above it
         if (field.Range is { } range) _musou!.WidenBox(range.Box);   // the Firing Range stands apart too
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent until the first deploy: TfwShowDirector)
+        WarfrontStarted();   // WARFRONT-HOOK
         return true;
     }
+
+    /// <summary>Warfront (docs/added-content.md section 11): the run exists; with the Warfront flag its battle rules are attached. No-op without it.</summary>
+    partial void WarfrontStarted();
+
+    /// <summary>Warfront: the progression's step (level-up refills, the picker); first line of <see cref="TfwStep"/>. No-op without the Warfront object.</summary>
+    partial void WarfrontStep();
+
+    /// <summary>Warfront: every kill of the war's tick (the XP it pays). No-op without the Warfront object.</summary>
+    partial void WarfrontKill(in MusouKill kill);
 
     /// <summary>The input of an AI Marine (<see cref="TfwRun.PuppetBrain"/>; none: it stands still, keeping its heading). Other players stay with the server's input source.</summary>
     void TfwPlayerInput(int id, ref PlayerInput input, ref bool handled)
@@ -49,6 +61,7 @@ public sealed partial class World
     /// </summary>
     void TfwStep()
     {
+        WarfrontStep();   // WARFRONT-HOOK
         var run = _tfw!;
         MusouBeginTick();
         MusouArm();
@@ -109,6 +122,7 @@ public sealed partial class World
         foreach (var kill in _musouKills)
         {
             _tfw!.Battle?.NoteKill(kill);
+            WarfrontKill(in kill);   // WARFRONT-HOOK
             if (kill.Player != 0) _tfwKos++;
             if (_state != MatchState.Playing || _tfw.Battle is null) continue;
             TfwDropBox(kill);

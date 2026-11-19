@@ -3,7 +3,7 @@ using Xunit;
 
 namespace SmFormats.Tests;
 
-/// <summary>fix/musou-local-server: what MUSOU MODE does on each press, and when STOP MUSOU SERVER shows.</summary>
+/// <summary>fix/musou-local-server: what the old MUSOU MODE row did on each press, and when the old STOP MUSOU SERVER row showed (the menu is WARFRONT now; these rules stay as Musou dev-switch tests).</summary>
 public class MusouLocalTests
 {
     [Fact]

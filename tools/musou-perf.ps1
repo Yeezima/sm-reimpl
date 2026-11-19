@@ -21,7 +21,8 @@ param(
     [switch]$Headless,
     [string]$ClientArgs = '',
     [string]$ServerEnv = '',
-    [int]$Every = 30
+    [int]$Every = 30,
+    [string]$Map = ''   # front pilot F4: the server's Musou map (tfw_war_front or tfw_war; empty = the server's default)
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -41,7 +42,7 @@ $client = @('--connect', "127.0.0.1:$Port", '--no-sound', '--perf-probe', '--fra
 switch -Regex ($Scene) {
     '^clash(\d+)$' {
         $env:SM_TFW_ARMY_TEST = "clash:$($Matches[1])"; $env:SM_TFW_KEEP_HUMAN = '1'
-        $serverArgs += @('--content', 'musou')
+        $serverArgs += @('--content', 'musou'); if ($Map) { $serverArgs += @('--map', $Map) }
         $client += @('--content', 'musou', '--tfw-test-fight', '--tfw-fight-hold', '--tfw-fight-look-armies', '--tfw-fight-seconds', "$Seconds", '--tfw-fight-every', "$Every")
     }
     '^burst$' {
