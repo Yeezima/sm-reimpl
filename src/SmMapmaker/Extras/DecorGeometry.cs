@@ -224,7 +224,7 @@ public static class DecorGeometry
                     }
                 int before = result.Indices.Count;
                 Sm1Geometry.AddTriangles(scene, visuals, world, result.Vertices, result.Indices);
-                if (result.Indices.Count == before)
+                if (result.Indices.Count == before && !Sm1Geometry.AllSky(scene, visuals))
                     Problem("empty-sm1-definition", $"The Space Marine definition '{asset.Definition}' (used by '{name}', {objectId}) has no triangles to collide with on this PC.");
             }
             else
@@ -415,6 +415,22 @@ public static class Sm1Geometry
 
     /// <summary>Whether a surface is a sky box (the engine draws those around the camera; the client does not draw them as map geometry, so they are not solid).</summary>
     public static bool IsSky(MapScene scene, string material) => scene.Materials.TryGetValue(material, out var m) && m.ShaderName?.StartsWith("sky_", StringComparison.Ordinal) == true;
+
+    /// <summary>True when every surface of <paramref name="visuals"/> is a sky box (and there is at least one): such a definition is drawn but not solid, so having no triangles is not a problem (owner, 2026-11-20: "visible but not solid").</summary>
+    public static bool AllSky(MapScene scene, IReadOnlyList<VisualPart> visuals)
+    {
+        bool any = false;
+        foreach (var part in visuals)
+        {
+            if (!scene.Meshes.TryGetValue(part.MeshName, out var mesh) || part.MeshId < 0 || part.MeshId >= mesh.Blocks.Count) continue;
+            foreach (var range in mesh.Blocks[part.MeshId].Materials)
+            {
+                if (!IsSky(scene, range.Name)) return false;
+                any = true;
+            }
+        }
+        return any;
+    }
 
     /// <summary>Adds the triangles of <paramref name="visuals"/> placed by <paramref name="world"/> (the placement's matrix; each part's own node transform comes first). Surfaces are two-sided in the collision, so mirrored placements need no flipping.</summary>
     public static void AddTriangles(MapScene scene, IReadOnlyList<VisualPart> visuals, double[] world, List<Vector3> vertices, List<int> indices)

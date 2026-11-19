@@ -26,12 +26,12 @@ sealed class FakeScenes : ISm1Scenes
         return new DcmBlock(0, Vector3.Zero, new(39, 39, 0), [new DcmMaterialRange("mat", 0, 0, 1600, 0, t.Count, 0, 0)], [.. t], [.. p], [], [], [], [], [], null);
     }
 
-    static DcmBlock Box(Vector3 lo, Vector3 hi)
+    static DcmBlock Box(Vector3 lo, Vector3 hi, string material = "mat")
     {
         var p = new Vector3[8];
         for (int i = 0; i < 8; i++) p[i] = new Vector3((i & 1) == 0 ? lo.X : hi.X, (i & 2) == 0 ? lo.Y : hi.Y, (i & 4) == 0 ? lo.Z : hi.Z);
         ushort[] t = [0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5];
-        return new DcmBlock(0, lo, hi, [new DcmMaterialRange("mat", 0, 0, 8, 0, 36, 0, 0)], t, p, [], [], [], [], [], null);
+        return new DcmBlock(0, lo, hi, [new DcmMaterialRange(material, 0, 0, 8, 0, 36, 0, 0)], t, p, [], [], [], [], [], null);
     }
 
     public MapScene Scene(string map, IReadOnlySet<string> definitions)
@@ -44,6 +44,7 @@ sealed class FakeScenes : ISm1Scenes
             ["wall.dcm"] = DcmMesh.FromBlocks([Box(new(-2, -0.5f, 0), new(2, 0.5f, WallHeight))]),
             ["big.dcm"] = DcmMesh.FromBlocks([Grid()]),
             ["empty.dcm"] = DcmMesh.FromBlocks([new DcmBlock(0, Vector3.Zero, Vector3.One, [], [], [Vector3.Zero], [], [], [], [], [], null)]),
+            ["sky.dcm"] = DcmMesh.FromBlocks([Box(new(-500, -500, -500), new(500, 500, 500), "skymat")]),
             ["floor.dcm"] = DcmMesh.FromBlocks([Box(new(-50, -50, 0), new(50, 50, 0.1f)), Box(new(10, -2, 0), new(14, 2, 8))]),
         };
         var defs = new Dictionary<string, ObjectDefinition>(StringComparer.OrdinalIgnoreCase)
@@ -52,8 +53,10 @@ sealed class FakeScenes : ISm1Scenes
         };
         defs["def_big"] = new("def_big", [new("big.dcm", 0, "Big", Matrix4x4.Identity, -1, true)], []);
         defs["def_empty"] = new("def_empty", [new("empty.dcm", 0, "Empty", Matrix4x4.Identity, -1, true)], []);
+        defs["def_sky"] = new("def_sky", [new("sky.dcm", 0, "Sky", Matrix4x4.Identity, -1, true)], []);
+        defs["def_wall_sky"] = new("def_wall_sky", [new("wall.dcm", 0, "Wall", Matrix4x4.Identity, -1, true), new("sky.dcm", 0, "Sky", Matrix4x4.Identity, -1, true)], []);
         if (HasWall) defs["def_wall"] = new("def_wall", [new("wall.dcm", 0, "Wall", Matrix4x4.Identity, -1, true)], []);
-        return new MapScene { Map = map, Objects = [], Definitions = defs, Meshes = meshes, Materials = new Dictionary<string, BmatMaterial>(), Textures = new Dictionary<string, byte[]>(), Notes = [] };
+        return new MapScene { Map = map, Objects = [], Definitions = defs, Meshes = meshes, Materials = new Dictionary<string, BmatMaterial> { ["skymat"] = new BmatMaterial("skymat", "sky_ycocg_bloomcontrol", new Dictionary<string, string>()) }, Textures = new Dictionary<string, byte[]>(), Notes = [] };
     }
 
     public (Vector3[] Vertices, int[] Indices) OriginalCollision(string map)
@@ -359,6 +362,20 @@ public sealed class DecorPlayTests : IDisposable
         // lenient: noted, and the check refuses to call the map ready
         var lenient = CustomMap.Compile(doc, Options(new FakeScenes { Explode = true }, strict: false));
         Assert.Contains(MapCheck.Run(lenient).Issues, i => i.Code == "decoration-missing");
+    }
+
+    [Fact]
+    public void A_sky_only_definition_is_drawn_but_not_solid_and_raises_no_problem()
+    {
+        var sky = MapDocument.Parse(Doc(Wall + "}").ToJson().Replace("def_wall", "def_sky"));
+        var map = CustomMap.Compile(sky, Options());
+        Assert.Empty(map.Decor!.Indices);                       // nothing to collide with
+        Assert.Single(map.Decor.Placements);                    // still drawn (the placement is kept)
+        // mixed: only the solid surface's triangles count
+        var mixed = CustomMap.Compile(MapDocument.Parse(Doc(Wall + "}").ToJson().Replace("def_wall", "def_wall_sky")), Options());
+        var wallOnly = CustomMap.Compile(Doc(Wall + "}"), Options());
+        Assert.Equal(wallOnly.Decor!.Indices.Count, mixed.Decor!.Indices.Count);
+        Assert.Equal(3f, Down(mixed, 0, 0)!.Value, 3);
     }
 
     [Fact]
