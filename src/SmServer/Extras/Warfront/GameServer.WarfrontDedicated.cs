@@ -14,6 +14,9 @@ public sealed partial class GameServer
     /// <summary>The results screen's time after which the server starts a new run when the leader has not (an estimate, ours).</summary>
     internal static double WarfrontAutoNewRunSeconds = 120;
 
+    /// <summary>With nobody connected the new run waits this long after the results first stood (clients of a restarted stage reconnect in that time; an estimate, ours).</summary>
+    internal static double WarfrontEmptyGraceSeconds = 10;
+
     /// <summary>How often a deployment the co-op gate refused (a joiner still choosing) is asked again.</summary>
     const double WarfrontFallbackRetrySeconds = 5;
 
@@ -70,13 +73,17 @@ public sealed partial class GameServer
         WarfrontDeploy(player, target);   // the normal path: the co-op gate may still hold it, then it is asked again after the retry time
     }
 
-    /// <summary>Rule 2. With the results standing: at once when no human is connected, else <see cref="WarfrontAutoNewRunSeconds"/> after someone first could read them.</summary>
+    /// <summary>
+    /// Rule 2. With the results standing: <see cref="WarfrontAutoNewRunSeconds"/> after the server first saw them, or, when no human is connected, as soon as the first <see cref="WarfrontEmptyGraceSeconds"/> have passed
+    /// (a stage restarted on a finished run gives the clients that were reading it time to reconnect and read it).
+    /// </summary>
     void WarfrontAutoNewRunStep(WarfrontServerState s)
     {
         if (!s.Finished || s.Leaving || s.Go is not null || !s.Campaign.IsOver) { _wfResultsSince = null; return; }
-        if (s.KeyOf.Count == 0 && s.Waiting.Count == 0) { WarfrontBeginNewRun(s, "dedicated: nobody is connected"); return; }
         _wfResultsSince ??= World.Tick;
-        if (World.Tick - _wfResultsSince.Value < (uint)(WarfrontAutoNewRunSeconds * WarfrontRate)) return;
-        WarfrontBeginNewRun(s, $"dedicated: the leader did not start one in {(int)WarfrontAutoNewRunSeconds} s");
+        double elapsed = (double)(World.Tick - _wfResultsSince.Value) / WarfrontRate;
+        bool nobody = s.KeyOf.Count == 0 && s.Waiting.Count == 0;
+        if (nobody && elapsed >= WarfrontEmptyGraceSeconds) { WarfrontBeginNewRun(s, "dedicated: nobody is connected"); return; }
+        if (elapsed >= WarfrontAutoNewRunSeconds) WarfrontBeginNewRun(s, $"dedicated: the leader did not start one in {(int)WarfrontAutoNewRunSeconds} s");
     }
 }

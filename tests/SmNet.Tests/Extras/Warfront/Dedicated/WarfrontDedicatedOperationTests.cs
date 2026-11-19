@@ -159,7 +159,7 @@ public class WarfrontDedicatedOperationTests : IDisposable
     {
         Env("SM_WF_ROLLS", "WW");
         Env("SM_WF_RESOLVE", "win");
-        Seed([2, 1, 2]);
+        Seed([3, 1, 3]);   // lane B stays the lowest after its win (2), so the server's deploy is on this map too
         var s = StartStage(1);
         s.Identify(0, 111, "Alpha");
         s.Tick(30);
@@ -232,6 +232,8 @@ public class WarfrontDedicatedOperationTests : IDisposable
     {
         SeedOver();
         var s = StartStage(0);
+        Assert.False(RunFileExists);   // the first 10 s are a grace for clients of a restarted stage
+        s.Tick(10);
         Assert.True(RunFileExists);
         s.Tick(3);
         Assert.True(s.Server.RestartDue(out _));
@@ -255,7 +257,7 @@ public class WarfrontDedicatedOperationTests : IDisposable
         WarfrontRunFiles.Dedicated = false;
         SeedOver();
         var s = StartStage(0);
-        s.Tick(5);
+        s.Tick(20);
         Assert.False(RunFileExists);
     }
 
@@ -277,7 +279,7 @@ public class WarfrontDedicatedOperationTests : IDisposable
         s.Tick(10);
         Assert.Equal(WarfrontPhase.Ship, s.Campaign.Phase);
         Assert.Equal(0, s.Campaign.Deployments);   // nothing rolled
-        Assert.Equal(2, s.Campaign.Front(1));
+        Assert.Equal(1, s.Campaign.Front(1));
         Assert.True(RunFileExists);                // the run is still saved
         s.Tick(300);                               // an empty ship never deploys and never starts a new run
         Assert.Equal(WarfrontPhase.Ship, s.Campaign.Phase);
