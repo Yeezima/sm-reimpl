@@ -1,4 +1,4 @@
-using SmClient;
+using SmContent;
 using Xunit;
 
 namespace SmNet.Tests;
@@ -222,4 +222,21 @@ public class MapDecorListsTests
     [InlineData(null, false, false)]
     public void Only_the_new_classic_maps_draw_the_lod_family_members_their_siblings_do_not_cover(string? map, bool off, bool expected) =>
         Assert.Equal(expected, MapDecorLists.KeepsUncoveredLodMembers(map, off));
+
+    /// <summary>mapmaker-classic S2 (2026-11-20): the lists moved from client/ to SmContent with no change; each covered map's data is pinned by a digest taken from the data as it was before the move.</summary>
+    [Theory]
+    [InlineData("mp_tdm_09", "D67493F4E0611CF5")]
+    [InlineData("mp_tdm_01", "93AFD26D7DF1D792")]
+    [InlineData("mp_tdm_11", "33037BED65A3CBBE")]
+    [InlineData("mp_dlc1_map2", "5C1134DE4FB8544E")]
+    [InlineData("mp_dlc2_map1", "A9E8CA0F9AFD8A31")]
+    [InlineData("mp_dlc2_map3", "2DD8D966D628CDB9")]
+    [InlineData("mp_dlc2_map4", "47878840AD0C87FF")]
+    public void Hide_sets_are_unchanged_by_the_move(string map, string digest)
+    {
+        var set = MapDecorLists.For(map)!;
+        var text = string.Join("|", set.Always) + "#" + string.Join("|", set.Near) + "#" + string.Join("|", set.Surfaces.Select(s => s.Mesh + "/" + s.Material)) + "#" + MapDecorLists.NearRadius;
+        Assert.Equal(digest, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)))[..16]);
+        Assert.Equal(7, MapDecorLists.Sets.Count);
+    }
 }
