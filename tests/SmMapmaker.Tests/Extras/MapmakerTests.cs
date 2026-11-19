@@ -294,6 +294,39 @@ public class MapmakerTests
         Assert.Equal("o5", s.Document.Objects[^1].Id);   // ids are never reused
     }
 
+    [Fact]
+    public void DuplicateWithZeroOffsetStaysOnTheOriginal()
+    {
+        using var lab = new Lab();
+        var s = lab.Session();
+        Assert.True(s.Apply(Lab.Op("""{"op":"place","asset":{"source":"sm1","map":"mp_fake","definition":"def_wall"},"name":"a","transform":{"position":[3,4,5]}}""")).Ok);
+        var dup = s.Apply(Lab.Op("""{"op":"duplicate","ids":["o1"],"offset":[0,0,0]}"""));
+        Assert.True(dup.Ok);
+        Assert.Equal(new Vector3(3, 4, 5), s.Document.Get(dup.Created[0]).Transform.Position);
+    }
+
+    [Fact]
+    public void SpinArrowRightClickAndHoldCurve()
+    {
+        Assert.Equal(10, SpinSteps.RightClickStep(SpinKind.Position));
+        Assert.Equal(45, SpinSteps.RightClickStep(SpinKind.Rotation));
+        Assert.Equal(0.5, SpinSteps.RightClickStep(SpinKind.Scale));
+        // slow for the first 3 s, then doubling every 1.5 s up to the cap
+        Assert.Equal(1, SpinSteps.HoldMultiplier(0));
+        Assert.Equal(1, SpinSteps.HoldMultiplier(3));
+        Assert.Equal(2, SpinSteps.HoldMultiplier(4.5), 6);
+        Assert.Equal(4, SpinSteps.HoldMultiplier(6), 6);
+        Assert.Equal(SpinSteps.MaxMultiplier, SpinSteps.HoldMultiplier(600));
+        double prev = 0;
+        for (double t = 0; t < 40; t += 0.1) { var m = SpinSteps.HoldMultiplier(t); Assert.True(m >= prev); prev = m; }
+        // no repeat before the 0.5 s delay, then 5 a second; slices add up whatever the frame times
+        Assert.Equal(0, SpinSteps.RepeatsBetween(0, 0.49));
+        Assert.Equal(1, SpinSteps.RepeatsBetween(0, 0.5));
+        Assert.Equal(6, SpinSteps.RepeatsBetween(0, 1.5));
+        int sum = 0; for (double t = 0; t < 4; t += 0.016) sum += SpinSteps.RepeatsBetween(t, t + 0.016);
+        Assert.Equal(SpinSteps.RepeatsBetween(0, 4.0), sum);
+    }
+
     // ---- undo / redo ----
 
     [Fact]

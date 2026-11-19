@@ -109,6 +109,7 @@ public partial class MapmakerDock : VBoxContainer
     {
         _plugin = plugin;
         CustomMinimumSize = new Vector2(300, 0);
+        AttachSpinArrows();
         var tabs = new TabContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         _tabs = tabs;
         AddChild(ToolBar());
@@ -880,13 +881,44 @@ public partial class MapmakerDock : VBoxContainer
             _plugin.Do("Visibility", MapmakerPlugin.Op("set-visible", ("id", id), ("visible", !_plugin.Session!.Document.Get(id).Visible)));
     }
 
+    ConfirmationDialog? _group;
+    readonly LineEdit _grName = new(), _grId = new();
+
+    /// <summary>Group to prefab asks for the name first (prefilled with the auto name: the first object's name plus " group"); Cancel saves nothing.</summary>
     void GroupToPrefab()
     {
         var ids = _plugin.SelectedIds().ToList();
         if (ids.Count == 0) return;
-        string name = _plugin.Session!.Document.Get(ids[0]).Name;
-        var r = _plugin.Do("Group to prefab", MapmakerPlugin.Op("group-to-prefab", ("ids", MapmakerPlugin.Strs(ids)), ("prefab", Slug(name) + "-group"), ("name", name + " group"), ("replace", true)));
+        if (_group is null)
+        {
+            _group = new ConfirmationDialog { Title = "Group to prefab", Exclusive = true, OkButtonText = "Save prefab" };
+            var v = new VBoxContainer();
+            v.AddChild(new Label { Text = "Prefab name" }); v.AddChild(_grName);
+            v.AddChild(new Label { Text = "Prefab id (lowercase, digits, - _)" }); v.AddChild(_grId);
+            _grName.TextChanged += t => _grId.Text = Slug(t);
+            _group.AddChild(v);
+            _group.Confirmed += () => DoGroupToPrefab(_grName.Text, _grId.Text);
+            AddChild(_group);
+        }
+        _grName.Text = _plugin.Session!.Document.Get(ids[0]).Name + " group"; _grId.Text = Slug(_grName.Text);
+        _group.PopupCentered(new Vector2I(380, 160));
+    }
+
+    public OpResult? DoGroupToPrefab(string name, string id)
+    {
+        var ids = _plugin.SelectedIds().ToList();
+        if (ids.Count == 0) return null;
+        if (string.IsNullOrWhiteSpace(name) || id.Length == 0) { _status.Text = "Group to prefab: give the prefab a name; nothing saved."; return null; }
+        var r = _plugin.Do("Group to prefab", MapmakerPlugin.Op("group-to-prefab", ("ids", MapmakerPlugin.Strs(ids)), ("prefab", id), ("name", name.Trim()), ("replace", true)));
         if (r.Ok) _plugin.Select(r.Created);
+        return r;
+    }
+
+    void AttachSpinArrows()
+    {
+        foreach (var s in _pos.Concat(_ppos).Concat(_porg)) SpinArrows.Attach(s, SpinKind.Position);
+        foreach (var s in _rot.Concat(_prot)) SpinArrows.Attach(s, SpinKind.Rotation);
+        foreach (var s in _scl.Concat(_pscl)) SpinArrows.Attach(s, SpinKind.Scale);
     }
 
     void ApplyTransform()
