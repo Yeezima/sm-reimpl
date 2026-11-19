@@ -73,13 +73,13 @@ internal sealed partial class Batch
         {
             if (n == 0) return;
             var sub = SubGroup(subGroupName);
-            foreach (var p in plan.Take(n)) Doc.Objects.Add(new MapObject(NewId(), p.Name, sub, layer, true, p.Transform, null, null, [], p.Piece, p.Src));
+            foreach (var p in plan.Take(n)) Doc.Objects.Add(Stamp(new MapObject(NewId(), p.Name, sub, layer, true, p.Transform, null, null, [], p.Piece, p.Src)));
         }
         int nWalls = Take(walls.Count, true), nKills = Take(kills.Count, true), nCover = Take(cover.Count, true);
         AddPlanned(walls, nWalls, "Walls"); AddPlanned(kills, nKills, "Kill boxes"); AddPlanned(cover, nCover, "Cover");
         MapObject Placement(Sm1Object o, string key, MapTransform t, string parent, bool hidden) =>
-            new(NewId(), o.Name.Length > 0 ? o.Name : o.Definition, parent, layer, !hidden, t, AssetRef.Sm1(map, o.Definition), null, [],
-                null, new MapObjectSrc(map, key, Sm1ClassicKeys.PlacementFp(o, hidden), MapObjectSrc.Placement, hidden));
+            Stamp(new(NewId(), o.Name.Length > 0 ? o.Name : o.Definition, parent, layer, !hidden, t, AssetRef.Sm1(map, o.Definition), null, [],
+                null, new MapObjectSrc(map, key, Sm1ClassicKeys.PlacementFp(o, hidden), MapObjectSrc.Placement, hidden)));
         var shownObjs = new List<MapObject>();
         var hiddenObjs = new List<MapObject>();
         foreach (var (o, key, t) in shownPlan.Take(Take(shownPlan.Count, false))) shownObjs.Add(Placement(o, key, t, groupId, false));

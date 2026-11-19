@@ -28,6 +28,8 @@ public sealed record OpResult(bool Ok, IReadOnlyList<string> Created, IReadOnlyL
     public IReadOnlyList<string> CreatedAssets { get; init; } = [];
     /// <summary>For duplicate: every copied object (old id, new id), including the copied descendants.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Mapping { get; init; } = [];
+    /// <summary>The report of the last refresh-from-classic in the batch (added, removed, changed, deleted, skipped); null otherwise.</summary>
+    public JsonObject? Refresh { get; init; }
     public bool DryRun { get; init; }
 
     public static OpResult Fail(string code, string message, string op = "", string? id = null) =>
@@ -49,6 +51,7 @@ public sealed record OpResult(bool Ok, IReadOnlyList<string> Created, IReadOnlyL
             foreach (var (k, v) in Mapping) m[k] = v;
             o["mapping"] = m;
         }
+        if (Refresh is not null) o["refresh"] = Refresh.DeepClone();
         if (DryRun) o["dryRun"] = true;
         return o;
     }

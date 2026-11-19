@@ -23,6 +23,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
     public List<string> CreatedAssets { get; } = [];
     public SortedSet<string> DeletedAssets { get; } = new(StringComparer.Ordinal);
     public List<string> Warnings { get; } = [];
+    public JsonObject? Refresh { get; private set; }
     public List<KeyValuePair<string, string>> Mapping { get; } = [];
 
     public override Prefab? GetPrefab(string id) => Prefabs.TryGetValue(id, out var p) ? p : DeletedPrefabs.Contains(id) ? null : base.GetPrefab(id);
@@ -75,6 +76,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
             case "import-prefab": ImportPrefab(op); break;
             case "extract-sm1": ExtractSm1(op); break;
             case "import-sm1-map": ImportSm1Map(op); break;
+            case "refresh-from-classic": RefreshFromClassic(op); break;
             default: throw new MapException("bad-op", $"Unknown operation '{name}'.");
         }
     }
@@ -192,6 +194,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
         var ids = Ids(op);
         var gone = new HashSet<string>();
         foreach (var id in ids) foreach (var o in Doc.Subtree(id)) gone.Add(o.Id);
+        Forget(Doc.Objects.Where(o => gone.Contains(o.Id)));   // an imported object the owner deletes is remembered, so a refresh does not bring it back
         Doc.Objects.RemoveAll(o => gone.Contains(o.Id));
         Doc.DetachFromGroups(gone);
     }
@@ -274,6 +277,7 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
             var first = Doc.Get(roots[0]);
             var gone = new HashSet<string>();
             foreach (var r in roots) foreach (var n in Doc.Subtree(r)) gone.Add(n.Id);
+            Forget(Doc.Objects.Where(o => gone.Contains(o.Id)));
             Doc.Objects.RemoveAll(o => gone.Contains(o.Id));
             var id = NewId();
             Doc.Objects.Add(new MapObject(id, prefab.Name, null, first.Layer, true, MapTransform.Identity with { Position = prefab.Origin }, null, prefab.Id, []));

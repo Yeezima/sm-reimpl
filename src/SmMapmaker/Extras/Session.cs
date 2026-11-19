@@ -109,7 +109,7 @@ public sealed class MapSession
         batch.Doc.PruneGroups();
         var result = new OpResult(true, batch.Created, batch.Warnings, [])
         {
-            CreatedPrefabs = batch.CreatedPrefabs, CreatedAssets = batch.CreatedAssets, Mapping = batch.Mapping, DryRun = dryRun,
+            CreatedPrefabs = batch.CreatedPrefabs, CreatedAssets = batch.CreatedAssets, Mapping = batch.Mapping, DryRun = dryRun, Refresh = batch.Refresh,
         };
         if (dryRun) return result;
         try { Commit(batch); }
@@ -180,6 +180,7 @@ public sealed class MapSession
         Document.Groups.AddRange(from.Groups);
         Document.Grid = from.Grid;
         Document.Look = from.Look;
+        Document.RemovedSrc = [.. from.RemovedSrc];
     }
 
     void Touch()

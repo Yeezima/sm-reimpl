@@ -134,7 +134,7 @@ public sealed record PartOverride(string Part, bool? Visible, MapTransform? Tran
 /// what it was (so a later "Refresh from Classic" can tell a changed item from an unchanged one), what it is (<see cref="Kinds"/>) and whether Classic hides it. EDITOR-ONLY: never part of the map's
 /// hash, never read by the game, kept by clones, copies and undo (the object record carries it). Repaired on read: a malformed link is dropped, the map is never refused for it.
 /// </summary>
-public sealed record MapObjectSrc(string Map, string Key, string Fp, string Kind, bool ClassicHidden)
+public sealed record MapObjectSrc(string Map, string Key, string Fp, string Kind, bool ClassicHidden, string Ob = "")
 {
     public const string Placement = "placement", Wall = "wall", Kill = "kill", Cover = "cover";
     public static readonly string[] Kinds = [Placement, Wall, Kill, Cover];
@@ -144,6 +144,7 @@ public sealed record MapObjectSrc(string Map, string Key, string Fp, string Kind
     {
         var o = new JsonObject { ["map"] = Map, ["key"] = Key, ["fp"] = Fp, ["kind"] = Kind };
         if (ClassicHidden) o["classicHidden"] = true;
+        if (Ob.Length > 0) o["ob"] = Ob;   // fingerprint of the object as the import or refresh left it, so "edited by you" can be told later (Sm1Refresh.StateHash)
         return o;
     }
 
@@ -155,8 +156,18 @@ public sealed record MapObjectSrc(string Map, string Key, string Fp, string Kind
         var map = Text(o["map"]); var key = Text(o["key"]); var fp = Text(o["fp"]) ?? ""; var kind = Text(o["kind"]);
         if (map is null || !MapLook.IsMapName(map) || key is not { Length: > 0 } || key.Length > MaxText || fp.Length > MaxText || kind is null || !Kinds.Contains(kind)) return null;
         bool hidden = o["classicHidden"] is JsonValue h && h.TryGetValue<bool>(out var hb) && hb;
-        return new MapObjectSrc(map, key, fp, kind, hidden);
+        var ob = Text(o["ob"]) ?? "";
+        return new MapObjectSrc(map, key, fp, kind, hidden, ob.Length <= MaxText ? ob : "");
     }
+}
+
+/// <summary>The identity of a Classic item (map, kind, key) the owner deleted: remembered so "Refresh from Classic" does not bring it back (editor only; docs/mapmaker.md "Refresh from Classic").</summary>
+public sealed record SrcKey(string Map, string Kind, string Key)
+{
+    public JsonObject ToNode() => new() { ["map"] = Map, ["kind"] = Kind, ["key"] = Key };
+
+    public static SrcKey? FromNode(JsonNode? n) =>
+        n is JsonObject o && MapObjectSrc.FromNode(new JsonObject { ["map"] = o["map"]?.DeepClone(), ["key"] = o["key"]?.DeepClone(), ["kind"] = o["kind"]?.DeepClone() }) is { } s ? new SrcKey(s.Map, s.Kind, s.Key) : null;
 }
 
 /// <summary>
@@ -274,6 +285,8 @@ public sealed class MapDocument
     public MapGrid Grid { get; set; } = MapGrid.Default;
     /// <summary>The Classic map whose lighting, sky and fog the map is drawn with (game-visible, in the hash; docs/mapmaker.md "Classic link"). Null: the plain daylight look.</summary>
     public MapLook? Look { get; set; }
+    /// <summary>Classic items the owner deleted (editor only, not in the hash; written only when not empty). See <see cref="SrcKey"/>.</summary>
+    public List<SrcKey> RemovedSrc { get; set; } = [];
 
     public MapGroup? FindGroup(string id) => Groups.FirstOrDefault(g => g.Id == id);
 
@@ -396,6 +409,7 @@ public sealed class MapDocument
         if (EmbeddedPrefabs.Count > 0) o["prefabs"] = new JsonArray(EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => (JsonNode)p.ToNode()).ToArray());
         if (Groups.Count > 0) o["groups"] = new JsonArray(Groups.Select(x => (JsonNode)x.ToNode()).ToArray());
         if (editorOnly && Grid != MapGrid.Default) o["grid"] = Grid.ToNode();
+        if (editorOnly && RemovedSrc.Count > 0) o["removedSrc"] = new JsonArray(RemovedSrc.Select(x => (JsonNode)x.ToNode()).ToArray());
         return o;
     }
 
@@ -406,7 +420,7 @@ public sealed class MapDocument
 
     public MapDocument Clone()
     {
-        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid, Look = Look };
+        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid, Look = Look, RemovedSrc = [..RemovedSrc] };
         d.Objects.AddRange(Objects);
         d.Groups.AddRange(Groups);
         return d;
@@ -458,6 +472,11 @@ public sealed class MapDocument
         if (o["groups"] is { } groupsNode) ParseGroups(d, Json.Arr(groupsNode, "groups"));
         d.Grid = MapGrid.FromNode(o["grid"]);
         if (o["look"] is { } lookNode) d.Look = MapLook.FromNode(lookNode);
+        if (o["removedSrc"] is JsonArray removed)   // editor-only data is repaired, never refused: bad entries are dropped
+        {
+            var have = new HashSet<SrcKey>();
+            foreach (var rn in removed) if (SrcKey.FromNode(rn) is { } k && have.Count < MaxObjects && have.Add(k)) d.RemovedSrc.Add(k);
+        }
         return d;
     }
 

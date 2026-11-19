@@ -71,13 +71,13 @@ public static class Sm1ClassicKeys
 
     // ---- fingerprints ----
 
-    static string F(float v)
+    internal static string F(float v)
     {
         var r = MathF.Round(v * 1000f, MidpointRounding.AwayFromZero) / 1000f;
         return (r == 0 ? 0f : r).ToString("0.###", CultureInfo.InvariantCulture);
     }
 
-    static string V(Vector3 v) => $"{F(v.X)},{F(v.Y)},{F(v.Z)}";
+    internal static string V(Vector3 v) => $"{F(v.X)},{F(v.Y)},{F(v.Z)}";
 
     /// <summary>12 hex characters of the SHA-256 of the parts (stable across machines: invariant formatting, values to 0.001).</summary>
     public static string Fp(params string[] parts) =>
