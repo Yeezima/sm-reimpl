@@ -115,6 +115,7 @@ public partial class MapmakerPlugin : EditorPlugin
         else if (FlowTest.Wanted) _ = new FlowTest(this).Run();
         else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
         else if (GridTest.Wanted) _ = new GridTest(this).Run();
+        else if (ClassicTest.Wanted) _ = new ClassicTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 

@@ -39,7 +39,7 @@ public partial class MapmakerPlugin
         {
             MapHost.Root?.ShowBackdrop(null, new System.Collections.Generic.List<string>());
             if (MapHost.Sm1For(map)?.BoundsCore() is { } b) _ = Frame3D(b.Min, b.Max);
-            SetStatus(string.Join(" ", result.Warnings) + " Save asks for a new file name; the map you had open is not touched.");
+            SetStatus(ImportSummary(Session!.Document, map) + " " + string.Join(" ", result.Warnings) + " Save asks for a new file name; the map you had open is not touched.");
         }
         return result;
     }

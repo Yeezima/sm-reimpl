@@ -80,6 +80,7 @@ public partial class MapmakerDock
         SnapSection(v);
         GridSection(v);
         Sm1Section(v);
+        LookSection(v);
         return Scroll(v);
     }
 
@@ -284,6 +285,7 @@ public partial class MapmakerDock
         v.AddChild(intro);
         v.AddChild(_buildHint);
         Group("Ground and cover", null, "floor", "wall", "cover", "ramp", "column", "invisible");
+        Group("Classic walls and cover", "Teal is an invisible wall for players only; orange is cover that strong weapons shoot through. Both are see-through in the editor and not drawn in the game. Turn the wall into a cylinder on the Object tab.", "move-wall", "classic-cover");
         Group("Spawns", "Spawn areas and ramps face their green arrow (+Y); Rotation Z turns them.", "spawn-marines", "spawn-chaos", "door-marines", "door-chaos");
         Group("Objectives and hazards", null, "point", "kill");
         return Scroll(v);

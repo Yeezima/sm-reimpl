@@ -13,7 +13,7 @@ using Num = System.Numerics;
 namespace SmMapmakerEditor;
 
 /// <summary>One thing the Build tab places: a piece kind with a side, a size and a plain label (the same kind can have several presets: floor, wall, cover).</summary>
-public sealed record PiecePreset(string Id, string Label, string Kind, string? Side, Num.Vector3 Size, bool TopAtClick, string Name, string Tip)
+public sealed record PiecePreset(string Id, string Label, string Kind, string? Side, Num.Vector3 Size, bool TopAtClick, string Name, string Tip, string? Shape = null)
 {
     public static readonly IReadOnlyList<PiecePreset> All =
     [
@@ -23,6 +23,8 @@ public sealed record PiecePreset(string Id, string Label, string Kind, string? S
         new("ramp", "Ramp", PieceKind.Ramp, null, new(4, 8, 2), false, "Ramp", PieceKind.All.First(k => k.Id == PieceKind.Ramp).Tip),
         new("column", "Column", PieceKind.Column, null, new(1.5f, 1.5f, 4), false, "Pillar", PieceKind.All.First(k => k.Id == PieceKind.Column).Tip),
         new("invisible", "Invisible wall", PieceKind.CollisionBox, null, new(4, 4, 3), false, "Invisible wall", PieceKind.All.First(k => k.Id == PieceKind.CollisionBox).Tip),
+        new("move-wall", "Invisible wall (players only)", PieceKind.MoveWall, null, new(4, 1, 3), false, "Invisible wall (players only)", PieceKind.All.First(k => k.Id == PieceKind.MoveWall).Tip),
+        new("classic-cover", "Cover (shoot-through)", PieceKind.Cover, null, new(1.2f, 3f, 1.5f), false, "Cover (shoot-through)", PieceKind.All.First(k => k.Id == PieceKind.Cover).Tip),
         new("spawn-marines", "Marine spawn", PieceKind.SpawnArea, PieceSpec.Marines, new(12, 16, 3), false, "Marine spawn area", "Where the Space Marines appear: a 12 x 16 m box on the floor, facing its green arrow. Every map needs one for each side."),
         new("spawn-chaos", "Chaos spawn", PieceKind.SpawnArea, PieceSpec.Chaos, new(12, 16, 3), false, "Chaos spawn area", "Where Chaos appears: a 12 x 16 m box on the floor, facing its green arrow. Every map needs one for each side."),
         new("door-marines", "Marine door", PieceKind.Blocker, PieceSpec.Marines, new(12, 1, 6), false, "Marine spawn door", "A shield across the exit of the Marine spawn room. Chaos cannot cross it; Marines can."),
@@ -116,6 +118,7 @@ public partial class MapmakerPlugin
         float yaw = preset.Kind is PieceKind.SpawnArea or PieceKind.Blocker ? DefaultYaw(game) : 0f;
         var piece = new JsonObject { ["kind"] = preset.Kind };
         if (preset.Side is not null) piece["side"] = preset.Side;
+        if (preset.Shape is not null) piece["shape"] = preset.Shape;
         var op = Op("place", ("name", preset.Name), ("piece", piece), ("transform", new JsonObject { ["position"] = Vec(pos), ["rotation"] = Vec(new Num.Vector3(0, 0, yaw)), ["scale"] = Vec(preset.Size) }));
         var r = Do($"Place {preset.Label}", op);
         if (r.Ok && r.Created.Count > 0) Select(r.Created);

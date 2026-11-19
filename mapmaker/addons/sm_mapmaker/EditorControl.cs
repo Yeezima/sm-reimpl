@@ -27,7 +27,7 @@ public sealed partial class EditorControl : Node
     static string EditorFile => Path.Combine(Dir, "editor.json");
     static string RequestFile => Path.Combine(Dir, "restart.request");
     static string ResumeFile => Path.Combine(Dir, "resume.json");
-    static bool Active => !Selftest.Wanted && !FlowTest.Wanted && !GridTest.Wanted;
+    static bool Active => !Selftest.Wanted && !FlowTest.Wanted && !GridTest.Wanted && !ClassicTest.Wanted;
 
     public override void _Ready()
     {
