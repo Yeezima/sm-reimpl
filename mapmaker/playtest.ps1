@@ -21,7 +21,8 @@
 #>
 param(
     [string]$Map = '', [ValidateSet('annihilation', 'seize')][string]$Mode = 'annihilation', [int]$Bots = 3, [ValidateSet('marines', 'chaos')][string]$Side = 'marines', [string]$Class = 'tactical',
-    [ValidateScript({ $_ -eq 0 -or ($_ -ge 1024 -and $_ -le 65535) })][int]$Port = 0, [switch]$Stop, [switch]$Locate, [switch]$Plan, [string]$VersionDir = '', [switch]$Headless, [int]$Seconds = 30
+    [ValidateScript({ $_ -eq 0 -or ($_ -ge 1024 -and $_ -le 65535) })][int]$Port = 0, [switch]$Stop, [switch]$Locate, [switch]$Plan, [string]$VersionDir = '', [switch]$Headless, [int]$Seconds = 30,
+    [string]$ExpectHash = ''
 )
 $ErrorActionPreference = 'Stop'
 $Data = if ($env:SM_DATA_DIR) { $env:SM_DATA_DIR } else { Join-Path $env:LOCALAPPDATA 'sm-reimpl' }
@@ -137,6 +138,15 @@ try {
         $tail = @((Get-Content -LiteralPath $slog -ErrorAction SilentlyContinue) + (Get-Content -LiteralPath (Join-Path $logDir 'server.err.log') -ErrorAction SilentlyContinue)) | Where-Object { $_ } | Select-Object -Last 4
         throw "the server did not start: $($tail -join ' | ')"
     }
+    # The server must be playing exactly this file: its log says which custom map it loaded and that map's hash (the editor passes the file's own as -ExpectHash).
+    # No "custom map" line, or another hash, means the default arena or another file: stop here, loudly, instead of opening a game on the wrong map.
+    $served = (Get-Content -LiteralPath $slog -ErrorAction SilentlyContinue) -join "`n"
+    $cm = [regex]::Match($served, 'custom map (cm_\w+) [^\n]*?map hash ([0-9A-Fa-f]{16})')
+    if (-not $cm.Success) { throw "the server is not playing a custom map (it would have loaded the default arena). Its log has no 'custom map' line; see $slog" }
+    if ($ExpectHash -and $cm.Groups[2].Value.ToUpperInvariant() -ne $ExpectHash.ToUpperInvariant()) {
+        throw "the server loaded another map than '$([IO.Path]::GetFileName($Map))' (map hash $($cm.Groups[2].Value), this file's is $ExpectHash). Not starting the game; see $slog"
+    }
+    Write-Host "server map: $($cm.Groups[1].Value), hash $($cm.Groups[2].Value) (this file)"
 
     if ($Bots -gt 0) { Say 'bots' "Starting $($Bots * 2) bots..." }
     foreach ($s in 'marines', 'chaos') {

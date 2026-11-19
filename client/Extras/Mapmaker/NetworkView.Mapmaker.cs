@@ -24,7 +24,11 @@ public partial class NetworkView
     void MapmakerContent(string name, ref MapContent? map)
     {
         if (!CustomMap.IsCustomName(name)) return;
-        try { _customMap = CustomMaps.LoadForPlay(name, CustomMapFile); }
+        try
+        {
+            if (string.IsNullOrEmpty(CustomMapFile) && CustomMaps.LocateAll(name) is { Count: > 1 } many)
+                GD.PrintErr($"custom map {name}: {many.Count} files have this map's name ({string.Join(", ", many.Select(System.IO.Path.GetFileName))}); using the newest, {System.IO.Path.GetFileName(many[0])}. Start with --custom-map <file> to name the exact one.");
+            _customMap = CustomMaps.LoadForPlay(name, CustomMapFile);        }
         catch (MapException e) { throw new System.InvalidOperationException(e.Message); }
         map = _customMap.Content;
         GD.Print($"custom map {name}: {_customMap.SolidCount} solid pieces, {map.StartAreas.Count} start areas, {map.ControlPoints.Count} capture points; hash {_customMap.Hash:X16}; nothing read from the install");

@@ -44,22 +44,51 @@ public static class CustomMaps
     /// The file in <see cref="SearchDirs"/> for a wire name that came from the server (<c>cm_arena</c>), or null. The name is never treated as a path; a file matches when its name (without
     /// <c>.smmap</c>) gives that wire name, or its <c>name</c> field does (read from the first 4 KB of the file, not by parsing it).
     /// </summary>
-    public static string? Locate(string wireName)
+    public static string? Locate(string wireName) => LocateAll(wireName).FirstOrDefault();
+
+    /// <summary>
+    /// Every file in <see cref="SearchDirs"/> that holds the map of this wire name, the most recently saved first. Many maps are left at the default name "My Map", so several files
+    /// often share one wire name: a client that is not given its file (<c>--custom-map</c>) can only guess, and the guess is the newest save (the one just being tested), never
+    /// the alphabetically first (which was an old copy: owner's 2026-11-19 report that the play test showed another map).
+    /// </summary>
+    public static IReadOnlyList<string> LocateAll(string wireName)
     {
-        if (!IsPlainWireName(wireName)) return null;
+        if (!IsPlainWireName(wireName)) return [];
         var files = new List<string>();
         foreach (var dir in SearchDirs().Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            try { if (Directory.Exists(dir)) files.AddRange(Directory.EnumerateFiles(dir, "*.smmap").Order(StringComparer.OrdinalIgnoreCase)); }
+            try { if (Directory.Exists(dir)) files.AddRange(Directory.EnumerateFiles(dir, "*.smmap")); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
+        files = files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         // The wire name is made from the map's name field, not its file name: a file called my-map-2.smmap can hold the map "My Map" (cm_my_map) while an older my-map.smmap holds another
         // copy of it. So the name field decides first; the file name is only a fallback for a file whose name field cannot be read.
-        foreach (var file in files)
-            if (WireNameOfFile(file) == wireName) return file;
-        foreach (var file in files)
-            if (WireNameOfFile(file) is null && CustomMap.WireName(Path.GetFileNameWithoutExtension(file)) == wireName) return file;
-        return null;
+        var byName = files.Where(f => WireNameOfFile(f) == wireName).ToList();
+        if (byName.Count == 0) byName = files.Where(f => WireNameOfFile(f) is null && CustomMap.WireName(Path.GetFileNameWithoutExtension(f)) == wireName).ToList();
+        return byName.OrderByDescending(Modified).ThenBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    static DateTime Modified(string file) { try { return File.GetLastWriteTimeUtc(file); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return DateTime.MinValue; } }
+
+    /// <summary>The other files (any folder searched, plus the folder of <paramref name="file"/>) whose map has the same wire name: a play test of one of them can be mistaken for another. Empty when the name is unique.</summary>
+    public static IReadOnlyList<string> SameNameAs(string file)
+    {
+        string? wire = WireNameOfFile(file);
+        if (wire is null) return [];
+        string full = Path.GetFullPath(file);
+        var dirs = SearchDirs().Append(Path.GetDirectoryName(full) ?? "").Where(d => d.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase);
+        var found = new List<string>();
+        foreach (var dir in dirs)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) continue;
+                foreach (var f in Directory.EnumerateFiles(dir, "*.smmap"))
+                    if (!string.Equals(Path.GetFullPath(f), full, StringComparison.OrdinalIgnoreCase) && WireNameOfFile(f) == wire && !found.Contains(f, StringComparer.OrdinalIgnoreCase)) found.Add(f);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return found;
     }
 
     static readonly Regex NameField = new("\"name\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.){0,400})\"", RegexOptions.Compiled);
@@ -86,7 +115,10 @@ public static class CustomMaps
     public static CustomMap LoadForPlay(string wireName, string? explicitFile)
     {
         if (!IsPlainWireName(wireName)) throw new MapException("bad-map-name", "The server named a custom map in a form this client does not accept.");
-        string? file = explicitFile is not null && File.Exists(explicitFile) ? explicitFile : Locate(wireName);
+        // A file the user named is the file, or the client says so: never fall back to looking a map up by name (that is how another map with the same name was played instead).
+        if (!string.IsNullOrEmpty(explicitFile) && !File.Exists(explicitFile))
+            throw new MapException("missing-map", $"The map file given with --custom-map ('{explicitFile}') does not exist, so the custom map '{wireName}' cannot be played.");
+        string? file = !string.IsNullOrEmpty(explicitFile) ? explicitFile : Locate(wireName);
         if (file is null)
             throw new MapException("missing-map", $"This server is playing the custom map '{wireName}', and its .smmap file is not on this PC. " +
                 $"Get the file from whoever made the map and put it in {new MapLibrary(null).MapsDir} (or start the client with --custom-map <file>).");

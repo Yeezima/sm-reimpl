@@ -173,11 +173,21 @@ public sealed record MapObject(
     }
 }
 
-/// <summary>A <c>.smmap</c> document (formatVersion 1). Mutable; sessions edit a clone and swap it in when a batch succeeds.</summary>
+/// <summary>
+/// A <c>.smmap</c> document (formatVersion 2; version 1 files are read through <see cref="MapUpgrade"/>). Mutable; sessions edit a clone and swap it in when a batch succeeds.
+/// </summary>
 public sealed class MapDocument
 {
     public const string FormatName = "smmap";
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
+
+    /// <summary>The format version the file declared when it was parsed (older than <see cref="FormatVersion"/>: the editor backs the file up before it writes the upgrade).</summary>
+    public int LoadedVersion { get; private set; } = FormatVersion;
+    /// <summary>
+    /// The definitions of the prefabs the objects use, saved in the file (version 2): a map sent to another PC brings its prefabs, which otherwise live only in the maker's library
+    /// (owner's pass 3: a shared map showed "unknown prefab" for every instance). Keyed by prefab id; a library prefab of the same id is never overwritten by one from a file.
+    /// </summary>
+    public List<Prefab> EmbeddedPrefabs { get; set; } = [];
 
     public string Name { get; set; } = "Untitled";
     public int NextId { get; set; } = 1;
@@ -247,6 +257,7 @@ public sealed class MapDocument
         var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId };
         if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
         o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode()).ToArray());
+        if (EmbeddedPrefabs.Count > 0) o["prefabs"] = new JsonArray(EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => (JsonNode)p.ToNode()).ToArray());
         return o;
     }
 
@@ -254,7 +265,7 @@ public sealed class MapDocument
 
     public MapDocument Clone()
     {
-        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes] };
+        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs] };
         d.Objects.AddRange(Objects);
         return d;
     }
@@ -268,9 +279,18 @@ public sealed class MapDocument
         if (json.Length > MaxChars) throw new MapException("too-big", $"The map file is larger than {MaxChars / 1_000_000} MB.");
         var o = Json.Obj(Json.ParseText(json, "The map"), "The map");
         if (Json.Str(o["format"], "format", nullable: true) != FormatName) throw new MapException("bad-file", "Not a .smmap document (format must be \"smmap\").");
-        if (o["formatVersion"] is null || Json.Int(o["formatVersion"], "formatVersion", "bad-file") != FormatVersion)
-            throw new MapException("bad-file", $"Unsupported formatVersion (this build reads {FormatVersion}).");
-        var d = new MapDocument { Name = Json.Str(o["name"], "name") ?? "", NextId = Json.Int(o["nextId"], "nextId", "bad-file") };
+        if (o["formatVersion"] is null) throw new MapException("bad-file", "The map has no formatVersion.");
+        int declared = Json.Int(o["formatVersion"], "formatVersion", "bad-file");
+        o = MapUpgrade.ToCurrent(o, declared, FormatVersion);   // older files are upgraded in memory, the same way for everyone who reads the file
+        var d = new MapDocument { Name = Json.Str(o["name"], "name") ?? "", NextId = Json.Int(o["nextId"], "nextId", "bad-file"), LoadedVersion = declared };
+        if (o["prefabs"] is { } prefabNodes)
+            foreach (var (pn, pi) in Json.Arr(prefabNodes, "prefabs").Select((x, i) => (x, i)))
+            {
+                if (pn is not JsonObject) throw new MapException("bad-file", $"prefabs[{pi}] is not an object.");
+                var embedded = Prefab.Parse(pn.ToJsonString());
+                if (d.EmbeddedPrefabs.Any(p => p.Id == embedded.Id)) throw new MapException("bad-file", $"Duplicate embedded prefab '{embedded.Id}'.");
+                d.EmbeddedPrefabs.Add(embedded);
+            }
         if (d.Name.Length > MaxNameLength) throw new MapException("too-big", $"The map name is longer than {MaxNameLength} characters.");
         if (o["modes"] is { } modesNode) d.Modes = Json.Arr(modesNode, "modes").Select((m, i) => Json.Str(m, $"modes[{i}]")!).Where(m => m.Length > 0).Distinct().ToList();
         var seen = new HashSet<string>();
