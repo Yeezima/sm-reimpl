@@ -52,7 +52,7 @@ elseif ($userArgs -contains '--test-window' -or $userArgs -contains '--bot') {
     exit $LASTEXITCODE
 }
 # fix/musou-local-server: the editor binary lives in Godot's tools folder, so the client finds no SmServer next to itself (a released build carries one).
-# Build the server and hand it over with --server-exe (MUSOU MODE and HOST LOCAL LOBBY need it), unless the caller gave one or the run has no front end. A failed build
+# Build the server and hand it over with --server-exe (WARFRONT and HOST LOCAL LOBBY need it), unless the caller gave one or the run has no front end. A failed build
 # never stops the client: an exe already there (a running server locks it) is still handed over.
 if (-not ($userArgs -contains '--server-exe' -or $userArgs -contains '--viewer' -or $userArgs -contains '--archive')) {
     # hotfix/musou-server-lag: Release, as server.cmd and the tester zip run it. The Debug build (no JIT optimisation) ran a one-player Musou battle at 13 to 88 ms a
@@ -67,7 +67,7 @@ if (-not ($userArgs -contains '--server-exe' -or $userArgs -contains '--viewer' 
         if (-not $built) { Write-Host 'The dedicated server did not build: using the one built before, which may be out of date.' -ForegroundColor Yellow }
         $userArgs = @('--server-exe', $serverExe) + $userArgs
     }
-    else { Write-Host 'The dedicated server did not build: the client starts without MUSOU MODE and HOST LOCAL LOBBY (dotnet build src\SmServer).' -ForegroundColor Yellow }
+    else { Write-Host 'The dedicated server did not build: the client starts without WARFRONT and HOST LOCAL LOBBY (dotnet build src\SmServer).' -ForegroundColor Yellow }
 }
 # Quoted so the separator always reaches Godot; arguments after it go to the client (OS.GetCmdlineUserArgs).
 & $Godot --path $client '--' @userArgs

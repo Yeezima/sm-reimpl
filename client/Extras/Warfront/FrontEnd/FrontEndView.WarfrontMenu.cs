@@ -49,10 +49,6 @@ public sealed partial class FrontEndView
     public bool WarfrontConfirmOpen => _wfDialog is { } d && GodotObject.IsInstanceValid(d) && d.IsInsideTree() && !d.IsQueuedForDeletion();
     /// <summary>The Warfront row on the main menu, or null without the added content (self-test).</summary>
     public Button? WarfrontRow { get; private set; }
-
-    /// <summary>Self-test: the services have a configuration for the content profile in effect (it is read again after a change of profile).</summary>
-    internal bool ServicesReadyForTest => _services.Ready;
-
     /// <summary>Self-test: the message line's text.</summary>
     internal string MessageText => _message?.Text ?? "";
 
@@ -62,7 +58,7 @@ public sealed partial class FrontEndView
     {
         if (!ContentExtras.WarfrontCompiled) return;
         // WARFRONT replaces Musou Mode in its place (owner 2026-11-19): the first row and the default focus; STOP WARFRONT SERVER right under it while this game's server runs.
-        WarfrontRow = UiKit.SteelButton(WarfrontLocal.RowText, ShowWarfrontEntry, WarfrontLocal.RowTooltip, "MenuWarfront");
+        WarfrontRow = UiKit.SteelButton(WarfrontLocal.RowText, ShowWarfrontPage, WarfrontLocal.RowTooltip, "MenuWarfront");
         main.Rows.AddChild(WarfrontRow);
         _first[main] = WarfrontRow;
         _stopMusou = UiKit.SteelButton(WarfrontLocal.StopServerRowText, StopMusou, "Stops the Warfront server this game started on this PC", "MenuStopWarfrontserver");
@@ -101,7 +97,7 @@ public sealed partial class FrontEndView
         WarfrontStateForTest ?? (HostedServer.Running, HostedServer.Ready, HostedServer.Options is { Content: ContentProfiles.Warfront });
 
     /// <summary>The WARFRONT row: the page, with the session on the Warfront profile (the Host panel hosts Warfront and a join is a Warfront join from here on; the lobby's remembered profile is not touched).</summary>
-    void ShowWarfrontEntry() => ShowWarfrontPage();
+    partial void WarfrontShowEntry() => ShowWarfrontPage();
 
     void ShowWarfrontPage()
     {

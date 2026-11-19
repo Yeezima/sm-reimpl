@@ -97,7 +97,7 @@ public sealed partial class UiSelfTest
             {
                 string saved = FrontEndSettings.Load(_services.SettingsDirectory).Content;
                 await PressRow("WARFRONT", main);
-                var musouPage = _front.WarfrontPage!;
+                var musouPage = _front.ExtrasPage!;
                 Check("menu: WARFRONT opens its page on the Warfront profile", musouPage.Visible && !_front.ShowsMainMenu && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());
                 var musouRows = RowTexts(musouPage);
                 Check("menu: the Warfront page has the campaign, the friends' two ways in, the customizer and Back", musouRows.SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) || musouRows.SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", musouRows));

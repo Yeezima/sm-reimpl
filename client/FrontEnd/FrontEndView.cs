@@ -78,6 +78,11 @@ public sealed partial class FrontEndView : Control
     partial void ExtrasMenuScreen(string name, ref bool handled);   // EXTRAS-HOOK
     /// <summary>Hook for added content: the added mode's rows on the main menu (WARFRONT first, then its STOP SERVER row; client/Extras/FrontEndView.Extras.cs); nothing without it.</summary>
     partial void ExtrasMenuRows(UiKit.MenuPage main);
+    /// <summary>Hook for added content: opens the added mode's page (the WARFRONT row's press, <c>--menu-screen warfront</c>); nothing without it.</summary>
+    partial void ExtrasShowEntry();   // EXTRAS-HOOK
+
+    /// <summary>Self-test: the services have a configuration for the content profile in effect (it is read again after a change of profile).</summary>
+    internal bool ServicesReadyForTest => _services.Ready;
 
     int _switchedAt, _switchPhase;
     bool _switchChecked;
@@ -500,8 +505,8 @@ public sealed partial class FrontEndView : Control
             case "lobby": ShowPage(_lobby!); break;
             case "host": ShowPage(_hostPage!); break;
             case "joinlocal": ShowPage(_joinLocalPage!); break;
-            case "warfront": ShowWarfrontEntry(); break;
-            case "warfronthost": ShowWarfrontEntry(); ShowPage(_hostPage!); break;
+            case "warfront": ExtrasShowEntry(); break;   // EXTRAS-HOOK
+            case "warfronthost": ExtrasShowEntry(); if (_hostPage is not null) ShowPage(_hostPage); break;   // EXTRAS-HOOK
             case "failure": HideAll(); ShowFailure("The install's data folder could not be read: made-up error for a screenshot."); break;   // screenshot aid (ui/overhaul)
             case "dialog": { HideAll(); ShowMainMenu(); UiKit.Dialog.Open(this, this, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], _ => { }); break; }
             case var tfw when tfw.StartsWith("tfw-", StringComparison.OrdinalIgnoreCase): { bool handled = false; ExtrasMenuScreen(tfw, ref handled); break; }   // EXTRAS-HOOK
