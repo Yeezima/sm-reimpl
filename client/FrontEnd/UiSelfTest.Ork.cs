@@ -140,7 +140,7 @@ public sealed partial class UiSelfTest
             var orkWeapons = LoadoutRows.Weapons(catalog, OrkLoadout.Role, OrkLoadout.Race, null, _services.Policy);
             Check("ork: the weapons are his fixed shoota, slugga and choppa",
                 new[] { "Shoota", "Slugga", "Choppa" }.All(t => FindButton(creator, b => b is UiKit.Row && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null)
-                && orkWeapons.Count == 3 && orkWeapons.All(s => !s.Selectable && s.Rows.Count == 1 && s.Rows[0].Fixed && s.Rows[0].Tags.Contains("FIXED")),
+                && orkWeapons.Count == 3 && orkWeapons.All(s => !s.Selectable && s.Rows.Count == 1 && s.Rows[0].Fixed),
                 string.Join(", ", orkWeapons.SelectMany(s => s.Rows.Select(r => $"{r.Title} {string.Join("/", r.Tags)}"))));
             creator.OpenStep("perks");
             await Frames(3);

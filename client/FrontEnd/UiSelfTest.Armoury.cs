@@ -51,7 +51,7 @@ public sealed partial class UiSelfTest
         slotCard?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(4);
         Check("armoury: a slot card opens that slot's choices", FindButton(creator, b => b is UiKit.Row) is not null && FindButton(creator, b => b.Name == "ArmouryPickBack") is not null);
-        Check("armoury: the step's choices are cards (rows with the card plate) in the right column", FindButton(creator, b => b is UiKit.Row) is { } card && card.GetThemeStylebox("normal") is StyleBoxTexture { Texture: not null });
+        Check("armoury: the step's choices are cards (rows with the card plate) in the right column", FindButton(creator, b => b is UiKit.Row) is { } card && card.GetThemeStylebox("normal") is PaintedButtons.CapStyle { Texture: not null });
         // CONFIRM LOADOUT: saves and sets the open loadout active.
         creator.OpenSelection(Selection.DefaultFor(ProfileStore.FirstRole(catalog)));
         await Frames(4);

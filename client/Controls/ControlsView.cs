@@ -208,9 +208,9 @@ public sealed partial class ControlsView : Control
         _capture = null;
         (device == BindDevice.Keyboard ? _tabKeyboard : _tabController).SetPressedNoSignal(true);
         (device == BindDevice.Keyboard ? _tabController : _tabKeyboard).SetPressedNoSignal(false);
-        _hint.Text = (device == BindDevice.Keyboard
-            ? "Click an entry, then press the new key or mouse button. Esc cancels. Delete or a right click clears an entry. An input used twice asks what to do. Changes apply at once."
-            : "Press A on an entry, then press the new button or trigger. Esc or Start cancels. X clears the entry. LB / RB switch tabs. The move and look sticks are fixed.").ToUpperInvariant();
+        _hint.Text = ""; _hint.Visible = false;   // no explainer text on the page (owner, 2026-11-20): the hint is the tabs' hover hint
+        UiTooltip.Attach(_tabKeyboard, "Click an entry, then press the new key or mouse button. Esc cancels. Delete or a right click clears an entry. An input used twice asks what to do. Changes apply at once.");
+        UiTooltip.Attach(_tabController, "Press A on an entry, then press the new button or trigger. Esc or Start cancels. X clears the entry. LB / RB switch tabs. The move and look sticks are fixed.");
         BuildRows();
     }
 
@@ -235,7 +235,7 @@ public sealed partial class ControlsView : Control
                 _rows.AddChild(UiKit.Text(group.ToUpperInvariant(), UiType.Value, new Color(0.97f, 0.82f, 0.4f)).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
             }
             var row = UiKit.HBox(10);
-            row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiType.Value, UiKit.White).With(l => { l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
+            row.AddChild(UiKit.Text(info.Label.ToUpperInvariant(), UiType.Value, UiKit.White).With(l => { UiKit.TextKind(l, "description"); /* an action's own name */ l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.VerticalAlignment = VerticalAlignment.Center; l.ClipText = true; l.CustomMinimumSize = new Vector2(200, 0); l.TooltipText = info.Label; l.MouseFilter = MouseFilterEnum.Pass; }));
             var buttons = new List<Control>();
             for (int s = 0; s < slots; s++)
             {

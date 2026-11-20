@@ -55,7 +55,12 @@ public sealed class HudArt
         if (art.Texture(name) is { } dds)
         {
             var image = new Image();
-            if (image.LoadDdsFromBuffer(dds) == Godot.Error.Ok) tex = ImageTexture.CreateFromImage(image);
+            if (image.LoadDdsFromBuffer(dds) == Godot.Error.Ok)
+            {
+                // The picture keeps a mip chain (a shrunk draw is filtered from it, not point-skipped); a DDS that carries none gets one.
+                if (!image.HasMipmaps()) { if (image.IsCompressed()) image.Decompress(); image.GenerateMipmaps(); }
+                tex = ImageTexture.CreateFromImage(image);
+            }
             else GD.PrintErr($"HUD art: {name} did not decode");
         }
         _textures[name] = tex;
@@ -95,7 +100,9 @@ public sealed class HudArt
             px[i] = px[i + 1] = px[i + 2] = 255;
             px[i + 3] = (byte)Math.Min(255, a * 255 / 89);   // alpha above 0.35 becomes opaque
         }
-        return Image.CreateFromData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, px);
+        var sil = Image.CreateFromData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, px);
+        sil.GenerateMipmaps();   // the silhouette is shrunk from its mip chain in a small icon well
+        return sil;
     }
 
     /// <summary>A nine-patch of a sprite (corners of <paramref name="margin"/> texture pixels kept, the rest stretched), or null.</summary>

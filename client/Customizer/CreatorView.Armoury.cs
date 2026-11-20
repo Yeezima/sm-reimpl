@@ -57,6 +57,9 @@ public sealed partial class CreatorView
 
     static bool ArmouryWanted() => ConceptArt.Get("overlay-armoury") is not null && Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-armoury") < 0;
 
+    /// <summary>Shows the CLASS or the SLOTS tab of the Armoury (screenshot aid: <c>--arm-tab class|slots</c>).</summary>
+    public void ShowArmTab(bool slots) { _armSlotsTab = slots; ArmouryDirty(); }
+
     /// <summary>Whether the concept layout is on (test aid).</summary>
     public bool ArmouryOn => _arm;
 
@@ -171,7 +174,7 @@ public sealed partial class CreatorView
         // The original's own front-end picture (owner, 2026-11-18: "ported from the original game 1:1"): the wargear or perk file names it (ui_data/icon_path), the player's install holds it (read-only, read once on a worker
         // thread, never written anywhere). Only where the file names none, or the install lacks the picture, the older shapes below stand in.
         _armArt ??= new HudArt(_services.GameDir);
-        if (_armArt.Ready && _armArt.Picture(name[8..], _previewRace == SmContent.CustomizationCatalog.Chaos) is { } picture) { _armArtReady = true; return picture; }
+        if (_armArt.Ready && _armArt.Picture(name[8..], _previewRace == SmContent.CustomizationCatalog.Chaos) is { } picture) { _armArtReady = true; _armInstall.Add(picture); return picture; }
         // The install's pistol and grenade pictures are too small and soft to read as a silhouette at tile size: those two slots keep the engraved glyphs (Opus review 3).
         if (name.Contains("pistol", StringComparison.OrdinalIgnoreCase) || name.Contains("grenade", StringComparison.OrdinalIgnoreCase))
         {
@@ -222,7 +225,7 @@ public sealed partial class CreatorView
         foreach (var p in _catalog.Perks.All) _armIds.TryAdd(p.DisplayName.ToUpperInvariant(), p.Name);   // a perk row's picture is its file's own icon
         var equipRow = equipSection.Rows.FirstOrDefault(r => r.Selected);
         string equip = equipRow?.Title ?? "NONE";
-        string? PerkId(int i) { string? n = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1); return n is null ? null : "install:" + (_catalog.Perks.Perk(n)?.Name ?? n); }
+        string? PerkId(int i) { string? n = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1); return n is null ? "no-perk" : "install:" + (_catalog.Perks.Perk(n)?.Name ?? n); }   // an empty perk slot has the owner's No Perk icon (brass, untinted)
         string Perk(int i)
         {
             string? name = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1);
@@ -246,6 +249,7 @@ public sealed partial class CreatorView
         foreach (var section in LoadoutRows.Weapons(_catalog, Role, _previewRace, OpenClass, _services.Policy))
         {
             var sel = section.Rows.FirstOrDefault(r => r.Selected); string heading = section.Heading; int cut = heading.IndexOf("  (", StringComparison.Ordinal); if (cut > 0) heading = heading[..cut];
+            if (section.Key == "melee" && sel is { Id.Length: 0 }) continue;   // the Devastator and Havoc carry no melee weapon: no card that says NONE (owner, 2026-11-20)
             slots.Add(new ArmSlot(heading, sel?.Title ?? "NONE", sel is { Id.Length: > 0 } ? "install:" + sel.Id : null, () => Pick(Step.Weapons, -1)));
         }
         slots.Add(new ArmSlot("EQUIPMENT", equip, _armIds.TryGetValue(equip.ToUpperInvariant(), out var eqId) ? "install:" + eqId : null, () => Pick(Step.Equipment, -1)));
@@ -288,7 +292,7 @@ public sealed partial class CreatorView
         Put(_armSlotScroll, new Rect2(549, 93, 222, 223));   /* whole cards only: three of 78 */ Put(_armPickBack, new Rect2(712, 76, 52, 14));
         Put(_armInfo!, new Rect2(296, 68, 246, 24)); _armInfo!.Visible = false;   // the "ACTIVE:" line is not in the concept; the active loadout is the badge and the summary line
         Put(_scroll, new Rect2(549, 93, 222, 223)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
-        Put(_summary, new Rect2(272, 380, 370, 13));
+        Put(_summary, new Rect2(272, 380, 370, 13)); _summary.Visible = false;   // the DEFAULTS summary line is not shown (owner, 2026-11-20: no descriptor text on the screens)
         Put(_armDock!, new Rect2(272, 395, 374, 40));
         var rightBox = _preview.GetParent<Control>(); Put(rightBox, new Rect2(296, 94, 246, 284));
         Put(_armSteps!, UiTextureBuilder.ArmHeader);
@@ -305,7 +309,35 @@ public sealed partial class CreatorView
 
     /// <summary>The one lettering of the page: the row face (<see cref="UiKit.ConceptFont"/>) at <paramref name="size"/> concept pixels, light on a dark plate and dark ink on gold.</summary>
     /// <summary>The page's concept-pixel size as a size of the one table (UiType): 17 and up the primary action, 11.5 and up labels and plates, 8.5 and up captions, smaller ones the small level.</summary>
-    static int ArmPx(float size) => UiType.Px(size >= 17f ? UiType.Primary : size >= 11.5f ? UiType.Label : size >= 8.5f ? UiType.Caption : UiType.Small);
+    static int ArmUnit(float size) => size >= 17f ? UiType.Primary : size >= 11.5f ? UiType.Label : size >= 8.5f ? UiType.Caption : UiType.Small;
+    static int ArmPx(float size) => UiType.Px(ArmUnit(size));
+
+    /// <summary>Text on a plate that is too long steps down one level of the size table, then wraps (never an ellipsis, never clipped).</summary>
+    static void ArmFit(Label l, float size, float availPx) => PaintedButtons.FitLabel(l, ArmUnit(size), availPx);
+
+    /// <summary>Install pictures (and silhouettes) of the page: drawn whole, never blurred past their own pixels.</summary>
+    readonly HashSet<Texture2D> _armInstall = new();
+
+    /// <summary>
+    /// Puts a picture in its icon well. An install picture is centred at the whole-number scale that fits the well (nearest filter, so it is not smeared) or, when the well is smaller than the picture, shrunk with its mipmaps
+    /// and linear filter, keeping its aspect. Painted pieces and glyphs fill the well as before (<paramref name="glyphMode"/>).
+    /// </summary>
+    void ArmFitPicture(TextureRect ic, Rect2 well, TextureRect.StretchModeEnum glyphMode = TextureRect.StretchModeEnum.KeepAspectCentered)
+    {
+        ic.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+        if (ic.Texture is not { } tex || !(_armSilhouettes.Contains(tex) || _armInstall.Contains(tex)))
+        {
+            ic.StretchMode = glyphMode; ic.TextureFilter = TextureFilterEnum.LinearWithMipmaps; ic.Position = well.Position; ic.Size = well.Size; return;
+        }
+        ic.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
+        float fit = Mathf.Min(well.Size.X / tex.GetWidth(), well.Size.Y / tex.GetHeight());
+        if (fit >= 1f)
+        {
+            var size = new Vector2(tex.GetWidth(), tex.GetHeight()) * Mathf.Floor(fit);
+            ic.TextureFilter = TextureFilterEnum.Nearest; ic.Size = size; ic.Position = (well.Position + (well.Size - size) / 2f).Round();
+        }
+        else { ic.TextureFilter = TextureFilterEnum.LinearWithMipmaps; ic.Position = well.Position; ic.Size = well.Size; }
+    }
 
     static void ArmText(Control c, float size, float s, Color rest, Color pressed)
     {
@@ -327,7 +359,7 @@ public sealed partial class CreatorView
 
     static void ArmPlate(Button b, string dark, string gold, PaintedButtons.Pad dp, PaintedButtons.Pad gp, float s, bool goldFocus = true)
     {
-        PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: false, noGlow: true);
+        PaintedButtons.Apply(b, dark, gold, dp, gp, s, goldFocus, paintedText: false, noGlow: true, cpx: s);
     }
 
     void StyleArmoury(float s, List<ArmClass> classes, ArmDetail detail, string badge)
@@ -338,7 +370,7 @@ public sealed partial class CreatorView
         {
             var row = classes[i]; var r = new Rect2(0, new[] { 2.75f, 30f, 55f, 80f }[i], 198, 23.5f);
             var b = new Button { Text = row.Real ?? row.Label, ToggleMode = true, FocusMode = FocusModeEnum.All, Alignment = HorizontalAlignment.Left, ClipText = true, Name = "ArmClass" + i };
-            b.Position = r.Position * s; b.Size = r.Size * s; b.TooltipText = row.Real ?? row.Label;
+            b.Position = r.Position * s; b.Size = r.Size * s; UiTooltip.Attach(b, ClassChangeHint);
             b.ButtonPressed = row.Selected;
             var press = row.Press;
             b.Pressed += () => { press(); };
@@ -347,11 +379,11 @@ public sealed partial class CreatorView
             ArmText(b, ArmNameSize, s, ArmLight, ArmDark);
             foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(n, Colors.Transparent);   // the plate's name is the label below (one side's class name, upper case); the button keeps both sides' name
             var nameLabel = new Label { Text = row.Label, MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, ClipText = true };
-            ArmLabel(nameLabel, ArmNameSize, s, row.Selected ? ArmDark : ArmLight); nameLabel.Position = new Vector2(76f, 0f) * s; nameLabel.Size = new Vector2(116f, 23.5f) * s; b.AddChild(nameLabel);
+            ArmLabel(nameLabel, ArmNameSize, s, row.Selected ? ArmDark : ArmLight); nameLabel.Position = new Vector2(76f, 0f) * s; nameLabel.Size = new Vector2(112f, 23.5f) * s; b.AddChild(nameLabel); ArmFit(nameLabel, ArmNameSize, nameLabel.Size.X);
             if (row.Icon is not null && ConceptArt.Get(row.Icon) is { } tex)
             {
                 var ico = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Modulate = row.Selected ? ArmDark : ArmLight };
-                ico.Position = new Vector2(14f * s, 0.5f * s); ico.Size = new Vector2(44f * s, 22.5f * s); b.AddChild(ico);
+                ico.Position = new Vector2(14f * s, 0.5f * s); ico.Size = new Vector2(44f * s, 22.5f * s); b.AddChild(ico);   // a painted class emblem
             }
         }
         // ---- the weapon row ----
@@ -362,12 +394,11 @@ public sealed partial class CreatorView
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) wb.AddThemeColorOverride(n, Colors.Transparent);
         var iconRect = new Rect2(UiTextureBuilder.ArmWeaponIcon.Position - wr.Position, UiTextureBuilder.ArmWeaponIcon.Size);
         _armWeaponIcon!.Texture = ArmIcon(detail.WeaponIcon, "glyph-gun"); _armWeaponIcon.Modulate = detail.WeaponIcon?.StartsWith("install:", StringComparison.Ordinal) == true ? ArmEngrave : Colors.White;
-        _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered;
-        _armWeaponIcon.StretchMode = TextureRect.StretchModeEnum.Scale; _armWeaponIcon.Position = (iconRect.Position + new Vector2(4, 4)) * s; _armWeaponIcon.Size = new Vector2(70, 28) * s;
         foreach (var old in _armWeaponIcon.GetChildren()) { _armWeaponIcon.RemoveChild(old); old.QueueFree(); }
+        ArmFitPicture(_armWeaponIcon, new Rect2((iconRect.Position + new Vector2(4, 4)) * s, new Vector2(70, 28) * s));   // keeps the picture's own aspect
         ArmShadow(_armWeaponIcon, s);
         _armWeaponName!.Text = detail.Weapon; ArmLabel(_armWeaponName, ArmNameSize, s, ArmLight);
-        _armWeaponName.Position = new Vector2(UiTextureBuilder.ArmWeaponName.Position.X - wr.Position.X + 9f, UiTextureBuilder.ArmWeaponName.Position.Y - wr.Position.Y) * s; _armWeaponName.Size = new Vector2(UiTextureBuilder.ArmWeaponName.Size.X - 30f, UiTextureBuilder.ArmWeaponName.Size.Y) * s;
+        _armWeaponName.Position = new Vector2(UiTextureBuilder.ArmWeaponName.Position.X - wr.Position.X + 9f, UiTextureBuilder.ArmWeaponName.Position.Y - wr.Position.Y) * s; _armWeaponName.Size = new Vector2(UiTextureBuilder.ArmWeaponName.Size.X - 30f, UiTextureBuilder.ArmWeaponName.Size.Y) * s; ArmFit(_armWeaponName, ArmNameSize, _armWeaponName.Size.X);
         // ---- the tiles ----
         foreach (var c in _armTilesHost!.GetChildren()) { _armTilesHost.RemoveChild(c); c.QueueFree(); }
         _armTileButtons.Clear();
@@ -379,45 +410,47 @@ public sealed partial class CreatorView
             b.Position = new Vector2(tx[i], 5f) * s; b.Size = new Vector2(74f, 66f) * s; b.ButtonPressed = t.Selected; b.ClipText = true; b.CustomMinimumSize = Vector2.Zero;
             var press = t.Press; b.Pressed += () => press();
             _armTilesHost.AddChild(b); _armTileButtons.Add(b);
-            PaintedButtons.Apply(b, "arm-tile-dark", "arm-tile-gold", new PaintedButtons.Pad(1, 2, 1, 2), new PaintedButtons.Pad(3, 3, 3, 3), s, true, paintedText: true, noGlow: true);
+            PaintedButtons.Apply(b, "arm-tile-dark", "arm-tile-gold", new PaintedButtons.Pad(1, 2, 1, 2), new PaintedButtons.Pad(3, 3, 3, 3), s, true, paintedText: true, noGlow: true, cpx: s);
             int paren = t.Label.IndexOf(" (", StringComparison.Ordinal); var l = new Label { Text = (paren > 0 ? t.Label[..paren] : t.Label).ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, AutowrapMode = TextServer.AutowrapMode.Word };
             ArmLabel(l, ArmTileSize, s, t.Selected ? new Color(1f, 0.95f, 0.8f) : ArmLight);
-            l.Position = new Vector2(7f, 30f) * s; l.Size = new Vector2(60f, 31f) * s; b.AddChild(l);   // clear of the bezels
+            l.Position = new Vector2(7f, 30f) * s; l.Size = new Vector2(60f, 31f) * s; b.AddChild(l); ArmFit(l, ArmTileSize, l.Size.X);   // clear of the bezels
             if (ArmIcon(t.Icon, i == 0 ? "glyph-grenade" : "glyph-perk") is { } tex)
-            { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(14f, 6f) * s, Size = new Vector2(46f, 30f) * s, Modulate = ArmInk(tex) }; b.AddChild(ic); ArmShadow(ic, s); }
+            { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, Modulate = ArmInk(tex) }; ArmFitPicture(ic, new Rect2(new Vector2(14f, 6f) * s, new Vector2(46f, 30f) * s)); b.AddChild(ic); ArmShadow(ic, s); }
         }
         // ---- the header tab strip: CLASS, SLOTS, ARMOUR & PAINT ----
         _armTabClass!.SetPressedNoSignal(!_armSlotsTab); _armTabSlots!.SetPressedNoSignal(_armSlotsTab);
         foreach (var b in new[] { _armTabClass, _armTabSlots, _armTabLook! })
         {
             b.CustomMinimumSize = Vector2.Zero; b.Alignment = HorizontalAlignment.Center;
-            PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
+            PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
             ArmText(b, ArmPillSize + 1f, s, ArmLight, ArmDark);
+            PaintedButtons.FitButton(b, ArmUnit(ArmPillSize + 1f), UiTextureBuilder.ArmHeader.Size.X / 3f * s);
         }
-        PaintedButtons.Apply(_armPickBack!, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1), new PaintedButtons.Pad(1), s * 0.45f, true, paintedText: false, noGlow: true); ArmText(_armPickBack, ArmPillSize + 1f, s, ArmLight, ArmDark);
+        PaintedButtons.Apply(_armPickBack!, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1), new PaintedButtons.Pad(1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s); ArmText(_armPickBack, ArmPillSize + 1f, s, ArmLight, ArmDark);
         BuildArmSlotCards(s, detail);
         // The SLOTS tab: a dark well with the chips as plates (one lettering; the open loadout's chip gold; the state words in the tooltip, the star kept).
         _armWell!.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.055f, 0.042f, 0.022f), BorderColor = new Color(0.50f, 0.37f, 0.12f), BorderWidthLeft = 1, BorderWidthTop = 1, BorderWidthRight = 1, BorderWidthBottom = 1 });
         var openChip = _strip.Open is { } opened ? _strip.ChipOf(opened) : null;
         foreach (var chip in _strip.Chips)
         {
-            chip.CustomMinimumSize = new Vector2(70f * s, 31f * s); chip.ClipText = true;
+            chip.CustomMinimumSize = new Vector2(70f * s, 31f * s); chip.ClipText = false;
             bool isOpen = chip == openChip;
-            PaintedButtons.Apply(chip, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, goldRest: isOpen, noGlow: true);
+            PaintedButtons.Apply(chip, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, goldRest: isOpen, noGlow: true, cpx: s);
             ArmText(chip, 8.2f, s, isOpen ? ArmDark : ArmLight, ArmDark);
-            foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (chip.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 12f * s; sb.ContentMarginRight = 3f * s; }
+            foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (chip.GetThemeStylebox(n) is StyleBox sb) sb.ContentMarginLeft = 12f * s;   // the star's room; the other margins are the plate's own inset
             chip.AddThemeConstantOverride("line_spacing", -Mathf.RoundToInt(2.6f * s));
             foreach (var l in chip.GetChildren().OfType<Label>()) l.Visible = false;
             // Two lines inside the plate (owner, 2026-11-18: the third line was cut): the slot, then its name (or its class when the name is only the slot again); the star sits in the left margin.
             var lines = chip.Text.Split((char)10);
             if (lines.Length > 2) chip.Text = lines[0] + "\n" + (lines[1].Equals(lines[0], StringComparison.OrdinalIgnoreCase) ? lines[2] : lines[1]);
+            { string longest = chip.Text.Split((char)10).OrderByDescending(x => x.Length).First(); int cu = PaintedButtons.FitUnit(chip.GetThemeFont("font"), longest, ArmUnit(8.2f), 70f * s - chip.GetThemeStylebox("normal").GetMinimumSize().X, out bool cw); chip.AddThemeFontSizeOverride("font_size", UiType.Px(cu)); chip.AutowrapMode = cw ? TextServer.AutowrapMode.Word : TextServer.AutowrapMode.Off; }
             foreach (var star in chip.GetChildren().OfType<UiKit.Glyph>()) { star.Size = new Vector2(10f, 10f) * s; star.CustomMinimumSize = star.Size; star.Position = new Vector2(1.5f * s, 31f * s / 2f - 5f * s); }
         }
         // ---- CONFIRM LOADOUT, BACK, the badge ----
-        ArmPlate(_armConfirm!, "arm-confirm", "arm-confirm", new PaintedButtons.Pad(0), new PaintedButtons.Pad(0), s, false);
+        ArmPlate(_armConfirm!, "arm-confirm", "arm-confirm", default, default, s, false);
         ArmText(_armConfirm, ArmConfirmSize, s, ArmDark, ArmDark); _armConfirm.AddThemeColorOverride("font_hover_color", new Color(0.2f, 0.12f, 0.02f));
         _armConfirm.Text = "CONFIRM LOADOUT"; _armConfirm.ClipText = false;
-        ArmPlate(_armBack!, "arm-back", "arm-back", new PaintedButtons.Pad(0), new PaintedButtons.Pad(0), s, false);
+        ArmPlate(_armBack!, "arm-back", "arm-back", default, default, s, false);
         ArmText(_armBack, ArmBackSize, s, ArmLight, ArmLight);
         ArmLabel(_armBadgeText!, ArmBadgeSize, s, ArmLight); _armBadgeText.Text = badge;
         // ---- the dock's plates and the lines ----
@@ -427,9 +460,8 @@ public sealed partial class CreatorView
             {
                 b.AddThemeConstantOverride("h_separation", 0);
                 b.CustomMinimumSize = new Vector2(0, 17f * s);
-                PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
+                PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
                 ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", ArmPx(ArmPlateSize * 0.86f));
-                foreach (var n in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) if (b.GetThemeStylebox(n) is StyleBoxTexture sb) { sb.ContentMarginLeft = 4f * s; sb.ContentMarginRight = 4f * s; }
             }
             else if (c is Label l) ArmLabel(l, ArmPlateSize, s, ArmLight);
         }
@@ -440,7 +472,7 @@ public sealed partial class CreatorView
         foreach (var b in _sideToggle.GetChildren().OfType<Button>())
         {
             b.CustomMinimumSize = new Vector2(0, 18f * s); b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true);
+            PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
             ArmText(b, ArmPlateSize, s, ArmLight, ArmDark);
         }
         StyleArmCards(s);
@@ -459,15 +491,15 @@ public sealed partial class CreatorView
         {
             var b = new Button { Text = slot.Slot + ": " + slot.Value, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s * k), TooltipText = slot.Slot + ": " + slot.Value, ClipText = true, Name = "ArmSlot" + _armSlotList.GetChildCount() };
             var press = slot.Press; b.Pressed += () => press();
-            StyleBoxTexture Box(Color mod) => new() { Texture = card, ModulateColor = mod, DrawCenter = true, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch };
+            PaintedButtons.CapStyle Box(Color mod) => PaintedButtons.Box(card, "arm-card", default, s, mod, s);
             var gold = new Color(1.3f, 1.12f, 0.78f);
             b.AddThemeStyleboxOverride("normal", Box(Colors.White)); b.AddThemeStyleboxOverride("hover", Box(ConceptArt.Warm)); b.AddThemeStyleboxOverride("pressed", Box(gold)); b.AddThemeStyleboxOverride("focus", Box(gold)); b.AddThemeStyleboxOverride("disabled", Box(Colors.Gray));
             foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) b.AddThemeColorOverride(n, Colors.Transparent);
             var cap = new Label { Text = slot.Slot.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
-            ArmLabel(cap, ArmTileSize * 0.75f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(79f, Mathf.Min(11f * k, 1.5f)) * s; cap.Size = new Vector2(126f, 9f) * s; b.AddChild(cap);
+            ArmLabel(cap, ArmTileSize * 0.75f, s, new Color(0.97f, 0.82f, 0.4f)); cap.Position = new Vector2(ArmCardTextX(k), 4f) * s; cap.Size = new Vector2(ArmCardTextW(k), 8f) * s; b.AddChild(cap);   /* under the card top bevel */
             var val = new Label { Text = slot.Value.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true, VerticalAlignment = VerticalAlignment.Center };
-            ArmLabel(val, k < 0.85f ? ArmTileSize : ArmNameSize, s, ArmLight); val.Position = new Vector2(79f, k < 0.85f ? 7.5f : 23f * k) * s; val.Size = new Vector2(126f, k < 0.85f ? 67f * k - 8.5f : 34f * k) * s; b.AddChild(val);
-            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f * s, 67f * s * k * 0.07f), Size = new Vector2(50f * s, 67f * s * k * 0.86f), Modulate = ArmInk(tex) }; b.AddChild(ic); ArmShadow(ic, s); }
+            ArmLabel(val, k < 0.85f ? ArmTileSize : ArmNameSize, s, ArmLight); val.Position = new Vector2(ArmCardTextX(k), k < 0.85f ? 11.5f : 23f * k) * s; val.Size = new Vector2(ArmCardTextW(k), k < 0.85f ? 67f * k - 14.5f : 34f * k) * s; b.AddChild(val); ArmFit(val, k < 0.85f ? ArmTileSize : ArmNameSize, val.Size.X); ArmFit(cap, ArmTileSize * 0.75f, cap.Size.X);
+            if (ArmIcon(slot.Icon, EngravedGlyphs.For(slot.Slot)) is { } tex) { var ic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, Modulate = ArmInk(tex) }; ArmFitPicture(ic, new Rect2(new Vector2(8f * s * k, 67f * s * k * 0.1f), new Vector2(62f * s * k, 67f * s * k * 0.8f))); b.AddChild(ic); ArmShadow(ic, s); }
             _armSlotList.AddChild(b);
         }
     }
@@ -497,18 +529,22 @@ public sealed partial class CreatorView
 
     float _armCardK = 1f;
 
+    /// <summary>The card's icon tile is drawn at the art's own proportion (a cap, not squeezed), so it is 79 concept px wide only at the full card height; a shrunk card's tile, and the text beside it, shrink with it (concept px; 4 px of room after the tile at least).</summary>
+    static float ArmCardTextX(float k) => 75f * k + 4f;
+    static float ArmCardTextW(float k) => 222f - ArmCardTextX(k) - 8f;
+
     void StyleArmCard(UiKit.Row row, float s)
     {
         float k = _armCardK;
         if (ConceptArt.Get("arm-card") is not { } card) return;
         row.CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s * k);
         row.AutowrapMode = TextServer.AutowrapMode.Word; row.ClipText = false;
-        StyleBoxTexture Box(Color mod, float grow) => new()
+        PaintedButtons.CapStyle Box(Color mod, float grow)
         {
-            Texture = card, ModulateColor = mod, DrawCenter = true, ContentMarginLeft = 79f * s, ContentMarginRight = 10f * s,
-            ExpandMarginLeft = grow * s, ExpandMarginRight = grow * s, ExpandMarginTop = grow * s, ExpandMarginBottom = grow * s,
-            AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
-        };
+            var b = PaintedButtons.Box(card, "arm-card", new PaintedButtons.Pad(grow), s, mod, s);
+            b.ContentMarginLeft = ArmCardTextX(k) * s; b.ContentMarginRight = 10f * s;   // the icon tile's width (it keeps its proportion now), then the plate's own right margin
+            return b;
+        }
         var gold = new Color(1.3f, 1.12f, 0.78f);   // hover and focus wash; a chosen row is marked by its check glyph in the icon tile
         row.AddThemeStyleboxOverride("normal", Box(Colors.White, 0f));
         row.AddThemeStyleboxOverride("hover", Box(ConceptArt.Warm, 0f));
@@ -524,16 +560,22 @@ public sealed partial class CreatorView
         {
             if (child is ColorRect bar) bar.Visible = false;
             else if (child is Label tags) ArmLabel(tags, ArmTileSize * 0.8f, s, ArmDim);
+            else if (child is Control rightGlyph && rightGlyph.HasMeta("row_right_glyph")) { rightGlyph.OffsetRight = -9f * s; rightGlyph.OffsetLeft = -22f * s; rightGlyph.OffsetTop = -6.5f * s * k; rightGlyph.OffsetBottom = 6.5f * s * k; rightGlyph.Modulate = ArmEngrave; }
             else if (child is Control glyph && glyph.GetType().Name == "Glyph") { glyph.Position = new Vector2(570f - 549f + 12f, 118f - 93f - 12f) * s; glyph.Size = new Vector2(26f, 26f) * s; glyph.Visible = icon is null; }
         }
         foreach (var old in row.GetChildren().OfType<Node>().Where(n => n.HasMeta("arm_card")).ToList()) { row.RemoveChild(old); old.QueueFree(); }
         if (icon == "glyph-perk" && _armIds.TryGetValue(row.Text.ToUpperInvariant(), out var wargearId)) icon = "install:" + wargearId;   // a weapon or grenade of the install: its own silhouette
         if (icon is not null && ArmIcon(icon, "glyph-perk") is { } tex)
-            row.AddChild(new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = icon.StartsWith("install:", StringComparison.Ordinal) ? TextureRect.StretchModeEnum.KeepAspectCentered : TextureRect.StretchModeEnum.Scale, TextureFilter = TextureFilterEnum.LinearWithMipmaps, Position = new Vector2(16f * s, 67f * s * k * 0.07f), Size = new Vector2(50f * s, 67f * s * k * 0.86f), Modulate = ArmInk(tex) }.With(t => t.SetMeta("arm_card", true)));
+        {
+            var pic = new TextureRect { Texture = tex, MouseFilter = MouseFilterEnum.Ignore, Modulate = ArmInk(tex) }.With(t => t.SetMeta("arm_card", true));
+            ArmFitPicture(pic, new Rect2(new Vector2(8f * s * k, 67f * s * k * 0.1f), new Vector2(62f * s * k, 67f * s * k * 0.8f)), icon.StartsWith("install:", StringComparison.Ordinal) ? TextureRect.StretchModeEnum.KeepAspectCentered : TextureRect.StretchModeEnum.Scale);
+            row.AddChild(pic);
+        }
         var name = new Label { Text = row.Text.ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.Word, ClipText = true };
         name.SetMeta("arm_card", true); ArmLabel(name, k < 0.85f ? ArmTileSize : ArmNameSize, s, ArmLight);   // a shrunk card: the caption level, one line, centred, so the name is always whole
         if (k < 0.85f) { name.AutowrapMode = TextServer.AutowrapMode.Off; name.ClipText = true; }
-        name.Position = new Vector2(79f * s, 3f * s * k); name.Size = new Vector2(125f * s, 61f * s * k); row.AddChild(name);
+        name.Position = new Vector2(ArmCardTextX(k) * s, 3f * s * k); name.Size = new Vector2(ArmCardTextW(k) * s, 61f * s * k); row.AddChild(name); ArmFit(name, k < 0.85f ? ArmTileSize : ArmNameSize, name.Size.X);
+        if (k < 0.85f) name.AutowrapMode = TextServer.AutowrapMode.Off;   // a shrunk card: one line at the caption level; a name that still does not fit is shown whole by the tooltip
     }
 
     /// <summary>A step's rows were rebuilt or the page changed: restyle at the next layout.</summary>

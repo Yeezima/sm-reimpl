@@ -209,7 +209,7 @@ public class CustomizerModelTests : IDisposable
         Assert.True(primary.Rows[0].Selected);                                             // the class default is shown selected
         Assert.All(primary.Rows, r => Assert.True(r.Selectable));
         Assert.False(sections[1].Selectable);
-        Assert.All(sections[1].Rows.Concat(sections[2].Rows), r => { Assert.True(r.Fixed); Assert.False(r.Selectable); Assert.Contains("FIXED", r.Tags); });
+        Assert.All(sections[1].Rows.Concat(sections[2].Rows), r => { Assert.True(r.Fixed); Assert.False(r.Selectable); });
         Assert.Equal("mp_pistol_bolt_pistol", sections[1].Rows.Single().Id);
         Assert.Equal("PRIMARY WEAPON", primary.Heading);
         Assert.Equal("HEAVY WEAPON", LoadoutRows.PrimaryHeading("heavy"));

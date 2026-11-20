@@ -99,6 +99,9 @@ public static class UiType
     /// </summary>
     public static int Level(int size) => size <= 20 ? Small : size <= 27 ? Caption : size <= 33 ? Value : size <= 41 ? Label : size <= 51 ? Primary : size <= 62 ? Title : Score;
 
+    /// <summary>The next smaller level of the table (the one step a text too long for its plate takes before it wraps): score to title, title to primary, primary to label, label to value, value to caption, caption to small; small stays.</summary>
+    public static int StepDown(int unit) => unit >= Score ? Title : unit >= Title ? Primary : unit >= Primary ? Label : unit >= Label ? Value : unit >= Value ? Caption : unit >= Caption ? Small : Small;
+
     /// <summary>The same for a size computed by a page from its own art scale (a custom-drawn board's row): at least 8 window pixels, a whole number of them.</summary>
     public static int Fit(float virtualPx) => Snap(Math.Max(1, Mathf.RoundToInt(virtualPx)));
 }

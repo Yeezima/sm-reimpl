@@ -17,13 +17,11 @@ public sealed record OptionRow(string Id, string Title, string Description, bool
 {
     public bool Selectable => !Fixed && Lock.IsOpen;
 
-    /// <summary>The words that mark the row's state (colour is never the only signal): SELECTED, FIXED, LOCKED, NOT SIMULATED YET.</summary>
+    /// <summary>The words that mark the row's state: LOCKED and NOT SIMULATED YET. The chosen row is a gold plate with a tick, a fixed row has a padlock (art, not words; owner, 2026-11-20).</summary>
     public IEnumerable<string> Tags
     {
         get
         {
-            if (Selected) yield return Fixed ? "FIXED" : "SELECTED";
-            else if (Fixed) yield return "FIXED";
             if (!Lock.IsOpen) yield return Lock.Tag;
             if (NotSimulated) yield return "NOT SIMULATED YET";
         }

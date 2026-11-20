@@ -150,10 +150,19 @@ public static partial class UiKit
         // ui/overhaul: a drop-down is a steel plate too.
         foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" }) t.SetStylebox(state, "OptionButton", t.GetStylebox(state, Steel.ButtonType));
         foreach (var colour in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) t.SetColor(colour, "OptionButton", t.GetColor(colour, Steel.ButtonType));
+        UiTooltip.AddToTheme(t);   // the hover hint: a dark painted plate, not the engine's grey box
         return t;
     }
 
     // ---- widgets ----
+
+    /// <summary>
+    /// Registers a control's text as one of the few kinds that may be a sentence (the UI text audit skips it): "error", "refusal", "progress" or "description" (an item's own description in the item card).
+    /// Every other label and button text stays at five words, with no brackets, colon, "click" or "press" (owner, 2026-11-20).
+    /// </summary>
+    public static T TextKind<T>(T control, string kind) where T : Control { control.SetMeta("text_kind", kind); return control; }
+
+    public static bool HasTextKind(Control control) => control.HasMeta("text_kind");
 
     /// <summary>A page title on the concept's rivetted plate with the painted title's emboss (the failure and set-up pages).</summary>
     public static Label PlateTitle(string text, Color? ink = null)
@@ -309,6 +318,16 @@ public static partial class UiKit
         /// <summary>Focus or the mouse left the row (a focus preview ends unless another row takes over at once).</summary>
         public Action? Unfocused;
         public bool IsSelected { get; private set; }
+
+        /// <summary>A small glyph at the row's right edge, inside the text inset (a padlock on a row that is fixed for the class): state shown by art, not by a word.</summary>
+        public void AddRightGlyph(Glyph.Kind kind)
+        {
+            var g = new Glyph(kind, IsSelected ? Gold : Grey) { Name = "RowRightGlyph" };
+            g.SetMeta("row_right_glyph", true);
+            g.SetAnchorsPreset(LayoutPreset.CenterRight); g.GrowHorizontal = GrowDirection.Begin;
+            g.OffsetRight = -16f; g.OffsetLeft = -36f; g.OffsetTop = -10f; g.OffsetBottom = 10f;
+            AddChild(g);
+        }
 
         /// <param name="glyph">The icon at the left (a check for the selected row, a padlock for a locked one); every state also has its word in <paramref name="tags"/>.</param>
         public Row(string title, IEnumerable<string> tags, bool selected, bool enabled, Glyph.Kind? glyph = null, Color? tagColour = null, Color[]? swatches = null)

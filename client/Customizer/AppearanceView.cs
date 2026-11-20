@@ -287,6 +287,7 @@ public sealed partial class AppearanceView : Control
         int keep = focusedBefore is Button fb ? _panel.GetChildren().OfType<Control>().SelectMany(Flatten).OfType<Button>().ToList().IndexOf(fb) : -1;
         var profile = _session.Working;
         var shared = SharedNote();
+        UiKit.TextKind(_classLabel, "description");   // the open loadout's own line
         _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Short}".ToUpperInvariant();
         _classLabel.TooltipText = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Long}";
         for (int i = 0; i < _sectionButtons.Count; i++)
@@ -396,7 +397,6 @@ public sealed partial class AppearanceView : Control
     {
         var race = Race;
         if (race is null) return;
-        _panel.AddChild(Note("A chapter copies its colours and shoulder badges into this look. Armour parts you chose stay."));
         _panel.AddChild(Heading(_race == CustomizationCatalog.Chaos ? "WARBANDS" : "CHAPTERS"));
         foreach (var preset in race.Presets)
         {
@@ -405,6 +405,7 @@ public sealed partial class AppearanceView : Control
             bool applied = look.PresetApplied == pr.Name && !AppearanceEdits.Locked(look);
             var swatches = set is null ? null : new[] { Colour(set.Primary), Colour(set.Secondary), Colour(set.Tertiary) };
             var row = new UiKit.Row(pr.DisplayName, applied ? ["APPLIED"] : [], applied, true, applied ? UiKit.Glyph.Kind.Check : null, null, swatches) { Focused = () => { ShowPresetCard(pr); PreviewEdit((l, _) => AppearanceEdits.SetPreset(l, pr, _catalog)); }, Unfocused = PreviewEnd };
+            UiTooltip.Attach(row, "A chapter copies its colours and shoulder badges into this look. Armour parts you chose stay.");
             row.Pressed += () => Apply((l, _) => AppearanceEdits.SetPreset(l, pr, _catalog), $"{pr.DisplayName} applied.");
             _panel.AddChild(row);
             focusables.Add(row);
@@ -532,7 +533,7 @@ public sealed partial class AppearanceView : Control
         var partRow = UiKit.HBox(8);
         partRow.AddChild(UiKit.Text("Part", UiKit.BodySize, UiKit.White).With(l => l.VerticalAlignment = VerticalAlignment.Center));
         var parts = new OptionButton { CustomMinimumSize = new Vector2(300, UiKit.MinHit), FocusMode = FocusModeEnum.All };
-        parts.AddItem("All parts (apply to all)", 0);
+        parts.AddItem("All parts", 0);
         for (int i = 0; i < AppearanceEdits.Slots.Count; i++) parts.AddItem(AppearanceEdits.SlotTitle(AppearanceEdits.Slots[i]), i + 1);
         parts.Select(_part is null ? 0 : AppearanceEdits.Slots.ToList().IndexOf(_part) + 1);
         parts.ItemSelected += i => { _part = i == 0 ? null : AppearanceEdits.Slots[(int)i - 1]; Rebuild(false); };
@@ -570,7 +571,7 @@ public sealed partial class AppearanceView : Control
         _panel.AddChild(reset);
         focusables.Add(reset);
 
-        var nameLine = UiKit.Text("Focus a colour to see its name.", UiKit.BodySize, UiKit.Gold);
+        var nameLine = UiKit.Text("", UiKit.BodySize, UiKit.Gold);
         foreach (var group in _catalog.PaletteGroups)
         {
             _panel.AddChild(Heading($"{PrettyGroup(group.Name)}  ({group.Colours.Count})"));
@@ -650,7 +651,6 @@ public sealed partial class AppearanceView : Control
 
         var library = EmblemPipeline.Library(_services.Store);
         _panel.AddChild(Heading($"MY EMBLEMS ({library.Count} of {EmblemPipeline.MaxLibrary})"));
-        if (library.Count == 0) _panel.AddChild(Note("Your own images appear here after you import one."));
         foreach (var hash in library)
         {
             var h = hash;
@@ -776,8 +776,8 @@ public sealed partial class AppearanceView : Control
 
     void BuildEyes(AppearanceProfile look, List<Control> focusables)
     {
-        _panel.AddChild(Note("Eye lens colour is our addition, not in the original. Other players see it too; \"Default\" keeps the original eyes.", UiKit.Grey));
         var def = UiKit.Button("Default (original look)", () => Apply((l, _) => AppearanceEdits.SetLens(l, null), "Default eyes."), 0);
+        UiTooltip.Attach(def, "Eye lens colour is our addition, not in the original. Other players see it too; \"Default\" keeps the original eyes.");
         _panel.AddChild(def);
         focusables.Add(def);
         var nameLine = UiKit.Text(look.Lens is { } cur ? $"Current: {cur.R}, {cur.G}, {cur.B}" : "Current: default", UiKit.BodySize, UiKit.White);
@@ -832,8 +832,8 @@ public sealed partial class AppearanceView : Control
         var text = UiKit.VBox(4);
         text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         text.AddChild(UiKit.Text(title.ToUpperInvariant(), UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true));
-        if (body.Length > 0) text.AddChild(UiKit.Text(body.ToUpperInvariant(), UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true));
-        if (extra.Length > 0) text.AddChild(UiKit.Text(extra.ToUpperInvariant(), UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true));
+        if (body.Length > 0) text.AddChild(UiKit.TextKind(UiKit.Text(body.ToUpperInvariant(), UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true), "description"));
+        if (extra.Length > 0) text.AddChild(UiKit.TextKind(UiKit.Text(extra.ToUpperInvariant(), UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true), "description"));
         row.AddChild(text);
         if (picture is not null) row.AddChild(new TextureRect { Texture = picture, CustomMinimumSize = new Vector2(128, 128), StretchMode = TextureRect.StretchModeEnum.Scale, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize });
         _card.AddChild(row);

@@ -231,7 +231,7 @@ public sealed partial class FrontEndView : Control
         AddChild(_appearance);
         _controls = new ControlsView(() => ShowOptions(OptionsView.Controls));   // ui/keybinds (ours)
         AddChild(_controls);
-        _message = UiKit.MenuText("", null, clip: false);
+        _message = UiKit.TextKind(UiKit.MenuText("", null, clip: false), "progress");   // errors and refusals of the page
         _message.Name = "MenuMessage";
         _message.ClipText = false;
         _message.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -295,7 +295,7 @@ public sealed partial class FrontEndView : Control
         lobby.Rows.AddChild(UiKit.MenuGap(0.5f));
         lobby.Rows.AddChild(_activeLabel = UiKit.MenuText("", UiKit.White));
         lobby.Rows.AddChild(_summary = UiKit.MenuText("", UiKit.Grey));
-        lobby.Rows.AddChild(_contentNote = UiKit.MenuText("", UiKit.Grey));
+        lobby.Rows.AddChild(UiKit.TextKind(_contentNote = UiKit.MenuText("", UiKit.Grey), "progress"));   // the state of the content choice
         lobby.Rows.AddChild(UiKit.MenuGap(0.5f));
         lobby.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
         _lobby = lobby;
@@ -323,7 +323,7 @@ public sealed partial class FrontEndView : Control
         // The added mode's page (Warfront's, built by its partial when the row is pressed) is not built here.
 
         var foot = UiKit.VBox(2);
-        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); }));
+        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { UiKit.TextKind(l, "progress"); l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); }));
         foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
@@ -370,10 +370,12 @@ public sealed partial class FrontEndView : Control
         var extras = _services.Content;
         _contentRow?.SetIndex(extras == ContentExtras.None ? 0 : 1);
         if (_contentNote is null) return;
-        _contentNote.Text = (_contentLocked ? $"Content is fixed while your server runs ({ContentProfiles.Name(extras)}). Stop the server to change it."
-            : !ContentExtras.Compiled ? "This build has no added content: faithful only."
-            : extras == ContentExtras.None ? "SM1 multiplayer alone. The server must run --content faithful."
-            : "Adds the Ork Boy (and later gore). The server must run the same profile (the default).").ToUpperInvariant();
+        // The refusal stays on the page; what each choice means is the CONTENT row's hover hint (owner, 2026-11-20).
+        _contentNote.Text = _contentLocked ? $"Content is fixed while your server runs ({ContentProfiles.Name(extras)}). Stop the server to change it.".ToUpperInvariant() : "";
+        if (_contentRow is not null)
+            UiTooltip.Attach(_contentRow, !ContentExtras.Compiled ? "This build has no added content: faithful only."
+                : extras == ContentExtras.None ? "SM1 multiplayer alone. The server must run --content faithful."
+                : "Adds the Ork Boy (and later gore). The server must run the same profile (the default).");
     }
 
     /// <summary>Where the game folder was found (shown small under OPTIONS); set by the launcher.</summary>
@@ -391,10 +393,11 @@ public sealed partial class FrontEndView : Control
         var active = LoadoutEdits.Active(profile, catalog, out bool fellBack);
         var plan = _services.PlanFor(active);
         string name = active.Kind == SelectionKind.Custom && profile.ClassAt(active.Slot) is { } c ? $"CUSTOM {active.Slot}  \"{c.Name}\"" : "DEFAULTS";
-        _activeLabel.Text = "ACTIVE LOADOUT: " + name;
+        _activeLabel.Text = name;
         _activeLabel.TooltipText = _activeLabel.Text;
         _summary!.Text = (plan?.Summary ?? "").ToUpperInvariant();
-        _summary.TooltipText = _summary.Text;
+        _summary.Visible = false;   // the plan's summary is the active loadout's hover hint, not a line of the page
+        _activeLabel.MouseFilter = Control.MouseFilterEnum.Stop; UiTooltip.Attach(_activeLabel, _summary.Text);
         if (fellBack && profile.Selected.Kind == SelectionKind.Custom)
             Say($"Slot {profile.Selected.Slot} is empty, so {(active.Kind == SelectionKind.Custom ? $"slot {active.Slot}" : "the Tactical defaults")} is used.", false);
     }
@@ -732,6 +735,7 @@ public sealed partial class FrontEndView : Control
             _creator.OpenSelection(Selection.CustomSlot(slot));
         if (args.GetValueOrDefault("role") is { } role && LaunchOptions.ParseLoadout("default:" + role, _services.Catalog!) is { } selection) _creator?.OpenSelection(selection);
         if (args.GetValueOrDefault("step") is { } step) _creator?.OpenStep(step);
+        if (args.GetValueOrDefault("arm-tab") is { } armTab) _creator?.ShowArmTab(armTab.StartsWith("s", StringComparison.OrdinalIgnoreCase));   // screenshot aid: the Armoury's CLASS or SLOTS tab
         if (args.GetValueOrDefault("preview-side") is { } side) _creator?.SetPreviewRace(side.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine);
         if (_appearance?.Visible == true)
         {
