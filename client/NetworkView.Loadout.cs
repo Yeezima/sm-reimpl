@@ -364,8 +364,8 @@ public partial class NetworkView
     string ActivateFromPicker(SmContent.Customization.Selection selection)
     {
         var services = _pickerServices;
-        if (services is null) return "The customizer is not ready.";
-        if (!SendLoadout(services, selection, save: true, out string message)) { GD.Print("loadout picker: " + message); return message; }
+        if (services is null) { if (_pickerCreator is not null) _pickerCreator.ActivateFailed = true; return "The customizer is not ready."; }
+        if (!SendLoadout(services, selection, save: true, out string message)) { if (_pickerCreator is not null) _pickerCreator.ActivateFailed = true; GD.Print("loadout picker: " + message); return message; }
         string line = message;
         if (services.Catalog is { } catalog && services.Session is { } session && _client is not null)
         {

@@ -23,6 +23,14 @@ public sealed partial class UiSelfTest
         await Until(() => !Input.IsPhysicalKeyPressed(key), 5, 2);
     }
 
+    async Task SendCtrlS()
+    {
+        Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.S, Keycode = Key.S, CtrlPressed = true, Pressed = true });
+        await Frames(2);
+        Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.S, Keycode = Key.S, CtrlPressed = true, Pressed = false });
+        await Frames(2);
+    }
+
     async Task SendPad(JoyButton button)
     {
         Input.ParseInputEvent(new InputEventJoypadButton { ButtonIndex = button, Pressed = true });

@@ -418,6 +418,18 @@ public sealed partial class UiSelfTest
         int size = firstRow.GetThemeFontSize("font_size");
         float pixels = size * Mathf.Min(GetWindow().Size.X / (float)UiKit.VirtualWidth, GetWindow().Size.Y / (float)UiKit.VirtualHeight);
         Check($"fit {at}: the rows' text is drawn at {UiKit.MinMenuPixels} px or more", firstRow.GetThemeColor("font_color").A < 0.01f || pixels >= UiKit.MinMenuPixels - 0.01f, pixels.ToString());   // the plates carry the words and the live text is transparent at size 8 (menu scale 0.7); a visible live label must still reach the minimum
+        // The painted plate lettering (the live text is transparent): the height of its ink in the plate art, scaled to the window pixels the plate is drawn at, must reach the same minimum.
+        if (firstRow.GetThemeStylebox("normal") is StyleBoxTexture plateBox && plateBox.Texture?.GetImage() is { } plateArt)
+        {
+            int artH = plateArt.GetHeight(), artW = plateArt.GetWidth(), inkTop = artH, inkBottom = -1;
+            for (int y = 0; y < artH; y++)
+                for (int x = artW / 3; x < 2 * artW / 3; x += 2)
+                    if (plateArt.GetPixel(x, y) is { A: > 0.5f } c && c.Luminance > 0.7f) { inkTop = Mathf.Min(inkTop, y); inkBottom = Mathf.Max(inkBottom, y); break; }
+            float winScale = Mathf.Min(GetWindow().Size.X / (float)UiKit.VirtualWidth, GetWindow().Size.Y / (float)UiKit.VirtualHeight);
+            float drawnPlateH = (firstRow.Size.Y + plateBox.ExpandMarginTop + plateBox.ExpandMarginBottom) * winScale;
+            float inkPx = inkBottom >= inkTop ? (inkBottom - inkTop + 1) * drawnPlateH / artH : 0f;
+            Check($"fit {at}: the painted plate lettering is drawn {UiKit.MinMenuPixels} px or more tall", inkPx >= UiKit.MinMenuPixels - 0.01f, $"{inkPx:F2} px (ink {inkBottom - inkTop + 1} of {artH} art rows, plate {drawnPlateH:F1} px)");
+        }
         CheckPage($"fit {at}: main menu", main, view);
         CheckPage($"fit {at}: lobby", _front.LobbyPage!, view, () => _front.ShowMenuPage("lobby"));
         CheckPage($"fit {at}: host", _front.HostPage!, view, () => _front.ShowMenuPage("host"));

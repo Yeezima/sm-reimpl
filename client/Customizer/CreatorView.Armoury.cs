@@ -157,7 +157,10 @@ public sealed partial class CreatorView
     {
         if (AddedPage) { Save(); if (Deploy is not null) PressDeploy(); return; }
         if (IsEmpty) { Say("Choose a class for this slot first."); return; }
-        SetActive();   // in a match this also saves and sends it for the next respawn (NetworkView.Loadout.cs)
+        ActivateFailed = false;
+        SetActive();
+        if (Activate is not null && ActivateFailed) return;   // the refusal is the status line; stay on the page
+        // in a match this also saves and sends it for the next respawn (NetworkView.Loadout.cs)
         if (Activate is null) Save();
         _armSlotsTab = false; _armPicking = false;
         ArmouryDirty();

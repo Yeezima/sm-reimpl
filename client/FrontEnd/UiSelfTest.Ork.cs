@@ -142,6 +142,7 @@ public sealed partial class UiSelfTest
                 new[] { "Shoota", "Slugga", "Choppa" }.All(t => FindButton(creator, b => b is UiKit.Row && b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null)
                 && orkWeapons.Count == 3 && orkWeapons.All(s => !s.Selectable && s.Rows.Count == 1 && s.Rows[0].Fixed),
                 string.Join(", ", orkWeapons.SelectMany(s => s.Rows.Select(r => $"{r.Title} {string.Join("/", r.Tags)}"))));
+            Check("ork: the fixed weapon rows show the padlock glyph", AllButtons(creator).OfType<UiKit.Row>().Where(r => new[] { "Shoota", "Slugga", "Choppa" }.Contains(r.Text, StringComparer.OrdinalIgnoreCase)).All(r => r.FindChild("RowRightGlyph", true, false) is not null));
             creator.OpenStep("perks");
             await Frames(3);
             int tacticalPerks = LoadoutRows.Perks(catalog, "tactical", CustomizationCatalog.SpaceMarine, null, _services.Policy).Count;

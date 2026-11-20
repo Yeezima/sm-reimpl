@@ -260,9 +260,31 @@ public sealed partial class UiSelfTest : Node
         creator.Back();
         await Frames(4);
         Check("leaving with edits asks KEEP CHANGES / DISCARD on the page", creator.BackPromptOpen && FindButton(creator, b => b.Name == "ArmKeepChanges") is not null && FindButton(creator, b => b.Name == "ArmDiscard") is not null && OpenDialog() is null);
+        // The prompt owns the keys: F2, Ctrl+S, PgDn and pad Y/Start do nothing behind it.
+        await SendKey(Key.F2); await SendCtrlS(); await SendKey(Key.Pagedown); await SendPad(JoyButton.Y); await SendPad(JoyButton.Start);
+        await Frames(3);
+        Check("armoury: with the unsaved prompt open, F2, Ctrl+S, PgDn, pad Y and Start do nothing behind it", creator.BackPromptOpen && OpenDialog() is null && session.Dirty);
         Click(b => b.Name == "ArmDiscard");
         await Frames(4);
         Check("Discard reverts and shows the main menu", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsMainMenu);
+
+        // The Armoury's own keys (the dock buttons are gone): F2 opens the rename dialog, Ctrl+S saves.
+        _front.ShowCreator();
+        creator.OpenSelection(Selection.CustomSlot(4));
+        await Frames(3);
+        await SendKey(Key.F2);
+        await Frames(3);
+        Check("armoury: F2 opens the rename dialog", OpenDialog() is not null);
+        ClickDialog("Cancel");
+        await Frames(3);
+        session.Edit(p => LoadoutEdits.Rename(p, 4, "Keyed").Profile);
+        await Frames(3);
+        await SendCtrlS();
+        await Frames(4);
+        Check("armoury: Ctrl+S saves the edit", !session.Dirty && ProfileSession.Open(catalog, _services.Store).Working.ClassAt(4)?.Name == "Keyed");
+        session.Edit(p => LoadoutEdits.Rename(p, 4, "Zed the Bold").Profile);
+        creator.PressSave();
+        await Frames(3);
 
         // 9. the appearance editor: a preset, a colour, a badge, then undo.
         _front.ShowCreator();

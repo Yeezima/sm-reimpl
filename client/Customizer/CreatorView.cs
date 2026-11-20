@@ -49,6 +49,8 @@ public sealed partial class CreatorView : Control
     /// respawning with the class the match was joined with.
     /// </summary>
     public Func<Selection, string>? Activate { get; set; }
+    /// <summary>Set by the host while <see cref="Activate"/> runs: true when the loadout could not be sent (CONFIRM LOADOUT then stays on the page and shows the message).</summary>
+    public bool ActivateFailed { get; set; }
 
     /// <summary>In a match (M44): the text of the button that leaves the creator ("RESUME (Esc)" instead of "BACK (Esc)").</summary>
     public string BackText { set { if (_backButton is not null) _backButton.Text = value; } }
@@ -970,7 +972,7 @@ public sealed partial class CreatorView : Control
     void SetActive()
     {
         if (IsEmpty) return;
-        if (Activate is { } activate) { Say(activate(_open), 8.0); return; }   // in a match: marks it active, saves and sends it (NetworkView.Loadout.cs)
+        if (Activate is { } activate) { ActivateFailed = false; Say(activate(_open), 8.0); return; }   // in a match: marks it active, saves and sends it (NetworkView.Loadout.cs)
         _session.Edit(p => LoadoutEdits.Select(p, _open));
         Say(_open.Kind == SelectionKind.Custom ? $"Slot {_open.Slot} is your active loadout. Save to keep it." : "The defaults are your active loadout. Save to keep it.");
     }
@@ -1002,7 +1004,7 @@ public sealed partial class CreatorView : Control
 
     public override void _UnhandledKeyInput(InputEvent e)
     {
-        if (!IsVisibleInTree() || e is not InputEventKey { Pressed: true } key) return;
+        if (!IsVisibleInTree() || BackPromptOpen || e is not InputEventKey { Pressed: true } key) return;   // the unsaved prompt owns the keys (its own Esc is handled by the prompt)
         bool ctrl = key.CtrlPressed || key.MetaPressed;
         switch (key.PhysicalKeycode)
         {
@@ -1018,7 +1020,7 @@ public sealed partial class CreatorView : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!IsVisibleInTree()) return;
+        if (!IsVisibleInTree() || BackPromptOpen) return;   // the unsaved prompt owns the pad too
         if (PadHost.IsBack(e)) { GetViewport().SetInputAsHandled(); Back(); return; }
         if (e is InputEventJoypadButton { Pressed: true } pad)
         {

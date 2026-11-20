@@ -99,7 +99,7 @@ public static class UiTooltip
 
         public static void Stop(Control c)
         {
-            if (_owner != c && _shown is null) { _token++; return; }
+            if (_owner != c) { if (_shown is null) _token++; return; }   // only the owner of the shown hint frees it
             _token++;
             if (_shown is not null && GodotObject.IsInstanceValid(_shown)) _shown.QueueFree();
             _shown = null; _owner = null;
