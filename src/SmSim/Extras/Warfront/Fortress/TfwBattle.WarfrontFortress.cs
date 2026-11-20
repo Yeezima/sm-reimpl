@@ -50,7 +50,7 @@ public sealed partial class TfwBattle
         _fortress = new WarfrontFortressState(setup);
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, TfwPositionState.Secured, 1f, _layout.Positions[k], _layout.Radius(k));
         _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
-        int field = Math.Min(Squads, TfwBattleRules.FinalFieldSquads);
+        int field = Math.Min(Squads, FinalFieldSquadsMax);
         _reserves = Squads - field;
         PlanColumns();
         PlanStormboys();

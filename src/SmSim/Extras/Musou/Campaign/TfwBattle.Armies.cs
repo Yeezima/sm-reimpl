@@ -340,7 +340,7 @@ public sealed partial class TfwBattle
         {
             if (!a.Near || a.FarCount < 1) continue;
             if (a.Side == TfwArmySide.Ork && OrkAggregates && float.IsNaN(orkWant) && ArmyCapped > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
-            if (a.Side == TfwArmySide.Guard && float.IsNaN(squadWant) && ArmySquads >= TfwArmyRules.NearSquadsMost) squadWant = d;
+            if (a.Side == TfwArmySide.Guard && float.IsNaN(squadWant) && ArmySquads >= NearSquadsCap) squadWant = d;
         }
         if (float.IsNaN(orkWant) && float.IsNaN(squadWant)) return;
         for (int k = _byDistance.Count - 1; k >= 0; k--)
@@ -385,9 +385,12 @@ public sealed partial class TfwBattle
         }
     }
 
+    /// <summary>Warfront: a Guardsman's worth in a far clash (the Guardsmen's strength is scaled there, so the aggregates fight as the real men do).</summary>
+    partial void WarfrontGuardWorth(ref float worth);
+
     void PromoteSquads(TfwArmy a, ref int budget)
     {
-        while (budget > 0 && a.FarCount >= 1 && ArmySquads < TfwArmyRules.NearSquadsMost)
+        while (budget > 0 && a.FarCount >= 1 && ArmySquads < NearSquadsCap)
         {
             int block = (a.SlotBase + GuardSim.SquadSize - 1) / GuardSim.SquadSize, men = Math.Min(GuardSim.SquadSize, a.FarCount);
             var centre = TfwArmyLayout.SquadCentre(a.Width, a.Anchor, a.Yaw, block);
@@ -631,7 +634,8 @@ public sealed partial class TfwBattle
             if ((_clashOrks.Count == 0 && realOrks == 0) || (_clashGuards.Count == 0 && realGuards == 0)) continue;
             var orks = orkUnits[..(_clashOrks.Count + 1)];
             var guards = guardUnits[..(_clashGuards.Count + 1)];
-            const float ork = TfwClashRules.OrkWorth, guard = TfwClashRules.GuardWorth;
+            float ork = TfwClashRules.OrkWorth, guard = TfwClashRules.GuardWorth;
+            WarfrontGuardWorth(ref guard);   // WARFRONT-HOOK
             for (int j = 0; j < _clashOrks.Count; j++) orks[j] = new TfwClashUnit(_clashOrks[j].Far, ClashStart(_clashOrks[j]), _clashOrks[j].Cohesion, worth: ork);
             for (int j = 0; j < _clashGuards.Count; j++) guards[j] = new TfwClashUnit(_clashGuards[j].Far, ClashStart(_clashGuards[j]), _clashGuards[j].Cohesion, worth: guard);
             orks[^1] = new TfwClashUnit(realOrks, realOrks, steady: true, worth: ork) { Silent = seen };

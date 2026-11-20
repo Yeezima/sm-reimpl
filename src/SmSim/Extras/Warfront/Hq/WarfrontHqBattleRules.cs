@@ -49,7 +49,7 @@ public static class WarfrontHqBattleRules
     public const int BossNobsPerHuman = 1, BossWave = 2;
 
     /// <summary>The Guard squads that start at each position's posts (W, K, V); the Guardsmen are not replaced.</summary>
-    public static readonly int[] SquadsAt = [2, 1, 1];
+    public static readonly int[] SquadsAt = [2 * SmSim.Extras.Warfront.WarfrontGuardRules.NumberScale, 1 * SmSim.Extras.Warfront.WarfrontGuardRules.NumberScale, 1 * SmSim.Extras.Warfront.WarfrontGuardRules.NumberScale];   // 2, 1, 1 before the Guardsmen depth change (owner 2026-11-20: twice the Guardsmen)
     /// <summary>The strength each Guard squad is spawned with at W, K and V (<c>GuardSim.SpawnSquad</c>'s own parameter; 1 is a full squad). W13c: the one step allowed without a ruling if the passive human still won after the rout rule.</summary>
     public static readonly float[] GuardStrengthAt = [1f, 1f, 1f];
 

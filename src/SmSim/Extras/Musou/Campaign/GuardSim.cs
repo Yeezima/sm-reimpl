@@ -225,9 +225,9 @@ public sealed class GuardSim
     /// living men in slot order one a post (more men than posts: they share them round), facing <paramref name="faceYaw"/> once there. Needs <see cref="GuardRules.Spread"/>; false without it, or as
     /// <see cref="Order"/>, or with no posts.
     /// </summary>
-    public bool OrderPosts(int squad, Vector3 destination, ReadOnlySpan<Vector3> posts, float faceYaw)
+    public bool OrderPosts(int squad, Vector3 destination, ReadOnlySpan<Vector3> posts, float faceYaw, Vector3? via = null)
     {
-        if (!Rules.Spread || posts.Length == 0 || !Order(squad, destination, destination, 1f)) return false;
+        if (!Rules.Spread || posts.Length == 0 || !Order(squad, destination, via ?? destination, 1f)) return false;   // via (Warfront rows, 2026-11-20): the shared place whose flow field the way follows, so many squads with their own slots do not each take one of the few fields
         int k = 0;
         for (int i = squad * SquadSize; i < (squad + 1) * SquadSize; i++)
         {

@@ -17,7 +17,7 @@ namespace SmClient;
 /// </summary>
 public partial class GuardCrowd : CrowdView
 {
-    public const int DefaultVisible = 120, LowVisible = 60, SkinnedNear = 20, MaxBodyCount = 40;
+    public const int DefaultVisible = 120, WarfrontVisible = 448, LowVisible = 60, SkinnedNear = 20, MaxBodyCount = 40;
     public const float NearDistance = 25f, HalfRateDistance = 12f;
     /// <summary>Seconds after his last shot a man stays in the aim set.</summary>
     public const float EngagedSeconds = 3f;

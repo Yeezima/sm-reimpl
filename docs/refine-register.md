@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3903 spec table rows: **2853 tagged**, 693 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 832 rows of the changes document.
+Scanned 3915 spec table rows: **2864 tagged**, 694 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 833 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3903 spec table rows: **2853 tagged**, 693 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 243 | 225 | 196 | 32 | 0 |
+| Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,19 +53,19 @@ Scanned 3903 spec table rows: **2853 tagged**, 693 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 37 | 36 | 29 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2853** | 2548 | 2167 | 828 | 37 |
+| **All areas** | **2864** | 2559 | 2172 | 838 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1665 |
-| confidence: low | 1047 |
+| kind: ours | 1676 |
+| confidence: low | 1052 |
 | confidence: medium | 1009 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
-| notes: estimate | 224 |
+| notes: estimate | 234 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -74,7 +74,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
-| notes: interpretation | 28 |
+| notes: interpretation | 29 |
 | kind: approximation | 27 |
 | kind: placeholder | 23 |
 | notes: open question | 21 |
@@ -1927,7 +1927,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (243)
+### Sound mix (gameplay-critical) (254)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2321,6 +2321,22 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9394BAB1` | Unsaved prompt | card at concept (283, 168), **214 x 82**; KEEP CHANGES (gold) 94 x 24 at (10, 46) and DISCARD (dark) 94 x 24 at (110, 46) inside it; Esc or B closes it and stays (concept px) | kind: ours; confidence: medium | the owner (the two choices) | Unsaved prompt: compare with SM1 by listening A/B at the same distance and state. Ours: card at concept (283, 168), 214 x 82; KEEP CHANGES (gold) 94 x 24 at… | ☐ |
 | `R-A2B3C0E6` | Tab strip width | the three tabs share the strip by what their labels need (stretch ratio = text width plus plate margins), so ARMOUR & PAINT reads at the caption size (ratio) | kind: ours; confidence: medium | the owner (the size the tabs had) | Tab strip width: compare with SM1 by listening A/B at the same distance and state. Ours: the three tabs share the strip by what their labels need (stretch… | ☐ |
 | `R-D8A22366` | Hover plate place | to the right of the option, 6 px off; where that has no room to its left, else above it, else below; upper case; the plate's flat backing follows its chamfered ends (a chamfer of 20 % of the plate's height) (px) | kind: ours; confidence: medium | the owner ("beside the hovered or focused control"); the left fallback is ours | Hover plate place: compare with SM1 by listening A/B at the same distance and state. Ours: to the right of the option, 6 px off; where that has no room to its… | ☐ |
+
+*Spec section: Added content: Warfront Guardsmen (Guardsmen depth, owner 2026-11-20; `Extras/Warfront/Battle/WarfrontGuardRules.cs`; `WarfrontRules.Version` 17; added content, Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-5D3B22F7` | Guardsman strength | health and shot damage x **0.95** of Musou's (85 x 1.1 = 93.5 hit points, 5 x 1.1 = 5.5 a shot become 88.8 and 5.2); range, rate, hit chances, speed unchanged; the Orks are untouched (player-facing Ork difficulty is unchanged) (factor) | kind: ours; confidence: low; notes: estimate | owner 2026-11-20 (Orks win about 2 in 3); value measured below | Guardsman strength: compare with SM1 by listening A/B at the same distance and state. Ours: health and shot damage x 0.95 of Musou's (85 x 1.1 = 93.5 hit points… | ☐ |
+| `R-38184E37` | Balance measurement | `WarfrontGuardBalanceTests` on `GuardHoldTrial` (60 Guardsmen on a point against 60 Orks of one crowd's mix, a seeded bearing, no player, 300 simulated seconds at most; 30 seeds a setting): scale 1 (Musou's) held **14 of 30**; sweep 0.97: 15, **0.95: 9**… (held of 30) | kind: ours; confidence: low; notes: estimate | measured 2026-11-20 | Balance measurement: compare with SM1 by listening A/B at the same distance and state. Ours: WarfrontGuardBalanceTests on GuardHoldTrial (60 Guardsmen on a point… | ☐ |
+| `R-463BB1A6` | Far clash worth | a Guardsman's worth in the aggregates' clash is `GuardWorth` x **0.95 squared = 0.9025** (health times damage), so the garrisons fight as the real squads do (factor) | kind: ours; confidence: low; notes: estimate | ours (Lanchester's square) | Far clash worth: compare with SM1 by listening A/B at the same distance and state. Ours: a Guardsman's worth in the aggregates' clash is GuardWorth x 0.95… | ☐ |
+| `R-F9121F6E` | HQ hold weight | a Guardsman in the ring counts `GuardsmanWeight` (1) divided by the number scale (integer division), so twice the men weigh what the old squads did and the HQ hold is no easier than before (weight) | kind: ours; notes: estimate | ours (player-facing difficulty unchanged) | HQ hold weight: compare with SM1 by listening A/B at the same distance and state. Ours: a Guardsman in the ring counts GuardsmanWeight (1) divided by the… | ☐ |
+| `R-D9563B11` | Rows | on each secured point the squads standing at it (lane battles and the fortress; the HQ keeps its posts) stand in rows facing the approach: **4** squads a row, rows **6 m** apart, squads **7 m** apart in a row, every second row shifted half a squad (**3.5 m**)… (m) | kind: ours; confidence: low; notes: estimate | owner 2026-11-20 (grids of squads covering each other from behind); numbers ours | Rows: compare with SM1 by listening A/B at the same distance and state. Ours: on each secured point the squads standing at it (lane battles and the… | ☐ |
+| `R-C2FB1604` | Cover through the gaps | a Guardsman's shot is a roll against a line of sight on the weapons mesh and is never stopped by a friend; the staggered gaps keep the rear squads' lines of sight past the front men and show the rows covering each other (no new fire rule) | kind: ours; notes: interpretation; notes: estimate | ours (interpretation) | Cover through the gaps: compare with SM1 by listening A/B at the same distance and state. Ours: a Guardsman's shot is a roll against a line of sight on the weapons… | ☐ |
+| `R-E188913B` | Approach | the Orks within **70 m** of the point when at least **6** stand there (their centre's bearing from the point), else the bearing of the point's Ork source; the approach turns only when the new bearing differs by more than **30 degrees** (m, count, degrees) | kind: ours; notes: estimate | ours (the battle's own approach: the crowd and source) | Approach: compare with SM1 by listening A/B at the same distance and state. Ours: the Orks within 70 m of the point when at least 6 stand there (their… | ☐ |
+| `R-806A8B99` | Fall back and step up | a squad with **3** men or fewer goes to the rear of the point's order while at least one squad is healthier, and the squads behind it each move up one place; a fallen squad leaves the order and the next row's squads step up (men) | kind: ours; confidence: low; notes: estimate | owner 2026-11-20 (the next row becomes the front, an optional fall-back); number ours | Fall back and step up: compare with SM1 by listening A/B at the same distance and state. Ours: a squad with 3 men or fewer goes to the rear of the point's order… | ☐ |
+| `R-E5FAF371` | Walkable ground | a slot is pulled toward the point (whole, three quarters, half, a quarter of its offset) until it is on the walking graph, reachable in a straight line from the point and **2.5 m** off walls and ledges where the ground allows it, else the best clearance; each… (m) | kind: ours; notes: estimate | owner 2026-11-20 (spacing fits each map's walkable ground); number ours | Walkable ground: compare with SM1 by listening A/B at the same distance and state. Ours: a slot is pulled toward the point (whole, three quarters, half, a… | ☐ |
+| `R-B769F750` | On the point | a squad within the point's radius **plus 14 m** counts as on its point (the rows reach past the ring), so it is not sent again (m) | kind: ours; notes: estimate | ours | On the point: compare with SM1 by listening A/B at the same distance and state. Ours: a squad within the point's radius plus 14 m counts as on its point… | ☐ |
+| `R-0EC1CBD6` | Cost of the doubled Guardsmen | `smtool warfront-guards --slot wf_a1 --seconds 60` (Release, real map and graph, the first 60 s after A, B, C are secured, 30 ticks a second, an idle machine): before (`SM_WF_GUARD_OLD=1`) mean **3.05 ms** a tick, p95 3.72, 107 Guardsmen and 960 Orks on… (ms) | kind: ours | measured 2026-11-20 | Cost of the doubled Guardsmen: compare with SM1 by listening A/B at the same distance and state. Ours: smtool warfront-guards --slot wf_a1 --seconds 60 (Release, real map… | ☐ |
 
 ### Effects (gameplay-critical) (100)
 
@@ -5021,6 +5037,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 | `C-8DF0F6BD` | Musou Guardsmen spread out on the way and round a held point (musou/guard-spread, 2026-11-08; `TfwRules.Version` 44) | the owner's request (2026-11-08); added content, no SM1 counterpart | Ours (the numbers estimates): squads walk in open order (3.5 m abreast, two ranks 3 m apart, each man shifted up to 0.75 m) in three lanes 6 m apart, their places kept 1 m off walls, their way chosen for clearance (up to 2 m) among the steps that get nearer, a stuck man detours for 2 s; on a point they hold each squad… | spec "Musou Mode: the Guardsmen spread out on the way and round a held point" | Musou Guardsmen spread out on the way and round a held…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08); added content, no SM1 counterpart. | ☐ |
+| `C-8E76C9F5` | Warfront Guardsmen: twice the numbers, the Orks' favour, defence in depth (Guardsmen depth, 2026-11-20; `WarfrontRules.Version` 17) | the owner's request (2026-11-20); added content, no SM1 counterpart | Ours (every number an estimate): twice the squads in every Warfront battle that has them (field, reserves, fortress, HQ posts, garrisons, reinforcements); a Guardsman's health and damage x0.95 of Musou's so that 60 against 60 Orks hold a point 9 of 30 fights (Musou's: 14); the squads of a secured point stand in rows… | spec "Added content: Warfront Guardsmen" | Warfront Guardsmen: twice the numbers, the Orks' favour…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-20); added content, no SM1 counterpart. | ☐ |
 | `C-4C725922` | Musou Guard vantage teams (musou/guard-vantage, 2026-11-09; `TfwRules.Version` 52) | the owner's request (2026-11-09); added content, no SM1 counterpart | Ours (the owner's 50 m; the rest estimates): vantage points found from the level (3 m over the median ground round them, reachable from the base and back on the walking graph, room for 3 to 6 posts, 30 % of 48 lines of fire to the ground clear); every 20 to 45 s a team of 3 to 6 men from a field squad at its post… | spec "Musou Mode: Guard vantage teams" | Musou Guard vantage teams (musou/guard-vantage, 2026-11-09…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-09); added content, no SM1 counterpart. | ☐ |
 | `C-5493CF9D` | Musou Mode's hub is the inside of the campaign Thunderhawk | the owner's pass 2 item 29 (2026-11-01) | the Stormbird is the model `thunderhawk_interior` of the singleplayer chunk (a singleplayer-content dependency, read from the install at run time), its ramp open on black space and a planet; generated collision (the chunk has none); stations at the monitor and a tech panel; warm work lights ours | War map, War map look | Musou Mode's hub is the inside of the campaign Thunderhawk: compare with SM1 by feel or video. Ours: the owner's pass 2 item 29 (2026-11-01). | ☐ |
 | `C-7A2FCDE6` | Musou Mode's rewards and slots | the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours | full loadout from the start, enemies drop the core's boxes (fodder 8%, elites 40%), 6 class crates a battle, 3 reward cards after a won map, found weapons in keys 3, 4, 5 that never replace the primary, keyboard only | Boxes from enemies, Box chance, Weapon crates, Reward offer, Extra primary slots | Musou Mode's rewards and slots: compare with SM1 by feel or video. Ours: the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours. | ☐ |

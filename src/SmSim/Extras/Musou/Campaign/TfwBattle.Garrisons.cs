@@ -39,11 +39,11 @@ public sealed partial class TfwBattle
     TfwArmy? EnsureGarrison(int k)
     {
         if (GarrisonOf(k) is { } held) return held;
-        var g = NewArmy(TfwArmySide.Guard, TfwArmyOrder.Hold, TfwArmyRules.GarrisonCap, 0f);
+        var g = NewArmy(TfwArmySide.Guard, TfwArmyOrder.Hold, GarrisonCapNow, 0f);
         if (g is null) return null;
         var point = Ground(_layout.Positions[k], _layout.Positions[k]);
         g.Yaw = FaceCentre(point);
-        g.Anchor = point + new Vector3(TfwArmyLayout.Forward(g.Yaw) * (TfwArmyLayout.Depth(g.Side, g.Width, TfwArmyRules.GarrisonCap) * 0.5f), 0f);
+        g.Anchor = point + new Vector3(TfwArmyLayout.Forward(g.Yaw) * (TfwArmyLayout.Depth(g.Side, g.Width, GarrisonCapNow) * 0.5f), 0f);
         g.Goal = g.Post = k;
         g.From = g.To = k;
         return g;
@@ -58,10 +58,10 @@ public sealed partial class TfwBattle
         int total = 0;
         for (int k = 0; k < Positions; k++)
         {
-            need[k] = Imperial(k) ? Math.Max(0, TfwArmyRules.GarrisonCap - Stationed(k) - Inbound(k)) : 0;
+            need[k] = Imperial(k) ? Math.Max(0, GarrisonCapNow - Stationed(k) - Inbound(k)) : 0;
             total += need[k];
         }
-        int men = TfwArmyRules.ReinforceMen + _guardHome;
+        int men = ReinforceMenNow + _guardHome;
         if (total == 0) return;   // nothing lacks: the men home wait
         int sent = 0;
         for (int k = 0; k < Positions && sent < men; k++)
@@ -93,7 +93,7 @@ public sealed partial class TfwBattle
     {
         var g = EnsureGarrison(k);
         if (g is null) { RedirectGuards(a); return; }
-        int room = TfwArmyRules.GarrisonCap - g.Count;
+        int room = GarrisonCapNow - g.Count;
         int far = Math.Min(room, a.FarCount);
         if (far > 0)
         {
@@ -131,7 +131,7 @@ public sealed partial class TfwBattle
         for (int k = 0; k < Positions; k++)
         {
             if (k == except || !Imperial(k)) continue;
-            int lack = TfwArmyRules.GarrisonCap - Stationed(k) - Inbound(k);
+            int lack = GarrisonCapNow - Stationed(k) - Inbound(k);
             if (lack > most) { most = lack; best = k; }
         }
         return best;

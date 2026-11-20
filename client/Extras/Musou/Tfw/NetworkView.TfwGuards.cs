@@ -114,7 +114,7 @@ public partial class NetworkView
         if (_guardLooks is null)
         {
             _guardLooks = new GuardLooks(_gameDir);
-            int visible = MusouArg("guard-visible") ?? (SafeMode.Active ? GuardCrowd.LowVisible : GuardCrowd.DefaultVisible);
+            int visible = MusouArg("guard-visible") ?? (SafeMode.Active ? GuardCrowd.LowVisible : WarfrontOn ? GuardCrowd.WarfrontVisible : GuardCrowd.DefaultVisible);
             _guardCrowd = new GuardCrowd(_guardLooks, visible) { NoVat = CmdFlag("guard-no-vat"), OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_guardCrowd);
         }
