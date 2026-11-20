@@ -168,6 +168,9 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
                     AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
                 };
             }
+            // The live text is transparent (the plate carries the words), so its size must not set the row's minimum height when the group is scaled down.
+            b.AddThemeFontSizeOverride("font_size", 8);
+            b.CustomMinimumSize = Vector2.Zero;
             b.SetMeta(FocusGlow.NoGlowMeta, true);   // the gold plate is the focus: no white halo washing it out
             b.TextureFilter = TextureFilterEnum.Linear;   // 1:1 plates: no mipmap blend
             b.AddThemeStyleboxOverride("normal", Box(dark, false, Colors.White));
