@@ -24,6 +24,9 @@ public static class UiTooltip
         return c;
     }
 
+    /// <summary>Shows the focus hint of <paramref name="c"/> now (screenshot aid: <c>--show-tooltip &lt;control name&gt;</c>).</summary>
+    public static void ShowNow(Control c) => FocusHint.Show(c);
+
     /// <summary>The engine's tooltip (the pointer's) in the concept's look: the plate, the one face, the caption size; the delay is the project setting, set once here.</summary>
     public static void AddToTheme(Theme t)
     {
@@ -41,6 +44,8 @@ public static class UiTooltip
         {
             // Under a plate's own text inset (4 x 2 concept pixels) plus the bevel; the plate is small, so its caps are the table's.
             var box = PaintedButtons.Box(tex, "opt-plate-blank", default, 1f, Colors.White, 2.45f);
+            box.Backing = new Color(0.04f, 0.035f, 0.03f, 0.97f);
+            box.ContentMarginLeft = 30f; box.ContentMarginRight = 30f; box.ContentMarginTop = 14f; box.ContentMarginBottom = 14f;   // clear of the plate's chamfered, soft-edged ends
             return box;
         }
         return new StyleBoxFlat { BgColor = new Color(0.055f, 0.042f, 0.022f), BorderColor = new Color(0.50f, 0.37f, 0.12f), BorderWidthLeft = 1, BorderWidthTop = 1, BorderWidthRight = 1, BorderWidthBottom = 1, ContentMarginLeft = 12, ContentMarginRight = 12, ContentMarginTop = 6, ContentMarginBottom = 6 };
@@ -49,7 +54,7 @@ public static class UiTooltip
     /// <summary>The hint of the focused option: starts a timer on focus, shows the plate under the option when it still has the focus after the delay.</summary>
     static class FocusHint
     {
-        static PanelContainer? _shown;
+        static CanvasLayer? _shown;
         static Control? _owner;
         static int _token;
 
@@ -72,7 +77,7 @@ public static class UiTooltip
             _shown = null; _owner = null;
         }
 
-        static void Show(Control c)
+        public static void Show(Control c)
         {
             if (_shown is not null && GodotObject.IsInstanceValid(_shown)) _shown.QueueFree();
             var panel = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore, ZIndex = 100 };
@@ -82,14 +87,16 @@ public static class UiTooltip
             label.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Caption));
             label.AddThemeColorOverride("font_color", new Color(0.88f, 0.87f, 0.83f));
             panel.AddChild(label);
-            c.GetTree().Root.AddChild(panel);
+            var layer = new CanvasLayer { Layer = 120 };   // over every menu layer
+            layer.AddChild(panel);
+            c.GetTree().Root.AddChild(layer);
             var view = c.GetViewport().GetVisibleRect().Size;
             var at = c.GetGlobalRect(); var pos = new Vector2(at.Position.X, at.End.Y + 4f);
             var size = panel.GetCombinedMinimumSize();
             if (pos.Y + size.Y > view.Y) pos.Y = at.Position.Y - size.Y - 4f;
             pos.X = Mathf.Clamp(pos.X, 4f, Mathf.Max(4f, view.X - size.X - 4f));
             panel.Position = pos;
-            _shown = panel; _owner = c;
+            _shown = layer; _owner = c;
         }
     }
 }

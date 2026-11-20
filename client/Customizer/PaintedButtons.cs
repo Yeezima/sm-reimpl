@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace SmClient.Customizer;
@@ -58,6 +59,8 @@ public static partial class PaintedButtons
         public CapArt Caps { get; set; }
         /// <summary>How far the picture is drawn past the rectangle: left, top, right, bottom, in screen pixels.</summary>
         public Vector4 Expand { get; set; }
+        /// <summary>A flat fill under the picture, inset from the rectangle (a plate whose middle is see-through, such as a hover hint over a busy page); transparent for none.</summary>
+        public Color Backing { get; set; } = Colors.Transparent;
 
         public override Rect2 _GetDrawRect(Rect2 rect) => new(rect.Position - new Vector2(Expand.X, Expand.Y), rect.Size + new Vector2(Expand.X + Expand.Z, Expand.Y + Expand.W));
 
@@ -66,6 +69,7 @@ public static partial class PaintedButtons
             if (Texture is null) return;
             rect = _GetDrawRect(rect);
             float tw = Texture.GetWidth(), th = Texture.GetHeight();
+            if (Backing.A > 0f) RenderingServer.CanvasItemAddRect(canvas, rect.Grow(-Mathf.Max(2f, rect.Size.Y * 0.08f)), Backing);
             float k = Mathf.Min(rect.Size.Y / th, rect.Size.X / Mathf.Max(1f, Caps.L + Caps.R));
             float dl = Caps.L * k, dr = Caps.R * k, dt = Caps.T * k, db = Caps.B * k;
             if (rect.Size.Y < dt + db) { float f = rect.Size.Y / (dt + db); dt *= f; db *= f; }
@@ -83,7 +87,7 @@ public static partial class PaintedButtons
 
         public CapStyle Copy() => new()
         {
-            Texture = Texture, ModulateColor = ModulateColor, Caps = Caps, Expand = Expand,
+            Texture = Texture, ModulateColor = ModulateColor, Caps = Caps, Expand = Expand, Backing = Backing,
             ContentMarginLeft = ContentMarginLeft, ContentMarginRight = ContentMarginRight, ContentMarginTop = ContentMarginTop, ContentMarginBottom = ContentMarginBottom,
         };
     }
@@ -132,6 +136,24 @@ public static partial class PaintedButtons
         b.AddThemeFontSizeOverride("font_size", UiType.Px(u));
         b.ClipText = false;
         b.AutowrapMode = wrap ? TextServer.AutowrapMode.Word : TextServer.AutowrapMode.Off;
+    }
+
+    /// <summary>
+    /// A group of siblings (the tabs, the class rows, the tiles, the cards of one list) shares one size (owner: one text size per level in a menu): the smallest that any member needs after its one step down; a member that is
+    /// still too wide at that size wraps.
+    /// </summary>
+    public static void FitGroup(IEnumerable<(Control Control, string Text, float Avail)> items, int unit)
+    {
+        var list = items.ToList(); int u = unit;
+        foreach (var i in list) u = Math.Min(u, FitUnit(i.Control.GetThemeFont("font"), i.Text, unit, i.Avail, out _));
+        foreach (var i in list)
+        {
+            bool wrap = Width(i.Control.GetThemeFont("font"), i.Text, u) > i.Avail;
+            i.Control.AddThemeFontSizeOverride("font_size", UiType.Px(u));
+            var mode = wrap ? TextServer.AutowrapMode.Word : TextServer.AutowrapMode.Off;
+            if (i.Control is Label l) { l.ClipText = false; l.AutowrapMode = mode; }
+            else if (i.Control is Button b) { b.ClipText = false; b.AutowrapMode = mode; }
+        }
     }
 
     /// <summary>The same for a label laid out on a plate: <paramref name="avail"/> is its width in pixels.</summary>

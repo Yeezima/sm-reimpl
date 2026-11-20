@@ -28,7 +28,7 @@ public sealed partial class OptionsView
         float CtlNeed(Control r) => r switch { UiKit.MenuChoice c => c.ConceptControlWidth(s), UiKit.MenuSlider => (60f + SliderValueWidth + 4f) * s, _ => 0f };
         // Two columns when both fit the rows area. Each column has its own label width (the concept's first is 104 wide) and the control width its widest row needs; the second column starts at the concept's stride (284)
         // when it leaves room, else as far left as the first column allows.
-        float[] Col(int n) => Enumerable.Range(0, n).Select(c => Mathf.Max(104f * s, rows.Where((_, i) => i % n == c).Select(LabelOf).DefaultIfEmpty(0f).Max() + 6f * s)).ToArray();
+        float[] Col(int n) => Enumerable.Range(0, n).Select(c => Mathf.Max(104f * s, rows.Where((_, i) => i % n == c).Select(LabelOf).DefaultIfEmpty(0f).Max() + 12f * s)).ToArray();
         float[] Need(int n, float[] lab) => Enumerable.Range(0, n).Select(c => lab[c] + rows.Where((_, i) => i % n == c).Select(CtlNeed).DefaultIfEmpty(0f).Max()).ToArray();
         var two2 = Col(2); var need2 = Need(2, two2);
         float avail = (ContentWidth - RowsLeft - 6f) * s, gap = 8f * s;

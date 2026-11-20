@@ -323,8 +323,7 @@ public sealed partial class FrontEndView : Control
         // The added mode's page (Warfront's, built by its partial when the row is pressed) is not built here.
 
         var foot = UiKit.VBox(2);
-        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => { UiKit.TextKind(l, "progress"); l.TooltipText = GameFoundNote; l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); }));
-        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
+        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontOverride("font", UiKit.ConceptFont()); l.AddThemeFontSizeOverride("font_size", UiType.Px(UiType.Small)); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); if (GameFoundNote is { Length: > 0 }) UiTooltip.Attach(l, GameFoundNote); }));   // where the game folder was found: a hover hint, not a line of the page
         _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
         foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _extrasPage, _options }) { if (page is null) continue; page.Visible = false; AddChild(page); }
@@ -395,9 +394,9 @@ public sealed partial class FrontEndView : Control
         string name = active.Kind == SelectionKind.Custom && profile.ClassAt(active.Slot) is { } c ? $"CUSTOM {active.Slot}  \"{c.Name}\"" : "DEFAULTS";
         _activeLabel.Text = name;
         _activeLabel.TooltipText = _activeLabel.Text;
-        _summary!.Text = (plan?.Summary ?? "").ToUpperInvariant();
-        _summary.Visible = false;   // the plan's summary is the active loadout's hover hint, not a line of the page
-        _activeLabel.MouseFilter = Control.MouseFilterEnum.Stop; UiTooltip.Attach(_activeLabel, _summary.Text);
+        string planSummary = (plan?.Summary ?? "").ToUpperInvariant();
+        _summary!.Text = "";   // the plan's summary is the active loadout's hover hint, not a line of the page (the empty line keeps the page's flow)
+        _activeLabel.MouseFilter = Control.MouseFilterEnum.Stop; UiTooltip.Attach(_activeLabel, planSummary);
         if (fellBack && profile.Selected.Kind == SelectionKind.Custom)
             Say($"Slot {profile.Selected.Slot} is empty, so {(active.Kind == SelectionKind.Custom ? $"slot {active.Slot}" : "the Tactical defaults")} is used.", false);
     }
@@ -735,6 +734,8 @@ public sealed partial class FrontEndView : Control
             _creator.OpenSelection(Selection.CustomSlot(slot));
         if (args.GetValueOrDefault("role") is { } role && LaunchOptions.ParseLoadout("default:" + role, _services.Catalog!) is { } selection) _creator?.OpenSelection(selection);
         if (args.GetValueOrDefault("step") is { } step) _creator?.OpenStep(step);
+        if (args.GetValueOrDefault("show-tooltip") is { Length: > 0 } tipName)   // screenshot aid: the hover hint of a named control, shown after a second
+            GetTree().CreateTimer(1.5).Timeout += () => { var tipControl = FindChild(tipName, true, false) as Control; if (tipControl is not null) UiTooltip.ShowNow(tipControl); };
         if (args.GetValueOrDefault("arm-tab") is { } armTab) _creator?.ShowArmTab(armTab.StartsWith("s", StringComparison.OrdinalIgnoreCase));   // screenshot aid: the Armoury's CLASS or SLOTS tab
         if (args.GetValueOrDefault("preview-side") is { } side) _creator?.SetPreviewRace(side.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine);
         if (_appearance?.Visible == true)
