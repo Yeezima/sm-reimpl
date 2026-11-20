@@ -208,6 +208,7 @@ public static class ServerCommandLine
     {
         var a = new ServerArguments();
         result = a; error = "";
+        bool contentGiven = false;   // --warfront-dedicated: without --content it runs the Warfront profile the clients join with
         for (int i = 0; i < args.Count; i++)
         {
             string flag = args[i];
@@ -317,7 +318,7 @@ public static class ServerCommandLine
                     break;
                 case "--content":
                     if (!ContentProfiles.TryParse(value, out var extras, out string contentError)) { error = contentError; return false; }
-                    a = a with { Content = extras };
+                    a = a with { Content = extras }; contentGiven = true;
                     break;
                 case "--countdown":
                     if (Number(value) is { } countdown && countdown >= 0f && countdown <= MatchRules.MaxCountdown) a = a with { CountdownSeconds = countdown };
@@ -345,7 +346,9 @@ public static class ServerCommandLine
         if (a.WarfrontDedicated)
         {
             if (a.WarfrontNew) { error = "--warfront-dedicated refuses --warfront-new (the shared campaign is never restarted by a command line)"; return false; }
-            a = a with { Content = a.Content | ContentExtras.Warfront, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
+            // Without --content: the Warfront profile (ContentProfiles.WarfrontProfile), the one the client's ONLINE WARFRONT row joins with. Before 2026-11-20 this
+            // added Warfront to the default (extended) profile, so the VM's config hash never matched a client and every join was refused (ConfigMismatch).
+            a = a with { Content = contentGiven ? a.Content | ContentExtras.Warfront : ContentProfiles.WarfrontProfile, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
         }
         if (a.WarfrontPrebuild && (!a.WarfrontDedicated || a.WarfrontStage)) { error = "--warfront-prebuild is the dedicated supervisor's warm-up child: it needs --warfront-dedicated and is not a stage"; return false; }
         if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null) && !a.Content.HasFlag(ContentExtras.Warfront))

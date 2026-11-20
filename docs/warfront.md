@@ -143,7 +143,7 @@ campaign ends, default deploy, an empty server) on it. In this mode the supervis
 ### The service (slice S4)
 
 On the project's VM the mode runs as the systemd service `sm-warfront` (UDP 27016), installed by `tools/release/setup-warfront-service.sh` (docs/dedicated-server.md "The Warfront server"):
-`SM_WF_DIR=/var/lib/sm-warfront` (the run), `SM_DATA_DIR=/var/lib/sm-warfront/data` (layout caches), `ExecStart=<versioned server folder>/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --ban-file /var/lib/sm-warfront/bans.txt`,
+`SM_WF_DIR=/var/lib/sm-warfront` (the run), `SM_DATA_DIR=/var/lib/sm-warfront/data` (layout caches), `ExecStart=<versioned server folder>/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --content warfront --ban-file /var/lib/sm-warfront/bans.txt`,
 `Restart=on-failure`, `RestartPreventExitStatus=1 2 3 5`, `KillMode=mixed`, `TimeoutStopSec=40`. It replaces the old `sm-musou` service (kept for `--rollback`).
 
 **Map warm-up (built; owner decision 2026-11-20: build every map at start, in the background, players may join meanwhile).** A map's layout and walking graph are built on first use (`WarfrontMaps.Prebuild`, the travel wait's work, 100 to 180 s cold), cached under `SM_DATA_DIR`.

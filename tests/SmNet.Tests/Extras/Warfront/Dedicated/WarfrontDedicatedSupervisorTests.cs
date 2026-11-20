@@ -30,6 +30,15 @@ public class WarfrontDedicatedSupervisorTests : IDisposable
     }
 
     [Fact]
+    public void Dedicated_without_content_runs_the_profile_the_online_row_joins_with()
+    {
+        // 2026-11-20: the VM ran the default profile plus Warfront (config CFF57F93...), so every ONLINE WARFRONT join was refused as ConfigMismatch.
+        Assert.Equal(ContentProfiles.WarfrontProfile, Parse("--warfront-dedicated").Content);
+        Assert.Equal(Parse("--content", "warfront").Content, Parse("--warfront-dedicated").Content);
+        Assert.Equal(ContentProfiles.WarfrontProfile, Parse("--warfront-dedicated", "--content", "warfront").Content);
+    }
+
+    [Fact]
     public void Dedicated_keeps_a_given_human_cap_and_content_order_does_not_matter()
     {
         var a = Parse("--warfront-dedicated", "--warfront-max-humans", "2", "--bind", "127.0.0.1");
