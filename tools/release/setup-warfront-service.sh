@@ -87,7 +87,7 @@ User=$user
 WorkingDirectory=$state
 Environment=SM_WF_DIR=$state
 Environment=SM_DATA_DIR=$state/data
-ExecStart=$dir/SmServer --port $port --game-dir $game --warfront-dedicated --ban-file $state/bans.txt
+ExecStart=$dir/SmServer --port $port --game-dir $game --warfront-dedicated --content warfront --ban-file $state/bans.txt
 Restart=on-failure
 RestartSec=5
 # exit codes a restart cannot fix (1 run or install unreadable, 2 command line, 3 port taken, 5 another supervisor holds the run folder)

@@ -39,7 +39,7 @@ public class WarfrontServiceScriptTests
     {
         if (Sh(Script(), "--dry-run", "/opt/sm-test-server") is not { } r) return;   // no sh here
         Assert.True(r.Code == 0, r.Out);
-        Assert.Contains("ExecStart=/opt/sm-test-server/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --ban-file /var/lib/sm-warfront/bans.txt", r.Out);
+        Assert.Contains("ExecStart=/opt/sm-test-server/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --content warfront --ban-file /var/lib/sm-warfront/bans.txt", r.Out);
         foreach (string line in new[] { "User=smwarfront", "Environment=SM_WF_DIR=/var/lib/sm-warfront", "Environment=SM_DATA_DIR=/var/lib/sm-warfront/data", "Restart=on-failure", "RestartSec=5",
                      "RestartPreventExitStatus=1 2 3 5", "KillMode=mixed", "TimeoutStopSec=40", "WorkingDirectory=/var/lib/sm-warfront" })
             Assert.Contains(line, r.Out);

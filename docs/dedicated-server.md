@@ -141,7 +141,7 @@ sh /root/setup-warfront-service.sh [server-dir]        # installs, starts, waits
   `--follow-current` writes the symlink instead (not advised).
 - **The unit.** `User=smwarfront` (system user, no login, created if missing), `WorkingDirectory=/var/lib/sm-warfront`, `Environment=SM_WF_DIR=/var/lib/sm-warfront` (the run: `run.json`, saves, `supervisor.lock`, `stage.json`, results),
   `Environment=SM_DATA_DIR=/var/lib/sm-warfront/data` (the map layout and walking-graph caches: the first visit to each map builds its layout, 100 to 180 s, later ones read the cache),
-  `ExecStart=<server-dir>/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --ban-file /var/lib/sm-warfront/bans.txt`, `Restart=on-failure`, `RestartSec=5`,
+  `ExecStart=<server-dir>/SmServer --port 27016 --game-dir /srv/sm1 --warfront-dedicated --content warfront --ban-file /var/lib/sm-warfront/bans.txt`, `Restart=on-failure`, `RestartSec=5`,
   `RestartPreventExitStatus=1 2 3 5` (run unreadable, command line, port taken, another supervisor holds the run folder: a restart cannot fix them), `KillMode=mixed` and `TimeoutStopSec=40`
   (above the supervisor's 20 s save-and-leave grace). No `--bind` (all interfaces, like `smserver`), no `--mode` or `--map` (the supervisor chooses the stage maps; `--maps` is refused). `--port` and `--game-dir` can be changed with the script's options of those names.
 - **The old Musou service.** If `sm-musou` exists and is enabled or active, the script runs `systemctl disable --now sm-musou` (it held UDP 27016). Its unit file and data
