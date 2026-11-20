@@ -136,6 +136,7 @@ if (cli.OldCannonHold) config = config with { PlasmaCannonAutoRelease = false };
 if (cli.OldKickPush) config = config with { KickPushCut = false };   // sim/kick-push (2026-11-14): restore switch, config hash
 if (cli.OldSprintMelee) config = config with { SprintMeleeCharge = false };   // sim/sprint-melee-charge (protocol 77): restore switch, config hash
 if (cli.OldLedgeCancel) config = config with { LedgeChargeCancel = false };   // sim/ledge-charge-cancel (protocol 77): restore switch, config hash
+if (cli.OldStabRelease) config = config with { StabRelease = false };   // sim/stab-release (2026-11-20): restore switch, config hash
 if (cli.OldStompRelease) config = config with { StompRelease = false };   // sim/stomp-release (2026-11-14): restore switch, config hash
 if (cli.MusouMeleeCooldown) config = config with { MusouMeleeCooldown = true };
 if (cli.MusouUncappedMeleeHeal) config = config with { MusouUncappedMeleeHeal = true };   // musou/melee-heal-cap (owner 2026-11-12): restore switch, config hash

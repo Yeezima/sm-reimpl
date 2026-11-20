@@ -628,6 +628,12 @@ public static class Combat
                 step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null; stompReleased = true;
                 goto stringReset;
             }
+            // sim/stab-release (protocol 88; the owner 2026-11-20): the power sword's stab ends at its release (StabTuning), after its hit, like the released stomp: this tick's input acts as from rest.
+            if (c.StabRelease && !queued && StabTuning.Released(m, time, TimeEpsilon))
+            {
+                step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null; stompReleased = true;
+                goto stringReset;
+            }
             // sim/stomp-uninterruptible (protocol 51; the owner 2026-11-01: "devastator/havoc stomp can only be cancelled by a hop move. shooting, aim down sight, or any
             // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
             // only the hop (a Jump press from its BRANCH_Evade, above) ends it early. The presses are left unused (the input buffer's own rules decide a replay).

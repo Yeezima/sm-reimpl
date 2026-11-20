@@ -871,6 +871,7 @@ public sealed partial record SimConfig
             if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
             if (!LedgeHopCarry) w.Write("old-ledge-hop");   // sim/ledge-charge-hop (protocol 85): only when off
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
+            if (!StabRelease) w.Write("old-stab-release");   // sim/stab-release (protocol 88): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off
             if (!KickPushCut) w.Write("old-kick-push");   // sim/kick-push (protocol 76): only when off
             if (!SprintMeleeCharge) w.Write("old-sprint-melee");   // sim/sprint-melee-charge (protocol 77): only when off
