@@ -228,7 +228,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
             PlateText(b, s, UiType.Plate, goldPressed: gold != dark, goldRest: goldRest);   // APPLY, REVERT and BACK: one lettering
             if (b != _back)   // v2 sets APPLY and REVERT's lettering 2 px below the plate's centre
                 foreach (var st in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })
-                    if (b.GetThemeStylebox(st) is StyleBoxTexture tb) { tb = (StyleBoxTexture)tb.Duplicate(); tb.ContentMarginTop = 3.8f * s; b.AddThemeStyleboxOverride(st, tb); }
+                    if (b.GetThemeStylebox(st) is PaintedButtons.CapStyle tb) { tb = tb.Copy(); tb.ContentMarginTop = Mathf.Max(tb.ContentMarginTop, 3.8f * s); b.AddThemeStyleboxOverride(st, tb); }
         }
         Plate(_apply, Down(UiTextureBuilder.V2Apply), "opt-apply-dark", "opt-apply-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), false, goldRest: true);
         Plate(_revert, Down(UiTextureBuilder.V2Revert), "opt-revert-dark", "opt-revert-gold", new PaintedButtons.Pad(3, 4, 3, 4), new PaintedButtons.Pad(3, 4, 3, 5), true, noGlow: false);
@@ -422,7 +422,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
         var caption = UiKit.MenuText("RENDERER", Steel.TextDim);
         caption.ThemeTypeVariation = Steel.LabelType;
         caption.SetAnchorsPreset(LayoutPreset.LeftWide); caption.OffsetRight = LabelWidth;
-        var value = UiKit.MenuText((SafeMode.Compatibility ? "COMPATIBILITY" : "FORWARD+") + " (THE LAUNCHER'S OLD GPU / SAFE MODE CHOOSES)", Steel.TextDim, clip: false);
+        var value = UiKit.MenuText(SafeMode.Compatibility ? "COMPATIBILITY" : "FORWARD+", Steel.TextDim, clip: false);
+        value.MouseFilter = MouseFilterEnum.Stop; UiTooltip.Attach(value, "The launcher's old GPU / safe mode chooses the renderer.");
         value.ThemeTypeVariation = Steel.LabelType;
         value.SetAnchorsPreset(LayoutPreset.FullRect); value.OffsetLeft = LabelWidth; value.OffsetRight = 0f;
         renderer.AddChild(caption); renderer.AddChild(value);

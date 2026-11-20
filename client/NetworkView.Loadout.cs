@@ -80,7 +80,7 @@ public partial class NetworkView
     bool _aidsRead, _aidPickerOnDeath, _aidPickerDemo, _aidPickerLeave;
     double _aidPickerDemoAfter = 6.0;
     string? _aidPickerDeploy, _aidPickerActivate;
-    bool _aidPickerResume, _demoActivated;
+    bool _aidPickerResume, _demoActivated, _demoLoadoutShown;
     double _demoActivatedAt;
     string[] _aidBotChange = [];
 
@@ -551,6 +551,8 @@ public partial class NetworkView
             double after = _aidPickerDemoAfter;
             if (_connectedFor >= after) { _demoOpened = true; OpenPicker(forced: true); }
         }
+        // --picker-loadout (screenshot aid): a second after the Esc menu opened, its LOADOUT row is pressed (the Armoury over the match).
+        if (!_demoLoadoutShown && _pickerMenu is not null && _pickerCreator is not null && CmdFlag("picker-loadout") && _connectedFor - _pickerOpenedAt >= 1.0) { _demoLoadoutShown = true; ShowPickerLoadout(); }
         // --picker-leave: a second and a half after the picker opened, as if LEAVE MATCH had been confirmed (back to the front end).
         if (_pickerCreator is not null && _pickerForced && _aidPickerLeave && LeaveToMenu is not null && _connectedFor - _pickerOpenedAt >= 1.5) { LeaveMatchNow(); return; }
         // --picker-activate <loadout> (fix/class-change-in-match): a second after the picker opened (Esc, --picker-demo or --picker-on-death), opens that loadout and presses

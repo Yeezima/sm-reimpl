@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3880 spec table rows: **2835 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
+Scanned 3893 spec table rows: **2846 tagged**, 690 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 830 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 3880 spec table rows: **2835 tagged**, 688 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 237 | 219 | 190 | 32 | 0 |
+| Sound mix (critical) | 243 | 225 | 196 | 32 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -50,18 +50,18 @@ Scanned 3880 spec table rows: **2835 tagged**, 688 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 862 | 816 | 644 | 239 | 1 |
+| Core simulation (provisional values) | 867 | 821 | 647 | 239 | 1 |
 | General game design | 37 | 36 | 29 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2835** | 2530 | 2152 | 827 | 37 |
+| **All areas** | **2846** | 2541 | 2161 | 827 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1647 |
+| kind: ours | 1658 |
 | confidence: low | 1047 |
-| confidence: medium | 994 |
+| confidence: medium | 1003 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
@@ -1919,7 +1919,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (237)
+### Sound mix (gameplay-critical) (243)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2302,6 +2302,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A79203CA` | Default deploy for an idle leader | no deployment accepted for 90 s: the server deploys for the leader through the normal Deploy path: the HQ defence when mandatory, else the node of the lane with the lowest front (ties lane A, B, C), else the fortress through the lowest cleared lane; announced… (seconds) | kind: ours; notes: estimate | owner rule 2026-11-19 (the 90 s); the target order is the owner's rule, the clock's start and reset are ours | Default deploy for an idle leader: compare with SM1 by listening A/B at the same distance and state. Ours: no deployment accepted for 90 s: the server deploys for the leader… | ☐ |
 | `R-51DC640A` | Automatic new run | 120 s after the results stand with a human connected; at once when no human is connected; the leader may start it earlier (seconds) | notes: estimate | owner rule 2026-11-19 | Automatic new run: compare with SM1 by listening A/B at the same distance and state. Ours: 120 s after the results stand with a human connected; at once when no… | ☐ |
 | `R-729F58FD` | Empty server | the process and the run stay; the play clock stops; a battle left with nobody ends as no result (back on the ship, nothing rolled; also the tick the last human drops); the next joiner continues the same run; no pause beyond that; an unfinished run never… | confidence: none (low) | owner rule 2026-11-19 | Empty server: compare with SM1 by listening A/B at the same distance and state. Ours: the process and the run stay; the play clock stops; a battle left… | ☐ |
+
+*Spec section: Armoury buttons, class emblems and the hover plate (2026-11-20, client only; branch `claude/armoury-buttons-1120`)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-24980690` | DEPLOY plate | concept (330, 398), **178 x 30**, the BACK plate's art (arm-back), centred under the item card; shown only in a match (concept px) | kind: ours; confidence: medium | the owner (place and size); the art is the secondary plate | DEPLOY plate: compare with SM1 by listening A/B at the same distance and state. Ours: concept (330, 398), 178 x 30, the BACK plate's art (arm-back)… | ☐ |
+| `R-D06877A6` | Slot tool plates (RENAME, COPY, RESET, CLEAR) | **52 x 22** concept px each, **4** apart, starting at concept x 47, y 324, inside the SLOTS well under the chip grid (the chip grid is 196 high, 124 to 320) (concept px) | kind: ours; confidence: medium | the owner (size, gap) | Slot tool plates (RENAME, COPY, RESET, CLEAR): compare with SM1 by listening A/B at the same distance and state. Ours: 52 x 22 concept px each, 4 apart, starting at concept x 47, y 324… | ☐ |
+| `R-AF7B3006` | Unsaved line | the text UNSAVED CHANGES, the gold caption size, centred at concept (272, 380), 370 x 13, shown only while the profile has unsaved edits (a status message takes the spot for its few seconds) (concept px) | kind: ours; confidence: medium | the owner | Unsaved line: compare with SM1 by listening A/B at the same distance and state. Ours: the text UNSAVED CHANGES, the gold caption size, centred at concept… | ☐ |
+| `R-9394BAB1` | Unsaved prompt | card at concept (283, 168), **214 x 82**; KEEP CHANGES (gold) 94 x 24 at (10, 46) and DISCARD (dark) 94 x 24 at (110, 46) inside it; Esc or B closes it and stays (concept px) | kind: ours; confidence: medium | the owner (the two choices) | Unsaved prompt: compare with SM1 by listening A/B at the same distance and state. Ours: card at concept (283, 168), 214 x 82; KEEP CHANGES (gold) 94 x 24 at… | ☐ |
+| `R-A2B3C0E6` | Tab strip width | the three tabs share the strip by what their labels need (stretch ratio = text width plus plate margins), so ARMOUR & PAINT reads at the caption size (ratio) | kind: ours; confidence: medium | the owner (the size the tabs had) | Tab strip width: compare with SM1 by listening A/B at the same distance and state. Ours: the three tabs share the strip by what their labels need (stretch… | ☐ |
+| `R-D8A22366` | Hover plate place | to the right of the option, 6 px off; where that has no room to its left, else above it, else below; upper case; the plate's flat backing follows its chamfered ends (a chamfer of 20 % of the plate's height) (px) | kind: ours; confidence: medium | the owner ("beside the hovered or focused control"); the left fallback is ours | Hover plate place: compare with SM1 by listening A/B at the same distance and state. Ours: to the right of the option, 6 px off; where that has no room to its… | ☐ |
 
 ### Effects (gameplay-critical) (100)
 
@@ -2872,7 +2883,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (862)
+### Core simulation (provisional values) (867)
 
 *Spec section: Provisional values in use*
 
@@ -3815,6 +3826,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-8F6E0963` | Options layout | a centred steel frame (at most 1340 px wide) with the winged crest and an OPTIONS plate over its top edge, wrapping category tabs (GRAPHICS, SOUND, CONTROLS, INTERFACE: the last holds REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES and SHOW OTHERS' EMBLEMS, moved… (UI px) | kind: estimate; confidence: medium | the concept art, panel 04 | Options layout: compare with SM1 by feel or video. Ours: a centred steel frame (at most 1340 px wide) with the winged crest… | ☐ |
 | `R-122DFD37` | Options APPLY, REVERT | APPLY keeps the options as they are (they apply and save at once, as before) as the point REVERT returns to and shows SETTINGS APPLIED for 3 s; REVERT puts every option the page edits (`GameOptions`, field of view, mouse sensitivity, reduce motion, others'… (s) | kind: ours; confidence: medium | the owner's brief ("distinct Apply/Revert/Back actions", "keep the existing settings and their current save/apply behavior"); the semantics are ours | Options APPLY, REVERT: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: APPLY keeps the options as they are (they apply and save at once, as… | ☐ |
 | `R-DD4EB753` | Steel kit | colours: gold (0.97, 0.76, 0.24) for focus and selection, dark gunmetal for inactive rows, amber (0.62, 0.34, 0.06) for the recess light, bone and steel for the crest; since 2026-11-15 (owner: "add painted textures ... match exactly the reference concept… | kind: ours; confidence: medium | ours | Steel kit: compare with SM1 by feel or video. Ours: colours: gold (0.97, 0.76, 0.24) for focus and selection, dark… | ☐ |
+
+*Spec section: Text inset, nine-slice caps, item pictures and hover hints (ui-core, 2026-11-20, client only; branch `claude/ui-core-1120`)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-20DBAD3A` | Text inset in a painted plate | at least **4** concept px left and right and **2** top and bottom, counted from the plate's inner bevel (the bevel is 2.5 x 2 concept px on the opt-plate pieces, 3 x 1.5 on the Armoury rows, 4 x 3 on the tiles, 5 x 3 on CONFIRM and BACK, 4 x 3 on the card); 1… (concept px) | kind: ours; confidence: medium | the owner (rule); the bevel widths are our reading of the art | Text inset in a painted plate: compare with SM1 by feel or video. Ours: at least 4 concept px left and right and 2 top and bottom, counted… | ☐ |
+| `R-B39210D4` | Text too long for its plate | steps down **one** level of the size table (UiType), then wraps; never an ellipsis, never a clipped letter (levels) | kind: ours | the owner (rule) | Text too long for its plate: compare with SM1 by feel or video. Ours: steps down one level of the size table (UiType), then wraps; never an… | ☐ |
+| `R-1BAE1A29` | Nine-slice caps of a painted piece | per art name, left, top, right, bottom in the picture's own pixels: opt-plate-blank 40 each, opt-plate-gold-blank 44, opt-tab pieces 40 x 34 (gold 44 x 40), arm-row-dark 40 x 20, arm-row-gold 56 x 34, arm-tile-dark 64, arm-tile-gold 68, arm-confirm 96 x 48… (texture px) | kind: ours; confidence: medium | measured by eye from client/assets/ui/*.png | Nine-slice caps of a painted piece: compare with SM1 by feel or video. Ours: per art name, left, top, right, bottom in the picture's own pixels:… | ☐ |
+| `R-93CC71B1` | Install pictures in an icon well | centred at the largest whole-number scale that fits the well, nearest filter; a well smaller than the picture shrinks it with its mipmaps (linear), aspect kept; silhouettes and install pictures carry a mip chain (factor) | kind: ours | the owner (rule) | Install pictures in an icon well: compare with SM1 by feel or video. Ours: centred at the largest whole-number scale that fits the well, nearest… | ☐ |
+| `R-980C97D0` | Hover hint delay | **0.6 s** of the pointer or the focus resting on an option, then the hint shows on the dark painted plate (opt-plate-blank, the one lettering, caption size, the text inset) (s) | kind: ours; confidence: medium | the owner ("hidden until a player mouses over an option for a short amount of time"); 0.6 s ours | Hover hint delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.6 s of the pointer or the focus resting on an option, then the hint… | ☐ |
 
 *Spec section: Musou rejoin (2026-11-07, client only)*
 
@@ -5941,6 +5962,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-99EA7976` | Warfront dressing, second pass (warfront/dress): the fortress and HQ draw the original's own Ork and Space Marine props read from the install (WAAAGH totems, banners, scrap heaps, turrets, towers, spike barriers, roks), 136 kit ruin pieces along the fortress streets, a broken HQ rock skyline, and the plating shader is… | review 1 of the dressing slice and the owner's "the game's own pieces wherever possible"; counts and placements ours | install props read only at run time; with no install the drawn fallbacks stand in; the shader compiles on the Compatibility renderer | spec "Warfront dressing, second pass" | Warfront dressing, second pass (warfront/dress): the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-756A9770` | Warfront: melee cleave (2026-11-18, added content); not in SM1 | owner's numbers: for human players and their retainers only, melee cleave reach x1.2 (the Dreadnought x1.4), no cap on enemies struck, an Ork struck when his collision overlaps the volume; the collision reading (radius from the feet) ours | server `World.WarfrontCleave`, drawn arc and prediction through `MusouCleaveShape.Of`; Classic and Musou Mode unchanged | spec "Warfront melee cleave" | Warfront: melee cleave (2026-11-18, added content); not in…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-D8672FA6` | Warfront performance pass (2026-11-18, added content); not in SM1 | the far tier's Ork meshes get index-only levels of detail on Warfront servers (4 px threshold since 2026-11-18, `--no-crowd-lod` restores the full mesh; far Orks cast no sun shadows; 1200 visible Orks instead of 1800), and the 30 s run autosave is written off the tick thread | ours (the owner: "performance in warfront wasn't great"); spec "Warfront: client crowd levels of detail and the autosave off the tick" | ours | Warfront performance pass (2026-11-18, added content); not…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-8389D1A1` | UI core pass (2026-11-20; client only) | Ours (the owner's brief): text keeps a 4 x 2 concept px inset inside every painted plate and steps down one size level, then wraps, instead of touching the border or being cut; painted plates keep their end caps (nine-slice caps per piece, the picture is no longer squeezed whole); install item pictures are drawn at a… | not in SM1 | "Text inset, nine-slice caps, item pictures and hover hints" | UI core pass (2026-11-20; client only): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-E36DEE04` | Armoury buttons and emblems (2026-11-20; client only) | Ours (the owner's decisions): the dock under the preview (RENAME, COPY TO, RESET, CLEAR, REVERT, SAVE, SET ACTIVE, APPEARANCE, LEAVE MATCH) is gone (F2 and Ctrl+S still work; LEAVE MATCH is the Esc menu's row; APPEARANCE is the ARMOUR & PAINT tab); RENAME, COPY, RESET, CLEAR are four plates under the SLOTS tab's chip… | not in SM1 | "Armoury buttons, class emblems and the hover plate" | Armoury buttons and emblems (2026-11-20; client only): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

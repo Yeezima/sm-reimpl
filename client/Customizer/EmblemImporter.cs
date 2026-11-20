@@ -137,16 +137,15 @@ public sealed partial class EmblemImporter : Control
         var row = UiKit.HBox(24);
         _crop = new CropArea(_reduced, _reducedWidth, _reducedHeight, _factor, _width, _height) { CustomMinimumSize = new Vector2(540, 540) };
         _crop.Changed += OnCropChanged;
+        UiTooltip.Attach(_crop, "Drag to move. Mouse wheel or the slider to zoom. Arrow keys and + / - work too. Actual size is 128 x 128; keep important parts inside the dotted line.");
         var left = UiKit.VBox(8);
         left.AddChild(_crop);
-        left.AddChild(UiKit.Text("Drag to move. Mouse wheel or the slider to zoom. Arrow keys and + / - work too.".ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(540, 0)));
         row.AddChild(left);
 
         var right = UiKit.VBox(10);
         right.CustomMinimumSize = new Vector2(400, 0);
         right.AddChild(UiKit.PlateTitle("SHOULDER EMBLEM").With(t => t.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
         right.AddChild(_fileText);
-        right.AddChild(UiKit.Text("Actual size (128 x 128); keep important parts inside the dotted line".ToUpperInvariant(), UiKit.CaptionSize, UiKit.Grey, HorizontalAlignment.Left, true).With(l => l.CustomMinimumSize = new Vector2(380, 0)));
         var previews = UiKit.HBox(16);
         previews.AddChild(_preview128);
         previews.AddChild(_pad);

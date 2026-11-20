@@ -139,7 +139,6 @@ public sealed partial class AppearanceView
         string id = saved.Id;
         bool wornHere = Class?.Appearance.For(_race) == id;
         _panel.AddChild(Heading($"SLOT {slot}: {saved.Name.ToUpperInvariant()}"));
-        _panel.AddChild(Note("B / Esc: back to the ten slots."));
 
         void Add(UiKit.Row row) { _panel.AddChild(row); focusables.Add(row); }
 

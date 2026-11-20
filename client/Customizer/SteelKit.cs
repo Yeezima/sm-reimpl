@@ -49,6 +49,8 @@ public static class ConceptArt
             Texture = tex, TextureMarginLeft = margin.X, TextureMarginRight = margin.X, TextureMarginTop = margin.Y, TextureMarginBottom = margin.Y, ModulateColor = modulate ?? Colors.White,
             DrawCenter = center, AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
         };
+        // Text never touches the plate's border (ui-core 2026-11-20): at least the page's inset, 4 concept pixels at the sides and 2 above and below; a caller that passes zero lays the text out itself.
+        if (content != Vector2.Zero) content = new Vector2(Mathf.Max(content.X, PaintedButtons.Inset.X * PaintedButtons.ConceptPx), Mathf.Max(content.Y, PaintedButtons.Inset.Y * PaintedButtons.ConceptPx));
         sb.ContentMarginLeft = content.X; sb.ContentMarginRight = content.X; sb.ContentMarginTop = content.Y; sb.ContentMarginBottom = content.Y;
         return sb;
     }

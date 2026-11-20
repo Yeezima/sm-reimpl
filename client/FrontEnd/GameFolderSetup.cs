@@ -58,7 +58,7 @@ public sealed partial class GameFolderSetup : Control
         row.AddChild(_use);
         box.AddChild(row);
 
-        _message = UiKit.Text("", UiKit.BodySize, UiKit.White, HorizontalAlignment.Left, true);
+        _message = UiKit.TextKind(UiKit.Text("", UiKit.BodySize, UiKit.White, HorizontalAlignment.Left, true), "progress");
         _message.CustomMinimumSize = new Vector2(960, 64);
         box.AddChild(_message);
 

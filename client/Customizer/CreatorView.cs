@@ -388,8 +388,6 @@ public sealed partial class CreatorView : Control
             _stepButtons.Add(b);
         }
         _steps.AddChild(UiKit.Spacer(false));
-        _lookCaption = UiKit.Text("LOOK", UiKit.CaptionSize, UiKit.Grey);
-        _steps.AddChild(_lookCaption);
         _appearanceStepButton = UiKit.Button("Appearance...", OpenAppearance, 0);
         _steps.AddChild(_appearanceStepButton);
     }
@@ -414,7 +412,7 @@ public sealed partial class CreatorView : Control
         if (defaults) _lastDefaultsRole = role;
         _strip.SetOpen(_open);
         _strip.Refresh();
-        _activeLabel.Text = "ACTIVE: " + ActiveName(profile, active);
+        _activeLabel.Text = ActiveName(profile, active);
         _activeLabel.TooltipText = _activeLabel.Text;
 
         for (int i = 0; i < _tabButtons.Count && i < _tabRoles.Count; i++)
@@ -505,7 +503,7 @@ public sealed partial class CreatorView : Control
 
         if (IsEmpty)
         {
-            Heading("EMPTY SLOT: CHOOSE A CLASS");
+            Heading("CHOOSE A CLASS");
             foreach (var role in _tabRoles)
             {
                 string r = role;
@@ -523,12 +521,12 @@ public sealed partial class CreatorView : Control
             {
                 string r = role;
                 bool selected = r.Equals(Role, StringComparison.OrdinalIgnoreCase);
-                var row = new UiKit.Row(RoleLabel(role), selected ? ["SELECTED"] : [], selected, true, selected ? UiKit.Glyph.Kind.Check : null) { Focused = () => ShowClassCard(r) };
+                var row = new UiKit.Row(RoleLabel(role), [], selected, true, selected ? UiKit.Glyph.Kind.Check : null) { Focused = () => ShowClassCard(r) };
+                UiTooltip.Attach(row, ClassChangeHint);
                 row.Pressed += () => ChooseRole(r);
                 _list.AddChild(row);
                 rowButtons.Add(row);
             }
-            Note("Changing the class sets weapons, equipment and perks back to the new class's defaults.");
         }
         else if (_step == Step.Weapons)
         {
@@ -544,7 +542,6 @@ public sealed partial class CreatorView : Control
         else if (_step == Step.Look && IsOrkOpen) AddOrkLooks(rowButtons, Heading, Note);
         else if (_step == Step.Support) ExtrasSupportRows(rowButtons, Heading, Note);   // EXTRAS-HOOK: Musou Mode's SUPPORT step
         else AddPerks(rowButtons, Heading, Note);
-        if (IsOrkOpen && _step is Step.Weapons or Step.Equipment) Note("The Ork Boy carries these and nothing else. He fights for either side: the lobby menu's SIDE picks which.");
 
         if (rowButtons.Count > 0)
         {
@@ -567,12 +564,14 @@ public sealed partial class CreatorView : Control
 
     void AddSection(OptionSection section, List<Button> rowButtons, Action<string> heading, Action<string, Color?> note)
     {
-        heading(section.Heading + (section.Selectable ? "" : "  (fixed for this class)"));
+        heading(section.Heading);
         foreach (var option in section.Rows)
         {
             var o = option;
-            UiKit.Glyph.Kind? glyph = o.Selected ? (o.Fixed ? UiKit.Glyph.Kind.Fixed : UiKit.Glyph.Kind.Check) : !o.Lock.IsOpen ? UiKit.Glyph.Kind.Lock : o.Fixed ? UiKit.Glyph.Kind.Fixed : null;
+            UiKit.Glyph.Kind? glyph = o.Selected ? UiKit.Glyph.Kind.Check : !o.Lock.IsOpen ? UiKit.Glyph.Kind.Lock : null;   // the chosen row: a tick on the gold plate; a fixed row: a padlock at its right
             var row = new UiKit.Row(o.Title, o.Tags, o.Selected, o.Selectable || o.Selected, glyph) { Focused = () => ShowItemCard(section, o) };
+            if (o.Fixed) row.AddRightGlyph(UiKit.Glyph.Kind.Lock);
+            if (IsOrkOpen && _step is Step.Weapons or Step.Equipment) UiTooltip.Attach(row, OrkGearHint);
             row.Pressed += () => ChooseItem(section, o);
             _list.AddChild(row);
             rowButtons.Add(row);
@@ -585,7 +584,6 @@ public sealed partial class CreatorView : Control
         var options = LoadoutRows.Options(_catalog, Role, _previewRace);
         var first = options?.DefaultPerk;
         var slotRow = UiKit.HBox(8);
-        slotRow.AddChild(UiKit.Text("Choosing for:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
         var slotButtons = new List<Control>();
         for (int i = 0; i < 2; i++)
         {
@@ -601,12 +599,11 @@ public sealed partial class CreatorView : Control
         }
         UiKit.ChainHorizontal(slotButtons);
         _list.AddChild(slotRow);
-        if (IsDefaults) heading("DEFAULTS: choosing a perk edits a copy");
         var perks = LoadoutRows.Perks(_catalog, Role, _previewRace, custom, _services.Policy, _services.PerkActivities);
         string? section = null;
         foreach (var perk in perks)
         {
-            string group = perk.WeaponPerk ? "WEAPON PERKS (act on their own weapon)" : "CLASS PERKS";
+            string group = perk.WeaponPerk ? "WEAPON PERKS" : "CLASS PERKS";
             if (group != section) { section = group; heading(group); }
             var p = perk;
             var tags = new List<string>();
@@ -616,6 +613,7 @@ public sealed partial class CreatorView : Control
             if (p.Warning.Length > 0) tags.Add("NEEDS WEAPON");
             UiKit.Glyph.Kind? glyph = p.Slot > 0 ? UiKit.Glyph.Kind.Check : !p.Lock.IsOpen ? UiKit.Glyph.Kind.Lock : p.Warning.Length > 0 ? UiKit.Glyph.Kind.Warning : null;
             var row = new UiKit.Row(p.Title, tags, p.Slot > 0, p.Lock.IsOpen, glyph, p.Warning.Length > 0 && p.Slot == 0 ? UiKit.LightRed : null) { Focused = () => ShowPerkCard(p) };
+            if (IsDefaults) UiTooltip.Attach(row, "Choosing a perk edits a copy of the defaults.");
             row.Pressed += () => ChoosePerk(p);
             _list.AddChild(row);
             rowButtons.Add(row);
@@ -629,21 +627,21 @@ public sealed partial class CreatorView : Control
     /// </summary>
     void AddOrkLooks(List<Button> rowButtons, Action<string> heading, Action<string, Color?> note)
     {
-        heading("ORK LOOK (all your Ork loadouts)");
+        heading("ORK LOOK");
         int? current = _session.Working.OrkLook;
         foreach (var look in OrkLoadout.LookChoices)
         {
             int? l = look;
             bool selected = current == look;
-            var row = new UiKit.Row(OrkLoadout.LookTitle(look), selected ? ["SELECTED"] : [], selected, true, selected ? UiKit.Glyph.Kind.Check : null)
+            var row = new UiKit.Row(OrkLoadout.LookTitle(look), [], selected, true, selected ? UiKit.Glyph.Kind.Check : null)
             {
                 Focused = () => { ShowTextCard(OrkLoadout.LookTitle(l), OrkLoadout.LookDescription(l)); if (_previewOrkLook != l) { _previewOrkLook = l; UpdatePreview(); } },
             };
+            UiTooltip.Attach(row, "The Ork has no armour pieces, colours or badges. His look is one of the boy's own models, sent with your loadout when you join.");
             row.Pressed += () => ChooseOrkLook(l);
             _list.AddChild(row);
             rowButtons.Add(row);
         }
-        note("The Ork has no armour pieces, colours or badges: his look is one of the boy's own models, sent with your loadout when you join.", null);
     }
 
     void ChooseOrkLook(int? look)
@@ -654,6 +652,10 @@ public sealed partial class CreatorView : Control
         _session.Edit(_ => r.Profile);
         Say(r.Notice ?? "");
     }
+
+    /// <summary>Hover hints (<see cref="UiTooltip"/>): what the screen no longer says in words.</summary>
+    internal const string ClassChangeHint = "Changing the class sets weapons, equipment and perks back to the new class's defaults.";
+    const string OrkGearHint = "The Ork Boy carries these and nothing else. He fights for either side: the lobby menu's SIDE picks which.";
 
     static string Trim(string text, int max) => text.Length <= max ? text : text[..(max - 1)] + ".";
 
@@ -688,6 +690,7 @@ public sealed partial class CreatorView : Control
         _cardBody = body.Length > 0 ? UiKit.Text(_arm ? body.ToUpperInvariant() : body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
         _cardExtra = extra.Length > 0 ? UiKit.Text(_arm ? extra.ToUpperInvariant() : extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
         if (_arm) foreach (var l in new[] { _cardBody, _cardExtra }) { l?.AddThemeFontOverride("font", UiKit.NoteFont()); }
+        foreach (var l in new[] { _cardBody, _cardExtra }) if (l is not null) UiKit.TextKind(l, "description");   // the item card's own text: an item description
         if (_cardBody is not null) text.AddChild(_cardBody);
         if (_cardExtra is not null) text.AddChild(_cardExtra);
         _cardScroll = UiKit.Scroll(text);
@@ -987,6 +990,7 @@ public sealed partial class CreatorView : Control
     public void Back()
     {
         if (!_session.Dirty) { _onBack(); return; }
+        if (_arm) { OpenBackPrompt(); return; }   // the Armoury asks on its own page: KEEP CHANGES or DISCARD (CreatorView.ArmPrompt.cs)
         UiKit.Dialog.Open(this, Host, "Unsaved changes", "Save your loadouts and looks before you leave?", ["Save", "Discard", "Cancel"], i =>
         {
             if (i == 0) { string? error = _session.Save(); if (error is null) _onBack(); else Say("Could not save: " + error); }
