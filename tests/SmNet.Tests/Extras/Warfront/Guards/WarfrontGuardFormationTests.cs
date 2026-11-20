@@ -41,6 +41,25 @@ public class WarfrontGuardFormationTests
         Assert.Equal(WarfrontGuardRules.Rules.Health, w.TfwGuards!.Rules.Health);
     }
 
+    [Theory]
+    [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    [InlineData(8)] [InlineData(9)] [InlineData(10)] [InlineData(11)] [InlineData(12)] [InlineData(13)]
+    public void Every_squad_count_gives_rows_whose_rear_squads_stand_in_the_gaps(int count)
+    {
+        var slots = Enumerable.Range(0, count).Select(i => TfwBattle.SlotGrid(i, count)).ToArray();
+        int rows = slots.Max(s => s.Row) + 1;
+        Assert.True(rows <= WarfrontGuardRules.MaxRows, $"{rows} rows");
+        if (count >= 2) Assert.True(rows >= 2, "two squads or more stand in at least two rows");
+        int widest = Math.Max(WarfrontGuardRules.SquadsPerRow, (count + WarfrontGuardRules.MaxRows - 1) / WarfrontGuardRules.MaxRows);
+        Assert.All(slots.GroupBy(s => s.Row), g => Assert.True(g.Count() <= widest, $"row {g.Key} holds {g.Count()}"));
+        foreach (var a in slots)
+            foreach (var b in slots)
+            {
+                if (a.Row == b.Row && a != b) Assert.True(MathF.Abs(a.Lateral - b.Lateral) >= WarfrontGuardRules.SquadSpacing - 0.01f, $"{count}: squads of row {a.Row} closer than the spacing");
+                if (b.Row == a.Row - 1) Assert.True(MathF.Abs(a.Lateral - b.Lateral) >= WarfrontGuardRules.SquadSpacing * 0.25f, $"{count}: a squad of row {a.Row} at {a.Lateral} m stands straight behind one at {b.Lateral} m");
+            }
+    }
+
     [Fact]
     public void The_squads_of_a_held_point_stand_in_staggered_rows_facing_the_approach()
     {

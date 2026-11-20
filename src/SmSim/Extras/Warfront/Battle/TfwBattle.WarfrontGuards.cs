@@ -131,16 +131,35 @@ public sealed partial class TfwBattle
     }
 
     /// <summary>
+    /// Squad slot <paramref name="i"/> of <paramref name="count"/> on open ground: its row (front = 0) and its sideways offset in metres. At least two rows once there are two squads, at most
+    /// <see cref="WarfrontGuardRules.MaxRows"/> (a bigger crowd widens the rows). Each row is centred on its own count; a row with the same parity as the one before it (both odd or both even) is shifted half a
+    /// squad, alternately to one side and back, so every rear squad stands in a gap of the row in front of it, never straight behind a front squad (review 2026-11-21: a fixed half-squad shift on odd rows put the
+    /// lone rear squad of 3 and the rear pair of 5 straight behind front squads).
+    /// </summary>
+    public static (int Row, float Lateral) SlotGrid(int i, int count)
+    {
+        int perRow = Math.Max(Math.Min(WarfrontGuardRules.SquadsPerRow, (count + 1) / 2), (count + WarfrontGuardRules.MaxRows - 1) / WarfrontGuardRules.MaxRows);
+        int row = i / perRow, col = i % perRow;
+        float half = WarfrontGuardRules.SquadSpacing * 0.5f, shift = 0f;
+        int prev = Math.Min(perRow, count);
+        for (int r = 1; r <= row; r++)
+        {
+            int n = Math.Min(perRow, count - r * perRow);
+            if (n % 2 == prev % 2) shift = shift == 0f ? half : 0f;   // same parity: centred would stand straight behind, so step half a squad (or back)
+            prev = n;
+        }
+        int inRow = Math.Min(perRow, count - row * perRow);
+        return (row, (col - (inRow - 1) * 0.5f) * WarfrontGuardRules.SquadSpacing + shift);
+    }
+
+    /// <summary>
     /// Squad slot <paramref name="i"/> of <paramref name="count"/>: its row (front = 0) and place in it (at most <see cref="WarfrontGuardRules.MaxRows"/> rows: a bigger crowd of squads widens the rows), rows staggered half a squad.
     /// The offset's forward and sideways parts are shortened (whole, three quarters, half, a quarter, none; forward first) until the place is on the walking graph, reachable in a straight line from the point and
     /// <see cref="SlotClearance"/> off the walls, else the best clearance found.
     /// </summary>
     Vector3 SlotPlace(Vector3 point, Vector2 dir, int i, int count, float radius)
     {
-        int perRow = Math.Max(Math.Min(WarfrontGuardRules.SquadsPerRow, (count + 1) / 2), (count + WarfrontGuardRules.MaxRows - 1) / WarfrontGuardRules.MaxRows);   // at least two rows once there are two squads
-        int row = i / perRow, col = i % perRow;
-        int inRow = Math.Min(perRow, count - row * perRow);
-        float lateral = (col - (inRow - 1) * 0.5f) * WarfrontGuardRules.SquadSpacing + (row % 2 == 1 ? WarfrontGuardRules.SquadSpacing * 0.5f : 0f);
+        var (row, lateral) = SlotGrid(i, count);
         float forward = WarfrontGuardRules.FrontShare * radius - row * WarfrontGuardRules.RowSpacing;
         var side = new Vector2(-dir.Y, dir.X);
         var origin = Ground(point, point);
