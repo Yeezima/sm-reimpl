@@ -417,7 +417,7 @@ public sealed partial class UiSelfTest
         Check($"fit {at}: the nameplate sits on the frame's lower edge, inside its width, in the window", plateRect.Position.X >= concept.Frame.GetGlobalRect().Position.X && plateRect.End.X <= concept.Frame.GetGlobalRect().End.X && plateRect.Intersects(concept.Frame.GetGlobalRect()) && Encloses(view, plateRect), plateRect.ToString());
         int size = firstRow.GetThemeFontSize("font_size");
         float pixels = size * Mathf.Min(GetWindow().Size.X / (float)UiKit.VirtualWidth, GetWindow().Size.Y / (float)UiKit.VirtualHeight);
-        Check($"fit {at}: the rows' text is drawn at {UiKit.MinMenuPixels} px or more", pixels >= UiKit.MinMenuPixels - 0.01f, pixels.ToString());
+        Check($"fit {at}: the rows' text is drawn at {UiKit.MinMenuPixels} px or more", firstRow.GetThemeColor("font_color").A < 0.01f || pixels >= UiKit.MinMenuPixels - 0.01f, pixels.ToString());   // the plates carry the words and the live text is transparent at size 8 (menu scale 0.7); a visible live label must still reach the minimum
         CheckPage($"fit {at}: main menu", main, view);
         CheckPage($"fit {at}: lobby", _front.LobbyPage!, view, () => _front.ShowMenuPage("lobby"));
         CheckPage($"fit {at}: host", _front.HostPage!, view, () => _front.ShowMenuPage("host"));
