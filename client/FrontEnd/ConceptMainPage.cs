@@ -30,8 +30,6 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
     readonly UiKit.WingedCrest _crest = new(330f, 66f);
     readonly PanelContainer _frame = new() { Name = "MenuFrame", MouseFilter = MouseFilterEnum.Ignore };
     readonly bool _useOverlay = ConceptArt.Get("overlay-main") is not null;
-    /// <summary>The nameplate's words: where builds and issues are (it was an empty plate; Opus review 1).</summary>
-    readonly LinkButton _link = new() { Name = "NameplateLink", Uri = SmContent.ServerLaunch.ReleasesUrl, Text = SmContent.ServerLaunch.ReleasesUrl.Replace("https://", "").ToUpperInvariant(), Underline = LinkButton.UnderlineMode.Never, FocusMode = FocusModeEnum.None };
 
     /// <summary>The window of the page: the overlay (or the old frame).</summary>
     public Control Frame => _useOverlay ? _overlay : _frame;
@@ -49,9 +47,6 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
             AddChild(_overlay); AddChild(_wordmarkBox);
             _nameplate.Modulate = Colors.Transparent;   // the words are in the picture; the label stays for the tree
             AddChild(_nameplate);
-            _link.AddThemeFontOverride("font", UiKit.ConceptFont());
-            _link.AddThemeColorOverride("font_color", new Color(0.70f, 0.68f, 0.62f)); _link.AddThemeColorOverride("font_hover_color", Steel.GoldHi);
-            AddChild(_link);
             // The lower edge of the picture fades into the scene (a window narrower than 16:9 ends the picture above the window's bottom).
             _overlay.Material = new ShaderMaterial { Shader = new Shader { Code = "shader_type canvas_item;\nvoid fragment() { vec4 c = texture(TEXTURE, UV); c.a *= 1.0 - smoothstep(0.93, 1.0, UV.y); COLOR = c; }" } };
         }
@@ -127,12 +122,6 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
         var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s + oy); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
         _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s + oy); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
-        int linkSize = UiType.Px(UiType.Small);
-        _link.AddThemeFontSizeOverride("font_size", linkSize);
-        // The address sits in the middle of the plate (Opus review 2).
-        float linkW = UiKit.ConceptFont().GetStringSize(_link.Text, HorizontalAlignment.Left, -1, linkSize).X + 4f;
-        _link.Size = new Vector2(linkW, _nameplate.Size.Y);
-        _link.Position = _nameplate.Position + new Vector2((_nameplate.Size.X - linkW) / 2f, 0f);
         int n = System.Math.Max(1, VisibleRows());
         const float areaTop = Panel01.RowsAreaTop, areaH = Panel01.RowsAreaH, centre = Panel01.PlateTop1 + (4f * Panel01.PlatePitch + Panel01.PlateH) / 2f;
         float pitch = System.Math.Min(Panel01.PlatePitch, (areaH - 4f) / n);
