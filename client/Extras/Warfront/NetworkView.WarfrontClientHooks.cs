@@ -65,7 +65,7 @@ public partial class NetworkView
             var root = new WarfrontUiFit { Name = "WarfrontMapPeekRoot", Theme = SmClient.Customizer.UiKit.Theme };
             _wfPeek = new WarfrontHubPanel(WarfrontModel.Hub, null) { MouseFilter = Control.MouseFilterEnum.Ignore };
             for (int row = 0; row < WarfrontHubModel.Rows; row++) { var b = _wfPeek.DeployRow(row); b.MouseFilter = Control.MouseFilterEnum.Ignore; b.FocusMode = Control.FocusModeEnum.None; b.Modulate = new Color(1f, 1f, 1f, 0f); }   // read only: no deploy rows drawn
-            _wfPeek.NoteLabel.Visible = false;   // the leader's line ("YOU LEAD: CHOOSE THE DEPLOYMENT") is not true under a read-only look
+            _wfPeek.NoteSuppressed = true; _wfPeek.NoteLabel.Visible = false;   // the leader's line ("YOU LEAD: CHOOSE THE DEPLOYMENT") is not true under a read-only look
             root.AddChild(_wfPeek);
             _wfPeekLayer.AddChild(root);
             AddChild(_wfPeekLayer);

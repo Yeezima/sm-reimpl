@@ -73,6 +73,9 @@ with no cap on the enemies one swing strikes: an Ork is struck whenever his coll
 applies it through the `WarfrontCleave` hook of `World.MusouCleave` (`Extras/Warfront/Battle/World.WarfrontCleave.cs`; it acts only while the run's Warfront object
 exists); the client's drawn arc and predicted targets read the same scale. Classic PvP and Musou Mode keep their numbers. Numbers: spec "Warfront melee cleave".
 
+## The screens' look (2026-11-20)
+
+Every Warfront screen is in the style of the main menu, Options, Classic PvP and the Armoury (owner's request of 2026-11-20; spec "Warfront UI pass"). The WARFRONT page (`WarfrontPage`, a `ConceptPanelPage`): the shared frame, a status strip (DEPLOYMENTS, FRONTS, LEVEL; dashes with no run; the honor roll's counts are its hover hint), one centred column of plates (NEW CAMPAIGN or STOP SERVER, HOST FOR FRIENDS, JOIN A FRIEND, ONLINE WARFRONT when its gate is on, CUSTOMIZER) and the gold CONTINUE or REJOIN CAMPAIGN plate in the frame's tray; PREPARING THE BATTLEFIELD uses the same frame. In the match and on the ship `WarfrontStyle` is the one look (concept lettering, the size table, the scoreboard's painted pieces); explainer text is a hover hint (`UiTooltip`), while errors, refusals, progress lines and counts stay. The Warfront self-tests run the UI text audit; the HUD readouts and the spectate keys legend (`F: NEXT VIEW ...`, a key legend, not a sentence) stay on screen.
 ## Where things are stored
 
 `%LOCALAPPDATA%\sm-reimpl\warfront\` (or the folder `SM_WF_DIR` names): `run.json` (the whole campaign, written atomically at every ship arrival, pick and

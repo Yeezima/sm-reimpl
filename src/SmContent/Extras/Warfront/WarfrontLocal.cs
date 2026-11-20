@@ -32,9 +32,20 @@ public enum WarfrontRunKind
     Unreadable,
 }
 
+/// <summary>The status strip's figures: deployments fought, the three fronts ("2 / 1 / 3") and the first player's level.</summary>
+public sealed record WarfrontStatusCells(string Deployments, string Fronts, string Level)
+{
+    /// <summary>What the strip shows with no run in progress.</summary>
+    public static readonly WarfrontStatusCells None = new("-", "-", "-");
+    /// <summary>The strip's labels, in cell order.</summary>
+    public static readonly string[] Labels = ["DEPLOYMENTS", "FRONTS", "LEVEL"];
+    public string[] Values => [Deployments, Fronts, Level];
+}
+
 /// <param name="Kind">What the file says.</param>
 /// <param name="Line">One line for the page (deployments, fronts, level); empty unless <see cref="WarfrontRunKind.Continuable"/>.</param>
-public sealed record WarfrontRunInfo(WarfrontRunKind Kind, string Line)
+/// <param name="Cells">The three figures of the page's status strip; null unless <see cref="WarfrontRunKind.Continuable"/> (the strip then shows dashes).</param>
+public sealed record WarfrontRunInfo(WarfrontRunKind Kind, string Line, WarfrontStatusCells? Cells = null)
 {
     public static readonly WarfrontRunInfo NoRun = new(WarfrontRunKind.None, "");
     public bool CanContinue => Kind == WarfrontRunKind.Continuable;
@@ -111,12 +122,19 @@ public static class WarfrontLocal
             if (!File.Exists(path)) return WarfrontRunInfo.NoRun;
             var c = WarfrontSave.FromJson(File.ReadAllText(path));
             if (c.IsOver) return new WarfrontRunInfo(WarfrontRunKind.Finished, "");
-            return new WarfrontRunInfo(WarfrontRunKind.Continuable, SummaryLine(c));
+            return new WarfrontRunInfo(WarfrontRunKind.Continuable, SummaryLine(c), SummaryCells(c));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException or NotSupportedException or ArgumentException)
         {
             return new WarfrontRunInfo(WarfrontRunKind.Unreadable, "");
         }
+    }
+
+    /// <summary>The status strip's three figures of a run (the same numbers as <see cref="SummaryLine"/>).</summary>
+    public static WarfrontStatusCells SummaryCells(WarfrontCampaign c)
+    {
+        int level = c.JoinOrder.Count > 0 && c.Player(c.JoinOrder[0]) is { } p ? p.Level : 1;
+        return new WarfrontStatusCells(c.Deployments.ToString(CultureInfo.InvariantCulture), string.Create(CultureInfo.InvariantCulture, $"{c.Front(0)} / {c.Front(1)} / {c.Front(2)}"), level.ToString(CultureInfo.InvariantCulture));
     }
 
     /// <summary>"DEPLOYMENTS 4, FRONTS 2 / 1 / 3, LEVEL 5": deployments fought, the three fronts, the first player's level.</summary>

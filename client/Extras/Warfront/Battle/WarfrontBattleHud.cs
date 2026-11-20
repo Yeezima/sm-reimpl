@@ -14,8 +14,8 @@ namespace SmClient.Extras.Warfront.Battle;
 /// </summary>
 public sealed partial class WarfrontBattleHud : Control
 {
-    public const int BodySize = 20, HeadingSize = 28, BannerSize = 44;
-    public const float LineTop = 104f, ClockTop = 138f, BannerTop = 250f, BannerTopUnderStrip = 390f, BannerSeconds = 4f;
+    public const int BodySize = WarfrontStyle.Body, HeadingSize = WarfrontStyle.Heading, BannerSize = WarfrontStyle.Banner;
+    public const float LineTop = 100f, ClockTop = 138f, BannerTop = 250f, BannerTopUnderStrip = 390f, BannerSeconds = 4f;
 
     readonly Label _line, _clock, _banner;
     byte _lastMessage;
@@ -35,7 +35,7 @@ public sealed partial class WarfrontBattleHud : Control
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
         float w = 1100f, x = (UiKit.VirtualWidth - w) / 2f;
-        _line = WarfrontProgressDraw.Text(this, "WarfrontBattleLine", x, LineTop, w, BodySize, UiKit.White, HorizontalAlignment.Center);
+        _line = WarfrontProgressDraw.Text(this, "WarfrontBattleLine", x, LineTop, w, BodySize, WarfrontStyle.Ink, HorizontalAlignment.Center);
         _clock = WarfrontProgressDraw.Text(this, "WarfrontBattleClock", x, ClockTop, w, HeadingSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Center);
         _banner = WarfrontProgressDraw.Text(this, "WarfrontBattleBanner", (UiKit.VirtualWidth - 1500f) / 2f, BannerTop, 1500f, BannerSize, WarfrontProgressDraw.Gold, HorizontalAlignment.Center);
         Visible = false;

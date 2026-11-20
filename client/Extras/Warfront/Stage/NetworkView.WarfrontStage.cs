@@ -220,7 +220,7 @@ public partial class NetworkView
             WarfrontLandingFrameSummary(now);
         }
         // the war map's note line carries what needs saying about this client (a throwaway key, no answer to Identify, a refused or unanswered deploy)
-        if (_wfHubPanel is not null && m.NoteOverride(now) is { Length: > 0 } note && _wfHubPanel.NoteLabel.Text != note) _wfHubPanel.NoteLabel.Text = note;
+        if (_wfHubPanel is not null && m.NoteOverride(now) is { Length: > 0 } note && _wfHubPanel.NoteLabel.Text != note) { _wfHubPanel.NoteLabel.Text = note; _wfHubPanel.NoteLabel.Visible = true; }
         // the war map closes when the ship is left or the player falls
         if (_wfHubPanel is not null && (m.Hub.View.Phase != WarfrontPhase.Ship || !me.Alive)) WarfrontCloseHubPanel();
         // the results, once the record is complete and nothing else is up
@@ -272,8 +272,7 @@ public partial class NetworkView
         {
             _wfDownLayer = new CanvasLayer { Name = "WarfrontDown", Layer = 40 };
             _wfDownLabel = new Label { Name = "WarfrontDownLine", HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
-            _wfDownLabel.AddThemeFontSizeOverride("font_size", 28);
-            _wfDownLabel.AddThemeColorOverride("font_color", UiKit.White);
+            SmClient.Extras.Warfront.WarfrontStyle.Skin(_wfDownLabel, SmClient.Extras.Warfront.WarfrontStyle.Heading, SmClient.Extras.Warfront.WarfrontStyle.Ink, outline: true);
             _wfDownLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop);
             _wfDownLabel.Position = new Vector2(-300f, 120f);
             _wfDownLabel.Size = new Vector2(600f, 40f);

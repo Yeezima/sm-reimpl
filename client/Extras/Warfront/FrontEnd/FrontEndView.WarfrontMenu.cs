@@ -109,49 +109,46 @@ public sealed partial class FrontEndView
         var run = WarfrontLocal.ReadRun(WarfrontDir);
         string? honor = WarfrontLocal.HonorLine(WarfrontDir);
         _wfPage?.QueueFree();
-        // The page of the concept redesign (the same frame as every menu that is not the main menu): its rows are the menu's own, one lettering per level, no painted labels.
-        var page = new ConceptPanelPage("WarfrontMenu", WarfrontLocal.PageHeading, WarfrontLocal.PageTitle) { Visible = false, PrimaryTexts = [WarfrontLocal.ContinueRow.ToUpperInvariant(), WarfrontLocal.RejoinRow.ToUpperInvariant(), WarfrontLocal.NewRow.ToUpperInvariant()] };
-        Control? first = null;
+        // The page of the concept redesign (owner, 2026-11-20): the shared frame, a status strip, one centred column of plates and the gold CONTINUE plate in the tray (WarfrontPage); no heading, no explainer text, hints on hover.
+        var page = new WarfrontPage("WarfrontMenu", WarfrontLocal.PageTitle) { PrimaryTexts = [WarfrontLocal.ContinueRow.ToUpperInvariant(), WarfrontLocal.RejoinRow.ToUpperInvariant()] };
+        Button? first = null, main = null;
+        var column = new List<Button>();
         var choices = WarfrontLocal.Choices(run, running, warfront);
+        void Add(Button b) { page.Rows.AddChild(b); }
+        Button Plate(string text, Action press, string? hint) { var b = UiKit.MenuButton(text, press); if (hint is not null) UiTooltip.Attach(b, hint); return b; }
+        string? note = null;
         if (running)
         {
-            page.Rows.AddChild(UiKit.MenuText(warfront ? "THE WARFRONT SERVER IS RUNNING." : WarfrontLocal.OtherServerText.ToUpperInvariant(), UiKit.Grey));
-            if (choices.Contains(WarfrontLocal.RejoinRow))
-            {
-                first = UiKit.MenuButton(WarfrontLocal.RejoinRow, () => WarfrontStart(newRun: false), "Joins the campaign that is running");
-                page.Rows.AddChild(first);
-            }
-            var stop = UiKit.MenuButton(WarfrontLocal.StopRow, WarfrontStopServer, "Stops the server this game started on this PC");
+            note = warfront ? "THE WARFRONT SERVER IS RUNNING." : WarfrontLocal.OtherServerText.ToUpperInvariant();
+            if (choices.Contains(WarfrontLocal.RejoinRow)) { main = Plate(WarfrontLocal.RejoinRow, () => WarfrontStart(newRun: false), "Joins the campaign that is running"); Add(main); first = main; }
+            var stop = Plate(WarfrontLocal.StopRow, WarfrontStopServer, "Stops the server this game started on this PC");
             first ??= stop;
-            page.Rows.AddChild(stop);
+            column.Add(stop); Add(stop);
         }
         else
         {
-            if (choices.Contains(WarfrontLocal.ContinueRow))
-            {
-                var cont = UiKit.MenuButton(WarfrontLocal.ContinueRow, () => WarfrontStart(newRun: false), "Back to the campaign you left");
-                first = cont;
-                page.Rows.AddChild(cont);
-                page.Rows.AddChild(UiKit.MenuText(run.Line, UiKit.Grey).With(l => l.TooltipText = run.Line));
-            }
-            var fresh = UiKit.MenuButton(WarfrontLocal.NewRow, () => WarfrontNew(run), "Starts a new campaign on this PC: only you can join it");
+            if (choices.Contains(WarfrontLocal.ContinueRow)) { main = Plate(WarfrontLocal.ContinueRow, () => WarfrontStart(newRun: false), "Back to the campaign you left"); Add(main); first = main; }
+            var fresh = Plate(WarfrontLocal.NewRow, () => WarfrontNew(run), "Starts a new campaign on this PC: only you can join it");
             first ??= fresh;
-            page.Rows.AddChild(fresh);
+            column.Add(fresh); Add(fresh);
         }
-        if (honor is not null) page.Rows.AddChild(UiKit.MenuText(honor, UiKit.Grey).With(l => l.TooltipText = honor));
         // The friends' ways in, the same two as Classic PvP's lobby: the Host panel on the Warfront profile (this PC only, or LAN / Internet, up to 4 players) and the address page.
-        var hostRow = UiKit.MenuButton(WarfrontLocal.HostRow, () => ShowPage(_hostPage!), $"Host the Warfront for up to {WarfrontLocal.MaxFriends} players: this PC only, or LAN / Internet for friends");
-        if (!HasHostPanel) { hostRow.Disabled = true; hostRow.TooltipText = WarfrontLocal.NoServerText; }
-        else if (running) { hostRow.Disabled = true; hostRow.TooltipText = "A server of this game is running. Stop it first."; }
-        page.Rows.AddChild(hostRow);
-        page.Rows.AddChild(UiKit.MenuButton(WarfrontLocal.JoinRow, () => ShowPage(_joinLocalPage!), "A Warfront hosted on another PC: type its address"));
-        if (WarfrontOnline.Enabled) page.Rows.AddChild(UiKit.MenuButton(WarfrontOnline.Row, WarfrontJoinOnline, WarfrontOnline.RowTooltip));
-        page.Rows.AddChild(UiKit.MenuButton("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)"));
-        page.Rows.AddChild(UiKit.MenuGap(0.5f));
-        page.Rows.AddChild(UiKit.MenuText(WarfrontLocal.CoopNote.ToUpperInvariant(), UiKit.Grey).With(l => l.TooltipText = WarfrontLocal.CoopNote));
-        page.Rows.AddChild(UiKit.MenuGap(0.5f));
-        page.Rows.AddChild(UiKit.MenuButton("Back", WarfrontBackToMain));
+        var hostRow = Plate(WarfrontLocal.HostRow, () => ShowPage(_hostPage!), WarfrontLocal.CoopNote);
+        if (!HasHostPanel) { hostRow.Disabled = true; UiTooltip.Attach(hostRow, WarfrontLocal.NoServerText); }
+        else if (running) { hostRow.Disabled = true; UiTooltip.Attach(hostRow, "A server of this game is running. Stop it first."); }
+        column.Add(hostRow); Add(hostRow);
+        var join = Plate(WarfrontLocal.JoinRow, () => ShowPage(_joinLocalPage!), "A Warfront hosted on another PC: type its address");
+        column.Add(join); Add(join);
+        if (WarfrontOnline.Enabled) { var online = Plate(WarfrontOnline.Row, WarfrontJoinOnline, WarfrontOnline.RowTooltip); column.Add(online); Add(online); }
+        var customizer = Plate("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)");
+        column.Add(customizer); Add(customizer);
+        Add(UiKit.MenuButton("Back", WarfrontBackToMain));
+        page.SetStatus(run.CanContinue ? run.Cells : null, honor);
+        if (note is not null) page.SetNote(note, running && !warfront ? "refusal" : null);
+        else if (honor is not null) page.SetNote(honor, "progress");   // counts from the honor roll (RUNS 3, VICTORIES 1, FASTEST 41:20)
+        page.SetPlates(column, main);
         _first[page] = first;
+        page.Visible = false;
         AddChild(page);
         _wfPage = page;
         _extrasPage = page;
@@ -254,10 +251,9 @@ public sealed partial class FrontEndView
     internal void ShowWarfrontPrep()
     {
         _wfPrep?.QueueFree();
-        var page = new UiKit.MenuPage("WarfrontPreparing", WarfrontLocal.PageTitle) { Visible = false };
-        page.Rows.AddChild(UiKit.MenuText(WarfrontLocal.PreparingTitle, UiKit.White));
-        _wfStatus = UiKit.MenuText(WarfrontLocal.StartingText.ToUpperInvariant(), UiKit.Grey);
-        _wfStatus.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;   // a long server line ends with an ellipsis inside the column (the full line is the tooltip)
+        // The same frame as the page (owner, 2026-11-20): the title on the plate, the server's line and the clock as the frame's notes, CANCEL as a plate.
+        var page = new ConceptPanelPage("WarfrontPreparing", "", WarfrontLocal.PreparingTitle) { Visible = false };
+        _wfStatus = UiKit.TextKind(UiKit.MenuText(WarfrontLocal.StartingText.ToUpperInvariant(), UiKit.Grey), "progress");   // the server's own progress line
         _wfElapsed = UiKit.MenuText("0:00", UiKit.Grey);
         page.Rows.AddChild(_wfStatus);
         page.Rows.AddChild(_wfElapsed);
@@ -308,6 +304,7 @@ public sealed partial class FrontEndView
     /// <summary>Each frame: follows the server's start, fills the preparing screen, hides Warfront's pages when another page took over.</summary>
     void WarfrontTick()
     {
+        if (_wfPage is WarfrontPage wfPage && GodotObject.IsInstanceValid(wfPage)) wfPage.SetPlatesShown(!WarfrontConfirmOpen);   // the plates are top-level (they draw over everything): out of the way while the question is up
         if (_built) WarfrontAids();
         if (_page is not null && _page != _wfPage) WarfrontHidePages();   // another page took over (the front end sets _page; Warfront's pages leave it null)
         if (!_wfPending) return;

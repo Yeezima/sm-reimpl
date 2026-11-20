@@ -8,7 +8,7 @@ namespace SmClient.Extras.Warfront.Squad;
 
 /// <summary>
 /// The squad panel aboard the ship (slice W10): one row per Marine of the viewer's roster (name, class, the eight service figures, state), the name editable in place (click, type, Enter sends the rename), and a
-/// second tab with the other players' squads, read only. No gear screens. One text style (<see cref="WarfrontSquadHud.TextSize"/>), the panel's border crisp and symmetric (<see cref="UiKit.Box"/>), every label live.
+/// second tab with the other players' squads, read only. No gear screens. One text size for the cells (<see cref="WarfrontSquadHud.TextSize"/>, the caption level), the concept's painted steel ring round a dark floor (<see cref="UiKit.Panel"/>), the concept's plates and fields, every label live; the rename hint is a hover hint on the names and the other tab says READ ONLY.
 /// </summary>
 public sealed partial class WarfrontSquadPanel : Control
 {
@@ -46,20 +46,19 @@ public sealed partial class WarfrontSquadPanel : Control
         AddChild(centre);
 
         var content = UiKit.VBox(12);
-        _title = UiKit.Text("SQUAD", WarfrontSquadHud.TextSize, UiKit.White);
+        _title = WarfrontStyle.Skin(new Label { Text = "SQUAD", MouseFilter = MouseFilterEnum.Ignore }, WarfrontStyle.Heading, WarfrontStyle.Gold);
         var tabs = UiKit.HBox(8);
-        _ownTab = UiKit.Button("YOUR SQUAD", () => Select(true), 190);
-        _otherTab = UiKit.Button("OTHER SQUADS", () => Select(false), 190);
+        _ownTab = Plate("YOUR SQUAD", () => Select(true));
+        _otherTab = Plate("OTHER SQUADS", () => Select(false));
         tabs.AddChild(_title); tabs.AddChild(UiKit.Spacer()); tabs.AddChild(_ownTab); tabs.AddChild(_otherTab);
         content.AddChild(tabs);
         content.AddChild(_rows);
-        _hint = UiKit.Text("", WarfrontSquadHud.TextSize, UiKit.Grey);
+        _hint = Cell("", WarfrontStyle.Dim);
         var footer = UiKit.HBox(8);
-        footer.AddChild(_hint); footer.AddChild(UiKit.Spacer()); footer.AddChild(UiKit.Button("CLOSE", () => CloseRequested?.Invoke(), 140));
+        footer.AddChild(_hint); footer.AddChild(UiKit.Spacer()); footer.AddChild(Plate("CLOSE", () => CloseRequested?.Invoke(), 160f));
         content.AddChild(footer);
-        var panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.White, 2, 18));
-        panel.AddChild(content);
+        var panel = UiKit.Panel(content, 18);
+        panel.MouseFilter = MouseFilterEnum.Stop;
         centre.AddChild(panel);
         Select(true);
     }
@@ -72,7 +71,7 @@ public sealed partial class WarfrontSquadPanel : Control
     {
         _own = own;
         _ownTab.Disabled = own; _otherTab.Disabled = !own;
-        _hint.Text = own ? "CLICK A NAME TO CHANGE IT, ENTER TO KEEP IT" : "OTHER PLAYERS' SQUADS (READ ONLY)";
+        _hint.Text = own ? "" : "READ ONLY";   // a lock's few words; the rename hint is on the names
         _signature = "";
         Refresh();
     }
@@ -97,27 +96,42 @@ public sealed partial class WarfrontSquadPanel : Control
         grid.AddThemeConstantOverride("h_separation", 22);
         grid.AddThemeConstantOverride("v_separation", 6);
         foreach (var h in new[] { _own ? "NAME" : "SQUAD / NAME", "CLASS" }.Concat(WarfrontSquadModel.RecordHeadings).Append("STATE"))
-            grid.AddChild(UiKit.Text(h, WarfrontSquadHud.TextSize, UiKit.Grey, h is "NAME" or "SQUAD / NAME" or "CLASS" or "STATE" ? HorizontalAlignment.Left : HorizontalAlignment.Right));
-        if (rows.Count == 0) { _rows.AddChild(grid); _rows.AddChild(UiKit.Text(_own ? "NO MARINES YET" : "NO OTHER SQUADS", WarfrontSquadHud.TextSize, UiKit.Grey)); return; }
+            grid.AddChild(Cell(h, WarfrontStyle.Gold, h is "NAME" or "SQUAD / NAME" or "CLASS" or "STATE" ? HorizontalAlignment.Left : HorizontalAlignment.Right));
+        if (rows.Count == 0) { _rows.AddChild(grid); _rows.AddChild(Cell(_own ? "NO MARINES YET" : "NO OTHER SQUADS", WarfrontStyle.Dim)); return; }
         foreach (var r in rows)
         {
             if (_own)
             {
                 var edit = new LineEdit { Text = r.Name, MaxLength = 24, CustomMinimumSize = new Vector2(330, 36), SelectAllOnFocus = true, Name = $"Name{r.Slot}" };
-                edit.AddThemeStyleboxOverride("normal", UiKit.Box(new Color(1f, 1f, 1f, 0.06f), new Color(1f, 1f, 1f, 0.35f), 2, 6));
-                edit.AddThemeStyleboxOverride("focus", UiKit.Box(new Color(1f, 1f, 1f, 0.12f), UiKit.White, 2, 6));
+                edit.AddThemeFontOverride("font", UiKit.ConceptFont());
+                edit.AddThemeFontSizeOverride("font_size", WarfrontSquadHud.TextSize);
+                edit.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
+                edit.AddThemeStyleboxOverride("normal", new Steel.SteelStyle(Steel.Kind.Recess, 5f, 10f, 2f));   // the concept's field: steel rim at rest, gold under the focus
+                edit.AddThemeStyleboxOverride("focus", new Steel.SteelStyle(Steel.Kind.CardGold, 5f, 10f, 2f));
+                UiTooltip.Attach(edit, "Click a name to change it, Enter to keep it");
                 int slot = r.Slot;
                 edit.TextSubmitted += text => { RenameRequested?.Invoke(slot, text); edit.ReleaseFocus(); };
                 edit.FocusExited += () => edit.Text = _model.PanelRows(true).FirstOrDefault(x => x.Slot == slot)?.Name ?? edit.Text;   // an edit that was not sent goes back
                 _edits.Add(edit);
                 grid.AddChild(edit);
             }
-            else grid.AddChild(UiKit.Text($"{OwnerLabel(r)}  {r.Name}", WarfrontSquadHud.TextSize, UiKit.White));
-            grid.AddChild(UiKit.Text(_className(r.Class), WarfrontSquadHud.TextSize, UiKit.White));
-            foreach (var figure in r.Record) grid.AddChild(UiKit.Text(figure.ToString(), WarfrontSquadHud.TextSize, UiKit.White, HorizontalAlignment.Right));
-            grid.AddChild(UiKit.Text(r.State, WarfrontSquadHud.TextSize, r.State is "DOWN" ? UiKit.LightRed : UiKit.White));
+            else grid.AddChild(Cell($"{OwnerLabel(r)}  {r.Name}", WarfrontStyle.Ink));
+            grid.AddChild(Cell(_className(r.Class), WarfrontStyle.Ink));
+            foreach (var figure in r.Record) grid.AddChild(Cell(figure.ToString(), WarfrontStyle.Ink, HorizontalAlignment.Right));
+            grid.AddChild(Cell(r.State, r.State is "DOWN" ? WarfrontStyle.Alert : WarfrontStyle.Ink));
         }
         _rows.AddChild(grid);
+    }
+
+    /// <summary>One cell of the table: the concept lettering at the table's one size.</summary>
+    static Label Cell(string text, Color ink, HorizontalAlignment align = HorizontalAlignment.Left) =>
+        WarfrontStyle.Skin(new Label { Text = text, HorizontalAlignment = align, MouseFilter = MouseFilterEnum.Ignore }, WarfrontSquadHud.TextSize, ink);
+
+    static Button Plate(string text, Action press, float width = 200f)
+    {
+        var b = new Button { Text = text, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(width, 48f) };
+        b.Pressed += press;
+        return WarfrontStyle.Plate(b, WarfrontStyle.Body, width);
     }
 
     static string OwnerLabel(WarfrontSquadRow r) => r.OwnerPlayer >= 0 ? $"P{r.OwnerPlayer}" : "--";

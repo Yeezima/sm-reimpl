@@ -27,6 +27,13 @@ public sealed partial class WarfrontCoopSelfTest : Node
 
     async Task Frames(int n = 3) { for (int i = 0; i < n; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
 
+    /// <summary>The text audit of the UI self-test (UiSelfTest.TextAudit.cs) on this screen: no visible text over five words, none with "click" or "press", unless registered with UiKit.TextKind.</summary>
+    void Audit(string screen, Node n)
+    {
+        var found = SmClient.FrontEnd.UiSelfTest.AuditText(n);
+        Check($"text audit: {screen} has no explainer text", found.Count == 0, string.Join(" | ", found.Take(6)));
+    }
+
     void Check(string name, bool ok, string detail = "")
     {
         if (ok) _passed++; else _failed++;
@@ -119,8 +126,9 @@ public sealed partial class WarfrontCoopSelfTest : Node
         await Frames(2);
         Check("class: own panel shows", _join.Visible && _join.HeadingLabel.Text == "YOU JOIN AT LEVEL 6", _join.HeadingLabel.Text);
         Check("class: the customizer line and the clock", _join.BodyLabel.Text == "CONFIRM YOUR CLASS IN THE CUSTOMIZER (1:12)", _join.BodyLabel.Text);
-        Check("class: the hint names the way in", _join.HintLabel.Text == "OPEN IT AT THE EQUIPMENT STATION ON THE SHIP", _join.HintLabel.Text);
+        Check("class: the way in is the own box's hover hint, not text on the screen", _join.HintText == "OPEN IT AT THE EQUIPMENT STATION ON THE SHIP" && !_join.Labels().Any(l => l.Text.Contains("EQUIPMENT", StringComparison.Ordinal)), _join.HintText);
         FitCheck("class", _join.Labels().ToArray());
+        Audit("the join panel (class)", _join);
         Check("class: text is at the picker's sizes", _join.HeadingLabel.GetThemeFontSize("font_size") == Progression.WarfrontPickerPanel.HeadingSize && _join.BodyLabel.GetThemeFontSize("font_size") == Progression.WarfrontPickerPanel.BodySize);
         await Still("join-class");
         _model.CustomizerClosed();
@@ -151,6 +159,8 @@ public sealed partial class WarfrontCoopSelfTest : Node
         Check("leader: no own panel", _join.HeadingLabel.Text == "");
         Check("leader: the announcement line", _hud.AnnounceLabel.Text == "YOU LEAD THE SQUAD" && _hud.Visible, _hud.AnnounceLabel.Text);
         FitCheck("leader", _join.Labels().Concat(new[] { _hud.AnnounceLabel }).ToArray());
+        Audit("the join panel (leader)", _join);
+        Audit("the spectate HUD", _hud);
         await Still("leader-awaited");
         _model.Tick(WarfrontCoop.LeaderChangedSeconds + 0.5);
         await Frames(2);

@@ -12,7 +12,7 @@ namespace SmClient.Extras.Warfront.Progression;
 /// </summary>
 public sealed partial class WarfrontPickerPanel : Control
 {
-    public const int HeadingSize = 28, BodySize = 20;
+    public const int HeadingSize = WarfrontStyle.Heading, BodySize = WarfrontStyle.Body;
     /// <summary>Card slots: all five stat cards and +1 Retainer (owner 2026-11-18); an offer without the Retainer leaves the sixth empty.</summary>
     public const int Cards = 6;
     public const float Left = 164f, CardWidth = 252f, CardHeight = 320f, CardGap = 16f, CardTop = 310f, HeaderTop = 250f;
@@ -21,7 +21,7 @@ public sealed partial class WarfrontPickerPanel : Control
     public static float RowWidth => Cards * CardWidth + (Cards - 1) * CardGap;
 
     readonly WarfrontProgressModel _model;
-    readonly Label _header, _timeout, _protected, _hint, _seconds;
+    readonly Label _header, _protected, _seconds;
     readonly Label[] _slot = new Label[Cards], _name = new Label[Cards], _effect = new Label[Cards], _owned = new Label[Cards];
     readonly Control[] _hit = new Control[Cards];
     readonly Draw _draw;
@@ -36,7 +36,8 @@ public sealed partial class WarfrontPickerPanel : Control
     public Label EffectLabel(int i) => _effect[i];
     public Label OwnedLabel(int i) => _owned[i];
     public Control CardHit(int i) => _hit[i];
-    public Label TimeoutLabel => _timeout;
+    /// <summary>What happens when the time runs out: the countdown's hover hint (not text on the screen).</summary>
+    public string TimeoutHint => _seconds.TooltipText;
     public Label ProtectedLabel => _protected;
 
     public System.Collections.Generic.IEnumerable<Label> Labels()
@@ -57,8 +58,7 @@ public sealed partial class WarfrontPickerPanel : Control
                 var box = new Rect2(CardLeft(i), CardTop, CardWidth, CardHeight);
                 bool hi = _m.Highlight == i;
                 bool sent = _m.Sent == i;
-                DrawRect(box, hi ? new Color(WarfrontProgressDraw.Gold, 0.22f) : new Color(1f, 1f, 1f, 0.07f));
-                WarfrontProgressDraw.Frame(this, box, 2f, hi || sent ? WarfrontProgressDraw.Gold : new Color(1f, 1f, 1f, 0.8f));
+                WarfrontStyle.Card(this, box, hi || sent);
             }
             WarfrontProgressDraw.Bar(this, new Rect2(Left, BarTop, RowWidth, BarHeight), _m.TimeFraction, WarfrontProgressDraw.Gold);
         }
@@ -78,7 +78,7 @@ public sealed partial class WarfrontPickerPanel : Control
         _draw.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_draw);
 
-        var white = UiKit.White;
+        var white = WarfrontStyle.Ink;
         _header = WarfrontProgressDraw.Text(this, "WarfrontPickerHeader", Left, HeaderTop, 900f, HeadingSize, white);
         for (int i = 0; i < Cards; i++)
         {
@@ -87,6 +87,7 @@ public sealed partial class WarfrontPickerPanel : Control
             _slot[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerSlot" + i, x, CardTop + 16f, w, HeadingSize, WarfrontProgressDraw.Gold);
             _name[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerName" + i, x, CardTop + 64f, w, HeadingSize, white);
             _effect[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerEffect" + i, x, CardTop + 124f, w, BodySize, white, lines: 4);
+            UiKit.TextKind(_effect[i], "description");   // the card's own effect text
             _owned[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerOwned" + i, x, CardTop + CardHeight - 44f, w, BodySize);
             var hit = new Control { Name = "WarfrontPickerHit" + i, MouseFilter = MouseFilterEnum.Stop, MouseDefaultCursorShape = CursorShape.PointingHand };
             hit.SetAnchorsPreset(LayoutPreset.TopLeft);
@@ -97,13 +98,17 @@ public sealed partial class WarfrontPickerPanel : Control
             AddChild(hit);
             _hit[i] = hit;
         }
-        _timeout = WarfrontProgressDraw.Text(this, "WarfrontPickerTimeout", Left, NotesTop, 900f, BodySize);
-        _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop + NoteStep, 900f, BodySize);
-        _hint = WarfrontProgressDraw.Text(this, "WarfrontPickerHint", Left, NotesTop + 2 * NoteStep, 1200f, BodySize);
+        _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop, 900f, BodySize, WarfrontStyle.Dim);
+        _protected.Visible = false;   // not text on the screen: the protection rides in the cards' and the header's hover hint (ProtectedLabel keeps the words)
         _seconds = WarfrontProgressDraw.Text(this, "WarfrontPickerSeconds", Left + RowWidth - 140f, HeaderTop, 140f, HeadingSize, white, HorizontalAlignment.Right);
-        _timeout.Text = WarfrontProgressModel.TimeoutNote;
+        _seconds.MouseFilter = MouseFilterEnum.Pass;
+        UiTooltip.Attach(_seconds, WarfrontProgressModel.TimeoutNote);
         _protected.Text = WarfrontProgressModel.ProtectedNote;
-        _hint.Text = WarfrontProgressModel.HintNote;
+        // The keys that pick are a hover hint, not text on the screen (owner, 2026-11-20): on the header and on every card.
+        _header.MouseFilter = MouseFilterEnum.Pass;
+        string hint = WarfrontProgressModel.HintNote + "\n" + WarfrontProgressModel.ProtectedNote;
+        UiTooltip.Attach(_header, hint);
+        foreach (var h in _hit) UiTooltip.Attach(h, hint);
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
         Refresh();
