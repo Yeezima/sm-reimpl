@@ -18,13 +18,25 @@ public sealed partial class WarfrontResultsPanel : Control
 {
     const float Left = 0f;
     // Column left edges and widths of the table (numbers are right-aligned in them).
-    const float RankX = 100f, RankW = 44f, NameX = 160f, NameW = 270f, ScoreX = 430f, ScoreW = 110f;
-    static readonly (string Head, float X, float W)[] Cols =
+    const float RankX = 40f, RankW = 44f, NameX = 100f, NameW = 250f;
+    // Three groups of columns, each under its own band (owner, 2026-11-20): PLAYER is what the player did himself, SQUAD what his Marines did, TOTAL the result (TOTAL K and the score the table is ranked by).
+    // Each column: heading, the index of its cell in the row's texts, width. Numbers and headings are centred in their columns.
+    const float ColW = 76f, GroupGap = 18f;
+    static readonly (string Name, (string Head, int Cell)[] Cols, float X, float W)[] Groups = BuildGroups();
+    static (string, (string, int)[], float, float)[] BuildGroups()
     {
-        ("K", 550f, 70f), ("A", 620f, 60f), ("D", 680f, 60f), ("REV", 740f, 70f), ("CAP", 810f, 70f),
-        ("K", 900f, 70f), ("KO", 970f, 70f), ("REV", 1040f, 70f), ("MEN", 1110f, 70f), ("TOTAL K", 1180f, 110f),
-    };
-    const int BodySize = WarfrontStyle.Body, CaptionSize = WarfrontStyle.Small, ButtonSize = WarfrontStyle.Body;
+        (string, (string, int)[])[] def =
+        [
+            ("PLAYER", [("K", 3), ("A", 4), ("D", 5), ("REV", 6), ("CAP", 7)]),
+            ("SQUAD", [("K", 8), ("KO", 9), ("REV", 10), ("MEN", 11)]),
+            ("TOTAL", [("TOTAL K", 12), ("SCORE", 2)]),
+        ];
+        var list = new List<(string, (string, int)[], float, float)>();
+        float x = 372f;
+        foreach (var (name, cols) in def) { float w = cols.Length * (name == "TOTAL" ? 108f : ColW); list.Add((name, cols, x, w)); x += w + GroupGap; }
+        return list.ToArray();
+    }
+    const float BandTop = 28f, BandH = 32f;    const int BodySize = WarfrontStyle.Body, CaptionSize = WarfrontStyle.Small, ButtonSize = WarfrontStyle.Body;
     const float ButtonWidth = 260f, ButtonPitch = 285f, ButtonTop = 496f;
     static readonly Color Dim = WarfrontStyle.Dim, Head = WarfrontStyle.Gold;
 
@@ -85,9 +97,25 @@ public sealed partial class WarfrontResultsPanel : Control
     sealed partial class Backing : Control
     {
         public Backing() { Name = "ResultsBacking"; MouseFilter = MouseFilterEnum.Pass; }
+        public float RowsEnd = 400f;
+        public bool ShowGroups = true;
+
         public override void _Draw()
         {
-            WarfrontStyle.Strip(this, new Rect2(90f, 28f, 1220f, 64f));
+            if (!ShowGroups) return;
+            // The TOTAL columns carry a gold wash under their numbers (the result); each group has its own band over exactly its columns, a divider in each gap.
+            var total = Groups[^1];
+            DrawRect(new Rect2(total.X, BandTop + BandH, total.W, RowsEnd - BandTop - BandH), BoardStyle.MeFill);
+            foreach (var g in Groups)
+            {
+                var band = new Rect2(g.X, BandTop, g.W, BandH);
+                if (g.Name == "TOTAL") WarfrontStyle.Card(this, band, true); else WarfrontStyle.Strip(this, band);
+            }
+            for (int i = 0; i < Groups.Length - 1; i++)
+            {
+                float gx = Groups[i].X + Groups[i].W + GroupGap / 2f;
+                DrawRect(new Rect2(gx - 1f, BandTop, 2f, RowsEnd - BandTop), new Color(Steel.SteelMid, 0.8f));
+            }
         }
     }
 
@@ -149,16 +177,17 @@ public sealed partial class WarfrontResultsPanel : Control
         ShowingHonorRoll = false;
         var rows = _record.Rows;
         const float top = 30f;
-        Line("GroupPlayer", "PLAYER", 550f, top, CaptionSize, 400f, Head, parent: _page);
-        Line("GroupSquad", "SQUAD", 900f, top, CaptionSize, 340f, Head, parent: _page);
-        float hy = top + 26f;
-        Line("HeadRank", "#", RankX, hy, CaptionSize, RankW, Head, HorizontalAlignment.Right, _page);
+        foreach (var g in Groups) Line("Group" + g.Name, g.Name, g.X, BandTop + 2f, CaptionSize, g.W, Head, HorizontalAlignment.Center, _page);
+        float hy = BandTop + BandH + 4f;
+        Line("HeadRank", "#", RankX, hy, CaptionSize, RankW, Head, HorizontalAlignment.Center, _page);
         Line("HeadName", "NAME", NameX, hy, CaptionSize, NameW, Head, parent: _page);
-        Line("HeadScore", "SCORE", ScoreX, hy, CaptionSize, ScoreW, Head, HorizontalAlignment.Right, _page);
-        foreach (var (head, x, w) in Cols) Line("Head" + head + x, head, x, hy, CaptionSize, w, Head, HorizontalAlignment.Right, _page);
-        bool retainers = rows.Count <= 8;
+        foreach (var g in Groups)
+        {
+            float cw = g.W / g.Cols.Length;
+            for (int c = 0; c < g.Cols.Length; c++) Line("Head" + g.Name + c, g.Cols[c].Head, g.X + c * cw, hy, CaptionSize, cw, Head, HorizontalAlignment.Center, _page);
+        }        bool retainers = rows.Count <= 8;
         float pitch = Math.Min(42f, 370f / Math.Max(1, rows.Count));
-        float y = hy + 44f;   // rows start under the strip
+        float y = hy + 40f;   // rows start under the column heads
         for (int i = 0; i < rows.Count; i++, y += pitch)
         {
             var r = rows[i];
@@ -171,13 +200,17 @@ public sealed partial class WarfrontResultsPanel : Control
                 r.Squad.Members.ToString(CultureInfo.InvariantCulture), r.TotalKills.ToString(CultureInfo.InvariantCulture),
             };
             TableText.Add(cells);
-            Line("Rank" + i, cells[0], RankX, y, BodySize, RankW, null, HorizontalAlignment.Right, _page);
+            Line("Rank" + i, cells[0], RankX, y, BodySize, RankW, null, HorizontalAlignment.Center, _page);
             var nameLabel = Line("Name" + i, cells[1], NameX, y, BodySize, NameW, null, parent: _page);
-            Line("Score" + i, cells[2], ScoreX, y, BodySize, ScoreW, null, HorizontalAlignment.Right, _page);
-            for (int c = 0; c < Cols.Length; c++) Line($"Cell{i}_{c}", cells[3 + c], Cols[c].X, y, BodySize, Cols[c].W, null, HorizontalAlignment.Right, _page);
-            if (r.TopRetainer is { } top1)   // the squad's top retainer and why: this player's hover hint
+            foreach (var g in Groups)
+            {
+                float cw = g.W / g.Cols.Length;
+                for (int c = 0; c < g.Cols.Length; c++)
+                    Line($"Cell{i}_{g.Name}{c}", cells[g.Cols[c].Cell], g.X + c * cw, y, BodySize, cw, g.Name == "TOTAL" ? WarfrontStyle.GoldFill : null, HorizontalAlignment.Center, _page);   // the result in gold
+            }            if (r.TopRetainer is { } top1)   // the squad's top retainer and why: this player's hover hint
                 UiTooltip.Attach(nameLabel, "Top retainer " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + ", " + top1.Reason);
         }
+        _backing.RowsEnd = y; _backing.ShowGroups = true; _backing.QueueRedraw();
         UiTooltip.Attach(_backing, _record.Weights.FormulaText());   // how the score is made: a hover hint on the table, not a line under it
     }
 
@@ -211,6 +244,7 @@ public sealed partial class WarfrontResultsPanel : Control
         if (ShowingHonorRoll) { BuildTable(); HonorButton.Text = "HONOR ROLL"; return; }
         Clear();
         UiTooltip.Attach(_backing, "");
+        _backing.ShowGroups = false; _backing.QueueRedraw();
         ShowingHonorRoll = true;
         HonorButton.Text = "LEADERBOARD";
         var roll = WarfrontResultsArchive.HonorRoll(_dir);
