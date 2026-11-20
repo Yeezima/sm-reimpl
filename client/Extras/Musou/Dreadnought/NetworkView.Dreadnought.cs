@@ -42,6 +42,9 @@ public partial class NetworkView
         /// <summary>The frame-rate clip clocks of the arm's strike (own player: <see cref="OwnClipClock"/>, others: <see cref="ClipClock"/>).</summary>
         public readonly OwnClipClock OwnStrike = new();
         public readonly ClipClock OtherStrike = new();
+        /// <summary>The same for the charge and its collision stop (2026-11-20 smoothing pass: the charge's clip was posed at the simulation's stepped time).</summary>
+        public readonly OwnClipClock OwnRush = new();
+        public readonly ClipClock OtherRush = new();
         /// <summary>Every bone's rotation last frame (<see cref="DreadnoughtArmCap"/>).</summary>
         public Quaternion[] Cap = new Quaternion[0]; public bool CapHave; public double CapAt; public ulong CapFrame;
     }
@@ -130,7 +133,7 @@ public partial class NetworkView
             // the charge (Sprint + Melee) and its collision stop, then the arm's strike at the simulation's time
             if (state.Rush is RushPhase.Rush or RushPhase.Collision)
             {
-                float rt = SmSim.Rush.Time(state, cfg);
+                float rt = DreadnoughtRushClipTime(t, state, own, cfg);
                 if (character.Pose(state.Rush == RushPhase.Rush ? DreadnoughtRig.RushAttack : DreadnoughtRig.Collision, rt, 0.12f)) return;
             }
             if (state.MeleeStep > 0)
@@ -140,6 +143,7 @@ public partial class NetworkView
             }
             else { t.OwnStrike.Stop(); t.OtherStrike.Stop(); t.CapHave = false; }
         }
+        t.OwnRush.Stop(); t.OtherRush.Stop();   // not charging this frame (a charge returned above): the next one starts its clock afresh
         DreadnoughtLocomotion(character, state);
     }
 
@@ -158,6 +162,21 @@ public partial class NetworkView
             ? t.OwnStrike.Step(key, simTime, _client.ClipFraction, _config.TickSeconds, float.MaxValue, _client.ClipLead)
             : t.OtherStrike.Step(key, simTime, (float)GetProcessDeltaTime(), float.MaxValue);
         return shown * DreadnoughtRules.MeleeSpeed;
+    }
+
+    /// <summary>
+    /// The seconds into the charge's clip (or its collision stop) to show this frame (2026-11-20, owner: the charge "still quite choppy"). Measured with <c>--dn-smooth-film</c>: the charge was posed at <see cref="SmSim.Rush.Time"/>, which stands
+    /// still between two ticks (the own player's) or snapshots (the others'), so at 60 frames a second the clip advanced a whole tick every second frame (a hand moved 0.1 m, then 1.2 m, then 0.1 m). It now runs on the same frame-rate
+    /// clocks as the strikes (<see cref="OwnClipClock"/> for the own player, <see cref="ClipClock"/> for the others); the clip plays at rate 1 as before.
+    /// </summary>
+    float DreadnoughtRushClipTime(DreadnoughtTrack t, PlayerState s, bool own, SimConfig cfg)
+    {
+        float simTime = SmSim.Rush.Time(s, cfg);
+        if (DreadOldSmooth) return simTime;
+        long key = ClipClock.Key(4, (int)s.Rush);
+        return own && _client is not null
+            ? t.OwnRush.Step(key, simTime, _client.ClipFraction, cfg.TickSeconds, float.MaxValue, _client.ClipLead)
+            : t.OtherRush.Step(key, simTime, (float)GetProcessDeltaTime(), float.MaxValue);
     }
 
     /// <summary>
