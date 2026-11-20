@@ -247,13 +247,25 @@ public sealed partial class TfwBattle
         _humansNow = _humans;
         _scale = 1f + enemies.Rules.ScalePerExtraPlayer * (_humans - 1);
         WarfrontPlayerScale(_humans, ref _scale);   // WARFRONT-HOOK
-        Squads = guardsmen ? TfwBattleRules.SquadsAt(imperial) + (final ? bonus.ExtraSquads : 0) : 0;
+        Squads = guardsmen ? TfwBattleRules.SquadsAt(imperial) * GuardScale + (final ? bonus.ExtraSquads : 0) : 0;   // GuardScale: 1 but in Warfront (owner 2026-11-20: twice the Guardsmen)
         Array.Fill(_squadGoal, -1);
         Array.Fill(_trickleTicks, Ticks(TfwBattleRules.TrickleSeconds));
     }
 
     /// <summary>Warfront: the Ork health scale of this many humans (the run's Warfront object is reached through the enemies' pool).</summary>
     partial void WarfrontPlayerScale(int humans, ref float scale);
+
+    /// <summary>Warfront (owner 2026-11-20, twice the Guardsmen): the multiplier of the Guardsmen's numbers (field squads, reserves, garrisons, reinforcements); 1 outside Warfront.</summary>
+    partial void WarfrontGuardScale(ref int scale);
+    public int GuardScale { get { int s = 1; WarfrontGuardScale(ref s); return s; } }   // WARFRONT-HOOK
+    public int FieldSquadsMax => TfwBattleRules.FieldSquads * GuardScale;
+    public int FinalFieldSquadsMax => TfwBattleRules.FinalFieldSquads * GuardScale;
+    public int GarrisonCapNow => TfwArmyRules.GarrisonCap * GuardScale;
+    public int ReinforceMenNow => TfwArmyRules.ReinforceMen * GuardScale;
+    /// <summary>Most real Guard squads the armies hold: the squads' 40 less the field's own (28 as before outside Warfront).</summary>
+    public int NearSquadsCap => Math.Min(TfwArmyRules.NearSquadsMost, GuardSim.MaxSquads - (_final || WarfrontFinalField ? FinalFieldSquadsMax : FieldSquadsMax));
+    bool WarfrontFinalField { get { bool f = false; WarfrontFinalFieldHook(ref f); return f; } }   // WARFRONT-HOOK
+    partial void WarfrontFinalFieldHook(ref bool fortress);
 
     /// <summary>Warfront: the fourth position (D) becomes a capture point with its garrison in place of the Warboss (<paramref name="handled"/>).</summary>
     partial void WarfrontCommander(ref bool handled);
@@ -362,7 +374,7 @@ public sealed partial class TfwBattle
         if (opened) return;
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : TfwPositionState.Held, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
         _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
-        int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
+        int field = Math.Min(Squads, _final ? FinalFieldSquadsMax : FieldSquadsMax);
         _reserves = Squads - field;
         PlanColumns();   // TfwBattle.Patrols.cs: the patrols and hunter columns (their routes are searched off the tick, taken 3 s after the start)
         PlanStormboys();   // TfwBattle.Stormboys.cs: the Stormboy squads (expansion S3, in place of the hunters)
@@ -792,7 +804,7 @@ public sealed partial class TfwBattle
         var change = TfwBattleChange.PositionSecured;
         if (k == 1 && !_depotPaid) { _depotPaid = true; change |= TfwBattleChange.DepotSecured; }
         if (Armies) ArmiesSecured(k);   // TfwBattle.Retreats.cs
-        for (int field = FieldSquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
+        for (int field = FieldSquadsAlive; field < FieldSquadsMax && _reserves > 0; field++)
             if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), FaceCentre(_layout.LandingZone)) >= 0) _reserves--;
         if (_taken != (1 << Positions) - 1 || _commander) return change;
         bool unlockedD = false;
@@ -871,7 +883,14 @@ public sealed partial class TfwBattle
             _have[best]++;
             Keep(s, best);
         }
+        WarfrontFormation();   // WARFRONT-HOOK
     }
+
+    /// <summary>Warfront: the squads of each held point stand in rows facing the Orks' approach (TfwBattle.WarfrontGuards.cs).</summary>
+    partial void WarfrontFormation();
+
+    /// <summary>Warfront: whether a squad in its rows counts as on its goal (they reach past the point's radius).</summary>
+    partial void WarfrontOnGoal(int squad, int goal, ref bool on);
 
     /// <summary>Squad <paramref name="s"/>'s post is <paramref name="goal"/>: sent there when it was posted elsewhere, or stopped outside it.</summary>
     void Keep(int s, int goal)
@@ -886,7 +905,12 @@ public sealed partial class TfwBattle
 
     float RadiusOf(int goal) => goal == LandingGoal ? TfwBattleRules.LandingHoldRadius : goal == CommanderObjective ? TfwMap.HqRadius : _layout.Radius(goal);
 
-    bool OnGoal(int squad, int goal) => new Vector2(_guards.Centre(squad).X - PlaceOf(goal).X, _guards.Centre(squad).Y - PlaceOf(goal).Y).Length() <= RadiusOf(goal);
+    bool OnGoal(int squad, int goal)
+    {
+        bool on = new Vector2(_guards.Centre(squad).X - PlaceOf(goal).X, _guards.Centre(squad).Y - PlaceOf(goal).Y).Length() <= RadiusOf(goal);
+        WarfrontOnGoal(squad, goal, ref on);   // WARFRONT-HOOK
+        return on;
+    }
 
     /// <summary>Squad <paramref name="s"/> goes to its own place on an objective: all by the objective's way, each to its own spot inside the radius.</summary>
     void Send(int s, int goal)
@@ -902,7 +926,7 @@ public sealed partial class TfwBattle
     /// <summary>A field short of squads gets the next reserve every <see cref="TfwBattleRules.ReserveSeconds"/>, from the landing zone.</summary>
     void StepReserves()
     {
-        if (_reserves == 0 || FieldSquadsAlive >= Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads)) { _reserveTicks = 0; return; }
+        if (_reserves == 0 || FieldSquadsAlive >= Math.Min(Squads, _final ? FinalFieldSquadsMax : FieldSquadsMax)) { _reserveTicks = 0; return; }
         if (++_reserveTicks < Ticks(TfwBattleRules.ReserveSeconds)) return;
         _reserveTicks = 0;
         if (_guards.SpawnSquad(_layout.LandingZone, FaceCentre(_layout.LandingZone)) >= 0) _reserves--;

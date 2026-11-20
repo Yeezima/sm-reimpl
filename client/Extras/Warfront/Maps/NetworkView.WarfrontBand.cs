@@ -196,6 +196,7 @@ public partial class NetworkView
     /// </summary>
     partial void WarfrontBandFrame(PlayerState me)
     {
+        WarfrontGuardCam();   // NetworkView.WarfrontGuardCam.cs: the --wf-guard-cam test aid (off without the flag)
         if (_warfrontBand is null || !IsInstanceValid(_warfrontBand)) return;
         int shown = FrontBandShown(_client?.Predicted.Position ?? me.Position, _camera is null ? null : new System.Numerics.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y));
         bool show = shown >= 0;

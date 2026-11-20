@@ -53,6 +53,7 @@ return args switch
     ["warfront-maps", .. var warfrontMapsRest] => SmTool.WarfrontMapsCommand.Run(warfrontMapsRest),
     ["warfront-tuning", .. var wfTuneRest] => SmTool.WarfrontTuningCommand.Run(wfTuneRest),
     ["warfront-hq", .. var wfHqRest] => SmTool.WarfrontHqCommand.Run(wfHqRest),
+    ["warfront-guards", .. var wfGuardsRest] => SmTool.WarfrontGuardsCommand.Run(wfGuardsRest),
 #endif
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),

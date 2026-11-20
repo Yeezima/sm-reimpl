@@ -73,6 +73,25 @@ with no cap on the enemies one swing strikes: an Ork is struck whenever his coll
 applies it through the `WarfrontCleave` hook of `World.MusouCleave` (`Extras/Warfront/Battle/World.WarfrontCleave.cs`; it acts only while the run's Warfront object
 exists); the client's drawn arc and predicted targets read the same scale. Classic PvP and Musou Mode keep their numbers. Numbers: spec "Warfront melee cleave".
 
+## Guardsmen: twice the numbers, the Orks' favour, defence in depth
+
+Owner 2026-11-20 ("add more guardsmen, make them fight in a 'defense in depth' style where there are grids of squads who cover each other from behind. buff guardsmen-ork balance to be 30-60 ork
+favored"; answered: the Orks win about 2 of every 3 even fights, Guardsmen at about half the Orks' strength; double today's numbers; in every Warfront battle that has Guardsmen). Warfront only
+(`WarfrontRules.Version` 17); Musou Mode and Classic keep their Guardsmen (the restore switch for a before row is the environment variable `SM_WF_GUARD_OLD=1`). Code:
+`Extras/Warfront/Battle/WarfrontGuardRules.cs` (every number), `TfwBattle.WarfrontGuards.cs` (the formation and the hooks), `World.WarfrontGuards.cs`; spec "Warfront Guardsmen".
+
+- **Numbers x2.** Field squads 6 to 12, a battle's squads 4..12 to 8..24 (reserves refill the field), the fortress's field 12 to 24, the HQ defence's posts 2, 1, 1 to 4, 2, 2 squads, the garrison cap
+  200 to 400 a point and the reinforcements 60 to 120 every 60 s. The sim's 40 squads and the wire's 448 Guardsman ids are unchanged: the armies' real squads are capped at 40 less the field's own.
+- **Balance.** A Guardsman's health and shot damage are Musou's times 0.95 (the Orks are untouched), and the aggregate garrisons' worth in the far clash is the square of that. On the bounded trial
+  `WarfrontGuardBalanceTests` (60 Guardsmen on a point against 60 Orks of a crowd's mix, 30 seeded fights, 300 s at most) Musou's Guardsmen hold 14 of 30; Warfront's 9 of 30 (the Orks win 70 %).
+  The HQ's hold rule counts a Guardsman for 1 over `NumberScale`, so twice the men weigh what the old squads did.
+- **Defence in depth (lane battles and the fortress; the HQ keeps its own posts).** The squads of each secured point stand in rows facing the Orks' approach: up to 4 squads a row 7 m apart, rows 6 m apart,
+  the front row at 0.5 of the point's radius toward the approach, every second row shifted half a squad so its men fire between the front's men (a Guardsman's shot is a roll on a line of sight, never stopped by a
+  friend: the gaps keep the line open and show the cover). The approach is the Orks within 70 m of the point (at least 6, their centre) and else the bearing of the point's Ork source, turned only past 30 degrees.
+  A squad with 3 men or fewer falls back to the rear row and the squad behind it steps up; a fallen squad's place is taken by the next row. A slot is pulled toward the point until it is on the walking graph,
+  reachable in a straight line from the point and 2.5 m off walls where the ground allows it. A squad within the radius plus 14 m counts as on its point. Test aid: `smtool.cmd warfront-guards [--slot wf_a1] [--seconds 240] [--svg dir]`
+  (a lane battle in-process on the real map and graph: Guardsmen, tick cost, a top-down SVG of the rows).
+
 ## Where things are stored
 
 `%LOCALAPPDATA%\sm-reimpl\warfront\` (or the folder `SM_WF_DIR` names): `run.json` (the whole campaign, written atomically at every ship arrival, pick and

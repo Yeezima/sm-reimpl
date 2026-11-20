@@ -12,7 +12,11 @@ public sealed partial class World
     GuardSim? _tfwGuards;
 
     /// <summary>The Guardsmen of this war (null outside one). A new battle clears them with <see cref="GuardSim.Clear"/>: a new round does not.</summary>
-    public GuardSim? TfwGuards => _tfw is null ? null : _tfwGuards ??= new GuardSim(_musou!) { Sight = Collision };
+    public GuardSim? TfwGuards => _tfw is null ? null : _tfwGuards ??= new GuardSim(_musou!, GuardRulesNow()) { Sight = Collision };
+
+    /// <summary>Warfront (owner 2026-11-20): the Guardsmen's own rules, at the Orks' favour; null (<see cref="GuardRules.Default"/>) elsewhere.</summary>
+    GuardRules? GuardRulesNow() { GuardRules? rules = null; WarfrontGuardRulesHook(ref rules); return rules; }   // WARFRONT-HOOK
+    partial void WarfrontGuardRulesHook(ref GuardRules? rules);
 
     /// <summary>One tick of the fight: the players' shots, the enemies against players and squads (players in id order, then squads), their attacks, the Guardsmen, the KOs.</summary>
     void TfwGuardsStep()

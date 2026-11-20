@@ -67,6 +67,13 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontDamaged"),
         // W13b: the battle plan, the defence's opening, retake and source gates
         ("src/SmSim/Extras/Musou/Campaign/TfwRun.cs", "WarfrontBattlePlan"),
+        // Guardsmen depth (owner 2026-11-20): twice the Guardsmen, the Orks' favour, the rows
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontGuardScale"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontFinalFieldHook"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontFormation"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontOnGoal"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.Armies.cs", "WarfrontGuardWorth"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwGuards.cs", "WarfrontGuardRulesHook"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontStart"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontRetake"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontSourceActive"),

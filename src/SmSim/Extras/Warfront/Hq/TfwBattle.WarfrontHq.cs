@@ -69,7 +69,7 @@ public sealed partial class TfwBattle
             {
                 var post = posts.Length > 0 ? posts[n % posts.Length] : _layout.Positions[k];
                 int row = posts.Length > 0 ? n / posts.Length : 0;
-                var at = Ground(post + new Vector3(0f, -2f * row, 0f), post);
+                var at = Ground(post + new Vector3(0f, -4f * row, 0f), post);   // Guardsmen depth: twice the squads, so a post shared by more squads spaces its rows wider (was 2 m)
                 int s = _guards.SpawnSquad(at, FaceCentre(at), GuardSim.SquadSize, WarfrontHqBattleRules.GuardStrengthAt[k]);
                 if (s < 0) continue;
                 _squadArmy[s] = HqSquadOwner;
@@ -194,7 +194,7 @@ public sealed partial class TfwBattle
             float r2 = radius * radius;
             foreach (var p in Capturers(players))
                 if (MathF.Abs(p.Z - at.Z) <= reach && new Vector2(p.X - at.X, p.Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.HumanWeight;
-            defenders += _guards.CountInside(at, radius) * WarfrontHqBattleRules.GuardsmanWeight;
+            defenders += _guards.CountInside(at, radius) * WarfrontHqBattleRules.GuardsmanWeight / WarfrontGuardRules.NumberScale;   // Guardsmen depth (owner 2026-11-20): twice the men at half the strength each weigh what the old squads did, so the hold is no easier than before
             if (_enemies.Warfront?.SquadTargets is { } source)
             {
                 Span<MusouTarget> marines = stackalloc MusouTarget[WarfrontBattleRules.MaxSquadTargets];
