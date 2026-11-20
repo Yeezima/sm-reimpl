@@ -35,10 +35,10 @@ public static class WarfrontGuardRules
     // Defence in depth: squads in a grid of rows facing the Ork approach on each held point (owner 2026-11-20). Row 0 is the front line; each row behind stands in the gaps of the one before it (every other row is
     // shifted half a squad), so its men fire between the front squads' men (a Guardsman's shot is a roll on a line of sight, never stopped by a friend: the gaps keep the line clear and show the cover).
     /// <summary>Squads in a row, rows at most, and the metres between the squads of a row and between rows.</summary>
-    public const int SquadsPerRow = 4, MaxRows = 4;
-    public const float SquadSpacing = 7f, RowSpacing = 6f;
+    public const int SquadsPerRow = 3, MaxRows = 4;
+    public const float SquadSpacing = 9f, RowSpacing = 9f;
     /// <summary>Within a squad: the men of a row abreast (a line of two ranks) this far apart, the ranks this far apart.</summary>
-    public const float ManSpacing = 1.4f, RankSpacing = 1.3f;
+    public const float ManSpacing = 1.4f, RankSpacing = 1.6f;
     /// <summary>The front row stands this share of the point's radius toward the Orks' approach from its centre (the rows go back from there).</summary>
     public const float FrontShare = 0.5f;
     /// <summary>A squad is battered (falls back through the gap to the rear row, the squad behind stepping up) with this many men or fewer (3: a vantage team leaves its squad four), as long as another squad stands in the position's rows to take its place.</summary>

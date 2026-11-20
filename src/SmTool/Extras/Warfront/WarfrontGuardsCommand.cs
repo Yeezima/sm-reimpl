@@ -99,6 +99,18 @@ static class WarfrontGuardsCommand
                         if (guards.AliveIn(q) > 0 && (battle.SquadPost(q) == pt || (Environment.GetEnvironmentVariable("SM_WF_GUARD_SLOTS_NEAR") == "1" && new Vector2(guards.Centre(q).X - battle.Layout.Positions[pt].X, guards.Centre(q).Y - battle.Layout.Positions[pt].Y).Length() < 30f))) { var sl = battle.WarfrontSlotOf(q); var cq = guards.Centre(q); line.Append(string.Create(CultureInfo.InvariantCulture, $" [s{q} {guards.AliveIn(q)}m slot ({sl.X - battle.Layout.Positions[pt].X:0},{sl.Y - battle.Layout.Positions[pt].Y:0}) at ({cq.X - battle.Layout.Positions[pt].X:0},{cq.Y - battle.Layout.Positions[pt].Y:0})]")); }
                     Console.WriteLine(line);
                 }
+            if (Environment.GetEnvironmentVariable("SM_WF_GUARD_MEN") == "1" && (t == 600 || t == 900))
+            {
+                var ap = battle.WarfrontApproach(0); var pc = battle.Layout.Positions[0]; var sd = new Vector2(-ap.Y, ap.X);
+                var mm = new TfwGuard[GuardSim.Capacity]; int gn = guards.CopyTo(mm);
+                Console.WriteLine($"  MEN t {t / 30} s point A approach ({ap.X:0.00},{ap.Y:0.00}) radius {battle.Layout.Radius(0):0.0} (squad: fwd/side per man)");
+                for (int q = 0; q < 4; q++)
+                {
+                    var l = new StringBuilder($"    s{q}:");
+                    for (int i = 0; i < gn; i++) if ((mm[i].Id - 1) / GuardSim.SquadSize == q) { var d = new Vector2(mm[i].Position.X - pc.X, mm[i].Position.Y - pc.Y); l.Append(string.Create(CultureInfo.InvariantCulture, $" ({Vector2.Dot(d, ap):0.0},{Vector2.Dot(d, sd):0.0})")); }
+                    Console.WriteLine(l);
+                }
+            }
             if (frameFile is not null && t % frameEvery == 0 && t <= 3600) Frame(frameFile, w, battle, guards, framePoint);
         }
         if (steps.Count == 0) { Console.WriteLine("no tick with a Guardsman standing"); return 1; }
@@ -117,7 +129,7 @@ static class WarfrontGuardsCommand
         var rgb = new byte[Px * Px * 3];
         for (int i = 0; i < rgb.Length; i += 3) { rgb[i] = 34; rgb[i + 1] = 34; rgb[i + 2] = 38; }
         var c = battle.Layout.Positions[point];
-        const float scale = Px / 96f;
+        float scale = Px / (float.TryParse(Environment.GetEnvironmentVariable("SM_WF_GUARD_FRAME_M"), NumberStyles.Float, CultureInfo.InvariantCulture, out float fm) && fm >= 20f ? fm : 96f);   // SM_WF_GUARD_FRAME_M: the frame's side in metres
         void Disc(float x, float y, float r, byte R, byte G, byte B)
         {
             int cx = (int)((x - c.X) * scale + Px / 2f), cy = (int)(Px / 2f - (y - c.Y) * scale), ri = Math.Max(1, (int)(r * scale));

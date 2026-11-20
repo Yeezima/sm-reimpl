@@ -137,7 +137,7 @@ public sealed partial class TfwBattle
     /// </summary>
     Vector3 SlotPlace(Vector3 point, Vector2 dir, int i, int count, float radius)
     {
-        int perRow = Math.Max(WarfrontGuardRules.SquadsPerRow, (count + WarfrontGuardRules.MaxRows - 1) / WarfrontGuardRules.MaxRows);
+        int perRow = Math.Max(Math.Min(WarfrontGuardRules.SquadsPerRow, (count + 1) / 2), (count + WarfrontGuardRules.MaxRows - 1) / WarfrontGuardRules.MaxRows);   // at least two rows once there are two squads
         int row = i / perRow, col = i % perRow;
         int inRow = Math.Min(perRow, count - row * perRow);
         float lateral = (col - (inRow - 1) * 0.5f) * WarfrontGuardRules.SquadSpacing + (row % 2 == 1 ? WarfrontGuardRules.SquadSpacing * 0.5f : 0f);

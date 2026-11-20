@@ -67,6 +67,15 @@ public class WarfrontGuardFormationTests
         var front = rows[0].Select(Lat).ToArray();
         foreach (var p in rows[1])
             Assert.All(front, l => Assert.True(MathF.Abs(Lat(p) - l) >= WarfrontGuardRules.SquadSpacing * 0.25f, "a rear squad is straight behind a front one"));
+        // Straight ranks (owner 2026-11-20, rows pass): the front row's squads stand on one straight line across the approach (not bent round the ring), at most SquadsPerRow of them,
+        // and the next row is a whole RowSpacing behind it, so the ranks read as ranks.
+        if (w.Musou!.Nav is null)
+        {
+            var frontFwd = rows[0].Select(Fwd).ToArray();
+            Assert.True(frontFwd.Max() - frontFwd.Min() < 0.5f, "the front rank is a straight line");
+            Assert.True(rows[0].Count() <= WarfrontGuardRules.SquadsPerRow);
+            Assert.True(frontFwd.Min() - rows[1].Max(Fwd) >= WarfrontGuardRules.RowSpacing - 0.5f, "the next rank stands a row behind");
+        }
         // The men's centres reached their places' rows: the front squads stand ahead of the rear ones.
         float frontMean = rows[0].Average(Fwd), rearMean = rows[^1].Average(Fwd);
         Assert.True(frontMean > rearMean + WarfrontGuardRules.RowSpacing * 0.5f);
