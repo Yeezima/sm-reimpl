@@ -102,14 +102,31 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
     /// The overlay at the window's height. The rows stand on the recess where the concept's plates stood: with five rows exactly where the plates are (pitch 42.85 crop pixels), otherwise the same block
     /// centred and tighter. Each of the five known labels draws the concept's own plate with its own painted label (<see cref="UiTextureBuilder.ButtonLabels"/>); other rows (STOP MUSOU SERVER) keep the blank plate and live text.
     /// </summary>
+    /// <summary>The whole left group (wordmark, frame, plates) is drawn at this fraction of its size, anchored at the top left: 0.7 by default (<see cref="DefaultMenuScale"/>); <c>--menu-scale &lt;f&gt;</c> (0.4 to 1) lets the owner shrink it to clear the Marine when the video is shown whole (<c>--menu-zoom 1.0</c>; the Marine's backpack begins at about 0.375 of the picture's width, the frame ends at 0.46, so 0.78 clears it in the 0.5, 3, 5 and 7 s frames).</summary>
+    public const float DefaultMenuScale = 0.7f;
+    /// <summary>True: the group's bottom left corner is the window's (the stone wall and the frame flush with both edges); false: its top left corner is.</summary>
+    public const bool AnchorBottom = true;
+    public static float MenuScale { get; } = ParseScale(OS.GetCmdlineUserArgs());
+
+    static float ParseScale(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            string value = args[i] == "--menu-scale" && i + 1 < args.Length ? args[i + 1] : args[i].StartsWith("--menu-scale=", System.StringComparison.Ordinal) ? args[i]["--menu-scale=".Length..] : "";
+            if (value.Length > 0 && float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float f) && float.IsFinite(f)) return Mathf.Clamp(f, 0.4f, 1f);
+        }
+        return DefaultMenuScale;
+    }
+
     void PlaceOverlay(float h)
     {
         // Full height at 16:9; on a narrower window no wider than half of it (the video's battlefield must stay visible).
-        float s = System.Math.Min(h / Panel01.ScreenH, 0.5f * Size.X / Panel01.OverlayW);
-        _overlay.Position = Vector2.Zero; _overlay.Size = new Vector2(Panel01.OverlayW * s, Panel01.ScreenH * s);
+        float s = System.Math.Min(h / Panel01.ScreenH, 0.5f * Size.X / Panel01.OverlayW); s *= MenuScale;
+        float oy = AnchorBottom ? h - Panel01.ScreenH * s : 0f;
+        _overlay.Position = new Vector2(0f, oy); _overlay.Size = new Vector2(Panel01.OverlayW * s, Panel01.ScreenH * s);
         var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
-        _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
-        _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
+        _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s + oy); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
+        _nameplate.Position = new Vector2(np.Position.X * s, np.Position.Y * s + oy); _nameplate.Size = new Vector2(np.Size.X * s, np.Size.Y * s);
         int linkSize = UiType.Px(UiType.Small);
         _link.AddThemeFontSizeOverride("font_size", linkSize);
         // The address sits in the middle of the plate (Opus review 2).
@@ -122,10 +139,10 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
         float k = pitch / Panel01.PlatePitch, rowH = Panel01.PlateH * k, used = (n - 1) * pitch + rowH;
         Rows.RowHeight = rowH * s; Rows.RowGap = (pitch - rowH) * s;
         float top = n == 5 ? Panel01.PlateTop1 : System.Math.Max(areaTop, centre - used / 2f);
-        _scroll.Position = new Vector2(Panel01.PlateX0 * s, top * s);
+        _scroll.Position = new Vector2(Panel01.PlateX0 * s, top * s + oy);
         _scroll.Size = new Vector2((Panel01.PlateX1 - Panel01.PlateX0) * s, used * s);
         PaintButtons(s, k);
-        if (_foot is { } foot) { foot.Position = new Vector2(24f, Panel01.ScreenH * s - 60f); foot.Size = new Vector2(Panel01.OverlayW * s, foot.GetCombinedMinimumSize().Y); }
+        if (_foot is { } foot) { foot.Position = new Vector2(24f, Panel01.ScreenH * s - 60f + oy); foot.Size = new Vector2(Panel01.OverlayW * s, foot.GetCombinedMinimumSize().Y); }
     }
 
     /// <summary>
@@ -151,6 +168,9 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
                     AxisStretchHorizontal = StyleBoxTexture.AxisStretchMode.Stretch, AxisStretchVertical = StyleBoxTexture.AxisStretchMode.Stretch,
                 };
             }
+            // The live text is transparent (the plate carries the words), so its size must not set the row's minimum height when the group is scaled down.
+            b.AddThemeFontSizeOverride("font_size", 8);
+            b.CustomMinimumSize = Vector2.Zero;
             b.SetMeta(FocusGlow.NoGlowMeta, true);   // the gold plate is the focus: no white halo washing it out
             b.TextureFilter = TextureFilterEnum.Linear;   // 1:1 plates: no mipmap blend
             b.AddThemeStyleboxOverride("normal", Box(dark, false, Colors.White));

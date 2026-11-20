@@ -14,7 +14,7 @@ public static partial class UiKit
 {
     /// <summary>
     /// The main menu's video since 2026-11-15 (the owner's UI concept, "make the referenced video image the background of the main menu"): his 8 s clip of the Ashfall courtyard with the Librarian, converted by
-    /// <c>tools/menu-video.ps1</c> (Ogg Theora, 1920 x 1080, 24 fps, no audio, 7.5 s, the seam crossfaded, 6 MB). Read from beside the project in a development run, under <c>assets/menu</c> beside the game
+    /// <c>tools/menu-video.ps1</c> (Ogg Theora, 2560 x 1440, 24 fps, no audio, 7.5 s, the seam crossfaded, 11.5 MB). Read from beside the project in a development run, under <c>assets/menu</c> beside the game
     /// in an exported one (a folder Godot does not import); shipped with the release.
     /// </summary>
     public const string MenuConceptVideoPath = "res://assets/menu/menu-concept-loop.ogv";
@@ -80,7 +80,7 @@ public static partial class UiKit
 public sealed partial class MenuVideoBackground : Control
 {
     /// <summary>The video's frame size as converted (tools/menu-video.ps1); the decoded texture's own size replaces it once known.</summary>
-    public static readonly Vector2 ConvertedSize = new(1920, 1080);
+    public static readonly Vector2 ConvertedSize = new(2560, 1440);
 
     /// <summary>Seconds of drawn frames after which a video that shows no frame is replaced by the still picture (ours).</summary>
     public const double StartSeconds = 2.0;
@@ -153,13 +153,26 @@ public sealed partial class MenuVideoBackground : Control
     }
 
     /// <summary>
-    /// The main menu's framing (ui/concept-redesign, 2026-11-15): the concept's overlay covers the left half of the screen, so the video is enlarged by <see cref="MainMenuZoom"/> (1.6x the covering size) and
+    /// The main menu's framing (ui/concept-redesign, 2026-11-15): the concept's overlay covers the left half of the screen, so the video is enlarged by <see cref="MainMenuZoom"/> (1.2x the covering size since 2026-11-20, the least that lets the pan put the Marine's body, at 0.42 of the picture's width, in the middle of the window; 1.6x before) and
     /// panned so that its focus point (<see cref="FocusU"/>, <see cref="FocusV"/>: the middle of the Marine and the tower with its god rays, measured on the video's frames: the Marine at about 0.37 to 0.46 of its
     /// width, the tower at 0.50 to 0.63) lands at <see cref="FocusX"/>, <see cref="FocusY"/> of the window, centred in the part right of the overlay. The picture always covers the window (no black edge at any aspect ratio).
     /// Other screens show the picture as it was made.
     /// </summary>
     public bool MainMenuFraming { get => _framing; set { if (_framing == value) return; _framing = value; Fit(); } }
-    public const float MainMenuZoom = 1.6f, FocusU = 0.49f, FocusV = 0.565f, FocusX = 0.72f, FocusY = 0.5f;
+    public const float DefaultMainMenuZoom = 1.2f, FocusU = 0.42f, FocusV = 0.5f, FocusX = 0.5f, FocusY = 0.5f;
+
+    /// <summary>The main menu's zoom: <see cref="DefaultMainMenuZoom"/>, or <c>--menu-zoom &lt;f&gt;</c> (1.0 = the whole frame on a 16:9 window, 1.6 = the 2026-11-15 framing; at 16:9 the zoom 1.33 pans to the left edge, so the focus point is only reached from about 1.6; at least 1, so the picture covers the window).</summary>
+    public static float MainMenuZoom { get; } = ParseZoom(OS.GetCmdlineUserArgs());
+
+    static float ParseZoom(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            string value = args[i] == "--menu-zoom" && i + 1 < args.Length ? args[i + 1] : args[i].StartsWith("--menu-zoom=", StringComparison.Ordinal) ? args[i]["--menu-zoom=".Length..] : "";
+            if (value.Length > 0 && float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float f) && float.IsFinite(f)) return Mathf.Clamp(f, 1f, 4f);
+        }
+        return DefaultMainMenuZoom;
+    }
     bool _framing;
 
     /// <summary>The player's rect for a window of <paramref name="box"/> with the main menu's framing (the self-test checks that it covers the window).</summary>
@@ -169,8 +182,7 @@ public sealed partial class MenuVideoBackground : Control
         // On a wider window than 16:9 the covering size already crops the picture's height, so the zoom shrinks with the aspect to keep the same part of the picture in view (the Marine's feet and the tower's top).
         float zoom = Mathf.Max(1f, MainMenuZoom * Mathf.Min(1f, (16f / 9f) / (box.X / box.Y)));
         var size = r.Size * zoom;
-        // A narrower window than 16:9 gives the overlay more of the width: the Marine moves right so his backpack stays clear of the frame (Opus review 1, 5:4).
-        float focusX = Mathf.Lerp(FocusX, 0.85f, Mathf.Clamp(((16f / 9f) - box.X / box.Y) / 0.55f, 0f, 1f));
+        float focusX = FocusX;   // the Marine stays in the middle (the menu is a small group in the bottom left corner)
         var pos = new Vector2(focusX * box.X - size.X * FocusU, FocusY * box.Y - size.Y * FocusV);
         pos.X = Mathf.Clamp(pos.X, box.X - size.X, 0f);
         pos.Y = Mathf.Clamp(pos.Y, box.Y - size.Y, 0f);
