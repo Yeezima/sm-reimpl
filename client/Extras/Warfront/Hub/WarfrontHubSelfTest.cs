@@ -122,7 +122,8 @@ public sealed partial class WarfrontHubSelfTest : Node
         Check("start: the locked fortress shows as a greyed row", _panel.DeployRow(4).Visible && _panel.DeployRow(4).Disabled && _panel.DeployRow(4).Text == "ORK FORTRESS: LOCKED" && !_panel.DeployRow(4).HasThemeColorOverride("font_disabled_color"));
         Check("start: the HQ shows its three stages and the fortress the Warboss", _panel.StageLabel(0).Text == "WALL" && _panel.StageLabel(1).Text == "KEEP" && _panel.StageLabel(2).Text == "CAVES" && _panel.WarbossLabel.Text == "WARBOSS");
         Check("start: the party lists the leader and the viewer", _panel.PartyLabel(0).Text == "CAPTAIN ASH    LEADER    YOU" && _panel.PartyLabel(1).Text == "BRANN" && _panel.PartyLabel(2).Text == "PLAYER 3", _panel.PartyLabel(0).Text + "|" + _panel.PartyLabel(1).Text + "|" + _panel.PartyLabel(2).Text);
-        Check("start: the note says you lead", _panel.NoteLabel.Text.StartsWith("YOU LEAD"));
+        Check("start: the leader's plain line is not on the screen (the open rows say it)", _panel.NoteLabel.Text.StartsWith("YOU LEAD") && !_panel.NoteLabel.Visible);
+        Check("start: the floor rule is the lane's hover hint, not a line", Enumerable.Range(0, 3).All(l => !_panel.FloorLabel(l).Visible && _panel.StatusLabel(l).TooltipText.Contains("FLOOR")));
         Check("start: the first open row has the focus", await FocusIs(_panel.DeployRow(0)));
         // D-pad / keys: ui_down and ui_up walk the rows that can be pressed (the disabled HQ and fortress rows are skipped), then CLOSE, wrapping.
         await Nav("ui_down"); Check("focus: down goes to lane B", _panel.DeployRow(1).HasFocus());
@@ -334,7 +335,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         var rects = new List<(string, Rect2)>();
         foreach (var l in _panel.Labels())
         {
-            if (l.Text.Length == 0) continue;
+            if (l.Text.Length == 0 || !l.Visible) continue;   // a hidden label (the floor rule, the leader's plain line) is a hover hint now
             var min = l.GetCombinedMinimumSize();
             var r = new Rect2(l.Position, min);
             Check($"{state}: label {l.Name} fits its width", min.X <= l.Size.X + 0.5f && min.Y <= l.Size.Y + 0.5f, $"{min} in {l.Size} \"{l.Text}\"");

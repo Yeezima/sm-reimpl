@@ -9,8 +9,8 @@ namespace SmClient.Extras.Warfront.Hub;
 /// </summary>
 public sealed partial class WarfrontTravelPanel : Control
 {
-    const float Left = UiKit.MenuLeft;
     readonly WarfrontHubModel _model;
+    readonly WarfrontFrame _frame;
     readonly Label _destination, _status;
     readonly Label _elapsed;
     double _clock;
@@ -27,17 +27,11 @@ public sealed partial class WarfrontTravelPanel : Control
         _model = model;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = "WarfrontTravelDim", Color = new Color(0f, 0f, 0f, 0.96f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
-        var title = new Label { Name = "WarfrontTravelTitle", Text = "TRAVELLING", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        title.AddThemeFontOverride("font", UiKit.TitleFont);
-        title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
-        AddChild(title);
-        _destination = Text("WarfrontTravelDestination", 300f, WarfrontHubPanel.HeadingSize, 1400f, WarfrontStyle.Gold);
-        _status = Text("WarfrontTravelStatus", 360f, WarfrontHubPanel.BodySize, 1400f);
-        _elapsed = Text("WarfrontTravelElapsed", 396f, WarfrontHubPanel.BodySize, 1400f);
+        _frame = new WarfrontFrame("WarfrontTravelFrame", "Travelling", 0.85f);   // the concept frame of OPTIONS and the WARFRONT page
+        AddChild(_frame);
+        _destination = Text("WarfrontTravelDestination", 190f, WarfrontHubPanel.HeadingSize, WarfrontFrame.StageW, WarfrontStyle.Gold);
+        _status = Text("WarfrontTravelStatus", 250f, WarfrontHubPanel.BodySize, WarfrontFrame.StageW);
+        _elapsed = Text("WarfrontTravelElapsed", 300f, WarfrontHubPanel.BodySize, WarfrontFrame.StageW);
         UiKit.TextKind(_destination, "progress"); UiKit.TextKind(_status, "progress");   // where the ship goes and what the load waits for
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
@@ -51,9 +45,10 @@ public sealed partial class WarfrontTravelPanel : Control
         l.Name = name;
         WarfrontStyle.Skin(l, size, ink);
         l.SetAnchorsPreset(LayoutPreset.TopLeft);
-        l.Position = new Vector2(Left, y);
-        l.Size = new Vector2(width, size + 8f);
-        AddChild(l);
+        l.HorizontalAlignment = HorizontalAlignment.Center;
+        l.Position = new Vector2(0f, y);
+        l.Size = new Vector2(width, size + 14f);
+        _frame.Stage.AddChild(l);
         return l;
     }
 

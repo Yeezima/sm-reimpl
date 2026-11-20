@@ -42,13 +42,16 @@ public static class WarfrontStyle
     /// <summary>A concept plate button in design pixels: dark at rest, gold under the pointer and the focus (dark ink on gold), one size; the text steps down a level (never an ellipsis) when it does not fit <paramref name="width"/>.</summary>
     public static T Plate<T>(T b, int size, float width) where T : Button
     {
+        float cpx = b.Size.Y > 0f ? b.Size.Y / 26f : 1.6f;   // the plate art is 26 concept px high: the text inset (4 x 2 concept px past the bevel, R1) scales with the plate's height
         b.TextureFilter = CanvasItem.TextureFilterEnum.LinearWithMipmaps;
         b.Alignment = HorizontalAlignment.Center;
         b.AddThemeFontOverride("font", UiKit.ConceptFont());
         b.AddThemeConstantOverride("outline_size", 0);
-        if (PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -0.5f, 3, -0.5f), new PaintedButtons.Pad(3, -0.5f, 3, 0f), 1f, true, paintedText: false, noGlow: true, cpx: 1f))
+        if (PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(3, -0.5f, 3, -0.5f), new PaintedButtons.Pad(3, -0.5f, 3, 0f), 1f, true, paintedText: false, noGlow: true, cpx: cpx))
         {
             if (b.GetThemeStylebox("pressed") is { } on) { b.AddThemeStyleboxOverride("hover", on); b.AddThemeStyleboxOverride("hover_pressed", on); }
+            foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "focus", "disabled" })   // a short plate keeps its text inset at the sides (R1); the height is the plate's own
+                if (b.GetThemeStylebox(state) is { } box) { box.ContentMarginTop = 1f; box.ContentMarginBottom = 1f; }
             var dark = new Color(0.10f, 0.06f, 0.02f);
             b.AddThemeColorOverride("font_color", Ink);
             foreach (var c in new[] { "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(c, dark);

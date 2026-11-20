@@ -11,21 +11,21 @@ namespace SmClient;
 /// <summary>
 /// The end-of-run panel of Warfront (plan section 7, slice W15): the same ranked leaderboard on victory and on defeat, one row per player with the squad's figures beside the player's own,
 /// each squad's top retainer and why, the score formula, and the buttons COPY FOR DISCORD (plain text on the clipboard; nothing is posted), EXPORT (a .txt and a .md under the warfront
-/// folder) and HONOR ROLL (every archived run). Full screen in the menus' style (<see cref="UiKit"/>), in the 1920 by 1080 space, one text style per level (title; cells; captions;
+/// folder) and HONOR ROLL (every archived run). In the concept frame of OPTIONS and the WARFRONT page (<see cref="WarfrontFrame"/>, its stage of 1400 by 580 design pixels), one text style per level (title; cells; captions;
 /// rows of buttons), live labels only. Layout and look ours.
 /// </summary>
 public sealed partial class WarfrontResultsPanel : Control
 {
-    const float Left = UiKit.MenuLeft;
+    const float Left = 0f;
     // Column left edges and widths of the table (numbers are right-aligned in them).
-    const float RankX = 118f, RankW = 50f, NameX = 190f, NameW = 380f, ScoreX = 570f, ScoreW = 140f;
+    const float RankX = 100f, RankW = 44f, NameX = 160f, NameW = 270f, ScoreX = 430f, ScoreW = 110f;
     static readonly (string Head, float X, float W)[] Cols =
     {
-        ("K", 720f, 90f), ("A", 810f, 80f), ("D", 890f, 70f), ("REV", 960f, 80f), ("CAP", 1040f, 80f),
-        ("K", 1160f, 100f), ("KO", 1260f, 80f), ("REV", 1340f, 80f), ("MEN", 1420f, 80f), ("TOTAL K", 1500f, 130f),
+        ("K", 550f, 70f), ("A", 620f, 60f), ("D", 680f, 60f), ("REV", 740f, 70f), ("CAP", 810f, 70f),
+        ("K", 900f, 70f), ("KO", 970f, 70f), ("REV", 1040f, 70f), ("MEN", 1110f, 70f), ("TOTAL K", 1180f, 110f),
     };
     const int BodySize = WarfrontStyle.Body, CaptionSize = WarfrontStyle.Small, ButtonSize = WarfrontStyle.Body;
-    const float ButtonWidth = 330f, ButtonPitch = 345f;
+    const float ButtonWidth = 260f, ButtonPitch = 285f, ButtonTop = 496f;
     static readonly Color Dim = WarfrontStyle.Dim, Head = WarfrontStyle.Gold;
 
     readonly WarfrontRunRecord _record;
@@ -34,6 +34,7 @@ public sealed partial class WarfrontResultsPanel : Control
     readonly Control _page;
     readonly Label _status;
     readonly Backing _backing;
+    readonly WarfrontFrame _frame;
 
     /// <summary>The cell texts of the table, row by row (the self test holds them against the record).</summary>
     public List<List<string>> TableText { get; } = new();
@@ -54,36 +55,29 @@ public sealed partial class WarfrontResultsPanel : Control
         Name = "WarfrontResultsPanel";
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = "ResultsDim", Color = new Color(0f, 0f, 0f, 0.88f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
-        var head = new Label { Name = "ResultsTitle", Text = record.Result switch { "won" => "THE WARFRONT IS WON", "lost" => "THE WARFRONT IS LOST", _ => "WARFRONT RUN ENDED" },
-            MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        head.AddThemeFontOverride("font", UiKit.TitleFont);
-        head.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        head.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
-        AddChild(head);
+        _frame = new WarfrontFrame("WarfrontResultsFrame", record.Result switch { "won" => "The Warfront is won", "lost" => "The Warfront is lost", _ => "Warfront run ended" }, 0.85f);   // the concept frame, the result on its plate
+        AddChild(_frame);
         var t = TimeSpan.FromSeconds(record.DurationSeconds);
         Line("ResultsSummary", (record.EndedUtc.Length >= 16 ? record.EndedUtc[..16].Replace('T', ' ') : record.EndedUtc) + " UTC    RUN TIME " + ((int)t.TotalHours).ToString(CultureInfo.InvariantCulture)
-            + t.ToString(@"\:mm\:ss", CultureInfo.InvariantCulture) + "    " + record.Battles.Count + " BATTLES    ROLLS LOST " + record.RollsLost + " OF " + record.RollsTotal, Left, 146f, CaptionSize, 1500f, Dim);
+            + t.ToString(@"\:mm\:ss", CultureInfo.InvariantCulture) + "    " + record.Battles.Count + " BATTLES    ROLLS LOST " + record.RollsLost + " OF " + record.RollsTotal, Left, 0f, CaptionSize, WarfrontFrame.StageW, Dim, HorizontalAlignment.Center);
 
         _backing = new Backing();
-        _backing.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(_backing);
+        _backing.Size = new Vector2(WarfrontFrame.StageW, 456f);
+        _frame.Stage.AddChild(_backing);
         _page = new Control { Name = "ResultsPage", MouseFilter = MouseFilterEnum.Ignore };
         _page.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(_page);
+        _frame.Stage.AddChild(_page);
         BuildTable();
 
-        _status = Line("ResultsStatus", "", Left, 896f, CaptionSize, 1500f, Dim);
+        _status = Line("ResultsStatus", "", Left, 462f, CaptionSize, WarfrontFrame.StageW, Dim, HorizontalAlignment.Center);
         UiKit.TextKind(_status, "progress");   // the result of COPY and EXPORT (or why it failed)
         // five actions of one size in one row: COPY, EXPORT, HONOR ROLL, NEW RUN (when given), CLOSE
-        CopyButton = Row("Copy for Discord", Copy, 940f, Left + 0 * ButtonPitch, ButtonWidth);
+        CopyButton = Row("Copy for Discord", Copy, ButtonTop, Left + 0 * ButtonPitch, ButtonWidth);
         UiTooltip.Attach(CopyButton, "Copies the results as plain text. Nothing is posted: paste it into Discord yourself.");
-        ExportButton = Row("Export", Export, 940f, Left + 1 * ButtonPitch, ButtonWidth);
-        HonorButton = Row("Honor roll", ToggleHonorRoll, 940f, Left + 2 * ButtonPitch, ButtonWidth);
-        if (newRun is not null) { NewRunButton = Row("New run", newRun, 940f, Left + 3 * ButtonPitch, ButtonWidth); NewRunButton.Name = "WarfrontNewRun"; }
-        CloseButton = Row("Close", () => _close?.Invoke(), 940f, Left + 4 * ButtonPitch, ButtonWidth);
+        ExportButton = Row("Export", Export, ButtonTop, Left + 1 * ButtonPitch, ButtonWidth);
+        HonorButton = Row("Honor roll", ToggleHonorRoll, ButtonTop, Left + 2 * ButtonPitch, ButtonWidth);
+        if (newRun is not null) { NewRunButton = Row("New run", newRun, ButtonTop, Left + 3 * ButtonPitch, ButtonWidth); NewRunButton.Name = "WarfrontNewRun"; }
+        CloseButton = Row("Close", () => _close?.Invoke(), ButtonTop, Left + 4 * ButtonPitch, ButtonWidth);
         LayoutButtons();
     }
 
@@ -93,8 +87,7 @@ public sealed partial class WarfrontResultsPanel : Control
         public Backing() { Name = "ResultsBacking"; MouseFilter = MouseFilterEnum.Pass; }
         public override void _Draw()
         {
-            WarfrontStyle.Table(this, new Rect2(96f, 180f, 1568f, 676f));
-            WarfrontStyle.Strip(this, new Rect2(96f, 184f, 1568f, 66f));
+            WarfrontStyle.Strip(this, new Rect2(90f, 28f, 1220f, 64f));
         }
     }
 
@@ -108,9 +101,11 @@ public sealed partial class WarfrontResultsPanel : Control
 
     void LayoutButtons()
     {
-        int i = 0;
+        var shown = new List<Button>();
         foreach (var b in new[] { CopyButton, ExportButton, HonorButton, NewRunButton, CloseButton })
-            if (b is not null && (b != NewRunButton || b.Visible)) b.Position = new Vector2(Left + i++ * ButtonPitch, b.Position.Y);
+            if (b is not null && (b != NewRunButton || b.Visible)) shown.Add(b);
+        float x0 = (WarfrontFrame.StageW - ((shown.Count - 1) * ButtonPitch + ButtonWidth)) / 2f;   // the row stands centred
+        for (int i = 0; i < shown.Count; i++) shown[i].Position = new Vector2(x0 + i * ButtonPitch, shown[i].Position.Y);
     }
 
     static void Place(Control c, float x, float y, float w, float h)
@@ -127,7 +122,7 @@ public sealed partial class WarfrontResultsPanel : Control
         l.HorizontalAlignment = align;
         WarfrontStyle.Skin(l, size, colour);
         Place(l, x, y, width, size + 8f);
-        (parent ?? this).AddChild(l);
+        (parent ?? _frame.Stage).AddChild(l);
         return l;
     }
 
@@ -136,7 +131,7 @@ public sealed partial class WarfrontResultsPanel : Control
         var b = UiKit.MenuButton(text, act);
         Place(b, x, y, width, 52f);
         WarfrontStyle.Plate(b, ButtonSize, width);
-        AddChild(b);
+        _frame.Stage.AddChild(b);
         return b;
     }
 
@@ -153,17 +148,17 @@ public sealed partial class WarfrontResultsPanel : Control
         Clear();
         ShowingHonorRoll = false;
         var rows = _record.Rows;
-        const float top = 190f;
-        Line("GroupPlayer", "PLAYER", 720f, top, CaptionSize, 400f, Head, parent: _page);
-        Line("GroupSquad", "SQUAD", 1160f, top, CaptionSize, 340f, Head, parent: _page);
-        float hy = top + 24f;
+        const float top = 30f;
+        Line("GroupPlayer", "PLAYER", 550f, top, CaptionSize, 400f, Head, parent: _page);
+        Line("GroupSquad", "SQUAD", 900f, top, CaptionSize, 340f, Head, parent: _page);
+        float hy = top + 26f;
         Line("HeadRank", "#", RankX, hy, CaptionSize, RankW, Head, HorizontalAlignment.Right, _page);
         Line("HeadName", "NAME", NameX, hy, CaptionSize, NameW, Head, parent: _page);
         Line("HeadScore", "SCORE", ScoreX, hy, CaptionSize, ScoreW, Head, HorizontalAlignment.Right, _page);
         foreach (var (head, x, w) in Cols) Line("Head" + head + x, head, x, hy, CaptionSize, w, Head, HorizontalAlignment.Right, _page);
         bool retainers = rows.Count <= 8;
-        float pitch = retainers ? Math.Min(66f, 560f / Math.Max(1, rows.Count)) : Math.Min(38f, 560f / Math.Max(1, rows.Count));
-        float y = hy + 44f;
+        float pitch = Math.Min(42f, 370f / Math.Max(1, rows.Count));
+        float y = hy + 44f;   // rows start under the strip
         for (int i = 0; i < rows.Count; i++, y += pitch)
         {
             var r = rows[i];
@@ -177,11 +172,11 @@ public sealed partial class WarfrontResultsPanel : Control
             };
             TableText.Add(cells);
             Line("Rank" + i, cells[0], RankX, y, BodySize, RankW, null, HorizontalAlignment.Right, _page);
-            Line("Name" + i, cells[1], NameX, y, BodySize, NameW, null, parent: _page);
+            var nameLabel = Line("Name" + i, cells[1], NameX, y, BodySize, NameW, null, parent: _page);
             Line("Score" + i, cells[2], ScoreX, y, BodySize, ScoreW, null, HorizontalAlignment.Right, _page);
             for (int c = 0; c < Cols.Length; c++) Line($"Cell{i}_{c}", cells[3 + c], Cols[c].X, y, BodySize, Cols[c].W, null, HorizontalAlignment.Right, _page);
-            if (retainers && r.TopRetainer is { } top1)
-                Line("Retainer" + i, "Top retainer  " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + "  -  " + top1.Reason, NameX, y + 34f, CaptionSize, 1300f, Dim, parent: _page);
+            if (r.TopRetainer is { } top1)   // the squad's top retainer and why: this player's hover hint
+                UiTooltip.Attach(nameLabel, "Top retainer " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + ", " + top1.Reason);
         }
         UiTooltip.Attach(_backing, _record.Weights.FormulaText());   // how the score is made: a hover hint on the table, not a line under it
     }
@@ -219,27 +214,27 @@ public sealed partial class WarfrontResultsPanel : Control
         ShowingHonorRoll = true;
         HonorButton.Text = "LEADERBOARD";
         var roll = WarfrontResultsArchive.HonorRoll(_dir);
-        float y = 190f;
-        Line("HonorHead", $"{roll.Runs} RUNS    {roll.Won} WON    {roll.Lost} LOST    {roll.Abandoned} ABANDONED", Left, y, CaptionSize, 1500f, Head, parent: _page);
-        y += 40f;
+        float y = 36f;
+        Line("HonorHead", $"{roll.Runs} RUNS    {roll.Won} WON    {roll.Lost} LOST    {roll.Abandoned} ABANDONED", Left + 100f, y, CaptionSize, 1200f, Head, parent: _page);
+        y += 36f;
         foreach (var e in roll.Entries.Count > 0 ? roll.Entries : Array.Empty<WarfrontHonorEntry>())
         {
-            Line("HonorTitle" + y, e.Title.ToUpperInvariant(), Left, y, BodySize, 460f, null, parent: _page);
-            Line("HonorHolder" + y, e.Holder, 600f, y, BodySize, 640f, null, parent: _page);
-            Line("HonorValue" + y, e.Value, 1260f, y, BodySize, 240f, null, HorizontalAlignment.Right, _page);
-            y += 32f;
+            Line("HonorTitle" + y, e.Title.ToUpperInvariant(), Left + 100f, y, BodySize, 380f, null, parent: _page);
+            Line("HonorHolder" + y, e.Holder, 500f, y, BodySize, 460f, null, parent: _page);
+            Line("HonorValue" + y, e.Value, 1000f, y, BodySize, 300f, null, HorizontalAlignment.Right, _page);
+            y += 34f;
         }
-        if (roll.Entries.Count == 0) Line("HonorEmpty", "NO FINISHED RUNS ARCHIVED YET.", Left, y, BodySize, 900f, null, parent: _page);
-        y += 24f;
-        if (roll.Players.Count > 0) Line("HonorLifeHead", "TOTAL SCORE", Left, y, CaptionSize, 460f, Head, parent: _page);
-        y += 28f;
+        if (roll.Entries.Count == 0) Line("HonorEmpty", "NO FINISHED RUNS ARCHIVED YET.", Left + 100f, y, BodySize, 900f, null, parent: _page);
+        y += 14f;
+        if (roll.Players.Count > 0) Line("HonorLifeHead", "TOTAL SCORE", Left + 100f, y, CaptionSize, 460f, Head, parent: _page);
+        y += 30f;
         foreach (var p in roll.Players)
         {
-            if (y > 860f) break;
-            Line("LifeName" + y, p.Name, Left, y, BodySize, 460f, null, parent: _page);
-            Line("LifeRuns" + y, p.Runs + (p.Runs == 1 ? " RUN" : " RUNS"), 600f, y, BodySize, 300f, null, parent: _page);
-            Line("LifeTotal" + y, N(p.TotalScore), 1260f, y, BodySize, 240f, null, HorizontalAlignment.Right, _page);
-            y += 32f;
+            if (y > 440f) break;
+            Line("LifeName" + y, p.Name, Left + 100f, y, BodySize, 380f, null, parent: _page);
+            Line("LifeRuns" + y, p.Runs + (p.Runs == 1 ? " RUN" : " RUNS"), 500f, y, BodySize, 300f, null, parent: _page);
+            Line("LifeTotal" + y, N(p.TotalScore), 1000f, y, BodySize, 300f, null, HorizontalAlignment.Right, _page);
+            y += 34f;
         }
     }
 

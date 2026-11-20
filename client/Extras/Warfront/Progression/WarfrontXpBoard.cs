@@ -19,7 +19,7 @@ public sealed partial class WarfrontXpBoard : Control
     readonly FontVariation _font = UiKit.ConceptFont();
 
     /// <summary>The scoreboard is up.</summary>
-    public bool Shown { get => _shown; set { if (_shown == value) return; _shown = value; Visible = value && _model.HasProgress; QueueRedraw(); } }
+    public bool Shown { get => _shown; set { if (_shown == value) return; _shown = value; Visible = value && _model.HasProgress && !_model.OfferOpen; QueueRedraw(); } }
     bool _shown;
     /// <summary>The scoreboard's player rows (sets how far down the section sits).</summary>
     public int PlayerRows { get; set; } = 1;
@@ -32,14 +32,14 @@ public sealed partial class WarfrontXpBoard : Control
         MouseFilter = MouseFilterEnum.Ignore;
         TextureFilter = TextureFilterEnum.Linear;
         Visible = false;
-        model.Changed += () => { Visible = _shown && _model.HasProgress; QueueRedraw(); };
+        model.Changed += () => { Visible = _shown && _model.HasProgress && !_model.OfferOpen; QueueRedraw(); };   // the card picker covers the scoreboard: the section is out of the way while it is open
     }
 
     public override void _Process(double delta) { if (Visible) QueueRedraw(); }
 
     public override void _Draw()
     {
-        if (!_shown || !_model.HasProgress) return;
+        if (!_shown || !_model.HasProgress || _model.OfferOpen) return;
         var m = _model;
         float x0 = (StageW - SingleWidth) / 2f, w = SingleWidth;
         float y0 = Top + ScoreBand + 14f + HeaderH + Math.Max(1, PlayerRows) * RowH + Gap;   // under the scoreboard's last row

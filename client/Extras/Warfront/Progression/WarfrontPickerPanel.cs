@@ -99,15 +99,16 @@ public sealed partial class WarfrontPickerPanel : Control
             _hit[i] = hit;
         }
         _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop, 900f, BodySize, WarfrontStyle.Dim);
-        UiKit.TextKind(_protected, "progress");   // the state the player is in while choosing
+        _protected.Visible = false;   // not text on the screen: the protection rides in the cards' and the header's hover hint (ProtectedLabel keeps the words)
         _seconds = WarfrontProgressDraw.Text(this, "WarfrontPickerSeconds", Left + RowWidth - 140f, HeaderTop, 140f, HeadingSize, white, HorizontalAlignment.Right);
         _seconds.MouseFilter = MouseFilterEnum.Pass;
         UiTooltip.Attach(_seconds, WarfrontProgressModel.TimeoutNote);
         _protected.Text = WarfrontProgressModel.ProtectedNote;
         // The keys that pick are a hover hint, not text on the screen (owner, 2026-11-20): on the header and on every card.
         _header.MouseFilter = MouseFilterEnum.Pass;
-        UiTooltip.Attach(_header, WarfrontProgressModel.HintNote);
-        foreach (var h in _hit) UiTooltip.Attach(h, WarfrontProgressModel.HintNote);
+        string hint = WarfrontProgressModel.HintNote + "\n" + WarfrontProgressModel.ProtectedNote;
+        UiTooltip.Attach(_header, hint);
+        foreach (var h in _hit) UiTooltip.Attach(h, hint);
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
         Refresh();

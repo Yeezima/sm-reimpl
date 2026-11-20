@@ -220,7 +220,7 @@ public partial class NetworkView
             WarfrontLandingFrameSummary(now);
         }
         // the war map's note line carries what needs saying about this client (a throwaway key, no answer to Identify, a refused or unanswered deploy)
-        if (_wfHubPanel is not null && m.NoteOverride(now) is { Length: > 0 } note && _wfHubPanel.NoteLabel.Text != note) _wfHubPanel.NoteLabel.Text = note;
+        if (_wfHubPanel is not null && m.NoteOverride(now) is { Length: > 0 } note && _wfHubPanel.NoteLabel.Text != note) { _wfHubPanel.NoteLabel.Text = note; _wfHubPanel.NoteLabel.Visible = true; }
         // the war map closes when the ship is left or the player falls
         if (_wfHubPanel is not null && (m.Hub.View.Phase != WarfrontPhase.Ship || !me.Alive)) WarfrontCloseHubPanel();
         // the results, once the record is complete and nothing else is up

@@ -15,13 +15,16 @@ namespace SmClient.Extras.Warfront.Hub;
 public sealed partial class WarfrontHubPanel : Control
 {
     public const int HeadingSize = UiType.Caption, BodySize = UiType.Small;
-    public const float Left = UiKit.MenuLeft, MapTop = 220f, LanePitch = 150f, BoxTop = 36f, BoxHeight = 84f;
-    public const float HqWidth = 190f, NodeLeft = 340f, NodeWidth = 220f, NodeStep = 260f, FortressLeft = 1120f, FortressWidth = 190f, TextColumn = 1340f, TextWidth = 460f;
-    public const float RowsTop = 700f, RowPitch = 44f;
-    public const float StageInset = 14f, StageHeight = 56f;
+    // The stage of the concept frame (WarfrontFrame.StageW by StageH design pixels): the map across the top, the deploy rows, the party and CLOSE under it.
+    public const float Left = 0f, MapTop = 40f, LanePitch = 100f, BoxTop = 0f, BoxHeight = 76f;
+    public const float HqWidth = 150f, NodeLeft = 190f, NodeWidth = 190f, NodeStep = 215f, FortressLeft = 835f, FortressWidth = 150f, TextColumn = 1010f, TextWidth = 390f;
+    public const float RowsTop = 328f, RowPitch = 44f, RowsWidth = 660f, SideLeft = 700f, SideWidth = 300f;
+    public const float StageInset = 10f, StageHeight = 48f;
     public const int PartyRows = 6;
-    public static float StageTop(int i) => MapTop + BoxTop + 110f + 80f * i;
-    public static float WarbossTop => MapTop + BoxTop + 190f;
+    public static float StageTop(int i) => MapTop + BoxTop + 70f + 62f * i;
+    public static float WarbossTop => MapTop + BoxTop + 130f;
+    /// <summary>The leader's plain line is not text on the screen: the open rows say it.</summary>
+    const string YouLeadLine = "YOU LEAD: CHOOSE THE DEPLOYMENT";
     public static readonly Color HereGold = WarfrontStyle.GoldFill, OrkRed = WarfrontStyle.Alert;
 
     readonly WarfrontHubModel _model;
@@ -35,6 +38,8 @@ public sealed partial class WarfrontHubPanel : Control
     readonly Label _warboss;
     readonly Button? _closeButton;
     readonly MapDraw _map;
+    readonly WarfrontFrame _frame;
+    readonly Control _stage;
 
     public WarfrontHubModel Model => _model;
     public Button DeployRow(int row) => _rows[row];
@@ -54,7 +59,7 @@ public sealed partial class WarfrontHubPanel : Control
     /// <summary>Every live label of the panel (the self-test's fit check).</summary>
     public System.Collections.Generic.IEnumerable<Label> Labels()
     {
-        foreach (var n in GetChildren()) if (n is Label l) yield return l;
+        foreach (var n in _stage.GetChildren()) if (n is Label l) yield return l;
     }
 
     /// <summary>The tracks, the node boxes and the marker (shapes only).</summary>
@@ -110,37 +115,34 @@ public sealed partial class WarfrontHubPanel : Control
         _close = close;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var dim = new ColorRect { Name = "WarfrontHubDim", Color = new Color(0f, 0f, 0f, 0.88f), MouseFilter = MouseFilterEnum.Ignore };
-        dim.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(dim);
-        var title = new Label { Name = "WarfrontHubTitle", Text = "WAR MAP", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        title.AddThemeFontOverride("font", UiKit.TitleFont);   // the menus' page title (the main menu's lettering)
-        title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
-        AddChild(title);
+        // The concept frame of OPTIONS and the WARFRONT page, dimmed over the scene; everything else lives in its stage.
+        _frame = new WarfrontFrame("WarfrontHubFrame", "War map");
+        AddChild(_frame);
+        _stage = _frame.Stage;
 
-        _header = Text("WarfrontHeader", Left, 150f, HeadingSize, 1200f, WarfrontStyle.Gold);
+        _header = Text("WarfrontHeader", Left, 0f, HeadingSize, 1200f, WarfrontStyle.Gold);
         _map = new MapDraw(model);
-        Place(_map, 0f, 0f, UiKit.VirtualWidth, UiKit.VirtualHeight);
-        AddChild(_map);
+        Place(_map, 0f, 0f, WarfrontFrame.StageW, WarfrontFrame.StageH);
+        _stage.AddChild(_map);
 
-        _hq = Text("WarfrontHq", Left + 14f, MapTop + BoxTop + 12f, BodySize, HqWidth - 20f, null, 2);
-        _fortress = Text("WarfrontFortress", FortressLeft + 14f, MapTop + BoxTop + 12f, BodySize, FortressWidth - 20f, lines: 2);
+        _hq = Text("WarfrontHq", Left + 12f, MapTop + BoxTop + 8f, BodySize, HqWidth - 20f, null, 2);
+        _fortress = Text("WarfrontFortress", FortressLeft + 12f, MapTop + BoxTop + 8f, BodySize, FortressWidth - 20f, lines: 2);
         string[] stages = { "WALL", "KEEP", "CAVES" };
-        for (int i = 0; i < 3; i++) { _stages[i] = Text("WarfrontStage" + i, Left + StageInset + 14f, StageTop(i) + 16f, BodySize, HqWidth - 2f * StageInset - 20f); _stages[i].Text = stages[i]; }
-        _warboss = Text("WarfrontWarboss", FortressLeft + StageInset + 14f, WarbossTop + 16f, BodySize, FortressWidth - 2f * StageInset - 20f);
+        for (int i = 0; i < 3; i++) { _stages[i] = Text("WarfrontStage" + i, Left + StageInset + 12f, StageTop(i) + 10f, BodySize, HqWidth - 2f * StageInset - 20f); _stages[i].Text = stages[i]; }
+        _warboss = Text("WarfrontWarboss", FortressLeft + StageInset + 12f, WarbossTop + 10f, BodySize, FortressWidth - 2f * StageInset - 20f);
         _warboss.Text = "WARBOSS";
         for (int lane = 0; lane < 3; lane++)
         {
             float y = MapTop + lane * LanePitch;
-            _laneNames[lane] = Text("WarfrontLane" + lane, NodeLeft, y - 2f, HeadingSize, 400f, WarfrontStyle.Gold);
+            _laneNames[lane] = Text("WarfrontLane" + lane, TextColumn, y - 2f, HeadingSize, TextWidth, WarfrontStyle.Gold);
             for (int node = 1; node <= 3; node++)
-                _nodes[lane, node - 1] = Text($"WarfrontNode{lane}{node}", NodeLeft + (node - 1) * NodeStep + 14f, y + BoxTop + 12f, BodySize, NodeWidth - 20f, null, 2);
-            _status[lane] = Text("WarfrontStatus" + lane, TextColumn, y + BoxTop + 4f, BodySize, TextWidth);
-            _last[lane] = Text("WarfrontLast" + lane, TextColumn, y + BoxTop + 34f, BodySize, TextWidth);
-            _floor[lane] = Text("WarfrontFloor" + lane, TextColumn, y + BoxTop + 64f, BodySize, TextWidth);
+                _nodes[lane, node - 1] = Text($"WarfrontNode{lane}{node}", NodeLeft + (node - 1) * NodeStep + 12f, y + BoxTop + 10f, BodySize, NodeWidth - 20f, null, 2);
+            _status[lane] = Text("WarfrontStatus" + lane, TextColumn, y + 36f, BodySize, TextWidth);
+            _last[lane] = Text("WarfrontLast" + lane, TextColumn, y + 64f, BodySize, TextWidth);
+            _status[lane].MouseFilter = MouseFilterEnum.Pass;   // the floor rule is this lane''s hover hint, not a line (FloorLabel keeps its text, hidden)
+            _floor[lane] = Text("WarfrontFloor" + lane, TextColumn, y + 64f, BodySize, TextWidth);
+            _floor[lane].Visible = false;
             _laneNames[lane].Text = WarfrontHubModel.LaneName(lane);
-            UiKit.TextKind(_floor[lane], "progress");   // the lane's state line (a readout)
         }
         for (int row = 0; row < WarfrontHubModel.Rows; row++)
         {
@@ -148,30 +150,32 @@ public sealed partial class WarfrontHubPanel : Control
             var b = UiKit.MenuButton("Deploy", () => OnRow(r));
             b.Name = "WarfrontDeploy" + row;
             UiKit.TextKind(b, "description");   // the target the row deploys to (lane, node, place)
-            Place(b, Left, RowsTop + row * RowPitch, 1000f, RowPitch - 2f);
-            WarfrontStyle.Plate(b, HeadingSize, 1000f);
-            b.Alignment = HorizontalAlignment.Left;
-            AddChild(b);
+            Place(b, Left, RowsTop + row * RowPitch, RowsWidth, RowPitch - 2f);
+            WarfrontStyle.Plate(b, HeadingSize, RowsWidth);   // centred, inset from the bevel (R1), like the WARFRONT page''s plates
+            _stage.AddChild(b);
             _rows[row] = b;
         }
-        _note = Text("WarfrontNote", Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 20f, BodySize, 1200f);
+        _note = Text("WarfrontNote", SideLeft + SideWidth + 10f, RowsTop, BodySize, WarfrontFrame.StageW - SideLeft - SideWidth - 10f, null, 2);
+        _note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         UiKit.TextKind(_note, "progress");   // who is choosing, what the leader does next
-        _partyHeading = Text("WarfrontPartyHeading", TextColumn, RowsTop, HeadingSize, TextWidth, WarfrontStyle.Gold);
+        _partyHeading = Text("WarfrontPartyHeading", SideLeft, RowsTop, HeadingSize, SideWidth, WarfrontStyle.Gold);
         _partyHeading.Text = "PARTY";
-        for (int i = 0; i < PartyRows; i++) _party[i] = Text("WarfrontParty" + i, TextColumn, RowsTop + 40f + i * 28f, BodySize, TextWidth);
+        for (int i = 0; i < PartyRows; i++) _party[i] = Text("WarfrontParty" + i, SideLeft, RowsTop + 40f + i * 28f, BodySize, SideWidth);
         if (close is not null)
         {
             _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke());
             UiTooltip.Attach(_closeButton, "Back to the Thunderhawk (Esc, or B on a controller)");
-            Place(_closeButton, Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 60f, 240f, RowPitch - 2f);
-            WarfrontStyle.Plate(_closeButton, HeadingSize, 240f);
-            AddChild(_closeButton);
+            Place(_closeButton, WarfrontFrame.StageW - 300f, WarfrontFrame.StageH - RowPitch, 300f, RowPitch - 2f);
+            WarfrontStyle.Plate(_closeButton, HeadingSize, 300f);
+            _stage.AddChild(_closeButton);
         }
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
         Refresh();
     }
 
+    /// <summary>Hides the line under the rows (the read-only look hides it as the leader''s line is not true there).</summary>
+    public bool NoteSuppressed { get; set; }
     static void Place(Control c, float x, float y, float w, float h)
     {
         c.SetAnchorsPreset(LayoutPreset.TopLeft);
@@ -184,8 +188,8 @@ public sealed partial class WarfrontHubPanel : Control
         var l = UiKit.MenuText("", null, clip: false);
         l.Name = name;
         WarfrontStyle.Skin(l, size, ink);
-        Place(l, x, y, width, lines * (size + 8f));
-        AddChild(l);
+        Place(l, x, y, width, lines * (size + 12f));
+        _stage.AddChild(l);
         return l;
     }
 
@@ -215,6 +219,7 @@ public sealed partial class WarfrontHubPanel : Control
             Set(_status[lane], m.LaneStatus(lane));
             Set(_last[lane], m.LastText(lane));
             Set(_floor[lane], m.FloorText(lane));
+            _status[lane].TooltipText = m.FloorText(lane);
             for (int node = 1; node <= 3; node++) Set(_nodes[lane, node - 1], m.NodeLabel(lane, node));
         }
         for (int row = 0; row < WarfrontHubModel.Rows; row++)
@@ -232,6 +237,7 @@ public sealed partial class WarfrontHubPanel : Control
         }
         WireFocus();
         Set(_note, m.Note);
+        _note.Visible = !NoteSuppressed && m.Note != YouLeadLine;
         for (int i = 0; i < PartyRows; i++) Set(_party[i], m.PartyLine(i));
         _map.QueueRedraw();
     }
