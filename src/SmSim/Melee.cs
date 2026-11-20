@@ -152,6 +152,11 @@ public readonly record struct MeleeStep(
     /// (<see cref="Combat.StabIndex"/>); F + F still chains into it. Set by the content reader on the finisher it turns into the stab (Classic PvP only). Hashed only when set.
     /// </summary>
     public bool Stab { get; init; }
+    /// <summary>
+    /// sim/stab-release (owner 2026-11-20, "release early too"): Musou Mode and Warfront: the power sword's X,F thrust (the clip the Classic stab shares) frees the player at <see cref="StabTuning.ReleaseAt"/> like the stab, but keeps its
+    /// finisher chain: it stays until the Y window closes unless the player starts another action first (<see cref="StabTuning.EndsChain"/>). Set by the content reader on the thrust where no stab is applied. Hashed only when set.
+    /// </summary>
+    public bool ThrustRelease { get; init; }
 
     /// <summary>
     /// musou/chain-lead-in (owner 2026-11-17: spam "like the normal space marine classes"; **ours (estimate)**; Musou Mode only): a light swing that a spam press starts from the swing before (on its hit, or queued for it) begins this many seconds into its own
@@ -184,6 +189,7 @@ public readonly record struct MeleeStep(
         if (Steers) { w.Write((byte)0xA7); w.Write(SteerFrom); w.Write(SteerTo); w.Write(SteerRate); }   // sim/slam-steer: only when set
         if (HopSwing) w.Write((byte)0xA8);   // sim/hop-swing: only when set
         if (Stab) w.Write((byte)0xA9);   // sim/stab-key: only when set
+        if (ThrustRelease) w.Write((byte)0xAB);   // sim/stab-release (Musou, Warfront): only when set
         if (ChainLeadIn > 0f) { w.Write((byte)0xAA); w.Write(ChainLeadIn); }   // musou/chain-lead-in: only when set
     }
 }

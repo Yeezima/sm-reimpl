@@ -546,7 +546,9 @@ public static partial class Protocol
     // 86 (devtools-map-pick; the owner 2026-11-17): developer tools only: DevCommandKind.PickMap (15; argument an index into the server's pickable maps) and DevNote.NoMapChange (15). No sim change; the config hash is unchanged.
     // 87 (classic-maps-gameplay-fidelity; the owner 2026-11-18): no layout change. Classic PvP maps: the d_blockers MissionMovementBlocker boxes and cylinders (group 2) are solid invisible walls for every player, and the movable cover in Havok layer 3
     //     (crates, barrels, sandbag piles) is solid and pierceable like the M39 props, so a client's prediction must agree with the server's collision on every map but Manufactorum (MapContent.LoaderVersion 9: the map hash also changes on every map).
-    public const ushort Version = 87;
+    // 88 (sim/stab-release; the owner 2026-11-20): no layout change. The power sword's stab (T, F + F, RMB + F; Classic PvP) ends at its release, the later of its hit and its move-on branch (0.909 s of 1.818 s), instead of the end of its clip:
+    //     move, fire, switch, grenade, melee and charge act from that tick (evade one tick later). Client prediction must agree, hence the bump. Restore switch (config hash): --old-stab-release.
+    public const ushort Version = 88;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

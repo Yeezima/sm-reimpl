@@ -76,6 +76,8 @@ public sealed record ServerArguments
     public bool OldLedgeHop { get; init; }
     /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
     public bool OldStompRelease { get; init; }
+    /// <summary>sim/stab-release (restore switch): the stab locks the player to the end of its clip (<see cref="SimConfig.StabRelease"/>; config hash: clients need it too).</summary>
+    public bool OldStabRelease { get; init; }
     /// <summary>sim/kick-push (restore switch): the heavy classes' kick pushes with the data's full knockback (<see cref="SimConfig.KickPushCut"/>; config hash: clients need it too).</summary>
     public bool OldKickPush { get; init; }
     /// <summary>sim/sprint-melee-charge (restore switch): a light press while sprinting swings (<see cref="SimConfig.SprintMeleeCharge"/>; config hash: clients need it too).</summary>
@@ -195,7 +197,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
@@ -231,6 +233,7 @@ public static class ServerCommandLine
                     "--old-hop-rules" => a with { OldHopRules = true },
                     "--old-ledge-hop" => a with { OldLedgeHop = true },
                     "--old-stomp-release" => a with { OldStompRelease = true },
+                    "--old-stab-release" => a with { OldStabRelease = true },
                     "--old-kick-push" => a with { OldKickPush = true },
                     "--old-sprint-melee" => a with { OldSprintMelee = true },
                     "--old-ledge-cancel" => a with { OldLedgeCancel = true },

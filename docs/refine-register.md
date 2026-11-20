@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3900 spec table rows: **2850 tagged**, 693 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 831 rows of the changes document.
+Scanned 3903 spec table rows: **2853 tagged**, 693 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 832 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 416 | 357 | 356 | 114 | 12 |
+| Movement (critical) | 419 | 360 | 358 | 115 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,15 +53,15 @@ Scanned 3900 spec table rows: **2850 tagged**, 693 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 37 | 36 | 29 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2850** | 2545 | 2165 | 827 | 37 |
+| **All areas** | **2853** | 2548 | 2167 | 828 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1662 |
+| kind: ours | 1665 |
 | confidence: low | 1047 |
-| confidence: medium | 1007 |
+| confidence: medium | 1009 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
@@ -74,8 +74,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
+| notes: interpretation | 28 |
 | kind: approximation | 27 |
-| notes: interpretation | 27 |
 | kind: placeholder | 23 |
 | notes: open question | 21 |
 | notes: placeholder | 20 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (416)
+### Movement (gameplay-critical) (419)
 
 *Spec section: Extracted parameters*
 
@@ -347,6 +347,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EA0B9125` | The weapon comes up with it | the release tick leaves the weapon raised (`ReadyHold`), so the bolt pistol's first shot leaves on the press tick at 1.2 s instead of waiting for its 0.167 s raise (the always-ready heavy bolter needs none). Ours: the owner's example ("the bolt pistol should… | kind: ours; confidence: medium | ours; the owner's example | The weapon comes up with it: compare with SM1 by feel or video. Ours: the release tick leaves the weapon raised (ReadyHold), so the bolt… | ☐ |
 | `R-37B82987` | A press the tick of the release | a melee press in that tick starts the next swing (a light attack, or a stomp again from F) at once, within the usual melee wait (the stomp's combo window has closed by 1.2 s) | kind: ours; confidence: medium | the release acting as the clip's end | A press the tick of the release: compare with SM1 by feel or video. Ours: a melee press in that tick starts the next swing (a light attack, or… | ☐ |
 | `R-72E3090D` | Restore switch | `--old-stomp-release` (server and every client; config hash only when on): the stomp locks to its clip's end (1.667 s) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-stomp-release (server and every client; config hash only when… | ☐ |
+
+*Spec section: The power sword's stab frees the player at its release (sim/stab-release; owner 2026-11-20, protocol 88, no layout change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EDA20B2E` | The release | the stab (`MeleeStep.Stab`, the sword's X,F thrust clip `SM_MEL_PS_XATK_Combo4`: 1.818 s, hit 0.636 s, `BRANCH_ToRanged` 0.455 s, `BRANCH_Run` 0.909 s) ends at the later of its hit and its move-on branch (`MeleeStep.MoveAt`): 0.909 s, tick 28 at 30 Hz (0.273… (s) | kind: ours; confidence: medium; notes: interpretation | the owner's request 2026-11-20 (the move-on branch as "the animation releases": data, extracted; read as the release: interpretation) | The release: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the stab (MeleeStep.Stab, the sword's X,F thrust clip… | ☐ |
+| `R-F3B48E27` | Musou Mode and Warfront: the thrust | the owner, 2026-11-20: "Release early too". The X,F thrust (light strike 1, then F; `MeleeStep.ThrustRelease`, set by `MeleeTuning` where no stab is applied) is released at the same point (`StabTuning.ReleaseAt`, 0.909 s) but is not ended while its finisher… (s) | kind: ours; confidence: medium | the owner's answer; the window extracted | Musou Mode and Warfront: the thrust: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner, 2026-11-20: "Release early too". The X,F thrust (light… | ☐ |
+| `R-B9D91E0A` | Restore switch | `--old-stab-release` (server and every client; config hash only when on): the stab and the thrust lock to their clip's end (1.818 s) | kind: ours | ours | Restore switch: compare with SM1 by feel or video. Ours: --old-stab-release (server and every client; config hash only when… | ☐ |
 
 *Spec section: A combat stim starts regeneration at once (sim/stim-regen-now; protocol 75)*
 
@@ -5232,6 +5240,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D47CCCC3` | The charge needs only W (feel/charge-directions; protocol 39; supersedes M31's sprint gate) | The locale names it "Charge Attack (while Sprinting)" (110691); M31 read the owner's earlier rule as a sprint gate (Sprint applied and faster than run + 0.25 x (sprint - run) = 7.375 m/s) | An F press with W held starts the charge from standing, a walk, a run or a sprint; aim mode and the held trigger no longer turn it into the stun strike; without W, F is the stun strike; the jump-pack classes still charge from the ground only | Owner's knowledge and decision 2026-10-29 ("charge shouldn't require you to actually sprint to initiate charge, just be holding w when you press f to initiate forward charge"); spec "Charge directions" | The charge needs only W (feel/charge-directions; protocol…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-09BB7D6D` | The charge needs the sprint; F otherwise is a stun strike in the held direction (sim/charge-needs-sprint; protocol 49; supersedes the W-only start of protocol 39) | A W + F press started the charge from standing, a walk, a run or a sprint | Shift (the pad's sprint hold) and W held at the F press start the charge; F without them is the stun strike in the direction of the held keys (all eight, forward with none); W + F without Shift is a forward stun strike; the buffered press follows the same test | Owner's decision 2026-10-31 ("you also need to be holding shift. if you are holding W, A, S, D, or a combination of them, then press f, you should do a stun strike in that direction"); spec "The charge needs the sprint" | The charge needs the sprint; F otherwise is a stun strike…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F4E85D52` | The stomp frees the player at 1.2 s (sim/stomp-release; owner 2026-11-14) | The stomp's clip locks the Devastator and the Havoc for its whole 1.667 s (only the hop cancels it, protocol 51) | From 1.2 s into the clip (after the blast at 0.767 s) the stomp ends and the player may fire (the bolt pistol shoots at once), aim, move, switch, reload, throw, melee and charge, in Classic PvP and Musou Mode; before 1.2 s the lock stays. Restore switch `--old-stomp-release` | The owner: the lock-out was a bit too long; spec "The stomp frees the player at 1.2 s" | The stomp frees the player at 1.2 s (sim/stomp-release…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-F54C43CF` | The power sword's stab frees the player at its release (sim/stab-release; owner 2026-11-20; protocol 88) | The stab's clip (1.818 s, hit at 0.636 s) locks the player to its end: the stick returns at 0.909 s, a shot may cancel from 0.455 s, but a switch, grenade, second melee, second stab or charge waits for 1.818 s (the hop already cancelled it earlier) | The stab ends at 0.909 s (its move-on branch, after the hit): move, fire, aim, switch, grenade, melee, charge from that tick, the evade one tick later. Classic PvP (T, F + F, RMB + F). Musou Mode and Warfront (owner 2026-11-20, "Release early too"): the X,F thrust (same clip) is released at the same point; the… | The owner: "it feels very unresponsive"; spec "The power sword's stab frees the player at its release" | The power sword's stab frees the player at its release…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-A6DB789A` | Lascannon shot before the hop (sim/lascannon-shot-first; owner 2026-11-17, Classic PvP) | A hop pressed in the tick of the lascannon's Fire press (or while its raise waits for the shot) starts at once and lowers the weapon, so the shot is lost | The Space press is held back (in the input buffer) until the shot has left, at most 0.1 s (3 ticks), then the hop starts; a hop with no shot due is never delayed; other weapons and Musou Mode unchanged. Restore switch `--old-lascannon-shot-first` | The owner: "if a player shoots it should be prioritized to go off and finish shooting before the hop initiates, but don't delay the hop by more than .1 seconds"; spec "Lascannon shot before the hop" | Lascannon shot before the hop (sim/lascannon-shot-first…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-8A2476B9` | Lascannon tap reload and steady zoom (sim/lascannon-tap-reload; owner 2026-11-15; **experimental**, Classic PvP) | A lascannon reload loads the whole clip in 2.25 s (the data's); the zoomed view follows the walking body's camera placement | A reload loads one round in 0.4 s with no shot meanwhile (reload clip time-scaled to 0.4 s; a held Reload button repeats round by round); the scope's view looks exactly along the view, so walking does not sway the crosshair (lascannon only; the Devastator's footfall camera kick is skipped there too; the stalker bolter… | The owner: "make tapping the reload bind for lascannon reload 1 round at a time, with a short .4 second inability to shoot..." and "there should be no bob when zoomed in"; spec "Lascannon tap reload and steady zoom" | Lascannon tap reload and steady zoom…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-AE3B05F5` | The kick pushes 60 % less (sim/kick-push; owner 2026-11-14) | The Devastator's and Havoc's kick (the right-mouse melee) knocks its target back by the data's distance | 40 % of it (x0.4); the stomp and Musou's enemies unchanged. Restore switch `--old-kick-push` | The owner: "only the devastator/havoc kick move (right mouse button) knocks back too far. reduce the knockback by 60%"; spec "The kick pushes 60 % less" | The kick pushes 60 % less (sim/kick-push; owner 2026-11-14): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
