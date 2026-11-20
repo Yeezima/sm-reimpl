@@ -18,6 +18,8 @@ namespace SmClient;
 public partial class GuardCrowd : CrowdView
 {
     public const int DefaultVisible = 120, WarfrontVisible = 448, LowVisible = 60, SkinnedNear = 20, MaxBodyCount = 40;
+    /// <summary>Set by the Warfront client at match start (<c>WarfrontVisible</c>, else 0: the default); Musou and Classic keep 120. Static so the Musou code needs no Warfront symbol (a build without Warfront).</summary>
+    public static int VisibleOverride { get; set; }
     public const float NearDistance = 25f, HalfRateDistance = 12f;
     /// <summary>Seconds after his last shot a man stays in the aim set.</summary>
     public const float EngagedSeconds = 3f;

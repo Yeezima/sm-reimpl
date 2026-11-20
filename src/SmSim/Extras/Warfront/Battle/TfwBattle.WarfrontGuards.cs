@@ -87,7 +87,7 @@ public sealed partial class TfwBattle
             {
                 int s = _wfSquads[i];
                 var slot = SlotPlace(point, dir, i, _wfSquads.Count, RadiusOf(k));
-                if (_wfPlace[s] != Vector3.Zero && Vector3.Distance(_wfPlace[s], slot) < 1f && MathF.Abs(_wfYaw[s] - yaw) < 0.01f) continue;
+                if (WfFormed(s) && Vector3.Distance(_wfPlace[s], slot) < 1f && MathF.Abs(_wfYaw[s] - yaw) < 0.01f) continue;
                 Span<Vector3> posts = stackalloc Vector3[GuardSim.SquadSize];
                 Posts(slot, dir, posts);
                 if (_guards.OrderPosts(s, slot, posts, yaw, point))
@@ -98,7 +98,10 @@ public sealed partial class TfwBattle
         }
     }
 
-    int WfRankKey(int s) => _wfPlace[s] == Vector3.Zero ? 1000 + s : _wfRank[s];   // a squad not placed yet comes after the placed ones
+    int WfRankKey(int s) => WfFormed(s) ? _wfRank[s] : 1000 + s;   // a squad not placed yet comes after the placed ones
+
+    /// <summary>Squad <paramref name="s"/> still stands on the formation order this file gave it: not re-sent by the battle, not a new squad in a dead one's slot (review 2026-11-20: the memory is per slot index).</summary>
+    bool WfFormed(int s) => _wfPlace[s] != Vector3.Zero && Vector3.DistanceSquared(_guards.OrderOf(s), _wfPlace[s]) < 1e-4f;
 
     /// <summary>Point <paramref name="k"/>'s approach: the Orks within <see cref="WarfrontGuardRules.ApproachRadius"/> when there are enough, else its Ork source; turned only past <see cref="WarfrontGuardRules.ApproachTurnDegrees"/>.</summary>
     Vector2 Approach(int k)

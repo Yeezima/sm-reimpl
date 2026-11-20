@@ -322,6 +322,9 @@ public sealed class GuardSim
     public Vector3 Centre(int squad) => _centre[squad];
 
     /// <summary>Squads the enemies can target.</summary>
+    /// <summary>Where a squad's current order sends it (its spawn place until it is first ordered).</summary>
+    public Vector3 OrderOf(int squad) => _order[squad];
+
     public int SquadsAlive { get { int n = 0; foreach (int c in _living) n += c > 0 ? 1 : 0; return n; } }
 
     /// <summary>The living squads as the enemies see them (ids <see cref="TfwContracts.GuardTargetId"/>, positions the men's centres), written from <paramref name="into"/>'s start; the number written.</summary>

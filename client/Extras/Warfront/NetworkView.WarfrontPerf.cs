@@ -20,6 +20,7 @@ public partial class NetworkView
         // These are process-wide statics: set every one on each match start so a Musou match after a Warfront match in the same client gets Musou's own values back (review).
         CrowdView.FarNoShadow = WarfrontOn || CrowdView.FarNoShadowFlag;   // owner 2026-11-18: far-tier Orks cast no sun shadows (Warfront only; --crowd-no-shadow anywhere)
         MusouCrowd.VisibleOverride = WarfrontOn ? MusouCrowd.WarfrontVisible : 0;   // owner 2026-11-18: 1200 visible Orks in Warfront, Musou keeps 1800
+        GuardCrowd.VisibleOverride = WarfrontOn ? GuardCrowd.WarfrontVisible : 0;   // Guardsmen depth 2026-11-20: Warfront draws all 448 Guardsmen
         SmClient.MusouVat.Lods = false;
         if (!WarfrontOn)
         {

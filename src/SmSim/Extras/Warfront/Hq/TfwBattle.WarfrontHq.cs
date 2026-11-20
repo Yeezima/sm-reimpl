@@ -194,7 +194,7 @@ public sealed partial class TfwBattle
             float r2 = radius * radius;
             foreach (var p in Capturers(players))
                 if (MathF.Abs(p.Z - at.Z) <= reach && new Vector2(p.X - at.X, p.Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.HumanWeight;
-            defenders += _guards.CountInside(at, radius) * WarfrontHqBattleRules.GuardsmanWeight / WarfrontGuardRules.NumberScale;   // Guardsmen depth (owner 2026-11-20): twice the men at half the strength each weigh what the old squads did, so the hold is no easier than before
+            defenders += (_guards.CountInside(at, radius) * WarfrontHqBattleRules.GuardsmanWeight + WarfrontGuardRules.NumberScale - 1) / WarfrontGuardRules.NumberScale;   // rounded up (review 2026-11-20: an odd count kept its half man). Guardsmen depth (owner 2026-11-20): twice the men at half the strength each weigh what the old squads did, so the hold is no easier than before
             if (_enemies.Warfront?.SquadTargets is { } source)
             {
                 Span<MusouTarget> marines = stackalloc MusouTarget[WarfrontBattleRules.MaxSquadTargets];

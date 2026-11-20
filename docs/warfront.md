@@ -114,7 +114,7 @@ dotnet run -c Debug --project src/SmTool -- warfront-maps --prebuild   # what th
 
 Four players: `.\server.cmd --content warfront --bind 127.0.0.1 --port 27200 --warfront-max-humans 4 --warfront-new` and one
 `.\client.cmd --connect 127.0.0.1:27200 --content warfront --warfront-key-file <own file>` per player. Switch and build property: `--content warfront`;
-`-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 13.
+`-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 17.
 
 ## Dedicated mode (`--warfront-dedicated`, slices S1 and S2)
 

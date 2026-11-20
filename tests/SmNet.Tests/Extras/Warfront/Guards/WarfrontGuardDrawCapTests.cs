@@ -25,6 +25,9 @@ public class WarfrontGuardDrawCapTests
         Assert.True(m.Success, "GuardCrowd.WarfrontVisible is missing");
         Assert.True(int.Parse(m.Groups[1].Value) >= GuardSim.MaxSquads * GuardSim.SquadSize, "Warfront must draw all 400 Guardsmen of the sim's 40 squads");
         Assert.Matches(@"DefaultVisible = 120\b", crowd);   // Musou and Classic unchanged
-        Assert.Contains("WarfrontOn ? GuardCrowd.WarfrontVisible : GuardCrowd.DefaultVisible", view);
+        Assert.Contains("GuardCrowd.VisibleOverride > 0 ? GuardCrowd.VisibleOverride : GuardCrowd.DefaultVisible", view);
+        Assert.DoesNotContain("WarfrontOn", view);   // the Musou file builds without Warfront
+        string perf = File.ReadAllText(Path.Combine(RepoRoot(), "client", "Extras", "Warfront", "NetworkView.WarfrontPerf.cs"));
+        Assert.Contains("GuardCrowd.VisibleOverride = WarfrontOn ? GuardCrowd.WarfrontVisible : 0", perf);
     }
 }
