@@ -61,6 +61,10 @@ public static partial class PaintedButtons
         public Vector4 Expand { get; set; }
         /// <summary>A flat fill under the picture, inset from the rectangle (a plate whose middle is see-through, such as a hover hint over a busy page); transparent for none.</summary>
         public Color Backing { get; set; } = Colors.Transparent;
+        /// <summary>A fixed scale of the caps (screen px per picture px) instead of the one that fits the height: a ring round a big rectangle (the Armoury's rail frame).</summary>
+        public float FixedK { get; set; }
+        /// <summary>False for a ring: the middle is not drawn.</summary>
+        public bool DrawCenter { get; set; } = true;
 
         public override Rect2 _GetDrawRect(Rect2 rect) => new(rect.Position - new Vector2(Expand.X, Expand.Y), rect.Size + new Vector2(Expand.X + Expand.Z, Expand.Y + Expand.W));
 
@@ -75,7 +79,7 @@ public static partial class PaintedButtons
                 var inner = rect.Grow(-Mathf.Max(2f, rect.Size.Y * 0.125f));   // inside the art's own transparent margin and its rim
                 RenderingServer.CanvasItemAddPolygon(canvas, Steel.Chamfered(inner, Mathf.Max(3f, rect.Size.Y * 0.15f)), [Backing]);
             }
-            float k = Mathf.Min(rect.Size.Y / th, rect.Size.X / Mathf.Max(1f, Caps.L + Caps.R));
+            float k = FixedK > 0f ? FixedK : Mathf.Min(rect.Size.Y / th, rect.Size.X / Mathf.Max(1f, Caps.L + Caps.R));
             float dl = Caps.L * k, dr = Caps.R * k, dt = Caps.T * k, db = Caps.B * k;
             if (rect.Size.Y < dt + db) { float f = rect.Size.Y / (dt + db); dt *= f; db *= f; }
             float x0 = rect.Position.X, y0 = rect.Position.Y;
@@ -86,13 +90,14 @@ public static partial class PaintedButtons
                 {
                     var d = new Rect2(dx[i], dy[j], dx[i + 1] - dx[i], dy[j + 1] - dy[j]); var src = new Rect2(sx[i], sy[j], sx[i + 1] - sx[i], sy[j + 1] - sy[j]);
                     if (d.Size.X <= 0f || d.Size.Y <= 0f || src.Size.X <= 0f || src.Size.Y <= 0f) continue;
+                    if (!DrawCenter && i == 1 && j == 1) continue;
                     RenderingServer.CanvasItemAddTextureRectRegion(canvas, d, Texture.GetRid(), src, ModulateColor);
                 }
         }
 
         public CapStyle Copy() => new()
         {
-            Texture = Texture, ModulateColor = ModulateColor, Caps = Caps, Expand = Expand, Backing = Backing,
+            Texture = Texture, ModulateColor = ModulateColor, Caps = Caps, Expand = Expand, Backing = Backing, FixedK = FixedK, DrawCenter = DrawCenter,
             ContentMarginLeft = ContentMarginLeft, ContentMarginRight = ContentMarginRight, ContentMarginTop = ContentMarginTop, ContentMarginBottom = ContentMarginBottom,
         };
     }

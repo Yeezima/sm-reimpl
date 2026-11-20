@@ -180,7 +180,7 @@ public partial class ConceptPanelPage : UiKit.MenuPage
         DockText(back, sS, goldRest: false);
     }
 
-    static void DockText(Button b, float s, bool goldRest, bool goldOnFocus = false)
+    internal static void DockText(Button b, float s, bool goldRest, bool goldOnFocus = false)
     {
         b.Alignment = HorizontalAlignment.Center; b.ClipText = false;
         b.AddThemeFontOverride("font", UiKit.ConceptFont());

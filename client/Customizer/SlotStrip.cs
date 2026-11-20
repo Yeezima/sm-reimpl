@@ -56,7 +56,7 @@ public sealed partial class SlotStrip : VBoxContainer
         Container? single = null;
         if (_compact)
         {
-            single = Wrap ? new HFlowContainer().With(f => { f.AddThemeConstantOverride("h_separation", 8); f.AddThemeConstantOverride("v_separation", 8); }) : UiKit.HBox(8);
+            single = Wrap ? new HFlowContainer { Alignment = FlowContainer.AlignmentMode.Center }.With(f => { f.AddThemeConstantOverride("h_separation", 8); f.AddThemeConstantOverride("v_separation", 8); }) : UiKit.HBox(8);
             // Only a role the profile offers (ui/customizer-ork: no Ork DEFAULTS chip in Faithful).
             string role = DefaultsRole is { } wanted && _services.Roles().Contains(wanted, StringComparer.OrdinalIgnoreCase) ? wanted : ProfileStore.FirstRole(catalog);
             var sel = Selection.DefaultFor(role);

@@ -32,6 +32,7 @@ public sealed partial class CreatorView
     Button? _armConfirm, _armBack, _armWeaponBtn;
     ScrollContainer? _armStripScroll;
     Button? _armDeploy;
+    Panel? _armFrame;
     readonly List<Button> _armTools = new();
     readonly List<Button> _armTileButtons = new();
     string _armSig = "";
@@ -78,6 +79,8 @@ public sealed partial class CreatorView
         var blur = new ShaderMaterial { Shader = new Shader { Code = "shader_type canvas_item;\nuniform sampler2D scr : hint_screen_texture, filter_linear_mipmap;\nvoid fragment() { vec3 c = textureLod(scr, SCREEN_UV, 4.0).rgb; COLOR = vec4(c * 0.78, 1.0); }" } };
         _armBlurRail = new ColorRect { Name = "ArmouryBlur", MouseFilter = MouseFilterEnum.Ignore, Material = blur }; _armBlurRail.SetAnchorsPreset(LayoutPreset.FullRect); _armCanvas.AddChild(_armBlurRail);   // the whole scene is out of focus behind the screen, ghosts of the video included
         _armOverlay = Tex("ArmouryOverlay", "overlay-armoury", _armCanvas);
+        _armOverlay.Texture = ArmField() ?? _armOverlay.Texture;
+        _armFrame = new Panel { Name = "ArmouryRailFrame", MouseFilter = MouseFilterEnum.Ignore }; _armCanvas.AddChild(_armFrame);
         _armTitle = Tex("ArmouryTitle", "arm-title", _armCanvas);
         void Move(Control c, Control to) { c.GetParent()?.RemoveChild(c); to.AddChild(c); }
         // The rail: the header bar's pills, the class rows, the weapon row and the three tiles.
@@ -167,6 +170,39 @@ public sealed partial class CreatorView
     public string UnsavedLine => _summary.Text;   // a status message may hide the line for a few seconds; the text is the state
     /// <summary>The slot tools of the page (test aid): their names are ArmToolRename, ArmToolCopy, ArmToolReset and ArmToolClear; DEPLOY is ArmDeploy, CONFIRM LOADOUT ConfirmLoadout.</summary>
     public IReadOnlyList<Button> ArmTools => _armTools;
+
+    // The rail (owner, 2026-11-20: one continuous, symmetric border): its centre line, the frame and the field inside it, in concept pixels. The field is the concept's gold ruled interior (ArmField).
+    const float ArmRailCx = 157.5f, ArmRailRing = 9f, ArmHeaderW = 236f;
+    static readonly Rect2 ArmRailOuter = new(ArmRailCx - 132f, 90f, 264f, 272f);
+    static readonly Rect2 ArmRailInner = ArmRailOuter.Grow(-ArmRailRing);
+
+    static ImageTexture? _armField;
+
+    /// <summary>
+    /// The rail's interior without the concept's own broken border: the overlay's gold field cut to <see cref="ArmRailInner"/> (its edge columns and rows repeated where the picture ends), the painted CLASS bar filled with the field so the
+    /// live tabs stand on one continuous ground. Built once.
+    /// </summary>
+    static Texture2D? ArmField()
+    {
+        if (_armField is not null) return _armField;
+        if (ConceptArt.Get("overlay-armoury") is not { } art) return null;
+        var src = (Image)art.GetImage().Duplicate(); src.Decompress(); if (src.HasMipmaps()) src.ClearMipmaps(); src.Convert(Image.Format.Rgba8);
+        var o = UiTextureBuilder.ArmRail.Position;
+        int w = Mathf.RoundToInt(ArmRailInner.Size.X * 4f), h = Mathf.RoundToInt(ArmRailInner.Size.Y * 4f);
+        int sx = Mathf.RoundToInt((ArmRailInner.Position.X - o.X) * 4f), sy = Mathf.RoundToInt((ArmRailInner.Position.Y - o.Y) * 4f);
+        int vx0 = 118, vx1 = 1048, vy0 = 124, vy1 = 1062;   // the field's clean pixels in the overlay (the steel rim and the corner brackets lie outside)
+        var dst = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+        for (int y = 0; y < h; y++)
+        {
+            int yy = Mathf.Clamp(sy + y, vy0, vy1);
+            for (int x = 0; x < w; x++) dst.SetPixel(x, y, src.GetPixel(Mathf.Clamp(sx + x, vx0, vx1), yy));
+        }
+        // The painted CLASS bar (concept 50 to 260, 100 to 122) goes: each row carries the field's own pixel from beside the bar.
+        int bx0 = Mathf.RoundToInt((50f - ArmRailInner.Position.X) * 4f) - 8, bx1 = Mathf.RoundToInt((261f - ArmRailInner.Position.X) * 4f) + 8, by0 = 0, by1 = Mathf.RoundToInt((123f - ArmRailInner.Position.Y) * 4f);
+        for (int y = by0; y < by1; y++) { var c = dst.GetPixel(Mathf.Max(0, bx0 - 6), y); for (int x = Mathf.Max(0, bx0); x < Mathf.Min(w, bx1); x++) dst.SetPixel(x, y, c); }
+        dst.GenerateMipmaps();
+        return _armField = ImageTexture.CreateFromImage(dst);
+    }
 
     (float S, Vector2 O) ArmMap()
     {
@@ -298,14 +334,14 @@ public sealed partial class CreatorView
         var (s, o) = ArmMap();
         Rect2 M(Rect2 r) => new(o + r.Position * s, r.Size * s);
         void Put(Control c, Rect2 r) { var m = M(r); c.Position = m.Position; c.Size = m.Size; c.CustomMinimumSize = Vector2.Zero; }
-        Put(_armOverlay!, UiTextureBuilder.ArmRail); Put(_armTitle!, UiTextureBuilder.ArmTitle); Put(_armWings!, UiTextureBuilder.ArmWings);
+        Put(_armOverlay!, ArmRailInner); Put(_armFrame!, ArmRailOuter); Put(_armTitle!, new Rect2(UiTextureBuilder.ArmTitle.Position + new Vector2(ArmRailCx - 167.8f, 0f), UiTextureBuilder.ArmTitle.Size)); Put(_armWings!, new Rect2(ArmRailCx - UiTextureBuilder.ArmWings.Size.X / 2f, UiTextureBuilder.ArmWings.Position.Y, UiTextureBuilder.ArmWings.Size.X, UiTextureBuilder.ArmWings.Size.Y));
         Put(_armBadge!, UiTextureBuilder.ArmBadge); Put(_armBadgeText!, UiTextureBuilder.ArmBadge);
-        Put(_armRows!, new Rect2(58, 122, 198, 105));
+        Put(_armRows!, new Rect2(ArmRailCx - 99f, 122, 198, 105));
         var detail0 = ArmouryDetail();
         Put(_armWeapon!, UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName));
         Put(_armTilesHost!, new Rect2(36, 276, 238, 74));
         Put(_armTopRow!, new Rect2(296, 70, 246, 20));   /* the faction tabs stand right over the preview they switch (Opus review 1) */ _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
-        Put(_armStripScroll!, new Rect2(40, 124, 234, 196)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); if (_armWell.GetIndex() > _armStripScroll.GetIndex()) _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex());   /* the well under the chips, once: moving it to the chips' index every layout swapped the two each time, which made the slots flash (owner, 2026-11-18) */ 
+        Put(_armStripScroll!, new Rect2(ArmRailCx - 117f, 124, 234, 196)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(ArmRailCx - 119f, 121, 238, 229)); if (_armWell.GetIndex() > _armStripScroll.GetIndex()) _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex());   /* the well under the chips, once: moving it to the chips' index every layout swapped the two each time, which made the slots flash (owner, 2026-11-18) */ 
         bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
         _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
         Put(_armSlotScroll, new Rect2(549, 93, 222, 223));   /* whole cards only: three of 78 */ Put(_armPickBack, new Rect2(712, 76, 52, 14));
@@ -318,14 +354,14 @@ public sealed partial class CreatorView
         // RENAME, COPY, RESET, CLEAR: four plates under the chip grid, inside the well, on the highlighted slot; DEPLOY under the item card, in a match.
         for (int i = 0; i < _armTools.Count; i++)
         {
-            var tool = _armTools[i]; Put(tool, new Rect2(47f + i * 56f, 324f, 52f, 22f));
+            var tool = _armTools[i]; Put(tool, new Rect2(ArmRailCx - 110f + i * 56f, 324f, 52f, 22f));
             tool.Visible = _armSlotsTab && !AddedPage;
             tool.Disabled = i == 1 ? IsEmpty : OpenClass is null;   // copy takes any filled slot; rename, reset and clear need a custom class in the slot
         }
         _armDeploy!.Visible = Deploy is not null && !AddedPage; Put(_armDeploy, new Rect2(330, 398, 178, 30)); _armDeploy.Disabled = IsEmpty;
         var rightBox = _preview.GetParent<Control>(); Put(rightBox, new Rect2(296, 94, 246, 284));
-        Put(_armSteps!, UiTextureBuilder.ArmHeader);
-        Put(_armConfirm!, UiTextureBuilder.ArmConfirm);
+        Put(_armSteps!, new Rect2(ArmRailCx - ArmHeaderW / 2f, 101, ArmHeaderW, 21));
+        Put(_armConfirm!, new Rect2(ArmRailCx - UiTextureBuilder.ArmConfirm.Size.X / 2f, UiTextureBuilder.ArmConfirm.Position.Y, UiTextureBuilder.ArmConfirm.Size.X, UiTextureBuilder.ArmConfirm.Size.Y));
         Put(_armBack!, UiTextureBuilder.ArmBack);
         string badge = "CLASSIC PVP"; ExtrasArmouryBadge(ref badge);   // EXTRAS-HOOK: the mode badge
         var detail = detail0; _armDetailNow = detail; var classes = ArmouryClasses();
@@ -463,12 +499,12 @@ public sealed partial class CreatorView
             ArmText(b, ArmPillSize + 1f, s, ArmLight, ArmDark);
             tabNeed.Add((b, PaintedButtons.Width(b.GetThemeFont("font"), b.Text, ArmUnit(ArmPillSize + 1f)), b.GetThemeStylebox("normal").GetMinimumSize().X));
         }
-        float tabTotal = UiTextureBuilder.ArmHeader.Size.X * s - 2f * (tabs.Length - 1), tabSum = tabNeed.Sum(n => n.Text + n.Margin);
+        float tabTotal = ArmHeaderW * s - 2f * (tabs.Length - 1), tabSum = tabNeed.Sum(n => n.Text + n.Margin);
         var tabFit = new List<(Control, string, float)>();
         foreach (var (b, text, margin) in tabNeed)
         {
-            b.SizeFlagsStretchRatio = text + margin;
-            tabFit.Add((b, b.Text, tabTotal * (text + margin) / Mathf.Max(1f, tabSum) - margin));
+            b.SizeFlagsStretchRatio = 1f;   // equal widths (owner, 2026-11-20)
+            tabFit.Add((b, b.Text, tabTotal / tabs.Length - margin));
         }
         PaintedButtons.FitGroup(tabFit, ArmUnit(ArmPillSize + 1f));   // the three tabs share the size the longest needs: the caption size while the strip has the room for it
         PaintedButtons.Apply(_armPickBack!, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1), new PaintedButtons.Pad(1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s); ArmText(_armPickBack, ArmPillSize + 1f, s, ArmLight, ArmDark);
@@ -493,6 +529,12 @@ public sealed partial class CreatorView
             foreach (var star in chip.GetChildren().OfType<UiKit.Glyph>()) { star.Size = new Vector2(10f, 10f) * s; star.CustomMinimumSize = star.Size; star.Position = new Vector2(1.5f * s, 31f * s / 2f - 5f * s); }
         }
         PaintedButtons.FitGroup(chipFit, ArmUnit(8.2f));   // every chip of the strip shares one size
+        // ---- the rail's frame: the options window's own ring art, one continuous border all the way round ----
+        if (ConceptArt.Get("frame-options") is { } ring)
+        {
+            var corner = ConceptArt.OptionsCorner;
+            _armFrame!.AddThemeStyleboxOverride("panel", new PaintedButtons.CapStyle { Texture = ring, Caps = new PaintedButtons.CapArt(corner.X, corner.Y, corner.X, corner.Y, 0f, 0f), FixedK = ArmRailRing * s / ConceptArt.OptionsRing.X, DrawCenter = false });
+        }
         // ---- CONFIRM LOADOUT, BACK, the badge ----
         ArmPlate(_armConfirm!, "arm-confirm", "arm-confirm", default, default, s, false);
         ArmText(_armConfirm, ArmConfirmSize, s, ArmDark, ArmDark); _armConfirm.AddThemeColorOverride("font_hover_color", new Color(0.2f, 0.12f, 0.02f));
