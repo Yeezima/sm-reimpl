@@ -6,23 +6,23 @@ using SmSim.Extras.Warfront.Campaign;
 namespace SmClient.Extras.Warfront.Hub;
 
 /// <summary>
-/// The Warfront war map aboard the Thunderhawk (plan section 8), full screen in the menus' style (<c>MenuKit.cs</c>, as the Musou <c>WarMapPanel</c>: DejaVu Sans Bold, transparent text buttons that
-/// brighten on hover and focus, Esc or B closes): three lanes of three nodes between the Imperial HQ and the Ork fortress, the front of each lane marked, the last deployment's results beside it, the
+/// The Warfront war map aboard the Thunderhawk (plan section 8), full screen in the concept's style (<see cref="WarfrontStyle"/>: the concept lettering, the kit's recessed steel boxes with a gold rim on the front, the concept's plates for the
+/// deployment rows, Esc or B closes): three lanes of three nodes between the Imperial HQ and the Ork fortress, the front of each lane marked, the last deployment's results beside it, the
 /// party with its leader, and one DEPLOY row per lane plus the HQ. Only the leader's rows can be pressed; with a mandatory HQ defense the HQ row is the only one. Everything is fed by a
-/// <see cref="WarfrontHubModel"/> and redrawn only when it changes. Text styles: title, one heading size, one body size; every label is a live label, only boxes and lines are drawn. Laid out in the
+/// <see cref="WarfrontHubModel"/> and redrawn only when it changes. Text styles: title, one heading size, one body size of the one table (caption and small); every label is a live label, only boxes and lines are drawn. Laid out in the
 /// 1920 by 1080 space from the top left, ours.
 /// </summary>
 public sealed partial class WarfrontHubPanel : Control
 {
-    public const int HeadingSize = 24, BodySize = 16;
+    public const int HeadingSize = UiType.Caption, BodySize = UiType.Small;
     public const float Left = UiKit.MenuLeft, MapTop = 220f, LanePitch = 150f, BoxTop = 36f, BoxHeight = 84f;
     public const float HqWidth = 190f, NodeLeft = 340f, NodeWidth = 220f, NodeStep = 260f, FortressLeft = 1120f, FortressWidth = 190f, TextColumn = 1340f, TextWidth = 460f;
-    public const float RowsTop = 700f, RowPitch = 40f;
+    public const float RowsTop = 700f, RowPitch = 44f;
     public const float StageInset = 14f, StageHeight = 56f;
     public const int PartyRows = 6;
     public static float StageTop(int i) => MapTop + BoxTop + 110f + 80f * i;
     public static float WarbossTop => MapTop + BoxTop + 190f;
-    public static readonly Color HereGold = new(0.98f, 0.8f, 0.12f), OrkRed = new(0.86f, 0.1f, 0.08f);
+    public static readonly Color HereGold = WarfrontStyle.GoldFill, OrkRed = WarfrontStyle.Alert;
 
     readonly WarfrontHubModel _model;
     readonly Action? _close;
@@ -63,30 +63,21 @@ public sealed partial class WarfrontHubPanel : Control
         readonly WarfrontHubModel _m;
         public MapDraw(WarfrontHubModel m) { _m = m; Name = "WarfrontMap"; MouseFilter = MouseFilterEnum.Ignore; }
 
-        /// <summary>A frame of equal width on all four sides, on whole pixels: four rectangles, never an outline stroke.</summary>
-        public static void Frame(CanvasItem c, Rect2 r, float w, Color colour)
-        {
-            c.DrawRect(new Rect2(r.Position.X, r.Position.Y, r.Size.X, w), colour);
-            c.DrawRect(new Rect2(r.Position.X, r.End.Y - w, r.Size.X, w), colour);
-            c.DrawRect(new Rect2(r.Position.X, r.Position.Y + w, w, r.Size.Y - 2f * w), colour);
-            c.DrawRect(new Rect2(r.End.X - w, r.Position.Y + w, w, r.Size.Y - 2f * w), colour);
-        }
+        /// <summary>A box of the kit: the recessed steel panel, gold rimmed when it is the front, the dark off plate when it is still ahead.</summary>
+        void BoxOf(Rect2 r, Steel.Kind kind) => WarfrontStyle.Board.Box(this, kind, r, 6f, 1f);
 
         public override void _Draw()
         {
             var v = _m.View;
-            var line = new Color(1f, 1f, 1f, 0.35f);
-            var dim = new Color(1f, 1f, 1f, 0.3f);
+            var line = new Color(Steel.SteelMid, 0.8f);
             float hqTop = MapTop + BoxTop, hqBottom = MapTop + 2 * LanePitch + BoxTop + BoxHeight;
-            // One frame width (2 px) everywhere: colour and fill carry the state.
+            // The kit's boxes carry the state: the recess is a held place, the gold rim the front, the off plate what is still ahead; red marks the HQ in danger.
             bool hqDanger = v.HqMandatory || v.Phase == WarfrontPhase.Lost;
-            var hqColour = hqDanger ? OrkRed : new Color(1f, 1f, 1f, 0.8f);
-            Frame(this, new Rect2(Left, hqTop, HqWidth, hqBottom - hqTop), 2f, hqColour);
-            for (int i = 0; i < 3; i++) Frame(this, new Rect2(Left + StageInset, StageTop(i), HqWidth - 2f * StageInset, StageHeight), 2f, hqDanger ? new Color(OrkRed, 0.75f) : new Color(1f, 1f, 1f, 0.5f));
+            BoxOf(new Rect2(Left, hqTop, HqWidth, hqBottom - hqTop), Steel.Kind.Recess);
+            for (int i = 0; i < 3; i++) BoxOf(new Rect2(Left + StageInset, StageTop(i), HqWidth - 2f * StageInset, StageHeight), hqDanger ? Steel.Kind.Hot : Steel.Kind.Dark);
             bool fortressOpen = v.FortressUnlocked || v.Phase == WarfrontPhase.Won;
-            var fortColour = fortressOpen ? HereGold : dim;
-            Frame(this, new Rect2(FortressLeft, hqTop, FortressWidth, hqBottom - hqTop), 2f, fortColour);
-            Frame(this, new Rect2(FortressLeft + StageInset, WarbossTop, FortressWidth - 2f * StageInset, StageHeight), 2f, fortColour);
+            BoxOf(new Rect2(FortressLeft, hqTop, FortressWidth, hqBottom - hqTop), fortressOpen ? Steel.Kind.CardGold : Steel.Kind.Off);
+            BoxOf(new Rect2(FortressLeft + StageInset, WarbossTop, FortressWidth - 2f * StageInset, StageHeight), fortressOpen ? Steel.Kind.Hot : Steel.Kind.Off);
             for (int lane = 0; lane < 3; lane++)
             {
                 float y = MapTop + lane * LanePitch + BoxTop, mid = y + BoxHeight / 2f;
@@ -103,9 +94,7 @@ public sealed partial class WarfrontHubPanel : Control
                 for (int node = 1; node <= 3; node++)
                 {
                     var box = new Rect2(NodeLeft + (node - 1) * NodeStep, y, NodeWidth, BoxHeight);
-                    if (node == front) { DrawRect(box, new Color(HereGold, 0.28f)); Frame(this, box, 2f, HereGold); }
-                    else if (node < front) { DrawRect(box, new Color(1f, 1f, 1f, 0.10f)); Frame(this, box, 2f, new Color(1f, 1f, 1f, 0.8f)); }
-                    else Frame(this, box, 2f, new Color(OrkRed, 0.75f));
+                    BoxOf(box, node == front ? Steel.Kind.CardGold : node < front ? Steel.Kind.Recess : Steel.Kind.Off);
                 }
                 // The marker only for the two states off the nodes: broken through (at the HQ) and cleared (at the fortress).
                 if (front == 0) DrawRect(new Rect2(Left + HqWidth + 8f, mid - 8f, 16f, 16f), OrkRed);
@@ -125,17 +114,17 @@ public sealed partial class WarfrontHubPanel : Control
         dim.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(dim);
         var title = new Label { Name = "WarfrontHubTitle", Text = "WAR MAP", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
-        title.AddThemeFontOverride("font", UiKit.TitleFont);
+        title.AddThemeFontOverride("font", UiKit.TitleFont);   // the menus' page title (the main menu's lettering)
         title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", UiKit.White);
+        title.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
         AddChild(title);
 
-        _header = Text("WarfrontHeader", Left, 150f, HeadingSize, 1200f);
+        _header = Text("WarfrontHeader", Left, 150f, HeadingSize, 1200f, WarfrontStyle.Gold);
         _map = new MapDraw(model);
         Place(_map, 0f, 0f, UiKit.VirtualWidth, UiKit.VirtualHeight);
         AddChild(_map);
 
-        _hq = Text("WarfrontHq", Left + 14f, MapTop + BoxTop + 12f, BodySize, HqWidth - 20f, lines: 2);
+        _hq = Text("WarfrontHq", Left + 14f, MapTop + BoxTop + 12f, BodySize, HqWidth - 20f, null, 2);
         _fortress = Text("WarfrontFortress", FortressLeft + 14f, MapTop + BoxTop + 12f, BodySize, FortressWidth - 20f, lines: 2);
         string[] stages = { "WALL", "KEEP", "CAVES" };
         for (int i = 0; i < 3; i++) { _stages[i] = Text("WarfrontStage" + i, Left + StageInset + 14f, StageTop(i) + 16f, BodySize, HqWidth - 2f * StageInset - 20f); _stages[i].Text = stages[i]; }
@@ -144,12 +133,12 @@ public sealed partial class WarfrontHubPanel : Control
         for (int lane = 0; lane < 3; lane++)
         {
             float y = MapTop + lane * LanePitch;
-            _laneNames[lane] = Text("WarfrontLane" + lane, NodeLeft, y - 2f, HeadingSize, 400f);
+            _laneNames[lane] = Text("WarfrontLane" + lane, NodeLeft, y - 2f, HeadingSize, 400f, WarfrontStyle.Gold);
             for (int node = 1; node <= 3; node++)
-                _nodes[lane, node - 1] = Text($"WarfrontNode{lane}{node}", NodeLeft + (node - 1) * NodeStep + 14f, y + BoxTop + 12f, BodySize, NodeWidth - 20f, lines: 2);
+                _nodes[lane, node - 1] = Text($"WarfrontNode{lane}{node}", NodeLeft + (node - 1) * NodeStep + 14f, y + BoxTop + 12f, BodySize, NodeWidth - 20f, null, 2);
             _status[lane] = Text("WarfrontStatus" + lane, TextColumn, y + BoxTop + 4f, BodySize, TextWidth);
-            _last[lane] = Text("WarfrontLast" + lane, TextColumn, y + BoxTop + 30f, BodySize, TextWidth);
-            _floor[lane] = Text("WarfrontFloor" + lane, TextColumn, y + BoxTop + 56f, BodySize, TextWidth);
+            _last[lane] = Text("WarfrontLast" + lane, TextColumn, y + BoxTop + 34f, BodySize, TextWidth);
+            _floor[lane] = Text("WarfrontFloor" + lane, TextColumn, y + BoxTop + 64f, BodySize, TextWidth);
             _laneNames[lane].Text = WarfrontHubModel.LaneName(lane);
         }
         for (int row = 0; row < WarfrontHubModel.Rows; row++)
@@ -157,20 +146,22 @@ public sealed partial class WarfrontHubPanel : Control
             int r = row;
             var b = UiKit.MenuButton("Deploy", () => OnRow(r));
             b.Name = "WarfrontDeploy" + row;
-            b.AddThemeFontSizeOverride("font_size", HeadingSize);
             Place(b, Left, RowsTop + row * RowPitch, 1000f, RowPitch - 2f);
+            WarfrontStyle.Plate(b, HeadingSize, 1000f);
+            b.Alignment = HorizontalAlignment.Left;
             AddChild(b);
             _rows[row] = b;
         }
         _note = Text("WarfrontNote", Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 20f, BodySize, 1200f);
-        _partyHeading = Text("WarfrontPartyHeading", TextColumn, RowsTop, HeadingSize, TextWidth);
+        _partyHeading = Text("WarfrontPartyHeading", TextColumn, RowsTop, HeadingSize, TextWidth, WarfrontStyle.Gold);
         _partyHeading.Text = "PARTY";
         for (int i = 0; i < PartyRows; i++) _party[i] = Text("WarfrontParty" + i, TextColumn, RowsTop + 40f + i * 28f, BodySize, TextWidth);
         if (close is not null)
         {
-            _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Thunderhawk (Esc, or B on a controller)");
-            _closeButton.AddThemeFontSizeOverride("font_size", HeadingSize);
+            _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke());
+            UiTooltip.Attach(_closeButton, "Back to the Thunderhawk (Esc, or B on a controller)");
             Place(_closeButton, Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 60f, 240f, RowPitch - 2f);
+            WarfrontStyle.Plate(_closeButton, HeadingSize, 240f);
             AddChild(_closeButton);
         }
         model.Changed += Refresh;
@@ -185,11 +176,11 @@ public sealed partial class WarfrontHubPanel : Control
         c.Size = new Vector2(w, h);
     }
 
-    Label Text(string name, float x, float y, int size, float width, int lines = 1)
+    Label Text(string name, float x, float y, int size, float width, Color? ink = null, int lines = 1)
     {
         var l = UiKit.MenuText("", null, clip: false);
         l.Name = name;
-        l.AddThemeFontSizeOverride("font_size", size);
+        WarfrontStyle.Skin(l, size, ink);
         Place(l, x, y, width, lines * (size + 8f));
         AddChild(l);
         return l;
@@ -233,7 +224,7 @@ public sealed partial class WarfrontHubPanel : Control
             bool can = m.RowTarget(row) is { } t && m.CanDeploy(t);
             if (b.Disabled == can) b.Disabled = !can;
             // An open target a non-leader cannot press keeps the normal colour; an unavailable one (and the locked fortress) is greyed.
-            if (m.RowOpen(row) && !can) b.AddThemeColorOverride("font_disabled_color", UiKit.MenuIdle);
+            if (m.RowOpen(row) && !can) b.AddThemeColorOverride("font_disabled_color", WarfrontStyle.Ink);
             else b.RemoveThemeColorOverride("font_disabled_color");
         }
         WireFocus();

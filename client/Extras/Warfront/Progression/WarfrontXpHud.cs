@@ -3,10 +3,10 @@ using SmClient.Customizer;
 
 namespace SmClient.Extras.Warfront.Progression;
 
-/// <summary>Shapes shared by the XP HUD and the picker: boxes and bars are drawn, every label is a live label (owner's UI rule).</summary>
+/// <summary>Shapes shared by the XP HUD, the picker and the battle HUD: boxes and bars are drawn in the concept's painted style (<see cref="WarfrontStyle"/>), every label is a live label in the concept's lettering (owner's UI rule).</summary>
 public static class WarfrontProgressDraw
 {
-    public static readonly Color Gold = new(0.98f, 0.8f, 0.12f);
+    public static readonly Color Gold = WarfrontStyle.Gold;
 
     /// <summary>A frame of equal width on all four sides, on whole pixels: four rectangles, never an outline stroke.</summary>
     public static void Frame(CanvasItem c, Rect2 r, float w, Color colour)
@@ -20,10 +20,7 @@ public static class WarfrontProgressDraw
     /// <summary>A bar: a 2 px frame and a fill inside it, both on whole pixels.</summary>
     public static void Bar(CanvasItem c, Rect2 r, float fraction, Color fill)
     {
-        Frame(c, r, 2f, new Color(1f, 1f, 1f, 0.8f));
-        float inner = r.Size.X - 4f;
-        float w = Mathf.Floor(inner * Mathf.Clamp(fraction, 0f, 1f));
-        if (w > 0f) c.DrawRect(new Rect2(r.Position.X + 2f, r.Position.Y + 2f, w, r.Size.Y - 4f), fill);
+        if (c is Control ctl) WarfrontStyle.Bar(ctl, r, fraction, fill);
     }
 
     public static Label Text(Control parent, string name, float x, float y, float w, int size, Color? colour = null, HorizontalAlignment align = HorizontalAlignment.Left, int lines = 1)
@@ -31,7 +28,7 @@ public static class WarfrontProgressDraw
         var l = UiKit.MenuText("", colour, clip: false);
         l.Name = name;
         l.HorizontalAlignment = align;
-        l.AddThemeFontSizeOverride("font_size", size);
+        WarfrontStyle.Skin(l, size, colour);
         l.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
         l.Position = new Vector2(x, y);
         l.Size = new Vector2(w, lines * (size + 8f));
@@ -49,7 +46,7 @@ public static class WarfrontProgressDraw
 /// </summary>
 public sealed partial class WarfrontXpHud : Control
 {
-    public const int BannerSize = 44;
+    public const int BannerSize = WarfrontStyle.Banner;
 
     readonly WarfrontProgressModel _model;
     readonly Label _banner;

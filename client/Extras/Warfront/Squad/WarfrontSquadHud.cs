@@ -13,8 +13,8 @@ public sealed partial class WarfrontSquadHud : Control
 {
     /// <summary>Lines kept on the feed.</summary>
     public const int FeedLines = 5;
-    /// <summary>The one text size of the squad's HUD: W8's body size (the Warfront HUD's two levels are 28 and 20).</summary>
-    public const int TextSize = 20;
+    /// <summary>The one text size of the squad's HUD and panel: the caption level of the one size table (the Warfront HUD's two levels are the value and caption levels).</summary>
+    public const int TextSize = WarfrontStyle.Body;
 
     sealed partial class Ring : Control
     {
@@ -25,8 +25,8 @@ public sealed partial class WarfrontSquadHud : Control
         {
             var c = Size / 2f;
             DrawArc(c, Radius, 0f, Mathf.Tau, 64, new Color(0f, 0f, 0f, 0.55f), Width + 4f, true);
-            DrawArc(c, Radius, 0f, Mathf.Tau, 64, new Color(1f, 1f, 1f, 0.28f), Width, true);
-            if (Share > 0.001f) DrawArc(c, Radius, -Mathf.Pi / 2f, -Mathf.Pi / 2f + Mathf.Tau * Math.Clamp(Share, 0f, 1f), 64, UiKit.White, Width, true);
+            DrawArc(c, Radius, 0f, Mathf.Tau, 64, new Color(Steel.SteelMid, 0.7f), Width, true);
+            if (Share > 0.001f) DrawArc(c, Radius, -Mathf.Pi / 2f, -Mathf.Pi / 2f + Mathf.Tau * Math.Clamp(Share, 0f, 1f), 64, WarfrontStyle.GoldFill, Width, true);
         }
     }
 
@@ -45,10 +45,8 @@ public sealed partial class WarfrontSquadHud : Control
 
     static Label Styled(string text = "", HorizontalAlignment align = HorizontalAlignment.Left)
     {
-        var l = UiKit.Text(text, TextSize, UiKit.White, align);
-        l.AddThemeConstantOverride("outline_size", 7);
-        l.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.92f));
-        return l;
+        var l = new Label { Text = text, HorizontalAlignment = align, MouseFilter = MouseFilterEnum.Ignore };
+        return WarfrontStyle.Skin(l, TextSize, WarfrontStyle.Ink, outline: true);
     }
 
     public WarfrontSquadHud(float lineLeft = 28f, float lineTop = 132f)
@@ -78,7 +76,7 @@ public sealed partial class WarfrontSquadHud : Control
         _line.Visible = text is not null;
         if (text is null) return;
         _line.Text = text;
-        _line.AddThemeColorOverride("font_color", alert ? UiKit.LightRed : UiKit.White);
+        _line.AddThemeColorOverride("font_color", alert ? WarfrontStyle.Alert : WarfrontStyle.Ink);
     }
 
     /// <summary>The jump-pound hint under the line ("[J] JUMP ASSAULT"); null hides it.</summary>

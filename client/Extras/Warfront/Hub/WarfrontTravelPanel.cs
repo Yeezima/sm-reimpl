@@ -4,7 +4,7 @@ using SmClient.Customizer;
 namespace SmClient.Extras.Warfront.Hub;
 
 /// <summary>
-/// The travel screen (plan section 8): shown from the leader's deploy until the next battlefield is loaded and the players have rejoined. Full screen in the menus' style, no input: the title, where the
+/// The travel screen (plan section 8): shown from the leader's deploy until the next battlefield is loaded and the players have rejoined. Full screen in the concept's style (<see cref="WarfrontStyle"/>), no input: the title, where the
 /// Thunderhawk is going, and what the load is waiting for (<see cref="WarfrontHubModel.TravelStatus"/>, fed by <see cref="WarfrontHubModel.SetTravelProgress"/>). The elapsed time counts up (a first visit to a battlefield can take two to three minutes); One title, one heading line and one body line, all live labels. Laid out in the 1920 by 1080 space from the top left, ours.
 /// </summary>
 public sealed partial class WarfrontTravelPanel : Control
@@ -33,9 +33,9 @@ public sealed partial class WarfrontTravelPanel : Control
         var title = new Label { Name = "WarfrontTravelTitle", Text = "TRAVELLING", MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
         title.AddThemeFontOverride("font", UiKit.TitleFont);
         title.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        title.AddThemeColorOverride("font_color", UiKit.White);
+        title.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
         AddChild(title);
-        _destination = Text("WarfrontTravelDestination", 300f, WarfrontHubPanel.HeadingSize, 1400f);
+        _destination = Text("WarfrontTravelDestination", 300f, WarfrontHubPanel.HeadingSize, 1400f, WarfrontStyle.Gold);
         _status = Text("WarfrontTravelStatus", 360f, WarfrontHubPanel.BodySize, 1400f);
         _elapsed = Text("WarfrontTravelElapsed", 396f, WarfrontHubPanel.BodySize, 1400f);
         model.Changed += Refresh;
@@ -44,11 +44,11 @@ public sealed partial class WarfrontTravelPanel : Control
         Refresh();
     }
 
-    Label Text(string name, float y, int size, float width)
+    Label Text(string name, float y, int size, float width, Color? ink = null)
     {
         var l = UiKit.MenuText("", null, clip: false);
         l.Name = name;
-        l.AddThemeFontSizeOverride("font_size", size);
+        WarfrontStyle.Skin(l, size, ink);
         l.SetAnchorsPreset(LayoutPreset.TopLeft);
         l.Position = new Vector2(Left, y);
         l.Size = new Vector2(width, size + 8f);

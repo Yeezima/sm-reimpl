@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Godot;
 using SmClient.Customizer;
+using SmClient.Extras.Warfront;
 using SmSim.Extras.Warfront.Results;
 
 namespace SmClient;
@@ -23,9 +24,9 @@ public sealed partial class WarfrontResultsPanel : Control
         ("K", 720f, 90f), ("A", 810f, 80f), ("D", 890f, 70f), ("REV", 960f, 80f), ("CAP", 1040f, 80f),
         ("K", 1160f, 100f), ("KO", 1260f, 80f), ("REV", 1340f, 80f), ("MEN", 1420f, 80f), ("TOTAL K", 1500f, 130f),
     };
-    const int BodySize = 18, CaptionSize = 14, ButtonSize = 22;
+    const int BodySize = WarfrontStyle.Body, CaptionSize = WarfrontStyle.Small, ButtonSize = WarfrontStyle.Body;
     const float ButtonWidth = 330f, ButtonPitch = 345f;
-    static readonly Color Dim = new(0.6f, 0.6f, 0.6f);
+    static readonly Color Dim = WarfrontStyle.Dim, Head = WarfrontStyle.Gold;
 
     readonly WarfrontRunRecord _record;
     readonly string _dir;
@@ -59,12 +60,15 @@ public sealed partial class WarfrontResultsPanel : Control
             MouseFilter = MouseFilterEnum.Ignore, Position = new Vector2(Left - 3.5f, 52f) };
         head.AddThemeFontOverride("font", UiKit.TitleFont);
         head.AddThemeFontSizeOverride("font_size", UiKit.MenuTitleSize);
-        head.AddThemeColorOverride("font_color", UiKit.White);
+        head.AddThemeColorOverride("font_color", WarfrontStyle.Ink);
         AddChild(head);
         var t = TimeSpan.FromSeconds(record.DurationSeconds);
         Line("ResultsSummary", (record.EndedUtc.Length >= 16 ? record.EndedUtc[..16].Replace('T', ' ') : record.EndedUtc) + " UTC    RUN TIME " + ((int)t.TotalHours).ToString(CultureInfo.InvariantCulture)
             + t.ToString(@"\:mm\:ss", CultureInfo.InvariantCulture) + "    " + record.Battles.Count + " BATTLES    ROLLS LOST " + record.RollsLost + " OF " + record.RollsTotal, Left, 146f, CaptionSize, 1500f, Dim);
 
+        var backing = new Backing();
+        backing.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(backing);
         _page = new Control { Name = "ResultsPage", MouseFilter = MouseFilterEnum.Ignore };
         _page.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_page);
@@ -78,6 +82,17 @@ public sealed partial class WarfrontResultsPanel : Control
         if (newRun is not null) { NewRunButton = Row("New run", newRun, 940f, Left + 3 * ButtonPitch, ButtonWidth); NewRunButton.Name = "WarfrontNewRun"; }
         CloseButton = Row("Close", () => _close?.Invoke(), 940f, Left + 4 * ButtonPitch, ButtonWidth);
         LayoutButtons();
+    }
+
+    /// <summary>The kit's recessed table behind the leaderboard and the dark strip behind its column heads.</summary>
+    sealed partial class Backing : Control
+    {
+        public Backing() { Name = "ResultsBacking"; MouseFilter = MouseFilterEnum.Ignore; }
+        public override void _Draw()
+        {
+            WarfrontStyle.Table(this, new Rect2(96f, 180f, 1568f, 676f));
+            WarfrontStyle.Strip(this, new Rect2(96f, 184f, 1568f, 66f));
+        }
     }
 
     /// <summary>NEW RUN is the leader's: shown or hidden as the viewer leads or not (the page follows the leader), the buttons that stand spaced evenly with no hole.</summary>
@@ -107,7 +122,7 @@ public sealed partial class WarfrontResultsPanel : Control
         var l = UiKit.MenuText(text, colour, clip: false);
         l.Name = name;
         l.HorizontalAlignment = align;
-        l.AddThemeFontSizeOverride("font_size", size);
+        WarfrontStyle.Skin(l, size, colour);
         Place(l, x, y, width, size + 8f);
         (parent ?? this).AddChild(l);
         return l;
@@ -116,8 +131,8 @@ public sealed partial class WarfrontResultsPanel : Control
     Button Row(string text, Action act, float y, float x = Left, float width = 360f)
     {
         var b = UiKit.MenuButton(text, act);
-        b.AddThemeFontSizeOverride("font_size", ButtonSize);
-        Place(b, x, y, width, ButtonSize + 16f);
+        Place(b, x, y, width, 52f);
+        WarfrontStyle.Plate(b, ButtonSize, width);
         AddChild(b);
         return b;
     }
@@ -136,16 +151,16 @@ public sealed partial class WarfrontResultsPanel : Control
         ShowingHonorRoll = false;
         var rows = _record.Rows;
         const float top = 190f;
-        Line("GroupPlayer", "PLAYER", 720f, top, CaptionSize, 400f, Dim, parent: _page);
-        Line("GroupSquad", "SQUAD", 1160f, top, CaptionSize, 340f, Dim, parent: _page);
+        Line("GroupPlayer", "PLAYER", 720f, top, CaptionSize, 400f, Head, parent: _page);
+        Line("GroupSquad", "SQUAD", 1160f, top, CaptionSize, 340f, Head, parent: _page);
         float hy = top + 24f;
-        Line("HeadRank", "#", RankX, hy, CaptionSize, RankW, Dim, HorizontalAlignment.Right, _page);
-        Line("HeadName", "NAME", NameX, hy, CaptionSize, NameW, Dim, parent: _page);
-        Line("HeadScore", "SCORE", ScoreX, hy, CaptionSize, ScoreW, Dim, HorizontalAlignment.Right, _page);
-        foreach (var (head, x, w) in Cols) Line("Head" + head + x, head, x, hy, CaptionSize, w, Dim, HorizontalAlignment.Right, _page);
+        Line("HeadRank", "#", RankX, hy, CaptionSize, RankW, Head, HorizontalAlignment.Right, _page);
+        Line("HeadName", "NAME", NameX, hy, CaptionSize, NameW, Head, parent: _page);
+        Line("HeadScore", "SCORE", ScoreX, hy, CaptionSize, ScoreW, Head, HorizontalAlignment.Right, _page);
+        foreach (var (head, x, w) in Cols) Line("Head" + head + x, head, x, hy, CaptionSize, w, Head, HorizontalAlignment.Right, _page);
         bool retainers = rows.Count <= 8;
-        float pitch = retainers ? Math.Min(62f, 600f / Math.Max(1, rows.Count)) : Math.Min(34f, 600f / Math.Max(1, rows.Count));
-        float y = hy + 40f;
+        float pitch = retainers ? Math.Min(66f, 560f / Math.Max(1, rows.Count)) : Math.Min(38f, 560f / Math.Max(1, rows.Count));
+        float y = hy + 44f;
         for (int i = 0; i < rows.Count; i++, y += pitch)
         {
             var r = rows[i];
@@ -163,7 +178,7 @@ public sealed partial class WarfrontResultsPanel : Control
             Line("Score" + i, cells[2], ScoreX, y, BodySize, ScoreW, null, HorizontalAlignment.Right, _page);
             for (int c = 0; c < Cols.Length; c++) Line($"Cell{i}_{c}", cells[3 + c], Cols[c].X, y, BodySize, Cols[c].W, null, HorizontalAlignment.Right, _page);
             if (retainers && r.TopRetainer is { } top1)
-                Line("Retainer" + i, "Top retainer  " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + "  -  " + top1.Reason, NameX, y + 26f, CaptionSize, 1300f, Dim, parent: _page);
+                Line("Retainer" + i, "Top retainer  " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + "  -  " + top1.Reason, NameX, y + 34f, CaptionSize, 1300f, Dim, parent: _page);
         }
         var f = Line("Formula", _record.Weights.FormulaText(), Left, 800f, CaptionSize, 1500f, Dim, parent: _page);
         f.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -203,7 +218,7 @@ public sealed partial class WarfrontResultsPanel : Control
         HonorButton.Text = "LEADERBOARD";
         var roll = WarfrontResultsArchive.HonorRoll(_dir);
         float y = 190f;
-        Line("HonorHead", $"{roll.Runs} RUNS    {roll.Won} WON    {roll.Lost} LOST    {roll.Abandoned} ABANDONED", Left, y, CaptionSize, 1500f, Dim, parent: _page);
+        Line("HonorHead", $"{roll.Runs} RUNS    {roll.Won} WON    {roll.Lost} LOST    {roll.Abandoned} ABANDONED", Left, y, CaptionSize, 1500f, Head, parent: _page);
         y += 40f;
         foreach (var e in roll.Entries.Count > 0 ? roll.Entries : Array.Empty<WarfrontHonorEntry>())
         {
@@ -214,7 +229,7 @@ public sealed partial class WarfrontResultsPanel : Control
         }
         if (roll.Entries.Count == 0) Line("HonorEmpty", "NO FINISHED RUNS ARCHIVED YET.", Left, y, BodySize, 900f, null, parent: _page);
         y += 24f;
-        if (roll.Players.Count > 0) Line("HonorLifeHead", "TOTAL SCORE", Left, y, CaptionSize, 460f, Dim, parent: _page);
+        if (roll.Players.Count > 0) Line("HonorLifeHead", "TOTAL SCORE", Left, y, CaptionSize, 460f, Head, parent: _page);
         y += 28f;
         foreach (var p in roll.Players)
         {
