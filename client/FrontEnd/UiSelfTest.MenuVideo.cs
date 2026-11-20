@@ -73,7 +73,7 @@ public sealed partial class UiSelfTest
             if (r.Position.X > 0.01f || r.Position.Y > 0.01f || r.End.X < box.X - 0.01f || r.End.Y < box.Y - 0.01f) { framed = false; badFrame = $"{box}: {r}"; }
         }
         Check("menu video: the main menu's framing covers the window at 16:9, 21:9, 32:9, 4:3 and 16:10", framed, badFrame);
-        Check("menu video: the framing is a 1.6x zoom at 16:9 (less on wider windows)", Mathf.IsEqualApprox(MenuVideoBackground.MainMenuZoom, 1.6f));
+        Check("menu video: the framing is a 1.33x zoom at 16:9 (less on wider windows)", Mathf.IsEqualApprox(MenuVideoBackground.DefaultMainMenuZoom, 1.33f));
 
         // The still picture on request (the switch's path), built and freed here.
         var still = UiKit.MenuBackground(video: false);

@@ -102,10 +102,23 @@ public sealed partial class ConceptMainPage : UiKit.MenuPage
     /// The overlay at the window's height. The rows stand on the recess where the concept's plates stood: with five rows exactly where the plates are (pitch 42.85 crop pixels), otherwise the same block
     /// centred and tighter. Each of the five known labels draws the concept's own plate with its own painted label (<see cref="UiTextureBuilder.ButtonLabels"/>); other rows (STOP MUSOU SERVER) keep the blank plate and live text.
     /// </summary>
+    /// <summary>The whole left group (wordmark, frame, plates) is drawn at this fraction of its size, anchored at the top left: 1 by default; <c>--menu-scale &lt;f&gt;</c> (0.4 to 1) lets the owner shrink it to clear the Marine when the video is shown whole (<c>--menu-zoom 1.0</c>; the Marine's backpack begins at about 0.375 of the picture's width, the frame ends at 0.46, so 0.78 clears it in the 0.5, 3, 5 and 7 s frames).</summary>
+    public static float MenuScale { get; } = ParseScale(OS.GetCmdlineUserArgs());
+
+    static float ParseScale(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            string value = args[i] == "--menu-scale" && i + 1 < args.Length ? args[i + 1] : args[i].StartsWith("--menu-scale=", System.StringComparison.Ordinal) ? args[i]["--menu-scale=".Length..] : "";
+            if (value.Length > 0 && float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float f) && float.IsFinite(f)) return Mathf.Clamp(f, 0.4f, 1f);
+        }
+        return 1f;
+    }
+
     void PlaceOverlay(float h)
     {
         // Full height at 16:9; on a narrower window no wider than half of it (the video's battlefield must stay visible).
-        float s = System.Math.Min(h / Panel01.ScreenH, 0.5f * Size.X / Panel01.OverlayW);
+        float s = System.Math.Min(h / Panel01.ScreenH, 0.5f * Size.X / Panel01.OverlayW); s *= MenuScale;
         _overlay.Position = Vector2.Zero; _overlay.Size = new Vector2(Panel01.OverlayW * s, Panel01.ScreenH * s);
         var wm = Panel01.Wordmark; var np = Panel01.Nameplate;
         _wordmarkBox.Position = new Vector2(wm.Position.X * s, wm.Position.Y * s); _wordmarkBox.Size = new Vector2(wm.Size.X * s, wm.Size.Y * s);
