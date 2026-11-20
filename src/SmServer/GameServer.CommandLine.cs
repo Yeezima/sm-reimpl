@@ -175,6 +175,7 @@ public static class ServerCommandLine
           --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
           --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
+          --old-stab-release           switch: restore: the power sword's stab (and Musou Mode's and Warfront's X,F thrust) locks the player to the end of its clip (clients need --old-stab-release too)
           --musou-melee-cooldown       switch: restore: Musou Mode melee keeps the combo waits instead of spam (clients need --musou-melee-cooldown too)
           --musou-uncapped-melee-heal  switch: restore: Musou Mode melee heals for every enemy struck, no cap of 3 per swing (clients need --musou-uncapped-melee-heal too)
           --old-ally-bump               switch: restore: a charge that meets an ally plays the collision stop, as in protocol 65 (clients need --old-ally-bump too)

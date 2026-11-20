@@ -43,8 +43,9 @@ public partial class NetworkView
     /// <summary>sim/ledge-charge-hop (protocol 85) restore switch <c>--old-ledge-hop</c> (the server needs the same: config hash).</summary>
     static readonly bool OldLedgeHopArg = OS.GetCmdlineUserArgs().Contains("--old-ledge-hop");
     static readonly bool OldHopRulesArg = OS.GetCmdlineUserArgs().Contains("--old-hop-rules");
-    /// <summary>sim/stomp-release (2026-11-14) restore switch <c>--old-stomp-release</c> (the server needs the same: config hash).</summary>
+    /// <summary>sim/stab-release (2026-11-20) restore switch <c>--old-stab-release</c> (the server needs the same: config hash).</summary>
     static readonly bool OldStabReleaseArg = OS.GetCmdlineUserArgs().Contains("--old-stab-release");
+    /// <summary>sim/stomp-release (2026-11-14) restore switch <c>--old-stomp-release</c> (the server needs the same: config hash).</summary>
     static readonly bool OldStompReleaseArg = OS.GetCmdlineUserArgs().Contains("--old-stomp-release");
     /// <summary>sim/kick-push (2026-11-14) restore switch <c>--old-kick-push</c> (the server needs the same: config hash).</summary>
     static readonly bool OldKickPushArg = OS.GetCmdlineUserArgs().Contains("--old-kick-push");

@@ -154,7 +154,7 @@ public readonly record struct MeleeStep(
     public bool Stab { get; init; }
     /// <summary>
     /// sim/stab-release (owner 2026-11-20, "release early too"): Musou Mode and Warfront: the power sword's X,F thrust (the clip the Classic stab shares) frees the player at <see cref="StabTuning.ReleaseAt"/> like the stab, but keeps its
-    /// finisher chain: it stays until the Y window closes unless the player starts another action first (<see cref="StabTuning.EndsChain"/>). Set by the content reader on the thrust where no stab is applied. Hashed only when set.
+    /// finisher chain: it stays until the Y window closes unless the player starts another action first (<see cref="StabTuning.Ends"/>). Set by the content reader on the thrust where no stab is applied. Hashed only when set.
     /// </summary>
     public bool ThrustRelease { get; init; }
 

@@ -6,8 +6,8 @@ namespace SmSim;
 /// clip, 1.818 s with its hit at 0.636 s) locked the player to the end of its clip (shots from its BRANCH_ToRanged and the hop from its branch, the stick from its BRANCH_Run at 0.909 s, everything else, a switch, a grenade,
 /// a second melee press or stab, not until the clip's end at 1.818 s, then the weapon's raise on top). Now the stab ends at its <see cref="ReleaseAt"/>: the later of its hit and its data's
 /// move-on branch (<see cref="MeleeStep.MoveAt"/>, the clip's visual release: the thrust is over and the body is walking again); from that tick the player is free (move, sprint, fire, aim, switch,
-/// grenade, melee, charge, with the weapon up as after a released stomp), the evade one tick later (it starts from a state with no attack). Classic PvP's stab only (Musou Mode and Warfront have no
-/// stab step; their X,F thrust shares the clip but chains into a finisher through its Y window and is unchanged).
+/// grenade, melee, charge, with the weapon up as after a released stomp), the evade one tick later (it starts from a state with no attack). In Musou Mode and Warfront (no stab step) the X,F thrust shares the clip and is released the same way
+/// (<see cref="MeleeStep.ThrustRelease"/>) but keeps its finisher chain through its Y window (0.873 to 1.418 s) until another action is pressed or the window closes.
 /// </summary>
 public static class StabTuning
 {
@@ -17,9 +17,12 @@ public static class StabTuning
     /// <summary>Whether the stab <paramref name="m"/> has played to its release at clip time <paramref name="time"/>.</summary>
     public static bool Released(MeleeStep m, float time, float epsilon) => (m.Stab || m.ThrustRelease) && time + epsilon >= ReleaseAt(m);
 
+    /// <summary>Whether a queued press whose chain window is <paramref name="window"/> can no longer start its attack at <paramref name="time"/>: the window has closed (or never opens).</summary>
+    public static bool StaleQueue((float Open, float Close) window, float time, float epsilon) => time + epsilon >= window.Close;
+
     /// <summary>
     /// Musou Mode and Warfront's thrust (<see cref="MeleeStep.ThrustRelease"/>): whether the released player ends the attack in this tick. It does when no finisher chain is left (its Y window has closed or it has none), or
-    /// when the player starts another action (a shot, aim, switch, grenade, reload, light melee, the evade's Jump); a heavy press or the stick alone keeps the chain open, so the finisher in its window still chains.
+    /// when the player presses another action (a shot press, aim, switch, grenade, reload, light melee, the evade's Jump; a held fire button does not count; the sim keeps no aim-held state, so aim is read as held, a known limitation); a heavy press or the stick alone keeps the chain open, so the finisher in its window still chains.
     /// </summary>
     public static bool Ends(MeleeStep m, float time, float epsilon, bool otherAction) =>
         !m.ThrustRelease || m.YNext <= 0 || time + epsilon >= m.YComboClose || otherAction;

@@ -172,7 +172,8 @@ public class StabReleaseTests(ITestOutputHelper output)
         var evade = ThrustAt(c, 27);
         int evadeAt = -1;
         for (int k = 28; k < 36 && evadeAt < 0; k++) { evade = Step(c, evade, k % 2 == 1 ? InputButtons.Jump : InputButtons.None).S; if (evade.EvadeTicks > 0) evadeAt = k; }
-        Assert.InRange(evadeAt, 28, 32);   // a Jump press that ends the thrust is the one that waits; the next press hops
+        output.WriteLine($"musou evade starts at {evadeAt}");
+        Assert.Equal(31, evadeAt);   // the press of tick 29 ends the thrust (the release), the next press (tick 31) hops
     }
 
     [Fact]
@@ -207,5 +208,149 @@ public class StabReleaseTests(ITestOutputHelper output)
     {
         var c = MusouMake(on: false);
         Assert.Equal(1, ThrustAt(c, 45).MeleeStep);
+    }
+
+    // ---- review fixes (2026-11-20): stale queues, press edges, gating, death and stun ----
+
+    /// <summary>A stab whose combo window (0.3 to 0.55 s) closes before its hit (0.636 s) and release: the shape that kept a queued press alive to the clip's end.</summary>
+    static readonly MeleeStep WindowedStab = Stab with { ComboOpen = 0.3f, ComboClose = 0.55f };
+
+    int FreeTick(SimConfig c, PlayerState s, int from, int to)
+    {
+        for (int k = from; k <= to; k++) { s = Step(c, s, InputButtons.None).S; output.WriteLine($"{k}: step {s.MeleeStep} heavy {s.MeleeHeavy}"); if (s.MeleeStep == 0) return k; }
+        return -1;
+    }
+
+    [Fact]
+    public void A_light_press_at_0_5_s_whose_combo_window_closes_unchained_does_not_lock_the_stab_to_the_clips_end()
+    {
+        var c = Make(WindowedStab);
+        var s = StabAt(c, 14, out _);                                // 0.467 s
+        s = Step(c, s, InputButtons.Melee).S;                        // tick 15, 0.5 s: the press queues (before the window closes)
+        int free = FreeTick(c, s, 16, 54);
+        output.WriteLine($"queued light press at tick 15: free at tick {free} (release 28, clip end 55)");
+        Assert.InRange(free, 1, 28);                                 // at the release, never at the clip's end
+    }
+
+    [Fact]
+    public void A_queued_press_whose_window_is_still_ahead_chains_as_before()
+    {
+        var c = Make(Stab with { ComboOpen = 0.3f, ComboClose = 0.8f });
+        var s = StabAt(c, 14, out _);
+        s = Step(c, s, InputButtons.Melee).S;
+        for (int k = 16; k <= 21; k++) s = Step(c, s, InputButtons.None).S;
+        Assert.True(s.MeleeStep == 1 && !s.MeleeHeavy, $"step {s.MeleeStep} heavy {s.MeleeHeavy}");   // the queued light swing starts once the hit has landed
+    }
+
+    static readonly MeleeStep WindowedThrust = Thrust with { ComboOpen = 0.3f, ComboClose = 0.55f };
+
+    static SimConfig MusouMake(MeleeStep thrust) => MusouMake() with
+    {
+        Classes = [new ClassLoadout("sword", 0, 1, [StompUninterruptibleTests.Kick]) { MeleeHeavy = [thrust, Finisher], MeleeRush = RushTests.Spec, Evade = 0, EquipmentChoices = [0], Side = Team.SpaceMarines }],
+    };
+
+    [Fact]
+    public void Musou_thrust_a_light_press_queued_at_0_5_s_starts_its_swing_when_the_hit_lands_so_the_thrust_never_locks()
+    {
+        var c = MusouMake(WindowedThrust);
+        var s = ThrustAt(c, 14);
+        s = Step(c, s, InputButtons.Melee).S;                        // tick 15, 0.5 s: queued (Musou melee spam starts it on the hit, whatever the window)
+        int swing = -1;
+        for (int k = 16; k <= 30 && swing < 0; k++) { s = Step(c, s, InputButtons.None).S; if (s.MeleeStep > 0 && !s.MeleeHeavy) swing = k; }
+        output.WriteLine($"musou queued light press at tick 15: the swing starts at tick {swing} (hit tick 20, release 28)");
+        Assert.InRange(swing, 20, 28);
+    }
+
+    [Fact]
+    public void Musou_thrust_an_F_press_before_the_release_chains_into_the_finisher_and_never_locks()
+    {
+        var c = MusouMake();
+        var s = ThrustAt(c, 14);
+        s = Step(c, s, InputButtons.MeleeHeavy).S;                   // tick 15: queued for the finisher
+        for (int k = 16; k <= 27; k++) s = Step(c, s, InputButtons.None).S;
+        Assert.Equal((2, true), (s.MeleeStep, s.MeleeHeavy));        // chained when the Y window opened (0.873 s)
+    }
+
+    [Fact]
+    public void Held_fire_through_the_musou_thrust_does_not_kill_the_finisher_chain()
+    {
+        var c = MusouMake();
+        var s = Fresh(c) with { Slot = WeaponSlot.Pistol, ReadyTicks = 300 };
+        for (int i = 0; i < 5; i++) s = Step(c, s, InputButtons.None).S;
+        s = Step(c, s, InputButtons.Fire).S;                         // the trigger is pressed (and held) before the thrust starts
+        s = Step(c, s, InputButtons.Fire | InputButtons.MeleeHeavy).S;
+        Assert.Equal(1, s.MeleeStep);
+        for (int k = 1; k < 36; k++) { s = Step(c, s, InputButtons.Fire).S; Assert.Equal(1, s.MeleeStep); }   // held through the release: no press, so the chain stays
+    }
+
+    [Fact]
+    public void A_fire_press_at_the_release_still_ends_the_musou_thrust()
+    {
+        var c = MusouMake();
+        Assert.True(Step(c, ThrustAt(c, 27), InputButtons.Fire).E.Fired);
+    }
+
+    [Fact]
+    public void Classic_without_the_stab_keeps_the_stomp_finisher_unreleased()
+    {
+        // The content reader marks ThrustRelease only under WithoutSwordStab (Musou, Warfront): a Classic thrust without a stab (SM_OLD_SWORD_FF, no stab hit) is untouched.
+        var plain = Stab with { Stab = false };
+        Assert.False(plain.ThrustRelease);
+        Assert.False(StabTuning.Released(plain, 1.0f, 1e-5f));
+    }
+
+    [Fact]
+    public void An_evade_pressed_on_the_release_tick_itself_ends_the_stab_and_the_next_press_hops()
+    {
+        var c = Make(Stab);
+        var s = StabAt(c, 27, out _);
+        s = Step(c, s, InputButtons.Jump).S;                         // tick 28, the release: the press is not buffered by the sim (the input buffer above replays it)
+        Assert.Equal((0, 0), (s.MeleeStep, s.EvadeTicks));
+        s = Step(c, s, InputButtons.None).S;
+        s = Step(c, s, InputButtons.Jump).S;                         // tick 30
+        Assert.True(s.EvadeTicks > 0);
+    }
+
+    [Fact]
+    public void Death_during_the_stab_leaves_a_clean_respawned_state()
+    {
+        var c = Make(Stab);
+        var s = StabAt(c, 24, out _);
+        var r = Combat.Respawned(s, c);
+        Assert.Equal(0, r.MeleeStep);
+        for (int k = 0; k < 60; k++) r = Step(c, r, InputButtons.None).S;
+        Assert.Equal(0, r.MeleeStep);
+    }
+
+    [Fact]
+    public void A_stun_inside_the_release_window_leaves_no_stuck_state()
+    {
+        foreach (int hitAt in new[] { 25, 27, 28 })
+        {
+            var c = Make(Stab);
+            var s = StabAt(c, hitAt, out _) with { Reaction = ReactionKind.Stun, ReactionTicks = 12 };
+            for (int k = 0; k < 120; k++) s = Step(c, s, InputButtons.None).S;
+            Assert.Equal((0, ReactionKind.None), (s.MeleeStep, s.Reaction));
+            bool fired = false;
+            for (int k = 0; k < 40 && !fired; k++) { var (n, e) = Step(c, s, InputButtons.Fire); fired = e.Fired; s = n; }
+            Assert.True(fired, $"stun at tick {hitAt}: a shot works after");
+        }
+    }
+
+    [Fact]
+    public void A_hit_exactly_on_or_a_hair_before_a_tick_boundary_does_not_move_the_release()
+    {
+        foreach (float hit in new[] { 28f / 30f, 28f / 30f - 1e-4f, 28f / 30f + 1e-4f })
+        {
+            var m = Stab with { HitTime = hit, MoveAt = 0.3f };
+            var c = Make(m);
+            var s = StabAt(c, 26, out _);
+            s = Step(c, s, InputButtons.None).S;                     // tick 27 (0.9 s)
+            Assert.Equal(StabTuning.Released(m, 27f / 30f, 1e-5f) ? 0 : 1, s.MeleeStep);
+            s = Step(c, s, InputButtons.None).S;                     // tick 28 (0.933 s): released by here, the hit has landed
+            Assert.Equal(hit <= 28f / 30f + 1e-5f ? 0 : 1, s.MeleeStep);
+            s = Step(c, s, InputButtons.None).S; s = Step(c, s, InputButtons.None).S;
+            Assert.Equal(0, s.MeleeStep);
+        }
     }
 }

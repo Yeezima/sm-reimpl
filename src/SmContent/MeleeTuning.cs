@@ -491,8 +491,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
             StabApplied = true;
         }
-        // sim/stab-release (owner 2026-11-20, "release early too"): where the stab is not applied (Musou Mode, Warfront), the X,F thrust itself is released early and keeps its finisher chain.
-        if (weapon.StabHeavy > 0 && !StabApplied && weapon.StabHeavy <= heavy.Count)
+        // sim/stab-release (owner 2026-11-20, "release early too"): in Musou Mode and Warfront (the read under WithoutSwordStab), the X,F thrust itself is released early and keeps its finisher chain.
+        if (weapon.StabHeavy > 0 && _noStab && !StabApplied && weapon.StabHeavy <= heavy.Count)   // only Musou's and Warfront's read (WithoutSwordStab); Classic with SM_OLD_SWORD_FF or no stab hit keeps the old stomp finisher untouched
             heavy[weapon.StabHeavy - 1] = heavy[weapon.StabHeavy - 1] with { ThrustRelease = true };
         // A chain into a strike that could not be read is dropped (the simulation also checks the bounds).
         for (int i = 0; i < steps.Count; i++)
