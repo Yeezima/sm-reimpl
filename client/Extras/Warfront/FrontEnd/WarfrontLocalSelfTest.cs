@@ -89,6 +89,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
 
     async Task RunAsync()
     {
+        WarfrontOnline.HideForTest = true;   // the row lists below are checked without ONLINE WARFRONT; its own section forces it on
         var args = OS.GetCmdlineUserArgs();
         for (int i = 0; i < args.Length - 1; i++) if (args[i] == "--warfront-shots") _shotDir = args[i + 1];
         if (_shotDir is not null) Directory.CreateDirectory(_shotDir);
@@ -159,7 +160,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         started = null;
 
         // ---- ONLINE WARFRONT: off by default (the server is not live yet); forced on, one more row that joins the public host's Warfront port with no typing ----
-        Check("online: the row is hidden while the gate is off", !WarfrontOnline.EnabledByDefault && !Rows(page).Contains("ONLINE WARFRONT"));
+        Check("online: the gate is on by default (the 2026-11-20 ship); hidden here by the test switch", WarfrontOnline.EnabledByDefault && !Rows(page).Contains("ONLINE WARFRONT"));
         WarfrontOnline.ForceForTest = true;
         _front.ShowWarfrontPageForTest();
         await Frames(4);

@@ -99,7 +99,7 @@ public sealed partial class UiSelfTest
                 await PressRow("WARFRONT", main);
                 var musouPage = _front.ExtrasPage!;
                 Check("menu: WARFRONT opens its page on the Warfront profile", musouPage.Visible && !_front.ShowsMainMenu && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());
-                var musouRows = RowTexts(musouPage);
+                var musouRows = RowTexts(musouPage).Where(r => r != "ONLINE WARFRONT").ToList();   // the online row (on since 2026-11-20) is checked in the Warfront self-test
                 Check("menu: the Warfront page has the campaign, the friends' two ways in, the customizer and Back", musouRows.SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) || musouRows.SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", musouRows));
                 Check("menu: Musou Mode has no row and no page any more", FindButton(main, b => b.Text.Equals("MUSOU MODE", StringComparison.OrdinalIgnoreCase)) is null && !musouRows.Contains("PLAY ON THIS PC"));
                 Check("menu: WARFRONT does not change the remembered content", FrontEndSettings.Load(_services.SettingsDirectory).Content == saved);

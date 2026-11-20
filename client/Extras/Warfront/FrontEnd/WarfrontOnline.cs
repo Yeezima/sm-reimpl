@@ -5,13 +5,13 @@ namespace SmClient;
 
 /// <summary>
 /// The ONLINE WARFRONT row (owner 2026-11-19): the project's one shared, always-on Warfront campaign (UDP <see cref="Port"/>, up to 4 players drop in and out) on the same host as the public Classic server
-/// (<see cref="JoinTargets.PublicServer"/>; no second address is written anywhere). The row joins it with nothing to type. The server is not live yet, so the row is hidden: <see cref="EnabledByDefault"/> is
-/// off until the owner's word; the test aids <c>SM_WF_ONLINE=1</c> (environment) and <see cref="ForceForTest"/> (self-test) show it.
+/// (<see cref="JoinTargets.PublicServer"/>; no second address is written anywhere). The row joins it with nothing to type. The VM's campaign is live since 2026-11-20, so <see cref="EnabledByDefault"/> is on (the
+/// owner's ship of 2026-11-20); the test aids <c>SM_WF_ONLINE=1</c> (environment) and <see cref="ForceForTest"/> (self-test) show it, <see cref="HideForTest"/> hides it for the self-test's row lists.
 /// </summary>
 public static class WarfrontOnline
 {
-    /// <summary>Whether the page shows the row. OFF until the VM's Warfront campaign is live (flip this constant then).</summary>
-    public const bool EnabledByDefault = false;
+    /// <summary>Whether the page shows the row. On since the 2026-11-20 ship (the VM's Warfront campaign is live on UDP 27016).</summary>
+    public const bool EnabledByDefault = true;
     /// <summary>The campaign's UDP port on the public host.</summary>
     public const int Port = 27016;
     public const string Row = "Online Warfront";
@@ -21,7 +21,10 @@ public static class WarfrontOnline
     /// <summary>Self-test: shows the row whatever the gate says.</summary>
     public static bool ForceForTest { get; set; }
 
-    public static bool Enabled => EnabledByDefault || ForceForTest || System.Environment.GetEnvironmentVariable("SM_WF_ONLINE") == "1";
+    /// <summary>Self-test: hides the row (unless <see cref="ForceForTest"/>) so the page's other row lists stay as they were checked.</summary>
+    public static bool HideForTest { get; set; }
+
+    public static bool Enabled => ForceForTest || (!HideForTest && (EnabledByDefault || System.Environment.GetEnvironmentVariable("SM_WF_ONLINE") == "1"));
 
     /// <summary>The public host (the part of <see cref="JoinTargets.PublicServer"/> before its port) with this campaign's port.</summary>
     public static string Address
