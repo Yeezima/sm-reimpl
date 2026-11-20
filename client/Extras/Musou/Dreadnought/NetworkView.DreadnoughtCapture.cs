@@ -57,6 +57,7 @@ public partial class NetworkView
         if (CmdFlag("dn-survive")) { await DnSurvive(); return; }
         if (CmdFlag("dn-pass-film")) { await DnPassFilm(); return; }
         if (CmdFlag("dn-melee-film")) { await DnMeleeFilm(); return; }
+        if (CmdFlag("dn-smooth-film")) { await DnSmoothFilm(); return; }
         if (CmdFlag("dn-fire-film")) { await DnFireFilm(); return; }
         if (CmdFlag("dn-da-film")) { await DnDaFilm(); return; }
         if (CmdFlag("dn-da-death")) { await DnDaDeath(); return; }

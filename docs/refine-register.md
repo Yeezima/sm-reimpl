@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3880 spec table rows: **2835 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
+Scanned 3881 spec table rows: **2836 tagged**, 688 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 828 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 3880 spec table rows: **2835 tagged**, 688 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 862 | 816 | 644 | 239 | 1 |
+| Core simulation (provisional values) | 863 | 817 | 645 | 239 | 1 |
 | General game design | 37 | 36 | 29 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2835** | 2530 | 2152 | 827 | 37 |
+| **All areas** | **2836** | 2531 | 2153 | 827 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1647 |
+| kind: ours | 1648 |
 | confidence: low | 1047 |
-| confidence: medium | 994 |
+| confidence: medium | 995 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
@@ -2872,7 +2872,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (862)
+### Core simulation (provisional values) (863)
 
 *Spec section: Provisional values in use*
 
@@ -4046,6 +4046,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2E756FEC` | Dreadnought: melta (in use since D4) | hit-scan, **200** damage (armour part 200), `shot_cooldown` **0.33** s (**0.095** s with the upgrade `fury_aim_mode`), range **250** m, clip **1**, reserve 12 and infinite, recharge after **0.33** s at **1** a second; the `is_in_coop` variant carries **100**… (HP, s) | kind: guess; confidence: low | wargear `dread_melta` (`pump_states`, `common_data/ammunition`); two files of the name exist (the Chaos twin's, same numbers: the first read is kept) | Dreadnought: melta (in use since D4): compare with SM1 by feel or video. Ours: hit-scan, 200 damage (armour part 200), shot_cooldown 0.33 s (0.095 s… | ☐ |
 | `R-98438AA1` | Dreadnought: the model and clips (D2) | the install's `sm_dreadnought_basic` model (19 drawn blocks incl. the cannon, melta, arm) on its own rig `havok_sm_dreadnought_basic__hkxx` (54 bones, 155 clips) drawn as a player (`DreadnoughtLooks`, hooks `ExtrasEnsureModel`, `ExtrasPlace`, `ExtrasDeath`)… (s, m/s) | kind: ours; kind: choice; notes: estimate | rig graph names; model O3d tree | Dreadnought: the model and clips (D2): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the install's sm_dreadnought_basic model (19 drawn blocks incl. the… | ☐ |
 | `R-97CD983C` | Dreadnought: the pose's numbers (D2 review) | walk below **4.5** m/s (`DreadnoughtRig.RunFrom`) and run above, the cycles taken to cover **3** and **6.5** m/s at rate 1 (`WalkCycleSpeed`, `RunCycleSpeed`; the clips' strides unmeasured), the sprint clip above **8** m/s (run speed + 1.5) going forward, the… (s, m/s, m) | kind: ours; confidence: low; notes: estimate | rig clip durations; blueprint `death_time` | Dreadnought: the pose's numbers (D2 review): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: walk below 4.5 m/s (DreadnoughtRig.RunFrom) and run above, the cycles… | ☐ |
+| `R-98AEBEAC` | Dreadnought: the charge's clip on a frame-rate clock (2026-11-20) | the charge's clip (`DN_MEL_Bullrush_Attack`) and its collision stop are posed at the time of a frame-rate clock that follows the simulation's `Rush.Time` (own player: `OwnClipClock` with the tick fraction and lead, as his strikes; others: `ClipClock` easing… (s) | kind: ours; confidence: medium | `--dn-smooth-film` frame log (`dn-smooth.csv`) | Dreadnought: the charge's clip on a frame-rate clock…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the charge's clip (DN_MEL_Bullrush_Attack) and its collision stop are… | ☐ |
 | `R-7DE84568` | Dreadnought: 15 rounds a second against the data's 16.7 | the cannon's 0.06 s between rounds is 1.8 ticks of the 30 Hz step; the core fires at most one round a tick and waits whole ticks, so a round every 2 ticks (15 a second, 11 % slow); kept, since a change would reach the core's shot timing for every weapon… (rounds/s) | kind: ours | arithmetic of the data | Dreadnought: 15 rounds a second against the data's 16.7: compare with SM1 by feel or video. Ours: the cannon's 0.06 s between rounds is 1.8 ticks of the 30 Hz step… | ☐ |
 | `R-34A25704` | Dreadnought: effects (D7 review) | the cannon's muzzle flash is the install's `autocannon_muzzle` at scale 1.75 (data binding) at a point 2.2 m ahead of and 0.8 m right of his shoulder, 2.3 m up (ours), one per frame the clip lost a round; a footfall's dust is `jump_land` at scale 2.5 (ours)… | kind: ours | `smtool fx-dump` names from the design | Dreadnought: effects (D7 review): compare with SM1 by feel or video. Ours: the cannon's muzzle flash is the install's autocannon_muzzle at scale… | ☐ |
 | `R-A89D1442` | Dreadnought: the assault cannon in the sim (D3) | `dread_assault_cannon` read by the sim's weapon reader (`DreadnoughtWeapons`): 30 damage, cooldown 0.06 s, clip 140, reload 2.5 s, range 250 m, no fall-off; held fire (full auto), a large reserve (2,000,000) for the data's infinite one, always up; the HUD… (rounds, s) | kind: ours | wargear `dread_assault_cannon` | Dreadnought: the assault cannon in the sim (D3): compare with SM1 by feel or video. Ours: dread_assault_cannon read by the sim's weapon reader… | ☐ |
