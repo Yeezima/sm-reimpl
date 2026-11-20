@@ -89,8 +89,8 @@ favored"; answered: the Orks win about 2 of every 3 even fights, Guardsmen at ab
   the front row at 0.5 of the point's radius toward the approach, every second row shifted half a squad so its men fire between the front's men (a Guardsman's shot is a roll on a line of sight, never stopped by a
   friend: the gaps keep the line open and show the cover). The approach is the Orks within 70 m of the point (at least 6, their centre) and else the bearing of the point's Ork source, turned only past 30 degrees.
   A squad with 3 men or fewer falls back to the rear row and the squad behind it steps up; a fallen squad's place is taken by the next row. A slot is pulled toward the point until it is on the walking graph,
-  reachable in a straight line from the point and 2.5 m off walls where the ground allows it. A squad within the radius plus 14 m counts as on its point. Test aid: `smtool.cmd warfront-guards [--slot wf_a1] [--seconds 240] [--svg dir]`
-  (a lane battle in-process on the real map and graph: Guardsmen, tick cost, a top-down SVG of the rows).
+  reachable in a straight line from the point and 2.5 m off walls where the ground allows it. A squad within the radius plus 14 m counts as on its point. Test aid: `smtool.cmd warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2]`
+  (a lane battle in-process on the real map and graph: Guardsmen, tick cost, raw top-down frames of the rows).
 
 ## Where things are stored
 

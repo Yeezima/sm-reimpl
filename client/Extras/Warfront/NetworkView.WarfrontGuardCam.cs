@@ -32,6 +32,18 @@ public partial class NetworkView
         if (!WarfrontOn || !CmdFlag("wf-guard-cam")) return;
         WarfrontGuardFrames();
         float height = float.TryParse(CmdArg("wf-guard-cam"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float h) && h > 5f ? h : 55f;
+        // --wf-guard-point <0..2>: hang over that objective whatever its state, so a clip can start before the point is secured and before the Orks arrive (QA, 2026-11-20)
+        if (CmdArg("wf-guard-point") is { Length: > 0 } pt && int.TryParse(pt, out int pi) && pi >= 0 && pi < _tfwState.Objectives.Count)
+        {
+            var po = _tfwState.Objectives[pi];
+            // --wf-guard-offset dx,dy (metres, sim axes): the frame's centre moves that far from the point, toward where the clash is
+            var shift = Num.Vector3.Zero;
+            if (CmdArg("wf-guard-offset") is { Length: > 0 } off && off.Split(',') is { Length: 2 } xy
+                && float.TryParse(xy[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float dx)
+                && float.TryParse(xy[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float dy)) shift = new Num.Vector3(dx, dy, 0f);
+            _tfwSwarmCam = (TfwGodot(po.Position + shift + new Num.Vector3(0f, -height * 0.25f, height)), TfwGodot(po.Position + shift));
+            return;
+        }
         foreach (var o in _tfwState.Objectives)
         {
             if (o.State != TfwPositionState.Secured) continue;
