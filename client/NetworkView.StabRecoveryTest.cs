@@ -16,7 +16,9 @@ public partial class NetworkView
 {
     static readonly string? StabRecMode = CmdArg("stab-recovery-test");
     static readonly float StabRecCycle = Math.Max(3.5f, CmdFloat("--stab-recovery-cycle", 5f));
-    static readonly string[] StabRecActions = ["move", "fire", "melee", "evade"];
+    static readonly bool StabRecThrust = CmdFlag("stab-recovery-thrust");   // Musou Mode and Warfront: light strike 1, then F, is the thrust (no T stab there)
+    static readonly string[] StabRecActions = StabRecThrust ? ["move", "fire", "melee", "evade", "finisher"] : ["move", "fire", "melee", "evade"];
+    bool _srLightSent;
     static readonly double StabRecLead = Math.Max(2f, CmdFloat("--stab-recovery-lead", 2f));
     double _srStart = -1;
     float _srYaw;
@@ -45,13 +47,13 @@ public partial class NetworkView
         float dt = _config.TickSeconds;
         double t = _connectedFor - _srStart;
         PlayerInput Make(float mx, float my, InputButtons b) => new(tick, mx, my, _srYaw, b, -0.1f);
-        if (t < 0) return Make(0f, StabRecLead > 3f && t > -StabRecLead + 2.0 ? 1f : 0f, InputButtons.None);   // a lead-in walk (--stab-recovery-lead s) to reach open floor
+        if (t < 0) return Make(0f, StabRecLead > 3f && t > -4.0 ? 1f : 0f, InputButtons.None);   // a lead-in walk (--stab-recovery-lead s) to reach open floor
         int cycle = (int)(t / StabRecCycle);
         double phase = t - cycle * StabRecCycle;
         if (cycle != _srCycle)
         {
             if (_srCycle >= 0) _srYaw = ViewSmoothing.WrapPi(_srYaw + MathF.PI);
-            _srCycle = cycle; _srTick = 0; _srStabTick = -1; _srHit = _srEnded = _srEffect = false;
+            _srCycle = cycle; _srTick = 0; _srStabTick = -1; _srLightSent = false; _srHit = _srEnded = _srEffect = false;
             _srAction = mode == "cycle" ? StabRecActions[cycle % StabRecActions.Length] : mode;
         }
         _yaw = _srYaw; _pitch = -0.1f;
@@ -69,6 +71,7 @@ public partial class NetworkView
                 "fire" => me.Clip < _srPrevClip,
                 "melee" => me.MeleeStep > 0 && !me.MeleeHeavy && _srHit,
                 "evade" => me.EvadeTicks > 0,
+                "finisher" => me.MeleeHeavy && me.MeleeStep > 2,
                 _ => false,
             };
             if (!_srEffect && _srHit && effect)
@@ -81,13 +84,23 @@ public partial class NetworkView
         else _srLabel.Text = $"[{_srAction}]";
         _srPrevStep = me.MeleeStep; _srPrevClip = me.Clip;
         // Stab at 0.5 s into the cycle from rest; then, from the hit on, mash the follow-up.
+        if (_srStabTick < 0 && StabRecThrust)
+        {
+            // Light strike 1 (Musou picks its light strikes at random: another one is waited out and tried again), then F: the thrust.
+            if (me.MeleeHeavy && me.MeleeStep == 2) { _srStabTick = _srTick; return Make(0f, 0f, InputButtons.None); }
+            if (phase < 0.5 || !me.Grounded) return Make(0f, 0f, InputButtons.None);
+            if (me.MeleeStep == 1 && !me.MeleeHeavy) return Make(0f, 0f, InputButtons.MeleeHeavy);
+            if (me.MeleeStep > 1 && !me.MeleeHeavy && me.MeleeTime >= 0.45f && _srTick % 3 == 0) return Make(0f, 0f, InputButtons.Melee);   // Musou's random light swing was not strike 1: its next press (after the hit) draws another
+            if (me.MeleeStep == 0 && !me.MeleeHeld) return Make(0f, 0f, InputButtons.Melee);
+            return Make(0f, 0f, InputButtons.None);
+        }
         if (_srStabTick < 0)
         {
             if (phase < 0.5 || me.MeleeStep != 0 || !me.Grounded) return Make(0f, 0f, InputButtons.None);
             _srStabTick = _srTick;
             return Make(0f, 0f, InputButtons.Stab);
         }
-        if (_srTick - _srStabTick < 4) return Make(0f, 0f, InputButtons.Stab);
+        if (_srTick - _srStabTick < 4) return Make(0f, 0f, StabRecThrust ? InputButtons.None : InputButtons.Stab);
         if (!_srHit && stabbing) return Make(0f, 0f, InputButtons.None);
         if (_srTick - _srStabTick > 5.0f / dt) return Make(0f, 0f, InputButtons.None);
         bool tap = _srTick % 3 == 0;
@@ -97,6 +110,7 @@ public partial class NetworkView
             "fire" => Make(0f, 0f, tap ? InputButtons.Fire : InputButtons.None),
             "melee" => Make(0f, 0f, tap ? InputButtons.Melee : InputButtons.None),
             "evade" => Make(0f, 1f, tap ? InputButtons.Jump : InputButtons.None),
+            "finisher" => Make(0f, 0f, _srTick - _srStabTick is >= 36 and < 40 ? InputButtons.MeleeHeavy : InputButtons.None),
             _ => Make(0f, 0f, InputButtons.None),
         };
     }

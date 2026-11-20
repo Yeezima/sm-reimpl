@@ -95,6 +95,22 @@ public class SwordFfStabTests
     }
 
     [Fact]
+    public void Where_no_stab_is_applied_the_thrust_is_marked_for_an_early_release_and_with_the_stab_it_is_not()
+    {
+        // sim/stab-release (owner 2026-11-20, "release early too"): Musou Mode and Warfront read inside WithoutSwordStab.
+        using (MeleeTuning.WithoutSwordStab())
+        {
+            var t = Read(2);
+            Assert.True(t.Heavy[1].ThrustRelease);
+            Assert.False(t.Heavy[2].ThrustRelease);
+        }
+        var classic = Read(2);
+        Assert.False(classic.Heavy[1].ThrustRelease);
+        Assert.True(classic.Heavy[2].Stab);
+        Assert.False(Read(0).Heavy[1].ThrustRelease);   // a weapon with no stab at all
+    }
+
+    [Fact]
     public void The_finisher_is_the_x_y_strike_without_its_blast_and_with_the_furious_charge_hit()
     {
         var t = Read(2);

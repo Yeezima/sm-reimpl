@@ -135,4 +135,77 @@ public class StabReleaseTests(ITestOutputHelper output)
         for (int i = 0; i < 40; i++) f = Step(c, f, InputButtons.None).S;
         Assert.Equal((1, true), (f.MeleeStep, f.MeleeHeavy));        // 1.33 s: an unmarked strike plays on
     }
+
+    // ---- Musou Mode and Warfront: the X,F thrust is released early too and keeps its finisher chain (owner 2026-11-20, "release early too") ----
+
+    static readonly MeleeStep Thrust = Stab with { Stab = false, ThrustRelease = true, YNext = 2, YComboOpen = 0.873f, YComboClose = 1.418f };
+    static readonly MeleeStep Finisher = new(1.5f, 0.4f, 0f, 0f, 0.3f, 0.8f, 80f, 0f, 3.5f);
+
+    static SimConfig MusouMake(bool on = true) => StompUninterruptibleTests.Config with
+    {
+        StompRelease = true, StabRelease = on, Extras = ContentExtras.Musou,
+        Classes = [new ClassLoadout("sword", 0, 1, [StompUninterruptibleTests.Kick]) { MeleeHeavy = [Thrust, Finisher], MeleeRush = RushTests.Spec, Evade = 0, EquipmentChoices = [0], Side = Team.SpaceMarines }],
+    };
+
+    static PlayerState ThrustAt(SimConfig c, int k)
+    {
+        var s = Fresh(c) with { Slot = WeaponSlot.Pistol, ReadyTicks = 300 };
+        for (int i = 0; i < 5; i++) s = Step(c, s, InputButtons.None).S;
+        s = Step(c, s, InputButtons.MeleeHeavy).S;
+        Assert.Equal((1, true), (s.MeleeStep, s.MeleeHeavy));
+        for (int i = 0; i < k; i++) s = Step(c, s, InputButtons.None).S;
+        return s;
+    }
+
+    [Fact]
+    public void Musou_thrust_another_action_at_the_release_ends_it_and_acts()
+    {
+        var c = MusouMake();
+        var at27 = ThrustAt(c, 27);                                   // entering tick 28, the release
+        Assert.Equal(1, at27.MeleeStep);
+        Assert.True(Step(c, at27, InputButtons.Fire).E.Fired);
+        Assert.True(Step(c, at27, InputButtons.Switch).S.SwitchLeft > 0f);
+        Assert.True(Step(c, at27, InputButtons.Grenade).S.Throwing);
+        Assert.True(Step(c, at27, InputButtons.Aim).S.Aiming);
+        var swing = Step(c, Step(c, at27, InputButtons.Melee).S, InputButtons.None).S;
+        Assert.True(swing.MeleeStep > 0 && !swing.MeleeHeavy, $"step {swing.MeleeStep} heavy {swing.MeleeHeavy}");
+        var evade = ThrustAt(c, 27);
+        int evadeAt = -1;
+        for (int k = 28; k < 36 && evadeAt < 0; k++) { evade = Step(c, evade, k % 2 == 1 ? InputButtons.Jump : InputButtons.None).S; if (evade.EvadeTicks > 0) evadeAt = k; }
+        Assert.InRange(evadeAt, 28, 32);   // a Jump press that ends the thrust is the one that waits; the next press hops
+    }
+
+    [Fact]
+    public void Musou_thrust_the_finisher_at_1_2_s_with_no_other_action_still_chains()
+    {
+        var c = MusouMake();
+        var s = ThrustAt(c, 27);
+        // The stick alone does not end the chain; the thrust carries on after its release while the window (0.873 to 1.418 s) is open.
+        for (int k = 28; k < 36; k++) { s = Step(c, s, InputButtons.None, my: 1f).S; Assert.Equal(1, s.MeleeStep); }
+        s = Step(c, s, InputButtons.MeleeHeavy, my: 1f).S;            // tick 36, 1.2 s
+        Assert.Equal((2, true), (s.MeleeStep, s.MeleeHeavy));          // the finisher
+    }
+
+    [Fact]
+    public void Musou_thrust_another_action_ends_the_chain_chance_and_the_window_closing_releases()
+    {
+        var c = MusouMake();
+        var s = ThrustAt(c, 27);
+        s = Step(c, s, InputButtons.Aim).S;                            // another action at the release ends the attack ...
+        s = Step(c, s, InputButtons.None).S;
+        for (int k = 0; k < 6; k++) s = Step(c, s, InputButtons.None).S;
+        s = Step(c, s, InputButtons.MeleeHeavy).S;                     // ... so F now starts a fresh thrust, not the finisher
+        Assert.Equal((1, true), (s.MeleeStep, s.MeleeHeavy));
+        var w = ThrustAt(c, 42);                                       // 1.4 s: window still open (closes at 1.418 s)
+        Assert.Equal(1, w.MeleeStep);
+        w = Step(c, w, InputButtons.None).S;                           // tick 43, 1.433 s: closed, released well before the clip's end
+        Assert.Equal(0, w.MeleeStep);
+    }
+
+    [Fact]
+    public void Musou_thrust_with_the_switch_off_keeps_the_old_lock()
+    {
+        var c = MusouMake(on: false);
+        Assert.Equal(1, ThrustAt(c, 45).MeleeStep);
+    }
 }

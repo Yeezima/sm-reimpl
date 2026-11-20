@@ -491,6 +491,9 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
             StabApplied = true;
         }
+        // sim/stab-release (owner 2026-11-20, "release early too"): where the stab is not applied (Musou Mode, Warfront), the X,F thrust itself is released early and keeps its finisher chain.
+        if (weapon.StabHeavy > 0 && !StabApplied && weapon.StabHeavy <= heavy.Count)
+            heavy[weapon.StabHeavy - 1] = heavy[weapon.StabHeavy - 1] with { ThrustRelease = true };
         // A chain into a strike that could not be read is dropped (the simulation also checks the bounds).
         for (int i = 0; i < steps.Count; i++)
             if (steps[i].HeavyNext > heavy.Count) steps[i] = steps[i] with { HeavyNext = -1 };

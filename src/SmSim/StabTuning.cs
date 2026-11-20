@@ -15,7 +15,14 @@ public static class StabTuning
     public static float ReleaseAt(MeleeStep m) => MathF.Max(m.HitTime, m.MoveAt);
 
     /// <summary>Whether the stab <paramref name="m"/> has played to its release at clip time <paramref name="time"/>.</summary>
-    public static bool Released(MeleeStep m, float time, float epsilon) => m.Stab && time + epsilon >= ReleaseAt(m);
+    public static bool Released(MeleeStep m, float time, float epsilon) => (m.Stab || m.ThrustRelease) && time + epsilon >= ReleaseAt(m);
+
+    /// <summary>
+    /// Musou Mode and Warfront's thrust (<see cref="MeleeStep.ThrustRelease"/>): whether the released player ends the attack in this tick. It does when no finisher chain is left (its Y window has closed or it has none), or
+    /// when the player starts another action (a shot, aim, switch, grenade, reload, light melee, the evade's Jump); a heavy press or the stick alone keeps the chain open, so the finisher in its window still chains.
+    /// </summary>
+    public static bool Ends(MeleeStep m, float time, float epsilon, bool otherAction) =>
+        !m.ThrustRelease || m.YNext <= 0 || time + epsilon >= m.YComboClose || otherAction;
 }
 
 public sealed partial record SimConfig

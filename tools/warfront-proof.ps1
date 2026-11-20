@@ -28,6 +28,7 @@ param(
     [string]$Tag = '',
     [string]$ServerEnv = '',      # K=V;K=V added to the server's environment
     [string]$ClientArgs = ''      # added to every client
+    ,[string]$ServerArgs = ''     # added to the server's command line (clip runs: --old-stab-release)
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -50,6 +51,7 @@ function Start-WfServer([string[]]$extra, [hashtable]$env = @{}, [string]$logNam
     foreach ($kv in ($ServerEnv -split ';' | Where-Object { $_ -match '=' })) { $k, $v = $kv -split '=', 2; $env[$k] = $v }
     foreach ($k in $env.Keys) { Set-Item -Path "Env:$k" -Value $env[$k]; if ($k -like 'SM_*' -and $k -notin 'SM_WF_DIR', 'SM_WF_SEED', 'SM_TICK_STATS') { $aided.Add("$k=$($env[$k])") } }
     $a = @($serverDll, '--content', 'warfront', '--bind', '127.0.0.1', '--port', "$Port") + $extra
+    if ($ServerArgs) { $a += ($ServerArgs -split ' ' | Where-Object { $_ }) }
     $p = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList $a -WorkingDirectory $RepoRoot -StdOut $serverLog
     $script:servers += $p.Id; $script:serverProc = $p
     $deadline = (Get-Date).AddSeconds(90)

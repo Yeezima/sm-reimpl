@@ -629,7 +629,8 @@ public static class Combat
                 goto stringReset;
             }
             // sim/stab-release (protocol 88; the owner 2026-11-20): the power sword's stab ends at its release (StabTuning), after its hit, like the released stomp: this tick's input acts as from rest.
-            if (c.StabRelease && !queued && StabTuning.Released(m, time, TimeEpsilon))
+            if (c.StabRelease && !queued && StabTuning.Released(m, time, TimeEpsilon)
+                && StabTuning.Ends(m, time, TimeEpsilon, fireDown || aimDown || switchPress || grenadePress || reloadPress || jumpPressed || meleePress || stabPress))
             {
                 step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null; stompReleased = true;
                 goto stringReset;
