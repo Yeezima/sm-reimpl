@@ -272,8 +272,7 @@ public partial class NetworkView
         {
             _wfDownLayer = new CanvasLayer { Name = "WarfrontDown", Layer = 40 };
             _wfDownLabel = new Label { Name = "WarfrontDownLine", HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
-            _wfDownLabel.AddThemeFontSizeOverride("font_size", 28);
-            _wfDownLabel.AddThemeColorOverride("font_color", UiKit.White);
+            SmClient.Extras.Warfront.WarfrontStyle.Skin(_wfDownLabel, SmClient.Extras.Warfront.WarfrontStyle.Heading, SmClient.Extras.Warfront.WarfrontStyle.Ink, outline: true);
             _wfDownLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop);
             _wfDownLabel.Position = new Vector2(-300f, 120f);
             _wfDownLabel.Size = new Vector2(600f, 40f);

@@ -26,6 +26,13 @@ public sealed partial class WarfrontHubSelfTest : Node
 
     async Task Frames(int n = 3) { for (int i = 0; i < n; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
 
+    /// <summary>The text audit of the UI self-test (UiSelfTest.TextAudit.cs) on this screen: no visible text over five words, none with "click" or "press", unless registered with UiKit.TextKind.</summary>
+    void Audit(string screen, Node n)
+    {
+        var found = SmClient.FrontEnd.UiSelfTest.AuditText(n);
+        Check($"text audit: {screen} has no explainer text", found.Count == 0, string.Join(" | ", found.Take(6)));
+    }
+
     void Check(string name, bool ok, string detail = "")
     {
         if (ok) _passed++; else _failed++;
@@ -109,6 +116,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Check("start: three node names per lane", _panel.NodeLabelOf(0, 1).Text.Contains("WASTELAND") && _panel.NodeLabelOf(0, 2).Text.Contains("OUTSKIRTS") && _panel.NodeLabelOf(0, 3).Text.Contains("URBAN CORE"));
         Check("start: Imperial HQ secure, fortress locked", _panel.HqLabel.Text == "IMPERIAL HQ\nSECURE" && _panel.FortressLabel.Text == "ORK FORTRESS\nLOCKED", _panel.HqLabel.Text + " / " + _panel.FortressLabel.Text);
         Check("start: header names the deployment", _panel.HeaderLabel.Text.Contains("DEPLOYMENT 1"));
+        Audit("the war map", _panel);
         Check("start: the leader's three lane rows are open", Enumerable.Range(0, 3).All(r => !_panel.DeployRow(r).Disabled));
         Check("start: the HQ row is not offered (not mandatory)", _panel.DeployRow(3).Disabled && _panel.DeployRow(3).Text == "IMPERIAL HQ DEFENSE: NOT AVAILABLE", _panel.DeployRow(3).Text);
         Check("start: the locked fortress shows as a greyed row", _panel.DeployRow(4).Visible && _panel.DeployRow(4).Disabled && _panel.DeployRow(4).Text == "ORK FORTRESS: LOCKED" && !_panel.DeployRow(4).HasThemeColorOverride("font_disabled_color"));
@@ -242,6 +250,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         _travel.SetElapsed(65);
         Check("travel: the elapsed time reads minutes and seconds", _travel.ElapsedLabel.Text == "ELAPSED 1:05", _travel.ElapsedLabel.Text);
         FitCheckTravel();
+        Audit("the travel screen", _travel);
         _model.SetTravelProgress(3, 3);
         await Frames(2);
         Check("travel: all arrived is shown", _travel.StatusLabel.Text.Contains("3 OF 3"));

@@ -33,6 +33,7 @@ public sealed partial class WarfrontResultsPanel : Control
     readonly Action? _close;
     readonly Control _page;
     readonly Label _status;
+    readonly Backing _backing;
 
     /// <summary>The cell texts of the table, row by row (the self test holds them against the record).</summary>
     public List<List<string>> TableText { get; } = new();
@@ -66,17 +67,19 @@ public sealed partial class WarfrontResultsPanel : Control
         Line("ResultsSummary", (record.EndedUtc.Length >= 16 ? record.EndedUtc[..16].Replace('T', ' ') : record.EndedUtc) + " UTC    RUN TIME " + ((int)t.TotalHours).ToString(CultureInfo.InvariantCulture)
             + t.ToString(@"\:mm\:ss", CultureInfo.InvariantCulture) + "    " + record.Battles.Count + " BATTLES    ROLLS LOST " + record.RollsLost + " OF " + record.RollsTotal, Left, 146f, CaptionSize, 1500f, Dim);
 
-        var backing = new Backing();
-        backing.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(backing);
+        _backing = new Backing();
+        _backing.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(_backing);
         _page = new Control { Name = "ResultsPage", MouseFilter = MouseFilterEnum.Ignore };
         _page.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_page);
         BuildTable();
 
-        _status = Line("ResultsStatus", "", Left, 905f, CaptionSize, 1500f, Dim);
+        _status = Line("ResultsStatus", "", Left, 896f, CaptionSize, 1500f, Dim);
+        UiKit.TextKind(_status, "progress");   // the result of COPY and EXPORT (or why it failed)
         // five actions of one size in one row: COPY, EXPORT, HONOR ROLL, NEW RUN (when given), CLOSE
         CopyButton = Row("Copy for Discord", Copy, 940f, Left + 0 * ButtonPitch, ButtonWidth);
+        UiTooltip.Attach(CopyButton, "Copies the results as plain text. Nothing is posted: paste it into Discord yourself.");
         ExportButton = Row("Export", Export, 940f, Left + 1 * ButtonPitch, ButtonWidth);
         HonorButton = Row("Honor roll", ToggleHonorRoll, 940f, Left + 2 * ButtonPitch, ButtonWidth);
         if (newRun is not null) { NewRunButton = Row("New run", newRun, 940f, Left + 3 * ButtonPitch, ButtonWidth); NewRunButton.Name = "WarfrontNewRun"; }
@@ -87,7 +90,7 @@ public sealed partial class WarfrontResultsPanel : Control
     /// <summary>The kit's recessed table behind the leaderboard and the dark strip behind its column heads.</summary>
     sealed partial class Backing : Control
     {
-        public Backing() { Name = "ResultsBacking"; MouseFilter = MouseFilterEnum.Ignore; }
+        public Backing() { Name = "ResultsBacking"; MouseFilter = MouseFilterEnum.Pass; }
         public override void _Draw()
         {
             WarfrontStyle.Table(this, new Rect2(96f, 180f, 1568f, 676f));
@@ -180,9 +183,7 @@ public sealed partial class WarfrontResultsPanel : Control
             if (retainers && r.TopRetainer is { } top1)
                 Line("Retainer" + i, "Top retainer  " + top1.Name + (top1.ClassName.Length > 0 ? " (" + top1.ClassName + ")" : "") + "  -  " + top1.Reason, NameX, y + 34f, CaptionSize, 1300f, Dim, parent: _page);
         }
-        var f = Line("Formula", _record.Weights.FormulaText(), Left, 800f, CaptionSize, 1500f, Dim, parent: _page);
-        f.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        f.Size = new Vector2(1500f, 60f);
+        UiTooltip.Attach(_backing, _record.Weights.FormulaText());   // how the score is made: a hover hint on the table, not a line under it
     }
 
     /// <summary>COPY FOR DISCORD: the fixed-width block in a code fence on the clipboard. Nothing leaves the PC.</summary>
@@ -190,7 +191,7 @@ public sealed partial class WarfrontResultsPanel : Control
     {
         LastCopied = WarfrontExport.Discord(_record);
         DisplayServer.ClipboardSet(LastCopied);
-        _status.Text = "COPIED TO THE CLIPBOARD. PASTE IT INTO DISCORD YOURSELF.";
+        _status.Text = "COPIED TO THE CLIPBOARD";
     }
 
     /// <summary>EXPORT: a .txt and a .md under the warfront folder's exports; the status names the files, never a full path.</summary>
@@ -214,6 +215,7 @@ public sealed partial class WarfrontResultsPanel : Control
     {
         if (ShowingHonorRoll) { BuildTable(); HonorButton.Text = "HONOR ROLL"; return; }
         Clear();
+        UiTooltip.Attach(_backing, "");
         ShowingHonorRoll = true;
         HonorButton.Text = "LEADERBOARD";
         var roll = WarfrontResultsArchive.HonorRoll(_dir);

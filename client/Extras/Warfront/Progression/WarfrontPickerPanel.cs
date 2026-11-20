@@ -21,7 +21,7 @@ public sealed partial class WarfrontPickerPanel : Control
     public static float RowWidth => Cards * CardWidth + (Cards - 1) * CardGap;
 
     readonly WarfrontProgressModel _model;
-    readonly Label _header, _timeout, _protected, _seconds;
+    readonly Label _header, _protected, _seconds;
     readonly Label[] _slot = new Label[Cards], _name = new Label[Cards], _effect = new Label[Cards], _owned = new Label[Cards];
     readonly Control[] _hit = new Control[Cards];
     readonly Draw _draw;
@@ -36,7 +36,8 @@ public sealed partial class WarfrontPickerPanel : Control
     public Label EffectLabel(int i) => _effect[i];
     public Label OwnedLabel(int i) => _owned[i];
     public Control CardHit(int i) => _hit[i];
-    public Label TimeoutLabel => _timeout;
+    /// <summary>What happens when the time runs out: the countdown's hover hint (not text on the screen).</summary>
+    public string TimeoutHint => _seconds.TooltipText;
     public Label ProtectedLabel => _protected;
 
     public System.Collections.Generic.IEnumerable<Label> Labels()
@@ -86,6 +87,7 @@ public sealed partial class WarfrontPickerPanel : Control
             _slot[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerSlot" + i, x, CardTop + 16f, w, HeadingSize, WarfrontProgressDraw.Gold);
             _name[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerName" + i, x, CardTop + 64f, w, HeadingSize, white);
             _effect[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerEffect" + i, x, CardTop + 124f, w, BodySize, white, lines: 4);
+            UiKit.TextKind(_effect[i], "description");   // the card's own effect text
             _owned[i] = WarfrontProgressDraw.Text(this, "WarfrontPickerOwned" + i, x, CardTop + CardHeight - 44f, w, BodySize);
             var hit = new Control { Name = "WarfrontPickerHit" + i, MouseFilter = MouseFilterEnum.Stop, MouseDefaultCursorShape = CursorShape.PointingHand };
             hit.SetAnchorsPreset(LayoutPreset.TopLeft);
@@ -96,10 +98,11 @@ public sealed partial class WarfrontPickerPanel : Control
             AddChild(hit);
             _hit[i] = hit;
         }
-        _timeout = WarfrontProgressDraw.Text(this, "WarfrontPickerTimeout", Left, NotesTop, 900f, BodySize);
-        _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop + NoteStep, 900f, BodySize);
+        _protected = WarfrontProgressDraw.Text(this, "WarfrontPickerProtected", Left, NotesTop, 900f, BodySize, WarfrontStyle.Dim);
+        UiKit.TextKind(_protected, "progress");   // the state the player is in while choosing
         _seconds = WarfrontProgressDraw.Text(this, "WarfrontPickerSeconds", Left + RowWidth - 140f, HeaderTop, 140f, HeadingSize, white, HorizontalAlignment.Right);
-        _timeout.Text = WarfrontProgressModel.TimeoutNote;
+        _seconds.MouseFilter = MouseFilterEnum.Pass;
+        UiTooltip.Attach(_seconds, WarfrontProgressModel.TimeoutNote);
         _protected.Text = WarfrontProgressModel.ProtectedNote;
         // The keys that pick are a hover hint, not text on the screen (owner, 2026-11-20): on the header and on every card.
         _header.MouseFilter = MouseFilterEnum.Pass;

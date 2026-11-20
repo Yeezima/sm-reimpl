@@ -5436,6 +5436,19 @@ Source: the owner's UI pass of 2026-11-20 ("exact style of the existing main men
 | Hover hint delay | **0.6 s** of the pointer or the focus resting on an option, then the hint shows on the dark painted plate (opt-plate-blank, the one lettering, caption size, the text inset) | s | per option | `UiTooltip.DelaySec`, `UiTooltip.Attach` | the owner ("hidden until a player mouses over an option for a short amount of time"); 0.6 s ours | ours | medium |
 | No Perk icon | the owner's brass icon `client/assets/ui/no-perk.png` (512 x 512, from his SVG) on an empty perk slot, drawn untinted | - | - | `CreatorView.ArmouryDetail` | the owner | owner | high |
 
+### Warfront UI pass (2026-11-20, client only; branch `claude/warfront-ui-1120`)
+
+Source: the owner's request of 2026-11-20 ("ensure the new UI elements ... are in the exact style of the existing main menu, options, classic pvp, armory UI") and his layout proposal for the WARFRONT page. Client look only; no gameplay, netcode, protocol or setting changed. The numbers are ours (the owner gave the layout, not a rule for it).
+
+| Parameter (Warfront UI) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| WARFRONT page: status strip | x 280 to 1640, y 262 to 358 (1360 x 96) at 1920 x 1080, a recessed steel panel (`Steel.Kind.Recess`) in three even cells (DEPLOYMENTS, FRONTS, LEVEL): label gold at the caption level (24), value at the label level (36); dashes with no run; the honor roll's counts are the strip's hover hint | screen px at 1080p | per page | `WarfrontPage`, `WarfrontLocal.SummaryCells` | the owner's layout | owner | high |
+| WARFRONT page: plate column | one column centred at x 600 to 1320 (720 wide), plates 64 tall, 18 apart, first at y 392: NEW CAMPAIGN (STOP SERVER while one of this game's servers runs), HOST FOR FRIENDS, JOIN A FRIEND, [ONLINE WARFRONT when its gate is on], CUSTOMIZER; the opt-plate art, one text size (36; the longest word sets it, stepping down one level when it does not fit) | screen px at 1080p | per page | `WarfrontPage.Place` | the owner's layout | owner | high |
+| WARFRONT page: gold plate | CONTINUE CAMPAIGN (REJOIN CAMPAIGN while the server runs) keeps the frame tray's apply plate and place, widened from 360 to **420** px at 1080p so its words keep clear of the ends; steel until it has the focus | screen px at 1080p | per page | `WarfrontPage.MainW` | the owner ("widen the plate (about 420 px)") | owner | high |
+| WARFRONT page: scale | the layout is in 1920 x 1080 screen pixels measured from the window's centre and scales with the shared frame (`ConceptPanelPage.PanelScale` over its value at 1080p) | factor | per window size | `WarfrontPage.Place` | ours | ours | medium |
+| Warfront panels (hub, travel, results, picker, squad, join, spectate, XP board, battle and squad HUDs) | one lettering (`UiKit.ConceptFont`), the one size table (headings 30, body and cells 24, banners 48, counters and column heads 18), the Steel palette (ink, dim, gold), and the scoreboard's painted pieces (`BoardStyle`: recessed table, dark header strip, cards with a gold rim) in place of flat rectangles and white frames; HUD text over the field keeps a dark outline | px (design space) | per panel | `WarfrontStyle` | the owner (rule); the assignments are ours | ours | medium |
+| Warfront hints | the card picker's keys, the timeout rule, the squad rename hint, the score formula, COPY FOR DISCORD's note and the customizer way-in (JoinHint) are hover hints (0.6 s, `UiTooltip`), not text on the screen; OTHER PLAYERS' SQUADS (READ ONLY) is the heading READ ONLY | - | per option | `WarfrontPickerPanel`, `WarfrontSquadPanel`, `WarfrontResultsPanel`, `WarfrontJoinPanel` | the owner (rule) | ours | medium |
+
 ### Musou rejoin (2026-11-07, client only)
 
 | Parameter (Musou rejoin) | Value | Units | Timing basis | Where | Source | Kind | Confidence |

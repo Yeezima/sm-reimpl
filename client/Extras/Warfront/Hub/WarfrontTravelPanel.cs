@@ -38,6 +38,7 @@ public sealed partial class WarfrontTravelPanel : Control
         _destination = Text("WarfrontTravelDestination", 300f, WarfrontHubPanel.HeadingSize, 1400f, WarfrontStyle.Gold);
         _status = Text("WarfrontTravelStatus", 360f, WarfrontHubPanel.BodySize, 1400f);
         _elapsed = Text("WarfrontTravelElapsed", 396f, WarfrontHubPanel.BodySize, 1400f);
+        UiKit.TextKind(_destination, "progress"); UiKit.TextKind(_status, "progress");   // where the ship goes and what the load waits for
         model.Changed += Refresh;
         TreeExited += () => model.Changed -= Refresh;
         VisibilityChanged += () => { if (Visible) SetElapsed(0); };

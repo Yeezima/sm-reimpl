@@ -61,6 +61,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
     {
         var all = new List<Label>();
         if (page is not null) Labels(page.Rows, all);
+        if (page is WarfrontPage wp) all.AddRange(wp.OwnLabels().Where(l => l.Visible));   // the strip's cells and the status line are the page's own labels, outside the rows
         return all.Select(l => l.Text).Where(t => t.Length > 0).ToList();
     }
 
@@ -149,8 +150,9 @@ public sealed partial class WarfrontLocalSelfTest : Node
         var page = _front.WarfrontPage;
         Check("page: opens and the main menu is hidden", page is { Visible: true } && !_front.ShowsMainMenu);
         Check("page: no run gives New campaign, Host for friends, Join a friend, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
-        Check("page: no summary line without a run", !Texts(page).Any(t => t.StartsWith("DEPLOYMENTS", StringComparison.Ordinal)));
+        Check("page: no run, the status strip shows dashes", page is WarfrontPage { } none && none.Cells.Select(c => c.Value).SequenceEqual(["-", "-", "-"]) && none.Cells.Select(c => c.Label).SequenceEqual(["DEPLOYMENTS", "FRONTS", "LEVEL"]));
         Check("page: the first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "NEW CAMPAIGN" });
+        Check("page: text audit, no explainer text", SmClient.FrontEnd.UiSelfTest.AuditText(page!).Count == 0, string.Join(" | ", SmClient.FrontEnd.UiSelfTest.AuditText(page!)));
         await Still("page-no-run");
         await Press(page!, "NEW CAMPAIGN");
         Check("new without a run starts at once (no question)", started == true && !_front.WarfrontConfirmOpen, $"started {started}");
@@ -192,7 +194,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Press(main, "WARFRONT");
         page = _front.WarfrontPage;
         Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
-        Check("page: the run's one line", Texts(page).Contains("DEPLOYMENTS 0, FRONTS 1 / 1 / 1, LEVEL 1"), string.Join(" | ", Texts(page)));
+        Check("page: the run's three figures are in the status strip", page is WarfrontPage { } cells && cells.Cells.Select(c => c.Value).SequenceEqual(["0", "1 / 1 / 1", "1"]), string.Join(" | ", Texts(page)));
         Check("page: Continue has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "CONTINUE CAMPAIGN" });
         await Still("page-with-run");
         await Press(page!, "CONTINUE CAMPAIGN");
@@ -228,7 +230,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Frames(3);
         page = _front.WarfrontPage;
         Check("this game's Warfront server running: only Rejoin and Stop (no New, no Continue)", Rows(page).SequenceEqual(["REJOIN CAMPAIGN", "STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) && Find(page!, "NEW CAMPAIGN") is null && Find(page!, "CONTINUE CAMPAIGN") is null, string.Join(", ", Rows(page)));
-        Check("this game's Warfront server running: the page says so first", Texts(page).FirstOrDefault() == "THE WARFRONT SERVER IS RUNNING.", string.Join(" | ", Texts(page)));
+        Check("this game's Warfront server running: the page says so", page is WarfrontPage { } running && running.NoteLabel.Text == "THE WARFRONT SERVER IS RUNNING.", string.Join(" | ", Texts(page)));
         await Press(page!, "REJOIN CAMPAIGN");   // sets the Warfront profile; its configuration is read in the background (as while a real server starts)
         for (int i = 0; i < 1200 && !_front.ServicesReadyForTest; i++) await Frames(1);
         joined = null;
@@ -245,7 +247,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.WarfrontWaitForTest(startedSecondsAgo: 83);
         await Frames(6);
         var prep = _front.WarfrontPreparing;
-        Check("preparing: the title, the status and the elapsed time", Texts(prep).Contains(WarfrontLocal.PreparingTitle) && Texts(prep).Any(t => t.StartsWith("1:2", StringComparison.Ordinal)), string.Join(" | ", Texts(prep)));
+        Check("preparing: the title, the status and the elapsed time", prep is ConceptPanelPage { } prepPage && prepPage.PlateTitle == WarfrontLocal.PreparingTitle.ToUpperInvariant() && Texts(prep).Any(t => t.StartsWith("1:2", StringComparison.Ordinal)), string.Join(" | ", Texts(prep)));
         Check("preparing: Cancel is the one row", Rows(prep).SequenceEqual(["CANCEL"]));
         await Still("preparing");
         await Press(prep!, "CANCEL");

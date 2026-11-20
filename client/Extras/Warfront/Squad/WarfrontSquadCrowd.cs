@@ -149,7 +149,7 @@ public sealed partial class WarfrontSquadCrowd : Node3D
     static Label3D Tag(string name, Color colour, float height) => new()
     {
         Name = name, Position = new Vector3(0, 0, height), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, FontSize = 32, PixelSize = 0.0007f, FixedSize = true, Modulate = colour,
-        OutlineSize = 10, OutlineModulate = new Color(0, 0, 0, 0.9f), NoDepthTest = false, Font = UiKit.Font, Visible = false, DoubleSided = true,
+        OutlineSize = 10, OutlineModulate = new Color(0, 0, 0, 0.9f), NoDepthTest = false, Font = UiKit.ConceptFont(), Visible = false, DoubleSided = true,
     };
 
     WarfrontSquadClips ClipsOf(MarineAssets m, string key)

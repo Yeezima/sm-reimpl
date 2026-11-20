@@ -140,12 +140,14 @@ public sealed partial class WarfrontHubPanel : Control
             _last[lane] = Text("WarfrontLast" + lane, TextColumn, y + BoxTop + 34f, BodySize, TextWidth);
             _floor[lane] = Text("WarfrontFloor" + lane, TextColumn, y + BoxTop + 64f, BodySize, TextWidth);
             _laneNames[lane].Text = WarfrontHubModel.LaneName(lane);
+            UiKit.TextKind(_floor[lane], "progress");   // the lane's state line (a readout)
         }
         for (int row = 0; row < WarfrontHubModel.Rows; row++)
         {
             int r = row;
             var b = UiKit.MenuButton("Deploy", () => OnRow(r));
             b.Name = "WarfrontDeploy" + row;
+            UiKit.TextKind(b, "description");   // the target the row deploys to (lane, node, place)
             Place(b, Left, RowsTop + row * RowPitch, 1000f, RowPitch - 2f);
             WarfrontStyle.Plate(b, HeadingSize, 1000f);
             b.Alignment = HorizontalAlignment.Left;
@@ -153,6 +155,7 @@ public sealed partial class WarfrontHubPanel : Control
             _rows[row] = b;
         }
         _note = Text("WarfrontNote", Left, RowsTop + WarfrontHubModel.Rows * RowPitch + 20f, BodySize, 1200f);
+        UiKit.TextKind(_note, "progress");   // who is choosing, what the leader does next
         _partyHeading = Text("WarfrontPartyHeading", TextColumn, RowsTop, HeadingSize, TextWidth, WarfrontStyle.Gold);
         _partyHeading.Text = "PARTY";
         for (int i = 0; i < PartyRows; i++) _party[i] = Text("WarfrontParty" + i, TextColumn, RowsTop + 40f + i * 28f, BodySize, TextWidth);

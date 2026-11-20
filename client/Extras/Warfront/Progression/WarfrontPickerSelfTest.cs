@@ -26,6 +26,13 @@ public sealed partial class WarfrontPickerSelfTest : Node
 
     async Task Frames(int n = 3) { for (int i = 0; i < n; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
 
+    /// <summary>The text audit of the UI self-test (UiSelfTest.TextAudit.cs) on this screen: no visible text over five words, none with "click" or "press", unless registered with UiKit.TextKind.</summary>
+    void Audit(string screen, Node n)
+    {
+        var found = SmClient.FrontEnd.UiSelfTest.AuditText(n);
+        Check($"text audit: {screen} has no explainer text", found.Count == 0, string.Join(" | ", found.Take(6)));
+    }
+
     void Check(string name, bool ok, string detail = "")
     {
         if (ok) _passed++; else _failed++;
@@ -123,7 +130,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         Check("effect line shows the total after the pick", P.EffectLabel(0).Text.EndsWith("NOW +20 %, THEN +30 %") && P.EffectLabel(1).Text.EndsWith("NOW -8 %, THEN -16 %") && P.EffectLabel(5).Text.EndsWith("SQUAD 3 OF 9"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(3).Text}");
         Check("cooldown floor text", M.CardTotal(WarfrontCard.CooldownReduction) != "" && SmClientFloor());
         Check("owned counts", P.OwnedLabel(0).Text == "OWNED 2" && P.OwnedLabel(1).Text == "OWNED 1" && P.OwnedLabel(2).Text == "OWNED 1" && P.OwnedLabel(3).Text == "OWNED 0" && P.OwnedLabel(5).Text == "OWNED 2", string.Join("|", Enumerable.Range(0, 6).Select(i => P.OwnedLabel(i).Text)));
-        Check("fixed notes", P.TimeoutLabel.Text == "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" && P.ProtectedLabel.Text == "YOU CANNOT BE HARMED WHILE CHOOSING");
+        Check("fixed notes (the timeout rule is a hover hint on the countdown)", P.TimeoutHint == "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" && P.ProtectedLabel.Text == "YOU CANNOT BE HARMED WHILE CHOOSING");
         await Still("picker-retainer-slot4");
 
         // 4. Input: the D-pad moves, up picks nothing, 1-6 pick at once, resend 0.3 s.
@@ -235,6 +242,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         await Still("picker-fourth-stat-card");
 
         FitCheck("picker", P.Labels());
+        Audit("the card picker", P);
 
         GD.Print($"WFPICK SELFTEST RESULT passed={_passed} failed={_failed}");
         GetTree().Quit(_failed == 0 ? 0 : 1);

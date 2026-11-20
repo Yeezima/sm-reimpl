@@ -251,10 +251,9 @@ public sealed partial class FrontEndView
     internal void ShowWarfrontPrep()
     {
         _wfPrep?.QueueFree();
-        var page = new UiKit.MenuPage("WarfrontPreparing", WarfrontLocal.PageTitle) { Visible = false };
-        page.Rows.AddChild(UiKit.MenuText(WarfrontLocal.PreparingTitle, UiKit.White));
-        _wfStatus = UiKit.MenuText(WarfrontLocal.StartingText.ToUpperInvariant(), UiKit.Grey);
-        _wfStatus.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;   // a long server line ends with an ellipsis inside the column (the full line is the tooltip)
+        // The same frame as the page (owner, 2026-11-20): the title on the plate, the server's line and the clock as the frame's notes, CANCEL as a plate.
+        var page = new ConceptPanelPage("WarfrontPreparing", "", WarfrontLocal.PreparingTitle) { Visible = false };
+        _wfStatus = UiKit.TextKind(UiKit.MenuText(WarfrontLocal.StartingText.ToUpperInvariant(), UiKit.Grey), "progress");   // the server's own progress line
         _wfElapsed = UiKit.MenuText("0:00", UiKit.Grey);
         page.Rows.AddChild(_wfStatus);
         page.Rows.AddChild(_wfElapsed);
@@ -305,6 +304,7 @@ public sealed partial class FrontEndView
     /// <summary>Each frame: follows the server's start, fills the preparing screen, hides Warfront's pages when another page took over.</summary>
     void WarfrontTick()
     {
+        if (_wfPage is WarfrontPage wfPage && GodotObject.IsInstanceValid(wfPage)) wfPage.SetPlatesShown(!WarfrontConfirmOpen);   // the plates are top-level (they draw over everything): out of the way while the question is up
         if (_built) WarfrontAids();
         if (_page is not null && _page != _wfPage) WarfrontHidePages();   // another page took over (the front end sets _page; Warfront's pages leave it null)
         if (!_wfPending) return;

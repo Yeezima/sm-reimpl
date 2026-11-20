@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using SmClient.Customizer;
+using SmSim;
 
 namespace SmClient.FrontEnd;
 
@@ -21,7 +22,7 @@ public sealed partial class UiSelfTest
     }
 
     /// <summary>The audit's findings on a tree: each visible text that breaks the rule and is not registered.</summary>
-    static List<string> AuditText(Node root)
+    internal static List<string> AuditText(Node root)
     {
         var found = new List<string>();
         void Walk(Node n)
@@ -53,6 +54,14 @@ public sealed partial class UiSelfTest
         _front.ShowOptions(OptionsView.Graphics); await Frames(4); Audit("options", _front.Options);
         _front.ShowAppearance(); await Frames(4); Audit("appearance", _front.Appearance);
         _front.ShowMenuPage("lobby"); await Frames(4); Audit("lobby", _front.LobbyPage);
+        // The WARFRONT page (added content): the same audit on its frame, strip and plates.
+        if (ContentExtras.Compiled && ContentExtras.WarfrontCompiled)
+        {
+            _front.ShowMainMenu(); await Frames(3);
+            await PressRow("WARFRONT"); await Frames(4);
+            Audit("the Warfront page", _front.ExtrasPage);
+            _front.ShowMainMenu(); await Frames(2);
+        }
         _front.ShowCreator(); await Frames(2);
     }
 }

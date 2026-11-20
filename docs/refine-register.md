@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3886 spec table rows: **2840 tagged**, 689 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 829 rows of the changes document.
+Scanned 3892 spec table rows: **2843 tagged**, 692 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 830 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 3886 spec table rows: **2840 tagged**, 689 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
-| Core simulation (provisional values) | 867 | 821 | 647 | 239 | 1 |
+| Core simulation (provisional values) | 870 | 824 | 650 | 239 | 1 |
 | General game design | 37 | 36 | 29 | 2 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2840** | 2535 | 2155 | 827 | 37 |
+| **All areas** | **2843** | 2538 | 2158 | 827 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1652 |
+| kind: ours | 1655 |
 | confidence: low | 1047 |
-| confidence: medium | 997 |
+| confidence: medium | 1000 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
@@ -2872,7 +2872,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (867)
+### Core simulation (provisional values) (870)
 
 *Spec section: Provisional values in use*
 
@@ -3825,6 +3825,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1BAE1A29` | Nine-slice caps of a painted piece | per art name, left, top, right, bottom in the picture's own pixels: opt-plate-blank 40 each, opt-plate-gold-blank 44, opt-tab pieces 40 x 34 (gold 44 x 40), arm-row-dark 40 x 20, arm-row-gold 56 x 34, arm-tile-dark 64, arm-tile-gold 68, arm-confirm 96 x 48… (texture px) | kind: ours; confidence: medium | measured by eye from client/assets/ui/*.png | Nine-slice caps of a painted piece: compare with SM1 by feel or video. Ours: per art name, left, top, right, bottom in the picture's own pixels:… | ☐ |
 | `R-93CC71B1` | Install pictures in an icon well | centred at the largest whole-number scale that fits the well, nearest filter; a well smaller than the picture shrinks it with its mipmaps (linear), aspect kept; silhouettes and install pictures carry a mip chain (factor) | kind: ours | the owner (rule) | Install pictures in an icon well: compare with SM1 by feel or video. Ours: centred at the largest whole-number scale that fits the well, nearest… | ☐ |
 | `R-980C97D0` | Hover hint delay | **0.6 s** of the pointer or the focus resting on an option, then the hint shows on the dark painted plate (opt-plate-blank, the one lettering, caption size, the text inset) (s) | kind: ours; confidence: medium | the owner ("hidden until a player mouses over an option for a short amount of time"); 0.6 s ours | Hover hint delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.6 s of the pointer or the focus resting on an option, then the hint… | ☐ |
+
+*Spec section: Warfront UI pass (2026-11-20, client only; branch `claude/warfront-ui-1120`)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-BB688436` | WARFRONT page: scale | the layout is in 1920 x 1080 screen pixels measured from the window's centre and scales with the shared frame (`ConceptPanelPage.PanelScale` over its value at 1080p) (factor) | kind: ours; confidence: medium | ours | WARFRONT page: scale: compare with SM1 by feel or video. Ours: the layout is in 1920 x 1080 screen pixels measured from the window's… | ☐ |
+| `R-56FD289A` | Warfront panels (hub, travel, results, picker, squad, join, spectate, XP board, battle and squad… | one lettering (`UiKit.ConceptFont`), the one size table (headings 30, body and cells 24, banners 48, counters and column heads 18), the Steel palette (ink, dim, gold), and the scoreboard's painted pieces (`BoardStyle`: recessed table, dark header strip, cards… (px (design space)) | kind: ours; confidence: medium | the owner (rule); the assignments are ours | Warfront panels (hub, travel, results, picker, squad, join…: compare with SM1 by feel or video. Ours: one lettering (UiKit.ConceptFont), the one size table (headings 30… | ☐ |
+| `R-D450B463` | Warfront hints | the card picker's keys, the timeout rule, the squad rename hint, the score formula, COPY FOR DISCORD's note and the customizer way-in (JoinHint) are hover hints (0.6 s, `UiTooltip`), not text on the screen; OTHER PLAYERS' SQUADS (READ ONLY) is the heading… | kind: ours; confidence: medium | the owner (rule) | Warfront hints: compare with SM1 by feel or video. Ours: the card picker's keys, the timeout rule, the squad rename hint, the… | ☐ |
 
 *Spec section: Musou rejoin (2026-11-07, client only)*
 
@@ -5952,6 +5960,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-756A9770` | Warfront: melee cleave (2026-11-18, added content); not in SM1 | owner's numbers: for human players and their retainers only, melee cleave reach x1.2 (the Dreadnought x1.4), no cap on enemies struck, an Ork struck when his collision overlaps the volume; the collision reading (radius from the feet) ours | server `World.WarfrontCleave`, drawn arc and prediction through `MusouCleaveShape.Of`; Classic and Musou Mode unchanged | spec "Warfront melee cleave" | Warfront: melee cleave (2026-11-18, added content); not in…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-D8672FA6` | Warfront performance pass (2026-11-18, added content); not in SM1 | the far tier's Ork meshes get index-only levels of detail on Warfront servers (4 px threshold since 2026-11-18, `--no-crowd-lod` restores the full mesh; far Orks cast no sun shadows; 1200 visible Orks instead of 1800), and the 30 s run autosave is written off the tick thread | ours (the owner: "performance in warfront wasn't great"); spec "Warfront: client crowd levels of detail and the autosave off the tick" | ours | Warfront performance pass (2026-11-18, added content); not…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8389D1A1` | UI core pass (2026-11-20; client only) | Ours (the owner's brief): text keeps a 4 x 2 concept px inset inside every painted plate and steps down one size level, then wraps, instead of touching the border or being cut; painted plates keep their end caps (nine-slice caps per piece, the picture is no longer squeezed whole); install item pictures are drawn at a… | not in SM1 | "Text inset, nine-slice caps, item pictures and hover hints" | UI core pass (2026-11-20; client only): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-DFC4ECA6` | Warfront UI pass (2026-11-20; client only, added content) | Ours (the owner's brief): the WARFRONT page wears the shared concept frame with a status strip (deployments, fronts, level), one centred column of plates and the gold CONTINUE plate widened to 420 px; PREPARING THE BATTLEFIELD uses the same frame; every Warfront panel (ship hub, travel, results, card picker, squad… | Classic PvP and Musou unchanged; no wire change | spec "Warfront UI pass" | Warfront UI pass (2026-11-20; client only, added content): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

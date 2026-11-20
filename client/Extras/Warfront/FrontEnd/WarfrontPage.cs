@@ -91,6 +91,13 @@ sealed partial class WarfrontPage : ConceptPanelPage
         Place();
     }
 
+    /// <summary>Shows or hides the column and the main plate (they are top-level controls and would draw over a dialog).</summary>
+    public void SetPlatesShown(bool shown)
+    {
+        foreach (var b in _column) if (b.Visible != shown) b.Visible = shown;
+        if (_main is not null && _main.Visible != shown) _main.Visible = shown;
+    }
+
     protected override void Place()
     {
         base.Place();
