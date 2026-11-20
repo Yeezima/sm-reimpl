@@ -153,13 +153,13 @@ public sealed partial class MenuVideoBackground : Control
     }
 
     /// <summary>
-    /// The main menu's framing (ui/concept-redesign, 2026-11-15): the concept's overlay covers the left half of the screen, so the video is enlarged by <see cref="MainMenuZoom"/> (1.33x the covering size since 2026-11-20, about pixel for pixel at 1080p with the 2560 x 1440 file; 1.6x before) and
+    /// The main menu's framing (ui/concept-redesign, 2026-11-15): the concept's overlay covers the left half of the screen, so the video is enlarged by <see cref="MainMenuZoom"/> (1.2x the covering size since 2026-11-20, the least that lets the pan put the Marine's body, at 0.42 of the picture's width, in the middle of the window; 1.6x before) and
     /// panned so that its focus point (<see cref="FocusU"/>, <see cref="FocusV"/>: the middle of the Marine and the tower with its god rays, measured on the video's frames: the Marine at about 0.37 to 0.46 of its
     /// width, the tower at 0.50 to 0.63) lands at <see cref="FocusX"/>, <see cref="FocusY"/> of the window, centred in the part right of the overlay. The picture always covers the window (no black edge at any aspect ratio).
     /// Other screens show the picture as it was made.
     /// </summary>
     public bool MainMenuFraming { get => _framing; set { if (_framing == value) return; _framing = value; Fit(); } }
-    public const float DefaultMainMenuZoom = 1.33f, FocusU = 0.49f, FocusV = 0.565f, FocusX = 0.72f, FocusY = 0.5f;
+    public const float DefaultMainMenuZoom = 1.2f, FocusU = 0.42f, FocusV = 0.5f, FocusX = 0.5f, FocusY = 0.5f;
 
     /// <summary>The main menu's zoom: <see cref="DefaultMainMenuZoom"/>, or <c>--menu-zoom &lt;f&gt;</c> (1.0 = the whole frame on a 16:9 window, 1.6 = the 2026-11-15 framing; at 16:9 the zoom 1.33 pans to the left edge, so the focus point is only reached from about 1.6; at least 1, so the picture covers the window).</summary>
     public static float MainMenuZoom { get; } = ParseZoom(OS.GetCmdlineUserArgs());
@@ -182,8 +182,7 @@ public sealed partial class MenuVideoBackground : Control
         // On a wider window than 16:9 the covering size already crops the picture's height, so the zoom shrinks with the aspect to keep the same part of the picture in view (the Marine's feet and the tower's top).
         float zoom = Mathf.Max(1f, MainMenuZoom * Mathf.Min(1f, (16f / 9f) / (box.X / box.Y)));
         var size = r.Size * zoom;
-        // A narrower window than 16:9 gives the overlay more of the width: the Marine moves right so his backpack stays clear of the frame (Opus review 1, 5:4).
-        float focusX = Mathf.Lerp(FocusX, 0.85f, Mathf.Clamp(((16f / 9f) - box.X / box.Y) / 0.55f, 0f, 1f));
+        float focusX = FocusX;   // the Marine stays in the middle (the menu is a small group in the bottom left corner)
         var pos = new Vector2(focusX * box.X - size.X * FocusU, FocusY * box.Y - size.Y * FocusV);
         pos.X = Mathf.Clamp(pos.X, box.X - size.X, 0f);
         pos.Y = Mathf.Clamp(pos.Y, box.Y - size.Y, 0f);
