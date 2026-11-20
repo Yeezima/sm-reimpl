@@ -151,7 +151,7 @@ public sealed partial class UiSelfTest : Node
         assaultRow?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(3);
         Check("choosing a class creates it", session.Working.ClassAt(4)?.Role == "assault");
-        Check("the session is dirty and Save is enabled", session.Dirty && FindButton(creator, b => b.Text.StartsWith("SAVE", StringComparison.OrdinalIgnoreCase))?.Disabled == false);
+        Check("the session is dirty and Save is enabled", session.Dirty && creator.UnsavedLine == "UNSAVED CHANGES");
 
         // 2. the pistol-slot bolter needs True Grit.
         creator.OpenStep("weapons");
@@ -197,8 +197,10 @@ public sealed partial class UiSelfTest : Node
         await Frames(3);
         Check("the pistol Bolter is back", session.Working.ClassAt(4)?.Pistol is not null);
 
-        // 3. rename through the prompt.
-        Click(b => b.Text.StartsWith("Rename", StringComparison.OrdinalIgnoreCase));
+        // 3. rename through the prompt (the SLOTS tab's plate; the dock is gone).
+        creator.ShowArmTab(true);
+        await Frames(3);
+        Click(b => b.Name == "ArmToolRename");
         await Frames(3);
         var edit = FindEdit(_front);
         Check("the rename prompt opens", edit is not null);
@@ -207,7 +209,7 @@ public sealed partial class UiSelfTest : Node
         Check("the loadout is renamed (trimmed)", session.Working.ClassAt(4)?.Name == "Zed the Bold", session.Working.ClassAt(4)?.Name ?? "null");
 
         // 4. copy to slot 7.
-        Click(b => b.Text.StartsWith("Copy to", StringComparison.OrdinalIgnoreCase));
+        Click(b => b.Name == "ArmToolCopy");
         await Frames(3);
         edit = FindEdit(_front);
         if (edit is not null) { edit.Text = "7"; edit.EmitSignal(LineEdit.SignalName.TextSubmitted, "7"); }
@@ -215,7 +217,7 @@ public sealed partial class UiSelfTest : Node
         Check("copy to slot 7", session.Working.ClassAt(7)?.Name == "Zed the Bold (copy)", session.Working.ClassAt(7)?.Name ?? "null");
 
         // 5. save writes the file and clears the unsaved mark.
-        Click(b => b.Text.StartsWith("SAVE", StringComparison.OrdinalIgnoreCase));
+        creator.PressSave();
         await Frames(3);
         Check("save writes the profile file", System.IO.File.Exists(_services.Store.ProfilePath) && !session.Dirty);
         var reloaded = ProfileSession.Open(catalog, _services.Store);
@@ -224,12 +226,12 @@ public sealed partial class UiSelfTest : Node
         // 6. set active and clear.
         creator.OpenSelection(Selection.CustomSlot(4));
         await Frames(3);
-        Click(b => b.Text.Equals("SET ACTIVE", StringComparison.OrdinalIgnoreCase));
+        creator.PressSetActive();
         await Frames(3);
         Check("set active selects slot 4", session.Working.Selected == Selection.CustomSlot(4));
         creator.OpenSelection(Selection.CustomSlot(7));
         await Frames(3);
-        Click(b => b.Text.Equals("Clear", StringComparison.OrdinalIgnoreCase));
+        Click(b => b.Name == "ArmToolClear");
         await Frames(3);
         Check("clear asks first", OpenDialog() is not null);
         ClickDialog("Clear");
@@ -240,13 +242,13 @@ public sealed partial class UiSelfTest : Node
         session.Save();
         creator.OpenSelection(Selection.CustomSlot(4));
         await Frames(3);
-        var resetButton = Click(b => b.Text.Equals("Reset", StringComparison.OrdinalIgnoreCase));
+        var resetButton = Click(b => b.Name == "ArmToolReset");
         await Frames(3);
         Check("reset asks first", resetButton is { Disabled: false } && OpenDialog() is not null, $"disabled={resetButton?.Disabled}");
         ClickDialog("Reset");
         await Frames(4);
         Check("reset makes the slot dirty", session.Dirty);
-        Click(b => b.Text.Equals("Revert", StringComparison.OrdinalIgnoreCase));
+        creator.PressRevert();
         await Frames(3);
         ClickDialog("Revert");
         await Frames(4);
@@ -257,9 +259,8 @@ public sealed partial class UiSelfTest : Node
         await Frames(3);
         creator.Back();
         await Frames(4);
-        var dialog = OpenDialog();
-        Check("leaving with edits asks Save / Discard / Cancel", dialog is not null && new[] { "Save", "Discard", "Cancel" }.All(t => FindButton(dialog, b => b.Text.Equals(t, StringComparison.OrdinalIgnoreCase)) is not null));
-        ClickDialog("Discard");
+        Check("leaving with edits asks KEEP CHANGES / DISCARD on the page", creator.BackPromptOpen && FindButton(creator, b => b.Name == "ArmKeepChanges") is not null && FindButton(creator, b => b.Name == "ArmDiscard") is not null && OpenDialog() is null);
+        Click(b => b.Name == "ArmDiscard");
         await Frames(4);
         Check("Discard reverts and shows the main menu", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsMainMenu);
 
@@ -670,7 +671,7 @@ public sealed partial class UiSelfTest : Node
         Check("choosing a perk on DEFAULTS makes an editable copy with it", session.Working.ClassAt(second) is { Role: "tactical" } t && t.Perk(0) == "mp_perk_shield_recharge", string.Join(",", session.Working.ClassAt(second)?.Perks ?? []));
 
         // Reverting the copy goes back to the DEFAULTS it came from, not to an empty slot.
-        Click(b => b.Text.Equals("Revert", StringComparison.OrdinalIgnoreCase));
+        creator.PressRevert();
         await Frames(3);
         ClickDialog("Revert");
         await Frames(4);

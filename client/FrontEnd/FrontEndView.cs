@@ -735,7 +735,8 @@ public sealed partial class FrontEndView : Control
         if (args.GetValueOrDefault("role") is { } role && LaunchOptions.ParseLoadout("default:" + role, _services.Catalog!) is { } selection) _creator?.OpenSelection(selection);
         if (args.GetValueOrDefault("step") is { } step) _creator?.OpenStep(step);
         if (args.GetValueOrDefault("show-tooltip") is { Length: > 0 } tipName)   // screenshot aid: the hover hint of a named control, shown after a second
-            GetTree().CreateTimer(1.5).Timeout += () => { var tipControl = FindChild(tipName, true, false) as Control; if (tipControl is not null) UiTooltip.ShowNow(tipControl); };
+            GetTree().CreateTimer(0.2).Timeout += () => { var tipControl = FindChild(tipName, true, false) as Control; if (tipControl is not null) UiTooltip.ShowNow(tipControl); };
+        if (args.ContainsKey("arm-back-prompt")) GetTree().CreateTimer(0.1).Timeout += () => _creator?.ShowBackPromptDemo();   // screenshot aid: BACK with an unsaved edit, so the KEEP CHANGES / DISCARD prompt shows
         if (args.GetValueOrDefault("arm-tab") is { } armTab) _creator?.ShowArmTab(armTab.StartsWith("s", StringComparison.OrdinalIgnoreCase));   // screenshot aid: the Armoury's CLASS or SLOTS tab
         if (args.GetValueOrDefault("preview-side") is { } side) _creator?.SetPreviewRace(side.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine);
         if (_appearance?.Visible == true)

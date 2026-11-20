@@ -31,7 +31,8 @@ public sealed partial class CreatorView
     Control? _armRows, _armWeapon, _armTilesHost, _armInfo, _armTopRow;
     Button? _armConfirm, _armBack, _armWeaponBtn;
     ScrollContainer? _armStripScroll;
-    HFlowContainer? _armDock;
+    Button? _armDeploy;
+    readonly List<Button> _armTools = new();
     readonly List<Button> _armTileButtons = new();
     string _armSig = "";
     float _armScale;
@@ -91,7 +92,7 @@ public sealed partial class CreatorView
         var holder = new Control { Name = "ArmouryHidden", Visible = false }; AddChild(holder);
         var pills = new HBoxContainer { Name = "ArmouryPills" }; pills.AddThemeConstantOverride("separation", 2);
         foreach (var sb in _stepButtons) Move(sb, holder);   // the steps stay (keys, tests, added pages) but the cards open them
-        Button Tab(string text, string tip, Action press) { var t = new Button { Text = text, ToggleMode = true, FocusMode = FocusModeEnum.All, TooltipText = tip, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill }; t.Pressed += () => press(); pills.AddChild(t); return t; }
+        Button Tab(string text, string tip, Action press) { var t = new Button { Text = text, ToggleMode = true, FocusMode = FocusModeEnum.All, ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill }; UiTooltip.Attach(t, tip); t.Pressed += () => press(); pills.AddChild(t); return t; }
         _armTabClass = Tab("CLASS", "The class list", () => { _armSlotsTab = false; ArmouryDirty(); });
         _armTabSlots = Tab("SLOTS", "DEFAULTS and CUSTOM 1 to 10: pick a loadout slot", () => { _armSlotsTab = true; ArmouryDirty(); });
         _armTabLook = Tab("ARMOUR & PAINT", "The armour pieces, colours, badges and eyes of this loadout (the appearance editor)", () => { _armTabLook!.ButtonPressed = false; OpenAppearance(); });
@@ -127,29 +128,45 @@ public sealed partial class CreatorView
         _armConfirm.Pressed += ConfirmLoadout; _armCanvas.AddChild(_armConfirm);
         _armBadge = Tex("ArmouryBadge", "arm-badge", _armCanvas);
         _armBadgeText = new Label { MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }; _armCanvas.AddChild(_armBadgeText);
-        _armDock = new HFlowContainer { Name = "ArmouryDock" };
-        _armDock.AddThemeConstantOverride("h_separation", 3); _armDock.AddThemeConstantOverride("v_separation", 3);
-        _armCanvas.AddChild(_armDock);
-        foreach (var b in new Button?[] { _rename, _copy, _reset, _clear, _revert, _save, _setActive, _look, _deployButton }) if (b is not null) { b.CustomMinimumSize = Vector2.Zero; Move(b, _armDock); }
-        Move(_unsaved, _armDock); Move(_status, _armDock);
-        _status.SizeFlagsHorizontal = SizeFlags.ShrinkBegin; _status.ClipText = false;
-        // BACK and LEAVE MATCH (the old back button is the concept's BACK plate).
+        // The dock under the preview is gone (owner, 2026-11-20): its buttons stay in the hidden box (their keys F2 and Ctrl+S, the self-test and an added page's code reach them); the slot tools are plates of the SLOTS tab,
+        // DEPLOY a plate under the item card in a match, and the line under the item card says UNSAVED CHANGES.
+        foreach (var b in new Button?[] { _rename, _copy, _reset, _clear, _revert, _save, _setActive, _look, _deployButton }) if (b is not null) { b.CustomMinimumSize = Vector2.Zero; Move(b, holder); }
+        Move(_unsaved, holder); Move(_status, _armCanvas);
+        _status.SizeFlagsHorizontal = SizeFlags.Fill; _status.ClipText = true; _status.HorizontalAlignment = HorizontalAlignment.Center; _status.MouseFilter = MouseFilterEnum.Ignore;
+        foreach (var (name, text, tip, act) in new (string, string, string, Action)[] { ("ArmToolRename", "RENAME", "Rename this loadout (F2)", RenameSlot), ("ArmToolCopy", "COPY", "Copy this loadout to another slot", CopySlot), ("ArmToolReset", "RESET", "Put this loadout back to the class defaults", ResetSlot), ("ArmToolClear", "CLEAR", "Empty this slot", ClearSlot) })
+        {
+            var tb = new Button { Name = name, Text = text, FocusMode = FocusModeEnum.All, Visible = false }; UiTooltip.Attach(tb, tip); tb.Pressed += () => act(); _armCanvas.AddChild(tb); _armTools.Add(tb);
+        }
+        _armDeploy = new Button { Name = "ArmDeploy", Text = "DEPLOY", FocusMode = FocusModeEnum.All, Visible = false }; UiTooltip.Attach(_armDeploy, "Save, make this loadout active and respawn with it now"); _armDeploy.Pressed += PressDeploy; _armCanvas.AddChild(_armDeploy);
+        // BACK (the old back button is the concept's BACK plate); LEAVE MATCH is the Esc menu's row.
         Move(_backButton!, _armCanvas); _armBack = _backButton;
-        if (_leaveButton is not null) Move(_leaveButton, _armDock);
+        if (_leaveButton is not null) Move(_leaveButton, holder);
         _armBack!.CustomMinimumSize = Vector2.Zero;
         _armCanvas.MoveChild(_armWings, _armCanvas.GetChildCount() - 1);
         Callable.From(LayoutArmoury).CallDeferred();
     }
 
-    /// <summary>CONFIRM LOADOUT: saves and sets the open loadout active; in a match it saves and deploys; an added page (the Librarian) saves and deploys.</summary>
+    /// <summary>
+    /// CONFIRM LOADOUT (owner, 2026-11-20): saves, sets the open loadout active and returns to the CLASS tab with the LOADOUT slot cards (a choice list closes). In a match it does the same and does not deploy: the loadout
+    /// applies at the next respawn (DEPLOY respawns at once). On DEFAULTS it only sets active (defaults are never saved over). An added page (the Librarian) saves and deploys as before.
+    /// </summary>
     public void ConfirmLoadout()
     {
         if (AddedPage) { Save(); if (Deploy is not null) PressDeploy(); return; }
         if (IsEmpty) { Say("Choose a class for this slot first."); return; }
-        if (Deploy is not null) { Save(); PressDeploy(); return; }
-        SetActive();
-        Save();
+        SetActive();   // in a match this also saves and sends it for the next respawn (NetworkView.Loadout.cs)
+        if (Activate is null) Save();
+        _armSlotsTab = false; _armPicking = false;
+        ArmouryDirty();
     }
+
+    /// <summary>Test aids for the buttons the dock used to hold (their keys are F2 and Ctrl+S; the Armoury has no plates for save and revert): the same code paths.</summary>
+    public void PressSave() => Save();
+    public void PressRevert() => RevertAll();
+    /// <summary>The line under the item card as shown ("UNSAVED CHANGES" or ""), test aid.</summary>
+    public string UnsavedLine => _summary.Text;   // a status message may hide the line for a few seconds; the text is the state
+    /// <summary>The slot tools of the page (test aid): their names are ArmToolRename, ArmToolCopy, ArmToolReset and ArmToolClear; DEPLOY is ArmDeploy, CONFIRM LOADOUT ConfirmLoadout.</summary>
+    public IReadOnlyList<Button> ArmTools => _armTools;
 
     (float S, Vector2 O) ArmMap()
     {
@@ -264,7 +281,9 @@ public sealed partial class CreatorView
         foreach (var role in _tabRoles)
         {
             string r = role; string label = OrkLoadout.IsOrk(role) ? OrkLoadout.ClassName : LoadoutRows.ClassName(_catalog, role, _previewRace); string lower = (role + " " + label).ToLowerInvariant();
-            string? icon = lower.Contains("tact") ? "arm-ico-tactical" : lower.Contains("assault") || lower.Contains("raptor") ? "arm-ico-assault" : lower.Contains("dev") || lower.Contains("hav") ? "arm-ico-devastator" : lower.Contains("ork") ? "glyph-ork" : null;
+            // The owner's own class emblems (2026-11-20): the loyalist set on the Space Marine side, the Chaos set on the Chaos side; the Ork Boy keeps his glyph.
+            bool chaos = _previewRace == SmContent.CustomizationCatalog.Chaos;
+            string? icon = lower.Contains("ork") ? "glyph-ork" : lower.Contains("tact") ? (chaos ? "emblem-chaos-tactical" : "emblem-tactical") : lower.Contains("assault") || lower.Contains("raptor") ? (chaos ? "emblem-chaos-assault" : "emblem-assault") : lower.Contains("dev") || lower.Contains("hav") ? (chaos ? "emblem-chaos-havoc" : "emblem-devastator") : null;
             rows.Add(new ArmClass(label.ToUpperInvariant(), icon, !IsEmpty && r.Equals(Role, StringComparison.OrdinalIgnoreCase), () => ChooseRole(r), RoleLabel(role)));
         }
         ExtrasArmouryClasses(rows);   // EXTRAS-HOOK: the Librarian's row first
@@ -286,21 +305,31 @@ public sealed partial class CreatorView
         Put(_armWeapon!, UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName));
         Put(_armTilesHost!, new Rect2(36, 276, 238, 74));
         Put(_armTopRow!, new Rect2(296, 70, 246, 20));   /* the faction tabs stand right over the preview they switch (Opus review 1) */ _sideToggle.Position = Vector2.Zero; _sideToggle.Size = _armTopRow!.Size;
-        Put(_armStripScroll!, new Rect2(40, 124, 234, 224)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); if (_armWell.GetIndex() > _armStripScroll.GetIndex()) _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex());   /* the well under the chips, once: moving it to the chips' index every layout swapped the two each time, which made the slots flash (owner, 2026-11-18) */ 
+        Put(_armStripScroll!, new Rect2(40, 124, 234, 196)); _armWeapon!.Visible = !_armSlotsTab; _armTilesHost!.Visible = !_armSlotsTab; _strip.Wrap = true; _strip.SizeFlagsHorizontal = SizeFlags.ExpandFill; _armStripScroll!.Visible = _armSlotsTab; _armRows!.Visible = !_armSlotsTab; _armWell!.Visible = _armSlotsTab; Put(_armWell, new Rect2(38, 121, 238, 229)); if (_armWell.GetIndex() > _armStripScroll.GetIndex()) _armCanvas.MoveChild(_armWell, _armStripScroll.GetIndex());   /* the well under the chips, once: moving it to the chips' index every layout swapped the two each time, which made the slots flash (owner, 2026-11-18) */ 
         bool hasSlots = (detail0.Slots?.Count ?? 0) > 0; bool slotMode = !_armPicking && hasSlots;
         _armSlotScroll!.Visible = slotMode; _scroll.Visible = !slotMode; _armPickBack!.Visible = !slotMode && hasSlots;
         Put(_armSlotScroll, new Rect2(549, 93, 222, 223));   /* whole cards only: three of 78 */ Put(_armPickBack, new Rect2(712, 76, 52, 14));
         Put(_armInfo!, new Rect2(296, 68, 246, 24)); _armInfo!.Visible = false;   // the "ACTIVE:" line is not in the concept; the active loadout is the badge and the summary line
         Put(_scroll, new Rect2(549, 93, 222, 223)); Put(_armColumnTitle!, new Rect2(551, 77, 212, 14));
-        Put(_summary, new Rect2(272, 380, 370, 13)); _summary.Visible = false;   // the DEFAULTS summary line is not shown (owner, 2026-11-20: no descriptor text on the screens)
-        Put(_armDock!, new Rect2(272, 395, 374, 40));
+        // The line under the item card (owner, 2026-11-20): UNSAVED CHANGES only while there are unsaved changes, else empty; a message (Saved., a refusal) takes its place for a few seconds.
+        _summary.Text = _unsaved.Text.Length > 0 ? "UNSAVED CHANGES" : ""; _summary.HorizontalAlignment = HorizontalAlignment.Center;
+        Put(_summary, new Rect2(272, 380, 370, 13)); Put(_status, new Rect2(272, 380, 370, 13));
+        _status.Visible = _status.Text.Length > 0; _summary.Visible = !_status.Visible && _summary.Text.Length > 0;
+        // RENAME, COPY, RESET, CLEAR: four plates under the chip grid, inside the well, on the highlighted slot; DEPLOY under the item card, in a match.
+        for (int i = 0; i < _armTools.Count; i++)
+        {
+            var tool = _armTools[i]; Put(tool, new Rect2(47f + i * 56f, 324f, 52f, 22f));
+            tool.Visible = _armSlotsTab && !AddedPage;
+            tool.Disabled = i == 1 ? IsEmpty : OpenClass is null;   // copy takes any filled slot; rename, reset and clear need a custom class in the slot
+        }
+        _armDeploy!.Visible = Deploy is not null && !AddedPage; Put(_armDeploy, new Rect2(330, 398, 178, 30)); _armDeploy.Disabled = IsEmpty;
         var rightBox = _preview.GetParent<Control>(); Put(rightBox, new Rect2(296, 94, 246, 284));
         Put(_armSteps!, UiTextureBuilder.ArmHeader);
         Put(_armConfirm!, UiTextureBuilder.ArmConfirm);
         Put(_armBack!, UiTextureBuilder.ArmBack);
         string badge = "CLASSIC PVP"; ExtrasArmouryBadge(ref badge);   // EXTRAS-HOOK: the mode badge
         var detail = detail0; _armDetailNow = detail; var classes = ArmouryClasses();
-        string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length + string.Join("", _strip.Chips.Select(c => c.GetInstanceId())) + _armSlotsTab + _armPicking + string.Join("|", detail.Slots?.Select(x => x.Slot + x.Value) ?? []);
+        string sig = string.Join("|", classes.Select(c => c.Label + c.Selected)) + "#" + detail.Weapon + string.Join("|", detail.Tiles.Select(t => t.Label + t.Selected)) + "#" + badge + "#" + string.Join("|", _stepButtons.Select(b => b.Text + b.Visible)) + "#" + string.Join("|", _list.GetChildren().Select(c => c.GetInstanceId())) + "#" + Mathf.Round(s * 1000f) + "#" + _unsaved.Text.Length + string.Join("", _strip.Chips.Select(c => c.GetInstanceId())) + _armSlotsTab + _armPicking + string.Join("|", detail.Slots?.Select(x => x.Slot + x.Value) ?? []) + (Deploy is not null) + AddedPage;
         if (sig == _armSig) return;
         _armSig = sig; _armScale = s; _armPendingTries = 0;   // a real change of the page re-arms the wait for install art
         StyleArmoury(s, classes, detail, badge);
@@ -391,7 +420,7 @@ public sealed partial class CreatorView
         PaintedButtons.FitGroup(classNames, ArmUnit(ArmNameSize));   // the four rows share one size
         // ---- the weapon row ----
         var wb = _armWeaponBtn!; var wr = UiTextureBuilder.ArmWeaponIcon.Merge(UiTextureBuilder.ArmWeaponName);
-        wb.Position = Vector2.Zero; wb.Size = wr.Size * s; wb.Text = detail.Weapon; wb.TooltipText = detail.Weapon;
+        wb.Position = Vector2.Zero; wb.Size = wr.Size * s; wb.Text = detail.Weapon; UiTooltip.Attach(wb, detail.Weapon);
         wb.AddThemeStyleboxOverride("normal", new StyleBoxEmpty()); wb.AddThemeStyleboxOverride("hover", new StyleBoxEmpty()); wb.AddThemeStyleboxOverride("pressed", new StyleBoxEmpty()); wb.AddThemeStyleboxOverride("disabled", new StyleBoxEmpty());
         wb.AddThemeStyleboxOverride("focus", PaintedButtons.Ring(s, 0.5f));
         foreach (var n in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color", "font_disabled_color" }) wb.AddThemeColorOverride(n, Colors.Transparent);
@@ -410,7 +439,7 @@ public sealed partial class CreatorView
         for (int i = 0; i < 3 && i < detail.Tiles.Count; i++)
         {
             var t = detail.Tiles[i];
-            var b = new Button { Text = t.Label, ToggleMode = true, FocusMode = FocusModeEnum.All, Name = "ArmTile" + i, TooltipText = t.Label };
+            var b = new Button { Text = t.Label, ToggleMode = true, FocusMode = FocusModeEnum.All, Name = "ArmTile" + i }; UiTooltip.Attach(b, t.Label);
             b.Position = new Vector2(tx[i], 5f) * s; b.Size = new Vector2(74f, 66f) * s; b.ButtonPressed = t.Selected; b.ClipText = true; b.CustomMinimumSize = Vector2.Zero;
             var press = t.Press; b.Pressed += () => press();
             _armTilesHost.AddChild(b); _armTileButtons.Add(b);
@@ -423,16 +452,25 @@ public sealed partial class CreatorView
         }
         PaintedButtons.FitGroup(tileLabels, ArmUnit(ArmTileSize));   // the three tiles share one size
         // ---- the header tab strip: CLASS, SLOTS, ARMOUR & PAINT ----
-        var tabFit = new List<(Control, string, float)>();
-        _armTabClass!.SetPressedNoSignal(!_armSlotsTab); _armTabSlots!.SetPressedNoSignal(_armSlotsTab);
-        foreach (var b in new[] { _armTabClass, _armTabSlots, _armTabLook! })
+        // The three tabs keep the caption size they always had (owner, 2026-11-20): the strip's width is shared by what each label needs (stretch ratios), not in equal thirds, so ARMOUR & PAINT fits at that size.
+        var tabs = new[] { _armTabClass!, _armTabSlots!, _armTabLook! };
+        _armTabClass.SetPressedNoSignal(!_armSlotsTab); _armTabSlots.SetPressedNoSignal(_armSlotsTab);
+        var tabNeed = new List<(Button B, float Text, float Margin)>();
+        foreach (var b in tabs)
         {
             b.CustomMinimumSize = Vector2.Zero; b.Alignment = HorizontalAlignment.Center;
             PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
             ArmText(b, ArmPillSize + 1f, s, ArmLight, ArmDark);
-            tabFit.Add((b, b.Text, UiTextureBuilder.ArmHeader.Size.X / 3f * s - b.GetThemeStylebox("normal").GetMinimumSize().X));
+            tabNeed.Add((b, PaintedButtons.Width(b.GetThemeFont("font"), b.Text, ArmUnit(ArmPillSize + 1f)), b.GetThemeStylebox("normal").GetMinimumSize().X));
         }
-        PaintedButtons.FitGroup(tabFit, ArmUnit(ArmPillSize + 1f));   // the three tabs share the size the longest needs
+        float tabTotal = UiTextureBuilder.ArmHeader.Size.X * s - 2f * (tabs.Length - 1), tabSum = tabNeed.Sum(n => n.Text + n.Margin);
+        var tabFit = new List<(Control, string, float)>();
+        foreach (var (b, text, margin) in tabNeed)
+        {
+            b.SizeFlagsStretchRatio = text + margin;
+            tabFit.Add((b, b.Text, tabTotal * (text + margin) / Mathf.Max(1f, tabSum) - margin));
+        }
+        PaintedButtons.FitGroup(tabFit, ArmUnit(ArmPillSize + 1f));   // the three tabs share the size the longest needs: the caption size while the strip has the room for it
         PaintedButtons.Apply(_armPickBack!, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1), new PaintedButtons.Pad(1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s); ArmText(_armPickBack, ArmPillSize + 1f, s, ArmLight, ArmDark);
         BuildArmSlotCards(s, detail);
         // The SLOTS tab: a dark well with the chips as plates (one lettering; the open loadout's chip gold; the state words in the tooltip, the star kept).
@@ -462,20 +500,21 @@ public sealed partial class CreatorView
         ArmPlate(_armBack!, "arm-back", "arm-back", default, default, s, false);
         ArmText(_armBack, ArmBackSize, s, ArmLight, ArmLight);
         ArmLabel(_armBadgeText!, ArmBadgeSize, s, ArmLight); _armBadgeText.Text = badge;
-        // ---- the dock's plates and the lines ----
-        foreach (var c in _armDock!.GetChildren())
+        // ---- the slot tools, DEPLOY and the lines under the item card ----
+        var toolFit = new List<(Control, string, float)>();
+        foreach (var tb in _armTools)
         {
-            if (c is Button b)
-            {
-                b.AddThemeConstantOverride("h_separation", 0);
-                b.CustomMinimumSize = new Vector2(0, 17f * s);
-                PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
-                ArmText(b, ArmPlateSize * 0.86f, s, ArmLight, ArmDark); b.AddThemeFontSizeOverride("font_size", ArmPx(ArmPlateSize * 0.86f));
-            }
-            else if (c is Label l) ArmLabel(l, ArmPlateSize, s, ArmLight);
+            tb.AddThemeConstantOverride("h_separation", 0);
+            PaintedButtons.Apply(tb, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
+            ArmText(tb, ArmPlateSize * 0.86f, s, ArmLight, ArmDark);
+            toolFit.Add((tb, tb.Text, 52f * s - tb.GetThemeStylebox("normal").GetMinimumSize().X));
         }
+        PaintedButtons.FitGroup(toolFit, ArmUnit(ArmPlateSize * 0.86f));   // the four share one size
+        ArmPlate(_armDeploy!, "arm-back", "arm-back", default, default, s, false);
+        ArmText(_armDeploy, ArmBackSize, s, ArmLight, ArmLight); _armDeploy.ClipText = false;
         foreach (var l in new[] { _summary, _activeLabel, _banner }) ArmLabel(l, 8.8f, s, ArmDim);
         ArmLabel(_banner, 8.8f, s, new Color(0.97f, 0.82f, 0.4f));
+        ArmLabel(_summary, 8.8f, s, new Color(0.97f, 0.82f, 0.4f)); ArmLabel(_status, 8.8f, s, ArmLight);
         _summary.ClipText = true;
         // The faction / mode pills above the preview.
         foreach (var b in _sideToggle.GetChildren().OfType<Button>())
@@ -499,7 +538,7 @@ public sealed partial class CreatorView
         var slotCaps = new List<(Control, string, float)>(); var slotVals = new List<(Control, string, float)>();
         foreach (var slot in detail.Slots)
         {
-            var b = new Button { Text = slot.Slot + ": " + slot.Value, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s * k), TooltipText = slot.Slot + ": " + slot.Value, ClipText = true, Name = "ArmSlot" + _armSlotList.GetChildCount() };
+            var b = new Button { Text = slot.Slot + ": " + slot.Value, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, UiTextureBuilder.ArmCard.Size.Y * s * k), ClipText = true, Name = "ArmSlot" + _armSlotList.GetChildCount() }; UiTooltip.Attach(b, slot.Slot + ": " + slot.Value);
             var press = slot.Press; b.Pressed += () => press();
             PaintedButtons.CapStyle Box(Color mod) { var cs = PaintedButtons.Box(card, "arm-card", default, s, mod, s); cs.ContentMarginTop = 0; cs.ContentMarginBottom = 0; return cs; }   // the card's text is the labels below: no margin may hold the card open
             var gold = new Color(1.3f, 1.12f, 0.78f);

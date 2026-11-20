@@ -59,6 +59,32 @@ public sealed partial class UiSelfTest
         await Frames(6);
         var active = LoadoutEdits.Active(session.Working, catalog, out _);
         Check("armoury: CONFIRM LOADOUT sets the open loadout active and saves it", active == Selection.DefaultFor(ProfileStore.FirstRole(catalog)) && !session.Dirty, $"{active} dirty={session.Dirty}");
+        Check("armoury: CONFIRM LOADOUT returns to the CLASS tab with the LOADOUT slot cards", FindButton(creator, b => b.Name == "ArmSlot0") is not null && FindButton(creator, b => b.Name == "ArmouryPickBack") is null);
+        Check("armoury: no DEPLOY outside a match, no dock buttons on the page", FindButton(creator, b => b.Name == "ArmDeploy") is null && FindButton(creator, b => b.Text.StartsWith("LEAVE", StringComparison.OrdinalIgnoreCase) || b.Text.StartsWith("SET ACTIVE", StringComparison.OrdinalIgnoreCase) || b.Text.StartsWith("REVERT", StringComparison.OrdinalIgnoreCase)) is null);
+        var tabs = new[] { "CLASS", "SLOTS", "ARMOUR & PAINT" }.Select(t => FindButton(creator, b => b.Text == t && b.GetParent()?.Name == "ArmouryPills")).ToList();
+        Check("armoury: the three tabs read at the caption size, all the same", tabs.All(t => t is not null && t.GetThemeFontSize("font_size") == UiType.Px(UiType.Caption)), string.Join(",", tabs.Select(t => t?.GetThemeFontSize("font_size"))));
+        Check("armoury: the class rows carry the owner's emblems", FindButton(creator, b => b.Name == "ArmClass0")?.GetChildren().OfType<TextureRect>().FirstOrDefault()?.Texture is not null);
+        creator.ShowArmTab(true);
+        await Frames(4);
+        var tools = new[] { "ArmToolRename", "ArmToolCopy", "ArmToolReset", "ArmToolClear" }.Select(n => FindButton(creator, b => b.Name == n)).ToList();
+        Check("armoury: the SLOTS tab has the RENAME, COPY, RESET, CLEAR plates", tools.All(t => t is not null), string.Join(",", tools.Select(t => t?.Text)));
+        Check("armoury: the four slot tools share one size", tools.Where(t => t is not null).Select(t => t!.GetThemeFontSize("font_size")).Distinct().Count() == 1);
+        creator.ShowArmTab(false);
+        // In a match: DEPLOY is a plate under the item card; CONFIRM LOADOUT does not deploy.
+        int deployed = 0;
+        creator.Deploy = _ => deployed++;
+        creator.Activate = _ => "ok";
+        await Frames(4);
+        var deployBtn = FindButton(creator, b => b.Name == "ArmDeploy");
+        Check("armoury: DEPLOY shows in a match", deployBtn is not null && deployBtn.Text == "DEPLOY");
+        FindButton(creator, b => b.Name == "ConfirmLoadout")?.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(3);
+        Check("armoury: CONFIRM LOADOUT in a match does not deploy", deployed == 0);
+        deployBtn?.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(2);
+        Check("armoury: DEPLOY deploys", deployed == 1);
+        creator.Deploy = null; creator.Activate = null;
+        await Frames(3);
         // Back: B leaves like the BACK button (nothing unsaved after the confirm).
         await SendPad(JoyButton.B);
         await Frames(4);

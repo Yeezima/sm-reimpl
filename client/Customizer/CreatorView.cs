@@ -990,6 +990,7 @@ public sealed partial class CreatorView : Control
     public void Back()
     {
         if (!_session.Dirty) { _onBack(); return; }
+        if (_arm) { OpenBackPrompt(); return; }   // the Armoury asks on its own page: KEEP CHANGES or DISCARD (CreatorView.ArmPrompt.cs)
         UiKit.Dialog.Open(this, Host, "Unsaved changes", "Save your loadouts and looks before you leave?", ["Save", "Discard", "Cancel"], i =>
         {
             if (i == 0) { string? error = _session.Save(); if (error is null) _onBack(); else Say("Could not save: " + error); }

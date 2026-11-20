@@ -69,7 +69,12 @@ public static partial class PaintedButtons
             if (Texture is null) return;
             rect = _GetDrawRect(rect);
             float tw = Texture.GetWidth(), th = Texture.GetHeight();
-            if (Backing.A > 0f) RenderingServer.CanvasItemAddRect(canvas, rect.Grow(-Mathf.Max(2f, rect.Size.Y * 0.08f)), Backing);
+            if (Backing.A > 0f)
+            {
+                // The flat fill follows the plate's chamfered ends (owner, 2026-11-20: no square corners behind the plate): an octagon inside the rim.
+                var inner = rect.Grow(-Mathf.Max(2f, rect.Size.Y * 0.125f));   // inside the art's own transparent margin and its rim
+                RenderingServer.CanvasItemAddPolygon(canvas, Steel.Chamfered(inner, Mathf.Max(3f, rect.Size.Y * 0.15f)), [Backing]);
+            }
             float k = Mathf.Min(rect.Size.Y / th, rect.Size.X / Mathf.Max(1f, Caps.L + Caps.R));
             float dl = Caps.L * k, dr = Caps.R * k, dt = Caps.T * k, db = Caps.B * k;
             if (rect.Size.Y < dt + db) { float f = rect.Size.Y / (dt + db); dt *= f; db *= f; }
@@ -125,7 +130,7 @@ public static partial class PaintedButtons
         return down;
     }
 
-    static float Width(Font font, string text, int unit) => font.GetStringSize(text, HorizontalAlignment.Left, -1, UiType.Px(unit)).X;
+    public static float Width(Font font, string text, int unit) => font.GetStringSize(text, HorizontalAlignment.Left, -1, UiType.Px(unit)).X;
 
     /// <summary>Fits a button's own text to its plate (see <see cref="FitUnit"/>); the button's text margins are the room taken off <paramref name="width"/> (its own width when null).</summary>
     public static void FitButton(Button b, int unit, float? width = null)

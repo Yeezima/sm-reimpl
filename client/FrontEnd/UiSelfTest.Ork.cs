@@ -148,8 +148,8 @@ public sealed partial class UiSelfTest
             int orkPerks = LoadoutRows.Perks(catalog, OrkLoadout.Role, OrkLoadout.Race, null, _services.Policy).Count;
             Check("ork: his perks are the Tactical Marine's", orkPerks == tacticalPerks && orkPerks > 0, $"{orkPerks} / {tacticalPerks}");
 
-            // APPEARANCE on the Ork opens his LOOK step, not the armour and colour editors.
-            Click(b => b.Text.Equals("ORK LOOK...", StringComparison.OrdinalIgnoreCase));
+            // ARMOUR & PAINT on the Ork opens his LOOK step, not the armour and colour editors.
+            FindButton(creator, b => b.Text.Equals("ARMOUR & PAINT", StringComparison.OrdinalIgnoreCase) && b.GetParent()?.Name == "ArmouryPills")?.EmitSignal(BaseButton.SignalName.Pressed);   // the ARMOUR & PAINT tab replaced the APPEARANCE button
             await Frames(4);
             Check("ork: the look button opens his LOOK step", creator.CurrentStep == "LOOK" && creator.Visible && !_front.Appearance!.Visible, creator.CurrentStep);
             _front.ShowAppearance();
