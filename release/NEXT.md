@@ -9,3 +9,10 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Mapmaker: editing no longer pins your CPU once both spawn areas are on the floor. The check of whether bots can walk between the spawns and to every capture point now runs only when you press the new Check route button on the Test tab; the other checks still update after every edit.
+- Warfront: in a new campaign, each battle on the war map has a weather forecast (Clear, Low Fog or Rain, or the usual storm; campaigns started before this build keep the storm everywhere). It shows on every node of the Thunderhawk's war map, and the battle there plays in that weather. Weather changes only the look and sound, never damage, movement or the Orks.
+- Warfront: in a campaign on this PC (New or Continue campaign), the F6 developer panel has a Weather section to switch the weather live, remove it, or go back to the forecast.
+- Warfront: on a held point, the Imperial Guardsmen now stand in clear ranks, with the rear squads in the gaps of the row in front.
+- Warfront: Host for friends shows only what matters for a campaign (who can join, port, emblems) with a short explainer; the Classic mode, map and bot rows are gone there.
+- Warfront: the Dreadnought's first stomp of a match no longer makes the game stutter.
+- Warfront campaigns need this build: older builds cannot join a Warfront campaign hosted on it (Classic matches still play across both).
