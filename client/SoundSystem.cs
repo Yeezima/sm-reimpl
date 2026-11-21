@@ -733,6 +733,9 @@ public partial class SoundSystem : Node
         });
     }
 
+    /// <summary>True while the emitter has a voice pending, playing or continuing (weather fix 5: the weather's one-shots are forgotten when their voices end).</summary>
+    public bool HasVoices(SoundEmitter emitter) => _pending.Any(p => p.Emitter == emitter) || _active.Any(a => a.Emitter == emitter) || _repeats.Any(r => r.Emitter == emitter);
+
     /// <summary>Stops every voice and continuation of an emitter (a projectile gone, a player left).</summary>
     public void StopEmitter(SoundEmitter emitter)
     {

@@ -98,6 +98,8 @@ public partial class NetworkView
     {
         if (_sound is null || _audio is not { } audio || !audio.HasEvent(eventName)) return false;
         var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "weather " + what };
+        _wxOneShots.RemoveAll(e => !_sound.HasVoices(e));   // the ones whose voices ended are forgotten
+        _wxOneShots.Add(emitter);
         gainDb += WeatherShelterMix.InstallThunderDb(_wxShelter.Level);   // W4: duller and quieter under cover
         var play = _sound.Post(eventName, emitter, offset: new VoiceOffset(gainDb), once: true);
         bool ok = play is { Voices.Count: > 0 };
@@ -140,6 +142,40 @@ public partial class NetworkView
         _wxClosedFailedUntil = ok ? 0 : now + 10.0;
         if (ok) _wxClosedPlaying = name;
         if (LogSound("weather")) GD.Print($"weather sound: closed wind via {name} voices {play?.Voices.Count ?? 0} {(ok ? (_wxClosedLoops ? "looping" : "one-shot, reposted every " + WxGritRepostSeconds + " s") : "nothing sounded: the procedural bed alone, retry in 10 s")} at {WeatherShelterMix.InstallClosedWindDb:0} dB");
+    }
+
+    /// <summary>The one-shot emitters the weather code posted (far thunder, the squall's warning) that may still sound; combat sounds are never here, even with the same event name.</summary>
+    readonly System.Collections.Generic.List<SoundEmitter> _wxOneShots = new();
+    readonly WeatherThunderFade _wxThunderFade = new();
+    WeatherId _wxFadePrev = WeatherId.None;
+    double _wxThunderLastTicks = -1;
+
+    /// <summary>Every connected frame (rig or not): a switch of the effective weather to None starts the 0.5 s fade of the weather's thunder voices, which then stop; any other switch leaves the rolls to finish.</summary>
+    void WeatherThunderFadeFrame(WeatherId id)
+    {
+        double ticks = Time.GetTicksMsec() / 1000.0, dt = _wxThunderLastTicks < 0 ? 0 : ticks - _wxThunderLastTicks;
+        _wxThunderLastTicks = ticks;
+        if (WeatherThunderFade.Fades(_wxFadePrev, id)) _wxThunderFade.Start();
+        else if (id != WeatherId.None && _wxThunderFade.Active) { _wxThunderFade.Cancel(); WeatherThunderFadeApply(0f); }   // the weather is back: nothing is fading
+        _wxFadePrev = id;
+        if (!_wxThunderFade.Active) return;
+        float db = _wxThunderFade.Step(dt);
+        if (_wxThunderFade.Done) WeatherThunderStopAll(); else WeatherThunderFadeApply(db);
+    }
+
+    void WeatherThunderFadeApply(float db)
+    {
+        _wxRig?.FadeThunder(db);
+        foreach (var e in _wxOneShots) e.LiveDb = db;
+    }
+
+    /// <summary>The weather's own thunder voices (rumbles and installed one-shots) stop at once: the end of the fade, a disconnect, the view leaving.</summary>
+    void WeatherThunderStopAll()
+    {
+        _wxThunderFade.Cancel();
+        _wxRig?.StopThunder();
+        foreach (var e in _wxOneShots) { _sound?.StopEmitter(e); e.LiveDb = 0f; }
+        _wxOneShots.Clear();
     }
 
     void WeatherClosedFadeEnd()

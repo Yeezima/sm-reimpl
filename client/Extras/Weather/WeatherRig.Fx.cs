@@ -93,6 +93,24 @@ public sealed partial class WeatherRig
     }
 
     int _thunderPlayers;
+    readonly System.Collections.Generic.List<(AudioStreamPlayer, float)> _rumbles = new();   // the procedural rumbles still sounding, with their own level (weather fix 5)
+    float _thunderFadeDb;
+
+    /// <summary>Weather fix 5: the rumbles sounding now are <paramref name="db"/> below their own level (the fade on a switch to None); 0 restores.</summary>
+    public void FadeThunder(float db)
+    {
+        _thunderFadeDb = db;
+        foreach (var (p, b) in _rumbles) if (GodotObject.IsInstanceValid(p)) p.VolumeDb = b + db;
+    }
+
+    /// <summary>Weather fix 5: every rumble stops at once and is freed (the end of the fade); the rig may then be freed as usual.</summary>
+    public void StopThunder()
+    {
+        foreach (var (p, _) in _rumbles) if (GodotObject.IsInstanceValid(p)) { p.Stop(); p.QueueFree(); }
+        _rumbles.Clear();
+        _thunderPlayers = 0;
+        _thunderFadeDb = 0f;
+    }
 
     /// <summary>A rumble of thunder from the procedural synth (a far one at <see cref="FarThunderDb"/>, a near one at <see cref="NearThunderDb"/>); rate-limited by the plan (strikes at least 6.5 s apart), and each player frees itself.</summary>
     public void PlayRumble(uint seed, bool near, float extraDb = 0f)
@@ -100,10 +118,12 @@ public sealed partial class WeatherRig
         var bank = near ? (_nearThunder ??= new AudioStreamWav?[2]) : (_farThunder ??= new AudioStreamWav?[3]);
         int k = (int)(seed % (uint)bank.Length);
         var stream = bank[k] ??= WeatherSynth.Thunder(unchecked((uint)(k * 7919 + 13)), near);
-        var player = new AudioStreamPlayer { Name = near ? "ThunderNear" : "ThunderFar", Stream = stream, VolumeDb = Math.Min(near ? NearThunderDb : FarThunderDb, (near ? NearThunderDb : FarThunderDb) + extraDb) + WeatherShelterMix.ThunderDb(Shelter), Bus = AcquireBus() };
+        float baseDb = Math.Min(near ? NearThunderDb : FarThunderDb, (near ? NearThunderDb : FarThunderDb) + extraDb) + WeatherShelterMix.ThunderDb(Shelter);
+        var player = new AudioStreamPlayer { Name = near ? "ThunderNear" : "ThunderFar", Stream = stream, VolumeDb = baseDb + _thunderFadeDb, Bus = AcquireBus() };
         AddChild(player);
         _thunderPlayers++;
-        player.Finished += () => { _thunderPlayers = Math.Max(0, _thunderPlayers - 1); player.QueueFree(); };
+        _rumbles.Add((player, baseDb));
+        player.Finished += () => { _thunderPlayers = Math.Max(0, _thunderPlayers - 1); _rumbles.RemoveAll(r => r.Item1 == player); player.QueueFree(); };
         player.Play();
     }
 

@@ -58,6 +58,8 @@ public partial class NetworkView
         WeatherClientLink.Release(_wxModel);
         _wxModel.Clear();
         WeatherInstallStop();
+        WeatherThunderStopAll();
+        _wxFadePrev = WeatherId.None;
         if (_wxRig is not null && IsInstanceValid(_wxRig)) _wxRig.QueueFree();
         _wxRig = null;
         WeatherStormRestore();
@@ -183,7 +185,9 @@ public partial class NetworkView
             WeatherAidsApply(false);
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
-            if (_wxRig is not null) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
+            if (_wxRig is not null) { WeatherInstallStop(); WeatherThunderStopAll(); _wxRig.QueueFree(); _wxRig = null; }
+            else if (_wxOneShots.Count > 0) WeatherThunderStopAll();
+            _wxFadePrev = WeatherId.None;
             WeatherStormRestore();
             return;
         }
@@ -222,6 +226,7 @@ public partial class NetworkView
                 WeatherInstallSounds(st, intensity);
             }
         }
+        WeatherThunderFadeFrame(st.Id);
         shelterRan = WeatherBedFrame(me, delta, shelterRan);
         WeatherStormFrame(me, delta, st, shelterRan);
     }
