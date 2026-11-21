@@ -304,9 +304,8 @@ public partial class AshfallStorm : Node3D
     {
         near = float.IsFinite(near) ? Math.Clamp(near, 0f, 1f) : 1f;
         far = float.IsFinite(far) ? Math.Clamp(far, 0f, 1f) : 1f;
-        if (near == _airNear && far == _airFar) return;
+        if (_follow is null || (near == _airNear && far == _airFar)) return;   // before the layers are built nothing is cached, so the first real call applies
         _airNear = near; _airFar = far;
-        if (_follow is null) return;
         foreach (var child in _follow.GetChildren())
         {
             if (child is not GpuParticles3D p) continue;

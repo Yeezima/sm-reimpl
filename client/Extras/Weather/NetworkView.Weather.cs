@@ -226,7 +226,8 @@ public partial class NetworkView
     AshfallStorm? _wxStorm;
     double _wxStormLookClock;
     float _wxStormNear = 1f, _wxStormFar = 1f;
-    bool _wxStormShelter;
+    bool _wxStormShelter, _wxStormSeed;
+    int _wxStormShape = -1, _wxStormMisses;
     (WeatherId Id, WeatherPhase Phase, bool Covered, bool Any) _wxStormLogged;
     bool _wxStormSettledLogged = true;
 
@@ -238,15 +239,22 @@ public partial class NetworkView
     void WeatherStormFrame(PlayerState me, double delta, WeatherState st, bool shelterRan)
     {
         if (_bot || _config is not { } c || !c.Extras.HasFlag(ContentExtras.Warfront)) return;
-        if (_wxStorm is not null && !IsInstanceValid(_wxStorm)) { _wxStorm = null; _wxStormNear = _wxStormFar = 1f; }
+        if (_wxStorm is not null && !IsInstanceValid(_wxStorm)) { _wxStorm = null; _wxStormLookClock = 2.0; _wxStormMisses = 0; }   // a stage change freed it: look again at once
         if (_wxStorm is null)
         {
+            if (_gameSpace is null) return;
+            // The search walks the map's tree, so it runs only after the map's top-level shape changed (a band or its dressing was added or removed; the storm is attached by such a step), up to three tries two seconds apart, then rests
+            // until the shape changes again (the hub, the Stormbird, --ashfall-weather plain and a failed Attach have no storm and cost nothing).
+            int shape = 0;
+            foreach (var child in _gameSpace.GetChildren()) shape = shape * 31 + child.GetChildCount() + 1;
+            if (shape != _wxStormShape) { _wxStormShape = shape; _wxStormMisses = 0; _wxStormLookClock = 2.0; }
+            if (_wxStormMisses >= 3) return;
             _wxStormLookClock += delta;
-            if (_wxStormLookClock < 2.0 || _gameSpace is null) return;   // looked for twice a second at most while there is no storm (the hub, a map still drawing)
+            if (_wxStormLookClock < 2.0) return;
             _wxStormLookClock = 0;
             _wxStorm = _gameSpace.FindChild("WarfrontStorm", true, false)?.GetNodeOrNull<AshfallStorm>("AshfallStorm");
-            if (_wxStorm is null) { _wxStormShelter = false; return; }
-            _wxStormNear = _wxStormFar = 1f;
+            if (_wxStorm is null) { _wxStormMisses++; _wxStormShelter = false; return; }
+            _wxStormSeed = true;   // a new storm starts at the preset's look, not at full ash that then eases away
             _wxStormLogged = default;
         }
         if (!shelterRan)
@@ -258,8 +266,8 @@ public partial class NetworkView
         var def = WeatherCatalog.Of(st.Id);
         double progress = def.Duration(st.Phase) > 0 ? st.PhaseSeconds / def.Duration(st.Phase) : 1.0;
         var (near, far) = WeatherStormLayers.Of(st.Id, st.Phase, progress, _wxShelter.Level);
-        _wxStormNear = WeatherStormLayers.Ease(_wxStormNear, near, delta);
-        _wxStormFar = WeatherStormLayers.Ease(_wxStormFar, far, delta);
+        if (_wxStormSeed) { _wxStormSeed = false; _wxStormNear = near; _wxStormFar = far; }
+        else { _wxStormNear = WeatherStormLayers.Ease(_wxStormNear, near, delta); _wxStormFar = WeatherStormLayers.Ease(_wxStormFar, far, delta); }
         _wxStorm.SetAirborne(_wxStormNear, _wxStormFar);
         if (LogSound("weather"))
         {
@@ -273,6 +281,6 @@ public partial class NetworkView
     void WeatherStormRestore()
     {
         if (_wxStorm is not null && IsInstanceValid(_wxStorm)) _wxStorm.SetAirborne(1f, 1f);
-        _wxStorm = null; _wxStormNear = _wxStormFar = 1f; _wxStormShelter = false; _wxStormLogged = default; _wxStormSettledLogged = true;
+        _wxStorm = null; _wxStormNear = _wxStormFar = 1f; _wxStormShelter = false; _wxStormSeed = false; _wxStormShape = -1; _wxStormMisses = 0; _wxStormLookClock = 0; _wxStormLogged = default; _wxStormSettledLogged = true;
     }
 }
