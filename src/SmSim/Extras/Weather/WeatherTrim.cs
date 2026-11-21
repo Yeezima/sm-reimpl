@@ -36,6 +36,9 @@ public sealed class WeatherTrim
         return System.Math.Min(full, System.Math.Max(floor, trimmed));
     }
 
+    /// <summary>True when a window's mean frame (ms) is the cap or vsync interval (within <see cref="CapBand"/> of <see cref="ExpectedFrameMs"/>; never when none is set). The down check uses it: such a window never steps down. The up check also passes a window at or under the cap's frame (plus the band), since a capped client can never average under <see cref="UpMs"/>.</summary>
+    bool OnCap(double mean) => ExpectedFrameMs > 0 && System.Math.Abs(mean - ExpectedFrameMs) <= ExpectedFrameMs * CapBand;
+
     /// <summary>One frame of <paramref name="dt"/> seconds; true when the level changed on this frame.</summary>
     public bool Frame(double dt)
     {
@@ -51,7 +54,7 @@ public sealed class WeatherTrim
         {
             double mean = _downSum / _downN;
             _downSum = 0; _downN = 0; _downTime = 0;
-            if (mean > DownMs && Level < MaxLevel && !(ExpectedFrameMs > 0 && System.Math.Abs(mean - ExpectedFrameMs) <= ExpectedFrameMs * CapBand))
+            if (mean > DownMs && Level < MaxLevel && !OnCap(mean))
             {
                 if (_lastWasUp && _sinceChange < BurnSeconds) _upHold = System.Math.Min(MaxUpHoldSeconds, _upHold * 2);   // that step up did not hold
                 Level++; Changes++; _sinceChange = 0; _sinceDown = 0; _lastWasUp = false; changed = true;
@@ -62,7 +65,7 @@ public sealed class WeatherTrim
         {
             double mean = _upSum / _upN;
             _upSum = 0; _upN = 0; _upTime = 0;
-            if (mean < UpMs) { Level--; Changes++; _sinceChange = 0; _lastWasUp = true; changed = true; }
+            if (mean < UpMs || (ExpectedFrameMs > 0 && mean <= ExpectedFrameMs * (1 + CapBand))) { Level--; Changes++; _sinceChange = 0; _lastWasUp = true; changed = true; }
         }
         else if (Level == 0) { _upSum = 0; _upN = 0; _upTime = 0; }
         return changed;

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3997 spec table rows: **2940 tagged**, 695 not tagged (read from data with high confidence), 362 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 3998 spec table rows: **2941 tagged**, 695 not tagged (read from data with high confidence), 362 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 3997 spec table rows: **2940 tagged**, 695 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 113 | 112 | 48 | 49 | 0 |
+| General game design | 114 | 113 | 48 | 50 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2940** | 2635 | 2191 | 885 | 37 |
+| **All areas** | **2941** | 2636 | 2191 | 886 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1752 |
+| kind: ours | 1753 |
 | confidence: low | 1065 |
 | confidence: medium | 1015 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 280 |
+| notes: estimate | 281 |
 | kind: estimate | 264 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (113)
+### General game design (114)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4431,6 +4431,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-686148D8` | Trim log | every step prints `weather trim: level n ..., total particles` and every shelter flip `weather shelter: ...` under `--log-sound weather` | kind: ours | owner decision 3 | Trim log: compare with SM1 by feel or video. Ours: every step prints weather trim: level n ..., total particles and… | ☐ |
 | `R-197246B3` | Install sounds under cover (review fix) | the install's far thunder and the squall's warning rumble (posted through the sound system, not the weather bus) are posted 7 dB lower at full shelter (scaled by the level at the post; a level cut only, no filter); the ash grit loop is posted 9 dB lower by… (dB, level) | kind: ours; notes: estimate | review of W4 (a tunnel must not keep full-bright thunder or grit); numbers ours | Install sounds under cover (review fix): compare with SM1 by feel or video. Ours: the install's far thunder and the squall's warning rumble (posted… | ☐ |
 | `R-58329705` | Trim and frame caps (review fix) | a window whose mean frame is within 10 % of the frame the engine's cap (`Engine.MaxFps`) or the display's vsync interval already explains (the longer of the two, read once a second) does not step down, so a 30 Hz vsync, a 40 fps cap or a heavy scene stuck at… (ms) | kind: ours; notes: estimate | review of W4; the 10 % band is ours | Trim and frame caps (review fix): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a window whose mean frame is within 10 % of the frame the engine's… | ☐ |
+| `R-B8876AED` | Trim step up on a cap (weather fix 3) | when a cap or vsync interval is set, a step-up window whose mean frame is at or under the cap's frame plus 10 % passes the up check too (a client capped at 30 or 40 fps can never average under 17.5 ms); the usual 8 s hold applies, and a step up that brings… (ms) | kind: ours; notes: estimate | Codex probe (12 s at 20 fps stayed trimmed at 30 and 40 Hz); the on-cap rule is ours, to check in a playtest | Trim step up on a cap (weather fix 3): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: when a cap or vsync interval is set, a step-up window whose mean… | ☐ |
 | `R-5503D074` | Ring hole size (to check) | the far layer's 14 m hole is an estimate: in a hall wider than 28 m rain can fall through the ceiling at the ring's inner edge; to check in a playtest on a wide roofed space (m) | kind: ours; confidence: low | ours | Ring hole size (to check): compare with SM1 by measuring on a flat spot of the same map. Ours: the far layer's 14 m hole is an estimate: in a hall wider than 28 m… | ☐ |
 | `R-D4DA211C` | Tunnel event names (verified W5) | `play_wind_tunnels` is in the bank (above); `play_wind_tunnel`, `play_wind_tunnels_01`, `play_wind_tunnels_loop`, `stop_wind_tunnels`, `play_thunder`, `play_rain` and `play_wind` are not (checked by name hash with `smtool audio-event`); the install holds no… | kind: ours | bank checked 2026-11-21 | Tunnel event names (verified W5): compare with SM1 by feel or video. Ours: play_wind_tunnels is in the bank (above); play_wind_tunnel… | ☐ |
 

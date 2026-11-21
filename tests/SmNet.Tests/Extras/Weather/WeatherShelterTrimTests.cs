@@ -243,6 +243,45 @@ public class WeatherShelterTrimTests
         Assert.Equal(0, h.Level);
     }
 
+    [Theory]
+    [InlineData(30.0)]
+    [InlineData(40.0)]
+    [InlineData(60.0)]
+    public void A_capped_client_that_stuttered_recovers_to_level_0_once_it_runs_exactly_on_the_cap(double hz)
+    {
+        var t = new WeatherTrim { ExpectedFrameMs = 1000.0 / hz };
+        for (int i = 0; i < 12 * 20; i++) t.Frame(0.05);   // 12 s at 20 FPS
+        Assert.Equal(WeatherTrim.MaxLevel, t.Level);
+        for (int i = 0; i < (int)(180 * hz); i++) t.Frame(1.0 / hz);   // 180 s on target
+        Assert.Equal(0, t.Level);
+    }
+
+    [Fact]
+    public void A_step_up_on_a_cap_that_brings_the_stutter_back_steps_down_and_doubles_the_wait()
+    {
+        var t = new WeatherTrim { ExpectedFrameMs = 1000.0 / 30 };
+        for (int i = 0; i < 12 * 20; i++) t.Frame(0.05);
+        Assert.Equal(WeatherTrim.MaxLevel, t.Level);
+        double hold0 = t.UpHold;
+        int n = 0;
+        while (t.Level == WeatherTrim.MaxLevel && n++ < 30 * 60) t.Frame(1.0 / 30);   // on target until the first step up
+        Assert.Equal(WeatherTrim.MaxLevel - 1, t.Level);
+        for (int i = 0; i < 20 * 5 && t.Level < WeatherTrim.MaxLevel; i++) t.Frame(0.05);   // the stutter returns
+        Assert.Equal(WeatherTrim.MaxLevel, t.Level);
+        Assert.Equal(hold0 * 2, t.UpHold);
+    }
+
+    [Theory]
+    [InlineData(30.0)]
+    [InlineData(40.0)]
+    [InlineData(60.0)]
+    public void A_steady_cap_with_no_stutter_never_trims(double hz)
+    {
+        var t = new WeatherTrim { ExpectedFrameMs = 1000.0 / hz };
+        for (int i = 0; i < (int)(600 * hz); i++) t.Frame(1.0 / hz);
+        Assert.Equal(0, t.Level); Assert.Equal(0, t.Changes);
+    }
+
     [Fact]
     public void The_install_sounds_are_cut_under_cover_and_never_raised()
     {
