@@ -73,6 +73,7 @@ public partial class NetworkView
         {
             if (!LoadMeleeFx()) return;
         }
+        ExtrasStompWarm(me);   // EXTRAS-HOOK: Musou Mode's Dreadnought: a speck-sized stomp builds the first stomp's draw states (NetworkView.DreadnoughtStompWarm.cs)
         PowerFlashDemo();   // fx/power-flash test aid
         var all = _meleeFxAll;
         all.Clear();
@@ -146,6 +147,8 @@ public partial class NetworkView
                  $"{loaded.Systems.Count} effects compiled; shockwave {(_fx.System(StompFx.ShockwaveName) is { } built ? $"built ({built.Roots.OfType<CRing>().First().Material.Name})" : "none (no ring sprite found)")}");
         return true;
     }
+
+    partial void ExtrasStompWarm(PlayerState me);
 
     void MeleeFxFor(PlayerState s, bool own, List<PlayerState> all)
     {

@@ -56,6 +56,30 @@ public static class StompFx
         return started;
     }
 
+    /// <summary>The warm-up stomp's scale, its shockwave's radius and its decals' side (m): a speck, so that nothing shows while every material, texture and mesh of a real stomp is built.</summary>
+    public const float WarmScale = 0.04f, WarmRadius = 0.15f, WarmSide = 0.3f;
+
+    /// <summary>
+    /// The first stomp of a match cost a frame of about 160 ms (ring texture, decal textures, the chunk node and the draw states of the shockwave, the ring and crack decals and the chunks: measured with
+    /// <c>--stomp-test --fx-frame-times --fx-prior</c>, a later stomp 7 ms). This plays one stomp the same way <see cref="Play"/> does but speck-sized (<see cref="WarmScale"/>): the data's effects, the
+    /// shockwave, the ring and crack decals (the ring's texture for <paramref name="ringRadius"/>) and one chunk, so those are built before the first real stomp. Returns false, having started nothing, while
+    /// the ring's pixels are still being made (the caller tries again a frame later).
+    /// </summary>
+    public static bool Warm(FxPlayer fx, IReadOnlyList<FxPlay> plays, IEnumerable<string> extraEffects, Vector3 point, Vector3 normal, float ringRadius, GroundShards? shards, string surface)
+    {
+        PoundRing.Request(ringRadius);
+        if (PoundRing.Texture(ringRadius) is not { } ring) return false;
+        var up = normal.LengthSquared() < 1e-6f ? Vector3.Up : normal.Normalized();
+        var axes = AxesFromY(up);
+        GroundPoundFx.Play(fx, plays.Select(p => p with { Scale = WarmScale }).ToList(), point, normal, 0f, null, surface, 0);
+        foreach (var name in extraEffects) fx.Play(name, point + up * 0.5f, axes, WarmScale, null, null, 0f, 0.0, false, GroundPoundFx.Priority);
+        fx.Play(ShockwaveName, point + up * 0.06f, axes, WarmRadius, null, null, 0f, 0.0, false, GroundPoundFx.Priority);
+        fx.PlaceTextureDecal(ring, point, axes, WarmSide, WarmSide, 2.0f, 0.4f, PoundRing.Fade);
+        if (CrackDecal(fx, plays) is { } crack) fx.PlaceDataDecal(crack, point, axes, WarmSide, WarmSide, 2.0f, 0.4f, PoundRing.Fade);
+        shards?.Spawn(point, up, surface, 0, (1, 1), ChunkSpeed);
+        return true;
+    }
+
     /// <summary>The crack decal the data's effects hold (<c>decal_standard_cracked_dif</c>), or null.</summary>
     static string? CrackDecal(FxPlayer fx, IReadOnlyList<FxPlay> plays)
     {

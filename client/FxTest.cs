@@ -92,6 +92,7 @@ public partial class FxTestView : Node3D
         _camera = new Camera3D { Current = true, Fov = 60f, Near = 0.05f, Far = 500f };
         AddChild(_camera);
         _camera.Position = V3(_args.GetValueOrDefault("fx-cam"), new Vector3(2.0f, 1.5f, 5.0f));
+        if (_args.ContainsKey("stomp-test")) PoundRing.Request(F(_args.GetValueOrDefault("pound-radius"), 7f));   // as the map load does: the ring pixels are made on a worker long before the first stomp
         _camera.LookAt(V3(_args.GetValueOrDefault("fx-look"), new Vector3(0, 1.2f, 1.5f)), Vector3.Up);
 
         try
@@ -209,6 +210,33 @@ public partial class FxTestView : Node3D
         return new Basis(x, y, x.Cross(y));
     }
 
+    /// <summary><c>--fx-frame-times</c> (test aid, 2026-11-21, Dreadnought first-stomp hitch): prints the wall time of the frames around each spawn (and any frame over 25 ms), so a first-play build shows against the repeats.</summary>
+    void FrameTimeProbe()
+    {
+        if (!_args.ContainsKey("fx-frame-times")) return;
+        if (_since > 1e8) _since = _period - 3.0;   // the first spawn comes 3 s after the first frame: the start-up frames are over and nothing has drawn an effect yet
+        long now = System.Diagnostics.Stopwatch.GetTimestamp();
+        double ms = _lastTick == 0 ? 0 : System.Diagnostics.Stopwatch.GetElapsedTime(_lastTick, now).TotalMilliseconds;
+        _lastTick = now;
+        if (_args.ContainsKey("fx-prior") && !_priorDone && _since >= _period - 1.5 && _since < 1e8 && _names.Length > 0 && _player is not null)
+        {
+            _priorDone = true;   // --fx-prior: the plain effect batch has drawn once before the stomp, as it has in a match (ambient and weapon effects)
+            _player.Play(_names[^1], new Vector3(0, 0.5f, 2f), AxesFromY(Vector3.Up), 1f);
+            GD.Print($"FXPRIOR played {_names[^1]}");
+        }
+        if (_args.ContainsKey("stomp-warm") && !_warmDone && _since >= _period - 1.0 && _since < 1e8 && _player is not null)
+        {
+            // --stomp-warm: the speck-sized stomp of the match's warm-up (StompFx.Warm) plays a second before the first real one
+            var warmPlays = new[] { new SmContent.FxPlay("master_fx", _names[0], 1f, 1f, false, "self", "", "", "", "world", "up", 0f, "stop_emitting", false, false) };
+            _warmDone = StompFx.Warm(_player, warmPlays, _names.Skip(1), new Vector3(0, 0, 3f), Vector3.Up, F(_args.GetValueOrDefault("pound-radius"), 7f), _args.ContainsKey("no-shards") ? null : _shards, "stone");
+            if (_warmDone) GD.Print("FXWARM played");
+        }
+        if (_holdAge is null && _since >= _period) _probeLeft = 4;   // this frame spawns; the next frames carry its drawing cost
+        if (_probeLeft > 0 || ms > 25) GD.Print($"FXFRAME {_frames} {ms:F1} ms (previous frame){(_probeLeft > 0 ? " [spawn window]" : "")}");
+        if (_probeLeft > 0) _probeLeft--;
+    }
+    long _lastTick; int _probeLeft; bool _priorDone, _warmDone;
+
     double _slow => _slowCache ??= Math.Max(1.0, _args.TryGetValue("fx-slow", out var sl) ? F(sl, 1f) : 1f);
     double? _slowCache;
 
@@ -218,6 +246,7 @@ public partial class FxTestView : Node3D
         _frames++;
         delta /= _slow;   // plasma-cannon-shots capture aid --fx-slow n: the effects view alone runs n times slower (never a match)
         _since += delta;
+        FrameTimeProbe();
         if (_shotTimes.Length > 0 && _frames > 12)
         {
             if (_shotNext < _shotTimes.Length && _since >= _shotTimes[_shotNext])
@@ -230,10 +259,14 @@ public partial class FxTestView : Node3D
                 if (_shotNext >= _shotTimes.Length) { GetTree().Quit(0); return; }
             }
         }
-        if (_holdAge is null && _since >= _period) { _since = 0; Spawn(); }
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp(); bool spawned = false;
+        if (_holdAge is null && _since >= _period) { _since = 0; Spawn(); spawned = true; }
         else if (_holdAge is not null && _live.Count == 0) Spawn();
+        double spawnMs = System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         // Held: age does not advance. The stats go to the console once.
+        long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
         _player.Update(_holdAge is null ? delta : 0.0, _camera);
+        if (spawned && _args.ContainsKey("fx-frame-times")) GD.Print($"FXSPAWN Spawn() {spawnMs:F1} ms, Update() {System.Diagnostics.Stopwatch.GetElapsedTime(t1).TotalMilliseconds:F1} ms");
         if (_frames == 30) GD.Print($"fx test: {_player.LastQuads} sprites ({_player.AdditiveQuads} additive), {_player.LastLights} lights, {_player.LiveDecals} decals, dropped {_player.DroppedTotal}; missing: {string.Join(", ", _player.Missing)}");
     }
 }
