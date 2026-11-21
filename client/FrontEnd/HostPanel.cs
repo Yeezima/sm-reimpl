@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SmClient.Customizer;
 using SmClient.Customizer.Model;
@@ -153,6 +154,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     /// <summary>The note under the rows (self-test).</summary>
     public string NoteText => _note.Text;
 
+    /// <summary>Self-test: the Classic rows (mode, map, bots, difficulty) are all hidden.</summary>
+    public bool ClassicRowsHidden => new Control?[] { _modeRow, _mapRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots }.All(r => r is null || !r.Visible);
+
     /// <summary>The host button's text (self-test).</summary>
     public string HostButtonText => _hostButton.Text;
 
@@ -181,10 +185,14 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _say(text, problem);
     }
 
+    /// <summary>The reach note for the port as typed (the default port while it is not valid).</summary>
+    string ReachText() => ServerLaunch.ReachNote(ServerLaunch.ValidatePort(_port.Text, out int p) is null ? p : ServerLaunch.DefaultPort, _localOnly);
+
     void RefreshNote()
     {
-        int port = ServerLaunch.ValidatePort(_port.Text, out int p) is null ? p : ServerLaunch.DefaultPort;
-        _note.Text = ServerLaunch.ReachNote(port, _localOnly) + (Musou ? " " + MusouLocal.CoopNote : "");
+        string note = ReachText() + (Musou ? " " + MusouLocal.CoopNote : "");
+        ExtrasHostNote(ref note);   // EXTRAS-HOOK: Warfront's own explainer (HostPanel.Warfront.cs)
+        _note.Text = note;
         _note.TooltipText = _note.Text;
     }
 
@@ -235,7 +243,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     {
         bool running = HostedServer.Running || _testRunningText is not null;
         if (!running) ApplyMusou();
-        foreach (var row in _setupRows) row.Visible = !running;
+        foreach (var row in _setupRows) row.Visible = !running && RowShown(row);
         foreach (var row in _runningRows) row.Visible = running;
         if (_testRunningText is not null) _runningText.Text = _testRunningText;
         else if (running && HostedServer.Options is { } o)
@@ -252,7 +260,15 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     }
 
     /// <summary>The first row a player wants: the mode before hosting, JOIN YOUR SERVER while a server runs.</summary>
-    public void FocusFirst() => (HostedServer.Running ? _joinOwn : _modeRow).FocusLater();
+    public void FocusFirst() => (HostedServer.Running ? _joinOwn : RowShown(_modeRow) ? _modeRow : _reachRow).FocusLater();
+
+    /// <summary>Whether a setup row applies to the lobby's profile: the Classic rows (mode, map, bots) are left out of added content that does not use them (the Warfront profile; HostPanel.Warfront.cs). New profile fields (a weather choice) are added to the rows list and listed in the extras file when they are not Classic's.</summary>
+    bool RowShown(Control row)
+    {
+        bool shown = true;
+        ExtrasHostRowShown(row, ref shown);   // EXTRAS-HOOK: Warfront hides the Classic rows (HostPanel.Warfront.cs)
+        return shown;
+    }
 
     /// <summary>Where later server controls go: rows under STOP SERVER while a server runs (fix/frontend-fit).</summary>
     public UiKit.MenuColumn RunningActions { get; } = new() { Name = "RunningActions" };
@@ -388,4 +404,10 @@ public sealed partial class HostPanel : UiKit.MenuColumn
 
     /// <summary>Extras hook: lets added content name the map the hosted server starts (null keeps the server's default).</summary>
     partial void ExtrasHostMap(ref string? map);
+
+    /// <summary>Extras hook: lets added content hide the setup rows that do not apply to its profile (Warfront: the mode, map and bot rows).</summary>
+    partial void ExtrasHostRowShown(Control row, ref bool shown);
+
+    /// <summary>Extras hook: lets added content replace the note under the rows (Warfront: its own explainer).</summary>
+    partial void ExtrasHostNote(ref string note);
 }

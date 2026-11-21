@@ -68,6 +68,8 @@ public static class WarfrontLocal
     public const int MaxFriends = 4;
     public const string HostRow = "Host for friends", JoinRow = "Join a friend";
     public const string StopServerRowText = "Stop Warfront server";
+    /// <summary>The Host panel's explainer on the Warfront profile (replaces the Classic mode and bot talk): what hosting a Warfront campaign is, and how friends get in.</summary>
+    public const string HostExplainer = "Host a Warfront campaign for up to 4 friends: you fight the three fronts together as Space Marines with your squads. Friends join by address; there are no bots to add, and no mode or map to pick.";
     public const string CoopNote = "Up to 4 players fight together as Space Marines and their squads. New campaign and Continue play on this PC alone; host for friends (LAN / Internet) and they join by address.";
 
     public const string ConfirmTitle = "START A NEW CAMPAIGN?";
