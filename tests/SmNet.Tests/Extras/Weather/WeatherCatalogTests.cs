@@ -22,9 +22,9 @@ public class WeatherCatalogTests
     }
 
     [Fact]
-    public void W1_builds_none_clear_low_fog_and_rain_and_leaves_the_rest_as_stubs()
+    public void W2_builds_every_preset_of_the_catalog()
     {
-        Assert.Equal(["none", "clear", "low_fog", "rain"], WeatherCatalog.All.Where(d => d.Real).Select(d => d.Key));
+        Assert.Equal(["none", "clear", "low_fog", "ash_squall", "rain", "thunderstorm", "ember_wind"], WeatherCatalog.All.Where(d => d.Real).Select(d => d.Key));
     }
 
     [Theory]

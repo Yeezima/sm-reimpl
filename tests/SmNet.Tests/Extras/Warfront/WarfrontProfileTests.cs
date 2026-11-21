@@ -68,7 +68,7 @@ public class WarfrontProfileTests
     [Fact]
     public void The_rules_version_is_one_and_the_other_versions_are_untouched()
     {
-        Assert.Equal(18u, WarfrontRules.Version);
+        Assert.Equal(19u, WarfrontRules.Version);
         Assert.Equal(ExtrasWireVersion, ContentExtras.WireVersion);
         Assert.Equal(ProtocolVersion, Protocol.Version);
         Assert.Equal(MusouSimVersion, SmSim.Extras.Musou.MusouSim.Version);

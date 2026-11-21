@@ -126,14 +126,16 @@ public class WeatherWireTests
     }
 
     [Fact]
-    public void A_stub_preset_draws_the_default_look_until_its_milestone()
+    public void The_w2_presets_change_the_look_at_their_peak_and_start_from_the_maps_own_look()
     {
         var m = new WeatherClientModel();
         foreach (var id in new[] { WeatherId.AshSquall, WeatherId.Thunderstorm, WeatherId.EmberWind })
         {
             m.Receive(WeatherWire.Encode(At(id, 200)));
             Assert.Equal(id, m.State.Id);
-            Assert.True(m.Grade.IsIdentity, id + " must not change the look yet");
+            Assert.False(m.Grade.IsIdentity, id + " must draw its own look");
+            m.Receive(WeatherWire.Encode(At(id, 0)));
+            Assert.True(m.Grade.IsIdentity, id + " starts from the map's own look");
         }
     }
 
@@ -141,7 +143,7 @@ public class WeatherWireTests
     public void None_and_zero_intensity_are_exactly_the_identity_so_teardown_returns_to_the_baseline()
     {
         Assert.True(WeatherGrade.For(WeatherId.None, 1f).IsIdentity);
-        foreach (var id in new[] { WeatherId.Clear, WeatherId.LowFog, WeatherId.Rain })
+        foreach (var id in new[] { WeatherId.Clear, WeatherId.LowFog, WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall, WeatherId.EmberWind })
         {
             Assert.True(WeatherGrade.For(id, 0f).IsIdentity);
             Assert.False(WeatherGrade.For(id, 1f).IsIdentity);
@@ -154,6 +156,9 @@ public class WeatherWireTests
     [InlineData(WeatherId.Clear)]
     [InlineData(WeatherId.LowFog)]
     [InlineData(WeatherId.Rain)]
+    [InlineData(WeatherId.Thunderstorm)]
+    [InlineData(WeatherId.AshSquall)]
+    [InlineData(WeatherId.EmberWind)]
     public void No_weather_hides_players_the_shade_is_never_darker_and_the_fog_stays_within_its_limit(WeatherId id)
     {
         for (float i = 0; i <= 1f; i += 0.05f)

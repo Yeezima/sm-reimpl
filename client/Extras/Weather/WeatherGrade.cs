@@ -17,7 +17,7 @@ public static class WeatherGrade
     /// <summary>Exposure bounds.</summary>
     public const float MinExposure = 0.94f, MaxExposure = 1.13f;
 
-    /// <summary>The grade of <paramref name="id"/> at <paramref name="intensity"/> (0 to 1). A preset that is not built yet (a stub) and None give the identity.</summary>
+    /// <summary>The grade of <paramref name="id"/> at <paramref name="intensity"/> (0 to 1). None and an unknown id give the identity.</summary>
     public static LightingGrade For(WeatherId id, float intensity)
     {
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
@@ -33,6 +33,15 @@ public static class WeatherGrade
             // overcast rain: a weak cool sun, desaturated, a cold grey haze, a touch more bloom on wet highlights
             WeatherId.Rain => new(Exposure: 1f - 0.05f * i, Contrast: 1f + 0.03f * i, Saturation: 1f - 0.25f * i, SunEnergy: 1f - 0.55f * i, SunR: 1f - 0.15f * i, SunG: 1f - 0.08f * i,
                 Ambient: 1f, FogDensity: 1f + 0.9f * i, FogR: 0.38f, FogG: 0.42f, FogB: 0.48f, FogTint: 0.70f * i, Glow: 1f + 0.15f * i),
+            // thunderstorm (W2): a darkening sky, a dim cold sun, desaturated, dark slate haze 2.4 times the map's at the peak; the shade is never darker and the exposure stays at its floor (never a flash: the glow is a sky-only layer in the rig)
+            WeatherId.Thunderstorm => new(Exposure: 1f - 0.06f * i, Contrast: 1f + 0.05f * i, Saturation: 1f - 0.30f * i, SunEnergy: 1f - 0.58f * i, SunR: 1f - 0.18f * i, SunG: 1f - 0.10f * i,
+                Ambient: 1f, FogDensity: 1f + 1.4f * i, FogR: 0.30f, FogG: 0.33f, FogB: 0.40f, FogTint: 0.75f * i, Glow: 1f + 0.12f * i),
+            // ash squall (W2): on top of the Ashfall storm, a dimmer ochre sun and a warm brown haze up to 2.8 times the map's at the peak, colour drained
+            WeatherId.AshSquall => new(Exposure: 1f - 0.03f * i, Contrast: 1f, Saturation: 1f - 0.22f * i, SunEnergy: 1f - 0.40f * i, SunR: 1f - 0.04f * i, SunG: 1f - 0.14f * i, SunB: 1f - 0.30f * i,
+                Ambient: 1.05f, FogDensity: 1f + 1.8f * i, FogR: 0.52f, FogG: 0.40f, FogB: 0.28f, FogTint: 0.80f * i, Glow: 1f + 0.05f * i),
+            // ember wind (W2, preview): a faintly warmer, slightly dimmer sun and a thin warm haze; the embers are the show
+            WeatherId.EmberWind => new(Exposure: 1f, Contrast: 1f, Saturation: 1f + 0.04f * i, SunEnergy: 1f - 0.12f * i, SunR: 1f + 0.05f * i, SunB: 1f - 0.10f * i,
+                Ambient: 1f, FogDensity: 1f + 0.3f * i, FogR: 0.55f, FogG: 0.36f, FogB: 0.24f, FogTint: 0.35f * i, Glow: 1f + 0.10f * i),
             _ => LightingGrade.Identity,
         };
     }

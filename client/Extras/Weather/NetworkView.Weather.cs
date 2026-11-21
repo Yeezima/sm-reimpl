@@ -10,8 +10,9 @@ namespace SmClient;
 
 /// <summary>
 /// Weather on the client (weather W1; docs/added-content.md "Weather"): the server's state section (tag 48) feeds a <see cref="WeatherClientModel"/>; each frame the model's clock runs, the look reaches the screen through
-/// <c>LightingGradeView</c>'s hook (<see cref="WeatherGrade"/>), and <see cref="WeatherRig"/> draws rain and its sound around the camera. Warfront only today. No weather, a stub preset or None leaves the map exactly as it
+/// <c>LightingGradeView</c>'s hook (<see cref="WeatherGrade"/>), and <see cref="WeatherRig"/> draws rain, ash, embers, the sky glow and their sounds around the camera. Warfront only today. No weather or None leaves the map exactly as it
 /// was drawn: the model's grade is the identity, the rig is freed. Test aid: every change of the shown preset or phase is logged as <c>weather: ...</c>.
+/// W2 adds the install's own sounds (<c>NetworkView.WeatherSound.cs</c>) to the rig's procedural ones.
 /// </summary>
 public partial class NetworkView
 {
@@ -22,6 +23,9 @@ public partial class NetworkView
 
     /// <summary>The weather carrier: a Warfront match (the profile's flag in the config the handshake agreed).</summary>
     bool WeatherOn => _config is { } c && c.Extras.HasFlag(ContentExtras.Warfront);
+
+    /// <summary>A preset with its own things in the world (rain, ash, embers, the sky glow, wind) at this intensity.</summary>
+    static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind && intensity > 0.02f;
 
     /// <summary>The weather section of a tag; handled when the tag is weather's.</summary>
     void WeatherEnvelope(byte tag, ReadOnlySpan<byte> payload, ref bool handled)
@@ -36,6 +40,7 @@ public partial class NetworkView
     {
         WeatherClientLink.Release(_wxModel);
         _wxModel.Clear();
+        WeatherInstallStop();
         if (_wxRig is not null && IsInstanceValid(_wxRig)) _wxRig.QueueFree();
         _wxRig = null;
     }
@@ -48,7 +53,7 @@ public partial class NetworkView
         {
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
-            if (_wxRig is not null) { _wxRig.QueueFree(); _wxRig = null; }
+            if (_wxRig is not null) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
             return;
         }
         WeatherClientLink.Model = _wxModel;
@@ -56,18 +61,22 @@ public partial class NetworkView
         _wxModel.Advance(delta);
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
-        var now = (st.Id, st.Phase, _wxModel.Overridden);
+        var now = (st.Id, st.Phase, _wxModel.Overridden);   // (the rig below is drawn for this state)
         if (!_bot && (!_wxLoggedAny || now != _wxLogged))
         {
             _wxLoggedAny = true; _wxLogged = now;
-            GD.Print($"weather: {WeatherCatalog.Of(st.Id).Key} {st.Phase}{(now.Item3 ? " (dev tools)" : "")}{(WeatherCatalog.Of(st.Id).Real ? "" : " (stub: default look)")}");
+            GD.Print($"weather: {WeatherCatalog.Of(st.Id).Key} {st.Phase}{(now.Item3 ? " (dev tools)" : "")}{(WeatherCatalog.Of(st.Id).Real ? "" : " (not built: default look)")}");
         }
-        bool wantRig = !_bot && st.Id == WeatherId.Rain && intensity > 0.02f && _camera is not null;   // a bot client draws and hears nothing
+        bool wantRig = !_bot && WeatherNeedsRig(st.Id, intensity) && _camera is not null;   // a bot client draws and hears nothing
         if (wantRig && _wxRig is null) AddChild(_wxRig = new WeatherRig { Name = "WeatherRig" });
         if (_wxRig is not null)
         {
-            if (!wantRig && !_wxRig.Raining) { _wxRig.QueueFree(); _wxRig = null; }
-            else _wxRig.Update(st.Id, intensity, _camera?.GlobalPosition ?? Vector3.Zero);
+            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
+            else
+            {
+                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero);
+                WeatherInstallSounds(st, intensity);
+            }
         }
     }
 }
