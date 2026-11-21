@@ -273,4 +273,16 @@ public class WeatherShelterTrimTests
         t.Reset();
         Assert.Equal(0, t.Level); Assert.Equal(0, t.Changes); Assert.Equal(WeatherTrim.UpHoldSeconds, t.UpHold);
     }
+
+    [Fact]
+    public void Warfront_wind_bed_is_untouched_in_the_open_and_muffled_under_cover()
+    {
+        Assert.Equal(0f, WeatherShelterMix.BedWindDb(0f)); Assert.Equal(0f, WeatherShelterMix.BedWindLpf(0f));
+        Assert.Equal(WeatherShelterMix.BedWindCutDb, WeatherShelterMix.BedWindDb(1f));
+        Assert.True(WeatherShelterMix.BedWindDb(0.5f) < 0f && WeatherShelterMix.BedWindDb(0.5f) > WeatherShelterMix.BedWindCutDb);
+        // the units land on the same 1.1 kHz as the weather bus (the sound system's curve: 20 kHz x (150/20000)^(u/100))
+        double hz = 20000.0 * System.Math.Pow(150.0 / 20000.0, WeatherShelterMix.BedWindLpf(1f) / 100.0);
+        Assert.InRange(hz, WeatherShelterMix.MuffledHz * 0.98, WeatherShelterMix.MuffledHz * 1.02);
+        Assert.Equal(0f, WeatherShelterMix.BedWindDb(float.NaN)); Assert.Equal(WeatherShelterMix.BedWindLpfAtFull, WeatherShelterMix.BedWindLpf(7f));
+    }
 }

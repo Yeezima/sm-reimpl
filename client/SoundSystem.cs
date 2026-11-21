@@ -64,6 +64,8 @@ public sealed class SoundEmitter
     public bool Threat;
     /// <summary>musou/soundscape-tuning (Musou Mode only): the far war's emitters; their voices take <see cref="SoundSystem.BackgroundDb"/> (the duck under close combat). False everywhere else.</summary>
     public bool Background;
+    /// <summary>weather W5 (Warfront only): a live extra gain (dB, 0 or negative) and low-pass (Wwise 0..100 units, 0 or more) added to this emitter's voices every frame: the battle's wind bed under a roof. 0 everywhere else, so nothing else changes.</summary>
+    public float LiveDb, LiveLpf;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -1109,6 +1111,7 @@ public partial class SoundSystem : Node
         // ui/menu-rebuild: the Options menu's music, effects and voice volumes (0 dB at the default).
         float db = mix.VolumeDb + (raw ? 0f : GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f)) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event)) + SoundTuning.Live.GainDb(a.Group);   // sound/tuning-tool: the owner's group volume
         if (!raw) db += SoundMixPass.TailGainDb(a.Offset.TailDb, _now - a.Started);   // sound/mix-and-reloads: the jump pack launch's tail
+        if (!raw && (a.Emitter.LiveDb != 0f || a.Emitter.LiveLpf != 0f)) { db += a.Emitter.LiveDb; mix = mix with { Lpf = Math.Clamp(mix.Lpf + a.Emitter.LiveLpf, 0f, 100f) }; }   // weather W5: the Warfront wind bed's sheltered mix
         if (a.Emitter.Background && !raw) db += BackgroundDb;   // musou/soundscape-tuning: the far war ducks under close combat (0 outside Musou Mode)
         db += SoundMixEffect.Gain(fx);   // sound/mix-expand: the owner's per-sound volume (silenced: far under the floor)
         if (a.FadeUntil > 0) db += 20f * MathF.Log10(Math.Max(0.001f, (float)Math.Clamp((a.FadeUntil - _now) / KillFade, 0.0, 1.0)));   // killed by an instance limit: linear fade out

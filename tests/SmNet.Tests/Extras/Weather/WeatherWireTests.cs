@@ -126,6 +126,24 @@ public class WeatherWireTests
     }
 
     [Fact]
+    public void The_pin_test_aid_holds_one_clients_clock_inside_a_phase_and_nothing_else()
+    {
+        var pinned = new WeatherClientModel { PinPhase = WeatherPhase.Peak };
+        var plain = new WeatherClientModel();
+        pinned.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        plain.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        Assert.Equal(WeatherPhase.Opening, plain.State.Phase);
+        for (int i = 0; i < 600; i++) { pinned.Advance(1.0); plain.Advance(1.0); Assert.Equal(WeatherPhase.Peak, pinned.State.Phase); }   // 600 s: past the whole cycle, the pin loops over the 180 s peak
+        pinned.Receive(WeatherWire.Encode(At(WeatherId.Rain, 3)));   // a server repeat does not move it out
+        Assert.Equal(WeatherPhase.Peak, pinned.State.Phase);
+        Assert.Equal(1f, pinned.EffectiveIntensity);
+        var none = new WeatherClientModel { PinPhase = WeatherPhase.Peak };
+        none.Receive(WeatherWire.Encode(At(WeatherId.None, 0)));
+        none.Advance(5);
+        Assert.Equal(0f, none.EffectiveIntensity);   // None stays None
+    }
+
+    [Fact]
     public void The_w2_presets_change_the_look_at_their_peak_and_start_from_the_maps_own_look()
     {
         var m = new WeatherClientModel();

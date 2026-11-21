@@ -24,7 +24,9 @@ public partial class NetworkView
     string? _wxClosedPlaying;
     double _wxClosedUntil, _wxClosedFailedUntil;
     bool _wxClosedLoops;
-    static readonly string[] WxTunnelEvents = ["play_wind_tunnels", "play_wind_tunnel", "play_wind_tunnels_01", "play_wind_tunnels_loop"];
+    /// <summary>Verified in the installed In_Game_Default bank (weather W5): <c>play_wind_tunnels</c> is a real looping sound (one 21 KB wem, loop endless, -7 dB, +910 cents). The other spellings W4 guessed are not in the bank.</summary>
+    static readonly string[] WxTunnelEvents = ["play_wind_tunnels"];
+    /// <summary>Verified (weather W5): <c>play_wind_closed</c> is not a sound but a SetLpf action on the open wind's own node (<c>stop_wind_closed</c> resets it), so posting it on the weather's emitter sounds nothing. The Warfront bed's wind gets the same job from the shelter level (<see cref="WeatherShelterMix.BedWindLpf"/>).</summary>
     public const string WxClosedEvent = "play_wind_closed";
     bool _wxGritOn, _wxWarned, _wxGritLoops;
     double _wxGritUntil;
@@ -112,7 +114,6 @@ public partial class NetworkView
         string? name = null;
         if (_sound is null || _audio is not { } audio || _camera is null) return;
         if (_wxShelter.Tunnel) foreach (var candidate in WxTunnelEvents) if (audio.HasEvent(candidate)) { name = candidate; break; }
-        if (name is null && audio.HasEvent(WxClosedEvent)) name = WxClosedEvent;
         if (name is null) return;
         double now = st.Elapsed;
         if (_wxClosedPlaying == name && (_wxClosedLoops || now < _wxClosedUntil && now > _wxClosedUntil - WxGritRepostSeconds)) return;   // an endless loop is posted once; a one-shot is posted again after its few seconds

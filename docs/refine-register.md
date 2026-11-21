@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3989 spec table rows: **2934 tagged**, 695 not tagged (read from data with high confidence), 360 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 3991 spec table rows: **2935 tagged**, 695 not tagged (read from data with high confidence), 361 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 3989 spec table rows: **2934 tagged**, 695 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 107 | 106 | 46 | 45 | 0 |
+| General game design | 108 | 107 | 44 | 47 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2934** | 2629 | 2189 | 881 | 37 |
+| **All areas** | **2935** | 2630 | 2187 | 883 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1746 |
-| confidence: low | 1065 |
+| kind: ours | 1747 |
+| confidence: low | 1063 |
 | confidence: medium | 1013 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 276 |
+| notes: estimate | 278 |
 | kind: estimate | 264 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (107)
+### General game design (108)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4425,14 +4425,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B883D2A9` | Shelter fade | the shelter level slides 0 to 1 in 0.7 s and 1 to 0 in 0.9 s; every look and sound below follows the level (s) | kind: ours; notes: estimate | owner decision 1 ("about 0.5 to 1 s") | Shelter fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shelter level slides 0 to 1 in 0.7 s and 1 to 0 in 0.9 s; every… | ☐ |
 | `R-78AD7D6A` | Tunnel | cover with a ceiling 5 m or lower is a tunnel (it stays one until 8 m); the install's tunnel wind is tried then (m) | kind: ours; confidence: low | ours | Tunnel: compare with SM1 by measuring on a flat spot of the same map. Ours: cover with a ceiling 5 m or lower is a tunnel (it stays one until 8… | ☐ |
 | `R-8C26C3FF` | Muffled mix | the weather bus (the rig's own hiss, wind and thunder) has a 12 dB low-pass sliding logarithmically from open (20 kHz) to 1.1 kHz at full shelter; rain hiss is cut a further 7 dB, the procedural wind 4 dB and thunder 3 dB, so thunder stays audible but duller… (Hz, dB) | kind: ours; notes: estimate | owner decision 1 ("a muffled indoor mix", "thunder stays audible but duller") | Muffled mix: compare with SM1 by listening A/B at the same distance and state. Ours: the weather bus (the rig's own hiss, wind and thunder) has a 12 dB… | ☐ |
-| `R-66B4F7C2` | Install indoor wind | under cover (level 0.5 or more, wind above 0.05) the install's `play_wind_closed` (or the first of `play_wind_tunnels`, `play_wind_tunnel`, `play_wind_tunnels_01`, `play_wind_tunnels_loop` the bank has, when the cover is a tunnel) is posted at -10 dB over its… (dB, s) | kind: ours; confidence: low | owner decision 1 (swap in `play_wind_closed` and `play_wind_tunnels*` where they exist) | Install indoor wind: compare with SM1 by feel or video. Ours: under cover (level 0.5 or more, wind above 0.05) the install's… | ☐ |
+| `R-72D9D004` | Install indoor wind (W5 correction) | in the installed In_Game_Default bank `play_wind_closed` is not a sound: it is one SetLpf action on the open wind's own node (0x35b92d6a, the node `play_wind_open` plays; `stop_wind_closed` resets it), so W4's post of it on the weather's own emitter sounded… (dB, s) | kind: ours; notes: estimate | owner decision 1; bank checked 2026-11-21 (`smtool audio-event`) | Install indoor wind (W5 correction): compare with SM1 by feel or video. Ours: in the installed In_Game_Default bank play_wind_closed is not a… | ☐ |
 | `R-DE8B1124` | Particles under cover | the near layers (near rain, splashes, mist, ash, embers) fade to nothing with the level and stop emitting at 0.98; the far rain layer keeps 55 % of its alpha and rains in a ring (inner radius 14 m, outer 44 m) round the player once the level passes 0.5 (back… (share, m) | kind: ours; notes: estimate | owner decision 1 ("simplest acceptable approach") | Particles under cover: compare with SM1 by feel or video. Ours: the near layers (near rain, splashes, mist, ash, embers) fade to… | ☐ |
 | `R-6204ED9A` | Auto-trim | the counts of every layer (after the graphics preset's own scale) step down one level at a time (100 %, 80 %, 62 %, 46 %) when the mean frame over 1.5 s is above 22 ms (about 45 frames a second) and step back up one level after 8 s of frames averaging under… (ms, s, share) | kind: ours; notes: estimate | owner decision 3; numbers ours | Auto-trim: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the counts of every layer (after the graphics preset's own scale)… | ☐ |
 | `R-686148D8` | Trim log | every step prints `weather trim: level n ..., total particles` and every shelter flip `weather shelter: ...` under `--log-sound weather` | kind: ours | owner decision 3 | Trim log: compare with SM1 by feel or video. Ours: every step prints weather trim: level n ..., total particles and… | ☐ |
 | `R-197246B3` | Install sounds under cover (review fix) | the install's far thunder and the squall's warning rumble (posted through the sound system, not the weather bus) are posted 7 dB lower at full shelter (scaled by the level at the post; a level cut only, no filter); the ash grit loop is posted 9 dB lower by… (dB, level) | kind: ours; notes: estimate | review of W4 (a tunnel must not keep full-bright thunder or grit); numbers ours | Install sounds under cover (review fix): compare with SM1 by feel or video. Ours: the install's far thunder and the squall's warning rumble (posted… | ☐ |
 | `R-58329705` | Trim and frame caps (review fix) | a window whose mean frame is within 10 % of the frame the engine's cap (`Engine.MaxFps`) or the display's vsync interval already explains (the longer of the two, read once a second) does not step down, so a 30 Hz vsync, a 40 fps cap or a heavy scene stuck at… (ms) | kind: ours; notes: estimate | review of W4; the 10 % band is ours | Trim and frame caps (review fix): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a window whose mean frame is within 10 % of the frame the engine's… | ☐ |
 | `R-5503D074` | Ring hole size (to check) | the far layer's 14 m hole is an estimate: in a hall wider than 28 m rain can fall through the ceiling at the ring's inner edge; to check in a playtest on a wide roofed space (m) | kind: ours; confidence: low | ours | Ring hole size (to check): compare with SM1 by measuring on a flat spot of the same map. Ours: the far layer's 14 m hole is an estimate: in a hall wider than 28 m… | ☐ |
-| `R-A688DDC3` | Tunnel event names (to check) | `play_wind_tunnels`, `play_wind_tunnel`, `play_wind_tunnels_01` and `play_wind_tunnels_loop` are guesses (event names are hashed, the catalogue has no prefix lookup); which one the install has, if any, is to check in a playtest; `play_wind_closed` is known to… | kind: ours; confidence: low | ours (name search) | Tunnel event names (to check): compare with SM1 by feel or video. Ours: play_wind_tunnels, play_wind_tunnel, play_wind_tunnels_01 and… | ☐ |
+| `R-D4DA211C` | Tunnel event names (verified W5) | `play_wind_tunnels` is in the bank (above); `play_wind_tunnel`, `play_wind_tunnels_01`, `play_wind_tunnels_loop`, `stop_wind_tunnels`, `play_thunder`, `play_rain` and `play_wind` are not (checked by name hash with `smtool audio-event`); the install holds no… | kind: ours | bank checked 2026-11-21 | Tunnel event names (verified W5): compare with SM1 by feel or video. Ours: play_wind_tunnels is in the bank (above); play_wind_tunnel… | ☐ |
+
+*Spec section: Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-86BBFE2A` | Warfront wind bed under cover | the battle's own `play_wind_open` loop (a started loop, no gain control) is cut by up to 6 dB and low-passed up to 59.3 Wwise units (1.1 kHz, the weather bus's own muffled cutoff on the sound system's curve) at full shelter, both scaled by the shelter level… (dB, units) | kind: ours; notes: estimate | owner decision (2026-11-21, W5: "route it through the same sheltered mix so it muffles indoors, in both the authored look and the presets"); numbers ours | Warfront wind bed under cover: compare with SM1 by feel or video. Ours: the battle's own play_wind_open loop (a started loop, no gain… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6463,4 +6469,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-7AE0A24B` | Wire | Weather (Warfront, W1; added content; owner 2026-11-21; presentation only) |
 | `R-3F1B4EC5` | Versions | Weather (Warfront, W2: Thunderstorm, Ash Squall, Ember Wind; added content; owner 2026-11-21; presentation only) |
 | `R-7AE0A24B-2` | Wire | Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only) |
+| `R-0B1B8B9B` | Test aids (W5) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
 

@@ -65,6 +65,7 @@ public partial class NetworkView
 
     readonly WeatherShelter _wxShelter = new();
     double _wxShelterClock;
+    int _wxShelterSamples;
 
     /// <summary>Samples per second of the upward rays (ours, an estimate: 6 Hz, four rays each).</summary>
     const double WxShelterHz = 6.0;
@@ -81,6 +82,7 @@ public partial class NetworkView
         {
             _wxShelterClock = 0;
             float cover = 0f, ceiling = WeatherShelter.RayReachM;
+            long rayT0 = _wxPerfLive ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
             if (_client?.Collision is { } world && _gameSpace is not null && _camera is not null)
             {
                 var up = new System.Numerics.Vector3(0f, 0f, 1f);
@@ -92,19 +94,61 @@ public partial class NetworkView
                     if (world.Weapons.Raycast(head + new System.Numerics.Vector3(1.2f * k, 0f, 0f), up, WeatherShelter.RayReachM) is { } hit) { hits++; ceiling = Math.Min(ceiling, hit.Distance + 1.6f); }
                 cover = hits / 5f;
             }
+            if (_wxForceCover > 0) { bool covered = (long)(_connectedFor / _wxForceCover) % 2 == 1; cover = covered ? 1f : 0f; ceiling = covered ? 12f : WeatherShelter.RayReachM; }   // test aid --weather-shelter-test <s>: alternating cover and open, s seconds each, whatever the rays found
+            if (_wxPerfLive) { double ms = System.Diagnostics.Stopwatch.GetElapsedTime(rayT0).TotalMilliseconds; _wxPerfRayMs += ms; _wxPerfRayMax = Math.Max(_wxPerfRayMax, ms); _wxPerfRays++; }
             bool was = _wxShelter.Covered;
             _wxShelter.Sample(cover, ceiling);
+            if (LogSound("weather") && ++_wxShelterSamples % 18 == 0) GD.Print($"weather shelter sample: level {_wxShelter.Level:F2} covered share {cover:F2} ceiling {ceiling:F1} m at ({me.Position.X:F0}, {me.Position.Y:F0}, {me.Position.Z:F1}){(_wxBedShelter ? $"; Warfront wind bed {_musouWind.LiveDb:F1} dB, low-pass +{_musouWind.LiveLpf:F1} units" : "")}");   // every 3 s, a test aid
             if (was != _wxShelter.Covered && LogSound("weather")) GD.Print($"weather shelter: {(_wxShelter.Covered ? "under cover" + (_wxShelter.Tunnel ? " (tunnel)" : "") : "in the open")} (covered share {cover:F2}, ceiling {ceiling:F1} m)");
         }
         _wxShelter.Step(delta);
     }
 
     /// <summary>Once a frame: the clock, the link the grade hook and the F6 panel read, the rig.</summary>
+    bool _wxPinRead;
+    double _wxForceCover;
+    bool _wxPerfLive;
+    readonly System.Collections.Generic.List<double> _wxPerfFrames = new();
+    double _wxPerfScriptMs;
+    double _wxPerfStart = double.NaN;
+    WeatherId _wxPerfId = WeatherId.None;
+    double _wxPerfRayMs, _wxPerfRayMax; int _wxPerfRays;
+
+    /// <summary>Test aid (weather W5, <c>--weather-perf-live</c>, windowed): vsync off, then a <c>WXPERF</c> line every 600 frames after a 5 s warm-up: the preset and phase, the rig's particles, the mean and 95th percentile wall frame, the engine's process time and the weather's own script cost per frame. For real-map runs; the placeholder-stage aid is the stills scene's <c>--weather-perf</c>.</summary>
+    void WeatherPerfLive(double delta, double scriptMs)
+    {
+        if (!_wxPerfLive) return;
+        _wxPerfStart = double.IsNaN(_wxPerfStart) ? _connectedFor : _wxPerfStart;
+        if (_connectedFor - _wxPerfStart < 5.0) return;
+        if (_wxModel.State.Id != _wxPerfId) { _wxPerfId = _wxModel.State.Id; _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0; }   // a window never straddles two presets
+        _wxPerfFrames.Add(delta * 1000.0); _wxPerfScriptMs += scriptMs;
+        if (_wxPerfFrames.Count < 600) return;
+        var sorted = _wxPerfFrames.ToArray(); Array.Sort(sorted);
+        var st = _wxModel.State;
+        GD.Print($"WXPERF {WeatherCatalog.Of(st.Id).Key} {st.Phase} particles {_wxRig?.ParticleTotal ?? 0} shelter {_wxShelter.Level:F2} frames {sorted.Length} mean {System.Linq.Enumerable.Average(sorted):F3} ms p95 {sorted[(int)(sorted.Length * 0.95)]:F3} ms process {Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000:F3} ms weather script {_wxPerfScriptMs / sorted.Length:F4} ms shelter samples {_wxPerfRays} mean {(_wxPerfRays > 0 ? _wxPerfRayMs / _wxPerfRays : 0):F3} ms max {_wxPerfRayMax:F3} ms preset {MapLightingView.Preset} renderer {RenderingServer.GetCurrentRenderingMethod()}");
+        _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0;
+    }
+
     void WeatherFrame(PlayerState me, double delta)
     {
+        long wxT0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        WeatherFrameCore(me, delta);
+        if (_wxPerfLive) WeatherPerfLive(delta, System.Diagnostics.Stopwatch.GetElapsedTime(wxT0).TotalMilliseconds);
+    }
+
+    void WeatherFrameCore(PlayerState me, double delta)
+    {
+        if (!_wxPinRead)
+        {
+            _wxPinRead = true;   // test aid --weather-pin buildup|peak|recovery|opening (client only; see WeatherClientModel.PinPhase)
+            if (CmdArg("weather-shelter-test") is { } forced && double.TryParse(forced, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double period) && period >= 1) _wxForceCover = period;
+            if (CmdFlag("weather-perf-live")) { _wxPerfLive = true; DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); }
+            if (CmdArg("weather-pin") is { } pin && Enum.TryParse<WeatherPhase>(pin, true, out var pinned)) _wxModel.PinPhase = pinned;
+        }
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
         if (!connected)
         {
+            _musouWind.LiveDb = 0f; _musouWind.LiveLpf = 0f; _wxBedShelter = false;
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
             if (_wxRig is not null) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
@@ -129,11 +173,13 @@ public partial class NetworkView
             _wxRig.TrimChanged += (level, total) => { if (LogSound("weather")) GD.Print($"weather trim: level {level} ({WeatherTrim.Steps[level] * 100:0} % of the preset's counts, floors kept), {total} particles"); };
             _wxShelter.Reset(); _wxShelterClock = 1.0;   // the first frame samples at once
         }
+        bool shelterRan = false;
         if (_wxRig is not null)
         {
             if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; _wxShelter.Reset(); }
             else
             {
+                shelterRan = true;
                 _wxRig.FullFlash = _wxModel.FullFlash;
                 WeatherShelterFrame(me, delta);
                 _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
@@ -142,5 +188,31 @@ public partial class NetworkView
                 WeatherInstallSounds(st, intensity);
             }
         }
+        WeatherBedFrame(me, delta, shelterRan);
+    }
+
+    bool _wxBedShelter;
+
+    /// <summary>
+    /// Weather W5 (Warfront only): the battle's open-air wind bed (the install's <c>play_wind_open</c> loop) goes through the same shelter state as the weather's own sounds, so it is duller and quieter under a roof, in the authored
+    /// look (None, no rig) and in every preset. With no rig the shelter is sampled here; with one it was sampled above. Classic PvP and Musou never run this: their bed (Musou) or lack of one (Classic) is untouched.
+    /// </summary>
+    void WeatherBedFrame(PlayerState me, double delta, bool shelterRan)
+    {
+        bool bed = !_bot && _config is { } c && c.Extras.HasFlag(ContentExtras.Warfront) && _musouBedOn && _camera is not null;
+        if (!bed)
+        {
+            if (_wxBedShelter) { _wxBedShelter = false; if (_wxRig is null) _wxShelter.Reset(); }
+            _musouWind.LiveDb = 0f; _musouWind.LiveLpf = 0f;
+            return;
+        }
+        if (!shelterRan)
+        {
+            if (!_wxBedShelter) { _wxShelter.Reset(); _wxShelterClock = 1.0; }   // the first frame samples at once
+            WeatherShelterFrame(me, delta);
+        }
+        _wxBedShelter = true;
+        _musouWind.LiveDb = WeatherShelterMix.BedWindDb(_wxShelter.Level);
+        _musouWind.LiveLpf = WeatherShelterMix.BedWindLpf(_wxShelter.Level);
     }
 }

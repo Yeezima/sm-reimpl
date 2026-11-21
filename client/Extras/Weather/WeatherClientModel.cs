@@ -44,14 +44,38 @@ public sealed class WeatherClientModel
         _wire = wire;
         _elapsed = wire.ElapsedMs / 1000.0;
         _have = true;
+        ApplyPin();
         Received++;
         return true;
+    }
+
+    /// <summary>
+    /// Test aid (weather W5, <c>--weather-pin &lt;phase&gt;</c>, client only, never a player option): the clock this client draws is held inside that phase of the preset the server sent (it loops over the phase), so a perf or still
+    /// run on a real map can sit at the Peak without waiting for it. The server's state and every other client are untouched; null (the default) changes nothing.
+    /// </summary>
+    public WeatherPhase? PinPhase { get; set; }
+
+    double _pinClock;
+
+    void ApplyPin()
+    {
+        if (PinPhase is not { } phase || !_have || _wire.Id == WeatherId.None) return;
+        var def = WeatherCatalog.Of(_wire.Id);
+        double start = 0, total = 0;
+        for (int i = 0; i < def.Seconds.Length; i++) { if (i < (int)phase) start += def.Seconds[i]; total += def.Seconds[i]; }
+        double len = Math.Max(def.Duration(phase), 1e-3);
+        double into = start + _pinClock % len;
+        _elapsed = _wire.SpanSeconds > 0 ? into * _wire.SpanSeconds / total : into;
     }
 
     /// <summary>Runs the clock by <paramref name="seconds"/> of game time.</summary>
     public void Advance(double seconds)
     {
-        if (_have && !_wire.Held && double.IsFinite(seconds) && seconds > 0) _elapsed += seconds;
+        if (_have && !_wire.Held && double.IsFinite(seconds) && seconds > 0)
+        {
+            _elapsed += seconds;
+            if (PinPhase is not null) { _pinClock += seconds; ApplyPin(); }
+        }
     }
 
     /// <summary>The full-flash setting (a client option; the default is reduced): a Thunderstorm's strikes then also lift the exposure, sun and shade for a moment. Set by the view each frame.</summary>

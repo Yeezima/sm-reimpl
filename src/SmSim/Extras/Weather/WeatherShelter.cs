@@ -79,6 +79,14 @@ public static class WeatherShelterMix
     public static float InstallThunderDb(float level) => InstallThunderCutDb * Clamp01(level);
     public static float InstallGritDb(float level) => InstallGritCutDb * Clamp01(level);
 
+    /// <summary>
+    /// The Warfront battle's own open-air wind bed (<c>play_wind_open</c>, a started loop with no gain control of its own) under a roof (weather W5, owner 2026-11-21): the sound system adds this live cut (dB, ours, an estimate) and
+    /// low-pass (Wwise 0..100 units: 59.3 is the 1.1 kHz of <see cref="MuffledHz"/> on the sound system's curve, 20 kHz x (150/20000)^(u/100)) at full shelter, scaled by the level. The same in the authored look (None) and in every preset.
+    /// </summary>
+    public const float BedWindCutDb = -6f, BedWindLpfAtFull = 59.3f;
+    public static float BedWindDb(float level) => BedWindCutDb * Clamp01(level);
+    public static float BedWindLpf(float level) => BedWindLpfAtFull * Clamp01(level);
+
     public static float RainDb(float level) => RainCutDb * Clamp01(level);
     public static float WindDb(float level) => WindCutDb * Clamp01(level);
     public static float ThunderDb(float level) => ThunderCutDb * Clamp01(level);
