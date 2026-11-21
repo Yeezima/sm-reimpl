@@ -130,7 +130,12 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasRoleLabel"),    // CreatorView.ExtrasRoleLabel(string, ref string), the class tabs and rows: the Space Marine name alone
         ("client/Customizer/CreatorView.cs", "ExtrasOwnPage"),      // CreatorView.ExtrasOwnPage(ref bool), AddedPage: the Librarian's / Heretic's page hides the slot (no rename, copy, reset, clear; step keys work)
         ("client/NetworkView.Loadout.cs", "ExtrasPickerBusy"),       // PickerBusy ors in an added content's own panel that takes the game's input (Warfront W5c: the card picker, the squad panel)
-        ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),       // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
+        ("client/NetworkView.cs", "ExtrasExit"),                    // NetworkView.ExtrasExit(), first in _ExitTree: weather clears its static link (WeatherClientLink) so no later view keeps the grade or the F6 section
+        ("client/LightingGradeView.cs", "ExtrasGrade"),             // LightingGradeView.ExtrasGrade(ref LightingGrade), once a frame before the identity check: added content's weather look is multiplied into the player's lighting preset (weather W1)
+        ("client/DevToolsPanel.cs", "ExtrasPanelBuild"),            // DevToolsPanel.ExtrasPanelBuild(VBoxContainer), after the TIME section: added content's own section in the F6 panel (weather W1: the Weather buttons)
+        ("client/DevToolsPanel.cs", "ExtrasPanelPress"),            // DevToolsPanel.ExtrasPanelPress(string, string, ref bool), the script words the panel does not know (weather:rain, weather:none, weather:follow)
+        ("client/DevToolsPanel.cs", "ExtrasPanelSync"),             // DevToolsPanel.ExtrasPanelSync(), once per Sync: added content's section follows the server
+        ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),      // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
         ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3915 spec table rows: **2864 tagged**, 694 not tagged (read from data with high confidence), 357 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 833 rows of the changes document.
+Scanned 3934 spec table rows: **2882 tagged**, 694 not tagged (read from data with high confidence), 358 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +51,21 @@ Scanned 3915 spec table rows: **2864 tagged**, 694 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 37 | 36 | 29 | 2 | 0 |
+| General game design | 55 | 54 | 36 | 11 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2864** | 2559 | 2172 | 838 | 37 |
+| **All areas** | **2882** | 2577 | 2179 | 847 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1676 |
-| confidence: low | 1052 |
-| confidence: medium | 1009 |
+| kind: ours | 1694 |
+| confidence: low | 1057 |
+| confidence: medium | 1011 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
 | kind: estimate | 264 |
-| notes: estimate | 234 |
+| notes: estimate | 242 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -86,9 +86,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: guess | 6 |
 | kind: guess | 5 |
 | kind: inferred | 3 |
+| notes: unverified | 3 |
 | section: approximation | 3 |
 | notes: approximation | 2 |
-| notes: unverified | 2 |
 
 ## Part A: gameplay areas, critical first
 
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (37)
+### General game design (55)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4338,6 +4338,29 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B9141926` | Honor roll | the best score, player kills, squad kills, revives, captures, best retainer, fastest victory (with that run's players) and a total-score table grouped by display name only (no keys exist in the records; two people with one name share a line), over every… | kind: ours; confidence: medium | owner brief ("tally and catalogue"); the list ours | Honor roll: compare with SM1 by feel or video. Ours: the best score, player kills, squad kills, revives, captures, best… | ☐ |
 | `R-AC3E0FC8` | Record | the run's result, UTC end, duration, battles, rolls, weights and rows as `records\<stem>.results.json` beside the archived run; it holds no campaign key, only display names and join order | kind: ours | ours | Record: compare with SM1 by feel or video. Ours: the run's result, UTC end, duration, battles, rolls, weights and rows… | ☐ |
 | `R-8F612117` | Copy and export | COPY FOR DISCORD puts a fixed-width block in a code fence on the clipboard (at most 2000 characters: retainer lines, then the formula, then low rows are dropped); EXPORT writes `exports\<utc>.txt` and `.md`; nothing is posted and no Discord integration… | kind: ours | owner brief ("no automatic posting"); format ours | Copy and export: compare with SM1 by feel or video. Ours: COPY FOR DISCORD puts a fixed-width block in a code fence on the… | ☐ |
+
+*Spec section: Weather (Warfront, W1; added content; owner 2026-11-21; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-03C6871B` | Catalog and ids | none 0, clear 1, low_fog 2, ash_squall 3, rain 4, thunderstorm 5, ember_wind 6 (the wire and save value); W1 builds none, clear, low_fog and rain; the others are stubs that draw the default look | kind: ours; confidence: low | the owner's brief (2026-11-21) | Catalog and ids: compare with SM1 by feel or video. Ours: none 0, clear 1, low_fog 2, ash_squall 3, rain 4, thunderstorm 5… | ☐ |
+| `R-973B7042` | Phases | opening once, then buildup, peak and recovery repeat; intensity 0 to the preset's opening level in the opening, opening level to 1 in the buildup, 1 in the peak, 1 back to the opening level in the recovery | kind: ours; confidence: low | the owner's brief | Phases: compare with SM1 by feel or video. Ours: opening once, then buildup, peak and recovery repeat; intensity 0 to… | ☐ |
+| `R-6A471920` | Phase lengths (opening, buildup, peak, recovery) | clear 60, 60, 240, 60; low fog 45, 60, 240, 90; rain 45, 60, 180, 75; the stubs thunderstorm 45, 75, 150, 75, ash squall 60, 45, 90, 60, ember wind 45, 60, 180, 60 (s) | kind: ours; notes: estimate | ours (a battle lasts minutes: one full cycle per 5 to 7 minutes) | Phase lengths (opening, buildup, peak, recovery): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: clear 60, 60, 240, 60; low fog 45, 60, 240, 90; rain 45, 60, 180, 75… | ☐ |
+| `R-6F279393` | Opening level | clear 0.5, low fog 0.35, rain 0.3 (the stubs 0.2, 0.1, 0.3) (0 to 1) | kind: ours; notes: estimate | ours | Opening level: compare with SM1 by feel or video. Ours: clear 0.5, low fog 0.35, rain 0.3 (the stubs 0.2, 0.1, 0.3). | ☐ |
+| `R-40A7C8AB` | None | the map's own look (Warfront: the Ashfall storm); intensity 0; the default for every slot of an older save, the ship, the travel, the HQ and the fortress | kind: ours | the owner (2026-11-21 decision 2) | None: compare with SM1 by feel or video. Ours: the map's own look (Warfront: the Ashfall storm); intensity 0; the… | ☐ |
+| `R-73E43613` | Forecast | one preset per regular lane slot (nine, lane A nodes 1 to 3 first), drawn once at campaign creation from the run seed and the pool version alone (no roll source, no map or cache key), saved with the run; the HQ and the fortress are not drawn | kind: ours; confidence: low | the owner's brief | Forecast: compare with SM1 by feel or video. Ours: one preset per regular lane slot (nine, lane A nodes 1 to 3 first)… | ☐ |
+| `R-504818B5` | Pool 1 weights (node 1 / 2 / 3) | none 3 / 2 / 2; clear 4 / 2 / 1; low fog 1 / 3 / 3; rain 1 / 3 / 3 (thunderstorm, ash squall, ember wind not yet in the pool: they enter with pool 2 once their intensity and pairings are checked) (relative weight) | kind: ours; notes: estimate | ours (soft terrain and depth weights: open wasteland clear, dense city foggy and wet) | Pool 1 weights (node 1 / 2 / 3): compare with SM1 by feel or video. Ours: none 3 / 2 / 2; clear 4 / 2 / 1; low fog 1 / 3 / 3; rain 1 / 3 / 3… | ☐ |
+| `R-C41676CB` | Opener rule | at least one node-1 slot (slots 1, 4, 7) is none or clear; else the node-1 slot with the lowest draw hash becomes clear | kind: ours; confidence: low | the owner's brief ("at least one clear-enough opener") | Opener rule: compare with SM1 by feel or video. Ours: at least one node-1 slot (slots 1, 4, 7) is none or clear; else the… | ☐ |
+| `R-1D43250A` | Save | save version 5 stores `Forecast` (nine ids) and `ForecastPool`; a version 4 or older save (or a damaged forecast) loads with None on every slot and pool 0 | kind: ours | ours | Save: compare with SM1 by feel or video. Ours: save version 5 stores Forecast (nine ids) and ForecastPool; a version… | ☐ |
+| `R-073DA08B` | Server clock | the match's weather advances 1 / tick rate seconds each tick (it stops with the server clock: a dev-tools pause stops it); a battle (a new phase or deployment of the run) restarts it from the saved forecast and clears any override (s) | kind: ours; confidence: medium | ours | Server clock: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the match's weather advances 1 / tick rate seconds each tick (it… | ☐ |
+| `R-85E46A07` | F6 override | Set starts the preset at its opening phase; None removes the added weather at once; Follow Match resumes the match's own phase; obeyed only with `--dev-tools`, a loopback bind and a loopback requester (a bot or spectator never); never saved, never in a lobby… | kind: ours; confidence: medium | the owner's brief | F6 override: compare with SM1 by feel or video. Ours: Set starts the preset at its opening phase; None removes the added… | ☐ |
+| `R-E08246CF` | Look: Clear (grade at intensity 1) | exposure x1.08, contrast x1.04, saturation x1.30, sun energy x1.55, sun colour (x1.04, x1.02, x0.94), ambient x1.20, fog density x0.50, fog tint (0.62, 0.66, 0.72) at 0.55, bloom x0.75 (factor) | kind: ours; notes: estimate | ours (sunlight reference: pale ground, readable far sightlines) | Look: Clear (grade at intensity 1): compare with SM1 by feel or video. Ours: exposure x1.08, contrast x1.04, saturation x1.30, sun energy x1.55… | ☐ |
+| `R-8CF119CA` | Look: Low Fog | exposure x1.02, contrast x0.92, saturation x0.75, sun x0.60, sun red x0.94, green x0.98, ambient x1.18, fog density x3.4, fog tint (0.60, 0.63, 0.67) at 0.85, bloom x1.10 (factor) | kind: ours; notes: estimate | ours (street-level haze) | Look: Low Fog: compare with SM1 by feel or video. Ours: exposure x1.02, contrast x0.92, saturation x0.75, sun x0.60, sun red… | ☐ |
+| `R-CE2AF824` | Look: Rain | exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red x0.85, green x0.92, ambient x1.0, fog density x1.9, fog tint (0.38, 0.42, 0.48) at 0.70, bloom x1.15; falling rain (CPU particles) and a synthesised hiss (factor) | kind: ours; notes: estimate | ours (overcast, cold, wet) | Look: Rain: compare with SM1 by feel or video. Ours: exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red… | ☐ |
+| `R-CD0E1408` | Readability limits | the weather is multiplied into the player's lighting preset and clamped: exposure 0.94 to 1.13, ambient at least x1 (the shade is never darker than the map's), fog density at most x3.5 of the map's, so no weather hides players, markers or the beacon (factor) | kind: ours; notes: estimate | ours (the lighting presets' own rule) | Readability limits: compare with SM1 by feel or video. Ours: the weather is multiplied into the player's lighting preset and… | ☐ |
+| `R-00E3F0B9` | Rain particles | 1000 streaks (0.012 x 0.6 m) in a 36 x 36 m box 14 m above the camera, falling 24 to 28 m/s, lifetime 1 s; x1.2 at High lighting, x0.8 Medium, x0.5 Low, x0.25 Off, x0.33 in the Compatibility renderer or safe mode; streak alpha 0.10 + 0.34 x intensity (count) | kind: ours; notes: estimate | ours | Rain particles: compare with SM1 by feel or video. Ours: 1000 streaks (0.012 x 0.6 m) in a 36 x 36 m box 14 m above the… | ☐ |
+| `R-6BBC62E4` | Rain sound | a synthesised looping hiss (3 s of filtered noise, no original sample), -60 dB silent to -22 dB at the peak, on the master bus: gunfire, Waaagh, rockets and the beacon stay audible; the owner's installed banks were not searched for a rain bed in W1 (dB) | kind: ours; confidence: low | ours | Rain sound: compare with SM1 by listening A/B at the same distance and state. Ours: a synthesised looping hiss (3 s of filtered noise, no original… | ☐ |
+| `R-DB1CBDB2` | AI sees through weather | bots, Orks and retainers target as before: no weather change to sight, range or acquisition (the owner kept the AI rules, 2026-11-21 decision 3); to check in a playtest whether fog and rain feel fair against an AI that is not slowed by them | kind: ours; notes: unverified | the owner (2026-11-21 decision 3) | AI sees through weather: compare with SM1 by feel or video. Ours: bots, Orks and retainers target as before: no weather change to… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6000,6 +6023,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8389D1A1` | UI core pass (2026-11-20; client only) | Ours (the owner's brief): text keeps a 4 x 2 concept px inset inside every painted plate and steps down one size level, then wraps, instead of touching the border or being cut; painted plates keep their end caps (nine-slice caps per piece, the picture is no longer squeezed whole); install item pictures are drawn at a… | not in SM1 | "Text inset, nine-slice caps, item pictures and hover hints" | UI core pass (2026-11-20; client only): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E36DEE04` | Armoury buttons and emblems (2026-11-20; client only) | Ours (the owner's decisions): the dock under the preview (RENAME, COPY TO, RESET, CLEAR, REVERT, SAVE, SET ACTIVE, APPEARANCE, LEAVE MATCH) is gone (F2 and Ctrl+S still work; LEAVE MATCH is the Esc menu's row; APPEARANCE is the ARMOUR & PAINT tab); RENAME, COPY, RESET, CLEAR are four plates under the SLOTS tab's chip… | not in SM1 | "Armoury buttons, class emblems and the hover plate" | Armoury buttons and emblems (2026-11-20; client only): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-DFC4ECA6` | Warfront UI pass (2026-11-20; client only, added content) | Ours (the owner's brief): the WARFRONT page wears the shared concept frame with a status strip (deployments, fronts, level), one centred column of plates and the gold CONTINUE plate widened to 420 px; PREPARING THE BATTLEFIELD uses the same frame; every Warfront panel (ship hub, travel, results, card picker, squad… | Classic PvP and Musou unchanged; no wire change | spec "Warfront UI pass" | Warfront UI pass (2026-11-20; client only, added content): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-20C3B369` | Warfront weather (weather W1, 2026-11-21; added content, presentation only) | No weather and no Warfront in the original | Ours (the owner's brief): one weather catalog (none, clear, low_fog, ash_squall, rain, thunderstorm, ember_wind; phases opening, buildup, peak, recovery), a server-authoritative preset and phase replicated to every client, a forecast per regular lane slot drawn at campaign creation from a versioned pool and kept in… | owner 2026-11-21 (the weather handoff and decisions); spec "Weather (Warfront, W1)" | Warfront weather (weather W1, 2026-11-21; added content…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -6364,4 +6388,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
 | `R-035F1A34` | Aux byte | Warfront squad wire and client view (warfront/w10, 2026-11-17; added content, Warfront only; `SquadWire`, `WarfrontSquadSender`/`WarfrontSquadCommands`, `client/Extras/Warfront/Squad`; the server hooks wait for W5a/W5b/W3b) |
+| `R-500E9BB9` | Wire | Weather (Warfront, W1; added content; owner 2026-11-21; presentation only) |
 

@@ -100,7 +100,7 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 4;   // 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
+    public const int SaveVersion = 5;   // 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
     /// <summary>The first format (no stats ledger); still loads, with an empty ledger. Version 2 (no co-op fields) loads too, every key with <c>ClassConfirmed</c> true.</summary>
     public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
@@ -119,7 +119,20 @@ public sealed class WarfrontCampaign
     {
         RunSeed = runSeed;
         RollSource = rolls ?? HashedRolls.Instance;
+        _forecast = Weather.WarfrontForecast.Draw(runSeed);
+        ForecastPool = Weather.WarfrontForecast.PoolVersion;
     }
+
+    byte[] _forecast;
+
+    /// <summary>
+    /// The weather forecast (weather W1): one <c>WeatherId</c> byte per lane slot, slot 1 first, drawn at creation from the run seed alone (<see cref="Weather.WarfrontForecast"/>) and saved. Presentation only; a legacy save
+    /// (version 4 or older) holds the current look (None) on every slot. Independent of the off-front rolls and of the maps.
+    /// </summary>
+    public IReadOnlyList<byte> Forecast => _forecast;
+
+    /// <summary>The version of the pool the forecast was drawn from (0: a legacy forecast).</summary>
+    public int ForecastPool { get; private set; }
 
     public ulong RunSeed { get; }
     /// <summary>Per-player run stats (W4b), saved in run.json.</summary>
@@ -391,6 +404,9 @@ public sealed class WarfrontCampaign
         public List<WarfrontRollRecord> Rolls { get; set; } = new();
         public List<WarfrontHistoryEntry> History { get; set; } = new();
         public WarfrontStatsLedger.State? Stats { get; set; }
+        /// <summary>Version 5: the weather forecast (one preset id per lane slot) and the pool it came from.</summary>
+        public List<int>? Forecast { get; set; }
+        public int ForecastPool { get; set; }
     }
 
     internal static readonly JsonSerializerOptions Json = new()
@@ -405,6 +421,7 @@ public sealed class WarfrontCampaign
         RunSeed = RunSeed, Phase = Phase, Fronts = (int[])_front.Clone(), Advanced = (bool[])_advanced.Clone(), HqMandatory = HqMandatory,
         Deployments = Deployments, PlaySeconds = PlaySeconds, CurrentTarget = CurrentTarget, JoinOrder = new(_joinOrder),
         Players = _joinOrder.Select(k => _players[k]).ToList(), Rolls = new(_rolls), History = new(_history), Stats = Stats.ToState(),
+        Forecast = _forecast.Select(b => (int)b).ToList(), ForecastPool = ForecastPool,
     };
 
     internal static WarfrontCampaign FromSnapshot(Snapshot s, IWarfrontRollSource? rolls)
@@ -422,6 +439,10 @@ public sealed class WarfrontCampaign
         c._rolls.AddRange(s.Rolls);
         c._history.AddRange(s.History);
         c.Stats = WarfrontStatsLedger.FromState(s.Stats);
+        // weather W1: a version 5 save keeps its stored forecast; an older (or unreadable) one gets the legacy forecast, the current look on every slot
+        var stored = s.Version >= 5 && s.Forecast is { Count: Weather.WarfrontForecast.Slots } f && f.All(v => v >= 0 && v <= 255) ? f.Select(v => (byte)v).ToArray() : null;
+        if (stored is not null && Weather.WarfrontForecast.IsValid(stored)) { c._forecast = stored; c.ForecastPool = s.ForecastPool; }
+        else { c._forecast = Weather.WarfrontForecast.Legacy(); c.ForecastPool = 0; }
         c.PlaySeconds = s.Version >= 3 && double.IsFinite(s.PlaySeconds) && s.PlaySeconds > 0 ? s.PlaySeconds : 0;
         return c;
     }

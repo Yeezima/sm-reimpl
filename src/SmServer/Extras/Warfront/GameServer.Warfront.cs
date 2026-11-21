@@ -274,6 +274,7 @@ public sealed partial class GameServer
             WfLog($"arrival: travelling to {target.Kind}{(target.Lane >= 0 ? " lane " + (char)('A' + target.Lane) : "")} on {Map.Name}; waiting for {state.Expected.Count} player(s) to rejoin (at most {WarfrontArrivalSeconds} s after the first)");
         }
         if (campaign.IsOver) { WfLog("the loaded run is over: its end was not archived; finishing it now"); WarfrontFinishRun(state); }
+        WarfrontWeatherBind(state);   // weather W1: this slot's forecast (GameServer.WarfrontWeather.cs)
         Stepped += _ => WarfrontStep();
     }
 
@@ -300,6 +301,7 @@ public sealed partial class GameServer
             WarfrontGoWatch(s);
             WarfrontMeasureStep(s);
             WarfrontDedicatedStep(s);
+            WarfrontWeatherStep(s);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {

@@ -94,7 +94,13 @@ public sealed class WarfrontHubModel
     }
 
     /// <summary>The text in lane <paramref name="lane"/>'s node box <paramref name="node"/> (1 to 3): its name and its state.</summary>
-    public string NodeLabel(int lane, int node) => $"{node} {NodeNames[node - 1]}\n{NodeStateText(lane, node)}";
+    public string NodeLabel(int lane, int node) => $"{node} {NodeNames[node - 1]}\n{NodeStateText(lane, node)}{WeatherTag(lane, node)}";
+
+    /// <summary>Weather W1: the forecast's short name after the node's state (" - RAIN"), on every node whatever its state, or nothing when the server sent no forecast. The default look reads "STORM" (the Ashfall storm).</summary>
+    public string WeatherTag(int lane, int node) => _view.ForecastOf(lane, node) is { } id && SmSim.Extras.Weather.WeatherCatalog.Of(id) is { } def ? " - " + def.Short : "";
+
+    /// <summary>The forecast's full name for a node ("Low fog"), or "".</summary>
+    public string WeatherName(int lane, int node) => _view.ForecastOf(lane, node) is { } id && SmSim.Extras.Weather.WeatherCatalog.Of(id) is { } def ? def.Name : "";
 
     public string NodeStateText(int lane, int node)
     {

@@ -361,6 +361,7 @@ public partial class NetworkView : Node3D
 
     public override void _ExitTree()
     {
+        ExtrasExit();   // EXTRAS-HOOK: added content lets go of what it shared outside this view
         LoadDraws3D(true);   // polish P3 review: a map load left between its build and its last warm-up never leaves the window's 3D off
         // Tell the server right away (best effort); otherwise it would drop this player only after its timeout.
         PadTeardown();
@@ -715,6 +716,9 @@ public partial class NetworkView : Node3D
 
     /// <summary>Hook for added content: once a frame after the sound (<see cref="UpdateSound"/>), with the own and the other players' shown states.</summary>
     partial void ExtrasFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta);
+
+    /// <summary>Hook for added content: this view leaves the tree (weather: its static link to the lighting grade and the F6 panel is cleared).</summary>
+    partial void ExtrasExit();
 
     /// <summary>An added mode's clip time for a marine's strike (Musou Mode's weight pass: the hit and end kept, the wind-up and strike retimed); none leaves it.</summary>
     partial void ExtrasAttackTime(PlayerState state, bool own, ref float attackTime);

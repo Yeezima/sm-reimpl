@@ -29,6 +29,9 @@ public partial class NetworkView
         if (_client is { Status: ClientStatus.Connected } client)
             foreach (var section in client.TakeExtras())
             {
+                bool weather = false;
+                WeatherEnvelope(section.Tag, section.Payload, ref weather);   // weather (client/Extras/Weather): tag 48
+                if (weather) continue;
                 bool warfront = false;
                 WarfrontEnvelope(section.Tag, section.Payload, ref warfront);   // WARFRONT-HOOK
                 if (warfront) continue;   // Warfront's tags (40 to 46, the squad's 32 to 34), on a Warfront server only
@@ -42,6 +45,7 @@ public partial class NetworkView
         MusouFrame(me, others, delta, _musouSections);
         Ph("tfw: guards, armies");   // musou/perf-pass: --frame-profile's phase
         TfwFrame(me, others, delta, _tfwSections);
+        WeatherFrame(delta);   // weather (client/Extras/Weather): the clock, the look through the lighting grade, rain
         WarfrontFrame(me, delta);   // WARFRONT-HOOK: the stage flow (commands, panels, rejoin; client/Extras/Warfront/Stage)
         SpearPoseFrame(me, others, delta);   // Musou's power spear: its clips between strikes, the fades and the spear on the hands (Musou/Arsenal/Spear/NetworkView.SpearPose.cs)
     }

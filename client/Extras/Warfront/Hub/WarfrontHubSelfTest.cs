@@ -75,6 +75,9 @@ public sealed partial class WarfrontHubSelfTest : Node
         GD.Print("SELFTEST SHOT " + path);
     }
 
+    /// <summary>A node label's state line without the weather tag (" - RAIN") after it.</summary>
+    static string State(Label label) { string line = label.Text.Split('\n')[1]; int at = line.IndexOf(" - ", System.StringComparison.Ordinal); return at < 0 ? line : line[..at]; }
+
     async Task RunAsync()
     {
         var args = OS.GetCmdlineUserArgs();
@@ -109,11 +112,20 @@ public sealed partial class WarfrontHubSelfTest : Node
         await Still("start-leader");
         for (int l = 0; l < 3; l++)
         {
-            Check($"start: lane {l} front is node 1 and marked", _panel.NodeLabelOf(l, 1).Text.EndsWith("FRONT") && _panel.NodeLabelOf(l, 2).Text.EndsWith("ORK-HELD") && _panel.NodeLabelOf(l, 3).Text.EndsWith("ORK-HELD"), _panel.NodeLabelOf(l, 1).Text);
+            Check($"start: lane {l} front is node 1 and marked", State(_panel.NodeLabelOf(l, 1)).EndsWith("FRONT") && State(_panel.NodeLabelOf(l, 2)).EndsWith("ORK-HELD") && State(_panel.NodeLabelOf(l, 3)).EndsWith("ORK-HELD"), _panel.NodeLabelOf(l, 1).Text);
             Check($"start: lane {l} shows the floor", _panel.FloorLabel(l).Text.Contains("FLOOR"));
             Check($"start: lane {l} has no roll yet", _panel.LastLabel(l).Text.Contains("NONE YET"));
         }
-        Check("start: three node names per lane", _panel.NodeLabelOf(0, 1).Text.Contains("WASTELAND") && _panel.NodeLabelOf(0, 2).Text.Contains("OUTSKIRTS") && _panel.NodeLabelOf(0, 3).Text.Contains("URBAN CORE"));
+        // weather W1: the forecast of every one of the nine nodes shows after its state, the ork-held ones too, and still fits its box
+        bool allForecast = true;
+        for (int l = 0; l < 3; l++)
+            for (int n = 1; n <= 3; n++)
+            {
+                string tag = _panel.NodeLabelOf(l, n).Text.Split('\n')[1];
+                allForecast &= tag.Contains(" - ") && tag.Contains(_model.WeatherTag(l, n).Trim(' ', '-'));
+            }
+        Check("start: weather W1: all nine nodes show their forecast", allForecast, _panel.NodeLabelOf(0, 3).Text);
+        Check("start: three node names per lane",_panel.NodeLabelOf(0, 1).Text.Contains("WASTELAND") && _panel.NodeLabelOf(0, 2).Text.Contains("OUTSKIRTS") && _panel.NodeLabelOf(0, 3).Text.Contains("URBAN CORE"));
         Check("start: Imperial HQ secure, fortress locked", _panel.HqLabel.Text == "IMPERIAL HQ\nSECURE" && _panel.FortressLabel.Text == "ORK FORTRESS\nLOCKED", _panel.HqLabel.Text + " / " + _panel.FortressLabel.Text);
         Check("start: header names the deployment", _panel.HeaderLabel.Text.Contains("DEPLOYMENT 1"));
         Audit("the war map", _panel);
@@ -153,7 +165,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Deployment(c, WarfrontTarget.Node(0), WarfrontOutcome.Win);
         Show(c, Ash);
         await Still("win-rolls-floor");
-        Check("rolls: lane A advanced to node 2", _panel.NodeLabelOf(0, 1).Text.EndsWith("CLEARED") && _panel.NodeLabelOf(0, 2).Text.EndsWith("FRONT"), _panel.NodeLabelOf(0, 2).Text);
+        Check("rolls: lane A advanced to node 2", State(_panel.NodeLabelOf(0, 1)).EndsWith("CLEARED") && State(_panel.NodeLabelOf(0, 2)).EndsWith("FRONT"), _panel.NodeLabelOf(0, 2).Text);
         Check("rolls: lane A reports the win", _panel.LastLabel(0).Text == "LAST DEPLOYMENT: WON", _panel.LastLabel(0).Text);
         Check("rolls: lane B lost its roll but held at the floor", _panel.LastLabel(1).Text == "LAST ROLL: LOST, HELD AT FLOOR" && _panel.FloorLabel(1).Text.Contains("FLOOR"), _panel.LastLabel(1).Text);
         Check("rolls: lane C won its roll", _panel.LastLabel(2).Text == "LAST ROLL: WON, LANE HELD", _panel.LastLabel(2).Text);
@@ -168,7 +180,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Deployment(c, WarfrontTarget.Node(1), WarfrontOutcome.Win);
         Show(c, Ash);
         await Still("roll-lost-one-node");
-        Check("drop: lane A lost a node to a roll", _panel.LastLabel(0).Text == "LAST ROLL: LOST, ONE NODE BACK" && _panel.NodeLabelOf(0, 1).Text.EndsWith("FRONT"), _panel.LastLabel(0).Text);
+        Check("drop: lane A lost a node to a roll", _panel.LastLabel(0).Text == "LAST ROLL: LOST, ONE NODE BACK" && State(_panel.NodeLabelOf(0, 1)).EndsWith("FRONT"), _panel.LastLabel(0).Text);
         Check("drop: lane B reports its win", _panel.LastLabel(1).Text == "LAST DEPLOYMENT: WON");
         Check("drop: lane C held at the floor", _panel.LastLabel(2).Text == "LAST ROLL: LOST, HELD AT FLOOR");
 
@@ -177,7 +189,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Deployment(c, WarfrontTarget.Node(2), WarfrontOutcome.Wipe);
         Show(c, Ash);
         await Still("wipe-held-at-floor");
-        Check("wipe at the floor: lane C stays at node 1 and says held", _panel.LastLabel(2).Text == "LAST DEPLOYMENT: WIPED, HELD AT FLOOR" && _panel.NodeLabelOf(2, 1).Text.EndsWith("FRONT"), _panel.LastLabel(2).Text);
+        Check("wipe at the floor: lane C stays at node 1 and says held", _panel.LastLabel(2).Text == "LAST DEPLOYMENT: WIPED, HELD AT FLOOR" && State(_panel.NodeLabelOf(2, 1)).EndsWith("FRONT"), _panel.LastLabel(2).Text);
         Check("wipe at the floor: the other lanes show their rolls", _panel.LastLabel(0).Text.StartsWith("LAST ROLL: WON") && _panel.LastLabel(1).Text.StartsWith("LAST ROLL: WON"));
 
         // 6. A cleared lane: the fortress opens, through that lane.
@@ -185,7 +197,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         for (int i = 0; i < 3; i++) Deployment(c, WarfrontTarget.Node(0), WarfrontOutcome.Win);
         Show(c, Ash);
         await Still("lane-cleared-fortress-open");
-        Check("cleared: lane A reads cleared", _panel.StatusLabel(0).Text == "CLEARED, THE FORTRESS IS OPEN" && Enumerable.Range(1, 3).All(n => _panel.NodeLabelOf(0, n).Text.EndsWith("CLEARED")), _panel.StatusLabel(0).Text);
+        Check("cleared: lane A reads cleared", _panel.StatusLabel(0).Text == "CLEARED, THE FORTRESS IS OPEN" && Enumerable.Range(1, 3).All(n => State(_panel.NodeLabelOf(0, n)).EndsWith("CLEARED")), _panel.StatusLabel(0).Text);
         Check("cleared: the fortress is unlocked", _panel.FortressLabel.Text == "ORK FORTRESS\nUNLOCKED");
         Check("cleared: lane A's row deploys to the fortress", _panel.DeployRow(0).Text == "DEPLOY: ORK FORTRESS, THROUGH LANE A" && !_panel.DeployRow(0).Disabled, _panel.DeployRow(0).Text);
         requested.Clear();
@@ -230,7 +242,7 @@ public sealed partial class WarfrontHubSelfTest : Node
         Deployment(c, WarfrontTarget.Hq, WarfrontOutcome.Win);
         Show(c, Ash);
         await Still("hq-won-reset");
-        Check("HQ won: every lane is back at node 2 and the HQ is secure", Enumerable.Range(0, 3).All(l => _panel.NodeLabelOf(l, 2).Text.EndsWith("FRONT")) && _panel.HqLabel.Text == "IMPERIAL HQ\nSECURE");
+        Check("HQ won: every lane is back at node 2 and the HQ is secure", Enumerable.Range(0, 3).All(l => State(_panel.NodeLabelOf(l, 2)).EndsWith("FRONT")) && _panel.HqLabel.Text == "IMPERIAL HQ\nSECURE");
         Check("HQ won: no roll line, and the floor is off for lane A only", _panel.LastLabel(0).Text.Contains("NONE YET") && _panel.FloorLabel(0).Text == "");
 
         // 10. Travel screen.
@@ -326,7 +338,7 @@ public sealed partial class WarfrontHubSelfTest : Node
             Last = new[] { HubLastKind.RollWon, HubLastKind.RollLost, HubLastKind.PlayedWon },
         };
         _model.Apply(v);
-        return _panel.NodeLabelOf(0, 3).Text.EndsWith("FRONT") && _panel.NodeLabelOf(2, 3).Text.EndsWith("CLEARED") && _panel.StatusLabel(1).Text.Contains("BROKEN") && !_panel.DeployRow(3).Disabled;
+        return State(_panel.NodeLabelOf(0, 3)).EndsWith("FRONT") && State(_panel.NodeLabelOf(2, 3)).EndsWith("CLEARED") && _panel.StatusLabel(1).Text.Contains("BROKEN") && !_panel.DeployRow(3).Disabled;
     }
 
     /// <summary>Every label fits its box and the screen, and no two labels overlap.</summary>

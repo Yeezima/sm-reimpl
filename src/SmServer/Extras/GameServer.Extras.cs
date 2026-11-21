@@ -17,6 +17,7 @@ public sealed partial class GameServer
         SendTfw();
         LogTfwCoop();   // Musou Mode co-op: late joins in the log
         WarfrontSend();   // WARFRONT-HOOK
+        WeatherSend();   // weather (Extras/Weather): the state to a client that has not heard it, on a change and every two seconds
     }
 
     /// <summary>At the end of the constructor (only with added content): Musou's set-up, or on the war's map the war's.</summary>
@@ -30,6 +31,9 @@ public sealed partial class GameServer
     /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
     partial void ExtrasCommand(int player, byte tag, byte[] payload)
     {
+        bool weatherHandled = false;
+        WeatherCommand(player, tag, payload, ref weatherHandled);   // weather (Extras/Weather): command tag 43, the developer tools' gate inside
+        if (weatherHandled) return;
         bool warfrontHandled = false;
         WarfrontCommand(player, tag, payload, ref warfrontHandled);   // WARFRONT-HOOK
         if (warfrontHandled) return;

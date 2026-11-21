@@ -52,6 +52,13 @@
     <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontFarMassingPlan.cs" Link="ClientWarfront\WarfrontFarMassingPlan.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <!-- Weather W1: the client's Godot-free weather model and look (and the lighting grade type they build on), tested here. -->
+    <Compile Include="..\..\client\Customizer\Model\LightingPresets.cs" Link="ClientWeather\LightingPresets.cs" />
+    <Compile Include="..\..\client\Extras\Weather\WeatherGrade.cs" Link="ClientWeather\WeatherGrade.cs" />
+    <Compile Include="..\..\client\Extras\Weather\WeatherClientModel.cs" Link="ClientWeather\WeatherClientModel.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
     <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />
