@@ -59,6 +59,7 @@ public partial class NetworkView
         WeatherInstallStop();
         if (_wxRig is not null && IsInstanceValid(_wxRig)) _wxRig.QueueFree();
         _wxRig = null;
+        WeatherStormRestore();
     }
 
     // ---- shelter (weather W4): a few upward rays at a low rate, smoothed by the pure WeatherShelter ----
@@ -152,6 +153,7 @@ public partial class NetworkView
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
             if (_wxRig is not null) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
+            WeatherStormRestore();
             return;
         }
         WeatherClientLink.Model = _wxModel;
@@ -188,7 +190,8 @@ public partial class NetworkView
                 WeatherInstallSounds(st, intensity);
             }
         }
-        WeatherBedFrame(me, delta, shelterRan);
+        shelterRan = WeatherBedFrame(me, delta, shelterRan);
+        WeatherStormFrame(me, delta, st, shelterRan);
     }
 
     bool _wxBedShelter;
@@ -197,22 +200,79 @@ public partial class NetworkView
     /// Weather W5 (Warfront only): the battle's open-air wind bed (the install's <c>play_wind_open</c> loop) goes through the same shelter state as the weather's own sounds, so it is duller and quieter under a roof, in the authored
     /// look (None, no rig) and in every preset. With no rig the shelter is sampled here; with one it was sampled above. Classic PvP and Musou never run this: their bed (Musou) or lack of one (Classic) is untouched.
     /// </summary>
-    void WeatherBedFrame(PlayerState me, double delta, bool shelterRan)
+    bool WeatherBedFrame(PlayerState me, double delta, bool shelterRan)
     {
         bool bed = !_bot && _config is { } c && c.Extras.HasFlag(ContentExtras.Warfront) && _musouBedOn && _camera is not null;
         if (!bed)
         {
             if (_wxBedShelter) { _wxBedShelter = false; if (_wxRig is null) _wxShelter.Reset(); }
             _musouWind.LiveDb = 0f; _musouWind.LiveLpf = 0f;
-            return;
+            return shelterRan;
         }
         if (!shelterRan)
         {
             if (!_wxBedShelter) { _wxShelter.Reset(); _wxShelterClock = 1.0; }   // the first frame samples at once
             WeatherShelterFrame(me, delta);
+            shelterRan = true;
         }
         _wxBedShelter = true;
         _musouWind.LiveDb = WeatherShelterMix.BedWindDb(_wxShelter.Level);
         _musouWind.LiveLpf = WeatherShelterMix.BedWindLpf(_wxShelter.Level);
+        return shelterRan;
+    }
+
+    // ---- the storm's airborne layers (weather fix 1; Warfront only) ----
+
+    AshfallStorm? _wxStorm;
+    double _wxStormLookClock;
+    float _wxStormNear = 1f, _wxStormFar = 1f;
+    bool _wxStormShelter;
+    (WeatherId Id, WeatherPhase Phase, bool Covered, bool Any) _wxStormLogged;
+    bool _wxStormSettledLogged = true;
+
+    /// <summary>
+    /// Weather fix 1 (Warfront only): Warfront's map always drew the Ashfall storm's ash, flakes, embers and dust, whatever the weather. Now <see cref="WeatherStormLayers"/> says how much of its two airborne groups each preset keeps (None, Ash Squall
+    /// and Ember Wind keep the storm, the near group fading out under a roof; Clear, Low Fog and Rain have none; a Thunderstorm has the far group only, ramping with its phases) and the shown value eases over 2 s to it. The storm node is found under the map
+    /// (it is freed with the map). The shelter level is sampled here when neither the rig nor the wind bed did it this frame. Classic PvP and Musou never run this.
+    /// </summary>
+    void WeatherStormFrame(PlayerState me, double delta, WeatherState st, bool shelterRan)
+    {
+        if (_bot || _config is not { } c || !c.Extras.HasFlag(ContentExtras.Warfront)) return;
+        if (_wxStorm is not null && !IsInstanceValid(_wxStorm)) { _wxStorm = null; _wxStormNear = _wxStormFar = 1f; }
+        if (_wxStorm is null)
+        {
+            _wxStormLookClock += delta;
+            if (_wxStormLookClock < 2.0 || _gameSpace is null) return;   // looked for twice a second at most while there is no storm (the hub, a map still drawing)
+            _wxStormLookClock = 0;
+            _wxStorm = _gameSpace.FindChild("WarfrontStorm", true, false)?.GetNodeOrNull<AshfallStorm>("AshfallStorm");
+            if (_wxStorm is null) { _wxStormShelter = false; return; }
+            _wxStormNear = _wxStormFar = 1f;
+            _wxStormLogged = default;
+        }
+        if (!shelterRan)
+        {
+            if (!_wxStormShelter && _wxRig is null && !_wxBedShelter) { _wxShelter.Reset(); _wxShelterClock = 1.0; }   // the first frame samples at once
+            WeatherShelterFrame(me, delta);
+        }
+        _wxStormShelter = true;
+        var def = WeatherCatalog.Of(st.Id);
+        double progress = def.Duration(st.Phase) > 0 ? st.PhaseSeconds / def.Duration(st.Phase) : 1.0;
+        var (near, far) = WeatherStormLayers.Of(st.Id, st.Phase, progress, _wxShelter.Level);
+        _wxStormNear = WeatherStormLayers.Ease(_wxStormNear, near, delta);
+        _wxStormFar = WeatherStormLayers.Ease(_wxStormFar, far, delta);
+        _wxStorm.SetAirborne(_wxStormNear, _wxStormFar);
+        if (LogSound("weather"))
+        {
+            var key = (st.Id, st.Phase, _wxShelter.Covered, true);
+            if (key != _wxStormLogged) { _wxStormLogged = key; _wxStormSettledLogged = false; GD.Print($"weather storm: {def.Key} {st.Phase}{(_wxShelter.Covered ? ", under cover" : ", in the open")}: target near {near:0.00} far {far:0.00}; now {_wxStorm.AirborneReport()}"); }
+            else if (!_wxStormSettledLogged && _wxStormNear == near && _wxStormFar == far) { _wxStormSettledLogged = true; GD.Print($"weather storm: settled at near {near:0.00} far {far:0.00}: {_wxStorm.AirborneReport()}"); }
+        }
+    }
+
+    /// <summary>Leaving the map or the connection: every layer back to as built (the storm node goes with the map anyway).</summary>
+    void WeatherStormRestore()
+    {
+        if (_wxStorm is not null && IsInstanceValid(_wxStorm)) _wxStorm.SetAirborne(1f, 1f);
+        _wxStorm = null; _wxStormNear = _wxStormFar = 1f; _wxStormShelter = false; _wxStormLogged = default; _wxStormSettledLogged = true;
     }
 }

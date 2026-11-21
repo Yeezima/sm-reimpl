@@ -292,6 +292,41 @@ public partial class AshfallStorm : Node3D
                + $"quality x{_quality:0.##} ({(compat ? "Compatibility renderer: no volumetric fog, no glow" : $"lighting {MapLightingView.Preset}, volumetric shafts {(volumetric ? "on" : "off")}")}); built in {watch.ElapsedMilliseconds} ms";
     }
 
+    static readonly string[] NearLayers = ["Ash", "Flakes", "FlakesPale", "Embers", "FloorDust"], FarLayers = ["Debris", "Dust"];
+    float _airNear = 1f, _airFar = 1f;
+
+    /// <summary>
+    /// Dims the storm's two airborne groups (weather fix 1; 0 to 1, default 1 = as built): <paramref name="near"/> the ash, rock flakes, embers and floor dust around the camera, <paramref name="far"/> the tumbling debris and dust
+    /// banks. Through <c>AmountRatio</c> (the built counts are the 1.0 base); a group at 0 is hidden so it costs nothing. Fires, plumes, shafts, grime, sky, fog and sun are not touched. Only Warfront's weather code calls it; Musou's
+    /// Ashfall never does and so keeps every layer.
+    /// </summary>
+    public void SetAirborne(float near, float far)
+    {
+        near = float.IsFinite(near) ? Math.Clamp(near, 0f, 1f) : 1f;
+        far = float.IsFinite(far) ? Math.Clamp(far, 0f, 1f) : 1f;
+        if (near == _airNear && far == _airFar) return;
+        _airNear = near; _airFar = far;
+        if (_follow is null) return;
+        foreach (var child in _follow.GetChildren())
+        {
+            if (child is not GpuParticles3D p) continue;
+            string name = p.Name.ToString();
+            float r = Array.IndexOf(NearLayers, name) >= 0 ? near : Array.IndexOf(FarLayers, name) >= 0 ? far : 1f;
+            p.AmountRatio = r;
+            p.Visible = r > 0.001f;
+        }
+    }
+
+    /// <summary>A test aid line: each airborne layer's amount ratio and visibility now.</summary>
+    public string AirborneReport()
+    {
+        if (_follow is null) return "no layers";
+        var parts = new List<string>();
+        foreach (var child in _follow.GetChildren())
+            if (child is GpuParticles3D p) parts.Add($"{p.Name} {p.AmountRatio:0.00}{(p.Visible ? "" : " hidden")}");
+        return string.Join(", ", parts);
+    }
+
     bool _logged;
 
     public override void _Process(double delta)

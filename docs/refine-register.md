@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3991 spec table rows: **2935 tagged**, 695 not tagged (read from data with high confidence), 361 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 3997 spec table rows: **2940 tagged**, 695 not tagged (read from data with high confidence), 362 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 3991 spec table rows: **2935 tagged**, 695 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 108 | 107 | 44 | 47 | 0 |
+| General game design | 113 | 112 | 48 | 49 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2935** | 2630 | 2187 | 883 | 37 |
+| **All areas** | **2940** | 2635 | 2191 | 885 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1747 |
-| confidence: low | 1063 |
-| confidence: medium | 1013 |
+| kind: ours | 1752 |
+| confidence: low | 1065 |
+| confidence: medium | 1015 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 278 |
+| notes: estimate | 280 |
 | kind: estimate | 264 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (108)
+### General game design (113)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4439,6 +4439,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-86BBFE2A` | Warfront wind bed under cover | the battle's own `play_wind_open` loop (a started loop, no gain control) is cut by up to 6 dB and low-passed up to 59.3 Wwise units (1.1 kHz, the weather bus's own muffled cutoff on the sound system's curve) at full shelter, both scaled by the shelter level… (dB, units) | kind: ours; notes: estimate | owner decision (2026-11-21, W5: "route it through the same sheltered mix so it muffles indoors, in both the authored look and the presets"); numbers ours | Warfront wind bed under cover: compare with SM1 by feel or video. Ours: the battle's own play_wind_open loop (a started loop, no gain… | ☐ |
+
+*Spec section: Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-FEF9D881` | Storm air, None, Ash Squall, Ember Wind | near group (ash, flakes, pale flakes, embers, floor dust) = 1 - shelter level; far group (debris, dust banks) = 1 (share 0 to 1 (`AmountRatio`; the built counts are 1.0)) | kind: ours; confidence: medium | owner decision (2026-11-22): None is the Ashfall storm, Ash Squall and Ember Wind build on it | Storm air, None, Ash Squall, Ember Wind: compare with SM1 by feel or video. Ours: near group (ash, flakes, pale flakes, embers, floor dust) = 1 -… | ☐ |
+| `R-866F0056` | Storm air, Clear, Low Fog, Rain | near 0 and far 0 (the groups are hidden at 0 so they cost nothing) (share) | kind: ours; confidence: medium | owner decision (2026-11-22) | Storm air, Clear, Low Fog, Rain: compare with SM1 by feel or video. Ours: near 0 and far 0 (the groups are hidden at 0 so they cost nothing). | ☐ |
+| `R-5B5DA564` | Storm air, Thunderstorm | near 0; far 0 in the opening, rising 0 to 1 linearly through the buildup, 1 at the peak, falling 1 to 0 through the recovery (share, progress of the phase) | kind: ours; confidence: low; notes: estimate | ours (an estimate; the owner's brief gave the shape) | Storm air, Thunderstorm: compare with SM1 by feel or video. Ours: near 0; far 0 in the opening, rising 0 to 1 linearly through the… | ☐ |
+| `R-15FA894F` | Ease | the shown shares move toward the target at 1 per 2 s (F6 switches, preset changes, phase and shelter changes all pass through it) (s) | kind: ours; confidence: low; notes: estimate | ours (an estimate) | Ease: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shown shares move toward the target at 1 per 2 s (F6 switches… | ☐ |
+| `R-62A4CD51` | Leaving | on disconnect or map exit the layers return to 1, 1 (the storm node is freed with the map) | kind: ours | ours | Leaving: compare with SM1 by feel or video. Ours: on disconnect or map exit the layers return to 1, 1 (the storm node… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6470,4 +6480,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-3F1B4EC5` | Versions | Weather (Warfront, W2: Thunderstorm, Ash Squall, Ember Wind; added content; owner 2026-11-21; presentation only) |
 | `R-7AE0A24B-2` | Wire | Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only) |
 | `R-0B1B8B9B` | Test aids (W5) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
+| `R-29325834` | Test aid | Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only) |
 
