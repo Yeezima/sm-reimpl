@@ -12,7 +12,7 @@ public enum WarfrontStageState : byte { None = 0, Preparing = 1, Go = 2, Arrived
 public sealed record WarfrontHubWire(
     WarfrontPhase Phase, IReadOnlyList<int> Fronts, IReadOnlyList<bool> Advanced, bool HqMandatory, int Deployments,
     IReadOnlyList<WarfrontTarget> Targets, WarfrontTarget? CurrentTarget, ulong ViewerKey, ulong? LeaderKey,
-    IReadOnlyList<WarfrontHubWirePlayer> Players, IReadOnlyList<byte> Last);
+    IReadOnlyList<WarfrontHubWirePlayer> Players, IReadOnlyList<byte> Last, IReadOnlyList<byte>? Forecast = null);
 
 /// <summary>One player of the run in join order; <see cref="Key"/> is a handle (see <see cref="WarfrontHubWire"/>).</summary>
 public readonly record struct WarfrontHubWirePlayer(ulong Key, string Name, bool Connected);
@@ -34,7 +34,7 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 /// server sends or reads). Values are little-endian. Every decoder is a <c>TryDecode</c> that returns false on any malformed, truncated, oversized or out-of-range payload and never throws.
 /// <list type="bullet">
 /// <item>Tag <see cref="HubTag"/> (per client): <c>[u8 phase][u8 f0][u8 f1][u8 f2][u8 advanced bits][u8 flags: bit 0 HQ mandatory, bit 1 current target, bit 2 leader][u16 deployments]</c>
-/// <c>[u8 nTargets]{[u8 kind][i8 lane]}[u8 kind][i8 lane] if current target[u64 viewer handle][u64 leader handle] if leader[u8 nPlayers]{[u64 handle][u8 connected][u8 len][name]}[u8 last0][u8 last1][u8 last2]</c>.</item>
+/// <c>[u8 nTargets]{[u8 kind][i8 lane]}[u8 kind][i8 lane] if current target[u64 viewer handle][u64 leader handle] if leader[u8 nPlayers]{[u64 handle][u8 connected][u8 len][name]}[u8 last0][u8 last1][u8 last2]</c>, then (weather W1, WarfrontRules.Version 18) <c>[u8 nForecast: 0 or 9]{[u8 weather id]}</c>, the forecast of lane slots 1 to 9 (a payload that ends before it decodes with no forecast).</item>
 /// <item>Tag <see cref="StageTag"/>: <c>[u8 state][u8 kind][i8 lane][u8 percent][u16 elapsed s][u8 arrived][u8 expected][u8 len][map][u8 len][status]</c>; sent on a change, every 2 s while Preparing, and to a client that joins.</item>
 /// <item>Tag <see cref="DownTag"/> (per client): <c>[u8 phase][u16 tenths of a second]</c>.</item>
 /// <item>Tag <see cref="ResultsTag"/>: one chunk of <see cref="WarfrontResultsWire.Split"/> (<c>[u8 transfer][u8 index][u8 count]</c> then record bytes); no key is in the record.</item>
@@ -91,7 +91,7 @@ public static class WarfrontWire
         foreach (var k in c.JoinOrder) players.Add(new WarfrontHubWirePlayer(Handle(k), c.Player(k)?.Name ?? "", c.IsConnected(k)));
         if (players.Count > MaxPlayers) players.RemoveRange(MaxPlayers, players.Count - MaxPlayers);
         return new WarfrontHubWire(c.Phase, fronts, advanced, c.HqMandatory, c.Deployments, c.AvailableTargets().ToArray(), c.CurrentTarget,
-            viewerKey, c.Leader is { } l0 ? Handle(l0) : null, players, last);
+            viewerKey, c.Leader is { } l0 ? Handle(l0) : null, players, last, c.Forecast.ToArray());
     }
 
     // ---- encoders ------------------------------------------------------------------------------------------------------------------------
@@ -117,6 +117,9 @@ public static class WarfrontWire
         w.Write((byte)players.Length);
         foreach (var p in players) { w.Write(p.Key); w.Write(p.Connected); Str(w, p.Name, MaxName); }
         for (int l = 0; l < Lanes; l++) w.Write(l < h.Last.Count ? h.Last[l] : (byte)0);
+        bool forecast = h.Forecast is { Count: SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots };
+        w.Write((byte)(forecast ? SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots : 0));
+        if (forecast) foreach (var id in h.Forecast!) w.Write(id);
         w.Flush();
         return ms.ToArray();
     }
@@ -198,8 +201,19 @@ public static class WarfrontWire
             }
             var last = new byte[Lanes];
             for (int l = 0; l < Lanes; l++) { last[l] = (byte)r.U8(); if (last[l] > 6) return false; }
-            if (!r.End) return false;
-            hub = new WarfrontHubWire((WarfrontPhase)phase, fronts, new[] { (adv & 1) != 0, (adv & 2) != 0, (adv & 4) != 0 }, (flags & 1) != 0, deployments, targets, current, viewer, leader, players, last);
+            byte[]? forecast = null;
+            if (!r.End)
+            {
+                int nf = r.U8();
+                if (nf != 0 && nf != SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots) return false;
+                if (nf != 0)
+                {
+                    forecast = new byte[nf];
+                    for (int i = 0; i < nf; i++) { forecast[i] = (byte)r.U8(); if (!SmSim.Extras.Weather.WeatherCatalog.IsKnown(forecast[i])) return false; }
+                }
+                if (!r.End) return false;
+            }
+            hub = new WarfrontHubWire((WarfrontPhase)phase, fronts, new[] { (adv & 1) != 0, (adv & 2) != 0, (adv & 4) != 0 }, (flags & 1) != 0, deployments, targets, current, viewer, leader, players, last, forecast);
             return true;
         }
         catch (Exception e) when (e is IndexOutOfRangeException or ArgumentException or EndOfStreamException) { return false; }

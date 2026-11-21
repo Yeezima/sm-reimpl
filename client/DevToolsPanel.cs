@@ -176,6 +176,7 @@ public partial class DevToolsPanel : CanvasLayer
             time.AddChild(b);
             _scaleButtons.Add(b);
         }
+        ExtrasPanelBuild(right);   // EXTRAS-HOOK: added content's own section (weather: the preset buttons)
 
         _status = new Label { Text = "", Modulate = new Color(0.75f, 0.75f, 0.75f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
         outer.AddChild(_status);
@@ -184,6 +185,13 @@ public partial class DevToolsPanel : CanvasLayer
         outer.AddChild(close);
         Sync();
     }
+
+    /// <summary>Added content may add a section to the right column (weather). Unimplemented, it compiles away.</summary>
+    partial void ExtrasPanelBuild(VBoxContainer column);
+    /// <summary>Added content's script words (<c>--dev-script</c>): set <paramref name="handled"/> when the word was its own.</summary>
+    partial void ExtrasPanelPress(string name, string arg, ref bool handled);
+    /// <summary>Once per sync: added content redraws its section.</summary>
+    partial void ExtrasPanelSync();
 
     void PickSelectedMap()
     {
@@ -283,7 +291,12 @@ public partial class DevToolsPanel : CanvasLayer
             case "range" when arg == "default": Send(DevCommandKind.SetBotRange, 0, true, 0); return true;
             case "range" when Number(arg, out int range): Send(DevCommandKind.SetBotRange, 0, true, range); return true;
             case "scale" when Number(arg, out int scale): Send(DevCommandKind.SetTimeScale, (byte)scale, true); return true;
-            default: return false;
+            default:
+            {
+                bool handled = false;
+                ExtrasPanelPress(name, arg, ref handled);   // EXTRAS-HOOK: added content's script words (weather:rain, weather:none, weather:follow)
+                return handled;
+            }
         }
     }
 
@@ -373,6 +386,7 @@ public partial class DevToolsPanel : CanvasLayer
             if (_range is not null && _rangeValue is not null && !_range.HasFocus()) { double v = s.BotRange == 0 ? 100 : s.BotRange; _range.SetValueNoSignal(v); _rangeValue.Text = s.BotRange == 0 ? "bots' own" : $"{v:0} m"; }
         }
         _syncing = false;
+        ExtrasPanelSync();   // EXTRAS-HOOK: added content's section follows the server
         if (s is not null && (!_serialSeen || s.NoteSerial != _lastSerial))
         {
             _serialSeen = true; _lastSerial = s.NoteSerial;

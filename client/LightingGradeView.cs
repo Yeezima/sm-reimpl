@@ -13,7 +13,7 @@ namespace SmClient;
 /// else changed it and that becomes the new base, so the region blender's writes are graded too and nothing compounds. With Faithful Remaster every base is written back and the view stops
 /// touching anything; a player who never picks a preset never has a value touched. Test aid <c>--lighting-preset &lt;1-10|name&gt;</c> overrides the saved choice for one run.
 /// </summary>
-public sealed class LightingGradeView
+public sealed partial class LightingGradeView
 {
     static readonly LightingPresetChoice? CommandLine = ParseCommandLine();
 
@@ -80,12 +80,16 @@ public sealed class LightingGradeView
         var preset = Current;
         if (preset != _applied) { GD.Print($"lighting preset: {LightingPresets.Label(preset)}"); _applied = preset; }
         var g = LightingPresets.For(preset);
+        ExtrasGrade(ref g);   // EXTRAS-HOOK: added content's weather rides on the player's preset (client/Extras/Weather)
         if (g.IsIdentity && !_touched) return;   // never chosen (or already restored): nothing is touched
         if (environment is not null && GodotObject.IsInstanceValid(environment)) Grade(_envs.GetOrCreateValue(environment), environment, g);
         if (sun is not null && GodotObject.IsInstanceValid(sun)) Grade(_suns.GetOrCreateValue(sun), sun, g);
         if (g.IsIdentity) { _envs.Clear(); _suns.Clear(); _touched = false; }   // every base written back
         else _touched = true;
     }
+
+    /// <summary>Added content may change the grade the frame applies (weather: its look multiplied into the player's preset). Unimplemented (a build without added content), it compiles away.</summary>
+    partial void ExtrasGrade(ref LightingGrade grade);
 
     static void Grade(EnvState s, Godot.Environment e, LightingGrade g)
     {

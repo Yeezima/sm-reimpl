@@ -48,6 +48,11 @@ public sealed class WarfrontHubView
     /// <summary>Everyone in the run in join order (disconnected players too).</summary>
     public IReadOnlyList<HubPlayer> Players { get; init; } = Array.Empty<HubPlayer>();
     public IReadOnlyList<HubLastKind> Last { get; init; } = new[] { HubLastKind.None, HubLastKind.None, HubLastKind.None };
+    /// <summary>Weather W1: the forecast of the nine lane slots (one weather id each, lane A nodes 1 to 3 first), or null when the server sent none. Every node shows it, the unavailable ones too.</summary>
+    public IReadOnlyList<byte>? Forecast { get; init; }
+
+    /// <summary>The weather id forecast for a lane's node (1 to 3), or null when there is no forecast.</summary>
+    public byte? ForecastOf(int lane, int node) => Forecast is { Count: SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots } f && lane is >= 0 and < 3 && node is >= 1 and <= 3 ? f[lane * 3 + node - 1] : null;
 
     public bool ViewerIsLeader => LeaderKey is { } l && l == ViewerKey;
     public bool FortressUnlocked => Fronts.Any(f => f == 4);
@@ -76,6 +81,7 @@ public sealed class WarfrontHubView
         sb.Append('|').Append(ViewerKey).Append('|').Append(LeaderKey?.ToString() ?? "-").Append('|');
         foreach (var p in Players) sb.Append(p.Key).Append(':').Append(p.Name).Append(':').Append(p.Connected ? 1 : 0).Append(';');
         sb.Append('|').Append(string.Join(',', Last.Select(k => (int)k)));
+        sb.Append('|').Append(Forecast is null ? "-" : string.Join(',', Forecast));
         return sb.ToString();
     }
 
@@ -108,7 +114,7 @@ public sealed class WarfrontHubView
         {
             Phase = c.Phase, Fronts = fronts, Advanced = advanced, HqMandatory = c.HqMandatory, Deployments = c.Deployments,
             Targets = c.AvailableTargets().ToArray(), CurrentTarget = c.CurrentTarget, ViewerKey = viewerKey, LeaderKey = c.Leader,
-            Players = players, Last = last,
+            Players = players, Last = last, Forecast = c.Forecast.ToArray(),
         };
     }
 }

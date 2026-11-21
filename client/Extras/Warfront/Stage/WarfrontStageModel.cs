@@ -62,13 +62,13 @@ public sealed class WarfrontStageModel
         Phase = w.Phase, Fronts = w.Fronts.ToArray(), Advanced = w.Advanced.ToArray(), HqMandatory = w.HqMandatory, Deployments = w.Deployments,
         Targets = w.Targets.ToArray(), CurrentTarget = w.CurrentTarget, ViewerKey = w.ViewerKey, LeaderKey = w.LeaderKey,
         Players = w.Players.Select(p => new HubPlayer(p.Key, p.Name, p.Connected)).ToArray(),
-        Last = w.Last.Select(b => (HubLastKind)b).ToArray(),
+        Last = w.Last.Select(b => (HubLastKind)b).ToArray(), Forecast = w.Forecast?.ToArray(),
     };
 
     /// <summary>The inverse of <see cref="ToView"/> (the model tests prove the bytes round-trip with the server's encoder).</summary>
     public static WarfrontHubWire ToWire(WarfrontHubView v) => new(
         v.Phase, v.Fronts.ToArray(), v.Advanced.ToArray(), v.HqMandatory, v.Deployments, v.Targets.ToArray(), v.CurrentTarget, v.ViewerKey, v.LeaderKey,
-        v.Players.Select(p => new WarfrontHubWirePlayer(p.Key, p.Name, p.Connected)).ToArray(), v.Last.Select(k => (byte)k).ToArray());
+        v.Players.Select(p => new WarfrontHubWirePlayer(p.Key, p.Name, p.Connected)).ToArray(), v.Last.Select(k => (byte)k).ToArray(), v.Forecast?.ToArray());
 
     // ---- identify, deploy, new run: the commands ------------------------------------------------------------------------------------------
 
