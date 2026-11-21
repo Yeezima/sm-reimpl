@@ -518,10 +518,12 @@ public sealed partial class GameClient
         if (Status == ClientStatus.Connected)
             for (int i = 0; i < 3; i++) _transport.Send(Protocol.Write(new Leave(_session)));
         Status = ClientStatus.Disconnected;
+        _dev = null;   // an announcement belongs to the server that sent it
     }
 
     void OnWelcome(Welcome w)
     {
+        _dev = null;
         var now = _clock.Now;
         // The Welcome echoes the send time of the Hello it answers, so resent Hellos do not shorten the measurement.
         HandshakeRoundTrip = TimeSpan.FromMilliseconds((uint)(Milliseconds(now) - w.EchoSentMs));

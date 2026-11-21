@@ -193,6 +193,35 @@ public class WeatherWireTests
     }
 
     [Fact]
+    public void Weather_fix_2_a_lapse_while_held_returns_to_the_exact_wire_elapsed()
+    {
+        var m = new WeatherClientModel { PinPhase = WeatherPhase.Peak, PinAllowed = true };
+        m.Receive(WeatherWire.Encode(new WeatherStateWire(WeatherId.Rain, WeatherClock.At(WeatherId.Rain, 12.345, 600).Phase, 12_345, false, 0, 600, true)));
+        m.Advance(50);   // held: the server's clock stands still, and a pinned client's does not run either
+        Assert.Equal(WeatherPhase.Peak, m.State.Phase);
+        m.PinAllowed = false;
+        Assert.Equal(12.345, m.State.Elapsed, 6);
+        Assert.Equal(WeatherClock.At(WeatherId.Rain, 12.345, 600).Phase, m.State.Phase);
+        m.Advance(50);
+        Assert.Equal(12.345, m.State.Elapsed, 6);
+    }
+
+    [Fact]
+    public void Weather_fix_2_a_lapse_with_a_span_returns_to_the_servers_fitted_clock()
+    {
+        var wire = new WeatherStateWire(WeatherId.Rain, WeatherClock.At(WeatherId.Rain, 5.0, 600).Phase, 5_000, false, 0, 600, false);
+        var m = new WeatherClientModel { PinPhase = WeatherPhase.Peak, PinAllowed = true };
+        var server = new WeatherClientModel();
+        m.Receive(WeatherWire.Encode(wire)); server.Receive(WeatherWire.Encode(wire));
+        for (int i = 0; i < 25; i++) { m.Advance(1.0); server.Advance(1.0); }
+        Assert.Equal(WeatherPhase.Peak, m.State.Phase);
+        m.PinAllowed = false;
+        Assert.Equal(server.State.Elapsed, m.State.Elapsed, 6);
+        Assert.Equal(server.State.Phase, m.State.Phase);
+        Assert.Equal(600, m.State.Span);
+    }
+
+    [Fact]
     public void Weather_fix_2_clear_resets_the_pin_clock()
     {
         var m = new WeatherClientModel { PinPhase = WeatherPhase.Buildup, PinAllowed = true };

@@ -54,6 +54,7 @@ public partial class NetworkView
     /// <summary>The view leaves the tree: the static link goes with it (a later Classic or Musou view must not keep this grade or show the F6 Weather section), and the rig is freed.</summary>
     partial void ExtrasExit()
     {
+        WeatherAidsApply(false);   // the perf aid's vsync change goes back even when the view is freed while gated
         WeatherClientLink.Release(_wxModel);
         _wxModel.Clear();
         WeatherInstallStop();
@@ -149,7 +150,7 @@ public partial class NetworkView
     void WeatherAidsApply(bool gate)
     {
         bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null;
-        if (wanted && !gate && !_wxAidsNoteLogged && _client is { Status: ClientStatus.Connected }) { _wxAidsNoteLogged = true; GD.Print("weather test aids ignored: this server has no developer tools"); }
+        if (wanted && !gate && !_wxAidsNoteLogged && _client is { Status: ClientStatus.Connected } && _connectedFor >= 4.0) { _wxAidsNoteLogged = true; GD.Print("weather test aids ignored: this server has no developer tools"); }
         if (gate == _wxAidsGate) return;
         _wxAidsGate = gate;
         _wxModel.PinAllowed = gate;
@@ -157,7 +158,7 @@ public partial class NetworkView
         if (gate && _wxReqPerf) { _wxVsyncPrev = DisplayServer.WindowGetVsyncMode(); DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); _wxPerfLive = true; }
         else if (_wxPerfLive)
         {
-            _wxPerfLive = false; DisplayServer.WindowSetVsyncMode(_wxVsyncPrev);
+            _wxPerfLive = false; if (DisplayServer.WindowGetVsyncMode() == DisplayServer.VSyncMode.Disabled) DisplayServer.WindowSetVsyncMode(_wxVsyncPrev);   // not over a choice the player made in Options meanwhile
             _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfStart = double.NaN; _wxPerfId = WeatherId.None; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0;
         }
     }
