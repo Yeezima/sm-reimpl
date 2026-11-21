@@ -110,7 +110,7 @@ public sealed partial class UiSelfTest
                     Check("menu: ... where who can join is the player's choice (co-op)", musouHost.Reach.Choosable, musouHost.Reach.ToString());
                     musouHost.ChooseReachForTest(localOnly: false);
                     Check("menu: ... and the Classic rows (mode, map, bots, difficulty) are left out", musouHost.ClassicRowsHidden);
-                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains("Warfront campaign for up to 4 friends", StringComparison.OrdinalIgnoreCase), musouHost.NoteText);
+                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains("Warfront campaign for you and up to 3 friends", StringComparison.OrdinalIgnoreCase), musouHost.NoteText);
                     musouHost.ChooseReachForTest(localOnly: true);   // tests host this PC only
                     await SendKey(Key.Escape);
                     Check("menu: Esc on the Warfront Host panel goes back to the Warfront page", musouPage.Visible && _services.Content == ContentProfiles.WarfrontProfile, _services.Content.ToString());

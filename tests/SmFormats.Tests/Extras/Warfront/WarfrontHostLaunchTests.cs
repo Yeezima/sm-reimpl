@@ -21,7 +21,7 @@ public class WarfrontHostLaunchTests
     public void Warfront_host_explainer_names_no_classic_field_as_a_choice()
     {
         var text = SmContent.Extras.Warfront.WarfrontLocal.HostExplainer;
-        Assert.Contains("4 friends", text);
+        Assert.Contains("up to 3 friends", text);
         Assert.DoesNotContain("Annihilation", text);
     }
 }

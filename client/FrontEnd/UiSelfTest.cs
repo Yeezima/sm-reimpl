@@ -938,7 +938,7 @@ public sealed partial class UiSelfTest : Node
             Check("the default profile is extended", ContentProfiles.DefaultName == ContentProfiles.Extended && FrontEndSettings.Default.Content == ContentProfiles.Extended);
             Check("Extended never includes Musou", !ContentExtras.All.HasFlag(ContentExtras.Musou) && !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
             if (_front.JoinHostPanel is { } back)
-                Check("the Host panel hosts a match", !back.Musou && back.HostButtonText == "HOST A MATCH", back.HostButtonText);
+                { Check("the Host panel hosts a match", !back.Musou && back.HostButtonText == "HOST A MATCH", back.HostButtonText); Check("the Classic Host panel keeps its mode, map and bot rows", !back.ClassicRowsHidden); }
             row?.Step(1);
             await Frames(2);
         }
