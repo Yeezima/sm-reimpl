@@ -86,7 +86,8 @@ public partial class MapmakerPlugin
     {
         if (!GodotObject.IsInstanceValid(this) || Session is null) return;   // the plugin was closed or the map was closed while the build ran
         _compiledJson = "";   // the next Compiled() finds the decoration in the cache
-        RunCheck();
+        bool route = _routeWanted; _routeWanted = false;
+        RunCheck(route);
     }
 
     /// <summary>Where a ray first meets a solid piece (document frame), or null.</summary>
@@ -133,6 +134,9 @@ public partial class MapmakerPlugin
     public event Action? CheckChanged;
     string _checkedJson = "";
     bool _checkQueued;
+    bool _routeInFlight;   // a Check route run is building the walking graph in the background
+    bool _routeWanted;     // Check route was pressed while the decoration was still compiling: it runs when the decoration lands
+    string _routeJson = "";   // the document the last finished route check verified
     static SmSim.SimConfig? _config;
     static bool _configTried;
 
@@ -145,25 +149,42 @@ public partial class MapmakerPlugin
         GetTree().CreateTimer(0.5).Timeout += () => { _checkQueued = false; RunCheck(); };
     }
 
-    /// <summary>The check now: the quick part at once, then (in the background) the bots' route on the real walking graph.</summary>
-    public void RunCheck(bool withRoute = true)
+    /// <summary>
+    /// The check now: the quick part (spawns, floor, doors, points) at once. The bots' route on the real walking graph runs only when asked
+    /// (<paramref name="withRoute"/>: the Check route button, owner 2026-11-21): building the graph takes every core for seconds, and running it after every
+    /// edit pinned testers' CPUs at 99 % as soon as both spawn areas stood on floor.
+    /// </summary>
+    public void RunCheck(bool withRoute = false)
     {
         if (Session is null) { LastCheck = null; CheckChanged?.Invoke(); return; }
+        if (withRoute && _routeInFlight) { SetStatus("The bots' route is already being checked."); return; }   // one route check at a time
         string json = Session.Document.ToJson();
+        // a route verified for exactly this document stays shown (a quick re-check of an unchanged map does not throw it away)
+        if (!withRoute && json == _routeJson && LastCheck is not null && !_routeInFlight) { _checkedJson = json; CheckChanged?.Invoke(); return; }
         _checkedJson = json;
         var map = Compiled()!;
         if (_compiledPiecesOnly)
         {
-            // the decoration is still compiling: the check would judge a map without its SM1 pieces; it runs when they land
+            // the decoration is still compiling: the check would judge a map without its SM1 pieces; it runs when they land (with the route, if that was asked)
+            _routeWanted |= withRoute;
             RouteChecking = true;
             CheckChanged?.Invoke();
             return;
         }
-        RouteChecking = false;
+        RouteChecking = _routeInFlight;
         LastCheck = MapCheck.Run(map);
+        bool ready = LastCheck.Ready(CheckMode.Annihilation) || LastCheck.Ready(CheckMode.Seize);
+        bool startRoute = withRoute && ready;
+        if (!startRoute)
+        {
+            LastCheck.Facts.RemoveAll(f => f.StartsWith("Bot route:", StringComparison.Ordinal));
+            LastCheck.Facts.Add(ready ? "Bot route: not checked since the last edit. Press Check route to see whether bots can walk between the spawns and to every point."
+                                      : "Bot route: can be checked once the map has a spawn area with floor for each side.");
+        }
         CheckChanged?.Invoke();
-        if (!withRoute || !LastCheck.Ready(CheckMode.Annihilation) && !LastCheck.Ready(CheckMode.Seize)) return;
+        if (!startRoute) return;
         RouteChecking = true;
+        _routeInFlight = true;
         CheckChanged?.Invoke();
         var routeOptions = EditorScenes.Options();   // taken on the main thread: a snapshot of the loaded maps
         _ = Task.Run(() =>
@@ -176,12 +197,17 @@ public partial class MapmakerPlugin
                 route = MapCheck.Run(copy, _config);
             }
             catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { GD.PushWarning("Mapmaker: route check: " + e.Message); }
-            Callable.From(() =>
+            finally
             {
-                RouteChecking = false;
-                if (route is not null && Session is not null && Session.Document.ToJson() == json) LastCheck = route;
-                CheckChanged?.Invoke();
-            }).CallDeferred();
+                // always hand the result back, so a failed run never leaves Check route stuck
+                Callable.From(() =>
+                {
+                    _routeInFlight = false;
+                    RouteChecking = false;
+                    if (route is not null && Session is not null && Session.Document.ToJson() == json) { LastCheck = route; _routeJson = json; }
+                    CheckChanged?.Invoke();
+                }).CallDeferred();
+            }
         });
     }
 

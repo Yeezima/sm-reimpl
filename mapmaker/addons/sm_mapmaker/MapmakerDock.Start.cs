@@ -89,8 +89,11 @@ public partial class MapmakerDock
         var v = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _checkHead.CustomMinimumSize = new Vector2(250, 0); _checkFacts.CustomMinimumSize = new Vector2(250, 0);
         _checkFacts.AddThemeColorOverride("font_color", HintColour); _checkFacts.AddThemeFontSizeOverride("font_size", 12);
-        Section(v, "Check", "Updates after every edit. Fix it does the common repairs; Ctrl+Z undoes them.");
+        Section(v, "Check", "Updates after every edit. Fix it does the common repairs; Ctrl+Z undoes them. The bots' route is checked only when you press Check route.");
         v.AddChild(_checkHead);
+        var route = Btn("Check route", () => _plugin.RunCheck(withRoute: true), "Checks whether bots can walk from each spawn to the other side and to every capture point. Builds the bots' walking graph, which takes a few seconds of CPU, so it runs only when you press this.");
+        route.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        v.AddChild(Row(route));
         v.AddChild(_checkList);
         v.AddChild(_checkFacts);
         Section(v, "Play test settings", "Play test (below) starts a server on this PC only, with bots. Closing the game stops it.");
