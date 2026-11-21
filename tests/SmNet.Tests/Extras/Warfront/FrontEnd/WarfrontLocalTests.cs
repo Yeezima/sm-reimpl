@@ -40,6 +40,7 @@ public sealed class WarfrontLocalTests : IDisposable
             Assert.Equal("27123", a[a.IndexOf("--port") + 1]);
             Assert.Equal("1", a[a.IndexOf("--warfront-max-humans") + 1]);
             Assert.DoesNotContain("0.0.0.0", a);
+            Assert.Contains("--dev-tools", a);   // owner 2026-11-21: the local campaign starts with the developer tools, loopback only
         }
         Assert.DoesNotContain("--warfront-new", cont);
         Assert.Contains("--warfront-new", fresh);

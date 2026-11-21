@@ -68,6 +68,17 @@ public sealed partial class WeatherSelfTest : Node
         Check("teardown: every value is back to the baseline", env.FogDensity == fog0 && sun.LightEnergy == sun0 && env.TonemapExposure == exp0 && env.AmbientLightEnergy == amb0 && env.AdjustmentSaturation == sat0,
             $"{env.FogDensity} {sun.LightEnergy} {env.TonemapExposure} {env.AmbientLightEnergy} {env.AdjustmentSaturation}");
 
+        // a view that leaves the tree lets go of the static link: a later Classic or Musou view keeps no grade and no F6 section
+        var viewA = new WeatherClientModel(); var viewB = new WeatherClientModel();
+        viewA.Receive(Section(WeatherId.Rain, 130));
+        WeatherClientLink.Model = viewA; WeatherClientLink.Send = _ => true;
+        Check("link: set while a Warfront view is up", WeatherClientLink.Available);
+        WeatherClientLink.Release(viewB);
+        Check("link: another view cannot clear it", WeatherClientLink.Available);
+        WeatherClientLink.Release(viewA); viewA.Clear();
+        grade.Frame(env, sun);
+        Check("link: after the view is gone the section is off and the grade is the identity", !WeatherClientLink.Available && WeatherClientLink.Model is null && sun.LightEnergy == sun0 && env.FogDensity == fog0, $"{sun.LightEnergy} {env.FogDensity}");
+
         var anchor = new Node3D();
         AddChild(anchor);
         var rig = new WeatherRig();

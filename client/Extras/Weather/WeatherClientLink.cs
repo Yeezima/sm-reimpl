@@ -13,6 +13,14 @@ public static class WeatherClientLink
     /// <summary>Sends a weather command payload (<c>WeatherWire.CommandTag</c>); false when not connected. Null while no weather-bearing match is connected.</summary>
     public static Func<byte[], bool>? Send { get; set; }
 
+    /// <summary>The view that set the link lets go of it (it leaves the tree): only the owner's own model is cleared, so a newer view's link is never cleared by an older view.</summary>
+    public static void Release(WeatherClientModel owner)
+    {
+        if (!ReferenceEquals(Model, owner)) return;
+        Model = null;
+        Send = null;
+    }
+
     /// <summary>The server carries weather (the panel shows its section only then).</summary>
     public static bool Available => Model is not null && Send is not null;
 }

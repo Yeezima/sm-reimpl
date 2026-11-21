@@ -17,7 +17,8 @@ public partial class NetworkView
 {
     readonly WeatherClientModel _wxModel = new();
     WeatherRig? _wxRig;
-    string _wxLogged = "";
+    (WeatherId Id, WeatherPhase Phase, bool Overridden) _wxLogged = (WeatherId.None, WeatherPhase.Opening, false);
+    bool _wxLoggedAny;
 
     /// <summary>The weather carrier: a Warfront match (the profile's flag in the config the handshake agreed).</summary>
     bool WeatherOn => _config is { } c && c.Extras.HasFlag(ContentExtras.Warfront);
@@ -30,6 +31,15 @@ public partial class NetworkView
         if (WeatherOn) _wxModel.Receive(payload);
     }
 
+    /// <summary>The view leaves the tree: the static link goes with it (a later Classic or Musou view must not keep this grade or show the F6 Weather section), and the rig is freed.</summary>
+    partial void ExtrasExit()
+    {
+        WeatherClientLink.Release(_wxModel);
+        _wxModel.Clear();
+        if (_wxRig is not null && IsInstanceValid(_wxRig)) _wxRig.QueueFree();
+        _wxRig = null;
+    }
+
     /// <summary>Once a frame: the clock, the link the grade hook and the F6 panel read, the rig.</summary>
     void WeatherFrame(double delta)
     {
@@ -37,7 +47,7 @@ public partial class NetworkView
         if (!connected)
         {
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
-            if (WeatherClientLink.Model == _wxModel) { WeatherClientLink.Model = null; WeatherClientLink.Send = null; }
+            WeatherClientLink.Release(_wxModel);
             if (_wxRig is not null) { _wxRig.QueueFree(); _wxRig = null; }
             return;
         }
@@ -46,12 +56,13 @@ public partial class NetworkView
         _wxModel.Advance(delta);
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
-        if (!_bot)
+        var now = (st.Id, st.Phase, _wxModel.Overridden);
+        if (!_bot && (!_wxLoggedAny || now != _wxLogged))
         {
-            string line = $"{WeatherCatalog.Of(st.Id).Key} {st.Phase}{(_wxModel.Overridden ? " (dev tools)" : "")}{(WeatherCatalog.Of(st.Id).Real ? "" : " (stub: default look)")}";
-            if (line != _wxLogged) { _wxLogged = line; GD.Print("weather: " + line); }
+            _wxLoggedAny = true; _wxLogged = now;
+            GD.Print($"weather: {WeatherCatalog.Of(st.Id).Key} {st.Phase}{(now.Item3 ? " (dev tools)" : "")}{(WeatherCatalog.Of(st.Id).Real ? "" : " (stub: default look)")}");
         }
-        bool wantRig = st.Id == WeatherId.Rain && intensity > 0.02f && _camera is not null;
+        bool wantRig = !_bot && st.Id == WeatherId.Rain && intensity > 0.02f && _camera is not null;   // a bot client draws and hears nothing
         if (wantRig && _wxRig is null) AddChild(_wxRig = new WeatherRig { Name = "WeatherRig" });
         if (_wxRig is not null)
         {

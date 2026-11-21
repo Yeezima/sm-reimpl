@@ -17,8 +17,7 @@ public sealed partial class GameServer
 
     WeatherId WarfrontWeatherBaseline(WarfrontServerState s)
     {
-        if (s.Campaign.Phase != WarfrontPhase.Battle || Map is null) return WeatherId.None;
-        return WarfrontSlots.ByName(Map.Name) is { } slot ? WarfrontForecast.ForSlot(s.Campaign.Forecast, slot.Number) : WeatherId.None;
+        return WarfrontForecast.Baseline(s.Campaign.Phase, Map?.Name, s.Campaign.Forecast);
     }
 
     void WarfrontWeatherBind(WarfrontServerState s)

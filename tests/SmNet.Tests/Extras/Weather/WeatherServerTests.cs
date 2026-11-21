@@ -129,6 +129,21 @@ public class WeatherServerTests
     }
 
     [Fact]
+    public void A_bot_and_a_spectator_never_command_the_weather_even_under_the_gate()
+    {
+        var (h, _) = Make(Setup(), clients: 0);
+        var bot = h.AddClient(nonce: 31, options: new ClientOptions { Bot = true });
+        var watcher = h.AddClient(nonce: 32, options: new ClientOptions { Observer = true });
+        Settle(h, 1.5);
+        Send(bot, new WeatherCommand(WeatherCommandKind.Set, WeatherId.Clear));
+        Send(watcher, new WeatherCommand(WeatherCommandKind.Set, WeatherId.Clear));
+        Settle(h, 0.5);
+        Assert.Null(h.Server.Weather!.Override);
+        Assert.Equal((0, 1), (h.Server.WeatherCommandsApplied, h.Server.WeatherCommandsRefused));   // the bot reaches the weather gate; the spectator is dropped before it by the envelope
+        Assert.True(h.Server.ExtrasCommandsDropped >= 1);
+    }
+
+    [Fact]
     public void A_malformed_weather_command_changes_nothing()
     {
         var (h, _) = Make(Setup());

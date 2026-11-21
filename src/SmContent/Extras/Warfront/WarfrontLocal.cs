@@ -101,9 +101,9 @@ public static class WarfrontLocal
         return a;
     }
 
-    /// <summary>The host options of the local campaign: this PC only (always), the Warfront profile, no bots.</summary>
+    /// <summary>The host options of the local campaign: this PC only (always), the Warfront profile, no bots, the developer tools on (F6; weather and the rest).</summary>
     public static HostOptions Options(int port, string gameDir, bool newCampaign) =>
-        new(ServerLaunch.ModeAnnihilation, port, LocalOnly: true, gameDir, AllowCustomEmblems: false, Content: SmSim.ContentProfiles.Warfront, Bots: 0, ExtraArgs: ExtraArgs(newCampaign));
+        new(ServerLaunch.ModeAnnihilation, port, LocalOnly: true, gameDir, AllowCustomEmblems: false, Content: SmSim.ContentProfiles.Warfront, Bots: 0, DevTools: true, ExtraArgs: ExtraArgs(newCampaign));   // owner 2026-11-21: the full developer tools (F6), like Classic's This PC only; ServerLaunch adds --dev-tools only for LocalOnly and the server still wants a loopback bind and requester
 
     /// <summary>The private run folder (<c>%LOCALAPPDATA%\sm-reimpl\warfront</c>, or <c>SM_WF_DIR</c>, the test aid the server reads too).</summary>
     public static string RunDir()

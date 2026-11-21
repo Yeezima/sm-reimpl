@@ -79,6 +79,13 @@ public static class WarfrontForecast
     public static WeatherId ForSlot(IReadOnlyList<byte>? forecast, int slotNumber)
         => IsValid(forecast) && slotNumber >= 1 && slotNumber <= Slots ? (WeatherId)forecast![slotNumber - 1] : WeatherId.None;
 
+    /// <summary>
+    /// The baseline weather of a Warfront stage: the slot's forecast while a battle is on a lane slot, else None (the ship, travel, the HQ and the fortress keep the default look). A pure function of the saved forecast, the
+    /// phase and the map name, so a wipe that returns to the same slot, a reconnect and a restarted stage all read the same preset.
+    /// </summary>
+    public static WeatherId Baseline(SmSim.Extras.Warfront.Campaign.WarfrontPhase phase, string? mapName, IReadOnlyList<byte>? forecast)
+        => phase == SmSim.Extras.Warfront.Campaign.WarfrontPhase.Battle && SmSim.Extras.Warfront.Maps.WarfrontSlots.ByName(mapName) is { } slot ? ForSlot(forecast, slot.Number) : WeatherId.None;
+
     static ulong Mix(ulong z)
     {
         z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
