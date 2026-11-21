@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3975 spec table rows: **2921 tagged**, 694 not tagged (read from data with high confidence), 360 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 3985 spec table rows: **2930 tagged**, 695 not tagged (read from data with high confidence), 360 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 3975 spec table rows: **2921 tagged**, 694 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 94 | 93 | 42 | 37 | 0 |
+| General game design | 103 | 102 | 44 | 43 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2921** | 2616 | 2185 | 873 | 37 |
+| **All areas** | **2930** | 2625 | 2187 | 879 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1733 |
-| confidence: low | 1061 |
+| kind: ours | 1742 |
+| confidence: low | 1063 |
 | confidence: medium | 1013 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 268 |
+| notes: estimate | 274 |
 | kind: estimate | 264 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (94)
+### General game design (103)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4415,6 +4415,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-45A79165` | Late join, reconnect | the server sends the current state to any client that has not heard it, and every 2 s: the joiner gets the fitted phase within a tick (s) | kind: ours | owner decision (3) | Late join, reconnect: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server sends the current state to any client that has not heard… | ☐ |
 | `R-BBFB958F` | F6 override | under the existing gate (enabled, loopback bind, loopback requester; never a bot or spectator) a local match can pick a preset (it starts at its opening phase on the catalog's own lengths, not fitted), None, or Follow Match (the match's fitted phase now)… | kind: ours | owner brief | F6 override: compare with SM1 by feel or video. Ours: under the existing gate (enabled, loopback bind, loopback requester… | ☐ |
 | `R-53A8264D` | Visible to players | the Tab scoreboard shows one line over the score plates: "WEATHER: preset, phase" (None says nothing) | kind: ours; confidence: medium | owner brief ("least invasive spot") | Visible to players: compare with SM1 by feel or video. Ours: the Tab scoreboard shows one line over the score plates: "WEATHER:… | ☐ |
+
+*Spec section: Weather (W4: the sheltered mix, no weather indoors, performance; added content; owner 2026-11-21; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0219F2B2` | Shelter probe | four rays straight up through the sim's own collision world (the one the weapons use): the camera (counted twice, it is what the player hears) and the player's head (1.6 m over the feet) at 0 and 1.2 m to either side; 40 m reach; the covered share is the hits… (rays, m) | kind: ours; notes: estimate | owner decision 1 ("a few upward raycasts from the camera and the player at about 4 to 10 Hz"); the counts are ours | Shelter probe: compare with SM1 by feel or video. Ours: four rays straight up through the sim's own collision world (the one… | ☐ |
+| `R-C671366C` | Shelter trigger | shelter turns on at a covered share of 0.6 or more (the player's three rays alone, or the camera and one more) and off at 0.3 or less; a flip waits at least 0.4 s after the last (share, s) | kind: ours; notes: estimate | owner (no flicker at doorways); numbers ours | Shelter trigger: compare with SM1 by feel or video. Ours: shelter turns on at a covered share of 0.6 or more (the player's… | ☐ |
+| `R-B883D2A9` | Shelter fade | the shelter level slides 0 to 1 in 0.7 s and 1 to 0 in 0.9 s; every look and sound below follows the level (s) | kind: ours; notes: estimate | owner decision 1 ("about 0.5 to 1 s") | Shelter fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shelter level slides 0 to 1 in 0.7 s and 1 to 0 in 0.9 s; every… | ☐ |
+| `R-78AD7D6A` | Tunnel | cover with a ceiling 5 m or lower is a tunnel (it stays one until 8 m); the install's tunnel wind is tried then (m) | kind: ours; confidence: low | ours | Tunnel: compare with SM1 by measuring on a flat spot of the same map. Ours: cover with a ceiling 5 m or lower is a tunnel (it stays one until 8… | ☐ |
+| `R-8C26C3FF` | Muffled mix | the weather bus (the rig's own hiss, wind and thunder) has a 12 dB low-pass sliding logarithmically from open (20 kHz) to 1.1 kHz at full shelter; rain hiss is cut a further 7 dB, the procedural wind 4 dB and thunder 3 dB, so thunder stays audible but duller… (Hz, dB) | kind: ours; notes: estimate | owner decision 1 ("a muffled indoor mix", "thunder stays audible but duller") | Muffled mix: compare with SM1 by listening A/B at the same distance and state. Ours: the weather bus (the rig's own hiss, wind and thunder) has a 12 dB… | ☐ |
+| `R-66B4F7C2` | Install indoor wind | under cover (level 0.5 or more, wind above 0.05) the install's `play_wind_closed` (or the first of `play_wind_tunnels`, `play_wind_tunnel`, `play_wind_tunnels_01`, `play_wind_tunnels_loop` the bank has, when the cover is a tunnel) is posted at -10 dB over its… (dB, s) | kind: ours; confidence: low | owner decision 1 (swap in `play_wind_closed` and `play_wind_tunnels*` where they exist) | Install indoor wind: compare with SM1 by feel or video. Ours: under cover (level 0.5 or more, wind above 0.05) the install's… | ☐ |
+| `R-DE8B1124` | Particles under cover | the near layers (near rain, splashes, mist, ash, embers) fade to nothing with the level and stop emitting at 0.98; the far rain layer keeps 55 % of its alpha and rains in a ring (inner radius 14 m, outer 44 m) round the player once the level passes 0.5 (back… (share, m) | kind: ours; notes: estimate | owner decision 1 ("simplest acceptable approach") | Particles under cover: compare with SM1 by feel or video. Ours: the near layers (near rain, splashes, mist, ash, embers) fade to… | ☐ |
+| `R-6204ED9A` | Auto-trim | the counts of every layer (after the graphics preset's own scale) step down one level at a time (100 %, 80 %, 62 %, 46 %) when the mean frame over 1.5 s is above 22 ms (about 45 frames a second) and step back up one level after 8 s of frames averaging under… (ms, s, share) | kind: ours; notes: estimate | owner decision 3; numbers ours | Auto-trim: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the counts of every layer (after the graphics preset's own scale)… | ☐ |
+| `R-686148D8` | Trim log | every step prints `weather trim: level n ..., total particles` and every shelter flip `weather shelter: ...` under `--log-sound weather` | kind: ours | owner decision 3 | Trim log: compare with SM1 by feel or video. Ours: every step prints weather trim: level n ..., total particles and… | ☐ |
 
 ## Part B: Ork faction
 

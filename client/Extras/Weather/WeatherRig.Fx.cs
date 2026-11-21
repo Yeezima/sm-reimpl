@@ -36,10 +36,12 @@ public sealed partial class WeatherRig
         // ash (Ash Squall): the warning emitter sprinkles from the buildup, the dense one is the crosswind
         float ash = WeatherPlan.AshShare(st);
         bool warnOn = id == WeatherId.AshSquall && ash > 0.005f, mainOn = ash > 0.12f;   // the sparse emitter runs through the whole squall; the dense one adds to it at the peak
-        if (warnOn) _ashWarn ??= BuildAsh("AshWarning", Math.Max(20, (int)(AshCount * 0.2f * QualityScale())), out _ashWarnMaterial);
-        if (mainOn) _ashMain ??= BuildAsh("AshSquall", Math.Max(60, (int)(AshCount * QualityScale())), out _ashMainMaterial);
-        ConfigureAsh(_ashWarn, _ashWarnMaterial, warnOn, Math.Clamp(ash * 6f, 0f, 1f), windDir, wind);
-        ConfigureAsh(_ashMain, _ashMainMaterial, mainOn, ash, windDir, wind);
+        if (warnOn) _ashWarn ??= BuildAsh("AshWarning", WeatherTrim.Count(Math.Max(AshWarnFloor, (int)(AshCount * 0.2f * QualityScale())), AshWarnFloor, Trim.Level), out _ashWarnMaterial);
+        if (mainOn) _ashMain ??= BuildAsh("AshSquall", Count(AshCount, AshMainFloor), out _ashMainMaterial);
+        float near = WeatherShelterMix.NearAlpha(Shelter);
+        bool cover = Shelter >= WeatherShelterMix.NearOffAbove;   // under cover no ash or ember falls near the player (the fade runs first, then the emitters stop)
+        ConfigureAsh(_ashWarn, _ashWarnMaterial, warnOn && !cover, Math.Clamp(ash * 6f, 0f, 1f), windDir, wind, near);
+        ConfigureAsh(_ashMain, _ashMainMaterial, mainOn && !cover, ash, windDir, wind, near);
 
         // embers (Ember Wind, preview): sparse, lit by themselves, riding the wind and rising
         float ember = WeatherPlan.EmberDensity(id, i);
@@ -47,14 +49,14 @@ public sealed partial class WeatherRig
         if (embersOn) _embers ??= BuildEmbers();
         if (_embers is not null)
         {
-            _embers.Emitting = embersOn;
+            _embers.Emitting = embersOn && !cover;
             if (embersOn)
             {
                 float speed = 2.5f + 4f * wind;
                 _embers.Direction = windDir + Vector3.Up * 0.25f;
                 _embers.InitialVelocityMin = speed * 0.8f;
                 _embers.InitialVelocityMax = speed * 1.2f;
-                if (_emberMaterial is not null) _emberMaterial.AlbedoColor = new Color(1f, 0.62f, 0.25f, 0.55f + 0.45f * ember);
+                if (_emberMaterial is not null) _emberMaterial.AlbedoColor = new Color(1f, 0.62f, 0.25f, (0.55f + 0.45f * ember) * near);
             }
         }
 
@@ -74,10 +76,10 @@ public sealed partial class WeatherRig
 
         // wind bed
         bool windOn = wind > 0.02f;
-        if (windOn && _wind is null) { _wind = new AudioStreamPlayer { Name = "WindBed", Stream = WeatherSynth.Wind(), VolumeDb = SilentDb, Bus = "Master" }; AddChild(_wind); }
+        if (windOn && _wind is null) { _wind = new AudioStreamPlayer { Name = "WindBed", Stream = WeatherSynth.Wind(), VolumeDb = SilentDb, Bus = AcquireBus() }; AddChild(_wind); }
         if (_wind is not null)
         {
-            _wind.VolumeDb = windOn ? Mathf.Lerp(SilentDb, WindLoudestDb, Math.Clamp(wind, 0f, 1f)) : SilentDb;
+            _wind.VolumeDb = windOn ? Mathf.Lerp(SilentDb, WindLoudestDb, Math.Clamp(wind, 0f, 1f)) + WeatherShelterMix.WindDb(Shelter) : SilentDb;
             if (windOn && !_wind.Playing) _wind.Play();
             else if (!windOn && _wind.Playing) _wind.Stop();
         }
@@ -98,7 +100,7 @@ public sealed partial class WeatherRig
         var bank = near ? (_nearThunder ??= new AudioStreamWav?[2]) : (_farThunder ??= new AudioStreamWav?[3]);
         int k = (int)(seed % (uint)bank.Length);
         var stream = bank[k] ??= WeatherSynth.Thunder(unchecked((uint)(k * 7919 + 13)), near);
-        var player = new AudioStreamPlayer { Name = near ? "ThunderNear" : "ThunderFar", Stream = stream, VolumeDb = Math.Min(near ? NearThunderDb : FarThunderDb, (near ? NearThunderDb : FarThunderDb) + extraDb), Bus = "Master" };
+        var player = new AudioStreamPlayer { Name = near ? "ThunderNear" : "ThunderFar", Stream = stream, VolumeDb = Math.Min(near ? NearThunderDb : FarThunderDb, (near ? NearThunderDb : FarThunderDb) + extraDb) + WeatherShelterMix.ThunderDb(Shelter), Bus = AcquireBus() };
         AddChild(player);
         _thunderPlayers++;
         player.Finished += () => { _thunderPlayers = Math.Max(0, _thunderPlayers - 1); player.QueueFree(); };
@@ -158,7 +160,7 @@ public sealed partial class WeatherRig
         return p;
     }
 
-    void ConfigureAsh(CpuParticles3D? p, StandardMaterial3D? m, bool on, float share, Vector3 windDir, float wind)
+    void ConfigureAsh(CpuParticles3D? p, StandardMaterial3D? m, bool on, float share, Vector3 windDir, float wind, float nearAlpha = 1f)
     {
         if (p is null) return;
         p.Emitting = on;
@@ -167,7 +169,7 @@ public sealed partial class WeatherRig
         float speed = 4f + 10f * wind;
         p.InitialVelocityMin = speed * 0.7f;
         p.InitialVelocityMax = speed * 1.15f;
-        if (m is not null) m.AlbedoColor = new Color(0.30f, 0.26f, 0.22f, 0.30f + 0.50f * Math.Clamp(share, 0f, 1f));
+        if (m is not null) m.AlbedoColor = new Color(0.30f, 0.26f, 0.22f, (0.30f + 0.50f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
     }
 
     CpuParticles3D BuildEmbers()
@@ -190,7 +192,7 @@ public sealed partial class WeatherRig
         var p = new CpuParticles3D
         {
             Name = "Embers",
-            Amount = Math.Max(24, (int)(EmberCount * QualityScale())),   // sparse on purpose: about 4 in 100 m3 at High
+            Amount = Count(EmberCount, EmberFloor),   // sparse on purpose: about 4 in 100 m3 at High
             Lifetime = 4.0,
             Preprocess = 4.0,
             LocalCoords = false,

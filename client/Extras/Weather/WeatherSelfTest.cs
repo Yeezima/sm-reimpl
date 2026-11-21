@@ -31,6 +31,8 @@ public sealed partial class WeatherSelfTest : Node
         return WeatherWire.Encode(WeatherWire.Of(d));
     }
 
+    static float AlphaOf(CpuParticles3D? p) => (p?.Mesh as PrimitiveMesh)?.Material is StandardMaterial3D m ? m.AlbedoColor.A : 0f;
+
     static int Peak(AudioStreamWav w)
     {
         int peak = 0;
@@ -213,10 +215,79 @@ public sealed partial class WeatherSelfTest : Node
         Check("synth: wind loops, thunder does not, none is silent or clipping", wind.LoopMode == AudioStreamWav.LoopModeEnum.Forward && far.LoopMode == AudioStreamWav.LoopModeEnum.Disabled && Peak(wind) > 400 && Peak(wind) < 30000 && Peak(far) > 400 && Peak(far) < 32767 && Peak(near) > 400 && Peak(near) < 32767,
             $"wind {Peak(wind)} far {Peak(far)} near {Peak(near)}");
 
+        // W4: shelter. Under cover the near layers stop and fade, the far layer rains outside a hole, the weather bus is low-passed, the sounds are cut (never louder); back in the open everything returns.
+        var sh = new WeatherRig(); anchor.AddChild(sh);
+        var shStorm = WeatherClock.At(WeatherId.Thunderstorm, 135);
+        sh.Update(shStorm, 1f, Vector3.Zero);
+        var shRain = sh.GetNodeOrNull<CpuParticles3D>("Rain"); var shFar = sh.GetNodeOrNull<CpuParticles3D>("RainFar"); var shSplash = sh.GetNodeOrNull<CpuParticles3D>("Splash"); var shMist = sh.GetNodeOrNull<CpuParticles3D>("RainMist");
+        var shHiss = sh.GetNodeOrNull<AudioStreamPlayer>("RainHiss"); var shWind = sh.GetNodeOrNull<AudioStreamPlayer>("WindBed");
+        float hissOpen = shHiss?.VolumeDb ?? 0f, windOpen = shWind?.VolumeDb ?? 0f;
+        var nearAlphaOpen = AlphaOf(shRain);
+        Check("shelter, in the open: all four rain layers fall, the bus is not filtering, no hole in the far layer", shRain is { Emitting: true } && shFar is { Emitting: true } && shSplash is { Emitting: true } && shMist is { Emitting: true } && sh.BusCutoffHz >= WeatherShelterMix.OpenHz - 1f && !sh.FarHoleOn, $"{sh.BusCutoffHz} {sh.FarHoleOn}");
+        sh.SetShelter(0.5f, false);
+        sh.Update(shStorm, 1f, Vector3.Zero);
+        var nearAlphaHalf = AlphaOf(shRain);
+        Check("shelter halfway: the near rain is fainter and the bus half-way muffled, still falling", shRain is { Emitting: true } && nearAlphaHalf < nearAlphaOpen * 0.7f && sh.BusCutoffHz < WeatherShelterMix.OpenHz * 0.5f && sh.BusCutoffHz > WeatherShelterMix.MuffledHz, $"{nearAlphaOpen} -> {nearAlphaHalf}, {sh.BusCutoffHz} Hz");
+        sh.SetShelter(1f, false);
+        sh.Update(shStorm, 1f, Vector3.Zero);
+        Check("sheltered: the near rain, splashes and mist have stopped", shRain is { Emitting: false } && shSplash is { Emitting: false } && shMist is { Emitting: false } && !sh.Splashing);
+        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true, EmissionShape: CpuParticles3D.EmissionShapeEnum.Ring } && sh.FarHoleOn && Math.Abs(shFar.EmissionRingInnerRadius - WeatherShelterMix.FarHoleRadiusM) < 0.01f);
+        Check("sheltered: the weather bus is low-passed to the muffled cutoff", Math.Abs(sh.BusCutoffHz - WeatherShelterMix.MuffledHz) < 30f && AudioServer.GetBusIndex(WeatherRig.BusName) >= 0, $"{sh.BusCutoffHz}");
+        Check("sheltered: rain and wind are quieter than in the open, never above their caps; the hiss and wind play on the weather bus",
+            shHiss is { Playing: true } && shHiss.VolumeDb < hissOpen - 1f && shHiss.VolumeDb <= WeatherRig.LoudestDb && shHiss.Bus == WeatherRig.BusName && shWind is { Playing: true } && shWind.VolumeDb < windOpen - 1f && shWind.VolumeDb <= WeatherRig.WindLoudestDb && shWind.Bus == WeatherRig.BusName, $"{hissOpen}->{shHiss?.VolumeDb} {windOpen}->{shWind?.VolumeDb}");
+        sh.PlayRumble(3, false); sh.PlayRumble(4, true);
+        bool thunderOk = true; int thunders = 0;
+        foreach (var c in sh.GetChildren()) if (c is AudioStreamPlayer tp && tp.Name.ToString().StartsWith("Thunder")) { thunders++; thunderOk &= tp.Bus == WeatherRig.BusName && tp.VolumeDb <= WeatherRig.NearThunderDb && tp.VolumeDb > -30f; }
+        Check("sheltered: thunder still plays (duller on the muffled bus, a little quieter, never above its cap)", thunders == 2 && thunderOk, $"{thunders}");
+        sh.SetShelter(0f, false);
+        sh.Update(shStorm, 1f, Vector3.Zero);
+        Check("back in the open: the near layers fall again, the hole closes, the bus is unfiltered, the sounds are back",
+            shRain is { Emitting: true } && shSplash is { Emitting: true } && !sh.FarHoleOn && shFar is { EmissionShape: CpuParticles3D.EmissionShapeEnum.Box } && sh.BusCutoffHz >= WeatherShelterMix.OpenHz - 1f && Math.Abs((shHiss?.VolumeDb ?? 0f) - hissOpen) < 0.01f, $"{sh.BusCutoffHz}");
+        // ash and embers: none under cover
+        var shAsh = new WeatherRig(); anchor.AddChild(shAsh);
+        var ashPeak = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 40);
+        shAsh.Update(ashPeak, ashPeak.Intensity, Vector3.Zero);
+        var shAshMain = shAsh.GetNodeOrNull<CpuParticles3D>("AshSquall");
+        bool ashOpen = shAshMain is { Emitting: true };
+        shAsh.SetShelter(1f, true);
+        shAsh.Update(ashPeak, ashPeak.Intensity, Vector3.Zero);
+        Check("shelter: the ash stops under cover and returns outside; the warning text is a readability cue and stays", ashOpen && shAshMain is { Emitting: false } && !shAsh.AshFalling, $"{ashOpen}");
+        var shAshWarn = WeatherClock.At(WeatherId.AshSquall, 60 + 45 - 20);
+        shAsh.Update(shAshWarn, shAshWarn.Intensity, Vector3.Zero);
+        Check("shelter: the ash warning text still shows under cover", shAsh.WarningShown);
+        shAsh.SetShelter(0f, false);
+        shAsh.Update(ashPeak, ashPeak.Intensity, Vector3.Zero);
+        Check("shelter: the ash is back when the cover ends", shAsh.AshFalling);
+        var shEmber = new WeatherRig(); anchor.AddChild(shEmber);
+        var ewState = WeatherClock.At(WeatherId.EmberWind, 150);
+        shEmber.SetShelter(1f, false);
+        shEmber.Update(ewState, ewState.Intensity, Vector3.Zero);
+        Check("shelter: no embers under cover", !shEmber.Embering);
+        shEmber.SetShelter(0f, false);
+        shEmber.Update(ewState, ewState.Intensity, Vector3.Zero);
+        Check("shelter: embers back outside", shEmber.Embering);
+
+        // W4: trim. The counts step down on long frames, stay at or above every floor and at or below the preset's own count, and come back.
+        var tr = new WeatherRig(); anchor.AddChild(tr);
+        tr.Update(shStorm, 1f, Vector3.Zero);
+        var trRain = tr.GetNodeOrNull<CpuParticles3D>("Rain"); var trFar = tr.GetNodeOrNull<CpuParticles3D>("RainFar"); var trSplash = tr.GetNodeOrNull<CpuParticles3D>("Splash"); var trMist = tr.GetNodeOrNull<CpuParticles3D>("RainMist");
+        int full = tr.ParticleTotal; int changes = 0; tr.TrimChanged += (_, _) => changes++;
+        for (int f = 0; f < 600 && tr.Trim.Level < WeatherTrim.MaxLevel; f++) tr.StepTrim(0.05);   // 50 ms frames
+        Check("trim: long frames step the counts down to the lowest level, one change per step", tr.Trim.Level == WeatherTrim.MaxLevel && changes == WeatherTrim.MaxLevel && tr.ParticleTotal < full * 0.6f, $"{full} -> {tr.ParticleTotal} in {changes} steps");
+        Check("trim: no layer goes below its floor", trRain!.Amount >= WeatherRig.NearFloor && trFar!.Amount >= WeatherRig.FarFloor && trSplash!.Amount >= WeatherRig.SplashFloor && trMist!.Amount >= WeatherRig.MistFloor, $"{trRain.Amount} {trFar.Amount} {trSplash.Amount} {trMist.Amount}");
+        Check("trim: the readability cues are unchanged (the glow limit and the ash warning text stand)", WeatherPlan.GlowMaxAlpha <= 0.06f + 1e-6f && (tr.GlowAlpha == 0f || tr.GlowAlpha <= WeatherPlan.GlowMaxAlpha + 1e-6f));
+        for (int f = 0; f < 60 * 60 && tr.Trim.Level > 0; f++) tr.StepTrim(1.0 / 60);   // then calm 60 fps frames
+        Check("trim: with headroom the counts return to the preset's own", tr.Trim.Level == 0 && tr.ParticleTotal == full && trRain.Amount == (int)Math.Max(WeatherRig.NearFloor, WeatherRig.RainNearCount * WeatherRig.QualityScale()), $"{tr.ParticleTotal} vs {full}");
+        int before = changes; for (int f = 0; f < 60 * 30; f++) tr.StepTrim(1.0 / 60);
+        Check("trim: healthy frames cause no more changes (no oscillation)", changes == before);
+        tr.QueueFree(); sh.QueueFree(); shAsh.QueueFree(); shEmber.QueueFree();
+
         rig.QueueFree(); storm.QueueFree(); squall.QueueFree(); embers.QueueFree();
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         Check("the rigs are freed", !IsInstanceValid(rig) && !IsInstanceValid(storm) && !IsInstanceValid(squall) && !IsInstanceValid(embers));
+
+        Check("the weather bus goes with the last rig", AudioServer.GetBusIndex(WeatherRig.BusName) < 0);
 
         WeatherClientLink.Model = null;
         GD.Print($"WEATHER SELFTEST RESULT {(_failed == 0 ? "PASS" : "FAIL")} ({_passed} passed, {_failed} failed)");

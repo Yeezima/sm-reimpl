@@ -11,7 +11,7 @@ namespace SmClient;
 /// <list type="bullet">
 /// <item>Far thunder: <c>play_distant_explosions</c> (the stand-in for distant thunder) from a point 90 m away toward the wind's side, once per strike after its delay (<see cref="WeatherPlan.ThunderIn"/>), at -6 dB over its own level. A near strike is the rig's procedural crack.</item>
 /// <item>Ash Squall: one <c>play_distant_explosions</c> at the start of the warning (the audible warning, -8 dB), and the grit loop <c>play_dust_loop</c> on the listener through the peak, at -10 dB (stopped as it clears).</item>
-/// <item>Wind: the Warfront battle bed already plays <c>play_wind_open</c> (Musou's bed); the squall's and the storm's gusts are procedural on top. <c>play_wind_closed</c> and <c>play_wind_tunnels*</c> are held for the sheltered mix (W4).</item>
+/// <item>Wind: the Warfront battle bed already plays <c>play_wind_open</c> (Musou's bed); the squall's and the storm's gusts are procedural on top. Under cover (W4) the sheltered mix swaps in the install's <c>play_wind_closed</c>, or a tunnel wind (<c>play_wind_tunnels</c> and its likely spellings, the first the bank has) when the ceiling is low, at -10 dB over their own level, while the rig's own beds are cut and low-passed; the install's loop switches on when the shelter passes its midpoint and off when it falls back (a started loop has no gain control), the procedural beds crossfade smoothly. When the bank has none (or the post sounds nothing) the procedural fallback alone is the sheltered mix.</item>
 /// </list>
 /// <c>--log-sound weather</c> prints a line per install post.
 /// </summary>
@@ -20,7 +20,11 @@ public partial class NetworkView
     public const string WxThunderEvent = "play_distant_explosions", WxGritEvent = "play_dust_loop";
     public const float WxFarThunderGainDb = -6f, WxWarningGainDb = -8f, WxGritGainDb = -10f;
 
-    SoundEmitter? _wxGrit;
+    SoundEmitter? _wxGrit, _wxClosed;
+    string? _wxClosedPlaying;
+    double _wxClosedRetry;
+    static readonly string[] WxTunnelEvents = ["play_wind_tunnels", "play_wind_tunnel", "play_wind_tunnels_01", "play_wind_tunnels_loop"];
+    public const string WxClosedEvent = "play_wind_closed";
     bool _wxGritOn, _wxWarned, _wxGritLoops;
     double _wxGritUntil;
     WeatherThunderTracker _wxThunder = new();
@@ -32,6 +36,8 @@ public partial class NetworkView
     void WeatherInstallSounds(WeatherState st, float intensity)
     {
         if (_wxSoundId != st.Id) { WeatherInstallStop(); _wxSoundId = st.Id; _wxThunder = new WeatherThunderTracker(); _wxWarned = false; }
+
+        WeatherClosedWind(st, intensity);
 
         // thunder: each strike's sound once, strictly in time order (the tracker ignores a step back of the 2 s state snap and a jump forward)
         if (st.Id == WeatherId.Thunderstorm)
@@ -90,6 +96,31 @@ public partial class NetworkView
         return ok;
     }
 
+    /// <summary>The sheltered wind bed from the install (see the class notes). Posted once per cover; stopped when the cover ends or the wind dies down; a failed post is retried after 10 s while it is still wanted.</summary>
+    void WeatherClosedWind(WeatherState st, float intensity)
+    {
+        bool want = _wxShelter.Level >= 0.5f && _wxShelter.Covered && WeatherPlan.Wind(st.Id, intensity, st.Elapsed) > 0.05f;
+        if (!want)
+        {
+            if (_wxClosedPlaying is not null) { if (_wxClosed is not null) _sound?.StopEmitter(_wxClosed); if (LogSound("weather")) GD.Print($"weather sound: closed wind ({_wxClosedPlaying}) stopped"); _wxClosedPlaying = null; }
+            return;
+        }
+        string? name = null;
+        if (_sound is null || _audio is not { } audio || _camera is null) return;
+        if (_wxShelter.Tunnel) foreach (var candidate in WxTunnelEvents) if (audio.HasEvent(candidate)) { name = candidate; break; }
+        if (name is null && audio.HasEvent(WxClosedEvent)) name = WxClosedEvent;
+        if (name is null) return;
+        if (_wxClosedPlaying == name) return;
+        if (_wxClosedPlaying is not null) { if (_wxClosed is not null) _sound.StopEmitter(_wxClosed); _wxClosedPlaying = null; }
+        if (st.Elapsed < _wxClosedRetry && st.Elapsed > _wxClosedRetry - 10.0) return;
+        _wxClosed ??= new SoundEmitter { Label = "weather closed wind", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
+        var play = _sound.Post(name, _wxClosed, offset: new VoiceOffset(WeatherShelterMix.InstallClosedWindDb));
+        bool ok = play is { Voices.Count: > 0 };
+        _wxClosedRetry = st.Elapsed + 10.0;
+        if (ok) _wxClosedPlaying = name;
+        if (LogSound("weather")) GD.Print($"weather sound: closed wind via {name} voices {play?.Voices.Count ?? 0} at {WeatherShelterMix.InstallClosedWindDb:0} dB{(ok ? "" : " (nothing sounded: the procedural bed alone, retry in 10 s)")}");
+    }
+
     void WeatherGritStop()
     {
         if (_wxGrit is not null) _sound?.StopEmitter(_wxGrit);
@@ -102,6 +133,9 @@ public partial class NetworkView
     void WeatherInstallStop()
     {
         WeatherGritStop();
+        if (_wxClosedPlaying is not null && _wxClosed is not null) _sound?.StopEmitter(_wxClosed);
+        _wxClosedPlaying = null;
+        _wxClosedRetry = 0;
         _wxSoundId = WeatherId.None;
         _wxWarned = false;
     }

@@ -61,8 +61,46 @@ public partial class NetworkView
         _wxRig = null;
     }
 
+    // ---- shelter (weather W4): a few upward rays at a low rate, smoothed by the pure WeatherShelter ----
+
+    readonly WeatherShelter _wxShelter = new();
+    double _wxShelterClock;
+
+    /// <summary>Samples per second of the upward rays (ours, an estimate: 6 Hz, four rays each).</summary>
+    const double WxShelterHz = 6.0;
+
+    /// <summary>
+    /// Once a frame while the rig is up. Every 1/6 s four rays go straight up (game space) through the collision world the sim itself uses: from the camera (counted twice, it is what the player hears) and from the head
+    /// of the player and 1.2 m to either side of it; 40 m reach. The covered share (hits over five) and the nearest ceiling feed <see cref="WeatherShelter"/>, which holds a Schmitt trigger and a minimum hold and slides the level
+    /// over 0.7 s (in) and 0.9 s (out). Nothing here allocates per frame (the rays are a handful of struct casts at 6 Hz).
+    /// </summary>
+    void WeatherShelterFrame(PlayerState me, double delta)
+    {
+        _wxShelterClock += delta;
+        if (_wxShelterClock >= 1.0 / WxShelterHz)
+        {
+            _wxShelterClock = 0;
+            float cover = 0f, ceiling = WeatherShelter.RayReachM;
+            if (_client?.Collision is { } world && _gameSpace is not null && _camera is not null)
+            {
+                var up = new System.Numerics.Vector3(0f, 0f, 1f);
+                var cam = _gameSpace.GlobalTransform.AffineInverse() * _camera.GlobalPosition;
+                int hits = 0;
+                if (world.Weapons.Raycast(new System.Numerics.Vector3(cam.X, cam.Y, cam.Z), up, WeatherShelter.RayReachM) is { } camHit) { hits += 2; ceiling = Math.Min(ceiling, camHit.Distance); }
+                var head = me.Position + new System.Numerics.Vector3(0f, 0f, 1.6f);
+                for (int k = -1; k <= 1; k++)
+                    if (world.Weapons.Raycast(head + new System.Numerics.Vector3(1.2f * k, 0f, 0f), up, WeatherShelter.RayReachM) is { } hit) { hits++; ceiling = Math.Min(ceiling, hit.Distance + 1.6f); }
+                cover = hits / 5f;
+            }
+            bool was = _wxShelter.Covered;
+            _wxShelter.Sample(cover, ceiling);
+            if (was != _wxShelter.Covered && LogSound("weather")) GD.Print($"weather shelter: {(_wxShelter.Covered ? "under cover" + (_wxShelter.Tunnel ? " (tunnel)" : "") : "in the open")} (covered share {cover:F2}, ceiling {ceiling:F1} m)");
+        }
+        _wxShelter.Step(delta);
+    }
+
     /// <summary>Once a frame: the clock, the link the grade hook and the F6 panel read, the rig.</summary>
-    void WeatherFrame(double delta)
+    void WeatherFrame(PlayerState me, double delta)
     {
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
         if (!connected)
@@ -85,13 +123,21 @@ public partial class NetworkView
             GD.Print($"weather: {WeatherCatalog.Of(st.Id).Key} {st.Phase}{(now.Item3 ? " (dev tools)" : "")}{(WeatherCatalog.Of(st.Id).Real ? "" : " (not built: default look)")}");
         }
         bool wantRig = !_bot && WeatherNeedsRig(st.Id, intensity) && _camera is not null;   // a bot client draws and hears nothing
-        if (wantRig && _wxRig is null) AddChild(_wxRig = new WeatherRig { Name = "WeatherRig" });
+        if (wantRig && _wxRig is null)
+        {
+            AddChild(_wxRig = new WeatherRig { Name = "WeatherRig" });
+            _wxRig.TrimChanged += (level, total) => { if (LogSound("weather")) GD.Print($"weather trim: level {level} ({WeatherTrim.Steps[level] * 100:0} % of the preset's counts, floors kept), {total} particles"); };
+            _wxShelter.Reset(); _wxShelterClock = 1.0;   // the first frame samples at once
+        }
         if (_wxRig is not null)
         {
-            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
+            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; _wxShelter.Reset(); }
             else
             {
                 _wxRig.FullFlash = _wxModel.FullFlash;
+                WeatherShelterFrame(me, delta);
+                _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
+                _wxRig.StepTrim(delta);
                 _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero);
                 WeatherInstallSounds(st, intensity);
             }

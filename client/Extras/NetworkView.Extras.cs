@@ -45,7 +45,7 @@ public partial class NetworkView
         MusouFrame(me, others, delta, _musouSections);
         Ph("tfw: guards, armies");   // musou/perf-pass: --frame-profile's phase
         TfwFrame(me, others, delta, _tfwSections);
-        WeatherFrame(delta);   // weather (client/Extras/Weather): the clock, the look through the lighting grade, rain
+        WeatherFrame(me, delta);   // weather (client/Extras/Weather): the clock, the look through the lighting grade, rain
         WarfrontFrame(me, delta);   // WARFRONT-HOOK: the stage flow (commands, panels, rejoin; client/Extras/Warfront/Stage)
         SpearPoseFrame(me, others, delta);   // Musou's power spear: its clips between strikes, the fades and the spear on the hands (Musou/Arsenal/Spear/NetworkView.SpearPose.cs)
     }
