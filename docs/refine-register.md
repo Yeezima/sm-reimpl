@@ -6479,6 +6479,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-7AE0A24B` | Wire | Weather (Warfront, W1; added content; owner 2026-11-21; presentation only) |
 | `R-3F1B4EC5` | Versions | Weather (Warfront, W2: Thunderstorm, Ash Squall, Ember Wind; added content; owner 2026-11-21; presentation only) |
 | `R-7AE0A24B-2` | Wire | Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only) |
-| `R-0B1B8B9B` | Test aids (W5) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
+| `R-461D9CF6` | Test aids (W5; weather fix 2 gate) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
 | `R-29325834` | Test aid | Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only) |
 

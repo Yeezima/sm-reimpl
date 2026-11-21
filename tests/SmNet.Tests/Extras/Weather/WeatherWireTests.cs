@@ -128,7 +128,7 @@ public class WeatherWireTests
     [Fact]
     public void The_pin_test_aid_holds_one_clients_clock_inside_a_phase_and_nothing_else()
     {
-        var pinned = new WeatherClientModel { PinPhase = WeatherPhase.Peak };
+        var pinned = new WeatherClientModel { PinPhase = WeatherPhase.Peak, PinAllowed = true };
         var plain = new WeatherClientModel();
         pinned.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
         plain.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
@@ -137,10 +137,72 @@ public class WeatherWireTests
         pinned.Receive(WeatherWire.Encode(At(WeatherId.Rain, 3)));   // a server repeat does not move it out
         Assert.Equal(WeatherPhase.Peak, pinned.State.Phase);
         Assert.Equal(1f, pinned.EffectiveIntensity);
-        var none = new WeatherClientModel { PinPhase = WeatherPhase.Peak };
+        var none = new WeatherClientModel { PinPhase = WeatherPhase.Peak, PinAllowed = true };
         none.Receive(WeatherWire.Encode(At(WeatherId.None, 0)));
         none.Advance(5);
         Assert.Equal(0f, none.EffectiveIntensity);   // None stays None
+    }
+
+    [Fact]
+    public void Weather_fix_2_a_pin_without_the_developer_tools_gate_draws_the_servers_phase()
+    {
+        var a = new WeatherClientModel { PinPhase = WeatherPhase.Peak };   // not allowed: an ordinary client
+        var b = new WeatherClientModel { PinPhase = WeatherPhase.Recovery };
+        var server = new WeatherClientModel();
+        foreach (var m in new[] { a, b, server }) m.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        for (int i = 0; i < 40; i++) { a.Advance(1.0); b.Advance(1.0); server.Advance(1.0); }
+        Assert.False(a.Pinned);
+        Assert.Equal(server.State.Phase, a.State.Phase);
+        Assert.Equal(server.State.Phase, b.State.Phase);
+        Assert.Equal(server.State.Elapsed, a.State.Elapsed, 6);
+    }
+
+    [Fact]
+    public void Weather_fix_2_a_gated_client_pins_and_a_lapse_returns_to_the_servers_clock()
+    {
+        var m = new WeatherClientModel { PinPhase = WeatherPhase.Peak, PinAllowed = true };
+        var server = new WeatherClientModel();
+        m.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0))); server.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        for (int i = 0; i < 20; i++) { m.Advance(1.0); server.Advance(1.0); }
+        Assert.Equal(WeatherPhase.Peak, m.State.Phase);
+        Assert.NotEqual(server.State.Phase, m.State.Phase);
+        m.PinAllowed = false;   // the gate lapses
+        Assert.Equal(server.State.Phase, m.State.Phase);
+        Assert.Equal(server.State.Elapsed, m.State.Elapsed, 6);
+        m.Advance(1.0); server.Advance(1.0);
+        Assert.Equal(server.State.Elapsed, m.State.Elapsed, 6);
+        m.PinAllowed = true;   // and back
+        Assert.Equal(WeatherPhase.Peak, m.State.Phase);
+    }
+
+    [Theory]
+    [InlineData("peak", true, WeatherPhase.Peak)]
+    [InlineData("OPENING", true, WeatherPhase.Opening)]
+    [InlineData("Buildup", true, WeatherPhase.Buildup)]
+    [InlineData("recovery", true, WeatherPhase.Recovery)]
+    [InlineData("7", false, WeatherPhase.Opening)]
+    [InlineData("-1", false, WeatherPhase.Opening)]
+    [InlineData("2", false, WeatherPhase.Opening)]
+    [InlineData("foo", false, WeatherPhase.Opening)]
+    [InlineData("", false, WeatherPhase.Opening)]
+    [InlineData("peak,recovery", false, WeatherPhase.Opening)]
+    public void Weather_fix_2_the_pin_takes_only_the_four_phase_names(string text, bool ok, WeatherPhase want)
+    {
+        Assert.Equal(ok, WeatherClientModel.TryParsePin(text, out var phase));
+        if (ok) Assert.Equal(want, phase);
+    }
+
+    [Fact]
+    public void Weather_fix_2_clear_resets_the_pin_clock()
+    {
+        var m = new WeatherClientModel { PinPhase = WeatherPhase.Buildup, PinAllowed = true };
+        m.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        m.Advance(30);
+        double early = m.State.PhaseSeconds;
+        Assert.True(early >= 29);
+        m.Clear();
+        m.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        Assert.True(m.State.PhaseSeconds < 1);   // the loop restarts at the phase's start
     }
 
     [Fact]

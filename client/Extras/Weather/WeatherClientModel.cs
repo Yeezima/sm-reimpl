@@ -43,6 +43,7 @@ public sealed class WeatherClientModel
         if (!WeatherWire.TryDecode(payload, out WeatherStateWire wire)) { Dropped++; return false; }
         _wire = wire;
         _elapsed = wire.ElapsedMs / 1000.0;
+        _sinceWire = 0;
         _have = true;
         ApplyPin();
         Received++;
@@ -51,15 +52,41 @@ public sealed class WeatherClientModel
 
     /// <summary>
     /// Test aid (weather W5, <c>--weather-pin &lt;phase&gt;</c>, client only, never a player option): the clock this client draws is held inside that phase of the preset the server sent (it loops over the phase), so a perf or still
-    /// run on a real map can sit at the Peak without waiting for it. The server's state and every other client are untouched; null (the default) changes nothing.
+    /// run on a real map can sit at the Peak without waiting for it. It takes effect only while <see cref="PinAllowed"/> (the view sets it while the server announces developer tools, the F6 gate); otherwise the server's clock runs.
+    /// The server's state and every other client are untouched; null (the default) changes nothing.
     /// </summary>
-    public WeatherPhase? PinPhase { get; set; }
+    public WeatherPhase? PinPhase { get => _pinPhase; set { _pinPhase = value; Refresh(); } }
 
-    double _pinClock;
+    /// <summary>Whether a requested pin may act (weather fix 2: the developer-tools session only). Lapsing returns the clock to the server's at once.</summary>
+    public bool PinAllowed { get => _pinAllowed; set { _pinAllowed = value; Refresh(); } }
+
+    /// <summary>The pin is acting now.</summary>
+    public bool Pinned => _pinAllowed && _pinPhase is not null;
+
+    /// <summary>Only the four phase names (any case) are a pin; a number such as "7" or "-1", an empty text or any other word is not (<see cref="Enum.TryParse{T}(string, bool, out T)"/> alone takes numbers and would index past the phases).</summary>
+    public static bool TryParsePin(string? text, out WeatherPhase phase)
+    {
+        phase = WeatherPhase.Opening;
+        if (text is null) return false;
+        text = text.Trim();
+        foreach (char c in text) if (!char.IsAsciiLetter(c)) return false;   // no digits, signs or comma lists (Enum.TryParse reads those)
+        return text.Length > 0 && Enum.TryParse(text, true, out phase) && Enum.IsDefined(phase);
+    }
+
+    WeatherPhase? _pinPhase;
+    bool _pinAllowed;
+    double _pinClock, _sinceWire;
+
+    void Refresh()
+    {
+        if (!_have) return;
+        if (Pinned) ApplyPin();
+        else { _pinClock = 0; _elapsed = _wire.ElapsedMs / 1000.0 + (_wire.Held ? 0 : _sinceWire); }   // back on the server's clock, from the last state it sent
+    }
 
     void ApplyPin()
     {
-        if (PinPhase is not { } phase || !_have || _wire.Id == WeatherId.None) return;
+        if (!Pinned || !_have || _wire.Id == WeatherId.None || _pinPhase is not { } phase || !Enum.IsDefined(phase)) return;
         var def = WeatherCatalog.Of(_wire.Id);
         double start = 0, total = 0;
         for (int i = 0; i < def.Seconds.Length; i++) { if (i < (int)phase) start += def.Seconds[i]; total += def.Seconds[i]; }
@@ -73,8 +100,9 @@ public sealed class WeatherClientModel
     {
         if (_have && !_wire.Held && double.IsFinite(seconds) && seconds > 0)
         {
-            _elapsed += seconds;
-            if (PinPhase is not null) { _pinClock += seconds; ApplyPin(); }
+            _sinceWire += seconds;
+            if (Pinned) { _pinClock += seconds; ApplyPin(); }
+            else _elapsed = _wire.ElapsedMs / 1000.0 + _sinceWire;
         }
     }
 
@@ -93,5 +121,5 @@ public sealed class WeatherClientModel
     }
 
     /// <summary>The state forgotten (the connection ended): the default look.</summary>
-    public void Clear() { _have = false; _elapsed = 0; _wire = default; }
+    public void Clear() { _have = false; _elapsed = 0; _wire = default; _pinClock = 0; _sinceWire = 0; }
 }

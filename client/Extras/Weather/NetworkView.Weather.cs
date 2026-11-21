@@ -137,19 +137,49 @@ public partial class NetworkView
         if (_wxPerfLive) WeatherPerfLive(delta, System.Diagnostics.Stopwatch.GetElapsedTime(wxT0).TotalMilliseconds);
     }
 
+    double _wxReqCover;
+    bool _wxReqPerf, _wxAidsGate, _wxAidsNoteLogged;
+    DisplayServer.VSyncMode _wxVsyncPrev;
+
+    /// <summary>
+    /// Weather fix 2: the three W5 test aids (<c>--weather-pin</c>, <c>--weather-shelter-test</c>, <c>--weather-perf-live</c>) act only while the server announces developer tools (<c>GameClient.Dev</c>, the F6 gate: loopback server,
+    /// loopback client, <c>--dev-tools</c>); on any other server they are ignored with one log line, so a release client always draws the match's phase and the real shelter. When the gate lapses (or the connection ends) the clock
+    /// returns to the server's, the forced cover stops, and the vsync mode the perf aid replaced comes back.
+    /// </summary>
+    void WeatherAidsApply(bool gate)
+    {
+        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null;
+        if (wanted && !gate && !_wxAidsNoteLogged && _client is { Status: ClientStatus.Connected }) { _wxAidsNoteLogged = true; GD.Print("weather test aids ignored: this server has no developer tools"); }
+        if (gate == _wxAidsGate) return;
+        _wxAidsGate = gate;
+        _wxModel.PinAllowed = gate;
+        _wxForceCover = gate ? _wxReqCover : 0;
+        if (gate && _wxReqPerf) { _wxVsyncPrev = DisplayServer.WindowGetVsyncMode(); DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); _wxPerfLive = true; }
+        else if (_wxPerfLive)
+        {
+            _wxPerfLive = false; DisplayServer.WindowSetVsyncMode(_wxVsyncPrev);
+            _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfStart = double.NaN; _wxPerfId = WeatherId.None; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0;
+        }
+    }
+
     void WeatherFrameCore(PlayerState me, double delta)
     {
         if (!_wxPinRead)
         {
-            _wxPinRead = true;   // test aid --weather-pin buildup|peak|recovery|opening (client only; see WeatherClientModel.PinPhase)
-            if (CmdArg("weather-shelter-test") is { } forced && double.TryParse(forced, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double period) && period >= 1) _wxForceCover = period;
-            if (CmdFlag("weather-perf-live")) { _wxPerfLive = true; DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); }
-            if (CmdArg("weather-pin") is { } pin && Enum.TryParse<WeatherPhase>(pin, true, out var pinned)) _wxModel.PinPhase = pinned;
+            _wxPinRead = true;   // test aids (client only, F6 developer-tools session only; weather fix 2): read once, acted on only while WeatherAidsGate
+            if (CmdArg("weather-shelter-test") is { } forced && double.TryParse(forced, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double period) && period >= 1) _wxReqCover = period;
+            _wxReqPerf = CmdFlag("weather-perf-live");
+            if (CmdArg("weather-pin") is { } pin)
+            {
+                if (WeatherClientModel.TryParsePin(pin, out var pinned)) _wxModel.PinPhase = pinned;
+                else GD.Print($"weather: --weather-pin '{pin}' is not opening, buildup, peak or recovery; ignored");
+            }
         }
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
         if (!connected)
         {
             _musouWind.LiveDb = 0f; _musouWind.LiveLpf = 0f; _wxBedShelter = false;
+            WeatherAidsApply(false);
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
             if (_wxRig is not null) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
@@ -159,6 +189,7 @@ public partial class NetworkView
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
         _wxModel.FullFlash = WeatherSettings.FullFlash;   // the player's storm lightning option (client only)
+        WeatherAidsApply(_client?.Dev is not null);
         _wxModel.Advance(delta);
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
