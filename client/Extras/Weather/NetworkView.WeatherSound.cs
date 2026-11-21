@@ -57,7 +57,7 @@ public partial class NetworkView
             if (st.Phase == WeatherPhase.Buildup && !WeatherPlan.Warning(st)) _wxWarned = false;
             bool grit = WeatherPlan.AshShare(st) > 0.5f;
             double now = st.Elapsed;
-            if (grit && (!_wxGritOn || (!_wxGritLoops && now >= _wxGritUntil)) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
+            if (grit && (!_wxGritOn || !_wxGritLoops) && (now >= _wxGritUntil || now < _wxGritUntil - WxGritRepostSeconds) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
             {
                 _wxGrit ??= new SoundEmitter { Label = "weather grit", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
                 var play = _sound.Post(WxGritEvent, _wxGrit, offset: new VoiceOffset(WxGritGainDb));
@@ -95,6 +95,7 @@ public partial class NetworkView
         if (_wxGrit is not null) _sound?.StopEmitter(_wxGrit);
         _wxGritOn = false;
         _wxGritLoops = false;
+        _wxGritUntil = double.NegativeInfinity;   // the next peak posts at once; a failed post (no voices) still waits its 6 s before retrying
     }
 
     /// <summary>The rig ends (or the preset changes): the loops the weather started are stopped.</summary>

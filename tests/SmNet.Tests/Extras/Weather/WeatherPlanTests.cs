@@ -216,6 +216,15 @@ public class WeatherPlanTests
         double s0 = WeatherPlan.ThunderIn(130, 400)[0].SoundTime;
         t2.Step(s0 + 1); Assert.Empty(t2.Step(s0 - 0.5)); Assert.Empty(t2.Step(s0 + 0.5));
         Assert.Empty(new WeatherThunderTracker().Step(double.NaN));
+        // a small step back then forward across a strike's sound plays it once
+        var t3 = new WeatherThunderTracker();
+        t3.Step(s0 - 1.0); t3.Step(s0 - 0.2); Assert.Empty(t3.Step(s0 - 0.25));
+        Assert.Single(t3.Step(s0 + 0.2)); Assert.Empty(t3.Step(s0 + 0.15)); Assert.Empty(t3.Step(s0 + 0.3));
+        // a restarted clock (the same preset set again) hears its strikes again from the start
+        var t4 = new WeatherThunderTracker();
+        t4.Step(s0 - 1.0); Assert.Single(t4.Step(s0 + 0.5));
+        t4.Step(s0 + 200); t4.Step(s0 - 1.0);   // the clock restarts far behind the mark
+        Assert.Single(t4.Step(s0 + 0.5));
     }
 
     [Fact]
