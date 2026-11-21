@@ -67,6 +67,7 @@ public partial class NetworkView
             if (grit && (!_wxGritOn || !_wxGritLoops) && (now >= _wxGritUntil || now < _wxGritUntil - WxGritRepostSeconds) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
             {
                 _wxGrit ??= new SoundEmitter { Label = "weather grit", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
+                if (_wxGritOn) _sound.StopEmitter(_wxGrit);   // a one-shot's repost ends the last one first, so a sample longer than the repost interval never stacks
                 float gritDb = WxGritGainDb + WeatherShelterMix.InstallGritDb(_wxShelter.Level);
                 var play = _sound.Post(WxGritEvent, _wxGrit, offset: new VoiceOffset(gritDb));
                 _wxGritOn = play is { Voices.Count: > 0 };
@@ -118,6 +119,7 @@ public partial class NetworkView
         if (_wxClosedPlaying is not null && _wxClosedPlaying != name) { if (_wxClosed is not null) _sound.StopEmitter(_wxClosed); _wxClosedPlaying = null; }
         if (_wxClosedPlaying is null && _wxClosedFailedUntil > now && _wxClosedFailedUntil - 10.0 < now) return;   // the 10 s wait applies only after a post that sounded nothing
         _wxClosed ??= new SoundEmitter { Label = "weather closed wind", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
+        if (_wxClosedPlaying is not null) _sound.StopEmitter(_wxClosed);   // a one-shot's repost ends the last one first (no stacked voices)
         var play = _sound.Post(name, _wxClosed, offset: new VoiceOffset(WeatherShelterMix.InstallClosedWindDb));
         bool ok = play is { Voices.Count: > 0 };
         _wxClosedLoops = play is { } p && (p.Repeats.Count > 0 || p.Voices.Exists(v => v.LoopCount == 0));
