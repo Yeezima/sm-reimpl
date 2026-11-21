@@ -51,8 +51,19 @@ public sealed class WeatherClientModel
         if (_have && double.IsFinite(seconds) && seconds > 0) _elapsed += seconds;
     }
 
-    /// <summary>The lighting grade of the weather now (identity when none or a stub).</summary>
-    public LightingGrade Grade => WeatherGrade.For(State.Id, EffectiveIntensity);
+    /// <summary>The full-flash setting (a client option; the default is reduced): a Thunderstorm's strikes then also lift the exposure, sun and shade for a moment. Set by the view each frame.</summary>
+    public bool FullFlash { get; set; }
+
+    /// <summary>The lighting grade of the weather now (identity when none).</summary>
+    public LightingGrade Grade
+    {
+        get
+        {
+            var s = State;
+            var g = WeatherGrade.For(s.Id, EffectiveIntensity);
+            return FullFlash && s.Id == WeatherId.Thunderstorm ? WeatherGrade.WithFlash(g, WeatherPlan.FullFlash(s.Elapsed)) : g;
+        }
+    }
 
     /// <summary>The state forgotten (the connection ended): the default look.</summary>
     public void Clear() { _have = false; _elapsed = 0; _wire = default; }

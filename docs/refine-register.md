@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3952 spec table rows: **2899 tagged**, 694 not tagged (read from data with high confidence), 359 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 3964 spec table rows: **2911 tagged**, 694 not tagged (read from data with high confidence), 359 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +51,21 @@ Scanned 3952 spec table rows: **2899 tagged**, 694 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 72 | 71 | 39 | 25 | 0 |
+| General game design | 84 | 83 | 40 | 34 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2899** | 2594 | 2182 | 861 | 37 |
+| **All areas** | **2911** | 2606 | 2183 | 870 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1711 |
-| confidence: low | 1060 |
+| kind: ours | 1723 |
+| confidence: low | 1061 |
 | confidence: medium | 1011 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
+| notes: estimate | 265 |
 | kind: estimate | 264 |
-| notes: estimate | 256 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (72)
+### General game design (84)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4356,9 +4356,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-85E46A07` | F6 override | Set starts the preset at its opening phase; None removes the added weather at once; Follow Match resumes the match's own phase; obeyed only with `--dev-tools`, a loopback bind and a loopback requester (a bot or spectator never); never saved, never in a lobby… | kind: ours; confidence: medium | the owner's brief | F6 override: compare with SM1 by feel or video. Ours: Set starts the preset at its opening phase; None removes the added… | ☐ |
 | `R-E08246CF` | Look: Clear (grade at intensity 1) | exposure x1.08, contrast x1.04, saturation x1.30, sun energy x1.55, sun colour (x1.04, x1.02, x0.94), ambient x1.20, fog density x0.50, fog tint (0.62, 0.66, 0.72) at 0.55, bloom x0.75 (factor) | kind: ours; notes: estimate | ours (sunlight reference: pale ground, readable far sightlines) | Look: Clear (grade at intensity 1): compare with SM1 by feel or video. Ours: exposure x1.08, contrast x1.04, saturation x1.30, sun energy x1.55… | ☐ |
 | `R-8CF119CA` | Look: Low Fog | exposure x1.02, contrast x0.92, saturation x0.75, sun x0.60, sun red x0.94, green x0.98, ambient x1.18, fog density x3.4, fog tint (0.60, 0.63, 0.67) at 0.85, bloom x1.10 (factor) | kind: ours; notes: estimate | ours (street-level haze) | Look: Low Fog: compare with SM1 by feel or video. Ours: exposure x1.02, contrast x0.92, saturation x0.75, sun x0.60, sun red… | ☐ |
-| `R-CE2AF824` | Look: Rain | exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red x0.85, green x0.92, ambient x1.0, fog density x1.9, fog tint (0.38, 0.42, 0.48) at 0.70, bloom x1.15; falling rain (CPU particles) and a synthesised hiss (factor) | kind: ours; notes: estimate | ours (overcast, cold, wet) | Look: Rain: compare with SM1 by feel or video. Ours: exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red… | ☐ |
+| `R-CE2AF824` | Look: Rain | exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red x0.85, green x0.92, ambient x1.0, fog density x2.2 (W2 pass 2; was x1.9), fog tint (0.38, 0.42, 0.48) at 0.70, bloom x1.15; falling rain (CPU particles) and a synthesised hiss (factor) | kind: ours; notes: estimate | ours (overcast, cold, wet) | Look: Rain: compare with SM1 by feel or video. Ours: exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red… | ☐ |
 | `R-CD0E1408` | Readability limits | the weather is multiplied into the player's lighting preset and clamped: exposure 0.94 to 1.13, ambient at least x1 (the shade is never darker than the map's), fog density at most x3.5 of the map's, so no weather hides players, markers or the beacon (factor) | kind: ours; notes: estimate | ours (the lighting presets' own rule) | Readability limits: compare with SM1 by feel or video. Ours: the weather is multiplied into the player's lighting preset and… | ☐ |
-| `R-00E3F0B9` | Rain particles | 1000 streaks (0.012 x 0.6 m) in a 36 x 36 m box 14 m above the camera, falling 24 to 28 m/s, lifetime 1 s; x1.2 at High lighting, x0.8 Medium, x0.5 Low, x0.25 Off, x0.33 in the Compatibility renderer or safe mode; streak alpha 0.10 + 0.34 x intensity (count) | kind: ours; notes: estimate | ours | Rain particles: compare with SM1 by feel or video. Ours: 1000 streaks (0.012 x 0.6 m) in a 36 x 36 m box 14 m above the… | ☐ |
+| `R-55311454` | Rain particles (W1; replaced by the four layers of "Weather W2 pass 2") | 1000 streaks (0.012 x 0.6 m) in a 36 x 36 m box 14 m above the camera, falling 24 to 28 m/s, lifetime 1 s; x1.2 at High lighting, x0.8 Medium, x0.5 Low, x0.25 Off, x0.33 in the Compatibility renderer or safe mode; streak alpha 0.10 + 0.34 x intensity (count) | kind: ours; notes: estimate | ours | Rain particles (W1; replaced by the four layers of "Weather…: compare with SM1 by feel or video. Ours: 1000 streaks (0.012 x 0.6 m) in a 36 x 36 m box 14 m above the… | ☐ |
 | `R-6BBC62E4` | Rain sound | a synthesised looping hiss (3 s of filtered noise, no original sample), -60 dB silent to -22 dB at the peak, on the master bus: gunfire, Waaagh, rockets and the beacon stay audible; the owner's installed banks were not searched for a rain bed in W1 (dB) | kind: ours; confidence: low | ours | Rain sound: compare with SM1 by listening A/B at the same distance and state. Ours: a synthesised looping hiss (3 s of filtered noise, no original… | ☐ |
 | `R-DB1CBDB2` | AI sees through weather | bots, Orks and retainers target as before: no weather change to sight, range or acquisition (the owner kept the AI rules, 2026-11-21 decision 3); to check in a playtest whether fog and rain feel fair against an AI that is not slowed by them | kind: ours; notes: unverified | the owner (2026-11-21 decision 3) | AI sees through weather: compare with SM1 by feel or video. Ours: bots, Orks and retainers target as before: no weather change to… | ☐ |
 
@@ -4383,6 +4383,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0389456E` | Ember Wind | sparse embers: 70 at High (24 at least), 0.16 m soft round additive dots in a 44 x 10 x 44 m box, lifetime 4 s, speed 2.5 + 4 x wind m/s along the wind with a rise (gravity +0.25 m/s2), colour from (1, 0.85, 0.45) to transparent red, alpha 0.55 + 0.45 x… (count) | kind: ours; notes: estimate | the owner's brief (sparse cosmetic embers, coherent wind; preview until reviewed) | Ember Wind: compare with SM1 by feel or video. Ours: sparse embers: 70 at High (24 at least), 0.16 m soft round additive… | ☐ |
 | `R-7C84B10B` | Loudness caps | rain at most -22 dB, wind at most -20 dB, far thunder at most -20 dB, near thunder at most -14 dB (procedural, on Master); the install's posts at their offsets above; so gunfire, Waaagh, rockets and the beacon stay audible (dB) | kind: ours; notes: estimate | ours | Loudness caps: compare with SM1 by listening A/B at the same distance and state. Ours: rain at most -22 dB, wind at most -20 dB, far thunder at most -20 dB… | ☐ |
 | `R-F5713607` | Readability | W1's limits hold for every preset (exposure 0.94 to 1.13, ambient at least x1, fog at most x3.5, sun at least x0.4); nothing covers the HUD or a marker; the Ash Squall's warning is also text, so no critical cue is audio alone | kind: ours; notes: estimate | the owner's brief | Readability: compare with SM1 by feel or video. Ours: W1's limits hold for every preset (exposure 0.94 to 1.13, ambient at… | ☐ |
+
+*Spec section: Weather W2 pass 2 (owner 2026-11-21: "Yes add a setting and make the rain thicker and more believable"; ours, estimates)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A231F253` | Storm lightning setting | OPTIONS, GRAPHICS row "Storm lightning": REDUCED (default) or FULL; client only (no wire, hash or protocol change); saved in `weather-settings.json` in the data root; the row exists only in a build with added content (`ContentExtras.Compiled`), so a faithful… | kind: ours | the owner (2026-11-21) | Storm lightning setting: compare with SM1 by feel or video. Ours: OPTIONS, GRAPHICS row "Storm lightning": REDUCED (default) or FULL… | ☐ |
+| `R-EF1EEF69` | Full flash pulse | the strikes of "Strikes" unchanged (at least 6.5 s apart, never three in ten seconds); each strike one pulse: smoothstep rise 0.08 s, fall 0.45 s (a pulse is over in 0.53 s, under half the gap), no second flicker; at most 0.32 of its peak per 60 Hz frame (s) | kind: ours; notes: estimate | ours (the owner: brighter, visible lightning, no strobing) | Full flash pulse: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the strikes of "Strikes" unchanged (at least 6.5 s apart, never three… | ☐ |
+| `R-5D729F8D` | Full flash lift | at its fullest: exposure +0.09, sun energy x2.0, shade (ambient) +0.20, sky glow alpha 0.30 (reduced: 0.06); the exposure stays inside the readability bounds (0.94 to 1.13); nothing else changes and only a Thunderstorm flashes (factor) | kind: ours; notes: estimate | ours | Full flash lift: compare with SM1 by feel or video. Ours: at its fullest: exposure +0.09, sun energy x2.0, shade (ambient)… | ☐ |
+| `R-25483A10` | Rain, near layer | 1300 streaks at High (0.014 x 0.8 m, a streak is the fall speed times a 0.03 s shutter; scale 0.7 to 1.3), in a 24 x 24 m box 13 m above the camera, 22 to 28 m/s, lifetime 0.9 s, alpha 0.16 + 0.42 x rain share (count) | kind: ours; notes: estimate | ours | Rain, near layer: compare with SM1 by feel or video. Ours: 1300 streaks at High (0.014 x 0.8 m, a streak is the fall speed times… | ☐ |
+| `R-D25D9976` | Rain, far layer | 600 streaks (0.01 x 0.6 m, scale 0.7 to 1.4), 80 x 80 m box 16 m up, 20 to 26 m/s, lifetime 1.2 s, alpha 0.08 + 0.24 x share (count) | kind: ours; notes: estimate | ours | Rain, far layer: compare with SM1 by feel or video. Ours: 600 streaks (0.01 x 0.6 m, scale 0.7 to 1.4), 80 x 80 m box 16 m up… | ☐ |
+| `R-6C17B9A5` | Rain, wind lean | the fall leans with the wind: 0.08 + 0.05 (Rain) or 0.08 + 0.35 x wind (Thunderstorm) of a unit along the wind heading; the streak quad is a camera-facing billboard, so the lean of its drawing is approximate (ratio) | kind: ours; notes: estimate | ours | Rain, wind lean: compare with SM1 by feel or video. Ours: the fall leans with the wind: 0.08 + 0.05 (Rain) or 0.08 + 0.35 x… | ☐ |
+| `R-3E6EFD40` | Rain, splashes | 260 dots at High (0.07 m, 0.3 s life, a small hop of 0.5 to 1.2 m/s, fading) in a 14 x 14 m box on the ground round the player; the ground is 1.8 m under the camera (an estimate: the camera is the head's height, higher in third person), alpha 0.20 + 0.35 x… (count) | kind: ours; notes: estimate | ours | Rain, splashes: compare with SM1 by feel or video. Ours: 260 dots at High (0.07 m, 0.3 s life, a small hop of 0.5 to 1.2 m/s… | ☐ |
+| `R-E6CB4EBF` | Rain, mist | 28 soft puffs at High (3 m, 5 s life, drifting 0.6 to 1.2 m/s on the wind) 0.5 m above the ground in a 28 x 28 m box, alpha 0.03 + 0.06 x share, fading in and out; with Rain's fog density now x2.2 (was x1.9) at the peak (count) | kind: ours; notes: estimate | ours | Rain, mist: compare with SM1 by feel or video. Ours: 28 soft puffs at High (3 m, 5 s life, drifting 0.6 to 1.2 m/s on the… | ☐ |
+| `R-171A710C` | Rain cost | at High 2188 CPU particles (1300 + 600 + 260 + 28; x1.2 of the base numbers), x0.8 Medium, x0.5 Low, x0.25 Off, x0.33 in the Compatibility renderer or safe mode (about 720); the hiss, loudness caps and readability limits are unchanged; nothing is drawn over… (count) | kind: ours; notes: estimate | ours | Rain cost: compare with SM1 by feel or video. Ours: at High 2188 CPU particles (1300 + 600 + 260 + 28; x1.2 of the base… | ☐ |
+| `R-4F5FE299` | Thunder once | the client plays each strike's thunder once, strictly in time order: the clock's 2 s snap to the server (a step back or forward of a few tens of ms) never replays or skips one; a jump of more than 3 s (a join, a stall) plays nothing it skipped (s) | kind: ours | ours | Thunder once: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the client plays each strike's thunder once, strictly in time order:… | ☐ |
+| `R-D3577C73` | Ash density ramp | the squall's flecks go from the warning's 12 % to all of them over 2.5 s (smoothstep) at the start of the peak, no step (s) | kind: ours; notes: estimate | ours | Ash density ramp: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the squall's flecks go from the warning's 12 % to all of them over… | ☐ |
+| `R-3268F6D9` | Grit | the install's `play_dust_loop`: an endless loop is posted once; a one-shot is posted again every 6 s while the grit is wanted (the ash share above 0.5) (s) | kind: ours; confidence: low | ours | Grit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the install's play_dust_loop: an endless loop is posted once; a… | ☐ |
 
 ## Part B: Ork faction
 

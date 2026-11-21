@@ -106,17 +106,141 @@ public class WeatherPlanTests
         Assert.False(WeatherPlan.Warning(At(peak + 1)));
         Assert.False(WeatherPlan.Warning(WeatherClock.At(WeatherId.Rain, peak - 1)));
         // the ash: a few flecks in the buildup (never more than the warning share), all of it at the peak, falling to none by the recovery's end
-        for (double t = build; t < peak; t += 1) Assert.InRange(WeatherPlan.AshShare(id, At(t).Phase, At(t).Intensity), 0f, WeatherPlan.WarningFlecks + 1e-6f);
-        Assert.True(WeatherPlan.AshShare(id, WeatherPhase.Buildup, At(peak - 0.1).Intensity) > 0.05f, "the warning shows flecks");
-        Assert.Equal(1f, WeatherPlan.AshShare(id, WeatherPhase.Peak, 1f));
+        for (double t = build; t < peak; t += 1) Assert.InRange(WeatherPlan.AshShare(At(t)), 0f, WeatherPlan.WarningFlecks + 1e-6f);
+        Assert.True(WeatherPlan.AshShare(At(peak - 0.1)) > 0.05f, "the warning shows flecks");
+        Assert.Equal(1f, WeatherPlan.AshShare(At(peak + WeatherPlan.AshRampSeconds + 0.1)));
         float lastShare = 1f;
-        for (double t = rec; t < end; t += 1) { float a = WeatherPlan.AshShare(id, At(t).Phase, At(t).Intensity); Assert.True(a <= lastShare + 1e-6f); lastShare = a; }
-        Assert.True(WeatherPlan.AshShare(id, WeatherPhase.Recovery, At(end - 0.01).Intensity) < 0.01f);
+        for (double t = rec; t < end; t += 1) { float a = WeatherPlan.AshShare(At(t)); Assert.True(a <= lastShare + 1e-6f); lastShare = a; }
+        Assert.True(WeatherPlan.AshShare(At(end - 0.01)) < 0.01f);
         // the crosswind: the strongest wind is at the peak, a quiet one before and after
         float windBuild = WeatherPlan.Wind(id, At(build + 1).Intensity, 0), windPeak = WeatherPlan.Wind(id, 1f, 0), windEnd = WeatherPlan.Wind(id, At(end - 0.01).Intensity, 0);
         Assert.True(windPeak > 0.7f && windBuild < 0.1f && windEnd < 0.1f, $"{windBuild} {windPeak} {windEnd}");
         // others have no ash and no warning
-        foreach (var other in new[] { WeatherId.Thunderstorm, WeatherId.Rain, WeatherId.EmberWind }) Assert.Equal(0f, WeatherPlan.AshShare(other, WeatherPhase.Peak, 1f));
+        foreach (var other in new[] { WeatherId.Thunderstorm, WeatherId.Rain, WeatherId.EmberWind }) Assert.Equal(0f, WeatherPlan.AshShare(WeatherClock.At(other, peak + 10)));
+    }
+
+    [Fact]
+    public void The_squalls_density_ramps_into_the_peak_with_no_step()
+    {
+        var id = WeatherId.AshSquall;
+        double peak = Start(id, WeatherPhase.Peak);
+        float before = WeatherPlan.AshShare(WeatherClock.At(id, peak - 1e-3)), after = WeatherPlan.AshShare(WeatherClock.At(id, peak + 1e-3));
+        Assert.InRange(Math.Abs(after - before), 0f, 0.01f);   // no jump at the boundary
+        float last = WeatherPlan.AshShare(WeatherClock.At(id, peak - 3)), maxStep = 0f;
+        for (double t = peak - 3; t <= peak + WeatherPlan.AshRampSeconds + 1; t += 1.0 / 60)
+        {
+            float v = WeatherPlan.AshShare(WeatherClock.At(id, t));
+            maxStep = Math.Max(maxStep, Math.Abs(v - last)); last = v;
+        }
+        Assert.True(maxStep < 0.05f, $"one frame moved the density by {maxStep}");   // a smooth ramp over 2.5 s
+        Assert.Equal(1f, WeatherPlan.AshShare(WeatherClock.At(id, peak + WeatherPlan.AshRampSeconds)), 3);
+        Assert.InRange(WeatherPlan.AshShare(WeatherClock.At(id, peak + WeatherPlan.AshRampSeconds / 2)), 0.3f, 0.8f);   // half way through it is part way
+        // and the recovery starts where the peak ended
+        double rec = Start(id, WeatherPhase.Recovery);
+        Assert.InRange(Math.Abs(WeatherPlan.AshShare(WeatherClock.At(id, rec + 1e-3)) - WeatherPlan.AshShare(WeatherClock.At(id, rec - 1e-3))), 0f, 0.01f);
+    }
+
+    [Fact]
+    public void Full_flash_is_one_brighter_pulse_per_strike_capped_fast_and_never_a_strobe()
+    {
+        Assert.True(WeatherPlan.FlashExposure <= 0.10f && WeatherPlan.FlashSun <= 1.0f && WeatherPlan.FlashAmbient <= 0.25f && WeatherPlan.FullGlowMaxAlpha <= 0.35f);
+        double step = 1.0 / 60;
+        float prev = 0f, maxStep = 0f, maxFlash = 0f;
+        int pulses = 0; bool inPulse = false;
+        for (double t = 0; t < 2400; t += step)
+        {
+            float f = WeatherPlan.FullFlash(t);
+            maxFlash = Math.Max(maxFlash, f); maxStep = Math.Max(maxStep, Math.Abs(f - prev));
+            if (f > 0.05f && !inPulse) { pulses++; inPulse = true; } else if (f <= 0.05f) inPulse = false;
+            prev = f;
+        }
+        Assert.InRange(maxFlash, 0.99f, 1f);
+        Assert.True(maxStep <= 0.35f, $"one 60 Hz frame moved the flash by {maxStep}");   // a quick rise but no jump
+        // one pulse per strike (no second flicker), the strikes' own spacing (at least 6.5 s), so never three in ten seconds
+        Assert.Equal(WeatherPlan.StrikesIn(0, 2400).Count, pulses);
+        // the pulse is over before the next strike can come: its whole length is under half the gap
+        Assert.True(WeatherPlan.FlashRise + WeatherPlan.FlashFall < WeatherPlan.MinStrikeGap / 2);
+        Assert.Equal(0f, WeatherPlan.FullFlash(double.NaN));
+    }
+
+    [Fact]
+    public void The_reduced_setting_is_the_default_and_full_flash_only_lifts_a_thunderstorm_within_the_readability_limits()
+    {
+        var m = new SmClient.Extras.Weather.WeatherClientModel();
+        double strike = WeatherPlan.StrikesIn(120, 400)[0].Time;
+        var d = new WeatherDirector(WeatherId.Thunderstorm); d.Advance(strike);
+        m.Receive(SmNet.Extras.Weather.WeatherWire.Encode(SmNet.Extras.Weather.WeatherWire.Of(d)));
+        Assert.False(m.FullFlash);
+        var reduced = m.Grade;
+        m.FullFlash = true;
+        var full = m.Grade;
+        Assert.True(full.Exposure > reduced.Exposure && full.SunEnergy > reduced.SunEnergy && full.Ambient > reduced.Ambient);
+        Assert.True(full.Exposure - reduced.Exposure <= WeatherPlan.FlashExposure + 1e-5f);
+        var combined = SmClient.Extras.Weather.WeatherGrade.Combine(SmClient.Customizer.Model.LightingGrade.Identity, full);
+        Assert.InRange(combined.Exposure, SmClient.Extras.Weather.WeatherGrade.MinExposure, SmClient.Extras.Weather.WeatherGrade.MaxExposure);
+        // between strikes, and for any other preset, the setting changes nothing
+        double quiet = 120; while (WeatherPlan.FullFlash(quiet) > 0f) quiet += 0.5;
+        var d2 = new WeatherDirector(WeatherId.Thunderstorm); d2.Advance(quiet);
+        m.Receive(SmNet.Extras.Weather.WeatherWire.Encode(SmNet.Extras.Weather.WeatherWire.Of(d2)));
+        m.FullFlash = false; var a = m.Grade; m.FullFlash = true;
+        Assert.Equal(a, m.Grade);
+        var d3 = new WeatherDirector(WeatherId.Rain); d3.Advance(130);
+        m.Receive(SmNet.Extras.Weather.WeatherWire.Encode(SmNet.Extras.Weather.WeatherWire.Of(d3)));
+        m.FullFlash = false; var r = m.Grade; m.FullFlash = true;
+        Assert.Equal(r, m.Grade);
+    }
+
+    [Fact]
+    public void The_thunder_tracker_plays_each_strike_once_in_order_across_the_two_second_clock_snaps()
+    {
+        var all = WeatherPlan.ThunderIn(200, 600);
+        var tracker = new WeatherThunderTracker();
+        tracker.Step(200);
+        var heard = new List<WeatherStrike>();
+        double now = 200; var rng = new Random(5);
+        while (now < 600)
+        {
+            now += 1.0 / 60;
+            double shown = now;
+            // every two seconds the client's clock snaps to the server's by a few tens of milliseconds, either way
+            if ((int)(now * 60) % 120 == 0) shown = now + (rng.NextDouble() * 0.12 - 0.06);
+            heard.AddRange(tracker.Step(shown));
+            if (shown < now) heard.AddRange(tracker.Step(now));   // and the clock goes on from where it was
+        }
+        Assert.Equal(all.Select(s => s.Seed).Where(seed => all.First(x => x.Seed == seed).SoundTime <= now - 0.2).ToList(), heard.Select(s => s.Seed).Where(seed => all.First(x => x.Seed == seed).SoundTime <= now - 0.2).ToList());
+        Assert.Equal(heard.Count, heard.Select(s => s.Seed).Distinct().Count());   // none twice
+        for (int i = 1; i < heard.Count; i++) Assert.True(heard[i].SoundTime > heard[i - 1].SoundTime);   // strictly later each time
+        // a jump forward (a join or a stall) replays nothing it skipped; a step back never lowers the mark
+        var t2 = new WeatherThunderTracker();
+        t2.Step(100); Assert.Empty(t2.Step(100 + 30));
+        double s0 = WeatherPlan.ThunderIn(130, 400)[0].SoundTime;
+        t2.Step(s0 + 1); Assert.Empty(t2.Step(s0 - 0.5)); Assert.Empty(t2.Step(s0 + 0.5));
+        Assert.Empty(new WeatherThunderTracker().Step(double.NaN));
+    }
+
+    [Fact]
+    public void The_full_flash_setting_defaults_to_reduced_survives_a_restart_and_reads_a_damaged_file_as_the_default()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "sm-weather-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string file = Path.Combine(dir, "weather-settings.json");
+        try
+        {
+            SmClient.Extras.Weather.WeatherSettings.PathOverride = file;
+            SmClient.Extras.Weather.WeatherSettings.Reset();
+            Assert.False(SmClient.Extras.Weather.WeatherSettings.FullFlash);   // no file: reduced
+            Assert.False(File.Exists(file));                                   // and nothing written until the player chooses
+            SmClient.Extras.Weather.WeatherSettings.FullFlash = true;
+            SmClient.Extras.Weather.WeatherSettings.Reset();                   // a restart
+            Assert.True(SmClient.Extras.Weather.WeatherSettings.FullFlash);
+            File.WriteAllText(file, "{ not json");
+            SmClient.Extras.Weather.WeatherSettings.Reset();
+            Assert.False(SmClient.Extras.Weather.WeatherSettings.FullFlash);
+            File.WriteAllText(file, new string('x', 10000));
+            SmClient.Extras.Weather.WeatherSettings.Reset();
+            Assert.False(SmClient.Extras.Weather.WeatherSettings.FullFlash);
+        }
+        finally { SmClient.Extras.Weather.WeatherSettings.PathOverride = null; SmClient.Extras.Weather.WeatherSettings.Reset(); try { Directory.Delete(dir, true); } catch { } }
     }
 
     [Fact]

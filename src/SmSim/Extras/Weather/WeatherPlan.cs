@@ -85,6 +85,31 @@ public static class WeatherPlan
         return best;
     }
 
+    // ---- the full-flash setting (client option; the default is reduced) ----
+
+    /// <summary>
+    /// Full flash (the owner's setting, 2026-11-21; a client-only choice, never on the wire): the same strikes (so the same spacing: at least <see cref="MinStrikeGap"/> s apart, never three in ten seconds), each ONE brighter
+    /// pulse, a quick rise of <see cref="FlashRise"/> s and a fast fall of <see cref="FlashFall"/> s (no second pulse: no strobing). It lifts the exposure by at most <see cref="FlashExposure"/>, the sun by <see cref="FlashSun"/>
+    /// and the shade by <see cref="FlashAmbient"/> at its fullest, and the sky glow to <see cref="FullGlowMaxAlpha"/>. One frame at 60 Hz moves it by at most 0.32 of its peak.
+    /// </summary>
+    public const double FlashRise = 0.08, FlashFall = 0.45;
+    public const float FlashExposure = 0.09f, FlashSun = 1.0f, FlashAmbient = 0.20f, FullGlowMaxAlpha = 0.30f;
+
+    /// <summary>The full-flash pulse (0 to 1) at <paramref name="elapsed"/> seconds into a Thunderstorm: peaks at the strike's own time.</summary>
+    public static float FullFlash(double elapsed)
+    {
+        if (!double.IsFinite(elapsed) || elapsed < 0) return 0f;
+        float best = 0f;
+        foreach (var s in StrikesIn(elapsed - FlashFall, elapsed + FlashRise))
+        {
+            double t = elapsed - s.Time + FlashRise;
+            if (t < 0 || t > FlashRise + FlashFall) continue;
+            float v = t < FlashRise ? Smooth(t / FlashRise) : Smooth(1.0 - (t - FlashRise) / FlashFall);
+            if (v > best) best = v;
+        }
+        return best;
+    }
+
     // ---- wind ----
 
     /// <summary>The wind's heading (radians, the direction the air moves toward, a flat angle in the world's x-z plane) per preset: fixed, so every client and every frame agree, the same for the ash, the embers and the rain's slant.</summary>
@@ -127,18 +152,19 @@ public static class WeatherPlan
         };
     }
 
-    /// <summary>The Ash Squall's flecks (0 to 1 of the full count) in the warning (the buildup: a few drifting flecks, <see cref="WarningFlecks"/> at its end), at the peak (all of them) and as it clears.</summary>
+    /// <summary>The Ash Squall's flecks (0 to 1 of the full count): a few drifting flecks in the warning (the buildup, <see cref="WarningFlecks"/> at its end), then a ramp of <see cref="AshRampSeconds"/> s from that to all of them at the start of the peak (no step), full for the peak, falling as it clears.</summary>
     public const float WarningFlecks = 0.12f;
-    public static float AshShare(WeatherId id, WeatherPhase phase, float intensity)
+    public const double AshRampSeconds = 2.5;
+    public static float AshShare(WeatherState s)
     {
-        if (id != WeatherId.AshSquall) return 0f;
-        float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
+        if (s.Id != WeatherId.AshSquall) return 0f;
+        float i = Math.Clamp(float.IsFinite(s.Intensity) ? s.Intensity : 0f, 0f, 1f);
         float o = WeatherCatalog.Of(WeatherId.AshSquall).OpeningLevel;
         float f = Math.Clamp((i - o) / (1f - o), 0f, 1f);   // 0 at the quiet level, 1 at the peak
-        return phase switch
+        return s.Phase switch
         {
             WeatherPhase.Buildup => WarningFlecks * f,   // the buildup shows only the first flecks
-            WeatherPhase.Peak => 1f,
+            WeatherPhase.Peak => WarningFlecks + (1f - WarningFlecks) * Smooth(s.PhaseSeconds / AshRampSeconds),
             WeatherPhase.Recovery => f,
             _ => 0f,
         };
@@ -148,7 +174,7 @@ public static class WeatherPlan
     public static float EmberDensity(WeatherId id, float intensity)
         => id == WeatherId.EmberWind ? 0.5f + 0.5f * Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f) : 0f;
 
-    /// <summary>The Ash Squall's warning is on: the last <see cref="WarningSeconds"/> seconds of its buildup, through its peak (the client shows a short text cue beside the visible and audible ones).</summary>
+    /// <summary>The Ash Squall's warning is on: the last <see cref="WarningSeconds"/> seconds of its buildup only (it ends when the peak begins; the client shows a short text cue beside the visible and audible ones).</summary>
     public const double WarningSeconds = 30.0;
     public static bool Warning(WeatherState s)
         => s.Id == WeatherId.AshSquall && s.Phase == WeatherPhase.Buildup && s.PhaseSeconds >= WeatherCatalog.Of(WeatherId.AshSquall).Duration(WeatherPhase.Buildup) - WarningSeconds;

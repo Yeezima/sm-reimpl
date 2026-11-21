@@ -21,6 +21,9 @@ public sealed partial class WeatherStills : Node
         ("thunderstorm-buildup", WeatherId.Thunderstorm, 100),
         ("thunderstorm-peak-glow", WeatherId.Thunderstorm, -1),   // the first strike's flash at the peak
         ("thunderstorm-peak-between", WeatherId.Thunderstorm, -2),   // a moment between strikes
+        ("rain-peak", WeatherId.Rain, 130),
+        ("thunderstorm-rain-peak", WeatherId.Thunderstorm, 135),
+        ("thunderstorm-full-flash", WeatherId.Thunderstorm, -3),   // the full-flash setting at a strike
         ("squall-warning", WeatherId.AshSquall, 60 + 45 - 20),
         ("squall-peak", WeatherId.AshSquall, 60 + 45 + 40),
         ("squall-recovery", WeatherId.AshSquall, 60 + 45 + 90 + 55),
@@ -64,11 +67,13 @@ public sealed partial class WeatherStills : Node
         float fog0 = env.FogDensity, exp0 = env.TonemapExposure, amb0 = env.AmbientLightEnergy, sun0 = sun.LightEnergy;
         foreach (var (name, id, at0) in Moments)
         {
-            double at = at0 == -1 ? strike : at0 == -2 ? between : at0;
+            double at = at0 == -1 || at0 == -3 ? strike : at0 == -2 ? between : at0;
+            bool full = at0 == -3;
             rig?.QueueFree();   // a fresh rig for each moment: nothing of the last look is left in the air
-            rig = new WeatherRig();
+            rig = new WeatherRig { FullFlash = full };
             AddChild(rig);
             var d = new WeatherDirector(id); d.Advance(at);
+            model.FullFlash = full;
             model.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
             // two views: a player's (1.7 m, looking down the street) and a third person (behind and above the marine)
             foreach (var (view, pos, look) in new[] { ("player", new Vector3(0f, 1.7f, 18f), new Vector3(0f, 1.6f, -20f)), ("third", new Vector3(2.2f, 2.6f, 24f), new Vector3(0f, 1.2f, 16f)) })

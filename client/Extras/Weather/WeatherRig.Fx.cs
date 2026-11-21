@@ -6,8 +6,7 @@ namespace SmClient.Extras.Weather;
 
 /// <summary>
 /// The W2 half of the rig (client only, presentation only, **ours**): the Ash Squall's drifting ash (a sparse warning emitter in the buildup, a dense one at the peak, both leaning on the wind), Ember Wind's sparse
-/// embers, the Thunderstorm's sky-only glow (a pale blue-white film on a half dome behind the world, additive, at most <see cref="WeatherPlan.GlowMaxAlpha"/>, pulsed by <see cref="WeatherPlan.CloudGlow"/>: no screen
-/// exposure change), the procedural wind bed, thunder rumbles and the Ash Squall's short warning text.
+/// embers, the Thunderstorm's sky-only glow (a pale blue-white film on a half dome behind the world, additive, at most <see cref="WeatherPlan.GlowMaxAlpha"/>, pulsed by <see cref="WeatherPlan.CloudGlow"/>; with the full-flash setting up to <see cref="WeatherPlan.FullGlowMaxAlpha"/>; the screen's own lift is in the lighting grade), the procedural wind bed, thunder rumbles and the Ash Squall's short warning text.
 /// </summary>
 public sealed partial class WeatherRig
 {
@@ -35,7 +34,7 @@ public sealed partial class WeatherRig
         var windDir = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
 
         // ash (Ash Squall): the warning emitter sprinkles from the buildup, the dense one is the crosswind
-        float ash = WeatherPlan.AshShare(id, st.Phase, i);
+        float ash = WeatherPlan.AshShare(st);
         bool warnOn = id == WeatherId.AshSquall && ash > 0.005f, mainOn = ash > 0.12f;   // the sparse emitter runs through the whole squall; the dense one adds to it at the peak
         if (warnOn) _ashWarn ??= BuildAsh("AshWarning", Math.Max(20, (int)(AshCount * 0.2f * QualityScale())), out _ashWarnMaterial);
         if (mainOn) _ashMain ??= BuildAsh("AshSquall", Math.Max(60, (int)(AshCount * QualityScale())), out _ashMainMaterial);
@@ -60,12 +59,17 @@ public sealed partial class WeatherRig
         }
 
         // thunder's cloud glow: a pale film on the sky only (a half dome behind the world); never the screen
-        float glow = id == WeatherId.Thunderstorm ? WeatherPlan.CloudGlow(st.Elapsed) : 0f;
-        if (glow > 0.001f) EnsureGlow();
+        float glowAlpha = 0f;
+        if (id == WeatherId.Thunderstorm)
+        {
+            glowAlpha = WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(st.Elapsed);   // reduced: faint and slow
+            if (FullFlash) glowAlpha = Math.Max(glowAlpha, WeatherPlan.FullGlowMaxAlpha * WeatherPlan.FullFlash(st.Elapsed));   // full: the brighter, quicker pulse
+        }
+        if (glowAlpha > 0.0005f) EnsureGlow();
         if (_glow is not null)
         {
-            _glow.Visible = glow > 0.001f;
-            if (_glowMaterial is not null) _glowMaterial.AlbedoColor = new Color(0.66f, 0.76f, 1f, WeatherPlan.GlowMaxAlpha * Math.Clamp(glow, 0f, 1f));
+            _glow.Visible = glowAlpha > 0.0005f;
+            if (_glowMaterial is not null) _glowMaterial.AlbedoColor = new Color(0.66f, 0.76f, 1f, glowAlpha);
         }
 
         // wind bed

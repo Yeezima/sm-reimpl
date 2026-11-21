@@ -132,6 +132,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Loadout.cs", "ExtrasPickerBusy"),       // PickerBusy ors in an added content's own panel that takes the game's input (Warfront W5c: the card picker, the squad panel)
         ("client/NetworkView.cs", "ExtrasExit"),                    // NetworkView.ExtrasExit(), first in _ExitTree: weather clears its static link (WeatherClientLink) so no later view keeps the grade or the F6 section
         ("client/LightingGradeView.cs", "ExtrasGrade"),             // LightingGradeView.ExtrasGrade(ref LightingGrade), once a frame before the identity check: added content's weather look is multiplied into the player's lighting preset (weather W1)
+        ("client/FrontEnd/OptionsView.cs", "ExtrasGraphicsRows"),   // OptionsView.ExtrasGraphicsRows(), after the Lighting preset row: added content's own graphics rows (weather W2: the storm lightning choice, REDUCED or FULL; client only)
         ("client/DevToolsPanel.cs", "ExtrasPanelBuild"),            // DevToolsPanel.ExtrasPanelBuild(VBoxContainer), after the TIME section: added content's own section in the F6 panel (weather W1: the Weather buttons)
         ("client/DevToolsPanel.cs", "ExtrasPanelPress"),            // DevToolsPanel.ExtrasPanelPress(string, string, ref bool), the script words the panel does not know (weather:rain, weather:none, weather:follow)
         ("client/DevToolsPanel.cs", "ExtrasPanelSync"),             // DevToolsPanel.ExtrasPanelSync(), once per Sync: added content's section follows the server

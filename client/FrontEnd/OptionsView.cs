@@ -321,6 +321,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
     /// <summary>Adds a row that takes the page's whole width, under the two columns (the renderer note, KEYBINDS).</summary>
     void AddWide(Control row) { row.SizeFlagsHorizontal = SizeFlags.ExpandFill; _wide.AddChild(row); }
 
+    partial void ExtrasGraphicsRows();
+
     void Choice(string label, string[] values, int index, Action<int> changed, string? tip = null) => Add(new UiKit.MenuChoice(label, values, index, changed, tip));
 
     static string Percent(double v) => $"{v * 100.0:F0}%";
@@ -418,6 +420,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.
         Choice("Lighting preset", LightingPresets.Labels.Select(l => l.ToUpperInvariant()).ToArray(), (int)O.Lighting, i => Set(x => x with { Lighting = (LightingPresetChoice)i }),
             "The look of the light, haze and colour on every map. FAITHFUL REMASTER is the game's own look; the others only change the mood, never what you can see.");
+        ExtrasGraphicsRows();   // EXTRAS-HOOK: added content's own graphics rows (weather: the storm lightning choice)
         var renderer = new Control { Name = "RendererRow", MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(0f, 34f) };
         var caption = UiKit.MenuText("RENDERER", Steel.TextDim);
         caption.ThemeTypeVariation = Steel.LabelType;

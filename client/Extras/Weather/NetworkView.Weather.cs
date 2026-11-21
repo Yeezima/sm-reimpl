@@ -58,6 +58,7 @@ public partial class NetworkView
         }
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
+        _wxModel.FullFlash = WeatherSettings.FullFlash;   // the player's storm lightning option (client only)
         _wxModel.Advance(delta);
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
@@ -74,6 +75,7 @@ public partial class NetworkView
             if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; }
             else
             {
+                _wxRig.FullFlash = _wxModel.FullFlash;
                 _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero);
                 WeatherInstallSounds(st, intensity);
             }

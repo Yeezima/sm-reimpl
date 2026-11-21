@@ -32,7 +32,7 @@ public static class WeatherGrade
                 Ambient: 1f + 0.18f * i, FogDensity: 1f + 2.4f * i, FogR: 0.60f, FogG: 0.63f, FogB: 0.67f, FogTint: 0.85f * i, Glow: 1f + 0.10f * i),
             // overcast rain: a weak cool sun, desaturated, a cold grey haze, a touch more bloom on wet highlights
             WeatherId.Rain => new(Exposure: 1f - 0.05f * i, Contrast: 1f + 0.03f * i, Saturation: 1f - 0.25f * i, SunEnergy: 1f - 0.55f * i, SunR: 1f - 0.15f * i, SunG: 1f - 0.08f * i,
-                Ambient: 1f, FogDensity: 1f + 0.9f * i, FogR: 0.38f, FogG: 0.42f, FogB: 0.48f, FogTint: 0.70f * i, Glow: 1f + 0.15f * i),
+                Ambient: 1f, FogDensity: 1f + 1.2f * i, FogR: 0.38f, FogG: 0.42f, FogB: 0.48f, FogTint: 0.70f * i, Glow: 1f + 0.15f * i),
             // thunderstorm (W2): a darkening sky, a dim cold sun, desaturated, dark slate haze 2.4 times the map's at the peak; the shade is never darker and the exposure stays at its floor (never a flash: the glow is a sky-only layer in the rig)
             WeatherId.Thunderstorm => new(Exposure: 1f - 0.06f * i, Contrast: 1f + 0.05f * i, Saturation: 1f - 0.30f * i, SunEnergy: 1f - 0.58f * i, SunR: 1f - 0.18f * i, SunG: 1f - 0.10f * i,
                 Ambient: 1f, FogDensity: 1f + 1.4f * i, FogR: 0.30f, FogG: 0.33f, FogB: 0.40f, FogTint: 0.75f * i, Glow: 1f + 0.12f * i),
@@ -44,6 +44,17 @@ public static class WeatherGrade
                 Ambient: 1f, FogDensity: 1f + 0.3f * i, FogR: 0.55f, FogG: 0.36f, FogB: 0.24f, FogTint: 0.35f * i, Glow: 1f + 0.10f * i),
             _ => LightingGrade.Identity,
         };
+    }
+
+    /// <summary>
+    /// The full-flash setting's lightning on top of a Thunderstorm grade (<paramref name="flash"/> is <c>WeatherPlan.FullFlash</c>, 0 to 1): a short lift of the exposure (at most +0.09), the sun (x2 at its fullest) and the shade
+    /// (+0.20), so a strike lights the street for a moment. Zero (and the reduced setting) returns the grade unchanged. <see cref="Combine"/> still clamps the exposure to its bounds.
+    /// </summary>
+    public static LightingGrade WithFlash(LightingGrade g, float flash)
+    {
+        float f = Math.Clamp(float.IsFinite(flash) ? flash : 0f, 0f, 1f);
+        if (f <= 0f) return g;
+        return g with { Exposure = g.Exposure + WeatherPlan.FlashExposure * f, SunEnergy = g.SunEnergy * (1f + WeatherPlan.FlashSun * f), Ambient = g.Ambient + WeatherPlan.FlashAmbient * f };
     }
 
     /// <summary>The player's lighting preset and the weather together: factors multiply; the fog tints blend by their amounts; the readability limits hold on the product.</summary>

@@ -19,25 +19,24 @@ public partial class NetworkView
 {
     public const string WxThunderEvent = "play_distant_explosions", WxGritEvent = "play_dust_loop";
     public const float WxFarThunderGainDb = -6f, WxWarningGainDb = -8f, WxGritGainDb = -10f;
-    const double WxJumpSeconds = 3.0;
 
     SoundEmitter? _wxGrit;
-    bool _wxGritOn, _wxWarned;
-    double _wxThunderPrev = -1;
+    bool _wxGritOn, _wxWarned, _wxGritLoops;
+    double _wxGritUntil;
+    WeatherThunderTracker _wxThunder = new();
     WeatherId _wxSoundId = WeatherId.None;
+    /// <summary>A grit sound that is not an endless loop is posted again this many seconds after its last post (the data's one-shots are a few seconds long).</summary>
+    const double WxGritRepostSeconds = 6.0;
 
     /// <summary>Once a frame while the rig is up: the thunder that arrives now, the squall's warning and grit.</summary>
     void WeatherInstallSounds(WeatherState st, float intensity)
     {
-        if (_wxSoundId != st.Id) { WeatherInstallStop(); _wxSoundId = st.Id; _wxThunderPrev = st.Elapsed; _wxWarned = false; }
+        if (_wxSoundId != st.Id) { WeatherInstallStop(); _wxSoundId = st.Id; _wxThunder = new WeatherThunderTracker(); _wxWarned = false; }
 
-        // thunder: the strikes whose sound arrives since the last frame (a jump in the clock, a join or a restart, replays nothing)
+        // thunder: each strike's sound once, strictly in time order (the tracker ignores a step back of the 2 s state snap and a jump forward)
         if (st.Id == WeatherId.Thunderstorm)
         {
-            double from = _wxThunderPrev, to = st.Elapsed;
-            _wxThunderPrev = to;
-            if (to < from || to - from > WxJumpSeconds) return;
-            foreach (var strike in WeatherPlan.ThunderIn(from, to))
+            foreach (var strike in _wxThunder.Step(st.Elapsed))
             {
                 bool played = false;
                 if (!strike.Near) played = WeatherPostInstall(WxThunderEvent, WxFarThunderGainDb, ThunderPoint(strike.Seed), "far thunder");
@@ -56,14 +55,17 @@ public partial class NetworkView
                 if (!WeatherPostInstall(WxThunderEvent, WxWarningGainDb, ThunderPoint(7), "squall warning")) _wxRig?.PlayRumble(7, false, -4f);
             }
             if (st.Phase == WeatherPhase.Buildup && !WeatherPlan.Warning(st)) _wxWarned = false;
-            float ash = WeatherPlan.AshShare(st.Id, st.Phase, intensity);
-            bool grit = ash > 0.5f;
-            if (grit && !_wxGritOn && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
+            bool grit = WeatherPlan.AshShare(st) > 0.5f;
+            double now = st.Elapsed;
+            if (grit && (!_wxGritOn || (!_wxGritLoops && now >= _wxGritUntil)) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
             {
                 _wxGrit ??= new SoundEmitter { Label = "weather grit", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
                 var play = _sound.Post(WxGritEvent, _wxGrit, offset: new VoiceOffset(WxGritGainDb));
                 _wxGritOn = play is { Voices.Count: > 0 };
-                if (LogSound("weather")) GD.Print($"weather grit: {WxGritEvent} voices {play?.Voices.Count ?? 0} at {WxGritGainDb:0} dB");
+                // an endless loop (a voice with loop count 0, or a continuing container) is posted once; anything else is a one-shot: posted again after a few seconds while the grit is wanted
+                _wxGritLoops = play is { } p && (p.Repeats.Count > 0 || p.Voices.Exists(v => v.LoopCount == 0));
+                _wxGritUntil = now + WxGritRepostSeconds;
+                if (LogSound("weather")) GD.Print($"weather grit: {WxGritEvent} voices {play?.Voices.Count ?? 0} {(_wxGritLoops ? "looping" : "one-shot, reposted every " + WxGritRepostSeconds + " s")} at {WxGritGainDb:0} dB");
             }
             else if (!grit && _wxGritOn) WeatherGritStop();
         }
@@ -92,6 +94,7 @@ public partial class NetworkView
     {
         if (_wxGrit is not null) _sound?.StopEmitter(_wxGrit);
         _wxGritOn = false;
+        _wxGritLoops = false;
     }
 
     /// <summary>The rig ends (or the preset changes): the loops the weather started are stopped.</summary>

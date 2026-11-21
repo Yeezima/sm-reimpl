@@ -57,6 +57,7 @@
     <Compile Include="..\..\client\Customizer\Model\LightingPresets.cs" Link="ClientWeather\LightingPresets.cs" />
     <Compile Include="..\..\client\Extras\Weather\WeatherGrade.cs" Link="ClientWeather\WeatherGrade.cs" />
     <Compile Include="..\..\client\Extras\Weather\WeatherClientModel.cs" Link="ClientWeather\WeatherClientModel.cs" />
+    <Compile Include="..\..\client\Extras\Weather\WeatherSettings.cs" Link="ClientWeather\WeatherSettings.cs" />
   </ItemGroup>
 
   <ItemGroup>
