@@ -520,9 +520,14 @@ public sealed partial class GameServer
     /// names the server's profile and extras wire version) or <c>--ork-data</c> on one side only (Ork O5 review). Keep it within 200 characters:
     /// <c>Protocol.Write</c> cuts a <see cref="Reject"/>'s detail there (pinned for every known flag by <c>ContentProfileTests</c>).
     /// </summary>
-    public static string ConfigMismatchDetail(ContentExtras serverExtras) =>
-        $"gameplay differs from the server's (content profile {ContentProfiles.Describe(serverExtras)}): " +
-        $"join with --content {ContentProfiles.Name(serverExtras)} (--ork-data if it has it)";
+    public static string ConfigMismatchDetail(ContentExtras serverExtras)
+    {
+        // Weather (W3) is not part of the join check (its bit is not hashed), so the text names the profile without it: a weather-only server says "faithful", extended says "extended" as before.
+        var named = serverExtras & ~ContentExtras.Weather;
+        if (named == (ContentExtras.All & ~ContentExtras.Weather)) named = ContentExtras.All;   // the extended set, with or without the weather bit, is "extended"
+        return $"gameplay tuning differs from the server's (content profile {ContentProfiles.Describe(named)}): " +
+               $"join with --content {ContentProfiles.Name(named)} (--ork-data only if the server has it)";
+    }
 
     void Refuse(int connection, RejectReason reason, uint nonce)
     {

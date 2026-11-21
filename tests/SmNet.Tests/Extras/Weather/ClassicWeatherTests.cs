@@ -558,20 +558,77 @@ public class ClassicWeatherTests
     }
 
     [Fact]
-    public void Clients_must_run_the_same_content_as_the_server_none_adopt_it()
+    public void Weather_never_decides_who_joins_a_faithful_client_joins_a_weather_only_server_and_gets_the_weather()
     {
-        // The handshake compares config hashes (the content flags are in it): a client is refused unless it runs the server's own --content. The menu offers Faithful and Extended; a weather-only server needs `--content weather` on the client.
+        // Weather is presentation only: its bit is left out of the config hash, so a weather server accepts exactly the clients it would without it.
+        Assert.Equal(Config(ContentExtras.None).Hash(), Config(ContentExtras.Weather).Hash());
+        Assert.Equal(Config(ContentExtras.Orks).Hash(), Config(ContentExtras.Orks | ContentExtras.Weather).Hash());
+        Assert.Equal(Config(ContentExtras.All & ~ContentExtras.Weather).Hash(), Config(ContentExtras.All).Hash());
         var h = new Harness(Link, 5, 0, Config(ContentExtras.Weather), new ServerOptions { Match = Annihilation, Weather = "rain" });
-        var faithful = h.AddClient(config: Config(ContentExtras.None), nonce: 1);
-        var extended = h.AddClient(config: Config(ContentExtras.All), nonce: 2);
-        var same = h.AddClient(config: Config(ContentExtras.Weather), nonce: 3);
-        h.Run(TimeSpan.FromSeconds(1.5));
-        Assert.Equal(RejectReason.ConfigMismatch, faithful.RejectedBecause);
-        Assert.Equal(RejectReason.ConfigMismatch, extended.RejectedBecause);
-        Assert.Contains("--content weather", faithful.RejectDetail);
+        var faithful = h.AddClient(config: Config(ContentExtras.None), nonce: 1, options: new ClientOptions { RequestedClass = Marine });
+        var same = h.AddClient(config: Config(ContentExtras.Weather), nonce: 3, options: new ClientOptions { RequestedClass = ChaosClass });
+        h.Run(TimeSpan.FromSeconds(3));
+        Assert.Equal(ClientStatus.Connected, faithful.Status);
         Assert.Equal(ClientStatus.Connected, same.Status);
-        Assert.NotEqual(Config(ContentExtras.None).Hash(), Config(ContentExtras.Weather).Hash());
-        Assert.NotEqual(Config(ContentExtras.All).Hash(), Config(ContentExtras.Weather).Hash());
+        Assert.Equal(WeatherId.Rain, States(faithful)[^1].Id);   // the faithful client takes the weather state from the envelope (a client built with extras renders it)
+        Assert.Equal(WeatherId.Rain, States(same)[^1].Id);
+    }
+
+    [Fact]
+    public void An_extended_client_is_still_refused_by_a_weather_only_server_because_the_orks_and_gore_differ_and_the_other_pairings_join()
+    {
+        var weatherOnly = new Harness(Link, 5, 0, Config(ContentExtras.Weather), new ServerOptions { Match = Annihilation });
+        var extended = weatherOnly.AddClient(config: Config(ContentExtras.All), nonce: 2);
+        weatherOnly.Run(TimeSpan.FromSeconds(1.5));
+        Assert.Equal(RejectReason.ConfigMismatch, extended.RejectedBecause);
+        // an orks,weather server takes an orks client (and refuses a faithful one); an extended server takes a client of the extended set with or without the weather bit
+        var orks = new Harness(Link, 5, 0, Config(ContentExtras.Orks | ContentExtras.Weather), new ServerOptions { Match = Annihilation });
+        var orksClient = orks.AddClient(config: Config(ContentExtras.Orks), nonce: 4);
+        var plain = orks.AddClient(config: Config(ContentExtras.None), nonce: 5);
+        orks.Run(TimeSpan.FromSeconds(1.5));
+        Assert.Equal(ClientStatus.Connected, orksClient.Status);
+        Assert.Equal(RejectReason.ConfigMismatch, plain.RejectedBecause);
+        var ext = new Harness(Link, 5, 0, Config(ContentExtras.All), new ServerOptions { Match = Annihilation });
+        var noWeatherBit = ext.AddClient(config: Config(ContentExtras.All & ~ContentExtras.Weather), nonce: 6);
+        ext.Run(TimeSpan.FromSeconds(1.5));
+        Assert.Equal(ClientStatus.Connected, noWeatherBit.Status);
+    }
+
+    [Fact]
+    public void A_weather_client_on_a_server_without_weather_shows_nothing()
+    {
+        var h = new Harness(Link, 5, 0, Config(ContentExtras.None), new ServerOptions { Match = Annihilation });
+        var weatherClient = h.AddClient(config: Config(ContentExtras.Weather), nonce: 1, options: new ClientOptions { RequestedClass = Marine });
+        h.Run(TimeSpan.FromSeconds(4));
+        Assert.Equal(ClientStatus.Connected, weatherClient.Status);
+        Assert.Null(h.Server.Weather);
+        Assert.Empty(States(weatherClient));
+        var model = new WeatherClientModel();
+        Assert.False(model.Has);
+        Assert.True(model.Grade.IsIdentity);
+    }
+
+    [Fact]
+    public void A_faithful_content_client_can_use_the_f6_weather_on_a_local_weather_server_and_a_server_without_weather_drops_the_command()
+    {
+        var h = new Harness(Link, 5, 0, Config(ContentExtras.Weather), new ServerOptions { Match = Annihilation, Weather = "rain", DevTools = Setup() });
+        var a = h.AddClient(config: Config(ContentExtras.None), nonce: 1, options: new ClientOptions { RequestedClass = Marine });
+        var b = h.AddClient(config: Config(ContentExtras.None), nonce: 2, options: new ClientOptions { RequestedClass = ChaosClass });
+        Settle(h, 4);
+        Send(a, new WeatherCommand(WeatherCommandKind.Set, WeatherId.Clear));
+        Settle(h, 0.4);
+        Assert.Equal(WeatherId.Clear, h.Server.Weather!.Override);
+        var s = States(b)[^1];
+        Assert.Equal((WeatherId.Clear, true), (s.Id, s.Overridden));
+        // a server without weather drops the command whatever the client's content; any other tag is still refused at the client
+        var plain = new Harness(Link, 5, 0, Config(ContentExtras.None), new ServerOptions { Match = Annihilation, DevTools = Setup() });
+        var c = plain.AddClient(config: Config(ContentExtras.None), nonce: 1, options: new ClientOptions { RequestedClass = Marine });
+        Settle(plain, 3);
+        Send(c, new WeatherCommand(WeatherCommandKind.Set, WeatherId.Clear));
+        Settle(plain, 0.3);
+        Assert.Null(plain.Server.Weather);
+        Assert.True(plain.Server.ExtrasCommandsDropped >= 1);
+        Assert.False(c.SendExtrasCommand(7, [1]));
     }
 
     [Fact]

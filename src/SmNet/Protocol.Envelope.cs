@@ -36,6 +36,8 @@ public static partial class Protocol
     public const int ExtrasSectionHeaderBytes = 1 + 2;
     /// <summary>Most sections in one message (the count is one byte).</summary>
     public const int MaxExtrasSections = byte.MaxValue;
+    /// <summary>Weather W3: the envelope tag of the weather state (<c>WeatherWire.StateTag</c>) and the command tag that previews it (<c>WeatherWire.CommandTag</c>). Weather is presentation only, so a client of any content takes this one tag from the envelope and may send this one command; every other tag keeps its rule.</summary>
+    public const byte WeatherStateTag = 48, WeatherCommandTag = 43;
     /// <summary>The largest payload of one section (one section alone in a message of <see cref="MaxExtrasMessageBytes"/>).</summary>
     public const int MaxExtrasPayloadBytes = MaxExtrasMessageBytes - ExtrasHeaderBytes - ExtrasSectionHeaderBytes;
     /// <summary>The reserved tag 0: never written (ArgumentException), a message carrying it is malformed (null). Features use 1..255.</summary>

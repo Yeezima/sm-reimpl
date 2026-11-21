@@ -27,7 +27,7 @@ public class ConfigHashPinTests(ITestOutputHelper output)
     /// (0x7556F708CE2FD9A2 before).
     /// Recaptured with claude/autocannon-accuracy (2026-11-14): the Classic autocannon's scatter is the Stalker's (0x479768E19E322CCA before).
     /// </summary>
-    const ulong ExtendedHash = 0xBE87A45A894A0692UL;   // recaptured with the weather flag in extended (weather W3, 2026-11-21; 0xAA043E124F4E81FA before; faithful unchanged)
+    const ulong ExtendedHash = 0xAA043E124F4E81FAUL;   // recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not) (0xC5456B1648DE53E7UL before); earlier: recaptured with classic-stab-on-t (2026-11-17; 0x25C0E0FF4304DC7EUL before); earlier: sim/sword-ff-stab (2026-11-14) (0x4470226340FFAB58 before)
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
 

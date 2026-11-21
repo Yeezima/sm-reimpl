@@ -28,7 +28,7 @@ public readonly record struct WeatherCommand(WeatherCommandKind Kind, WeatherId 
 /// </summary>
 public static class WeatherWire
 {
-    public const byte StateTag = 48, CommandTag = 43;
+    public const byte StateTag = Protocol.WeatherStateTag, CommandTag = Protocol.WeatherCommandTag;
     public const int StateBytes = 8, FittedStateBytes = 10;
     /// <summary>The server repeats the state this often (seconds): a reconnect or a lost datagram heals within it.</summary>
     public const double RepeatSeconds = 2.0;

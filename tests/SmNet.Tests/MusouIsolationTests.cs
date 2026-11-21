@@ -54,7 +54,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the goldens (captured on main 35deb39, before MU0's hooks)
 
-    const ulong FixtureFaithfulHash = 0x35158504E31B93BCUL, FixtureExtendedHash = 0x853AF5242861CE1DUL, DefaultFaithfulHash = 0x6CF1391DEE14706DUL, DefaultExtendedHash = 0xDA12758F50EB06EBUL;   // extended recaptured with the weather flag (2026-11-21); faithful unchanged
+    const ulong FixtureFaithfulHash = 0x35158504E31B93BCUL, FixtureExtendedHash = 0xE8355E5F3FA671B8UL, DefaultFaithfulHash = 0x6CF1391DEE14706DUL, DefaultExtendedHash = 0x85685DCCFA9091C1UL;   // unchanged by weather W3: the weather bit is left out of the hash
     // Recaptured with the owner's 2026-11-19 cancel default (the shipped cancel table's hash joins every Classic config hash; Musou's does not); before: 0x2235C9DFF926583F, 0xA3A5F813DCFC7B6B, 0xA57B097C29D78EAB, 0xC14C777D6C269AB0. Musou's own hash and the replays below are untouched (the replays run by the baseline table).
     // claude/autocannon-pass (2026-11-11): Classic PvP's autocannon joined the extended profile (ContentExtras.Autocannon in ContentExtras.All), so both extended pins moved with the flags
     // (0x54B88195AFC434B4 and 0x0CA292E1A0338C00 before); a Classic change, not a Musou one: the faithful pins are as they were.

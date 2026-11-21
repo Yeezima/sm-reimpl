@@ -21,6 +21,6 @@ public static class WeatherClientLink
         Send = null;
     }
 
-    /// <summary>The server carries weather (the panel shows its section only then).</summary>
-    public static bool Available => Model is not null && Send is not null;
+    /// <summary>The server carries weather (it has sent a state; the panel shows its section only then).</summary>
+    public static bool Available => Model is { Has: true } && Send is not null;
 }

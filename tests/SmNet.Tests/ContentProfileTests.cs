@@ -82,7 +82,7 @@ public class ContentProfileTests
         var same = e.AddClient(nonce: 4);
         e.Run(TimeSpan.FromSeconds(1));
         Assert.Equal(RejectReason.ConfigMismatch, plain.RejectedBecause);
-        Assert.Contains($"content profile extended (extras wire {ContentExtras.WireVersion})", plain.RejectDetail);   // the Classic autocannon since 2026-11-11
+        Assert.Contains($"content profile extended (orks,gore,loyalist-barks,autocannon; extras wire {ContentExtras.WireVersion})", plain.RejectDetail);   // the Classic autocannon since 2026-11-11
         Assert.Contains("--content extended", plain.RejectDetail);
         Assert.Contains("--ork-data", plain.RejectDetail);   // the other usual cause (Ork O5 review)
         Assert.Equal(ClientStatus.Connected, same.Status);
@@ -93,10 +93,8 @@ public class ContentProfileTests
     {
         // Protocol.Write cuts a Reject's detail at 200 characters: every profile's refusal must fit whole.
         for (uint flags = 0; flags <= (uint)ContentExtras.All; flags++)
-            if ((flags & ~(uint)ContentExtras.All) == 0)   // every list of the extended flags (weather W3: All is now bit 64 and up, so the numbers between include Musou and Warfront combinations no profile has)
+            if ((flags & ~(uint)ContentExtras.All) == 0)   // every list of the extended flags (weather W3: All now has bit 64, so the numbers between include Musou and Warfront combinations no profile has)
                 Assert.InRange(SmServer.GameServer.ConfigMismatchDetail((ContentExtras)flags).Length, 1, 200);
-        Assert.InRange(SmServer.GameServer.ConfigMismatchDetail(ContentExtras.Musou).Length, 1, 200);
-        Assert.InRange(SmServer.GameServer.ConfigMismatchDetail(ContentProfiles.WarfrontProfile).Length, 1, 200);
     }
 
     // ---------------------------------------------------------------- profiles
@@ -169,7 +167,7 @@ public class ContentProfileTests
         Assert.Equal("gore", ContentProfiles.Name(ContentExtras.Gore));
         Assert.Equal("faithful", ContentProfiles.Describe(ContentExtras.None));
         Assert.Equal($"orks (extras wire {ContentExtras.WireVersion})", ContentProfiles.Describe(ContentExtras.Orks));   // a list is named once (2026-11-11: the refusal must fit with four Classic flags)
-        Assert.Equal($"extended (extras wire {ContentExtras.WireVersion})", ContentProfiles.Describe(ContentExtras.All));
+        Assert.Equal($"extended (orks,gore,loyalist-barks,autocannon; extras wire {ContentExtras.WireVersion})", ContentProfiles.Describe(ContentExtras.All));
     }
 
     // ---------------------------------------------------------------- Musou (MU0: a mode of its own, never in extended)

@@ -21,8 +21,8 @@ public partial class NetworkView
     (WeatherId Id, WeatherPhase Phase, bool Overridden) _wxLogged = (WeatherId.None, WeatherPhase.Opening, false);
     bool _wxLoggedAny;
 
-    /// <summary>The weather carrier: a Warfront match (the profile's flag in the config the handshake agreed), or since W3 a Classic PvP match of the extended profile (<see cref="WeatherClassic.Carries"/>).</summary>
-    bool WeatherOn => _config is { } c && (c.Extras.HasFlag(ContentExtras.Warfront) || WeatherClassic.Carries(c.Extras));
+    /// <summary>Every client built with added content renders the weather the server sends, whatever its own <c>--content</c> (weather is presentation only and not part of the join check; a server with no weather sends none, so nothing shows). A faithful-content client gets the state section too (<c>GameClient.OnExtras</c> keeps that one tag).</summary>
+    bool WeatherOn => _config is not null;
 
     /// <summary>A preset with its own things in the world (rain, ash, embers, the sky glow, wind) at this intensity.</summary>
     static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind && intensity > 0.02f;
@@ -38,7 +38,7 @@ public partial class NetworkView
     /// <summary>The scoreboard's weather line (Classic PvP, W3): the active preset and where it stands, so every player (a late joiner too) can see what the host chose. None says nothing (the map as it is).</summary>
     partial void ExtrasScoreboardNote(ref string note)
     {
-        if (_config is not { } c || !WeatherClassic.Carries(c.Extras) || !_wxModel.Has) return;
+        if (_config is not { } c || c.Extras.HasFlag(ContentExtras.Musou) || !_wxModel.Has) return;   // Warfront and Musou show their own
         var s = _wxModel.State;
         if (s.Id == WeatherId.None) return;
         string phase = _wxModel.Held && !_wxModel.Overridden && s.Elapsed < 1 ? "STARTS WITH THE MATCH" : s.Phase switch

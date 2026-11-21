@@ -26,9 +26,12 @@ public sealed partial class GameClient
 
     void OnExtras(ExtrasUpdate u)
     {
-        if (_config.Extras == ContentExtras.None) { ExtrasIgnored++; return; }
+        // A client running no added content drops the envelope, except the weather state (presentation only, so it never decides what a client may join or see; Protocol.WeatherStateTag).
+        bool faithful = _config.Extras == ContentExtras.None;
+        if (faithful && !Array.Exists(u.Sections, s => s.Tag == Protocol.WeatherStateTag)) { ExtrasIgnored++; return; }
         ExtrasMessages++;
-        foreach (var (tag, payload) in u.Sections) _extras.Add(new ExtrasSection(u.ServerTick, tag, payload));
+        foreach (var (tag, payload) in u.Sections)
+            if (!faithful || tag == Protocol.WeatherStateTag) _extras.Add(new ExtrasSection(u.ServerTick, tag, payload));
         int over = _extras.Count - MaxQueuedExtras;
         if (over > 0) { _extras.RemoveRange(0, over); ExtrasOverflow += over; }
     }
@@ -39,7 +42,7 @@ public sealed partial class GameClient
     /// </summary>
     public bool SendExtrasCommand(byte tag, byte[] payload)
     {
-        if (Status != ClientStatus.Connected || !ContentExtras.ReadsCommands(_config.Extras)) return false;
+        if (Status != ClientStatus.Connected || (!ContentExtras.ReadsCommands(_config.Extras) && tag != Protocol.WeatherCommandTag)) return false;   // weather W3: the weather preview command goes from a client of any content (the server obeys it only when it carries weather and the developer-tools gate says so)
         _transport.Send(Protocol.Write(new ExtrasCommandMessage(_session, tag, payload)));
         return true;
     }

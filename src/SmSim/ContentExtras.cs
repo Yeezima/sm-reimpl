@@ -41,7 +41,7 @@ public enum ContentExtras : uint
     Warfront = 32,
     /// <summary>
     /// Weather for Classic PvP hosting (weather W3; owner 2026-11-21): the Host panel's Weather choice, the server's <c>--weather</c>, and the developer tools' preview. Presentation only. Its own switch so a server can run faithful
-    /// gameplay plus weather (<c>--content weather</c>); in <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it (and its config hash moved with it). Never with Musou; Warfront has its own weather.
+    /// gameplay plus weather (<c>--content weather</c>); in <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it. Its bit is NOT hashed and not part of the join check (owner 2026-11-21: weather never decides who can join). Never with Musou; Warfront has its own weather.
     /// </summary>
     Weather = 64,
 }
@@ -221,11 +221,12 @@ public static class ContentProfiles
     }
 
     /// <summary>
-    /// The profile and extras wire version for a log line or refusal: "faithful", or the name alone: "extended (extras wire 2)", "orks,gore (extras wire 2)"
-    /// (2026-11-21: extended no longer lists its flags, so the server's refusal of any profile fits its 200 characters with the fifth Classic flag, weather).
+    /// The profile and extras wire version for a log line or refusal: "faithful", "extended (orks,gore,loyalist-barks,autocannon; extras wire 2)" (extended names its flags, not the weather one:
+    /// weather is not part of the join check), or a list as its name alone, "orks,gore (extras wire 2)" (2026-11-11: no longer repeated, so the server's refusal of any profile fits its 200 characters).
     /// </summary>
     public static string Describe(ContentExtras extras) =>
         extras == ContentExtras.None ? Faithful
+        : extras == ContentExtras.All ? $"{Name(extras)} ({string.Join(",", Flags.Where(f => extras.HasFlag(f.Flag) && f.Flag != ContentExtras.Weather).Select(f => f.Name))}; extras wire {ContentExtras.WireVersion})"
         : $"{Name(extras)} (extras wire {ContentExtras.WireVersion})";
 }
 

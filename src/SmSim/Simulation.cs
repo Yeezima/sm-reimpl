@@ -881,7 +881,9 @@ public sealed partial record SimConfig
             if (!LascannonTapReload) w.Write("old-lascannon-reload");   // sim/lascannon-tap-reload (protocol 78): only when off
             if (!ChargeAllyBump) w.Write("old-ally-bump");          // charge-ally-bump (protocol 66): only when off (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
-            if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
+            // Weather (W3, owner 2026-11-21) is presentation only and never decides who can join: its bit is left out, so a weather-only config hashes as the faithful one and extended as before weather existed.
+            var hashed = Extras & ~ContentExtras.Weather;
+            if (hashed != ContentExtras.None) { w.Write("extras"); w.Write((uint)hashed); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
         }
         return BinaryPrimitives.ReadUInt64LittleEndian(SHA256.HashData(stream.ToArray()));
     }

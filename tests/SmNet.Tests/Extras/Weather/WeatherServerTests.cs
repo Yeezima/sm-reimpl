@@ -184,13 +184,16 @@ public class WeatherServerTests
     }
 
     [Fact]
-    public void Classic_pvp_is_untouched_no_weather_section_and_no_command_can_be_sent()
+    public void Classic_pvp_is_untouched_no_weather_section_and_the_weather_command_is_dropped()
     {
         var h = new Harness(Link, 9, 1, new SimConfig(), new ServerOptions { DevTools = Setup() });
         Settle(h, 2.5);
         Assert.Null(h.Server.Weather);
         Assert.Empty(States(h.Clients[0]));
-        Assert.False(h.Clients[0].SendExtrasCommand(WeatherWire.CommandTag, WeatherWire.Encode(new WeatherCommand(WeatherCommandKind.Follow))));   // a faithful client has no command channel at all
+        Assert.False(h.Clients[0].SendExtrasCommand(7, [1]));   // no command channel for any other tag
+        Assert.True(h.Clients[0].SendExtrasCommand(WeatherWire.CommandTag, WeatherWire.Encode(new WeatherCommand(WeatherCommandKind.Follow))));   // weather W3: a client of any content may send the preview command; a server without weather drops it
+        Settle(h, 0.3);
+        Assert.True(h.Server.ExtrasCommandsDropped >= 1);
         Assert.Equal(0, h.Server.WeatherCommandsApplied + h.Server.WeatherCommandsRefused);
         Assert.Equal(0, h.Server.ExtrasMessagesSent);
     }
