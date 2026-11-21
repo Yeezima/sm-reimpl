@@ -88,7 +88,7 @@ ulong fingerprint = ContentFingerprint.Compute(install);
 // so a client with another profile is refused (ConfigMismatch, naming this server's profile).
 var contentExtras = cli.Content;
 Console.WriteLine($"content: {ContentProfiles.Describe(contentExtras)}{(contentExtras == ContentExtras.None ? " (SM1 multiplayer alone: no added content)" : "")}; " +
-    $"build {(ContentExtras.Compiled ? "with" : "without")} added content; clients need --content {ContentProfiles.Name(contentExtras)}");
+    $"build {(ContentExtras.Compiled ? "with" : "without")} added content; clients need --content {ContentProfiles.Name(contentExtras & ~ContentExtras.Weather)} (the weather flag is not part of the join check)");
 if (contentExtras.HasFlag(ContentExtras.Warfront))
     Console.WriteLine($"Warfront: enabled (the persistent campaign on Musou Mode; profile {ContentProfiles.Name(contentExtras)}, extras wire {ContentExtras.WireVersion}; its rules version is in the config hash)");
 // Musou (added content, experimental): the mode comes from the profile alone (there is no --mode musou). It plays on Annihilation's rules, endless (no score
