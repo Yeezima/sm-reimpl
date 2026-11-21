@@ -70,10 +70,15 @@ public class HostWeatherLaunchTests
     }
 
     [Fact]
-    public void Only_the_extended_profile_has_the_row()
+    public void Only_a_profile_with_the_weather_flag_has_the_row()
     {
         Assert.True(ContentProfiles.TryParse("extended", out var extended, out _));
         Assert.True(WeatherClassic.Carries(extended));
+        foreach (var name in new[] { "weather", "orks,weather", "gore,autocannon,weather" })
+        {
+            Assert.True(ContentProfiles.TryParse(name, out var withWeather, out _), name);
+            Assert.True(WeatherClassic.Carries(withWeather), name);   // faithful gameplay plus weather, or any mix with it
+        }
         foreach (var name in new[] { "faithful", "musou", "warfront", "orks", "orks,gore", "autocannon" })
         {
             Assert.True(ContentProfiles.TryParse(name, out var extras, out _), name);

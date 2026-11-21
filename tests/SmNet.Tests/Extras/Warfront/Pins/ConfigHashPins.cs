@@ -29,8 +29,8 @@ public class ConfigHashPins(ITestOutputHelper output)
     static readonly ContentExtras[] Profiles = [ContentExtras.None, ContentExtras.All, ContentExtras.Musou, ContentExtras.Orks, ContentExtras.Autocannon];
 
     // Captured on 5428594e and recaptured on 2026-11-19 on main 1809fa31 (main's own changes moved them; the same five values come out of this tree and of an untouched main, which is the proof that Warfront changes no Classic or Musou hash): index order None, All, Musou, Orks, Autocannon.
-    static readonly ulong[] DefaultHashes = [0x6CF1391DEE14706DUL, 0x85685DCCFA9091C1UL, 0x4F982DFE8D7DFB35UL, 0x269BE5D81FAD7628UL, 0x23513B5EBB9CC435UL];
-    static readonly ulong[] GoldenHashes = [0x76BEC6D1DE5B69CFUL, 0x0BB19A7F7AEB1E8DUL, 0x34C7A7A7F47F1EBCUL, 0x65A6E84CCA3BC06EUL, 0xC4710FBD0987DBD1UL];
+    static readonly ulong[] DefaultHashes = [0x6CF1391DEE14706DUL, 0xDA12758F50EB06EBUL, 0x4F982DFE8D7DFB35UL, 0x269BE5D81FAD7628UL, 0x23513B5EBB9CC435UL];
+    static readonly ulong[] GoldenHashes = [0x76BEC6D1DE5B69CFUL, 0xF85258241F0DE967UL, 0x34C7A7A7F47F1EBCUL, 0x65A6E84CCA3BC06EUL, 0xC4710FBD0987DBD1UL];
 
     static ulong[] HashesOf(SimConfig config) => [.. Profiles.Select(p => (config with { Extras = p }).Hash())];
 

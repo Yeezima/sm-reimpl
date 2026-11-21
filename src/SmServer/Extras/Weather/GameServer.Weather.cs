@@ -108,7 +108,7 @@ public sealed partial class GameServer
 
 
     /// <summary>
-    /// Classic PvP (W3), at the end of the constructor: the extended profile (and nothing else, <see cref="WeatherClassic.Carries"/>) is weather capable. The host's choice (<c>--weather</c>; None when not given, so a capable
+    /// Classic PvP (W3), at the end of the constructor: a profile with the weather flag (<c>--content weather</c> or extended; nothing else, <see cref="WeatherClassic.Carries"/>) is weather capable. The host's choice (<c>--weather</c>; None when not given, so a capable
     /// server shows nothing until it is asked to) is resolved here, Random by this map load's draw; the cycle is fitted to the match's time limit and follows the match flow. Every other profile returns at once.
     /// </summary>
     void WeatherCreated()

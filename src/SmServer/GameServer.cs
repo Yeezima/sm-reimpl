@@ -54,7 +54,7 @@ public sealed partial record ServerOptions
     /// <summary>How often every client gets a <see cref="Scoreboard"/> (ours).</summary>
     public TimeSpan ScoreboardInterval { get; init; } = TimeSpan.FromSeconds(1);
     /// <summary>
-    /// Weather W3 (<c>--weather</c>; added content, the extended profile only): the Classic PvP match's weather, a preset key (<c>none</c>, <c>clear</c>, <c>low_fog</c>, <c>rain</c>, <c>thunderstorm</c>, <c>ash_squall</c>, <c>ember_wind</c>)
+    /// Weather W3 (<c>--weather</c>; added content, a profile with the weather flag): the Classic PvP match's weather, a preset key (<c>none</c>, <c>clear</c>, <c>low_fog</c>, <c>rain</c>, <c>thunderstorm</c>, <c>ash_squall</c>, <c>ember_wind</c>)
     /// or <c>random</c>; null is None. Plain text here so the core never names the catalog: <c>GameServer.WeatherCreated</c> (Extras/Weather) resolves it, and a build or profile without weather ignores it.
     /// </summary>
     public string? Weather { get; init; }
@@ -521,8 +521,8 @@ public sealed partial class GameServer
     /// <c>Protocol.Write</c> cuts a <see cref="Reject"/>'s detail there (pinned for every known flag by <c>ContentProfileTests</c>).
     /// </summary>
     public static string ConfigMismatchDetail(ContentExtras serverExtras) =>
-        $"gameplay tuning differs from the server's (content profile {ContentProfiles.Describe(serverExtras)}): " +
-        $"join with --content {ContentProfiles.Name(serverExtras)} (--ork-data only if the server has it)";
+        $"gameplay differs from the server's (content profile {ContentProfiles.Describe(serverExtras)}): " +
+        $"join with --content {ContentProfiles.Name(serverExtras)} (--ork-data if it has it)";
 
     void Refuse(int connection, RejectReason reason, uint nonce)
     {

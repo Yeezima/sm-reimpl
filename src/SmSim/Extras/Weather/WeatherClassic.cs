@@ -1,7 +1,7 @@
 namespace SmSim.Extras.Weather;
 
 /// <summary>
-/// Weather for Classic PvP hosting (weather W3; added content, owner 2026-11-21): the rules that are not the catalog's. Classic weather is part of the <c>extended</c> content set and of nothing else (no flag of its own):
+/// Weather for Classic PvP hosting (weather W3; added content, owner 2026-11-21): the rules that are not the catalog's. Classic weather is the content flag <c>weather</c> (in <c>extended</c>, or alone as <c>--content weather</c>):
 /// <see cref="Carries"/> is the one gate. The host picks a preset (None by default) or Random; the server fits its cycle to the match's length and restarts it with every map and round. Presentation only: nothing here reaches
 /// damage, movement, weapons or the AI. Every number is ours, an estimate for a playtest (spec/behavior.md "Weather (Classic PvP, W3)").
 /// </summary>
@@ -12,8 +12,8 @@ public static class WeatherClassic
     /// <summary>The shortest and the longest span (seconds). A time limit outside them is clamped: the wire's span is 16 bits and a match shorter than a minute is a test, not a weather.</summary>
     public const int MinSpan = 60, MaxSpan = 65535;
 
-    /// <summary>Classic PvP carries weather: the whole <c>extended</c> content set, never Musou or Warfront (they have their own), never a partial list.</summary>
-    public static bool Carries(ContentExtras extras) => (extras & ContentExtras.All) == ContentExtras.All && !extras.HasFlag(ContentExtras.Musou);
+    /// <summary>Classic PvP carries weather: any profile with the weather flag (<c>extended</c>, <c>weather</c>, <c>orks,weather</c>), never Musou or Warfront (they have their own).</summary>
+    public static bool Carries(ContentExtras extras) => extras.HasFlag(ContentExtras.Weather) && !extras.HasFlag(ContentExtras.Musou) && !extras.HasFlag(ContentExtras.Warfront);
 
     /// <summary>The cycle's span for a match of <paramref name="timeLimitSeconds"/> (0 or less: none, <see cref="DefaultSpan"/>), clamped to <see cref="MinSpan"/> and <see cref="MaxSpan"/>.</summary>
     public static int SpanFor(float timeLimitSeconds)
@@ -58,18 +58,18 @@ public static class WeatherClassic
     };
 
     /// <summary>
-    /// The Random draw: one of the six presets (never None: someone who asks for Random wants weather), each map load a different one from the load before it (the first is uniform; each later one is uniform among the other five).
+    /// The Random draw: one of the seven presets (None too: the owner, 2026-11-21), each map load a different one from the load before it (the first is uniform; each later one is uniform among the other six).
     /// </summary>
     public static WeatherId Draw(uint seed, int draw)
     {
-        const int Presets = 6;   // Clear, Low Fog, Ash Squall, Rain, Thunderstorm, Ember Wind (the catalog without None)
+        const int Presets = 7;   // the whole catalog: None, Clear, Low Fog, Ash Squall, Rain, Thunderstorm, Ember Wind (None may be drawn: the map as it is is a fair draw)
         int last = -1;
         for (int i = 0; i <= Math.Max(0, draw); i++)
         {
             ulong h = Mix(((ulong)seed << 20) ^ ((ulong)i * 0x9E3779B97F4A7C15UL) ^ 0xC1A55C0DE0000001UL);
             last = last < 0 ? (int)(h % Presets) : (last + 1 + (int)(h % (Presets - 1))) % Presets;
         }
-        return (WeatherId)(last + 1);
+        return (WeatherId)last;
     }
 
     static ulong Mix(ulong x)

@@ -164,11 +164,11 @@ public static class ServerCommandLine
           --dev-bot-exe <file>          the Godot console executable the tools' bots run (default: the one godot.cmd / client.cmd downloaded)
           --dev-bot-project <dir>       the Godot project folder for them (default: the client folder of the checkout this server runs from)
           --honor-side-requests         switch: keep the side a client asks for up to the per-side limit (test aid for bot fills; the balance applies only to joins with no side)
-          --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, the barks, the autocannon), musou (the
+          --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, the barks, the autocannon, weather), musou (the
                                         experimental Musou Mode, alone; Annihilation rules only) or a list such as orks,autocannon
                                         (default extended; a build without extras runs faithful only); clients need the same --content
-          --weather <preset>            weather for Classic PvP (added content: only with --content extended; none of it in faithful, Musou or Warfront): none (default), clear, low_fog, rain, thunderstorm, ash_squall, ember_wind or random
-                                        (random draws a preset per map load, never none, from a seed printed at start). Presentation only: it follows the match clock (builds up, peaks mid-match, eases before the end, restarts every round and map).
+          --weather <preset>            weather for Classic PvP (added content: needs the weather flag, --content weather or extended; none of it in faithful, Musou or Warfront): none (default), clear, low_fog, rain, thunderstorm, ash_squall, ember_wind or random
+                                        (random draws a preset per map load, may draw none, never the same twice in a row, from a seed printed at start). Presentation only: it follows the match clock (builds up, peaks mid-match, eases before the end, restarts every round and map).
                                         A server with no --weather is weather capable but shows nothing; the developer tools (F6) can still preview a preset on a loopback server. Clients need no flag.
           --ork-data                    switch: test aid: the Ork Boy with the data's values instead of the Tactical parity (clients need --ork-data too)
           --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)

@@ -7,9 +7,9 @@ using SmSim.Extras.Weather;
 namespace SmClient.FrontEnd;
 
 /// <summary>
-/// The Host panel's WEATHER row (weather W3; added content, the extended profile only): None (the default), the six presets, or Random (a preset per map load). The choice reaches the real server launch through
+/// The Host panel's WEATHER row (weather W3; added content, any profile with the weather flag): None (the default), the six presets, or Random (a preset per map load). The choice reaches the real server launch through
 /// <c>HostOptions.Weather</c> (<c>ServerLaunch.Arguments</c>: <c>--weather &lt;key&gt;</c>); None sends nothing, so the launch of every earlier build is unchanged. The row is shown only while the lobby's content profile carries
-/// weather (<see cref="WeatherClassic.Carries"/>: <c>extended</c>, never faithful, a partial list, Musou or Warfront). Test aid: <c>--host-weather rain|random|...</c> starts the row on that choice (not saved).
+/// weather (<see cref="WeatherClassic.Carries"/>: the weather flag (<c>extended</c> or <c>weather</c>), never faithful, Musou or Warfront). Test aid: <c>--host-weather rain|random|...</c> starts the row on that choice (not saved).
 /// </summary>
 public sealed partial class HostPanel
 {

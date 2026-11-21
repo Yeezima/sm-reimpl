@@ -81,18 +81,23 @@ public class ClassicWeatherTests
     // ---- the content gate: extended alone ----
 
     [Fact]
-    public void Classic_weather_is_part_of_the_extended_set_and_nothing_else()
+    public void Classic_weather_is_the_weather_flag_alone_in_extended_or_by_itself()
     {
         Assert.True(WeatherClassic.Carries(ContentExtras.All));
         Assert.False(WeatherClassic.Carries(ContentExtras.None));
         Assert.False(WeatherClassic.Carries(ContentExtras.Orks | ContentExtras.Gore));
-        Assert.False(WeatherClassic.Carries(ContentExtras.All & ~ContentExtras.Autocannon));
+        Assert.True(WeatherClassic.Carries(ContentExtras.All & ~ContentExtras.Autocannon));   // the weather flag is what counts
         Assert.False(WeatherClassic.Carries(ContentExtras.Musou));
         Assert.False(WeatherClassic.Carries(ContentProfiles.WarfrontProfile));
         Assert.False(WeatherClassic.Carries(ContentExtras.All | ContentExtras.Musou));
         Assert.True(ContentProfiles.TryParse("extended", out var extended, out _) && WeatherClassic.Carries(extended));
         Assert.True(ContentProfiles.TryParse("faithful", out var faithful, out _) && !WeatherClassic.Carries(faithful));
         Assert.True(ContentProfiles.TryParse("orks,gore", out var partial, out _) && !WeatherClassic.Carries(partial));
+        Assert.True(ContentProfiles.TryParse("weather", out var only, out _) && only == ContentExtras.Weather && WeatherClassic.Carries(only));   // faithful gameplay plus weather
+        Assert.True(ContentProfiles.TryParse("orks,weather", out var mixed, out _) && WeatherClassic.Carries(mixed));
+        Assert.False(WeatherClassic.Carries(ContentProfiles.WarfrontProfile | ContentExtras.Weather));
+        Assert.False(ContentProfiles.TryParse("weather,musou", out _, out _));
+        Assert.Equal("weather", ContentProfiles.Name(ContentExtras.Weather));
     }
 
     [Fact]
@@ -116,6 +121,8 @@ public class ClassicWeatherTests
         Assert.True(ContentExtras.ReadsCommands(ContentProfiles.WarfrontProfile));
         Assert.False(ContentExtras.ReadsCommands(ContentExtras.None));
         Assert.False(ContentExtras.ReadsCommands(ContentExtras.Orks | ContentExtras.Gore));
+        Assert.True(ContentExtras.ReadsCommands(ContentExtras.Weather));
+        Assert.False(ContentExtras.ReadsCommands(ContentExtras.All & ~ContentExtras.Weather));
     }
 
     // ---- the host's choice reaches the server and the clients ----
@@ -291,7 +298,7 @@ public class ClassicWeatherTests
     // ---- Random: deterministic per map load ----
 
     [Fact]
-    public void Random_is_deterministic_per_map_load_never_none_and_never_repeats_back_to_back()
+    public void Random_is_deterministic_per_map_load_may_draw_none_and_never_repeats_back_to_back()
     {
         for (uint seed = 0; seed < 50; seed++)
         {
@@ -300,7 +307,7 @@ public class ClassicWeatherTests
             {
                 var id = WeatherClassic.Resolve("random", seed, draw);
                 Assert.Equal(id, WeatherClassic.Resolve("RANDOM", seed, draw));   // the same load, the same preset
-                Assert.NotEqual(WeatherId.None, id);
+
                 Assert.True(WeatherCatalog.Of(id) is not null);
                 if (previous is { } p) Assert.NotEqual(p, id);
                 previous = id;
@@ -308,7 +315,7 @@ public class ClassicWeatherTests
         }
         var seen = new HashSet<WeatherId>();
         for (int draw = 0; draw < 60; draw++) seen.Add(WeatherClassic.Resolve("random", 12345, draw));
-        Assert.Equal(6, seen.Count);   // every preset comes up
+        Assert.Equal(7, seen.Count);   // every preset comes up, None too
         Assert.NotEqual(Enumerable.Range(0, 12).Select(i => WeatherClassic.Resolve("random", 1, i)), Enumerable.Range(0, 12).Select(i => WeatherClassic.Resolve("random", 2, i)));   // another seed, another order
     }
 
@@ -524,5 +531,75 @@ public class ClassicWeatherTests
         Assert.Equal(WeatherId.Thunderstorm, second.H.Server.Weather!.Baseline);
         Assert.True(second.H.Server.Weather.Current.Elapsed < first.H.Server.Weather!.Current.Elapsed);
         Assert.Equal(WeatherPhase.Opening, second.H.Server.Weather.Current.Phase);
+    }
+
+    // ---- the weather flag by itself: faithful gameplay plus weather ----
+
+    [Fact]
+    public void A_weather_only_server_has_weather_and_plays_exactly_as_the_faithful_game()
+    {
+        static string Run(ContentExtras extras, string? weather)
+        {
+            var r = Classic(weather, extras: extras);
+            r.H.Run(TimeSpan.FromSeconds(8), Harness.Scripted);
+            return string.Join("|", r.H.Server.World.Players.Values.OrderBy(p => p.PlayerId).Select(p => $"{p.PlayerId}:{p.Position}:{p.Health}:{p.Class}")) + $"|{r.H.Server.World.State}";
+        }
+        var r = Classic("rain", extras: ContentExtras.Weather);
+        Settle(r.H, 3);
+        Assert.Equal(WeatherId.Rain, r.H.Server.Weather!.Baseline);
+        Assert.Equal(WeatherId.Rain, States(r.A)[^1].Id);
+        Assert.Equal(Run(ContentExtras.None, null), Run(ContentExtras.Weather, "rain"));   // same players, positions and health as no added content at all
+        Assert.Equal(Run(ContentExtras.None, null), Run(ContentExtras.Weather, null));
+        Assert.Equal(Run(ContentExtras.None, null), Run(ContentExtras.Orks | ContentExtras.Weather, "thunderstorm"));
+        var quiet = Classic("none", extras: ContentExtras.Weather);   // capable, preset None: it sends None, the client keeps the map as it is
+        Settle(quiet.H, 3);
+        Assert.Equal(WeatherId.None, States(quiet.A)[^1].Id);
+        Assert.NotNull(quiet.H.Server.Weather);
+    }
+
+    [Fact]
+    public void Clients_must_run_the_same_content_as_the_server_none_adopt_it()
+    {
+        // The handshake compares config hashes (the content flags are in it): a client is refused unless it runs the server's own --content. The menu offers Faithful and Extended; a weather-only server needs `--content weather` on the client.
+        var h = new Harness(Link, 5, 0, Config(ContentExtras.Weather), new ServerOptions { Match = Annihilation, Weather = "rain" });
+        var faithful = h.AddClient(config: Config(ContentExtras.None), nonce: 1);
+        var extended = h.AddClient(config: Config(ContentExtras.All), nonce: 2);
+        var same = h.AddClient(config: Config(ContentExtras.Weather), nonce: 3);
+        h.Run(TimeSpan.FromSeconds(1.5));
+        Assert.Equal(RejectReason.ConfigMismatch, faithful.RejectedBecause);
+        Assert.Equal(RejectReason.ConfigMismatch, extended.RejectedBecause);
+        Assert.Contains("--content weather", faithful.RejectDetail);
+        Assert.Equal(ClientStatus.Connected, same.Status);
+        Assert.NotEqual(Config(ContentExtras.None).Hash(), Config(ContentExtras.Weather).Hash());
+        Assert.NotEqual(Config(ContentExtras.All).Hash(), Config(ContentExtras.Weather).Hash());
+    }
+
+    [Fact]
+    public void Seize_ground_holds_runs_and_restarts_its_weather_with_the_round()
+    {
+        var r = Classic("rain", GameMode.SeizeGround, dev: Setup(), rules: Seize with { RestartDelay = 3f });
+        var w = r.H.Server.Weather!;
+        Settle(r.H, 0.3);
+        Assert.True(w.Held);
+        Settle(r.H, 10);
+        Assert.Equal(MatchState.Playing, r.H.Server.World.State);
+        Assert.False(w.Held);
+        Assert.Equal(240, w.Span);
+        double played = w.Current.Elapsed;
+        Assert.True(played > 2);
+        Send(r.A, new WeatherCommand(WeatherCommandKind.Set, WeatherId.Clear));
+        Settle(r.H, 0.3);
+        Assert.True(w.Overridden);
+        Assert.True(r.H.Server.World.DevRestartMatch());   // a restart: a new round
+        Settle(r.H, 0.5);
+        Assert.False(w.Overridden);
+        Assert.True(w.Current.Elapsed < played);
+        Settle(r.H, 6);
+        Assert.True(r.H.Server.World.DevEndMatch());
+        Settle(r.H, 0.5);
+        Assert.True(w.Held);
+        Settle(r.H, 6);   // the next round
+        Assert.NotEqual(MatchState.Ended, r.H.Server.World.State);
+        Assert.Equal(WeatherId.Rain, w.Baseline);
     }
 }

@@ -39,6 +39,11 @@ public enum ContentExtras : uint
     /// Its own version (<c>WarfrontRules.Version</c>, <c>Extras/Warfront</c>) is hashed only when this flag is set.
     /// </summary>
     Warfront = 32,
+    /// <summary>
+    /// Weather for Classic PvP hosting (weather W3; owner 2026-11-21): the Host panel's Weather choice, the server's <c>--weather</c>, and the developer tools' preview. Presentation only. Its own switch so a server can run faithful
+    /// gameplay plus weather (<c>--content weather</c>); in <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it (and its config hash moved with it). Never with Musou; Warfront has its own weather.
+    /// </summary>
+    Weather = 64,
 }
 
 /// <summary>The build-wide facts about <see cref="ContentExtras"/> (C# 14 static extension members: <c>ContentExtras.WireVersion</c>, <c>ContentExtras.Compiled</c>).</summary>
@@ -88,16 +93,16 @@ public static class ContentExtrasInfo
         public static ContentExtras CommandUsers => ContentExtras.Musou;
 
         /// <summary>
-        /// Whether a match with these <paramref name="extras"/> reads client-to-server extras commands: Musou Mode's flags (<see cref="CommandUsers"/>) and, since weather W3, the whole <c>extended</c> content set (Classic PvP's weather
+        /// Whether a match with these <paramref name="extras"/> reads client-to-server extras commands: Musou Mode's flags (<see cref="CommandUsers"/>) and, since weather W3, any profile with the weather flag (Classic PvP's weather
         /// developer-tools command, tag 43, the only tag it reads: every other tag is dropped by <c>GameServer.ExtrasCommand</c> unless <see cref="CommandUsers"/> is set). The faithful game and a partial list read none.
         /// </summary>
-        public static bool ReadsCommands(ContentExtras extras) => (extras & ContentExtras.CommandUsers) != 0 || (extras & ContentExtras.All) == ContentExtras.All;
+        public static bool ReadsCommands(ContentExtras extras) => (extras & ContentExtras.CommandUsers) != 0 || extras.HasFlag(ContentExtras.Weather);
 
         /// <summary>
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
         /// <c>musou</c> alone); <see cref="Known"/> has every flag.
         /// </summary>
-        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon;   // the Classic autocannon since 2026-11-11 (the extended hash moved with it)
+        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon | ContentExtras.Weather;   // weather W3 (2026-11-21; the extended hash moved with it); the Classic autocannon since 2026-11-11 (the extended hash moved with it)
 
         /// <summary>Every flag this source tree knows: <see cref="All"/> and <see cref="ContentExtras.Musou"/>.</summary>
         public static ContentExtras Known => ContentExtras.All | ContentExtras.Musou;
@@ -134,7 +139,7 @@ public static class ContentProfiles
 
     /// <summary>The flag names of a list (lower case, as <c>--content</c> takes them).</summary>
     static readonly (string Name, ContentExtras Flag)[] Flags =
-        [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), ("autocannon", ContentExtras.Autocannon), (Musou, ContentExtras.Musou)];
+        [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), ("autocannon", ContentExtras.Autocannon), ("weather", ContentExtras.Weather), (Musou, ContentExtras.Musou)];
 
     /// <summary>
     /// Parses a <c>--content</c> value: <c>faithful</c>, <c>extended</c>, <c>musou</c> or flags such as <c>orks,gore</c> (case and spaces ignored). False
@@ -216,12 +221,11 @@ public static class ContentProfiles
     }
 
     /// <summary>
-    /// The profile and extras wire version for a log line or refusal: "faithful", "extended (orks,gore,loyalist-barks,autocannon; extras wire 2)" (extended names its flags), or a list as its name
-    /// alone, "orks,gore (extras wire 2)" (2026-11-11: no longer repeated, so the server's refusal of any profile fits its 200 characters with the fourth Classic flag).
+    /// The profile and extras wire version for a log line or refusal: "faithful", or the name alone: "extended (extras wire 2)", "orks,gore (extras wire 2)"
+    /// (2026-11-21: extended no longer lists its flags, so the server's refusal of any profile fits its 200 characters with the fifth Classic flag, weather).
     /// </summary>
     public static string Describe(ContentExtras extras) =>
         extras == ContentExtras.None ? Faithful
-        : extras == ContentExtras.All ? $"{Name(extras)} ({string.Join(",", Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name))}; extras wire {ContentExtras.WireVersion})"
         : $"{Name(extras)} (extras wire {ContentExtras.WireVersion})";
 }
 

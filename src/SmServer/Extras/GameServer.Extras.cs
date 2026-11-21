@@ -35,7 +35,7 @@ public sealed partial class GameServer
         bool weatherHandled = false;
         WeatherCommand(player, tag, payload, ref weatherHandled);   // weather (Extras/Weather): command tag 43, the developer tools' gate inside
         if (weatherHandled) return;
-        if ((World.Config.Extras & ContentExtras.CommandUsers) == 0) return;   // the extended profile reads weather's tag 43 alone (ContentExtras.ReadsCommands); every other tag is Musou Mode's
+        if ((World.Config.Extras & ContentExtras.CommandUsers) == 0) return;   // a weather-flag profile reads weather's tag 43 alone (ContentExtras.ReadsCommands); every other tag is Musou Mode's
         bool warfrontHandled = false;
         WarfrontCommand(player, tag, payload, ref warfrontHandled);   // WARFRONT-HOOK
         if (warfrontHandled) return;
