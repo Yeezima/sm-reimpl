@@ -35,20 +35,11 @@ public partial class NetworkView
         if (WeatherOn) _wxModel.Receive(payload);
     }
 
-    /// <summary>The scoreboard's weather line (Classic PvP, W3): the active preset and where it stands, so every player (a late joiner too) can see what the host chose. None says nothing (the map as it is).</summary>
+    /// <summary>The scoreboard's weather line (Classic PvP, W3): the active preset and where it stands, so every player (a late joiner too) can see what the host chose. None says nothing (the map as it is), except after an F6 removal (weather fix B).</summary>
     partial void ExtrasScoreboardNote(ref string note)
     {
         if (_config is not { } c || c.Extras.HasFlag(ContentExtras.Musou) || !_wxModel.Has) return;   // Warfront and Musou show their own
-        var s = _wxModel.State;
-        if (s.Id == WeatherId.None) return;
-        string phase = _wxModel.Held && !_wxModel.Overridden && s.Elapsed < 1 ? "STARTS WITH THE MATCH" : s.Phase switch
-        {
-            WeatherPhase.Opening => "SETTING IN",
-            WeatherPhase.Buildup => "BUILDING",
-            WeatherPhase.Peak => "AT ITS HEIGHT",
-            _ => "EASING",
-        };
-        note = $"WEATHER: {WeatherCatalog.Of(s.Id).Name.ToUpperInvariant()}, {phase}{(_wxModel.Overridden ? " (DEV TOOLS)" : "")}";
+        if (WeatherScoreboard.Line(_wxModel.State, _wxModel.Held, _wxModel.Overridden) is { } line) note = line;   // pure, tested (WeatherScoreboardTests); None is silent unless F6 removed the weather
     }
 
     /// <summary>The view leaves the tree: the static link goes with it (a later Classic or Musou view must not keep this grade or show the F6 Weather section), and the rig is freed.</summary>
