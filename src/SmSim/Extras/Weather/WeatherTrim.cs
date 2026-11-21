@@ -20,6 +20,9 @@ public sealed class WeatherTrim
     bool _lastWasUp;
 
     public int Level { get; private set; }
+    /// <summary>The frame length (ms) a frame cap or the display's refresh already explains (1000 over the cap, or the vsync interval; 0 none): a window whose mean is within <see cref="CapBand"/> of it is the cap, not weather cost, so it does not step down.</summary>
+    public double ExpectedFrameMs { get; set; }
+    public const double CapBand = 0.10;
     /// <summary>How many times the level has changed since the start.</summary>
     public int Changes { get; private set; }
     /// <summary>The seconds the next step up waits for (grows when a step up is undone).</summary>
@@ -48,7 +51,7 @@ public sealed class WeatherTrim
         {
             double mean = _downSum / _downN;
             _downSum = 0; _downN = 0; _downTime = 0;
-            if (mean > DownMs && Level < MaxLevel)
+            if (mean > DownMs && Level < MaxLevel && !(ExpectedFrameMs > 0 && System.Math.Abs(mean - ExpectedFrameMs) <= ExpectedFrameMs * CapBand))
             {
                 if (_lastWasUp && _sinceChange < BurnSeconds) _upHold = System.Math.Min(MaxUpHoldSeconds, _upHold * 2);   // that step up did not hold
                 Level++; Changes++; _sinceChange = 0; _sinceDown = 0; _lastWasUp = false; changed = true;

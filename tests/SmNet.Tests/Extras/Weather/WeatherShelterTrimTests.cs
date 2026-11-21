@@ -218,6 +218,41 @@ public class WeatherShelterTrimTests
         Assert.True(t.UpHold > WeatherTrim.UpHoldSeconds);   // the failed step up made it wait longer
     }
 
+    [Theory]
+    [InlineData(33.3, 33.5)]   // a 30 Hz vsync
+    [InlineData(25.0, 25.0)]   // a 40 fps cap
+    [InlineData(25.0, 27.0)]   // within 10 %
+    public void A_frame_cap_or_vsync_explains_long_frames_and_does_not_trim(double expectedMs, double frameMs)
+    {
+        var t = new WeatherTrim { ExpectedFrameMs = expectedMs };
+        for (int i = 0; i < (int)(120000 / frameMs); i++) t.Frame(frameMs / 1000.0);
+        Assert.Equal(0, t.Level); Assert.Equal(0, t.Changes);
+    }
+
+    [Fact]
+    public void Frames_well_over_the_cap_still_trim_and_a_60_Hz_vsync_does_not_hide_a_slow_machine()
+    {
+        var capped = new WeatherTrim { ExpectedFrameMs = 25.0 };
+        for (int i = 0; i < 20 * 20; i++) capped.Frame(0.040);   // 40 ms against a 25 ms cap: the weather's cost
+        Assert.True(capped.Level >= 1);
+        var vsync = new WeatherTrim { ExpectedFrameMs = 16.7 };
+        for (int i = 0; i < 20 * 25; i++) vsync.Frame(0.040);   // 40 ms on a 60 Hz display
+        Assert.True(vsync.Level >= 1);
+        var h = new WeatherTrim { ExpectedFrameMs = 16.7 };
+        for (int i = 0; i < 20 * 30; i++) h.Frame(0.0167);
+        Assert.Equal(0, h.Level);
+    }
+
+    [Fact]
+    public void The_install_sounds_are_cut_under_cover_and_never_raised()
+    {
+        Assert.Equal(0f, WeatherShelterMix.InstallThunderDb(0f)); Assert.Equal(0f, WeatherShelterMix.InstallGritDb(0f));
+        Assert.Equal(-7f, WeatherShelterMix.InstallThunderDb(1f)); Assert.Equal(-9f, WeatherShelterMix.InstallGritDb(1f));
+        Assert.True(WeatherShelterMix.InstallThunderDb(0.5f) is < 0f and > -7f);
+        Assert.Equal(0f, WeatherShelterMix.InstallGritDb(float.NaN));
+        Assert.Equal(0.5f, WeatherShelterMix.GritStopAbove);
+    }
+
     [Fact]
     public void A_load_that_ends_lets_the_counts_recover_fully()
     {

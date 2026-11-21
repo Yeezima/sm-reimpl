@@ -74,6 +74,11 @@ public static class WeatherShelterMix
     /// <summary>The low-pass cutoff of the weather bus: logarithmic between the open and muffled values.</summary>
     public static float CutoffHz(float level) => OpenHz * System.MathF.Pow(MuffledHz / OpenHz, Clamp01(level));
 
+    /// <summary>The install's own far thunder and warning rumble and the ash grit loop (posted through the sound system, not on the weather bus) are cut by this many dB at full shelter, scaled by the level when posted; the grit is stopped once the level passes <see cref="GritStopAbove"/>.</summary>
+    public const float InstallThunderCutDb = -7f, InstallGritCutDb = -9f, GritStopAbove = 0.5f;
+    public static float InstallThunderDb(float level) => InstallThunderCutDb * Clamp01(level);
+    public static float InstallGritDb(float level) => InstallGritCutDb * Clamp01(level);
+
     public static float RainDb(float level) => RainCutDb * Clamp01(level);
     public static float WindDb(float level) => WindCutDb * Clamp01(level);
     public static float ThunderDb(float level) => ThunderCutDb * Clamp01(level);

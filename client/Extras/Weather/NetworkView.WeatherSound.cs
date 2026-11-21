@@ -22,7 +22,8 @@ public partial class NetworkView
 
     SoundEmitter? _wxGrit, _wxClosed;
     string? _wxClosedPlaying;
-    double _wxClosedRetry;
+    double _wxClosedUntil, _wxClosedFailedUntil;
+    bool _wxClosedLoops;
     static readonly string[] WxTunnelEvents = ["play_wind_tunnels", "play_wind_tunnel", "play_wind_tunnels_01", "play_wind_tunnels_loop"];
     public const string WxClosedEvent = "play_wind_closed";
     bool _wxGritOn, _wxWarned, _wxGritLoops;
@@ -61,17 +62,18 @@ public partial class NetworkView
                 if (!WeatherPostInstall(WxThunderEvent, WxWarningGainDb, ThunderPoint(7), "squall warning")) _wxRig?.PlayRumble(7, false, -4f);
             }
             if (st.Phase == WeatherPhase.Buildup && !WeatherPlan.Warning(st)) _wxWarned = false;
-            bool grit = WeatherPlan.AshShare(st) > 0.5f;
+            bool grit = WeatherPlan.AshShare(st) > 0.5f && _wxShelter.Level < WeatherShelterMix.GritStopAbove;   // under cover the grit stops (W4)
             double now = st.Elapsed;
             if (grit && (!_wxGritOn || !_wxGritLoops) && (now >= _wxGritUntil || now < _wxGritUntil - WxGritRepostSeconds) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
             {
                 _wxGrit ??= new SoundEmitter { Label = "weather grit", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
-                var play = _sound.Post(WxGritEvent, _wxGrit, offset: new VoiceOffset(WxGritGainDb));
+                float gritDb = WxGritGainDb + WeatherShelterMix.InstallGritDb(_wxShelter.Level);
+                var play = _sound.Post(WxGritEvent, _wxGrit, offset: new VoiceOffset(gritDb));
                 _wxGritOn = play is { Voices.Count: > 0 };
                 // an endless loop (a voice with loop count 0, or a continuing container) is posted once; anything else is a one-shot: posted again after a few seconds while the grit is wanted
                 _wxGritLoops = play is { } p && (p.Repeats.Count > 0 || p.Voices.Exists(v => v.LoopCount == 0));
                 _wxGritUntil = now + WxGritRepostSeconds;
-                if (LogSound("weather")) GD.Print($"weather grit: {WxGritEvent} voices {play?.Voices.Count ?? 0} {(_wxGritLoops ? "looping" : "one-shot, reposted every " + WxGritRepostSeconds + " s")} at {WxGritGainDb:0} dB");
+                if (LogSound("weather")) GD.Print($"weather grit: {WxGritEvent} voices {play?.Voices.Count ?? 0} {(_wxGritLoops ? "looping" : "one-shot, reposted every " + WxGritRepostSeconds + " s")} at {gritDb:0} dB");
             }
             else if (!grit && _wxGritOn) WeatherGritStop();
         }
@@ -90,13 +92,14 @@ public partial class NetworkView
     {
         if (_sound is null || _audio is not { } audio || !audio.HasEvent(eventName)) return false;
         var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "weather " + what };
+        gainDb += WeatherShelterMix.InstallThunderDb(_wxShelter.Level);   // W4: duller and quieter under cover
         var play = _sound.Post(eventName, emitter, offset: new VoiceOffset(gainDb), once: true);
         bool ok = play is { Voices.Count: > 0 };
         if (LogSound("weather")) GD.Print($"weather sound: {what} via {eventName} voices {play?.Voices.Count ?? 0} at {gainDb:0} dB");
         return ok;
     }
 
-    /// <summary>The sheltered wind bed from the install (see the class notes). Posted once per cover; stopped when the cover ends or the wind dies down; a failed post is retried after 10 s while it is still wanted.</summary>
+    /// <summary>The sheltered wind bed from the install (see the class notes). Posted once per cover; stopped when the cover ends or the wind dies down; a post that sounded nothing is retried after 10 s while it is still wanted; a one-shot is posted again like the grit.</summary>
     void WeatherClosedWind(WeatherState st, float intensity)
     {
         bool want = _wxShelter.Level >= 0.5f && _wxShelter.Covered && WeatherPlan.Wind(st.Id, intensity, st.Elapsed) > 0.05f;
@@ -110,15 +113,18 @@ public partial class NetworkView
         if (_wxShelter.Tunnel) foreach (var candidate in WxTunnelEvents) if (audio.HasEvent(candidate)) { name = candidate; break; }
         if (name is null && audio.HasEvent(WxClosedEvent)) name = WxClosedEvent;
         if (name is null) return;
-        if (_wxClosedPlaying == name) return;
-        if (_wxClosedPlaying is not null) { if (_wxClosed is not null) _sound.StopEmitter(_wxClosed); _wxClosedPlaying = null; }
-        if (st.Elapsed < _wxClosedRetry && st.Elapsed > _wxClosedRetry - 10.0) return;
+        double now = st.Elapsed;
+        if (_wxClosedPlaying == name && (_wxClosedLoops || now < _wxClosedUntil && now > _wxClosedUntil - WxGritRepostSeconds)) return;   // an endless loop is posted once; a one-shot is posted again after its few seconds
+        if (_wxClosedPlaying is not null && _wxClosedPlaying != name) { if (_wxClosed is not null) _sound.StopEmitter(_wxClosed); _wxClosedPlaying = null; }
+        if (_wxClosedPlaying is null && _wxClosedFailedUntil > now && _wxClosedFailedUntil - 10.0 < now) return;   // the 10 s wait applies only after a post that sounded nothing
         _wxClosed ??= new SoundEmitter { Label = "weather closed wind", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
         var play = _sound.Post(name, _wxClosed, offset: new VoiceOffset(WeatherShelterMix.InstallClosedWindDb));
         bool ok = play is { Voices.Count: > 0 };
-        _wxClosedRetry = st.Elapsed + 10.0;
+        _wxClosedLoops = play is { } p && (p.Repeats.Count > 0 || p.Voices.Exists(v => v.LoopCount == 0));
+        _wxClosedUntil = now + WxGritRepostSeconds;
+        _wxClosedFailedUntil = ok ? 0 : now + 10.0;
         if (ok) _wxClosedPlaying = name;
-        if (LogSound("weather")) GD.Print($"weather sound: closed wind via {name} voices {play?.Voices.Count ?? 0} at {WeatherShelterMix.InstallClosedWindDb:0} dB{(ok ? "" : " (nothing sounded: the procedural bed alone, retry in 10 s)")}");
+        if (LogSound("weather")) GD.Print($"weather sound: closed wind via {name} voices {play?.Voices.Count ?? 0} {(ok ? (_wxClosedLoops ? "looping" : "one-shot, reposted every " + WxGritRepostSeconds + " s") : "nothing sounded: the procedural bed alone, retry in 10 s")} at {WeatherShelterMix.InstallClosedWindDb:0} dB");
     }
 
     void WeatherGritStop()
@@ -135,7 +141,7 @@ public partial class NetworkView
         WeatherGritStop();
         if (_wxClosedPlaying is not null && _wxClosed is not null) _sound?.StopEmitter(_wxClosed);
         _wxClosedPlaying = null;
-        _wxClosedRetry = 0;
+        _wxClosedUntil = 0; _wxClosedFailedUntil = 0; _wxClosedLoops = false;
         _wxSoundId = WeatherId.None;
         _wxWarned = false;
     }

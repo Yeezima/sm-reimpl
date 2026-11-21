@@ -49,7 +49,26 @@ public sealed partial class WeatherRig : Node3D
     /// <summary>One frame of <paramref name="dt"/> seconds for the auto-trim; the layers' counts follow its level.</summary>
     public void StepTrim(double dt)
     {
+        if (--_capCountdown <= 0) { _capCountdown = 60; Trim.ExpectedFrameMs = ExplainedFrameMs(); }
         if (Trim.Frame(dt)) { ApplyTrim(); TrimChanged?.Invoke(Trim.Level, ParticleTotal); }
+    }
+
+    int _capCountdown;
+
+    /// <summary>The frame length (ms) the engine's own frame cap or the display's vsync interval explains (the longer of the two; 0 when neither limits), so the trim does not read a cap as weather cost.</summary>
+    public static double ExplainedFrameMs()
+    {
+        double ms = Engine.MaxFps > 0 ? 1000.0 / Engine.MaxFps : 0.0;
+        try
+        {
+            if (DisplayServer.WindowGetVsyncMode() != DisplayServer.VSyncMode.Disabled)
+            {
+                float hz = DisplayServer.ScreenGetRefreshRate();
+                if (hz > 1f) ms = Math.Max(ms, 1000.0 / hz);
+            }
+        }
+        catch (Exception) { /* headless: no display server window */ }
+        return ms;
     }
 
     /// <summary>The particles of every layer that exists now (at the current trim).</summary>
