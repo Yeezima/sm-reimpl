@@ -17,7 +17,7 @@ public class VersionPins
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.Equal(63u, MusouSim.Version);
         Assert.Equal(88u, TfwRules.Version);
-        Assert.Equal(31u, (uint)ContentExtras.Known);
-        Assert.Equal(23u, (uint)ContentExtras.All);
+        Assert.Equal(95u, (uint)ContentExtras.Known);   // 31 before weather W3 added ContentExtras.Weather (64, in All; left out of the config hash)
+        Assert.Equal(87u, (uint)ContentExtras.All);   // 23 before weather W3
     }
 }

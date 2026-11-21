@@ -58,6 +58,7 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontInputLocked"),
         ("client/Extras/FrontEndView.Extras.cs", "WarfrontShowEntry"),   // 2026-11-19: opens the WARFRONT page (dispatched from ExtrasShowEntry)
         ("client/Extras/FrontEndView.Extras.cs", "WarfrontMenuRows"),   // W16: the main menu's row (dispatched from ExtrasMenuRows)
+        ("client/Extras/HostPanel.Extras.cs", "WarfrontHostRowShown"),   // weather W3: Warfront's Host rows, dispatched from ExtrasHostRowShown
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontSquadHit"),
         ("src/SmSim/Extras/Musou/Campaign/TfwFire.cs", "WarfrontCooldown"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontCooldown"),
