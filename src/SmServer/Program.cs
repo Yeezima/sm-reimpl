@@ -21,6 +21,14 @@ if (!ServerCommandLine.TryParse(args, out var cli, out var cliError))
     return ServerCommandLine.UsageError;
 }
 if (cli.Help) { Console.WriteLine(ServerCommandLine.Usage); return 0; }
+#if SM_EXTRAS
+// weather W3 (added content, the extended profile): --weather names a preset or random; a mistake is refused here, before a rotation starts its children.
+if (ServerWeather.KeyError(cli.Weather) is { } weatherError)
+{
+    Console.Error.WriteLine($"smserver: --weather '{cli.Weather}': {weatherError}");
+    return ServerCommandLine.UsageError;
+}
+#endif
 if (cli.Maps is not null)
 {
     // classic-maps-all: a rotation. This process only supervises; each match runs in a child server on one map of the list (RotationSupervisor.cs).
@@ -96,6 +104,15 @@ if (contentExtras.HasFlag(ContentExtras.Musou))
     Console.WriteLine("musou: Space Marines only, no score or time limit (experimental)");
 }
 if (cli.OrkData && !contentExtras.HasFlag(ContentExtras.Orks)) Console.WriteLine("--ork-data: ignored, this profile has no Ork");
+// Weather W3: only the extended profile has Classic weather (WeatherClassic.Carries); a server without --weather is weather capable and shows None. Random draws from a seed printed here (--weather-seed repeats a run).
+uint weatherSeed = cli.WeatherSeed ?? (uint)Random.Shared.NextInt64(0, uint.MaxValue);
+#if SM_EXTRAS
+bool weatherCarried = ServerWeather.Carried(contentExtras);
+#else
+bool weatherCarried = false;
+#endif
+if (cli.Weather is not null && !weatherCarried) Console.WriteLine($"--weather {cli.Weather}: ignored, this profile has no weather (Classic weather is part of --content extended)");
+else if (weatherCarried) Console.WriteLine($"weather: capable (presentation only), preset {cli.Weather ?? "none"}{(cli.Weather is "random" ? $", random seed {weatherSeed}, map load {cli.WeatherDraw}" : "")}; developer tools (F6) can preview any preset on a loopback server");
 // Ork O5: the Ork Boy plays (class 6) when the profile has it, in the owner's Tactical parity unless --ork-data (test aid; clients need the same flag).
 var tuning = GameplayTuning.LoadForMatch(install, contentExtras, cli.OrkData);
 if (!contentExtras.HasFlag(ContentExtras.Orks))
@@ -401,6 +418,7 @@ var server = new GameServer(config, fingerprint, transport, serverClock, new Ser
     MaxSpectators = cli.MaxSpectators,     // protocol 46 (observer tooling)
     SnapshotRate = cli.SnapshotRate ?? new ServerOptions().SnapshotRate,   // net/responsive: 30 Hz (--snapshot-rate 20: before)
     DevTools = devSetup,                   // protocol 80: null unless --dev-tools on a loopback bind
+    Weather = cli.Weather, WeatherSeed = weatherSeed, WeatherDraw = cli.WeatherDraw,   // weather W3: the extended profile's host choice (GameServer.WeatherCreated); ignored by every other profile
 }, map: map);
 if (SmSim.CancelData.ShippedError is { } shippedCancelError) Console.WriteLine("cancel table: " + shippedCancelError);   // logged once, at start
 if (cli.CancelTableFile is { } cancelFile)

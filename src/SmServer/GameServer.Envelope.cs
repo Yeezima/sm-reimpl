@@ -61,7 +61,7 @@ public sealed partial class GameServer
     /// </summary>
     void OnExtrasCommand(Peer peer, ExtrasCommandMessage command)
     {
-        if ((World.Config.Extras & ContentExtras.CommandUsers) == 0 || peer.Spectator) { ExtrasCommandsDropped++; return; }
+        if (!ContentExtras.ReadsCommands(World.Config.Extras) || peer.Spectator) { ExtrasCommandsDropped++; return; }
         peer.Commands ??= new TokenBucket(ExtrasCommandRate, ExtrasCommandRate);
         if (!peer.Commands.TryTake(_clock.Now)) { ExtrasCommandsDropped++; return; }
         ExtrasCommandsAccepted++;

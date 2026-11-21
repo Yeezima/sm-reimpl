@@ -36,7 +36,7 @@ public partial class NetworkView
         // thunder: each strike's sound once, strictly in time order (the tracker ignores a step back of the 2 s state snap and a jump forward)
         if (st.Id == WeatherId.Thunderstorm)
         {
-            foreach (var strike in _wxThunder.Step(st.Elapsed))
+            foreach (var strike in _wxThunder.Step(st.Elapsed, st.Span))
             {
                 bool played = false;
                 if (!strike.Near) played = WeatherPostInstall(WxThunderEvent, WxFarThunderGainDb, ThunderPoint(strike.Seed), "far thunder");

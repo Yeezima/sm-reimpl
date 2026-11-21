@@ -26,6 +26,7 @@ public sealed partial class GameServer
         CreateMusou();
         CreateTfw();
         WarfrontCreated();   // WARFRONT-HOOK
+        WeatherCreated();   // weather (Extras/Weather): Classic PvP in the extended profile (W3): the host's choice, None unless asked
     }
 
     /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
@@ -34,6 +35,7 @@ public sealed partial class GameServer
         bool weatherHandled = false;
         WeatherCommand(player, tag, payload, ref weatherHandled);   // weather (Extras/Weather): command tag 43, the developer tools' gate inside
         if (weatherHandled) return;
+        if ((World.Config.Extras & ContentExtras.CommandUsers) == 0) return;   // the extended profile reads weather's tag 43 alone (ContentExtras.ReadsCommands); every other tag is Musou Mode's
         bool warfrontHandled = false;
         WarfrontCommand(player, tag, payload, ref warfrontHandled);   // WARFRONT-HOOK
         if (warfrontHandled) return;

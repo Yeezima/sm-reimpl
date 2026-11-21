@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 3964 spec table rows: **2911 tagged**, 694 not tagged (read from data with high confidence), 359 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 3975 spec table rows: **2921 tagged**, 694 not tagged (read from data with high confidence), 360 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 3964 spec table rows: **2911 tagged**, 694 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 84 | 83 | 40 | 34 | 0 |
+| General game design | 94 | 93 | 42 | 37 | 0 |
 | Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2911** | 2606 | 2183 | 870 | 37 |
+| **All areas** | **2921** | 2616 | 2185 | 873 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1723 |
+| kind: ours | 1733 |
 | confidence: low | 1061 |
-| confidence: medium | 1011 |
+| confidence: medium | 1013 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 265 |
+| notes: estimate | 268 |
 | kind: estimate | 264 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (84)
+### General game design (94)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4353,7 +4353,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C41676CB` | Opener rule | at least one node-1 slot (slots 1, 4, 7) is none or clear; else the node-1 slot with the lowest draw hash becomes clear | kind: ours; confidence: low | the owner's brief ("at least one clear-enough opener") | Opener rule: compare with SM1 by feel or video. Ours: at least one node-1 slot (slots 1, 4, 7) is none or clear; else the… | ☐ |
 | `R-1D43250A` | Save | save version 5 stores `Forecast` (nine ids) and `ForecastPool`; a version 4 or older save (or a damaged forecast) loads with None on every slot and pool 0 | kind: ours | ours | Save: compare with SM1 by feel or video. Ours: save version 5 stores Forecast (nine ids) and ForecastPool; a version… | ☐ |
 | `R-073DA08B` | Server clock | the match's weather advances 1 / tick rate seconds each tick (it stops with the server clock: a dev-tools pause stops it); a battle (a new phase or deployment of the run) restarts it from the saved forecast and clears any override (s) | kind: ours; confidence: medium | ours | Server clock: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the match's weather advances 1 / tick rate seconds each tick (it… | ☐ |
-| `R-85E46A07` | F6 override | Set starts the preset at its opening phase; None removes the added weather at once; Follow Match resumes the match's own phase; obeyed only with `--dev-tools`, a loopback bind and a loopback requester (a bot or spectator never); never saved, never in a lobby… | kind: ours; confidence: medium | the owner's brief | F6 override: compare with SM1 by feel or video. Ours: Set starts the preset at its opening phase; None removes the added… | ☐ |
+| `R-655DDD1B` | F6 override | Set starts the preset at its opening phase; None removes the added weather at once; Follow Match resumes the match's own phase; obeyed only with `--dev-tools`, a loopback bind and a loopback requester (a bot or spectator never); never saved, never in a lobby… | kind: ours; confidence: medium | the owner's brief | F6 override: compare with SM1 by feel or video. Ours: Set starts the preset at its opening phase; None removes the added… | ☐ |
 | `R-E08246CF` | Look: Clear (grade at intensity 1) | exposure x1.08, contrast x1.04, saturation x1.30, sun energy x1.55, sun colour (x1.04, x1.02, x0.94), ambient x1.20, fog density x0.50, fog tint (0.62, 0.66, 0.72) at 0.55, bloom x0.75 (factor) | kind: ours; notes: estimate | ours (sunlight reference: pale ground, readable far sightlines) | Look: Clear (grade at intensity 1): compare with SM1 by feel or video. Ours: exposure x1.08, contrast x1.04, saturation x1.30, sun energy x1.55… | ☐ |
 | `R-8CF119CA` | Look: Low Fog | exposure x1.02, contrast x0.92, saturation x0.75, sun x0.60, sun red x0.94, green x0.98, ambient x1.18, fog density x3.4, fog tint (0.60, 0.63, 0.67) at 0.85, bloom x1.10 (factor) | kind: ours; notes: estimate | ours (street-level haze) | Look: Low Fog: compare with SM1 by feel or video. Ours: exposure x1.02, contrast x0.92, saturation x0.75, sun x0.60, sun red… | ☐ |
 | `R-CE2AF824` | Look: Rain | exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red x0.85, green x0.92, ambient x1.0, fog density x2.2 (W2 pass 2; was x1.9), fog tint (0.38, 0.42, 0.48) at 0.70, bloom x1.15; falling rain (CPU particles) and a synthesised hiss (factor) | kind: ours; notes: estimate | ours (overcast, cold, wet) | Look: Rain: compare with SM1 by feel or video. Ours: exposure x0.95, contrast x1.03, saturation x0.75, sun x0.45, sun red… | ☐ |
@@ -4400,6 +4400,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4F5FE299` | Thunder once | the client plays each strike's thunder once, strictly in time order: the clock's 2 s snap to the server (a step back or forward of a few tens of ms) never replays or skips one; a jump of more than 3 s (a join, a stall) plays nothing it skipped (s) | kind: ours | ours | Thunder once: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the client plays each strike's thunder once, strictly in time order:… | ☐ |
 | `R-D3577C73` | Ash density ramp | the squall's flecks go from the warning's 12 % to all of them over 2.5 s (smoothstep) at the start of the peak, no step (s) | kind: ours; notes: estimate | ours | Ash density ramp: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the squall's flecks go from the warning's 12 % to all of them over… | ☐ |
 | `R-3268F6D9` | Grit | the install's `play_dust_loop`: an endless loop is posted once; a one-shot is posted again every 6 s while the grit is wanted (the ash share above 0.5) (s) | kind: ours; confidence: low | ours | Grit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the install's play_dust_loop: an endless loop is posted once; a… | ☐ |
+
+*Spec section: Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-19AB3039` | Content gate | Classic weather is part of the `extended` content set alone (no flag of its own): every flag of `ContentExtras.All` set and not Musou; faithful, a partial list, Musou and Warfront have none (Warfront keeps its own weather) | kind: ours | owner decision 2026-11-21 (1) | Content gate: compare with SM1 by feel or video. Ours: Classic weather is part of the extended content set alone (no flag of… | ☐ |
+| `R-EA3EF1DA` | Host choices | None (default), Clear, Low Fog, Rain, Thunderstorm, Ash Squall, Ember Wind, Random; server flag `--weather` with the keys none, clear, low_fog, rain, thunderstorm, ash_squall, ember_wind or random, default None (a server with no flag is weather capable and… | kind: ours | owner decisions (2), (4) | Host choices: compare with SM1 by feel or video. Ours: None (default), Clear, Low Fog, Rain, Thunderstorm, Ash Squall, Ember… | ☐ |
+| `R-C1D1284E` | Random | one preset per map load, never None (someone who asks for Random wants weather), a different one from the load before; the first is uniform, each later one uniform among the other five; a pure function of (seed, load count): the rotation's supervisor gives… | kind: ours; notes: estimate | ours (excluding None is our choice) | Random: compare with SM1 by feel or video. Ours: one preset per map load, never None (someone who asks for Random… | ☐ |
+| `R-4BB73A0F` | Cycle length | one pass of opening, buildup, peak and recovery (the catalog's proportions) is fitted to the match's time limit; no limit: 600 s (the server's default limit), repeating buildup, peak and recovery after that; limits clamped to 60 to 65535 s (s) | kind: ours; notes: estimate | owner decision (3); the length is ours | Cycle length: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one pass of opening, buildup, peak and recovery (the catalog's… | ☐ |
+| `R-170B39FF` | Shape | with the catalog's proportions the peak lies across mid-match (rain: opening 12.5 %, buildup 16.7 %, peak 50 %, recovery 20.8 % of the match), and the weather is eased (about the opening level) at the end | kind: ours; notes: estimate | ours | Shape: compare with SM1 by feel or video. Ours: with the catalog's proportions the peak lies across mid-match (rain:… | ☐ |
+| `R-BA2C1FE3` | Match clock | the clock holds at 0 (intensity 0: the map as it is) while the match waits for its sides or counts down, runs only while it is played, holds when the match has ended; an early end (score limit) holds it where it stood (s) | kind: ours; confidence: medium | ours | Match clock: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the clock holds at 0 (intensity 0: the map as it is) while the match… | ☐ |
+| `R-836040F4` | Restart | every round (`World.RoundsBegun`: a new round after an ended match, a developer-tools restart) and every map (a rotation starts one server process per map) begins from the opening and clears the developer-tools override; the match's first round starts the… | kind: ours | owner decision (3) | Restart: compare with SM1 by feel or video. Ours: every round (World.RoundsBegun: a new round after an ended match, a… | ☐ |
+| `R-45A79165` | Late join, reconnect | the server sends the current state to any client that has not heard it, and every 2 s: the joiner gets the fitted phase within a tick (s) | kind: ours | owner decision (3) | Late join, reconnect: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server sends the current state to any client that has not heard… | ☐ |
+| `R-BBFB958F` | F6 override | under the existing gate (enabled, loopback bind, loopback requester; never a bot or spectator) a local match can pick a preset (it starts at its opening phase on the catalog's own lengths, not fitted), None, or Follow Match (the match's fitted phase now)… | kind: ours | owner brief | F6 override: compare with SM1 by feel or video. Ours: under the existing gate (enabled, loopback bind, loopback requester… | ☐ |
+| `R-53A8264D` | Visible to players | the Tab scoreboard shows one line over the score plates: "WEATHER: preset, phase" (None says nothing) | kind: ours; confidence: medium | owner brief ("least invasive spot") | Visible to players: compare with SM1 by feel or video. Ours: the Tab scoreboard shows one line over the score plates: "WEATHER:… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6427,6 +6442,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
 | `R-035F1A34` | Aux byte | Warfront squad wire and client view (warfront/w10, 2026-11-17; added content, Warfront only; `SquadWire`, `WarfrontSquadSender`/`WarfrontSquadCommands`, `client/Extras/Warfront/Squad`; the server hooks wait for W5a/W5b/W3b) |
-| `R-500E9BB9` | Wire | Weather (Warfront, W1; added content; owner 2026-11-21; presentation only) |
+| `R-7AE0A24B` | Wire | Weather (Warfront, W1; added content; owner 2026-11-21; presentation only) |
 | `R-3F1B4EC5` | Versions | Weather (Warfront, W2: Thunderstorm, Ash Squall, Ember Wind; added content; owner 2026-11-21; presentation only) |
+| `R-7AE0A24B-2` | Wire | Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only) |
 

@@ -41,6 +41,8 @@ public sealed partial class ScoreboardView : Control
         public string[] Headers = [];
         /// <summary>The words over the single column's total (RUN SCORE in Musou Mode); empty draws none.</summary>
         public string SingleLabel = "";
+        /// <summary>A line of small text centred above the score plates (added content's note: Classic weather, W3); empty draws none.</summary>
+        public string Note = "";
         public List<Side> Sides = new();
     }
 
@@ -95,6 +97,7 @@ public sealed partial class ScoreboardView : Control
         float bodyH = HeaderH + Math.Max(1, most) * RowH;
         float totalW = pair ? PairWidth : SingleWidth;
 
+        if (f.Note.Length > 0) Text(_regular, f.Note, StageW / 2f, Top - 24f, UiType.Caption, BoardStyle.Dim, 0);
         // The score band: each side's score on a steel plate under its name (and emblem), "VS" between them.
         float plateW = MathF.Min(width, 600f);
         if (pair)

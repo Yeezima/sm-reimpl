@@ -88,6 +88,12 @@ public static class ContentExtrasInfo
         public static ContentExtras CommandUsers => ContentExtras.Musou;
 
         /// <summary>
+        /// Whether a match with these <paramref name="extras"/> reads client-to-server extras commands: Musou Mode's flags (<see cref="CommandUsers"/>) and, since weather W3, the whole <c>extended</c> content set (Classic PvP's weather
+        /// developer-tools command, tag 43, the only tag it reads: every other tag is dropped by <c>GameServer.ExtrasCommand</c> unless <see cref="CommandUsers"/> is set). The faithful game and a partial list read none.
+        /// </summary>
+        public static bool ReadsCommands(ContentExtras extras) => (extras & ContentExtras.CommandUsers) != 0 || (extras & ContentExtras.All) == ContentExtras.All;
+
+        /// <summary>
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
         /// <c>musou</c> alone); <see cref="Known"/> has every flag.
         /// </summary>

@@ -84,7 +84,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _stopOther = UiKit.MenuButton("Stop server", StopOtherServers, "Stop the server of this game that is running on this PC (started by the host launcher or an earlier menu). Never stops other programs.");
         _stopOther.Disabled = true;
         _mapRow = BuildMapRow();   // classic-maps-all: the install's competitive maps (HostPanel.Maps.cs); null when there is nothing to choose
-        foreach (var row in new Control?[] { _modeRow, _mapRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
+        Control? weatherRow = null;
+        ExtrasHostWeatherRow(ref weatherRow);   // EXTRAS-HOOK: the Classic weather selector (weather W3; client/Extras/Weather/HostPanel.Weather.cs); null in a build without added content
+        foreach (var row in new Control?[] { _modeRow, _mapRow, weatherRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
         {
             if (row is null) continue;
             AddChild(row);
@@ -326,7 +328,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         bool devTools = ServerLaunch.HostStartsDevTools(_localOnly, musou);
         string? devExe = devTools ? HostBots.BotExecutable(OS.GetExecutablePath()) : null;
         string? devProject = devTools && !OS.HasFeature("template") ? ProjectSettings.GlobalizePath("res://").TrimEnd('/', '\\') : null;
-        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null, devTools, devExe, devProject);
+        string? weather = null;
+        ExtrasHostWeather(ref weather);   // EXTRAS-HOOK: the weather the Host panel's selector chose (null: None); the server gets it as --weather (weather W3)
+        var options = new HostOptions(_mode, port, _localOnly, _gameDir, _emblems, content, bots is null ? 0 : plan.Count, Difficulty, map, map is null ? chosenMaps : null, devTools, devExe, devProject, Weather: weather);
         if (HostedServer.Start(_exe, options, bots) is { } error) { Say(error, true); return; }
         GD.Print($"host: server started on UDP {port} ({(_localOnly ? "this PC only" : "all interfaces")}); kill-on-close job: {HostedServer.Guarded}; bots planned: {plan.Count} ({options.Difficulty})");
         _pendingJoin = true;
@@ -404,6 +408,12 @@ public sealed partial class HostPanel : UiKit.MenuColumn
 
     /// <summary>Extras hook: lets added content name the map the hosted server starts (null keeps the server's default).</summary>
     partial void ExtrasHostMap(ref string? map);
+
+    /// <summary>Extras hook: lets added content add one setup row after the MAP row (the Classic weather selector, weather W3); left null when the build or profile has none.</summary>
+    partial void ExtrasHostWeatherRow(ref Control? row);
+
+    /// <summary>Extras hook: lets added content name the weather the hosted server runs (<c>--weather</c>); left null for None.</summary>
+    partial void ExtrasHostWeather(ref string? weather);
 
     /// <summary>Extras hook: lets added content hide the setup rows that do not apply to its profile (Warfront: the mode, map and bot rows).</summary>
     partial void ExtrasHostRowShown(Control row, ref bool shown);

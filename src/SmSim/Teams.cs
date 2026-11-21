@@ -419,12 +419,16 @@ public sealed partial class World
         _endedTick = Tick;
     }
 
+    /// <summary>How many rounds this world has begun (a countdown or a direct start; a restart, a new round after an ended match). A plain counter, read by presentation that restarts with each round (Classic weather, W3); it is no part of the simulation's state.</summary>
+    public int RoundsBegun { get; private set; }
+
     /// <summary>
     /// Both sides are in: with a <see cref="MatchRules.CountdownTime"/> everyone respawns at a spawn point and the countdown runs (match
     /// flow, ours; Annihilation too); without one the round starts at once, respawning only when asked (<paramref name="respawnWithoutCountdown"/>).
     /// </summary>
     void BeginRound(bool respawnWithoutCountdown)
     {
+        RoundsBegun++;
         if (Rules!.CountdownTime > 0f) StartRound(respawn: true, countdown: true);
         else StartRound(respawn: respawnWithoutCountdown);
     }

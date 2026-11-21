@@ -21,8 +21,8 @@ public partial class NetworkView
     (WeatherId Id, WeatherPhase Phase, bool Overridden) _wxLogged = (WeatherId.None, WeatherPhase.Opening, false);
     bool _wxLoggedAny;
 
-    /// <summary>The weather carrier: a Warfront match (the profile's flag in the config the handshake agreed).</summary>
-    bool WeatherOn => _config is { } c && c.Extras.HasFlag(ContentExtras.Warfront);
+    /// <summary>The weather carrier: a Warfront match (the profile's flag in the config the handshake agreed), or since W3 a Classic PvP match of the extended profile (<see cref="WeatherClassic.Carries"/>).</summary>
+    bool WeatherOn => _config is { } c && (c.Extras.HasFlag(ContentExtras.Warfront) || WeatherClassic.Carries(c.Extras));
 
     /// <summary>A preset with its own things in the world (rain, ash, embers, the sky glow, wind) at this intensity.</summary>
     static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind && intensity > 0.02f;
@@ -33,6 +33,22 @@ public partial class NetworkView
         if (tag != WeatherWire.StateTag) return;
         handled = true;
         if (WeatherOn) _wxModel.Receive(payload);
+    }
+
+    /// <summary>The scoreboard's weather line (Classic PvP, W3): the active preset and where it stands, so every player (a late joiner too) can see what the host chose. None says nothing (the map as it is).</summary>
+    partial void ExtrasScoreboardNote(ref string note)
+    {
+        if (_config is not { } c || !WeatherClassic.Carries(c.Extras) || !_wxModel.Has) return;
+        var s = _wxModel.State;
+        if (s.Id == WeatherId.None) return;
+        string phase = _wxModel.Held && !_wxModel.Overridden && s.Elapsed < 1 ? "STARTS WITH THE MATCH" : s.Phase switch
+        {
+            WeatherPhase.Opening => "SETTING IN",
+            WeatherPhase.Buildup => "BUILDING",
+            WeatherPhase.Peak => "AT ITS HEIGHT",
+            _ => "EASING",
+        };
+        note = $"WEATHER: {WeatherCatalog.Of(s.Id).Name.ToUpperInvariant()}, {phase}{(_wxModel.Overridden ? " (DEV TOOLS)" : "")}";
     }
 
     /// <summary>The view leaves the tree: the static link goes with it (a later Classic or Musou view must not keep this grade or show the F6 Weather section), and the rig is freed.</summary>

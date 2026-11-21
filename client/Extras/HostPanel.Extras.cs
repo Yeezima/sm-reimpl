@@ -1,0 +1,18 @@
+using Godot;
+
+namespace SmClient.FrontEnd;
+
+/// <summary>
+/// The Host panel's hooks of added content (docs/added-content.md): the one implementation of <see cref="ExtrasHostRowShown"/>, a dispatcher. Warfront hides the Classic rows from its profile
+/// (<c>WarfrontHostRowShown</c>, compiled out with <c>-p:SmWarfront=false</c>: the partial then has no implementation and the call goes); the Classic weather row (weather W3) shows only with the extended profile.
+/// </summary>
+public sealed partial class HostPanel
+{
+    partial void ExtrasHostRowShown(Control row, ref bool shown)
+    {
+        WarfrontHostRowShown(row, ref shown);   // WARFRONT-HOOK
+        WeatherRowShown(row, ref shown);        // weather (client/Extras/Weather/HostPanel.Weather.cs)
+    }
+
+    partial void WarfrontHostRowShown(Control row, ref bool shown);
+}

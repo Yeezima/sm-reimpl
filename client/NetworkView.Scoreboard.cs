@@ -25,6 +25,9 @@ public partial class NetworkView
     /// <summary>Added content's scoreboard (docs/added-content.md): one column, its own score per player, its own columns. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasScoreboard(ref bool single, ref Func<ScoreEntry, int>? score, ref bool assists);
 
+    /// <summary>Added content's one line over the scoreboard's score plates (Classic weather, W3: the active preset and its phase); left empty it draws none. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasScoreboardNote(ref string note);
+
     /// <summary>On every new board, and while a listed player has no icon yet: the icons of players who joined since, the leavers forgotten.</summary>
     void ObserveJoinIcons()
     {
@@ -85,11 +88,14 @@ public partial class NetworkView
         bool assists = true;
         ExtrasScoreboard(ref single, ref scoreOf, ref assists);   // EXTRAS-HOOK: Musou Mode's one column and its points
         scoreOf ??= e => e.Score;
+        string note = "";
+        ExtrasScoreboardNote(ref note);   // EXTRAS-HOOK: Classic weather's line over the plates (W3)
         var t = _summaryText;
         string score = _scoreWord;
         var frame = new ScoreboardView.ScoreboardFrame
         {
             SingleLabel = single && board.Teams ? "TOTAL SCORE" : "",
+            Note = note,
             Single = single, SingleScore = board.Teams,   // free-for-all: no side score; Musou Mode: the column's total
             Headers = assists ? [t.Kills, t.Deaths, t.Ratio, t.Assists, score, "PING"] : [t.Kills, t.Deaths, score, "PING"],
         };

@@ -8,7 +8,7 @@ namespace SmClient.FrontEnd;
 // A later field (the weather choice) is added to HostPanel's row list and shows on this profile by default; only Classic's rows are listed here.
 public sealed partial class HostPanel
 {
-    partial void ExtrasHostRowShown(Control row, ref bool shown)
+    partial void WarfrontHostRowShown(Control row, ref bool shown)
     {
         if (Warfront && (row == _modeRow || row == _mapRow || row == _difficultyRow || row == _addLoyalist || row == _addChaos || row == _clearBots)) shown = false;
     }

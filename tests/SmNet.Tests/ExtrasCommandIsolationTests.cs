@@ -45,14 +45,15 @@ public class ExtrasCommandIsolationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void A_faithful_or_extended_client_sends_no_command(bool extended)
+    public void A_faithful_client_sends_no_command_and_an_extended_one_has_the_weather_channel(bool extended)
     {
+        // Weather W3: the extended profile reads client commands too (the developer tools' weather command, tag 43, the only tag its server obeys; ContentExtras.ReadsCommands). The faithful game reads none.
         var h = new Harness(LinkConditions.Perfect, 7, 1, extended ? Extended : Faithful);
         h.Run(TimeSpan.FromSeconds(1));
         Assert.Equal(ClientStatus.Connected, h.Clients[0].Status);
-        Assert.False(h.Clients[0].SendExtrasCommand(7, [1]));
+        Assert.Equal(extended, h.Clients[0].SendExtrasCommand(7, [1]));
         h.Run(TimeSpan.FromMilliseconds(200));
-        Assert.Equal(0, h.Server.ExtrasCommandsAccepted + h.Server.ExtrasCommandsDropped);
+        Assert.Equal(extended ? 1 : 0, h.Server.ExtrasCommandsAccepted + h.Server.ExtrasCommandsDropped);
     }
 
     [Theory]
@@ -81,8 +82,8 @@ public class ExtrasCommandIsolationTests
         var quiet = Run(0);
         var noisy = Run(20);
         Assert.True(noisy.Wire.Injected >= 40);
-        Assert.Equal(noisy.Wire.Injected / 2, noisy.Server.ExtrasCommandsDropped);   // every right-session command, each dropped
-        Assert.Equal(0, noisy.Server.ExtrasCommandsAccepted);
+        Assert.Equal(noisy.Wire.Injected / 2, noisy.Server.ExtrasCommandsDropped + noisy.Server.ExtrasCommandsAccepted);   // every right-session command is counted; the faithful server drops all of them
+        Assert.Equal(extended, noisy.Server.ExtrasCommandsAccepted > 0);   // the extended server takes them (up to its rate) and ignores every tag but weather's (43): nothing below changes
         Assert.Equal(0, noisy.Server.Faults);
         Assert.Equal(quiet.Packets, noisy.Packets);                                  // no reply of any kind
         Assert.Equal(quiet.Players.Select(p => (p.PlayerId, p.Position, p.Yaw, p.Health)), noisy.Players.Select(p => (p.PlayerId, p.Position, p.Yaw, p.Health)));

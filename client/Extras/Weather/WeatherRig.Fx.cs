@@ -62,8 +62,8 @@ public sealed partial class WeatherRig
         float glowAlpha = 0f;
         if (id == WeatherId.Thunderstorm)
         {
-            glowAlpha = WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(st.Elapsed);   // reduced: faint and slow
-            if (FullFlash) glowAlpha = Math.Max(glowAlpha, WeatherPlan.FullGlowMaxAlpha * WeatherPlan.FullFlash(st.Elapsed));   // full: the brighter, quicker pulse
+            glowAlpha = WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(st.Elapsed, st.Span);   // reduced: faint and slow
+            if (FullFlash) glowAlpha = Math.Max(glowAlpha, WeatherPlan.FullGlowMaxAlpha * WeatherPlan.FullFlash(st.Elapsed, st.Span));   // full: the brighter, quicker pulse
         }
         if (glowAlpha > 0.0005f) EnsureGlow();
         if (_glow is not null)

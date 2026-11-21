@@ -12,7 +12,7 @@ public sealed class WeatherThunderTracker
     double _mark = double.NaN, _lastSound = double.NegativeInfinity;
 
     /// <summary>The strikes whose sound arrives up to <paramref name="now"/> and were not played yet.</summary>
-    public List<WeatherStrike> Step(double now)
+    public List<WeatherStrike> Step(double now, int span = 0)
     {
         var due = new List<WeatherStrike>();
         if (!double.IsFinite(now)) return due;
@@ -22,7 +22,7 @@ public sealed class WeatherThunderTracker
         double from = _mark;
         _mark = now;
         if (now - from > JumpSeconds) return due;   // a jump: nothing is replayed
-        foreach (var s in WeatherPlan.ThunderIn(from, now))
+        foreach (var s in WeatherPlan.ThunderIn(from, now, span))
             if (s.SoundTime > _lastSound) { due.Add(s); _lastSound = s.SoundTime; }
         return due;
     }

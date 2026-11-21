@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Godot;
 using SmClient.Extras.Weather;
+using SmSim;
 using SmNet.Extras.Weather;
 using SmSim.Extras.Weather;
 
@@ -95,6 +96,48 @@ public sealed partial class WeatherSelfTest : Node
         WeatherClientLink.Release(viewA); viewA.Clear();
         grade.Frame(env, sun);
         Check("link: after the view is gone the section is off and the grade is the identity", !WeatherClientLink.Available && WeatherClientLink.Model is null && sun.LightEnergy == sun0 && env.FogDensity == fog0, $"{sun.LightEnergy} {env.FogDensity}");
+
+        // W3, Classic PvP: a cycle fitted to a 600 s match. Held before play: the map as it is; mid-match: the rain's peak; the end: eased.
+        WeatherClientLink.Model = model;
+        var fitted = new WeatherDirector(WeatherId.Rain, 600) { Held = true };
+        model.Receive(WeatherWire.Encode(WeatherWire.Of(fitted)));
+        grade.Frame(env, sun);
+        Check("classic held before play: the map's own look (the identity), the weather has not begun", model.Held && env.FogDensity == fog0 && sun.LightEnergy == sun0 && env.TonemapExposure == exp0, $"{sun.LightEnergy} {env.FogDensity}");
+        fitted.Held = false; fitted.Advance(300);
+        model.Receive(WeatherWire.Encode(WeatherWire.Of(fitted)));
+        grade.Frame(env, sun);
+        Check("classic fitted: mid-match is the rain's peak (the sun weaker, the colour paler)", model.State.Phase == WeatherPhase.Peak && sun.LightEnergy < sun0 * 0.6f && env.AdjustmentSaturation < sat0, $"{model.State.Phase} {sun.LightEnergy}");
+        fitted.Advance(290);
+        model.Receive(WeatherWire.Encode(WeatherWire.Of(fitted)));
+        grade.Frame(env, sun);
+        Check("classic fitted: near the end it has eased (the sun between the peak and the map's own)", model.State.Phase == WeatherPhase.Recovery && sun.LightEnergy > sun0 * 0.6f && sun.LightEnergy < sun0, $"{model.State.Phase} {sun.LightEnergy}");
+        model.Receive(WeatherWire.Encode(WeatherWire.Of(new WeatherDirector(WeatherId.None, 600))));   // a weather capable server with the preset None
+        grade.Frame(env, sun);
+        Check("classic None: every value is the map's own, exactly", env.FogDensity == fog0 && sun.LightEnergy == sun0 && env.TonemapExposure == exp0 && env.AmbientLightEnergy == amb0 && env.AdjustmentSaturation == sat0, $"{env.FogDensity} {sun.LightEnergy}");
+        model.Clear();
+        grade.Frame(env, sun);
+
+        // W3: the Host panel's WEATHER row (the extended profile only), its choice and what it hands the launch.
+        {
+            ContentExtras content = ContentExtras.All;
+            var host = new SmClient.FrontEnd.HostPanel("SmServer.exe", "", new System.Collections.Generic.Dictionary<string, string?>(), _ => { }, (_, _) => { }, () => content, null, () => { });
+            AddChild(host);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var row = host.WeatherRowState;
+            Check("host: the Classic panel has a WEATHER row on the extended profile, NONE by default, nothing to send", row is { Exists: true, Applies: true, Key: "none", Value: "NONE" } && host.WeatherChosen is null, $"{row}");
+            host.ChooseWeatherForTest("thunderstorm");
+            Check("host: choosing a preset is what the launch gets", host.WeatherChosen == "thunderstorm" && host.WeatherRowState.Value == "THUNDERSTORM", host.WeatherRowState.ToString());
+            host.ChooseWeatherForTest("random");
+            Check("host: RANDOM is the last choice and goes to the server as it is", host.WeatherChosen == "random" && host.WeatherRowState.Value == "RANDOM");
+            host.ChooseWeatherForTest("none");
+            Check("host: NONE sends nothing again", host.WeatherChosen is null);
+            host.ChooseWeatherForTest("rain");
+            content = ContentExtras.None;   // the lobby's profile goes to Faithful: the row is gone and nothing is sent, whatever was picked
+            Check("host: Faithful has no weather row and sends nothing", !host.WeatherRowState.Applies && host.WeatherChosen is null);
+            content = ContentProfiles.WarfrontProfile;
+            Check("host: Warfront has no Classic weather row either", !host.WeatherRowState.Applies && host.WeatherChosen is null);
+            host.QueueFree();
+        }
 
         var anchor = new Node3D();
         AddChild(anchor);

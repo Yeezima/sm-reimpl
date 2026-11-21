@@ -22,7 +22,10 @@ public sealed class WeatherClientModel
     public byte Serial => _wire.Serial;
 
     /// <summary>The weather now, on the client's clock (None, intensity 0, until the server has spoken).</summary>
-    public WeatherState State => _have ? WeatherClock.At(_wire.Id, _elapsed) : WeatherClock.At(WeatherId.None, 0);
+    public WeatherState State => _have ? WeatherClock.At(_wire.Id, _elapsed, _wire.SpanSeconds) : WeatherClock.At(WeatherId.None, 0);
+
+    /// <summary>The server holds the match clock (Classic PvP: waiting, countdown, end screen): this clock stands still too until the server says otherwise.</summary>
+    public bool Held => _have && _wire.Held;
 
     /// <summary>The intensity the look is scaled by: the state's, but 0 for a preset that is not built yet (a stub draws the map's default look until its milestone).</summary>
     public float EffectiveIntensity
@@ -48,7 +51,7 @@ public sealed class WeatherClientModel
     /// <summary>Runs the clock by <paramref name="seconds"/> of game time.</summary>
     public void Advance(double seconds)
     {
-        if (_have && double.IsFinite(seconds) && seconds > 0) _elapsed += seconds;
+        if (_have && !_wire.Held && double.IsFinite(seconds) && seconds > 0) _elapsed += seconds;
     }
 
     /// <summary>The full-flash setting (a client option; the default is reduced): a Thunderstorm's strikes then also lift the exposure, sun and shade for a moment. Set by the view each frame.</summary>
@@ -61,7 +64,7 @@ public sealed class WeatherClientModel
         {
             var s = State;
             var g = WeatherGrade.For(s.Id, EffectiveIntensity);
-            return FullFlash && s.Id == WeatherId.Thunderstorm ? WeatherGrade.WithFlash(g, WeatherPlan.FullFlash(s.Elapsed)) : g;
+            return FullFlash && s.Id == WeatherId.Thunderstorm ? WeatherGrade.WithFlash(g, WeatherPlan.FullFlash(s.Elapsed, s.Span)) : g;
         }
     }
 

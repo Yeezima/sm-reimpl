@@ -39,7 +39,7 @@ public sealed partial class GameClient
     /// </summary>
     public bool SendExtrasCommand(byte tag, byte[] payload)
     {
-        if (Status != ClientStatus.Connected || (_config.Extras & ContentExtras.CommandUsers) == 0) return false;
+        if (Status != ClientStatus.Connected || !ContentExtras.ReadsCommands(_config.Extras)) return false;
         _transport.Send(Protocol.Write(new ExtrasCommandMessage(_session, tag, payload)));
         return true;
     }

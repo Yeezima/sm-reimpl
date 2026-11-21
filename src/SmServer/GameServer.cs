@@ -53,6 +53,14 @@ public sealed partial record ServerOptions
     public MatchRules? Match { get; init; }
     /// <summary>How often every client gets a <see cref="Scoreboard"/> (ours).</summary>
     public TimeSpan ScoreboardInterval { get; init; } = TimeSpan.FromSeconds(1);
+    /// <summary>
+    /// Weather W3 (<c>--weather</c>; added content, the extended profile only): the Classic PvP match's weather, a preset key (<c>none</c>, <c>clear</c>, <c>low_fog</c>, <c>rain</c>, <c>thunderstorm</c>, <c>ash_squall</c>, <c>ember_wind</c>)
+    /// or <c>random</c>; null is None. Plain text here so the core never names the catalog: <c>GameServer.WeatherCreated</c> (Extras/Weather) resolves it, and a build or profile without weather ignores it.
+    /// </summary>
+    public string? Weather { get; init; }
+    /// <summary>Weather W3: the seed and the count of this map load that Random draws from (<c>--weather-seed</c>, <c>--weather-draw</c>; a rotation's supervisor passes them, so each map's draw is reproducible).</summary>
+    public uint WeatherSeed { get; init; }
+    public int WeatherDraw { get; init; }
 
     // ---- custom classes and appearances (protocol 22; docs/customizer-architecture.md section 4; limits ours) ----
     /// <summary>Which unlocks are allowed (<see cref="UnlockMode.All"/>, the only mode; <c>--unlocks all</c>).</summary>

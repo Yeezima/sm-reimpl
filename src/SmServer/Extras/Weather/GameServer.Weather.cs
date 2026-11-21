@@ -1,5 +1,6 @@
 using SmNet;
 using SmNet.Extras.Weather;
+using SmSim;
 using SmSim.Extras.Weather;
 
 namespace SmServer;
@@ -16,6 +17,9 @@ public sealed partial class GameServer
     byte _weatherSentSerial;
     uint _weatherNextTick;
     double _weatherLastRate = 20;
+    bool _weatherFollowsMatch;
+    int _weatherRounds;
+    (WeatherId Id, WeatherPhase Phase, bool Overridden, bool Held)? _weatherLogged;
 
     /// <summary>The match's weather (tests and the log); null on a server that carries none.</summary>
     public WeatherDirector? Weather => _weather;
@@ -24,17 +28,21 @@ public sealed partial class GameServer
     /// <summary>Weather commands applied.</summary>
     public int WeatherCommandsApplied { get; private set; }
 
-    /// <summary>Starts this match's weather at <paramref name="baseline"/>. Called once by the added content that carries weather, at the end of its creation.</summary>
-    void WeatherBind(WeatherId baseline)
+    /// <summary>
+    /// Starts this match's weather at <paramref name="baseline"/>. Called once by the added content that carries weather, at the end of its creation. <paramref name="span"/> fits the cycle to a match of that many seconds and
+    /// <paramref name="followsMatch"/> holds and restarts it with the match flow (Classic PvP, W3); Warfront's has neither.
+    /// </summary>
+    void WeatherBind(WeatherId baseline, int span = 0, bool followsMatch = false)
     {
-        _weather = new WeatherDirector(baseline);
+        _weather = new WeatherDirector(baseline, span);
+        _weatherFollowsMatch = followsMatch;
         _weatherLastRate = Math.Max(1, World.Config.TickRate);
-        Stepped += _ => _weather?.Advance(1.0 / _weatherLastRate);
-        Log?.Invoke($"weather: baseline {WeatherCatalog.Of(baseline).Key} (catalog version {WeatherCatalog.Version}); presentation only");
+        Stepped += _ => { WeatherFollowMatch(); _weather?.Advance(1.0 / _weatherLastRate); };
+        Log?.Invoke($"weather: baseline {WeatherCatalog.Of(baseline).Key} (catalog version {WeatherCatalog.Version}){(span > 0 ? $", cycle fitted to {span} s" : "")}; presentation only");
     }
 
     /// <summary>Test seam: binds weather on a server that no weather-carrying content created.</summary>
-    internal void WeatherBindForTests(WeatherId baseline) => WeatherBind(baseline);
+    internal void WeatherBindForTests(WeatherId baseline, int span = 0, bool followsMatch = false) => WeatherBind(baseline, span, followsMatch);
 
     /// <summary>A new baseline from its opening phase and no override (a new battle on this map, or a new match).</summary>
     void WeatherRebase(WeatherId baseline)
@@ -44,6 +52,23 @@ public sealed partial class GameServer
         w.Reset(baseline);
         _weatherKnown.Clear();
         Log?.Invoke($"weather: reset to {WeatherCatalog.Of(baseline).Key}, override cleared");
+    }
+
+    /// <summary>
+    /// Classic PvP (W3): the weather follows the match clock. It holds while the match is waiting, counting down or ended, runs while it is played, and starts again from its opening with every new round
+    /// (an ended match followed by another, or a played one restarted: <c>World.RoundsBegun</c> counts them): the developer-tools override is cleared with it. A match without rules (no teams) just runs.
+    /// </summary>
+    void WeatherFollowMatch()
+    {
+        if (_weather is not { } w || !_weatherFollowsMatch) return;
+        int rounds = World.RoundsBegun;
+        if (rounds != _weatherRounds)
+        {
+            bool first = _weatherRounds == 0;   // the match's first round begins the clock it already has: nothing to restart (a developer-tools pick made while waiting stays)
+            _weatherRounds = rounds;
+            if (!first) WeatherRebase(w.Baseline);
+        }
+        w.Held = World.State is MatchState.Warmup or MatchState.Countdown or MatchState.Ended;
     }
 
     /// <summary>Once a tick (the dispatcher in GameServer.Extras.cs): the state to a client that has not heard it, on a change, and every <see cref="WeatherWire.RepeatSeconds"/> seconds.</summary>
@@ -57,12 +82,19 @@ public sealed partial class GameServer
         byte[]? bytes = null;
         if (changed || due)
         {
-            bytes = WeatherWire.Encode(WeatherWire.Of(w));
+            var wire = WeatherWire.Of(w);
+            bytes = WeatherWire.Encode(wire);
             SendExtras(new SmNet.ExtrasUpdate(tick, [(WeatherWire.StateTag, bytes)]));
             _weatherSentSerial = w.Serial;
             _weatherNextTick = tick + (uint)Math.Max(1, (int)(WeatherWire.RepeatSeconds * rate));
             _weatherKnown.Clear();
             foreach (var p in _peers.Values) _weatherKnown.Add(p.PlayerId);
+            var shown = (wire.Id, wire.Phase, wire.Overridden, wire.Held);
+            if (_weatherLogged != shown)
+            {
+                _weatherLogged = shown;
+                Log?.Invoke($"weather: sent {WeatherCatalog.Of(wire.Id).Key} {wire.Phase}{(wire.Held ? " (held)" : "")}{(wire.Overridden ? " (dev tools)" : "")} to {_peers.Count} client(s){(wire.SpanSeconds > 0 ? $", cycle fitted to {wire.SpanSeconds} s" : "")}");
+            }
             return;
         }
         // a client that joined (or rejoined) since the last send hears the current phase now
@@ -72,6 +104,18 @@ public sealed partial class GameServer
             bytes ??= WeatherWire.Encode(WeatherWire.Of(w));
             SendExtras(new SmNet.ExtrasUpdate(tick, [(WeatherWire.StateTag, bytes)]), p.PlayerId);
         }
+    }
+
+
+    /// <summary>
+    /// Classic PvP (W3), at the end of the constructor: the extended profile (and nothing else, <see cref="WeatherClassic.Carries"/>) is weather capable. The host's choice (<c>--weather</c>; None when not given, so a capable
+    /// server shows nothing until it is asked to) is resolved here, Random by this map load's draw; the cycle is fitted to the match's time limit and follows the match flow. Every other profile returns at once.
+    /// </summary>
+    void WeatherCreated()
+    {
+        if (!WeatherClassic.Carries(World.Config.Extras)) return;
+        var baseline = WeatherClassic.Resolve(_options.Weather, _options.WeatherSeed, _options.WeatherDraw);
+        WeatherBind(baseline, WeatherClassic.SpanFor(World.Rules?.TimeLimit ?? 0f), followsMatch: true);
     }
 
     /// <summary>

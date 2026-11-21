@@ -36,13 +36,13 @@ public static class WeatherPlan
     public const int NearOneIn = 5;
 
     /// <summary>The strike of a slot, or null when the slot has none.</summary>
-    public static WeatherStrike? StrikeOfSlot(long slot)
+    public static WeatherStrike? StrikeOfSlot(long slot, int span = 0)
     {
         if (slot < 0) return null;
         ulong h = Mix((ulong)slot * 0x9E3779B97F4A7C15UL + 0x7B0DE5ACE5UL);
         double offset = StrikeOffsetMin + Unit(h, 0) * (StrikeOffsetMax - StrikeOffsetMin);
         double time = slot * StrikeSlot + offset;
-        float intensity = WeatherClock.At(WeatherId.Thunderstorm, time).Intensity;
+        float intensity = WeatherClock.At(WeatherId.Thunderstorm, time, span).Intensity;
         if (intensity < StrikeFromIntensity) return null;
         float chance = StrikeChanceAtPeak * Math.Clamp((intensity - StrikeFromIntensity) / (1f - StrikeFromIntensity), 0f, 1f);
         if (Unit(h, 1) >= chance) return null;
@@ -52,30 +52,30 @@ public static class WeatherPlan
     }
 
     /// <summary>The strikes whose flash lies in (<paramref name="from"/>, <paramref name="to"/>] seconds into a Thunderstorm.</summary>
-    public static List<WeatherStrike> StrikesIn(double from, double to)
+    public static List<WeatherStrike> StrikesIn(double from, double to, int span = 0)
     {
         var list = new List<WeatherStrike>();
         if (!double.IsFinite(from) || !double.IsFinite(to) || to <= from) return list;
         for (long slot = (long)Math.Floor(Math.Max(0, from) / StrikeSlot); slot * StrikeSlot <= to; slot++)
-            if (StrikeOfSlot(slot) is { } s && s.Time > from && s.Time <= to) list.Add(s);
+            if (StrikeOfSlot(slot, span) is { } s && s.Time > from && s.Time <= to) list.Add(s);
         return list;
     }
 
     /// <summary>The strikes whose sound arrives in (<paramref name="from"/>, <paramref name="to"/>]: a strike's sound is at most 6.5 s after its flash, so the slots before are looked at too.</summary>
-    public static List<WeatherStrike> ThunderIn(double from, double to)
+    public static List<WeatherStrike> ThunderIn(double from, double to, int span = 0)
     {
         var list = new List<WeatherStrike>();
         if (!double.IsFinite(from) || !double.IsFinite(to) || to <= from) return list;
-        foreach (var s in StrikesIn(from - FarDelayMax - 1, to)) if (s.SoundTime > from && s.SoundTime <= to) list.Add(s);
+        foreach (var s in StrikesIn(from - FarDelayMax - 1, to, span)) if (s.SoundTime > from && s.SoundTime <= to) list.Add(s);
         return list;
     }
 
     /// <summary>The cloud glow (0 to 1) at <paramref name="elapsed"/> seconds into a Thunderstorm: the pulses of the strikes in the last seconds, a smoothstep rise then fall, the strongest if two overlap. Never above 1.</summary>
-    public static float CloudGlow(double elapsed)
+    public static float CloudGlow(double elapsed, int span = 0)
     {
         if (!double.IsFinite(elapsed) || elapsed < 0) return 0f;
         float best = 0f;
-        foreach (var s in StrikesIn(elapsed - GlowRise - GlowFall, elapsed + GlowRise))
+        foreach (var s in StrikesIn(elapsed - GlowRise - GlowFall, elapsed + GlowRise, span))
         {
             double t = elapsed - s.Time + GlowRise;   // the pulse starts one rise before the flash's peak
             if (t < 0 || t > GlowRise + GlowFall) continue;
@@ -96,11 +96,11 @@ public static class WeatherPlan
     public const float FlashExposure = 0.09f, FlashSun = 1.0f, FlashAmbient = 0.20f, FullGlowMaxAlpha = 0.30f;
 
     /// <summary>The full-flash pulse (0 to 1) at <paramref name="elapsed"/> seconds into a Thunderstorm: peaks at the strike's own time.</summary>
-    public static float FullFlash(double elapsed)
+    public static float FullFlash(double elapsed, int span = 0)
     {
         if (!double.IsFinite(elapsed) || elapsed < 0) return 0f;
         float best = 0f;
-        foreach (var s in StrikesIn(elapsed - FlashFall, elapsed + FlashRise))
+        foreach (var s in StrikesIn(elapsed - FlashFall, elapsed + FlashRise, span))
         {
             double t = elapsed - s.Time + FlashRise;
             if (t < 0 || t > FlashRise + FlashFall) continue;

@@ -40,7 +40,7 @@ static class RotationSupervisor
     }
 
     /// <summary>The child's arguments: the supervisor's own with <c>--maps</c> replaced by <c>--map m</c>, plus <c>--rotation-child</c>.</summary>
-    public static List<string> ChildArguments(IReadOnlyList<string> args, string map)
+    public static List<string> ChildArguments(IReadOnlyList<string> args, string map, int weatherDraw = 0)
     {
         var child = new List<string>();
         for (int i = 0; i < args.Count; i++)
@@ -49,7 +49,27 @@ static class RotationSupervisor
             child.Add(args[i]);
         }
         child.Add("--map"); child.Add(map); child.Add("--rotation-child");
-        return child;
+        return WithWeatherLoad(child, weatherDraw);
+    }
+
+    /// <summary>
+    /// Weather W3: a server given <c>--weather</c> tells each child which map load it is (<c>--weather-draw n</c>, replacing any), so a Random choice differs from map to map and is reproducible from the seed (<see cref="WithWeatherSeed"/>);
+    /// without <c>--weather</c> the arguments are returned unchanged. Text only: the supervisor never names the catalog.
+    /// </summary>
+    public static List<string> WithWeatherLoad(List<string> args, int draw)
+    {
+        if (!args.Contains("--weather")) return args;
+        for (int i = args.Count - 2; i >= 0; i--)
+            if (args[i] == "--weather-draw") args.RemoveRange(i, 2);
+        args.Add("--weather-draw"); args.Add(draw.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return args;
+    }
+
+    /// <summary>Weather W3: with <c>--weather</c> and no <c>--weather-seed</c>, the arguments plus one seed chosen now, so every child of this supervisor draws from the same one.</summary>
+    public static IReadOnlyList<string> WithWeatherSeed(IReadOnlyList<string> args, uint seed)
+    {
+        if (!args.Contains("--weather") || args.Contains("--weather-seed")) return args;
+        return [.. args, "--weather-seed", seed.ToString(System.Globalization.CultureInfo.InvariantCulture)];
     }
 
     /// <summary>The environment variables a supervisor gives its child: the file the child writes a picked map to (devtools-map-pick) and the supervisor's own process id (the child leaves when it is gone).</summary>
@@ -120,17 +140,18 @@ static class RotationSupervisor
         Process? running = null;
         Console.CancelKeyPress += (_, e) => { try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } };
         string? map = null;
+        args = WithWeatherSeed(args, (uint)Random.Shared.NextInt64(0, uint.MaxValue));   // weather W3: one Random seed for every child of this supervisor
         for (int turn = 0; ; turn++)
         {
             if (turn > 0) Console.WriteLine($"dev tools: starting the match on {map}");
-            var (code, pick) = RunChild(exe, host, DevChildArguments(args, map), p => running = p);
+            var (code, pick) = RunChild(exe, host, DevChildArguments(args, map, turn), p => running = p);
             if (code != ServerCommandLine.RotationExit) return code;
             map = pick ?? map;
         }
     }
 
     /// <summary>The dev child's arguments: the supervisor's own plus <c>--dev-supervised</c>, with <c>--map</c> replaced by <paramref name="map"/> when one was picked.</summary>
-    public static List<string> DevChildArguments(IReadOnlyList<string> args, string? map)
+    public static List<string> DevChildArguments(IReadOnlyList<string> args, string? map, int weatherDraw = 0)
     {
         var child = new List<string>();
         for (int i = 0; i < args.Count; i++)
@@ -140,7 +161,7 @@ static class RotationSupervisor
         }
         if (map is not null) { child.Add("--map"); child.Add(map); }
         child.Add("--dev-supervised");
-        return child;
+        return WithWeatherLoad(child, weatherDraw);
     }
 
     public static int Run(IReadOnlyList<string> args, List<string> maps)
@@ -150,11 +171,13 @@ static class RotationSupervisor
         Process? running = null;
         Console.CancelKeyPress += (_, e) => { try { if (running is { HasExited: false }) running.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } };
         string? forced = null;   // devtools-map-pick: a map the tools picked plays next; the list's own turn is not used up by it
+        args = WithWeatherSeed(args, (uint)Random.Shared.NextInt64(0, uint.MaxValue));   // weather W3: one Random seed for the whole rotation; each map load draws by its count
+        int loads = 0;
         for (int turn = 0; ; )
         {
             string map = forced ?? maps[turn % maps.Count];
             Console.WriteLine($"rotation: match {turn + 1} on {map}{(forced is not null ? " (picked with the developer tools)" : "")}");
-            var (code, pick) = RunChild(exe, host, ChildArguments(args, map), p => running = p);
+            var (code, pick) = RunChild(exe, host, ChildArguments(args, map, loads++), p => running = p);
             if (code != ServerCommandLine.RotationExit) return code;
             forced = pick;
             if (forced is null) turn++;

@@ -23,6 +23,12 @@ public sealed record ServerArguments
     public bool RotationChild { get; init; }
     /// <summary>--dev-supervised (internal; devtools-map-pick): this process is a <c>--dev-tools</c> server under its supervisor (RotationSupervisor.RunDev): the tools' map pick makes it exit with <see cref="ServerCommandLine.RotationExit"/> so the supervisor starts the picked map.</summary>
     public bool DevSupervised { get; init; }
+    /// <summary>--weather (weather W3, added content): the Classic PvP match's weather, a preset key or <c>random</c> (see <c>smserver --help</c>); null: none given, None. Only the extended profile has weather: any other profile ignores it with a line in the log. Checked against the catalog in Program.cs (this class never names added content).</summary>
+    public string? Weather { get; init; }
+    /// <summary>--weather-seed (internal; the rotation's supervisor passes it): the seed Random draws from; null: random at start, printed.</summary>
+    public uint? WeatherSeed { get; init; }
+    /// <summary>--weather-draw (internal; the rotation's supervisor passes it): how many map loads came before this one, so each map's Random draw differs from the last (0: the first).</summary>
+    public int WeatherDraw { get; init; }
     public GameMode Mode { get; init; } = GameMode.Annihilation;
     /// <summary>False for --mode ffa (no teams).</summary>
     public bool Teams { get; init; } = true;
@@ -161,6 +167,9 @@ public static class ServerCommandLine
           --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, the barks, the autocannon), musou (the
                                         experimental Musou Mode, alone; Annihilation rules only) or a list such as orks,autocannon
                                         (default extended; a build without extras runs faithful only); clients need the same --content
+          --weather <preset>            weather for Classic PvP (added content: only with --content extended; none of it in faithful, Musou or Warfront): none (default), clear, low_fog, rain, thunderstorm, ash_squall, ember_wind or random
+                                        (random draws a preset per map load, never none, from a seed printed at start). Presentation only: it follows the match clock (builds up, peaks mid-match, eases before the end, restarts every round and map).
+                                        A server with no --weather is weather capable but shows nothing; the developer tools (F6) can still preview a preset on a loopback server. Clients need no flag.
           --ork-data                    switch: test aid: the Ork Boy with the data's values instead of the Tactical parity (clients need --ork-data too)
           --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)
           --no-charge-lock              switch: test aid: the charge contact and stop as before anim/melee-interaction (clients need --no-charge-lock too)
@@ -201,7 +210,7 @@ public static class ServerCommandLine
     static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
-         "--name-seed", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
+         "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -278,6 +287,13 @@ public static class ServerCommandLine
                     break;
                 case "--game-dir": a = a with { GameDir = value }; break;
                 case "--dev-bot-exe": a = a with { DevBotExe = value }; break;
+                case "--weather": a = a with { Weather = value }; break;   // checked against the catalog in Program.cs (the extended profile's weather; ignored by any other)
+                case "--weather-seed":
+                    if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out uint weatherSeed)) a = a with { WeatherSeed = weatherSeed }; else bad = "a whole number from 0 to 4294967295";
+                    break;
+                case "--weather-draw":
+                    if (Int(value) is { } weatherDraw && weatherDraw is >= 0 and <= 1_000_000) a = a with { WeatherDraw = weatherDraw }; else bad = "a whole number from 0 to 1000000";
+                    break;
                 case "--cancel-table": a = a with { CancelTableFile = value }; break;
                 case "--dev-bot-project": a = a with { DevBotProject = value }; break;
                 case "--map": a = a with { Map = value }; break;
