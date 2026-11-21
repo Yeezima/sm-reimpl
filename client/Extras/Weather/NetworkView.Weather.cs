@@ -171,12 +171,12 @@ public partial class NetworkView
         {
             AddChild(_wxRig = new WeatherRig { Name = "WeatherRig" });
             _wxRig.TrimChanged += (level, total) => { if (LogSound("weather")) GD.Print($"weather trim: level {level} ({WeatherTrim.Steps[level] * 100:0} % of the preset's counts, floors kept), {total} particles"); };
-            _wxShelter.Reset(); _wxShelterClock = 1.0;   // the first frame samples at once
+            if (!_wxBedShelter) { _wxShelter.Reset(); _wxShelterClock = 1.0; }   // the first frame samples at once; a Warfront bed already under cover keeps its level (no audible open-up)
         }
         bool shelterRan = false;
         if (_wxRig is not null)
         {
-            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; _wxShelter.Reset(); }
+            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; if (!_wxBedShelter) _wxShelter.Reset(); }
             else
             {
                 shelterRan = true;
