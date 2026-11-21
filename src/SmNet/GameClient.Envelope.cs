@@ -8,7 +8,7 @@ namespace SmNet;
 /// The core reads no payload; one consumer (the client's added content, through its own hook) takes the queue and passes each section to the
 /// feature that owns its tag, which skips the tags it does not know. Nothing is deduplicated or reordered here: datagrams can arrive late or
 /// twice, so a feature judges by the tick and its own sequence numbers. A client whose match runs no added content
-/// (<see cref="SimConfig.Extras"/> None) drops the messages (<see cref="ExtrasIgnored"/>); at most <see cref="MaxQueuedExtras"/> sections wait
+/// (<see cref="SimConfig.Extras"/> None) keeps only the weather state (tag 48, presentation only) and drops the rest (<see cref="ExtrasIgnored"/>); at most <see cref="MaxQueuedExtras"/> sections wait
 /// (one more drops the oldest), so a view that never takes them cannot make the queue grow.
 /// </summary>
 public sealed partial class GameClient
@@ -38,7 +38,7 @@ public sealed partial class GameClient
 
     /// <summary>
     /// Sends one added-content command to the server (message kind 17, <see cref="ExtrasCommandMessage"/>). False, and nothing sent, unless connected to a match that runs added
-    /// content reading commands (<c>ContentExtras.CommandUsers</c>). One datagram, unacknowledged: a feature that needs it delivered resends until its own state echoes it.
+    /// content reading commands (<c>ContentExtras.CommandUsers</c>), or the command is the weather tag (43), which any client may send and only a weather server under the dev-tools gate obeys. One datagram, unacknowledged: a feature that needs it delivered resends until its own state echoes it.
     /// </summary>
     public bool SendExtrasCommand(byte tag, byte[] payload)
     {

@@ -56,8 +56,8 @@ public sealed partial class GameServer
     const double ExtrasCommandRate = 8;
 
     /// <summary>
-    /// One client's command (message kind 17; the session is checked in <see cref="Dispatch"/>). A faithful or extended server (no flag of <c>ContentExtras.CommandUsers</c>) drops
-    /// it without reading it, as it drops the action key; nothing acts on the world and nothing is sent back.
+    /// One client's command (message kind 17; the session is checked in <see cref="Dispatch"/>). A server that reads no commands (neither a flag of <c>ContentExtras.CommandUsers</c>
+    /// nor <c>ContentExtras.Weather</c>) drops it without reading it, as it drops the action key; a weather-only server passes on only the weather tag (43, under the dev-tools gate).
     /// </summary>
     void OnExtrasCommand(Peer peer, ExtrasCommandMessage command)
     {

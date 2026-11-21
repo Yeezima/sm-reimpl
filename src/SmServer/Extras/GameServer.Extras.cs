@@ -29,7 +29,7 @@ public sealed partial class GameServer
         WeatherCreated();   // weather (Extras/Weather): Classic PvP in the extended profile (W3): the host's choice, None unless asked
     }
 
-    /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
+    /// <summary>A client's command (message kind 17): the weather tag (43) under <c>ContentExtras.Weather</c>, every other tag only under <c>ContentExtras.CommandUsers</c> (Musou Mode's).</summary>
     partial void ExtrasCommand(int player, byte tag, byte[] payload)
     {
         bool weatherHandled = false;
