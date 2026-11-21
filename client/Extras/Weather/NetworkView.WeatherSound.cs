@@ -24,8 +24,9 @@ public partial class NetworkView
     string? _wxClosedPlaying;
     double _wxClosedUntil, _wxClosedFailedUntil;
     bool _wxClosedLoops;
-    /// <summary>The weather time a sheltered-wind stop began (its 1 s fade), or -1.</summary>
-    double _wxClosedFadeStart = -1;
+    /// <summary>The sheltered-wind stop's 1 s fade, on real frame time.</summary>
+    readonly WeatherClosedWindFade _wxClosedFade = new();
+    double _wxClosedLastTicks = -1;
     /// <summary>Verified in the installed In_Game_Default bank (weather W5): <c>play_wind_tunnels</c> is a real looping sound (one 21 KB wem, loop endless, -7 dB, +910 cents). The other spellings W4 guessed are not in the bank.</summary>
     static readonly string[] WxTunnelEvents = ["play_wind_tunnels"];
     /// <summary>Verified (weather W5): <c>play_wind_closed</c> is not a sound but a SetLpf action on the open wind's own node (<c>stop_wind_closed</c> resets it), so posting it on the weather's emitter sounds nothing. The Warfront bed's wind gets the same job from the shelter level (<see cref="WeatherShelterMix.BedWindLpf"/>).</summary>
@@ -108,12 +109,13 @@ public partial class NetworkView
     void WeatherClosedWind(WeatherState st, float intensity)
     {
         double now = st.Elapsed;
-        // a stop in progress fades over a second on the emitter's live gain, then ends
-        if (_wxClosedFadeStart >= 0 && _wxClosed is not null)
+        // a stop in progress fades over a second of real frame time (not the weather clock: it stops while the wire is held and can step back)
+        double ticks = Time.GetTicksMsec() / 1000.0, realDt = _wxClosedLastTicks < 0 ? 0 : ticks - _wxClosedLastTicks;
+        _wxClosedLastTicks = ticks;
+        if (_wxClosedFade.Active && _wxClosed is not null)
         {
-            double t = now - _wxClosedFadeStart;
-            if (t < 0 || t >= WeatherClosedWindRule.FadeSeconds) WeatherClosedFadeEnd();
-            else _wxClosed.LiveDb = WeatherClosedWindRule.FadeDb(t);
+            float db = _wxClosedFade.Step(realDt);
+            if (_wxClosedFade.Done) WeatherClosedFadeEnd(); else _wxClosed.LiveDb = db;
         }
         if (_sound is null || _audio is not { } audio || _camera is null) return;
         float wind = WeatherPlan.Wind(st.Id, intensity, now);
@@ -122,11 +124,11 @@ public partial class NetworkView
         {
             if (LogSound("weather")) GD.Print($"weather sound: closed wind ({_wxClosedPlaying}) fading out");
             _wxClosedPlaying = null; _wxClosedLoops = false; _wxClosedUntil = 0;
-            _wxClosedFadeStart = now;   // the emitter keeps playing while its gain falls to the floor
+            _wxClosedFade.Start();   // the emitter keeps playing while its gain falls to the floor
             return;
         }
         if (action == ClosedWindAction.None || name is null) return;
-        if (_wxClosedFadeStart >= 0) WeatherClosedFadeEnd();   // re-entering a tunnel: the fading loop ends at once and posts again
+        if (_wxClosedFade.Active) WeatherClosedFadeEnd();   // re-entering a tunnel: the fading loop ends at once and posts again
         if (action == ClosedWindAction.Keep && (_wxClosedLoops || now < _wxClosedUntil && now > _wxClosedUntil - WxGritRepostSeconds)) return;   // an endless loop is posted once; a one-shot is posted again after its few seconds
         if (_wxClosedPlaying is null && _wxClosedFailedUntil > now && _wxClosedFailedUntil - 10.0 < now) return;   // the 10 s wait applies only after a post that sounded nothing
         _wxClosed ??= new SoundEmitter { Label = "weather closed wind", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
@@ -143,7 +145,7 @@ public partial class NetworkView
     void WeatherClosedFadeEnd()
     {
         if (_wxClosed is not null) { _sound?.StopEmitter(_wxClosed); _wxClosed.LiveDb = 0f; }
-        _wxClosedFadeStart = -1;
+        _wxClosedFade.Cancel();
     }
 
     void WeatherGritStop()

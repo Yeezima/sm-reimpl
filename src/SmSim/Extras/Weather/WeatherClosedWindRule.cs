@@ -28,3 +28,25 @@ public static class WeatherClosedWindRule
     /// <summary>The gain (dB over the loop's own level) <paramref name="seconds"/> into a stop's fade; the stop is final at <see cref="FadeSeconds"/>.</summary>
     public static float FadeDb(double seconds) => FadeFloorDb * (float)System.Math.Clamp(seconds / FadeSeconds, 0.0, 1.0);
 }
+
+/// <summary>
+/// The 1 s stop fade as a timer on real frame time (weather fix 4 review): fed each frame's real seconds, never the weather clock (which stops while the wire is held and can step back).
+/// <see cref="Start"/> begins it, <see cref="Cancel"/> drops it (a tunnel was entered again), <see cref="Step"/> returns the gain to apply and sets <see cref="Done"/> at the end.
+/// </summary>
+public sealed class WeatherClosedWindFade
+{
+    double _t;
+    public bool Active { get; private set; }
+    /// <summary>True on the step that reached the end (the loop is to be stopped; the fade is no longer active).</summary>
+    public bool Done { get; private set; }
+    public void Start() { Active = true; Done = false; _t = 0; }
+    public void Cancel() { Active = false; Done = false; _t = 0; }
+    public float Step(double dt)
+    {
+        Done = false;
+        if (!Active) return 0f;
+        if (dt > 0 && !double.IsInfinity(dt)) _t += dt;
+        if (_t >= WeatherClosedWindRule.FadeSeconds) { Active = false; Done = true; _t = 0; return WeatherClosedWindRule.FadeFloorDb; }
+        return WeatherClosedWindRule.FadeDb(_t);
+    }
+}

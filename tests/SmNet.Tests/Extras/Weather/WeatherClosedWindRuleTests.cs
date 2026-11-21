@@ -47,4 +47,34 @@ public class WeatherClosedWindRuleTests
         Assert.Equal(WeatherClosedWindRule.FadeFloorDb, WeatherClosedWindRule.FadeDb(5.0));
         Assert.True(WeatherClosedWindRule.FadeDb(0.5) is < 0f and > -60f);
     }
+
+    [Fact]
+    public void The_fade_timer_completes_in_one_second_of_frame_time_and_ends_at_the_floor()
+    {
+        var f = new WeatherClosedWindFade();
+        Assert.Equal(0f, f.Step(0.1)); Assert.False(f.Active);
+        f.Start();
+        float last = 0f; int n = 0;
+        while (f.Active && n++ < 1000) { float db = f.Step(1.0 / 60); Assert.True(db <= last + 1e-4f); last = db; }
+        Assert.True(f.Done); Assert.Equal(WeatherClosedWindRule.FadeFloorDb, last);
+        Assert.InRange(n, 59, 62);
+        Assert.Equal(0f, f.Step(0.1)); Assert.False(f.Done);
+    }
+
+    [Fact]
+    public void Cancel_drops_a_fade_and_bad_frame_times_do_not_move_it()
+    {
+        var f = new WeatherClosedWindFade();
+        f.Start(); f.Step(0.5);
+        f.Cancel(); Assert.False(f.Active); Assert.False(f.Done);
+        f.Start(); Assert.Equal(0f, f.Step(double.NaN)); Assert.Equal(0f, f.Step(-1)); Assert.True(f.Active);
+    }
+
+    [Fact]
+    public void The_boundary_values_are_wanted()
+    {
+        Assert.Equal(ClosedWindAction.Post, WeatherClosedWindRule.Decide(true, 0.5f, true, 0.06f, null, Names, _ => true, out _));
+        Assert.Equal(ClosedWindAction.None, WeatherClosedWindRule.Decide(true, 0.5f, true, 0.05f, null, Names, _ => true, out _));
+        Assert.Equal(ClosedWindAction.None, WeatherClosedWindRule.Decide(true, 0.4999f, true, 0.8f, null, Names, _ => true, out _));
+    }
 }
