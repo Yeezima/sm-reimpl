@@ -22,6 +22,18 @@ public class RotationJoinPlanTests
     }
 
     [Fact]
+    public void A_concrete_first_side_is_kept_and_the_loadout_comes_from_now()
+    {
+        var a = Plan(3, Team.Chaos, 1);         // joined as Chaos, loadout A
+        var b = Plan(9, Team.None, 4);          // the plan built now (services' side Automatic), loadout B
+        var rotated = JoinPlan.ForRotation(a, b);
+        Assert.Equal(Team.Chaos, rotated.Side);
+        Assert.Equal(9, rotated.Choice.Primary);
+        Assert.Equal(b.Selection, rotated.Selection);
+        Assert.Equal(b.Summary, rotated.Summary);
+    }
+
+    [Fact]
     public void Services_not_ready_keep_the_original_plan()
     {
         var a = Plan(3, Team.Chaos, 1);

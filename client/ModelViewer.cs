@@ -534,7 +534,7 @@ public partial class ModelViewer : Node3D
         DropNetwork();
         if (_fromFrontEnd && FrontEndLaunch.Current is { } request)
         {
-            // Codebase fix 4: the rejoin carries the loadout saved now (a mid-match save or deploy), not the first join's; host, side intent, spectate and content stay.
+            // Codebase fix 4: the rejoin carries the active loadout now (the customizer's working copy, as a Join from the menu does: a mid-match SET ACTIVE or DEPLOY, even if saving it failed), not the first join's; host, side intent, spectate and content stay.
             var plan = SmClient.Customizer.Model.JoinPlan.ForRotation(request.Plan, request.Services.PlanFor());
             var rotated = request with { Plan = plan };
             GD.Print($"rotation rejoin: {request.Host} with the loadout saved now (class {plan.Choice.Class}, primary {plan.Choice.Primary}; first join: class {request.Plan.Choice.Class}, primary {request.Plan.Choice.Primary})");
