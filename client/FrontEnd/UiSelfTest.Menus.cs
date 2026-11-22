@@ -276,6 +276,76 @@ public sealed partial class UiSelfTest
         foreach (var child in root.GetChildren()) foreach (var found in AllEdits(child)) yield return found;
     }
 
+    /// <summary>
+    /// The settings save is coalesced and checked (Codex review S4): a 50-step drag writes once, leaving the page or a flush writes a pending change, and a failed write shows
+    /// SETTINGS NOT SAVED instead of APPLIED. A temp folder stands in for the settings folder; the owner's own is never touched.
+    /// </summary>
+    async Task OptionsSaveChecks()
+    {
+        var kept = _services.Settings;
+        string keptDir = _services.SettingsDirectory, dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-selftest-save-" + Guid.NewGuid().ToString("N"));
+        string file = System.IO.Path.Combine(dir, FrontEndSettings.FileName);
+        var options = _front.Options!;
+        try
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            _services.SettingsDirectory = dir;
+            _services.SaveDelay = CustomizerServices.SaveDelaySeconds;
+            _services.SaveNow();
+            _front.ShowOptions(OptionsView.Sound);
+            await Frames(4);
+            var master = (HSlider)options.FindChild("MasterVolumeSlider", true, false)!;
+
+            // (b) a drag of 50 steps: the live value follows every step, the file is written once.
+            int before = _services.SaveCount;
+            for (int i = 0; i < 50; i++) master.Value = 0.25 + i * 0.01;
+            float last = _services.Settings.Options.MasterVolume;
+            Check("save: a drag applies live at once and writes nothing yet", _services.SavePending && _services.SaveCount == before && Mathf.Abs(last - 0.74f) < 0.06f, $"count {_services.SaveCount - before} last {last}");
+            await Until(() => !_services.SavePending, 3);
+            Check("save: a 50-step drag writes the file once", _services.SaveCount == before + 1, (_services.SaveCount - before).ToString());
+            Check("save: ... with the last value", Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, last));
+
+            // (c) leaving the page with a change pending writes it; so does a flush (the quit and match-start path).
+            master.Value = 0.4;
+            Check("save: a change waits for its save", _services.SavePending);
+            _front.ShowMainMenu();
+            await Frames(2);
+            Check("save: leaving the page writes the pending change", !_services.SavePending && Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, 0.4f));
+            _services.UpdateSettings(x => x with { Options = x.Options with { MasterVolume = 0.3f } });
+            _services.FlushSave();
+            Check("save: a flush (quit, match start) writes the pending change", Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, 0.3f));
+
+            // (a) a settings file that cannot be replaced: APPLY and the next change say NOT SAVED; once it can, APPLY says APPLIED.
+            _front.ShowOptions(OptionsView.Sound);
+            await Frames(3);
+            System.IO.File.SetAttributes(file, System.IO.FileAttributes.ReadOnly);
+            try
+            {
+                _services.UpdateSettings(x => x with { Options = x.Options with { MasterVolume = 0.6f } });
+                options.Apply();
+                Check("save: a failed save keeps its reason", _services.LastSaveError is { Length: > 0 } && !_services.LastSaveError.Contains(dir), _services.LastSaveError ?? "null");
+                Check("save: APPLY then says NOT SAVED, not APPLIED", options.Toast.Visible && options.Toast.Text.StartsWith("SETTINGS NOT SAVED", StringComparison.Ordinal) && !options.Toast.Text.Contains("APPLIED"), options.Toast.Text);
+                Check("save: ... and the live value stays", Mathf.IsEqualApprox(_services.Settings.Options.MasterVolume, 0.6f));
+                var shot = System.Environment.GetEnvironmentVariable("SM_SELFTEST_SHOT");   // a test aid: a screenshot of the toast, outside the repository
+                if (!string.IsNullOrEmpty(shot)) { await Frames(6); GetViewport().GetTexture().GetImage().SavePng(shot); }
+            }
+            finally { System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal); }
+            options.Apply();
+            Check("save: APPLY retries and says APPLIED once it works", _services.LastSaveError is null && options.Toast.Text.Contains("APPLIED") && Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, 0.6f), options.Toast.Text);
+        }
+        finally
+        {
+            _services.SettingsDirectory = keptDir;
+            _services.SaveDelay = 0;
+            _services.UpdateSettings(_ => kept);
+            await Frames(2);
+            _front.ShowOptions(OptionsView.Graphics);   // the page opens on its first tab again for the checks after this one
+            await Frames(2);
+            _front.ShowMainMenu();
+            try { System.IO.Directory.Delete(dir, true); } catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
+        }
+    }
+
     /// <summary>Every option's row exists under its tab, a change reaches the live game and <c>frontend.json</c>, a damaged file gives the defaults.</summary>
     async Task OptionsChecks()
     {
