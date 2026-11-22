@@ -145,6 +145,7 @@ public sealed class MapSession
         var inverses = new List<(string What, Action Undo)>();
         string? scratch = null;
         var trashed = new List<(string, string)>();
+        bool trashExisted = Directory.Exists(Library.TrashAssetsDir), trashParentExisted = Directory.Exists(System.IO.Path.GetDirectoryName(Library.TrashAssetsDir));
         try
         {
             foreach (var staged in batch.Assets.Values)
@@ -155,7 +156,7 @@ public sealed class MapSession
                     scratch ??= System.IO.Path.Combine(Library.Root, "library", ".txn-" + Guid.NewGuid().ToString("N"));
                     string backup = System.IO.Path.Combine(scratch, staged.Info.Id);
                     CopyDirectory(dir, backup);
-                    inverses.Add(($"restore asset '{staged.Info.Id}'", () => { if (Directory.Exists(dir)) Directory.Delete(dir, true); CopyDirectory(backup, dir); }));
+                    inverses.Add(($"restore asset '{staged.Info.Id}' (its pre-batch copy is kept in {scratch})", () => RestoreDirectory(backup, dir)));
                 }
                 else inverses.Add(($"remove asset '{staged.Info.Id}'", () => { if (Directory.Exists(dir)) Directory.Delete(dir, true); }));
                 WriteAsset(staged);
@@ -191,11 +192,18 @@ public sealed class MapSession
             }
             try { Library.RebuildIndex(); }
             catch (Exception e) { problems.Add($"could not rebuild the library index: {e.Message}"); }
-            if (problems.Count == 0) { CleanScratch(scratch); throw; }
+            // A failed trash step may have created the (still empty) trash folders.
+            if (!trashExisted) RemoveIfEmpty(Library.TrashAssetsDir);
+            if (!trashParentExisted) RemoveIfEmpty(System.IO.Path.GetDirectoryName(Library.TrashAssetsDir)!);
+            if (problems.Count == 0)
+            {
+                if (CleanScratch(scratch) is { } leaked) throw new IOException($"{failure.Message} (The save was rolled back; {leaked})", failure);
+                throw;
+            }
             // Kept for the owner: the pre-batch copies of replaced assets stay in the scratch folder when an inverse failed.
             throw new IOException($"{failure.Message} The save was rolled back only in part: {string.Join("; ", problems)}.", failure);
         }
-        CleanScratch(scratch);
+        if (CleanScratch(scratch) is { } left) batch.Warnings.Add(left);
         LastTrashed = trashed;
 
         CopyDocument(batch.Doc);
@@ -207,10 +215,41 @@ public sealed class MapSession
         Touch();
     }
 
-    static void CleanScratch(string? scratch)
+    /// <summary>Deletes the scratch folder (clearing read-only attributes first); returns a sentence naming it when that fails, else null.</summary>
+    static string? CleanScratch(string? scratch)
     {
-        if (scratch is null) return;
-        try { Directory.Delete(scratch, true); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        if (scratch is null || !Directory.Exists(scratch)) return null;
+        try { ClearReadOnly(scratch); Directory.Delete(scratch, true); return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return $"the temporary folder {scratch} could not be removed ({e.Message}); it is safe to delete"; }
+    }
+
+    static void ClearReadOnly(string dir)
+    {
+        foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+            if ((File.GetAttributes(f) & FileAttributes.ReadOnly) != 0) File.SetAttributes(f, FileAttributes.Normal);
+    }
+
+    static void RemoveIfEmpty(string dir)
+    {
+        try { if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any()) Directory.Delete(dir); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Makes <paramref name="dir"/> match <paramref name="backup"/>: copies the backup over it first (overwriting, clearing read-only), then removes what the backup does not have. Never deletes the folder wholesale, so a failure part-way leaves the backup's files in place.</summary>
+    static void RestoreDirectory(string backup, string dir)
+    {
+        Directory.CreateDirectory(dir);
+        foreach (var f in Directory.EnumerateFiles(backup))
+        {
+            var target = System.IO.Path.Combine(dir, System.IO.Path.GetFileName(f));
+            if (File.Exists(target)) File.SetAttributes(target, FileAttributes.Normal);
+            File.Copy(f, target, overwrite: true);
+        }
+        foreach (var d in Directory.EnumerateDirectories(backup)) RestoreDirectory(d, System.IO.Path.Combine(dir, System.IO.Path.GetFileName(d)));
+        foreach (var f in Directory.EnumerateFiles(dir))
+            if (!File.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(f)))) { File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
+        foreach (var d in Directory.EnumerateDirectories(dir))
+            if (!Directory.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(d)))) { ClearReadOnly(d); Directory.Delete(d, true); }
     }
 
     static void CopyDirectory(string from, string to)

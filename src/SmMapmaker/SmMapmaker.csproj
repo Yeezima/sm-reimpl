@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SmMapmaker.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
     <ProjectReference Include="..\SmContent\SmContent.csproj" />
   </ItemGroup>

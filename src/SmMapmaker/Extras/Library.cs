@@ -138,7 +138,7 @@ public sealed class MapLibrary
     public static string NewTrashSlot(string id) => id + "-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N")[..6];
 
     /// <summary>Test seam: called with the step name ("asset-write", "trash", "prefab-write", "prefab-delete", "index") just before a storage step of a commit; a test throws to simulate a failing disk. Null in production.</summary>
-    public Action<string>? StorageFault { get; set; }
+    internal Action<string>? StorageFault { get; set; }
 
     internal void Fault(string step) => StorageFault?.Invoke(step);
 
@@ -215,7 +215,15 @@ public sealed class MapLibrary
         var dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
         Directory.CreateDirectory(dir);
         var tmp = Path.Combine(dir, "." + Path.GetFileName(path) + ".tmp");
-        File.WriteAllBytes(tmp, bytes);
-        File.Move(tmp, path, overwrite: true);
+        try
+        {
+            File.WriteAllBytes(tmp, bytes);
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmp); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            throw;
+        }
     }
 }

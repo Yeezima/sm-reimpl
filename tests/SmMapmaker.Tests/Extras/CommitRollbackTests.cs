@@ -36,6 +36,8 @@ public class CommitRollbackTests
     static SortedDictionary<string, string> Tree(MapLibrary lib) =>
         new(Directory.Exists(lib.Root)
             ? Directory.EnumerateFiles(lib.Root, "*", SearchOption.AllDirectories).ToDictionary(f => Path.GetRelativePath(lib.Root, f), f => Convert.ToHexString(File.ReadAllBytes(f)))
+                .Concat(Directory.EnumerateDirectories(lib.Root, "*", SearchOption.AllDirectories).Select(d => new KeyValuePair<string, string>(Path.GetRelativePath(lib.Root, d) + Path.DirectorySeparatorChar, "<dir>")))
+                .ToDictionary(kv => kv.Key, kv => kv.Value)
             : []);
 
     [Theory]
@@ -117,5 +119,78 @@ public class CommitRollbackTests
         Assert.False(s.Apply(Batch(lab)).Ok);
         lab.Library.StorageFault = null;
         Assert.DoesNotContain(Directory.EnumerateDirectories(Path.Combine(lab.Library.Root, "library")), d => Path.GetFileName(d).StartsWith(".txn-"));
+    }
+
+    // An asset folder that exists but has no readable asset.json is "absent" to GetAsset, so an import of that id writes over the folder.
+    [Fact]
+    public void AReplacedAssetFolderComesBackByteIdenticalAfterAFailedBatch()
+    {
+        using var lab = new Lab();
+        var s = Scene(lab);
+        var dir = lab.Library.AssetDir("ghost");
+        Directory.CreateDirectory(Path.Combine(dir, "sub"));
+        File.WriteAllText(Path.Combine(dir, "boxa.gltf"), "old content");
+        File.WriteAllText(Path.Combine(dir, "keep.bin"), "left over");
+        File.WriteAllText(Path.Combine(dir, "sub", "deep.bin"), "deeper");
+        Directory.CreateDirectory(Path.Combine(dir, "emptydir"));
+        File.SetAttributes(Path.Combine(dir, "keep.bin"), FileAttributes.ReadOnly);
+        Assert.Null(lab.Library.GetAsset("ghost"));
+        var before = Tree(lab.Library);
+
+        var batch = new List<System.Text.Json.Nodes.JsonObject>
+        {
+            Lab.Op($$"""{"op":"import-asset","path":{{System.Text.Json.JsonSerializer.Serialize(lab.WriteGltf("boxa.gltf"))}},"id":"ghost"}"""),
+            Lab.Op("""{"op":"delete-prefab","prefab":"pb"}"""),
+        };
+        lab.Library.StorageFault = st => { if (st == "prefab-delete") throw new IOException("injected"); };
+        var r = s.Apply(batch);
+        lab.Library.StorageFault = null;
+
+        Assert.False(r.Ok);
+        Assert.DoesNotContain("only in part", r.Errors[0].Message);
+        Assert.Equal(before, Tree(lab.Library));
+        Assert.Equal("old content", File.ReadAllText(Path.Combine(dir, "boxa.gltf")));
+        Assert.DoesNotContain(Directory.EnumerateDirectories(Path.Combine(lab.Library.Root, "library")), d => Path.GetFileName(d).StartsWith(".txn-"));
+        File.SetAttributes(Path.Combine(dir, "keep.bin"), FileAttributes.Normal);
+    }
+
+    [Fact]
+    public void AFailedTrashStepLeavesNoEmptyTrashFolder()
+    {
+        using var lab = new Lab();
+        var s = Scene(lab);
+        Assert.False(Directory.Exists(lab.Library.TrashAssetsDir));
+        lab.Library.StorageFault = st => { if (st == "trash") throw new IOException("injected"); };
+        var r = s.Apply([Lab.Op("""{"op":"delete","ids":["o1"]}"""), Lab.Op("""{"op":"delete-asset","asset":"pillar"}""")]);
+        lab.Library.StorageFault = null;
+        Assert.False(r.Ok);
+        Assert.False(Directory.Exists(lab.Library.TrashAssetsDir));
+    }
+
+    [Fact]
+    public void AFailedAtomicWriteLeavesNoTmpFile()
+    {
+        using var lab = new Lab();
+        var target = Path.Combine(lab.Dir, "victim");
+        Directory.CreateDirectory(target);   // File.Move cannot replace a directory
+        Assert.ThrowsAny<Exception>(() => MapLibrary.WriteAtomic(target, [1, 2, 3]));
+        Assert.Empty(Directory.EnumerateFiles(lab.Dir, "*.tmp"));
+    }
+
+    /// <summary>What delete-asset + import-asset of the same id in one batch does today (reported, not changed).</summary>
+    [Fact]
+    public void DeleteThenImportOfTheSameIdInOneBatch_Today()
+    {
+        using var lab = new Lab();
+        var s = Scene(lab);
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete","ids":["o1"]}""")).Ok);
+        var r = s.Apply([
+            Lab.Op("""{"op":"delete-asset","asset":"pillar"}"""),
+            Lab.Op($$"""{"op":"import-asset","path":{{System.Text.Json.JsonSerializer.Serialize(lab.WriteGltf("pillar.gltf", "[0,2,0]"))}},"id":"pillar"}"""),
+        ]);
+        // Characterisation of today's behaviour (the owner decides whether it should change): the batch reports success, the new copy is written and then the delete moves it to the trash.
+        Assert.True(r.Ok);
+        Assert.Null(lab.Library.GetAsset("pillar"));
+        Assert.Single(Directory.GetDirectories(lab.Library.TrashAssetsDir));
     }
 }
