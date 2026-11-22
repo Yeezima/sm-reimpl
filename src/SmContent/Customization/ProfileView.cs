@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 namespace SmContent.Customization;
 
 /// <summary>
@@ -34,10 +35,28 @@ public static partial class ProfileViews
         var appearances = profile.Appearances.Where(a => a.Id != id).ToList();
         var result = profile with { Appearances = appearances, Classes = DropMissingLooks(profile.Classes, appearances) };
         foreach (var (name, set) in profile.Sets)
-            if (DropMissingLooks(set.Classes, appearances) is var cleared && !ReferenceEquals(cleared, set.Classes))
+        {
+            if (set.Raw is not null)
+            {
+                if (ClearRawLook(set.Raw, id) is { } rawCleared) result = result.WithSet(name, set with { Raw = rawCleared });   // a set this build keeps unread must not point at the id either
+            }
+            else if (DropMissingLooks(set.Classes, appearances) is var cleared && !ReferenceEquals(cleared, set.Classes))
                 result = result.WithSet(name, set with { Classes = cleared });
+        }
         ExtrasLookRemoved(ref result, id);   // EXTRAS-HOOK: added content's own references to the look
         return result;
+    }
+
+    /// <summary>A kept-as-written set's JSON (<see cref="LoadoutSet.Raw"/>) without its classes' references to the look <paramref name="id"/> (set to null: the default look); null when it holds none.</summary>
+    static string? ClearRawLook(string raw, string id)
+    {
+        if (JsonNode.Parse(raw) is not JsonObject set || set["classes"] is not JsonArray classes) return null;
+        bool changed = false;
+        foreach (var c in classes)
+            if (c is JsonObject cls && cls["appearance"] is JsonObject look)
+                foreach (var race in look.Select(kv => kv.Key).ToList())
+                    if (look[race] is JsonValue v && v.TryGetValue<string>(out var text) && text.Trim() == id) { look[race] = null; changed = true; }
+        return changed ? set.ToJsonString() : null;
     }
 
     /// <summary>

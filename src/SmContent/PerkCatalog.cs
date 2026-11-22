@@ -311,6 +311,19 @@ static class CatalogData
         return global ?? throw new FileNotFoundException($"global not found in {MpClasses.GlobalPackage}.");
     }
 
+    /// <summary>The file names of every wargear file of the install (no file is decoded); empty when the package is missing or unreadable.</summary>
+    public static IReadOnlyList<string> ReadWargearNames(string gameDir)
+    {
+        string path = Path.Combine(gameDir, GameplayTuning.WargearPackage);
+        if (!File.Exists(path)) return [];
+        try
+        {
+            using var archive = ObpkArchive.Open(path);
+            return archive.Entries.Where(e => archive.GroupName(e) == "attr_pc").Select(e => e.FileName).ToList();
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException) { return []; }
+    }
+
     public static Dictionary<string, BafDocument> ReadWargear(string gameDir, ISet<string> names, List<string> notes)
     {
         var docs = new Dictionary<string, BafDocument>(StringComparer.OrdinalIgnoreCase);

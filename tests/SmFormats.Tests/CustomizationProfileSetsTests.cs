@@ -45,7 +45,7 @@ public partial class CustomizationProfileTests
         store.Save(profile);
         string first = File.ReadAllText(store.ProfilePath);
 
-        var (loaded, repairs) = NewStore().Load(Catalog);
+        var (loaded, repairs) = NewStore().Load(Catalog, readsAddedSets: true);
         Assert.Empty(repairs);
         Assert.Equal(ProfileStore.Serialize(profile), ProfileStore.Serialize(loaded));
         Assert.Equal(Selection.CustomSlot(2), loaded.Set("musou")!.Selected);
@@ -72,7 +72,7 @@ public partial class CustomizationProfileTests
                   { "slot": 2, "name": "Bad role", "role": "librarian" },
                   { "slot": 3, "name": "Bad item", "role": "tactical", "primary": "no_such_gun", "appearance": { "space_marine": "sm-9" } } ] } } }
             """);
-        var (loaded, repairs) = NewStore().Load(Catalog);
+        var (loaded, repairs) = NewStore().Load(Catalog, readsAddedSets: true);
         var set = loaded.Set("musou")!;
         Assert.Equal([1, 3], set.Classes.Select(c => c.Slot));
         Assert.Equal("mp_ranged_bolter", set.ClassAt(1)!.Primary);   // stored race-neutral, as the profile's own
@@ -96,14 +96,14 @@ public partial class CustomizationProfileTests
               "sets": { "Bad Name": { "classes": [] }, "musou": 5, "ok": { "classes": [] } },
               "extras": { "x": 3, "Not ok": { "a": 1 }, "musou": { "librarian": { "melee": "anything" }, "future": [1, 2, { "deep": true }] } } }
             """);
-        var (loaded, repairs) = NewStore().Load(Catalog);
+        var (loaded, repairs) = NewStore().Load(Catalog, readsAddedSets: true);
         Assert.Equal(["ok"], loaded.Sets.Keys);
         Assert.Equal(["musou"], loaded.Extras.Keys);
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "librarian": { "melee": "anything" }, "future": [1, 2, { "deep": true }] }"""), JsonNode.Parse(loaded.Extras["musou"])));
         foreach (var path in new[] { "sets.Bad Name", "sets.musou", "extras.x", "extras.Not ok" }) Assert.Contains(repairs, r => r.Path == path);
 
         NewStore().Save(loaded);   // what the store keeps of the extras is written back as it was (a build without that content does not lose it)
-        var again = NewStore().Load(Catalog).Profile;
+        var again = NewStore().Load(Catalog, readsAddedSets: true).Profile;
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(loaded.Extras["musou"]), JsonNode.Parse(again.Extras["musou"])));
     }
 
@@ -124,7 +124,7 @@ public partial class CustomizationProfileTests
         // Saved and read back: no repair notice for a set that named the removed look.
         var store = NewStore();
         store.Save(removed);
-        Assert.Empty(NewStore().Load(Catalog).Repairs);
+        Assert.Empty(NewStore().Load(Catalog, readsAddedSets: true).Repairs);
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public partial class CustomizationProfileTests
             { "schema": 1, "selected": { "kind": "default", "role": "tactical" }, "classes": [], "appearances": [],
               "extras": { "musou": { "librarian": { "melee": "a", "melee": "b" } }, "other": { "list": [ { "x": 1 } ] } } }
             """);
-        var result = NewStore().Load(Catalog);
+        var result = NewStore().Load(Catalog, readsAddedSets: true);
         Assert.Equal(ProfileLoadStatus.Loaded, result.Status);   // not the whole profile
         Assert.Equal(["other"], result.Profile.Extras.Keys);
         Assert.Contains(result.Repairs, r => r.Path == "extras.musou");
@@ -173,7 +173,7 @@ public partial class CustomizationProfileTests
         session.Edit(p => p);   // an edit that changes nothing keeps the shown profile
         Assert.Null(session.Save());
 
-        var reloaded = NewStore().Load(Catalog).Profile;
+        var reloaded = NewStore().Load(Catalog, readsAddedSets: true).Profile;
         Assert.Equal("Classic one", reloaded.ClassAt(1)!.Name);
         Assert.Equal("Mode one", reloaded.Set("mode")!.ClassAt(1)!.Name);
 

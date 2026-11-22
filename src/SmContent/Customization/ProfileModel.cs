@@ -94,6 +94,12 @@ public sealed record AppearanceProfile(string Id, string Race, string Name, stri
 /// </summary>
 public sealed record LoadoutSet(Selection Selected, IReadOnlyList<CustomClass> Classes)
 {
+    /// <summary>
+    /// The set's JSON object text when this build does not read the set (it belongs to added content the build lacks, <see cref="ProfileStore.Load"/>): kept exactly as written and written back untouched;
+    /// <see cref="Selected"/> and <see cref="Classes"/> are then empty placeholders. Null for a set this build reads.
+    /// </summary>
+    public string? Raw { get; init; }
+
     public CustomClass? ClassAt(int slot) => Classes.FirstOrDefault(c => c.Slot == slot);
 }
 

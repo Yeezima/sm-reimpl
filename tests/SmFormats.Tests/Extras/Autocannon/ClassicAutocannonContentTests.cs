@@ -274,7 +274,7 @@ public partial class CustomizationProfileTests
     }
 
     [Fact]
-    public void A_saved_autocannon_slot_survives_the_read_with_the_classic_items_and_is_repaired_away_without_them()
+    public void A_saved_autocannon_slot_survives_the_read_with_the_classic_items_and_is_kept_as_written_without_them()
     {
         const string json = """
             { "schema": 1, "selected": { "kind": "custom", "slot": 1 },
@@ -283,8 +283,10 @@ public partial class CustomizationProfileTests
         var kept = LoadWith(json, Catalog.For(ContentExtras.Autocannon));   // the customizer's read catalogue (CustomizerServices.Load)
         Assert.Equal("mp_exotic_auto_cannon", Assert.Single(kept.Profile.Classes).Primary);
         Assert.DoesNotContain(kept.Repairs, r => r.Path.Contains("primary") && !r.Informational);
-        var data = LoadWith(json, Catalog);   // the data's alone: not offered, the class default
-        Assert.Null(Assert.Single(data.Profile.Classes).Primary);
+        var data = LoadWith(json, Catalog);   // the data's alone (a profile without the content): not offered, but an install item no class lists, so kept as written (customizer/keep-unknown-picks), the class default playing
+        Assert.Equal("mp_exotic_auto_cannon", Assert.Single(data.Profile.Classes).Primary);
+        Assert.DoesNotContain(data.Repairs, r => !r.Informational);
+        Assert.Null(Catalog.Perks.Resolve(Catalog.Perks.Class("sm - devastator")!, "ranged", "mp_exotic_auto_cannon"));
     }
 
     ProfileLoadResult LoadWith(string json, CustomizationCatalog catalog)

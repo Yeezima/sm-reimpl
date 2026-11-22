@@ -113,9 +113,13 @@ public sealed class ProfileStore
     /// a duplicate perk becomes null; more than <see cref="CustomizationProfile.MaxCustomClasses"/> classes or <see cref="CustomizationProfile.MaxAppearancesPerRace"/>
     /// appearances per race are trimmed; names are trimmed (control characters removed, at most <see cref="CustomizationProfile.MaxNameLength"/> characters);
     /// a custom emblem without its file shows the fallback badge; items the simulation does not run (equipment without a thrown delivery or stim effect; stims run since perks/inert-2) are kept and noted;
+    /// a pick this build's lists lack but the install has, and no class offers (added content's item: <see cref="CustomizationCatalog.IsForeignPick"/>), is kept as written and noted, the class default playing meanwhile;
+    /// a loadout set of added content this build lacks (<paramref name="readsAddedSets"/> false; default: <see cref="ContentExtras.Compiled"/>) is kept as raw JSON (<see cref="LoadoutSet.Raw"/>);
     /// a newer schema gives a read-only profile; unparseable JSON is renamed to <c>customization.json.bad-&lt;utc&gt;</c> and the default profile returned.
     /// </summary>
-    public ProfileLoadResult Load(CustomizationCatalog catalog)
+    /// <param name="catalog">The catalogue the profile's own classes are read with.</param>
+    /// <param name="readsAddedSets">Whether this build has the code of the added content that owns loadout sets; null: whether the build compiled the extras.</param>
+    public ProfileLoadResult Load(CustomizationCatalog catalog, bool? readsAddedSets = null)
     {
         var repairs = new List<ProfileRepair>();
         if (!File.Exists(ProfilePath)) return new ProfileLoadResult(CustomizationProfile.Default(catalog), repairs, ProfileLoadStatus.Missing);
@@ -154,7 +158,7 @@ public sealed class ProfileStore
         bool newer = schema > CustomizationProfile.CurrentSchema;
         if (newer) repairs.Add(new ProfileRepair("schema", $"{FileName} has schema {schema}, newer than {CustomizationProfile.CurrentSchema}; it is read as far as understood and never overwritten", true));
         CustomizationProfile profile;
-        try { profile = new Reader(catalog, repairs, HasEmblem).Read(root, schema); }
+        try { profile = new Reader(catalog, repairs, HasEmblem, readsAddedSets ?? ContentExtras.Compiled).Read(root, schema); }
         catch (Exception ex) when (ex is InvalidOperationException or FormatException or ArgumentException or InvalidCastException)
         {
             repairs.Add(new ProfileRepair("", $"{FileName} could not be understood ({ex.Message}); defaults are used"));
@@ -290,6 +294,12 @@ public sealed class ProfileStore
                 w.WriteStartObject("sets");
                 foreach (var (name, set) in profile.Sets.OrderBy(kv => kv.Key, StringComparer.Ordinal))
                 {
+                    if (set.Raw is not null)   // a set of content this build lacks: as it was read
+                    {
+                        w.WritePropertyName(name);
+                        (JsonNode.Parse(set.Raw) as JsonObject ?? new JsonObject()).WriteTo(w);
+                        continue;
+                    }
                     w.WriteStartObject(name);
                     WriteSelection(w, set.Selected);
                     w.WriteStartArray("classes");
@@ -385,7 +395,7 @@ public sealed class ProfileStore
 
     // ---- reading and repairing ----
 
-    sealed class Reader(CustomizationCatalog catalog, List<ProfileRepair> repairs, Func<EmblemHash, bool> emblemExists)
+    sealed class Reader(CustomizationCatalog catalog, List<ProfileRepair> repairs, Func<EmblemHash, bool> emblemExists, bool readsAddedSets = true)
     {
         static readonly string[] Pads = ["leftshoulder", "rightshoulder"];
         readonly IReadOnlyList<string> _roles = StoredRoles(catalog);
@@ -433,6 +443,14 @@ public sealed class ProfileStore
                 if (!CustomizationProfile.IsSetName(name)) { Fix(path, "not a usable set name; dropped"); continue; }
                 if (value is not JsonObject set) { Fix(path, "not an object; dropped"); continue; }
                 if (result.Count >= CustomizationProfile.MaxSets) { Fix(path, $"more than {CustomizationProfile.MaxSets} loadout sets; dropped"); continue; }
+                if (!readsAddedSets)
+                {
+                    // No code of the content that owns the set: its picks cannot be judged, so the set is kept whole, as written (a repair here would erase them when a Classic edit saves the profile).
+                    if (HasDuplicateKeys(set)) { Fix(path, "a key is used twice inside it; dropped"); continue; }
+                    result[name] = new LoadoutSet(Selection.DefaultFor(FirstRole(catalog)), []) { Raw = set.ToJsonString() };
+                    Note(path, "belongs to added content this build does not have; kept as written");
+                    continue;
+                }
                 var reader = SetReader(name);   // the set's own content's catalogue (ProfileViews.SetCatalog: Musou's set keeps Musou's arsenal items)
                 var classes = reader.ReadClasses(set["classes"] as JsonArray, appearances, path + ".classes");
                 result[name] = new LoadoutSet(reader.ReadSelection(set["selected"] as JsonObject, classes, path + ".selected"), classes);
@@ -444,7 +462,7 @@ public sealed class ProfileStore
         Reader SetReader(string set)
         {
             var own = ProfileViews.SetCatalog(set, catalog);
-            return ReferenceEquals(own, catalog) ? this : new Reader(own, repairs, emblemExists);
+            return ReferenceEquals(own, catalog) ? this : new Reader(own, repairs, emblemExists, readsAddedSets);
         }
 
         /// <summary>musou/loadout-slots: added content's own data (absent: none), each entry a JSON object kept as its text; the content reads and repairs it.</summary>
@@ -560,7 +578,12 @@ public sealed class ProfileStore
             if (!role.Equals("tactical", StringComparison.OrdinalIgnoreCase)) { Fix(path, $"only the tactical class carries a second primary; '{raw}' dropped"); return null; }
             string neutral = ProfileWire.Neutral(raw);
             var match = Offered(catalog, role, "ranged").FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(neutral, StringComparison.OrdinalIgnoreCase));
-            if (match is null) { Fix(path, $"'{raw}' is not offered to the {role} class; no second primary"); return null; }
+            if (match is null)
+            {
+                if (catalog.IsForeignPick(neutral)) { Note(path, $"'{raw}' is not offered by this build (added content's); kept as written, no second primary is used"); return neutral; }
+                Fix(path, $"'{raw}' is not offered to the {role} class; no second primary");
+                return null;
+            }
             return ProfileWire.Neutral(match.Name);
         }
 
@@ -575,7 +598,12 @@ public sealed class ProfileStore
             { Fix(path, $"the {role} class has no choice for this slot; '{raw}' dropped (the class default is used)"); return null; }
             string neutral = ProfileWire.Neutral(raw);
             var match = items.FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(neutral, StringComparison.OrdinalIgnoreCase));
-            if (match is null) { Fix(path, $"'{raw}' is not offered to the {role} class; the class default is used"); return null; }
+            if (match is null)
+            {
+                if (catalog.IsForeignPick(neutral)) { Note(path, $"'{raw}' is not offered by this build (added content's); kept as written, the class default is used"); return neutral; }
+                Fix(path, $"'{raw}' is not offered to the {role} class; the class default is used");
+                return null;
+            }
             return ProfileWire.Neutral(match.Name);
         }
 
@@ -593,7 +621,13 @@ public sealed class ProfileStore
                 if (array[i] is null) continue;
                 if (Str(array[i])?.Trim() is not { Length: > 0 } raw) { Fix($"{path}[{i}]", "not a name; no perk"); continue; }
                 string? match = offered.FirstOrDefault(p => p.Equals(raw, StringComparison.OrdinalIgnoreCase));
-                if (match is null) { Fix($"{path}[{i}]", $"'{raw}' is not a perk of the {role} class; dropped"); continue; }
+                if (match is null)
+                {
+                    if (catalog.IsForeignPick(raw) && !result.Contains(raw, StringComparer.OrdinalIgnoreCase))
+                    { Note($"{path}[{i}]", $"'{raw}' is not offered by this build (added content's); kept as written, no perk is used"); result[i] = raw; continue; }
+                    Fix($"{path}[{i}]", $"'{raw}' is not a perk of the {role} class; dropped");
+                    continue;
+                }
                 if (result.Contains(match, StringComparer.OrdinalIgnoreCase)) { Fix($"{path}[{i}]", $"'{match}' is chosen twice; the second is dropped"); continue; }
                 result[i] = match;
             }

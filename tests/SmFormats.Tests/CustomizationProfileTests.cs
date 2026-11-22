@@ -133,6 +133,7 @@ public partial class CustomizationProfileTests : IDisposable
             // The jump pack: the catalogue marks the classes that carry one (ClassCustomization.JumpPack), and the resolver hides their backpack.
             Entry("sm_mp_abil_jumppack", Baf(("common_data", T(("slot", "coreability"))), ("ability_data", T(("ability_definitions", T(("ability_jumppack", T()))))))),
             Entry("sm_mp_exotic_heavy_bolter", Gear("ranged")), Entry("sm_mp_exotic_las_cannon", Gear("ranged")),
+            Entry("sm_mp_exotic_auto_cannon", Gear("ranged")), Entry("mp_perk_added", Gear("perk")),   // in the install, listed by no class: another build's (added content's) picks
             Entry("mp_perk_a", Gear("perk", ["sm_acc_perk_a"], upgrade: "mp_perk_a")), Entry("mp_perk_weap_x", Gear("perk", upgrade: "x")),
             Entry("mp_perk_secondary_weapon", Gear("perk")), Entry("mp_perk_bolter_in_place_of_pistol", Gear("perk")),
         };
