@@ -532,7 +532,14 @@ public partial class ModelViewer : Node3D
     {
         if (_network is not { } rotating || !(rotating.RotateRequested || rotating.RotationConnectionLost) || _networkArgs?.ContainsKey("play-demo") == true) return false;
         DropNetwork();
-        if (_fromFrontEnd && FrontEndLaunch.Current is { } request) OnJoin(request, rejoin: true);
+        if (_fromFrontEnd && FrontEndLaunch.Current is { } request)
+        {
+            // Codebase fix 4: the rejoin carries the loadout saved now (a mid-match save or deploy), not the first join's; host, side intent, spectate and content stay.
+            var plan = SmClient.Customizer.Model.JoinPlan.ForRotation(request.Plan, request.Services.PlanFor());
+            var rotated = request with { Plan = plan };
+            GD.Print($"rotation rejoin: {request.Host} with the loadout saved now (class {plan.Choice.Class}, primary {plan.Choice.Primary}; first join: class {request.Plan.Choice.Class}, primary {request.Plan.Choice.Primary})");
+            OnJoin(rotated, rejoin: true);
+        }
         else if (_networkArgs is { } args) StartNetwork(args, _gameDir, rejoin: true);
         return true;
     }

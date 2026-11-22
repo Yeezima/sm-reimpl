@@ -117,6 +117,13 @@ public sealed record JoinPlan(Selection Selection, LoadoutChoice Choice, Team Si
     AppearanceCode SpaceMarineLook, AppearanceCode ChaosLook, bool UsesEmblem, byte OrkLook = Races.OrkLookAutomatic)
 {
     /// <summary>
+    /// Codebase fix 4: the plan a Classic map-rotation rejoin from the front end sends. <paramref name="current"/> is the plan for the profile's active loadout NOW
+    /// (what the player saved or deployed in the match); it replaces the first join's plan, but keeps that join's side intent (Automatic stays Automatic, the team the player ended on is not asked for).
+    /// A null <paramref name="current"/> (the services are not ready) keeps <paramref name="original"/>.
+    /// </summary>
+    public static JoinPlan ForRotation(JoinPlan original, JoinPlan? current) => current is null ? original : current with { Side = original.Side };
+
+    /// <summary>
     /// The plan for <paramref name="selection"/>. <paramref name="side"/> Auto asks for the Space Marine class and leaves the side to the class (the server may
     /// balance the player onto the other one); an empty or missing custom slot reads as the selected role's DEFAULTS or slot 1 via <see cref="LoadoutEdits.Active"/>.
     /// <paramref name="extras"/> (added content E2; default the config's own flags) is the content profile: a custom class the profile does not have
