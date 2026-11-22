@@ -36,6 +36,9 @@ public sealed partial class GameServer
             case WarfrontClientCommandKind.NewRun:
                 WarfrontNewRun(player);
                 break;
+            case WarfrontClientCommandKind.Progress:
+                if (command.Chunk is not null) WarfrontProgressCommand(player, command.Chunk);
+                break;
             case WarfrontClientCommandKind.Pick:
                 // the wire carries the offer's pick index modulo 256: it answers the standing offer only
                 if (!WarfrontPickFromWire(World, player, command.Slot, command.Pick)) WarfrontCommandsDropped++;
@@ -57,6 +60,7 @@ public sealed partial class GameServer
     void WarfrontBeginNewRun(WarfrontServerState s, string why)
     {
         if (!s.Campaign.IsOver || s.Leaving) return;
+        if (s.NoSave) { WfLog($"a new run is refused: {s.NoSaveText} (the campaign file is not ours to replace)"); return; }
         // The wiring, the progression and the co-op rules belong to one campaign: a new run is a new stage process on the empty run (the supervisor reads it; the clients rejoin through Stage Go).
         WfSaveFlush();
         try { File.Delete(Path.Combine(s.Dir, WarfrontSquadsFile)); } catch (IOException) { }

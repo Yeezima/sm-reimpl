@@ -144,6 +144,7 @@ public sealed partial class GameServer
             WarfrontLogOffer(id, p, snap);
             var sections = _wfProgression.Step(id, snap, tick, rate);
             if (sections.Count > 0) SendExtras(new ExtrasUpdate(tick, sections.ToArray()), id);
+            WarfrontSendProgressSave(s, id, key, tick, rate);
         }
     }
 
@@ -159,5 +160,118 @@ public sealed partial class GameServer
         if (snap.OfferOpen && !had) WfLog($"P{id} offer {snap.OfferPickIndex} opened ({(snap.Aboard ? "aboard" : "at a lull")}): {string.Join(", ", snap.OfferCards)}; {p.PendingPicks} pending; protected until a pick or the timeout");
         if (snap.OfferOpen) _wfOfferLog[id] = (snap.OfferPickIndex, snap.OfferSecondsLeft, p.PicksTaken);
         else _wfOfferLog.Remove(id);
+    }
+}
+
+/// <summary>
+/// Persistent progression on the host (codebase fix 1, owner 2026-11-22): the Progress command (a player's own file, chunked), the merge into the run, the ProgressSave section (envelope tag 49) that sends the run's copy back, and the roster glue
+/// (the extra retainers with their names). A player's progression lives on his own PC; the run's copy (run.json cards and XP, squads.json rosters) is the host's working copy and its mirror.
+/// </summary>
+public sealed partial class GameServer
+{
+    /// <summary>Seconds between ProgressSave sends while only XP moved (a pick, a level change and a retainer gain send at once) [ours].</summary>
+    const int WarfrontProgressSaveSeconds = 10;
+
+    /// <summary>One chunk of a client's Progress record (untrusted). When the record is whole it is merged now (Ship phase) or queued to the next ship stop. A malformed or too early chunk is dropped; the client repeats until it hears ProgressSave.</summary>
+    void WarfrontProgressCommand(int player, byte[] chunk)
+    {
+        if (_wf is not { } s) return;
+        if (!s.KeyOf.TryGetValue(player, out ulong key)) { WarfrontCommandsDropped++; return; }   // before the Identify: the client repeats
+        if (!s.ProgressChunks.TryGetValue(player, out var reassembler)) s.ProgressChunks[player] = reassembler = new SmNet.Extras.Warfront.WarfrontProgressSaveWire.Reassembler();
+        var record = reassembler.Add(chunk);
+        if (record is null) return;
+        WarfrontApplyQueuedProgress(s);   // an older queued record of this player must not outlive a newer one
+        s.ProgressSeen.Add(player);
+        s.ProgressAckDue.Add(player);
+        bool ship = WarfrontShipPhase(s);
+        if (!ship) { s.ProgressQueue[key] = record; WfLog($"P{player} progress record queued to the next ship stop ({s.Campaign.Phase})"); return; }
+        WarfrontMergeProgress(s, player, key, record);
+    }
+
+    static bool WarfrontShipPhase(WarfrontServerState s) => s.Campaign.Phase is WarfrontPhase.Ship or WarfrontPhase.Lobby;
+
+    /// <summary>At the ship, every queued record is merged (called each tick, before a Deploy and before a class confirmation, so the gates always see the progression).</summary>
+    void WarfrontApplyQueuedProgress(WarfrontServerState s)
+    {
+        if (s.ProgressQueue.Count == 0 || !WarfrontShipPhase(s)) return;
+        foreach (var (key, record) in s.ProgressQueue.ToList())
+        {
+            if (s.Campaign.Player(key) is null) continue;
+            s.ProgressQueue.Remove(key);
+            int player = WarfrontPlayerOf(key) ?? -1;
+            WarfrontMergeProgress(s, player, key, record);
+        }
+    }
+
+    /// <summary>The merge (Ship phase): the Reset flag zeroes the progression and keeps the stats; absent keeps the run's copy; otherwise the better of the run's copy and the player's, whole (cards and retainers follow the winner).</summary>
+    void WarfrontMergeProgress(WarfrontServerState s, int player, ulong key, SmNet.Extras.Warfront.WarfrontProgressRecord record)
+    {
+        var c = s.Campaign;
+        if (record.Reset)
+        {
+            c.ApplyProgress(key, new SmSim.Extras.Warfront.Progression.WarfrontProgressFile());
+            WarfrontRosterSync(s, key, []);
+            s.PendingExtras.Remove(key);
+            WfLog($"P{player} (key {KeyTail(key)}) reset the progression: level 1, no cards, one retainer (the stats stay)");
+            WfSave(s);
+            return;
+        }
+        var run = WarfrontProgressMirror(s, key);
+        if (run is null) return;
+        if (record.Absent || record.State is null)
+        {
+            WfLog($"P{player} (key {KeyTail(key)}) has no progress file: the run's copy (level {run.Level}) is kept and goes back to it");
+            return;
+        }
+        var notes = new List<string>();
+        var theirs = SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Sanitize(record.State, notes);
+        if (notes.Count > 0) WfLog($"P{player} progress record repaired: {string.Join("; ", notes)}");
+        var winner = SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Better(run, theirs);
+        if (ReferenceEquals(winner, theirs))
+        {
+            c.ApplyProgress(key, theirs);
+            WarfrontRosterSync(s, key, theirs.ExtraRetainers);
+            WfLog($"P{player} (key {KeyTail(key)}) progress: the player's file (level {theirs.Level}, {theirs.PicksTaken} picks, {theirs.ExtraRetainers.Count} extra retainer(s)) is better than the run's (level {run.Level}) and is applied");
+            WfSave(s);
+        }
+        else WfLog($"P{player} (key {KeyTail(key)}) progress: the run's copy (level {run.Level}) is kept (the file's is level {theirs.Level})");
+    }
+
+    /// <summary>The run's copy of a key's progression: the campaign's XP and cards, the extra retainers from the roster (names included) once it exists. Sanitized. Null for an unknown key.</summary>
+    SmSim.Extras.Warfront.Progression.WarfrontProgressFile? WarfrontProgressMirror(WarfrontServerState s, ulong key)
+    {
+        var file = s.Campaign.ProgressOf(key);
+        if (file is null) return null;
+        if (WarfrontRosterExtras(key) is { } extras) file.ExtraRetainers = extras;
+        else if (s.PendingExtras.TryGetValue(key, out var pending)) file.ExtraRetainers = pending;
+        return SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Sanitize(file);
+    }
+
+    /// <summary>The ProgressSave sections: to each player whose client sent a record, on its first send (the acknowledgement), at once on a pick, a level change or a retainer gain, and every <see cref="WarfrontProgressSaveSeconds"/> s while the XP moved.</summary>
+    void WarfrontSendProgressSave(WarfrontServerState s, int id, ulong key, uint tick, int rate)
+    {
+        if (!s.ProgressSeen.Contains(id)) return;
+        bool ack = s.ProgressAckDue.Contains(id);
+        if (!ack && tick % (uint)Math.Max(1, rate / 4) != 0) return;
+        var file = WarfrontProgressMirror(s, key);
+        if (file is null) return;
+        var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file);
+        bool have = s.SaveSent.TryGetValue(id, out var last);
+        bool changed = !have || !last.Bytes.AsSpan().SequenceEqual(bytes);
+        bool structural = !have || last.Level != file.Level || last.Picks != file.PicksTaken || last.Extras != file.ExtraRetainers.Count;
+        bool xpDue = changed && have && tick - last.Tick >= (uint)(WarfrontProgressSaveSeconds * rate);
+        if (!ack && !(changed && structural) && !xpDue) return;
+        s.ProgressAckDue.Remove(id);
+        s.SaveSent[id] = (bytes, file.Level, file.PicksTaken, file.ExtraRetainers.Count, tick);
+        SendExtras(new ExtrasUpdate(tick, [(SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag, bytes)]), id);
+    }
+
+    /// <summary>Once a tick: queued records at the ship, extras waiting for a roster.</summary>
+    void WarfrontProgressStep(WarfrontServerState s)
+    {
+        WarfrontApplyQueuedProgress(s);
+        if (s.PendingExtras.Count == 0 || _wfWiring is not { } w) return;
+        foreach (var (key, extras) in s.PendingExtras.ToList())
+            if (w.Rosters.Has(key)) { WarfrontRosterSync(s, key, extras); s.PendingExtras.Remove(key); }
     }
 }

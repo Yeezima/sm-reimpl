@@ -48,6 +48,25 @@ public sealed partial class GameServer
         /// <summary>This process is about to leave on a rewritten run (a new run, a deployment that could not land): nothing may write the old campaign back.</summary>
         public bool Leaving;
         public int? SupervisorPid;
+        /// <summary>The run on disk is not ours to write (a newer build's file, an unreadable one, a damaged one that could not be set aside): nothing saves, archives or starts a new run, and every Identify is refused with <see cref="NoSaveText"/>.</summary>
+        public bool NoSave;
+        public string NoSaveText = "";
+        /// <summary>The loader's notice (kind unreadable, newer or locked), also written to notice.json.</summary>
+        public WarfrontLoadNotice? LoadNotice;
+        /// <summary>A write of run.json failed (or the load could not rewrite it): the campaign in memory is ahead of the disk. Retried at +5 s and at every save point and autosave.</summary>
+        public bool SavePending;
+        public uint NextSaveRetry;
+        public long WriterFailuresSeen;
+        // persistent progression (codebase fix 1)
+        /// <summary>One collector of Progress command chunks per client.</summary>
+        public readonly Dictionary<int, SmNet.Extras.Warfront.WarfrontProgressSaveWire.Reassembler> ProgressChunks = new();
+        /// <summary>Players whose client sent a Progress record (they get ProgressSave sections; the first send acknowledges).</summary>
+        public readonly HashSet<int> ProgressSeen = new(), ProgressAckDue = new();
+        /// <summary>A record that arrived outside the Ship phase: applied at the next ship stop (latest per key).</summary>
+        public readonly Dictionary<ulong, SmNet.Extras.Warfront.WarfrontProgressRecord> ProgressQueue = new();
+        /// <summary>Extra retainers of an applied record whose roster does not exist yet: given to the roster once it does.</summary>
+        public readonly Dictionary<ulong, List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>> PendingExtras = new();
+        public readonly Dictionary<int, (byte[] Bytes, int Level, int Picks, int Extras, uint Tick)> SaveSent = new();
         public uint NextAliveCheck, NextPlaySave;
         public uint LandingStartTick, LandingLastLog, LandingEnqueued;
         public Prepare? TestPrep;
@@ -188,6 +207,11 @@ public sealed partial class GameServer
     static readonly bool WfSyncSave = Environment.GetEnvironmentVariable("SM_WF_SYNC_SAVE") == "1";
     readonly WarfrontAsyncWriter _wfWriter = new(m => Console.WriteLine($"warfront: {m}"));
 
+    /// <summary>Tests: replaces the loader's file operations (a write that fails once, a move that fails). Null: the real ones.</summary>
+    internal static WarfrontLoaderIo? WarfrontLoaderIoForTests;
+    internal bool WarfrontNoSaveForTests => _wf?.NoSave ?? false;
+    internal bool WarfrontSavePendingForTests => _wf?.SavePending ?? false;
+
     /// <summary>The progression runtime on the run's own campaign, with this server's key map (a human is a campaign player only once identified).</summary>
     void WarfrontBindProgression(WarfrontServerState s)
     {
@@ -198,11 +222,23 @@ public sealed partial class GameServer
     /// <summary>Writes run.json unless the run was finished (the archive removed it; a finished campaign must never be written back).</summary>
     void WfSave(WarfrontServerState s)
     {
-        if (s.Finished || s.Leaving) return;
+        if (s.Finished || s.Leaving || s.NoSave) return;
         _wfWriter.Flush();   // perf pass: an autosave still on its way lands first, so the files stay in save order
         WarfrontSaveSquads(s);   // the squads first, then the run: killed between the two, a pick is offered again instead of a paid card with no Marine
-        try { WarfrontSave.Write(s.Dir, s.Campaign); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WfLog($"run.json could not be written: {e.Message}"); }
+        try
+        {
+            WarfrontSave.Write(s.Dir, s.Campaign);
+            if (s.SavePending) { s.SavePending = false; WfLog("run.json is written again"); }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WarfrontSaveFailed(s, $"run.json could not be written: {e.Message}"); }
+    }
+
+    /// <summary>A write failed: the campaign in memory goes on (never a new run for a write failure), the write is retried at +5 s and at every save point and autosave.</summary>
+    void WarfrontSaveFailed(WarfrontServerState s, string text)
+    {
+        if (!s.SavePending) WfLog(text + "; playing on, the write is retried every 5 s and at every save point");
+        s.SavePending = true;
+        s.NextSaveRetry = World.Tick + (uint)(5 * WarfrontRate);
     }
 
     /// <summary>
@@ -211,14 +247,15 @@ public sealed partial class GameServer
     /// </summary>
     void WfSaveAsync(WarfrontServerState s)
     {
-        if (s.Finished || s.Leaving) return;
+        if (s.Finished || s.Leaving || s.NoSave) return;
+        if (s.SavePending) { WfSave(s); return; }   // a write failed before: this autosave is a synchronous retry
         try
         {
             Directory.CreateDirectory(s.Dir);
             if (WarfrontSquadsJson() is { } squads) _wfWriter.Submit(Path.Combine(s.Dir, WarfrontSquadsFile), squads);
             _wfWriter.Submit(Path.Combine(s.Dir, WarfrontSave.RunFile), s.Campaign.ToJson());
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WfLog($"the autosave could not be started: {e.Message}"); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WarfrontSaveFailed(s, $"the autosave could not be started: {e.Message}"); }
     }
 
     /// <summary>Everything handed to the autosave writer is on disk (before a stage change, the end of a run, any direct write of run.json).</summary>
@@ -230,25 +267,21 @@ public sealed partial class GameServer
         if (!World.Config.Extras.HasFlag(ContentExtras.Warfront) || Map is null) return;
         string dir = WarfrontRunFiles.Dir;
         int maxHumans = Math.Clamp(WarfrontRunFiles.MaxHumans, 1, 4);
-        WarfrontCampaign campaign;
-        string how;
-        try
-        {
-            string before = WarfrontSave.Exists(dir) ? "" : "none";
-            var loaded = WarfrontSave.Load(dir, WarfrontRunFiles.Rolls());
-            if (loaded is null) { campaign = WarfrontRunFiles.NewRun(dir); how = $"a new run (seed {campaign.RunSeed:X}); " + before; }
-            else { campaign = loaded; how = $"run loaded: {campaign.Phase}, deployment {campaign.Deployments}, state {campaign.StateHash()[..8]}"; WarfrontSave.Write(dir, campaign); }
-        }
-        catch (Exception e) when (e is IOException or InvalidDataException or System.Text.Json.JsonException or UnauthorizedAccessException)
-        {
-            WfLog($"run.json is unreadable ({e.Message}); starting a new run");
-            campaign = WarfrontRunFiles.NewRun(dir);
-            how = "a new run after an unreadable save";
-        }
-        var state = new WarfrontServerState { Campaign = campaign, Dir = dir, Map = Map.Name, MaxHumans = maxHumans };
+        // a load failure is told apart from a write failure, and a file this build cannot use is never replaced (WarfrontRunLoader)
+        var load = WarfrontRunLoader.Load(dir, WarfrontRunFiles.Rolls(), WarfrontLoaderIoForTests, null, WfLog);
+        var campaign = load.Campaign;
+        string how = load.How;
+        var state = new WarfrontServerState { Campaign = campaign, Dir = dir, Map = Map.Name, MaxHumans = maxHumans, NoSave = load.NoSave, LoadNotice = load.Notice, SavePending = load.SavePending };
+        if (load.NoSave) state.NoSaveText = load.Notice?.Text ?? WarfrontRunLoader.LockedText;
+        if (load.SavePending) state.NextSaveRetry = World.Tick + (uint)(5 * WarfrontRate);
         if (int.TryParse(Environment.GetEnvironmentVariable(WarfrontRunFiles.SupervisorPidVariable), out int supervisor) && supervisor > 0) state.SupervisorPid = supervisor;
         _wf = state;
-        if (WarfrontStagePlan.HasShip(Map.Name) && campaign.Phase != WarfrontPhase.Travel) WarfrontRunFiles.WriteStage(dir, new(Map.Name, [], Map.Name));
+        if (!state.NoSave && WarfrontStagePlan.HasShip(Map.Name) && campaign.Phase != WarfrontPhase.Travel)
+        {
+            try { WarfrontRunFiles.WriteStage(dir, new(Map.Name, [], Map.Name)); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { WfLog($"stage.json could not be written: {e.Message}"); }
+        }
+        if (state.NoSave) WfLog($"NO SAVE: {state.NoSaveText}; every Identify is refused and nothing is written");
         WfLog($"{how}; map {Map.Name}; at most {maxHumans} human(s)");
         foreach (var aid in new[] { "SM_WF_ROLLS", "SM_WF_START", "SM_WF_RESOLVE", "SM_WF_PREBUILD_DELAY", "SM_WF_PREPARE_TEST", "SM_WF_DIR", "SM_WF_SEED", "SM_WF_FORTRESS_WALK", "SM_WF_FALL_TEST" })
             if (Environment.GetEnvironmentVariable(aid) is { Length: > 0 } v) WfLog($"test aid {aid}={(aid == "SM_WF_DIR" ? "(set)" : v)}");
@@ -288,6 +321,7 @@ public sealed partial class GameServer
         try
         {
             WarfrontSync(s);
+            WarfrontProgressStep(s);
             WarfrontClocks(s);
             WarfrontCoopTick(s);
             WarfrontIdentityTimeouts(s);
@@ -322,6 +356,7 @@ public sealed partial class GameServer
         foreach (int id in s.Known.Where(k => !now.Contains(k)).ToList())
         {
             s.Known.Remove(id); s.Waiting.Remove(id); s.LastHub.Remove(id);
+            s.ProgressChunks.Remove(id); s.ProgressSeen.Remove(id); s.ProgressAckDue.Remove(id); s.SaveSent.Remove(id);
             if (s.KeyOf.Remove(id, out ulong key))
             {
                 var down = World.Tfw?.WarfrontDownState(id) ?? default;
@@ -364,6 +399,12 @@ public sealed partial class GameServer
     void WarfrontIdentify(int player, ulong key, string name)
     {
         if (_wf is not { } s || !s.Known.Contains(player)) return;
+        if (s.NoSave)
+        {
+            if (!s.Notices.ContainsKey(player)) WfLog($"P{player} was refused: {s.NoSaveText}");
+            WarfrontNotice(s, player, s.NoSaveText);
+            return;
+        }
         if (s.KeyOf.TryGetValue(player, out ulong have)) { if (have != key) WfLog($"P{player} sent a second Identify with another key: ignored"); return; }
         if (s.KeyOf.ContainsValue(key)) { WfLog($"P{player} identified with a key already connected ({KeyTail(key)}): refused"); WarfrontNotice(s, player, "that campaign key is already connected"); return; }
         string shown = string.IsNullOrWhiteSpace(name) ? $"P{player}" : name.Trim();
@@ -381,6 +422,7 @@ public sealed partial class GameServer
         s.Waiting.Remove(player);
         s.FirstIdentifiedTick ??= World.Tick;
         WfLog($"P{player} identified as a {(kind == WarfrontJoinKind.New ? "new" : "returning")} player (key {KeyTail(key)}, \"{shown}\"); leader {(s.Campaign.Leader is { } l ? KeyTail(l) : "nobody")}");
+        if (s.LoadNotice is { Kind: WarfrontRunLoader.Unreadable } notice) WarfrontNotice(s, player, notice.Text);   // the campaign began anew after a damaged file: one line, the same text as the menu notice
         WfSave(s);
         s.HubDirty = true;
         s.LastHub.Remove(player);
@@ -405,6 +447,12 @@ public sealed partial class GameServer
     {
         int rate = WarfrontRate;
         s.Campaign.AddPlaySeconds(1.0 / rate);
+        if (!s.NoSave)
+        {
+            long failed = _wfWriter.Failed;   // an autosave's write failed on the pool thread: the same pending flag as a failed synchronous write
+            if (failed != s.WriterFailuresSeen) { s.WriterFailuresSeen = failed; WarfrontSaveFailed(s, "the autosave's write failed"); }
+            if (s.SavePending && World.Tick >= s.NextSaveRetry) { s.NextSaveRetry = World.Tick + (uint)(5 * rate); WfSave(s); }   // +5 s retry (WfSave pushes it on a new failure)
+        }
         if (World.Tick >= s.NextPlaySave) { s.NextPlaySave = World.Tick + (uint)(30 * rate); if (s.Campaign.PlaySeconds > 0) { long sec = SmSim.SimProfile.Begin(); if (WfSyncSave) WfSave(s); else WfSaveAsync(s); SmSim.SimProfile.End("warfront: autosave", sec); } }
         if (WarfrontRunFiles.StopSignal && !s.RestartDue)
         {

@@ -121,6 +121,49 @@ public sealed partial class GameServer
         catch (Exception e) when (e is JsonException or NotSupportedException) { WfLog($"squads.json could not be written: {e.Message}"); return null; }
     }
 
+    // ---- the extra retainers of a persistent progression (codebase fix 1) ---------------------------------------------------------------------
+
+    /// <summary>The retainers beyond the first of a key's roster as progress records (class and name), or null when the roster does not exist.</summary>
+    List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>? WarfrontRosterExtras(ulong key)
+    {
+        if (_wfWiring is not { } w || !w.Rosters.Has(key)) return null;
+        var list = new List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>();
+        for (int slot = 1; slot < w.Rosters.Count(key) && list.Count < SmSim.Extras.Warfront.Progression.WarfrontProgressFile.MaxExtras; slot++)
+            if (w.Rosters.Marine(key, slot) is { } m)
+                list.Add(new SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer { ClassName = m.Loadout.ClassId, Name = m.Name });
+        return list;
+    }
+
+    /// <summary>
+    /// Makes a key's roster hold its first retainer plus <paramref name="extras"/> (a progress record applied at the ship): surplus Marines are dropped, missing ones added with the first Marine's loadout, the names set.
+    /// Service records of the kept Marines stay. No roster yet: the extras wait (<see cref="WarfrontServerState.PendingExtras"/>) for it.
+    /// </summary>
+    void WarfrontRosterSync(WarfrontServerState s, ulong key, IReadOnlyList<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer> extras)
+    {
+        if (_wfWiring is not { } w || !w.Rosters.Has(key))
+        {
+            if (extras.Count > 0) s.PendingExtras[key] = extras.Select(e => new SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer { ClassName = e.ClassName, Name = e.Name }).ToList();
+            else s.PendingExtras.Remove(key);
+            return;
+        }
+        var save = w.Rosters.Export();
+        var owners = save.Owners.ToList();
+        int at = owners.FindIndex(o => o.Key == key);
+        var marines = owners[at].Marines.ToList();
+        int first = marines.Count > 0 ? 1 : 0;
+        int want = Math.Min(SquadRules.MaxPerPlayer, first + extras.Count);
+        if (marines.Count > want) marines.RemoveRange(want, marines.Count - want);
+        var template = marines.Count > 0 ? marines[0].Loadout : new SquadLoadout();
+        while (marines.Count < want) marines.Add(new SquadMarineSave("", template, new ServiceRecord()));
+        for (int i = first; i < marines.Count && i - first < extras.Count; i++)
+        {
+            string name = extras[i - first].Name;
+            if (!string.IsNullOrWhiteSpace(name)) marines[i] = marines[i] with { Name = name };
+        }
+        owners[at] = owners[at] with { Marines = marines };
+        w.Rosters.Import(new SquadRosterSave(save.NextName, owners));
+    }
+
     // ---- the tick, the sections, the commands ---------------------------------------------------------------------------------------------------
 
     /// <summary>The co-op clock, once a tick.</summary>
@@ -200,6 +243,7 @@ public sealed partial class GameServer
     {
         if (_wf is not { } s || !s.KeyOf.TryGetValue(player, out ulong key)) return;
         handled = true;
+        WarfrontApplyQueuedProgress(s);   // a progress record that waited for the ship is applied before the class confirmation
         WarfrontCoopCommand(key, payload, WarfrontWatchCandidates());
     }
 

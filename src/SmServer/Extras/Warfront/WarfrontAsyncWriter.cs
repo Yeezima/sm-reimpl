@@ -13,12 +13,14 @@ public sealed class WarfrontAsyncWriter
     readonly List<string> _order = new();
     bool _running;
     readonly Action<string> _log;
-    long _written;
+    long _written, _failed;
 
     public WarfrontAsyncWriter(Action<string> log) { _log = log; }
 
     /// <summary>Files written so far (test aid).</summary>
     public long Written => Interlocked.Read(ref _written);
+    /// <summary>Writes that failed so far: the server compares it per tick and keeps its SavePending flag set (codebase fix 1).</summary>
+    public long Failed => Interlocked.Read(ref _failed);
 
     /// <summary>Queues <paramref name="text"/> for <paramref name="path"/> (replacing an older waiting text for it) and returns at once.</summary>
     public void Submit(string path, string text)
@@ -51,7 +53,7 @@ public sealed class WarfrontAsyncWriter
                 File.Move(tmp, path, overwrite: true);
                 Interlocked.Increment(ref _written);
             }
-            catch (Exception e) { _log($"{Path.GetFileName(path)} could not be written: {e.GetType().Name}: {e.Message}"); }   // any failure is logged; a throw on the pool thread would end the server (review)
+            catch (Exception e) { Interlocked.Increment(ref _failed); _log($"{Path.GetFileName(path)} could not be written: {e.GetType().Name}: {e.Message}"); }   // any failure is logged; a throw on the pool thread would end the server (review)
         }
     }
 

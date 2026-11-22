@@ -19,6 +19,7 @@ public sealed partial class GameServer
     void WarfrontDeploy(int player, WarfrontTarget target, bool serverFallback = false)
     {
         if (_wf is not { } s) return;
+        WarfrontApplyQueuedProgress(s);   // a progress record that waited for the ship is applied before any gate
         var c = s.Campaign;
         if (!s.KeyOf.TryGetValue(player, out ulong key)) { WfLog($"P{player} sent a Deploy before it identified: refused"); return; }
         if (s.Prep is not null || s.Go is not null) return;   // one deployment at a time; the client's resend finds it taken

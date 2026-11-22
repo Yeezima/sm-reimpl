@@ -26,6 +26,7 @@ public sealed partial class GameServer
     void WarfrontFinishRun(WarfrontServerState s)
     {
         if (s.Finished) return;
+        if (s.NoSave) { WfLog($"the run is over but nothing is archived: {s.NoSaveText}"); s.Finished = true; return; }
         s.Finished = true;
         WfSaveFlush();   // an autosave still on its way must not land after the archive removed run.json
         var c = s.Campaign;

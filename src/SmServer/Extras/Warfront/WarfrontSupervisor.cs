@@ -80,8 +80,17 @@ static class WarfrontRunFiles
         return fronts;
     }
 
-    /// <summary>A new run on the Ship, written to disk. Nothing is read from the records. The start fronts come from <c>SM_WF_START</c> when set.</summary>
+    /// <summary>A new run on the Ship, written to disk. Nothing is read from the records.</summary>
     public static WarfrontCampaign NewRun(string dir, ulong? seed = null)
+    {
+        var c = BuildNewRun(seed);
+        WarfrontSave.Write(dir, c);
+        try { File.Delete(Path.Combine(dir, StageFile)); } catch (IOException) { }
+        return c;
+    }
+
+    /// <summary>A new run on the Ship, in memory only (the start fronts come from <c>SM_WF_START</c> when set). The seed is <paramref name="seed"/>, else <c>SM_WF_SEED</c>, else random.</summary>
+    public static WarfrontCampaign BuildNewRun(ulong? seed = null)
     {
         ulong runSeed = seed ?? (ulong.TryParse(Environment.GetEnvironmentVariable("SM_WF_SEED"), CultureInfo.InvariantCulture, out ulong s) ? s : BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8)));
         var c = WarfrontSave.NewRun(runSeed, Rolls());
@@ -93,8 +102,6 @@ static class WarfrontRunFiles
             c = WarfrontSave.FromJson(node.ToJsonString(), Rolls());
         }
         c.Embark();
-        WarfrontSave.Write(dir, c);
-        try { File.Delete(Path.Combine(dir, StageFile)); } catch (IOException) { }
         return c;
     }
 

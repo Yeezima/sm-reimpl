@@ -225,7 +225,7 @@ static class WarfrontSupervisor
                 Console.WriteLine(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
             }
         }
-        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
+        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException or NotSupportedException)   // NotSupported: WarfrontSaveNewerException
         {
             Console.Error.WriteLine(Stamp($"smserver: the Warfront run could not be read or created: {e.Message}"));
             return 1;
@@ -270,8 +270,11 @@ static class WarfrontSupervisor
         {
             if (stop.IsSet) { log(Stamp("stop requested: no stage started, exiting 0")); return 0; }
             WarfrontCampaign? run;
+            // A file this build cannot use does not stop the supervisor: the stage's loader (WarfrontRunLoader) sets a damaged one aside and begins a new run, and
+            // leaves a newer build's or a locked one untouched (a lobby-only stage that refuses every Identify). The supervisor only needs the phase to pick the map.
             try { run = WarfrontSave.Load(dir); }
-            catch (Exception e) when (e is IOException or InvalidDataException or JsonException) { Console.Error.WriteLine(Stamp($"smserver: run.json is unreadable: {e.Message}")); return 1; }
+            catch (WarfrontSaveNewerException e) { run = null; log(Stamp($"run.json is a newer build's file ({e.Message}): left untouched, the stage refuses players")); }
+            catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException) { run = null; log(Stamp($"run.json cannot be read here ({e.Message}): the stage decides what to do with it")); }
             string map = WarfrontStagePlan.NextMap(run, lastShip ?? WarfrontRunFiles.ReadStage(dir)?.Ship);
             if (WarfrontStagePlan.HasShip(map)) lastShip = map;
             log(Stamp($"stage {stage} on {map} ({(run is null ? "no run" : run.Phase.ToString())})"));
