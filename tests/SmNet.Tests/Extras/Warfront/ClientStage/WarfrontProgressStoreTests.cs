@@ -156,6 +156,37 @@ public sealed class WarfrontProgressStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_pending_reset_drops_its_mark_only_when_the_host_flags_the_reset_as_applied()
+    {
+        var s = Store();
+        Assert.True(s.Save(File5(Key, 9000, 3, 1, 2, 3)));
+        Assert.True(s.Reset(DateTime.UtcNow));
+        var fresh = WarfrontProgressFile.Fresh(Key.ToString("x16"));
+        // a queued reset's level-1 acknowledgement (no flag): the mark stays, so the next join sends the reset again
+        s.ApplyHostCopy(fresh, hostAppliedReset: false);
+        Assert.True(WarfrontProgressStore.IsPendingReset(Store().Tap()));
+        // the host applied it (Reset flag): the file becomes an ordinary level-1 file, so a later join does not reset again
+        Assert.True(s.ApplyHostCopy(fresh, hostAppliedReset: true));
+        var after = Store().Tap();
+        Assert.False(WarfrontProgressStore.IsPendingReset(after));
+        Assert.Equal(0, after.Xp);
+        Assert.Null(after.ResetAt);
+        // and new XP from that host is written as usual
+        Assert.True(s.ApplyHostCopy(File5(Key, 1200)));
+        Assert.Equal(1200, Store().Tap().Xp);
+    }
+
+    [Fact]
+    public void A_flagged_copy_above_level_1_never_undoes_a_pending_reset()
+    {
+        var s = Store();
+        Assert.True(s.Save(File5(Key, 9000, 3, 1, 2, 3)));
+        Assert.True(s.Reset(DateTime.UtcNow));
+        Assert.False(s.ApplyHostCopy(File5(Key, 9000, 3, 1, 2, 3), hostAppliedReset: true));
+        Assert.True(WarfrontProgressStore.IsPendingReset(Store().Tap()));
+    }
+
+    [Fact]
     public void The_path_follows_the_key_file()
     {
         Assert.Equal(Path.Combine("x", "key-a.json") + ".progress.json", WarfrontProgressStore.PathFor(Path.Combine("x", "key-a.json")));

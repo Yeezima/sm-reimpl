@@ -120,8 +120,11 @@ public sealed class WarfrontProgressStore
         }
     }
 
-    /// <summary>The host sent its copy: writes it only when <see cref="WarfrontProgressFile.ClientMayWrite"/> allows (never lowers this file, never touches a newer one). True when the file changed.</summary>
-    public bool ApplyHostCopy(WarfrontProgressFile host)
+    /// <summary>
+    /// The host sent its copy: writes it only when <see cref="WarfrontProgressFile.ClientMayWrite"/> allows (never lowers this file, never touches a newer one). True when the file changed. <paramref name="hostAppliedReset"/> (the copy's Reset flag):
+    /// the host has applied this key's reset in its run, so a pending-reset file drops its mark (a later join no longer sends the reset again, which would wipe XP earned on that host meanwhile).
+    /// </summary>
+    public bool ApplyHostCopy(WarfrontProgressFile host, bool hostAppliedReset = false)
     {
         if (Newer || Unreadable) return false;
         var h = WarfrontProgressFile.Sanitize(host);
@@ -129,6 +132,13 @@ public sealed class WarfrontProgressStore
         if (own is not null)
         {
             // a reset the host has not applied yet: its copy (the old level, from before the reset) must not undo it. Only a level-1 copy passes, and that changes nothing.
+            if (IsPendingReset(own) && hostAppliedReset && IsFresh(h))
+            {
+                _resetHeard = true;
+                var cleared = own.Clone();
+                cleared.ResetAt = null;
+                return Save(cleared);   // the reset is in the host's run: the file is an ordinary level-1 file now
+            }
             if (IsPendingReset(own) && !_resetHeard)
             {
                 if (IsFresh(h)) _resetHeard = true;   // the host shows level 1: it has heard the reset, later copies with new XP are welcome

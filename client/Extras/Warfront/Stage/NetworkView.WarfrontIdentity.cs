@@ -39,7 +39,7 @@ public partial class NetworkView
     {
         if (WarfrontModel.ApplyProgressSave(payload) is not { } record) { WarfrontDropped++; return; }
         if (record.Absent || record.State is null || _wfStore is null) return;
-        if (_wfStore.ApplyHostCopy(record.State)) GD.Print($"t {_connectedFor:F1} s: warfront: progress file updated (level {_wfStore.Current?.Level}, {_wfStore.Current?.Xp} xp)");
+        if (_wfStore.ApplyHostCopy(record.State, record.Reset)) GD.Print($"t {_connectedFor:F1} s: warfront: progress file updated (level {_wfStore.Current?.Level}, {_wfStore.Current?.Xp} xp)");
     }
 
     string WarfrontDisplayName()

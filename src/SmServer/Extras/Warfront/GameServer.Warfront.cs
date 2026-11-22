@@ -66,6 +66,8 @@ public sealed partial class GameServer
         public readonly Dictionary<ulong, SmNet.Extras.Warfront.WarfrontProgressRecord> ProgressQueue = new();
         /// <summary>The run copy's XP when a record was queued (kept from the first queueing): what the run copy gains meanwhile is added to the queued record if that wins, so no battle XP is lost.</summary>
         public readonly Dictionary<ulong, long> ProgressQueueBaseXp = new();
+        /// <summary>Keys whose reset this host has applied (this process): their ProgressSave carries the Reset flag, so the client clears its pending-reset mark only once the reset is really in the run (a queued reset's level-1 copy has no flag).</summary>
+        public readonly HashSet<ulong> ResetApplied = new();
         /// <summary>Extra retainers of an applied record whose roster does not exist yet: given to the roster once it does.</summary>
         public readonly Dictionary<ulong, List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>> PendingExtras = new();
         public readonly Dictionary<int, (byte[] Bytes, int Level, int Picks, int Extras, uint Tick)> SaveSent = new();

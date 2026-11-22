@@ -219,6 +219,8 @@ public sealed partial class GameServer
             c.ApplyProgress(key, new SmSim.Extras.Warfront.Progression.WarfrontProgressFile());
             WarfrontRosterSync(s, key, []);
             s.PendingExtras.Remove(key);
+            s.ResetApplied.Add(key);
+            s.ProgressAckDue.Add(player);   // the flagged copy goes out at once: the client may now clear its pending-reset mark
             WfLog($"P{player} (key {KeyTail(key)}) reset the progression: level 1, no cards, one retainer (the stats stay)");
             WfSave(s);
             return;
@@ -268,6 +270,10 @@ public sealed partial class GameServer
         return WarfrontProgressMirror(s, key);
     }
 
+    /// <summary>The flags of a ProgressSave: Reset once this host has applied the key's reset and no newer reset is queued (a queued reset's level-1 copy is sent without it).</summary>
+    static byte WarfrontProgressSaveFlags(WarfrontServerState s, ulong key) =>
+        s.ResetApplied.Contains(key) && !(s.ProgressQueue.TryGetValue(key, out var q) && q.Reset) ? SmNet.Extras.Warfront.WarfrontProgressSaveWire.FlagReset : (byte)0;
+
     /// <summary>The ProgressSave sections: to each player whose client sent a record, on its first send (the acknowledgement), at once on a pick, a level change or a retainer gain, and every <see cref="WarfrontProgressSaveSeconds"/> s while the XP moved.</summary>
     void WarfrontSendProgressSave(WarfrontServerState s, int id, ulong key, uint tick, int rate)
     {
@@ -276,7 +282,7 @@ public sealed partial class GameServer
         if (!ack && tick % (uint)Math.Max(1, rate / 4) != 0) return;
         var file = WarfrontProgressCopyFor(s, key);
         if (file is null) return;
-        var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file);
+        var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file, WarfrontProgressSaveFlags(s, key));
         bool have = s.SaveSent.TryGetValue(id, out var last);
         bool changed = !have || !last.Bytes.AsSpan().SequenceEqual(bytes);
         bool structural = !have || last.Level != file.Level || last.Picks != file.PicksTaken || last.Extras != file.ExtraRetainers.Count;
@@ -299,7 +305,7 @@ public sealed partial class GameServer
             if (!s.ProgressSeen.Contains(id)) continue;
             var file = WarfrontProgressCopyFor(s, key);
             if (file is null) continue;
-            var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file);
+            var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file, WarfrontProgressSaveFlags(s, key));
             s.ProgressAckDue.Remove(id);
             s.SaveSent[id] = (bytes, file.Level, file.PicksTaken, file.ExtraRetainers.Count, World.Tick);
             SendExtras(new ExtrasUpdate(World.Tick, [(SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag, bytes)]), id);
