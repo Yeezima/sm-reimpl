@@ -27,7 +27,7 @@ public partial class NetworkView
         // this PC's progression (codebase fix 1): read once per connection; the Progress command sends it after Identify, tag 49 may rewrite the file
         _wfStore = new WarfrontProgressStore(WarfrontProgressStore.PathFor(CmdArg("warfront-key-file")), key) { Log = GD.Print };
         _wfStore.Load();
-        model.SetProgress(_wfStore.Current, _wfStore.Newer);
+        model.SetProgress(_wfStore.Current, _wfStore.Newer || _wfStore.Unreadable);   // a newer or unreadable file is not sent and not touched
         if (WarfrontClientKey.LastProblem.Length > 0) { model.KeyNote = WarfrontClientKey.LastProblem; GD.Print("warfront: " + WarfrontClientKey.LastProblem); }
         return model;
     }

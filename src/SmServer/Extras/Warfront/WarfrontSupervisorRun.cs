@@ -211,25 +211,7 @@ static class WarfrontSupervisor
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.Error.WriteLine(Stamp($"smserver: the run folder is not usable: {e.Message}")); return 1; }
         }
         using var lockHold = runLock;
-        try
-        {
-            if (cli.WarfrontNew && WarfrontSave.Exists(dir))
-            {
-                var old = WarfrontSave.Load(dir);
-                if (old is not null) Console.WriteLine(Stamp($"--warfront-new: the run on disk is archived ({(old.IsOver ? "finished" : "unfinished, as abandoned")}): {Path.GetFileName(WarfrontSave.Archive(dir, old, DateTime.UtcNow))}"));
-                try { File.Delete(Path.Combine(dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }
-            }
-            if (!WarfrontSave.Exists(dir))
-            {
-                var fresh = WarfrontRunFiles.NewRun(dir);
-                Console.WriteLine(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
-            }
-        }
-        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException or NotSupportedException)   // NotSupported: WarfrontSaveNewerException
-        {
-            Console.Error.WriteLine(Stamp($"smserver: the Warfront run could not be read or created: {e.Message}"));
-            return 1;
-        }
+        if (PrepareRun(dir, cli.WarfrontNew, Console.WriteLine, Console.Error.WriteLine) != 0) return 1;
 
         string exe = Environment.ProcessPath ?? throw new InvalidOperationException("no process path");
         string[] host = Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : [];
@@ -250,6 +232,62 @@ static class WarfrontSupervisor
         }
         using (term)
             return Loop(dir, launcher, cli.WarfrontDedicated, new WarfrontSupervisorTiming(), stop, Console.WriteLine, cli.WarfrontDedicated ? launcher : null);
+    }
+
+    /// <summary>
+    /// The run folder before the first stage: <c>--warfront-new</c> archives the run on disk and begins another, and a missing run.json gets a new run. A file this build cannot use never stops the server by an exception, and a newer build's or a locked
+    /// save is never overwritten, not even by NEW CAMPAIGN (it is refused with the menu notice): a damaged run.json is set aside under records\ (the loader's code) and the new run starts with the notice. 0 = go on, 1 = refused.
+    /// </summary>
+    public static int PrepareRun(string dir, bool warfrontNew, Action<string> log, Action<string> error)
+    {
+        try
+        {
+            if (warfrontNew && WarfrontSave.Exists(dir))
+            {
+                WarfrontCampaign? old = null;
+                string? why = null;
+                try { old = WarfrontSave.Load(dir); }
+                catch (WarfrontSaveNewerException e)
+                {
+                    WarfrontRunLoader.WriteNotice(dir, WarfrontRunLoader.Notice(WarfrontRunLoader.NewerKind, WarfrontRunLoader.NewerText, DateTime.UtcNow), m => log(Stamp(m)));
+                    error(Stamp($"smserver: --warfront-new refused: run.json is a newer build's file ({e.Message}); it is left untouched"));
+                    return 1;
+                }
+                catch (Exception e) when (e is InvalidDataException or JsonException or NotSupportedException or ArgumentException or InvalidOperationException or KeyNotFoundException or FormatException) { why = e.Message; }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    WarfrontRunLoader.WriteNotice(dir, WarfrontRunLoader.Notice(WarfrontRunLoader.LockedKind, WarfrontRunLoader.LockedText, DateTime.UtcNow), m => log(Stamp(m)));
+                    error(Stamp($"smserver: --warfront-new refused: run.json cannot be read ({e.Message}); it is left untouched"));
+                    return 1;
+                }
+                if (why is not null)
+                {
+                    log(Stamp($"--warfront-new: the run on disk is unreadable ({why}); setting it aside"));
+                    if (!WarfrontRunLoader.SetAsideDamaged(dir, new WarfrontLoaderIo(), () => DateTime.UtcNow, m => log(Stamp(m)), out string kept, out string why2))
+                    {
+                        WarfrontRunLoader.WriteNotice(dir, WarfrontRunLoader.Notice(WarfrontRunLoader.Unreadable, WarfrontRunLoader.RefusedText, DateTime.UtcNow), m => log(Stamp(m)));
+                        error(Stamp($"smserver: --warfront-new refused: run.json is damaged and could not be set aside ({why2}); it is left untouched"));
+                        return 1;
+                    }
+                    WarfrontRunLoader.WriteNotice(dir, WarfrontRunLoader.Notice(WarfrontRunLoader.Unreadable, WarfrontRunLoader.DamagedText, DateTime.UtcNow), m => log(Stamp(m)));
+                    log(Stamp($"--warfront-new: the unreadable run is kept as {Path.GetFileName(kept)}"));
+                }
+                else if (old is not null)
+                    log(Stamp($"--warfront-new: the run on disk is archived ({(old.IsOver ? "finished" : "unfinished, as abandoned")}): {Path.GetFileName(WarfrontSave.Archive(dir, old, DateTime.UtcNow))}"));
+                try { File.Delete(Path.Combine(dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }
+            }
+            if (!WarfrontSave.Exists(dir))
+            {
+                var fresh = WarfrontRunFiles.NewRun(dir);
+                log(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
+            }
+            return 0;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException or NotSupportedException)   // NotSupported: WarfrontSaveNewerException
+        {
+            error(Stamp($"smserver: the Warfront run could not be read or created: {e.Message}"));
+            return 1;
+        }
     }
 
     /// <summary>The supervisor's loop: injectable launcher, stop event and log, so the tests run it with a fake child and a short timing.</summary>

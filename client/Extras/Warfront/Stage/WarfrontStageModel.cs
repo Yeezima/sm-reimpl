@@ -98,7 +98,7 @@ public sealed class WarfrontStageModel
     byte _progressTransfer;
     double _progressAt = double.NegativeInfinity;
 
-    /// <summary>The first ProgressSave (tag 49) arrived: the host has this client's progress and the Progress command stops.</summary>
+    /// <summary>The first ProgressSave (tag 49) arrived: the host has this client's progress and the Progress command stops. With a reset pending, only a ProgressSave that shows level 1 counts: the host has heard the reset.</summary>
     public bool ProgressAcked { get; private set; }
 
     /// <summary>This PC's progress file as read at connect (null: no file, so flag 1 absent goes out). <paramref name="newer"/>: the file is of a newer build and nothing is sent, so the host keeps its copy and the file is never touched.</summary>
@@ -118,7 +118,8 @@ public sealed class WarfrontStageModel
     /// </summary>
     public IReadOnlyList<byte[]>? ProgressDue(double now)
     {
-        if (ProgressAcked || _progressNewer || _identifySends == 0 || _progressSends >= MaxProgressSends || now - _progressAt < ResendSeconds) return null;
+        bool resetPending = WarfrontProgressStore.IsPendingReset(_progress);   // the reset is repeated until the host shows level 1 (no send cap: the player's reset must reach it)
+        if (ProgressAcked || _progressNewer || _identifySends == 0 || (!resetPending && _progressSends >= MaxProgressSends) || now - _progressAt < ResendSeconds) return null;
         if (ProgressRecord() is not { } record) return null;
         if (_progressSends == 0) _progressTransfer++;
         _progressAt = now; _progressSends++;
@@ -129,7 +130,8 @@ public sealed class WarfrontStageModel
     public WarfrontProgressRecord? ApplyProgressSave(ReadOnlySpan<byte> payload)
     {
         if (!WarfrontProgressSaveWire.TryDecode(payload, out var record)) return null;
-        ProgressAcked = true;
+        bool showsReset = record.State is { } st && WarfrontProgressStore.IsFresh(WarfrontProgressFile.Sanitize(st));
+        if (!WarfrontProgressStore.IsPendingReset(_progress) || showsReset) ProgressAcked = true;
         return record;
     }
 

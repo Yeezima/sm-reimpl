@@ -184,7 +184,13 @@ public sealed partial class GameServer
         s.ProgressSeen.Add(player);
         s.ProgressAckDue.Add(player);
         bool ship = WarfrontShipPhase(s);
-        if (!ship) { s.ProgressQueue[key] = record; WfLog($"P{player} progress record queued to the next ship stop ({s.Campaign.Phase})"); return; }
+        if (!ship)
+        {
+            if (!s.ProgressQueueBaseXp.ContainsKey(key) && WarfrontProgressMirror(s, key) is { } baseline) s.ProgressQueueBaseXp[key] = baseline.Xp;
+            s.ProgressQueue[key] = record;
+            WfLog($"P{player} progress record queued to the next ship stop ({s.Campaign.Phase})");
+            return;
+        }
         WarfrontMergeProgress(s, player, key, record);
     }
 
@@ -207,6 +213,7 @@ public sealed partial class GameServer
     void WarfrontMergeProgress(WarfrontServerState s, int player, ulong key, SmNet.Extras.Warfront.WarfrontProgressRecord record)
     {
         var c = s.Campaign;
+        bool wasQueued = s.ProgressQueueBaseXp.Remove(key, out long queuedAtXp);   // false when the record was merged at once
         if (record.Reset)
         {
             c.ApplyProgress(key, new SmSim.Extras.Warfront.Progression.WarfrontProgressFile());
@@ -229,6 +236,9 @@ public sealed partial class GameServer
         var winner = SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Better(run, theirs);
         if (ReferenceEquals(winner, theirs))
         {
+            // the record waited for the ship (the player joined mid-battle): the XP the run's copy earned meanwhile is not lost; level-ups from it give their normal picks
+            long gained = wasQueued ? Math.Max(0, run.Xp - queuedAtXp) : 0;
+            if (gained > 0) { theirs.Xp += gained; theirs = SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Sanitize(theirs); WfLog($"P{player} (key {KeyTail(key)}) earned {gained} XP in the battle on the run's copy: added to the player's file"); }
             c.ApplyProgress(key, theirs);
             WarfrontRosterSync(s, key, theirs.ExtraRetainers);
             WfLog($"P{player} (key {KeyTail(key)}) progress: the player's file (level {theirs.Level}, {theirs.PicksTaken} picks, {theirs.ExtraRetainers.Count} extra retainer(s)) is better than the run's (level {run.Level}) and is applied");
@@ -247,13 +257,24 @@ public sealed partial class GameServer
         return SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Sanitize(file);
     }
 
+    /// <summary>
+    /// The copy tag 49 carries to a client: the run's copy, except for a client whose reset is queued (it reset on the menu and joined a battle): that one gets the level-1 copy the reset will make, so the acknowledgement never sends
+    /// the old level back to the file the player just reset.
+    /// </summary>
+    SmSim.Extras.Warfront.Progression.WarfrontProgressFile? WarfrontProgressCopyFor(WarfrontServerState s, ulong key)
+    {
+        if (s.ProgressQueue.TryGetValue(key, out var queued) && queued.Reset && s.Campaign.Player(key) is not null)
+            return SmSim.Extras.Warfront.Progression.WarfrontProgressFile.Sanitize(new SmSim.Extras.Warfront.Progression.WarfrontProgressFile());
+        return WarfrontProgressMirror(s, key);
+    }
+
     /// <summary>The ProgressSave sections: to each player whose client sent a record, on its first send (the acknowledgement), at once on a pick, a level change or a retainer gain, and every <see cref="WarfrontProgressSaveSeconds"/> s while the XP moved.</summary>
     void WarfrontSendProgressSave(WarfrontServerState s, int id, ulong key, uint tick, int rate)
     {
         if (!s.ProgressSeen.Contains(id)) return;
         bool ack = s.ProgressAckDue.Contains(id);
         if (!ack && tick % (uint)Math.Max(1, rate / 4) != 0) return;
-        var file = WarfrontProgressMirror(s, key);
+        var file = WarfrontProgressCopyFor(s, key);
         if (file is null) return;
         var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file);
         bool have = s.SaveSent.TryGetValue(id, out var last);
@@ -265,6 +286,29 @@ public sealed partial class GameServer
         s.SaveSent[id] = (bytes, file.Level, file.PicksTaken, file.ExtraRetainers.Count, tick);
         SendExtras(new ExtrasUpdate(tick, [(SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag, bytes)]), id);
     }
+
+    /// <summary>
+    /// The final send (the end of the run, a stage change): every client that sent a record gets the run's copy once more now, whatever the 10 s rule says, so its file holds the last XP before the process leaves.
+    /// (A player who has already left cannot be reached; the 10 s sends keep that window short.) Returns how many were sent.
+    /// </summary>
+    int WarfrontSendProgressSaveFinal(WarfrontServerState s)
+    {
+        int sent = 0;
+        foreach (var (id, key) in s.KeyOf.ToList())
+        {
+            if (!s.ProgressSeen.Contains(id)) continue;
+            var file = WarfrontProgressCopyFor(s, key);
+            if (file is null) continue;
+            var bytes = SmNet.Extras.Warfront.WarfrontProgressSaveWire.Encode(file);
+            s.ProgressAckDue.Remove(id);
+            s.SaveSent[id] = (bytes, file.Level, file.PicksTaken, file.ExtraRetainers.Count, World.Tick);
+            SendExtras(new ExtrasUpdate(World.Tick, [(SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag, bytes)]), id);
+            sent++;
+        }
+        return sent;
+    }
+
+    internal int WarfrontSendProgressSaveFinalForTests() => _wf is { } s ? WarfrontSendProgressSaveFinal(s) : 0;
 
     /// <summary>Once a tick: queued records at the ship, extras waiting for a roster.</summary>
     void WarfrontProgressStep(WarfrontServerState s)

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4018 spec table rows: **2960 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
+Scanned 4025 spec table rows: **2967 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4018 spec table rows: **2960 tagged**, 695 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 132 | 131 | 54 | 53 | 0 |
+| General game design | 139 | 138 | 54 | 53 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2960** | 2655 | 2197 | 889 | 37 |
+| **All areas** | **2967** | 2662 | 2197 | 889 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1772 |
+| kind: ours | 1779 |
 | confidence: low | 1065 |
 | confidence: medium | 1021 |
 | notes: ours | 473 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (132)
+### General game design (139)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4473,6 +4473,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C6AC536` | Campaign save: locked | a `run.json` that cannot be read (IOException or UnauthorizedAccess) is read 3 times, 200 ms apart; still failing, it is left untouched and the server refuses every join with "the campaign file cannot be read" (ms) | kind: ours; kind: estimate; confidence: medium | owner decision 2026-11-22 (answer 2) | Campaign save: locked: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a run.json that cannot be read (IOException or UnauthorizedAccess) is… | ☐ |
 | `R-B20AFCDC` | Menu notice | the loader writes `notice.json` (`{kind: unreadable\|newer\|locked, utc, text}`) in the run folder; the Warfront menu reads and deletes it when the page opens and shows it as one upper-case live-text line (at most 140 characters); an online host sends the same… | kind: ours | owner decision 2026-11-22 | Menu notice: compare with SM1 by feel or video. Ours: the loader writes notice.json ({kind: unreadable\|newer\|locked, utc… | ☐ |
 | `R-5F28CB31` | Supervisor on a bad run | the supervisor no longer exits when the run cannot be loaded; it starts the stage in the refuse mode above | kind: ours | codebase fix 1 plan | Supervisor on a bad run: compare with SM1 by timing a run over a known distance. Ours: the supervisor no longer exits when the run cannot be loaded; it… | ☐ |
+| `R-9B4E0C51` | Reset against a host that has not applied it | a client whose reset is queued (it reset on the menu and joined a battle) gets a ProgressSave with the level-1 copy, never the old level; its file ignores any host copy above level 1 while it is a pending reset (until a level-1 copy was heard), and it resends… | kind: ours | review of codebase fix 1 | Reset against a host that has not applied it: compare with SM1 by feel or video. Ours: a client whose reset is queued (it reset on the menu and joined a… | ☐ |
+| `R-EB377287` | Progress file unreadable (locked) | a progress file that exists but cannot be read (IOException, UnauthorizedAccess) is Unreadable, never Absent: never written, reset or raised this session, nothing sent to the host, the Reset plate says so | kind: ours | review of codebase fix 1 | Progress file unreadable (locked): compare with SM1 by feel or video. Ours: a progress file that exists but cannot be read (IOException… | ☐ |
+| `R-B5574C75` | Reset safety copy source | the copy is of the file the load would use (main, or the .bak when the main is damaged); a damaged main never replaces a good safety copy | kind: ours | review of codebase fix 1 | Reset safety copy source: compare with SM1 by feel or video. Ours: the copy is of the file the load would use (main, or the .bak when… | ☐ |
+| `R-6A2F2385` | Battle XP of a mid-battle joiner | when a record queued outside the Ship wins at the ship stop, the XP the run's copy gained since it was queued is added to it (its level-ups give their normal picks); when the run's copy wins nothing changes (XP) | kind: ours | review of codebase fix 1 | Battle XP of a mid-battle joiner: compare with SM1 by feel or video. Ours: when a record queued outside the Ship wins at the ship stop, the XP… | ☐ |
+| `R-00888761` | Final ProgressSave | every client that sent a record gets the run's copy once more at the end of the run and at a stage change (Go), whatever the 10 s rule says; a player who has already left cannot be reached | kind: ours | review of codebase fix 1 | Final ProgressSave: compare with SM1 by feel or video. Ours: every client that sent a record gets the run's copy once more at the… | ☐ |
+| `R-39BBFD43` | NEW CAMPAIGN on an unusable run.json | `--warfront-new` with a damaged run.json sets it aside under records (the loader's code) and starts the new run with the notice; a newer or locked run.json is left untouched and the server refuses (exit 1) with the notice, even on NEW CAMPAIGN | kind: ours | review of codebase fix 1 | NEW CAMPAIGN on an unusable run.json: compare with SM1 by timing a run over a known distance. Ours: --warfront-new with a damaged run.json sets it aside under records… | ☐ |
+| `R-8947DC6E` | Autosave writer busy | a synchronous save whose flush of the asynchronous writer times out (10 s) does not write; it sets SavePending (retried) so run.json.tmp is never raced (s) | kind: ours | review of codebase fix 1 | Autosave writer busy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a synchronous save whose flush of the asynchronous writer times out… | ☐ |
 
 ## Part B: Ork faction
 

@@ -64,6 +64,8 @@ public sealed partial class GameServer
         public readonly HashSet<int> ProgressSeen = new(), ProgressAckDue = new();
         /// <summary>A record that arrived outside the Ship phase: applied at the next ship stop (latest per key).</summary>
         public readonly Dictionary<ulong, SmNet.Extras.Warfront.WarfrontProgressRecord> ProgressQueue = new();
+        /// <summary>The run copy's XP when a record was queued (kept from the first queueing): what the run copy gains meanwhile is added to the queued record if that wins, so no battle XP is lost.</summary>
+        public readonly Dictionary<ulong, long> ProgressQueueBaseXp = new();
         /// <summary>Extra retainers of an applied record whose roster does not exist yet: given to the roster once it does.</summary>
         public readonly Dictionary<ulong, List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>> PendingExtras = new();
         public readonly Dictionary<int, (byte[] Bytes, int Level, int Picks, int Extras, uint Tick)> SaveSent = new();
@@ -223,7 +225,8 @@ public sealed partial class GameServer
     void WfSave(WarfrontServerState s)
     {
         if (s.Finished || s.Leaving || s.NoSave) return;
-        _wfWriter.Flush();   // perf pass: an autosave still on its way lands first, so the files stay in save order
+        // perf pass: an autosave still on its way lands first, so the files stay in save order. A writer that does not finish (a failing disk) is not raced on run.json.tmp: this save waits (SavePending, retried).
+        if (!_wfWriter.Flush()) { WarfrontSaveFailed(s, "the autosave writer is still busy"); return; }
         WarfrontSaveSquads(s);   // the squads first, then the run: killed between the two, a pick is offered again instead of a paid card with no Marine
         try
         {

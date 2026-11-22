@@ -55,6 +55,7 @@ public sealed partial class FrontEndView
         if (serverRunning) { plate.Disabled = true; hint = WarfrontResetRunningHint; }
         else if (store is null) { plate.Disabled = true; hint = WarfrontResetNoKeyHint; }
         else if (store.Newer) { plate.Disabled = true; hint = "Your progression needs a newer build."; }
+        else if (store.Unreadable) { plate.Disabled = true; hint = "Your progress file could not be read. It is left alone."; }
         UiTooltip.Attach(plate, hint);
         return plate;
     }

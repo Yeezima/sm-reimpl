@@ -15,6 +15,8 @@ public enum WarfrontProgressLoad
     Newer,
     /// <summary>A good file, but for another key than this PC's client.json: treated as absent; it is kept as <see cref="WarfrontProgressStore.OtherKeyCopyPath"/> before the next write replaces it.</summary>
     KeyMismatch,
+    /// <summary>The file exists but could not be read (locked, no access): it is never written over this session, nothing is sent to the host for it, the menu says so.</summary>
+    Unreadable,
 }
 
 /// <summary>
@@ -48,17 +50,25 @@ public sealed class WarfrontProgressStore
         keyFile is { Length: > 0 } ? keyFile + ".progress.json" : System.IO.Path.Combine(WarfrontClientKey.Folder(), "progress.json");
 
     public bool Newer => State == WarfrontProgressLoad.Newer;
+    /// <summary>The file could not be read (see <see cref="WarfrontProgressLoad.Unreadable"/>): treated like a newer file, never written.</summary>
+    public bool Unreadable => State == WarfrontProgressLoad.Unreadable;
 
     /// <summary>Reads the file: main, then <c>.bak</c>, then absent.</summary>
     public WarfrontProgressLoad Load()
     {
         Current = null;
+        _resetHeard = false;
         State = WarfrontProgressLoad.Absent;
         foreach (string p in new[] { Path, BakPath })
         {
             string text;
             try { if (!File.Exists(p)) continue; text = File.ReadAllText(p); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log("warfront: the progress file could not be read" + (p == Path ? "; trying its backup" : "")); continue; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // a good file may sit behind the lock: never take it for absent (a later Save would overwrite it), and never fall back to an older .bak either
+                Log("warfront: the progress file could not be read: left alone this session");
+                return State = WarfrontProgressLoad.Unreadable;
+            }
             switch (WarfrontProgressFile.TryParse(text, out var file))
             {
                 case WarfrontProgressParse.Newer:
@@ -86,6 +96,7 @@ public sealed class WarfrontProgressStore
     {
         LastProblem = "";
         if (Newer) { LastProblem = "the progress file is of a newer build"; return false; }
+        if (Unreadable) { LastProblem = "the progress file could not be read"; return false; }
         try
         {
             if (State == WarfrontProgressLoad.KeyMismatch && File.Exists(Path)) File.Copy(Path, OtherKeyCopyPath, overwrite: true);   // kept, not lost
@@ -112,17 +123,25 @@ public sealed class WarfrontProgressStore
     /// <summary>The host sent its copy: writes it only when <see cref="WarfrontProgressFile.ClientMayWrite"/> allows (never lowers this file, never touches a newer one). True when the file changed.</summary>
     public bool ApplyHostCopy(WarfrontProgressFile host)
     {
-        if (Newer) return false;
+        if (Newer || Unreadable) return false;
         var h = WarfrontProgressFile.Sanitize(host);
         var own = State == WarfrontProgressLoad.Ok ? Current : null;
         if (own is not null)
         {
+            // a reset the host has not applied yet: its copy (the old level, from before the reset) must not undo it. Only a level-1 copy passes, and that changes nothing.
+            if (IsPendingReset(own) && !_resetHeard)
+            {
+                if (IsFresh(h)) _resetHeard = true;   // the host shows level 1: it has heard the reset, later copies with new XP are welcome
+                else return false;
+            }
             if (!WarfrontProgressFile.ClientMayWrite(h, own)) return false;
             if (SameBody(h, own)) return false;   // nothing new: no write
             h.ResetAt = own.ResetAt;
         }
         return Save(h);
     }
+
+    bool _resetHeard;
 
     static bool SameBody(WarfrontProgressFile a, WarfrontProgressFile b)
     {
@@ -140,9 +159,13 @@ public sealed class WarfrontProgressStore
     {
         LastProblem = "";
         if (Newer) { LastProblem = "the progress file is of a newer build"; return false; }
+        if (Unreadable) { LastProblem = "the progress file could not be read: nothing was reset"; return false; }
         try
         {
-            if (File.Exists(Path)) File.Copy(Path, BeforeResetPath, overwrite: true);
+            // the safety copy is of the file Load would use (the main file, or the .bak when the main is damaged), never of a damaged main over a good copy
+            string? source = GoodSource();
+            if (source is not null) File.Copy(source, BeforeResetPath, overwrite: true);
+            else if (File.Exists(Path) && !File.Exists(BeforeResetPath)) File.Copy(Path, BeforeResetPath, overwrite: false);   // nothing good: keep what there is, but never replace an earlier good copy
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -156,6 +179,20 @@ public sealed class WarfrontProgressStore
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log("warfront: the old backup could not be deleted"); }
         return true;
     }
+
+    /// <summary>The first of main and .bak that parses as a good file of this build (the one <see cref="Load"/> uses), or null.</summary>
+    string? GoodSource()
+    {
+        foreach (string p in new[] { Path, BakPath })
+        {
+            try { if (File.Exists(p) && WarfrontProgressFile.TryParse(File.ReadAllText(p), out _) == WarfrontProgressParse.Ok) return p; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return null;
+    }
+
+    /// <summary>A level-1 record with nothing earned: XP, picks, cards and extra retainers all empty.</summary>
+    public static bool IsFresh(WarfrontProgressFile f) => f.Xp == 0 && f.PicksTaken == 0 && f.Cards.Count == 0 && f.ExtraRetainers.Count == 0;
 
     /// <summary>The state is a fresh level-1 one carrying a <c>resetAt</c>: a reset the host may not have heard yet.</summary>
     public static bool IsPendingReset(WarfrontProgressFile? f) =>

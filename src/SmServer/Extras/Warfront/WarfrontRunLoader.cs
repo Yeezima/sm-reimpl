@@ -124,10 +124,25 @@ public static class WarfrontRunLoader
 
         // damaged: set aside, never delete
         log($"run.json is unreadable ({why}); setting it aside");
+        if (!SetAsideDamaged(dir, io, clock, log, out string runTo, out string why2)) return Refuse(dir, clock(), log, why2);
+        var notice = Notice(Unreadable, DamagedText, clock());
+        WriteNotice(dir, notice, log);
+        return NewRunLoad(dir, io, $"a new run after an unreadable save (kept as {Path.GetFileName(runTo)})", WarfrontLoadState.NewAfterDamaged, notice);
+    }
+
+    /// <summary>
+    /// Sets a damaged run.json (and squads.json beside it) aside under <c>records\&lt;yyyyMMddTHHmmssZ&gt;-unreadable[-n].json</c> (squads: <c>...-squads.json</c>): moved, or copied when the move fails. Nothing is deleted
+    /// except a squads file whose copy is safe. False (nothing set aside) when run.json could be neither moved nor copied. The same code serves the stage's load and the supervisor's <c>--warfront-new</c> path.
+    /// </summary>
+    public static bool SetAsideDamaged(string dir, WarfrontLoaderIo io, Func<DateTime> clock, Action<string> log, out string runTo, out string why)
+    {
+        why = "";
+        runTo = "";
+        string path = Path.Combine(dir, WarfrontSave.RunFile);
         var utc = clock().ToUniversalTime();
         string records = Path.Combine(dir, WarfrontSave.RecordsDir);
         string stamp = utc.ToString("yyyyMMdd'T'HHmmss'Z'") + "-unreadable";
-        string runTo, squadsTo;
+        string squadsTo;
         try
         {
             Directory.CreateDirectory(records);
@@ -136,13 +151,11 @@ public static class WarfrontRunLoader
             runTo = Path.Combine(records, stamp + suffix + ".json");
             squadsTo = Path.Combine(records, stamp + suffix + "-squads.json");
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return Refuse(dir, clock(), log, e.Message); }
-        if (!SetAside(io, path, runTo, log, deleteOriginalAfterCopy: false)) return Refuse(dir, clock(), log, "neither moved nor copied");
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { why = e.Message; return false; }
+        if (!SetAside(io, path, runTo, log, deleteOriginalAfterCopy: false)) { why = "neither moved nor copied"; return false; }
         string squads = Path.Combine(dir, "squads.json");
         if (File.Exists(squads) && !SetAside(io, squads, squadsTo, log, deleteOriginalAfterCopy: true)) log("squads.json could not be set aside; it stays");
-        var notice = Notice(Unreadable, DamagedText, clock());
-        WriteNotice(dir, notice, log);
-        return NewRunLoad(dir, io, $"a new run after an unreadable save (kept as {Path.GetFileName(runTo)})", WarfrontLoadState.NewAfterDamaged, notice);
+        return true;
     }
 
     static WarfrontRunLoad Refuse(string dir, DateTime utc, Action<string> log, string why)
@@ -188,7 +201,7 @@ public static class WarfrontRunLoader
         return c;
     }
 
-    static WarfrontLoadNotice Notice(string kind, string text, DateTime utc) => new(kind, utc.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"), text);
+    public static WarfrontLoadNotice Notice(string kind, string text, DateTime utc) => new(kind, utc.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"), text);
 
     /// <summary>Writes <c>notice.json</c> (a failure is only logged: the notice is a courtesy).</summary>
     public static void WriteNotice(string dir, WarfrontLoadNotice notice, Action<string>? log = null)

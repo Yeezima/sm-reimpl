@@ -95,6 +95,8 @@ public sealed partial class GameServer
     /// <summary>Stage = Go: remember who must rejoin, keep answering a moment, then ask the loop to leave with the next-stage exit code.</summary>
     void WarfrontStartGo(WarfrontServerState s, string map, WarfrontTarget? target)
     {
+        WarfrontApplyQueuedProgress(s);
+        WarfrontSendProgressSaveFinal(s);   // the last XP reaches the clients' files before this process leaves
         var expected = s.KeyOf.Values.ToList();
         WarfrontRunFiles.WriteStage(s.Dir, new(map, expected, WarfrontStagePlan.HasShip(s.Map) ? s.Map : WarfrontRunFiles.ReadStage(s.Dir)?.Ship));
         s.Go = new GoState { Map = map, Target = target, Tick = World.Tick };
