@@ -283,7 +283,14 @@ public sealed partial class OptionsView : UiKit.MenuPage
     public override void _Notification(int what)
     {
         base._Notification(what);
-        if (what == NotificationVisibilityChanged && !Visible) _services.FlushSave();
+        if (what != NotificationVisibilityChanged) return;
+        if (!Visible) _services.FlushSave();
+        else if (_services.LastSaveError is { } why && IsNodeReady()) ShowToast(NotSaved(why));   // a save that failed while the page was away (leave-page flush, in-match F11) shows when it opens again
+    }
+
+    void OnSaveFailed(string why)
+    {
+        if (IsInstanceValid(this) && IsInsideTree() && Visible) ShowToast(NotSaved(why));   // a background save failed under the open page
     }
 
     /// <summary>REVERT: every option this page edits goes back to the last point (the page opened, or APPLY), applied and saved like any change.</summary>
@@ -485,9 +492,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
         AddWide(keybinds);
     }
 
-    public override void _EnterTree() => CustomizerServices.WindowModeToggled += OnWindowModeToggled;
+    public override void _EnterTree() { CustomizerServices.WindowModeToggled += OnWindowModeToggled; _services.SaveFailed += OnSaveFailed; }
 
-    public override void _ExitTree() { CustomizerServices.WindowModeToggled -= OnWindowModeToggled; _services.FlushSave(); }
+    public override void _ExitTree() { CustomizerServices.WindowModeToggled -= OnWindowModeToggled; _services.SaveFailed -= OnSaveFailed; _services.FlushSave(); }
 
     /// <summary>F11 changed the window mode: the open page shows it at once (the rows keep their focus).</summary>
     void OnWindowModeToggled(GameOptions options)

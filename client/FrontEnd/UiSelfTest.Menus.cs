@@ -315,6 +315,11 @@ public sealed partial class UiSelfTest
             _services.FlushSave();
             Check("save: a flush (quit, match start) writes the pending change", Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, 0.3f));
 
+            // quit: the helper every front-end Quit goes through writes a pending change first (the SceneTree is not quit here).
+            _services.UpdateSettings(x => x with { Options = x.Options with { MasterVolume = 0.45f } });
+            CustomizerServices.FlushBeforeQuit();
+            Check("save: the quit helper writes a pending change", Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, 0.45f));
+
             // (a) a settings file that cannot be replaced: APPLY and the next change say NOT SAVED; once it can, APPLY says APPLIED.
             _front.ShowOptions(OptionsView.Sound);
             await Frames(3);
@@ -330,8 +335,21 @@ public sealed partial class UiSelfTest
                 if (!string.IsNullOrEmpty(shot)) { await Frames(6); GetViewport().GetTexture().GetImage().SavePng(shot); }
             }
             finally { System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal); }
+            // a background save that fails under the open page shows the toast without APPLY.
+            await Frames(2);
+            options.Toast.Visible = false; options.Toast.Text = "";
+            System.IO.File.SetAttributes(file, System.IO.FileAttributes.ReadOnly);
+            try
+            {
+                master = (HSlider)options.FindChild("MasterVolumeSlider", true, false)!;
+                master.Value = 0.35;
+                await Until(() => !_services.SavePending, 3);
+                await Frames(2);
+                Check("save: a failed background save shows NOT SAVED without APPLY", options.Toast.Visible && options.Toast.Text.StartsWith("SETTINGS NOT SAVED", StringComparison.Ordinal), options.Toast.Text);
+            }
+            finally { System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal); }
             options.Apply();
-            Check("save: APPLY retries and says APPLIED once it works", _services.LastSaveError is null && options.Toast.Text.Contains("APPLIED") && Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, 0.6f), options.Toast.Text);
+            Check("save: APPLY retries and says APPLIED once it works", _services.LastSaveError is null && options.Toast.Text.Contains("APPLIED") && Mathf.IsEqualApprox(FrontEndSettings.Load(dir).Options.MasterVolume, _services.Settings.Options.MasterVolume), options.Toast.Text);
         }
         finally
         {

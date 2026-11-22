@@ -225,9 +225,10 @@ public sealed partial class CustomizerServices
             timer.Timeout += () => { if (generation == _saveGeneration) FlushSave(); };
         }
         else FlushSave();   // no loop (a tool run): nothing would fire a timer
-        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
-        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;   // a quit with a pending change still writes it
+        if (!_exitHooked) { _exitHooked = true; AppDomain.CurrentDomain.ProcessExit += OnProcessExit; }   // a backstop: a quit with a pending change still writes it
     }
+
+    bool _exitHooked;
 
     void OnProcessExit(object? sender, EventArgs e) => FlushSave();
 
@@ -247,7 +248,21 @@ public sealed partial class CustomizerServices
         SaveCount++;
         string? error = Settings.Save(SettingsDirectory);
         LastSaveError = error is null ? null : ShortSaveReason(error);
+        if (LastSaveError is { } why) SaveFailed?.Invoke(why);
     }
+
+    /// <summary>Raised with the short reason whenever a write of the settings file fails (the timer's, a flush's or APPLY's): the open Options page shows it at once.</summary>
+    public event Action<string>? SaveFailed;
+
+    /// <summary>Quits the client after writing a pending settings change (every front-end quit goes through here; the process-exit hook is only the backstop).</summary>
+    public static void Quit(SceneTree tree)
+    {
+        FlushBeforeQuit();
+        tree.Quit();
+    }
+
+    /// <summary>The write half of <see cref="Quit"/> (a self-test calls it without quitting).</summary>
+    public static void FlushBeforeQuit() => Latest?.FlushSave();
 
     /// <summary>A short, path-free reason from an IO message (the messages name the file).</summary>
     static string ShortSaveReason(string message)
