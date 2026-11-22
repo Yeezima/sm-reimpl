@@ -178,6 +178,8 @@ public sealed partial class GameServer
         public TokenBucket? Commands;
         /// <summary>Protocol 58: the rate of respawn choices taken from this peer (<see cref="OnSpawnRequest"/>).</summary>
         public TokenBucket? SpawnRequests;
+        /// <summary>Protocol 89: the revision of the last respawn choice taken from this peer (null: none yet; a new join is a new peer, so it starts empty).</summary>
+        public ushort? SpawnRevision;
         /// <summary>Protocol 80: the rate of developer-tools requests taken from this peer (<see cref="OnDevCommand"/>).</summary>
         public TokenBucket? DevRequests;
         /// <summary>cancel-editor: the rate of cancel-table edits taken from this peer (<see cref="OnDevCancelEdit"/>).</summary>

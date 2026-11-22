@@ -16,3 +16,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Warfront needs this build: earlier builds cannot join a Warfront game. Classic PvP is unchanged.
 - Classic: after a map change on a rotating server you now spawn with the loadout you last saved or deployed in the match, not the one you first joined with. Your side choice is still asked again (Automatic stays Automatic).
 - Warfront: rockets, plasma and launcher shots now hit where the Orks are, not where they just were: slightly less forgiving against side-stepping Orks. Instant shots (bolters, lascannon) are unchanged.
+- Classic: the spawn point you pick on the death screen can no longer be overridden by an older choice that arrives late over a bad connection; your last pick is the one you respawn at. New network version: everyone must update, and earlier builds cannot join a Classic game on this build.

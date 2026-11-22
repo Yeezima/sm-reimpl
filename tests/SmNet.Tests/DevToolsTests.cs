@@ -68,7 +68,7 @@ public class DevToolsTests
     [Fact]
     public void The_protocol_is_80_and_the_two_messages_round_trip_and_refuse_nonsense()
     {
-        Assert.Equal(88, Protocol.Version);
+        Assert.Equal(89, Protocol.Version);
         var command = Assert.IsType<DevCommand>(Protocol.Read(Protocol.Write(new DevCommand(77u, DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteAmmo, true))));
         Assert.Equal((77u, DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteAmmo, true), (command.Session, command.Kind, command.Argument, command.Value));
         Assert.Equal(Protocol.DevCommandBytes, Protocol.Write(command).Length);

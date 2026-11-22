@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4026 spec table rows: **2968 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
+Scanned 4027 spec table rows: **2969 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 419 | 360 | 358 | 115 | 12 |
+| Movement (critical) | 420 | 361 | 358 | 115 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,13 +53,13 @@ Scanned 4026 spec table rows: **2968 tagged**, 695 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 140 | 139 | 54 | 54 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2968** | 2663 | 2197 | 890 | 37 |
+| **All areas** | **2969** | 2664 | 2197 | 890 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1780 |
+| kind: ours | 1781 |
 | confidence: low | 1065 |
 | confidence: medium | 1021 |
 | notes: ours | 473 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (419)
+### Movement (gameplay-critical) (420)
 
 *Spec section: Extracted parameters*
 
@@ -440,6 +440,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4484EE0D` | Clear of every player | a chosen spot is never within two capsule radii plus 0.1 m (1.0 m) of a living player in plan (within a capsule's height); the spawn room takes the first spot 2 m clear, else the first spot 1.0 m clear (new), else the least crowded (m) | kind: ours; confidence: low | ours | Clear of every player: compare with SM1 by measuring on a flat spot of the same map. Ours: a chosen spot is never within two capsule radii plus 0.1 m (1.0 m) of… | ☐ |
 | `R-F1209AB7` | Choosing on the death screen | while dead, a line under the loadout hint says "SPAWN AT: SPAWN ROOM / POINT B / NAME (TELEPORT HOMER)"; Next weapon (X, the wheel; the wheel down goes back) or the controller's D-pad right / left cycles the choices the client knows (the scoreboard's carrier… (s) | kind: ours; confidence: low | ours (SM1 had no such choice; keys and look ours) | Choosing on the death screen: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while dead, a line under the loadout hint says "SPAWN AT: SPAWN ROOM… | ☐ |
 | `R-361A02E1` | Carrier flag on the scoreboard | each scoreboard row says whether the player is alive and carries Teleport Homer (sent every second to everyone, enemies too) | kind: ours; confidence: low | ours | Carrier flag on the scoreboard: compare with SM1 by feel or video. Ours: each scoreboard row says whether the player is alive and carries… | ☐ |
+| `R-CA8AE554` | Respawn choice order (codebase fix 7, protocol 89; Codex review, owner 2026-11-22) | each new choice a client sends carries a per-session u16 revision (1, 2, ...; wrapping), kept on its resends every 0.5 s; the server takes a request only when its revision is newer than the last taken from that peer (1 to 32767 steps ahead, wrapping); an… (count) | kind: ours | Codex review 2026-11-21; owner 2026-11-22 ("order number") | Respawn choice order (codebase fix 7, protocol 89; Codex…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each new choice a client sends carries a per-session u16 revision (1… | ☐ |
 | `R-7FAEA922` | Heavy bolter count in the HUD | the weapon box shows the rounds left in the bolter's count field (`ammo_mc/ammo_txt`, red at 0) over the heat bar, not the movie's endless sign (`infinity_mc`, which the movie places in the box and which may be what SM1 showed) | confidence: medium | **owner's decision** (2026-11-06: the 400 cap must be visible) | Heavy bolter count in the HUD: compare with SM1 by feel or video. Ours: the weapon box shows the rounds left in the bolter's count field… | ☐ |
 
 *Spec section: Sprint, backpedal and facing poses; hidden zone indicators (M36; client only, not simulated)*

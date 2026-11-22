@@ -12,6 +12,16 @@ public static class SpawnChoiceRules
     /// <summary>Seconds between resends of the current choice while dead (the message is unacknowledged; ours).</summary>
     public const double ResendSeconds = 0.5;
 
+    /// <summary>
+    /// Protocol 89 (fix 7; Codex review, owner 2026-11-22): whether request revision <paramref name="revision"/> is newer than <paramref name="last"/> (u16, wrapping: 1 to 32767 steps
+    /// ahead). The client numbers each new choice and keeps the number on its resends; the server takes only a newer one, so a reordered older request cannot undo the last choice.
+    /// </summary>
+    public static bool Newer(ushort revision, ushort last)
+    {
+        ushort delta = (ushort)(revision - last);
+        return delta is > 0 and < 0x8000;
+    }
+
     /// <summary>Classic PvP: a team match (the scoreboard says teams) that is not Musou Mode.</summary>
     public static bool Classic(Scoreboard? board, ContentExtras extras) => board is { Teams: true } && !extras.HasFlag(ContentExtras.Musou);
 

@@ -548,7 +548,9 @@ public static partial class Protocol
     //     (crates, barrels, sandbag piles) is solid and pierceable like the M39 props, so a client's prediction must agree with the server's collision on every map but Manufactorum (MapContent.LoaderVersion 9: the map hash also changes on every map).
     // 88 (sim/stab-release; the owner 2026-11-20): no layout change. The power sword's stab (T, F + F, RMB + F; Classic PvP; Musou Mode's and Warfront's X,F thrust is released the same way, keeping its finisher chain, via the config hash) ends at its release, the later of its hit and its move-on branch (0.909 s of 1.818 s), instead of the end of its clip:
     //     move, fire, switch, grenade, melee and charge act from that tick (evade one tick later). Client prediction must agree, hence the bump. Restore switch (config hash): --old-stab-release.
-    public const ushort Version = 88;
+    // 89 (fix 7, classic/spawn-choice-order; Codex review, owner 2026-11-22): SpawnRequest gains a u16 revision (10 bytes, was 8). The client numbers each new respawn choice and keeps the number on its resends; the server takes only a newer
+    //     revision per player (wrapping comparison; equal = a resend, older = ignored), so a reordered stale request cannot override the last choice. No sim change; the config hash is unchanged.
+    public const ushort Version = 89;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

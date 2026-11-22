@@ -172,7 +172,7 @@ public class PvpDeploySpawnTests(ITestOutputHelper output)
         Assert.False(Assert.IsType<Setup>(Protocol.Read(Protocol.Write(setup with { Flags = 0 }))).Deploy);
         bytes[^1] = 2;
         Assert.Null(Protocol.Read(bytes));
-        Assert.Equal(88, Protocol.Version);
+        Assert.Equal(89, Protocol.Version);
     }
 
     [Fact]
@@ -371,9 +371,10 @@ public class PvpDeploySpawnTests(ITestOutputHelper output)
     [Fact]
     public void The_spawn_request_and_the_scoreboard_carrier_flag_travel_and_bad_values_are_refused()
     {
-        var request = new SpawnRequest(11, SpawnChoiceKind.Homer, 4242);
+        var request = new SpawnRequest(11, SpawnChoiceKind.Homer, 4242, 777);
         var bytes = Protocol.Write(request);
         Assert.Equal(Protocol.SpawnRequestBytes, bytes.Length);
+        Assert.Equal(10, Protocol.SpawnRequestBytes);
         Assert.Equal(request, Assert.IsType<SpawnRequest>(Protocol.Read(bytes)));
         bytes[5] = 3;   // unknown kind
         Assert.Null(Protocol.Read(bytes));
@@ -433,6 +434,110 @@ public class PvpDeploySpawnTests(ITestOutputHelper output)
         h.Run(TimeSpan.FromMilliseconds(200));
         Assert.True(h.Server.SpawnRequestsDropped >= 1);
         Assert.Equal(SpawnChoice.SpawnRoom, world.SpawnChoiceOf(foe.PlayerId));
+    }
+
+    // ================================================================= Spawn choice order (protocol 89, codebase fix 7)
+
+    [Fact]
+    public void A_revision_is_newer_by_one_to_32767_steps_and_wraps()
+    {
+        Assert.True(SpawnChoiceRules.Newer(2, 1));
+        Assert.False(SpawnChoiceRules.Newer(1, 1));
+        Assert.False(SpawnChoiceRules.Newer(1, 2));
+        Assert.True(SpawnChoiceRules.Newer(0, 65535));
+        Assert.True(SpawnChoiceRules.Newer(3, 65534));
+        Assert.False(SpawnChoiceRules.Newer(65534, 3));
+        Assert.True(SpawnChoiceRules.Newer(32767, 0));
+        Assert.False(SpawnChoiceRules.Newer(32768, 0));
+    }
+
+    static (Harness H, GameClient Me, int A, int B) ThreeClients(int seed)
+    {
+        var options = new ServerOptions { Match = new MatchRules { TimeLimit = 0f, ScoreLimit = 1000 } };
+        var h = new Harness(LinkConditions.Perfect, seed, clients: 0, Config, options);
+        var me = h.AddClient(options: new ClientOptions { RequestedClass = SmTac, RequestedSide = Team.SpaceMarines }, nonce: 1);
+        var a = h.AddClient(options: new ClientOptions { RequestedClass = SmTac, RequestedSide = Team.SpaceMarines }, nonce: 2);
+        var b = h.AddClient(options: new ClientOptions { RequestedClass = SmTac, RequestedSide = Team.SpaceMarines }, nonce: 3);
+        Assert.True(CustomFixture.RunUntil(h, () => h.Clients.All(c => c.Status == ClientStatus.Connected), TimeSpan.FromSeconds(5)));
+        h.Run(TimeSpan.FromSeconds(1));
+        return (h, me, a.PlayerId, b.PlayerId);
+    }
+
+    static SpawnChoice Homer(int id) => new(SpawnChoiceKind.Homer, id);
+
+    static void Settle(Harness h) => h.Run(TimeSpan.FromMilliseconds(150));
+
+    [Fact]
+    public void A_delayed_older_choice_and_a_duplicate_do_not_override_the_last_choice()
+    {
+        var (h, me, a, b) = ThreeClients(7);
+        var world = h.Server.World;
+        Assert.True(me.SendSpawnChoice(Homer(a)));   // revision 1
+        Settle(h);
+        Assert.True(me.SendSpawnChoice(Homer(b)));   // revision 2
+        Settle(h);
+        Assert.Equal(Homer(b), world.SpawnChoiceOf(me.PlayerId));
+        Assert.True(me.SendSpawnChoiceAt(Homer(a), 1));   // the reordered A, arriving after B just before the deployment
+        Settle(h);
+        Assert.Equal(Homer(b), world.SpawnChoiceOf(me.PlayerId));
+        Assert.True(h.Server.SpawnRequestsStale >= 1);
+        Assert.True(me.SendSpawnChoice(Homer(b)));   // a resend of B keeps its revision
+        Assert.True(me.SendSpawnChoiceAt(Homer(b), 2));   // a duplicate B
+        Settle(h);
+        Assert.Equal(Homer(b), world.SpawnChoiceOf(me.PlayerId));
+        Assert.True(me.SendSpawnChoice(Homer(a)));   // a real change after the resends is a new revision (3) and wins
+        Settle(h);
+        Assert.Equal(Homer(a), world.SpawnChoiceOf(me.PlayerId));
+    }
+
+    [Fact]
+    public void The_revision_counter_wraps_around_and_an_older_far_revision_is_ignored()
+    {
+        var (h, me, a, b) = ThreeClients(8);
+        var world = h.Server.World;
+        Assert.True(me.SendSpawnChoiceAt(Homer(a), 65534));   // the first request is taken at any revision
+        Settle(h);
+        Assert.Equal(Homer(a), world.SpawnChoiceOf(me.PlayerId));
+        ushort[] revisions = [65535, 0, 1];
+        for (int i = 0; i < revisions.Length; i++)
+        {
+            var choice = Homer(i % 2 == 0 ? b : a);
+            Assert.True(me.SendSpawnChoiceAt(choice, revisions[i]));
+            Settle(h);
+            Assert.Equal(choice, world.SpawnChoiceOf(me.PlayerId));
+        }
+        Assert.True(me.SendSpawnChoiceAt(Homer(a), 65535));   // 2 steps back across the wrap: older
+        Settle(h);
+        Assert.Equal(Homer(b), world.SpawnChoiceOf(me.PlayerId));   // revision 1 was Homer(b)
+    }
+
+    [Fact]
+    public void A_rejoining_player_may_start_below_its_old_revision_and_bad_or_too_fast_requests_are_still_dropped()
+    {
+        var (h, me, a, b) = ThreeClients(9);
+        var world = h.Server.World;
+        Assert.True(me.SendSpawnChoiceAt(Homer(a), 500));
+        Settle(h);
+        me.Leave();
+        h.Run(TimeSpan.FromMilliseconds(300));
+        var back = h.AddClient(options: new ClientOptions { RequestedClass = SmTac, RequestedSide = Team.SpaceMarines }, nonce: 11);
+        Assert.True(CustomFixture.RunUntil(h, () => back.Status == ClientStatus.Connected, TimeSpan.FromSeconds(5)));
+        h.Run(TimeSpan.FromMilliseconds(500));
+        Assert.True(back.SendSpawnChoice(Homer(b)));   // revision 1 of the new session
+        Settle(h);
+        Assert.Equal(Homer(b), world.SpawnChoiceOf(back.PlayerId));
+        // Malformed (a point that does not exist) is dropped whatever its revision.
+        int dropped = h.Server.SpawnRequestsDropped;
+        Assert.True(back.SendSpawnChoiceAt(new SpawnChoice(SpawnChoiceKind.ControlPoint, 9), 50));
+        Settle(h);
+        Assert.True(h.Server.SpawnRequestsDropped > dropped);
+        Assert.Equal(Homer(b), world.SpawnChoiceOf(back.PlayerId));
+        // The rate limit is unchanged: a burst far over 8 a second takes only the bucket's worth.
+        int accepted = h.Server.SpawnRequestsAccepted, before = h.Server.SpawnRequestsDropped;
+        for (ushort r = 100; r < 160; r++) back.SendSpawnChoiceAt(Homer(r % 2 == 0 ? a : b), r);
+        h.Run(TimeSpan.FromMilliseconds(100));
+        Assert.True(h.Server.SpawnRequestsAccepted - accepted <= 10);
+        Assert.True(h.Server.SpawnRequestsDropped - before >= 40);
     }
 
     // ================================================================= 3. Heavy bolter ammunition
