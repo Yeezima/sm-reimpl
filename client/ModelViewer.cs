@@ -365,13 +365,13 @@ public partial class ModelViewer : Node3D
         AddChild(layer);
     }
 
-    /// <summary>Stops the server the Host button started (never any other process).</summary>
     /// <summary>The window's close button (or Alt+F4): a pending settings change is written before the engine quits.</summary>
     public override void _Notification(int what)
     {
         if (what == NotificationWMCloseRequest) CustomizerServices.Latest?.FlushSave();
     }
 
+    /// <summary>Stops the server the Host button started (never any other process).</summary>
     public override void _ExitTree() { CustomizerServices.Latest?.FlushSave(); HostedServer.Stop(); }
 
     /// <summary>Starts the networked view (M5) for <c>--connect</c> or for a Join from the front end; <paramref name="args"/> are the client's user arguments.</summary>
