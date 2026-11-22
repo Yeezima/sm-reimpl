@@ -484,7 +484,8 @@ public sealed partial class CreatorView
             var press = t.Press; b.Pressed += () => press();
             _armTilesHost.AddChild(b); _armTileButtons.Add(b);
             PaintedButtons.Apply(b, "arm-tile-dark", "arm-tile-gold", new PaintedButtons.Pad(1, 2, 1, 2), new PaintedButtons.Pad(3, 3, 3, 3), s, true, paintedText: true, noGlow: true, cpx: s);
-            int paren = t.Label.IndexOf(" (", StringComparison.Ordinal); var l = new Label { Text = (paren > 0 ? t.Label[..paren] : t.Label).ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, AutowrapMode = TextServer.AutowrapMode.Word };
+            string tileNote = " " + LoadoutRows.NotInBuild.ToUpperInvariant(); bool noted = t.Label.EndsWith(tileNote, StringComparison.Ordinal); string tileText = noted ? t.Label[..^tileNote.Length] : t.Label;   // a kept pick of another build keeps its note (the cut below only drops class-name suffixes)
+            int paren = tileText.IndexOf(" (", StringComparison.Ordinal); var l = new Label { Text = ((paren > 0 ? tileText[..paren] : tileText) + (noted ? tileNote : "")).ToUpperInvariant(), MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, AutowrapMode = TextServer.AutowrapMode.Word };
             ArmLabel(l, ArmTileSize, s, t.Selected ? new Color(1f, 0.95f, 0.8f) : ArmLight);
             l.Position = new Vector2(7f, 30f) * s; l.Size = new Vector2(60f, 31f) * s; b.AddChild(l); tileLabels.Add((l, l.Text, l.Size.X));   // clear of the bezels
             if (ArmIcon(t.Icon, i == 0 ? "glyph-grenade" : "glyph-perk") is { } tex)

@@ -113,7 +113,7 @@ public static class LoadoutRows
         {
             // A kept pick of another build (added content's weapon) is not in this list: None is chosen, and says so.
             bool secondForeign = custom.Second is not null && catalog.IsForeignPick(custom.Second, "ranged");
-            var secondRows = new List<OptionRow> { new("", secondForeign ? "None (saved pick not in this build)" : "None", "No second primary: key 3 does nothing.", custom.Second is null || secondForeign, false, false, Unlock.Open, "") };
+            var secondRows = new List<OptionRow> { new("", secondForeign ? "None " + NotInBuild : "None", "No second primary: key 3 does nothing.", custom.Second is null || secondForeign, false, false, Unlock.Open, "") };
             for (int i = 0; i < primaries.Items.Count; i++)
             {
                 var item = primaries.Items[i];
