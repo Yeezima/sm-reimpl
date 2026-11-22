@@ -845,19 +845,20 @@ sealed class MainForm : Form
         string installed = _layout.LauncherExe;
         string? target = LauncherHandoff.Decide(LauncherInfo.ExePath, LauncherInfo.Version, false, installed, LauncherVersions.Of(installed), null, null);
         if (target is null) return false;
-        try
+        var forward = Environment.GetCommandLineArgs().Skip(1).ToList();
+        if (!_args.Has("root")) { forward.Add("--root"); forward.Add(_layout.Root); }
+        // The lock is let go for the new launcher and taken back when the start fails or throws: this window never carries on without it.
+        var outcome = LockedHandOver.Run(ref _lock, _layout, () => SelfUpdate.StartInstalled(target, forward), TimeSpan.FromSeconds(3), _log is null ? null : _log.Write);
+        if (outcome == HandOverOutcome.StayedLocked) return false;
+        _handedOver = true;
+        if (outcome == HandOverOutcome.LockLost)
         {
-            var forward = Environment.GetCommandLineArgs().Skip(1).ToList();
-            if (!_args.Has("root")) { forward.Add("--root"); forward.Add(_layout.Root); }
-            _lock?.Dispose();
-            _lock = null;
-            if (!SelfUpdate.StartInstalled(target, forward)) return false;
-            _log?.Write("launcher: this copy is older than the installed launcher; started " + target + " and closing");
-            _handedOver = true;
-            Close();
-            return true;
+            _log?.Write("launcher: hand-over failed and the install folder is now held by another launcher; closing");
+            if (!_args.Has("screenshot")) DarkBox.Show(this, $"Another SM Reimpl Launcher is already open for {_layout.Root}.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-        catch (Exception e) { _log?.Write("launcher: hand-over failed: " + e.Message); return false; }
+        else _log?.Write("launcher: this copy is older than the installed launcher; started " + target + " and closing");
+        Close();
+        return true;
     }
 
     // ---- play ----------------------------------------------------------------------------------------------------------------
