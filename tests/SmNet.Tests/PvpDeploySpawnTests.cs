@@ -376,6 +376,7 @@ public class PvpDeploySpawnTests(ITestOutputHelper output)
         Assert.Equal(Protocol.SpawnRequestBytes, bytes.Length);
         Assert.Equal(10, Protocol.SpawnRequestBytes);
         Assert.Equal(request, Assert.IsType<SpawnRequest>(Protocol.Read(bytes)));
+        Assert.Null(Protocol.Read(bytes[..8]));   // the old 8-byte form (protocol 88, no revision) is refused
         bytes[5] = 3;   // unknown kind
         Assert.Null(Protocol.Read(bytes));
         Assert.Throws<ArgumentException>(() => Protocol.Write(new SpawnRequest(1, SpawnChoiceKind.Homer, 70000)));
@@ -488,6 +489,21 @@ public class PvpDeploySpawnTests(ITestOutputHelper output)
         Assert.True(me.SendSpawnChoice(Homer(a)));   // a real change after the resends is a new revision (3) and wins
         Settle(h);
         Assert.Equal(Homer(a), world.SpawnChoiceOf(me.PlayerId));
+    }
+
+    [Fact]
+    public void A_choice_that_reads_as_the_spawn_room_for_a_while_and_comes_back_stands()
+    {
+        // the client sends SpawnChoiceRules.Effective: a carrier who drops out of the options reads as the spawn room, then the carrier again; each turn is a new revision and the last one stands
+        var (h, me, a, _) = ThreeClients(9);
+        var world = h.Server.World;
+        Assert.True(me.SendSpawnChoice(Homer(a))); Settle(h);
+        Assert.True(me.SendSpawnChoice(SpawnChoice.SpawnRoom)); Settle(h);
+        Assert.Equal(SpawnChoice.SpawnRoom, world.SpawnChoiceOf(me.PlayerId));
+        Assert.True(me.SendSpawnChoice(SpawnChoice.SpawnRoom)); Settle(h);   // resends change nothing
+        Assert.True(me.SendSpawnChoice(Homer(a))); Settle(h);
+        Assert.Equal(Homer(a), world.SpawnChoiceOf(me.PlayerId));
+        Assert.Equal(0, h.Server.SpawnRequestsStale);
     }
 
     [Fact]
