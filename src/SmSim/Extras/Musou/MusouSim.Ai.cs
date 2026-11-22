@@ -788,7 +788,17 @@ public sealed partial class MusouSim
     public ushort Raycast(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head) => Raycast(origin, direction, maxDistance, out distance, out head, default);
 
     /// <summary><see cref="Raycast(Vector3, Vector3, float, out float, out bool)"/> past the enemies in <paramref name="past"/> (a shot that has gone through them).</summary>
-    public ushort Raycast(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head, ReadOnlySpan<ushort> past)
+    public ushort Raycast(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head, ReadOnlySpan<ushort> past) =>
+        RaycastBodies(origin, direction, maxDistance, out distance, out head, past, useTrail: true);
+
+    /// <summary>
+    /// The same ray for a PROJECTILE that advances in server time (a rokkit, a launcher or plasma round: each step's segment): it tests only each enemy's CURRENT pose, never its trail of past poses (the
+    /// trail is the lag compensation of an instant shot whose shooter saw the Ork a moment ago; a flying round that bursts on a spot the Ork already left would be wrong). Codex review 2026-11-21, owner 2026-11-22.
+    /// </summary>
+    public ushort RaycastCurrent(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head, ReadOnlySpan<ushort> past = default) =>
+        RaycastBodies(origin, direction, maxDistance, out distance, out head, past, useTrail: false);
+
+    ushort RaycastBodies(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head, ReadOnlySpan<ushort> past, bool useTrail)
     {
         ushort best = 0; distance = maxDistance; head = false;
         var dxy = new Vector2(direction.X, direction.Y);
@@ -800,7 +810,7 @@ public sealed partial class MusouSim
             float headRadius = 0.22f * height / 1.9f;
             var now = _position[i];
             // Quick reject: the ray's line passes farther than the body and its recent path from the axis.
-            float reach = r + headRadius + TrailReach;
+            float reach = r + headRadius + (useTrail ? TrailReach : 0f);
             var m = new Vector2(origin.X - now.X, origin.Y - now.Y);
             if (a > 1e-9f)
             {
@@ -811,7 +821,7 @@ public sealed partial class MusouSim
             }
             else if (m.LengthSquared() > reach * reach) continue;
             // The shooter saw the enemy a moment ago: the shot is tried on where it is and where it was over the last TrailTicks.
-            for (int back = 0; back <= TrailTicks; back += TrailStep)
+            for (int back = 0; back <= (useTrail ? TrailTicks : 0); back += TrailStep)
             {
                 var c = back == 0 ? now : _trail[i * TrailLength + (int)((Tick + TrailLength - (uint)back) % TrailLength)];
                 if (back > 0 && Vector3.DistanceSquared(c, now) > TrailReach * TrailReach) continue;   // a teleport or a fresh slot, not a path

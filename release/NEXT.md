@@ -15,3 +15,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Warfront: a damaged campaign save is set aside (not overwritten) and you are told; a save from a newer build or one that cannot be read is left alone with a message; a failed save no longer wipes your campaign.
 - Warfront needs this build: earlier builds cannot join a Warfront game. Classic PvP is unchanged.
 - Classic: after a map change on a rotating server you now spawn with the loadout you last saved or deployed in the match, not the one you first joined with. Your side choice is still asked again (Automatic stays Automatic).
+- Warfront: rockets, plasma and launcher shots now hit where the Orks are, not where they just were: slightly less forgiving against side-stepping Orks. Instant shots (bolters, lascannon) are unchanged.

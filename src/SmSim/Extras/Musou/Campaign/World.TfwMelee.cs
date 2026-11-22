@@ -150,7 +150,7 @@ public sealed partial class World
         int most = plasma ? int.MaxValue : Math.Min(TfwCombatRules.Pierced(weapon), TfwCombatRules.MostPierced);
         while (true)
         {
-            ushort enemy = musou.Raycast(from, direction, length, out distance, out head, CollectionsMarshal.AsSpan(passed));
+            ushort enemy = musou.RaycastCurrent(from, direction, length, out distance, out head, CollectionsMarshal.AsSpan(passed));   // a flying projectile: current pose only (the hit-scan TfwPierceShot keeps the trail)
             if (enemy == 0 || passed.Count >= most) return enemy;
             // A charged plasma cannon ball carries its damage in the burst (DetonateDamage), not as a direct hit: each enemy it goes through takes that once.
             var direct = Shots.DirectDamageOf(weapon, p.Stage) ?? (plasma ? SpecOf(p).DetonateDamage : null);

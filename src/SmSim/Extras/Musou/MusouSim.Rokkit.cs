@@ -71,7 +71,8 @@ public sealed partial class MusouSim
             if (collision?.Weapons.Raycast(rocket.Position, dir, length) is { } wall) hit = wall.Distance;
             if (RocketDome?.Invoke(rocket.Position, dir, length) is float dome && dome < hit) hit = dome;   // expansion S4: a shield dome stops it from outside
             past[0] = rocket.Shooter;
-            if (Raycast(rocket.Position, dir, MathF.Min(length, hit), out float ork, out _, past) != 0) hit = MathF.Min(hit, ork);
+            if (RaycastCurrent(rocket.Position, dir, MathF.Min(length, hit), out float ork, out _, past) != 0)   // a rokkit tests the Ork's current pose only (no lag-compensation trail)
+                hit = MathF.Min(hit, ork);
             foreach (var t in targets)
             {
                 if (!t.Alive || t.Goal || t.Id < 0) continue;   // Guard squads: the ground under them stops it

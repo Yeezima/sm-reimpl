@@ -39,7 +39,7 @@ public class MusouRunPin(ITestOutputHelper output)
     static readonly ulong[] StepHashes = [0x7B694F28F6C678EDUL, 0x77D53A5F0C943EE8UL, 0x0C9766B564CCC176UL, 0x8302916050FA5A04UL, 0xA1640B6C53B74D59UL];
     const string Phases = "Battle,Battle,Hub,Battle,Battle";
     const int OrksKilled = 226, Secured = 0, Transport = 3, Supplies = 4;
-    const uint Total = 20;
+    const uint Total = 0;   // 20 before codebase fix 6 (2026-11-22): the scripted player's one projectile kill burst on an Ork's past pose; projectiles now test the current pose only
     const ulong Enemies = 0x18ABAA6AE660F303UL;
 
     [Fact]

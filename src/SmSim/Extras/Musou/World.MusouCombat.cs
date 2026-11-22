@@ -178,7 +178,7 @@ public sealed partial class World
             if (!(length > 1e-4f)) continue;
             var direction = segment / length;
             float distance; bool head;
-            ushort enemy = musou.War is not null && !p.Thrown ? TfwPierceProjectile(p, from, direction, length, out distance, out head) : musou.Raycast(from, direction, length, out distance, out head);
+            ushort enemy = musou.War is not null && !p.Thrown ? TfwPierceProjectile(p, from, direction, length, out distance, out head) : musou.RaycastCurrent(from, direction, length, out distance, out head);   // a flying projectile: current pose only
             if (enemy == 0 || (_musouProjectileStruck.TryGetValue(id, out var struck) && struck == enemy)) continue;
             var point = from + direction * distance;
             bool stays = false; ArsenalProjectileMeets(id, enemy, 0, point, ref stays);   // Arsenal/World.Arsenal.cs: a projectile of the arsenal meeting an enemy (W4, the sticking charge); a no-op until then
