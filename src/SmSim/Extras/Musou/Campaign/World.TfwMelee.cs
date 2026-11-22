@@ -90,10 +90,24 @@ public sealed partial class World
         int most = plasma ? passed.Length : Math.Min(1 + TfwCombatRules.Pierced(weapon), TfwCombatRules.MostPierced), struck = 0;
         float keep = 1f, last = 0f;
         bool firstHead = false;
+        // One pass over the pool for every enemy on the ray (S1, 2026-11-23: it used to scan the pool once per Ork struck): the same enemies, in the same order, as asking again past each one.
+        Span<ushort> ids = stackalloc ushort[TfwCombatRules.MostPlasmaPierced];
+        Span<float> dists = stackalloc float[TfwCombatRules.MostPlasmaPierced];
+        Span<bool> heads = stackalloc bool[TfwCombatRules.MostPlasmaPierced];
+        int found = musou.RaycastThrough(shot.Origin, direction, length, ids[..most], dists[..most], heads[..most]);
+        bool onePass = true;
         while (struck < most)
         {
-            ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head, passed[..struck]);
-            if (enemy == 0) break;
+            ushort enemy; float distance; bool head;
+            // A hit can change the enemies behind it (a Weirdboy's burst kills those around him): when the next one on the list is no longer in play, the rest is asked of the pool again, as before.
+            if (onePass && struck < found && musou.TryGet(ids[struck], out var next) && next.State != MusouEnemyState.Dying) { enemy = ids[struck]; distance = dists[struck]; head = heads[struck]; }
+            else if (onePass && struck >= found) break;
+            else
+            {
+                onePass = false;
+                enemy = musou.Raycast(shot.Origin, direction, length, out distance, out head, passed[..struck]);
+                if (enemy == 0) break;
+            }
             var spec = MusouShotDamage(weapon, shot.Stage, distance, shot.Shooter);   // full damage at any range in the war (owner 2026-11-11)
             float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * keep * MusouRangedDealt(shot.Shooter);   // x1.2 (owner 2026-11-11); a plasma burn follows the hit
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);

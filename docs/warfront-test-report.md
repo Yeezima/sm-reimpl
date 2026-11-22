@@ -114,3 +114,14 @@ Allied pair: the solo run showed `allied pair: on (solo campaign, lane battle)` 
 - Edits outside new files, approved by the lead: one call line `WarfrontLaneWalkAid(s);` in `src/SmServer/Extras/Warfront/GameServer.Warfront.cs` (`WarfrontStep`), one line in `client/Extras/Warfront/Stage/NetworkView.WarfrontBot.cs` (`--warfront-bot-pick`). The roster aid lives in the same new file as the lane walk.
 - Proposed sentence for `CLAUDE.md` "Current state": "Warfront (added content, `--content warfront`, branch `claude/warfront`, rules version 13) is a 30 to 60 minute solo or four-player Musou campaign (nine lane nodes, the HQ defence, the Ork fortress, XP cards, retainer squads, a leaderboard, save and resume); its proof (`docs/warfront-test-report.md`) passed in aided scripted runs and is unproven for an unaided human win, difficulty, length, readability and four real people over a network."
 - Route after Warfront: write the save off the tick thread; the rejoin's long frame; the stale prebuild text; Musou's own wall route and ring faults.
+
+## Piercing-shot cost (S1, 2026-11-23)
+`TfwPierceBenchTests` (opt-in: `SM_PIERCE_BENCH=1`, `dotnet test -c Release --filter FullyQualifiedName~TfwPierceBenchTests`), 2,000 Orks lined up along four firing lines, four owners firing a lascannon (9 struck) and a plasma shot (64 struck) every tick, 150 ticks, single thread, below-normal priority, damage not applied (so the horde stays fixed).
+
+| | one lascannon shot | one plasma shot | tick typical / p95 / p99 |
+|---|---|---|---|
+| no shooting | | | 2.3 / 3.6 / 4.7 ms |
+| N-sweeps (before) | 0.47 ms | 3.2 ms | 16.1 / 24.0 / 81.7 ms |
+| one pass (after) | 0.05 ms | 0.05 ms | 1.7 / 1.8 / 2.3 ms (the unshot run is a different tick sample: PC noise is about 1 ms) |
+
+The Debug build measured 2.2 ms and 15.5 ms a shot. The decision bar (one shot over 1 ms or p99 up more than 10 %) was crossed, so the code changed (see `docs/milestones.md`).

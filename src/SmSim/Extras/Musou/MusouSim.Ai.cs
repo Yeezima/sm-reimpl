@@ -801,60 +801,93 @@ public sealed partial class MusouSim
     ushort RaycastBodies(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head, ReadOnlySpan<ushort> past, bool useTrail)
     {
         ushort best = 0; distance = maxDistance; head = false;
-        var dxy = new Vector2(direction.X, direction.Y);
-        float a = Vector2.Dot(dxy, dxy);
+        float a = RayFlat(direction);
         for (int i = 0; i < Capacity; i++)
         {
             if (!_used[i] || _state[i] == MusouEnemyState.Dying || past.Contains((ushort)(i + 1))) continue;
-            var (r, height) = ShotBody(_type[i]);
-            float headRadius = 0.22f * height / 1.9f;
-            var now = _position[i];
-            // Quick reject: the ray's line passes farther than the body and its recent path from the axis.
-            float reach = r + headRadius + (useTrail ? TrailReach : 0f);
-            var m = new Vector2(origin.X - now.X, origin.Y - now.Y);
-            if (a > 1e-9f)
-            {
-                float along = -Vector2.Dot(m, dxy) / a;
-                // The ray is within `reach` of the axis (horizontally) for a span of `reach / sqrt(a)` either side of the closest approach: along is a 3D length, so a steep ray (small a) needs the wider margin.
-                float margin = reach / MathF.Sqrt(a);
-                if (along < -margin || along > maxDistance + margin) continue;
-                var closest = m + dxy * along;
-                if (closest.LengthSquared() > reach * reach) continue;
-            }
-            else if (m.LengthSquared() > reach * reach) continue;
-            // The shooter saw the enemy a moment ago: the shot is tried on where it is and where it was over the last TrailTicks.
-            for (int back = 0; back <= (useTrail ? TrailTicks : 0); back += TrailStep)
-            {
-                var c = back == 0 ? now : _trail[i * TrailLength + (int)((Tick + TrailLength - (uint)back) % TrailLength)];
-                if (back > 0 && Vector3.DistanceSquared(c, now) > TrailReach * TrailReach) continue;   // a teleport or a fresh slot, not a path
-                // Head: a sphere at the top.
-                var headCentre = c + new Vector3(0f, 0f, height - headRadius);
-                if (RaySphere(origin, direction, headCentre, headRadius) is { } th && th < distance) { distance = th; best = (ushort)(i + 1); head = true; }
-                // Body: a closed cylinder from the feet to under the head: its side, its top and its bottom all count.
-                float from = 0f, to = distance;
-                if (a > 1e-9f)
-                {
-                    var mc = new Vector2(origin.X - c.X, origin.Y - c.Y);
-                    float bb = Vector2.Dot(mc, dxy), cc = Vector2.Dot(mc, mc) - r * r, disc = bb * bb - a * cc;
-                    if (disc < 0f) continue;
-                    float root = MathF.Sqrt(disc);
-                    from = MathF.Max(from, (-bb - root) / a);
-                    to = MathF.Min(to, (-bb + root) / a);
-                }
-                else if (new Vector2(origin.X - c.X, origin.Y - c.Y).LengthSquared() > r * r) continue;
-                float low = c.Z, high = c.Z + height - headRadius;
-                if (MathF.Abs(direction.Z) > 1e-6f)
-                {
-                    float t1 = (low - origin.Z) / direction.Z, t2 = (high - origin.Z) / direction.Z;
-                    from = MathF.Max(from, MathF.Min(t1, t2));
-                    to = MathF.Min(to, MathF.Max(t1, t2));
-                }
-                else if (origin.Z < low || origin.Z > high) continue;
-                if (from <= to && from < distance) { distance = from; best = (ushort)(i + 1); head = false; }
-            }
+            if (RayBody(i, origin, direction, a, maxDistance, distance, useTrail, out float d, out bool h)) { distance = d; best = (ushort)(i + 1); head = h; }
         }
         if (best == 0) distance = 0f;
         return best;
+    }
+
+    /// <summary>
+    /// The first <paramref name="ids"/>.Length enemies a hit-scan ray meets within <paramref name="maxDistance"/> (the trail counted, as <see cref="Raycast(Vector3, Vector3, float, out float, out bool, ReadOnlySpan{ushort})"/>),
+    /// nearest first, ties by the lowest id, in ONE pass over the pool: exactly what asking <c>Raycast</c> again and again past the enemies already struck gives (S1, 2026-11-23: that scanned the pool once per Ork struck).
+    /// Fills <paramref name="ids"/>, <paramref name="distances"/> and <paramref name="heads"/> (all the same length) and returns how many.
+    /// </summary>
+    public int RaycastThrough(Vector3 origin, Vector3 direction, float maxDistance, Span<ushort> ids, Span<float> distances, Span<bool> heads)
+    {
+        int n = 0, most = ids.Length;
+        if (most == 0) return 0;
+        float a = RayFlat(direction);
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!_used[i] || _state[i] == MusouEnemyState.Dying) continue;
+            if (!RayBody(i, origin, direction, a, maxDistance, maxDistance, true, out float d, out bool h)) continue;
+            if (n == most && d >= distances[n - 1]) continue;   // full, and not nearer than the farthest kept (an equal distance has the higher id: it loses the tie)
+            int at = n < most ? n++ : n - 1;   // insert after every kept enemy at the same or a nearer distance: ids arrive ascending, so a tie keeps the lower id first
+            while (at > 0 && distances[at - 1] > d) { ids[at] = ids[at - 1]; distances[at] = distances[at - 1]; heads[at] = heads[at - 1]; at--; }
+            ids[at] = (ushort)(i + 1); distances[at] = d; heads[at] = h;
+        }
+        return n;
+    }
+
+    static float RayFlat(Vector3 direction) => Vector2.Dot(new Vector2(direction.X, direction.Y), new Vector2(direction.X, direction.Y));
+
+    /// <summary>One enemy slot against a ray: whether it is struck nearer than <paramref name="bound"/> (<paramref name="maxDistance"/> is the ray's length, for the quick reject), and where (the nearest of its head and body tests over its pose and trail) and whether by the head.</summary>
+    bool RayBody(int i, Vector3 origin, Vector3 direction, float a, float maxDistance, float bound, bool useTrail, out float distance, out bool head)
+    {
+        distance = bound; head = false;
+        bool hit = false;
+        var dxy = new Vector2(direction.X, direction.Y);
+        var (r, height) = ShotBody(_type[i]);
+        float headRadius = 0.22f * height / 1.9f;
+        var now = _position[i];
+        // Quick reject: the ray's line passes farther than the body and its recent path from the axis.
+        float reach = r + headRadius + (useTrail ? TrailReach : 0f);
+        var m = new Vector2(origin.X - now.X, origin.Y - now.Y);
+        if (a > 1e-9f)
+        {
+            float along = -Vector2.Dot(m, dxy) / a;
+            // The ray is within `reach` of the axis (horizontally) for a span of `reach / sqrt(a)` either side of the closest approach: along is a 3D length, so a steep ray (small a) needs the wider margin.
+            float margin = reach / MathF.Sqrt(a);
+            if (along < -margin || along > maxDistance + margin) return false;
+            var closest = m + dxy * along;
+            if (closest.LengthSquared() > reach * reach) return false;
+        }
+        else if (m.LengthSquared() > reach * reach) return false;
+        // The shooter saw the enemy a moment ago: the shot is tried on where it is and where it was over the last TrailTicks.
+        for (int back = 0; back <= (useTrail ? TrailTicks : 0); back += TrailStep)
+        {
+            var c = back == 0 ? now : _trail[i * TrailLength + (int)((Tick + TrailLength - (uint)back) % TrailLength)];
+            if (back > 0 && Vector3.DistanceSquared(c, now) > TrailReach * TrailReach) continue;   // a teleport or a fresh slot, not a path
+            // Head: a sphere at the top.
+            var headCentre = c + new Vector3(0f, 0f, height - headRadius);
+            if (RaySphere(origin, direction, headCentre, headRadius) is { } th && th < distance) { distance = th; hit = true; head = true; }
+            // Body: a closed cylinder from the feet to under the head: its side, its top and its bottom all count.
+            float from = 0f, to = distance;
+            if (a > 1e-9f)
+            {
+                var mc = new Vector2(origin.X - c.X, origin.Y - c.Y);
+                float bb = Vector2.Dot(mc, dxy), cc = Vector2.Dot(mc, mc) - r * r, disc = bb * bb - a * cc;
+                if (disc < 0f) continue;
+                float root = MathF.Sqrt(disc);
+                from = MathF.Max(from, (-bb - root) / a);
+                to = MathF.Min(to, (-bb + root) / a);
+            }
+            else if (new Vector2(origin.X - c.X, origin.Y - c.Y).LengthSquared() > r * r) continue;
+            float low = c.Z, high = c.Z + height - headRadius;
+            if (MathF.Abs(direction.Z) > 1e-6f)
+            {
+                float t1 = (low - origin.Z) / direction.Z, t2 = (high - origin.Z) / direction.Z;
+                from = MathF.Max(from, MathF.Min(t1, t2));
+                to = MathF.Min(to, MathF.Max(t1, t2));
+            }
+            else if (origin.Z < low || origin.Z > high) continue;
+            if (from <= to && from < distance) { distance = from; hit = true; head = false; }
+        }
+        return hit;
     }
 
     static float? RaySphere(Vector3 o, Vector3 d, Vector3 centre, float r)
