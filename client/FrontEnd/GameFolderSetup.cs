@@ -66,7 +66,7 @@ public sealed partial class GameFolderSetup : Control
         _retry = UiKit.Button("RETRY", Retry, 220, "Look for the game again");
         bar.AddChild(_retry);
         bar.AddChild(UiKit.Spacer());
-        bar.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 160));
+        bar.AddChild(UiKit.Button("QUIT", () => CustomizerServices.Quit(GetTree()), 160));
         box.AddChild(bar);
         box.AddChild(new LinkButton { Text = ("Help, builds and issues: " + ServerLaunch.ReleasesUrl).ToUpperInvariant(), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiType.Px(UiKit.CaptionSize))));
 

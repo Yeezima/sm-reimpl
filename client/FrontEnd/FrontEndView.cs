@@ -151,7 +151,7 @@ public sealed partial class FrontEndView : Control
         var buttons = UiKit.HBox(12);
         var retry = UiKit.Button("RETRY", () => { _services = _makeServices(); _loading?.QueueFree(); ShowLoading("Reading your Space Marine install..."); }, 200);
         buttons.AddChild(retry);
-        buttons.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 200));
+        buttons.AddChild(UiKit.Button("QUIT", () => CustomizerServices.Quit(GetTree()), 200));
         box.AddChild(buttons);
         var panel = UiKit.Panel(box, 28);
         _loading = new CenterContainer();
@@ -273,7 +273,7 @@ public sealed partial class FrontEndView : Control
         main.Rows.AddChild(joinRow);
         main.Rows.AddChild(UiKit.SteelButton("Armoury", ShowCreator, "Edit your loadouts and your armour", "MenuCustomizer"));
         main.Rows.AddChild(UiKit.SteelButton("Options", () => ShowOptions(), null, "MenuOptions"));
-        main.Rows.AddChild(UiKit.SteelButton("Exit", () => GetTree().Quit(), null, "MenuQuit"));
+        main.Rows.AddChild(UiKit.SteelButton("Exit", () => CustomizerServices.Quit(GetTree()), null, "MenuQuit"));
         _main = main;
 
         var lobby = new ConceptPanelPage("LobbyMenu", "Join or host lobby", "Classic PvP") { PrimaryTexts = ["JOIN SERVER"] };
