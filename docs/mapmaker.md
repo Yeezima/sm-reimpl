@@ -210,6 +210,8 @@ shows through pieces; off: pieces hide it). It is independent of the Snap step (
 - Test aid: `godot.cmd --editor --path mapmaker -- --mm-grid --mm-lib <dir>` (add `--windowed --mm-out <dir>` for two pictures); core tests `GridTests`.
 
 ## Operations (one JSON object each; a batch is one transaction: all apply or none)
+
+A failed save is rolled back: if writing the library fails midway (disk full, a locked file), every storage step already done is undone in reverse order (assets, trash moves, prefab files, index), the map and its undo/redo stay as they were, and the error names any step that could not be undone.
 `place {asset|prefab, name?, parent?, layer?, transform?}` -> new id Â· `transform {id, position?, rotation?, scale?}` (set) or
 `{id, move?, rotate?, scaleBy?}` (delta) Â· `duplicate {ids, offset?}` -> new ids Â· `delete {ids}` (children too) Â·
 `rename {id, name}` Â· `set-parent {id, parent}` (keeps world position) Â· `set-visible {id, visible}` Â·

@@ -72,6 +72,9 @@ public sealed class MapSession
 
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
+    /// <summary>How many batches can be undone / redone (tests and tools).</summary>
+    public int UndoDepth => _undo.Count;
+    public int RedoDepth => _redo.Count;
 
     public MapContext Context => new(Library, Sm1);
 
@@ -137,15 +140,63 @@ public sealed class MapSession
         var trashIds = batch.DeletedAssets.ToList();
         if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) return;
 
-        foreach (var staged in batch.Assets.Values) WriteAsset(staged);
-        var trashed = trashIds.Select(id => (id, Library.TrashAsset(id))).ToList();
-        LastTrashed = trashed;
-        foreach (var (id, _, now) in prefabChanges)
+        // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
+        // document, LastTrashed and the undo/redo stacks stay as they were. (A journal that survives a process crash is not part of this.)
+        var inverses = new List<(string What, Action Undo)>();
+        string? scratch = null;
+        var trashed = new List<(string, string)>();
+        try
         {
-            if (now is null) File.Delete(Library.PrefabPath(id));
-            else MapLibrary.WriteAtomic(Library.PrefabPath(id), Encoding.UTF8.GetBytes(now));
+            foreach (var staged in batch.Assets.Values)
+            {
+                var dir = Library.AssetDir(staged.Info.Id);
+                if (Directory.Exists(dir))
+                {
+                    scratch ??= System.IO.Path.Combine(Library.Root, "library", ".txn-" + Guid.NewGuid().ToString("N"));
+                    string backup = System.IO.Path.Combine(scratch, staged.Info.Id);
+                    CopyDirectory(dir, backup);
+                    inverses.Add(($"restore asset '{staged.Info.Id}'", () => { if (Directory.Exists(dir)) Directory.Delete(dir, true); CopyDirectory(backup, dir); }));
+                }
+                else inverses.Add(($"remove asset '{staged.Info.Id}'", () => { if (Directory.Exists(dir)) Directory.Delete(dir, true); }));
+                WriteAsset(staged);
+            }
+            foreach (var id in trashIds)
+            {
+                string slot = MapLibrary.NewTrashSlot(id);
+                string src = Library.AssetDir(id), dst = System.IO.Path.Combine(Library.TrashAssetsDir, slot);
+                inverses.Add(($"restore trashed asset '{id}'", () => { if (Directory.Exists(dst) && !Directory.Exists(src)) { Directory.CreateDirectory(Library.AssetsDir); Directory.Move(dst, src); } }));
+                trashed.Add((id, Library.TrashAsset(id, slot)));
+            }
+            foreach (var (id, _, now) in prefabChanges)
+            {
+                var path = Library.PrefabPath(id);
+                byte[]? old = File.Exists(path) ? File.ReadAllBytes(path) : null;
+                inverses.Add(($"restore prefab '{id}'", () =>
+                {
+                    if (old is null) { if (File.Exists(path)) File.Delete(path); }
+                    else MapLibrary.WriteAtomic(path, old);
+                }));
+                if (now is null) { Library.Fault("prefab-delete"); File.Delete(path); }
+                else { Library.Fault("prefab-write"); MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(now)); }
+            }
+            if (prefabChanges.Count > 0 || batch.Assets.Count > 0) Library.RebuildIndex();
         }
-        if (prefabChanges.Count > 0 || batch.Assets.Count > 0) Library.RebuildIndex();
+        catch (Exception failure)
+        {
+            var problems = new List<string>();
+            for (int i = inverses.Count - 1; i >= 0; i--)
+            {
+                try { inverses[i].Undo(); }
+                catch (Exception e) { problems.Add($"could not {inverses[i].What}: {e.Message}"); }
+            }
+            try { Library.RebuildIndex(); }
+            catch (Exception e) { problems.Add($"could not rebuild the library index: {e.Message}"); }
+            if (problems.Count == 0) { CleanScratch(scratch); throw; }
+            // Kept for the owner: the pre-batch copies of replaced assets stay in the scratch folder when an inverse failed.
+            throw new IOException($"{failure.Message} The save was rolled back only in part: {string.Join("; ", problems)}.", failure);
+        }
+        CleanScratch(scratch);
+        LastTrashed = trashed;
 
         CopyDocument(batch.Doc);
         if (before != after || prefabChanges.Count > 0 || trashed.Count > 0)
@@ -156,16 +207,31 @@ public sealed class MapSession
         Touch();
     }
 
+    static void CleanScratch(string? scratch)
+    {
+        if (scratch is null) return;
+        try { Directory.Delete(scratch, true); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    static void CopyDirectory(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var f in Directory.EnumerateFiles(from)) File.Copy(f, System.IO.Path.Combine(to, System.IO.Path.GetFileName(f)), overwrite: true);
+        foreach (var d in Directory.EnumerateDirectories(from)) CopyDirectory(d, System.IO.Path.Combine(to, System.IO.Path.GetFileName(d)));
+    }
+
     void WriteAsset(StagedAsset staged)
     {
         var dir = Library.AssetDir(staged.Info.Id);
         Directory.CreateDirectory(dir);
         foreach (var rel in staged.Companions.Prepend(staged.MainFile))
         {
+            Library.Fault("asset-write");
             var target = System.IO.Path.Combine(dir, rel);
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);
             File.Copy(System.IO.Path.Combine(staged.SourceDir, rel), target, overwrite: true);
         }
+        Library.Fault("asset-write");
         MapLibrary.WriteAtomic(System.IO.Path.Combine(dir, "asset.json"), CanonicalJson.Bytes(staged.Info.ToNode()));
     }
 

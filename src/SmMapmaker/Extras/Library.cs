@@ -133,7 +133,14 @@ public sealed class MapLibrary
     public string TrashAssetsDir => Path.Combine(Root, "library", "trash", "assets");
 
     /// <summary>Moves a custom asset's folder to a new folder in the library trash and returns its slot; <see cref="RestoreAsset"/> with that slot brings it back (undo).</summary>
-    public string TrashAsset(string id) => TrashAsset(id, id + "-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N")[..6]);
+    public string TrashAsset(string id) => TrashAsset(id, NewTrashSlot(id));
+
+    public static string NewTrashSlot(string id) => id + "-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N")[..6];
+
+    /// <summary>Test seam: called with the step name ("asset-write", "trash", "prefab-write", "prefab-delete", "index") just before a storage step of a commit; a test throws to simulate a failing disk. Null in production.</summary>
+    public Action<string>? StorageFault { get; set; }
+
+    internal void Fault(string step) => StorageFault?.Invoke(step);
 
     /// <summary>Moves the asset folder to its own trash folder (<paramref name="slot"/>; every deleted copy keeps its own, so deleting, re-importing and deleting again loses nothing). Returns the slot.</summary>
     public string TrashAsset(string id, string slot)
@@ -142,6 +149,7 @@ public sealed class MapLibrary
         if (!Directory.Exists(src)) return slot;
         var dst = Path.Combine(TrashAssetsDir, slot);
         Directory.CreateDirectory(TrashAssetsDir);
+        Fault("trash");
         Directory.Move(src, dst);
         RebuildIndex();
         return slot;
@@ -188,6 +196,7 @@ public sealed class MapLibrary
     /// <summary>Rewrites <c>library/index.json</c> from the folders (sorted by id); corrupt entries are left out, never fatal.</summary>
     public void RebuildIndex()
     {
+        Fault("index");
         var index = new JsonObject
         {
             ["format"] = "smlibrary", ["formatVersion"] = 1,
