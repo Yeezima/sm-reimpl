@@ -11,7 +11,7 @@ public sealed record WarfrontProgressRecord(byte Flags, WarfrontProgressFile? St
 }
 
 /// <summary>
-/// The wire of a player's persistent progression (WarfrontRules.Version 20, <see cref="WarfrontWire.Format"/> 2; no change to <c>Protocol.Version</c> or <c>ContentExtras.WireVersion</c>). Values are little-endian.
+/// The wire of a player's persistent progression (introduced in WarfrontRules.Version 20, still this format after Version 21; <see cref="WarfrontWire.Format"/> 2; no change to <c>Protocol.Version</c> or <c>ContentExtras.WireVersion</c>). Values are little-endian.
 /// One record layout, two carriers:
 /// <list type="bullet">
 /// <item>Record: <c>[u8 flags: 1 absent, 2 reset][u32 xp][u8 picksTaken][u8 nCards][u8 card]*[u8 nExtra]{[u8 len][class][u8 len][name]}</c>. With flag 1 (absent: the sender has no file) the record is the flag byte alone.

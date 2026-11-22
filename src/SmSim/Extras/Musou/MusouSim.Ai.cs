@@ -815,7 +815,9 @@ public sealed partial class MusouSim
             if (a > 1e-9f)
             {
                 float along = -Vector2.Dot(m, dxy) / a;
-                if (along < -reach || along > maxDistance + reach) continue;
+                // The ray is within `reach` of the axis (horizontally) for a span of `reach / sqrt(a)` either side of the closest approach: along is a 3D length, so a steep ray (small a) needs the wider margin.
+                float margin = reach / MathF.Sqrt(a);
+                if (along < -margin || along > maxDistance + margin) continue;
                 var closest = m + dxy * along;
                 if (closest.LengthSquared() > reach * reach) continue;
             }

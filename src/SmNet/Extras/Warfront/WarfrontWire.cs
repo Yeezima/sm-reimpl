@@ -40,7 +40,7 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 /// <item>Tag <see cref="ResultsTag"/>: one chunk of <see cref="WarfrontResultsWire.Split"/> (<c>[u8 transfer][u8 index][u8 count]</c> then record bytes); no key is in the record.</item>
 /// </list>
 /// Commands (kind 17, tag <see cref="CommandTag"/>, at most <see cref="Protocol.MaxExtrasCommandPayload"/> bytes): <c>[u8 kind]</c> then Identify <c>[u64 key][u8 len][name]</c>; Deploy <c>[u8 target kind][i8 lane]</c>;
-/// Pick <c>[u8 slot][u8 pick index]</c>; NewRun nothing; Progress (Format 2, Version 20) <c>[u8 transfer id][u8 index][u8 count][data]</c>, one chunk of the player's progress record (<see cref="WarfrontProgressSaveWire"/>: a record is up to 393 bytes, a command at most 64). The host's reply is the ProgressSave section, tag <see cref="WarfrontProgressSaveWire.EnvelopeTag"/> (49).
+/// Pick <c>[u8 slot][u8 pick index]</c>; NewRun nothing; Progress (Format 2, introduced in Version 20) <c>[u8 transfer id][u8 index][u8 count][data]</c>, one chunk of the player's progress record (<see cref="WarfrontProgressSaveWire"/>: a record is up to 393 bytes, a command at most 64). The host's reply is the ProgressSave section, tag <see cref="WarfrontProgressSaveWire.EnvelopeTag"/> (49).
 /// </summary>
 public static class WarfrontWire
 {

@@ -73,6 +73,30 @@ public class MusouProjectileCurrentPoseTests
         Assert.Equal(far, sim.RaycastCurrent(from, Vector3.UnitY, 30f, out _, out _, past));
     }
 
+    [Fact]
+    public void A_steep_ray_that_meets_the_top_of_the_body_near_the_end_of_its_segment_is_found()
+    {
+        // From a ledge above: almost straight down, the ray's horizontal reach is tiny, so its 3D length to the closest approach to the axis is far beyond the segment; the quick reject must still let the top cap through.
+        var sim = new MusouSim(null) { Frozen = true };
+        ushort id = sim.Spawn(MusouEnemyType.Boy, new Vector3(0f, 10f, 0f), 0f, 100f);
+        sim.BeginTick(10);
+        var (r, height) = sim.ShotBody(MusouEnemyType.Boy);
+        float headRadius = 0.22f * height / 1.9f;
+        float top = height - headRadius;                         // the body cylinder's top cap
+        var direction = Vector3.Normalize(new Vector3(-0.001f, 0f, -1f));
+        var origin = new Vector3(0.8f * r, 10f, top + 3f);       // outside the head sphere, inside the body's radius
+        Assert.True(0.8f * r > headRadius);
+        float toTop = 3f / -direction.Z;
+        foreach (var current in new[] { false, true })
+        {
+            ushort hit = current ? sim.RaycastCurrent(origin, direction, toTop + 0.05f, out float d, out bool head) : sim.Raycast(origin, direction, toTop + 0.05f, out d, out head);
+            Assert.Equal(id, hit);
+            Assert.False(head);
+            Assert.InRange(d, toTop - 0.01f, toTop + 0.05f);
+        }
+        Assert.Equal((ushort)0, sim.RaycastCurrent(origin, direction, toTop - 0.1f, out _, out _));   // a segment that ends short of the top still misses
+    }
+
     static CollisionWorld Wall(float y)
     {
         var v = new List<Vector3> { new(-5, y, -1), new(5, y, -1), new(5, y, 30), new(-5, y, 30) };
