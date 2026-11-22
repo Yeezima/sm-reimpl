@@ -20,7 +20,7 @@ namespace SmClient.Customizer;
 public sealed partial class CustomizerServices
 {
     public string GameDir { get; }
-    public string SettingsDirectory { get; }
+    public string SettingsDirectory { get; set; }   // set only by a self-test, to a temp folder
     public ProfileStore Store { get; }
     public bool UsesProfileFile { get; }
     public UnlockPolicy Policy { get; }
@@ -195,7 +195,68 @@ public sealed partial class CustomizerServices
         LiveOptions.Current = Settings.Options;
         NoteWindowChoice();
         SmClient.FrontEnd.OptionsHost.Apply(Settings.Options);
-        Settings.Save(SettingsDirectory);
+        ScheduleSave();
+    }
+
+    /// <summary>How long after the last change the settings file is written (a slider drag changes the value dozens of times a second).</summary>
+    public const double SaveDelaySeconds = 0.5;
+
+    /// <summary>The delay in use (a test aid: the UI self-tests set 0 so a read right after a change finds it saved; 0 writes at once).</summary>
+    public double SaveDelay { get; set; } = SaveDelaySeconds;
+
+    /// <summary>The short reason the last write of the settings file failed (no path), or null when it worked (or nothing failed yet).</summary>
+    public string? LastSaveError { get; private set; }
+
+    /// <summary>How many times the settings file was written (a test aid: a drag must write once).</summary>
+    public int SaveCount { get; private set; }
+
+    /// <summary>A change is applied but not yet written.</summary>
+    public bool SavePending { get; private set; }
+
+    int _saveGeneration;
+
+    void ScheduleSave()
+    {
+        SavePending = true;
+        int generation = ++_saveGeneration;
+        if (SaveDelay > 0 && Engine.GetMainLoop() is SceneTree tree)
+        {
+            var timer = tree.CreateTimer(SaveDelay);
+            timer.Timeout += () => { if (generation == _saveGeneration) FlushSave(); };
+        }
+        else FlushSave();   // no loop (a tool run): nothing would fire a timer
+        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;   // a quit with a pending change still writes it
+    }
+
+    void OnProcessExit(object? sender, EventArgs e) => FlushSave();
+
+    /// <summary>Writes a pending change now (leaving the Options page, starting a match, quitting). Safe to call at any time; the atomic temp-and-rename write is <see cref="FrontEndSettings.Save"/>.</summary>
+    public void FlushSave()
+    {
+        if (!SavePending) return;
+        SavePending = false;
+        _saveGeneration++;   // a timer already set does nothing
+        SaveNow();
+    }
+
+    /// <summary>Writes the settings now, pending or not (APPLY retries a failed save this way); remembers the failure.</summary>
+    public void SaveNow()
+    {
+        SavePending = false;
+        SaveCount++;
+        string? error = Settings.Save(SettingsDirectory);
+        LastSaveError = error is null ? null : ShortSaveReason(error);
+    }
+
+    /// <summary>A short, path-free reason from an IO message (the messages name the file).</summary>
+    static string ShortSaveReason(string message)
+    {
+        string m = message.ToLowerInvariant();
+        if (m.Contains("denied") || m.Contains("read-only") || m.Contains("readonly") || m.Contains("not permitted")) return "read-only";
+        if (m.Contains("not enough space") || m.Contains("disk full") || m.Contains("no space")) return "disk full";
+        if (m.Contains("being used") || m.Contains("in use") || m.Contains("sharing violation")) return "file in use";
+        return "write failed";
     }
 
     /// <summary>The services made last (the front end's, or the match's own): F11 changes the window mode in these, so it is saved like the Options screen's row.</summary>

@@ -273,7 +273,17 @@ public sealed partial class OptionsView : UiKit.MenuPage
     public void Apply()
     {
         _snapshot = _services.Settings;
-        ShowToast("\u2713  SETTINGS APPLIED");
+        _services.SaveNow();   // APPLY retries a save that failed
+        ShowToast(_services.LastSaveError is { } why ? NotSaved(why) : "\u2713  SETTINGS APPLIED");
+    }
+
+    static string NotSaved(string why) => "SETTINGS NOT SAVED: " + why.ToUpperInvariant();
+
+    /// <summary>The page is left (hidden or removed): a change still waiting for its coalesced save is written now.</summary>
+    public override void _Notification(int what)
+    {
+        base._Notification(what);
+        if (what == NotificationVisibilityChanged && !Visible) _services.FlushSave();
     }
 
     /// <summary>REVERT: every option this page edits goes back to the last point (the page opened, or APPLY), applied and saved like any change.</summary>
@@ -283,7 +293,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
         _services.UpdateSettings(x => x with { SavedOptions = back.SavedOptions, FovDegrees = back.FovDegrees, MouseSensitivity = back.MouseSensitivity, ReduceMotion = back.ReduceMotion, ShowOthersEmblems = back.ShowOthersEmblems });
         ShowTab(Tab);
         _apply.FocusLater();
-        ShowToast("SETTINGS REVERTED");
+        _services.SaveNow();
+        ShowToast(_services.LastSaveError is { } why ? NotSaved(why) : "SETTINGS REVERTED");
     }
 
     void ShowToast(string text)
@@ -476,7 +487,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
 
     public override void _EnterTree() => CustomizerServices.WindowModeToggled += OnWindowModeToggled;
 
-    public override void _ExitTree() => CustomizerServices.WindowModeToggled -= OnWindowModeToggled;
+    public override void _ExitTree() { CustomizerServices.WindowModeToggled -= OnWindowModeToggled; _services.FlushSave(); }
 
     /// <summary>F11 changed the window mode: the open page shows it at once (the rows keep their focus).</summary>
     void OnWindowModeToggled(GameOptions options)

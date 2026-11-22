@@ -366,11 +366,12 @@ public partial class ModelViewer : Node3D
     }
 
     /// <summary>Stops the server the Host button started (never any other process).</summary>
-    public override void _ExitTree() => HostedServer.Stop();
+    public override void _ExitTree() { CustomizerServices.Latest?.FlushSave(); HostedServer.Stop(); }
 
     /// <summary>Starts the networked view (M5) for <c>--connect</c> or for a Join from the front end; <paramref name="args"/> are the client's user arguments.</summary>
     void StartNetwork(Dictionary<string, string?> args, string gameDir, bool rejoin = false, bool keepOldForTest = false)
     {
+            CustomizerServices.Latest?.FlushSave();   // a pending settings change is written before a match starts
             if (_network is not null && !keepOldForTest) DropNetwork();   // (keepOldForTest: --leave-check-double leaves the old one in the tree to prove the sweep) a view still running is never left behind a new one
             _networkArgs = args;   // classic-maps-all: a rotation rejoins with the same arguments
             // M5: networked view. It draws its own overlay and decides when a screenshot is worth taking.
