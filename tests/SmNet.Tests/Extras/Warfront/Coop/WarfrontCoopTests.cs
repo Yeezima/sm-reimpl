@@ -35,6 +35,9 @@ public class WarfrontCoopTests
 
         public WarfrontCoopJoin Join(ulong key, string? name = null) => Co.Connect(key, name ?? ("P" + key), NextPlayer++);
 
+        /// <summary>A key that arrives with its own progress (its progress file, applied at the ship): the join, then <paramref name="xp"/> on it. Since 2026-11-22 a new key brings XP only this way; the median grant is gone.</summary>
+        public WarfrontCoopJoin JoinWith(ulong key, long xp, string? name = null) { var j = Join(key, name); C.AddXp(key, xp); return j; }
+
         /// <summary>The founders A and B on the ship (rosters made as the server does at a first join), A on 5000 XP (level 3), B on 3000 (level 2).</summary>
         public static Rig Founders()
         {
@@ -114,7 +117,7 @@ public class WarfrontCoopTests
     }
 
     [Fact]
-    public void A_new_key_on_the_ship_after_the_first_deployment_is_gated_at_once_with_its_grant()
+    public void A_new_key_on_the_ship_after_the_first_deployment_is_gated_at_once_and_starts_at_level_one()
     {
         var r = Rig.AfterFirstBattle();
         var c = r.Join(C);
@@ -122,10 +125,10 @@ public class WarfrontCoopTests
         var p = r.C.Player(C)!;
         Assert.Equal(1, p.JoinedAtDeployment);
         Assert.False(p.ClassConfirmed);
-        Assert.Equal(4000, p.Xp);   // the median of 5000 and 3000
-        Assert.Equal(3, p.Level);
+        Assert.Equal(0, p.Xp);   // no median grant any more (owner 2026-11-22): a brand-new player starts at level 1
+        Assert.Equal(1, p.Level);
         Assert.Equal(1, r.H.Rosters.Count(C));
-        Assert.True(r.Co.ViewFor(C).GrantAppliedThisStop);
+        Assert.False(r.Co.ViewFor(C).GrantAppliedThisStop);
         Assert.Equal(90, r.Co.ClassGateSecondsLeft(C));
         Assert.NotNull(r.Co.DeployRefusal());
     }
@@ -191,7 +194,7 @@ public class WarfrontCoopTests
     // ---------------------------------------------------------------- 5. ship stop and the median
 
     [Fact]
-    public void The_grant_is_at_the_ship_stop_not_the_join_and_a_second_stop_grants_nothing()
+    public void The_catch_up_step_is_at_the_ship_stop_not_the_join_and_grants_no_xp()
     {
         var r = Rig.Founders();
         r.Deploy();
@@ -199,13 +202,13 @@ public class WarfrontCoopTests
         r.C.Resolve(WarfrontOutcome.Win);
         Assert.Equal(0, r.C.Player(C)!.Xp);
         r.Co.ShipStop();
-        Assert.Equal(4000, r.C.Player(C)!.Xp);
+        Assert.Equal(0, r.C.Player(C)!.Xp);
         Assert.Equal(WarfrontCoopRole.AwaitClass, r.Co.RoleOf(C));
-        Assert.True(r.Co.ViewFor(C).GrantAppliedThisStop);
+        Assert.False(r.Co.ViewFor(C).GrantAppliedThisStop);
         Assert.Equal(1, r.H.Retainers);
         Assert.True(r.H.Saves > 0);
         r.Co.ShipStop();   // a second stop
-        Assert.Equal(4000, r.C.Player(C)!.Xp);
+        Assert.Equal(0, r.C.Player(C)!.Xp);
         Assert.Equal(1, r.H.Retainers);
         Assert.False(r.Co.ViewFor(C).GrantAppliedThisStop);
     }
@@ -214,7 +217,7 @@ public class WarfrontCoopTests
     [InlineData(new long[] { 5000, 3000, 9000 }, 5000)]          // odd count: the middle one
     [InlineData(new long[] { 5000, 3000 }, 4000)]                // even: the mean of the two middle ones
     [InlineData(new long[] { 3001 }, 3001)]                      // one other
-    public void The_median_of_the_others(long[] xps, long expected)
+    public void A_new_key_gets_no_xp_whoever_is_aboard(long[] xps, long expected)
     {
         var c = new WarfrontCampaign(7);
         var h = new Host();
@@ -226,11 +229,11 @@ public class WarfrontCoopTests
         co.Connect(99, "New", 50);
         c.Resolve(WarfrontOutcome.Win);
         co.ShipStop();
-        Assert.Equal(expected, c.Player(99)!.Xp);
+        Assert.Equal(0, c.Player(99)!.Xp);   // was the median of the others until 2026-11-22; the InlineData figures are the old medians
     }
 
     [Fact]
-    public void The_grant_never_lowers_and_two_joiners_at_one_stop_read_the_same_figures()
+    public void Two_joiners_at_one_stop_get_no_grant_and_a_key_keeps_the_xp_it_brought()
     {
         var r = Rig.Founders();
         r.Deploy();
@@ -238,8 +241,8 @@ public class WarfrontCoopTests
         r.Join(D);
         r.C.Resolve(WarfrontOutcome.Win);
         r.Co.ShipStop();
-        Assert.Equal(9000, r.C.Player(C)!.Xp);   // never lowered
-        Assert.Equal(4000, r.C.Player(D)!.Xp);   // D's median counts A and B only: C's grant was pending at the same stop
+        Assert.Equal(9000, r.C.Player(C)!.Xp);   // kept
+        Assert.Equal(0, r.C.Player(D)!.Xp);
     }
 
     // ---------------------------------------------------------------- 6. class confirm, 7. picks, 8. deploy gate
@@ -249,7 +252,7 @@ public class WarfrontCoopTests
     {
         var r = Rig.AfterFirstBattle();
         Assert.False(r.Co.ConfirmClass(A));   // a Player: nothing
-        r.Join(C);
+        r.JoinWith(C, 4000);
         Assert.Equal(2, r.C.Player(C)!.PendingPicks);   // level 3: two catch-up cards
         Assert.True(r.Co.ConfirmClass(C));
         Assert.True(r.C.Player(C)!.ClassConfirmed);
@@ -277,8 +280,8 @@ public class WarfrontCoopTests
     public void The_deploy_gate_names_who_is_awaited_and_why_and_opens_when_they_are_done()
     {
         var r = Rig.AfterFirstBattle();
-        r.Join(C, "Cato");
-        r.Join(D, "Dorn");
+        r.JoinWith(C, 4000, "Cato");
+        r.JoinWith(D, 4000, "Dorn");
         Assert.Equal("Waiting for Cato (class), Dorn (class)", r.Co.DeployRefusal());
         r.Co.ConfirmClass(C);
         Assert.Equal("Waiting for Cato (2 cards), Dorn (class)", r.Co.DeployRefusal());
@@ -310,7 +313,7 @@ public class WarfrontCoopTests
     public void The_class_gate_confirms_after_90_seconds_and_the_picker_timeout_covers_the_picks()
     {
         var r = Rig.AfterFirstBattle();
-        r.Join(C);
+        r.JoinWith(C, 4000);
         r.Co.Tick(89);
         Assert.Equal(WarfrontCoopRole.AwaitClass, r.Co.RoleOf(C));
         Assert.Equal(1, r.Co.ClassGateSecondsLeft(C));
@@ -348,7 +351,7 @@ public class WarfrontCoopTests
     public void Aboard_the_picker_skips_the_lull_and_the_gap_so_catch_up_cards_open_one_after_another()
     {
         var r = Rig.AfterFirstBattle();
-        r.Join(C); r.Co.ConfirmClass(C);
+        r.JoinWith(C, 4000); r.Co.ConfirmClass(C);
         var picker = new WarfrontPicker(r.C);
         var first = picker.TryOpen(C, 10, aboard: true, lull: false, 1, false);
         Assert.NotNull(first);
@@ -512,7 +515,7 @@ public class WarfrontCoopTests
     public void A_confirmed_key_that_was_not_in_the_battle_is_flown_in_with_its_squad_and_a_gated_one_stays_held()
     {
         var r = Rig.AfterFirstBattle();
-        r.Join(C); r.Co.ConfirmClass(C);   // C joined on the ship and took its class, picks pending
+        r.JoinWith(C, 4000); r.Co.ConfirmClass(C);   // C joined on the ship with its own progress and took its class, picks pending
         r.Join(D);                         // D never confirms
         r.Co.Left(C); r.Co.Left(D);
         r.Deploy();                        // the squad deploys without them (they do not block)
@@ -551,7 +554,7 @@ public class WarfrontCoopTests
             case St.BattleSpectating: r = Rig.Founders(); r.Deploy(); leave = WarfrontLeaveState.Spectating; rest = 31f; break;
             case St.SpectatingJoiner: r = Rig.Founders(); r.Deploy(); r.Join(C); key = C; break;
             case St.AwaitClass: r = Rig.AfterFirstBattle(); r.Join(C); key = C; break;
-            case St.AwaitPicksOffer: r = Rig.AfterFirstBattle(); r.Join(C); r.Co.ConfirmClass(C); key = C; break;
+            case St.AwaitPicksOffer: r = Rig.AfterFirstBattle(); r.JoinWith(C, 4000); r.Co.ConfirmClass(C); key = C; break;
             default:
             {
                 var ship = Rig.AfterFirstBattle();
@@ -604,7 +607,7 @@ public class WarfrontCoopTests
     public void AwaitPicks_survives_a_leave_and_return_in_the_same_process()
     {
         var r = Rig.AfterFirstBattle();
-        r.Join(C); r.Co.ConfirmClass(C);
+        r.JoinWith(C, 4000); r.Co.ConfirmClass(C);
         var before = Snap(r, C);
         r.Co.Left(C);
         r.Join(C);

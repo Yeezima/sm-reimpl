@@ -24,10 +24,10 @@ public sealed record WarfrontStageWire(WarfrontStageState State, WarfrontTargetK
 public sealed record WarfrontDownWire(WarfrontDownPhase Phase, float SecondsLeft);
 
 /// <summary>Client to server commands of Warfront (message kind 17 under <see cref="WarfrontWire.CommandTag"/>).</summary>
-public enum WarfrontClientCommandKind : byte { Identify = 1, Deploy = 2, Pick = 3, NewRun = 4 }
+public enum WarfrontClientCommandKind : byte { Identify = 1, Deploy = 2, Pick = 3, NewRun = 4, Progress = 5 }
 
-/// <summary>One decoded command. <see cref="Key"/> and <see cref="Name"/> only for Identify; <see cref="Target"/> only for Deploy; <see cref="Slot"/> and <see cref="Pick"/> only for Pick.</summary>
-public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong Key = 0, string Name = "", WarfrontTarget Target = default, int Slot = 0, int Pick = 0);
+/// <summary>One decoded command. <see cref="Key"/> and <see cref="Name"/> only for Identify; <see cref="Target"/> only for Deploy; <see cref="Slot"/> and <see cref="Pick"/> only for Pick; <see cref="Chunk"/> only for Progress (<c>[u8 transfer id][u8 index][u8 count][data]</c>, the bytes after the kind byte: see <see cref="WarfrontProgressSaveWire"/>).</summary>
+public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong Key = 0, string Name = "", WarfrontTarget Target = default, int Slot = 0, int Pick = 0, byte[]? Chunk = null);
 
 /// <summary>
 /// Warfront's wire (slice W5a, the shared contract W5b reads; no change to <c>Protocol.Version</c> or <c>ContentExtras.WireVersion</c>: it is new envelope tags and one new command tag that only a Warfront
@@ -40,14 +40,14 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 /// <item>Tag <see cref="ResultsTag"/>: one chunk of <see cref="WarfrontResultsWire.Split"/> (<c>[u8 transfer][u8 index][u8 count]</c> then record bytes); no key is in the record.</item>
 /// </list>
 /// Commands (kind 17, tag <see cref="CommandTag"/>, at most <see cref="Protocol.MaxExtrasCommandPayload"/> bytes): <c>[u8 kind]</c> then Identify <c>[u64 key][u8 len][name]</c>; Deploy <c>[u8 target kind][i8 lane]</c>;
-/// Pick <c>[u8 slot][u8 pick index]</c>; NewRun nothing.
+/// Pick <c>[u8 slot][u8 pick index]</c>; NewRun nothing; Progress (Format 2, Version 20) <c>[u8 transfer id][u8 index][u8 count][data]</c>, one chunk of the player's progress record (<see cref="WarfrontProgressSaveWire"/>: a record is up to 393 bytes, a command at most 64). The host's reply is the ProgressSave section, tag <see cref="WarfrontProgressSaveWire.EnvelopeTag"/> (49).
 /// </summary>
 public static class WarfrontWire
 {
     /// <summary>The Warfront wire's own number; raised with <see cref="SmSim.Extras.Warfront.WarfrontRules.Version"/>.</summary>
-    public const int Format = 1;
+    public const int Format = 2;   // 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
     /// <summary>
-    /// Envelope tags (gore 1, barks 2, Musou 3 to 18). Reserved for later slices: 32 to 34 the squad wire (W10), 44 and 45 progression (W8), 46 coop (W12); 35 to 39 and 47 up stay free.
+    /// Envelope tags (gore 1, barks 2, Musou 3 to 18). Reserved for later slices: 32 to 34 the squad wire (W10), 44 and 45 progression (W8), 46 coop (W12); 35 to 39 stay free; 47 is the Battle section, 48 the weather state and 49 ProgressSave (<see cref="WarfrontProgressSaveWire"/>).
     /// </summary>
     public const byte HubTag = 40, StageTag = 41, DownTag = 42, ResultsTag = 43;
     /// <summary>The command tag (its own namespace, client to server: Musou's is 7, the Librarian's 16). 41 is the squad's (Rename, W10), 42 the coop's (ConfirmClass, Watch; W12): both admitted by the server and passed to those slices.</summary>
@@ -157,6 +157,9 @@ public static class WarfrontWire
             case WarfrontClientCommandKind.Identify: w.Write(c.Key); Str(w, c.Name, MaxName); break;
             case WarfrontClientCommandKind.Deploy: w.Write((byte)c.Target.Kind); w.Write((sbyte)c.Target.Lane); break;
             case WarfrontClientCommandKind.Pick: w.Write((byte)c.Slot); w.Write((byte)c.Pick); break;
+            case WarfrontClientCommandKind.Progress:
+                if (c.Chunk is null || !WarfrontProgressSaveWire.ValidChunk(c.Chunk)) throw new ArgumentException("progress chunk");
+                w.Write(c.Chunk); break;
         }
         w.Flush();
         var bytes = ms.ToArray();
@@ -269,6 +272,13 @@ public static class WarfrontWire
                     int slot = r.U8(), pick = r.U8();
                     if (!r.End) return false;
                     command = new WarfrontClientCommand(WarfrontClientCommandKind.Pick, Slot: slot, Pick: pick);
+                    return true;
+                }
+                case WarfrontClientCommandKind.Progress:
+                {
+                    var body = data[1..];
+                    if (!WarfrontProgressSaveWire.ValidChunk(body)) return false;
+                    command = new WarfrontClientCommand(WarfrontClientCommandKind.Progress, Chunk: body.ToArray());
                     return true;
                 }
                 case WarfrontClientCommandKind.NewRun:

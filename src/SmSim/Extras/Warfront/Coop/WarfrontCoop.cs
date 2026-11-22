@@ -204,7 +204,7 @@ public sealed class WarfrontCoop
     /// <summary>True for a key whose class gate (or catch-up) is still to pass: not a founder, not yet confirmed.</summary>
     static bool Gated(WarfrontPlayerState p) => !p.ClassConfirmed;
 
-    /// <summary>Rule 5 (and 9): the one catch-up grant of a key, once: XP to the median, the starting retainer for a key without a roster; each fact checked first, then a save.</summary>
+    /// <summary>Rule 5 (and 9): the one catch-up step of a key, once: the join flag (no XP grant since 2026-11-22: a new key starts at level 1), the starting retainer for a key without a roster; each fact checked first, then a save.</summary>
     void GrantAtStop(ulong key, WarfrontPlayerState p, Entry e, ICollection<ulong>? ignore)
     {
         bool changed = !p.JoinGrantApplied;

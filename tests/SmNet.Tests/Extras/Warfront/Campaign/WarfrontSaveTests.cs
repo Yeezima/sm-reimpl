@@ -89,11 +89,12 @@ public class WarfrontSaveTests : IDisposable
     }
 
     [Fact]
-    public void Load_without_a_save_is_null_and_a_bad_version_is_refused()
+    public void Load_without_a_save_is_null_and_a_newer_or_bad_version_is_refused()
     {
         Assert.Null(WarfrontSave.Load(_dir));
         var json = Busy().ToJson().Replace("\"Version\":5", "\"Version\":99");
-        Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(json));
+        Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson(json));   // a newer build's save: told apart, never treated as damaged
+        Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(Busy().ToJson().Replace("\"Version\":5", "\"Version\":0")));
     }
 
     [Fact]

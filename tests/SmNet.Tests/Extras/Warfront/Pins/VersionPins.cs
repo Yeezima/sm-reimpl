@@ -20,4 +20,12 @@ public class VersionPins
         Assert.Equal(95u, (uint)ContentExtras.Known);   // 31 before weather W3 added ContentExtras.Weather (64, in All; left out of the config hash)
         Assert.Equal(87u, (uint)ContentExtras.All);   // 23 before weather W3
     }
+
+    [Fact]
+    public void The_Warfront_rules_version_and_wire_format_are_pinned()
+    {
+        Assert.Equal(20u, SmSim.Extras.Warfront.WarfrontRules.Version);   // codebase fix 1 (2026-11-22): the progress file, the Progress command and the ProgressSave section
+        Assert.Equal(2, SmNet.Extras.Warfront.WarfrontWire.Format);
+        Assert.Equal(49, SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag);
+    }
 }

@@ -261,7 +261,7 @@ public class WarfrontCampaignTests
     }
 
     [Fact]
-    public void A_late_joiner_gets_the_median_xp_once_at_the_ship_stop_and_a_returning_player_keeps_his_own_state()
+    public void A_late_joiner_starts_at_level_one_and_the_join_grant_gives_no_xp_while_a_returning_player_keeps_his_own_state()
     {
         var c = Ship();
         c.Join(P2, out _);
@@ -270,18 +270,18 @@ public class WarfrontCampaignTests
         c.Join(P3, "Three", out var kind);
         Assert.Equal(WarfrontJoinKind.New, kind);
         var p3 = c.Player(P3)!;
-        Assert.Equal(0, p3.Xp); // nothing at Join
+        Assert.Equal(0, p3.Xp);
         Assert.False(p3.JoinGrantApplied);
         Assert.Equal("Three", p3.Name);
 
-        Assert.True(c.ApplyJoinGrant(P3));
-        Assert.Equal(7000, p3.Xp); // mean of the two middle values (4000, 10000)
+        Assert.False(c.ApplyJoinGrant(P3)); // owner 2026-11-22: no median grant any more, the call only sets the flag
+        Assert.Equal(0, p3.Xp);
+        Assert.Equal(1, p3.Level);
         Assert.True(p3.JoinGrantApplied);
-        Assert.Equal(WarfrontCampaign.LevelForXp(7000), p3.Level);
-        Assert.False(c.ApplyJoinGrant(P3)); // one-shot
-        Assert.Equal(7000, p3.Xp);
+        Assert.False(c.ApplyJoinGrant(P3));
+        Assert.Equal(0, p3.Xp);
 
-        c.AddXp(P3, 500);
+        c.AddXp(P3, 1600);
         Assert.True(c.TryTakePick(P3, 2));
         long xp = p3.Xp; int picks = p3.PicksTaken;
         c.Leave(P3);
@@ -294,23 +294,24 @@ public class WarfrontCampaignTests
     }
 
     [Fact]
-    public void The_grant_uses_connected_others_or_all_others_when_none_is_connected()
+    public void The_join_grant_gives_nothing_whoever_is_connected()
     {
         var c = Ship();
         c.Join(P2, out _); c.Join(P3, out _);
         c.AddXp(P1, 9000); c.AddXp(P2, 3000);
-        c.Leave(P1); // P1 away: the others of P3 that are connected = P2 only
-        Assert.True(c.ApplyJoinGrant(P3));
-        Assert.Equal(3000, c.Player(P3)!.Xp);
+        c.Leave(P1);
+        Assert.False(c.ApplyJoinGrant(P3));
+        Assert.Equal(0, c.Player(P3)!.Xp);
 
         var d = Ship();
         d.Join(P2, out _);
         d.AddXp(P1, 6000);
         d.Leave(P1);
-        d.Leave(P2); // nobody connected: all others count
+        d.Leave(P2);
         d.Join(P3, out _); d.Leave(P3);
-        Assert.True(d.ApplyJoinGrant(P3));
-        Assert.Equal(3000, d.Player(P3)!.Xp); // (0 + 6000) / 2
+        Assert.False(d.ApplyJoinGrant(P3, new[] { P1 }));
+        Assert.Equal(0, d.Player(P3)!.Xp);
+        Assert.True(d.Player(P3)!.JoinGrantApplied);
     }
 
     [Fact]

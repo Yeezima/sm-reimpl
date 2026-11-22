@@ -3,8 +3,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SmSim.Extras.Musou.Campaign;
+using SmSim.Extras.Warfront.Progression;
 
 namespace SmSim.Extras.Warfront.Campaign;
+
+/// <summary>A save written by a newer build (its version is above <see cref="WarfrontCampaign.SaveVersion"/>). Not an <see cref="InvalidDataException"/> (that type is sealed) and not an IOException (a locked file): a loader catches it first, never treats the file as damaged and never touches it.</summary>
+public sealed class WarfrontSaveNewerException : NotSupportedException
+{
+    public int FoundVersion { get; }
+    public WarfrontSaveNewerException(int found) : base("warfront save version " + found + " is newer than this build reads (" + WarfrontCampaign.SaveVersion + ")") => FoundVersion = found;
+}
 
 public enum WarfrontPhase { Lobby, Ship, Travel, Battle, Won, Lost }
 
@@ -176,7 +184,7 @@ public sealed class WarfrontCampaign
     // ---- players and leadership -------------------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// A player connects. A first-time key is appended to the join order (once, ever) and gets state (no XP grant here: see <see cref="ApplyJoinGrant"/>); a returning
+    /// A player connects. A first-time key is appended to the join order (once, ever) and gets state (no XP grant, level 1: see <see cref="ApplyJoinGrant(ulong)"/>); a returning
     /// key gets exactly its saved state back. The cap is <see cref="MaxHumans"/> CONNECTED humans, for new and returning keys alike; every key ever joined stays in the run
     /// (the leaderboard lists disconnected players). Returns false when the cap refuses.
     /// </summary>
@@ -202,30 +210,42 @@ public sealed class WarfrontCampaign
     public bool Join(ulong key, out WarfrontJoinKind kind) => Join(key, "", out kind);
 
     /// <summary>
-    /// The one-shot catch-up grant, called at the ship stop (not at join): XP becomes the median of the other CONNECTED players' XP (all other players if none is connected;
-    /// interpretation), the mean of the two middle values rounded down when even, never lowering the player's own XP. Returns whether XP changed; a second call is a no-op.
-    /// A run's first player has nobody to catch up to: the flag is set and nothing is granted.
+    /// Formerly the one-shot median-XP catch-up grant. Dropped (owner 2026-11-22: a brand-new player starts at level 1, a returning one brings his own progress file): it only sets
+    /// <see cref="WarfrontPlayerState.JoinGrantApplied"/> (kept in the schema) and always returns false (no XP changes). A second call, or an unknown key, is a no-op.
     /// </summary>
     public bool ApplyJoinGrant(ulong key) => ApplyJoinGrant(key, null);
 
-    /// <summary>
-    /// <see cref="ApplyJoinGrant(ulong)"/> with <paramref name="ignore"/>: keys left out of the median (W12: the other joiners whose own grant is still pending at the same ship stop, so one stop's grants
-    /// all read the same figures whatever their order).
-    /// </summary>
+    /// <summary><see cref="ApplyJoinGrant(ulong)"/>; <paramref name="ignore"/> is kept for the callers and no longer read.</summary>
     public bool ApplyJoinGrant(ulong key, ICollection<ulong>? ignore)
     {
         if (!_players.TryGetValue(key, out var p) || p.JoinGrantApplied) return false;
         p.JoinGrantApplied = true;
-        bool Counts(WarfrontPlayerState o) => o.Key != key && ignore?.Contains(o.Key) != true;
-        var others = _players.Values.Where(o => Counts(o) && _connected.Contains(o.Key)).ToList();
-        if (others.Count == 0) others = _players.Values.Where(Counts).ToList();
-        if (others.Count == 0) return false;
-        long median = MedianXp(others);
-        if (median <= p.Xp) return false;
-        p.Xp = median;
-        p.Level = LevelForXp(median);
+        return false;
+    }
+
+    /// <summary>
+    /// Applies a player's persistent progression (<see cref="WarfrontProgressFile"/>, sanitized here again so a caller cannot skip it) to his in-run state: XP and the level derived from it, picks taken, the cards and the
+    /// retainers beyond the first (<see cref="WarfrontPlayerState.Squad"/>, ids <c>p1</c>, <c>p2</c>, ...). Which copy to apply (<see cref="WarfrontProgressFile.Better"/>) is the caller's call; the host applies it at the Ship
+    /// phase, or queues it to the next ship stop, always before the class-confirm and deploy gates. False for an unknown key.
+    /// </summary>
+    public bool ApplyProgress(ulong key, WarfrontProgressFile state)
+    {
+        if (!_players.TryGetValue(key, out var p)) return false;
+        var s = WarfrontProgressFile.Sanitize(state);
+        p.Xp = s.Xp;
+        p.Level = LevelForXp(s.Xp);
+        p.PicksTaken = s.PicksTaken;
+        p.Cards = new List<int>(s.Cards);
+        p.Squad = s.ExtraRetainers.Select((r, i) => new WarfrontRetainerRecord { Id = "p" + (i + 1), ClassName = r.ClassName, Name = r.Name }).ToList();
         return true;
     }
+
+    /// <summary>The player's state as a progress record (without key and reset time), for the host's mirror and the wire.</summary>
+    public WarfrontProgressFile? ProgressOf(ulong key) => !_players.TryGetValue(key, out var p) ? null : WarfrontProgressFile.Sanitize(new WarfrontProgressFile
+    {
+        Xp = p.Xp, PicksTaken = p.PicksTaken, Cards = new List<int>(p.Cards),
+        ExtraRetainers = p.Squad.Select(r => new WarfrontExtraRetainer { ClassName = r.ClassName, Name = r.Name }).ToList(),
+    });
 
     public void Leave(ulong key) => _connected.Remove(key);
 
@@ -426,7 +446,8 @@ public sealed class WarfrontCampaign
 
     internal static WarfrontCampaign FromSnapshot(Snapshot s, IWarfrontRollSource? rolls)
     {
-        if (s.Version < OldestLoadableVersion || s.Version > SaveVersion) throw new InvalidDataException("unsupported warfront save version " + s.Version);
+        if (s.Version > SaveVersion) throw new WarfrontSaveNewerException(s.Version);
+        if (s.Version < OldestLoadableVersion) throw new InvalidDataException("unsupported warfront save version " + s.Version);
         if (s.Fronts.Length != Lanes || s.Advanced.Length != Lanes) throw new InvalidDataException("bad lane arrays");
         var c = new WarfrontCampaign(s.RunSeed, rolls) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
         for (int l = 0; l < Lanes; l++) { c._front[l] = s.Fronts[l]; c._advanced[l] = s.Advanced[l]; }

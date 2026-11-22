@@ -13,6 +13,14 @@ public static class WarfrontSave
 
     public static WarfrontCampaign FromJson(string json, IWarfrontRollSource? rolls = null)
     {
+        // a newer build's file may not even deserialize into this build's snapshot: read its version first, so it is reported as newer (and left alone) rather than as damaged
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("Version", out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int ver) && ver > WarfrontCampaign.SaveVersion)
+                throw new WarfrontSaveNewerException(ver);
+        }
+        catch (JsonException) { /* damaged text: the real parse below reports it */ }
         var s = JsonSerializer.Deserialize<WarfrontCampaign.Snapshot>(json, WarfrontCampaign.Json) ?? throw new InvalidDataException("empty warfront save");
         return WarfrontCampaign.FromSnapshot(s, rolls);
     }
