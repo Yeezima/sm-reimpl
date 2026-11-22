@@ -9,7 +9,7 @@ namespace SmMapmaker;
 /// </summary>
 public sealed class MapSession
 {
-    sealed record Entry(string DocBefore, string DocAfter, IReadOnlyList<(string Id, string? Before, string? After)> Prefabs, IReadOnlyList<(string Id, string Slot)>? DeletedAssets = null);
+    sealed record Entry(string DocBefore, string DocAfter, IReadOnlyList<(string Id, string? Before, string? After)> Prefabs, IReadOnlyList<(string Id, string Slot)>? DeletedAssets = null, IReadOnlyList<(string Id, string Slot)>? Replaced = null);
 
     /// <summary>Assets (id, trash slot) the last committed batch moved to the library trash (the editor keeps them for its own undo step).</summary>
     public IReadOnlyList<(string Id, string Slot)> LastTrashed { get; private set; } = [];
@@ -145,9 +145,20 @@ public sealed class MapSession
         var inverses = new List<(string What, Action Undo)>();
         string? scratch = null;
         var trashed = new List<(string, string)>();
+        var replaced = new List<(string, string)>();
         bool trashExisted = Directory.Exists(Library.TrashAssetsDir), trashParentExisted = Directory.Exists(System.IO.Path.GetDirectoryName(Library.TrashAssetsDir));
         try
         {
+            // The old copy of a deleted asset goes to the trash before a staged import of the same id is written (the import wins).
+            foreach (var id in trashIds)
+            {
+                string slot = MapLibrary.NewTrashSlot(id);
+                string src = Library.AssetDir(id), dst = System.IO.Path.Combine(Library.TrashAssetsDir, slot);
+                inverses.Add(($"restore trashed asset '{id}'", () => { if (Directory.Exists(dst) && !Directory.Exists(src)) { Directory.CreateDirectory(Library.AssetsDir); Directory.Move(dst, src); } }));
+                trashed.Add((id, Library.TrashAsset(id, slot)));
+                // delete then import of the same id: the import wins; the new copy gets its own trash slot so undo can park it there and redo bring it back
+                if (batch.Assets.ContainsKey(id)) replaced.Add((id, MapLibrary.NewTrashSlot(id)));
+            }
             foreach (var staged in batch.Assets.Values)
             {
                 var dir = Library.AssetDir(staged.Info.Id);
@@ -160,13 +171,6 @@ public sealed class MapSession
                 }
                 else inverses.Add(($"remove asset '{staged.Info.Id}'", () => { if (Directory.Exists(dir)) Directory.Delete(dir, true); }));
                 WriteAsset(staged);
-            }
-            foreach (var id in trashIds)
-            {
-                string slot = MapLibrary.NewTrashSlot(id);
-                string src = Library.AssetDir(id), dst = System.IO.Path.Combine(Library.TrashAssetsDir, slot);
-                inverses.Add(($"restore trashed asset '{id}'", () => { if (Directory.Exists(dst) && !Directory.Exists(src)) { Directory.CreateDirectory(Library.AssetsDir); Directory.Move(dst, src); } }));
-                trashed.Add((id, Library.TrashAsset(id, slot)));
             }
             foreach (var (id, _, now) in prefabChanges)
             {
@@ -209,7 +213,7 @@ public sealed class MapSession
         CopyDocument(batch.Doc);
         if (before != after || prefabChanges.Count > 0 || trashed.Count > 0)
         {
-            _undo.Add(new Entry(before, after, prefabChanges, trashed));
+            _undo.Add(new Entry(before, after, prefabChanges, trashed, replaced));
             _redo.Clear();
         }
         Touch();
@@ -225,9 +229,14 @@ public sealed class MapSession
 
     static void ClearReadOnly(string dir)
     {
-        foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-            if ((File.GetAttributes(f) & FileAttributes.ReadOnly) != 0) File.SetAttributes(f, FileAttributes.Normal);
+        foreach (var f in Directory.EnumerateFiles(dir))
+            if ((File.GetAttributes(f) & (FileAttributes.ReadOnly | FileAttributes.ReparsePoint)) == FileAttributes.ReadOnly) File.SetAttributes(f, FileAttributes.Normal);
+        foreach (var d in Directory.EnumerateDirectories(dir))
+            if (!IsReparse(d)) ClearReadOnly(d);
     }
+
+    /// <summary>A junction or symlink: never followed or written through, so nothing outside the library is touched.</summary>
+    static bool IsReparse(string path) => (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
     static void RemoveIfEmpty(string dir)
     {
@@ -241,22 +250,23 @@ public sealed class MapSession
         Directory.CreateDirectory(dir);
         foreach (var f in Directory.EnumerateFiles(backup))
         {
+            if (IsReparse(f)) continue;
             var target = System.IO.Path.Combine(dir, System.IO.Path.GetFileName(f));
-            if (File.Exists(target)) File.SetAttributes(target, FileAttributes.Normal);
+            if (File.Exists(target) && !IsReparse(target)) File.SetAttributes(target, FileAttributes.Normal);
             File.Copy(f, target, overwrite: true);
         }
-        foreach (var d in Directory.EnumerateDirectories(backup)) RestoreDirectory(d, System.IO.Path.Combine(dir, System.IO.Path.GetFileName(d)));
+        foreach (var d in Directory.EnumerateDirectories(backup).Where(d => !IsReparse(d))) RestoreDirectory(d, System.IO.Path.Combine(dir, System.IO.Path.GetFileName(d)));
         foreach (var f in Directory.EnumerateFiles(dir))
-            if (!File.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(f)))) { File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
+            if (!File.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(f)))) { if (!IsReparse(f)) File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
         foreach (var d in Directory.EnumerateDirectories(dir))
-            if (!Directory.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(d)))) { ClearReadOnly(d); Directory.Delete(d, true); }
+            if (!Directory.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(d)))) { if (!IsReparse(d)) ClearReadOnly(d); Directory.Delete(d, true); }
     }
 
     static void CopyDirectory(string from, string to)
     {
         Directory.CreateDirectory(to);
-        foreach (var f in Directory.EnumerateFiles(from)) File.Copy(f, System.IO.Path.Combine(to, System.IO.Path.GetFileName(f)), overwrite: true);
-        foreach (var d in Directory.EnumerateDirectories(from)) CopyDirectory(d, System.IO.Path.Combine(to, System.IO.Path.GetFileName(d)));
+        foreach (var f in Directory.EnumerateFiles(from).Where(f => !IsReparse(f))) File.Copy(f, System.IO.Path.Combine(to, System.IO.Path.GetFileName(f)), overwrite: true);
+        foreach (var d in Directory.EnumerateDirectories(from).Where(d => !IsReparse(d))) CopyDirectory(d, System.IO.Path.Combine(to, System.IO.Path.GetFileName(d)));
     }
 
     void WriteAsset(StagedAsset staged)
@@ -300,7 +310,7 @@ public sealed class MapSession
     {
         if (_undo.Count == 0) return OpResult.Fail("nothing-to-undo", "There is nothing to undo.", "undo");
         var e = _undo[^1];
-        try { Restore(e.DocBefore, e.Prefabs.Select(p => (p.Id, p.Before))); foreach (var (a, slot) in e.DeletedAssets ?? []) Library.RestoreAsset(a, slot); }
+        try { Restore(e.DocBefore, e.Prefabs.Select(p => (p.Id, p.Before))); foreach (var (a, slot) in e.DeletedAssets ?? []) { if (e.Replaced?.FirstOrDefault(r => r.Id == a) is { Slot: { } parked }) Library.TrashAsset(a, parked); Library.RestoreAsset(a, slot); } }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return OpResult.Fail("io-error", ex.Message, "undo"); }
         _undo.RemoveAt(_undo.Count - 1);
         _redo.Add(e);
@@ -312,7 +322,7 @@ public sealed class MapSession
     {
         if (_redo.Count == 0) return OpResult.Fail("nothing-to-redo", "There is nothing to redo.", "redo");
         var e = _redo[^1];
-        try { Restore(e.DocAfter, e.Prefabs.Select(p => (p.Id, p.After))); foreach (var (a, slot) in e.DeletedAssets ?? []) Library.TrashAsset(a, slot); }
+        try { Restore(e.DocAfter, e.Prefabs.Select(p => (p.Id, p.After))); foreach (var (a, slot) in e.DeletedAssets ?? []) { Library.TrashAsset(a, slot); if (e.Replaced?.FirstOrDefault(r => r.Id == a) is { Slot: { } parked }) Library.RestoreAsset(a, parked); } }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return OpResult.Fail("io-error", ex.Message, "redo"); }
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(e);

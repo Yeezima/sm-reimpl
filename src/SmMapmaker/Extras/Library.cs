@@ -214,7 +214,7 @@ public sealed class MapLibrary
     {
         var dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
         Directory.CreateDirectory(dir);
-        var tmp = Path.Combine(dir, "." + Path.GetFileName(path) + ".tmp");
+        var tmp = Path.Combine(dir, "." + Path.GetFileName(path) + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp");
         try
         {
             File.WriteAllBytes(tmp, bytes);

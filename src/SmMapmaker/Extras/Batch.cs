@@ -27,7 +27,8 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
     public List<KeyValuePair<string, string>> Mapping { get; } = [];
 
     public override Prefab? GetPrefab(string id) => Prefabs.TryGetValue(id, out var p) ? p : DeletedPrefabs.Contains(id) ? null : base.GetPrefab(id);
-    public override AssetInfo? GetAsset(string id) => DeletedAssets.Contains(id) ? null : Assets.TryGetValue(id, out var a) ? a.Info : base.GetAsset(id);
+    // A staged import wins over an earlier delete of the same id (the old copy still goes to the trash); a delete after an import drops the staged copy.
+    public override AssetInfo? GetAsset(string id) => Assets.TryGetValue(id, out var a) ? a.Info : DeletedAssets.Contains(id) ? null : base.GetAsset(id);
 
     record Item(string Name, AssetRef? Asset, string? Prefab, Matrix4x4 World, MapTransform Comp);
 
@@ -371,8 +372,10 @@ internal sealed partial class Batch(MapDocument doc, MapLibrary library, ISm1Sou
         foreach (var other in all)
             if (GetPrefab(other) is { } p && p.Parts.Any(part => Uses(part.Asset)))
                 throw new MapException("asset-in-use", $"Asset '{id}' is a part of prefab '{other}'; remove it there first.");
-        DeletedAssets.Add(id);
+        // Import then delete of the same id: the later operation wins, so the staged copy is dropped; a copy that is already in the library still goes to the trash.
+        Assets.Remove(id);
         CreatedAssets.Remove(id);
+        if (Library.GetAsset(id) is not null) DeletedAssets.Add(id);
     }
 
     void PrefabEdit(JsonObject op)
