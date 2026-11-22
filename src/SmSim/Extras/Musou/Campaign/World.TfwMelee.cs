@@ -99,6 +99,7 @@ public sealed partial class World
         while (struck < most)
         {
             ushort enemy; float distance; bool head;
+            // The list assumes a hit never MOVES an enemy (Damage moves no bodies, Remove runs only in the tick): a future knockback on a shot would need the fallback below too.
             // A hit can change the enemies behind it (a Weirdboy's burst kills those around him): when the next one on the list is no longer in play, the rest is asked of the pool again, as before.
             if (onePass && struck < found && musou.TryGet(ids[struck], out var next) && next.State != MusouEnemyState.Dying) { enemy = ids[struck]; distance = dists[struck]; head = heads[struck]; }
             else if (onePass && struck >= found) break;
