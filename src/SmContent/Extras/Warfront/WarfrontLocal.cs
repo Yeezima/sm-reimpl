@@ -30,6 +30,8 @@ public enum WarfrontRunKind
     Finished,
     /// <summary>The file exists but cannot be read: no CONTINUE; NEW CAMPAIGN asks first (the server archives the file).</summary>
     Unreadable,
+    /// <summary>The file is of a newer build (its version is above ours): never touched; no CONTINUE and no NEW CAMPAIGN (the server would refuse both), the page says "this campaign needs a newer build".</summary>
+    Newer,
 }
 
 /// <summary>The status strip's figures: deployments fought, the three fronts ("2 / 1 / 3") and the first player's level.</summary>
@@ -48,6 +50,8 @@ public sealed record WarfrontStatusCells(string Deployments, string Fronts, stri
 public sealed record WarfrontRunInfo(WarfrontRunKind Kind, string Line, WarfrontStatusCells? Cells = null)
 {
     public static readonly WarfrontRunInfo NoRun = new(WarfrontRunKind.None, "");
+    /// <summary>What the page says for a <see cref="WarfrontRunKind.Newer"/> file (the same words as the server's refusal and notice).</summary>
+    public const string NewerText = "this campaign needs a newer build";
     public bool CanContinue => Kind == WarfrontRunKind.Continuable;
     /// <summary>NEW CAMPAIGN asks before it starts: a run that is not over (or not readable) is on disk.</summary>
     public bool NewNeedsConfirm => Kind is WarfrontRunKind.Continuable or WarfrontRunKind.Unreadable;
@@ -125,6 +129,10 @@ public static class WarfrontLocal
             var c = WarfrontSave.FromJson(File.ReadAllText(path));
             if (c.IsOver) return new WarfrontRunInfo(WarfrontRunKind.Finished, "");
             return new WarfrontRunInfo(WarfrontRunKind.Continuable, SummaryLine(c), SummaryCells(c));
+        }
+        catch (WarfrontSaveNewerException)
+        {
+            return new WarfrontRunInfo(WarfrontRunKind.Newer, "");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException or NotSupportedException or ArgumentException)
         {

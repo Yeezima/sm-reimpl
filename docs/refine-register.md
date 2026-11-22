@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4000 spec table rows: **2943 tagged**, 695 not tagged (read from data with high confidence), 362 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 834 rows of the changes document.
+Scanned 4018 spec table rows: **2960 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +51,21 @@ Scanned 4000 spec table rows: **2943 tagged**, 695 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 116 | 115 | 48 | 52 | 0 |
-| Ork faction | 297 | 277 | 178 | 73 | 0 |
-| **All areas** | **2943** | 2638 | 2191 | 888 | 37 |
+| General game design | 132 | 131 | 54 | 53 | 0 |
+| Ork faction | 298 | 278 | 178 | 73 | 0 |
+| **All areas** | **2960** | 2655 | 2197 | 889 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1755 |
+| kind: ours | 1772 |
 | confidence: low | 1065 |
-| confidence: medium | 1015 |
+| confidence: medium | 1021 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 283 |
-| kind: estimate | 264 |
+| notes: estimate | 284 |
+| kind: estimate | 269 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -4280,7 +4280,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (116)
+### General game design (132)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4452,6 +4452,27 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B5DA564` | Storm air, Thunderstorm | near 0; far 0 in the opening, rising 0 to 1 linearly through the buildup, 1 at the peak, falling 1 to 0 through the recovery (share, progress of the phase) | kind: ours; confidence: low; notes: estimate | ours (an estimate; the owner's brief gave the shape) | Storm air, Thunderstorm: compare with SM1 by feel or video. Ours: near 0; far 0 in the opening, rising 0 to 1 linearly through the… | ☐ |
 | `R-15FA894F` | Ease | the shown shares move toward the target at 1 per 2 s (F6 switches, preset changes, phase and shelter changes all pass through it) (s) | kind: ours; confidence: low; notes: estimate | ours (an estimate) | Ease: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shown shares move toward the target at 1 per 2 s (F6 switches… | ☐ |
 | `R-62A4CD51` | Leaving | on disconnect or map exit the layers return to 1, 1 (the storm node is freed with the map) | kind: ours | ours | Leaving: compare with SM1 by feel or video. Ours: on disconnect or map exit the layers return to 1, 1 (the storm node… | ☐ |
+
+*Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-08769BF0` | Progression file location | `progress.json` in the player's own Warfront folder on their PC (`<key file>.progress.json` with `--warfront-key-file`), written atomically (temp file, then replace with `progress.json.bak` kept); a damaged file falls back to the `.bak`; a file of a newer… | kind: ours | owner decision 2026-11-22 (codebase fix 1, answer 4) | Progression file location: compare with SM1 by feel or video. Ours: progress.json in the player's own Warfront folder on their PC (<key… | ☐ |
+| `R-97518314` | Progression keeps | level (from XP), XP, card picks and the cards, extra retainers (class and name); persists across lost saves, updates, wins, defeats and new campaigns; only RESET PROGRESSION clears it | kind: ours | owner decision 2026-11-22 (answer 3) | Progression keeps: compare with SM1 by feel or video. Ours: level (from XP), XP, card picks and the cards, extra retainers (class… | ☐ |
+| `R-609D1FAF` | Maximum level | 50 (MaxXp 687499, the XP at which level 50 is reached on the 1500 + 500 per level curve); a file above it is clamped on load (level, XP) | kind: ours; notes: estimate | owner decision 2026-11-22 (the curve itself is the earlier estimate) | Maximum level: compare with SM1 by feel or video. Ours: 50 (MaxXp 687499, the XP at which level 50 is reached on the 1500 +… | ☐ |
+| `R-4FFF1C04` | Sanitize caps | picks taken at most level - 1; cards known ids, at most 49, count equal to the picks; extra retainers at most 8 and no more than the Retainer cards; class name 16 bytes, retainer name 24 bytes; trimmed and logged, never rejected; idempotent (count, bytes) | kind: ours; kind: estimate; confidence: medium | codebase fix 1 plan (host sanity checks only) | Sanitize caps: compare with SM1 by feel or video. Ours: picks taken at most level - 1; cards known ids, at most 49, count… | ☐ |
+| `R-35811790` | Merge rule (host copy against the player's copy) | the better record wins whole (cards and retainers follow it): higher XP, then more picks, then more extra retainers; a full tie takes the host copy; the client never overwrites its own file with a lower record | kind: ours | owner decision 2026-11-22 (answer 5) | Merge rule (host copy against the player's copy): compare with SM1 by feel or video. Ours: the better record wins whole (cards and retainers follow it): higher… | ☐ |
+| `R-28954FBE` | New players | a player with no progress file and a key not in the run starts at level 1 (XP 0, no cards, one retainer); the earlier catch-up to the median XP of the others, with the catch-up cards, is removed (`ApplyJoinGrant` only sets the flag); a key already in the run… | kind: ours | owner decision 2026-11-22 (answer 6) | New players: compare with SM1 by feel or video. Ours: a player with no progress file and a key not in the run starts at… | ☐ |
+| `R-C935CA0B` | ProgressSave (host to client) | envelope tag 49, the whole record in one section (at most 393 bytes); sent on every pick, level change and retainer gain, and every 10 s while XP changed; the first one received acknowledges the client's Progress (s) | kind: ours; kind: estimate; confidence: medium | codebase fix 1 plan | ProgressSave (host to client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: envelope tag 49, the whole record in one section (at most 393 bytes)… | ☐ |
+| `R-225627C7` | Progress command (client to host) | command kind 5, chunked into at most 7 payloads of 60 data bytes (the extras command limit is 64); sent after the first Identify and resent once a second until the first ProgressSave arrives, at most 30 times; flag 1 means no file, flag 2 means a reset (s) | kind: ours; kind: estimate; confidence: medium | codebase fix 1 plan | Progress command (client to host): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: command kind 5, chunked into at most 7 payloads of 60 data bytes (the… | ☐ |
+| `R-35E27F30` | Reset | RESET PROGRESSION on the Warfront menu, only while no server of this game runs on this PC, behind a Yes / No card (No is the default); writes `progress-before-reset.json` (one safety copy, replaced by the next reset), then a level-1 file stamped with the… | kind: ours | owner decision 2026-11-22 (answer 8) | Reset: compare with SM1 by feel or video. Ours: RESET PROGRESSION on the Warfront menu, only while no server of this… | ☐ |
+| `R-5782E33A` | Other progress files | a file of another key is kept beside the file as `progress-other-key.json` (never merged); a newer file is untouched and the menu says "your progression needs a newer build" | kind: ours; confidence: medium | codebase fix 1 plan | Other progress files: compare with SM1 by feel or video. Ours: a file of another key is kept beside the file as… | ☐ |
+| `R-2559A3D8` | Campaign save: loaded but not written | the loaded campaign keeps playing (never a new run); the host sets SavePending (state LoadedNotWritten), logs it, and retries 5 s later and at every save point; a failure of the asynchronous writer sets the same flag (s) | kind: ours; kind: estimate; confidence: medium | owner decision 2026-11-22 (answer 1) | Campaign save: loaded but not written: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the loaded campaign keeps playing (never a new run); the host sets… | ☐ |
+| `R-C0DECE9E` | Campaign save: damaged | `run.json` is moved to `records\<yyyyMMddTHHmmssZ>-unreadable.json` and `squads.json` to `...-unreadable-squads.json` (`-2`, `-3` on a name clash; a copy is kept when the move fails); only then a new campaign starts, with the notice "the campaign file was… | kind: ours | owner decision 2026-11-22 (answer 2) | Campaign save: damaged: compare with SM1 by feel or video. Ours: run.json is moved to records\<yyyyMMddTHHmmssZ>-unreadable.json and… | ☐ |
+| `R-50D6DBBC` | Campaign save: newer build | a `run.json` of a newer save version is never touched: the server stays up as an empty lobby in NoSave refuse mode (no save, no archive, no new-run command) and refuses every Identify with "this campaign needs a newer build"; the menu shows the same words and… | kind: ours | owner decision 2026-11-22 (answer 2) | Campaign save: newer build: compare with SM1 by feel or video. Ours: a run.json of a newer save version is never touched: the server stays… | ☐ |
+| `R-1C6AC536` | Campaign save: locked | a `run.json` that cannot be read (IOException or UnauthorizedAccess) is read 3 times, 200 ms apart; still failing, it is left untouched and the server refuses every join with "the campaign file cannot be read" (ms) | kind: ours; kind: estimate; confidence: medium | owner decision 2026-11-22 (answer 2) | Campaign save: locked: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a run.json that cannot be read (IOException or UnauthorizedAccess) is… | ☐ |
+| `R-B20AFCDC` | Menu notice | the loader writes `notice.json` (`{kind: unreadable\|newer\|locked, utc, text}`) in the run folder; the Warfront menu reads and deletes it when the page opens and shows it as one upper-case live-text line (at most 140 characters); an online host sends the same… | kind: ours | owner decision 2026-11-22 | Menu notice: compare with SM1 by feel or video. Ours: the loader writes notice.json ({kind: unreadable\|newer\|locked, utc… | ☐ |
+| `R-5F28CB31` | Supervisor on a bad run | the supervisor no longer exits when the run cannot be loaded; it starts the stage in the refuse mode above | kind: ours | codebase fix 1 plan | Supervisor on a bad run: compare with SM1 by timing a run over a known distance. Ours: the supervisor no longer exits when the run cannot be loaded; it… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5054,6 +5075,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-39E03499` | Far-tier Ork sun shadows | off (`CrowdView.FarNoShadow` set by the Warfront client; Musou Mode and PvP unchanged) | kind: ours; notes: estimate | owner pick 2026-11-18: "Far-tier Orks must not cast sun shadows" | Far-tier Ork sun shadows: compare with SM1 by feel or video. Ours: off (CrowdView.FarNoShadow set by the Warfront client; Musou Mode and… | ☐ |
 | `R-84DA6D7A` | Visible Ork cap | 1200 (was 1800; `MusouCrowd.WarfrontVisible`, applied only through the Warfront client's `VisibleOverride`; Musou Mode keeps 1800); `--musou-visible N` still wins (Orks) | kind: ours; notes: estimate | owner pick 2026-11-18: "Lower the visible Ork cap from 1800 to 1200" | Visible Ork cap: compare with SM1 by feel or video. Ours: 1200 (was 1800; MusouCrowd.WarfrontVisible, applied only through the… | ☐ |
 
+*Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8313560C` | Ork scaling with the highest level | unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) where L is the highest player level, so a fresh run with a high-level player starts harder | kind: ours | owner decision 2026-11-22 (answer 7) | Ork scaling with the highest level: compare with SM1 by feel or video. Ours: unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1)))… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -5066,6 +5093,15 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
 | `C-40FC47B2` | Ashfall kit detail: arena models high detail, old-GPU mode low (Musou Mode) | the owner's requests of 2026-11-09 ("ensure all the 3d assets used in the main play map are high res") and 2026-11-10 ("Use low detail ashfall textures for old gpu mode users"); thresholds ours | in Forward+ the kit models placed inside the arena load 2048 px textures (re-baked from the source at arena scale) and draw finer LODs (bias 4); in old-GPU mode (safe mode: the Compatibility renderer, automatic or the OPTIONS toggle, or `--safe-mode`) and with `--ashfall-kit-detail old` every model loads at 1024 px… | none (no gameplay value) | Ashfall kit detail: arena models high detail, old-GPU mode…: compare with SM1 by feel or video. Ours: the owner's requests of 2026-11-09 ("ensure all the 3d assets used in… | ☐ |
+
+#### Warfront save safety and persistent progression (codebase fix 1, 2026-11-22; spec "Warfront save safety and persistent progression")
+
+| ID | Change | Status | Compare in a playtest | Result |
+|---|---|---|---|---|
+| `C-DD77982C` | A player's level, XP, cards and extra retainers persist across campaigns (lost save, update, win, defeat, a new campaign), stored in `progress.json` on the player's own PC; the host checks it (max level 50) and the better record wins | ours (owner's decision); not in SM1 | A player's level, XP, cards and extra retainers persist…: compare with SM1 by feel or video. Ours: ours (owner's decision); not in SM1. | ☐ |
+| `C-2E27D325` | The median-XP catch-up grant for first-time joiners is removed: a new player starts at level 1 (Orks still scale with the highest player level, so a fresh run with a high-level player starts harder) | ours (owner's decision) | The median-XP catch-up grant for first-time joiners is…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ours (owner's decision). | ☐ |
+| `C-EAB08996` | RESET PROGRESSION on the Warfront menu clears the progression (one safety copy kept); max level 50 | ours (owner's decision) | RESET PROGRESSION on the Warfront menu clears the…: compare with SM1 by feel or video. Ours: ours (owner's decision). | ☐ |
+| `C-F5A186A8` | A damaged campaign save is set aside under `records\` and the player is told; a save of a newer build or a locked file is never overwritten; a failed write keeps the campaign playing and retries | ours (owner's decision) | A damaged campaign save is set aside under records\ and the…: compare with SM1 by feel or video. Ours: ours (owner's decision). | ☐ |
 
 #### Warfront HQ defense map (warfront/w13a; spec "Warfront HQ defense map profile")
 
@@ -6484,4 +6520,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-7AE0A24B-2` | Wire | Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only) |
 | `R-461D9CF6` | Test aids (W5; weather fix 2 gate) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
 | `R-29325834` | Test aid | Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only) |
+| `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 

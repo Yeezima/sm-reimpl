@@ -33,8 +33,10 @@ Up to four humans on a server started by hand. Identity is a random campaign key
 leave and returns to the first when it returns (join order is kept for the run). Only the leader's deploy is accepted. The local campaign (the front end's
 Warfront row) starts this PC's server bound to 127.0.0.1 with a cap of one human; when its client quits the server stops (leadership handoff means
 something only on a standalone server; no host migration is claimed). A returning player gets their own saved XP, cards, pending picks, roster and stats. A
-first-time joiner during a battle spectates (Classic's spectator camera) until the next ship stop; then XP = the median of the others, the customizer must be
-opened and closed, every catch-up card is picked aboard, then the player may deploy. Nothing is granted twice on a rejoin.
+first-time joiner during a battle spectates (Classic's spectator camera) until the next ship stop; then the customizer must be opened and closed and the
+player may deploy. Since codebase fix 1 (2026-11-22) a first-time joiner with no progress file starts at level 1 (the median-XP catch-up and its cards are removed); a player who
+brings a progress file from their own PC joins with that level (the host sanitizes it, max level 50, and the better of the two copies wins). Warfront needs this build on both sides:
+`WarfrontRules.Version` 20 and `WarfrontWire.Format` 2, so older builds cannot join.
 
 **ONLINE WARFRONT row (slice S5, owner 2026-11-19; shown since the 2026-11-20 ship).** The project's VM is to host one shared, always-on Warfront campaign on UDP 27016 (up to 4 players drop in and out). The
 Warfront page gets a row ONLINE WARFRONT after JOIN A FRIEND: it sets the Warfront profile (as the friend join does) and joins the public Classic server's host (`JoinTargets.PublicServer`, never a second
@@ -50,6 +52,7 @@ never answers shows "The online campaign is not reachable right now. Try again l
   five stat cards (attack speed, max HP, damage, ability cooldown, max armour), and a sixth, +1 Retainer, only for a squad-capable class with room (the Dreadnought
   sees five); nothing is drawn. A level-up refills health
   and armour. Retainers take one third of their player's stat bonuses, and (retainer AI slice S1, owner 2026-11-19) their damage and health also grow with the player's level on the Orks' curve (damage +5 %, health +8 % per level above 1: level 10 is x1.45 and x1.72).
+- Progression persists (codebase fix 1): level, XP, picks, cards and extra retainers belong to the player, not the run, and survive a lost save, an update, a win, a defeat and a new campaign; see "Saves and progress". Max level 50. Because Orks scale with the highest player level, a fresh run with a high-level player starts harder.
 - Ork health and damage at spawn scale with the highest player level (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) and HP x (1 + 0.2 (humans-1)); living
   Orks are never changed. All numbers are estimates. Per-level table with times to kill: `smtool.cmd warfront-tuning` (copied into the test report).
 - Each eligible player owns a roster of up to nine retainers (36 at four players), mirroring the player's class, weapons, perks, armour and colours; names
@@ -159,6 +162,21 @@ Tests: `WarfrontDedicatedWarmupTests` (fake launcher: starts once after a stage 
 
 Exit codes of the supervisor: 0 stopped, 1 run unreadable or a stage ended with 1, 2 command line, 3 port taken, 5 another supervisor holds the folder. Tests: `tests/SmNet.Tests/Extras/Warfront/Dedicated`
 (a fake stage child; SIGTERM delivery itself is Linux-only and not tested on Windows).
+
+## Saves and progress (codebase fix 1, 2026-11-22)
+
+**The campaign save (`run.json`, host).** At start `WarfrontRunLoader` loads the run and tells loading from writing: a campaign that loaded but could not be rewritten keeps playing (SavePending, retried 5 s later and at every save point; the
+asynchronous writer sets the same flag). A damaged file is moved to `records\<yyyyMMddTHHmmssZ>-unreadable.json` (with `squads.json` as `...-unreadable-squads.json`; `-2`, `-3` on a clash), a new campaign starts and
+the player is told ("the campaign file was damaged; it was set aside and a new campaign began"); if it can be neither moved nor copied the server refuses every join ("the campaign file is damaged and could not be set aside"). A file of a newer build is never
+touched ("this campaign needs a newer build"), and a locked or unreadable one (3 reads, 200 ms apart, UnauthorizedAccess too) is left alone ("the campaign file cannot be read"). In those last cases the dedicated server stays up in NoSave refuse mode: no save, no archive, no
+new-run command, every Identify refused with the same words; the supervisor no longer exits on a bad run. The loader leaves `notice.json` (`{kind: unreadable|newer|locked, utc, text}`) in the run folder; the Warfront menu reads and deletes it when it opens and shows it as one live-text line (an online host sends the text as a notice). The menu's run state `Newer` shows "this campaign needs a newer build" and turns NEW CAMPAIGN off.
+
+**Progression (`progress.json`, player's PC).** In the Warfront folder next to `client.json` (`<key file>.progress.json` with `--warfront-key-file`): version 1, key, XP, picks taken, cards, extra retainers (class and name), reset time. Written
+atomically with a `.bak`; a file of a newer version is never touched; another key's file is kept as `progress-other-key.json`. After Identify the client sends it as the chunked Progress command (kind 5, resent once a second up to 30 times
+until the first ProgressSave, tag 49, arrives); the host sanitizes it (max level 50, MaxXp 687499; picks, cards and extras bounded), keeps the better of its run copy and the player's under `Better` (XP, then picks, then extras; a tie takes the host) and
+applies it at the Ship phase. The host sends ProgressSave on every pick, level change and retainer gain, and every 10 s while XP changed; the client writes its file only when the host copy is not lower. A key already in the run with no file keeps its run copy, which becomes its first file.
+**Reset:** RESET PROGRESSION on the menu (only while no server of this game runs on this PC; Yes / No card) keeps one `progress-before-reset.json`, writes a level-1 file, deletes the `.bak` and sends flag 2 with the next Progress, which the host honours only in the Ship phase; run, stats and honor roll stay.
+Spec: "Warfront save safety and persistent progression".
 
 ## Hooks, pins, versions
 

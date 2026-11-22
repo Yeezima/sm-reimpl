@@ -131,6 +131,7 @@ public sealed partial class FrontEndView
         {
             if (choices.Contains(WarfrontLocal.ContinueRow)) { main = Plate(WarfrontLocal.ContinueRow, () => WarfrontStart(newRun: false), "Back to the campaign you left"); Add(main); first = main; }
             var fresh = Plate(WarfrontLocal.NewRow, () => WarfrontNew(run), "Starts a new campaign on this PC: only you can join it");
+            if (run.Kind == WarfrontRunKind.Newer) { fresh.Disabled = true; UiTooltip.Attach(fresh, "The campaign file on this PC needs a newer build. Update the game."); }   // the server would refuse a new run over it
             first ??= fresh;
             column.Add(fresh); Add(fresh);
         }
@@ -150,6 +151,7 @@ public sealed partial class FrontEndView
         page.SetStatus(run.CanContinue ? run.Cells : null, honor);
         if (_wfNotice.Length > 0) page.SetNote(_wfNotice, "refusal");
         else if (note is not null) page.SetNote(note, running && !warfront ? "refusal" : null);
+        else if (run.Kind == WarfrontRunKind.Newer) page.SetNote(WarfrontRunInfo.NewerText.ToUpperInvariant(), "refusal");
         else if (progress is { Newer: true }) page.SetNote(WarfrontNewerNote, "refusal");
         else if (honor is not null) page.SetNote(honor, "progress");   // counts from the honor roll (RUNS 3, VICTORIES 1, FASTEST 41:20)
         page.SetPlates(column, main);

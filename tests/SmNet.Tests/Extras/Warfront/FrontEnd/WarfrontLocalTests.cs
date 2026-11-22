@@ -109,7 +109,6 @@ public sealed class WarfrontLocalTests : IDisposable
     [Theory]
     [InlineData("")]
     [InlineData("not json")]
-    [InlineData("{\"Version\":99}")]
     [InlineData("{}")]
     public void An_unreadable_run_gives_no_continue_but_asks_before_new(string text)
     {
@@ -118,6 +117,19 @@ public sealed class WarfrontLocalTests : IDisposable
         Assert.Equal(WarfrontRunKind.Unreadable, run.Kind);
         Assert.False(run.CanContinue);
         Assert.True(run.NewNeedsConfirm);
+    }
+
+    [Fact]
+    public void A_run_of_a_newer_build_reads_as_Newer_and_is_left_untouched()
+    {
+        string path = Path.Combine(_dir, WarfrontSave.RunFile);
+        File.WriteAllText(path, "{\"Version\":99}");
+        var run = WarfrontLocal.ReadRun(_dir);
+        Assert.Equal(WarfrontRunKind.Newer, run.Kind);
+        Assert.False(run.CanContinue);
+        Assert.False(run.NewNeedsConfirm);
+        Assert.Equal("this campaign needs a newer build", WarfrontRunInfo.NewerText);
+        Assert.Equal("{\"Version\":99}", File.ReadAllText(path));
     }
 
     static void Record(string dir, string stem, string result, int seconds)

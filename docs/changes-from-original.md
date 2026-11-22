@@ -19,6 +19,15 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) |
 | Ashfall kit detail: arena models high detail, old-GPU mode low (Musou Mode) | the owner's requests of 2026-11-09 ("ensure all the 3d assets used in the main play map are high res") and 2026-11-10 ("Use low detail ashfall textures for old gpu mode users"); thresholds ours | in Forward+ the kit models placed inside the arena load 2048 px textures (re-baked from the source at arena scale) and draw finer LODs (bias 4); in old-GPU mode (safe mode: the Compatibility renderer, automatic or the OPTIONS toggle, or `--safe-mode`) and with `--ashfall-kit-detail old` every model loads at 1024 px with the plain LOD threshold (`AshfallKitDetailRule`); models placed only outside the arena are 1024 px always. No gameplay value changes | none (no gameplay value) |
 
+### Warfront save safety and persistent progression (codebase fix 1, 2026-11-22; spec "Warfront save safety and persistent progression")
+
+| Change | Status |
+|---|---|
+| A player's level, XP, cards and extra retainers persist across campaigns (lost save, update, win, defeat, a new campaign), stored in `progress.json` on the player's own PC; the host checks it (max level 50) and the better record wins | ours (owner's decision); not in SM1 |
+| The median-XP catch-up grant for first-time joiners is removed: a new player starts at level 1 (Orks still scale with the highest player level, so a fresh run with a high-level player starts harder) | ours (owner's decision) |
+| RESET PROGRESSION on the Warfront menu clears the progression (one safety copy kept); max level 50 | ours (owner's decision) |
+| A damaged campaign save is set aside under `records\` and the player is told; a save of a newer build or a locked file is never overwritten; a failed write keeps the campaign playing and retries | ours (owner's decision) |
+
 ### Warfront HQ defense map (warfront/w13a; spec "Warfront HQ defense map profile")
 
 | What | Ours / the owner's | Value | Spec row |
