@@ -114,6 +114,8 @@ public sealed partial class GameServer
     readonly byte[] _cookieSecret = RandomNumberGenerator.GetBytes(32);
     readonly Dictionary<int, Peer> _peers = new();   // by connection id
     TimeSpan? _nextTickAt, _nextSnapshotAt, _nextScoreboardAt;
+    /// <summary>The world tick of the last snapshot send (codebase fix 5): a send is forced once <see cref="SmSim.World.DetonationMemoryTicks"/> ticks pass without one, so the clock's rounding drift can never skip a detonation.</summary>
+    uint? _lastSnapshotTick;
     int _nextPlayerId = 1;
 
     public World World { get; }
@@ -304,7 +306,9 @@ public sealed partial class GameServer
             Guard("bot stats", BotStatsTick);   // test aid SM_BOT_STATS (GameServer.BotStats.cs)
             _nextTickAt += tickLength;
             section = SmSim.SimProfile.Begin();
-            if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; TickStatsSnapshot(); }
+            bool snapshotDue = _nextTickAt > _nextSnapshotAt;
+            bool memoryRunsOut = _lastSnapshotTick is { } lastSent && World.Tick - lastSent >= SmSim.World.DetonationMemoryTicks;   // codebase fix 5: a blast is kept 3 ticks; never let that many pass unsent
+            if (snapshotDue || memoryRunsOut) { Guard("snapshots", SendSnapshots); _lastSnapshotTick = World.Tick; if (snapshotDue) _nextSnapshotAt += snapshotLength; TickStatsSnapshot(); }
             if (_nextTickAt > _nextScoreboardAt) { Guard("scoreboards", SendScoreboards); _nextScoreboardAt += _options.ScoreboardInterval; }
             Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
             if (_options.DevTools is not null) Guard("dev tools", DevToolsTick);   // protocol 80: the developer tools' bots and state (GameServer.DevTools.cs); nothing without --dev-tools
@@ -836,7 +840,7 @@ public sealed partial class GameServer
     /// co-op of 2026-11-06). A faithful or Extended match keeps <see cref="ServerOptions.MaxPlayers"/>.
     /// </summary>
     /// <summary>Snapshots a second to every client (net/responsive: <see cref="ServerOptions.SnapshotRate"/>).</summary>
-    public int SnapshotRate => _options.SnapshotRate;
+    public int SnapshotRate => Math.Clamp(_options.SnapshotRate, ServerOptions.MinSnapshotRate, 30);   // the rate the schedule uses (codebase fix 5)
 
     public int PlayerCap
     {

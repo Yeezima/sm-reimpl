@@ -29,4 +29,17 @@ public class SnapshotRateFloorTests
         int ticksPerSecond = new SimConfig().TickRate;
         Assert.True((double)ticksPerSecond / ServerOptions.MinSnapshotRate <= World.DetonationMemoryTicks);
     }
+    [Theory]
+    [InlineData(10)]
+    [InlineData(5)]    // programmatic options below the floor are clamped to it
+    [InlineData(1)]
+    public void Snapshots_never_leave_a_detonations_memory_without_a_send(int rate)
+    {
+        var h = new Harness(LinkConditions.Perfect, 1, 1, serverOptions: new ServerOptions { SnapshotRate = rate });
+        h.Run(TimeSpan.FromSeconds(1));
+        var ticks = new List<uint>();
+        h.Run(TimeSpan.FromSeconds(3), null, () => { if (ticks.Count == 0 || ticks[^1] != h.Clients[0].LatestSnapshotTick) ticks.Add(h.Clients[0].LatestSnapshotTick); });
+        Assert.InRange(ticks.Count, 28, 32);   // 10 a second at the floor
+        for (int k = 1; k < ticks.Count; k++) Assert.True(ticks[k] - ticks[k - 1] <= World.DetonationMemoryTicks, $"gap of {ticks[k] - ticks[k - 1]} ticks after tick {ticks[k - 1]}");
+    }
 }

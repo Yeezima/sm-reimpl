@@ -133,7 +133,7 @@ public readonly record struct ShotEvent(uint Tick, int Shooter, int Weapon, int 
 /// </summary>
 public sealed partial class World
 {
-    /// <summary>Ticks a detonation stays in <see cref="RecentDetonations"/> (so snapshots, sent every 1 or 2 ticks, carry it).</summary>
+    /// <summary>Ticks a detonation stays in <see cref="RecentDetonations"/> (so snapshots, sent at least every 3 ticks (the server's snapshot rate is 10 to 30 and a send is forced after 3 ticks without one), carry it).</summary>
     public const int DetonationMemoryTicks = 3;
     /// <summary>How far a resting or bouncing projectile is kept off the surface it struck, and a blast point off it (m).</summary>
     const float SurfaceOffset = 0.02f, BlastOffset = 0.05f;

@@ -49,7 +49,7 @@ public sealed record ServerArguments
     /// <summary>--bot-damage-scale (test aid, owner 2026-10-29: "reduce all bot damage by 66% temporarily for testing purposes"): every hit a test bot deals (shots, projectiles,
     /// blasts, melee, the charge; health and shield) is scaled by this; 1 (default) off. Bots say they are bots in their Hello (protocol 37).</summary>
     public float BotDamageScale { get; init; } = 1f;
-    /// <summary>--snapshot-rate (net/responsive): snapshots a second, 1 to the tick rate (default <see cref="ServerOptions.SnapshotRate"/>, 30; 20 restores the rate before).</summary>
+    /// <summary>--snapshot-rate (net/responsive): snapshots a second, 10 to 30 (codebase fix 5; default <see cref="ServerOptions.SnapshotRate"/>, 30; 20 restores the rate before).</summary>
     public int? SnapshotRate { get; init; }
     /// <summary>--name-seed (names/bot-lore): the seed of the test bots' names (<see cref="ServerOptions.NameSeed"/>); null: random at start.</summary>
     public uint? NameSeed { get; init; }
