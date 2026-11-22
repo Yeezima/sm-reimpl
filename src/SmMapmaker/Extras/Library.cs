@@ -165,6 +165,21 @@ public sealed class MapLibrary
         RebuildIndex();
     }
 
+    /// <summary>Undo of a trashed asset: brings the copy in <paramref name="slot"/> back. When the same batch also imported a new copy of the id, that copy is first parked in <paramref name="parked"/> (so redo can bring it back). Idempotent: a step already in its target state (the slot is gone) is skipped, so a retry after a part-way failure is safe.</summary>
+    public void UndoAssetSwap(string id, string slot, string? parked)
+    {
+        if (!Directory.Exists(Path.Combine(TrashAssetsDir, slot))) return;
+        if (parked is not null && Directory.Exists(AssetDir(id)) && !Directory.Exists(Path.Combine(TrashAssetsDir, parked))) TrashAsset(id, parked);
+        RestoreAsset(id, slot);
+    }
+
+    /// <summary>Redo of a trashed asset: moves the current copy to <paramref name="slot"/> and, when <paramref name="parked"/> holds the batch's new copy, brings that back. Idempotent like <see cref="UndoAssetSwap"/>.</summary>
+    public void RedoAssetSwap(string id, string slot, string? parked)
+    {
+        if (!Directory.Exists(Path.Combine(TrashAssetsDir, slot))) TrashAsset(id, slot);
+        if (parked is not null) RestoreAsset(id, parked);
+    }
+
     /// <summary>Saved maps in the library's maps folder (other than <paramref name="except"/>) that place the custom asset or the prefab; unreadable files are skipped.</summary>
     public IReadOnlyList<string> MapsUsing(string? assetId, string? prefabId, string? except = null)
     {

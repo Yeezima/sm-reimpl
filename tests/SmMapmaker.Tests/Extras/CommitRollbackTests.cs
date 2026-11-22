@@ -324,4 +324,114 @@ public class CommitRollbackTests
         }
         finally { if (File.Exists(stray)) File.SetAttributes(stray, FileAttributes.Normal); }
     }
+
+    // The editor plugin undoes and redoes with the library's swap helpers, fed by LastTrashed / LastReplaced (as MapmakerPlugin.SwapAssets does).
+    [Fact]
+    public void ThePluginPathSwapsTheReplacedAssetThroughTheLibraryHelpers()
+    {
+        using var lab = new Lab();
+        var s = Scene(lab);
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete","ids":["o1"]}""")).Ok);
+        string oldText = PillarText(lab);
+        Assert.True(s.Apply(ReplaceBatch(lab)).Ok);
+        string newText = PillarText(lab);
+        var trashed = s.LastTrashed.ToArray();
+        var replaced = s.LastReplaced.ToArray();
+        Assert.Single(replaced);
+        foreach (var (a, slot) in trashed) lab.Library.UndoAssetSwap(a, slot, replaced.FirstOrDefault(r => r.Id == a).Slot);
+        Assert.Equal(oldText, PillarText(lab));
+        foreach (var (a, slot) in trashed) lab.Library.RedoAssetSwap(a, slot, replaced.FirstOrDefault(r => r.Id == a).Slot);
+        Assert.Equal(newText, PillarText(lab));
+        // a repeated step is a no-op, not an error
+        foreach (var (a, slot) in trashed) lab.Library.RedoAssetSwap(a, slot, replaced.FirstOrDefault(r => r.Id == a).Slot);
+        Assert.Equal(newText, PillarText(lab));
+        foreach (var (a, slot) in trashed) lab.Library.UndoAssetSwap(a, slot, replaced.FirstOrDefault(r => r.Id == a).Slot);
+        foreach (var (a, slot) in trashed) lab.Library.UndoAssetSwap(a, slot, replaced.FirstOrDefault(r => r.Id == a).Slot);
+        Assert.Equal(oldText, PillarText(lab));
+    }
+
+    [Fact]
+    public void AnUndoThatFailsOnTheSecondAssetCanBeRetried()
+    {
+        using var lab = new Lab();
+        var s = Scene(lab);
+        lab.ImportBox(s, "third");
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete","ids":["o1"]}""")).Ok);
+        Assert.True(s.Apply([Lab.Op("""{"op":"delete-asset","asset":"pillar"}"""), Lab.Op("""{"op":"delete-asset","asset":"third"}""")]).Ok);
+        Assert.Null(lab.Library.GetAsset("pillar"));
+        int hits = 0;
+        lab.Library.StorageFault = st => { if (st == "index" && ++hits == 2) throw new IOException("injected"); };
+        var failed = s.Undo();
+        lab.Library.StorageFault = null;
+        Assert.False(failed.Ok);
+        var retry = s.Undo();
+        Assert.True(retry.Ok, retry.ToJson());
+        Assert.NotNull(lab.Library.GetAsset("pillar"));
+        Assert.NotNull(lab.Library.GetAsset("third"));
+        Assert.True(s.Redo().Ok);
+        Assert.Null(lab.Library.GetAsset("pillar"));
+        Assert.Null(lab.Library.GetAsset("third"));
+    }
+
+    static bool TryJunction(string link, string target)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"") { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            p.StandardOutput.ReadToEnd(); p.StandardError.ReadToEnd(); p.WaitForExit();
+            return p.ExitCode == 0 && Directory.Exists(link);
+        }
+        catch (Exception) { return false; }
+    }
+
+    [Fact]
+    public void AReplacedFolderHoldingAReparsePointRefusesTheBatchBeforeAnyChange()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        using var lab = new Lab();
+        var s = Scene(lab);
+        string outside = Path.Combine(lab.Dir, "outside"); Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "cloud.bin"), "placeholder data");
+        string ghost = lab.Library.AssetDir("ghost"); Directory.CreateDirectory(ghost);   // no asset.json: importing that id replaces the folder
+        string link = Path.Combine(ghost, "linked");
+        if (!TryJunction(link, outside)) return;   // cannot create a link here
+        try
+        {
+            var before = Tree(lab.Library);
+            var r = s.Apply(Lab.Op($$"""{"op":"import-asset","path":{{Q(lab.WriteGltf("boxa.gltf"))}},"id":"ghost"}"""));
+            Assert.False(r.Ok);
+            Assert.Contains("synced-folder placeholder", r.ToJson());
+            Assert.Equal(before.Keys, Tree(lab.Library).Keys);
+            Assert.True(File.Exists(Path.Combine(outside, "cloud.bin")));
+        }
+        finally { if (Directory.Exists(link)) Directory.Delete(link); }
+    }
+
+    [Fact]
+    public void ARollbackNeverDeletesAReparsePointItDidNotBackUp()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        using var lab = new Lab();
+        var s = Scene(lab);
+        string outside = Path.Combine(lab.Dir, "outside2"); Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "cloud.bin"), "placeholder data");
+        string ghost = lab.Library.AssetDir("ghost"); Directory.CreateDirectory(ghost);
+        string link = Path.Combine(ghost, "synced");
+        bool made = false;
+        try
+        {
+            lab.Library.StorageFault = st =>
+            {
+                if (st == "asset-write" && !made) made = TryJunction(link, outside);   // appears after the backup, as a sync client can do
+                if (st == "index") throw new IOException("injected");
+            };
+            Assert.False(s.Apply(Lab.Op($$"""{"op":"import-asset","path":{{Q(lab.WriteGltf("boxa.gltf"))}},"id":"ghost"}""")).Ok);
+            lab.Library.StorageFault = null;
+            if (!made) return;
+            Assert.True(Directory.Exists(link));
+            Assert.True(File.Exists(Path.Combine(outside, "cloud.bin")));
+        }
+        finally { lab.Library.StorageFault = null; if (Directory.Exists(link)) Directory.Delete(link); }
+    }
 }

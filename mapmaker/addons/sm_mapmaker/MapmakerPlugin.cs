@@ -27,6 +27,7 @@ public partial class MapmakerPlugin : EditorPlugin
         public string BeforeDoc = "", AfterDoc = "";
         public Dictionary<string, string?> BeforePrefabs = new(), AfterPrefabs = new();
         public (string Id, string Slot)[] DeletedAssets = [];   // custom assets this step moved to the library trash (undo moves them back)
+        public (string Id, string Slot)[] ReplacedAssets = [];  // per id deleted and re-imported in the same batch: the slot that parks the new copy while the step is undone
     }
 
     MapmakerDock? _dock;
@@ -428,7 +429,9 @@ public partial class MapmakerPlugin : EditorPlugin
             return applied;
         }
         step.Result = applied;
-        step.DeletedAssets = step.Ops.Any(o => o["op"]?.ToString() == "delete-asset") ? Session.LastTrashed.ToArray() : [];
+        bool deletes = step.Ops.Any(o => o["op"]?.ToString() == "delete-asset");
+        step.DeletedAssets = deletes ? Session.LastTrashed.ToArray() : [];
+        step.ReplacedAssets = deletes ? Session.LastReplaced.ToArray() : [];
         step.AfterDoc = Session.Document.ToJson();
         step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
         foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
@@ -472,17 +475,45 @@ public partial class MapmakerPlugin : EditorPlugin
     public void StepDo(int id)
     {
         if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;   // a history entry whose step was dropped (its map was replaced), or another scene's
+        if (!SwapAssets(step, undo: false)) return;   // a failed storage step is reported and leaves the document as it was, so files and map stay in step
         Restore(step.AfterDoc, step.AfterPrefabs);
-        foreach (var (a, slot) in step.DeletedAssets) MapHost.Library.TrashAsset(a, slot);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
     public void StepUndo(int id)
     {
         if (!_steps.TryGetValue(id, out var step) || step.RootId != _activeRoot) return;
+        if (!SwapAssets(step, undo: true)) return;
         Restore(step.BeforeDoc, step.BeforePrefabs);
-        foreach (var (a, slot) in step.DeletedAssets) MapHost.Library.RestoreAsset(a, slot);
         AfterChange(prefabsChanged: StepTouchesLibrary(step));
+    }
+
+    /// <summary>Undoes or redoes the step's asset moves with the library's swap helpers (the same ones <c>MapSession.Undo/Redo</c> use, so a delete + import of one id swaps old and new). On a failure the moves already made are reversed (best effort), the error is reported and false is returned.</summary>
+    bool SwapAssets(Step step, bool undo)
+    {
+        int done = 0;
+        string? ParkedOf(string id) => step.ReplacedAssets.FirstOrDefault(r => r.Id == id).Slot;
+        try
+        {
+            foreach (var (a, slot) in step.DeletedAssets)
+            {
+                if (undo) MapHost.Library.UndoAssetSwap(a, slot, ParkedOf(a));
+                else MapHost.Library.RedoAssetSwap(a, slot, ParkedOf(a));
+                done++;
+            }
+            return true;
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
+        {
+            foreach (var (a, slot) in step.DeletedAssets.Take(done).Reverse())
+            {
+                try { if (undo) MapHost.Library.RedoAssetSwap(a, slot, ParkedOf(a)); else MapHost.Library.UndoAssetSwap(a, slot, ParkedOf(a)); }
+                catch (Exception) { }
+            }
+            SetStatus($"{(undo ? "Undo" : "Redo")} failed, the map was left as it was: {e.Message}");
+            GD.PushError($"Mapmaker: {(undo ? "undo" : "redo")} of an asset move failed: {e.Message}");
+            return false;
+        }
     }
 
     void Restore(string docJson, Dictionary<string, string?> prefabs)

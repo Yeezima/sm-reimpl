@@ -13,6 +13,8 @@ public sealed class MapSession
 
     /// <summary>Assets (id, trash slot) the last committed batch moved to the library trash (the editor keeps them for its own undo step).</summary>
     public IReadOnlyList<(string Id, string Slot)> LastTrashed { get; private set; } = [];
+    /// <summary>Per id deleted and re-imported by the last batch: the trash slot that parks the new copy while the batch is undone (empty for most batches).</summary>
+    public IReadOnlyList<(string Id, string Slot)> LastReplaced { get; private set; } = [];
 
     readonly List<Entry> _undo = [];
     readonly List<Entry> _redo = [];
@@ -142,6 +144,9 @@ public sealed class MapSession
 
         // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
         // document, LastTrashed and the undo/redo stacks stay as they were. (A journal that survives a process crash is not part of this.)
+        // A folder to be replaced that holds a link or a synced-folder placeholder (reparse point) cannot be backed up faithfully: refuse before anything changes.
+        foreach (var staged in batch.Assets.Values)
+            if (!trashIds.Contains(staged.Info.Id) && Directory.Exists(Library.AssetDir(staged.Info.Id))) EnsureNoReparse(Library.AssetDir(staged.Info.Id), staged.Info.Id);
         var inverses = new List<(string What, Action Undo)>();
         string? scratch = null;
         var trashed = new List<(string, string)>();
@@ -209,6 +214,7 @@ public sealed class MapSession
         }
         if (CleanScratch(scratch) is { } left) batch.Warnings.Add(left);
         LastTrashed = trashed;
+        LastReplaced = replaced;
 
         CopyDocument(batch.Doc);
         if (before != after || prefabChanges.Count > 0 || trashed.Count > 0)
@@ -256,17 +262,34 @@ public sealed class MapSession
             File.Copy(f, target, overwrite: true);
         }
         foreach (var d in Directory.EnumerateDirectories(backup).Where(d => !IsReparse(d))) RestoreDirectory(d, System.IO.Path.Combine(dir, System.IO.Path.GetFileName(d)));
+        // Entries the backup does not have are removed, but never a reparse point (a link or a synced-folder placeholder): it was not backed up, so it is left alone.
         foreach (var f in Directory.EnumerateFiles(dir))
-            if (!File.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(f)))) { if (!IsReparse(f)) File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
+            if (!IsReparse(f) && !File.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(f)))) { File.SetAttributes(f, FileAttributes.Normal); File.Delete(f); }
         foreach (var d in Directory.EnumerateDirectories(dir))
-            if (!Directory.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(d)))) { if (!IsReparse(d)) ClearReadOnly(d); Directory.Delete(d, true); }
+            if (!IsReparse(d) && !Directory.Exists(System.IO.Path.Combine(backup, System.IO.Path.GetFileName(d)))) { ClearReadOnly(d); Directory.Delete(d, true); }
     }
 
     static void CopyDirectory(string from, string to)
     {
         Directory.CreateDirectory(to);
-        foreach (var f in Directory.EnumerateFiles(from).Where(f => !IsReparse(f))) File.Copy(f, System.IO.Path.Combine(to, System.IO.Path.GetFileName(f)), overwrite: true);
-        foreach (var d in Directory.EnumerateDirectories(from).Where(d => !IsReparse(d))) CopyDirectory(d, System.IO.Path.Combine(to, System.IO.Path.GetFileName(d)));
+        foreach (var f in Directory.EnumerateFiles(from))
+        {
+            if (IsReparse(f)) throw new IOException($"'{f}' is a link or a synced-folder placeholder and cannot be backed up safely.");
+            File.Copy(f, System.IO.Path.Combine(to, System.IO.Path.GetFileName(f)), overwrite: true);
+        }
+        foreach (var d in Directory.EnumerateDirectories(from))
+        {
+            if (IsReparse(d)) throw new IOException($"'{d}' is a link or a synced-folder placeholder and cannot be backed up safely.");
+            CopyDirectory(d, System.IO.Path.Combine(to, System.IO.Path.GetFileName(d)));
+        }
+    }
+
+    /// <summary>Throws (naming the first offender) when the folder or anything in it is a reparse point: replacing it could not be rolled back without losing data.</summary>
+    static void EnsureNoReparse(string dir, string id)
+    {
+        if (IsReparse(dir)) throw new IOException($"Asset '{id}' cannot be replaced: its folder is a link or a synced-folder placeholder. Nothing was changed.");
+        foreach (var e in Directory.EnumerateFileSystemEntries(dir, "*", SearchOption.AllDirectories))
+            if (IsReparse(e)) throw new IOException($"Asset '{id}' cannot be replaced: '{System.IO.Path.GetRelativePath(dir, e)}' is a link or a synced-folder placeholder (for example a cloud file not downloaded), which cannot be backed up safely. Nothing was changed.");
     }
 
     void WriteAsset(StagedAsset staged)
@@ -310,7 +333,7 @@ public sealed class MapSession
     {
         if (_undo.Count == 0) return OpResult.Fail("nothing-to-undo", "There is nothing to undo.", "undo");
         var e = _undo[^1];
-        try { Restore(e.DocBefore, e.Prefabs.Select(p => (p.Id, p.Before))); foreach (var (a, slot) in e.DeletedAssets ?? []) { if (e.Replaced?.FirstOrDefault(r => r.Id == a) is { Slot: { } parked }) Library.TrashAsset(a, parked); Library.RestoreAsset(a, slot); } }
+        try { Restore(e.DocBefore, e.Prefabs.Select(p => (p.Id, p.Before))); foreach (var (a, slot) in e.DeletedAssets ?? []) Library.UndoAssetSwap(a, slot, e.Replaced?.FirstOrDefault(r => r.Id == a).Slot); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return OpResult.Fail("io-error", ex.Message, "undo"); }
         _undo.RemoveAt(_undo.Count - 1);
         _redo.Add(e);
@@ -322,7 +345,7 @@ public sealed class MapSession
     {
         if (_redo.Count == 0) return OpResult.Fail("nothing-to-redo", "There is nothing to redo.", "redo");
         var e = _redo[^1];
-        try { Restore(e.DocAfter, e.Prefabs.Select(p => (p.Id, p.After))); foreach (var (a, slot) in e.DeletedAssets ?? []) { Library.TrashAsset(a, slot); if (e.Replaced?.FirstOrDefault(r => r.Id == a) is { Slot: { } parked }) Library.RestoreAsset(a, parked); } }
+        try { Restore(e.DocAfter, e.Prefabs.Select(p => (p.Id, p.After))); foreach (var (a, slot) in e.DeletedAssets ?? []) Library.RedoAssetSwap(a, slot, e.Replaced?.FirstOrDefault(r => r.Id == a).Slot); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return OpResult.Fail("io-error", ex.Message, "redo"); }
         _redo.RemoveAt(_redo.Count - 1);
         _undo.Add(e);
