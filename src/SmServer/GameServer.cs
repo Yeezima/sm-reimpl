@@ -15,6 +15,11 @@ public sealed partial record ServerOptions
     /// </summary>
     public int SnapshotRate { get; init; } = 30;
     /// <summary>
+    /// The lowest snapshot rate (codebase fix 5, Codex review 2026-11-21): a detonation stays in <see cref="SmSim.World.RecentDetonations"/> for <see cref="SmSim.World.DetonationMemoryTicks"/> ticks,
+    /// so at 30 ticks a second a snapshot at least every 3 ticks (10 a second) carries every one; below that some blasts would never be seen or heard (the damage is the server's either way).
+    /// </summary>
+    public const int MinSnapshotRate = 10;
+    /// <summary>
     /// Test aid (<c>--bot-damage-scale</c>; owner, 2026-10-29): every hit dealt by a client whose Hello marks it a test bot (<see cref="Hello.Bot"/>,
     /// protocol 37) is scaled by this (<see cref="World.SetDamageScale"/>); 1 (default): off.
     /// </summary>
@@ -284,7 +289,7 @@ public sealed partial class GameServer
         KickIdle(now);
 
         var tickLength = TimeSpan.FromSeconds(World.Config.TickSeconds);
-        var snapshotLength = TimeSpan.FromSeconds(1.0 / _options.SnapshotRate);
+        var snapshotLength = TimeSpan.FromSeconds(1.0 / Math.Clamp(_options.SnapshotRate, ServerOptions.MinSnapshotRate, 30));   // codebase fix 5: never below the rate that carries every detonation
         _nextTickAt ??= now;
         _nextSnapshotAt ??= now;
         _nextScoreboardAt ??= now;

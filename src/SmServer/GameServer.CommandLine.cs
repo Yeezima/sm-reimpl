@@ -157,7 +157,7 @@ public static class ServerCommandLine
           --countdown <seconds>         "MATCH BEGINS" countdown before play, 0 = none (default 5, at most 600; ours)
           --pickup-test <seconds>       test aid: one drop of each type in front of every living player this often
           --bot-damage-scale <f>        test aid: scale all damage dealt by test bots (client --bot) by f, 0 to 1 (default 1 = off; e.g. 0.34 = 66% less)
-          --snapshot-rate <hz>          snapshots a second to every client, 1 to 30 (default 30, every tick; 20 = the rate before net/responsive)
+          --snapshot-rate <hz>          snapshots a second to every client, 10 to 30 (default 30, every tick; 20 = the rate before net/responsive; below 10 some explosions would be missed)
           --name-seed <0-4294967295>    the seed of the test bots' names (per-race pools, ours; default random, printed at start): the same seed and join order give the same names
           --dev-tools                   switch: test aid: the in-game developer tools (F6 in the client: invincible, freeze bots, infinite ammunition, infinite jump pack, add / remove a bot per side);
                                         obeyed only with --bind on a loopback address (127.0.0.1) and for requests from loopback, so a public server ignores it (clients need protocol 80 as always)
@@ -347,7 +347,7 @@ public static class ServerCommandLine
                     if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out uint seed)) a = a with { NameSeed = seed }; else bad = "a whole number from 0 to 4294967295";
                     break;
                 case "--snapshot-rate":
-                    if (Int(value) is { } rate && rate >= 1 && rate <= 30) a = a with { SnapshotRate = rate }; else bad = "a whole number from 1 to 30 (snapshots a second)";
+                    if (Int(value) is { } rate && rate >= ServerOptions.MinSnapshotRate && rate <= 30) a = a with { SnapshotRate = rate }; else bad = $"a whole number from {ServerOptions.MinSnapshotRate} to 30 (snapshots a second; below {ServerOptions.MinSnapshotRate} some explosions would never reach the players)";
                     break;
                 case "--bot-damage-scale":
                     if (Number(value) is { } scale && scale >= 0f && scale <= 1f) a = a with { BotDamageScale = scale }; else bad = "a factor from 0 to 1 (1 = off; a bot's flag is its own word, so it may only lower damage)";
