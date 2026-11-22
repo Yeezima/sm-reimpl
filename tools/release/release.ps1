@@ -797,7 +797,7 @@ function Hide-PreviousReleases {
         $state = (& gh release view $Tag --repo $Repo --json isDraft | ConvertFrom-Json)
         if (-not $state -or $state.isDraft) { Write-Warning "$Tag is not published; earlier releases stay visible."; return }
         $others = @(Published-Others)
-        if ($script:BridgeWarn) { Write-Warning $script:BridgeWarn }
+        if ($script:BridgeWarn) { Write-Warning $script:BridgeWarn; Write-Host '  Nothing was hidden: check the releases on GitHub, then run the same command again.'; return }
         if ($script:BridgeTag) { Write-Host "  kept $($script:BridgeTag) visible: the newest build with a full zip, which launchers from before the parts layout need" }
         if (-not $others) { Write-Host '  No earlier published release to hide.'; return }
         foreach ($t in $others) {
