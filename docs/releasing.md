@@ -108,6 +108,8 @@ does not have it yet.
 - **The bridge release:** launchers from before this change take only a full playtest zip. While no published release has a parts manifest the ship
   uploads the full zip as well (once), and later ships never hide the newest release with a full zip, so an old launcher still finds it, installs it
   and with it offers the new launcher (the self-update). `-FullZip` forces the zip, `-NoFullZip` leaves it out.
+  With `-ArchiveOnly` (a release published by hand from a `-Draft`) the decision uses only the real assets of the published releases on GitHub, never local
+  files, so the bridge stays public on any PC; when GitHub cannot be read or the tag is not published, nothing is hidden and a warning says what to check.
 - **New testers** download the launcher part (linked from the release description), unpack it and run `0 - SM Reimpl Launcher.exe`, which installs the
   build. The release page has no full zip any more (except on the bridge release or with `-FullZip`); `release.cmd` still builds it locally.
 - **Sizes** (MiB, measured on two local builds of 2026-11-08, 0fdd9371 and 2586f6d2, whose launcher, engine, runtime, media and kit did not

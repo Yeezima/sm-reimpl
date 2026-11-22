@@ -214,6 +214,7 @@ $TopFiles = [ordered]@{
 # tester's install up to date from the releases of $Repo (docs/releasing.md, "The launcher"). Token @LAUNCHER@ in the templates.
 $LauncherTop = '0 - SM Reimpl Launcher.exe'
 
+. (Join-Path $PSScriptRoot 'bridge.ps1')              # Get-BridgeDecision: which earlier releases a new build hides
 . (Join-Path $PSScriptRoot 'tested-marker.ps1')      # the "tests passed on this commit" marker (Read-TestedMarker, Write-TestedMarker, Invoke-ReleaseTests)
 function Step([string]$text) { Write-Host "== $text" -ForegroundColor Cyan }
 function Fail([string]$text) { throw $text }
@@ -783,16 +784,10 @@ function Invoke-Supersede([string]$url) {
 # and, while the new build has no full zip, never the newest release that has one (the bridge for launchers from before the parts layout). Throws when
 # gh fails.
 function Published-Others {
-    $all = @(Published-Rows)
-    $rows = @($all | Where-Object { $_.Tag -and $_.Tag -cne $Tag -and $_.Tag -cne $PartsTag })
-    $script:BridgeTag = $null
-    # The new build has a full zip when this ship uploads one, or (-ArchiveOnly) when its published release carries one.
-    $newHasZip = $script:ShipZip -or -not (Test-Path -LiteralPath $Zips.parts) -or [bool]@($all | Where-Object { $_.Tag -ceq $Tag -and $_.Zip })
-    if (-not $newHasZip) {
-        $bridge = @($rows | Where-Object { $_.Zip } | Sort-Object At -Descending)[0]
-        if ($bridge) { $script:BridgeTag = $bridge.Tag; $rows = @($rows | Where-Object { $_.Tag -cne $bridge.Tag }) }
-    }
-    return @($rows | ForEach-Object { $_.Tag })
+    $d = Get-BridgeDecision -Rows @(Published-Rows) -Tag $Tag -PartsTag $PartsTag -HasLocalParts ([bool](Test-Path -LiteralPath $Zips.parts)) -ShipUploadsZip ([bool]$script:ShipZip) -ArchiveOnly ([bool]$ArchiveOnly)
+    $script:BridgeTag = $d.Bridge
+    $script:BridgeWarn = $d.Warn
+    return @($d.Hide)
 }
 # Hides the earlier builds (back to drafts: invisible to testers, nothing deleted) once $Tag is published. Never fails the ship: a warning per problem.
 function Hide-PreviousReleases {
@@ -802,6 +797,7 @@ function Hide-PreviousReleases {
         $state = (& gh release view $Tag --repo $Repo --json isDraft | ConvertFrom-Json)
         if (-not $state -or $state.isDraft) { Write-Warning "$Tag is not published; earlier releases stay visible."; return }
         $others = @(Published-Others)
+        if ($script:BridgeWarn) { Write-Warning $script:BridgeWarn }
         if ($script:BridgeTag) { Write-Host "  kept $($script:BridgeTag) visible: the newest build with a full zip, which launchers from before the parts layout need" }
         if (-not $others) { Write-Host '  No earlier published release to hide.'; return }
         foreach ($t in $others) {
