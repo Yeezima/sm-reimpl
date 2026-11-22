@@ -88,11 +88,11 @@ public static class LoadoutEdits
         if (profile.ClassAt(slot) is not { } c) return Refused(profile, "That slot is empty.");
         if (neutralName is not null && LoadoutRows.Options(catalog, c.Role, CustomizationCatalog.SpaceMarine) is { } options)
         {
-            if (key == "second" && !PerkIn(c, options, SmSim.Loadouts.SecondWeaponPerk)) return Refused(profile, "Requires perk: Weapon Versatility");
+            if (key == "second" && !PerkIn(c, options, SmSim.Loadouts.SecondWeaponPerk, catalog)) return Refused(profile, "Requires perk: Weapon Versatility");
             if (key == "second" && !c.Role.Equals("tactical", StringComparison.OrdinalIgnoreCase)) return Refused(profile, "Only the Tactical Marine carries a second primary.");
             if (catalog.Perks.Offered(c.Role, key is "primary" or "second" ? "ranged" : key, neutralName) is not { } offered) return Refused(profile, "That class does not offer it.");
             if (!offered.Selectable) return Refused(profile, "That item is fixed for the class.");
-            if (offered.Item.RequiredPerk is { } need && !PerkIn(c, options, need))
+            if (offered.Item.RequiredPerk is { } need && !PerkIn(c, options, need, catalog))
                 return Refused(profile, $"Requires perk: {catalog.Perks.Perk(need)?.DisplayName ?? need}");
         }
         var next = key switch
@@ -118,7 +118,7 @@ public static class LoadoutEdits
         var options = LoadoutRows.Options(catalog, c.Role, CustomizationCatalog.SpaceMarine);
         if (perk is not null && options is not null && !options.Perks.Any(p => p.Name.Equals(perk, StringComparison.OrdinalIgnoreCase)))
             return Refused(profile, "That class does not offer this perk.");
-        string? other = index == 0 ? c.Perk(1) : c.Perk(0) ?? options?.DefaultPerk?.Name;
+        string? other = LoadoutRows.PerkShown(catalog, options, c, index == 0 ? 1 : 0);   // a kept pick of another build counts as absent
         if (perk is not null && other is not null && other.Equals(perk, StringComparison.OrdinalIgnoreCase))
             return Refused(profile, $"Already chosen as perk {(index == 0 ? 2 : 1)}.");
         var perks = new List<string?> { c.Perk(0), c.Perk(1) };
@@ -132,14 +132,14 @@ public static class LoadoutEdits
         }
         var next = c with { Perks = perks };
         string need = PerkCatalog.BolterPistolPerk;
-        bool had = PerkIn(c, options, need), has = PerkIn(next, options, need);
+        bool had = PerkIn(c, options, need, catalog), has = PerkIn(next, options, need, catalog);
         if (had && !has && next.Pistol is { } pistol && options?.Pistol.Items.FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(pistol, StringComparison.OrdinalIgnoreCase)) is { RequiredPerk: not null })
         {
             next = next with { Pistol = null };
             notice = $"{catalog.Perks.Perk(need)?.DisplayName ?? need} removed: the pistol is back to the default.";
         }
         // Protocol 44: without Weapon Versatility the second primary goes (the server would drop it anyway).
-        if (next.Second is not null && !PerkIn(next, options, SmSim.Loadouts.SecondWeaponPerk))
+        if (next.Second is not null && !PerkIn(next, options, SmSim.Loadouts.SecondWeaponPerk, catalog))
         {
             next = next with { Second = null };
             notice = (notice is null ? "" : notice + " ") + "Weapon Versatility removed: no second primary.";
@@ -148,8 +148,10 @@ public static class LoadoutEdits
     }
 
     /// <summary>Whether the class carries the perk in either slot (slot 1 counts as the class default perk while it is unset).</summary>
-    public static bool PerkIn(CustomClass c, ClassOptions? options, string perk) =>
-        perk.Equals(c.Perk(0) ?? options?.DefaultPerk?.Name, StringComparison.OrdinalIgnoreCase) || perk.Equals(c.Perk(1), StringComparison.OrdinalIgnoreCase);
+    public static bool PerkIn(CustomClass c, ClassOptions? options, string perk, CustomizationCatalog? catalog = null) =>
+        catalog is null
+            ? perk.Equals(c.Perk(0) ?? options?.DefaultPerk?.Name, StringComparison.OrdinalIgnoreCase) || perk.Equals(c.Perk(1), StringComparison.OrdinalIgnoreCase)
+            : perk.Equals(LoadoutRows.PerkShown(catalog, options, c, 0), StringComparison.OrdinalIgnoreCase) || perk.Equals(LoadoutRows.PerkShown(catalog, options, c, 1), StringComparison.OrdinalIgnoreCase);   // with a catalogue, a kept foreign perk is absent (the default is judged)
 
     /// <summary>Cleans a typed name (control characters out, trimmed, at most <see cref="MaxNameLength"/> characters); empty gives "Custom n".</summary>
     public static string SanitizeName(string? input, int slot)

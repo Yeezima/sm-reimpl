@@ -1466,4 +1466,55 @@ public class CustomizerModelTests : IDisposable
         Assert.Null(LaunchOptions.ParseLoadout("", Catalog));
         Assert.Null(LaunchOptions.ParseLoadout(null, Catalog));
     }
+
+    // ---- customizer/keep-unknown-picks: a class holding a pick of another build ----
+
+    /// <summary>The catalogue as a build without added content sees it: two install files (a perk, a ranged weapon) that no class lists.</summary>
+    CustomizationCatalog WithForeign() => Catalog.WithInstallItems(new Dictionary<string, string>(Catalog.InstallItems) { ["mp_perk_added"] = "perk", ["mp_exotic_auto_cannon"] = "ranged" });
+
+    static CustomClass Foreign(params string?[] perks) => new(1, "t", "tactical", null, null, null, null, perks, AppearanceRefs.None, "mp_exotic_auto_cannon");
+
+    [Fact]
+    public void A_class_holding_a_foreign_pick_shows_the_default_perk_and_a_none_second_primary()
+    {
+        var catalog = WithForeign();
+        var custom = Foreign("mp_perk_added", "mp_perk_secondary_weapon");   // perk 1 foreign, Weapon Versatility in perk 2, the second primary foreign
+        var sections = LoadoutRows.Weapons(catalog, "tactical", CustomizationCatalog.SpaceMarine, custom, UnlockPolicy.All);
+        var second = sections.Single(s => s.Key == "second");   // Weapon Versatility is carried, so the picker shows
+        var none = second.Rows[0];
+        Assert.True(none.Selected);                              // None is selected, nothing else
+        Assert.Contains("not in this build", none.Title);
+        Assert.Single(second.Rows, r => r.Selected);
+        var perks = LoadoutRows.Perks(catalog, "tactical", CustomizationCatalog.SpaceMarine, custom, UnlockPolicy.All).ToDictionary(r => r.Name);
+        Assert.Equal(1, perks["mp_perk_a"].Slot);                // the class default plays in slot 1
+        Assert.Equal(2, perks["mp_perk_secondary_weapon"].Slot);
+        var summary = LoadoutRows.Summary(catalog, custom, CustomizationCatalog.SpaceMarine);
+        Assert.DoesNotContain("mp_perk_added", summary);
+        Assert.DoesNotContain("auto", summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("mp_perk_a", LoadoutRows.PerkShown(catalog, LoadoutRows.Options(catalog, "tactical", CustomizationCatalog.SpaceMarine), custom, 0, out bool foreign));
+        Assert.True(foreign);
+    }
+
+    [Fact]
+    public void A_foreign_perk_counts_as_absent_when_a_perk_is_needed_or_chosen()
+    {
+        var catalog = WithForeign();
+        var options = LoadoutRows.Options(catalog, "tactical", CustomizationCatalog.SpaceMarine);
+        var custom = Foreign("mp_perk_added", null);
+        Assert.True(LoadoutEdits.PerkIn(custom, options, "mp_perk_a", catalog));            // the default is judged, not the unknown id
+        Assert.False(LoadoutEdits.PerkIn(custom, options, "mp_perk_added", catalog));
+        Assert.False(LoadoutEdits.PerkIn(custom, options, "mp_perk_secondary_weapon", catalog));
+        var profile = CustomizationProfile.Default(catalog) with { Classes = [custom] };
+        // Perk 2 cannot repeat the default shown in slot 1; another perk goes in and the kept pick in slot 1 stays as written.
+        Assert.False(LoadoutEdits.SetPerk(profile, 1, 1, "mp_perk_a", catalog).Changed);
+        var chosen = LoadoutEdits.SetPerk(profile, 1, 1, "mp_perk_secondary_weapon", catalog);
+        Assert.True(chosen.Changed, chosen.Notice);
+        Assert.Equal("mp_perk_added", chosen.Profile.ClassAt(1)!.Perk(0));
+        // Setting the foreign second primary's slot elsewhere: a primary of this build can replace it.
+        var item = LoadoutEdits.SetItem(chosen.Profile, 1, "second", "mp_ranged_plasma_gun", catalog);
+        Assert.True(item.Changed, item.Notice);
+        Assert.Equal("mp_ranged_plasma_gun", item.Profile.ClassAt(1)!.Second);
+        // Without Weapon Versatility the second picker is refused for the foreign pick's class too.
+        Assert.False(LoadoutEdits.SetItem(profile, 1, "second", "mp_ranged_plasma_gun", catalog).Changed);
+    }
 }

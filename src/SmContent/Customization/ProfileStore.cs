@@ -580,7 +580,7 @@ public sealed class ProfileStore
             var match = Offered(catalog, role, "ranged").FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(neutral, StringComparison.OrdinalIgnoreCase));
             if (match is null)
             {
-                if (catalog.IsForeignPick(neutral)) { Note(path, $"'{raw}' is not offered by this build (added content's); kept as written, no second primary is used"); return neutral; }
+                if (catalog.IsForeignPick(neutral, "ranged")) { Note(path, $"'{raw}' is not offered by this build (added content's); kept as written, no second primary is used"); return neutral; }
                 Fix(path, $"'{raw}' is not offered to the {role} class; no second primary");
                 return null;
             }
@@ -600,7 +600,7 @@ public sealed class ProfileStore
             var match = items.FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(neutral, StringComparison.OrdinalIgnoreCase));
             if (match is null)
             {
-                if (catalog.IsForeignPick(neutral)) { Note(path, $"'{raw}' is not offered by this build (added content's); kept as written, the class default is used"); return neutral; }
+                if (catalog.IsForeignPick(neutral, slot == "primary" ? "ranged" : slot)) { Note(path, $"'{raw}' is not offered by this build (added content's); kept as written, the class default is used"); return neutral; }
                 Fix(path, $"'{raw}' is not offered to the {role} class; the class default is used");
                 return null;
             }
@@ -623,7 +623,7 @@ public sealed class ProfileStore
                 string? match = offered.FirstOrDefault(p => p.Equals(raw, StringComparison.OrdinalIgnoreCase));
                 if (match is null)
                 {
-                    if (catalog.IsForeignPick(raw) && !result.Contains(raw, StringComparer.OrdinalIgnoreCase))
+                    if (catalog.IsForeignPick(raw, "perk") && !result.Contains(raw, StringComparer.OrdinalIgnoreCase))
                     { Note($"{path}[{i}]", $"'{raw}' is not offered by this build (added content's); kept as written, no perk is used"); result[i] = raw; continue; }
                     Fix($"{path}[{i}]", $"'{raw}' is not a perk of the {role} class; dropped");
                     continue;

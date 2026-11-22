@@ -135,4 +135,96 @@ public partial class CustomizationProfileTests
         Assert.Equal("mp_exotic_auto_cannon", loaded.ClassAt(1)!.Primary);
         Assert.Null(loaded.Set("musou")!.Raw);
     }
+
+    [Fact]
+    public void A_foreign_pick_is_kept_only_in_a_slot_of_its_own_kind()
+    {
+        string armour = ProfileWire.Neutral("sm_a_head");   // an install wargear file of the armour slot "head"
+        WriteProfile($$"""
+            { "schema": 1, "selected": { "kind": "default", "role": "tactical" },
+              "classes": [
+                { "slot": 1, "name": "Wrong", "role": "tactical", "primary": "mp_melee_exotic_blade", "pistol": "mp_perk_added", "equipment": "{{armour}}",
+                  "second": "mp_melee_exotic_blade", "perks": ["mp_exotic_auto_cannon", "{{armour}}"] },
+                { "slot": 2, "name": "WrongMelee", "role": "assault", "melee": "mp_exotic_auto_cannon", "pistol": "mp_exotic_auto_cannon", "equipment": "mp_melee_exotic_blade", "perks": ["mp_melee_exotic_blade"] },
+                { "slot": 3, "name": "Right", "role": "assault", "melee": "mp_melee_exotic_blade", "perks": ["mp_perk_added"] },
+                { "slot": 4, "name": "Second", "role": "tactical", "second": "mp_exotic_auto_cannon", "perks": ["mp_perk_added", "mp_perk_added"] } ],
+              "appearances": [] }
+            """);
+        var (loaded, repairs) = NewStore().Load(Catalog, readsAddedSets: false);
+        var wrong = loaded.ClassAt(1)!;
+        Assert.Null(wrong.Primary);     // a melee weapon in the primary slot
+        Assert.Null(wrong.Pistol);      // a perk in the pistol slot
+        Assert.Null(wrong.Equipment);   // armour in the equipment slot
+        Assert.Null(wrong.Second);      // a melee weapon as a second primary
+        Assert.Equal([null, null], wrong.Perks);   // a ranged weapon and armour in the perk slots
+        var assault = loaded.ClassAt(2)!;
+        Assert.Null(assault.Melee);     // a ranged weapon in the melee slot
+        Assert.Null(assault.Pistol);
+        Assert.Null(assault.Equipment);
+        Assert.Equal([null, null], assault.Perks);
+        foreach (var path in new[] { "classes[0].primary", "classes[0].pistol", "classes[0].equipment", "classes[0].second", "classes[0].perks[0]", "classes[0].perks[1]",
+                                     "classes[1].melee", "classes[1].pistol", "classes[1].equipment", "classes[1].perks[0]" })
+            Assert.Contains(repairs, r => r.Path == path && !r.Informational);
+        // The kind fits: kept (and noted, not repaired).
+        Assert.Equal("mp_melee_exotic_blade", loaded.ClassAt(3)!.Melee);
+        Assert.Equal("mp_perk_added", loaded.ClassAt(3)!.Perk(0));
+        Assert.Equal("mp_exotic_auto_cannon", loaded.ClassAt(4)!.Second);
+        Assert.Equal("mp_perk_added", loaded.ClassAt(4)!.Perk(0));
+        Assert.Null(loaded.ClassAt(4)!.Perk(1));   // the same perk twice: the second is repaired
+        Assert.DoesNotContain(repairs, r => r.Path.StartsWith("classes[2]") && !r.Informational);
+    }
+
+    [Fact]
+    public void A_pick_whose_install_slot_is_unknown_is_repaired()
+    {
+        WriteProfile("""{ "schema": 1, "selected": { "kind": "default", "role": "heavy" }, "classes": [ { "slot": 1, "role": "heavy", "primary": "mp_exotic_auto_cannon" } ], "appearances": [] }""");
+        var undescribed = Catalog.WithInstallItems(new Dictionary<string, string> { ["sm_mp_exotic_auto_cannon"] = "" });
+        var (loaded, repairs) = NewStore().Load(undescribed, readsAddedSets: false);
+        Assert.Null(loaded.ClassAt(1)!.Primary);
+        Assert.Contains(repairs, r => r.Path == "classes[0].primary" && !r.Informational);
+    }
+
+    [Fact]
+    public void A_foreign_second_primary_of_a_non_tactical_role_is_repaired()
+    {
+        WriteProfile("""{ "schema": 1, "selected": { "kind": "default", "role": "heavy" }, "classes": [ { "slot": 1, "role": "heavy", "second": "mp_exotic_auto_cannon" } ], "appearances": [] }""");
+        var (loaded, repairs) = NewStore().Load(Catalog, readsAddedSets: false);
+        Assert.Null(loaded.ClassAt(1)!.Second);
+        Assert.Contains(repairs, r => r.Path == "classes[0].second" && !r.Informational);
+    }
+
+    [Fact]
+    public void Kept_foreign_second_and_perks_are_the_default_on_the_wire()
+    {
+        var custom = new CustomClass(1, "t", "tactical", null, null, null, null, ["mp_perk_added", "mp_exotic_auto_cannon"], AppearanceRefs.None, "mp_exotic_auto_cannon");
+        var choice = ProfileWire.ToLoadout(custom, Config(), SmSim.Team.SpaceMarines);
+        Assert.Equal(-1, choice.Second);
+        Assert.Equal(-1, choice.Perk1);
+        Assert.Equal(-1, choice.Perk2);
+    }
+
+    [Fact]
+    public void Raw_sets_stop_at_the_set_cap()
+    {
+        var sets = string.Join(",", Enumerable.Range(1, CustomizationProfile.MaxSets + 2).Select(i => $$"""  "added{{i}}": { "classes": [ { "slot": 1, "role": "heavy", "primary": "mp_added_only" } ] }"""));
+        WriteProfile($$"""{ "schema": 1, "selected": { "kind": "default", "role": "tactical" }, "classes": [], "appearances": [], "sets": { {{sets}} } }""");
+        var (loaded, repairs) = NewStore().Load(Catalog, readsAddedSets: false);
+        Assert.Equal(CustomizationProfile.MaxSets, loaded.Sets.Count);
+        Assert.All(loaded.Sets.Values, set => Assert.NotNull(set.Raw));
+        Assert.Equal(2, repairs.Count(r => r.Path.StartsWith("sets.") && r.Message.Contains("more than") && !r.Informational));
+    }
+
+    [Fact]
+    public void The_install_items_survive_a_content_view_and_a_changed_list()
+    {
+        Assert.NotEmpty(Catalog.InstallItems);
+        Assert.Equal("ranged", Catalog.InstallItems["mp_exotic_auto_cannon"]);
+        Assert.Equal("perk", Catalog.InstallItems["mp_perk_added"]);
+        Assert.Equal("melee", Catalog.InstallItems["mp_melee_exotic_blade"]);
+        Assert.Same(Catalog.InstallItems, Catalog.For(ContentExtras.None).InstallItems);
+        var withPerks = Catalog.WithPerks(Catalog.Perks.WithClasses(c => c));
+        Assert.Equal(Catalog.InstallItems.Count, withPerks.InstallItems.Count);
+        Assert.True(withPerks.IsForeignPick("mp_exotic_auto_cannon", "ranged"));
+        Assert.False(withPerks.IsForeignPick("mp_exotic_auto_cannon", "melee"));
+    }
 }

@@ -311,17 +311,24 @@ static class CatalogData
         return global ?? throw new FileNotFoundException($"global not found in {MpClasses.GlobalPackage}.");
     }
 
-    /// <summary>The file names of every wargear file of the install (no file is decoded); empty when the package is missing or unreadable.</summary>
-    public static IReadOnlyList<string> ReadWargearNames(string gameDir)
+    /// <summary>The data's slot ("ranged", "pistol", "melee", "equipment", "perk", an armour slot, ...) of every wargear file of the install by file name; a file that cannot be decoded has slot "" (unknown); empty when the package is missing or unreadable.</summary>
+    public static IReadOnlyDictionary<string, string> ReadWargearSlots(string gameDir)
     {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string path = Path.Combine(gameDir, GameplayTuning.WargearPackage);
-        if (!File.Exists(path)) return [];
+        if (!File.Exists(path)) return result;
         try
         {
             using var archive = ObpkArchive.Open(path);
-            return archive.Entries.Where(e => archive.GroupName(e) == "attr_pc").Select(e => e.FileName).ToList();
+            foreach (var e in archive.Entries.Where(e => archive.GroupName(e) == "attr_pc")) result.TryAdd(e.FileName, "");
+            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc", (e, d) =>
+            {
+                try { result[e.FileName] = Meta(BafDocument.Read(d)).Slot; }
+                catch (Exception ex) when (ex is InvalidDataException or NotSupportedException) { }   // slot unknown: a pick of it is repaired
+            });
         }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException) { return []; }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or NotSupportedException or UnauthorizedAccessException) { }
+        return result;
     }
 
     public static Dictionary<string, BafDocument> ReadWargear(string gameDir, ISet<string> names, List<string> notes)

@@ -141,33 +141,39 @@ public sealed class CustomizationCatalog
     }
 
     /// <summary>
-    /// The race-neutral names (<see cref="LoadoutIndices.Neutral"/>) of every wargear file the install holds (items and perks alike), empty when not read (<see cref="LoadLimits"/>, synthetic data). The profile
-    /// store uses it to tell a pick another build's catalogue offers (added content's items, which this build's lists lack) from a mistyped one: see <see cref="IsForeignPick"/>.
+    /// Every wargear file of the install by race-neutral name (<see cref="LoadoutIndices.Neutral"/>), with the data's slot ("ranged", "pistol", "melee", "equipment", "perk", an armour slot; "" when unknown);
+    /// empty when not read (<see cref="LoadLimits"/>, synthetic data). The profile store uses it to tell a pick another build's catalogue offers (added content's items, which this build's lists lack)
+    /// from a mistyped one and from one in the wrong slot: see <see cref="IsForeignPick"/>.
     /// </summary>
-    public IReadOnlySet<string> InstallItems { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> InstallItems { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A copy of this catalogue with the creator's lists <paramref name="perks"/> (a build or test that offers other items; <see cref="For"/> does it for added content).</summary>
     public CustomizationCatalog WithPerks(PerkCatalog perks) => new(_races, Palette, Classes, Unlocks, Cameras, perks, Paint, Notes) { InstallItems = InstallItems };
 
-    /// <summary>A copy of this catalogue that knows <paramref name="names"/> as the install's wargear (<see cref="InstallItems"/>; names are made race-neutral).</summary>
-    public CustomizationCatalog WithInstallItems(IEnumerable<string> names) =>
-        new(_races, Palette, Classes, Unlocks, Cameras, Perks, Paint, Notes) { InstallItems = new HashSet<string>(names.Select(LoadoutIndices.Neutral), StringComparer.OrdinalIgnoreCase) };
+    /// <summary>A copy of this catalogue that knows <paramref name="slots"/> (wargear file name to the data's slot) as the install's wargear (<see cref="InstallItems"/>; names are made race-neutral).</summary>
+    public CustomizationCatalog WithInstallItems(IReadOnlyDictionary<string, string> slots)
+    {
+        var items = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, slot) in slots) items.TryAdd(LoadoutIndices.Neutral(name), slot);
+        return new(_races, Palette, Classes, Unlocks, Cameras, Perks, Paint, Notes) { InstallItems = items };
+    }
 
     /// <summary>
-    /// Whether the stored pick <paramref name="neutralName"/> (an item, a second primary or a perk) is one this catalogue does not offer but another build's may: a wargear file of the install that
-    /// no class of this catalogue lists in any slot or perk list. Such a pick is kept as written (docs/added-content.md "Picks of added content"). A name the install does not have (a typo)
-    /// and an item some class does offer (a pick of the wrong class) are not foreign: they are repaired as ever.
+    /// Whether the stored pick <paramref name="neutralName"/> for <paramref name="slot"/> (the data's slot: "ranged" for a primary or second primary, "pistol", "melee", "equipment", "perk") is one this
+    /// catalogue does not offer but another build's may: a wargear file of the install whose own slot is <paramref name="slot"/> and that no class of this catalogue lists in any slot or perk list. Such a pick is
+    /// kept as written (docs/added-content.md "Picks of added content"). A name the install does not have (a typo), one of another slot (an autocannon in the melee slot, armour or a perk in an item slot),
+    /// one whose slot the data does not tell, and an item some class does offer (a pick of the wrong class) are not foreign: they are repaired as ever.
     /// </summary>
-    public bool IsForeignPick(string neutralName)
+    public bool IsForeignPick(string neutralName, string slot)
     {
-        if (!InstallItems.Contains(neutralName)) return false;
+        if (!InstallItems.TryGetValue(neutralName, out var own) || !own.Equals(slot, StringComparison.OrdinalIgnoreCase)) return false;
         bool Is(string name) => LoadoutIndices.Neutral(name).Equals(neutralName, StringComparison.OrdinalIgnoreCase);
         if (Perks.All.Any(p => Is(p.Name))) return false;
         foreach (var c in Perks.Classes)
         {
             if (c.Perks.Any(p => Is(p.Name)) || (c.DefaultPerk is { } d && Is(d.Name))) return false;
-            foreach (var slot in new[] { "primary", "pistol", "melee", "equipment" })
-                if (c.For(slot).Items.Any(i => Is(i.Name))) return false;
+            foreach (var s in new[] { "primary", "pistol", "melee", "equipment" })
+                if (c.For(s).Items.Any(i => Is(i.Name))) return false;
         }
         return true;
     }
@@ -195,7 +201,7 @@ public sealed class CustomizationCatalog
         var wargear = CatalogData.ReadWargear(gameDir, names, notes);
         var locale = CatalogData.ReadLocale(gameDir, language, notes);
         return Build(global, sets, wargear.GetValueOrDefault, paint ?? PaintSchemes.Load(gameDir, notes), locale, notes)
-            .WithInstallItems(CatalogData.ReadWargearNames(gameDir));
+            .WithInstallItems(CatalogData.ReadWargearSlots(gameDir));
     }
 
     /// <summary>

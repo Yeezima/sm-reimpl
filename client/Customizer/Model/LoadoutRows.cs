@@ -85,7 +85,7 @@ public static class LoadoutRows
     {
         var sections = new List<OptionSection>();
         if (Options(catalog, role, race) is not { } options) return sections;
-        var pistolPerks = custom is null ? [options.DefaultPerk?.Name] : new[] { custom.Perk(0) ?? options.DefaultPerk?.Name, custom.Perk(1) };   // slot 1 unset is the class default perk
+        var pistolPerks = custom is null ? [options.DefaultPerk?.Name] : new[] { PerkShown(catalog, options, custom, 0), PerkShown(catalog, options, custom, 1) };   // slot 1 unset is the class default perk
         foreach (var key in new[] { "primary", "pistol", "melee" })
         {
             var choices = options.For(key);
@@ -109,9 +109,11 @@ public static class LoadoutRows
             sections.Add(new OptionSection(key, heading, choices.Selectable, rows, null));
         }
         // Protocol 44 (owner's decision of 2026-10-30): a Tactical that carries Weapon Versatility picks a second primary (key 3 in play); None is the default.
-        if (role.Equals("tactical", StringComparison.OrdinalIgnoreCase) && custom is not null && LoadoutEdits.PerkIn(custom, options, SmSim.Loadouts.SecondWeaponPerk) && options.For("primary") is { Items.Count: > 0 } primaries)
+        if (role.Equals("tactical", StringComparison.OrdinalIgnoreCase) && custom is not null && LoadoutEdits.PerkIn(custom, options, SmSim.Loadouts.SecondWeaponPerk, catalog) && options.For("primary") is { Items.Count: > 0 } primaries)
         {
-            var secondRows = new List<OptionRow> { new("", "None", "No second primary: key 3 does nothing.", custom.Second is null, false, false, Unlock.Open, "") };
+            // A kept pick of another build (added content's weapon) is not in this list: None is chosen, and says so.
+            bool secondForeign = custom.Second is not null && catalog.IsForeignPick(custom.Second, "ranged");
+            var secondRows = new List<OptionRow> { new("", secondForeign ? "None (saved pick not in this build)" : "None", "No second primary: key 3 does nothing.", custom.Second is null || secondForeign, false, false, Unlock.Open, "") };
             for (int i = 0; i < primaries.Items.Count; i++)
             {
                 var item = primaries.Items[i];
@@ -164,7 +166,7 @@ public static class LoadoutRows
         foreach (var p in options.Perks.OrderBy(p => p.Kind == PerkKind.Weapon ? 1 : 0))
         {
             int slot = custom is null ? (options.DefaultPerk is { } d && Same(d.Name, p.Name) ? 1 : 0)
-                : Same(custom.Perk(0) ?? options.DefaultPerk?.Name, p.Name) ? 1 : Same(custom.Perk(1), p.Name) ? 2 : 0;
+                : Same(PerkShown(catalog, options, custom, 0), p.Name) ? 1 : Same(PerkShown(catalog, options, custom, 1), p.Name) ? 2 : 0;
             string warning = "";
             if (p.Kind == PerkKind.Weapon && PerkWeapons.Needs(p.Name) is { } needs && !needs.Any(n => carried.Contains(n, StringComparer.OrdinalIgnoreCase)))
                 warning = $"Needs {PerkWeapons.Describe(needs, options)}; no effect without it";
@@ -177,6 +179,23 @@ public static class LoadoutRows
         }
         return rows;
     }
+
+    /// <summary>
+    /// The perk in perk slot <paramref name="index"/> (0 or 1) as this build judges it: the class's choice, the class default perk for an unset slot 1, and nothing for a kept pick of another build
+    /// (<see cref="CustomizationCatalog.IsForeignPick"/>: the class default plays in slot 1, slot 2 is empty). <paramref name="foreign"/> says the stored pick was such a one.
+    /// </summary>
+    public static string? PerkShown(CustomizationCatalog catalog, ClassOptions? options, CustomClass? custom, int index, out bool foreign)
+    {
+        string? stored = custom?.Perk(index);
+        foreign = stored is not null && catalog.IsForeignPick(stored, "perk");
+        string? own = foreign ? null : stored;
+        return index == 0 ? own ?? options?.DefaultPerk?.Name : own;
+    }
+
+    public static string? PerkShown(CustomizationCatalog catalog, ClassOptions? options, CustomClass? custom, int index) => PerkShown(catalog, options, custom, index, out _);
+
+    /// <summary>The note appended to a perk label whose stored pick is another build's (one wording everywhere).</summary>
+    public const string NotInBuild = "(not in this build)";
 
     static bool Same(string? a, string? b) => a is not null && b is not null && ProfileWire.Neutral(a).Equals(ProfileWire.Neutral(b), StringComparison.OrdinalIgnoreCase);
 
@@ -191,7 +210,7 @@ public static class LoadoutRows
             parts.Add("2nd " + second.DisplayName);
         foreach (var key in new[] { "primary", "pistol", "melee", "equipment" })
             if ((options.For(key).Selectable || OrkLoadout.IsOrk(custom.Role)) && Effective(catalog, options, key, custom) is { } item) parts.Add(key == "equipment" ? EquipmentTitle(item) : item.DisplayName);   // the Ork's fixed gear is all he has: named too
-        var perks = new[] { custom.Perk(0) ?? options.DefaultPerk?.Name, custom.Perk(1) }.OfType<string>()
+        var perks = new[] { PerkShown(catalog, options, custom, 0), PerkShown(catalog, options, custom, 1) }.OfType<string>()
             .Select(n => catalog.Perks.Perk(n)?.DisplayName ?? n).ToList();
         if (perks.Count > 0) parts.Add(string.Join(", ", perks));
         return string.Join(" - ", parts);

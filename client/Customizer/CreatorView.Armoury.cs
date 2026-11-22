@@ -281,11 +281,12 @@ public sealed partial class CreatorView
         foreach (var p in _catalog.Perks.All) _armIds.TryAdd(p.DisplayName.ToUpperInvariant(), p.Name);   // a perk row's picture is its file's own icon
         var equipRow = equipSection.Rows.FirstOrDefault(r => r.Selected);
         string equip = equipRow?.Title ?? "NONE";
-        string? PerkId(int i) { string? n = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1); return n is null ? "no-perk" : "install:" + (_catalog.Perks.Perk(n)?.Name ?? n); }   // an empty perk slot has the owner's No Perk icon (brass, untinted)
+        string? PerkId(int i) { string? n = LoadoutRows.PerkShown(_catalog, options, OpenClass, i); return n is null ? "no-perk" : "install:" + (_catalog.Perks.Perk(n)?.Name ?? n); }   // an empty perk slot has the owner's No Perk icon (brass, untinted)
         string Perk(int i)
         {
-            string? name = i == 0 ? OpenClass?.Perk(0) ?? options?.DefaultPerk?.Name : OpenClass?.Perk(1);
-            return name is null ? "NO PERK" : _catalog.Perks.Perk(name)?.DisplayName ?? name;
+            string? name = LoadoutRows.PerkShown(_catalog, options, OpenClass, i, out bool foreignPerk);
+            string text = name is null ? "NO PERK" : _catalog.Perks.Perk(name)?.DisplayName ?? name;
+            return foreignPerk ? text + " " + LoadoutRows.NotInBuild.ToUpperInvariant() : text;   // the tiles are upper case
         }
         void Go(Step step, int perk) { _step = step; if (perk >= 0) _perkSlot = perk; Refresh(focusList: true); }
         bool perks = _step == Step.Perks;

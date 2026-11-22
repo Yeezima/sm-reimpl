@@ -43,7 +43,7 @@ public static class AppearanceEdits
     {
         if (ClassKey(catalog, role, look.Race) is not { } key) return null;
         var options = LoadoutRows.Options(catalog, role, look.Race)!;
-        var carried = LoadoutRows.CarriedWeapons(catalog, options, custom).Concat(new[] { custom?.Perk(0) ?? options.DefaultPerk?.Name, custom?.Perk(1) }.OfType<string>()).ToList();
+        var carried = LoadoutRows.CarriedWeapons(catalog, options, custom).Concat(new[] { LoadoutRows.PerkShown(catalog, options, custom, 0), LoadoutRows.PerkShown(catalog, options, custom, 1) }.OfType<string>()).ToList();
         return AppearanceResolver.Resolve(look, key, catalog, new ResolveOptions { Carried = carried, PadTakesDecal = padTakesDecal });
     }
 

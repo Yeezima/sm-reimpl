@@ -584,15 +584,14 @@ public sealed partial class CreatorView : Control
     {
         var custom = OpenClass;
         var options = LoadoutRows.Options(_catalog, Role, _previewRace);
-        var first = options?.DefaultPerk;
         var slotRow = UiKit.HBox(8);
         var slotButtons = new List<Control>();
         for (int i = 0; i < 2; i++)
         {
             int slot = i;
-            string? name = i == 0 ? custom?.Perk(0) ?? first?.Name : custom?.Perk(1);
+            string? name = LoadoutRows.PerkShown(_catalog, options, custom, i, out bool foreignPerk);   // a kept pick of another build shows as the default (or none) with a note
             string label = name is null ? "none" : _catalog.Perks.Perk(name)?.DisplayName ?? name;
-            var b = UiKit.Toggle($"Perk {i + 1}: {Trim(label, 22)}", _perkSlot == i, on => { if (on) _perkSlot = slot; Callable.From(() => RebuildList(true)).CallDeferred(); }, 0);
+            var b = UiKit.Toggle($"Perk {i + 1}: {Trim(label, foreignPerk ? 12 : 22)}{(foreignPerk ? " " + LoadoutRows.NotInBuild : "")}", _perkSlot == i, on => { if (on) _perkSlot = slot; Callable.From(() => RebuildList(true)).CallDeferred(); }, 0);
             b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             b.ClipText = true;
             b.AddThemeFontSizeOverride("font_size", UiType.Px(UiKit.CaptionSize));
