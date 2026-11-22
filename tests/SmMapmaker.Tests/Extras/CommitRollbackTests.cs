@@ -276,6 +276,23 @@ public class CommitRollbackTests
     }
 
     [Fact]
+    public void A_batch_that_changes_nothing_reports_no_trashed_assets_so_the_editor_does_not_reuse_the_last_ones()
+    {
+        using var lab = new Lab();
+        var s = Scene(lab);
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete","ids":["o1"]}""")).Ok);
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete-asset","asset":"pillar"}""")).Ok);
+        Assert.Single(s.LastTrashed);
+        var r = s.Apply([
+            Lab.Op($$"""{"op":"import-asset","path":{{Q(lab.WriteGltf("fresh.gltf"))}},"id":"fresh"}"""),
+            Lab.Op("""{"op":"delete-asset","asset":"fresh"}"""),
+        ]);
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Empty(s.LastTrashed);
+        Assert.Empty(s.LastReplaced);
+    }
+
+    [Fact]
     public void DeleteImportDeleteOfTheSameId_TheOldCopyIsTrashedAndTheStagedOneDropped()
     {
         using var lab = new Lab();

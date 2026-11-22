@@ -140,7 +140,7 @@ public sealed class MapSession
         foreach (var id in batch.DeletedPrefabs.Where(d => !batch.Prefabs.ContainsKey(d)))
             if (Library.ReadPrefabText(id) is { } was) prefabChanges.Add((id, was, null));
         var trashIds = batch.DeletedAssets.ToList();
-        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) return;
+        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
 
         // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
         // document, LastTrashed and the undo/redo stacks stay as they were. (A journal that survives a process crash is not part of this.)
