@@ -6,6 +6,7 @@ using SmNet.Extras.Warfront;
 using SmNet.Extras.Warfront.Results;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Progression;
 using SmSim.Extras.Warfront.Results;
 
 namespace SmClient.Extras.Warfront.Stage;
@@ -84,6 +85,52 @@ public sealed class WarfrontStageModel
         if (_identifySends == 0) _identifyFirst = now;
         _identifyAt = now; _identifySends++;
         return WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Identify, Key: Key, Name: Name));
+    }
+
+    // ---- progress: this PC's progression to the host ------------------------------------------------------------------------------------
+
+    /// <summary>A progress record is sent at most this many times (a server of an older build never acknowledges it).</summary>
+    public const int MaxProgressSends = 30;
+
+    WarfrontProgressFile? _progress;
+    bool _progressNewer;
+    int _progressSends;
+    byte _progressTransfer;
+    double _progressAt = double.NegativeInfinity;
+
+    /// <summary>The first ProgressSave (tag 49) arrived: the host has this client's progress and the Progress command stops.</summary>
+    public bool ProgressAcked { get; private set; }
+
+    /// <summary>This PC's progress file as read at connect (null: no file, so flag 1 absent goes out). <paramref name="newer"/>: the file is of a newer build and nothing is sent, so the host keeps its copy and the file is never touched.</summary>
+    public void SetProgress(WarfrontProgressFile? own, bool newer = false) { _progress = own; _progressNewer = newer; _progressSends = 0; _progressAt = double.NegativeInfinity; ProgressAcked = false; }
+
+    /// <summary>The record the Progress command carries: flag 1 (absent) with no file, flag 2 (reset) for a fresh level-1 file with a resetAt, else the file's progression. Null for a newer file.</summary>
+    public byte[]? ProgressRecord()
+    {
+        if (_progressNewer) return null;
+        if (_progress is null) return WarfrontProgressSaveWire.Encode(null, WarfrontProgressSaveWire.FlagAbsent);
+        return WarfrontProgressSaveWire.Encode(_progress, WarfrontProgressStore.IsPendingReset(_progress) ? WarfrontProgressSaveWire.FlagReset : (byte)0);
+    }
+
+    /// <summary>
+    /// The Progress command's chunks to send now (null: nothing due). Sent after the first Identify, resent every <see cref="ResendSeconds"/> until the first ProgressSave arrives (at most <see cref="MaxProgressSends"/> times),
+    /// and never for a newer file.
+    /// </summary>
+    public IReadOnlyList<byte[]>? ProgressDue(double now)
+    {
+        if (ProgressAcked || _progressNewer || _identifySends == 0 || _progressSends >= MaxProgressSends || now - _progressAt < ResendSeconds) return null;
+        if (ProgressRecord() is not { } record) return null;
+        if (_progressSends == 0) _progressTransfer++;
+        _progressAt = now; _progressSends++;
+        return WarfrontProgressSaveWire.CommandChunks(record, _progressTransfer);
+    }
+
+    /// <summary>A ProgressSave section (tag 49): the first one is the acknowledgement. Null when it does not decode.</summary>
+    public WarfrontProgressRecord? ApplyProgressSave(ReadOnlySpan<byte> payload)
+    {
+        if (!WarfrontProgressSaveWire.TryDecode(payload, out var record)) return null;
+        ProgressAcked = true;
+        return record;
     }
 
     WarfrontTarget? _deploy;

@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using SmClient.Extras.Warfront.Stage;
 using SmNet;
@@ -23,8 +24,22 @@ public partial class NetworkView
     {
         ulong key = WarfrontIdentityKey();
         var model = new WarfrontStageModel(key, WarfrontDisplayName());
+        // this PC's progression (codebase fix 1): read once per connection; the Progress command sends it after Identify, tag 49 may rewrite the file
+        _wfStore = new WarfrontProgressStore(WarfrontProgressStore.PathFor(CmdArg("warfront-key-file")), key) { Log = GD.Print };
+        _wfStore.Load();
+        model.SetProgress(_wfStore.Current, _wfStore.Newer);
         if (WarfrontClientKey.LastProblem.Length > 0) { model.KeyNote = WarfrontClientKey.LastProblem; GD.Print("warfront: " + WarfrontClientKey.LastProblem); }
         return model;
+    }
+
+    WarfrontProgressStore? _wfStore;
+
+    /// <summary>ProgressSave (tag 49) from the host: its copy becomes this PC's file only when it is at least as good as the file's own (never lowers it, never touches a newer file). Main thread; one small file write, and only on a change.</summary>
+    void WarfrontProgressReceive(ReadOnlySpan<byte> payload)
+    {
+        if (WarfrontModel.ApplyProgressSave(payload) is not { } record) { WarfrontDropped++; return; }
+        if (record.Absent || record.State is null || _wfStore is null) return;
+        if (_wfStore.ApplyHostCopy(record.State)) GD.Print($"t {_connectedFor:F1} s: warfront: progress file updated (level {_wfStore.Current?.Level}, {_wfStore.Current?.Xp} xp)");
     }
 
     string WarfrontDisplayName()
@@ -34,7 +49,7 @@ public partial class NetworkView
         return name!.Length > SmNet.Extras.Warfront.WarfrontWire.MaxName ? name[..SmNet.Extras.Warfront.WarfrontWire.MaxName] : name;
     }
 
-    int _wfIdentifyLogged;
+    int _wfIdentifyLogged, _wfProgressLogged;
     double _wfHeldSince = -1;
     bool _wfFirstConnectedLogged;
 
@@ -64,6 +79,11 @@ public partial class NetworkView
         {
             client.SendExtrasCommand(SmNet.Extras.Warfront.WarfrontWire.CommandTag, identify);
             if (_wfIdentifyLogged++ == 0) GD.Print($"t {now:F1} s: warfront: identify sent (key {WarfrontClientKey.Tail(m.Key)}, name {m.Name})");
+        }
+        if (m.ProgressDue(now) is { } chunks)
+        {
+            foreach (var chunk in chunks) client.SendExtrasCommand(SmNet.Extras.Warfront.WarfrontWire.CommandTag, chunk);
+            if (_wfProgressLogged++ == 0) GD.Print($"t {now:F1} s: warfront: progress sent ({chunks.Count} chunk(s), {(m.ProgressRecord()?.Length ?? 0)} bytes)");
         }
         if (m.DeployDue(now) is { } deploy)
         {

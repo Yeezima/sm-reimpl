@@ -60,6 +60,10 @@ public partial class NetworkView
                 if (WarfrontModel.ApplyResults(payload) is { } record) WarfrontRecordArrived(record);
                 handled = true;
                 return;
+            case SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag:   // codebase fix 1: the host's copy of this player's progression
+                WarfrontProgressReceive(payload);
+                handled = true;
+                return;
             case 44 or 45:
                 WarfrontProgressionSection(tag, payload, ref handled);
                 return;

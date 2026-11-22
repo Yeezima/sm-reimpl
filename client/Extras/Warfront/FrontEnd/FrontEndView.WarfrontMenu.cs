@@ -108,6 +108,8 @@ public sealed partial class FrontEndView
         _inExtras = true;
         var run = WarfrontLocal.ReadRun(WarfrontDir);
         string? honor = WarfrontLocal.HonorLine(WarfrontDir);
+        if (WarfrontTakeNotice(WarfrontDir) is { Length: > 0 } taken) _wfNotice = taken;   // the loader's one line (read and deleted when the page opens)
+        var progress = WarfrontOpenStore();
         _wfPage?.QueueFree();
         // The page of the concept redesign (owner, 2026-11-20): the shared frame, a status strip, one centred column of plates and the gold CONTINUE plate in the tray (WarfrontPage); no heading, no explainer text, hints on hover.
         var page = new WarfrontPage("WarfrontMenu", WarfrontLocal.PageTitle) { PrimaryTexts = [WarfrontLocal.ContinueRow.ToUpperInvariant(), WarfrontLocal.RejoinRow.ToUpperInvariant()] };
@@ -142,9 +144,13 @@ public sealed partial class FrontEndView
         if (WarfrontOnline.Enabled) { var online = Plate(WarfrontOnline.Row, WarfrontJoinOnline, WarfrontOnline.RowTooltip); column.Add(online); Add(online); }
         var customizer = Plate("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)");
         column.Add(customizer); Add(customizer);
+        var reset = WarfrontResetPlate(running, progress);
+        column.Add(reset); Add(reset);
         Add(UiKit.MenuButton("Back", WarfrontBackToMain));
         page.SetStatus(run.CanContinue ? run.Cells : null, honor);
-        if (note is not null) page.SetNote(note, running && !warfront ? "refusal" : null);
+        if (_wfNotice.Length > 0) page.SetNote(_wfNotice, "refusal");
+        else if (note is not null) page.SetNote(note, running && !warfront ? "refusal" : null);
+        else if (progress is { Newer: true }) page.SetNote(WarfrontNewerNote, "refusal");
         else if (honor is not null) page.SetNote(honor, "progress");   // counts from the honor roll (RUNS 3, VICTORIES 1, FASTEST 41:20)
         page.SetPlates(column, main);
         _first[page] = first;
@@ -167,6 +173,7 @@ public sealed partial class FrontEndView
 
     void WarfrontBackToMain()
     {
+        _wfNotice = "";
         WarfrontHidePages();
         ShowMainMenu();
     }
@@ -182,13 +189,7 @@ public sealed partial class FrontEndView
     {
         if (!run.NewNeedsConfirm) { WarfrontStart(newRun: true); return; }
         _wfDialog = UiKit.Dialog.Open(_wfPage!, this, WarfrontLocal.ConfirmTitle, WarfrontLocal.ConfirmBody, ["Yes", "No"], i => { if (i == 0) WarfrontStart(newRun: true); }, cancelIndex: 1);
-        var dialog = _wfDialog;
-        Callable.From(() =>   // after the dialog's own first focus: No is the default answer
-        {
-            if (!GodotObject.IsInstanceValid(dialog) || !dialog.IsInsideTree()) return;
-            foreach (var n in dialog.FindChildren("*", "Button", true, false))
-                if (n is Button b && b.Text.Equals("No", StringComparison.OrdinalIgnoreCase)) { b.GrabFocus(); return; }
-        }).CallDeferred();
+        WarfrontFocusNo(_wfDialog);
     }
 
     void WarfrontStopServer()
