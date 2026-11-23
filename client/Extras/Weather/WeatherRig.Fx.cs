@@ -83,7 +83,9 @@ public sealed partial class WeatherRig
             if (windOn)
             {
                 _windFade.Cancel();
-                _wind.VolumeDb = Mathf.Lerp(SilentDb, WindLoudestDb, Math.Clamp(wind, 0f, 1f)) + WeatherShelterMix.WindDb(Shelter);
+                // repair 2: the squall's and the storm's wind follow their level like the hiss (4 to 6 dB down at the lull); Ember Wind keeps its W2 law (its look and role are kept)
+                float bed = id == WeatherId.EmberWind ? Mathf.Lerp(SilentDb, WindLoudestDb, Math.Clamp(wind, 0f, 1f)) : WeatherPlan.FollowDb(wind, WindLoudestDb, SilentDb);
+                _wind.VolumeDb = bed + WeatherShelterMix.WindDb(Shelter);
                 if (!_wind.Playing) _wind.Play();
             }
             else if (_wind.Playing)
