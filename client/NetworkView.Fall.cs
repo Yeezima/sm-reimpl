@@ -46,7 +46,7 @@ public partial class NetworkView
         {
             if (!WaitFall && !WaitFallLand) return true;
             if (_client is null || !_loco.TryGetValue(_client.PlayerId, out var t)) return false;
-            return WaitFallLand ? t.Fall.LandHard && _connectedFor - t.Fall.LandAt is >= 0.1 and <= 0.25 : t.Fall.Falling && _connectedFor - t.Fall.FallSince >= 0.35;
+            return WaitFallLand ? t.Fall.LandHard && _connectedFor - t.Fall.LandAt is >= 0.1 and <= 0.25 : t.Fall.Falling && _connectedFor - t.FallRenderSince >= 0.35;
         }
     }
 
@@ -169,10 +169,11 @@ public partial class NetworkView
 
     void BeginFall(PlayerState s, LocoTrack t, bool own)
     {
+        t.FallRenderSince = _connectedFor;
         t.FallSet = FallSetOf(s);
         t.LandKeep = 1f;
         _fallsBegun++;
-        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(_connectedFor - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {(t.ChargeFallCharge ? FallRules.ChargeFallDelay : FallRules.EvadeFallDelay):0.#} s: the fall pose, not its clip" : "")})");
+        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(LedgeFall(s).Now - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {(t.ChargeFallCharge ? FallRules.ChargeFallDelay : FallRules.EvadeFallDelay):0.#} s: the fall pose, not its clip" : "")})");
     }
 
     /// <summary>The heavy bolter's states (<see cref="FallTracker.HeavyStep"/>): the drop clip from <see cref="FallSet.EnterHeight"/> above the ground, the landing clip from <see cref="FallSet.LandHeight"/> (reached before touchdown) or at touchdown.</summary>
@@ -252,7 +253,7 @@ public partial class NetworkView
         if (t.LegsWeight > 1e-3f)
         {
             // Animation pass 3: the weight on the smooth blend curve (CharacterViewer.Smooth), so the legs ease in and out instead of starting and stopping at full rate.
-            if (set.Legs is { } legs) character.SetLayer(PoseSlots.Fall, legs.Clip, (float)((now - t.Fall.FallSince) % Math.Max(legs.Length, 1e-3f)), CharacterViewer.Smooth(t.LegsWeight), false, legs.Mask);
+            if (set.Legs is { } legs) character.SetLayer(PoseSlots.Fall, legs.Clip, (float)((now - t.FallRenderSince) % Math.Max(legs.Length, 1e-3f)), CharacterViewer.Smooth(t.LegsWeight), false, legs.Mask);
             else if (set.Drop is { } drop) character.SetLayer(PoseSlots.Fall, drop.Clip, (float)(now - t.Fall.DropSince), CharacterViewer.Smooth(t.LegsWeight), false, null);
         }
         // The landing clip: blends in, holds to the exit branch, blends out; a marine on the move keeps less of it.
@@ -313,7 +314,9 @@ public partial class NetworkView
     LedgeChargeFallClock LedgeFall(PlayerState s)
     {
         if (!_ledgeFalls.TryGetValue(s.PlayerId, out var clock)) _ledgeFalls[s.PlayerId] = clock = new LedgeChargeFallClock();
-        clock.Feed(_connectedFor, s, _config, s.Grounded || s.Rush != RushPhase.None || !s.Alive ? float.NaN : HeightAboveGround(s));   // the height only for the fall after a charge (a ray a frame)
+        // the height only for a fall the clock is mapping (a ledge charge that just ended in the air, the frame it ends included), once a frame
+        bool wantsHeight = !clock.Fed(_connectedFor) && clock.Mapping && s.Alive && !s.Grounded && s.Rush == RushPhase.None;
+        clock.Feed(_connectedFor, s, _config, wantsHeight ? HeightAboveGround(s) : float.NaN);
         return clock;
     }
 

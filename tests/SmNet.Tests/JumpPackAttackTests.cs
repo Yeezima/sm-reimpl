@@ -298,11 +298,11 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         // √(2 g h) with h = 0.5 m and the config's gravity (20): 4.47 m/s at the landing tick's start.
         PlayerState Falling(float vz, RushPhase phase) => new(1, default, new Vector3(3f, 0f, -vz), 0f, false) { Rush = phase, RushTicks = 4 };
         float edge = MathF.Sqrt(2f * Config.Gravity * RushSpec.DefaultLandEndDrop);
-        Assert.True(Rush.EndsOnLanding(Falling(edge + 0.01f, RushPhase.Rush), RushTests.Spec, Config));
-        Assert.False(Rush.EndsOnLanding(Falling(edge - 0.05f, RushPhase.Rush), RushTests.Spec, Config));
-        Assert.True(Rush.EndsOnLanding(Falling(0f, RushPhase.DashAttack), DashCharge, Config));   // the dash attack held at its end: any landing
-        Assert.False(Rush.EndsOnLanding(Falling(9f, RushPhase.Collision), RushTests.Spec, Config));
-        Assert.True(Rush.EndsOnLanding(Falling(edge - 0.05f, RushPhase.Rush), RushTests.Spec with { LandEndDrop = 0.2f }, Config));
+        Assert.True(Rush.EndsOnLanding(Falling(edge + 0.01f, RushPhase.Rush), RushTests.Spec, Config, 0f));
+        Assert.False(Rush.EndsOnLanding(Falling(edge - 0.05f, RushPhase.Rush), RushTests.Spec, Config, 0f));
+        Assert.True(Rush.EndsOnLanding(Falling(0f, RushPhase.DashAttack), DashCharge, Config, 0f));   // the dash attack held at its end: any landing
+        Assert.False(Rush.EndsOnLanding(Falling(9f, RushPhase.Collision), RushTests.Spec, Config, 0f));
+        Assert.True(Rush.EndsOnLanding(Falling(edge - 0.05f, RushPhase.Rush), RushTests.Spec with { LandEndDrop = 0.2f }, Config, 0f));
         // Landed keeps the speed up to sprint speed and clears the charge (not its spacing).
         var landed = Rush.Landed(new PlayerState(1, default, new Vector3(30f, 0f, 0f), 0f, true) { Rush = RushPhase.Rush, RushTicks = 5, RushLock = 20 }, Config);
         Assert.Equal((RushPhase.None, 0, 20), (landed.Rush, landed.RushTicks, landed.RushLock));

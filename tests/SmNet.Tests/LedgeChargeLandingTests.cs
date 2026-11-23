@@ -197,4 +197,58 @@ public class LedgeChargeLandingTests(ITestOutputHelper output)
             }
         }
     }
+
+    [Fact]
+    public void The_clock_constants_are_the_fall_trackers()
+    {
+        Assert.Equal(FallRules.DebounceSeconds, LedgeChargeFallClock.FallDebounceSeconds);
+        Assert.Equal(FallTracker.GapSeconds, LedgeChargeFallClock.GapSeconds);
+        Assert.True(LedgeChargeFallClock.MaxJump < FallTracker.GapSeconds);
+    }
+
+    [Theory]
+    [InlineData(5f)]    // the ray saw ground 5 m below the real one (the body lands on a crate)
+    [InlineData(-1.5f)] // or 1.5 m above it (a slope the ray missed)
+    public void A_light_melee_landing_on_other_ground_than_the_ray_saw_still_lands_with_no_gap(float rayError)
+    {
+        // review (Fable High, 2026-11-23): the touchdown jump is kept under FallTracker.GapSeconds, so the tracker still sees a landing (clip, settle, dip, feel) and the sound no huge air time.
+        var c = After;
+        var trace = Run(c, Marine, 8f, InputButtons.Melee);
+        var clock = new LedgeChargeFallClock();
+        var fall = new FallTracker();
+        bool landed = false;
+        double worst = 0;
+        for (int k = 0; k < trace.Count; k++)
+        {
+            var s = trace[k];
+            clock.Feed(k / 30.0, s, c, s.Position.Y > 0.5f ? MathF.Max(0f, s.Position.Z + rayError) : float.NaN);
+            if (k > 0) worst = Math.Max(worst, clock.Step);
+            bool eligible = s.Alive && s.Jump == JumpPhase.None && s.Rush == RushPhase.None && s.Reaction == ReactionKind.None;
+            if (fall.Observe(clock.Now, eligible, s.Grounded, clock.VerticalSpeed) == FallEvent.Landed) landed = true;
+        }
+        output.WriteLine($"ray error {rayError} m: largest step {worst:F3} s; landed {landed}");
+        Assert.True(landed);
+        Assert.True(worst <= 1.0 / 30.0 + LedgeChargeFallClock.MaxJump + 1e-9, $"step {worst}");
+    }
+
+    [Fact]
+    public void A_stale_clock_starts_afresh_with_no_step_over_the_gap()
+    {
+        // review: a player not drawn for a while (or a returning id) gets no frame whose Step is the whole gap
+        var c = After;
+        var trace = Run(c, Marine, 8f);
+        var clock = new LedgeChargeFallClock();
+        int air = trace.FindIndex(p => !p.Grounded) + 4;
+        for (int k = 0; k <= air; k++) clock.Feed(k / 30.0, trace[k], c);
+        Assert.True(clock.Mapping);
+        Assert.True(clock.Now > air / 30.0, "the held charge's clock ran ahead");
+        double later = air / 30.0 + 5.0;
+        clock.Feed(later, trace[^1], c);
+        Assert.Equal(0.0, clock.Step);
+        Assert.Equal(later, clock.Now, 9);
+        Assert.False(clock.Mapping);
+        Assert.True(clock.Fed(later));
+        Assert.False(clock.Fed(later + 1.0 / 30.0));
+    }
+
 }

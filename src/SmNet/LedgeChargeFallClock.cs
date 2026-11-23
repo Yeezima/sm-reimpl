@@ -28,8 +28,13 @@ public sealed class LedgeChargeFallClock
     float _stretch = 1f;
 
     /// <summary>After a charge ends in the air, the presentation clock stays the render clock this long (s: the fall tracker's debounce and one tick), then stretches.</summary>
-    public const float HoldSeconds = FallRulesDebounce + 1f / 30f;
-    const float FallRulesDebounce = 2f / 30f;   // SmContent.FallRules.DebounceSeconds
+    public const float HoldSeconds = FallDebounceSeconds + 1f / 30f;
+    /// <summary><c>SmContent.FallRules.DebounceSeconds</c> (SmNet does not reference SmContent; a test ties the two).</summary>
+    public const float FallDebounceSeconds = 2f / 30f;
+    /// <summary><c>SmContent.FallTracker.GapSeconds</c> (a test ties the two): a frame gap longer than this forgets the clock (a player not drawn, a respawn).</summary>
+    public const double GapSeconds = 0.25;
+    /// <summary>The largest single-frame jump of <see cref="Now"/> beyond the frame's own time (s): under <see cref="GapSeconds"/>, so the tracker never takes a landing for a gap.</summary>
+    public const double MaxJump = 0.2;
     bool _wasGrounded = true;
 
     /// <summary>The presentation clock (seconds): the render clock plus the time the equivalent fall has gained.</summary>
@@ -44,6 +49,9 @@ public sealed class LedgeChargeFallClock
     /// <summary>Whether the equivalent fall is in use this frame.</summary>
     public bool Mapping => _phase != Phase.None;
 
+    /// <summary>Whether this frame (<paramref name="now"/>) has been fed already (a caller can skip work the second time, e.g. the ray for the height).</summary>
+    public bool Fed(double now) => now == _lastNow;
+
     /// <summary>The state's velocity with its vertical part replaced by <see cref="VerticalSpeed"/> (the landing sound's speed parameter).</summary>
     public System.Numerics.Vector3 Velocity(PlayerState s) => new(s.Velocity.X, s.Velocity.Y, VerticalSpeed);
 
@@ -53,6 +61,8 @@ public sealed class LedgeChargeFallClock
     public void Feed(double now, PlayerState s, SimConfig? c, float heightAboveGround = float.NaN)
     {
         if (now == _lastNow) return;
+        // A stale clock (the player was not drawn for a while, a returning id): start afresh, no Step over the gap.
+        if (double.IsFinite(_lastNow) && !(now - _lastNow <= GapSeconds)) { _phase = Phase.None; _offset = 0; _lastNow = double.NaN; _wasGrounded = true; Now = now; Speed = 0f; }
         double previous = Now;
         bool first = !double.IsFinite(_lastNow);
         double dt = double.IsFinite(_lastNow) ? Math.Max(0.0, now - _lastNow) : 0.0;
@@ -115,6 +125,8 @@ public sealed class LedgeChargeFallClock
         }
         _lastZ = z;
         _wasGrounded = s.Grounded;
+        // a landing on other ground than the ray saw (a crate, a slope) or a short drop can ask for a long jump: kept under the tracker's gap
+        if (!first && now + _offset - previous > dt + MaxJump) _offset = previous + dt + MaxJump - now;
         Now = now + _offset;
         Step = first ? 0.0 : Now - previous;
         LastSpeed = first ? 0f : Speed;

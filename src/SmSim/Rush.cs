@@ -243,7 +243,7 @@ public static class Rush
     /// that of a free fall of <see cref="RushSpec.LandEndDrop"/> (ours).
     /// </summary>
     /// <param name="landingDrop">sim/ledge-charge-air (protocol 90): how far the landing tick itself took the body down (metres; the faster fall's rule below).</param>
-    public static bool EndsOnLanding(PlayerState s, RushSpec? spec, SimConfig c, float landingDrop = 0f)
+    public static bool EndsOnLanding(PlayerState s, RushSpec? spec, SimConfig c, float landingDrop)
     {
         if (s.Rush == RushPhase.DashAttack) return true;
         if (s.Rush != RushPhase.Rush) return false;
