@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4028 spec table rows: **2969 tagged**, 695 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
+Scanned 4029 spec table rows: **2969 tagged**, 695 not tagged (read from data with high confidence), 365 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -6392,6 +6392,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-67D9A734` | Seize Ground point stand cell (round 2) | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-144ECF97` | Walk first, jump links after | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-794212D6` | Jump build threads | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
+| `R-17AC8F8C` | Jump build lock | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-C813672B` | Resumable jump build | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-46A9E635` | Measuring aid | Classic PvP bots on the ten imported maps (bots/new-maps, owner 2026-11-16; client and server test aids, no protocol or config-hash change) |
 | `R-1F47BE9C` | What the bots did (measured) | Classic PvP bots: grenade safety (bot-grenade-safety, owner 2026-11-11; client test aid, no protocol or config-hash change) |

@@ -99,4 +99,22 @@ public class LeanBotTests
         Assert.False(LeanBot.Decide(bot: false, "headless", ["--connect", "127.0.0.1:27370"]));   // a headless human client or a demo replay keeps every load
         Assert.False(LeanBot.Decide(bot: false, "Windows", []));
     }
+
+    /// <summary>bots/a1-perf: a lean bot's jump-link build uses one thread on a small machine; elsewhere a third of the cores as before; <c>--bot-jump-threads n</c> wins.</summary>
+    [Theory]
+    [InlineData(null, 4, true, 1)]
+    [InlineData(null, 8, true, 1)]
+    [InlineData(null, 8, false, 2)]    // a full-load bot keeps the old rule
+    [InlineData(null, 12, true, 4)]    // a bigger machine keeps the old rule
+    [InlineData(null, 2, false, 1)]
+    [InlineData(null, 1, false, 1)]
+    [InlineData("3", 4, true, 3)]
+    [InlineData("1", 32, false, 1)]
+    [InlineData("0", 12, true, 4)]     // not a thread count: the rule
+    [InlineData("x", 4, true, 1)]
+    public void The_jump_build_threads_follow_the_lean_cap(string? flag, int cores, bool lean, int expected)
+    {
+        Assert.Equal(expected, LeanBot.JumpBuildThreadsFor(flag, cores, lean));
+        Assert.True(LeanBot.Decide(bot: true, "headless", BotArgs.Append("--" + LeanBot.JumpThreadsFlag).Append("1")));   // the switch keeps the bot lean
+    }
 }

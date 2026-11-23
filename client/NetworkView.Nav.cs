@@ -29,8 +29,12 @@ public partial class NetworkView
 {
     /// <summary><c>--bot-old-jump-build</c> (test aid, before/after): a jump-pack bot's graph arrives whole, jump links included (the bot walks straight until then).</summary>
     static readonly bool BotOldJumpBuild = CmdFlag("bot-old-jump-build");
-    /// <summary>Threads a bot client's jump-link build may use: a third of the cores (at least 1, always one core free), so the build does not starve the frame loop or the other bots on the machine (ours).</summary>
-    static readonly int BotJumpBuildThreads = Math.Max(1, Math.Min(System.Environment.ProcessorCount / 3, System.Environment.ProcessorCount - 1));
+    /// <summary>
+    /// Threads a bot client's jump-link build may use (<see cref="SmNet.LeanBot.JumpBuildThreadsFor"/>, ours): <c>--bot-jump-threads n</c>; else one for a lean bot on a small machine
+    /// (bots/a1-perf); else a third of the cores (at least 1, always one core free), so the build does not starve the frame loop or the other bots on the machine. Read on the main thread.
+    /// </summary>
+    int BotJumpBuildThreads => _botJumpBuildThreads ??= SmNet.LeanBot.JumpBuildThreadsFor(CmdArg(SmNet.LeanBot.JumpThreadsFlag), System.Environment.ProcessorCount, Lean);
+    int? _botJumpBuildThreads;
     /// <summary><c>--bot-no-escape</c> (test aid, before/after): the Classic PvP bots' stuck rules of bots/new-maps off (no walk to the nearest cell from a spot the graph has none at, no giving up a drop that is stuck on; <see cref="BotNavigation.NewMapRules"/>).</summary>
     static readonly bool BotNoEscape = CmdFlag("bot-no-escape");
 
@@ -178,9 +182,10 @@ public partial class NetworkView
                     slot.JumpStart = null;
                     var jumpCancel = _navCancel.Token;
                     var walk = slot.Graph;
+                    int jumpThreads = BotJumpBuildThreads;   // read here, not on the build's thread
                     slot.JumpTask = Task.Run(() =>
                     {
-                        var g = BotNavigation.WithJumpLinks(walk, js.Map, js.World, js.Config, js.Team, js.PlayerClass, BotNavigation.CacheDirectory, out string jumpNote, BotJumpBuildThreads, jumpCancel);
+                        var g = BotNavigation.WithJumpLinks(walk, js.Map, js.World, js.Config, js.Team, js.PlayerClass, BotNavigation.CacheDirectory, out string jumpNote, jumpThreads, jumpCancel);
                         return ((NavGraph?)g, jumpNote);
                     }, jumpCancel);
                 }

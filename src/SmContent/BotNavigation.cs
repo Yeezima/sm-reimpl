@@ -74,7 +74,7 @@ public static class BotNavigation
         var options = new NavJumpOptions { Threads = threads };
         ulong jumpKey = NavJumpSet.KeyFor(walk, config, playerClass, options);
         var set = NavCache.LoadOrBuildJumps(cacheDirectory, map.Name, jumpKey, walk.NodeCount,
-            () => NavJumpSet.Build(walk, world, side, config, playerClass, options, cancel, NavCache.JumpParts(cacheDirectory, map.Name, jumpKey, walk.NodeCount)), out note);   // bots/a1-perf: resumable
+            () => NavJumpSet.Build(walk, world, side, config, playerClass, options, cancel, NavCache.JumpParts(cacheDirectory, map.Name, jumpKey, walk.NodeCount)), out note, cancel);   // bots/a1-perf: resumable
         return walk.WithJumps(set);
     }
 }

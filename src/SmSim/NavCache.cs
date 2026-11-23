@@ -68,7 +68,13 @@ public static class NavCache
     /// The jump links for <paramref name="key"/> (<see cref="NavJumpSet.KeyFor"/>) over a graph of <paramref name="nodes"/> nodes:
     /// read from <paramref name="dir"/> when a valid file is there, else built with <paramref name="build"/> and written (best effort).
     /// </summary>
-    public static NavJumpSet LoadOrBuildJumps(string dir, string mapName, ulong key, int nodes, Func<NavJumpSet> build, out string note, TimeSpan? wait = null)
+    /// <remarks>
+    /// bots/a1-perf (lead 36, 2026-11-24): one jump-link builder per map on the machine (<see cref="NavBuildLock"/>, a lock file in <paramref name="dir"/>): before, each key had its own
+    /// mutex, so the two sides' jump-pack bots (two keys) built at once, about 4 cores each, and a waiter gave up after 10 minutes and built the same key beside the first. Now a process that
+    /// finds the map's build taken waits (until <paramref name="cancel"/>) and then reads the cache, or builds its own key, resuming any saved chunks. The waiting bot moves as it does while its
+    /// own build runs (no jump links: the walk-first bot on its plain graph, the one-step bot on its straight walk). A folder where no lock can be made builds without one, as before.
+    /// </remarks>
+    public static NavJumpSet LoadOrBuildJumps(string dir, string mapName, ulong key, int nodes, Func<NavJumpSet> build, out string note, CancellationToken cancel = default)
     {
         ArgumentNullException.ThrowIfNull(build);
         string file = JumpFileFor(dir, mapName, key);
@@ -78,10 +84,10 @@ public static class NavCache
             note = $"jump links read from the cache in {watch.ElapsedMilliseconds} ms: {early.LinkCount:N0} links";
             return early;
         }
-        using var mutex = new Mutex(false, $@"Local\sm-reimpl-navjump-{key:X16}");
-        bool owned;
-        try { owned = mutex.WaitOne(wait ?? TimeSpan.FromMinutes(10)); }
-        catch (AbandonedMutexException) { owned = true; }
+        bool waited = false;
+        NavBuildLock? held = null;
+        try { held = NavBuildLock.Acquire(dir, mapName, cancel, waiting: () => waited = true); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // no lock in this folder: build as before
         try
         {
             if (TryReadJumps(file, nodes, key) is { } late)
@@ -102,9 +108,10 @@ public static class NavCache
                 DeleteJumpParts(dir, mapName, key);   // bots/a1-perf: the whole set is written; its saved chunks are no longer needed
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { note += $"; not cached ({e.Message})"; }
+            if (waited) note += $"; waited {watch.Elapsed.TotalSeconds - set.BuildMilliseconds / 1000.0:F0} s for another build of the map";
             return set;
         }
-        finally { if (owned) mutex.ReleaseMutex(); }
+        finally { held?.Dispose(); }
     }
 
     /// <summary>
@@ -248,5 +255,129 @@ public static class NavCache
         foreach (var part in Directory.EnumerateFiles(dir, mapName + "-*.navjump.part*"))
             try { if (now - File.GetLastWriteTimeUtc(part) > TimeSpan.FromDays(7)) File.Delete(part); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+}
+
+/// <summary>
+/// bots/a1-perf (lead 36, 2026-11-24; test aid): the jump-link build lock of a map in a nav cache folder (<c>&lt;map&gt;.navbuild.lock</c>), so one process on the machine builds a map's jump
+/// links at a time. Made with an exclusive create (atomic on Windows and Linux); it holds the holder's process id and its write time is refreshed every <see cref="HeartbeatSeconds"/>.
+/// A lock whose holder is no longer running, or whose write time is older than <see cref="StaleSeconds"/> (a hung or killed holder), is taken over. Released (deleted) by
+/// <see cref="Dispose"/>. Values are ours.
+/// </summary>
+public sealed class NavBuildLock : IDisposable
+{
+    /// <summary>A lock not refreshed for this long is stale and taken over (seconds; ours).</summary>
+    public const double StaleSeconds = 120;
+    /// <summary>The holder refreshes its lock this often (seconds; ours).</summary>
+    public const double HeartbeatSeconds = 20;
+    /// <summary>A waiter tries again this often (seconds; ours).</summary>
+    public const double PollSeconds = 2;
+
+    readonly string _file;
+    readonly string _token;
+    readonly Timer _beat;
+    bool _released;
+
+    NavBuildLock(string file, string token)
+    {
+        _file = file;
+        _token = token;
+        _beat = new Timer(_ => Touch(), null, TimeSpan.FromSeconds(HeartbeatSeconds), TimeSpan.FromSeconds(HeartbeatSeconds));
+    }
+
+    /// <summary>The lock file of <paramref name="mapName"/> in <paramref name="dir"/>.</summary>
+    public static string FileFor(string dir, string mapName) => Path.Combine(dir, mapName + ".navbuild.lock");
+
+    /// <summary>Takes the map's lock now; null when another running process holds a fresh one. Throws when the folder cannot hold a lock (IO, access).</summary>
+    public static NavBuildLock? TryAcquire(string dir, string mapName, TimeSpan? stale = null)
+    {
+        Directory.CreateDirectory(dir);
+        string file = FileFor(dir, mapName);
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                string token = $"{Environment.ProcessId} {DateTime.UtcNow:o} {Guid.NewGuid():N}";   // the holder's process id first (IsStale reads it), then what makes this hold unique
+                using (var stream = new FileStream(file, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+                    stream.Write(System.Text.Encoding.ASCII.GetBytes(token));
+                return new NavBuildLock(file, token);
+            }
+            catch (IOException) when (File.Exists(file))
+            {
+                string? seen = ReadText(file);
+                if (seen is null || !IsStale(file, stale ?? TimeSpan.FromSeconds(StaleSeconds))) return null;
+                // The holder is gone or hung: take it over, unless another waiter already has. Best effort: two takeovers at the same instant can both build, which costs time, never the
+                // links (the set is the same and is written through a temporary file).
+                if (ReadText(file) != seen) continue;
+                try { File.Delete(file); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Takes the map's lock, waiting (every <see cref="PollSeconds"/>, or <paramref name="poll"/>) while another process holds it; <paramref name="waiting"/> is called once when it has to wait.
+    /// Throws <see cref="OperationCanceledException"/> when <paramref name="cancel"/> is cancelled while waiting.
+    /// </summary>
+    public static NavBuildLock Acquire(string dir, string mapName, CancellationToken cancel = default, TimeSpan? stale = null, TimeSpan? poll = null, Action? waiting = null)
+    {
+        bool told = false;
+        while (true)
+        {
+            cancel.ThrowIfCancellationRequested();
+            if (TryAcquire(dir, mapName, stale) is { } held) return held;
+            if (!told) { told = true; waiting?.Invoke(); }
+            cancel.WaitHandle.WaitOne(poll ?? TimeSpan.FromSeconds(PollSeconds));
+        }
+    }
+
+    /// <summary>Whether the lock in <paramref name="file"/> is stale: not refreshed for <paramref name="stale"/>, or its holder is not running.</summary>
+    public static bool IsStale(string file, TimeSpan stale)
+    {
+        try
+        {
+            if (DateTime.UtcNow - File.GetLastWriteTimeUtc(file) > stale) return true;
+            string text = File.ReadAllText(file);
+            int space = text.IndexOf(' ');
+            if (int.TryParse(space > 0 ? text[..space] : text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int pid) && !Running(pid)) return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        return false;
+    }
+
+    static bool Running(int pid)
+    {
+        if (pid == Environment.ProcessId) return true;
+        try { using var process = System.Diagnostics.Process.GetProcessById(pid); return !process.HasExited; }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException) { return false; }
+    }
+
+    static string? ReadText(string file)
+    {
+        try { return File.ReadAllText(file); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>Whether the lock file is still this hold's (a holder that was judged stale and taken over must not refresh or delete the new holder's lock).</summary>
+    public bool Held => !_released && ReadText(_file) == _token;
+
+    void Touch()
+    {
+        if (!Held) return;
+        try { File.SetLastWriteTimeUtc(_file, DateTime.UtcNow); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Releases the lock (deletes its file when it is still this hold's).</summary>
+    public void Dispose()
+    {
+        if (_released) return;
+        bool mine = Held;
+        _released = true;
+        _beat.Dispose();
+        if (!mine) return;
+        try { File.Delete(_file); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

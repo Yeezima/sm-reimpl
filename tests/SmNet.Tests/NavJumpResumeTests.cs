@@ -113,6 +113,120 @@ public class NavJumpResumeTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    static int DeadPid()
+    {
+        for (int pid = 999_983; pid > 1000; pid -= 7)
+            try { using var p = System.Diagnostics.Process.GetProcessById(pid); }
+            catch (ArgumentException) { return pid; }
+        throw new InvalidOperationException("no free process id");
+    }
+
+    [Fact]
+    public void One_process_holds_a_maps_build_lock_and_a_stale_or_orphaned_lock_is_taken_over()
+    {
+        string dir = TempDir();
+        try
+        {
+            using (var held = NavBuildLock.TryAcquire(dir, "gap"))
+            {
+                Assert.NotNull(held);
+                Assert.Null(NavBuildLock.TryAcquire(dir, "gap"));   // fresh and its holder runs: taken
+                Assert.NotNull(NavBuildLock.TryAcquire(dir, "other") is { } other ? other : null);   // another map's lock is its own
+            }
+            Assert.False(File.Exists(NavBuildLock.FileFor(dir, "gap")));   // released
+            // an orphaned lock (its process is gone) is taken over at once
+            string file = NavBuildLock.FileFor(dir, "gap");
+            File.WriteAllText(file, $"{DeadPid()} 2026-11-24T00:00:00Z");
+            using (var takeover = NavBuildLock.TryAcquire(dir, "gap")) Assert.NotNull(takeover);
+            // a lock of a running process that has not been refreshed for longer than the stale time is taken over too
+            File.WriteAllText(file, $"{Environment.ProcessId} 2026-11-24T00:00:00Z");
+            Assert.Null(NavBuildLock.TryAcquire(dir, "gap"));
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddSeconds(-NavBuildLock.StaleSeconds - 5));
+            using (var stale = NavBuildLock.TryAcquire(dir, "gap")) Assert.NotNull(stale);
+            // a waiter stops waiting when its build is cancelled
+            using var blocker = NavBuildLock.TryAcquire(dir, "gap");
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+            Assert.ThrowsAny<OperationCanceledException>(() => NavBuildLock.Acquire(dir, "gap", cts.Token, poll: TimeSpan.FromMilliseconds(50)));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void A_holder_whose_lock_was_taken_over_leaves_the_new_holders_lock_alone()
+    {
+        string dir = TempDir();
+        try
+        {
+            string file = NavBuildLock.FileFor(dir, "gap");
+            var old = NavBuildLock.TryAcquire(dir, "gap")!;
+            Assert.True(old.Held);
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddSeconds(-NavBuildLock.StaleSeconds - 5));   // the old holder hung
+            using var taker = NavBuildLock.TryAcquire(dir, "gap");
+            Assert.NotNull(taker);
+            Assert.False(old.Held);
+            old.Dispose();   // it wakes up and lets go: the new holder's lock stays
+            Assert.True(File.Exists(file));
+            Assert.True(taker!.Held);
+            Assert.Null(NavBuildLock.TryAcquire(dir, "gap"));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    /// <summary>bots/a1-perf: the lean bot's one-thread build on a small machine finds byte for byte the set of a build on all cores, and it resumes the same.</summary>
+    [Fact]
+    public void A_one_thread_build_is_byte_for_byte_an_all_core_build()
+    {
+        var (world, graph) = Gap();
+        var all = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options);
+        var one = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options with { Threads = 1 });
+        Assert.Equal(Bytes(all), Bytes(one));
+        string dir = TempDir();
+        try
+        {
+            ulong key = NavJumpSet.KeyFor(graph, Config, Assault, Options with { Threads = 1 });
+            Assert.Equal(NavJumpSet.KeyFor(graph, Config, Assault, Options), key);
+            using var cts = new CancellationTokenSource();
+            var first = new StopAfter(NavCache.JumpParts(dir, "gap", key, graph.NodeCount), 1, cts);
+            Assert.ThrowsAny<OperationCanceledException>(() => NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options with { Threads = 1 }, cts.Token, first, Chunk));
+            var resumed = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options, default, NavCache.JumpParts(dir, "gap", key, graph.NodeCount), Chunk);
+            Assert.Equal(Bytes(all), Bytes(resumed));   // chunks of a one-thread build go on under all cores, and the set is the same
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void A_process_that_finds_the_map_being_built_waits_and_then_reads_the_finished_set()
+    {
+        var (world, graph) = Gap();
+        ulong key = NavJumpSet.KeyFor(graph, Config, Assault, Options);
+        var whole = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options);
+        string dir = TempDir();
+        try
+        {
+            using var started = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            int firstBuilds = 0, secondBuilds = 0;
+            var first = Task.Run(() => NavCache.LoadOrBuildJumps(dir, "gap", key, graph.NodeCount, () =>
+            {
+                firstBuilds++; started.Set(); release.Wait(TimeSpan.FromSeconds(60));
+                return NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options, default, NavCache.JumpParts(dir, "gap", key, graph.NodeCount), Chunk);
+            }, out _));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(30)));
+            string secondNote = "";
+            var second = Task.Run(() => { var s = NavCache.LoadOrBuildJumps(dir, "gap", key, graph.NodeCount, () => { secondBuilds++; return whole; }, out string n); secondNote = n; return s; });
+            Assert.False(second.Wait(TimeSpan.FromSeconds(3)));   // the map is being built: it waits instead of building beside it
+            release.Set();
+            var a = first.Result; var b = second.Result;
+            Assert.Equal(1, firstBuilds);
+            Assert.Equal(0, secondBuilds);   // it read the finished file
+            Assert.Contains("after waiting for another build", secondNote);
+            Assert.Equal(Bytes(whole), Bytes(a));
+            Assert.Equal(Bytes(whole), Bytes(b));
+            Assert.False(File.Exists(NavBuildLock.FileFor(dir, "gap")));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     [Fact]
     public void The_cache_deletes_a_sets_chunks_once_the_whole_set_is_written()
     {
