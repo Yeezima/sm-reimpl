@@ -245,6 +245,8 @@ public partial class NetworkView
         if (!FxReady() || !FxActive) { _fxPrev = me; _fxPrevSeen = true; return; }
         try
         {
+            ClassicHitDirFrame(me);   // classic-hit-effects: weapon paths and waiting melee contacts (NetworkView.ClassicHitDir.cs)
+            ClassicHitDirDemo();   // classic-hit-effects capture aid --hit-dir-demo (NetworkView.ClassicHitDirDemo.cs)
             FxOwnShots(me, delta);
             FxLaserTest(me);   // feel/scope-lascannon test aid (NetworkView.Laser.cs)
             foreach (var shot in _frameShots) FxRemoteShot(shot);
@@ -580,14 +582,14 @@ public partial class NetworkView
         if (!tracered && BulletsOn && stage == 0 && spec.Delivery == DeliveryKind.Raycast && rayOrigin is not null && (FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var from && from.Position.DistanceTo(end) >= 0.4f)
             travel = PlayFallbackBullet(from.Position, end, rayOrigin, rayDir);
         if (!atFire) { TracerProbeShot(shooter, spec, end, normal, travel, tracered, projectileShot, ShotHit.None); return; }
-        FxImpact(w, se, hit, surface, end, normal, dir, travel, victim, armourUp, own);
+        FxImpact(w, se, hit, surface, end, normal, dir, travel, victim, armourUp, own, shooter);
         TracerProbeShot(shooter, spec, end, normal, travel, tracered, projectileShot, hit);
     }
 
     readonly HashSet<FxPlay> _fxPlayedScratch = new((IEqualityComparer<FxPlay>)ReferenceEqualityComparer.Instance);
 
     /// <summary>The impact effects of a hit by the container of the shot's hit effect, oriented by each effect's own direction rule (interpretation).</summary>
-    void FxImpact(WeaponEffects w, ShotEffects se, ShotHit hit, int surface, Vector3 end, Vector3 normal, Vector3 dir, double delay, int victim = -1, bool? armourUp = null, bool own = false)
+    void FxImpact(WeaponEffects w, ShotEffects se, ShotHit hit, int surface, Vector3 end, Vector3 normal, Vector3 dir, double delay, int victim = -1, bool? armourUp = null, bool own = false, int shooter = -1)
     {
         if (hit == ShotHit.None || _catalogue is null || _fx is null) return;
         // M38: a player hit on raised armour reads as ceramite armour (bullets breaking armour), on broken armour as the marine's own flesh-penetrating surface, and the victim shows the
@@ -603,9 +605,10 @@ public partial class NetworkView
         if (hit != ShotHit.World || plays.Count > 0) _probeImpactAny = true;   // fx/tracers-impact: --tracer-probe (armour glows, sparks, flashes and the hit container all count)
         // classic-no-player-hit-fx (owner, 2026-11-11): in Classic PvP a hit on a player draws none of the on-hit effects below, only the model's own flash (PlayerHitFxRules; --player-hit-fx restores)
         bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
+        if (hit is ShotHit.Body or ShotHit.Head && victim > 0) NoteShotContact(victim, shooter, end, dir, hit == ShotHit.Head, armourUp, own, delay);   // classic-hit-effects: the confirmed damage's gunfire contact (NetworkView.ClassicHitDir.cs)
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
-        if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else RedSparks(end, dir, delay); }   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
+        if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else if (!ClassicBloodReplacesRed) RedSparks(end, dir, delay); }   // classic-hit-effects: in Extended the confirmed blood spray replaces the red fan   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
         bool terrainBlast = false;
         if (hit == ShotHit.World) ExtrasTerrainBlast(w.Wargear, end, normal, own, delay, ref terrainBlast);   // EXTRAS-HOOK: musou/autocannon-flash (owner 2026-11-15)
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs); kept in Classic
@@ -947,7 +950,7 @@ public partial class NetworkView
         _fxLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
-                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; {PlasmaLookLog()}; {LightBallLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
+                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {HitDirLog()}; {PlasmaFxLog()}; {PlasmaLookLog()}; {LightBallLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}, off-screen skips {_fx.OffScreenSkips}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
         if (_fx.ExtraStats is { Length: > 0 } gpu) GD.Print($"t {_connectedFor:F0} s: effects gpu: {gpu}");   // musou/gpu-particles: the GPU sprays' counts

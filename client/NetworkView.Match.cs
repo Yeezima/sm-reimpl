@@ -223,6 +223,7 @@ public partial class NetworkView
             NoteDeathCause(k);   // M23: the ragdoll's push
             OrkKillSound(k);     // Ork O8: an Ork standing still taunts after a kill (silly option)
             HeadshotKillSound(k);   // protocol 64: a headshot kill's death scream (NetworkView.Headshot.cs)
+            ClassicHitDirKill(k);   // classic-hit-effects: a fatal headshot's wall decal pairs with its kill (Extended; NetworkView.ClassicHitDir.cs)
             ExtrasKill(k);       // EXTRAS-HOOK: added content's kill reactions (loyalist barks: the killer's bark)
             _hudView?.AddKill(HudKill(k));
             _killsSeen++;

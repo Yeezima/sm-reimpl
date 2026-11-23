@@ -40,6 +40,9 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)
         ("client/NetworkView.cs", "ExtrasFrame"),                  // NetworkView.ExtrasFrame(PlayerState, IReadOnlyList<PlayerState>, double), once a frame after the sound (loyalist barks: barks and the key's shouts)
         ("client/NetworkView.Match.cs", "ExtrasKill"),             // NetworkView.ExtrasKill(KillView), each kill-feed entry once (loyalist barks: kill barks)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicBlood"),          // classic-hit-effects: the Extended blood spray for a confirmed contact (Extras/Gore)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicFatalHeadshot"),  // classic-hit-effects: a fatal gunfire headshot, for the Extended wall decal (Extras/Gore)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicKill"),           // classic-hit-effects: a kill-feed entry, paired with its headshot for the decal (Extras/Gore)
         ("client/NetworkView.Scoreboard.cs", "ExtrasScoreboard"),  // NetworkView.ExtrasScoreboard(ref single, ref score, ref assists), the Tab scoreboard (Musou: one column, run points, no assists)
         ("client/ModelViewer.cs", "ExtrasTestAid"),                // ModelViewer.ExtrasTestAid(args, ref bool), before the game install is located (Ashfall kit gallery: a test view that needs no install)
         // Musou (MU0): each returns at once unless World._musou is set (World.StartMusou, only under ContentExtras.Musou).

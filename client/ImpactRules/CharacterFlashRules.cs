@@ -79,6 +79,17 @@ public sealed class ArmourFlashTracker
     /// <summary>Whether the armour's break flash runs now: red in the recharge glow's ring (owner, 2026-11-02), rather than the engulfing glow of later hits on bare armour.</summary>
     public bool BreakRing(int id, double now) => Ring && _byId.TryGetValue(id, out var e) && now - e.BreakAt >= 0.0 && now - e.BreakAt < BreakSeconds;
 
+    /// <summary>
+    /// classic-hit-effects: whether another player's armour is up as this tracker knows it (the shot records' armour bit, the own hit reports' breaks and the class's recharge delay):
+    /// true up, false down, null never seen hit (read as up by the caller). Approximate for a damage no shot record carried (a remote melee hit).
+    /// </summary>
+    public bool? ArmourUp(int id, double now)
+    {
+        if (!_byId.TryGetValue(id, out var e) || e.Armour == 0) return null;
+        if (now >= e.RegenAt) return true;
+        return e.Armour == 1;
+    }
+
     /// <summary>The player died or respawned: no flash, no pending glow.</summary>
     public void Reset(int id) => _byId.Remove(id);
 
