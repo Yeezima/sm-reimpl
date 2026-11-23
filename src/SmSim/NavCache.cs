@@ -99,11 +99,97 @@ public static class NavCache
                 using (var stream = new BufferedStream(File.Create(temp), 1 << 16)) set.Write(stream);
                 File.Move(temp, file, overwrite: true);
                 note += "; cached";
+                DeleteJumpParts(dir, mapName, key);   // bots/a1-perf: the whole set is written; its saved chunks are no longer needed
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { note += $"; not cached ({e.Message})"; }
             return set;
         }
         finally { if (owned) mutex.ReleaseMutex(); }
+    }
+
+    /// <summary>
+    /// bots/a1-perf (2026-11-23): the saved chunks of an unfinished jump-link build of <paramref name="key"/> (<c>&lt;map&gt;-&lt;key&gt;.navjump.part&lt;chunk&gt;</c> beside the set's file),
+    /// for <see cref="NavJumpSet.Build"/>'s checkpoint. Deleted when the whole set is written; chunks untouched for a week are pruned.
+    /// </summary>
+    public static INavJumpCheckpoint JumpParts(string dir, string mapName, ulong key, int nodes) => new JumpPartFiles(dir, mapName, key, nodes);
+
+    /// <summary>The file of chunk <paramref name="chunk"/> of an unfinished build of <paramref name="key"/>.</summary>
+    public static string JumpPartFor(string dir, string mapName, ulong key, int chunk) => JumpFileFor(dir, mapName, key) + $".part{chunk:D5}";
+
+    static void DeleteJumpParts(string dir, string mapName, ulong key)
+    {
+        if (!Directory.Exists(dir)) return;
+        string prefix = Path.GetFileName(JumpFileFor(dir, mapName, key)) + ".part";
+        foreach (var part in Directory.EnumerateFiles(dir, prefix + "*"))
+            try { File.Delete(part); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    sealed class JumpPartFiles(string dir, string mapName, ulong key, int nodes) : INavJumpCheckpoint
+    {
+        const int PartMagic = 0x5452414A;   // "JART"
+        const int PartVersion = 1;
+
+        public List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>? TryLoad(int chunk, int takeOffs, int firstNode, int count)
+        {
+            string file = JumpPartFor(dir, mapName, key, chunk);
+            if (!File.Exists(file)) return null;
+            try
+            {
+                var bytes = File.ReadAllBytes(file);
+                if (bytes.Length < 8) return Drop(file);
+                ulong sum = BitConverter.ToUInt64(bytes, bytes.Length - 8);
+                if (sum != PartChecksum(bytes.AsSpan(0, bytes.Length - 8))) return Drop(file);
+                using var r = new BinaryReader(new MemoryStream(bytes, 0, bytes.Length - 8));
+                if (r.ReadInt32() != PartMagic || r.ReadInt32() != PartVersion || r.ReadUInt64() != key || r.ReadInt32() != nodes
+                    || r.ReadInt32() != chunk || r.ReadInt32() != takeOffs || r.ReadInt32() != firstNode || r.ReadInt32() != count) return Drop(file);
+                int links = r.ReadInt32();
+                if (links < 0 || links > count * 64) return Drop(file);
+                var list = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>(links);
+                for (int k = 0; k < links; k++)
+                {
+                    int from = r.ReadInt32(), to = r.ReadInt32();
+                    float cost = r.ReadSingle(); byte direction = r.ReadByte(), hold = r.ReadByte(); float power = r.ReadSingle();
+                    if ((uint)from >= (uint)nodes || (uint)to >= (uint)nodes) return Drop(file);
+                    list.Add((from, to, cost, direction, hold, power));
+                }
+                return r.BaseStream.Position == r.BaseStream.Length ? list : Drop(file);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or EndOfStreamException) { return null; }
+        }
+
+        public void Save(int chunk, int takeOffs, int firstNode, int count, IReadOnlyList<(int From, int To, float Cost, byte Direction, byte Hold, float Power)> links)
+        {
+            try
+            {
+                Directory.CreateDirectory(dir);
+                using var buffer = new MemoryStream();
+                using (var w = new BinaryWriter(buffer, System.Text.Encoding.UTF8, leaveOpen: true))
+                {
+                    w.Write(PartMagic); w.Write(PartVersion); w.Write(key); w.Write(nodes); w.Write(chunk); w.Write(takeOffs); w.Write(firstNode); w.Write(count); w.Write(links.Count);
+                    foreach (var l in links) { w.Write(l.From); w.Write(l.To); w.Write(l.Cost); w.Write(l.Direction); w.Write(l.Hold); w.Write(l.Power); }
+                }
+                var data = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
+                string file = JumpPartFor(dir, mapName, key, chunk), temp = file + "." + Environment.ProcessId + ".tmp";
+                using (var stream = File.Create(temp)) { stream.Write(data); stream.Write(BitConverter.GetBytes(PartChecksum(data))); }
+                File.Move(temp, file, overwrite: true);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+
+        static List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>? Drop(string file)
+        {
+            try { File.Delete(file); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            return null;
+        }
+
+        static ulong PartChecksum(ReadOnlySpan<byte> data)
+        {
+            ulong h = Geometry.FnvOffset;
+            foreach (byte b in data) h = (h ^ b) * 1099511628211UL;
+            return h;
+        }
     }
 
     static NavJumpSet? TryReadJumps(string file, int nodes, ulong key)
@@ -157,6 +243,10 @@ public static class NavCache
             .OrderByDescending(File.GetLastWriteTimeUtc).ThenBy(f => f, StringComparer.Ordinal).ToList();
         foreach (var old in jumps.Skip(KeepPerMap - 1))
             try { File.Delete(old); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        // bots/a1-perf: an unfinished build's chunks (and their temporary files) untouched for a week (a key no longer built: the map, the pack or the rules changed) go too
+        foreach (var part in Directory.EnumerateFiles(dir, mapName + "-*.navjump.part*"))
+            try { if (now - File.GetLastWriteTimeUtc(part) > TimeSpan.FromDays(7)) File.Delete(part); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

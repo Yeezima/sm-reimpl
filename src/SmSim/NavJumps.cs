@@ -113,6 +113,19 @@ public static class NavJumpFlight
     }
 }
 
+/// <summary>
+/// bots/a1-perf (2026-11-23): where a <see cref="NavJumpSet.Build"/> keeps its finished chunks of take-off cells, so that a build stopped before its end (the match or the bot
+/// process ended) goes on from there the next time instead of from the start. <paramref name="chunk"/> numbers the chunk; <paramref name="takeOffs"/> (all take-off cells),
+/// <paramref name="firstNode"/> (the chunk's first take-off cell) and <paramref name="count"/> must match for a saved chunk to be read back.
+/// </summary>
+public interface INavJumpCheckpoint
+{
+    /// <summary>The links of a chunk saved by an earlier build of the same set; null when there is none (or it does not match or is damaged).</summary>
+    List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>? TryLoad(int chunk, int takeOffs, int firstNode, int count);
+    /// <summary>Keeps a finished chunk's links (best effort: a chunk that cannot be written is built again next time).</summary>
+    void Save(int chunk, int takeOffs, int firstNode, int count, IReadOnlyList<(int From, int To, float Cost, byte Direction, byte Hold, float Power)> links);
+}
+
 /// <summary>What to build (test aid): which take-off cells, headings and holds to try and which landings to keep.</summary>
 public sealed record NavJumpOptions
 {
@@ -258,7 +271,8 @@ public sealed class NavJumpSet
     /// Parallel over the take-off cells (all cores but one); deterministic. Throws <see cref="OperationCanceledException"/> when
     /// <paramref name="cancel"/> is cancelled.
     /// </summary>
-    public static NavJumpSet Build(NavGraph graph, CollisionWorld world, Team team, SimConfig config, int playerClass, NavJumpOptions? options = null, CancellationToken cancel = default)
+    public static NavJumpSet Build(NavGraph graph, CollisionWorld world, Team team, SimConfig config, int playerClass, NavJumpOptions? options = null, CancellationToken cancel = default,
+        INavJumpCheckpoint? checkpoint = null, int checkpointChunk = CheckpointChunk)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(world);
@@ -282,7 +296,37 @@ public sealed class NavJumpSet
         var perNode = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>[takeOffs.Count];
         // One core is left to the game; the build stops at the next take-off cell when cancelled.
         var parallel = new ParallelOptions { MaxDegreeOfParallelism = o.Threads > 0 ? o.Threads : Math.Max(1, Environment.ProcessorCount - 1), CancellationToken = cancel };
-        Parallel.For(0, takeOffs.Count, parallel, () => new NavGraph.DijkstraScratch(graph.NodeCount), (i, _, scratch) =>
+        // bots/a1-perf (2026-11-23): with a checkpoint the take-off cells go in chunks of CheckpointChunk; a chunk done in an earlier, unfinished build is read back and every chunk
+        // finished here is saved, so a build stopped by the end of a match or process goes on where it stopped. Each take-off cell's links depend on that cell alone and the set sorts
+        // its links, so the set is the same whichever chunks were read back. Without a checkpoint it is one pass as before.
+        int chunkSize = checkpoint is null ? Math.Max(1, takeOffs.Count) : Math.Max(1, checkpointChunk);
+        int resumedCells = 0;
+        var resumed = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>();
+        for (int first = 0, chunk = 0; first < takeOffs.Count; first += chunkSize, chunk++)
+        {
+            int count = Math.Min(chunkSize, takeOffs.Count - first);
+            if (checkpoint is not null && checkpoint.TryLoad(chunk, takeOffs.Count, takeOffs[first], count) is { } done)
+            {
+                resumed.AddRange(done); resumedCells += count;
+                continue;
+            }
+            cancel.ThrowIfCancellationRequested();
+            BuildRange(first, first + count);
+            if (checkpoint is null) continue;
+            var links = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>();
+            for (int i = first; i < first + count; i++) links.AddRange(perNode[i]);
+            checkpoint.Save(chunk, takeOffs.Count, takeOffs[first], count, links);
+        }
+        var all = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>(resumed);
+        foreach (var list in perNode) if (list is not null) all.AddRange(list);
+        var set = new NavJumpSet(graph.NodeCount, all, KeyFor(graph, config, playerClass, o))
+        {
+            TakeOffsTried = takeOffs.Count, Simulated = simulated, BuildMilliseconds = watch.ElapsedMilliseconds,
+            BuildNote = $"{takeOffs.Count} take-off cells{(resumedCells > 0 ? $" ({resumedCells} read back from an unfinished build)" : "")}, {simulated:N0} flights simulated, {all.Count} links kept ({all.Select(l => l.From).Distinct().Count()} cells), {watch.ElapsedMilliseconds} ms",
+        };
+        return set;
+
+        void BuildRange(int from, int to) => Parallel.For(from, to, parallel, () => new NavGraph.DijkstraScratch(graph.NodeCount), (i, _, scratch) =>
         {
             int a = takeOffs[i];
             var start = graph.Position(a);
@@ -331,15 +375,10 @@ public sealed class NavJumpSet
             perNode[i] = kept;
             return scratch;
         }, _ => { });
-        var all = new List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>();
-        foreach (var list in perNode) all.AddRange(list);
-        var set = new NavJumpSet(graph.NodeCount, all, KeyFor(graph, config, playerClass, o))
-        {
-            TakeOffsTried = takeOffs.Count, Simulated = simulated, BuildMilliseconds = watch.ElapsedMilliseconds,
-            BuildNote = $"{takeOffs.Count} take-off cells, {simulated:N0} flights simulated, {all.Count} links kept ({all.Select(l => l.From).Distinct().Count()} cells), {watch.ElapsedMilliseconds} ms",
-        };
-        return set;
     }
+
+    /// <summary>Take-off cells a checkpointed build (<see cref="INavJumpCheckpoint"/>) finishes and saves at a time (bots/a1-perf; ours: about 10 to 40 s of a bot's build on a big map).</summary>
+    public const int CheckpointChunk = 1024;
 
     /// <summary>Whether the flight lands on the same cell (within a metre) from every point of a ring of <see cref="NavJumpOptions.RobustRadius"/> around the take-off cell.</summary>
     static bool Robust(CollisionWorld world, SimConfig config, int playerClass, Team team, Vector3 start, int direction, int hold, Vector3 landing, NavJumpOptions o)

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   bots/a1-perf (2026-11-23) matched bot-vs-bot measuring run, Classic PvP. Test aid, never shipped.
 .DESCRIPTION
@@ -9,10 +9,11 @@
   (tactical, assault, devastator; the Chaos counterparts by the server), their PIDs kept and only those stopped (by PID). Every 10 s it samples the CPU time and
   the working set of the server and of each bot process tree. Writes under %LOCALAPPDATA%\sm-reimpl\perf\bots-a1\<tag>\<map>-<mode>\: server.log, bot logs,
   samples.csv and result.txt (per-bot mean CPU cores and peak working set, the server's, then the last BOTSTATS and every BOTCOMBAT line).
+  -DataDir <dir>: SM_DATA_DIR for the server and the bots, a private data root with its own nav cache (never the owner's cache).
   Bot matches are not bit-repeatable (real time, the network), so base and candidate are compared on totals and rates over equal runs.
 #>
 param([Parameter(Mandatory)][string]$Map, [string]$Mode = 'annihilation', [string]$Tag = 'base', [string]$Root = '', [int]$Marines = 4, [int]$Chaos = 4,
-    [int]$Seconds = 300, [int]$Port = 0, [int]$NameSeed = 7, [string]$Client = '')
+    [int]$Seconds = 300, [int]$Port = 0, [int]$NameSeed = 7, [string]$Client = '', [string]$DataDir = '')
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $PSScriptRoot
 if (-not $Root) { $Root = $Here }
@@ -43,6 +44,7 @@ function Get-Usage([int]$id) {
 $pids = @()
 $serverDll = Join-Path $Root 'src\SmServer\bin\Release\net10.0\SmServer.dll'
 if (-not (Test-Path $serverDll)) { throw "$serverDll is missing: dotnet build -c Release src\SmServer in $Root" }
+if ($DataDir) { New-Item -ItemType Directory -Force -Path $DataDir | Out-Null; $env:SM_DATA_DIR = $DataDir }   # a private data root (its own nav cache), never the owner's
 $env:SM_BOT_STATS = '30'
 $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--map', $Map, '--mode', $Mode, '--honor-side-requests', '--name-seed', "$NameSeed") -WorkingDirectory $Root -StdOut (Join-Path $out 'server.log') -StdErr (Join-Path $out 'server.err.log')
 Remove-Item Env:SM_BOT_STATS -ErrorAction SilentlyContinue
@@ -67,12 +69,21 @@ try {
             Start-Sleep -Milliseconds 1200
         }
     }
-    Start-Sleep -Seconds 30   # the loads (map, collision, graph) are left out of the steady-state numbers
+    # the loads (map, collision, graph) are left out of the steady-state numbers: wait until every bot has joined (at most 300 s), then 20 s more
+    $joinBy = (Get-Date).AddSeconds(300)
+    while ((Get-Date) -lt $joinBy) {
+        $joined = @(Get-ChildItem $out -Filter 'bot-*.log' | Where-Object { Select-String -LiteralPath $_.FullName -Pattern 'connected as player' -Quiet }).Count
+        if ($joined -ge $pids.Count) { break }
+        Start-Sleep -Seconds 5
+    }
+    "joined $joined of $($pids.Count) bots" | Add-Content (Join-Path $out 'pids.txt')
+    Start-Sleep -Seconds 20
     $first = @{}; $peak = @{}
+    $who = [Collections.Generic.List[object]]::new(); $who.Add([object[]]@('server', $server.Id)); foreach ($p in $pids) { $who.Add([object[]]@('bot', $p)) }
     $t0 = Get-Date
     while (((Get-Date) - $t0).TotalSeconds -lt $Seconds -and -not $server.HasExited) {
         $t = [int]((Get-Date) - $t0).TotalSeconds
-        foreach ($w in @(@('server', $server.Id)) + @($pids | ForEach-Object { , @('bot', $_) })) {
+        foreach ($w in $who) {
             $u = Get-Usage $w[1]
             if (-not $first.ContainsKey($w[1])) { $first[$w[1]] = @($t, $u[0]) }
             $peak[$w[1]] = [Math]::Max([double]($peak[$w[1]]), $u[1] / 1MB)
@@ -83,13 +94,14 @@ try {
     }
 }
 finally {
+    Remove-Item Env:SM_DATA_DIR -ErrorAction SilentlyContinue
     foreach ($p in $pids) { & taskkill.exe /PID $p /T /F 2>$null | Out-Null }
     if (-not $server.HasExited) { & taskkill.exe /PID $server.Id /T /F | Out-Null }
 }
 $samples | Set-Content (Join-Path $out 'samples.csv')
 $lines = [Collections.Generic.List[string]]::new()
 $botCores = @(); $botPeaks = @()
-foreach ($w in @(@('server', $server.Id)) + @($pids | ForEach-Object { , @('bot', $_) })) {
+foreach ($w in $who) {
     $l = Get-Variable -Name ("last_" + $w[1]) -ValueOnly -ErrorAction SilentlyContinue
     if (-not $l -or -not $first.ContainsKey($w[1]) -or $l[0] -le $first[$w[1]][0]) { continue }
     $cores = ($l[1] - $first[$w[1]][1]) / ($l[0] - $first[$w[1]][0])
