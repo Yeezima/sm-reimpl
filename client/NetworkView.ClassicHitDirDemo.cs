@@ -48,6 +48,7 @@ public partial class NetworkView
             "combo" => HitDirDemoCombo[_hitDirDemoStep++ % HitDirDemoCombo.Length],
             _ => _hitDirDemo,
         };
+        if (HitDirStage(kind, first)) return;   // wall:<m>, sidewall, blocked, floor (NetworkView.ClassicHitDirStage.cs)
         PlayerState? v = null;
         foreach (var p in _lastOthers) if (p.PlayerId == first) { v = p; break; }
         if (v is not { } victim) return;
@@ -64,6 +65,7 @@ public partial class NetworkView
             var from = camera.GlobalPosition;
             var target = kind == "gun" ? chest + toCam * BodySurface : head;
             var dir = (target - from).Normalized();
+            NoteHitDirFocus(target, dir);
             if (kind is "wallshot" or "farshot")
             {
                 // the wall cases without placing the camera: the level probed level from the head in 32 directions; wallshot shoots toward the nearest wall within 4.6 m
@@ -127,6 +129,7 @@ public partial class NetworkView
             hist[k] = (t, contact + motion * 12f * (float)t + bend * (float)(t * t) * 6f);
         }
         float spread = SpreadFor(thrust);
+        NoteHitDirFocus(contact, motion);
         if (HasSparks(visual) && look.HasFlag(DirLook.MeleeSparks)) HitSpray().SpawnMelee(contact, hist, null, motion, new ClassicHitSpray.Look(true, 1f, spread * 0.8f), 0.0);
         bool drawn = false;
         if (HasBlood(visual))

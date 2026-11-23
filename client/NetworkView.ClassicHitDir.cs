@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Godot;
 using SmClient.ImpactRules;
@@ -131,9 +132,57 @@ public partial class NetworkView
     /// <summary>A shot drawn on a player (FxImpact): remembered for the confirmation of its damage. Own shots wait for the server's mark; another player's arrives with it.</summary>
     void NoteShotContact(int victim, int shooter, Vector3 contact, Vector3 dir, bool head, bool? armourUp, bool own, double delay)
     {
-        if (victim <= 0 || HitDirLook == DirLook.None) return;
-        if (!_shotContacts.TryGetValue(victim, out var c)) _shotContacts[victim] = c = new ShotContact();
-        c.At = _connectedFor; c.Delay = delay; c.Contact = contact; c.Dir = dir; c.Head = head; c.Shooter = shooter; c.ArmourUp = armourUp ?? true; c.Own = own;
+        if (HitDirLook == DirLook.None) return;
+        if (victim > 0)
+        {
+            var c = new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own };
+            _shotContacts[victim] = c;
+            NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, c);
+        }
+        else NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, null);
+    }
+
+    /// <summary>
+    /// Every body or head hit the server sent in a shot record (FxImpact), whichever player this view resolved it to (or none): a mark that finds no shot of its own takes the nearest
+    /// unused one ending within <see cref="ClassicHitDirRules.LooseShotReach"/> of his drawn chest (live check 2026-11-24: of 64 unpaired marks in a 3v3, 40 were such hits, resolved to
+    /// nobody because this view draws the victim about a tenth of a second behind the shot, up to 2.5 m away from where the bullet struck him).
+    /// </summary>
+    sealed class ServerHit { public ShotContact Contact = null!; public Num.Vector3 End; public bool Used; }
+    readonly List<ServerHit> _serverHits = new();
+    int _hitDirLooseShots;
+
+    void NoteServerHit(int shooter, Vector3 contact, Num.Vector3 end, Vector3 dir, bool head, bool? armourUp, bool own, double delay, ShotContact? resolved)
+    {
+        if (HitDirLook == DirLook.None) return;
+        for (int i = _serverHits.Count - 1; i >= 0; i--) if (_connectedFor - _serverHits[i].Contact.At > OwnWindow) _serverHits.RemoveAt(i);
+        if (_serverHits.Count >= 64) _serverHits.RemoveAt(0);
+        var c = resolved ?? new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own };
+        _serverHits.Add(new ServerHit { Contact = c, End = end });
+    }
+
+    ShotContact? ServerHitNear(PlayerState o)
+    {
+        var chest = o.Position + new Num.Vector3(0f, 0f, 1.25f);
+        ServerHit? best = null; float bestD = LooseShotReach;
+        foreach (var h in _serverHits)
+        {
+            if (h.Used || h.Contact.Shooter == o.PlayerId || _connectedFor - h.Contact.At > (h.Contact.Own ? OwnWindow : RemoteWindow)) continue;
+            if (TeamOf(h.Contact.Shooter) is var t && t != Team.None && t == o.Team) continue;
+            float d = Num.Vector3.Distance(h.End, chest);
+            if (d < bestD) { bestD = d; best = h; }
+        }
+        if (best is null) return null;
+        best.Used = true;
+        int wrong = 0;   // resolved to another player: no longer his
+        foreach (var kv in _shotContacts) if (kv.Value == best.Contact) { wrong = kv.Key; break; }
+        if (wrong != 0) _shotContacts.Remove(wrong);
+        // drawn where this view shows him: his body's surface toward the shot, at the struck height
+        var c = best.Contact;
+        var feet = ToGodot(o.Position);
+        float height = Math.Clamp(best.End.Z - o.Position.Z, 0.9f, 1.8f);
+        var back = -c.Dir; back.Y = 0f;
+        back = back.LengthSquared() > 1e-6f ? back.Normalized() : Vector3.Forward;
+        return new ShotContact { At = c.At, Delay = c.Delay, Contact = feet + Vector3.Up * height + back * BodySurface, Dir = c.Dir, Head = c.Head, Shooter = c.Shooter, ArmourUp = c.ArmourUp, Own = c.Own };
     }
 
     /// <summary>The own hit report (UpdateHits): the victim's armour after the own melee strike, exact for the own view's mixed-or-blood choice.</summary>
@@ -157,11 +206,16 @@ public partial class NetworkView
         try
         {
             bool lethal = !nowAlive;
-            if (_shotContacts.TryGetValue(o.PlayerId, out var shot) && _connectedFor - shot.At <= (shot.Own ? OwnWindow : RemoteWindow))
+            bool fresh = _shotContacts.TryGetValue(o.PlayerId, out var shot) && _connectedFor - shot.At <= (shot.Own ? OwnWindow : RemoteWindow);
+            // the server's body or head hit that this view resolved to nobody or to another player (it draws the others interpolated, a step behind the shot): the nearest one on him
+            if (!fresh && ServerHitNear(o) is { } loose) { shot = loose; fresh = true; _hitDirLooseShots++; }
+            if (fresh)
             {
                 _shotContacts.Remove(o.PlayerId);
+                foreach (var h in _serverHits) if (h.Contact == shot) h.Used = true;
                 var visual = Classify(shield, health, ShieldLeftAfterMark(shield, health, shot.ArmourUp));
                 _hitDirShots++;
+                NoteHitDirFocus(shot.Contact, shot.Dir);
                 bool drawn = false;
                 if (HasBlood(visual))
                 {
@@ -170,7 +224,7 @@ public partial class NetworkView
                     if (drawn) _hitDirBlood++;
                 }
                 if (lethal && shot.Head) ExtrasClassicFatalHeadshot(o.PlayerId, shot.Shooter, shot.Contact, shot.Dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
-                if (LogHitDir) GD.Print($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn} (t {_connectedFor:F2})");
+                if (LogHitDir) HitDirPrint($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn} (t {_connectedFor:F2})");
                 return false;
             }
             // melee: the attacker who just struck in reach
@@ -182,7 +236,7 @@ public partial class NetworkView
             if (attacker == 0)
             {
                 _hitDirUnpaired++;
-                if (LogHitDir) GD.Print($"HITDIR mark P{o.PlayerId} shield {shield} health {health}: no shot and no weapon melee attacker in reach (left to the existing look; t {_connectedFor:F2})");
+                if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} shield {shield} health {health}: no shot and no weapon melee attacker in reach (left to the existing look; t {_connectedFor:F2}); why: {UnpairedReason(o)}");
                 return false;
             }
             var trail = _weaponTrails[attacker];
@@ -190,7 +244,7 @@ public partial class NetworkView
             if (!_contactLedger.First(o.PlayerId, attacker, trail.Key, _connectedFor)) return true;
             bool before = _armourFlash.ArmourUp(o.PlayerId, _connectedFor) ?? true;
             _meleePending.Add(new MeleePending { Victim = o.PlayerId, Attacker = attacker, Shield = shield, Health = health, ArmourBefore = before, Lethal = lethal, Heavy = trail.Heavy, Key = trail.Key, At = _connectedFor });
-            if (LogHitDir) GD.Print($"HITDIR mark P{o.PlayerId} paired with P{attacker} (key {trail.Key}) shield {shield} health {health} armour-before {before}{(lethal ? " lethal" : "")} (t {_connectedFor:F2})");
+            if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} paired with P{attacker} (key {trail.Key}) shield {shield} health {health} armour-before {before}{(lethal ? " lethal" : "")} (t {_connectedFor:F2})");
             return true;
         }
         finally { NoteHitDirCost(); }
@@ -206,7 +260,7 @@ public partial class NetworkView
     void ClassicHitDirFrame(PlayerState me)
     {
         if (_client is null || _config is null) return;
-        if (HitDirLook == DirLook.None) { _meleePending.Clear(); _shotContacts.Clear(); return; }
+        if (HitDirLook == DirLook.None) { _meleePending.Clear(); _shotContacts.Clear(); _serverHits.Clear(); return; }
         // the spray pool (32 meshes) and its shader are made on the first effects frame after the join, not on the first hit mid-fight (live 8v8 check 2026-11-24: made lazily
         // on the first hit, it cost one frame of about 176 ms); left out of the per-frame cost below
         if (_hitSpray is null) HitSpray().Prewarm(ToGodot(me.Position));
@@ -294,12 +348,13 @@ public partial class NetworkView
             HitSpray().SpawnMelee(contact, new ReadOnlySpan<(double, Vector3)>(_trailScratch, 0, histCount), weapon, dir, new ClassicHitSpray.Look(true, 1f, spread * 0.8f), preAge);
             _hitDirSparks++;
         }
+        NoteHitDirFocus(contact, dir);
         bool drawn = false;
         if (HasBlood(visual))
             ExtrasClassicBlood(new ClassicContact(m.Victim, m.Attacker, contact, dir, visual, false, false, m.Lethal, m.Heavy, spread, BloodAmount(m.Heavy, m.Lethal), preAge, hist, histCount, weapon), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         if (drawn) _hitDirBlood++;
         _hitDirMelee++;
-        if (LogHitDir) GD.Print($"HITDIR melee P{m.Attacker}->P{m.Victim} {visual}{(m.Heavy ? " heavy" : "")}{(m.Lethal ? " lethal" : "")} contact {contact.X:F2},{contact.Y:F2},{contact.Z:F2} dir {dir.X:F2},{dir.Y:F2},{dir.Z:F2} " +
+        if (LogHitDir) HitDirPrint($"HITDIR melee P{m.Attacker}->P{m.Victim} {visual}{(m.Heavy ? " heavy" : "")}{(m.Lethal ? " lethal" : "")} contact {contact.X:F2},{contact.Y:F2},{contact.Z:F2} dir {dir.X:F2},{dir.Y:F2},{dir.Z:F2} " +
                                 $"approach {dist:F2} m, path {path.Count} pts, waited {waited * 1000:F0} ms, pre-age {preAge * 1000:F0} ms, thrust {thrust:F2} spread {spread:F2}, blood {drawn} (t {_connectedFor:F2})");
         return true;
     }
@@ -312,11 +367,121 @@ public partial class NetworkView
         double ms = _hitDirWatch.Elapsed.TotalMilliseconds;
         _hitDirMs += ms;
         if (ms > _hitDirMsPeak) _hitDirMsPeak = ms;
+        if (ms > SlowSectionMs) { _hitDirSlow++; _hitDirSlowMs += ms; }
     }
 
+    /// <summary>A timed section longer than this (ms) is counted apart in the cost line: a stall (the thread preempted on a loaded PC, a GC pause) rather than the steady work.</summary>
+    const double SlowSectionMs = 2.0;
+    int _hitDirSlow;
+    double _hitDirSlowMs;
+
+    /// <summary>A <c>--log-hit-dir</c> line, its print time left out of the measured cost (2026-11-24: prints to a busy log made up nearly all of the cost the tester's runs showed).</summary>
+    void HitDirPrint(string line)
+    {
+        bool running = _hitDirWatch.IsRunning;
+        if (running) _hitDirWatch.Stop();
+        GD.Print(line);
+        if (running) _hitDirWatch.Start();
+    }
+
+    // ---- unpaired marks: why (--log-hit-dir only; the attribution check of 2026-11-24) ----
+
+    readonly (double T, int Shooter, Num.Vector3 End, ShotHit Hit, int Victim, bool Projectile)[] _shotSeen = new (double, int, Num.Vector3, ShotHit, int, bool)[64];
+    int _shotSeenNext;
+    readonly (double T, Num.Vector3 At)[] _blastSeen = new (double, Num.Vector3)[16];
+    int _blastSeenNext;
+    readonly Dictionary<string, int> _unpairedWhy = new();
+
+    /// <summary>Every drawn shot record (FxRemoteShot): where it ended, what the server said it hit and which player the client resolved it to.</summary>
+    void NoteShotSeen(int shooter, Num.Vector3 end, ShotHit hit, int victim, bool projectile)
+    {
+        if (!LogHitDir) return;
+        _shotSeen[_shotSeenNext] = (_connectedFor, shooter, end, hit, victim, projectile);
+        _shotSeenNext = (_shotSeenNext + 1) % _shotSeen.Length;
+    }
+
+    /// <summary>Every drawn detonation (FxDetonation).</summary>
+    void NoteBlastSeen(Num.Vector3 at)
+    {
+        if (!LogHitDir) return;
+        _blastSeen[_blastSeenNext] = (_connectedFor, at);
+        _blastSeenNext = (_blastSeenNext + 1) % _blastSeen.Length;
+    }
+
+    /// <summary>The likeliest source of a mark that paired with nothing, from what this view drew just before it; the category is also counted for the summary line.</summary>
+    string UnpairedReason(PlayerState o)
+    {
+        string why = UnpairedReasonText(o, out string category);
+        _unpairedWhy[category] = _unpairedWhy.GetValueOrDefault(category) + 1;
+        return category + ": " + why;
+    }
+
+    string UnpairedReasonText(PlayerState o, out string category)
+    {
+        var feet = o.Position;
+        if (_shotContacts.TryGetValue(o.PlayerId, out var stale))
+        {
+            category = "shot-too-old";
+            return $"a shot on him by P{stale.Shooter} {_connectedFor - stale.At:F2} s ago (window {(stale.Own ? OwnWindow : RemoteWindow):F2} s)";
+        }
+        (double T, int Shooter, Num.Vector3 End, ShotHit Hit, int Victim, bool Projectile)? near = null;
+        float nearD = float.MaxValue;
+        foreach (var e in _shotSeen)
+        {
+            if (e.T <= 0 || _connectedFor - e.T > 0.6 || e.Shooter == o.PlayerId) continue;
+            float d = Num.Vector3.Distance(e.End, feet + new Num.Vector3(0f, 0f, 1.2f));
+            if (d < nearD) { nearD = d; near = e; }
+        }
+        if (near is { } n && nearD < 2.5f)
+        {
+            if (n.Hit is ShotHit.Body or ShotHit.Head && n.Victim != o.PlayerId)
+            {
+                category = "shot-resolved-elsewhere";
+                return $"a {n.Hit} hit by P{n.Shooter} {nearD:F2} m from him {_connectedFor - n.T:F2} s ago was resolved to {(n.Victim > 0 ? "P" + n.Victim : "nobody")}";
+            }
+            if (n.Hit == ShotHit.World)
+            {
+                category = "shot-world-near";
+                return $"a shot by P{n.Shooter} ended on the level {nearD:F2} m from him {_connectedFor - n.T:F2} s ago{(n.Projectile ? " (projectile)" : "")}";
+            }
+        }
+        foreach (var b in _blastSeen)
+            if (b.T > 0 && _connectedFor - b.T <= 0.8 && Num.Vector3.Distance(b.At, feet) < 8f)
+            {
+                category = "blast";
+                return $"a detonation {Num.Vector3.Distance(b.At, feet):F1} m away {_connectedFor - b.T:F2} s ago";
+            }
+        PlayerState? best = null;
+        float bestD = float.MaxValue;
+        void Look(PlayerState p)
+        {
+            if (!p.Alive || p.PlayerId == o.PlayerId || p.Team == o.Team) return;
+            var d = p.Position - feet; d.Z = 0f;
+            float l = d.Length();
+            if (l < bestD) { bestD = l; best = p; }
+        }
+        if (_client is { } c && c.PlayerId != o.PlayerId && c.Predicted.PlayerId == c.PlayerId) Look(c.Predicted);
+        foreach (var p in _lastOthers) Look(p);
+        string enemy = best is null ? "none" : $"P{best.Value.PlayerId} at {bestD:F1} m";
+        if (best is { } e2 && bestD < 6f)
+        {
+            double since = _weaponTrails.TryGetValue(e2.PlayerId, out var t) ? _connectedFor - t.MeleeAt : double.PositiveInfinity;
+            var step = e2.MeleeStep > 0 && _config is not null ? Combat.MeleeStepOf(_config, e2) : null;
+            bool stomp = step?.Stomp is not null;
+            string doing = e2.Charging ? "charging" : e2.JumpSlash ? "air slash" : stomp ? "stomp" : e2.MeleeStep > 0 ? $"melee step {e2.MeleeStep}" : !e2.Grounded ? "airborne" : "no melee";
+            category = e2.Charging ? "charge" : e2.JumpSlash ? "air-slash" : stomp ? "stomp" : e2.MeleeStep > 0 || since < 1.0 ? "melee-unpaired" : !e2.Grounded ? "airborne-enemy" : "no-source-near";
+            return $"nearest enemy {enemy}, {doing}, last weapon melee {(double.IsInfinity(since) ? "never" : $"{since:F2} s ago")}";
+        }
+        category = near is null ? "no-shot-drawn" : "no-shot-near";
+        return near is null ? $"no shot drawn in 0.6 s; nearest enemy {enemy}" : $"nearest drawn shot end {nearD:F1} m away; nearest enemy {enemy}";
+    }
+
+    string UnpairedSummary() => _unpairedWhy.Count == 0 ? "" : " (" + string.Join(", ", _unpairedWhy.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)) + ")";
+
     /// <summary>For the effects log: counts and the CPU cost of the directional hit look (the sprays' GPU cost is their draw calls: one per live spray).</summary>
-    string HitDirLog() => $"hit dir: look {HitDirLook}, shots {_hitDirShots}, melee {_hitDirMelee} (waited {_hitDirWaited}), unpaired marks {_hitDirUnpaired}, sparks {_hitDirSparks}, blood {_hitDirBlood}, " +
-                          $"live sprays {(_hitSpray is null ? 0 : _hitSpray.Live)}, cpu {(_hitDirFrames > 0 ? _hitDirMs / _hitDirFrames : 0):F4} ms/frame mean, {_hitDirMsPeak:F3} ms peak";
+    string HitDirLog() => $"hit dir: look {HitDirLook}, shots {_hitDirShots} ({_hitDirLooseShots} by the server's hit near him), melee {_hitDirMelee} (waited {_hitDirWaited}), unpaired marks {_hitDirUnpaired}{UnpairedSummary()}, sparks {_hitDirSparks}, blood {_hitDirBlood}, " +
+                          $"live sprays {(_hitSpray is null ? 0 : _hitSpray.Live)}, cpu {(_hitDirFrames > 0 ? _hitDirMs / _hitDirFrames : 0):F4} ms/frame mean, {_hitDirMsPeak:F3} ms peak, " +
+                          $"{_hitDirSlow} sections over {SlowSectionMs:F0} ms ({_hitDirSlowMs:F0} ms; without them {(_hitDirFrames > 0 ? (_hitDirMs - _hitDirSlowMs) / _hitDirFrames : 0):F4} ms/frame)";
 
     /// <summary>A kill in the feed (NetworkView.Match.cs).</summary>
     void ClassicHitDirKill(KillView k)

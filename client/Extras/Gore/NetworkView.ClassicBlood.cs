@@ -74,7 +74,7 @@ public partial class NetworkView
             if (zone != HitZone.None) _decalHits.Add(new ClassicBloodRules.TraceHit(distance, from + d * distance, -d, Player: true));
         }
         var (result, hit) = ClassicBloodRules.DecalTrace(fatal: true, head: true, gunfire: true, _decalHits);
-        if (LogHitDir) GD.Print($"HITDIR headshot decal P{victim} kill #{sequence}: {result}{(result == ClassicBloodRules.DecalResult.NoWall ? "" : $" at {hit.Distance:F2} m")} (t {_connectedFor:F2})");
+        if (LogHitDir) HitDirPrint($"HITDIR headshot decal P{victim} kill #{sequence}: {result}{(result == ClassicBloodRules.DecalResult.NoWall ? "" : $" at {hit.Distance:F2} m")} (t {_connectedFor:F2})");
         if (result != ClassicBloodRules.DecalResult.Placed) { _bloodDecalMisses++; return; }
         int seed = ClassicBloodRules.VariantSeed(sequence, victim);
         var tex = BloodDecalTexture(seed);

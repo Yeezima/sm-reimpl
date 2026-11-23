@@ -483,6 +483,7 @@ public partial class NetworkView
         }
         if (BarrelCanLaunch(spec) && shooter.PlayerId == shot.Shooter && FxPlace(shot.Shooter, w.MuzzleMarker) is { } theirMuzzle) BarrelNoteShot(shot.Shooter, shot.Weapon, RemoteShotOrigin(shooter), theirMuzzle.Position);   // fx/barrel-origin
         int victim = shot.Hit is ShotHit.Body or ShotHit.Head ? VictimAt(shot.End, shot.Shooter) : -1;
+        NoteShotSeen(shot.Shooter, shot.End, shot.Hit, victim, !TracerRules.DrawnAtFire(spec, shot.Stage));   // classic-hit-effects: --log-hit-dir's reason for an unpaired mark
         FxShot(shot.Shooter, spec, w, shot.Weapon, shot.Stage, endG, shot.Hit, shot.Surface, normalG, dirG, eye, own: false, victim, ArmourUpForHit(shot.Hit, victim, own: false, shot.Armoured),   // protocol 22: the server's armour bit
                rayOrigin, rayDir);
     }
@@ -605,7 +606,7 @@ public partial class NetworkView
         if (hit != ShotHit.World || plays.Count > 0) _probeImpactAny = true;   // fx/tracers-impact: --tracer-probe (armour glows, sparks, flashes and the hit container all count)
         // classic-no-player-hit-fx (owner, 2026-11-11): in Classic PvP a hit on a player draws none of the on-hit effects below, only the model's own flash (PlayerHitFxRules; --player-hit-fx restores)
         bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
-        if (hit is ShotHit.Body or ShotHit.Head && victim > 0) NoteShotContact(victim, shooter, end, dir, hit == ShotHit.Head, armourUp, own, delay);   // classic-hit-effects: the confirmed damage's gunfire contact (NetworkView.ClassicHitDir.cs)
+        if (hit is ShotHit.Body or ShotHit.Head) NoteShotContact(victim, shooter, end, dir, hit == ShotHit.Head, armourUp, own, delay);   // classic-hit-effects: the confirmed damage's gunfire contact (NetworkView.ClassicHitDir.cs)
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up && hitFx) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else if (!ClassicBloodReplacesRed) RedSparks(end, dir, delay); }   // classic-hit-effects: in Extended the confirmed blood spray replaces the red fan   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
@@ -753,6 +754,7 @@ public partial class NetworkView
     bool FxDetonation(ProjectileView d, float scale = 1f, float dustShare = 1f, bool flashOnly = false, bool pictureOnly = false, double delay = 0.0, int? priority = null, bool grenade = false)
     {
         if (!FxActive || _config is null) return false;
+        NoteBlastSeen(d.Position);   // classic-hit-effects: --log-hit-dir's reason for an unpaired mark
         var fx = FxProjectileOf(d);
         if (fx is null) return false;
         var pos = ToGodot(d.Position);

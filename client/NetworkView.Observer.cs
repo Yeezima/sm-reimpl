@@ -282,7 +282,8 @@ public partial class NetworkView
         if (ObserveFollow && _obsPlaced && _obsFollow == 0 && !_obsFollowAsked && others.Any(o => o.Alive)) { _obsFollowAsked = true; ObserverCycle(1); }
         _camera.Fov = _obsFov;
         var target = _obsFollow != 0 ? others.FirstOrDefault(o => o.PlayerId == _obsFollow) : default;
-        if (_obsFollow != 0 && target.PlayerId == _obsFollow) ObserverFollowCamera(target, delta);
+        if (HitDirActionCamera(others, delta)) { }   // classic-hit-effects: --observe-action frames the latest hit effect or the nearest fight from the side (NetworkView.ClassicHitDirStage.cs)
+        else if (_obsFollow != 0 && target.PlayerId == _obsFollow) ObserverFollowCamera(target, delta);
         else
         {
             if (_obsFollow != 0) ObserverFree();

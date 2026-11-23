@@ -175,6 +175,8 @@ public static class ClassicHitDirRules
 
     /// <summary>Melee reach for the pairing (m, horizontal, the lunge included; ours) and the recent-attack windows (s): another player's record arrives with the damage, the own prediction a round trip earlier.</summary>
     public const float PairReach = 3.6f;
+    /// <summary>How far from a victim's drawn chest a server body or head hit this view resolved to nobody (or to someone else) may end and still be taken as his (m; ours, live check 2026-11-24: such hits ended up to 2.5 m away).</summary>
+    public const float LooseShotReach = 3.5f;
     public const double RemoteWindow = 0.35, OwnWindow = 0.8;
 
     /// <summary>
