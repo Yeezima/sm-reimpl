@@ -377,8 +377,8 @@ public sealed class NavJumpSet
         }, _ => { });
     }
 
-    /// <summary>Take-off cells a checkpointed build (<see cref="INavJumpCheckpoint"/>) finishes and saves at a time (bots/a1-perf; ours: about 10 to 40 s of a bot's build on a big map).</summary>
-    public const int CheckpointChunk = 1024;
+    /// <summary>Take-off cells a checkpointed build (<see cref="INavJumpCheckpoint"/>) finishes and saves at a time (bots/a1-perf; ours: measured 1024 at about 5 min of a bot's build on mp_tdm_17, so a match's end lost up to that much; 128 is about 40 s).</summary>
+    public const int CheckpointChunk = 128;
 
     /// <summary>Whether the flight lands on the same cell (within a metre) from every point of a ring of <see cref="NavJumpOptions.RobustRadius"/> around the take-off cell.</summary>
     static bool Robust(CollisionWorld world, SimConfig config, int playerClass, Team team, Vector3 start, int direction, int hold, Vector3 landing, NavJumpOptions o)
