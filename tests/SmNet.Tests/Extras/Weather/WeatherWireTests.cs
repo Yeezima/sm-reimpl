@@ -168,6 +168,31 @@ public class WeatherWireTests
     }
 
     [Fact]
+    public void Repair_3_the_strike_pin_loops_the_drawn_clock_round_a_real_peak_strike_so_its_glow_and_full_flash_recur()
+    {
+        foreach (int span in new[] { 0, 600 })
+        {
+            double? at = WeatherClientModel.PinnedStrikeTime(WeatherId.Thunderstorm, span);
+            Assert.NotNull(at);
+            var m = new WeatherClientModel { PinStrike = true, PinAllowed = true, FullFlash = true };
+            var d = new WeatherDirector(WeatherId.Thunderstorm, span); d.Advance(1);
+            m.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
+            int glowFrames = 0, flashFrames = 0;
+            for (int f = 0; f < 600; f++)   // 10 s at 60 Hz: two and a half loops
+            {
+                m.Advance(1.0 / 60);
+                var s = m.State;
+                Assert.InRange(s.Elapsed, at!.Value - 1.0 - 1e-6, at.Value + WeatherClientModel.StrikeLoopSeconds);
+                if (WeatherPlan.CloudGlow(s.Elapsed, s.Span) > 0f) glowFrames++;
+                if (WeatherPlan.FullFlash(s.Elapsed, s.Span) > 0f) flashFrames++;
+            }
+            Assert.True(glowFrames > 60 && flashFrames > 30, $"span {span}: glow {glowFrames} flash {flashFrames} frames");
+        }
+        Assert.Null(WeatherClientModel.PinnedStrikeTime(WeatherId.Rain, 0));
+        Assert.True(WeatherClientModel.TryParsePinWord("strike", out var p, out bool l) && p is null && !l);
+    }
+
+    [Fact]
     public void Repair_2_a_bed_stops_with_a_half_second_fade_to_silence_and_a_wanted_bed_cancels_it()
     {
         var f = new WeatherBedFade();

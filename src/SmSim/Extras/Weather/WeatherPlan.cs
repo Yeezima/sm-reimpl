@@ -133,9 +133,30 @@ public static class WeatherPlan
             _ => 0f,
         };
         if (baseLevel <= 0f) return 0f;
+        return Math.Clamp(baseLevel * Gust(elapsed), 0f, 1f);
+    }
+
+    /// <summary>The slow gust factor (0.85 to 1.15, two sines, about 11 s) the wind's strength and the wind bed's wobble share.</summary>
+    public static float Gust(double elapsed)
+    {
         if (!double.IsFinite(elapsed)) elapsed = 0;
-        float gust = 1f + 0.15f * (float)(Math.Sin(elapsed * 0.57) * 0.6 + Math.Sin(elapsed * 1.31 + 1.7) * 0.4);
-        return Math.Clamp(baseLevel * gust, 0f, 1f);
+        return 1f + 0.15f * (float)(Math.Sin(elapsed * 0.57) * 0.6 + Math.Sin(elapsed * 1.31 + 1.7) * 0.4);
+    }
+
+    /// <summary>The wind bed's gust wobble (dB): 40 % of the gust's own amplitude in dB, at most about +-0.6 dB, the same at full and at the lull.</summary>
+    public const float GustDbShare = 0.4f;
+
+    /// <summary>
+    /// Repair 3: the procedural wind bed of the Ash Squall and the Thunderstorm (dB). Its level follows the preset's <b>intensity</b> by <see cref="FollowDb"/> (so the lull sits as far under full as the hiss: storm 0.6 -4.8 dB, squall 0.55
+    /// -5.4 dB), plus the gust wobble (<see cref="GustDbShare"/>; it cancels between two readings at the same moment of the gust). Before this, the bed followed the wind strength, whose storm curve (0.15 + 0.85 x intensity) and a gust
+    /// clamped at 1 at the peak left the storm's lull only about 2 dB down. Ember Wind keeps its W2 law (the caller's choice); 0 intensity is silent.
+    /// </summary>
+    public static float WindBedDb(float intensity, double elapsed, float loudestDb, float silentDb)
+    {
+        float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
+        if (i <= 0f) return silentDb;
+        float wobble = GustDbShare * 20f * MathF.Log10(Gust(elapsed));
+        return Math.Max(silentDb, FollowDb(i, loudestDb, silentDb) + wobble);
     }
 
     // ---- what is drawn, by preset ----

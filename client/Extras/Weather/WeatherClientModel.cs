@@ -67,8 +67,26 @@ public sealed class WeatherClientModel
     public bool PinLull { get => _pinLull; set { _pinLull = value; Refresh(); } }
     bool _pinLull;
 
+    /// <summary>
+    /// Repair 3 test aid (<c>--weather-pin strike</c>, <c>wxpin:strike</c>; a Thunderstorm only): the drawn clock loops over a window of <see cref="StrikeLoopSeconds"/> s round the first scheduled strike of the storm's peak (from 1 s before
+    /// it), so a real strike, its cloud glow, the full-flash lift when that setting is on, and (once per pin: the thunder plays each strike once, strictly in time order) its thunder come every few seconds through the normal code.
+    /// Same gate as the other pins. Another preset ignores it.
+    /// </summary>
+    public bool PinStrike { get => _pinStrike; set { _pinStrike = value; Refresh(); } }
+    bool _pinStrike;
+    public const double StrikeLoopSeconds = 4.0;
+
+    /// <summary>The strike the strike pin loops round (real seconds into the preset, the match's span applied), or null when the preset has none.</summary>
+    public static double? PinnedStrikeTime(WeatherId id, int span)
+    {
+        if (id != WeatherId.Thunderstorm) return null;
+        foreach (var s in WeatherPlan.StrikesIn(0, 4000, span))
+            if (WeatherClock.At(id, s.Time, span).Phase == WeatherPhase.Peak) return s.Time;
+        return null;
+    }
+
     /// <summary>The pin is acting now.</summary>
-    public bool Pinned => _pinAllowed && (_pinPhase is not null || _pinLull);
+    public bool Pinned => _pinAllowed && (_pinPhase is not null || _pinLull || _pinStrike);
 
     /// <summary>A pin word: the four phase names, or <c>lull</c> (repair 2), or <c>full</c> (the peak); false for anything else.</summary>
     public static bool TryParsePinWord(string? text, out WeatherPhase? phase, out bool lull)
@@ -76,6 +94,7 @@ public sealed class WeatherClientModel
         phase = null; lull = false;
         string t = text?.Trim().ToLowerInvariant() ?? "";
         if (t == "lull") { lull = true; return true; }
+        if (t == "strike") return true;   // the caller sets PinStrike (TryParsePinWord leaves phase and lull empty for it)
         if (t == "full") { phase = WeatherPhase.Peak; return true; }
         if (TryParsePin(t, out var p)) { phase = p; return true; }
         return false;
@@ -106,6 +125,11 @@ public sealed class WeatherClientModel
     {
         if (!Pinned || !_have || _wire.Id == WeatherId.None) return;
         var def = WeatherCatalog.Of(_wire.Id);
+        if (_pinStrike)
+        {
+            if (PinnedStrikeTime(_wire.Id, _wire.SpanSeconds) is { } at) _elapsed = at - 1.0 + _pinClock % StrikeLoopSeconds;
+            return;
+        }
         if (_pinLull)
         {
             double all = 0; foreach (var sec in def.Seconds) all += sec;

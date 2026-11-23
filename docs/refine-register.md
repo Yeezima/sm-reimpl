@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4058 spec table rows: **2998 tagged**, 696 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
+Scanned 4060 spec table rows: **3000 tagged**, 696 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 4058 spec table rows: **2998 tagged**, 696 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 168 | 167 | 57 | 73 | 0 |
+| General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2998** | 2693 | 2201 | 909 | 37 |
+| **All areas** | **3000** | 2695 | 2201 | 910 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1810 |
+| kind: ours | 1812 |
 | confidence: low | 1065 |
 | confidence: medium | 1025 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 304 |
+| notes: estimate | 305 |
 | kind: estimate | 269 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4287,7 +4287,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (168)
+### General game design (170)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4488,9 +4488,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EA2D2AA9` | Repair 2: Ash Squall grit (supersedes the dense emitter of "Repair 1: Ash Squall flecks") | 2400 streaks at High (the soft flakes a fifth of it), each 0.035 x 0.5 m (scale 0.6 to 1.4) drawn with the rain's axial streak shader along the wind, pale grey-ochre (0.62, 0.56, 0.47), alpha 0.38 + 0.37 x share, speed (8 + 10 x wind) m/s x 0.8 to 1.2 with a… (count, m, m/s) | kind: ours; notes: estimate | tester rerun 2026-11-23 (repair 1 still read as 4 to 15 dots) | Repair 2: Ash Squall grit (supersedes the dense emitter of…: compare with SM1 by timing a run over a known distance. Ours: 2400 streaks at High (the soft flakes a fifth of it), each 0.035 x… | ☐ |
 | `R-A88241F0` | Repair 2: Ash Squall flakes | a fifth of the grit count, 0.16 m soft dots (scale 0.5 to 1.5), alpha 0.5 + 0.35 x share, speed (4 + 8 x wind) m/s, life 3 s, a 24 x 6 x 24 m box half a life upwind; invisible nearer than 0.6 m, full from 2.5 m (count, m) | kind: ours; notes: estimate | ours | Repair 2: Ash Squall flakes: compare with SM1 by feel or video. Ours: a fifth of the grit count, 0.16 m soft dots (scale 0.5 to 1.5), alpha… | ☐ |
 | `R-6E66F2BD` | Repair 2: Ash Squall dust (supersedes "Repair 1: Ash Squall dust") | 130 sheets at High (30 at least), 12 x 5 m, pale ochre (0.80, 0.70, 0.55) a sixth toward the scene's haze, alpha 0.18 at the lull to 0.34 at full, not fogged (the squall's x2.8 haze washed them into its own colour), in a 52 x 4 x 52 m box over the ground half… (count, m) | kind: ours; notes: estimate | tester rerun | Repair 2: Ash Squall dust (supersedes "Repair 1: Ash Squall…: compare with SM1 by feel or video. Ours: 130 sheets at High (30 at least), 12 x 5 m, pale ochre (0.80, 0.70… | ☐ |
-| `R-C1413892` | Repair 2: audio follow law (supersedes "Audio follows intensity") | rain hiss, ash grit and the Ash Squall's and Thunderstorm's procedural wind bed (Ember Wind keeps its W2 wind law): linear in dB across the active range, full level at share 1 and 6 dB under it at 0.5 (the floor), so the lulls sit 4 to 6 dB down (rain -4.2… (dB) | kind: ours; notes: estimate | tester rerun (about 4 to 6 dB down at the lull) | Repair 2: audio follow law (supersedes "Audio follows…: compare with SM1 by listening A/B at the same distance and state. Ours: rain hiss, ash grit and the Ash Squall's and Thunderstorm's… | ☐ |
+| `R-747E2852` | Repair 3: wind bed law (supersedes the wind part of "Repair 2: audio follow law") | the Ash Squall's and the Thunderstorm's procedural wind bed follows the preset's intensity by the follow law below (storm lull 0.6: -4.8 dB, squall lull 0.55: -5.4 dB), plus a slow gust wobble of 0.4 x the gust's dB (at most about +-0.6 dB, the same at full… (dB) | kind: ours; notes: estimate | tester round 3 | Repair 3: wind bed law (supersedes the wind part of "Repair…: compare with SM1 by listening A/B at the same distance and state. Ours: the Ash Squall's and the Thunderstorm's procedural wind bed follows… | ☐ |
+| `R-C1413892` | Repair 2: audio follow law (supersedes "Audio follows intensity") | rain hiss and ash grit (the wind bed: see repair 3): linear in dB across the active range, full level at share 1 and 6 dB under it at 0.5 (the floor), so the lulls sit 4 to 6 dB down (rain -4.2, thunderstorm -4.8, ash squall -5.4); below 0.5 the amplitude… (dB) | kind: ours; notes: estimate | tester rerun (about 4 to 6 dB down at the lull) | Repair 2: audio follow law (supersedes "Audio follows…: compare with SM1 by listening A/B at the same distance and state. Ours: rain hiss and ash grit (the wind bed: see repair 3): linear in dB… | ☐ |
 | `R-525DB8D0` | Repair 2: bed fades | the rain hiss and the procedural wind bed no longer cut when a preset stops wanting them (a switch to Clear, None or a preset without that bed): each fades linearly in dB from its level to -60 dB over 0.5 s of real frame time, then stops, the same length as… (dB, s) | kind: ours | tester rerun (Thunderstorm to Clear went silent in 0.2 s or less) | Repair 2: bed fades: compare with SM1 by feel or video. Ours: the rain hiss and the procedural wind bed no longer cut when a preset… | ☐ |
 | `R-F4AEDA20` | Repair 2: lull pin and look aid | `--weather-pin lull` / `wxpin:lull` hold the drawn clock at the end of the recovery (each preset's lull, still); `full` is the peak; `wxlook:<deg>` holds the camera's pitch; F6 developer-tools sessions only, client only | kind: ours | lead request | Repair 2: lull pin and look aid: compare with SM1 by feel or video. Ours: --weather-pin lull / wxpin:lull hold the drawn clock at the end of… | ☐ |
+| `R-114666E3` | Repair 3: strike pin and flash log | `--weather-pin strike` / `wxpin:strike` (F6 developer-tools sessions only, client only, a Thunderstorm only): the drawn clock loops over 4 s from 1 s before the first scheduled strike of the storm's peak (the span applied), so the same real strike recurs… (s) | kind: ours | lead request (tester round 3: the reduced/full comparison was inconclusive) | Repair 3: strike pin and flash log: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: --weather-pin strike / wxpin:strike (F6 developer-tools sessions… | ☐ |
 | `R-2F82605D` | Wet ground | there is no wet-surface material in the build: the "wet ground" the owner liked is the splashes, mist and the darker grade, all kept | kind: ours | source audit 2026-11-23 | Wet ground: compare with SM1 by feel or video. Ours: there is no wet-surface material in the build: the "wet ground" the… | ☐ |
 
 *Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*

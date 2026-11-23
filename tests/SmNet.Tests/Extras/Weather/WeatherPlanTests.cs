@@ -43,6 +43,22 @@ public class WeatherPlanTests
     }
 
     [Fact]
+    public void Repair_3_the_squall_and_storm_wind_bed_sits_4_to_6_dB_under_full_at_the_lull_whatever_the_gust()
+    {
+        foreach (var id in new[] { WeatherId.Thunderstorm, WeatherId.AshSquall })
+        {
+            float lull = WeatherClock.Lull(WeatherCatalog.Of(id));
+            for (double t = 0; t < 60; t += 0.7)
+            {
+                float down = WeatherPlan.WindBedDb(1f, t, -20f, -60f) - WeatherPlan.WindBedDb(lull, t, -20f, -60f);
+                Assert.InRange(down, 4f, 6f);   // the same moment of the gust: the wobble cancels
+                Assert.InRange(WeatherPlan.WindBedDb(1f, t, -20f, -60f), -20.7f, -19.3f);   // the wobble is at most about 0.6 dB
+            }
+        }
+        Assert.Equal(-60f, WeatherPlan.WindBedDb(0f, 3, -20f, -60f));
+    }
+
+    [Fact]
     public void Follow_db_is_the_amplitude_of_the_share_and_never_below_silence()
     {
         Assert.Equal(-22f, WeatherPlan.FollowDb(1f, -22f, -60f), 3);

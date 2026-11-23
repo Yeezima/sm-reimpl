@@ -38,7 +38,7 @@ public partial class NetworkView
     /// <summary>A test-aid word from the F6 panel or <c>--dev-script</c> (through <see cref="WeatherClientLink.TestMove"/>); false when not one of the aid's words.</summary>
     bool WeatherTestMoveWord(string name, string arg)
     {
-        if (name is not ("wxmove" or "wxslide" or "wxstop" or "wxlook" or "wxpin")) return false;
+        if (name is not ("wxmove" or "wxslide" or "wxstop" or "wxlook" or "wxpin" or "wxflash")) return false;
         if (!WeatherTestMoveGate) { GD.Print($"weather test move: '{name}:{arg}' ignored (no developer-tools session)"); return true; }
         var parts = arg.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         static double Num(string[] p, int i, double fallback) => i < p.Length && double.TryParse(p[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : fallback;
@@ -51,11 +51,18 @@ public partial class NetworkView
                 GD.Print($"weather test look: camera pitch held at {_wxLookPitch:0.#} degrees (camera only)");
                 return true;
             }
+            case "wxflash":
+            {
+                string f = parts.Length > 0 ? parts[0] : "";
+                _wxFlashOverride = f switch { "full" => true, "reduced" => false, _ => null };
+                GD.Print($"weather test flash: {(f is "full" or "reduced" ? f : "the saved option")} for this run (not saved)");
+                return true;
+            }
             case "wxpin":
             {
                 string w = parts.Length > 0 ? parts[0] : "";
-                if (w == "off") { _wxModel.PinPhase = null; _wxModel.PinLull = false; GD.Print("weather test pin: off (the server's clock)"); return true; }
-                if (WeatherClientModel.TryParsePinWord(w, out var phase, out bool lull)) { _wxModel.PinPhase = phase; _wxModel.PinLull = lull; GD.Print($"weather test pin: {w} (client only)"); }
+                if (w == "off") { _wxModel.PinPhase = null; _wxModel.PinLull = false; _wxModel.PinStrike = false; GD.Print("weather test pin: off (the server's clock)"); return true; }
+                if (WeatherClientModel.TryParsePinWord(w, out var phase, out bool lull)) { _wxModel.PinPhase = phase; _wxModel.PinLull = lull; _wxModel.PinStrike = w == "strike"; GD.Print($"weather test pin: {w} (client only)"); }
                 else GD.Print($"weather test pin: '{w}' is not lull, full, off or a phase name");
                 return true;
             }
