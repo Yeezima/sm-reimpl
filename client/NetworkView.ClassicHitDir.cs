@@ -65,6 +65,8 @@ public partial class NetworkView
         public int Count, Head;
         public double MeleeAt = double.NegativeInfinity;
         public bool Heavy;
+        public bool SlashWas;   // the air slash was on at the last record
+        public int Slashes;     // air slashes seen (their attack keys)
         public long Key;
         public void Add(double t, Vector3 p) { Ring[Head] = (t, p); Head = (Head + 1) % Capacity; if (Count < Capacity) Count++; }
         /// <summary>The points from <paramref name="since"/> on, oldest first, into <paramref name="into"/>; their count.</summary>
@@ -111,7 +113,8 @@ public partial class NetworkView
     }
 
     /// <summary>A weapon melee attack (not a stomp: its blast keeps its own effects).</summary>
-    bool WeaponMeleeActive(PlayerState s) => s.Alive && s.MeleeStep > 0 && _config is not null && Combat.MeleeStepOf(_config, s) is { } step && step.Stomp is null;
+    bool WeaponMeleeActive(PlayerState s) =>
+        _config is not null && ClassicHitDirRules.IsWeaponMelee(s.Alive, s.MeleeStep, s.MeleeStep > 0 && Combat.MeleeStepOf(_config, s) is { Stomp: not null }, s.JumpSlash);
 
     // ---- contacts in flight ----
 
@@ -253,7 +256,7 @@ public partial class NetworkView
     void AddCandidate(List<MeleeCandidate> into, PlayerState s, bool own)
     {
         if (!_weaponTrails.TryGetValue(s.PlayerId, out var t)) return;
-        into.Add(new MeleeCandidate(s.PlayerId, s.Team, s.Position, s.Yaw, _connectedFor - t.MeleeAt, s.Alive, t.Heavy, own));
+        into.Add(new MeleeCandidate(s.PlayerId, s.Team, s.Position, s.Yaw, _connectedFor - t.MeleeAt, s.Alive, t.Heavy, own, Slash: t.Key < 0));
     }
 
     /// <summary>Per frame, before the shots and marks (UpdateFx): records every attacking player's weapon path and resolves the melee contacts that wait for the drawn weapon.</summary>
@@ -282,12 +285,20 @@ public partial class NetworkView
     void Record(PlayerState s, bool own)
     {
         if (!_weaponTrails.TryGetValue(s.PlayerId, out var t)) _weaponTrails[s.PlayerId] = t = new WeaponTrail();
+        bool slash = s.Alive && s.JumpSlash;
+        if (slash && !t.SlashWas) t.Slashes++;
+        t.SlashWas = slash;
         if (WeaponMeleeActive(s))
         {
-            long tick = own ? _client!.Tick : _client!.LatestSnapshotTick;
-            long start = MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
-            t.Key = start * 64 + s.MeleeStep * 2 + (s.MeleeHeavy ? 1 : 0);
-            t.MeleeAt = _connectedFor; t.Heavy = s.MeleeHeavy;
+            if (slash) { t.Key = ClassicHitDirRules.SlashKey(t.Slashes); t.Heavy = false; }   // owner 2026-11-24: the air slash is weapon melee
+            else
+            {
+                long tick = own ? _client!.Tick : _client!.LatestSnapshotTick;
+                long start = MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
+                t.Key = ClassicHitDirRules.AttackKey(start, s.MeleeStep, s.MeleeHeavy);
+                t.Heavy = s.MeleeHeavy;
+            }
+            t.MeleeAt = _connectedFor;
         }
         if (_connectedFor - t.MeleeAt > 0.9) return;   // only around an attack
         if (BladePoint(s.PlayerId) is { } p) t.Add(_connectedFor, p);
@@ -468,8 +479,10 @@ public partial class NetworkView
             double since = _weaponTrails.TryGetValue(e2.PlayerId, out var t) ? _connectedFor - t.MeleeAt : double.PositiveInfinity;
             var step = e2.MeleeStep > 0 && _config is not null ? Combat.MeleeStepOf(_config, e2) : null;
             bool stomp = step?.Stomp is not null;
-            string doing = e2.Charging ? "charging" : e2.JumpSlash ? "air slash" : stomp ? "stomp" : e2.MeleeStep > 0 ? $"melee step {e2.MeleeStep}" : !e2.Grounded ? "airborne" : "no melee";
-            category = e2.Charging ? "charge" : e2.JumpSlash ? "air-slash" : stomp ? "stomp" : e2.MeleeStep > 0 || since < 1.0 ? "melee-unpaired" : !e2.Grounded ? "airborne-enemy" : "no-source-near";
+            string rush = e2.Rush != RushPhase.None ? $"rush phase {e2.Rush}" : "";
+            string doing = e2.Charging ? "charging" : rush.Length > 0 ? rush : e2.JumpSlash ? "air slash" : stomp ? "stomp" : e2.MeleeStep > 0 ? $"melee step {e2.MeleeStep}" : !e2.Grounded ? "airborne" : "no melee";
+            doing += $"; his reaction {e2.Reaction}, o's reaction {o.Reaction}";
+            category = e2.Charging ? "charge" : e2.Rush != RushPhase.None ? "rush-" + e2.Rush : e2.JumpSlash ? "air-slash" : stomp ? "stomp" : e2.MeleeStep > 0 || since < 1.0 ? "melee-unpaired" : !e2.Grounded ? "airborne-enemy" : "no-source-near";
             return $"nearest enemy {enemy}, {doing}, last weapon melee {(double.IsInfinity(since) ? "never" : $"{since:F2} s ago")}";
         }
         category = near is null ? "no-shot-drawn" : "no-shot-near";

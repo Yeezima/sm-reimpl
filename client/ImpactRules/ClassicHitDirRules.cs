@@ -171,10 +171,25 @@ public static class ClassicHitDirRules
     // ---- remote melee: the attacker of a confirmed damage mark ----
 
     /// <summary>A player who may have struck: id, side, feet, facing, seconds since his weapon melee attack (not a stomp or blast) was last seen active, and whether it was heavy.</summary>
-    public readonly record struct MeleeCandidate(int Id, Team Team, Vector3 Feet, float Yaw, double SinceMelee, bool Alive, bool Heavy = false, bool Own = false);
+    public readonly record struct MeleeCandidate(int Id, Team Team, Vector3 Feet, float Yaw, double SinceMelee, bool Alive, bool Heavy = false, bool Own = false, bool Slash = false);
 
     /// <summary>Melee reach for the pairing (m, horizontal, the lunge included; ours) and the recent-attack windows (s): another player's record arrives with the damage, the own prediction a round trip earlier.</summary>
     public const float PairReach = 3.6f;
+    /// <summary>The air slash's pairing reach (m, horizontal): its ability's 4 m <c>max_range</c> and a margin for the drawn position; no facing test (the slash's cone follows the pack's heading in the air, not the body's drawn yaw). Ours (live check 2026-11-24: slash hits paired with nothing at 2.5 to 4.3 m).</summary>
+    public const float SlashPairReach = 4.6f;
+
+    /// <summary>
+    /// Whether a player's current attack is a weapon melee for the directional look: a melee step that is not a stomp, or the jump pack's air slash (owner 2026-11-24, question card
+    /// "Yes, spray it": the slash's blade hits are weapon melee, sprayed along the blade's path like any other). A bull rush or dash attack contact is neither (not asked).
+    /// </summary>
+    public static bool IsWeaponMelee(bool alive, int meleeStep, bool stomp, bool airSlash) => alive && (airSlash || (meleeStep > 0 && !stomp));
+
+    /// <summary>
+    /// The attack key of a contact (one spray per victim and key, <see cref="ContactLedger"/>): a melee step's from its start tick, step and weight; an air slash's from the attacker's
+    /// count of slashes (negative, so it never equals a step's).
+    /// </summary>
+    public static long AttackKey(long startTick, int step, bool heavy) => startTick * 64 + step * 2 + (heavy ? 1 : 0);
+    public static long SlashKey(int slashCount) => -1L - slashCount;
     /// <summary>How far from a victim's drawn chest a server body or head hit this view resolved to nobody (or to someone else) may end and still be taken as his (m; ours, live check 2026-11-24: such hits ended up to 2.5 m away).</summary>
     public const float LooseShotReach = 3.5f;
     public const double RemoteWindow = 0.35, OwnWindow = 0.8;
@@ -193,9 +208,10 @@ public static class ClassicHitDirRules
             if (c.SinceMelee < 0 || c.SinceMelee > (c.Own ? OwnWindow : RemoteWindow)) continue;
             var d = victimFeet - c.Feet; d.Z = 0f;
             float dist = d.Length();
-            if (dist > PairReach) continue;
+            if (dist > (c.Slash ? SlashPairReach : PairReach)) continue;
             float cos = dist < 1e-3f ? 1f : Vector3.Dot(d / dist, new Vector3(-MathF.Sin(c.Yaw), MathF.Cos(c.Yaw), 0f));
-            if (cos < -0.17f) continue;   // behind him (beyond 100 degrees)
+            if (c.Slash) cos = MathF.Max(cos, 0f);
+            else if (cos < -0.17f) continue;   // behind him (beyond 100 degrees)
             float score = dist + 1.5f * (1f - cos);
             if (score < bestScore - 1e-4f || (MathF.Abs(score - bestScore) <= 1e-4f && c.Id < best)) { best = c.Id; bestScore = score; }
         }

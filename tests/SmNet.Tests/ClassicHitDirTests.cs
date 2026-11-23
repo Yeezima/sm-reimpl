@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SmClient.ImpactRules;
@@ -244,5 +245,43 @@ public class ClassicHitDirTests
         t.Broke(4, 1.2, 5f);
         Assert.False(t.ArmourUp(4, 1.3));
         Assert.True(t.ArmourUp(4, 6.3));   // recharged
+    }
+
+    // ---- the jump pack's air slash (owner 2026-11-24, question card "Yes, spray it") ----
+
+    [Fact]
+    public void The_air_slash_is_weapon_melee_and_stomps_charges_are_not()
+    {
+        Assert.True(IsWeaponMelee(alive: true, meleeStep: 0, stomp: false, airSlash: true));    // the slash: weapon melee, sprayed along the blade
+        Assert.True(IsWeaponMelee(true, 2, false, false));                                       // a melee step
+        Assert.False(IsWeaponMelee(true, 1, stomp: true, airSlash: false));                      // a stomp keeps its blast
+        Assert.False(IsWeaponMelee(true, 0, false, false));                                      // no attack (a bull rush or dash attack contact is neither)
+        Assert.False(IsWeaponMelee(alive: false, 2, false, true));                               // the dead strike nothing
+    }
+
+    [Fact]
+    public void An_air_slash_pairs_within_its_reach_whatever_his_drawn_yaw()
+    {
+        var victim = new Vector3(0f, 4.2f, 0f);
+        // facing away (yaw pi: -Y), 4.2 m off: a melee step does not pair, the slash does
+        var step = new List<MeleeCandidate> { new(5, Team.SpaceMarines, Vector3.Zero, MathF.PI, 0.05, true) };
+        var slash = new List<MeleeCandidate> { new(5, Team.SpaceMarines, Vector3.Zero, MathF.PI, 0.05, true, Slash: true) };
+        Assert.Equal(0, PickAttacker(3, Team.Chaos, victim, step));
+        Assert.Equal(5, PickAttacker(3, Team.Chaos, victim, slash));
+        Assert.Equal(0, PickAttacker(3, Team.Chaos, new Vector3(0f, SlashPairReach + 0.1f, 0f), slash));   // past its reach
+    }
+
+    [Fact]
+    public void An_air_slash_has_its_own_attack_key_per_slash()
+    {
+        var steps = new HashSet<long>();
+        for (long tick = 0; tick < 200; tick++) for (int step = 0; step < 4; step++) { steps.Add(AttackKey(tick, step, false)); steps.Add(AttackKey(tick, step, true)); }
+        for (int n = 1; n < 50; n++) Assert.DoesNotContain(SlashKey(n), steps);    // never a melee step's key
+        Assert.NotEqual(SlashKey(1), SlashKey(2));                                   // each slash a new contact
+        var ledger = new ContactLedger();
+        Assert.True(ledger.First(7, 3, SlashKey(1), 10.0));
+        Assert.False(ledger.First(7, 3, SlashKey(1), 10.1));                          // one effect per victim and slash
+        Assert.True(ledger.First(8, 3, SlashKey(1), 10.1));                           // a second victim of the same slash
+        Assert.True(ledger.First(7, 3, SlashKey(2), 10.2));                           // the next slash
     }
 }

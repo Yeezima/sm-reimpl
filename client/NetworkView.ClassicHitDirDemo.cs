@@ -11,7 +11,7 @@ namespace SmClient;
 /// classic-hit-effects capture aid (a *placeholder demonstration* of the drawing, not of the confirmation path): <c>--hit-dir-demo &lt;case&gt;</c> draws one case every <c>--hit-dir-every</c> s
 /// (default 2) on the other player nearest the camera, from the camera's side, through the same spray, sparks, blood hook and decal trace the confirmed hits use, in the match's own profile
 /// (Faithful draws no blood or decal). Cases: <c>lr</c>, <c>rl</c>, <c>overhead</c>, <c>diagonal</c>, <c>thrust</c>, <c>combo</c> (lr, rl, diagonal, thrust in turn), <c>gun</c>, <c>heavy</c>,
-/// <c>lethal</c>, <c>armour</c>, <c>break</c> (armour broken, no health: sparks), <c>mixed</c>, <c>blood</c>, <c>two</c> (one stroke through the two nearest players), <c>headshot</c> (a fatal
+/// <c>lethal</c>, <c>armour</c>, <c>break</c> (armour broken, no health: sparks), <c>mixed</c>, <c>blood</c>, <c>two</c> (one stroke through the two nearest players), <c>airslash</c> (the jump pack's air slash: a stroke from high on one side down across him), <c>headshot</c> (a fatal
 /// gunfire headshot along the camera's line through his head: the wall decal if a wall is within 5 m behind him; place the camera to test each wall case), <c>wallshot</c> / <c>farshot</c>
 /// (a fatal headshot toward the nearest wall within 4.6 m / between 5.4 and 6.3 m of his head, found by probing the level: decal / none), <c>cycle</c> (every case).
 /// Each draw prints a <c>HITDIRDEMO</c> line. The real swings and shots are tested in play (bots or a second client) with <c>--log-hit-dir</c>.
@@ -90,6 +90,7 @@ public partial class NetworkView
             "overhead" => (Vector3.Down + toCam * 0.25f).Normalized(),
             "diagonal" => (right + Vector3.Down).Normalized(),
             "thrust" => -toCam,
+            "airslash" => (Vector3.Down * 0.8f + right * 0.6f - toCam * 0.2f).Normalized(),   // a leaping slash: from high on one side, down across him
             _ => right,
         };
         float thrust = kind == "thrust" ? 1f : 0f;
