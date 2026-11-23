@@ -7,16 +7,14 @@ networking with dedicated servers. Everything else defaults to the original beha
 features without a reason tied to that goal. Do not confuse this game with Space Marine 2 (2024), or with the 2025 Master
 Crafted Edition (app 3169520).
 
-**Faithful first (owner, 2026-10-28):** the goal for now is a faithful SM1 multiplayer experience on our engine. New features
-wait until later (the gore system is paused on branch `gore/g1-sim`); the Ork faction stays as the one sanctioned addition
-(`docs/ork-faction-design.md`). Every estimate, guess, interpretation or "ours" value is tagged (spec `kind`/`confidence`) and
-collected in the refine register (`docs/refine-register.md`, `smtool refine-register`), the checklist for human playtests that
-refine each feature toward the original.
+**Faithful first.** Classic multiplayer follows the original wherever evidence permits. The October 28 Ork-only addition was a dated scope decision. Use the current owner-approved brief for extended content.
+Tag estimates, guesses, interpretations and "ours" values with spec `kind` and `confidence`. Keep the refine register (`docs/refine-register.md`, `smtool refine-register`) as the human playtest checklist.
 
 **Added content stays separable (owner, 2026-10-28):** "i want to retain the ability to separate the 'added content' work from the rest of the
-project at any time." Added content (the Ork, gore, future extras) runs behind `--content faithful|extended|orks,gore` (`SmSim.ContentExtras`, in
-the config hash) and lives in `Extras/<Feature>/` folders reached only through `Extras*` hooks; `faithful-build.cmd` builds without it. Contract and
-the rule for new added content: `docs/added-content.md`.
+project at any time." Future features must keep SM1-only play selectable through an existing profile or feature switch, or one small configuration change.
+On the usual build, `--content faithful` selects `ContentExtras.None`. Choose it on both the server and the networked client. `ContentProfiles.DefaultName` supplies the fallback when no profile is otherwise selected.
+Keep optional feature code in `Extras/<Feature>/` behind `Extras*` hooks as described in [the added-content contract](docs/added-content.md).
+`faithful-build.cmd` separately requests an extras-disabled build and tests with `-p:SmExtras=false`. Faithful Build work and checks stay deferred. Claim an end-to-end runtime or build pass only with evidence for that candidate.
 
 ## Scope (decided by the user, 2026-10-26)
 - **In:** PvP (Annihilation, Seize Ground; Space Marines vs Chaos, up to 8v8) and **Exterminatus** (online co-op waves,
@@ -58,7 +56,7 @@ the rule for new added content: `docs/added-content.md`.
   That covers docs, comments, spec rows and release notes too (owner, 2026-11-10: "Scrub local pc folder paths ands any other sensitive or identifying information from public view"): write `<media folder>\...`, `%LOCALAPPDATA%\sm-reimpl\...` or "the owner's media folder", never an expanded local path (`PublicTextGuardTests` enforces it).
 - Out of scope: executable decompilation, binary patching, DRM circumvention, replacing online services.
   Do not reuse code from tools without a usable license (e.g. smbod, which is decompiled).
-- Do not push, publish, or spend money unless the user asks.
+- Use the approved brief and the coordination lead protocol for branch pushes. The owner merges by default. Only an explicitly authorized lease holder may merge or push game main. Tester publication or deployment requires separate owner ship approval for the exact candidate. Spending requires separate owner authorization.
 - Label results accurately: *original asset loaded* / *placeholder demonstration* / *supported by evidence* /
   *provisional approximation* / *implemented but untested*.
 - Record every gameplay parameter in `spec/behavior.md` with value, units, timing basis, source, confidence, and kind.
@@ -69,7 +67,7 @@ the rule for new added content: `docs/added-content.md`.
 dotnet build SmReimpl.slnx && dotnet build client/SmClient.csproj   :: both builds
 dotnet test                                                         :: all tests (fails when the refine register is stale)
 smtool.cmd refine-register [--check]  :: regenerate docs/refine-register.md after any spec/behavior.md or changes-from-original.md edit
-faithful-build.cmd                    :: build and test without added content (-p:SmExtras=false)
+faithful-build.cmd                    :: extras-disabled solution/client builds and tests (-p:SmExtras=false), work and checks deferred
 client.cmd                            :: the front end;  client.cmd --connect 127.0.0.1:<port> [--bot] [--class c] [--side s]
 server.cmd --bind 127.0.0.1 --port <p> [--mode annihilation|seize] [--honor-side-requests] [--bot-damage-scale f]
 bots.cmd --connect 127.0.0.1:<port> --marines N --chaos M   ::  bots.cmd --stop
@@ -78,39 +76,23 @@ ship.cmd [-DryRun] [-Playtest]        :: owner's one-command playtest release (d
 ```
 The full reference of every command, flag and test aid is in `docs/commands.md`.
 
-Tool choice: use the Graphify MCP server (`graphify.cmd`, docs/commands.md "Graphify (code graph)") for impact, caller and implementer questions across
-projects and partial classes before changing shared sim or net code; its edges are name-based leads, so confirm every one with Grep; the `Extras*`
-partial-method hooks are a blind spot. Not for single-file or text work (Grep and Read). The lead refreshes the index (`graphify.cmd index`) after each ff of `main`.
+For lookups, use source search. For shared simulation or network impact, consult the [coordination tool-choice rule](https://github.com/Yeezima/agent-coordination/blob/main/operations/lead-protocol.md#11-source-search-and-graphify). `Extras*` partial-method hooks are a known graph blind spot. Commands, stale-index handling and the lead's post-fast-forward index maintenance are in [the command guide](docs/commands.md#graphify-code-graph).
 
-## Alpha scope (set by the user, 2026-10-27)
-Only Annihilation and Seize Ground; no other modes for now (Exterminatus deferred). Customizer: in since 2026-10-28 (owner's
-request): a custom-class creator with 10 slots and a character (armour) customizer, matching the original in all but style.
-No level progression system yet (owner, 2026-10-28): every player has all weapons, perks and armour from the start.
-Only the map Manufactorum (`mp_tdm_09`) is developed further; it is the alpha arena.
+## Historical Classic alpha scope
+The October 27–28, 2026 alpha targeted Annihilation and Seize Ground on Manufactorum. Exterminatus was deferred. That alpha included the ten-slot custom-class and armour customizer, and all equipment was unlocked. Use the current approved brief for active work.
 
-## Current state (2026-10-29)
-A playable pre-alpha ships to playtesters through the SM Reimpl Launcher (releases repository Yeezima/sm-reimpl-releases): Annihilation and
-Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 59 (since 2026-11-06: solid bodies, classic PvP deploy and spawn choice, then the swing step, lock-on lunge and Classic air-jump changes). **Warfront replaces Musou Mode (owner, 2026-11-19):** the main menu's first row and default focus is WARFRONT (New / Continue campaign, Host for friends, Join a friend, customizer), `--content warfront` (Musou|Warfront flag 32, built on `Extras.Musou`; a persistent 30 to 60 minute solo or 4-player campaign, `docs/warfront.md`, test report `docs/warfront-test-report.md`); Musou Mode is archived (the last main with it plus the 2026-11-19 tester build stay on the releases page) and survives only as the hidden dev switch `--content musou`, which keeps its tests guarding the shared code; no menu row and no host script. Musou's `Tfw` code stays. Warfront has had no human playtest yet.
+## Current work and published builds
+Read the [coordination lead protocol](https://github.com/Yeezima/agent-coordination/blob/main/operations/lead-protocol.md) for roles, gates and verification. Read the [lease and latest handoff](https://github.com/Yeezima/agent-coordination/blob/main/state/lead.md) and [active batches](https://github.com/Yeezima/agent-coordination/blob/main/state/active-batches.md) at the coordination commit named in the assignment. The owner-approved brief defines current scope.
+Identify the last shipment from [published tester releases](https://github.com/Yeezima/sm-reimpl-releases/releases). Record the candidate separately by full game SHA and build ID. Warfront design and evidence are in `docs/warfront.md` and `docs/warfront-test-report.md`.
+The [October next-action list](https://github.com/Yeezima/sm-reimpl/blob/84132607baca47456c09e0fcc728c096881eb1cb/CLAUDE.md#L98-L108) preserves the old tuning questions. Consult the refine register and later owner decisions before treating an item as open.
 The history of every milestone and fix (formats, systems, decisions, test aids, the switches that restore old behaviour) is in
 `docs/milestones.md`; search it for a system's name before changing that system. Add a short paragraph there after each milestone.
 This repository was published fresh on 2026-10-29 (one root commit); never merge a branch from the older private history.
-
-## Next action (2026-10-29)
-1. A playable pre-alpha is shipped to playtesters with the SM Reimpl Launcher. Next: support for older hardware, the default
-   lighting look, and making the code repository public. Merge each PR into `main` as soon as it is verified (user's rule, 2026-10-28).
-2. Playtests of the pre-alpha (the refine register is the checklist); fixes from them.
-3. Owner decisions pending: the charge's reach (spec "The charge", still open; the sprint margin is moot since protocol 39: W + F charges) and the side charge's 25 degrees (spec "Charge directions", an estimate). Weapons B (brace and vent): the owner's recollection is applied as estimates to check in a playtest; the owner kept the data's vent rate (about 2.1 s to cool a full gun); his 6 s recollection is to check in a later playtest. To verify in
-   the original: the 10 s ready hold after a shot (the owner's rough estimate). (Decided
-   2026-10-28 and done in M31: LMB tap/hold charged shot, the charge's sprint gate and jump-pack classes, the raise delay,
-   no gear rattle, blockers above jump height; in M32: the charger's hyper armour (a stun ends a charge only after it), the
-   ready hold, the raise after a switch and always-up weapons never waiting.)
-4. Open, not blocking: class badges on the right pad (no class-to-decal mapping found), `pattern_enabled`; the 2.5 m
-   rush variant; sound gaps left by M33 (per-node max instances, Play/Stop fades, state-driven properties; docs/discovery.md).
 
 ## Where things are
 - Milestone history: `docs/milestones.md`. Command reference: `docs/commands.md`. Releases: `docs/releasing.md`.
 - Formats and sources: `docs/discovery.md`. Design: `docs/architecture.md`. Plan: `docs/roadmap.md`. Behavior: `spec/behavior.md`.
 - Differences from the original (deliberate changes, our choices, missing features): `docs/changes-from-original.md`. Add a row there with every deliberate change or "ours" rule.
 - Custom classes, customizer and perks (class rules, 48 perks with effects as data, armour sets, paint, unlocks, front-end text): `docs/customizer-and-perks-data.md` (`smtool baf-dump`, `smtool locale`).
-- After meaningful progress: update those docs, add a paragraph to `docs/milestones.md`, and keep this file's Current state and Next action short.
+- After meaningful progress, update the applicable technical docs and `docs/milestones.md`. The lease holder records live queue, evidence and handoff state in the coordination repository.
 - Discord, promo and feed tooling (bot posts, the live tracker, changelog posting, ops notes) live outside this repository.
