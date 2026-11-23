@@ -131,7 +131,8 @@ public class NavJumpResumeTests
             {
                 Assert.NotNull(held);
                 Assert.Null(NavBuildLock.TryAcquire(dir, "gap"));   // fresh and its holder runs: taken
-                Assert.NotNull(NavBuildLock.TryAcquire(dir, "other") is { } other ? other : null);   // another map's lock is its own
+                using var other = NavBuildLock.TryAcquire(dir, "other");
+                Assert.NotNull(other);   // another map's lock is its own
             }
             Assert.False(File.Exists(NavBuildLock.FileFor(dir, "gap")));   // released
             // an orphaned lock (its process is gone) is taken over at once
@@ -147,6 +148,142 @@ public class NavJumpResumeTests
             using var blocker = NavBuildLock.TryAcquire(dir, "gap");
             using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
             Assert.ThrowsAny<OperationCanceledException>(() => NavBuildLock.Acquire(dir, "gap", cts.Token, poll: TimeSpan.FromMilliseconds(50)));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void A_process_that_cannot_be_asked_counts_as_running_so_the_locks_age_decides()
+    {
+        Assert.True(NavBuildLock.IsRunning(DeadPid(), _ => throw new System.ComponentModel.Win32Exception(5)));   // access denied under a reused id
+        Assert.True(NavBuildLock.IsRunning(DeadPid(), _ => throw new NotSupportedException()));
+        Assert.False(NavBuildLock.IsRunning(DeadPid(), _ => throw new ArgumentException("no such process")));
+        Assert.False(NavBuildLock.IsRunning(DeadPid(), _ => true));   // exited
+        Assert.True(NavBuildLock.IsRunning(DeadPid(), _ => false));
+        Assert.False(NavBuildLock.IsRunning(DeadPid()));   // the real query: gone
+        Assert.True(NavBuildLock.IsRunning(Environment.ProcessId));
+    }
+
+    [Fact]
+    public void A_build_that_saves_no_chunk_lets_its_lock_go_stale_and_a_saved_chunk_refreshes_it()
+    {
+        string dir = TempDir();
+        try
+        {
+            string file = NavBuildLock.FileFor(dir, "gap");
+            using var held = NavBuildLock.TryAcquire(dir, "gap", heartbeat: TimeSpan.FromMilliseconds(40), stall: TimeSpan.FromMilliseconds(600))!;
+            var old = DateTime.UtcNow.AddHours(-1);
+            File.SetLastWriteTimeUtc(file, old);
+            Assert.True(SpinWait.SpinUntil(() => File.GetLastWriteTimeUtc(file) > old.AddMinutes(30), TimeSpan.FromSeconds(5)), "the heartbeat refreshes a lock whose build moves on");
+            Thread.Sleep(900);   // past the stall time with no chunk saved
+            File.SetLastWriteTimeUtc(file, old);
+            Thread.Sleep(300);
+            Assert.Equal(old, File.GetLastWriteTimeUtc(file));   // the heartbeat stopped
+            Assert.True(NavBuildLock.IsStale(file, TimeSpan.FromSeconds(NavBuildLock.StaleSeconds)));
+            // a chunk saved through the build's checkpoint counts as progress: the lock is fresh again and the heartbeat goes on
+            var (_, graph) = Gap();
+            NavCache.JumpParts(dir, "gap", 7, graph.NodeCount).Save(0, 1, 0, 1, []);
+            Assert.False(NavBuildLock.IsStale(file, TimeSpan.FromSeconds(NavBuildLock.StaleSeconds)));
+            File.SetLastWriteTimeUtc(file, old);
+            Assert.True(SpinWait.SpinUntil(() => File.GetLastWriteTimeUtc(file) > old.AddMinutes(30), TimeSpan.FromSeconds(5)));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void A_waiter_gives_up_after_its_upper_bound()
+    {
+        string dir = TempDir();
+        try
+        {
+            using var blocker = NavBuildLock.TryAcquire(dir, "gap");
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.Null(NavBuildLock.Acquire(dir, "gap", poll: TimeSpan.FromMilliseconds(30), maxWait: TimeSpan.FromMilliseconds(250)));
+            Assert.InRange(watch.ElapsedMilliseconds, 200, 10_000);
+            Assert.True(NavBuildLock.MaxWaitMinutes >= 10);   // never shorter than the old mutex's 10 minutes
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void A_folder_that_cannot_hold_the_lock_builds_and_caches_without_it()
+    {
+        var (world, graph) = Gap();
+        ulong key = NavJumpSet.KeyFor(graph, Config, Assault, Options);
+        string dir = TempDir();
+        try
+        {
+            Directory.CreateDirectory(NavBuildLock.FileFor(dir, "gap"));   // the lock's path is taken by a folder: no lock file can be made there
+            int builds = 0;
+            var set = NavCache.LoadOrBuildJumps(dir, "gap", key, graph.NodeCount, () => { builds++; return NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options); }, out string note);
+            Assert.Equal(1, builds);
+            Assert.Contains("built without the map's build lock", note);
+            Assert.Contains("cached", note);
+            var again = NavCache.LoadOrBuildJumps(dir, "gap", key, graph.NodeCount, () => throw new InvalidOperationException("read, not built"), out _);
+            Assert.Equal(Bytes(set), Bytes(again));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void Two_keys_of_one_map_build_one_after_the_other()
+    {
+        var (world, graph) = Gap();
+        ulong keyA = NavJumpSet.KeyFor(graph, Config, Assault, Options), keyB = keyA ^ 0x5A5A;   // the two sides' keys of a map
+        var whole = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options);
+        string dir = TempDir();
+        try
+        {
+            using var started = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            int running = 0, most = 0, aBuilds = 0, bBuilds = 0;
+            NavJumpSet Builder(ref int count, bool wait)
+            {
+                Interlocked.Increment(ref count);
+                int now = Interlocked.Increment(ref running);
+                InterlockedMax(ref most, now);
+                if (wait) { started.Set(); release.Wait(TimeSpan.FromSeconds(60)); }
+                Interlocked.Decrement(ref running);
+                return whole;
+            }
+            var a = Task.Run(() => NavCache.LoadOrBuildJumps(dir, "gap", keyA, graph.NodeCount, () => Builder(ref aBuilds, wait: true), out _));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(30)));
+            string bNote = "";
+            var b = Task.Run(() => { var s = NavCache.LoadOrBuildJumps(dir, "gap", keyB, graph.NodeCount, () => Builder(ref bBuilds, wait: false), out string n); bNote = n; return s; });
+            Assert.False(b.Wait(TimeSpan.FromSeconds(3)));   // the other key waits for the map's build
+            Assert.Equal(0, Volatile.Read(ref bBuilds));
+            release.Set();
+            a.Wait(TimeSpan.FromSeconds(60)); b.Wait(TimeSpan.FromSeconds(60));
+            Assert.Equal(1, aBuilds);
+            Assert.Equal(1, bBuilds);   // then it builds its own key
+            Assert.Equal(1, most);   // never two at once
+            Assert.Contains("for another build of the map", bNote);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    static void InterlockedMax(ref int target, int value)
+    {
+        int seen;
+        while (value > (seen = Volatile.Read(ref target)) && Interlocked.CompareExchange(ref target, value, seen) != seen) { }
+    }
+
+    [Fact]
+    public void An_unfinished_builds_chunks_untouched_for_a_week_are_pruned()
+    {
+        string dir = TempDir();
+        try
+        {
+            var (_, graph) = Gap();
+            var parts = NavCache.JumpParts(dir, "gap", 11, graph.NodeCount);
+            parts.Save(0, 2, 0, 1, []);
+            parts.Save(1, 2, 1, 1, []);
+            string stale = NavCache.JumpPartFor(dir, "gap", 11, 0), fresh = NavCache.JumpPartFor(dir, "gap", 11, 1);
+            File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-8));
+            File.SetLastWriteTimeUtc(fresh, DateTime.UtcNow.AddDays(-6));
+            NavCache.Prune(dir, "gap");
+            Assert.False(File.Exists(stale));
+            Assert.True(File.Exists(fresh));
         }
         finally { Directory.Delete(dir, recursive: true); }
     }

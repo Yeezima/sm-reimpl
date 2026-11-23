@@ -44,10 +44,16 @@ function Get-Usage([int]$id) {
 $pids = @()
 $serverDll = Join-Path $Root 'src\SmServer\bin\Release\net10.0\SmServer.dll'
 if (-not (Test-Path $serverDll)) { throw "$serverDll is missing: dotnet build -c Release src\SmServer in $Root" }
+# the caller's SM_DATA_DIR and SM_BOT_STATS come back as they were (set or not) when the run ends or fails
+$prevDataDir = $env:SM_DATA_DIR; $prevBotStats = $env:SM_BOT_STATS
+function Restore-RunEnv([string]$Name, [AllowNull()][string]$Value) {
+    if ($null -eq $Value) { Remove-Item "Env:$Name" -ErrorAction SilentlyContinue } else { Set-Item "Env:$Name" $Value }
+}
 if ($DataDir) { New-Item -ItemType Directory -Force -Path $DataDir | Out-Null; $env:SM_DATA_DIR = $DataDir }   # a private data root (its own nav cache), never the owner's
 $env:SM_BOT_STATS = '30'
-$server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--map', $Map, '--mode', $Mode, '--honor-side-requests', '--name-seed', "$NameSeed") -WorkingDirectory $Root -StdOut (Join-Path $out 'server.log') -StdErr (Join-Path $out 'server.err.log')
-Remove-Item Env:SM_BOT_STATS -ErrorAction SilentlyContinue
+try { $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--map', $Map, '--mode', $Mode, '--honor-side-requests', '--name-seed', "$NameSeed") -WorkingDirectory $Root -StdOut (Join-Path $out 'server.log') -StdErr (Join-Path $out 'server.err.log') }
+catch { Restore-RunEnv 'SM_DATA_DIR' $prevDataDir; throw }
+finally { Restore-RunEnv 'SM_BOT_STATS' $prevBotStats }
 $samples = [Collections.Generic.List[string]]::new(); $samples.Add('t,who,pid,cpu_s,ws_mb')
 try {
     $deadline = (Get-Date).AddSeconds(120)
@@ -94,7 +100,7 @@ try {
     }
 }
 finally {
-    Remove-Item Env:SM_DATA_DIR -ErrorAction SilentlyContinue
+    Restore-RunEnv 'SM_DATA_DIR' $prevDataDir
     foreach ($p in $pids) { & taskkill.exe /PID $p /T /F 2>$null | Out-Null }
     if (-not $server.HasExited) { & taskkill.exe /PID $server.Id /T /F | Out-Null }
 }

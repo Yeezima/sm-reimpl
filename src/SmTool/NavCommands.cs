@@ -59,6 +59,17 @@ static class NavCommands
         var content = MapContent.Load(gameDir, map);
         var world = content.ToCollisionWorld();
         string dir = cache ?? BotNavigation.CacheDirectory;
+        // bots/a1-perf: Ctrl+C stops a jump-link build or a wait for another process's build of the map (NavBuildLock; the wait also gives up after NavBuildLock.MaxWaitMinutes)
+        using var stop = new CancellationTokenSource();
+        ConsoleCancelEventHandler onCancel = (_, e) => { e.Cancel = true; stop.Cancel(); };
+        Console.CancelKeyPress += onCancel;
+        try { return StatsFor(content, world, config, map, classes, dir, top, stop.Token); }
+        catch (OperationCanceledException) { Console.WriteLine("stopped (Ctrl+C); finished chunks of the jump-link build are kept"); return 1; }
+        finally { Console.CancelKeyPress -= onCancel; }
+    }
+
+    static int StatsFor(MapContent content, CollisionWorld world, SimConfig config, string map, string[] classes, string dir, int top, CancellationToken cancel)
+    {
         Console.WriteLine($"map {map}: {content.Spawns.Count} spawns, {content.ControlPoints.Count} points, {content.StartAreas.Count} start areas, {world.Blockers.Count} blockers, {world.KillVolumes.Count} kill volumes; cache {dir}");
         foreach (var side in new[] { Team.SpaceMarines, Team.Chaos })
         {
@@ -73,7 +84,7 @@ static class NavCommands
                     if (cls < 0) { Console.WriteLine($"{side}: no class matching '{name}'"); continue; }
                 }
                 var watch = System.Diagnostics.Stopwatch.StartNew();
-                var graph = BotNavigation.LoadOrBuild(content, world, config, side, cls, dir, out string note);
+                var graph = BotNavigation.LoadOrBuild(content, world, config, side, cls, dir, out string note, cancel);
                 if (graph.Jumps is { } jumps)
                 {
                     var rows = new List<(float Flat, float Dz, int Hold, int Dir)>();

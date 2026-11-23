@@ -377,7 +377,7 @@ public sealed class NavJumpSet
         }, _ => { });
     }
 
-    /// <summary>Take-off cells a checkpointed build (<see cref="INavJumpCheckpoint"/>) finishes and saves at a time (bots/a1-perf; ours: measured 1024 at about 5 min of a bot's build on mp_tdm_17, so a match's end lost up to that much; 128 is about 40 s).</summary>
+    /// <summary>Take-off cells a checkpointed build (<see cref="INavJumpCheckpoint"/>) finishes and saves at a time (bots/a1-perf; ours: measured 1024 at about 5 min of a bot's build on mp_tdm_17, so a match's end lost up to that much; 128 measured about 18.5 s at 4 threads and about 53 s at 1 thread with one builder).</summary>
     public const int CheckpointChunk = 128;
 
     /// <summary>Whether the flight lands on the same cell (within a metre) from every point of a ring of <see cref="NavJumpOptions.RobustRadius"/> around the take-off cell.</summary>
