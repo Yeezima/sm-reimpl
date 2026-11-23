@@ -52,7 +52,12 @@ public static class SquadLoadoutBuilder
     public static SquadWeapon WeaponOf(SimConfig c, PlayerState s)
     {
         if (Loadouts.Weapon(c, s, WeaponSlot.Ranged) is { } w) return RangedOf(w);
-        var steps = Loadouts.Melee(c, s);
+        return MeleeOf(Loadouts.Melee(c, s));
+    }
+
+    /// <summary>A melee combo as a squad weapon: the steps' mean damage and time (<see cref="SquadWeapon.Blade"/> without steps).</summary>
+    static SquadWeapon MeleeOf(IReadOnlyList<MeleeStep> steps)
+    {
         if (steps.Count == 0) return SquadWeapon.Blade;
         float damage = 0f, time = 0f;
         foreach (var st in steps) { damage += st.Damage * Math.Max(0.01f, st.HealthMultiplier); time += Math.Max(0.1f, st.Duration); }
@@ -96,6 +101,23 @@ public static class SquadLoadoutBuilder
     }
 
     // ---- the Librarian's rolls
+
+    /// <summary>
+    /// A saved Marine's loadout with a melee weapon the config no longer offers put back to the class default (remove-spear-claw, owner 2026-11-23: "remove them from the game for now"): when
+    /// <see cref="SquadLoadout.Melee"/> is the lightning claw or the power spear and the class (<see cref="SquadLoadout.ClassId"/>) does not list it, the melee is the class default (named as
+    /// <see cref="FromChoice"/> names a default choice) and a melee squad weapon is the default combo's profile; nothing else changes. Every other loadout (and one under the restore switch) is returned as it is.
+    /// </summary>
+    public static SquadLoadout WithOfferedMelee(SimConfig c, SquadLoadout l)
+    {
+        if (!Musou.Arsenal.ArsenalRules.IsSpearOrClaw(l.Melee)) return l;
+        int cls = -1;
+        for (int i = 0; i < c.Classes.Count && cls < 0; i++) if (string.Equals(c.Classes[i].Name, l.ClassId, StringComparison.OrdinalIgnoreCase)) cls = i;
+        var cl = c.Classes[cls];
+        if (cl.MeleeChoices.Any(m => string.Equals(m.Wargear, l.Melee, StringComparison.OrdinalIgnoreCase))) return l;
+        var s = Loadouts.Choose(c, new PlayerState(0, Vector3.Zero, Vector3.Zero, 0f, true) { Class = cls }, -1, -1, -1);   // the class default, as FromChoice resolves a choice of -1
+        string melee = s.MeleeChoice >= 0 && s.MeleeChoice < cl.MeleeChoices.Count ? cl.MeleeChoices[s.MeleeChoice].Wargear : "";
+        return l with { Melee = melee, Weapon = l.Weapon.Melee ? MeleeOf(Loadouts.Melee(c, s)) : l.Weapon };
+    }
 
     /// <summary>The class index of <paramref name="role"/> on <paramref name="side"/> in the config; -1 with none.</summary>
     public static int ClassIndex(SimConfig c, string role, Team side)

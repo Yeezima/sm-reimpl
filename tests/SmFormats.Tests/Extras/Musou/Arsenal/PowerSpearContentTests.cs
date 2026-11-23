@@ -23,6 +23,7 @@ public class PowerSpearContentTests
     [Fact]
     public void The_spear_is_appended_at_the_end_of_the_marine_assaults_melee_choices_only()
     {
+        using var restore = ArsenalRules.SpearClawScoped(true);   // the restore switch (remove-spear-claw, owner 2026-11-23: off by default)
         var notes = new List<string>();
         var config = Arsenal.Append(Config(), "", notes);
         var assault = config.Classes[1];
@@ -39,6 +40,7 @@ public class PowerSpearContentTests
     [Fact]
     public void Appending_twice_adds_nothing_and_a_config_without_a_hammer_is_untouched()
     {
+        using var restore = ArsenalRules.SpearClawScoped(true);   // the restore switch (remove-spear-claw, owner 2026-11-23: off by default)
         var once = Arsenal.Append(Config(), "", []);
         var twice = Arsenal.Append(once, "", []).Classes[1].MeleeChoices;
         Assert.Equal(once.Classes[1].MeleeChoices.Select(m => m.Wargear), twice.Select(m => m.Wargear));
@@ -67,6 +69,7 @@ public partial class CustomizationCatalogTests
     [Fact]
     public void The_spear_row_follows_the_hammer_in_the_marine_assaults_melee_row_in_musous_catalogue_only()
     {
+        using var restore = ArsenalRules.SpearClawScoped(true);   // the restore switch (remove-spear-claw, owner 2026-11-23: off by default)
         var global = SmFormats.Baf.BafDocument.Read(GlobalBaf());
         var data = PerkCatalog.Build(global, name => name.StartsWith("mp_perk") ? SmFormats.Baf.BafDocument.Read(Gear("perk")) : SmFormats.Baf.BafDocument.Read(Gear(name.Contains("pistol") ? "pistol" : "melee")), null, []);
         // The fixture's Assault carries no hammer: give it one, as the install's does.
