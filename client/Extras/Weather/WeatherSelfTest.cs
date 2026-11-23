@@ -166,7 +166,9 @@ public sealed partial class WeatherSelfTest : Node
         Check("rain: a far layer, ground splashes and low mist beside the near layer, in a sane total", farRain is { Emitting: true } && splash is { Emitting: true } && mist is { Emitting: true } && total <= (int)((WeatherRig.RainNearCount + WeatherRig.RainFarCount + WeatherRig.SplashCount + WeatherRig.MistCount) * 1.2f) + 4, $"total {total}: {rain?.Amount} + {farRain?.Amount} + {splash?.Amount} + {mist?.Amount}");
         Check("rain: the near layer is denser than the far one and the splashes lie on the ground under the camera", rain is not null && farRain is not null && rain.Amount > farRain.Amount && splash is not null && Math.Abs(splash.GlobalPosition.Y - (2f - 1.8f)) < 0.2f, splash?.GlobalPosition.ToString() ?? "");
         rig.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
-        Check("none: the rain and the hiss stop at once", !rig.Raining && hiss is { Playing: false });
+        Check("none: the rain stops at once; the hiss fades out (repair 2: a 0.5 s fade, never a cut)", !rig.Raining && (hiss is { Playing: false } || rig.BedsFading));
+        for (int f = 0; f < 90 && hiss is { Playing: true }; f++) { await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); rig.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero); }
+        Check("none: the hiss has stopped after its fade", hiss is { Playing: false } && !rig.BedsFading);
         // the W2 looks: thunderstorm (rain from the late buildup, wind, the sky glow only at a strike, thunder), ash squall (warning flecks, the crosswind's ash, the warning text), ember wind (sparse embers)
         var storm = new WeatherRig(); anchor.AddChild(storm);
         double strikeAt = WeatherPlan.StrikesIn(120, 400)[0].Time;
@@ -225,7 +227,7 @@ public sealed partial class WeatherSelfTest : Node
         embers.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         squall.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         storm.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
-        Check("none: every W2 effect stops at once", !embers.Embering && !squall.AshFalling && !squall.WarningShown && !squall.WindBlowing && !storm.Raining && storm.GlowAlpha == 0f);
+        Check("none: every W2 effect stops at once (the wind bed fades out over 0.5 s)", !embers.Embering && !squall.AshFalling && !squall.WarningShown && (!squall.WindBlowing || squall.BedsFading) && !storm.Raining && storm.GlowAlpha == 0f);
 
         var wind = WeatherSynth.Wind();
         var far = WeatherSynth.Thunder(5, false); var near = WeatherSynth.Thunder(5, true);
@@ -256,7 +258,7 @@ public sealed partial class WeatherSelfTest : Node
             fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
             Check("rain: an overcast sky of its own blends in (not all at once)", fast.SkyLook == WeatherId.Rain && fast.SkyCover > 0f && fast.SkyCover < WeatherRig.RainSkyFull, fast.SkyCover.ToString());
             fast.Update(WeatherClock.At(WeatherId.Clear, 10), 1f, Vector3.Zero);
-            Check("clear, entered from rain: no rain, no hiss, no splashes; the sky fades out", !fast.Raining && hissP is { Playing: false } && !fast.Splashing && WeatherRig.SkyTarget(WeatherId.Clear, 1f) == 0f);
+            Check("clear, entered from rain: no rain, no splashes, the hiss fading (0.5 s), the sky fading out", !fast.Raining && (hissP is { Playing: false } || fast.BedsFading) && !fast.Splashing && WeatherRig.SkyTarget(WeatherId.Clear, 1f) == 0f);
             fast.QueueFree();
 
             var fog = new WeatherRig(); anchor.AddChild(fog);

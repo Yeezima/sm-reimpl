@@ -171,8 +171,8 @@ public partial class NetworkView
             _wxReqPerf = CmdFlag("weather-perf-live");
             if (CmdArg("weather-pin") is { } pin)
             {
-                if (WeatherClientModel.TryParsePin(pin, out var pinned)) _wxModel.PinPhase = pinned;
-                else GD.Print($"weather: --weather-pin '{pin}' is not opening, buildup, peak or recovery; ignored");
+                if (WeatherClientModel.TryParsePinWord(pin, out var pinned, out bool lull)) { _wxModel.PinPhase = pinned; _wxModel.PinLull = lull; }
+                else GD.Print($"weather: --weather-pin '{pin}' is not opening, buildup, peak, recovery, lull or full; ignored");
             }
         }
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
@@ -198,6 +198,7 @@ public partial class NetworkView
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
         var now = (st.Id, st.Phase, _wxModel.Overridden);   // (the rig below is drawn for this state)
+        if (LogSound("weather") && (_wxLevelLogAt += delta) >= 2.0) { _wxLevelLogAt = 0; GD.Print($"weather level: {WeatherCatalog.Of(st.Id).Key} {st.Phase} intensity {intensity:F2}{(_wxModel.Pinned ? " (pinned)" : "")}{(_wxRig is { } r ? $" hiss {r.HissDb:F1} dB wind {r.WindDb:F1} dB" : "")}"); }   // repair 2 test aid: the drawn level and the beds' gains every 2 s
         if (!_bot && (!_wxLoggedAny || now != _wxLogged))
         {
             _wxLoggedAny = true; _wxLogged = now;
@@ -231,6 +232,7 @@ public partial class NetworkView
     }
 
     bool _wxBedShelter;
+    double _wxLevelLogAt;
 
     /// <summary>
     /// Weather W5 (Warfront only): the battle's open-air wind bed (the install's <c>play_wind_open</c> loop) goes through the same shelter state as the weather's own sounds, so it is duller and quieter under a roof, in the authored

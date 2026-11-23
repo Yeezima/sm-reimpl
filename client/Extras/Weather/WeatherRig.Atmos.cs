@@ -166,9 +166,9 @@ public sealed partial class WeatherRig
     // ---- repair 1: the Ash Squall's blowing dust ----
 
     /// <summary>Dust sheets at the High preset and the fewest at any preset or trim; their ring (m), size (m), life (s); the near fade (m); alpha at the lull and at full.</summary>
-    public const int DustCount = 90, DustFloor = 24;
-    public const float DustInnerM = 4f, DustOuterM = 34f, DustBandM = 4f, DustCardWidthM = 10f, DustCardHeightM = 4f, DustLifeSeconds = 5f;
-    public const float DustFadeNearM = 3f, DustFadeFarM = 12f, DustAlphaLow = 0.10f, DustAlphaFull = 0.24f;
+    public const int DustCount = 130, DustFloor = 30;
+    public const float DustHalfWidthM = 26f, DustBandM = 4f, DustCardWidthM = 12f, DustCardHeightM = 5f, DustLifeSeconds = 5f;
+    public const float DustFadeNearM = 2.5f, DustFadeFarM = 9f, DustAlphaLow = 0.18f, DustAlphaFull = 0.34f;
 
     CpuParticles3D? _dust;
     StandardMaterial3D? _dustMaterial;
@@ -192,16 +192,16 @@ public sealed partial class WeatherRig
         float ground = groundY ?? cameraAt.Y - 1.8f;
         float yaw = WeatherPlan.WindYaw(st.Id);
         var windDir = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
-        _dust.GlobalPosition = new Vector3(cameraAt.X, ground + DustBandM * 0.5f, cameraAt.Z) - windDir * 8f;   // a little upwind, so the sheets cross the player's view
-        _dust.Direction = windDir;
         float speed = 6f + 10f * wind;
+        _dust.GlobalPosition = new Vector3(cameraAt.X, ground + DustBandM * 0.5f, cameraAt.Z) - windDir * (speed * DustLifeSeconds * 0.5f);   // repair 2: upwind by half a life, so each sheet spends its life crossing the player's surroundings
+        _dust.Direction = windDir;
         _dust.InitialVelocityMin = speed * 0.8f;
         _dust.InitialVelocityMax = speed * 1.2f;
         if (_dustMaterial is not null)
         {
             float k = Math.Clamp((i - WeatherClock.ActiveFloor) / (1f - WeatherClock.ActiveFloor), 0f, 1f);
             var haze = SceneHaze();
-            var tint = new Color(0.58f, 0.47f, 0.34f).Lerp(new Color(Math.Clamp(haze.R, 0.25f, 1f), Math.Clamp(haze.G, 0.25f, 1f), Math.Clamp(haze.B, 0.25f, 1f)), 0.25f);
+            var tint = new Color(0.80f, 0.70f, 0.55f).Lerp(new Color(Math.Clamp(haze.R, 0.25f, 1f), Math.Clamp(haze.G, 0.25f, 1f), Math.Clamp(haze.B, 0.25f, 1f)), 0.15f);   // repair 2: paler than the amber grade, so it reads over it
             _dustMaterial.AlbedoColor = new Color(tint.R, tint.G, tint.B, (DustAlphaLow + (DustAlphaFull - DustAlphaLow) * k) * WeatherShelterMix.NearAlpha(Shelter));
         }
     }
@@ -216,7 +216,7 @@ public sealed partial class WeatherRig
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            AlbedoColor = new Color(0.58f, 0.47f, 0.34f, DustAlphaFull),
+            AlbedoColor = new Color(0.80f, 0.70f, 0.55f, DustAlphaFull),
             AlbedoTexture = FogPuff(),
             VertexColorUseAsAlbedo = true,
             DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha,
@@ -224,7 +224,7 @@ public sealed partial class WeatherRig
             DistanceFadeMaxDistance = DustFadeFarM,
             ProximityFadeEnabled = !compat,
             ProximityFadeDistance = 2f,
-            DisableFog = false,
+            DisableFog = true,   // repair 2: the squall's own thick haze (fog x2.8) washed the sheets into the fog colour; they are the haze's moving part
         };
         var ramp = new Gradient();
         ramp.SetColor(0, new Color(1f, 1f, 1f, 0f));
@@ -238,11 +238,8 @@ public sealed partial class WeatherRig
             Lifetime = DustLifeSeconds,
             Preprocess = DustLifeSeconds,   // full at once
             LocalCoords = false,
-            EmissionShape = CpuParticles3D.EmissionShapeEnum.Ring,
-            EmissionRingAxis = Vector3.Up,
-            EmissionRingHeight = DustBandM,
-            EmissionRingRadius = DustOuterM,
-            EmissionRingInnerRadius = DustInnerM,
+            EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
+            EmissionBoxExtents = new Vector3(DustHalfWidthM, DustBandM * 0.5f, DustHalfWidthM),
             Direction = new Vector3(1f, 0f, 0f),
             Spread = 6f,
             Gravity = Vector3.Zero,

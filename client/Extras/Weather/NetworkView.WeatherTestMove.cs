@@ -14,6 +14,10 @@ namespace SmClient;
 /// <item><c>wxslide:20:3</c>: the camera alone slides sideways (to its right; a negative speed goes left) at the given m/s for the given seconds (default 3), then returns to the player: the rain rig, the sky and the shelter rays all see the
 /// moving camera, so the rain's coverage at a jump-pack speed can be captured on a real map without the jump pack. The player does not move; the server sees nothing.</item>
 /// <item><c>wxstop</c>: both end at once.</item>
+/// <item>Repair 2: <c>wxlook:30</c> holds the camera's pitch at that many degrees (up positive, -80 to 80; the camera's own heading kept) so the sky can be framed; <c>wxlook:off</c> returns it to the player's aim. Camera only: the
+/// player's aim, input and the server are untouched.</item>
+/// <item>Repair 2: <c>wxpin:lull</c>, <c>wxpin:full</c>, <c>wxpin:peak</c> (or any phase name) and <c>wxpin:off</c>: the same client-only clock pin as <c>--weather-pin</c>, switched during a run (lull: the end of the recovery, the
+/// lowest active level; full: the peak).</item>
 /// </list>
 /// To reach an open spot first use the existing teleports (<c>tp:point:1</c>, <c>tp:spawn-loyal</c>, <c>tp:spawn-chaos</c>).
 /// </summary>
@@ -24,6 +28,7 @@ public partial class NetworkView
     float _wxSlideSpeed, _wxSlideOffset;
     Vector3 _wxSlideBase, _wxSlideWrote;
     bool _wxSlideHas;
+    float? _wxLookPitch;
 
     /// <summary>The aid is allowed now: a connected human client in an F6 developer-tools session.</summary>
     bool WeatherTestMoveGate => !_bot && _client is { Status: SmNet.ClientStatus.Connected, Dev: not null };
@@ -33,12 +38,27 @@ public partial class NetworkView
     /// <summary>A test-aid word from the F6 panel or <c>--dev-script</c> (through <see cref="WeatherClientLink.TestMove"/>); false when not one of the aid's words.</summary>
     bool WeatherTestMoveWord(string name, string arg)
     {
-        if (name is not ("wxmove" or "wxslide" or "wxstop")) return false;
+        if (name is not ("wxmove" or "wxslide" or "wxstop" or "wxlook" or "wxpin")) return false;
         if (!WeatherTestMoveGate) { GD.Print($"weather test move: '{name}:{arg}' ignored (no developer-tools session)"); return true; }
         var parts = arg.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         static double Num(string[] p, int i, double fallback) => i < p.Length && double.TryParse(p[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : fallback;
         switch (name)
         {
+            case "wxlook":
+            {
+                if (parts.Length > 0 && parts[0] == "off") { _wxLookPitch = null; GD.Print("weather test look: the camera follows the aim again"); return true; }
+                _wxLookPitch = (float)Math.Clamp(Num(parts, 0, 30), -80, 80);
+                GD.Print($"weather test look: camera pitch held at {_wxLookPitch:0.#} degrees (camera only)");
+                return true;
+            }
+            case "wxpin":
+            {
+                string w = parts.Length > 0 ? parts[0] : "";
+                if (w == "off") { _wxModel.PinPhase = null; _wxModel.PinLull = false; GD.Print("weather test pin: off (the server's clock)"); return true; }
+                if (WeatherClientModel.TryParsePinWord(w, out var phase, out bool lull)) { _wxModel.PinPhase = phase; _wxModel.PinLull = lull; GD.Print($"weather test pin: {w} (client only)"); }
+                else GD.Print($"weather test pin: '{w}' is not lull, full, off or a phase name");
+                return true;
+            }
             case "wxstop":
                 _wxMoveUntil = _wxSlideUntil = double.NegativeInfinity;
                 GD.Print("weather test move: stopped");
@@ -75,6 +95,15 @@ public partial class NetworkView
     void WeatherTestSlide()
     {
         if (_camera is null) return;
+        if (_wxLookPitch is { } pitch)
+        {
+            if (!WeatherTestMoveGate) _wxLookPitch = null;
+            else
+            {
+                var r = _camera.GlobalRotation;   // the camera rig sets it anew each frame; this frame's heading is kept, only the pitch is held
+                _camera.GlobalRotation = new Vector3(Mathf.DegToRad(pitch), r.Y, 0f);
+            }
+        }
         double now = RealSeconds;
         if (now >= _wxSlideUntil || !WeatherTestMoveGate)
         {

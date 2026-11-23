@@ -11,7 +11,8 @@ namespace SmClient.Extras.Weather;
 public sealed partial class WeatherRig
 {
     CpuParticles3D? _ashWarn, _ashMain, _embers;
-    StandardMaterial3D? _ashWarnMaterial, _ashMainMaterial, _emberMaterial, _glowMaterial;
+    StandardMaterial3D? _ashWarnMaterial, _emberMaterial, _glowMaterial;
+    ShaderMaterial? _ashMainMaterial;
     MeshInstance3D? _glow;
     AudioStreamPlayer? _wind;
     CanvasLayer? _warnLayer;
@@ -36,12 +37,12 @@ public sealed partial class WeatherRig
         // ash (Ash Squall): the warning emitter sprinkles from the buildup, the dense one is the crosswind
         float ash = WeatherPlan.AshShare(st);
         bool warnOn = id == WeatherId.AshSquall && ash > 0.005f, mainOn = ash > 0.12f;   // the sparse emitter runs through the whole squall; the dense one adds to it at the peak
-        if (warnOn) _ashWarn ??= BuildAsh("AshWarning", WeatherTrim.Count(Math.Max(AshWarnFloor, (int)(AshCount * 0.2f * QualityScale())), AshWarnFloor, Trim.Level), out _ashWarnMaterial);
-        if (mainOn) _ashMain ??= BuildAsh("AshSquall", Count(AshCount, AshMainFloor), out _ashMainMaterial);
+        if (warnOn) _ashWarn ??= BuildFlakes(WeatherTrim.Count(Math.Max(AshWarnFloor, (int)(AshCount * 0.2f * QualityScale())), AshWarnFloor, Trim.Level));
+        if (mainOn) _ashMain ??= BuildGrit(Count(AshCount, AshMainFloor));
         float near = WeatherShelterMix.NearAlpha(Shelter);
         bool cover = Shelter >= WeatherShelterMix.NearOffAbove;   // under cover no ash or ember falls near the player (the fade runs first, then the emitters stop)
-        ConfigureAsh(_ashWarn, _ashWarnMaterial, warnOn && !cover, Math.Clamp(ash * 6f, 0f, 1f), windDir, wind, near);
-        ConfigureAsh(_ashMain, _ashMainMaterial, mainOn && !cover, ash, windDir, wind, near);
+        ConfigureFlakes(warnOn && !cover, ash, windDir, wind, near);
+        ConfigureGrit(mainOn && !cover, ash, windDir, wind, near);
 
         // embers (Ember Wind, preview): sparse, lit by themselves, riding the wind and rising
         float ember = WeatherPlan.EmberDensity(id, i);
@@ -79,9 +80,18 @@ public sealed partial class WeatherRig
         if (windOn && _wind is null) { _wind = new AudioStreamPlayer { Name = "WindBed", Stream = WeatherSynth.Wind(), VolumeDb = SilentDb, Bus = AcquireBus() }; AddChild(_wind); }
         if (_wind is not null)
         {
-            _wind.VolumeDb = windOn ? Mathf.Lerp(SilentDb, WindLoudestDb, Math.Clamp(wind, 0f, 1f)) + WeatherShelterMix.WindDb(Shelter) : SilentDb;
-            if (windOn && !_wind.Playing) _wind.Play();
-            else if (!windOn && _wind.Playing) _wind.Stop();
+            if (windOn)
+            {
+                _windFade.Cancel();
+                _wind.VolumeDb = Mathf.Lerp(SilentDb, WindLoudestDb, Math.Clamp(wind, 0f, 1f)) + WeatherShelterMix.WindDb(Shelter);
+                if (!_wind.Playing) _wind.Play();
+            }
+            else if (_wind.Playing)
+            {
+                _windFade.Start(_wind.VolumeDb);   // repair 2: a 0.5 s fade to silence, then the stop
+                _wind.VolumeDb = _windFade.Step(RealDt, out bool done);
+                if (done) _wind.Stop();
+            }
         }
 
         // the Ash Squall's warning text (a short cue beside the visible and audible ones; no critical cue is audio alone)
@@ -142,20 +152,69 @@ public sealed partial class WeatherRig
         return _dot = new GradientTexture2D { Gradient = g, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(0.5f, 0f), Width = 32, Height = 32 };
     }
 
-    /// <summary>Repair 1: the fleck colour (a pale grey-ochre ash, was a dark brown that vanished against dark walls) and its quad size (m; was 0.14).</summary>
-    public const float AshR = 0.56f, AshG = 0.50f, AshB = 0.42f, AshFleckM = 0.12f;
-    /// <summary>Repair 1 (live look on Manufactorum): a fleck nearer than <see cref="AshNearFadeM"/> is invisible, full from <see cref="AshNearFullM"/> (m), so flecks at the lens never read as large blurred orbs.</summary>
-    public const float AshNearFadeM = 0.6f, AshNearFullM = 2.5f;
+    /// <summary>Repair 2: the ash colour (a pale grey-ochre), the soft flakes' size (m) and their near fade (m: invisible nearer than the first, full from the second, so no flake at the lens reads as a blurred orb).</summary>
+    public const float AshR = 0.62f, AshG = 0.56f, AshB = 0.47f, AshFleckM = 0.16f, AshNearFadeM = 0.6f, AshNearFullM = 2.5f;
+    /// <summary>
+    /// Repair 2 (the second attempt: 800 then 1300 soft dots drifting through a 32 m box read as a handful of specks on Manufactorum): the squall's body is wind-driven grit, streaks along the wind drawn with the rain's axial streak
+    /// shader (each streak the grit's speed times a short shutter, so even a far one is a visible line), emitted <see cref="GritUpwindShare"/> of a life upwind in a narrow street-level band so the whole life is spent crossing the
+    /// player's surroundings instead of leaving them. Width and length of a streak (m), the band's half-width, half-height and its middle's height over the camera (m), the life (s).
+    /// </summary>
+    public const float GritWidthM = 0.035f, GritLengthM = 0.5f, GritHalfWidthM = 11f, GritHalfHeightM = 2.2f, GritMidOverCameraM = -0.2f, GritLifeSeconds = 2.0f, GritUpwindShare = 0.5f;
 
-    CpuParticles3D BuildAsh(string name, int amount, out StandardMaterial3D material)
+    CpuParticles3D BuildGrit(int amount)
     {
-        material = new StandardMaterial3D
+        _ashMainMaterial = RainMaterial(new Color(AshR, AshG, AshB, 0.6f), 1.0f);
+        var p = new CpuParticles3D
+        {
+            Name = "AshSquall",
+            Amount = amount,
+            Lifetime = GritLifeSeconds,
+            Preprocess = GritLifeSeconds,   // full at once
+            LocalCoords = false,
+            EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
+            EmissionBoxExtents = new Vector3(GritHalfWidthM, GritHalfHeightM, GritHalfWidthM),
+            Direction = new Vector3(1f, -0.04f, 0f),
+            Spread = 6f,
+            Gravity = new Vector3(0f, -0.5f, 0f),
+            InitialVelocityMin = 10f,
+            InitialVelocityMax = 16f,
+            ScaleAmountMin = 0.6f,
+            ScaleAmountMax = 1.4f,
+            Mesh = new QuadMesh { Size = new Vector2(GritWidthM, GritLengthM), Material = _ashMainMaterial },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            VisibilityAabb = new Aabb(new Vector3(-60f, -10f, -60f), new Vector3(120f, 24f, 120f)),
+            Emitting = false,
+        };
+        AddChild(p);
+        return p;
+    }
+
+    void ConfigureGrit(bool on, float share, Vector3 windDir, float wind, float nearAlpha)
+    {
+        if (_ashMain is null) return;
+        _ashMain.Emitting = on;
+        if (!on) return;
+        float speed = 8f + 10f * wind;   // a squall's grit outruns the flakes
+        var dir = new Vector3(windDir.X, -0.04f, windDir.Z);
+        _ashMain.Direction = dir;
+        _ashMain.InitialVelocityMin = speed * 0.8f;
+        _ashMain.InitialVelocityMax = speed * 1.2f;
+        _ashMain.Position = new Vector3(0f, GritMidOverCameraM, 0f) - windDir * (speed * GritLifeSeconds * GritUpwindShare);   // emitted upwind: half way through its life a grain is beside the player
+        SetStreak(_ashMainMaterial, dir, new Color(AshR, AshG, AshB), (0.38f + 0.37f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
+    }
+
+    /// <summary>The grit streaks' alpha now (selftest).</summary>
+    public float GritAlpha => _ashMainMaterial?.GetShaderParameter("tint").AsColor().A ?? 0f;
+
+    CpuParticles3D BuildFlakes(int amount)
+    {
+        _ashWarnMaterial = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            AlbedoColor = new Color(AshR, AshG, AshB, 0.5f),
+            AlbedoColor = new Color(AshR, AshG, AshB, 0.7f),
             DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha,
             DistanceFadeMinDistance = AshNearFadeM,
             DistanceFadeMaxDistance = AshNearFullM,
@@ -164,40 +223,40 @@ public sealed partial class WeatherRig
         };
         var p = new CpuParticles3D
         {
-            Name = name,
+            Name = "AshWarning",
             Amount = amount,
             Lifetime = 3.0,
             Preprocess = 3.0,
             LocalCoords = false,
             EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(16f, 4f, 16f),   // repair 1: a tighter box round the player (was 20 m), so the flecks are dense where they are seen
+            EmissionBoxExtents = new Vector3(12f, 3f, 12f),
             Direction = new Vector3(1f, -0.02f, 0f),
-            Spread = 8f,
+            Spread = 10f,
             Gravity = new Vector3(0f, -0.35f, 0f),
-            InitialVelocityMin = 5f,
-            InitialVelocityMax = 9f,
+            InitialVelocityMin = 4f,
+            InitialVelocityMax = 8f,
             ScaleAmountMin = 0.5f,
-            ScaleAmountMax = 1.8f,
-            Mesh = new QuadMesh { Size = new Vector2(AshFleckM, AshFleckM), Material = material },
+            ScaleAmountMax = 1.5f,
+            Mesh = new QuadMesh { Size = new Vector2(AshFleckM, AshFleckM), Material = _ashWarnMaterial },
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            Position = new Vector3(0f, 1.5f, 0f),
-            VisibilityAabb = new Aabb(new Vector3(-40f, -10f, -40f), new Vector3(80f, 24f, 80f)),
+            VisibilityAabb = new Aabb(new Vector3(-50f, -10f, -50f), new Vector3(100f, 24f, 100f)),
             Emitting = false,
         };
         AddChild(p);
         return p;
     }
 
-    void ConfigureAsh(CpuParticles3D? p, StandardMaterial3D? m, bool on, float share, Vector3 windDir, float wind, float nearAlpha = 1f)
+    void ConfigureFlakes(bool on, float share, Vector3 windDir, float wind, float nearAlpha)
     {
-        if (p is null) return;
-        p.Emitting = on;
+        if (_ashWarn is null) return;
+        _ashWarn.Emitting = on;
         if (!on) return;
-        p.Direction = new Vector3(windDir.X, -0.02f, windDir.Z);
-        float speed = 4f + 10f * wind;
-        p.InitialVelocityMin = speed * 0.7f;
-        p.InitialVelocityMax = speed * 1.15f;
-        if (m is not null) m.AlbedoColor = new Color(AshR, AshG, AshB, (0.45f + 0.45f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
+        float speed = 4f + 8f * wind;
+        _ashWarn.Direction = new Vector3(windDir.X, -0.02f, windDir.Z);
+        _ashWarn.InitialVelocityMin = speed * 0.7f;
+        _ashWarn.InitialVelocityMax = speed * 1.15f;
+        _ashWarn.Position = new Vector3(0f, 0.5f, 0f) - windDir * (speed * 1.5f);   // upwind by half a life too
+        if (_ashWarnMaterial is not null) _ashWarnMaterial.AlbedoColor = new Color(AshR, AshG, AshB, (0.5f + 0.35f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
     }
 
     CpuParticles3D BuildEmbers()

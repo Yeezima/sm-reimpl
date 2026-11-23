@@ -144,6 +144,47 @@ public class WeatherWireTests
     }
 
     [Fact]
+    public void Repair_2_the_lull_pin_holds_the_drawn_level_at_the_presets_lull_and_the_words_parse()
+    {
+        foreach (var id in new[] { WeatherId.Rain, WeatherId.AshSquall, WeatherId.Thunderstorm })
+        {
+            float lull = WeatherClock.Lull(WeatherCatalog.Of(id));
+            foreach (int span in new[] { 0, 600 })
+            {
+                var m = new WeatherClientModel { PinLull = true, PinAllowed = true };
+                var d = new WeatherDirector(id, span); d.Advance(1);
+                m.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
+                for (int i = 0; i < 30; i++) { m.Advance(1.0); Assert.Equal(lull, m.EffectiveIntensity, 2); }   // held at the lull, not looping back to full
+            }
+        }
+        var gated = new WeatherClientModel { PinLull = true };   // no developer-tools gate: the server's clock
+        gated.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        Assert.Equal(1f, gated.EffectiveIntensity);
+        Assert.True(WeatherClientModel.TryParsePinWord("lull", out var p1, out bool l1) && p1 is null && l1);
+        Assert.True(WeatherClientModel.TryParsePinWord("FULL", out var p2, out bool l2) && p2 == WeatherPhase.Peak && !l2);
+        Assert.True(WeatherClientModel.TryParsePinWord("recovery", out var p3, out _) && p3 == WeatherPhase.Recovery);
+        Assert.False(WeatherClientModel.TryParsePinWord("7", out _, out _));
+        Assert.False(WeatherClientModel.TryParsePinWord("", out _, out _));
+    }
+
+    [Fact]
+    public void Repair_2_a_bed_stops_with_a_half_second_fade_to_silence_and_a_wanted_bed_cancels_it()
+    {
+        var f = new WeatherBedFade();
+        f.Start(-25f);
+        float a = f.Step(0.1, out bool d1);
+        Assert.False(d1); Assert.InRange(a, -32.1f, -31.9f);   // a fifth of the way from -25 to -60
+        f.Start(-10f);   // ignored while running
+        float b = f.Step(0.3, out bool d2);
+        Assert.False(d2); Assert.True(b < a);
+        f.Step(0.1, out bool d3);
+        Assert.True(d3); Assert.False(f.Active);   // 0.5 s in all: stopped
+        f.Start(-20f); f.Cancel();
+        Assert.False(f.Active);
+        Assert.Equal(WeatherThunderFade.Seconds, WeatherBedFade.Seconds);   // the beds and the thunder go down together
+    }
+
+    [Fact]
     public void Weather_fix_2_a_pin_without_the_developer_tools_gate_draws_the_servers_phase()
     {
         var a = new WeatherClientModel { PinPhase = WeatherPhase.Peak };   // not allowed: an ordinary client

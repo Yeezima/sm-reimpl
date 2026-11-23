@@ -60,8 +60,26 @@ public sealed class WeatherClientModel
     /// <summary>Whether a requested pin may act (weather fix 2: the developer-tools session only). Lapsing returns the clock to the server's at once.</summary>
     public bool PinAllowed { get => _pinAllowed; set { _pinAllowed = value; Refresh(); } }
 
+    /// <summary>
+    /// Repair 2 test aid (<c>--weather-pin lull</c>, the F6 word <c>wxpin:lull</c>): the clock this client draws is held at the very end of the preset's recovery, its lull (the lowest the active level gets), not looping, so a still or a
+    /// sound level can be taken at the lull; a phase pin held only the phase's own loop, whose recovery starts at full. Same gate as <see cref="PinPhase"/>.
+    /// </summary>
+    public bool PinLull { get => _pinLull; set { _pinLull = value; Refresh(); } }
+    bool _pinLull;
+
     /// <summary>The pin is acting now.</summary>
-    public bool Pinned => _pinAllowed && _pinPhase is not null;
+    public bool Pinned => _pinAllowed && (_pinPhase is not null || _pinLull);
+
+    /// <summary>A pin word: the four phase names, or <c>lull</c> (repair 2), or <c>full</c> (the peak); false for anything else.</summary>
+    public static bool TryParsePinWord(string? text, out WeatherPhase? phase, out bool lull)
+    {
+        phase = null; lull = false;
+        string t = text?.Trim().ToLowerInvariant() ?? "";
+        if (t == "lull") { lull = true; return true; }
+        if (t == "full") { phase = WeatherPhase.Peak; return true; }
+        if (TryParsePin(t, out var p)) { phase = p; return true; }
+        return false;
+    }
 
     /// <summary>Only the four phase names (any case) are a pin; a number such as "7" or "-1", an empty text or any other word is not (<see cref="Enum.TryParse{T}(string, bool, out T)"/> alone takes numbers and would index past the phases).</summary>
     public static bool TryParsePin(string? text, out WeatherPhase phase)
@@ -86,8 +104,16 @@ public sealed class WeatherClientModel
 
     void ApplyPin()
     {
-        if (!Pinned || !_have || _wire.Id == WeatherId.None || _pinPhase is not { } phase || !Enum.IsDefined(phase)) return;
+        if (!Pinned || !_have || _wire.Id == WeatherId.None) return;
         var def = WeatherCatalog.Of(_wire.Id);
+        if (_pinLull)
+        {
+            double all = 0; foreach (var sec in def.Seconds) all += sec;
+            double lullAt = all - 1e-3;   // the last moment of the first recovery: the lull
+            _elapsed = _wire.SpanSeconds > 0 ? lullAt * _wire.SpanSeconds / all : lullAt;
+            return;
+        }
+        if (_pinPhase is not { } phase || !Enum.IsDefined(phase)) return;
         double start = 0, total = 0;
         for (int i = 0; i < def.Seconds.Length; i++) { if (i < (int)phase) start += def.Seconds[i]; total += def.Seconds[i]; }
         double len = Math.Max(def.Duration(phase), 1e-3);

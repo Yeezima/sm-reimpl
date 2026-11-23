@@ -46,7 +46,12 @@ public class WeatherPlanTests
     public void Follow_db_is_the_amplitude_of_the_share_and_never_below_silence()
     {
         Assert.Equal(-22f, WeatherPlan.FollowDb(1f, -22f, -60f), 3);
-        Assert.Equal(-22f - 6.02f, WeatherPlan.FollowDb(0.5f, -22f, -60f), 2);
+        Assert.Equal(-22f - 6f, WeatherPlan.FollowDb(0.5f, -22f, -60f), 3);   // repair 2: -6 dB at the active floor
+        foreach (var id in new[] { WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall })
+        {
+            float lull = WeatherClock.Lull(WeatherCatalog.Of(id));
+            Assert.InRange(-22f - WeatherPlan.FollowDb(lull, -22f, -60f), 4f, 6f);   // each lull 4 to 6 dB down
+        }
         Assert.Equal(-60f, WeatherPlan.FollowDb(0f, -22f, -60f));
         Assert.Equal(-60f, WeatherPlan.FollowDb(0.0001f, -22f, -60f));
         Assert.Equal(-60f, WeatherPlan.FollowDb(float.NaN, -22f, -60f));

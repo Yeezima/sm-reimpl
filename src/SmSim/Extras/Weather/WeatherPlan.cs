@@ -159,15 +159,21 @@ public static class WeatherPlan
         return Math.Clamp(float.IsFinite(s.Intensity) ? s.Intensity : 0f, 0f, 1f);
     }
 
+    /// <summary>The level a followed loop has at the active floor's share (0.5) under its loudest (dB; repair 2: the lulls, 0.55 to 0.65, then sit 4 to 6 dB down).</summary>
+    public const float FollowFloorDb = -6f;
+
     /// <summary>
-    /// A loop's gain (dB) that follows a visual share (the weather finish: "weather audio follows the visual intensity"): the amplitude is proportional to the share, so half the rain sounds 6 dB under the full rain, not
-    /// near silence; <paramref name="loudestDb"/> at a share of 1, <paramref name="silentDb"/> at 0 and never below it.
+    /// A loop's gain (dB) that follows a visual share (the weather finish: "weather audio follows the visual intensity"; repair 2: linear in dB across the active range): <paramref name="loudestDb"/> at a share of 1, <see cref="FollowFloorDb"/>
+    /// under it at the active floor (0.5), so each preset's lull (rain 0.65: -4.2 dB, storm 0.6: -4.8 dB, ash 0.55: -5.4 dB) is 4 to 6 dB down; below the floor the amplitude falls with the share toward
+    /// <paramref name="silentDb"/>, never below it.
     /// </summary>
     public static float FollowDb(float share, float loudestDb, float silentDb)
     {
         float v = Math.Clamp(float.IsFinite(share) ? share : 0f, 0f, 1f);
         if (v <= 0f) return silentDb;
-        return Math.Max(silentDb, loudestDb + 20f * MathF.Log10(v));
+        float floor = WeatherClock.ActiveFloor;
+        float db = v >= floor ? loudestDb + FollowFloorDb * (1f - (v - floor) / (1f - floor)) : loudestDb + FollowFloorDb + 20f * MathF.Log10(v / floor);
+        return Math.Max(silentDb, db);
     }
 
     /// <summary>Ember Wind's embers (0 to 1 of a deliberately small full count): sparse and steady, a little more with the phase's intensity.</summary>

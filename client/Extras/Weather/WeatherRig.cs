@@ -22,7 +22,7 @@ public sealed partial class WeatherRig : Node3D
     /// <summary>The loudest the wind bed gets (dB), the loudest a far and a near thunder gets (dB, procedural; the install's own are posted by the view at their own level offset).</summary>
     public const float WindLoudestDb = -20f, FarThunderDb = -20f, NearThunderDb = -14f;
     /// <summary>Ash flecks at the High preset (the dense emitter; the warning's emitter is a fifth of it), embers at the High preset.</summary>
-    public const int AshCount = 1300, EmberCount = 70;   // repair 1: 800 read as a few specks at the squall's peak
+    public const int AshCount = 2400, EmberCount = 70;   // repair 2: the grit streaks at High (repair 1's 1300 dots and W2's 800 read as a few specks); the soft flakes are a fifth of it
 
     CpuParticles3D? _rain, _rainFar, _splash, _mist;
     ShaderMaterial? _rainMaterial, _rainFarMaterial;
@@ -160,10 +160,18 @@ public sealed partial class WeatherRig : Node3D
         }
         if (_hiss is not null)
         {
-            float db = rain ? WeatherPlan.FollowDb(rainShare, LoudestDb, SilentDb) + WeatherShelterMix.RainDb(Shelter) : SilentDb;   // the weather finish: the hiss's amplitude follows the rain's share
-            _hiss.VolumeDb = db;
-            if (rain && !_hiss.Playing) _hiss.Play();
-            else if (!rain && _hiss.Playing) _hiss.Stop();
+            if (rain)
+            {
+                _hissFade.Cancel();
+                _hiss.VolumeDb = WeatherPlan.FollowDb(rainShare, LoudestDb, SilentDb) + WeatherShelterMix.RainDb(Shelter);   // the weather finish: the hiss's level follows the rain's share
+                if (!_hiss.Playing) _hiss.Play();
+            }
+            else if (_hiss.Playing)
+            {
+                _hissFade.Start(_hiss.VolumeDb);   // repair 2: no cut; a 0.5 s fade to silence, then the stop (WeatherBedFade)
+                _hiss.VolumeDb = _hissFade.Step(RealDt, out bool done);
+                if (done) _hiss.Stop();
+            }
         }
         UpdateFx(st, i, wind);
         UpdateFog(st, i, cameraAt, groundY);
@@ -172,7 +180,35 @@ public sealed partial class WeatherRig : Node3D
     }
 
     /// <summary>Anything of the rig is showing or sounding (the view keeps the rig while this holds).</summary>
-    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing;
+    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing || BedsFading;
+
+    // ---- repair 2: the beds' fades and the level aid ----
+
+    readonly WeatherBedFade _hissFade = new(), _windFade = new();
+    ulong _realLastMs;
+    double _realDt;
+    ulong _realFrame = ulong.MaxValue;
+
+    /// <summary>Real seconds since the last frame (one value a frame; never the weather clock, which a held wire stops).</summary>
+    double RealDt
+    {
+        get
+        {
+            ulong frame = Engine.GetProcessFrames();
+            if (frame == _realFrame) return _realDt;
+            _realFrame = frame;
+            ulong now = Time.GetTicksMsec();
+            _realDt = _realLastMs == 0 ? 0 : Math.Min(0.25, (now - _realLastMs) / 1000.0);
+            _realLastMs = now;
+            return _realDt;
+        }
+    }
+
+    /// <summary>A bed is fading out now (the rig stays until it has).</summary>
+    public bool BedsFading => _hissFade.Active || _windFade.Active;
+    /// <summary>The hiss's and the wind bed's gains now (dB; the silent level when not playing), for the level aid and the selftest.</summary>
+    public float HissDb => _hiss is { Playing: true } ? _hiss.VolumeDb : SilentDb;
+    public float WindDb => _wind is { Playing: true } ? _wind.VolumeDb : SilentDb;
 
     /// <summary>The far layer rains in a ring (a hole round the player) under cover and in its full box in the open; flips with a gap so it does not chatter.</summary>
     void FarHole()
