@@ -149,6 +149,10 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public const string StabPerk = "mp_perk_improved_bullrush";
     /// <summary>Test aid: <c>SM_OLD_SWORD_FF=1</c> (server and client alike) restores the power sword's F + F stomp before sim/sword-ff-stab.</summary>
     static readonly bool OldSwordFf = Environment.GetEnvironmentVariable("SM_OLD_SWORD_FF") == "1";
+    /// <summary>Test aid: <c>SM_OLD_STAB_COMBO=1</c> (server and client alike; config hash) restores the 11-14 rule before sim/stab-key-only: the sword's F + F finisher is the stab, and no stomp.</summary>
+    static readonly bool OldStabCombo = Environment.GetEnvironmentVariable("SM_OLD_STAB_COMBO") == "1";
+    /// <summary>sim/stab-key-only (owner 2026-11-23): the 1-based heavy-list index of the appended stab strike of <paramref name="weapon"/> (after its heavies and finishers), or 0 for a weapon with none.</summary>
+    public static int StabStepOf(WeaponMap weapon) => weapon.StabHeavy <= 0 ? 0 : OldStabCombo ? weapon.HeavySequencers.Length + 1 : weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length + 1;
     [ThreadStatic] static bool _noStab;
     /// <summary>
     /// sim/sword-ff-stab is Classic PvP's: until the result is disposed this thread reads the F + F finisher as the data's stomp again (<see cref="GameplayTuning.LoadForMatch"/> under
@@ -475,20 +479,27 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             }
             catch (InvalidDataException e) { notes.Add($"heavy strike {i + 1}: {e.Message}; the heavy chain stops before it"); break; }
         }
-        // sim/sword-ff-stab: the finisher is the weapon's stab (see WeaponMap.StabHeavy).
+        // sim/sword-ff-stab (2026-11-14) made the finisher the weapon's stab (see WeaponMap.StabHeavy); sim/stab-key-only (owner, 2026-11-23): the finisher is the data's stomp again and the stab is a
+        // strike of its own appended after the finishers (MeleeStep.Stab, YNext 0), which only the Sword Stab key reaches (Combat.StabIndex): no chain points at it. SM_OLD_STAB_COMBO=1: the 11-14 replacement.
+        (MeleeStep Step, string Animation)? stabStep = null;
         if (weapon.StabHeavy > 0) StabApplied = false;   // this read decides (the last read of the match's tuning wins)
         if (weapon.StabHeavy > 0 && SwordStabOn && heavy.Count == weapon.HeavySequencers.Length + weapon.FinisherSequencers.Length && weapon.StabHeavy <= weapon.HeavySequencers.Length
             && StabHit(wargear, mapping, notes) is { } stabHit)
         {
-            int f = weapon.HeavySequencers.Length;
-            heavy[f] = heavy[weapon.StabHeavy - 1] with
+            var stab = heavy[weapon.StabHeavy - 1] with
             {
                 Stomp = null, YNext = 0, YComboOpen = 0f, YComboClose = 0f, Stab = true,
                 Damage = stabHit.Primary.Damage, ShieldDamage = stabHit.Primary.ShieldDamage, HealthMultiplier = stabHit.Primary.HealthMultiplier, ShieldMultiplier = stabHit.Primary.ShieldMultiplier,
                 DamageType = stabHit.Primary.Type == DamageType.Unknown ? DamageType.Melee : stabHit.Primary.Type,
                 PrimaryReaction = stabHit.Reaction, SecondaryDamage = 0f, SecondaryShieldDamage = 0f, SecondaryReaction = default,
             };
-            heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
+            if (OldStabCombo)
+            {
+                int f = weapon.HeavySequencers.Length;
+                heavy[f] = stab;
+                heavyAnimations[f] = heavyAnimations[weapon.StabHeavy - 1];
+            }
+            else stabStep = (stab, heavyAnimations[weapon.StabHeavy - 1]);
             StabApplied = true;
         }
         // sim/stab-release (owner 2026-11-20, "release early too"): in Musou Mode and Warfront (the read under WithoutSwordStab), the X,F thrust itself is released early and keeps its finisher chain.
@@ -505,6 +516,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             for (int i = weapon.HeavySequencers.Length; i < heavy.Count; i++)
                 heavy[i] = Finisher(heavy[i], steps[^1], weapon.FinisherRecoveryAsLight && !OldSlamRecovery, weapon.SteerFinishers && !OldSlamSteer, notes);
         }
+        if (stabStep is { } own) { heavy.Add(own.Step); heavyAnimations.Add(own.Animation); }   // sim/stab-key-only: after the finisher rules, so none of them touches the stab
         if (weapon.HopSwing && !OldHopSwing && steps.Count > 0) steps[0] = steps[0] with { HopSwing = true };   // sim/hop-swing
         if (range <= 0f) { notes.Add("no ability max_range; using 4"); range = 4f; }
         return new MeleeTuning(weapon.Wargear, steps, animations, range, notes) { Heavy = heavy, HeavyAnimations = heavyAnimations };

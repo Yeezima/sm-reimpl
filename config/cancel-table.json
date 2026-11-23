@@ -187,6 +187,11 @@
    "id": "flinch",
    "label": "Light-melee flinch (aim thrown off: 0.5 s, up to 6 deg on shots)",
    "note": "State only; included so the owner sees a light hit cancels nothing."
+  },
+  {
+   "id": "melee_stab",
+   "label": "Power Sword Stab in progress (Sword Stab key, T by default: X,F thrust clip 1.818 s, hit 0.636 s, released 0.909 s)",
+   "note": "POWER SWORD STAB section (owner 2026-11-23). Classic PvP, power sword only (Assault Marine, Raptor). Reached only by the Sword Stab key, never by a combo. Ends at its release (sim/stab-release)."
   }
  ],
  "cols": [
@@ -253,6 +258,10 @@
   {
    "id": "hit_plain",
    "label": "Being hit: damage or light-melee flinch (no reaction)"
+  },
+  {
+   "id": "stab",
+   "label": "Power Sword Stab key (T by default; power sword only)"
   }
  ],
  "cells": {
@@ -368,6 +377,13 @@
    "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing",
    "src": "src/SmSim/Spread.cs:200-204"
   },
+  "melee_light|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "melee_light_last|light": {
    "state": "window",
    "from": null,
@@ -479,6 +495,13 @@
    "until": null,
    "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing",
    "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "melee_light_last|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "melee_heavy|light": {
    "state": "queued",
@@ -592,6 +615,13 @@
    "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing",
    "src": "src/SmSim/Spread.cs:200-204"
   },
+  "melee_heavy|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "melee_stomp|light": {
    "state": "window",
    "from": null,
@@ -703,6 +733,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "melee_stomp|stab": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "The stab starts only once this state lets a melee press through (its melee branch or its release); before, refused",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "charge|light": {
    "state": "window",
@@ -816,6 +853,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "charge|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "charge_sprint|light": {
    "state": "window",
    "from": 1,
@@ -927,6 +971,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "charge_sprint|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "charge_air|light": {
    "state": "yes",
@@ -1040,6 +1091,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "charge_air|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "charge_stop|light": {
    "state": "window",
    "from": null,
@@ -1151,6 +1209,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "charge_stop|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "dash_attack|light": {
    "state": "yes",
@@ -1264,6 +1329,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "dash_attack|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "evade_roll|light": {
    "state": "window",
    "from": null,
@@ -1375,6 +1447,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "evade_roll|stab": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "The stab starts only once this state lets a melee press through (its melee branch or its release); before, refused",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "evade_hop|light": {
    "state": "window",
@@ -1488,6 +1567,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "evade_hop|stab": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "The stab starts only once this state lets a melee press through (its melee branch or its release); before, refused",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "jp_takeoff|light": {
    "state": "queued",
    "from": null,
@@ -1599,6 +1685,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "jp_takeoff|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "jp_hop|light": {
    "state": "yes",
@@ -1712,6 +1805,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "jp_hop|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "jp_flight|light": {
    "state": "yes",
    "from": null,
@@ -1823,6 +1923,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "jp_flight|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "jp_dive|light": {
    "state": "queued",
@@ -1936,6 +2043,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "jp_dive|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "jp_recover|light": {
    "state": "queued",
    "from": null,
@@ -2047,6 +2161,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "jp_recover|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "jp_landed|light": {
    "state": "yes",
@@ -2160,6 +2281,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "jp_landed|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "hip_fire|light": {
    "state": "yes",
    "from": null,
@@ -2271,6 +2399,13 @@
    "until": null,
    "note": "Light-melee flinch only widens scatter",
    "src": "src/SmSim/Spread.cs:188-193"
+  },
+  "hip_fire|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "aim_fire|light": {
    "state": "yes",
@@ -2384,6 +2519,13 @@
    "note": "Light-melee flinch only widens scatter",
    "src": "src/SmSim/Spread.cs:188-193"
   },
+  "aim_fire|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "charged_shot|light": {
    "state": "yes",
    "from": null,
@@ -2495,6 +2637,13 @@
    "until": null,
    "note": "Damage cancels nothing (an overheat from the charge does)",
    "src": ""
+  },
+  "charged_shot|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "reload|light": {
    "state": "no",
@@ -2608,6 +2757,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "reload|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "switch|light": {
    "state": "no",
    "from": null,
@@ -2719,6 +2875,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "switch|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "raise|light": {
    "state": "yes",
@@ -2832,6 +2995,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "raise|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "grenade|light": {
    "state": "queued",
    "from": null,
@@ -2943,6 +3113,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "grenade|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "stim|light": {
    "state": "queued",
@@ -3056,6 +3233,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "stim|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "sprint|light": {
    "state": "yes",
    "from": null,
@@ -3167,6 +3351,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "sprint|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "sprint_stop|light": {
    "state": "yes",
@@ -3280,6 +3471,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "sprint_stop|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "brace_enter|light": {
    "state": "queued",
    "from": null,
@@ -3391,6 +3589,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "brace_enter|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "braced|light": {
    "state": "no",
@@ -3504,6 +3709,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "braced|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "brace_exit|light": {
    "state": "queued",
    "from": null,
@@ -3615,6 +3827,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "brace_exit|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "vent|light": {
    "state": "yes",
@@ -3728,6 +3947,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "vent|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "exec_doing|light": {
    "state": "na",
    "from": null,
@@ -3839,6 +4065,13 @@
    "until": null,
    "note": "Executions not in Classic PvP versus",
    "src": "docs/fidelity-gaps.md:23"
+  },
+  "exec_doing|stab": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Not applicable",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "exec_victim|light": {
    "state": "na",
@@ -3952,6 +4185,13 @@
    "note": "Executions not in Classic PvP versus",
    "src": "docs/fidelity-gaps.md:23"
   },
+  "exec_victim|stab": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Not applicable",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "react_interrupt|light": {
    "state": "yes",
    "from": null,
@@ -4063,6 +4303,13 @@
    "until": null,
    "note": "Damage cancels nothing",
    "src": ""
+  },
+  "react_interrupt|stab": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "The stab press acts as from rest: it ends this state and the stab starts (refusals as a heavy press)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "react_stun|light": {
    "state": "no",
@@ -4176,6 +4423,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "react_stun|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "react_stagger|light": {
    "state": "no",
    "from": null,
@@ -4288,6 +4542,13 @@
    "note": "Damage cancels nothing",
    "src": ""
   },
+  "react_stagger|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
   "flinch|light": {
    "state": "na",
    "from": null,
@@ -4399,6 +4660,132 @@
    "until": null,
    "note": "A second light hit restarts it at full; nothing shortens it",
    "src": "src/SmSim/Spread.cs:200-204"
+  },
+  "flinch|stab": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Not applicable",
+   "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
+  },
+  "melee_stab|light": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Light press queued for light attack 1 after the stab (the combo window of the X,F clip it copies); at the release it acts as from rest",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|heavy": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "No Y chain out of the stab (YNext 0): a heavy press waits in the input buffer and replays at the release (heavy strike 1)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|charge": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Charge press ends the strike once its hit landed (the stomp is excluded); else buffered (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|roll": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Jump from BRANCH_Evade x0.7, never before hit (knife heavy 0.792/0.500/0.658/0.949 s); hop/roll same tick (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|pack": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Jump escape: any tick of any swing; take-off or hop starts the same tick (attack not given back) (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|fire": {
+   "state": "window",
+   "from": null,
+   "until": null,
+   "note": "Fire ends swing from RangedAt (knife 0.433/0.500/0.604 s) and fires that tick; bolt pistol: at once if a shot leaves (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|aim": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Aim mode needs no attack under way; resumes when the swing ends if Aim still held (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|reload": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Ignored during a swing; a reload in hand runs on (reload-keeps); press replays if in last 0.3 s (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|switch": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Switch needs no swing under way; waits in the 0.3 s input buffer (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|grenade": {
+   "state": "queued",
+   "from": null,
+   "until": null,
+   "note": "Throw needs no swing under way; waits in the 0.3 s input buffer (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|sprint": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Sprint bit stripped until MoveAt x0.7 (knife 0.545/0.653/0.643 s); sprinting never cancels the swing (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|stick": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|back": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|exec": {
+   "state": "na",
+   "from": null,
+   "until": null,
+   "note": "Not applicable",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|hit_react": {
+   "state": "yes",
+   "from": null,
+   "until": null,
+   "note": "Reaction clears the strike unless a NoReact window covers it (slam/kick data: ability_displace_slam immunity) (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|hit_plain": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "Light hits only flinch the aim (0.5 s, up to 6 deg scatter); damage cancels nothing (as a heavy strike)",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
+  },
+  "melee_stab|stab": {
+   "state": "no",
+   "from": null,
+   "until": null,
+   "note": "A second stab press is refused until the stab releases at 0.909 s (StabTuning.ReleaseAt); the row ends there",
+   "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
   }
  },
  "overrides": []

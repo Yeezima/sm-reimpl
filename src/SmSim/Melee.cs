@@ -149,7 +149,8 @@ public readonly record struct MeleeStep(
 
     /// <summary>
     /// sim/stab-key (owner, 2026-11-17; protocol 81): the strike is the sword's stab, which <see cref="InputButtons.Stab"/> (T) starts from rest on its own, with no precursor move
-    /// (<see cref="Combat.StabIndex"/>); F + F still chains into it. Set by the content reader on the finisher it turns into the stab (Classic PvP only). Hashed only when set.
+    /// (<see cref="Combat.StabIndex"/>). Since sim/stab-key-only (owner 2026-11-23) it is a strike of its own after the finishers that no chain names (F + F is the stomp again), so only the key starts it.
+    /// Set by the content reader on the copy of the X,F strike it appends (Classic PvP only). Hashed only when set.
     /// </summary>
     public bool Stab { get; init; }
     /// <summary>

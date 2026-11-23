@@ -550,7 +550,10 @@ public static partial class Protocol
     //     move, fire, switch, grenade, melee and charge act from that tick (evade one tick later). Client prediction must agree, hence the bump. Restore switch (config hash): --old-stab-release.
     // 89 (fix 7, classic/spawn-choice-order; Codex review, owner 2026-11-22): SpawnRequest gains a u16 revision (10 bytes, was 8). The client numbers each new respawn choice and keeps the number on its resends; the server takes only a newer
     //     revision per player (wrapping comparison; equal = a resend, older = ignored), so a reordered stale request cannot override the last choice. No sim change; the config hash is unchanged.
-    public const ushort Version = 89;
+    // 90 (sim/stab-key-only; the owner 2026-11-23): no layout change. Classic PvP's power sword: F + F (and every chain into the Y,Y finisher) is the data's stomp again; the stab is a heavy strike of its own after
+    //     the finishers that only the Sword Stab key (input bit 15) starts. The cancel matrix gains the Power Sword Stab row (melee_stab) and column (stab), appended last (DevCancel row/column ranges grow by one).
+    //     Prediction must agree, hence the bump; the Classic config hash changes too.
+    public const ushort Version = 90;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

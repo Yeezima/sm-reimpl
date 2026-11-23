@@ -89,11 +89,17 @@ public partial class CancelEditorPanel : CanvasLayer
         var doc = CancelData.Doc;
         grid.AddChild(new Label { Text = "" });
         for (int c = 0; c < CancelLayout.ColCount; c++)
-            grid.AddChild(new Label { Text = $"{c + 1} {ColName(c)}", CustomMinimumSize = new Vector2(44, 0), ClipText = true, TooltipText = doc.ColLabel(c), Modulate = Blue, MouseFilter = Control.MouseFilterEnum.Pass });
+            grid.AddChild(new Label { Text = $"{c + 1} {ColName(c)}", CustomMinimumSize = new Vector2(44, 0), ClipText = true, TooltipText = doc.ColLabel(c), Modulate = IsStabCol(c) ? StabTint : Blue, MouseFilter = Control.MouseFilterEnum.Pass });
         _cells = new Godot.Button[CancelLayout.RowCount, CancelLayout.ColCount];
         for (int r = 0; r < CancelLayout.RowCount; r++)
         {
-            grid.AddChild(new Label { Text = $"{r + 1} {Short(doc.RowLabel(r))}", CustomMinimumSize = new Vector2(250, 0), ClipText = true, TooltipText = doc.RowLabel(r), MouseFilter = Control.MouseFilterEnum.Pass });
+            // sim/stab-key-only (owner 2026-11-23): the Power Sword Stab section, its own heading above its row; its column (the Sword Stab key) is tinted the same way.
+            if (IsStabRow(r))
+            {
+                grid.AddChild(new Label { Text = "POWER SWORD STAB (Sword Stab key only; column Stab = the key pressed during any action)", Modulate = StabTint, MouseFilter = Control.MouseFilterEnum.Pass });
+                for (int c = 0; c < CancelLayout.ColCount; c++) grid.AddChild(new Control { MouseFilter = Control.MouseFilterEnum.Ignore });
+            }
+            grid.AddChild(new Label { Text = $"{r + 1} {Short(doc.RowLabel(r))}", CustomMinimumSize = new Vector2(250, 0), ClipText = true, TooltipText = doc.RowLabel(r), Modulate = IsStabRow(r) ? StabTint : Colors.White, MouseFilter = Control.MouseFilterEnum.Pass });
             for (int c = 0; c < CancelLayout.ColCount; c++)
             {
                 int rr = r, cc = c;
@@ -125,7 +131,11 @@ public partial class CancelEditorPanel : CanvasLayer
         RefreshImports();
     }
 
-    string ColName(int c) => CancelLayout.Cols[c] switch { "light" => "Lt", "heavy" => "Hv", "charge" => "Chg", "roll" => "Roll", "pack" => "Pack", "fire" => "Fire", "aim" => "Aim", "reload" => "Rld", "switch" => "Swt", "grenade" => "Gren", "sprint" => "Spr", "stick" => "WAD", "back" => "S", "exec" => "Exe", "hit_react" => "Stun", "hit_plain" => "Hit", var o => o };
+    static readonly Color StabTint = new(1f, 0.55f, 0.85f);
+    static bool IsStabRow(int r) => CancelLayout.Rows[r] == CancelData.StabRowId;
+    static bool IsStabCol(int c) => CancelLayout.Cols[c] == CancelData.StabColId;
+
+    string ColName(int c) => CancelLayout.Cols[c] switch { "stab" => "Stab","light" => "Lt", "heavy" => "Hv", "charge" => "Chg", "roll" => "Roll", "pack" => "Pack", "fire" => "Fire", "aim" => "Aim", "reload" => "Rld", "switch" => "Swt", "grenade" => "Gren", "sprint" => "Spr", "stick" => "WAD", "back" => "S", "exec" => "Exe", "hit_react" => "Stun", "hit_plain" => "Hit", var o => o };
 
     (SpinBox, CheckBox) TimeRow(VBoxContainer into, string label)
     {
