@@ -156,7 +156,7 @@ public static class WeatherPlan
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         if (i <= 0f) return silentDb;
         float wobble = GustDbShare * 20f * MathF.Log10(Gust(elapsed));
-        return Math.Max(silentDb, FollowDb(i, loudestDb, silentDb) + wobble);
+        return Math.Clamp(FollowDb(i, loudestDb, silentDb) + wobble, silentDb, loudestDb);   // never above the cap on a gust crest
     }
 
     // ---- what is drawn, by preset ----

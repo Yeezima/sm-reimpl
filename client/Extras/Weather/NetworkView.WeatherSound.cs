@@ -188,6 +188,7 @@ public partial class NetworkView
             if (_wxGritFading is not null) _sound.StopEmitter(_wxGritFading);   // an older fade ends at once
             _wxGritFading = _wxGrit; _wxGrit = null;
             _wxGritFade.Cancel(); _wxGritFade.Start(_wxGritFading.LiveDb);
+            if (LogSound("weather")) GD.Print($"weather grit: fading out over {WeatherBedFade.Seconds:0.0} s from {_wxGritFading.LiveDb:0.0} dB");
         }
         else if (_wxGrit is not null) _sound?.StopEmitter(_wxGrit);
         if (!fade && _wxGritFading is not null) { _sound?.StopEmitter(_wxGritFading); _wxGritFading = null; _wxGritFade.Cancel(); }
@@ -213,7 +214,7 @@ public partial class NetworkView
         if (_wxGritFade.Active && _wxGritFading is not null)
         {
             float db = _wxGritFade.Step(dt, out bool done);
-            if (done) { _sound?.StopEmitter(_wxGritFading); _wxGritFading = null; } else _wxGritFading.LiveDb = db;
+            if (done) { _sound?.StopEmitter(_wxGritFading); _wxGritFading = null; if (LogSound("weather")) GD.Print("weather grit: stopped after its fade"); } else _wxGritFading.LiveDb = db;
         }
     }
 

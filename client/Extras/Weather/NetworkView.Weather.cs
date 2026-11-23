@@ -148,7 +148,7 @@ public partial class NetworkView
     /// </summary>
     void WeatherAidsApply(bool gate)
     {
-        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null || _wxModel.PinLull || _wxModel.PinStrike;
+        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null || _wxModel.PinLull || _wxModel.PinStrike || _wxFlashOverride is not null;
         if (wanted && !gate && !_wxAidsNoteLogged && _client is { Status: ClientStatus.Connected } && _connectedFor >= 4.0) { _wxAidsNoteLogged = true; GD.Print("weather test aids ignored: this server has no developer tools"); }
         if (gate == _wxAidsGate) return;
         _wxAidsGate = gate;
@@ -199,7 +199,7 @@ public partial class NetworkView
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
         WeatherClientLink.TestMove = WeatherTestMoveWord;   // assigned each frame like Send (review: never a stale view's delegate)
         WeatherTestSlide();   // repair 1 test aid (F6 only): the camera slid sideways before the rig reads it
-        _wxModel.FullFlash = _wxFlashOverride ?? WeatherSettings.FullFlash;   // the player's storm lightning option (client only); repair 3: --storm-lightning or wxflash for this run only, never saved
+        _wxModel.FullFlash = (_client?.Dev is not null ? _wxFlashOverride : null) ?? WeatherSettings.FullFlash;   // the player's storm lightning option (client only); repair 3: --storm-lightning or wxflash for this run only, never saved, and only in an F6 developer-tools session
         WeatherAidsApply(_client?.Dev is not null);
         _wxModel.Advance(delta);
         var st = _wxModel.State;

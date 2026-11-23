@@ -86,7 +86,7 @@ public sealed class WeatherClientModel
     }
 
     /// <summary>The pin is acting now.</summary>
-    public bool Pinned => _pinAllowed && (_pinPhase is not null || _pinLull || _pinStrike);
+    public bool Pinned => _pinAllowed && (_pinPhase is not null || _pinLull || _pinStrike && _wire.Id == WeatherId.Thunderstorm);   // the strike pin acts only in a Thunderstorm (another preset keeps the server's clock)
 
     /// <summary>A pin word: the four phase names, or <c>lull</c> (repair 2), or <c>full</c> (the peak); false for anything else.</summary>
     public static bool TryParsePinWord(string? text, out WeatherPhase? phase, out bool lull)

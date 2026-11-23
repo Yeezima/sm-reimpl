@@ -62,7 +62,7 @@ public partial class NetworkView
             {
                 string w = parts.Length > 0 ? parts[0] : "";
                 if (w == "off") { _wxModel.PinPhase = null; _wxModel.PinLull = false; _wxModel.PinStrike = false; GD.Print("weather test pin: off (the server's clock)"); return true; }
-                if (WeatherClientModel.TryParsePinWord(w, out var phase, out bool lull)) { _wxModel.PinPhase = phase; _wxModel.PinLull = lull; _wxModel.PinStrike = w == "strike"; GD.Print($"weather test pin: {w} (client only)"); }
+                if (WeatherClientModel.TryParsePinWord(w, out var phase, out bool lull)) { _wxModel.PinPhase = phase; _wxModel.PinLull = lull; _wxModel.PinStrike = w.Equals("strike", StringComparison.OrdinalIgnoreCase); GD.Print($"weather test pin: {w} (client only)"); }
                 else GD.Print($"weather test pin: '{w}' is not lull, full, off or a phase name");
                 return true;
             }
