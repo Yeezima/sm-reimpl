@@ -143,7 +143,9 @@ public sealed partial class WeatherRig
     }
 
     /// <summary>Repair 1: the fleck colour (a pale grey-ochre ash, was a dark brown that vanished against dark walls) and its quad size (m; was 0.14).</summary>
-    public const float AshR = 0.56f, AshG = 0.50f, AshB = 0.42f, AshFleckM = 0.2f;
+    public const float AshR = 0.56f, AshG = 0.50f, AshB = 0.42f, AshFleckM = 0.12f;
+    /// <summary>Repair 1 (live look on Manufactorum): a fleck nearer than <see cref="AshNearFadeM"/> is invisible, full from <see cref="AshNearFullM"/> (m), so flecks at the lens never read as large blurred orbs.</summary>
+    public const float AshNearFadeM = 0.6f, AshNearFullM = 2.5f;
 
     CpuParticles3D BuildAsh(string name, int amount, out StandardMaterial3D material)
     {
@@ -154,6 +156,9 @@ public sealed partial class WeatherRig
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             AlbedoColor = new Color(AshR, AshG, AshB, 0.5f),
+            DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha,
+            DistanceFadeMinDistance = AshNearFadeM,
+            DistanceFadeMaxDistance = AshNearFullM,
             AlbedoTexture = SoftDot(),
             DisableFog = false,
         };
