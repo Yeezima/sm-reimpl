@@ -31,16 +31,24 @@ public class WeatherStormLayersTests
     }
 
     [Fact]
-    public void Thunderstorm_far_layers_ramp_in_through_buildup_and_out_through_recovery()
+    public void Thunderstorm_far_layers_follow_the_storms_active_level_full_at_once_never_gone()
     {
+        // the weather finish: the far layers are the storm's intensity (WeatherClock): 1 at the start, its lull 0.6 at the opening's and the recovery's end
         var t = WeatherId.Thunderstorm;
-        Assert.Equal((0f, 0f), WeatherStormLayers.Of(t, WeatherPhase.Opening, 0.9, 0f));
-        Assert.Equal((0f, 0f), WeatherStormLayers.Of(t, WeatherPhase.Buildup, 0.0, 0f));
-        Assert.Equal((0f, 0.5f), WeatherStormLayers.Of(t, WeatherPhase.Buildup, 0.5, 0f));
+        float lull = WeatherClock.Lull(WeatherCatalog.Of(t));
+        Assert.Equal((0f, 1f), WeatherStormLayers.Of(t, WeatherPhase.Opening, 0.0, 0f));
+        Assert.Equal(lull, WeatherStormLayers.Of(t, WeatherPhase.Opening, 1.0, 0f).Far, 4);
+        Assert.Equal(lull, WeatherStormLayers.Of(t, WeatherPhase.Buildup, 0.0, 0f).Far, 4);
         Assert.Equal((0f, 1f), WeatherStormLayers.Of(t, WeatherPhase.Buildup, 1.0, 0f));
         Assert.Equal((0f, 1f), WeatherStormLayers.Of(t, WeatherPhase.Peak, 0.3, 0f));
-        Assert.Equal((0f, 0.75f), WeatherStormLayers.Of(t, WeatherPhase.Recovery, 0.25, 0f));
-        Assert.Equal((0f, 0f), WeatherStormLayers.Of(t, WeatherPhase.Recovery, 1.0, 0f));
+        Assert.Equal(lull, WeatherStormLayers.Of(t, WeatherPhase.Recovery, 1.0, 0f).Far, 4);
+        // and they equal the clock's intensity at every moment of a cycle
+        var def = WeatherCatalog.Of(t);
+        for (double s = 0; s < 400; s += 2.5)
+        {
+            var st = WeatherClock.At(t, s);
+            Assert.Equal(st.Intensity, WeatherStormLayers.Of(t, st.Phase, st.PhaseSeconds / def.Duration(st.Phase), 0f).Far, 3);
+        }
     }
 
     [Fact]

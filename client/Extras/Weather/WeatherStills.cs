@@ -22,6 +22,14 @@ public sealed partial class WeatherStills : Node
     static readonly (string Name, WeatherId Id, double At)[] Moments =
     [
         ("none", WeatherId.None, 0),
+        ("clear", WeatherId.Clear, 0.5),   // the weather finish: the map's own look, exactly
+        ("clear-after-rain", WeatherId.Clear, 0.5),   // Clear entered from a running Rain: the rain, its sky and its sound are gone
+        ("lowfog-start", WeatherId.LowFog, 0.5),   // the ground fog, full at once
+        ("lowfog-peak", WeatherId.LowFog, 150),
+        ("rain-start", WeatherId.Rain, 0.5),   // full at once
+        ("rain-lull", WeatherId.Rain, 45),   // the opening's end: the lightest the rain gets
+        ("rain-fast-nolead", WeatherId.Rain, 130),   // the camera moving sideways at 20 m/s with the lead held at 0 (the old emitter): the dry gap
+        ("rain-fast-lead", WeatherId.Rain, 130),   // the same move with the lead: covered
         ("thunderstorm-buildup", WeatherId.Thunderstorm, 100),
         ("thunderstorm-peak-glow", WeatherId.Thunderstorm, -1),   // the first strike's flash at the peak
         ("thunderstorm-peak-between", WeatherId.Thunderstorm, -2),   // a moment between strikes
@@ -46,6 +54,7 @@ public sealed partial class WeatherStills : Node
         if (dir.Length == 0 && Array.IndexOf(args, "--weather-perf") < 0) { GD.Print("WEATHER STILLS: no output folder (--weather-stills <dir>)"); GetTree().Quit(1); return; }
         if (dir.Length > 0) Directory.CreateDirectory(dir);
         GetWindow().Size = new Vector2I(960, 540);
+        if (Array.IndexOf(args, "--weather-perf") < 0) Engine.MaxFps = 60;   // stills: real-time pacing, so the sky blend and the 20 m/s move are what they say
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
         var env = new Godot.Environment
@@ -85,25 +94,39 @@ public sealed partial class WeatherStills : Node
             model.FullFlash = full;
             model.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
             // two views: a player's (1.7 m, looking down the street) and a third person (behind and above the marine)
-            foreach (var (view, pos, look) in new[] { ("player", new Vector3(0f, 1.7f, 18f), new Vector3(0f, 1.6f, -20f)), ("third", new Vector3(2.2f, 2.6f, 24f), new Vector3(0f, 1.2f, 16f)) })
+            bool fast = name.StartsWith("rain-fast");
+            if (name == "clear-after-rain")
+            {
+                var wet = new WeatherDirector(WeatherId.Rain); wet.Advance(130);
+                model.Receive(WeatherWire.Encode(WeatherWire.Of(wet)));
+                cam.GlobalPosition = new Vector3(0f, 1.7f, 18f); cam.LookAt(new Vector3(0f, 1.6f, -20f), Vector3.Up);
+                for (int f = 0; f < 240; f++) { var ws = model.State; grade.Frame(env, sun); rig.Update(ws, model.EffectiveIntensity, cam.GlobalPosition, 0f); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
+                model.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
+            }
+            foreach (var (view, pos, look) in fast
+                ? new[] { ("player", new Vector3(-6f, 1.7f, 26f), new Vector3(20f, 1.6f, 26f)) }   // looking across the street while moving down it: a sideways move
+                : new[] { ("player", new Vector3(0f, 1.7f, 18f), new Vector3(0f, 1.6f, -20f)), ("third", new Vector3(2.2f, 2.6f, 24f), new Vector3(0f, 1.2f, 16f)) })
             {
                 cam.GlobalPosition = pos; cam.LookAt(look, Vector3.Up);
                 // let the particles fill the air (real time) with the clock running at the chosen moment
                 var st = model.State;
-                for (int f = 0; f < 150; f++)
+                if (fast) rig!.ForceLeadVelocity(name.EndsWith("nolead") ? Vector3.Zero : new Vector3(0f, 0f, -20f));
+                for (int f = 0; f < 240; f++)
                 {
+                    if (fast && f >= 120) { cam.GlobalPosition += new Vector3(0f, 0f, -20f * (float)GetProcessDeltaTime()); cam.LookAt(cam.GlobalPosition + new Vector3(20f, -0.1f, 0f), Vector3.Up); }   // 20 m/s for the last two seconds (an estimate of the top practical sideways speed: a jump-pack boost)
                     grade.Frame(env, sun);
-                    rig!.SetShelter(roofed ? 1f : 0f, false); rig!.Update(WeatherClock.At(st.Id, st.Elapsed), model.EffectiveIntensity, cam.GlobalPosition);
+                    rig!.SetShelter(roofed ? 1f : 0f, false); rig!.Update(WeatherClock.At(st.Id, st.Elapsed), model.EffectiveIntensity, cam.GlobalPosition, 0f);
                     await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 }
                 grade.Frame(env, sun);
-                rig!.SetShelter(roofed ? 1f : 0f, false); rig!.Update(WeatherClock.At(st.Id, st.Elapsed), model.EffectiveIntensity, cam.GlobalPosition);
+                if (fast) cam.GlobalPosition += new Vector3(0f, 0f, -20f * (float)GetProcessDeltaTime());
+                rig!.SetShelter(roofed ? 1f : 0f, false); rig!.Update(WeatherClock.At(st.Id, st.Elapsed), model.EffectiveIntensity, cam.GlobalPosition, 0f);
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 var img = GetViewport().GetTexture().GetImage();
                 string file = Path.Combine(dir, $"{name}-{view}.png");
                 var err = img.SavePng(file);
-                GD.Print($"STILL {name} {view} {st.Id} {st.Phase} t={st.Elapsed:F1}s intensity {st.Intensity:F2} glow {rig!.GlowAlpha:F3} fog x{env.FogDensity / fog0:F2} sun x{sun.LightEnergy / sun0:F2} exposure x{env.TonemapExposure / exp0:F2} ambient x{env.AmbientLightEnergy / amb0:F2} -> {file} ({err})");
+                GD.Print($"STILL {name} {view} {st.Id} {st.Phase} t={st.Elapsed:F1}s intensity {st.Intensity:F2} glow {rig!.GlowAlpha:F3} sky {rig!.SkyCover:F2} fogcards {(rig!.Fogging ? "on" : "off")} rain {(rig!.Raining ? "on" : "off")} lead {rig!.RainEmitterOffset.X:F1},{rig!.RainEmitterOffset.Z:F1} fog x{env.FogDensity / fog0:F2} sun x{sun.LightEnergy / sun0:F2} exposure x{env.TonemapExposure / exp0:F2} ambient x{env.AmbientLightEnergy / amb0:F2} -> {file} ({err})");
             }
         }
         WeatherClientLink.Model = null;
@@ -132,6 +155,7 @@ public sealed partial class WeatherStills : Node
             ("rain-peak", WeatherId.Rain, 130, false), ("thunderstorm-peak", WeatherId.Thunderstorm, 135, false),
             ("thunderstorm-under-roof", WeatherId.Thunderstorm, 135, true),
             ("squall-peak", WeatherId.AshSquall, 60 + 45 + 40, false), ("embers", WeatherId.EmberWind, 150, false),
+            ("lowfog-peak", WeatherId.LowFog, 150, false), ("clear", WeatherId.Clear, 150, false),   // the weather finish: the ground fog cards, and Clear (nothing added)
         };
         var lines = new System.Collections.Generic.List<string>();
         string header = $"PERF preset {MapLightingView.Preset} safe {SafeMode.Active} scale {WeatherRig.QualityScale():F2} renderer {RenderingServer.GetCurrentRenderingMethod()} window {GetWindow().Size.X}x{GetWindow().Size.Y} frames 400";

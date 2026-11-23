@@ -7,8 +7,8 @@ namespace SmSim.Extras.Weather;
 public readonly record struct WeatherState(WeatherId Id, WeatherPhase Phase, double PhaseSeconds, double Elapsed, float Intensity, int Span = 0);
 
 /// <summary>
-/// The weather cycle as a pure function of the seconds since a preset began: Opening once (intensity 0 up to the preset's opening level), then Buildup (opening level to 1), Peak (1) and Recovery (1 back to
-/// the opening level) repeating. The server and every client run it, so the phase byte the server sends and a client's own clock agree. <see cref="WeatherId.None"/> has phases but intensity 0 (no added weather).
+/// The weather cycle as a pure function of the seconds since a preset began: Opening once, then Buildup, Peak and Recovery repeating. Since the weather finish the intensity starts at 1 and stays within 0.5 to 1
+/// (<see cref="Make"/>: the opening eases from 1 to the preset's lull, the buildup back to 1, the peak holds 1, the recovery eases to the lull). The server and every client run it, so the phase byte the server sends and a client's own clock agree. <see cref="WeatherId.None"/> has phases but intensity 0 (no added weather).
 /// </summary>
 public static class WeatherClock
 {
@@ -47,18 +47,31 @@ public static class WeatherClock
         return s with { Elapsed = elapsed, Span = span };
     }
 
+    /// <summary>
+    /// Weather finish (owner brief 2026-11-23-series-36-weather-finish, item 3): the active lifecycle. An active preset starts at full strength (<see cref="ActiveFull"/>) the moment it begins and afterwards moves smoothly
+    /// between <see cref="ActiveFloor"/> and full: the opening eases from full down to the preset's lull, the buildup back up, the peak holds full, the recovery eases down to the lull again. Every join is a smoothstep, so the level
+    /// never steps and never reaches zero; there is no expiry (the cycle repeats until the preset is cleared or replaced, or the match ends). The lull is <c>ActiveFloor + (1 - ActiveFloor) x OpeningLevel</c>, so the catalog's
+    /// levels keep their order (Clear's lull is the highest, the Ash Squall's the lowest). None stays at 0 (no added weather).
+    /// </summary>
+    public const float ActiveFloor = 0.5f, ActiveFull = 1f;
+
+    /// <summary>The level an active preset eases down to between its peaks (0.5 to 1).</summary>
+    public static float Lull(WeatherDef def) => ActiveFloor + (ActiveFull - ActiveFloor) * Math.Clamp(float.IsFinite(def.OpeningLevel) ? def.OpeningLevel : 0f, 0f, 1f);
+
     static WeatherState Make(WeatherDef def, WeatherPhase phase, double into, double elapsed)
     {
-        double f = Math.Clamp(into / Math.Max(def.Duration(phase), 1e-6), 0, 1);
-        float o = def.OpeningLevel;
+        float f = Smooth((float)Math.Clamp(into / Math.Max(def.Duration(phase), 1e-6), 0, 1));
+        float low = Lull(def);
         float level = phase switch
         {
-            WeatherPhase.Opening => (float)(o * f),
-            WeatherPhase.Buildup => (float)(o + (1f - o) * f),
-            WeatherPhase.Peak => 1f,
-            _ => (float)(1f - (1f - o) * f),
+            WeatherPhase.Opening => ActiveFull - (ActiveFull - low) * f,
+            WeatherPhase.Buildup => low + (ActiveFull - low) * f,
+            WeatherPhase.Peak => ActiveFull,
+            _ => ActiveFull - (ActiveFull - low) * f,
         };
         if (def.Id == WeatherId.None) level = 0f;
         return new WeatherState(def.Id, phase, into, elapsed, level);
     }
+
+    static float Smooth(float x) => x * x * (3f - 2f * x);
 }

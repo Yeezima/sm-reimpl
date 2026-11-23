@@ -244,7 +244,7 @@ public class WeatherWireTests
             Assert.Equal(id, m.State.Id);
             Assert.False(m.Grade.IsIdentity, id + " must draw its own look");
             m.Receive(WeatherWire.Encode(At(id, 0)));
-            Assert.True(m.Grade.IsIdentity, id + " starts from the map's own look");
+            Assert.False(m.Grade.IsIdentity, id + " is full the moment it starts (the weather finish)");
         }
     }
 
@@ -252,11 +252,12 @@ public class WeatherWireTests
     public void None_and_zero_intensity_are_exactly_the_identity_so_teardown_returns_to_the_baseline()
     {
         Assert.True(WeatherGrade.For(WeatherId.None, 1f).IsIdentity);
-        foreach (var id in new[] { WeatherId.Clear, WeatherId.LowFog, WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall, WeatherId.EmberWind })
+        foreach (var id in new[] { WeatherId.LowFog, WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall, WeatherId.EmberWind })
         {
             Assert.True(WeatherGrade.For(id, 0f).IsIdentity);
             Assert.False(WeatherGrade.For(id, 1f).IsIdentity);
         }
+        for (float i = 0f; i <= 1f; i += 0.1f) Assert.True(WeatherGrade.For(WeatherId.Clear, i).IsIdentity);   // the weather finish: Clear is the authored look at every level
         var user = LightingPresets.For(LightingPresetChoice.PaleAshfall);
         Assert.Equal(user, WeatherGrade.Combine(user, LightingGrade.Identity));   // no weather: the player's preset alone
     }
@@ -278,7 +279,8 @@ public class WeatherWireTests
             Assert.True(g.FogDensity <= WeatherGrade.MaxFogFactor);
             Assert.True(g.SunEnergy >= 0.4f, $"{id} at {i}: sun {g.SunEnergy}");
         }
-        // stacked on the strongest lighting preset the limits still hold
+        // stacked on the strongest lighting preset the limits still hold (Clear is the identity since the weather finish: the player's preset alone, under its own limits)
+        if (WeatherGrade.For(id, 1f).IsIdentity) return;
         foreach (var choice in Enum.GetValues<LightingPresetChoice>())
         {
             var g = WeatherGrade.Combine(LightingPresets.For(choice), WeatherGrade.For(id, 1f));
@@ -288,11 +290,11 @@ public class WeatherWireTests
     }
 
     [Fact]
-    public void Low_fog_thickens_the_haze_clear_thins_it_and_rain_dims_the_sun()
+    public void Low_fog_adds_a_light_haze_clear_changes_nothing_and_rain_dims_the_sun()
     {
-        Assert.True(WeatherGrade.For(WeatherId.LowFog, 1f).FogDensity > 3f);
-        Assert.True(WeatherGrade.For(WeatherId.Clear, 1f).FogDensity < 0.6f);
-        Assert.True(WeatherGrade.For(WeatherId.Clear, 1f).SunEnergy > 1.4f);
+        float fog = WeatherGrade.For(WeatherId.LowFog, 1f).FogDensity;
+        Assert.InRange(fog, 1.3f, 2f);   // the ground fog is the rig's cards; the depth haze stays light so long sightlines stay usable
+        Assert.True(WeatherGrade.For(WeatherId.Clear, 1f).IsIdentity);
         Assert.True(WeatherGrade.For(WeatherId.Rain, 1f).SunEnergy < 0.5f);
     }
 }

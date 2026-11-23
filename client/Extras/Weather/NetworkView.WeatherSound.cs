@@ -67,7 +67,9 @@ public partial class NetworkView
                 if (!WeatherPostInstall(WxThunderEvent, WxWarningGainDb, ThunderPoint(7), "squall warning")) _wxRig?.PlayRumble(7, false, -4f);
             }
             if (st.Phase == WeatherPhase.Buildup && !WeatherPlan.Warning(st)) _wxWarned = false;
-            bool grit = WeatherPlan.AshShare(st) > 0.5f && _wxShelter.Level < WeatherShelterMix.GritStopAbove;   // under cover the grit stops (W4)
+            float ashShare = WeatherPlan.AshShare(st);
+            bool grit = ashShare > 0.02f && _wxShelter.Level < WeatherShelterMix.GritStopAbove;   // under cover the grit stops (W4); the weather finish: the grit runs through the whole active squall
+            if (_wxGritOn && _wxGrit is not null) _wxGrit.LiveDb = WeatherPlan.FollowDb(ashShare, 0f, -60f);   // and its level follows the ash (amplitude with the share: -5 dB at the squall's lull)
             double now = st.Elapsed;
             if (grit && (!_wxGritOn || !_wxGritLoops) && (now >= _wxGritUntil || now < _wxGritUntil - WxGritRepostSeconds) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
             {
@@ -156,7 +158,7 @@ public partial class NetworkView
         double ticks = Time.GetTicksMsec() / 1000.0, dt = _wxThunderLastTicks < 0 ? 0 : ticks - _wxThunderLastTicks;
         _wxThunderLastTicks = ticks;
         if (WeatherThunderFade.Fades(_wxFadePrev, id)) _wxThunderFade.Start();
-        else if (id != WeatherId.None && _wxThunderFade.Active) { _wxThunderFade.Cancel(); WeatherThunderFadeApply(0f); }   // the weather is back: nothing is fading
+        else if (!WeatherThunderFade.Silent(id) && _wxThunderFade.Active) { _wxThunderFade.Cancel(); WeatherThunderFadeApply(0f); }   // the weather is back: nothing is fading
         _wxFadePrev = id;
         if (!_wxThunderFade.Active) return;
         float db = _wxThunderFade.Step(dt);

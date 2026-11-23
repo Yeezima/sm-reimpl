@@ -8,7 +8,7 @@ namespace SmClient.Extras.Weather;
 /// The look of a weather preset as a <see cref="LightingGrade"/> (client only, cosmetic, presentation only; **ours**, estimates by eye for a playtest to refine; spec/behavior.md "Weather look"): the same
 /// multipliers and fog tint the OPTIONS lighting presets use, so the weather is applied by <c>LightingGradeView</c> on top of whatever the map's lighting wrote (the Ashfall storm included), in every renderer,
 /// and "None" is exactly the identity: nothing is touched and every base is written back. Limits kept on purpose so no weather hides players, objectives or the beacon (the lighting presets' own rule): the shade is never
-/// darker than the map's (ambient at least 1), exposure stays within 0.94 to 1.13, fog density at most 3.5 times the map's (a street 40 m long stays about 40 % clear at the peak of Low Fog).
+/// darker than the map's (ambient at least 1), exposure stays within 0.94 to 1.13, fog density at most 3.5 times the map's. Clear is the identity too (the weather finish).
 /// </summary>
 public static class WeatherGrade
 {
@@ -24,12 +24,11 @@ public static class WeatherGrade
         if (i <= 0f) return LightingGrade.Identity;
         return id switch
         {
-            // sunlight: a higher, brighter, warm-white sun, more colour, a thin pale haze
-            WeatherId.Clear => new(Exposure: 1f + 0.08f * i, Contrast: 1f + 0.04f * i, Saturation: 1f + 0.30f * i, SunEnergy: 1f + 0.55f * i, SunR: 1f + 0.04f * i, SunG: 1f + 0.02f * i, SunB: 1f - 0.06f * i,
-                Ambient: 1f + 0.20f * i, FogDensity: 1f - 0.50f * i, FogR: 0.62f, FogG: 0.66f, FogB: 0.72f, FogTint: 0.55f * i, Glow: 1f - 0.25f * i),
-            // street-level haze: a dim flat sun, the shade lifted by scatter, grey-blue fog 3.4 times the map's at the peak
-            WeatherId.LowFog => new(Exposure: 1f + 0.02f * i, Contrast: 1f - 0.08f * i, Saturation: 1f - 0.25f * i, SunEnergy: 1f - 0.40f * i, SunR: 1f - 0.06f * i, SunG: 1f - 0.02f * i,
-                Ambient: 1f + 0.18f * i, FogDensity: 1f + 2.4f * i, FogR: 0.60f, FogG: 0.63f, FogB: 0.67f, FogTint: 0.85f * i, Glow: 1f + 0.10f * i),
+            // the weather finish (owner brief 2026-11-23): Clear is the map's authored look exactly: no grade at all (the exception to every presentation rule)
+            WeatherId.Clear => LightingGrade.Identity,
+            // street-level haze (the weather finish): the ground fog itself is the rig's low cards; the grade only adds a light grey-blue depth haze (x1.6 at full) and a flat sun, so long sightlines stay usable
+            WeatherId.LowFog => new(Exposure: 1f + 0.02f * i, Contrast: 1f - 0.06f * i, Saturation: 1f - 0.18f * i, SunEnergy: 1f - 0.30f * i, SunR: 1f - 0.05f * i, SunG: 1f - 0.02f * i,
+                Ambient: 1f + 0.15f * i, FogDensity: 1f + 0.6f * i, FogR: 0.60f, FogG: 0.63f, FogB: 0.67f, FogTint: 0.75f * i, Glow: 1f + 0.08f * i),
             // overcast rain: a weak cool sun, desaturated, a cold grey haze, a touch more bloom on wet highlights
             WeatherId.Rain => new(Exposure: 1f - 0.05f * i, Contrast: 1f + 0.03f * i, Saturation: 1f - 0.25f * i, SunEnergy: 1f - 0.55f * i, SunR: 1f - 0.15f * i, SunG: 1f - 0.08f * i,
                 Ambient: 1f, FogDensity: 1f + 1.2f * i, FogR: 0.38f, FogG: 0.42f, FogB: 0.48f, FogTint: 0.70f * i, Glow: 1f + 0.15f * i),

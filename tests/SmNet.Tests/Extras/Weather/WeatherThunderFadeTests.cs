@@ -26,11 +26,12 @@ public class WeatherThunderFadeTests
     }
 
     [Fact]
-    public void Only_a_change_to_None_fades()
+    public void Only_a_change_to_None_or_Clear_fades()
     {
         Assert.True(WeatherThunderFade.Fades(WeatherId.Thunderstorm, WeatherId.None));
-        Assert.True(WeatherThunderFade.Fades(WeatherId.Clear, WeatherId.None));
-        Assert.False(WeatherThunderFade.Fades(WeatherId.Thunderstorm, WeatherId.Clear));
+        Assert.False(WeatherThunderFade.Fades(WeatherId.Clear, WeatherId.None));   // Clear has no thunder to fade
+        Assert.True(WeatherThunderFade.Fades(WeatherId.Thunderstorm, WeatherId.Clear));   // the weather finish: Clear has no weather audio
+        Assert.False(WeatherThunderFade.Fades(WeatherId.None, WeatherId.Clear));
         Assert.False(WeatherThunderFade.Fades(WeatherId.Thunderstorm, WeatherId.Rain));
         Assert.False(WeatherThunderFade.Fades(WeatherId.None, WeatherId.None));
         Assert.False(WeatherThunderFade.Fades(WeatherId.None, WeatherId.Thunderstorm));

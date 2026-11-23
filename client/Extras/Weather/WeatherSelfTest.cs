@@ -31,7 +31,12 @@ public sealed partial class WeatherSelfTest : Node
         return WeatherWire.Encode(WeatherWire.Of(d));
     }
 
-    static float AlphaOf(CpuParticles3D? p) => (p?.Mesh as PrimitiveMesh)?.Material is StandardMaterial3D m ? m.AlbedoColor.A : 0f;
+    static float AlphaOf(CpuParticles3D? p) => (p?.Mesh as PrimitiveMesh)?.Material switch
+    {
+        StandardMaterial3D m => m.AlbedoColor.A,
+        ShaderMaterial sm => sm.GetShaderParameter("tint").AsColor().A,   // the weather finish: the rain streaks are a shader
+        _ => 0f,
+    };
 
     static int Peak(AudioStreamWav w)
     {
@@ -57,7 +62,7 @@ public sealed partial class WeatherSelfTest : Node
 
         model.Receive(Section(WeatherId.LowFog, 200));   // the peak
         grade.Frame(env, sun);
-        Check("low fog peak: the haze is thicker, within 3.5 times", env.FogDensity > fog0 * 3f && env.FogDensity <= fog0 * 3.5f + 1e-6f, env.FogDensity.ToString());
+        Check("low fog peak: a light depth haze only (the ground fog is the rig's), within 3.5 times", env.FogDensity > fog0 * 1.4f && env.FogDensity <= fog0 * 2f + 1e-6f, env.FogDensity.ToString());
         Check("low fog peak: the shade is never darker", env.AmbientLightEnergy >= amb0);
 
         model.Receive(Section(WeatherId.Rain, 130));
@@ -66,7 +71,11 @@ public sealed partial class WeatherSelfTest : Node
 
         model.Receive(Section(WeatherId.Clear, 200));
         grade.Frame(env, sun);
-        Check("clear peak: the sun is brighter and the haze thinner", sun.LightEnergy > sun0 * 1.4f && env.FogDensity < fog0 * 0.6f, $"{sun.LightEnergy} {env.FogDensity}");
+        Check("clear, entered from rain: every value is the map's own, exactly (no grade)", env.FogDensity == fog0 && sun.LightEnergy == sun0 && env.TonemapExposure == exp0 && env.AmbientLightEnergy == amb0 && env.AdjustmentSaturation == sat0, $"{sun.LightEnergy} {env.FogDensity}");
+        model.Clear(); grade.Frame(env, sun);
+        model.Receive(Section(WeatherId.Clear, 0));
+        grade.Frame(env, sun);
+        Check("clear, from a clean start: every value is the map's own, exactly", env.FogDensity == fog0 && sun.LightEnergy == sun0 && env.TonemapExposure == exp0 && env.AmbientLightEnergy == amb0 && env.AdjustmentSaturation == sat0, $"{sun.LightEnergy} {env.FogDensity}");
 
         model.Receive(Section(WeatherId.Thunderstorm, 200));   // the peak (45 + 75 = 120 s)
         grade.Frame(env, sun);
@@ -104,7 +113,7 @@ public sealed partial class WeatherSelfTest : Node
         var fitted = new WeatherDirector(WeatherId.Rain, 600) { Held = true };
         model.Receive(WeatherWire.Encode(WeatherWire.Of(fitted)));
         grade.Frame(env, sun);
-        Check("classic held before play: the map's own look (the identity), the weather has not begun", model.Held && env.FogDensity == fog0 && sun.LightEnergy == sun0 && env.TonemapExposure == exp0, $"{sun.LightEnergy} {env.FogDensity}");
+        Check("classic held before play: the chosen weather shows at full at once (the weather finish), its clock still", model.Held && model.State.Intensity > 0.99f && sun.LightEnergy < sun0 * 0.6f, $"{sun.LightEnergy} {env.FogDensity}");
         fitted.Held = false; fitted.Advance(300);
         model.Receive(WeatherWire.Encode(WeatherWire.Of(fitted)));
         grade.Frame(env, sun);
@@ -183,22 +192,21 @@ public sealed partial class WeatherSelfTest : Node
         storm.PlayRumble(1, false); storm.PlayRumble(2, true);
         var players = 0; foreach (var c in storm.GetChildren()) if (c is AudioStreamPlayer p && p.Name.ToString().StartsWith("Thunder")) { players++; if (p.VolumeDb > WeatherRig.NearThunderDb + 0.01f) players += 100; }
         Check("thunder: a far and a near rumble play, never louder than the near limit", players == 2, players.ToString());
-        storm.Update(WeatherClock.At(WeatherId.Thunderstorm, 10), 0.1f, Vector3.Zero);   // the opening: nothing but a little wind
-        Check("thunderstorm opening: no rain", !storm.Raining);
+        var stormStart = WeatherClock.At(WeatherId.Thunderstorm, 0.2);
+        storm.Update(stormStart, stormStart.Intensity, Vector3.Zero);   // the weather finish: the storm is full the moment it starts
+        Check("thunderstorm start: full at once (rain, wind, its sky blending in)", stormStart.Intensity > 0.99f && storm.Raining && storm.WindBlowing && storm.SkyLook == WeatherId.Thunderstorm, $"{stormStart.Intensity}");
 
         var squall = new WeatherRig(); anchor.AddChild(squall);
-        squall.Update(WeatherClock.At(WeatherId.AshSquall, 60 + 45 - 20), WeatherClock.At(WeatherId.AshSquall, 60 + 45 - 20).Intensity, Vector3.Zero);   // 20 s before the buildup ends
-        var warnAsh = squall.GetNodeOrNull<CpuParticles3D>("AshWarning");
-        Check("ash squall warning: the first flecks drift, the wind rises, the text shows, the dense ash is not there yet", squall.AshFalling && warnAsh is { Emitting: true } && squall.WarningShown && squall.GetNodeOrNull<CpuParticles3D>("AshSquall") is null);
-        var peak = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 20);
-        var ramp = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 0.2);
-        Check("ash squall: the first flecks of the peak are a ramp, not a step", WeatherPlan.AshShare(ramp) is > 0.12f and < 0.5f, WeatherPlan.AshShare(ramp).ToString());
-        squall.Update(peak, peak.Intensity, Vector3.Zero);
+        var sqStart = WeatherClock.At(WeatherId.AshSquall, 0.2);
+        squall.Update(sqStart, sqStart.Intensity, Vector3.Zero);   // the weather finish: no near-empty opening
         var dense = squall.GetNodeOrNull<CpuParticles3D>("AshSquall");
-        Check("ash squall peak: the dense ash blows across (leaning on the wind), the warning text is gone", dense is { Emitting: true } && dense.Direction.X > 0.3f && !squall.WarningShown && squall.WindBlowing, dense?.Direction.ToString() ?? "no ash");
+        Check("ash squall start: the dense ash blows at once along the wind, the wind blows, no text yet", dense is { Emitting: true } && dense.Direction.X > 0.3f && squall.WindBlowing && !squall.WarningShown && WeatherPlan.AshShare(sqStart) > 0.99f, dense?.Direction.ToString() ?? "no ash");
+        var sqWarn = WeatherClock.At(WeatherId.AshSquall, 60 + 45 - 20);   // 20 s before the buildup ends
+        squall.Update(sqWarn, sqWarn.Intensity, Vector3.Zero);
+        Check("ash squall late buildup: the ash still falls and the intensifying text shows", squall.AshFalling && squall.WarningShown);
         var rec = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 90 + 59);
         squall.Update(rec, rec.Intensity, Vector3.Zero);
-        Check("ash squall recovery: the dense ash stops", dense is { Emitting: false });
+        Check("ash squall recovery: the ash eases but never stops (at least half)", dense is { Emitting: true } && WeatherPlan.AshShare(rec) >= 0.5f, WeatherPlan.AshShare(rec).ToString());
 
         var embers = new WeatherRig(); anchor.AddChild(embers);
         var ew = WeatherClock.At(WeatherId.EmberWind, 150);
@@ -214,6 +222,48 @@ public sealed partial class WeatherSelfTest : Node
         var far = WeatherSynth.Thunder(5, false); var near = WeatherSynth.Thunder(5, true);
         Check("synth: wind loops, thunder does not, none is silent or clipping", wind.LoopMode == AudioStreamWav.LoopModeEnum.Forward && far.LoopMode == AudioStreamWav.LoopModeEnum.Disabled && Peak(wind) > 400 && Peak(wind) < 30000 && Peak(far) > 400 && Peak(far) < 32767 && Peak(near) > 400 && Peak(near) < 32767,
             $"wind {Peak(wind)} far {Peak(far)} near {Peak(near)}");
+
+        // the weather finish: rain coverage at speed (the emitters lead the camera), Low Fog's ground fog, the preset skies and Clear's removal
+        {
+            var fast = new WeatherRig(); anchor.AddChild(fast);
+            fast.ForceLeadVelocity(new Vector3(20f, 0f, 0f));
+            fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
+            var off = fast.RainEmitterOffset;
+            Check("rain at 20 m/s sideways: the near emitter leads the camera by the drop's fall time", Math.Abs(off.X - 20f * WeatherRig.NearLeadSeconds) < 0.01f && Math.Abs(off.Y - WeatherRig.NearHeightM) < 0.01f, off.ToString());
+            fast.ForceLeadVelocity(new Vector3(100f, 0f, 0f));
+            fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
+            Check("rain lead is capped", fast.RainEmitterOffset.X <= WeatherRig.LeadMaxSpeed * WeatherRig.NearLeadSeconds + 0.01f, fast.RainEmitterOffset.ToString());
+            fast.ForceLeadVelocity(null);
+            float alphaFull = fast.RainAlpha;
+            var rainLull = WeatherClock.At(WeatherId.Rain, 45);   // the opening's end: the lull
+            fast.Update(rainLull, rainLull.Intensity, Vector3.Zero);
+            Check("rain lull: still raining, fainter than full, never near none", fast.Raining && fast.RainAlpha < alphaFull && fast.RainAlpha > alphaFull * 0.5f && rainLull.Intensity >= 0.5f, $"{alphaFull} -> {fast.RainAlpha} at {rainLull.Intensity}");
+            var hissP = fast.GetNodeOrNull<AudioStreamPlayer>("RainHiss");
+            Check("rain lull: the hiss follows the rain's amplitude (within 7 dB of full)", hissP is { Playing: true } && hissP.VolumeDb > WeatherRig.LoudestDb - 7f, hissP?.VolumeDb.ToString() ?? "");
+            fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
+            Check("rain: an overcast sky of its own blends in (not all at once)", fast.SkyLook == WeatherId.Rain && fast.SkyCover > 0f && fast.SkyCover < WeatherRig.RainSkyFull, fast.SkyCover.ToString());
+            fast.Update(WeatherClock.At(WeatherId.Clear, 10), 1f, Vector3.Zero);
+            Check("clear, entered from rain: no rain, no hiss, no splashes; the sky fades out", !fast.Raining && hissP is { Playing: false } && !fast.Splashing && WeatherRig.SkyTarget(WeatherId.Clear, 1f) == 0f);
+            fast.QueueFree();
+
+            var fog = new WeatherRig(); anchor.AddChild(fog);
+            var fogStart = WeatherClock.At(WeatherId.LowFog, 0.2);
+            fog.Update(fogStart, fogStart.Intensity, new Vector3(0f, 6f, 0f), 2f);
+            var cards = fog.GetNodeOrNull<CpuParticles3D>("LowFog");
+            Check("low fog: ground cards at once, on the ground under the player, fading near the camera, within the sparse count", fog.Fogging && cards is not null && Math.Abs(fog.FogBase - 2f) < 0.01f && Math.Abs(cards.GlobalPosition.Y - 2.9f) < 0.01f
+                && cards.Amount <= (int)(WeatherRig.FogCount * 1.2f) && cards.Mesh is QuadMesh { Material: StandardMaterial3D { DistanceFadeMode: BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha } }, $"{fog.FogBase} {cards?.GlobalPosition}");
+            Check("low fog: no sky of its own, no rain", fog.SkyLook == WeatherId.None && !fog.Raining);
+            fog.Update(fogStart, fogStart.Intensity, new Vector3(0f, 12f, 0f), 8f);   // up on a balcony: the fog's base climbs slowly
+            Check("low fog: on a balcony the fog stays lower for a while", fog.FogBase < 3f, fog.FogBase.ToString());
+            fog.SetShelter(1f, false); fog.Update(fogStart, fogStart.Intensity, Vector3.Zero, 0f);
+            Check("low fog: none under a roof", !fog.Fogging);
+            fog.SetShelter(0f, false);
+            fog.Update(WeatherClock.At(WeatherId.Clear, 1), 1f, Vector3.Zero);
+            Check("clear, entered from low fog: the ground fog stops at once", !fog.Fogging);
+            fog.QueueFree();
+            Check("skies: rain overcast, the storm heavier, none for the quiet presets", WeatherRig.SkyTarget(WeatherId.Thunderstorm, 0.5f) > WeatherRig.SkyTarget(WeatherId.Rain, 0.5f) && WeatherRig.SkyTarget(WeatherId.Rain, 1f) > 0f
+                && WeatherRig.SkyTarget(WeatherId.LowFog, 1f) == 0f && WeatherRig.SkyTarget(WeatherId.AshSquall, 1f) == 0f && WeatherRig.SkyTarget(WeatherId.EmberWind, 1f) == 0f && WeatherRig.SkyTarget(WeatherId.None, 1f) == 0f);
+        }
 
         // W4: shelter. Under cover the near layers stop and fade, the far layer rains outside a hole, the weather bus is low-passed, the sounds are cut (never louder); back in the open everything returns.
         var sh = new WeatherRig(); anchor.AddChild(sh);

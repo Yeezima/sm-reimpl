@@ -263,7 +263,7 @@ public sealed partial class WeatherRig
     void BuildWarning()
     {
         _warnLayer = new CanvasLayer { Name = "WeatherWarning", Layer = 6 };
-        _warnLabel = new Label { Text = "ASH SQUALL APPROACHING", Visible = false, HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _warnLabel = new Label { Text = "ASH SQUALL INTENSIFYING", Visible = false, HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
         _warnLabel.AddThemeColorOverride("font_color", new Color(1f, 0.78f, 0.45f));
         _warnLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
         _warnLabel.AddThemeConstantOverride("outline_size", 4);

@@ -25,7 +25,7 @@ public partial class NetworkView
     bool WeatherOn => _config is not null;
 
     /// <summary>A preset with its own things in the world (rain, ash, embers, the sky glow, wind) at this intensity.</summary>
-    static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind && intensity > 0.02f;
+    static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind or WeatherId.LowFog && intensity > 0.02f;   // the weather finish adds Low Fog (its ground fog); Clear and None never have one
 
     /// <summary>The weather section of a tag; handled when the tag is weather's.</summary>
     void WeatherEnvelope(byte tag, ReadOnlySpan<byte> payload, ref bool handled)
@@ -59,6 +59,8 @@ public partial class NetworkView
     // ---- shelter (weather W4): a few upward rays at a low rate, smoothed by the pure WeatherShelter ----
 
     readonly WeatherShelter _wxShelter = new();
+    /// <summary>The ground under the player (Godot world height, m) from the last shelter sample; null before one or when the ray found nothing within reach (the rig then takes 1.8 m under the camera).</summary>
+    float? _wxGroundY;
     double _wxShelterClock;
     int _wxShelterSamples;
 
@@ -88,6 +90,10 @@ public partial class NetworkView
                 for (int k = -1; k <= 1; k++)
                     if (world.Weapons.Raycast(head + new System.Numerics.Vector3(1.2f * k, 0f, 0f), up, WeatherShelter.RayReachM) is { } hit) { hits++; ceiling = Math.Min(ceiling, hit.Distance + 1.6f); }
                 cover = hits / 5f;
+                // the weather finish: one ray down from the head finds the ground under the player (splashes, mist and Low Fog lie on it; a jump or a third-person camera no longer lifts them)
+                if (world.Weapons.Raycast(head, new System.Numerics.Vector3(0f, 0f, -1f), WeatherShelter.RayReachM) is { } floor)
+                    _wxGroundY = (_gameSpace.GlobalTransform * new Vector3(head.X, head.Y, head.Z - floor.Distance)).Y;
+                else _wxGroundY = null;
             }
             if (_wxForceCover > 0) { bool covered = (long)(_connectedFor / _wxForceCover) % 2 == 1; cover = covered ? 1f : 0f; ceiling = covered ? 12f : WeatherShelter.RayReachM; }   // test aid --weather-shelter-test <s>: alternating cover and open, s seconds each, whatever the rays found
             if (_wxPerfLive) { double ms = System.Diagnostics.Stopwatch.GetElapsedTime(rayT0).TotalMilliseconds; _wxPerfRayMs += ms; _wxPerfRayMax = Math.Max(_wxPerfRayMax, ms); _wxPerfRays++; }
@@ -213,7 +219,7 @@ public partial class NetworkView
                 WeatherShelterFrame(me, delta);
                 _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
                 _wxRig.StepTrim(delta);
-                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero);
+                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero, _wxGroundY);
                 WeatherInstallSounds(st, intensity);
             }
         }

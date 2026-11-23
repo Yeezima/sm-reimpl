@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4027 spec table rows: **2969 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
+Scanned 4045 spec table rows: **2985 tagged**, 696 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 420 | 361 | 358 | 115 | 12 |
+| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -51,20 +51,20 @@ Scanned 4027 spec table rows: **2969 tagged**, 695 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 140 | 139 | 54 | 54 | 0 |
+| General game design | 155 | 154 | 57 | 65 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2969** | 2664 | 2197 | 890 | 37 |
+| **All areas** | **2985** | 2680 | 2201 | 901 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1781 |
+| kind: ours | 1797 |
 | confidence: low | 1065 |
-| confidence: medium | 1021 |
+| confidence: medium | 1025 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 285 |
+| notes: estimate | 296 |
 | kind: estimate | 269 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (420)
+### Movement (gameplay-critical) (421)
 
 *Spec section: Extracted parameters*
 
@@ -838,6 +838,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-8E33AFE7` | Cards: attack speed | `PlayerState.AttackSpeedBonus` = 0.10 per card, set each tick; `Stims.AttackSpeed` multiplies by (1 + bonus) on top of a stim, for melee swings and fire rate; not on the wire and in no hash; 0 outside Warfront. The client does not predict it yet (a later… (multiplier) | confidence: medium | owner; the core edit approved by the lead | Cards: attack speed: compare with SM1 by feel or video. Ours: PlayerState.AttackSpeedBonus = 0.10 per card, set each tick… | ☐ |
 | `R-469260E1` | Attack speed and Rapid Fire | while Rapid Fire runs the fire rate is min(attack speed x Rapid Fire, x2) (`SimConfig.FireBoostCap`, a core rule), so the attack-speed card does not raise it past x2 then; it counts in full without Rapid Fire and in melee. Not changed (a core edit): proposed… (multiplier) | kind: ours; confidence: low | finding | Attack speed and Rapid Fire: compare with SM1 by feel or video. Ours: while Rapid Fire runs the fire rate is min(attack speed x Rapid Fire… | ☐ |
+
+*Spec section: Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0A7A43D6` | Rain coverage at speed | the near emitter (13 m up) and the far one (16 m up, box mode only) lead the camera by its smoothed ground velocity times a drop's fall time to eye level (0.52 s, 0.70 s), the splashes by 0.15 s; velocity smoothing 0.12 s, capped at 30 m/s, reset by a step… (s, m/s) | kind: ours; confidence: medium | owner brief item 4 (repro: a dry gap at fast sideways movement) | Rain coverage at speed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the near emitter (13 m up) and the far one (16 m up, box mode only)… | ☐ |
 
 ### Combat core (gameplay-critical) (24)
 
@@ -4281,7 +4287,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (140)
+### General game design (155)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4453,6 +4459,26 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B5DA564` | Storm air, Thunderstorm | near 0; far 0 in the opening, rising 0 to 1 linearly through the buildup, 1 at the peak, falling 1 to 0 through the recovery (share, progress of the phase) | kind: ours; confidence: low; notes: estimate | ours (an estimate; the owner's brief gave the shape) | Storm air, Thunderstorm: compare with SM1 by feel or video. Ours: near 0; far 0 in the opening, rising 0 to 1 linearly through the… | ☐ |
 | `R-15FA894F` | Ease | the shown shares move toward the target at 1 per 2 s (F6 switches, preset changes, phase and shelter changes all pass through it) (s) | kind: ours; confidence: low; notes: estimate | ours (an estimate) | Ease: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shown shares move toward the target at 1 per 2 s (F6 switches… | ☐ |
 | `R-62A4CD51` | Leaving | on disconnect or map exit the layers return to 1, 1 (the storm node is freed with the map) | kind: ours | ours | Leaving: compare with SM1 by feel or video. Ours: on disconnect or map exit the layers return to 1, 1 (the storm node… | ☐ |
+
+*Spec section: Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-94251965` | Active lifecycle (supersedes "Phases", "Opening level", the W3 "Match clock" intensity and "Shape") | an active preset's intensity is 1 the moment it begins (a manual Classic choice, a natural Warfront match, an F6 pick), then moves smoothly between its lull and 1: the opening eases 1 to the lull, the buildup the lull to 1, the peak holds 1, the recovery… (0 to 1) | kind: ours; confidence: medium | owner brief 2026-11-23 item 3 (shape and smoothing ours) | Active lifecycle (supersedes "Phases", "Opening level", the…: compare with SM1 by feel or video. Ours: an active preset's intensity is 1 the moment it begins (a manual… | ☐ |
+| `R-DEDECF6F` | Lull | 0.5 + 0.5 x the catalog's opening level: clear 0.75, low fog 0.675, rain 0.65, thunderstorm 0.6, ash squall 0.55, ember wind 0.65 (0 to 1) | kind: ours; notes: estimate | owner brief (the 50 to 100 % range); the per-preset values ours | Lull: compare with SM1 by feel or video. Ours: 0.5 + 0.5 x the catalog's opening level: clear 0.75, low fog 0.675… | ☐ |
+| `R-D948ECCD` | Low Fog grade (supersedes "Look: Low Fog") | exposure x1.02, contrast x0.94, saturation x0.82, sun x0.70, sun red x0.95, green x0.98, ambient x1.15, fog density x1.6 (was x3.4), fog tint (0.60, 0.63, 0.67) at 0.75, bloom x1.08: a light depth haze; the ground fog is the cards below (factor) | kind: ours; notes: estimate | ours (usable sightlines) | Low Fog grade (supersedes "Look: Low Fog"): compare with SM1 by feel or video. Ours: exposure x1.02, contrast x0.94, saturation x0.82, sun x0.70, sun red… | ☐ |
+| `R-FD9684CB` | Low Fog ground cards | 170 soft cards at High (40 at least; the graphics scale and the trim apply), each 13 x 3.2 m (scale 0.8 to 1.3), camera-facing, in a ring 6 to 38 m round the player with their centres 0 to 1.8 m over the fog's base, drifting 0.25 to 0.7 m/s along the wind… (count, m, s) | kind: ours; notes: estimate | ours (owner brief item 2: "visibly ground-hugging across the map with usable sightlines") | Low Fog ground cards: compare with SM1 by feel or video. Ours: 170 soft cards at High (40 at least; the graphics scale and the trim… | ☐ |
+| `R-8F52F3BF` | Low Fog base | the ground under the player (one ray straight down from the head with the 6 Hz shelter rays); the base drops to a lower ground at once and climbs after a higher one at 0.4 m/s, so a balcony stands briefly over the street's fog (m, m/s) | kind: ours; notes: estimate | ours | Low Fog base: compare with SM1 by timing a run over a known distance. Ours: the ground under the player (one ray straight down from the head with… | ☐ |
+| `R-E51CA07C` | Ground under the player | splashes, mist and the fog lie on the ray's ground (before: 1.8 m under the camera, an estimate that lifted them in third person and in a jump); 1.8 m under the camera when the ray finds nothing within 40 m (m) | kind: ours; confidence: medium | ours | Ground under the player: compare with SM1 by measuring on a flat spot of the same map. Ours: splashes, mist and the fog lie on the ray's ground (before: 1.8 m… | ☐ |
+| `R-209149C0` | Rain and storm share (supersedes "Thunderstorm rain") | the falling rain's share is the intensity for Rain and the Thunderstorm (the storm's rain no longer waits for the late buildup) (share) | kind: ours; confidence: medium | owner brief item 3 | Rain and storm share (supersedes "Thunderstorm rain"): compare with SM1 by feel or video. Ours: the falling rain's share is the intensity for Rain and the… | ☐ |
+| `R-9FA447C3` | Ash Squall (supersedes "Ash Squall timeline", "Ash density ramp", "Ash grit") | the ash share is the intensity (full at once, never below the 0.55 lull); the crosswind is the intensity (was its square); the grit loop plays through the whole active squall outside cover at an amplitude following the share; the last 30 s of the buildup show… (share, dB) | kind: ours; notes: estimate | owner brief item 3 (the wording ours, lead-approved) | Ash Squall (supersedes "Ash Squall timeline", "Ash density…: compare with SM1 by feel or video. Ours: the ash share is the intensity (full at once, never below the 0.55… | ☐ |
+| `R-8FDC1DAF` | Thunderstorm storm air (supersedes "Storm air, Thunderstorm") | Warfront's Ashfall far layers follow the storm's intensity (1 at the start, its 0.6 lull at the opening's and recovery's end); near 0 (share) | kind: ours; notes: estimate | owner brief item 3 | Thunderstorm storm air (supersedes "Storm air…: compare with SM1 by feel or video. Ours: Warfront's Ashfall far layers follow the storm's intensity (1 at the… | ☐ |
+| `R-B1EFE875` | Strikes | unchanged rule (none below intensity 0.55, chance rising to 0.6 a slot at the peak); with the new lifecycle they can come from the storm's first seconds and thin out (about 0.07 a slot) at its lull (probability) | kind: ours; notes: estimate | W2 | Strikes: compare with SM1 by feel or video. Ours: unchanged rule (none below intensity 0.55, chance rising to 0.6 a… | ☐ |
+| `R-E044FABA` | Audio follows intensity | rain hiss and the ash grit: gain = loudest + 20 log10(share) (amplitude proportional to the share: -6 dB at half), never below -60 dB; the wind keeps its W2 law on the new intensities; the caps (rain -22, wind -20, thunder -14 dB) are unchanged (dB) | kind: ours; notes: estimate | owner brief item 3 | Audio follows intensity: compare with SM1 by listening A/B at the same distance and state. Ours: rain hiss and the ash grit: gain = loudest + 20 log10(share)… | ☐ |
+| `R-235B7A84` | Preset skies | an overcast dome for Rain and a darker, heavier one for the Thunderstorm: one shared 256 px seamless Perlin noise (4 octaves) sampled twice on a flat cloud plane, drifting (0.004 + 0.01 x wind) texture units a second along the wind; Rain dark (0.36, 0.39… (colour, cover 0 to 1) | kind: ours; notes: estimate | owner brief item 3 ("overcast Rain, heavier Thunderstorm", lightweight, no cloud simulation) | Preset skies: compare with SM1 by feel or video. Ours: an overcast dome for Rain and a darker, heavier one for the… | ☐ |
+| `R-FEB2A663` | Sky blend | the cover moves toward its target at 1 per 4 s (in and out: a switch to Clear fades the sky over at most 4 s, then the rig is freed); the preset's other effects are full at once (s) | kind: ours; notes: estimate | owner brief ("a few seconds without delaying active effects") | Sky blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the cover moves toward its target at 1 per 4 s (in and out: a switch… | ☐ |
+| `R-6FADA7BD` | Rain streaks (supersedes the streak rows of "Weather W2 pass 2") | a quad turned about the fall direction to face the camera (an axial billboard: a streak always lies along the fall and leans with the wind at any camera pitch), 0.02 m wide near and 0.014 m far (the drawn core about half of it), a Gaussian profile across, a… (m, colour) | kind: ours; notes: estimate | owner brief item 4 ("drop shape, texture, colour; keep fall motion, splashes, wet ground") | Rain streaks (supersedes the streak rows of "Weather W2…: compare with SM1 by feel or video. Ours: a quad turned about the fall direction to face the camera (an axial… | ☐ |
+| `R-2F82605D` | Wet ground | there is no wet-surface material in the build: the "wet ground" the owner liked is the splashes, mist and the darker grade, all kept | kind: ours | source audit 2026-11-23 | Wet ground: compare with SM1 by feel or video. Ours: there is no wet-surface material in the build: the "wet ground" the… | ☐ |
 
 *Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*
 
@@ -6529,5 +6555,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-7AE0A24B-2` | Wire | Weather (Classic PvP, W3; added content; owner 2026-11-21; presentation only) |
 | `R-461D9CF6` | Test aids (W5; weather fix 2 gate) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
 | `R-29325834` | Test aid | Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only) |
+| `R-39A6A17F` | Versions | Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 
