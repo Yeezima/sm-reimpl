@@ -320,4 +320,33 @@ public class ClassicHitDirTests
         Assert.False(ledger.First(4, 9, ChargeKey(1), 3.2));    // the same charge on him again
         Assert.True(ledger.First(4, 9, ChargeKey(2), 3.4));     // his next charge
     }
+
+    // ---- the loose gunfire hit's reach (lead decision 2026-11-24) ----
+
+    [Fact]
+    public void A_fast_victims_loose_hit_at_4_8_m_pairs_and_a_slow_ones_does_not()
+    {
+        var chest = new Vector3(0f, 0f, 1.25f);
+        var hits = new List<LooseHit> { new(new Vector3(4.8f, 0f, 1.25f), new Vector3(0f, 1f, 0f)) };
+        float fast = LooseReach(drawnSpeed: 12f, drawLag: 0.12f);   // a jump pack: 3.5 + 1.44 m
+        float slow = LooseReach(drawnSpeed: 2f, drawLag: 0.12f);    // walking: 3.74 m
+        Assert.Equal(0, PickLooseHit(chest, fast, hits));
+        Assert.Equal(-1, PickLooseHit(chest, slow, hits));          // a wrong shot that far from a slow victim stays unpaired
+        Assert.Equal(LooseShotReachMax, LooseReach(40f, 0.15f));    // capped
+        Assert.Equal(LooseShotReach, LooseReach(0f, 0.12f));
+    }
+
+    [Fact]
+    public void Of_two_loose_hits_in_reach_the_one_whose_line_passes_closest_wins()
+    {
+        var chest = new Vector3(0f, 0f, 1.25f);
+        var hits = new List<LooseHit>
+        {
+            new(new Vector3(1.0f, 0f, 1.25f), new Vector3(0f, 1f, 0f)),   // nearer end, but its line passes 1 m off him
+            new(new Vector3(0f, 3.0f, 1.25f), new Vector3(0f, 1f, 0f)),   // farther end, its line runs through him
+        };
+        Assert.Equal(1, PickLooseHit(chest, 4f, hits));
+        var same = new List<LooseHit> { new(new Vector3(0f, 3f, 1.25f), new Vector3(0f, 1f, 0f)), new(new Vector3(0f, 1f, 1.25f), new Vector3(0f, 1f, 0f)) };
+        Assert.Equal(1, PickLooseHit(chest, 4f, same));                  // equal lines: the nearer end
+    }
 }

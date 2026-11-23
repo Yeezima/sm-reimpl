@@ -216,6 +216,44 @@ public static class ClassicHitDirRules
     }
     /// <summary>How far from a victim's drawn chest a server body or head hit this view resolved to nobody (or to someone else) may end and still be taken as his (m; ours, live check 2026-11-24: such hits ended up to 2.5 m away).</summary>
     public const float LooseShotReach = 3.5f;
+    /// <summary>The most the loose-shot reach grows to for a fast victim (m; ours, lead decision 2026-11-24).</summary>
+    public const float LooseShotReachMax = 6f;
+
+    /// <summary>
+    /// The loose-shot reach for a victim drawn moving at <paramref name="drawnSpeed"/> (m/s, level) with the remote players drawn <paramref name="drawLag"/> s behind (the client's
+    /// interpolation delay in use): <see cref="LooseShotReach"/> plus how far he moves in that lag, at most <see cref="LooseShotReachMax"/> (ours, lead decision 2026-11-24).
+    /// </summary>
+    public static float LooseReach(float drawnSpeed, float drawLag) =>
+        Math.Min(LooseShotReachMax, LooseShotReach + Math.Max(0f, drawnSpeed) * Math.Clamp(drawLag, 0f, 0.3f));
+
+    /// <summary>A server-reported body or head hit offered to a mark: where it ended and the shot's direction (game space).</summary>
+    public readonly record struct LooseHit(Vector3 End, Vector3 Dir);
+
+    /// <summary>
+    /// The loose hit a mark on a victim with his chest at <paramref name="chest"/> takes: among those ending within <paramref name="reach"/>, the one whose shot line (through its end,
+    /// along its direction) passes closest to him; equal lines, the nearer end. -1: none.
+    /// </summary>
+    public static int PickLooseHit(Vector3 chest, float reach, IReadOnlyList<LooseHit> hits)
+    {
+        int best = -1; float bestLine = float.MaxValue, bestEnd = float.MaxValue;
+        for (int i = 0; i < hits.Count; i++)
+        {
+            float end = Vector3.Distance(hits[i].End, chest);
+            if (end > reach) continue;
+            float line = LineDistance(chest, hits[i].End, hits[i].Dir);
+            if (line < bestLine - 1e-4f || (MathF.Abs(line - bestLine) <= 1e-4f && end < bestEnd)) { best = i; bestLine = line; bestEnd = end; }
+        }
+        return best;
+    }
+
+    /// <summary>The distance from <paramref name="p"/> to the line through <paramref name="a"/> along <paramref name="dir"/>.</summary>
+    public static float LineDistance(Vector3 p, Vector3 a, Vector3 dir)
+    {
+        if (dir.LengthSquared() < 1e-8f) return Vector3.Distance(p, a);
+        var u = Vector3.Normalize(dir);
+        var ap = p - a;
+        return (ap - u * Vector3.Dot(ap, u)).Length();
+    }
     public const double RemoteWindow = 0.35, OwnWindow = 0.8;
 
     /// <summary>

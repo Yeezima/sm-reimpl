@@ -150,7 +150,10 @@ public partial class NetworkView
     /// unused one ending within <see cref="ClassicHitDirRules.LooseShotReach"/> of his drawn chest (live check 2026-11-24: of 64 unpaired marks in a 3v3, 40 were such hits, resolved to
     /// nobody because this view draws the victim about a tenth of a second behind the shot, up to 2.5 m away from where the bullet struck him).
     /// </summary>
-    sealed class ServerHit { public ShotContact Contact = null!; public Num.Vector3 End; public bool Used; }
+    sealed class ServerHit { public ShotContact Contact = null!; public Num.Vector3 End, DirGame; public bool Used; }
+    readonly List<ServerHit> _looseScratch = new();
+    readonly List<LooseHit> _looseHitScratch = new();
+    double _drawLagSum, _drawLagMax; int _drawLagCount;
     readonly List<ServerHit> _serverHits = new();
     int _hitDirLooseShots;
 
@@ -160,21 +163,29 @@ public partial class NetworkView
         for (int i = _serverHits.Count - 1; i >= 0; i--) if (_connectedFor - _serverHits[i].Contact.At > OwnWindow) _serverHits.RemoveAt(i);
         if (_serverHits.Count >= 64) _serverHits.RemoveAt(0);
         var c = resolved ?? new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own };
-        _serverHits.Add(new ServerHit { Contact = c, End = end });
+        var gd = _gameSpace is null ? new Vector3(dir.X, -dir.Z, dir.Y) : _gameSpace.Basis.Inverse() * dir;
+        _serverHits.Add(new ServerHit { Contact = c, End = end, DirGame = new Num.Vector3(gd.X, gd.Y, gd.Z) });
     }
 
     ShotContact? ServerHitNear(PlayerState o)
     {
         var chest = o.Position + new Num.Vector3(0f, 0f, 1.25f);
-        ServerHit? best = null; float bestD = LooseShotReach;
+        // the reach grows with how far he moves in the lag this view draws the others with (lead decision 2026-11-24)
+        float lag = _client is null ? 0.1f : (float)_client.CurrentInterpolationDelay.TotalSeconds;
+        _drawLagSum += lag; _drawLagCount++; if (lag > _drawLagMax) _drawLagMax = lag;
+        float speed = new Num.Vector2(o.Velocity.X, o.Velocity.Y).Length();
+        float reach = LooseReach(speed, lag);
+        _looseScratch.Clear(); _looseHitScratch.Clear();
         foreach (var h in _serverHits)
         {
             if (h.Used || h.Contact.Shooter == o.PlayerId || _connectedFor - h.Contact.At > (h.Contact.Own ? OwnWindow : RemoteWindow)) continue;
             if (TeamOf(h.Contact.Shooter) is var t && t != Team.None && t == o.Team) continue;
-            float d = Num.Vector3.Distance(h.End, chest);
-            if (d < bestD) { bestD = d; best = h; }
+            _looseScratch.Add(h); _looseHitScratch.Add(new LooseHit(h.End, h.DirGame));
         }
-        if (best is null) return null;
+        int pick = PickLooseHit(chest, reach, _looseHitScratch);
+        if (pick < 0) return null;
+        var best = _looseScratch[pick];
+        if (LogHitDir) HitDirPrint($"HITDIR loose hit for P{o.PlayerId}: P{best.Contact.Shooter}'s, end {Num.Vector3.Distance(best.End, chest):F2} m from his chest, line {LineDistance(chest, best.End, best.DirGame):F2} m; reach {reach:F2} m (speed {speed:F1} m/s, lag {lag * 1000:F0} ms; {_looseHitScratch.Count} candidates)");
         best.Used = true;
         int wrong = 0;   // resolved to another player: no longer his
         foreach (var kv in _shotContacts) if (kv.Value == best.Contact) { wrong = kv.Key; break; }
@@ -505,7 +516,7 @@ public partial class NetworkView
     string UnpairedSummary() => _unpairedWhy.Count == 0 ? "" : " (" + string.Join(", ", _unpairedWhy.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)) + ")";
 
     /// <summary>For the effects log: counts and the CPU cost of the directional hit look (the sprays' GPU cost is their draw calls: one per live spray).</summary>
-    string HitDirLog() => $"hit dir: look {HitDirLook}, shots {_hitDirShots} ({_hitDirLooseShots} by the server's hit near him), melee {_hitDirMelee} (waited {_hitDirWaited}), charges {_hitDirCharges}, unpaired marks {_hitDirUnpaired}{UnpairedSummary()}, sparks {_hitDirSparks}, blood {_hitDirBlood}, " +
+    string HitDirLog() => $"hit dir: look {HitDirLook}, shots {_hitDirShots} ({_hitDirLooseShots} by the server's hit near him; draw lag mean {(_drawLagCount > 0 ? _drawLagSum / _drawLagCount * 1000 : 0):F0} ms, max {_drawLagMax * 1000:F0} ms), melee {_hitDirMelee} (waited {_hitDirWaited}), charges {_hitDirCharges}, unpaired marks {_hitDirUnpaired}{UnpairedSummary()}, sparks {_hitDirSparks}, blood {_hitDirBlood}, " +
                           $"live sprays {(_hitSpray is null ? 0 : _hitSpray.Live)}, cpu {(_hitDirFrames > 0 ? _hitDirMs / _hitDirFrames : 0):F4} ms/frame mean, {_hitDirMsPeak:F3} ms peak, " +
                           $"{_hitDirSlow} sections over {SlowSectionMs:F0} ms ({_hitDirSlowMs:F0} ms; without them {(_hitDirFrames > 0 ? (_hitDirMs - _hitDirSlowMs) / _hitDirFrames : 0):F4} ms/frame)";
 
