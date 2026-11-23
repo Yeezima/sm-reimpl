@@ -22,7 +22,7 @@ public sealed partial class WeatherRig : Node3D
     /// <summary>The loudest the wind bed gets (dB), the loudest a far and a near thunder gets (dB, procedural; the install's own are posted by the view at their own level offset).</summary>
     public const float WindLoudestDb = -20f, FarThunderDb = -20f, NearThunderDb = -14f;
     /// <summary>Ash flecks at the High preset (the dense emitter; the warning's emitter is a fifth of it), embers at the High preset.</summary>
-    public const int AshCount = 800, EmberCount = 70;
+    public const int AshCount = 1300, EmberCount = 70;   // repair 1: 800 read as a few specks at the squall's peak
 
     CpuParticles3D? _rain, _rainFar, _splash, _mist;
     ShaderMaterial? _rainMaterial, _rainFarMaterial;
@@ -73,7 +73,7 @@ public sealed partial class WeatherRig : Node3D
     }
 
     /// <summary>The particles of every layer that exists now (at the current trim).</summary>
-    public int ParticleTotal => (_rain?.Amount ?? 0) + (_rainFar?.Amount ?? 0) + (_splash?.Amount ?? 0) + (_mist?.Amount ?? 0) + (_ashWarn?.Amount ?? 0) + (_ashMain?.Amount ?? 0) + (_embers?.Amount ?? 0) + (_fog?.Amount ?? 0);
+    public int ParticleTotal => (_rain?.Amount ?? 0) + (_rainFar?.Amount ?? 0) + (_splash?.Amount ?? 0) + (_mist?.Amount ?? 0) + (_ashWarn?.Amount ?? 0) + (_ashMain?.Amount ?? 0) + (_embers?.Amount ?? 0) + (_fog?.Amount ?? 0) + (_dust?.Amount ?? 0);
 
     /// <summary>A layer's count at the High-preset base <paramref name="baseCount"/>: the graphics preset's scale, then the trim, never below the floor.</summary>
     int Count(int baseCount, int floor) => WeatherTrim.Count(Math.Max(floor, (int)(baseCount * QualityScale())), floor, Trim.Level);
@@ -81,7 +81,7 @@ public sealed partial class WeatherRig : Node3D
     void ApplyTrim()
     {
         Set(_rain, RainNearCount, NearFloor); Set(_rainFar, RainFarCount, FarFloor); Set(_splash, SplashCount, SplashFloor); Set(_mist, MistCount, MistFloor);
-        Set(_ashWarn, (int)(AshCount * 0.2f), AshWarnFloor, scale: false); Set(_ashMain, AshCount, AshMainFloor); Set(_embers, EmberCount, EmberFloor); Set(_fog, FogCount, FogFloor);
+        Set(_ashWarn, (int)(AshCount * 0.2f), AshWarnFloor, scale: false); Set(_ashMain, AshCount, AshMainFloor); Set(_embers, EmberCount, EmberFloor); Set(_fog, FogCount, FogFloor); Set(_dust, DustCount, DustFloor);
         void Set(CpuParticles3D? p, int baseCount, int floor, bool scale = true)
         {
             if (p is null) return;
@@ -167,11 +167,12 @@ public sealed partial class WeatherRig : Node3D
         }
         UpdateFx(st, i, wind);
         UpdateFog(st, i, cameraAt, groundY);
+        UpdateDust(st, i, wind, cameraAt, groundY);
         UpdateSky(st, i, wind);
     }
 
     /// <summary>Anything of the rig is showing or sounding (the view keeps the rig while this holds).</summary>
-    public bool Active => Raining || FxActive || Fogging || SkyShowing;
+    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing;
 
     /// <summary>The far layer rains in a ring (a hole round the player) under cover and in its full box in the open; flips with a gap so it does not chatter.</summary>
     void FarHole()

@@ -93,6 +93,7 @@ public partial class NetworkView
     partial void ExtrasInput(ref PlayerInput input)
     {
         TfwTestInput(ref input);   // Musou/Tfw/NetworkView.TfwMelee.cs: the scripted player's buttons, nothing without it
+        WeatherTestInput(ref input);   // Weather/NetworkView.WeatherTestMove.cs: the F6-only locomotion test aid (wxmove), nothing without it
         if (!BarksActive || _client is null || _config is null) return;
         var me = _client.Predicted;
         bool canShout = me.Alive && !OwnDead && IsLoyalist(me) && ControlActions.ShoutKeyLive(_config.Extras);   // classic-stab-on-t: the voice call is Musou Mode's alone now

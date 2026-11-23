@@ -18,11 +18,15 @@ namespace SmClient.Extras.Weather;
 public sealed partial class WeatherRig
 {
     /// <summary>Fog cards at the High preset (the others scale them), the fewest at any preset or trim.</summary>
-    public const int FogCount = 170, FogFloor = 40;
+    public const int FogCount = 240, FogFloor = 50;
     /// <summary>The cards' ring round the player (m), a card's size (m), its life (s) and drift (m/s).</summary>
-    public const float FogInnerM = 6f, FogOuterM = 38f, FogCardWidthM = 13f, FogCardHeightM = 3.2f, FogLifeSeconds = 14f, FogDriftMin = 0.25f, FogDriftMax = 0.7f;
+    public const float FogInnerM = 3f, FogOuterM = 38f, FogCardWidthM = 16f, FogCardHeightM = 2.4f, FogLifeSeconds = 14f, FogDriftMin = 0.25f, FogDriftMax = 0.7f;
+    /// <summary>The cards' centres lie from the fog's base up to this height (m); the node sits at half of it.</summary>
+    public const float FogBandM = 1.0f;
     /// <summary>A card is invisible nearer than <see cref="FogFadeNearM"/> and full from <see cref="FogFadeFarM"/>; the card's alpha at the preset's lull and at its full level.</summary>
-    public const float FogFadeNearM = 4f, FogFadeFarM = 15f, FogAlphaLow = 0.22f, FogAlphaFull = 0.34f;
+    public const float FogFadeNearM = 2f, FogFadeFarM = 10f, FogAlphaLow = 0.13f, FogAlphaFull = 0.2f;
+    /// <summary>Repair 1: the share of the scene's own haze colour in a card's colour (a card matches the map's air, not a white patch).</summary>
+    public const float FogHazeShare = 0.6f;
     /// <summary>How fast the fog's base climbs after the ground under the player (m/s); it drops at once.</summary>
     public const float FogRiseMps = 0.4f;
     /// <summary>The sky's blend (s for a full change of its cover).</summary>
@@ -50,9 +54,13 @@ public sealed partial class WeatherRig
     public bool SkyShowing => _skyCover > 0.001f;
     public WeatherId SkyLook => _skyLook;
 
+    /// <summary>The preset skies are drawn only in Forward+ and Mobile (repair 1, the tester's Compatibility capture on Manufactorum: the dome covered indoor walls). In Compatibility the preset keeps its grade, rain and haze; the map's own sky shows, as for MapSky.</summary>
+    public static bool SkyDrawn { get; } = RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility";
+
     /// <summary>The cover a preset's sky aims at for <paramref name="intensity"/> (0 to 1; 0 for a preset with no sky of its own). Pure.</summary>
     public static float SkyTarget(WeatherId id, float intensity)
     {
+        if (!SkyDrawn) return 0f;   // repair 1: no dome in the Compatibility renderer (its far-plane depth trick is not reliable there; the dome drew over geometry)
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         float k = Math.Clamp((i - WeatherClock.ActiveFloor) / (1f - WeatherClock.ActiveFloor), 0f, 1f);
         return id switch
@@ -75,14 +83,14 @@ public sealed partial class WeatherRig
         float dt = (float)Math.Clamp(GetProcessDeltaTime(), 0.0, 0.25);
         if (float.IsNaN(_fogBase) || ground < _fogBase || Math.Abs(ground - _fogBase) > 30f) _fogBase = ground;
         else _fogBase = Math.Min(ground, _fogBase + FogRiseMps * dt);
-        _fog.GlobalPosition = new Vector3(cameraAt.X, _fogBase + 0.9f, cameraAt.Z);
+        _fog.GlobalPosition = new Vector3(cameraAt.X, _fogBase + FogBandM * 0.5f, cameraAt.Z);
         float yaw = WeatherPlan.WindYaw(st.Id);
         _fog.Direction = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
         if (_fogMaterial is not null)
         {
             float k = Math.Clamp((i - WeatherClock.ActiveFloor) / (1f - WeatherClock.ActiveFloor), 0f, 1f);
             var haze = SceneHaze();
-            var tint = new Color(0.66f, 0.69f, 0.73f).Lerp(new Color(Math.Clamp(haze.R, 0.3f, 1f), Math.Clamp(haze.G, 0.3f, 1f), Math.Clamp(haze.B, 0.3f, 1f)), 0.35f);
+            var tint = new Color(0.62f, 0.65f, 0.69f).Lerp(new Color(Math.Clamp(haze.R, 0.25f, 1f), Math.Clamp(haze.G, 0.25f, 1f), Math.Clamp(haze.B, 0.25f, 1f)), FogHazeShare);
             _fogMaterial.AlbedoColor = new Color(tint.R, tint.G, tint.B, (FogAlphaLow + (FogAlphaFull - FogAlphaLow) * k) * WeatherShelterMix.NearAlpha(Shelter));
         }
     }
@@ -104,7 +112,7 @@ public sealed partial class WeatherRig
             DistanceFadeMinDistance = FogFadeNearM,
             DistanceFadeMaxDistance = FogFadeFarM,
             ProximityFadeEnabled = !compat,   // a soft line where a card meets the ground or a wall (the depth texture; the Compatibility renderer goes without)
-            ProximityFadeDistance = 1.5f,
+            ProximityFadeDistance = 3f,
             DisableFog = false,
         };
         var ramp = new Gradient();
@@ -121,7 +129,7 @@ public sealed partial class WeatherRig
             LocalCoords = false,
             EmissionShape = CpuParticles3D.EmissionShapeEnum.Ring,
             EmissionRingAxis = Vector3.Up,
-            EmissionRingHeight = 1.8f,
+            EmissionRingHeight = FogBandM,
             EmissionRingRadius = FogOuterM,
             EmissionRingInnerRadius = FogInnerM,
             Direction = new Vector3(1f, 0f, 0f),
@@ -129,7 +137,7 @@ public sealed partial class WeatherRig
             Gravity = Vector3.Zero,
             InitialVelocityMin = FogDriftMin,
             InitialVelocityMax = FogDriftMax,
-            ScaleAmountMin = 0.8f,
+            ScaleAmountMin = 0.7f,
             ScaleAmountMax = 1.3f,
             ColorRamp = ramp,
             Mesh = new QuadMesh { Size = new Vector2(FogCardWidthM, FogCardHeightM), Material = _fogMaterial },
@@ -142,15 +150,113 @@ public sealed partial class WeatherRig
 
     static GradientTexture2D? _puff;
 
-    /// <summary>A very soft round puff (a long falloff, no core): stretched over a wide card it reads as a low bank, not a dot.</summary>
+    /// <summary>A very soft round puff (a near-Gaussian falloff, no plateau or rim; repair 1): many overlapping wide cards then read as one continuous low layer, not separate patches.</summary>
     static GradientTexture2D FogPuff()
     {
         if (_puff is not null) return _puff;
         var g = new Gradient();
         g.SetColor(0, new Color(1f, 1f, 1f, 1f));
         g.SetColor(1, new Color(1f, 1f, 1f, 0f));
-        g.AddPoint(0.4f, new Color(1f, 1f, 1f, 0.75f));
+        g.AddPoint(0.25f, new Color(1f, 1f, 1f, 0.72f));
+        g.AddPoint(0.5f, new Color(1f, 1f, 1f, 0.34f));
+        g.AddPoint(0.75f, new Color(1f, 1f, 1f, 0.09f));
         return _puff = new GradientTexture2D { Gradient = g, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(0.5f, 0f), Width = 64, Height = 64 };
+    }
+
+    // ---- repair 1: the Ash Squall's blowing dust ----
+
+    /// <summary>Dust sheets at the High preset and the fewest at any preset or trim; their ring (m), size (m), life (s); the near fade (m); alpha at the lull and at full.</summary>
+    public const int DustCount = 90, DustFloor = 24;
+    public const float DustInnerM = 4f, DustOuterM = 34f, DustBandM = 4f, DustCardWidthM = 10f, DustCardHeightM = 4f, DustLifeSeconds = 5f;
+    public const float DustFadeNearM = 3f, DustFadeFarM = 12f, DustAlphaLow = 0.10f, DustAlphaFull = 0.24f;
+
+    CpuParticles3D? _dust;
+    StandardMaterial3D? _dustMaterial;
+
+    /// <summary>The squall's dust is blowing now; its alpha (selftest).</summary>
+    public bool Dusting => _dust is { Emitting: true };
+    public float DustAlpha => _dustMaterial?.AlbedoColor.A ?? 0f;
+
+    /// <summary>
+    /// The Ash Squall's wind-driven dust (repair 1: at intensity 1 the squall read as a faint tint): wide soft ochre sheets in a ring round the player, 0 to 4 m over the ground, racing along the wind at (6 + 10 x wind) m/s,
+    /// so the street-level air visibly moves and long sightlines shorten while near cover and enemies stay clear (the sheets fade out nearer than 3 to 12 m). Presentation only; none under a roof.
+    /// </summary>
+    void UpdateDust(WeatherState st, float i, float wind, Vector3 cameraAt, float? groundY)
+    {
+        bool on = st.Id == WeatherId.AshSquall && i > 0.02f;
+        if (on) EnsureDust();
+        if (_dust is null) return;
+        bool cover = Shelter >= WeatherShelterMix.NearOffAbove;
+        _dust.Emitting = on && !cover;
+        if (!on) return;
+        float ground = groundY ?? cameraAt.Y - 1.8f;
+        float yaw = WeatherPlan.WindYaw(st.Id);
+        var windDir = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
+        _dust.GlobalPosition = new Vector3(cameraAt.X, ground + DustBandM * 0.5f, cameraAt.Z) - windDir * 8f;   // a little upwind, so the sheets cross the player's view
+        _dust.Direction = windDir;
+        float speed = 6f + 10f * wind;
+        _dust.InitialVelocityMin = speed * 0.8f;
+        _dust.InitialVelocityMax = speed * 1.2f;
+        if (_dustMaterial is not null)
+        {
+            float k = Math.Clamp((i - WeatherClock.ActiveFloor) / (1f - WeatherClock.ActiveFloor), 0f, 1f);
+            var haze = SceneHaze();
+            var tint = new Color(0.58f, 0.47f, 0.34f).Lerp(new Color(Math.Clamp(haze.R, 0.25f, 1f), Math.Clamp(haze.G, 0.25f, 1f), Math.Clamp(haze.B, 0.25f, 1f)), 0.25f);
+            _dustMaterial.AlbedoColor = new Color(tint.R, tint.G, tint.B, (DustAlphaLow + (DustAlphaFull - DustAlphaLow) * k) * WeatherShelterMix.NearAlpha(Shelter));
+        }
+    }
+
+    void EnsureDust()
+    {
+        if (_dust is not null) return;
+        bool compat = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
+        _dustMaterial = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            AlbedoColor = new Color(0.58f, 0.47f, 0.34f, DustAlphaFull),
+            AlbedoTexture = FogPuff(),
+            VertexColorUseAsAlbedo = true,
+            DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha,
+            DistanceFadeMinDistance = DustFadeNearM,
+            DistanceFadeMaxDistance = DustFadeFarM,
+            ProximityFadeEnabled = !compat,
+            ProximityFadeDistance = 2f,
+            DisableFog = false,
+        };
+        var ramp = new Gradient();
+        ramp.SetColor(0, new Color(1f, 1f, 1f, 0f));
+        ramp.SetColor(1, new Color(1f, 1f, 1f, 0f));
+        ramp.AddPoint(0.3f, new Color(1f, 1f, 1f, 1f));
+        ramp.AddPoint(0.7f, new Color(1f, 1f, 1f, 1f));
+        _dust = new CpuParticles3D
+        {
+            Name = "AshDust",
+            Amount = Count(DustCount, DustFloor),
+            Lifetime = DustLifeSeconds,
+            Preprocess = DustLifeSeconds,   // full at once
+            LocalCoords = false,
+            EmissionShape = CpuParticles3D.EmissionShapeEnum.Ring,
+            EmissionRingAxis = Vector3.Up,
+            EmissionRingHeight = DustBandM,
+            EmissionRingRadius = DustOuterM,
+            EmissionRingInnerRadius = DustInnerM,
+            Direction = new Vector3(1f, 0f, 0f),
+            Spread = 6f,
+            Gravity = Vector3.Zero,
+            InitialVelocityMin = 6f,
+            InitialVelocityMax = 10f,
+            ScaleAmountMin = 0.7f,
+            ScaleAmountMax = 1.4f,
+            ColorRamp = ramp,
+            Mesh = new QuadMesh { Size = new Vector2(DustCardWidthM, DustCardHeightM), Material = _dustMaterial },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            VisibilityAabb = new Aabb(new Vector3(-90f, -6f, -90f), new Vector3(180f, 16f, 180f)),
+            Emitting = false,
+        };
+        AddChild(_dust);
     }
 
     // ---- the preset sky ----
@@ -182,7 +288,6 @@ public sealed partial class WeatherRig
     void EnsureSky()
     {
         if (_sky is not null) return;
-        bool compat = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
         _skyShader ??= new Shader
         {
             Code = """
@@ -220,7 +325,7 @@ public sealed partial class WeatherRig
         };
         _skyMaterial = new ShaderMaterial { Shader = _skyShader, RenderPriority = -100 };   // drawn before the other weather layers (the thunder glow, the rain) so they lie over it
         _skyMaterial.SetShaderParameter("clouds", _clouds);
-        _skyMaterial.SetShaderParameter("sky_z", compat ? 0.9998f : 0.0000004f);
+        _skyMaterial.SetShaderParameter("sky_z", 0.0000004f);   // reversed-Z (Forward+, Mobile); never built in Compatibility (SkyDrawn)
         _sky = new MeshInstance3D
         {
             Name = "WeatherSky",

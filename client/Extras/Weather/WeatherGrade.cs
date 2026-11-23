@@ -26,9 +26,9 @@ public static class WeatherGrade
         {
             // the weather finish (owner brief 2026-11-23): Clear is the map's authored look exactly: no grade at all (the exception to every presentation rule)
             WeatherId.Clear => LightingGrade.Identity,
-            // street-level haze (the weather finish): the ground fog itself is the rig's low cards; the grade only adds a light grey-blue depth haze (x1.6 at full) and a flat sun, so long sightlines stay usable
-            WeatherId.LowFog => new(Exposure: 1f + 0.02f * i, Contrast: 1f - 0.06f * i, Saturation: 1f - 0.18f * i, SunEnergy: 1f - 0.30f * i, SunR: 1f - 0.05f * i, SunG: 1f - 0.02f * i,
-                Ambient: 1f + 0.15f * i, FogDensity: 1f + 0.6f * i, FogR: 0.60f, FogG: 0.63f, FogB: 0.67f, FogTint: 0.75f * i, Glow: 1f + 0.08f * i),
+            // street-level haze (the weather finish; repair 1): the ground fog itself is the rig's low cards; the grade adds only a light depth haze (x1.4 at full) and a softer sun, and tints the haze a little (0.3), so the map's sky keeps its colour instead of turning flat grey
+            WeatherId.LowFog => new(Exposure: 1f + 0.02f * i, Contrast: 1f - 0.05f * i, Saturation: 1f - 0.14f * i, SunEnergy: 1f - 0.25f * i, SunR: 1f - 0.04f * i, SunG: 1f - 0.02f * i,
+                Ambient: 1f + 0.12f * i, FogDensity: 1f + 0.4f * i, FogR: 0.60f, FogG: 0.63f, FogB: 0.67f, FogTint: 0.3f * i, Glow: 1f + 0.06f * i),
             // overcast rain: a weak cool sun, desaturated, a cold grey haze, a touch more bloom on wet highlights
             WeatherId.Rain => new(Exposure: 1f - 0.05f * i, Contrast: 1f + 0.03f * i, Saturation: 1f - 0.25f * i, SunEnergy: 1f - 0.55f * i, SunR: 1f - 0.15f * i, SunG: 1f - 0.08f * i,
                 Ambient: 1f, FogDensity: 1f + 1.2f * i, FogR: 0.38f, FogG: 0.42f, FogB: 0.48f, FogTint: 0.70f * i, Glow: 1f + 0.15f * i),

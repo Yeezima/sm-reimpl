@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4045 spec table rows: **2985 tagged**, 696 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
+Scanned 4052 spec table rows: **2992 tagged**, 696 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 838 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 4045 spec table rows: **2985 tagged**, 696 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 47 | 37 | 21 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 155 | 154 | 57 | 65 | 0 |
+| General game design | 162 | 161 | 57 | 69 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2985** | 2680 | 2201 | 901 | 37 |
+| **All areas** | **2992** | 2687 | 2201 | 905 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1797 |
+| kind: ours | 1804 |
 | confidence: low | 1065 |
 | confidence: medium | 1025 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 296 |
+| notes: estimate | 300 |
 | kind: estimate | 269 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4287,7 +4287,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (155)
+### General game design (162)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4478,6 +4478,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-235B7A84` | Preset skies | an overcast dome for Rain and a darker, heavier one for the Thunderstorm: one shared 256 px seamless Perlin noise (4 octaves) sampled twice on a flat cloud plane, drifting (0.004 + 0.01 x wind) texture units a second along the wind; Rain dark (0.36, 0.39… (colour, cover 0 to 1) | kind: ours; notes: estimate | owner brief item 3 ("overcast Rain, heavier Thunderstorm", lightweight, no cloud simulation) | Preset skies: compare with SM1 by feel or video. Ours: an overcast dome for Rain and a darker, heavier one for the… | ☐ |
 | `R-FEB2A663` | Sky blend | the cover moves toward its target at 1 per 4 s (in and out: a switch to Clear fades the sky over at most 4 s, then the rig is freed); the preset's other effects are full at once (s) | kind: ours; notes: estimate | owner brief ("a few seconds without delaying active effects") | Sky blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the cover moves toward its target at 1 per 4 s (in and out: a switch… | ☐ |
 | `R-6FADA7BD` | Rain streaks (supersedes the streak rows of "Weather W2 pass 2") | a quad turned about the fall direction to face the camera (an axial billboard: a streak always lies along the fall and leans with the wind at any camera pitch), 0.02 m wide near and 0.014 m far (the drawn core about half of it), a Gaussian profile across, a… (m, colour) | kind: ours; notes: estimate | owner brief item 4 ("drop shape, texture, colour; keep fall motion, splashes, wet ground") | Rain streaks (supersedes the streak rows of "Weather W2…: compare with SM1 by feel or video. Ours: a quad turned about the fall direction to face the camera (an axial… | ☐ |
+| `R-E65CEE5F` | Repair 1: Compatibility renderer sky | the preset skies are not drawn in the Compatibility renderer (the tester's capture on Manufactorum: the dome's far-plane depth trick drew it over indoor walls); there Rain and the Thunderstorm keep their grade, rain and haze and the map's own sky shows (as… | kind: ours | tester capture 2026-11-23 | Repair 1: Compatibility renderer sky: compare with SM1 by feel or video. Ours: the preset skies are not drawn in the Compatibility renderer (the… | ☐ |
+| `R-9D833F11` | Repair 1: Low Fog cards (supersedes the card values of "Low Fog ground cards") | 240 cards at High (50 at least), 16 x 2.4 m (scale 0.7 to 1.3), centres 0 to 1.0 m over the fog's base in a ring 3 to 38 m, alpha 0.13 at the lull to 0.20 at full, a near-Gaussian puff (alpha 1, 0.72, 0.34, 0.09, 0 at 0, 1/4, 1/2, 3/4 and the rim), colour 60… (count, m) | kind: ours; notes: estimate | tester capture (separate white blobs) | Repair 1: Low Fog cards (supersedes the card values of "Low…: compare with SM1 by feel or video. Ours: 240 cards at High (50 at least), 16 x 2.4 m (scale 0.7 to 1.3)… | ☐ |
+| `R-27029DC8` | Repair 1: Low Fog grade (supersedes "Low Fog grade") | exposure x1.02, contrast x0.95, saturation x0.86, sun x0.75, sun red x0.96, green x0.98, ambient x1.12, fog density x1.4, fog tint (0.60, 0.63, 0.67) at 0.3 (was 0.75: it turned the sky flat white-grey), bloom x1.06 (factor) | kind: ours; notes: estimate | tester capture | Repair 1: Low Fog grade (supersedes "Low Fog grade"): compare with SM1 by feel or video. Ours: exposure x1.02, contrast x0.95, saturation x0.86, sun x0.75, sun red… | ☐ |
+| `R-C0794B8B` | Repair 1: Ash Squall flecks (supersedes "Ash particles") | 1300 flecks at High (was 800), 0.2 m soft dots (scale 0.5 to 1.8) of a pale grey-ochre ash (0.56, 0.50, 0.42; was a dark brown lost against dark walls), alpha 0.45 + 0.45 x share, in a 32 x 8 x 32 m box round the camera (was 40 m) (count) | kind: ours; notes: estimate | tester capture (peak nearly invisible) | Repair 1: Ash Squall flecks (supersedes "Ash particles"): compare with SM1 by feel or video. Ours: 1300 flecks at High (was 800), 0.2 m soft dots (scale 0.5 to 1.8) of… | ☐ |
+| `R-25ED4188` | Repair 1: Ash Squall dust | 90 wide soft ochre sheets at High (24 at least), 10 x 4 m (scale 0.7 to 1.4), in a ring 4 to 34 m centred 8 m upwind of the player, 0 to 4 m over the ground, racing along the wind at (6 + 10 x wind) m/s x 0.8 to 1.2, life 5 s (full at once), alpha 0.10 at the… (count, m, m/s) | kind: ours; notes: estimate | tester capture; references (Metro Exodus, Battlefield 1 Sinai: moving grit at street level, a short loss of long sightlines) | Repair 1: Ash Squall dust: compare with SM1 by timing a run over a known distance. Ours: 90 wide soft ochre sheets at High (24 at least), 10 x 4 m (scale 0.7… | ☐ |
+| `R-16C85C66` | Repair 1: locomotion test aid | F6 developer-tools session only (presentation only, never in normal play): `wxmove:<direction>:<s>` (right, left, forward or back) holds the player's own stick (the sim's run speed) for s seconds (default 4, at most 60); `wxslide:<m/s>:<s>` slides the camera… (m/s, s) | kind: ours | lead request 2026-11-23 (tester capture gap) | Repair 1: locomotion test aid: compare with SM1 by timing a run over a known distance. Ours: F6 developer-tools session only (presentation only, never in normal… | ☐ |
+| `R-B3BF3703` | Repair 1: dev-script words | the `--dev-script` value is split on commas and each word trimmed of spaces and stray quote characters (a nested quoting handed the quotes to the client and lost the first and last word); added content's words get every part after the name (`wxslide:20:3`) | kind: ours | tester report | Repair 1: dev-script words: compare with SM1 by feel or video. Ours: the --dev-script value is split on commas and each word trimmed of… | ☐ |
 | `R-2F82605D` | Wet ground | there is no wet-surface material in the build: the "wet ground" the owner liked is the splashes, mist and the darker grade, all kept | kind: ours | source audit 2026-11-23 | Wet ground: compare with SM1 by feel or video. Ours: there is no wet-surface material in the build: the "wet ground" the… | ☐ |
 
 *Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*

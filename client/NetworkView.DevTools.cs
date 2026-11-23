@@ -111,7 +111,7 @@ public partial class NetworkView
         {
             AddChild(_devPanel = NewDevPanel());
             if (DevArgs.Contains(DevToolsPanel.PanelArg)) _devPanel.SetOpen(true);
-            if (DevArg(DevToolsPanel.ScriptArg) is { } script) { _devScript = script.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries); _devScriptNextReal = Time.GetTicksMsec() / 1000.0 + 2.0; }
+            if (DevArg(DevToolsPanel.ScriptArg) is { } script) { _devScript = DevToolsPanel.SplitScript(script); _devScriptNextReal = Time.GetTicksMsec() / 1000.0 + 2.0; }
         }
         if (state is not null)
         {

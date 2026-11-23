@@ -142,6 +142,9 @@ public sealed partial class WeatherRig
         return _dot = new GradientTexture2D { Gradient = g, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(0.5f, 0f), Width = 32, Height = 32 };
     }
 
+    /// <summary>Repair 1: the fleck colour (a pale grey-ochre ash, was a dark brown that vanished against dark walls) and its quad size (m; was 0.14).</summary>
+    public const float AshR = 0.56f, AshG = 0.50f, AshB = 0.42f, AshFleckM = 0.2f;
+
     CpuParticles3D BuildAsh(string name, int amount, out StandardMaterial3D material)
     {
         material = new StandardMaterial3D
@@ -150,7 +153,7 @@ public sealed partial class WeatherRig
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            AlbedoColor = new Color(0.30f, 0.26f, 0.22f, 0.5f),
+            AlbedoColor = new Color(AshR, AshG, AshB, 0.5f),
             AlbedoTexture = SoftDot(),
             DisableFog = false,
         };
@@ -162,15 +165,15 @@ public sealed partial class WeatherRig
             Preprocess = 3.0,
             LocalCoords = false,
             EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(20f, 4f, 20f),
+            EmissionBoxExtents = new Vector3(16f, 4f, 16f),   // repair 1: a tighter box round the player (was 20 m), so the flecks are dense where they are seen
             Direction = new Vector3(1f, -0.02f, 0f),
             Spread = 8f,
             Gravity = new Vector3(0f, -0.35f, 0f),
             InitialVelocityMin = 5f,
             InitialVelocityMax = 9f,
-            ScaleAmountMin = 0.6f,
-            ScaleAmountMax = 1.6f,
-            Mesh = new QuadMesh { Size = new Vector2(0.14f, 0.14f), Material = material },
+            ScaleAmountMin = 0.5f,
+            ScaleAmountMax = 1.8f,
+            Mesh = new QuadMesh { Size = new Vector2(AshFleckM, AshFleckM), Material = material },
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             Position = new Vector3(0f, 1.5f, 0f),
             VisibilityAabb = new Aabb(new Vector3(-40f, -10f, -40f), new Vector3(80f, 24f, 80f)),
@@ -189,7 +192,7 @@ public sealed partial class WeatherRig
         float speed = 4f + 10f * wind;
         p.InitialVelocityMin = speed * 0.7f;
         p.InitialVelocityMax = speed * 1.15f;
-        if (m is not null) m.AlbedoColor = new Color(0.30f, 0.26f, 0.22f, (0.30f + 0.50f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
+        if (m is not null) m.AlbedoColor = new Color(AshR, AshG, AshB, (0.45f + 0.45f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
     }
 
     CpuParticles3D BuildEmbers()

@@ -190,6 +190,8 @@ public partial class NetworkView
         }
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
+        WeatherClientLink.TestMove ??= WeatherTestMoveWord;
+        WeatherTestSlide();   // repair 1 test aid (F6 only): the camera slid sideways before the rig reads it
         _wxModel.FullFlash = WeatherSettings.FullFlash;   // the player's storm lightning option (client only)
         WeatherAidsApply(_client?.Dev is not null);
         _wxModel.Advance(delta);

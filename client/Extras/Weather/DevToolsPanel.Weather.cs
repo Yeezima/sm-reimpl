@@ -55,6 +55,7 @@ public partial class DevToolsPanel
 
     partial void ExtrasPanelPress(string name, string arg, ref bool handled)
     {
+        if (WeatherClientLink.TestMove is { } move && move(name, arg)) { handled = true; return; }   // repair 1: the locomotion test aid's words (wxmove:right:4, wxslide:20:3, wxstop)
         if (name != "weather" || !WeatherClientLink.Available) return;
         if (arg == "follow") { WeatherSend(new WeatherCommand(WeatherCommandKind.Follow)); handled = true; return; }
         if (WeatherCatalog.ByKey(arg) is { } def) { WeatherSend(new WeatherCommand(WeatherCommandKind.Set, def.Id)); handled = true; }

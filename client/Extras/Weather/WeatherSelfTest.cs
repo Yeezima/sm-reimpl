@@ -62,7 +62,7 @@ public sealed partial class WeatherSelfTest : Node
 
         model.Receive(Section(WeatherId.LowFog, 200));   // the peak
         grade.Frame(env, sun);
-        Check("low fog peak: a light depth haze only (the ground fog is the rig's), within 3.5 times", env.FogDensity > fog0 * 1.4f && env.FogDensity <= fog0 * 2f + 1e-6f, env.FogDensity.ToString());
+        Check("low fog peak: a light depth haze only (the ground fog is the rig's), within 3.5 times", env.FogDensity > fog0 * 1.3f && env.FogDensity <= fog0 * 2f + 1e-6f, env.FogDensity.ToString());
         Check("low fog peak: the shade is never darker", env.AmbientLightEnergy >= amb0);
 
         model.Receive(Section(WeatherId.Rain, 130));
@@ -204,6 +204,15 @@ public sealed partial class WeatherSelfTest : Node
         var sqWarn = WeatherClock.At(WeatherId.AshSquall, 60 + 45 - 20);   // 20 s before the buildup ends
         squall.Update(sqWarn, sqWarn.Intensity, Vector3.Zero);
         Check("ash squall late buildup: the ash still falls and the intensifying text shows", squall.AshFalling && squall.WarningShown);
+        var sqPeak = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 40);
+        squall.Update(sqPeak, sqPeak.Intensity, Vector3.Zero, 0f);
+        var dustNode = squall.GetNodeOrNull<CpuParticles3D>("AshDust");
+        Check("ash squall peak (repair 1): wind-driven dust sheets blow along the wind at street level, faded near the camera, with dense pale ash", squall.Dusting && dustNode is not null && dustNode.Direction.X > 0.3f
+            && squall.DustAlpha >= WeatherRig.DustAlphaFull * 0.99f && dustNode.Mesh is QuadMesh { Material: StandardMaterial3D { DistanceFadeMode: BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha } }
+            && dense is { Emitting: true } && dense.Amount >= (int)(WeatherRig.AshCount * 0.8f * 0.25f), $"{squall.DustAlpha} {dense?.Amount}");
+        squall.SetShelter(1f, false); squall.Update(sqPeak, sqPeak.Intensity, Vector3.Zero, 0f);
+        Check("ash squall: no dust under a roof", !squall.Dusting);
+        squall.SetShelter(0f, false);
         var rec = WeatherClock.At(WeatherId.AshSquall, 60 + 45 + 90 + 59);
         squall.Update(rec, rec.Intensity, Vector3.Zero);
         Check("ash squall recovery: the ash eases but never stops (at least half)", dense is { Emitting: true } && WeatherPlan.AshShare(rec) >= 0.5f, WeatherPlan.AshShare(rec).ToString());
@@ -222,6 +231,10 @@ public sealed partial class WeatherSelfTest : Node
         var far = WeatherSynth.Thunder(5, false); var near = WeatherSynth.Thunder(5, true);
         Check("synth: wind loops, thunder does not, none is silent or clipping", wind.LoopMode == AudioStreamWav.LoopModeEnum.Forward && far.LoopMode == AudioStreamWav.LoopModeEnum.Disabled && Peak(wind) > 400 && Peak(wind) < 30000 && Peak(far) > 400 && Peak(far) < 32767 && Peak(near) > 400 && Peak(near) < 32767,
             $"wind {Peak(wind)} far {Peak(far)} near {Peak(near)}");
+
+        // repair 1: the --dev-script words survive stray quotes from nested quoting
+        Check("dev script: stray quotes are dropped, every word kept", string.Join("|", DevToolsPanel.SplitScript("\"weather:rain, wxslide:20:3 ,weather:clear\"")) == "weather:rain|wxslide:20:3|weather:clear", string.Join("|", DevToolsPanel.SplitScript("\"weather:rain, wxslide:20:3 ,weather:clear\"")));
+        Check("skies: drawn in this renderer only when it is not Compatibility", WeatherRig.SkyDrawn == (RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility"));
 
         // the weather finish: rain coverage at speed (the emitters lead the camera), Low Fog's ground fog, the preset skies and Clear's removal
         {
@@ -250,7 +263,7 @@ public sealed partial class WeatherSelfTest : Node
             var fogStart = WeatherClock.At(WeatherId.LowFog, 0.2);
             fog.Update(fogStart, fogStart.Intensity, new Vector3(0f, 6f, 0f), 2f);
             var cards = fog.GetNodeOrNull<CpuParticles3D>("LowFog");
-            Check("low fog: ground cards at once, on the ground under the player, fading near the camera, within the sparse count", fog.Fogging && cards is not null && Math.Abs(fog.FogBase - 2f) < 0.01f && Math.Abs(cards.GlobalPosition.Y - 2.9f) < 0.01f
+            Check("low fog: ground cards at once, on the ground under the player, fading near the camera, within the sparse count", fog.Fogging && cards is not null && Math.Abs(fog.FogBase - 2f) < 0.01f && Math.Abs(cards.GlobalPosition.Y - (2f + WeatherRig.FogBandM * 0.5f)) < 0.01f
                 && cards.Amount <= (int)(WeatherRig.FogCount * 1.2f) && cards.Mesh is QuadMesh { Material: StandardMaterial3D { DistanceFadeMode: BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha } }, $"{fog.FogBase} {cards?.GlobalPosition}");
             Check("low fog: no sky of its own, no rain", fog.SkyLook == WeatherId.None && !fog.Raining);
             fog.Update(fogStart, fogStart.Intensity, new Vector3(0f, 12f, 0f), 8f);   // up on a balcony: the fog's base climbs slowly
