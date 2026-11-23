@@ -323,9 +323,16 @@ public class NavJumpResumeTests
             string stale = NavCache.JumpPartFor(dir, "gap", 11, 0), fresh = NavCache.JumpPartFor(dir, "gap", 11, 1);
             File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-8));
             File.SetLastWriteTimeUtc(fresh, DateTime.UtcNow.AddDays(-6));
+            // build locks a killed process left behind go after a day; a recent one stays
+            string oldLock = NavBuildLock.FileFor(dir, NavBuildLock.NameFor("gap", 11, perKey: true)), newLock = NavBuildLock.FileFor(dir, "gap");
+            File.WriteAllText(oldLock, $"{DeadPid()} x");
+            File.WriteAllText(newLock, $"{DeadPid()} y");
+            File.SetLastWriteTimeUtc(oldLock, DateTime.UtcNow.AddDays(-2));
             NavCache.Prune(dir, "gap");
             Assert.False(File.Exists(stale));
             Assert.True(File.Exists(fresh));
+            Assert.False(File.Exists(oldLock));
+            Assert.True(File.Exists(newLock));
         }
         finally { Directory.Delete(dir, recursive: true); }
     }

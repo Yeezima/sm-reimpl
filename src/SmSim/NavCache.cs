@@ -247,6 +247,10 @@ public static class NavCache
         foreach (var temp in Directory.EnumerateFiles(dir, "*.nav.*.tmp").Concat(Directory.EnumerateFiles(dir, "*.navjump.*.tmp")))
             try { if (now - File.GetLastWriteTimeUtc(temp) > TimeSpan.FromDays(1)) File.Delete(temp); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        // bots/a1-perf: build locks left by a killed process (NavBuildLock; a held lock is refreshed far more often than this)
+        foreach (var lockFile in Directory.EnumerateFiles(dir, "*.navbuild.lock"))
+            try { if (Path.GetExtension(lockFile) == ".lock" && now - File.GetLastWriteTimeUtc(lockFile) > TimeSpan.FromDays(1)) File.Delete(lockFile); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         // Exact extensions: Windows matches "*.nav" against ".navjump" too (and the like), so the pattern alone is not enough.
         var graphs = Directory.EnumerateFiles(dir, mapName + "-*.nav")
             .Where(f => Path.GetExtension(f) == ".nav" && Path.GetFileNameWithoutExtension(f).Length == mapName.Length + 17)   // <map>-<16 hex digits>
