@@ -284,4 +284,40 @@ public class ClassicHitDirTests
         Assert.True(ledger.First(8, 3, SlashKey(1), 10.1));                           // a second victim of the same slash
         Assert.True(ledger.First(7, 3, SlashKey(2), 10.2));                           // the next slash
     }
+
+    // ---- the bull-rush charge (owner 2026-11-24, question card "Yes, spray charges too") ----
+
+    [Fact]
+    public void A_charge_connect_is_its_rush_or_collision_stop_only()
+    {
+        Assert.True(IsChargeContact(RushPhase.Rush));
+        Assert.True(IsChargeContact(RushPhase.Collision));
+        Assert.False(IsChargeContact(RushPhase.None));
+        Assert.False(IsChargeContact(RushPhase.DashAttack));   // the jump pack's dash attack is not the bull rush
+        Assert.False(IsChargeContact(RushPhase.DashHit));
+    }
+
+    [Fact]
+    public void A_charge_sprays_along_the_chargers_velocity()
+    {
+        var d = ChargeDirection(new Vector3(6f, 0f, 0.5f), new Vector3(0f, 1f, 0f), 0f);
+        Assert.Equal(1f, d.X, 3); Assert.Equal(0f, d.Z, 3);                                  // the rush's velocity, level
+        d = ChargeDirection(new Vector3(0.2f, 0f, 0f), new Vector3(0f, 2f, 0f), 0f);
+        Assert.Equal(1f, d.Y, 3);                                                            // stopped: the line to the victim
+        d = ChargeDirection(Vector3.Zero, Vector3.Zero, MathF.PI / 2f);
+        Assert.Equal(-1f, d.X, 3);                                                           // nothing else: his facing
+    }
+
+    [Fact]
+    public void A_charge_has_its_own_key_per_rush_and_one_effect_per_victim()
+    {
+        var other = new HashSet<long>();
+        for (int n = 0; n < 1000; n++) other.Add(SlashKey(n));
+        for (long tick = 0; tick < 200; tick++) for (int step = 0; step < 4; step++) other.Add(AttackKey(tick, step, false));
+        for (int n = 1; n < 100; n++) Assert.DoesNotContain(ChargeKey(n), other);
+        var ledger = new ContactLedger();
+        Assert.True(ledger.First(4, 9, ChargeKey(1), 3.0));
+        Assert.False(ledger.First(4, 9, ChargeKey(1), 3.2));    // the same charge on him again
+        Assert.True(ledger.First(4, 9, ChargeKey(2), 3.4));     // his next charge
+    }
 }

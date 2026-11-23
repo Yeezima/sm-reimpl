@@ -11,7 +11,7 @@ namespace SmClient;
 /// classic-hit-effects capture aid (a *placeholder demonstration* of the drawing, not of the confirmation path): <c>--hit-dir-demo &lt;case&gt;</c> draws one case every <c>--hit-dir-every</c> s
 /// (default 2) on the other player nearest the camera, from the camera's side, through the same spray, sparks, blood hook and decal trace the confirmed hits use, in the match's own profile
 /// (Faithful draws no blood or decal). Cases: <c>lr</c>, <c>rl</c>, <c>overhead</c>, <c>diagonal</c>, <c>thrust</c>, <c>combo</c> (lr, rl, diagonal, thrust in turn), <c>gun</c>, <c>heavy</c>,
-/// <c>lethal</c>, <c>armour</c>, <c>break</c> (armour broken, no health: sparks), <c>mixed</c>, <c>blood</c>, <c>two</c> (one stroke through the two nearest players), <c>airslash</c> (the jump pack's air slash: a stroke from high on one side down across him), <c>headshot</c> (a fatal
+/// <c>lethal</c>, <c>armour</c>, <c>break</c> (armour broken, no health: sparks), <c>mixed</c>, <c>blood</c>, <c>two</c> (one stroke through the two nearest players), <c>charge</c> (a bull-rush connect from the camera's side, thrown straight on), <c>airslash</c> (the jump pack's air slash: a stroke from high on one side down across him), <c>headshot</c> (a fatal
 /// gunfire headshot along the camera's line through his head: the wall decal if a wall is within 5 m behind him; place the camera to test each wall case), <c>wallshot</c> / <c>farshot</c>
 /// (a fatal headshot toward the nearest wall within 4.6 m / between 5.4 and 6.3 m of his head, found by probing the level: decal / none), <c>cycle</c> (every case).
 /// Each draw prints a <c>HITDIRDEMO</c> line. The real swings and shots are tested in play (bots or a second client) with <c>--log-hit-dir</c>.
@@ -48,7 +48,20 @@ public partial class NetworkView
             "combo" => HitDirDemoCombo[_hitDirDemoStep++ % HitDirDemoCombo.Length],
             _ => _hitDirDemo,
         };
-        if (HitDirStage(kind, first)) return;   // wall:<m>, sidewall, blocked, floor (NetworkView.ClassicHitDirStage.cs)
+        if (HitDirStage(kind, first)) return;
+        if (kind == "charge")
+        {
+            // a bull-rush connect from the camera's side: thrown straight on along the charge
+            PlayerState? cv = null;
+            foreach (var p in _lastOthers) if (p.PlayerId == first) { cv = p; break; }
+            if (cv is not { } chv) return;
+            var cchest = ToGodot(chv.Position + new System.Numerics.Vector3(0f, 0f, 1.25f));
+            var ctoCam = camera.GlobalPosition - cchest; ctoCam.Y = 0f;
+            ctoCam = ctoCam.LengthSquared() > 1e-4f ? ctoCam.Normalized() : Vector3.Forward;
+            bool cd = DrawCharge(first, _client.PlayerId, cchest + ctoCam * 0.4f, -ctoCam, HitVisual.Blood, false);
+            GD.Print($"HITDIRDEMO charge on P{first} ({HitDirLook}): drawn {cd} (t {_connectedFor:F2})");
+            return;
+        }   // wall:<m>, sidewall, blocked, floor (NetworkView.ClassicHitDirStage.cs)
         PlayerState? v = null;
         foreach (var p in _lastOthers) if (p.PlayerId == first) { v = p; break; }
         if (v is not { } victim) return;

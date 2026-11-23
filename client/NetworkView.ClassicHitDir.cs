@@ -230,6 +230,8 @@ public partial class NetworkView
                 if (LogHitDir) HitDirPrint($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn} (t {_connectedFor:F2})");
                 return false;
             }
+            // a bull-rush charge's connect (owner 2026-11-24; NetworkView.ClassicHitDirCharge.cs)
+            if (ClassicChargeMark(o, shield, health, lethal)) return true;
             // melee: the attacker who just struck in reach
             var cands = _candidateScratch;
             cands.Clear();
@@ -270,6 +272,9 @@ public partial class NetworkView
         _hitDirWatch.Restart();
         Record(me, own: true);
         foreach (var p in _lastOthers) Record(p, own: false);
+        TrackRush(me);
+        foreach (var p in _lastOthers) TrackRush(p);
+        ChargeFxFrame();
         if (_weaponTrails.Count > _lastOthers.Count + 1)
         {
             _trailGone.Clear();
@@ -481,7 +486,7 @@ public partial class NetworkView
             bool stomp = step?.Stomp is not null;
             string rush = e2.Rush != RushPhase.None ? $"rush phase {e2.Rush}" : "";
             string doing = e2.Charging ? "charging" : rush.Length > 0 ? rush : e2.JumpSlash ? "air slash" : stomp ? "stomp" : e2.MeleeStep > 0 ? $"melee step {e2.MeleeStep}" : !e2.Grounded ? "airborne" : "no melee";
-            doing += $"; his reaction {e2.Reaction}, o's reaction {o.Reaction}";
+            doing += $"; his jump {e2.Jump}{(e2.Grounded ? "" : " airborne")}, his reaction {e2.Reaction}, victim reaction {o.Reaction}, victim jump {o.Jump}{(o.Grounded ? "" : " airborne")} vz {o.Velocity.Z:F1}{LastBlastText(feet)}";
             category = e2.Charging ? "charge" : e2.Rush != RushPhase.None ? "rush-" + e2.Rush : e2.JumpSlash ? "air-slash" : stomp ? "stomp" : e2.MeleeStep > 0 || since < 1.0 ? "melee-unpaired" : !e2.Grounded ? "airborne-enemy" : "no-source-near";
             return $"nearest enemy {enemy}, {doing}, last weapon melee {(double.IsInfinity(since) ? "never" : $"{since:F2} s ago")}";
         }
@@ -489,10 +494,18 @@ public partial class NetworkView
         return near is null ? $"no shot drawn in 0.6 s; nearest enemy {enemy}" : $"nearest drawn shot end {nearD:F1} m away; nearest enemy {enemy}";
     }
 
+    /// <summary>The nearest detonation this view drew in the last second, at any distance (for the unpaired log).</summary>
+    string LastBlastText(Num.Vector3 feet)
+    {
+        float best = float.MaxValue; double age = 0;
+        foreach (var b in _blastSeen) if (b.T > 0 && _connectedFor - b.T <= 1.0) { float d = Num.Vector3.Distance(b.At, feet); if (d < best) { best = d; age = _connectedFor - b.T; } }
+        return best < float.MaxValue ? $", a detonation {best:F1} m away {age:F2} s ago" : ", no detonation drawn in 1 s";
+    }
+
     string UnpairedSummary() => _unpairedWhy.Count == 0 ? "" : " (" + string.Join(", ", _unpairedWhy.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)) + ")";
 
     /// <summary>For the effects log: counts and the CPU cost of the directional hit look (the sprays' GPU cost is their draw calls: one per live spray).</summary>
-    string HitDirLog() => $"hit dir: look {HitDirLook}, shots {_hitDirShots} ({_hitDirLooseShots} by the server's hit near him), melee {_hitDirMelee} (waited {_hitDirWaited}), unpaired marks {_hitDirUnpaired}{UnpairedSummary()}, sparks {_hitDirSparks}, blood {_hitDirBlood}, " +
+    string HitDirLog() => $"hit dir: look {HitDirLook}, shots {_hitDirShots} ({_hitDirLooseShots} by the server's hit near him), melee {_hitDirMelee} (waited {_hitDirWaited}), charges {_hitDirCharges}, unpaired marks {_hitDirUnpaired}{UnpairedSummary()}, sparks {_hitDirSparks}, blood {_hitDirBlood}, " +
                           $"live sprays {(_hitSpray is null ? 0 : _hitSpray.Live)}, cpu {(_hitDirFrames > 0 ? _hitDirMs / _hitDirFrames : 0):F4} ms/frame mean, {_hitDirMsPeak:F3} ms peak, " +
                           $"{_hitDirSlow} sections over {SlowSectionMs:F0} ms ({_hitDirSlowMs:F0} ms; without them {(_hitDirFrames > 0 ? (_hitDirMs - _hitDirSlowMs) / _hitDirFrames : 0):F4} ms/frame)";
 

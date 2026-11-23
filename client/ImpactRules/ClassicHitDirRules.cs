@@ -190,6 +190,30 @@ public static class ClassicHitDirRules
     /// </summary>
     public static long AttackKey(long startTick, int step, bool heavy) => startTick * 64 + step * 2 + (heavy ? 1 : 0);
     public static long SlashKey(int slashCount) => -1L - slashCount;
+
+    /// <summary>A bull-rush charge's attack key, from the charger's count of rushes (below every slash key, never a melee step's).</summary>
+    public static long ChargeKey(int rushCount) => -1_000_000_000L - rushCount;
+
+    /// <summary>The charge phases a connect happens in (owner 2026-11-24, question card "Yes, spray charges too"): the rush itself and its collision stop; not the jump pack's dash attack.</summary>
+    public static bool IsChargeContact(RushPhase phase) => phase is RushPhase.Rush or RushPhase.Collision;
+
+    /// <summary>How far (m, horizontal) a charger in his rush or collision stop may be from the victim of a damage mark and be taken as its source (ours; the connect stands them 0.9 m apart).</summary>
+    public const float ChargeReach = 2.5f;
+
+    /// <summary>The charge spray's sideways spread (rad; ours: a body slam, between a thrust's and a sweep's).</summary>
+    public const float ChargeSpread = 0.3f;
+
+    /// <summary>
+    /// The direction of a charge contact (game space, level): the charger's velocity during the rush when he was moving (over 1 m/s), else the line from him to the victim, else his facing.
+    /// </summary>
+    public static Vector3 ChargeDirection(Vector3 rushVelocity, Vector3 chargerToVictim, float chargerYaw)
+    {
+        var v = new Vector3(rushVelocity.X, rushVelocity.Y, 0f);
+        if (v.Length() > 1f) return Vector3.Normalize(v);
+        var b = new Vector3(chargerToVictim.X, chargerToVictim.Y, 0f);
+        if (b.Length() > 1e-3f) return Vector3.Normalize(b);
+        return new Vector3(-MathF.Sin(chargerYaw), MathF.Cos(chargerYaw), 0f);
+    }
     /// <summary>How far from a victim's drawn chest a server body or head hit this view resolved to nobody (or to someone else) may end and still be taken as his (m; ours, live check 2026-11-24: such hits ended up to 2.5 m away).</summary>
     public const float LooseShotReach = 3.5f;
     public const double RemoteWindow = 0.35, OwnWindow = 0.8;

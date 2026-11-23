@@ -152,7 +152,9 @@ public partial class NetworkView
         if (line.LengthSquared() < 1e-6f) line = new Num.Vector2(-MathF.Sin(charger.Yaw), MathF.Cos(charger.Yaw));
         line = Num.Vector2.Normalize(line);
         var contact = victim.Position + new Num.Vector3(-line.X * 0.4f, -line.Y * 0.4f, 1.25f);
-        int played = ChargeImpactFxPlay(charger, contact, new Num.Vector3(line.X, line.Y, 0f), victim.Shield > 0f || victim.PlayerId != ownId);
+        // classic-hit-effects (owner 2026-11-24): in Classic PvP the directional look replaces these impact effects when it draws (NetworkView.ClassicHitDirCharge.cs)
+        int played = ClassicChargeImpactFx(charger, victim, contact, new Num.Vector3(line.X, line.Y, 0f), victim.Shield > 0f || victim.PlayerId != ownId)
+                     ?? ChargeImpactFxPlay(charger, contact, new Num.Vector3(line.X, line.Y, 0f), victim.Shield > 0f || victim.PlayerId != ownId);
         if (LogChargeImpact || _bot) GD.Print($"  impact effects started: {played}");
     }
 
