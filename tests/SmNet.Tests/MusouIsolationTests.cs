@@ -54,7 +54,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the goldens (captured on main 35deb39, before MU0's hooks)
 
-    const ulong FixtureFaithfulHash = 0x373ACC804D495689UL, FixtureExtendedHash = 0x680976AB59C27A2BUL, DefaultFaithfulHash = 0xF3280791FBD8E4CBUL, DefaultExtendedHash = 0xCD8802DE4D91207AUL;   // sim/stab-key-only (2026-11-23): the Classic cancel table gains the stab section (was 0x451E456104EABD05UL, 0x8BF68C1C12D33936UL, 0xAA40C2EE9AE0EE1DUL, 0x060CA7F5E6F22ADAUL); unchanged by weather W3: the weather bit is left out of the hash
+    const ulong FixtureFaithfulHash = 0x47117A94D7F3520AUL, FixtureExtendedHash = 0xCED31C296DC91C2FUL, DefaultFaithfulHash = 0x6F2F6B2B1A7A41F0UL, DefaultExtendedHash = 0xD3D3D5F4E244F644UL;   // sim/stab-key-only (2026-11-23): the Classic cancel table gains the stab section (was 0x451E456104EABD05UL, 0x8BF68C1C12D33936UL, 0xAA40C2EE9AE0EE1DUL, 0x060CA7F5E6F22ADAUL); unchanged by weather W3: the weather bit is left out of the hash
     // Recaptured with the owner's cancel default (2026-11-19; again 2026-11-23, the 11-23 export) (the shipped cancel table's hash joins every Classic config hash; Musou's does not); before: 0x2235C9DFF926583F, 0xA3A5F813DCFC7B6B, 0xA57B097C29D78EAB, 0xC14C777D6C269AB0. Musou's own hash and the replays below are untouched (the replays run by the baseline table).
     // claude/autocannon-pass (2026-11-11): Classic PvP's autocannon joined the extended profile (ContentExtras.Autocannon in ContentExtras.All), so both extended pins moved with the flags
     // (0x54B88195AFC434B4 and 0x0CA292E1A0338C00 before); a Classic change, not a Musou one: the faithful pins are as they were.

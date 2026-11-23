@@ -53,10 +53,10 @@ public class OrkSimTests
         // Re-pinned for the owner's blind grenade by facing (2026-10-28: SimConfig.BlindViewHalfAngle is hashed, so every config's hash moved once;
         // before: B9AE0B048FDE504D, 192D6A8FD5B02B56, DA9A87CAC1337ED8, C4400831F020CBF3). Class bodies still add nothing for a config without them.
         // Recaptured with the owner's cancel default (2026-11-19; again 2026-11-23, the 11-23 export) (the shipped cancel table's hash joins every Classic config hash; Musou's does not); the values before it are 0xA57B097C29D78EAB, 0x24C00662A26C4F7A, 0x9214E4F961AAB3AB, 0x0CCE9A750CE539F1.
-        Assert.Equal(0xF3280791FBD8E4CBUL, new SimConfig().Hash());   // sim/stab-key-only (2026-11-23): 0xAA40C2EE9AE0EE1DUL before (the cancel table's stab section)
-        Assert.Equal(0x647162EF9449DE32UL, EvadeTests.Config.Hash());   // 0x73A87F823FDE2D58UL before sim/stab-key-only
-        Assert.Equal(0x894AD67DDCB4453BUL, EvadeTests.HopConfig.Hash());   // 0xB777659CB25096ADUL before sim/stab-key-only
-        Assert.Equal(0x5382D4ABED298019UL, new SimConfig { HitVolumes = [HitVolume.Sphere("Head", HitZone.Head, new(0, 0, 1.9f), 0.2f)] }.Hash());   // 0x12D82DFD168828D0UL before sim/stab-key-only
+        Assert.Equal(0x6F2F6B2B1A7A41F0UL, new SimConfig().Hash());   // sim/stab-key-only (2026-11-23): 0xAA40C2EE9AE0EE1DUL before (the cancel table's stab section)
+        Assert.Equal(0xD6948641F4773FD8UL, EvadeTests.Config.Hash());   // 0x73A87F823FDE2D58UL before sim/stab-key-only
+        Assert.Equal(0xFEDF8D2B4C815D04UL, EvadeTests.HopConfig.Hash());   // 0xB777659CB25096ADUL before sim/stab-key-only
+        Assert.Equal(0x388B6EC35E0A3586UL, new SimConfig { HitVolumes = [HitVolume.Sphere("Head", HitZone.Head, new(0, 0, 1.9f), 0.2f)] }.Hash());   // 0x12D82DFD168828D0UL before sim/stab-key-only
     }
 
     [Fact]

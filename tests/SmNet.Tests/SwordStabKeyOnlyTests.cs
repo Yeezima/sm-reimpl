@@ -227,10 +227,11 @@ public class SwordStabKeyOnlyTests
             for (int k = 0; k < wait; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
             return Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Stab), c, out _);
         }
-        Assert.Equal((1, true), (After(CancelData.Baseline, InputButtons.MeleeHeavy, 3).MeleeStep, true));
+        var d = After(CancelData.Baseline, InputButtons.MeleeHeavy, 3);
+        Assert.Equal((1, true), (d.MeleeStep, d.MeleeHeavy));                 // default: T in the F strike is refused, the strike plays on
         var e = After(edited, InputButtons.MeleeHeavy, 3);
         Assert.Equal((StabAt, true), (e.MeleeStep, e.MeleeHeavy));
-        // the stomp (in its own row) and a stomp edit are untouched by the stab column: F, F, then T in the stomp
+        // where the sword's F, F stomp sits in the matrix (no T pressed here): a heavy strike, not the in-place stomp, so it reads the generic heavy row's cells
         var c0 = Config(edited);
         var s0 = Combat.StepPlayer(MeleeCancelTests.Fresh(c0, 0), new PlayerInput(0, 0f, 0f, 0f, InputButtons.MeleeHeavy), c0, out _);
         for (int k = 0; k < 19; k++) s0 = Combat.StepPlayer(s0, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c0, out _);
@@ -238,6 +239,42 @@ public class SwordStabKeyOnlyTests
         for (int k = 0; k < 10 && s0.MeleeStep != 3; k++) s0 = Combat.StepPlayer(s0, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c0, out _);
         Assert.Equal(3, s0.MeleeStep);
         Assert.Equal(Row("melee_heavy"), CancelGate.ActiveRow(c0, s0, default));   // the sword's finisher stomp is a heavy strike (not in place): the generic heavy row, whose stab cell is edited here
+    }
+
+    // ---- the stab key in a jump-pack hop (review F2) ----
+
+    /// <summary>The Assault of the hop tests with a sword: a stun strike and the stab after it.</summary>
+    static SimConfig PackSword(CancelData? table = null) => CancelGateTests.Plays(MeleeCancelTests.Pack with
+    {
+        Classes = [MeleeCancelTests.Pack.Classes[0] with { MeleeHeavy = [Y(5f) with { YNext = 0, YComboOpen = 0f, YComboClose = 0f }, StabStep] }, MeleeCancelTests.Pack.Classes[1]],
+    }, table);
+
+    /// <summary>For each tick of a hop (flight and landing part), what a stab press does: "S" ends the hop and stabs, "." nothing.</summary>
+    static string HopStabTrace(SimConfig c)
+    {
+        var trace = new System.Text.StringBuilder();
+        for (int at = 1; at < 90; at++)
+        {
+            var s = Combat.StepPlayer(MeleeCancelTests.Fresh(c, 0), new PlayerInput(0, 0f, 0f, 0f, InputButtons.Jump), c, out _);
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
+            for (int k = 0; k < at && s.EvadeTicks > 0; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
+            if (s.EvadeTicks == 0) break;
+            var pressed = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Stab), c, out _);
+            trace.Append(pressed.MeleeStep > 0 && pressed.MeleeHeavy ? 'S' : '.');
+        }
+        return trace.ToString();
+    }
+
+    [Fact]
+    public void In_a_hop_the_stab_key_acts_only_from_the_landing_parts_melee_branch_as_the_cells_window_says()
+    {
+        var trace = HopStabTrace(PackSword());
+        Assert.True(trace.Contains('S'), trace);                     // the landing part's melee branch lets it through
+        Assert.StartsWith(new string('.', 30), trace);                 // never in the flight
+        Assert.True(CancelState.Window == CancelData.Shipped.Base(Row("jp_hop"), Col("stab")).State, trace);
+        Assert.Equal(CancelState.Window, CancelData.Baseline.Base(Row("jp_hop"), Col("stab")).State);
+        // edited to no, the window closes: the stab never starts in the hop
+        Assert.DoesNotContain('S', HopStabTrace(PackSword(Edit("jp_hop", "stab", new(CancelState.No)))));
     }
 
     // ---- networked: the server plays what the client predicts ----
@@ -271,7 +308,6 @@ public class SwordStabKeyOnlyTests
         Assert.Contains((3, true), server);           // F, F: the stomp
         Assert.Contains((StabAt, true), predicted);
         Assert.Contains((3, true), predicted);
-        Assert.Equal(server.Count(x => x == (StabAt, true)) > 0, predicted.Count(x => x == (StabAt, true)) > 0);
         var errors = client.CorrectionErrors.Skip(before).ToList();
         Assert.True(errors.Count == 0 || errors.Max() < 0.01f, $"corrections {errors.DefaultIfEmpty().Max()}");
     }

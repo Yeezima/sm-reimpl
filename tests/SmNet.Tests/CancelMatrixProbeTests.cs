@@ -26,9 +26,12 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         Combat.StepPlayer(s, new PlayerInput(0, mx, my, 0f, b), c, out e);
 
     /// <summary>sim/stab-key-only: every class with heavy strikes gets a stab strike after them (a copy of its first, marked <see cref="MeleeStep.Stab"/>, chained from nothing), as the power sword's content read appends one.</summary>
+    /// <summary>The pack class of <see cref="JumpPackTests"/> has no heavy strikes: it gets one (RushTests' synthetic stun strike) so the stab, which only pack classes hold, is probed on the jump-pack rows too (review F2).</summary>
+    static readonly MeleeStep ProbeHeavy = new(1.2f, 0.3f, 0f, 0f, 0.8f, 0.9f, 20f, 5f, 3.5f) { PrimaryReaction = new(0f, ReactionKind.Stun) };
+
     static SimConfig WithStab(SimConfig c) => c with
     {
-        Classes = [.. c.Classes.Select(k => k.MeleeHeavy is { Count: > 0 } h ? k with { MeleeHeavy = [.. h, h[0] with { Stab = true, YNext = 0, YComboOpen = 0f, YComboClose = 0f }] } : k)],
+        Classes = [.. c.Classes.Select(k => (k.MeleeHeavy is { Count: > 0 } h ? h : [ProbeHeavy]) is var heavy ? k with { MeleeHeavy = [.. heavy, heavy[0] with { Stab = true, YNext = 0, YComboOpen = 0f, YComboClose = 0f }] } : k)],
     };
 
     static readonly SimConfig Pack = CancelGateTests.Plays(WithStab(MeleeCancelTests.Pack), null);
@@ -48,6 +51,7 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         new("reload", Heavy, 0, c => Step(MeleeCancelTests.Fresh(c, 0) with { Clip = 5 }, c, InputButtons.Reload)),
         new("reload", Pack, 0, c => Step(MeleeCancelTests.Fresh(c, 0) with { Clip = 5 }, c, InputButtons.Reload)),
         new("melee_stab", Heavy, 0, c => Step(MeleeCancelTests.Fresh(c, 0), c, InputButtons.Stab)),   // sim/stab-key-only: the Power Sword Stab section's row
+        new("melee_stab", Pack, 0, c => Step(MeleeCancelTests.Fresh(c, 0), c, InputButtons.Stab)),    // with the pack (only pack classes hold the sword)
     ];
 
     /// <summary>The press of an input column (the way it is made), or null for a column that is not a press.</summary>
@@ -104,7 +108,7 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
     [Fact]
     public void Every_reachable_default_cell_matches_what_the_simulation_does()
     {
-        var times = new[] { 1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 24, 28, 32, 36 };
+        var times = new[] { 1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72 };   // to 72 ticks since review F2: the jump-pack hop's landing part (after its 1.3 s flight) is probed too
         var table = CancelData.Baseline;
         var mismatches = new List<string>();
         int probed = 0, unprobed = 0, na = 0;
@@ -145,16 +149,16 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         "QQWWYW.QQQ...-Y..",   // melee_light
         "WWWWYW.QQQ...-Y..",   // melee_light_last
         "QWWWYW.QQQ...-Y..",   // melee_heavy
-        "WWWW-WWWWWWWW-W.W",   // melee_stomp
+        "WWWW-WWWWWWWW-W.-",   // melee_stomp
         "YQQWY..QQQ..Y-W..",   // charge
         "YQQWY..QQQ..Y-W..",   // charge_sprint
         "YQQ.Y..QQQ...-W..",   // charge_air
         "WWWWY..QQQ.WW-Y..",   // charge_stop
         "WW.-Y..QQQ.WW-Y..",   // dash_attack
-        "WWQW-.WQWW.WW-W.W",   // evade_roll
-        "WWQW-WWQQW.WW-W.W",   // evade_hop
+        "WWQW-.WQWW.WW-W.-",   // evade_roll
+        "WWQW-WWQQW.WW-W.-",   // evade_hop
         "QQQ-W........-Y..",   // jp_takeoff
-        "YQQ-WWWQQW.WW-W..",   // jp_hop
+        "YQQ-WWWQQW.WW-W.W",   // jp_hop
         "YQQ-W........-...",   // jp_flight
         "QQQ-Q..QQQ...-...",   // jp_dive
         "QQQ-Y..QQQ...-Y..",   // jp_recover
@@ -169,9 +173,9 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         "QQQWY..QQQ...-...",   // stim
         "YYYYY.Y...-YY-Y.Y",   // sprint
         "YYYYYYY....YY-Y.Y",   // sprint_stop
-        "QQQQ-..QQQ...-...",   // brace_enter
-        "....-..Y.....-...",   // braced
-        "QQQY-..QQQ...-...",   // brace_exit
+        "QQQQ-..QQQ...-..-",   // brace_enter
+        "....-..Y.....-..-",   // braced
+        "QQQY-..QQQ...-..-",   // brace_exit
         "YYYYYY..YY...-Y.Y",   // vent
         "-----------------",   // exec_doing
         "-----------------",   // exec_victim
@@ -179,7 +183,7 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         "...WY..QQQ...-...",   // react_stun
         "....Y..QQQ...-...",   // react_stagger
         "--------------..-",   // flinch
-        "QQWWYW.QQQ...-Y..",   // melee_stab (sim/stab-key-only, owner 2026-11-23: the Power Sword Stab section; its column is the last character of every row)
+        "QQW-YW.QQQ...-Y..",   // melee_stab (sim/stab-key-only, owner 2026-11-23: the Power Sword Stab section; its column is the last character of every row)
     ];
 
     [Fact]

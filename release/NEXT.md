@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- **Power sword (Assault Marine, Raptor), Classic PvP:** F, F is the foot stomp again, with its blast. The heavy stab now comes only from the Sword Stab key (T by default; change it under Controls). Light attack then F is the normal forward thrust strike, and no light or F combo ends in the stab any more. This build does not play with earlier ones: everyone must update.

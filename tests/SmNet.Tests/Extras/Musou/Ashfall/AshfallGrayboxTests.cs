@@ -788,5 +788,5 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         Assert.NotEqual(FaithfulHash, new SimConfig { Extras = ContentExtras.Musou }.Hash());   // Musou Mode is a profile of its own
     }
 
-    const ulong FaithfulHash = 17521262673861862603UL, ExtendedHash = 12654442209278525752UL;   // recaptured with sim/stab-key-only (2026-11-23, the cancel table's stab section; 12268019715013668381UL and 15307610781081228400UL before); earlier: recaptured with the owner's cancel default (2026-11-19; again 2026-11-23, the 11-23 export) (the shipped cancel table's hash joins every Classic config hash; Musou's does not) (11924134867276107435UL and 910451572435291136UL before)
+    const ulong FaithfulHash = 8011740094987387376UL, ExtendedHash = 4809170602836427795UL;   // recaptured with sim/stab-key-only (2026-11-23, the cancel table's stab section; 12268019715013668381UL and 15307610781081228400UL before); earlier: recaptured with the owner's cancel default (2026-11-19; again 2026-11-23, the 11-23 export) (the shipped cancel table's hash joins every Classic config hash; Musou's does not) (11924134867276107435UL and 910451572435291136UL before)
 }

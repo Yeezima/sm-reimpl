@@ -735,10 +735,10 @@
    "src": ""
   },
   "melee_stomp|stab": {
-   "state": "window",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "The stab starts only once this state lets a melee press through (its melee branch or its release); before, refused",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab (the in-place stomp is the Devastator / Havoc's; the sword's finisher stomp is a heavy strike, row 3)",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "charge|light": {
@@ -1449,10 +1449,10 @@
    "src": ""
   },
   "evade_roll|stab": {
-   "state": "window",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "The stab starts only once this state lets a melee press through (its melee branch or its release); before, refused",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "evade_hop|light": {
@@ -1568,10 +1568,10 @@
    "src": ""
   },
   "evade_hop|stab": {
-   "state": "window",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "The stab starts only once this state lets a melee press through (its melee branch or its release); before, refused",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "jp_takeoff|light": {
@@ -1806,10 +1806,10 @@
    "src": ""
   },
   "jp_hop|stab": {
-   "state": "no",
+   "state": "window",
    "from": null,
    "until": null,
-   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "note": "Refused in the flight; from the landing part's melee branch (Evade.Begin takes the stab as a melee press) it ends the hop and the stab starts",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "jp_flight|light": {
@@ -2761,7 +2761,7 @@
    "state": "no",
    "from": null,
    "until": null,
-   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "note": "Not refused: the stab starts from rest while the reload runs on (sim/reload-keeps: no attack ends a reload), as a heavy press does; the reload is not ended",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "switch|light": {
@@ -2880,7 +2880,7 @@
    "state": "no",
    "from": null,
    "until": null,
-   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "note": "Not refused: the stab starts from rest while the switch timer runs on (the timer only blocks fire, reload and throw), as a heavy press does; the switch is not ended",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "raise|light": {
@@ -3591,10 +3591,10 @@
    "src": ""
   },
   "brace_enter|stab": {
-   "state": "no",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "braced|light": {
@@ -3710,10 +3710,10 @@
    "src": ""
   },
   "braced|stab": {
-   "state": "no",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "brace_exit|light": {
@@ -3829,10 +3829,10 @@
    "src": ""
   },
   "brace_exit|stab": {
-   "state": "no",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "Stab press refused: no stab starts and nothing is queued (the key sends a 4-tick pulse, never the input buffer)",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab",
    "src": "src/SmSim/Combat.cs (StepPlayer stabPress: refused where a heavy press is, never queued)"
   },
   "vent|light": {
@@ -4690,10 +4690,10 @@
    "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
   },
   "melee_stab|roll": {
-   "state": "window",
+   "state": "na",
    "from": null,
    "until": null,
-   "note": "Jump from BRANCH_Evade x0.7, never before hit (knife heavy 0.792/0.500/0.658/0.949 s); hop/roll same tick (as a heavy strike)",
+   "note": "Not applicable: only the pack classes (Assault Marine, Raptor) hold the power sword, so this state never meets the stab",
    "src": "src/SmSim/Combat.cs; src/SmSim/StabTuning.cs"
   },
   "melee_stab|pack": {
