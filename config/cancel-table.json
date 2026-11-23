@@ -257,8 +257,8 @@
  ],
  "cells": {
   "melee_light|light": {
-   "state": "window",
-   "from": 0.5,
+   "state": "queued",
+   "from": null,
    "until": null,
    "note": "Press before ComboClose queues next step; starts when hit landed and ComboOpen reached (knife X1 0.50-0.77 s)",
    "src": "src/SmSim/Combat.cs:634-659,664-674"

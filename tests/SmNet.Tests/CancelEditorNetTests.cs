@@ -65,7 +65,7 @@ public class CancelEditorNetTests
         var client = h.Clients[0];
         Assert.True(client.SendCancelEdit(DevCancelOp.Apply, [Change("jp_hop", "light", new(CancelState.No))]));
         Settle(h);
-        Assert.Equal(CancelData.Shipped.Hash, h.Server.CancelTable.Hash);   // still the shipped default (the baseline plus the 11-18 export), unedited
+        Assert.Equal(CancelData.Shipped.Hash, h.Server.CancelTable.Hash);   // still the shipped default (the baseline plus the owner's 11-23 export), unedited
         Assert.False(h.Server.World.Config.Cancel.Edited);
         Assert.Equal(0, client.CancelSyncs);
         Assert.False(client.CancelInSync);   // no beacon ever came

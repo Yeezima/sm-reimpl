@@ -42,8 +42,9 @@ public class ClassicMatchPin(ITestOutputHelper output)
     };
 
     // Recaptured 2026-11-19 on main 1809fa31 (main moved after 5428594e); this tree and an untouched main give the same value.
+    // Recaptured 2026-11-23 with the owner's 11-23 cancel default (cell 1.1 back to the baseline's queued: the fixture's light presses in a swing now queue the next step); 1A6C8AC48FDD26A3... before.
     // None and All hash identically: the fixture has no weapon, class or rule that an extended flag changes (the Classic extras only add content that this fixture lacks).
-    const string NoneReplay = "1A6C8AC48FDD26A34300BFDF27134041FD22476A9910DD52B7D2225CA89A18AD", AllReplay = "1A6C8AC48FDD26A34300BFDF27134041FD22476A9910DD52B7D2225CA89A18AD";
+    const string NoneReplay = "B6C5C2A9DBFC81A445FB1338C5FE4C0AFA8DAFAA364DB81215A76D7BB8EEE1C9", AllReplay = "B6C5C2A9DBFC81A445FB1338C5FE4C0AFA8DAFAA364DB81215A76D7BB8EEE1C9";
 
     [Fact]
     public void The_classic_replay_with_no_extras_is_as_before_Warfront()

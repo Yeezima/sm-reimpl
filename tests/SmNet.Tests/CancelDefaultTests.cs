@@ -5,15 +5,14 @@ using Xunit.Abstractions;
 namespace SmNet.Tests;
 
 /// <summary>
-/// The owner's 11-18 export as the Classic PvP default (spec "Cancel table"): what it differs from the baseline in (5 cells), and what each cell does in play with the shipped table.
+/// The owner's 11-23 export as the Classic PvP default (spec "Cancel table"; the 11-18 export with 1.1 back to the baseline's queued): what it differs from the baseline in (4 cells), and what each cell does in play with the shipped table.
 /// Cells are (action in progress) x (input); the seconds are into the action in progress. Synthetic clips only.
 /// </summary>
 public class CancelDefaultTests(ITestOutputHelper output)
 {
-    /// <summary>The five cells the shipped default differs from the baseline in: (row id, column id, the shipped cell).</summary>
+    /// <summary>The four cells the shipped default differs from the baseline in: (row id, column id, the shipped cell). 1.1 (a light press in a light swing) is the baseline's queued again since the 11-23 export.</summary>
     internal static readonly (string Row, string Col, CancelCell Cell)[] ExportCells =
     [
-        ("melee_light", "light", new(CancelState.Window, 500)),
         ("melee_light", "charge", new(CancelState.Window, 500)),
         ("charge", "light", new(CancelState.Window, 1000)),
         ("charge_sprint", "light", new(CancelState.Window, 1000)),
@@ -42,7 +41,7 @@ public class CancelDefaultTests(ITestOutputHelper output)
     static PlayerState Idle(PlayerState s, SimConfig c, int ticks) { for (int i = 0; i < ticks; i++) s = Step(s, c); return s; }
 
     [Fact]
-    public void The_shipped_default_is_the_baseline_plus_exactly_the_five_exported_cells()
+    public void The_shipped_default_is_the_baseline_plus_exactly_the_four_exported_cells()
     {
         Assert.Null(CancelData.ShippedError);
         Assert.True(CancelData.Shipped.DiffersFromBaseline);
@@ -57,44 +56,35 @@ public class CancelDefaultTests(ITestOutputHelper output)
             Assert.Contains(diff, d => d.Scope.IsBase && d.Row == r && d.Col == c && d.Cell == cell);
             Assert.NotEqual(CancelData.Baseline.Base(r, c), CancelData.Shipped.Base(r, c));
         }
-        Assert.Equal("1.1 1.3 5.1 6.1 9.1", string.Join(" ", ExportCells.Select(e => CancelLayout.Number(CancelLayout.RowIndex(e.Row), CancelLayout.ColIndex(e.Col)))));
+        Assert.Equal("1.3 5.1 6.1 9.1", string.Join(" ", ExportCells.Select(e => CancelLayout.Number(CancelLayout.RowIndex(e.Row), CancelLayout.ColIndex(e.Col)))));
         Assert.True(CancelGate.Active(new SimConfig()));                                          // a default config plays the table
         Assert.False(CancelGate.Active(new SimConfig() with { Extras = ContentExtras.Musou }));   // never Musou Mode
     }
 
-    // ---- 1.1: a light press during a light swing ----
+    // ---- 1.1: a light press during a light swing (the baseline's queued again, owner's 11-23 export) ----
 
     [Fact]
-    public void A_light_press_in_a_swing_does_not_chain_before_half_a_second_and_does_after()
+    public void A_light_press_in_a_swing_queues_the_next_step_as_the_baseline_does()
     {
         var def = CancelGateTests.Plays(RushTests.Config, CancelData.Shipped);
         var old = CancelGateTests.Plays(RushTests.Config, null);
-        int early = 0, late = 0, oldQueuedEarly = 0;
+        int r = CancelLayout.RowIndex("melee_light"), c = CancelLayout.ColIndex("light");
+        Assert.Equal(CancelData.Baseline.Base(r, c), CancelData.Shipped.Base(r, c));
+        Assert.Equal(CancelState.Queued, CancelData.Shipped.Base(r, c).State);
+        int probed = 0, queued = 0;
         for (int k = 0; k < 24; k++)
         {
-            PlayerState Run(SimConfig c, out PlayerState before) { var s = Idle(Step(Fresh(c), c, InputButtons.Melee), c, k); before = s; return Step(s, c, InputButtons.Melee); }
+            PlayerState Run(SimConfig cfg, out PlayerState before) { var s = Idle(Step(Fresh(cfg), cfg, InputButtons.Melee), cfg, k); before = s; return Step(s, cfg, InputButtons.Melee); }
             var after = Run(def, out var b);
             var oldAfter = Run(old, out _);
             if (b.MeleeStep == 0) break;
-            float t = b.MeleeTime;
-            bool restarted = after.MeleeTime < t;              // the swing began again: the combo chained
-            if (t < 0.5f - 1e-3f)
-            {
-                early++;
-                Assert.False(restarted, $"t {t:F3}: chained before the window");
-                Assert.False(after.MeleeQueued);                // dropped, not queued
-                Assert.Equal(BufferedAction.None, after.Buffered);
-                if (oldAfter.MeleeQueued) oldQueuedEarly++;     // the baseline queues it there
-            }
-            else if (t < 0.6f - 1e-3f)                          // from 0.5 s to the data's own combo close (0.6 s)
-            {
-                late++;
-                Assert.True(restarted, $"t {t:F3}: did not chain in the window");
-            }
-            output.WriteLine($"t {t:F3}: shipped restarted {restarted}, baseline queued {oldAfter.MeleeQueued}");
+            probed++;
+            Assert.Equal(oldAfter, after);                      // the shipped table plays this cell exactly as the code's own rule
+            if (after.MeleeQueued) queued++;
+            output.WriteLine($"t {b.MeleeTime:F3}: queued {after.MeleeQueued}");
         }
-        Assert.True(early >= 10 && late >= 2, $"early {early}, late {late}");
-        Assert.True(oldQueuedEarly >= 5, "the baseline would have queued the press");
+        Assert.True(probed >= 12, $"only {probed} ticks of the swing probed");
+        Assert.True(queued >= 5, "a press during the swing queues the next step");
     }
 
     // ---- 1.3: a charge press during a light swing ----
@@ -197,13 +187,12 @@ public class CancelDefaultTests(ITestOutputHelper output)
     public void Prediction_parity_the_self_step_and_the_server_step_agree_through_swing_then_charge_with_the_shipped_table()
     {
         // The same sequence through the server's step (StepPlayer) and the client's prediction (StepSelf) must give identical states every tick:
-        // a swing, a charge press at 0.2 s (refused) and at 0.57 s (starts), then a light press 0.27 s into the charge (refused) and 1.07 s in (ends it and swings).
+        // a swing, a charge press at 0.2 s (refused) and at 0.57 s (starts; since the 11-23 export no light press in the swing, which would queue the next step as the baseline does), then a light press 0.27 s into the charge (refused) and 1.07 s in (ends it and swings).
         var c = Long(CancelData.Shipped);
         PlayerInput In(int t) => t switch
         {
             0 => new(0, 0f, 0f, 0f, InputButtons.Melee),
             6 => new(0, 0f, 1f, 0f, F),
-            10 => new(0, 0f, 0f, 0f, InputButtons.Melee),
             17 => new(0, 0f, 1f, 0f, F),
             25 => new(0, 0f, 0f, 0f, InputButtons.Melee),
             55 => new(0, 0f, 0f, 0f, InputButtons.Melee),
