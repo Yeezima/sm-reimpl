@@ -189,6 +189,25 @@ public class WeatherWireTests
             Assert.True(glowFrames > 60 && flashFrames > 30, $"span {span}: glow {glowFrames} flash {flashFrames} frames");
         }
         Assert.Null(WeatherClientModel.PinnedStrikeTime(WeatherId.Rain, 0));
+
+        // final round D1: in a held match (Classic Warmup) the strike pin still loops, and FULL flash is stronger than REDUCED (the glow cap and the exposure lift)
+        foreach (bool full in new[] { false, true })
+        {
+            var held = new WeatherClientModel { PinStrike = true, PinAllowed = true, FullFlash = full };
+            held.Receive(WeatherWire.Encode(WeatherWire.Of(new WeatherDirector(WeatherId.Thunderstorm, 600) { Held = true })));
+            Assert.True(held.Held);
+            float maxGlow = 0f, maxLift = 0f;
+            for (int f = 0; f < 600; f++)
+            {
+                held.Advance(1.0 / 60);
+                var s = held.State;
+                float glow = full ? Math.Max(WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(s.Elapsed, s.Span), WeatherPlan.FullGlowMaxAlpha * WeatherPlan.FullFlash(s.Elapsed, s.Span)) : WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(s.Elapsed, s.Span);   // the rig's own rule (WeatherRig.Fx)
+                maxGlow = Math.Max(maxGlow, glow);
+                maxLift = Math.Max(maxLift, held.Grade.Exposure - WeatherGrade.For(s.Id, held.EffectiveIntensity).Exposure);
+            }
+            if (full) { Assert.InRange(maxGlow, WeatherPlan.GlowMaxAlpha * 2f, WeatherPlan.FullGlowMaxAlpha + 1e-4f); Assert.True(maxLift > 0.05f, $"full lift {maxLift}"); }
+            else { Assert.InRange(maxGlow, WeatherPlan.GlowMaxAlpha * 0.9f, WeatherPlan.GlowMaxAlpha + 1e-4f); Assert.Equal(0f, maxLift, 4); }
+        }
         Assert.True(WeatherClientModel.TryParsePinWord("strike", out var p, out bool l) && p is null && !l);
     }
 

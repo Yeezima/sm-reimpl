@@ -148,12 +148,12 @@ public sealed class WeatherClientModel
     /// <summary>Runs the clock by <paramref name="seconds"/> of game time.</summary>
     public void Advance(double seconds)
     {
-        if (_have && !_wire.Held && double.IsFinite(seconds) && seconds > 0)
-        {
-            _sinceWire += seconds;
-            if (Pinned) { _pinClock += seconds; ApplyPin(); }
-            else _elapsed = _wire.ElapsedMs / 1000.0 + _sinceWire;
-        }
+        if (!_have || !double.IsFinite(seconds) || seconds <= 0) return;
+        // final round (D1): a pin draws its own looping clock on real time, held match or not; before, a held clock (Classic Warmup, the countdown) froze the strike pin one second before its strike, so no strike, glow or flash came
+        if (Pinned) { _pinClock += seconds; ApplyPin(); }
+        if (_wire.Held) return;
+        _sinceWire += seconds;
+        if (!Pinned) _elapsed = _wire.ElapsedMs / 1000.0 + _sinceWire;
     }
 
     /// <summary>The full-flash setting (a client option; the default is reduced): a Thunderstorm's strikes then also lift the exposure, sun and shade for a moment. Set by the view each frame.</summary>

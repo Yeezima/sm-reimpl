@@ -275,6 +275,7 @@ public partial class DevToolsPanel : CanvasLayer
             case "jump": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteJump, Wanted(DevToolsFlags.InfiniteJump)); return true;
             case "indef": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.Indefinite, Wanted(DevToolsFlags.Indefinite)); return true;
             case "respawn": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.InstantRespawn, Wanted(DevToolsFlags.InstantRespawn)); return true;
+            case "wait": return true;   // a no-op step: the script's pacing comes from --dev-script-step, so a wait word holds the next one back by one step
             case "end": Send(DevCommandKind.EndMatch, 0, true); return true;
             case "restart": Send(DevCommandKind.RestartMatch, 0, true); return true;
             case "skip": Send(DevCommandKind.SkipMatch, 0, true); return true;

@@ -51,7 +51,7 @@ public class WeatherPlanTests
             for (double t = 0; t < 60; t += 0.7)
             {
                 float down = WeatherPlan.WindBedDb(1f, t, -20f, -60f) - WeatherPlan.WindBedDb(lull, t, -20f, -60f);
-                Assert.InRange(down, 3.4f, 6.6f);   // the same moment of the gust (the wobble cancels, except where the cap clips a crest at full)
+                Assert.InRange(down, 4f, 6f);   // the same moment of the gust (where the cap clips a crest at full the gap narrows, staying about 4.3 to 5.4 dB)
                 Assert.InRange(WeatherPlan.WindBedDb(1f, t, -20f, -60f), -20.7f, -20f);   // never above the -20 dB cap; a trough at most about 0.6 dB under it
             }
         }

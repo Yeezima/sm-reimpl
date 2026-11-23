@@ -70,7 +70,7 @@ public partial class NetworkView
             bool grit = ashShare > 0.02f && _wxShelter.Level < WeatherShelterMix.GritStopAbove;   // under cover the grit stops (W4); the weather finish: the grit runs through the whole active squall
             if (_wxGritOn && _wxGrit is not null) _wxGrit.LiveDb = WeatherPlan.FollowDb(ashShare, 0f, -60f);   // and its level follows the ash (amplitude with the share: -5 dB at the squall's lull)
             double now = st.Elapsed;
-            if (grit && (!_wxGritOn || !_wxGritLoops) && (now >= _wxGritUntil || now < _wxGritUntil - WxGritRepostSeconds) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
+            if (grit && !(_wxShelter.Covered && !_wxGritOn) && (!_wxGritOn || !_wxGritLoops) && (now >= _wxGritUntil || now < _wxGritUntil - WxGritRepostSeconds) && _sound is not null && _audio is { } audio && audio.HasEvent(WxGritEvent) && _camera is not null)
             {
                 _wxGrit ??= new SoundEmitter { Label = "weather grit", Group = "weather", Background = false, Follow = () => _camera?.GlobalPosition };
                 if (_wxGritOn) _sound.StopEmitter(_wxGrit);   // a one-shot's repost ends the last one first, so a sample longer than the repost interval never stacks
