@@ -25,10 +25,10 @@ public class CancelGateTests(ITestOutputHelper output)
     // ---- the pieces ----
 
     [Fact]
-    public void The_shipped_table_is_the_baseline_plus_the_five_exported_cells_and_the_baseline_makes_the_gate_do_nothing()
+    public void The_shipped_table_is_the_baseline_plus_the_four_exported_cells_and_the_baseline_makes_the_gate_do_nothing()
     {
-        // the shipped default is the owner's 11-18 export: the baseline plus exactly 5 cells (CancelDefaultTests checks which); the baseline itself is what the code does
-        Assert.Equal(5, CancelData.Shipped.DiffAgainst(CancelData.Baseline).Count);
+        // the shipped default is the owner's 11-23 export: the baseline plus exactly 4 cells (CancelDefaultTests checks which); the baseline itself is what the code does
+        Assert.Equal(CancelDefaultTests.ExportCells.Length, CancelData.Shipped.DiffAgainst(CancelData.Baseline).Count);
         Assert.Empty(CancelData.Shipped.DiffFromShipped());
         Assert.False(CancelData.Baseline.DiffersFromBaseline);
         Assert.False(CancelGate.Active(new SimConfig() with { Cancel = CancelLive.Of(CancelData.Baseline) }));

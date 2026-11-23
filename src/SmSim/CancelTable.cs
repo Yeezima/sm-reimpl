@@ -109,7 +109,7 @@ public sealed class CancelData
 
     /// <summary>The code's own behaviour (<c>Data/cancel-baseline.json</c>); the gate never changes a cell equal to it.</summary>
     public static CancelData Baseline => BaselineLazy.Value;
-    /// <summary>The release's default table (<c>config/cancel-table.json</c>, embedded); since 2026-11-19 the owner's 11-18 export (5 cells off <see cref="Baseline"/>; spec "Cancel table").</summary>
+    /// <summary>The release's default table (<c>config/cancel-table.json</c>, embedded); since 2026-11-23 the owner's 11-23 export (4 cells off <see cref="Baseline"/>; spec "Cancel table").</summary>
     public static CancelData Shipped => ShippedLazy.Value;   // lock-free once loaded (the hot path reads it once per player-tick)
     /// <summary>Why the embedded default could not be used (it is malformed, missing or has another layout) and the baseline stands in for it; null when it loaded. The server says so at start.</summary>
     public static string? ShippedError { get { _ = Shipped; return _shippedError; } }
