@@ -295,7 +295,7 @@ public sealed partial class WeatherRig
                 uniform vec3 dark : source_color = vec3(0.36, 0.39, 0.44);
                 uniform vec3 light : source_color = vec3(0.60, 0.63, 0.68);
                 uniform vec2 offset = vec2(0.0);
-                uniform float sky_z = 0.0000004;   // in front of the map's sky box (1e-7) and Godot's background, behind every piece of the world (reversed-Z; Compatibility: just under the far plane)
+                uniform float sky_z = 0.0000004;   // in front of the map's sky box (1e-7) and Godot's background, behind every piece of the world (reversed-Z: Forward+ and Mobile only; never built in Compatibility, repair 1)
                 varying vec3 dir;
                 void vertex() {
                     dir = VERTEX;

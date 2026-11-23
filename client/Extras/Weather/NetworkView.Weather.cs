@@ -148,7 +148,7 @@ public partial class NetworkView
     /// </summary>
     void WeatherAidsApply(bool gate)
     {
-        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null;
+        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null || _wxModel.PinLull || _wxModel.PinStrike;
         if (wanted && !gate && !_wxAidsNoteLogged && _client is { Status: ClientStatus.Connected } && _connectedFor >= 4.0) { _wxAidsNoteLogged = true; GD.Print("weather test aids ignored: this server has no developer tools"); }
         if (gate == _wxAidsGate) return;
         _wxAidsGate = gate;
@@ -188,7 +188,8 @@ public partial class NetworkView
             WeatherAidsApply(false);
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
-            if (_wxRig is not null) { WeatherInstallStop(); WeatherThunderStopAll(); _wxRig.QueueFree(); _wxRig = null; }
+            WeatherInstallStop();   // at once, fading loops included (repair 3)
+            if (_wxRig is not null) { WeatherThunderStopAll(); _wxRig.QueueFree(); _wxRig = null; }
             else if (_wxOneShots.Count > 0) WeatherThunderStopAll();
             _wxFadePrev = WeatherId.None;
             WeatherStormRestore();
@@ -196,7 +197,7 @@ public partial class NetworkView
         }
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
-        WeatherClientLink.TestMove ??= WeatherTestMoveWord;
+        WeatherClientLink.TestMove = WeatherTestMoveWord;   // assigned each frame like Send (review: never a stale view's delegate)
         WeatherTestSlide();   // repair 1 test aid (F6 only): the camera slid sideways before the rig reads it
         _wxModel.FullFlash = _wxFlashOverride ?? WeatherSettings.FullFlash;   // the player's storm lightning option (client only); repair 3: --storm-lightning or wxflash for this run only, never saved
         WeatherAidsApply(_client?.Dev is not null);
@@ -220,7 +221,7 @@ public partial class NetworkView
         bool shelterRan = false;
         if (_wxRig is not null)
         {
-            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; if (!_wxBedShelter) _wxShelter.Reset(); }
+            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(fade: true); _wxRig.QueueFree(); _wxRig = null; if (!_wxBedShelter) _wxShelter.Reset(); }
             else
             {
                 shelterRan = true;
@@ -228,11 +229,13 @@ public partial class NetworkView
                 WeatherShelterFrame(me, delta);
                 _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
                 _wxRig.StepTrim(delta);
-                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero, _wxGroundY);
+                Vector3? leadFrom = _wxSlideHas || _gameSpace is null ? null : _gameSpace.GlobalTransform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);   // the player's place; the camera while the wxslide aid moves it alone
+                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero, _wxGroundY, leadFrom);
                 WeatherInstallSounds(st, intensity);
             }
         }
         WeatherFlashLog(st);
+        WeatherInstallFades();   // repair 3: the grit's and the sheltered wind's stop fades, rig or not
         WeatherThunderFadeFrame(st.Id);
         shelterRan = WeatherBedFrame(me, delta, shelterRan);
         WeatherStormFrame(me, delta, st, shelterRan);

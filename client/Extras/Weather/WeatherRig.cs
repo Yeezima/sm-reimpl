@@ -113,10 +113,11 @@ public sealed partial class WeatherRig : Node3D
     /// Once a frame: follows the camera and shows what the preset at its phase and intensity needs (rain, ash, embers, the sky glow, the wind); anything not needed stops at once.
     /// <paramref name="groundY"/>: the height of the ground under the player (splashes and mist lie there); null takes 1.8 m under the camera (an estimate: the camera is the head's height, higher in third person).
     /// </summary>
-    public void Update(WeatherState st, float intensity, Vector3 cameraAt, float? groundY = null)
+    public void Update(WeatherState st, float intensity, Vector3 cameraAt, float? groundY = null, Vector3? leadFrom = null)
     {
         GlobalPosition = cameraAt;
-        TrackVelocity(cameraAt);
+        _realDt = _frameDt.Step((long)Time.GetTicksMsec());   // repair 3 (review): sampled every update, fade or not
+        TrackVelocity(leadFrom ?? cameraAt);   // repair 3 (review): the player's own place when the view gives it, so a third-person camera whip does not shift the emission; the camera otherwise
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         float wind = WeatherPlan.Wind(st.Id, i, st.Elapsed);
         float rainShare = WeatherPlan.RainShare(st.Id, i);
@@ -185,24 +186,11 @@ public sealed partial class WeatherRig : Node3D
     // ---- repair 2: the beds' fades and the level aid ----
 
     readonly WeatherBedFade _hissFade = new(), _windFade = new();
-    ulong _realLastMs;
+    readonly WeatherFrameDt _frameDt = new();
     double _realDt;
-    ulong _realFrame = ulong.MaxValue;
 
-    /// <summary>Real seconds since the last frame (one value a frame; never the weather clock, which a held wire stops).</summary>
-    double RealDt
-    {
-        get
-        {
-            ulong frame = Engine.GetProcessFrames();
-            if (frame == _realFrame) return _realDt;
-            _realFrame = frame;
-            ulong now = Time.GetTicksMsec();
-            _realDt = _realLastMs == 0 ? 0 : Math.Min(0.25, (now - _realLastMs) / 1000.0);
-            _realLastMs = now;
-            return _realDt;
-        }
-    }
+    /// <summary>Real seconds since the last update (sampled at the top of every <see cref="Update"/>; never the weather clock, which a held wire stops).</summary>
+    double RealDt => _realDt;
 
     /// <summary>A bed is fading out now (the rig stays until it has).</summary>
     public bool BedsFading => _hissFade.Active || _windFade.Active;

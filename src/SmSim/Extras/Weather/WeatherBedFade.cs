@@ -7,6 +7,9 @@ namespace SmSim.Extras.Weather;
 /// </summary>
 public sealed class WeatherBedFade
 {
+    /// <summary>The longest frame step a fade takes (s): a stall never jumps a fade to its end.</summary>
+    public const double MaxStep = 0.25;
+
     public const double Seconds = 0.5;
     public const float FloorDb = -60f;
 
@@ -31,5 +34,22 @@ public sealed class WeatherBedFade
         if (dt > 0 && double.IsFinite(dt)) _t += dt;
         if (_t >= Seconds) { Active = false; done = true; return FloorDb; }
         return _from + (FloorDb - _from) * (float)(_t / Seconds);
+    }
+}
+
+/// <summary>
+/// Repair 3 (review): the real seconds of each frame, sampled once every frame by its owner (the rig samples it at the top of every update, fade or not), so the first step of a fade is one frame long. Sampled only while a fade ran,
+/// a second fade in one rig's life began with the whole time since the first (capped at <see cref="WeatherBedFade.MaxStep"/>): a 19 dB drop in one frame.
+/// </summary>
+public sealed class WeatherFrameDt
+{
+    long _lastMs = -1;
+
+    /// <summary>The real seconds since the last sample (0 at the first), capped at <see cref="WeatherBedFade.MaxStep"/>.</summary>
+    public double Step(long nowMs)
+    {
+        double dt = _lastMs < 0 || nowMs < _lastMs ? 0 : System.Math.Min(WeatherBedFade.MaxStep, (nowMs - _lastMs) / 1000.0);
+        _lastMs = nowMs;
+        return dt;
     }
 }

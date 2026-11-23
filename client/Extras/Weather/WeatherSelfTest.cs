@@ -167,7 +167,8 @@ public sealed partial class WeatherSelfTest : Node
         Check("rain: the near layer is denser than the far one and the splashes lie on the ground under the camera", rain is not null && farRain is not null && rain.Amount > farRain.Amount && splash is not null && Math.Abs(splash.GlobalPosition.Y - (2f - 1.8f)) < 0.2f, splash?.GlobalPosition.ToString() ?? "");
         rig.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         Check("none: the rain stops at once; the hiss fades out (repair 2: a 0.5 s fade, never a cut)", !rig.Raining && (hiss is { Playing: false } || rig.BedsFading));
-        for (int f = 0; f < 90 && hiss is { Playing: true }; f++) { await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); rig.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero); }
+        ulong fadeStart = Time.GetTicksMsec();   // review: wait on real time (the fade is 0.5 s of wall clock), up to 3 s, not on a frame count
+        while (hiss is { Playing: true } && Time.GetTicksMsec() - fadeStart < 3000) { await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); rig.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero); }
         Check("none: the hiss has stopped after its fade", hiss is { Playing: false } && !rig.BedsFading);
         // the W2 looks: thunderstorm (rain from the late buildup, wind, the sky glow only at a strike, thunder), ash squall (warning flecks, the crosswind's ash, the warning text), ember wind (sparse embers)
         var storm = new WeatherRig(); anchor.AddChild(storm);

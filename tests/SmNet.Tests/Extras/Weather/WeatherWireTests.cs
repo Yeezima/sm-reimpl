@@ -210,6 +210,27 @@ public class WeatherWireTests
     }
 
     [Fact]
+    public void Repair_3_a_second_fade_in_one_life_starts_with_a_one_frame_step()
+    {
+        // the rig samples its frame time every update (Thunderstorm -> Rain fades the wind; a second later Rain -> Clear fades the hiss)
+        var clock = new WeatherFrameDt();
+        var wind = new WeatherBedFade(); var hiss = new WeatherBedFade();
+        long ms = 1000; clock.Step(ms);
+        wind.Start(-20f);
+        bool done = false;
+        for (int f = 0; f < 120 && !done; f++) { ms += 16; wind.Step(clock.Step(ms), out done); }
+        Assert.True(done);
+        for (int f = 0; f < 60; f++) { ms += 16; clock.Step(ms); }   // a second of rain: the clock keeps being sampled
+        hiss.Start(-22f);
+        ms += 16;
+        float first = hiss.Step(clock.Step(ms), out _);
+        Assert.InRange(-22f - first, 0f, 2f);   // one 16 ms frame of a 0.5 s fade: about 1.3 dB, not the old 0.25 s jump (19 dB)
+        Assert.Equal(0.0, new WeatherFrameDt().Step(5000));   // the first sample is 0
+        var c = new WeatherFrameDt(); c.Step(0);
+        Assert.Equal(WeatherBedFade.MaxStep, c.Step(10_000));   // a stall is capped
+    }
+
+    [Fact]
     public void Weather_fix_2_a_pin_without_the_developer_tools_gate_draws_the_servers_phase()
     {
         var a = new WeatherClientModel { PinPhase = WeatherPhase.Peak };   // not allowed: an ordinary client

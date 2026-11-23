@@ -26,7 +26,6 @@ public partial class NetworkView
     bool _wxClosedLoops;
     /// <summary>The sheltered-wind stop's 1 s fade, on real frame time.</summary>
     readonly WeatherClosedWindFade _wxClosedFade = new();
-    double _wxClosedLastTicks = -1;
     /// <summary>Verified in the installed In_Game_Default bank (weather W5): <c>play_wind_tunnels</c> is a real looping sound (one 21 KB wem, loop endless, -7 dB, +910 cents). The other spellings W4 guessed are not in the bank.</summary>
     static readonly string[] WxTunnelEvents = ["play_wind_tunnels"];
     /// <summary>Verified (weather W5): <c>play_wind_closed</c> is not a sound but a SetLpf action on the open wind's own node (<c>stop_wind_closed</c> resets it), so posting it on the weather's emitter sounds nothing. The Warfront bed's wind gets the same job from the shelter level (<see cref="WeatherShelterMix.BedWindLpf"/>).</summary>
@@ -41,7 +40,7 @@ public partial class NetworkView
     /// <summary>Once a frame while the rig is up: the thunder that arrives now, the squall's warning and grit.</summary>
     void WeatherInstallSounds(WeatherState st, float intensity)
     {
-        if (_wxSoundId != st.Id) { WeatherInstallStop(); _wxSoundId = st.Id; _wxThunder = new WeatherThunderTracker(); _wxWarned = false; }
+        if (_wxSoundId != st.Id) { WeatherInstallStop(fade: true); _wxSoundId = st.Id; _wxThunder = new WeatherThunderTracker(); _wxWarned = false; }
 
         WeatherClosedWind(st, intensity);
 
@@ -112,15 +111,7 @@ public partial class NetworkView
     /// <summary>The sheltered wind bed from the install (see the class notes). Posted once per cover; stopped when the cover ends or the wind dies down; a post that sounded nothing is retried after 10 s while it is still wanted; a one-shot is posted again like the grit.</summary>
     void WeatherClosedWind(WeatherState st, float intensity)
     {
-        double now = st.Elapsed;
-        // a stop in progress fades over a second of real frame time (not the weather clock: it stops while the wire is held and can step back)
-        double ticks = Time.GetTicksMsec() / 1000.0, realDt = _wxClosedLastTicks < 0 ? 0 : ticks - _wxClosedLastTicks;
-        _wxClosedLastTicks = ticks;
-        if (_wxClosedFade.Active && _wxClosed is not null)
-        {
-            float db = _wxClosedFade.Step(realDt);
-            if (_wxClosedFade.Done) WeatherClosedFadeEnd(); else _wxClosed.LiveDb = db;
-        }
+        double now = st.Elapsed;   // (a stop in progress fades in WeatherInstallFades, every connected frame, on real frame time)
         if (_sound is null || _audio is not { } audio || _camera is null) return;
         float wind = WeatherPlan.Wind(st.Id, intensity, now);
         var action = WeatherClosedWindRule.Decide(_wxShelter.Covered, _wxShelter.Level, _wxShelter.Tunnel, wind, _wxClosedPlaying, WxTunnelEvents, audio.HasEvent, out var name);
@@ -186,21 +177,60 @@ public partial class NetworkView
         _wxClosedFade.Cancel();
     }
 
-    void WeatherGritStop()
+    /// <summary>
+    /// The grit loop ends. Repair 3 (review): with <paramref name="fade"/> (a switch of preset, the squall easing below the grit, cover) the playing emitter is handed to a 0.5 s fade (<see cref="WeatherBedFade"/>, the beds' and the
+    /// thunder's length) and stopped at its end; a new grit post uses a fresh emitter meanwhile. Without it (a disconnect, the view leaving) everything stops at once.
+    /// </summary>
+    void WeatherGritStop(bool fade = true)
     {
-        if (_wxGrit is not null) _sound?.StopEmitter(_wxGrit);
+        if (_wxGrit is not null && _wxGritOn && fade && _sound is not null)
+        {
+            if (_wxGritFading is not null) _sound.StopEmitter(_wxGritFading);   // an older fade ends at once
+            _wxGritFading = _wxGrit; _wxGrit = null;
+            _wxGritFade.Cancel(); _wxGritFade.Start(_wxGritFading.LiveDb);
+        }
+        else if (_wxGrit is not null) _sound?.StopEmitter(_wxGrit);
+        if (!fade && _wxGritFading is not null) { _sound?.StopEmitter(_wxGritFading); _wxGritFading = null; _wxGritFade.Cancel(); }
         _wxGritOn = false;
         _wxGritLoops = false;
         _wxGritUntil = double.NegativeInfinity;   // the next peak posts at once; a failed post (no voices) still waits its 6 s before retrying
     }
 
-    /// <summary>The rig ends (or the preset changes): the loops the weather started are stopped.</summary>
-    void WeatherInstallStop()
+    SoundEmitter? _wxGritFading;
+    readonly WeatherBedFade _wxGritFade = new();
+    double _wxInstallLastTicks = -1;
+
+    /// <summary>Every connected frame (rig or not; repair 3): the grit's and the sheltered wind's stop fades run on real frame time and end their loops, even after the rig has gone.</summary>
+    void WeatherInstallFades()
     {
-        WeatherGritStop();
-        if (_wxClosedPlaying is not null && _wxClosed is not null) _sound?.StopEmitter(_wxClosed);
-        _wxClosedPlaying = null;
-        WeatherClosedFadeEnd();
+        double ticks = Time.GetTicksMsec() / 1000.0, dt = _wxInstallLastTicks < 0 ? 0 : Math.Min(0.25, ticks - _wxInstallLastTicks);
+        _wxInstallLastTicks = ticks;
+        if (_wxClosedFade.Active && _wxClosed is not null)
+        {
+            float db = _wxClosedFade.Step(dt);
+            if (_wxClosedFade.Done) WeatherClosedFadeEnd(); else _wxClosed.LiveDb = db;
+        }
+        if (_wxGritFade.Active && _wxGritFading is not null)
+        {
+            float db = _wxGritFade.Step(dt, out bool done);
+            if (done) { _sound?.StopEmitter(_wxGritFading); _wxGritFading = null; } else _wxGritFading.LiveDb = db;
+        }
+    }
+
+    /// <summary>
+    /// The rig ends (or the preset changes): the loops the weather started end. With <paramref name="fade"/> (repair 3: a preset switch, the rig's own end) the grit fades over 0.5 s and the sheltered wind over its 1 s
+    /// (weather fix 4) before they stop; without it (a disconnect, the view leaving) they stop at once.
+    /// </summary>
+    void WeatherInstallStop(bool fade = false)
+    {
+        WeatherGritStop(fade);
+        if (fade && _wxClosedPlaying is not null && _wxClosed is not null) { _wxClosedPlaying = null; _wxClosedFade.Start(); }   // the emitter keeps playing while its gain falls (WeatherInstallFades)
+        else
+        {
+            if (_wxClosedPlaying is not null && _wxClosed is not null) _sound?.StopEmitter(_wxClosed);
+            _wxClosedPlaying = null;
+            if (!fade) WeatherClosedFadeEnd();
+        }
         _wxClosedUntil = 0; _wxClosedFailedUntil = 0; _wxClosedLoops = false;
         _wxSoundId = WeatherId.None;
         _wxWarned = false;
