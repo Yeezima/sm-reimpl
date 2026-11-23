@@ -183,9 +183,9 @@ public static class NavCache
                 string file = JumpPartFor(dir, mapName, key, chunk), temp = file + "." + Environment.ProcessId + ".tmp";
                 using (var stream = File.Create(temp)) { stream.Write(data); stream.Write(BitConverter.GetBytes(PartChecksum(data))); }
                 File.Move(temp, file, overwrite: true);
-                NavBuildLock.NoteProgress(dir, mapName);   // bots/a1-perf: the build moves on, so its lock stays fresh
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            NavBuildLock.NoteProgress(dir, mapName);   // bots/a1-perf: the build moved on (even when its chunk could not be written, a full disk), so its lock stays fresh
         }
 
         static List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>? Drop(string file)
@@ -276,7 +276,7 @@ public sealed class NavBuildLock : IDisposable
     /// <summary>The holder refreshes its lock this often while its build makes progress (seconds; ours).</summary>
     public const double HeartbeatSeconds = 20;
     /// <summary>The heartbeat stops when the build saved no chunk for this long (seconds; ours: a chunk took about 18 s at 4 threads and 53 s at 1 thread on mp_tdm_17).</summary>
-    public const double StallSeconds = 600;
+    public const double StallSeconds = 1800;
     /// <summary>A waiter tries again this often (seconds; ours).</summary>
     public const double PollSeconds = 2;
     /// <summary>A waiter gives up and builds without the lock after this long (minutes; ours: above one key's build of mp_tdm_17 on one thread, about 29 min).</summary>

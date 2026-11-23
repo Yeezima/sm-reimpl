@@ -46,7 +46,7 @@ $serverDll = Join-Path $Root 'src\SmServer\bin\Release\net10.0\SmServer.dll'
 if (-not (Test-Path $serverDll)) { throw "$serverDll is missing: dotnet build -c Release src\SmServer in $Root" }
 # the caller's SM_DATA_DIR and SM_BOT_STATS come back as they were (set or not) when the run ends or fails
 $prevDataDir = $env:SM_DATA_DIR; $prevBotStats = $env:SM_BOT_STATS
-function Restore-RunEnv([string]$Name, [AllowNull()][string]$Value) {
+function Restore-RunEnv([string]$Name, [object]$Value) {   # [object]: a $null stays $null (a [string] parameter turns it into "", which would not unset the variable)
     if ($null -eq $Value) { Remove-Item "Env:$Name" -ErrorAction SilentlyContinue } else { Set-Item "Env:$Name" $Value }
 }
 if ($DataDir) { New-Item -ItemType Directory -Force -Path $DataDir | Out-Null; $env:SM_DATA_DIR = $DataDir }   # a private data root (its own nav cache), never the owner's

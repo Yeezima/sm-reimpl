@@ -171,11 +171,11 @@ public class NavJumpResumeTests
         try
         {
             string file = NavBuildLock.FileFor(dir, "gap");
-            using var held = NavBuildLock.TryAcquire(dir, "gap", heartbeat: TimeSpan.FromMilliseconds(40), stall: TimeSpan.FromMilliseconds(600))!;
+            using var held = NavBuildLock.TryAcquire(dir, "gap", heartbeat: TimeSpan.FromMilliseconds(40), stall: TimeSpan.FromSeconds(3))!;   // a stall window wide enough for a timer callback on a loaded thread pool
             var old = DateTime.UtcNow.AddHours(-1);
             File.SetLastWriteTimeUtc(file, old);
             Assert.True(SpinWait.SpinUntil(() => File.GetLastWriteTimeUtc(file) > old.AddMinutes(30), TimeSpan.FromSeconds(5)), "the heartbeat refreshes a lock whose build moves on");
-            Thread.Sleep(900);   // past the stall time with no chunk saved
+            Thread.Sleep(3500);   // past the stall time with no chunk saved
             File.SetLastWriteTimeUtc(file, old);
             Thread.Sleep(300);
             Assert.Equal(old, File.GetLastWriteTimeUtc(file));   // the heartbeat stopped
