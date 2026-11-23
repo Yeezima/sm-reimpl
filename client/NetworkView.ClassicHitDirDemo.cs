@@ -12,7 +12,8 @@ namespace SmClient;
 /// (default 2) on the other player nearest the camera, from the camera's side, through the same spray, sparks, blood hook and decal trace the confirmed hits use, in the match's own profile
 /// (Faithful draws no blood or decal). Cases: <c>lr</c>, <c>rl</c>, <c>overhead</c>, <c>diagonal</c>, <c>thrust</c>, <c>combo</c> (lr, rl, diagonal, thrust in turn), <c>gun</c>, <c>heavy</c>,
 /// <c>lethal</c>, <c>armour</c>, <c>break</c> (armour broken, no health: sparks), <c>mixed</c>, <c>blood</c>, <c>two</c> (one stroke through the two nearest players), <c>headshot</c> (a fatal
-/// gunfire headshot along the camera's line through his head: the wall decal if a wall is within 5 m behind him; place the camera to test each wall case), <c>cycle</c> (every case).
+/// gunfire headshot along the camera's line through his head: the wall decal if a wall is within 5 m behind him; place the camera to test each wall case), <c>wallshot</c> / <c>farshot</c>
+/// (a fatal headshot toward the nearest wall within 4.6 m / between 5.4 and 6.3 m of his head, found by probing the level: decal / none), <c>cycle</c> (every case).
 /// Each draw prints a <c>HITDIRDEMO</c> line. The real swings and shots are tested in play (bots or a second client) with <c>--log-hit-dir</c>.
 /// </summary>
 public partial class NetworkView
@@ -58,11 +59,19 @@ public partial class NetworkView
         var look = HitDirLook;
         HitVisual visual = kind switch { "armour" or "break" => HitVisual.Sparks, "mixed" => HitVisual.Mixed, _ => HitVisual.Blood };
         bool heavy = kind == "heavy", lethal = kind is "lethal" or "headshot";
-        if (kind is "gun" or "headshot")
+        if (kind is "gun" or "headshot" or "wallshot" or "farshot")
         {
             var from = camera.GlobalPosition;
-            var target = kind == "headshot" ? head : chest + toCam * BodySurface;
+            var target = kind == "gun" ? chest + toCam * BodySurface : head;
             var dir = (target - from).Normalized();
+            if (kind is "wallshot" or "farshot")
+            {
+                // the wall cases without placing the camera: the level probed level from the head in 32 directions; wallshot shoots toward the nearest wall within 4.6 m
+                // (a decal expected), farshot toward the nearest between 5.4 and 6.3 m (none expected: past the 5 m cutoff); nothing found: no shot this time
+                if (WallProbe(head, kind == "wallshot" ? 0.3f : 5.4f, kind == "wallshot" ? 4.6f : 6.3f) is not { } probe) { GD.Print($"HITDIRDEMO {kind} on P{first}: no wall in range (t {_connectedFor:F2})"); return; }
+                dir = probe;
+                kind = "headshot";
+            }
             bool drawn = false;
             ExtrasClassicBlood(new ClassicContact(first, _client.PlayerId, target, dir, visual, true, kind == "headshot", lethal, false, 0.32f, BloodAmount(false, lethal), 0.0, null, 0, null), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
             if (kind == "headshot")
@@ -87,6 +96,23 @@ public partial class NetworkView
             foreach (var p in _lastOthers)
                 if (p.PlayerId == second) { DemoStroke(second, ToGodot(p.Position + new System.Numerics.Vector3(0f, 0f, 1.3f)), toCam, motion, visual, false, false, 0f, look); break; }
         GD.Print($"HITDIRDEMO {kind} on P{first}{(kind == "two" && second != 0 ? $" and P{second}" : "")} ({look}): {visual} motion {motion.X:F2},{motion.Y:F2},{motion.Z:F2} (t {_connectedFor:F2})");
+    }
+
+    /// <summary>The direction (Godot world, horizontal) from <paramref name="head"/> to the nearest wall (abs(normal z) at most 0.5, the decal rule) between <paramref name="near"/> and <paramref name="far"/> m.</summary>
+    Vector3? WallProbe(Vector3 head, float near, float far)
+    {
+        if (_client?.Collision is not { } world || _gameSpace is null) return null;
+        var from = ToGame(head);
+        Vector3? best = null; float bestD = float.MaxValue;
+        for (int i = 0; i < 32; i++)
+        {
+            float a = i * MathF.Tau / 32f;
+            var d = new System.Numerics.Vector3(MathF.Cos(a), MathF.Sin(a), 0f);
+            if (world.Weapons.Raycast(from, d, far + 0.5f) is not { } hit || hit.Distance < near || hit.Distance > far || MathF.Abs(System.Numerics.Vector3.Normalize(hit.Normal).Z) > 0.5f) continue;
+            if (hit.Distance < bestD) { bestD = hit.Distance; best = DirToGodot(d).Normalized(); }
+        }
+        if (best is not null) GD.Print($"HITDIRDEMO wall probe: {bestD:F2} m");
+        return best;
     }
 
     /// <summary>One synthetic stroke: a weapon head moving at 12 m/s through the body's surface on the camera's side, bending a little as a swing does.</summary>

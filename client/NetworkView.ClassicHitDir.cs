@@ -207,6 +207,9 @@ public partial class NetworkView
     {
         if (_client is null || _config is null) return;
         if (HitDirLook == DirLook.None) { _meleePending.Clear(); _shotContacts.Clear(); return; }
+        // the spray pool (32 meshes) and its shader are made on the first effects frame after the join, not on the first hit mid-fight (live 8v8 check 2026-11-24: made lazily
+        // on the first hit, it cost one frame of about 176 ms); left out of the per-frame cost below
+        if (_hitSpray is null) HitSpray().Prewarm(ToGodot(me.Position));
         _hitDirWatch.Restart();
         Record(me, own: true);
         foreach (var p in _lastOthers) Record(p, own: false);

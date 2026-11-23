@@ -52,13 +52,13 @@ varying float kind;
 int slot_of(float t) { return clamp(int(floor(t / slot_dt)), 0, {{Slots - 2}}); }
 vec3 path_at(float t) { t = clamp(t, 0.0, filled); int i = slot_of(t); float u = clamp(t / slot_dt - float(i), 0.0, 1.0); return mix(path[i], path[i + 1], u); }
 vec3 vel_at(float t) { t = clamp(t, 0.0, filled); int i = slot_of(t); float u = clamp(t / slot_dt - float(i), 0.0, 1.0); return mix(vel[i], vel[i + 1], u); }
-float reach(float t) { return (1.0 - exp(-max(t, 0.0) * 3.2)) / 3.2; }
+float reach(float t) { return (1.0 - exp(-max(t, 0.0) * 2.6)) / 2.6; }
 
 void vertex() {
     float idx = UV2.x;
     float t0 = COLOR.r, spd = COLOR.g, ang = COLOR.b * 6.2831853, mag = COLOR.a;
-    float sz = NORMAL.x, lag = NORMAL.y;
-    kind = NORMAL.z;
+    float sz = VERTEX.x, lag = VERTEX.y;    // per-streak data rides in VERTEX (full floats; Godot stores NORMAL octahedral-compressed and normalized)
+    kind = VERTEX.z;
     float te = t0 * emit;
     float tau = age - te;
     float life = streak_life * (0.7 + 0.3 * spd);
@@ -86,9 +86,9 @@ void vertex() {
         vec3 al = hv - tv;
         al = length(al) > 1e-4 ? normalize(al) : vec3(0.0, 1.0, 0.0);
         vec3 across = normalize(cross(al, normalize(pv)));
-        float w = (kind > 0.5 ? 0.022 : 0.011 * (0.25 + 0.75 * UV.x)) * size * sz * (1.0 + 1.6 * tau);
+        float w = (kind > 0.5 ? 0.022 : 0.014 * (0.25 + 0.75 * UV.x)) * size * sz * (1.0 + 1.6 * tau);
         pos = pv + across * (UV.y * 2.0 - 1.0) * w;
-        fade = smoothstep(0.0, 0.03, tau) * pow(clamp(1.0 - tau / life, 0.0, 1.0), 1.4);
+        fade = smoothstep(0.0, 0.03, tau) * (1.0 - smoothstep(0.35, 1.0, tau / life));   // holds through the throw, then a long smooth fade (the reference's plume)
         POSITION = PROJECTION_MATRIX * vec4(pos, 1.0);
     } else {
         POSITION = vec4(2.0, 2.0, 2.0, 1.0);   // clipped
@@ -140,11 +140,11 @@ void fragment() {
             // the release time spreads over the stroke, most streaks early (the weapon is still in the body)
             float t0 = (float)Math.Pow(rng.NextDouble(), 1.6);
             var c = new Color(t0, (float)rng.NextDouble(), (float)rng.NextDouble(), (float)Math.Sqrt(rng.NextDouble()));
-            var n = drop ? new Vector3((float)(0.6 + 0.8 * rng.NextDouble()), 0.01f, 1f) : new Vector3((float)(0.6 + 0.9 * rng.NextDouble()), (float)(0.05 + 0.13 * rng.NextDouble()), 0f);
+            var n = drop ? new Vector3((float)(0.6 + 0.8 * rng.NextDouble()), 0.01f, 1f) : new Vector3((float)(0.6 + 0.9 * rng.NextDouble()), (float)(0.08 + 0.18 * rng.NextDouble()), 0f);
             for (int k = 0; k < 4; k++)
             {
                 int v = i * 4 + k;
-                verts[v] = Vector3.Zero; uvs[v] = new Vector2(k / 2, k % 2); uv2[v] = new Vector2(i, 0f); cols[v] = c; nors[v] = n;
+                verts[v] = n; uvs[v] = new Vector2(k / 2, k % 2); uv2[v] = new Vector2(i, 0f); cols[v] = c; nors[v] = Vector3.Up;
             }
             int b = i * 4, t = i * 6;
             idx[t] = b; idx[t + 1] = b + 1; idx[t + 2] = b + 2; idx[t + 3] = b + 1; idx[t + 4] = b + 3; idx[t + 5] = b + 2;
@@ -205,6 +205,18 @@ void fragment() {
         s.SpeedScale = look.Sparks ? 1.6f : 1f;
         s.Node.Visible = true;
         if (look.Sparks) Sparks++; else Blood++;
+    }
+
+    /// <summary>Draws one empty spray (no streaks) at <paramref name="at"/> for a moment, so the renderer prepares the shader's pipeline at the join rather than on the first hit.</summary>
+    public void Prewarm(Vector3 at)
+    {
+        if (_sprays[0] is null) return;
+        var s = Take();
+        s.On = true; s.Age = 0.0; s.Life = 0.25f; s.Weapon = null; s.Origin = at; s.Known = Slots - 1;
+        s.Node.GlobalTransform = new Transform3D(Basis.Identity, at);
+        s.Material.SetShaderParameter("count", 0f);
+        s.Node.Visible = true;
+        Push(s);
     }
 
     static Vector3 ThrowOf(Vector3 v, float scale)

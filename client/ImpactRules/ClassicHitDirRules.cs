@@ -72,7 +72,7 @@ public static class ClassicHitDirRules
     public static int StreakCount(float amount) => Math.Clamp((int)MathF.Round(NormalStreaks * amount), 1, MaxStreaks);
 
     /// <summary>The spray's life (s): the emission window behind the weapon, then each streak's flight and fade. The reference clip's plume is mostly gone about 0.8 s after contact.</summary>
-    public const float EmitSeconds = 0.12f, StreakSeconds = 0.72f, SparkSeconds = 0.32f;
+    public const float EmitSeconds = 0.12f, StreakSeconds = 0.85f, SparkSeconds = 0.32f;
     public static float SprayLife(bool sparks) => EmitSeconds + (sparks ? SparkSeconds : StreakSeconds);
 
     /// <summary>The sideways spread (radians at the end of the emission) of a pure sweep and of a pure thrust: thrusts stay narrow, sweeps bloom wider.</summary>

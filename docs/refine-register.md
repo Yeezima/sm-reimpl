@@ -42,7 +42,7 @@ Scanned 4039 spec table rows: **2979 tagged**, 696 not tagged (read from data wi
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
-| Effects (critical) | 110 | 101 | 92 | 42 | 0 |
+| Effects (critical) | 110 | 100 | 93 | 43 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
@@ -53,7 +53,7 @@ Scanned 4039 spec table rows: **2979 tagged**, 696 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 140 | 139 | 54 | 54 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2979** | 2674 | 2206 | 890 | 37 |
+| **All areas** | **2979** | 2673 | 2207 | 891 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,11 +61,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1790 |
 | confidence: low | 1068 |
-| confidence: medium | 1027 |
+| confidence: medium | 1028 |
 | notes: ours | 473 |
 | kind: interpretation | 456 |
-| notes: estimate | 285 |
-| kind: estimate | 270 |
+| notes: estimate | 286 |
+| kind: estimate | 269 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -2499,7 +2499,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-DB0C708D` | Colours | blood: today's Classic health-hit red (1, 0.12, 0.08), additive like the red sparks it replaces (Extended); sparks: yellow-white (1, 0.82, 0.5), additive (rgb) | kind: ours; confidence: medium | brief (keep the current blood colour); spark colour ours | Colours: compare with SM1 with side-by-side video of the same action. Ours: blood: today's Classic health-hit red (1, 0.12, 0.08), additive like… | ☐ |
 | `R-04C4FB06` | Fatal headshot wall decal (Extended) | a lethal gunfire head hit (the mark kills, the paired shot was a head hit) paired with the server's headshot kill (within 1 s, either order): the shot's line extended from the head contact; the first surface within 6.5 m (the level, or another living player's… (m) | kind: ours; confidence: medium | brief (5 m); wall slope and search margin ours | Fatal headshot wall decal (Extended): compare with SM1 by measuring on a flat spot of the same map. Ours: a lethal gunfire head hit (the mark kills, the paired shot was a head… | ☐ |
 | `R-AF1DBAA8` | Decal look (Extended) | a code-made splash (never a texture from the reference): a dense dark core of 3 to 5 wavy blobs, 5 to 8 uneven lobes, 22 to 40 satellite droplets mostly along the lobes, 2 to 4 downward drips with a bulb; seeded by the kill's sequence and the victim (the same… (m, s) | kind: ours; confidence: low | the reference image (shape only); numbers ours | Decal look (Extended): compare with SM1 with side-by-side video of the same action. Ours: a code-made splash (never a texture from the reference): a dense dark… | ☐ |
-| `R-E7FDDB11` | Cost | CPU: the trail recording and pairing, timed per frame (`--log-hit-dir`; the effects log line `hit dir: ... cpu`); GPU: one draw call per live spray (pool of 32, 64 quads each), no particles (ms) | kind: estimate | to measure in play | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: CPU: the trail recording and pairing, timed per frame (--log-hit-dir… | ☐ |
+| `R-E7FDDB11` | Cost | CPU: the trail recording and pairing, timed per frame (the effects log line `hit dir: ... cpu`, printed with `--frame-profile` or a bot); GPU: one draw call per live spray (pool of 32, 64 quads each), no particles. The pool and its shader are made on the… (ms) | confidence: medium; notes: estimate | live measurement (rough: shared PC) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: CPU: the trail recording and pairing, timed per frame (the effects… | ☐ |
 
 ### Game modes (46)
 
