@@ -22,6 +22,13 @@ public class SpearClawSquadSaveTests
         return GameplayTuning.LoadForMatch(Game.Value!, ContentProfiles.WarfrontProfile).Config;
     }
 
+    [Fact]
+    public void A_saved_Marine_of_a_class_the_config_lacks_is_kept_as_saved()
+    {
+        var saved = new SquadLoadout { ClassId = "sm - no such class", Melee = ArsenalRules.PowerSpear, Weapon = SquadWeapon.Blade };
+        Assert.Same(saved, SquadLoadoutBuilder.WithOfferedMelee(new SimConfig(), saved));   // no throw, nothing changed (the review's F3)
+    }
+
     [ContentProfileTests.InstallFact]
     public void No_squad_roll_gives_either()
     {

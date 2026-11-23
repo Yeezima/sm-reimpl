@@ -15,12 +15,6 @@ namespace SmNet.Tests.Extras.Musou.Arsenal;
 /// </summary>
 public class SpearClawRemovalTests(ITestOutputHelper output) : IDisposable
 {
-    /// <summary>The match configs' hashes on main d090566a (before the removal), captured there by the same <c>LoadForMatch</c> call: the restore switch must give them back.</summary>
-    const ulong MusouHashBefore = 0xBFCB0B7F87F6F3D6UL, WarfrontHashBefore = 0x36AB4C416735B459UL;
-
-    /// <summary>The same configs with the removal (captured on this branch); they move with any later Musou or Warfront change, like every Musou hash.</summary>
-    const ulong MusouHashRemoved = 0xC22D8D60F2190846UL, WarfrontHashRemoved = 0x17E6766314A0FB70UL;
-
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
     static readonly string[] Removed = [ArsenalRules.LightningClaw, ArsenalRules.PowerSpear];
 
@@ -65,15 +59,15 @@ public class SpearClawRemovalTests(ITestOutputHelper output) : IDisposable
     }
 
     [ContentProfileTests.InstallFact]
-    public void Musou_and_Warfront_configs_carry_neither_and_the_switch_restores_d090566a_exactly()
+    public void Musou_and_Warfront_configs_carry_neither_and_the_switch_restores_the_rest_exactly()
     {
-        foreach (var (profile, before, removed) in new[] { (ContentProfiles.Musou, MusouHashBefore, MusouHashRemoved), (ContentProfiles.Warfront, WarfrontHashBefore, WarfrontHashRemoved) })
+        // Musou hashes are not pinned (they move with every Musou change). On this branch the restored hashes equalled d090566a's (0xBFCB0B7F87F6F3D6, 0x36AB4C416735B459), captured there with
+        // the same LoadForMatch call; what stays checked is structural: the restored config less the two hashes as the default one.
+        foreach (var profile in new[] { ContentProfiles.Musou, ContentProfiles.Warfront })
         {
             var off = Load(profile, false);
             var on = Load(profile, true);
-            output.WriteLine($"{profile}: removed 0x{off.Hash():X16}UL, restored 0x{on.Hash():X16}UL (d090566a 0x{before:X16}UL)");
-            Assert.Equal(before, on.Hash());
-            Assert.Equal(removed, off.Hash());
+            output.WriteLine($"{profile}: removed 0x{off.Hash():X16}UL, restored 0x{on.Hash():X16}UL");
             Assert.NotEqual(on.Hash(), off.Hash());
             foreach (var name in Removed)
             {

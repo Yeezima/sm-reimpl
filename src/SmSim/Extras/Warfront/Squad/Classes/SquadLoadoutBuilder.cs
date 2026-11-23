@@ -112,6 +112,7 @@ public static class SquadLoadoutBuilder
         if (!Musou.Arsenal.ArsenalRules.IsSpearOrClaw(l.Melee)) return l;
         int cls = -1;
         for (int i = 0; i < c.Classes.Count && cls < 0; i++) if (string.Equals(c.Classes[i].Name, l.ClassId, StringComparison.OrdinalIgnoreCase)) cls = i;
+        if (cls < 0) return l;   // a class this config does not have: left as saved (never throw on a save)
         var cl = c.Classes[cls];
         if (cl.MeleeChoices.Any(m => string.Equals(m.Wargear, l.Melee, StringComparison.OrdinalIgnoreCase))) return l;
         var s = Loadouts.Choose(c, new PlayerState(0, Vector3.Zero, Vector3.Zero, 0f, true) { Class = cls }, -1, -1, -1);   // the class default, as FromChoice resolves a choice of -1

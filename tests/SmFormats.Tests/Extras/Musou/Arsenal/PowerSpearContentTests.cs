@@ -14,7 +14,7 @@ public class PowerSpearContentTests
     static readonly MeleeCombo HammerCombo = new(Hammer, [Swing]);
     static ClassLoadout Class(string name, string role, Team side, params MeleeCombo[] melee) => new(name, 0, -1, [Swing]) { MeleeChoices = melee, Role = role, Side = side };
 
-    static SimConfig Config() => new()
+    internal static SimConfig Config() => new()   // also SpearClawRemovalContentTests' fixture (remove-spear-claw)
     {
         Extras = ContentExtras.Musou,
         Classes = [Class("sm - tactical", "tactical", Team.SpaceMarines, Sword), Class("sm - assault", "assault", Team.SpaceMarines, Sword, HammerCombo), Class("csm - assault", "assault", Team.Chaos, Sword, HammerCombo)],

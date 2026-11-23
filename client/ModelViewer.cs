@@ -110,6 +110,7 @@ public partial class ModelViewer : Node3D
     public override void _Ready()
     {
         var args = ParseArgs(OS.GetCmdlineUserArgs());
+        ExtrasStart(args);   // EXTRAS-HOOK added content's process-wide restore switches, read before any config or catalogue is built (Musou's arsenal: --old-arsenal-spear-claw)
         // --test-window (automated tests on the owner's desktop): the window never takes keyboard focus and the game never
         // captures the mouse (NetworkView.NoCapture), so test runs cannot lock the owner's cursor; pair with Godot's own
         // `--position -4000,-4000` before `--` to keep it off-screen. Bots never capture the mouse either.
@@ -276,6 +277,9 @@ public partial class ModelViewer : Node3D
 
     /// <summary>Added content's test views that start without the game install (implemented under Extras/, absent from a faithful build).</summary>
     partial void ExtrasTestAid(Dictionary<string, string?> args, ref bool handled);
+
+    /// <summary>Added content's process-wide switches, at the client's start on every path (implemented under Extras/, absent from a faithful build).</summary>
+    partial void ExtrasStart(Dictionary<string, string?> args);
 
     string? _foundNote;
     System.Threading.Tasks.Task<GameLocation?>? _locating;
