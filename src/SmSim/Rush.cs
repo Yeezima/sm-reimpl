@@ -252,7 +252,7 @@ public static class Rush
         if (k == 1f) return -s.Velocity.Z + Eps >= MathF.Sqrt(2f * g * drop);
         // sim/ledge-charge-air (protocol 90): under the held charge's own gravity (k x g; Classic PvP 4) a tick-start speed says little about the height (2.67 m/s a tick at 30 Hz), so the rule reads the
         // height fallen: the fall up to this tick from its vertical speed (from rest, per tick: v² / (2 k g) + |v| dt / 2) plus the landing tick's own drop, against the drop the protocol 89 rule needs in
-        // height terms (the 0.5 m plus the tick that the tick-start speed lags: d + √(2 g d) dt). Ours: the boundary moves from about 0.75 m (protocol 89, measured) to about 0.65 m.
+        // height terms (the 0.5 m plus the tick that the tick-start speed lags: d + √(2 g d) dt). Ours: measured in 0.01 m steps the charge ends from a 0.80 m drop (protocol 89: 0.77 m; LedgeChargeAirTests pins it).
         float v = MathF.Max(0f, -s.Velocity.Z), dt = c.TickSeconds;
         float fallen = (k * g > 0f ? v * v / (2f * k * g) : 0f) + v * dt * 0.5f + MathF.Max(0f, landingDrop);
         return fallen + Eps >= drop + MathF.Sqrt(2f * g * drop) * dt;

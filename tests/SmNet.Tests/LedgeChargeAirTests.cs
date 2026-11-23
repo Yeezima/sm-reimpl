@@ -138,7 +138,7 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
     [InlineData(0.3f)]   // a curb: the clip resumes
     [InlineData(0.4f)]
     [InlineData(0.5f)]
-    // 0.6 to 0.8 m: the boundary band (protocol 89: 0.7 resumes, 0.8 ends; now from about 0.65 m), not pinned
+    // 0.6 to 0.8 m: the boundary band, pinned in 0.01 m steps by The_charge_ends_on_landing_from_a_pinned_drop_in_the_0_6_to_0_8_m_band (0.80 m; protocol 89 0.77 m)
     [InlineData(0.9f)]
     [InlineData(1.0f)]
     [InlineData(1.5f)]   // a real drop: the landing ends the charge
@@ -160,6 +160,38 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
         var after = Outcome(After);
         Assert.Equal(before, after);
     }
+
+    /// <summary>The first drop (0.01 m steps from 0.40 m) whose landing ends the charge, and whether every higher drop up to 1.0 m ends it too (one boundary, no flicker).</summary>
+    (float First, bool Monotone) Boundary(SimConfig c)
+    {
+        float first = float.NaN;
+        bool monotone = true;
+        for (int i = 40; i <= 100; i++)
+        {
+            float h = i / 100f;
+            var t = Run(c, Marine, Ledge(h), new Vector3(0f, -2.5f, h), ticks: 60);
+            int d = t.FindIndex(p => !p.Grounded);
+            int l = d < 0 ? -1 : t.FindIndex(d, p => p.Grounded);
+            bool ends = l >= 0 && t[l].Rush == RushPhase.None;
+            if (ends && float.IsNaN(first)) first = h;
+            if (!ends && !float.IsNaN(first)) monotone = false;
+        }
+        return (first, monotone);
+    }
+
+    [Fact]
+    public void The_charge_ends_on_landing_from_a_pinned_drop_in_the_0_6_to_0_8_m_band()
+    {
+        var after = Boundary(After);
+        var before = Boundary(Before);
+        output.WriteLine($"the landing ends the charge from {after.First:F2} m (protocol 89: from {before.First:F2} m); one boundary: {after.Monotone} / {before.Monotone}");
+        Assert.True(after.Monotone);
+        Assert.Equal(PinnedBoundary, after.First, 3);
+        Assert.InRange(after.First, 0.6f, 0.8f);
+    }
+
+    /// <summary>The drop from which a Classic ledge charge's landing ends it (synthetic marine, 30 Hz, the game's 20 m/s^2; measured in 0.01 m steps).</summary>
+    const float PinnedBoundary = 0.80f;   // protocol 89 (the restore switch): 0.77 m
 
     // ---------------------------------------------------------------- unchanged: the ground, the other modes
 
