@@ -58,7 +58,7 @@ public static class BotNavigation
         var graph = LoadOrBuildWalk(map, world, config, side, cacheDirectory, out note);
         if (Loadouts.JumpPack(config, playerClass) is not null)
         {
-            graph = WithJumpLinks(graph, map, world, config, side, playerClass, cacheDirectory, out string jumpNote, cancel: cancel);
+            graph = WithJumpLinks(graph, map, world, config, side, playerClass, cacheDirectory, out string jumpNote, cancel: cancel, lockPerKey: true);   // bots/a1-perf: the one-step build keeps per-key exclusion
             note += "; " + jumpNote;
         }
         return graph;
@@ -69,12 +69,12 @@ public static class BotNavigation
     /// big map: minutes; one process builds a key while the others wait for its file). bots/new-maps: a bot client calls this after it already walks on the plain graph and swaps
     /// the result in when it is ready; <paramref name="threads"/> (0 = all cores but one) caps the build's threads (<see cref="NavJumpOptions.Threads"/>).
     /// </summary>
-    public static NavGraph WithJumpLinks(NavGraph walk, MapContent map, CollisionWorld world, SimConfig config, Team side, int playerClass, string cacheDirectory, out string note, int threads = 0, CancellationToken cancel = default)
+    public static NavGraph WithJumpLinks(NavGraph walk, MapContent map, CollisionWorld world, SimConfig config, Team side, int playerClass, string cacheDirectory, out string note, int threads = 0, CancellationToken cancel = default, bool lockPerKey = false)
     {
         var options = new NavJumpOptions { Threads = threads };
         ulong jumpKey = NavJumpSet.KeyFor(walk, config, playerClass, options);
         var set = NavCache.LoadOrBuildJumps(cacheDirectory, map.Name, jumpKey, walk.NodeCount,
-            () => NavJumpSet.Build(walk, world, side, config, playerClass, options, cancel, NavCache.JumpParts(cacheDirectory, map.Name, jumpKey, walk.NodeCount, options.MaxPerNode)), out note, cancel);   // bots/a1-perf: resumable
+            () => NavJumpSet.Build(walk, world, side, config, playerClass, options, cancel, NavCache.JumpParts(cacheDirectory, map.Name, jumpKey, walk.NodeCount, options.MaxPerNode)), out note, cancel, lockPerKey);   // bots/a1-perf: resumable; the map's build lock (walk-first) or the key's (one-step, lockPerKey)
         return walk.WithJumps(set);
     }
 }

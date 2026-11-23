@@ -72,9 +72,12 @@ public static class NavCache
     /// bots/a1-perf (lead 36, 2026-11-24): one jump-link builder per map on the machine (<see cref="NavBuildLock"/>, a lock file in <paramref name="dir"/>): before, each key had its own
     /// mutex, so the two sides' jump-pack bots (two keys) built at once, about 4 cores each, and a waiter gave up after 10 minutes and built the same key beside the first. Now a process that
     /// finds the map's build taken waits (until <paramref name="cancel"/>) and then reads the cache, or builds its own key, resuming any saved chunks. The waiting bot moves as it does while its
-    /// own build runs (no jump links: the walk-first bot on its plain graph, the one-step bot on its straight walk). A folder where no lock can be made builds without one, as before.
+    /// own build runs (no jump links: the walk-first bot on its plain graph). A folder where no lock can be made builds without one, as before.
+    /// <paramref name="lockPerKey"/> (the one-step build: Manufactorum, Musou Mode's maps, <c>--bot-old-jump-build</c>; lead decision 2026-11-24): the lock is per map and key
+    /// (<see cref="NavBuildLock.NameFor"/>), the old per-key exclusion, so two keys (the two sides) build at once as before: a one-step bot has no graph until its build ends, and a wait for
+    /// the other side's build left it graphless for a whole cold Manufactorum match.
     /// </remarks>
-    public static NavJumpSet LoadOrBuildJumps(string dir, string mapName, ulong key, int nodes, Func<NavJumpSet> build, out string note, CancellationToken cancel = default)
+    public static NavJumpSet LoadOrBuildJumps(string dir, string mapName, ulong key, int nodes, Func<NavJumpSet> build, out string note, CancellationToken cancel = default, bool lockPerKey = false)
     {
         ArgumentNullException.ThrowIfNull(build);
         string file = JumpFileFor(dir, mapName, key);
@@ -86,7 +89,7 @@ public static class NavCache
         }
         bool waited = false, unlocked = false;
         NavBuildLock? held = null;
-        try { held = NavBuildLock.Acquire(dir, mapName, cancel, waiting: () => waited = true); unlocked = held is null; }   // null: waited NavBuildLock.MaxWaitMinutes, build beside it
+        try { held = NavBuildLock.Acquire(dir, NavBuildLock.NameFor(mapName, key, lockPerKey), cancel, waiting: () => waited = true); unlocked = held is null; }   // null: waited NavBuildLock.MaxWaitMinutes, build beside it
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { unlocked = true; }   // no lock in this folder: build as before
         try
         {
@@ -185,7 +188,9 @@ public static class NavCache
                 File.Move(temp, file, overwrite: true);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-            NavBuildLock.NoteProgress(dir, mapName);   // bots/a1-perf: the build moved on (even when its chunk could not be written, a full disk), so its lock stays fresh
+            // bots/a1-perf: the build moved on (even when its chunk could not be written, a full disk), so its lock stays fresh: the map's lock or the map and key's (one-step)
+            NavBuildLock.NoteProgress(dir, NavBuildLock.NameFor(mapName, key, perKey: false));
+            NavBuildLock.NoteProgress(dir, NavBuildLock.NameFor(mapName, key, perKey: true));
         }
 
         static List<(int From, int To, float Cost, byte Direction, byte Hold, float Power)>? Drop(string file)
@@ -304,6 +309,9 @@ public sealed class NavBuildLock : IDisposable
 
     /// <summary>The lock file of <paramref name="mapName"/> in <paramref name="dir"/>.</summary>
     public static string FileFor(string dir, string mapName) => Path.Combine(dir, mapName + ".navbuild.lock");
+
+    /// <summary>The lock's name for a build of <paramref name="key"/> on <paramref name="mapName"/>: the map (walk-first: one build of the map at a time) or, <paramref name="perKey"/>, the map and key (one-step: one build of a key at a time).</summary>
+    public static string NameFor(string mapName, ulong key, bool perKey) => perKey ? $"{mapName}-{key:X16}" : mapName;
 
     /// <summary>
     /// Takes the map's lock now; null when another running process holds a fresh one. Throws when the folder cannot hold a lock (IO, access). <paramref name="heartbeat"/> and

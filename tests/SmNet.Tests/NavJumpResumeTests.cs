@@ -170,22 +170,26 @@ public class NavJumpResumeTests
         string dir = TempDir();
         try
         {
-            string file = NavBuildLock.FileFor(dir, "gap");
-            using var held = NavBuildLock.TryAcquire(dir, "gap", heartbeat: TimeSpan.FromMilliseconds(40), stall: TimeSpan.FromSeconds(3))!;   // a stall window wide enough for a timer callback on a loaded thread pool
+            // Two locks, so no check races a timer on a loaded thread pool: a late callback only re-reads the clock, so a stalled lock stays stalled however late it runs,
+            // and the moving build's stall window (60 s) is far longer than any wait here.
             var old = DateTime.UtcNow.AddHours(-1);
-            File.SetLastWriteTimeUtc(file, old);
-            Assert.True(SpinWait.SpinUntil(() => File.GetLastWriteTimeUtc(file) > old.AddMinutes(30), TimeSpan.FromSeconds(5)), "the heartbeat refreshes a lock whose build moves on");
-            Thread.Sleep(3500);   // past the stall time with no chunk saved
+            string moving = NavBuildLock.FileFor(dir, "moving");
+            using (NavBuildLock.TryAcquire(dir, "moving", heartbeat: TimeSpan.FromMilliseconds(40), stall: TimeSpan.FromSeconds(60)))
+            {
+                File.SetLastWriteTimeUtc(moving, old);
+                Assert.True(SpinWait.SpinUntil(() => File.GetLastWriteTimeUtc(moving) > old.AddMinutes(30), TimeSpan.FromSeconds(30)), "the heartbeat refreshes a lock whose build moves on");
+            }
+            string file = NavBuildLock.FileFor(dir, "gap");
+            using var held = NavBuildLock.TryAcquire(dir, "gap", heartbeat: TimeSpan.FromMilliseconds(40), stall: TimeSpan.FromMilliseconds(200))!;
+            Thread.Sleep(600);   // past the stall time with no chunk saved
             File.SetLastWriteTimeUtc(file, old);
             Thread.Sleep(300);
             Assert.Equal(old, File.GetLastWriteTimeUtc(file));   // the heartbeat stopped
             Assert.True(NavBuildLock.IsStale(file, TimeSpan.FromSeconds(NavBuildLock.StaleSeconds)));
-            // a chunk saved through the build's checkpoint counts as progress: the lock is fresh again and the heartbeat goes on
+            // a chunk saved through the build's checkpoint counts as progress: the lock is fresh again at once
             var (_, graph) = Gap();
             NavCache.JumpParts(dir, "gap", 7, graph.NodeCount).Save(0, 1, 0, 1, []);
             Assert.False(NavBuildLock.IsStale(file, TimeSpan.FromSeconds(NavBuildLock.StaleSeconds)));
-            File.SetLastWriteTimeUtc(file, old);
-            Assert.True(SpinWait.SpinUntil(() => File.GetLastWriteTimeUtc(file) > old.AddMinutes(30), TimeSpan.FromSeconds(5)));
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -258,6 +262,44 @@ public class NavJumpResumeTests
             Assert.Equal(1, bBuilds);   // then it builds its own key
             Assert.Equal(1, most);   // never two at once
             Assert.Contains("for another build of the map", bNote);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    /// <summary>Lead decision 2026-11-24: the one-step build (lockPerKey) keeps the old per-key exclusion: the two sides' keys build at once, a second build of the same key still waits.</summary>
+    [Fact]
+    public void On_the_one_step_path_two_keys_build_at_once_and_one_key_still_waits()
+    {
+        var (world, graph) = Gap();
+        ulong keyA = NavJumpSet.KeyFor(graph, Config, Assault, Options), keyB = keyA ^ 0x5A5A;
+        var whole = NavJumpSet.Build(graph, world, Team.None, Config, Assault, Options);
+        string dir = TempDir();
+        try
+        {
+            using var started = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            int aBuilds = 0, bBuilds = 0, aAgainBuilds = 0;
+            var a = Task.Run(() => NavCache.LoadOrBuildJumps(dir, "gap", keyA, graph.NodeCount, () =>
+            {
+                Interlocked.Increment(ref aBuilds); started.Set(); release.Wait(TimeSpan.FromSeconds(60)); return whole;
+            }, out _, lockPerKey: true));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(30)));
+            string aAgainNote = "";
+            var aAgain = Task.Run(() => { var s = NavCache.LoadOrBuildJumps(dir, "gap", keyA, graph.NodeCount, () => { Interlocked.Increment(ref aAgainBuilds); return whole; }, out string n, lockPerKey: true); aAgainNote = n; return s; });
+            // the other side's key does not wait for the first build
+            var b = Task.Run(() => NavCache.LoadOrBuildJumps(dir, "gap", keyB, graph.NodeCount, () => { Interlocked.Increment(ref bBuilds); return whole; }, out _, lockPerKey: true));
+            Assert.True(b.Wait(TimeSpan.FromSeconds(30)), "the other key builds beside the first");
+            Assert.Equal(1, bBuilds);
+            Assert.False(a.IsCompleted);
+            Assert.False(aAgain.Wait(TimeSpan.FromSeconds(2)));   // the same key waits for its build
+            Assert.Equal(0, Volatile.Read(ref aAgainBuilds));
+            release.Set();
+            Assert.True(a.Wait(TimeSpan.FromSeconds(60)) && aAgain.Wait(TimeSpan.FromSeconds(60)));
+            Assert.Equal(1, aBuilds);
+            Assert.Equal(0, aAgainBuilds);   // it read the finished file
+            Assert.Contains("after waiting for another build", aAgainNote);
+            Assert.False(File.Exists(NavBuildLock.FileFor(dir, NavBuildLock.NameFor("gap", keyA, perKey: true))));
+            Assert.False(File.Exists(NavBuildLock.FileFor(dir, "gap")));   // the map's lock was never taken
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
