@@ -63,7 +63,7 @@ public partial class NetworkView
                 // sim/movement-fixes capture aids: one tick of Space before the edge (the hop) or in the fall (the dash).
                 _ledgeAirTicks = me.Grounded ? 0 : _ledgeAirTicks + 1;
                 if (LedgeTrace && (!me.Grounded || Evade.Evading(me) || me.Rush != RushPhase.None))
-                    GD.Print($"LEDGETRACE t {_connectedFor:F3} air {_ledgeAirTicks} speed {MathF.Sqrt(me.Velocity.X * me.Velocity.X + me.Velocity.Y * me.Velocity.Y):F2} z {me.Position.Z:F2} rush {me.Rush} evade {(Evade.Evading(me) ? me.EvadeTicks : 0)} jump {me.Jump} grounded {me.Grounded}");
+                    GD.Print($"LEDGETRACE t {_connectedFor:F3} air {_ledgeAirTicks} speed {MathF.Sqrt(me.Velocity.X * me.Velocity.X + me.Velocity.Y * me.Velocity.Y):F2} x {me.Position.X:F3} y {me.Position.Y:F3} z {me.Position.Z:F2} rush {me.Rush} evade {(Evade.Evading(me) ? me.EvadeTicks : 0)} jump {me.Jump} grounded {me.Grounded}");
                 bool pressNow = !_ledgePressed && (LedgeHop ? me.Grounded && LeavesWithin(me, _ledgeYaw, 8) : LedgeTap && _ledgeAirTicks >= 4);
                 if (pressNow)
                 {

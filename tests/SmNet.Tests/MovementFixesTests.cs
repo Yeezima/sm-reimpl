@@ -420,8 +420,9 @@ public class MovementFixesTests(ITestOutputHelper output)
     static CollisionWorld ChargeLedge() => Mesh(Floor(8f, y0: -60f, y1: 0f), Riser(0f, -1f, 8f), Floor(0f, y0: 0f, y1: 300f));
 
     /// <summary>Charges +Y off the 8 m plateau from 9 m before its edge, then holds the stick's <paramref name="side"/> in the air; every state from the press on.</summary>
-    static List<PlayerState> ChargeOff(int cls, float side, CollisionWorld world)
+    static List<PlayerState> ChargeOff(int cls, float side, CollisionWorld world, SimConfig? config = null)
     {
+        var Charger = config ?? MovementFixesTests.Charger;
         var s = Combat.Respawned(new PlayerState(1, new Vector3(0, -9f, 8f), Vector3.Zero, 0f, true) { Class = cls }, Charger);
         for (int k = 0; k < 12; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), Charger, out _, world);
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), Charger, out _, world);
@@ -507,8 +508,10 @@ public class MovementFixesTests(ITestOutputHelper output)
     {
         // A target standing on the floor 4 m to the right of the straight path, about where the charge lands; prediction of the contact uses the same state.
         var world = ChargeLedge();
-        var straight = ChargeOff(Assault, 0f, world);
-        var bent = ChargeOff(Assault, 1f, world);
+        // The steering geometry at protocol 89's full air speed (sim/ledge-charge-air's restore switch): the halved Classic air travel bends the path too little for a 4 m offset; the contact rule is the same.
+        var full = Charger with { LedgeChargeHalfAir = false };
+        var straight = ChargeOff(Assault, 0f, world, full);
+        var bent = ChargeOff(Assault, 1f, world, full);
         var land = bent[bent.FindLastIndex(p => p.Grounded)].Position;
         float pathX(List<PlayerState> st, float y) => st.Where(p => p.Position.Y <= y).Select(p => p.Position.X).DefaultIfEmpty(0f).Last();
         var target = new Vector3(land.X, land.Y - 0.5f, 0f);

@@ -241,11 +241,11 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         Assert.NotNull(left);
         float leftSpeed = new Vector2(left!.Value.Velocity.X, left.Value.Velocity.Y).Length();
         output.WriteLine($"charge left the ledge at {left.Value.Position} at {leftSpeed:F2} m/s after {frozenAt} rush ticks; {airTicks} ticks in the air; landed at {s.Position} ({s.Rush}, {s.RushTicks} ticks)");
-        Assert.Equal(10f, leftSpeed, 2);
+        Assert.Equal(10f, leftSpeed, 2);   // the held momentum; sim/ledge-charge-air (protocol 90) halves the travel per tick, not the velocity
         Assert.All(speeds, v => Assert.Equal(leftSpeed, v, 3));   // the speed it left with, held
         // Longer in the air than the clip had left (the rule ends it by time only on the ground): 8 m is about 0.9 s.
         Assert.True(airTicks * Dt > RushTests.Spec.Rush.End - frozenAt * Dt, $"{airTicks} ticks in the air");
-        Assert.True(s.Position.Y - left.Value.Position.Y > 8f, $"carried {s.Position.Y - left.Value.Position.Y:F2} m");   // before: about 5 m (the clip ended in the air, then the fall kept its speed)
+        Assert.True(s.Position.Y - left.Value.Position.Y > 4f, $"carried {s.Position.Y - left.Value.Position.Y:F2} m");   // 4.5 m at the halved 5 m/s (protocol 89: 9 m; LedgeChargeAirTests)
         // feel/melee-charge-2 (protocol 42, the owner's request): landed after an 8 m fall, the charge has ended (no resumed clip, no second shoulder bash);
         // the speed is kept (at most sprint speed) for the slowdown; the spacing lock stays.
         Assert.Equal((RushPhase.None, 0), (s.Rush, s.RushTicks));
@@ -462,7 +462,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     public void A_charge_in_the_air_still_connects_with_a_player_below_the_ledge()
     {
         var world = Ledge(1.2f);
-        var w = new World(Config, world, [new SpawnPoint(new Vector3(0, -8f, 1.2f), 0f), new SpawnPoint(new Vector3(0, 3.5f, 0f), MathF.PI)]);
+        var w = new World(Config, world, [new SpawnPoint(new Vector3(0, -8f, 1.2f), 0f), new SpawnPoint(new Vector3(0, 2.2f, 0f), MathF.PI)]);   // sim/ledge-charge-air: 2.2 m past the edge (3.5 m before the halved air travel)
         w.Spawn(1, Marine); w.Spawn(2, Marine);
         bool airContact = false;
         for (int k = 0; k < 60 && !airContact; k++)
@@ -786,7 +786,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(89, Protocol.Version);
+        Assert.Equal(90, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {

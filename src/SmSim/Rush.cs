@@ -473,7 +473,7 @@ public static class Rush
         var spec = SpecOf(c, s);
         if (MoveOf(c, s) is not { } move) return Movement.Glide(s, s.Yaw, Vector2.Zero, c, world);
         Vector2 delta;
-        if (held) delta = new Vector2(s.Velocity.X, s.Velocity.Y) * dt;   // the speed it left the ground with, uncapped (owner, 2026-10-29)
+        if (held) delta = new Vector2(s.Velocity.X, s.Velocity.Y) * dt * LedgeChargeAir.TravelScale(s, c);   // the speed it left the ground with, uncapped (owner, 2026-10-29); Classic PvP: half the travel (sim/ledge-charge-air)
         else
         {
             var local = move.At(s.RushTicks * dt) - move.At((s.RushTicks - 1) * dt);
@@ -482,6 +482,7 @@ public static class Rush
             delta = right * local.X + forward * local.Y;
         }
         var next = Movement.Glide(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, c, world);
+        if (held) next = LedgeChargeAir.KeepMomentum(s, next, c);   // sim/ledge-charge-air (protocol 90): the held velocity stays the full one (the hop and the landing read it)
         // feel/melee-charge-2 (protocol 42): a held charge that lands after a real fall ends here (no resumed clip, no wall stop on the landing tick).
         if (held && next.Grounded && EndsOnLanding(s, spec, c)) return Landed(next, c);
         float wished = delta.Length();

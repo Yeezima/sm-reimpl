@@ -80,6 +80,8 @@ public sealed record ServerArguments
     /// <summary>sim/hop-rules (restore switch): the protocol 71 jump and hop rules (<see cref="SimConfig.HopRules"/>; config hash: clients need it too).</summary>
     public bool OldHopRules { get; init; }
     public bool OldLedgeHop { get; init; }
+    /// <summary>sim/ledge-charge-air (restore switch): a Classic PvP ledge charge keeps its full departure speed in the air (<see cref="SimConfig.LedgeChargeHalfAir"/>; config hash: clients need it too).</summary>
+    public bool OldLedgeChargeAir { get; init; }
     /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
     public bool OldStompRelease { get; init; }
     /// <summary>sim/stab-release (restore switch): the stab locks the player to the end of its clip (<see cref="SimConfig.StabRelease"/>; config hash: clients need it too).</summary>
@@ -181,6 +183,7 @@ public static class ServerCommandLine
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
           --old-sprint-melee           switch: restore: a light press while sprinting swings instead of charging (clients need --old-sprint-melee too)
           --old-ledge-hop              switch: restore: a hop out of a ledge charge drops to the hop's own start speed (clients need --old-ledge-hop too)
+          --old-ledge-charge-air       switch: restore: a Classic PvP charge off a ledge keeps its full speed in the air instead of half (clients need --old-ledge-charge-air too)
           --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
           --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
@@ -207,7 +210,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--old-ledge-charge-air", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
@@ -243,6 +246,7 @@ public static class ServerCommandLine
                     "--old-charge-melee-chain" => a with { OldChargeMeleeChain = true },
                     "--old-hop-rules" => a with { OldHopRules = true },
                     "--old-ledge-hop" => a with { OldLedgeHop = true },
+                    "--old-ledge-charge-air" => a with { OldLedgeChargeAir = true },
                     "--old-stomp-release" => a with { OldStompRelease = true },
                     "--old-stab-release" => a with { OldStabRelease = true },
                     "--old-kick-push" => a with { OldKickPush = true },
