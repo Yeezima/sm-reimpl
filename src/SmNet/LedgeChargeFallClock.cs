@@ -33,8 +33,10 @@ public sealed class LedgeChargeFallClock
     public const float FallDebounceSeconds = 2f / 30f;
     /// <summary><c>SmContent.FallTracker.GapSeconds</c> (a test ties the two): a frame gap longer than this forgets the clock (a player not drawn, a respawn).</summary>
     public const double GapSeconds = 0.25;
-    /// <summary>The largest single-frame jump of <see cref="Now"/> beyond the frame's own time (s): under <see cref="GapSeconds"/>, so the tracker never takes a landing for a gap.</summary>
-    public const double MaxJump = 0.2;
+    /// <summary>The largest step of <see cref="Now"/> in one frame (s) unless the frame itself is longer: under <see cref="GapSeconds"/>, so the tracker never takes a landing for a gap (at any frame rate).</summary>
+    public const double MaxStep = GapSeconds - 0.01;
+    /// <summary>A frame gap over <see cref="GapSeconds"/> but at most this long (s) is a hitch: the clock starts afresh but its <see cref="Step"/> is the frame's time (the landing sound's air time counts it, as it always did); a longer one is a stale clock (Step 0).</summary>
+    public const double MaxHitch = 0.5;
     bool _wasGrounded = true;
 
     /// <summary>The presentation clock (seconds): the render clock plus the time the equivalent fall has gained.</summary>
@@ -61,8 +63,14 @@ public sealed class LedgeChargeFallClock
     public void Feed(double now, PlayerState s, SimConfig? c, float heightAboveGround = float.NaN)
     {
         if (now == _lastNow) return;
-        // A stale clock (the player was not drawn for a while, a returning id): start afresh, no Step over the gap.
-        if (double.IsFinite(_lastNow) && !(now - _lastNow <= GapSeconds)) { _phase = Phase.None; _offset = 0; _lastNow = double.NaN; _wasGrounded = true; Now = now; Speed = 0f; }
+        // A frame gap over the tracker's: start afresh. A hitch (at most MaxHitch) keeps its frame time as the Step (every mode's landing sound counted it before); a stale clock (the player was not drawn
+        // for a while, a returning id) gets no Step over the gap.
+        double resetStep = 0.0;
+        if (double.IsFinite(_lastNow) && !(now - _lastNow <= GapSeconds))
+        {
+            resetStep = now - _lastNow <= MaxHitch ? now - _lastNow : 0.0;
+            _phase = Phase.None; _offset = 0; _lastNow = double.NaN; Now = now; Speed = 0f;
+        }
         double previous = Now;
         bool first = !double.IsFinite(_lastNow);
         double dt = double.IsFinite(_lastNow) ? Math.Max(0.0, now - _lastNow) : 0.0;
@@ -71,6 +79,7 @@ public sealed class LedgeChargeFallClock
         float k = c is null || s.Grounded || !s.Alive ? 1f : LedgeChargeAir.GravityScale(s, c);
         float vz = float.IsFinite(s.Velocity.Z) ? s.Velocity.Z : 0f;
         float z = float.IsFinite(s.Position.Z) ? s.Position.Z : _lastZ;
+        if (first) { _lastZ = z; _wasGrounded = s.Grounded; }   // a new or reset clock: no height or support from another time (a remote player first drawn mid charge departs from here)
         if (k > 1f)
         {
             float root = MathF.Sqrt(k);
@@ -126,9 +135,10 @@ public sealed class LedgeChargeFallClock
         _lastZ = z;
         _wasGrounded = s.Grounded;
         // a landing on other ground than the ray saw (a crate, a slope) or a short drop can ask for a long jump: kept under the tracker's gap
-        if (!first && now + _offset - previous > dt + MaxJump) _offset = previous + dt + MaxJump - now;
+        double bound = Math.Max(dt, MaxStep);
+        if (!first && now + _offset - previous > bound) _offset = previous + bound - now;
         Now = now + _offset;
-        Step = first ? 0.0 : Now - previous;
+        Step = first ? resetStep : Now - previous;
         LastSpeed = first ? 0f : Speed;
         Speed = Velocity(s).Length();
     }

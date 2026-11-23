@@ -203,13 +203,16 @@ public class LedgeChargeLandingTests(ITestOutputHelper output)
     {
         Assert.Equal(FallRules.DebounceSeconds, LedgeChargeFallClock.FallDebounceSeconds);
         Assert.Equal(FallTracker.GapSeconds, LedgeChargeFallClock.GapSeconds);
-        Assert.True(LedgeChargeFallClock.MaxJump < FallTracker.GapSeconds);
+        Assert.True(LedgeChargeFallClock.MaxStep < FallTracker.GapSeconds);
+        Assert.True(LedgeChargeFallClock.MaxHitch > FallTracker.GapSeconds);
     }
 
     [Theory]
-    [InlineData(5f)]    // the ray saw ground 5 m below the real one (the body lands on a crate)
-    [InlineData(-1.5f)] // or 1.5 m above it (a slope the ray missed)
-    public void A_light_melee_landing_on_other_ground_than_the_ray_saw_still_lands_with_no_gap(float rayError)
+    [InlineData(5f, 1)]    // the ray saw ground 5 m below the real one (the body lands on a crate)
+    [InlineData(-1.5f, 1)] // or 1.5 m above it (a slope the ray missed)
+    [InlineData(5f, 2)]    // at 15 fps (every second tick drawn)
+    [InlineData(-1.5f, 2)]
+    public void A_light_melee_landing_on_other_ground_than_the_ray_saw_still_lands_with_no_gap(float rayError, int every)
     {
         // review (Fable High, 2026-11-23): the touchdown jump is kept under FallTracker.GapSeconds, so the tracker still sees a landing (clip, settle, dip, feel) and the sound no huge air time.
         var c = After;
@@ -217,18 +220,84 @@ public class LedgeChargeLandingTests(ITestOutputHelper output)
         var clock = new LedgeChargeFallClock();
         var fall = new FallTracker();
         bool landed = false;
-        double worst = 0;
-        for (int k = 0; k < trace.Count; k++)
+        double worst = 0, realAir = 0;
+        float soundAir = 0f, heard = -1f;
+        PlayerState? prev = null;
+        var frames = Enumerable.Range(0, trace.Count).Where(k => k % every == 0 || k == trace.Count - 1).ToList();
+        foreach (int k in frames)
         {
             var s = trace[k];
-            clock.Feed(k / 30.0, s, c, s.Position.Y > 0.5f ? MathF.Max(0f, s.Position.Z + rayError) : float.NaN);
-            if (k > 0) worst = Math.Max(worst, clock.Step);
+            double now = k / 30.0;
+            clock.Feed(now, s, c, s.Position.Y > 0.5f ? MathF.Max(0f, s.Position.Z + rayError) : float.NaN);
+            worst = Math.Max(worst, clock.Step);
             bool eligible = s.Alive && s.Jump == JumpPhase.None && s.Rush == RushPhase.None && s.Reaction == ReactionKind.None;
             if (fall.Observe(clock.Now, eligible, s.Grounded, clock.VerticalSpeed) == FallEvent.Landed) landed = true;
+            // the landing sound's air time as NetworkView.Sound counts it
+            float delta = every / 30f;
+            if (prev is { } p && s.Grounded && !p.Grounded) heard = soundAir + Math.Max(0f, (float)clock.Step - delta);
+            if (prev is { Grounded: false }) realAir += delta;
+            soundAir = s.Grounded ? 0f : Math.Max(0f, soundAir + (float)clock.Step);
+            prev = s;
         }
-        output.WriteLine($"ray error {rayError} m: largest step {worst:F3} s; landed {landed}");
+        output.WriteLine($"ray error {rayError} m, every {every} tick(s): largest step {worst:F3} s; landed {landed}; the sound's air time at touchdown {heard:F3} s (real {realAir:F3} s)");
         Assert.True(landed);
-        Assert.True(worst <= 1.0 / 30.0 + LedgeChargeFallClock.MaxJump + 1e-9, $"step {worst}");
+        Assert.True(worst <= Math.Max(every / 30.0, LedgeChargeFallClock.MaxStep) + 1e-9, $"step {worst}");
+        // an 8 m fall: the landing sound plays (over 0.4 s), with an air time near protocol 89's (no gap fed into it)
+        Assert.True(heard > FallRules.LandingFeelSeconds, $"heard {heard}");
+        Assert.InRange(heard, realAir * 0.5, realAir * 2.0 + 0.3);
+    }
+
+    [Fact]
+    public void A_fall_with_one_hitch_frame_keeps_the_landing_sounds_air_time_outside_a_ledge_charge()
+    {
+        // review C: outside a Classic ledge charge the sound's air time is the sum of the frame times, a hitch (one frame over the tracker's 0.25 s gap) included, as before this branch
+        foreach (var c in new[] { Before, After with { Extras = ContentExtras.Musou | ContentExtras.Warfront } })
+        {
+            var trace = Run(c, Marine, 8f);
+            int air = trace.FindIndex(p => !p.Grounded);
+            var clock = new LedgeChargeFallClock();
+            float soundAir = 0f, heard = -1f, real = 0f;
+            PlayerState? prev = null;
+            double now = 0, last = 0;
+            for (int k = 0; k < trace.Count; k++)
+            {
+                now = k / 30.0 + (k > air + 5 ? 0.3 : 0.0);   // one 0.33 s frame five ticks into the fall
+                float delta = (float)(now - last); last = now;
+                var s = trace[k];
+                clock.Feed(now, s, c);
+                if (prev is { } p && s.Grounded && !p.Grounded) heard = soundAir + Math.Max(0f, (float)clock.Step - delta);
+                if (prev is { Grounded: false } && k > 0) real += delta;
+                soundAir = s.Grounded ? 0f : Math.Max(0f, soundAir + (float)clock.Step);
+                prev = s;
+            }
+            output.WriteLine($"{(c.LedgeChargeHalfAir ? "warfront" : "restore switch")}: the sound's air time {heard:F3} s, the frames' {real:F3} s");
+            Assert.True(heard > 0f, "the landing was heard");
+            Assert.Equal(real, heard, 3);   // the first air frame's time counted, the touchdown frame's not: the same count
+        }
+    }
+
+    [Fact]
+    public void A_clock_first_fed_mid_charge_departs_from_where_it_was_first_seen()
+    {
+        // review B: a new or reset clock keeps no height from another time (a remote player first drawn mid ledge charge)
+        var c = After;
+        var other = Run(c, Marine, 12f);
+        var trace = Run(c, Marine, 4f);
+        int from = trace.FindIndex(p => !p.Grounded) + 3;
+        var stale = new LedgeChargeFallClock();
+        for (int k = 0; k < other.Count; k++) stale.Feed(k / 30.0, other[k] with { Position = other[k].Position + new Vector3(40f, 0f, 20f) }, c);
+        var fresh = new LedgeChargeFallClock();
+        double t0 = 100.0;
+        for (int k = from; k < trace.Count; k++)
+        {
+            double now = t0 + (k - from) / 30.0;
+            stale.Feed(now, trace[k], c);
+            fresh.Feed(now, trace[k], c);
+            Assert.Equal(fresh.Now, stale.Now, 9);
+            Assert.Equal(fresh.VerticalSpeed, stale.VerticalSpeed);
+        }
+        // and the landing jump is bounded by where it was first seen (not by the 12 m ledge 20 m higher)
+        Assert.True(fresh.Step <= LedgeChargeFallClock.MaxStep + 1e-9);
     }
 
     [Fact]
