@@ -473,8 +473,10 @@ public class MovementFixesTests(ITestOutputHelper output)
     {
         var world = ChargeLedge();
         // The Tactical / Chaos Tactical (a class with the charge and no jump pack; the owner's follow-up of 2026-11-01): the same steering.
-        var marine = ChargeOff(1, 1f, world);
-        var straightMarine = ChargeOff(1, 0f, world);
+        // At protocol 89's fall (sim/ledge-charge-air's restore switch): the Classic charge's 4 x gravity shortens the air time, so the bend is under 2 m; the steering per tick is the same.
+        var full = Charger with { LedgeChargeHalfAir = false };
+        var marine = ChargeOff(1, 1f, world, full);
+        var straightMarine = ChargeOff(1, 0f, world, full);
         int left = marine.FindIndex(p => !p.Grounded), landedAt = marine.FindLastIndex(p => p.Grounded);
         float speed = new Vector2(marine[left].Velocity.X, marine[left].Velocity.Y).Length();
         var air = marine.Skip(left + 1).TakeWhile(p => !p.Grounded).ToList();

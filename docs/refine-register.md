@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4030 spec table rows: **2972 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 839 rows of the changes document.
+Scanned 4032 spec table rows: **2974 tagged**, 695 not tagged (read from data with high confidence), 363 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 839 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,11 +37,11 @@ Scanned 4030 spec table rows: **2972 tagged**, 695 not tagged (read from data wi
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
-| Charge (critical) | 65 | 53 | 50 | 27 | 0 |
+| Charge (critical) | 70 | 58 | 51 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 257 | 239 | 201 | 42 | 0 |
+| Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 100 | 91 | 83 | 42 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,19 +53,19 @@ Scanned 4030 spec table rows: **2972 tagged**, 695 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 140 | 139 | 54 | 54 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2972** | 2667 | 2197 | 890 | 37 |
+| **All areas** | **2974** | 2669 | 2198 | 891 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1784 |
+| kind: ours | 1785 |
 | confidence: low | 1065 |
-| confidence: medium | 1021 |
-| notes: ours | 473 |
+| confidence: medium | 1022 |
+| notes: ours | 474 |
 | kind: interpretation | 456 |
 | notes: estimate | 285 |
-| kind: estimate | 269 |
+| kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -1519,7 +1519,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0DB8F980` | Jets fade | out over 0.2 s, back over 0.25 s, linear (s) | kind: estimate; confidence: low; notes: ours | owner's "smoothly"; values ours | Jets fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: out over 0.2 s, back over 0.25 s, linear. | ☐ |
 | `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
-### Charge (gameplay-critical) (65)
+### Charge (gameplay-critical) (70)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -1630,6 +1630,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4D1CAFFE` | Carry slack | an excess of at most **0.25 m/s** over the clip's previous speed is ignored (collision slides, rounding) (m/s) | kind: ours; notes: estimate | owner 2026-11-17 | Carry slack: compare with SM1 by timing a run over a known distance. Ours: an excess of at most 0.25 m/s over the clip's previous speed is… | ☐ |
 | `R-5E089F7D` | What is unchanged | a hop from rest, a walk or a run, any hop not out of a ledge charge (the aerial tackle's hop takes the clip's own speed, as before), the Tactical and Devastator classes; the restore switch `--old-ledge-hop` (server and every client; config hash only when on)… | kind: ours | owner 2026-11-17 | What is unchanged: compare with SM1 by feel or video. Ours: a hop from rest, a walk or a run, any hop not out of a ledge charge… | ☐ |
 | `R-34CE6FFF` | Fall pose delay | a charge held in the air shows its clip until **0.4 s** off the ground (0.3 s before), then the fall pose, cross-faded over **0.25 s** (the stance fade and the fall legs' ramp), then the landing as always when nothing else was done (client only; own and seen… (s) | kind: ours; notes: estimate | owner 2026-11-17 ("the player should start playing the falling animation .4s into a ledge charge ... smoothly transition them to the falling animation, and… | Fall pose delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a charge held in the air shows its clip until 0.4 s off the ground… | ☐ |
+
+*Spec section: Ledge charge air travel: the bull rush off a ledge falls faster and travels half as far (sim/ledge-charge-air; owner 2026-11-23, brief 2026-11-23-series-36-ledge-charge, answer 2; protocol 90; Classic PvP only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EAF3453C` | Ledge charge fall | a bull rush held in the air falls under **4 x** gravity (Classic PvP; 80 m/s^2 with the game's 20); its horizontal velocity and every horizontal step are protocol 89's. From a ledge (no vertical speed at departure) the time to fall any height is half, so the… (x gravity) | kind: ours | owner 2026-11-23 answer 2 | Ledge charge fall: compare with SM1 by timing a run over a known distance. Ours: a bull rush held in the air falls under 4 x gravity (Classic PvP; 80… | ☐ |
+| `R-4328A4BD` | The landing's speed | about 2 x protocol 89's downward speed at touchdown (8 m: 32 m/s against 17.3 m/s on the tick before landing); the simulation has no fall damage and its 60 m/s fall cap is reached only above a 22.5 m drop. Client consequences in the changes-from-original row… (m/s) | kind: ours | owner 2026-11-23 answer 2 (consequence) | The landing's speed: compare with SM1 by timing a run over a known distance. Ours: about 2 x protocol 89's downward speed at touchdown (8 m: 32 m/s… | ☐ |
+| `R-2804A8E5` | The charge's landing rule | feel/melee-charge-2's rule (a landing after a fall of at least 0.5 m ends the charge, a shallower one resumes the clip) reads the height fallen under the faster fall (`Rush.EndsOnLanding`: the fall to the landing tick from its vertical speed, v^2 / (2 x 4g) +… (m) | kind: estimate; confidence: medium; notes: ours | ours (keeps the protocol 42 rule) | The charge's landing rule: compare with SM1 by measuring on a flat spot of the same map. Ours: feel/melee-charge-2's rule (a landing after a fall of at least 0.5 m… | ☐ |
+| `R-B3897B8F` | The hop and light melee out of it | unchanged rules. The hop out of a ledge charge (`LedgeHop`) reads the same full held speed: its horizontal speeds tick by tick and its distance from the press are protocol 89's (21.614 m and 22.286 m for 10 and 20 m/s charges); it lands at most one tick… | kind: ours | owner 2026-11-23 answer 2 ("the hop is normal speed, unchanged") | The hop and light melee out of it: compare with SM1 by feel or video. Ours: unchanged rules. The hop out of a ledge charge (LedgeHop) reads the… | ☐ |
+| `R-04AC14DD` | Scope | Classic PvP (Annihilation, Seize Ground; any content profile without the Musou bit, the extended Ork Boy's sprint attack included); the bull rush only (`RushPhase.Rush`: Tactical, Chaos Tactical, Assault Marine, Raptor); unchanged: a charge that stays on the… | kind: ours | owner 2026-11-23 | Scope: compare with SM1 by feel or video. Ours: Classic PvP (Annihilation, Seize Ground; any content profile without… | ☐ |
 
 ### Reactions (gameplay-critical) (25)
 
@@ -1928,7 +1938,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (257)
+### Sound mix (gameplay-critical) (254)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2115,14 +2125,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-7B173771` | Hop sound | a Space tap of an Assault Marine or a Raptor plays one jump-pack launch sound; the dash it turns into posts none of its own launch (within 0.6 s of a launch) nor the evade-start and take-off tags; a dash seen with no launch just before posts its launch once (s) | kind: ours | the owner ("only 1 jump pack hop sound") | Hop sound: compare with SM1 by listening A/B at the same distance and state. Ours: a Space tap of an Assault Marine or a Raptor plays one jump-pack… | ☐ |
-
-*Spec section: Ledge charge air travel: half the travel, the full momentum (sim/ledge-charge-air; owner 2026-11-23, brief 2026-11-23-series-36-ledge-charge; protocol 90; Classic PvP only)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-80DDC3B5` | Ledge charge air travel | each tick of a bull rush held in the air moves **0.5** x its held horizontal velocity x dt; gravity, the vertical speed and the time in the air are unchanged, so the horizontal travel from the simulation's departure (the end of the tick that left the ground)… (fraction) | kind: ours | owner 2026-11-23 | Ledge charge air travel: compare with SM1 by listening A/B at the same distance and state. Ours: each tick of a bull rush held in the air moves 0.5 x its held… | ☐ |
-| `R-3EA0A843` | Held momentum | the held horizontal velocity in the state is the full departure speed (`LedgeChargeAir.KeepMomentum` restores the controller's reported velocity / 0.5): the hop out of the charge (`LedgeHop`: the same distance, speeds and landing from the press as protocol… (m/s) | kind: ours | owner 2026-11-23 | Held momentum: compare with SM1 by listening A/B at the same distance and state. Ours: the held horizontal velocity in the state is the full departure speed… | ☐ |
-| `R-EE66D3E0` | Scope | Classic PvP (Annihilation, Seize Ground; any content profile without the Musou bit, the extended Ork Boy's sprint attack included); the bull rush only (`RushPhase.Rush`: Tactical, Chaos Tactical, Assault Marine, Raptor); unchanged: a charge that stays on the… | kind: ours | owner 2026-11-23 | Scope: compare with SM1 by listening A/B at the same distance and state. Ours: Classic PvP (Annihilation, Seize Ground; any content profile without… | ☐ |
 
 *Spec section: Warfront fortress map profile and arena interface (warfront/w14a, 2026-11-17; added content, Warfront only; generation only, no battle rules, no Warboss spawn, no server wiring, no map name, no protocol or wire change; level version 1; second pass after designer review 1)*
 
@@ -6157,7 +6159,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CFDB3A1F` | Plasma cannon blast rim blur (plasma-cannon-shots; owner 2026-11-17 "soften it"; client only) | The cannon's impact drew a round dome and a disc with a bright rim (the `emp_ball_main`, `cloud_highlights_additive_02` and `bright_flash` cards) | Ours / estimate: those cards are read blurred (5 x 5 taps) and fade out toward their edge, flat shock-wave rings included; size and colour are the data's | The owner: "Soften it"; blur width and taps are ours (about +0.33 ms a frame measured on a fast GPU in the Compatibility renderer) | Plasma cannon blast rim blur (plasma-cannon-shots; owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E1A87700` | Plasma cannon charged shot: larger front ball and violet trail traces (plasma-cannon-shots; owner 2026-11-17; client only) | The data's ball is small and its trail pale cyan-white | Ours / estimate: the front ball's rings are drawn 1.25 x larger (owner: "make it only 1.25x bigger"); the loyalist trail's streamers carry 55 % violet; ball, glow and blast keep the data's colour and the blast its size | The owner: "only the trail has traces of violet. also make the main projectile ball at the front larger to match the reference image"; the factor 3.5 and the 55 % are our estimates | Plasma cannon charged shot: larger front ball and violet…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1227826A` | Ledge charge hop: the hop keeps the charge's speed (sim/ledge-charge-hop, 2026-11-17; protocol 85; Assault Marine and Raptor, every mode) and the fall pose starts 0.4 s into a ledge charge | The owner: hopping out of a ledge charge stopped the body nearly dead and then gave the hop's own speed; it should ease from the charge's fast momentum to the hop's top speed, and the fall animation should start 0.4 s into the ledge charge and blend in smoothly, then land | The Jump press that ends a charge held in the air keeps the charge's horizontal velocity while the hop waits for its tap, and the hop's flight adds the carried excess over its clip's speed, easing it off with a 0.15 s time constant (about 0.5 s from 40 m/s to the hop's about 20.8 m/s); hops from rest, a run or… | Owner 2026-11-17 (verbatim words in the spec). The 0.15 s ease, the 0.25 m/s slack and the 0.25 s cross-fade are ours. Spec "Ledge charge hop" | Ledge charge hop: the hop keeps the charge's speed…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-486777F4` | Ledge charge air travel: half the travel, the full momentum (sim/ledge-charge-air, 2026-11-23; protocol 90; Classic PvP only) | A bull rush that runs off a ledge keeps its departure speed in the air until it lands (protocol 30, the owner's reading of the original) | Each held tick moves half the held speed, so the travel from the ledge to the first landing is 50 % (the drop and the time in the air unchanged); the momentum in the state stays the full one, so the hop out of it and the light-melee cancel are as before and a Space tap can win back distance. Musou Mode, Warfront… | Owner 2026-11-23: "In Classic PvP only, when an already active grounded charge goes off a ledge, reduce horizontal travel from ledge departure to first landing to 50% of current behavior"; on the hop: "The hop itself should keep the same distance and momentum - only the charge should be slowed down. The slower charge… | Ledge charge air travel: half the travel, the full momentum…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-67C1379D` | Ledge charge air travel: the bull rush off a ledge falls faster and travels half as far (sim/ledge-charge-air, 2026-11-23; protocol 90; Classic PvP only) | A bull rush that runs off a ledge keeps its departure speed in the air until it lands, under normal gravity (protocol 30, the owner's reading of the original) | The held charge keeps that horizontal speed but falls under 4 x gravity, so it lands in half the time and half the distance (to one tick); the landing comes at about twice the downward speed. Client consequences (reported, not changed): the fall pose (from 0.4 s in the air) now shows only on drops over about 6.4 m… | Owner 2026-11-23: "In Classic PvP only, when an already active grounded charge goes off a ledge, reduce horizontal travel from ledge departure to first landing to 50% of current behavior"; answer 2: "cancel the thing about keeping the speed of the ledge charge the same. keep the speed the same, but the player drops… | Ledge charge air travel: the bull rush off a ledge falls…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-03EE2A96` | Classic autocannon plays the campaign turret's fire sound (sound/classic-autocannon-turret, 2026-11-18; client sound only, Classic PvP, both factions) | The owner, after hearing a preview of the install's `play_autocannon_turret_fire`: "Yes, use 05 for both" | In the Classic mix the autocannon's shot (`play_ch_autocannon_fire` in the weapon files) plays `play_autocannon_turret_fire`, the campaign turret's event, at the shooter's position, own shot included. `--old-classic-mix` and Musou Mode (the Stalker's files) are unchanged | Owner's choice of sound over the data's own event; a singleplayer content dependency (docs/discovery.md "Classic autocannon"). Spec "Classic autocannon plays the campaign turret's event" | Classic autocannon plays the campaign turret's fire sound…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-231A668A` | Warfront dressing, part 1 (warfront/dress): the Ork fortress is drawn with the bands' own kit and storm plus plated scrap walls, spikes, glyph boards, totems, a boss dais, banners, an outside ground, the spire behind the arena and manufactorum stacks; the lane nodes get far massing between the neighbour copy and the… | the owner's brief (a faithful Ork stronghold, scenery from the game's own pieces wherever possible) and the W5d review (bare far ground from node 1); every size, colour and count is ours | visual only (no collision, no hash); props at the breach, the gate and the arena openings are never in the way; the wall ends of the breach stay flat boxes; the HQ is not dressed yet; the first draw of the plated shader costs one 1.4 to 2 s frame on a cold shader cache | spec "Warfront dressing, part 1" | Warfront dressing, part 1 (warfront/dress): the Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3EBEB631` | Warfront replaces Musou Mode in the menus and in game (claude/warfront-replaces-musou, owner 2026-11-19): the main menu's first row is WARFRONT (New / Continue campaign, Host for friends, Join a friend, customizer) in Musou Mode's old place and style; Musou Mode is archived behind the hidden dev switch `--content`… | nothing: Warfront and Musou Mode are not in SM1 (added content); SM1 multiplayer has Annihilation, Seize Ground and the co-op waves of Exterminatus | the owner's decision of 2026-11-19: one added co-op mode on offer; the Musou code stays because Warfront is built on `Extras.Musou`; the main menu's two plates are our repaint (Oswald lettering on the plates that carried MUSOU MODE and STOP MUSOU SERVER, `tools/make-warfront-plates.ps1`); in a Warfront run the… | no version, hash or wire change; Classic PvP untouched (pinned); a remembered Musou lobby profile still maps to the Extended lobby and the Musou customizer sets (`musou`) are the Warfront customizer's; spec "Added content: Warfront" | Warfront replaces Musou Mode in the menus and in game…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

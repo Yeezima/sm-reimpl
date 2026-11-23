@@ -82,54 +82,83 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- the distance target
 
     [Theory]
+    [InlineData(12f)]
     [InlineData(8f)]
     [InlineData(4f)]
+    [InlineData(2.5f)]
     [InlineData(1.5f)]
+    [InlineData(0.8f)]
     public void A_classic_ledge_charge_travels_half_as_far_from_departure_to_its_first_landing(float height)
     {
         var world = Ledge(height);
         var start = new Vector3(0f, -9f, height);
         var before = Split(Run(Before, Marine, world, start));
         var after = Split(Run(After, Marine, world, start));
-        // Matched up to the departure: the same run-up, the same tick of departure, the same vertical speed and drop.
+        // Matched up to the departure: the same run-up, the same tick of departure, the same vertical speed.
         Assert.Equal(before.LastGround.Position, after.LastGround.Position);
         Assert.Equal(before.Departure.Position, after.Departure.Position);
-        Assert.Equal(before.Departure.Velocity.Z, after.Departure.Velocity.Z);
-        Assert.Equal(before.AirTicks, after.AirTicks);
+        Assert.Equal(before.Departure.Velocity, after.Departure.Velocity);
         Assert.Equal(before.Landing.Position.Z, after.Landing.Position.Z, 3);
-
-        // (1) The simulation's departure (the end of the tick that left the ground) to the first landing: exactly half (the held speed is halved, the time in the air is the same).
+        // The simulation's departure (the end of the tick that left the ground) to the first landing. The held speed is the same, so the distance is (air ticks) x one tick's travel, and
+        // 4 x gravity halves the air time: half the distance to within one 30 Hz tick's travel (the landing tick is whole; the departure tick's own vertical speed, from normal gravity, is the same in both).
         float b1 = Flat2(before.Departure.Position, before.Landing.Position), a1 = Flat2(after.Departure.Position, after.Landing.Position);
-        // (2) Bracketing the lift-off: the body leaves the ground somewhere inside the departure tick (the capsule rides the edge until its foot is past it, so the edge line itself is not the lift-off).
-        // From the start of that tick (the last state on the plateau) to the landing the ratio is 0.5 + p / (2 B), p the departure tick's part before the ground probe let go (0 <= p <= one tick's
-        // travel): the tolerance is half of one 30 Hz tick's travel over the before distance.
-        float b2 = Flat2(before.LastGround.Position, before.Landing.Position), a2 = Flat2(after.LastGround.Position, after.Landing.Position);
-        float tickTravel = Flat2(before.LastGround.Position, before.Departure.Position);
-        float tolerance2 = 0.5f * tickTravel / b2;
-        output.WriteLine($"{height} m ledge: {before.AirTicks} ticks in the air; departure -> landing before {b1:F3} m, after {a1:F3} m, ratio {a1 / b1:F4}; "
-            + $"departure tick start -> landing before {b2:F3} m, after {a2:F3} m, ratio {a2 / b2:F4} (bound 0.5 .. {0.5f + tolerance2:F4}; one tick {tickTravel:F3} m); edge y = 0 to landing before {before.Landing.Position.Y:F3} m, after {after.Landing.Position.Y:F3} m");
-        Assert.InRange(a1 / b1, 0.5f - 1e-3f, 0.5f + 1e-3f);
-        Assert.InRange(a2 / b2, 0.5f - 1e-3f, 0.5f + tolerance2 + 1e-3f);
-        // The vertical part and the charge's end on the landing are unchanged (a real fall ends it).
+        float tick = new Vector2(before.Departure.Velocity.X, before.Departure.Velocity.Y).Length() / 30f;
+        output.WriteLine($"{height} m ledge: air ticks before {before.AirTicks}, after {after.AirTicks}; departure -> landing before {b1:F3} m, after {a1:F3} m, ratio {a1 / b1:F4} "
+            + $"(tolerance +/- one tick {tick:F3} m = +/- {tick / b1:F4}); landing-tick vertical speed before {before.Landing.Velocity.Z:F2}, after {after.Landing.Velocity.Z:F2} m/s");
+        Assert.InRange(a1, 0.5f * b1 - tick - 1e-3f, 0.5f * b1 + tick + 1e-3f);
+        Assert.InRange(after.AirTicks, before.AirTicks / 2 - 1, (before.AirTicks + 1) / 2 + 1);
+        // A real fall still ends the charge on the landing (the landing rule keeps its drop height).
         Assert.Equal(before.Landing.Rush, after.Landing.Rush);
     }
 
     [Fact]
-    public void The_held_momentum_is_the_full_departure_speed_only_the_travel_is_halved()
+    public void The_horizontal_speed_of_every_air_tick_is_unchanged_only_the_fall_is_faster()
     {
         var world = Ledge(8f);
         var after = Run(After, Marine, world, new Vector3(0f, -9f, 8f));
         var before = Run(Before, Marine, world, new Vector3(0f, -9f, 8f));
-        var (_, departure, _, _) = Split(after);
-        float held = new Vector2(departure.Velocity.X, departure.Velocity.Y).Length();
-        Assert.Equal(10f, held, 2);   // RushTests' 10 m/s clip: the velocity in the state is the full one (owner 2026-11-23: "only the charge should be slowed down")
-        Assert.Equal(held, new Vector2(Split(before).Departure.Velocity.X, Split(before).Departure.Velocity.Y).Length(), 4);
-        var air = after.Where(p => !p.Grounded).ToList();
-        foreach (var p in air) Assert.Equal(held, new Vector2(p.Velocity.X, p.Velocity.Y).Length(), 3);
-        // ... while each held tick moves half of it (5 m/s x 1/30 s)
-        for (int k = 1; k < air.Count; k++) Assert.Equal(0.5f * held / 30f, Flat2(air[k - 1].Position, air[k].Position), 4);
-        // The landing's speed (capped at sprint speed for the slowdown) is the same as before.
-        Assert.Equal(Split(before).Landing.Velocity, Split(after).Landing.Velocity);
+        var a = Split(after); var b = Split(before);
+        var airA = after.Where(p => !p.Grounded).ToList(); var airB = before.Where(p => !p.Grounded).ToList();
+        Assert.True(airA.Count < airB.Count);
+        // tick by tick (as far as the shorter fall goes): the same horizontal velocity and the same horizontal step; the drop is faster
+        for (int k = 0; k < airA.Count; k++)
+        {
+            Assert.Equal(airB[k].Velocity.X, airA[k].Velocity.X, 4); Assert.Equal(airB[k].Velocity.Y, airA[k].Velocity.Y, 4);
+            if (k > 0) Assert.Equal(Flat2(airB[k - 1].Position, airB[k].Position), Flat2(airA[k - 1].Position, airA[k].Position), 4);
+            if (k > 0) Assert.True(airA[k].Position.Z < airB[k].Position.Z);
+        }
+        Assert.Equal(10f, new Vector2(a.Departure.Velocity.X, a.Departure.Velocity.Y).Length(), 2);
+        output.WriteLine($"8 m: {b.AirTicks} air ticks before, {a.AirTicks} after; landing vertical speed before {b.Landing.Velocity.Z:F2}, after {a.Landing.Velocity.Z:F2} m/s (the tick before landing: {airB[^1].Velocity.Z:F2} / {airA[^1].Velocity.Z:F2})");
+        // the velocity in the state is the body's real travel again (review finding 1 is moot): each air step is the velocity x dt
+        for (int k = 1; k < airA.Count; k++) Assert.Equal(new Vector2(airA[k].Velocity.X, airA[k].Velocity.Y).Length() / 30f, Flat2(airA[k - 1].Position, airA[k].Position), 4);
+    }
+
+    [Theory]
+    [InlineData(0.2f)]
+    [InlineData(0.3f)]   // a curb: the clip resumes
+    [InlineData(0.4f)]
+    [InlineData(0.5f)]
+    // 0.6 to 0.8 m: the boundary band (protocol 89: 0.7 resumes, 0.8 ends; now from about 0.65 m), not pinned
+    [InlineData(0.9f)]
+    [InlineData(1.0f)]
+    [InlineData(1.5f)]   // a real drop: the landing ends the charge
+    public void The_landing_rule_gives_the_protocol_89_outcome_for_the_same_drop(float height)
+    {
+        // feel/melee-charge-2's rule (a landing after a fall of at least 0.5 m ends the charge, a shallower one resumes its clip) keeps its drop height under the faster fall (Rush.EndsOnLanding).
+        var world = Ledge(height);
+        RushPhase? Outcome(SimConfig c)
+        {
+            var t = Run(c, Marine, world, new Vector3(0f, -2.5f, height), ticks: 60);
+            int d = t.FindIndex(p => !p.Grounded);
+            if (d < 0) return null;
+            int l = t.FindIndex(d, p => p.Grounded);
+            if (l < 0) return null;
+            output.WriteLine($"{height} m, {(c.LedgeChargeHalfAir ? "after" : "before")}: air vz {string.Join(" ", t.Skip(d).Take(l - d).Select(p => p.Velocity.Z.ToString("F2")))}; landing {t[l].Rush}");
+            return t[l].Rush;
+        }
+        var before = Outcome(Before);
+        var after = Outcome(After);
+        Assert.Equal(before, after);
     }
 
     // ---------------------------------------------------------------- unchanged: the ground, the other modes
@@ -171,7 +200,31 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
         Assert.True(LedgeChargeAir.Active(After with { Extras = ContentExtras.Orks | ContentExtras.Autocannon | ContentExtras.LoyalistBarks }));
         Assert.False(LedgeChargeAir.Active(Before));
         Assert.NotEqual(After.Hash(), Before.Hash());
-        Assert.Equal(After.Hash(), (After with { LedgeChargeHalfAir = true }).Hash());
+        Assert.True(new SimConfig().LedgeChargeHalfAir, "on by default");
+        // the switch hashes on its own (not folded into another restore switch's entry)
+        var hop = After with { LedgeHopCarry = false };
+        Assert.NotEqual(hop.Hash(), (hop with { LedgeChargeHalfAir = false }).Hash());
+        Assert.NotEqual(Before.Hash(), hop.Hash());
+    }
+
+    [Fact]
+    public void The_server_switch_parses()
+    {
+        Assert.True(SmServer.ServerCommandLine.TryParse(["--old-ledge-charge-air"], out var a, out var error), error);
+        Assert.True(a.OldLedgeChargeAir);
+        Assert.True(SmServer.ServerCommandLine.TryParse([], out var none, out _));
+        Assert.False(none.OldLedgeChargeAir);
+    }
+
+    [Fact]
+    public void Body_lag_carries_a_held_ledge_charger_by_its_real_travel()
+    {
+        // review finding 1 (Fable High, 2026-11-23), moot with answer 2: PlayerCollision.See moves another body on by its velocity, which is again its real horizontal travel.
+        var world = Ledge(8f);
+        var air = Run(After, Marine, world, new Vector3(0f, -9f, 8f)).Where(p => !p.Grounded).ToList();
+        var charger = air[3] with { PlayerId = 2 };
+        float ahead = PlayerCollision.See([charger], 1, 0, 3, After)!.Bodies.Single(b => b.Id == 2).Feet.Y - charger.Position.Y;
+        Assert.Equal(air[6].Position.Y - air[3].Position.Y, ahead, 3);
     }
 
     // ---------------------------------------------------------------- the Space-to-hop and light-melee follow-ons (regressions: as protocol 89)
@@ -211,53 +264,57 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
         return (from, vel, hopped, from[^1].Length());
     }
 
-    static void SameAsProtocol89(ITestOutputHelper output, string name, (List<Vector2> From, List<Vector3> Velocity, bool Hopped, float Distance) before, (List<Vector2> From, List<Vector3> Velocity, bool Hopped, float Distance) after)
+    static void SameHorizontal(ITestOutputHelper output, string name, (List<Vector2> From, List<Vector3> Velocity, bool Hopped, float Distance) before, (List<Vector2> From, List<Vector3> Velocity, bool Hopped, float Distance) after, int tickSlack)
     {
-        output.WriteLine($"{name}: press -> landing before {before.Distance:F3} m in {before.From.Count} ticks, after {after.Distance:F3} m in {after.From.Count} ticks; speeds after "
+        output.WriteLine($"{name}: press -> landing before {before.Distance:F3} m in {before.From.Count} ticks, after {after.Distance:F3} m in {after.From.Count} ticks; horizontal speeds after "
             + string.Join(" ", after.Velocity.Take(12).Select(v => new Vector2(v.X, v.Y).Length().ToString("F1"))));
         Assert.Equal(before.Hopped, after.Hopped);
-        Assert.Equal(before.From.Count, after.From.Count);
-        for (int k = 0; k < before.From.Count; k++)
+        Assert.InRange(after.From.Count, before.From.Count - tickSlack, before.From.Count);
+        // the horizontal part tick by tick (within 1 mm and 1 mm/s: float rounding, the press happens at another place)
+        for (int k = 0; k < after.From.Count - 1; k++)
         {
-            // within 1 mm and 1 mm/s (float rounding: the press happens at another place on the same flat floor)
             Assert.Equal(before.From[k].X, after.From[k].X, 3); Assert.Equal(before.From[k].Y, after.From[k].Y, 3);
-            Assert.Equal(before.Velocity[k].X, after.Velocity[k].X, 3); Assert.Equal(before.Velocity[k].Y, after.Velocity[k].Y, 3); Assert.Equal(before.Velocity[k].Z, after.Velocity[k].Z, 3);
+            Assert.Equal(before.Velocity[k].X, after.Velocity[k].X, 3); Assert.Equal(before.Velocity[k].Y, after.Velocity[k].Y, 3);
         }
     }
 
     [Theory]
     [InlineData(1f)]   // 10 m/s: slower than the hop (16.4 m/s), the hop's own speed
     [InlineData(2f)]   // 20 m/s (about the install's 20.6 m/s ledge charge): the ledge hop's carried excess easing down
-    public void The_hop_out_of_a_ledge_charge_keeps_the_protocol_89_distance_and_momentum(float rushScale)
+    public void The_hop_out_of_a_ledge_charge_keeps_the_protocol_89_speed_momentum_and_distance(float rushScale)
     {
+        // Owner answer 2 (2026-11-23): "the hop is normal speed, unchanged." The press comes lower (the charge fell faster for 4 ticks), so the hop lands at most one tick sooner; its horizontal
+        // speeds tick by tick and its distance from the press are protocol 89's.
         var pack = MeleeCancelTests.Pack;
         var before = After_(pack with { LedgeChargeHalfAir = false }, Assault, InputButtons.Jump, rushScale: rushScale);
         var after = After_(pack, Assault, InputButtons.Jump, rushScale: rushScale);
         Assert.True(after.Hopped, "the Space tap hops");
-        SameAsProtocol89(output, $"hop ({10f * rushScale} m/s charge)", before, after);
+        SameHorizontal(output, $"hop ({10f * rushScale} m/s charge)", before, after, tickSlack: 1);
+        Assert.Equal(before.Distance, after.Distance, 2);
     }
 
     [Theory]
     [InlineData(Assault)]
     [InlineData(Marine)]
-    public void A_light_melee_out_of_a_ledge_charge_is_unchanged(int cls)
+    public void A_light_melee_out_of_a_ledge_charge_is_unchanged_horizontally(int cls)
     {
+        // The light press zeroes the momentum as before and the swing is the same; the body was lower and falling faster at the press, so it lands sooner (reported, not asserted equal).
         var c = cls == Assault ? MeleeCancelTests.Pack : After;
         var before = After_(c with { LedgeChargeHalfAir = false }, cls, InputButtons.Melee);
         var after = After_(c, cls, InputButtons.Melee);
-        SameAsProtocol89(output, $"light melee (class {cls})", before, after);
+        SameHorizontal(output, $"light melee (class {cls})", before, after, tickSlack: 20);
+        Assert.Equal(before.Distance, after.Distance, 3);
     }
 
     [Fact]
     public void A_space_press_by_a_class_without_a_jump_pack_does_not_leave_the_charge_so_its_travel_stays_halved()
     {
-        // The Tactical's Space in a held charge is no hop: the charge goes on in the air (as at protocol 89), so its travel is the halved charge's, its momentum the full one.
+        // The Tactical's Space in a held charge is no hop: the charge goes on in the air (as at protocol 89) and falls as the faster charge.
         var before = After_(After with { LedgeChargeHalfAir = false }, Marine, InputButtons.Jump);
         var after = After_(After, Marine, InputButtons.Jump);
-        output.WriteLine($"Space (marine): press -> landing before {before.Distance:F3} m, after {after.Distance:F3} m in {after.From.Count} ticks");
+        output.WriteLine($"Space (marine): press -> landing before {before.Distance:F3} m in {before.From.Count} ticks, after {after.Distance:F3} m in {after.From.Count} ticks");
         Assert.False(after.Hopped);
-        Assert.Equal(before.From.Count, after.From.Count);
-        Assert.InRange(after.Distance / before.Distance, 0.5f - 1e-3f, 0.5f + 1e-3f);
-        for (int k = 0; k < before.Velocity.Count; k++) Assert.Equal(before.Velocity[k], after.Velocity[k]);
+        Assert.True(after.Distance < before.Distance);
+        for (int k = 0; k < after.Velocity.Count - 1; k++) { Assert.Equal(before.Velocity[k].X, after.Velocity[k].X, 3); Assert.Equal(before.Velocity[k].Y, after.Velocity[k].Y, 3); }
     }
 }

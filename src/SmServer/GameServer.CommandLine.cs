@@ -80,7 +80,7 @@ public sealed record ServerArguments
     /// <summary>sim/hop-rules (restore switch): the protocol 71 jump and hop rules (<see cref="SimConfig.HopRules"/>; config hash: clients need it too).</summary>
     public bool OldHopRules { get; init; }
     public bool OldLedgeHop { get; init; }
-    /// <summary>sim/ledge-charge-air (restore switch): a Classic PvP ledge charge keeps its full departure speed in the air (<see cref="SimConfig.LedgeChargeHalfAir"/>; config hash: clients need it too).</summary>
+    /// <summary>sim/ledge-charge-air (restore switch): a Classic PvP ledge charge falls under normal gravity (protocol 89), not 4 x (<see cref="SimConfig.LedgeChargeHalfAir"/>; config hash: clients need it too).</summary>
     public bool OldLedgeChargeAir { get; init; }
     /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
     public bool OldStompRelease { get; init; }
@@ -183,7 +183,7 @@ public static class ServerCommandLine
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
           --old-sprint-melee           switch: restore: a light press while sprinting swings instead of charging (clients need --old-sprint-melee too)
           --old-ledge-hop              switch: restore: a hop out of a ledge charge drops to the hop's own start speed (clients need --old-ledge-hop too)
-          --old-ledge-charge-air       switch: restore: a Classic PvP charge off a ledge keeps its full speed in the air instead of half (clients need --old-ledge-charge-air too)
+          --old-ledge-charge-air       switch: restore: a Classic PvP charge off a ledge falls at normal gravity, full distance, not 4 x and half (clients need --old-ledge-charge-air too)
           --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
           --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)

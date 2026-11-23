@@ -294,6 +294,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void The_landing_rule_is_the_fall_speed_of_half_a_metre()
     {
+        var Config = JumpPackAttackTests.Config with { LedgeChargeHalfAir = false };   // the normal-gravity rule (a Classic ledge charge falls under 4 x: LedgeChargeAirTests)
         // √(2 g h) with h = 0.5 m and the config's gravity (20): 4.47 m/s at the landing tick's start.
         PlayerState Falling(float vz, RushPhase phase) => new(1, default, new Vector3(3f, 0f, -vz), 0f, false) { Rush = phase, RushTicks = 4 };
         float edge = MathF.Sqrt(2f * Config.Gravity * RushSpec.DefaultLandEndDrop);
