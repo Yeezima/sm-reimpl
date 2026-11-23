@@ -25,6 +25,44 @@ public sealed partial class GameServer
         public readonly Queue<Vector3> Trail = new();
         public Team Team;
         public string Class = "";
+        // bots/a1-perf (2026-11-23): combat counts, every tick (shots fired, ranged and melee hits landed, damage dealt, action starts)
+        public int Shots, RangedHits, MeleeHits, Melees, Charges, Throws, Jumps, Evades;
+        public double Damage;
+        public PlayerState? Prev;
+    }
+
+    readonly HashSet<int> _botStatsShooters = new();
+    readonly HashSet<(int, int, bool)> _botStatsHitPairs = new();
+
+    /// <summary>
+    /// bots/a1-perf (2026-11-23): every tick, this tick's shots (one per shooter a tick, so a shotgun's pellets count once), hits (one per shooter, target and kind a tick) with their damage, and the
+    /// starts of melee attacks, charges, throws, jumps and evades (edges of the player state). Self hits are not counted. Read by <c>BOTCOMBAT</c>.
+    /// </summary>
+    void BotStatsCombat()
+    {
+        _botStatsShooters.Clear();
+        foreach (var s in World.LastShots) if (_botStatsShooters.Add(s.Shooter) && _botStats.TryGetValue(s.Shooter, out var st)) st.Shots++;
+        _botStatsHitPairs.Clear();
+        foreach (var h in World.LastHits)
+        {
+            if (h.Shooter == h.Target || !_botStats.TryGetValue(h.Shooter, out var st)) continue;
+            st.Damage += h.ShieldDamage + h.HealthDamage;
+            if (!_botStatsHitPairs.Add((h.Shooter, h.Target, h.Melee))) continue;
+            if (h.Melee) st.MeleeHits++; else st.RangedHits++;
+        }
+        foreach (var (id, p) in World.Players)
+        {
+            if (!_botStats.TryGetValue(id, out var st)) _botStats[id] = st = new BotStat();
+            if (st.Prev is { } q && q.Alive && p.Alive)
+            {
+                if (p.MeleeStep > 0 && (q.MeleeStep != p.MeleeStep || q.MeleeHeavy != p.MeleeHeavy)) st.Melees++;
+                if (p.Rush != RushPhase.None && q.Rush == RushPhase.None) st.Charges++;
+                if (p.Throwing && !q.Throwing) st.Throws++;
+                if (p.Jump != JumpPhase.None && q.Jump == JumpPhase.None) st.Jumps++;
+                if (p.EvadeTicks > 0 && q.EvadeTicks == 0) st.Evades++;
+            }
+            st.Prev = p;
+        }
     }
 
     readonly Dictionary<int, BotStat> _botStats = new();
@@ -36,6 +74,7 @@ public sealed partial class GameServer
     {
         if (BotStatsSeconds <= 0.0) return;
         double now = _clock.Now.TotalSeconds;
+        if (!double.IsNaN(_botStatsStarted)) BotStatsCombat();   // bots/a1-perf: from the first player alive, as the other counts
         if (now < _botStatsNextSample) return;
         _botStatsNextSample = now + StatsSample;
         var players = World.Players;
@@ -85,5 +124,8 @@ public sealed partial class GameServer
         foreach (var (id, s) in _botStats.OrderBy(kv => kv.Key))
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"BOTPLAYER {id} team {s.Team}: alive {s.Alive:F0} s, still {100 * s.Still / Math.Max(s.Alive, 1):F1}%, near spawn {100 * s.NearSpawn / Math.Max(s.Alive, 1):F1}%, enemy {s.EnemyMetres / Math.Max(s.EnemySamples, 1):F0} m, walked {s.Travelled / Math.Max(s.Alive, 1):F2} m/s, kills {s.Kills}, deaths {s.Deaths}, world {s.WorldDeaths}"));
+        foreach (var (id, s) in _botStats.OrderBy(kv => kv.Key))   // bots/a1-perf (2026-11-23): combat and action counts for the matched before/after matches
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"BOTCOMBAT {id} team {s.Team}: shots {s.Shots}, ranged hits {s.RangedHits}, hit rate {100.0 * s.RangedHits / Math.Max(s.Shots, 1):F1}%, melee hits {s.MeleeHits}, damage {s.Damage:F0}, melees {s.Melees}, charges {s.Charges}, throws {s.Throws}, jumps {s.Jumps}, evades {s.Evades}, actions/min {(s.Shots + s.Melees + s.Charges + s.Throws + s.Jumps + s.Evades) / Math.Max(s.Alive / 60.0, 0.01):F1}"));
     }
 }

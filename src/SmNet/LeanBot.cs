@@ -12,6 +12,9 @@ public static class LeanBot
     /// <summary>The opt-out flag (<c>--bot-full-load</c>): a bot that loads everything (tests that need its visuals).</summary>
     public const string FullLoadFlag = "bot-full-load";
 
+    /// <summary>bots/a1-perf (2026-11-23): <c>--bot-frame-profile</c>, the <c>--frame-profile</c> phase table for a lean bot (lean-safe: it only reads clocks, so the bot stays lean and measures itself).</summary>
+    public const string FrameProfileFlag = "bot-frame-profile";
+
     /// <summary>Godot's name for the display server of a <c>--headless</c> run.</summary>
     public const string HeadlessDisplayServer = "headless";
 
@@ -100,7 +103,7 @@ public static class LeanBot
     /// </summary>
     /// <remarks>perf/pass-1's <c>--perf-probe</c> only reads the engine's and runtime's counters (frame times, renderer, memory, GC), so a lean bot keeps it: it
     /// measures the lean bot itself.</remarks>
-    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe",
+    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe", FrameProfileFlag,
         "old-bot-throws" };   // bot-grenade-safety (owner 2026-11-11): the Classic PvP bots' old throws and no holds (it steers the bot, it draws nothing)
 
     /// <summary>A flag name that reads like a test aid (a probe, log, trace, capture, sweep, test, screenshot, wait or demo): each must be classified (tested).</summary>

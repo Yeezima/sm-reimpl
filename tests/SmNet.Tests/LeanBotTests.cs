@@ -89,6 +89,8 @@ public class LeanBotTests
         Assert.Equal(30, LeanBot.FrameCapFor("-5"));
         Assert.Equal(30, LeanBot.FrameCapFor("fast"));
         Assert.True(LeanBot.Decide(bot: true, "headless", BotArgs.Append("--bot-fps").Append("60").Append("--perf-probe")));   // neither switches lean mode off
+        Assert.True(LeanBot.Decide(bot: true, "headless", BotArgs.Append("--" + LeanBot.FrameProfileFlag)));   // bots/a1-perf: the lean bot's own phase profile keeps it lean
+        Assert.False(LeanBot.Decide(bot: true, "headless", BotArgs.Append("--frame-profile")));   // the full client's profile still loads everything
     }
 
     [Fact]
