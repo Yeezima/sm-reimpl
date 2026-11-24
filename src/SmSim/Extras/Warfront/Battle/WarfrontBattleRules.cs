@@ -98,6 +98,12 @@ public sealed class WarfrontBattleRules
     /// <summary>W14b: the fortress deployment's setup (the arena's plan); null for every other battle. Set by the server before the landing, and only when the stage's map is the fortress; never cleared, which holds because a stage process fights one battle. The plan hook then supplies the fortress layout and the final assault.</summary>
     public SmSim.Extras.Warfront.Fortress.WarfrontFortressSetup? Fortress { get; set; }
 
+    /// <summary>The Chaos army of this run (Chaos Warfront C2; <c>Chaos/Roster/</c>): set by <c>WarfrontStarted</c> when the stage's config is a Chaos one (<see cref="SimConfig.WarfrontFaction"/>); null in an Orks run, where no Chaos hook changes anything.</summary>
+    public SmSim.Extras.Warfront.Chaos.WarfrontChaosRoster? ChaosRoster { get; set; }
+
+    /// <summary>The army this run's battles field (Chaos Warfront C2): Chaos when the stage's config is a Chaos one (the roster is attached), else Orks. Later battle code gates on it (the allied Guardsmen: <c>Faction == Orks</c>).</summary>
+    public SmSim.Extras.Warfront.Faction.WarfrontFaction Faction => ChaosRoster is null ? SmSim.Extras.Warfront.Faction.WarfrontFaction.Orks : SmSim.Extras.Warfront.Faction.WarfrontFaction.Chaos;
+
     /// <summary>W13c: the HQ defence's sight test (true when the line from the first point to the second is not stopped by a wall), set by the server at the HQ landing from the stage's weapon collision, the same ray as the fortress's; null: the 60 m stand-in. Read by <c>TfwBattle.HqClear</c> through the battle's rules.</summary>
     public Func<System.Numerics.Vector3, System.Numerics.Vector3, bool>? HqSight { get; set; }
 

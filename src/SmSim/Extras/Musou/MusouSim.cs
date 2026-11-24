@@ -142,6 +142,9 @@ public sealed partial class MusouSim
     /// <summary>Warfront's Chaos faction (C0 seam): a hit on <paramref name="enemy"/> before it lands; <paramref name="barred"/> refuses it (Damage returns false, nothing changes: the leashed Lord), <paramref name="amount"/> may be scaled. No-op without Warfront and the Chaos faction.</summary>
     partial void WarfrontDamageGate(ushort enemy, int attacker, MusouDeathKind cause, ref float amount, ref bool barred);
 
+    /// <summary>Warfront's Chaos faction (C2, the C0 review): a stagger, a boss's melee stun or a fodder throw of <paramref name="enemy"/> by <paramref name="attacker"/> (0: unknown) before it lands; <paramref name="barred"/> refuses it (nothing changes). No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontStaggerGate(ushort enemy, int attacker, ref bool barred);
+
     /// <summary>
     /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
     /// (flat), goes back when none is, and is free for good once any member of <paramref name="group"/> (above 0) is hurt or <see cref="ReleaseGroup"/> is called. Its id, or 0 as
@@ -204,6 +207,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
         bool barred = false; WarfrontDamageGate(id, attacker, cause, ref amount, ref barred); if (barred) return false;   // WARFRONT-HOOK
+        if (!(amount > 0f) || !float.IsFinite(amount)) return false;   // after the scales and the gate (C0 review: a scale or gate of 0, or one not finite, lands nothing)
         WarfrontDamaged(id, attacker);   // WARFRONT-HOOK
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
         if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)

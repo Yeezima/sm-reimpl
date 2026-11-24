@@ -320,7 +320,7 @@ public sealed partial class TfwBattle
     int HqStageOrks(int wave) => HqStageShare(wave) * ((HqSourceOpen(1) ? 1 : 0) + (HqSourceOpen(2) ? 1 : 0));
 
     /// <summary>The Orks the defence may have alive: the lesser of <see cref="WarfrontHqBattleRules.AliveCapHq"/> and the battle's own cap for the humans in the field.</summary>
-    int HqCap => Math.Min(WarfrontHqBattleRules.AliveCapHq, TfwBattleRules.AliveCap(_humansNow));
+    int HqCap => Scaled(Math.Min(WarfrontHqBattleRules.AliveCapHq, TfwBattleRules.AliveCap(_humansNow)));   // EnemyScale: the Chaos army's share (1 otherwise)
 
     /// <summary>
     /// The places a wave musters round: the assembly sources within <see cref="WarfrontHqBattleRules.MusterHalfWidth"/> of the ramp's centre line (the ramp is 30 m wide; a wave mustered wider piled against its side), and, so that the wave stands in depth

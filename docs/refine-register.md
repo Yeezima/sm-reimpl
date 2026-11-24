@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4095 spec table rows: **3027 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4109 spec table rows: **3041 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 421 | 362 | 359 | 115 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
+| Combat core (critical) | 25 | 16 | 22 | 18 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -51,15 +51,15 @@ Scanned 4095 spec table rows: **3027 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 178 | 177 | 59 | 74 | 0 |
-| Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3027** | 2719 | 2218 | 913 | 37 |
+| General game design | 190 | 189 | 59 | 86 | 0 |
+| Ork faction | 299 | 279 | 178 | 74 | 0 |
+| **All areas** | **3041** | 2733 | 2218 | 927 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1835 |
+| kind: ours | 1849 |
 | confidence: low | 1068 |
 | confidence: medium | 1039 |
 | notes: ours | 475 |
@@ -68,9 +68,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
+| notes: provisional | 57 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
-| notes: provisional | 43 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
@@ -845,7 +845,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-0A7A43D6` | Rain coverage at speed | the near emitter (13 m up) and the far one (16 m up, box mode only) lead the camera by its smoothed ground velocity times a drop's fall time to eye level (0.52 s, 0.70 s), the splashes by 0.15 s; velocity smoothing 0.12 s, capped at 30 m/s, reset by a step… (s, m/s) | kind: ours; confidence: medium | owner brief item 4 (repro: a dry gap at fast sideways movement) | Rain coverage at speed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the near emitter (13 m up) and the far one (16 m up, box mode only)… | ☐ |
 
-### Combat core (gameplay-critical) (24)
+### Combat core (gameplay-critical) (25)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -935,6 +935,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B6869371` | Cards: damage | x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into any power-up's scale (melee and other), and the owner's x2 melee cap (power-ups and stims) is raised by the same factor, so the cards multiply on top of the cap (`WarfrontMeleeCap`)… (multiplier) | kind: interpretation; confidence: medium; notes: ours | owner; the stacking with power-ups ours | Cards: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into… | ☐ |
+
+*Spec section: Warfront Chaos roster (Chaos Warfront C2, branch `claude/chaos-roster-1125`, 2026-11-25; `WarfrontRules.Version` 25; added content, Warfront only; no wire or protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7A5A00A2` | Damage and stagger gate | in a Chaos battle an enemy may refuse every hit, stagger, boss melee stun and fodder throw (`WarfrontChaosRoster.Shield`) or accept them from one attacker alone (`AcceptOnly`); a hit whose amount after the powerups' scale and the gate is not above 0 and… | kind: ours; notes: provisional | the design ("Finale": the leashed, immune Lord; the duelist's damage only); the C0 review | Damage and stagger gate: compare with SM1 by watching the reaction and timing it frame by frame. Ours: in a Chaos battle an enemy may refuse every hit, stagger, boss melee… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -4316,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (178)
+### General game design (190)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4570,6 +4576,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AB9E3ACA` | Rotation file | `faction.json` in the run folder: `{LastFaction, LastRunSeed}`; written after run.json; an archive keeps it (only run.json moves). The loader, the supervisor's loop and `--warfront-new` (before it archives) copy the run's army and seed into it when it is… | kind: ours | the design (state/design-chaos-warfront-1125.md "Faction") | Rotation file: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: faction.json in the run folder: {LastFaction, LastRunSeed}; written… | ☐ |
 | `R-BA4989DF` | Stage army | a stage child reads its run's army from run.json before the World exists (`Warfront faction: this stage runs ...` in its log); no readable run gives Orks. A deployment lands on the running stage only when the map AND the army match; otherwise it restages… | kind: ours; confidence: medium | the design | Stage army: compare with SM1 by feel or video. Ours: a stage child reads its run's army from run.json before the World… | ☐ |
 | `R-795F2F1A` | FinaleLost outcome | a Chaos run's fortress battle resolved FinaleLost loses the campaign (phase Lost), in place of the fortress-wipe rule (in an Orks run it is the wipe rule); nothing sends it yet (C5's duel relay) | kind: ours; confidence: medium | the design ("Finale") | FinaleLost outcome: compare with SM1 by feel or video. Ours: a Chaos run's fortress battle resolved FinaleLost loses the campaign… | ☐ |
+
+*Spec section: Warfront Chaos roster (Chaos Warfront C2, branch `claude/chaos-roster-1125`, 2026-11-25; `WarfrontRules.Version` 25; added content, Warfront only; no wire or protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-91DE1038` | Stage army in the config | a Chaos stage's config carries `WarfrontFaction` Chaos and the Chaos type table in `MusouRules` (`WarfrontChaosTuning.Apply`, from `WarfrontStageArmy.Apply` in the stage's Program.cs block, before the World exists); an Orks stage's config is returned… | kind: ours; notes: provisional | the design ("Faction", "The stage process") | Stage army in the config: compare with SM1 by feel or video. Ours: a Chaos stage's config carries WarfrontFaction Chaos and the Chaos… | ☐ |
+| `R-D6F24780` | Kind map | at the one spawn chokepoint (`MusouSim.Spawn`): the 'Ard Boy slot spawns as the Chaos Marine (its health rescaled to the Chaos Marine's row), a Gretchin as a Cultist (Boy row) unless it is a breach's Daemon (`MusouSim.SpawnDaemon`, C4), the Weirdboy, Scrap… | kind: ours; notes: provisional | the design ("Army aliasing") | Kind map: compare with SM1 by feel or video. Ours: at the one spawn chokepoint (MusouSim.Spawn): the 'Ard Boy slot… | ☐ |
+| `R-A3C5AD8F` | Enemy numbers | the caps of enemies alive (crowds and swarms, the trickle and its total, the armies' real units, the HQ defence) are 0.6 of the Orks' (rounded, at least 1); the Orks' are unchanged (x) | kind: ours; notes: provisional | the design ("Pressure, not headcount: about 0.6 of the Ork numbers") | Enemy numbers: compare with SM1 by feel or video. Ours: the caps of enemies alive (crowds and swarms, the trickle and its… | ☐ |
+| `R-3D2E6DD5` | Cultist (Boy row) | 110 health, 5.0 m/s, melee 10 every 1.4 s, 15 points; body the Boy's (hp, m/s, s) | kind: ours; notes: provisional | ours (no cultist in the install; the renegade guard is the nearest, 60 health) | Cultist (Boy row): compare with SM1 by timing a run over a known distance. Ours: 110 health, 5.0 m/s, melee 10 every 1.4 s, 15 points; body the Boy's. | ☐ |
+| `R-26327A78` | Traitor Guardsman (Shoota Boy row) | 110 health, 4.8 m/s; the lasgun: 3 a round, 4 rounds 0.1 s apart, a burst every 1.8 s, held at 20 to 35 m; 15 points (hp, s, m) | kind: ours; notes: provisional | 20-35 m and 0.1 s from `chaos_coop_lasgun` (inventory); the rest ours | Traitor Guardsman (Shoota Boy row): compare with SM1 by feel or video. Ours: 110 health, 4.8 m/s; the lasgun: 3 a round, 4 rounds 0.1 s apart, a… | ☐ |
+| `R-32AE4BB2` | Chaos Tactical Marine (Chaos Marine row; the 'Ard Boy slot) | 350 health, the bolter held at 15 to 40 m, the rest Musou Mode's Chaos Marine; 60 points (hp, m) | kind: ours; notes: provisional | 15-50 m in `chaos_coop_bolter` (inventory), 40 m ours for the lanes | Chaos Tactical Marine (Chaos Marine row; the 'Ard Boy slot): compare with SM1 by feel or video. Ours: 350 health, the bolter held at 15 to 40 m, the rest Musou Mode's… | ☐ |
+| `R-26F306E2` | Aspiring Champion (Nob row) | 750 health, a staggering swing of 28 every 2.0 s; 120 points (hp, s) | kind: ours; notes: provisional | ours | Aspiring Champion (Nob row): compare with SM1 by feel or video. Ours: 750 health, a staggering swing of 28 every 2.0 s; 120 points. | ☐ |
+| `R-F9C95FEC` | Havoc, heavy bolter (Big Shoota Nob row) | 700 health; the burst and overheat are the Big Shoota Nob's code; 160 points (hp) | kind: ours; notes: provisional | ours (Havoc 100 + 500 armour in the data) | Havoc, heavy bolter (Big Shoota Nob row): compare with SM1 by feel or video. Ours: 700 health; the burst and overheat are the Big Shoota Nob's code; 160… | ☐ |
+| `R-B38CF7F5` | Havoc, missile launcher (Rokkit Boy row) | 200 health; the Rokkit Boy's real rocket; 40 points (hp) | kind: ours; notes: provisional | ours | Havoc, missile launcher (Rokkit Boy row): compare with SM1 by feel or video. Ours: 200 health; the Rokkit Boy's real rocket; 40 points. | ☐ |
+| `R-BB599774` | Raptor (Stormboy row) | 220 health, melee 14 every 1.4 s; the Stormboy's hop and squad Hunt order are the jump-pack gap-closer; 40 points (hp, s) | kind: ours; notes: provisional | the owner's decision (Raptors on the Stormboy code); numbers ours | Raptor (Stormboy row): compare with SM1 by feel or video. Ours: 220 health, melee 14 every 1.4 s; the Stormboy's hop and squad Hunt… | ☐ |
+| `R-48915077` | Daemon, Bloodletter (Gretchin row, breach-spawned only) | 200 health, 6.0 m/s, melee 15 every 1.2 s at 1.8 m; body radius 0.45 m, height 2.2 m (the one Chaos row whose body differs from the Ork row's); 30 points (hp, m/s, s, m) | kind: ours; notes: provisional | 200 health from `chaos_coop_bloodletter` (inventory); the rest ours | Daemon, Bloodletter (Gretchin row, breach-spawned only): compare with SM1 by timing a run over a known distance. Ours: 200 health, 6.0 m/s, melee 15 every 1.2 s at 1.8 m; body radius 0.45… | ☐ |
+| `R-FC5896B1` | Chosen and Chaos Lord | the four Boss Ork rows and the Warboss row are kept as they are (C5 owns the Lord's duel and health) | kind: ours; notes: provisional | the design | Chosen and Chaos Lord: compare with SM1 by feel or video. Ours: the four Boss Ork rows and the Warboss row are kept as they are (C5… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5177,6 +5200,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-8313560C` | Ork scaling with the highest level | unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) where L is the highest player level, so a fresh run with a high-level player starts harder | kind: ours | owner decision 2026-11-22 (answer 7) | Ork scaling with the highest level: compare with SM1 by feel or video. Ours: unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1)))… | ☐ |
+
+*Spec section: Warfront Chaos roster (Chaos Warfront C2, branch `claude/chaos-roster-1125`, 2026-11-25; `WarfrontRules.Version` 25; added content, Warfront only; no wire or protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EB08F43D` | Ork-only spawners | the Weirdboyz and the Scrap Meks do not run in a Chaos battle (the Squigs are off in every Warfront battle) | kind: ours; notes: provisional | the design | Ork-only spawners: compare with SM1 by feel or video. Ours: the Weirdboyz and the Scrap Meks do not run in a Chaos battle (the… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 

@@ -17,7 +17,7 @@ namespace SmNet.Tests.Extras.Warfront.Fortress;
 public class WarfrontFortressBattleTests
 {
     /// <summary>An arena inside the test world's walls: landing south, plaza north (radius 25 round (0, 70)), three stages of sources, eight elite posts, three routes.</summary>
-    sealed class StubArena : IWarfrontArena
+    internal sealed class StubArena : IWarfrontArena   // internal: the Chaos roster tests field it too
     {
         public string Name => "stub fortress";
         public uint Version => 1;

@@ -28,8 +28,9 @@ public sealed partial class MusouSim
     public bool StaggerMelee(ushort id, Vector2 push, float distance, int attacker)
     {
         int i = id - 1;
-        if (i < 0 || i >= Capacity || !_used[i] || !(_type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) || Campaign.TfwContracts.IsPuppet(attacker)) return Stagger(id, push, distance);   // an AI Marine's melee never stuns a boss (review of 2026-11-12): only a human player's
+        if (i < 0 || i >= Capacity || !_used[i] || !(_type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) || Campaign.TfwContracts.IsPuppet(attacker)) return Stagger(id, push, distance, attacker);   // an AI Marine's melee never stuns a boss (review of 2026-11-12): only a human player's
         if (War is null || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne or MusouEnemyState.Spawning) return false;
+        bool barred = false; WarfrontStaggerGate(id, attacker, ref barred); if (barred) return false;   // WARFRONT-HOOK: the Chaos Lord's gate (MusouSim.cs)
         if (_stunLeft[i] == 0)
         {
             _scripted[i] = false; _drive[i] = Vector2.Zero; _driveTicks[i] = 0;

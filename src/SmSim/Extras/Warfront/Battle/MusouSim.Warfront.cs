@@ -23,6 +23,7 @@ public sealed partial class MusouSim
         rules.Progression.Assists.Clear(id);
         rules.DamageScale[id] = rules.PendingDamage;
         rules.PendingDamage = 1f;
+        rules.ChaosRoster?.Took(id, _type[id - 1]);   // Chaos Warfront C2: the slot's gate is the new enemy's, and the census (Chaos/Roster/)
     }
 
     /// <summary>The assists' record: the last two human attackers of the Ork and when (slice W3b).</summary>

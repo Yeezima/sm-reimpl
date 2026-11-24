@@ -26,6 +26,7 @@ public sealed partial class MusouSim
     {
         int i = id - 1;
         if (War is null || i < 0 || i >= Capacity || !_used[i] || !Fodder(_type[i]) || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Knocked) return false;
+        bool barred = false; WarfrontStaggerGate(id, attacker, ref barred); if (barred) return false;   // WARFRONT-HOOK: Warfront's gate (MusouSim.cs)
         if (Unit(Mix(Tick, (uint)id * 0x9E3779B1u + 0x51ED270Bu)) < deathChance)
         {
             KnockKills++;
