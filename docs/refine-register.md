@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4088 spec table rows: **3021 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 170 | 169 | 57 | 74 | 0 |
+| General game design | 172 | 171 | 59 | 75 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3021** | 2713 | 2218 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
+| kind: ours | 1829 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
+| confidence: medium | 1039 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
@@ -73,8 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: provisional | 43 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
+| notes: interpretation | 30 |
 | notes: user's knowledge | 30 |
-| notes: interpretation | 29 |
 | kind: approximation | 27 |
 | kind: placeholder | 23 |
 | notes: open question | 21 |
@@ -4316,7 +4316,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (170)
+### General game design (172)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4340,6 +4340,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0CDD6CF8` | Cover piece surface id | the surface id a shot that hits a custom cover piece's triangles reports: 4 (the id of Classic's crate metal in the prop tests); the piece is the unit box carried by its world matrix, solid for movement and shots, pierce-capable shots pass it (surface id) | kind: ours; confidence: low | the Classic crate surface id used in the prop tests | Cover piece surface id: compare with SM1 by feel or video. Ours: the surface id a shot that hits a custom cover piece's triangles… | ☐ |
 | `R-6CD6E8E6` | Custom wall cylinder shape | a 16-sided prism whose corners lie on a circle of radius 0.5 / cos(pi/16) (circumscribes the cylinder), as Classic's `WorldBlocker.Cylinder`; built in double with the deterministic ring and yaw maths (`DetMath`, no libm) so the bits are the same on every OS… (sides, metres) | kind: ours; confidence: medium | `SmSim.WorldBlocker.Cylinder` (shape); determinism rule of `CompilerVersion` 4/5 | Custom wall cylinder shape: compare with SM1 by feel or video. Ours: a 16-sided prism whose corners lie on a circle of radius 0.5 /… | ☐ |
 | `R-011AA592` | Declared modes | a document lists the modes it is made for (default annihilation and seize; any combination, unknown names kept for future modes); a declared mode is playable only when no error of that mode remains: Seize Ground needs at least one capture point (at most 8)… (modes) | kind: ours | owner's words 2026-11-17 | Declared modes: compare with SM1 by feel or video. Ours: a document lists the modes it is made for (default annihilation and… | ☐ |
+| `R-176ECB5D` | Edited piece shape (edit mode contract, 2026-11-25) | a stored mesh replaces the stock unit shape (same deterministic placement); round pieces edit as prisms inscribed in the unit circle: 12 sides (column), 16 (capture point, round players-only wall); an edit may not leave the shape under 0.01 m along one of its… (metres, sides) | kind: ours; confidence: medium; notes: interpretation | the owner-approved brief "Blender-style controls" (interpretation of "every Build category") | Edited piece shape (edit mode contract, 2026-11-25): compare with SM1 by feel or video. Ours: a stored mesh replaces the stock unit shape (same deterministic… | ☐ |
+| `R-FF2F3245` | Edited marker volume (edit mode contract) | an edited spawn area, door, capture point or kill zone: record = the mesh's box along the object's own axes (centre, full size); exact shape = the closed world mesh, point inside by ray parity along +Z with the top-left tie rule, surface points count by that… (metres) | kind: ours; confidence: medium | the brief's "Gameplay volumes" row | Edited marker volume (edit mode contract): compare with SM1 by listening A/B at the same distance and state. Ours: an edited spawn area, door, capture point or kill zone: record = the… | ☐ |
 | `R-3DAFFBD3` | Bots on custom maps | the new-map bot rules (stuck escape, strict drops, walk-first jump build) apply to `cm_` maps (rule) | kind: ours; confidence: low | bots/new-maps rules | Bots on custom maps: compare with SM1 by feel or video. Ours: the new-map bot rules (stuck escape, strict drops, walk-first jump… | ☐ |
 
 *Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
@@ -5414,6 +5416,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `C-B3481C28` | Mapmaker edit mode contract (owner-approved brief 2026-11-25 "Blender-style controls"; added content; format 4, `CompilerVersion` 7, no protocol change) | The original had no map editor | Ours: a piece's shape is editable by vertex, edge and face (frozen topologies; round pieces are 16- or 12-sided prisms inscribed in the circle, where Classic-style round walls circumscribe); edits are in the object's own axes and the dimensions are the resulting geometry's; an edited piece collides by its mesh and an… | docs/mapmaker.md "Edit mode contract"; spec "Mapmaker custom maps" | Mapmaker edit mode contract (owner-approved brief…: compare with SM1 by feel or video. Ours: The original had no map editor. | ☐ |
 | `C-8619F81F` | Mapmaker SM1 pieces in play (owner 2026-11-19; added content; protocol and config hash unchanged, `CompilerVersion` 5) | Maps are the original's baked collision; there is no tester-placed decoration | Ours (the owner's decision "drawn means solid"): in a custom map every SM1 placement, prefab part and imported model is both drawn and solid, with collision built from the drawn meshes (so cables, cards and other thin decoration collide), each machine from its own install; `original-cut` prefabs take the original… | docs/mapmaker.md "SM1 pieces in play"; the owner's decision of 2026-11-19 | Mapmaker SM1 pieces in play (owner 2026-11-19; added…: compare with SM1 by feel or video. Ours: Maps are the original's baked collision; there is no tester-placed… | ☐ |
 
 ### Deliberate changes (owner's decisions)
