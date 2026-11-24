@@ -86,7 +86,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _mapRow = BuildMapRow();   // classic-maps-all: the install's competitive maps (HostPanel.Maps.cs); null when there is nothing to choose
         Control? weatherRow = null;
         ExtrasHostWeatherRow(ref weatherRow);   // EXTRAS-HOOK: the Classic weather selector (weather W3; client/Extras/Weather/HostPanel.Weather.cs); null in a build without added content
-        foreach (var row in new Control?[] { _modeRow, _mapRow, weatherRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
+        Control? factionRow = null;
+        ExtrasHostFactionRow(ref factionRow);   // EXTRAS-HOOK: Warfront's faction row (Chaos Warfront C0 seam, client/Extras/HostPanel.Extras.cs); null in a build without added content
+        foreach (var row in new Control?[] { _modeRow, _mapRow, weatherRow, factionRow, _reachRow, UiKit.MenuField("Port", _port), _emblemsRow, _difficultyRow, _addLoyalist, _addChaos, _clearBots, _hostButton, _stopOther })
         {
             if (row is null) continue;
             AddChild(row);
@@ -411,6 +413,9 @@ public sealed partial class HostPanel : UiKit.MenuColumn
 
     /// <summary>Extras hook: lets added content add one setup row after the MAP row (the Classic weather selector, weather W3); left null when the build or profile has none.</summary>
     partial void ExtrasHostWeatherRow(ref Control? row);
+
+    /// <summary>Extras hook: lets added content add one setup row after the weather row (Warfront's faction, the Chaos Warfront C0 seam); left null when the build or profile has none.</summary>
+    partial void ExtrasHostFactionRow(ref Control? row);
 
     /// <summary>Extras hook: lets added content name the weather the hosted server runs (<c>--weather</c>); left null for None.</summary>
     partial void ExtrasHostWeather(ref string? weather);

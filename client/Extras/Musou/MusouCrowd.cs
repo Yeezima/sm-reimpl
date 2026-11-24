@@ -92,11 +92,17 @@ public partial class MusouCrowd : CrowdView
     readonly Dictionary<int, float> _blastKicked = new();
     float _clock;
 
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the flinch table of a kind drawn as Chaos: whether it reacts at all, and the kick's size. No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontFlinchReacts(MusouEnemyType type, ref bool reacts);
+    partial void WarfrontFlinchSize(MusouEnemyType type, float strength, ref float size);
+    bool FlinchReacts(MusouEnemyType type) { bool reacts = MusouOrkFlinchRules.Reacts(type); WarfrontFlinchReacts(type, ref reacts); return reacts; }   // WARFRONT-HOOK
+    float FlinchSize(float strength, MusouEnemyType type) { float size = MusouOrkFlinchRules.Amplitude(strength, type); WarfrontFlinchSize(type, strength, ref size); return size; }   // WARFRONT-HOOK
+
     /// <summary>A hit: the Ork <paramref name="id"/> flinches away from <paramref name="away"/> (a unit direction in game space), <paramref name="strength"/> by the weapon (<see cref="MusouOrkFlinchRules.ShotStrength"/> ...); <paramref name="type"/> sizes it.</summary>
     public void Hit(int id, System.Numerics.Vector2 away, float strength, MusouEnemyType type)
     {
-        if (NoOrkFlinch || !MusouOrkFlinchRules.Reacts(type)) return;
-        float size = MusouOrkFlinchRules.Amplitude(strength, type);
+        if (NoOrkFlinch || !FlinchReacts(type)) return;
+        float size = FlinchSize(strength, type);
         if (!(size > 0f)) return;
         if (_blastKicked.TryGetValue(id, out float at) && _clock - at < 0.6f) return;   // the blast's own kick covers the server's reports of it
         _kick.TryGetValue(id, out var track);
@@ -119,8 +125,8 @@ public partial class MusouCrowd : CrowdView
     /// <summary>A blast: the Ork <paramref name="id"/> takes the explosive's kick (<see cref="MusouOrkFlinchRules.BlastStrength"/> by its distance from the centre), away from it.</summary>
     public void Blast(int id, System.Numerics.Vector2 away, float distance, float radius, MusouEnemyType type)
     {
-        if (NoOrkFlinch || !MusouOrkFlinchRules.Reacts(type)) return;
-        float size = MusouOrkFlinchRules.Amplitude(MusouOrkFlinchRules.BlastStrength(distance, radius), type);
+        if (NoOrkFlinch || !FlinchReacts(type)) return;
+        float size = FlinchSize(MusouOrkFlinchRules.BlastStrength(distance, radius), type);
         if (!(size > 0f)) return;
         _kick.TryGetValue(id, out var track);
         KickVaried(ref track, id, away, size);
@@ -164,7 +170,7 @@ public partial class MusouCrowd : CrowdView
             if (_recoil.TryGetValue(e.Id, out var push)) p += push.Away * SmNet.Extras.Musou.MusouContactRules.RecoilAt(push.Age, push.Metres);
             float distance = p.DistanceTo(camera);
             var kick = Vector3.Zero;
-            if (MusouOrkFlinchRules.Flinches(e.Type, distance)) _flinchable.Add(e.Id);
+            if (FlinchReacts(e.Type) && MusouOrkFlinchRules.DistanceScale(distance) > 0f) _flinchable.Add(e.Id);   // MusouOrkFlinchRules.Flinches, through the table hook
             if (_kick.TryGetValue(e.Id, out var track) && MusouOrkFlinchRules.DistanceScale(distance) > 0f && e.State is not (MusouEnemyState.Dying or MusouEnemyState.Knocked))
             {
                 var c = track.Current();

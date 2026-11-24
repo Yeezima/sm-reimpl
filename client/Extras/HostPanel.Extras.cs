@@ -15,4 +15,9 @@ public sealed partial class HostPanel
     }
 
     partial void WarfrontHostRowShown(Control row, ref bool shown);
+
+    /// <summary>The faction row (Chaos Warfront C0 seam): Warfront's alone, so the dispatcher hands it straight on; null without its implementation (client/Extras/Warfront/Chaos/).</summary>
+    partial void ExtrasHostFactionRow(ref Control? row) => WarfrontHostFactionRow(ref row);   // WARFRONT-HOOK
+
+    partial void WarfrontHostFactionRow(ref Control? row);
 }

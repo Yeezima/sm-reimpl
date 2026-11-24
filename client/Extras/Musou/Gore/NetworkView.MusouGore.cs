@@ -127,7 +127,15 @@ public partial class NetworkView
         return false;
     }
 
-    static float GoreChestHeight(MusouEnemyType type) => MusouBossOrks.Is(type) ? GoreChestHeight(MusouBossOrks.BaseOf(type)) * MusouBossOrks.BodyScale : type switch   // a Boss Ork: its base's, 3x
+    static float GoreChestHeight(MusouEnemyType type) { float h = OrkGoreChestHeight(type); WarfrontGoreChest(type, ref h); return h; }   // WARFRONT-HOOK
+
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the gore table's rows for a kind drawn as Chaos: its chest height, whether it bleeds as an Ork (the Ork blood and the dark gore), and its death's burst. No-op without Warfront and the Chaos faction.</summary>
+    static partial void WarfrontGoreChest(MusouEnemyType type, ref float height);
+    static partial void WarfrontGoreOrk(MusouEnemyType type, ref bool ork);
+    static partial void WarfrontGorePlan(in MusouDeathShown death, ref GoreBurst plan);
+    static bool GoreOrk(MusouEnemyType type) { bool ork = type != MusouEnemyType.ChaosMarine; WarfrontGoreOrk(type, ref ork); return ork; }   // WARFRONT-HOOK
+
+    static float OrkGoreChestHeight(MusouEnemyType type) => MusouBossOrks.Is(type) ? OrkGoreChestHeight(MusouBossOrks.BaseOf(type)) * MusouBossOrks.BodyScale : type switch   // a Boss Ork: its base's, 3x
     {
         MusouEnemyType.Gretchin => 0.7f,
         MusouEnemyType.Nob => 1.4f,
@@ -189,10 +197,11 @@ public partial class NetworkView
         {
             var d = w.Death;
             var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, w.Lascannon, w.Metres, load, d.Id, d.Tick);
+            WarfrontGorePlan(d, ref plan);   // WARFRONT-HOOK
             if (plan.Class == GoreClass.None) continue;
             _goreDeaths++;
             if (plan.Class == GoreClass.Explosion) _goreExplosions++;
-            view.Field.Spawn(plan, new Num.Vector3(d.Position.X, d.Position.Y, d.Position.Z + GoreChestHeight(d.Type)), d.Push, d.Position.Z, d.Type != MusouEnemyType.ChaosMarine);
+            view.Field.Spawn(plan, new Num.Vector3(d.Position.X, d.Position.Y, d.Position.Z + GoreChestHeight(d.Type)), d.Push, d.Position.Z, GoreOrk(d.Type));
         }
         watch.Stop();
         view.Frame(delta);

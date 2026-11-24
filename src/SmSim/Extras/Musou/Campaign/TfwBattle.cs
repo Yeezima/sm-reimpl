@@ -262,6 +262,12 @@ public sealed partial class TfwBattle
     public int FinalFieldSquadsMax => TfwBattleRules.FinalFieldSquads * GuardScale;
     public int GarrisonCapNow => TfwArmyRules.GarrisonCap * GuardScale;
     public int ReinforceMenNow => TfwArmyRules.ReinforceMen * GuardScale;
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the multiplier of the enemy's numbers (Chaos: pressure, not headcount); 1 outside it. Not applied yet: C2 wires it into the crowds.</summary>
+    partial void WarfrontEnemyScale(ref float scale);
+    public float EnemyScale { get { float s = 1f; WarfrontEnemyScale(ref s); return s; } }   // WARFRONT-HOOK
+    /// <summary>Warfront's Chaos faction (C0 seam): whether the Ork-only spawners of <paramref name="kind"/> (the Weirdboyz, the Scrap Meks) run in this battle; the Squigs keep <c>World.WarfrontSquigs</c>. Always on outside it.</summary>
+    partial void WarfrontOrkKind(MusouEnemyType kind, ref bool on);
+    bool OrkKindOn(MusouEnemyType kind) { bool on = true; WarfrontOrkKind(kind, ref on); return on; }   // WARFRONT-HOOK
     /// <summary>Most real Guard squads the armies hold: the squads' 40 less the field's own (28 as before outside Warfront).</summary>
     public int NearSquadsCap => Math.Min(TfwArmyRules.NearSquadsMost, GuardSim.MaxSquads - (_final || WarfrontFinalField ? FinalFieldSquadsMax : FieldSquadsMax));
     bool WarfrontFinalField { get { bool f = false; WarfrontFinalFieldHook(ref f); return f; } }   // WARFRONT-HOOK
