@@ -96,10 +96,18 @@ public class ExecutionAlignTests
         Assert.Equal(a, far.Attacker);
         Assert.True(ExecutionAlign.Align(a, v with { Position = new Vector3(0f, 2.1f, 0f) }, [Row("x", forward: 1.2f)], Config, null).Ok);   // 0.9 m
         Assert.Equal(ExecutionAlignFailure.TooFar, ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, null).Failure);
-        // Too close: the attacker backs off up to the same limit.
+        // Too close: the attacker backs off, up to MaxBackSlide (2.5 m; ours, X7 review), further than it may close in.
         var close = ExecutionAlign.Align(a, v with { Position = new Vector3(0f, 0.5f, 0f) }, [Row("x", forward: 1.2f)], Config, Open());
         Assert.True(close.Ok);
         Assert.True(close.Attacker.Position.Y < -0.6f);
+        var back = ExecutionAlign.Align(a, v with { Position = new Vector3(0f, 0.5f, 0f) }, [Row("x", forward: 2.9f)], Config, Open());   // 2.4 m back
+        Assert.True(back.Ok, back.Failure.ToString());
+        Assert.Equal(-2.4f, back.Attacker.Position.Y, 1);
+        Assert.True(back.Slide > ExecutionAlign.MaxSlide && back.Slide <= ExecutionAlign.MaxBackSlide);
+        Assert.Equal(ExecutionAlignFailure.TooFar, ExecutionAlign.Align(a, v with { Position = new Vector3(0f, 0.5f, 0f) }, [Row("x", forward: 3.1f)], Config, Open()).Failure);   // 2.6 m
+        // A wall behind the attacker stops the backward slide as any other.
+        var behind = World(new Mesh().Floor(-20, -20, 20, 20).Box(new(-3, -1.5f, 0), new(3, -1.4f, 3)));
+        Assert.Equal(ExecutionAlignFailure.Blocked, ExecutionAlign.Align(a, v with { Position = new Vector3(0f, 0.5f, 0f) }, [Row("x", forward: 2.9f)], Config, behind).Failure);
     }
 
     [Fact]
@@ -107,7 +115,7 @@ public class ExecutionAlignTests
     {
         var a = Body(1, Vector3.Zero);
         var v = Body(2, new Vector3(0f, 1.5f, 0f));
-        var rows = new[] { Row("far", forward: 3f), Row("near", forward: 1.2f), Row("also", forward: 1.4f) };
+        var rows = new[] { Row("far", forward: 4.5f), Row("near", forward: 1.2f), Row("also", forward: 1.4f) };   // "far": a 3 m backward slide, over MaxBackSlide
         var r = ExecutionAlign.Align(a, v, rows, Config, Open());
         Assert.True(r.Ok);
         Assert.Equal(1, r.Variant);
@@ -120,7 +128,7 @@ public class ExecutionAlignTests
         Assert.Equal(["also", "near"], picks.Distinct().Order());
         Assert.Equal(picks, Enumerable.Range(0, 64).Select(k => ExecutionAlign.Align(a, v, rows, Config, Open(), ExecutionChoice.Seed((uint)k, 1, 2)).Row!.Id));
         Assert.NotEqual(ExecutionChoice.Seed(10, 1, 2), ExecutionChoice.Seed(10, 2, 1));
-        var none = ExecutionAlign.Align(a, v, [Row("far", forward: 3f), Row("farther", forward: 4f)], Config, Open());
+        var none = ExecutionAlign.Align(a, v, [Row("far", forward: 4.5f), Row("farther", forward: 5f)], Config, Open());
         Assert.False(none.Ok);
         Assert.Equal(-1, none.Variant);
         Assert.Null(none.Row);

@@ -272,7 +272,7 @@ static class SyncKillsCommand
 
     static readonly Dictionary<string, HavokCharacterFile?> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The rig "archive:entry" (the archive relative to the game folder), read with <see cref="ObpkArchive.Open"/> (read-only); null when absent.</summary>
+    /// <summary>The rig "archive:entry" (the archive relative to the game folder), read with <see cref="ObpkArchive.Open"/> (read-only); null when absent. An archive with several entries of the name gives the last (as <c>RigProfile.ReadRig</c>).</summary>
     static HavokCharacterFile? Load(string gameDir, string spec)
     {
         if (Cache.TryGetValue(spec, out var hit)) return hit;
@@ -282,7 +282,7 @@ static class SyncKillsCommand
         byte[]? bytes = null;
         if (File.Exists(archive))
             using (var a = ObpkArchive.Open(archive))
-                a.ReadEntries(e => bytes is null && e.FileName.Equals(entry, StringComparison.OrdinalIgnoreCase), (_, d) => bytes = d.ToArray());
+                a.ReadEntries(e => e.FileName == entry, (_, d) => bytes = d.ToArray());   // the last entry of the name, as RigProfile.ReadRig (the runtime loader) takes it
         var c = bytes is null ? null : new HavokCharacterFile(bytes);
         Cache[spec] = c;
         return c;

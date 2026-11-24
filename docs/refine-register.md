@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4098 spec table rows: **3029 tagged**, 702 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4099 spec table rows: **3030 tagged**, 702 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 4098 spec table rows: **3029 tagged**, 702 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 179 | 178 | 63 | 77 | 0 |
+| General game design | 180 | 179 | 64 | 77 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3029** | 2721 | 2223 | 916 | 37 |
+| **All areas** | **3030** | 2722 | 2224 | 916 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1835 |
+| kind: ours | 1836 |
 | confidence: low | 1069 |
-| confidence: medium | 1043 |
+| confidence: medium | 1044 |
 | notes: ours | 475 |
 | kind: interpretation | 458 |
 | notes: estimate | 309 |
@@ -4322,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (179)
+### General game design (180)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4566,6 +4566,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0E0BD7C6` | Victim placement | the victim's feet never move; only its yaw turns to the pair's (attacker yaw + the row's relative yaw, π for every original pair) | kind: interpretation; confidence: medium | inventory 1.7 (supported by evidence for the original's clips; the rule an interpretation) | Victim placement: compare with SM1 by feel or video. Ours: the victim's feet never move; only its yaw turns to the pair's… | ☐ |
 | `R-E6967C18` | Distance band | the attacker turns so the row's victim offset (lateral X kept) points at the victim; the forward distance is clamped to the row's band, its shortest to longest attacker variant (about 1 to 7 m; a single-variant row: its offset's forward distance alone); the… (m) | kind: ours; confidence: medium | inventory 1.7 and 3.1 (the graph blends on `FLT_MeleeTargetDistance`); review of 476eb485 (reference distance); linear blend ours | Distance band: compare with SM1 by measuring on a flat spot of the same map. Ours: the attacker turns so the row's victim offset (lateral X kept) points… | ☐ |
 | `R-2D355C60` | Slide | the attacker must be grounded; only outside the band: along the pair's line by `Movement.Glide` (the capsule controller, other players ignored by the motor; `PlayerCollision.LastPush` restored), at most 1 m, 6 m/s (5 ticks for 1 m at 30 Hz), ending within… (m, m/s) | kind: ours; notes: estimate | design ("at most 1 m") | Slide: compare with SM1 by timing a run over a known distance. Ours: the attacker must be grounded; only outside the band: along the… | ☐ |
+| `R-C0627ABC` | Backward slide | when the victim is nearer than the row's shortest variant gap, the attacker slides away from it (along the pair's line) by up to 2.5 m (the row's needed gap less the current one; a forward slide stays at most 1 m), with the same glide, grounding, step… (m) | kind: ours; confidence: medium | lead decision 2026-11-25 (review of the X7 rows) | Backward slide: compare with SM1 by measuring on a flat spot of the same map. Ours: when the victim is nearer than the row's shortest variant gap, the… | ☐ |
 | `R-244F2069` | Height between the pair | the two feet at most the step height (0.4 m) apart (m) | kind: ours; confidence: medium | ours | Height between the pair: compare with SM1 by measuring on a flat spot of the same map. Ours: the two feet at most the step height (0.4 m) apart. | ☐ |
 | `R-B149ACD6` | Terrain probes | every 0.25 m along the slide, the attacker's blended root path (from where it stands, at the pair's yaw) and the victim's root path (from its feet, at its yaw): a downward ray from 1 m above the previous ground, at most the step height below it (a miss: gap)… (m) | kind: ours; confidence: low; notes: estimate | design ("every 0.25 m"; "never pulls a character through terrain or across a gap"); heights and radius ours | Terrain probes: compare with SM1 by measuring on a flat spot of the same map. Ours: every 0.25 m along the slide, the attacker's blended root path (from… | ☐ |
 | `R-3A77C581` | Line of sight | the aligned attacker must see the victim through weapon collision and past spawn-room blockers (`MeleeLock.Sees`) | kind: ours | design | Line of sight: compare with SM1 by feel or video. Ours: the aligned attacker must see the victim through weapon collision and… | ☐ |

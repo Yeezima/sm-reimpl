@@ -48,6 +48,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Scoreboard.cs", "ExtrasScoreboard"),  // NetworkView.ExtrasScoreboard(ref single, ref score, ref assists), the Tab scoreboard (Musou: one column, run points, no assists)
         ("client/ModelViewer.cs", "ExtrasStart"),                  // ModelViewer.ExtrasStart(args), first in _Ready on every path (remove-spear-claw 2026-11-23: --old-arsenal-spear-claw before any config or catalogue)
         ("client/ModelViewer.cs", "ExtrasTestAid"),                // ModelViewer.ExtrasTestAid(args, ref bool), before the game install is located (Ashfall kit gallery: a test view that needs no install)
+        ("client/ModelViewer.cs", "ExtrasExecutionTest"),          // ModelViewer.ExtrasExecutionTest(gameDir, args, ref bool), once the install is located (executions X7: --execution-test, the raw-clip test view)
         // Musou (MU0): each returns at once unless World._musou is set (World.StartMusou, only under ContentExtras.Musou).
         ("src/SmSim/Simulation.cs", "ExtrasStep"),                 // World.ExtrasStep(), once a tick after ApplyPerkBlasts, before CountProjectilesOut (Musou: the enemies)
         ("src/SmSim/Simulation.cs", "ExtrasMelee"),                // World.ExtrasMelee(int, PlayerState, MeleeStep), at the end of ResolveMelee (Musou: the cleave)

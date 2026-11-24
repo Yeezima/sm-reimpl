@@ -80,6 +80,7 @@ public static class ExecutionClipReader
     /// <summary>
     /// Every sequencer of <paramref name="graphs"/> that plays <paramref name="clip"/> (case aside), with its named tags in seconds: the sequencer's playing length
     /// is its first clip's length (<paramref name="lengthOf"/>) over that clip's playback speed, as <see cref="MeleeMotion"/> reads it. A length that cannot be read leaves the sequencer out.
+    /// A tag without a name (the <c>AttackAlignment</c> window, the interaction tags) is listed under its kind (X7: the row's sync is the alignment window's start).
     /// </summary>
     public static IReadOnlyList<ExecutionClipUse> Uses(string clip, IReadOnlyList<BehaviorGraph> graphs, Func<string, float> lengthOf)
     {
@@ -95,8 +96,8 @@ public static class ExecutionClipReader
                 try { length = lengthOf(seq.Animations[0]) / firstSpeed; }
                 catch (Exception e) when (e is KeyNotFoundException or InvalidDataException or NotSupportedException) { continue; }
                 if (!float.IsFinite(length) || length <= 0f) continue;
-                var events = seq.Tags.Where(t => !string.IsNullOrEmpty(t.Name) && float.IsFinite(t.Start) && float.IsFinite(t.End))
-                    .Select(t => new ExecutionClipEvent(t.Kind, t.Name!, t.Start * length, t.End * length))
+                var events = seq.Tags.Where(t => !string.IsNullOrEmpty(t.Name ?? t.Kind) && float.IsFinite(t.Start) && float.IsFinite(t.End))
+                    .Select(t => new ExecutionClipEvent(t.Kind, string.IsNullOrEmpty(t.Name) ? t.Kind : t.Name, t.Start * length, t.End * length))
                     .OrderBy(e => e.Start).ThenBy(e => e.Name, StringComparer.Ordinal).ToArray();
                 uses.Add(new ExecutionClipUse(g.Name, seq.Name, speed, length, events));
             }

@@ -193,12 +193,13 @@ public static class ExecutionTargets
 
     /// <summary>
     /// The Chaos run's roster (owner 2026-11-25; names for the roster to come): Traitor Guard and Cultists on the renegade guardsman's rows, the Chaos Tactical,
-    /// Havoc and Champion marines on the Chaos Marine's (C1 to C3), the Bloodletter on its own; never the Chosen or the Lord (<see cref="Never"/>).
+    /// Havoc and Champion marines on the Chaos Marine's (C1 to C3), the grounded Chaos Raptor too (owner 2026-11-25: never while airborne; the caller, X4b,
+    /// leaves a Raptor in the air out of the candidates), the Bloodletter on its own; never the Chosen or the Lord (<see cref="Never"/>).
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> ChaosRun = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["traitor_guard"] = Renegade, ["cultist"] = Renegade,
-        ["chaos_tactical"] = ChaosMarine, ["chaos_havoc"] = ChaosMarine, ["chaos_champion"] = ChaosMarine,
+        ["chaos_tactical"] = ChaosMarine, ["chaos_havoc"] = ChaosMarine, ["chaos_champion"] = ChaosMarine, ["chaos_raptor"] = ChaosMarine,
         ["bloodletter"] = Bloodletter,
     };
 

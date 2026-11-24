@@ -8,7 +8,7 @@ public enum ExecutionAlignFailure : byte
     None = 0,
     /// <summary>No variant was given (no row for this attacker, weapon and victim).</summary>
     NoVariant = 1,
-    /// <summary>The attacker would slide further than <see cref="ExecutionAlign.MaxSlide"/>.</summary>
+    /// <summary>The attacker would slide further than <see cref="ExecutionAlign.MaxSlide"/> toward the victim (or <see cref="ExecutionAlign.MaxBackSlide"/> away from it).</summary>
     TooFar = 2,
     /// <summary>A wall or prop stands in the slide or in a clip's root path.</summary>
     Blocked = 3,
@@ -50,7 +50,7 @@ public sealed record ExecutionAlignResult(bool Ok, ExecutionAlignFailure Failure
 /// move (a corpse or an Ork is never dragged; only its yaw turns to the pair's) and the attacker's distance variants cover the gap: the attacker turns so the
 /// row's victim offset points at the victim, and the forward distance is clamped to the row's <see cref="ExecutionRow.DistanceBand"/>. Only when the distance
 /// lies outside the band does the attacker slide along that line by <see cref="Movement.Glide"/> (the capsule controller, against the level), at most
-/// <see cref="MaxSlide"/>. Then the slide and both clips' root paths (the attacker's blended at the distance and placed from the aligned attacker, the victim's
+/// <see cref="MaxSlide"/> toward the victim and at most <see cref="MaxBackSlide"/> away from it (a victim nearer than the band's shortest gap). Then the slide and both clips' root paths (the attacker's blended at the distance and placed from the aligned attacker, the victim's
 /// from the victim) are probed every <see cref="ProbeSpacing"/>: downward for ground (a miss is a gap; a rise or drop above the step height between probes is a
 /// step; ground steeper than the walkable slope fails), two capsule-radius spheres swept between probes (just above the step height and just under the capsule's
 /// top, so together they cover the body from the step height up) for walls, low walls and overhangs, the kill volumes along the path and the
@@ -60,9 +60,16 @@ public sealed record ExecutionAlignResult(bool Ok, ExecutionAlignFailure Failure
 public static class ExecutionAlign
 {
     /// <summary>Raised when the rules or numbers below change (for X1's hashed Executions block).</summary>
-    public const int RulesVersion = 1;
-    /// <summary>Longest slide of the attacker into the row's distance band (metres, horizontal; ours, design "at most 1 m").</summary>
+    public const int RulesVersion = 2;
+    /// <summary>Longest slide of the attacker toward the victim into the row's distance band (metres, horizontal; ours, design "at most 1 m").</summary>
     public const float MaxSlide = 1f;
+    /// <summary>
+    /// Longest slide of the attacker away from the victim, when the victim is nearer than the row's shortest variant gap (metres, horizontal; ours, lead
+    /// decision 2026-11-25, X7 review): without it a row whose shortest gap is over 1 m (the Bloodletter slam's 2.80 m, the tongue grab's 2.50 m, the axe
+    /// hack's 3.37 m) could start only in a ring just inside <see cref="ExecutionChoice.WarfrontRange"/>, and the prompt would vanish as the player walked in.
+    /// The backward slide covers up to the row's needed gap, capped here; the slide is checked as any other (capsule glide, probes, bystanders).
+    /// </summary>
+    public const float MaxBackSlide = 2.5f;
     /// <summary>Speed of the slide (m/s; ours: 1 m in 5 ticks at 30 Hz) and how near the place the slide must end (metres).</summary>
     public const float SlideSpeed = 6f, SlideTolerance = 0.02f;
     /// <summary>Distance between probes along the slide and the root paths (metres; ours, design "every 0.25 m").</summary>
@@ -159,12 +166,13 @@ public static class ExecutionAlign
         var place = new Vector2(victim.Position.X, victim.Position.Y) - ToWorld(local, yaw);
         var start = new Vector2(attacker.Position.X, attacker.Position.Y);
         float slide = Vector2.Distance(place, start);
-        if (!float.IsFinite(slide) || slide > MaxSlide + 1e-4f) return Fail(ExecutionAlignFailure.TooFar, attacker, victim);
+        bool back = local.Length() > gap;   // the attacker steps away from a victim nearer than the band
+        if (!float.IsFinite(slide) || slide > (back ? MaxBackSlide : MaxSlide) + 1e-4f) return Fail(ExecutionAlignFailure.TooFar, attacker, victim);
         if (MathF.Abs(victim.Position.Z - attacker.Position.Z) > c.StepHeight + 1e-3f) return Fail(ExecutionAlignFailure.Step, attacker, victim);
 
         // The slide, tick by tick, with the capsule controller (other players ignored, as the charge lock's glide).
         var s = attacker with { Yaw = yaw, Velocity = Vector3.Zero };
-        int ticks = 0, most = (int)MathF.Ceiling(MaxSlide / (SlideSpeed * c.TickSeconds)) + 2;
+        int ticks = 0, most = (int)MathF.Ceiling(MathF.Max(MaxSlide, MaxBackSlide) / (SlideSpeed * c.TickSeconds)) + 2;
         using (PlayerCollision.Use(null))
             while (Vector2.Distance(new Vector2(s.Position.X, s.Position.Y), place) > SlideTolerance && ticks < most)
             {

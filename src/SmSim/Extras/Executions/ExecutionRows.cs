@@ -12,20 +12,22 @@ namespace SmSim.Extras.Executions;
 /// The original's paired sync kills as <see cref="ExecutionRow"/>s (X7): one row per move and weapon family, in the order of docs/executions-coverage.md
 /// (Ork Boy O1 to O8, Gretchin O9, Chaos Marine C1 to C3, Bloodletter B1 to B3, renegade guardsman R1). A move several weapon graphs carry (the slam O3, the
 /// arm break O4, the Gretchin punch O9, the backhand R1) has a row for each family with that graph's conduit priority. Row ids are <c>&lt;move&gt;.&lt;family&gt;</c>
-/// (the wire carries the index, <see cref="ExecutionRow"/>'s position in <see cref="All"/>).
+/// (the wire carries a row's position in <see cref="All"/>: <c>ExecutionCatalogue.WireIndexOf</c> and <c>AtWire</c>, which stay stable when an install lacks a row).
+/// These rows are not playable as they are: their root paths are empty. The server and the client play the rows of <c>ExecutionCatalogueLoader.Load</c>.
 /// Rules the rows follow (owner 2026-11-25): the power sword has no rows of its own and plays the chainsword's (<see cref="ExecutionWeapons.FamilyOf"/>);
 /// the chain axe plays the power axe's and the daemon maul the thunder hammer's; the combat knife has Ork rows only (O3, O8, O9); every row is "*" class
 /// (the moves are on the shared player rig; no class has a move of its own). Events: <see cref="ExecutionEventKind.Sync"/> at the start of the clip's
 /// <c>AttackAlignment</c> window, <see cref="ExecutionEventKind.Contact"/> and <see cref="ExecutionEventKind.Kill"/> at <c>ACTN_Hit_Primary_Target</c> (the
 /// kill frame: interpretation, the same event marks ordinary strikes' hits), <see cref="ExecutionEventKind.Other"/> for the heal tag (<c>ACTN_give_health_*</c>,
-/// the original's reward; not played) and the victim's dead branch, <see cref="ExecutionEventKind.End"/> at the start of <c>BRANCH_Melee_End</c> (the attacker is free).
+/// the original's reward; not played) and the victim's dead branch, <see cref="ExecutionEventKind.End"/> at the start of <c>BRANCH_Melee_End</c> (the attacker is free;
+/// the knife graph's <c>BRANCH_Melee_Draw_End</c>; the knife stab O8 has neither and ends at the clip end).
 /// Offsets are the victim's start in the attacker's frame for the reference clip (the 3.5 m variant; the arm break's 4 m) with the victim facing him (π);
 /// each variant's <see cref="ExecutionVariant.Distance"/> is the authored victim gap measured for that clip (the interaction bones met), not the name's.
 /// </summary>
 public static class ExecutionRows
 {
-    /// <summary>Raised when the rows change (for X1's hashed Executions block, with <see cref="ExecutionChoice.RulesVersion"/>).</summary>
-    public const int DataVersion = 1;
+    /// <summary>Raised when the rows change (hashed by <c>ExecutionCatalogue.Write</c>, X1's Executions block, with <see cref="ExecutionChoice.RulesVersion"/>).</summary>
+    public const int DataVersion = 2;
 
     /// <summary>Where the victims' halves are (docs/executions-coverage.md 4.9): kind to (archive, rig entry). The attacker clips are all on <see cref="AttackerRig"/>.</summary>
     public static readonly IReadOnlyDictionary<string, (string Archive, string Entry)> VictimRigs = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
@@ -43,8 +45,12 @@ public static class ExecutionRows
     const string CS = ExecutionWeapons.Chainsword, PA = ExecutionWeapons.PowerAxe, TH = ExecutionWeapons.ThunderHammer, CK = ExecutionWeapons.CombatKnife;
     const string CsGraph = "SM_MEL_ChainSword", PaGraph = "SM_MEL_PowerAxe", ThGraph = "SM_MEL_ThunderHammer", CkGraph = "SM_MEL_CombatKnife";
 
-    /// <summary>One move's timing (seconds into the attacker clip): alignment start, hit, heal, free, and the victim's dead branch (null: none in the data).</summary>
-    readonly record struct Times(float Align, float Hit, float Heal, float Free, float? VictimDead = null, string Heals = "ACTN_give_health_50");
+    /// <summary>
+    /// One move's timing (seconds into the attacker clip): alignment start, hit, heal, free, and the victim's dead branch (null: none in the data); the heal
+    /// tag's name (50 on most moves, 25 on the Gretchin punch and the backhand, 100 on the Chaos Marine struggle wins) and the free tag's (null: the clip end,
+    /// no tag; the knife graph's is <c>BRANCH_Melee_Draw_End</c>, set by <see cref="Row"/>).
+    /// </summary>
+    readonly record struct Times(float Align, float Hit, float Heal, float Free, float? VictimDead = null, string Heals = "ACTN_give_health_50", string? Frees = "BRANCH_Melee_End");
 
     static IReadOnlyList<ExecutionEvent> Events(Times t)
     {
@@ -54,7 +60,7 @@ public static class ExecutionRows
             new(ExecutionEventKind.Contact, t.Hit, "ACTN_Hit_Primary_Target"),
             new(ExecutionEventKind.Kill, t.Hit, "ACTN_Hit_Primary_Target"),
             new(ExecutionEventKind.Other, t.Heal, t.Heals),
-            new(ExecutionEventKind.End, t.Free, "BRANCH_Melee_End"),
+            new(ExecutionEventKind.End, t.Free, t.Frees),
         };
         if (t.VictimDead is { } dead) e.Add(new(ExecutionEventKind.Other, dead, "victim dead branch"));
         return e.OrderBy(x => x.Seconds).ThenBy(x => (byte)x.Kind).ToArray();
@@ -62,7 +68,8 @@ public static class ExecutionRows
 
     static ExecutionRow Row(string move, string family, string kind, string attackerClip, float attackerSeconds, string victimClip, float victimSeconds,
         Times t, float x, float y, string graph, string sequencer, int priority, (string Clip, float Gap)[] variants, string? note = null) =>
-        new($"{move}.{family}", "*", family, kind, attackerClip, victimClip, attackerSeconds, victimSeconds, Events(t), new Vector3(x, y, 0f), MathF.PI, graph, sequencer)
+        new($"{move}.{family}", "*", family, kind, attackerClip, victimClip, attackerSeconds, victimSeconds,
+            Events(graph == CkGraph && t.Frees is not null ? t with { Frees = "BRANCH_Melee_Draw_End" } : t), new Vector3(x, y, 0f), MathF.PI, graph, sequencer)
         {
             Priority = priority,
             VictimSequencer = VictimSequencers[move],
@@ -89,9 +96,10 @@ public static class ExecutionRows
 
     static readonly Times O1T = new(0.167f, 2.200f, 2.267f, 3.294f, 1.267f), O2T = new(0.200f, 3.933f, 4.033f, 4.583f, 0.400f),
         O3T = new(0.133f, 2.433f, 2.467f, 3.381f, 0.733f), O4T = new(0.143f, 1.433f, 1.433f, 2.824f, 0.500f), O5T = new(0.069f, 1.867f, 1.867f, 2.833f, 0.400f),
-        O6T = new(0.200f, 2.600f, 2.600f, 3.667f, 0.400f), O7T = new(0.200f, 2.033f, 2.033f, 3.333f, 0.633f), O8T = new(0.000f, 1.200f, 1.200f, 2.800f),
-        O9T = new(0.167f, 0.333f, 0.367f, 0.833f),
-        C1T = new(0.168f, 4.367f, 4.400f, 6.333f, 0.833f), C2T = new(0.106f, 2.933f, 2.967f, 4.000f, 0.833f), C3T = new(0.167f, 2.533f, 2.600f, 4.000f, 0.433f),
+        O6T = new(0.200f, 2.600f, 2.600f, 3.667f, 0.400f), O7T = new(0.200f, 2.033f, 2.033f, 3.333f, 0.633f), O8T = new(0.000f, 1.200f, 1.200f, 2.800f, Frees: null),
+        O9T = new(0.167f, 0.333f, 0.367f, 0.833f, Heals: "ACTN_give_health_25"),
+        C1T = new(0.168f, 4.367f, 4.400f, 6.333f, 0.833f, "ACTN_give_health_100"), C2T = new(0.106f, 2.933f, 2.967f, 4.000f, 0.833f, "ACTN_give_health_100"),
+        C3T = new(0.167f, 2.533f, 2.600f, 4.000f, 0.433f, "ACTN_give_health_100"),
         B1T = new(0.200f, 3.100f, 3.083f, 3.933f), B2T = new(0.200f, 2.074f, 2.146f, 3.600f), B3T = new(0.200f, 2.267f, 2.300f, 3.667f),
         R1T = new(0.100f, 1.233f, 1.233f, 2.067f, Heals: "ACTN_give_health_25");
 
@@ -114,7 +122,7 @@ public static class ExecutionRows
 
     const string Boy = ExecutionTargets.OrkBoy, Grot = ExecutionTargets.Gretchin, Csm = ExecutionTargets.ChaosMarine, Bl = ExecutionTargets.Bloodletter, Ig = ExecutionTargets.Renegade;
 
-    /// <summary>Every row, in wire order (the index is the clip index on X1's wire; append only, and raise <see cref="DataVersion"/> on any change).</summary>
+    /// <summary>Every row, in wire order (a row's index here is its wire index, <c>ExecutionCatalogue.WireIndexOf</c>): append only, never reorder or remove, and raise <see cref="DataVersion"/> on any change.</summary>
     public static readonly IReadOnlyList<ExecutionRow> All =
     [
         // Ork Boy (Warfront's Boy, Shoota Boy, 'Ard Boy, Rokkit Boy and grounded Stormboy; Classic's Ork-player victims): chainsword conduit priorities 4 / 3 / 2 / 1.

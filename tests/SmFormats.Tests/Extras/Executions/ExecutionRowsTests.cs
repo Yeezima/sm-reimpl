@@ -40,7 +40,8 @@ public class ExecutionRowsTests(ITestOutputHelper output)
             Assert.True(r.KillSeconds > 0f && r.KillSeconds < r.Seconds, r.Id);
             Assert.NotNull(r.At(ExecutionEventKind.Sync)); Assert.NotNull(r.At(ExecutionEventKind.Contact)); Assert.NotNull(r.At(ExecutionEventKind.End));
             Assert.True(ExecutionRows.VictimRigs.ContainsKey(r.Target), r.Id);
-            Assert.Equal(c.IndexOf(r.Id), ExecutionRows.All.ToList().IndexOf(r));   // the wire index is the data order
+            Assert.Equal(c.WireIndexOf(r.Id), ExecutionRows.All.ToList().IndexOf(r));   // the wire index is the data order
+            Assert.Same(r, c.AtWire(c.WireIndexOf(r.Id)));
         }
         // Per kind and per family (docs/executions-coverage.md section 5, owner answers).
         Assert.Equal(new Dictionary<string, int> { ["ork_boy"] = 12, ["gretchin"] = 4, ["chaos_marine"] = 3, ["bloodletter"] = 3, ["renegade"] = 3 },
@@ -102,6 +103,7 @@ public class ExecutionRowsTests(ITestOutputHelper output)
         Assert.Equal(3, Catalogue.Rows.Count(r => r.Target == ExecutionTargets.Bloodletter));
         Assert.Equal(["R1.chainsword", "R1.power_axe", "R1.thunder_hammer"], Ids(Catalogue.Rows.Where(r => r.Target == ExecutionTargets.Renegade)));
         foreach (var never in new[] { "chosen", "chaos_lord", "BombSquig" }) Assert.Null(ExecutionTargets.Of(never, ExecutionTargets.ChaosRun));
+        Assert.Equal(ExecutionTargets.ChaosMarine, ExecutionTargets.Of("chaos_raptor", ExecutionTargets.ChaosRun));   // grounded only (owner 2026-11-25; X4b's check)
         // Classic: a Chaos victim takes C1 to C3; a loyalist the same rows with the races swapped (no loyalist rows of its own).
         Assert.Equal(["C1.chainsword"], Ids(Catalogue.For("*", "sm_mp_melee_chainsword", ExecutionTargets.ChaosMarine)));
         Assert.Equal(["C2.power_axe"], Ids(Catalogue.For("*", "mp_melee_chain_axe", ExecutionTargets.ChaosMarine)));
@@ -170,6 +172,116 @@ public class ExecutionRowsTests(ITestOutputHelper output)
         Assert.Contains(notes, n => n.Contains(ExecutionRows.All[0].Id));
     }
 
+    /// <summary>Every row filled on the synthetic catalogue (each clip 1 m of forward extracted motion): playable rows with root paths, no original bytes.</summary>
+    static IReadOnlyList<ExecutionRow> SyntheticFilled()
+    {
+        var attackerClips = ExecutionRows.All.SelectMany(r => r.AttackerVariants.Select(v => (v.Clip, r.AttackerSeconds)).Append((r.AttackerClip, r.AttackerSeconds)))
+            .DistinctBy(x => x.Item1, StringComparer.OrdinalIgnoreCase).Select(x => Synthetic(x.Item1, x.Item2)).ToArray();
+        var attacker = new HavokCharacterFile(Build(Bones, attackerClips));
+        var victims = ExecutionRows.All.GroupBy(r => r.Target).ToDictionary(g => g.Key,
+            g => new HavokCharacterFile(Build(Bones, g.DistinctBy(r => r.VictimClip).Select(r => Synthetic(r.VictimClip, r.VictimSeconds)).ToArray())));
+        return ExecutionRows.All.Select(r => ExecutionCatalogueLoader.Fill(r, attacker, [], victims[r.Target], [])!).ToArray();
+    }
+
+    static StaticMesh Quads(params Vector3[][] quads)
+    {
+        var v = new List<Vector3>(); var ix = new List<int>();
+        foreach (var q in quads) { int i = v.Count; v.AddRange(q); ix.AddRange([i, i + 1, i + 2, i, i + 2, i + 3]); }
+        return new StaticMesh(v.ToArray(), ix.ToArray());
+    }
+
+    static readonly Vector3[] FloorQuad = [new(-30, -30, 0), new(30, -30, 0), new(30, 30, 0), new(-30, 30, 0)];
+
+    static CollisionWorld OpenFloor() => new(Quads(FloorQuad), Quads(FloorQuad));
+
+    [Fact]
+    public void The_wire_index_is_the_rows_place_in_the_data_and_a_missing_row_plays_nothing()
+    {
+        // An install without O2's clips: O2 is left out, every other row keeps its index, and O2's index resolves to nothing (no execution, the normal kill).
+        var all = ExecutionRows.All;
+        var c = ExecutionCatalogue.Create(all.Where(r => r.Id != "O2.chainsword"), null, all.Select(r => r.Id).ToArray());
+        Assert.Equal(all.Count - 1, c.Rows.Count);
+        for (int i = 0; i < all.Count; i++)
+        {
+            if (all[i].Id == "O2.chainsword") { Assert.Null(c.AtWire(i)); Assert.Equal(-1, c.WireIndexOf(all[i].Id)); continue; }
+            Assert.Equal(i, c.WireIndexOf(all[i].Id));
+            Assert.Same(all[i], c.AtWire(i));
+        }
+        Assert.Null(c.AtWire(-1)); Assert.Null(c.AtWire(all.Count));
+        Assert.NotEqual(c.IndexOf("O3.chainsword"), c.WireIndexOf("O3.chainsword"));   // the compacted place is not the wire index
+        // The hash tells the two catalogues apart.
+        static byte[] Hash(ExecutionCatalogue x) { using var m = new MemoryStream(); using (var w = new BinaryWriter(m)) x.Write(w); return m.ToArray(); }
+        Assert.NotEqual(Hash(ExecutionCatalogue.Create(all)), Hash(c));
+        // The loader keeps the wire order of ExecutionRows.All when rows are left out (here: no install at all, every row left out).
+        var none = ExecutionCatalogueLoader.Load(Path.Combine(Path.GetTempPath(), "sm-reimpl-no-install-" + Guid.NewGuid().ToString("N")), []);
+        Assert.Empty(none.Rows);
+        Assert.Equal(all.Select(r => r.Id), none.WireIds);
+    }
+
+    [Fact]
+    public void The_real_rows_run_through_the_warfront_and_classic_choosers()
+    {
+        var rows = SyntheticFilled();
+        Assert.All(rows, r => Assert.True(r.IsValid && r.AttackerRoot.Count > 0, r.Id));
+        var c = new SimConfig();
+        var level = OpenFloor();
+        var marine = new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Alive = true, Team = Team.SpaceMarines };
+        // Warfront: a Boy 2 m ahead takes the chainsword's first row (O1, conduit priority 4); a Gretchin the punch; the knife O3 first.
+        MusouEnemy At(ushort id, MusouEnemyType t, float y) => new(id, t, MusouEnemyState.Seek, new Vector3(0f, y, 0f), Vector2.Zero, MathF.PI, 100f, -1, 0, 0, 0);
+        var (id, r) = ExecutionChoice.ChooseAlignedOrk(marine, 0f, "tactical", "sm_mp_melee_chainsword", [At(4, MusouEnemyType.Boy, 2f)], rows, c, level);
+        Assert.Equal((4, true, "O1.chainsword"), ((int)id, r.Ok, r.Row?.Id));
+        Assert.Equal(new Vector3(0f, 2f, 0f), r.VictimAt);   // the victim's feet never move
+        var grot = ExecutionChoice.ChooseAlignedOrk(marine, 0f, "tactical", "sm_mp_melee_combat_knife", [At(5, MusouEnemyType.Gretchin, 2f)], rows, c, level);
+        Assert.Equal((5, "O9.combat_knife"), ((int)grot.Id, grot.Result.Row?.Id));
+        var knife = ExecutionChoice.ChooseAlignedOrk(marine, 0f, "tactical", "sm_mp_melee_combat_knife", [At(6, MusouEnemyType.ArdBoy, 2f)], rows, c, level);
+        Assert.Equal("O3.combat_knife", knife.Result.Row?.Id);   // the Ard Boy plays the Boy rows only (owner)
+        // The axe at 0.8 m: the decap backs off 0.9 m and fits; the axe hack O6 (3.37 m only) would back off 2.57 m, over MaxBackSlide.
+        var axe = ExecutionChoice.ChooseAlignedOrk(marine, 0f, "tactical", "sm_mp_melee_power_axe", [At(7, MusouEnemyType.Boy, 0.8f)], rows, c, level, seedFor: _ => null);
+        Assert.Equal("O5.power_axe", axe.Result.Row?.Id);
+        Assert.Equal(ExecutionAlignFailure.TooFar, axe.Result.Tried[^1]);
+        // Seeded: the pick is among the moves that fit, the same for every caller.
+        ulong seed = ExecutionChoice.Seed(100, 1, 4);
+        var p1 = ExecutionChoice.ChooseAlignedOrk(marine, 0f, "tactical", "sm_mp_melee_chainsword", [At(4, MusouEnemyType.Boy, 2f)], rows, c, level, seedFor: _ => seed);
+        var p2 = ExecutionChoice.ChooseAlignedOrk(marine, 0f, "tactical", "sm_mp_melee_chainsword", [At(4, MusouEnemyType.Boy, 2f)], rows, c, level, seedFor: _ => seed);
+        Assert.Equal(p1.Result.Row!.Id, p2.Result.Row!.Id);
+        Assert.EndsWith(".chainsword", p1.Result.Row.Id);
+
+        // Classic: a loyalist with a chainsword on a Chaos corpse 1.5 m ahead plays C1 (1.32 m: a 0.18 m slide in); a Chaos killer on a loyalist, swapped.
+        var chaosCorpse = new PlayerState(2, new Vector3(0f, 1.5f, 0f), Vector3.Zero, MathF.PI, true) { Team = Team.Chaos };
+        var classic = ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_chainsword", chaosCorpse, rows, c, level, null);
+        Assert.Equal((true, "C1.chainsword", false), (classic.Ok, classic.Row?.Id, classic.RaceSwapped));
+        Assert.Equal(1.32f, Vector2.Distance(new Vector2(classic.Attacker.Position.X, classic.Attacker.Position.Y), new Vector2(0f, 1.5f)), 1);
+        var swapped = ExecutionChoice.ChooseClassic(marine with { Team = Team.Chaos }, "tactical", "csm_mp_melee_2hand_power_mace", chaosCorpse with { Team = Team.SpaceMarines }, rows, c, level, null);
+        Assert.Equal((true, "C3.thunder_hammer", true), (swapped.Ok, swapped.Row?.Id, swapped.RaceSwapped));
+        // The knife has no Classic row: the normal kill stands.
+        Assert.False(ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_combat_knife", chaosCorpse, rows, c, level, null).Ok);
+    }
+
+    [Fact]
+    public void The_bloodletter_rows_start_on_a_target_at_point_eight_metres_by_a_backward_slide()
+    {
+        // B3 needs 2.80 m and B2 2.50 m: before the backward slide (MaxBackSlide, ours) they started only between 1.8 / 1.5 m and WarfrontRange.
+        var rows = SyntheticFilled();
+        var c = new SimConfig();
+        var marine = new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Alive = true, Team = Team.SpaceMarines };
+        var victim = new PlayerState(0, new Vector3(0f, 0.8f, 0f), Vector3.Zero, MathF.PI, true) { Alive = true };
+        var walled = new CollisionWorld(Quads(FloorQuad, [new(-3, -1f, 0), new(3, -1f, 0), new(3, -1f, 3), new(-3, -1f, 3)]), Quads(FloorQuad));
+        foreach (var (id, weapon, gap) in new[] { ("B3.thunder_hammer", "thunder_hammer", 2.80f), ("B2.power_axe", "power_axe", 2.50f) })
+        {
+            var variants = ExecutionChoice.Rows(rows, "tactical", ExecutionWeapons.FamilyOf(weapon)!, ExecutionTargets.Bloodletter);
+            Assert.Equal(id, Assert.Single(variants).Id);
+            var r = ExecutionAlign.Align(marine, victim, variants, c, OpenFloor());
+            Assert.True(r.Ok, $"{id}: {r.Failure}");
+            Assert.Equal(gap, r.Distance, 2);
+            Assert.True(r.Attacker.Position.Y < 0f && r.Slide > ExecutionAlign.MaxSlide && r.Slide <= ExecutionAlign.MaxBackSlide, $"{id}: slide {r.Slide}");
+            Assert.Equal(victim.Position, r.VictimAt);
+            // Up against a wall behind him, the backward slide fails cleanly.
+            var blocked = ExecutionAlign.Align(marine, victim, variants, c, walled);
+            Assert.False(blocked.Ok);
+            Assert.Equal(marine, blocked.Attacker);
+        }
+    }
+
     // ---------------------------------------------------------------- install only
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);
@@ -188,6 +300,27 @@ public class ExecutionRowsTests(ITestOutputHelper output)
         var notes = new List<string>();
         var c = ExecutionCatalogueLoader.Load(Game.Value!, notes);
         foreach (var n in notes) output.WriteLine("note: " + n);
+        Assert.Empty(notes);   // every row refreshed from its own sequencers (no fallback: each sequencer plays its clip, each named event has its tag)
+        // Every variant's authored gap (the interaction bones met) against the gap its root travel gives (X2's derivation). They agree within the tolerance
+        // except two variants whose end pose differs from the reference clip's: the head pop's 1 m variant ends 0.77 m further on (its interaction point at
+        // the end lies at -2.34 m against the reference's -1.57 m) and the Bloodletter slam's 1 m variant 0.12 m. The interaction bones hold one world point
+        // through each clip, so the authored gaps (1.00 and 2.80 m) stand; the odd gaps B3 2.80 / 8.84, B2 2.50, O5 1.70 and O8 1.87 agree on both readings.
+        var known = new Dictionary<string, float> { ["SM_SYN_TH_OrkBoy_headPOP1M"] = 1.77f, ["SM_SYN_TH_Bloodletter_slam1M"] = 2.93f };
+        var attacker = ExecutionCatalogueLoader.AttackerProfile.LoadCharacter(Game.Value!);
+        var graphs = HavokBehavior.Read(attacker.Pack);
+        foreach (var data in ExecutionRows.All.DistinctBy(r => r.AttackerClip))
+        {
+            var reference = ExecutionClipReader.Read(attacker, data.AttackerClip, graphs);
+            var variants = data.AttackerVariants.Select(v => ExecutionClipReader.Read(attacker, v.Clip, graphs)).ToArray();
+            output.WriteLine($"gaps {data.Id,-20} " + string.Join("  ", ExecutionCatalogueLoader.VariantGaps(data, reference, variants)
+                .Zip(variants, (g, v) => $"{g.Clip} {g.Authored:F2}/{(g.Derived is { } d ? d.ToString("F2") : "-")} travel {(v.Root.Count > 1 ? v.Root[^1].Y - v.Root[0].Y : 0f):F2} ({v.RootSource})")));
+            foreach (var (clip, authored, derived) in ExecutionCatalogueLoader.VariantGaps(data, reference, variants))
+            {
+                Assert.True(derived is not null, $"{data.Id} {clip}: no extracted motion");
+                if (known.TryGetValue(clip, out float travelGap)) Assert.Equal(travelGap, derived!.Value, 1);
+                else Assert.True(MathF.Abs(derived!.Value - authored) <= ExecutionCatalogueLoader.GapTolerance, $"{data.Id} {clip}: authored {authored} m, root travel {derived} m");
+            }
+        }
         foreach (var r in c.Rows)
             output.WriteLine($"{r.Id,-20} {r.AttackerSeconds:F3}/{r.VictimSeconds:F3} s kill {r.KillSeconds:F3} end {r.Seconds:F3} band {r.DistanceBand} " +
                              $"root {r.AttackerRoot.Count}/{r.VictimRoot.Count} end ({(r.AttackerRoot.Count > 0 ? r.AttackerRoot[^1].Y : 0f):F2})");

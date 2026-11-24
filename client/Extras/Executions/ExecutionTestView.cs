@@ -126,12 +126,19 @@ public partial class ExecutionTestView : Node3D
         GetTree().Quit(1);
     }
 
-    /// <summary>Decodes <paramref name="clip"/> from <paramref name="source"/> (the campaign rig) into <paramref name="rig"/>'s cache (the same skeleton by bone order).</summary>
+    /// <summary>
+    /// Decodes <paramref name="clip"/> from <paramref name="source"/> (the campaign rig) into <paramref name="rig"/>'s cache (the same skeleton by bone order).
+    /// The cache keeps the first animation of a name, and the model's own rig can carry a clip of the same name (the MP rig's knife heavy
+    /// <c>SM_MEL_CK_XATK_HVY_3.5m</c>, O8's attacker clip). So a refused preload fails the view unless the cached animation is the campaign one; it never
+    /// plays the model rig's clip under the row's name.
+    /// </summary>
     static void Preload(RigAssets rig, HavokCharacterFile source, string clip)
     {
         if (source.Skeleton.BoneNames.Count != rig.Rig.Skeleton.BoneNames.Count || !source.Skeleton.BoneNames.SequenceEqual(rig.Rig.Skeleton.BoneNames))
             throw new InvalidOperationException($"{clip}: the source skeleton ({source.Skeleton.BoneNames.Count} bones) is not the model's ({rig.Rig.Skeleton.BoneNames.Count})");
-        rig.Preload(rig.RigKey, clip, source.LoadAnimation(clip));
+        var decoded = source.LoadAnimation(clip);
+        if (!rig.Preload(rig.RigKey, clip, decoded) && !ReferenceEquals(rig.Animation(clip), decoded))
+            throw new InvalidOperationException($"{clip}: the model's rig already holds a clip of that name; the campaign rig's could not be loaded in its place");
     }
 
     void AddWeapon(CharacterViewer viewer, MarineAssets assets, string wargear, List<string> notes)
