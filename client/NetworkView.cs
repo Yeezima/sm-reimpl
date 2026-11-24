@@ -1590,7 +1590,7 @@ public partial class NetworkView : Node3D
         // The own model turns with the view at the frame rate, not with the 30 Hz predicted state (M36, NetworkView.Turning.cs).
         float aimYaw = own ? DisplayYaw(state) : state.Yaw;
         float yaw = BodyYawFor(character, state, own, aimYaw, throwTime);   // M40-T5 (NetworkView.TurnInPlace.cs): the body is planted while the aim moves; else the aim's yaw
-        if (Hammer180BodyYaw(state, aimYaw, smooth) is float turnedYaw) yaw = turnedYaw;   // sim/hammer-180 (NetworkView.Hammer180.cs): before the clip's root turn
+        yaw = Hammer180Yaw(state, aimYaw, yaw, smooth);   // sim/hammer-180 (NetworkView.Hammer180.cs): before the clip's root turn
         if (TurnProbe.Enabled) character.SetMeta("aim_yaw", aimYaw);   // the probe compares the chest with the aim
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z - hop));
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers && !HasDataChargeFx(state);   // fix/plasma-visuals: the plasma weapons play their own charge build
