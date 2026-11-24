@@ -354,6 +354,7 @@ public partial class NetworkView
         (Vector3 Eye, Vector3 Target)? extrasView = null;
         ExtrasSpectateView(me, ref extrasView);   // EXTRAS-HOOK: an added content's own spectator view (nothing in a faithful build)
         if (extrasView is not null) return extrasView;
+        if (BraceTestCameraView() is { } braceCam) return braceCam;   // --brace-turn-cam (NetworkView.BraceTurnTest.cs): the fixed world camera once the stance has started
         if (Spectate is null || _gameSpace is null) return null;
         _spectateAngle += delta;
         _spectateMode ??= Spectate.ToLowerInvariant();

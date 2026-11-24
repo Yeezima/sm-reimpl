@@ -171,6 +171,50 @@ public class BraceTurnTests
         Assert.Equal(expected, FootPinRules.PlantedStanding(braced, inAction, gaitMoving, speed, 1f));
 
     [Theory]
+    [InlineData(false, false, false, false, 0f)]   // no brace either frame: nothing, the raw aim
+    [InlineData(true, false, true, true, BodyYaw.AimDampSeconds)]   // into the brace posture: the other posture's turn dropped, gait cleared, the damped aim
+    [InlineData(true, true, false, true, BodyYaw.AimDampSeconds)]   // still braced: gait kept clear, the damped aim
+    [InlineData(false, true, true, false, 0f)]     // out of it (the exit): the brace turn dropped, the raw aim again
+    public void The_brace_frame_wiring(bool bracePosture, bool wasBraced, bool drop, bool clearGait, float damp)
+    {
+        var f = BraceTurnFrame.For(bracePosture, wasBraced);
+        Assert.Equal(drop, f.DropTurn);
+        Assert.Equal(clearGait, f.ClearGait);
+        Assert.Equal(damp, f.DampSeconds);
+    }
+
+    /// <summary>
+    /// Fable review (low 1), at the logic level: the client's frame order (NetworkView.cs: <c>BodyYawFor</c> steps the body before <c>BracePose</c>, which skips the
+    /// locomotion while braced and poses it in the exit) replayed with the rules the client calls. A run sets the gait flag; the brace holds the aim 40 degrees left (inside
+    /// both thresholds); in the exit's first frame the body must stay planted. Without clearing the flag it followed the aim by the follow rate for that frame (12 degrees at 60 fps).
+    /// </summary>
+    [Theory]
+    [InlineData(true, 0f)]
+    [InlineData(false, 12f)]   // the defect before the fix
+    public void Leaving_a_brace_entered_from_a_run_does_not_nudge_the_body(bool clearGait, float expectedNudgeDegrees)
+    {
+        var b = Standing();
+        bool gait = false, wasBraced = false;
+        float aim = 0f;
+        void Frame(bool braced, float speed, bool runLocomotion)
+        {
+            var f = BraceTurnFrame.For(braced, wasBraced);
+            if (f.DropTurn) { wasBraced = braced; b.DropTurn(); }
+            if (f.ClearGait && clearGait) gait = false;
+            bool standing = FootPinRules.PlantedStanding(braced, false, gait, speed, 1f);
+            b.Step(aim, Dt, standing, EnterLeft, EnterRight, Left, Right, Blend, MaxTwist, FollowRate, f.DampSeconds);
+            if (runLocomotion) gait = speed > 1f;   // the locomotion after the body: the run's blend flag (at rest it lets go)
+        }
+        for (int i = 0; i < 30; i++) Frame(false, 5f, true);   // the run: the gait flag set, the body with the aim
+        Assert.True(gait);
+        aim = 40f * Deg;
+        for (int i = 0; i < 60; i++) Frame(true, 0f, false);    // braced: the brace pose returns before the locomotion
+        Assert.Equal(0f, b.Yaw / Deg, 1e-3f);
+        Frame(false, 0f, true);                                 // the exit's first frame
+        Assert.Equal(expectedNudgeDegrees, b.Yaw / Deg, 0.01f);
+    }
+
+    [Theory]
     [InlineData(50f, 0f)]       // inside the grid's 60 to the left: the clips make it
     [InlineData(70f, 10f)]      // 10 past the left column
     [InlineData(-70f, 0f)]      // the right column reaches 77

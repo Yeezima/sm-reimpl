@@ -181,7 +181,11 @@ public partial class NetworkView
         var bracePosture = BraceTurnPosture(s, data);
         var posture = bracePosture ?? TurnPostureOf(s, data);
         var rig = posture is null ? null : TurnRigOf(posture);
-        if (BraceOf(s.PlayerId) is { } bt && bt.TurnBraced != (bracePosture is not null)) { bt.TurnBraced = bracePosture is not null; t.Body.DropTurn(); }
+        var bt = BraceOf(s.PlayerId);
+        var braceFrame = BraceTurnFrame.For(bracePosture is not null, bt.TurnBraced);
+        if (braceFrame.DropTurn) { bt.TurnBraced = bracePosture is not null; t.Body.DropTurn(); }
+        // Fable review (low 1): the gait flags go false while braced, so the exit's first frame (this runs before BracePose poses the locomotion) does not read a run's stale flag.
+        if (braceFrame.ClearGait) { t.GaitMoving = false; t.HipGaitMoving = false; }
         bool standing = TurnStanding(s, t, throwTime, braced: bracePosture is not null);
         bool canTwist = rig is not null && standing;
         // anim/melee-interaction (NetworkView.MeleeInteraction.cs): a body in a hit reaction turns so the clip's side points at its attacker.
@@ -195,7 +199,7 @@ public partial class NetworkView
         else if (!standing && character.Settling && TurnInAction(s, throwTime)) character.CancelSettle();
         t.PrevStanding = t.WasStanding; t.WasStanding = standing;
         t.Body.Step(aimYaw, dt, canTwist, rig?.EnterLeft ?? 0f, rig?.EnterRight ?? 0f, rig?.LeftProfile, rig?.RightProfile, posture?.TurnBlend ?? TurnAnimations.DefaultBlend, BodyMaxTwist, BodyFollowRate,
-            dampSeconds: bracePosture is not null ? BodyYaw.AimDampSeconds : 0f);   // batch 3 (review): the brace graph tests the damped aim angle
+            dampSeconds: braceFrame.DampSeconds);   // batch 3 (review): the brace graph tests the damped aim angle
         // Animation pass 1: a falling marine stands on the aim-offset idle (the graph's Dropping state) without being planted: the body follows the aim (above), the idle follows the twist.
         // Animation pass 3: also while the fall's legs fade out after the touchdown or its landing plays (FallLanding): the idle stayed the aim-offset idle in the air and is it again
         // once standing, so the plain idle in between flipped the stance twice in a few frames (the transition probe: the hand 46 cm per frame per frame at every soft landing).

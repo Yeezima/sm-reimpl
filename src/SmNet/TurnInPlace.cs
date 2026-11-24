@@ -178,3 +178,19 @@ public sealed class BodyYaw
         return new TurnProfile(Math.Clamp(endFraction, 0.05f, 1f) * clipSeconds, clipSeconds, radians, rootSeconds);
     }
 }
+
+/// <summary>
+/// Install transitions batch 3: what the client's <c>BodyYawFor</c> does each frame for the brace posture (kept here so it is tested without a Godot scene).
+/// </summary>
+/// <param name="DropTurn">The marine entered or left the brace posture this frame: the turn under way ends where the body is (<see cref="BodyYaw.DropTurn"/>).</param>
+/// <param name="ClearGait">The locomotion's gait flags (the relaxed run's and the ready run's) are cleared: the brace pose returns before the locomotion, so a flag left set by a
+/// run into the brace stays stale for the stance, and the exit's first frame (the body yaw is stepped before the exit poses the locomotion) read it and let the body follow the aim
+/// for one frame (Fable review, up to 12 degrees). The braced marine stands still, so the flags are false by the rules anyway.</param>
+/// <param name="DampSeconds">The <c>dampSeconds</c> of <see cref="BodyYaw.Step(float, float, bool, float, float, TurnProfile?, TurnProfile?, float, float, float, float)"/>:
+/// <see cref="BodyYaw.AimDampSeconds"/> in the brace posture, 0 (the raw aim) otherwise.</param>
+public readonly record struct BraceTurnFrame(bool DropTurn, bool ClearGait, float DampSeconds)
+{
+    /// <summary>The frame's wiring: <paramref name="bracePosture"/> the marine stands in the brace posture this frame, <paramref name="wasBraced"/> it did last frame.</summary>
+    public static BraceTurnFrame For(bool bracePosture, bool wasBraced) =>
+        new(bracePosture != wasBraced, bracePosture, bracePosture ? BodyYaw.AimDampSeconds : 0f);
+}
