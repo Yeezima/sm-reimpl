@@ -11,34 +11,43 @@ namespace SmClient;
 /// Install transitions, pass 2 batch 2 (2026-11-25; client only, no simulation, wire or protocol change): a jump-pack marine with the thunder hammer or the daemon maul in both hands dashes
 /// with the hammer graph's clips (<c>MP_SM_MEL_ThunderHammer</c> "Thunderhammer Jumppack Evade" <c>SM_JMP_TH_Dash_B/F/L/R</c>, "Jump TH Dash Land" <c>SM_JMP_TH_Dash_Landing_B/F/L/R</c>), in
 /// place of the base graph's plain ones the simulation reads (<see cref="DashClipChoice"/>). Same lengths and landing branch times, so the clip is posed at the simulation's time, unstretched.
-/// The family is latched when the dash begins (a pistol shot mid-dash does not swap the clip): the hammer's when the marine is in the hammer stance then (<see cref="HammerStance"/>: the
-/// hammer graph is the active melee state; with the pistol up the base graph's plain dash plays). Own, remote and spectated players alike (the pose path is shared). <c>--no-extra-transitions</c>
-/// restores the plain clips; <c>--log-dash</c> prints each hammer dash's clip.
+/// Which family: <see cref="DashFamilyLatch"/>. The stance is read on the player's last frame before the dash (an evading tick lowers the weapon in the simulation): the hammer stance
+/// (<see cref="HammerStance"/>, the hammer graph active) gives the hammer's clips, the pistol up the base graph's plain dash. The family holds for the flight and the landing, and clears when
+/// the evade ends (<see cref="TrackEvade"/>) and when the player leaves. Own, remote and spectated players alike (the pose path is shared). <c>--no-extra-transitions</c> restores the plain
+/// clips; <c>--log-dash</c> prints each hammer dash's clip.
 /// </summary>
 public partial class NetworkView
 {
-    sealed class DashFamilyTrack { public int Ticks; public EvadeDirection Direction; public DashFamily Family; public bool LandLogged; }
-    readonly Dictionary<int, DashFamilyTrack> _dashFamilies = new();
+    readonly DashFamilyLatch _dashLatch = new();
+    readonly HashSet<int> _dashLandLogged = new();
     readonly Dictionary<string, bool> _rigHasDashClip = new(StringComparer.OrdinalIgnoreCase);
     static bool? _logDash;
     static bool LogDash => _logDash ??= OS.GetCmdlineUserArgs().Contains("--log-dash");
 
-    /// <summary>The dash clip to pose for <paramref name="clip"/> (the simulation's evade clip): the hammer graph's for a hammer stance dash, else <paramref name="clip"/>.</summary>
+    /// <summary>The player's stance alias for the dash: the aliased melee wargear in the hammer stance, else null.</summary>
+    string? DashStanceAlias(PlayerState s) => HammerStance(s) ? CarriedAlias(s) : null;
+
+    /// <summary>A frame on which the player is not evading (<see cref="TrackEvade"/>): remember the stance, drop the latch.</summary>
+    void DashGround(PlayerState s)
+    {
+        _dashLatch.Ground(s.PlayerId, _config is null ? null : DashStanceAlias(s));
+        _dashLandLogged.Remove(s.PlayerId);
+    }
+
+    /// <summary>The player left: forget its dash stance and latch.</summary>
+    void DashForget(int playerId) { _dashLatch.Forget(playerId); _dashLandLogged.Remove(playerId); }
+
+    /// <summary>The dash clip to pose for <paramref name="clip"/> (the simulation's evade clip): the hammer graph's for a dash begun in the hammer stance, else <paramref name="clip"/>.</summary>
     string DashClipFor(PlayerState s, string clip)
     {
         if (DashClipChoice.HammerClip(clip) is null || _config is null) return clip;   // not a dash clip: rolls, hops, the Ork's side hop
-        bool restart = !_dashFamilies.TryGetValue(s.PlayerId, out var t) || s.EvadeTicks < t.Ticks || s.EvadeDirection != t.Direction;
-        t ??= _dashFamilies[s.PlayerId] = new DashFamilyTrack();
-        if (restart)
+        var family = _dashLatch.During(s.PlayerId, DashStanceAlias(s), NoExtraTransitions, out bool latchedNow);
+        string posed = DashClipChoice.Clip(clip, family, DashRigHas);
+        if (LogDash && posed != clip)
         {
-            t.LandLogged = false;
-            t.Family = DashClipChoice.Family(HammerStance(s) ? CarriedAlias(s) : null, NoExtraTransitions);
-            if (LogDash && t.Family == DashFamily.Hammer)
-                GD.Print($"t {_connectedFor:F1} s: P{s.PlayerId} HAMMER DASH {s.EvadeDirection}: {DashClipChoice.Clip(clip, t.Family, DashRigHas)} in place of {clip}");
+            if (latchedNow) GD.Print($"t {_connectedFor:F1} s: P{s.PlayerId} HAMMER DASH {s.EvadeDirection}: {posed} in place of {clip}");
+            if (s.EvadeLanded && _dashLandLogged.Add(s.PlayerId)) GD.Print($"t {_connectedFor:F1} s: P{s.PlayerId} HAMMER DASH landing: {posed}");
         }
-        t.Ticks = s.EvadeTicks; t.Direction = s.EvadeDirection;
-        string posed = DashClipChoice.Clip(clip, t.Family, DashRigHas);
-        if (LogDash && posed != clip && s.EvadeLanded && !t.LandLogged) { t.LandLogged = true; GD.Print($"t {_connectedFor:F1} s: P{s.PlayerId} HAMMER DASH landing: {posed}"); }
         return posed;
     }
 

@@ -226,6 +226,7 @@ public partial class NetworkView
             _clipClocks.Remove(gone); _clipStats.Remove(gone);
             _jumpTracks.Remove(gone);
             _evadeTracks.Remove(gone);
+            DashForget(gone);   // install transitions batch 2 (NetworkView.HammerDash.cs)
             _aimMoving.Remove(gone);
             HipFireForget(gone);
             ReloadForget(gone);
