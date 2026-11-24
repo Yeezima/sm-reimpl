@@ -619,8 +619,10 @@ public static class Combat
         float characterOffset = s.MeleeStep > 0 ? Rush.DashOffset(s.MeleeDirection) : 0f;
         if (step > 0 && steps[step - 1] is var held && s.MeleeTime + TimeEpsilon >= MathF.Max(MoveAtOf(held, c), held.HitTime + dt + TimeEpsilon) && float.IsFinite(s.Yaw))
         {
-            characterOffset = MathF.IEEERemainder(s.Yaw - sanitized.Yaw, 2f * MathF.PI);
-            characterFacing = MeleeChain.DirectionOfOffset(characterOffset);
+            // Quantised to the way of eight for the stick test too (re-review): a walking body faces the previous tick's view, so the raw offset is the view's turn over one tick, and keyboard S + A /
+            // S + D (exactly 135 degrees) would flip to stick-back on any mouse pan.
+            characterFacing = MeleeChain.DirectionOfOffset(MathF.IEEERemainder(s.Yaw - sanitized.Yaw, 2f * MathF.PI));
+            characterOffset = Rush.DashOffset(characterFacing);
         }
         bool stickBack = !musou && MeleeChain.StickBack(sanitized.MoveX, sanitized.MoveY, characterOffset);
         bool keepDirection = false;   // a strike chained from a Dir 180 one keeps the facing that strike left (the graph has no directional strike there)

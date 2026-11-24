@@ -321,32 +321,74 @@ public class Hammer180Tests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void The_lock_on_an_enemy_in_front_after_S_is_let_go_inherits_the_lunge_rules()
+    public void A_turn_strike_locks_only_along_its_heading_so_letting_go_of_S_does_not_turn_it_back_to_an_enemy_in_front()
     {
-        // Documented inherited behaviour (the lock-on's rules as for every strike, not a Dir 180 design; spec "Thunder hammer Dir 180: facing and motion"): S + X with an enemy 3 m in front of the view.
-        // The press's search goes along the stick (behind), so the press tick takes no lock and the 180 turns away. With S let go the client's lock choice (MeleeLock.Choose, along the view now) takes the
-        // enemy from the next tick; inside the strike's alignment window the heading turns back to it, and the locked step (the clip's motion, the burst toward the separation) carries the body to it.
-        // The lock lets go about 0.3 s in, when the enemy leaves the heading's cone and the lunge carries the body past it.
-        var c = HammerWithReach() with { MeleeLock = MeleeLockSpec.Default with { StepFront = 1f, StepEarly = MeleeLockSpec.InstallStepEarly } };
+        // sim/hammer-180 (the re-review, the lead's decision 2026-11-25; ours): S + X with an enemy 3 m in front of the view. The press's search goes along the stick (behind): no lock, the 180 turns away.
+        // Under way a turn strike keeps and acquires a lock only along its own heading (MeleeLock.HeadingOnly), so with S let go the view's search no longer takes the enemy behind it (before: locked
+        // from the next tick, the heading turned back and the lunge carried the body past the enemy). A client naming the enemy anyway is refused by the server's check.
+        var c = HammerWithReach();
         var enemy = Combat.Respawned(new PlayerState(2, new Vector3(0f, 3f, 0f), Vector3.Zero, MathF.PI, true) { Class = 0, Team = Team.Chaos }, c);
         var view = new Dictionary<int, PlayerState> { [2] = enemy };
-        var self = Fresh(c);
-        int locked = 0;
-        var locks = new List<int>();
-        for (uint i = 0; i < 30; i++)
+        foreach (bool forced in new[] { false, true })
         {
-            var input = new PlayerInput(i, 0f, i == 0 ? -1f : 0f, 0f, i == 0 ? InputButtons.Melee : InputButtons.None);
-            input = input with { MeleeTarget = MeleeLock.Choose(self, input, view, c, null, locked) };
-            locked = input.MeleeTarget;
-            locks.Add(locked);
-            self = Combat.StepPlayer(self, input, c, out _, null, view);
+            var self = Fresh(c);
+            int locked = 0;
+            var locks = new List<int>();
+            for (uint i = 0; i < 30; i++)
+            {
+                var input = new PlayerInput(i, 0f, i == 0 ? -1f : 0f, 0f, i == 0 ? InputButtons.Melee : InputButtons.None);
+                input = input with { MeleeTarget = forced ? 2 : MeleeLock.Choose(self, input, view, c, null, locked) };
+                locked = input.MeleeTarget;
+                locks.Add(locked);
+                self = Combat.StepPlayer(self, input, c, out _, null, view);
+            }
+            output.WriteLine($"{(forced ? "forced" : "chosen")}: locks {string.Join(",", locks.Distinct())}; after 1 s ({self.Position.X:0.###}, {self.Position.Y:0.###}) yaw {self.Yaw:0.###}");
+            Assert.Equal(4, self.MeleeStep);
+            if (!forced) Assert.All(locks, l => Assert.Equal(0, l));
+            Assert.Equal(MathF.PI, MathF.Abs(self.Yaw), 3);   // still struck away from the enemy
+            Assert.True(self.Position.Y < -0.5f && MathF.Abs(self.Position.X) < 1e-3f, $"travelled its clip away from the enemy: {self.Position}");
         }
-        output.WriteLine($"locks {string.Join(",", locks)}; after 1 s ({self.Position.X:0.###}, {self.Position.Y:0.###}) yaw {self.Yaw:0.###}");
-        Assert.Equal(4, self.MeleeStep);
-        Assert.Equal(0, locks[0]);   // the press: the search along S finds nothing in front
-        Assert.Equal(2, locks[1]);   // S let go: the view's search takes the enemy
-        Assert.True(MathF.Abs(MathF.IEEERemainder(self.Yaw, 2f * MathF.PI)) < 0.2f, $"the heading turned back to the enemy: {self.Yaw:0.###}");
-        Assert.True(self.Position.Y > 2f, $"carried toward (and past) the enemy: {self.Position}");
+        // An enemy along the turned heading (behind the view) is taken under way as before, and a plain strike keeps the view's alternative.
+        var behind = enemy with { Position = new Vector3(0f, -3f, 0f) };
+        var turned = Fresh(c) with { MeleeStep = 4, MeleeTime = 0.1f, Yaw = MathF.PI };
+        var idle = new PlayerInput(1, 0f, 0f, 0f, InputButtons.None);
+        Assert.Equal(2, MeleeLock.Choose(turned, idle, new Dictionary<int, PlayerState> { [2] = behind }, c, null, 0));
+        Assert.Equal(0, MeleeLock.Choose(turned, idle, view, c, null, 0));
+        Assert.True(MeleeLock.HeadingOnly(turned, c));
+        var plain = Fresh(c) with { MeleeStep = 1, MeleeTime = 0.1f, Yaw = MathF.PI };
+        Assert.False(MeleeLock.HeadingOnly(plain, c));
+        Assert.Equal(2, MeleeLock.Choose(plain, idle, view, c, null, 0));   // X1 under way: the view's search still finds the enemy in front
+    }
+
+    [Theory]
+    [InlineData(0.01f)]
+    [InlineData(-0.01f)]
+    public void S_plus_A_after_the_hold_stays_the_directional_strike_while_the_view_pans(float pan)
+    {
+        // The re-review: past the hold the body faces the previous tick's view, so the raw offset was the view's turn over one tick and S + A (exactly 135 degrees) flipped to stick-back on a pan.
+        var c = Hammer();
+        float yaw = 0f;
+        var s = Step(Fresh(c), c, InputButtons.Melee);   // X1, forward
+        while (s.MeleeTime + Dt < 1.5f)
+        {
+            yaw += pan;
+            s = Combat.StepPlayer(s, new PlayerInput(0, -0.7071f, -0.7071f, yaw, InputButtons.None), c, out _);   // walking S + A, the view panning
+        }
+        yaw += pan;
+        s = Combat.StepPlayer(s, new PlayerInput(0, -0.7071f, -0.7071f, yaw, InputButtons.Melee), c, out _);
+        output.WriteLine($"pan {pan}: step {s.MeleeStep} {s.MeleeDirection}");
+        Assert.Equal((2, EvadeDirection.BackLeft), (s.MeleeStep, s.MeleeDirection));
+    }
+
+    [Fact]
+    public void The_plain_chain_never_runs_into_the_appended_family()
+    {
+        IReadOnlyList<MeleeStep> light = [X1, X2, X3 with { StringEnd = false }, D180, D180Left, X2From180, X3From180];
+        Assert.Equal(1, MeleeChain.LightNext(light, 3, false, false));   // X3's old n + 1 rule wraps over the weapon's own three (before: light 4, the 180)
+        Assert.Equal(2, MeleeChain.LightNext(light, 1, false, false));
+        Assert.Equal(6, MeleeChain.LightNext(light, 4, false, false));
+        Assert.Equal(1, MeleeChain.LightNext(light, 6, false, false));
+        Assert.Equal(3, MeleeChain.LightNext([X1, X2, X3], 2, false, false));   // a weapon without the family: unchanged
     }
 
     [Fact]

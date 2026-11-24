@@ -336,7 +336,11 @@ public static class MeleeChain
         var m = light[step - 1];
         if (back && m.BackNext >= 1 && m.BackNext <= light.Count) return m.BackNext;
         if (m.LightNext >= 1 && m.LightNext <= light.Count) return m.LightNext;
-        return step % light.Count + 1;
+        // The old rule over the weapon's own light strikes only (the appended Dir 180 family is never reached by n + 1; a family strike without a chain goes back to 1).
+        int own = 0;
+        while (own < light.Count && !light[own].Dir180) own++;
+        if (own == 0 || step > own) return 1;
+        return step % own + 1;
     }
 
     /// <summary>The window in which a buffered press of the given kind moves on from step <paramref name="m"/>: the Y-chain window for a heavy press during a heavy strike, else the combo window.</summary>

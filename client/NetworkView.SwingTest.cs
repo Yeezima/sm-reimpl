@@ -29,7 +29,8 @@ public partial class NetworkView
     float _swingYaw;
     int _swingCycle = -1, _swingPressedStep = -1, _swingShotSet;
     bool _swingPressedFirst, _swingHopped, _swingChainBack;
-    int _swingChainPress, _swingChainLogged = -1;   // sim/hammer-180 review: back180-chain's next press and the step last logged
+    int _swingChainPress, _swingChainLogged = -1;
+    uint _swingChainPressTick;   // sim/hammer-180 review: back180-chain's next press and the step last logged
     float _swingSteered;
     static readonly float SwingHopAt = CmdFloat("--swing-hop-at", 0.5f), SwingSteerRate = CmdFloat("--swing-steer-rate", 360f), SwingSteer = CmdFloat("--swing-steer", 150f);
 
@@ -93,9 +94,17 @@ public partial class NetworkView
             else if (at > 0 && at < plan.Length && me.MeleeStep > 0 && !me.MeleeHeavy && me.MeleeStep != _swingPressedStep && !me.MeleeHeld && !me.MeleeQueued
                 && Combat.MeleeStepOf(_config, me) is { } now && me.MeleeTime >= now.ComboOpen + 0.03f)
                 press = true;
+            // The re-review: a press that did not take (the strike did not change and nothing is queued 4 ticks on, still in its window) is pressed again, so one lost press does not stall the chain.
+            if (!press && at > 0 && me.MeleeStep == _swingPressedStep && !me.MeleeQueued && !me.MeleeHeld && tick - _swingChainPressTick >= 4
+                && (me.MeleeStep == 0 || Combat.MeleeStepOf(_config, me) is { } still && me.MeleeTime < still.ComboClose - 0.05f))
+            {
+                at = --_swingChainPress;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: press {at + 1} did not take (step {me.MeleeStep} at {me.MeleeTime:F2}); pressing again");
+                press = true;
+            }
             if (press)
             {
-                b = InputButtons.Melee; _swingChainBack = plan[at]; _swingPressedStep = me.MeleeStep; _swingChainPress = at + 1;
+                b = InputButtons.Melee; _swingChainBack = plan[at]; _swingPressedStep = me.MeleeStep; _swingChainPress = at + 1; _swingChainPressTick = tick;
                 GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: press {at + 1}{(plan[at] ? " stick back" : "")} after step {me.MeleeStep} at strike time {me.MeleeTime:F2} (yaw {me.Yaw:F2}, facing {me.MeleeDirection})");
             }
             else if (_swingChainBack && me.MeleeStep != _swingPressedStep) _swingChainBack = false;   // the strike changed: let the stick go

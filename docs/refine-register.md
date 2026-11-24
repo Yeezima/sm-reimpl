@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4096 spec table rows: **3025 tagged**, 704 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
+Scanned 4097 spec table rows: **3026 tagged**, 704 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 427 | 368 | 363 | 116 | 12 |
+| Movement (critical) | 428 | 369 | 364 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,15 +53,15 @@ Scanned 4096 spec table rows: **3025 tagged**, 704 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3025** | 2717 | 2220 | 914 | 37 |
+| **All areas** | **3026** | 2718 | 2221 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1830 |
+| kind: ours | 1831 |
 | confidence: low | 1068 |
-| confidence: medium | 1041 |
+| confidence: medium | 1042 |
 | notes: ours | 476 |
 | kind: interpretation | 457 |
 | notes: estimate | 306 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (427)
+### Movement (gameplay-critical) (428)
 
 *Spec section: Extracted parameters*
 
@@ -647,8 +647,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7656C38F` | **SUPERSEDED by sim/stab-key-only (owner, 2026-11-23): F + F is the stomp again and the stab comes… | the owner's request (verbatim): "currently the power sword F + F heavy attack stun strike combo results in a stomp action by assault marine/raptor. i want you to make a change that results in the F + F heavy attack stun strike combo result in the stab move… (s, damage) | confidence: medium | owner's request; wargear `ability_bullrush_01` perk entry; graph `MP_SM_MEL_PowerSword` | SUPERSEDED by sim/stab-key-only (owner, 2026-11-23): F + F…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's request (verbatim): "currently the power sword F + F… | ☐ |
 | `R-7797EFA8` | **Partly superseded by sim/stab-key-only (2026-11-23): no combo reaches the stab any more (F + F… | the owner's request (verbatim): "make the sword stab performed by F + F or rmb + F instead be activated on its own with no precursor move by pressing T. disable the T voice call feature to make space on that keybind for this action." Pressing T… (1 key) | kind: ours; confidence: low | owner's request | Partly superseded by sim/stab-key-only (2026-11-23): no…: compare with SM1 by feel or video. Ours: the owner's request (verbatim): "make the sword stab performed by F +… | ☐ |
 | `R-8F337F3A` | Axe combo windows read from `BRANCH_Melee_Combo_MISS` | the axe's attacks carry only the MISS-named combo branch (the graph also names `BRANCH_Melee_Combo_HIT` and cleave-through branches no sequencer carries); taken as the combo window whether the attack hit or missed | kind: interpretation; confidence: medium | graph | Axe combo windows read from BRANCH_Melee_Combo_MISS: compare with SM1 by feel or video. Ours: the axe's attacks carry only the MISS-named combo branch (the graph… | ☐ |
-| `R-792BAC55` | Thunder hammer Dir 180: the character's facing (our reading) | what `FLT_LStick_Angle_Char` is measured from: at rest the view; while a strike holds its facing (up to max(MoveAt, hit + 1 tick)) its latched attack direction; after that the body's own yaw against the view, to the nearest of eight for the facing a Dir 180… (degrees) | kind: ours; confidence: medium | our reading of the graph variable | Thunder hammer Dir 180: the character's facing (our reading): compare with SM1 with an overlaid screenshot taken from the same position. Ours: what FLT_LStick_Angle_Char is measured from: at rest the view; while… | ☐ |
+| `R-792BAC55` | Thunder hammer Dir 180: the character's facing (our reading) | what `FLT_LStick_Angle_Char` is measured from: at rest the view; while a strike holds its facing (up to max(MoveAt, hit + 1 tick)) its latched attack direction; after that the body's own yaw against the view to the nearest of eight, for the stick test as for… (degrees) | kind: ours; confidence: medium | our reading of the graph variable | Thunder hammer Dir 180: the character's facing (our reading): compare with SM1 with an overlaid screenshot taken from the same position. Ours: what FLT_LStick_Angle_Char is measured from: at rest the view; while… | ☐ |
 | `R-B7573384` | Thunder hammer Dir 180: facing and motion | the 180s are struck along the character's facing turned half round for the whole strike; their clips' root moves backwards along the press-time facing and turns the half turn in one sample (0.7 s and 0.633 s), so the simulation takes the motion negated along… (m, s) | kind: interpretation; confidence: medium; notes: ours | rig extracted motion (`smtool melee-steps auto thunder_hammer`, install test); the facing rule is our reading | Thunder hammer Dir 180: facing and motion: compare with SM1 by feel or video. Ours: the 180s are struck along the character's facing turned half round… | ☐ |
+| `R-A2992022` | Thunder hammer Dir 180: lock-on along the heading (ours) | during a Dir 180 turn strike under way (lights 4 and 5, `MeleeStep.TurnsBack`) a lock is kept and acquired only in the melee cone along the strike's heading, not along the stick or the view (`MeleeLock.HeadingOnly` in the server's `Target`, Phase.Melee, and… (degrees) | kind: ours; confidence: medium | the lead's decision 2026-11-25 after the re-review | Thunder hammer Dir 180: lock-on along the heading (ours): compare with SM1 with an overlaid screenshot taken from the same position. Ours: during a Dir 180 turn strike under way (lights 4 and 5… | ☐ |
 | `R-CD947A81` | Thunder hammer Dir 180: string ends | lights 6 and 7 end the string; their new string frees 1 s before the clip's end (1.333 s; the data's `BRANCH_Melee_String_Reset` 1.5 and 1.544 s), as the owner's 1 s for X3 (sim/string-reset) (s) | kind: estimate; confidence: medium | owner 2026-11-06, applied to the 180 strings by us | Thunder hammer Dir 180: string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: lights 6 and 7 end the string; their new string frees 1 s before the… | ☐ |
 | `R-C4AFFA87` | Thunder hammer Dir 180: not done | light 6's ("TH Default 2 ( X , X ) From 180 MP", `SequencerGenerator13`) extra secondary hit events at 0.2571 and 0.2857 of its clip (0.600 and 0.667 s) are not simulated (its primary hit at 0.2714, 0.633 s, is); the other weapons' Dir 180 strikes are not… | kind: gap (not reproduced) | graph | Thunder hammer Dir 180: not done: compare with SM1 by feel or video. Ours: light 6's ("TH Default 2 ( X , X ) From 180 MP"… | ☐ |
 | `R-32568B43` | Thunder hammer Dir 180: drawing round the root turn (ours) | the drawn body faces the strike's heading less half a turn until the middle of that sample (`Hammer180Draw.FlipAt`), then the heading; inside the sample the clip is shown at its two ends only (`Hammer180Draw.ClipTime`: the spline sampler would spin the bones… (s) | kind: ours; confidence: medium | ours (review fixes 2026-11-25) | Thunder hammer Dir 180: drawing round the root turn (ours): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the drawn body faces the strike's heading less half a turn until the… | ☐ |

@@ -383,7 +383,7 @@ public static class MeleeLock
     /// <list type="bullet">
     /// <item>an attack's start: within the melee range and the melee cone along the stick (or the view: <see cref="SearchDirection"/>);</item>
     /// <item>an attack under way: within the range plus the leash and in the melee cone along the attack's heading or along the stick / view (a
-    /// switch to another enemy must lie there too);</item>
+    /// switch to another enemy must lie there too; sim/hammer-180: during a Dir 180 turn strike along the heading only, <see cref="HeadingOnly"/>);</item>
     /// <item>the charge's first tick: within the charge's range and cone along the view; under way: its range plus the leash and its cone along its heading.</item>
     /// </list>
     /// feel/melee-charge-2 (protocol 42): every cone but the charge's first tick is widened by <see cref="MeleeLockSpec.Hysteresis"/> (a lock the client
@@ -403,7 +403,7 @@ public static class MeleeLock
         {
             Phase.MeleeStart => distance <= spec.Range && InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _),
             Phase.Melee => distance <= spec.Range + spec.Leash && (InCone(self, other.Position, Forward(self.Yaw), spec.HalfAngle + keep, c, out _)
-                || InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _)),
+                || (!HeadingOnly(self, c) && InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _))),
             Phase.RushStart => distance <= spec.RushRange && InCone(self, other.Position, Forward(input.Sanitized().Yaw), spec.RushHalfAngle, c, out _),
             _ => distance <= spec.RushRange + spec.Leash && InCone(self, other.Position, Forward(self.Yaw), spec.RushHalfAngle + keep, c, out _),
         };
@@ -448,9 +448,15 @@ public static class MeleeLock
         {
             Phase.RushStart => Acquire(s, Forward(input.Sanitized().Yaw), others, c, world, spec.RushRange, spec.RushHalfAngle),
             Phase.Rush => Acquire(s, Forward(s.Yaw), others, c, world, spec.RushRange, spec.RushHalfAngle),
-            _ => Acquire(s, SearchDirection(input), others, c, world, spec.Range, spec.HalfAngle),
+            _ => Acquire(s, phase == Phase.Melee && HeadingOnly(s, c) ? Forward(s.Yaw) : SearchDirection(input), others, c, world, spec.Range, spec.HalfAngle),
         };
     }
+
+    /// <summary>
+    /// sim/hammer-180 (the re-review, the lead's decision 2026-11-25; ours): a Dir 180 turn strike under way (the thunder hammer's and the daemon maul's lights 4 and 5, <see cref="MeleeStep.TurnsBack"/>) keeps and
+    /// acquires a lock only along its own heading, not along the stick or the view (that alternative turned a 180 started away from an enemy straight back to it once S was let go). The press tick is unchanged.
+    /// </summary>
+    public static bool HeadingOnly(in PlayerState s, SimConfig c) => s.MeleeStep > 0 && !s.MeleeHeavy && Combat.MeleeStepOf(c, s) is { TurnsBack: true };
 
     /// <summary>The flat offset from <paramref name="self"/> to <paramref name="target"/>.</summary>
     public static Vector2 Offset(in PlayerState self, in PlayerState target) => new(target.Position.X - self.Position.X, target.Position.Y - self.Position.Y);
