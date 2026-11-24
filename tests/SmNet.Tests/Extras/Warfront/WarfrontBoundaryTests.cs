@@ -96,6 +96,8 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/World.MusouDrops.cs", "WarfrontWalkOver"),
         ("src/SmSim/Extras/Musou/World.MusouDrops.cs", "WarfrontWalksOver"),
         ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropWalksOver"),
+        ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropPicked"),
+        ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropLive"),
         ("client/Extras/NetworkView.Extras.cs", "WarfrontPickupWalkOver"),
     ];
 

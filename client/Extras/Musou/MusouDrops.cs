@@ -64,9 +64,10 @@ public partial class NetworkView
                 _musouDropLive.Clear();
                 foreach (var d in list)
                 {
-                    if (d.State == MusouDropState.Live) { _musouDropLive[d.Id] = d; continue; }
+                    if (d.State == MusouDropState.Live) { _musouDropLive[d.Id] = d; WarfrontDropLive(d.Id); continue; }   // WARFRONT-HOOK: a reused id may sound again
                     // Picked (by this player: the list is its own) or expired: gone; a pickup not predicted plays its sound now.
                     if (d.State == MusouDropState.Picked && _musouDropViews.ContainsKey(d.Id) && !_musouDropTaken.ContainsKey(d.Id)) MusouDropSound(d.Position, me);
+                    if (d.State == MusouDropState.Picked) WarfrontDropPicked(in d, _musouDropViews.ContainsKey(d.Id) || _musouDropTaken.ContainsKey(d.Id), me);   // WARFRONT-HOOK: a walk-over take never drawn (taken the tick it lay) still sounds, once
                 }
                 _musouDropScratch.Clear();
                 foreach (var id in _musouDropTaken.Keys) if (!_musouDropLive.ContainsKey(id)) _musouDropScratch.Add(id);
@@ -171,6 +172,12 @@ public partial class NetworkView
 
     /// <summary>Warfront: true for a drop the server takes by walking over it (a powerup, a crate), which shows no prompt here.</summary>
     partial void WarfrontDropWalksOver(in MusouDropRecord drop, ref bool walks);
+
+    /// <summary>Warfront: a drop the server lists as picked by this player; <paramref name="heard"/> when its take sound has already played here (its view existed, or a press predicted it).</summary>
+    partial void WarfrontDropPicked(in MusouDropRecord drop, bool heard, PlayerState me);
+
+    /// <summary>Warfront: drop <paramref name="id"/> lies (again): a later take of a reused id sounds again.</summary>
+    partial void WarfrontDropLive(ushort id);
 
     /// <summary>The powerup drop the own Use is held on (0: none), and when the hold began (seconds, the frame clock).</summary>
     ushort _musouHoldFor;

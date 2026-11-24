@@ -26,9 +26,17 @@ public class WarfrontWalkOverTests
 
     static SimConfig NoWarfront(SimConfig c) => c with { Extras = c.Extras & ~ContentExtras.Warfront };
 
-    static World Battle(bool warfront)
+    /// <summary>Two more rifles the class may carry (weapons 2 and 3), for the crates that fill a slot or would replace one.</summary>
+    static SimConfig WithSpares(SimConfig c) => c with
+    {
+        Weapons = [.. c.Weapons, c.Weapons[0] with { Name = "rifle_b" }, c.Weapons[0] with { Name = "rifle_c" }],
+        Classes = [.. c.Classes.Select(k => k with { PrimaryChoices = [0, 2, 3] })],
+    };
+
+    static World Battle(bool warfront, bool spares = false)
     {
         var config = WithBoxes(WarfrontBattleTests.WarfrontConfig);
+        if (spares) config = WithSpares(config);
         var w = TfwRig.War(null, warfront ? config : NoWarfront(config));
         TfwRig.Steps(w, 5);
         TfwRig.Deploy(w);
@@ -89,12 +97,92 @@ public class WarfrontWalkOverTests
     }
 
     [Fact]
-    public void In_Warfront_walking_over_a_crate_takes_it()
+    public void In_Warfront_walking_over_a_crate_that_refills_takes_it()
     {
         var w = Battle(warfront: true);
         var crate = w.MusouSpawnDrop(Human, Feet(w), 0, crate: true)!.Value;   // the class's own rifle: a found copy refills
         w.Step(_ => default);
         Assert.Equal(MusouDropState.Picked, StateOf(w, crate.Id));
+    }
+
+    [Fact]
+    public void In_Warfront_walking_over_a_crate_that_fills_a_free_slot_takes_it()
+    {
+        var w = Battle(warfront: true, spares: true);
+        var kit = w.Tfw!.Rewards.Kit(Human, w.Players[Human].Class);
+        Assert.DoesNotContain(3, kit.Weapons);
+        var crate = w.MusouSpawnDrop(Human, Feet(w), 3, crate: true)!.Value;
+        w.Step(_ => default);
+        Assert.Equal(MusouDropState.Picked, StateOf(w, crate.Id));
+        Assert.Contains(3, kit.Weapons);
+    }
+
+    [Fact]
+    public void In_Warfront_a_crate_that_would_replace_a_weapon_is_not_walked_over_and_E_takes_it()
+    {
+        var w = Battle(warfront: true, spares: true);
+        var kit = w.Tfw!.Rewards.Kit(Human, w.Players[Human].Class);
+        for (int k = 0; k < kit.Weapons.Length; k++) kit.Weapons[k] = 2;   // every extra slot full (of another weapon)
+        var crate = w.MusouSpawnDrop(Human, Feet(w), 3, crate: true)!.Value;
+        TfwRig.Seconds(w, 1f);
+        Assert.Equal(MusouDropState.Live, StateOf(w, crate.Id));
+        Assert.DoesNotContain(3, kit.Weapons);
+        w.Step(_ => Press);
+        Assert.Equal(MusouDropState.Picked, StateOf(w, crate.Id));
+        Assert.Contains(3, kit.Weapons);
+    }
+
+    [Fact]
+    public void In_Warfront_a_crate_that_cannot_be_given_stays()
+    {
+        var w = Battle(warfront: true);
+        var crate = w.MusouSpawnDrop(Human, Feet(w), 50, crate: true)!.Value;   // no such weapon: TfwTake refuses it
+        TfwRig.Seconds(w, 1f);
+        Assert.Equal(MusouDropState.Live, StateOf(w, crate.Id));
+    }
+
+    [Fact]
+    public void In_Warfront_another_humans_drop_is_not_taken()
+    {
+        var w = Battle(warfront: true);
+        w.Spawn(2, w.AssignClass(0));
+        TfwRig.Steps(w, 2);
+        Set(w, 2, p => p with { Position = Feet(w) + new Vector3(6f, 0f, 0f) });
+        var drop = w.MusouSpawnDrop(2, Feet(w), Powerup)!.Value;   // under player 1's feet, player 2's own
+        w.Step(_ => default);
+        Assert.Equal(MusouDropState.Live, StateOf(w, drop.Id));
+        Assert.False(w.MusouBuffActive(Human, MusouPowerup.DoubleDamage));
+    }
+
+    [Fact]
+    public void In_Warfront_a_contested_box_goes_to_the_lower_id()
+    {
+        var w = Battle(warfront: true);
+        w.Spawn(2, w.AssignClass(0));
+        TfwRig.Steps(w, 2);
+        var at = Feet(w);
+        Set(w, 2, p => p with { Position = at, Clip = 2 });
+        Set(w, Human, p => p with { Clip = 2 });
+        var box = w.SpawnPickup(0, at)!.Value;
+        long before = w.PickupEventsTotal;
+        w.Step(_ => default);
+        var e = Assert.Single(w.PickupEventLog.Skip(w.PickupEventLog.Count - (int)(w.PickupEventsTotal - before)));
+        Assert.Equal((box.Id, PickupEnd.Collected, Human), (e.Id, e.End, e.Collector));
+    }
+
+    [Fact]
+    public void In_Warfront_a_dead_player_takes_nothing()
+    {
+        var w = Battle(warfront: true);
+        Assert.True(w.TfwKillForTests(Human));
+        w.Step(_ => default);
+        Assert.False(w.Players[Human].Alive);
+        var drop = w.MusouSpawnDrop(Human, Feet(w), Powerup)!.Value;
+        var box = w.SpawnPickup(0, Feet(w))!.Value;
+        w.Step(_ => default);
+        Assert.NotEqual(MusouDropState.Picked, StateOf(w, drop.Id));   // a dead player's drops end as expired (tied to a life)
+        Assert.False(w.MusouBuffActive(Human, MusouPowerup.DoubleDamage));
+        Assert.Contains(w.LivePickups, p => p.Id == box.Id);
     }
 
     [Fact]
@@ -140,7 +228,7 @@ public class WarfrontWalkOverTests
         Assert.Equal(MusouDropState.Live, StateOf(w, drop.Id));
         Assert.False(w.MusouBuffActive(puppet, MusouPowerup.DoubleDamage));
         Assert.DoesNotContain(w.PickupEventLog.Skip(w.PickupEventLog.Count - (int)(w.PickupEventsTotal - before)), e => e.Collector == puppet);
-        Assert.True(w.LivePickups.Any(p => p.Id == box.Id) || w.PickupEventLog.Any(e => e.Id == box.Id && e.Collector != puppet));
+        Assert.Contains(w.LivePickups, p => p.Id == box.Id);   // the human is full: only the puppet could want it, and it takes nothing
     }
 
     [Fact]

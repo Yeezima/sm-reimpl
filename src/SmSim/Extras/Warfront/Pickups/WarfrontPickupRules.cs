@@ -5,9 +5,9 @@ namespace SmSim.Extras.Warfront;
 
 /// <summary>
 /// Warfront's walk-over pickups (owner 2026-11-25: "make a change so that pickups are picked up just by walking over them"; on the cards: "Warfront only" and "Weapons stay on E"). A living human takes his own
-/// drops that are not weapons (the powerups, the crates) and any ammunition or equipment box by standing over one: within <see cref="WalkOverMetres"/> of his feet on the flat and <see cref="WalkOverHeight"/>
+/// drops that are not weapons (the powerups, and a crate that replaces nothing) and any ammunition or equipment box by standing over one: within <see cref="WalkOverMetres"/> of his feet on the flat and <see cref="WalkOverHeight"/>
 /// up or down (kind ours). No press and no hold. A weapon or melee drop still needs the interact press, as in Musou Mode. A drop that cannot be given now stays and is taken when it can: a box that would add
-/// nothing (every weapon and the equipment full) stays on the floor, a crate whose weapon cannot be given now stays. The AI Marines (the retainers among them) take nothing. Musou Mode and Classic are unchanged.
+/// nothing (every weapon and the equipment full) stays on the floor, a crate whose weapon cannot be given now stays, and a crate that would replace a weapon needs E. The AI Marines (the retainers among them) take nothing. Musou Mode and Classic are unchanged.
 /// </summary>
 public static class WarfrontPickupRules
 {
@@ -18,7 +18,8 @@ public static class WarfrontPickupRules
     public const float WalkOverHeight = 1.0f;
 
     /// <summary>
-    /// Whether a crate is walked over (the lead's brief of 2026-11-25 lists crates with the walk-over pickups). A Musou Mode crate holds a weapon roll: false puts crates back on the press with the weapons.
+    /// Whether a crate may be walked over (the lead's brief of 2026-11-25 lists crates with the walk-over pickups). A Musou Mode crate holds a weapon roll, so the World walks one over only when it fills a free slot
+    /// or refills a weapon owned (the lead's decision, 2026-11-25: one that would replace a weapon stays and needs E; <c>World.CrateReplaces</c>); false puts every crate back on the press with the weapons.
     /// Crates are not placed today (<see cref="MusouDropRules.WeaponDrops"/> is off), so this changes nothing in play until the weapon drops come back.
     /// </summary>
     public const bool CratesWalkOver = true;
