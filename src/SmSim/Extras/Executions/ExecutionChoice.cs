@@ -15,16 +15,19 @@ public enum ExecutionEventKind : byte { Other = 0, Sync = 1, Contact = 2, Kill =
 public readonly record struct ExecutionEvent(ExecutionEventKind Kind, float Seconds, string? Name = null);
 
 /// <summary>
-/// One of an attacker move's distance variants (the original blends them on <c>FLT_MeleeTargetDistance</c>; inventory 1.7): its clip, the distance it is authored
-/// for (metres: 1, 3.5, 7; the arm break 2, 4, 7) and its root motion (X right, Y forward, Z up in metres from the start, W the turn in radians; evenly spaced
-/// over the clip; empty: none).
+/// One of an attacker move's distance variants (the original blends them on <c>FLT_MeleeTargetDistance</c>; inventory 1.7): its clip, its forward distance
+/// (metres; the clip names say 1, 3.5, 7 and the arm break 2, 4, 7, but <c>ExecutionClipReader.Fill</c> derives it from the clips' root travel) and its root
+/// motion (X right, Y forward, Z up in metres from the start, W the turn in radians; evenly spaced over the clip; empty: none). <see cref="Distance"/> is not
+/// always the distance the variant plays at: the reference clip's is the row's <see cref="ExecutionRow.Offset"/>.Y. Use <see cref="ExecutionRow.DistanceOf"/>
+/// and <see cref="ExecutionRow.Blend"/>.
 /// </summary>
 public sealed record ExecutionVariant(string Clip, float Distance, IReadOnlyList<Vector4> Root);
 
 /// <summary>
 /// One execution move. Who performs it: <see cref="AttackerClass"/> (a <see cref="ClassLoadout.Name"/>, "*" any) with a weapon of <see cref="Weapon"/>'s family
 /// (<see cref="ExecutionWeapons"/>). On what: <see cref="Target"/>, a target kind key (<see cref="ExecutionTargets"/>: data, so a roster maps onto it).
-/// The clips: the attacker's reference clip (<see cref="AttackerClip"/>, the variant the victim's half is authored against, 3.5 m in the original) and the
+/// The clips: the attacker's reference clip (<see cref="AttackerClip"/>, the variant the victim's half is authored against: the original's <c>…_3.5m</c> clip,
+/// whose authored gap is <see cref="Offset"/>.Y, 3.37 to 4.00 m in the inventory) and the
 /// victim's, their lengths (seconds, after the sequencer's playback speed) and <see cref="Events"/>. Where the victim stands at the start:
 /// <see cref="Offset"/> (metres in the attacker's frame for the reference clip; X right, Y forward, Z up) and how it faces (<see cref="RelativeYaw"/>: radians,
 /// victim yaw minus attacker yaw; π faces each other). The source: <see cref="Graph"/> and <see cref="Sequencer"/>.
@@ -235,7 +238,8 @@ public static class ExecutionTargets
         _ => ClassicRaceSwap ? [(SpaceMarine, false), (ChaosMarine, true)] : [(SpaceMarine, false)],
     };
 
-    /// <summary>As <see cref="Classic(Race)"/> for a side's own race (<see cref="Races.OfSide"/>); kept for callers without the class. Prefer the race.</summary>
+    /// <summary>As <see cref="Classic(Race)"/> for a side's own race (<see cref="Races.OfSide"/>). Wrong for an Ork Boy player (either team): use the race.</summary>
+    [Obsolete("Classic victims are chosen by race (an Ork Boy player sits on either team): use Classic(Races.Of(config, class, team)).")]
     public static IReadOnlyList<(string Kind, bool RaceSwapped)> Classic(Team side) => Classic(Races.OfSide(side));
 
     /// <summary>Whether a player of <paramref name="race"/> can perform an execution: not an Ork (no Ork attacker clips exist; lead 38, 2026-11-25).</summary>
@@ -372,18 +376,24 @@ public static class ExecutionChoice
     /// <summary>
     /// The first Ork of <see cref="RankOrks"/> whose move also aligns (<see cref="ChooseWarfront"/>), and that result; (0, a failed result) when none does.
     /// Use this for the HUD prompt as well as the press, so the prompt shows the Ork the press takes. The pick among that Ork's moves is seeded by
-    /// <paramref name="seedFor"/>(id) (null: the first that fits; the prompt does not depend on the pick, only on whether one fits).
+    /// <paramref name="seedFor"/>(id). Null <paramref name="seedFor"/> is the prompt's mode: the first move that fits, and each Ork's check stops at it
+    /// (<see cref="ExecutionAlignResult.Tried"/> then lists only the moves checked); the Ork chosen is the same as the press's, which only adds the pick.
+    /// <paramref name="bystanders"/>: as <see cref="ExecutionAlign.Align"/> (the feet of other characters the slide must not pass through; null: none).
+    /// <para>For X4: which characters count as bystanders is the caller's choice. Passing every horde Ork near the executor would refuse most Warfront executions
+    /// (the slide needs two capsule radii, 0.9 m, of clearance from each); the other players (and at most the Orks the executor is in contact with) are the
+    /// natural set. Cost: every ranked Ork whose moves do not fit costs a full alignment (slide plus probes) of each of its rows, so the prompt is not free per
+    /// tick; run it at most every few ticks (or when the executor, the ranked list or the facing changes) and on the press itself.</para>
     /// </summary>
     public static (ushort Id, ExecutionAlignResult Result) ChooseAlignedOrk(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey,
         IReadOnlyList<MusouEnemy> enemies, IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null,
-        Func<ushort, ulong?>? seedFor = null)
+        Func<ushort, ulong?>? seedFor = null, IReadOnlyList<Vector3>? bystanders = null)
     {
         ExecutionAlignResult? first = null;
         foreach (ushort id in RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved))
             for (int k = 0; k < enemies.Count; k++)
             {
                 if (enemies[k].Id != id) continue;
-                var r = ChooseWarfront(executor, attackerClass, weaponKey, enemies[k], rows, c, world, seedFor?.Invoke(id));
+                var r = Warfront(executor, attackerClass, weaponKey, enemies[k], rows, c, world, seedFor?.Invoke(id), bystanders, firstFit: seedFor is null);
                 if (r.Ok) return (id, r);
                 first ??= r;
                 break;
@@ -440,24 +450,30 @@ public static class ExecutionChoice
     /// <summary>
     /// Warfront: the move <paramref name="executor"/> plays on Ork <paramref name="e"/> with a weapon <paramref name="weaponKey"/>: a seeded pick (<paramref name="seed"/>,
     /// <see cref="Seed"/>) among the rows for its kind that align (<see cref="ExecutionAlign.Align"/>); a failed result (nothing happens) when none does.
+    /// <paramref name="bystanders"/>: as <see cref="ExecutionAlign.Align"/> (null: none checked; see <see cref="ChooseAlignedOrk"/> on who should count).
     /// </summary>
     public static ExecutionAlignResult ChooseWarfront(in PlayerState executor, string attackerClass, string weaponKey, in MusouEnemy e,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed)
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders = null) =>
+        Warfront(executor, attackerClass, weaponKey, e, rows, c, world, seed, bystanders, firstFit: false);
+
+    static ExecutionAlignResult Warfront(in PlayerState executor, string attackerClass, string weaponKey, in MusouEnemy e,
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders, bool firstFit)
     {
         var family = ExecutionWeapons.FamilyOf(weaponKey);
         var kind = ExecutionTargets.Of(e.Type);
         var variants = family is null || kind is null || !ExecutionTargets.CanExecute(Races.Of(c, executor.Class, executor.Team)) ? [] : Rows(rows, attackerClass, family, kind);
-        return ExecutionAlign.Align(executor, StandIn(executor, e), variants, c, world, seed);
+        return ExecutionAlign.Check(executor, StandIn(executor, e), variants, c, world, seed, bystanders, firstFit);
     }
 
     /// <summary>
     /// Classic: the finisher <paramref name="attacker"/> plays on the corpse of <paramref name="victim"/> with a weapon <paramref name="weaponKey"/>: for each kind the
     /// victim's race takes (<see cref="ExecutionTargets.Classic(Race)"/> of <see cref="Races.Of"/>, in order) a seeded pick among the rows that align;
     /// <see cref="ExecutionAlignResult.RaceSwapped"/> when the Chaos Marine rows play on a loyalist. A failed result (the normal kill stands) when no row fits or
-    /// the attacker is an Ork (<see cref="ExecutionTargets.CanExecute"/>).
+    /// the attacker is an Ork (<see cref="ExecutionTargets.CanExecute"/>). <paramref name="bystanders"/>: as <see cref="ExecutionAlign.Align"/> (the feet of
+    /// the other living players, not the pair; null: none checked).
     /// </summary>
     public static ExecutionAlignResult ChooseClassic(in PlayerState attacker, string attackerClass, string weaponKey, in PlayerState victim,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed)
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders = null)
     {
         ExecutionAlignResult? first = null;
         if (ExecutionWeapons.FamilyOf(weaponKey) is { } family && ExecutionTargets.CanExecute(Races.Of(c, attacker.Class, attacker.Team)))
@@ -465,7 +481,7 @@ public static class ExecutionChoice
             {
                 var variants = Rows(rows, attackerClass, family, kind);
                 if (variants.Count == 0) continue;
-                var r = ExecutionAlign.Align(attacker, victim, variants, c, world, seed);
+                var r = ExecutionAlign.Align(attacker, victim, variants, c, world, seed, bystanders);
                 if (r.Ok) return r with { RaceSwapped = swapped };
                 first ??= r;
             }

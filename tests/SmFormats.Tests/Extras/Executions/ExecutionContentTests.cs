@@ -61,6 +61,47 @@ public class ExecutionContentTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_reader_refuses_an_extracted_motion_frame_other_than_z_up_y_forward()
+    {
+        Vector4[] motion = [new(0, 0, 0, 0), new(0, 1f, 0, 0)];
+        Track[] tracks = [new(Vector3.Zero, Quaternion.Identity), new(new Vector3(0f, 0f, 1.7f), Quaternion.Identity)];
+        var rig = new HavokCharacterFile(Build(Bones,
+        [
+            new Clip("Y_Up", 1f, 31, tracks, motion, MotionUp: Vector3.UnitY, MotionForward: Vector3.UnitZ),
+            new Clip("X_Forward", 1f, 31, tracks, motion, MotionForward: Vector3.UnitX),
+            new Clip("Zero_Up", 1f, 31, tracks, motion, MotionUp: Vector3.Zero),
+            new Clip("NaN_Forward", 1f, 31, tracks, motion, MotionForward: new Vector3(float.NaN, 1f, 0f)),
+            new Clip("Scaled", 1f, 31, tracks, motion, MotionUp: new Vector3(0f, 0f, 3f), MotionForward: new Vector3(0f, 2f, 0f)),
+        ]));
+        foreach (var name in new[] { "Y_Up", "X_Forward", "Zero_Up", "NaN_Forward" })
+            Assert.Throws<NotSupportedException>(() => ExecutionClipReader.Read(rig, name, []));
+        var scaled = ExecutionClipReader.Read(rig, "Scaled", []);   // unnormalised but +Z up, +Y forward: read
+        Assert.Equal(ExecutionClipReader.ExtractedMotion, scaled.RootSource);
+    }
+
+    [Fact]
+    public void Fill_derives_distances_from_root_travel_only_between_extracted_motion_paths()
+    {
+        var rig = Rig();
+        var a = ExecutionClipReader.Read(rig, "SM_SYNC_Attack", Graphs());   // extracted motion, 1 m travel
+        var v = ExecutionClipReader.Read(rig, "SM_SYNC_Victim", Graphs());   // root bone
+        var row = new ExecutionRow("cs", "*", ExecutionWeapons.Chainsword, ExecutionTargets.ChaosMarine, a.Clip, v.Clip, 0f, 0f, [], new Vector3(0, 1.2f, 0), MathF.PI, "SM_Base_MP", "Sync Kill Chainsword");
+        // A root-bone variant (its frame unchecked) with 2 m of travel: its distance falls back to the name's.
+        var boneVariant = v with { Clip = "SM_SYNC_Attack_7m", Root = [Vector4.Zero, new Vector4(0f, 2f, 0f, 0f)] };
+        Assert.Equal(7f, ExecutionClipReader.Fill(row, a, v, [(a, null), (boneVariant, null)]).AttackerVariants[1].Distance);
+        // A root-bone reference: no travel-based distance for the others either.
+        var extracted7 = a with { Clip = "SM_SYNC_Attack_7m", Root = [Vector4.Zero, new Vector4(0f, 2f, 0f, 0f)] };
+        Assert.Equal(2.2f, ExecutionClipReader.Fill(row, a, v, [(a, null), (extracted7, null)]).AttackerVariants[1].Distance, 4);
+        Assert.Equal(7f, ExecutionClipReader.Fill(row, v with { Clip = a.Clip }, v, [(extracted7, null)]).AttackerVariants[0].Distance);
+        // The victim sequencer given is stored on the row, so the catalogue's hash carries it.
+        var filled = ExecutionClipReader.Fill(row, a, v, victimSequencer: "Other");
+        Assert.Equal("Other", filled.VictimSequencer);
+        Assert.Null(ExecutionClipReader.Fill(row, a, v).VictimSequencer);
+        byte[] Hash(ExecutionRow r) { using var ms = new MemoryStream(); using (var w = new BinaryWriter(ms)) ExecutionCatalogue.Create([r]).Write(w); return ms.ToArray(); }
+        Assert.NotEqual(Hash(ExecutionClipReader.Fill(row, a, v)), Hash(filled));
+    }
+
+    [Fact]
     public void Guess_reads_names_and_fill_takes_lengths_and_paths()
     {
         Assert.Equal(ExecutionEventKind.Kill, ExecutionClipReader.Guess("ACTN_Kill_Victim"));
@@ -144,6 +185,7 @@ public class ExecutionContentTests(ITestOutputHelper output)
     public void Real_paired_clips_read_from_the_install()
     {
         int read = 0;
+        var refused = new List<string>();
         var byName = new Dictionary<string, ExecutionClip>(StringComparer.OrdinalIgnoreCase);
         HavokCharacterFile? campaign = null;
         foreach (var profile in PairRigs)
@@ -158,7 +200,12 @@ public class ExecutionContentTests(ITestOutputHelper output)
             {
                 ExecutionClip clip;
                 try { clip = ExecutionClipReader.Read(character, name, graphs); }
-                catch (Exception e) when (e is NotSupportedException or InvalidDataException) { output.WriteLine($"  {name}: not read ({e.Message})"); continue; }
+                catch (Exception e) when (e is NotSupportedException or InvalidDataException)
+                {
+                    output.WriteLine($"  {name}: not read ({e.Message})");
+                    refused.Add($"{profile.Name}/{name}: {e.Message}");
+                    continue;
+                }
                 Assert.True(clip.Seconds > 0f && float.IsFinite(clip.Seconds), name);
                 Assert.All(clip.Root, r => Assert.True(float.IsFinite(r.X) && float.IsFinite(r.Y) && float.IsFinite(r.Z) && float.IsFinite(r.W)));
                 var end = clip.Root.Count > 0 ? clip.Root[^1] : Vector4.Zero;
@@ -169,6 +216,9 @@ public class ExecutionContentTests(ITestOutputHelper output)
             }
         }
         Assert.True(read > 0, "no paired-looking clip read from the install");
+        // Every refusal is reported, never skipped silently (the frame check included): none is expected today; a new one is a decision for the catalogue.
+        output.WriteLine($"{read} read, {refused.Count} refused");
+        Assert.True(refused.Count == 0, "clips the reader refused:\n" + string.Join("\n", refused));
         // The inventory's Ork Slam (O3): both halves 3.667 s, the attacker's 3.5 m variant carried far forward, a blendable 1 / 3.5 / 7 m set.
         Assert.Equal(3.667f, byName["SM_SYN_ATT_F_ORKSLAM_3.5M"].Seconds, 2);
         Assert.Equal(3.667f, byName["BOY_SYN_ATT_F_ORKSLAM_3.5M"].Seconds, 2);

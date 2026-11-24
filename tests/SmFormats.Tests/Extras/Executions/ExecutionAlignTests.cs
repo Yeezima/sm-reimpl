@@ -225,8 +225,15 @@ public class ExecutionAlignTests
         Assert.Equal(ExecutionAlignFailure.Bystander,
             ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open(), bystanders: [new Vector3(0.3f, 0.7f, 0f)]).Failure);
         Assert.True(ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open(), bystanders: [new Vector3(3f, 0.7f, 0f), new Vector3(0f, -0.5f, 0f)]).Ok);
+        // A prior push of the caller's own step (a body overlapping the attacker), which the alignment's glides must leave as it was.
+        using (PlayerCollision.Use(PlayerCollision.See([a, Body(3, new Vector3(0.5f, 0f, 0f))], 1, 0, 0, Config)))
+            Movement.Glide(a, 0f, Vector2.Zero, Config, Open());
         var push = PlayerCollision.LastPush;
+        Assert.NotEqual(Vector2.Zero, push);
         Assert.True(ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open()).Ok);
+        Assert.Equal(push, PlayerCollision.LastPush);
+        Assert.Equal(ExecutionAlignFailure.Bystander,
+            ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open(), bystanders: [new Vector3(0.3f, 0.7f, 0f)]).Failure);
         Assert.Equal(push, PlayerCollision.LastPush);
     }
 

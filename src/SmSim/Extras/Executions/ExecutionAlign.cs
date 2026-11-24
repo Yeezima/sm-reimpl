@@ -90,8 +90,17 @@ public static class ExecutionAlign
     /// grounded. <see cref="PlayerCollision.LastPush"/> is left as it was.
     /// </summary>
     public static ExecutionAlignResult Align(in PlayerState attacker, in PlayerState victim, IReadOnlyList<ExecutionRow> variants, SimConfig c, CollisionWorld? world,
-        ulong? seed = null, IReadOnlyList<Vector3>? bystanders = null)
+        ulong? seed = null, IReadOnlyList<Vector3>? bystanders = null) =>
+        Check(attacker, victim, variants, c, world, seed, bystanders, firstFit: false);
+
+    /// <summary>
+    /// <see cref="Align"/>; with <paramref name="firstFit"/> (and no seed) it stops at the first variant that fits: the same result, with
+    /// <see cref="ExecutionAlignResult.Tried"/> cut after it (the prompt's mode, <see cref="ExecutionChoice.ChooseAlignedOrk"/>).
+    /// </summary>
+    internal static ExecutionAlignResult Check(in PlayerState attacker, in PlayerState victim, IReadOnlyList<ExecutionRow> variants, SimConfig c, CollisionWorld? world,
+        ulong? seed, IReadOnlyList<Vector3>? bystanders, bool firstFit)
     {
+        firstFit &= seed is null;
         var tried = new ExecutionAlignFailure[variants.Count];
         var passed = new List<ExecutionAlignResult>();
         var push = PlayerCollision.LastPush;
@@ -100,7 +109,11 @@ public static class ExecutionAlign
             var r = Try(attacker, victim, variants[i], c, world, bystanders);
             PlayerCollision.LastPush = push;
             tried[i] = r.Failure;
-            if (r.Ok) passed.Add(r with { Variant = i });
+            if (r.Ok)
+            {
+                passed.Add(r with { Variant = i });
+                if (firstFit) { Array.Resize(ref tried, i + 1); break; }
+            }
         }
         if (passed.Count > 0) return passed[seed is { } s ? (int)(s % (ulong)passed.Count) : 0] with { Tried = tried };
         return new ExecutionAlignResult(false, tried.Length == 0 ? ExecutionAlignFailure.NoVariant : tried[0], -1, null, attacker, victim.Position, victim.Yaw, 0f, 0f, 0, tried);
@@ -212,7 +225,7 @@ public static class ExecutionAlign
 
     /// <summary>
     /// Probes the feet's path <paramref name="path"/> (polyline) for a character of <paramref name="side"/>: every <see cref="ProbeSpacing"/>, ground below
-    /// (from <see cref="ProbeLift"/> above the previous ground, at most the step height below it), the slope there, a waist sweep from the previous probe, the
+    /// (from <see cref="ProbeLift"/> above the previous ground, at most the step height below it), the slope there, the two wall sweeps from the previous probe (<see cref="Sweeps"/>), the
     /// kill volumes and the spawn-room blockers. <see cref="ExecutionAlignFailure.None"/> when clear.
     /// </summary>
     public static ExecutionAlignFailure Probe(IReadOnlyList<Vector3> path, Team side, SimConfig c, CollisionWorld world)

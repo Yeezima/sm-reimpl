@@ -27,8 +27,12 @@ public sealed record ExecutionClip(string Clip, float Seconds, int Frames, IRead
 /// </summary>
 public static class ExecutionClipReader
 {
+    /// <summary><see cref="ExecutionClip.RootSource"/> of a path read from the clip's extracted motion (its frame checked by <see cref="Read"/>).</summary>
+    public const string ExtractedMotion = "extracted motion";
+
     /// <summary>Reads <paramref name="clip"/> from <paramref name="character"/> with the sequencers of <paramref name="graphs"/> (null: read them from the same packfile).</summary>
     /// <exception cref="KeyNotFoundException">The clip is not in the packfile.</exception>
+    /// <exception cref="NotSupportedException">The clip's extracted motion has a reference frame other than +Z up, +Y forward (a zero or non-finite axis included).</exception>
     public static ExecutionClip Read(HavokCharacterFile character, string clip, IReadOnlyList<BehaviorGraph>? graphs = null)
     {
         var bound = character.LoadAnimation(clip);
@@ -36,13 +40,14 @@ public static class ExecutionClipReader
         IReadOnlyList<Vector4> root;
         string source;
         var motion = character.LoadExtractedMotion(clip);
-        // As EvadeTuning: the samples are read in the character's frame only when the reference frame is +Z up, +Y forward.
-        if (motion is { Samples.Count: > 0 } && (Vector3.Dot(Vector3.Normalize(motion.Up), Vector3.UnitZ) < 0.999f || Vector3.Dot(Vector3.Normalize(motion.Forward), Vector3.UnitY) < 0.999f))
+        // As EvadeTuning: the samples are read in the character's frame only when the reference frame is +Z up, +Y forward. Written as !(dot >= …) so a zero or
+        // non-finite axis (NaN after normalising) is refused too.
+        if (motion is { Samples.Count: > 0 } && !(Vector3.Dot(Vector3.Normalize(motion.Up), Vector3.UnitZ) >= 0.999f && Vector3.Dot(Vector3.Normalize(motion.Forward), Vector3.UnitY) >= 0.999f))
             throw new NotSupportedException($"'{clip}': the extracted motion's frame is not +Z up, +Y forward.");
         if (motion is { Samples.Count: > 0 })
         {
             root = motion.Samples.ToArray();
-            source = "extracted motion";
+            source = ExtractedMotion;
         }
         else if (Array.IndexOf(bound.TrackToBone, (short)0) is int track and >= 0)
         {
@@ -121,15 +126,17 @@ public static class ExecutionClipReader
     /// playback speed of the row's own sequencer when the clip names it (the victim's: of <paramref name="victimSequencer"/> when given, else 1), and the
     /// attacker's distance variants from <paramref name="variants"/>. A variant's distance, unless given: the reference clip's is the row's authored gap
     /// <see cref="ExecutionRow.Offset"/>.Y; another's is that gap plus the difference of its forward root travel from the reference clip's (each variant covers the
-    /// extra gap with its own travel: the slam's 4.39 / 6.89 / 10.40 m give 1.0 / 3.5 / 7.0 m); without root travel the name's <c>…_3.5m</c>
-    /// (<see cref="MeleeMotion.DistanceOf"/>). The row's events, offset, yaw and source are unchanged.
+    /// extra gap with its own travel: the slam's 4.39 / 6.89 / 10.40 m give 1.0 / 3.5 / 7.0 m), only when both paths are extracted motion (whose frame
+    /// <see cref="Read"/> checks; a root-bone path's frame is unchecked); otherwise the name's <c>…_3.5m</c> (<see cref="MeleeMotion.DistanceOf"/>).
+    /// <paramref name="victimSequencer"/>, when given, is stored as the row's <see cref="ExecutionRow.VictimSequencer"/> (so the catalogue hash carries it).
+    /// The row's events, offset, yaw and source are unchanged.
     /// </summary>
     public static ExecutionRow Fill(ExecutionRow row, ExecutionClip attacker, ExecutionClip victim, IEnumerable<(ExecutionClip Clip, float? Distance)>? variants = null,
         string? victimSequencer = null)
     {
         float Length(ExecutionClip clip, string? sequencer) =>
             clip.Seconds / (sequencer is not null && clip.Uses.FirstOrDefault(u => string.Equals(u.Sequencer, sequencer, StringComparison.OrdinalIgnoreCase)) is { } use ? use.PlaybackSpeed : 1f);
-        float? Travel(ExecutionClip clip) => clip.Root.Count > 1 ? clip.Root[^1].Y - clip.Root[0].Y : null;
+        float? Travel(ExecutionClip clip) => clip.Root.Count > 1 && clip.RootSource == ExtractedMotion ? clip.Root[^1].Y - clip.Root[0].Y : null;
         float? reference = Travel(attacker);
         float DistanceOf(ExecutionClip v)
         {
@@ -137,9 +144,10 @@ public static class ExecutionClipReader
             return reference is { } r && Travel(v) is { } t ? row.Offset.Y + (t - r) : MeleeMotion.DistanceOf(v.Clip);
         }
         var list = variants?.Select(v => new ExecutionVariant(v.Clip.Clip, v.Distance ?? DistanceOf(v.Clip), v.Clip.Root)).ToArray();
+        var victimSeq = victimSequencer ?? row.VictimSequencer;
         return row with
         {
-            AttackerSeconds = Length(attacker, row.Sequencer), VictimSeconds = Length(victim, victimSequencer ?? row.VictimSequencer),
+            AttackerSeconds = Length(attacker, row.Sequencer), VictimSeconds = Length(victim, victimSeq), VictimSequencer = victimSeq,
             AttackerRoot = attacker.Root, VictimRoot = victim.Root,
             AttackerVariants = list ?? row.AttackerVariants,
         };
