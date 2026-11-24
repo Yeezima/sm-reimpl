@@ -65,9 +65,25 @@ public static class ExecutionRows
         new($"{move}.{family}", "*", family, kind, attackerClip, victimClip, attackerSeconds, victimSeconds, Events(t), new Vector3(x, y, 0f), MathF.PI, graph, sequencer)
         {
             Priority = priority,
+            VictimSequencer = VictimSequencers[move],
             AttackerVariants = variants.Select(v => new ExecutionVariant(v.Clip, v.Gap, [])).ToArray(),
             Note = note,
         };
+
+    /// <summary>
+    /// Each move's victim sequencer: the victim graph state that plays its half (the boy's "SYNC KILL / &lt;family&gt; Sync Kill / ..." states, the Gretchin's
+    /// "SYNC / Sync - Chainsword", the Chaos Marine's "... CSM Loses ( Melee )", the Bloodletter's "SYNC / ... Sync", the guardsman's "SYNC KILL / CS Sync Kill"),
+    /// read by <c>smtool sync-kills</c>. Its playback speed gives <see cref="ExecutionRow.VictimSeconds"/>.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> VictimSequencers = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["O1"] = "CS Grind Sequencer", ["O2"] = "CS Grind 2 Sequencer", ["O3"] = "Slam Sequencer", ["O4"] = "Arm Break Sequencer",
+        ["O5"] = "Decap Sequencer", ["O6"] = "Hack Sequencer", ["O7"] = "Head Pop Sequencer", ["O8"] = "SequencerGenerator Stick00",
+        ["O9"] = "SequencerGenerator_Sync_Death_Punch",
+        ["C1"] = "SequencerGenerator CSM CS Sync Death", ["C2"] = "SequencerGenerator CSM Ax Sync Death", ["C3"] = "SequencerGenerator CSM TH Sync Death",
+        ["B1"] = "Sequencer_Sync_Cutthroat", ["B2"] = "Sequencer_Sync_Tongue_Grab", ["B3"] = "Sequencer_Sync_Thunder_Hammer",
+        ["R1"] = "SequencerGenerator_Renegade_Backhand",
+    };
 
     // ---------------------------------------------------------------- the moves (docs/executions-coverage.md tables 2.1, 2.3, 2.4)
 

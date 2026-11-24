@@ -111,6 +111,19 @@ public class ExecutionRowsTests(ITestOutputHelper output)
         Assert.DoesNotContain(Catalogue.Rows, r => r.Target == ExecutionTargets.SpaceMarine);
         Assert.Contains((ExecutionTargets.ChaosMarine, true), ExecutionTargets.Classic(Team.SpaceMarines));
         Assert.Equal([(ExecutionTargets.ChaosMarine, false)], ExecutionTargets.Classic(Team.Chaos));
+        // By race (lead decision): a loyalist takes the Chaos Marine rows swapped, a Chaos player his own, an Ork player the Ork Boy rows; Ork players never execute.
+        Assert.Contains((ExecutionTargets.ChaosMarine, true), ExecutionTargets.Classic(Race.SpaceMarines));
+        Assert.Equal([(ExecutionTargets.ChaosMarine, false)], ExecutionTargets.Classic(Race.Chaos));
+        foreach (var (kind, _) in ExecutionTargets.Classic(Race.Orks))
+            foreach (var w in new[] { "chainsword", "power_axe", "thunder_hammer", "combat_knife", "powersword" })
+                Assert.NotEmpty(Catalogue.For("*", w, kind));
+        Assert.Contains(ExecutionTargets.Classic(Race.Orks), k => k.Kind == ExecutionTargets.OrkBoy);
+        Assert.False(ExecutionTargets.CanExecute(Race.Orks));
+        Assert.True(ExecutionTargets.CanExecute(Race.SpaceMarines) && ExecutionTargets.CanExecute(Race.Chaos));
+        // The daemon maul's MP key (csm_mp_melee_2hand_power_mace) plays the hammer's rows.
+        Assert.Equal(["C3.thunder_hammer"], Ids(Catalogue.For("*", "csm_mp_melee_2hand_power_mace", ExecutionTargets.ChaosMarine)));
+        // Every row names its victim sequencer.
+        Assert.All(ExecutionRows.All, r => Assert.False(string.IsNullOrEmpty(r.VictimSequencer), r.Id));
     }
 
     // ---------------------------------------------------------------- every row's clips on a synthetic catalogue
