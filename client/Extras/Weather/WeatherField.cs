@@ -174,6 +174,9 @@ public sealed partial class WeatherField : MultiMeshInstance3D
     /// <summary>Whether the field draws an install sprite now.</summary>
     public bool Sprited => _material.GetShaderParameter("use_sprite").AsSingle() > 0.5f;
 
+    /// <summary>Weather fidelity: each streak's own strength (0.6 to 1 of the tint) on; off with <c>--weather-procedural</c> (every streak at the tint, as in rain motion).</summary>
+    public void SetVary(bool on) { if (_kind != Kind.Ember) _material.SetShaderParameter("vary", on ? 1f : 0f); }
+
     public void SetTier(bool high, float softM)
     {
         if (_kind == Kind.Ember || (high == High && _material.Shader is not null && _tierSet)) return;
@@ -264,6 +267,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
             uniform float use_sprite = 0.0;
             uniform vec2 tiles = vec2(1.0);
             uniform float soft_m = 0.5;
+            uniform float vary = 0.0;
 
             """;
         const string HighExtra = """
@@ -358,6 +362,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
             float across = exp(-x * x * 3.5);
             float along = mix(0.25, 1.0, smoothstep(0.0, 0.85, UV.y)) * (1.0 - smoothstep(0.9, 1.0, UV.y)) * smoothstep(0.0, 0.08, UV.y);
             float shade = 1.0;
+            across *= mix(1.0 - 0.4 * vary, 1.0, fract(v_hash * 5.31));   // each drop its own strength (drops at different depths in the light and of different sizes), so the fall is not a grid of equal lines
             if (use_sprite > 0.5) {
                 float n = tiles.x * tiles.y;
                 float cell = floor(fract(v_hash * 7.13) * n);

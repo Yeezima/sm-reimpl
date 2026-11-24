@@ -20,6 +20,8 @@ public sealed partial class WeatherRig
     public const float RainSoftM = 0.35f, RainFarSoftM = 1.0f, GritSoftM = 0.5f, FlakeSoftM = 0.3f;
     /// <summary>The share of the grade's light the rain follows (the streaks stay a little brighter than the street they cross, as rain does against a dark wall); the ash, dust, fog and mist follow it fully.</summary>
     public const float RainLightShare = 0.5f;
+    /// <summary>The volume puff sprite covers less of its card than the procedural puff did (a cloud with gaps, not a filled disc): the dust sheets' and fog cards' alpha times this keeps the squall's and the fog's density.</summary>
+    public const float VolumeAlphaGain = 1.8f;
     /// <summary>The bounds of the light factor.</summary>
     public const float LightMin = 0.55f, LightMax = 1.15f;
 
@@ -55,6 +57,7 @@ public sealed partial class WeatherRig
             _spriteVersion = version; _tier = high; _layersSeen = LayerMask();
             var ash = WeatherSprites.Of(WeatherSprites.Role.Ash);
             _rain?.SetTier(high, RainSoftM); _rainFar?.SetTier(high, RainFarSoftM); _ashMain?.SetTier(high, GritSoftM); _ashWarn?.SetTier(high, FlakeSoftM);
+            _rain?.SetVary(!old); _rainFar?.SetVary(!old); _ashMain?.SetVary(!old);
             _rain?.UseSprite(null); _rainFar?.UseSprite(null);   // the rain keeps its procedural streak (WeatherSprites: no rain sprite in the install)
             _ashMain?.UseSprite(ash); _ashWarn?.UseSprite(ash);
             Sprite(_splashMaterial, _splash, WeatherSprites.Role.Splash, SoftDot(), angle: 25f);
@@ -66,8 +69,9 @@ public sealed partial class WeatherRig
         }
         float light = old ? 1f : LightNow(), rainLight = 1f + (light - 1f) * RainLightShare;
         Scale(_rainMaterial, rainLight); Scale(_rainFarMaterial, rainLight);
-        Scale(_ashMainMaterial, light); Scale(_ashWarnMaterial, light);
-        Scale(_splashMaterial, rainLight); Scale(_mistMaterial, light); Scale(_fogMaterial, light); Scale(_dustMaterial, light);
+        Scale(_ashMainMaterial, rainLight); Scale(_ashWarnMaterial, light);
+        float volumeGain = WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : VolumeAlphaGain;
+        Scale(_splashMaterial, rainLight); Scale(_mistMaterial, light); Scale(_fogMaterial, light, volumeGain); Scale(_dustMaterial, light, volumeGain);
         LightFactor = light;
     }
 
@@ -81,12 +85,13 @@ public sealed partial class WeatherRig
     readonly System.Collections.Generic.Dictionary<Material, Color> _lit = new();
 
     /// <summary>The rig set each layer's colour from its base tint this frame (or left it, while it fades); scaled here by the light, alpha kept.</summary>
-    void Scale(Material? m, float light)
+    void Scale(Material? m, float light, float alphaGain = 1f)
     {
         if (m is null) return;
         var c = m is ShaderMaterial sm ? sm.GetShaderParameter(PTint).AsColor() : ((StandardMaterial3D)m).AlbedoColor;
         if (_lit.TryGetValue(m, out var written) && written == c) return;   // not recoloured this frame: already lit
         var lit = Lit(c, light);
+        lit.A = Math.Clamp(lit.A * alphaGain, 0f, 1f);
         if (m is ShaderMaterial s) s.SetShaderParameter(PTint, lit); else ((StandardMaterial3D)m).AlbedoColor = lit;
         _lit[m] = lit;
     }
