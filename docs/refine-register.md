@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4098 spec table rows: **3029 tagged**, 702 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 421 | 362 | 359 | 115 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
+| Combat core (critical) | 25 | 16 | 23 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -51,20 +51,20 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 170 | 169 | 57 | 74 | 0 |
+| General game design | 179 | 178 | 63 | 77 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3029** | 2721 | 2223 | 916 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
-| confidence: low | 1068 |
-| confidence: medium | 1037 |
+| kind: ours | 1835 |
+| confidence: low | 1069 |
+| confidence: medium | 1043 |
 | notes: ours | 475 |
-| kind: interpretation | 456 |
-| notes: estimate | 306 |
+| kind: interpretation | 458 |
+| notes: estimate | 309 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -845,7 +845,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-0A7A43D6` | Rain coverage at speed | the near emitter (13 m up) and the far one (16 m up, box mode only) lead the camera by its smoothed ground velocity times a drop's fall time to eye level (0.52 s, 0.70 s), the splashes by 0.15 s; velocity smoothing 0.12 s, capped at 30 m/s, reset by a step… (s, m/s) | kind: ours; confidence: medium | owner brief item 4 (repro: a dry gap at fast sideways movement) | Rain coverage at speed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the near emitter (13 m up) and the far one (16 m up, box mode only)… | ☐ |
 
-### Combat core (gameplay-critical) (24)
+### Combat core (gameplay-critical) (25)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -935,6 +935,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B6869371` | Cards: damage | x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into any power-up's scale (melee and other), and the owner's x2 melee cap (power-ups and stims) is raised by the same factor, so the cards multiply on top of the cap (`WarfrontMeleeCap`)… (multiplier) | kind: interpretation; confidence: medium; notes: ours | owner; the stacking with power-ups ours | Cards: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into… | ☐ |
+
+*Spec section: Executions: alignment and choice (executions X2, 2026-11-25; added content, Warfront and Classic PvP Extended only; engine-free rules, not yet wired: no simulation, wire, hash or rules-version change until X1/X3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-87A7D1AE` | Posed hit volumes | an executor is hit with the MP marine's hit volumes posed by the playing attacker clip, one set per tick (at most 301 a clip), as the flight volumes; the campaign attacker clips pose on the MP ragdoll (same 50-bone skeleton) (s) | kind: interpretation; confidence: medium | the flight hit volumes' interpretation; install check 2026-11-25 (O3: 111 sets of 22 volumes) | Posed hit volumes: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: an executor is hit with the MP marine's hit volumes posed by the… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -4316,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (170)
+### General game design (179)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4552,6 +4558,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-39BBFD43` | NEW CAMPAIGN on an unusable run.json | `--warfront-new` with a damaged run.json sets it aside under records (the loader's code) and starts the new run with the notice; a newer or locked run.json is left untouched and the server refuses (exit 1) with the notice, even on NEW CAMPAIGN | kind: ours | review of codebase fix 1 | NEW CAMPAIGN on an unusable run.json: compare with SM1 by timing a run over a known distance. Ours: --warfront-new with a damaged run.json sets it aside under records… | ☐ |
 | `R-8947DC6E` | Autosave writer busy | a synchronous save whose flush of the asynchronous writer times out (10 s) does not write; it sets SavePending (retried) so run.json.tmp is never raced (s) | kind: ours | review of codebase fix 1 | Autosave writer busy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a synchronous save whose flush of the asynchronous writer times out… | ☐ |
 | `R-4243CFC1` | Projectile hits test the current pose (codebase fix 6, 2026-11-22; Musou Mode and Warfront) | a flying projectile (the Rokkit Boy's rocket, a launcher or plasma round, any per-step projectile sweep against the Orks) tests each Ork's body at its CURRENT position only; an instant (hit-scan) shot, including the piercing bolt and lascannon rays, keeps the… (ticks, m) | kind: ours; notes: estimate | Codex review 2026-11-21; owner 2026-11-22 ("current position only") | Projectile hits test the current pose (codebase fix 6…: compare with SM1 by feel or video. Ours: a flying projectile (the Rokkit Boy's rocket, a launcher or plasma… | ☐ |
+
+*Spec section: Executions: alignment and choice (executions X2, 2026-11-25; added content, Warfront and Classic PvP Extended only; engine-free rules, not yet wired: no simulation, wire, hash or rules-version change until X1/X3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-12F96A0A` | Victim placement | the victim's feet never move; only its yaw turns to the pair's (attacker yaw + the row's relative yaw, π for every original pair) | kind: interpretation; confidence: medium | inventory 1.7 (supported by evidence for the original's clips; the rule an interpretation) | Victim placement: compare with SM1 by feel or video. Ours: the victim's feet never move; only its yaw turns to the pair's… | ☐ |
+| `R-5F5CA45C` | Distance band | the attacker turns so the row's victim offset (lateral X kept) points at the victim; the forward distance is clamped to the row's band, its shortest to longest attacker variant (1 to 7 m; 2 to 7 m for the arm break; a single-variant row: its offset's forward… (m) | kind: ours; confidence: medium | inventory 1.7 and 3.1 (the graph blends on `FLT_MeleeTargetDistance`); linear blend ours | Distance band: compare with SM1 by measuring on a flat spot of the same map. Ours: the attacker turns so the row's victim offset (lateral X kept) points… | ☐ |
+| `R-A48F74F9` | Slide | only outside the band: along the pair's line by `Movement.Glide` (the capsule controller, other players ignored), at most 1 m, 6 m/s (5 ticks for 1 m at 30 Hz), ending within 0.02 m of the place; the slide must stay grounded, never rise or drop more than the… (m, m/s) | kind: ours; notes: estimate | design ("at most 1 m") | Slide: compare with SM1 by timing a run over a known distance. Ours: only outside the band: along the pair's line by Movement.Glide (the… | ☐ |
+| `R-8E5284B4` | Height between the pair | the two feet at most the step height (0.4 m) apart (m) | kind: ours; confidence: medium | ours | Height between the pair: compare with SM1 by measuring on a flat spot of the same map. Ours: the two feet at most the step height (0.4 m) apart. | ☐ |
+| `R-AC897E10` | Terrain probes | every 0.25 m along the slide, the attacker's blended root path (from where it stands, at the pair's yaw) and the victim's root path (from its feet, at its yaw): a downward ray from 1 m above the previous ground, at most the step height below it (a miss: gap)… (m) | kind: ours; confidence: low; notes: estimate | design ("every 0.25 m"; "never pulls a character through terrain or across a gap"); heights and radius ours | Terrain probes: compare with SM1 by measuring on a flat spot of the same map. Ours: every 0.25 m along the slide, the attacker's blended root path (from… | ☐ |
+| `R-9F208913` | Line of sight | the aligned attacker must see the victim through weapon collision and past spawn-room blockers (`MeleeLock.Sees`) | kind: ours | design | Line of sight: compare with SM1 by feel or video. Ours: the aligned attacker must see the victim through weapon collision and… | ☐ |
+| `R-2B157AA2` | Move choice | every row for the attacker's class, weapon family and the victim's kind is checked (rows with fewer "*" keys first, then the original's conduit priority, higher first, then catalogue order); among those that fit, a pick seeded by the start tick and the… | kind: ours; confidence: medium | inventory 3.1 (recommends a random pick among moves that pass the terrain check); lead 38 2026-11-25 (deterministic seed) | Move choice: compare with SM1 by timing a run over a known distance. Ours: every row for the attacker's class, weapon family and the victim's… | ☐ |
+| `R-6828EF20` | Warfront target | non-elite, non-boss Orks in play (not spawning, dying or in a Stormboy's hop) within 2.5 m horizontally and the melee lock's vertical reach (1.5 m), seen (`MeleeLock.Sees`), not reserved, with a row the executor's weapon plays on its kind; any direction… (m, °) | kind: ours; notes: estimate | design (about 2.5 m; the melee lock's ranking) | Warfront target: compare with SM1 with an overlaid screenshot taken from the same position. Ours: non-elite, non-boss Orks in play (not spawning, dying or in a… | ☐ |
+| `R-856204DF` | Classic race swap | a Chaos killer on a loyalist victim plays the Chaos Marine rows (C1 to C3) with the races swapped: the killer the attacker half, the loyalist the victim half (the shared PvP skeleton); a loyalist's own rows first should any exist | kind: ours; confidence: medium | owner 2026-11-25 ("Yes, swap races") | Classic race swap: compare with SM1 by feel or video. Ours: a Chaos killer on a loyalist victim plays the Chaos Marine rows (C1… | ☐ |
 
 ## Part B: Ork faction
 
