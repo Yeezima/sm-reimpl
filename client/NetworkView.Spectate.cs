@@ -330,6 +330,9 @@ public partial class NetworkView
         MeleeFovUpdate(me, delta);   // camera/melee-fov-widen: before the death camera so a death ends the widening
         if (ExtrasSpectateWanted(me) && SpectateFollow(me, _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z), delta)) return;   // EXTRAS-HOOK: an added content's spectator view (a fallen player, a joiner held aboard) before the death camera
         if (DeathCamera(me, delta)) return;   // dead: the view of the own ragdoll (NetworkView.Death.cs)
+        bool executionCamera = false;
+        ExtrasExecutionCamera(me, delta, ref executionCamera);   // EXTRAS-HOOK: executions (X6): the own executor's free orbit, after the death camera so a dying executor gets the death view
+        if (executionCamera) return;
         if (RigCameraWanted && RigCamera(me, delta)) return;   // the original rig (NetworkView.Camera.cs); else the placeholder below
         _camera.Fov = DefaultFov;
         // Behind the player along its facing, in Godot space.
@@ -488,4 +491,7 @@ public partial class NetworkView
         if (_local is not null) SetOwnHidden(false);
         return true;
     }
+
+    /// <summary>Hook for added content (executions X6): <paramref name="handled"/> set when the own executor's orbit placed the camera this frame.</summary>
+    partial void ExtrasExecutionCamera(PlayerState me, float delta, ref bool handled);
 }

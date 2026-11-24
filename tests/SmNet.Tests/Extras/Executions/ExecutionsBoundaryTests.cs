@@ -19,6 +19,8 @@ public class ExecutionsBoundaryTests
         ("client/Extras/NetworkView.Extras.cs", "ExecutionsEnvelope"),
         ("client/Extras/NetworkView.Extras.cs", "ExecutionsFrame"),
         ("src/SmContent/Extras/GameplayTuning.Extras.cs", "ExecutionsLoad"),
+        ("client/Extras/Musou/CrowdView.cs", "ExecutionsHideEnemy"),        // X5a: a Warfront Ork playing an execution is drawn by its proxy, not the crowd
+        ("client/Extras/Musou/MusouCrowd.cs", "ExecutionsCorpseProxied"),   // X5a: the executed Ork leaves no crowd corpse (its proxy lies and sinks)
     ];
 
     /// <summary>Files outside the executions folders that may name the namespace: the config hash's dispatcher.</summary>
