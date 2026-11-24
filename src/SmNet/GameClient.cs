@@ -871,7 +871,10 @@ public sealed partial class GameClient
             if (id == PlayerId) continue;
             if (!p1.TryGetValue(id, out var b)) { result.Add(a); continue; }
             // A respawn (the countdown's, a round's, a death's) is a jump, not a run: shown at the old place until the pair ends, not streaked across the map.
-            if (Vector3.Distance(a.Position, b.Position) > ViewSmoothing.TeleportDistance * Math.Max(1.0, t1 - t0)) { result.Add(a); continue; }            result.Add(a with { Position = Vector3.Lerp(a.Position, b.Position, alpha), Velocity = Vector3.Lerp(a.Velocity, b.Velocity, alpha), Yaw = LerpAngle(a.Yaw, b.Yaw, alpha) });
+            if (Vector3.Distance(a.Position, b.Position) > ViewSmoothing.TeleportDistance * Math.Max(1.0, t1 - t0)) { result.Add(a); continue; }
+            // sim/hammer-180 review: across a strike change into or out of a Dir 180 strike the yaw stays the older snapshot's, as its strike is (Hammer180Draw.HoldsYaw).
+            float yaw = Hammer180Draw.HoldsYaw(_config, a, b) ? a.Yaw : LerpAngle(a.Yaw, b.Yaw, alpha);
+            result.Add(a with { Position = Vector3.Lerp(a.Position, b.Position, alpha), Velocity = Vector3.Lerp(a.Velocity, b.Velocity, alpha), Yaw = yaw });
         }
         return (renderTick, result);
 

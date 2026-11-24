@@ -576,7 +576,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
                     Dir180 = true, TurnsBack = d.Turn, BackStart = d.Turn && !entry,
                     LightNext = Valid(d.Next) ? d.Next : 0, BackNext = Valid(d.BackNext) ? d.BackNext : 0,
                     HeavyNext = d.HeavyNext > 0 && d.HeavyNext <= heavy.Count ? d.HeavyNext : -1,
-                    StringEnd = end, LungeFactor = lunge, TrackToHit = weapon.TrackToHit,
+                    StringEnd = end, LungeFactor = d.Turn ? 1f : lunge, TrackToHit = weapon.TrackToHit,   // review (lead: faithful): a turn strike's motion is the clip's own (MeleeLock.LungeFactorOf)
                 };
                 entry |= d.Turn;
                 if (weapon.StringReset && !OldStringReset)
@@ -597,7 +597,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         }
 
         // A Dir 180 strike's clip moves its root backwards along the facing it starts with and turns it half round partway (SM_MEL_TH_XATK_180_MP: 3.95 m back, the turn at 0.7 s): the simulation strikes
-        // along the turned facing, so the motion is taken along that facing (negated) and the turn's time is kept for the view.
+        // along the turned facing, so the motion is taken along that facing (negated) and the turn's time is kept for the view. Backward motion as the clip: no lunge scale, no front-loading, no early step
+        // (MeleeLock.LungeFactorOf, Profile, MotionTime: the review, the lead's decision "faithful"; the 180 3.95 m, the Left Side 5.08 m at the clip's pace).
         MeleeStep TurnStrike(MeleeStep step, string animation, string sequencer)
         {
             if (step.Reach is { } r)

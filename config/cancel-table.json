@@ -269,7 +269,7 @@
    "state": "queued",
    "from": null,
    "until": null,
-   "note": "Press before ComboClose queues next step; starts when hit landed and ComboOpen reached (knife X1 0.50-0.77 s)",
+   "note": "Press before ComboClose queues next step; starts when hit landed and ComboOpen reached (knife X1 0.50-0.77 s). Thunder hammer / daemon maul (sim/hammer-180, Classic): the stick held back (beyond 135 degrees of the character) on the chain tick selects the Dir 180 chain (X1 -> Left Side 180, X2 -> the 180, the 180 -> Left Side 180)",
    "src": "src/SmSim/Combat.cs:634-659,664-674"
   },
   "melee_light|heavy": {
@@ -353,7 +353,7 @@
    "state": "no",
    "from": null,
    "until": null,
-   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration",
+   "note": "Stick ignored until MoveAt x0.7; then the body moves but the attack state runs on to Duration. Thunder hammer / daemon maul (sim/hammer-180, Classic): a held-back stick with a light press in the combo window selects the Dir 180 chain (see light|light); the stick alone does not cancel the strike",
    "src": "src/SmSim/Combat.cs:983-985,1025-1026"
   },
   "melee_light|exec": {

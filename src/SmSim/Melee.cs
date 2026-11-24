@@ -298,6 +298,27 @@ public static class MeleeChain
         _ => EvadeDirection.Back,
     };
 
+    /// <summary>
+    /// sim/hammer-180 (review fix): the way of eight nearest a facing <paramref name="offset"/> radians off the view (yaw convention, positive to the left; <see cref="Rush.DashOffset"/>'s inverse), for a
+    /// body that faces its own way once a strike no longer holds its facing.
+    /// </summary>
+    public static EvadeDirection DirectionOfOffset(float offset)
+    {
+        if (!float.IsFinite(offset)) return EvadeDirection.Forward;
+        int k = (int)MathF.Round(MathF.IEEERemainder(offset, 2f * MathF.PI) / (MathF.PI / 4f));
+        return (((k % 8) + 8) % 8) switch
+        {
+            1 => EvadeDirection.ForwardLeft,
+            2 => EvadeDirection.Left,
+            3 => EvadeDirection.BackLeft,
+            4 => EvadeDirection.Back,
+            5 => EvadeDirection.BackRight,
+            6 => EvadeDirection.Right,
+            7 => EvadeDirection.ForwardRight,
+            _ => EvadeDirection.Forward,
+        };
+    }
+
     /// <summary>sim/hammer-180: the light strike (1-based) a light press from rest with the stick back starts (<see cref="MeleeStep.BackStart"/>), or 0 when the weapon has none.</summary>
     public static int BackStartIndex(IReadOnlyList<MeleeStep> light)
     {

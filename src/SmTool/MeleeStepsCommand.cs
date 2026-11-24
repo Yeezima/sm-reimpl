@@ -41,7 +41,7 @@ static class MeleeStepsCommand
             foreach (var v in r.Variants)
                 Console.WriteLine($"    variant {v.Distance,5:0.##} m {v.Clip,-40} forward at moveAt {v.At(m.MoveAt, m.Duration),6:0.00}, at hit {v.At(m.HitTime, m.Duration),6:0.00}, at end {v.At(m.Duration, m.Duration),6:0.00}, min {v.Forward.Min():0.00}, max {v.Forward.Max():0.00}");
             // The step with no target, summed the way the simulation does it (30 Hz ticks over the whole strike), and with a target at each variant's distance.
-            Console.WriteLine($"    simulated total, no target: {Sum(m, null, config):0.00} m (the clip's motion x{config.LungeScale * m.LungeFactorApplied:0.###})");
+            Console.WriteLine($"    simulated total, no target: {Sum(m, null, config):0.00} m (the clip's motion x{MeleeLock.LungeFactorOf(m, config):0.###})");
             Console.WriteLine($"    free step timeline: {Timeline(m, config)}");
             foreach (float d in new[] { 2f, 4f, 7f })
                 Console.WriteLine($"    simulated total, target {d:0.#} m ahead: {Sum(m, d, config):0.00} m (the target is {Math.Max(0f, d - Sum(m, d, config)):0.00} m away at the end)");

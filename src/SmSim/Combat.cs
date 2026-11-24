@@ -612,7 +612,16 @@ public static class Combat
         if (sprintNoFire || rollNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
         // sim/hammer-180 (protocol 93; the owner 2026-11-25, "Add it for the hammer"): the graph's FLT_LStick_Angle_Char test, the stick against where the character faces (the latched attack
         // direction during an attack, the view at rest), read on the tick a press starts or chains a strike. Classic only (Musou reads no Dir 180 strikes and draws its own swings).
+        // Review fix: once the strike in progress no longer holds its facing (past max(MoveAt, hit + dt), the rule at the body's facing below), the stick walks the body in the view's frame (Movement.Step faces
+        // the view) or an idle stick keeps the heading it glided on: the character then faces where the body faces, so the offset is the body's own (its yaw against the view, to the nearest of eight
+        // for the facing a Dir 180 strike turns from or a strike chained from one keeps).
+        var characterFacing = s.MeleeStep > 0 ? s.MeleeDirection : EvadeDirection.Forward;
         float characterOffset = s.MeleeStep > 0 ? Rush.DashOffset(s.MeleeDirection) : 0f;
+        if (step > 0 && steps[step - 1] is var held && s.MeleeTime + TimeEpsilon >= MathF.Max(MoveAtOf(held, c), held.HitTime + dt + TimeEpsilon) && float.IsFinite(s.Yaw))
+        {
+            characterOffset = MathF.IEEERemainder(s.Yaw - sanitized.Yaw, 2f * MathF.PI);
+            characterFacing = MeleeChain.DirectionOfOffset(characterOffset);
+        }
         bool stickBack = !musou && MeleeChain.StickBack(sanitized.MoveX, sanitized.MoveY, characterOffset);
         bool keepDirection = false;   // a strike chained from a Dir 180 one keeps the facing that strike left (the graph has no directional strike there)
         bool stompReleased = false;   // sim/stomp-release: the stomp ended this tick (the weapon comes up with it, below)
@@ -1035,8 +1044,8 @@ public static class Combat
         bool newAttack = step > 0 && startedNow;
         // sim/hammer-180: a Dir 180 strike turns the character half round from the facing it had (the latched direction, the view at rest); a strike chained from one keeps that facing.
         var meleeDirection = step == 0 ? EvadeDirection.Forward : !newAttack ? s.MeleeDirection
-            : steps[step - 1].TurnsBack ? MeleeChain.Opposite(s.MeleeStep > 0 ? s.MeleeDirection : EvadeDirection.Forward)
-            : keepDirection ? s.MeleeDirection
+            : steps[step - 1].TurnsBack ? MeleeChain.Opposite(characterFacing)
+            : keepDirection ? characterFacing
             : Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true);
         float meleeTurn = Rush.DashOffset(meleeDirection);
         // sim/slam-steer (the owner, 2026-11-07): a steered strike (the hammer's and the maul's Y,Y slam) begins along its strike facing, holds it until its steering window, turns

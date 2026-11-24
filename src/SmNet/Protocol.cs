@@ -559,6 +559,10 @@ public static partial class Protocol
     // 92 (sim/ledge-charge-air, charge fall; the owner 2026-11-24, decision 2026-11-24-series-37-playtest-fixes item 1: "2x (halve the gravity)"): no layout change. Classic PvP only: the bull rush held in the air
     //     falls under 2 x gravity (LedgeChargeAir.Gravity, was 4 x at 90-91), so its air time and travel from a ledge are about 0.71 (1/√2) of protocol 89's rather than half; the horizontal speed, the hop, the
     //     landing rule and Musou Mode and Warfront are unchanged. Client prediction must agree, hence the bump. The constant is not in the config hash (only the restore switch is, when off): unchanged.
+    // 93 (sim/hammer-180; the owner 2026-11-25, decision 2026-11-25-transitions-batches-2-4: "Add it for the hammer"): no layout change. Classic PvP only: the thunder hammer's and the daemon maul's Dir 180
+    //     strikes and their follow-ups (light strikes 4 to 7: a light press with the stick more than 135 degrees from where the character faces starts or chains them; MeleeStep.Dir180, TurnsBack, TurnAt,
+    //     BackNext, LightNext, BackStart, hashed only when set), struck along the turned facing with the clips' own backward root motion (no lunge scale, front-loading or early step). Prediction must agree,
+    //     hence the bump; the Classic config hash changes (Musou Mode and Warfront read none: theirs does not). SM_OLD_HAMMER_180=1 restores the plain combo.
     public const ushort Version = 93;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;

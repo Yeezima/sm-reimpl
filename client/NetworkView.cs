@@ -1624,6 +1624,7 @@ public partial class NetworkView : Node3D
             float attackTime = MathF.Max(0f, (smooth is { Kind: ClipKind.Attack } sa ? sa.Time : state.MeleeTime) - HitStopHold(state.PlayerId));
             float drawnTime = attackTime;   // the clip time drawn; attackTime stays the simulation's for the hand-over and foot-lock gates
             ExtrasAttackTime(state, own, ref drawnTime);   // EXTRAS-HOOK: added content's drawn strike time (Musou: the weight pass retimes the wind-up and strike and holds the own pose; the power spear shows its strike clip at the drawn time)
+            drawnTime = Hammer180PoseTime(state, drawnTime);   // sim/hammer-180 (NetworkView.Hammer180.cs): no bone spin across the clip's root-turn sample
             var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, drawnTime);
             character.ClipRootSpeed = NoMeleeFlow ? float.NaN : MeleeRootSpeed(state, attackTime, ClipLength(baseClip, 0f));   // anim/melee-flow: the clip foot lock's still-foot test
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.

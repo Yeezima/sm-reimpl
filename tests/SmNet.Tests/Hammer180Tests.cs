@@ -228,6 +228,215 @@ public class Hammer180Tests(ITestOutputHelper output)
             Assert.Equal(3, MeleeTuning.Load(Game.Value!, MeleeTuning.ThunderHammer).Steps.Count);
     }
 
+    // ---------------------------------------------------------------- review fixes (2026-11-25)
+
+    /// <summary>A light press with the stick at (<paramref name="x"/>, <paramref name="y"/>) once the strike's clock reaches <paramref name="at"/>, the stick held at (<paramref name="hx"/>, <paramref name="hy"/>) until then.</summary>
+    static PlayerState PressAt(PlayerState s, SimConfig c, float at, float hx, float hy, float x, float y)
+    {
+        int step = s.MeleeStep;
+        for (int k = 0; k < 400 && s.MeleeStep == step && s.MeleeTime + Dt + 1e-5f < at; k++) s = Step(s, c, InputButtons.None, hx, hy);
+        return Step(s, c, InputButtons.Melee, x, y);
+    }
+
+    [Fact]
+    public void After_the_strike_lets_the_body_go_the_stick_is_read_against_the_body_not_the_latched_direction()
+    {
+        var c = Hammer();
+        // A + X: X1 struck to the left; keep strafing left. Past max(MoveAt 1.28, hit + dt) the strafe faces the body to the view again.
+        var x1 = Step(Fresh(c), c, InputButtons.Melee, -1f, 0f);
+        Assert.Equal((1, EvadeDirection.Left), (x1.MeleeStep, x1.MeleeDirection));
+        // D + X at 1.35 s (in X1's combo window, 0.933-1.92): D is 90 degrees from the body (the view): X2 struck to the right, not the Left Side 180.
+        var late = PressAt(x1, c, 1.35f, -1f, 0f, 1f, 0f);
+        output.WriteLine($"D + X at 1.35 s: step {late.MeleeStep} {late.MeleeDirection} yaw {late.Yaw:0.###}");
+        Assert.Equal((2, EvadeDirection.Right), (late.MeleeStep, late.MeleeDirection));
+        // While the strike still holds its facing (before 1.28 s) the latched left facing counts: D is behind it, the Left Side 180 (turned from the left: right).
+        var held = PressAt(x1, c, 0.95f, -1f, 0f, 1f, 0f);
+        Assert.Equal((5, EvadeDirection.Right), (held.MeleeStep, held.MeleeDirection));
+        // The mirror: S + X on the tick X1's string resets (1.92 s), the body facing the view: S is behind it, the 180 from rest, struck backwards (before: X1 struck backwards).
+        var reset = PressAt(x1, c, X1.StringResetAt, -1f, 0f, 0f, -1f);
+        output.WriteLine($"S + X at the reset: step {reset.MeleeStep} {reset.MeleeDirection} yaw {reset.Yaw:0.###} time {reset.MeleeTime:0.###}");
+        Assert.Equal((4, EvadeDirection.Back), (reset.MeleeStep, reset.MeleeDirection));
+        Assert.Equal(MathF.PI, MathF.Abs(reset.Yaw), 3);
+        // Standing still after X1 (no stick: the body keeps its left heading; no reach data here, the walk faces the view) the body's own facing still decides.
+        Assert.Equal(EvadeDirection.Forward, MeleeChain.DirectionOfOffset(0.1f));
+        Assert.Equal(EvadeDirection.BackRight, MeleeChain.DirectionOfOffset(-2.4f));
+        Assert.Equal(EvadeDirection.Back, MeleeChain.DirectionOfOffset(-MathF.PI + 0.05f));
+    }
+
+    /// <summary>A turn strike's root motion after the loader's negation (forward along the turned facing): <paramref name="total"/> m, most of it between 0.3 s and 1.9 s of the 3 s clip.</summary>
+    static MeleeVariant TurnMotion(float total) => new(1f, Enumerable.Range(0, 91).Select(i =>
+    {
+        float t = 3f * i / 90f, u = Math.Clamp((t - 0.3f) / 1.6f, 0f, 1f);
+        return total * (0.05f * MathF.Min(1f, t / 0.3f) + 0.95f * u * u * (3f - 2f * u));
+    }).ToArray());
+
+    static MeleeStep WithReach(MeleeStep m, float total, float factor = 0.689f) => m with { Reach = new MeleeReach(0f, 0.1f, 0f, m.HitTime, 3.5f, 1f, [TurnMotion(total)]), LungeFactor = factor };
+
+    /// <summary>The hammer with reach data and the install's lunge rules (lunge scale 1.625, front-loading 1, the early step 1.5).</summary>
+    static SimConfig HammerWithReach() => Hammer() is var c ? c with
+    {
+        Classes = [c.Classes[0] with { Melee = [X1, X2, X3, WithReach(D180, 3.95f, 1f), WithReach(D180Left, 5.08f, 1f), WithReach(X2From180, 2f), X3From180] }],
+        MeleeLungeScale = 1.625f, MeleeLock = MeleeLockSpec.Default with { StepFront = 1f, StepEarly = MeleeLockSpec.InstallStepEarly },
+    } : null!;
+
+    [Fact]
+    public void A_turn_strike_travels_as_its_clip_no_lunge_scale_no_front_loading_no_early_step()
+    {
+        var c = HammerWithReach();
+        var turn = c.Classes[0].Melee[3];
+        var follow = c.Classes[0].Melee[5];
+        float Sum(MeleeStep m, Func<float, float, float> per) { float total = 0f; for (float t = 0f; t < m.Duration - 1e-5f; t += Dt) total += per(t, MathF.Min(t + Dt, m.Duration)); return total; }
+        Assert.Equal(1f, MeleeLock.LungeFactorOf(turn, c));
+        Assert.Equal(1.625f * 0.689f, MeleeLock.LungeFactorOf(follow, c), 4);
+        // Tick by tick the clip's own motion: the same total (3.95 m) and the same profile (no burst on the press tick).
+        var v = turn.Reach!.Variants[0];
+        for (float t = 0f; t < turn.Duration - 1e-5f; t += Dt)
+            Assert.Equal(v.At(MathF.Min(t + Dt, turn.Duration), turn.Duration) - v.At(t, turn.Duration), MeleeLock.LungeStep(turn, t, MathF.Min(t + Dt, turn.Duration), 0f, null, c), 4);
+        Assert.Equal(3.95f, Sum(turn, (a, b) => MeleeLock.LungeStep(turn, a, b, 0f, null, c)), 2);
+        // The strikes after them are forward strikes and keep the owner's factors (2 m x 1.625 x 0.689).
+        Assert.Equal(2f * 1.625f * 0.689f, Sum(follow, (a, b) => MeleeLock.LungeStep(follow, a, b, 0f, null, c)), 2);
+    }
+
+    [Fact]
+    public void With_reach_data_the_180_carries_the_body_along_the_turned_facing_and_the_Left_Side_back_again()
+    {
+        var c = HammerWithReach();
+        var s = Step(Fresh(c), c, InputButtons.Melee, 0f, -1f);   // S + X, the stick let go after the press
+        var trace = new List<PlayerState> { s };
+        while (s.MeleeStep == 4 && s.MeleeTime + Dt < D180.ComboOpen + Dt) trace.Add(s = Step(s, c, InputButtons.None));
+        output.WriteLine($"the 180 by its combo window: ({s.Position.X:0.###}, {s.Position.Y:0.###}) yaw {s.Yaw:0.###}");
+        Assert.All(trace, p => Assert.Equal(MathF.PI, MathF.Abs(p.Yaw), 3));   // the heading stays the turned facing (no target: Align keeps the strike's heading)
+        Assert.True(s.Position.Y < -0.3f && MathF.Abs(s.Position.X) < 1e-3f, $"backwards from the view: {s.Position}");
+        // Run it out: the clip's 3.95 m, unscaled.
+        var whole = s;
+        while (whole.MeleeStep == 4) whole = Step(whole, c, InputButtons.None);
+        Assert.Equal(-3.95f, whole.Position.Y, 1);
+        // W + X in the 180's combo window (back from the turned character): the Left Side 180 turns to the view again and travels forward.
+        var left = Step(s, c, InputButtons.Melee, 0f, 1f);
+        Assert.Equal((5, EvadeDirection.Forward), (left.MeleeStep, left.MeleeDirection));
+        float y0 = left.Position.Y;
+        for (int k = 0; k < 20; k++) left = Step(left, c, InputButtons.None);
+        Assert.True(left.Position.Y > y0 + 0.2f, $"the Left Side 180 moves toward the view: {y0:0.###} -> {left.Position.Y:0.###}");
+        Assert.Equal(0f, left.Yaw, 3);
+    }
+
+    [Fact]
+    public void The_lock_on_an_enemy_in_front_after_S_is_let_go_inherits_the_lunge_rules()
+    {
+        // Documented inherited behaviour (the lock-on's rules as for every strike, not a Dir 180 design; spec "Thunder hammer Dir 180: facing and motion"): S + X with an enemy 3 m in front of the view.
+        // The press's search goes along the stick (behind), so the press tick takes no lock and the 180 turns away. With S let go the client's lock choice (MeleeLock.Choose, along the view now) takes the
+        // enemy from the next tick; inside the strike's alignment window the heading turns back to it, and the locked step (the clip's motion, the burst toward the separation) carries the body to it.
+        // The lock lets go about 0.3 s in, when the enemy leaves the heading's cone and the lunge carries the body past it.
+        var c = HammerWithReach() with { MeleeLock = MeleeLockSpec.Default with { StepFront = 1f, StepEarly = MeleeLockSpec.InstallStepEarly } };
+        var enemy = Combat.Respawned(new PlayerState(2, new Vector3(0f, 3f, 0f), Vector3.Zero, MathF.PI, true) { Class = 0, Team = Team.Chaos }, c);
+        var view = new Dictionary<int, PlayerState> { [2] = enemy };
+        var self = Fresh(c);
+        int locked = 0;
+        var locks = new List<int>();
+        for (uint i = 0; i < 30; i++)
+        {
+            var input = new PlayerInput(i, 0f, i == 0 ? -1f : 0f, 0f, i == 0 ? InputButtons.Melee : InputButtons.None);
+            input = input with { MeleeTarget = MeleeLock.Choose(self, input, view, c, null, locked) };
+            locked = input.MeleeTarget;
+            locks.Add(locked);
+            self = Combat.StepPlayer(self, input, c, out _, null, view);
+        }
+        output.WriteLine($"locks {string.Join(",", locks)}; after 1 s ({self.Position.X:0.###}, {self.Position.Y:0.###}) yaw {self.Yaw:0.###}");
+        Assert.Equal(4, self.MeleeStep);
+        Assert.Equal(0, locks[0]);   // the press: the search along S finds nothing in front
+        Assert.Equal(2, locks[1]);   // S let go: the view's search takes the enemy
+        Assert.True(MathF.Abs(MathF.IEEERemainder(self.Yaw, 2f * MathF.PI)) < 0.2f, $"the heading turned back to the enemy: {self.Yaw:0.###}");
+        Assert.True(self.Position.Y > 2f, $"carried toward (and past) the enemy: {self.Position}");
+    }
+
+    [Fact]
+    public void Over_the_network_a_180_chain_is_predicted_without_correction()
+    {
+        var c = HammerWithReach();
+        var config = c with { Classes = [c.Classes[0] with { Side = Team.SpaceMarines }, c.Classes[0] with { Side = Team.Chaos }] };
+        var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(30), TimeSpan.Zero, 0), seed: 5, 0, config);
+        var client = h.AddClient(config, nonce: 91);
+        h.Run(TimeSpan.FromSeconds(1.5));
+        Assert.True(client.PlayerId > 0);
+        uint start = 0;
+        // S + X (the 180), W + X at its combo window (the Left Side 180, back from the turned character), X at the Left Side's (light 7); synthetic clips with reach data (the body moves), 30 ms each way.
+        int open4 = (int)MathF.Ceiling(D180.ComboOpen * 30f) + 1, open5 = (int)MathF.Ceiling(D180Left.ComboOpen * 30f) + 1;
+        PlayerInput Input(int who, uint tick)
+        {
+            if (start == 0) start = tick + 5;
+            long k = (long)tick - start;
+            if (k == 0) return new(tick, 0f, -1f, 0f, InputButtons.Melee);
+            if (k == open4) return new(tick, 0f, 1f, 0f, InputButtons.Melee);
+            if (k == open4 + open5) return new(tick, 0f, 0f, 0f, InputButtons.Melee);
+            return new(tick, 0f, 0f, 0f, InputButtons.None);
+        }
+        var server = new List<int>();
+        var predicted = new List<int>();
+        int before = client.CorrectionErrors.Count;
+        for (int i = 0; i < 4500; i++)   // 1 ms a step: 4.5 s
+        {
+            h.Step(Input);
+            if (h.Server.World.Players.TryGetValue(client.PlayerId, out var s)) server.Add(s.MeleeStep);
+            predicted.Add(client.Predicted.MeleeStep);
+        }
+        output.WriteLine($"server steps {string.Join(",", server.Distinct())}; predicted {string.Join(",", predicted.Distinct())}");
+        foreach (int step in new[] { 4, 5, 7 }) { Assert.Contains(step, server); Assert.Contains(step, predicted); }
+        var errors = client.CorrectionErrors.Skip(before).ToList();
+        Assert.True(errors.Count == 0 || errors.Max() < 0.01f, $"corrections {errors.DefaultIfEmpty().Max()}");
+    }
+
+    [InstallFact]
+    public void The_install_match_configs_of_Musou_and_Warfront_hold_no_Dir_180_strike_and_Classic_does()
+    {
+        static IEnumerable<MeleeStep> All(SimConfig c) => c.MeleeSteps.Concat(c.Classes.SelectMany(k => k.Melee.Concat(k.MeleeHeavy).Concat(k.MeleeChoices.SelectMany(m => m.Steps.Concat(m.Heavy)))));
+        static bool Family(MeleeStep m) => m.Dir180 || m.TurnsBack || m.BackStart || m.BackNext != 0 || m.LightNext != 0 || float.IsFinite(m.TurnAt);
+        var classic = GameplayTuning.LoadForMatch(Game.Value!, ContentExtras.None).Config;
+        Assert.Contains(All(classic), Family);
+        // Classic's turn strikes travel as their clips (the review's faithful exemption): x1.
+        Assert.All(All(classic).Where(m => m.TurnsBack), m => Assert.Equal(1f, MeleeLock.LungeFactorOf(m, classic)));
+        foreach (var t in All(classic).Where(m => m.TurnsBack))
+            output.WriteLine($"Classic turn strike: {t.Duration:0.###} s, travel {Total(t, classic):0.00} m");
+        if (!ContentExtras.Compiled) return;
+        var musou = GameplayTuning.LoadForMatch(Game.Value!, ContentExtras.Musou).Config;
+        Assert.DoesNotContain(All(musou), Family);
+        if (!ContentExtras.WarfrontCompiled) return;
+        var warfront = GameplayTuning.LoadForMatch(Game.Value!, ContentExtras.Musou | ContentExtras.Warfront).Config;
+        Assert.DoesNotContain(All(warfront), Family);
+
+        static float Total(MeleeStep m, SimConfig c) { float total = 0f; for (float t = 0f; t < m.Duration - 1e-5f; t += Dt) total += MeleeLock.LungeStep(m, t, MathF.Min(t + Dt, m.Duration), 0f, null, c); return total; }
+    }
+
+    [InstallFact]
+    public void The_install_turn_clips_jump_in_the_sample_before_TurnAt_and_the_drawn_time_skips_it()
+    {
+        // The client's Hammer180Draw assumes both clips sample at 1/30 s and their bones jump in the interval that ends at TurnAt (measured: the pelvis spins ~160 degrees there).
+        var t = MeleeTuning.Load(Game.Value!, MeleeTuning.ThunderHammer);
+        foreach (var m in new[] { t.Steps[3], t.Steps[4] })
+        {
+            Assert.Equal(0f, MathF.IEEERemainder(m.TurnAt, SmNet.Hammer180Draw.SampleSeconds), 3);
+            float a = m.TurnAt - SmNet.Hammer180Draw.SampleSeconds;
+            Assert.Equal(a, SmNet.Hammer180Draw.ClipTime(m, a + 0.005f), 4);
+            Assert.Equal(m.TurnAt, SmNet.Hammer180Draw.ClipTime(m, m.TurnAt - 0.005f), 4);
+            Assert.Equal(m.TurnAt + 0.01f, SmNet.Hammer180Draw.ClipTime(m, m.TurnAt + 0.01f), 4);
+            Assert.True(SmNet.Hammer180Draw.Unturned(m, a + 0.005f) && !SmNet.Hammer180Draw.Unturned(m, m.TurnAt - 0.005f));
+        }
+    }
+
+    [Fact]
+    public void Remote_yaw_holds_across_a_change_into_or_out_of_a_turn_strike_only()
+    {
+        var c = Hammer();
+        var at180 = Fresh(c) with { MeleeStep = 4, MeleeTime = 1.2f, Yaw = MathF.PI };
+        var atLeft = Fresh(c) with { MeleeStep = 5, MeleeTime = 0.033f, Yaw = 0f };
+        var x1 = Fresh(c) with { MeleeStep = 1, MeleeTime = 1f };
+        var x2 = Fresh(c) with { MeleeStep = 2, MeleeTime = 0.03f };
+        Assert.True(SmNet.Hammer180Draw.HoldsYaw(c, at180, atLeft));       // 4 -> 5: the facing flips; the older strike is drawn
+        Assert.True(SmNet.Hammer180Draw.HoldsYaw(c, Fresh(c), at180 with { MeleeTime = 0.03f }));   // rest -> the 180
+        Assert.False(SmNet.Hammer180Draw.HoldsYaw(c, at180, at180 with { MeleeTime = 1.233f }));   // the same strike
+        Assert.False(SmNet.Hammer180Draw.HoldsYaw(c, x1, x2));             // other chains interpolate as before
+        Assert.False(SmNet.Hammer180Draw.HoldsYaw(null, at180, atLeft));
+    }
+
     sealed class Tol : IEqualityComparer<(float, float, float, float, float, float)>, IEqualityComparer<(float, float, float, float, float)>
     {
         static bool Near(float a, float b) => MathF.Abs(a - b) < 2e-3f;

@@ -37,7 +37,7 @@ public partial class NetworkView
         bool hammer = named.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase) || named.Contains("power_mace", StringComparison.OrdinalIgnoreCase);
         if (OldStrikeLegs && (!hammer || s.MeleeHeavy)) return 1f;
         if (Combat.MeleeStepOf(_config, s) is not { Reach.Variants.Count: > 0, InPlace: false } step) return 1f;
-        float k = _config.LungeScale * step.LungeFactorApplied;
+        float k = MeleeLock.LungeFactorOf(step, _config);
         if (!float.IsFinite(k) || k <= 1f) return 1f;
         // night batch 2026-11-06 (anim/sword-legs): the sword combos' lunge is 2.9 times their clips' root motion (the hammer's 1.12); the clip's feet stretched that far fling the swing leg 1.1 m off the body
         // on the edge of its reach (the second swing's trailing foot hung 60 cm up and snapped 1.5 m in five frames). The stretch stays within what the hammer's gait uses.
