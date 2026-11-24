@@ -102,9 +102,9 @@ public partial class NetworkView
     {
         if (ChargeOf(o) is not { } found) return false;
         var (charger, along, held) = found;
-        if (held is not null) _chargePending.Remove(held);
         int key = _rushTrack.GetValueOrDefault(charger.PlayerId).Count;
-        if (!_contactLedger.First(o.PlayerId, charger.PlayerId, ChargeKey(key), _connectedFor)) return false;   // the same charge again: other damage, not swallowed (review decision 10)
+        if (!_contactLedger.First(o.PlayerId, charger.PlayerId, ChargeKey(key), _connectedFor)) return false;   // the same charge again: other damage, not swallowed (review decision 10); a held impact stays held and plays at its time (review of 2b89de15, finding 7)
+        if (held is not null) _chargePending.Remove(held);
         bool before = ArmourBeforeForMark(_armourFlash.ArmourUp(o.PlayerId, _connectedFor));   // unknown: down (review finding 2)
         var visual = Classify(shield, health, ShieldLeftAfterMark(shield, health, before));
         // thrown on from the far side of his body along the charge: from the charger's side the streaks ran into the victim's own body and were hidden (evidence capture, 2026-11-24)
@@ -127,7 +127,7 @@ public partial class NetworkView
         if (HasSparks(visual) && look.HasFlag(DirLook.MeleeSparks)) { HitSpray().SpawnMelee(contact, ReadOnlySpan<(double, Vector3)>.Empty, null, dir, new ClassicHitSpray.Look(true, 1f, ChargeSpread * 0.8f), 0.0); any = true; }
         bool drawn = false;
         if (HasBlood(visual))
-            ExtrasClassicBlood(new ClassicContact(victim, charger, contact, dir, visual, false, false, lethal, false, ChargeSpread, BloodAmount(false, lethal), 0.0, null, 0, null), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+            ExtrasClassicBlood(new ClassicContact(victim, charger, contact, dir, visual, false, false, lethal, false, ChargeSpread, BloodAmount(false, lethal), 0.0, null, 0, null, Charge: true), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         return any || drawn;
     }
 }

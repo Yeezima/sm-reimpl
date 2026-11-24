@@ -43,6 +43,8 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicBlood"),          // classic-hit-effects: the Extended blood spray for a confirmed contact (Extras/Gore)
         ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicFatalHeadshot"),  // classic-hit-effects: a fatal gunfire headshot, for the Extended wall decal (Extras/Gore)
         ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicKill"),           // classic-hit-effects: a kill-feed entry, paired with its headshot for the decal (Extras/Gore)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicPrewarm"),        // classic-hit-effects: the Extended blood shader prepared at the join (Extras/Gore)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicHeadContact"),    // classic-hit-effects: a drawn head hit, the decal's shot when the lethal mark pairs with none (Extras/Gore)
         ("client/NetworkView.Scoreboard.cs", "ExtrasScoreboard"),  // NetworkView.ExtrasScoreboard(ref single, ref score, ref assists), the Tab scoreboard (Musou: one column, run points, no assists)
         ("client/ModelViewer.cs", "ExtrasTestAid"),                // ModelViewer.ExtrasTestAid(args, ref bool), before the game install is located (Ashfall kit gallery: a test view that needs no install)
         // Musou (MU0): each returns at once unless World._musou is set (World.StartMusou, only under ContentExtras.Musou).

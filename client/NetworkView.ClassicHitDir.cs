@@ -16,7 +16,8 @@ namespace SmClient;
 /// and one damage draws one effect:
 /// <list type="bullet">
 /// <item>A mark change on a player hit by a drawn shot (own or remote, <see cref="NoteShotContact"/>) is that shot's: gunfire, along the incoming shot (the blood and the fatal-headshot decal are
-/// the Extended profile's: <see cref="ExtrasClassicBlood"/>, <see cref="ExtrasClassicFatalHeadshot"/>; the gunfire sparks stay as they were).</item>
+/// the Extended profile's: <see cref="ExtrasClassicBlood"/>, <see cref="ExtrasClassicFatalHeadshot"/>; the shot's sparks follow the confirmed class, <see cref="ClassicHitDirRules.GunfireMarkSparks"/>).
+/// A victim keeps every drawn shot on him in order (a rapid run of own shots is predicted ahead of its marks: each mark takes the oldest; review of 2b89de15, finding 3).</item>
 /// <item>Otherwise the enemy whose weapon melee attack (not a stomp or blast) just struck in reach is paired (<see cref="ClassicHitDirRules.PickAttacker"/>), and the spray follows his weapon as it is
 /// drawn in this view: from its closest approach to the victim's body, along its recorded path and on as it moves (a remote attacker drawn behind the server is waited for up to
 /// <see cref="ClassicHitDirRules.MaxWaitSeconds"/>; a late confirmation starts the spray up to <see cref="ClassicHitDirRules.MaxPreAge"/> s aged). Armour sparks (armour only, mixed) are
@@ -47,8 +48,10 @@ public partial class NetworkView
     }
 
     /// <summary>One contact for a spray: where (world), which way, how wide, how much, how aged, and the weapon's path (world points, seconds from the contact) and live position for melee.</summary>
+    /// <remarks>History holds the weapon's drawn points on both sides of the contact (times from it, before it negative; third design, owner answer 4); Exit: a thrust that starts on the
+    /// exit side; Charge: a bull-rush connect.</remarks>
     public readonly record struct ClassicContact(int Victim, int Attacker, Vector3 Contact, Vector3 Dir, HitVisual Visual, bool Gunfire, bool Head, bool Lethal, bool Heavy,
-        float Spread, float Amount, double PreAge, (double T, Vector3 P)[]? History, int HistoryCount, Func<Vector3?>? Weapon);
+        float Spread, float Amount, double PreAge, (double T, Vector3 P)[]? History, int HistoryCount, Func<Vector3?>? Weapon, bool Exit = false, bool Charge = false);
 
     /// <summary>Added content (the Extended profile's blood, Extras/Gore): the red directional spray for a contact; <paramref name="drawn"/> set when it was.</summary>
     partial void ExtrasClassicBlood(ClassicContact c, ref bool drawn);
@@ -56,6 +59,10 @@ public partial class NetworkView
     partial void ExtrasClassicFatalHeadshot(int victim, int shooter, Vector3 contact, Vector3 dir);
     /// <summary>Added content: a kill in the feed (the decal pairs a headshot kill with its shot).</summary>
     partial void ExtrasClassicKill(KillView k);
+    /// <summary>Added content: prepare the blood's shader at the join (with the sparks' prewarm).</summary>
+    partial void ExtrasClassicPrewarm(Vector3 at);
+    /// <summary>Added content: a head hit drawn on a player (the decal's shot when the lethal mark pairs with none).</summary>
+    partial void ExtrasClassicHeadContact(int victim, int shooter, Vector3 contact, Vector3 dir);
 
     // ---- weapon paths ----
 
@@ -72,6 +79,17 @@ public partial class NetworkView
         public bool SlashWas;   // the air slash was on at the last record
         public int Slashes;     // air slashes seen (their attack keys)
         public long Key;
+        /// <summary>The attacks recorded lately, the oldest dropped (review of 2b89de15, findings 1 and 2).</summary>
+        public readonly List<AttackSpan> Spans = new(8);
+        public int CurStep; public bool CurHeavy;
+        /// <summary>The span being recorded now (index into <see cref="Spans"/>), -1 between attacks.</summary>
+        public int Cur = -1;
+        public void StartSpan(AttackSpan sp)
+        {
+            if (Spans.Count >= 8) Spans.RemoveAt(0);
+            Spans.Add(sp);
+            Cur = Spans.Count - 1;
+        }
         public void Add(double t, Vector3 p, Vector3 root, long key) { Ring[Head] = (t, p); Roots[Head] = root; Keys[Head] = key; Head = (Head + 1) % Capacity; if (Count < Capacity) Count++; }
         /// <summary>The points (and feet) from <paramref name="since"/> on recorded under <paramref name="key"/>, oldest first: a previous combo step never gives the direction.</summary>
         public int CopyKeyed(double since, long key, (double T, Vector3 P)[] into, Vector3[] roots)
@@ -111,6 +129,7 @@ public partial class NetworkView
     readonly Dictionary<int, WeaponTrail> _weaponTrails = new();
     readonly Dictionary<ulong, Vector3> _bladeLocal = new();
     readonly (double T, Vector3 P)[] _trailScratch = new (double, Vector3)[WeaponTrail.Capacity];
+    readonly (double T, Vector3 P)[] _histScratch = new (double, Vector3)[WeaponTrail.Capacity];
     readonly Vector3[] _rootScratch = new Vector3[WeaponTrail.Capacity];
     readonly List<ClassicHitDirRules.PathPoint> _relScratch = new();
     readonly List<ClassicHitDirRules.PathPoint> _pathScratch = new();
@@ -173,13 +192,41 @@ public partial class NetworkView
 
     // ---- contacts in flight ----
 
-    sealed class ShotContact { public double At, Delay; public Vector3 Contact; public Vector3 Dir; public bool Head; public int Shooter; public bool ArmourUp; public bool Own; }
-    readonly Dictionary<int, ShotContact> _shotContacts = new();
+    sealed class ShotContact { public double At, Delay; public Vector3 Contact; public Vector3 Dir; public bool Head; public int Shooter; public bool ArmourUp; public bool Own; public bool SparksDrawn; }
+    /// <summary>Per victim, the shots drawn on him, oldest first (at most <see cref="ShotQueueMax"/>): a mark takes the oldest fresh one (review of 2b89de15, finding 3).</summary>
+    readonly Dictionary<int, List<ShotContact>> _shotContacts = new();
+    const int ShotQueueMax = 8;
+    /// <summary>The server tick the other players (and their damage marks) are drawn at this frame (NetworkView.cs, NetworkView.Observer.cs).</summary>
+    double _othersTick;
+
+    void QueueShot(int victim, ShotContact c)
+    {
+        if (!_shotContacts.TryGetValue(victim, out var q)) _shotContacts[victim] = q = new List<ShotContact>(ShotQueueMax);
+        if (q.Count >= ShotQueueMax) q.RemoveAt(0);
+        q.Add(c);
+    }
+
+    /// <summary>The oldest shot on <paramref name="victim"/> still within its window, taken off his queue (older ones dropped); null when none.</summary>
+    ShotContact? TakeShot(int victim)
+    {
+        if (!_shotContacts.TryGetValue(victim, out var q)) return null;
+        while (q.Count > 0)
+        {
+            var c = q[0];
+            q.RemoveAt(0);
+            if (_connectedFor - c.At <= (c.Own ? OwnWindow : RemoteWindow)) return c;
+        }
+        return null;
+    }
+
+    /// <summary>The newest shot left on <paramref name="victim"/> (for the unpaired log: too old by then).</summary>
+    ShotContact? StaleShot(int victim) => _shotContacts.TryGetValue(victim, out var q) && q.Count > 0 ? q[^1] : null;
 
     sealed class MeleePending { public int Victim, Attacker; public bool Shield, Health, ArmourBefore, Lethal, Heavy; public long Key; public double At; public int Frames; }
     readonly List<MeleePending> _meleePending = new();
     readonly ContactLedger _contactLedger = new();
-    readonly Dictionary<int, double> _meleePairedAt = new();
+    /// <summary>Own melee reports per (victim, own id, attack key): a second damage under one key keeps the old fan (the mark does not draw it).</summary>
+    readonly ContactLedger _ownReportKeys = new();
     (int Victim, float ShieldAfter, double At) _ownMeleeReport = (0, 0f, double.NegativeInfinity);
 
     int _hitDirShots, _hitDirMelee, _hitDirUnpaired, _hitDirSparks, _hitDirBlood, _hitDirWaited;
@@ -190,12 +237,15 @@ public partial class NetworkView
     /// <summary>A shot drawn on a player (FxImpact): remembered for the confirmation of its damage. Own shots wait for the server's mark; another player's arrives with it.</summary>
     void NoteShotContact(int victim, int shooter, Vector3 contact, Vector3 dir, bool head, bool? armourUp, bool own, double delay)
     {
-        if (HitDirLook == DirLook.None) return;
+        var look = HitDirLook;
+        if (look == DirLook.None) return;
         if (victim > 0)
         {
-            var c = new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own };
-            _shotContacts[victim] = c;
+            var c = new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own,
+                                      SparksDrawn = !SparksWaitForMark(look, victim, _client?.PlayerId ?? 0) };
+            QueueShot(victim, c);
             NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, c, victim);
+            if (head) ExtrasClassicHeadContact(victim, shooter, contact, dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         }
         else NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, null, 0);
     }
@@ -233,8 +283,12 @@ public partial class NetworkView
     {
         if (_client is null || !_weaponTrails.TryGetValue(_client.PlayerId, out var t)) return false;
         var me = _client.Predicted;
-        var own = new MeleeCandidate(me.PlayerId, me.Team, me.Position, me.Yaw, _connectedFor - t.MeleeAt, me.Alive, t.Heavy, true, Slash: t.Key < 0);
-        return OwnReportDirectional(HitDirLook, true, victim.PlayerId, victim.Team, victim.Position, own);
+        // the report comes with the newest snapshot: its damage landed at or before that tick (review of 2b89de15, finding 1: decided with the attack the mark will take)
+        var span = SpanForMark(_client.LatestSnapshotTick, t.Spans);
+        var own = new MeleeCandidate(me.PlayerId, me.Team, me.Position, me.Yaw, _connectedFor - t.MeleeAt, me.Alive, t.Heavy, true, Slash: span?.Slash ?? t.Key < 0);
+        long key = span?.Key ?? 0;
+        bool before = span is not null && !_ownReportKeys.First(victim.PlayerId, me.PlayerId, key, _connectedFor);
+        return OwnReportDirectional(HitDirLook, true, victim.PlayerId, victim.Team, victim.Position, own, span is not null, before ? 1 : 0);
     }
     readonly List<ServerHit> _looseScratch = new();
     readonly List<LooseHit> _looseHitScratch = new();
@@ -247,7 +301,7 @@ public partial class NetworkView
         if (HitDirLook == DirLook.None) return;
         for (int i = _serverHits.Count - 1; i >= 0; i--) if (_connectedFor - _serverHits[i].Contact.At > OwnWindow) _serverHits.RemoveAt(i);
         if (_serverHits.Count >= 64) _serverHits.RemoveAt(0);
-        var c = resolved ?? new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own };
+        var c = resolved ?? new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own, SparksDrawn = true };
         var gd = _gameSpace is null ? new Vector3(dir.X, -dir.Z, dir.Y) : _gameSpace.Basis.Inverse() * dir;
         _serverHits.Add(new ServerHit { Contact = c, End = end, DirGame = new Num.Vector3(gd.X, gd.Y, gd.Z), ResolvedTo = resolvedTo });
     }
@@ -273,16 +327,14 @@ public partial class NetworkView
         var best = _looseScratch[pick];
         if (LogHitDir) HitDirPrint($"HITDIR loose hit for P{o.PlayerId}: P{best.Contact.Shooter}'s, end {Num.Vector3.Distance(best.End, chest):F2} m from his chest, line {LineDistance(chest, best.End, best.DirGame):F2} m; reach {reach:F2} m (speed {speed:F1} m/s, lag {lag * 1000:F0} ms; {_looseHitScratch.Count} candidates)");
         best.Used = true;
-        int wrong = 0;   // resolved to another player: no longer his
-        foreach (var kv in _shotContacts) if (kv.Value == best.Contact) { wrong = kv.Key; break; }
-        if (wrong != 0) _shotContacts.Remove(wrong);
+        foreach (var kv in _shotContacts) kv.Value.Remove(best.Contact);   // resolved to another player: no longer his
         // drawn where this view shows him: his body's surface toward the shot, at the struck height
         var c = best.Contact;
         var feet = ToGodot(o.Position);
         float height = Math.Clamp(best.End.Z - o.Position.Z, 0.9f, 1.8f);
         var back = -c.Dir; back.Y = 0f;
         back = back.LengthSquared() > 1e-6f ? back.Normalized() : Vector3.Forward;
-        return new ShotContact { At = c.At, Delay = c.Delay, Contact = feet + Vector3.Up * height + back * BodySurface, Dir = c.Dir, Head = c.Head, Shooter = c.Shooter, ArmourUp = c.ArmourUp, Own = c.Own };
+        return new ShotContact { At = c.At, Delay = c.Delay, Contact = feet + Vector3.Up * height + back * BodySurface, Dir = c.Dir, Head = c.Head, Shooter = c.Shooter, ArmourUp = c.ArmourUp, Own = c.Own, SparksDrawn = c.SparksDrawn };
     }
 
     /// <summary>The own hit report (UpdateHits): the victim's armour after the own melee strike, exact for the own view's mixed-or-blood choice.</summary>
@@ -291,8 +343,6 @@ public partial class NetworkView
         if (hits.LastMelee && hits.LastVictim > 0) _ownMeleeReport = (hits.LastVictim, hits.VictimShield, _connectedFor);
     }
 
-    /// <summary>Whether a melee damage on <paramref name="victim"/> was just paired with an attacker (its fan and red sparks give way to the directional look).</summary>
-    bool MeleeContactPaired(int victim) => _meleePairedAt.TryGetValue(victim, out double at) && _connectedFor - at < 0.6;
 
     /// <summary>
     /// A confirmed damage on another player (his mark changed since the last record; <paramref name="nowAlive"/> false: it killed him). Returns whether a melee attacker was paired (the caller then
@@ -306,21 +356,28 @@ public partial class NetworkView
         try
         {
             bool lethal = !nowAlive;
-            bool fresh = _shotContacts.TryGetValue(o.PlayerId, out var shot) && _connectedFor - shot.At <= (shot.Own ? OwnWindow : RemoteWindow);
+            var shot = TakeShot(o.PlayerId);
             // the server's body or head hit that this view resolved to nobody or to another player (it draws the others interpolated, a step behind the shot): the nearest one on him
-            if (!fresh && ServerHitNear(o) is { } loose) { shot = loose; fresh = true; _hitDirLooseShots++; }
-            if (fresh)
+            if (shot is null && ServerHitNear(o) is { } loose) { shot = loose; _hitDirLooseShots++; }
+            if (shot is not null)
             {
-                _shotContacts.Remove(o.PlayerId);
                 foreach (var h in _serverHits) if (h.Contact == shot) h.Used = true;
                 var visual = Classify(shield, health, ShieldLeftAfterMark(shield, health, shot.ArmourUp));
                 _hitDirShots++;
                 NoteHitDirFocus(shot.Contact, shot.Dir);
+                double wait = Math.Max(0.0, shot.At + shot.Delay - _connectedFor);
+                if (!shot.SparksDrawn && PlayerHitFxRules.DrawsHitFx(ShotHit.Body, MatchExtras, PlayerHitFxFlag))
+                {
+                    // the confirmed class's sparks (review of 2b89de15, finding 6): left by the impact to this mark
+                    var (yellow, red) = GunfireMarkSparks(look, visual, shot.ArmourUp);
+                    if (yellow) ArmourSparks(shot.Contact, shot.Dir, wait, o.PlayerId);
+                    if (red) RedSparks(shot.Contact, shot.Dir, wait);
+                }
                 bool drawn = false;
                 if (HasBlood(visual))
                 {
                     var exit = ShotExit(o, shot);   // the spray starts where the shot leaves him, along it (lead decision 7)
-                    var c = new ClassicContact(o.PlayerId, shot.Shooter, exit, shot.Dir, visual, true, shot.Head, lethal, false, 0.3f, BloodAmount(false, lethal), -Math.Max(0.0, shot.At + shot.Delay - _connectedFor), null, 0, null);   // the spray waits for the tracer's arrival
+                    var c = new ClassicContact(o.PlayerId, shot.Shooter, exit, shot.Dir, visual, true, shot.Head, lethal, false, 0.3f, BloodAmount(false, lethal), -wait, null, 0, null);   // the spray waits for the tracer's arrival
                     ExtrasClassicBlood(c, ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
                     if (drawn) _hitDirBlood++;
                 }
@@ -333,23 +390,33 @@ public partial class NetworkView
             cands.Clear();
             AddCandidate(cands, _client.Predicted, own: true);
             foreach (var p in _lastOthers) AddCandidate(cands, p, own: false);
-            int attacker = PickAttacker(o.PlayerId, o.Team, o.Position, cands);
-            if (attacker != 0 && !_contactLedger.Seen(o.PlayerId, attacker, _weaponTrails[attacker].Key, _connectedFor)) { }
-            else attacker = 0;   // a second mark under the same attack key is other damage: it is not swallowed (review decision 10)
+            long markTick = (long)Math.Floor(_othersTick);
+            int attacker = 0;
+            AttackSpan span = default;
+            string? noSpan = null;
+            for (int tries = 0; tries < 2 && cands.Count > 0; tries++)
+            {
+                int pick = PickAttacker(o.PlayerId, o.Team, o.Position, cands);
+                if (pick == 0) break;
+                // the attack of his whose blow the mark is (review of 2b89de15): the own prediction runs ahead into the next combo step (finding 1); a jump-pack landing blast is not the air slash (finding 2)
+                if (SpanForMark(markTick, _weaponTrails[pick].Spans) is { } sp) { attacker = pick; span = sp; break; }
+                noSpan = $"P{pick}'s attacks do not span the mark's tick {markTick}";
+                cands.RemoveAll(c => c.Id == pick);
+            }
+            if (attacker != 0 && _contactLedger.Seen(o.PlayerId, attacker, span.Key, _connectedFor)) attacker = 0;   // a second mark under the same attack key is other damage: it is not swallowed (review decision 10)
             // a bull-rush charge's connect, only after shots and melee found nothing, and only on contact (owner 2026-11-24; review decision 10; NetworkView.ClassicHitDirCharge.cs)
             if (attacker == 0 && ClassicChargeMark(o, shield, health, lethal)) return true;
             if (attacker == 0)
             {
                 _hitDirUnpaired++;
-                if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} shield {shield} health {health}: no shot and no weapon melee attacker in reach (left to the existing look; t {_connectedFor:F2}); why: {UnpairedReason(o)}");
+                if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} shield {shield} health {health}: no shot and no weapon melee attacker in reach (left to the existing look; t {_connectedFor:F2}); why: {UnpairedReason(o)}{(noSpan is null ? "" : "; " + noSpan)}");
                 return false;
             }
             var trail = _weaponTrails[attacker];
-            _meleePairedAt[o.PlayerId] = _connectedFor;
-            _contactLedger.First(o.PlayerId, attacker, trail.Key, _connectedFor);
+            _contactLedger.First(o.PlayerId, attacker, span.Key, _connectedFor);
             bool before = ArmourBeforeForMark(_armourFlash.ArmourUp(o.PlayerId, _connectedFor));   // unknown: down (review finding 2)
-            _meleePending.Add(new MeleePending { Victim = o.PlayerId, Attacker = attacker, Shield = shield, Health = health, ArmourBefore = before, Lethal = lethal, Heavy = trail.Heavy, Key = trail.Key, At = _connectedFor });
-            if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} paired with P{attacker} (key {trail.Key}) shield {shield} health {health} armour-before {before}{(lethal ? " lethal" : "")} (t {_connectedFor:F2})");
+            _meleePending.Add(new MeleePending { Victim = o.PlayerId, Attacker = attacker, Shield = shield, Health = health, ArmourBefore = before, Lethal = lethal, Heavy = SpanHeavy(span), Key = span.Key, At = _connectedFor });
+            if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} paired with P{attacker} (key {span.Key}, start {span.StartTick}, mark tick {markTick}) shield {shield} health {health} armour-before {before}{(lethal ? " lethal" : "")} (t {_connectedFor:F2})");
             return true;
         }
         finally { NoteHitDirCost(); }
@@ -368,7 +435,7 @@ public partial class NetworkView
         if (HitDirLook == DirLook.None) { _meleePending.Clear(); _shotContacts.Clear(); _serverHits.Clear(); return; }
         // the spray pool (32 meshes) and its shader are made on the first effects frame after the join, not on the first hit mid-fight (live 8v8 check 2026-11-24: made lazily
         // on the first hit, it cost one frame of about 176 ms); left out of the per-frame cost below
-        if (_hitSpray is null) HitSpray().Prewarm(ToGodot(me.Position));
+        if (_hitSpray is null) { HitSpray().Prewarm(ToGodot(me.Position)); ExtrasClassicPrewarm(ToGodot(me.Position)); }   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         _hitDirWatch.Restart();
         Record(me, own: true);
         foreach (var p in _lastOthers) Record(p, own: false);
@@ -393,18 +460,41 @@ public partial class NetworkView
         bool slash = s.Alive && s.JumpSlash;
         if (slash && !t.SlashWas) t.Slashes++;
         t.SlashWas = slash;
+        // ticks in the server's numbering: the own attack from the prediction, another player's from the tick he is drawn at (his marks are drawn at the same tick)
+        long tick = own ? _client!.Tick : (long)Math.Floor(_othersTick);
         if (WeaponMeleeActive(s))
         {
-            if (slash) { t.Key = ClassicHitDirRules.SlashKey(t.Slashes); t.Heavy = false; }   // owner 2026-11-24: the air slash is weapon melee
+            var cur = t.Cur >= 0 && t.Cur < t.Spans.Count ? t.Spans[t.Cur] : (AttackSpan?)null;
+            if (slash)
+            {
+                // owner 2026-11-24: the air slash is weapon melee; its blow lands its hit time after the landing (the landing's own blast is not the slash's: review of 2b89de15, finding 2)
+                var key = ClassicHitDirRules.SlashKey(t.Slashes);
+                if (cur is not { Slash: true } c0 || c0.Key != key) t.StartSpan(new AttackSpan(key, tick, tick, long.MaxValue, true));
+                var sp = t.Spans[t.Cur];
+                sp.LastTick = tick;
+                if (!s.Grounded) sp.Air = true;
+                else if (sp.Air && sp.HitFromTick == long.MaxValue) sp.HitFromTick = tick + SlashHitTicks(s);   // landed: a buffered slash is flagged on the ground before the take-off too
+                t.Spans[t.Cur] = sp;
+                t.Key = key; t.Heavy = false;
+            }
             else
             {
-                long tick = own ? _client!.Tick : _client!.LatestSnapshotTick;
                 long start = MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
-                t.Key = ClassicHitDirRules.AttackKey(start, s.MeleeStep, s.MeleeHeavy);
-                t.Heavy = s.MeleeHeavy;
+                // one key per swing: another player's start estimate jitters a tick or two with the snapshots (a fresh key split the swing's path and let its second damage through)
+                if (cur is { Slash: false } c1 && SameAttack(c1.StartTick, t.CurStep, t.CurHeavy, start, s.MeleeStep, s.MeleeHeavy)) start = c1.StartTick;
+                else
+                {
+                    t.StartSpan(new AttackSpan(ClassicHitDirRules.AttackKey(start, s.MeleeStep, s.MeleeHeavy), start, tick, start + StepHitTicks(s), false));
+                    t.CurStep = s.MeleeStep; t.CurHeavy = s.MeleeHeavy;
+                }
+                var sp = t.Spans[t.Cur];
+                sp.LastTick = tick;
+                t.Spans[t.Cur] = sp;
+                t.Key = sp.Key; t.Heavy = s.MeleeHeavy;
             }
             t.MeleeAt = _connectedFor;
         }
+        else t.Cur = -1;
         if (_connectedFor - t.MeleeAt > 0.9) return;   // only around an attack
         if (BladePoint(s.PlayerId) is { } p) { t.Add(_connectedFor, p, ToGodot(s.Position), t.Key); t.NoBlade = null; }
         else t.NoBlade = BladeMissing(s.PlayerId);
@@ -434,13 +524,15 @@ public partial class NetworkView
         var facing = DirToGodot(new Num.Vector3(-MathF.Sin(attacker.Yaw), MathF.Cos(attacker.Yaw), 0f)).Normalized();
         Vector3 contact, dir;
         double contactAt;
-        int histCount = 0;
+        int histCount = 0, firstAfter = 0;
         if (idx >= 0 && dist < ContactReach)
         {
             contactAt = path[idx].Time;
             contact = HdG(ContactOnBody(path[idx].Position, HdN(low), HdN(high)));
             dir = WeaponDirection(path, contactAt) is { } wd ? HdG(wd) : facing;
-            for (int k = idx + 1; k < path.Count && histCount < _trailScratch.Length; k++) _trailScratch[histCount++] = (path[k].Time - contactAt, HdG(path[k].Position));
+            // the weapon's drawn points on both sides of the contact: the blood is laid along them (third design, owner answer 4); the sparks take the part after it
+            for (int k = 0; k < path.Count && histCount < _histScratch.Length; k++) _histScratch[histCount++] = (path[k].Time - contactAt, HdG(path[k].Position));
+            firstAfter = Math.Min(idx + 1, histCount);
         }
         else
         {
@@ -470,7 +562,8 @@ public partial class NetworkView
         }
         else { thrust = 0f; dirSource = idx >= 0 && dist < ContactReach ? "weapon (own motion unknown: a sweep)" : idx >= 0 ? $"weapon too far ({dist:F2} m): facing, a sweep" : $"no path ({trail.NoBlade ?? "no point in the last 0.6 s"}): facing, a sweep"; }
         float spread = SpreadFor(thrust);
-        if (StartsAtExit(false, thrust))
+        bool exitSide = StartsAtExit(false, thrust);
+        if (exitSide)
         {
             // a thrust drives through him: the spray starts on the far side, along the thrust, so it is seen from the attacker's view too (lead decision 7)
             var axis = ClosestOnSegment(HdN(contact), HdN(low), HdN(high));
@@ -496,23 +589,31 @@ public partial class NetworkView
         double preAge = PreAge(_connectedFor, contactAt);
         int attackerId = m.Attacker;
         Func<Vector3?> weapon = () => BladePoint(attackerId);
-        var hist = histCount > 0 ? _trailScratch : null;
+        var hist = histCount > 0 ? _histScratch : null;
         var look = HitDirLook;
         if (HasSparks(visual) && look.HasFlag(DirLook.MeleeSparks))
         {
-            HitSpray().SpawnMelee(contact, new ReadOnlySpan<(double, Vector3)>(_trailScratch, 0, histCount), weapon, dir, new ClassicHitSpray.Look(true, 1f, spread * 0.8f), preAge);
+            HitSpray().SpawnMelee(contact, new ReadOnlySpan<(double, Vector3)>(_histScratch, firstAfter, histCount - firstAfter), weapon, dir, new ClassicHitSpray.Look(true, 1f, spread * 0.8f), preAge);
             _hitDirSparks++;
         }
         NoteHitDirFocus(contact, dir);
         bool drawn = false;
         if (HasBlood(visual))
-            ExtrasClassicBlood(new ClassicContact(m.Victim, m.Attacker, contact, dir, visual, false, false, m.Lethal, m.Heavy, spread, BloodAmount(m.Heavy, m.Lethal), preAge, hist, histCount, weapon), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+            ExtrasClassicBlood(new ClassicContact(m.Victim, m.Attacker, contact, dir, visual, false, false, m.Lethal, m.Heavy, spread, BloodAmount(m.Heavy, m.Lethal), preAge, hist, histCount, weapon, Exit: exitSide), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         if (drawn) _hitDirBlood++;
         _hitDirMelee++;
         if (LogHitDir) HitDirPrint($"HITDIR melee P{m.Attacker}->P{m.Victim} {visual}{(m.Heavy ? " heavy" : "")}{(m.Lethal ? " lethal" : "")} contact {contact.X:F2},{contact.Y:F2},{contact.Z:F2} dir {dir.X:F2},{dir.Y:F2},{dir.Z:F2} " +
                                 $"approach {dist:F2} m, path {path.Count} pts, dir from {dirSource}, waited {waited * 1000:F0} ms, pre-age {preAge * 1000:F0} ms, thrust {thrust:F2} spread {spread:F2}, blood {drawn} (t {_connectedFor:F2})");
         return true;
     }
+
+    /// <summary>Ticks from an air slash's landing to its blow (the pack's slash hit time; one tick when it is not known).</summary>
+    long SlashHitTicks(PlayerState s) =>
+        _config is not null && Loadouts.JumpPack(_config, s)?.Slash is { } slash ? Math.Max(1L, (long)MathF.Round(slash.HitTime / _config.TickSeconds)) : 1L;
+
+    /// <summary>Ticks from a melee step's start to its blow (the step's hit time; 0 when it is not known).</summary>
+    long StepHitTicks(PlayerState s) =>
+        _config is not null && s.MeleeStep > 0 && Combat.MeleeStepOf(_config, s) is { } m && float.IsFinite(m.HitTime) ? Math.Max(0L, (long)MathF.Round(m.HitTime / _config.TickSeconds)) : 0L;
 
     static Num.Vector3 HdN(Vector3 v) => new(v.X, v.Y, v.Z);
     static Vector3 HdG(Num.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -574,7 +675,7 @@ public partial class NetworkView
     string UnpairedReasonText(PlayerState o, out string category)
     {
         var feet = o.Position;
-        if (_shotContacts.TryGetValue(o.PlayerId, out var stale))
+        if (StaleShot(o.PlayerId) is { } stale)
         {
             category = "shot-too-old";
             return $"a shot on him by P{stale.Shooter} {_connectedFor - stale.At:F2} s ago (window {(stale.Own ? OwnWindow : RemoteWindow):F2} s)";

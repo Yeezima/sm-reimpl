@@ -540,6 +540,7 @@ public partial class NetworkView : Node3D
         var (renderTick, interpolated) = _client.RemotePlayers();
         var others = DrawnRemotes(interpolated, me, shown);   // sim/player-collision: drawn apart (NetworkView.Bodies.cs; ours)
         _lastOthers = others;
+        _othersTick = renderTick;   // classic-hit-effects: the tick the others and their damage marks are drawn at (NetworkView.ClassicHitDir.cs)
         HipFireOthers(me, others, renderTick > 0);   // M27 (fetches this frame's projectile list once, _frameProjectiles)
         var seen = _seenRemotes;
         seen.Clear();

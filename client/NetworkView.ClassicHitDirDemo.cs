@@ -139,18 +139,25 @@ public partial class NetworkView
     void DemoStroke(int victim, Vector3 chest, Vector3 toCam, Vector3 motion, HitVisual visual, bool heavy, bool lethal, float thrust, DirLook look)
     {
         var contact = chest + toCam * BodySurface;
-        var hist = new (double T, Vector3 P)[10];
-        var bend = thrust > 0.5f ? Vector3.Zero : -toCam * 2.5f;
+        // the stroke's points from 0.1 s before the contact to 0.2 s after it (the blood is laid along both sides; the sparks take the part after it)
+        var hist = new (double T, Vector3 P)[15];
+        var bend = thrust > 0.5f ? Vector3.Zero : toCam * 2.5f;   // a swing arcs round the attacker (the camera's side): before and after the contact it curves back toward him
         for (int k = 0; k < hist.Length; k++)
         {
-            double t = (k + 1) * 0.02;
+            double t = (k - 4) * 0.02;
             hist[k] = (t, contact + motion * 12f * (float)t + bend * (float)(t * t) * 6f);
+        }
+        if (thrust > 0.5f)
+        {
+            // a thrust drives through him: the spray starts on the exit side, as the confirmed path does (lead decision 7)
+            contact = chest - toCam * BodySurface;
+            for (int k = 0; k < hist.Length; k++) hist[k].P += contact - (chest + toCam * BodySurface);
         }
         float spread = SpreadFor(thrust);
         NoteHitDirFocus(contact, motion);
-        if (HasSparks(visual) && look.HasFlag(DirLook.MeleeSparks)) HitSpray().SpawnMelee(contact, hist, null, motion, new ClassicHitSpray.Look(true, 1f, spread * 0.8f), 0.0);
+        if (HasSparks(visual) && look.HasFlag(DirLook.MeleeSparks)) HitSpray().SpawnMelee(contact, new ReadOnlySpan<(double, Vector3)>(hist, 5, hist.Length - 5), null, motion, new ClassicHitSpray.Look(true, 1f, spread * 0.8f), 0.0);
         bool drawn = false;
         if (HasBlood(visual))
-            ExtrasClassicBlood(new ClassicContact(victim, _client!.PlayerId, contact, motion, visual, false, false, lethal, heavy, spread, BloodAmount(heavy, lethal), 0.0, hist, hist.Length, null), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+            ExtrasClassicBlood(new ClassicContact(victim, _client!.PlayerId, contact, motion, visual, false, false, lethal, heavy, spread, BloodAmount(heavy, lethal), 0.0, hist, hist.Length, null, Exit: thrust > 0.5f), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
     }
 }

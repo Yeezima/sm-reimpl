@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SmClient.ImpactRules;
@@ -64,13 +65,154 @@ public class ClassicBloodRulesTests
         {
             var (alpha, shade) = DecalShape(seed, n);
             int centre = n / 2 * n + n / 2;
-            Assert.True(alpha[centre] > 0.99f, $"seed {seed}: core");
-            Assert.True(shade[centre] < 0.7f, $"seed {seed}: the core is darker");
+            Assert.True(alpha[centre] > 0.9f, $"seed {seed}: core");
+            Assert.True(shade[centre] < 0.5f, $"seed {seed}: the core is darker");
             Assert.True(alpha[0] < 0.01f && alpha[n - 1] < 0.01f && alpha[(n - 1) * n] < 0.01f, $"seed {seed}: corners clear");
             // thin vertical bands outside the lobes' main reach: the drips run down, nothing runs up
             for (int y = (int)(n * 0.84); y < (int)(n * 0.97); y++) for (int x = (int)(n * 0.3); x < (int)(n * 0.7); x++) below += alpha[y * n + x];
             for (int y = (int)(n * 0.03); y < (int)(n * 0.16); y++) for (int x = (int)(n * 0.3); x < (int)(n * 0.7); x++) above += alpha[y * n + x];
         }
         Assert.True(below > above, $"drips below {below:F0} vs above {above:F0}");
+    }
+
+    [Fact]
+    public void The_core_is_dark_blood_red_never_near_black()
+    {
+        Assert.True(DecalValue(0f) >= 0.45f);   // review of 2b89de15: 12-28 % of the blood colour read black
+        Assert.Equal(1f, DecalValue(1f), 3);
+        var (alpha, shade) = DecalShape(VariantSeed(3, 9), 128);
+        Assert.True(DecalValue(shade[64 * 128 + 64]) < 0.8f, "the core is darker than the edges");
+    }
+
+    [Fact]
+    public void The_outline_is_ragged_and_the_splatter_fine()
+    {
+        const int n = 192;
+        for (int seed = 1; seed <= 8; seed++)
+        {
+            var (alpha, _) = DecalShape(VariantSeed(seed, 2), n);
+            // ragged: the painted radius along 360 rays varies a lot between neighbouring rays (a round blob's does not)
+            var radius = new float[360];
+            for (int k = 0; k < 360; k++)
+            {
+                float a = k * MathF.PI / 180f;
+                for (float r = 0f; r < 0.5f; r += 1f / n)
+                {
+                    int x = (int)((0.5f + MathF.Cos(a) * r) * n), y = (int)((0.5f + MathF.Sin(a) * r) * n);
+                    if (x < 0 || y < 0 || x >= n || y >= n || alpha[y * n + x] < 0.5f) break;
+                    radius[k] = r;
+                }
+            }
+            float jump = 0f, min = float.MaxValue, max = 0f;
+            for (int k = 0; k < 360; k++) { jump += MathF.Abs(radius[k] - radius[(k + 1) % 360]); min = MathF.Min(min, radius[k]); max = MathF.Max(max, radius[k]); }
+            Assert.True(max > 1.8f * min, $"seed {seed}: uneven lobes ({min:F2} to {max:F2})");
+            Assert.True(jump > 1.2f, $"seed {seed}: ragged outline ({jump:F2})");
+            // fine splatter: many small separate specks outside the main shape
+            int specks = 0;
+            var seen = new bool[n * n];
+            for (int i = 0; i < n * n; i++)
+            {
+                if (seen[i] || alpha[i] < 0.4f) continue;
+                int size = 0; var stack = new Stack<int>(); stack.Push(i); seen[i] = true;
+                while (stack.Count > 0)
+                {
+                    int j = stack.Pop(); size++;
+                    int jx = j % n, jy = j / n;
+                    foreach (var (dx, dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                    {
+                        int qx = jx + dx, qy = jy + dy;
+                        if (qx < 0 || qy < 0 || qx >= n || qy >= n) continue;
+                        int q = qy * n + qx;
+                        if (!seen[q] && alpha[q] >= 0.4f) { seen[q] = true; stack.Push(q); }
+                    }
+                }
+                if (size <= 40) specks++;
+            }
+            Assert.True(specks >= 20, $"seed {seed}: fine splatter ({specks} specks)");
+        }
+    }
+
+    // ---- the spray's ribbons (third design, owner answer 4) ----
+
+    static Vector3[] Curve(ReadOnlySpan<(double T, Vector3 P)> path, Vector3 dir, float back = 0.9f, float fwd = 1.8f)
+    {
+        var into = new Vector3[2 * RibbonHalf + 1];
+        RibbonPath(path, Vector3.Zero, dir, back, fwd, into);
+        return into;
+    }
+
+    [Fact]
+    public void Without_a_path_the_ribbons_lie_straight_along_the_shot_on_both_sides_of_the_contact()
+    {
+        var c = Curve(ReadOnlySpan<(double, Vector3)>.Empty, new Vector3(0, 0, 2), back: 0.3f, fwd: 1.5f);
+        Assert.Equal(Vector3.Zero, c[RibbonHalf]);
+        Assert.Equal(1.5f, c[^1].Z, 3); Assert.Equal(0f, c[^1].X, 3);
+        Assert.Equal(-0.3f, c[0].Z, 3);
+        for (int k = 1; k < c.Length; k++) Assert.True(c[k].Z > c[k - 1].Z);
+    }
+
+    static (double, Vector3)[] Arc(float radius, float speed, int sign)
+    {
+        // a swing round an attacker standing at (0, -radius): through the contact at the origin, moving along +X (sign 1) or -X (sign -1)
+        var pts = new (double, Vector3)[17];
+        for (int k = 0; k < pts.Length; k++)
+        {
+            double t = (k - 8) * 0.016;
+            float a = sign * speed * (float)t / radius;
+            pts[k] = (t, new Vector3(radius * MathF.Sin(a), radius * MathF.Cos(a) - radius, 1.3f));
+        }
+        return pts;
+    }
+
+    [Fact]
+    public void A_sweep_s_ribbons_follow_its_arc_on_both_sides_and_never_curl_round_the_attacker()
+    {
+        var c = Curve(Arc(1.6f, 12f, 1), Vector3.UnitX);
+        Assert.True(c[^1].X > 1.2f, "the far part runs on along the swing");
+        Assert.True(c[0].X < -0.5f, "the near part lies back along where it came from");
+        Assert.True(c[^1].Y < -0.2f, "it bends with the arc, toward the attacker's side");
+        Assert.True(c[0].Y < -0.05f, "both sides bend the same way (an arc, not an S)");
+        // bounded: no part points back past the side (at most RibbonMaxTurn per step)
+        for (int k = RibbonHalf + 1; k < c.Length; k++) Assert.True(c[k].X > c[k - 1].X);
+        // the reverse swing mirrors it
+        var r = Curve(Arc(1.6f, 12f, -1), -Vector3.UnitX);
+        Assert.Equal(-c[^1].X, r[^1].X, 2); Assert.Equal(c[^1].Y, r[^1].Y, 2);
+    }
+
+    [Fact]
+    public void A_vertical_stroke_lays_its_ribbons_vertically_and_a_pose_pop_is_skipped()
+    {
+        var pts = new (double, Vector3)[9];
+        for (int k = 0; k < pts.Length; k++) { double t = (k - 4) * 0.02; pts[k] = (t, new Vector3(0, 0, -10f * (float)t)); }
+        pts[6] = (pts[6].Item1, new Vector3(5, 5, 5));   // a pop
+        var c = Curve(pts, -Vector3.UnitZ);
+        Assert.True(c[^1].Z < -1.5f && MathF.Abs(c[^1].X) < 0.2f);
+        Assert.True(c[0].Z > 0.6f);
+    }
+
+    [Fact]
+    public void The_ribbons_are_laid_at_once_and_hang_brightest_early_strong_to_0_6_faint_to_1_s()
+    {
+        Assert.Equal(0f, RibbonEnvelope(-0.1f));
+        Assert.True(RibbonReveal(1f / 30f) > 0.75f, "most of the reach after one frame");
+        Assert.Equal(1f, RibbonReveal(0.05f), 3);
+        Assert.True(RibbonEnvelope(1f / 30f) > 0.9f);
+        for (float t = 0.07f; t <= 0.35f; t += 0.02f) Assert.True(RibbonEnvelope(t) > 0.99f, $"brightest at {t:F2}");
+        Assert.InRange(RibbonEnvelope(0.6f), 0.55f, 0.85f);
+        Assert.InRange(RibbonEnvelope(0.9f), 0.05f, 0.25f);
+        Assert.True(RibbonEnvelope(RibbonSeconds) < 0.001f);
+        // smooth: no frame drops it by more than a tenth (no pop)
+        for (float t = 0.04f; t < RibbonSeconds; t += 1f / 30f) Assert.True(RibbonEnvelope(t) - RibbonEnvelope(t + 1f / 30f) < 0.1f);
+    }
+
+    [Fact]
+    public void Thrusts_and_shots_reach_mostly_past_the_body_sweeps_both_sides_and_heavier_hits_lay_more()
+    {
+        var sweep = RibbonReach(RibbonKind.Sweep, 1f); var thrust = RibbonReach(RibbonKind.Thrust, 1f); var gun = RibbonReach(RibbonKind.Gunfire, 1f);
+        Assert.InRange(sweep.Forward, 1.6f, 2.0f);   // about 0.9 body heights past the body (the reference)
+        Assert.True(sweep.Back > 2f * thrust.Back && sweep.Back > 2f * gun.Back);
+        Assert.True(RibbonReach(RibbonKind.Sweep, 2.1f).Forward > sweep.Forward);
+        Assert.True(RibbonCount(1f) < RibbonCount(1.5f) && RibbonCount(1.5f) < RibbonCount(2.1f) && RibbonCount(2.1f) <= MaxRibbons && RibbonCount(100f) == MaxRibbons);
+        Assert.True(RibbonWidthScale(2.1f) > RibbonWidthScale(1f));
     }
 }

@@ -47,14 +47,12 @@ public class ClassicHitDirTests
     }
 
     [Fact]
-    public void Heavier_and_lethal_hits_are_bloodier_within_the_mesh()
+    public void Heavier_and_lethal_hits_are_bloodier_and_the_sparks_stay_short()
     {
         Assert.True(BloodAmount(false, false) < BloodAmount(true, false));
         Assert.True(BloodAmount(true, false) < BloodAmount(false, true));
-        Assert.True(StreakCount(1f) < StreakCount(HeavyAmount) && StreakCount(HeavyAmount) < StreakCount(LethalAmount));
-        Assert.True(StreakCount(LethalAmount) <= MaxStreaks && StreakCount(100f) == MaxStreaks);
-        Assert.InRange(SprayLife(false), 0.9f, 1.25f);   // the reference's plume is mostly gone about 0.8 s after contact, faint ribbons to about 0.9-1 s (review of fcd76a6f)
-        Assert.True(SprayLife(true) < SprayLife(false));
+        Assert.True(SparkStreaks <= MaxStreaks);
+        Assert.InRange(SprayLife(true), 0.4f, 0.6f);   // the armour sparks: a short burst (the blood's ribbons have their own timing: ClassicBloodRulesTests)
     }
 
     // ---- who draws what ----
@@ -482,5 +480,85 @@ public class ClassicHitDirTests
         Assert.True(ledger.First(4, 9, 77, 1.0));
         Assert.True(ledger.Seen(4, 9, 77, 1.5));          // a second mark under the same key is other damage
         Assert.False(ledger.Seen(4, 9, 77, 2.5));         // aged out
+    }
+
+    // ---- the review of 2b89de15: blocking defects 1-3 and the confirmed-class sparks (finding 6) ----
+
+    static AttackSpan Step(long start, long last, int step, long hitTicks = 6) => new(AttackKey(start, step, false), start, last, start + hitTicks, false);
+
+    [Fact]
+    public void Defect_1_a_chained_combo_mark_takes_its_own_step_although_the_own_prediction_is_on_the_next()
+    {
+        // own step 1 ran ticks 100-124 and step 2 started at 125 (the prediction is already in it when step 1's mark arrives); step 1's blow landed at 108, drawn at 110
+        var spans = new List<AttackSpan> { Step(100, 124, 1), Step(125, 150, 2) };
+        Assert.Equal(spans[0].Key, SpanForMark(110, spans)!.Value.Key);
+        // its blow landed late in the step and was drawn two ticks after it ended: still step 1 (step 2's blow cannot land yet)
+        Assert.Equal(spans[0].Key, SpanForMark(126, spans)!.Value.Key);
+        // step 2's blow at 133, drawn at 134: step 2
+        Assert.Equal(spans[1].Key, SpanForMark(134, spans)!.Value.Key);
+        // long after both: no attack of his (a blast, a stomp: not paired)
+        Assert.Null(SpanForMark(200, spans));
+        // before any started
+        Assert.Null(SpanForMark(90, spans));
+    }
+
+    [Fact]
+    public void Defect_1_one_swing_keeps_one_key_although_another_player_s_start_estimate_jitters()
+    {
+        Assert.True(SameAttack(100, 2, false, 102, 2, false));
+        Assert.True(SameAttack(100, 2, false, 97, 2, false));
+        Assert.False(SameAttack(100, 2, false, 125, 3, false));   // the next step
+        Assert.False(SameAttack(100, 2, false, 100, 2, true));    // a heavy
+        Assert.False(SameAttack(100, 1, false, 140, 1, false));   // a new string from step 1
+        Assert.True(SpanHeavy(new AttackSpan(AttackKey(10, 1, true), 10, 20, 10, false)));
+        Assert.False(SpanHeavy(new AttackSpan(AttackKey(10, 1, false), 10, 20, 10, false)));
+        Assert.False(SpanHeavy(new AttackSpan(SlashKey(3), 10, 20, 10, true)));
+    }
+
+    [Fact]
+    public void Defect_1_the_own_report_keeps_the_old_fan_when_its_mark_will_draw_nothing()
+    {
+        var victimFeet = new Vector3(0f, 1.5f, 0f);
+        var striking = new MeleeCandidate(7, Team.SpaceMarines, Vector3.Zero, 0f, 0.05, true, Own: true);
+        Assert.True(OwnReportDirectional(DirLook.MeleeSparks, true, 3, Team.Chaos, victimFeet, striking, hasKey: true, reportsBefore: 0));
+        Assert.False(OwnReportDirectional(DirLook.MeleeSparks, true, 3, Team.Chaos, victimFeet, striking, hasKey: false, reportsBefore: 0));   // no attack of his spans the report
+        Assert.False(OwnReportDirectional(DirLook.MeleeSparks, true, 3, Team.Chaos, victimFeet, striking, hasKey: true, reportsBefore: 1));    // a second damage under one key: its mark is not drawn
+    }
+
+    [Fact]
+    public void Defect_2_the_jump_pack_landing_blast_is_not_the_air_slash_and_the_slash_blow_pairs()
+    {
+        // a slash flagged at tick 200, landing at 230; its blow lands 8 ticks later (the pack's hit time)
+        var slash = new AttackSpan(SlashKey(1), 200, 245, 238, true, Air: true);
+        var spans = new List<AttackSpan> { slash };
+        Assert.Null(SpanForMark(230, spans));   // the landing blast at the landing, drawn at once
+        Assert.Null(SpanForMark(232, spans));   // drawn up to two ticks late: still not the slash
+        Assert.Equal(slash.Key, SpanForMark(238, spans)!.Value.Key);   // the slash's blow
+        Assert.Equal(slash.Key, SpanForMark(240, spans)!.Value.Key);
+        // before it lands its blow tick is unknown: nothing pairs with it
+        Assert.Null(SpanForMark(215, new List<AttackSpan> { slash with { HitFromTick = long.MaxValue, LastTick = 215 } }));
+        // a step's not-yet-landed blow only loses a tie: alone it still pairs (its hit time is a preference, not a gate)
+        Assert.NotNull(SpanForMark(101, new List<AttackSpan> { Step(100, 120, 1, hitTicks: 6) }));
+    }
+
+    [Fact]
+    public void Finding_6_a_shot_s_sparks_follow_its_confirmed_class()
+    {
+        var faithful = DirLook.MeleeSparks; var extended = DirLook.MeleeSparks | DirLook.BloodSpray | DirLook.HeadshotDecal;
+        // armour only: yellow sparks in both profiles
+        Assert.Equal((true, false), GunfireMarkSparks(extended, HitVisual.Sparks, true));
+        Assert.Equal((true, false), GunfireMarkSparks(faithful, HitVisual.Sparks, true));
+        // health lost with armour left: sparks (and blood in Extended)
+        Assert.Equal((true, false), GunfireMarkSparks(extended, HitVisual.Mixed, true));
+        // armour broken and health hit by the same shot: no yellow sparks; Extended draws blood, Faithful today's red health-hit sparks
+        Assert.Equal((false, false), GunfireMarkSparks(extended, HitVisual.Blood, true));
+        Assert.Equal((false, true), GunfireMarkSparks(faithful, HitVisual.Blood, true));
+        // bare armour: no yellow; Faithful's red sparks were drawn at the impact already (armour bit down)
+        Assert.Equal((false, false), GunfireMarkSparks(faithful, HitVisual.Blood, false));
+        // who waits for the mark: another player with the directional look; not the own body, not an unresolved hit, not the old look
+        Assert.True(SparksWaitForMark(extended, 5, 2));
+        Assert.False(SparksWaitForMark(extended, 2, 2));
+        Assert.False(SparksWaitForMark(extended, -1, 2));
+        Assert.False(SparksWaitForMark(DirLook.None, 5, 2));
     }
 }

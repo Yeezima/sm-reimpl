@@ -67,6 +67,12 @@ public sealed class ArmourFlashTracker
         e.RegenAt = now + Math.Max(0f, regenDelay);
     }
 
+    /// <summary>
+    /// classic-hit-effects (review of 2b89de15, finding 7): a confirmed health damage on another player whose glow the dedupe left out: his armour is down now (no flash; the next hit
+    /// reads it, so a health-only melee mark after a suppressed break is blood, not mixed).
+    /// </summary>
+    public void Down(int id) => Of(id).Armour = 2;
+
     /// <summary>The own hit report says another player's armour is gone after this hit (owner, 2026-11-02: the red glow the instant it breaks): the break flash now, once, not on the next hit.</summary>
     public void Broke(int id, double now, float regenDelay)
     {

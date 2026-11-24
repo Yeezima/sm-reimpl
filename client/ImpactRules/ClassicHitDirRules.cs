@@ -67,15 +67,12 @@ public static class ClassicHitDirRules
     public const float HeavyAmount = 1.5f, LethalAmount = 2.1f;
     public static float BloodAmount(bool heavy, bool lethal) => lethal ? LethalAmount : heavy ? HeavyAmount : 1f;
 
-    /// <summary>Streaks in one spray (the mesh's quads) and how many a normal hit shows.</summary>
-    public const int MaxStreaks = 64, NormalStreaks = 13, SparkStreaks = 22;   // blood: 13 soft ribbons and droplets for a normal hit (26 thin streaks before the review of fcd76a6f)
-    public static int StreakCount(float amount) => Math.Clamp((int)MathF.Round(NormalStreaks * amount), 1, MaxStreaks);
+    /// <summary>Streaks in one spark spray (the mesh's quads) and how many it shows.</summary>
+    public const int MaxStreaks = 64, SparkStreaks = 22;
 
-    /// <summary>The spray's life (s): the emission window behind the weapon, then each streak's flight and fade. The reference clip's plume is mostly gone about 0.8 s after contact.</summary>
-    public const float EmitSeconds = 0.2f, StreakSeconds = 0.95f, SparkSeconds = 0.32f;   // review of fcd76a6f: blood laid along a longer stretch of the stroke, faint ribbons to about 0.9-1 s
-    /// <summary>The blood ribbons' gravity (m/s2) and drag (1/s): they hang at height and reach about 1.5 body heights (review of fcd76a6f; ours).</summary>
-    public const float RibbonGravity = 1.0f, RibbonDrag = 1.9f;
-    public static float SprayLife(bool sparks) => EmitSeconds + (sparks ? SparkSeconds : StreakSeconds);
+    /// <summary>The spark spray's life (s): the emission window behind the weapon, then each streak's flight and fade. (The Extended blood has its own timing since the third design: Extras/Gore/ClassicBloodRules.)</summary>
+    public const float EmitSeconds = 0.2f, SparkSeconds = 0.32f;
+    public static float SprayLife(bool sparks) => EmitSeconds + SparkSeconds;
 
     /// <summary>The sideways spread (radians at the end of the emission) of a pure sweep and of a pure thrust: thrusts stay narrow, sweeps bloom wider.</summary>
     public const float SweepSpread = 0.42f, ThrustSpread = 0.14f;
@@ -225,6 +222,46 @@ public static class ClassicHitDirRules
     public static long AttackKey(long startTick, int step, bool heavy) => startTick * 64 + step * 2 + (heavy ? 1 : 0);
     public static long SlashKey(int slashCount) => -1L - slashCount;
 
+    /// <summary>
+    /// One weapon melee attack of a player as this view recorded it (review of 2b89de15, findings 1 and 2): its key, the server tick it started at, the last tick it was seen active, and
+    /// the first tick its blow can land (a step: its start plus the step's hit time; an air slash: its landing (grounded after <c>Air</c>, airborne) plus the slash's hit time, unknown (max) until it lands). Ticks are the
+    /// server's numbering: the own attack from the prediction's tick, another player's from the tick he is drawn at (the same tick the victim's damage mark is drawn at).
+    /// </summary>
+    public record struct AttackSpan(long Key, long StartTick, long LastTick, long HitFromTick, bool Slash, bool Air = false);
+
+    /// <summary>How many ticks past an attack's last active tick a damage mark is still taken as its (the mark shows on the snapshot after the damage: up to a snapshot interval late; ours).</summary>
+    public const int SpanSlackTicks = 4;
+
+    /// <summary>
+    /// The attack a damage mark drawn at server tick <paramref name="markTick"/> belongs to, among a player's recorded <paramref name="spans"/>: one that had started by then (a tick of
+    /// slack) and was active up to <see cref="SpanSlackTicks"/> before it; an air slash only once its blow can land (its landing blast, a tick or more earlier, is not the slash's:
+    /// finding 2); of several, the latest whose blow can land, else the latest. Null: none (the mark is not his weapon melee's).
+    /// <para>The own attack is predicted ahead of the marks, so "his current attack" is often the next combo step already (finding 1: step N's mark was filed under step N+1's key and
+    /// the next hit drew nothing); the tick says which step it was.</para>
+    /// </summary>
+    public static AttackSpan? SpanForMark(long markTick, IReadOnlyList<AttackSpan> spans)
+    {
+        AttackSpan? best = null; bool bestReady = false;
+        foreach (var sp in spans)
+        {
+            if (sp.StartTick - 1 > markTick || markTick > sp.LastTick + SpanSlackTicks) continue;
+            bool ready = markTick >= sp.HitFromTick - 1;
+            if (sp.Slash && !ready) continue;
+            if (best is null || (ready && !bestReady) || (ready == bestReady && sp.StartTick > best.Value.StartTick)) { best = sp; bestReady = ready; }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Whether a recorded attack continues the previous record's: the same step and weight with a start tick within <see cref="MeleeHitGate.StartTolerance"/> (another player's start
+    /// estimate jitters with the snapshots; a fresh key there split one swing's path and let a second damage of it pass the ledger).
+    /// </summary>
+    /// <summary>Whether a melee step's span is a heavy attack (the weight is the key's low bit, <see cref="AttackKey"/>).</summary>
+    public static bool SpanHeavy(AttackSpan span) => !span.Slash && (span.Key & 1) == 1;
+
+    public static bool SameAttack(long startA, int stepA, bool heavyA, long startB, int stepB, bool heavyB) =>
+        stepA == stepB && heavyA == heavyB && Math.Abs(startA - startB) <= MeleeHitGate.StartTolerance;
+
     /// <summary>A bull-rush charge's attack key, from the charger's count of rushes (below every slash key, never a melee step's).</summary>
     public static long ChargeKey(int rushCount) => -1_000_000_000L - rushCount;
 
@@ -247,10 +284,26 @@ public static class ClassicHitDirRules
 
     /// <summary>
     /// Whether the own melee hit report draws the directional look (and leaves out the old fan) at once: the same pairing test the interpolated mark uses later, with the own
-    /// attacker only (finding 1: the report came first and drew the old fan, then the mark drew the spray).
+    /// attacker only (finding 1 of the review of fcd76a6f: the report came first and drew the old fan, then the mark drew the spray), and only when the mark will draw it: the report's
+    /// attack is known (<paramref name="hasKey"/>) and is its first report on this victim (<paramref name="reportsBefore"/> 0; a second damage under the same key is not drawn by the mark,
+    /// so it keeps the old fan: review of 2b89de15, finding 1, no hit with less than base).
     /// </summary>
-    public static bool OwnReportDirectional(DirLook look, bool lastMelee, int victimId, Team victimTeam, Vector3 victimFeet, MeleeCandidate own) =>
-        look.HasFlag(DirLook.MeleeSparks) && lastMelee && own.Own && PickAttacker(victimId, victimTeam, victimFeet, new[] { own }) == own.Id;
+    public static bool OwnReportDirectional(DirLook look, bool lastMelee, int victimId, Team victimTeam, Vector3 victimFeet, MeleeCandidate own, bool hasKey = true, int reportsBefore = 0) =>
+        look.HasFlag(DirLook.MeleeSparks) && lastMelee && own.Own && hasKey && reportsBefore == 0 && PickAttacker(victimId, victimTeam, victimFeet, new[] { own }) == own.Id;
+
+    /// <summary>
+    /// The confirmed-class sparks of a shot, drawn when its damage mark arrives (review of 2b89de15, finding 6; the brief's armour rule): the yellow-white armour sparks for armour only
+    /// and for health lost with armour left; none for a bare-armour health hit or a break with health damage. In a profile without the blood spray (Faithful), a health hit keeps
+    /// today's red sparks: drawn here only when the shot's impact did not (its armour bit said up, <paramref name="armourUpAtImpact"/>: a break with health damage).
+    /// </summary>
+    public static (bool Yellow, bool Red) GunfireMarkSparks(DirLook look, HitVisual visual, bool armourUpAtImpact) =>
+        (HasSparks(visual), !look.HasFlag(DirLook.BloodSpray) && visual == HitVisual.Blood && armourUpAtImpact);
+
+    /// <summary>
+    /// Whether a shot's impact leaves its sparks to its damage mark (finding 6): with the directional look, on another player this view resolved the hit to; the own body and an
+    /// unresolved hit draw at the impact as before.
+    /// </summary>
+    public static bool SparksWaitForMark(DirLook look, int victim, int ownPlayer) => look != DirLook.None && victim > 0 && victim != ownPlayer;
 
     /// <summary>What a charge connect's data impact effects do (finding 3).</summary>
     public enum ChargeFx { PlayNow, Hold, Skip }

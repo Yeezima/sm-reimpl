@@ -11,12 +11,15 @@ namespace SmClient;
 /// <summary>
 /// classic-hit-effects, the Extended profile's blood (added content: gore; owner 2026-11-23, question card "Extended only"; removable with this folder, the core hooks stay empty):
 /// <list type="bullet">
-/// <item><see cref="ExtrasClassicBlood"/>: the red directional spray (<see cref="ClassicHitSpray"/>, today's Classic health-hit red) along the weapon's drawn path or the incoming shot; heavier
-/// and lethal hits throw more streaks, a little larger, without filling the shape in.</item>
-/// <item>The fatal gunfire headshot's wall decal: the confirmed lethal head shot (<see cref="ExtrasClassicFatalHeadshot"/>) and the server's headshot kill (<see cref="ExtrasClassicKill"/>, either
-/// order, within <see cref="HeadshotPairSeconds"/>) place one decal where the shot's line, extended from the head contact, first meets the level, if that is a wall within 5 m and nothing else
-/// (another body) is in the way (<see cref="ClassicBloodRules.DecalTrace"/>). The splash is made in code from the kill's sequence and the victim (<see cref="ClassicBloodRules.DecalShape"/>), so every
-/// view draws the same one; it shares the effect player's alpha-decal cap, clock and eviction fade (<see cref="FxPlayer.PlaceTextureDecal"/>).</item>
+/// <item><see cref="ExtrasClassicBlood"/>: the red spray (<see cref="ClassicBloodRibbons"/>, third design after owner answer 4, 2026-11-24: soft ribbons laid along the weapon's path
+/// through the contact, or along the shot or the charge, that hang in place and fade over about a second; today's Classic health-hit red); heavier and lethal hits lay more ribbons, a
+/// little wider and longer, without filling the shape in.</item>
+/// <item>The fatal gunfire headshot's wall decal: the server's headshot kill (<see cref="ExtrasClassicKill"/>) and the head shot that killed (the confirmed lethal head shot,
+/// <see cref="ExtrasClassicFatalHeadshot"/>, or else the killer's latest drawn head hit on the victim, <see cref="ExtrasClassicHeadContact"/>: the decal no longer depends on the lethal mark
+/// pairing with its shot; review of 2b89de15, finding 3), within <see cref="HeadshotPairSeconds"/>, place one decal where the shot's line, extended from the head contact, first meets the
+/// level, if that is a wall within 5 m and nothing else (another body) is in the way (<see cref="ClassicBloodRules.DecalTrace"/>). The splash is made in code from the kill's sequence and
+/// the victim (<see cref="ClassicBloodRules.DecalShape"/>), so every view draws the same one; it shares the effect player's alpha-decal cap, clock and eviction fade
+/// (<see cref="FxPlayer.PlaceTextureDecal"/>).</item>
 /// </list>
 /// </summary>
 public partial class NetworkView
@@ -26,6 +29,14 @@ public partial class NetworkView
 
     readonly Dictionary<int, (int Shooter, Vector3 Contact, Vector3 Dir, double At)> _headshotShots = new();
     readonly Dictionary<int, (int Sequence, double At)> _headshotKills = new();
+    /// <summary>Per victim: the latest drawn head hit on him (shooter, contact, direction, when), the decal's shot when the lethal mark found none.</summary>
+    readonly Dictionary<int, (int Shooter, Vector3 Contact, Vector3 Dir, double At)> _headContacts = new();
+    ClassicBloodRibbons? _bloodRibbons;
+    ClassicBloodRibbons BloodRibbons()
+    {
+        if (_bloodRibbons is null || !GodotObject.IsInstanceValid(_bloodRibbons)) { _bloodRibbons = new ClassicBloodRibbons { Name = "ClassicBloodRibbons" }; AddChild(_bloodRibbons); }
+        return _bloodRibbons;
+    }
     readonly Dictionary<int, ImageTexture> _bloodDecalTextures = new();
     readonly List<ClassicBloodRules.TraceHit> _decalHits = new();
     int _bloodDecals, _bloodDecalMisses;
@@ -33,12 +44,22 @@ public partial class NetworkView
     partial void ExtrasClassicBlood(ClassicContact c, ref bool drawn)
     {
         if (!HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray)) return;
-        var spray = HitSpray();
-        float size = c.Lethal ? 1.15f : c.Heavy ? 1.08f : 1f;
-        if (c.Gunfire) spray.SpawnShot(c.Contact, c.Dir, new ClassicHitSpray.Look(false, c.Amount, 0.32f, size, 0.18f), c.PreAge);
-        else spray.SpawnMelee(c.Contact, c.History is null ? ReadOnlySpan<(double, Vector3)>.Empty : new ReadOnlySpan<(double, Vector3)>(c.History, 0, c.HistoryCount), c.Weapon, c.Dir,
-                              new ClassicHitSpray.Look(false, c.Amount, c.Spread, size), c.PreAge);
+        var kind = c.Gunfire ? ClassicBloodRules.RibbonKind.Gunfire : c.Charge ? ClassicBloodRules.RibbonKind.Charge : c.Exit ? ClassicBloodRules.RibbonKind.Thrust : ClassicBloodRules.RibbonKind.Sweep;
+        var path = c.History is null ? ReadOnlySpan<(double, Vector3)>.Empty : new ReadOnlySpan<(double, Vector3)>(c.History, 0, c.HistoryCount);
+        BloodRibbons().Spawn(c.Contact, path, c.Dir, kind, c.Spread, c.Amount, c.PreAge);
         drawn = true;
+    }
+
+    partial void ExtrasClassicPrewarm(Vector3 at)
+    {
+        if (HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray)) BloodRibbons().Prewarm(at);
+    }
+
+    partial void ExtrasClassicHeadContact(int victim, int shooter, Vector3 contact, Vector3 dir)
+    {
+        if (!HitDirLook.HasFlag(ClassicHitDirRules.DirLook.HeadshotDecal) || victim <= 0) return;
+        _headContacts[victim] = (shooter, contact, dir, _connectedFor);
+        if (_headContacts.Count > 32) _headContacts.Clear();
     }
 
     partial void ExtrasClassicFatalHeadshot(int victim, int shooter, Vector3 contact, Vector3 dir)
@@ -52,6 +73,8 @@ public partial class NetworkView
     {
         if (!k.Headshot || k.Victim <= 0) { if (k.Victim > 0) _headshotShots.Remove(k.Victim); return; }
         if (_headshotShots.Remove(k.Victim, out var shot) && _connectedFor - shot.At <= HeadshotPairSeconds) { PlaceHeadshotDecal(k.Victim, k.Sequence, shot.Contact, shot.Dir); return; }
+        // the lethal mark found no head shot of its own (a rapid run of own shots, review of 2b89de15 finding 3): the killer's latest drawn head hit on him is the killing shot's line
+        if (_headContacts.Remove(k.Victim, out var head) && head.Shooter == k.Killer && _connectedFor - head.At <= HeadshotPairSeconds) { PlaceHeadshotDecal(k.Victim, k.Sequence, head.Contact, head.Dir); return; }
         _headshotKills[k.Victim] = (k.Sequence, _connectedFor);
     }
 
@@ -94,17 +117,17 @@ public partial class NetworkView
         _bloodDecals++;
     }
 
-    /// <summary>The splash texture of a seed (made once, the last few kept): today's blood red, darkest in the core.</summary>
+    /// <summary>The splash texture of a seed (made once, the last few kept): today's blood red, a darker blood red in the dense core (<see cref="ClassicBloodRules.DecalValue"/>).</summary>
     ImageTexture BloodDecalTexture(int seed)
     {
         if (_bloodDecalTextures.TryGetValue(seed, out var cached)) return cached;
-        const int size = 192;
+        const int size = ClassicBloodRules.DecalTexels;
         var (alpha, shade) = ClassicBloodRules.DecalShape(seed, size);
         var bytes = new byte[size * size * 4];
         var c = CharacterViewer.BloodColour;
         for (int i = 0; i < alpha.Length; i++)
         {
-            float s = 0.12f + 0.88f * MathF.Pow(shade[i], 1.4f);   // near-black dense core, today's blood red at the thin edges (review of fcd76a6f)
+            float s = ClassicBloodRules.DecalValue(shade[i]);
             bytes[i * 4] = (byte)Math.Clamp(c.R * s * 255f, 0f, 255f);
             bytes[i * 4 + 1] = (byte)Math.Clamp(c.G * s * 255f, 0f, 255f);
             bytes[i * 4 + 2] = (byte)Math.Clamp(c.B * s * 255f, 0f, 255f);

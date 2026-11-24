@@ -35,7 +35,11 @@ public partial class NetworkView
     void PlayerDamageGlow(Num.Vector3 attackerAt, int victim, Num.Vector3 victimAt, bool? armourUp, DamageKind kind, string source, bool directional = false)
     {
         if (NoDamageGlow || _client is null || _config is null || _fx is null || !ShowsOnModel(victim, _client.PlayerId)) return;
-        if (_damageGlowAt.TryGetValue(victim, out double last) && !DedupePasses(_connectedFor, last)) return;
+        if (_damageGlowAt.TryGetValue(victim, out double last) && !DedupePasses(_connectedFor, last))
+        {
+            if (armourUp == false && HitDirLook != ClassicHitDirRules.DirLook.None) _armourFlash.Down(victim);   // classic-hit-effects: the class of his next hit still knows (review of 2b89de15, finding 7)
+            return;
+        }
         var toward = new Num.Vector3(attackerAt.X - victimAt.X, attackerAt.Y - victimAt.Y, 0f);
         toward = toward.LengthSquared() > 1e-6f ? Num.Vector3.Normalize(toward) : new Num.Vector3(0f, 0f, 1f);
         var at = ToGodot(victimAt + new Num.Vector3(0f, 0f, 1.3f) + toward * 0.3f);
@@ -67,7 +71,7 @@ public partial class NetworkView
         {
             if (victim.PlayerId != hits.LastVictim || hits.LastVictim <= 0) continue;
             PlayerDamageGlow(_client.Predicted.Position, victim.PlayerId, victim.Position, up,
-                hits.LastMelee ? DamageKind.Melee : DamageKind.Blast, hits.LastMelee ? "own melee report" : "own splash report", hits.LastMelee && (MeleeContactPaired(victim.PlayerId) || OwnMeleeWillPair(victim)));   // classic-hit-effects: decided at the report (review finding 1)
+                hits.LastMelee ? DamageKind.Melee : DamageKind.Blast, hits.LastMelee ? "own melee report" : "own splash report", hits.LastMelee && OwnMeleeWillPair(victim));   // classic-hit-effects: decided at the report with the attack its mark will take (review of 2b89de15, finding 1)
             break;
         }
     }

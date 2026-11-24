@@ -5,15 +5,11 @@ using SmClient.ImpactRules;
 namespace SmClient;
 
 /// <summary>
-/// classic-hit-effects (brief 2026-11-23 rev 1; client presentation only): the directional hit spray on a player in Classic PvP, one pooled mesh per spray (32, growing to 64), moved by its
-/// shader (no GPU particles, no per-frame allocation). Streaks and a few droplets are released from just behind the moving weapon over <see cref="ClassicHitDirRules.EmitSeconds"/> after
-/// contact (the weapon's path is fed in as it is drawn, or from its recorded history when the confirmation came late), each thrown along the weapon's motion there with a sideways spread
-/// that starts narrow and grows, then slows in the air, widens and fades smoothly. A gunfire hit or a charge feeds a straight path along the shot or the charge. Two looks share the node:
-/// <list type="bullet">
-/// <item><b>Blood</b> (Extended only): a few soft coherent ribbons that fork, hang at height and reach (review of fcd76a6f), in the red of today's Classic health-hit sparks
-/// (<see cref="BloodTint"/>, the colour the brief keeps), additive like them.</item>
-/// <item><b>Sparks</b> (both Classic profiles): yellow-white, faster, shorter.</item>
-/// </list>
+/// classic-hit-effects (brief 2026-11-23 rev 1; client presentation only): the directional armour sparks on a player in Classic PvP (both Classic profiles), one pooled mesh per spray (32,
+/// growing to 64), moved by its shader (no GPU particles, no per-frame allocation). Yellow-white streaks and a few droplets are released from just behind the moving weapon over
+/// <see cref="ClassicHitDirRules.EmitSeconds"/> after contact (the weapon's path is fed in as it is drawn, or from its recorded history when the confirmation came late), each thrown along the
+/// weapon's motion there with a sideways spread that starts narrow and grows, then slows, widens and fades. A charge feeds a straight path. The Extended blood is its own node since the
+/// third design (Extras/Gore/ClassicBloodRibbons.cs, owner answer 4, 2026-11-24); <see cref="BloodTint"/> stays here as the shared colour.
 /// Counts, speeds, widths and lives are ours (spec/behavior.md "Classic hit effects").
 /// </summary>
 public partial class ClassicHitSpray : Node3D
@@ -41,15 +37,14 @@ uniform vec3 path[{{Slots}}];              // where the weapon was, every slot_d
 uniform vec3 vel[{{Slots}}];               // the throw velocity there (m/s)
 uniform float slot_dt = {{F(SlotSeconds)}};
 uniform float emit = {{F(ClassicHitDirRules.EmitSeconds)}};
-uniform float streak_life = {{F(ClassicHitDirRules.StreakSeconds)}};
+uniform float streak_life = {{F(ClassicHitDirRules.SparkSeconds)}};
 uniform float spread = 0.4;
 uniform float count = 26.0;
 uniform float size = 1.0;
 uniform float gravity = 3.5;
 uniform float back_share = 0.0;           // gunfire: a share of droplets splashes back toward the shooter
-uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
-uniform float glow = 1.8;
-uniform float ribbon = 0.0;               // blood (review of fcd76a6f): a few soft coherent ribbons that hang and reach, not scattering sparks
+uniform vec4 tint : source_color = vec4(1.0, 0.82, 0.5, 1.0);
+uniform float glow = 3.2;
 uniform float drag = 2.6;
 varying float fade;
 varying float kind;
@@ -66,7 +61,7 @@ void vertex() {
     kind = VERTEX.z;
     float te = t0 * emit;
     float tau = age - te;
-    float life = streak_life * (ribbon > 0.5 ? 0.85 + 0.15 * spd : 0.7 + 0.3 * spd);
+    float life = streak_life * (0.7 + 0.3 * spd);
     vec3 pos = vec3(0.0);
     fade = 0.0;
     if (idx < count && tau >= 0.0 && te <= filled + 1e-4 && tau < life) {
@@ -77,19 +72,13 @@ void vertex() {
         vec3 side = abs(f.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : normalize(cross(f, vec3(0.0, 1.0, 0.0)));
         vec3 up2 = cross(side, f);
         vec3 sd = cos(ang) * side + sin(ang) * up2;
-        float s = spread * mag * (0.25 + 0.75 * t0) * (ribbon > 0.5 ? 0.6 : 1.0);   // narrow at contact, wider later in the stroke; ribbons fork about 15 degrees
+        float s = spread * mag * (0.25 + 0.75 * t0);   // narrow at contact, wider later in the stroke
         vec3 throwv = (f + sd * s) * vl * mix(0.55, 1.0, spd);
-        if (ribbon > 0.5)
-        {
-            // blood hangs at height: little of the throw goes down (an overhead's or a slash's ran into the floor in a third of a second) and it lifts a little
-            float tl = length(throwv);
-            throwv.y = max(throwv.y, -0.3 * tl) + 0.5;
-        }
         if (back_share > 0.0 && fract(idx * 0.618034) < back_share) throwv = -throwv * 0.35;
         vec3 down = vec3(0.0, -1.0, 0.0);
-        vec3 bloom = sd * (ribbon > 0.5 ? 0.05 + 0.25 * s : 0.12 + 0.5 * s) * size;   // the plume widens as it slows
+        vec3 bloom = sd * (0.12 + 0.5 * s) * size;   // the plume widens as it slows
         vec3 headp = e + throwv * reach(tau) + down * 0.5 * gravity * tau * tau + bloom * tau;
-        float ta = ribbon > 0.5 && kind < 0.5 ? tau * (0.25 + 0.6 * lag) : max(tau - lag, 0.0);   // a ribbon spans most of its own path, so it never shrinks into dashes
+        float ta = max(tau - lag, 0.0);
         vec3 tailp = e + throwv * reach(ta) + down * 0.5 * gravity * ta * ta + bloom * ta;
         vec3 hv = (MODELVIEW_MATRIX * vec4(headp, 1.0)).xyz;
         vec3 tv = (MODELVIEW_MATRIX * vec4(tailp, 1.0)).xyz;
@@ -97,9 +86,9 @@ void vertex() {
         vec3 al = hv - tv;
         al = length(al) > 1e-4 ? normalize(al) : vec3(0.0, 1.0, 0.0);
         vec3 across = normalize(cross(al, normalize(pv)));
-        float w = (kind > 0.5 ? 0.022 : (ribbon > 0.5 ? 0.034 : 0.014) * (0.25 + 0.75 * UV.x)) * size * sz * (1.0 + (ribbon > 0.5 ? 0.9 : 1.6) * tau);
+        float w = (kind > 0.5 ? 0.022 : 0.014 * (0.25 + 0.75 * UV.x)) * size * sz * (1.0 + 1.6 * tau);
         pos = pv + across * (UV.y * 2.0 - 1.0) * w;
-        fade = smoothstep(0.0, 0.03, tau) * (1.0 - smoothstep(ribbon > 0.5 ? 0.45 : 0.35, 1.0, tau / life));   // holds through the throw, then a long smooth fade (the reference's plume)
+        fade = smoothstep(0.0, 0.03, tau) * (1.0 - smoothstep(0.35, 1.0, tau / life));   // holds through the throw, then a smooth fade
         POSITION = PROJECTION_MATRIX * vec4(pos, 1.0);
     } else {
         POSITION = vec4(2.0, 2.0, 2.0, 1.0);   // clipped
@@ -135,8 +124,7 @@ void fragment() {
     readonly Spray[] _sprays = new Spray[MaxPool];
     int _made;
     int _next;
-    /// <summary>Sprays started (blood, sparks), for tests and logs.</summary>
-    public int Blood { get; private set; }
+    /// <summary>Sprays started, for tests and logs.</summary>
     /// <summary>Live sprays reused because all <see cref="MaxPool"/> were live.</summary>
     public int Evicted { get; private set; }
     public int Sparks { get; private set; }
@@ -210,26 +198,27 @@ void fragment() {
         return oldest;
     }
 
+    static readonly StringName PCount = "count", PSpread = "spread", PSize = "size", PLife = "streak_life", PGravity = "gravity", PDrag = "drag", PBack = "back_share", PTint = "tint", PGlow = "glow",
+        PPath = "path", PVel = "vel", PFilled = "filled", PAge = "age";
+
     void Begin(Spray s, Vector3 contact, Look look, double preAge)
     {
         s.On = true; s.Age = preAge; s.Origin = contact;
-        s.Life = ClassicHitDirRules.SprayLife(look.Sparks);
+        s.Life = ClassicHitDirRules.SprayLife(true);
         s.Node.GlobalTransform = new Transform3D(Basis.Identity, contact);
         var m = s.Material;
-        int count = look.Sparks ? ClassicHitDirRules.SparkStreaks : ClassicHitDirRules.StreakCount(look.Amount);
-        m.SetShaderParameter("count", (float)count);
-        m.SetShaderParameter("spread", look.Spread);
-        m.SetShaderParameter("size", look.Size * (look.Sparks ? 0.7f : 0.9f + 0.1f * look.Amount));
-        m.SetShaderParameter("streak_life", look.Sparks ? ClassicHitDirRules.SparkSeconds : ClassicHitDirRules.StreakSeconds);
-        m.SetShaderParameter("gravity", look.Sparks ? 9.8f : ClassicHitDirRules.RibbonGravity);
-        m.SetShaderParameter("ribbon", look.Sparks ? 0f : 1f);
-        m.SetShaderParameter("drag", look.Sparks ? 2.6f : ClassicHitDirRules.RibbonDrag);
-        m.SetShaderParameter("back_share", look.BackShare);
-        m.SetShaderParameter("tint", look.Sparks ? SparkTint : BloodTint);
-        m.SetShaderParameter("glow", look.Sparks ? 3.2f : 1.8f);
-        s.SpeedScale = ClassicHitDirRules.SpeedScaleFor(look.Sparks);
+        m.SetShaderParameter(PCount, (float)ClassicHitDirRules.SparkStreaks);
+        m.SetShaderParameter(PSpread, look.Spread);
+        m.SetShaderParameter(PSize, look.Size * 0.7f);
+        m.SetShaderParameter(PLife, ClassicHitDirRules.SparkSeconds);
+        m.SetShaderParameter(PGravity, 9.8f);
+        m.SetShaderParameter(PDrag, 2.6f);
+        m.SetShaderParameter(PBack, look.BackShare);
+        m.SetShaderParameter(PTint, SparkTint);
+        m.SetShaderParameter(PGlow, 3.2f);
+        s.SpeedScale = ClassicHitDirRules.SpeedScaleFor(true);
         s.Node.Visible = true;
-        if (look.Sparks) Sparks++; else Blood++;
+        Sparks++;
     }
 
     /// <summary>Draws one empty spray (no streaks) at <paramref name="at"/> for a moment, so the renderer prepares the shader's pipeline at the join rather than on the first hit.</summary>
@@ -239,7 +228,7 @@ void fragment() {
         var s = Take();
         s.On = true; s.Age = 0.0; s.Life = 0.25f; s.Weapon = null; s.Origin = at; s.Known = Slots - 1;
         s.Node.GlobalTransform = new Transform3D(Basis.Identity, at);
-        s.Material.SetShaderParameter("count", 0f);
+        s.Material.SetShaderParameter(PCount, 0f);
         s.Node.Visible = true;
         Push(s);
     }
@@ -261,7 +250,7 @@ void fragment() {
         if (_sprays[0] is null) return;
         var s = Take();
         s.Weapon = weapon; s.Known = 0;
-        s.SpeedScale = ClassicHitDirRules.SpeedScaleFor(look.Sparks);   // before the velocities (review finding 6)
+        s.SpeedScale = ClassicHitDirRules.SpeedScaleFor(true);   // before the velocities (review finding 6)
         // slot 0: the contact itself; then the history, interpolated at every slot it covers
         s.Path[0] = Vector3.Zero;
         var lastP = contact; double lastT = 0.0;
@@ -289,20 +278,6 @@ void fragment() {
         Push(s);
     }
 
-    /// <summary>A gunfire spray at <paramref name="contact"/> along the incoming shot <paramref name="dir"/> (world); a negative <paramref name="preAge"/> waits that long (the tracer still in flight).</summary>
-    public void SpawnShot(Vector3 contact, Vector3 dir, Look look, double preAge = 0.0)
-    {
-        if (_sprays[0] is null) return;
-        var s = Take();
-        s.Weapon = null;
-        dir = dir.LengthSquared() < 1e-8f ? Vector3.Up : dir.Normalized();
-        float speed = look.Sparks ? 8f : 6.5f;
-        for (int k = 0; k < Slots; k++) { s.Path[k] = dir * 0.15f * k / (Slots - 1); s.Vel[k] = dir * speed * (look.Sparks ? 1.6f : 1f); }
-        s.Known = Slots - 1;
-        Begin(s, contact, look, preAge);   // negative: it starts when the shot arrives
-        Push(s);
-    }
-
     void FillVelocities(Spray s, Vector3 fallback)
     {
         var fb = fallback.LengthSquared() < 1e-8f ? Vector3.Up : fallback.Normalized();
@@ -320,10 +295,10 @@ void fragment() {
     void Push(Spray s)
     {
         var m = s.Material;
-        m.SetShaderParameter("path", s.Path);
-        m.SetShaderParameter("vel", s.Vel);
-        m.SetShaderParameter("filled", (float)(s.Known * SlotSeconds));
-        m.SetShaderParameter("age", (float)s.Age);
+        m.SetShaderParameter(PPath, s.Path);
+        m.SetShaderParameter(PVel, s.Vel);
+        m.SetShaderParameter(PFilled, (float)(s.Known * SlotSeconds));
+        m.SetShaderParameter(PAge, (float)s.Age);
     }
 
     public override void _Process(double delta)
@@ -345,13 +320,13 @@ void fragment() {
                     for (int k = s.Known + 1; k <= reached; k++) s.Path[k] = from.Lerp(p - s.Origin, (k - s.Known) / (float)(reached - s.Known));
                     s.Known = reached; s.LastWeapon = p;
                     FillVelocities(s, s.Vel[0]);
-                    s.Material.SetShaderParameter("path", s.Path);
-                    s.Material.SetShaderParameter("vel", s.Vel);
+                    s.Material.SetShaderParameter(PPath, s.Path);
+                    s.Material.SetShaderParameter(PVel, s.Vel);
                 }
-                s.Material.SetShaderParameter("filled", (float)Math.Min(s.Age, s.Known * SlotSeconds + SlotSeconds * 0.999));
+                s.Material.SetShaderParameter(PFilled, (float)Math.Min(s.Age, s.Known * SlotSeconds + SlotSeconds * 0.999));
             }
-            else s.Material.SetShaderParameter("filled", (float)(s.Known * SlotSeconds));
-            s.Material.SetShaderParameter("age", (float)s.Age);
+            else s.Material.SetShaderParameter(PFilled, (float)(s.Known * SlotSeconds));
+            s.Material.SetShaderParameter(PAge, (float)s.Age);
         }
     }
 }
