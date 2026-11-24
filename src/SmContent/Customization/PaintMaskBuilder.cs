@@ -35,7 +35,9 @@ public static class PaintMaskBuilder
     /// Builds the mask and grey diffuse. <paramref name="specular"/> and <paramref name="lightProp"/> may be null or of another size (they are sampled at the
     /// diffuse's pixel positions).
     /// </summary>
-    public static BuiltPaintMask Build(DdsImage diffuse, DdsImage? specular, DdsImage? lightProp)
+    /// <param name="used">Optional: which texels the mesh's UVs cover (width x height, row-major); others are ignored when the colours are clustered (an
+    /// unused grey texture background must not become the "plate" colour).</param>
+    public static BuiltPaintMask Build(DdsImage diffuse, DdsImage? specular, DdsImage? lightProp, bool[]? used = null)
     {
         int w = diffuse.Width, h = diffuse.Height, n = w * h;
         var L = new float[n]; var A = new float[n]; var B = new float[n]; var spec = new float[n]; var lpB = new float[n]; var lum = new float[n];
@@ -52,7 +54,8 @@ public static class PaintMaskBuilder
 
         var covered = new bool[n];
         int coveredCount = 0;
-        for (int i = 0; i < n; i++) if (lum[i] > 4f || spec[i] > 4f) { covered[i] = true; coveredCount++; }
+        if (used is not null && used.Length != n) used = null;
+        for (int i = 0; i < n; i++) if ((used is null || used[i]) && (lum[i] > 4f || spec[i] > 4f)) { covered[i] = true; coveredCount++; }
 
         // Plate clusters: specular-bearing, not ornament-marked pixels.
         var candidates = new List<int>();
@@ -64,14 +67,14 @@ public static class PaintMaskBuilder
         float plateHue = MathF.Atan2(c1.B, c1.A), plateChroma = MathF.Sqrt(c1.A * c1.A + c1.B * c1.B);
 
         var tert = new float[n]; var prim = new float[n]; var sec = new float[n];
-        var plateLum = new List<float>(); var ornLum = new List<float>();
+        var plateLum = new List<float>(); var secLum = new List<float>(); var ornLum = new List<float>(); var warmOnly = new float[n];
         for (int i = 0; i < n; i++)
         {
             if (!covered[i]) continue;
             float chroma = MathF.Sqrt(A[i] * A[i] + B[i] * B[i]), hue = MathF.Atan2(B[i], A[i]);
             float t = Smooth(6f, 30f, lpB[i]);
             bool warm = chroma > 8f && hue is > 0.75f and < 1.75f && (plateChroma < 12f || HueGap(hue, plateHue) > 0.45f);
-            if (warm && L[i] > c1.L + 18f) t = MathF.Max(t, Smooth(c1.L + 18f, c1.L + 32f, L[i]));
+            if (warm && L[i] > c1.L + 18f) { float wt = Smooth(c1.L + 18f, c1.L + 32f, L[i]); if (wt > t) { warmOnly[i] = wt - t; t = wt; } }
             float d1 = Distance(L[i], A[i], B[i], c1), d2 = has2 ? Distance(L[i], A[i], B[i], c2) : float.MaxValue;
             float specGate = Smooth(3f, 12f, spec[i]);
             float p = Smooth(26f, 12f, d1) * specGate, s = has2 ? Smooth(22f, 10f, d2) * specGate : 0f;
@@ -79,18 +82,45 @@ public static class PaintMaskBuilder
             float rest = MathF.Max(0f, 1f - t);
             p *= rest; s *= rest;
             prim[i] = p; sec[i] = s; tert[i] = t;
-            if (p + s > 0.6f) plateLum.Add(lum[i]);
+            if (p > 0.6f) plateLum.Add(lum[i]);
+            else if (s > 0.6f) secLum.Add(lum[i]);
             else if (t > 0.6f) ornLum.Add(lum[i]);
         }
 
-        float plateMedian = Median(plateLum, 60f), ornMedian = Median(ornLum, 90f);
+        // A light warm colour covering much of the piece (a bone or white shoulder pad) is a plate colour, not ornaments: it becomes the secondary region.
+        int warmCount = 0;
+        for (int i = 0; i < n; i++) if (warmOnly[i] > 0.6f) warmCount++;
+        if (warmCount > coveredCount * 0.15f)
+        {
+            ornLum.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                if (warmOnly[i] <= 0f) { if (tert[i] > 0.6f) ornLum.Add(lum[i]); continue; }
+                sec[i] += warmOnly[i]; tert[i] -= warmOnly[i];
+                if (sec[i] > 0.6f) secLum.Add(lum[i]);
+            }
+        }
+
+        // Closing: dirt patches, scratches and stains inside a painted plate belong to the plate (they stay as darker or lighter shading); a covered,
+        // specular-bearing pixel that is not an ornament and is mostly surrounded (9x9) by one region joins it.
+        var nearP = Box(prim, w, h, 4); var nearS = Box(sec, w, h, 4);
+        for (int i = 0; i < n; i++)
+        {
+            if (!covered[i] || tert[i] > 0.3f || spec[i] < 4f) continue;
+            if (nearP[i] > 0.6f && prim[i] < nearP[i]) { float add = nearP[i] - prim[i]; prim[i] = nearP[i]; if (add > 0.6f) plateLum.Add(lum[i]); }
+            else if (nearS[i] > 0.6f && sec[i] < nearS[i]) { float add = nearS[i] - sec[i]; sec[i] = nearS[i]; if (add > 0.6f) secLum.Add(lum[i]); }
+            float sum = prim[i] + sec[i] + tert[i];
+            if (sum > 1f) { prim[i] /= sum; sec[i] /= sum; tert[i] /= sum; }
+        }
+
+        float plateMedian = Median(plateLum, 60f), secMedian = Median(secLum, plateMedian), ornMedian = Median(ornLum, 90f);
         // Dark (black) plates: their light scratches are worn bare metal, not paint; keep them as baked so a painted plate does not blotch.
         if (plateMedian < 25f)
             for (int i = 0; i < n; i++)
-                if (prim[i] + sec[i] > 0f && lum[i] > plateMedian * 2.5f)
+                if (prim[i] > 0f && lum[i] > plateMedian * 2.5f)
                 {
                     float keep = Smooth(plateMedian * 4.5f, plateMedian * 2.5f, lum[i]);
-                    prim[i] *= keep; sec[i] *= keep;
+                    prim[i] *= keep;
                 }
 
         // Light denoising of the regions (3x3 average) so DXT1 block noise does not speckle the edges.
@@ -106,8 +136,8 @@ public static class PaintMaskBuilder
             sp += p; ss += s; st += t;
             byte r = diffuse.Rgba[i * 4], g = diffuse.Rgba[i * 4 + 1], b = diffuse.Rgba[i * 4 + 2];
             if (total <= 0f) { outDif[i * 4] = r; outDif[i * 4 + 1] = g; outDif[i * 4 + 2] = b; outDif[i * 4 + 3] = 255; continue; }
-            float plateGrey = Grey(lum[i], plateMedian, RegularPlateLuminance), ornGrey = Grey(lum[i], ornMedian, RegularOrnamentLuminance);
-            float grey = (plateGrey * (p + s) + ornGrey * t) / total;
+            float plateGrey = Grey(lum[i], plateMedian, RegularPlateLuminance), secGrey = Grey(lum[i], secMedian, RegularPlateLuminance), ornGrey = Grey(lum[i], ornMedian, RegularOrnamentLuminance);
+            float grey = (plateGrey * p + secGrey * s + ornGrey * t) / total;
             outDif[i * 4] = ToByte((r + (grey - r) * total) / 255f);
             outDif[i * 4 + 1] = ToByte((g + (grey - g) * total) / 255f);
             outDif[i * 4 + 2] = ToByte((b + (grey - b) * total) / 255f);
@@ -135,7 +165,7 @@ public static class PaintMaskBuilder
         foreach (var (k, count) in ordered.Skip(1))
         {
             var c = FromBin(k);
-            if (Distance(c.L, c.A, c.B, first) > 30f) { if (count * 6 >= ordered[0].Value) second = c; break; }
+            if (Distance(c.L, c.A, c.B, first) > 30f) { if (count * 12 >= ordered[0].Value) second = c; break; }
         }
         // A few k-means refinements (2 or 1 clusters plus an outlier sink).
         for (int iter = 0; iter < 6; iter++)
@@ -150,7 +180,7 @@ public static class PaintMaskBuilder
             if (n1 > 0) first = new((float)(l1 / n1), (float)(a1 / n1), (float)(b1 / n1));
             if (second is not null)
             {
-                if (n2 * 8 < n1) second = null;
+                if (n2 * 16 < n1) second = null;
                 else if (n2 > 0) second = new((float)(l2 / n2), (float)(a2 / n2), (float)(b2 / n2));
             }
         }
@@ -198,15 +228,15 @@ public static class PaintMaskBuilder
         return values[values.Count / 2];
     }
 
-    static float[] Box(float[] v, int w, int h)
+    static float[] Box(float[] v, int w, int h, int radius = 1)
     {
         var o = new float[v.Length];
         for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
         {
             float s = 0; int c = 0;
-            for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -radius; dy <= radius; dy++)
+            for (int dx = -radius; dx <= radius; dx++)
             {
                 int xx = x + dx, yy = y + dy;
                 if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;

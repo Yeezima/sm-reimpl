@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4092 spec table rows: **3024 tagged**, 701 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
+| Movement (critical) | 426 | 367 | 362 | 115 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,15 +53,15 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3024** | 2716 | 2219 | 913 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
-| confidence: low | 1068 |
-| confidence: medium | 1037 |
+| kind: ours | 1832 |
+| confidence: low | 1070 |
+| confidence: medium | 1038 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (421)
+### Movement (gameplay-critical) (426)
 
 *Spec section: Extracted parameters*
 
@@ -412,6 +412,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-A52B1ECC` | Appearance slots per side | 10 per side (Space Marines and Chaos each), the profile's appearance library (`CustomizationProfile.MaxAppearancesPerRace`); a look's slot is its id's number (`sm-3` / `csm-3` is slot 3), a look with another id takes the first free slot in file order.… (slots) | notes: open question | the owner's request (10); the data's "Appearance %1NUM%" text (numbered appearances, count unknown) | Appearance slots per side: compare with SM1 by feel or video. Ours: 10 per side (Space Marines and Chaos each), the profile's appearance… | ☐ |
 | `R-5CFFCC26` | A loadout wears a slot | by reference: every loadout that wears a slot shows an edit made to it (the editor's header names the slot and the other loadouts that wear it); saving a look into a slot copies it (pieces, colours, badges, set, lens), and saving over a filled slot keeps the… | kind: ours; confidence: medium | ours (how the original shared a saved appearance is not in the data) | A loadout wears a slot: compare with SM1 by feel or video. Ours: by reference: every loadout that wears a slot shows an edit made to… | ☐ |
+
+*Spec section: Armour pieces from the predefined sets (armour-pieces-1125; catalogue and client only, no wire format change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E125804B` | Offered pieces per slot | the customizable sets' pieces (ordinal by name), then the predefined sets' other pieces (ordinal by name), each once; a full predefined set stays a quick pick | kind: ours | owner 2026-11-25; order ours (keeps old piece indices) | Offered pieces per slot: compare with SM1 by feel or video. Ours: the customizable sets' pieces (ordinal by name), then the predefined… | ☐ |
+| `R-D23578FB` | Switch | `CustomizationCatalog.PredefinedPiecesOffered` true (false: the original library); server and client must agree | kind: ours | ours | Switch: compare with SM1 by feel or video. Ours: CustomizationCatalog.PredefinedPiecesOffered true (false: the… | ☐ |
+| `R-691388C7` | Built mask: which materials | a registered predefined-set piece's material with no usable `PaintMask` (absent or "None") that is normal-mapped; cloth, fur and tabards (`diff_spec_lp`) stay baked | kind: ours; confidence: medium | ours (judgement call) | Built mask: which materials: compare with SM1 by feel or video. Ours: a registered predefined-set piece's material with no usable PaintMask… | ☐ |
+| `R-116B119E` | Built mask: regions | CIELAB clusters of the UV-covered, specular-bearing texels (histogram mode in a*, b*, L*/3 bins of 6, then 6 k-means passes, distance a*/b* plus 0.35 x L*): largest = primary (R), a second cluster of a distinct hue (chroma > 10, hue gap > 0.35 rad) or clearly… | kind: ours; confidence: low | ours | Built mask: regions: compare with SM1 by feel or video. Ours: CIELAB clusters of the UV-covered, specular-bearing texels (histogram… | ☐ |
+| `R-2806B6EE` | Built mask: grey paint diffuse | a painted texel's luminance over its region's median, mapped onto 83 (plates) / 62 (ornaments) of 255, the medians measured on nine masked basic, veteran and havoc pieces; dark regions compress the ratio (gamma 0.3 below median 25, 0.7 below 40; clamp 0.55 to… (sRGB 0..255) | kind: ours; confidence: low | measured on the install; mapping ours | Built mask: grey paint diffuse: compare with SM1 by feel or video. Ours: a painted texel's luminance over its region's median, mapped onto 83… | ☐ |
 
 *Spec section: Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)*
 

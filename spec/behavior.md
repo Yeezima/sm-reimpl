@@ -1720,6 +1720,26 @@ so the original had numbered saved appearances; how many and how a loadout took 
 | Appearance slots per side | 10 per side (Space Marines and Chaos each), the profile's appearance library (`CustomizationProfile.MaxAppearancesPerRace`); a look's slot is its id's number (`sm-3` / `csm-3` is slot 3), a look with another id takes the first free slot in file order. Profiles saved before keep every loadout's look: each was already in the library, so nothing in the file changes | slots | per profile | `AppearanceSlots.Layout` | the owner's request (10); the data's "Appearance %1NUM%" text (numbered appearances, count unknown) | owner's decision | high |
 | A loadout wears a slot | by reference: every loadout that wears a slot shows an edit made to it (the editor's header names the slot and the other loadouts that wear it); saving a look into a slot copies it (pieces, colours, badges, set, lens), and saving over a filled slot keeps the slot's name; deleting a slot puts its loadouts back to the side's default look; "Apply to all loadouts" sets one side only | — | per edit | `AppearanceSlots.SaveInto` / `ApplyToAll` / `SetWorn` | ours (how the original shared a saved appearance is not in the data) | ours | medium |
 
+### Armour pieces from the predefined sets (armour-pieces-1125; catalogue and client only, no wire format change)
+
+The owner's brief of 2026-11-25 (agent-coordination decisions/2026-11-25-dlc-armour-pieces.md): the DLC and campaign-reward full sets become individual pieces in the
+appearance customizer, paintable like regular armour, in every profile including Faithful. Code: `CustomizationCatalog.Build` (the per-slot lists),
+`SmContent/Customization/PaintMaskBuilder.cs` and `BakedArmourPaint.cs` (the built masks), `client/PieceCache.cs`, `client/AppearanceAssets.cs`, `client/MapMaterials.Paint.cs`;
+checks: `CustomizationCatalogTests` (every predefined piece offered, old codes keep their pieces, the switch), `PaintMaskBuilderTests` (synthetic textures, determinism).
+Inventory on the install (2026-11-25): the Space Marine DLC sets and the six Chaos DLC sets bake their colours into the diffuse (no `PaintMask`, shaders
+`diff_norm_spec[_reflect][_emis]_lp[_lgchar]`; the Black Templars and Blood Ravens right pads are `character_wargear` naming the mask "None"); the Ultramarines Champion's
+torso and backpack (`master_002`) and all Chosen of Nemeroth pieces (`raptor_01`) have masks; the Ultramarines Champion's pads are baked. Singleplayer dependency: the two
+campaign-reward sets' pieces (unlocks unchanged: `UnlockMode.All`).
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Offered pieces per slot | the customizable sets' pieces (ordinal by name), then the predefined sets' other pieces (ordinal by name), each once; a full predefined set stays a quick pick | — | catalogue load | `RaceCatalog.PiecesFor`, `ArmourPiece.FromPredefinedSet` | owner 2026-11-25; order ours (keeps old piece indices) | ours | high |
+| Switch | `CustomizationCatalog.PredefinedPiecesOffered` true (false: the original library); server and client must agree | — | start-up | `CustomizationCatalog` | ours | ours | high |
+| Built mask: which materials | a registered predefined-set piece's material with no usable `PaintMask` (absent or "None") that is normal-mapped; cloth, fur and tabards (`diff_spec_lp`) stay baked | — | piece load (worker thread) | `BakedArmourPaint.NeedsMask` | ours (judgement call) | ours | medium |
+| Built mask: regions | CIELAB clusters of the UV-covered, specular-bearing texels (histogram mode in a*, b*, L*/3 bins of 6, then 6 k-means passes, distance a*/b* plus 0.35 x L*): largest = primary (R), a second cluster of a distinct hue (chroma > 10, hue gap > 0.35 rad) or clearly lighter (L* > 35, 25 apart) = secondary (G); ornaments = light property map B (6 to 30) or warm light texels (hue 0.75 to 1.75 rad, 18+ L* above the plates; above 15 % of the piece they count as a secondary plate colour) = tertiary (B); specular gate 3 to 12; 9x9 closing fills dirt and scratches inside a plate; black plates (median luminance < 25) keep scratches 2.5 to 4.5 x brighter baked; 3x3 smoothing; dirt alpha 0 | — | piece load | `PaintMaskBuilder.Build` | ours | ours | low |
+| Built mask: grey paint diffuse | a painted texel's luminance over its region's median, mapped onto 83 (plates) / 62 (ornaments) of 255, the medians measured on nine masked basic, veteran and havoc pieces; dark regions compress the ratio (gamma 0.3 below median 25, 0.7 below 40; clamp 0.55 to 1.35 below 25) | sRGB 0..255 | piece load | `PaintMaskBuilder.Grey`, `RegularPlateLuminance`, `RegularOrnamentLuminance` | measured on the install; mapping ours | ours | low |
+| Full set worn | built masks are not drawn: the set draws baked (or its own scheme on masked pieces) exactly as before | — | per look | `AppearanceAssets.Build` (`PieceSurface.BuiltMask`) | original (unchanged behaviour) | extracted | high |
+
 ### Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)
 
 The owner (2026-10-28): "Add the game data's weapon spread, so Bolter Targeter, Improved Twin-Link, Burst Fire and Lascannon Stabilizers can

@@ -50,7 +50,8 @@ public static class BakedArmourPaint
             string key = m.Name ?? m.Textures["DiffuseMap"];
             if (!built.TryGetValue(key, out var replaced))
             {
-                replaced = Build(m, model.Textures, added, notes);
+                var users = model.Surfaces.Where(o => o.Material is { } om && (om.Name ?? om.Textures.GetValueOrDefault("DiffuseMap")) == key).ToList();
+                replaced = Build(m, model.Textures, added, notes, (w, h) => Coverage(model, users, w, h));
                 built[key] = replaced;
             }
             if (replaced is null) { surfaces.Add(s); continue; }
@@ -60,7 +61,64 @@ public static class BakedArmourPaint
         return changed ? model.WithSurfaces(surfaces, added) : model;
     }
 
-    static BmatMaterial? Build(BmatMaterial m, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added, List<string>? notes)
+    /// <summary>
+    /// The texels the surfaces' UV triangles cover (UVs wrapped into 0..1, V down as the textures are stored), grown by two texels so filtering at seams reads
+    /// painted texels; null when nothing is covered (then every texel counts).
+    /// </summary>
+    public static bool[]? Coverage(StaticModel model, IEnumerable<StaticModelSurface> surfaces, int w, int h)
+    {
+        var used = new bool[w * h];
+        bool any = false;
+        foreach (var s in surfaces)
+        {
+            var block = model.Mesh.Blocks[s.BlockIndex];
+            if (block.Uv0.Length == 0) continue;
+            int end = Math.Min(block.Indices.Length, s.Range.StartIndex + s.Range.IndexCount);
+            for (int k = s.Range.StartIndex; k + 2 < end; k += 3)
+            {
+                var a = block.Uv0[block.Indices[k]]; var b = block.Uv0[block.Indices[k + 1]]; var c = block.Uv0[block.Indices[k + 2]];
+                // Wrap the triangle as a whole by its first corner's tile so tiled UVs land in the texture.
+                float ox = MathF.Floor(a.X), oy = MathF.Floor(a.Y);
+                any |= Raster(used, w, h, (a.X - ox) * w, (a.Y - oy) * h, (b.X - ox) * w, (b.Y - oy) * h, (c.X - ox) * w, (c.Y - oy) * h);
+            }
+        }
+        if (!any) return null;
+        for (int pass = 0; pass < 2; pass++)
+        {
+            var grown = (bool[])used.Clone();
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (!used[y * w + x] && ((x > 0 && used[y * w + x - 1]) || (x < w - 1 && used[y * w + x + 1]) || (y > 0 && used[(y - 1) * w + x]) || (y < h - 1 && used[(y + 1) * w + x])))
+                    grown[y * w + x] = true;
+            used = grown;
+        }
+        return used;
+    }
+
+    static bool Raster(bool[] used, int w, int h, float x0, float y0, float x1, float y1, float x2, float y2)
+    {
+        int minX = Math.Max(0, (int)MathF.Floor(MathF.Min(x0, MathF.Min(x1, x2)))), maxX = Math.Min(w - 1, (int)MathF.Ceiling(MathF.Max(x0, MathF.Max(x1, x2))));
+        int minY = Math.Max(0, (int)MathF.Floor(MathF.Min(y0, MathF.Min(y1, y2)))), maxY = Math.Min(h - 1, (int)MathF.Ceiling(MathF.Max(y0, MathF.Max(y1, y2))));
+        float area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+        bool any = false;
+        if (MathF.Abs(area) < 1e-6f)
+        {
+            // Degenerate: mark the corners.
+            foreach (var (px, py) in new[] { (x0, y0), (x1, y1), (x2, y2) })
+                if ((int)px >= 0 && (int)px < w && (int)py >= 0 && (int)py < h) { used[(int)py * w + (int)px] = true; any = true; }
+            return any;
+        }
+        for (int y = minY; y <= maxY; y++)
+        for (int x = minX; x <= maxX; x++)
+        {
+            float px = x + 0.5f, py = y + 0.5f;
+            float e0 = ((x1 - px) * (y2 - py) - (x2 - px) * (y1 - py)) / area, e1 = ((x2 - px) * (y0 - py) - (x0 - px) * (y2 - py)) / area, e2 = 1f - e0 - e1;
+            if (e0 >= -0.02f && e1 >= -0.02f && e2 >= -0.02f) { used[y * w + x] = true; any = true; }
+        }
+        return any;
+    }
+
+    static BmatMaterial? Build(BmatMaterial m, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added, List<string>? notes, Func<int, int, bool[]?> coverage)
     {
         string diffuseName = m.Textures["DiffuseMap"];
         if (!textures.TryGetValue(diffuseName, out var difBytes) || DdsImage.TryDecode(difBytes) is not { } diffuse)
@@ -69,7 +127,7 @@ public static class BakedArmourPaint
             return null;
         }
         DdsImage? Opt(string param) => m.Textures.TryGetValue(param, out var n) && textures.TryGetValue(n, out var b) ? DdsImage.TryDecode(b) : null;
-        var result = PaintMaskBuilder.Build(diffuse, Opt("SpecularMap"), Opt("LightPropMap"));
+        var result = PaintMaskBuilder.Build(diffuse, Opt("SpecularMap"), Opt("LightPropMap"), coverage(diffuse.Width, diffuse.Height));
         string maskName = diffuseName + MaskSuffix, greyName = diffuseName + GreySuffix;
         added[maskName] = DdsImage.EncodeRgba8WithMips(result.Width, result.Height, result.Mask);
         added[greyName] = DdsImage.EncodeRgba8WithMips(result.Width, result.Height, result.Diffuse);
