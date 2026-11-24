@@ -33,7 +33,7 @@ static class WarfrontRunFiles
     internal static WarfrontFaction StageFaction = WarfrontFaction.Orks;
 
     /// <summary>Program.cs: the command line's <c>--warfront-faction</c> key (already checked by the parser; null: Alternate).</summary>
-    internal static void ApplyFactionSetting(string? key) => FactionSetting = WarfrontFactionPolicy.TryParse(key, out var s) ? s : WarfrontFactionSetting.Alternate;
+    internal static void ApplyFactionSetting(string? key) => FactionSetting = WarfrontFactionPolicy.TryParse(key, out var s) ? s : WarfrontFactionSetting.Alternate;   // a stage child's (Program.cs); the supervisor passes its own (WarfrontSupervisor.Run -> PrepareRun -> NewRun)
 
     /// <summary>
     /// Program.cs, a stage child only: records the army of the run on disk as <see cref="StageFaction"/> and returns the log line. A missing or unreadable run.json gives Orks: the stage's loader then decides
@@ -110,17 +110,23 @@ static class WarfrontRunFiles
     }
 
     /// <summary>
-    /// A new run on the Ship, written to disk. Nothing is read from the records. Its army comes from <see cref="FactionSetting"/> and the rotation file (Chaos Warfront C1): run.json is written first and faction.json
+    /// A new run on the Ship, written to disk. Nothing is read from the records. Its army comes from <paramref name="setting"/> (the process's <c>--warfront-faction</c>) and the rotation file (Chaos Warfront C1): run.json is written first and faction.json
     /// second, so a crash between them is repaired from run.json by the next load (<see cref="WarfrontFactionRotation.Reconcile"/>) and the rotation never advances twice for one run.
     /// </summary>
-    public static WarfrontCampaign NewRun(string dir, ulong? seed = null)
+    public static WarfrontCampaign NewRun(string dir, WarfrontFactionSetting setting, ulong? seed = null)
     {
-        var c = BuildNewRun(seed, WarfrontFactionRotation.Next(dir, FactionSetting));
+        var c = BuildNewRun(seed, WarfrontFactionRotation.Next(dir, setting));
         WarfrontSave.Write(dir, c);
         WarfrontFactionRotation.Record(dir, c.Faction, c.RunSeed);   // second; a failure here is repaired by the next load's reconcile
         try { File.Delete(Path.Combine(dir, StageFile)); } catch (IOException) { }
         return c;
     }
+
+    /// <summary><see cref="NewRun(string, WarfrontFactionSetting, ulong?)"/> with this process's setting (<see cref="FactionSetting"/>: a stage child's, set by Program.cs from its own <c>--warfront-faction</c>).</summary>
+    public static WarfrontCampaign NewRun(string dir, ulong? seed = null) => NewRun(dir, FactionSetting, seed);
+
+    /// <summary>The <c>--warfront-faction</c> of a parsed command line (the parser has checked it; absent: Alternate).</summary>
+    internal static WarfrontFactionSetting SettingOf(ServerArguments cli) => WarfrontFactionPolicy.TryParse(cli.WarfrontFaction, out var s) ? s : WarfrontFactionSetting.Alternate;
 
     /// <summary>A new run on the Ship, in memory only (the start fronts come from <c>SM_WF_START</c> when set). The seed is <paramref name="seed"/>, else <c>SM_WF_SEED</c>, else random. The army is <paramref name="faction"/> (Chaos Warfront C1): fixed for the run's life.</summary>
     public static WarfrontCampaign BuildNewRun(ulong? seed = null, WarfrontFaction faction = WarfrontFaction.Orks)

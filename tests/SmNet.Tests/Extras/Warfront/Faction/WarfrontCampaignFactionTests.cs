@@ -45,11 +45,12 @@ public class WarfrontCampaignFactionTests
     }
 
     [Fact]
-    public void An_older_save_ignores_a_stray_faction_field()
+    public void The_army_is_read_from_the_field_whatever_the_version()
     {
+        // C1 review: keyed on the field, not on Version >= 7 (T0's version 6 is reconciled at integration; a save that names its army keeps it)
         var node = JsonNode.Parse(new WarfrontCampaign(77, null, WarfrontFaction.Chaos).ToJson())!.AsObject();
         node["Version"] = 6;
-        Assert.Equal(WarfrontFaction.Orks, WarfrontSave.FromJson(node.ToJsonString()).Faction);
+        Assert.Equal(WarfrontFaction.Chaos, WarfrontSave.FromJson(node.ToJsonString()).Faction);
     }
 
     [Fact]
@@ -88,11 +89,11 @@ public class WarfrontCampaignFactionTests
     }
 
     [Fact]
-    public void FinaleLost_in_the_fortress_loses_the_campaign_and_a_wipe_there_still_locks_the_lane()
+    public void FinaleLost_in_a_chaos_fortress_loses_the_campaign_and_anywhere_else_is_a_wipe()
     {
-        WarfrontCampaign AtFortress()
+        WarfrontCampaign AtFortress(WarfrontFaction army = WarfrontFaction.Chaos)
         {
-            var node = JsonNode.Parse(new WarfrontCampaign(5).ToJson())!.AsObject();
+            var node = JsonNode.Parse(new WarfrontCampaign(5, null, army).ToJson())!.AsObject();
             node["Fronts"] = new JsonArray(4, 1, 1);
             node["Advanced"] = new JsonArray(true, false, false);
             node["Phase"] = "Ship";
@@ -113,5 +114,10 @@ public class WarfrontCampaignFactionTests
         wiped.Resolve(WarfrontOutcome.Wipe);   // unchanged: the fortress locks, back on the ship
         Assert.Equal(WarfrontPhase.Ship, wiped.Phase);
         Assert.Equal(3, wiped.Front(0));
+
+        var orks = AtFortress(WarfrontFaction.Orks);
+        orks.Resolve(WarfrontOutcome.FinaleLost);   // guarded (C1 review): an Orks run has no duel, so it is the fortress-wipe rule
+        Assert.Equal(WarfrontPhase.Ship, orks.Phase);
+        Assert.Equal(3, orks.Front(0));
     }
 }

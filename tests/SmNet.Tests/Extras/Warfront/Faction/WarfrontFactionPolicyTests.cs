@@ -90,6 +90,8 @@ public sealed class WarfrontFactionPolicyTests : IDisposable
     [InlineData("{\"LastFaction\":7,\"LastRunSeed\":1}")]
     [InlineData("{\"LastFaction\":\"Chaos\",\"LastRunSeed\":-4}")]
     [InlineData("null")]
+    [InlineData("{}")]                      // C1 review: no army written is no record
+    [InlineData("{\"LastRunSeed\":1}")]
     public void A_damaged_file_counts_as_none(string text)
     {
         File.WriteAllText(FilePath, text);

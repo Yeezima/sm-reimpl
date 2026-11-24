@@ -82,6 +82,33 @@ public sealed class WarfrontFactionServerTests : IDisposable
         Assert.Equal(WarfrontFactionSetting.Orks, WarfrontRunFiles.FactionSetting);
     }
 
+    /// <summary>The supervisor's own entry from a parsed command line (C1 review: the supervisor process never ran Program.cs's stage block, so its first run ignored the flag).</summary>
+    [Fact]
+    public void The_supervisor_entry_takes_the_flag_from_the_parsed_command_line()
+    {
+        var log = new List<string>();
+        Assert.Equal(0, WarfrontSupervisor.PrepareRun(_dir, Parse("--content", "warfront", "--warfront-faction", "CHAOS"), log.Add, log.Add));   // a fresh folder
+        Assert.Equal(WarfrontFaction.Chaos, WarfrontSave.Load(_dir)!.Faction);
+        Assert.Contains(log, l => l.StartsWith("Warfront faction: the new run fights Chaos", StringComparison.Ordinal));
+        Assert.DoesNotContain(log, l => l.Contains("faction", StringComparison.OrdinalIgnoreCase) && l.Contains("warfront:", StringComparison.Ordinal));   // never a menu status line
+
+        // an Orks run on disk, then --warfront-new --warfront-faction orks: Orks again (forced), the Orks run archived
+        string other = _dir + "-b";
+        Directory.CreateDirectory(other);
+        try
+        {
+            Assert.Equal(0, WarfrontSupervisor.PrepareRun(other, Parse("--content", "warfront", "--warfront-faction", "orks"), log.Add, log.Add));
+            Assert.Equal(WarfrontFaction.Orks, WarfrontSave.Load(other)!.Faction);
+            Assert.Equal(0, WarfrontSupervisor.PrepareRun(other, Parse("--content", "warfront", "--warfront-new", "--warfront-faction", "orks"), log.Add, log.Add));
+            Assert.Equal(WarfrontFaction.Orks, WarfrontSave.Load(other)!.Faction);
+            Assert.Single(Directory.GetFiles(Path.Combine(other, WarfrontSave.RecordsDir), "*.json"));
+            Assert.Equal(0, WarfrontSupervisor.PrepareRun(other, Parse("--content", "warfront", "--warfront-new"), log.Add, log.Add));   // alternate after Orks
+            Assert.Equal(WarfrontFaction.Chaos, WarfrontSave.Load(other)!.Faction);
+        }
+        finally { try { Directory.Delete(other, true); } catch (IOException) { } }
+        Assert.Equal(WarfrontFactionSetting.Alternate, WarfrontRunFiles.FactionSetting);   // the static was never touched
+    }
+
     [Fact]
     public void Child_stages_and_the_warm_up_inherit_the_flag()
     {
@@ -98,10 +125,10 @@ public sealed class WarfrontFactionServerTests : IDisposable
     // ---- the run's army: chosen at a new run only ------------------------------------------------------------------------------------------------
 
     /// <summary>One process start, as the supervisor makes it: PrepareRun (a new campaign when asked), then the stage's loader.</summary>
-    WarfrontCampaign Start(bool newCampaign, List<string>? log = null)
+    WarfrontCampaign Start(bool newCampaign, List<string>? log = null, WarfrontFactionSetting setting = WarfrontFactionSetting.Alternate)
     {
         log ??= [];
-        Assert.Equal(0, WarfrontSupervisor.PrepareRun(_dir, newCampaign, log.Add, log.Add));
+        Assert.Equal(0, WarfrontSupervisor.PrepareRun(_dir, newCampaign, setting, log.Add, log.Add));   // the setting is a parameter (C1 review), no process-wide static
         var load = WarfrontRunLoader.Load(_dir, null, null, null, log.Add);
         Assert.False(load.NoSave);
         return load.Campaign;
@@ -129,21 +156,18 @@ public sealed class WarfrontFactionServerTests : IDisposable
     [InlineData(WarfrontFactionSetting.Chaos, WarfrontFaction.Chaos)]
     public void A_forced_setting_gives_its_army_every_time(WarfrontFactionSetting setting, WarfrontFaction army)
     {
-        WarfrontRunFiles.FactionSetting = setting;
-        Assert.Equal(army, Start(newCampaign: false).Faction);
-        Assert.Equal(army, Start(newCampaign: true).Faction);
-        Assert.Equal(army, Start(newCampaign: true).Faction);
-        WarfrontRunFiles.FactionSetting = WarfrontFactionSetting.Alternate;   // back to alternate: the other army next
-        Assert.NotEqual(army, Start(newCampaign: true).Faction);
+        Assert.Equal(army, Start(newCampaign: false, setting: setting).Faction);
+        Assert.Equal(army, Start(newCampaign: true, setting: setting).Faction);
+        Assert.Equal(army, Start(newCampaign: true, setting: setting).Faction);
+        Assert.NotEqual(army, Start(newCampaign: true).Faction);   // back to alternate: the other army next
     }
 
     [Fact]
     public void Changing_the_setting_never_changes_the_run_in_progress()
     {
         Assert.Equal(WarfrontFaction.Orks, Start(newCampaign: false).Faction);
-        WarfrontRunFiles.FactionSetting = WarfrontFactionSetting.Chaos;
-        Assert.Equal(WarfrontFaction.Orks, Start(newCampaign: false).Faction);
-        Assert.Equal(WarfrontFaction.Chaos, Start(newCampaign: true).Faction);   // only the next new run
+        Assert.Equal(WarfrontFaction.Orks, Start(newCampaign: false, setting: WarfrontFactionSetting.Chaos).Faction);
+        Assert.Equal(WarfrontFaction.Chaos, Start(newCampaign: true, setting: WarfrontFactionSetting.Chaos).Faction);   // only the next new run
     }
 
     [Fact]
@@ -175,7 +199,7 @@ public sealed class WarfrontFactionServerTests : IDisposable
         Assert.Equal(WarfrontFaction.Orks, Start(newCampaign: true).Faction);   // never Chaos twice
     }
 
-    WarfrontFaction WarfrontRotationNext() => WarfrontFactionRotation.Next(_dir, WarfrontRunFiles.FactionSetting);
+    WarfrontFaction WarfrontRotationNext() => WarfrontFactionRotation.Next(_dir, WarfrontFactionSetting.Alternate);
 
     [Fact]
     public void A_new_campaign_right_after_a_crash_reconciles_before_it_archives()

@@ -366,7 +366,7 @@ public sealed class WarfrontCampaign
 
             case WarfrontTargetKind.Fortress:
                 if (outcome == WarfrontOutcome.Win) { Phase = WarfrontPhase.Won; return; }
-                if (outcome == WarfrontOutcome.FinaleLost) { Phase = WarfrontPhase.Lost; return; }   // Chaos Warfront C5: the duel relay ran out of challengers
+                if (outcome == WarfrontOutcome.FinaleLost && Faction == WarfrontFaction.Chaos) { Phase = WarfrontPhase.Lost; return; }   // Chaos Warfront C5: the duel relay ran out of challengers (a Chaos run's alone; anywhere else it is a wipe, C1 review)
                 _front[t.Lane] = 3; // the fortress locks until a lane is cleared again
                 break;
 
@@ -458,8 +458,8 @@ public sealed class WarfrontCampaign
         if (s.Version > SaveVersion) throw new WarfrontSaveNewerException(s.Version);
         if (s.Version < OldestLoadableVersion) throw new InvalidDataException("unsupported warfront save version " + s.Version);
         if (s.Fronts.Length != Lanes || s.Advanced.Length != Lanes) throw new InvalidDataException("bad lane arrays");
-        // Chaos Warfront C1: a version 7 save names its army; an older one is an Orks run. An unknown army is a damaged file.
-        var faction = s.Version >= 7 && s.Faction is { } sf ? sf : WarfrontFaction.Orks;
+        // Chaos Warfront C1: a save that names its army keeps it; one without the field (every save before 7) is an Orks run (keyed on the field, not the version: C1 review, so T0's 6 can be reconciled). An unknown army is a damaged file.
+        var faction = s.Faction is { } sf ? sf : WarfrontFaction.Orks;
         if (!WarfrontFactionPolicy.IsKnown((int)faction)) throw new InvalidDataException("unknown warfront faction " + (int)faction);
         var c = new WarfrontCampaign(s.RunSeed, rolls, faction) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
         for (int l = 0; l < Lanes; l++) { c._front[l] = s.Fronts[l]; c._advanced[l] = s.Advanced[l]; }

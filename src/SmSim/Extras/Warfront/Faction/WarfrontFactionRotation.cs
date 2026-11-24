@@ -26,7 +26,10 @@ public static class WarfrontFactionRotation
         {
             string path = Path.Combine(dir, FileName);
             if (!File.Exists(path)) return null;
-            var s = JsonSerializer.Deserialize<State>(File.ReadAllText(path), Json);
+            string text = File.ReadAllText(path);
+            // the army must be written (C1 review): {} or a file without LastFaction is no record, not Orks
+            if (System.Text.Json.Nodes.JsonNode.Parse(text) is not System.Text.Json.Nodes.JsonObject o || !o.ContainsKey(nameof(State.LastFaction))) return null;
+            var s = JsonSerializer.Deserialize<State>(text, Json);
             return s is not null && WarfrontFactionPolicy.IsKnown((int)s.LastFaction) ? s : null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException or ArgumentException) { return null; }

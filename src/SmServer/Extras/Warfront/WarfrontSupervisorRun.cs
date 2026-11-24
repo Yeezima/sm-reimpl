@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Faction;
 
 namespace SmServer;
 
@@ -211,7 +212,7 @@ static class WarfrontSupervisor
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.Error.WriteLine(Stamp($"smserver: the run folder is not usable: {e.Message}")); return 1; }
         }
         using var lockHold = runLock;
-        if (PrepareRun(dir, cli.WarfrontNew, Console.WriteLine, Console.Error.WriteLine) != 0) return 1;
+        if (PrepareRun(dir, cli, Console.WriteLine, Console.Error.WriteLine) != 0) return 1;   // the supervisor's own --warfront-faction (C1 review: Program.cs applies it only in a stage child)
 
         string exe = Environment.ProcessPath ?? throw new InvalidOperationException("no process path");
         string[] host = Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? [Environment.GetCommandLineArgs()[0]] : [];
@@ -238,7 +239,13 @@ static class WarfrontSupervisor
     /// The run folder before the first stage: <c>--warfront-new</c> archives the run on disk and begins another, and a missing run.json gets a new run. A file this build cannot use never stops the server by an exception, and a newer build's or a locked
     /// save is never overwritten, not even by NEW CAMPAIGN (it is refused with the menu notice): a damaged run.json is set aside under records\ (the loader's code) and the new run starts with the notice. 0 = go on, 1 = refused.
     /// </summary>
-    public static int PrepareRun(string dir, bool warfrontNew, Action<string> log, Action<string> error)
+    public static int PrepareRun(string dir, ServerArguments cli, Action<string> log, Action<string> error) => PrepareRun(dir, cli.WarfrontNew, WarfrontRunFiles.SettingOf(cli), log, error);
+
+    /// <summary><see cref="PrepareRun(string, bool, WarfrontFactionSetting, Action{string}, Action{string})"/> with the Alternate setting (the earlier tests' entry).</summary>
+    public static int PrepareRun(string dir, bool warfrontNew, Action<string> log, Action<string> error) => PrepareRun(dir, warfrontNew, WarfrontFactionSetting.Alternate, log, error);
+
+    /// <summary>The run folder before the first stage, the new run's army from <paramref name="setting"/> (Chaos Warfront C1).</summary>
+    public static int PrepareRun(string dir, bool warfrontNew, WarfrontFactionSetting setting, Action<string> log, Action<string> error)
     {
         try
         {
@@ -281,8 +288,9 @@ static class WarfrontSupervisor
             }
             if (!WarfrontSave.Exists(dir))
             {
-                var fresh = WarfrontRunFiles.NewRun(dir);
-                log(Stamp($"a new run (seed {fresh.RunSeed:X}, {fresh.Faction}; --warfront-faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(WarfrontRunFiles.FactionSetting)}) on the ship"));
+                var fresh = WarfrontRunFiles.NewRun(dir, setting);
+                log(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
+                log($"Warfront faction: the new run fights {fresh.Faction}; --warfront-faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(setting)}");   // not a status line (C1 review)
             }
             return 0;
         }
@@ -297,7 +305,7 @@ static class WarfrontSupervisor
     static void ReconcileFaction(string dir, WarfrontCampaign run, Action<string> log)
     {
         if (SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile(dir, run.Faction, run.RunSeed))
-            log(Stamp($"faction.json brought in line with run.json ({run.Faction}, seed {run.RunSeed:X})"));
+            log($"Warfront faction: faction.json brought in line with run.json ({run.Faction}, seed {run.RunSeed:X})");   // not a status line (C1 review)
     }
 
     /// <summary>The supervisor's loop: injectable launcher, stop event and log, so the tests run it with a fake child and a short timing.</summary>
