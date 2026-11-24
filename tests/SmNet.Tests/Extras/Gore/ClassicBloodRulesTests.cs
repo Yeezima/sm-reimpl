@@ -214,7 +214,7 @@ public class ClassicBloodRulesTests
         Assert.True(RibbonHalfWidth >= 0.1f && RibbonHalfWidth <= 0.16f, "a band about a quarter of a metre wide at the body, not a thin streak and not a slab");
         Assert.InRange(RibbonOpacity, 0.9f, 1f);   // the cap is the mix blend (never brighter than the tint), so a single band may be nearly opaque
         Assert.InRange(RibbonMottleFloor, 0.5f, 0.8f);   // still mottled, never so patchy that it reads faint
-        Assert.InRange(RibbonShadeFloor, 0.4f, 0.9f);   // darker patches of the same red...
+        Assert.InRange(RibbonShadeFloor, 0.2f, 0.9f);   // darker patches of the same red...
         Assert.InRange(RibbonShadeTop, RibbonShadeFloor, 1f);   // ...never brighter than the tint
         Assert.InRange(RibbonDensityFloor, 0.5f, 1f);
         Assert.True(RibbonBundle > 0.3f && RibbonBundle <= 0.5f);

@@ -47,10 +47,11 @@ public static class ClassicBloodRules
     /// </summary>
     public const float RibbonMottleFloor = 0.6f;
     /// <summary>
-    /// The darkest and the brightest a band's colour gets by its mottle, as shares of the blood tint (ours; 0.8 to 1 at 3570b719, 0.55 to 0.92 since the repair of review 5): the same hue,
-    /// a deeper blood red in the dense patches; an evenly opaque tint read as a flat orange-red sticker once the bands eroded instead of fading.
+    /// The darkest and the brightest a band's colour gets by its mottle, as shares of the blood tint (ours; 0.8 to 1 at 3570b719, 0.3 to 0.55 since the repair of review 5): the same hue,
+    /// a deeper blood red. Near-full red unshaded goes through the filmic/AgX tonemapper toward orange (measured p95 G/R 0.25 to 0.30 on screen at 0.55 to 0.92); at 0.3 to 0.55 it
+    /// measured 0.06 to 0.12 at the hold (the owner's "red or darker").
     /// </summary>
-    public const float RibbonShadeFloor = 0.55f, RibbonShadeTop = 0.92f;
+    public const float RibbonShadeFloor = 0.3f, RibbonShadeTop = 0.55f;
     /// <summary>The thinnest the blood gets inside a patch, as a share of <see cref="RibbonOpacity"/> (ours; repair of review 5): mottled in density as well as shade; the strip pass keeps it red.</summary>
     public const float RibbonDensityFloor = 0.7f;
     /// <summary>A band's half width at the body for a normal hit (m; ours; was 0.075): before the per-band x0.8 to x1.3, the narrowing to 0.6 at the ends and the growth while it hangs.</summary>
