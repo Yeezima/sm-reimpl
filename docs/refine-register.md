@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
+| Movement (critical) | 422 | 363 | 359 | 115 | 12 |
+| Combat core (critical) | 25 | 16 | 23 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
@@ -43,29 +43,29 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
-| Game modes | 46 | 42 | 44 | 19 | 1 |
+| Game modes | 47 | 43 | 45 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
+| Core simulation (provisional values) | 879 | 833 | 656 | 241 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3030** | 2722 | 2223 | 915 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
-| confidence: low | 1068 |
-| confidence: medium | 1037 |
-| notes: ours | 475 |
-| kind: interpretation | 456 |
+| kind: ours | 1835 |
+| confidence: low | 1071 |
+| confidence: medium | 1041 |
+| notes: ours | 477 |
+| kind: interpretation | 457 |
 | notes: estimate | 306 |
-| kind: estimate | 270 |
+| kind: estimate | 272 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (421)
+### Movement (gameplay-critical) (422)
 
 *Spec section: Extracted parameters*
 
@@ -826,6 +826,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; every step (walking and the push between Marines closer than 0.9 m) is taken only if it stays on the walking graph, the height taken from the floor, sliding along a wall on one axis… (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
 
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C4402816` | Jump-pound order | refused until the brain takes it (the command is still read) | kind: ours | Phase B T2 | Jump-pound order: compare with SM1 by feel or video. Ours: refused until the brain takes it (the command is still read). | ☐ |
+
 *Spec section: Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map")*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -845,7 +851,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-0A7A43D6` | Rain coverage at speed | the near emitter (13 m up) and the far one (16 m up, box mode only) lead the camera by its smoothed ground velocity times a drop's fall time to eye level (0.52 s, 0.70 s), the splashes by 0.15 s; velocity smoothing 0.12 s, capped at 30 m/s, reset by a step… (s, m/s) | kind: ours; confidence: medium | owner brief item 4 (repro: a dry gap at fast sideways movement) | Rain coverage at speed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the near emitter (13 m up) and the far one (16 m up, box mode only)… | ☐ |
 
-### Combat core (gameplay-critical) (24)
+### Combat core (gameplay-critical) (25)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -929,6 +935,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-00D02E43` | Damage taken | a Marine takes **0.35** of an Ork hit (strength ruling of 2026-11-17; it was 0.10, Musou's puppet Marines' share): five Boyz down a lone Marine in about 20 / 14 / 10 s at player level 1 / 10 / 20, one Nob in about 46 / 31 / 23 s (the ruling's estimate; the… (x) | kind: ours; confidence: low; notes: estimate | the designer's ruling (a playtest value to refine) | Damage taken: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine takes 0.35 of an Ork hit (strength ruling of 2026-11-17; it… | ☐ |
 | `R-04B119F6` | Armour and health recovery | a Marine's armour comes back after the class's delay with no hit (unchanged); its health does not regenerate in a battle (ruling of 2026-11-17, `SquadClassRules.HealthRegen = false`): it comes back by a revive (full, the owner's rule) and at the next battle… | kind: ours; confidence: low; notes: estimate | designer review 1; the ruling | Armour and health recovery: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine's armour comes back after the class's delay with no hit… | ☐ |
+
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7440207A` | Damage taken | 0.35 of every hit (not the puppets' 0.10), divided by the key's health scale while unshielded (cards' third x 1 + 0.08 (L − 1)) or by its armour scale while shielded; none of the Orks' level damage (multiplier) | kind: ours; confidence: low | lead 2026-11-25 ("keep their damage-taken reduction"); ruling 2026-11-17; T1 | Damage taken: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 0.35 of every hit (not the puppets' 0.10), divided by the key's… | ☐ |
 
 *Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
 
@@ -2520,7 +2532,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AF1DBAA8` | Decal look (Extended) | a code-made splash (never a texture from the reference; third design after the review of 2b89de15): the outline is a noise field, not round blobs: a core of radius 0.14 to 0.18 of the square whose radius follows 4 to 9 uneven lobes (one or two long, 0.2 to… (m, s) | kind: ours; confidence: low | the reference image (shape only); numbers ours | Decal look (Extended): compare with SM1 with side-by-side video of the same action. Ours: a code-made splash (never a texture from the reference; third design… | ☐ |
 | `R-E7FDDB11` | Cost | CPU: the trail recording and pairing, timed per frame (the effects log line `hit dir: ... cpu`, printed with `--frame-profile` or a bot); GPU: one draw call per live spray (pool of 32, 64 quads each), no particles. The pool and its shader are made on the… (ms) | confidence: medium; notes: estimate | live measurement (rough: shared PC) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: CPU: the trail recording and pairing, timed per frame (the effects… | ☐ |
 
-### Game modes (46)
+### Game modes (47)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2601,6 +2613,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AD26426F` | Classic autocannon: accuracy (claude/autocannon-accuracy, 2026-11-14) | the autocannon's scatter in Classic PvP is the **Stalker Bolter's** (`sm_mp_ranged_sniper_rifle`), read from the install's `climb_sway_scatter` sets as `SpreadTuning` gives them (copied: initial half-widths, growth per shot, maximum, decrease rate and delay… (deg; deg/shot; deg/s; s) | kind: ours; confidence: medium | owner 2026-11-14: "classic pvp mode only - the autocannon also needs to have much better accuracy - it should be equivalent to the stalker at range in terms of… | Classic autocannon: accuracy (claude/autocannon-accuracy…: compare with SM1 by feel or video. Ours: the autocannon's scatter in Classic PvP is the Stalker Bolter's… | ☐ |
 | `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; one amount for both sides (the Space Marine heavy bolter's, also… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
 | `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
+
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-354F0E54` | Spawn | each roster Marine of a landed human (held and Dreadnought rosters: none) as a World player in the first free puppet id (65516 to 65527), its class, weapons, melee and perks by name from its roster loadout (a name the class lacks: the class default), Space… | kind: ours; confidence: medium | series 37 plan; Phase B design Q1 | Spawn: compare with SM1 by feel or video. Ours: each roster Marine of a landed human (held and Dreadnought rosters:… | ☐ |
 
 *Spec section: Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map")*
 
@@ -2943,7 +2961,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (871)
+### Core simulation (provisional values) (879)
 
 *Spec section: Provisional values in use*
 
@@ -4302,6 +4320,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A52A049D` | Wave shape (T4) | nothing is done to the waves for or against the squad; the difficulty knobs stay `OrkHealthBase` and `OrkDamageBase` | kind: ours; confidence: low | tuning ruling T4 | Wave shape: compare with SM1 by feel or video. Ours: nothing is done to the waves for or against the squad; the difficulty… | ☐ |
 | `R-530246C7` | Seam rule (W9b) | the notifying seams (`BattleBegan`, `BattleEnded`, `ObjectiveSecured`, `AboardStep`, `OwnerLevelUp`, `StuckSink`, `NodeEnded`, `NodeResolved`, and the runtime's `Assisted`, `HumanKill`, `Picked`) are subscribed with `+=`; the answering seams (`SquadTargets`… | kind: ours | review 1 finding 5 | Seam rule (W9b): compare with SM1 by feel or video. Ours: the notifying seams (BattleBegan, BattleEnded, ObjectiveSecured… | ☐ |
 | `R-79FF6AC2` | Absent owner and the leaver's squad | an owner not connected is paid none of his held squad's ordinary kills; a leaver's squad is on Hold and counts as standing | kind: ours; confidence: medium | review 1 finding 8 | Absent owner and the leaver's squad: compare with SM1 by feel or video. Ours: an owner not connected is paid none of his held squad's ordinary… | ☐ |
+
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-B17C2E9A` | Landing ring | Marine k at 1.5 + 0.35 k m round the owner, snapped to the walking graph within 2.5 m (m) | kind: estimate; confidence: low | the squad's numbers (W9) | Landing ring: compare with SM1 by measuring on a flat spot of the same map. Ours: Marine k at 1.5 + 0.35 k m round the owner, snapped to the walking… | ☐ |
+| `R-2B0007F0` | Player count | solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four humans 4 + 8 = 12 World players, inside the snapshot's 16 and the 12 puppet ids (players) | kind: ours | Phase B design Q1 | Player count: compare with SM1 by feel or video. Ours: solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four… | ☐ |
+| `R-770E28DD` | Downed | a fallen retainer stays down (its respawn held) for 20 s; revived by anyone (a human or a standing retainer holding Use within 2 m for 2 s, the nearer target, a tie to the human) with half its health and armour where it fell; not revived: out for the battle… (s, m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-17 (20 s, out for that battle); reach and hold ours (W9) | Downed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a fallen retainer stays down (its respawn held) for 20 s; revived by… | ☐ |
+| `R-78AA543F` | Records | kills (elite, boss), assists (a retainer that hit the Ork within 5 s before another's kill), times downed, revives given, objectives (standing or downed inside a secured point's radius), battles survived (standing at the battle's end); a retainer's kill pays… | kind: ours; confidence: medium | W9/W9b's rules kept | Records: compare with SM1 by feel or video. Ours: kills (elite, boss), assists (a retainer that hit the Ork within 5 s… | ☐ |
+| `R-CA8A40E9` | Orders | Follow, Hold, Attack per owner (a resend or older sequence refused); a Hold holds the named point (else where each stands), an Attack goes for its point; a leaver's squad holds and counts as standing; a returning player re-binds it | kind: ours; confidence: medium | W9's semantics kept | Orders: compare with SM1 by feel or video. Ours: Follow, Hold, Attack per owner (a resend or older sequence refused)… | ☐ |
+| `R-B030D90A` | AI-Marine rules | a retainer's melee stuns a boss as a human's; a scrap trap hurts it as a human (a share of its full health and armour), not the AI Marines' outright kill; no pickups (the puppets' exclusion stays) | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-25 (b) (the boss stun: our reading of "retainers ARE stunned by bosses") | AI-Marine rules: compare with SM1 by feel or video. Ours: a retainer's melee stuns a boss as a human's; a scrap trap hurts it… | ☐ |
+| `R-EB1F0D4A` | Brain | the retainer's input comes from `WarfrontRetainers.Brain` (Phase B T4's Classic bot brain), ahead of Musou's puppet brain; none: it stands still keeping its heading | kind: ours | Phase B design Q1 | Brain: compare with SM1 by feel or video. Ours: the retainer's input comes from WarfrontRetainers.Brain (Phase B T4's… | ☐ |
+| `R-A07D71CD` | Drop pod at four humans | unchanged: a pod needs 5 free puppet ids, so with 4 humans and 8 retainers it is refused (the owner's answer of 2026-11-25, "drop pod marines don't count towards the limit", is a follow-up) (ids) | kind: ours | owner 2026-11-25 (c), pending its design | Drop pod at four humans: compare with SM1 by feel or video. Ours: unchanged: a pod needs 5 free puppet ids, so with 4 humans and 8… | ☐ |
 
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
 
@@ -6608,6 +6639,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-5669C607` | Budget | Added content: Warfront: squads (W9: `WarfrontSquadSim`, `SquadRosters`; pure sim, not yet connected to World, the wire or the loadouts) |
 | `R-D059B1AC` | Search budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-02FD7B05` | Budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
+| `R-90D6C1E5` | Wire | Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |

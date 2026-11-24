@@ -28,7 +28,6 @@ public sealed partial class GameServer
     WarfrontSquadWiring? _wfWiring;
     internal WarfrontSquadWiring? WarfrontWiringForTests => _wfWiring;   // a test aid (W14b): the real wipe knocks the retainers out first
     WarfrontSquadSender? _wfSender;
-    WarfrontSquadSim? _wfSenderSim;
     WarfrontSquadCommands? _wfSquadCommands;
     NavGraph? _wfNav;
     WfHost? _wfHost;
@@ -209,11 +208,7 @@ public sealed partial class GameServer
     partial void WarfrontSendSquad()
     {
         if (_wf is not { } s || _wfWiring is not { } wiring || _wfHost is null) return;
-        if (_wfSender is null || !ReferenceEquals(_wfSenderSim, wiring.Sim))
-        {
-            _wfSender = new WarfrontSquadSender(wiring.Sim, World.Config, _wfHost);   // a new sim per battle: read wiring.Sim, never keep it past its battle
-            _wfSenderSim = wiring.Sim;
-        }
+        _wfSender ??= new WarfrontSquadSender(wiring.Retainers, wiring.Rosters, World.Config, _wfHost);   // Phase B T2: one registry for the whole run
         foreach (var o in _wfSender.Step(World.Tick))
             SendExtras(new ExtrasUpdate(World.Tick, [(o.Tag, o.Payload)]), o.Player < 0 ? null : o.Player);
     }
@@ -254,7 +249,7 @@ public sealed partial class GameServer
         var humans = s.KeyOf.Where(kv => World.Players.TryGetValue(kv.Key, out var p) && p.Alive && WarfrontCoopRules?.RoleOf(kv.Value) == WarfrontCoopRole.Player).Select(kv => kv.Key);
         var marines = new List<int>();
         if (_wfWiring is { } w)
-            for (int i = 0; i < SquadRules.MaxTotal; i++) if (w.Sim.View(i) is { State: SquadState.Standing }) marines.Add(i);
+            foreach (var r in w.Retainers.All) if (r.State == SquadState.Standing) marines.Add(r.Index);
         return WarfrontCoop.Candidates(humans, marines);
     }
 
@@ -265,6 +260,6 @@ public sealed partial class GameServer
         if (coop.RoleOf(key) != WarfrontCoopRole.SpectatingJoiner && s.Campaign.Phase != WarfrontPhase.Battle) return;
         var watch = coop.WatchOf(key);
         if (watch.Kind == WarfrontWatchKind.Player && World.Players.TryGetValue(watch.Id, out var target)) centre = target.Position;
-        else if (watch.Kind == WarfrontWatchKind.Marine && _wfWiring is { } w && w.Sim.View(watch.Id) is { } marine) centre = marine.Position;
+        else if (watch.Kind == WarfrontWatchKind.Marine && _wfWiring is { } w && w.Retainers.View(watch.Id) is { } marine && w.Retainers.ByIndex(watch.Id) is { WorldId: > 0 }) centre = marine.Position;
     }
 }

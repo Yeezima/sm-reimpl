@@ -95,7 +95,7 @@ public sealed partial class World
     /// strikes"; <c>TfwShellLands</c>, by <see cref="Extras.Musou.Campaign.TfwShell.Caller"/>); the Librarian's spells and the Orks' own explosions do not.
     /// </summary>
     float MusouRangedDealt(int attacker) =>
-        _musou?.War is { } war && _players.ContainsKey(attacker) && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;
+        _musou?.War is { } war && _players.ContainsKey(attacker) && MusouScalesPlayer(attacker) ? war.PlayerRangedDamageScale : 1f;
 
     /// <summary>
     /// The range fall-off on the enemies for a shot of <paramref name="weapon"/> that went <paramref name="distance"/> metres: 1 in Musou Mode's war (the owner, 2026-11-11: "There should be no damage
@@ -108,7 +108,21 @@ public sealed partial class World
     /// Whether <paramref name="shooter"/>'s shots lose no damage with range (<see cref="MusouRangeFallOff"/>): in the war a human player's (owner, 2026-11-11: "alliedmarine should not lose range falloff":
     /// an AI Marine's gun keeps its own fall-off, <see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>), never in the 5-wave run.
     /// </summary>
-    bool MusouNoRangeFallOff(int shooter) => _musou?.War is { RangeFallOff: false } && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(shooter);
+    bool MusouNoRangeFallOff(int shooter) => _musou?.War is { RangeFallOff: false } && MusouScalesPlayer(shooter);
+
+    /// <summary>
+    /// Whether the war's human-only scales apply to <paramref name="playerId"/>'s attacks (<see cref="Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/>: a human's, never an AI Marine's), the one instance place every use asks,
+    /// so Warfront may answer for its retainers (none of them by default).
+    /// </summary>
+    bool MusouScalesPlayer(int playerId)
+    {
+        bool scales = Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(playerId);
+        WarfrontScalesPlayer(playerId, ref scales);   // WARFRONT-HOOK: Warfront's retainers (Warfront/Battle/World.WarfrontRetainers.cs; off by the owner's answer of 2026-11-25)
+        return scales;
+    }
+
+    /// <summary>Warfront: whether a retainer gets the human-only scales. No-op without Warfront's retainers.</summary>
+    partial void WarfrontScalesPlayer(int playerId, ref bool scales);
 
     /// <summary>
     /// A hit-scan shot's damage on an enemy or a contraption <paramref name="distance"/> metres away: its charged stage's (which has no fall-off of its own), else the weapon's damage times
@@ -304,7 +318,7 @@ public sealed partial class World
         bool dreadnought = Extras.Musou.DreadnoughtRules.IsDreadnought(Config, state.Class);
         if (dreadnought) most = MusouSim.Capacity;   // the buff (owner 2026-11-15: "cleave infinitely"): no cap for him in the 5-wave run either (its CleaveTargets is 8)
         ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
-        if (musou.War is { } trim && Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
+        if (musou.War is { } trim && MusouScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
         if (dreadnought) range *= Extras.Musou.DreadnoughtRules.CleaveReachScale;   // owner 2026-11-17: his cleave radius +50 % (MusouCleaveShape.Of draws the same)
         float bodySlack = 0f;   // > 0: Warfront counts an Ork whose collision (radius) reaches into the volume
         WarfrontCleave(attacker, state, ref range, ref most, ref bodySlack);   // WARFRONT-HOOK: Warfront's reach scales, no target cap, and an Ork whose collision overlaps the volume is struck (Warfront/Battle/World.WarfrontCleave.cs)

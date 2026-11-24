@@ -47,6 +47,9 @@ public sealed class WarfrontBattleRules
     /// <summary>The Orks' health scale of <paramref name="humans"/> humans.</summary>
     public static float PlayerScale(int humans) => 1f + HealthPerExtraHuman * Math.Max(0, humans - 1);
 
+    /// <summary>Phase B T2 seam (answering, assigned by the squad wiring alone): the retainers as World players (<see cref="Retainers.WarfrontRetainers"/>); null: none, and every retainer hook does nothing.</summary>
+    public Retainers.WarfrontRetainers? Retainers { get; set; }
+
     /// <summary>W9 seam: whether any retainer of any squad stands (default: none do; Warfront lands no puppet retainer).</summary>
     public Func<bool> AnyRetainerStanding { get; set; } = () => false;
     /// <summary>W9 seam: an order (Follow, Hold, Attack) as it comes in (default: dropped).</summary>

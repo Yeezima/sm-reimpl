@@ -80,6 +80,7 @@ public sealed partial class World
     partial void WarfrontKill(in MusouKill kill)
     {
         if (_tfw is not { Battle: not null, Warfront: { } rules }) return;   // any battle of a Warfront run (a node, the HQ defence, the fortress) pays kills
+        WarfrontRetainerKill(in kill);   // Phase B T2: a retainer's kill pays its owner, the retainers that hit it share an assist
         int points = _musou!.Rules.Of(kill.Type).Points;
         rules.Progression.Kill(kill.Enemy, kill.Player, kill.Type, points, ((long)Tick << 16) | kill.Enemy, _musou.Tick, Tick / (double)Math.Max(1, Config.TickRate), (uint)Tick);
     }
@@ -87,6 +88,7 @@ public sealed partial class World
     partial void WarfrontDamageTaken(int target, ref float scale)
     {
         if (_tfw?.Warfront is not { Progression: { } rt } rules) return;
+        if (rules.Retainers is { } retainers && WarfrontIsRetainer(target)) { WarfrontRetainerDamageTaken(retainers, target, ref scale); return; }   // Phase B T2: the squad's share, not a human's
         if (rt.IsProtected(target) || rules.CoopHeld?.Invoke(target) == true) { scale = 0f; return; }
         var b = rt.BonusesOf(target);
         if (b.MaxHp == 1f && b.MaxArmor == 1f || !_players.TryGetValue(target, out var p)) return;
@@ -108,6 +110,7 @@ public sealed partial class World
     partial void WarfrontAttackerScales(MusouSim musou)
     {
         if (_tfw?.Warfront?.Progression is not { } rt) return;
+        WarfrontRetainerScales(musou);   // Phase B T2: the retainers' card third and level curve
         foreach (int id in rt.Ids)
         {
             float d = rt.BonusesOf(id).Damage;

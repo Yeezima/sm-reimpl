@@ -22,10 +22,14 @@ public readonly record struct SquadMarineWire(byte Index, byte State, bool Firin
 /// <summary>A decoded SquadState section: the sender's phase counter, the first index in it and its Marines.</summary>
 public sealed record SquadStateSection(byte Phase, byte FirstIndex, IReadOnlyList<SquadMarineWire> Marines);
 
-/// <summary>One roster Marine as it travels (tag 33): slot, the battle index (255: not in this battle), name, class, the three weapon ids, whether it wears the owner's own armour pieces, the service record.</summary>
-public sealed record SquadRosterWire(byte Slot, byte Index, string Name, byte Class, ushort Primary, ushort Secondary, ushort Melee, bool OwnPieces, IReadOnlyList<ushort> Record)
+/// <summary>
+/// One roster Marine as it travels (tag 33): slot, the battle index (255: not in this battle), name, class, the three weapon ids, whether it wears the owner's own armour pieces, the service record, and (Phase B T2,
+/// WarfrontWire.Format 3) the World player id it fights as (<see cref="NoWorldId"/>: not in the World: out, or not in this battle): the client draws it as that player.
+/// </summary>
+public sealed record SquadRosterWire(byte Slot, byte Index, string Name, byte Class, ushort Primary, ushort Secondary, ushort Melee, bool OwnPieces, IReadOnlyList<ushort> Record, ushort WorldId = SquadRosterWire.NoWorldId)
 {
     public const byte NotInBattle = 255;
+    public const ushort NoWorldId = 0;
 }
 
 /// <summary>A decoded SquadRoster section: one owner's Marines.</summary>
@@ -44,10 +48,10 @@ public readonly record struct SquadCommandWire(SquadCommandKind Kind, byte Slot,
 /// The Warfront squad on the wire (slice W10; ours; no existing section is changed). Little-endian. The server's sections are envelope tags (message kind 16): 32 the Marines (10 Hz, every client), 33 a roster
 /// section per owner (on change and in rotation), 34 the events; the client's commands are message kind 17 under tag 41. Every decoder is <c>TryDecode</c>: it returns false and never throws.
 /// <list type="bullet">
-/// <item>Tag 32: <c>[u8 phase][u8 first index][u8 count]</c> then <see cref="MarineBytes"/> bytes a Marine <c>[u8 index 0..35][u8 flags: bits 0-1 state, 2 firing, 3 melee, 4 being revived, 5-6 order, 7 airborne]
+/// <item>Tag 32 (retired by Phase B T2: the server no longer sends it, the retainers are World players in the snapshot; the codec stays for the client's crowd until T5 retires it): <c>[u8 phase][u8 first index][u8 count]</c> then <see cref="MarineBytes"/> bytes a Marine <c>[u8 index 0..35][u8 flags: bits 0-1 state, 2 firing, 3 melee, 4 being revived, 5-6 order, 7 airborne]
 /// [i16 x][i16 y at 5 cm][i16 z at 2 cm][u8 yaw][u8 health][u8 aux][u16 target or 0xFFFF]</c>; positions reach 1638 m (x, y) and 655 m (z) from the origin, yaw is 1.4 degrees a step, health a 255th.</item>
 /// <item>Tag 33: <c>[u64 handle][u8 owner player or 255][u8 held][u8 count]</c> then per Marine <c>[u8 slot][u8 index or 255][u8 len][name, UTF-8, at most 24 bytes][u8 class][u16 primary][u16 secondary][u16 melee]
-/// [u8 flags: bit 0 own pieces][u16 x 8 record]</c>.</item>
+/// [u8 flags: bit 0 own pieces][u16 x 8 record][u16 World id or 0]</c> (the World id since WarfrontWire.Format 3).</item>
 /// <item>Tag 34: <c>[u8 count]</c> then <c>[u8 kind][u8 index][u8 by]</c>, a pound then <c>[i16 x][i16 y][i16 z]</c> in decimetres.</item>
 /// <item>Tag 41 (command): <c>[u8 kind]</c>, Rename <c>[u8 slot][u8 len][name]</c>, JumpPound <c>[i16 x][i16 y][i16 z]</c> in decimetres, SquadClass <c>[u8]</c>.</item>
 /// </list>
@@ -57,7 +61,7 @@ public static class SquadWire
     public const byte StateTag = 32, RosterTag = 33, EventsTag = 34, CommandTag = 41;
     public const int StateHeaderBytes = 3, MarineBytes = 13, MaxMarines = 36, RosterHeaderBytes = 11, RecordFigures = 8, NameMaxBytes = 24;
     /// <summary>The most bytes a roster Marine takes: slot, index, length, a full name, class, three weapons, flags and eight figures.</summary>
-    public const int RosterMarineMaxBytes = 3 + NameMaxBytes + 1 + 6 + 1 + RecordFigures * 2;
+    public const int RosterMarineMaxBytes = 3 + NameMaxBytes + 1 + 6 + 1 + RecordFigures * 2 + 2;
     public const int MaxRosterMarines = 9;
     public const int EventBytes = 3, PoundEventBytes = 9;
     /// <summary>The longest state section (all 36 Marines) and roster section (nine full ones): both far inside <see cref="Protocol.MaxExtrasPayloadBytes"/>.</summary>
@@ -184,6 +188,7 @@ public static class SquadWire
             foreach (ushort w in new[] { m.Primary, m.Secondary, m.Melee }) { BinaryPrimitives.WriteUInt16LittleEndian(t, w); ms.Write(t[..2]); }
             ms.WriteByte(m.OwnPieces ? (byte)1 : (byte)0);
             for (int f = 0; f < RecordFigures; f++) { BinaryPrimitives.WriteUInt16LittleEndian(t, f < m.Record.Count ? m.Record[f] : (ushort)0); ms.Write(t[..2]); }
+            BinaryPrimitives.WriteUInt16LittleEndian(t, m.WorldId); ms.Write(t[..2]);
         }
         return ms.ToArray();
     }
@@ -206,7 +211,7 @@ public static class SquadWire
             int len = p[at + 2];
             at += 3;
             if (len > NameMaxBytes || slot >= MaxRosterMarines || !seen.Add(slot) || (index != SquadRosterWire.NotInBattle && index >= MaxMarines)) return false;
-            if (p.Length - at < len + 1 + 6 + 1 + RecordFigures * 2) return false;
+            if (p.Length - at < len + 1 + 6 + 1 + RecordFigures * 2 + 2) return false;
             string name;
             try { name = new UTF8Encoding(false, true).GetString(p.Slice(at, len)); } catch (ArgumentException) { return false; }
             at += len;
@@ -217,7 +222,9 @@ public static class SquadWire
             if ((flags & ~1) != 0) return false;
             var rec = new ushort[RecordFigures];
             for (int f = 0; f < RecordFigures; f++, at += 2) rec[f] = BinaryPrimitives.ReadUInt16LittleEndian(p[at..]);
-            list.Add(new SquadRosterWire(slot, index, name, cls, a, b, c, (flags & 1) != 0, rec));
+            ushort worldId = BinaryPrimitives.ReadUInt16LittleEndian(p[at..]);
+            at += 2;
+            list.Add(new SquadRosterWire(slot, index, name, cls, a, b, c, (flags & 1) != 0, rec, worldId));
         }
         if (at != p.Length) return false;
         section = new SquadRosterSection(handle, owner, held == 1, list);

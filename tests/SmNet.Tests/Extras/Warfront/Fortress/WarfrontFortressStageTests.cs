@@ -452,10 +452,10 @@ public class WarfrontFortressStageTests : IDisposable
     /// <summary>The whole party falls: the retainers first (a standing one revives its fallen owner in seconds), then the human; the window and the spectator time pass, then the wipe rule ends the battle.</summary>
     void WipeTheParty(Harness h, GameServer server, TfwRun run)
     {
-        var sim = server.WarfrontWiringForTests!.Sim;
+        var retainers = server.WarfrontWiringForTests!.Retainers;
         int knocked = 0;
-        for (int i = 0; i < SmSim.Extras.Warfront.Squad.SquadRules.MaxTotal; i++)
-            if (sim.StateOf(i) == SmSim.Extras.Warfront.Squad.SquadState.Standing && sim.Hit(SmSim.Extras.Warfront.Squad.SquadRules.TargetId(i), 1e6f, System.Numerics.Vector3.Zero)) knocked++;
+        foreach (var r in retainers.All)
+            if (r.State == SmSim.Extras.Warfront.Squad.SquadState.Standing && server.World.TfwKillForTests(r.WorldId)) knocked++;   // Phase B T2: the retainers are World players
         Assert.True(knocked > 0);
         Assert.True(server.World.TfwKillForTests(HumanOf(server)));
         int waited = 0;

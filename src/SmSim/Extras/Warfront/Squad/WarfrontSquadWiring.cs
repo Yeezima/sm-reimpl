@@ -5,6 +5,7 @@ using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Maps;
 using SmSim.Extras.Warfront.Progression;
 using SmSim.Extras.Warfront.Results;
+using SmSim.Extras.Warfront.Retainers;
 
 namespace SmSim.Extras.Warfront.Squad;
 
@@ -52,7 +53,7 @@ public sealed class WarfrontSquadWiring
         _feed = new WarfrontLedgerFeed(campaign.Stats, () => campaign.Deployments + 1);
         Rosters = new SquadRosters();
         ClassBook = new SquadClassBook(world.Config, Rosters, runSeed);
-        Sim = NewSim();
+        Retainers = new WarfrontRetainers(world, Rosters) { Log = line => Log?.Invoke(line) };
         Connect();
     }
 
@@ -60,18 +61,17 @@ public sealed class WarfrontSquadWiring
     public SquadRosters Rosters { get; }
     /// <summary>The class book (who the retainers copy).</summary>
     public SquadClassBook ClassBook { get; }
-    /// <summary>The squad sim of the battle under way (a new one is made at each battle's start, over a fresh arena; read it each time, never keep it).</summary>
-    public WarfrontSquadSim Sim { get; private set; }
-    /// <summary>The arena of <see cref="Sim"/> (the bench prints its counters).</summary>
-    public MusouSquadArena Arena { get; private set; } = null!;
-    /// <summary>The route arena of <see cref="Sim"/>.</summary>
-    public MusouSquadJumpArena RouteArena { get; private set; } = null!;
+    /// <summary>
+    /// The retainers as World players (Phase B T2): every roster Marine lands with its owner as a real player in a puppet id, so it moves, fights, animates and sounds as a player does. The squad sim's movement,
+    /// combat and targets are retired (<see cref="WarfrontSquadSim"/> is no longer stepped); rosters, names, records, the ledger and the results stay here.
+    /// </summary>
+    public WarfrontRetainers Retainers { get; }
     /// <summary>The ledger feed (tests and W5a's end-of-run read the ledger through the campaign).</summary>
     public WarfrontLedgerFeed Feed => _feed;
 
     /// <summary>The server's source of a player's look (his appearance code), for the colours his retainers wear; null: the default look.</summary>
     public Func<int, AppearanceCode?>? LookOf { get; set; }
-    /// <summary>The stuck log the stranded failsafe's relocations are written to (W5a sets it; null: none).</summary>
+    /// <summary>The stuck log the squad's stranded failsafe wrote to (W5a sets it; null: none). Retired with the squad sim's movement: nothing writes it until the retainers' brain (Phase B T4) has a failsafe of its own.</summary>
     public WarfrontStuckLog? StuckLog { get; set; }
     /// <summary>The name of the map slot for the stuck log (W5a sets it; default: lane and node).</summary>
     public Func<string>? SlotName { get; set; }
@@ -93,7 +93,7 @@ public sealed class WarfrontSquadWiring
         foreach (var p in save.Picks) _squadClass[p.Key] = p.Class;
         foreach (var k in save.Classes.Keys) if (k.Last is { Kind: SquadOwnerKind.Librarian } l) _squadClass.TryAdd(k.Key, l.Librarian);
         _seen.Clear(); _scaleCards.Clear();
-        Sim = NewSim();
+        Retainers.BeginBattle();
     }
 
     /// <summary>
@@ -149,14 +149,14 @@ public sealed class WarfrontSquadWiring
     {
         if (!_playerOfKey.TryGetValue(key, out int player)) return false;
         for (int k = 0; k < 2; k++)   // a sequence equal to the squad's last is refused: try the next
-            if (Sim.Order(player, new TfwCommandRecord(++_holdSequence, TfwCommand.Hold, 0))) return true;
+            if (Retainers.Order(player, new TfwCommandRecord(++_holdSequence, TfwCommand.Hold, 0))) return true;
         return false;
     }
 
     /// <summary>A returning player's new id for the squad already fighting.</summary>
     public bool RebindSquad(ulong key, int player)
     {
-        if (!Sim.Rebind(key, player)) return false;
+        if (!Retainers.Rebind(key, player)) return false;
         _playerOfKey[key] = player; _tried.Add(player);
         return true;
     }
@@ -175,23 +175,10 @@ public sealed class WarfrontSquadWiring
             Remember(id, key);   // a Librarian aboard: his squad is rerolled now (the same class again changes nothing)
     }
 
-    /// <summary>W10's command: the Assault squad's jump-pound at a marked point; false without a squad, a jump-pack Marine or a mark on the graph.</summary>
-    public bool OrderJumpPound(int player, Vector3 mark) => Sim.OrderJumpPound(player, mark) is not null;
+    /// <summary>W10's command: the Assault squad's jump-pound at a marked point. Retired with the squad sim (Phase B T2): false until the retainers' brain (T4) takes the order; the command is still read and refused.</summary>
+    public bool OrderJumpPound(int player, Vector3 mark) => false;
 
     // ---- the connections --------------------------------------------------------------------------------------------------------------------
-
-    WarfrontSquadSim NewSim()
-    {
-        var musou = _world.Musou ?? throw new InvalidOperationException("the squad wiring needs the run's Musou pool");
-        Arena = new MusouSquadArena(musou, _world.Collision is { } c ? MusouSquadArena.SightOf(c) : null);
-        RouteArena = new MusouSquadJumpArena(musou.Nav);
-        return new WarfrontSquadSim(Rosters, Arena)
-        {
-            JumpArena = RouteArena,
-            ReviveHuman = id => _world.Tfw?.WarfrontRevive(_world, id) == true,   // W3's revive: only inside the window (Downed), never a spectator
-            StuckSink = OnStuck,
-        };
-    }
 
     /// <summary>
     /// The seam rule (W9b review 1): the notifying seams (<c>BattleBegan</c>, <c>BattleEnded</c>, <c>ObjectiveSecured</c>, <c>AboardStep</c>, <c>OwnerLevelUp</c>, <c>NodeEnded</c>, <c>NodeResolved</c> and the runtime's <c>Assisted</c>,
@@ -205,12 +192,14 @@ public sealed class WarfrontSquadWiring
         rules.BattleEnded += _ => OnBattleEnded();
         rules.ObjectiveSecured += OnObjective;
         rules.AboardStep += OnAboardTick;
-        rules.OwnerLevelUp += key => Sim.Refill(key);   // the owner's standing Marines refill with him
-        rules.SquadTargets = into => Sim.AppendTargets(into);
-        rules.SquadHit = (id, damage, from) => Sim.Hit(id, damage, from);
+        rules.OwnerLevelUp += key => Retainers.Refill(key);   // the owner's standing Marines refill with him
+        rules.Retainers = Retainers;   // Phase B T2: the World's retainer hooks (input, damage, kills, the owner's answers) read it
+        rules.SquadTargets = null;   // retired: the Orks see the retainers as the World players they are
+        rules.SquadHit = null;
         rules.SquadStep = OnSquadStep;
-        rules.OrderSink = (player, record) => Sim.Order(player, record);
-        rules.AnyRetainerStanding = () => Sim.AnyStanding;
+        rules.OrderSink = (player, record) => Retainers.Order(player, record);
+        rules.AnyRetainerStanding = () => Retainers.AnyStanding;
+        Retainers.KillSink = k => { if (PaySquadKill(k, (uint)_world.Tick)) rules.Progression.Refill?.Invoke(); };
         var rt = rules.Progression;
         rt.RosterSize = key => Rosters.Count(key);
         rt.Assisted += (helper, killer, type) => { if (rt.TryKey(helper, out ulong key)) _feed.Assist(key); };
@@ -218,17 +207,9 @@ public sealed class WarfrontSquadWiring
         rt.Picked += pick => { if (pick.Card == WarfrontCard.Retainer) ClassBook.Recruit(pick.Key); };   // one pick, one recruit: never from the card count
     }
 
-    void OnStuck(SquadStuck s)
-    {
-        if (StuckLog is not { } log) return;
-        string slot = SlotName?.Invoke() ?? $"{_rules.Lane} {_rules.Node}";
-        log.Record(slot, "Marine", s.At, WarfrontStuckAction.Relocated, "unreachable");
-    }
-
     void OnBattleBegan()
     {
-        Sim = NewSim();
-        Sim.BeginBattle([]);   // the humans are placed after this hook: they land at the first step, at their own landing place
+        Retainers.BeginBattle();   // the humans are placed after this hook: their Marines land at the first step, at their own landing place
         _tried.Clear(); _wasDowned.Clear(); _playerOfKey.Clear(); _held.Clear(); _scaleCards.Clear();
         _began = true;
     }
@@ -236,14 +217,13 @@ public sealed class WarfrontSquadWiring
     void OnBattleEnded()
     {
         if (!_began) return;
-        Sim.EndBattle();   // nothing is paid for it; the records already hold the survival
+        Retainers.EndBattle();   // the standing Marines survived it; nothing is paid for it
         _began = false;
         _tried.Clear(); _wasDowned.Clear();
     }
 
     void OnHumanKill(WarfrontHumanKill kill)
     {
-        Sim.NoteHumanKill(kill.Enemy);   // the Marines that hurt it share an assist
         _feed.Kill(kill.Key, kill.Type, kill.Enemy, kill.Tick);
     }
 
@@ -251,7 +231,7 @@ public sealed class WarfrontSquadWiring
     {
         if (_world.Tfw?.Battle is not { } battle || index < 0 || index >= battle.Objectives.Count) return;
         var o = battle.Objectives[index];
-        Sim.CreditObjective(o.Position, o.Radius);
+        Retainers.CreditObjective(o.Position, o.Radius);
         _field.Clear(); _field.AddRange(_world.Tfw.InField); _field.Sort();
         foreach (int id in _field)
         {
@@ -333,11 +313,10 @@ public sealed class WarfrontSquadWiring
             else _wasDowned.Remove(id);
             _humans[n++] = new SquadHuman(id, p.Position, p.Alive, fallen, -1, p.Yaw);
         }
-        HumanRevives(run, n, tick);
         ReleaseLeavers();
         RefreshScales(rt);
-        Sim.Step(tick, _humans.AsSpan(0, n));
-        Drain(rt, tick);
+        Retainers.Step();   // the squad's rules over the World players: downed, revived, out
+        Revives(run, n, tick);
     }
 
     /// <summary>A human in the field with no fighting squad: a returning key re-binds, a new one lands at the human's own place; once per player id and battle.</summary>
@@ -347,76 +326,74 @@ public sealed class WarfrontSquadWiring
         _playerOfKey[key] = id;
         if (!_tried.Add(id)) return;
         _feed.Battle(key);
-        if (ClassBook.LastOf(key) is null) Remember(id, key);   // no class-book entry yet (a first-time joiner landed late): a first roster of one
+        if (ClassBook.LastOf(key) is null) Remember(id, key);   // no class-book entry yet (a first-time joiner landed late): a first roster
         ApplyScale(_rules.Progression, key);
-        if (Sim.Rebind(key, id))
+        if (Retainers.Rebind(key, id))
         {
-            if (returned) for (int k = 0; k < 2 && !Sim.Order(id, new TfwCommandRecord(++_holdSequence, TfwCommand.Follow, 0)); k++) { }   // a squad put on Hold when he left follows again when he is back
+            if (returned) for (int k = 0; k < 2 && !Retainers.Order(id, new TfwCommandRecord(++_holdSequence, TfwCommand.Follow, 0)); k++) { }   // a squad put on Hold when he left follows again when he is back
         }
-        else if (Sim.Land(key, id, p.Position) == 0 && Rosters.Has(key) && !Rosters.IsHeld(key))
-            Log?.Invoke($"warfront: no fighting slot for key {key}'s squad (four squads are fighting); it joins at the next battle");
+        else if (Retainers.Land(key, id, p.Position) == 0 && Rosters.Has(key) && !Rosters.IsHeld(key))
+            Log?.Invoke($"warfront: no fighting slot or World id for key {key}'s squad; it joins at the next battle");
     }
 
     /// <summary>The server's log line sink (W5a sets it; null: none).</summary>
     public Action<string>? Log { get; set; }
 
-    int NearestDownedMarine(Vector3 at, out float distance)
-    {
-        int best = -1; float bestD = SquadRules.PlayerReviveReach;
-        for (int i = 0; i < SquadRules.MaxTotal; i++)
-        {
-            if (Sim.View(i) is not { State: SquadState.Downed } v) continue;
-            float d = new Vector2(v.Position.X - at.X, v.Position.Y - at.Y).Length();
-            if (d <= bestD) { bestD = d; best = i; }
-        }
-        distance = bestD;
-        return best;
-    }
-
-    readonly Dictionary<int, (int Target, float Progress)> _revive = [];
+    readonly Dictionary<int, (int Target, float Progress)> _revive = [];   // reviver's player id -> (target: a human's id, or -(retainer index + 1)), progress in seconds
     readonly Dictionary<int, float> _share = [];
-    readonly List<int> _stale = [];
+    readonly HashSet<int> _reviving = [];
+    readonly List<(int Id, Vector3 At, int Marine)> _revivers = [];
 
     /// <summary>
-    /// A human holding Use (the Interact bit) with a downed Marine or a fallen human (phase Downed) within <see cref="SquadRules.PlayerReviveReach"/>: the nearer is the target, a tie goes to the human. A Marine is the sim's (its
-    /// <c>ReviveTarget</c>); a human's is held here for <see cref="SquadRules.PlayerReviveSeconds"/>, then W3's <c>WarfrontRevive</c> and one revive in the reviver's ledger. Progress is per reviver and is dropped when Use is released, the target
-    /// changes or either leaves reach; two revivers never double it (the second finds him alive).
+    /// Revived by anyone (Phase B T2; the squad's rule): a human in the field or a standing retainer holding Use (the Interact bit) with a downed retainer or a fallen human (phase Downed) within
+    /// <see cref="SquadRules.PlayerReviveReach"/> revives the nearer (a tie goes to the human) after <see cref="SquadRules.PlayerReviveSeconds"/>: a human through W3's <c>WarfrontRevive</c>, a retainer back where it fell.
+    /// A human reviver's revive counts in his ledger, a retainer's in its record. Progress is per reviver and is dropped when Use is released, the target changes or either leaves reach.
     /// </summary>
-    void HumanRevives(TfwRun run, int n, uint tick)
+    void Revives(TfwRun run, int n, uint tick)
     {
         float dt = 1f / Math.Max(1, _world.Config.TickRate);
-        _share.Clear(); _stale.Clear();
-        for (int i = 0; i < n; i++)
+        _share.Clear(); _reviving.Clear(); _revivers.Clear();
+        for (int i = 0; i < n; i++) if (_humans[i].Alive && _world.WarfrontUseHeld(_humans[i].Id)) _revivers.Add((_humans[i].Id, _humans[i].Position, -1));
+        foreach (var r in Retainers.All)
+            if (r.State == SquadState.Standing && _world.Players.TryGetValue(r.WorldId, out var rp) && rp.Alive && _world.WarfrontUseHeld(r.WorldId)) _revivers.Add((r.WorldId, rp.Position, r.Index));
+        foreach (var r in Retainers.All) if (r.State == SquadState.Downed) r.ReviveShare = 0f;
+        foreach (var (id, at, marine) in _revivers)
         {
-            var h = _humans[i];
-            if (!h.Alive || !_world.WarfrontUseHeld(h.Id)) continue;
-            int marine = NearestDownedMarine(h.Position, out float dm);
-            int human = -1; float dh = SquadRules.PlayerReviveReach;
+            int target = 0; float best = SquadRules.PlayerReviveReach + 1e-4f;
             for (int j = 0; j < n; j++)
             {
                 var t = _humans[j];
-                if (j == i || !t.Fallen) continue;
-                float d = new Vector2(t.Position.X - h.Position.X, t.Position.Y - h.Position.Y).Length();
-                if (d <= dh) { dh = d; human = t.Id; }
+                if (t.Id == id || !t.Fallen) continue;
+                float d = Flat(t.Position, at);
+                if (d < best) { best = d; target = t.Id; }
             }
-            if (human >= 0 && (marine < 0 || dh <= dm)) { _humans[i] = h with { ReviveTarget = -1 }; _stale.Add(h.Id); HumanProgress(run, h, human, dt, tick); }
-            else _humans[i] = h with { ReviveTarget = marine };
+            foreach (var r in Retainers.All)
+            {
+                if (r.State != SquadState.Downed || r.WorldId == id || !_world.Players.TryGetValue(r.WorldId, out var dp)) continue;
+                float d = Flat(dp.Position, at);
+                if (d < best) { best = d; target = -(r.Index + 1); }
+            }
+            if (target == 0) continue;
+            _reviving.Add(id);
+            float progress = _revive.TryGetValue(id, out var was) && was.Target == target ? was.Progress + dt : dt;
+            if (progress < SquadRules.PlayerReviveSeconds - 1e-4f)
+            {
+                _revive[id] = (target, progress);
+                float share = progress / SquadRules.PlayerReviveSeconds;
+                if (target > 0) _share[target] = Math.Max(_share.GetValueOrDefault(target), share);
+                else if (Retainers.ByIndex(-target - 1) is { } downed) downed.ReviveShare = Math.Max(downed.ReviveShare, share);
+                continue;
+            }
+            _revive.Remove(id);
+            bool done = target > 0 ? run.WarfrontRevive(_world, target) : Retainers.ByIndex(-target - 1) is { } r2 && Retainers.Revive(r2, marine < 0 ? id : -1, marine);
+            if (!done) continue;
+            if (marine < 0 && _rules.Progression.TryKey(id, out ulong key)) _feed.Revive(key, id, tick);
+            else if (marine >= 0 && target > 0) Retainers.RevivedHuman(marine, target);
         }
-        foreach (int id in _revive.Keys.ToList()) if (!_stale.Contains(id)) _revive.Remove(id);   // Use released, target gone: the hold starts again
+        foreach (int id in _revive.Keys.ToList()) if (!_reviving.Contains(id)) _revive.Remove(id);   // Use released, target gone: the hold starts again
     }
 
-    void HumanProgress(TfwRun run, SquadHuman h, int target, float dt, uint tick)
-    {
-        float progress = _revive.TryGetValue(h.Id, out var was) && was.Target == target ? was.Progress + dt : dt;
-        if (progress >= SquadRules.PlayerReviveSeconds - 1e-4f)
-        {
-            _revive.Remove(h.Id); _stale.Remove(h.Id);
-            if (run.WarfrontRevive(_world, target) && _rules.Progression.TryKey(h.Id, out ulong key)) _feed.Revive(key, h.Id, tick);
-            return;
-        }
-        _revive[h.Id] = (target, progress);
-        _share[target] = Math.Max(_share.GetValueOrDefault(target), progress / SquadRules.PlayerReviveSeconds);
-    }
+    static float Flat(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Y - b.Y).Length();
 
     /// <summary>The share (0 to 1) of the hold that is reviving fallen human <paramref name="target"/> now, for the client's prompt; 0 when nobody is.</summary>
     public float HumanReviveShare(int target) => _share.GetValueOrDefault(target);
@@ -444,7 +421,7 @@ public sealed class WarfrontSquadWiring
         _scaleCards[key] = (cards, level);
         var b = WarfrontStatBonuses.ForRetainer(player?.Cards ?? []);
         var (levelHealth, levelDamage) = SquadLevelScale(level);
-        Sim.SetScale(key, b.Damage * b.AttackSpeed * levelDamage, b.MaxHp * levelHealth, b.MaxArmor);   // a third of each card's magnitude: a Marine's weapon is damage per interval; the cooldown share has nothing to act on
+        Retainers.SetScale(key, b.Damage * b.AttackSpeed * levelDamage, b.MaxHp * levelHealth, b.MaxArmor);   // a third of each card's magnitude (the attack speed folded into the damage, as before); the cooldown share has nothing to act on
     }
 
     /// <summary>
@@ -455,15 +432,6 @@ public sealed class WarfrontSquadWiring
     {
         int l = Math.Max(1, level);
         return (1f + WarfrontProgressionRules.OrkHealthPerLevel * (l - 1), 1f + WarfrontProgressionRules.OrkDamagePerLevel * (l - 1));
-    }
-
-    void Drain(WarfrontProgressionRuntime rt, uint tick)
-    {
-        bool paid = false;
-        foreach (var k in Sim.Kills) paid |= PaySquadKill(k, tick);
-        if (paid) rt.Refill?.Invoke();
-        foreach (var r in Sim.Revives)
-            if (r.ByHuman >= 0 && rt.TryKey(r.ByHuman, out ulong key)) _feed.Revive(key, r.ByHuman, tick);
     }
 
     /// <summary>

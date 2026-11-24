@@ -117,7 +117,7 @@ public sealed partial class World
             at[struck] = distance;
             passed[struck++] = enemy;
             last = distance;
-            if (!plasma && !TfwCombatRules.ScalesPlayer(shot.Shooter)) keep *= war.PierceKeep;   // owner 2026-11-11: a human's shot loses nothing per Ork; an AI Marine's keeps the 15 %
+            if (!plasma && !MusouScalesPlayer(shot.Shooter)) keep *= war.PierceKeep;   // owner 2026-11-11: a human's shot loses nothing per Ork; an AI Marine's keeps the 15 %
         }
         if (struck == 0) return;
         SplashSpec? own = null;

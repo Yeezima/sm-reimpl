@@ -47,10 +47,15 @@ public sealed partial class World
     /// <summary>Warfront: every kill of the war's tick (the XP it pays). No-op without the Warfront object.</summary>
     partial void WarfrontKill(in MusouKill kill);
 
+    /// <summary>Warfront: a retainer's input (its brain; none: it stands); sets <paramref name="handled"/>. No-op without Warfront's retainers.</summary>
+    partial void WarfrontPuppetInput(int id, in PlayerState self, ref PlayerInput input, ref bool handled);
+
     /// <summary>The input of an AI Marine (<see cref="TfwRun.PuppetBrain"/>; none: it stands still, keeping its heading). Other players stay with the server's input source.</summary>
     void TfwPlayerInput(int id, ref PlayerInput input, ref bool handled)
     {
         if (!TfwContracts.IsPuppet(id) || !_players.TryGetValue(id, out var puppet)) return;
+        WarfrontPuppetInput(id, puppet, ref input, ref handled);   // WARFRONT-HOOK: a Warfront retainer's brain (Warfront/Battle/World.WarfrontRetainers.cs), ahead of PuppetBrain
+        if (handled) return;
         input = _tfw!.PuppetBrain?.Invoke(id, puppet) ?? new PlayerInput(0, 0f, 0f, puppet.Yaw, InputButtons.None);
         handled = true;
     }

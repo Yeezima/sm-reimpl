@@ -2,6 +2,7 @@ using System.Numerics;
 using SmNet;
 using SmNet.Extras.Warfront;
 using SmSim;
+using SmSim.Extras.Warfront.Retainers;
 using SmSim.Extras.Warfront.Squad;
 
 namespace SmServer;
@@ -25,9 +26,9 @@ public interface IWarfrontSquadHost
 public readonly record struct WarfrontSquadOutgoing(int Player, byte Tag, byte[] Payload);
 
 /// <summary>
-/// The squad's sections (slice W10, <see cref="SquadWire"/>): SquadState at 10 Hz to everyone, a roster section per owner by signature (on change, to a client that joins, and one owner every 2 s in turn), and the events
-/// from the Marines' state changes. Pure: it reads <see cref="WarfrontSquadSim"/> and <see cref="SquadRosters"/> and returns what to send; W5a's <c>WarfrontSendSquad</c> hands the result to <c>SendExtras</c>
-/// (the exact two lines are in the W10 report). Fallen and out Marines stay in the roster section; only Standing and Downed ones are in SquadState; in the hub nothing is.
+/// The squad's sections (slice W10, <see cref="SquadWire"/>; Phase B T2): a roster section per owner by signature (on change, to a client that joins, and one owner every 2 s in turn), each Marine with the World id
+/// it fights as, and the events from the Marines' state changes. SquadState (tag 32) is retired: the retainers are World players in every snapshot. Pure: it reads <see cref="WarfrontRetainers"/> and
+/// <see cref="SquadRosters"/> and returns what to send; W5a's <c>WarfrontSendSquad</c> hands the result to <c>SendExtras</c>. Fallen and out Marines stay in the roster section.
 /// </summary>
 public sealed class WarfrontSquadSender
 {
@@ -37,27 +38,19 @@ public sealed class WarfrontSquadSender
     /// <summary>Roster changes are looked for this often (a second), not on every state send (export and encode cost) [ours/estimate]; a recruit or a joining client forces the next check.</summary>
     public const int RosterChecksPerSecond = 2;
 
-    readonly WarfrontSquadSim _sim;
+    readonly WarfrontRetainers _sim;
+    readonly SquadRosters _rosters;
     readonly SimConfig _config;
     readonly IWarfrontSquadHost _host;
     readonly SquadState[] _last = new SquadState[SquadRules.MaxTotal];
     readonly Dictionary<ulong, byte[]> _signature = [];   // per (owner key): the roster bytes last sent with the owner's own handle
-    readonly HashSet<int> _known = [];
     readonly List<SquadEventWire> _events = [];
-    byte _phase;
     bool _force = true;
     uint _lastCheck;
     uint _lastRosterTick;
     int _rotation;
 
-    /// <summary>Sections sent as halves, and as whole lists (the report's "how often the halves were used").</summary>
-    public int HalvesSent { get; private set; }
-    public int WholesSent { get; private set; }
-
-    public WarfrontSquadSender(WarfrontSquadSim sim, SimConfig config, IWarfrontSquadHost host) { _sim = sim; _config = config; _host = host; }
-
-    /// <summary>Bytes of the extras message another section may take this tick (the lead's budget for the squad); the default is the whole of one section.</summary>
-    public int StateRoom { get; set; } = Protocol.MaxExtrasPayloadBytes;
+    public WarfrontSquadSender(WarfrontRetainers retainers, SquadRosters rosters, SimConfig config, IWarfrontSquadHost host) { _sim = retainers; _rosters = rosters; _config = config; _host = host; }
 
     /// <summary>The class, weapon and melee ids of a loadout in the Classic loadout's numbering (the index in the config's lists; 0xFFFF for a name the config does not have).</summary>
     public (byte Class, ushort Primary, ushort Secondary, ushort Melee) IdsOf(SquadLoadout l)
@@ -89,23 +82,6 @@ public sealed class WarfrontSquadSender
         return [C(r.Kills), C(r.EliteKills), C(r.BossKills), C(r.Assists), C(r.Revives), C(r.TimesDowned), C(r.Objectives), C(r.BattlesSurvived)];
     }
 
-    /// <summary>The Marines in a battle as the wire shows them (Standing and Downed only).</summary>
-    public List<SquadMarineWire> Marines()
-    {
-        var list = new List<SquadMarineWire>();
-        if (!_host.InBattle) return list;
-        Span<SquadMarineView> views = stackalloc SquadMarineView[SquadRules.MaxTotal];
-        int n = _sim.CopyTo(views);
-        for (int i = 0; i < n; i++)
-        {
-            var v = views[i];
-            if (v.State is not (SquadState.Standing or SquadState.Downed)) continue;
-            bool melee = _sim.FiringMelee(v.Index);
-            list.Add(SquadWire.Make(v.Index, (byte)v.State, v.Firing, melee, v.State == SquadState.Downed && v.ReviveShare > 0f, (byte)(_host.PlayerOf(v.Key) is var owner and >= 0 ? _sim.OrderOf(owner) : SquadOrder.Follow), v.Airborne, v.Position, v.Yaw, v.HealthShare, v.DownedLeft, v.ReviveShare, v.Target));
-        }
-        return list;
-    }
-
     /// <summary>Called every tick with the tick number: the events are noted every tick, the state goes at <see cref="StateHz"/>, rosters when they change or are due.</summary>
     public List<WarfrontSquadOutgoing> Step(uint tick)
     {
@@ -115,15 +91,6 @@ public sealed class WarfrontSquadSender
         if (tick % (uint)perState == 0)
         {
             if (_events.Count > 0) { outgoing.Add(new(-1, SquadWire.EventsTag, SquadWire.EncodeEvents(_events))); _events.Clear(); }
-            var marines = Marines();
-            if (marines.Count > 0 || _known.Count > 0)
-            {
-                var payload = SquadWire.EncodeStateFitting(_phase++, marines, StateRoom, out bool half);
-                if (half) HalvesSent++; else WholesSent++;
-                outgoing.Add(new(-1, SquadWire.StateTag, payload));
-            }
-            _known.Clear();
-            foreach (var m in marines) _known.Add(m.Index);
             if (_force || tick - _lastCheck >= (uint)Math.Max(1, _host.Rate / RosterChecksPerSecond)) { _force = false; _lastCheck = tick; RosterSections(tick, outgoing); }
         }
         return outgoing;
@@ -132,23 +99,18 @@ public sealed class WarfrontSquadSender
     /// <summary>A client that joined (or came back): every roster again, at the next call of <see cref="Step"/>.</summary>
     public void ClientJoined(int player) { _force = true; foreach (var key in _signature.Keys.ToList()) _signature[key] = []; _ = player; }
 
-    readonly List<int> _pendingRevived = [];
 
     void NoteEvents()
     {
-        if (!_host.InBattle) { Array.Fill(_last, SquadState.Free); _pendingRevived.Clear(); return; }
-        // A revive outside a step is reported by the sim's next step: the "by" of last call's revives is read now.
-        foreach (var impact in _sim.PoundImpacts) _events.Add(new SquadEventWire(SquadEventKind.Pound, (byte)Math.Clamp(impact.Index, 0, SquadWire.MaxMarines - 1), 255, impact.Position));
-        foreach (int i in _pendingRevived) _events.Add(new SquadEventWire(SquadEventKind.Revived, (byte)i, ReviverOf(i)));
-        _pendingRevived.Clear();
+        if (!_host.InBattle) { Array.Fill(_last, SquadState.Free); return; }
         for (int i = 0; i < SquadRules.MaxTotal; i++)
         {
-            var now = _sim.StateOf(i);
+            var now = _sim.ByIndex(i)?.State ?? SquadState.Free;
             var was = _last[i];
             if (now == was) continue;
             _last[i] = now;
             if (now == SquadState.Downed && was != SquadState.Downed) _events.Add(new SquadEventWire(SquadEventKind.Downed, (byte)i, 255));
-            else if (was == SquadState.Downed && now == SquadState.Standing) _pendingRevived.Add(i);
+            else if (was == SquadState.Downed && now == SquadState.Standing) _events.Add(new SquadEventWire(SquadEventKind.Revived, (byte)i, ReviverOf(i)));   // the revive is in this tick's list (the registry flips the state as it revives)
             else if (was == SquadState.Downed && now == SquadState.Out) _events.Add(new SquadEventWire(SquadEventKind.Out, (byte)i, 255));
         }
     }
@@ -156,7 +118,7 @@ public sealed class WarfrontSquadSender
     byte ReviverOf(int index)
     {
         foreach (var r in _sim.Revives)
-            if (_sim.IndexOf(_host.PlayerOf(r.Key), r.Slot) == index) return r.ByHuman >= 0 ? (byte)Math.Min(r.ByHuman, 199) : r.ByMarine >= 0 ? (byte)Math.Min(200 + r.ByMarine, 254) : (byte)255;
+            if (r.Slot >= 0 && _sim.IndexOf(_host.PlayerOf(r.Key), r.Slot) == index) return r.ByHuman >= 0 ? (byte)Math.Min(r.ByHuman, 199) : r.ByMarine >= 0 ? (byte)Math.Min(200 + r.ByMarine, 254) : (byte)255;
         return 255;
     }
 
@@ -165,7 +127,7 @@ public sealed class WarfrontSquadSender
 
     void RosterSections(uint tick, List<WarfrontSquadOutgoing> outgoing)
     {
-        var save = _sim.Rosters.Export();
+        var save = _rosters.Export();
         bool rotate = tick - _lastRosterTick >= (uint)(RotationSeconds * _host.Rate);
         if (rotate) _lastRosterTick = tick;
         int ownerNo = 0;
@@ -192,9 +154,10 @@ public sealed class WarfrontSquadSender
             var m = owner.Marines[slot];
             var (cls, p, s, melee) = IdsOf(m.Loadout);
             int player = _host.PlayerOf(owner.Key);
-            int index = player >= 0 ? _sim.IndexOf(player, slot) : -1;
-            byte inBattle = index >= 0 && _host.InBattle && _sim.StateOf(index) != SquadState.Free ? (byte)index : SquadRosterWire.NotInBattle;
-            marines.Add(new SquadRosterWire((byte)slot, inBattle, m.Name, cls, p, s, melee, OwnPieces(m.Loadout), RecordOf(m.Record)));
+            var landed = player >= 0 && _host.InBattle ? _sim.Of(player, slot) : null;
+            byte inBattle = landed is { State: not SquadState.Free } ? (byte)landed.Index : SquadRosterWire.NotInBattle;
+            ushort worldId = landed is { WorldId: > 0 and <= ushort.MaxValue, State: SquadState.Standing or SquadState.Downed } ? (ushort)landed.WorldId : SquadRosterWire.NoWorldId;
+            marines.Add(new SquadRosterWire((byte)slot, inBattle, m.Name, cls, p, s, melee, OwnPieces(m.Loadout), RecordOf(m.Record), worldId));
         }
         int owning = _host.PlayerOf(owner.Key);
         return SquadWire.EncodeRoster(new SquadRosterSection(handle, owning is >= 0 and < 255 ? (byte)owning : SquadRosterSection.NoPlayer, owner.Held, marines));
