@@ -196,6 +196,9 @@ public sealed partial class ClassicBotBrain
     public bool CommittedMove(PlayerState me) =>
         _navAgent is { JumpInProgress: true } || me.Jump != JumpPhase.None || me.Rush != RushPhase.None || me.MeleeStep > 0 || me.Throwing || Evade.Evading(me);
 
+    /// <summary>Reads <c>--bot-accuracy</c> and <c>--bot-range</c> once (the F6 panel calls it before it reads the flags; the brain does at its first aimed tick).</summary>
+    public void ReadAimFlags() => ReadBotAimFlags();
+
     /// <summary>The aim model's accuracy flag as the client's F6 developer panel reads and sets it (the raw field: null before the flags are read; a set rebuilds the aim model).</summary>
     public float? AccuracyFlag
     {

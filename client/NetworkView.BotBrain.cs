@@ -6,15 +6,23 @@ using SmContent;
 using SmNet;
 using SmSim;
 using Brain = SmBots.ClassicBotBrain;
+using V3 = System.Numerics.Vector3;
 
 namespace SmClient;
 
 /// <summary>
-/// T1 (Phase B, 2026-11-25): the client's adapter to the Classic bot brain, which moved into the engine-free src/SmBots (<see cref="Brain"/>). The client keeps its
-/// test aids and flags and hands the brain its world (<see cref="BotWorld"/>: the GameClient, the shown players, the view's yaw and pitch), its log (GD.Print) and its
-/// test-aid hooks (<see cref="BotHooks"/>). Test aid <c>--bot-shadow</c>: a second brain runs beside the live one on the same inputs, its input compared every tick
-/// (a "shadow:" log line every 10 s and one line per differing tick, the first 40); <c>--bot-shadow-sync</c> also plans both brains' paths inside the steering call,
-/// so thread timing cannot tell them apart.
+/// T1 (Phase B, 2026-11-25): the client's thin adapter to the Classic bot brain, which moved out of this class (NetworkView.Bot*.cs, NetworkView.Nav.cs and the bot parts
+/// of NetworkView.cs, Jump.cs, Seize.cs, Evade.cs, Reactions.cs, DashAttack.cs) into the engine-free src/SmBots (<see cref="Brain"/>) without a behaviour change. The client
+/// keeps its test aids and flags and hands the brain its world (<see cref="BotWorld"/>: the GameClient, the shown players, the view's yaw and pitch), its log (GD.Print, so
+/// a bot's log reads as before) and its test-aid hooks (<see cref="BotHooks"/>: the scripted test inputs in their old order, added content's <c>ExtrasBotInput</c>, the
+/// charge-direction press log, the frame-profile phase). The members below with the old names forward to the brain for the client code that still calls them
+/// (Musou Mode's co-op bot, <c>--bot-pickups</c>, <c>--barrel-test</c>, the hit statistics, the F6 panel, the logs).
+/// <para>
+/// Test aid <c>--bot-shadow</c>: a second brain runs beside the live one on the same inputs (the same world, a view of its own set to the live view before each
+/// step, the live brain's background jobs), its input compared every tick: a "shadow:" log line every 10 s and one line per differing tick (the first 40).
+/// <c>--bot-shadow-sync</c> also plans both brains' paths inside the steering call, so thread timing cannot tell them apart. T1 ran it with the client's old copy
+/// as the live brain (docs/milestones.md); now it checks that the brain is deterministic for its inputs, and a variant brain can be put in the shadow's place.
+/// </para>
 /// </summary>
 public partial class NetworkView
 {
@@ -22,8 +30,11 @@ public partial class NetworkView
     static readonly bool BotShadow = CmdFlag("bot-shadow") || CmdFlag("bot-shadow-sync");
     /// <summary><c>--bot-shadow-sync</c>: the shadow comparison with the paths planned inside the steering call (both brains).</summary>
     static readonly bool BotShadowSync = CmdFlag("bot-shadow-sync");
-    /// <summary><c>--bot-new-brain</c> (T1 transition): the moved brain plays instead of the client's own copy.</summary>
-    static readonly bool BotNewBrain = CmdFlag("bot-new-brain");
+
+    /// <summary><c>--bot-goal</c>: one point the bot walks to and holds, fighting what it sees (the brain's route test aid, ClassicBotBrain.Nav.cs).</summary>
+    public string? BotGoal { get; init; }
+    /// <summary><c>--bot-route</c>: points the bot walks through in order, then again from the first (fighting what it sees).</summary>
+    public string? BotRoute { get; init; }
 
     /// <summary>The background jobs of this client's brains (one store: the shadow shares the live brain's jobs).</summary>
     readonly SmBots.BotWork _botWork = new();
@@ -31,8 +42,10 @@ public partial class NetworkView
     BotWorld? _botWorld;
     ShadowWorld? _botShadowWorld;
     int _botTickStamp;
+    /// <summary>The map's mean spawn point (game space), set at the map load for every client: the overview camera uses it (NetworkView.MapLoad.cs).</summary>
+    V3? _mapCentre3;
 
-    /// <summary>The moved brain (created on first use; bots only).</summary>
+    /// <summary>The bot brain (created on first use; bots only).</summary>
     Brain BotBrainOf() => _botBrain ??= NewBotBrain(_botWorld ??= new BotWorld(this), GD.Print);
 
     /// <summary>The shadow brain and its world (own yaw and pitch), or null without <c>--bot-shadow</c>.</summary>
@@ -54,10 +67,120 @@ public partial class NetworkView
             print is null ? SmBots.BotLog.None : new SmBots.BotLog(s => print(s), s => GD.PrintErr(s)),
             new BotHooks(this));
 
+    // ---- the host's calls (from the input sampling and the frame) ----
+
+    /// <summary>The brain's step for this tick (the old <c>BotApplyAim(BotInput(tick))</c>), with the shadow comparison.</summary>
+    PlayerInput BotBrainStep(uint tick)
+    {
+        _botTickStamp++;
+        _botWork.Poll();
+        float yaw0 = _yaw, pitch0 = _pitch;
+        var live = BotBrainOf().Step(tick);
+        if (BotShadowOf() is { } shadow)
+        {
+            float liveYaw = _yaw, livePitch = _pitch;
+            _botShadowWorld!.Yaw = yaw0; _botShadowWorld.Pitch = pitch0;
+            ShadowCompare("step", live, shadow.Step(tick), liveYaw, livePitch, BotBrainOf().Note, shadow.Note);
+        }
+        return live;
+    }
+
+    /// <summary>The grenade safety's hold on the final input (the old <c>BotGrenadeHold</c>), with the shadow comparison.</summary>
+    PlayerInput BotBrainHold(PlayerInput input)
+    {
+        float yaw0 = _yaw, pitch0 = _pitch;
+        var live = BotBrainOf().Hold(input);
+        if (BotShadowOf() is { } shadow)
+        {
+            float liveYaw = _yaw, livePitch = _pitch;
+            _botShadowWorld!.Yaw = yaw0; _botShadowWorld.Pitch = pitch0;
+            ShadowCompare("hold", live, shadow.Hold(input), liveYaw, livePitch, BotBrainOf().Note, shadow.Note);
+            ShadowTickDone();
+        }
+        return live;
+    }
+
+    /// <summary>The bot is dead (the input sampling skips the brain then): the lives and the push learn of the death.</summary>
+    void BotBrainNoteDead() { BotBrainOf().NoteDead(); BotShadowOf()?.NoteDead(); }
+
+    /// <summary>Per frame: a death resets the path; the "nav:", stuck, wait and "aim:" log lines.</summary>
+    void BotBrainFrame(PlayerState me) { BotBrainOf().Frame(me); BotShadowOf()?.Frame(me); }
+
+    /// <summary>The own predicted release of a thrown item (grenade safety).</summary>
+    void BotBrainNoteOwnRelease(PlayerState me) { BotBrainOf().NoteOwnRelease(me); BotShadowOf()?.NoteOwnRelease(me); }
+
+    /// <summary>A hit report of the own attacks (the bot's aim and tactics statistics; NetworkView.Camera.cs).</summary>
+    void BotNoteHits(HitReport hits)
+    {
+        if (!_bot) return;
+        BotBrainOf().NoteHits(hits);
+        BotShadowOf()?.NoteHits(hits);
+    }
+
+    /// <summary>
+    /// When the map loads (every client): the map's mean spawn point for the overview camera; for a bot the brain's named points and the background build (or
+    /// cache read) of its navigation graph.
+    /// </summary>
+    void PrepareNavigation(MapContent map, CollisionWorld world)
+    {
+        if (map.Spawns.Count > 0) _mapCentre3 = new V3(map.Spawns.Average(s => s.Position.X), map.Spawns.Average(s => s.Position.Y), map.Spawns.Average(s => s.Position.Z));
+        if (!_bot) return;
+        _botWork.Clear();
+        BotBrainOf().PrepareNavigation(map, world);
+        BotShadowOf()?.PrepareNavigation(map, world);
+    }
+
+    /// <summary>Whether this client may use a Classic PvP bot preset at all (the map is checked later; the brain's <see cref="Brain.BotPresetOnMap"/>).</summary>
+    bool BotPresetWanted()
+    {
+        if (!_bot || Observe || _demoPlayback is not null || string.Equals(CmdArg("bot-preset"), "none", StringComparison.OrdinalIgnoreCase)) return false;
+        if (_loadout.Primary is not null || _loadout.Pistol is not null || _loadout.Melee is not null || _loadout.Equipment is not null || _loadout.Random) return false;
+        var args = OS.GetCmdlineUserArgs();
+        return !args.Contains("--perks") && !args.Contains("--second") && !args.Contains("--profile") && !args.Contains("--bot-change-loadout");
+    }
+
+    /// <summary><see cref="ClientOptions.ReviseOnMap"/>: on a Classic PvP map, the options with a preset of the requested class's role (the live brain only: one draw).</summary>
+    ClientOptions BotPresetOnMap(string map, ClientOptions options) => BotBrainOf().BotPresetOnMap(map, options);
+
+    // ---- the old names, for the client code that calls the brain ----
+
+    /// <summary>The bots' default accuracy (the brain's; the F6 panel shows it).</summary>
+    public const float DefaultBotAccuracy = Brain.DefaultBotAccuracy;
+
+    /// <summary>The number after <c>--name</c> (a finite float, invariant culture), or null: the client's test aids read their values with it (it lived beside the bot's aim flags).</summary>
+    static float? FloatArg(string name)
+    {
+        var a = CmdArgs(name, 1);
+        return a.Length == 1 && float.TryParse(a[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) && float.IsFinite(v) ? v : null;
+    }
+
+    /// <summary>The bot's last decision, for its log (and set by <c>--bot-pickups</c>).</summary>
+    string _botNote { get => _bot ? BotBrainOf().Note : ""; set { if (_bot) BotBrainOf().Note = value; } }
+    string _botSeizeNote => _bot ? BotBrainOf().SeizeNote : "";
+    int _detonateRequests => _bot ? BotBrainOf().DetonateRequests : 0;
+    SmSim.NavAgent? _navAgent => _bot ? BotBrainOf().NavAgent : null;
+    InputButtons _navJump => _bot ? BotBrainOf().NavJump : InputButtons.None;
+
+    static Vector2 G(SmBots.Vector2 v) => new(v.X, v.Y);
+
+    (Vector2 Direction, float Speed, bool Arrived, bool DropAhead) BotSteer(PlayerState me, V3 goal, string purpose)
+    {
+        var (d, speed, arrived, drop) = BotBrainOf().BotSteer(me, goal, purpose);
+        return (G(d), speed, arrived, drop);
+    }
+
+    V3 BotPathGoal(V3 p) => BotBrainOf().BotPathGoal(p);
+    Vector2 BotWalkDirection(PlayerState me, Vector2 goal) => G(BotBrainOf().BotWalkDirection(me, new SmBots.Vector2(goal.X, goal.Y)));
+    PlayerInput BotMoveInput(uint tick, Vector2 to, InputButtons buttons) => BotBrainOf().BotMoveInput(tick, new SmBots.Vector2(to.X, to.Y), buttons);
+    float BotWalkableStrafe(PlayerState me, float wanted) => BotBrainOf().BotWalkableStrafe(me, wanted);
+    InputButtons BotWeaponButtons(PlayerState me, uint tick, PlayerState? target) => BotBrainOf().BotWeaponButtons(me, tick, target);
+    PlayerState? BotFightTarget(PlayerState me, out float distance) => BotBrainOf().BotFightTarget(me, out distance);
+
     // ---- the shadow comparison ----
 
     int _shadowTicks, _shadowSame, _shadowLogged;
     double _shadowLogAt;
+    bool _shadowDiffer;
     readonly Dictionary<string, int> _shadowFields = new();
 
     void ShadowCompare(string stage, PlayerInput live, PlayerInput shadow, float liveYaw, float livePitch, string liveNote, string shadowNote)
@@ -79,8 +202,6 @@ public partial class NetworkView
             GD.Print($"t {_connectedFor:F2} s: id {_client?.PlayerId} shadow differs at tick {live.Tick} ({stage}): {string.Join(", ", diff)}; live [{liveNote}] shadow [{shadowNote}]");
     }
 
-    bool _shadowDiffer;
-
     void ShadowTickDone()
     {
         _shadowTicks++;
@@ -90,73 +211,6 @@ public partial class NetworkView
         _shadowLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} shadow: ticks {_shadowTicks}, identical {_shadowSame} ({(_shadowTicks > 0 ? 100.0 * _shadowSame / _shadowTicks : 100.0):F3}%), " +
                  $"differing {_shadowTicks - _shadowSame}{(BotShadowSync ? " (sync plans)" : "")}; by field: {string.Join(", ", _shadowFields.OrderBy(k => k.Key).Select(k => $"{k.Key} {k.Value}"))}");
-    }
-
-    /// <summary>The brain's step for this tick (the old <c>BotApplyAim(BotInput(tick))</c>), with the shadow comparison.</summary>
-    PlayerInput BotBrainStep(uint tick)
-    {
-        _botTickStamp++;
-        _botWork.Poll();
-        float yaw0 = _yaw, pitch0 = _pitch;
-        var live = BotNewBrain ? BotBrainOf().Step(tick) : BotApplyAim(BotInput(tick));
-        if (BotShadowOf() is { } shadow)
-        {
-            float liveYaw = _yaw, livePitch = _pitch;
-            _botShadowWorld!.Yaw = yaw0; _botShadowWorld.Pitch = pitch0;
-            var other = shadow.Step(tick);
-            ShadowCompare("step", live, other, liveYaw, livePitch, BotNewBrain ? BotBrainOf().Note : _botNote, shadow.Note);
-        }
-        return live;
-    }
-
-    /// <summary>The grenade safety's hold on the final input (the old <c>BotGrenadeHold</c>), with the shadow comparison.</summary>
-    PlayerInput BotBrainHold(PlayerInput input)
-    {
-        float yaw0 = _yaw, pitch0 = _pitch;
-        var live = BotNewBrain ? BotBrainOf().Hold(input) : BotGrenadeHold(input);
-        if (BotShadowOf() is { } shadow)
-        {
-            float liveYaw = _yaw, livePitch = _pitch;
-            _botShadowWorld!.Yaw = yaw0; _botShadowWorld.Pitch = pitch0;
-            var other = shadow.Hold(input);
-            ShadowCompare("hold", live, other, liveYaw, livePitch, BotNewBrain ? BotBrainOf().Note : _botNote, shadow.Note);
-            ShadowTickDone();
-        }
-        return live;
-    }
-
-    void BotBrainNoteDead()
-    {
-        if (BotNewBrain) BotBrainOf().NoteDead(); else BotNoteDead();
-        BotShadowOf()?.NoteDead();
-    }
-
-    void BotBrainFrame(PlayerState me)
-    {
-        if (BotNewBrain) BotBrainOf().Frame(me);
-        else { if (!me.Alive) _navAgent?.Reset(); LogNav(me); }
-        BotShadowOf()?.Frame(me);
-    }
-
-    void BotBrainNoteOwnRelease(PlayerState me)
-    {
-        if (BotNewBrain) BotBrainOf().NoteOwnRelease(me); else BotNoteOwnRelease(me);
-        BotShadowOf()?.NoteOwnRelease(me);
-    }
-
-    /// <summary>The moved brain's and the shadow's share of a hit report (called from the client copy's BotNoteHits during the transition).</summary>
-    void BotBrainNoteHits(HitReport hits)
-    {
-        if (BotNewBrain) BotBrainOf().NoteHits(hits);
-        BotShadowOf()?.NoteHits(hits);
-    }
-
-    /// <summary>The moved brain's and the shadow's map load (called from the client copy's PrepareNavigation during the transition; bots only).</summary>
-    void BotBrainPrepareNavigation(MapContent map, CollisionWorld world)
-    {
-        _botWork.Clear();
-        if (BotNewBrain) BotBrainOf().PrepareNavigation(map, world);
-        BotShadowOf()?.PrepareNavigation(map, world);
     }
 
     // ---- the world the brain reads ----
