@@ -14,6 +14,7 @@ namespace SmClient;
 /// (<c>csm_mp_melee_2hand_power_mace</c>), in classic PvP and in Musou Mode. **Original assets**: the hammer's own hit effects <c>thunderhammer_dmg_body</c> and
 /// <c>thunderhammer_dmg_body_secondary</c> (flash, soft balls, glitter, arcs), played at the contact point. **Ours (provisional approximation)**: the layered cloud of
 /// <see cref="PowerFlash.Build"/>, the per-weapon scale, the purple, the cap on a swing's bursts. Sound: the weapon's own hit event (existing) plus the hammer's blast events.
+/// Since 2026-11-24 (owner, series 37) every burst plays at <see cref="PowerFlashRules.FlashOpacity"/> of its earlier strength in every mode; <c>--old-power-flash-strength</c> restores it.
 /// Test aids: <c>--no-power-flash</c> (before / after), <c>--power-flash-demo sword|axe|hammer|maul</c> (a comma list takes them in turn; <c>--power-flash-at x,y,z</c>), <c>--log-power-flash</c>.
 /// </summary>
 public partial class NetworkView
@@ -21,6 +22,9 @@ public partial class NetworkView
     bool NoPowerFlash => _noPowerFlash ??= CmdFlag("no-power-flash");
     bool? _noPowerFlash;
     readonly PowerFlashRules.Budget _powerSwing = new();
+    /// <summary>Restore switch <c>--old-power-flash-strength</c>: the power weapons' hit flash at its full strength (before the owner's 2026-11-24 change to <see cref="PowerFlashRules.FlashOpacity"/>).</summary>
+    bool OldPowerFlashStrength => _oldPowerFlashStrength ??= CmdFlag("old-power-flash-strength");
+    bool? _oldPowerFlashStrength;
     int _powerFlashes, _powerFlashSmall;
 
     /// <summary>A power weapon's hit: the lead burst of a swing is the big one, the next hits of the same swing (a Musou cleave) are small and capped.</summary>
@@ -38,14 +42,17 @@ public partial class NetworkView
         var tint = PowerFlash.Tint(kind);
         int started = 0;
         // A slam (a strike with a blast) brings the data's own displace flash, ball and cloud: no second copy of the hammer's hit effects on top, and a smaller cloud.
-        if (!slam && _fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
-        if (!slam && lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
-        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost * (slam ? PowerFlashRules.SlamCloud : 1f), null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        // Owner 2026-11-24 (series 37, answers 2 and 3): every burst at FlashOpacity of its old strength, everywhere (Classic, Musou, Warfront): the effect's opacity scales every sprite's colour
+        // and alpha and its light (additive sprites 40 % as bright, blended ones 40 % as opaque), so the target shows through; size, shape and timing unchanged.
+        float opacity = OldPowerFlashStrength ? 1f : PowerFlashRules.FlashOpacity;
+        if (!slam && _fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } main) { main.Opacity = opacity; started++; }
+        if (!slam && lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } second) { second.Opacity = opacity; started++; }
+        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost * (slam ? PowerFlashRules.SlamCloud : 1f), null, null, 0f, 0.0, false, 3, false, tint) is { } cloud) { cloud.Opacity = opacity; started++; }
         string sounds = lead ? PostPowerBlast(kind, contact) : "-";
         if (lead) _powerFlashes++; else _powerFlashSmall++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = contact;
         if (_bot || CmdFlag("log-power-flash") || CmdFlag("log-melee-fx"))
-            GD.Print($"POWERFLASH t {_connectedFor:F2} P{attackerId} {kind} {(lead ? "lead" : "small")} x{scale:0.##}{(slam ? " slam" : "")} cam {dist:0.#} m at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} ({source}); {started} effects; blast sounds {sounds}; shown {_powerFlashes} big, {_powerFlashSmall} small");
+            GD.Print($"POWERFLASH t {_connectedFor:F2} P{attackerId} {kind} {(lead ? "lead" : "small")} x{scale:0.##} opacity {opacity:0.##}{(slam ? " slam" : "")} cam {dist:0.#} m at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} ({source}); {started} effects; blast sounds {sounds}; shown {_powerFlashes} big, {_powerFlashSmall} small");
     }
 
     /// <summary>The hammer's blast sounds for the hammer and the maul (data events, <see cref="PowerFlash.BlastEvents"/>); the weapon's own hit sound is posted elsewhere. Returns the events posted.</summary>

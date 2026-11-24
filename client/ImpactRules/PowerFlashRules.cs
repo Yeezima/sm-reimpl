@@ -24,6 +24,12 @@ public static class PowerFlashRules
     /// <summary>The burst seen from <see cref="CloseNear"/> m or closer is <see cref="CloseMin"/> of its size, from <see cref="CloseFar"/> m out the whole (ours: no white-out of a camera inside it).</summary>
     public const float CloseNear = 1.2f, CloseFar = 5f, CloseMin = 0.22f;
 
+    /// <summary>
+    /// The strength every burst plays at, as a share of its earlier one (the effect's opacity: additive sprites' brightness, blended sprites' alpha, the light's intensity). The owner,
+    /// 2026-11-24 (series 37, answers 2 and 3): "40% strength, see-through", in Classic PvP, Musou Mode and Warfront; size, shape and timing unchanged (was 1). Ours.
+    /// </summary>
+    public const float FlashOpacity = 0.4f;
+
     /// <summary>The power weapon a melee wargear file is (<c>sm_mp_melee_2hand_thunder_hammer</c>, <c>csm_mp_melee_2hand_power_mace</c> = the daemon maul, <c>..._power_axe</c>, <c>..._powersword</c>), or null.</summary>
     public static PowerKind? KindOf(string? wargear)
     {

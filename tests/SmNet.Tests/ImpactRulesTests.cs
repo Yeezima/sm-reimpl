@@ -149,6 +149,19 @@ public class PowerFlashRulesTests
     public void Other_melee_weapons_do_not_flash(string? wargear) => Assert.Null(PowerFlashRules.KindOf(wargear));
 
     [Fact]
+    public void The_flash_plays_at_forty_percent_strength_everywhere()
+    {
+        // owner 2026-11-24 (series 37 answers 2 and 3): "40% strength, see-through", Classic, Musou and Warfront (one PowerHit path, which every mode calls)
+        Assert.Equal(0.4f, PowerFlashRules.FlashOpacity);
+        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "SmReimpl.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+        var src = System.IO.File.ReadAllText(System.IO.Path.Combine(dir!.FullName, "client", "NetworkView.PowerFlash.cs"));
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(src, @"\.Opacity = opacity;").Count);   // the data's hit effect, its secondary and our cloud
+        Assert.Contains("PowerHit(", System.IO.File.ReadAllText(System.IO.Path.Combine(dir.FullName, "client", "Extras", "Musou", "MusouFx.cs")));   // Musou's hit flash goes through it
+    }
+
+    [Fact]
     public void A_swing_gets_one_big_burst_then_five_small_then_none_and_the_next_swing_starts_again()
     {
         var b = new PowerFlashRules.Budget();

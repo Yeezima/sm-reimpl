@@ -9,7 +9,8 @@ namespace SmClient.ImpactRules;
 /// headshot's wall decal.
 /// <list type="bullet">
 /// <item><see cref="RibbonPath"/>: the curve the blood is laid along, from the weapon's recorded samples on both sides of the contact (owner answer 4, 2026-11-24: "Redesign it"), with
-/// <see cref="RibbonReach"/>, <see cref="RibbonCount"/> and <see cref="RibbonEnvelope"/> (the look's timing, mirrored by the shader of <c>ClassicBloodRibbons</c>).</item>
+/// <see cref="RibbonReach"/>, <see cref="RibbonCount"/> and <see cref="RibbonEnvelope"/> (the look's timing, mirrored by the shader of <c>ClassicBloodRibbons</c>); the bands' opacity, width
+/// and draw order (<see cref="RibbonOpacity"/>, <see cref="RibbonHalfWidth"/>, <see cref="RibbonRenderPriority"/>; the visibility pass of 2026-11-24, owner answer 6).</item>
 /// <item><see cref="DecalTrace"/>: extend the shot's real trajectory from the head contact; the first blocking surface along it, if it is an eligible wall (<see cref="IsWall"/>) within
 /// <see cref="Reach"/> m, takes the decal at the exact intersection; otherwise none (no fallback surface). Only a fatal head shot by gunfire qualifies. Cosmetic: it does not touch the shot.</item>
 /// <item><see cref="DecalShape"/>: the splash's alpha and shade, made in code from a seed (never from a texture): a dense core with a ragged, noisy outline, pronounced uneven lobes, fine
@@ -34,12 +35,60 @@ public static class ClassicBloodRules
     public const float RibbonDecay = 5.4f;
     /// <summary>The slower fade of the last faint wisps after <see cref="RibbonTailFrom"/> s (1/s; the reference's last red about 0.95 s).</summary>
     public const float RibbonTailDecay = 3f, RibbonTailFrom = 0.6f;
-    /// <summary>The additive brightness of the ribbons (ours).</summary>
-    public const float RibbonGlow = 0.8f;
-    /// <summary>The most opaque the blood gets where bands stack (mixed, not added: heavy, lethal, stacked thrusts and automatic fire stay blood red; review 3, finding 5).</summary>
-    public const float RibbonMaxAlpha = 0.85f;
+    /// <summary>
+    /// A band's opacity at its middle while held (ours; was 0.8 before the visibility pass of 2026-11-24, owner answer 6). The bands are MIXED over the scene (<c>blend_mix</c>), never added:
+    /// the colour can never be brighter than the blood tint, however many bands, sprays or lights stack, which is the brightness cap of review 3 (finding 5) and owner answer 5. Stacked bands
+    /// only grow more opaque (toward solid blood red), never white.
+    /// </summary>
+    public const float RibbonOpacity = 0.95f;
+    /// <summary>The weakest a mottled patch of a band gets, as a share of <see cref="RibbonOpacity"/> (ours; was 0.35): mottled, but solid enough to read at play distance.</summary>
+    public const float RibbonMottleFloor = 0.6f;
+    /// <summary>The darkest a mottled patch's colour gets, as a share of the blood tint (ours; new in the visibility pass): same hue, a darker blood red in the dense patches.</summary>
+    public const float RibbonShadeFloor = 0.8f;
+    /// <summary>A band's half width at the body for a normal hit (m; ours; was 0.075): before the per-band x0.8 to x1.3, the narrowing to 0.6 at the ends and the growth while it hangs.</summary>
+    public const float RibbonHalfWidth = 0.12f;
+    /// <summary>How tall the stack of bands is across the stroke for a sweep (m; ours; was 0.3), scaled by the spread.</summary>
+    public const float RibbonBundle = 0.42f;
+    /// <summary>
+    /// The ribbons' render priority (ours; new in the visibility pass, was the default 0): among the transparent effects they draw last, so a power weapon's hit flash and cloud
+    /// (<c>PowerFlash</c>, additive, priority 0, the thunder hammer's and the daemon maul's blue or purple burst at the same contact) lie under the blood instead of washing it out. The glow's
+    /// own look is unchanged; it is still depth-tested against the level and the bodies.
+    /// </summary>
+    public const int RibbonRenderPriority = 10;
+    /// <summary>
+    /// How fast the strip pass (drawn at <see cref="RibbonRenderPriority"/>, the blood pass at one more) takes the green and blue out of what lies under a band: fully from 1/this of the
+    /// band's opacity (ours; owner 2026-11-24, series 37 answer 4 "Blood only": a translucent edge over light armour or a flash reads darker red, not pink or white).
+    /// </summary>
+    public const float RibbonStripGain = 3f;
     /// <summary>How far each step of the curve turns toward the weapon's recorded path (share) and the most it turns per step (rad): it follows the swing without curling round the attacker (ours).</summary>
     public const float RibbonFollow = 0.75f, RibbonMaxTurn = 0.3f;
+
+    /// <summary>The ribbons' blood red (0..1 linear RGB): today's Classic health-hit red, the same value as <c>ClassicHitSpray.BloodTint</c> (the colour the brief keeps).</summary>
+    public static readonly (float R, float G, float B) BloodRgb = (1f, 0.12f, 0.08f);
+
+    /// <summary>The most green or blue a blood colour may carry, as a share of its red (owner, 2026-11-24, series 37 answer 4 "Blood only": red or darker, never white or pink).</summary>
+    public const float BloodOnlyGreenBlue = 0.15f;
+
+    /// <summary>
+    /// Whether a colour is blood only: no channel above <paramref name="maxRed"/> (the blood's own red: nothing brighter than it), and green and blue at most
+    /// <see cref="BloodOnlyGreenBlue"/> of its red (no pink, no white). Owner 2026-11-24, series 37 answer 4.
+    /// </summary>
+    public static bool IsBloodOnly((float R, float G, float B) c, float maxRed) =>
+        c.R <= maxRed + 1e-5f && c.G <= BloodOnlyGreenBlue * c.R + 1e-5f && c.B <= BloodOnlyGreenBlue * c.R + 1e-5f && c.R >= 0f && c.G >= 0f && c.B >= 0f;
+
+    /// <summary>A ribbon texel's colour (the shader's <c>ALBEDO</c>) for its mottle noise <paramref name="n"/> (0..1): the blood red, darker in the dense patches, never brighter.</summary>
+    public static (float R, float G, float B) RibbonColour(float n)
+    {
+        float k = RibbonShadeFloor + (1f - RibbonShadeFloor) * Smooth(0.15f, 0.85f, n);
+        return (BloodRgb.R * k, BloodRgb.G * k, BloodRgb.B * k);
+    }
+
+    /// <summary>A decal texel's colour from the blood colour <paramref name="blood"/> and its shade (<see cref="DecalValue"/>): the same red, darker in the core, never brighter.</summary>
+    public static (float R, float G, float B) DecalColour((float R, float G, float B) blood, float shade)
+    {
+        float s = DecalValue(shade);
+        return (blood.R * s, blood.G * s, blood.B * s);
+    }
 
     public static int RibbonCount(float amount) => Math.Clamp((int)MathF.Round(NormalRibbons * amount, MidpointRounding.AwayFromZero), 1, MaxRibbons);
     public static float RibbonWidthScale(float amount) => 1f + 0.12f * MathF.Max(0f, amount - 1f);
@@ -195,6 +244,13 @@ public static class ClassicBloodRules
         if (!IsWall(f.Normal)) return (DecalResult.NotAWall, f);
         return (DecalResult.Placed, f);
     }
+
+    /// <summary>
+    /// Whether a fatal head shot and the server's headshot kill belong together, whichever arrived first: the shot is the killer's own (<paramref name="shooter"/> is
+    /// <paramref name="killer"/>) and they are at most <paramref name="window"/> s apart (<paramref name="apart"/>). Every decal path asks this (review 4, finding 8: the kill-first path took any
+    /// shooter's head shot).
+    /// </summary>
+    public static bool HeadshotPairs(int shooter, int killer, double apart, double window) => shooter == killer && apart >= 0.0 && apart <= window;
 
     /// <summary>How far the caller traces (a little past the cutoff, so a wall just beyond it reads as too far rather than absent).</summary>
     public const float SearchDistance = Reach + 1.5f;

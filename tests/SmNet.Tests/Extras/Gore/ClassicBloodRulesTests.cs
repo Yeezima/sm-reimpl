@@ -205,7 +205,87 @@ public class ClassicBloodRulesTests
         Assert.InRange(RibbonEnvelope(0.95f), 0.02f, 0.12f);   // faint wisps to about 0.95 s
         Assert.True(RibbonEnvelope(RibbonSeconds) < 0.001f);
         for (float t = 0.07f; t < RibbonSeconds; t += 1f / 30f) Assert.True(RibbonEnvelope(t) - RibbonEnvelope(t + 1f / 30f) < 0.2f);   // smooth: no pop
-        Assert.True(RibbonMaxAlpha < 1f, "mixed and capped: stacked bands never white out");
+    }
+
+    [Fact]
+    public void The_visibility_pass_lays_broad_solid_bands_that_draw_over_the_power_flash_without_brightening()
+    {
+        // owner answer 6 (2026-11-24, "Visibility pass"): the release build read as faint red. Broader and more opaque than before (0.075 m half width, 0.8 opacity, 0.35 mottle floor)...
+        Assert.True(RibbonHalfWidth >= 0.1f && RibbonHalfWidth <= 0.16f, "a band about a quarter of a metre wide at the body, not a thin streak and not a slab");
+        Assert.InRange(RibbonOpacity, 0.9f, 1f);   // the cap is the mix blend (never brighter than the tint), so a single band may be nearly opaque
+        Assert.InRange(RibbonMottleFloor, 0.5f, 0.8f);   // still mottled, never so patchy that it reads faint
+        Assert.InRange(RibbonShadeFloor, 0.7f, 1f);   // darker patches of the same red, never brighter than the tint
+        Assert.True(RibbonBundle > 0.3f && RibbonBundle <= 0.5f);
+        // ...and drawn after the additive power-weapon flash (FxBatch's materials keep the default priority 0)
+        Assert.True(RibbonRenderPriority > 0 && RibbonRenderPriority <= 127);
+        // heavier and lethal hits still show more by coverage, not brightness
+        Assert.True(RibbonCount(2.1f) * RibbonWidthScale(2.1f) > 1.8f * RibbonCount(1f) * RibbonWidthScale(1f));
+    }
+
+    [Fact]
+    public void The_blood_is_red_or_darker_only_never_white_or_pink()
+    {
+        // owner 2026-11-24, series 37 answer 4 "Blood only": the ribbons and the headshot splatter use only red and darker colours
+        Assert.True(IsBloodOnly(BloodRgb, BloodRgb.R));
+        for (float n = 0f; n <= 1f; n += 0.05f)
+        {
+            var c = RibbonColour(n);
+            Assert.True(IsBloodOnly(c, BloodRgb.R), $"ribbon colour at noise {n:F2}: {c}");
+        }
+        var decalBlood = (0.85f, 0.01f, 0.03f);   // CharacterViewer.BloodColour
+        Assert.True(IsBloodOnly(decalBlood, decalBlood.Item1));
+        for (int seed = 1; seed <= 4; seed++)
+        {
+            var (_, shade) = DecalShape(seed, 64);
+            foreach (var s in shade) Assert.True(IsBloodOnly(DecalColour(decalBlood, s), decalBlood.Item1), $"decal shade {s}");
+        }
+        // the checker itself: white, pink and a brightened red are refused
+        Assert.False(IsBloodOnly((1f, 1f, 1f), 1f));
+        Assert.False(IsBloodOnly((1f, 0.5f, 0.55f), 1f));
+        Assert.False(IsBloodOnly((1.2f, 0.1f, 0.1f), 1f));
+    }
+
+    static string RepoFile(params string[] parts)
+    {
+        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "SmReimpl.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+        return System.IO.File.ReadAllText(System.IO.Path.Combine([dir!.FullName, .. parts]));
+    }
+
+    [Fact]
+    public void The_ribbon_shader_mixes_and_never_adds_and_its_tint_is_the_health_hit_red()
+    {
+        // the final on-screen colour: mixed over the scene, the colour can never exceed the tint (no additive brightening toward white, however bands stack)
+        var src = RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs");
+        Assert.Contains("render_mode blend_mix, unshaded", src);
+        Assert.DoesNotContain("blend_add", src);
+        Assert.Contains("ALBEDO = tint.rgb * mix(", src);   // the tint times a share at most 1
+        // the strip pass multiplies what lies under the band by (1, G/R, B/R) of the tint at most: red kept, green and blue taken out, nothing brightened
+        Assert.Contains("\"render_mode blend_mix,\", \"render_mode blend_mul,\"", src);
+        Assert.Contains("ALBEDO = mix(vec3(1.0), vec3(1.0, tint.g / max(tint.r, 1e-3), tint.b / max(tint.r, 1e-3)), strip);", src);
+        Assert.InRange(RibbonStripGain, 1f, 6f);
+        // a translucent edge (opacity a) over pure white, through both passes, stays blood only once a reaches 1 / RibbonStripGain... and at the band's held middle
+        foreach (float a in new[] { 1f / RibbonStripGain, 0.5f, RibbonOpacity })
+        {
+            float strip = MathF.Min(1f, a * RibbonStripGain);
+            (float R, float G, float B) under = (1f, 1f - strip * (1f - BloodRgb.G / BloodRgb.R), 1f - strip * (1f - BloodRgb.B / BloodRgb.R));
+            var top = RibbonColour(1f);
+            var final = (a * top.R + (1 - a) * under.R, a * top.G + (1 - a) * under.G, a * top.B + (1 - a) * under.B);
+            Assert.True(IsBloodOnly(final, 1f), $"edge at opacity {a:F2} over white: {final}");
+        }
+        Assert.Contains("BloodTint = new(1f, 0.12f, 0.08f)", RepoFile("client", "ClassicHitSpray.cs"));   // BloodRgb mirrors it
+        Assert.Equal((1f, 0.12f, 0.08f), BloodRgb);
+    }
+
+    [Fact]
+    public void A_headshot_decal_pairs_only_with_the_killers_own_shot_within_the_window_whichever_comes_first()
+    {
+        Assert.True(HeadshotPairs(shooter: 3, killer: 3, apart: 0.0, window: 1.0));
+        Assert.True(HeadshotPairs(3, 3, 1.0, 1.0));
+        Assert.False(HeadshotPairs(4, 3, 0.2, 1.0));   // review 4, finding 8: another shooter's head hit on the same victim (the kill arrived first) takes no decal
+        Assert.False(HeadshotPairs(3, 3, 1.01, 1.0));
+        Assert.False(HeadshotPairs(3, 3, -0.1, 1.0));
     }
 
     [Fact]
