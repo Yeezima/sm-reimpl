@@ -434,11 +434,14 @@ public sealed partial class GameClient
         // The raw input is stored and sent (the server drops the attack buttons of a countdown tick itself); only the prediction drops them, by tick (protocol 25).
         SelfEvents events;
         LastBodies = BodiesFor(input);
+        var predictedInput = Match.Predicted(_latestSnapshotTick, input);
+        if (ExtrasPredictInput is { } executionInput) predictedInput = executionInput(predictedInput, Tick);   // EXTRAS-HOOK: executions: a locked executor steps with no stick and no buttons
         using (PlayerCollision.Use(ClashBodies(Predicted, input, LastBodies)))   // feel/charge-clash: the shove ignores its victim, as on the server
-            Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, lockView);
+            Predicted = Combat.StepPlayer(Predicted, predictedInput, _config, out events, Collision, lockView);
         // anim/melee-interaction: the charge's contact, stop and turn, as the server resolves them with the same view and bodies (ChargeLock.Predict).
         Predicted = PredictChargeContact(PreviousPredicted, Predicted, input, view, LastBodies);
         Predicted = DevTopUp(Predicted);   // protocol 80: the developer tools' top-up as the server applies it (nothing unless the server announced them)
+        if (ExtrasPin is { } executionPin) Predicted = executionPin(Predicted, Tick);   // EXTRAS-HOOK: executions: a locked executor pinned as the server pins it
         if (events != default)
         {
             _ownEvents.Add((Tick, events));
@@ -667,11 +670,14 @@ public sealed partial class GameClient
             twoBefore = beforeLast;
             beforeLast = state;
             var replayBodies = BodiesFor(input);
+            var replayInput = Match.Predicted(s.ServerTick, input);
+            if (ExtrasPredictInput is { } replayExecutionInput) replayInput = replayExecutionInput(replayInput, tick);   // EXTRAS-HOOK: executions: the replay locks as the first prediction did
             using (PlayerCollision.Use(ClashBodies(state, input, replayBodies)))   // sim/player-collision: the same bodies as when it was first predicted; feel/charge-clash: less the victim
-                state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
+                state = Combat.StepSelf(state, replayInput, _config, out _, out _, Collision,
                     input.MeleeTarget > 0 ? LockViewAt(input.ViewTick, state) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
             state = PredictChargeContact(beforeLast, state, input, null, replayBodies);   // anim/melee-interaction
             state = DevTopUp(state);   // protocol 80
+            if (ExtrasPin is { } replayPin) state = replayPin(state, tick);   // EXTRAS-HOOK: executions: the replay pinned as the first prediction was
             _history[tick] = (input, state);
         }
         LastCorrection = state.Position - Predicted.Position;

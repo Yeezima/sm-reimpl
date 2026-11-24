@@ -44,6 +44,12 @@ public enum ContentExtras : uint
     /// gameplay plus weather (<c>--content weather</c>); in <see cref="ContentExtrasInfo.All"/>, so <c>extended</c> has it. Its bit is NOT hashed and not part of the join check (owner 2026-11-21: weather never decides who can join). Never with Musou; Warfront has its own weather.
     /// </summary>
     Weather = 64,
+    /// <summary>
+    /// Executions (owner-approved brief 2026-11-25, docs/added-content.md section 13): the dedicated Execute action (<see cref="InputButtons.Execute"/>), the paired finisher and, in Warfront, its reward.
+    /// In <see cref="ContentExtrasInfo.All"/> (Classic PvP Extended: a finisher after a lethal melee kill) and in <see cref="ContentProfiles.WarfrontProfile"/> (a tap on a regular Ork); never in
+    /// Musou Mode's profile or the faithful game. Its version (<c>ExecutionRules.Version</c>, <c>Extras/Executions</c>) is hashed only when this flag is set; the extended and Warfront hashes moved with it.
+    /// </summary>
+    Executions = 128,
 }
 
 /// <summary>The build-wide facts about <see cref="ContentExtras"/> (C# 14 static extension members: <c>ContentExtras.WireVersion</c>, <c>ContentExtras.Compiled</c>).</summary>
@@ -102,7 +108,7 @@ public static class ContentExtrasInfo
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
         /// <c>musou</c> alone); <see cref="Known"/> has every flag.
         /// </summary>
-        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon | ContentExtras.Weather;   // weather W3 (2026-11-21; the extended hash moved with it); the Classic autocannon since 2026-11-11 (the extended hash moved with it)
+        public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks | ContentExtras.Autocannon | ContentExtras.Weather | ContentExtras.Executions;   // executions X1 (2026-11-25; the extended hash moved with it); weather W3 (2026-11-21; the extended hash moved with it); the Classic autocannon since 2026-11-11 (the extended hash moved with it)
 
         /// <summary>Every flag this source tree knows: <see cref="All"/> and <see cref="ContentExtras.Musou"/>.</summary>
         public static ContentExtras Known => ContentExtras.All | ContentExtras.Musou;
@@ -125,8 +131,8 @@ public static class ContentProfiles
     /// <summary>Musou Mode's family of servers: the Musou profile and the Warfront profile (which rides on Musou's whole simulation). Clients and the host panel recognise a Musou-style server by this, not by one name.</summary>
     public static bool IsMusouFamily(string? profile) => profile is Musou or Warfront;
 
-    /// <summary>The flags of <see cref="Warfront"/>.</summary>
-    public static ContentExtras WarfrontProfile => ContentExtras.Musou | ContentExtras.Warfront;
+    /// <summary>The flags of <see cref="Warfront"/>: Musou's simulation, the campaign and, since executions X1 (2026-11-25; the Warfront hash moved with it), <see cref="ContentExtras.Executions"/>.</summary>
+    public static ContentExtras WarfrontProfile => ContentExtras.Musou | ContentExtras.Warfront | ContentExtras.Executions;
 
     /// <summary>
     /// The profile a server or client runs without <c>--content</c> (the owner's default, 2026-10-28: he plays the Ork and gore). A one-line change
@@ -139,7 +145,7 @@ public static class ContentProfiles
 
     /// <summary>The flag names of a list (lower case, as <c>--content</c> takes them).</summary>
     static readonly (string Name, ContentExtras Flag)[] Flags =
-        [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), ("autocannon", ContentExtras.Autocannon), ("weather", ContentExtras.Weather), (Musou, ContentExtras.Musou)];
+        [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), ("autocannon", ContentExtras.Autocannon), ("weather", ContentExtras.Weather), ("executions", ContentExtras.Executions), (Musou, ContentExtras.Musou)];
 
     /// <summary>
     /// Parses a <c>--content</c> value: <c>faithful</c>, <c>extended</c>, <c>musou</c> or flags such as <c>orks,gore</c> (case and spaces ignored). False
@@ -221,7 +227,7 @@ public static class ContentProfiles
     }
 
     /// <summary>
-    /// The profile and extras wire version for a log line or refusal: "faithful", "extended (orks,gore,loyalist-barks,autocannon; extras wire 2)" (extended names its flags, not the weather one:
+    /// The profile and extras wire version for a log line or refusal: "faithful", "extended (orks,gore,loyalist-barks,autocannon,executions; extras wire 2)" (extended names its flags, not the weather one:
     /// weather is not part of the join check), or a list as its name alone, "orks,gore (extras wire 2)" (2026-11-11: no longer repeated, so the server's refusal of any profile fits its 200 characters).
     /// </summary>
     public static string Describe(ContentExtras extras) =>
@@ -355,4 +361,22 @@ public sealed partial record SimConfig
     /// the data's capacity (<see cref="JumpPackOwnerCapacity"/> false); Musou Mode keeps its ground-only recharge. Not hashed itself (follows the hashed content flags).
     /// </summary>
     public bool JumpPackDescentRecharge => !JumpPackOwnerCapacity;
+
+    /// <summary>
+    /// executions X1 (owner-approved brief 2026-11-25): whether armour above the body's <c>ShieldMax</c> (an execution's overshield, Warfront only) is kept by the regeneration step instead of being
+    /// clamped back to the maximum: it never decays and only damage takes it. False in Classic PvP and Musou Mode (their armour never exceeds its maximum). Set by added content through
+    /// <see cref="ExtrasKeepsOvershield"/>; not hashed itself (the executions block covers it).
+    /// </summary>
+    public bool KeepsOvershield
+    {
+        get
+        {
+            bool keeps = false;
+            ExtrasKeepsOvershield(ref keeps);   // EXTRAS-HOOK
+            return keeps;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="keeps"/> when an extra keeps armour above its maximum (<see cref="KeepsOvershield"/>).</summary>
+    partial void ExtrasKeepsOvershield(ref bool keeps);
 }

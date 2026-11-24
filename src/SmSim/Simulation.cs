@@ -11,9 +11,14 @@ public enum InputButtons : ushort
     /// <summary>
     /// <see cref="Fire"/>: the weapon in hand's trigger. On a weapon with charged fire (protocol 20; owner's decision 2026-10-28) a
     /// press starts the charge and the release fires: before the first stage with a shot (a tap) the basic shot, after it the
-    /// charged shot (<see cref="Combat.StepPlayer"/>). Bit 64 (AltFire, the secondary ability, protocols 7 to 19) is unused.
+    /// charged shot (<see cref="Combat.StepPlayer"/>). Bit 64 (AltFire, the secondary ability, protocols 7 to 19) is <see cref="Execute"/> since executions X1.
     /// </summary>
     None = 0, Jump = 1, Sprint = 2, Fire = 4, Reload = 8, Melee = 16, Switch = 32,
+    /// <summary>
+    /// The Execute action (executions X1, owner-approved brief 2026-11-25), on a press edge: added content's finisher (<see cref="ContentExtras.Executions"/>). The faithful simulation never reads it,
+    /// and a server whose match runs without the flag drops it from every input it receives. Default key Q, gamepad unbound (owner 2026-11-25).
+    /// </summary>
+    Execute = 64,
     /// <summary>Throws the equipment item (<see cref="ThrownSpec"/>) on a press edge (protocol 8).</summary>
     Grenade = 128,
     /// <summary>
@@ -1261,6 +1266,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             ExtrasInputLocked(id, ref inputLocked);   // EXTRAS-HOOK: added content may lock a player's input as the countdown does (Musou: the Dreadnought's entrance)
             var input = (inputLocked ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
             ExtrasInputFilter(id, ref input);   // EXTRAS-HOOK: added content may take buttons off a player's sanitized input (Musou: the Dreadnought's sprint limit)
+            ExtrasExecutionInput(id, ref input);   // EXTRAS-HOOK: executions read the Execute press and lock the executor's input while one runs
             ExtrasSampled(id, input);   // EXTRAS-HOOK: added content reads the sanitized input (Musou: the Librarian's powers)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
             PlayerState next;
@@ -1298,6 +1304,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
                 }
                 else next = Combat.Respawned(next with { Position = PlaceholderSpawn(id) }, Config);
             }
+            ExtrasExecutionPin(id, before, ref next);   // EXTRAS-HOOK: executions pin a locked executor's position, yaw and velocity to the alignment
             _players[id] = next;
             // A shot leaves from the weapon in hand (a switch never starts in a tick that fires).
             if (fired && next.Alive && Loadouts.InHand(Config, next) is { } weapon)   // a player who fell out of the level this tick does not shoot
@@ -1359,6 +1366,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         ResolveDeaths(aliveBefore);
         ScheduleDeathBlasts(aliveBefore);   // M43: Final Vengeance
         StepPickups(aliveBefore);   // fidelity gap 1: collections, expiry, the deaths' drops (Pickups.cs)
+        ExtrasExecutionStep();   // EXTRAS-HOOK: executions after this tick's deaths (Classic: the finisher offers of this tick's melee kills; the lock, contact and end checks)
         StepMatch();
         RecordBodies();   // sim/player-collision: this tick's end states, as the snapshot after it carries them (WorldBodies.cs)
     }
@@ -1468,6 +1476,18 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     partial void ExtrasSampled(int id, in PlayerInput input);
     partial void ExtrasInputLocked(int id, ref bool locked);
     partial void ExtrasInputFilter(int id, ref PlayerInput input);
+
+    /// <summary>
+    /// Executions hooks (executions X1; docs/added-content.md section 13), implemented in <c>Extras/Executions/</c>; each returns at once unless the match has <see cref="ContentExtras.Executions"/>.
+    /// <see cref="ExtrasExecutionInput"/>: after <see cref="ExtrasInputFilter"/>, the sanitized input of player <paramref name="id"/> (its Execute press edge is read here; a locked executor's input is replaced).
+    /// </summary>
+    partial void ExtrasExecutionInput(int id, ref PlayerInput input);
+
+    /// <summary>Executions: just before player <paramref name="id"/>'s stepped state is stored (<paramref name="before"/> is last tick's); a locked executor is pinned to the alignment origin plus the clip's root track.</summary>
+    partial void ExtrasExecutionPin(int id, PlayerState before, ref PlayerState next);
+
+    /// <summary>Executions: once a tick after the deaths and the pickups, before <see cref="StepMatch"/> (this tick's kills are known: the Classic offers; the state machine's checks and ends).</summary>
+    partial void ExtrasExecutionStep();
 
     /// <summary>
     /// Hook for added content: at the end of <see cref="ResolveMelee"/> (after the players it hit and its stomp), with the attacker's state this tick

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4095 spec table rows: **3026 tagged**, 700 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,21 +51,21 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 170 | 169 | 57 | 74 | 0 |
+| General game design | 177 | 176 | 59 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3026** | 2718 | 2218 | 913 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
-| confidence: low | 1068 |
-| confidence: medium | 1037 |
+| kind: ours | 1834 |
+| confidence: low | 1069 |
+| confidence: medium | 1038 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
-| kind: estimate | 270 |
+| kind: estimate | 271 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -4316,7 +4316,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (170)
+### General game design (177)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4552,6 +4552,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-39BBFD43` | NEW CAMPAIGN on an unusable run.json | `--warfront-new` with a damaged run.json sets it aside under records (the loader's code) and starts the new run with the notice; a newer or locked run.json is left untouched and the server refuses (exit 1) with the notice, even on NEW CAMPAIGN | kind: ours | review of codebase fix 1 | NEW CAMPAIGN on an unusable run.json: compare with SM1 by timing a run over a known distance. Ours: --warfront-new with a damaged run.json sets it aside under records… | ☐ |
 | `R-8947DC6E` | Autosave writer busy | a synchronous save whose flush of the asynchronous writer times out (10 s) does not write; it sets SavePending (retried) so run.json.tmp is never raced (s) | kind: ours | review of codebase fix 1 | Autosave writer busy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a synchronous save whose flush of the asynchronous writer times out… | ☐ |
 | `R-4243CFC1` | Projectile hits test the current pose (codebase fix 6, 2026-11-22; Musou Mode and Warfront) | a flying projectile (the Rokkit Boy's rocket, a launcher or plasma round, any per-step projectile sweep against the Orks) tests each Ork's body at its CURRENT position only; an instant (hit-scan) shot, including the piercing bolt and lascannon rays, keeps the… (ticks, m) | kind: ours; notes: estimate | Codex review 2026-11-21; owner 2026-11-22 ("current position only") | Projectile hits test the current pose (codebase fix 6…: compare with SM1 by feel or video. Ours: a flying projectile (the Rokkit Boy's rocket, a launcher or plasma… | ☐ |
+
+*Spec section: Added content: Executions (executions X1, the contract and the switch; owner-approved brief 2026-11-25; added content, Classic PvP Extended and Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-67E4308B` | Content flag | `ContentExtras.Executions` = 128 (`--content executions` alone); in `extended` (`ContentExtras.All`) and in the Warfront profile (`Musou`, `Warfront`, `Executions`); never in `musou` or `faithful` | kind: ours | owner-approved brief 2026-11-25 | Content flag: compare with SM1 by feel or video. Ours: ContentExtras.Executions = 128 (--content executions alone); in… | ☐ |
+| `R-940A7435` | Execute input | `InputButtons.Execute`, input bit 6 (unmasked on the wire); the server drops it from every input of a match without the flag, and the client sends it only in such a match | kind: ours | owner-approved brief 2026-11-25 (one dedicated rebindable action, not a melee input) | Execute input: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: InputButtons.Execute, input bit 6 (unmasked on the wire); the server… | ☐ |
+| `R-5E26F58A` | Execute default keys | keyboard Q; gamepad unbound (D-pad left is Warfront's orbital strike); listed on the controls screen in the Extended profiles only; an old `controls.json` loads unchanged (Execute takes Q only where the file left it free) | kind: ours | owner 2026-11-25 ("Q, gamepad unbound (Recommended)") | Execute default keys: compare with SM1 by feel or video. Ours: keyboard Q; gamepad unbound (D-pad left is Warfront's orbital… | ☐ |
+| `R-731E5966` | Classic finisher window | 0.8 (24 ticks at 30 Hz): a press counts at its view tick, clamped to at most `MaxRewindTicks` (15) back, and is in the window when kill tick <= press tick <= kill tick + 24 (s) | kind: ours; kind: estimate; confidence: low | architect's recommendation, uncontested by the owner 2026-11-25 | Classic finisher window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.8 (24 ticks at 30 Hz): a press counts at its view tick, clamped to… | ☐ |
+| `R-839D5E38` | Classic death-pose hold | equal to the window (0.8 s): the melee-killed victim's death pose is held before the ragdoll in Extended; presentation only, the respawn timer is never delayed (s) | kind: ours; confidence: medium | owner 2026-11-25 ("Hold the death pose briefly") | Classic death-pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: equal to the window (0.8 s): the melee-killed victim's death pose is… | ☐ |
+| `R-35C80DA9` | Warfront cooldown | 10, counted from the execution's completion; an interrupted execution starts none (s) | kind: ours | owner-approved brief 2026-11-25 (recommended start: animation completion) | Warfront cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 10, counted from the execution's completion; an interrupted execution… | ☐ |
+| `R-59DA402F` | Warfront overshield cap | one armour bar (`ShieldMax` x 1) above the full bar: 200 % armour in all, never 300 %; refreshed to the cap, never stacked; no decay (`SimConfig.KeepsOvershield`, filled by X4) (armour points) | kind: ours | owner-approved brief 2026-11-25 | Warfront overshield cap: compare with SM1 by feel or video. Ours: one armour bar (ShieldMax x 1) above the full bar: 200 % armour in… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6620,4 +6632,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-39A6A17F` | Versions | Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
+| `R-69F0E3B7` | Version and hash | Added content: Executions (executions X1, the contract and the switch; owner-approved brief 2026-11-25; added content, Classic PvP Extended and Warfront only) |
+| `R-D8183D91` | Wire (tag 50) | Added content: Executions (executions X1, the contract and the switch; owner-approved brief 2026-11-25; added content, Classic PvP Extended and Warfront only) |
 

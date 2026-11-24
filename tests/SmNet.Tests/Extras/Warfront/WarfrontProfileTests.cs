@@ -16,7 +16,7 @@ public class WarfrontProfileTests
     public void The_profile_is_musou_and_warfront_and_not_in_extended()
     {
         Assert.Equal(32u, (uint)ContentExtras.Warfront);
-        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront, ContentProfiles.WarfrontProfile);
+        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront | ContentExtras.Executions, ContentProfiles.WarfrontProfile);   // executions X1 (2026-11-25): the profile carries the executions flag
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Warfront));
         Assert.Equal("warfront", ContentProfiles.Name(ContentProfiles.WarfrontProfile));
         Assert.Contains("warfront", ContentProfiles.Expected);
@@ -28,7 +28,7 @@ public class WarfrontProfileTests
     public void The_profile_parses(string text)
     {
         Assert.True(ContentProfiles.TryParse(text, out var extras, out string error), error);
-        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront, extras);
+        Assert.Equal(ContentExtras.Musou | ContentExtras.Warfront | ContentExtras.Executions, extras);   // executions X1 (2026-11-25)
         Assert.Contains("warfront", ContentProfiles.Describe(extras));
     }
 

@@ -536,8 +536,10 @@ public sealed partial class GameServer
         // Weather (W3) is not part of the join check (its bit is not hashed), so the text names the profile without it: a weather-only server says "faithful", extended says "extended" as before.
         var named = serverExtras & ~ContentExtras.Weather;
         if (named == (ContentExtras.All & ~ContentExtras.Weather)) named = ContentExtras.All;   // the extended set, with or without the weather bit, is "extended"
-        return $"gameplay tuning differs from the server's (content profile {ContentProfiles.Describe(named)}): " +
-               $"join with --content {ContentProfiles.Name(named)} (--ork-data only if the server has it)";
+        string text = $"gameplay tuning differs from the server's (content profile {ContentProfiles.Describe(named)}): " +
+               $"join with --content {ContentProfiles.Name(named)} (--ork-data if the server has it)";   // executions X1: "only" dropped so extended (now naming executions) fits 200 characters
+        // executions X1: the longest flag lists no profile runs (Musou or Warfront bits with every extended flag) would pass 200 characters; they name the list once.
+        return text.Length <= 200 ? text : $"gameplay tuning differs from the server's: join with --content {ContentProfiles.Name(named)} (extras wire {ContentExtras.WireVersion}; --ork-data if the server has it)";
     }
 
     void Refuse(int connection, RejectReason reason, uint nonce)
@@ -597,6 +599,8 @@ public sealed partial class GameServer
             if ((World.Config.Extras & ContentExtras.ActionKeyUsers) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.ExtraAction };
             // sim/stab-key (protocol 81): Musou Mode's sword keeps its stomp and its T is the shout, so the bit is dropped there (Classic and Musou stay apart).
             if ((World.Config.Extras & ContentExtras.Musou) != 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.Stab };
+            // executions X1: the Execute action (bit 6) reaches the world only in a match with the executions flag (Classic PvP Extended, Warfront); every other match drops it here.
+            if ((World.Config.Extras & ContentExtras.Executions) == 0) clean = clean with { Buttons = clean.Buttons & ~InputButtons.Execute };
             peer.Inputs[input.Tick] = clean;
             peer.AckAt.TryAdd(input.Tick, peer.AckedSnapshot);
             peer.ArrivedAt.TryAdd(input.Tick, _clock.Now);   // protocol 65: the input slack

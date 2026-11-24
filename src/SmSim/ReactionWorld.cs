@@ -56,6 +56,9 @@ public sealed partial class World
     {
         if (entry.Kind == ReactionKind.None || !_players.TryGetValue(target, out var victim)) return false;
         if (Reaction.SpecOf(Config, entry.Kind) is not { } spec || !Reaction.CanReact(victim, Config)) return false;
+        bool blocked = false;
+        ExtrasReactionBlocked(target, ref blocked);   // EXTRAS-HOOK: executions: an executor (and a reserved target) does not react while the move runs
+        if (blocked) return false;
         var direction = Reaction.DirectionOf(victim.Position, victim.Yaw, from, spec.FourWay);
         var after = Reaction.Start(victim, Config, entry, direction, push);
         _players[target] = after;
@@ -116,4 +119,7 @@ public sealed partial class World
             _blindings.Add(new BlindEvent(Tick, owner, target, projectile, distance, after.BlindTicks));
         }
     }
+
+    /// <summary>Executions hook (executions X1, <c>Extras/Executions/</c>): sets <paramref name="blocked"/> when <paramref name="target"/> may not start a reaction now (a locked executor). A no-op without <see cref="ContentExtras.Executions"/>.</summary>
+    partial void ExtrasReactionBlocked(int target, ref bool blocked);
 }
