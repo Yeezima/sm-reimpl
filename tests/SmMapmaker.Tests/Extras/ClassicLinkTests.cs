@@ -186,7 +186,7 @@ public sealed class ClassicLinkTests
         Assert.NotEqual(looked, CustomMap.Compile(s.Document).Hash);
         Assert.True(Run(s, """{"op":"set-look","sm1Map":null}""").Ok);
         Assert.Equal(plain, CustomMap.Compile(s.Document).Hash);
-        Assert.Equal(6, CustomMap.CompilerVersion);
+        Assert.Equal(7, CustomMap.CompilerVersion);
     }
 
     [Fact]
@@ -210,12 +210,12 @@ public sealed class ClassicLinkTests
         using var lab = new Lab();
         var s = Map(lab, Wall);
         var node = JsonNode.Parse(s.Document.ToJson())!.AsObject();
-        Assert.Equal(3, MapDocument.FormatVersion);
-        Assert.Equal(3, (int)node["formatVersion"]!);
+        Assert.Equal(4, MapDocument.FormatVersion);
+        Assert.Equal(4, (int)node["formatVersion"]!);
         node["formatVersion"] = 2;
         var up = MapDocument.Parse(node.ToJsonString());
         Assert.Equal(2, up.LoadedVersion);
-        Assert.Equal(3, (int)JsonNode.Parse(up.ToJson())!["formatVersion"]!);
+        Assert.Equal(4, (int)JsonNode.Parse(up.ToJson())!["formatVersion"]!);
         Assert.Equal(CustomMap.Compile(s.Document).Hash, CustomMap.Compile(up).Hash);   // the identity step loses nothing
         node["formatVersion"] = MapDocument.FormatVersion + 1;
         Assert.Contains("newer Mapmaker", Assert.Throws<MapException>(() => MapDocument.Parse(node.ToJsonString())).Message);

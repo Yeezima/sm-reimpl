@@ -35,6 +35,15 @@ public sealed class MapSession
         var session = new MapSession(MapDocument.Parse(File.ReadAllText(path)), library, sm1, System.IO.Path.GetFullPath(path));
         var notes = new List<string>();
         session.RestoreEmbeddedPrefabs(notes);
+        // Images that came beside a shared map and the library lacks are added to the library (like embedded prefabs), so a clean library resolves them from then on.
+        foreach (var img in session.Document.Images)
+            try
+            {
+                if (File.Exists(System.IO.Path.Combine(MapImages.LibraryDir(library), img.FileName))) continue;
+                if (MapImages.Read(img, path, library) is { } data) MapImages.Store(MapImages.LibraryDir(library), img, data);
+                else notes.Add($"The image '{img.Name}' of this map is missing (put the map's images folder beside it, or open its .smpack).");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { notes.Add($"The image '{img.Name}' could not be added to the library: {e.Message}"); }
         if (session.Document.LoadedVersion < MapDocument.FormatVersion)
         {
             // An older file: the original is kept first, never replaced, then the file is written in the current format (nothing in it is lost: the upgrade steps only add).
@@ -115,6 +124,7 @@ public sealed class MapSession
         var result = new OpResult(true, batch.Created, batch.Warnings, [])
         {
             CreatedPrefabs = batch.CreatedPrefabs, CreatedAssets = batch.CreatedAssets, Mapping = batch.Mapping, DryRun = dryRun, Refresh = batch.Refresh,
+            CreatedMaterials = batch.CreatedMaterials, CreatedImages = batch.CreatedImages,
         };
         if (dryRun) return result;
         try { Commit(batch); }
@@ -140,7 +150,10 @@ public sealed class MapSession
         foreach (var id in batch.DeletedPrefabs.Where(d => !batch.Prefabs.ContainsKey(d)))
             if (Library.ReadPrefabText(id) is { } was) prefabChanges.Add((id, was, null));
         var trashIds = batch.DeletedAssets.ToList();
-        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
+        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }
+        // Images are content-addressed (the file name is the SHA-256 of its bytes), so writing one is idempotent and never replaces another picture; one that is already there is kept.
+        foreach (var (imgId, data) in batch.StagedImages)
+            if (batch.Doc.Images.FirstOrDefault(i => i.Id == imgId) is { } img) MapImages.Store(MapImages.LibraryDir(Library), img, data);   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
 
         // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
         // document, LastTrashed and the undo/redo stacks stay as they were. (A journal that survives a process crash is not part of this.)
@@ -319,6 +332,8 @@ public sealed class MapSession
         Document.Grid = from.Grid;
         Document.Look = from.Look;
         Document.RemovedSrc = [.. from.RemovedSrc];
+        Document.Materials = [.. from.Materials];
+        Document.Images = [.. from.Images];
     }
 
     void Touch()
@@ -371,6 +386,9 @@ public sealed class MapSession
         path ??= Path ?? throw new MapException("bad-args", "This map has no file yet; pass a path.");
         EmbedUsedPrefabs();
         MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(Document.ToJson()));
+        // The map's images go beside it (images/<sha256>.<format>), so the file and that folder are the whole map for another PC (docs/mapmaker.md "Materials and images").
+        var missing = Document.Images.Count == 0 ? [] : MapImages.CarryBeside(Document, path, Library, Path);
+        SaveNotes = missing.Count == 0 ? [] : [$"{missing.Count} image(s) of this map are neither in the library nor beside the map; the game will refuse the map until they are added again."];
         Path = System.IO.Path.GetFullPath(path);
         Dirty = false;
     }
@@ -403,6 +421,9 @@ public sealed class MapSession
     /// never overwritten), and an upgrade of an older file format (the original kept as <c>.bak-v&lt;n&gt;</c>, then the file rewritten in the current format).
     /// </summary>
     public IReadOnlyList<string> OpenNotes { get; private set; } = [];
+
+    /// <summary>What the last <see cref="Save"/> could not do (an image that is nowhere to be copied); empty when it saved everything.</summary>
+    public IReadOnlyList<string> SaveNotes { get; private set; } = [];
 
     void RestoreEmbeddedPrefabs(List<string> notes)
     {

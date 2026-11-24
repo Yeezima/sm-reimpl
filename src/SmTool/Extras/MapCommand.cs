@@ -8,7 +8,7 @@ namespace SmTool;
 /// <c>smtool map ...</c> (docs/mapmaker.md "CLI"): the Mapmaker core without an editor, for agents and scripts. JSON on stdout; exit 0 ok, 1 validation
 /// errors (the JSON lists them), 2 bad arguments. Every command takes <c>--library &lt;dir&gt;</c>; commands that read the install take <c>--game-dir &lt;dir&gt;</c>.
 /// </summary>
-public static class MapCommand
+public static partial class MapCommand
 {
     public static int Run(string[] args, TextWriter? stdout = null, TextReader? stdin = null)
     {
@@ -183,6 +183,7 @@ public static class MapCommand
             case "import-prefab":
                 return Print(o, MapSession.New("library", library).Apply(new JsonObject { ["op"] = "import-prefab", ["path"] = Pos(0, "<path>") }));
             default:
+                if (TryEditCommand(args[0], pos, opts, library, o, stdin, out int editCode)) return editCode;
                 throw new ArgException($"Unknown map command '{args[0]}'. {Usage}");
         }
     }
@@ -216,7 +217,7 @@ public static class MapCommand
     {
         var pos = new List<string>();
         var opts = new Dictionary<string, string>();
-        string[] flags = ["dry-run", "no-bots", "text", "raw"];
+        string[] flags = ["dry-run", "no-bots", "text", "raw", "save"];
         for (int i = 0; i < args.Length; i++)
         {
             if (args[i] == "-") { pos.Add("-"); continue; }
@@ -229,5 +230,5 @@ public static class MapCommand
         return (pos, opts);
     }
 
-    const string Usage = "usage: smtool map new <file> [--name n] [--template arena|open-field|blank] | templates | pieces | check <file> [--no-bots] [--text] [--game-dir d] | apply <file> <ops.json|-> [--dry-run] | query <file> objects|prefabs|assets | query-sm1 <map> [--filter text] | validate <file> | preview <file> [--out svg] | import-asset <path> [--id id] [--name n] | import-prefab <path>; all take --library <dir>; --game-dir <dir> where the install is read.";
+    const string Usage = "usage: smtool map new <file> [--name n] [--template arena|open-field|blank] | templates | pieces | check <file> [--no-bots] [--text] [--game-dir d] | apply <file> <ops.json|-> [--dry-run] | query <file> objects|prefabs|assets | query-sm1 <map> [--filter text] | validate <file> | preview <file> [--out svg] | import-asset <path> [--id id] [--name n] | import-prefab <path> | " + EditUsage + "; all take --library <dir>; --game-dir <dir> where the install is read.";
 }

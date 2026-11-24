@@ -14,6 +14,7 @@ public static class MapUpgrade
     public static readonly IReadOnlyDictionary<int, Func<JsonObject, JsonObject>> Steps = new Dictionary<int, Func<JsonObject, JsonObject>>
     {
         [1] = o => o,
+        [3] = o => o,   // 3 -> 4: the optional piece "mesh" and "material" and the map's "materials" and "images" (docs/mapmaker.md "Edit mode contract"); absent in an older file, nothing to rewrite
         [2] = o => o,   // 2 -> 3: the optional object "src" (editor-only Classic link) and map "look"; both are absent in an older file, so there is nothing to rewrite
     };
 

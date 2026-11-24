@@ -30,7 +30,8 @@ internal sealed partial class Batch
     {
         var t = o.Transform;
         return Sm1ClassicKeys.Fp("state", o.Visible ? "on" : "off", Sm1ClassicKeys.V(t.Position), Sm1ClassicKeys.V(t.Rotation), Sm1ClassicKeys.V(t.Scale),
-            o.Piece?.Kind ?? "", o.Piece?.Shape ?? "", o.Asset?.Id ?? o.Asset?.Definition ?? "");
+            o.Piece?.Kind ?? "", o.Piece?.Shape ?? "", o.Asset?.Id ?? o.Asset?.Definition ?? "")
+            + (o.Mesh is { } m ? "|mesh:" + Sm1ClassicKeys.Fp(m.ToNode().ToJsonString()) : "");   // an edited shape counts as edited (appended only when there is one, so older stamps still match)
     }
 
     /// <summary>The object with its Classic link carrying the hash of its present state (the import and the refresh call this on what they create or update).</summary>

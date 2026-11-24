@@ -81,8 +81,22 @@ public static class PieceMesh
     }
 }
 
-/// <summary>One piece as the views draw it: id, kind, side, name and its world matrix (document frame, Z up).</summary>
-public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x4 World, bool Visible);
+/// <summary>One piece as the views draw it: id, kind, side, name and its world matrix (document frame, Z up; includes the object's scale).</summary>
+public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x4 World, bool Visible)
+{
+    /// <summary>The edited shape (unit space; null: the stock shape). Draw <see cref="Shape"/>.</summary>
+    public EditMesh? Mesh { get; init; }
+    /// <summary>The object's own scale (sized space = unit space times this; UVs are in metres of sized space).</summary>
+    public Vector3 Scale { get; init; } = Vector3.One;
+    /// <summary>The material id (<see cref="MapDocument.Materials"/>); null: the default grid look.</summary>
+    public string? Material { get; init; }
+
+    /// <summary>The shape to draw, unit space: the edited mesh or the piece's stock shape.</summary>
+    public EditMesh Shape => Mesh ?? EditMesh.Stock(Piece);
+
+    /// <summary>Triangles with normals, tangents and UVs in the document frame (<see cref="RenderMesh"/>).</summary>
+    public RenderMesh Render() => RenderMesh.Build(Shape, Scale, World);
+}
 
 /// <summary>
 /// A <c>.smmap</c> compiled for play (docs/mapmaker.md "Playing a map"): the collision of its solid pieces, its spawn areas, doors, capture points and
@@ -93,7 +107,7 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 6;   // 6: the new piece kinds move-wall and cover fill MapContent.Walls and MapContent.Props, and the document gained look (so every custom map's hash changes: the server and every client must run the same build); 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
+    public const int CompilerVersion = 7;   // 7: an edited piece (stored mesh, docs/mapmaker.md "Edit mode contract") collides, walls and covers by its mesh, and an edited marker's box is its mesh's box (plus an exact volume in Volumes); 6: the new piece kinds move-wall and cover fill MapContent.Walls and MapContent.Props, and the document gained look (so every custom map's hash changes: the server and every client must run the same build); 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
@@ -116,6 +130,12 @@ public sealed class CustomMap
     public int SolidCount { get; init; }
     /// <summary>The SM1 placements, prefab instances and imported models: what the client draws and the triangles they added to the collision (null: compiled without a content source).</summary>
     public DecorResult? Decor { get; init; }
+    /// <summary>
+    /// The exact shapes of edited markers, by the compiled name of their record (<c>cm_start_marines_1</c>, <c>marines_blocker_1</c>, <c>mkr_objective_1</c>, <c>cm_kill_1</c>): world-space
+    /// closed meshes built with the deterministic maths (<see cref="MeshVolume.Contains"/> is the point-in-shape test). The record itself carries the mesh's box, so a consumer that only knows
+    /// boxes still sees the edited extent; the runtime makes the volume exact (plan M2). Unedited markers have no entry and behave exactly as before.
+    /// </summary>
+    public IReadOnlyDictionary<string, MeshVolume> Volumes { get; init; } = new Dictionary<string, MeshVolume>();
 
     public CollisionWorld ToCollisionWorld() => Content.ToCollisionWorld();
 
@@ -162,6 +182,7 @@ public sealed class CustomMap
         var kills = new List<MapKillRegion>();
         var walls = new List<MapWall>();
         var props = new List<MapProp>();
+        var volumes = new Dictionary<string, MeshVolume>(StringComparer.Ordinal);
         Bounds? solid = null;
         int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
         foreach (var o in doc.Objects)
@@ -171,11 +192,11 @@ public sealed class CustomMap
             double[] worldD;
             try { worldD = DecorGeometry.WorldOf(doc, o); world = DetMath.ToFloat(worldD); }   // the same deterministic path as the decoration: pieces are placed in double, bit-identical on every OS
             catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
-            pieces.Add(new DrawPiece(o.Id, o.Name, piece, world, o.Visible && IsVisibleChain(doc, o)));
+            pieces.Add(new DrawPiece(o.Id, o.Name, piece, world, o.Visible && IsVisibleChain(doc, o)) { Mesh = o.Mesh, Scale = o.Transform.Scale, Material = o.Material });
             var info = piece.Info;
             if (info.Solid)
             {
-                var (v, tri) = PieceMesh.Unit(piece.Kind)!.Value;
+                var (v, tri) = o.Mesh is { } sm ? Unit(sm) : PieceMesh.Unit(piece.Kind)!.Value;
                 int first = vertices.Count;
                 Vector3[] moved;
                 try { moved = v.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray(); }
@@ -190,7 +211,7 @@ public sealed class CustomMap
             if (piece.Kind == PieceKind.Cover)
             {
                 // Cover: the unit box carried to the world, a prop (solid for movement and shots; pierce-capable shots pass it, as Classic's BakedProps).
-                var (cv, ctri) = PieceMesh.MarkerBox();
+                var (cv, ctri) = o.Mesh is { } cmesh ? Unit(cmesh) : PieceMesh.MarkerBox();
                 Vector3[] cmoved;
                 try { cmoved = cv.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray(); }
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
@@ -214,37 +235,62 @@ public sealed class CustomMap
             }
             catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             var centre = at + new Vector3(0, 0, size.Z / 2f);
+            Vector3[]? edited = null;
+            int[]? editedTri = null;
+            if (o.Mesh is { } mm)
+            {
+                // An edited marker: its record is the box of its mesh along the object's own axes (centre and full size), and its exact shape goes to Volumes (the same deterministic path).
+                try
+                {
+                    var (uv, ut) = Unit(mm);
+                    edited = uv.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray();
+                    editedTri = ut;
+                    var ub = mm.UnitBounds();
+                    var uc = (ub.Min + ub.Max) * 0.5f;
+                    var (cx, cy, cz) = DetMath.Transform(uc.X, uc.Y, uc.Z, worldD);
+                    centre = DetMath.Grid(cx, cy, cz);
+                    size *= ub.Max - ub.Min;
+                }
+                catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
+            }
+            string? volumeName = null;
             switch (piece.Kind)
             {
                 case PieceKind.SpawnArea:
                 {
                     var side = piece.Side == PieceSpec.Marines ? Team.SpaceMarines : Team.Chaos;
                     int n = side == Team.SpaceMarines ? ++areaMarines : ++areaChaos;
-                    areas.Add(new MapStartArea($"cm_start_{piece.Side}_{n}", side, centre, yaw, size, 1));
+                    volumeName = $"cm_start_{piece.Side}_{n}";
+                    areas.Add(new MapStartArea(volumeName, side, centre, yaw, size, 1));
                     break;
                 }
                 case PieceKind.Blocker:
                 {
                     var side = piece.Side == PieceSpec.Marines ? Team.SpaceMarines : Team.Chaos;
                     int n = side == Team.SpaceMarines ? ++blockerMarines : ++blockerChaos;
-                    blockers.Add(new MapBlocker($"{piece.Side}_blocker_{n}", side, centre, yaw, size));
+                    volumeName = $"{piece.Side}_blocker_{n}";
+                    blockers.Add(new MapBlocker(volumeName, side, centre, yaw, size));
                     break;
                 }
                 case PieceKind.CapturePoint:
                     pointNumber++;
-                    points.Add(new MapControlPoint($"mkr_objective_{pointNumber}", centre, yaw, new Vector3(size.X, size.X, size.Z), 3));
+                    volumeName = $"mkr_objective_{pointNumber}";
+                    // unedited: X for both horizontal sizes, as before (a round point); edited: the mesh's box, and the exact shape in Volumes
+                    points.Add(new MapControlPoint(volumeName, centre, yaw, edited is null ? new Vector3(size.X, size.X, size.Z) : size, 3));
                     break;
                 case PieceKind.MoveWall:
                     // a movement-only wall (MapWall -> CollisionWorld.Walls): position = the centre, rotation about Z in degrees, scale = the full size
                     wallNumber++;
-                    var (wv, wi) = WallMesh(centre, size, YawDegreesOf(doc, o), piece.IsCylinder);
+                    var (wv, wi) = edited is not null ? (edited, editedTri!) : WallMesh(centre, size, YawDegreesOf(doc, o), piece.IsCylinder);
                     walls.Add(new MapWall($"cm_wall_{wallNumber}", centre, new Vector3(0, 0, (float)YawDegreesOf(doc, o)), size, piece.IsCylinder ? 3 : 1, WallGroup, 1) { Vertices = wv, Indices = wi });
                     break;
                 case PieceKind.KillZone:
                     killNumber++;
-                    kills.Add(new MapKillRegion($"cm_kill_{killNumber}", centre, yaw, size, 0));
+                    volumeName = $"cm_kill_{killNumber}";
+                    kills.Add(new MapKillRegion(volumeName, centre, yaw, size, 0));
                     break;
             }
+            if (edited is not null && volumeName is not null) volumes[volumeName] = new MeshVolume(volumeName, edited, editedTri!);
         }
         if (areaMarines > 1 || areaChaos > 1) notes.Add("Only the first spawn area of each side is used by the match; the others are ignored.");
         // SM1 placements, prefab instances and imported models: drawn by the client and solid here, the same triangles on every machine (DecorGeometry).
@@ -287,7 +333,14 @@ public sealed class CustomMap
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
-        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor };
+        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes };
+    }
+
+    /// <summary>An edited shape's unit-space triangles (faces fanned from their first vertex).</summary>
+    static (Vector3[] Vertices, int[] Indices) Unit(EditMesh mesh)
+    {
+        var (v, i, _) = mesh.Triangulate();
+        return (v, i);
     }
 
     /// <summary>cos(pi / 16) as a literal (no libm): the circumscribed 16-sided prism's corner radius is 0.5 / this, as <see cref="WorldBlocker.Cylinder"/>.</summary>
