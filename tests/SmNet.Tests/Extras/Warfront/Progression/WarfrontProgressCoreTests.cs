@@ -33,15 +33,16 @@ public class WarfrontProgressCoreTests
         Assert.Single(s.Cards);
         Assert.NotEmpty(notes);
         var few = WarfrontProgressFile.Sanitize(new WarfrontProgressFile { Xp = 60000, PicksTaken = 5, Cards = new List<int> { 1, 2 } });
-        Assert.Equal(2, few.PicksTaken);   // only two cards are held
+        Assert.Equal(5, few.PicksTaken);   // since record version 2 a pick taken may hold no card (a retired Retainer card): the picks are never raised back by a lost card
+        Assert.Equal([1, 2], few.Cards);
     }
 
     [Fact]
     public void Too_many_cards_unknown_ids_and_too_many_extras_are_trimmed()
     {
         var s = WarfrontProgressFile.Sanitize(new WarfrontProgressFile { Xp = WarfrontProgressFile.MaxXp, PicksTaken = 49, Cards = Enumerable.Repeat(6, 60).ToList() });
-        Assert.Equal(WarfrontProgressFile.MaxExtras, s.Cards.Count(c => c == 6));   // at most 8 Retainer cards
-        Assert.Equal(s.PicksTaken, s.Cards.Count);
+        Assert.Empty(s.Cards);                 // the retired Retainer cards are dropped (owner 2026-11-23, card 2) ...
+        Assert.Equal(49, s.PicksTaken);        // ... and their picks stay taken
         var u = WarfrontProgressFile.Sanitize(new WarfrontProgressFile { Xp = 60000, PicksTaken = 3, Cards = new List<int> { 0, 9, -1, 1, 2, 3 } });
         Assert.Equal(new[] { 1, 2, 3 }, u.Cards.ToArray());
         var e = WarfrontProgressFile.Sanitize(new WarfrontProgressFile
@@ -49,8 +50,9 @@ public class WarfrontProgressCoreTests
             Xp = 60000, PicksTaken = 2, Cards = new List<int> { 6, 1 },
             ExtraRetainers = Enumerable.Range(0, 12).Select(i => new WarfrontExtraRetainer { ClassName = "Tactical", Name = "R" + i }).ToList(),
         });
-        Assert.Single(e.ExtraRetainers);   // extras never exceed the Retainer cards
-        Assert.Equal("R0", e.ExtraRetainers[0].Name);
+        Assert.Empty(e.ExtraRetainers);    // no retainer is earned since record version 2: every extra is dropped
+        Assert.Equal([1], e.Cards);
+        Assert.Equal(2, e.PicksTaken);
     }
 
     [Fact]
@@ -58,9 +60,9 @@ public class WarfrontProgressCoreTests
     {
         var f = new WarfrontProgressFile { Xp = 60000, PicksTaken = 1, Cards = new List<int> { 6 }, ExtraRetainers = new List<WarfrontExtraRetainer> { new() { ClassName = "", Name = "  A\u0007B  " + new string('x', 80) } } };
         var s = WarfrontProgressFile.Sanitize(f);
-        Assert.Equal("Tactical", s.ExtraRetainers[0].ClassName);
-        Assert.StartsWith("AB", s.ExtraRetainers[0].Name);
-        Assert.True(System.Text.Encoding.UTF8.GetByteCount(s.ExtraRetainers[0].Name) <= WarfrontProgressFile.MaxNameBytes);
+        Assert.Empty(s.ExtraRetainers);   // dropped with the Retainer card since record version 2
+        Assert.StartsWith("AB", WarfrontProgressFile.CleanText("  A\u0007B  " + new string('x', 80), WarfrontProgressFile.MaxNameBytes));
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(WarfrontProgressFile.CleanText(new string('x', 80), WarfrontProgressFile.MaxNameBytes)) <= WarfrontProgressFile.MaxNameBytes);
         Assert.Equal(s.ToJson(), WarfrontProgressFile.Sanitize(s).ToJson());
         var nulls = WarfrontProgressFile.Sanitize(new WarfrontProgressFile { Cards = null!, ExtraRetainers = null! });
         Assert.Empty(nulls.Cards);
@@ -98,7 +100,7 @@ public class WarfrontProgressCoreTests
         var f = Good(); f.Key = "00ff"; f.ResetAt = "2026-11-22T10:00:00.0000000Z";
         Assert.Equal(WarfrontProgressParse.Ok, WarfrontProgressFile.TryParse(f.ToJson(), out var back));
         Assert.Equal(f.ToJson(), back!.ToJson());
-        Assert.Equal(WarfrontProgressParse.Newer, WarfrontProgressFile.TryParse("{\"version\":2,\"xp\":\"weird\"}", out _));
+        Assert.Equal(WarfrontProgressParse.Newer, WarfrontProgressFile.TryParse("{\"version\":3,\"xp\":\"weird\"}", out _));
         foreach (var junk in new[] { "", "   ", "{", "[]", "{\"xp\":5}", "{\"version\":0}", "{\"version\":1,\"xp\":\"x\"}", "null", "{\"version\":\"1\"}" })
             Assert.Equal(WarfrontProgressParse.Damaged, WarfrontProgressFile.TryParse(junk, out _));
         Assert.Equal(WarfrontProgressParse.Damaged, WarfrontProgressFile.TryParse(null, out _));
@@ -187,8 +189,8 @@ public class WarfrontProgressCoreTests
         Assert.Equal(7000, p.Xp);
         Assert.Equal(WarfrontCampaign.LevelForXp(7000), p.Level);
         Assert.Equal(3, p.PicksTaken);
-        Assert.Equal(new[] { 1, 6, 3 }, p.Cards.ToArray());
-        Assert.Equal("Sevatar", p.Squad.Single().Name);
+        Assert.Equal(new[] { 1, 3 }, p.Cards.ToArray());   // the retired Retainer card is dropped, its pick stays taken (owner 2026-11-23, card 2)
+        Assert.Empty(p.Squad);                              // and no retainer is earned
         Assert.Equal(WarfrontProgressFile.Sanitize(f).Xp, c.ProgressOf(11)!.Xp);
         Assert.False(c.ApplyProgress(999, f));
         Assert.True(c.ApplyProgress(11, new WarfrontProgressFile { Xp = long.MaxValue, PicksTaken = 500 }));
@@ -212,10 +214,10 @@ public class WarfrontProgressCoreTests
     {
         var c = new WarfrontCampaign(5);
         c.Join(1, out _);
-        string json = c.ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":6");
-        Assert.Contains("\"Version\":6", json);
+        string json = c.ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":7");
+        Assert.Contains("\"Version\":7", json);
         var ex = Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson(json));
-        Assert.Equal(6, ex.FoundVersion);
+        Assert.Equal(7, ex.FoundVersion);
         // a newer file need not even fit this build's fields
         Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson("{\"Version\":9,\"Phase\":\"Mystery\",\"Fronts\":\"x\"}"));
         Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(c.ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":0")));

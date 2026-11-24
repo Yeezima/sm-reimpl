@@ -127,7 +127,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         Check("slot numbers 1 to 6", Enumerable.Range(0, 6).All(i => P.SlotLabel(i).Text == (i + 1).ToString()));
         Check("card 6 is +1 RETAINER", P.NameLabel(5).Text == "RETAINER" && P.EffectLabel(5).Text.StartsWith("+1 RETAINER"), P.EffectLabel(5).Text);
         Check("effect numbers from the rules", P.EffectLabel(0).Text.StartsWith("+10 % DAMAGE\n") && P.EffectLabel(1).Text.StartsWith("-8 % ABILITY COOLDOWN\n") && P.EffectLabel(2).Text.StartsWith("+10 % ATTACK SPEED\n"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(2).Text}");
-        Check("effect line shows the total after the pick", P.EffectLabel(0).Text.EndsWith("NOW +20 %, THEN +30 %") && P.EffectLabel(1).Text.EndsWith("NOW -8 %, THEN -16 %") && P.EffectLabel(5).Text.EndsWith("SQUAD 3 OF 9"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(3).Text}");
+        Check("effect line shows the total after the pick", P.EffectLabel(0).Text.EndsWith("NOW +20 %, THEN +30 %") && P.EffectLabel(1).Text.EndsWith("NOW -8 %, THEN -16 %") && P.EffectLabel(5).Text.EndsWith($"OF {WarfrontProgressionRules.RosterMax}"), $"{P.EffectLabel(0).Text} / {P.EffectLabel(1).Text} / {P.EffectLabel(3).Text}");
         Check("cooldown floor text", M.CardTotal(WarfrontCard.CooldownReduction) != "" && SmClientFloor());
         Check("owned counts", P.OwnedLabel(0).Text == "OWNED 2" && P.OwnedLabel(1).Text == "OWNED 1" && P.OwnedLabel(2).Text == "OWNED 1" && P.OwnedLabel(3).Text == "OWNED 0" && P.OwnedLabel(5).Text == "OWNED 2", string.Join("|", Enumerable.Range(0, 6).Select(i => P.OwnedLabel(i).Text)));
         Check("fixed notes (the timeout rule is a hover hint on the countdown)", P.TimeoutHint == "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT" && P.ProtectedLabel.Text == "YOU CANNOT BE HARMED WHILE CHOOSING");
@@ -240,6 +240,10 @@ public sealed partial class WarfrontPickerSelfTest : Node
         _host.Board.Shown = true; await Still("scoreboard-section-pending-full-counters");
         _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(11, 12.3f, false, FourStats)));
         await Still("picker-fourth-stat-card");
+        // the offer as every player sees it since 2026-11-23 (owner card 2): five stat cards, no Retainer, the full 40 s
+        _host.Section(WarfrontProgressionWire.OfferTag, WarfrontProgressionWire.Encode(Offer(12, (float)WarfrontProgressionRules.PickTimeoutSeconds, false, FourStats)));
+        Check("a fresh offer counts down from 40 s", MathF.Abs(M.SecondsLeft - 40f) < 0.01f && M.TimeFraction > 0.99f, M.SecondsLeft.ToString());
+        await Still("picker-five-cards-40s");
 
         FitCheck("picker", P.Labels());
         Audit("the card picker", P);

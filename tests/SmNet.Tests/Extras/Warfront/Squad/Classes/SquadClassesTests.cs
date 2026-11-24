@@ -135,34 +135,37 @@ public class SquadClassesTests
         var r = new SquadRosters();
         var book = new SquadClassBook(c, r, 12345UL);
         book.OnOwnerLoadout(Key, owner);
-        for (int k = 0; k < recruits; k++) Assert.True(book.Recruit(Key));
+        // the class mechanics below want 1 + recruits Marines of one loadout: a bench fills the roster's capacity (a run always holds two since 2026-11-23)
+        r.Conform(Key, 1 + recruits);
+        for (int s = 1; s <= recruits; s++) r.SetLoadout(Key, s, r.Marine(Key, 0)!.Loadout);
         var arena = new ClassArena();
         var sim = new WarfrontSquadSim(r, arena);
         return (r, book, sim, arena);
     }
 
-    static SquadOwnerLoadout Assault(SquadClass cls = SquadClass.Assault) => SquadOwnerLoadout.ForLibrarian(cls);
+    /// <summary>An Assault Marine owner (class 1): his retainers roll Assault bot loadouts (a Librarian's roll their own classes since 2026-11-23).</summary>
+    static SquadOwnerLoadout Assault() => SquadOwnerLoadout.Standard(new LoadoutChoice(1));
 
     // ---- mirror
 
     [Fact]
-    public void A_standard_retainer_mirrors_class_weapons_body_and_colours_and_keeps_name_and_record()
+    public void A_standard_retainer_rolls_a_bot_loadout_of_his_class_with_its_body_and_his_colours_and_keeps_name_and_record()
     {
+        // owner 2026-11-23, card 2 and the retainer brief: a valid Classic bot loadout matching the player's class (was a mirror of his own loadout); two retainers
         var c = Make();
         var r = new SquadRosters();
         var book = new SquadClassBook(c, r, 1UL);
         var look = AppearanceCode.Default.WithPalette(ArmourSlot.Head, 3, 4, 5).WithPiece(ArmourSlot.Torso, 2);
         book.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(0, 1), look));   // tactical, the sniper rifle
-        Assert.True(book.Recruit(Key));
+        Assert.Equal(2, r.Count(Key));
         r.Rename(Key, 0, "Keeper"); r.Marine(Key, 0)!.Record.Kills = 12;
         foreach (int slot in new[] { 0, 1 })
         {
             var l = r.Marine(Key, slot)!.Loadout;
             Assert.Equal("sm - tactical", l.ClassId);
-            Assert.Equal("sm_mp_ranged_sniper_rifle", l.Primary);
+            Assert.StartsWith("sm_mp_ranged_", l.Primary);
             Assert.Equal(150f, l.HealthMax); Assert.Equal(120f, l.ArmourMax);              // from the class data, not the W9 placeholders
             Assert.Equal(20f, l.ArmourRegenRate); Assert.Equal(3f, l.ArmourRegenDelay);
-            Assert.Equal(90f, l.Weapon.Damage); Assert.Equal(SquadClassRules.RangeCap, l.Weapon.Range);
             Assert.Equal(3u | 4u << 8 | 5u << 16, l.Colours[(int)ArmourSlot.Head]);
             Assert.Contains("torso:2", l.Armour);
             Assert.Null(l.Jump);
@@ -183,40 +186,41 @@ public class SquadClassesTests
     // ---- Librarian rolls
 
     [Fact]
-    public void Librarian_rolls_are_stable_per_selection_reroll_on_change_and_never_mix_classes()
+    public void Librarian_retainers_each_roll_their_own_class_stable_for_the_run_in_class_armour_and_his_colours()
     {
+        // the retainer brief (2026-11-23): each of a Librarian's retainers rolls Tactical, Assault or Devastator on its own (was one uniform roll of the chosen squad class)
         var c = Make();
         var r = new SquadRosters();
         var book = new SquadClassBook(c, r, 99UL);
-        book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Tactical));
-        for (int k = 0; k < 8; k++) book.Recruit(Key);
-        string Snapshot() => string.Join("|", Enumerable.Range(0, 9).Select(s => { var l = r.Marine(Key, s)!.Loadout; return $"{l.ClassId}/{l.Primary}/{l.Secondary}/{l.Melee}/{string.Join(",", l.Perks)}"; }));
-        string tactical = Snapshot();
-        Assert.All(Enumerable.Range(0, 9), s => Assert.Equal("sm - tactical", r.Marine(Key, s)!.Loadout.ClassId));   // no mixed squads
-        Assert.Equal(0, book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Tactical)).Changed);   // same selection: nothing moves
-        Assert.Equal(tactical, Snapshot());
+        var look = AppearanceCode.Default.WithPalette(ArmourSlot.Head, 9, 8, 7);
+        book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Tactical, look));
+        string Snapshot() => string.Join("|", Enumerable.Range(0, 2).Select(s => { var l = r.Marine(Key, s)!.Loadout; return $"{l.ClassId}/{l.Primary}/{l.Secondary}/{l.Melee}/{string.Join(",", l.Perks)}"; }));
+        string first = Snapshot();
+        for (int s = 0; s < 2; s++)
+        {
+            var l = r.Marine(Key, s)!.Loadout;
+            var want = SquadClassBook.LibrarianClassOf(99UL, Key, s);
+            Assert.Equal(SquadClassRules.RoleOf(want), c.Classes.First(x => x.Name == l.ClassId).Role);
+            Assert.Equal(["class:" + SquadClassRules.RoleOf(want)], l.Armour);   // class armour, no own pieces
+            Assert.Equal(9u | 8u << 8 | 7u << 16, l.Colours[0]);
+            Assert.Equal(want == SquadClass.Assault, l.Jump is not null);
+        }
+        // the stored squad-class option no longer matters: another one changes nothing
+        Assert.Equal(0, book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Devastator, look)).Changed);
+        Assert.Equal(first, Snapshot());
         // a Marine's roll is a function of (run seed, key, slot, selection)
         Assert.Equal(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(99, Key, 3, 2));
         Assert.NotEqual(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(99, Key, 3, 1));
         Assert.NotEqual(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(99, Key, 4, 2));
         Assert.NotEqual(SquadLoadoutBuilder.RollSeed(99, Key, 3, 2), SquadLoadoutBuilder.RollSeed(98, Key, 3, 2));
-        // the group is uniform (owner, 2026-11-18): one roll for every Marine, whatever the roster slot
-        Assert.Single(Enumerable.Range(0, 9).Select(s => r.Marine(Key, s)!.Loadout.Primary + r.Marine(Key, s)!.Loadout.Secondary).Distinct());
-        // changing the selection rerolls the whole squad, to the new class
-        var change = book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Devastator));
-        Assert.Equal(9, change.Changed);
-        Assert.All(Enumerable.Range(0, 9), s => Assert.Equal("sm - devastator", r.Marine(Key, s)!.Loadout.ClassId));
-        Assert.All(Enumerable.Range(0, 9), s => Assert.Contains(r.Marine(Key, s)!.Loadout.Primary, new[] { "sm_mp_exotic_las_cannon", "sm_mp_exotic_plasma_cannon" }));   // the heavy presets
-        Assert.NotEqual(tactical, Snapshot());
-        // and back: the first selection's rolls are the same again
-        book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Tactical));
-        Assert.Equal(tactical, Snapshot());
-        // class armour (no own pieces), in the player's colours
-        var look = AppearanceCode.Default.WithPalette(ArmourSlot.Head, 9, 8, 7);
-        book.OnOwnerLoadout(Key, SquadOwnerLoadout.ForLibrarian(SquadClass.Assault, look));
-        var l0 = r.Marine(Key, 0)!.Loadout;
-        Assert.Equal(["class:assault"], l0.Armour); Assert.Equal(9u | 8u << 8 | 7u << 16, l0.Colours[0]);
-        Assert.NotNull(l0.Jump);
+        // a heavy roll takes a heavy preset
+        for (ulong k = 1; k < 60; k++)
+            for (int s = 0; s < 2; s++)
+                if (SquadClassBook.LibrarianClassOf(99UL, k, s) == SquadClass.Devastator)
+                {
+                    var rr = new SquadRosters(); new SquadClassBook(c, rr, 99UL).OnOwnerLoadout(k, SquadOwnerLoadout.ForLibrarian(SquadClass.Tactical));
+                    Assert.Contains(rr.Marine(k, s)!.Loadout.Primary, new[] { "sm_mp_exotic_las_cannon", "sm_mp_exotic_plasma_cannon" });
+                }
     }
 
     // ---- Dreadnought
@@ -228,7 +232,7 @@ public class SquadClassesTests
         var r = new SquadRosters();
         var book = new SquadClassBook(c, r, 5UL);
         book.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(0)));
-        book.Recruit(Key); r.Rename(Key, 1, "Remus");
+        Assert.False(book.Recruit(Key)); r.Rename(Key, 1, "Remus");   // two retainers always, never more
         Assert.Equal(2, r.Count(Key));
         var held = book.OnOwnerLoadout(Key, SquadOwnerLoadout.Dreadnought());
         Assert.True(held.Held); Assert.True(r.IsHeld(Key)); Assert.Equal(2, r.Count(Key));
@@ -242,37 +246,33 @@ public class SquadClassesTests
     }
 
     [Fact]
-    public void A_player_who_started_as_dreadnought_gets_one_free_retainer_once_also_across_a_save()
+    public void A_player_who_started_as_dreadnought_has_two_held_retainers_and_no_free_one_also_across_a_save()
     {
+        // owner 2026-11-23, card 2: every player always has two retainers; the Dreadnought's are held (none in the field), the once-per-run free retainer is retired
         var c = Make();
         var r = new SquadRosters();
         var book = new SquadClassBook(c, r, 5UL);
         book.OnOwnerLoadout(Key, SquadOwnerLoadout.Dreadnought());
-        Assert.Equal(0, r.Count(Key)); Assert.True(r.IsHeld(Key));
+        Assert.Equal(2, r.Count(Key)); Assert.True(r.IsHeld(Key));
         var first = book.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(0)));
-        Assert.True(first.FreeRetainer); Assert.Equal(1, r.Count(Key)); Assert.False(r.IsHeld(Key));
-        // back to the Dreadnought and out again: no second one
+        Assert.False(first.FreeRetainer); Assert.True(first.Released); Assert.Equal(2, r.Count(Key)); Assert.False(r.IsHeld(Key));
         book.OnOwnerLoadout(Key, SquadOwnerLoadout.Dreadnought());
         Assert.False(book.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(0))).FreeRetainer);
-        Assert.Equal(1, r.Count(Key));
-        // save and restore (rosters and class state), then the same again
+        Assert.Equal(2, r.Count(Key));
+        // save and restore (rosters and class state): still two
         var r2 = new SquadRosters(); r2.Import(r.Export());
         var book2 = new SquadClassBook(c, r2, 5UL); book2.Import(book.Export());
-        Assert.True(book2.FreeRetainerGiven(Key));
-        book2.OnOwnerLoadout(Key, SquadOwnerLoadout.Dreadnought());
+        Assert.False(book2.FreeRetainerGiven(Key));
         Assert.False(book2.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(0))).FreeRetainer);
-        Assert.Equal(1, r2.Count(Key));
-        // a save taken before the first switch still has the free retainer to give
-        var r3 = new SquadRosters(); var book3 = new SquadClassBook(c, r3, 5UL);
+        Assert.Equal(2, r2.Count(Key));
+        // an old save's Dreadnought roster of none, or a roster grown by cards, conforms to two at the next look
+        var r3 = new SquadRosters();
+        r3.Import(new SquadRosterSave(0, [new SquadOwnerSave(Key, true, []), new SquadOwnerSave(9UL, false, [.. Enumerable.Range(0, 6).Select(i => new SquadMarineSave("N" + i, new SquadLoadout(), new ServiceRecord()))])]));
+        var book3 = new SquadClassBook(c, r3, 5UL);
         book3.OnOwnerLoadout(Key, SquadOwnerLoadout.Dreadnought());
-        var r4 = new SquadRosters(); r4.Import(r3.Export());
-        var book4 = new SquadClassBook(c, r4, 5UL); book4.Import(book3.Export());
-        Assert.True(book4.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(0))).FreeRetainer);
-        Assert.Equal(1, r4.Count(Key));
-        // an eligible player's roster starts with one retainer and gets no free one
-        var r5 = new SquadRosters(); var book5 = new SquadClassBook(c, r5, 5UL);
-        Assert.False(book5.OnOwnerLoadout(9UL, SquadOwnerLoadout.Standard(new LoadoutChoice(0))).FreeRetainer);
-        Assert.Equal(1, r5.Count(9UL));
+        Assert.Equal(2, r3.Count(Key)); Assert.True(r3.IsHeld(Key));
+        book3.OnOwnerLoadout(9UL, SquadOwnerLoadout.Standard(new LoadoutChoice(0)));
+        Assert.Equal(2, r3.Count(9UL)); Assert.Equal("N1", r3.Marine(9UL, 1)!.Name);
     }
 
     // ---- regeneration

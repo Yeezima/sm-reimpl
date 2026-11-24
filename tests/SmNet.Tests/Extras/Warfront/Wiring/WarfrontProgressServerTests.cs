@@ -125,11 +125,12 @@ public class WarfrontProgressServerTests : IDisposable
         Assert.Equal(8000, p.Xp);
         Assert.Equal(4, p.Level);
         Assert.Equal(3, p.PicksTaken);
-        Assert.Equal([Speed, Speed, Retainer], p.Cards);
-        Assert.Equal("Cassian", Assert.Single(p.Squad).Name);
+        Assert.Equal([Speed, Speed], p.Cards);   // the retired Retainer card is dropped, its pick stays taken (owner 2026-11-23, card 2)
+        Assert.Empty(p.Squad);                    // and it brings no retainer
         var ack = Assert.Single(s.Saves());   // the first send is the acknowledgement
         Assert.Equal(8000, ack.State!.Xp);
-        Assert.Equal("Cassian", Assert.Single(ack.State.ExtraRetainers).Name);
+        Assert.Equal(3, ack.State.PicksTaken);
+        Assert.Empty(ack.State.ExtraRetainers);
     }
 
     [Fact]

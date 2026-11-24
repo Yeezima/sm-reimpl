@@ -12,7 +12,10 @@ public enum WarfrontCard
     CooldownReduction = 4,
     /// <summary>The tunable fifth stat type (owner: "+Max Armor as the recommended tuning default, not a locked design choice").</summary>
     MaxArmor = 5,
-    /// <summary>+1 Retainer; only ever in slot 4 (slots 1 to 3 are stat cards).</summary>
+    /// <summary>
+    /// The retired +1 Retainer card (owner 2026-11-23, card 2: "remove the retainer cards from level up selection"): never offered now, and a stored one is dropped when a progression loads
+    /// (<see cref="WarfrontProgressFile.Sanitize"/>). The id stays reserved so old files and the wire still read; never reuse it.
+    /// </summary>
     Retainer = 6,
 }
 
@@ -23,11 +26,12 @@ public static class WarfrontProgressionRules
     public static readonly WarfrontCard[] StatCards =
         [WarfrontCard.AttackSpeed, WarfrontCard.MaxHp, WarfrontCard.Damage, WarfrontCard.CooldownReduction, WarfrontCard.MaxArmor];
 
-    /// <summary>The most cards an offer holds: the five stat cards and +1 Retainer (owner 2026-11-18: all options).</summary>
+    /// <summary>The most cards the offer wire holds: the five stat cards and the retired +1 Retainer's slot (owner 2026-11-18: all options; since 2026-11-23 the sixth slot is always empty).</summary>
     public const int OfferSize = 6;
-    /// <summary>Slot (0-based) that carries +1 Retainer while eligible (the last).</summary>
+    /// <summary>Slot (0-based) that carried +1 Retainer (the last); the offer wire still allows it to be empty, and only there.</summary>
     public const int RetainerSlot = 5;
-    public const int RosterMax = 9;
+    /// <summary>The roster every player has: exactly two retainers (owner 2026-11-23, card 2; <see cref="Squad.SquadRules.RetainersPerPlayer"/>).</summary>
+    public const int RosterMax = Squad.SquadRules.RetainersPerPlayer;
 
     /// <summary>+10 % attack speed / fire rate per card.</summary>
     public const float AttackSpeedStep = 0.10f;
@@ -49,8 +53,8 @@ public static class WarfrontProgressionRules
     public const double LullQuietSeconds = 3.0;
     /// <summary>... and no Ork within this distance (m) [ours].</summary>
     public const float LullOrkDistance = 12f;
-    /// <summary>The server takes card 1 after this many seconds so the protection cannot be camped [ours].</summary>
-    public const double PickTimeoutSeconds = 20.0;
+    /// <summary>The server takes card 1 after this many seconds so the protection cannot be camped: 40, double the former 20 [owner 2026-11-23, card 2: "double the time limit to select a card"; the 20 was ours].</summary>
+    public const double PickTimeoutSeconds = 40.0;
 
     /// <summary>Ork scaling (plan section 5): HP +8 % and damage +5 % per level above 1 of the highest player [ours/estimate]; +20 % max HP per additional human [owner, answer 4].</summary>
     public const float OrkHealthPerLevel = 0.08f;

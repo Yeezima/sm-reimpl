@@ -58,7 +58,7 @@ public sealed class WarfrontProgressStoreTests : IDisposable
     public void A_newer_file_is_never_touched_by_a_load_a_save_a_host_copy_or_a_reset()
     {
         string path = Path.Combine(_dir, "progress.json");
-        const string text = "{\"version\": 2, \"key\": \"a1b2c3d4e5f60718\", \"xp\": 99, \"somethingNew\": [1,2,3]}";
+        const string text = "{\"version\": 3, \"key\": \"a1b2c3d4e5f60718\", \"xp\": 99, \"somethingNew\": [1,2,3]}";
         File.WriteAllText(path, text);
         var s = Store();
         Assert.Equal(WarfrontProgressLoad.Newer, s.Load());

@@ -75,7 +75,9 @@ public class WarfrontRunLoaderTests : IDisposable
         Assert.Equal(a.Cards, b.Cards);
         Assert.Equal(a.Squad.Select(r => r.Name), b.Squad.Select(r => r.Name));
         Assert.Equal(4200, b.Xp);
-        Assert.Equal("Cassian", Assert.Single(b.Squad).Name);
+        Assert.Empty(b.Squad);                 // the retired Retainer card and its retainer are dropped (owner 2026-11-23, card 2) ...
+        Assert.Empty(b.Cards);
+        Assert.Equal(1, b.PicksTaken);         // ... and the pick stays taken
         Assert.Equal(first.Campaign.StateHash(), second.Campaign.StateHash());
         Assert.Equal(bytes, File.ReadAllBytes(RunPath));   // the file is byte-equal after the second loader's rewrite
     }
