@@ -6,9 +6,10 @@ namespace SmClient;
 
 /// <summary>
 /// classic-hit-effects, the Extended profile's blood spray (added content: gore; owner answer 4, 2026-11-24: "Redesign it"; client presentation only). A third design, measured on the
-/// reference clip (review of 2b89de15): the blood is LAID along the weapon's path through the contact almost at once (full reach in about two frames), as soft, wispy ribbons on both
-/// sides of the body, thickest and densest at the body; then it HANGS in place (a slight lift and creep, no travel, no droop), brightest about 0.05-0.35 s after contact, strong to about
-/// 0.6 s and faint to about 1 s, thinning into patches as it fades. The ribbons follow a curve built from the weapon's recorded samples before and after the contact
+/// reference clip (review of 2b89de15): the blood is LAID along the weapon's path through the contact almost at once (full reach in about two frames), as 1 to 4 broad, flat, mottled bands on
+/// both sides of the body (as many as the stroke's spread holds: a thrust one, a shot or a charge two, a sweep three, a heavy or lethal blow one more), fanning out past the body from
+/// the middle band; then it HANGS in place (a slight lift and creep, no travel, no droop), brightest about 0.05-0.35 s after contact, strong to about 0.6 s and faint to about 1 s,
+/// eroding into shrinking patches as it fades (never fading through translucency). The ribbons follow a curve built from the weapon's recorded samples before and after the contact
 /// (<see cref="ClassicBloodRules.RibbonPath"/>), a straight line along the shot or the charge for gunfire and charges. In today's Classic health-hit red
 /// (<see cref="ClassicHitSpray.BloodTint"/>, the colour the brief keeps), MIXED over the scene (not added: never brighter than that red, the brightness cap of review 3 and owner answer 5).
 /// <para>Visibility pass (2026-11-24, owner answer 6: the release build read as "faint red, easy to miss"): broader, flatter, more opaque bands with a ragged mottled edge
@@ -36,6 +37,7 @@ uniform float len_fwd = 1.8;
 uniform float count = 7.0;
 uniform float bundle = 0.756;              // the stack's height across the stroke (m; ClassicBloodRules.RibbonBundleFor: at least a band's width between neighbours)
 uniform float size = 1.0;
+uniform float grow = 1.0;                 // the share of the hang's 60 % growth this spray takes (ClassicBloodRules.RibbonGrow: the stack stays under its height cap)
 uniform float seed = 0.0;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
 uniform float opacity = 0.95;             // a band's opacity at its middle while held (mixed: stacking only makes it more opaque)
@@ -69,10 +71,17 @@ void vertex() {
         float h2 = fract(COLOR.g + seed * 0.3819660);
         float h3 = fract(COLOR.b + seed * 0.7548777);
         float h4 = fract(COLOR.a + seed * 0.5698403);
-        // each band's own reach on both sides of the contact: staggered, so no two end together and no end is blunt
-        float fwd = len_fwd * (0.6 + 0.4 * h1);
-        float back = len_back * (0.45 + 0.55 * h2);
-        float s = mix(-back, fwd, UV.x);
+        // the band's slot across the stack and its layout along the stroke (ClassicBloodRules.RibbonBandLayout; repair 4, finding N2: not a regular ladder of equal stripes): the outer
+        // bands start past the body and are shorter and narrower, so the blood fans out from the middle band; one side of the stack (seeded) leads, so it reads as one slanted stroke;
+        // each band has its own seeded shift and reach, so no two start or end together and no end is blunt
+        float slot = count > 1.0 ? (ri + 0.5) / count - 0.5 : 0.0;
+        float c2 = 2.0 * abs(slot);
+        float lead = fract(seed * 7.31) < 0.5 ? -1.0 : 1.0;
+        float shift = len_fwd * ({{F(ClassicBloodRules.RibbonStaggerOuter)}} * c2 + {{F(ClassicBloodRules.RibbonStaggerEchelon)}} * slot * lead + {{F(ClassicBloodRules.RibbonStaggerJitter)}} * (h2 - 0.5));
+        float fwd = len_fwd * (0.6 + 0.4 * h1) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerReach)}} * c2);
+        float back = len_back * (0.45 + 0.55 * h2) * (1.0 - {{F(2f * ClassicBloodRules.RibbonStaggerReach)}} * c2);
+        float sl = mix(-back, fwd, UV.x);
+        float s = shift + sl;
         float reveal = smoothstep(0.0, 0.05, age);          // laid at full reach within about two frames
         float hold = min(age, 0.6);
         float se = s * (0.3 + 0.7 * reveal) * (1.0 + 0.27 * hold);   // then the far end creeps on about 16 %
@@ -82,17 +91,17 @@ void vertex() {
         vec3 side = abs(tng.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : normalize(cross(tng, vec3(0.0, 1.0, 0.0)));
         vec3 up2 = cross(side, tng);
         float dn = s >= 0.0 ? s / max(len_fwd, 1e-3) : -s / max(len_back, 1e-3);   // 0 at the contact, 1 at the full reach
-        // 3 to 4 broad bands stacked across the stroke, running straight through the body (no kink at the contact), a little wider apart toward the far end, the bundle about
-        // 60 % taller as it hangs (review 3: the reference's bands, its height +63 %); neighbours at least a band's width apart (repair 3), so the stroke's direction reads
-        float slot = count > 1.0 ? (ri + 0.5) / count - 0.5 : 0.0;
+        // 1 to 4 broad bands stacked across the stroke as the spread holds (ClassicBloodRules.RibbonBands), running straight through the body (no kink at the contact), a little wider
+        // apart toward the far end, the bundle growing as it hangs (review 3: the reference's bands, its height +63 %), by the share `grow` that keeps the stack under
+        // {{F(ClassicBloodRules.RibbonStackMax)}} m (RibbonGrow); neighbours at least a band's width apart (repair 3), so the stroke's direction reads
         vec3 across3 = normalize(up2 + side * 0.5 * (h3 - 0.5));
-        float off = (slot * bundle + (h4 - 0.5) * 0.06) * (1.0 + 0.1 * s) * (1.0 + hold);
-        p += across3 * off + vec3(0.0, 1.0, 0.0) * 0.2 * hold * (0.6 + 0.8 * h1);   // a lift of about 5 % of his height, no droop
+        float off = (slot * bundle + (h4 - 0.5) * 0.06) * (1.0 + 0.1 * grow * s) * (1.0 + grow * hold);
+        p += across3 * off + vec3(0.0, 1.0, 0.0) * 0.2 * hold * (1.0 + 0.8 * grow * (h1 - 0.5));   // a lift of about 5 % of his height, no droop (the bands' lifts differ less as the growth is held back)
         vec3 pv = (MODELVIEW_MATRIX * vec4(p, 1.0)).xyz;
         vec3 tv = (MODELVIEW_MATRIX * vec4(p + tng * 0.05, 1.0)).xyz - pv;
         vec3 across = cross(length(tv) > 1e-6 ? normalize(tv) : vec3(0.0, 1.0, 0.0), normalize(pv));
         across = length(across) > 1e-5 ? normalize(across) : vec3(1.0, 0.0, 0.0);
-        float w = size * {{F(ClassicBloodRules.RibbonHalfWidth)}} * (0.8 + 0.5 * h3) * mix(1.0, 0.6, min(dn, 1.0)) * (1.0 + hold);
+        float w = size * {{F(ClassicBloodRules.RibbonHalfWidth)}} * (0.8 + 0.5 * h3) * (1.0 - {{F(ClassicBloodRules.RibbonStaggerWidth)}} * c2) * mix(1.0, 0.6, min(dn, 1.0)) * (1.0 + grow * hold);
         // no folds (repair of review 5, finding 2): a camera-facing strip wider than its curve's radius folds over itself on a bend and shows stepped polygon edges, so the half width
         // stays under {{F(ClassicBloodRules.RibbonFoldShare)}} of the local radius; and a band seen along its length (its tangent toward the camera) narrows, as a real ribbon would
         vec3 ta = curve(se + 0.11) - curve(se + 0.05), tb = curve(se - 0.05) - curve(se - 0.11);
@@ -102,7 +111,7 @@ void vertex() {
         w *= mix({{F(ClassicBloodRules.RibbonEndOnWidth)}}, 1.0, smoothstep(0.15, 0.6, side_on));
         pv += across * (UV.y * 2.0 - 1.0) * w;
         v_dn = dn; v_s = s; v_w = w;
-        v_end = s >= 0.0 ? s / max(fwd, 1e-3) : -s / max(back, 1e-3);   // 0 at the contact, 1 at this band's own ends
+        v_end = sl >= 0.0 ? sl / max(fwd, 1e-3) : -sl / max(back, 1e-3);   // 0 at this band's own middle, 1 at its own ends
         POSITION = PROJECTION_MATRIX * vec4(pv, 1.0);
     }
 }
@@ -127,8 +136,8 @@ void fragment() {
               * (1.0 - smoothstep({{F(ClassicBloodRules.RibbonSeconds - 0.15f)}}, {{F(ClassicBloodRules.RibbonSeconds)}}, age));
     // ERODED, not faded (repair of review 5, finding 1: a fading translucent band let light floors show through as pink): a texel is blood (opacity about {{F(ClassicBloodRules.RibbonOpacity)}}) while its
     // mottled score stays above a threshold the envelope lowers (ClassicBloodRules.RibbonScore and RibbonThreshold), else clear; the bands break into shrinking patches and specks from
-    // the edges inward and vanish, the covered area following the envelope (repair 3: RibbonCoverage, tested). Only a pixel-wide anti-aliased rim is in between, and the strip pass
-    // makes even that a darker red.
+    // the edges inward and vanish, the covered area following the envelope (repair 3: RibbonCoverage, tested). Only a pixel-wide anti-aliased rim is in between, where the strip feathers with it:
+    // the ground and the blood blended, no darker contour (repair 4, finding N3).
     float score = prof * taper * mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));
     float thr = 1.0 - {{F(1f - ClassicBloodRules.RibbonErodeFloor)}} * pow(max(env, 0.0), {{F(ClassicBloodRules.RibbonErodeCurve)}});
     float cov = clamp((score - thr) / max(1.5 * fwidth(score), 1e-4) + 0.5, 0.0, 1.0);
@@ -146,12 +155,12 @@ void fragment() {
 
     /// <summary>
     /// The strip pass, drawn first (blend_mul): what lies under the blood keeps <see cref="ClassicBloodRules.RibbonStripRed"/> of its red and loses all its green and blue, so a thinner
-    /// patch or an anti-aliased edge over light blue armour, a bright red surface or a power weapon's flash reads as darker red, never pink, orange or white (owner 2026-11-24, series 37
-    /// answer 4 "Blood only"; repair 3, finding 3). Full strength wherever the band covers the pixel at all (<see cref="ClassicBloodRules.RibbonStrip"/>; the eroded bands are near-binary,
-    /// so this edge is the patch's own edge); where the band is clear it multiplies by 1 and changes nothing.
+    /// patch of the mottle over light blue armour, a bright red surface or a power weapon's flash reads as darker red, never pink, orange or white (owner 2026-11-24, series 37
+    /// answer 4 "Blood only"; repair 3, finding 3). Full strength wherever the patch covers the pixel, feathered over the patch's own anti-aliased rim (<see cref="ClassicBloodRules.RibbonStrip"/>;
+    /// repair 4, finding N3: a full strip under the rim's faint blood drew a dark contour); where the band is clear it multiplies by 1 and changes nothing.
     /// </summary>
     static readonly string StripOut = $$"""
-    float strip = a > {{F(ClassicBloodRules.RibbonStripFrom)}} ? 1.0 : 0.0;
+    float strip = cov * cov * cov;   // feathered with the patch's own anti-aliased edge (ClassicBloodRules.RibbonStrip; repair 4, finding N3: full from 1/255 it drew a dark contour)
     ALBEDO = mix(vec3(1.0), vec3({{F(ClassicBloodRules.RibbonStripRed)}}, 0.0, 0.0), strip);   // darken the red under the band, take out all its green and blue: only the blood's own green and blue remain
     ALPHA = 1.0;
 """;
@@ -162,7 +171,7 @@ void fragment() {
 
     static ArrayMesh? _mesh;
     static Shader? _shader, _stripShader;
-    static readonly StringName PAge = "age", PCtrl = "ctrl", PBack = "len_back", PFwd = "len_fwd", PCount = "count", PBundle = "bundle", PSize = "size", PSeed = "seed", PTint = "tint", POpacity = "opacity";
+    static readonly StringName PAge = "age", PCtrl = "ctrl", PBack = "len_back", PFwd = "len_fwd", PCount = "count", PBundle = "bundle", PSize = "size", PSeed = "seed", PGrow = "grow", PTint = "tint", POpacity = "opacity";
 
     sealed class Spray
     {
@@ -283,10 +292,12 @@ void fragment() {
         s.Set(PCtrl, _ctrl);
         s.Set(PBack, back);
         s.Set(PFwd, fwd);
-        int count = ClassicBloodRules.RibbonCount(amount);
+        int count = ClassicBloodRules.RibbonBands(kind, spread, amount);   // the spread drives the stack (repair 4, finding N1)
         float size = ClassicBloodRules.RibbonWidthScale(amount);
+        float bundle = ClassicBloodRules.RibbonBundleFor(count, spread, size);
         s.Set(PCount, (float)count);
-        s.Set(PBundle, ClassicBloodRules.RibbonBundleFor(count, spread, size));
+        s.Set(PBundle, bundle);
+        s.Set(PGrow, ClassicBloodRules.RibbonGrow(count, bundle, size, fwd, back));
         s.Set(PSize, size);
         s.Set(PSeed, (float)((_events++ * 0.137) % 1.0));
         s.Set(PTint, new Color(ClassicBloodRules.BloodRgb.R, ClassicBloodRules.BloodRgb.G, ClassicBloodRules.BloodRgb.B));   // = ClassicHitSpray.BloodTint; blood only (tested)

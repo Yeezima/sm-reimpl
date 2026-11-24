@@ -31,6 +31,25 @@ public static class PowerFlashRules
     public const float FlashOpacity = 0.4f;
 
     /// <summary>
+    /// The size every burst plays at, as a share of its earlier one (the data's hit effect, its secondary and our cloud, with their lights' reach, which follow the effect's scale on
+    /// the CPU path and on Musou Mode's GPU spray path alike). The owner, 2026-11-25 (series 37, typed in the lead chat): "That blue flash should be reduced in size for all game modes by
+    /// 50%." Ours: 1 before; <c>--old-power-flash-strength</c> restores it.
+    /// </summary>
+    public const float FlashSize = 0.5f;
+
+    /// <summary>
+    /// Whether a power weapon's hit shows the blue (the maul's purple) flash at all: only the thunder hammer and the daemon maul (the owner, 2026-11-25: "Only the thunder hammer and daemon
+    /// maul should have that blue flash. The rest of the weapons should have no on hit blue flash at all."); the power sword and the power axe none, the sword's contact flare included.
+    /// <paramref name="old"/> (<c>--old-power-flash-strength</c>): every power weapon, as before.
+    /// </summary>
+    public static bool Flashes(PowerKind k, bool old) => old || k is PowerKind.Hammer or PowerKind.Maul;
+
+    /// <summary>Whether a power sword's hit plays its blue contact flare (<c>PowerBlade.FlareName</c>) and the blade's hit flare: no since the owner's 2026-11-25 instruction (no on-hit blue flash but the hammer's and the maul's); <paramref name="old"/> (<c>--old-power-flash-strength</c>): yes. The blade's swing glow is unchanged.</summary>
+    public static bool SwordContactFlare(bool old) => Flashes(PowerKind.Sword, old);
+
+    /// <summary>The burst's size share (<see cref="FlashSize"/>, or 1 with <paramref name="old"/>) and its strength (<see cref="FlashOpacity"/>, or 1).</summary>
+    public static (float Size, float Opacity) Look(bool old) => old ? (1f, 1f) : (FlashSize, FlashOpacity);
+    /// <summary>
     /// A sprite's or light's colour at strength <paramref name="o"/>, applied once (<c>FxEffect.OpacityOnce</c>, used by the hit flash): a sprite keeps its colour and takes
     /// <paramref name="o"/> of its alpha (an additive sprite adds colour x alpha, a blended one covers by alpha: both end at exactly <paramref name="o"/>); a light takes it on its colour.
     /// </summary>

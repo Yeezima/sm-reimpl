@@ -195,6 +195,40 @@ public class PowerFlashRulesTests
         Assert.Contains("if (e.OpacityOnce) {", Src("FxPlayer.cs"));   // the CPU path's ShadeOnce
     }
 
+    [Theory]
+    [InlineData(PowerKind.Hammer, true)]
+    [InlineData(PowerKind.Maul, true)]
+    [InlineData(PowerKind.Sword, false)]
+    [InlineData(PowerKind.Axe, false)]
+    public void Only_the_thunder_hammer_and_the_daemon_maul_flash_and_the_restore_switch_brings_every_weapon_back(PowerKind kind, bool flashes)
+    {
+        // the owner, 2026-11-25: "Only the thunder hammer and daemon maul should have that blue flash. The rest of the weapons should have no on hit blue flash at all."
+        Assert.Equal(flashes, PowerFlashRules.Flashes(kind, old: false));
+        Assert.True(PowerFlashRules.Flashes(kind, old: true));   // --old-power-flash-strength: every power weapon, as before
+        // every power wargear file maps to its weapon, so the table above is the whole rule
+        Assert.All(Enum.GetValues<PowerKind>(), k => Assert.True(PowerFlashRules.Flashes(k, false) == (k is PowerKind.Hammer or PowerKind.Maul)));
+    }
+
+    [Fact]
+    public void The_flash_plays_at_half_its_size_on_both_paths_and_the_sword_s_contact_flare_is_gone()
+    {
+        // the owner, 2026-11-25: "That blue flash should be reduced in size for all game modes by 50%." 40 % strength kept (2026-11-24)
+        Assert.Equal(0.5f, PowerFlashRules.FlashSize);
+        Assert.Equal((0.5f, 0.4f), PowerFlashRules.Look(old: false));
+        Assert.Equal((1f, 1f), PowerFlashRules.Look(old: true));
+        var flash = Src("NetworkView.PowerFlash.cs");
+        Assert.Contains("if (!PowerFlashRules.Flashes(kind, OldPowerFlashStrength)) return;", flash);
+        Assert.Contains("float scale = look.Size * PowerFlashRules.Scale(kind)", flash);   // the one scale all three effects are played at (main, secondary, cloud)
+        Assert.Contains("float opacity = look.Opacity;", flash);
+        // the effect's scale sizes its sprites and its lights' reach on the CPU path, and goes into every GPU spray record (Musou Mode, Warfront)
+        Assert.Contains("float range = MathF.Min(At(n.AttenEnd, t, 4f) * c.S, e.LightCap);", Src("FxPlayer.cs"));
+        Assert.Contains("v[3] = c.S;", Src("Extras", "Musou", "FxPlayer.MusouGpu.cs"));
+        // the power sword's contact flare and the blade's hit flare: only with the restore switch
+        Assert.False(PowerFlashRules.SwordContactFlare(old: false));
+        Assert.True(PowerFlashRules.SwordContactFlare(old: true));
+        Assert.Contains("if (PowerBlade.IsPowerSword(wargear) && ImpactRules.PowerFlashRules.SwordContactFlare(OldPowerFlashStrength))", Src("NetworkView.MeleeFx.cs"));
+    }
+
     [Fact]
     public void A_swing_gets_one_big_burst_then_five_small_then_none_and_the_next_swing_starts_again()
     {

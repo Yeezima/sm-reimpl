@@ -14,7 +14,9 @@ namespace SmClient;
 /// (<c>csm_mp_melee_2hand_power_mace</c>), in classic PvP and in Musou Mode. **Original assets**: the hammer's own hit effects <c>thunderhammer_dmg_body</c> and
 /// <c>thunderhammer_dmg_body_secondary</c> (flash, soft balls, glitter, arcs), played at the contact point. **Ours (provisional approximation)**: the layered cloud of
 /// <see cref="PowerFlash.Build"/>, the per-weapon scale, the purple, the cap on a swing's bursts. Sound: the weapon's own hit event (existing) plus the hammer's blast events.
-/// Since 2026-11-24 (owner, series 37) every burst plays at <see cref="PowerFlashRules.FlashOpacity"/> of its earlier strength in every mode; <c>--old-power-flash-strength</c> restores it.
+/// Since 2026-11-24 (owner, series 37) every burst plays at <see cref="PowerFlashRules.FlashOpacity"/> of its earlier strength in every mode, and since 2026-11-25 at
+/// <see cref="PowerFlashRules.FlashSize"/> of its size, for the thunder hammer and the daemon maul only (<see cref="PowerFlashRules.Flashes"/>: the sword and the axe show none);
+/// <c>--old-power-flash-strength</c> restores all three (full size and strength, every power weapon).
 /// Test aids: <c>--no-power-flash</c> (before / after), <c>--power-flash-demo sword|axe|hammer|maul</c> (a comma list takes them in turn; <c>--power-flash-at x,y,z</c>), <c>--log-power-flash</c>.
 /// </summary>
 public partial class NetworkView
@@ -22,7 +24,7 @@ public partial class NetworkView
     bool NoPowerFlash => _noPowerFlash ??= CmdFlag("no-power-flash");
     bool? _noPowerFlash;
     readonly PowerFlashRules.Budget _powerSwing = new();
-    /// <summary>Restore switch <c>--old-power-flash-strength</c>: the power weapons' hit flash at its full strength (before the owner's 2026-11-24 change to <see cref="PowerFlashRules.FlashOpacity"/>).</summary>
+    /// <summary>Restore switch <c>--old-power-flash-strength</c>: the power weapons' hit flash at its full strength and size on every power weapon (before the owner's 2026-11-24 change to <see cref="PowerFlashRules.FlashOpacity"/> and his 2026-11-25 one to half the size, hammer and maul only).</summary>
     bool OldPowerFlashStrength => _oldPowerFlashStrength ??= CmdFlag("old-power-flash-strength");
     bool? _oldPowerFlashStrength;
     int _powerFlashes, _powerFlashSmall;
@@ -31,13 +33,15 @@ public partial class NetworkView
     internal void PowerHit(int attackerId, string? wargear, Vector3 contact, Vector3 outward, string source, bool slam = false)
     {
         if (NoPowerFlash || _fx is null || PowerFlashRules.KindOf(wargear) is not { } kind) return;
+        if (!PowerFlashRules.Flashes(kind, OldPowerFlashStrength)) return;   // the owner, 2026-11-25: only the thunder hammer and the daemon maul flash
         var burst = _powerSwing.Take(attackerId, _connectedFor);
         if (burst == PowerBurst.None) return;
         bool lead = burst == PowerBurst.Lead;
         var axes = AxesFromY(outward.LengthSquared() > 1e-6f ? outward.Normalized() : Vector3.Up);
         // fx/power-flash (owner, 2026-11-01): a camera close to the burst sees a smaller one, so the screen is never whited out.
         float dist = _camera is null ? float.PositiveInfinity : _camera.GlobalPosition.DistanceTo(contact);
-        float scale = PowerFlashRules.Scale(kind) * (lead ? 1f : PowerFlashRules.SmallScale) * PowerFlashRules.CloseFactor(dist) * SmClient.Customizer.Model.LiveOptions.ScreenFlashes;   // the Options menu's screen flashes (1 = as before)
+        var look = PowerFlashRules.Look(OldPowerFlashStrength);
+        float scale = look.Size * PowerFlashRules.Scale(kind) * (lead ? 1f : PowerFlashRules.SmallScale) * PowerFlashRules.CloseFactor(dist) * SmClient.Customizer.Model.LiveOptions.ScreenFlashes;   // the Options menu's screen flashes (1 = as before)
         if (scale <= 0f) return;
         var tint = PowerFlash.Tint(kind);
         int started = 0;
@@ -45,7 +49,8 @@ public partial class NetworkView
         // Owner 2026-11-24 (series 37, answers 2 and 3): every burst at FlashOpacity of its old strength, everywhere (Classic, Musou, Warfront): the effect's opacity scales every sprite's colour
         // alpha once (OpacityOnce: additive sprites 40 % as bright, blended ones 40 % as opaque, not 16 %) and its light's colour, so the target shows through; size, shape and timing unchanged.
         // A slam's own data blast (its shockwave) is not part of the hit flash and keeps its strength.
-        float opacity = OldPowerFlashStrength ? 1f : PowerFlashRules.FlashOpacity;
+        // Owner 2026-11-25: at FlashSize (half) of its earlier size in every mode (the scale above: sprites, the cloud and the lights' reach, CPU and GPU paths alike).
+        float opacity = look.Opacity;
         if (!slam && _fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } main) { main.Opacity = opacity; main.OpacityOnce = true; started++; }
         if (!slam && lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } second) { second.Opacity = opacity; second.OpacityOnce = true; started++; }
         if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost * (slam ? PowerFlashRules.SlamCloud : 1f), null, null, 0f, 0.0, false, 3, false, tint) is { } cloud) { cloud.Opacity = opacity; cloud.OpacityOnce = true; started++; }
