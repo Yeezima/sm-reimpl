@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4092 spec table rows: **3021 tagged**, 704 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
+| Movement (critical) | 423 | 364 | 361 | 117 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,7 +53,7 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3021** | 2713 | 2218 | 915 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,9 +61,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1827 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
-| notes: ours | 475 |
-| kind: interpretation | 456 |
+| confidence: medium | 1039 |
+| notes: ours | 477 |
+| kind: interpretation | 458 |
 | notes: estimate | 306 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (421)
+### Movement (gameplay-critical) (423)
 
 *Spec section: Extracted parameters*
 
@@ -118,7 +118,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B97D37F4` | Vent goes on unless something else is done | Sprint and aim mode do **not** stop it (owner's playtest 2026-11-06: "Plasma gun cannot vent heat ... while aiming down sight. You should be able to perform this action by holding r while sprinting and while aiming down sights"; sim/vent-aim-sprint; the… | kind: estimate; confidence: medium | owner 2026-11-06 (playtest); owner 2026-10-28; `SM_Base_MP` (contradicted for Sprint) | Vent goes on unless something else is done: compare with SM1 by feel or video. Ours: Sprint and aim mode do not stop it (owner's playtest 2026-11-06:… | ☐ |
 | `R-014BB5A2` | Overheated while aiming or sprinting | an overheated plasma player who holds Aim or sprints vents by himself like one standing still (owner 2026-11-06; replaces the earlier consequence that he waited for the passive cooling) (s) | kind: estimate; confidence: medium | owner 2026-11-06 | Overheated while aiming or sprinting: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an overheated plasma player who holds Aim or sprints vents by himself… | ☐ |
 | `R-4B3D1BC0` | Plasma cannon overheat slow | the carrier's `speed_maximum` × 0.5 for 1.5 s from the overheat (the only MP weapon whose overheat applies modifiers); counted from the overheating heat gain (nothing adds heat while overheated) (multiplier, s) | kind: interpretation; confidence: medium | wargear `heat_info/actions/overheat` `apply_modifiers` | Plasma cannon overheat slow: compare with SM1 by feel or video. Ours: the carrier's speed_maximum × 0.5 for 1.5 s from the overheat (the… | ☐ |
-| `R-311D1ED9` | Client: brace poses | entry clip at the speed that brings its branch to the simulation's time; braced idle `SM_RNG_TB_BraceIdle_aimUp` / `BraceIdle` / `_aimDown` by pitch (±80°) with the additive `SM_RNG_TB_Brace_Fire` after each shot; exit clip over the locomotion with the… | kind: interpretation; confidence: medium | `MP_SM_HB_Brace`, `SM_Base_MP` (horizontal aim blends and turn clips not used) | Client: brace poses: compare with SM1 by feel or video. Ours: entry clip at the speed that brings its branch to the simulation's… | ☐ |
+| `R-311D1ED9` | Client: brace poses | entry clip at the speed that brings its branch to the simulation's time; braced idle `SM_RNG_TB_BraceIdle_aimUp` / `BraceIdle` / `_aimDown` by pitch (±80°) with the additive `SM_RNG_TB_Brace_Fire` after each shot; exit clip over the locomotion with the… | kind: interpretation; confidence: medium | `MP_SM_HB_Brace`, `SM_Base_MP` (since install transitions batch 3 the horizontal aim blends and the turn clips are used: "Install transitions, pass 2 batch 3"… | Client: brace poses: compare with SM1 by feel or video. Ours: entry clip at the speed that brings its branch to the simulation's… | ☐ |
 | `R-BDAEAC29` | Client: vent poses | low and high heat: the looping `SM_RNG_Idle_Vent_Heat_Low` / `_High` over the upper body (the exit's leg mask); overheat: the additive `SM_RNG_OverHeat_Vent_02` once; others' heat is not on the wire, so they show the low-heat stage | kind: interpretation; confidence: low | `SM_Plasma_Vent` | Client: vent poses: compare with SM1 by feel or video. Ours: low and high heat: the looping SM_RNG_Idle_Vent_Heat_Low / _High over… | ☐ |
 | `R-7F11917E` | Client: sounds and effects | `play_hb_brace_enter` / `_exit` at the clips' `ACTN_SND_HB_Brace_*` tags (0.5556, 0.2927); a braced shot plays `play_sm_heavy_bolter_fire` (primary: `_fire_single`); each vent stage's `play_sm_plasma_venting_lowheat` / `_highheat` / `_overheat` at the stage's… | kind: ours; confidence: medium | wargear `vent_stages`, `triggered_actions` | Client: sounds and effects: compare with SM1 by feel or video. Ours: play_hb_brace_enter / _exit at the clips' ACTN_SND_HB_Brace_* tags… | ☐ |
 | `R-8C226230` | Client: HUD | VENTING (OVERHEATED - VENTING), BRACING / BRACED / UNBRACING in the weapon box; the heat bar pales with a slow pulse while venting; at high heat the weapon's Reload text ("R TO VENT HEAT") | kind: ours; confidence: low | locale (text); ours (placement, colour) | Client: HUD: compare with SM1 by feel or video. Ours: VENTING (OVERHEATED - VENTING), BRACING / BRACED / UNBRACING in the… | ☐ |
@@ -621,6 +621,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-3F0980AA` | Which weapon is "in hand" for the fall | The graphs choose on `BOOL_Thunderhammer` / `BOOL_Chainsword` (a flag of the equipped melee weapon). Ours: the marine's melee wargear: the thunder hammer and the daemon maul (and Musou's spear through its animation alias) fall as the hammer, the chainsword as… | kind: interpretation; confidence: medium; notes: ours | ours (the flag stands for the wargear) | Which weapon is "in hand" for the fall: compare with SM1 by timing a run over a known distance. Ours: The graphs choose on BOOL_Thunderhammer / BOOL_Chainsword (a flag of… | ☐ |
+
+*Spec section: Install transitions, pass 2 batch 3: the braced heavy bolter's turn (2026-11-25; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C70A9C73` | When the brace posture applies | Braced only (`BracePhase.Braced`), aim mode included (the brace graph's idle runs under its aim mode); the entry and the exit keep their whole-body and leg clips with the earlier body rules; a turn of the other posture under way when the stance changes ends… | kind: interpretation; confidence: medium; notes: ours | ours (the graph's turn states sit only in the braced idle) | When the brace posture applies: compare with SM1 by feel or video. Ours: Braced only (BracePhase.Braced), aim mode included (the brace graph's… | ☐ |
+| `R-8FBA6879` | Drawn body and hit volumes | The drawn legs lag the aim by up to 60 (left) / 77 (right) degrees before a turn starts and by up to 135 during a fast flick; the chest and weapon follow the aim through the grid and the spine twist; the simulation's hit volumes turn with the view's yaw, so a… (degrees) | kind: interpretation; confidence: medium; notes: ours | ours | Drawn body and hit volumes: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: The drawn legs lag the aim by up to 60 (left) / 77 (right) degrees… | ☐ |
 
 *Spec section: The hammer's swings and air slash (anim/hammer-swing; the step is simulated, the legs and the air slash clip are client presentation)*
 
@@ -5639,6 +5646,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-582D240F` | Storm bolter's second round (sim/stormbolter-ammo; protocol 51 batch) | Each 0.1 s shot spends its 2 rounds (the data's `ammo_used` 1 + a `fire_sim` `consume_ammo` 1) at once, so the clip and the HUD count drop 2 per shot; the last round of an odd clip still fires | The data spend the second round 0.05 s after the shot (the HUD would step 1 every 0.05 s); the clip's 50 shots and 5 s on full auto are the data's either way | Multiplayer weapons, row "Second round's delay" | Storm bolter's second round (sim/stormbolter-ammo; protocol…: compare with SM1 by feel or video. Ours: Each 0.1 s shot spends its 2 rounds (the data's ammo_used 1 + a… | ☐ |
 | `C-240B6F79` | Weapon heat | The plasma gun locks about 26 s after an overheat when it does not vent (the cool rate's unit is assumed per second); since fidelity gap 7 an overheat vents by itself (about 2.1 s with the data's 45 heat/s, kept by the owner's decision; his 6 s recollection is to check in a later playtest) | The rate's unit | Heat (M11) | Weapon heat: compare with SM1 by feel or video. Ours: The plasma gun locks about 26 s after an overheat when it does not… | ☐ |
 | `C-5DA9BCE1` | Brace (fidelity gap 7) | From the owner's recollection (2026-10-28, estimates to review): braced, no walking, turning on the spot only; the entry cannot be cancelled; once braced, fire or Reload to leave; no reaction knocks a player out of the brace. Ours: the transitions are immune to reactions too; exiting the player walks and a Jump that… | The owner's recollection against a playtest; the early-exit window's use; the turn-in-place clips | Brace and vent | Brace (fidelity gap 7): compare with SM1 by feel or video. Ours: From the owner's recollection (2026-10-28, estimates to review):… | ☐ |
+| `C-C88D05F7` | Braced turn (install transitions batch 3, 2026-11-25; client only) | The brace graph's idle grid and turn clips are played (faithful); ours: the graph's damped aim angle is the undamped aim-to-body angle, the turn clips' root translation (up to 0.44 m) is not applied (the simulation holds the braced position), the brace posture applies only while braced (not in the entry or exit… | Whether the original damps the angle in a way that changes the turn timing; whether its root translation moves the braced marine | "Install transitions, pass 2 batch 3" | Braced turn (install transitions batch 3, 2026-11-25…: compare with SM1 by feel or video. Ours: The brace graph's idle grid and turn clips are played (faithful)… | ☐ |
 | `C-6E8CD791` | Braced accuracy (fidelity gap 7) | Braced fire shoots as accurately as unbraced fire: no scatter is simulated (M27); the owner remembers braced fire being more accurate. The wargear's `_braced` scatter sets will give it once spread lands | The braced scatter sets (to read with spread) | Brace and vent | Braced accuracy (fidelity gap 7): compare with SM1 by feel or video. Ours: Braced fire shoots as accurately as unbraced fire: no scatter is… | ☐ |
 | `C-2CD0F672` | Planting the feet (fidelity gap 7) | The press tick of a brace stops the body at once (the entry clip has no root motion), so a sprint does not slide into the stance | How the original stops the body | Brace and vent | Planting the feet (fidelity gap 7): compare with SM1 by feel or video. Ours: The press tick of a brace stops the body at once (the entry clip has… | ☐ |
 | `C-1EEE187C` | Overheated while aiming (fidelity gap 7) | Following the owner's rule (everything but walking stops venting), an overheated plasma player who holds Aim or sprints does not vent and waits about 26 s for the passive cooling | Whether the original vented while aiming (playtest) | Brace and vent | Overheated while aiming (fidelity gap 7): compare with SM1 by feel or video. Ours: Following the owner's rule (everything but walking stops venting), an… | ☐ |

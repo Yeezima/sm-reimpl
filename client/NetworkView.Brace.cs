@@ -17,8 +17,9 @@ namespace SmClient;
 /// <item><b>Brace poses</b> (data: <c>smtool graph-dump --brace</c>): entering, the entry clip (<c>SM_RNG_TB_Idle_to_BraceIdle</c>) at the playback speed
 /// that brings its <c>BRANCH_Idle_to_Brace</c> to the simulation's entry time; braced, the braced idle by the aim's pitch (the brace graph's "Aim Frwd
 /// Blend": up, forward, down at +80°, 0°, −80°) with the additive braced recoil (<c>SM_RNG_TB_Brace_Fire</c>) after each shot; exiting, the exit clip over
-/// the locomotion with the graph's leg mask (the exit blends the locomotion graph on the legs and the root). The horizontal aim blends and the turn
-/// clips are not used (the body turns with the aim as elsewhere; interpretation).</item>
+/// the locomotion with the graph's leg mask (the exit blends the locomotion graph on the legs and the root). Install transitions batch 3: braced, the body is
+/// planted and the idle is the graph's 3 x 3 grid by the aim against the body (left -60, ahead, right +77) and the pitch; past -60 / +77 degrees
+/// <c>SM_RNG_TB_Brace_TurnLeft</c> / <c>_Right</c> play on the legs and turn the body (<c>NetworkView.TurnInPlace.cs</c>; <c>--no-brace-turn</c> restores the pitch-only idle).</item>
 /// <item><b>Brace sounds</b>: the wargear's <c>actn_snd_hb_brace_enter</c> / <c>_exit</c> (<c>play_hb_brace_enter</c>, <c>_exit</c>) at the clips'
 /// <c>ACTN_SND_HB_Brace_*</c> tags; a braced shot posts the braced ability's fire sound (<c>play_sm_heavy_bolter_fire</c>) instead of the primary's
 /// (<see cref="BracedFireSounds"/>).</item>
@@ -60,6 +61,8 @@ public partial class NetworkView
         public VentStage Stage;
         public double StageSince, NextFx;
         public string? StopEvent;
+        /// <summary>Install transitions batch 3: the body stood in the brace's turn posture last frame (a change drops the other posture's turn under way).</summary>
+        public bool TurnBraced;
     }
 
     BraceTrack BraceOf(int id)
@@ -165,8 +168,12 @@ public partial class NetworkView
                 return character.Pose(b.EnterClip, elapsed * b.EnterRate(spec.EnterTime), BraceBlend);
             case BracePhase.Braced:
                 if (b.Idle is not { } idle) return false;
-                float pitchT = Math.Clamp(state.Pitch * (180f / MathF.PI) / 80f, -1f, 1f);   // the blend's points are ±80°
-                if (!character.Stance("brace idle", idle.Down, idle.Forward, idle.Up, pitchT, 1f, BraceBlend)) return false;
+                // Install transitions batch 3 (NetworkView.TurnInPlace.cs): the graph's idle by the aim against the planted body and the pitch, the turn clips on the legs past -60 / +77 degrees.
+                if (!BraceStandPlace(character, state, BraceBlend))
+                {
+                    float pitchT = Math.Clamp(state.Pitch * (180f / MathF.PI) / 80f, -1f, 1f);   // the blend's points are ±80°
+                    if (!character.Stance("brace idle", idle.Down, idle.Forward, idle.Up, pitchT, 1f, BraceBlend)) return false;
+                }
                 double since = _connectedFor - HipOf(state.PlayerId).RecoilAt;
                 if (b.FireClip is { } fire && _assets?.Animation(fire) is { } recoil && since >= 0.0 && since < recoil.Animation.Duration)
                     character.SetPoseLayer(fire, (float)since, RecoilWeight(state), additive: true);

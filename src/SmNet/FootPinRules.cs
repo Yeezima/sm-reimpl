@@ -30,6 +30,18 @@ public static class FootPinRules
         if (proceduralTwist) return capped;
         return capped - System.Math.Clamp(capped, -rangeRadians, rangeRadians);
     }
+
+    /// <summary>
+    /// As <see cref="SpineTwist(float, bool, float, float)"/> for an idle whose clips reach a different angle each way (install transitions batch 3: the brace's grid, left at 60 degrees,
+    /// right at 77): <paramref name="leftRadians"/> for an aim to the left of the body (positive twist), <paramref name="rightRadians"/> to the right.
+    /// </summary>
+    public static float SpineTwist(float twist, bool proceduralTwist, float leftRadians, float rightRadians, float capRadians)
+    {
+        if (!float.IsFinite(twist)) return 0f;
+        float capped = System.Math.Clamp(twist, -capRadians, capRadians);
+        if (proceduralTwist) return capped;
+        return capped - System.Math.Clamp(capped, -rightRadians, leftRadians);
+    }
 }
 
 /// <summary>What an armed or playing run start does this frame.</summary>

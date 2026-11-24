@@ -73,7 +73,15 @@ public sealed class BodyYaw
     /// follows). <paramref name="blend"/>: the turn layer's fade in and out, seconds. <paramref name="maxTwist"/> and <paramref name="followRate"/> as in the class
     /// comment. A frame longer than <see cref="MaxFrameSeconds"/> or an aim that is not finite snaps the body to the aim.
     /// </summary>
-    public void Step(float aimYaw, float dt, bool canTwist, float enterTwist, TurnProfile? left, TurnProfile? right, float blend, float maxTwist, float followRate)
+    public void Step(float aimYaw, float dt, bool canTwist, float enterTwist, TurnProfile? left, TurnProfile? right, float blend, float maxTwist, float followRate) =>
+        Step(aimYaw, dt, canTwist, enterTwist, enterTwist, left, right, blend, maxTwist, followRate);
+
+    /// <summary>
+    /// As <see cref="Step(float, float, bool, float, TurnProfile?, TurnProfile?, float, float, float)"/> with a threshold per side (install transitions batch 3: the braced heavy bolter's
+    /// graph turns left when the aim is <paramref name="enterLeft"/> (60 degrees) to the left of the body and right past <paramref name="enterRight"/> (77) to the right; at the turn's
+    /// end the same tests pick the next turn, either side, or the idle: the graph's <c>BRANCH_TurnComplete</c> edges).
+    /// </summary>
+    public void Step(float aimYaw, float dt, bool canTwist, float enterLeft, float enterRight, TurnProfile? left, TurnProfile? right, float blend, float maxTwist, float followRate)
     {
         if (!float.IsFinite(aimYaw)) return;
         if (!Valid || dt > MaxFrameSeconds) { Snap(aimYaw); return; }
@@ -88,7 +96,7 @@ public sealed class BodyYaw
             return;
         }
         float turned = 0f;
-        if (Side == TurnSide.None && MathF.Abs(twist) > enterTwist) StartTurn(twist > 0f ? TurnSide.Left : TurnSide.Right);
+        if (Side == TurnSide.None && Beyond(twist, enterLeft, enterRight) is { } side) StartTurn(side);
         if (Side != TurnSide.None)
         {
             var profile = Side == TurnSide.Left ? left : right;
@@ -103,7 +111,7 @@ public sealed class BodyYaw
                 Side = TurnSide.None;
                 // The aim may still be beyond the threshold: the next turn starts at once (the graph's BRANCH_Turn_End to the same turn state).
                 twist = Twist(aimYaw);
-                if (MathF.Abs(twist) > enterTwist) { StartTurn(twist > 0f ? TurnSide.Left : TurnSide.Right); }
+                if (Beyond(twist, enterLeft, enterRight) is { } next) StartTurn(next);
             }
         }
         // A view that outruns the turn drags the body: the twist is never more than maxTwist.
@@ -118,6 +126,13 @@ public sealed class BodyYaw
 
     /// <summary>No frame longer than this is stepped through (a stall: the body snaps to the aim instead of turning for a second).</summary>
     public const float MaxFrameSeconds = 0.5f;
+
+    /// <summary>The turn an aim <paramref name="twist"/> radians off the body calls for (positive: the aim to the left), or null inside both thresholds.</summary>
+    public static TurnSide? Beyond(float twist, float enterLeft, float enterRight) =>
+        twist > 0f && twist > enterLeft ? TurnSide.Left : twist < 0f && -twist > enterRight ? TurnSide.Right : null;
+
+    /// <summary>Ends a turn under way where the body is (the posture changed: its clip no longer applies); the layer fades out.</summary>
+    public void DropTurn() => Side = TurnSide.None;
 
     void StartTurn(TurnSide side)
     {
