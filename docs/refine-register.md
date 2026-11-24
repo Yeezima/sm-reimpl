@@ -626,7 +626,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-97655FBB` | Who dashes as the hammer | the thunder hammer and the daemon maul (no Chaos graph exists: the install's 46 graphs are the marine rig's, the maul plays the hammer's), and Musou's spear through its animation alias. The stance is read on the player's last frame that was neither evading… | kind: interpretation; confidence: medium; notes: ours | graph (the hammer graph is the active melee state) + ours (the latch) | Who dashes as the hammer: compare with SM1 by feel or video. Ours: the thunder hammer and the daemon maul (no Chaos graph exists: the… | ☐ |
+| `R-97655FBB` | Who dashes as the hammer | the thunder hammer and the daemon maul (no Chaos graph exists: the install's 46 graphs are the marine rig's, the maul plays the hammer's), and Musou's spear through its animation alias. The rule: the stance before the press. A ground tap's press tick starts… | kind: interpretation; confidence: medium; notes: ours | graph (the hammer graph is the active melee state) + ours (the latch) | Who dashes as the hammer: compare with SM1 by feel or video. Ours: the thunder hammer and the daemon maul (no Chaos graph exists: the… | ☐ |
 
 *Spec section: The hammer's swings and air slash (anim/hammer-swing; the step is simulated, the legs and the air slash clip are client presentation)*
 

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using SmSim;
 
 namespace SmContent;
 
@@ -49,21 +50,39 @@ public static class DashClipChoice
 }
 
 /// <summary>
-/// Which family a player's dash keeps (engine-free, tested). An evading tick and the take-off tick before it both lower the weapon in the simulation, so the stance is read on the
-/// player's last frame that was neither evading nor taking off (<see cref="Ground"/>: the hammer stance's aliased wargear, or null with the pistol up or another weapon), and latched when
-/// the dash is first posed (<see cref="During"/>). It is never
-/// re-read during the flight, at the landing (where the simulation restarts the evade's tick count) or across a chained dash; it clears when the evade ends (the next <see cref="Ground"/>)
-/// and when the player leaves (<see cref="Forget"/>).
+/// Which family a player's dash keeps (engine-free, tested). The rule: the stance before the press. The press tick of a ground tap starts the jump-pack take-off and lowers the weapon
+/// (<c>jump.Started</c>), and the evading ticks after it keep it down, so the stance is read on the player's last frame that was neither evading nor taking off (<see cref="Ground"/>: the
+/// hammer stance's aliased wargear, or null with the pistol up or another weapon), and latched when the dash is first posed (<see cref="During"/>). Which frames are take-off frames:
+/// the own player's full record carries <see cref="JumpPhase.TakeOff"/>; a remote or spectated player's slim record does not (any jumping phase reads as the ascent, and the weapon-up
+/// bit is already 0 on the press tick), so for those <see cref="SlimTakingOff"/> decides from the jump flag, the ground flag and the time since the take-off was first seen. A frame
+/// missed (a dropped snapshot, a slow frame) changes nothing: the stance stays the one last read. The latch is never re-read during the flight, at the landing (where the simulation
+/// restarts the evade's tick count) or across a chained dash (a quick re-press at the landing: its take-off frames are skipped, so the new dash latches the first dash's stance
+/// again); it clears when the evade ends (the next <see cref="Ground"/>) and when the player leaves (<see cref="Forget"/>).
 /// </summary>
 public sealed class DashFamilyLatch
 {
     readonly Dictionary<int, string?> _stance = new();
     readonly Dictionary<int, DashFamily> _latched = new();
+    readonly Dictionary<int, double> _takeOffSeen = new();
+
+    /// <summary>
+    /// A remote or spectated player's frame (slim record) is a take-off frame: jumping on the ground (<c>JumpPack.Jumping(s.Jump) &amp;&amp; s.Grounded</c>, as the jump view's and the
+    /// pack effects' remote take-off), or jumping off the ground within <paramref name="takeOffDelay"/> of the first such frame seen (a take-off that left the ground before its
+    /// release, which the own record still shows as the take-off; the lift-off is no earlier than that delay after the press, and no dash starts in the ascent, so flight frames
+    /// after the window are read as the own view reads them). <paramref name="now"/>: the viewer's clock in seconds.
+    /// </summary>
+    public bool SlimTakingOff(int playerId, bool jumping, bool grounded, double now, float takeOffDelay)
+    {
+        if (!jumping) { _takeOffSeen.Remove(playerId); return false; }
+        if (grounded) { _takeOffSeen.TryAdd(playerId, now); return true; }
+        return _takeOffSeen.TryGetValue(playerId, out var seen) && now - seen < takeOffDelay + 1e-4;
+    }
 
     /// <summary>
     /// A frame on which the player is not evading: drop any latch and remember its stance (<paramref name="hammerStanceAlias"/>), except on a jump-pack take-off frame
-    /// (<paramref name="takingOff"/>). The press tick of a ground tap starts the take-off and already lowers the weapon in the simulation (<c>jump.Started</c>; the dash itself
-    /// begins a tick later), so that frame would read the hammer stance whatever was up; the stance from before the press is kept instead.
+    /// (<paramref name="takingOff"/>: the own record's <see cref="JumpPhase.TakeOff"/>, else <see cref="SlimTakingOff"/>). The press tick of a ground tap starts the take-off and
+    /// already lowers the weapon in the simulation (<c>jump.Started</c>; the dash itself begins on the release tick), so those frames would read the hammer stance whatever was up;
+    /// the stance from before the press is kept instead.
     /// </summary>
     public void Ground(int playerId, string? hammerStanceAlias, bool takingOff = false)
     {
@@ -90,6 +109,7 @@ public sealed class DashFamilyLatch
     {
         _stance.Remove(playerId);
         _latched.Remove(playerId);
+        _takeOffSeen.Remove(playerId);
     }
 
     /// <summary>Whether a latch is held (tests).</summary>
