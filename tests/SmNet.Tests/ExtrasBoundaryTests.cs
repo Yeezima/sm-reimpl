@@ -71,6 +71,15 @@ public class ExtrasBoundaryTests
         ("src/SmSim/DamageScale.cs", "ExtrasExecutionDamage"),     // World.ExtrasExecutionDamage(int target, ref float scale), in DamageTakenScale after ExtrasDamageTaken (Warfront: the executor takes nothing during the move)
         ("src/SmSim/ReactionWorld.cs", "ExtrasReactionBlocked"),   // World.ExtrasReactionBlocked(int target, ref bool), in TryReact: a locked executor does not react
         ("src/SmSim/ContentExtras.cs", "ExtrasKeepsOvershield"),   // SimConfig.ExtrasKeepsOvershield(ref bool), read by SimConfig.KeepsOvershield (Combat.StepPlayer's armour regeneration: Warfront's overshield never decays)
+        // Executions X5a (2026-11-25): the client seams X5 and X6 fill (client/Extras/Executions/NetworkView.Executions.cs, Hud.ExecutionsHooks.cs), each a no-op without ContentExtras.Executions.
+        ("client/NetworkView.cs", "ExtrasExecutionPlace"),          // NetworkView.ExtrasExecutionPlace(CharacterViewer, PlayerState, bool, ref bool), after ExtrasPlace: a live executor plays its paired clip (X5)
+        ("client/NetworkView.cs", "ExtrasExecutionOrbitLook"),      // NetworkView.ExtrasExecutionOrbitLook(float, float, ref bool), the alive mouse look: a locked executor orbits its camera (X6)
+        ("client/NetworkView.cs", "ExtrasExecutionPadLook"),        // NetworkView.ExtrasExecutionPadLook(double, ref bool), before PadLook while alive: the right stick orbits instead (X6)
+        ("client/NetworkView.Spectate.cs", "ExtrasExecutionCamera"),   // NetworkView.ExtrasExecutionCamera(PlayerState, float, ref bool), in FollowCamera after DeathCamera: the own executor's orbit (X6)
+        ("client/NetworkView.Death.cs", "ExtrasDeathHold"),          // NetworkView.ExtrasDeathHold(int, CharacterViewer, PlayerState, bool, ref bool), in ProcessDeaths: Classic Extended holds a melee victim's death pose (X5)
+        ("client/NetworkView.Observer.cs", "ExtrasObserverFrame"),   // NetworkView.ExtrasObserverFrame(IReadOnlyList<PlayerState>, double), in ObserverFrame before ProcessDeaths: an observer draws executions (X5)
+        ("client/Hud/Hud.Vitals.cs", "ExtrasArmourTint"),            // Hud.ExtrasArmourTint(ref Color), the armour bar's modulate: Warfront's overshield blue (X6)
+        ("client/Hud.cs", "ExtrasHudDraw"),                          // Hud.ExtrasHudDraw(Vector2), in _Draw after DrawCentre: the Execute prompt (X6)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)

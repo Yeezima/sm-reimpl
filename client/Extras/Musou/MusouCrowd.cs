@@ -48,8 +48,16 @@ public partial class MusouCrowd : CrowdView
     int DeathClipOf(int id, int type) => NoOrkVariety ? MusouLooks.Death : _looks.For((MusouEnemyType)type)?.DeathClipFor(id) ?? MusouLooks.Death;
 
     /// <summary>A death to show: the body plays its death clip where the enemy was last seen, <paramref name="age"/> s into it (the time it waited to be handed out).</summary>
-    public void AddBody(in MusouDeathShown death, float age = 0f, bool keepSkeleton = false) =>
+    public void AddBody(in MusouDeathShown death, float age = 0f, bool keepSkeleton = false)
+    {
+        bool proxied = false;
+        ExecutionsCorpseProxied(death.Id, ref proxied);   // EXECUTIONS-HOOK: an executed Ork's proxy lies and sinks as its corpse (client/Extras/Executions)
+        if (proxied) return;
         AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, DeathClipOf(death.Id, (int)death.Type), age, keepSkeleton ? death.Id : 0);
+    }
+
+    /// <summary>Executions X5 (client/Extras/Executions/CrowdView.Executions.cs): <paramref name="proxied"/> set when an execution proxy draws this Ork's corpse.</summary>
+    partial void ExecutionsCorpseProxied(int id, ref bool proxied);
 
     /// <summary>Deaths the view has not handed out yet (night batch 2026-11-06, <see cref="MusouDeathRules"/>) and the seconds since each arrived: drawn where they fell, playing their death clip.</summary>
     public readonly List<(MusouDeathShown Death, float Age)> Dying = new();
