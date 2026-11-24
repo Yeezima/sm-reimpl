@@ -556,7 +556,10 @@ public static partial class Protocol
     // 91 (sim/stab-key-only; the owner 2026-11-23): no layout change. Classic PvP's power sword: F + F (and every chain into the Y,Y finisher) is the data's stomp again; the stab is a heavy strike of its own after
     //     the finishers that only the Sword Stab key (input bit 15) starts. The cancel matrix gains the Power Sword Stab row (melee_stab) and column (stab), appended last (DevCancel row/column ranges grow by one).
     //     Prediction must agree, hence the bump; the Classic config hash changes too.
-    public const ushort Version = 91;
+    // 92 (sim/ledge-charge-air, charge fall; the owner 2026-11-24, decision 2026-11-24-series-37-playtest-fixes item 1: "2x (halve the gravity)"): no layout change. Classic PvP only: the bull rush held in the air
+    //     falls under 2 x gravity (LedgeChargeAir.Gravity, was 4 x at 90-91), so its air time and travel from a ledge are about 0.71 (1/√2) of protocol 89's rather than half; the horizontal speed, the hop, the
+    //     landing rule and Musou Mode and Warfront are unchanged. Client prediction must agree, hence the bump. The constant is not in the config hash (only the restore switch is, when off): unchanged.
+    public const ushort Version = 92;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

@@ -250,7 +250,7 @@ public static class Rush
         float drop = spec is not null && float.IsFinite(spec.LandEndDrop) ? MathF.Max(0f, spec.LandEndDrop) : RushSpec.DefaultLandEndDrop;
         float g = MathF.Max(0f, c.Gravity), k = LedgeChargeAir.GravityScale(s, c);
         if (k == 1f) return -s.Velocity.Z + Eps >= MathF.Sqrt(2f * g * drop);
-        // sim/ledge-charge-air (protocol 90): under the held charge's own gravity (k x g; Classic PvP 4) a tick-start speed says little about the height (2.67 m/s a tick at 30 Hz), so the rule reads the
+        // sim/ledge-charge-air (protocol 90): under the held charge's own gravity (k x g; Classic PvP 2 since protocol 92, 4 at protocol 90-91) a tick-start speed says little about the height (1.33 m/s a tick at 30 Hz), so the rule reads the
         // height fallen: the fall up to this tick from its vertical speed (from rest, per tick: v² / (2 k g) + |v| dt / 2) plus the landing tick's own drop, against the drop the protocol 89 rule needs in
         // height terms (the 0.5 m plus the tick that the tick-start speed lags: d + √(2 g d) dt). Ours: measured in 0.01 m steps the charge ends from a 0.80 m drop (protocol 89: 0.77 m; LedgeChargeAirTests pins it).
         float v = MathF.Max(0f, -s.Velocity.Z), dt = c.TickSeconds;
@@ -489,7 +489,7 @@ public static class Rush
             var right = new Vector2(forward.Y, -forward.X);
             delta = right * local.X + forward * local.Y;
         }
-        // sim/ledge-charge-air (protocol 90): a bull rush held in the air falls under LedgeChargeAir.GravityScale x gravity (Classic PvP: 4, so half the air time); its horizontal speed is unchanged.
+        // sim/ledge-charge-air (protocol 90): a bull rush held in the air falls under LedgeChargeAir.GravityScale x gravity (Classic PvP: 2 since protocol 92, so about 0.71 of the air time; 4 and half at protocol 90-91); its horizontal speed is unchanged.
         float gravityScale = held ? LedgeChargeAir.GravityScale(s, c) : 1f;
         var next = gravityScale != 1f ? Movement.Fly(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, s.Velocity.Z, c.Gravity * gravityScale, c, world)
             : Movement.Glide(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, c, world);

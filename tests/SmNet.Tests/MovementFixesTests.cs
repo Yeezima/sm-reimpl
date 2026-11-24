@@ -473,7 +473,7 @@ public class MovementFixesTests(ITestOutputHelper output)
     {
         var world = ChargeLedge();
         // The Tactical / Chaos Tactical (a class with the charge and no jump pack; the owner's follow-up of 2026-11-01): the same steering.
-        // At protocol 89's fall (sim/ledge-charge-air's restore switch): the Classic charge's 4 x gravity shortens the air time, so the bend is under 2 m; the steering per tick is the same.
+        // At protocol 89's fall (sim/ledge-charge-air's restore switch): the Classic charge's 2 x gravity (4 x at protocol 90-91) shortens the air time, so the bend is smaller; the steering per tick is the same.
         var full = Charger with { LedgeChargeHalfAir = false };
         var marine = ChargeOff(1, 1f, world, full);
         var straightMarine = ChargeOff(1, 0f, world, full);
@@ -510,7 +510,7 @@ public class MovementFixesTests(ITestOutputHelper output)
     {
         // A target standing on the floor 4 m to the right of the straight path, about where the charge lands; prediction of the contact uses the same state.
         var world = ChargeLedge();
-        // The steering geometry at protocol 89's full air speed (sim/ledge-charge-air's restore switch): the halved Classic air travel bends the path too little for a 4 m offset; the contact rule is the same.
+        // The steering geometry at protocol 89's full air speed (sim/ledge-charge-air's restore switch): the shortened Classic air travel bends the path too little for a 4 m offset; the contact rule is the same.
         var full = Charger with { LedgeChargeHalfAir = false };
         var straight = ChargeOff(Assault, 0f, world, full);
         var bent = ChargeOff(Assault, 1f, world, full);
