@@ -79,6 +79,20 @@ public static class ClassicHitDirRules
     public const float SweepSpread = 0.42f, ThrustSpread = 0.14f;
 
     /// <summary>The spread for a motion: <paramref name="thrustness"/> 1 when the weapon moves along the attacker's facing (a stab), 0 across it (a sweep).</summary>
+    /// <summary>
+    /// How much of the weapon head's own motion (the attacker's body motion taken out) drives straight out from his shoulder (<paramref name="headFromShoulder"/>: the head's place
+    /// from it): 1 a thrust, 0 a sweep around him (or a pull back). Ours, from recorded strikes (tester round 2, 2026-11-24): measured along his facing, a sweep's arc around
+    /// the body still runs 0.6 to 0.8 forward at contact and every strike read as a thrust; measured outward from the shoulder, sweeps read 0 to 0.4 and lunging thrusts 0.75 to 0.9.
+    /// </summary>
+    public static float ThrustOf(Vector3 ownMotion, Vector3 headFromShoulder)
+    {
+        if (ownMotion.LengthSquared() < 1e-8f || headFromShoulder.LengthSquared() < 1e-8f) return 0f;
+        return Math.Clamp(Vector3.Dot(Vector3.Normalize(ownMotion), Vector3.Normalize(headFromShoulder)), 0f, 1f);
+    }
+
+    /// <summary>The shoulder height above the feet the thrust measure takes the weapon head's reach from (m; ours).</summary>
+    public const float ShoulderHeight = 1.4f;
+
     public static float SpreadFor(float thrustness) => SweepSpread + (ThrustSpread - SweepSpread) * Math.Clamp(thrustness, 0f, 1f);
 
     /// <summary>How much a weapon motion is a thrust: the share of its direction along the attacker's horizontal facing (yaw, radians, game space: facing (-sin, cos)).</summary>
@@ -92,27 +106,38 @@ public static class ClassicHitDirRules
     /// <summary>A timed point of a weapon's path (game or world space, as the caller keeps it).</summary>
     public readonly record struct PathPoint(double Time, Vector3 Position);
 
-    /// <summary>The fastest a weapon point is read to move (m/s); a faster jump is a pose pop or a teleport, not a swing (ours).</summary>
-    public const float MaxWeaponSpeed = 40f;
+    /// <summary>The fastest a weapon point is read to move (m/s); a faster jump is a pose pop or a teleport, not a swing (ours; 40 before tester round 2, 2026-11-24: a recorded real sweep's head moved 50 to 55 m/s at 1.8 m out and was thrown away; pops jump about 1.8 m in one frame, over 100 m/s).</summary>
+    public const float MaxWeaponSpeed = 80f;
 
     /// <summary>
     /// The weapon's direction of motion at <paramref name="time"/> from its recorded path (oldest first): the difference of the samples around it, over at least <paramref name="span"/> seconds;
     /// null when the path is too short, the weapon did not move or moved implausibly fast.
     /// </summary>
-    public static Vector3? WeaponDirection(IReadOnlyList<PathPoint> path, double time, double span = 0.03)
+    public static Vector3? WeaponDirection(IReadOnlyList<PathPoint> path, double time, double span = 0.015)
     {
+        // the sum of the path's segments within span of the time (a fast arc turns a lot in a few hundredths: a longer chord read a sweep as a thrust), each moving between 0.3 m/s and MaxWeaponSpeed: a single pose pop (an animation
+        // change, a snap of the drawn remote) is dropped instead of spoiling the whole tangent (tester round 2, 2026-11-24: real strikes often had one in the window)
         if (path.Count < 2) return null;
-        int i = 1;
-        while (i < path.Count - 1 && path[i].Time < time) i++;
-        int a = i - 1, b = i;
-        while (a > 0 && path[b].Time - path[a].Time < span) a--;
-        while (b < path.Count - 1 && path[b].Time - path[a].Time < span) b++;
-        double dt = path[b].Time - path[a].Time;
-        if (dt <= 1e-6) return null;
-        var d = path[b].Position - path[a].Position;
-        float speed = d.Length() / (float)dt;
-        if (speed < 0.3f || speed > MaxWeaponSpeed) return null;
-        return d / d.Length();
+        Vector3 sum = Vector3.Zero; int used = 0;
+        Vector3 nearest = Vector3.Zero; double nearestGap = double.MaxValue;
+        for (int k = 1; k < path.Count; k++)
+        {
+            double dt = path[k].Time - path[k - 1].Time;
+            if (dt <= 1e-6) continue;
+            var d = path[k].Position - path[k - 1].Position;
+            float speed = d.Length() / (float)dt;
+            if (speed < 0.3f || speed > MaxWeaponSpeed) continue;
+            double mid = (path[k].Time + path[k - 1].Time) * 0.5;
+            if (path[k - 1].Time >= time - span - 1e-9 && path[k].Time <= time + span + 1e-9) { sum += d; used++; }
+            double gap = Math.Abs(mid - time);
+            if (gap < nearestGap) { nearestGap = gap; nearest = d; }
+        }
+        if (used == 0)
+        {
+            if (nearestGap > 4 * span) return null;   // nothing valid near the time
+            sum = nearest;
+        }
+        return sum.LengthSquared() < 1e-10f ? null : Vector3.Normalize(sum);
     }
 
     /// <summary>The closest point of a recorded path to a body axis (the segment <paramref name="low"/> to <paramref name="high"/>): its index and distance; (-1, inf) for an empty path.</summary>
@@ -137,6 +162,13 @@ public static class ClassicHitDirRules
 
     /// <summary>The body's surface radius (m) the contact sits on (ours: a marine's torso).</summary>
     public const float BodySurface = 0.35f;
+
+    /// <summary>
+    /// How close (m) the drawn weapon head must come to the victim's body axis for its path to give the contact and direction (ours; 1.6 before tester round 2, 2026-11-24, when 7 of
+    /// 12 real strikes in a headless 2v2 passed 2.2 to 3.6 m from the drawn victim, who is drawn a little behind, and fell back to the attacker's facing). The contact itself stays on
+    /// the body's surface toward the head.
+    /// </summary>
+    public const float ContactReach = 4f;
 
     /// <summary>The contact on the body's surface toward a weapon point (game space, Z up): the axis point nearest it pushed out to <see cref="BodySurface"/>.</summary>
     public static Vector3 ContactOnBody(Vector3 weapon, Vector3 low, Vector3 high)

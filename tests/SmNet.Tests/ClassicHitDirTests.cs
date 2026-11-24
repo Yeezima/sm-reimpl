@@ -349,4 +349,57 @@ public class ClassicHitDirTests
         var same = new List<LooseHit> { new(new Vector3(0f, 3f, 1.25f), new Vector3(0f, 1f, 0f)), new(new Vector3(0f, 1f, 1.25f), new Vector3(0f, 1f, 0f)) };
         Assert.Equal(1, PickLooseHit(chest, 4f, same));                  // equal lines: the nearer end
     }
+
+    // ---- sweeps against thrusts, from a recorded real strike (tester round 2, 2026-11-24) ----
+
+    /// <summary>
+    /// A real strike recorded with <c>--log-hit-dir-paths</c> (headless 2v2 of assault bots, 2026-11-24; our own client's drawn weapon head, game space, metres from the attacker's feet;
+    /// his feet did not move): the head circles him at chest height, 1.8 m out. Attacker yaw -3.321.
+    /// </summary>
+    static readonly (double T, float X, float Y, float Z)[] RecordedSweep =
+    [
+        (-0.076, -0.51f, 1.15f, 1.59f), (-0.069, -0.66f, 1.03f, 1.59f), (-0.062, -0.80f, 0.89f, 1.58f), (-0.056, -0.93f, 0.72f, 1.57f), (-0.049, -1.05f, 0.55f, 1.57f),
+        (-0.042, -1.28f, 0.26f, 1.54f), (-0.035, -1.45f, -0.08f, 1.50f), (-0.028, -1.53f, -0.45f, 1.46f), (-0.021, -1.53f, -0.83f, 1.41f), (-0.014, -1.49f, -1.05f, 1.39f),
+        (-0.007, -1.25f, -1.31f, 1.40f), (0.000, -0.96f, -1.56f, 1.40f), (0.007, -0.57f, -1.81f, 1.38f), (0.014, -0.16f, -1.99f, 1.34f), (0.021, 0.25f, -2.03f, 1.32f),
+    ];
+
+    [Fact]
+    public void A_recorded_real_sweep_reads_as_a_sweep_and_blooms_wide()
+    {
+        var path = new List<PathPoint>();
+        foreach (var (t, x, y, z) in RecordedSweep) path.Add(new PathPoint(t, new Vector3(x, y, z)));
+        var own = WeaponDirection(path, 0.0)!.Value;
+        var head = new Vector3(-0.96f, -1.56f, 1.40f - ShoulderHeight);
+        float thrust = ThrustOf(own, head);
+        Assert.True(thrust < 0.3f, $"thrust {thrust}");
+        Assert.True(SpreadFor(thrust) > 0.35f, $"spread {SpreadFor(thrust)}");
+        // measured along his facing (the old way) the same tangent reads far more thrust-like than outward from the shoulder
+        float yaw = -3.321f;
+        float along = Vector3.Dot(own, new Vector3(-MathF.Sin(yaw), MathF.Cos(yaw), 0f));
+        Assert.True(along > thrust + 0.2f, $"along {along}, thrust {thrust}");
+    }
+
+    [Fact]
+    public void A_straight_lunge_reads_as_a_thrust_and_stays_narrow()
+    {
+        // the head drives straight out from the shoulder along +Y at 9 m/s while the body also steps forward (taken out)
+        var path = new List<PathPoint>();
+        for (int k = 0; k <= 10; k++) path.Add(new PathPoint(-0.07 + k * 0.007, new Vector3(0.1f, 0.6f + 0.063f * k, 1.45f)));
+        var own = WeaponDirection(path, 0.0)!.Value;
+        float thrust = ThrustOf(own, new Vector3(0.1f, 1.23f, 1.45f - ShoulderHeight));
+        Assert.True(thrust > 0.9f, $"thrust {thrust}");
+        Assert.True(SpreadFor(thrust) < 0.2f);
+        Assert.Equal(0f, ThrustOf(-own, new Vector3(0.1f, 1.23f, 0.05f)));   // pulled back: not a thrust
+    }
+
+    [Fact]
+    public void One_pose_pop_in_the_window_does_not_spoil_the_tangent()
+    {
+        var path = new List<PathPoint>();
+        for (int k = 0; k <= 10; k++) path.Add(new PathPoint(-0.07 + k * 0.007, new Vector3(0.07f * k, 0f, 1.4f)));
+        path[8] = new PathPoint(path[8].Time, new Vector3(0.56f, 0f, -0.4f));   // a 1.8 m snap for one sample
+        var d = WeaponDirection(path, 0.0);
+        Assert.NotNull(d);
+        Assert.True(d!.Value.X > 0.9f, $"{d}");
+    }
 }

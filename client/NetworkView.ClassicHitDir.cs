@@ -30,6 +30,7 @@ public partial class NetworkView
     bool OldClassicHitDirFlag => _oldClassicHitDir ??= CmdFlag(OldLookFlag);
     bool? _oldClassicHitDir;
     bool LogHitDir => _logHitDir ??= CmdFlag("log-hit-dir");
+    static readonly bool LogHitDirPaths = CmdFlag("log-hit-dir-paths");
     bool? _logHitDir;
 
     /// <summary>What this match draws of the directional look.</summary>
@@ -62,13 +63,26 @@ public partial class NetworkView
     {
         public const int Capacity = 48;
         public readonly (double T, Vector3 P)[] Ring = new (double, Vector3)[Capacity];
+        public readonly Vector3[] Roots = new Vector3[Capacity];   // the attacker's drawn feet at each sample: the weapon's own motion is the path less the body's
         public int Count, Head;
+        public string? NoBlade;   // why the last frame recorded no weapon point (diagnostics)
         public double MeleeAt = double.NegativeInfinity;
         public bool Heavy;
         public bool SlashWas;   // the air slash was on at the last record
         public int Slashes;     // air slashes seen (their attack keys)
         public long Key;
-        public void Add(double t, Vector3 p) { Ring[Head] = (t, p); Head = (Head + 1) % Capacity; if (Count < Capacity) Count++; }
+        public void Add(double t, Vector3 p, Vector3 root) { Ring[Head] = (t, p); Roots[Head] = root; Head = (Head + 1) % Capacity; if (Count < Capacity) Count++; }
+        /// <summary>The feet at the points <see cref="Copy"/> returns for the same <paramref name="since"/>.</summary>
+        public int CopyRoots(double since, Vector3[] into)
+        {
+            int n = 0;
+            for (int k = 0; k < Count; k++)
+            {
+                int i = (Head - Count + k + Capacity) % Capacity;
+                if (Ring[i].T >= since && n < into.Length) into[n++] = Roots[i];
+            }
+            return n;
+        }
         /// <summary>The points from <paramref name="since"/> on, oldest first, into <paramref name="into"/>; their count.</summary>
         public int Copy(double since, (double T, Vector3 P)[] into)
         {
@@ -85,6 +99,8 @@ public partial class NetworkView
     readonly Dictionary<int, WeaponTrail> _weaponTrails = new();
     readonly Dictionary<ulong, Vector3> _bladeLocal = new();
     readonly (double T, Vector3 P)[] _trailScratch = new (double, Vector3)[WeaponTrail.Capacity];
+    readonly Vector3[] _rootScratch = new Vector3[WeaponTrail.Capacity];
+    readonly List<ClassicHitDirRules.PathPoint> _relScratch = new();
     readonly List<ClassicHitDirRules.PathPoint> _pathScratch = new();
     readonly List<MeleeCandidate> _candidateScratch = new();
     readonly List<int> _trailGone = new();
@@ -107,9 +123,36 @@ public partial class NetworkView
                 _bladeLocal[key] = local = centre + (end - centre) * 0.6f;
                 if (_bladeLocal.Count > 128) _bladeLocal.Clear();
             }
-            return held.Mesh.GlobalTransform * local;
+            return HeldPose(held.Mesh) * local;
         }
         return BodyMarker(id, "RIG_Prop_Rhand")?.Invoke()?.Position;
+    }
+
+    /// <summary>
+    /// The held weapon mesh's world transform from its hand bone's current pose (as the weapon rig's muzzle and magazine are read): a bone attachment's own transform follows the bone only
+    /// after the skeleton's update, so read straight from it the path lagged or, before the update, stood still with the body (tester round 2, 2026-11-24: real sweeps read as thrusts).
+    /// </summary>
+    static Transform3D HeldPose(MeshInstance3D mesh)
+    {
+        Node? n = mesh.GetParent();
+        while (n is not null and not BoneAttachment3D) n = n.GetParent();
+        if (n is BoneAttachment3D att && att.GetParent() is Skeleton3D sk && att.BoneIdx >= 0 && att.BoneIdx < sk.GetBoneCount())
+        {
+            var fromAttachment = att.GlobalTransform.AffineInverse() * mesh.GlobalTransform;   // the wield offset: fixed while held
+            return sk.GlobalTransform * sk.GetBoneGlobalPose(att.BoneIdx) * fromAttachment;
+        }
+        return mesh.GlobalTransform;
+    }
+
+    /// <summary>Why no weapon point could be read for a player (the unpaired and path-less melee log).</summary>
+    string BladeMissing(int id)
+    {
+        CharacterViewer? c = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
+        if (c is null) return "no model for him";
+        if (!GodotObject.IsInstanceValid(c)) return "his model freed";
+        if (!c.IsInsideTree()) return "his model not in the scene";
+        if (c.Weapons is null) return "no weapon rig";
+        return "no melee weapon in hand and no right-hand marker";
     }
 
     /// <summary>A weapon melee attack (not a stomp: its blast keeps its own effects).</summary>
@@ -317,7 +360,8 @@ public partial class NetworkView
             t.MeleeAt = _connectedFor;
         }
         if (_connectedFor - t.MeleeAt > 0.9) return;   // only around an attack
-        if (BladePoint(s.PlayerId) is { } p) t.Add(_connectedFor, p);
+        if (BladePoint(s.PlayerId) is { } p) { t.Add(_connectedFor, p, ToGodot(s.Position)); t.NoBlade = null; }
+        else t.NoBlade = BladeMissing(s.PlayerId);
     }
 
     /// <summary>A waiting melee contact: true when it was drawn (or given up).</summary>
@@ -345,7 +389,7 @@ public partial class NetworkView
         Vector3 contact, dir;
         double contactAt;
         int histCount = 0;
-        if (idx >= 0 && dist < 1.6f)
+        if (idx >= 0 && dist < ContactReach)
         {
             contactAt = path[idx].Time;
             contact = HdG(ContactOnBody(path[idx].Position, HdN(low), HdN(high)));
@@ -360,8 +404,38 @@ public partial class NetworkView
             contact = (low + high) * 0.5f + outward * BodySurface;
             dir = facing;
         }
-        float thrust = MathF.Abs(dir.Normalized().Dot(facing));
+        // the thrust measure from the weapon's own motion, the attacker's body motion (a lunge, a step) taken out: with it in, every strike read as a thrust (tester round 2)
+        float thrust;
+        string dirSource;
+        Num.Vector3? own = null;
+        bool rooted = idx >= 0 && dist < ContactReach && trail.CopyRoots(m.At - 0.6, _rootScratch) == n;
+        if (rooted)
+        {
+            _relScratch.Clear();
+            for (int k = 0; k < n; k++) _relScratch.Add(new ClassicHitDirRules.PathPoint(path[k].Time, path[k].Position - HdN(_rootScratch[k])));
+            own = WeaponDirection(_relScratch, contactAt);
+        }
+        if (own is { } ow && _gameSpace is not null && rooted)
+        {
+            var og = _gameSpace.Basis.Inverse() * HdG(ow);   // game space, Z up
+            var head = ToGame(HdG(path[idx].Position)) - ToGame(_rootScratch[idx]) - new Num.Vector3(0f, 0f, ShoulderHeight);
+            thrust = ThrustOf(new Num.Vector3(og.X, og.Y, og.Z), head);
+            dirSource = $"weapon (own motion thrust {thrust:F2})";
+        }
+        else { thrust = 0f; dirSource = idx >= 0 && dist < ContactReach ? "weapon (own motion unknown: a sweep)" : idx >= 0 ? $"weapon too far ({dist:F2} m): facing, a sweep" : $"no path ({trail.NoBlade ?? "no point in the last 0.6 s"}): facing, a sweep"; }
         float spread = SpreadFor(thrust);
+        if (LogHitDirPaths && _gameSpace is not null && n > 0 && trail.CopyRoots(m.At - 0.6, _rootScratch) == n)
+        {
+            // test-fixture aid: the recorded path in game space relative to the attacker's feet at contact, with his yaw (tests take a real sweep from here)
+            var sb = new System.Text.StringBuilder($"HITDIRPATH P{m.Attacker}->P{m.Victim} yaw {attacker.Yaw:F3} contact-t {contactAt:F3}:");
+            var feet0 = ToGame(_rootScratch[n - 1]);
+            for (int k = 0; k < n; k++)
+            {
+                var wp = ToGame(_trailScratch[k].P) - feet0; var rp = ToGame(_rootScratch[k]) - feet0;
+                sb.Append(System.FormattableString.Invariant($" [{_trailScratch[k].T - contactAt:F3} {wp.X:F2} {wp.Y:F2} {wp.Z:F2} | {rp.X:F2} {rp.Y:F2}]"));
+            }
+            HitDirPrint(sb.ToString());
+        }
         bool shieldAfter = ownAttacker && _ownMeleeReport.Victim == m.Victim && _ownMeleeReport.At >= m.At - 0.05
             ? _ownMeleeReport.ShieldAfter > 0f : ShieldLeftAfterMark(m.Shield, m.Health, m.ArmourBefore);
         var visual = Classify(m.Shield, m.Health, shieldAfter);
@@ -382,7 +456,7 @@ public partial class NetworkView
         if (drawn) _hitDirBlood++;
         _hitDirMelee++;
         if (LogHitDir) HitDirPrint($"HITDIR melee P{m.Attacker}->P{m.Victim} {visual}{(m.Heavy ? " heavy" : "")}{(m.Lethal ? " lethal" : "")} contact {contact.X:F2},{contact.Y:F2},{contact.Z:F2} dir {dir.X:F2},{dir.Y:F2},{dir.Z:F2} " +
-                                $"approach {dist:F2} m, path {path.Count} pts, waited {waited * 1000:F0} ms, pre-age {preAge * 1000:F0} ms, thrust {thrust:F2} spread {spread:F2}, blood {drawn} (t {_connectedFor:F2})");
+                                $"approach {dist:F2} m, path {path.Count} pts, dir from {dirSource}, waited {waited * 1000:F0} ms, pre-age {preAge * 1000:F0} ms, thrust {thrust:F2} spread {spread:F2}, blood {drawn} (t {_connectedFor:F2})");
         return true;
     }
 

@@ -73,6 +73,7 @@ public partial class NetworkView
             var (zone, distance) = Combat.HitShapes(from, d, o.Position, HitBodyAsDrawn(o), ClassicBloodRules.SearchDistance, o.Yaw);
             if (zone != HitZone.None) _decalHits.Add(new ClassicBloodRules.TraceHit(distance, from + d * distance, -d, Player: true));
         }
+        if (_stagedBlocker is { } sb) _decalHits.Add(new ClassicBloodRules.TraceHit(sb, from + d * sb, -d, Player: true));   // the staged blocked case (NetworkView.ClassicHitDirStage.cs)
         var (result, hit) = ClassicBloodRules.DecalTrace(fatal: true, head: true, gunfire: true, _decalHits);
         if (LogHitDir) HitDirPrint($"HITDIR headshot decal P{victim} kill #{sequence}: {result}{(result == ClassicBloodRules.DecalResult.NoWall ? "" : $" at {hit.Distance:F2} m")} (t {_connectedFor:F2})");
         if (result != ClassicBloodRules.DecalResult.Placed) { _bloodDecalMisses++; return; }

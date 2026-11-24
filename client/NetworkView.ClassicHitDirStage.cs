@@ -26,6 +26,9 @@ public partial class NetworkView
     /// <summary>The player id the staged headshots name (no real player has it).</summary>
     const int StagedVictim = 65000;
 
+    /// <summary>The staged <c>blocked</c> case without a real player near a wall: a body this far along the staged shot's line, counted by the decal trace for that one shot (m).</summary>
+    float? _stagedBlocker;
+
     static readonly bool ObserveAction = CmdFlag("observe-action");
     (Vector3 At, Vector3 Dir, double T)? _hitDirFocus;
     Vector3 _actionEye, _actionLook;
@@ -50,11 +53,24 @@ public partial class NetworkView
         string note;
         if (kind == "blocked")
         {
-            if (Probe(world, head, 0.4f, 3.5f, 0f, 0f, null) is not { } w) { GD.Print($"HITDIRDEMO stage blocked: no wall within 3.5 m behind P{r.PlayerId} (t {_connectedFor:F2})"); return true; }
-            var u = Num.Vector3.Normalize(new Num.Vector3(w.Point.X - head.X, w.Point.Y - head.Y, 0f));
-            var staged = head - u * 1.2f;
-            from = ToGodot(staged); dir = DirToGodot(u).Normalized();
-            note = $"P{r.PlayerId} between the staged head and a wall {w.Distance:F2} m behind him";
+            if (Probe(world, head, 0.4f, 3.5f, 0f, 0f, null) is { } w)
+            {
+                var u = Num.Vector3.Normalize(new Num.Vector3(w.Point.X - head.X, w.Point.Y - head.Y, 0f));
+                var staged = head - u * 1.2f;
+                from = ToGodot(staged); dir = DirToGodot(u).Normalized();
+                note = $"P{r.PlayerId} between the staged head and a wall {w.Distance:F2} m behind him";
+            }
+            else if (Probe(world, head, 0.3f, 25f, 3.4f, 3f, "wall") is { } w2)
+            {
+                // no wall near the player (an open spawn, tester round 2): a staged head 3 m square in front of a wall and a staged body 1.5 m along the line between them
+                var n = Num.Vector3.Normalize(new Num.Vector3(w2.Normal.X, w2.Normal.Y, 0f));
+                if (Num.Vector3.Dot(n, w2.Point - head) > 0f) n = -n;
+                var staged = new Num.Vector3(w2.Point.X, w2.Point.Y, head.Z) + n * 3f;
+                from = ToGodot(staged); dir = DirToGodot(-n).Normalized();
+                _stagedBlocker = 1.5f;
+                note = "a staged body 1.5 m along the line to a wall 3 m away (no wall within 3.5 m behind a real player)";
+            }
+            else { GD.Print($"HITDIRDEMO stage blocked: no wall near P{r.PlayerId} and none within 25 m with 3.4 m of open floor (t {_connectedFor:F2})"); return true; }
         }
         else
         {
@@ -77,6 +93,7 @@ public partial class NetworkView
         ExtrasClassicBlood(new ClassicContact(StagedVictim, _client.PlayerId, from, dir, HitVisual.Blood, true, true, true, false, 0.32f, BloodAmount(false, true), 0.0, null, 0, null), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         ExtrasClassicFatalHeadshot(StagedVictim, _client.PlayerId, from, dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         ExtrasClassicKill(new KillView(++_hitDirDemoKill, _client.PlayerId, StagedVictim, default, 0, default, Headshot: true));   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+        _stagedBlocker = null;
         NoteHitDirFocus(from, dir);
         return true;
     }
@@ -126,6 +143,41 @@ public partial class NetworkView
             if (off.Length() < 1f) return true;
         }
         return false;
+    }
+
+    static readonly float ObserveSide = float.TryParse(CmdArg("observe-side"), NumberStyles.Float, CultureInfo.InvariantCulture, out var side) && side > 0.5f ? side : 0f;
+    static readonly bool CaptureFill = CmdFlag("capture-fill");
+    Transform3D? _sideCamera;
+
+    /// <summary>
+    /// Capture aid (dev only) <c>--observe-side &lt;m&gt;</c>: a FIXED camera, placed once, that many metres to the right of the nearest other player (the demo victim), at chest height
+    /// and looking at his chest, so a <c>--hit-dir-demo</c> stroke crosses the frame side-on; it never moves after. <c>--capture-fill</c> adds a white fill light at the camera (the
+    /// spawn rooms are dark; a capture light, not the map's).
+    /// </summary>
+    bool HitDirSideCamera(System.Collections.Generic.IReadOnlyList<PlayerState> others)
+    {
+        if (ObserveSide <= 0f || _camera is null || _gameSpace is null) return false;
+        if (_sideCamera is null)
+        {
+            PlayerState? v = null;
+            foreach (var o in others) if (o.Alive) { v = o; break; }
+            if (v is not { } victim) return false;
+            var chest = SpectateG(victim.Position + new Num.Vector3(0f, 0f, 1.25f));
+            var facing = DirToGodot(new Num.Vector3(-MathF.Sin(victim.Yaw), MathF.Cos(victim.Yaw), 0f)).Normalized();
+            var right = facing.Cross(Vector3.Up).Normalized();
+            var eye = chest + right * ObserveSide + Vector3.Up * 0.2f;
+            if (_mapNote is not null) eye = Unblocked(chest, eye);
+            _sideCamera = new Transform3D(Basis.LookingAt((chest - eye).Normalized(), Vector3.Up), eye);
+            GD.Print($"observe-side: fixed camera {ObserveSide:F1} m to the right of P{victim.PlayerId} at {eye.X:F2},{eye.Y:F2},{eye.Z:F2}");
+            if (CaptureFill)
+            {
+                var fill = new OmniLight3D { Name = "CaptureFill", LightEnergy = 2.5f, OmniRange = 14f, ShadowEnabled = false, LightColor = Colors.White };
+                AddChild(fill);
+                fill.GlobalPosition = eye + Vector3.Up * 0.8f;
+            }
+        }
+        _camera.GlobalTransform = _sideCamera.Value;
+        return true;
     }
 
     /// <summary>The action camera (<c>--observe-action</c>): true when it placed the camera this frame.</summary>
