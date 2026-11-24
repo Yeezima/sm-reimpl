@@ -2,6 +2,7 @@ using System.Text;
 using SmNet.Extras.Warfront.Results;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Faction;
 
 namespace SmNet.Extras.Warfront;
 
@@ -12,7 +13,7 @@ public enum WarfrontStageState : byte { None = 0, Preparing = 1, Go = 2, Arrived
 public sealed record WarfrontHubWire(
     WarfrontPhase Phase, IReadOnlyList<int> Fronts, IReadOnlyList<bool> Advanced, bool HqMandatory, int Deployments,
     IReadOnlyList<WarfrontTarget> Targets, WarfrontTarget? CurrentTarget, ulong ViewerKey, ulong? LeaderKey,
-    IReadOnlyList<WarfrontHubWirePlayer> Players, IReadOnlyList<byte> Last, IReadOnlyList<byte>? Forecast = null);
+    IReadOnlyList<WarfrontHubWirePlayer> Players, IReadOnlyList<byte> Last, IReadOnlyList<byte>? Forecast = null, WarfrontFaction Faction = WarfrontFaction.Orks);
 
 /// <summary>One player of the run in join order; <see cref="Key"/> is a handle (see <see cref="WarfrontHubWire"/>).</summary>
 public readonly record struct WarfrontHubWirePlayer(ulong Key, string Name, bool Connected);
@@ -34,7 +35,7 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 /// server sends or reads). Values are little-endian. Every decoder is a <c>TryDecode</c> that returns false on any malformed, truncated, oversized or out-of-range payload and never throws.
 /// <list type="bullet">
 /// <item>Tag <see cref="HubTag"/> (per client): <c>[u8 phase][u8 f0][u8 f1][u8 f2][u8 advanced bits][u8 flags: bit 0 HQ mandatory, bit 1 current target, bit 2 leader][u16 deployments]</c>
-/// <c>[u8 nTargets]{[u8 kind][i8 lane]}[u8 kind][i8 lane] if current target[u64 viewer handle][u64 leader handle] if leader[u8 nPlayers]{[u64 handle][u8 connected][u8 len][name]}[u8 last0][u8 last1][u8 last2]</c>, then (weather W1, WarfrontRules.Version 18) <c>[u8 nForecast: 0 or 9]{[u8 weather id]}</c>, the forecast of lane slots 1 to 9 (a payload that ends before it decodes with no forecast).</item>
+/// <c>[u8 nTargets]{[u8 kind][i8 lane]}[u8 kind][i8 lane] if current target[u64 viewer handle][u64 leader handle] if leader[u8 nPlayers]{[u64 handle][u8 connected][u8 len][name]}[u8 last0][u8 last1][u8 last2]</c>, then (weather W1, WarfrontRules.Version 18) <c>[u8 nForecast: 0 or 9]{[u8 weather id]}</c>, the forecast of lane slots 1 to 9 (a payload that ends before it decodes with no forecast), then (Chaos Warfront C1, Format 3) <c>[u8 faction]</c>, the run's army (0 Orks, 1 Chaos; a payload that ends before it is an Orks run).</item>
 /// <item>Tag <see cref="StageTag"/>: <c>[u8 state][u8 kind][i8 lane][u8 percent][u16 elapsed s][u8 arrived][u8 expected][u8 len][map][u8 len][status]</c>; sent on a change, every 2 s while Preparing, and to a client that joins.</item>
 /// <item>Tag <see cref="DownTag"/> (per client): <c>[u8 phase][u16 tenths of a second]</c>.</item>
 /// <item>Tag <see cref="ResultsTag"/>: one chunk of <see cref="WarfrontResultsWire.Split"/> (<c>[u8 transfer][u8 index][u8 count]</c> then record bytes); no key is in the record.</item>
@@ -45,7 +46,7 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 public static class WarfrontWire
 {
     /// <summary>The Warfront wire's own number; raised with <see cref="SmSim.Extras.Warfront.WarfrontRules.Version"/>.</summary>
-    public const int Format = 2;   // 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
+    public const int Format = 3;   // 3: the Hub's trailing faction byte (Chaos Warfront C1); 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
     /// <summary>
     /// Envelope tags (gore 1, barks 2, Musou 3 to 18). Reserved for later slices: 32 to 34 the squad wire (W10), 44 and 45 progression (W8), 46 coop (W12); 35 to 39 stay free; 47 is the Battle section, 48 the weather state and 49 ProgressSave (<see cref="WarfrontProgressSaveWire"/>).
     /// </summary>
@@ -91,7 +92,7 @@ public static class WarfrontWire
         foreach (var k in c.JoinOrder) players.Add(new WarfrontHubWirePlayer(Handle(k), c.Player(k)?.Name ?? "", c.IsConnected(k)));
         if (players.Count > MaxPlayers) players.RemoveRange(MaxPlayers, players.Count - MaxPlayers);
         return new WarfrontHubWire(c.Phase, fronts, advanced, c.HqMandatory, c.Deployments, c.AvailableTargets().ToArray(), c.CurrentTarget,
-            viewerKey, c.Leader is { } l0 ? Handle(l0) : null, players, last, c.Forecast.ToArray());
+            viewerKey, c.Leader is { } l0 ? Handle(l0) : null, players, last, c.Forecast.ToArray(), c.Faction);
     }
 
     // ---- encoders ------------------------------------------------------------------------------------------------------------------------
@@ -120,6 +121,7 @@ public static class WarfrontWire
         bool forecast = h.Forecast is { Count: SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots };
         w.Write((byte)(forecast ? SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots : 0));
         if (forecast) foreach (var id in h.Forecast!) w.Write(id);
+        w.Write((byte)h.Faction);   // Chaos Warfront C1 (Format 3): the run's army
         w.Flush();
         return ms.ToArray();
     }
@@ -214,9 +216,16 @@ public static class WarfrontWire
                     forecast = new byte[nf];
                     for (int i = 0; i < nf; i++) { forecast[i] = (byte)r.U8(); if (!SmSim.Extras.Weather.WeatherCatalog.IsKnown(forecast[i])) return false; }
                 }
+            }
+            var faction = WarfrontFaction.Orks;   // Chaos Warfront C1: a Format 2 payload ends here (an Orks run)
+            if (!r.End)
+            {
+                int f = r.U8();
+                if (!WarfrontFactionPolicy.IsKnown(f)) return false;
+                faction = (WarfrontFaction)f;
                 if (!r.End) return false;
             }
-            hub = new WarfrontHubWire((WarfrontPhase)phase, fronts, new[] { (adv & 1) != 0, (adv & 2) != 0, (adv & 4) != 0 }, (flags & 1) != 0, deployments, targets, current, viewer, leader, players, last, forecast);
+            hub = new WarfrontHubWire((WarfrontPhase)phase, fronts, new[] { (adv & 1) != 0, (adv & 2) != 0, (adv & 4) != 0 }, (flags & 1) != 0, deployments, targets, current, viewer, leader, players, last, forecast, faction);
             return true;
         }
         catch (Exception e) when (e is IndexOutOfRangeException or ArgumentException or EndOfStreamException) { return false; }

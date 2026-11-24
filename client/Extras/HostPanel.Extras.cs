@@ -12,7 +12,9 @@ public sealed partial class HostPanel
     {
         WarfrontHostRowShown(row, ref shown);   // WARFRONT-HOOK
         WeatherRowShown(row, ref shown);        // weather (client/Extras/Weather/HostPanel.Weather.cs)
+        WarfrontFactionRowShown(row, ref shown);   // WARFRONT-HOOK: the FACTION row only on the Warfront profile (Chaos Warfront C1)
     }
 
     partial void WarfrontHostRowShown(Control row, ref bool shown);
+    partial void WarfrontFactionRowShown(Control row, ref bool shown);
 }

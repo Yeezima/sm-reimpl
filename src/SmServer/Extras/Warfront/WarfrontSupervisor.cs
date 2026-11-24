@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Faction;
 using SmSim.Extras.Warfront.Maps;
 using SmContent.Extras.Warfront;
 
@@ -24,6 +25,34 @@ static class WarfrontRunFiles
 
     /// <summary><c>--warfront-dedicated</c>, set by Program.cs before the server is built: the always-on shared campaign. Later dedicated-server slices (auto new run, default deploy, empty server) read it here.</summary>
     internal static bool Dedicated;
+
+    /// <summary><c>--warfront-faction</c> (Chaos Warfront C1), set by Program.cs before the server is built: the army of the next NEW run (Alternate by default). A run in progress keeps its own (<see cref="WarfrontCampaign.Faction"/>).</summary>
+    internal static WarfrontFactionSetting FactionSetting = WarfrontFactionSetting.Alternate;
+
+    /// <summary>The army this stage process was started for (Chaos Warfront C1): read from run.json by Program.cs before the World exists (<see cref="RecordStageFaction"/>); Orks when there was no readable run. C2 builds the stage's rules from it.</summary>
+    internal static WarfrontFaction StageFaction = WarfrontFaction.Orks;
+
+    /// <summary>Program.cs: the command line's <c>--warfront-faction</c> key (already checked by the parser; null: Alternate).</summary>
+    internal static void ApplyFactionSetting(string? key) => FactionSetting = WarfrontFactionPolicy.TryParse(key, out var s) ? s : WarfrontFactionSetting.Alternate;
+
+    /// <summary>
+    /// Program.cs, a stage child only: records the army of the run on disk as <see cref="StageFaction"/> and returns the log line. A missing or unreadable run.json gives Orks: the stage's loader then decides
+    /// about the file, and a deployment whose run has another army restages (<see cref="WarfrontStagePlan.CanLandHere"/>). Reads only.
+    /// </summary>
+    internal static string RecordStageFaction(string dir)
+    {
+        WarfrontFaction f = WarfrontFaction.Orks;
+        string how = "no readable run: Orks until a run says otherwise";
+        try
+        {
+            string path = Path.Combine(dir, WarfrontSave.RunFile);
+            if (File.Exists(path)) { f = WarfrontSave.FromJson(File.ReadAllText(path)).Faction; how = "the run's"; }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or NotSupportedException or ArgumentException or InvalidOperationException or KeyNotFoundException or FormatException) { }
+        StageFaction = f;
+        // not a "warfront:" status line (the menu shows the last of those while the campaign starts)
+        return $"Warfront faction: this stage runs {f} ({how}); the next new run follows --warfront-faction {WarfrontFactionPolicy.Key(FactionSetting)}";
+    }
 
     /// <summary>Set by a dedicated stage child's SIGTERM or Ctrl+C handler: the stage saves and leaves with code 0 at its next tick.</summary>
     internal static volatile bool StopSignal;
@@ -80,20 +109,24 @@ static class WarfrontRunFiles
         return fronts;
     }
 
-    /// <summary>A new run on the Ship, written to disk. Nothing is read from the records.</summary>
+    /// <summary>
+    /// A new run on the Ship, written to disk. Nothing is read from the records. Its army comes from <see cref="FactionSetting"/> and the rotation file (Chaos Warfront C1): run.json is written first and faction.json
+    /// second, so a crash between them is repaired from run.json by the next load (<see cref="WarfrontFactionRotation.Reconcile"/>) and the rotation never advances twice for one run.
+    /// </summary>
     public static WarfrontCampaign NewRun(string dir, ulong? seed = null)
     {
-        var c = BuildNewRun(seed);
+        var c = BuildNewRun(seed, WarfrontFactionRotation.Next(dir, FactionSetting));
         WarfrontSave.Write(dir, c);
+        WarfrontFactionRotation.Record(dir, c.Faction, c.RunSeed);   // second; a failure here is repaired by the next load's reconcile
         try { File.Delete(Path.Combine(dir, StageFile)); } catch (IOException) { }
         return c;
     }
 
-    /// <summary>A new run on the Ship, in memory only (the start fronts come from <c>SM_WF_START</c> when set). The seed is <paramref name="seed"/>, else <c>SM_WF_SEED</c>, else random.</summary>
-    public static WarfrontCampaign BuildNewRun(ulong? seed = null)
+    /// <summary>A new run on the Ship, in memory only (the start fronts come from <c>SM_WF_START</c> when set). The seed is <paramref name="seed"/>, else <c>SM_WF_SEED</c>, else random. The army is <paramref name="faction"/> (Chaos Warfront C1): fixed for the run's life.</summary>
+    public static WarfrontCampaign BuildNewRun(ulong? seed = null, WarfrontFaction faction = WarfrontFaction.Orks)
     {
         ulong runSeed = seed ?? (ulong.TryParse(Environment.GetEnvironmentVariable("SM_WF_SEED"), CultureInfo.InvariantCulture, out ulong s) ? s : BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8)));
-        var c = WarfrontSave.NewRun(runSeed, Rolls());
+        var c = new WarfrontCampaign(runSeed, Rolls(), faction);
         if (StartFronts() is { } fronts)
         {
             // The campaign has no public setter for a front (a test aid of ours): go through its own save format.
@@ -139,6 +172,12 @@ static class WarfrontStagePlan
         WarfrontTargetKind.Fortress => SmContent.Extras.Warfront.WarfrontMaps.FortressName,
         _ => WarfrontSlots.Of((TfwLane)t.Lane, Math.Clamp(c.Front(t.Lane), 1, 3)).Name,
     };
+
+    /// <summary>
+    /// Chaos Warfront C1: a deployment lands on the stage that runs now only when the target's map is this stage's map AND the run's army is the one this stage process was started for
+    /// (<see cref="WarfrontRunFiles.StageFaction"/>: the stage's rules are fixed before its World exists); any difference forces a restage.
+    /// </summary>
+    public static bool CanLandHere(string targetMap, string stageMap, WarfrontFaction runFaction, WarfrontFaction stageFaction) => targetMap == stageMap && runFaction == stageFaction;
 
     /// <summary>A map that has a ship: a lane slot, the HQ or the fortress (each is composed with the hub).</summary>
     public static bool HasShip(string map) => WarfrontSlots.IsLaneMap(map) || map is SmContent.Extras.Warfront.WarfrontMaps.HqName or SmContent.Extras.Warfront.WarfrontMaps.FortressName;

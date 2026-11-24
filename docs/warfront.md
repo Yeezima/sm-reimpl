@@ -99,6 +99,14 @@ favored"; answered: the Orks win about 2 of every 3 even fights, Guardsmen at ab
   reachable in a straight line from the point and 2.5 m off walls where the ground allows it. A squad within the radius plus 14 m counts as on its point. Test aid: `smtool.cmd warfront-guards [--slot wf_a1] [--seconds 240] [--frames file.rgb] [--frame-point 0..2]`
   (a lane battle in-process on the real map and graph: Guardsmen, tick cost, raw top-down frames of the rows).
 
+## Faction: Orks or Chaos (Chaos Warfront C1, 2026-11-25)
+
+A run fights one army, chosen once when the run is built and saved in `run.json` (`Faction`, save version 7): wipes, saves, restarts and reconnects keep it, and a save from before it loads as Orks. The setting is `--warfront-faction alternate|orks|chaos` (default `alternate`: Orks and Chaos take turns run by run, Orks first; the other two force the army). It is read only when a new run is built (first start, NEW CAMPAIGN, the dedicated server's own new run, a new run after a damaged save), so changing it affects only the next run. The supervisor's stage children inherit the flag; the Host panel's FACTION row (Warfront profile only; `client/Extras/Warfront/Chaos/HostPanel.WarfrontFaction.cs`) and `WarfrontLocal.ExtraArgs` pass a forced setting and send nothing for ALTERNATE.
+
+The rotation lives in `faction.json` beside `run.json` (`{LastFaction, LastRunSeed}`; an archive moves only `run.json`, so it survives). A new run writes `run.json` first and `faction.json` second; the stage's loader, the supervisor's loop and `--warfront-new` (before it archives) copy the run's army and seed into `faction.json` when it is behind, so a crash between the two writes neither repeats nor skips an army. A stage child records its run's army before the World exists (`WarfrontRunFiles.StageFaction`, logged as `Warfront faction: this stage runs ...`), and a deployment lands on the running stage only when both the map and the army match (`WarfrontStagePlan.CanLandHere`). The Hub section ends with one faction byte (0 Orks, 1 Chaos; `WarfrontWire.Format` 3, `WarfrontRules.Version` 23).
+
+C1 only chooses, stores and sends the army: until C2 builds the Chaos rules table, a Chaos run plays as Orks, and Orks runs are unchanged by construction. The `FinaleLost` outcome (the duel relay ran out of challengers: the campaign is lost) is in the campaign for C5. Spec: "Warfront faction" in `spec/behavior.md`.
+
 ## Where things are stored
 
 `%LOCALAPPDATA%\sm-reimpl\warfront\` (or the folder `SM_WF_DIR` names): `run.json` (the whole campaign, written atomically at every ship arrival, pick and

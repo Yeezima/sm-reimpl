@@ -24,8 +24,8 @@ public class VersionPins
     [Fact]
     public void The_Warfront_rules_version_and_wire_format_are_pinned()
     {
-        Assert.Equal(22u, SmSim.Extras.Warfront.WarfrontRules.Version);   // the weather finish (2026-11-23): the active weather lifecycle (21: codebase fix 6 (2026-11-22): projectiles test the current pose (20: codebase fix 1, the progress file, the Progress command and the ProgressSave section)
-        Assert.Equal(2, SmNet.Extras.Warfront.WarfrontWire.Format);
+        Assert.Equal(23u, SmSim.Extras.Warfront.WarfrontRules.Version);   // Chaos Warfront C1 (2026-11-25): the run's faction (22: the weather finish (2026-11-23): the active weather lifecycle (21: codebase fix 6 (2026-11-22): projectiles test the current pose (20: codebase fix 1, the progress file, the Progress command and the ProgressSave section)
+        Assert.Equal(3, SmNet.Extras.Warfront.WarfrontWire.Format);   // 3: the Hub's faction byte (Chaos Warfront C1)
         Assert.Equal(49, SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag);
     }
 }

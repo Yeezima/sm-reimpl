@@ -30,7 +30,7 @@ public class WarfrontWeatherHubTests
     {
         var c = new WarfrontCampaign(77);
         c.Join(111, "Alpha", out _); c.Embark();
-        var full = WarfrontWire.Encode(WarfrontWire.HubFor(c, 111));
+        var full = WarfrontWire.Encode(WarfrontWire.HubFor(c, 111))[..^1];   // without Chaos Warfront C1's trailing faction byte (Format 3; WarfrontHubFactionTests): the Format 2 layout
         var withoutTail = full[..^(1 + WarfrontForecast.Slots)];
         Assert.True(WarfrontWire.TryDecode(withoutTail, out WarfrontHubWire old));
         Assert.Null(old.Forecast);
@@ -41,7 +41,7 @@ public class WarfrontWeatherHubTests
         Assert.False(WarfrontWire.TryDecode(wrongCount, out WarfrontHubWire _));
         var unknownId = (byte[])full.Clone(); unknownId[^1] = 99;
         Assert.False(WarfrontWire.TryDecode(unknownId, out WarfrontHubWire _));
-        Assert.False(WarfrontWire.TryDecode(full.Append((byte)1).ToArray(), out WarfrontHubWire _));
+        Assert.False(WarfrontWire.TryDecode(full.Append((byte)0).Append((byte)0).ToArray(), out WarfrontHubWire _));   // a faction byte and then more
     }
 
     [Fact]
