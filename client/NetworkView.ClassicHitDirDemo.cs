@@ -160,5 +160,18 @@ public partial class NetworkView
         bool drawn = false;
         if (HasBlood(visual))
             ExtrasClassicBlood(new ClassicContact(victim, _client!.PlayerId, contact, motion, visual, false, false, lethal, heavy, spread, BloodAmount(heavy, lethal), 0.0, hist, hist.Length, null, Exit: thrust > 0.5f), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+        DemoPowerHit(contact, toCam);
+    }
+
+    /// <summary>
+    /// Capture aid <c>--hit-dir-demo-power hammer|maul|axe|sword</c> (gore visibility pass, 2026-11-24): each demo stroke also plays that power weapon's hit flash and cloud at the contact,
+    /// through the same <see cref="PowerHit"/> a real power-weapon hit uses (outward toward the camera's side, as the real hit's toward the attacker), so the blood can be judged over the glow.
+    /// </summary>
+    void DemoPowerHit(Vector3 contact, Vector3 toCam)
+    {
+        if (CmdArg("hit-dir-demo-power") is not { Length: > 0 } w) return;
+        string wargear = w switch { "maul" => "csm_mp_melee_2hand_power_mace", "axe" => "sm_mp_melee_power_axe", "sword" => "sm_mp_melee_powersword", _ => "sm_mp_melee_2hand_thunder_hammer" };
+        _powerSwing.Forget(-1);
+        PowerHit(-1, wargear, contact, toCam + Vector3.Up * 0.3f, "hit-dir demo");
     }
 }
