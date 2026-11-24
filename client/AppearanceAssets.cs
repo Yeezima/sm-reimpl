@@ -171,6 +171,7 @@ public sealed class AppearanceAssets : IDisposable
                     surfaces++;
                     if (surface.HasDiffuse) textured++;
                     if (surface.Painted is not { } painted) continue;
+                    if (surface.BuiltMask && look.PredefinedSet is not null) continue;   // armour-pieces-1125: a full predefined set keeps its baked look (original)
                     if (paint is null)
                     {
                         if (!unpaintedNoted) { Pieces.AddNote($"{package}: no paint for slot '{piece.Slot}'; the grey diffuse is drawn"); unpaintedNoted = true; }

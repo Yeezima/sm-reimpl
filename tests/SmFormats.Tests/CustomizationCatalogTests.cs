@@ -251,8 +251,8 @@ public partial class CustomizationCatalogTests : IDisposable
         var notes = new List<string>();
         var sm = Load(notes).SpaceMarines;
         Assert.Equal(CustomizationCatalog.ArmourSlots.Order(), sm.Pieces.Keys.Order());
-        Assert.Equal(["sm_a_head", "sm_b_head"], sm.PiecesFor("head").Select(p => p.Name));       // sm_bt_head is a predefined set's: not offered
-        Assert.Equal(["sm_a_torso", "sm_b_torso"], sm.PiecesFor("torso").Select(p => p.Name));
+        Assert.Equal(["sm_a_head", "sm_b_head", "sm_bt_head"], sm.PiecesFor("head").Select(p => p.Name));   // armour-pieces-1125: the predefined set's piece follows the customizable ones
+        Assert.Equal(["sm_a_torso", "sm_b_torso", "sm_bt_torso"], sm.PiecesFor("torso").Select(p => p.Name));
         Assert.Equal(["sm_a_leg_left", "sm_b_leg_left"], sm.PiecesFor("leftleg").Select(p => p.Name));
         Assert.Equal(["sm_a_leg_right", "sm_b_leg_right"], sm.PiecesFor("rightleg").Select(p => p.Name));
         Assert.Equal(["sm_a_arm_left"], sm.PiecesFor("leftarm").Select(p => p.Name));              // shared by both sets: listed once
@@ -264,6 +264,51 @@ public partial class CustomizationCatalogTests : IDisposable
         var chaos = Load().ChaosMarines;
         Assert.Equal(["csm_basic_head"], chaos.PiecesFor("head").Select(p => p.Name));
         Assert.Empty(chaos.PiecesFor("leftleg"));
+    }
+
+    [Fact]
+    public void Every_predefined_piece_is_offered_after_the_customizable_ones_and_marked()
+    {
+        var sm = Load().SpaceMarines;
+        foreach (var set in sm.PredefinedSets)
+            foreach (var (slot, item) in set.Items)
+                Assert.Contains(sm.PiecesFor(slot), p => p.Name == item);
+        foreach (var slot in CustomizationCatalog.ArmourSlots)
+        {
+            var list = sm.PiecesFor(slot);
+            int firstExtra = list.ToList().FindIndex(p => p.FromPredefinedSet);
+            if (firstExtra >= 0) Assert.All(list.Skip(firstExtra), p => Assert.True(p.FromPredefinedSet));   // never interleaved: old indices keep their meaning
+        }
+        var bt = sm.PiecesFor("head").Single(p => p.Name == "sm_bt_head");
+        Assert.Equal(["black_templars"], bt.SetNames);
+        Assert.True(SmContent.Customization.BakedArmourPaint.Wanted("pkg_bt_helmet"));
+        Assert.False(SmContent.Customization.BakedArmourPaint.Wanted("pkg_a_helmet"));
+    }
+
+    [Fact]
+    public void Old_appearance_codes_keep_their_pieces_and_the_switch_restores_the_original_library()
+    {
+        var withExtras = Load();
+        CustomizationCatalog original;
+        using (CustomizationCatalog.OverridePredefinedPieces(false)) original = Load();
+        foreach (var slot in CustomizationCatalog.ArmourSlots)
+        {
+            var before = original.SpaceMarines.PiecesFor(slot).Select(p => p.Name).ToList();
+            Assert.Equal(before, withExtras.SpaceMarines.PiecesFor(slot).Take(before.Count).Select(p => p.Name));   // the same index names the same piece
+            Assert.DoesNotContain(original.SpaceMarines.PiecesFor(slot), p => p.FromPredefinedSet);
+        }
+        // A code written against the original lists resolves to the same pieces with the added ones present.
+        var code = SmSim.AppearanceCode.Default.WithPiece(SmSim.ArmourSlot.Head, 1).WithPiece(SmSim.ArmourSlot.Torso, 0);
+        var a = SmContent.Customization.ProfileWire.FromCode(code, CustomizationCatalog.SpaceMarine, original);
+        var b = SmContent.Customization.ProfileWire.FromCode(code, CustomizationCatalog.SpaceMarine, withExtras);
+        Assert.Equal(a.Pieces, b.Pieces);
+        // A pick of a predefined piece round-trips through the wire.
+        var look = b with { Pieces = new Dictionary<string, string> { ["head"] = "sm_bt_head" } };
+        var wire = SmContent.Customization.ProfileWire.ToCode(look, withExtras);
+        Assert.Equal(2, wire.Piece(SmSim.ArmourSlot.Head));
+        Assert.Equal("sm_bt_head", SmContent.Customization.ProfileWire.FromCode(wire, CustomizationCatalog.SpaceMarine, withExtras).Pieces["head"]);
+        // An old build (original lists) reads that index as the default piece rather than failing.
+        Assert.False(SmContent.Customization.ProfileWire.FromCode(wire, CustomizationCatalog.SpaceMarine, original).Pieces.ContainsKey("head"));
     }
 
     [Fact]

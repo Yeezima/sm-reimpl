@@ -119,10 +119,12 @@ public sealed record CharacterModel(HavokCharacterFile Rig, IReadOnlyList<Charac
     /// rigid block whose node hangs under no bone (the armour's cloth, belts and fur at the tree's root) follow <see cref="ClothBone"/>
     /// (<see cref="RigidBlock.ModelSpace"/>); null leaves such a block out with a note, as before.</param>
     public static CharacterPiece LoadPiece(IReadOnlySet<string> boneNames, string path, List<string>? notes = null,
-        Func<string, IEnumerable<string>>? texturePackages = null, bool objectTreePlacement = false, IReadOnlyDictionary<string, Vector3>? bonePositions = null)
+        Func<string, IEnumerable<string>>? texturePackages = null, bool objectTreePlacement = false, IReadOnlyDictionary<string, Vector3>? bonePositions = null,
+        bool buildPaintMasks = false)
     {
         string name = MeshNameOf(path);
-        var model = StaticModel.Load(path, name, notes, texturePackages?.Invoke(path));
+        var model = StaticModel.Load(path, name, notes, texturePackages?.Invoke(path), allLightProps: buildPaintMasks);
+        if (buildPaintMasks) model = Customization.BakedArmourPaint.Apply(model, notes);   // armour-pieces-1125: masks for baked DLC armour
         string? rigidBone = null;
         Dictionary<int, RigidBlock>? rigid = null;
         HashSet<int>? hidden = null;

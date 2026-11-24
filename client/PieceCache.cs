@@ -22,6 +22,8 @@ public sealed class PieceSurface
     /// <summary>Package, mesh surface index and material name: the base of the painted material's cache key.</summary>
     public required string Key { get; init; }
     public bool HasDiffuse { get; init; }
+    /// <summary>The paint mask is one we built for baked armour (armour-pieces-1125): drawn painted only when the piece is worn on its own, never as part of its full predefined set.</summary>
+    public bool BuiltMask { get; init; }
 }
 
 /// <summary>
@@ -114,7 +116,8 @@ public sealed class PieceCache
             string? path = CharacterModel.PackagePath(_gameDir, package);
             if (path is null || !System.IO.File.Exists(path))
                 return new Loaded(null, [$"armour package '{package}' is not in the install; not drawn"], watch.Elapsed.TotalMilliseconds, true, false);
-            var piece = CharacterModel.LoadPiece(_rig.BoneNames, path, notes, CharacterModel.ChaosTexturePackages, objectTreePlacement: true, _bonePositions);
+            var piece = CharacterModel.LoadPiece(_rig.BoneNames, path, notes, CharacterModel.ChaosTexturePackages, objectTreePlacement: true, _bonePositions,
+                buildPaintMasks: SmContent.Customization.BakedArmourPaint.Wanted(package));   // armour-pieces-1125
             bool takes = ComputeTakesDecal(piece);
             _takesDecal[package] = takes;
             return new Loaded(piece, notes, watch.Elapsed.TotalMilliseconds, true, takes);
@@ -291,6 +294,7 @@ public sealed class PieceCache
             surfaces.Add(new PieceSurface
             {
                 Plain = plain, Painted = painted, DecalUv = painted is not null && PaintSchemes.HasDecalUv(block.Uv1),
+                BuiltMask = painted is not null && SmContent.Customization.BakedArmourPaint.IsBuilt(surface.Material),
                 Key = $"{package}#{index}:{surface.Material?.Name}", HasDiffuse = surface.DiffuseDds is not null,
             });
         }

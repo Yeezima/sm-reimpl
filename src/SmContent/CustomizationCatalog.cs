@@ -14,7 +14,14 @@ namespace SmContent;
 /// <param name="ChallengeText">The armour challenge that unlocks it ("Group: description"), or null. Not applied (<c>UnlockMode.All</c>).</param>
 /// <param name="SetNames">The names of the customizable armour sets the piece belongs to (several sets share pieces).</param>
 public sealed record ArmourPiece(string Name, string Race, string Slot, IReadOnlyList<string> Packages, string DisplayName, string Description,
-    int Level, string HelmetOverride, string? ChallengeText, IReadOnlyList<string> SetNames);
+    int Level, string HelmetOverride, string? ChallengeText, IReadOnlyList<string> SetNames)
+{
+    /// <summary>
+    /// The piece is offered only because a predefined set (DLC or campaign reward) wears it (armour-pieces-1125, ours): it follows the customizable pieces in
+    /// <see cref="RaceCatalog.PiecesFor"/> and <see cref="SetNames"/> names the predefined sets. Its textures may have no paint mask (the client builds one).
+    /// </summary>
+    public bool FromPredefinedSet { get; init; }
+}
 
 /// <summary>
 /// An armour set (<c>mp_armor_set</c> entry). A customizable set contributes its pieces to the mix-and-match lists; a predefined one is a fixed
@@ -79,7 +86,10 @@ public sealed record CustomizerCamera(string Tab, float HorizontalAngle, float V
 public sealed record RaceCatalog(string Race, IReadOnlyDictionary<string, IReadOnlyList<ArmourPiece>> Pieces, IReadOnlyList<ArmourSet> Sets,
     IReadOnlyList<ShoulderDecal> Decals, IReadOnlyList<PaintPreset> Presets, ArmourSet? DefaultSet, string DefaultScheme)
 {
-    /// <summary>The offered pieces of a slot (union of the customizable sets, ordinal by name); empty for an unknown slot.</summary>
+    /// <summary>
+    /// The offered pieces of a slot: the union of the customizable sets (ordinal by name), then the predefined sets' other pieces (ordinal by name;
+    /// <see cref="ArmourPiece.FromPredefinedSet"/>, unless <see cref="CustomizationCatalog.PredefinedPiecesOffered"/> is off); empty for an unknown slot.
+    /// </summary>
     public IReadOnlyList<ArmourPiece> PiecesFor(string slot) => Pieces.TryGetValue(slot, out var p) ? p : [];
     public IEnumerable<ArmourSet> CustomizableSets => Sets.Where(s => s.Customizable);
     public IEnumerable<ArmourSet> PredefinedSets => Sets.Where(s => !s.Customizable);
@@ -96,6 +106,25 @@ public sealed class CustomizationCatalog
 {
     public const string SpaceMarine = "space_marine", Chaos = "chaos";
     public const string ArmourSetPackage = "data/packages/mp_armor_set.oppc";
+
+    /// <summary>
+    /// The one switch for armour-pieces-1125 (owner 2026-11-25: "usable as discrete individual armor pieces", in every profile including Faithful): true, the
+    /// predefined sets' pieces are offered per slot after the customizable ones; false restores the original library (customizable sets only). Set it once at
+    /// start-up, before a catalogue is built; server and clients must agree (the piece indices of a code depend on it).
+    /// </summary>
+    public static bool PredefinedPiecesOffered { get => LocalPredefinedPieces.Value ?? _predefinedPieces; set => _predefinedPieces = value; }
+    static bool _predefinedPieces = true;
+    static readonly AsyncLocal<bool?> LocalPredefinedPieces = new();
+
+    /// <summary>Test aid: <see cref="PredefinedPiecesOffered"/> as <paramref name="value"/> for the calling flow only (other threads keep the global value) until disposed.</summary>
+    internal static IDisposable OverridePredefinedPieces(bool value)
+    {
+        var before = LocalPredefinedPieces.Value;
+        LocalPredefinedPieces.Value = value;
+        return new Restore(() => LocalPredefinedPieces.Value = before);
+    }
+
+    sealed class Restore(Action undo) : IDisposable { public void Dispose() => undo(); }
 
     /// <summary>The nine armour slots of the data.</summary>
     public static readonly IReadOnlyList<string> ArmourSlots = ["head", "torso", "leftshoulder", "rightshoulder", "leftarm", "rightarm", "leftleg", "rightleg", "backpack"];
@@ -295,6 +324,18 @@ public sealed class CustomizationCatalog
                     .OrderBy(g => g.Key, StringComparer.Ordinal);
                 foreach (var g in wanted)
                     if (Piece(g.Key, race, g.Select(s => s.Name).Order(StringComparer.Ordinal).ToList()) is { } piece) pieces[slot].Add(piece);
+                // armour-pieces-1125 (owner 2026-11-25, every profile; ours): the predefined sets' pieces join the slot's library too, AFTER the customizable
+                // ones, so an appearance code's existing piece indices keep their meaning (old codes and mixed builds resolve as before).
+                if (!PredefinedPiecesOffered) continue;
+                var known = pieces[slot].Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var extra = sets.Where(s => !s.Customizable && s.Items.ContainsKey(slot) && !known.Contains(s.Items[slot]))
+                    .GroupBy(s => s.Items[slot], StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.Ordinal);
+                foreach (var g in extra)
+                    if (Piece(g.Key, race, g.Select(s => s.Name).Order(StringComparer.Ordinal).ToList()) is { } piece)
+                    {
+                        pieces[slot].Add(piece with { FromPredefinedSet = true });
+                        Customization.BakedArmourPaint.Register(piece.Packages);   // its baked materials get built masks when worn alone
+                    }
             }
             var decals = paint.Decals.Where(d => d.VisibleInCustomizer && string.Equals(d.Race, race, StringComparison.Ordinal)).OrderBy(d => d.Name, StringComparer.Ordinal)
                 .Select(d => { var (family, variant) = DecalFamily(d.Name); return new ShoulderDecal(d.Name, CatalogData.Text(locale, d.NameId) ?? d.Name, race, family, variant, d.IsBlank, d); }).ToList();

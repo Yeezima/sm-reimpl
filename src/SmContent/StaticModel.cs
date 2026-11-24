@@ -17,6 +17,14 @@ public sealed record StaticModel(string Archive, string MeshName, DcmMesh Mesh, 
     /// </summary>
     public IReadOnlyDictionary<string, byte[]> Textures { get; private set; } = new Dictionary<string, byte[]>();
 
+    /// <summary>A copy with other surfaces (materials) and further textures (armour-pieces-1125: built paint masks); the mesh is shared.</summary>
+    public StaticModel WithSurfaces(IReadOnlyList<StaticModelSurface> surfaces, IReadOnlyDictionary<string, byte[]> addedTextures)
+    {
+        var textures = new Dictionary<string, byte[]>(Textures, StringComparer.OrdinalIgnoreCase);
+        foreach (var (k, v) in addedTextures) textures[k] = v;
+        return new StaticModel(Archive, MeshName, Mesh, surfaces) { Textures = textures };
+    }
+
     /// <summary>Drops <see cref="Textures"/> once a renderer has uploaded them (the raw DDS bytes are not needed afterwards).</summary>
     public void ReleaseTextures() => Textures = new Dictionary<string, byte[]>();
 
@@ -31,7 +39,8 @@ public sealed record StaticModel(string Archive, string MeshName, DcmMesh Mesh, 
     /// </remarks>
     /// <param name="textureArchives">Further archives searched, in order, for diffuse textures the main archive lacks (the Chaos
     /// multiplayer armour keeps them in separate "_wg" / "_tt1" / "_tt2" packages).</param>
-    public static StaticModel Load(string archivePath, string meshName, List<string>? notes = null, IEnumerable<string>? textureArchives = null)
+    /// <param name="allLightProps">Also read the <c>LightPropMap</c> of materials without a paint mask (armour-pieces-1125: the baked DLC armour, whose built mask uses it).</param>
+    public static StaticModel Load(string archivePath, string meshName, List<string>? notes = null, IEnumerable<string>? textureArchives = null, bool allLightProps = false)
     {
         using var archive = ObpkArchive.Open(archivePath);
         DcmMesh? mesh = null;
@@ -58,7 +67,7 @@ public sealed record StaticModel(string Archive, string MeshName, DcmMesh Mesh, 
                 foreach (var parameter in MapScene.TextureParameters)
                     if (m.Textures.TryGetValue(parameter, out var tex)) wanted.Add(tex);
                 if (m.Textures.TryGetValue("PaintMask", out var paintMask)) wanted.Add(paintMask);   // the armour's paint mask (see PaintSchemes)
-                if (m.Textures.ContainsKey("PaintMask") && m.Textures.TryGetValue("LightPropMap", out var lightProp)) wanted.Add(lightProp);   // M40-T13: the painted armour's _lp
+                if ((allLightProps || m.Textures.ContainsKey("PaintMask")) && m.Textures.TryGetValue("LightPropMap", out var lightProp)) wanted.Add(lightProp);   // M40-T13: the painted armour's _lp
                 if (!m.Textures.ContainsKey("NormalMap")) wanted.Add(inferredNormal);
             }
 

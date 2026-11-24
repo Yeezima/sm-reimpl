@@ -108,7 +108,9 @@ public sealed partial class MapMaterials
     /// </summary>
     public PaintedSurface? PreparePainted(BmatMaterial bmat, IReadOnlyDictionary<string, byte[]> dds, List<string> notes, bool normalMaps = true)
     {
-        if (!bmat.Textures.TryGetValue("DiffuseMap", out var diffuseName) || Load(diffuseName, dds, notes) is not { } diffuse) return null;
+        // armour-pieces-1125: a built mask paints over its grey "paint diffuse"; the material's own (baked) DiffuseMap stays for the unpainted look.
+        if (!(bmat.Textures.TryGetValue(SmContent.Customization.BakedArmourPaint.PaintDiffuseKey, out var diffuseName) || bmat.Textures.TryGetValue("DiffuseMap", out diffuseName))
+            || Load(diffuseName, dds, notes) is not { } diffuse) return null;
         if (!bmat.Textures.TryGetValue("PaintMask", out var maskName) || Load(maskName, dds, notes) is not { } mask) return null;
         if (bmat.Textures.ContainsKey("EmissiveMap")) notes.Add($"material '{bmat.Name}': EmissiveMap is not drawn on painted materials");
         var s = new PaintedSurface
