@@ -53,7 +53,7 @@ public class ClassicHitDirTests
         Assert.True(BloodAmount(true, false) < BloodAmount(false, true));
         Assert.True(StreakCount(1f) < StreakCount(HeavyAmount) && StreakCount(HeavyAmount) < StreakCount(LethalAmount));
         Assert.True(StreakCount(LethalAmount) <= MaxStreaks && StreakCount(100f) == MaxStreaks);
-        Assert.InRange(SprayLife(false), 0.7f, 1.0f);   // the reference's plume is mostly gone about 0.8 s after contact
+        Assert.InRange(SprayLife(false), 0.9f, 1.25f);   // the reference's plume is mostly gone about 0.8 s after contact, faint ribbons to about 0.9-1 s (review of fcd76a6f)
         Assert.True(SprayLife(true) < SprayLife(false));
     }
 
@@ -288,9 +288,9 @@ public class ClassicHitDirTests
     // ---- the bull-rush charge (owner 2026-11-24, question card "Yes, spray charges too") ----
 
     [Fact]
-    public void A_charge_connect_is_its_rush_or_collision_stop_only()
+    public void A_charge_connect_is_its_collision_stop_only()
     {
-        Assert.True(IsChargeContact(RushPhase.Rush));
+        Assert.False(IsChargeContact(RushPhase.Rush));         // the run-up is not a contact (review decision 10)
         Assert.True(IsChargeContact(RushPhase.Collision));
         Assert.False(IsChargeContact(RushPhase.None));
         Assert.False(IsChargeContact(RushPhase.DashAttack));   // the jump pack's dash attack is not the bull rush
@@ -401,5 +401,86 @@ public class ClassicHitDirTests
         var d = WeaponDirection(path, 0.0);
         Assert.NotNull(d);
         Assert.True(d!.Value.X > 0.9f, $"{d}");
+    }
+
+    // ---- the glue decisions of the review of fcd76a6f (findings 1-6), as rules ----
+
+    [Fact]
+    public void Finding_1_the_own_melee_report_decides_the_directional_look_with_the_mark_s_own_test()
+    {
+        var victimFeet = new Vector3(0f, 1.5f, 0f);
+        var striking = new MeleeCandidate(7, Team.SpaceMarines, Vector3.Zero, 0f, 0.05, true, Own: true);   // facing +Y, struck 0.05 s ago
+        Assert.True(OwnReportDirectional(DirLook.MeleeSparks, true, 3, Team.Chaos, victimFeet, striking));
+        Assert.False(OwnReportDirectional(DirLook.None, true, 3, Team.Chaos, victimFeet, striking));                       // no directional look: the old fan
+        Assert.False(OwnReportDirectional(DirLook.MeleeSparks, false, 3, Team.Chaos, victimFeet, striking));               // a splash report
+        Assert.False(OwnReportDirectional(DirLook.MeleeSparks, true, 3, Team.Chaos, victimFeet, striking with { SinceMelee = 2.0 }));   // no recent strike
+        Assert.False(OwnReportDirectional(DirLook.MeleeSparks, true, 3, Team.Chaos, new Vector3(0f, 9f, 0f), striking));   // out of reach
+        // the report runs the draw lag ahead of the mark: its window covers it
+        Assert.True(OwnReportWindow(0.1) >= 0.25 && OwnReportWindow(0.0) >= 0.15 && OwnReportWindow(5.0) <= 0.45 + 1e-9);
+    }
+
+    [Fact]
+    public void Finding_2_an_unknown_armour_reads_down_so_a_health_only_kill_is_blood()
+    {
+        Assert.False(ArmourBeforeForMark(null));
+        Assert.Equal(HitVisual.Blood, Classify(false, true, ShieldLeftAfterMark(false, true, ArmourBeforeForMark(null))));   // not mixed: Faithful gains no sparks
+        Assert.Equal(HitVisual.Mixed, Classify(false, true, ShieldLeftAfterMark(false, true, ArmourBeforeForMark(true))));   // armour known up: mixed
+    }
+
+    [Fact]
+    public void Finding_3_a_charge_impact_plays_at_once_when_nothing_new_will_draw()
+    {
+        var faithful = DirLook.MeleeSparks; var extended = DirLook.MeleeSparks | DirLook.BloodSpray;
+        Assert.Equal(ChargeFx.PlayNow, ChargeImpactDecision(DirLook.None, false, false, false, null));      // Musou, Warfront
+        Assert.Equal(ChargeFx.PlayNow, ChargeImpactDecision(extended, true, false, false, null));           // the own body
+        Assert.Equal(ChargeFx.Skip, ChargeImpactDecision(extended, false, true, false, null));              // already drawn by the mark
+        Assert.Equal(ChargeFx.PlayNow, ChargeImpactDecision(faithful, false, false, true, null));           // the mark came first and drew nothing
+        Assert.Equal(ChargeFx.PlayNow, ChargeImpactDecision(faithful, false, false, false, false));         // Faithful, armour known down: nothing new will draw
+        Assert.Equal(ChargeFx.Hold, ChargeImpactDecision(faithful, false, false, false, true));             // armour up: the sparks may replace it
+        Assert.Equal(ChargeFx.Hold, ChargeImpactDecision(extended, false, false, false, false));            // Extended: the blood replaces it
+    }
+
+    [Fact]
+    public void Finding_4_the_own_body_keeps_its_red_sparks()
+    {
+        Assert.True(KeepRedSparks(bloodReplacesRed: true, victimIsLocal: true));
+        Assert.False(KeepRedSparks(true, false));
+        Assert.True(KeepRedSparks(false, false));
+    }
+
+    [Fact]
+    public void Finding_5_a_loose_hit_is_never_taken_from_its_resolved_victim_or_from_an_own_prediction()
+    {
+        Assert.True(LooseHitEligible(own: false, resolvedTo: 0, resolvedDistance: float.PositiveInfinity));   // resolved to nobody
+        Assert.False(LooseHitEligible(false, 5, 0.6f));                                                      // on its resolved living victim
+        Assert.True(LooseHitEligible(false, 5, ResolvedBodyReach + 0.5f));                                   // resolved to someone it ended far from
+        Assert.False(LooseHitEligible(own: true, 0, float.PositiveInfinity));                                // an own predicted hit: unconfirmed
+    }
+
+    [Fact]
+    public void Finding_6_the_throw_speed_scale_follows_the_spray_kind()
+    {
+        Assert.Equal(1.6f, SpeedScaleFor(true));
+        Assert.Equal(1f, SpeedScaleFor(false));
+    }
+
+    [Fact]
+    public void Decision_7_gunfire_and_thrusts_start_on_the_exit_side()
+    {
+        Assert.True(StartsAtExit(gunfire: true, thrust: 0f));
+        Assert.True(StartsAtExit(false, 0.8f));
+        Assert.False(StartsAtExit(false, 0.2f));                                                             // a sweep starts at the contact
+        var exit = ExitContact(new Vector3(0f, 0f, 1.3f), new Vector3(1f, 0f, -0.3f));
+        Assert.Equal(BodySurface, exit.X, 3); Assert.Equal(1.3f, exit.Z, 3);                                  // the far side, at the struck height
+    }
+
+    [Fact]
+    public void Decision_10_a_seen_contact_is_known_without_recording_another()
+    {
+        var ledger = new ContactLedger();
+        Assert.False(ledger.Seen(4, 9, 77, 1.0));
+        Assert.True(ledger.First(4, 9, 77, 1.0));
+        Assert.True(ledger.Seen(4, 9, 77, 1.5));          // a second mark under the same key is other damage
+        Assert.False(ledger.Seen(4, 9, 77, 2.5));         // aged out
     }
 }

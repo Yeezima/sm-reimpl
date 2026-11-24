@@ -5,12 +5,13 @@ using SmClient.ImpactRules;
 namespace SmClient;
 
 /// <summary>
-/// classic-hit-effects (brief 2026-11-23 rev 1; client presentation only): the directional hit spray on a player in Classic PvP, one pooled mesh per spray, moved by its shader (no GPU particles,
-/// no per-frame allocation). Thin streaks and a few droplets are released from just behind the moving weapon over <see cref="ClassicHitDirRules.EmitSeconds"/> after contact (the weapon's
-/// path is fed in as it is drawn, or from its recorded history when the confirmation came late), each thrown along the weapon's motion there with a sideways spread that starts narrow and
-/// grows, then slows in the air, widens, falls a little and fades smoothly. A gunfire hit feeds a straight path along the incoming shot. Two looks share the node:
+/// classic-hit-effects (brief 2026-11-23 rev 1; client presentation only): the directional hit spray on a player in Classic PvP, one pooled mesh per spray (32, growing to 64), moved by its
+/// shader (no GPU particles, no per-frame allocation). Streaks and a few droplets are released from just behind the moving weapon over <see cref="ClassicHitDirRules.EmitSeconds"/> after
+/// contact (the weapon's path is fed in as it is drawn, or from its recorded history when the confirmation came late), each thrown along the weapon's motion there with a sideways spread
+/// that starts narrow and grows, then slows in the air, widens and fades smoothly. A gunfire hit or a charge feeds a straight path along the shot or the charge. Two looks share the node:
 /// <list type="bullet">
-/// <item><b>Blood</b> (Extended only): the red of today's Classic health-hit sparks (<see cref="BloodTint"/>, the colour the brief keeps), additive like them.</item>
+/// <item><b>Blood</b> (Extended only): a few soft coherent ribbons that fork, hang at height and reach (review of fcd76a6f), in the red of today's Classic health-hit sparks
+/// (<see cref="BloodTint"/>, the colour the brief keeps), additive like them.</item>
 /// <item><b>Sparks</b> (both Classic profiles): yellow-white, faster, shorter.</item>
 /// </list>
 /// Counts, speeds, widths and lives are ours (spec/behavior.md "Classic hit effects").
@@ -23,6 +24,8 @@ public partial class ClassicHitSpray : Node3D
     public static readonly Color SparkTint = new(1f, 0.82f, 0.5f);
 
     public const int Pool = 32;
+    /// <summary>The pool grows to this when every spray is live, before the oldest is reused (review finding 11: cutting a live spray popped it).</summary>
+    public const int MaxPool = 64;
     const int Slots = 8;
     const float SlotSeconds = ClassicHitDirRules.EmitSeconds / (Slots - 1);
 
@@ -46,13 +49,15 @@ uniform float gravity = 3.5;
 uniform float back_share = 0.0;           // gunfire: a share of droplets splashes back toward the shooter
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
 uniform float glow = 1.8;
+uniform float ribbon = 0.0;               // blood (review of fcd76a6f): a few soft coherent ribbons that hang and reach, not scattering sparks
+uniform float drag = 2.6;
 varying float fade;
 varying float kind;
 
 int slot_of(float t) { return clamp(int(floor(t / slot_dt)), 0, {{Slots - 2}}); }
 vec3 path_at(float t) { t = clamp(t, 0.0, filled); int i = slot_of(t); float u = clamp(t / slot_dt - float(i), 0.0, 1.0); return mix(path[i], path[i + 1], u); }
 vec3 vel_at(float t) { t = clamp(t, 0.0, filled); int i = slot_of(t); float u = clamp(t / slot_dt - float(i), 0.0, 1.0); return mix(vel[i], vel[i + 1], u); }
-float reach(float t) { return (1.0 - exp(-max(t, 0.0) * 2.6)) / 2.6; }
+float reach(float t) { return (1.0 - exp(-max(t, 0.0) * drag)) / drag; }
 
 void vertex() {
     float idx = UV2.x;
@@ -61,7 +66,7 @@ void vertex() {
     kind = VERTEX.z;
     float te = t0 * emit;
     float tau = age - te;
-    float life = streak_life * (0.7 + 0.3 * spd);
+    float life = streak_life * (ribbon > 0.5 ? 0.85 + 0.15 * spd : 0.7 + 0.3 * spd);
     vec3 pos = vec3(0.0);
     fade = 0.0;
     if (idx < count && tau >= 0.0 && te <= filled + 1e-4 && tau < life) {
@@ -72,13 +77,19 @@ void vertex() {
         vec3 side = abs(f.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : normalize(cross(f, vec3(0.0, 1.0, 0.0)));
         vec3 up2 = cross(side, f);
         vec3 sd = cos(ang) * side + sin(ang) * up2;
-        float s = spread * mag * (0.25 + 0.75 * t0);          // narrow at contact, wider later in the stroke
+        float s = spread * mag * (0.25 + 0.75 * t0) * (ribbon > 0.5 ? 0.6 : 1.0);   // narrow at contact, wider later in the stroke; ribbons fork about 15 degrees
         vec3 throwv = (f + sd * s) * vl * mix(0.55, 1.0, spd);
+        if (ribbon > 0.5)
+        {
+            // blood hangs at height: little of the throw goes down (an overhead's or a slash's ran into the floor in a third of a second) and it lifts a little
+            float tl = length(throwv);
+            throwv.y = max(throwv.y, -0.3 * tl) + 0.5;
+        }
         if (back_share > 0.0 && fract(idx * 0.618034) < back_share) throwv = -throwv * 0.35;
         vec3 down = vec3(0.0, -1.0, 0.0);
-        vec3 bloom = sd * (0.12 + 0.5 * s) * size;           // the plume widens as it slows
+        vec3 bloom = sd * (ribbon > 0.5 ? 0.05 + 0.25 * s : 0.12 + 0.5 * s) * size;   // the plume widens as it slows
         vec3 headp = e + throwv * reach(tau) + down * 0.5 * gravity * tau * tau + bloom * tau;
-        float ta = max(tau - lag, 0.0);
+        float ta = ribbon > 0.5 && kind < 0.5 ? tau * (0.25 + 0.6 * lag) : max(tau - lag, 0.0);   // a ribbon spans most of its own path, so it never shrinks into dashes
         vec3 tailp = e + throwv * reach(ta) + down * 0.5 * gravity * ta * ta + bloom * ta;
         vec3 hv = (MODELVIEW_MATRIX * vec4(headp, 1.0)).xyz;
         vec3 tv = (MODELVIEW_MATRIX * vec4(tailp, 1.0)).xyz;
@@ -86,9 +97,9 @@ void vertex() {
         vec3 al = hv - tv;
         al = length(al) > 1e-4 ? normalize(al) : vec3(0.0, 1.0, 0.0);
         vec3 across = normalize(cross(al, normalize(pv)));
-        float w = (kind > 0.5 ? 0.022 : 0.014 * (0.25 + 0.75 * UV.x)) * size * sz * (1.0 + 1.6 * tau);
+        float w = (kind > 0.5 ? 0.022 : (ribbon > 0.5 ? 0.034 : 0.014) * (0.25 + 0.75 * UV.x)) * size * sz * (1.0 + (ribbon > 0.5 ? 0.9 : 1.6) * tau);
         pos = pv + across * (UV.y * 2.0 - 1.0) * w;
-        fade = smoothstep(0.0, 0.03, tau) * (1.0 - smoothstep(0.35, 1.0, tau / life));   // holds through the throw, then a long smooth fade (the reference's plume)
+        fade = smoothstep(0.0, 0.03, tau) * (1.0 - smoothstep(ribbon > 0.5 ? 0.45 : 0.35, 1.0, tau / life));   // holds through the throw, then a long smooth fade (the reference's plume)
         POSITION = PROJECTION_MATRIX * vec4(pos, 1.0);
     } else {
         POSITION = vec4(2.0, 2.0, 2.0, 1.0);   // clipped
@@ -121,10 +132,13 @@ void fragment() {
         public float SpeedScale = 1f;
     }
 
-    readonly Spray[] _sprays = new Spray[Pool];
+    readonly Spray[] _sprays = new Spray[MaxPool];
+    int _made;
     int _next;
     /// <summary>Sprays started (blood, sparks), for tests and logs.</summary>
     public int Blood { get; private set; }
+    /// <summary>Live sprays reused because all <see cref="MaxPool"/> were live.</summary>
+    public int Evicted { get; private set; }
     public int Sparks { get; private set; }
     public int Live { get { int n = 0; foreach (var s in _sprays) if (s is { On: true }) n++; return n; } }
 
@@ -166,13 +180,17 @@ void fragment() {
     public override void _Ready()
     {
         _shader ??= new Shader { Code = Code };
-        for (int i = 0; i < Pool; i++)
-        {
-            var m = new ShaderMaterial { Shader = _shader };
-            var node = new MeshInstance3D { Mesh = SharedMesh(), MaterialOverride = m, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = false, TopLevel = true, Layers = FxBatch.FxRenderLayer };
-            AddChild(node);
-            _sprays[i] = new Spray { Node = node, Material = m };
-        }
+        for (int i = 0; i < Pool; i++) Make();
+    }
+
+    Spray Make()
+    {
+        var m = new ShaderMaterial { Shader = _shader };
+        var node = new MeshInstance3D { Mesh = SharedMesh(), MaterialOverride = m, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = false, TopLevel = true, Layers = FxBatch.FxRenderLayer };
+        AddChild(node);
+        var s = new Spray { Node = node, Material = m };
+        _sprays[_made++] = s;
+        return s;
     }
 
     /// <summary>What one spray looks like and how it moves.</summary>
@@ -182,9 +200,14 @@ void fragment() {
     {
         // The oldest goes first when every spray is in use (it is the most faded).
         Spray? pick = null;
-        for (int k = 0; k < Pool; k++) { var s = _sprays[(_next + k) % Pool]; if (!s.On) { pick = s; _next = (_next + k + 1) % Pool; break; } }
-        if (pick is null) { pick = _sprays[_next]; _next = (_next + 1) % Pool; }
-        return pick;
+        for (int k = 0; k < _made; k++) { var s = _sprays[(_next + k) % _made]; if (!s.On) { pick = s; _next = (_next + k + 1) % _made; break; } }
+        if (pick is not null) return pick;
+        if (_made < MaxPool) return Make();
+        // all 64 live (beyond any match load seen): the most faded one is reused
+        Spray oldest = _sprays[0];
+        for (int k = 1; k < _made; k++) if (_sprays[k].Age / Math.Max(_sprays[k].Life, 1e-3) > oldest.Age / Math.Max(oldest.Life, 1e-3)) oldest = _sprays[k];
+        Evicted++;
+        return oldest;
     }
 
     void Begin(Spray s, Vector3 contact, Look look, double preAge)
@@ -198,11 +221,13 @@ void fragment() {
         m.SetShaderParameter("spread", look.Spread);
         m.SetShaderParameter("size", look.Size * (look.Sparks ? 0.7f : 0.9f + 0.1f * look.Amount));
         m.SetShaderParameter("streak_life", look.Sparks ? ClassicHitDirRules.SparkSeconds : ClassicHitDirRules.StreakSeconds);
-        m.SetShaderParameter("gravity", look.Sparks ? 9.8f : 3.5f);
+        m.SetShaderParameter("gravity", look.Sparks ? 9.8f : ClassicHitDirRules.RibbonGravity);
+        m.SetShaderParameter("ribbon", look.Sparks ? 0f : 1f);
+        m.SetShaderParameter("drag", look.Sparks ? 2.6f : ClassicHitDirRules.RibbonDrag);
         m.SetShaderParameter("back_share", look.BackShare);
         m.SetShaderParameter("tint", look.Sparks ? SparkTint : BloodTint);
         m.SetShaderParameter("glow", look.Sparks ? 3.2f : 1.8f);
-        s.SpeedScale = look.Sparks ? 1.6f : 1f;
+        s.SpeedScale = ClassicHitDirRules.SpeedScaleFor(look.Sparks);
         s.Node.Visible = true;
         if (look.Sparks) Sparks++; else Blood++;
     }
@@ -236,6 +261,7 @@ void fragment() {
         if (_sprays[0] is null) return;
         var s = Take();
         s.Weapon = weapon; s.Known = 0;
+        s.SpeedScale = ClassicHitDirRules.SpeedScaleFor(look.Sparks);   // before the velocities (review finding 6)
         // slot 0: the contact itself; then the history, interpolated at every slot it covers
         s.Path[0] = Vector3.Zero;
         var lastP = contact; double lastT = 0.0;

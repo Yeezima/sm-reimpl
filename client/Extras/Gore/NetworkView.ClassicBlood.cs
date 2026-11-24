@@ -73,6 +73,12 @@ public partial class NetworkView
             var (zone, distance) = Combat.HitShapes(from, d, o.Position, HitBodyAsDrawn(o), ClassicBloodRules.SearchDistance, o.Yaw);
             if (zone != HitZone.None) _decalHits.Add(new ClassicBloodRules.TraceHit(distance, from + d * distance, -d, Player: true));
         }
+        if (_client.Predicted is { Alive: true } me && me.PlayerId == _client.PlayerId && me.PlayerId != victim)
+        {
+            // the own body in the line blocks it too (review decision 9)
+            var (zone, distance) = Combat.HitShapes(from, d, me.Position, HitBodyAsDrawn(me), ClassicBloodRules.SearchDistance, me.Yaw);
+            if (zone != HitZone.None) _decalHits.Add(new ClassicBloodRules.TraceHit(distance, from + d * distance, -d, Player: true));
+        }
         if (_stagedBlocker is { } sb) _decalHits.Add(new ClassicBloodRules.TraceHit(sb, from + d * sb, -d, Player: true));   // the staged blocked case (NetworkView.ClassicHitDirStage.cs)
         var (result, hit) = ClassicBloodRules.DecalTrace(fatal: true, head: true, gunfire: true, _decalHits);
         if (LogHitDir) HitDirPrint($"HITDIR headshot decal P{victim} kill #{sequence}: {result}{(result == ClassicBloodRules.DecalResult.NoWall ? "" : $" at {hit.Distance:F2} m")} (t {_connectedFor:F2})");
@@ -98,7 +104,7 @@ public partial class NetworkView
         var c = CharacterViewer.BloodColour;
         for (int i = 0; i < alpha.Length; i++)
         {
-            float s = 0.3f + 0.7f * shade[i];
+            float s = 0.12f + 0.88f * MathF.Pow(shade[i], 1.4f);   // near-black dense core, today's blood red at the thin edges (review of fcd76a6f)
             bytes[i * 4] = (byte)Math.Clamp(c.R * s * 255f, 0f, 255f);
             bytes[i * 4 + 1] = (byte)Math.Clamp(c.G * s * 255f, 0f, 255f);
             bytes[i * 4 + 2] = (byte)Math.Clamp(c.B * s * 255f, 0f, 255f);

@@ -68,11 +68,13 @@ public static class ClassicHitDirRules
     public static float BloodAmount(bool heavy, bool lethal) => lethal ? LethalAmount : heavy ? HeavyAmount : 1f;
 
     /// <summary>Streaks in one spray (the mesh's quads) and how many a normal hit shows.</summary>
-    public const int MaxStreaks = 64, NormalStreaks = 26, SparkStreaks = 22;
+    public const int MaxStreaks = 64, NormalStreaks = 13, SparkStreaks = 22;   // blood: 13 soft ribbons and droplets for a normal hit (26 thin streaks before the review of fcd76a6f)
     public static int StreakCount(float amount) => Math.Clamp((int)MathF.Round(NormalStreaks * amount), 1, MaxStreaks);
 
     /// <summary>The spray's life (s): the emission window behind the weapon, then each streak's flight and fade. The reference clip's plume is mostly gone about 0.8 s after contact.</summary>
-    public const float EmitSeconds = 0.12f, StreakSeconds = 0.85f, SparkSeconds = 0.32f;
+    public const float EmitSeconds = 0.2f, StreakSeconds = 0.95f, SparkSeconds = 0.32f;   // review of fcd76a6f: blood laid along a longer stretch of the stroke, faint ribbons to about 0.9-1 s
+    /// <summary>The blood ribbons' gravity (m/s2) and drag (1/s): they hang at height and reach about 1.5 body heights (review of fcd76a6f; ours).</summary>
+    public const float RibbonGravity = 1.0f, RibbonDrag = 1.9f;
     public static float SprayLife(bool sparks) => EmitSeconds + (sparks ? SparkSeconds : StreakSeconds);
 
     /// <summary>The sideways spread (radians at the end of the emission) of a pure sweep and of a pure thrust: thrusts stay narrow, sweeps bloom wider.</summary>
@@ -227,10 +229,72 @@ public static class ClassicHitDirRules
     public static long ChargeKey(int rushCount) => -1_000_000_000L - rushCount;
 
     /// <summary>The charge phases a connect happens in (owner 2026-11-24, question card "Yes, spray charges too"): the rush itself and its collision stop; not the jump pack's dash attack.</summary>
-    public static bool IsChargeContact(RushPhase phase) => phase is RushPhase.Rush or RushPhase.Collision;
+    public static bool IsChargeContact(RushPhase phase) => phase is RushPhase.Collision;   // review 2026-11-24: only on contact (the collision stop), not the run-up
 
     /// <summary>How far (m, horizontal) a charger in his rush or collision stop may be from the victim of a damage mark and be taken as its source (ours; the connect stands them 0.9 m apart).</summary>
     public const float ChargeReach = 2.5f;
+
+    // ---- the glue decisions as rules (review of fcd76a6f, 2026-11-24): each one a finding of the review, tested on its own ----
+
+    /// <summary>
+    /// The victim's armour before a mark, when the client's tracker may not know it (a first sight, or the death reset that clears it before a lethal mark is read): unknown reads
+    /// as down, so a health-only mark is blood, not mixed, and Faithful never gains sparks on a bare-armour kill (review finding 2).
+    /// </summary>
+    public static bool ArmourBeforeForMark(bool? tracked) => tracked ?? false;
+
+    /// <summary>How old the own hit report may be and still give a melee contact its exact armour: the own report arrives the remote draw lag ahead of the interpolated mark (finding 1).</summary>
+    public static double OwnReportWindow(double drawLag) => Math.Clamp(drawLag, 0.0, 0.3) + 0.15;
+
+    /// <summary>
+    /// Whether the own melee hit report draws the directional look (and leaves out the old fan) at once: the same pairing test the interpolated mark uses later, with the own
+    /// attacker only (finding 1: the report came first and drew the old fan, then the mark drew the spray).
+    /// </summary>
+    public static bool OwnReportDirectional(DirLook look, bool lastMelee, int victimId, Team victimTeam, Vector3 victimFeet, MeleeCandidate own) =>
+        look.HasFlag(DirLook.MeleeSparks) && lastMelee && own.Own && PickAttacker(victimId, victimTeam, victimFeet, new[] { own }) == own.Id;
+
+    /// <summary>What a charge connect's data impact effects do (finding 3).</summary>
+    public enum ChargeFx { PlayNow, Hold, Skip }
+
+    /// <summary>
+    /// <see cref="ChargeFx.PlayNow"/> without the directional look, on the own body, when the mark already drew nothing new, or in a profile without blood when the victim's armour
+    /// is known down (nothing new will draw); <see cref="ChargeFx.Skip"/> when the directional look already drew this contact; else <see cref="ChargeFx.Hold"/> for the mark.
+    /// </summary>
+    public static ChargeFx ChargeImpactDecision(DirLook look, bool ownVictim, bool alreadyDrawn, bool markDrewNothing, bool? victimArmourUp)
+    {
+        if (look == DirLook.None || ownVictim) return ChargeFx.PlayNow;
+        if (alreadyDrawn) return ChargeFx.Skip;
+        if (markDrewNothing) return ChargeFx.PlayNow;
+        if (!look.HasFlag(DirLook.BloodSpray) && victimArmourUp == false) return ChargeFx.PlayNow;
+        return ChargeFx.Hold;
+    }
+
+    /// <summary>Whether a health hit on bare armour keeps today's red sparks: always on the own body, which draws no directional look (finding 4).</summary>
+    public static bool KeepRedSparks(bool bloodReplacesRed, bool victimIsLocal) => !bloodReplacesRed || victimIsLocal;
+
+    /// <summary>How close (m) a hit's end must be to the living player it was resolved to for it to stay his (finding 5).</summary>
+    public const float ResolvedBodyReach = 1.3f;
+
+    /// <summary>
+    /// Whether a server body or head hit may be taken by another victim's mark: never an own predicted hit (unconfirmed), and only one resolved to nobody or ending farther than
+    /// <see cref="ResolvedBodyReach"/> from the living player it was resolved to (finding 5: a loose hit could be taken from its correctly resolved victim).
+    /// </summary>
+    public static bool LooseHitEligible(bool own, int resolvedTo, float resolvedDistance) => !own && (resolvedTo <= 0 || resolvedDistance > ResolvedBodyReach);
+
+    /// <summary>The speed scale of a spray's throw (sparks fly faster); set before its velocities are filled (finding 6: a pooled spray kept the last one's).</summary>
+    public static float SpeedScaleFor(bool sparks) => sparks ? 1.6f : 1f;
+
+    /// <summary>The thrust measure from which a melee spray starts on the far (exit) side of the body, as gunfire and charges do (lead decision 7; ours).</summary>
+    public const float ExitThrust = 0.6f;
+
+    /// <summary>Whether a spray starts on the exit side: gunfire, and melee thrusts at <see cref="ExitThrust"/> or more (lead decision 7).</summary>
+    public static bool StartsAtExit(bool gunfire, float thrust) => gunfire || thrust >= ExitThrust;
+
+    /// <summary>The exit point on the body's surface (game space, Z up): the body axis at the struck height pushed out along the level part of the direction (lead decision 7).</summary>
+    public static Vector3 ExitContact(Vector3 axisPoint, Vector3 dir)
+    {
+        var level = new Vector3(dir.X, dir.Y, 0f);
+        return level.LengthSquared() < 1e-8f ? axisPoint : axisPoint + Vector3.Normalize(level) * BodySurface;
+    }
 
     /// <summary>The charge spray's sideways spread (rad; ours: a body slam, between a thrust's and a sweep's).</summary>
     public const float ChargeSpread = 0.3f;
@@ -320,6 +384,9 @@ public static class ClassicHitDirRules
         readonly List<(int, int, long)> _old = new();
 
         /// <summary>True the first time a contact is offered within <see cref="Seconds"/>; false for a repeat.</summary>
+        /// <summary>Whether a contact was already drawn within <see cref="Seconds"/> (no record made).</summary>
+        public bool Seen(int victim, int attacker, long key, double now) => _seen.TryGetValue((victim, attacker, key), out double at) && now - at <= Seconds;
+
         public bool First(int victim, int attacker, long key, double now)
         {
             if (_seen.Count > 32)

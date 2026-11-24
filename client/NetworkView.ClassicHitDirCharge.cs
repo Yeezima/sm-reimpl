@@ -24,6 +24,8 @@ public partial class NetworkView
     sealed class ChargePending { public PlayerState Charger; public int Victim; public Num.Vector3 Contact, Along; public bool ArmourUp; public double At; }
     readonly List<ChargePending> _chargePending = new();
     readonly Dictionary<int, (int Charger, double At)> _chargeDrawn = new();
+    /// <summary>Charge marks that drew nothing new (Faithful's health hit) before the charge's impact was seen: that impact then plays at once (review finding 3).</summary>
+    readonly Dictionary<int, (int Charger, double At)> _chargeNothing = new();
     /// <summary>Per player: in the rush last frame, rushes started (the charge key), the last rush velocity (game space).</summary>
     readonly Dictionary<int, (bool Rushing, int Count, Num.Vector3 Velocity)> _rushTrack = new();
     int _hitDirCharges;
@@ -45,10 +47,17 @@ public partial class NetworkView
     /// </summary>
     int? ClassicChargeImpactFx(PlayerState charger, PlayerState victim, Num.Vector3 contact, Num.Vector3 along, bool armourUp)
     {
-        if (HitDirLook == DirLook.None || (_client is { } me && victim.PlayerId == me.PlayerId)) return null;   // the own body draws no directional look: its impact as before
-        if (_chargeDrawn.TryGetValue(victim.PlayerId, out var d) && d.Charger == charger.PlayerId && _connectedFor - d.At <= ChargeFxWait + 0.2) return 0;
-        _chargePending.Add(new ChargePending { Charger = charger, Victim = victim.PlayerId, Contact = contact, Along = along, ArmourUp = armourUp, At = _connectedFor });
-        return 0;
+        bool ownVictim = _client is { } me && victim.PlayerId == me.PlayerId;   // the own body draws no directional look: its impact as before
+        bool drawnAlready = _chargeDrawn.TryGetValue(victim.PlayerId, out var d) && d.Charger == charger.PlayerId && _connectedFor - d.At <= ChargeFxWait + 0.2;
+        bool markDrewNothing = _chargeNothing.TryGetValue(victim.PlayerId, out var z) && z.Charger == charger.PlayerId && _connectedFor - z.At <= ChargeFxWait + 0.2;
+        switch (ChargeImpactDecision(HitDirLook, ownVictim, drawnAlready, markDrewNothing, _armourFlash.ArmourUp(victim.PlayerId, _connectedFor)))
+        {
+            case ChargeFx.PlayNow: return null;
+            case ChargeFx.Skip: return 0;
+            default:
+                _chargePending.Add(new ChargePending { Charger = charger, Victim = victim.PlayerId, Contact = contact, Along = along, ArmourUp = armourUp, At = _connectedFor });
+                return 0;
+        }
     }
 
     /// <summary>Per frame: held charge effects whose mark did not come play now (as before, a little late).</summary>
@@ -62,6 +71,7 @@ public partial class NetworkView
             ChargeImpactFxPlay(p.Charger, p.Contact, p.Along, p.ArmourUp);
         }
         if (_chargeDrawn.Count > 32) _chargeDrawn.Clear();
+        if (_chargeNothing.Count > 32) _chargeNothing.Clear();
     }
 
     /// <summary>The charger of a confirmed damage on <paramref name="o"/>: a held charge impact on him, else the nearest enemy in his rush or collision stop within <see cref="ChargeReach"/>.</summary>
@@ -94,14 +104,15 @@ public partial class NetworkView
         var (charger, along, held) = found;
         if (held is not null) _chargePending.Remove(held);
         int key = _rushTrack.GetValueOrDefault(charger.PlayerId).Count;
-        if (!_contactLedger.First(o.PlayerId, charger.PlayerId, ChargeKey(key), _connectedFor)) return true;   // the same charge again: one effect per victim and charge
-        bool before = _armourFlash.ArmourUp(o.PlayerId, _connectedFor) ?? true;
+        if (!_contactLedger.First(o.PlayerId, charger.PlayerId, ChargeKey(key), _connectedFor)) return false;   // the same charge again: other damage, not swallowed (review decision 10)
+        bool before = ArmourBeforeForMark(_armourFlash.ArmourUp(o.PlayerId, _connectedFor));   // unknown: down (review finding 2)
         var visual = Classify(shield, health, ShieldLeftAfterMark(shield, health, before));
         // thrown on from the far side of his body along the charge: from the charger's side the streaks ran into the victim's own body and were hidden (evidence capture, 2026-11-24)
         var contactGame = o.Position + Num.Vector3.Normalize(along) * BodySurface + new Num.Vector3(0f, 0f, 1.25f);
         bool drawn = DrawCharge(o.PlayerId, charger.PlayerId, ToGodot(contactGame), DirToGodot(Num.Vector3.Normalize(along)).Normalized(), visual, lethal);
         if (drawn) _chargeDrawn[o.PlayerId] = (charger.PlayerId, _connectedFor);
         else if (held is not null) ChargeImpactFxPlay(held.Charger, held.Contact, held.Along, held.ArmourUp);   // nothing new drawn (Faithful's health hit): the old impact, as before
+        else _chargeNothing[o.PlayerId] = (charger.PlayerId, _connectedFor);   // the impact, when it is seen after this, plays at once (review finding 3)
         _hitDirCharges++;
         if (LogHitDir) HitDirPrint($"HITDIR charge P{charger.PlayerId}->P{o.PlayerId} {visual}{(lethal ? " lethal" : "")} along {along.X:F2},{along.Y:F2} (key {key}{(held is null ? "" : ", impact held")}) shield {shield} health {health} armour-before {before} drawn {drawn} (t {_connectedFor:F2})");
         return true;

@@ -67,7 +67,7 @@ public partial class NetworkView
         {
             if (victim.PlayerId != hits.LastVictim || hits.LastVictim <= 0) continue;
             PlayerDamageGlow(_client.Predicted.Position, victim.PlayerId, victim.Position, up,
-                hits.LastMelee ? DamageKind.Melee : DamageKind.Blast, hits.LastMelee ? "own melee report" : "own splash report", hits.LastMelee && MeleeContactPaired(victim.PlayerId));
+                hits.LastMelee ? DamageKind.Melee : DamageKind.Blast, hits.LastMelee ? "own melee report" : "own splash report", hits.LastMelee && (MeleeContactPaired(victim.PlayerId) || OwnMeleeWillPair(victim)));   // classic-hit-effects: decided at the report (review finding 1)
             break;
         }
     }

@@ -63,58 +63,81 @@ public static class ClassicBloodRules
     /// </summary>
     public static (float[] Alpha, float[] Shade) DecalShape(int seed, int size = 192)
     {
+        // review of fcd76a6f (about 70 % against the reference image): a larger, irregular, near-black core; long, thick, tapered lobes reaching up to 0.45; noisier edges;
+        // droplets of mixed sizes stretched along their radius; and a silhouette that differs per seed (stretch, lobe count and lengths), not only its dots
         var rng = new Random(seed);
         var alpha = new float[size * size];
         var shade = new float[size * size];
         for (int i = 0; i < shade.Length; i++) shade[i] = 1f;
         float S(double lo, double hi) => (float)(lo + rng.NextDouble() * (hi - lo));
 
-        // The core: a few overlapping blobs with a wavy outline (radius in texture units, 0..1 across the square).
-        int coreBlobs = rng.Next(3, 6);
-        var blobs = new List<(float X, float Y, float R, float[] Wave, float Dark)>();
+        // the variant's silhouette: an overall stretch along a random angle and an off-centre lean of the core
+        float stretch = S(0.78, 1.3), stretchAng = S(0, Math.Tau);
+        float sc = MathF.Cos(stretchAng), ss = MathF.Sin(stretchAng);
+        (float X, float Y) P(float dx, float dy)
+        {
+            // stretch the offset along the variant's axis, keep it inside the square's disc
+            float a = dx * sc + dy * ss, b = -dx * ss + dy * sc;
+            a *= stretch; b /= stretch;
+            float x = a * sc - b * ss, y = a * ss + b * sc;
+            float l = MathF.Sqrt(x * x + y * y);
+            if (l > 0.46f) { x *= 0.46f / l; y *= 0.46f / l; }
+            return (0.5f + x, 0.5f + y);
+        }
+        var blobs = new List<(float X, float Y, float R, float[]? Wave, float Dark, float Elong, float Ang)>();
+
+        // the core: several overlapping blobs with ragged outlines, near black
+        int coreBlobs = rng.Next(4, 8);
         for (int b = 0; b < coreBlobs; b++)
-            blobs.Add((0.5f + S(-0.05, 0.05), 0.5f + S(-0.05, 0.05), S(0.11, 0.17), Waves(rng, 0.22f), S(0.35, 0.55)));
-        // The lobes: uneven, elongated, radiating at random angles.
-        int lobes = rng.Next(5, 9);
+        {
+            var (x, y) = P(S(-0.07, 0.07), S(-0.07, 0.07));
+            blobs.Add((x, y, S(0.12, 0.2), Waves(rng, 0.38f), S(0.08, 0.22), 1f, 0f));
+        }
+        // the lobes: 3 to 9, long, thick at the root and tapering, each bending a little
+        int lobes = rng.Next(3, 10);
         var lobeAngles = new float[lobes];
         for (int l = 0; l < lobes; l++)
         {
-            float ang = (float)(l * Math.Tau / lobes + rng.NextDouble() * 0.7);
+            float ang = (float)(l * Math.Tau / lobes + rng.NextDouble() * 0.9);
             lobeAngles[l] = ang;
-            float reach = S(0.17, 0.33);
-            int steps = 4;
+            float reach = S(0.2, 0.45), bend = S(-0.5, 0.5), root = S(0.05, 0.085);
+            int steps = 7;
             for (int k = 1; k <= steps; k++)
             {
                 float t = k / (float)steps;
-                float r = S(0.035, 0.06) * (1.15f - 0.75f * t);
-                blobs.Add((0.5f + MathF.Cos(ang) * reach * t, 0.5f + MathF.Sin(ang) * reach * t, r, Waves(rng, 0.35f), S(0.6, 0.85)));
+                float a = ang + bend * t * t;
+                var (x, y) = P(MathF.Cos(a) * reach * t, MathF.Sin(a) * reach * t);
+                float r = root * (1.1f - 0.85f * t) * S(0.85, 1.15);
+                blobs.Add((x, y, r, Waves(rng, 0.45f), S(0.2, 0.55) + 0.3f * t, 1f, 0f));
             }
         }
-        // Satellite droplets: mostly along the lobes, a few anywhere.
-        int drops = rng.Next(22, 40);
+        // satellite droplets: mixed sizes (many small, a few large), stretched along their radius, mostly beyond the lobes
+        int drops = rng.Next(20, 46);
         for (int d = 0; d < drops; d++)
         {
-            float ang = rng.NextDouble() < 0.7 ? lobeAngles[rng.Next(lobes)] + S(-0.35, 0.35) : S(0, Math.Tau);
-            float dist = S(0.26, 0.46);
-            blobs.Add((0.5f + MathF.Cos(ang) * dist, 0.5f + MathF.Sin(ang) * dist, S(0.006, 0.02), Waves(rng, 0.15f), S(0.7, 0.95)));
+            float ang = rng.NextDouble() < 0.7 ? lobeAngles[rng.Next(lobes)] + S(-0.4, 0.4) : S(0, Math.Tau);
+            float dist = S(0.24, 0.46);
+            var (x, y) = P(MathF.Cos(ang) * dist, MathF.Sin(ang) * dist);
+            float r = 0.004f + 0.03f * (float)Math.Pow(rng.NextDouble(), 2.2);
+            blobs.Add((x, y, r, Waves(rng, 0.2f), S(0.35, 0.8), 1f + 2f * (dist - 0.2f) / 0.26f * S(0.5, 1.0), MathF.Atan2(y - 0.5f, x - 0.5f)));
         }
-        foreach (var (x, y, r, wave, dark) in blobs) Stamp(alpha, shade, size, x, y, r, wave, dark);
+        foreach (var (x, y, r, wave, dark, elong, ang) in blobs) Stamp(alpha, shade, size, x, y, r, wave, dark, elong, ang);
 
-        // A few downward drips from the core's and the lower lobes' edge: a thin run with a bulb at its end.
-        int drips = rng.Next(2, 5);
+        // a few downward drips from the core's and the lower lobes' edge: a run that tapers, with a bulb at its end
+        int drips = rng.Next(2, 6);
         for (int d = 0; d < drips; d++)
         {
-            float x = 0.5f + S(-0.16, 0.16);
-            float y0 = 0.5f + S(0.08, 0.16);
-            float len = S(0.08, 0.3);
-            float w = S(0.006, 0.012);
+            float x = 0.5f + S(-0.18, 0.18);
+            float y0 = 0.5f + S(0.08, 0.17);
+            float len = S(0.1, 0.32);
+            float w = S(0.007, 0.014);
             float y1 = MathF.Min(0.97f, y0 + len);
             for (float y = y0; y <= y1; y += 0.5f / size)
             {
-                float taper = 1f - 0.4f * (y - y0) / MathF.Max(1e-3f, y1 - y0);
-                Stamp(alpha, shade, size, x + 0.004f * MathF.Sin(y * 40f + d), y, w * taper, null, 0.7f);
+                float taper = 1f - 0.45f * (y - y0) / MathF.Max(1e-3f, y1 - y0);
+                Stamp(alpha, shade, size, x + 0.004f * MathF.Sin(y * 40f + d), y, w * taper, null, 0.3f, 1f, 0f);
             }
-            Stamp(alpha, shade, size, x, y1, w * 1.7f, null, 0.65f);
+            Stamp(alpha, shade, size, x, y1, w * 1.8f, null, 0.3f, 1f, 0f);
         }
         return (alpha, shade);
     }
@@ -127,9 +150,10 @@ public static class ClassicBloodRules
     }
 
     /// <summary>One blob: a soft-edged disc whose radius wobbles with the angle (three harmonics), darkening the shade toward its centre.</summary>
-    static void Stamp(float[] alpha, float[] shade, int size, float cx, float cy, float r, float[]? wave, float dark)
+    static void Stamp(float[] alpha, float[] shade, int size, float cx, float cy, float r, float[]? wave, float dark, float elong = 1f, float elongAng = 0f)
     {
-        float reachR = r * 1.6f;
+        float reachR = r * 1.6f * MathF.Max(1f, elong);
+        float ec = MathF.Cos(elongAng), es = MathF.Sin(elongAng);
         int x0 = Math.Max(0, (int)((cx - reachR) * size)), x1 = Math.Min(size - 1, (int)((cx + reachR) * size) + 1);
         int y0 = Math.Max(0, (int)((cy - reachR) * size)), y1 = Math.Min(size - 1, (int)((cy + reachR) * size) + 1);
         float edge = 1.5f / size;
@@ -137,6 +161,12 @@ public static class ClassicBloodRules
             for (int x = x0; x <= x1; x++)
             {
                 float dx = (x + 0.5f) / size - cx, dy = (y + 0.5f) / size - cy;
+                if (elong > 1.001f)
+                {
+                    // an elongated droplet: squeezed along its radial axis
+                    float u = (dx * ec + dy * es) / elong, v = -dx * es + dy * ec;
+                    dx = u * ec - v * es; dy = u * es + v * ec;
+                }
                 float d = MathF.Sqrt(dx * dx + dy * dy);
                 float rr = r;
                 if (wave is not null && d > 1e-5f)
