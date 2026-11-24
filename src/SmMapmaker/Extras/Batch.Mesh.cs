@@ -81,6 +81,7 @@ internal sealed partial class Batch
     {
         var id = ReqId(op);
         var o = PieceObject(id);
+        if (!op.ContainsKey("mesh")) throw new MapException("bad-op", "set-mesh needs \"mesh\": a mesh, or null for the stock shape.", id);
         if (op["mesh"] is null) { Replace(o with { Mesh = null }); return; }
         var mesh = EditMesh.FromNode(op["mesh"], o.Piece!, "mesh", "bad-op");
         var d = MeshDims.Of(mesh, o.Transform.Scale);
@@ -97,11 +98,11 @@ internal sealed partial class Batch
         byte[] data;
         try
         {
-            if (!File.Exists(path)) throw new MapException("bad-image", $"No image file '{path}'.");
+            if (path.Length == 0 || !File.Exists(path)) throw new MapException("bad-image", $"No image file '{path}'.");
             if (new FileInfo(path).Length > MapImage.MaxBytes) throw new MapException("bad-image", $"'{Path.GetFileName(path)}' is larger than {MapImage.MaxBytes / 1_000_000} MB.");
             data = File.ReadAllBytes(path);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new MapException("bad-image", $"Cannot read '{path}': {e.Message}"); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { throw new MapException("bad-image", $"Cannot read '{path}': {e.Message}"); }
         var info = MapImage.Inspect(data, Path.GetFileName(path));
         if (Json.Str(op["name"], "name", "bad-op", nullable: true) is { } name)
         {
@@ -109,8 +110,17 @@ internal sealed partial class Batch
             if (name.Length is 0 or > 80) throw new MapException("bad-op", "An image name must be 1 to 80 characters.");
             info = info with { Name = name };
         }
-        if (Doc.Images.FirstOrDefault(i => i.Id == info.Id) is { } have) { Warnings.Add($"The map already has this picture (as '{have.Name}')."); CreatedImages.Add(have.Id); return; }
+        if (Doc.Images.FirstOrDefault(i => i.Id == info.Id) is { } have)
+        {
+            // already listed: the bytes are staged again, so a library copy that went missing is written back at commit (the document does not change)
+            StagedImages[info.Id] = data;
+            Warnings.Add($"The map already has this picture (as '{have.Name}').");
+            CreatedImages.Add(have.Id);
+            return;
+        }
         if (Doc.Images.Count >= MapImage.MaxImages) throw new MapException("too-big", $"A map uses at most {MapImage.MaxImages} images.");
+        if (Doc.Images.Sum(i => (long)i.Width * i.Height) + (long)info.Width * info.Height > MapImage.MaxTotalPixels)
+            throw new MapException("too-big", $"A map's images hold at most {MapImage.MaxTotalPixels / 1_000_000} million pixels in all.");
         Doc.Images.Add(info);
         StagedImages[info.Id] = data;
         CreatedImages.Add(info.Id);

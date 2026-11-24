@@ -211,11 +211,11 @@ public sealed class ClassicLinkTests
         var s = Map(lab, Wall);
         var node = JsonNode.Parse(s.Document.ToJson())!.AsObject();
         Assert.Equal(4, MapDocument.FormatVersion);
-        Assert.Equal(4, (int)node["formatVersion"]!);
+        Assert.Equal(3, (int)node["formatVersion"]!);   // the lowest format that holds it (no mesh, material or image)
         node["formatVersion"] = 2;
         var up = MapDocument.Parse(node.ToJsonString());
         Assert.Equal(2, up.LoadedVersion);
-        Assert.Equal(4, (int)JsonNode.Parse(up.ToJson())!["formatVersion"]!);
+        Assert.Equal(3, (int)JsonNode.Parse(up.ToJson())!["formatVersion"]!);
         Assert.Equal(CustomMap.Compile(s.Document).Hash, CustomMap.Compile(up).Hash);   // the identity step loses nothing
         node["formatVersion"] = MapDocument.FormatVersion + 1;
         Assert.Contains("newer Mapmaker", Assert.Throws<MapException>(() => MapDocument.Parse(node.ToJsonString())).Message);

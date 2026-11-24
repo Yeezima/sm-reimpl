@@ -56,7 +56,7 @@ public class GridTests
         Run(s, """{"op":"set-grid","cellSize":0.5,"height":2.25,"colour":"#336699cc","drawOver":true,"show":false}""");
         var path = Path.Combine(lab.Dir, "grid.smmap"); s.Save(path);
         var node = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
-        Assert.Equal(MapDocument.FormatVersion, (int)node["formatVersion"]!);
+        Assert.Equal(MapDocument.BaseFormatVersion, (int)node["formatVersion"]!);
         Assert.NotNull(node["grid"]);
         var loaded = MapSession.Load(path, lab.Library);
         Assert.Equal(s.Document.Grid, loaded.Document.Grid);

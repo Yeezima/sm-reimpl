@@ -190,6 +190,10 @@ public static class MapCheck
             var floor = Standable(mesh, p.Position.X, p.Position.Y, p.Position.Z + p.Scale.Z / 2f, p.Position.Z - p.Scale.Z / 2f - 1f);
             if (floor is null)
                 r.Issues.Add(new Issue(Severity.Warning, "point-no-floor", $"Capture point {Letter(i)} has no floor in its middle, so nobody can stand on it.", "Move it onto the floor, or lower it.", piece is null ? null : [piece.Id], CheckMode.Seize));
+            if (piece is { Mesh: null } && MathF.Abs(piece.Scale.X) != MathF.Abs(piece.Scale.Y))   // an unedited point plays as a circle of the X size (the old rule, kept)
+                r.Issues.Add(new Issue(Severity.Info, "point-round", string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"Capture point {Letter(i)} plays as a circle {MathF.Abs(piece.Scale.X):0.##} m across (its X size); its Y size ({MathF.Abs(piece.Scale.Y):0.##} m) is not used."),
+                    "Set Y to the same size, or edit its shape (Edit mode) to make it the shape you want.", [piece.Id], CheckMode.Seize));
         }
 
         // Anything inside a kill zone (a spawn in a pit would die at once).

@@ -15,6 +15,8 @@ public sealed record MapImage(string Id, string Name, string Format, int Width, 
 {
     public const long MaxBytes = 32_000_000;
     public const int MaxSide = 8192, MaxImages = 64;
+    /// <summary>Decoded-pixel budget over all of a map's images (about 256 MB of RGBA before mipmaps): a shared map cannot make every client decode gigabytes.</summary>
+    public const long MaxTotalPixels = 64L * 1024 * 1024;
 
     public string FileName => Id + "." + Format;
 
@@ -106,9 +108,12 @@ public static class MapImages
             {
                 if (!File.Exists(f) || new FileInfo(f).Length > MapImage.MaxBytes) continue;
                 var data = File.ReadAllBytes(f);
-                if (Convert.ToHexStringLower(SHA256.HashData(data)) == image.Id) return data;
+                if (Convert.ToHexStringLower(SHA256.HashData(data)) != image.Id) continue;
+                var info = MapImage.Inspect(data, image.FileName);   // the same bytes, but the list in the map must also say what they are
+                if (info.Format == image.Format && info.Width == image.Width && info.Height == image.Height) return data;
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            catch (MapException) { }   // a copy that is not a readable image is skipped like a damaged one
         }
         return null;
     }
@@ -151,7 +156,6 @@ public static class MapImages
 public static class MapPack
 {
     public const string Extension = ".smpack";
-    public const long MaxUnpacked = 1_000_000_000;
 
     /// <summary>Packs the map file (and its images, from beside it or the library) into <paramref name="outPath"/>. <c>missing-image</c> when an image is nowhere.</summary>
     public static void Pack(string mapPath, string outPath, MapLibrary lib)
@@ -179,57 +183,76 @@ public static class MapPack
         finally { if (File.Exists(tmp)) File.Delete(tmp); }
     }
 
-    /// <summary>Unpacks a pack into <paramref name="intoDir"/> (the map file and <c>images/</c>); returns the map's path. An existing map file of that name is refused (<c>file-exists</c>).</summary>
+    /// <summary>
+    /// Unpacks a pack into <paramref name="intoDir"/> (the map file and <c>images/</c>); returns the map's path. Checked before anything is written: one map entry whose name is plain (letters,
+    /// digits, space, <c>_ . - ( )</c>, no path, no <c>:</c>), every other entry <c>images/&lt;sha256&gt;.png|jpg</c> (no backslash, no deeper folder, no repeat), the map readable, every image it
+    /// lists present, no map file of that name in the folder (<c>file-exists</c>). Then each listed image is read alone (one in memory at a time, its size counted as it is read, its SHA-256,
+    /// format and size checked against the map's list) and stored; images the map does not list are skipped; the map file is written last, atomically, so a failed unpack never leaves a map
+    /// that names a missing picture. <c>bad-pack</c> for anything else (a file that is not a zip too).
+    /// </summary>
     public static string Unpack(string packPath, string intoDir)
     {
-        using var zip = ZipFile.OpenRead(packPath);
-        if (zip.Entries.Count > MapImage.MaxImages + 1) throw new MapException("bad-pack", "The pack holds more files than a map can use.");
-        string? mapEntry = null;
-        long total = 0;
-        var files = new List<(string Rel, byte[] Data)>();
+        ZipArchive zip;
+        try { zip = ZipFile.OpenRead(packPath); }
+        catch (InvalidDataException e) { throw new MapException("bad-pack", $"'{Path.GetFileName(packPath)}' is not a .smpack (zip) file: {e.Message}"); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { throw new MapException("bad-pack", $"Cannot read the pack: {e.Message}"); }
+        using (zip)
+        {
+            try { return UnpackFrom(zip, intoDir); }
+            catch (InvalidDataException e) { throw new MapException("bad-pack", $"The pack is damaged: {e.Message}"); }
+        }
+    }
+
+    static bool IsPlainMapName(string name) =>
+        name.Length is > 6 and <= 120 && name.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase) && !name.StartsWith('.') && !name.Contains("..")
+        && name.All(c => char.IsAsciiLetterOrDigit(c) || c is ' ' or '_' or '.' or '-' or '(' or ')');
+
+    static string UnpackFrom(ZipArchive zip, string intoDir)
+    {
+        if (zip.Entries.Count > 4 * MapImage.MaxImages + 1) throw new MapException("bad-pack", "The pack holds more files than a map can use.");
+        ZipArchiveEntry? mapEntry = null;
+        var images = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
         foreach (var e in zip.Entries)
         {
-            var name = e.FullName.Replace('\\', '/');
-            if (name.EndsWith('/')) continue;   // a folder entry
-            bool isMap = !name.Contains('/') && name.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase) && name.Length > 6 && !name.Contains("..") && Path.GetFileName(name) == name;
+            var name = e.FullName;
+            if (name.EndsWith('/') && e.Length == 0 && name == "images/") continue;   // the folder entry itself
+            if (name.Contains('\\')) throw new MapException("bad-pack", $"The pack holds '{name}', a name with a backslash.");
             bool isImage = name.StartsWith("images/", StringComparison.Ordinal) && name.Count(c => c == '/') == 1
                 && Path.GetFileNameWithoutExtension(name[7..]) is var id && MapImage.IsImageId(id) && Path.GetExtension(name) is ".png" or ".jpg";
-            if (!isMap && !isImage) throw new MapException("bad-pack", $"The pack holds '{name}', which is not its map or one of its images.");
-            if (isMap && mapEntry is not null) throw new MapException("bad-pack", "The pack holds more than one map.");
-            long limit = isMap ? CustomMaps.MaxFileBytes : MapImage.MaxBytes;
-            using var s = e.Open();
-            using var ms = new MemoryStream();
-            var buf = new byte[81920];
-            int n;
-            while ((n = s.Read(buf, 0, buf.Length)) > 0)
-            {
-                ms.Write(buf, 0, n);
-                total += n;
-                if (ms.Length > limit || total > MaxUnpacked) throw new MapException("too-big", $"'{name}' in the pack is larger than allowed.");
-            }
-            var data = ms.ToArray();
-            if (isImage)
-            {
-                var info = MapImage.Inspect(data, name);
-                if (info.FileName != name[7..]) throw new MapException("bad-pack", $"'{name}' is not the image its name says (its SHA-256 or format differs).");
-            }
-            else mapEntry = name;
-            files.Add((name, data));
+            if (isImage) { if (!images.TryAdd(name[7..], e)) throw new MapException("bad-pack", $"The pack holds '{name}' twice."); continue; }
+            if (!IsPlainMapName(name)) throw new MapException("bad-pack", $"The pack holds '{name}', which is not its map or one of its images.");
+            if (mapEntry is not null) throw new MapException("bad-pack", "The pack holds more than one map.");
+            mapEntry = e;
         }
         if (mapEntry is null) throw new MapException("bad-pack", "The pack holds no .smmap map.");
-        var mapBytes = files.First(f => f.Rel == mapEntry).Data;
+        var mapBytes = ReadEntry(mapEntry, CustomMaps.MaxFileBytes);
         var doc = MapDocument.Parse(new System.Text.UTF8Encoding(false).GetString(mapBytes));   // refuse a bad map before anything is written
         foreach (var img in doc.Images)
-            if (files.All(f => f.Rel != "images/" + img.FileName)) throw new MapException("missing-image", $"The pack lacks the image '{img.Name}' that its map uses.");
-        var target = Path.Combine(Path.GetFullPath(intoDir), mapEntry);
+            if (!images.ContainsKey(img.FileName)) throw new MapException("missing-image", $"The pack lacks the image '{img.Name}' that its map uses.");
+        var dir = Path.GetFullPath(intoDir);
+        var target = Path.Combine(dir, mapEntry.FullName);
         if (File.Exists(target)) throw new MapException("file-exists", $"'{target}' already exists; unpack into another folder or remove it first.");
-        Directory.CreateDirectory(intoDir);
-        foreach (var (rel, data) in files.Where(f => f.Rel != mapEntry))
+        foreach (var img in doc.Images)   // only the images the map lists; one in memory at a time
         {
-            var info = MapImage.Inspect(data, rel);
-            MapImages.Store(Path.Combine(Path.GetFullPath(intoDir), "images"), info, data);
+            var data = ReadEntry(images[img.FileName], MapImage.MaxBytes);
+            var info = MapImage.Inspect(data, img.FileName);
+            if (info.FileName != img.FileName || info.Width != img.Width || info.Height != img.Height)
+                throw new MapException("bad-pack", $"'images/{img.FileName}' is not the image the map lists (its SHA-256, format or size differs).");
+            MapImages.Store(Path.Combine(dir, "images"), img, data);
         }
         MapLibrary.WriteAtomic(target, mapBytes);
         return target;
+    }
+
+    /// <summary>An entry's bytes, read into one buffer and counted as read (an entry's declared size can lie): <c>too-big</c> past <paramref name="limit"/>.</summary>
+    static byte[] ReadEntry(ZipArchiveEntry e, long limit)
+    {
+        if (e.Length > limit) throw new MapException("too-big", $"'{e.FullName}' in the pack is larger than allowed.");
+        var buf = new byte[e.Length];
+        using var s = e.Open();
+        int got = 0, n;
+        while (got < buf.Length && (n = s.Read(buf, got, buf.Length - got)) > 0) got += n;
+        if (got != buf.Length || s.ReadByte() >= 0) throw new MapException("bad-pack", $"'{e.FullName}' in the pack is not the size it declares.");
+        return buf;
     }
 }

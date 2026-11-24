@@ -279,7 +279,16 @@ public sealed record MapGroup(string Id, string Name, IReadOnlyList<string> Memb
 public sealed class MapDocument
 {
     public const string FormatName = "smmap";
+    /// <summary>The newest format this build reads and writes.</summary>
     public const int FormatVersion = 4;
+    /// <summary>The format every document is written at unless it needs more (format 3 is what the shipped builds read).</summary>
+    public const int BaseFormatVersion = 3;
+
+    /// <summary>
+    /// The lowest format that represents this document (lead 39 decision, 2026-11-25): 4 only when a piece carries an edited shape or a material, or the map has materials or images; else 3, so an
+    /// unedited map is never rewritten on open and stays openable by a build that reads format 3. Part of the canonical text (and so of the hash).
+    /// </summary>
+    public int WriteVersion => Materials.Count > 0 || Images.Count > 0 || Objects.Any(o => o.Mesh is not null || o.Material is not null) ? 4 : BaseFormatVersion;
 
     /// <summary>The format version the file declared when it was parsed (older than <see cref="FormatVersion"/>: the editor backs the file up before it writes the upgrade).</summary>
     public int LoadedVersion { get; private set; } = FormatVersion;
@@ -428,7 +437,7 @@ public sealed class MapDocument
     /// <summary><paramref name="editorOnly"/> false leaves out what only the editor uses (the grid and every object's Classic link), which is what the map's hash covers.</summary>
     public JsonObject ToNode(bool editorOnly = true)
     {
-        var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId };
+        var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = WriteVersion, ["name"] = Name, ["nextId"] = NextId };
         if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
         o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode(editorOnly)).ToArray());
         if (Look is not null) o["look"] = Look.ToNode();
@@ -511,6 +520,8 @@ public sealed class MapDocument
                 d.Images.Add(img);
             }
         }
+        if (d.Images.Sum(i => (long)i.Width * i.Height) > MapImage.MaxTotalPixels)
+            throw new MapException("too-big", $"The map's images hold more than {MapImage.MaxTotalPixels / 1_000_000} million pixels in all.");
         if (o["materials"] is { } materialNodes)
         {
             var list = Json.Arr(materialNodes, "materials");

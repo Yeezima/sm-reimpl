@@ -48,7 +48,7 @@ public sealed class PlaytestIdentityTests : IDisposable
         var s = MapSession.Load(path, _lab.Library, _lab.Sm1);
         Assert.Contains(s.OpenNotes, n => n.Contains("older Mapmaker") && n.Contains("old.smmap.bak-v1"));
         Assert.Equal(original, File.ReadAllText(path + ".bak-v1"));                    // the original, byte for byte
-        Assert.Equal(MapDocument.FormatVersion, MapUpgrade.VersionOfFile(path));      // the file itself is now current
+        Assert.Equal(MapDocument.BaseFormatVersion, MapUpgrade.VersionOfFile(path));      // the file itself is now current
         Assert.Equal(3, s.Document.Objects.Count);                                    // nothing was lost
         Assert.False(s.Dirty);
         // the backup is never a map to search for or play, and a second upgrade never replaces it
@@ -74,7 +74,7 @@ public sealed class PlaytestIdentityTests : IDisposable
 
         var s = MapSession.Load(path, _lab.Library, _lab.Sm1);
         Assert.True(File.Exists(path + ".bak-v1"));
-        Assert.Equal(MapDocument.FormatVersion, MapUpgrade.VersionOfFile(path));
+        Assert.Equal(MapDocument.BaseFormatVersion, MapUpgrade.VersionOfFile(path));
         Assert.Equal(2, s.Document.Groups.Count);
         Assert.Equal(savedAt, File.GetLastWriteTimeUtc(path));                         // opening never makes it the newest copy of its name
         var again = MapSession.Load(path, _lab.Library, _lab.Sm1);                     // and it reads back with its groups

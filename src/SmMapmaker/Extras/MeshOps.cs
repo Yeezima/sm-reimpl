@@ -230,8 +230,19 @@ public static class MeshDims
         return new Vector3((float)(hx - lx), (float)(hy - ly), (float)(hz - lz));
     }
 
-    /// <summary>The dimensions of a piece object (stock shape when it has no stored mesh: then exactly |scale|).</summary>
-    public static Vector3 Of(MapObject o) => Of(EditMesh.Of(o), o.Transform.Scale);
+    /// <summary>
+    /// The dimensions of a piece object: its stored mesh's, or its stock shape's (then exactly |scale|), except an unedited capture point, which plays as a circle of its X size and so reads
+    /// (|X|, |X|, |Z|). Its first edit starts from the 16-gon of its X and Y sizes (docs/mapmaker.md "Edit mode contract", first edit of a round piece).
+    /// </summary>
+    public static Vector3 Of(MapObject o)
+    {
+        if (o.Mesh is null && o.Piece?.Kind == PieceKind.CapturePoint)
+        {
+            var s = o.Transform.Scale;
+            return new Vector3(MathF.Abs(s.X), MathF.Abs(s.X), MathF.Abs(s.Z));
+        }
+        return Of(EditMesh.Of(o), o.Transform.Scale);
+    }
 
     /// <summary>"X 5.00 m   Y 2.00 m   Z 1.00 m" (the brief's readout; two decimals, invariant culture).</summary>
     public static string Label(Vector3 d) => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"X {d.X:0.00} m   Y {d.Y:0.00} m   Z {d.Z:0.00} m");

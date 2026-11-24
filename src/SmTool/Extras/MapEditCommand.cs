@@ -23,7 +23,9 @@ public static partial class MapCommand
                 // edit-mesh <file> <id> (--face +x | --mode vertex|edge|face --ids 1,2) (--move x,y,z | --rotate deg | --scale f|x,y,z) [--axis x|y|z] [--pivot selection|median|origin]
                 var file = Pos(0, "<file>");
                 var id = Pos(1, "<object id>");
-                var session = MapSession.Load(file, library);
+                bool dry = opts.ContainsKey("dry-run");
+                // a dry run only reads the file (no upgrade rewrite, no image copy into the library)
+                var session = dry ? new MapSession(ReadDoc(file), library, null, Path.GetFullPath(file)) : MapSession.Load(file, library);
                 var obj = session.Document.Get(id);
                 var op = new JsonObject { ["op"] = "edit-mesh", ["id"] = id };
                 if (opts.GetValueOrDefault("face") is { } faceName)
@@ -43,8 +45,18 @@ public static partial class MapCommand
                 if (opts.GetValueOrDefault("rotate") is { } ro) op["rotate"] = ParseFloat(ro);
                 if (opts.GetValueOrDefault("axis") is { } ax) op["axis"] = ax;
                 if (opts.GetValueOrDefault("pivot") is { } pv) op["pivot"] = pv.Contains(',') ? Json.Vec(ParseVec(pv)) : JsonValue.Create(pv);
-                var result = session.Apply(op, opts.ContainsKey("dry-run"));
-                if (result.Ok && !opts.ContainsKey("dry-run")) session.Save();
+                if (dry)
+                {
+                    // the would-be shape's dimensions, from the same pure edit the operation runs
+                    var preview = MeshOps.Apply(EditMesh.Of(obj), obj.Transform.Scale, new ComponentSelection(ComponentSelection.ParseMode((string?)op["mode"]), op["ids"]!.AsArray().Select(x => (int)x!).ToList()), MeshEdit.FromOp(op));
+                    var dn = session.Apply(op, true).ToNode();
+                    if ((bool)dn["ok"]!) dn["dims"] = DimsNode(obj with { Mesh = preview.IsStock ? null : preview });
+                    o.Write(CanonicalJson.Write(dn));
+                    code = (bool)dn["ok"]! ? 0 : 1;
+                    return true;
+                }
+                var result = session.Apply(op);
+                if (result.Ok) session.Save();
                 var node = result.ToNode();
                 if (result.Ok) node["dims"] = DimsNode(session.Document.Get(id));
                 o.Write(CanonicalJson.Write(node));
@@ -114,25 +126,31 @@ public static partial class MapCommand
                 // material list|add|image|assign|resolve|remove <file> ...
                 var sub = Pos(0, "list|add|image|assign|resolve|remove");
                 var file = Pos(1, "<file>");
+                switch (sub)
+                {
+                    case "list":   // read-only: the file is only parsed
+                    {
+                        var doc = ReadDoc(file);
+                        o.Write(CanonicalJson.Write(new JsonObject
+                        {
+                            ["ok"] = true,
+                            ["materials"] = new JsonArray(doc.Materials.Select(m => (JsonNode)m.ToNode()).ToArray()),
+                            ["images"] = new JsonArray(doc.Images.Select(i => (JsonNode)i.ToNode()).ToArray()),
+                            ["missingImages"] = new JsonArray(MapImages.Missing(doc, file, library).Select(i => (JsonNode)JsonValue.Create(i.Id)).ToArray()),
+                        }));
+                        return true;
+                    }
+                    case "resolve":
+                    {
+                        var m = ReadDoc(file).FindMaterial(Pos(2, "<material id>")) ?? throw new MapException("unknown-material", "No such material.");
+                        o.Write(CanonicalJson.Write(new JsonObject { ["ok"] = true, ["material"] = PbrNode(m.Resolve()) }));
+                        return true;
+                    }
+                }
                 var session = MapSession.Load(file, library);
                 JsonObject? op = null;
                 switch (sub)
                 {
-                    case "list":
-                        o.Write(CanonicalJson.Write(new JsonObject
-                        {
-                            ["ok"] = true,
-                            ["materials"] = new JsonArray(session.Document.Materials.Select(m => (JsonNode)m.ToNode()).ToArray()),
-                            ["images"] = new JsonArray(session.Document.Images.Select(i => (JsonNode)i.ToNode()).ToArray()),
-                            ["missingImages"] = new JsonArray(MapImages.Missing(session.Document, session.Path, library).Select(i => (JsonNode)JsonValue.Create(i.Id)).ToArray()),
-                        }));
-                        return true;
-                    case "resolve":
-                    {
-                        var m = session.Document.FindMaterial(Pos(2, "<material id>")) ?? throw new MapException("unknown-material", "No such material.");
-                        o.Write(CanonicalJson.Write(new JsonObject { ["ok"] = true, ["material"] = PbrNode(m.Resolve()) }));
-                        return true;
-                    }
                     case "add": op = new JsonObject { ["op"] = "material-add" }; if (opts.GetValueOrDefault("name") is { } n) op["name"] = n; break;
                     case "image": op = new JsonObject { ["op"] = "image-add", ["path"] = Pos(2, "<image file>") }; if (opts.GetValueOrDefault("name") is { } inm) op["name"] = inm; break;
                     case "assign":
@@ -168,12 +186,15 @@ public static partial class MapCommand
                 var map = CustomMap.Compile(ReadDoc(Pos(0, "<file>")));
                 var p = ParseVec(Pos(1, "<x,y,z>"));
                 var hits = new JsonArray();
-                foreach (var (name, centre, yaw, size) in map.Content.ControlPoints.Select(c => (c.Name, c.Position, c.Yaw, c.Scale))
-                    .Concat(map.Content.StartAreas.Select(a => (a.Name, a.Position, a.Yaw, a.Scale)))
-                    .Concat(map.Content.Blockers.Select(b => (b.Name, b.Position, b.Yaw, b.Scale)))
-                    .Concat(map.Content.KillRegions.Select(k => (k.Name, k.Position, k.Yaw, k.Scale))))
+                foreach (var (name, centre, yaw, size, round) in map.Content.ControlPoints.Select(c => (c.Name, c.Position, c.Yaw, c.Scale, true))
+                    .Concat(map.Content.StartAreas.Select(a => (a.Name, a.Position, a.Yaw, a.Scale, false)))
+                    .Concat(map.Content.Blockers.Select(b => (b.Name, b.Position, b.Yaw, b.Scale, false)))
+                    .Concat(map.Content.KillRegions.Select(k => (k.Name, k.Position, k.Yaw, k.Scale, false))))
                 {
-                    bool inBox = InTurnedBox(p, centre, yaw, size);
+                    // an unedited capture point is the circle play uses (radius X / 2, as SmSim.ControlPoint); the others their turned box
+                    bool inBox = round && !map.Volumes.ContainsKey(name)
+                        ? (p.X - centre.X) * (p.X - centre.X) + (p.Y - centre.Y) * (p.Y - centre.Y) <= size.X * size.X / 4 && MathF.Abs(p.Z - centre.Z) <= size.Z / 2
+                        : InTurnedBox(p, centre, yaw, size);
                     bool? inShape = map.Volumes.TryGetValue(name, out var vol) ? vol.Contains(p) : null;
                     if (inBox || inShape == true) hits.Add(new JsonObject { ["name"] = name, ["inBox"] = inBox, ["inShape"] = inShape is { } b ? b : inBox, ["edited"] = inShape is not null });
                 }

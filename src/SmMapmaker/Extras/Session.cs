@@ -44,24 +44,25 @@ public sealed class MapSession
                 else notes.Add($"The image '{img.Name}' of this map is missing (put the map's images folder beside it, or open its .smpack).");
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { notes.Add($"The image '{img.Name}' could not be added to the library: {e.Message}"); }
-        if (session.Document.LoadedVersion < MapDocument.FormatVersion)
+        int to = session.Document.WriteVersion;
+        if (session.Document.LoadedVersion < to)
         {
-            // An older file: the original is kept first, never replaced, then the file is written in the current format (nothing in it is lost: the upgrade steps only add).
+            // An older file (format 1 or 2; a format 3 file needs nothing): the original is kept first, never replaced, then the file is written in the lowest format that holds it (nothing in it
+            // is lost: the upgrade steps only add). Save makes the backup (it backs up any file on disk older than what it writes).
             int from = session.Document.LoadedVersion;
             try
             {
-                string backup = MapUpgrade.Backup(path, from);
                 // The upgrade rewrite keeps the file's own save time, so merely opening an old map never makes it the "newest" copy of its name
                 // for CustomMaps.Locate's newest-file fallback (review, pass 3).
                 var savedAt = File.GetLastWriteTimeUtc(path);
                 session.Save();
                 try { File.SetLastWriteTimeUtc(path, savedAt); } catch (Exception t) when (t is IOException or UnauthorizedAccessException) { }
-                notes.Add($"This map was saved by an older Mapmaker (file format {from}); it was upgraded to format {MapDocument.FormatVersion}. The original is kept as {System.IO.Path.GetFileName(backup)}.");
+                notes.Add($"This map was saved by an older Mapmaker (file format {from}); it was upgraded to format {to}. The original is kept as {System.IO.Path.GetFileName(session.LastBackup ?? "")}.");
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or MapException)
             {
                 session.Dirty = true;
-                notes.Add($"This map was saved by an older Mapmaker (file format {from}) and is read as format {MapDocument.FormatVersion}, but the file could not be backed up and rewritten ({e.Message}); Save map will write it.");
+                notes.Add($"This map was saved by an older Mapmaker (file format {from}) and is read as format {to}, but the file could not be backed up and rewritten ({e.Message}); Save map will write it.");
             }
         }
         session.OpenNotes = notes;
@@ -121,6 +122,8 @@ public sealed class MapSession
             }
         }
         batch.Doc.PruneGroups();
+        if (batch.Doc.ToJson().Length > MapDocument.MaxChars)   // the document a batch leaves must still be one this build (and every other) will read back
+            return Failure(new OpError("too-big", $"The map would be larger than {MapDocument.MaxChars / 1_000_000} MB.", "commit"), dryRun);
         var result = new OpResult(true, batch.Created, batch.Warnings, [])
         {
             CreatedPrefabs = batch.CreatedPrefabs, CreatedAssets = batch.CreatedAssets, Mapping = batch.Mapping, DryRun = dryRun, Refresh = batch.Refresh,
@@ -150,10 +153,11 @@ public sealed class MapSession
         foreach (var id in batch.DeletedPrefabs.Where(d => !batch.Prefabs.ContainsKey(d)))
             if (Library.ReadPrefabText(id) is { } was) prefabChanges.Add((id, was, null));
         var trashIds = batch.DeletedAssets.ToList();
-        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }
-        // Images are content-addressed (the file name is the SHA-256 of its bytes), so writing one is idempotent and never replaces another picture; one that is already there is kept.
+        // Images are content-addressed (the file name is the SHA-256 of its bytes), so writing one is idempotent and never replaces another picture; one that is already there is kept. Written
+        // before the no-change return: re-adding an image the map already lists (its library copy lost) repairs the library without changing the document.
         foreach (var (imgId, data) in batch.StagedImages)
-            if (batch.Doc.Images.FirstOrDefault(i => i.Id == imgId) is { } img) MapImages.Store(MapImages.LibraryDir(Library), img, data);   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
+            if (batch.Doc.Images.FirstOrDefault(i => i.Id == imgId) is { } img) MapImages.Store(MapImages.LibraryDir(Library), img, data);
+        if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0 && trashIds.Count == 0) { LastTrashed = []; LastReplaced = []; return; }   // a batch that changes nothing trashes nothing: the editor must not reuse the last batch's slots for this step
 
         // Storage steps run as a transaction: each records its inverse as it succeeds; on any failure the inverses run in reverse order (best effort) and the
         // document, LastTrashed and the undo/redo stacks stay as they were. (A journal that survives a process crash is not part of this.)
@@ -385,9 +389,12 @@ public sealed class MapSession
     {
         path ??= Path ?? throw new MapException("bad-args", "This map has no file yet; pass a path.");
         EmbedUsedPrefabs();
-        MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(Document.ToJson()));
-        // The map's images go beside it (images/<sha256>.<format>), so the file and that folder are the whole map for another PC (docs/mapmaker.md "Materials and images").
+        // The map's images go beside it first (images/<sha256>.<format>), so the file and that folder are the whole map for another PC and the map never names a picture not yet written.
         var missing = Document.Images.Count == 0 ? [] : MapImages.CarryBeside(Document, path, Library, Path);
+        // A file on disk in an older format than this save writes is kept beside it first (name.smmap.bak-v<n>, never replaced), so a build that reads only that format still has its copy.
+        LastBackup = null;
+        if (File.Exists(path) && MapUpgrade.VersionOfFile(path) is var onDisk and > 0 && onDisk < Document.WriteVersion) LastBackup = MapUpgrade.Backup(path, onDisk);
+        MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(Document.ToJson()));
         SaveNotes = missing.Count == 0 ? [] : [$"{missing.Count} image(s) of this map are neither in the library nor beside the map; the game will refuse the map until they are added again."];
         Path = System.IO.Path.GetFullPath(path);
         Dirty = false;
@@ -424,6 +431,9 @@ public sealed class MapSession
 
     /// <summary>What the last <see cref="Save"/> could not do (an image that is nowhere to be copied); empty when it saved everything.</summary>
     public IReadOnlyList<string> SaveNotes { get; private set; } = [];
+
+    /// <summary>The backup the last <see cref="Save"/> made of an older-format file it replaced (<c>name.smmap.bak-v&lt;n&gt;</c>), or null.</summary>
+    public string? LastBackup { get; private set; }
 
     void RestoreEmbeddedPrefabs(List<string> notes)
     {
