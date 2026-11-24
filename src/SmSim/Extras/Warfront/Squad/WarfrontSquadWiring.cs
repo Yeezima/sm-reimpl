@@ -173,8 +173,8 @@ public sealed class WarfrontSquadWiring
             Remember(id, key);   // a Librarian aboard: his squad is rerolled now (the same class again changes nothing)
     }
 
-    /// <summary>W10's command: the Assault squad's jump-pound at a marked point. Retired with the squad sim (Phase B T2): false until the retainers' brain (T4) takes the order; the command is still read and refused.</summary>
-    public bool OrderJumpPound(int player, Vector3 mark) => false;
+    /// <summary>W10's command: the Assault squad's jump-pound at a marked point, played out by the retainers' brain (Phase B T4, <see cref="WarfrontRetainers.OrderJumpPound"/>); false when no jump-pack retainer stands.</summary>
+    public bool OrderJumpPound(int player, Vector3 mark) => Retainers.OrderJumpPound(player, mark);   // Phase B T4: the retainers' brain plays it out
 
     // ---- the connections --------------------------------------------------------------------------------------------------------------------
 

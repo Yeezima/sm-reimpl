@@ -17,6 +17,12 @@ public sealed partial class World
     /// <summary>The run's retainers (null outside Warfront, or before the squad wiring is built).</summary>
     WarfrontRetainers? WarfrontRetainersNow => _tfw?.Warfront?.Retainers;
 
+    /// <summary>
+    /// The players as they stood at the start of the tick under way (Phase B T4: the retainers' brains read the world here, all of them from the same state, whatever order the step takes the players in);
+    /// between ticks the players now.
+    /// </summary>
+    public IReadOnlyDictionary<int, PlayerState> WarfrontTickStartPlayers => _history.TryGetValue(Tick - 1, out var start) ? start : _players;
+
     /// <summary>Whether <paramref name="id"/> is a Warfront retainer's World player (a puppet of <see cref="MarineRole.Squad"/>).</summary>
     public bool WarfrontIsRetainer(int id) => _tfw is { Warfront: not null } run && TfwContracts.IsPuppet(id) && run.MarineOf(id) is { Role: MarineRole.Squad };
 

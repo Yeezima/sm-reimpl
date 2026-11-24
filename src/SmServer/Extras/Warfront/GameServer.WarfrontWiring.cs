@@ -86,6 +86,7 @@ public sealed partial class GameServer
             wiring.Import(null);
         }
         _wfSquadCommands = new WarfrontSquadCommands(wiring.Rosters, _wfHost);
+        WarfrontAttachRetainerBrains(wiring);   // Phase B T4: the retainers' brain (Retainers/GameServer.WarfrontRetainerBrains.cs)
 
         var coop = new WarfrontCoop(s.Campaign, _wfHost) { HumanCap = s.MaxHumans };
         WarfrontCoopRules = coop;

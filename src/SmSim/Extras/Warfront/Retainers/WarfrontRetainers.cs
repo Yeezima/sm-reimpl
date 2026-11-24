@@ -23,6 +23,8 @@ public sealed class WarfrontRetainer
     public int DownedTicks { get; internal set; }
     /// <summary>How far a revive of it has come (0 to 1).</summary>
     public float ReviveShare { get; internal set; }
+    /// <summary>Phase B T4: its jump-pound mark while the order runs (a jump-pack retainer; its own landing round the owner's mark), null otherwise.</summary>
+    public System.Numerics.Vector3? PoundAt { get; internal set; }
 }
 
 /// <summary>
@@ -180,6 +182,22 @@ public sealed class WarfrontRetainers
         Place(player, Orders.Of(player), command.Point);
         return true;
     }
+
+    /// <summary>
+    /// The jump-pound order of <paramref name="player"/> (the squad's rule since W11, Phase B T4: max jump, then a ground pound round the marked point): each of his standing jump-pack retainers gets its own landing
+    /// on a ring round <paramref name="mark"/> (<see cref="HoldPlace"/>); the brain plays it out and drops it (<see cref="PoundDone"/>). The order in force is kept for after. False when none of them carries a jump pack.
+    /// </summary>
+    public bool OrderJumpPound(int player, Vector3 mark)
+    {
+        var packs = new List<WarfrontRetainer>();
+        foreach (var r in _all)
+            if (r.Owner == player && r.State == SquadState.Standing && _world.Players.TryGetValue(r.WorldId, out var p) && Loadouts.JumpPack(_world.Config, p) is not null) packs.Add(r);
+        for (int k = 0; k < packs.Count; k++) packs[k].PoundAt = HoldPlace(mark, k, packs.Count);
+        return packs.Count > 0;
+    }
+
+    /// <summary>The brain played the jump-pound of World id <paramref name="worldId"/> out (or could not): the order in force applies again.</summary>
+    public void PoundDone(int worldId) { if (ByWorldId(worldId) is { } r) r.PoundAt = null; }
 
     /// <summary>
     /// The server's own order for <paramref name="player"/>'s retainers (a leaver's squad holds, a returner's follows): in force until his next order, outside his sequence numbers (review fix 2026-11-25: a server
