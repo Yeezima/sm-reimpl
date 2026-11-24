@@ -232,6 +232,8 @@ public static class SyntheticHavokWriter
     public sealed record ModifierValue(string Class, string Name);
     /// <summary>An EntityProperty tag's data: an object of <paramref name="Class"/> with the mode @28.</summary>
     public sealed record PropertyValue(string Class, int Mode);
+    /// <summary>executions-inventory: an Interaction tag's payload, an <c>hkbInteractionRequestPayload</c> (@56 of the tag) with this event index @12.</summary>
+    public sealed record InteractionValue(int EventId);
     /// <param name="Animations">One clip, or several blended children.</param>
     /// <param name="SelfReferencingBlend">The blend also lists itself as a child, twice (a corrupt file).</param>
     public sealed record Sequencer(string Name, string[] Animations, Tag[] Tags, float PlaybackSpeed = 1f, bool SelfReferencingBlend = false);
@@ -444,6 +446,12 @@ public static class SyntheticHavokWriter
                                 int modifier = Obj(mv.Class, 64);
                                 d.String(modifier + 32, mv.Name);
                                 d.Pointer(tag + 52, modifier);
+                            }
+                            else if (t.Value is InteractionValue iv)
+                            {
+                                int payload = Obj("hkbInteractionRequestPayload", 32);
+                                d.I32(payload + 12, iv.EventId);
+                                d.Pointer(tag + 56, payload);
                             }
                             return tag;
                         }).ToArray();
