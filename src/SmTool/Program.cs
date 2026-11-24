@@ -63,6 +63,7 @@ return args switch
     ["armour-audit", var gameDir, .. var rest] => SmTool.ArmourAuditCommand.Run(gameDir, rest),
     ["fx-smoke", var gameDir, .. var rest] => SmTool.FxSmokeCommands.Run(gameDir, rest),
     ["fx-dump", var gameDir, .. var rest] => SmTool.FxDumpCommands.Run(gameDir, rest),
+    ["find-entry", var gameDir, .. var rest] => SmTool.FindEntryCommand.Run(gameDir, rest),
     ["map-emissive", var gameDir, .. var rest] => SmTool.MapEmissiveCommand.Run(gameDir, rest),
     ["gfx-dump", var gameDir, .. var rest] => SmTool.GfxDumpCommand.Run(gameDir, rest),
     [var dump, .. var rest] when dump is "baf-dump" or "locale" or "customization-dump" && SmTool.DumpCommands.Run(dump, rest) is var dumpCode && dumpCode >= 0 => dumpCode,
@@ -121,6 +122,8 @@ static int Usage()
                                                     each Chaos wargear and its loyalist twin: present in the install, the differences of the simulation's specs before and
                                                     after parity (after must be 0), the class defaults and the config hashes; --raw also lists the files' differing values;
                                                     --fx-colours [plasma] prints the hue of every effect those weapons play (weapons task A)
+          smtool find-entry <game-dir|auto> <regex>... [--under <folder>]... [--names-only]
+                                                    which archives hold an entry whose file name matches (tables of contents only; default data/chunks and data/packages)
           smtool fx-dump <game-dir|auto> <name|word>... [--list] [--fields]
                                                     fx/impact-pass: the element tree of each named effect (--list: effect names containing each word)
           smtool fx-smoke <game-dir|auto> [--map mp_tdm_09] [--all] [--textures]

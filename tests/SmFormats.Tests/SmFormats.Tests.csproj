@@ -30,6 +30,7 @@
     <Compile Include="..\..\src\SmTool\GuardIndex.cs" Link="SmToolRelease\GuardIndex.cs" />
     <Compile Include="..\..\src\SmTool\TarPackage.cs" Link="SmToolRelease\TarPackage.cs" />
     <Compile Include="..\..\src\SmTool\WhatsNew.cs" Link="SmToolRelease\WhatsNew.cs" />
+    <Compile Include="..\..\src\SmTool\FindEntryCommand.cs" Link="SmToolDump\FindEntryCommand.cs" />
     <!-- The customizer's engine-free model (the client's Godot code cannot be referenced from a test project). -->
     <Compile Include="..\..\client\Customizer\Model\*.cs" Link="CustomizerModel\%(Filename)%(Extension)" />
   </ItemGroup>
