@@ -43,11 +43,12 @@ public partial class NetworkView
         int started = 0;
         // A slam (a strike with a blast) brings the data's own displace flash, ball and cloud: no second copy of the hammer's hit effects on top, and a smaller cloud.
         // Owner 2026-11-24 (series 37, answers 2 and 3): every burst at FlashOpacity of its old strength, everywhere (Classic, Musou, Warfront): the effect's opacity scales every sprite's colour
-        // and alpha and its light (additive sprites 40 % as bright, blended ones 40 % as opaque), so the target shows through; size, shape and timing unchanged.
+        // alpha once (OpacityOnce: additive sprites 40 % as bright, blended ones 40 % as opaque, not 16 %) and its light's colour, so the target shows through; size, shape and timing unchanged.
+        // A slam's own data blast (its shockwave) is not part of the hit flash and keeps its strength.
         float opacity = OldPowerFlashStrength ? 1f : PowerFlashRules.FlashOpacity;
-        if (!slam && _fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } main) { main.Opacity = opacity; started++; }
-        if (!slam && lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } second) { second.Opacity = opacity; started++; }
-        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost * (slam ? PowerFlashRules.SlamCloud : 1f), null, null, 0f, 0.0, false, 3, false, tint) is { } cloud) { cloud.Opacity = opacity; started++; }
+        if (!slam && _fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } main) { main.Opacity = opacity; main.OpacityOnce = true; started++; }
+        if (!slam && lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is { } second) { second.Opacity = opacity; second.OpacityOnce = true; started++; }
+        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost * (slam ? PowerFlashRules.SlamCloud : 1f), null, null, 0f, 0.0, false, 3, false, tint) is { } cloud) { cloud.Opacity = opacity; cloud.OpacityOnce = true; started++; }
         string sounds = lead ? PostPowerBlast(kind, contact) : "-";
         if (lead) _powerFlashes++; else _powerFlashSmall++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = contact;

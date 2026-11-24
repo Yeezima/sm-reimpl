@@ -91,6 +91,12 @@ public sealed class FxEffect
     public bool NoMist;
     /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
     public float Opacity = 1f;
+    /// <summary>
+    /// With <see cref="Opacity"/> below 1: every sprite, beam and streamer ends at exactly that share of its strength (its alpha only: an additive sprite adds colour x alpha, a blended one
+    /// covers by alpha), and lights at that share of their colour, instead of colour and alpha both (which left sprites at Opacity squared). Off: as before (the jump-pack jets' fade).
+    /// The power weapons' hit flash (gore visibility repair, 2026-11-25).
+    /// </summary>
+    public bool OpacityOnce;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
     public bool NoDecals;
     /// <summary>feel/muzzle-smoke (owner's change of 2026-10-29, ours): 1 plays the data's look; below 1 a weapon's smoke elements (smoke trail beams and streamers, smoke puffs, sprays that emit them) keep this fraction of their width, radius and sideways speed. Set by the networked view for weapon fire, tracer and stop-fire effects only.</summary>
@@ -567,12 +573,14 @@ public sealed partial class FxPlayer : Node3D
     static Color Recolour(Color c, Color? tint) => tint is { } t ? new Color(t.R * Math.Max(c.R, Math.Max(c.G, c.B)), t.G * Math.Max(c.R, Math.Max(c.G, c.B)), t.B * Math.Max(c.R, Math.Max(c.G, c.B)), c.A) : c;
 
     /// <summary>fx/jumppack-jets: <see cref="Recolour"/> then the effect's <see cref="FxEffect.Opacity"/> on every channel (additive and blended sprites both fade).</summary>
-    static Color Shade(Color c, FxEffect e)
+    static Color Shade(Color c, FxEffect e, bool light = false)
     {
         var r = Recolour(c, e.Tint);
         if (e.GammaColours) r = new Color(r.SrgbToLinear().R, r.SrgbToLinear().G, r.SrgbToLinear().B, r.A);
         float o = Math.Clamp(e.Opacity, 0f, 1f);
-        return o >= 1f ? r : new Color(r.R * o, r.G * o, r.B * o, r.A * o);
+        if (o >= 1f) return r;
+        if (e.OpacityOnce) { var (sr, sg, sb, sa) = ImpactRules.PowerFlashRules.ShadeOnce((r.R, r.G, r.B, r.A), o, light); return new Color(sr, sg, sb, sa); }
+        return new Color(r.R * o, r.G * o, r.B * o, r.A * o);
     }
 
     static Color Tint(FxColourCurve c, float t, float alphaScale = 1f)
@@ -1063,7 +1071,7 @@ public sealed partial class FxPlayer : Node3D
         // A looping light (the map's lamps) stays on at its first key; the flash fades out.
         float t = n.Looping ? 0f : (float)(age / show);
         float intensity = At(n.Intensity, t, 1f) * At(n.Power, t, 1f);
-        var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e);   // the Chaos plasma's lights are purple too
+        var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e, light: true);   // the Chaos plasma's lights are purple too
         float range = MathF.Min(At(n.AttenEnd, t, 4f) * c.S, e.LightCap);
         if (range < 0.3f || intensity <= 0f) return;
         var pos = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);

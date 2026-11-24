@@ -94,6 +94,13 @@ void vertex() {
         vec3 across = cross(length(tv) > 1e-6 ? normalize(tv) : vec3(0.0, 1.0, 0.0), normalize(pv));
         across = length(across) > 1e-5 ? normalize(across) : vec3(1.0, 0.0, 0.0);
         float w = size * {{F(ClassicBloodRules.RibbonHalfWidth)}} * (0.8 + 0.5 * h3) * mix(1.0, 0.6, min(dn, 1.0)) * (1.0 + hold);
+        // no folds (repair of review 5, finding 2): a camera-facing strip wider than its curve's radius folds over itself on a bend and shows stepped polygon edges, so the half width
+        // stays under {{F(ClassicBloodRules.RibbonFoldShare)}} of the local radius; and a band seen along its length (its tangent toward the camera) narrows, as a real ribbon would
+        vec3 ta = curve(se + 0.11) - curve(se + 0.05), tb = curve(se - 0.05) - curve(se - 0.11);
+        float kc = length(ta) > 1e-5 && length(tb) > 1e-5 ? length(normalize(ta) - normalize(tb)) / 0.16 : 0.0;
+        w = min(w, {{F(ClassicBloodRules.RibbonFoldShare)}} / max(kc, 1e-3));
+        float side_on = length(tv) > 1e-6 ? length(cross(normalize(tv), normalize(pv))) : 0.0;
+        w *= mix({{F(ClassicBloodRules.RibbonEndOnWidth)}}, 1.0, smoothstep(0.15, 0.6, side_on));
         pv += across * (UV.y * 2.0 - 1.0) * w;
         v_dn = dn; v_s = s; v_w = w;
         v_end = s >= 0.0 ? s / max(fwd, 1e-3) : -s / max(back, 1e-3);   // 0 at the contact, 1 at this band's own ends
@@ -110,20 +117,22 @@ float vnoise(vec2 p) {
 
 void fragment() {
     float x = UV.y * 2.0 - 1.0;
-    // broad and solid across, with a ragged, mottled edge that wanders along the band (the reference's broad mottled bands; was a thin gaussian, exp(-3 x^2))
+    // the band's shape as a field, 1 in its middle to 0 at its ragged edge and its staggered ends (the reference's broad mottled bands)
     float edge = 0.62 + 0.38 * vnoise(vec2(v_s * 5.0 + v_ri * 7.3 + seed * 13.0, v_ri * 3.1 + sign(x) * 4.7));
-    float prof = 1.0 - smoothstep(edge - 0.4, edge, abs(x));
-    float taper = 1.0 - smoothstep(0.4, 1.0, v_end);        // each band's own ends fade out, never blunt
-    // mottled from the start, breaking into patches from about 0.25 s (the reference)
+    float prof = 1.0 - smoothstep(edge - 0.45, edge, abs(x));
+    float taper = 1.0 - smoothstep(0.4, 1.0, v_end);
     float n = 0.6 * vnoise(vec2(v_s * 2.4 + seed * 17.0 + v_ri * 5.3, x * 1.1 + v_ri * 9.1 + age * 0.4))
             + 0.4 * vnoise(vec2(v_s * 7.5 - seed * 7.0 + v_ri * 2.7, x * 2.4 - age * 0.7));
     float grain = vnoise(vec2(v_s * 16.0 + v_ri * 3.7, x * 5.0 + seed * 11.0));
-    float mottle = mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.2, 0.8, n)) * mix(0.8, 1.0, grain);
-    float thr = mix(0.0, 0.45, smoothstep(0.25, 0.8, age));
-    float patches = smoothstep(thr - 0.15, thr + 0.35, n);
     float env = smoothstep(-0.01, 0.06, age) * exp(-{{F(ClassicBloodRules.RibbonDecay)}} * clamp(age - {{F(ClassicBloodRules.RibbonHoldSeconds)}}, 0.0, {{F(ClassicBloodRules.RibbonTailFrom - ClassicBloodRules.RibbonHoldSeconds)}}) - {{F(ClassicBloodRules.RibbonTailDecay)}} * max(0.0, age - {{F(ClassicBloodRules.RibbonTailFrom)}}))
               * (1.0 - smoothstep({{F(ClassicBloodRules.RibbonSeconds - 0.15f)}}, {{F(ClassicBloodRules.RibbonSeconds)}}, age));
-    float a = clamp(opacity * prof * taper * mottle * patches * env, 0.0, 1.0);
+    // ERODED, not faded (repair of review 5, finding 1: a fading translucent band let light floors show through as pink): a texel is blood (opacity about {{F(ClassicBloodRules.RibbonOpacity)}}) while its
+    // mottled score stays above a threshold the envelope raises, else clear; the bands break into shrinking patches and specks and vanish, the covered area following the envelope.
+    // Only a pixel-wide anti-aliased rim is in between, and the strip pass makes even that red.
+    float score = prof * taper * mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));
+    float thr = mix(1.0, {{F(ClassicBloodRules.RibbonErodeFloor)}}, env) + 0.1 * smoothstep(0.22, 0.45, age) * env;
+    float cov = clamp((score - thr) / max(fwidth(score), 1e-4) + 0.5, 0.0, 1.0);
+    float a = opacity * cov;
     //PASS
 }
 """;
@@ -135,13 +144,13 @@ void fragment() {
 """;
 
     /// <summary>
-    /// The strip pass, drawn first (blend_mul): what lies under the blood keeps its red and loses its green and blue toward the tint's own share, so a translucent edge over light blue armour
-    /// or a power weapon's flash reads as darker red, never pink or white (owner 2026-11-24, series 37 answer 4 "Blood only"). Full strength from 1 / <see cref="ClassicBloodRules.RibbonStripGain"/> of
-    /// the band's opacity; where the band is clear (opacity 0) it multiplies by 1 and changes nothing.
+    /// The strip pass, drawn first (blend_mul): what lies under the blood keeps its red and loses all its green and blue, so a translucent edge over light blue armour
+    /// or a power weapon's flash reads as darker red, never pink or white (owner 2026-11-24, series 37 answer 4 "Blood only"). Full strength wherever the band covers the pixel at all
+    /// (<see cref="ClassicBloodRules.RibbonStrip"/>; the eroded bands are near-binary, so this edge is the patch's own edge); where the band is clear it multiplies by 1 and changes nothing.
     /// </summary>
     static readonly string StripOut = $$"""
-    float strip = min(1.0, a * {{F(ClassicBloodRules.RibbonStripGain)}});
-    ALBEDO = mix(vec3(1.0), vec3(1.0, tint.g / max(tint.r, 1e-3), tint.b / max(tint.r, 1e-3)), strip);
+    float strip = a > {{F(ClassicBloodRules.RibbonStripFrom)}} ? 1.0 : 0.0;
+    ALBEDO = mix(vec3(1.0), vec3(1.0, 0.0, 0.0), strip);   // keep the red under the band, take out all its green and blue: only the blood's own green and blue remain
     ALPHA = 1.0;
 """;
 

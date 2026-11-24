@@ -232,7 +232,11 @@ public class ClassicBloodRulesTests
             var c = RibbonColour(n);
             Assert.True(IsBloodOnly(c, BloodRgb.R), $"ribbon colour at noise {n:F2}: {c}");
         }
-        var decalBlood = (0.85f, 0.01f, 0.03f);   // CharacterViewer.BloodColour
+        // the decal's blood is CharacterViewer.BloodColour (a Godot Color, read from its source so the test follows any change to it)
+        var m = System.Text.RegularExpressions.Regex.Match(RepoFile("client", "CharacterViewer.Flash.cs"), @"BloodColour = new\(([0-9.]+)f, ([0-9.]+)f, ([0-9.]+)f\)");
+        Assert.True(m.Success, "CharacterViewer.BloodColour not found");
+        float P(int g) => float.Parse(m.Groups[g].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var decalBlood = (P(1), P(2), P(3));
         Assert.True(IsBloodOnly(decalBlood, decalBlood.Item1));
         for (int seed = 1; seed <= 4; seed++)
         {
@@ -261,21 +265,35 @@ public class ClassicBloodRulesTests
         Assert.Contains("render_mode blend_mix, unshaded", src);
         Assert.DoesNotContain("blend_add", src);
         Assert.Contains("ALBEDO = tint.rgb * mix(", src);   // the tint times a share at most 1
-        // the strip pass multiplies what lies under the band by (1, G/R, B/R) of the tint at most: red kept, green and blue taken out, nothing brightened
+        // the strip pass multiplies what lies under the band by (1, 0, 0): red kept, green and blue taken out, nothing brightened
         Assert.Contains("\"render_mode blend_mix,\", \"render_mode blend_mul,\"", src);
-        Assert.Contains("ALBEDO = mix(vec3(1.0), vec3(1.0, tint.g / max(tint.r, 1e-3), tint.b / max(tint.r, 1e-3)), strip);", src);
-        Assert.InRange(RibbonStripGain, 1f, 6f);
-        // a translucent edge (opacity a) over pure white, through both passes, stays blood only once a reaches 1 / RibbonStripGain... and at the band's held middle
-        foreach (float a in new[] { 1f / RibbonStripGain, 0.5f, RibbonOpacity })
-        {
-            float strip = MathF.Min(1f, a * RibbonStripGain);
-            (float R, float G, float B) under = (1f, 1f - strip * (1f - BloodRgb.G / BloodRgb.R), 1f - strip * (1f - BloodRgb.B / BloodRgb.R));
-            var top = RibbonColour(1f);
-            var final = (a * top.R + (1 - a) * under.R, a * top.G + (1 - a) * under.G, a * top.B + (1 - a) * under.B);
-            Assert.True(IsBloodOnly(final, 1f), $"edge at opacity {a:F2} over white: {final}");
-        }
+        Assert.Contains("ALBEDO = mix(vec3(1.0), vec3(1.0, 0.0, 0.0), strip);", src);
+        Assert.Contains("float strip = a > ", src);   // full wherever the band covers the pixel (RibbonStrip)
         Assert.Contains("BloodTint = new(1f, 0.12f, 0.08f)", RepoFile("client", "ClassicHitSpray.cs"));   // BloodRgb mirrors it
         Assert.Equal((1f, 0.12f, 0.08f), BloodRgb);
+    }
+
+    [Fact]
+    public void No_opacity_over_any_background_adds_green_or_blue_relative_to_red()
+    {
+        // repair of review 5, finding 1 (owner's "only red or darker"): the WHOLE opacity range 0..1, through the strip and blood passes, over white and over coloured and dark grounds
+        (float R, float G, float B)[] grounds = [(1f, 1f, 1f), (0.9f, 0.95f, 1f), (0.2f, 0.4f, 0.9f), (0f, 1f, 0f), (0.6f, 0.6f, 0.55f), (0.05f, 0.05f, 0.05f), (1f, 0.12f, 0.08f), (0f, 0f, 0f)];
+        foreach (var g in grounds)
+            for (int i = 0; i <= 1000; i++)
+            {
+                float a = i / 1000f;
+                foreach (float n in new[] { 0f, 0.5f, 1f })
+                {
+                    var c = RibbonComposite(g, a, n);
+                    // never brighter than the ground or the blood red in any channel
+                    Assert.True(c.R <= MathF.Max(g.R, BloodRgb.R) + 1e-5f && c.G <= MathF.Max(g.G, BloodRgb.G) + 1e-5f && c.B <= MathF.Max(g.B, BloodRgb.B) + 1e-5f, $"brighter at {a} over {g}: {c}");
+                    if (a <= RibbonStripFrom) continue;   // no blood on this pixel (under 1/255 of a band): the ground as it is
+                    // where there is blood, green and blue are at most the blood's own share of red (the ground's green and blue are taken out)
+                    Assert.True(c.G <= BloodOnlyGreenBlue * c.R + 1e-5f && c.B <= BloodOnlyGreenBlue * c.R + 1e-5f, $"pink at opacity {a:F3} over {g}: {c}");
+                }
+            }
+        // over white at every covered opacity the pixel is blood only
+        for (int i = 1; i <= 1000; i++) { float a = i / 1000f; if (a > RibbonStripFrom) Assert.True(IsBloodOnly(RibbonComposite((1f, 1f, 1f), a, 0.5f), 1f), $"over white at {a:F3}"); }
     }
 
     [Fact]

@@ -41,7 +41,10 @@ public static class ClassicBloodRules
     /// only grow more opaque (toward solid blood red), never white.
     /// </summary>
     public const float RibbonOpacity = 0.95f;
-    /// <summary>The weakest a mottled patch of a band gets, as a share of <see cref="RibbonOpacity"/> (ours; was 0.35): mottled, but solid enough to read at play distance.</summary>
+    /// <summary>
+    /// How the band's mottled score is weighted (ours; was the weakest patch's opacity, 0.35 then 0.6): the score of a texel is its shape (1 in the middle to 0 at the ragged edge and the
+    /// staggered ends) times this to 1 by the mottle noise; it decides which texels stay blood as the band erodes.
+    /// </summary>
     public const float RibbonMottleFloor = 0.6f;
     /// <summary>The darkest a mottled patch's colour gets, as a share of the blood tint (ours; new in the visibility pass): same hue, a darker blood red in the dense patches.</summary>
     public const float RibbonShadeFloor = 0.8f;
@@ -50,16 +53,43 @@ public static class ClassicBloodRules
     /// <summary>How tall the stack of bands is across the stroke for a sweep (m; ours; was 0.3), scaled by the spread.</summary>
     public const float RibbonBundle = 0.42f;
     /// <summary>
-    /// The ribbons' render priority (ours; new in the visibility pass, was the default 0): among the transparent effects they draw last, so a power weapon's hit flash and cloud
-    /// (<c>PowerFlash</c>, additive, priority 0, the thunder hammer's and the daemon maul's blue or purple burst at the same contact) lie under the blood instead of washing it out. The glow's
-    /// own look is unchanged; it is still depth-tested against the level and the bodies.
+    /// The erosion threshold while the band is held (ours; repair of review 5): a texel is blood while its score is above <c>1 - (1 - this) * envelope</c> (plus 0.1 x envelope from about
+    /// 0.22 to 0.45 s, the early break-up), so at the hold almost all of the band shows and as the envelope falls only the densest patches and specks stay. The band never fades through
+    /// translucency (a translucent band over a light floor read as pink); its covered area follows <see cref="RibbonEnvelope"/>.
     /// </summary>
-    public const int RibbonRenderPriority = 10;
+    public const float RibbonErodeFloor = 0.04f;
+    /// <summary>The half width is kept under this share of the curve's local radius (ours; repair of review 5, finding 2: a wide camera-facing strip on a bend folded into stepped edges).</summary>
+    public const float RibbonFoldShare = 0.7f;
+    /// <summary>The share of its width a band keeps when seen along its length (its tangent toward the camera; ours; repair of review 5, finding 2), smoothly up to all of it side-on.</summary>
+    public const float RibbonEndOnWidth = 0.35f;
     /// <summary>
-    /// How fast the strip pass (drawn at <see cref="RibbonRenderPriority"/>, the blood pass at one more) takes the green and blue out of what lies under a band: fully from 1/this of the
-    /// band's opacity (ours; owner 2026-11-24, series 37 answer 4 "Blood only": a translucent edge over light armour or a flash reads darker red, not pink or white).
+    /// The ribbons' render priority (ours; 0 before the visibility pass, 10 at 3570b719, 1 since the repair of review 5): the strip pass at this, the blood at one more, so they draw just
+    /// after the effects batch (<c>FxBatch</c>: every effect sprite, the power weapons' hit flash and cloud among them, is one additive and one alpha draw at the default priority 0 with a
+    /// view-dependent sort depth), and the flash at the same contact lies under the blood. Anything at priority 2 or more still draws over the blood. Depth-tested against the level and bodies.
     /// </summary>
-    public const float RibbonStripGain = 3f;
+    public const int RibbonRenderPriority = 1;
+    /// <summary>
+    /// The strip pass (drawn before the blood, <c>blend_mul</c>) takes the green and blue out of what lies under a band wherever the band's opacity is above this (ours; owner
+    /// 2026-11-24, series 37 answer 4 "Blood only"): full, not in proportion, so no opacity over any background shows pink (repair of review 5, finding 1).
+    /// </summary>
+    public const float RibbonStripFrom = 1f / 255f;
+
+    /// <summary>The strip pass's strength for a band texel of opacity <paramref name="a"/> (the shader's <c>strip</c>): 1 wherever the band covers the pixel, else 0.</summary>
+    public static float RibbonStrip(float a) => a > RibbonStripFrom ? 1f : 0f;
+
+    /// <summary>
+    /// The final colour of a pixel of colour <paramref name="under"/> under a band texel of opacity <paramref name="a"/> and mottle <paramref name="n"/>, through both passes (the shader's math):
+    /// the strip multiplies it by (1, 0, 0) at <see cref="RibbonStrip"/> (its red kept, its green and blue taken out), then the blood colour is mixed over it at <paramref name="a"/>, so
+    /// the only green and blue left are the blood's own share of the blood's red.
+    /// </summary>
+    public static (float R, float G, float B) RibbonComposite((float R, float G, float B) under, float a, float n)
+    {
+        float s = RibbonStrip(a);
+        var u = (under.R, under.G * (1f - s), under.B * (1f - s));
+        var c = RibbonColour(n);
+        return (a * c.R + (1 - a) * u.Item1, a * c.G + (1 - a) * u.Item2, a * c.B + (1 - a) * u.Item3);
+    }
+
     /// <summary>How far each step of the curve turns toward the weapon's recorded path (share) and the most it turns per step (rad): it follows the swing without curling round the attacker (ours).</summary>
     public const float RibbonFollow = 0.75f, RibbonMaxTurn = 0.3f;
 

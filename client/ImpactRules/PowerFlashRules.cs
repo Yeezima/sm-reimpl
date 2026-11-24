@@ -30,6 +30,16 @@ public static class PowerFlashRules
     /// </summary>
     public const float FlashOpacity = 0.4f;
 
+    /// <summary>
+    /// A sprite's or light's colour at strength <paramref name="o"/>, applied once (<c>FxEffect.OpacityOnce</c>, used by the hit flash): a sprite keeps its colour and takes
+    /// <paramref name="o"/> of its alpha (an additive sprite adds colour x alpha, a blended one covers by alpha: both end at exactly <paramref name="o"/>); a light takes it on its colour.
+    /// </summary>
+    public static (float R, float G, float B, float A) ShadeOnce((float R, float G, float B, float A) c, float o, bool light)
+    {
+        o = Math.Clamp(o, 0f, 1f);
+        return light ? (c.R * o, c.G * o, c.B * o, c.A) : (c.R, c.G, c.B, c.A * o);
+    }
+
     /// <summary>The power weapon a melee wargear file is (<c>sm_mp_melee_2hand_thunder_hammer</c>, <c>csm_mp_melee_2hand_power_mace</c> = the daemon maul, <c>..._power_axe</c>, <c>..._powersword</c>), or null.</summary>
     public static PowerKind? KindOf(string? wargear)
     {

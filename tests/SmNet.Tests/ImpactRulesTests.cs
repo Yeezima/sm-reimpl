@@ -149,16 +149,25 @@ public class PowerFlashRulesTests
     public void Other_melee_weapons_do_not_flash(string? wargear) => Assert.Null(PowerFlashRules.KindOf(wargear));
 
     [Fact]
-    public void The_flash_plays_at_forty_percent_strength_everywhere()
+    public void The_flash_plays_at_forty_percent_strength_and_every_part_ends_at_exactly_that()
     {
-        // owner 2026-11-24 (series 37 answers 2 and 3): "40% strength, see-through", Classic, Musou and Warfront (one PowerHit path, which every mode calls)
+        // owner 2026-11-24 (series 37 answers 2 and 3): "40% strength, see-through"; lead decision 5a (2026-11-25): blended sprites end at 0.4 too, not 0.4 x 0.4
         Assert.Equal(0.4f, PowerFlashRules.FlashOpacity);
-        var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "SmReimpl.slnx"))) dir = dir.Parent;
-        Assert.NotNull(dir);
-        var src = System.IO.File.ReadAllText(System.IO.Path.Combine(dir!.FullName, "client", "NetworkView.PowerFlash.cs"));
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(src, @"\.Opacity = opacity;").Count);   // the data's hit effect, its secondary and our cloud
-        Assert.Contains("PowerHit(", System.IO.File.ReadAllText(System.IO.Path.Combine(dir.FullName, "client", "Extras", "Musou", "MusouFx.cs")));   // Musou's hit flash goes through it
+        var sprite = (R: 0.6f, G: 0.8f, B: 1f, A: 0.9f);
+        var s = PowerFlashRules.ShadeOnce(sprite, PowerFlashRules.FlashOpacity, light: false);
+        // an additive sprite adds colour x alpha: 0.4 of before
+        Assert.Equal(0.4f * sprite.R * sprite.A, s.R * s.A, 4);
+        Assert.Equal(0.4f * sprite.B * sprite.A, s.B * s.A, 4);
+        // a blended sprite covers by alpha with its own colour: 0.4 of the coverage, colour unchanged (see-through, not darkened)
+        Assert.Equal(0.4f * sprite.A, s.A, 4);
+        Assert.Equal(sprite.G, s.G, 4);
+        // a light: 0.4 of its colour
+        var l = PowerFlashRules.ShadeOnce(sprite, PowerFlashRules.FlashOpacity, light: true);
+        Assert.Equal(0.4f * sprite.R, l.R, 4);
+        Assert.Equal(sprite.A, l.A, 4);
+        // full strength changes nothing; out-of-range strengths clamp
+        Assert.Equal(sprite, PowerFlashRules.ShadeOnce(sprite, 1f, false));
+        Assert.Equal(0f, PowerFlashRules.ShadeOnce(sprite, -1f, false).A);
     }
 
     [Fact]
