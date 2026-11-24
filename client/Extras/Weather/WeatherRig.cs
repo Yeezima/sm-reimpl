@@ -113,7 +113,8 @@ public sealed partial class WeatherRig : Node3D
     }
 
     /// <summary>
-    /// Once a frame: follows the camera and shows what the preset at its phase and intensity needs (rain, ash, embers, the sky glow, the wind); anything not needed stops at once.
+    /// Once a frame: follows the camera and shows what the preset at its phase and intensity needs (rain, ash, embers, the sky glow, the wind); anything not needed is switched off at once (the precipitation fields then fade
+    /// out over 0.5 s with their last look, the beds over 0.5 s, the sky over its blend).
     /// <paramref name="groundY"/>: the height of the ground under the player (splashes and mist lie there); null takes 1.8 m under the camera (an estimate: the camera is the head's height, higher in third person).
     /// </summary>
     public void Update(WeatherState st, float intensity, Vector3 cameraAt, float? groundY = null, Vector3? leadFrom = null)
@@ -132,7 +133,15 @@ public sealed partial class WeatherRig : Node3D
         bool nearOn = rain && Shelter < WeatherShelterMix.NearOffAbove;   // under cover the near layers have stopped; the far layer keeps raining outside its hole
         if (rain) EnsureRain();
         MixShelter();
-        if (_rain is not null)
+        if (_rain is not null && !rain)
+        {
+            // repair 2: the preset no longer rains (its share is 0): every layer is switched off and keeps its last fall, lean and tint while it fades, so nothing steps to a fainter look or snaps its slant in the fade (as the grit and flakes do)
+            _rain.Emitting = false;
+            if (_rainFar is not null) { _rainFar.Emitting = false; FarHole(); }
+            if (_splash is not null) _splash.Emitting = false;
+            if (_mist is not null) _mist.Emitting = false;
+        }
+        else if (_rain is not null)
         {
             float yaw = WeatherPlan.WindYaw(st.Id);
             float slant = 0.08f + (st.Id == WeatherId.Thunderstorm ? 0.35f * wind : 0.05f);   // the wind leans the rain
@@ -183,23 +192,19 @@ public sealed partial class WeatherRig : Node3D
         UpdateFog(st, i, cameraAt, groundY);
         UpdateDust(st, i, wind, cameraAt, groundY);
         UpdateSky(st, i, wind);
-        foreach (var f in Fields()) f?.Advance(_fieldDt);   // every field every frame: its motion, its switch's fade, the far ring's radii
+        StepField(_rain); StepField(_rainFar); StepField(_ashMain); StepField(_ashWarn); StepField(_embers);   // every field every frame: its motion, its switch's fade, the far ring's radii (no per-frame array)
     }
+
+    void StepField(WeatherField? f) => f?.Advance(_fieldDt);
 
     ulong _fieldUsec;
     double _fieldDt;
 
-    /// <summary>The precipitation fields (any not built yet are null).</summary>
-    WeatherField?[] Fields() => new[] { _rain, _rainFar, _ashMain, _ashWarn, _embers };
-
     /// <summary>Test seam (selftest): every field's fade and ease ends at once.</summary>
-    public void SettleFields() { foreach (var f in Fields()) f?.Settle(); }
+    public void SettleFields() { _rain?.Settle(); _rainFar?.Settle(); _ashMain?.Settle(); _ashWarn?.Settle(); _embers?.Settle(); }
 
     /// <summary>A field is still fading in or out (the rig stays until its drops have faded).</summary>
-    public bool FieldsFading
-    {
-        get { foreach (var f in Fields()) if (f is { Fading: true }) return true; return false; }
-    }
+    public bool FieldsFading => _rain is { Fading: true } || _rainFar is { Fading: true } || _ashMain is { Fading: true } || _ashWarn is { Fading: true } || _embers is { Fading: true };
 
     /// <summary>Anything of the rig is showing or sounding (the view keeps the rig while this holds).</summary>
     public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing || BedsFading || FieldsFading;
@@ -226,7 +231,7 @@ public sealed partial class WeatherRig : Node3D
         bool hole = _farHole ? Shelter > 0.2f : Shelter > WeatherShelterMix.HoleAbove;
         if (hole == _farHole) return;
         _farHole = hole;
-        _rainFar.SetHole(hole ? WeatherShelterMix.FarHoleRadiusM : 0f, hole ? FarRingM : WeatherField.RingOff);   // rain motion: the ring is the field's own dry middle, drawn in the shader (the same 14 m hole, out to 44 m), its radii easing over 0.5 s
+        _rainFar.SetHole(hole ? WeatherShelterMix.FarHoleRadiusM + WeatherField.HoleSoftM : 0f, hole ? FarRingM : WeatherField.RingOff);   // rain motion: the ring is the field's own dry middle, drawn in the shader: no far drop within W4's 14 m (the fade runs 14 to 16 m), out to 44 m, its radii easing over 0.5 s
     }
 
     /// <summary>The far layer's ring under cover reaches this far (m) from the player, as the W4 ring emitter did.</summary>

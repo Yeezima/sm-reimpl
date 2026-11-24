@@ -61,11 +61,18 @@ public sealed partial class WeatherField : MultiMeshInstance3D
     /// <summary>The keep share's soft edge (drops): a tenth of the drawn drops, at least 8.</summary>
     float KeepSoft => Math.Max(8f, 0.1f * Amount);
 
+    float _keepSent = float.NaN, _keepSoftSent = float.NaN;
+
+    /// <summary>The keep share in drops, the soft edge centred on it (repair 2: the edge ran from the share to a soft edge past it, drawing about 0.77 for 0.72); a full share sends no cut at all.</summary>
     void SetKeep()
     {
-        _material.SetShaderParameter("keep", _keep * Amount);
-        _material.SetShaderParameter("keep_soft", KeepSoft);
+        float keep = _keep >= 1f ? 1e9f : _keep * Amount, soft = KeepSoft;
+        if (keep != _keepSent) { _material.SetShaderParameter(PKeep, keep); _keepSent = keep; }
+        if (soft != _keepSoftSent) { _material.SetShaderParameter(PKeepSoft, soft); _keepSoftSent = soft; }
     }
+
+    // repair 2: the shader parameters' names, made once (a string key allocates a StringName per call)
+    static readonly StringName PKeep = "keep", PKeepSoft = "keep_soft", PDrifts = "drifts", PFade = "fade", PHole = "hole", PRing = "ring";
 
     /// <summary>For the engine only (a node type needs a parameterless constructor); the rig always uses the full one.</summary>
     public WeatherField() : this("WeatherField", Kind.Streak, 1, 0, Vector3.One, Vector2.One, 1f, 1f, 1f, 0f, 0) { }
@@ -132,31 +139,36 @@ public sealed partial class WeatherField : MultiMeshInstance3D
             _drift[g] = new Vector3(d.X, d.Y, d.Z);
             _driftUniform[g] = _drift[g];
         }
-        _material.SetShaderParameter("drifts", _driftUniform);
         _level = WeatherFieldWrap.Ease(_level, _on ? 1f : 0f, 1f, dt);
-        _material.SetShaderParameter("fade", _level);
         if (_holeNow != _holeTarget || _ringNow != _ringTarget)
         {
             _holeNow = WeatherFieldWrap.Ease(_holeNow, _holeTarget, HoleSpan, dt);
             _ringNow = WeatherFieldWrap.Ease(_ringNow, _ringTarget, RingOff - FarRingNear, dt);
-            _material.SetShaderParameter("hole", _holeNow);
-            _material.SetShaderParameter("ring", _ringNow);
         }
-        SetKeep();
         Visible = _level > 0f;
+        if (!Visible) return;   // repair 2: a hidden field sets nothing (its drift still moves, so it comes back where it would be)
+        _material.SetShaderParameter(PDrifts, _driftUniform);
+        if (_level != _fadeSent) { _material.SetShaderParameter(PFade, _level); _fadeSent = _level; }
+        if (_holeNow != _holeSent) { _material.SetShaderParameter(PHole, _holeNow); _holeSent = _holeNow; }
+        if (_ringNow != _ringSent) { _material.SetShaderParameter(PRing, _ringNow); _ringSent = _ringNow; }
+        SetKeep();
     }
+
+    float _fadeSent = 0f, _holeSent = 0f, _ringSent = RingOff;
 
     /// <summary>Test seam (selftest): ends the switch's fade and the radii's eases at once.</summary>
     public void Settle()
     {
         _level = _on ? 1f : 0f; _holeNow = _holeTarget; _ringNow = _ringTarget;
-        _material.SetShaderParameter("hole", _holeNow);
-        _material.SetShaderParameter("ring", _ringNow);
         Advance(0);
     }
 
-    /// <summary>The hole's full radius and the ring's near radius the eases are paced by (m): the W4 values, so each takes <see cref="WeatherFieldWrap.FadeSeconds"/>.</summary>
-    const float HoleSpan = 14f, FarRingNear = 44f;
+    /// <summary>
+    /// The far hole's soft edge (m): a drop fades out over the 2 m inside the hole's radius, so the rig asks for W4's dry 14 m plus this (repair 2, the lead's decision: no far drop within 14 m, as before), and the eases' paces (m):
+    /// the hole's full radius and the ring's near radius, so each takes <see cref="WeatherFieldWrap.FadeSeconds"/>.
+    /// </summary>
+    public const float HoleSoftM = 2f;
+    const float HoleSpan = 16f, FarRingNear = 44f;
 
     /// <summary>
     /// The far rain's dry ring under cover: no drop within <paramref name="holeM"/> of the centre horizontally nor beyond <paramref name="ringM"/>; a hole of 0 with the ring at <see cref="RingOff"/> keeps the whole box. Repair: the
@@ -183,7 +195,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
         var centre = new System.Numerics.Vector3(c.X, c.Y, c.Z);
         var box = new System.Numerics.Vector3(Box.X, Box.Y, Box.Z);
         var p = new System.Numerics.Vector3(at.X, at.Y, at.Z);
-        int n = 0, shown = Math.Min(Amount, (int)Math.Ceiling(_keep * Amount + 0.5f * KeepSoft));   // the drops past the keep share up to half its soft edge
+        int n = 0, shown = _keep >= 1f ? Amount : Math.Min(Amount, (int)Math.Ceiling(_keep * Amount));   // the soft edge is centred on the keep share: half above it shows, half below it fades
         float r2 = radius * radius;
         for (int i = 0; i < shown; i++)
         {
@@ -239,7 +251,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
             vec3 d = c - centre;
             float r = length(d.xz);
             float edge = axis_fade(d.x, box.x) * axis_fade(d.y, box.y) * axis_fade(d.z, box.z) * smoothstep(hole - 2.0, hole, r) * (1.0 - smoothstep(ring - 2.0, ring, r));
-            edge *= fade * clamp((keep + keep_soft - float(INSTANCE_ID)) / keep_soft, 0.0, 1.0);
+            edge *= fade * clamp((keep + 0.5 * keep_soft - float(INSTANCE_ID)) / keep_soft, 0.0, 1.0);
             v_hash = fract(sin(dot(seed, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
             vec3 to_cam = CAMERA_POSITION_WORLD - c;
             float dist = max(length(to_cam), 1e-4);

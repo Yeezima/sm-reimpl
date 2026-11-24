@@ -273,8 +273,12 @@ public sealed partial class WeatherSelfTest : Node
             Check("rain lull: the hiss follows the rain's amplitude (within 7 dB of full)", hissP is { Playing: true } && hissP.VolumeDb > WeatherRig.LoudestDb - 7f, hissP?.VolumeDb.ToString() ?? "");
             fast.Update(WeatherClock.At(WeatherId.Rain, 130), 1f, Vector3.Zero);
             Check("rain: an overcast sky of its own blends in (not all at once)", fast.SkyLook == WeatherId.Rain && fast.SkyCover > 0f && fast.SkyCover < WeatherRig.RainSkyFull, fast.SkyCover.ToString());
+            float nearAlphaRaining = fast.RainAlpha, farAlphaRaining = AlphaOf(fast.GetNodeOrNull<WeatherField>("RainFar"));
+            var nearVelRaining = fast.GetNodeOrNull<WeatherField>("Rain")?.Velocity ?? Vector3.Zero;
             fast.Update(WeatherClock.At(WeatherId.Clear, 10), 1f, Vector3.Zero);
             Check("clear, entered from rain: no rain, no splashes, the hiss fading (0.5 s), the sky fading out", !fast.Raining && (hissP is { Playing: false } || fast.BedsFading) && !fast.Splashing && WeatherRig.SkyTarget(WeatherId.Clear, 1f) == 0f);
+            Check("rain motion repair 2: the rain fading out keeps its last tint and fall (no step to a fainter look, no snapped lean)", fast.RainAlpha == nearAlphaRaining && AlphaOf(fast.GetNodeOrNull<WeatherField>("RainFar")) == farAlphaRaining
+                && (fast.GetNodeOrNull<WeatherField>("Rain")?.Velocity ?? Vector3.One) == nearVelRaining && fast.FieldsFading, $"{nearAlphaRaining} -> {fast.RainAlpha}");
             fast.QueueFree();
 
             var fog = new WeatherRig(); anchor.AddChild(fog);
@@ -312,7 +316,7 @@ public sealed partial class WeatherSelfTest : Node
         sh.SetShelter(1f, false);
         sh.Update(shStorm, 1f, Vector3.Zero);
         Check("sheltered: the near rain, splashes and mist have stopped", shRain is { Emitting: false } && shSplash is { Emitting: false } && shMist is { Emitting: false } && !sh.Splashing);
-        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true } && sh.FarHoleOn && Math.Abs(shFar.HoleM - WeatherShelterMix.FarHoleRadiusM) < 0.01f && shFar.HoleNowM < WeatherShelterMix.FarHoleRadiusM - 1f, $"hole now {shFar?.HoleNowM}");   // repair: the hole eases open over 0.5 s (not yet, in the same frame)
+        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true } && sh.FarHoleOn && Math.Abs(shFar.HoleM - (WeatherShelterMix.FarHoleRadiusM + WeatherField.HoleSoftM)) < 0.01f && shFar.HoleNowM < WeatherShelterMix.FarHoleRadiusM - 1f, $"hole now {shFar?.HoleNowM}");   // repair: the hole eases open over 0.5 s (not yet, in the same frame)
         Check("sheltered: the weather bus is low-passed to the muffled cutoff", Math.Abs(sh.BusCutoffHz - WeatherShelterMix.MuffledHz) < 30f && AudioServer.GetBusIndex(WeatherRig.BusName) >= 0, $"{sh.BusCutoffHz}");
         Check("sheltered: rain and wind are quieter than in the open, never above their caps; the hiss and wind play on the weather bus",
             shHiss is { Playing: true } && shHiss.VolumeDb < hissOpen - 1f && shHiss.VolumeDb <= WeatherRig.LoudestDb && shHiss.Bus == WeatherRig.BusName && shWind is { Playing: true } && shWind.VolumeDb < windOpen - 1f && shWind.VolumeDb <= WeatherRig.WindLoudestDb && shWind.Bus == WeatherRig.BusName, $"{hissOpen}->{shHiss?.VolumeDb} {windOpen}->{shWind?.VolumeDb}");
