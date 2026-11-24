@@ -66,6 +66,11 @@
     <Compile Include="..\..\client\Extras\Gore\ClassicBloodRules.cs" Link="ClientGore\ClassicBloodRules.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <!-- Executions X5a/X5: the client's engine-free execution state and presentation maths. -->
+    <Compile Include="..\..\client\Extras\Executions\ExecutionClientState.cs" Link="ClientExecutions\ExecutionClientState.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
     <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />

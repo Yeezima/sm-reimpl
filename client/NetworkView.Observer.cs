@@ -170,6 +170,9 @@ public partial class NetworkView
     /// The connected frame of a spectator: the players as the server shows them (no own player), the world's effects, the camera, the observer HUD. Skips what belongs to a
     /// player (prediction, the own model, hit and damage feedback, the customizer, weapon HUD).
     /// </summary>
+    /// <summary>Hook for added content (executions X5): once an observer frame, before its deaths are processed.</summary>
+    partial void ExtrasObserverFrame(IReadOnlyList<PlayerState> others, double delta);
+
     void ObserverFrame(double delta)
     {
         var me = _client!.Predicted;   // empty: an observer has no player
@@ -260,6 +263,7 @@ public partial class NetworkView
         }
         while (_obsKills.Count > 0 && (_obsKills.Count > 8 || _connectedFor - _obsKills[0].At > ObsFeedSeconds)) _obsKills.RemoveAt(0);
         UpdateMatchUi();
+        ExtrasObserverFrame(others, delta);   // EXTRAS-HOOK: executions (X5): an observer draws the paired moves too (tag 50 only; other features' sections are dropped, as before)
         ProcessDeaths();
         UpdateRagdolls(delta);
         WeaponFrame(delta);

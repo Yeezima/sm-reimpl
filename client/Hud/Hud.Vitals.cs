@@ -231,7 +231,9 @@ public sealed partial class Hud
         // One armour bar layer only (ui/armour-bar-fix): the Iron Halo's cyan clip or the plain cream clip, never both. The plain clip's empty frame (99) is its bare unmasked lines: nothing is drawn
         // at no armour (the Iron Halo's frame 99 is its starburst alone and stays).
         VitalsArmourLayers = 0;
-        if (arm is not null) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; NoteArmourDraw(v); }
+        var armourTint = White;
+        ExtrasArmourTint(ref armourTint);   // EXTRAS-HOOK: executions (X6): Warfront's overshield turns the armour bar a deeper blue (White without it)
+        if (arm is not null) { DrawAtom(arm, xf, armourTint, false); VitalsArmourLayers++; NoteArmourDraw(v); }
         else if (!armourEmpty) VitalsArmourBlankFrames++;
         if (hp is not null) { MeasureHealthShare(hp); DrawAtom(hp, xf, White, false); }
         else VitalsHealthBlankFrames++;
@@ -302,4 +304,7 @@ public sealed partial class Hud
         VitalsArmourVariantDrawn = variant;
         VitalsArmourDrawsMax = Math.Max(VitalsArmourDrawsMax, _armourDrawsThisFrame);
     }
+
+    /// <summary>Hook for added content (executions X6): the armour bar's modulate (White: the movie's own colours).</summary>
+    partial void ExtrasArmourTint(ref Color tint);
 }
