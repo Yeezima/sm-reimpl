@@ -15,8 +15,15 @@ public enum GameMode : byte { Annihilation = 0, SeizeGround = 1 }
 /// </summary>
 public sealed record ControlPoint(string Name, Vector3 Center, float Radius, float HalfHeight)
 {
+    /// <summary>
+    /// The point's exact shape when the map gives one (a Mapmaker capture point whose shape was edited, docs/mapmaker.md "Edit mode in play"): then a player stands on it when
+    /// the shape holds the feet lifted by <see cref="ExactVolumes.FeetLift"/>, and the cylinder is only what the views draw. Null for every Classic point and every unedited one.
+    /// </summary>
+    public IExactVolume? Volume { get; init; }
+
     public bool Contains(Vector3 feet)
     {
+        if (Volume is { } shape) return shape.Contains(feet + new Vector3(0f, 0f, ExactVolumes.FeetLift));
         float dx = feet.X - Center.X, dy = feet.Y - Center.Y;
         return dx * dx + dy * dy <= Radius * Radius && MathF.Abs(feet.Z - Center.Z) <= HalfHeight;
     }
@@ -29,7 +36,27 @@ public enum AreaShape : byte { Box = 0, Cylinder = 1 }
 /// A side's start area (<c>mkr_start_marine</c>, <c>mkr_start_ork</c> for Chaos): centre, full size (marker scale, metres),
 /// rotation about Z (radians, also the facing given to players spawned in it) and shape.
 /// </summary>
-public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Yaw, AreaShape Shape = AreaShape.Box);
+public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Yaw, AreaShape Shape = AreaShape.Box)
+{
+    /// <summary>
+    /// The area's exact shape when the map gives one (a Mapmaker spawn area whose shape was edited, docs/mapmaker.md "Edit mode in play"): <see cref="Center"/>, <see cref="Size"/> and
+    /// <see cref="Yaw"/> are then its box, the spawn grid is laid over that box and only the spots the shape holds are kept (<see cref="HoldsSpot"/>). Null for every Classic, Musou and
+    /// Warfront area and every unedited one: the grid as before.
+    /// </summary>
+    public IExactVolume? Volume { get; init; }
+
+    /// <summary>
+    /// Whether a spawn spot (a point on the floor) is inside the edited shape with room round it: the shape holds the spot lifted by <see cref="ExactVolumes.FeetLift"/> and the
+    /// same point <paramref name="margin"/> along world +X, -X, +Y and -Y (the grid's margin from the edge, kept from the edited boundary too; ours). True without a shape.
+    /// </summary>
+    public bool HoldsSpot(Vector3 spot, float margin = 1f)
+    {
+        if (Volume is not { } shape) return true;
+        var p = spot + new Vector3(0f, 0f, ExactVolumes.FeetLift);
+        return shape.Contains(p) && shape.Contains(p + new Vector3(margin, 0f, 0f)) && shape.Contains(p - new Vector3(margin, 0f, 0f))
+            && shape.Contains(p + new Vector3(0f, margin, 0f)) && shape.Contains(p - new Vector3(0f, margin, 0f));
+    }
+}
 
 /// <summary>
 /// A control point's state: <paramref name="Owner"/> (None: neutral); <paramref name="Side"/>, whose progress
@@ -272,8 +299,13 @@ public sealed partial class World
         foreach (var (_, _, local) in grid)
         {
             var at = new Vector3(area.Center.X + local.X * c - local.Y * s, area.Center.Y + local.X * s + local.Y * c, area.Center.Z);
-            if (Collision is null) { spots.Add(at); continue; }
-            if (LowestStandable(at.X, at.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } ground) spots.Add(ground);
+            if (Collision is null)
+            {
+                // an edited area without a level: the spot at the box's middle height, inside the shape (no lift: it is not on a floor)
+                if (area.Volume is null || area.Volume.Contains(at)) spots.Add(at);
+                continue;
+            }
+            if (LowestStandable(at.X, at.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } ground && area.HoldsSpot(ground, margin)) spots.Add(ground);
         }
         if (spots.Count == 0) spots.Add(area.Center);
         _areaSpots[areaIndex] = spots;

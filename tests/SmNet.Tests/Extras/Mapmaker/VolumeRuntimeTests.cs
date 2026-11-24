@@ -1,5 +1,6 @@
 using System.Numerics;
 using SmSim;
+using SmSim.Extras.Mapmaker;
 
 namespace SmNet.Tests;
 
@@ -91,4 +92,104 @@ public class VolumeRuntimeTests
     }
 
     const ulong StockSpotsFingerprint = 8447509927339958168UL;
+
+    // ---- edited shapes ----
+
+    /// <summary>A vertical prism over a convex polygon (counter-clockwise in plan) from <paramref name="z0"/> to <paramref name="z1"/>, as a closed triangle mesh.</summary>
+    static ExactMeshVolume Prism(string name, Vector2[] plan, float z0, float z1)
+    {
+        int n = plan.Length;
+        var v = new List<Vector3>();
+        foreach (var p in plan) v.Add(new Vector3(p.X, p.Y, z0));
+        foreach (var p in plan) v.Add(new Vector3(p.X, p.Y, z1));
+        var i = new List<int>();
+        for (int k = 1; k + 1 < n; k++) { i.AddRange([0, k + 1, k]); i.AddRange([n, n + k, n + k + 1]); }
+        for (int k = 0; k < n; k++) { int j = (k + 1) % n; i.AddRange([k, j, n + j, k, n + j, n + k]); }
+        return new ExactMeshVolume(new MeshVolume(name, [.. v], [.. i]));
+    }
+
+    /// <summary>A right-triangle wedge over x 0..10, y 0..10 (the corner at +X +Y is cut away), z 0..3: (2, 2) is inside, (8, 8) is in the box only.</summary>
+    static ExactMeshVolume Wedge(float dx = 0, float dy = 0) => Prism("wedge", [new(dx, dy), new(dx + 10, dy), new(dx, dy + 10)], 0, 3);
+
+    static readonly WeaponSpec Rifle = new("test_rifle", WeaponSlot.Ranged, TriggerKind.SemiAuto, 20f, 0.2f, 30, 90, 1f, 250f, 250f, 250f, 1f, 1f, 1f, 1f, 1f);
+    static ClassLoadout Tac(string name, Team side) => new(name, 0, -1, SimConfig.PlaceholderMeleeSteps) { PrimaryChoices = [0], Side = side, Role = "tactical" };
+    static readonly SimConfig TeamConfig = new() { Weapons = [Rifle], Classes = [Tac("sm - tactical", Team.SpaceMarines), Tac("csm - tactical", Team.Chaos)], RespawnTime = 60f };
+
+    [Fact]
+    public void An_edited_capture_point_is_held_inside_its_shape_and_not_inside_only_its_box()
+    {
+        var shape = Wedge();
+        var point = new ControlPoint("mkr_objective_1", new Vector3(5, 5, 1.5f), 5f, 1.5f) { Volume = shape };
+        Assert.True(point.Contains(new Vector3(2, 2, 0)));     // feet on the floor at the shape's bottom: lifted into it
+        Assert.False(point.Contains(new Vector3(8, 8, 0)));    // inside the box (and the old cylinder of radius 5 round 5,5), outside the wedge
+        Assert.True(new ControlPoint("stock", new Vector3(5, 5, 1.5f), 5f, 1.5f).Contains(new Vector3(8, 8, 0)));   // the box rule would have counted it
+        Assert.False(point.Contains(new Vector3(2, 2, 3.5f)));  // above
+
+        foreach (var (spot, captures) in new[] { (new Vector3(2, 2, 0), true), (new Vector3(8, 8, 0), false) })
+        {
+            var rules = MatchRules.For(GameMode.SeizeGround) with { TimeLimit = 0f };
+            var w = new World(TeamConfig) { Rules = rules, ControlPoints = [point],
+                StartAreas = [new StartArea(Team.SpaceMarines, spot, new Vector3(1, 1, 2), 0f), new StartArea(Team.Chaos, new Vector3(-60, 0, 0), new Vector3(1, 1, 2), 0f)] };
+            w.Spawn(1, 0); w.Spawn(2, 1);
+            for (int t = 0; t < 40; t++) w.Step(id => new PlayerInput(0, 0, 0, w.Players[id].Yaw, InputButtons.None));
+            Assert.Equal(captures ? Team.SpaceMarines : Team.None, w.Points[0].Side);
+            Assert.Equal(captures, w.Points[0].Progress > 0);
+        }
+    }
+
+    [Fact]
+    public void An_edited_kill_volume_kills_inside_its_shape_and_not_inside_only_its_box()
+    {
+        var kill = new KillVolume(new Vector3(5, 5, 1.5f), new Vector3(5, 5, 1.5f), 0f) { Shape = Wedge() };
+        Assert.True(kill.Contains(new Vector3(2, 2, 1)));
+        Assert.False(kill.Contains(new Vector3(8, 8, 1)));
+        Assert.True(kill.Crosses(new Vector3(-5, 2, 1), new Vector3(-1, 2, 1)) is false);
+        Assert.True(kill.Crosses(new Vector3(-5, 2, 1), new Vector3(15, 2, 1)));     // passes right through the wedge: both ends outside
+        Assert.False(kill.Crosses(new Vector3(8, 15, 1), new Vector3(8, 6, 1)));      // ends in the box's cut-away corner
+        var world = new CollisionWorld(Level(), Level(), [kill]);
+        Assert.True(world.KillsPlayer(new Vector3(2, 2, 5), new Vector3(2, 2, 0.5f), Config.CapsuleHeight));
+        Assert.False(world.KillsPlayer(new Vector3(8, 8, 5), new Vector3(8, 8, 0.5f), Config.CapsuleHeight));
+        // the shape is in the collision hash; a box-only list hashes as before
+        Assert.NotEqual(new CollisionWorld(Level(), Level(), [kill with { Shape = null }]).ContentHash, world.ContentHash);
+    }
+
+    [Fact]
+    public void An_edited_spawn_door_stops_the_other_side_at_its_edited_boundary_only()
+    {
+        var level = Level();
+        var door = new SpawnBlocker(Team.SpaceMarines, new Vector3(5, 5, 1.5f), new Vector3(10, 10, 3), 0f) { Volume = Wedge() };
+        var world = new CollisionWorld(level, level, null, [door]);
+        var raised = Assert.Single(world.Blockers);
+        Assert.True(raised.Volume!.Max.Z > level.Max.Z + SpawnBlocker.AboveLevel - 0.01f);   // stretched above the level like the box
+        Assert.Equal(door.Volume!.Min.Z, raised.Volume.Min.Z);
+        Assert.True(raised.Contains(new Vector3(2, 2, 20)) && !raised.Contains(new Vector3(8, 8, 20)));   // the footprint stays the wedge all the way up
+        // Chaos walks into the wedge's slanted face, not the box's +Y face: a ray down -Y at x = 8 from y = 11 meets the slope at y = 2 (9 m), the box would stop it at y = 10 (1 m)
+        var hit = world.CharacterFor(Team.Chaos).Raycast(new Vector3(8, 11, 1), -Vector3.UnitY, 30f);
+        Assert.NotNull(hit);
+        Assert.Equal(9f, hit!.Value.Distance, 3);
+        Assert.Null(world.CharacterFor(Team.SpaceMarines).Raycast(new Vector3(8, 11, 1), -Vector3.UnitY, 30f));   // its own side passes
+        Assert.Null(world.Weapons.Raycast(new Vector3(8, 11, 1), -Vector3.UnitY, 30f));   // shots pass
+        // pushed out only from inside the shape
+        Assert.Equal(new Vector3(8, 8, 0), raised.PushOut(new Vector3(8, 8, 0), 0.5f, 1.9f));
+        Assert.NotEqual(new Vector3(2, 2, 0), raised.PushOut(new Vector3(2, 2, 0), 0.5f, 1.9f));
+        Assert.NotEqual(new CollisionWorld(level, level, null, [door with { Volume = null }]).ContentHash, world.ContentHash);
+    }
+
+    [Fact]
+    public void An_edited_start_area_spawns_only_inside_its_shape()
+    {
+        // the wedge moved to x -15..-5, y -15..-5 (on the flat floor, away from the step)
+        var shape = Wedge(-15, -15);
+        var area = new StartArea(Team.SpaceMarines, new Vector3(-10, -10, 1.5f), new Vector3(10, 10, 3), 0f) { Volume = shape };
+        var level = new CollisionWorld(Level(), Level());
+        var edited = new World(Config, level, [new SpawnPoint(Vector3.Zero, 0f)]) { StartAreas = [area] }.StartAreaSpots(0);
+        var stock = new World(Config, level, [new SpawnPoint(Vector3.Zero, 0f)]) { StartAreas = [area with { Volume = null }] }.StartAreaSpots(0);
+        Assert.NotEmpty(edited);
+        Assert.True(edited.Count < stock.Count, $"{edited.Count} vs {stock.Count}");
+        Assert.All(edited, s => Assert.True(area.HoldsSpot(s), $"{s}"));
+        Assert.All(edited, s => Assert.Contains(s, stock));                      // the same grid, filtered
+        Assert.Contains(stock, s => shape.Contains(s + new Vector3(0, 0, 0.1f)) is false);   // the box alone spawns where the shape does not reach
+        var flat = new World(Config) { StartAreas = [area] }.StartAreaSpots(0);
+        Assert.All(flat, s => Assert.True(shape.Contains(s)));
+    }
 }

@@ -20,6 +20,13 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     public const float AboveLevel = 25f;
 
     /// <summary>
+    /// The blocker's exact shape when the map gives one (a Mapmaker spawn door whose shape was edited, docs/mapmaker.md "Edit mode in play"): <see cref="Center"/>, <see cref="Size"/>
+    /// and <see cref="Yaw"/> are then its box; the other side collides with the shape's own triangles (<see cref="MeshFor"/>, like a <see cref="WorldBlocker"/>), <see cref="Contains"/>
+    /// tests the shape, and <see cref="ReachingAbove"/> stretches it upward with the box. Null for every Classic blocker and every unedited door: the box, as before.
+    /// </summary>
+    public IExactVolume? Volume { get; init; }
+
+    /// <summary>
     /// This blocker reaching up to at least <paramref name="top"/> (M31; **change from the original**, owner's decision 2026-10-28:
     /// in the original jump packs could fly over the spawn-room blockers, here no jump, flight or ground pound arc passes over
     /// them): the bottom stays, the top rises to <paramref name="top"/> when lower (centre and height move with it; footprint and
@@ -29,12 +36,13 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     {
         float bottom = Center.Z - Size.Z / 2f, own = Center.Z + Size.Z / 2f;
         if (!float.IsFinite(top) || top <= own) return this;
-        return this with { Center = Center with { Z = (bottom + top) / 2f }, Size = Size with { Z = top - bottom } };
+        return this with { Center = Center with { Z = (bottom + top) / 2f }, Size = Size with { Z = top - bottom }, Volume = Volume?.StretchedTo(top) };
     }
 
-    /// <summary>Whether <paramref name="p"/> lies inside the box.</summary>
+    /// <summary>Whether <paramref name="p"/> lies inside the box (the <see cref="Volume"/> when there is one).</summary>
     public bool Contains(Vector3 p)
     {
+        if (Volume is { } shape) return shape.Contains(p);
         var d = p - Center;
         float c = MathF.Cos(-Yaw), s = MathF.Sin(-Yaw);
         float lx = d.X * c - d.Y * s, ly = d.X * s + d.Y * c;
@@ -63,6 +71,14 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     public Vector3 PushOut(Vector3 feet, float radius, float height)
     {
         if (!(feet.Z < Center.Z + Size.Z / 2f && feet.Z + height > Center.Z - Size.Z / 2f)) return feet;
+        if (Volume is { } shape)
+        {
+            // an edited door: only a capsule whose axis is inside the shape (tested at its bottom, middle and top within the shape's height) is moved, out of the box round it
+            float lo = MathF.Max(feet.Z, shape.Min.Z), hi = MathF.Min(feet.Z + height, shape.Max.Z);
+            if (!(hi > lo)) return feet;
+            float step = (hi - lo) / 4f;
+            if (!shape.Contains(new Vector3(feet.X, feet.Y, lo + step)) && !shape.Contains(new Vector3(feet.X, feet.Y, lo + 2f * step)) && !shape.Contains(new Vector3(feet.X, feet.Y, lo + 3f * step))) return feet;
+        }
         var d = feet - Center;
         float c = MathF.Cos(Yaw), s = MathF.Sin(Yaw);
         float lx = d.X * c + d.Y * s, ly = -d.X * s + d.Y * c;
@@ -130,6 +146,13 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
         {
             if (!b.Blocks(side)) continue;
             int first = vertices.Count;
+            if (b.Volume is { } shape)
+            {
+                // an edited door collides by its own shape (as raised), not by its box
+                vertices.AddRange(shape.Vertices);
+                foreach (int i in shape.Indices) indices.Add(first + i);
+                continue;
+            }
             vertices.AddRange(b.Corners());
             foreach (int i in BoxIndices) indices.Add(first + i);
         }
@@ -173,6 +196,7 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             h = Geometry.Fnv(h, (uint)b.Side);
             foreach (float f in new[] { b.Center.X, b.Center.Y, b.Center.Z, b.Size.X, b.Size.Y, b.Size.Z, b.Yaw })
                 h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(f));
+            h = ExactVolumes.Hash(h, b.Volume);   // nothing without a shape: box-only blockers hash as before
         }
         return h;
     }

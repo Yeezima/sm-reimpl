@@ -26,6 +26,9 @@ public sealed partial class GameServer
         Console.WriteLine($"custom map {compiled.Name} (\"{compiled.Document.Name}\", {Path.GetFileName(file)}): {compiled.SolidCount} solid pieces, {c.StartAreas.Count} start areas, {c.ControlPoints.Count} capture points, {c.Blockers.Count} spawn doors, {c.KillRegions.Count} kill zones; map hash {compiled.Hash:X16}");
         if (compiled.Decor is { Placements.Count: > 0 } decor)
             Console.WriteLine($"custom map {compiled.Name}: {decor.Placements.Count} SM1 / model placements, {decor.Triangles:N0} solid triangles from this install ({sw.Elapsed.TotalSeconds:0.0} s)");
+        // Edited markers act by their exact shape (docs/mapmaker.md "Edit mode in play"): one line each, with the box round it, so a log shows which volumes are exact.
+        foreach (var (volumeName, v) in compiled.Volumes.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            Console.WriteLine($"custom map {compiled.Name}: exact shape {volumeName}: {v.Indices.Length / 3} triangles, box x {v.Min.X:0.##}..{v.Max.X:0.##}, y {v.Min.Y:0.##}..{v.Max.Y:0.##}, z {v.Min.Z:0.##}..{v.Max.Z:0.##}");
         foreach (var note in c.Notes) Console.WriteLine("note: " + note);
     }
 }
