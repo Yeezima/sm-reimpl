@@ -225,7 +225,7 @@ public sealed partial class NetworkView
         {
             var ids = new List<int>();
             foreach (var (id, s) in _barkPlayers)
-                if (TfwContracts.IsPuppet(id) && s.Alive && System.Numerics.Vector3.Distance(s.Position with { Z = pod.Record.At.Z }, pod.Record.At) <= 8f) ids.Add(id);
+                if (TfwContracts.IsPuppet(id) && !TfwPodNotPodMarine(id) && s.Alive && System.Numerics.Vector3.Distance(s.Position with { Z = pod.Record.At.Z }, pod.Record.At) <= 8f) ids.Add(id);   // WARFRONT-HOOK: a retainer standing by is not the pod's
             ids.Sort();
             if (ids.Count == 0) { if (tick > spawn + 2 * rate) pod.Shouts = []; return; }   // none seen within 2 s: no cry
             pod.Shouts = new();
@@ -239,6 +239,10 @@ public sealed partial class NetworkView
             if (_barkPlayers.TryGetValue(id, out var marine) && marine.Alive) BarkSay(id, marine, BarkMoment.Key, (long)pod.Record.Tick * 8 + k, own: false, emperorOnly: true);
         }
     }
+
+    /// <summary>Whether puppet <paramref name="id"/> is not one of a pod's Marines (Warfront: its retainers, who shout as players do). False outside Warfront.</summary>
+    bool TfwPodNotPodMarine(int id) { bool not = false; WarfrontNotPodMarine(id, ref not); return not; }   // WARFRONT-HOOK
+    partial void WarfrontNotPodMarine(int id, ref bool not);
 
     /// <summary>The touchdown: the trail ends, the install's landing fire and the dust, a crater, the install's sounds, the shake.</summary>
     void TfwPodLands(TfwPodShow pod, Vector3 at)

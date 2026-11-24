@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4101 spec table rows: **3028 tagged**, 705 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
+| Sound mix (critical) | 252 | 234 | 199 | 40 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 47 | 43 | 45 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,19 +53,19 @@ Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data wi
 | Core simulation (provisional values) | 879 | 833 | 656 | 241 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3030** | 2722 | 2223 | 915 | 37 |
+| **All areas** | **3028** | 2720 | 2221 | 913 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1835 |
-| confidence: low | 1071 |
-| confidence: medium | 1041 |
-| notes: ours | 477 |
+| confidence: low | 1068 |
+| confidence: medium | 1042 |
+| notes: ours | 475 |
 | kind: interpretation | 457 |
 | notes: estimate | 306 |
-| kind: estimate | 272 |
+| kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -1957,7 +1957,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (254)
+### Sound mix (gameplay-critical) (252)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2228,12 +2228,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-19DE686B` | SquadState record | 13 bytes a Marine: index, flags (state 2 bits, firing, melee, being revived, order 2 bits, airborne), x and y at 5 cm (i16), z at 2 cm (i16), yaw 256 steps, health 255 steps, aux, target u16; 36 Marines = 471 bytes with the 3-byte header (bytes) | kind: ours; confidence: medium | the brief's layout | SquadState record: compare with SM1 by listening A/B at the same distance and state. Ours: 13 bytes a Marine: index, flags (state 2 bits, firing, melee, being… | ☐ |
 | `R-512D7466` | Split in halves | when the extras message has less room than the full list, one half goes each send by phase parity (lower indices, then the rest); the client keeps each index's last record | kind: ours; confidence: medium | plan risk 4 | Split in halves: compare with SM1 by listening A/B at the same distance and state. Ours: when the extras message has less room than the full list, one half… | ☐ |
 | `R-51A9317E` | Roster rotation | one owner every 2 s in turn, plus on a change of names, loadouts, records, held or count, and to a client that joins; handles: the viewer's own key for his roster, `WarfrontWire.Pseudonym` for the others (s) | kind: estimate; confidence: low | the brief | Roster rotation: compare with SM1 by listening A/B at the same distance and state. Ours: one owner every 2 s in turn, plus on a change of names, loadouts… | ☐ |
-| `R-51DA57A1` | Names | at most 24 UTF-8 bytes on the wire (the roster keeps 24 characters; a longer name is cut at a character on the wire) (bytes) | kind: ours | a rename command must fit 64 bytes | Names: compare with SM1 by listening A/B at the same distance and state. Ours: at most 24 UTF-8 bytes on the wire (the roster keeps 24 characters; a… | ☐ |
-| `R-F58DB144` | Render delay | 100 ms behind the newest record; a Marine unseen for 1 s is dropped; a move over 12 m is not slid (s, m) | kind: estimate; confidence: low; notes: ours | as the Guardsmen's; the rest ours | Render delay: compare with SM1 by listening A/B at the same distance and state. Ours: 100 ms behind the newest record; a Marine unseen for 1 s is dropped… | ☐ |
-| `R-7B025149` | Names | a standing Marine's name shows only for the one under the crosshair within 25 m (own squad or not) and for 2 s after an event about it; a downed Marine always shows name and seconds; labels that would overlap on the screen are stacked upward (m, s) | kind: ours; confidence: medium | designer review 1 (nine names over one squad could not be read); the 0.6 m crosshair tolerance ours | Names: compare with SM1 by listening A/B at the same distance and state. Ours: a standing Marine's name shows only for the one under the crosshair… | ☐ |
-| `R-898B64CF` | Full-detail distance (LOD) | 40 m; beyond it a Marine's pose is applied one frame in four (7.5 Hz at 30 fps) (m) | kind: estimate; confidence: low; notes: ours | the brief; the stride ours | Full-detail distance (LOD): compare with SM1 by listening A/B at the same distance and state. Ours: 40 m; beyond it a Marine's pose is applied one frame in four (7.5 Hz… | ☐ |
-| `R-342000A5` | Cost of 36 characters | 3.2 to 5.2 ms of frame time above the empty scene at 1600x900 (the poses; drawing alone about 0.5 ms); the far stride saves about 3.5 ms when all are beyond 40 m. Rule for W17's 36-retainer measurement under a busy wave: report client frame time with and… (ms) | kind: ours; confidence: low | one shared machine (CPU 70 to 80 % busy), one GPU, no vsync; the 6 ms and 25 m rule from the designer's review | Cost of 36 characters: compare with SM1 by listening A/B at the same distance and state. Ours: 3.2 to 5.2 ms of frame time above the empty scene at 1600x900 (the… | ☐ |
-| `R-A6EB6542` | Revive prompt | "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a progress ring from the revive share (m) | kind: ours; confidence: medium | `SquadRules.PlayerReviveReach`; the revive itself is the server's | Revive prompt: compare with SM1 by listening A/B at the same distance and state. Ours: "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a… | ☐ |
+| `R-1A965ACC` | Names | at most 24 UTF-8 bytes on the wire (the roster keeps 24 characters; a longer name is cut at a character on the wire) (bytes) | kind: ours | a rename command must fit 64 bytes | Names: compare with SM1 by listening A/B at the same distance and state. Ours: at most 24 UTF-8 bytes on the wire (the roster keeps 24 characters; a… | ☐ |
+| `R-E23D9C2C` | Downed marker | a downed retainer (its World player fallen) shows "NAME DOWN s" 1.5 m over the body, always; "REVIVING" while the own hold runs; the seconds count from the Downed event (or from when the client first saw it down) over the 20 s window (m, s) | kind: ours; confidence: medium | the crowd's downed line kept; the height ours | Downed marker: compare with SM1 by listening A/B at the same distance and state. Ours: a downed retainer (its World player fallen) shows "NAME DOWN s" 1.5 m… | ☐ |
+| `R-A6EB6542` | Revive prompt | "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a progress ring 0.6 m over the body; the ring fills from the own Use hold on that Marine over `SquadRules.PlayerReviveSeconds` (a client-side reading of the server's per-reviver progress, which… (m, s) | kind: ours; confidence: medium | `SquadRules.PlayerReviveReach`; the revive itself is the server's | Revive prompt: compare with SM1 by listening A/B at the same distance and state. Ours: "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a… | ☐ |
+| `R-8C4A215B` | Panel state | FIGHTING (in the World, alive), DOWN (fallen), OUT (in this battle, no World id: out, or never landed), READY (not in this battle), ON HOLD (held roster) | kind: ours; confidence: medium | Phase B T5 (OUT is new: the retired state record never reached the panel) | Panel state: compare with SM1 by listening A/B at the same distance and state. Ours: FIGHTING (in the World, alive), DOWN (fallen), OUT (in this battle… | ☐ |
 | `R-DC9456FC` | Feed lines and prompts | five kept, five seconds each, in capitals as the other Warfront HUD with the Marines' names as typed: "Brother X IS DOWN", "REVIVED BY NAME", "IS OUT", "JOINS THE SQUAD"; "HOLD [E] TO REVIVE NAME"; text size 20 (W8's body size) (s) | kind: ours; confidence: medium | the brief; review 1 | Feed lines and prompts: compare with SM1 by listening A/B at the same distance and state. Ours: five kept, five seconds each, in capitals as the other Warfront HUD… | ☐ |
 | `R-68B3D32A` | Squad HUD line | "SQUAD standing/roster", "N DOWN" while any is downed; under the XP HUD | kind: ours; confidence: medium | the brief | Squad HUD line: compare with SM1 by listening A/B at the same distance and state. Ours: "SQUAD standing/roster", "N DOWN" while any is downed; under the XP… | ☐ |
 | `R-D2E3CAE7` | Keys | F4 opens the squad panel aboard the ship, J sends the jump-pound mark for a class with a jump pack in a battle ("[J] JUMP ASSAULT" on the HUD line); checked by search: neither key is used by the client's key handling, the default bindings (W S A D Shift Ctrl… | kind: ours; confidence: medium | the brief ("pick a free key") | Keys: compare with SM1 by listening A/B at the same distance and state. Ours: F4 opens the squad panel aboard the ship, J sends the jump-pound mark… | ☐ |

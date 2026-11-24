@@ -99,6 +99,9 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontScalesPlayer"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine"),
         ("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner"),
+        // Phase B T5 (2026-11-25): the client's presentation of the retainers as players: the arc's human-only trim follows the server's switch, and a retainer by a landing pod is not the pod's (no battle cry)
+        ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontArcHuman"),
+        ("client/Extras/Musou/Tfw/NetworkView.TfwDropPod.cs", "WarfrontNotPodMarine"),
     ];
 
     /// <summary>
@@ -114,6 +117,8 @@ public class WarfrontBoundaryTests
     [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine(id, ref aiMarine);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner(attacker, ref aiMarine);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage(attack.Enemy, attack.Player, ref damage);   // WARFRONT-HOOK")]
+    [InlineData("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontArcHuman(player, ref human); return human; }   // WARFRONT-HOOK")]
+    [InlineData("client/Extras/Musou/Tfw/NetworkView.TfwDropPod.cs", "WarfrontNotPodMarine(id, ref not); return not; }   // WARFRONT-HOOK")]
     public void The_retainer_spines_Musou_lines_are_marked_Warfront_hooks(string file, string line)
     {
         var lines = Sources().First(s => s.Path == file).Lines;
