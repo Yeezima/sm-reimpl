@@ -58,7 +58,10 @@ public partial class NetworkView
             var cchest = ToGodot(chv.Position + new System.Numerics.Vector3(0f, 0f, 1.25f));
             var ctoCam = camera.GlobalPosition - cchest; ctoCam.Y = 0f;
             ctoCam = ctoCam.LengthSquared() > 1e-4f ? ctoCam.Normalized() : Vector3.Forward;
-            bool cd = DrawCharge(first, _client.PlayerId, cchest + ctoCam * 0.4f, -ctoCam, HitVisual.Blood, false);
+            // on the fixed side camera (--observe-side) the charge comes from the frame's left, so it crosses the view instead of running along it
+            var cright = Vector3.Up.Cross(ctoCam).Normalized();
+            var cdir = ObserveSide > 0f ? cright : -ctoCam;
+            bool cd = DrawCharge(first, _client.PlayerId, cchest - cdir * 0.4f, cdir, HitVisual.Blood, false);
             GD.Print($"HITDIRDEMO charge on P{first} ({HitDirLook}): drawn {cd} (t {_connectedFor:F2})");
             return;
         }   // wall:<m>, sidewall, blocked, floor (NetworkView.ClassicHitDirStage.cs)
@@ -76,6 +79,7 @@ public partial class NetworkView
         if (kind is "gun" or "headshot" or "wallshot" or "farshot")
         {
             var from = camera.GlobalPosition;
+            if (ObserveSide > 0f && kind == "gun") from = chest - right * 8f + Vector3.Up * 0.3f;   // the fixed side camera: the shot comes from the frame's left, across the view
             var target = kind == "gun" ? chest + toCam * BodySurface : head;
             var dir = (target - from).Normalized();
             NoteHitDirFocus(target, dir);
@@ -102,7 +106,7 @@ public partial class NetworkView
             "rl" => -right,
             "overhead" => (Vector3.Down + toCam * 0.25f).Normalized(),
             "diagonal" => (right + Vector3.Down).Normalized(),
-            "thrust" => -toCam,
+            "thrust" => ObserveSide > 0f ? right : -toCam,   // the fixed side camera: a thrust from the frame's left, across the view
             "airslash" => (Vector3.Down * 0.8f + right * 0.6f - toCam * 0.2f).Normalized(),   // a leaping slash: from high on one side, down across him
             _ => right,
         };

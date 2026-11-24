@@ -95,6 +95,18 @@ public partial class NetworkView
         ExtrasClassicKill(new KillView(++_hitDirDemoKill, _client.PlayerId, StagedVictim, default, 0, default, Headshot: true));   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         _stagedBlocker = null;
         NoteHitDirFocus(from, dir);
+        // the fixed side camera (--observe-side) moves once, to the first staged line: side-on to the staged head and the wall it shoots at, so the decal is in view
+        if (ObserveSide > 0f && !_sideCameraOnStage)
+        {
+            _sideCameraOnStage = true;
+            var wallAt = from + dir * (kind.StartsWith("wall:", StringComparison.Ordinal) && float.TryParse(kind[5..], NumberStyles.Float, CultureInfo.InvariantCulture, out var wd) ? wd : kind == "blocked" ? 3f : 2f);
+            var mid = (from + wallAt) * 0.5f;
+            var side = dir.Cross(Vector3.Up).Normalized();
+            var eye = mid + side * MathF.Max(ObserveSide, from.DistanceTo(wallAt) * 0.9f) - dir * 0.6f + Vector3.Up * 0.25f;
+            if (_mapNote is not null) eye = Unblocked(mid, eye);
+            _sideCamera = new Transform3D(Basis.LookingAt((mid - eye).Normalized(), Vector3.Up), eye);
+            GD.Print($"observe-side: camera moved side-on to the staged line ({kind}) at {eye.X:F2},{eye.Y:F2},{eye.Z:F2}");
+        }
         return true;
     }
 
@@ -148,6 +160,7 @@ public partial class NetworkView
     static readonly float ObserveSide = float.TryParse(CmdArg("observe-side"), NumberStyles.Float, CultureInfo.InvariantCulture, out var side) && side > 0.5f ? side : 0f;
     static readonly bool CaptureFill = CmdFlag("capture-fill");
     Transform3D? _sideCamera;
+    bool _sideCameraOnStage;
 
     /// <summary>
     /// Capture aid (dev only) <c>--observe-side &lt;m&gt;</c>: a FIXED camera, placed once, that many metres to the right of the nearest other player (the demo victim), at chest height
@@ -171,7 +184,7 @@ public partial class NetworkView
             GD.Print($"observe-side: fixed camera {ObserveSide:F1} m to the right of P{victim.PlayerId} at {eye.X:F2},{eye.Y:F2},{eye.Z:F2}");
             if (CaptureFill)
             {
-                var fill = new OmniLight3D { Name = "CaptureFill", LightEnergy = 2.5f, OmniRange = 14f, ShadowEnabled = false, LightColor = Colors.White };
+                var fill = new OmniLight3D { Name = "CaptureFill", LightEnergy = 6f, OmniRange = 10f, ShadowEnabled = false, LightColor = Colors.White };
                 AddChild(fill);
                 fill.GlobalPosition = eye + Vector3.Up * 0.8f;
             }
