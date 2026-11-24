@@ -124,12 +124,12 @@ public class WarfrontProgressServerTests : IDisposable
         var p = s.Campaign.Player(KeyA)!;
         Assert.Equal(8000, p.Xp);
         Assert.Equal(4, p.Level);
-        Assert.Equal(3, p.PicksTaken);
-        Assert.Equal([Speed, Speed], p.Cards);   // the retired Retainer card is dropped, its pick stays taken (owner 2026-11-23, card 2)
+        Assert.Equal(2, p.PicksTaken);   // the Retainer card's pick given back (owner "Give picks back")
+        Assert.Equal([Speed, Speed], p.Cards);   // the retired Retainer card is dropped, its pick given back (owner 2026-11-23, card 2)
         Assert.Empty(p.Squad);                    // and it brings no retainer
         var ack = Assert.Single(s.Saves());   // the first send is the acknowledgement
         Assert.Equal(8000, ack.State!.Xp);
-        Assert.Equal(3, ack.State.PicksTaken);
+        Assert.Equal(2, ack.State.PicksTaken);
         Assert.Empty(ack.State.ExtraRetainers);
     }
 
@@ -227,7 +227,7 @@ public class WarfrontProgressServerTests : IDisposable
         Assert.Single(s.Saves());                        // but acknowledged at once
         s.Tick(12);
         Assert.Equal(WarfrontPhase.Ship, s.Campaign.Phase);
-        Assert.Equal(8000, s.Campaign.Player(KeyA)!.Xp);
+        Assert.InRange(s.Campaign.Player(KeyA)!.Xp, 8000L, 8000L + 2000L);   // the file applied; since Phase B T4 the driven retainers' kills in the battle pay their owner on top
         Assert.Equal(3, s.Campaign.Player(KeyA)!.PicksTaken);
     }
 

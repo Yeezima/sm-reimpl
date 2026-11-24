@@ -225,7 +225,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         Assert.Equal(6500, onDisk.Xp);
         Assert.Empty(onDisk.ExtraRetainers);          // the host's copy converts the player's file: the Retainer card and its retainer are dropped
         Assert.Equal([Speed, Speed], onDisk.Cards);
-        Assert.Equal(3, onDisk.PicksTaken);           // the pick stays taken
+        Assert.Equal(2, onDisk.PicksTaken);           // the Retainer card's pick given back (owner "Give picks back")
     }
 
     [Fact]

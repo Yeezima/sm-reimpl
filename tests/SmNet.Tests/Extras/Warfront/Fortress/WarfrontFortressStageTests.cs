@@ -69,6 +69,8 @@ public class WarfrontFortressStageTests : IDisposable
         var map = GameServer.TfwGameMap(loaded.Tfw!, "wf_fortress");
         var h = new Harness(LinkConditions.Perfect, 5, 1, Config, new ServerOptions { Match = Rules }, map: map, clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
         server = h.Server;
+        // Phase B T4: these cases watch the Warboss against one human; the retainers' brain would fight (and kill) him, so they stand as before T4
+        if (server.WarfrontWiringForTests is { } wiring) wiring.Retainers.Brain = null;
         h.Run(TimeSpan.FromSeconds(2));
         h.Clients[0].SendExtrasCommand(WarfrontWire.CommandTag, WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Identify, Key: 111, Name: "Alpha")));
         return h;
