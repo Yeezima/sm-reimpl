@@ -42,10 +42,11 @@ public static class ClassicBloodRules
     /// </summary>
     public const float RibbonOpacity = 0.95f;
     /// <summary>
-    /// How the band's mottled score is weighted (ours; was the weakest patch's opacity, 0.35 then 0.6): the score of a texel is its shape (1 in the middle to 0 at the ragged edge and the
-    /// staggered ends) times this to 1 by the mottle noise; it decides which texels stay blood as the band erodes.
+    /// How the band's mottled score is weighted (ours; was the weakest patch's opacity, 0.35 then 0.6; 0.25 since repair 3, the re-review of 50ae0bd7, finding 1: at 0.6 every interior
+    /// texel scored above the held threshold, so the core stayed solid to about 0.45 s): the score of a texel is its shape (1 in the middle to 0 at the ragged edge and the staggered ends)
+    /// times this to 1 by the mottle noise; it decides which texels stay blood as the band erodes (<see cref="RibbonScore"/>).
     /// </summary>
-    public const float RibbonMottleFloor = 0.6f;
+    public const float RibbonMottleFloor = 0.25f;
     /// <summary>
     /// The darkest and the brightest a band's colour gets by its mottle, as shares of the blood tint (ours; 0.8 to 1 at 3570b719, 0.3 to 0.55 since the repair of review 5): the same hue,
     /// a deeper blood red. Near-full red unshaded goes through the filmic/AgX tonemapper toward orange (measured p95 G/R 0.25 to 0.30 on screen at 0.55 to 0.92); at 0.3 to 0.55 it
@@ -56,14 +57,44 @@ public static class ClassicBloodRules
     public const float RibbonDensityFloor = 0.7f;
     /// <summary>A band's half width at the body for a normal hit (m; ours; was 0.075): before the per-band x0.8 to x1.3, the narrowing to 0.6 at the ends and the growth while it hangs.</summary>
     public const float RibbonHalfWidth = 0.12f;
-    /// <summary>How tall the stack of bands is across the stroke for a sweep (m; ours; was 0.3), scaled by the spread.</summary>
+    /// <summary>How tall the stack of bands is across the stroke for a sweep at least (m; ours; was 0.3), scaled by the spread; more bands stand farther apart (<see cref="RibbonBundleFor"/>).</summary>
     public const float RibbonBundle = 0.42f;
     /// <summary>
-    /// The erosion threshold while the band is held (ours; repair of review 5): a texel is blood while its score is above <c>1 - (1 - this) * envelope</c> (plus 0.1 x envelope from about
-    /// 0.22 to 0.45 s, the early break-up), so at the hold almost all of the band shows and as the envelope falls only the densest patches and specks stay. The band never fades through
-    /// translucency (a translucent band over a light floor read as pink); its covered area follows <see cref="RibbonEnvelope"/>.
+    /// The least distance between neighbouring bands' middles, as a share of a band's mean width at the body (ours; repair 3, finding 1: a lethal hit's 6 bands stood about 0.1 m apart
+    /// while each was 0.28 to 0.46 m wide, one opaque slab that hid the stroke's direction). At 1 the bands' ragged, eroding edges leave gaps between them.
     /// </summary>
-    public const float RibbonErodeFloor = 0.04f;
+    public const float RibbonPitchShare = 1f;
+    /// <summary>The most bands in one spray (ours; repair 3, finding 1: 3 for a normal hit, 4 for heavy and lethal ones, which also grow wider and longer).</summary>
+    public const int RibbonMaxBands = 4;
+    /// <summary>A band's mean full width at the body before the hang's growth (m): twice <see cref="RibbonHalfWidth"/> times the shader's mean per-band factor 0.8 + 0.5 x 0.5.</summary>
+    public const float RibbonMeanWidth = 2f * RibbonHalfWidth * 1.05f;
+    /// <summary>
+    /// The height of the stack of bands across the stroke (m; the shader's <c>bundle</c>): <see cref="RibbonBundle"/> by the spread (0.35 to 1.25 of 0.42 m), and never less than
+    /// <paramref name="count"/> pitches (<see cref="RibbonPitchShare"/> of <see cref="RibbonMeanWidth"/>), so neighbouring bands' middles are at least a band's width apart; times the
+    /// hit's width scale <paramref name="size"/>. The bands' offsets and widths grow together while they hang, so this ratio holds throughout.
+    /// </summary>
+    public static float RibbonBundleFor(int count, float spread, float size) =>
+        MathF.Max(RibbonBundle * Math.Clamp(spread / 0.42f, 0.35f, 1.25f), Math.Max(1, count) * RibbonPitchShare * RibbonMeanWidth) * size;
+    /// <summary>
+    /// The erosion threshold at the hold (ours; 0.04 at the repair of review 5, 0.35 since repair 3, finding 1): a texel is blood while its score is above
+    /// <c>1 - (1 - this) * envelope^<see cref="RibbonErodeCurve"/></c> (<see cref="RibbonThreshold"/>), so at the hold the band's middle and its denser mottle show, its soft rim not, and
+    /// as the envelope falls the band breaks into shrinking patches and specks from the edges inward. The band never fades through translucency (a translucent band over a light floor read
+    /// as pink); its covered area follows <see cref="RibbonEnvelope"/> (tested by <see cref="RibbonCoverage"/>).
+    /// </summary>
+    public const float RibbonErodeFloor = 0.35f;
+    /// <summary>
+    /// The power the envelope is raised to for the erosion threshold (ours; repair 3, finding 1; 1 before): the score's spread is narrower than its range, so a threshold straight on the
+    /// envelope cleared the band too late in the middle and too early in the tail; 0.55 makes the covered area follow the envelope (0.47 / 0.21 / 0.115 at 0.45 / 0.6 / 0.8 s).
+    /// The early break-up term of the repair of review 5 (+0.1 x envelope from 0.22 to 0.45 s) is gone: the held band is already mottled.
+    /// </summary>
+    public const float RibbonErodeCurve = 0.55f;
+
+    /// <summary>The erosion threshold at <paramref name="age"/> s (the shader's <c>thr</c>): 1 before contact and after the life (nothing shows), <see cref="RibbonErodeFloor"/> at the hold.</summary>
+    public static float RibbonThreshold(float age) => 1f - (1f - RibbonErodeFloor) * MathF.Pow(RibbonEnvelope(age), RibbonErodeCurve);
+
+    /// <summary>A band texel's score (the shader's <c>score</c>) from its shape <paramref name="prof"/> across, <paramref name="taper"/> along, and its mottle and grain noise (0..1).</summary>
+    public static float RibbonScore(float prof, float taper, float n, float grain) =>
+        prof * taper * (RibbonMottleFloor + (1f - RibbonMottleFloor) * Smooth(0.15f, 0.85f, 0.75f * n + 0.25f * grain));
     /// <summary>The half width is kept under this share of the curve's local radius (ours; repair of review 5, finding 2: a wide camera-facing strip on a bend folded into stepped edges).</summary>
     public const float RibbonFoldShare = 0.7f;
     /// <summary>The share of its width a band keeps when seen along its length (its tangent toward the camera; ours; repair of review 5, finding 2), smoothly up to all of it side-on.</summary>
@@ -71,7 +102,8 @@ public static class ClassicBloodRules
     /// <summary>
     /// The ribbons' render priority (ours; 0 before the visibility pass, 10 at 3570b719, 1 since the repair of review 5): the strip pass at this, the blood at one more, so they draw just
     /// after the effects batch (<c>FxBatch</c>: every effect sprite, the power weapons' hit flash and cloud among them, is one additive and one alpha draw at the default priority 0 with a
-    /// view-dependent sort depth), and the flash at the same contact lies under the blood. Anything at priority 2 or more still draws over the blood. Depth-tested against the level and bodies.
+    /// view-dependent sort depth), and the flash at the same contact lies under the blood. Anything at priority 3 or more still draws over the blood (2 shares the blood's priority and sorts
+    /// with it by depth). Depth-tested against the level and bodies.
     /// </summary>
     public const int RibbonRenderPriority = 1;
     /// <summary>
@@ -84,14 +116,21 @@ public static class ClassicBloodRules
     public static float RibbonStrip(float a) => a > RibbonStripFrom ? 1f : 0f;
 
     /// <summary>
+    /// The share of the red under a band that the strip pass keeps (ours; 1 before repair 3, finding 3: the full red of a bright surface under a band's thinner patches and anti-aliased
+    /// rim was brighter than the blood's darker shade and went orange through the tonemapper). At 0.4 the red underneath is no brighter than the blood's own shade
+    /// (<see cref="RibbonShadeFloor"/> to <see cref="RibbonShadeTop"/>) over any surface up to full red.
+    /// </summary>
+    public const float RibbonStripRed = 0.4f;
+
+    /// <summary>
     /// The final colour of a pixel of colour <paramref name="under"/> under a band texel of opacity <paramref name="a"/> and mottle <paramref name="n"/>, through both passes (the shader's math):
-    /// the strip multiplies it by (1, 0, 0) at <see cref="RibbonStrip"/> (its red kept, its green and blue taken out), then the blood colour is mixed over it at <paramref name="a"/>, so
-    /// the only green and blue left are the blood's own share of the blood's red.
+    /// the strip multiplies it by (<see cref="RibbonStripRed"/>, 0, 0) at <see cref="RibbonStrip"/> (part of its red kept, its green and blue taken out), then the blood colour is mixed
+    /// over it at <paramref name="a"/>, so the only green and blue left are the blood's own share of the blood's red.
     /// </summary>
     public static (float R, float G, float B) RibbonComposite((float R, float G, float B) under, float a, float n)
     {
         float s = RibbonStrip(a);
-        var u = (under.R, under.G * (1f - s), under.B * (1f - s));
+        var u = (under.R * (1f - s + s * RibbonStripRed), under.G * (1f - s), under.B * (1f - s));
         var c = RibbonColour(n);
         return (a * c.R + (1 - a) * u.Item1, a * c.G + (1 - a) * u.Item2, a * c.B + (1 - a) * u.Item3);
     }
@@ -126,7 +165,61 @@ public static class ClassicBloodRules
         return (blood.R * s, blood.G * s, blood.B * s);
     }
 
-    public static int RibbonCount(float amount) => Math.Clamp((int)MathF.Round(NormalRibbons * amount, MidpointRounding.AwayFromZero), 1, MaxRibbons);
+    /// <summary>Bands for a hit of <paramref name="amount"/>: 3 for a normal hit, more for heavier ones up to <see cref="RibbonMaxBands"/> (repair 3: was up to 6 for a lethal hit).</summary>
+    public static int RibbonCount(float amount) => Math.Clamp((int)MathF.Round(NormalRibbons * amount, MidpointRounding.AwayFromZero), 1, Math.Min(RibbonMaxBands, MaxRibbons));
+
+    /// <summary>
+    /// The engine-free model of a spray's covered area (repair 3, finding 1; the shader's fragment math with its value noise, sampled over a grid of every band's length and width,
+    /// weighted by the band's width there): the share of the bands' geometric area that is blood at <paramref name="age"/> s, and the share of their middles (the inner 35 % across, the
+    /// inner 35 % of each band's reach) that is. <paramref name="seeds"/> sprays of <paramref name="count"/> sweep bands are averaged. Used by the tests to hold the covered area to the
+    /// envelope; it ignores the anti-aliased rim (a pixel wide) and the hang's growth (which scales the whole band).
+    /// </summary>
+    public static (float Area, float Core) RibbonCoverage(float age, int count = NormalRibbons, int seeds = 6, int along = 60, int across = 24)
+    {
+        float thr = RibbonThreshold(age);
+        double tot = 0, cov = 0, ctot = 0, ccov = 0;
+        var (lenBack, lenFwd) = RibbonReach(RibbonKind.Sweep, 1f);
+        for (int sd = 0; sd < seeds; sd++)
+        {
+            float seed = (float)((sd * 0.137) % 1.0);
+            var rng = new Random(5413 + sd);
+            for (int ri = 0; ri < count; ri++)
+            {
+                float h1 = (float)rng.NextDouble(), h2 = (float)rng.NextDouble();
+                float fwd = lenFwd * (0.6f + 0.4f * h1), back = lenBack * (0.45f + 0.55f * h2);
+                for (int i = 0; i < along; i++)
+                {
+                    float s = -back + (fwd + back) * (i + 0.5f) / along;
+                    float dn = s >= 0f ? s / lenFwd : -s / lenBack;
+                    float end = s >= 0f ? s / fwd : -s / back;
+                    float w = 1f - 0.4f * MathF.Min(dn, 1f);
+                    for (int j = 0; j < across; j++)
+                    {
+                        float x = -1f + 2f * (j + 0.5f) / across;
+                        float edge = 0.62f + 0.38f * VNoise(s * 5f + ri * 7.3f + seed * 13f, ri * 3.1f + MathF.Sign(x) * 4.7f);
+                        float prof = 1f - Smooth(edge - 0.45f, edge, MathF.Abs(x));
+                        float taper = 1f - Smooth(0.4f, 1f, end);
+                        float n = 0.6f * VNoise(s * 2.4f + seed * 17f + ri * 5.3f, x * 1.1f + ri * 9.1f + age * 0.4f) + 0.4f * VNoise(s * 7.5f - seed * 7f + ri * 2.7f, x * 2.4f - age * 0.7f);
+                        float grain = VNoise(s * 16f + ri * 3.7f, x * 5f + seed * 11f);
+                        bool blood = RibbonScore(prof, taper, n, grain) > thr;
+                        tot += w; if (blood) cov += w;
+                        if (MathF.Abs(x) < 0.35f && end < 0.35f) { ctot++; if (blood) ccov++; }
+                    }
+                }
+            }
+        }
+        return ((float)(cov / Math.Max(tot, 1e-9)), (float)(ccov / Math.Max(ctot, 1e-9)));
+    }
+
+    /// <summary>The shader's <c>vnoise</c> (its sine hash, in double precision: the same field up to rounding).</summary>
+    static float VNoise(float x, float y)
+    {
+        static double H(double px, double py) { double v = Math.Sin(px * 127.1 + py * 311.7) * 43758.5453; return v - Math.Floor(v); }
+        double ix = Math.Floor(x), iy = Math.Floor(y), fx = x - ix, fy = y - iy;
+        double ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+        double a = H(ix, iy), b = H(ix + 1, iy), c = H(ix, iy + 1), d = H(ix + 1, iy + 1);
+        return (float)((a + (b - a) * ux) + ((c + (d - c) * ux) - (a + (b - a) * ux)) * uy);
+    }
     public static float RibbonWidthScale(float amount) => 1f + 0.12f * MathF.Max(0f, amount - 1f);
 
     /// <summary>

@@ -170,6 +170,31 @@ public class PowerFlashRulesTests
         Assert.Equal(0f, PowerFlashRules.ShadeOnce(sprite, -1f, false).A);
     }
 
+    static string Src(params string[] parts)
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d is not null && !File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) d = d.Parent;
+        return File.ReadAllText(Path.Combine(new[] { d!.FullName, "client" }.Concat(parts).ToArray()));
+    }
+
+    [Fact]
+    public void Every_flash_part_sets_opacity_once_and_the_musou_gpu_sprays_honour_it()
+    {
+        // re-review of 50ae0bd7, findings 2 and 4: the three effects and the sword's contact flare are shaded once (alpha only), and the Musou/Warfront GPU spray path, which had passed
+        // only the opacity and multiplied all four channels (blended sprites at 0.16), carries the flag and applies it to alpha only. Fails if any site drops it.
+        var flash = Src("NetworkView.PowerFlash.cs");
+        foreach (var part in new[] { "main", "second", "cloud" })
+            Assert.Matches(@"is \{ \} " + part + @"\) \{ " + part + @"\.Opacity = opacity; " + part + @"\.OpacityOnce = true;", flash);
+        Assert.Contains("flare.Opacity = ImpactRules.PowerFlashRules.FlashOpacity; flare.OpacityOnce = true;", Src("NetworkView.MeleeFx.cs"));
+        var gpu = Src("Extras", "Musou", "FxPlayer.MusouGpu.cs");
+        Assert.Contains("v[11] = e.Opacity;", gpu);
+        Assert.Contains("(e.OpacityOnce ? 8 : 0);", gpu);
+        var shader = Src("Extras", "Musou", "FxGpuSprays.cs");
+        Assert.Contains("int flags = int(s4.w + 0.5);", shader);   // v[19] is the fifth slot's w
+        Assert.Contains("if (o < 1.0) { if ((flags & 8) != 0) col.a *= o; else col *= o; }", shader);
+        Assert.Contains("if (e.OpacityOnce) {", Src("FxPlayer.cs"));   // the CPU path's ShadeOnce
+    }
+
     [Fact]
     public void A_swing_gets_one_big_burst_then_five_small_then_none_and_the_next_swing_starts_again()
     {

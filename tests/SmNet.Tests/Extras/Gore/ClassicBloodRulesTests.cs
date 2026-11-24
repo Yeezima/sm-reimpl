@@ -213,15 +213,75 @@ public class ClassicBloodRulesTests
         // owner answer 6 (2026-11-24, "Visibility pass"): the release build read as faint red. Broader and more opaque than before (0.075 m half width, 0.8 opacity, 0.35 mottle floor)...
         Assert.True(RibbonHalfWidth >= 0.1f && RibbonHalfWidth <= 0.16f, "a band about a quarter of a metre wide at the body, not a thin streak and not a slab");
         Assert.InRange(RibbonOpacity, 0.9f, 1f);   // the cap is the mix blend (never brighter than the tint), so a single band may be nearly opaque
-        Assert.InRange(RibbonMottleFloor, 0.5f, 0.8f);   // still mottled, never so patchy that it reads faint
+        // repair 3 (re-review of 50ae0bd7, finding 1): a mottle floor low enough that the band's middle erodes with the envelope, not after it (0.6 kept the core solid to 0.45 s)...
+        Assert.InRange(RibbonMottleFloor, 0.15f, 0.35f);
+        // ...and a held threshold high enough that the soft rim and the thin mottle are clear from the start (0.04 showed all of it)
+        Assert.InRange(RibbonErodeFloor, 0.3f, 0.4f);
         Assert.InRange(RibbonShadeFloor, 0.2f, 0.9f);   // darker patches of the same red...
         Assert.InRange(RibbonShadeTop, RibbonShadeFloor, 1f);   // ...never brighter than the tint
         Assert.InRange(RibbonDensityFloor, 0.5f, 1f);
         Assert.True(RibbonBundle > 0.3f && RibbonBundle <= 0.5f);
         // ...and drawn after the additive power-weapon flash (FxBatch's materials keep the default priority 0)
         Assert.True(RibbonRenderPriority > 0 && RibbonRenderPriority <= 127);
-        // heavier and lethal hits still show more by coverage, not brightness
-        Assert.True(RibbonCount(2.1f) * RibbonWidthScale(2.1f) > 1.8f * RibbonCount(1f) * RibbonWidthScale(1f));
+        // heavier and lethal hits still show more by coverage (bands x width x reach), not brightness
+        float Footprint(float amount) => RibbonCount(amount) * RibbonWidthScale(amount) * RibbonReach(RibbonKind.Sweep, amount).Forward;
+        Assert.True(Footprint(1.5f) > 1.3f * Footprint(1f));
+        Assert.True(Footprint(2.1f) > 1.5f * Footprint(1f) && Footprint(2.1f) > Footprint(1.5f));
+    }
+
+    [Fact]
+    public void The_covered_area_follows_the_envelope_and_the_middle_breaks_up_with_it()
+    {
+        // repair 3 (re-review of 50ae0bd7, finding 1): the core stayed fully covered to about 0.45 s, then 45 / 25 / 15 % at 0.6 / 0.8 / 0.95 s, against the reference's envelope
+        // 0.47 / 0.21 / 0.115 at 0.45 / 0.6 / 0.8 s. The model samples the shader's own fragment math (its noise, profile, taper, score and threshold).
+        foreach (int count in new[] { NormalRibbons, RibbonMaxBands })
+        {
+            var peak = RibbonCoverage(0.2f, count);
+            Assert.True(peak.Core >= 0.85f, $"{count} bands: the middle is blood at the hold ({peak.Core:F2})");
+            Assert.InRange(peak.Area, 0.25f, 0.6f);   // the soft rim and the thinnest mottle are clear: a ragged band, not a slab
+            Assert.True(RibbonCoverage(0.1f, count).Area >= 0.95f * peak.Area, "held from 0.1 s");
+            foreach (float t in new[] { 0.35f, 0.45f, 0.6f, 0.8f, 0.95f })
+            {
+                var c = RibbonCoverage(t, count);
+                float want = RibbonEnvelope(t);
+                float area = c.Area / peak.Area, core = c.Core / peak.Core;
+                Assert.True(MathF.Abs(area - want) <= 0.07f + 0.25f * want, $"{count} bands at {t:F2} s: area {area:F3} against the envelope {want:F3}");
+                Assert.True(MathF.Abs(core - want) <= 0.07f + 0.25f * want, $"{count} bands at {t:F2} s: middle {core:F3} against the envelope {want:F3}");
+            }
+            // the middle is broken up by 0.45 s (the finding: fully covered there), and nearly gone by 0.8 s
+            Assert.True(RibbonCoverage(0.45f, count).Core <= 0.65f);
+            Assert.True(RibbonCoverage(0.8f, count).Core <= 0.2f);
+            Assert.True(RibbonCoverage(RibbonSeconds, count).Area < 0.005f);
+        }
+        // the shader uses the same rule (its threshold is built from these constants)
+        var src = RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs");
+        Assert.Contains("float thr = 1.0 - {{F(1f - ClassicBloodRules.RibbonErodeFloor)}} * pow(max(env, 0.0), {{F(ClassicBloodRules.RibbonErodeCurve)}});", src);
+        Assert.Contains("float score = prof * taper * mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));", src);
+        Assert.Equal(1f, RibbonThreshold(-0.05f), 4);
+        Assert.Equal(RibbonErodeFloor, RibbonThreshold(0.2f), 3);
+    }
+
+    [Fact]
+    public void Neighbouring_bands_stand_at_least_a_band_s_width_apart_so_the_stroke_s_direction_reads()
+    {
+        // repair 3, finding 1: a lethal hit's 6 bands about 0.1 m apart, each 0.28 to 0.46 m wide, merged into one opaque slab
+        foreach (float amount in new[] { 1f, ClassicHitDirRules.HeavyAmount, ClassicHitDirRules.LethalAmount })
+            foreach (float spread in new[] { 0.3f, 0.32f, 0.42f, 0.6f })
+            {
+                int count = RibbonCount(amount);
+                float size = RibbonWidthScale(amount);
+                float bundle = RibbonBundleFor(count, spread, size);
+                Assert.True(bundle / count >= RibbonMeanWidth * size - 1e-5f, $"amount {amount}, spread {spread}: {count} bands {bundle / count:F3} m apart, each {RibbonMeanWidth * size:F3} m wide");
+                Assert.True(bundle <= 1.25f, $"the stack stays under a body's height ({bundle:F2} m)");
+            }
+        Assert.Equal(3, RibbonCount(1f));
+        Assert.Equal(RibbonMaxBands, RibbonCount(ClassicHitDirRules.LethalAmount));
+        Assert.True(RibbonMaxBands <= 4);
+        // the shader takes the stack's height from RibbonBundleFor
+        var src = RepoFile("client", "Extras", "Gore", "ClassicBloodRibbons.cs");
+        Assert.Contains("uniform float bundle", src);
+        Assert.Contains("s.Set(PBundle, ClassicBloodRules.RibbonBundleFor(count, spread, size));", src);
+        Assert.DoesNotContain("{{F(ClassicBloodRules.RibbonBundle)}}", src);
     }
 
     [Fact]
@@ -269,7 +329,7 @@ public class ClassicBloodRulesTests
         Assert.Contains("ALBEDO = tint.rgb * mix(", src);   // the tint times a share at most 1
         // the strip pass multiplies what lies under the band by (1, 0, 0): red kept, green and blue taken out, nothing brightened
         Assert.Contains("\"render_mode blend_mix,\", \"render_mode blend_mul,\"", src);
-        Assert.Contains("ALBEDO = mix(vec3(1.0), vec3(1.0, 0.0, 0.0), strip);", src);
+        Assert.Contains("ALBEDO = mix(vec3(1.0), vec3({{F(ClassicBloodRules.RibbonStripRed)}}, 0.0, 0.0), strip);", src);
         Assert.Contains("float strip = a > ", src);   // full wherever the band covers the pixel (RibbonStrip)
         Assert.Contains("BloodTint = new(1f, 0.12f, 0.08f)", RepoFile("client", "ClassicHitSpray.cs"));   // BloodRgb mirrors it
         Assert.Equal((1f, 0.12f, 0.08f), BloodRgb);
@@ -299,6 +359,30 @@ public class ClassicBloodRulesTests
     }
 
     [Fact]
+    public void No_opacity_over_a_bright_red_or_orange_surface_shows_an_orange_rim()
+    {
+        // repair 3 (re-review of 50ae0bd7, finding 3): the strip kept all the red underneath, so the thin patches and the anti-aliased rim over a bright surface were brighter than the
+        // blood's darker shade and went orange through the tonemapper. Now, wherever there is blood, the pixel is no brighter than the blood's brightest shade and its green and blue are
+        // at most the blood's own share of red.
+        Assert.InRange(RibbonStripRed, 0.2f, 0.5f);
+        float bloodGr = BloodRgb.G / BloodRgb.R, bloodBr = BloodRgb.B / BloodRgb.R;
+        float brightest = BloodRgb.R * MathF.Max(RibbonShadeTop, RibbonStripRed);
+        (float R, float G, float B)[] grounds = [(1f, 0f, 0f), (1f, 0.12f, 0.08f), (1f, 0.45f, 0.1f), (1f, 0.7f, 0.2f), (1f, 1f, 1f), (0.9f, 0.3f, 0.3f)];
+        foreach (var g in grounds)
+            for (int i = 0; i <= 1000; i++)
+            {
+                float a = i / 1000f;
+                if (a <= RibbonStripFrom) continue;
+                foreach (float n in new[] { 0f, 0.5f, 1f })
+                {
+                    var c = RibbonComposite(g, a, n);
+                    Assert.True(c.R <= brightest + 1e-5f, $"brighter red than the blood at opacity {a:F3} over {g}: {c}");
+                    Assert.True(c.G <= bloodGr * c.R + 1e-5f && c.B <= bloodBr * c.R + 1e-5f, $"orange at opacity {a:F3} over {g}: {c}");
+                }
+            }
+    }
+
+    [Fact]
     public void A_headshot_decal_pairs_only_with_the_killers_own_shot_within_the_window_whichever_comes_first()
     {
         Assert.True(HeadshotPairs(shooter: 3, killer: 3, apart: 0.0, window: 1.0));
@@ -316,7 +400,7 @@ public class ClassicBloodRulesTests
         Assert.True(sweep.Back > 2f * thrust.Back && sweep.Back > 2f * gun.Back);
         Assert.True(RibbonReach(RibbonKind.Sweep, 2.1f).Forward > sweep.Forward);
         Assert.Equal(3, RibbonCount(1f));   // 2 to 3 broad bands (review 3)
-        Assert.True(RibbonCount(1f) < RibbonCount(1.5f) && RibbonCount(1.5f) < RibbonCount(2.1f) && RibbonCount(2.1f) <= MaxRibbons && RibbonCount(100f) == MaxRibbons);
+        Assert.True(RibbonCount(1f) < RibbonCount(1.5f) && RibbonCount(1.5f) <= RibbonCount(2.1f) && RibbonCount(2.1f) <= RibbonMaxBands && RibbonCount(100f) == RibbonMaxBands && RibbonMaxBands <= MaxRibbons);
         Assert.True(RibbonWidthScale(2.1f) > RibbonWidthScale(1f));
     }
 }
