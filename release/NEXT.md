@@ -9,3 +9,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode and Warfront: the Lightning Claw and the Power Spear are switched off for now. The Assault Marine no longer finds them in his melee choices.
+- A saved loadout or Warfront retainer that carried either one now uses the class's default melee weapon. Everything else in it stays as you saved it.
+- Musou Mode and Warfront need everyone on this build: earlier builds cannot join these servers, and this build cannot join earlier ones.

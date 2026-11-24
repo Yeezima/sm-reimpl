@@ -28,6 +28,8 @@ if (ServerWeather.KeyError(cli.Weather) is { } weatherError)
     Console.Error.WriteLine($"smserver: --weather '{cli.Weather}': {weatherError}");
     return ServerCommandLine.UsageError;
 }
+// remove-spear-claw (owner 2026-11-23): --old-arsenal-spear-claw brings the lightning claw and the power spear back; set as the environment variable before any supervisor starts a child, so stages and rotations inherit it.
+ServerArsenal.Apply(cli.OldArsenalSpearClaw);
 #endif
 if (cli.Maps is not null)
 {

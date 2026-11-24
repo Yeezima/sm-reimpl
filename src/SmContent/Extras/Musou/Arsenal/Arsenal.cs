@@ -21,11 +21,21 @@ namespace SmContent.Extras.Musou.Arsenal;
 public static partial class Arsenal
 {
     /// <summary>Musou's config with the arsenal's items appended (the config itself while every entry is a stub).</summary>
-    public static SimConfig Append(SimConfig config, string gameDir, List<string> notes)
+    public static SimConfig Append(SimConfig config, string gameDir, List<string> notes) => Append(config, gameDir, notes, ArsenalRules.SpearClawOffered);
+
+    /// <summary>
+    /// <see cref="Append"/> with the spear and claw removal stated: <paramref name="spearClaw"/> false (the default since the owner's 2026-11-23 "remove them from the game for now") appends neither
+    /// the lightning claw nor the power spear, so no list, drop, reward, bot or retainer can carry them; true is the restore switch (<see cref="ArsenalRules.SpearClawSwitch"/>).
+    /// </summary>
+    public static SimConfig Append(SimConfig config, string gameDir, List<string> notes, bool spearClaw)
     {
         AppendAutocannon(ref config, gameDir, notes);
-        AppendLightningClaw(ref config, gameDir, notes);
-        AppendPowerSpear(ref config, gameDir, notes);
+        if (spearClaw)
+        {
+            AppendLightningClaw(ref config, gameDir, notes);
+            AppendPowerSpear(ref config, gameDir, notes);
+            notes.Add($"musou arsenal: W2 and W3 (the claw and the spear) restored ({ArsenalRules.SpearClawSwitch})");   // worded apart from each entry's own notes, which the content tests count
+        }
         AppendRemoteDetonators(ref config, gameDir, notes);
         return config;
     }
@@ -40,11 +50,17 @@ public static partial class Arsenal
     }
 
     /// <summary>The catalogue with the arsenal's customizer rows (the catalogue itself while every entry is a stub).</summary>
-    public static PerkCatalog Catalog(PerkCatalog catalog)
+    public static PerkCatalog Catalog(PerkCatalog catalog) => Catalog(catalog, ArsenalRules.SpearClawOffered);
+
+    /// <summary><see cref="Catalog"/> with the spear and claw removal stated (<paramref name="spearClaw"/> false: neither row, so a saved pick of either is repaired to the class default).</summary>
+    public static PerkCatalog Catalog(PerkCatalog catalog, bool spearClaw)
     {
         AutocannonItems(ref catalog);
-        LightningClawItems(ref catalog);
-        PowerSpearItems(ref catalog);
+        if (spearClaw)
+        {
+            LightningClawItems(ref catalog);
+            PowerSpearItems(ref catalog);
+        }
         RemoteDetonatorsItems(ref catalog);
         return catalog;
     }

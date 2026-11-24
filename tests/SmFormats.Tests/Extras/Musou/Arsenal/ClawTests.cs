@@ -57,6 +57,7 @@ public class ClawTests
     [Fact]
     public void Append_gives_only_the_Assault_Marine_the_claw_at_the_end_of_its_choices()
     {
+        using var restore = ArsenalRules.SpearClawScoped(true);   // the restore switch (remove-spear-claw, owner 2026-11-23: off by default)
         var config = new SimConfig
         {
             Extras = ContentExtras.Musou,
@@ -79,6 +80,7 @@ public class ClawTests
     [Fact]
     public void An_Assault_class_without_the_sword_gets_no_claw_and_a_note()
     {
+        using var restore = ArsenalRules.SpearClawScoped(true);   // the restore switch (remove-spear-claw, owner 2026-11-23: off by default)
         var config = new SimConfig { Classes = [Class("sm - assault marine", Team.SpaceMarines, "assault", "sm_mp_melee_chainsword")] };
         var notes = new List<string>();
         var result = Arsenal.Append(config, "", notes);
@@ -107,6 +109,7 @@ public partial class CustomizationCatalogTests
     [Fact]
     public void Musous_catalogue_puts_the_claw_row_beside_the_swords_in_the_Space_Marine_Assault_only()
     {
+        using var restore = ArsenalRules.SpearClawScoped(true);   // the restore switch (remove-spear-claw, owner 2026-11-23: off by default)
         // An Assault Marine with the power sword (its twin on the Raptor), a Tactical Marine without: only the Space Marine Assault gets the claw, in Musou's catalogue only.
         var classes = T(
             ("sm - assault marine", ClassTable("space_marine", "assault", 1010, ["sm_mp_abil_sprint"], ["sm_mp_pistol_bolt_pistol", "sm_mp_melee_chainsword", "sm_mp_melee_powersword"], ["mp_perk_a"], "mp_perk_a", "sm_default")),

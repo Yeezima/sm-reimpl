@@ -106,6 +106,8 @@ public sealed record ServerArguments
     public bool AerialTackleRestored { get; init; }
     /// <summary>musou/ork-swing-commit (restore switch): a melee Ork's wind-up faces its target every tick up to the blow, as before 2026-11-12 (SimConfig.MusouOrkSwingTracking, added content; config hash: clients need it too).</summary>
     public bool MusouOrkSwingTracking { get; init; }
+    /// <summary>remove-spear-claw (restore switch, owner 2026-11-23): Musou Mode and Warfront offer the lightning claw and the power spear again (ArsenalRules.SpearClawOffered; config hash: clients need it too).</summary>
+    public bool OldArsenalSpearClaw { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -204,10 +206,11 @@ public static class ServerCommandLine
           --warfront-max-humans <1-4>   (--content warfront) humans admitted (default 4; 1 for a local campaign)
           --warfront-dedicated          switch: the always-on shared Warfront campaign (implies --content warfront; up to 4 humans unless --warfront-max-humans; refuses --warfront-new; the supervisor restarts a crashed stage, locks the run folder, stops on SIGTERM)
           --warfront-prebuild           switch: (--warfront-dedicated; started by the supervisor) build every Warfront map's cache at low priority, one map at a time, then exit
+          --old-arsenal-spear-claw      switch: restore: Musou Mode and Warfront offer the lightning claw and the power spear again (clients need it too)
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild", "--old-arsenal-spear-claw"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
@@ -261,6 +264,7 @@ public static class ServerCommandLine
                     "--warfront-new" => a with { WarfrontNew = true },
                     "--warfront-dedicated" => a with { WarfrontDedicated = true },
                     "--warfront-prebuild" => a with { WarfrontPrebuild = true },
+                    "--old-arsenal-spear-claw" => a with { OldArsenalSpearClaw = true },
                     _ => a with { Help = true },
                 };
                 continue;
