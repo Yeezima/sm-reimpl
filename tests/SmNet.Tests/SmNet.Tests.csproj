@@ -68,6 +68,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
+    <ProjectReference Include="..\..\src\SmBots\SmBots.csproj" />
     <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />
     <ProjectReference Include="..\..\src\SmSim\SmSim.csproj" />
     <ProjectReference Include="..\..\src\SmContent\SmContent.csproj" />
