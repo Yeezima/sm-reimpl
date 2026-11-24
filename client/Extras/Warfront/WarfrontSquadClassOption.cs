@@ -79,7 +79,7 @@ public static class WarfrontSquadClassOption
 
     /// <summary>The fixed row's words.</summary>
     public const string RolledTitle = "Two retainers, random classes",
-        RolledText = "Each of your two retainers is a Tactical, Assault or Devastator Marine (Raptor or Havoc for Chaos), rolled on its own for the run, with a matching Classic loadout.";
+        RolledText = "Each of your two retainers is a Tactical, Assault or Devastator Marine, rolled on its own for the run (for Chaos: a Chaos Marine, Raptor or Havoc), with a matching Classic loadout.";
 
     /// <summary>The retired squad-class choices (owner 2026-11-17: the whole squad's class), kept for the stored option's tests; never shown since 2026-11-23.</summary>
     public static IReadOnlyList<MusouSection> ChoiceRows(SquadClass chosen) =>

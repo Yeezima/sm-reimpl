@@ -44,7 +44,6 @@ public sealed class WarfrontSquadWiring
     readonly List<int> _field = [];
     readonly List<ulong> _gone = [];
     SquadHuman[] _humans = new SquadHuman[8];
-    ushort _holdSequence = 60_000;
     bool _began;
 
     public WarfrontSquadWiring(World world, WarfrontBattleRules rules, WarfrontCampaign campaign, ulong runSeed)
@@ -149,9 +148,7 @@ public sealed class WarfrontSquadWiring
     public bool HoldSquad(ulong key)
     {
         if (!_playerOfKey.TryGetValue(key, out int player)) return false;
-        for (int k = 0; k < 2; k++)   // a sequence equal to the squad's last is refused: try the next
-            if (Retainers.Order(player, new TfwCommandRecord(++_holdSequence, TfwCommand.Hold, 0))) return true;
-        return false;
+        return Retainers.ServerOrder(player, MarineOrder.Hold);   // the server's own order, outside his sequence numbers (review fix 2026-11-25)
     }
 
     /// <summary>A returning player's new id for the squad already fighting.</summary>
@@ -258,7 +255,7 @@ public sealed class WarfrontSquadWiring
 
     /// <summary>
     /// Aboard the ship (the hub and the way down; <see cref="WarfrontBattleRules.AboardStep"/> calls it every <see cref="AboardEvery"/> ticks; public for tests): every human with a key whose class, loadout choices, appearance or squad class changed
-    /// since last seen is told to the class book. This creates a first roster of one, holds a Dreadnought's roster, gives the free retainer once and makes the squad follow its owner's loadout change. A player W12 holds (a joiner who has not
+    /// since last seen is told to the class book. This creates a first roster of the run's two, holds a Dreadnought's roster (two, none in the field) and makes the squad follow its owner's loadout change. A player W12 holds (a joiner who has not
     /// confirmed his class) is skipped, so the first kind the book sees is the confirmed one.
     /// </summary>
     public void StepAboard()
@@ -331,7 +328,7 @@ public sealed class WarfrontSquadWiring
         ApplyScale(_rules.Progression, key);
         if (Retainers.Rebind(key, id))
         {
-            if (returned) for (int k = 0; k < 2 && !Retainers.Order(id, new TfwCommandRecord(++_holdSequence, TfwCommand.Follow, 0)); k++) { }   // a squad put on Hold when he left follows again when he is back
+            if (returned) Retainers.ServerOrder(id, MarineOrder.Follow);   // a squad put on Hold when he left follows again when he is back
         }
         else if (Retainers.Land(key, id, p.Position) == 0 && Rosters.Has(key) && !Rosters.IsHeld(key))
             Log?.Invoke($"warfront: no fighting slot or World id for key {key}'s squad; it joins at the next battle");

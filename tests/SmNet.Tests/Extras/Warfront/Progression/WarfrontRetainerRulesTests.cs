@@ -73,18 +73,18 @@ public class WarfrontRetainerRulesTests
         Assert.Equal(2, s.Version);
         Assert.Equal(12500, s.Xp);
         Assert.Equal(f!.Level, s.Level);
-        Assert.Equal(5, s.PicksTaken);                       // the picks stay taken: no pick is given back
+        Assert.Equal(3, s.PicksTaken);                       // owner "Give picks back": each dropped Retainer card's pick is pending again
         Assert.Equal([3, 2, 1], s.Cards);                    // the stat cards in their order
         Assert.Empty(s.ExtraRetainers);
         Assert.Contains(notes, n => n.Contains("Retainer card"));
         var again = WarfrontProgressFile.Sanitize(s, notes = new List<string>());
         Assert.Empty(notes);                                 // idempotent
         Assert.Equal(s.ToJson(), again.ToJson());
-        // the run's copy of such a player has no pending pick from the conversion
+        // the run's copy of such a player has the refunded picks pending again (owner "Give picks back")
         var c = new WarfrontCampaign(1UL);
         c.Join(Key, out _);
         Assert.True(c.ApplyProgress(Key, s));
-        Assert.Equal(0, c.Player(Key)!.PendingPicks);
+        Assert.Equal(2, c.Player(Key)!.PendingPicks);
         Assert.Equal(0, WarfrontStatBonuses.For(c.Player(Key)!.Cards).Retainers);
     }
 
@@ -93,7 +93,7 @@ public class WarfrontRetainerRulesTests
         Assert.Equal(WarfrontProgressParse.Newer, WarfrontProgressFile.TryParse("""{"version":3,"xp":0}""", out _));
 
     [Fact]
-    public void A_version_5_run_loads_with_its_retainer_cards_and_records_dropped()
+    public void A_version_5_run_loads_with_its_retainer_cards_and_records_dropped_and_each_card_gives_its_pick_back()
     {
         var c = new WarfrontCampaign(77UL);
         c.Join(Key, "Tester", out _);
@@ -110,18 +110,43 @@ public class WarfrontRetainerRulesTests
         var loaded = WarfrontSave.FromJson(root.ToJsonString());
         var p = loaded.Player(Key)!;
         Assert.Equal([3, 2], p.Cards);
-        Assert.Equal(3, p.PicksTaken);
+        Assert.Equal(2, p.PicksTaken);   // owner "Give picks back": the dropped Retainer card's pick is pending again
+        Assert.Equal(c.Player(Key)!.Level - 1 - 2, p.PendingPicks);
         Assert.Empty(p.Squad);
         Assert.Equal(c.Player(Key)!.Xp, p.Xp);
         Assert.Equal(c.Player(Key)!.Level, p.Level);
         Assert.Equal("Tester", p.Name);
-        Assert.Contains("\"Version\":6", loaded.ToJson());
+        Assert.Contains("\"Version\":" + WarfrontCampaign.SaveVersion, loaded.ToJson());
+        Assert.Equal(loaded.StateHash(), WarfrontSave.FromJson(loaded.ToJson()).StateHash());   // idempotent: a second load converts nothing
+    }
+
+    [Fact]
+    public void The_conversion_runs_at_any_save_version_and_a_null_list_neither_crashes_nor_loses_the_player()
+    {
+        // T0 review (2026-11-25): another branch's later SaveVersion must still convert; a damaged "Cards": null / "Squad": null loads empty
+        var c = new WarfrontCampaign(78UL);
+        c.Join(Key, "Tester", out _);
+        c.AddXp(Key, WarfrontCampaign.XpForLevel(4));
+        var root = JsonNode.Parse(c.ToJson())!.AsObject();
+        var player = root["Players"]![0]!.AsObject();
+        player["PicksTaken"] = 2;
+        player["Cards"] = new JsonArray(6, 3);
+        var p = WarfrontSave.FromJson(root.ToJsonString()).Player(Key)!;
+        Assert.Equal([3], p.Cards);
+        Assert.Equal(1, p.PicksTaken);
+        player["Cards"] = null;
+        player["Squad"] = null;
+        player["PicksTaken"] = 0;
+        var q = WarfrontSave.FromJson(root.ToJsonString()).Player(Key)!;
+        Assert.Empty(q.Cards);
+        Assert.Empty(q.Squad);
     }
 
     [Fact]
     public void A_run_of_version_6_is_newer_for_the_shipped_build_and_round_trips_here()
     {
-        Assert.Equal(6, WarfrontCampaign.SaveVersion);
+        Assert.True(WarfrontCampaign.SaveVersion >= WarfrontCampaign.RetainerCardsRetiredVersion);
+        Assert.Equal(6, WarfrontCampaign.RetainerCardsRetiredVersion);
         var c = new WarfrontCampaign(5UL);
         c.Join(Key, out _);
         Assert.Equal(c.StateHash(), WarfrontSave.FromJson(c.ToJson()).StateHash());

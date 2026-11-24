@@ -23,7 +23,7 @@ public sealed class WarfrontProgressModel
 
     /// <summary>The display order of the five stat counters: the wire's card order.</summary>
     public static readonly WarfrontCard[] CounterCards = WarfrontProgressionRules.StatCards;
-    public static readonly string[] CounterLabels = { "SPD", "HP", "DMG", "CD", "ARM", "RET" };
+    public static readonly string[] CounterLabels = { "SPD", "HP", "DMG", "CD", "ARM" };   // RET retired with the Retainer card (T0 review 2026-11-25)
 
     public bool HasProgress { get; private set; }
     public int Level { get; private set; } = 1;
@@ -281,5 +281,5 @@ public sealed class WarfrontProgressModel
     public string XpText => $"{Xp:N0} / {XpAtNextLevel:N0} XP";
 
     /// <summary>The six counters, in order: attack speed, max HP, damage, cooldown, max armour, retainers.</summary>
-    public string CounterText(int i) => CounterLabels[i] + "\n" + (i < 5 ? CardCounts[i] : Retainers);
+    public string CounterText(int i) => CounterLabels[i] + "\n" + CardCounts[i];
 }

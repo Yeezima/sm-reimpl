@@ -100,7 +100,7 @@ public sealed partial class WarfrontPickerSelfTest : Node
         _host.Board.Shown = true; await Frames(2); Check("scoreboard section shows once the board is up", _host.Board.Visible);
         Check("no +N without pending picks", M.PendingText == "");
         Check("xp text", M.XpText.Contains("XP"), M.XpText);
-        Check("counters in wire order", M.CounterText(0) == "SPD\n1" && M.CounterText(2) == "DMG\n2" && M.CounterText(5) == "RET\n2");
+        Check("counters in wire order", M.CounterText(0) == "SPD\n1" && M.CounterText(2) == "DMG\n2" && WarfrontProgressModel.CounterLabels.Length == 5);   // RET retired with the Retainer card (T0 review 2026-11-25)
         Check("attack speed bonus carried", MathF.Abs(M.AttackSpeedBonus - 0.1f) < 1e-4f);
         Check("no banner on the first Progress", !M.BannerShowing);
         await Still("hud-battle");

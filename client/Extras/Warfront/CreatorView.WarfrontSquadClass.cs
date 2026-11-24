@@ -44,7 +44,7 @@ public sealed partial class CreatorView
     /// <summary>Test aid: presses the squad-class row of <paramref name="squad"/> and answers what the working profile holds after it.</summary>
     internal string WarfrontTestPress(SmSim.Extras.Warfront.Squad.SquadClass squad)
     {
-        var row = WarfrontSquadClassOption.Rows(squad)[0].Rows[(int)squad];
+        var row = WarfrontSquadClassOption.ChoiceRows(squad)[0].Rows[(int)squad];   // the retired choices (Rows shows one fixed row since 2026-11-23); ChoiceRows is in enum order
         LibrarianChoose(row);
         return WarfrontSquadClassOption.SquadClassOf(_session.Working).ToString();
     }

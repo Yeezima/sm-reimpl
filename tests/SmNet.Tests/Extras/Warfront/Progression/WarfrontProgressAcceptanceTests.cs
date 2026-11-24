@@ -139,7 +139,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         Assert.Equal(2000, s.Campaign.Player(KeyB)!.Xp);
         Assert.Empty(s.Campaign.Player(KeyA)!.Squad);   // the retired Retainer card brings no retainer (owner 2026-11-23, card 2)
         Assert.Equal([Speed, Speed], s.Campaign.Player(KeyA)!.Cards);
-        Assert.Equal(3, s.Campaign.Player(KeyA)!.PicksTaken);
+        Assert.Equal(2, s.Campaign.Player(KeyA)!.PicksTaken);   // the Retainer card's pick given back (owner "Give picks back")
         Assert.Empty(s.Campaign.Player(KeyB)!.Squad);
         Assert.Equal(8000, s.Last49(0)!.State!.Xp);
         Assert.Equal(2000, s.Last49(1)!.State!.Xp);
@@ -243,11 +243,20 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         Assert.True(store.Save(F(9000, 4, [Speed, Speed, Speed, Retainer], ("Tactical", "Cassian"))));
         Assert.True(store.Reset(DateTime.UtcNow));
         Assert.True(WarfrontProgressStore.IsPendingReset(store.Current));
+        // T0 review (2026-11-25): the reset sizes the roster with Rosters.Conform to the run's two, keeping the Marines' names and records
+        var wiring = s.Server.WarfrontWiringForTests!;
+        Assert.True(wiring.AddStartingRetainer(KeyA));
+        wiring.Rosters.Conform(KeyA, 3);   // an over-full roster, as an old run could hold
+        wiring.Rosters.Marine(KeyA, 1)!.Record.Kills = 4;
+        var names = Enumerable.Range(0, 2).Select(i => wiring.Rosters.Marine(KeyA, i)!.Name).ToArray();
         s.SendProgress(0, store.Current, WarfrontProgressSaveWire.FlagReset);
         s.Tick(2);
         Assert.Equal(0, s.Campaign.Player(KeyA)!.Xp);
         Assert.Equal(1, s.Campaign.Player(KeyA)!.Level);
         Assert.Empty(s.Campaign.Player(KeyA)!.Squad);
+        Assert.Equal(2, wiring.Rosters.Count(KeyA));
+        Assert.Equal(names, Enumerable.Range(0, 2).Select(i => wiring.Rosters.Marine(KeyA, i)!.Name).ToArray());
+        Assert.Equal(4, wiring.Rosters.Marine(KeyA, 1)!.Record.Kills);
         Assert.Equal(0, s.Last49(0)!.State!.Xp);
         s.Tick(35);   // an autosave goes by
         s.Server.GetType();
@@ -303,7 +312,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         Assert.True(store.ApplyHostCopy(host));
         var made = ClientStore(KeyA).Tap();
         Assert.Equal(5200, made.Xp);
-        Assert.Equal(2, made.PicksTaken);
+        Assert.Equal(1, made.PicksTaken);   // the Retainer card's pick given back (owner "Give picks back")
         Assert.Empty(made.ExtraRetainers);   // no retainer is earned since 2026-11-23 (owner card 2)
         Assert.Equal(KeyA.ToString("x16"), made.Key);
     }

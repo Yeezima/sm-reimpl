@@ -122,32 +122,23 @@ public sealed partial class GameServer
 
     // ---- the extra retainers of a persistent progression (codebase fix 1) ---------------------------------------------------------------------
 
-    /// <summary>The retainers beyond the first of a key's roster as progress records (class and name), or null when the roster does not exist.</summary>
-    List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>? WarfrontRosterExtras(ulong key)
-    {
-        if (_wfWiring is not { } w || !w.Rosters.Has(key)) return null;
-        var list = new List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>();
-        for (int slot = 1; slot < w.Rosters.Count(key) && list.Count < SmSim.Extras.Warfront.Progression.WarfrontProgressFile.MaxExtras; slot++)
-            if (w.Rosters.Marine(key, slot) is { } m)
-                list.Add(new SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer { ClassName = m.Loadout.ClassId, Name = m.Name });
-        return list;
-    }
+    /// <summary>
+    /// The earned retainers of a key as progress records: none since record version 2 (owner 2026-11-23, card 2: every player has the run's two, none is earned, so a progress copy never carries one and the
+    /// host's copy wins no tie by its roster). An empty list, or null when the roster does not exist.
+    /// </summary>
+    List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>? WarfrontRosterExtras(ulong key) =>
+        _wfWiring is { } w && w.Rosters.Has(key) ? new List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>() : null;
 
     /// <summary>
     /// Makes a key's roster hold the run's two retainers (<see cref="SquadRules.RetainersPerPlayer"/>, owner 2026-11-23 card 2) through <see cref="SquadRosters.Conform(ulong, int)"/> when a progress record is applied at the ship;
-    /// an old record's <paramref name="extras"/> (retired +1 Retainer cards) only lend their names to the Marines after the first. Service records of the kept Marines stay. No roster yet: the names wait (<see cref="WarfrontServerState.PendingExtras"/>) for it.
+    /// the first two Marines are kept with their names and service records (an old record's <paramref name="extras"/>, the retired +1 Retainer cards' Marines, are ignored: a sanitized record carries none).
+    /// No roster yet: nothing to size (the class book's first roster is the run's two, and the squad wiring's import conforms every roster).
     /// </summary>
     void WarfrontRosterSync(WarfrontServerState s, ulong key, IReadOnlyList<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer> extras)
     {
-        if (_wfWiring is not { } w || !w.Rosters.Has(key))
-        {
-            if (extras.Count > 0) s.PendingExtras[key] = extras.Select(e => new SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer { ClassName = e.ClassName, Name = e.Name }).ToList();
-            else s.PendingExtras.Remove(key);
-            return;
-        }
-        w.Rosters.Conform(key, SquadRules.RetainersPerPlayer);
-        for (int slot = 1; slot < w.Rosters.Count(key) && slot - 1 < extras.Count; slot++)
-            if (!string.IsNullOrWhiteSpace(extras[slot - 1].Name) && w.Rosters.Marine(key, slot) is { } m) m.Name = extras[slot - 1].Name;
+        _ = extras;
+        s.PendingExtras.Remove(key);
+        if (_wfWiring is { } w && w.Rosters.Has(key)) w.Rosters.Conform(key, SquadRules.RetainersPerPlayer);
     }
 
     // ---- the tick, the sections, the commands ---------------------------------------------------------------------------------------------------

@@ -148,7 +148,7 @@ public sealed partial class GameServer
         }
     }
 
-    /// <summary>One log line when an offer opens and one when it ends (by a pick or by the 20 s timeout), for the scripted runs.</summary>
+    /// <summary>One log line when an offer opens and one when it ends (by a pick or by the pick timeout, 40 s since the retainer rules), for the scripted runs.</summary>
     void WarfrontLogOffer(int id, WarfrontPlayerState p, in WarfrontProgressionSnapshot snap)
     {
         bool had = _wfOfferLog.TryGetValue(id, out var last);

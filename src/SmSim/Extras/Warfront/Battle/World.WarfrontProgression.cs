@@ -46,7 +46,7 @@ public sealed partial class World
         }
         foreach (int id in _warfrontIds) if (LibrarianOf(id) is { } psyker) psyker.CooldownScale = rt.CooldownScale(id);   // the cooldown cards on the Shockwave and the pull
         if (_tfw.Battle is not null && rules.SquadStep is { } squad && rules.LastFought != Tick - 1) squad();   // the field was empty last tick: TfwGuardsStep returned before the fight, so the squads still take their tick
-        rt.TickPicker(now);   // an offer open for 20 s takes card 1; the protection ends with it
+        rt.TickPicker(now);   // an offer open for the pick time (40 s) takes card 1; the protection ends with it
         bool aboard = _tfw.Phase is TfwRunPhase.Hub or TfwRunPhase.Travel;   // on the ship: the hub or the way down; every battle (a node, the HQ, the fortress) is the field
         if (aboard) rules.AboardStep?.Invoke();   // W9b
         foreach (int id in _warfrontIds)
