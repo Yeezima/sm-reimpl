@@ -32,6 +32,14 @@ public static class FootPinRules
     }
 
     /// <summary>
+    /// Whether a marine's body is planted this frame (install transitions batch 3, review): not in an action clip, and either braced (the brace graph's idle: the stance never moves,
+    /// and the locomotion's gait flags are not stepped while the brace pose is drawn, so a flag left set by a run into the brace must not count) or out of the gait blend
+    /// (<paramref name="gaitMoving"/>) at no more than <paramref name="runThreshold"/> m/s.
+    /// </summary>
+    public static bool PlantedStanding(bool braced, bool inAction, bool gaitMoving, float groundSpeed, float runThreshold) =>
+        !inAction && (braced || (!gaitMoving && groundSpeed <= runThreshold));
+
+    /// <summary>
     /// As <see cref="SpineTwist(float, bool, float, float)"/> for an idle whose clips reach a different angle each way (install transitions batch 3: the brace's grid, left at 60 degrees,
     /// right at 77): <paramref name="leftRadians"/> for an aim to the left of the body (positive twist), <paramref name="rightRadians"/> to the right.
     /// </summary>

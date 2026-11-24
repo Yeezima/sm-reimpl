@@ -105,7 +105,7 @@ public class BraceTurnTests
     }
 
     [Fact]
-    public void DropTurn_ends_a_turn_where_the_body_is()
+    public void DropTurn_ends_a_turn_where_the_body_is_and_clears_the_layer()
     {
         var b = Standing();
         Step(b, 100f * Deg);
@@ -114,7 +114,61 @@ public class BraceTurnTests
         b.DropTurn();
         Assert.Equal(TurnSide.None, b.Side);
         Assert.Equal(yaw, b.Yaw);
+        // Review: no fading layer left to draw the next posture's clip at this clip's time.
+        Assert.Equal(TurnSide.None, b.LayerSide);
+        Assert.Equal(0f, b.LayerWeight);
+        Assert.Equal(0f, b.TurnTime);
+        Assert.Null(b.DampedAim);
     }
+
+    static void StepDamped(BodyYaw b, float aim) => b.Step(aim, Dt, true, EnterLeft, EnterRight, Left, Right, Blend, MaxTwist, FollowRate, BodyYaw.AimDampSeconds);
+
+    [Theory]
+    [InlineData(1)]     // one frame
+    [InlineData(4)]     // about 0.07 s
+    public void With_the_damped_aim_a_brief_flick_past_the_threshold_does_not_turn(int frames)
+    {
+        var b = Standing();
+        for (int i = 0; i < 10; i++) StepDamped(b, 0f);
+        for (int i = 0; i < frames; i++) StepDamped(b, 100f * Deg);
+        for (int i = 0; i < 60; i++) StepDamped(b, 0f);
+        Assert.Equal(0, b.TurnsStarted);
+        Assert.Equal(0f, b.Yaw, 1e-6f);
+    }
+
+    [Fact]
+    public void With_the_damped_aim_a_held_aim_turns_after_the_damping_lag()
+    {
+        var b = Standing();
+        for (int i = 0; i < 10; i++) StepDamped(b, 0f);
+        int frames = 0;
+        while (b.TurnsStarted == 0 && frames < 120) { StepDamped(b, 100f * Deg); frames++; }
+        Assert.Equal(1, b.TurnsStarted);
+        Assert.Equal(TurnSide.Left, b.Side);
+        // 60 of 100 degrees through a 0.15 s low-pass: 0.137 s, 9 frames at 60 fps.
+        Assert.InRange(frames, 8, 10);
+        // The turn plays out and settles inside both thresholds (no extra turn from the lagging damped aim).
+        for (int i = 0; i < 200; i++) StepDamped(b, 100f * Deg);
+        Assert.Equal(1, b.TurnsStarted);
+        Assert.Equal(TurnSide.None, b.Side);
+    }
+
+    [Fact]
+    public void Undamped_steps_keep_the_raw_aim_for_the_navigation_postures()
+    {
+        var b = Standing();
+        Step(b, 100f * Deg);   // dampSeconds 0: one frame past the threshold turns, as before
+        Assert.Equal(1, b.TurnsStarted);
+    }
+
+    [Theory]
+    [InlineData(true, false, true, 3f, true)]      // braced out of a run: the gait flag still set and some speed left: planted (review fix)
+    [InlineData(true, true, false, 0f, false)]     // braced but in an action clip
+    [InlineData(false, false, true, 0f, false)]    // not braced, the gait blend still moving
+    [InlineData(false, false, false, 0.5f, true)]  // not braced, at rest
+    [InlineData(false, false, false, 3f, false)]   // not braced, moving
+    public void Braced_marines_stand_planted_whatever_the_gait_flags(bool braced, bool inAction, bool gaitMoving, float speed, bool expected) =>
+        Assert.Equal(expected, FootPinRules.PlantedStanding(braced, inAction, gaitMoving, speed, 1f));
 
     [Theory]
     [InlineData(50f, 0f)]       // inside the grid's 60 to the left: the clips make it

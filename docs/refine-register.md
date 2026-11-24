@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4092 spec table rows: **3021 tagged**, 704 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
+Scanned 4093 spec table rows: **3023 tagged**, 703 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 423 | 364 | 361 | 117 | 12 |
+| Movement (critical) | 425 | 365 | 362 | 119 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,19 +53,19 @@ Scanned 4092 spec table rows: **3021 tagged**, 704 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3021** | 2713 | 2218 | 915 | 37 |
+| **All areas** | **3023** | 2714 | 2219 | 917 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 1827 |
-| confidence: low | 1068 |
+| confidence: low | 1069 |
 | confidence: medium | 1039 |
-| notes: ours | 477 |
+| notes: ours | 479 |
 | kind: interpretation | 458 |
 | notes: estimate | 306 |
-| kind: estimate | 270 |
+| kind: estimate | 271 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (423)
+### Movement (gameplay-critical) (425)
 
 *Spec section: Extracted parameters*
 
@@ -626,6 +626,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-F176FAA5` | Braced turn: the damped aim angle | The graph tests `FLT_Aim_Horizontal_Deg_DAMPED`; no graph modifier sets it (the game code damps it; constant not in the data), so the turn decision reads the aim through an exponential low-pass of 0.15 s (ours, an estimate): a one-frame flick to 100 degrees… (s) | kind: estimate; confidence: low; notes: ours | ours (the graph names the damped variable) | Braced turn: the damped aim angle: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The graph tests FLT_Aim_Horizontal_Deg_DAMPED; no graph modifier sets… | ☐ |
+| `R-7DAF5C99` | Braced turn end and repeat | `BRANCH_TurnComplete` at 0.9773 of the clip (1.434 s, the body turned 110 degrees): from there the same conditions take Turn Left again, Turn Right, or the idle (priorities 3 / 2 / 1), each over 0.1 s in the graph. Here the turn into the idle fades the leg… (fraction, s) | notes: ours | graph (the end and the conditions); ours (no turn-to-turn blend) | Braced turn end and repeat: compare with SM1 by feel or video. Ours: BRANCH_TurnComplete at 0.9773 of the clip (1.434 s, the body turned… | ☐ |
 | `R-C70A9C73` | When the brace posture applies | Braced only (`BracePhase.Braced`), aim mode included (the brace graph's idle runs under its aim mode); the entry and the exit keep their whole-body and leg clips with the earlier body rules; a turn of the other posture under way when the stance changes ends… | kind: interpretation; confidence: medium; notes: ours | ours (the graph's turn states sit only in the braced idle) | When the brace posture applies: compare with SM1 by feel or video. Ours: Braced only (BracePhase.Braced), aim mode included (the brace graph's… | ☐ |
 | `R-8FBA6879` | Drawn body and hit volumes | The drawn legs lag the aim by up to 60 (left) / 77 (right) degrees before a turn starts and by up to 135 during a fast flick; the chest and weapon follow the aim through the grid and the spine twist; the simulation's hit volumes turn with the view's yaw, so a… (degrees) | kind: interpretation; confidence: medium; notes: ours | ours | Drawn body and hit volumes: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: The drawn legs lag the aim by up to 60 (left) / 77 (right) degrees… | ☐ |
 
@@ -5646,7 +5648,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-582D240F` | Storm bolter's second round (sim/stormbolter-ammo; protocol 51 batch) | Each 0.1 s shot spends its 2 rounds (the data's `ammo_used` 1 + a `fire_sim` `consume_ammo` 1) at once, so the clip and the HUD count drop 2 per shot; the last round of an odd clip still fires | The data spend the second round 0.05 s after the shot (the HUD would step 1 every 0.05 s); the clip's 50 shots and 5 s on full auto are the data's either way | Multiplayer weapons, row "Second round's delay" | Storm bolter's second round (sim/stormbolter-ammo; protocol…: compare with SM1 by feel or video. Ours: Each 0.1 s shot spends its 2 rounds (the data's ammo_used 1 + a… | ☐ |
 | `C-240B6F79` | Weapon heat | The plasma gun locks about 26 s after an overheat when it does not vent (the cool rate's unit is assumed per second); since fidelity gap 7 an overheat vents by itself (about 2.1 s with the data's 45 heat/s, kept by the owner's decision; his 6 s recollection is to check in a later playtest) | The rate's unit | Heat (M11) | Weapon heat: compare with SM1 by feel or video. Ours: The plasma gun locks about 26 s after an overheat when it does not… | ☐ |
 | `C-5DA9BCE1` | Brace (fidelity gap 7) | From the owner's recollection (2026-10-28, estimates to review): braced, no walking, turning on the spot only; the entry cannot be cancelled; once braced, fire or Reload to leave; no reaction knocks a player out of the brace. Ours: the transitions are immune to reactions too; exiting the player walks and a Jump that… | The owner's recollection against a playtest; the early-exit window's use; the turn-in-place clips | Brace and vent | Brace (fidelity gap 7): compare with SM1 by feel or video. Ours: From the owner's recollection (2026-10-28, estimates to review):… | ☐ |
-| `C-C88D05F7` | Braced turn (install transitions batch 3, 2026-11-25; client only) | The brace graph's idle grid and turn clips are played (faithful); ours: the graph's damped aim angle is the undamped aim-to-body angle, the turn clips' root translation (up to 0.44 m) is not applied (the simulation holds the braced position), the brace posture applies only while braced (not in the entry or exit… | Whether the original damps the angle in a way that changes the turn timing; whether its root translation moves the braced marine | "Install transitions, pass 2 batch 3" | Braced turn (install transitions batch 3, 2026-11-25…: compare with SM1 by feel or video. Ours: The brace graph's idle grid and turn clips are played (faithful)… | ☐ |
+| `C-C88D05F7` | Braced turn (install transitions batch 3, 2026-11-25; client only) | The brace graph's idle grid and turn clips are played (faithful); ours: the graph's damped aim angle is an exponential low-pass of the aim with a 0.15 s time constant (an estimate; the constant is in the game code, not the data), a repeated turn restarts its clip without the graph's 0.1 s turn-to-turn blend, the turn… | Whether the original damps the angle in a way that changes the turn timing; whether its root translation moves the braced marine | "Install transitions, pass 2 batch 3" | Braced turn (install transitions batch 3, 2026-11-25…: compare with SM1 by feel or video. Ours: The brace graph's idle grid and turn clips are played (faithful)… | ☐ |
 | `C-6E8CD791` | Braced accuracy (fidelity gap 7) | Braced fire shoots as accurately as unbraced fire: no scatter is simulated (M27); the owner remembers braced fire being more accurate. The wargear's `_braced` scatter sets will give it once spread lands | The braced scatter sets (to read with spread) | Brace and vent | Braced accuracy (fidelity gap 7): compare with SM1 by feel or video. Ours: Braced fire shoots as accurately as unbraced fire: no scatter is… | ☐ |
 | `C-2CD0F672` | Planting the feet (fidelity gap 7) | The press tick of a brace stops the body at once (the entry clip has no root motion), so a sprint does not slide into the stance | How the original stops the body | Brace and vent | Planting the feet (fidelity gap 7): compare with SM1 by feel or video. Ours: The press tick of a brace stops the body at once (the entry clip has… | ☐ |
 | `C-1EEE187C` | Overheated while aiming (fidelity gap 7) | Following the owner's rule (everything but walking stops venting), an overheated plasma player who holds Aim or sprints does not vent and waits about 26 s for the passive cooling | Whether the original vented while aiming (playtest) | Brace and vent | Overheated while aiming (fidelity gap 7): compare with SM1 by feel or video. Ours: Following the owner's rule (everything but walking stops venting), an… | ☐ |

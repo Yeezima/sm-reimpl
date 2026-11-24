@@ -144,13 +144,12 @@ public partial class NetworkView
         || FallLanding(s.PlayerId);
 
     /// <summary>Whether this marine stands in a way that keeps its body planted: on the ground, not moving or blending out of a move, no action clip or jump pose.</summary>
-    bool TurnStanding(PlayerState s, LocoTrack t, float? throwTime)
-    {
-        if (TurnInAction(s, throwTime)) return false;
+    /// <param name="braced">Install transitions batch 3 (review): the marine stands in the brace posture: the gait flags are not looked at (the brace pose returns before the
+    /// locomotion, so a flag set by a run into the brace stayed set for the whole stance and kept the body rigid).</param>
+    bool TurnStanding(PlayerState s, LocoTrack t, float? throwTime, bool braced = false) =>
         // Only the blend the marine is drawn in counts: the relaxed run's flag stays set while the weapon is up (the ready run has its own), and the sprint needs no flag (its speed is far above standing).
-        if (HipReady(s) ? t.HipGaitMoving : t.GaitMoving) return false;
-        return s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y <= RunThreshold * RunThreshold;
-    }
+        FootPinRules.PlantedStanding(braced, TurnInAction(s, throwTime), HipReady(s) ? t.HipGaitMoving : t.GaitMoving,
+            MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y), RunThreshold);
 
     /// <summary>
     /// Steps the marine's body heading for this frame (called by <c>Place</c> before it poses the character) and returns the yaw to draw it at: the aim's when turns are off,
@@ -183,7 +182,7 @@ public partial class NetworkView
         var posture = bracePosture ?? TurnPostureOf(s, data);
         var rig = posture is null ? null : TurnRigOf(posture);
         if (BraceOf(s.PlayerId) is { } bt && bt.TurnBraced != (bracePosture is not null)) { bt.TurnBraced = bracePosture is not null; t.Body.DropTurn(); }
-        bool standing = TurnStanding(s, t, throwTime);
+        bool standing = TurnStanding(s, t, throwTime, braced: bracePosture is not null);
         bool canTwist = rig is not null && standing;
         // anim/melee-interaction (NetworkView.MeleeInteraction.cs): a body in a hit reaction turns so the clip's side points at its attacker.
         if (ReactionFacingYaw(s, t.Body.Valid ? t.Body.Yaw : aimYaw, dt) is float facing)
@@ -195,7 +194,8 @@ public partial class NetworkView
         if (standing && !t.WasStanding && !character.Settling) character.BeginSettle(posture?.StopBlend ?? (s.Aiming ? AimStopBlend : TurnAnimations.DefaultStopBlend), SettleStepSeconds);
         else if (!standing && character.Settling && TurnInAction(s, throwTime)) character.CancelSettle();
         t.PrevStanding = t.WasStanding; t.WasStanding = standing;
-        t.Body.Step(aimYaw, dt, canTwist, rig?.EnterLeft ?? 0f, rig?.EnterRight ?? 0f, rig?.LeftProfile, rig?.RightProfile, posture?.TurnBlend ?? TurnAnimations.DefaultBlend, BodyMaxTwist, BodyFollowRate);
+        t.Body.Step(aimYaw, dt, canTwist, rig?.EnterLeft ?? 0f, rig?.EnterRight ?? 0f, rig?.LeftProfile, rig?.RightProfile, posture?.TurnBlend ?? TurnAnimations.DefaultBlend, BodyMaxTwist, BodyFollowRate,
+            dampSeconds: bracePosture is not null ? BodyYaw.AimDampSeconds : 0f);   // batch 3 (review): the brace graph tests the damped aim angle
         // Animation pass 1: a falling marine stands on the aim-offset idle (the graph's Dropping state) without being planted: the body follows the aim (above), the idle follows the twist.
         // Animation pass 3: also while the fall's legs fade out after the touchdown or its landing plays (FallLanding): the idle stayed the aim-offset idle in the air and is it again
         // once standing, so the plain idle in between flipped the stance twice in a few frames (the transition probe: the hand 46 cm per frame per frame at every soft landing).
