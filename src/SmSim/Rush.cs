@@ -242,12 +242,20 @@ public static class Rush
     /// the dash attack (held only at its end) always; the bull rush after a real fall, its vertical speed at the tick's start (<paramref name="s"/>) at least
     /// that of a free fall of <see cref="RushSpec.LandEndDrop"/> (ours).
     /// </summary>
-    public static bool EndsOnLanding(PlayerState s, RushSpec? spec, SimConfig c)
+    /// <param name="landingDrop">sim/ledge-charge-air (protocol 90): how far the landing tick itself took the body down (metres; the faster fall's rule below).</param>
+    public static bool EndsOnLanding(PlayerState s, RushSpec? spec, SimConfig c, float landingDrop)
     {
         if (s.Rush == RushPhase.DashAttack) return true;
         if (s.Rush != RushPhase.Rush) return false;
         float drop = spec is not null && float.IsFinite(spec.LandEndDrop) ? MathF.Max(0f, spec.LandEndDrop) : RushSpec.DefaultLandEndDrop;
-        return -s.Velocity.Z + Eps >= MathF.Sqrt(2f * MathF.Max(0f, c.Gravity) * drop);
+        float g = MathF.Max(0f, c.Gravity), k = LedgeChargeAir.GravityScale(s, c);
+        if (k == 1f) return -s.Velocity.Z + Eps >= MathF.Sqrt(2f * g * drop);
+        // sim/ledge-charge-air (protocol 90): under the held charge's own gravity (k x g; Classic PvP 4) a tick-start speed says little about the height (2.67 m/s a tick at 30 Hz), so the rule reads the
+        // height fallen: the fall up to this tick from its vertical speed (from rest, per tick: v² / (2 k g) + |v| dt / 2) plus the landing tick's own drop, against the drop the protocol 89 rule needs in
+        // height terms (the 0.5 m plus the tick that the tick-start speed lags: d + √(2 g d) dt). Ours: measured in 0.01 m steps the charge ends from a 0.80 m drop (protocol 89: 0.77 m; LedgeChargeAirTests pins it).
+        float v = MathF.Max(0f, -s.Velocity.Z), dt = c.TickSeconds;
+        float fallen = (k * g > 0f ? v * v / (2f * k * g) : 0f) + v * dt * 0.5f + MathF.Max(0f, landingDrop);
+        return fallen + Eps >= drop + MathF.Sqrt(2f * g * drop) * dt;
     }
 
     /// <summary>
@@ -481,9 +489,12 @@ public static class Rush
             var right = new Vector2(forward.Y, -forward.X);
             delta = right * local.X + forward * local.Y;
         }
-        var next = Movement.Glide(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, c, world);
+        // sim/ledge-charge-air (protocol 90): a bull rush held in the air falls under LedgeChargeAir.GravityScale x gravity (Classic PvP: 4, so half the air time); its horizontal speed is unchanged.
+        float gravityScale = held ? LedgeChargeAir.GravityScale(s, c) : 1f;
+        var next = gravityScale != 1f ? Movement.Fly(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, s.Velocity.Z, c.Gravity * gravityScale, c, world)
+            : Movement.Glide(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, c, world);
         // feel/melee-charge-2 (protocol 42): a held charge that lands after a real fall ends here (no resumed clip, no wall stop on the landing tick).
-        if (held && next.Grounded && EndsOnLanding(s, spec, c)) return Landed(next, c);
+        if (held && next.Grounded && EndsOnLanding(s, spec, c, s.Position.Z - next.Position.Z)) return Landed(next, c);
         float wished = delta.Length();
         if (Charging(s.Rush) && spec is not null && world is not null && wished > 1e-4f && (s.RushTicks - 1) * dt + Eps >= spec.WallFrom)
         {

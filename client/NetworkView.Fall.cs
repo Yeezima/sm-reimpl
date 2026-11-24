@@ -46,7 +46,7 @@ public partial class NetworkView
         {
             if (!WaitFall && !WaitFallLand) return true;
             if (_client is null || !_loco.TryGetValue(_client.PlayerId, out var t)) return false;
-            return WaitFallLand ? t.Fall.LandHard && _connectedFor - t.Fall.LandAt is >= 0.1 and <= 0.25 : t.Fall.Falling && _connectedFor - t.Fall.FallSince >= 0.35;
+            return WaitFallLand ? t.Fall.LandHard && _connectedFor - t.Fall.LandAt is >= 0.1 and <= 0.25 : t.Fall.Falling && _connectedFor - t.FallRenderSince >= 0.35;
         }
     }
 
@@ -131,7 +131,10 @@ public partial class NetworkView
     /// </summary>
     void FallObserve(PlayerState s, LocoTrack t, bool own)
     {
-        double now = _connectedFor;
+        // sim/ledge-charge-air, answer 3 (owner 2026-11-23: "Keep landings like today"): a Classic ledge charge's fall is presented as the protocol 89 fall of the same height (LedgeChargeFallClock):
+        // its clock and vertical speed feed the fall pose's delays and the tracker (peak speed: hard landing, settle, camera dip; air time: landing feel). Identity for every other fall.
+        var ledge = LedgeFall(s);
+        double now = ledge.Now;
         if (NoFallPose || _config is null || FallData() is null) { t.Fall.Observe(now, false, true, 0f); return; }
         // sim/combat-pass (item 21), sim/ledge-charge-hop: a charge held in the air keeps its clip until it has been off the ground FallRules.ChargeFallDelay (0.4 s), then the fall pose, cross-faded over
         // FallRules.ChargeFallBlend. A roll or hop carried off a drop (sim/movement-fixes) keeps its own FallRules.EvadeFallDelay (0.3 s) and the usual blend.
@@ -141,13 +144,13 @@ public partial class NetworkView
         {
             if (double.IsNegativeInfinity(t.ChargeAirSince)) t.ChargeAirSince = now;
             if (!t.ChargeFall && (chargeHeld ? FallRules.ChargeShowsFall(now - t.ChargeAirSince) : FallRules.EvadeShowsFall(now - t.ChargeAirSince)))
-            { t.ChargeFall = true; t.ChargeFallAt = now; t.ChargeFallCharge = chargeHeld; }   // the charge's hand-over is cross-faded (ChargeFallFade)
+            { t.ChargeFall = true; t.ChargeFallAt = _connectedFor; t.ChargeFallCharge = chargeHeld; }   // the cross-fade runs on the render clock   // the charge's hand-over is cross-faded (ChargeFallFade)
         }
         bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && (!Evade.Evading(s) || t.ChargeFall)
                         && !(_jumpTracks.TryGetValue(s.PlayerId, out var jump) && jump.View != JumpView.None);
         var fall = t.Fall;
         // Animation pass 3: a charge held in the air off a ledge is a fall from its first frame (no debounce: a crest of stairs does not hold a charge), so its clip hands over to the fall pose at once.
-        var seen = fall.Observe(now, eligible, s.Grounded, s.Velocity.Z, immediate: !CharacterViewer.NoP3 && t.ChargeFall);
+        var seen = fall.Observe(now, eligible, s.Grounded, ledge.VerticalSpeed, immediate: !CharacterViewer.NoP3 && t.ChargeFall);
         if (fall.WasReset) t.LegsWeight = 0f;
         switch (seen)
         {
@@ -166,10 +169,11 @@ public partial class NetworkView
 
     void BeginFall(PlayerState s, LocoTrack t, bool own)
     {
+        t.FallRenderSince = _connectedFor;
         t.FallSet = FallSetOf(s);
         t.LandKeep = 1f;
         _fallsBegun++;
-        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(_connectedFor - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {(t.ChargeFallCharge ? FallRules.ChargeFallDelay : FallRules.EvadeFallDelay):0.#} s: the fall pose, not its clip" : "")})");
+        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(LedgeFall(s).Now - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {(t.ChargeFallCharge ? FallRules.ChargeFallDelay : FallRules.EvadeFallDelay):0.#} s: the fall pose, not its clip" : "")})");
     }
 
     /// <summary>The heavy bolter's states (<see cref="FallTracker.HeavyStep"/>): the drop clip from <see cref="FallSet.EnterHeight"/> above the ground, the landing clip from <see cref="FallSet.LandHeight"/> (reached before touchdown) or at touchdown.</summary>
@@ -249,7 +253,7 @@ public partial class NetworkView
         if (t.LegsWeight > 1e-3f)
         {
             // Animation pass 3: the weight on the smooth blend curve (CharacterViewer.Smooth), so the legs ease in and out instead of starting and stopping at full rate.
-            if (set.Legs is { } legs) character.SetLayer(PoseSlots.Fall, legs.Clip, (float)((now - t.Fall.FallSince) % Math.Max(legs.Length, 1e-3f)), CharacterViewer.Smooth(t.LegsWeight), false, legs.Mask);
+            if (set.Legs is { } legs) character.SetLayer(PoseSlots.Fall, legs.Clip, (float)((now - t.FallRenderSince) % Math.Max(legs.Length, 1e-3f)), CharacterViewer.Smooth(t.LegsWeight), false, legs.Mask);
             else if (set.Drop is { } drop) character.SetLayer(PoseSlots.Fall, drop.Clip, (float)(now - t.Fall.DropSince), CharacterViewer.Smooth(t.LegsWeight), false, null);
         }
         // The landing clip: blends in, holds to the exit branch, blends out; a marine on the move keeps less of it.
@@ -304,6 +308,18 @@ public partial class NetworkView
     /// attack's lunge held in the air (<see cref="Rush.Held"/>: off a ledge, its clip time waiting until it lands) shows the fall pose instead of its clip frozen at the time it
     /// left the ground; on landing the clip resumes as before. The simulation is not touched. <c>--no-fall-pose</c> keeps the old frozen clip.
     /// </summary>
+    /// <summary>sim/ledge-charge-air, answer 3: each drawn player's presentation clock for a Classic ledge charge's fall (fed once per frame; the fall pose and the landing sound read it).</summary>
+    readonly Dictionary<int, LedgeChargeFallClock> _ledgeFalls = new();
+
+    LedgeChargeFallClock LedgeFall(PlayerState s)
+    {
+        if (!_ledgeFalls.TryGetValue(s.PlayerId, out var clock)) _ledgeFalls[s.PlayerId] = clock = new LedgeChargeFallClock();
+        // the height only for a fall the clock is mapping (a ledge charge that just ended in the air, the frame it ends included), once a frame
+        bool wantsHeight = !clock.Fed(_connectedFor) && clock.Mapping && s.Alive && !s.Grounded && s.Rush == RushPhase.None;
+        clock.Feed(_connectedFor, s, _config, wantsHeight ? HeightAboveGround(s) : float.NaN);
+        return clock;
+    }
+
     bool ChargeHeldInAir(PlayerState s) =>
         !NoFallPose && s.Alive && !s.Grounded && s.Rush is RushPhase.Rush or RushPhase.DashAttack && _config is not null && Rush.MoveOf(_config, s) is { } move && Rush.Held(s, move, _config);
 
