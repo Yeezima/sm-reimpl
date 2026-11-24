@@ -169,6 +169,7 @@ public partial class NetworkView
             _wxPinRead = true;   // test aids (client only, F6 developer-tools session only; weather fix 2): read once, acted on only while WeatherAidsGate
             if (CmdArg("weather-shelter-test") is { } forced && double.TryParse(forced, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double period) && period >= 1) _wxReqCover = period;
             _wxReqPerf = CmdFlag("weather-perf-live");
+            _wxReqDensity = CmdFlag("weather-density");
             if (CmdArg("storm-lightning") is { } sl)   // repair 3 test aid: the Storm lightning option for this run only (the saved setting is not touched)
             {
                 string k = sl.Trim().ToLowerInvariant();
@@ -230,6 +231,7 @@ public partial class NetworkView
                 _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
                 _wxRig.StepTrim(delta);
                 Vector3? leadFrom = _wxSlideHas || _gameSpace is null ? null : _gameSpace.GlobalTransform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);   // the player's place; the camera while the wxslide aid moves it alone
+                WeatherDensityLog(delta);   // before the update: the layers and the camera as the last frame drew them
                 _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero, _wxGroundY, leadFrom);
                 WeatherInstallSounds(st, intensity);
             }
@@ -239,6 +241,27 @@ public partial class NetworkView
         WeatherThunderFadeFrame(st.Id);
         shelterRan = WeatherBedFrame(me, delta, shelterRan);
         WeatherStormFrame(me, delta, st, shelterRan);
+    }
+
+    bool _wxReqDensity;
+    double _wxDensityAt, _wxDensityClock;
+    Vector3 _wxDensityCam;
+    bool _wxDensityHas;
+
+    /// <summary>
+    /// Rain motion (series 37) test aid, <c>--weather-density</c> (F6 developer-tools session only, like the W5 aids): every 0.1 s a <c>weather density:</c> line with the session time, the camera's place and velocity (m/s, Godot axes, y up)
+    /// and the live drops of the near rain, far rain and ash grit within <see cref="WeatherRig.DensityRadiusM"/> m of the camera, read from the renderer's instance buffers.
+    /// </summary>
+    void WeatherDensityLog(double delta)
+    {
+        if (!_wxReqDensity || !_wxAidsGate || _wxRig is null || _camera is null) { _wxDensityHas = false; return; }
+        _wxDensityClock += delta;
+        if (_wxDensityClock - _wxDensityAt < 0.1) return;
+        var cam = _wxRig.GlobalPosition;   // the camera the rig followed last frame
+        var v = _wxDensityHas ? (cam - _wxDensityCam) / (float)(_wxDensityClock - _wxDensityAt) : Vector3.Zero;
+        _wxDensityAt = _wxDensityClock; _wxDensityCam = cam; _wxDensityHas = true;
+        var (near, far, grit) = _wxRig.DensityAround();
+        GD.Print($"weather density: t={_connectedFor:F2} cam ({cam.X:F1}, {cam.Y:F1}, {cam.Z:F1}) v ({v.X:F1}, {v.Y:F1}, {v.Z:F1}) near {near} far {far} grit {grit} within {WeatherRig.DensityRadiusM:0} m");
     }
 
     bool _wxBedShelter;

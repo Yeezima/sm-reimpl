@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4094 spec table rows: **3025 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
+| Movement (critical) | 422 | 363 | 359 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -51,20 +51,20 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 170 | 169 | 57 | 74 | 0 |
+| General game design | 175 | 174 | 57 | 78 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3025** | 2717 | 2216 | 918 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
+| kind: ours | 1833 |
 | confidence: low | 1068 |
 | confidence: medium | 1037 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
-| notes: estimate | 306 |
+| notes: estimate | 311 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (421)
+### Movement (gameplay-critical) (422)
 
 *Spec section: Extracted parameters*
 
@@ -844,6 +844,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0A7A43D6` | Rain coverage at speed | the near emitter (13 m up) and the far one (16 m up, box mode only) lead the camera by its smoothed ground velocity times a drop's fall time to eye level (0.52 s, 0.70 s), the splashes by 0.15 s; velocity smoothing 0.12 s, capped at 30 m/s, reset by a step… (s, m/s) | kind: ours; confidence: medium | owner brief item 4 (repro: a dry gap at fast sideways movement) | Rain coverage at speed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the near emitter (13 m up) and the far one (16 m up, box mode only)… | ☐ |
+
+*Spec section: Weather rain motion (series 37; owner after playtesting d4db1299: "The rain droplets still thin out or disappear if the player quickly moves laterally or up or down."; presentation only, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-788A9538` | Wrapped precipitation field (supersedes "Rain coverage at speed" for the rain, and the emitters of… | each layer is a fixed set of drops (seeded, uniform in its box) at world points that repeat every box on each axis; each frame the field moves by its velocity times the real frame (at most 0.25 s), and each drop is drawn at its copy inside the box centred on… (m, s) | kind: ours; notes: estimate | the owner's report; the method ours | Wrapped precipitation field (supersedes "Rain coverage at…: compare with SM1 by feel or video. Ours: each layer is a fixed set of drops (seeded, uniform in its box) at… | ☐ |
 
 ### Combat core (gameplay-critical) (24)
 
@@ -4316,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (170)
+### General game design (175)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4523,6 +4529,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F4AEDA20` | Repair 2: lull pin and look aid | `--weather-pin lull` / `wxpin:lull` hold the drawn clock at the end of the recovery (each preset's lull, still); `full` is the peak; `wxlook:<deg>` holds the camera's pitch; F6 developer-tools sessions only, client only | kind: ours | lead request | Repair 2: lull pin and look aid: compare with SM1 by feel or video. Ours: --weather-pin lull / wxpin:lull hold the drawn clock at the end of… | ☐ |
 | `R-114666E3` | Repair 3: strike pin and flash log | `--weather-pin strike` / `wxpin:strike` (F6 developer-tools sessions only, client only, a Thunderstorm only): the drawn clock loops over 4 s from 1 s before the first scheduled strike of the storm's peak (the span applied), so the same real strike recurs… (s) | kind: ours | lead request (tester round 3: the reduced/full comparison was inconclusive) | Repair 3: strike pin and flash log: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: --weather-pin strike / wxpin:strike (F6 developer-tools sessions… | ☐ |
 | `R-2F82605D` | Wet ground | there is no wet-surface material in the build: the "wet ground" the owner liked is the splashes, mist and the darker grade, all kept | kind: ours | source audit 2026-11-23 | Wet ground: compare with SM1 by feel or video. Ours: there is no wet-surface material in the build: the "wet ground" the… | ☐ |
+
+*Spec section: Weather rain motion (series 37; owner after playtesting d4db1299: "The rain droplets still thin out or disappear if the player quickly moves laterally or up or down."; presentation only, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EFB43871` | Rain fields | near: box 24 x 24 x 24 m centred 1 m over the camera (13 m over to 11 m under, the column the old near drops fell through), falling at 25 m/s along the wind's lean; far: 80 x 28 x 80 m centred 2 m over (16 m over to 12 m under), 23 m/s (the means of the old… (m, m/s) | kind: ours; notes: estimate | the old emitters' columns | Rain fields: compare with SM1 by timing a run over a known distance. Ours: near: box 24 x 24 x 24 m centred 1 m over the camera (13 m over to 11… | ☐ |
+| `R-A6C1EDCB` | Far ring under cover | the W4 ring (no far drop within 14 m of the player, none beyond 44 m) is the far field's own fade in the shader (a 2 m soft edge each side) instead of a ring emitter (m) | kind: ours; notes: estimate | W4 values kept | Far ring under cover: compare with SM1 by measuring on a flat spot of the same map. Ours: the W4 ring (no far drop within 14 m of the player, none beyond 44 m)… | ☐ |
+| `R-4B922451` | Ash Squall grit field (supersedes the band of "Repair 2: Ash Squall grit") | box 27 x 4.4 x 27 m centred 0.2 m under the camera (the old band was 22 m wide, but only about 0.6 of a life's grains were beside the player at once; (22 / 27)^2 = 0.66 keeps that density with every grain shown), moving along the wind at (8 + 10 x wind) m/s… (m, m/s) | kind: ours; notes: estimate | repair 2's look kept | Ash Squall grit field (supersedes the band of "Repair 2:…: compare with SM1 by timing a run over a known distance. Ours: box 27 x 4.4 x 27 m centred 0.2 m under the camera (the old band was… | ☐ |
+| `R-BEDCF48B` | Soft flakes and embers | flakes: the old 24 x 6 x 24 m box centred 0.5 m over the camera, along the wind at 0.93 x (4 + 8 x wind) m/s and sinking 0.5 m/s; embers: the old 44 x 10 x 44 m box centred 1.5 m over, at (2.5 + 4 x wind) m/s along the wind leaned up 0.25 plus 0.5 m/s lift… (m, m/s, s) | kind: ours; notes: estimate | the old emitters | Soft flakes and embers: compare with SM1 by timing a run over a known distance. Ours: flakes: the old 24 x 6 x 24 m box centred 0.5 m over the camera… | ☐ |
+| `R-38CAC2DB` | Splashes and mist | unchanged CPU emitters on the ground under the player (the splashes keep their 0.15 s lead on the camera's ground velocity; the series 36 velocity tracking now serves only them) | kind: ours | - | Splashes and mist: compare with SM1 by feel or video. Ours: unchanged CPU emitters on the ground under the player (the splashes… | ☐ |
 
 *Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*
 
@@ -6618,6 +6634,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-461D9CF6` | Test aids (W5; weather fix 2 gate) | Weather (W5: the Warfront wind bed under a roof, real-map evidence; added content; owner 2026-11-21; presentation only) |
 | `R-29325834` | Test aid | Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only) |
 | `R-39A6A17F` | Versions | Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only) |
+| `R-4B842E67` | Test aids | Weather rain motion (series 37; owner after playtesting d4db1299: "The rain droplets still thin out or disappear if the player quickly moves laterally or up or down."; presentation only, client only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
 

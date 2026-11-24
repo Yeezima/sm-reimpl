@@ -10,9 +10,11 @@ namespace SmClient.Extras.Weather;
 /// </summary>
 public sealed partial class WeatherRig
 {
-    CpuParticles3D? _ashWarn, _ashMain, _embers;
-    StandardMaterial3D? _ashWarnMaterial, _emberMaterial, _glowMaterial;
-    ShaderMaterial? _ashMainMaterial;
+    WeatherField? _ashWarn, _ashMain, _embers;   // rain motion (series 37): wrapped world fields like the rain
+    StandardMaterial3D? _glowMaterial;
+    ShaderMaterial? _ashMainMaterial => _ashMain?.Material;
+    ShaderMaterial? _ashWarnMaterial => _ashWarn?.Material;
+    ShaderMaterial? _emberMaterial => _embers?.Material;
     MeshInstance3D? _glow;
     AudioStreamPlayer? _wind;
     CanvasLayer? _warnLayer;
@@ -54,10 +56,9 @@ public sealed partial class WeatherRig
             if (embersOn)
             {
                 float speed = 2.5f + 4f * wind;
-                _embers.Direction = windDir + Vector3.Up * 0.25f;
-                _embers.InitialVelocityMin = speed * 0.8f;
-                _embers.InitialVelocityMax = speed * 1.2f;
-                if (_emberMaterial is not null) _emberMaterial.AlbedoColor = new Color(1f, 0.62f, 0.25f, (0.55f + 0.45f * ember) * near);
+                _embers.Velocity = (windDir + Vector3.Up * 0.25f).Normalized() * speed + Vector3.Up * 0.5f;   // the old emitter's direction and speed, and half a second of its 0.25 m/s2 lift
+                _embers.Advance(RealDt);
+                _emberMaterial?.SetShaderParameter("tint", new Color(1f, 0.62f, 0.25f, (0.55f + 0.45f * ember) * near));
             }
         }
 
@@ -158,35 +159,21 @@ public sealed partial class WeatherRig
     public const float AshR = 0.62f, AshG = 0.56f, AshB = 0.47f, AshFleckM = 0.16f, AshNearFadeM = 0.6f, AshNearFullM = 2.5f;
     /// <summary>
     /// Repair 2 (the second attempt: 800 then 1300 soft dots drifting through a 32 m box read as a handful of specks on Manufactorum): the squall's body is wind-driven grit, streaks along the wind drawn with the rain's axial streak
-    /// shader (each streak the grit's speed times a short shutter, so even a far one is a visible line), emitted <see cref="GritUpwindShare"/> of a life upwind in a narrow street-level band so the whole life is spent crossing the
+    /// shader (each streak the grit's speed times a short shutter, so even a far one is a visible line), emitted half a life upwind in a narrow street-level band (rain motion, series 37: now a wrapped world field round the camera, below) so the whole life is spent crossing the
     /// player's surroundings instead of leaving them. Width and length of a streak (m), the band's half-width, half-height and its middle's height over the camera (m), the life (s).
     /// </summary>
-    public const float GritWidthM = 0.035f, GritLengthM = 0.5f, GritHalfWidthM = 11f, GritHalfHeightM = 2.2f, GritMidOverCameraM = -0.2f, GritLifeSeconds = 2.0f, GritUpwindShare = 0.5f;
+    public const float GritWidthM = 0.035f, GritLengthM = 0.5f, GritHalfHeightM = 2.2f, GritMidOverCameraM = -0.2f;
+    /// <summary>
+    /// Rain motion (series 37): the grit's band round the camera is a wrapped world field (<see cref="WeatherField"/>) <see cref="GritHalfWidthM"/> to each side (repair 2's emitter: 11 m, its grains crossing it in about 2 s, so about 0.6
+    /// of a life's grains were beside the player at once; the wider field keeps that density with every grain shown: (11 / 13.5)^2 = 0.66).
+    /// </summary>
+    public const float GritHalfWidthM = 13.5f;
 
-    CpuParticles3D BuildGrit(int amount)
+    WeatherField BuildGrit(int amount)
     {
-        _ashMainMaterial = RainMaterial(new Color(AshR, AshG, AshB, 0.6f), 1.0f);
-        var p = new CpuParticles3D
-        {
-            Name = "AshSquall",
-            Amount = amount,
-            Lifetime = GritLifeSeconds,
-            Preprocess = GritLifeSeconds,   // full at once
-            LocalCoords = false,
-            EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(GritHalfWidthM, GritHalfHeightM, GritHalfWidthM),
-            Direction = new Vector3(1f, -0.04f, 0f),
-            Spread = 6f,
-            Gravity = new Vector3(0f, -0.5f, 0f),
-            InitialVelocityMin = 10f,
-            InitialVelocityMax = 16f,
-            ScaleAmountMin = 0.6f,
-            ScaleAmountMax = 1.4f,
-            Mesh = new QuadMesh { Size = new Vector2(GritWidthM, GritLengthM), Material = _ashMainMaterial },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            VisibilityAabb = new Aabb(new Vector3(-60f, -10f, -60f), new Vector3(120f, 24f, 120f)),
-            Emitting = false,
-        };
+        var p = new WeatherField("AshSquall", WeatherField.Kind.Streak, Capacity(AshCount, AshMainFloor), amount, new Vector3(GritHalfWidthM * 2f, GritHalfHeightM * 2f, GritHalfWidthM * 2f), new Vector2(GritWidthM, GritLengthM), 0.6f, 1.4f, 1.0f, 0f, 0x6A11)
+        { Position = new Vector3(0f, GritMidOverCameraM, 0f) };
+        SetStreak(p.Material, new Vector3(1f, -0.04f, 0f), new Color(AshR, AshG, AshB), 0.6f);
         AddChild(p);
         return p;
     }
@@ -198,52 +185,23 @@ public sealed partial class WeatherRig
         if (!on) return;
         float speed = 8f + 10f * wind;   // a squall's grit outruns the flakes
         var dir = new Vector3(windDir.X, -0.04f, windDir.Z);
-        _ashMain.Direction = dir;
-        _ashMain.InitialVelocityMin = speed * 0.8f;
-        _ashMain.InitialVelocityMax = speed * 1.2f;
-        _ashMain.Position = new Vector3(0f, GritMidOverCameraM, 0f) - windDir * (speed * GritLifeSeconds * GritUpwindShare);   // emitted upwind: half way through its life a grain is beside the player
+        _ashMain.Velocity = dir.Normalized() * speed - new Vector3(0f, 0.5f, 0f);   // along the wind, sinking a little (the old emitter's 0.5 m/s2 over its life)
+        _ashMain.Advance(RealDt);
         SetStreak(_ashMainMaterial, dir, new Color(AshR, AshG, AshB), (0.38f + 0.37f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
     }
 
     /// <summary>The grit streaks' alpha now (selftest).</summary>
     public float GritAlpha => _ashMainMaterial?.GetShaderParameter("tint").AsColor().A ?? 0f;
 
-    CpuParticles3D BuildFlakes(int amount)
+    /// <summary>Rain motion (series 37): the soft flakes' and the embers' wrapped boxes round the camera (m, full size; the old emitters' boxes) and their middles' heights over the camera (m).</summary>
+    public static readonly Vector3 FlakeBox = new(24f, 6f, 24f), EmberBox = new(44f, 10f, 44f);
+    public const float FlakeMidM = 0.5f, EmberMidM = 1.5f;
+
+    WeatherField BuildFlakes(int amount)
     {
-        _ashWarnMaterial = new StandardMaterial3D
-        {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            AlbedoColor = new Color(AshR, AshG, AshB, 0.7f),
-            DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha,
-            DistanceFadeMinDistance = AshNearFadeM,
-            DistanceFadeMaxDistance = AshNearFullM,
-            AlbedoTexture = SoftDot(),
-            DisableFog = false,
-        };
-        var p = new CpuParticles3D
-        {
-            Name = "AshWarning",
-            Amount = amount,
-            Lifetime = 3.0,
-            Preprocess = 3.0,
-            LocalCoords = false,
-            EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(12f, 3f, 12f),
-            Direction = new Vector3(1f, -0.02f, 0f),
-            Spread = 10f,
-            Gravity = new Vector3(0f, -0.35f, 0f),
-            InitialVelocityMin = 4f,
-            InitialVelocityMax = 8f,
-            ScaleAmountMin = 0.5f,
-            ScaleAmountMax = 1.5f,
-            Mesh = new QuadMesh { Size = new Vector2(AshFleckM, AshFleckM), Material = _ashWarnMaterial },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            VisibilityAabb = new Aabb(new Vector3(-50f, -10f, -50f), new Vector3(100f, 24f, 100f)),
-            Emitting = false,
-        };
+        var p = new WeatherField("AshWarning", WeatherField.Kind.Dot, Capacity(AshCount / 5, AshWarnFloor), amount, FlakeBox, new Vector2(AshFleckM, AshFleckM), 0.5f, 1.5f, AshNearFadeM, AshNearFullM, 0x6A12)
+        { Position = new Vector3(0f, FlakeMidM, 0f) };
+        p.Material.SetShaderParameter("tint", new Color(AshR, AshG, AshB, 0.7f));
         AddChild(p);
         return p;
     }
@@ -254,53 +212,16 @@ public sealed partial class WeatherRig
         _ashWarn.Emitting = on;
         if (!on) return;
         float speed = 4f + 8f * wind;
-        _ashWarn.Direction = new Vector3(windDir.X, -0.02f, windDir.Z);
-        _ashWarn.InitialVelocityMin = speed * 0.7f;
-        _ashWarn.InitialVelocityMax = speed * 1.15f;
-        _ashWarn.Position = new Vector3(0f, 0.5f, 0f) - windDir * (speed * 1.5f);   // upwind by half a life too
-        if (_ashWarnMaterial is not null) _ashWarnMaterial.AlbedoColor = new Color(AshR, AshG, AshB, (0.5f + 0.35f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
+        _ashWarn.Velocity = new Vector3(windDir.X, -0.02f, windDir.Z).Normalized() * (speed * 0.93f) - new Vector3(0f, 0.5f, 0f);   // the old emitter's mean speed (0.7 to 1.15 of it) and its slow sink
+        _ashWarn.Advance(RealDt);
+        _ashWarnMaterial?.SetShaderParameter("tint", new Color(AshR, AshG, AshB, (0.5f + 0.35f * Math.Clamp(share, 0f, 1f)) * nearAlpha));
     }
 
-    CpuParticles3D BuildEmbers()
+    WeatherField BuildEmbers()
     {
-        _emberMaterial = new StandardMaterial3D
-        {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
-            BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            AlbedoColor = new Color(1f, 0.62f, 0.25f, 0.8f),
-            AlbedoTexture = SoftDot(),
-            VertexColorUseAsAlbedo = true,
-            DisableFog = true,
-        };
-        var ramp = new Gradient();
-        ramp.SetColor(0, new Color(1f, 0.85f, 0.45f, 1f));
-        ramp.SetColor(1, new Color(0.9f, 0.18f, 0.04f, 0f));
-        var p = new CpuParticles3D
-        {
-            Name = "Embers",
-            Amount = Count(EmberCount, EmberFloor),   // sparse on purpose: about 4 in 100 m3 at High
-            Lifetime = 4.0,
-            Preprocess = 4.0,
-            LocalCoords = false,
-            EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(22f, 5f, 22f),
-            Direction = new Vector3(1f, 0.25f, 0f),
-            Spread = 18f,
-            Gravity = new Vector3(0f, 0.25f, 0f),
-            InitialVelocityMin = 3f,
-            InitialVelocityMax = 5f,
-            ScaleAmountMin = 0.5f,
-            ScaleAmountMax = 1.4f,
-            ColorRamp = ramp,
-            Mesh = new QuadMesh { Size = new Vector2(0.16f, 0.16f), Material = _emberMaterial },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            Position = new Vector3(0f, 1.5f, 0f),
-            VisibilityAabb = new Aabb(new Vector3(-40f, -10f, -40f), new Vector3(80f, 24f, 80f)),
-            Emitting = false,
-        };
+        var p = new WeatherField("Embers", WeatherField.Kind.Ember, Capacity(EmberCount, EmberFloor), Count(EmberCount, EmberFloor), EmberBox, new Vector2(0.16f, 0.16f), 0.5f, 1.4f, 0.01f, 0f, 0x6A13)   // sparse on purpose: about 4 in 100 m3 at High
+        { Position = new Vector3(0f, EmberMidM, 0f) };
+        p.Material.SetShaderParameter("tint", new Color(1f, 0.62f, 0.25f, 0.8f));
         AddChild(p);
         return p;
     }
