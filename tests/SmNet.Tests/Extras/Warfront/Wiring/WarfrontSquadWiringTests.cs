@@ -209,8 +209,11 @@ public class WarfrontSquadWiringTests
     public void A_retainer_deals_base_player_damage_without_the_human_only_scales_and_its_kill_pays_the_owner_once_and_never_the_ledgers_kills()
     {
         Assert.False(WarfrontRetainerRules.HumanOnlyScales);   // owner 2026-11-25: "Base player damage only"
+        Assert.False(WarfrontRetainerRules.CleaveBonus);   // nor Warfront's wider cleave (lead 38, series-37 plan "Lead notes on T2")
         var r = Rig.Make(marines: 2);
         int id = r.IdOf(1, 0);
+        Assert.False(r.W.WarfrontCleaveBonus(id));   // a retainer swings with the class's own reach
+        Assert.True(r.W.WarfrontCleaveBonus(1));     // its owner keeps the x1.2
         int points = r.W.Musou!.Rules.Of(MusouEnemyType.Boy).Points;
         long xp = r.Xp(1);
         r.Stand(1);

@@ -17,6 +17,12 @@ public static class WarfrontRetainerRules
     /// </summary>
     public const bool HumanOnlyScales = false;
 
+    /// <summary>
+    /// Owner 2026-11-25 (a), "Base player damage only", which lists "wider cleave" among the human-only bonuses: a retainer gets none of Warfront's own cleave bonus (the x1.2 reach, x1.4 for a Dreadnought, the uncapped
+    /// targets and the body slack of <c>World.WarfrontCleave</c>), superseding the 2026-11-18 "players and their retainers" rule for retainers only (lead 38, series-37 plan "Lead notes on T2"). True restores it. Kind: owner; confidence: stated.
+    /// </summary>
+    public const bool CleaveBonus = false;
+
     /// <summary>Owner 2026-11-25 (b): a retainer's melee stuns a boss as a human's does (an AI Marine's never does). False restores the AI Marines' rule. Kind: owner (our reading of "retainers ARE stunned by bosses").</summary>
     public const bool StunsBosses = true;
 
