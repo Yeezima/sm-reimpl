@@ -55,7 +55,8 @@ public class WarfrontSquadWiringTests
             var r = new Rig { W = w, Rules = rules };
             r.Wi = new WarfrontSquadWiring(w, rules, rules.Progression.Campaign, 7UL);
             r.Wi.StepAboard();
-            for (int id = 1; id <= humans; id++) for (int k = 1; k < marines; k++) Assert.True(r.Wi.ClassBook.Recruit((ulong)id));
+            // a run holds two Marines per player (owner 2026-11-23, card 2); the rig sets the count it wants as a bench fills the capacity, each Marine in the first one's loadout
+            for (int id = 1; id <= humans; id++) if (r.Wi.Rosters.Has((ulong)id)) r.Wi.Rosters.Conform((ulong)id, marines);
             if (deploy) r.Deploy();
             return r;
         }
@@ -414,27 +415,21 @@ public class WarfrontSquadWiringTests
     }
 
     [Fact]
-    public void A_Retainer_card_pick_makes_one_recruit_and_a_save_and_load_keeps_the_roster_size_and_at_nine_the_card_is_not_offered()
+    public void A_retired_Retainer_card_recruits_nobody_and_a_save_and_load_keeps_two_and_no_offer_holds_it()
     {
-        var r = Rig.Make(deploy: false);
-        Assert.True(r.Rt.TryPick(1, 0, 0) || true);   // no offer standing: refused, nothing recruited
-        int before = r.Wi.Rosters.Count(1);
-        Assert.True(before >= 1);
-        // one pick of a Retainer card, as the picker reports it
-        r.Rt.Picked!(new WarfrontPickResult(1, 0, 0, WarfrontCard.Retainer, false));
-        Assert.Equal(before + 1, r.Wi.Rosters.Count(1));
+        // owner 2026-11-23, card 2: every player always has two retainers; the Retainer card is gone
+        var r = Rig.Make(marines: 2, deploy: false);
+        Assert.Equal(2, r.Wi.Rosters.Count(1));
+        r.Rt.Picked!(new WarfrontPickResult(1, 0, 0, WarfrontCard.Retainer, false));   // a stale Retainer pick, as an old picker could report it
+        Assert.Equal(2, r.Wi.Rosters.Count(1));
         r.Rt.Picked!(new WarfrontPickResult(1, 1, 1, WarfrontCard.Damage, false));
-        Assert.Equal(before + 1, r.Wi.Rosters.Count(1));   // another card: no recruit
+        Assert.Equal(2, r.Wi.Rosters.Count(1));
         var save = r.Wi.Export();
         var r2 = Rig.Make(deploy: false);
         r2.Wi.Import(save);
-        Assert.Equal(before + 1, r2.Wi.Rosters.Count(1));   // a reload recruits nobody
         r2.Wi.StepAboard();
-        Assert.Equal(before + 1, r2.Wi.Rosters.Count(1));
-        for (int k = r2.Wi.Rosters.Count(1); k < SquadRules.MaxPerPlayer; k++) r2.Rt.Picked!(new WarfrontPickResult(1, k, 0, WarfrontCard.Retainer, false));
-        Assert.Equal(SquadRules.MaxPerPlayer, r2.Rt.RosterSizeOf(1));
-        r2.Rt.Picked!(new WarfrontPickResult(1, 99, 0, WarfrontCard.Retainer, false));
-        Assert.Equal(SquadRules.MaxPerPlayer, r2.Wi.Rosters.Count(1));   // never past nine
+        Assert.Equal(2, r2.Wi.Rosters.Count(1));
+        Assert.DoesNotContain(WarfrontCard.Retainer, WarfrontOffers.Roll(7, 1, 0, WarfrontOffers.RetainerEligible(r2.Rt.RosterSizeOf(1), false)));
     }
 
     [Fact]
@@ -462,78 +457,80 @@ public class WarfrontSquadWiringTests
     [Fact]
     public void A_loadout_change_aboard_follows_to_every_Marine_keeping_names_and_records_and_a_Dreadnought_holds_the_roster()
     {
-        var r = Rig.Make(marines: 3, deploy: false);
-        var names = Enumerable.Range(0, 3).Select(s => r.Wi.Rosters.Marine(1, s)!.Name).ToArray();
+        var r = Rig.Make(marines: 2, deploy: false);
+        var names = Enumerable.Range(0, 2).Select(s => r.Wi.Rosters.Marine(1, s)!.Name).ToArray();
         r.Wi.Rosters.Marine(1, 1)!.Record.Kills = 7;
         string tactical = r.Wi.Rosters.Marine(1, 0)!.Loadout.ClassId;
         r.W.Spawn(1, 1);   // an Assault marine
         r.Wi.StepAboard();
-        for (int s = 0; s < 3; s++)
+        for (int s = 0; s < 2; s++)
         {
             Assert.NotEqual(tactical, r.Wi.Rosters.Marine(1, s)!.Loadout.ClassId);
             Assert.Equal(names[s], r.Wi.Rosters.Marine(1, s)!.Name);
         }
         Assert.Equal(7, r.Wi.Rosters.Marine(1, 1)!.Record.Kills);
+        Assert.NotNull(r.Wi.Rosters.Marine(1, 0)!.Loadout.Jump);   // the Assault's pack
         r.Deploy();
         Assert.Equal(r.W.Config.Classes[1].Name, r.W.Config.Classes[r.Body(1, 0).Class].Name);   // the World player wears the roster's class
 
-        var d = Rig.Make(marines: 3, deploy: false);
+        var d = Rig.Make(marines: 2, deploy: false);
         d.W.Spawn(1, DreadnoughtClass);
         d.Wi.StepAboard();
         Assert.True(d.Wi.Rosters.IsHeld(1));
-        Assert.Equal(3, d.Wi.Rosters.Count(1));
+        Assert.Equal(2, d.Wi.Rosters.Count(1));
         d.Deploy();
         Assert.Equal(0, d.Standing(1));   // the next battle lands nobody
 
-        var back = Rig.Make(marines: 3, deploy: false);
+        var back = Rig.Make(marines: 2, deploy: false);
         back.W.Spawn(1, DreadnoughtClass); back.Wi.StepAboard();
         back.W.Spawn(1, 0); back.Wi.StepAboard();
         Assert.False(back.Wi.Rosters.IsHeld(1));   // back to Tactical releases it
         back.Deploy();
-        Assert.Equal(3, back.Standing(1));
+        Assert.Equal(2, back.Standing(1));
     }
 
     [Fact]
-    public void A_Dreadnought_first_player_gets_exactly_one_free_Marine_once_also_across_a_save()
+    public void A_Dreadnought_first_player_has_two_held_Marines_and_two_after_the_switch_also_across_a_save()
     {
+        // owner 2026-11-23, card 2: two retainers always, none in the field for a Dreadnought; the free retainer is retired
         var d = Rig.Make(deploy: false);
         d.Wi.Reset();
         d.W.Spawn(1, DreadnoughtClass);
         d.Wi.StepAboard();
-        Assert.Equal(0, d.Wi.Rosters.Count(1));
+        Assert.Equal(2, d.Wi.Rosters.Count(1));
+        Assert.True(d.Wi.Rosters.IsHeld(1));
         d.W.Spawn(1, 0);
         d.Wi.StepAboard();
-        int free = d.Wi.Rosters.Count(1);
-        Assert.True(free >= 1);   // the free roster, once
+        Assert.Equal(2, d.Wi.Rosters.Count(1));
+        Assert.False(d.Wi.Rosters.IsHeld(1));
         d.W.Spawn(1, DreadnoughtClass); d.Wi.StepAboard();
         d.W.Spawn(1, 0); d.Wi.StepAboard();
-        Assert.Equal(free, d.Wi.Rosters.Count(1));
+        Assert.Equal(2, d.Wi.Rosters.Count(1));
         var save = d.Wi.Export();
         var e = Rig.Make(deploy: false);
         e.Wi.Import(save);
         e.W.Spawn(1, DreadnoughtClass); e.Wi.StepAboard();
         e.W.Spawn(1, 0); e.Wi.StepAboard();
-        Assert.Equal(free, e.Wi.Rosters.Count(1));   // the same after the save
+        Assert.Equal(2, e.Wi.Rosters.Count(1));
     }
 
     [Fact]
-    public void The_Librarian_squad_class_rerolls_once_and_the_same_class_again_changes_nothing()
+    public void A_Librarians_two_retainers_roll_their_own_classes_and_the_squad_class_option_changes_nothing()
     {
+        // the retainer brief (2026-11-23): each retainer rolls Tactical, Assault or Devastator (was one uniform roll of the chosen class)
         var cfg = Cfg();
         var lib = cfg.Classes[0] with { Name = LibrarianRules.ClassName, Role = "librarian" };
         cfg = cfg with { Classes = [.. cfg.Classes, lib] };
         int librarian = cfg.Classes.Count - 1;
-        var r = Rig.Make(marines: 3, deploy: false, config: cfg);
+        var r = Rig.Make(marines: 2, deploy: false, config: cfg);
         r.W.Spawn(1, librarian);
         r.Wi.StepAboard();
-        var tactical = Enumerable.Range(0, 3).Select(s => r.Wi.Rosters.Marine(1, s)!.Loadout).ToArray();
-        r.Wi.SetSquadClass(1, SquadClass.Assault);
-        var assault = Enumerable.Range(0, 3).Select(s => r.Wi.Rosters.Marine(1, s)!.Loadout).ToArray();
-        Assert.All(assault, l => Assert.NotNull(l.Jump));
-        Assert.NotEqual(tactical[0].ClassId, assault[0].ClassId);
-        r.Wi.SetSquadClass(1, SquadClass.Assault);   // the same class again
-        for (int s = 0; s < 3; s++) { var now = r.Wi.Rosters.Marine(1, s)!.Loadout; Assert.Equal((assault[s].ClassId, assault[s].Primary, assault[s].Melee, assault[s].HealthMax), (now.ClassId, now.Primary, now.Melee, now.HealthMax)); Assert.True(assault[s].Perks.SequenceEqual(now.Perks)); }
-        Assert.Equal(SquadClass.Assault, r.Wi.Export().Picks.Single().Class);
+        Assert.Equal(2, r.Wi.Rosters.Count(1));
+        var rolled = Enumerable.Range(0, 2).Select(s => r.Wi.Rosters.Marine(1, s)!.Loadout).ToArray();
+        for (int s = 0; s < 2; s++)
+            Assert.Equal(SquadClassRules.RoleOf(SquadClassBook.LibrarianClassOf(7UL, 1, s)), cfg.Classes.First(c => c.Name == rolled[s].ClassId).Role);
+        r.Wi.SetSquadClass(1, SquadClass.Assault);   // the old option: stored, never read for the roll
+        for (int s = 0; s < 2; s++) { var now = r.Wi.Rosters.Marine(1, s)!.Loadout; Assert.Equal((rolled[s].ClassId, rolled[s].Primary, rolled[s].Melee, rolled[s].HealthMax), (now.ClassId, now.Primary, now.Melee, now.HealthMax)); Assert.True(rolled[s].Perks.SequenceEqual(now.Perks)); }
     }
 
     // ---- late landing, leaving, saving ----------------------------------------------------------------------------------------------
@@ -548,9 +545,7 @@ public class WarfrontSquadWiringTests
         r.W.Spawn(2, r.W.AssignClass(0));   // joins while the battle is under way: flown in
         r.Stand(60);
         Assert.True(r.Rt.TryKey(2, out _));
-        int squad2 = r.Wi.Rosters.Count(2);
-        Assert.True(squad2 >= 1);
-        Assert.Equal(squad2, r.Standing(2));
+        Assert.Equal(SquadRules.RetainersPerPlayer, r.Standing(2));   // a late joiner's roster is the run's two (owner 2026-11-23, card 2)
         Assert.Equal(SquadState.Downed, r.Of(1, 0).State);   // the first squad was not landed again
         Assert.Equal(1, r.Standing(1));
         Assert.Equal(1, r.Ledger(2)!.Battles);
@@ -561,10 +556,10 @@ public class WarfrontSquadWiringTests
         r.Stand(30);
         Assert.Equal(SquadOrder.Hold, r.Ret.OrderOf(2));
         Assert.True(r.Rules.AnyRetainerStanding());
-        Assert.Equal(squad2, r.Standing(2));
+        Assert.Equal(SquadRules.RetainersPerPlayer, r.Standing(2));
         r.W.Spawn(22, r.W.AssignClass(0));
         r.Stand(60);
-        Assert.Equal(squad2, r.Standing(22));
+        Assert.Equal(SquadRules.RetainersPerPlayer, r.Standing(22));
         Assert.Equal(0, r.Standing(2));
         Assert.Equal(firstSlot, r.Of(1, 0).Slot);
         Assert.Equal(1, r.Ledger(2)!.Battles);   // one deployment, one battle

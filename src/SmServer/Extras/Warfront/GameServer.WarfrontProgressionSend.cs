@@ -221,7 +221,7 @@ public sealed partial class GameServer
             s.PendingExtras.Remove(key);
             s.ResetApplied.Add(key);
             s.ProgressAckDue.Add(player);   // the flagged copy goes out at once: the client may now clear its pending-reset mark
-            WfLog($"P{player} (key {KeyTail(key)}) reset the progression: level 1, no cards, one retainer (the stats stay)");
+            WfLog($"P{player} (key {KeyTail(key)}) reset the progression: level 1, no cards, two retainers (the stats stay)");
             WfSave(s);
             return;
         }

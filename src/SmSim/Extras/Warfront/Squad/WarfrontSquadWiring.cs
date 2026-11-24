@@ -83,11 +83,12 @@ public sealed class WarfrontSquadWiring
     /// <summary>The whole squad state as one value.</summary>
     public WarfrontSquadSave Export() => new(Rosters.Export(), ClassBook.Export(), [.. _squadClass.OrderBy(p => p.Key).Select(p => new SquadClassPick(p.Key, p.Value))]);
 
-    /// <summary>Rebuilds the squad state from a save; null (a missing file) is an empty value.</summary>
+    /// <summary>Rebuilds the squad state from a save; null (a missing file) is an empty value. Every kept roster is conformed to <see cref="SquadRules.RetainersPerPlayer"/>.</summary>
     public void Import(WarfrontSquadSave? save)
     {
         save ??= WarfrontSquadSave.Empty;
         Rosters.Import(OfferedMelee(_world.Config, save.Rosters));
+        Rosters.ConformAll(SquadRules.RetainersPerPlayer);   // a loaded run holds the run's two in every roster (owner 2026-11-23, card 2; an old save's +1 Retainer growth or a Dreadnought's empty roster)
         ClassBook.Import(save.Classes);
         _squadClass.Clear();
         foreach (var p in save.Picks) _squadClass[p.Key] = p.Class;
@@ -134,7 +135,7 @@ public sealed class WarfrontSquadWiring
     public bool HasRoster(ulong key) => Rosters.Has(key);
 
     /// <summary>
-    /// The first roster of a key, through the class book (a Dreadnought-first player then holds none and gets the free one on his switch): one retainer, once. Nothing when a roster exists. False when the key's player is not in the
+    /// The first roster of a key, through the class book: the run's two retainers (held, not landed, while he is a Dreadnought). Nothing when a roster exists. False when the key's player is not in the
     /// World (the first tick aboard makes it) or the kept rosters are full.
     /// </summary>
     public bool AddStartingRetainer(ulong key)

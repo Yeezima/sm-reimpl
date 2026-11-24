@@ -108,7 +108,7 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 5;   // 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
+    public const int SaveVersion = 6;   // 6: retired Retainer cards (owner 2026-11-23, card 2; older saves load with each player's Retainer cards and extra retainer records dropped, his picks, XP and other cards kept); 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
     /// <summary>The first format (no stats ledger); still loads, with an empty ledger. Version 2 (no co-op fields) loads too, every key with <c>ClassConfirmed</c> true.</summary>
     public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
@@ -455,6 +455,7 @@ public sealed class WarfrontCampaign
         foreach (var p in s.Players)
         {
             if (s.Version < 4) p.ClassConfirmed = true;   // saves before version 4 know no gate: nobody is asked again
+            if (s.Version < 6) ConvertRetainerCards(p);   // owner 2026-11-23, card 2: an older run converts once; a version 6 save loads exactly as written
             c._players[p.Key] = p;
         }
         c._rolls.AddRange(s.Rolls);
@@ -466,6 +467,19 @@ public sealed class WarfrontCampaign
         else { c._forecast = Weather.WarfrontForecast.Legacy(); c.ForecastPool = 0; }
         c.PlaySeconds = s.Version >= 3 && double.IsFinite(s.PlaySeconds) && s.PlaySeconds > 0 ? s.PlaySeconds : 0;
         return c;
+    }
+
+    /// <summary>
+    /// Save version 6 (owner 2026-11-23, card 2: retainer cards removed, every player always has two retainers, "runs convert"): the player's retired +1 Retainer cards are dropped from his cards and his extra
+    /// retainer records (<see cref="WarfrontPlayerState.Squad"/>) cleared; his picks taken stay (no pick is given back), and his XP, level and other cards are unchanged. The squads file conforms each roster to two on
+    /// its own load (<c>WarfrontSquadWiring.Import</c>). True when anything was dropped.
+    /// </summary>
+    internal static bool ConvertRetainerCards(WarfrontPlayerState p)
+    {
+        int cards = p.Cards.RemoveAll(c => c == (int)WarfrontCard.Retainer);
+        int extras = p.Squad.Count;
+        if (extras > 0) p.Squad = new List<WarfrontRetainerRecord>();
+        return cards > 0 || extras > 0;
     }
 
     /// <summary>The save JSON. Connection state is not part of it (a restart has nobody connected).</summary>

@@ -260,7 +260,8 @@ public sealed class WarfrontProgressModel
 
     public const string TimeoutNote = "CARD 1 IS TAKEN WHEN THE TIME RUNS OUT";
     public const string ProtectedNote = "YOU CANNOT BE HARMED WHILE CHOOSING";
-    public const string HintNote = "PRESS 1 TO 6, OR D-PAD LEFT AND RIGHT THEN A";
+    /// <summary>Five cards since the Retainer card was retired (owner 2026-11-23, card 2); before, six for a squad-capable class.</summary>
+    public const string HintNote = "PRESS 1 TO 5, OR D-PAD LEFT AND RIGHT THEN A";
 
     /// <summary>0 to 1: the share of the pick time left (the countdown bar).</summary>
     public float TimeFraction => Math.Clamp(SecondsLeft / (float)WarfrontProgressionRules.PickTimeoutSeconds, 0f, 1f);

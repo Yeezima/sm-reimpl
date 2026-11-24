@@ -134,8 +134,8 @@ public sealed partial class GameServer
     }
 
     /// <summary>
-    /// Makes a key's roster hold its first retainer plus <paramref name="extras"/> (a progress record applied at the ship): surplus Marines are dropped, missing ones added with the first Marine's loadout, the names set.
-    /// Service records of the kept Marines stay. No roster yet: the extras wait (<see cref="WarfrontServerState.PendingExtras"/>) for it.
+    /// Makes a key's roster hold the run's two retainers (<see cref="SquadRules.RetainersPerPlayer"/>, owner 2026-11-23 card 2) through <see cref="SquadRosters.Conform(ulong, int)"/> when a progress record is applied at the ship;
+    /// an old record's <paramref name="extras"/> (retired +1 Retainer cards) only lend their names to the Marines after the first. Service records of the kept Marines stay. No roster yet: the names wait (<see cref="WarfrontServerState.PendingExtras"/>) for it.
     /// </summary>
     void WarfrontRosterSync(WarfrontServerState s, ulong key, IReadOnlyList<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer> extras)
     {
@@ -145,22 +145,9 @@ public sealed partial class GameServer
             else s.PendingExtras.Remove(key);
             return;
         }
-        var save = w.Rosters.Export();
-        var owners = save.Owners.ToList();
-        int at = owners.FindIndex(o => o.Key == key);
-        var marines = owners[at].Marines.ToList();
-        int first = marines.Count > 0 ? 1 : 0;
-        int want = Math.Min(SquadRules.MaxPerPlayer, first + extras.Count);
-        if (marines.Count > want) marines.RemoveRange(want, marines.Count - want);
-        var template = marines.Count > 0 ? marines[0].Loadout : new SquadLoadout();
-        while (marines.Count < want) marines.Add(new SquadMarineSave("", template, new ServiceRecord()));
-        for (int i = first; i < marines.Count && i - first < extras.Count; i++)
-        {
-            string name = extras[i - first].Name;
-            if (!string.IsNullOrWhiteSpace(name)) marines[i] = marines[i] with { Name = name };
-        }
-        owners[at] = owners[at] with { Marines = marines };
-        w.Rosters.Import(new SquadRosterSave(save.NextName, owners));
+        w.Rosters.Conform(key, SquadRules.RetainersPerPlayer);
+        for (int slot = 1; slot < w.Rosters.Count(key) && slot - 1 < extras.Count; slot++)
+            if (!string.IsNullOrWhiteSpace(extras[slot - 1].Name) && w.Rosters.Marine(key, slot) is { } m) m.Name = extras[slot - 1].Name;
     }
 
     // ---- the tick, the sections, the commands ---------------------------------------------------------------------------------------------------

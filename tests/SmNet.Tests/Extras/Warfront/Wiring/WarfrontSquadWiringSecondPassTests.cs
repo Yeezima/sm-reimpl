@@ -192,7 +192,7 @@ public class WarfrontSquadWiringSecondPassTests
     // ---- finding 4: the first retainer through the class book --------------------------------------------------------------------------
 
     [Fact]
-    public void A_Dreadnought_first_joiner_held_by_W12_has_no_Marine_and_exactly_one_after_the_switch()
+    public void A_Dreadnought_first_joiner_held_by_W12_has_two_held_Marines_and_two_after_the_switch()
     {
         var r = Rig.Make(deploy: false);
         r.Wi.Reset();
@@ -202,11 +202,13 @@ public class WarfrontSquadWiringSecondPassTests
         r.Wi.StepAboard();
         Assert.False(r.Wi.HasRoster(1));   // held: the book has seen nothing yet
         Assert.True(r.Wi.AddStartingRetainer(1));   // W12's path: through the book, as a Dreadnought
-        Assert.Equal(0, r.Wi.Rosters.Count(1));
+        Assert.Equal(2, r.Wi.Rosters.Count(1));      // two, held (owner 2026-11-23, card 2: none in the field for a Dreadnought)
+        Assert.True(r.Wi.Rosters.IsHeld(1));
         held = false;
         r.W.Spawn(1, 0);
         r.Wi.StepAboard();
-        Assert.Equal(1, r.Wi.Rosters.Count(1));   // the free one, once, not two
+        Assert.Equal(2, r.Wi.Rosters.Count(1));      // still two after the switch (the free retainer is retired)
+        Assert.False(r.Wi.Rosters.IsHeld(1));
     }
 
     // ---- finding 5, StepAboard seam, T3 ---------------------------------------------------------------------------------------------------

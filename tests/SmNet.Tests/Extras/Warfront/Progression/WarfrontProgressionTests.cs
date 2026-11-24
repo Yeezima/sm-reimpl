@@ -86,16 +86,15 @@ public class WarfrontProgressionTests
     // ---- offers ---------------------------------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void An_offer_lists_every_stat_card_and_the_Retainer_last_when_eligible()
+    public void An_offer_lists_every_stat_card_and_never_the_retired_Retainer()
     {
+        // owner 2026-11-23, card 2: the +1 Retainer card is gone from level-up selection (it was slot 6 while eligible)
         for (int pick = 0; pick < 200; pick++)
             foreach (ulong key in new[] { A, B })
             {
                 var o = WarfrontOffers.Roll(7, key, pick, true);
-                Assert.Equal(6, o.Length);
-                Assert.Equal(6, o.Distinct().Count());
-                Assert.Equal(WarfrontProgressionRules.StatCards, o.Take(5));
-                Assert.Equal(WarfrontCard.Retainer, o[WarfrontProgressionRules.RetainerSlot]);
+                Assert.Equal(WarfrontProgressionRules.StatCards, o);
+                Assert.DoesNotContain(WarfrontCard.Retainer, o);
             }
     }
 
@@ -109,7 +108,7 @@ public class WarfrontProgressionTests
     [Fact]
     public void Retainer_eligibility_roster_and_dreadnought()
     {
-        Assert.True(WarfrontOffers.RetainerEligible(8, false));
+        Assert.False(WarfrontOffers.RetainerEligible(1, false));   // never since 2026-11-23 (every player has two retainers)
         Assert.False(WarfrontOffers.RetainerEligible(9, false));
         Assert.False(WarfrontOffers.RetainerEligible(1, true));
     }
@@ -192,8 +191,8 @@ public class WarfrontProgressionTests
         Assert.True(p.TryPick(A, 1, 0, out _, out _));
         Assert.False(p.Protected(A));
         Assert.True(p.Protected(B));
-        Assert.Empty(p.Tick(24.9));   // B opened at 5: 19.9 s
-        var auto = p.Tick(25.0);
+        Assert.Empty(p.Tick(44.9));   // B opened at 5: 39.9 s (the 40 s limit, owner 2026-11-23 card 2)
+        var auto = p.Tick(45.0);
         Assert.Single(auto);
         Assert.True(auto[0].Timeout);
         Assert.Equal(0, auto[0].Slot);

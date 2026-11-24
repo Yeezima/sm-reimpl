@@ -17,8 +17,8 @@ public sealed partial class FrontEndView
 {
     internal const string WarfrontResetRow = "Reset progression";
     internal const string WarfrontResetTitle = "RESET PROGRESSION?";
-    internal const string WarfrontResetBody = "THIS CLEARS YOUR LEVEL, XP, CARDS AND EXTRA RETAINERS: BACK TO LEVEL 1 WITH ONE RETAINER. THE RUN AND YOUR STATS STAY. THE OLD PROGRESS IS KEPT AS ONE SAFETY COPY.";
-    internal const string WarfrontResetHint = "Clears your Warfront level, XP, cards and extra retainers on this PC: back to level 1 with one retainer. The run and your stats stay.";
+    internal const string WarfrontResetBody = "THIS CLEARS YOUR LEVEL, XP AND CARDS: BACK TO LEVEL 1. THE RUN, YOUR STATS AND YOUR TWO RETAINERS STAY. THE OLD PROGRESS IS KEPT AS ONE SAFETY COPY.";
+    internal const string WarfrontResetHint = "Clears your Warfront level, XP and cards on this PC: back to level 1. The run, your stats and your two retainers stay.";
     internal const string WarfrontResetRunningHint = "A server of this game is running. Stop it first.";
     internal const string WarfrontResetNoKeyHint = "Nothing to reset yet: this PC has not played Warfront.";
     internal const string WarfrontNewerNote = "YOUR PROGRESSION NEEDS A NEWER BUILD";

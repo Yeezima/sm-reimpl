@@ -101,7 +101,8 @@ public class WarfrontProgressionSenderTests
         var o = WarfrontProgressionSender.OfferBytes(Snap(open: true, left: 99, aboard: true));
         Assert.True(WarfrontProgressionWire.TryDecode(o, out WarfrontOfferWire w));
         Assert.True(w.Aboard);
-        Assert.Equal(255, w.TenthsLeft);
-        Assert.True(WarfrontProgressionRules.PickTimeoutSeconds * 10 <= 255);
+        Assert.Equal(990, w.TenthsLeft);   // a u16 of tenths since the 40 s pick (2026-11-23): 99 s is carried whole
+        Assert.Equal(ushort.MaxValue, WarfrontProgressionWire.TryDecode(WarfrontProgressionSender.OfferBytes(Snap(open: true, left: 7000, aboard: true)), out WarfrontOfferWire big) ? big.TenthsLeft : -1);
+        Assert.True(WarfrontProgressionRules.PickTimeoutSeconds * 10 <= ushort.MaxValue);
     }
 }

@@ -1,8 +1,8 @@
 namespace SmSim.Extras.Warfront.Squad;
 
 /// <summary>
-/// The rosters of a Warfront run: one per campaign key, each starting with <see cref="SquadRules.StartRetainers"/> retainer and growing to
-/// <see cref="SquadRules.MaxPerPlayer"/> (36 in all). Rosters are separate and keyed by the campaign key, so a reconnect's new player id changes nothing; a Marine's name and record stay for the run whatever its loadout does (<see cref="Mirror"/>).
+/// The rosters of a Warfront run: one per campaign key, each holding exactly <see cref="SquadRules.RetainersPerPlayer"/> retainers in a run (owner 2026-11-23, card 2; <see cref="Conform(ulong, int)"/>);
+/// <see cref="SquadRules.MaxPerPlayer"/> is only the capacity a bench may fill with <see cref="Recruit"/>. Rosters are separate and keyed by the campaign key, so a reconnect's new player id changes nothing; a Marine's name and record stay for the run whatever its loadout does (<see cref="Mirror"/>).
 /// A roster on hold (W11's Dreadnought rule) keeps its Marines but sends none to a battle.
 /// </summary>
 public sealed class SquadRosters
@@ -37,10 +37,11 @@ public sealed class SquadRosters
     public bool Has(ulong key) => Of(key) is not null;
 
     /// <summary>
-    /// Gives campaign key <paramref name="key"/> a roster of <paramref name="start"/> Marines (default <see cref="SquadRules.StartRetainers"/>, at most the roster limit). True when it has one now
-    /// (an existing roster is left as it is); false only past <see cref="SquadRules.MaxKeptRosters"/>. At most four rosters fight at once: that limit is the sim's (<c>WarfrontSquadSim.Land</c>).
+    /// Gives campaign key <paramref name="key"/> a roster of <paramref name="start"/> Marines (default 1, the squad sim's own tests and benches; a run's class book passes <see cref="SquadRules.StartRetainers"/>,
+    /// at most the roster limit). True when it has one now (an existing roster is left as it is); false only past <see cref="SquadRules.MaxKeptRosters"/>. At most four rosters fight at once: that limit is the sim's
+    /// (<c>WarfrontSquadSim.Land</c>).
     /// </summary>
-    public bool AddOwner(ulong key, int start = SquadRules.StartRetainers)
+    public bool AddOwner(ulong key, int start = 1)
     {
         if (Has(key)) return true;
         if (_rosters.Count >= SquadRules.MaxKeptRosters) return false;
@@ -53,7 +54,35 @@ public sealed class SquadRosters
     /// <summary>Marines in <paramref name="key"/>'s roster (0 with none).</summary>
     public int Count(ulong key) => Of(key)?.Marines.Count ?? 0;
 
-    /// <summary>One more Marine for <paramref name="key"/> (a card pick); false at nine, or without a roster.</summary>
+    /// <summary>
+    /// Makes <paramref name="key"/>'s roster hold exactly <paramref name="count"/> Marines (at most <see cref="SquadRules.MaxPerPlayer"/>): Marines past it are dropped from the end, missing ones are added with a new name and
+    /// the first Marine's loadout (the class book sets the real one at its next look). Names and service records of the kept Marines stay, and so does a hold. The number of Marines added or dropped; 0 without a roster.
+    /// </summary>
+    public int Conform(ulong key, int count = SquadRules.RetainersPerPlayer)
+    {
+        var r = Of(key);
+        if (r is null) return 0;
+        count = Math.Clamp(count, 0, SquadRules.MaxPerPlayer);
+        int changed = Math.Abs(r.Marines.Count - count);
+        if (r.Marines.Count > count) r.Marines.RemoveRange(count, r.Marines.Count - count);
+        while (r.Marines.Count < count)
+        {
+            var m = NewMarine();
+            if (r.Marines.Count > 0) m.Loadout = r.Marines[0].Loadout;
+            r.Marines.Add(m);
+        }
+        return changed;
+    }
+
+    /// <summary><see cref="Conform(ulong, int)"/> for every kept roster (a loaded run: a roster that grew by +1 Retainer cards, or a Dreadnought's empty one, holds <paramref name="count"/>). The Marines added or dropped.</summary>
+    public int ConformAll(int count = SquadRules.RetainersPerPlayer)
+    {
+        int changed = 0;
+        foreach (var r in _rosters) changed += Conform(r.Key, count);
+        return changed;
+    }
+
+    /// <summary>One more Marine for <paramref name="key"/> (a bench filling the capacity; a run never calls it since 2026-11-23); false at nine, or without a roster.</summary>
     public bool Recruit(ulong key)
     {
         var r = Of(key);
@@ -129,8 +158,12 @@ public sealed class SquadRosters
         return new SquadRosterSave(_nextName, owners);
     }
 
-    /// <summary>Rebuilds the rosters from a save (the present ones are dropped). Limits are enforced: players and Marines beyond them are ignored.</summary>
-    public void Import(SquadRosterSave save)
+    /// <summary>
+    /// Rebuilds the rosters from a save (the present ones are dropped). Limits are enforced: players and Marines beyond them are ignored. With <paramref name="perRoster"/> of 0 or more every roster then holds exactly
+    /// that many (<see cref="Conform(ulong, int)"/>); the default (-1) keeps the saved counts. A loaded run's roster reaches <see cref="SquadRules.RetainersPerPlayer"/> at its owner's next class look aboard
+    /// (<see cref="SquadClassBook.OnOwnerLoadout"/> conforms it: owner 2026-11-23, card 2, a roster grown by +1 Retainer cards keeps its first two, a Dreadnought's empty one gets two, held), always before he lands.
+    /// </summary>
+    public void Import(SquadRosterSave save, int perRoster = -1)
     {
         _rosters.Clear();
         _nextName = Math.Max(0, save.NextName);
@@ -141,5 +174,6 @@ public sealed class SquadRosters
             foreach (var m in o.Marines.Take(SquadRules.MaxPerPlayer)) roster.Marines.Add(new RosterMarine { Name = m.Name, Loadout = m.Loadout, Record = m.Record.Copy() });
             _rosters.Add(roster);
         }
+        if (perRoster >= 0) ConformAll(perRoster);
     }
 }

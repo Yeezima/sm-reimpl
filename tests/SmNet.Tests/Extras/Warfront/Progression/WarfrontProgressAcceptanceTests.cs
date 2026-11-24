@@ -137,7 +137,9 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         s.Tick(2);
         Assert.Equal(8000, s.Campaign.Player(KeyA)!.Xp);
         Assert.Equal(2000, s.Campaign.Player(KeyB)!.Xp);
-        Assert.Equal("Cassian", Assert.Single(s.Campaign.Player(KeyA)!.Squad).Name);
+        Assert.Empty(s.Campaign.Player(KeyA)!.Squad);   // the retired Retainer card brings no retainer (owner 2026-11-23, card 2)
+        Assert.Equal([Speed, Speed], s.Campaign.Player(KeyA)!.Cards);
+        Assert.Equal(3, s.Campaign.Player(KeyA)!.PicksTaken);
         Assert.Empty(s.Campaign.Player(KeyB)!.Squad);
         Assert.Equal(8000, s.Last49(0)!.State!.Xp);
         Assert.Equal(2000, s.Last49(1)!.State!.Xp);
@@ -221,8 +223,9 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         Assert.True(store.ApplyHostCopy(host));
         var onDisk = ClientStore(KeyA).Tap();
         Assert.Equal(6500, onDisk.Xp);
-        Assert.Equal("Cassian", Assert.Single(onDisk.ExtraRetainers).Name);
-        Assert.Equal([Speed, Speed, Retainer], onDisk.Cards);
+        Assert.Empty(onDisk.ExtraRetainers);          // the host's copy converts the player's file: the Retainer card and its retainer are dropped
+        Assert.Equal([Speed, Speed], onDisk.Cards);
+        Assert.Equal(3, onDisk.PicksTaken);           // the pick stays taken
     }
 
     [Fact]
@@ -276,7 +279,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
     [Fact]
     public void A_v5_save_with_a_progressed_player_and_no_progress_file_migrates_to_the_clients_first_file()
     {
-        // a first process plays and saves (run.json at SaveVersion 5 plus squads.json), then a new process loads it: the player's PC has no progress.json yet
+        // a first process plays and saves (run.json at the current SaveVersion plus squads.json), then a new process loads it: the player's PC has no progress.json yet
         var first = StartStage(1);
         first.Identify(0, KeyA, "Alpha");
         first.Tick(1);
@@ -285,7 +288,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         first.Server.GetType();
         first.Tick(35);   // an autosave goes by
         for (int i = 0; i < 50 && !File.Exists(Path.Combine(_dir, "squads.json")); i++) Thread.Sleep(50);
-        Assert.Equal(5, System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_dir, "run.json")))!["Version"]!.GetValue<int>());
+        Assert.Equal(WarfrontCampaign.SaveVersion, System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_dir, "run.json")))!["Version"]!.GetValue<int>());
 
         var s = StartStage(1);
         Assert.Equal(5200, s.Campaign.Player(KeyA)!.Xp);
@@ -301,7 +304,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         var made = ClientStore(KeyA).Tap();
         Assert.Equal(5200, made.Xp);
         Assert.Equal(2, made.PicksTaken);
-        Assert.Equal("Tiberius", Assert.Single(made.ExtraRetainers).Name);
+        Assert.Empty(made.ExtraRetainers);   // no retainer is earned since 2026-11-23 (owner card 2)
         Assert.Equal(KeyA.ToString("x16"), made.Key);
     }
 
@@ -375,7 +378,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         Assert.InRange(p.Level, 1, 50);
         Assert.InRange(p.Xp, 0, WarfrontProgressFile.MaxXp);
         Assert.True(p.PicksTaken <= Math.Max(0, p.Level - 1));
-        Assert.Equal(p.PicksTaken, p.Cards.Count);
+        Assert.True(p.Cards.Count <= p.PicksTaken);   // a pick taken may hold no card since record version 2 (a dropped card: the pick stays taken)
         Assert.Equal(0, s.Campaign.Player(KeyA)!.Xp);   // the other player is untouched
         Assert.NotNull(s.Campaign.Player(KeyB));
         s.Tick(1);   // the server still runs

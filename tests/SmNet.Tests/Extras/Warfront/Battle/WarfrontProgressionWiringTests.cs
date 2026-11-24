@@ -196,7 +196,7 @@ public class WarfrontProgressionWiringTests
     }
 
     [Fact]
-    public void The_picker_opens_aboard_protects_the_player_refuses_a_stale_index_and_takes_card_one_after_twenty_seconds()
+    public void The_picker_opens_aboard_protects_the_player_refuses_a_stale_index_and_takes_card_one_after_forty_seconds()
     {
         var w = WarfrontBattleTests.War(2);   // in the hub
         Stand(w, 2);
@@ -215,7 +215,7 @@ public class WarfrontProgressionWiringTests
         w.Step(_ => new PlayerInput(w.Tick + 1, 0f, 1f, 0f, InputButtons.None));
         for (int k = 0; k < 20; k++) w.Step(_ => new PlayerInput(w.Tick + 1, 0f, 1f, 0f, InputButtons.None));
         Assert.True(Vector2.Distance(new Vector2(at.X, at.Y), new Vector2(w.Players[1].Position.X, w.Players[1].Position.Y)) < 0.05f);
-        Stand(w, 20 * 30);
+        Stand(w, (int)WarfrontProgressionRules.PickTimeoutSeconds * 30);   // 40 s since owner 2026-11-23, card 2
         Assert.Null(w.WarfrontOffer(1));
         Assert.Equal([(int)offer.Cards[0]], Pl(w, 1).Cards);   // card 1, taken by the server
         Assert.Equal(1f, w.DamageTakenScale(1));
@@ -422,10 +422,11 @@ public class WarfrontProgressionWiringTests
         Aboard(w, 1);
         Stand(w, 2);
         var offer = w.WarfrontOffer(1)!;
-        Assert.True(w.WarfrontPick(1, WarfrontProgressionRules.RetainerSlot, offer.PickIndex));   // slot 6: the Retainer card
+        Assert.False(w.WarfrontPick(1, WarfrontProgressionRules.RetainerSlot, offer.PickIndex));   // slot 6 is gone with the Retainer card (owner 2026-11-23, card 2)
+        Assert.True(w.WarfrontPick(1, 4, offer.PickIndex));                                         // slot 5: the last stat card
         var taken = rt.TakePicks();
         Assert.Single(taken);
-        Assert.Equal(WarfrontCard.Retainer, taken[0].Card);
+        Assert.Equal(WarfrontCard.MaxArmor, taken[0].Card);
         Assert.Equal(1UL, taken[0].Key);
         Assert.Single(picked);
         Assert.Empty(rt.TakePicks());

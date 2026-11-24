@@ -100,7 +100,7 @@ public class WarfrontStatsLedgerTests
         Assert.DoesNotContain("Stats", old);
         var c = WarfrontSave.FromJson(old);
         Assert.Empty(c.Stats.Players);
-        Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson(json.Replace("\"Version\":5", "\"Version\":99")));
+        Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson(json.Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":99")));
     }
 
     [Fact]
