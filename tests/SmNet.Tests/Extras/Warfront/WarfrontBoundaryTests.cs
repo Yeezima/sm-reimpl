@@ -92,6 +92,8 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontCleaveScaleFor"),
         // W13e: the stranded failsafe's "near" (an Ork inside its goal's ring has arrived)
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "WarfrontHeadwayNear"),
+        // 2026-11-25: no Squigs in Warfront (owner: "temporarily remove squigs from warfront mode"; WarfrontRules.NoSquigs)
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwSquigs.cs", "WarfrontSquigs"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>
