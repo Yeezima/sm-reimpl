@@ -273,13 +273,16 @@ static class WarfrontSupervisor
                     log(Stamp($"--warfront-new: the unreadable run is kept as {Path.GetFileName(kept)}"));
                 }
                 else if (old is not null)
+                {
+                    ReconcileFaction(dir, old, log);   // Chaos Warfront C1: the archived run counts as the last army even when a crash kept faction.json a run behind
                     log(Stamp($"--warfront-new: the run on disk is archived ({(old.IsOver ? "finished" : "unfinished, as abandoned")}): {Path.GetFileName(WarfrontSave.Archive(dir, old, DateTime.UtcNow))}"));
+                }
                 try { File.Delete(Path.Combine(dir, WarfrontRunFiles.StageFile)); } catch (IOException) { }
             }
             if (!WarfrontSave.Exists(dir))
             {
                 var fresh = WarfrontRunFiles.NewRun(dir);
-                log(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
+                log(Stamp($"a new run (seed {fresh.RunSeed:X}, {fresh.Faction}; --warfront-faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(WarfrontRunFiles.FactionSetting)}) on the ship"));
             }
             return 0;
         }
@@ -288,6 +291,13 @@ static class WarfrontSupervisor
             error(Stamp($"smserver: the Warfront run could not be read or created: {e.Message}"));
             return 1;
         }
+    }
+
+    /// <summary>Chaos Warfront C1: faction.json follows the run on disk (<see cref="SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile"/>); logged when it was behind.</summary>
+    static void ReconcileFaction(string dir, WarfrontCampaign run, Action<string> log)
+    {
+        if (SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile(dir, run.Faction, run.RunSeed))
+            log(Stamp($"faction.json brought in line with run.json ({run.Faction}, seed {run.RunSeed:X})"));
     }
 
     /// <summary>The supervisor's loop: injectable launcher, stop event and log, so the tests run it with a fake child and a short timing.</summary>
@@ -313,6 +323,7 @@ static class WarfrontSupervisor
             try { run = WarfrontSave.Load(dir); }
             catch (WarfrontSaveNewerException e) { run = null; log(Stamp($"run.json is a newer build's file ({e.Message}): left untouched, the stage refuses players")); }
             catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException) { run = null; log(Stamp($"run.json cannot be read here ({e.Message}): the stage decides what to do with it")); }
+            if (run is not null) ReconcileFaction(dir, run, log);
             string map = WarfrontStagePlan.NextMap(run, lastShip ?? WarfrontRunFiles.ReadStage(dir)?.Ship);
             if (WarfrontStagePlan.HasShip(map)) lastShip = map;
             log(Stamp($"stage {stage} on {map} ({(run is null ? "no run" : run.Phase.ToString())})"));

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4087 spec table rows: **3020 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4095 spec table rows: **3027 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 4087 spec table rows: **3020 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 171 | 170 | 57 | 74 | 0 |
+| General game design | 178 | 177 | 59 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3020** | 2712 | 2216 | 913 | 37 |
+| **All areas** | **3027** | 2719 | 2218 | 913 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1828 |
+| kind: ours | 1835 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
+| confidence: medium | 1039 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
@@ -4316,7 +4316,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (171)
+### General game design (178)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4558,6 +4558,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-7844B345` | Warfront Squigs | **none**: in a Warfront run the Bomb Squig drop director (the only squig source: no army, crowd, garrison, trickle, wave, boss add or roster table names the Squig) drops none, and the `SM_MUSOU_S2_DEMO` capture aid lands no Squig (its Rokkit Boy still comes)… (count) | kind: ours | owner 2026-11-25 | Warfront Squigs: compare with SM1 by feel or video. Ours: none: in a Warfront run the Bomb Squig drop director (the only squig… | ☐ |
+
+*Spec section: Warfront faction (Chaos Warfront C1; added content; owner brief 2026-11-24 rev 1, decision 2026-11-25)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-BB18019C` | Faction setting | `--warfront-faction` with alternate, orks or chaos (default alternate); the Host panel's FACTION row on the Warfront profile (ALTERNATE sends nothing); the local campaign passes a forced setting through `WarfrontLocal.ExtraArgs`; the supervisor's stage… | kind: ours | the owner's brief | Faction setting: compare with SM1 by feel or video. Ours: --warfront-faction with alternate, orks or chaos (default alternate)… | ☐ |
+| `R-44454513` | Alternate rule | the other army than the last run's; Orks when no run was recorded (a missing or damaged faction.json); a forced run counts as the last army too | kind: ours | the owner's brief; Orks first: decision 2026-11-25 answer 8 | Alternate rule: compare with SM1 by feel or video. Ours: the other army than the last run's; Orks when no run was recorded (a… | ☐ |
+| `R-899F0F57` | When it is chosen | only when a new run is built (`WarfrontRunFiles.BuildNewRun`: first start, NEW CAMPAIGN, the dedicated server's own new run, a new run after a damaged save); stored in run.json, so wipes, saves, restarts and reconnects keep it; a changed setting affects only… | kind: ours | the owner's brief | When it is chosen: compare with SM1 by feel or video. Ours: only when a new run is built (WarfrontRunFiles.BuildNewRun: first… | ☐ |
+| `R-BFBD6142` | Save | `SaveVersion` 7 stores `Faction` (Orks, Chaos); a save older than 7 (or a 7 without the field) loads as Orks; an unknown army is a damaged file (set aside as any other). 6 is left to the retainer rules (T0) and renumbered at integration | kind: ours | ours | Save: compare with SM1 by feel or video. Ours: SaveVersion 7 stores Faction (Orks, Chaos); a save older than 7 (or a… | ☐ |
+| `R-AB9E3ACA` | Rotation file | `faction.json` in the run folder: `{LastFaction, LastRunSeed}`; written after run.json; an archive keeps it (only run.json moves). The loader, the supervisor's loop and `--warfront-new` (before it archives) copy the run's army and seed into it when it is… | kind: ours | the design (state/design-chaos-warfront-1125.md "Faction") | Rotation file: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: faction.json in the run folder: {LastFaction, LastRunSeed}; written… | ☐ |
+| `R-BA4989DF` | Stage army | a stage child reads its run's army from run.json before the World exists (`Warfront faction: this stage runs ...` in its log); no readable run gives Orks. A deployment lands on the running stage only when the map AND the army match; otherwise it restages… | kind: ours; confidence: medium | the design | Stage army: compare with SM1 by feel or video. Ours: a stage child reads its run's army from run.json before the World… | ☐ |
+| `R-795F2F1A` | FinaleLost outcome | a fortress battle resolved FinaleLost loses the campaign (phase Lost), in place of the fortress-wipe rule; nothing sends it yet (C5's duel relay) | kind: ours; confidence: medium | the design ("Finale") | FinaleLost outcome: compare with SM1 by feel or video. Ours: a fortress battle resolved FinaleLost loses the campaign (phase… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6626,4 +6638,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-39A6A17F` | Versions | Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
+| `R-F62A3D5F` | Wire | Warfront faction (Chaos Warfront C1; added content; owner brief 2026-11-24 rev 1, decision 2026-11-25) |
 

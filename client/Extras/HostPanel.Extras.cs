@@ -12,9 +12,11 @@ public sealed partial class HostPanel
     {
         WarfrontHostRowShown(row, ref shown);   // WARFRONT-HOOK
         WeatherRowShown(row, ref shown);        // weather (client/Extras/Weather/HostPanel.Weather.cs)
+        WarfrontFactionRowShown(row, ref shown);   // WARFRONT-HOOK: the FACTION row only on the Warfront profile (Chaos Warfront C1)
     }
 
     partial void WarfrontHostRowShown(Control row, ref bool shown);
+    partial void WarfrontFactionRowShown(Control row, ref bool shown);
 
     /// <summary>The faction row (Chaos Warfront C0 seam): Warfront's alone, so the dispatcher hands it straight on; null without its implementation (client/Extras/Warfront/Chaos/).</summary>
     partial void ExtrasHostFactionRow(ref Control? row) => WarfrontHostFactionRow(ref row);   // WARFRONT-HOOK

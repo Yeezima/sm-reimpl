@@ -128,6 +128,10 @@ public sealed record ServerArguments
     public bool WarfrontNew { get; init; }
     /// <summary>--warfront-max-humans (Warfront): humans admitted, 1 to 4 (default 4).</summary>
     public int? WarfrontMaxHumans { get; init; }
+    /// <summary>--warfront-faction (Warfront, Chaos Warfront C1): the enemy army of the next new run, <c>alternate</c> (null, the default: Orks and Chaos take turns, Orks first), <c>orks</c> or <c>chaos</c>. A run in progress keeps its army; the supervisor's stage children inherit the flag.</summary>
+    public string? WarfrontFaction { get; init; }
+    /// <summary>The keys <c>--warfront-faction</c> takes (the same list as the Warfront code's <c>WarfrontFactionPolicy.Keys</c>; a test holds them equal).</summary>
+    public static readonly string[] WarfrontFactionKeys = ["alternate", "orks", "chaos"];
     /// <summary>--warfront-dedicated (Warfront, added content): the always-on shared campaign of the project's server: implies --content warfront and --warfront-max-humans 4 (unless given), refuses --warfront-new, and the supervisor restarts a crashed stage, locks the run folder and stops on SIGTERM (docs/warfront.md "Dedicated mode").</summary>
     public bool WarfrontDedicated { get; init; }
     /// <summary>--warfront-prebuild (Warfront, dedicated only): this process is the supervisor's map warm-up child: it builds every Warfront map's layout and walking graph into the cache, one at a time, and exits 0 (docs/warfront.md "Map warm-up").</summary>
@@ -207,6 +211,8 @@ public static class ServerCommandLine
           --warfront-stage              switch: (--content warfront) this process is one stage child of the Warfront supervisor (internal)
           --warfront-new                switch: (--content warfront) start a new campaign run; an unfinished one is archived as abandoned
           --warfront-max-humans <1-4>   (--content warfront) humans admitted (default 4; 1 for a local campaign)
+          --warfront-faction <f>        (--content warfront) the enemy of the next new campaign: alternate (default; Orks first, then
+                                        turn about), orks or chaos; a campaign in progress keeps its own
           --warfront-dedicated          switch: the always-on shared Warfront campaign (implies --content warfront; up to 4 humans unless --warfront-max-humans; refuses --warfront-new; the supervisor restarts a crashed stage, locks the run folder, stops on SIGTERM)
           --warfront-prebuild           switch: (--warfront-dedicated; started by the supervisor) build every Warfront map's cache at low priority, one map at a time, then exit
           --old-arsenal-spear-claw      switch: restore: Musou Mode and Warfront offer the lightning claw and the power spear again (clients need it too)
@@ -216,7 +222,7 @@ public static class ServerCommandLine
     static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--old-ledge-charge-air", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild", "--old-arsenal-spear-claw"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
-         "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
+         "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans", "--warfront-faction"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -340,6 +346,9 @@ public static class ServerCommandLine
                 case "--warfront-max-humans":
                     if (Int(value) is { } humans && humans is >= 1 and <= 4) a = a with { WarfrontMaxHumans = humans }; else bad = "a whole number from 1 to 4";
                     break;
+                case "--warfront-faction":
+                    if (Array.IndexOf(ServerArguments.WarfrontFactionKeys, value.Trim().ToLowerInvariant()) is int fi and >= 0) a = a with { WarfrontFaction = ServerArguments.WarfrontFactionKeys[fi] }; else bad = "alternate, orks or chaos";
+                    break;
                 case "--content":
                     if (!ContentProfiles.TryParse(value, out var extras, out string contentError)) { error = contentError; return false; }
                     a = a with { Content = extras }; contentGiven = true;
@@ -375,9 +384,9 @@ public static class ServerCommandLine
             a = a with { Content = contentGiven ? a.Content | ContentExtras.Warfront : ContentProfiles.WarfrontProfile, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
         }
         if (a.WarfrontPrebuild && (!a.WarfrontDedicated || a.WarfrontStage)) { error = "--warfront-prebuild is the dedicated supervisor's warm-up child: it needs --warfront-dedicated and is not a stage"; return false; }
-        if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null) && !a.Content.HasFlag(ContentExtras.Warfront))
+        if ((a.WarfrontStage || a.WarfrontNew || a.WarfrontMaxHumans is not null || a.WarfrontFaction is not null) && !a.Content.HasFlag(ContentExtras.Warfront))
         {
-            error = "--warfront-stage, --warfront-new and --warfront-max-humans need --content warfront";
+            error = "--warfront-stage, --warfront-new, --warfront-max-humans and --warfront-faction need --content warfront";
             return false;
         }
         if (a.Maps is not null && a.Content.HasFlag(ContentExtras.Warfront))

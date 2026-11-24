@@ -411,6 +411,9 @@ if (devTools)
 #if SM_WARFRONT
 WarfrontRunFiles.MaxHumans = cli.WarfrontMaxHumans ?? 4;
 WarfrontRunFiles.Dedicated = cli.WarfrontDedicated;
+WarfrontRunFiles.ApplyFactionSetting(cli.WarfrontFaction);   // Chaos Warfront C1: the army of the next new run (alternate by default)
+// Chaos Warfront C1: a stage records its run's army before the World exists (for now only recorded and logged; C2 builds the stage's rules from it, Orks stay unchanged).
+if (cli.WarfrontStage && contentExtras.HasFlag(ContentExtras.Warfront)) Console.WriteLine(WarfrontRunFiles.RecordStageFaction(WarfrontRunFiles.Dir));
 #endif
 var server = new GameServer(config, fingerprint, transport, serverClock, new ServerOptions
 {

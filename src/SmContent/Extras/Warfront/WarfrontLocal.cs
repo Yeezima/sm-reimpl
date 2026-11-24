@@ -1,5 +1,6 @@
 using System.Globalization;
 using SmSim.Extras.Warfront.Campaign;
+using SmSim.Extras.Warfront.Faction;
 using SmSim.Extras.Warfront.Results;
 
 namespace SmContent.Extras.Warfront;
@@ -99,17 +100,21 @@ public static class WarfrontLocal
         return ready ? WarfrontPress.Join : WarfrontPress.Wait;
     }
 
-    /// <summary>The arguments after the ones <c>ServerLaunch.Arguments</c> adds (<c>--port</c>, <c>--bind 127.0.0.1</c>, <c>--content warfront</c>, ...): one human, and a new campaign when asked.</summary>
-    public static IReadOnlyList<string> ExtraArgs(bool newCampaign)
+    /// <summary>
+    /// The arguments after the ones <c>ServerLaunch.Arguments</c> adds (<c>--port</c>, <c>--bind 127.0.0.1</c>, <c>--content warfront</c>, ...): one human, a new campaign when asked, and (Chaos Warfront C1) the faction
+    /// setting when one is forced (<paramref name="faction"/>: Alternate, the server's default, adds nothing, so the launch of every earlier build is unchanged).
+    /// </summary>
+    public static IReadOnlyList<string> ExtraArgs(bool newCampaign, WarfrontFactionSetting faction = WarfrontFactionSetting.Alternate)
     {
         var a = new List<string> { "--warfront-max-humans", MaxHumans.ToString(CultureInfo.InvariantCulture) };
         if (newCampaign) a.Add("--warfront-new");
+        if (faction != WarfrontFactionSetting.Alternate) { a.Add("--warfront-faction"); a.Add(WarfrontFactionPolicy.Key(faction)); }
         return a;
     }
 
-    /// <summary>The host options of the local campaign: this PC only (always), the Warfront profile, no bots, the developer tools on (F6; weather and the rest).</summary>
-    public static HostOptions Options(int port, string gameDir, bool newCampaign) =>
-        new(ServerLaunch.ModeAnnihilation, port, LocalOnly: true, gameDir, AllowCustomEmblems: false, Content: SmSim.ContentProfiles.Warfront, Bots: 0, DevTools: true, ExtraArgs: ExtraArgs(newCampaign));   // owner 2026-11-21: the full developer tools (F6), like Classic's This PC only; ServerLaunch adds --dev-tools only for LocalOnly and the server still wants a loopback bind and requester
+    /// <summary>The host options of the local campaign: this PC only (always), the Warfront profile, no bots, the developer tools on (F6; weather and the rest), the faction setting of the next new run.</summary>
+    public static HostOptions Options(int port, string gameDir, bool newCampaign, WarfrontFactionSetting faction = WarfrontFactionSetting.Alternate) =>
+        new(ServerLaunch.ModeAnnihilation, port, LocalOnly: true, gameDir, AllowCustomEmblems: false, Content: SmSim.ContentProfiles.Warfront, Bots: 0, DevTools: true, ExtraArgs: ExtraArgs(newCampaign, faction));   // owner 2026-11-21: the full developer tools (F6), like Classic's This PC only; ServerLaunch adds --dev-tools only for LocalOnly and the server still wants a loopback bind and requester
 
     /// <summary>The private run folder (<c>%LOCALAPPDATA%\sm-reimpl\warfront</c>, or <c>SM_WF_DIR</c>, the test aid the server reads too).</summary>
     public static string RunDir()
