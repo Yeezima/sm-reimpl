@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4099 spec table rows: **3031 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4111 spec table rows: **3041 tagged**, 700 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 4099 spec table rows: **3031 tagged**, 700 not tagged (read from data wi
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
-| Effects (critical) | 112 | 100 | 95 | 44 | 0 |
+| Effects (critical) | 122 | 110 | 96 | 50 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
@@ -53,18 +53,18 @@ Scanned 4099 spec table rows: **3031 tagged**, 700 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 180 | 179 | 57 | 82 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3031** | 2722 | 2217 | 922 | 37 |
+| **All areas** | **3041** | 2732 | 2218 | 928 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1838 |
+| kind: ours | 1848 |
 | confidence: low | 1068 |
-| confidence: medium | 1038 |
+| confidence: medium | 1039 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
-| notes: estimate | 315 |
+| notes: estimate | 321 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -73,8 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: provisional | 43 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
+| notes: interpretation | 30 |
 | notes: user's knowledge | 30 |
-| notes: interpretation | 29 |
 | kind: approximation | 27 |
 | kind: placeholder | 23 |
 | notes: open question | 21 |
@@ -2363,7 +2363,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B769F750` | On the point | a squad within the point's radius **plus 14 m** counts as on its point (the rows reach past the ring), so it is not sent again (m) | kind: ours; notes: estimate | ours | On the point: compare with SM1 by listening A/B at the same distance and state. Ours: a squad within the point's radius plus 14 m counts as on its point… | ☐ |
 | `R-0EC1CBD6` | Cost of the doubled Guardsmen | `smtool warfront-guards --slot wf_a1 --seconds 60` (Release, real map and graph, the first 60 s after A, B, C are secured, 30 ticks a second, an idle machine): before (`SM_WF_GUARD_OLD=1`) mean **3.05 ms** a tick, p95 3.72, 107 Guardsmen and 960 Orks on… (ms) | kind: ours | measured 2026-11-20 | Cost of the doubled Guardsmen: compare with SM1 by listening A/B at the same distance and state. Ours: smtool warfront-guards --slot wf_a1 --seconds 60 (Release, real map… | ☐ |
 
-### Effects (gameplay-critical) (112)
+### Effects (gameplay-critical) (122)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -2509,6 +2509,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-40DC6FA0` | Intensity | x1.3 on the yellow hit glow and the red break and bare-armour glow (shader brightness: `k_hit`, `k_brk`), x1.3 on the size of the particle effects played on a hit player and of the armour break effect; particle counts are the data's; the recharge glow is… (factor) | kind: ours; confidence: medium | owner 2026-11-13 ("by 30%"); what "intensity" means for each effect is ours | Intensity: compare with SM1 with side-by-side video of the same action. Ours: x1.3 on the yellow hit glow and the red break and bare-armour glow… | ☐ |
 | `R-0E49FD3A` | Large burst on a hit player (Classic PvP; reverses the burst part of the row above) | owner 2026-11-13 (verbatim, after the first preview): "classic pvp mode: keep all on hit effects except the one in this reference image" and "there should only be large explosive visual effects on ranged weapon shots in musou mode. in classic pvp mode its… | kind: ours | the owner (2026-11-13); the red sparks are ours | Large burst on a hit player (Classic PvP; reverses the…: compare with SM1 with side-by-side video of the same action. Ours: owner 2026-11-13 (verbatim, after the first preview): "classic pvp… | ☐ |
 | `R-6540FEFF` | Glow and sparks for every damage on a player (Classic PvP and Musou Mode; protocol 71) | owner 2026-11-13 (verbatim): "any melee damage should also trigger the glows", "charge/bull rush, air slash landing, ground pound, light melee combo, F stun strike moves, any sort of damage should trigger the sparks and glows". Driven only by damage the… | kind: ours; confidence: medium | the owner (2026-11-13); the 0.25 s, the counter's width and the reading of the bits are ours | Glow and sparks for every damage on a player (Classic PvP…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: owner 2026-11-13 (verbatim): "any melee damage should also trigger… | ☐ |
+
+*Spec section: Weather fidelity (owner 2026-11-25: "Make the ash squall have a more realistic looking ash texture without killing performance. Same for rain."; scope extended the same day to every weather effect except Ember Wind; presentation only, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-6FE420CB` | Sprite source | the weather's textures are cut from the player's own effects atlas (`master_fx` in `data/packages/master_fx.oppc`) at run time on a worker thread, once per run, after the effects load; each material's sheet (cells across and down) is read from the original… | kind: ours | owner answer 2026-11-25 ("the game's own FX textures"); materials from `smtool fx-dump` | Sprite source: compare with SM1 with side-by-side video of the same action. Ours: the weather's textures are cut from the player's own effects atlas… | ☐ |
+| `R-7DAADD25` | Ash grit and flakes | `paper_texture_page_00` (1 x 4 sheet, 125 x 253 texels), the material of the original's `amb_falling_ash` ("dark ash", "light ash"): the grit streaks smear a cell along the wind under the old soft streak envelope (the sprite's alpha breaks the streak up… (-, rad/s) | kind: ours; notes: interpretation; notes: estimate | interpretation of the original sprite's use | Ash grit and flakes: compare with SM1 with side-by-side video of the same action. Ours: paper_texture_page_00 (1 x 4 sheet, 125 x 253 texels), the material… | ☐ |
+| `R-452FEA46` | Dust sheets and Low Fog cards | `alpha_volume_soft` (2 x 2 sheet of soft volume puffs, 509 x 509), the material of `amb_dust_cloud_windy`, `amb_fog_patch` and `amb_steamy_fog`; a random cell per card, no turn (the cards stay wide and low); sizes, counts, alphas, fades unchanged | kind: ours; notes: estimate | same | Dust sheets and Low Fog cards: compare with SM1 with side-by-side video of the same action. Ours: alpha_volume_soft (2 x 2 sheet of soft volume puffs, 509 x 509), the… | ☐ |
+| `R-9E5ED604` | Rain mist | `smoke_wispy` (2 x 2 wisps, 253 x 253), the material of `amb_mist_calm`; a random cell per puff turned up to 180 degrees either way (degrees) | kind: ours; notes: estimate | same | Rain mist: compare with SM1 with an overlaid screenshot taken from the same position. Ours: smoke_wispy (2 x 2 wisps, 253 x 253), the material of amb_mist_calm… | ☐ |
+| `R-9F09D93D` | Splashes | `alpha_spike_hard` (the spray spike of `liquid_sludge_splashes_small` and the drips' splash; a 1 x 4 sheet stored pointing along +U, turned a quarter to point up, so 4 x 1): a 0.16 x 0.22 m spike with its base on the ground, turned up to 25 degrees either… (m, s, degrees) | kind: ours; notes: estimate | the original's splash beam grows 0 to 0.43 m over 0.4 s | Splashes: compare with SM1 with an overlaid screenshot taken from the same position. Ours: alpha_spike_hard (the spray spike of liquid_sludge_splashes_small and… | ☐ |
+| `R-0AE75D98` | Rain streaks | kept procedural (the rain-motion soft streak): the original has no rain, and its only falling-liquid sprite (`drops_beam` of `liquid_sludge_dripping`, 125 x 61 texels) is a sparse scatter of specks | kind: ours | inspection of the sprite | Rain streaks: compare with SM1 with side-by-side video of the same action. Ours: kept procedural (the rain-motion soft streak): the original has no… | ☐ |
+| `R-E6CDC61C` | Thunderstorm sky and flash, Clear | unchanged: the preset dome's seamless drifting noise has no seamless original counterpart in `master_fx` (its cloud sprites are single puffs with edges); the flash is the grade and the sky-only glow; Clear draws nothing of its own | kind: ours; confidence: medium | judgement | Thunderstorm sky and flash, Clear: compare with SM1 with side-by-side video of the same action. Ours: unchanged: the preset dome's seamless drifting noise has no seamless… | ☐ |
+| `R-5131FE43` | Grade light | each layer's colour times L = clamp((0.5 + 0.5 x grade sun energy) x grade exposure x (0.9 + 0.1 x grade ambient), 0.55, 1.15) of the weather's grade in use (1 with none): about 0.67 in a full Thunderstorm, 0.69 in a full Rain, 0.78 in a full Ash Squall, 0.90… | kind: ours; notes: estimate | owner: "not clash with the rest of the environment" | Grade light: compare with SM1 with side-by-side video of the same action. Ours: each layer's colour times L = clamp((0.5 + 0.5 x grade sun energy) x… | ☐ |
+| `R-E58BA260` | High tier | High lighting preset, outside the Compatibility renderer and safe mode: the near rain, far rain, grit and flakes fade where they meet the scene's depth over 0.35, 1.0, 0.5 and 0.3 m (soft particles); Low, Medium and Compatibility draw the same counts with one… (m) | kind: ours; notes: estimate | owner budget: High up to about +1 ms, Medium and Compatibility at today's cost | High tier: compare with SM1 by measuring on a flat spot of the same map. Ours: High lighting preset, outside the Compatibility renderer and safe… | ☐ |
+| `R-1BCD3241` | Ember Wind | unchanged (owner 2026-11-25: "except the ember weather condition. Keep that one as is."): the ember shader, build, update, box, counts and grade are pinned to their rain-motion text | kind: ours | owner | Ember Wind: compare with SM1 with side-by-side video of the same action. Ours: unchanged (owner 2026-11-25: "except the ember weather condition.… | ☐ |
 
 *Spec section: Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change)*
 
@@ -6641,6 +6656,8 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-29325834` | Test aid | Weather (fix 1: the storm's airborne layers follow the weather; added content; owner 2026-11-22; presentation only) |
 | `R-39A6A17F` | Versions | Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only) |
 | `R-4B842E67` | Test aids | Weather rain motion (series 37; owner after playtesting d4db1299: "The rain droplets still thin out or disappear if the player quickly moves laterally or up or down."; presentation only, client only) |
+| `R-FE7004A9` | Restore switch | Weather fidelity (owner 2026-11-25: "Make the ash squall have a more realistic looking ash texture without killing performance. Same for rain."; scope extended the same day to every weather effect except Ember Wind; presentation only, client only) |
+| `R-03B07849` | Test aid | Weather fidelity (owner 2026-11-25: "Make the ash squall have a more realistic looking ash texture without killing performance. Same for rain."; scope extended the same day to every weather effect except Ember Wind; presentation only, client only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
 

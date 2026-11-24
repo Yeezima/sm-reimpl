@@ -387,7 +387,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
                 float rate = (0.5 + 1.2 * fract(v_hash * 3.71)) * (fract(v_hash * 11.3) < 0.5 ? -1.0 : 1.0);
                 float ang = v_hash * 6.2832 + TIME * rate;
                 float flip = max(0.3, abs(cos(TIME * (0.9 + fract(v_hash * 5.17)) + v_hash * 17.0)));
-                vec2 q = mat2(vec2(cos(ang), sin(ang)), vec2(-sin(ang), cos(ang))) * (UV - vec2(0.5));
+                vec2 q = mat2(vec2(cos(ang), sin(ang)), vec2(-sin(ang), cos(ang))) * (UV - vec2(0.5)) * 1.6;   // the scrap fills the middle 0.6 of the quad: a flake, not a sheet of paper
                 q.x /= flip;
                 q += vec2(0.5);
                 float inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);
@@ -396,7 +396,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
                 vec2 cuv = (vec2(mod(cell, tiles.x), floor(cell / tiles.x)) + clamp(q, vec2(0.02), vec2(0.98))) / tiles;
                 vec4 t = texture(sprite, cuv);
                 prof = inside * t.a * (1.0 - smoothstep(0.8, 1.0, r)) * mix(0.6, 1.0, flip);
-                shade = mix(0.8, 1.15, clamp(dot(t.rgb, vec3(0.3333)), 0.0, 1.0));
+                shade = mix(0.6, 1.0, clamp(dot(t.rgb, vec3(0.3333)), 0.0, 1.0));
             }
             ALBEDO = tint.rgb * shade;
             ALPHA = clamp(tint.a * prof * v_fade * soft_fade(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX), 0.0, 1.0);
