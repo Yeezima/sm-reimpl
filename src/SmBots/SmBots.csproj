@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Classic PvP test bot's brain, engine-free (T1 of the Phase B design, 2026-11-25; docs/architecture.md "SmBots"): moved without a behaviour change from the
+    Godot client's NetworkView, so the client (a headless bot client, through a thin adapter) and the dedicated server (Warfront retainers, T4) run the same code.
+    No Godot: Godot's Vector2 formulas are copied in GodotMath.cs, its print goes to a log sink (BotLog).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmNet.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SmNet\SmNet.csproj" />
+    <ProjectReference Include="..\SmContent\SmContent.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
     <ProjectReference Include="..\SmContent\SmContent.csproj" />
+    <!-- T1 (Phase B): the Classic bot brain, engine-free. -->
+    <ProjectReference Include="..\SmBots\SmBots.csproj" />
     <!-- release-parts: the parts manifest, builder and upload plan the launcher reads (one implementation for both sides). -->
     <ProjectReference Include="..\SmLauncher.Core\SmLauncher.Core.csproj" />
   </ItemGroup>
