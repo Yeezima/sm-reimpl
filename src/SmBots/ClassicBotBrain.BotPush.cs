@@ -1,12 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Godot;
 using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// The owner's melee push (2026-11-08; test script, **ours**, not the original AI; engine-free parts in <see cref="BotPush"/>, <see cref="BotApproach"/> and
@@ -26,9 +25,9 @@ namespace SmClient;
 /// (NetworkView.BotPosts.cs) and retreating bots (NetworkView.BotCover.cs) do not push.
 /// Annihilation only (Seize Ground keeps its point logic; Musou bots return earlier, <c>ExtrasBotInput</c>). <c>--bot-no-push</c> turns it off.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
-    static readonly bool BotNoPush = CmdFlag("bot-no-push");
+    bool BotNoPush => CmdFlag("bot-no-push");
     /// <summary>Metres within which a pushing bot without a jump pack hands over to the charge and melee script (the charge's 4 to 9 m).</summary>
     const float PushCloseRange = 9f;
     /// <summary>Metres from an approach point at which it counts as passed, and the enemy movement (m) or age (s) that plans it again.</summary>
@@ -127,7 +126,7 @@ public partial class NetworkView
             if (enemy.PlayerId != _approachFor) _approach = null;
             _approachFor = enemy.PlayerId; _approachEnemyAt = enemy.Position; _approachAt = _connectedFor;
             var from = me.Position; var at = enemy.Position; float eye = config.EyeHeight; var cancel = _navCancel.Token;
-            _approachTask = Task.Run(() => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
+            _approachTask = Job($"approach {++_approachJobs}", () => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
         }
         if (_approach is not { } plan || !_approachSafe) return null;
         while (_approachIndex < plan.Waypoints.Count && new Vector2(plan.Waypoints[_approachIndex].X - me.Position.X, plan.Waypoints[_approachIndex].Y - me.Position.Y).Length() <= ApproachPass) _approachIndex++;

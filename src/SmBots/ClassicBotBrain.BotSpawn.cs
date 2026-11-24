@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Godot;
 using SmContent;
 using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// M44a: how a test bot treats an enemy inside its spawn room (test script, **ours**, not the original AI). The spawn room is sealed
@@ -26,15 +25,15 @@ namespace SmClient;
 /// The watch is built once per side and graph on the thread pool; until ready, or without teams, blockers or a graph, the bot behaves as before.
 /// <c>--bot-no-spawn-wait</c> turns it off (before/after measurements).
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
     /// <summary><c>--bot-no-spawn-wait</c> (test aid): the old chase, hugging the blocker outside the other side's spawn room.</summary>
-    static readonly bool BotNoSpawnWait = CmdFlag("bot-no-spawn-wait");
+    bool BotNoSpawnWait => CmdFlag("bot-no-spawn-wait");
     /// <summary>
     /// <c>--bot-door-wait</c> (test aid, before/after): the M44a wait at a hold point 8 to 15 m from the other side's spawn door. Off by default since 2026-11-07 (owner:
     /// "the bot should never wait directly outside the spawn area of the enemy"); the bots roam and hold the centre instead (NetworkView.BotRoam.cs).
     /// </summary>
-    static readonly bool BotDoorWait = CmdFlag("bot-door-wait");
+    bool BotDoorWait => CmdFlag("bot-door-wait");
 
     /// <summary>The current side's spawn watch once its build has finished (null before, or when none could be built).</summary>
     SpawnRoomWatch? Watch
@@ -46,7 +45,7 @@ public partial class NetworkView
             {
                 var team = client.Predicted.Team;
                 var cancel = _navCancel.Token;
-                slot.WatchTask = Task.Run(() =>
+                slot.WatchTask = Job($"watch {slot.Team} {slot.Pack}", () =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);

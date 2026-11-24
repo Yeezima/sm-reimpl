@@ -1,10 +1,9 @@
 using System;
 using System.Linq;
-using Godot;
 using SmNet;
 using SmSim;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// The owner's fixed Classic PvP bot loadouts (2026-11-07; **ours**, test bots; <see cref="BotLoadouts"/>): a <c>--bot</c> with a <c>--class</c> picks one of its
@@ -13,24 +12,26 @@ namespace SmClient;
 /// <c>--primary</c>, <c>--pistol</c>, <c>--melee</c>, <c>--equipment</c>, <c>--bot-loadout</c>, <c>--perks</c>, <c>--second</c> or <c>--profile</c> no preset is used.
 /// <c>--bot-preset none</c> turns it off; <c>--bot-preset a|b|c</c> forces that preset of the class's role (tests, screenshots).
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
-    static readonly string? BotPresetArg = CmdArg("bot-preset");
+    string? BotPresetArg => CmdArg("bot-preset");
 
     /// <summary>The preset this bot joined with (null: none), for its log.</summary>
     BotLoadoutPick? _botPreset;
 
-    /// <summary>Whether this client may use a bot preset at all (the map is checked later).</summary>
-    bool BotPresetWanted()
-    {
-        if (!_bot || Observe || _demoPlayback is not null || string.Equals(BotPresetArg, "none", StringComparison.OrdinalIgnoreCase)) return false;
-        if (_loadout.Primary is not null || _loadout.Pistol is not null || _loadout.Melee is not null || _loadout.Equipment is not null || _loadout.Random) return false;
-        var args = OS.GetCmdlineUserArgs();
-        return !args.Contains("--perks") && !args.Contains("--second") && !args.Contains("--profile") && !args.Contains("--bot-change-loadout");
-    }
+    Random? _presetRandom;
+
+    /// <summary>
+    /// The preset draw: <see cref="Random.Shared"/> as the client always drew it (one draw per match from the process's shared generator, so the distribution is
+    /// unchanged), or a generator seeded with <see cref="ClassicBotOptions.PresetSeed"/> (a server's brain: the same pick for the same seed).
+    /// </summary>
+    int PresetDraw() => _options.PresetSeed is { } seed ? (_presetRandom ??= new Random(seed)).Next() : Random.Shared.Next();
+
+    /// <summary>The preset this bot joined with (null: none, or not yet decided).</summary>
+    public BotLoadoutPick? Preset => _botPreset;
 
     /// <summary><see cref="ClientOptions.ReviseOnMap"/>: on a Classic PvP map, the options with a preset of the requested class's role.</summary>
-    ClientOptions BotPresetOnMap(string map, ClientOptions options)
+    public ClientOptions BotPresetOnMap(string map, ClientOptions options)
     {
         if (_config is null || !map.StartsWith("mp_", StringComparison.OrdinalIgnoreCase)) return options;
         if (options.RequestedClass == Protocol.ServerDefaultClass) { GD.Print("bot preset: no --class, the server's default loadout is used"); return options; }
@@ -39,7 +40,7 @@ public partial class NetworkView
         var presets = BotLoadouts.For(loadout.Role);
         if (presets.Count == 0) { GD.Print($"bot preset: none for role '{loadout.Role}' ({loadout.Name})"); return options; }
         var preset = BotPresetArg is { Length: > 0 } key ? presets.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase)) : null;
-        preset ??= presets[BotLoadouts.PickIndex(System.Random.Shared.Next(), presets.Count)];
+        preset ??= presets[BotLoadouts.PickIndex(PresetDraw(), presets.Count)];
         var pick = BotLoadouts.Resolve(_config, playerClass, preset);
         _botPreset = pick;
         GD.Print($"bot preset ({(BotPresetArg is { Length: > 0 } ? "--bot-preset" : "random, once per match")}): {BotLoadouts.Describe(_config, pick)}");

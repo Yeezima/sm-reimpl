@@ -1,10 +1,9 @@
 using System;
 using System.Linq;
-using Godot;
 using SmNet;
 using SmSim;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// The owner's posts (2026-11-08; test script, **ours**; engine-free parts in <see cref="BotPosts"/>): "make one boss play at the top of the side ramps, one devastator on
@@ -15,9 +14,9 @@ namespace SmClient;
 /// does not chase or push, and goes back after a retreat.
 /// The others keep the centre holds, lanes and roaming. <c>--bot-no-posts</c> turns it off.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
-    static readonly bool BotNoPosts = CmdFlag("bot-no-posts");
+    bool BotNoPosts => CmdFlag("bot-no-posts");
     /// <summary>Metres from the post at which the holder counts as on it, and at which it walks back (ours).</summary>
     const float PostArrived = 1.5f, PostStray = 2.5f;
 

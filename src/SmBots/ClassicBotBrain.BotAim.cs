@@ -1,11 +1,10 @@
 using System;
 using System.Globalization;
 using System.Linq;
-using Godot;
 using SmNet;
 using SmSim;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// M44a test-bot shooting (test aid, **ours**, not the original AI):
@@ -21,7 +20,7 @@ namespace SmClient;
 /// </list>
 /// It also keeps shots, hits and engagement distances and prints an "aim:" line every 10 s (hit rate per distance band).
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
     /// <summary>
     /// Fraction of shots meant to land on the target's body, at every range (<see cref="BotAimModel.DistanceScale"/>), when <c>--bot-accuracy</c> is not given. Night batch 2026-11-06,
@@ -93,7 +92,7 @@ public partial class NetworkView
     /// <summary>The accuracy this bot uses: <c>--bot-accuracy</c>, else 1 with a probe flag (<see cref="ProbeFlags"/>), else <see cref="DefaultBotAccuracy"/>.</summary>
     float BotAccuracy => _botAccuracyFlag ?? (ProbeFlags.Any(CmdFlag) ? 1f : DefaultBotAccuracy);
 
-    static float? FloatArg(string name)
+    float? FloatArg(string name)
     {
         var a = CmdArgs(name, 1);
         return a.Length == 1 && float.TryParse(a[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float v) && float.IsFinite(v) ? v : null;

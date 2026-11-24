@@ -1,12 +1,11 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Godot;
 using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// The owner's Classic PvP bot behaviour of 2026-11-07 (test script, **ours**, not the original AI; engine-free parts in <see cref="BotMapPlan"/> and <see cref="BotRoamer"/>):
@@ -24,7 +23,7 @@ namespace SmClient;
 /// </list>
 /// The plan is built on the thread pool after the spawn watch; until then the bot behaves as before, except that it never chases into the spawn room.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
     BotRoamer? _botRoamer;
     int _botLife = -1;
@@ -50,7 +49,7 @@ public partial class NetworkView
                 var cancel = _navCancel.Token;
                 string mapName = client.MapName;
                 float eye = _config?.EyeHeight ?? 1.7f;
-                slot.PlanTask = Task.Run(() =>
+                slot.PlanTask = Job($"plan {slot.Team} {slot.Pack}", () =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);
