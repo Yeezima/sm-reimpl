@@ -78,6 +78,9 @@ public static class PaintMaskBuilder
             float d1 = Distance(L[i], A[i], B[i], c1), d2 = has2 ? Distance(L[i], A[i], B[i], c2) : float.MaxValue;
             float specGate = Smooth(3f, 12f, spec[i]);
             float p = Smooth(26f, 12f, d1) * specGate, s = has2 ? Smooth(22f, 10f, d2) * specGate : 0f;
+            // Chromatic plates: darker, lighter or duller texels of the same hue (shadowed or worn paint) are the same plate whatever their lightness.
+            p = MathF.Max(p, HueMatch(hue, chroma, c1) * Smooth(1f, 6f, spec[i]));
+            if (has2) s = MathF.Max(s, HueMatch(hue, chroma, c2) * Smooth(1f, 6f, spec[i]));
             if (has2 && s > 0f && p > 0f) { if (d2 < d1) p *= Math.Clamp(d2 / MathF.Max(d1, 1e-3f), 0f, 1f); else s *= Math.Clamp(d1 / MathF.Max(d2, 1e-3f), 0f, 1f); }
             float rest = MathF.Max(0f, 1f - t);
             p *= rest; s *= rest;
@@ -161,6 +164,19 @@ public static class PaintMaskBuilder
         var ordered = bins.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key.Item1).ThenBy(kv => kv.Key.Item2).ThenBy(kv => kv.Key.Item3).ToList();
         Centre FromBin((int, int, int) k) => new(k.Item3 * 18f + 9f, k.Item1 * 6f + 3f, k.Item2 * 6f + 3f);
         var first = FromBin(ordered[0].Key);
+        // Dark undersuit, rubber and cables can outnumber the plates on a texture (arms): when the largest bin is dark and colourless and a coloured bin
+        // has at least a quarter of its texels, the coloured one is the plate colour (black-schemed sets have no such bin and keep the dark one).
+        static bool DarkGrey(Centre c) => c.L < 32f && MathF.Sqrt(c.A * c.A + c.B * c.B) < 9f;
+        if (DarkGrey(first))
+        {
+            int coloured = pixels.Count(i => A[i] * A[i] + B[i] * B[i] >= 144f);
+            if (coloured * 4 >= pixels.Count)
+                foreach (var (k, _) in ordered.Skip(1))
+                {
+                    var c = FromBin(k);
+                    if (MathF.Sqrt(c.A * c.A + c.B * c.B) >= 12f) { first = c; break; }
+                }
+        }
         Centre? second = null;
         foreach (var (k, count) in ordered.Skip(1))
         {
@@ -195,6 +211,14 @@ public static class PaintMaskBuilder
             if (!distinctHue && !lighter) second = null;
         }
         return (first, second ?? first, second is not null);
+    }
+
+    /// <summary>How far a texel of <paramref name="hue"/> and <paramref name="chroma"/> is the plate colour <paramref name="c"/> by hue alone (0 for an achromatic plate colour).</summary>
+    static float HueMatch(float hue, float chroma, Centre c)
+    {
+        float cc = MathF.Sqrt(c.A * c.A + c.B * c.B);
+        if (cc < 12f) return 0f;
+        return Smooth(0.55f, 0.3f, HueGap(hue, MathF.Atan2(c.B, c.A))) * Smooth(cc * 0.22f, cc * 0.45f, chroma);
     }
 
     /// <summary>The angle between two colours' hues in the (a*, b*) plane, 0..pi.</summary>
