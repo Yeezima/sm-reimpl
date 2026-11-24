@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4101 spec table rows: **3028 tagged**, 705 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4102 spec table rows: **3029 tagged**, 705 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 4101 spec table rows: **3028 tagged**, 705 not tagged (read from data wi
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 252 | 234 | 199 | 40 | 0 |
+| Sound mix (critical) | 253 | 235 | 199 | 40 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 47 | 43 | 45 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -53,13 +53,13 @@ Scanned 4101 spec table rows: **3028 tagged**, 705 not tagged (read from data wi
 | Core simulation (provisional values) | 879 | 833 | 656 | 241 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3028** | 2720 | 2221 | 913 | 37 |
+| **All areas** | **3029** | 2721 | 2221 | 913 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1835 |
+| kind: ours | 1836 |
 | confidence: low | 1068 |
 | confidence: medium | 1042 |
 | notes: ours | 475 |
@@ -1957,7 +1957,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (252)
+### Sound mix (gameplay-critical) (253)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2232,6 +2232,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E23D9C2C` | Downed marker | a downed retainer (its World player fallen) shows "NAME DOWN s" 1.5 m over the body, always; "REVIVING" while the own hold runs; the seconds count from the Downed event (or from when the client first saw it down) over the 20 s window (m, s) | kind: ours; confidence: medium | the crowd's downed line kept; the height ours | Downed marker: compare with SM1 by listening A/B at the same distance and state. Ours: a downed retainer (its World player fallen) shows "NAME DOWN s" 1.5 m… | ☐ |
 | `R-A6EB6542` | Revive prompt | "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a progress ring 0.6 m over the body; the ring fills from the own Use hold on that Marine over `SquadRules.PlayerReviveSeconds` (a client-side reading of the server's per-reviver progress, which… (m, s) | kind: ours; confidence: medium | `SquadRules.PlayerReviveReach`; the revive itself is the server's | Revive prompt: compare with SM1 by listening A/B at the same distance and state. Ours: "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a… | ☐ |
 | `R-8C4A215B` | Panel state | FIGHTING (in the World, alive), DOWN (fallen), OUT (in this battle, no World id: out, or never landed), READY (not in this battle), ON HOLD (held roster) | kind: ours; confidence: medium | Phase B T5 (OUT is new: the retired state record never reached the panel) | Panel state: compare with SM1 by listening A/B at the same distance and state. Ours: FIGHTING (in the World, alive), DOWN (fallen), OUT (in this battle… | ☐ |
+| `R-EBBC8DAD` | Retainer hit-event rank | a retainer's Hit event ranks 3 in Musou's event window, with a human's (after deaths, telegraphs and strikes, before the AI Marines' hits at 4 and the tracers at 5), so a full window drops it no sooner than a human's; Musou Mode and every server without the… (rank) | kind: ours | Phase B design T5 (retainers rank as humans) | Retainer hit-event rank: compare with SM1 by listening A/B at the same distance and state. Ours: a retainer's Hit event ranks 3 in Musou's event window, with a… | ☐ |
 | `R-DC9456FC` | Feed lines and prompts | five kept, five seconds each, in capitals as the other Warfront HUD with the Marines' names as typed: "Brother X IS DOWN", "REVIVED BY NAME", "IS OUT", "JOINS THE SQUAD"; "HOLD [E] TO REVIVE NAME"; text size 20 (W8's body size) (s) | kind: ours; confidence: medium | the brief; review 1 | Feed lines and prompts: compare with SM1 by listening A/B at the same distance and state. Ours: five kept, five seconds each, in capitals as the other Warfront HUD… | ☐ |
 | `R-68B3D32A` | Squad HUD line | "SQUAD standing/roster", "N DOWN" while any is downed; under the XP HUD | kind: ours; confidence: medium | the brief | Squad HUD line: compare with SM1 by listening A/B at the same distance and state. Ours: "SQUAD standing/roster", "N DOWN" while any is downed; under the XP… | ☐ |
 | `R-D2E3CAE7` | Keys | F4 opens the squad panel aboard the ship, J sends the jump-pound mark for a class with a jump pack in a battle ("[J] JUMP ASSAULT" on the HUD line); checked by search: neither key is used by the client's key handling, the default bindings (W S A D Shift Ctrl… | kind: ours; confidence: medium | the brief ("pick a free key") | Keys: compare with SM1 by listening A/B at the same distance and state. Ours: F4 opens the squad panel aboard the ship, J sends the jump-pound mark… | ☐ |

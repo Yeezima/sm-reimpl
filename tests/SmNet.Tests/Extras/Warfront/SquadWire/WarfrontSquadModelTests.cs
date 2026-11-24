@@ -173,5 +173,15 @@ public class WarfrontSquadModelTests
         Assert.False(coloursOnly.HasPredefinedSet);
         Assert.Equal((byte)10, coloursOnly.Palette(ArmourSlot.Torso, 0)); Assert.Equal((byte)30, coloursOnly.Palette(ArmourSlot.Torso, 2));
         Assert.True(coloursOnly.PatternOn(ArmourSlot.Torso));
+        Assert.Equal(SmSim.Extras.Warfront.Retainers.RetainerLook.CodeOf(owner, false), coloursOnly);   // the server's look path applies the same rule
+    }
+
+    /// <summary>T5 follow-up: the drawn arc follows the server's <c>WarfrontCleaveBonus</c> through the same switch: a human keeps Warfront's x1.2, a retainer gets it exactly when <c>WarfrontRetainerRules.CleaveBonus</c> is on, other puppets never.</summary>
+    [Fact]
+    public void The_drawn_arc_gives_Warfronts_cleave_reach_as_the_servers_switch_says()
+    {
+        Assert.True(WarfrontSquadModel.CleaveBonus(puppet: false, retainer: false));   // a human: unchanged
+        Assert.Equal(SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus, WarfrontSquadModel.CleaveBonus(puppet: true, retainer: true));   // a retainer: the server's switch, not a constant of the client
+        Assert.False(WarfrontSquadModel.CleaveBonus(puppet: true, retainer: false));   // the allied pair, a pod's Marines: Musou's reach
     }
 }

@@ -21,13 +21,14 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>
-    /// Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it. Humans and their retainers (Phase B T5: the
-    /// server's <c>WarfrontCleaveBonus</c> gives it to <c>MarineRole.Squad</c>, so a retainer's arc is drawn at the reach it strikes); the allied pair and a pod's Marines keep Musou Mode's reach.
+    /// Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it. Humans only since the owner's "Base player
+    /// damage only" (2026-11-25): the server's <c>WarfrontCleaveBonus</c> gives a retainer (<c>MarineRole.Squad</c>) the bonus only while <c>WarfrontRetainerRules.CleaveBonus</c> is on (today off), and the arc follows
+    /// the same switch (<see cref="SmClient.Extras.Warfront.Squad.WarfrontSquadModel.CleaveBonus"/>), so a retainer's arc is drawn at the reach it strikes; the allied pair and a pod's Marines keep Musou Mode's reach.
     /// </summary>
     partial void WarfrontCleaveScaleFor(int player, ref float scale)
     {
         if (_config is null || !_config.Extras.HasFlag(ContentExtras.Warfront) || _tfwState.War is null) return;
-        if (SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(player) && !WarfrontIsRetainer(player)) return;
+        if (!SmClient.Extras.Warfront.Squad.WarfrontSquadModel.CleaveBonus(SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(player), WarfrontIsRetainer(player))) return;
         scale = WarfrontBattleRules.CleaveScale(ClassOf(player) is int c && DreadnoughtRules.IsDreadnought(_config, c));
     }
 

@@ -238,21 +238,14 @@ public sealed class WarfrontSquadModel
 
     /// <summary>
     /// The appearance code a Marine wears: the owner's own pieces and colours (<paramref name="ownPieces"/>, a standard retainer), or the class's own armour in the owner's colours (a Librarian's squad: pieces
-    /// left to the class's default look, the palettes, pattern, decals, lens and emblem of the owner's). Pure, so the choice is tested. (Phase B T5: the World player's look is the server's; this rule is kept
-    /// for the server-side look of a Librarian's squad, which T2's look path does not apply yet.)
+    /// left to the class's default look, the palettes, pattern, decals, lens and emblem of the owner's). Pure, so the choice is tested. (Phase B T5: the World player's look is the server's, which applies this
+    /// same rule, <c>SmSim.Extras.Warfront.Retainers.RetainerLook.CodeOf</c>, since the T5 follow-up.)
     /// </summary>
-    public static AppearanceCode LookCode(AppearanceCode owner, bool ownPieces)
-    {
-        if (ownPieces) return owner;
-        var code = AppearanceCode.Default;
-        foreach (var slot in Enum.GetValues<ArmourSlot>())
-        {
-            code = code.WithPalette(slot, owner.Palette(slot, 0), owner.Palette(slot, 1), owner.Palette(slot, 2));
-            code = code.WithPattern(slot, owner.PatternOn(slot));
-        }
-        code = code.WithDecals(owner.LeftDecal, owner.RightDecal, owner.FallbackBadge);
-        if (owner.HasLens) code = code.WithLens(owner.Lens);
-        if (owner.UsesEmblem) code = code.WithEmblem(owner.Emblem);
-        return code;
-    }
+    public static AppearanceCode LookCode(AppearanceCode owner, bool ownPieces) => SmSim.Extras.Warfront.Retainers.RetainerLook.CodeOf(owner, ownPieces);
+
+    /// <summary>
+    /// Whether the drawn melee arc of <paramref name="player"/> takes Warfront's cleave reach (x1.2, x1.4 a Dreadnought), as the server's <c>World.WarfrontCleaveBonus</c>: a human always, a retainer only while
+    /// <c>WarfrontRetainerRules.CleaveBonus</c> is on (today off: "Base player damage only", owner 2026-11-25), any other puppet (the allied pair, a pod's Marines) never. Pure, so the choice is tested.
+    /// </summary>
+    public static bool CleaveBonus(bool puppet, bool retainer) => !puppet || (retainer && SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus);
 }

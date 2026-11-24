@@ -74,6 +74,7 @@ public sealed partial class GameServer
             SaveCallback = () => WfSave(s),
         };
         _wfWiring = wiring;
+        _musouEvents.WarfrontRetainer = wiring.Retainers.IsRetainer;   // Phase B T5 follow-up: a retainer's hit event ranks with a human's (SmNet MusouEventWindow.WarfrontRetainers.cs)
         try
         {
             string path = Path.Combine(s.Dir, WarfrontSquadsFile);

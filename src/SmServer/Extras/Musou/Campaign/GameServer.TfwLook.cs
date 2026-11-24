@@ -18,7 +18,17 @@ public sealed partial class GameServer
     {
         if (World.Tfw is not { } run || !TfwContracts.IsPuppet(playerId) || run.MarineOf(playerId) is not { } marine) return;
         int wearer = marine.Role != MarineRole.Ally ? marine.Owner : TfwRun.HostOf(World.Players.Keys);
+        bool ownPieces = true;
+        WarfrontPuppetWearer(playerId, ref wearer, ref ownPieces);   // WARFRONT-HOOK
         if (PeerOf(wearer) is not { } host || host.Appearance.Race != Race.SpaceMarines || host.Appearance.Version == 0) return;
-        look = (host.Appearance.Version, Race.SpaceMarines, Published(host.Appearance));
+        var code = Published(host.Appearance);
+        if (!ownPieces) WarfrontColoursOnly(ref code);   // WARFRONT-HOOK
+        look = (host.Appearance.Version, Race.SpaceMarines, code);
     }
+
+    /// <summary>Hook for Warfront (Phase B T5 follow-up): a retainer (<c>MarineRole.Squad</c>) wears the look of the player its squad fights under now (re-bound when he returns) and, in a Librarian's squad, only his colours. A no-op outside Warfront.</summary>
+    partial void WarfrontPuppetWearer(int playerId, ref int wearer, ref bool ownPieces);
+
+    /// <summary>Hook for Warfront: the owner's colours on the class's default pieces (<c>RetainerLook.CodeOf</c>). Called only when <see cref="WarfrontPuppetWearer"/> cleared the pieces.</summary>
+    partial void WarfrontColoursOnly(ref AppearanceCode code);
 }
