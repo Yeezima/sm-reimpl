@@ -58,7 +58,7 @@ public enum InputButtons : ushort
     SlotSecond = 16384,
     /// <summary>
     /// The direct stab (protocol 81; owner, 2026-11-17: "make the sword stab performed by F + F or rmb + F instead be activated on its own with no precursor move by pressing T").
-    /// The client holds it for a few ticks after a press; from rest it starts the weapon's stab strike (<see cref="MeleeStep.Stab"/>, the power sword's F + F finisher) at once. Nothing for a
+    /// The client holds it for a few ticks after a press; from rest it starts the weapon's stab strike (<see cref="MeleeStep.Stab"/>, the power sword's stab strike, which since sim/stab-key-only no combo reaches) at once. Nothing for a
     /// weapon without a stab, and never in Musou Mode (the server drops it there). Same refusals as a heavy press (stun, evade, jump-pack flight).
     /// </summary>
     Stab = 32768,
@@ -870,6 +870,7 @@ public sealed partial record SimConfig
             if (!ChargeInstantCancel) w.Write("old-charge-cancel-delay");   // charge-responsive (protocol 69): only when off
             if (!ChargeMeleeChain) w.Write("old-charge-melee-chain");   // charge-melee-chain (protocol 70): only when off
             if (!LedgeHopCarry) w.Write("old-ledge-hop");   // sim/ledge-charge-hop (protocol 85): only when off
+            if (!LedgeChargeHalfAir) w.Write("old-ledge-charge-air");   // sim/ledge-charge-air (protocol 90): only when off
             if (!HopRules) w.Write("old-hop-rules");   // sim/hop-rules (protocol 72): only when off
             if (!StabRelease) w.Write("old-stab-release");   // sim/stab-release (protocol 88): only when off
             if (!StompRelease) w.Write("old-stomp-release");   // sim/stomp-release (2026-11-14): only when off

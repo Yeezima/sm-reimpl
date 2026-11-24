@@ -80,6 +80,8 @@ public sealed record ServerArguments
     /// <summary>sim/hop-rules (restore switch): the protocol 71 jump and hop rules (<see cref="SimConfig.HopRules"/>; config hash: clients need it too).</summary>
     public bool OldHopRules { get; init; }
     public bool OldLedgeHop { get; init; }
+    /// <summary>sim/ledge-charge-air (restore switch): a Classic PvP ledge charge falls under normal gravity (protocol 89), not 4 x (<see cref="SimConfig.LedgeChargeHalfAir"/>; config hash: clients need it too).</summary>
+    public bool OldLedgeChargeAir { get; init; }
     /// <summary>sim/stomp-release (restore switch): the stomp locks the player to the end of its clip (<see cref="SimConfig.StompRelease"/>; config hash: clients need it too).</summary>
     public bool OldStompRelease { get; init; }
     /// <summary>sim/stab-release (restore switch): the stab locks the player to the end of its clip (<see cref="SimConfig.StabRelease"/>; config hash: clients need it too).</summary>
@@ -106,6 +108,8 @@ public sealed record ServerArguments
     public bool AerialTackleRestored { get; init; }
     /// <summary>musou/ork-swing-commit (restore switch): a melee Ork's wind-up faces its target every tick up to the blow, as before 2026-11-12 (SimConfig.MusouOrkSwingTracking, added content; config hash: clients need it too).</summary>
     public bool MusouOrkSwingTracking { get; init; }
+    /// <summary>remove-spear-claw (restore switch, owner 2026-11-23): Musou Mode and Warfront offer the lightning claw and the power spear again (ArsenalRules.SpearClawOffered; config hash: clients need it too).</summary>
+    public bool OldArsenalSpearClaw { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -181,6 +185,7 @@ public static class ServerCommandLine
           --old-charge-melee-chain     switch: restore: no instant melee cancel of a charge and no spacing reset by a melee attack (clients need --old-charge-melee-chain too)
           --old-sprint-melee           switch: restore: a light press while sprinting swings instead of charging (clients need --old-sprint-melee too)
           --old-ledge-hop              switch: restore: a hop out of a ledge charge drops to the hop's own start speed (clients need --old-ledge-hop too)
+          --old-ledge-charge-air       switch: restore: a Classic PvP charge off a ledge falls at normal gravity, full distance, not 4 x and half (clients need --old-ledge-charge-air too)
           --old-ledge-cancel           switch: restore: a light press keeps a ledge charge's momentum (clients need --old-ledge-cancel too)
           --old-hop-rules              switch: restore: no ledge jump after a charge, no shortening of the melee wait by a hop, no hop out of the aerial tackle (clients need --old-hop-rules too)
           --old-stomp-release          switch: restore: the Devastator's and Havoc's stomp locks them to the end of its clip instead of 1.2 s (clients need --old-stomp-release too)
@@ -204,10 +209,11 @@ public static class ServerCommandLine
           --warfront-max-humans <1-4>   (--content warfront) humans admitted (default 4; 1 for a local campaign)
           --warfront-dedicated          switch: the always-on shared Warfront campaign (implies --content warfront; up to 4 humans unless --warfront-max-humans; refuses --warfront-new; the supervisor restarts a crashed stage, locks the run folder, stops on SIGTERM)
           --warfront-prebuild           switch: (--warfront-dedicated; started by the supervisor) build every Warfront map's cache at low priority, one map at a time, then exit
+          --old-arsenal-spear-claw      switch: restore: Musou Mode and Warfront offer the lightning claw and the power spear again (clients need it too)
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild"];
+    static readonly HashSet<string> Switches = ["--dev-tools", "--rotation-child", "--dev-supervised", "--musou-aerial-tackle", "--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--old-body-contact", "--old-charge-cancel", "--old-ally-bump", "--old-stim-use", "--log-overlaps", "--help", "--old-charge-after-melee", "--old-charge-cancel-delay", "--old-charge-melee-chain", "--old-hop-rules", "--old-stab-release", "--old-ledge-hop", "--old-ledge-charge-air", "--musou-melee-cooldown", "--musou-uncapped-melee-heal", "--musou-ork-swing-tracking", "--warfront-stage", "--warfront-new", "--warfront-dedicated", "--warfront-prebuild", "--old-arsenal-spear-claw"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--custom-map", "--maps", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale", "--snapshot-rate",
          "--name-seed", "--weather", "--weather-seed", "--weather-draw", "--dev-bot-exe", "--dev-bot-project", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators", "--warfront-max-humans"];
@@ -243,6 +249,7 @@ public static class ServerCommandLine
                     "--old-charge-melee-chain" => a with { OldChargeMeleeChain = true },
                     "--old-hop-rules" => a with { OldHopRules = true },
                     "--old-ledge-hop" => a with { OldLedgeHop = true },
+                    "--old-ledge-charge-air" => a with { OldLedgeChargeAir = true },
                     "--old-stomp-release" => a with { OldStompRelease = true },
                     "--old-stab-release" => a with { OldStabRelease = true },
                     "--old-kick-push" => a with { OldKickPush = true },
@@ -261,6 +268,7 @@ public static class ServerCommandLine
                     "--warfront-new" => a with { WarfrontNew = true },
                     "--warfront-dedicated" => a with { WarfrontDedicated = true },
                     "--warfront-prebuild" => a with { WarfrontPrebuild = true },
+                    "--old-arsenal-spear-claw" => a with { OldArsenalSpearClaw = true },
                     _ => a with { Help = true },
                 };
                 continue;

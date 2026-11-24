@@ -267,12 +267,12 @@ public class ClassicWeatherTests
         foreach (var def in WeatherCatalog.All.Where(d => d.Id != WeatherId.None))
         {
             Assert.Equal(WeatherPhase.Opening, WeatherClock.At(def.Id, 0, span).Phase);
-            Assert.Equal(0f, WeatherClock.At(def.Id, 0, span).Intensity);
+            Assert.Equal(1f, WeatherClock.At(def.Id, 0, span).Intensity);   // the weather finish: full at once
             Assert.Equal(WeatherPhase.Peak, WeatherClock.At(def.Id, span * 0.5, span).Phase);   // the peak is mid-match
             Assert.Equal(1f, WeatherClock.At(def.Id, span * 0.5, span).Intensity);
             var late = WeatherClock.At(def.Id, span * 0.99, span);
             Assert.Equal(WeatherPhase.Recovery, late.Phase);                                    // it eases before the end
-            Assert.True(late.Intensity < 0.6f, $"{def.Key} at 99 %: {late.Intensity}");
+            Assert.True(late.Intensity <= WeatherClock.Lull(def) + 0.02f && late.Intensity >= WeatherClock.ActiveFloor, $"{def.Key} at 99 %: {late.Intensity}");
             // the whole match: opening, buildup, peak, recovery in order, each once
             var order = new List<WeatherPhase>();
             for (double t = 0; t < span; t += span / 400.0)

@@ -368,7 +368,8 @@ public partial class NetworkView
         if (!t.Has) { t.Prev = s; t.Has = true; return; }
         var p = t.Prev;
         // The speed game parameter: the larger of this and the last frame's speed, so a landing is heard at the speed it hit with (interpretation).
-        t.Emitter.Parameters[VoiceMixer.Speed] = Math.Max(s.Velocity.Length(), p.Velocity.Length());
+        var ledge = LedgeFall(s);   // sim/ledge-charge-air, answer 3: a Classic ledge charge's fall is heard at the protocol 89 fall's speed and air time (identity otherwise)
+        t.Emitter.Parameters[VoiceMixer.Speed] = Math.Max(ledge.Speed, ledge.LastSpeed);
         EvadeMixKind(t, s);   // sound/editor-roll-hop: which evade this player last did (the mix editor's Tactical roll / Devastator and Havoc hop entries)
         var blueprint = BlueprintFile(s);
         // Spawn and death. A life's looping sounds end with it (sound/shield-regen: the broken-shield warning of a player who died with the shield down
@@ -632,12 +633,12 @@ public partial class NetworkView
             }
         }
         // A fall without the pack: the blueprint's landing (after 0.4 s in the air; our threshold).
-        if (!up && !wasUp && s.Grounded && !p.Grounded && t.AirTime == 0f && _fallTimes.GetValueOrDefault(s.PlayerId) > SmContent.FallRules.LandingFeelSeconds)   // the same threshold as the landing feel (NetworkView.Fall.cs); the sound counts from the first unsupported frame of any kind, the feel after the debounce and only for an eligible fall
+        if (!up && !wasUp && s.Grounded && !p.Grounded && t.AirTime == 0f && _fallTimes.GetValueOrDefault(s.PlayerId) + Math.Max(0f, (float)LedgeFall(s).Step - delta) > SmContent.FallRules.LandingFeelSeconds)   // the same threshold as the landing feel (NetworkView.Fall.cs); the sound counts from the first unsupported frame of any kind, the feel after the debounce and only for an eligible fall
         {
             SurfaceUnder(t, s);
             PostAll(BlueprintFile(s)?.Of("finish_falling_actions") ?? [], t.Emitter, own, "land");
         }
-        _fallTimes[s.PlayerId] = s.Grounded ? 0f : _fallTimes.GetValueOrDefault(s.PlayerId) + delta;
+        _fallTimes[s.PlayerId] = s.Grounded ? 0f : Math.Max(0f, _fallTimes.GetValueOrDefault(s.PlayerId) + (float)LedgeFall(s).Step);
     }
 
     /// <summary>The landing entry for a drop from the apex: the largest <c>distance_from_apex_to_land</c> not above it.</summary>

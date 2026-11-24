@@ -48,11 +48,11 @@ public class CancelEditorNetTests
         Assert.IsType<DevCancelSync>(Protocol.Read(Protocol.Write(new DevCancelSync(1u, 0, 0, []))));   // a beacon
         // refused: an unknown op, a row or state out of range, reset-all with entries, a chunk past the count, a beacon with entries
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelEdit(1u, (DevCancelOp)9, []))));
-        Assert.Null(Protocol.Read(Protocol.Write(new DevCancelEdit(1u, DevCancelOp.Apply, [new CancelWire(255, 0xFFFF, 37, 0, CancelState.No, -1, -1)]))));
+        Assert.Null(Protocol.Read(Protocol.Write(new DevCancelEdit(1u, DevCancelOp.Apply, [new CancelWire(255, 0xFFFF, (byte)CancelLayout.RowCount, 0, CancelState.No, -1, -1)]))));
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelEdit(1u, DevCancelOp.ResetAll, entries))));
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelSync(1u, 3, 3, []))));
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelSync(1u, 0, 0, entries))));
-        Assert.Equal(89, Protocol.Version);   // 80 was the unreleased dev-tools protocol; classic-stab-on-t made it 81
+        Assert.Equal(91, Protocol.Version);   // 80 was the unreleased dev-tools protocol; classic-stab-on-t made it 81
     }
 
     // ---- the gate ----

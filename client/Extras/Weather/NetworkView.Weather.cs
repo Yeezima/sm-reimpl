@@ -25,7 +25,7 @@ public partial class NetworkView
     bool WeatherOn => _config is not null;
 
     /// <summary>A preset with its own things in the world (rain, ash, embers, the sky glow, wind) at this intensity.</summary>
-    static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind && intensity > 0.02f;
+    static bool WeatherNeedsRig(WeatherId id, float intensity) => id is WeatherId.Rain or WeatherId.Thunderstorm or WeatherId.AshSquall or WeatherId.EmberWind or WeatherId.LowFog && intensity > 0.02f;   // the weather finish adds Low Fog (its ground fog); Clear and None never have one
 
     /// <summary>The weather section of a tag; handled when the tag is weather's.</summary>
     void WeatherEnvelope(byte tag, ReadOnlySpan<byte> payload, ref bool handled)
@@ -59,6 +59,8 @@ public partial class NetworkView
     // ---- shelter (weather W4): a few upward rays at a low rate, smoothed by the pure WeatherShelter ----
 
     readonly WeatherShelter _wxShelter = new();
+    /// <summary>The ground under the player (Godot world height, m) from the last shelter sample; null before one or when the ray found nothing within reach (the rig then takes 1.8 m under the camera).</summary>
+    float? _wxGroundY;
     double _wxShelterClock;
     int _wxShelterSamples;
 
@@ -88,6 +90,10 @@ public partial class NetworkView
                 for (int k = -1; k <= 1; k++)
                     if (world.Weapons.Raycast(head + new System.Numerics.Vector3(1.2f * k, 0f, 0f), up, WeatherShelter.RayReachM) is { } hit) { hits++; ceiling = Math.Min(ceiling, hit.Distance + 1.6f); }
                 cover = hits / 5f;
+                // the weather finish: one ray down from the head finds the ground under the player (splashes, mist and Low Fog lie on it; a jump or a third-person camera no longer lifts them)
+                if (world.Weapons.Raycast(head, new System.Numerics.Vector3(0f, 0f, -1f), WeatherShelter.RayReachM) is { } floor)
+                    _wxGroundY = (_gameSpace.GlobalTransform * new Vector3(head.X, head.Y, head.Z - floor.Distance)).Y;
+                else _wxGroundY = null;
             }
             if (_wxForceCover > 0) { bool covered = (long)(_connectedFor / _wxForceCover) % 2 == 1; cover = covered ? 1f : 0f; ceiling = covered ? 12f : WeatherShelter.RayReachM; }   // test aid --weather-shelter-test <s>: alternating cover and open, s seconds each, whatever the rays found
             if (_wxPerfLive) { double ms = System.Diagnostics.Stopwatch.GetElapsedTime(rayT0).TotalMilliseconds; _wxPerfRayMs += ms; _wxPerfRayMax = Math.Max(_wxPerfRayMax, ms); _wxPerfRays++; }
@@ -142,7 +148,7 @@ public partial class NetworkView
     /// </summary>
     void WeatherAidsApply(bool gate)
     {
-        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null;
+        bool wanted = _wxReqCover > 0 || _wxReqPerf || _wxModel.PinPhase is not null || _wxModel.PinLull || _wxModel.PinStrike || _wxFlashOverride is not null;
         if (wanted && !gate && !_wxAidsNoteLogged && _client is { Status: ClientStatus.Connected } && _connectedFor >= 4.0) { _wxAidsNoteLogged = true; GD.Print("weather test aids ignored: this server has no developer tools"); }
         if (gate == _wxAidsGate) return;
         _wxAidsGate = gate;
@@ -163,10 +169,16 @@ public partial class NetworkView
             _wxPinRead = true;   // test aids (client only, F6 developer-tools session only; weather fix 2): read once, acted on only while WeatherAidsGate
             if (CmdArg("weather-shelter-test") is { } forced && double.TryParse(forced, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double period) && period >= 1) _wxReqCover = period;
             _wxReqPerf = CmdFlag("weather-perf-live");
+            if (CmdArg("storm-lightning") is { } sl)   // repair 3 test aid: the Storm lightning option for this run only (the saved setting is not touched)
+            {
+                string k = sl.Trim().ToLowerInvariant();
+                if (k is "full" or "reduced") { _wxFlashOverride = k == "full"; GD.Print($"weather: storm lightning {k} for this run (--storm-lightning; not saved)"); }
+                else GD.Print($"weather: --storm-lightning '{sl}' is not full or reduced; ignored");
+            }
             if (CmdArg("weather-pin") is { } pin)
             {
-                if (WeatherClientModel.TryParsePin(pin, out var pinned)) _wxModel.PinPhase = pinned;
-                else GD.Print($"weather: --weather-pin '{pin}' is not opening, buildup, peak or recovery; ignored");
+                if (WeatherClientModel.TryParsePinWord(pin, out var pinned, out bool lull)) { _wxModel.PinPhase = pinned; _wxModel.PinLull = lull; _wxModel.PinStrike = pin.Trim().Equals("strike", StringComparison.OrdinalIgnoreCase); }
+                else GD.Print($"weather: --weather-pin '{pin}' is not opening, buildup, peak, recovery, lull, full or strike; ignored");
             }
         }
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
@@ -176,7 +188,8 @@ public partial class NetworkView
             WeatherAidsApply(false);
             if (_wxModel.Has) _wxModel.Clear();   // the connection ended (or never was): the default look at once
             WeatherClientLink.Release(_wxModel);
-            if (_wxRig is not null) { WeatherInstallStop(); WeatherThunderStopAll(); _wxRig.QueueFree(); _wxRig = null; }
+            WeatherInstallStop();   // at once, fading loops included (repair 3)
+            if (_wxRig is not null) { WeatherThunderStopAll(); _wxRig.QueueFree(); _wxRig = null; }
             else if (_wxOneShots.Count > 0) WeatherThunderStopAll();
             _wxFadePrev = WeatherId.None;
             WeatherStormRestore();
@@ -184,12 +197,15 @@ public partial class NetworkView
         }
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
-        _wxModel.FullFlash = WeatherSettings.FullFlash;   // the player's storm lightning option (client only)
+        WeatherClientLink.TestMove = WeatherTestMoveWord;   // assigned each frame like Send (review: never a stale view's delegate)
+        WeatherTestSlide();   // repair 1 test aid (F6 only): the camera slid sideways before the rig reads it
+        _wxModel.FullFlash = (_client?.Dev is not null ? _wxFlashOverride : null) ?? WeatherSettings.FullFlash;   // the player's storm lightning option (client only); repair 3: --storm-lightning or wxflash for this run only, never saved, and only in an F6 developer-tools session
         WeatherAidsApply(_client?.Dev is not null);
         _wxModel.Advance(delta);
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
         var now = (st.Id, st.Phase, _wxModel.Overridden);   // (the rig below is drawn for this state)
+        if (LogSound("weather") && (_wxLevelLogAt += delta) >= 2.0) { _wxLevelLogAt = 0; GD.Print($"weather level: {WeatherCatalog.Of(st.Id).Key} {st.Phase} intensity {intensity:F2}{(_wxModel.Pinned ? " (pinned)" : "")}{(_wxRig is { } r ? $" hiss {r.HissDb:F1} dB wind {r.WindDb:F1} dB" : "")}"); }   // repair 2 test aid: the drawn level and the beds' gains every 2 s
         if (!_bot && (!_wxLoggedAny || now != _wxLogged))
         {
             _wxLoggedAny = true; _wxLogged = now;
@@ -205,7 +221,7 @@ public partial class NetworkView
         bool shelterRan = false;
         if (_wxRig is not null)
         {
-            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(); _wxRig.QueueFree(); _wxRig = null; if (!_wxBedShelter) _wxShelter.Reset(); }
+            if (!wantRig && !_wxRig.Active) { WeatherInstallStop(fade: true); _wxRig.QueueFree(); _wxRig = null; if (!_wxBedShelter) _wxShelter.Reset(); }
             else
             {
                 shelterRan = true;
@@ -213,16 +229,47 @@ public partial class NetworkView
                 WeatherShelterFrame(me, delta);
                 _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
                 _wxRig.StepTrim(delta);
-                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero);
+                Vector3? leadFrom = _wxSlideHas || _gameSpace is null ? null : _gameSpace.GlobalTransform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);   // the player's place; the camera while the wxslide aid moves it alone
+                _wxRig.Update(st, intensity, _camera?.GlobalPosition ?? Vector3.Zero, _wxGroundY, leadFrom);
                 WeatherInstallSounds(st, intensity);
             }
         }
+        WeatherFlashLog(st);
+        WeatherInstallFades();   // repair 3: the grit's and the sheltered wind's stop fades, rig or not
         WeatherThunderFadeFrame(st.Id);
         shelterRan = WeatherBedFrame(me, delta, shelterRan);
         WeatherStormFrame(me, delta, st, shelterRan);
     }
 
     bool _wxBedShelter;
+    double _wxLevelLogAt;
+    /// <summary>Repair 3: the Storm lightning setting for this run only (<c>--storm-lightning</c>, <c>wxflash</c>); null: the saved option.</summary>
+    bool? _wxFlashOverride;
+
+    // ---- repair 3: the flash log (a test aid; no sound needed) ----
+
+    bool _wxFlashOn;
+    float _wxFlashGlow, _wxFlashExposure;
+    double _wxFlashStart;
+
+    /// <summary>
+    /// One <c>weather flash:</c> line per strike pulse while the strike pin acts or <c>--log-sound weather</c> (which needs no audio device: it only prints): when the drawn pulse ends, the storm time it began at, the flash setting
+    /// (reduced or full), the peak sky glow alpha (reduced at most 0.06, full at most 0.30) and the peak exposure lift of the grade (reduced 0, full at most +0.09). A Thunderstorm only.
+    /// </summary>
+    void WeatherFlashLog(WeatherState st)
+    {
+        if (st.Id != WeatherId.Thunderstorm || !(LogSound("weather") || _wxModel.PinStrike && _wxModel.Pinned)) { _wxFlashOn = false; return; }
+        float glow = _wxRig?.GlowAlpha ?? 0f;
+        float lift = _wxModel.Grade.Exposure - WeatherGrade.For(st.Id, _wxModel.EffectiveIntensity).Exposure;
+        bool on = glow > 0.0005f || lift > 0.0005f;
+        if (on && !_wxFlashOn) { _wxFlashOn = true; _wxFlashGlow = 0f; _wxFlashExposure = 0f; _wxFlashStart = st.Elapsed; }
+        if (on) { _wxFlashGlow = Math.Max(_wxFlashGlow, glow); _wxFlashExposure = Math.Max(_wxFlashExposure, lift); }
+        else if (_wxFlashOn)
+        {
+            _wxFlashOn = false;
+            GD.Print($"weather flash: strike pulse at {_wxFlashStart:F1} s, setting {(_wxModel.FullFlash ? "full" : "reduced")}, sky glow peak {_wxFlashGlow:F3} (cap {(_wxModel.FullFlash ? WeatherPlan.FullGlowMaxAlpha : WeatherPlan.GlowMaxAlpha):F2}), exposure lift +{_wxFlashExposure:F3}{(_wxModel.PinStrike && _wxModel.Pinned ? " (strike pin)" : "")}");
+        }
+    }
 
     /// <summary>
     /// Weather W5 (Warfront only): the battle's open-air wind bed (the install's <c>play_wind_open</c> loop) goes through the same shelter state as the weather's own sounds, so it is duller and quieter under a roof, in the authored

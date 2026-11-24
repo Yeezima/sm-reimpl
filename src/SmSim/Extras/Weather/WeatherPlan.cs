@@ -10,11 +10,11 @@ public readonly record struct WeatherStrike(double Time, uint Seed, bool Near, d
 /// The W2 presets' timelines as pure functions of the seconds since the preset began (weather W2; presentation only, **ours**, every number an estimate for a playtest; spec/behavior.md "Weather (W2)"). The server
 /// and every client derive the same strikes, gusts and wind direction from the same clock, so a reconnecting client sees the storm where it is. Nothing here reaches damage, movement, weapons or the AI.
 /// <list type="bullet">
-/// <item><b>Thunderstorm</b>: no strike until the buildup is late (intensity at least <see cref="StrikeFromIntensity"/>); then at most one strike per <see cref="StrikeSlot"/>-second slot, the strike
+/// <item><b>Thunderstorm</b>: no strike while the intensity is below <see cref="StrikeFromIntensity"/>); then at most one strike per <see cref="StrikeSlot"/>-second slot, the strike
 /// <see cref="StrikeOffsetMin"/> to <see cref="StrikeOffsetMax"/> seconds into its slot, so two strikes are always at least <see cref="MinStrikeGap"/> seconds apart (rate at most 0.15 a second). The chance of a strike in a slot rises with the intensity to
 /// <see cref="StrikeChanceAtPeak"/>. A strike is a cloud-glow pulse (<see cref="CloudGlow"/>, a smooth rise of <see cref="GlowRise"/> s and fall of <see cref="GlowFall"/> s, small and in the sky only) and a thunder sound
 /// <see cref="SoundDelay"/> seconds later. **Reduced flash is the only mode**: the pulse never touches the screen's exposure or the map's lighting.</item>
-/// <item><b>Ash Squall</b>: the warning is the buildup (a warming haze, the first flecks and a rising wind; <see cref="WarningFlecks"/>), the crosswind is the peak, the recovery clears it.</item>
+/// <item><b>Ash Squall</b>: the ash follows the active level (full at once, 0.5 to 1 after); the last seconds of the buildup carry a short "intensifying" cue.</item>
 /// <item><b>Ember Wind</b>: sparse embers (<see cref="EmberDensity"/>) on a steady wind.</item>
 /// </list>
 /// </summary>
@@ -127,54 +127,81 @@ public static class WeatherPlan
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         float baseLevel = id switch
         {
-            WeatherId.AshSquall => i * i,            // quiet until the buildup's end, then the crosswind
+            WeatherId.AshSquall => i,                // the weather finish: the crosswind follows the active level (0.5 to 1; was intensity squared)
             WeatherId.Thunderstorm => 0.15f + 0.85f * i,   // wind rises through the buildup
             WeatherId.EmberWind => 0.25f + 0.25f * i,
             _ => 0f,
         };
         if (baseLevel <= 0f) return 0f;
+        return Math.Clamp(baseLevel * Gust(elapsed), 0f, 1f);
+    }
+
+    /// <summary>The slow gust factor (0.85 to 1.15, two sines, about 11 s) the wind's strength and the wind bed's wobble share.</summary>
+    public static float Gust(double elapsed)
+    {
         if (!double.IsFinite(elapsed)) elapsed = 0;
-        float gust = 1f + 0.15f * (float)(Math.Sin(elapsed * 0.57) * 0.6 + Math.Sin(elapsed * 1.31 + 1.7) * 0.4);
-        return Math.Clamp(baseLevel * gust, 0f, 1f);
+        return 1f + 0.15f * (float)(Math.Sin(elapsed * 0.57) * 0.6 + Math.Sin(elapsed * 1.31 + 1.7) * 0.4);
+    }
+
+    /// <summary>The wind bed's gust wobble (dB): 40 % of the gust's own amplitude in dB, at most about +-0.6 dB, the same at full and at the lull.</summary>
+    public const float GustDbShare = 0.4f;
+
+    /// <summary>
+    /// Repair 3: the procedural wind bed of the Ash Squall and the Thunderstorm (dB). Its level follows the preset's <b>intensity</b> by <see cref="FollowDb"/> (so the lull sits as far under full as the hiss: storm 0.6 -4.8 dB, squall 0.55
+    /// -5.4 dB), plus the gust wobble (<see cref="GustDbShare"/>; it cancels between two readings at the same moment of the gust). Before this, the bed followed the wind strength, whose storm curve (0.15 + 0.85 x intensity) and a gust
+    /// clamped at 1 at the peak left the storm's lull only about 2 dB down. Ember Wind keeps its W2 law (the caller's choice); 0 intensity is silent.
+    /// </summary>
+    public static float WindBedDb(float intensity, double elapsed, float loudestDb, float silentDb)
+    {
+        float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
+        if (i <= 0f) return silentDb;
+        float wobble = GustDbShare * 20f * MathF.Log10(Gust(elapsed));
+        return Math.Clamp(FollowDb(i, loudestDb, silentDb) + wobble, silentDb, loudestDb);   // never above the cap on a gust crest
     }
 
     // ---- what is drawn, by preset ----
 
-    /// <summary>Falling rain's share (0 to 1) of the rain rig's full count: Rain follows its intensity; a Thunderstorm's rain starts in the buildup's second half (a smoothstep from 0.45 to 0.8) and is full at the peak.</summary>
+    /// <summary>Falling rain's share (0 to 1) of the rain rig's full count: Rain and the Thunderstorm follow their intensity (the weather finish: full at once, 0.5 to 1 after; the storm's rain no longer waits for the buildup).</summary>
     public static float RainShare(WeatherId id, float intensity)
     {
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         return id switch
         {
             WeatherId.Rain => i,
-            WeatherId.Thunderstorm => Smooth((i - 0.45f) / 0.35f),
+            WeatherId.Thunderstorm => i,
             _ => 0f,
         };
     }
 
-    /// <summary>The Ash Squall's flecks (0 to 1 of the full count): a few drifting flecks in the warning (the buildup, <see cref="WarningFlecks"/> at its end), then a ramp of <see cref="AshRampSeconds"/> s from that to all of them at the start of the peak (no step), full for the peak, falling as it clears.</summary>
-    public const float WarningFlecks = 0.12f;
-    public const double AshRampSeconds = 2.5;
+    /// <summary>The Ash Squall's flecks (0 to 1 of the full count): the weather finish makes them follow the active level (full at once, 0.5 to 1 after: no near-empty warning or opening any more).</summary>
     public static float AshShare(WeatherState s)
     {
         if (s.Id != WeatherId.AshSquall) return 0f;
-        float i = Math.Clamp(float.IsFinite(s.Intensity) ? s.Intensity : 0f, 0f, 1f);
-        float o = WeatherCatalog.Of(WeatherId.AshSquall).OpeningLevel;
-        float f = Math.Clamp((i - o) / (1f - o), 0f, 1f);   // 0 at the quiet level, 1 at the peak
-        return s.Phase switch
-        {
-            WeatherPhase.Buildup => WarningFlecks * f,   // the buildup shows only the first flecks
-            WeatherPhase.Peak => WarningFlecks + (1f - WarningFlecks) * Smooth(s.PhaseSeconds / AshRampSeconds),
-            WeatherPhase.Recovery => f,
-            _ => 0f,
-        };
+        return Math.Clamp(float.IsFinite(s.Intensity) ? s.Intensity : 0f, 0f, 1f);
+    }
+
+    /// <summary>The level a followed loop has at the active floor's share (0.5) under its loudest (dB; repair 2: the lulls, 0.55 to 0.65, then sit 4 to 6 dB down).</summary>
+    public const float FollowFloorDb = -6f;
+
+    /// <summary>
+    /// A loop's gain (dB) that follows a visual share (the weather finish: "weather audio follows the visual intensity"; repair 2: linear in dB across the active range): <paramref name="loudestDb"/> at a share of 1, <see cref="FollowFloorDb"/>
+    /// under it at the active floor (0.5), so each preset's lull (rain 0.65: -4.2 dB, storm 0.6: -4.8 dB, ash 0.55: -5.4 dB) is 4 to 6 dB down; below the floor the amplitude falls with the share toward
+    /// <paramref name="silentDb"/>, never below it.
+    /// </summary>
+    public static float FollowDb(float share, float loudestDb, float silentDb)
+    {
+        float v = Math.Clamp(float.IsFinite(share) ? share : 0f, 0f, 1f);
+        if (v <= 0f) return silentDb;
+        float floor = WeatherClock.ActiveFloor;
+        float db = v >= floor ? loudestDb + FollowFloorDb * (1f - (v - floor) / (1f - floor)) : loudestDb + FollowFloorDb + 20f * MathF.Log10(v / floor);
+        return Math.Max(silentDb, db);
     }
 
     /// <summary>Ember Wind's embers (0 to 1 of a deliberately small full count): sparse and steady, a little more with the phase's intensity.</summary>
     public static float EmberDensity(WeatherId id, float intensity)
         => id == WeatherId.EmberWind ? 0.5f + 0.5f * Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f) : 0f;
 
-    /// <summary>The Ash Squall's warning is on: the last <see cref="WarningSeconds"/> seconds of its buildup only (it ends when the peak begins; the client shows a short text cue beside the visible and audible ones).</summary>
+    /// <summary>The Ash Squall's intensifying cue is on: the last <see cref="WarningSeconds"/> seconds of its buildup only (it ends when the peak begins; the client shows a short text cue beside the visible and audible ones).</summary>
     public const double WarningSeconds = 30.0;
     public static bool Warning(WeatherState s)
         => s.Id == WeatherId.AshSquall && s.Phase == WeatherPhase.Buildup && s.PhaseSeconds >= WeatherCatalog.Of(WeatherId.AshSquall).Duration(WeatherPhase.Buildup) - WarningSeconds;

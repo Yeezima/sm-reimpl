@@ -27,7 +27,7 @@ public sealed class FallTracker
 
     public bool InAir { get; private set; }
     public bool Falling { get; private set; }
-    /// <summary>When the unsupported spell began, and when the fall pose did (render clock, seconds).</summary>
+    /// <summary>When the unsupported spell began, and when the fall pose did (seconds, on the caller's clock: the render clock, or a Classic ledge charge's presentation clock, <c>SmNet.LedgeChargeFallClock</c>; time an animation on the render clock).</summary>
     public double AirSince { get; private set; } = double.NegativeInfinity;
     public double FallSince { get; private set; } = double.NegativeInfinity;
     /// <summary>The largest downward speed of this spell in the air, m/s (a falling body only speeds up; the interpolated vertical speed of a remote player dips toward 0 at the touchdown frame).</summary>

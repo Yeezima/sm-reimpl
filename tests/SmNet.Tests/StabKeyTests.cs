@@ -5,7 +5,7 @@ namespace SmNet.Tests;
 
 /// <summary>
 /// classic-stab-on-t (protocol 81; owner, 2026-11-17): the T key's direct stab. From rest it starts the weapon's stab strike (MeleeStep.Stab) with no precursor move, it is refused where a
-/// heavy press is (stun, mid-attack), F + F still chains into the same strike, a weapon without a stab ignores it, and the wire carries the bit. Synthetic timings.
+/// heavy press is (stun, mid-attack), F + F chains into the stomp finisher and never the stab (sim/stab-key-only, owner 2026-11-23), a weapon without a stab ignores it, and the wire carries the bit. Synthetic timings.
 /// </summary>
 public class StabKeyTests
 {
@@ -19,11 +19,15 @@ public class StabKeyTests
     static MeleeStep Stab(bool marked = true) => new MeleeStep(T(40.5f), T(9.5f), 0f, 0f, T(25.5f), T(29.5f), 100f, 0f, 3.5f)
         { PrimaryReaction = Stagger, ShieldDamage = 50f, Stab = marked };
 
+    /// <summary>sim/stab-key-only (owner 2026-11-23): the Y,Y finisher is the stomp again (a blast); the stab is the strike after it, which no chain names.</summary>
+    internal static readonly SplashSpec StompBlast = new(7f, new DamageSpec(25f, 50f, 1f, 1f, 1f, 1f, false), [new(0f, 1f), new(7f, 1f)], false, true, "target_all");
+    static readonly MeleeStep StompFinisher = new(T(40.5f), T(9.5f), 0f, 0f, T(25.5f), T(29.5f), 0f, 0f, 3.5f) { Stomp = StompBlast };
+
     static SimConfig Config(bool marked = true) => new()
     {
         Classes =
         [
-            new ClassLoadout("sword", -1, -1, [new MeleeStep(T(30.5f), T(6.5f), T(12.5f), T(18.5f), T(15.5f), T(21.5f), 65f, 30f, 3.5f)]) { MeleeHeavy = [Quick(), Stab(marked)], Side = Team.SpaceMarines },
+            new ClassLoadout("sword", -1, -1, [new MeleeStep(T(30.5f), T(6.5f), T(12.5f), T(18.5f), T(15.5f), T(21.5f), 65f, 30f, 3.5f)]) { MeleeHeavy = [Quick(), StompFinisher, Stab(marked)], Side = Team.SpaceMarines },
             new ClassLoadout("target", -1, -1, [new MeleeStep(T(30.5f), T(6.5f), T(12.5f), T(18.5f), T(15.5f), T(21.5f), 10f, 5f, 3.5f)]) { Side = Team.Chaos },
         ],
         MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
@@ -53,7 +57,7 @@ public class StabKeyTests
         var w = Make();
         var hits = new List<HitEvent>();
         Run(w, 1, _ => InputButtons.Stab, hits: hits);
-        Assert.Equal((2, true), (w.Players[1].MeleeStep, w.Players[1].MeleeHeavy));   // heavy strike 2 (the stab), not the first heavy strike
+        Assert.Equal((3, true), (w.Players[1].MeleeStep, w.Players[1].MeleeHeavy));   // heavy strike 3 (the stab, after the stomp finisher), not the first heavy strike
         Run(w, 59, _ => InputButtons.None, hits: hits, from: 1);
         var hit = Assert.Single(hits, h => h.Melee);
         Assert.Equal((2, 150f, 0f), (hit.Target, hit.ShieldDamage, hit.HealthDamage));
@@ -65,7 +69,7 @@ public class StabKeyTests
         var w = Make();
         Run(w, 5, _ => InputButtons.None, moveY: 1f);
         Run(w, 1, _ => InputButtons.Stab, moveY: 1f, from: 5);
-        Assert.Equal((2, true), (w.Players[1].MeleeStep, w.Players[1].MeleeHeavy));
+        Assert.Equal((3, true), (w.Players[1].MeleeStep, w.Players[1].MeleeHeavy));
     }
 
     [Fact]
@@ -80,7 +84,7 @@ public class StabKeyTests
         for (int k = 6; k < 80 && !stabbed; k++)
         {
             Run(w, 1, _ => InputButtons.Stab, from: k);   // the bit still held when the swing is over (the client's pulse buffer)
-            stabbed = w.Players[1].MeleeHeavy && w.Players[1].MeleeStep == 2;
+            stabbed = w.Players[1].MeleeHeavy && w.Players[1].MeleeStep == 3;
         }
         Assert.True(stabbed);
     }
@@ -107,7 +111,7 @@ public class StabKeyTests
         }
         var free = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0 }, c);   // control: the same press starts the stab with no stun
         free = Combat.StepPlayer(free, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Stab), c, out _);
-        Assert.Equal(2, free.MeleeStep);
+        Assert.Equal(3, free.MeleeStep);
     }
 
     [Fact]
@@ -119,18 +123,21 @@ public class StabKeyTests
     }
 
     [Fact]
-    public void F_then_F_still_chains_into_the_same_stab_strike()
+    public void F_then_F_chains_into_the_stomp_finisher_and_never_the_stab()
     {
+        // sim/stab-key-only (owner 2026-11-23): was F_then_F_still_chains_into_the_same_stab_strike.
         var w = Make();
         Run(w, 21, k => k == 0 || k == 20 ? InputButtons.MeleeHeavy : InputButtons.None);
         Assert.Equal((2, true), (w.Players[1].MeleeStep, w.Players[1].MeleeHeavy));
+        Assert.NotNull(Combat.MeleeStepOf(w.Config, w.Players[1])!.Value.Stomp);
+        Assert.False(Combat.MeleeStepOf(w.Config, w.Players[1])!.Value.Stab);
     }
 
     [Fact]
     public void The_stab_bit_survives_the_wire()
     {
         Assert.Equal(InputButtons.Stab, Protocol.Quantize(new PlayerInput(1, 0, 0, 0, InputButtons.Stab)).Buttons);
-        Assert.Equal(89, Protocol.Version);
+        Assert.Equal(91, Protocol.Version);
     }
 
     [Fact]

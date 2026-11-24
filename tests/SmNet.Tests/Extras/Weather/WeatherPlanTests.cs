@@ -14,14 +14,15 @@ public class WeatherPlanTests
     }
 
     [Fact]
-    public void Thunderstorm_darkens_and_winds_up_through_the_buildup_then_rains_and_thunders_at_the_peak_then_recovers()
+    public void Thunderstorm_is_full_at_once_then_rains_winds_and_thunders_between_its_lull_and_its_peak()
     {
+        // the weather finish (2026-11-23): no dry, calm opening any more; the storm's rain, wind and strikes follow its active level (0.5 to 1)
         var id = WeatherId.Thunderstorm;
         double opening = Start(id, WeatherPhase.Buildup), peak = Start(id, WeatherPhase.Peak), recovery = Start(id, WeatherPhase.Recovery), end = recovery + WeatherCatalog.Of(id).Duration(WeatherPhase.Recovery);
-        // the opening: some wind, no rain, no strike
-        Assert.Equal(0f, WeatherPlan.RainShare(id, WeatherClock.At(id, 10).Intensity));
-        Assert.Empty(WeatherPlan.StrikesIn(0, opening));
-        // the buildup: the wind rises and never falls, rain begins late, strikes start only once the storm is strong
+        Assert.Equal(1f, WeatherPlan.RainShare(id, WeatherClock.At(id, 0).Intensity));
+        Assert.True(WeatherPlan.Wind(id, WeatherClock.At(id, 0).Intensity, 0) > 0.8f);
+        Assert.NotEmpty(WeatherPlan.StrikesIn(0, opening + 200));
+        // the buildup: the wind rises and never falls
         float last = 0f;
         for (double t = opening; t <= peak; t += 1)
         {
@@ -29,17 +30,50 @@ public class WeatherPlanTests
             Assert.True(w >= last - 1e-6f, $"the wind fell at {t}");
             last = w;
         }
-        Assert.Equal(0f, WeatherPlan.RainShare(id, WeatherClock.At(id, opening + 5).Intensity));
-        Assert.True(WeatherPlan.RainShare(id, WeatherClock.At(id, peak - 1).Intensity) > 0.5f);
         foreach (var s in WeatherPlan.StrikesIn(0, end + 200)) Assert.True(WeatherClock.At(id, s.Time).Intensity >= WeatherPlan.StrikeFromIntensity);
         // the peak: full rain, the strikes come
         Assert.Equal(1f, WeatherPlan.RainShare(id, 1f));
         Assert.NotEmpty(WeatherPlan.StrikesIn(peak, recovery));
-        // the recovery: the rain and wind fall back toward the opening level
-        Assert.True(WeatherPlan.RainShare(id, WeatherClock.At(id, end - 1).Intensity) < 0.05f);
-        Assert.True(WeatherPlan.Wind(id, WeatherClock.At(id, end - 1).Intensity, 0) < 0.4f);
-        // nobody else rains or strikes
+        // the lull (the recovery's end): lighter, never dry or still
+        float lullRain = WeatherPlan.RainShare(id, WeatherClock.At(id, end - 0.01).Intensity);
+        Assert.InRange(lullRain, 0.5f, 0.7f);
+        Assert.True(WeatherPlan.Wind(id, WeatherClock.At(id, end - 0.01).Intensity, 0) > 0.4f);
+        // nobody else rains
         foreach (var other in new[] { WeatherId.AshSquall, WeatherId.EmberWind, WeatherId.Clear, WeatherId.LowFog, WeatherId.None }) Assert.Equal(0f, WeatherPlan.RainShare(other, 1f));
+    }
+
+    [Fact]
+    public void Repair_3_the_squall_and_storm_wind_bed_sits_4_to_6_dB_under_full_at_the_lull_whatever_the_gust()
+    {
+        foreach (var id in new[] { WeatherId.Thunderstorm, WeatherId.AshSquall })
+        {
+            float lull = WeatherClock.Lull(WeatherCatalog.Of(id));
+            for (double t = 0; t < 60; t += 0.7)
+            {
+                float down = WeatherPlan.WindBedDb(1f, t, -20f, -60f) - WeatherPlan.WindBedDb(lull, t, -20f, -60f);
+                Assert.InRange(down, 4f, 6f);   // the same moment of the gust (where the cap clips a crest at full the gap narrows, staying about 4.3 to 5.4 dB)
+                Assert.InRange(WeatherPlan.WindBedDb(1f, t, -20f, -60f), -20.7f, -20f);   // never above the -20 dB cap; a trough at most about 0.6 dB under it
+            }
+        }
+        Assert.Equal(-60f, WeatherPlan.WindBedDb(0f, 3, -20f, -60f));
+    }
+
+    [Fact]
+    public void Follow_db_is_the_amplitude_of_the_share_and_never_below_silence()
+    {
+        Assert.Equal(-22f, WeatherPlan.FollowDb(1f, -22f, -60f), 3);
+        Assert.Equal(-22f - 6f, WeatherPlan.FollowDb(0.5f, -22f, -60f), 3);   // repair 2: -6 dB at the active floor
+        foreach (var id in new[] { WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall })
+        {
+            float lull = WeatherClock.Lull(WeatherCatalog.Of(id));
+            Assert.InRange(-22f - WeatherPlan.FollowDb(lull, -22f, -60f), 4f, 6f);   // each lull 4 to 6 dB down
+        }
+        Assert.Equal(-60f, WeatherPlan.FollowDb(0f, -22f, -60f));
+        Assert.Equal(-60f, WeatherPlan.FollowDb(0.0001f, -22f, -60f));
+        Assert.Equal(-60f, WeatherPlan.FollowDb(float.NaN, -22f, -60f));
+        Assert.Equal(-22f, WeatherPlan.FollowDb(5f, -22f, -60f), 3);
+        float prev = -60f;
+        for (float v = 0.01f; v <= 1f; v += 0.01f) { float db = WeatherPlan.FollowDb(v, -22f, -60f); Assert.True(db >= prev - 1e-4f); prev = db; }
     }
 
     [Fact]
@@ -93,51 +127,34 @@ public class WeatherPlanTests
     }
 
     [Fact]
-    public void Ash_squall_warns_in_the_buildup_blows_at_the_peak_and_clears_in_the_recovery()
+    public void Ash_squall_blows_at_once_eases_and_returns_and_cues_its_intensifying_in_the_buildup()
     {
         var id = WeatherId.AshSquall;
         double build = Start(id, WeatherPhase.Buildup), peak = Start(id, WeatherPhase.Peak), rec = Start(id, WeatherPhase.Recovery), end = rec + WeatherCatalog.Of(id).Duration(WeatherPhase.Recovery);
         WeatherState At(double t) => WeatherClock.At(id, t);
-        // the warning: the last 30 s of the buildup only
+        // the intensifying cue: the last 30 s of the buildup only
         Assert.False(WeatherPlan.Warning(At(build + 1)));
         Assert.False(WeatherPlan.Warning(At(peak - WeatherPlan.WarningSeconds - 1)));
         Assert.True(WeatherPlan.Warning(At(peak - WeatherPlan.WarningSeconds + 1)));
         Assert.True(WeatherPlan.Warning(At(peak - 0.5)));
         Assert.False(WeatherPlan.Warning(At(peak + 1)));
         Assert.False(WeatherPlan.Warning(WeatherClock.At(WeatherId.Rain, peak - 1)));
-        // the ash: a few flecks in the buildup (never more than the warning share), all of it at the peak, falling to none by the recovery's end
-        for (double t = build; t < peak; t += 1) Assert.InRange(WeatherPlan.AshShare(At(t)), 0f, WeatherPlan.WarningFlecks + 1e-6f);
-        Assert.True(WeatherPlan.AshShare(At(peak - 0.1)) > 0.05f, "the warning shows flecks");
-        Assert.Equal(1f, WeatherPlan.AshShare(At(peak + WeatherPlan.AshRampSeconds + 0.1)));
-        float lastShare = 1f;
-        for (double t = rec; t < end; t += 1) { float a = WeatherPlan.AshShare(At(t)); Assert.True(a <= lastShare + 1e-6f); lastShare = a; }
-        Assert.True(WeatherPlan.AshShare(At(end - 0.01)) < 0.01f);
-        // the crosswind: the strongest wind is at the peak, a quiet one before and after
-        float windBuild = WeatherPlan.Wind(id, At(build + 1).Intensity, 0), windPeak = WeatherPlan.Wind(id, 1f, 0), windEnd = WeatherPlan.Wind(id, At(end - 0.01).Intensity, 0);
-        Assert.True(windPeak > 0.7f && windBuild < 0.1f && windEnd < 0.1f, $"{windBuild} {windPeak} {windEnd}");
-        // others have no ash and no warning
-        foreach (var other in new[] { WeatherId.Thunderstorm, WeatherId.Rain, WeatherId.EmberWind }) Assert.Equal(0f, WeatherPlan.AshShare(WeatherClock.At(other, peak + 10)));
-    }
-
-    [Fact]
-    public void The_squalls_density_ramps_into_the_peak_with_no_step()
-    {
-        var id = WeatherId.AshSquall;
-        double peak = Start(id, WeatherPhase.Peak);
-        float before = WeatherPlan.AshShare(WeatherClock.At(id, peak - 1e-3)), after = WeatherPlan.AshShare(WeatherClock.At(id, peak + 1e-3));
-        Assert.InRange(Math.Abs(after - before), 0f, 0.01f);   // no jump at the boundary
-        float last = WeatherPlan.AshShare(WeatherClock.At(id, peak - 3)), maxStep = 0f;
-        for (double t = peak - 3; t <= peak + WeatherPlan.AshRampSeconds + 1; t += 1.0 / 60)
+        // the ash (the weather finish): all of it at once, then never below half, full at the peak, no step anywhere
+        Assert.Equal(1f, WeatherPlan.AshShare(At(0)));
+        Assert.Equal(1f, WeatherPlan.AshShare(At(peak + 10)));
+        float last = WeatherPlan.AshShare(At(0)), maxStep = 0f;
+        for (double t = 0; t < end + 100; t += 1.0 / 30)
         {
-            float v = WeatherPlan.AshShare(WeatherClock.At(id, t));
-            maxStep = Math.Max(maxStep, Math.Abs(v - last)); last = v;
+            float a = WeatherPlan.AshShare(At(t));
+            Assert.InRange(a, 0.5f, 1f);
+            maxStep = Math.Max(maxStep, Math.Abs(a - last)); last = a;
         }
-        Assert.True(maxStep < 0.05f, $"one frame moved the density by {maxStep}");   // a smooth ramp over 2.5 s
-        Assert.Equal(1f, WeatherPlan.AshShare(WeatherClock.At(id, peak + WeatherPlan.AshRampSeconds)), 3);
-        Assert.InRange(WeatherPlan.AshShare(WeatherClock.At(id, peak + WeatherPlan.AshRampSeconds / 2)), 0.3f, 0.8f);   // half way through it is part way
-        // and the recovery starts where the peak ended
-        double rec = Start(id, WeatherPhase.Recovery);
-        Assert.InRange(Math.Abs(WeatherPlan.AshShare(WeatherClock.At(id, rec + 1e-3)) - WeatherPlan.AshShare(WeatherClock.At(id, rec - 1e-3))), 0f, 0.01f);
+        Assert.True(maxStep < 0.01f, $"one frame moved the ash by {maxStep}");
+        // the crosswind follows the ash: strongest at the peak, lighter (never still) at the lull
+        float windLull = WeatherPlan.Wind(id, At(end - 0.01).Intensity, 0), windPeak = WeatherPlan.Wind(id, 1f, 0);
+        Assert.True(windPeak > 0.8f && windLull > 0.4f && windLull < windPeak, $"{windLull} {windPeak}");
+        // others have no ash
+        foreach (var other in new[] { WeatherId.Thunderstorm, WeatherId.Rain, WeatherId.EmberWind }) Assert.Equal(0f, WeatherPlan.AshShare(WeatherClock.At(other, peak + 10)));
     }
 
     [Fact]

@@ -35,7 +35,7 @@ public class WeatherCatalogTests
     public void The_cycle_runs_opening_once_then_buildup_peak_recovery_repeating(WeatherId id)
     {
         var d = WeatherCatalog.Of(id);
-        Assert.Equal((WeatherPhase.Opening, 0f), (WeatherClock.At(id, 0).Phase, WeatherClock.At(id, 0).Intensity));
+        Assert.Equal((WeatherPhase.Opening, 1f), (WeatherClock.At(id, 0).Phase, WeatherClock.At(id, 0).Intensity));   // the weather finish: full at once
         double t = d.Duration(WeatherPhase.Opening);
         Assert.Equal(WeatherPhase.Buildup, WeatherClock.At(id, t + 0.01).Phase);
         t += d.Duration(WeatherPhase.Buildup);
@@ -49,18 +49,22 @@ public class WeatherCatalogTests
     }
 
     [Fact]
-    public void Intensity_is_continuous_and_stays_within_zero_to_one()
+    public void Intensity_starts_full_is_continuous_and_stays_within_half_to_full_with_no_expiry()
     {
         foreach (var d in WeatherCatalog.All.Where(d => d.Id != WeatherId.None))
         {
-            float last = 0f;
-            for (double t = 0; t < 1200; t += 0.5)
+            Assert.Equal(WeatherClock.ActiveFull, WeatherClock.At(d.Id, 0).Intensity);
+            Assert.InRange(WeatherClock.Lull(d), WeatherClock.ActiveFloor, WeatherClock.ActiveFull);
+            float last = 1f, low = 1f;
+            for (double t = 0; t < 6 * 3600; t += 0.5)   // six hours: never a drop to zero, never an end
             {
                 float i = WeatherClock.At(d.Id, t).Intensity;
-                Assert.InRange(i, 0f, 1f);
+                Assert.InRange(i, WeatherClock.ActiveFloor, WeatherClock.ActiveFull);
+                low = Math.Min(low, i);
                 Assert.True(Math.Abs(i - last) < 0.06f, $"{d.Key} jumps at {t}: {last} to {i}");
                 last = i;
             }
+            Assert.Equal(WeatherClock.Lull(d), low, 3);   // it does ease to its lull between peaks
         }
     }
 

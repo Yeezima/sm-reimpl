@@ -87,13 +87,26 @@ public sealed class WarfrontSquadWiring
     public void Import(WarfrontSquadSave? save)
     {
         save ??= WarfrontSquadSave.Empty;
-        Rosters.Import(save.Rosters);
+        Rosters.Import(OfferedMelee(_world.Config, save.Rosters));
         ClassBook.Import(save.Classes);
         _squadClass.Clear();
         foreach (var p in save.Picks) _squadClass[p.Key] = p.Class;
         foreach (var k in save.Classes.Keys) if (k.Last is { Kind: SquadOwnerKind.Librarian } l) _squadClass.TryAdd(k.Key, l.Librarian);
         _seen.Clear(); _scaleCards.Clear();
         Sim = NewSim();
+    }
+
+    /// <summary>
+    /// The rosters of a save with every Marine's removed melee weapon (the lightning claw or the power spear the config no longer offers; owner 2026-11-23) put back to the class default
+    /// (<see cref="SquadLoadoutBuilder.WithOfferedMelee"/>); the same value when none holds one.
+    /// </summary>
+    public static SquadRosterSave OfferedMelee(SimConfig config, SquadRosterSave save)
+    {
+        if (!save.Owners.Any(o => o.Marines.Any(m => SmSim.Extras.Musou.Arsenal.ArsenalRules.IsSpearOrClaw(m.Loadout.Melee)))) return save;
+        return save with
+        {
+            Owners = [.. save.Owners.Select(o => o with { Marines = [.. o.Marines.Select(m => m with { Loadout = SquadLoadoutBuilder.WithOfferedMelee(config, m.Loadout) })] })],
+        };
     }
 
     /// <summary>A new run: rosters, class book and sim cleared.</summary>

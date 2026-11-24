@@ -13,12 +13,16 @@ public static class WeatherClientLink
     /// <summary>Sends a weather command payload (<c>WeatherWire.CommandTag</c>); false when not connected. Null while no weather-bearing match is connected.</summary>
     public static Func<byte[], bool>? Send { get; set; }
 
+    /// <summary>Repair 1 test aid: the view's handler of the locomotion words (<c>wxmove</c>, <c>wxslide</c>, <c>wxstop</c>; name, the rest of the word); true when the word was one of them. Set with the link.</summary>
+    public static Func<string, string, bool>? TestMove { get; set; }
+
     /// <summary>The view that set the link lets go of it (it leaves the tree): only the owner's own model is cleared, so a newer view's link is never cleared by an older view.</summary>
     public static void Release(WeatherClientModel owner)
     {
         if (!ReferenceEquals(Model, owner)) return;
         Model = null;
         Send = null;
+        TestMove = null;
     }
 
     /// <summary>The server carries weather (it has sent a state; the panel shows its section only then).</summary>

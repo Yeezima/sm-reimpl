@@ -144,6 +144,112 @@ public class WeatherWireTests
     }
 
     [Fact]
+    public void Repair_2_the_lull_pin_holds_the_drawn_level_at_the_presets_lull_and_the_words_parse()
+    {
+        foreach (var id in new[] { WeatherId.Rain, WeatherId.AshSquall, WeatherId.Thunderstorm })
+        {
+            float lull = WeatherClock.Lull(WeatherCatalog.Of(id));
+            foreach (int span in new[] { 0, 600 })
+            {
+                var m = new WeatherClientModel { PinLull = true, PinAllowed = true };
+                var d = new WeatherDirector(id, span); d.Advance(1);
+                m.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
+                for (int i = 0; i < 30; i++) { m.Advance(1.0); Assert.Equal(lull, m.EffectiveIntensity, 2); }   // held at the lull, not looping back to full
+            }
+        }
+        var gated = new WeatherClientModel { PinLull = true };   // no developer-tools gate: the server's clock
+        gated.Receive(WeatherWire.Encode(At(WeatherId.Rain, 0)));
+        Assert.Equal(1f, gated.EffectiveIntensity);
+        Assert.True(WeatherClientModel.TryParsePinWord("lull", out var p1, out bool l1) && p1 is null && l1);
+        Assert.True(WeatherClientModel.TryParsePinWord("FULL", out var p2, out bool l2) && p2 == WeatherPhase.Peak && !l2);
+        Assert.True(WeatherClientModel.TryParsePinWord("recovery", out var p3, out _) && p3 == WeatherPhase.Recovery);
+        Assert.False(WeatherClientModel.TryParsePinWord("7", out _, out _));
+        Assert.False(WeatherClientModel.TryParsePinWord("", out _, out _));
+    }
+
+    [Fact]
+    public void Repair_3_the_strike_pin_loops_the_drawn_clock_round_a_real_peak_strike_so_its_glow_and_full_flash_recur()
+    {
+        foreach (int span in new[] { 0, 600 })
+        {
+            double? at = WeatherClientModel.PinnedStrikeTime(WeatherId.Thunderstorm, span);
+            Assert.NotNull(at);
+            var m = new WeatherClientModel { PinStrike = true, PinAllowed = true, FullFlash = true };
+            var d = new WeatherDirector(WeatherId.Thunderstorm, span); d.Advance(1);
+            m.Receive(WeatherWire.Encode(WeatherWire.Of(d)));
+            int glowFrames = 0, flashFrames = 0;
+            for (int f = 0; f < 600; f++)   // 10 s at 60 Hz: two and a half loops
+            {
+                m.Advance(1.0 / 60);
+                var s = m.State;
+                Assert.InRange(s.Elapsed, at!.Value - 1.0 - 1e-6, at.Value + WeatherClientModel.StrikeLoopSeconds);
+                if (WeatherPlan.CloudGlow(s.Elapsed, s.Span) > 0f) glowFrames++;
+                if (WeatherPlan.FullFlash(s.Elapsed, s.Span) > 0f) flashFrames++;
+            }
+            Assert.True(glowFrames > 60 && flashFrames > 30, $"span {span}: glow {glowFrames} flash {flashFrames} frames");
+        }
+        Assert.Null(WeatherClientModel.PinnedStrikeTime(WeatherId.Rain, 0));
+
+        // final round D1: in a held match (Classic Warmup) the strike pin still loops, and FULL flash is stronger than REDUCED (the glow cap and the exposure lift)
+        foreach (bool full in new[] { false, true })
+        {
+            var held = new WeatherClientModel { PinStrike = true, PinAllowed = true, FullFlash = full };
+            held.Receive(WeatherWire.Encode(WeatherWire.Of(new WeatherDirector(WeatherId.Thunderstorm, 600) { Held = true })));
+            Assert.True(held.Held);
+            float maxGlow = 0f, maxLift = 0f;
+            for (int f = 0; f < 600; f++)
+            {
+                held.Advance(1.0 / 60);
+                var s = held.State;
+                float glow = full ? Math.Max(WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(s.Elapsed, s.Span), WeatherPlan.FullGlowMaxAlpha * WeatherPlan.FullFlash(s.Elapsed, s.Span)) : WeatherPlan.GlowMaxAlpha * WeatherPlan.CloudGlow(s.Elapsed, s.Span);   // the rig's own rule (WeatherRig.Fx)
+                maxGlow = Math.Max(maxGlow, glow);
+                maxLift = Math.Max(maxLift, held.Grade.Exposure - WeatherGrade.For(s.Id, held.EffectiveIntensity).Exposure);
+            }
+            if (full) { Assert.InRange(maxGlow, WeatherPlan.GlowMaxAlpha * 2f, WeatherPlan.FullGlowMaxAlpha + 1e-4f); Assert.True(maxLift > 0.05f, $"full lift {maxLift}"); }
+            else { Assert.InRange(maxGlow, WeatherPlan.GlowMaxAlpha * 0.9f, WeatherPlan.GlowMaxAlpha + 1e-4f); Assert.Equal(0f, maxLift, 4); }
+        }
+        Assert.True(WeatherClientModel.TryParsePinWord("strike", out var p, out bool l) && p is null && !l);
+    }
+
+    [Fact]
+    public void Repair_2_a_bed_stops_with_a_half_second_fade_to_silence_and_a_wanted_bed_cancels_it()
+    {
+        var f = new WeatherBedFade();
+        f.Start(-25f);
+        float a = f.Step(0.1, out bool d1);
+        Assert.False(d1); Assert.InRange(a, -32.1f, -31.9f);   // a fifth of the way from -25 to -60
+        f.Start(-10f);   // ignored while running
+        float b = f.Step(0.3, out bool d2);
+        Assert.False(d2); Assert.True(b < a);
+        f.Step(0.1, out bool d3);
+        Assert.True(d3); Assert.False(f.Active);   // 0.5 s in all: stopped
+        f.Start(-20f); f.Cancel();
+        Assert.False(f.Active);
+        Assert.Equal(WeatherThunderFade.Seconds, WeatherBedFade.Seconds);   // the beds and the thunder go down together
+    }
+
+    [Fact]
+    public void Repair_3_a_second_fade_in_one_life_starts_with_a_one_frame_step()
+    {
+        // the rig samples its frame time every update (Thunderstorm -> Rain fades the wind; a second later Rain -> Clear fades the hiss)
+        var clock = new WeatherFrameDt();
+        var wind = new WeatherBedFade(); var hiss = new WeatherBedFade();
+        long ms = 1000; clock.Step(ms);
+        wind.Start(-20f);
+        bool done = false;
+        for (int f = 0; f < 120 && !done; f++) { ms += 16; wind.Step(clock.Step(ms), out done); }
+        Assert.True(done);
+        for (int f = 0; f < 60; f++) { ms += 16; clock.Step(ms); }   // a second of rain: the clock keeps being sampled
+        hiss.Start(-22f);
+        ms += 16;
+        float first = hiss.Step(clock.Step(ms), out _);
+        Assert.InRange(-22f - first, 0f, 2f);   // one 16 ms frame of a 0.5 s fade: about 1.3 dB, not the old 0.25 s jump (19 dB)
+        Assert.Equal(0.0, new WeatherFrameDt().Step(5000));   // the first sample is 0
+        var c = new WeatherFrameDt(); c.Step(0);
+        Assert.Equal(WeatherBedFade.MaxStep, c.Step(10_000));   // a stall is capped
+    }
+
+    [Fact]
     public void Weather_fix_2_a_pin_without_the_developer_tools_gate_draws_the_servers_phase()
     {
         var a = new WeatherClientModel { PinPhase = WeatherPhase.Peak };   // not allowed: an ordinary client
@@ -244,7 +350,7 @@ public class WeatherWireTests
             Assert.Equal(id, m.State.Id);
             Assert.False(m.Grade.IsIdentity, id + " must draw its own look");
             m.Receive(WeatherWire.Encode(At(id, 0)));
-            Assert.True(m.Grade.IsIdentity, id + " starts from the map's own look");
+            Assert.False(m.Grade.IsIdentity, id + " is full the moment it starts (the weather finish)");
         }
     }
 
@@ -252,11 +358,12 @@ public class WeatherWireTests
     public void None_and_zero_intensity_are_exactly_the_identity_so_teardown_returns_to_the_baseline()
     {
         Assert.True(WeatherGrade.For(WeatherId.None, 1f).IsIdentity);
-        foreach (var id in new[] { WeatherId.Clear, WeatherId.LowFog, WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall, WeatherId.EmberWind })
+        foreach (var id in new[] { WeatherId.LowFog, WeatherId.Rain, WeatherId.Thunderstorm, WeatherId.AshSquall, WeatherId.EmberWind })
         {
             Assert.True(WeatherGrade.For(id, 0f).IsIdentity);
             Assert.False(WeatherGrade.For(id, 1f).IsIdentity);
         }
+        for (float i = 0f; i <= 1f; i += 0.1f) Assert.True(WeatherGrade.For(WeatherId.Clear, i).IsIdentity);   // the weather finish: Clear is the authored look at every level
         var user = LightingPresets.For(LightingPresetChoice.PaleAshfall);
         Assert.Equal(user, WeatherGrade.Combine(user, LightingGrade.Identity));   // no weather: the player's preset alone
     }
@@ -278,7 +385,8 @@ public class WeatherWireTests
             Assert.True(g.FogDensity <= WeatherGrade.MaxFogFactor);
             Assert.True(g.SunEnergy >= 0.4f, $"{id} at {i}: sun {g.SunEnergy}");
         }
-        // stacked on the strongest lighting preset the limits still hold
+        // stacked on the strongest lighting preset the limits still hold (Clear is the identity since the weather finish: the player's preset alone, under its own limits)
+        if (WeatherGrade.For(id, 1f).IsIdentity) return;
         foreach (var choice in Enum.GetValues<LightingPresetChoice>())
         {
             var g = WeatherGrade.Combine(LightingPresets.For(choice), WeatherGrade.For(id, 1f));
@@ -288,11 +396,11 @@ public class WeatherWireTests
     }
 
     [Fact]
-    public void Low_fog_thickens_the_haze_clear_thins_it_and_rain_dims_the_sun()
+    public void Low_fog_adds_a_light_haze_clear_changes_nothing_and_rain_dims_the_sun()
     {
-        Assert.True(WeatherGrade.For(WeatherId.LowFog, 1f).FogDensity > 3f);
-        Assert.True(WeatherGrade.For(WeatherId.Clear, 1f).FogDensity < 0.6f);
-        Assert.True(WeatherGrade.For(WeatherId.Clear, 1f).SunEnergy > 1.4f);
+        float fog = WeatherGrade.For(WeatherId.LowFog, 1f).FogDensity;
+        Assert.InRange(fog, 1.3f, 2f);   // the ground fog is the rig's cards; the depth haze stays light so long sightlines stay usable
+        Assert.True(WeatherGrade.For(WeatherId.Clear, 1f).IsIdentity);
         Assert.True(WeatherGrade.For(WeatherId.Rain, 1f).SunEnergy < 0.5f);
     }
 }

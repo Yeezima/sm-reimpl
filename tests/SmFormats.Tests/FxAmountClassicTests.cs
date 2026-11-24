@@ -53,7 +53,7 @@ public class FxAmountClassicTests
         var offenders = Directory.EnumerateFiles(client, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}.godot{Path.DirectorySeparatorChar}") && setter.IsMatch(File.ReadAllText(f)))
             .Select(f => Path.GetRelativePath(client, f).Replace('\\', '/'))
-            .Where(f => !f.StartsWith("Extras/Musou/", StringComparison.Ordinal) && f != "FxPlayer.cs" && f != "Extras/Weather/WeatherRig.cs" && f != "Extras/Weather/WeatherRig.Fx.cs")   // WeatherRig.cs and WeatherRig.Fx.cs set a Godot particle node's Amount (the rain, ash and ember counts), not an FxEffect's   // FxPlayer.cs declares the defaults (checked above); its one core exception is KeepGrenadeSmoke, whose callers the next test pins
+            .Where(f => !f.StartsWith("Extras/Musou/", StringComparison.Ordinal) && f != "FxPlayer.cs" && f != "Extras/Weather/WeatherRig.cs" && f != "Extras/Weather/WeatherRig.Fx.cs" && f != "Extras/Weather/WeatherRig.Atmos.cs")   // WeatherRig.cs, WeatherRig.Fx.cs and WeatherRig.Atmos.cs (the weather finish's ground fog) set a Godot particle node's Amount (the rain, ash and ember counts), not an FxEffect's   // FxPlayer.cs declares the defaults (checked above); its one core exception is KeepGrenadeSmoke, whose callers the next test pins
             .ToList();
         Assert.Empty(offenders);
     }

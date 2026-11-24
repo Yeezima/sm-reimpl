@@ -249,6 +249,13 @@ public partial class DevToolsPanel : CanvasLayer
     }
 
     /// <summary>
+    /// The words of a <c>--dev-script</c> value: split on commas, each trimmed of spaces and of stray quote characters. A nested quoting (<c>cmd /c "client.cmd --dev-script \"a,b\""</c>, a PowerShell string with quotes in it)
+    /// can hand the client the quotes themselves, which used to turn the first and the last word into unknown ones (<c>"a</c>, <c>b"</c>); now they are dropped.
+    /// </summary>
+    public static string[] SplitScript(string script)
+        => script.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(w => w.Trim('"', '\'', ' ')).Where(w => w.Length > 0).ToArray();
+
+    /// <summary>
     /// Presses a control by its <see cref="ControlWords"/> word (the <c>--dev-script</c> test aid): <c>inv:on</c> sets a flag, <c>inv</c> toggles it; <c>tp:spawn-loyal</c>, <c>tp:point:1</c>,
     /// <c>tp:player:2</c>; <c>acc:50</c> (percent), <c>dmg:34</c>, <c>range:80</c>, <c>acc:default</c>, <c>range:default</c>; <c>scale:0</c> to <c>scale:4</c>. False for an unknown word.
     /// </summary>
@@ -268,6 +275,7 @@ public partial class DevToolsPanel : CanvasLayer
             case "jump": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteJump, Wanted(DevToolsFlags.InfiniteJump)); return true;
             case "indef": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.Indefinite, Wanted(DevToolsFlags.Indefinite)); return true;
             case "respawn": Send(DevCommandKind.SetFlag, (byte)DevToolsFlags.InstantRespawn, Wanted(DevToolsFlags.InstantRespawn)); return true;
+            case "wait": return true;   // a no-op step: the script's pacing comes from --dev-script-step, so a wait word holds the next one back by one step
             case "end": Send(DevCommandKind.EndMatch, 0, true); return true;
             case "restart": Send(DevCommandKind.RestartMatch, 0, true); return true;
             case "skip": Send(DevCommandKind.SkipMatch, 0, true); return true;
@@ -294,7 +302,7 @@ public partial class DevToolsPanel : CanvasLayer
             default:
             {
                 bool handled = false;
-                ExtrasPanelPress(name, arg, ref handled);   // EXTRAS-HOOK: added content's script words (weather:rain, weather:none, weather:follow)
+                ExtrasPanelPress(name, parts.Length > 1 ? string.Join(':', parts, 1, parts.Length - 1) : "", ref handled);   // EXTRAS-HOOK: added content's script words (weather:rain, weather:none, weather:follow; wxslide:20:3 keeps every part after the name)
                 return handled;
             }
         }

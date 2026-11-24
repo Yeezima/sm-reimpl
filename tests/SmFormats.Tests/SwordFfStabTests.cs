@@ -106,18 +106,25 @@ public class SwordFfStabTests
         }
         var classic = Read(2);
         Assert.False(classic.Heavy[1].ThrustRelease);
-        Assert.True(classic.Heavy[2].Stab);
+        Assert.True(classic.Heavy[3].Stab);   // sim/stab-key-only: the stab is the strike after the finisher
         Assert.False(Read(0).Heavy[1].ThrustRelease);   // a weapon with no stab at all
     }
 
     [Fact]
-    public void The_finisher_is_the_x_y_strike_without_its_blast_and_with_the_furious_charge_hit()
+    public void The_stab_is_the_x_y_strike_without_its_blast_and_with_the_furious_charge_hit_appended_after_the_stomp_finisher()
     {
+        // sim/stab-key-only (owner 2026-11-23): the finisher stays the data's stomp; the stab is appended after it and no chain names it.
         var t = Read(2);
-        Assert.Equal(3, t.Heavy.Count);
+        Assert.Equal(4, t.Heavy.Count);
         var quick = t.Heavy[1];
-        var stab = t.Heavy[2];
-        Assert.Equal(t.HeavyAnimations[1], t.HeavyAnimations[2]);                             // the same clip
+        var stab = t.Heavy[3];
+        Assert.Equal(4, MeleeTuning.StabStepOf(new MeleeTuning.WeaponMap("sword", "MP_Sword", ["X1"], ["ability_melee_x1"]) { HeavySequencers = ["Y1", "Y4"], FinisherSequencers = ["YY"], StabHeavy = 2 }));
+        Assert.NotNull(t.Heavy[2].Stomp);                                                     // F + F: the stomp again
+        Assert.Equal("Stomp_3.5m", t.HeavyAnimations[2]);
+        Assert.False(t.Heavy[2].Stab);
+        Assert.All(t.Heavy, h => Assert.NotEqual(4, h.YNext));                                // no Y chain names the stab
+        Assert.All(t.Steps, l => Assert.NotEqual(4, l.HeavyNext));                            // nor a light attack's follow-up
+        Assert.Equal(t.HeavyAnimations[1], t.HeavyAnimations[3]);                             // the same clip
         Assert.Equal((quick.Duration, quick.HitTime, quick.MoveAt), (stab.Duration, stab.HitTime, stab.MoveAt));   // the same timing
         Assert.Null(stab.Stomp);                                                              // no blast
         Assert.Equal((100f, 50f), (stab.Damage, stab.ShieldDamage));                          // the perk's entry, though no perk is granted
@@ -148,13 +155,17 @@ public class SwordFfStabTests
     }
 
     [MeleeInstallPinTests.InstallFact]
-    public void On_the_install_the_sword_finisher_is_the_x_f_clip_at_100_plus_50_stagger_and_the_axe_keeps_its_slam()
+    public void On_the_install_the_sword_finisher_is_the_stomp_and_the_stab_after_it_is_the_x_f_clip_at_100_plus_50_stagger_and_the_axe_keeps_its_slam()
     {
         string game = GameInstall.TryLocate()!.Dir;
         var sword = MeleeTuning.Load(game, MeleeTuning.PowerSword);
-        Assert.Equal(5, sword.Heavy.Count);
-        Assert.Equal(sword.HeavyAnimations[1], sword.HeavyAnimations[4]);
-        var stab = sword.Heavy[4];
+        Assert.Equal(6, sword.Heavy.Count);
+        Assert.NotNull(sword.Heavy[4].Stomp);                       // sim/stab-key-only: F + F is the data's footstomp again
+        Assert.False(sword.Heavy[4].Stab);
+        Assert.Equal(sword.HeavyAnimations[1], sword.HeavyAnimations[5]);
+        var stab = sword.Heavy[5];
+        Assert.True(stab.Stab);
+        Assert.All(sword.Heavy, h => Assert.NotEqual(6, h.YNext));
         Assert.Null(stab.Stomp);
         Assert.Equal((100f, 50f, ReactionKind.Stagger), (stab.Damage, stab.ShieldDamage, stab.PrimaryReaction.Kind));
         Assert.Equal((sword.Heavy[1].Duration, sword.Heavy[1].HitTime), (stab.Duration, stab.HitTime));
@@ -173,7 +184,9 @@ public class SwordFfStabTests
             Assert.Equal("Stomp_3.5m", t.HeavyAnimations[2]);
         }
         Assert.True(MeleeTuning.SwordStabOn);
-        Assert.Null(Read(2).Heavy[2].Stomp);
+        Assert.NotNull(Read(2).Heavy[2].Stomp);   // sim/stab-key-only: Classic keeps the stomp finisher too
+        Assert.Equal(4, Read(2).Heavy.Count);     // and adds the stab after it
+        using (MeleeTuning.WithoutSwordStab()) Assert.Equal(3, Read(2).Heavy.Count);   // Musou and Warfront: no stab strike
     }
 
     static MeleeCombo Sword(SimConfig c) =>
@@ -181,20 +194,26 @@ public class SwordFfStabTests
 
     /// <summary>The real path: the sword in the Assault Marine's melee choices of the match tuning, per content profile.</summary>
     [MeleeInstallPinTests.InstallFact]
-    public void Classic_and_faithful_matches_stab_and_Musou_Mode_keeps_the_stomp_blast()
+    public void Classic_and_faithful_matches_stomp_on_F_F_and_stab_only_on_the_key_and_Musou_Mode_keeps_the_stomp_blast_with_no_stab()
     {
         string game = GameInstall.TryLocate()!.Dir;
         foreach (var extras in new[] { ContentExtras.None, ContentExtras.Orks })
         {
-            var stab = Sword(GameplayTuning.LoadForMatch(game, extras).Config).Heavy[4];
+            var heavy = Sword(GameplayTuning.LoadForMatch(game, extras).Config).Heavy;
+            Assert.NotNull(heavy[4].Stomp);                                // sim/stab-key-only: the finisher is the stomp
+            Assert.Equal(6, Combat.StabIndex(heavy));                      // the key's strike, after it
+            var stab = heavy[5];
             Assert.Null(stab.Stomp);
             Assert.Equal((100f, 50f, ReactionKind.Stagger), (stab.Damage, stab.ShieldDamage, stab.PrimaryReaction.Kind));
         }
-        var musou = Sword(GameplayTuning.LoadForMatch(game, ContentExtras.Musou).Config).Heavy[4];
+        var musouHeavy = Sword(GameplayTuning.LoadForMatch(game, ContentExtras.Musou).Config).Heavy;
+        Assert.Equal(0, Combat.StabIndex(musouHeavy));                     // Musou and Warfront: no stab strike at all
+        Assert.Equal(5, musouHeavy.Count);
+        var musou = musouHeavy[4];
         Assert.NotNull(musou.Stomp);                                   // the data's footstomp blast: the Librarian's crowd clear
         Assert.Equal(0f, musou.Damage);
-        var classic = Sword(GameplayTuning.Load(game).Config).Heavy[4];
-        Assert.Null(classic.Stomp);                                    // the scope is gone after the Musou read
+        var classic = Sword(GameplayTuning.Load(game).Config).Heavy[5];
+        Assert.True(classic.Stab);                                     // the scope is gone after the Musou read
         Assert.NotEqual(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Variants.Bytes(Sword(GameplayTuning.LoadForMatch(game, ContentExtras.Musou).Config)))),
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Variants.Bytes(Sword(GameplayTuning.Load(game).Config)))));
     }
@@ -206,7 +225,8 @@ public class SwordFfStabTests
         string game = GameInstall.TryLocate()!.Dir;
         var classes = GameplayTuning.Load(game).Classes!;
         var clips = classes.MeleeHeavyAnimationsByWeapon["sm_mp_melee_powersword"];
-        Assert.Equal(clips[1], clips[4]);
-        Assert.Contains("PS_XATK_Combo4", clips[4]);
+        Assert.Equal(clips[1], clips[5]);                              // sim/stab-key-only: the stab is heavy strike 6
+        Assert.Contains("PS_XATK_Combo4", clips[5]);
+        Assert.DoesNotContain("PS_XATK_Combo4", clips[4]);             // the finisher draws the stomp clip again
     }
 }

@@ -12,6 +12,9 @@ public static class LeanBot
     /// <summary>The opt-out flag (<c>--bot-full-load</c>): a bot that loads everything (tests that need its visuals).</summary>
     public const string FullLoadFlag = "bot-full-load";
 
+    /// <summary>bots/a1-perf (2026-11-23): <c>--bot-frame-profile</c>, the <c>--frame-profile</c> phase table for a lean bot (lean-safe: it only reads clocks, so the bot stays lean and measures itself).</summary>
+    public const string FrameProfileFlag = "bot-frame-profile";
+
     /// <summary>Godot's name for the display server of a <c>--headless</c> run.</summary>
     public const string HeadlessDisplayServer = "headless";
 
@@ -27,6 +30,24 @@ public static class LeanBot
     /// <summary>The frame-cap override flag (<c>--bot-fps n</c>, 0 = no cap).</summary>
     public const string FpsFlag = "bot-fps";
 
+    /// <summary>bots/a1-perf (2026-11-24): <c>--bot-jump-threads n</c>, the threads a bot client's jump-link build may use (n at least 1; test aid and tuning switch).</summary>
+    public const string JumpThreadsFlag = "bot-jump-threads";
+
+    /// <summary>bots/a1-perf: a machine with at most this many logical cores is small: a lean bot's jump-link build there uses one thread (ours).</summary>
+    public const int SmallMachineCores = 8;
+
+    /// <summary>
+    /// bots/a1-perf (2026-11-24, ours): the threads of a bot client's jump-link build. <paramref name="overrideText"/> (<c>--bot-jump-threads</c>'s value) when it is a whole number 1 or
+    /// above; else a lean bot on a small machine (<see cref="SmallMachineCores"/> or fewer) uses one; else a third of the cores, at least 1 and one core always free (bots/new-maps, as before).
+    /// The thread count changes how long the build takes, never the links (the set is byte for byte the same) or the cache key.
+    /// </summary>
+    public static int JumpBuildThreadsFor(string? overrideText, int processorCount, bool lean)
+    {
+        if (overrideText is not null && int.TryParse(overrideText, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) && n >= 1) return n;
+        if (lean && processorCount <= SmallMachineCores) return 1;
+        return System.Math.Max(1, System.Math.Min(processorCount / 3, processorCount - 1));
+    }
+
     /// <summary>The frame cap of a lean bot: <paramref name="overrideText"/> (<c>--bot-fps</c>'s value) when it is a whole number 0 or above, else <see cref="FrameCap"/>.</summary>
     public static int FrameCapFor(string? overrideText) =>
         overrideText is not null && int.TryParse(overrideText, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int fps) && fps >= 0 ? fps : FrameCap;
@@ -37,7 +58,7 @@ public static class LeanBot
     /// </summary>
     public static readonly IReadOnlySet<string> PresentationAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
     {
-        "warfront-hooks-test", "weather-shelter-test", "stab-recovery-test", "warfront-results-demo", "warfront-selftest", "warfront-station-test", "warfront-ui-demo", "anim-probe", "log-fov", "fov-demo", "old-melee-fov", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
+        "warfront-hooks-test", "weather-shelter-test", "hit-dir-demo", "log-hit-dir", "old-classic-hit-dir", "log-hit-dir-paths", "capture-fill", "observe-stage-front", "stab-recovery-test", "warfront-results-demo", "warfront-selftest", "warfront-station-test", "warfront-ui-demo", "anim-probe", "log-fov", "fov-demo", "old-melee-fov", "tracer-probe", "fire-test", "log-power-glow", "old-kraken-tracer", "tfw-bay-capture", "log-melta-follow", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "perf-tour", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "no-extra-transitions", "no-sprint-stop", "no-sprint-start", "no-turns", "log-sprint-edges", "feel-shots-dense",   // install transitions: the restore switches change what is drawn, so a lean bot would not show them
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
@@ -100,7 +121,7 @@ public static class LeanBot
     /// </summary>
     /// <remarks>perf/pass-1's <c>--perf-probe</c> only reads the engine's and runtime's counters (frame times, renderer, memory, GC), so a lean bot keeps it: it
     /// measures the lean bot itself.</remarks>
-    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe",
+    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-no-capture-hud", "musou-old-capture-ui", "tfw-bot", "bot-trace", "test-window", "perf-probe", FrameProfileFlag,
         "old-bot-throws" };   // bot-grenade-safety (owner 2026-11-11): the Classic PvP bots' old throws and no holds (it steers the bot, it draws nothing)
 
     /// <summary>A flag name that reads like a test aid (a probe, log, trace, capture, sweep, test, screenshot, wait or demo): each must be classified (tested).</summary>

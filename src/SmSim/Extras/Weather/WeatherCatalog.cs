@@ -11,7 +11,7 @@ public enum WeatherId : byte { None = 0, Clear = 1, LowFog = 2, AshSquall = 3, R
 /// (spec/behavior.md "Weather", the refine register).
 /// </summary>
 /// <param name="Real">Built in the client as a real look (W1: Clear, Low Fog, Rain; W2: Ash Squall, Thunderstorm, Ember Wind). A preset that is not built draws the map's default look until its milestone; since W2 none is left.</param>
-/// <param name="OpeningLevel">The intensity (0 to 1) the opening phase ends at, and the buildup starts and the recovery ends at.</param>
+/// <param name="OpeningLevel">Sets the lull (the weather finish): the opening and the recovery ease down to <c>0.5 + 0.5 x OpeningLevel</c>, the buildup rises from it (<see cref="WeatherClock.Lull"/>).</param>
 /// <param name="Seconds">The length of each phase, in the order Opening, Buildup, Peak, Recovery, in seconds.</param>
 public sealed record WeatherDef(WeatherId Id, string Key, string Name, string Short, bool Real, float OpeningLevel, double[] Seconds)
 {
@@ -23,7 +23,7 @@ public sealed record WeatherDef(WeatherId Id, string Key, string Name, string Sh
 public static class WeatherCatalog
 {
     /// <summary>Raised with any change to a preset's id, key, phase lengths or levels.</summary>
-    public const int Version = 2;   // 2: W2 builds Ash Squall, Thunderstorm and Ember Wind (their ids, keys, phase lengths and levels are unchanged)
+    public const int Version = 3;   // 3: the weather finish (2026-11-23): an active preset starts at full intensity and stays within 0.5 to 1 (WeatherClock.Make; ids, keys, lengths and levels unchanged, the levels now set each lull). 2: W2 builds Ash Squall, Thunderstorm and Ember Wind (their ids, keys, phase lengths and levels are unchanged)
 
     public static IReadOnlyList<WeatherDef> All { get; } =
     [

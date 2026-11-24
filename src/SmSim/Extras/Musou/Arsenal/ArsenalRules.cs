@@ -30,6 +30,49 @@ public static partial class ArsenalRules
     /// <summary>Whether <paramref name="wargear"/> is one of the arsenal's items (case ignored). Allocation-free: the client asks it every frame in Musou (W0b review).</summary>
     public static bool IsArsenal(string? wargear) => wargear is not null && NameSet.Contains(wargear);
 
+    /// <summary>The restore switch of the spear and claw removal (owner 2026-11-23: "turn off the power spear and power claw - remove them from the game for now"): server and client alike.</summary>
+    public const string SpearClawSwitch = "--old-arsenal-spear-claw";
+
+    /// <summary>The same switch as an environment variable (<c>1</c>); the server sets it when it reads <see cref="SpearClawSwitch"/>, so its stage and rotation children inherit it.</summary>
+    public const string SpearClawEnvironmentVariable = "SM_OLD_ARSENAL_SPEAR_CLAW";
+
+    /// <summary>
+    /// Whether the lightning claw and the power spear are offered (owner 2026-11-23: removed for now; false by default). True with <see cref="SpearClawEnvironmentVariable"/> = 1 or
+    /// <see cref="SpearClawSwitch"/> on this process's command line (the client's user arguments are part of it). Read where Musou's config and catalogue are built (not per frame); the
+    /// config hash covers the result through the classes' melee lists, so the server and the clients must agree.
+    /// </summary>
+    public static bool SpearClawOffered => SpearClawScope.Value ?? SwitchOn();
+
+    static bool SwitchOn()
+    {
+        if (Environment.GetEnvironmentVariable(SpearClawEnvironmentVariable) == "1") return true;
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), SpearClawSwitch) < 0) return false;
+        RestoreSpearClaw();   // a server this process starts (the client's Host panel, a solo Warfront run) inherits the switch
+        return true;
+    }
+
+    static readonly AsyncLocal<bool?> SpearClawScope = new();
+
+    /// <summary>
+    /// Test aid: <see cref="SpearClawOffered"/> is <paramref name="offered"/> on this logical flow (tasks it starts included) until the result is disposed, whatever the switch says; no other test
+    /// running beside it sees the change (no environment variable is touched).
+    /// </summary>
+    public static IDisposable SpearClawScoped(bool offered)
+    {
+        var before = SpearClawScope.Value;
+        SpearClawScope.Value = offered;
+        return new Restore(() => SpearClawScope.Value = before);
+    }
+
+    sealed class Restore(Action undo) : IDisposable { public void Dispose() => undo(); }
+
+    /// <summary>Turns the restore switch on for this process and its children (the server's <see cref="SpearClawSwitch"/>).</summary>
+    public static void RestoreSpearClaw() => Environment.SetEnvironmentVariable(SpearClawEnvironmentVariable, "1");
+
+    /// <summary>Whether <paramref name="wargear"/> is the lightning claw or the power spear (case ignored).</summary>
+    public static bool IsSpearOrClaw(string? wargear) =>
+        string.Equals(wargear, LightningClaw, StringComparison.OrdinalIgnoreCase) || string.Equals(wargear, PowerSpear, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Whether <paramref name="wargear"/> is the autocannon (case ignored).</summary>
     public static bool IsAutocannon(string? wargear) => string.Equals(wargear, Autocannon, StringComparison.OrdinalIgnoreCase);
 
