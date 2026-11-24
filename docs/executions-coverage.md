@@ -165,6 +165,16 @@ All are marine attacker, victim clip on its own rig.
 
 ## 3. Mapping to SM-Reimpl
 
+**Owner answers since this inventory (2026-11-25; decision record in the coordination repository).** They supersede the open points below. Section 6
+lists the rows that implement them.
+- The power sword plays the chainsword's moves in every mode with executions (an owner override of "no lookalike substitutes", for this weapon only).
+- Grounded Stormboys take the Boy's moves. The 'Ard Boy is eligible on the Boy's moves (`ExecutionTargets.Warfront`), the Gretchin on the punch. The
+  Bomb Squig never is (squigs are removed from Warfront for now).
+- Chaos runs: Traitor Guard and Cultists take the renegade backhand. Chaos Tactical, Havoc and Champion marines take C1 to C3, and Bloodletters their
+  three moves. The Chosen and the Lord never.
+- Classic: a Chaos killer on a loyalist plays C1 to C3 with the races swapped (ours). Lead decision: an Ork-player victim takes the Ork Boy rows, and
+  Ork players cannot execute.
+
 The original paired clips are on the same skeletons as our rigs, so no move needs a lookalike. The open design points are which move plays (the
 original executable chose), the target condition (the original required a stunned target), and the terrain check.
 
@@ -277,3 +287,82 @@ Proposals and decisions for the owner:
   3 weapon families, 3 finishers.
 - **Not covered.** Power sword, heavy kick, Dreadnought, claw, spear (both modes); knife (Classic); Stormboy and Bomb Squig (Warfront); a loyalist
   victim (Classic, pending the owner's race-swap decision).
+
+## 6. Catalogue rows (executions X7)
+
+The rows are data in `src/SmSim/Extras/Executions/ExecutionRows.cs` (`ExecutionRows.All`, wire order; names, timings and offsets only).
+`ExecutionCatalogueLoader.Load` (`src/SmContent/Extras/Executions/`) reads every row's clips from the install at runtime (read-only). It takes the lengths,
+root paths and variant paths from the install and the event times from the row's own sequencer tags. A row whose clip is missing is left out with a
+note, never replaced. On the owner's install every row loads, and the lengths and event times match the data (no note;
+`ExecutionRowsTests.The_install_resolves_every_rows_clips`). All rows are "*" class: no class has a move of its own.
+
+Row events: sync at the `AttackAlignment` start; contact and kill at `ACTN_Hit_Primary_Target` (interpretation); the heal tag and the victim's dead
+branch as "other" (not played); end at `BRANCH_Melee_End`. Each variant's distance is the authored victim gap measured for that clip (the
+interaction bones met), not the distance in its name. For example the hammer's Bloodletter slam variants are 2.80, 3.46 and 8.84 m.
+
+| Row id | Kind | Family (also) | Priority | Reference clip pair | Offset (m) | Variant gaps (m) | Kill / end (s) |
+|---|---|---|---|---|---|---|---|
+| O1.chainsword | ork_boy | chainsword (power sword) | 4 | `SM_SYN_ATT_F_ORKGRIND_01_3.5M` / `BOY_…` | (0.07, 3.48) | 0.97, 3.48, 6.98 | 2.200 / 3.294 |
+| O2.chainsword | ork_boy | chainsword | 3 | `SM_SYN_SwordGrind_3.5m` / `BOY_…` | (0.09, 3.65) | 1.15, 3.65, 7.16 | 3.933 / 4.583 |
+| O3.chainsword | ork_boy | chainsword | 2 | `SM_SYN_ATT_F_ORKSLAM_3.5M` / `BOY_…` | (0.07, 3.50) | 1.00, 3.50, 7.01 | 2.433 / 3.381 |
+| O4.chainsword | ork_boy | chainsword | 1 | `SM_SYN_ARMBREAK_01_4m` / `BOY_…` | (0.07, 4.00) | 2.00, 4.00, 7.00 | 1.433 / 2.824 |
+| O5.power_axe | ork_boy | power axe (chain axe) | 4 | `SM_SYN_PA_Boy_Decap_3.5m` / `BOY_…` | (0.00, 3.50) | 1.70, 3.50, 7.00 | 1.867 / 2.833 |
+| O4.power_axe | ork_boy | power axe | 3 | as O4 | (0.07, 4.00) | 2.00, 4.00, 7.00 | 1.433 / 2.824 |
+| O3.power_axe | ork_boy | power axe | 2 | as O3 | (0.07, 3.50) | 1.00, 3.50, 7.01 | 2.433 / 3.381 |
+| O6.power_axe | ork_boy | power axe | 1 | `SM_SYN_PA_Boy_AxeHack_3.5m` / `BOY_…` | (0.00, 3.37) | 3.37 only | 2.600 / 3.667 |
+| O7.thunder_hammer | ork_boy | hammer (daemon maul) | 2 | `SM_SYN_TH_OrkBoy_headPOP` / `BOY_…` | (0.07, 3.51) | 1.00, 3.51, 7.00 | 2.033 / 3.333 |
+| O3.thunder_hammer | ork_boy | hammer | 1 | as O3 | (0.07, 3.50) | 1.00, 3.50, 7.01 | 2.433 / 3.381 |
+| O3.combat_knife | ork_boy | knife | 2 | as O3 | (0.07, 3.50) | 1.00, 3.50, 7.01 | 2.433 / 3.381 |
+| O8.combat_knife | ork_boy | knife | 1 | `SM_MEL_CK_XATK_HVY_3.5m` / `BOY_MEL_CK_XATK_HVY_3.5m` | (-0.08, 3.36) | 1.87, 3.36, 6.86 | 1.200 / 2.800 |
+| O9.(family), 4 rows | gretchin | each family | 0 (knife 3) | `SM_SYN_GretchinPunch_3.5M` / `GRE_…` | (-0.01, 3.50) | 1.43, 3.50, 7.00 | 0.333 / 0.833 |
+| C1.chainsword | chaos_marine | chainsword (power sword) | 4 | `SM_SYN_CS_StrglWin_ChaosDecap` / `CSM_…` | (0.00, 1.32) | 1.32 only | 4.367 / 6.333 |
+| C2.power_axe | chaos_marine | power axe (chain axe) | 4 | `SM_SYN_PA_CSM_AxeHack_01` / `CSM_…` | (0.00, 1.46) | 1.46 only | 2.933 / 4.000 |
+| C3.thunder_hammer | chaos_marine | hammer (daemon maul) | 4 | `SM_SYN_Chaos_hamburger` / `SM2_…` | (-0.32, 1.11) | 1.15 only | 2.533 / 4.000 |
+| B1.chainsword | bloodletter | chainsword | 0 | `SM_SYN_BloodLtr_Cutthroat_3.5m` / `BL_…` | (0.10, 3.50) | 1.52, 3.51, 7.00 | 3.100 / 3.933 |
+| B2.power_axe | bloodletter | power axe | 0 | `SM_SYN_PA_BL_TongueGrab_3.5m` / `BL_…` | (0.00, 3.46) | 2.50, 3.46, 6.96 | 2.074 / 3.600 |
+| B3.thunder_hammer | bloodletter | hammer | 0 | `SM_SYN_TH_Bloodletter_slam` / `BL_…` | (0.00, 3.46) | 2.80, 3.46, 8.84 | 2.267 / 3.667 |
+| R1.(family), 3 rows | renegade | chainsword, power axe, hammer | 0 | `SM_SYN_IG_BackHand_Punch_3.5m` / `IG_…` | (0.00, 3.91) | 1.43, 3.91, 7.43 | 1.233 / 2.067 |
+
+Counts: 25 rows. By kind: ork_boy 12, gretchin 4, chaos_marine 3, bloodletter 3, renegade 3. By family: chainsword 8, power axe 8, thunder
+hammer 6, combat knife 3. Victim yaw is 180 degrees in every row. Priority 0 means the data names none; the kind then has one row per family, so
+the priority does not matter.
+
+### 6.1 Coverage matrix
+
+| Mode | Victim (roster) | Kind | Chainsword, power sword | Power axe, chain axe | Hammer, daemon maul | Knife | Label |
+|---|---|---|---|---|---|---|---|
+| Warfront | Boy, Shoota Boy, Rokkit Boy | ork_boy | O1-O4 | O5, O4, O3, O6 | O7, O3 | O3, O8 | original; the Rokkit Boy on the boy rig is an interpretation |
+| Warfront | 'Ard Boy, grounded Stormboy | ork_boy | as above | as above | as above | as above | ours (owner): no own clips; same skeleton |
+| Warfront | Gretchin | gretchin | O9 | O9 | O9 | O9 | original |
+| Warfront | Scrap Mek, Bomb Squig, elites, bosses | - | none | none | none | none | not eligible |
+| Chaos run | Chaos Tactical, Havoc, Champion | chaos_marine | C1 | C2 | C3 | none | original pairs; struggle skipped (ours) |
+| Chaos run | Bloodletter | bloodletter | B1 | B2 | B3 | none | original |
+| Chaos run | Traitor Guard, Cultist | renegade | R1 | R1 | R1 | none | original guardsman clip on our rosters (ours: the mapping) |
+| Chaos run | Chosen, Chaos Lord | - | none | none | none | none | never (owner) |
+| Classic Extended | Chaos player | chaos_marine | C1 | C2 | C3 | none | original pairs |
+| Classic Extended | loyalist player | chaos_marine, races swapped | C1 | C2 | C3 | none | ours (owner): `ExecutionTargets.ClassicRaceSwap` |
+| Classic Extended | Ork player | ork_boy | O1-O4 | O5, O4, O3, O6 | O7, O3 | O3, O8 | ours (lead): Ork players cannot execute |
+
+The power sword taking the chainsword's rows is an owner override, labelled ours. Nothing covers the heavies' kick, the Dreadnought, the lightning
+claw, the power spear or a loyalist victim of his own race (section 4). The renegade and Bloodletter rows load from the install and pass the tests,
+but the test view (6.3) cannot show them yet because it has no Gretchin, Bloodletter or guardsman model.
+
+### 6.2 Campaign content dependencies
+
+The rows need no singleplayer-only archive. They draw campaign clips from three shared sets:
+- `ebp_sets__player_set` (`havok_spacemarine`): every attacker clip.
+- `ebp_sets__ork_core_units` (`havok_boy`, `havok_gretchin`): the Ork victim halves. The co-op rigs we load have none.
+- `ebp_sets__chaos_core_units` (`havok_chaosspacemarine`, `havok_bloodletter`, `havok_guardsman_a`): the Chaos victim halves.
+
+Proposed line for CLAUDE.md's "Noted dependencies" (not applied; the lead owns that file): "Executions (Warfront and Classic PvP Extended) play the
+campaign player rig's sync clips (`ebp_sets__player_set` `havok_spacemarine`) and the victim halves from `ebp_sets__ork_core_units` (`havok_boy`,
+`havok_gretchin`) and `ebp_sets__chaos_core_units` (`havok_chaosspacemarine`, `havok_bloodletter`, `havok_guardsman_a`); docs/executions-coverage.md 6.2."
+
+### 6.3 Raw-clip test view
+
+`client.cmd --execution-test <row id>` (`client/Extras/Executions/ExecutionTestView.cs`, reached through the `ModelViewer.ExtrasExecutionTest` hook)
+plays one row's reference attacker and victim clips on one clock. The attacker is the MP marine holding the row's weapon. The victim is the co-op Ork
+Boy or the MP Chaos Marine, standing at the row's offset and facing him. With `--race-swap` on a C row, a Chaos killer plays it on a loyalist. There is
+no alignment, blending or terrain check: it is the baseline for comparing against the original side by side. Options: `--list`,
+`--times t0,t1,..` with `--out`/`--name` (stills, then quit; needs `godot.cmd --windowed`), `--view side|front|back|three`, `--look`, `--rate`,
+`--quit`. Labels: original asset loaded (clips, meshes, textures) on a placeholder demonstration stage.

@@ -186,6 +186,9 @@ public partial class ModelViewer : Node3D
             if (args.ContainsKey("appearance-test")) { AddChild(new AppearanceTestView(gameDir, args) { Name = "AppearanceTest" }); return; }   // customizer T6 test aid
             if (args.ContainsKey("ork-test")) { AddChild(new OrkTestView(gameDir, args) { Name = "OrkTest" }); return; }   // Ork O3 test aid
             if (args.ContainsKey("guard-test")) { AddChild(new GuardsmanTestView(gameDir, args) { Name = "GuardsmanTest" }); return; }   // Guardsman asset check (Musou Mode dependency)
+            bool executionHandled = false;
+            ExtrasExecutionTest(gameDir, args, ref executionHandled);   // EXTRAS-HOOK executions X7: the raw-clip pair viewer (--execution-test; ExecutionTestView)
+            if (executionHandled) return;
             if (args.ContainsKey("connect") || args.ContainsKey("play-demo"))   // M40 T0: --play-demo replays a recorded client without a server
             {
                 // M44: "Leave match" in the in-match menu goes back to the front end from a plain --connect too. A copy taken before ApplyProfileLoadout adds the class and item
@@ -281,6 +284,9 @@ public partial class ModelViewer : Node3D
     /// <summary>Added content's process-wide switches, at the client's start on every path (implemented under Extras/, absent from a faithful build).</summary>
     partial void ExtrasStart(Dictionary<string, string?> args);
 
+    /// <summary>Executions X7: the test view that plays an execution's attacker and victim clips from the install (implemented under Extras/Executions/, absent from a faithful build).</summary>
+    partial void ExtrasExecutionTest(string gameDir, Dictionary<string, string?> args, ref bool handled);
+
     string? _foundNote;
     System.Threading.Tasks.Task<GameLocation?>? _locating;
     CanvasLayer? _lookingLayer;
@@ -288,7 +294,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "hit-reaction-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery", "claw-spear-test"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "hit-reaction-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test", "musou-crowd-test", "mek-gallery", "claw-spear-test", "execution-test"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {
