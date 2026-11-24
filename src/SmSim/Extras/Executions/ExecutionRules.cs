@@ -8,8 +8,8 @@ namespace SmSim.Extras.Executions;
 /// </summary>
 public static class ExecutionRules
 {
-    /// <summary>The executions version in the config hash (1: X1, the contract and the switch).</summary>
-    public const int Version = 1;
+    /// <summary>The executions version in the config hash (1: X1, the contract and the switch; 2: X3, the state machine, Classic PvP Extended and the 36-byte Start).</summary>
+    public const int Version = 2;
 
     /// <summary>
     /// Classic PvP Extended: how long after a confirmed lethal melee kill the killer may tap Execute for that kill (seconds; ours, the architect's recommendation, uncontested by the owner 2026-11-25).

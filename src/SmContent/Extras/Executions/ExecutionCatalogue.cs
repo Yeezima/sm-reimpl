@@ -21,13 +21,16 @@ public sealed class ExecutionCatalogue
     /// <summary>No rows: no execution can be played (the state before X7, or an install without the clips).</summary>
     public static readonly ExecutionCatalogue Empty = new([], []);
 
+    /// <summary>The rows and their wire identity on the simulation's side (X3): what <c>GameplayTuning.ExecutionsLoad</c> puts on <see cref="SimConfig.Executions"/>.</summary>
+    public ExecutionRowSet Set { get; }
+
     /// <summary>The valid rows, in the order given (duplicates by id and invalid rows left out with a note; <see cref="Create"/>).</summary>
-    public IReadOnlyList<ExecutionRow> Rows { get; }
+    public IReadOnlyList<ExecutionRow> Rows => Set.Rows;
 
     /// <summary>The source list's row ids in wire order (every row given, kept or not): the index <see cref="WireIndexOf"/> gives and <see cref="AtWire"/> reads.</summary>
-    public IReadOnlyList<string> WireIds { get; }
+    public IReadOnlyList<string> WireIds => Set.WireIds;
 
-    ExecutionCatalogue(IReadOnlyList<ExecutionRow> rows, IReadOnlyList<string> wireIds) => (Rows, WireIds) = (rows, wireIds);
+    ExecutionCatalogue(IReadOnlyList<ExecutionRow> rows, IReadOnlyList<string> wireIds) => Set = new ExecutionRowSet(rows, wireIds);
 
     /// <summary>
     /// A catalogue of <paramref name="rows"/>: a row that is not valid (<see cref="ExecutionRow.IsValid"/>), repeats an earlier row's id (case aside), names a
@@ -62,28 +65,19 @@ public sealed class ExecutionCatalogue
     }
 
     /// <summary>The row with <paramref name="id"/> (case aside), or null.</summary>
-    public ExecutionRow? Find(string id) => Rows.FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase));
+    public ExecutionRow? Find(string id) => Set.Find(id);
 
     /// <summary>
     /// The wire index of the row with <paramref name="id"/>: its place in <see cref="WireIds"/> (the source list), or -1 when this catalogue does not have
-    /// that row (left out, or never in the source list). What the sender writes.
+    /// that row (left out, or never in the source list). What the sender writes (<see cref="ExecutionRowSet.WireIndexOf"/>).
     /// </summary>
-    public int WireIndexOf(string id)
-    {
-        if (Find(id) is null) return -1;
-        for (int i = 0; i < WireIds.Count; i++) if (string.Equals(WireIds[i], id, StringComparison.OrdinalIgnoreCase)) return i;
-        return -1;
-    }
+    public int WireIndexOf(string id) => Set.WireIndexOf(id);
 
     /// <summary>The row at wire index <paramref name="wireIndex"/> (<see cref="WireIndexOf"/>), or null when it is out of range or this catalogue lacks that row (play no execution).</summary>
-    public ExecutionRow? AtWire(int wireIndex) => wireIndex >= 0 && wireIndex < WireIds.Count ? Find(WireIds[wireIndex]) : null;
+    public ExecutionRow? AtWire(int wireIndex) => Set.AtWire(wireIndex);
 
     /// <summary>The place of the row with <paramref name="id"/> in <see cref="Rows"/> (kept rows only), or -1. Not the wire index: use <see cref="WireIndexOf"/>.</summary>
-    public int IndexOf(string id)
-    {
-        for (int i = 0; i < Rows.Count; i++) if (string.Equals(Rows[i].Id, id, StringComparison.OrdinalIgnoreCase)) return i;
-        return -1;
-    }
+    public int IndexOf(string id) => Set.IndexOf(id);
 
     /// <summary>The rows <paramref name="attackerClass"/> with <paramref name="weaponKey"/> (any spelling, <see cref="ExecutionWeapons.FamilyOf"/>) plays on a victim of <paramref name="kind"/>.</summary>
     public IReadOnlyList<ExecutionRow> For(string attackerClass, string weaponKey, string kind) =>
@@ -93,27 +87,12 @@ public sealed class ExecutionCatalogue
     public IReadOnlyList<string> Kinds => Rows.Select(r => r.Target.ToLowerInvariant()).Distinct().Order(StringComparer.Ordinal).ToArray();
 
     /// <summary>
-    /// For a config hash: the versions (<see cref="ExecutionRows.DataVersion"/> among them), the wire order (<see cref="WireIds"/>) and each row's wire index, identity, keys, clips, lengths, offset, yaw, band, priority, variants and events (the values the server
-    /// plays with); never the root paths' samples (decoded with platform maths), only their counts.
+    /// The catalogue's content for comparing installs: <see cref="Version"/>, then <see cref="ExecutionRowSet.Write"/> (the versions, the wire order and each row's values; root sample counts only).
+    /// Not in the config hash since X3 (lead 39: the server's rows are authoritative; <see cref="ExecutionRules.Hash"/> writes the code's versions and wire order only).
     /// </summary>
     public void Write(BinaryWriter w)
     {
-        w.Write(Version); w.Write(ExecutionChoice.RulesVersion); w.Write(ExecutionAlign.RulesVersion); w.Write(ExecutionRows.DataVersion);
-        w.Write(WireIds.Count);
-        foreach (var id in WireIds) w.Write(id);
-        w.Write(Rows.Count);
-        foreach (var r in Rows)
-        {
-            w.Write(WireIndexOf(r.Id)); w.Write(r.Id); w.Write(r.AttackerClass); w.Write(r.Weapon); w.Write(r.Target);
-            w.Write(r.AttackerClip); w.Write(r.VictimClip); w.Write(r.Graph); w.Write(r.Sequencer);
-            w.Write(r.AttackerSeconds); w.Write(r.VictimSeconds); w.Write(r.VictimSequencer ?? "");
-            for (int i = 0; i < r.AttackerVariants.Count; i++) w.Write(r.DistanceOf(i));
-            w.Write(r.Offset.X); w.Write(r.Offset.Y); w.Write(r.Offset.Z); w.Write(r.RelativeYaw); w.Write(r.Priority);
-            w.Write(r.AttackerVariants.Count);
-            foreach (var v in r.AttackerVariants) { w.Write(v.Clip); w.Write(v.Distance); w.Write(v.Root.Count); }
-            w.Write(r.Events.Count);
-            foreach (var e in r.Events) { w.Write((byte)e.Kind); w.Write(e.Seconds); w.Write(e.Name ?? ""); }
-            w.Write(r.AttackerRoot.Count); w.Write(r.VictimRoot.Count);
-        }
+        w.Write(Version);
+        Set.Write(w);
     }
 }

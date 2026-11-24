@@ -11,14 +11,31 @@ public class ExecutionWireTests
     [Fact]
     public void Start_round_trips_at_its_size()
     {
-        var s = new ExecutionStart(123456, 7, ExecutionTargetKind.Enemy, 4321, 17, new Vector3(-12.5f, 300.25f, 4.125f), 1.25f);
+        var s = new ExecutionStart(123456, 7, ExecutionTargetKind.Enemy, 4321, 17, new Vector3(-12.5f, 300.25f, 4.125f), 1.25f, 3.375f, 5, true, new Vector3(-0.25f, 0.75f, 0.002f));
         var b = ExecutionWire.Encode(s);
         Assert.Equal(ExecutionWire.StartBytes, b.Length);
-        Assert.Equal(26, b.Length);
+        Assert.Equal(36, b.Length);   // X3: 26 + distance, slide ticks, flags, slide offset
         Assert.Equal(ExecutionWire.StartKind, ExecutionWire.KindOf(b));
         Assert.True(ExecutionWire.TryDecode(b, out ExecutionStart back));
         Assert.Equal(s with { Yaw = 0f }, back with { Yaw = 0f });
         Assert.InRange(MathF.Abs(back.Yaw - s.Yaw), 0f, 2f * MathF.PI / 65536f);
+    }
+
+    [Fact]
+    public void Start_round_trips_with_distance_slide_and_race_swap()
+    {
+        // A server run is quantized at its start, so the run decoded from its Start is the server's own, value for value.
+        var run = ExecutionTrack.Quantize(new ExecutionRun(3, ExecutionTargetKind.Player, 9, 12, 2.7182f, new Vector3(10.1234f, -4.5678f, 1.0009f), new Vector3(10.9f, -4.1f, 1f), -2.9f, 4, 777, true));
+        Assert.True(ExecutionWire.TryDecode(ExecutionWire.Encode(ExecutionStart.Of(run)), out ExecutionStart back));
+        Assert.Equal(run, back.ToRun());
+        Assert.True(back.RaceSwapped);
+        Assert.Equal(4, back.SlideTicks);
+        Assert.Equal(2.718f, back.Distance, 4);
+        // no swap, no slide
+        var plain = new ExecutionStart(1, 1, ExecutionTargetKind.Player, 2, 0, Vector3.Zero, 0f, 3.5f, 0, false);
+        Assert.True(ExecutionWire.TryDecode(ExecutionWire.Encode(plain), out ExecutionStart p));
+        Assert.False(p.RaceSwapped);
+        Assert.Equal(Vector3.Zero, p.SlideOffset);
     }
 
     [Theory]
@@ -60,8 +77,17 @@ public class ExecutionWireTests
     [Fact]
     public void Malformed_payloads_are_refused_without_throwing()
     {
-        var start = ExecutionWire.Encode(new ExecutionStart(1, 1, ExecutionTargetKind.Player, 2, 0, Vector3.Zero, 0f));
-        Assert.False(ExecutionWire.TryDecode(start.AsSpan(0, 25), out ExecutionStart _));
+        var start = ExecutionWire.Encode(new ExecutionStart(1, 1, ExecutionTargetKind.Player, 2, 0, Vector3.Zero, 0f, 3.5f, 2, false));
+        Assert.False(ExecutionWire.TryDecode(start.AsSpan(0, 35), out ExecutionStart _));
+        Assert.False(ExecutionWire.TryDecode(start.AsSpan(0, 26), out ExecutionStart _));   // the X1 layout
+        var zeroDistance = (byte[])start.Clone(); zeroDistance[26] = 0; zeroDistance[27] = 0;
+        Assert.False(ExecutionWire.TryDecode(zeroDistance, out ExecutionStart _));
+        var farDistance = (byte[])start.Clone(); BitConverter.GetBytes((ushort)20001).CopyTo(farDistance, 26);
+        Assert.False(ExecutionWire.TryDecode(farDistance, out ExecutionStart _));
+        var badFlag = (byte[])start.Clone(); badFlag[29] = 2;
+        Assert.False(ExecutionWire.TryDecode(badFlag, out ExecutionStart _));
+        var farSlide = (byte[])start.Clone(); BitConverter.GetBytes((short)-4001).CopyTo(farSlide, 32);
+        Assert.False(ExecutionWire.TryDecode(farSlide, out ExecutionStart _));
         var badKind = (byte[])start.Clone(); badKind[7] = 2;
         Assert.False(ExecutionWire.TryDecode(badKind, out ExecutionStart _));
         var nan = (byte[])start.Clone(); BitConverter.GetBytes(float.NaN).CopyTo(nan, 16);
@@ -96,7 +122,7 @@ public class ExecutionWireTests
     public void The_rules_give_the_owners_values()
     {
         var c = new SimConfig();
-        Assert.Equal(1, ExecutionRules.Version);
+        Assert.Equal(2, ExecutionRules.Version);   // X3: the state machine, Classic and the Start extension
         Assert.Equal(0.8f, c.ExecutionWindowSeconds);
         Assert.Equal(24, ExecutionRules.WindowTicks(c));   // 30 Hz
         Assert.Equal(300, ExecutionRules.CooldownTicks(c));
