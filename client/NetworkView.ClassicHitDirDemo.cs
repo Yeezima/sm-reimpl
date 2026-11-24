@@ -61,7 +61,7 @@ public partial class NetworkView
             // on the fixed side camera (--observe-side) the charge comes from the frame's left, so it crosses the view instead of running along it
             var cright = Vector3.Up.Cross(ctoCam).Normalized();
             var cdir = ObserveSide > 0f ? cright : -ctoCam;
-            bool cd = DrawCharge(first, _client.PlayerId, cchest - cdir * 0.4f, cdir, HitVisual.Blood, false);
+            bool cd = DrawCharge(first, _client.PlayerId, cchest + cdir * BodySurface, cdir, HitVisual.Blood, false);
             GD.Print($"HITDIRDEMO charge on P{first} ({HitDirLook}): drawn {cd} (t {_connectedFor:F2})");
             return;
         }   // wall:<m>, sidewall, blocked, floor (NetworkView.ClassicHitDirStage.cs)

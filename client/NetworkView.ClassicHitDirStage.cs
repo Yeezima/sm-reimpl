@@ -81,7 +81,9 @@ public partial class NetworkView
             if (Probe(world, head, 0.3f, 25f, d + 0.4f, d, kind) is not { } w) { GD.Print($"HITDIRDEMO stage {kind}: no wall within 25 m of P{r.PlayerId} fits the case ({d:F1} m of open floor in front, the line clear of players{(kind == "sidewall" ? ", nothing ahead on it" : kind == "floor" ? ", a floor first on it" : "")}) (t {_connectedFor:F2})"); return true; }
             var n = Num.Vector3.Normalize(new Num.Vector3(w.Normal.X, w.Normal.Y, 0f));
             if (Num.Vector3.Dot(n, w.Point - head) > 0f) n = -n;   // out of the wall, toward the probe
-            var staged = new Num.Vector3(w.Point.X, w.Point.Y, head.Z) + n * d;
+            var along = Num.Vector3.Normalize(Num.Vector3.Cross(n, Num.Vector3.UnitZ));
+            float slide = wall ? ((_hitDirStageTurn++ % 3) - 1) * 0.8f : 0f;   // each turn's decal lands 0.8 m from the last, so its variant stands apart
+            var staged = new Num.Vector3(w.Point.X, w.Point.Y, head.Z) + n * d + along * slide;
             var u = -n;
             if (kind == "sidewall") u = Num.Vector3.Normalize(Num.Vector3.Cross(n, Num.Vector3.UnitZ));
             if (kind == "floor") u = Num.Vector3.Normalize(-n + new Num.Vector3(0f, 0f, -1f));
@@ -102,9 +104,12 @@ public partial class NetworkView
             var wallAt = from + dir * (kind.StartsWith("wall:", StringComparison.Ordinal) && float.TryParse(kind[5..], NumberStyles.Float, CultureInfo.InvariantCulture, out var wd) ? wd : kind == "blocked" ? 3f : 2f);
             var mid = (from + wallAt) * 0.5f;
             var side = dir.Cross(Vector3.Up).Normalized();
+            var look = mid;
             var eye = mid + side * MathF.Max(ObserveSide, from.DistanceTo(wallAt) * 0.9f) - dir * 0.6f + Vector3.Up * 0.25f;
-            if (_mapNote is not null) eye = Unblocked(mid, eye);
-            _sideCamera = new Transform3D(Basis.LookingAt((mid - eye).Normalized(), Vector3.Up), eye);
+            // --observe-stage-front: a near-frontal close-up of the wall around the intersection (the decal variants), 2.2 m out and a little to the side
+            if (ObserveStageFront) { look = wallAt; eye = wallAt - dir * 2.2f + side * 0.7f + Vector3.Up * 0.15f; }
+            if (_mapNote is not null) eye = Unblocked(look, eye);
+            _sideCamera = new Transform3D(Basis.LookingAt((look - eye).Normalized(), Vector3.Up), eye);
             GD.Print($"observe-side: camera moved side-on to the staged line ({kind}) at {eye.X:F2},{eye.Y:F2},{eye.Z:F2}");
         }
         return true;
@@ -161,6 +166,8 @@ public partial class NetworkView
     static readonly bool CaptureFill = CmdFlag("capture-fill");
     Transform3D? _sideCamera;
     bool _sideCameraOnStage;
+    int _hitDirStageTurn;
+    static readonly bool ObserveStageFront = CmdFlag("observe-stage-front");
 
     /// <summary>
     /// Capture aid (dev only) <c>--observe-side &lt;m&gt;</c>: a FIXED camera, placed once, that many metres to the right of the nearest other player (the demo victim), at chest height

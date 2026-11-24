@@ -97,7 +97,8 @@ public partial class NetworkView
         if (!_contactLedger.First(o.PlayerId, charger.PlayerId, ChargeKey(key), _connectedFor)) return true;   // the same charge again: one effect per victim and charge
         bool before = _armourFlash.ArmourUp(o.PlayerId, _connectedFor) ?? true;
         var visual = Classify(shield, health, ShieldLeftAfterMark(shield, health, before));
-        var contactGame = held?.Contact ?? o.Position - Num.Vector3.Normalize(along) * 0.4f + new Num.Vector3(0f, 0f, 1.25f);
+        // thrown on from the far side of his body along the charge: from the charger's side the streaks ran into the victim's own body and were hidden (evidence capture, 2026-11-24)
+        var contactGame = o.Position + Num.Vector3.Normalize(along) * BodySurface + new Num.Vector3(0f, 0f, 1.25f);
         bool drawn = DrawCharge(o.PlayerId, charger.PlayerId, ToGodot(contactGame), DirToGodot(Num.Vector3.Normalize(along)).Normalized(), visual, lethal);
         if (drawn) _chargeDrawn[o.PlayerId] = (charger.PlayerId, _connectedFor);
         else if (held is not null) ChargeImpactFxPlay(held.Charger, held.Contact, held.Along, held.ArmourUp);   // nothing new drawn (Faithful's health hit): the old impact, as before
