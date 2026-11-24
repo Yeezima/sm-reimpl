@@ -108,10 +108,11 @@ public partial class NetworkView
             "diagonal" => (right + Vector3.Down).Normalized(),
             "thrust" => ObserveSide > 0f ? right : -toCam,   // the fixed side camera: a thrust from the frame's left, across the view
             "airslash" => (Vector3.Down * 0.8f + right * 0.6f - toCam * 0.2f).Normalized(),   // a leaping slash: from high on one side, down across him
+            "curve" => right,   // a sweep whose arc bends up and over in the camera's view (the path's curve is seen on screen)
             _ => right,
         };
         float thrust = kind == "thrust" ? 1f : 0f;
-        DemoStroke(first, chest, toCam, motion, visual, heavy, lethal, thrust, look);
+        DemoStroke(first, chest, toCam, motion, visual, heavy, lethal, thrust, look, kind == "curve");
         if (kind == "two" && second != 0)
             foreach (var p in _lastOthers)
                 if (p.PlayerId == second) { DemoStroke(second, ToGodot(p.Position + new System.Numerics.Vector3(0f, 0f, 1.3f)), toCam, motion, visual, false, false, 0f, look); break; }
@@ -136,12 +137,12 @@ public partial class NetworkView
     }
 
     /// <summary>One synthetic stroke: a weapon head moving at 12 m/s through the body's surface on the camera's side, bending a little as a swing does.</summary>
-    void DemoStroke(int victim, Vector3 chest, Vector3 toCam, Vector3 motion, HitVisual visual, bool heavy, bool lethal, float thrust, DirLook look)
+    void DemoStroke(int victim, Vector3 chest, Vector3 toCam, Vector3 motion, HitVisual visual, bool heavy, bool lethal, float thrust, DirLook look, bool curveInView = false)
     {
         var contact = chest + toCam * BodySurface;
         // the stroke's points from 0.1 s before the contact to 0.2 s after it (the blood is laid along both sides; the sparks take the part after it)
         var hist = new (double T, Vector3 P)[15];
-        var bend = thrust > 0.5f ? Vector3.Zero : toCam * 2.5f;   // a swing arcs round the attacker (the camera's side): before and after the contact it curves back toward him
+        var bend = thrust > 0.5f ? Vector3.Zero : curveInView ? Vector3.Down * 5f : toCam * 2.5f;   // a swing arcs round the attacker (the camera's side): before and after the contact it curves back toward him; "curve": an arc over the top, seen side-on
         for (int k = 0; k < hist.Length; k++)
         {
             double t = (k - 4) * 0.02;
@@ -150,7 +151,7 @@ public partial class NetworkView
         if (thrust > 0.5f)
         {
             // a thrust drives through him: the spray starts on the exit side, as the confirmed path does (lead decision 7)
-            contact = chest - toCam * BodySurface;
+            contact = chest + motion.Normalized() * BodySurface;   // along the thrust, where it leaves him (review 3: it was put on the far side from the camera)
             for (int k = 0; k < hist.Length; k++) hist[k].P += contact - (chest + toCam * BodySurface);
         }
         float spread = SpreadFor(thrust);

@@ -24,7 +24,7 @@ public partial class ClassicBloodRibbons : Node3D
 
     static readonly string Code = $$"""
 shader_type spatial;
-render_mode blend_add, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
+render_mode blend_mix, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;   // mixed, not added: stacked bands stay blood red, never white (review 3, finding 5)
 
 uniform float age = -1.0;                 // seconds since contact (negative: waiting for the tracer)
 uniform vec3 ctrl[{{2 * Half + 1}}];        // the ribbon curve relative to the contact: back end .. contact (index {{Half}}) .. far end
@@ -35,7 +35,8 @@ uniform float spread = 0.42;
 uniform float size = 1.0;
 uniform float seed = 0.0;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
-uniform float glow = 1.5;
+uniform float glow = 0.8;                 // the bands' opacity (capped at max_alpha where they stack)
+uniform float max_alpha = 0.85;
 varying float v_dn;
 varying float v_s;
 varying float v_ri;
@@ -66,32 +67,34 @@ void vertex() {
         float h2 = fract(COLOR.g + seed * 0.3819660);
         float h3 = fract(COLOR.b + seed * 0.7548777);
         float h4 = fract(COLOR.a + seed * 0.5698403);
-        // each ribbon's own reach on both sides of the contact: staggered, so no two end together and no end is blunt
-        float fwd = len_fwd * (0.5 + 0.5 * h1);
-        float back = len_back * (0.3 + 0.7 * h2);
+        // each band's own reach on both sides of the contact: staggered, so no two end together and no end is blunt
+        float fwd = len_fwd * (0.6 + 0.4 * h1);
+        float back = len_back * (0.45 + 0.55 * h2);
         float s = mix(-back, fwd, UV.x);
         float reveal = smoothstep(0.0, 0.05, age);          // laid at full reach within about two frames
-        float se = s * (0.3 + 0.7 * reveal) * (1.0 + 0.07 * age);   // then only a slight creep along the path
+        float hold = min(age, 0.6);
+        float se = s * (0.3 + 0.7 * reveal) * (1.0 + 0.27 * hold);   // then the far end creeps on about 16 %
         vec3 p = curve(se);
         vec3 tng = curve(se + 0.03) - curve(se - 0.03);
         tng = length(tng) > 1e-5 ? normalize(tng) : vec3(1.0, 0.0, 0.0);
         vec3 side = abs(tng.y) > 0.95 ? vec3(1.0, 0.0, 0.0) : normalize(cross(tng, vec3(0.0, 1.0, 0.0)));
         vec3 up2 = cross(side, tng);
-        float ang = h3 * 6.2831853;
         float dn = s >= 0.0 ? s / max(len_fwd, 1e-3) : -s / max(len_back, 1e-3);   // 0 at the contact, 1 at the full reach
-        // the bundle: narrow at the contact, fanning out along the path (sweeps wider than thrusts), widening a little in place
-        float off = (0.02 + spread * 0.5 * abs(s) * (0.2 + 0.8 * h4)) * (1.0 + 0.5 * age);
-        vec3 bow = (cos(ang) * side + sin(ang) * up2) * off;
-        bow += up2 * sin(3.14159 * min(dn, 1.0)) * 0.05 * (h2 - 0.5);
-        p += bow + vec3(0.0, 1.0, 0.0) * 0.08 * age * (0.4 + h1);   // a slight lift, no droop
+        // 2 to 3 broad bands stacked across the stroke, running straight through the body (no kink at the contact), a little wider apart toward the far end, the bundle about
+        // 60 % taller as it hangs (review 3: the reference's bands, its height +63 %)
+        float slot = count > 1.0 ? (ri + 0.5) / count - 0.5 : 0.0;
+        float bundle = 0.3 * clamp(spread / 0.42, 0.35, 1.25) * size;
+        vec3 across3 = normalize(up2 + side * 0.5 * (h3 - 0.5));
+        float off = (slot * bundle + (h4 - 0.5) * 0.06) * (1.0 + 0.1 * s) * (1.0 + hold);
+        p += across3 * off + vec3(0.0, 1.0, 0.0) * 0.2 * hold * (0.6 + 0.8 * h1);   // a lift of about 5 % of his height, no droop
         vec3 pv = (MODELVIEW_MATRIX * vec4(p, 1.0)).xyz;
         vec3 tv = (MODELVIEW_MATRIX * vec4(p + tng * 0.05, 1.0)).xyz - pv;
         vec3 across = cross(length(tv) > 1e-6 ? normalize(tv) : vec3(0.0, 1.0, 0.0), normalize(pv));
         across = length(across) > 1e-5 ? normalize(across) : vec3(1.0, 0.0, 0.0);
-        float w = size * 0.085 * (0.55 + 0.9 * h3) * mix(1.0, 0.4, min(dn, 1.0)) * (1.0 + 0.9 * age);
+        float w = size * 0.075 * (0.8 + 0.5 * h3) * mix(1.0, 0.6, min(dn, 1.0)) * (1.0 + hold);
         pv += across * (UV.y * 2.0 - 1.0) * w;
         v_dn = dn; v_s = s; v_w = w;
-        v_end = s >= 0.0 ? s / max(fwd, 1e-3) : -s / max(back, 1e-3);   // 0 at the contact, 1 at this ribbon's own ends
+        v_end = s >= 0.0 ? s / max(fwd, 1e-3) : -s / max(back, 1e-3);   // 0 at the contact, 1 at this band's own ends
         POSITION = PROJECTION_MATRIX * vec4(pv, 1.0);
     }
 }
@@ -105,16 +108,19 @@ float vnoise(vec2 p) {
 
 void fragment() {
     float x = UV.y * 2.0 - 1.0;
-    float prof = exp(-4.0 * x * x);                         // soft across, no hard edge
-    float taper = 1.0 - smoothstep(0.35, 1.0, v_end);       // each ribbon's own ends fade out, never blunt
-    float core = 1.0 + 0.6 * (1.0 - v_dn) * (1.0 - v_dn);   // thickest and densest at the body
-    // wisps: patches along the ribbon that thin out as it fades (the reference breaks into patches)
-    float n = 0.65 * vnoise(vec2(v_s * 3.2 + seed * 17.0 + v_ri * 5.3, x * 1.3 + v_ri * 9.1 + age * 0.5))
-            + 0.35 * vnoise(vec2(v_s * 9.0 - seed * 7.0 + v_ri * 2.7, x * 2.6 - age * 0.8));
-    float thr = mix(0.28, 0.66, smoothstep(0.3, 0.95, age));
-    float wisp = smoothstep(thr - 0.2, thr + 0.45, n);   // soft-edged patches, no cut ends
-    float env = smoothstep(0.0, 0.035, age) * (1.0 - smoothstep({{F(ClassicBloodRules.RibbonHoldSeconds)}}, {{F(ClassicBloodRules.RibbonSeconds)}}, age));
-    ALBEDO = tint.rgb * glow * prof * taper * core * wisp * env;
+    float prof = exp(-3.0 * x * x);                         // soft across, no hard edge
+    float taper = 1.0 - smoothstep(0.4, 1.0, v_end);        // each band's own ends fade out, never blunt
+    // mottled from the start, breaking into patches from about 0.25 s (the reference)
+    float n = 0.6 * vnoise(vec2(v_s * 2.4 + seed * 17.0 + v_ri * 5.3, x * 1.1 + v_ri * 9.1 + age * 0.4))
+            + 0.4 * vnoise(vec2(v_s * 7.5 - seed * 7.0 + v_ri * 2.7, x * 2.4 - age * 0.7));
+    float grain = vnoise(vec2(v_s * 16.0 + v_ri * 3.7, x * 5.0 + seed * 11.0));
+    float mottle = mix(0.35, 1.0, smoothstep(0.2, 0.8, n)) * mix(0.7, 1.0, grain);
+    float thr = mix(0.0, 0.45, smoothstep(0.25, 0.8, age));
+    float patches = smoothstep(thr - 0.15, thr + 0.35, n);
+    float env = smoothstep(-0.01, 0.06, age) * exp(-{{F(ClassicBloodRules.RibbonDecay)}} * clamp(age - {{F(ClassicBloodRules.RibbonHoldSeconds)}}, 0.0, {{F(ClassicBloodRules.RibbonTailFrom - ClassicBloodRules.RibbonHoldSeconds)}}) - {{F(ClassicBloodRules.RibbonTailDecay)}} * max(0.0, age - {{F(ClassicBloodRules.RibbonTailFrom)}}))
+              * (1.0 - smoothstep({{F(ClassicBloodRules.RibbonSeconds - 0.15f)}}, {{F(ClassicBloodRules.RibbonSeconds)}}, age));
+    ALBEDO = tint.rgb;
+    ALPHA = clamp(glow * prof * taper * mottle * patches * env, 0.0, max_alpha);
 }
 """;
 

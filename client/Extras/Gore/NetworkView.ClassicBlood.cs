@@ -72,7 +72,7 @@ public partial class NetworkView
     partial void ExtrasClassicKill(KillView k)
     {
         if (!k.Headshot || k.Victim <= 0) { if (k.Victim > 0) _headshotShots.Remove(k.Victim); return; }
-        if (_headshotShots.Remove(k.Victim, out var shot) && _connectedFor - shot.At <= HeadshotPairSeconds) { PlaceHeadshotDecal(k.Victim, k.Sequence, shot.Contact, shot.Dir); return; }
+        if (_headshotShots.Remove(k.Victim, out var shot) && shot.Shooter == k.Killer && _connectedFor - shot.At <= HeadshotPairSeconds) { PlaceHeadshotDecal(k.Victim, k.Sequence, shot.Contact, shot.Dir); return; }   // the killer's shot (review 3)
         // the lethal mark found no head shot of its own (a rapid run of own shots, review of 2b89de15 finding 3): the killer's latest drawn head hit on him is the killing shot's line
         if (_headContacts.Remove(k.Victim, out var head) && head.Shooter == k.Killer && _connectedFor - head.At <= HeadshotPairSeconds) { PlaceHeadshotDecal(k.Victim, k.Sequence, head.Contact, head.Dir); return; }
         _headshotKills[k.Victim] = (k.Sequence, _connectedFor);

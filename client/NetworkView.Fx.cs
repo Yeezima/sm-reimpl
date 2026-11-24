@@ -608,7 +608,7 @@ public partial class NetworkView
         bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
         if (hit is ShotHit.Body or ShotHit.Head) NoteShotContact(victim, shooter, end, dir, hit == ShotHit.Head, armourUp, own, delay);   // classic-hit-effects: the confirmed damage's gunfire contact (NetworkView.ClassicHitDir.cs)
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
-        bool sparksAtMark = hit != ShotHit.World && SmClient.ImpactRules.ClassicHitDirRules.SparksWaitForMark(HitDirLook, victim, _client?.PlayerId ?? 0);   // classic-hit-effects: the confirmed class decides (review of 2b89de15, finding 6; drawn by the mark, NetworkView.ClassicHitDir.cs)
+        bool sparksAtMark = hit != ShotHit.World && SmClient.ImpactRules.ClassicHitDirRules.SparksWaitForMark(HitDirLook, victim, _client?.PlayerId ?? 0, own);   // classic-hit-effects: the confirmed class decides (review of 2b89de15, finding 6; drawn by the mark, NetworkView.ClassicHitDir.cs)
         if (hit != ShotHit.World && up && hitFx && !sparksAtMark) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false && hitFx) { if (HitBurstDrawn(hit)) BloodSplashAt(end, dir, delay, victim); else if (SmClient.ImpactRules.ClassicHitDirRules.KeepRedSparks(ClassicBloodReplacesRed, victim > 0 && victim == _client?.PlayerId)) RedSparks(end, dir, delay); }   // classic-hit-effects: in Extended the confirmed blood spray replaces the red fan   // owner 2026-11-13: Classic draws red sparks, not the large burst   // fx/red-glow-blood: no armour left, a red splash
         bool terrainBlast = false;

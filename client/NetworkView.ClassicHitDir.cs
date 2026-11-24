@@ -242,7 +242,7 @@ public partial class NetworkView
         if (victim > 0)
         {
             var c = new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own,
-                                      SparksDrawn = !SparksWaitForMark(look, victim, _client?.PlayerId ?? 0) };
+                                      SparksDrawn = !SparksWaitForMark(look, victim, _client?.PlayerId ?? 0, own) };   // owner answer 5: the own shots' sparks at the impact
             QueueShot(victim, c);
             NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, c, victim);
             if (head) ExtrasClassicHeadContact(victim, shooter, contact, dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
@@ -264,6 +264,19 @@ public partial class NetworkView
         foreach (var p in _lastOthers)
             if (p.PlayerId == h.ResolvedTo) return p.Alive ? Num.Vector3.Distance(h.End, p.Position + new Num.Vector3(0f, 0f, 1.25f)) : float.PositiveInfinity;
         return float.PositiveInfinity;
+    }
+
+    /// <summary>Per (victim, slash key): the damages seen under that slash (its landing blast first, then the blade).</summary>
+    readonly Dictionary<(int, long), int> _slashDamages = new();
+
+    /// <summary>Where a shot entered the victim as he is drawn now (Godot world): his body's surface toward the shooter at the struck height.</summary>
+    Vector3 ShotEntry(PlayerState o, ShotContact shot)
+    {
+        var feet = ToGodot(o.Position);
+        float height = Math.Clamp(ToGame(shot.Contact).Z - o.Position.Z, 0.9f, 1.85f);
+        var back = -shot.Dir; back.Y = 0f;
+        back = back.LengthSquared() > 1e-6f ? back.Normalized() : Vector3.Forward;
+        return feet + Vector3.Up * height + back * BodySurface;
     }
 
     /// <summary>The remote players' draw lag in use (s).</summary>
@@ -348,7 +361,8 @@ public partial class NetworkView
     /// A confirmed damage on another player (his mark changed since the last record; <paramref name="nowAlive"/> false: it killed him). Returns whether a melee attacker was paired (the caller then
     /// leaves out the old fan and, with the blood, the red sparks).
     /// </summary>
-    bool ClassicHitDirMark(PlayerState o, bool shield, bool health, bool nowAlive)
+    /// <param name="damages">How many damages the mark's counter moved by since the record before (two when an air slash's landing blast and blade land in one gap).</param>
+    bool ClassicHitDirMark(PlayerState o, bool shield, bool health, bool nowAlive, int damages = 1)
     {
         var look = HitDirLook;
         if (look == DirLook.None || _client is null || _config is null || (!shield && !health)) return false;
@@ -370,8 +384,9 @@ public partial class NetworkView
                 {
                     // the confirmed class's sparks (review of 2b89de15, finding 6): left by the impact to this mark
                     var (yellow, red) = GunfireMarkSparks(look, visual, shot.ArmourUp);
-                    if (yellow) ArmourSparks(shot.Contact, shot.Dir, wait, o.PlayerId);
-                    if (red) RedSparks(shot.Contact, shot.Dir, wait);
+                    var at = ShotEntry(o, shot);   // on his drawn body, not where the shot met him a draw lag ago (review 3, finding 6)
+                    if (yellow) ArmourSparks(at, shot.Dir, wait, o.PlayerId);
+                    if (red) RedSparks(at, shot.Dir, wait);
                 }
                 bool drawn = false;
                 if (HasBlood(visual))
@@ -382,7 +397,7 @@ public partial class NetworkView
                     if (drawn) _hitDirBlood++;
                 }
                 if (lethal && shot.Head) ExtrasClassicFatalHeadshot(o.PlayerId, shot.Shooter, shot.Contact, shot.Dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
-                if (LogHitDir) HitDirPrint($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn} (t {_connectedFor:F2})");
+                if (LogHitDir) HitDirPrint($"HITDIR shot P{shot.Shooter}->P{o.PlayerId} {(shot.Head ? "head" : "body")} {visual}{(lethal ? " lethal" : "")} shield {shield} health {health} armour-before {shot.ArmourUp} blood {drawn} (mark tick {(long)Math.Floor(_othersTick)}) (t {_connectedFor:F2})");
                 return false;
             }
             // melee: the attacker who just struck in reach
@@ -402,6 +417,16 @@ public partial class NetworkView
                 if (SpanForMark(markTick, _weaponTrails[pick].Spans) is { } sp) { attacker = pick; span = sp; break; }
                 noSpan = $"P{pick}'s attacks do not span the mark's tick {markTick}";
                 cands.RemoveAll(c => c.Id == pick);
+            }
+            if (attacker != 0 && span.Slash)
+            {
+                // the landing blast keeps its old look; the blade, the victim's second damage under this slash (or a mark carrying both), is sprayed (review 3, finding 1)
+                var sk = (o.PlayerId, span.Key);
+                int seenDamages = _slashDamages.GetValueOrDefault(sk);
+                bool ready = span.HitFromTick != long.MaxValue && markTick >= span.HitFromTick - 1;
+                if (_slashDamages.Count > 32) _slashDamages.Clear();
+                _slashDamages[sk] = seenDamages + Math.Max(1, damages);
+                if (!SlashMarkPairs(seenDamages, Math.Max(1, damages), ready)) { noSpan = $"P{attacker}'s slash: its landing blast ({seenDamages} + {damages} damages, blade not ready)"; attacker = 0; }
             }
             if (attacker != 0 && _contactLedger.Seen(o.PlayerId, attacker, span.Key, _connectedFor)) attacker = 0;   // a second mark under the same attack key is other damage: it is not swallowed (review decision 10)
             // a bull-rush charge's connect, only after shots and melee found nothing, and only on contact (owner 2026-11-24; review decision 10; NetworkView.ClassicHitDirCharge.cs)
@@ -473,7 +498,12 @@ public partial class NetworkView
                 var sp = t.Spans[t.Cur];
                 sp.LastTick = tick;
                 if (!s.Grounded) sp.Air = true;
-                else if (sp.Air && sp.HitFromTick == long.MaxValue) sp.HitFromTick = tick + SlashHitTicks(s);   // landed: a buffered slash is flagged on the ground before the take-off too
+                if (sp.HitFromTick == long.MaxValue)
+                {
+                    // landed: the own prediction knows the recovery's ticks (its landing exactly); another player's record only says grounded (a buffered slash is flagged on the ground before the take-off too)
+                    if (own && s.Jump == JumpPhase.Recover) sp.HitFromTick = tick - s.JumpTicks + SlashHitTicks(s);
+                    else if (sp.Air && s.Grounded) sp.HitFromTick = tick + SlashHitTicks(s);
+                }
                 t.Spans[t.Cur] = sp;
                 t.Key = key; t.Heavy = false;
             }

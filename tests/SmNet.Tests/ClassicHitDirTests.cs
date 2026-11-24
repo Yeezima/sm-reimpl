@@ -487,19 +487,34 @@ public class ClassicHitDirTests
     static AttackSpan Step(long start, long last, int step, long hitTicks = 6) => new(AttackKey(start, step, false), start, last, start + hitTicks, false);
 
     [Fact]
-    public void Defect_1_a_chained_combo_mark_takes_its_own_step_although_the_own_prediction_is_on_the_next()
+    public void Defect_1_a_chained_combo_mark_takes_the_step_whose_blow_landed_not_the_next_one()
     {
-        // own step 1 ran ticks 100-124 and step 2 started at 125 (the prediction is already in it when step 1's mark arrives); step 1's blow landed at 108, drawn at 110
-        var spans = new List<AttackSpan> { Step(100, 124, 1), Step(125, 150, 2) };
-        Assert.Equal(spans[0].Key, SpanForMark(110, spans)!.Value.Key);
-        // its blow landed late in the step and was drawn two ticks after it ended: still step 1 (step 2's blow cannot land yet)
-        Assert.Equal(spans[0].Key, SpanForMark(126, spans)!.Value.Key);
-        // step 2's blow at 133, drawn at 134: step 2
-        Assert.Equal(spans[1].Key, SpanForMark(134, spans)!.Value.Key);
-        // long after both: no attack of his (a blast, a stomp: not paired)
-        Assert.Null(SpanForMark(200, spans));
-        // before any started
-        Assert.Null(SpanForMark(90, spans));
+        // review 3 of 569ad7f0, r2-tactical-own.log 705-713 (combat knife, 30 ticks a second): step 1 starts 4309, its blow 3 ticks later (4312); step 2 starts on that tick (4312), its
+        // blow at 4315. Step 1's mark is drawn at 4314: it is step 1's (step 2 has started but its blow has not landed). Step 2's mark at 4315 is step 2's.
+        var spans = new List<AttackSpan> { Step(4309, 4311, 1, hitTicks: 3), Step(4312, 4322, 2, hitTicks: 3) };
+        Assert.Equal(spans[0].Key, SpanForMark(4314, spans)!.Value.Key);
+        Assert.Equal(spans[1].Key, SpanForMark(4315, spans)!.Value.Key);
+        Assert.Equal(spans[1].Key, SpanForMark(4317, spans)!.Value.Key);
+        // a finished step's blow still owns a mark drawn well after the step ended (the old 4-tick slack dropped it)
+        Assert.Equal(spans[0].Key, SpanForMark(4312 + 2, new List<AttackSpan> { Step(4309, 4311, 1, hitTicks: 3) })!.Value.Key);
+        Assert.Equal(spans[0].Key, SpanForMark(4312 + BlowWindowTicks, new List<AttackSpan> { Step(4309, 4311, 1, hitTicks: 3) })!.Value.Key);
+        Assert.Null(SpanForMark(4312 + BlowWindowTicks + 1, new List<AttackSpan> { Step(4309, 4311, 1, hitTicks: 3) }));
+        // r2-tactical-own.log 1354-1364 (t 119.62): the mark at 11059 three ticks after step 2 started at 11056 is step 1's
+        var b = new List<AttackSpan> { Step(11050, 11055, 1, hitTicks: 4), Step(11056, 11070, 2, hitTicks: 4) };
+        Assert.Equal(b[0].Key, SpanForMark(11059, b)!.Value.Key);
+        Assert.Equal(b[1].Key, SpanForMark(11060, b)!.Value.Key);
+        // a mark before any blow: none (a blast, another source); one tick early is allowed only without a landed blow
+        Assert.Null(SpanForMark(4310, spans));
+        Assert.Equal(spans[0].Key, SpanForMark(4311, spans)!.Value.Key);
+    }
+
+    [Fact]
+    public void Defect_1_the_report_and_the_mark_take_the_same_step()
+    {
+        // the own report is decided at the newest snapshot's tick (at or after the damage), the mark at the tick it is drawn (at or after the damage): both name step 1 here
+        var spans = new List<AttackSpan> { Step(4309, 4311, 1, hitTicks: 3), Step(4312, 4322, 2, hitTicks: 3) };
+        Assert.Equal(SpanForMark(4314, spans)!.Value.Key, SpanForMark(4313, spans)!.Value.Key);
+        Assert.Equal(SpanForMark(4314, spans)!.Value.Key, SpanForMark(4312, spans)!.Value.Key);
     }
 
     [Fact]
@@ -526,19 +541,24 @@ public class ClassicHitDirTests
     }
 
     [Fact]
-    public void Defect_2_the_jump_pack_landing_blast_is_not_the_air_slash_and_the_slash_blow_pairs()
+    public void Defect_2_the_air_slash_blade_pairs_in_every_view_and_its_landing_blast_keeps_its_look()
     {
-        // a slash flagged at tick 200, landing at 230; its blow lands 8 ticks later (the pack's hit time)
-        var slash = new AttackSpan(SlashKey(1), 200, 245, 238, true, Air: true);
-        var spans = new List<AttackSpan> { slash };
-        Assert.Null(SpanForMark(230, spans));   // the landing blast at the landing, drawn at once
-        Assert.Null(SpanForMark(232, spans));   // drawn up to two ticks late: still not the slash
-        Assert.Equal(slash.Key, SpanForMark(238, spans)!.Value.Key);   // the slash's blow
-        Assert.Equal(slash.Key, SpanForMark(240, spans)!.Value.Key);
-        // before it lands its blow tick is unknown: nothing pairs with it
-        Assert.Null(SpanForMark(215, new List<AttackSpan> { slash with { HitFromTick = long.MaxValue, LastTick = 215 } }));
-        // a step's not-yet-landed blow only loses a tie: alone it still pairs (its hit time is a preference, not a gate)
-        Assert.NotNull(SpanForMark(101, new List<AttackSpan> { Step(100, 120, 1, hitTicks: 6) }));
+        // a slash flagged at tick 200, landing at 230 in this view; its blade lands 4 ticks later
+        var slash = new AttackSpan(SlashKey(1), 200, 245, 234, true, Air: true);
+        Assert.Equal(slash.Key, SpanForMark(230, new List<AttackSpan> { slash })!.Value.Key);   // the slash owns its marks while it runs (blast and blade)
+        // the blast alone (the victim's first damage, blade not ready): its old look
+        Assert.False(SlashMarkPairs(damagesBefore: 0, damagesInMark: 1, bladeReady: false));
+        // the blade after it: sprayed, whether this view saw the landing or not (spectators draw the attacker in his dive when the marks come)
+        Assert.True(SlashMarkPairs(1, 1, bladeReady: false));
+        // blast and blade in one mark (r2-tactical-other.log 1748-1771, r1-assault-own.log 731: "2 hit(s), shield 65"): sprayed
+        Assert.True(SlashMarkPairs(0, 2, false));
+        // the blade alone once it can have landed (the blast missed him)
+        Assert.True(SlashMarkPairs(0, 1, bladeReady: true));
+        // a ground step that started on the mark's tick after the slash (r2-tactical-other.log: paired with the hammer's step 1) does not take it: its blow has not landed
+        var ground = Step(232, 240, 1, hitTicks: 5);
+        Assert.Equal(slash.Key, SpanForMark(232, new List<AttackSpan> { slash, ground })!.Value.Key);
+        // a slash long over: not his
+        Assert.Null(SpanForMark(245 + SlashSlackTicks + 1, new List<AttackSpan> { slash }));
     }
 
     [Fact]
@@ -560,5 +580,8 @@ public class ClassicHitDirTests
         Assert.False(SparksWaitForMark(extended, 2, 2));
         Assert.False(SparksWaitForMark(extended, -1, 2));
         Assert.False(SparksWaitForMark(DirLook.None, 5, 2));
+        // owner answer 5, "Instant at impact": the own shots draw their sparks at the impact, typed by the client's guess
+        Assert.False(SparksWaitForMark(extended, 5, 2, ownShot: true));
+        Assert.True(SparksWaitForMark(faithful, 5, 2, ownShot: false));
     }
 }

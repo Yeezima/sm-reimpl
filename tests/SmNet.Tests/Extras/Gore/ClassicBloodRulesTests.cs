@@ -191,18 +191,21 @@ public class ClassicBloodRulesTests
     }
 
     [Fact]
-    public void The_ribbons_are_laid_at_once_and_hang_brightest_early_strong_to_0_6_faint_to_1_s()
+    public void The_ribbons_are_laid_at_once_and_follow_the_reference_curve()
     {
+        // review 3 of 569ad7f0, the reference's red excess (% of peak): at least 85 % from about 0.10 to 0.33 s, 50 / 25 / 10 % at about 0.45 / 0.57 / 0.73 s, last red about 0.95 s
         Assert.Equal(0f, RibbonEnvelope(-0.1f));
         Assert.True(RibbonReveal(1f / 30f) > 0.75f, "most of the reach after one frame");
         Assert.Equal(1f, RibbonReveal(0.05f), 3);
-        Assert.True(RibbonEnvelope(1f / 30f) > 0.9f);
-        for (float t = 0.07f; t <= 0.35f; t += 0.02f) Assert.True(RibbonEnvelope(t) > 0.99f, $"brightest at {t:F2}");
-        Assert.InRange(RibbonEnvelope(0.6f), 0.55f, 0.85f);
-        Assert.InRange(RibbonEnvelope(0.9f), 0.05f, 0.25f);
+        Assert.InRange(RibbonEnvelope(1f / 30f), 0.5f, 0.85f);   // the reference: 75 % a frame after contact
+        for (float t = 0.10f; t <= 0.33f; t += 0.01f) Assert.True(RibbonEnvelope(t) >= 0.85f, $"held at {t:F2}");
+        Assert.InRange(RibbonEnvelope(0.45f), 0.4f, 0.6f);
+        Assert.InRange(RibbonEnvelope(0.57f), 0.18f, 0.32f);
+        Assert.InRange(RibbonEnvelope(0.73f), 0.08f, 0.2f);   // the shader's soft patches and ends take the measured curve to about 10 % here
+        Assert.InRange(RibbonEnvelope(0.95f), 0.02f, 0.12f);   // faint wisps to about 0.95 s
         Assert.True(RibbonEnvelope(RibbonSeconds) < 0.001f);
-        // smooth: no frame drops it by more than a tenth (no pop)
-        for (float t = 0.04f; t < RibbonSeconds; t += 1f / 30f) Assert.True(RibbonEnvelope(t) - RibbonEnvelope(t + 1f / 30f) < 0.1f);
+        for (float t = 0.07f; t < RibbonSeconds; t += 1f / 30f) Assert.True(RibbonEnvelope(t) - RibbonEnvelope(t + 1f / 30f) < 0.2f);   // smooth: no pop
+        Assert.True(RibbonMaxAlpha < 1f, "mixed and capped: stacked bands never white out");
     }
 
     [Fact]
@@ -212,6 +215,7 @@ public class ClassicBloodRulesTests
         Assert.InRange(sweep.Forward, 1.6f, 2.0f);   // about 0.9 body heights past the body (the reference)
         Assert.True(sweep.Back > 2f * thrust.Back && sweep.Back > 2f * gun.Back);
         Assert.True(RibbonReach(RibbonKind.Sweep, 2.1f).Forward > sweep.Forward);
+        Assert.Equal(3, RibbonCount(1f));   // 2 to 3 broad bands (review 3)
         Assert.True(RibbonCount(1f) < RibbonCount(1.5f) && RibbonCount(1.5f) < RibbonCount(2.1f) && RibbonCount(2.1f) <= MaxRibbons && RibbonCount(100f) == MaxRibbons);
         Assert.True(RibbonWidthScale(2.1f) > RibbonWidthScale(1f));
     }

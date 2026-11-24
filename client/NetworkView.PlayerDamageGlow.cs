@@ -92,7 +92,7 @@ public partial class NetworkView
         {
             bool known = _damageMarkSeen.TryGetValue(o.PlayerId, out var seen);
             _damageMarkSeen[o.PlayerId] = (o.DamageCount, o.Alive);
-            bool paired = known && seen.Alive && DamageMarkChanged(seen.Count, o.DamageCount) && ClassicHitDirMark(o, o.DamageShield, o.DamageHealth, o.Alive);   // classic-hit-effects: the directional look of a confirmed damage (NetworkView.ClassicHitDir.cs)
+            bool paired = known && seen.Alive && DamageMarkChanged(seen.Count, o.DamageCount) && ClassicHitDirMark(o, o.DamageShield, o.DamageHealth, o.Alive, (o.DamageCount - seen.Count) & 7);   // classic-hit-effects: the directional look of a confirmed damage (NetworkView.ClassicHitDir.cs)
             if (!MarkShowsGlow(known, seen.Alive, o.Alive, seen.Count, o.DamageCount)) continue;
             if (LogHitFx) GD.Print($"HITFX mark P{o.PlayerId} counter {seen.Count}->{o.DamageCount} shield {o.DamageShield} health {o.DamageHealth} (t {_connectedFor:F2})");
             var up = ArmourUpOfMark(o.DamageShield, o.DamageHealth);

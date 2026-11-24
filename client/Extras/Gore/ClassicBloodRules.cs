@@ -27,11 +27,17 @@ public static class ClassicBloodRules
     /// <summary>Control points on each side of the contact, segments along one ribbon, and the most ribbons in one spray (the shared mesh).</summary>
     public const int RibbonHalf = 4, RibbonSegments = 20, MaxRibbons = 16;
     /// <summary>Ribbons for a normal hit (heavier and lethal hits scale it by their amount).</summary>
-    public const int NormalRibbons = 7;
+    public const int NormalRibbons = 3;
     /// <summary>The spray's life (s) and the end of its brightest hold (s): brightest from about 0.04 to 0.35 s after contact, strong to about 0.6 s, faint to about 1 s (the reference clip, measured in the review of 2b89de15).</summary>
-    public const float RibbonSeconds = 1.0f, RibbonHoldSeconds = 0.32f;
+    public const float RibbonSeconds = 1.1f, RibbonHoldSeconds = 0.31f;
+    /// <summary>The fade after the hold (1/s): half at about 0.45 s, a quarter at about 0.57 s, a tenth at about 0.73 s (review 3, the reference's curve).</summary>
+    public const float RibbonDecay = 5.4f;
+    /// <summary>The slower fade of the last faint wisps after <see cref="RibbonTailFrom"/> s (1/s; the reference's last red about 0.95 s).</summary>
+    public const float RibbonTailDecay = 3f, RibbonTailFrom = 0.6f;
     /// <summary>The additive brightness of the ribbons (ours).</summary>
-    public const float RibbonGlow = 1.15f;
+    public const float RibbonGlow = 0.8f;
+    /// <summary>The most opaque the blood gets where bands stack (mixed, not added: heavy, lethal, stacked thrusts and automatic fire stay blood red; review 3, finding 5).</summary>
+    public const float RibbonMaxAlpha = 0.85f;
     /// <summary>How far each step of the curve turns toward the weapon's recorded path (share) and the most it turns per step (rad): it follows the swing without curling round the attacker (ours).</summary>
     public const float RibbonFollow = 0.75f, RibbonMaxTurn = 0.3f;
 
@@ -58,7 +64,9 @@ public static class ClassicBloodRules
     static float Smooth(float a, float b, float x) { float t = Math.Clamp((x - a) / (b - a), 0f, 1f); return t * t * (3f - 2f * t); }
 
     /// <summary>The spray's brightness at <paramref name="age"/> s after contact, 0..1 (the shader's envelope): up within about a frame, held to <see cref="RibbonHoldSeconds"/>, a smooth fade to <see cref="RibbonSeconds"/>.</summary>
-    public static float RibbonEnvelope(float age) => age < 0f ? 0f : Smooth(0f, 0.035f, age) * (1f - Smooth(RibbonHoldSeconds, RibbonSeconds, age));
+    public static float RibbonEnvelope(float age) => age < 0f ? 0f : Smooth(-0.01f, 0.06f, age)
+        * MathF.Exp(-RibbonDecay * Math.Clamp(age - RibbonHoldSeconds, 0f, RibbonTailFrom - RibbonHoldSeconds) - RibbonTailDecay * MathF.Max(0f, age - RibbonTailFrom))
+        * (1f - Smooth(RibbonSeconds - 0.15f, RibbonSeconds, age));
 
     /// <summary>How far along their reach the ribbons are laid at <paramref name="age"/> (the shader's reveal): about 80 % after one frame at 30 fps, all after 0.05 s.</summary>
     public static float RibbonReveal(float age) => 0.3f + 0.7f * Smooth(0f, 0.05f, age);
@@ -225,7 +233,7 @@ public static class ClassicBloodRules
         for (int l = 0; l < lobes; l++)
         {
             lobeAng[l] = (float)(l * Math.Tau / lobes + rng.NextDouble() * 0.8);
-            lobeLen[l] = l < longOnes ? S(0.14, 0.26) : S(0.03, 0.12);
+            lobeLen[l] = l < longOnes ? S(0.2, 0.32) : S(0.04, 0.15);
             lobeW[l] = l < longOnes ? S(0.18, 0.32) : S(0.25, 0.55);
         }
 
@@ -254,7 +262,7 @@ public static class ClassicBloodRules
                 float ang = MathF.Atan2(b, a);
                 float coarse = Fbm(noiseSeed, px * 7f, py * 7f, 3);
                 float fine = Fbm(noiseSeed + 977, px * 26f, py * 26f, 2);
-                float edge = Radius(ang) * (0.78f + 0.44f * coarse) * (1f + 0.42f * (fine - 0.5f));
+                float edge = Radius(ang) * (0.86f + 0.28f * coarse) * (1f + 0.36f * (fine - 0.5f));
                 float lip = edge - d;
                 if (lip <= -2f * h) continue;
                 float al = Math.Clamp(lip / (1.6f * h) + 0.5f, 0f, 1f);
@@ -305,7 +313,7 @@ public static class ClassicBloodRules
             float x = 0.5f + S(-0.2, 0.2);
             int col = Math.Clamp((int)(x * size), 0, size - 1);
             int start = size / 2;
-            for (int y = size / 2; y < size; y++) if (alpha[y * size + col] > 0.5f) start = y;   // the lowest painted texel in this column
+            for (int y = size / 2; y < size && alpha[y * size + col] > 0.5f; y++) start = y;   // the core's lower edge in this column (not a speck below it; review 3)
             float y0 = (start + 0.5f) * h - 0.01f;
             float len = S(0.07, 0.3);
             float w = S(0.006, 0.012);

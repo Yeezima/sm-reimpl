@@ -229,28 +229,49 @@ public static class ClassicHitDirRules
     /// </summary>
     public record struct AttackSpan(long Key, long StartTick, long LastTick, long HitFromTick, bool Slash, bool Air = false);
 
-    /// <summary>How many ticks past an attack's last active tick a damage mark is still taken as its (the mark shows on the snapshot after the damage: up to a snapshot interval late; ours).</summary>
-    public const int SpanSlackTicks = 4;
+    /// <summary>How many ticks after a step's blow its damage mark may be drawn and still be its (ours: the mark shows on the snapshot after the damage, a few ticks late at most).</summary>
+    public const int BlowWindowTicks = 15;
+    /// <summary>How many ticks past an air slash's last active tick a mark is still taken as its (ours: its blade lands 4 ticks after the landing, in the recovery).</summary>
+    public const int SlashSlackTicks = 10;
 
     /// <summary>
-    /// The attack a damage mark drawn at server tick <paramref name="markTick"/> belongs to, among a player's recorded <paramref name="spans"/>: one that had started by then (a tick of
-    /// slack) and was active up to <see cref="SpanSlackTicks"/> before it; an air slash only once its blow can land (its landing blast, a tick or more earlier, is not the slash's:
-    /// finding 2); of several, the latest whose blow can land, else the latest. Null: none (the mark is not his weapon melee's).
-    /// <para>The own attack is predicted ahead of the marks, so "his current attack" is often the next combo step already (finding 1: step N's mark was filed under step N+1's key and
-    /// the next hit drew nothing); the tick says which step it was.</para>
+    /// The attack a damage mark drawn at server tick <paramref name="markTick"/> belongs to, among a player's recorded <paramref name="spans"/> (review 3 of 569ad7f0, finding 2:
+    /// a mark was filed under the next combo step, whose blow had not landed, and the ledger then refused the real blow's mark):
+    /// <list type="bullet">
+    /// <item>a melee step only once its blow has landed: its blow tick (start plus the step's hit time) at or before the mark's tick, within <see cref="BlowWindowTicks"/>; one tick
+    /// early is allowed only when no step's blow is at or before the mark (the own prediction can be a tick off); of several, the latest blow;</item>
+    /// <item>an air slash while it runs (from its start to <see cref="SlashSlackTicks"/> past its last active tick), whether its blade is ready or not: the caller tells the landing
+    /// blast from the blade (<see cref="SlashMarkPairs"/>); a slash wins over a step whose blow is older.</item>
+    /// </list>
+    /// Null: none (the mark is not his weapon melee's). The own attack is predicted ahead of the marks, so "his current attack" is often the next step already; the blow tick says which.
     /// </summary>
     public static AttackSpan? SpanForMark(long markTick, IReadOnlyList<AttackSpan> spans)
     {
-        AttackSpan? best = null; bool bestReady = false;
+        AttackSpan? strict = null, early = null, slash = null;
         foreach (var sp in spans)
         {
-            if (sp.StartTick - 1 > markTick || markTick > sp.LastTick + SpanSlackTicks) continue;
-            bool ready = markTick >= sp.HitFromTick - 1;
-            if (sp.Slash && !ready) continue;
-            if (best is null || (ready && !bestReady) || (ready == bestReady && sp.StartTick > best.Value.StartTick)) { best = sp; bestReady = ready; }
+            if (sp.Slash)
+            {
+                if (sp.StartTick - 1 <= markTick && markTick <= sp.LastTick + SlashSlackTicks && (slash is null || sp.StartTick > slash.Value.StartTick)) slash = sp;
+                continue;
+            }
+            long blow = sp.HitFromTick;
+            if (markTick - blow > BlowWindowTicks) continue;
+            if (blow <= markTick) { if (strict is null || blow > strict.Value.HitFromTick) strict = sp; }
+            else if (blow == markTick + 1 && (early is null || blow > early.Value.HitFromTick)) early = sp;
         }
-        return best;
+        var step = strict ?? early;
+        if (slash is { } sl && (step is null || step.Value.HitFromTick <= sl.LastTick + SlashSlackTicks && step.Value.StartTick <= sl.StartTick)) return sl;
+        return step ?? slash;
     }
+
+    /// <summary>
+    /// Whether a damage mark taken by an air slash is its blade's (owner answer 2: sprayed) rather than its landing blast's (keeps its old look): the blast hits first, at the landing,
+    /// and the blade 4 ticks later, so the victim's second damage under one slash is the blade, and a mark that carries two damages at once (the blast and the blade in one snapshot
+    /// gap: the hit report's "2 hit(s), shield 65") is the blade too; else only a mark drawn once the blade can have landed (this view saw the landing). Review 3 of 569ad7f0, finding 1:
+    /// marks seen before this view showed the landing were never paired.
+    /// </summary>
+    public static bool SlashMarkPairs(int damagesBefore, int damagesInMark, bool bladeReady) => damagesBefore + damagesInMark >= 2 || bladeReady;
 
     /// <summary>
     /// Whether a recorded attack continues the previous record's: the same step and weight with a start tick within <see cref="MeleeHitGate.StartTolerance"/> (another player's start
@@ -300,10 +321,10 @@ public static class ClassicHitDirRules
         (HasSparks(visual), !look.HasFlag(DirLook.BloodSpray) && visual == HitVisual.Blood && armourUpAtImpact);
 
     /// <summary>
-    /// Whether a shot's impact leaves its sparks to its damage mark (finding 6): with the directional look, on another player this view resolved the hit to; the own body and an
-    /// unresolved hit draw at the impact as before.
+    /// Whether a shot's impact leaves its sparks to its damage mark (finding 6): with the directional look, another player's shot on another player this view resolved the hit to.
+    /// The own shots draw their sparks at the impact as before, typed by the client's guess (owner answer 5, "Instant at impact"); the own body and an unresolved hit too.
     /// </summary>
-    public static bool SparksWaitForMark(DirLook look, int victim, int ownPlayer) => look != DirLook.None && victim > 0 && victim != ownPlayer;
+    public static bool SparksWaitForMark(DirLook look, int victim, int ownPlayer, bool ownShot = false) => look != DirLook.None && victim > 0 && victim != ownPlayer && !ownShot;
 
     /// <summary>What a charge connect's data impact effects do (finding 3).</summary>
     public enum ChargeFx { PlayNow, Hold, Skip }
