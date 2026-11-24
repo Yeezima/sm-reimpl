@@ -24,7 +24,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary><c>--frame-profile [--frame-profile-warmup s]</c> (test aid): the per-subsystem frame-time profile (<see cref="FrameProfile"/>).</summary>
-    bool FrameProfileOn => _frameProfileOn ??= CmdFlag("frame-profile");
+    bool FrameProfileOn => _frameProfileOn ??= CmdFlag("frame-profile") || CmdFlag(SmNet.LeanBot.FrameProfileFlag);   // bots/a1-perf: --bot-frame-profile measures a lean bot (it loads nothing more)
     bool? _frameProfileOn;
 
     FrameProfile NewFrameProfile() =>
