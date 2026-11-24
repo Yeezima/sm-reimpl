@@ -283,14 +283,15 @@ public class WarfrontHqBattleTests(ITestOutputHelper output)
     /// <summary>Frozen Orks of <paramref name="type"/> in position 0's ring, a human (or none) standing on it, and the hold read after two seconds.</summary>
     float HoldAfterTwoSeconds(MusouEnemyType type, int orks, bool human, int marines = 0)
     {
-        var w = Hq(out var b);
+        var w = Hq(out var b, humans: 1 + marines);
         TfwRig.Teleport(w, human ? b.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ } + new Vector3(0.5f, 0f, 0f) : Safe);
-        if (marines > 0)
-            w.Tfw!.Warfront!.SquadTargets = into =>
-            {
-                for (int i = 0; i < marines && i < into.Length; i++) into[i] = new MusouTarget(i, b.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ } + new Vector3(i, 2f, 0f), true, 0.5f);
-                return Math.Min(marines, into.Length);
-            };
+        // Phase B: a retainer is a World player whose id the battle knows as a retainer's (it never captures, and weighs 2 on the hold)
+        for (int i = 0; i < marines; i++)
+        {
+            int id = 2 + i;
+            b.WarfrontRetainerIn(id);
+            Assert.True(w.TfwRespawnAt(id, b.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ } + new Vector3(i, 2f, 0f), 0f));
+        }
         for (int i = 0; i < orks; i++)
             w.Musou!.Spawn(type, b.Layout.Positions[0] with { Z = WarfrontHqMap.PlateauZ } + new Vector3(i * 1.5f - 6f, -4f, 0f), 0f, 100f);
         Step(w, 60);

@@ -99,6 +99,9 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontScalesPlayer"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine"),
         ("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner"),
+        // T2 review fixes (2026-11-25): retainers never capture; their melee reach is a human's (the cleave trim)
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture"),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleaveTrim"),
     ];
 
     /// <summary>
@@ -114,6 +117,8 @@ public class WarfrontBoundaryTests
     [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine(id, ref aiMarine);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner(attacker, ref aiMarine);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage(attack.Enemy, attack.Player, ref damage);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture(ref noCapture);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleaveTrim(attacker, ref trim);   // WARFRONT-HOOK")]
     public void The_retainer_spines_Musou_lines_are_marked_Warfront_hooks(string file, string line)
     {
         var lines = Sources().First(s => s.Path == file).Lines;

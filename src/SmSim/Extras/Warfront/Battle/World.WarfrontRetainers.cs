@@ -27,13 +27,18 @@ public sealed partial class World
     internal int? WarfrontSpawnRetainer(int owner, LoadoutChoice choice, string name, Vector3 at)
     {
         if (_tfw is not { Warfront: not null } run || !_players.ContainsKey(owner) || TfwContracts.IsPuppet(owner)) return null;
-        if (Musou?.Nav is { } nav && nav.Nearest(at, 1.5f, 2.5f) is var node and >= 0) at = nav.Position(node);
+        if (Musou?.Nav is { } nav)
+        {
+            if (nav.Nearest(at, 1.5f, 2.5f) is var node and >= 0) at = nav.Position(node);
+            else at = _players[owner].Position;   // the ring place is off the walking graph (a wall, a ledge): land on the owner, as the human landing falls back (review fix 2026-11-25)
+        }
         int? id = TfwSpawnPuppet(run, "tactical", at, 0f, id => new Marine(id, -1, string.IsNullOrWhiteSpace(name) ? "Retainer" : name, MarineRole.Squad, owner) { HoldAt = at });
         if (id is not { } made) return null;
+        run.Battle?.WarfrontRetainerIn(made);   // never captures, weighs as a Marine on the HQ hold
         var p = _players[made];
         var dressed = Loadouts.Choose(Config, p with { Class = Math.Clamp(choice.Class, 0, Math.Max(0, Config.Classes.Count - 1)) }, choice.Primary, choice.Pistol, choice.Melee, choice.Equipment, choice.Perk1, choice.Perk2, choice.Second);
         _players[made] = Combat.Respawned(dressed, Config) with { Position = p.Position, Yaw = p.Yaw };
-        _musouArmed.Remove(made);   // the next arm gives it the run's kit, as a respawned human
+        _musouArmed.Remove(made);   // the war's arsenal never arms a puppet (TfwArmAll and TfwGiveFrags skip puppet ids): the retainer keeps the Classic respawn kit of its loadout
         return made;
     }
 
@@ -82,6 +87,12 @@ public sealed partial class World
     partial void WarfrontScalesPlayer(int id, ref bool scales)
     {
         if (WarfrontRetainerRules.HumanOnlyScales && !scales && WarfrontIsRetainer(id)) scales = true;
+    }
+
+    /// <summary>Owner (2026-11-25, T2 review): a retainer's melee reach is a human's exactly, so it takes the human cleave trim (<see cref="WarfrontRetainerRules.HumanMeleeReach"/>).</summary>
+    partial void WarfrontCleaveTrim(int attacker, ref bool trim)
+    {
+        if (WarfrontRetainerRules.HumanMeleeReach && !trim && WarfrontIsRetainer(attacker)) trim = true;
     }
 
     /// <summary>Owner answer (b): a scrap trap hurts a retainer as a human (<see cref="WarfrontRetainerRules.TrapsHurtLikeHumans"/>) instead of killing it outright.</summary>

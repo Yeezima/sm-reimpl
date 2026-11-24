@@ -12,7 +12,7 @@ namespace SmSim;
 public sealed partial class World
 {
     /// <summary>Whether <paramref name="attacker"/> gets Warfront's cleave bonus: a human player or a human's retainer (owner 2026-11-18: "players and their retainers only"; not the allied pair, the drop pod Marines or the Guardsmen).</summary>
-    public bool WarfrontCleaveBonus(int attacker) => !TfwContracts.IsPuppet(attacker) || _tfw?.MarineOf(attacker) is { Role: MarineRole.Retainer } || (SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus && _tfw?.MarineOf(attacker) is { Role: MarineRole.Squad });   // Squad (Warfront's retainers as World players, Phase B T2): off by the owner's "Base player damage only" (2026-11-25)
+    public bool WarfrontCleaveBonus(int attacker) => !TfwContracts.IsPuppet(attacker) || _tfw?.MarineOf(attacker) is { Role: MarineRole.Retainer } || (SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus && _tfw?.MarineOf(attacker) is { Role: MarineRole.Squad });   // Squad (Warfront's retainers as World players, Phase B T2): on, a retainer's reach is a human's exactly (owner 2026-11-25, T2 review)
 
     partial void WarfrontCleave(int attacker, in PlayerState state, ref float range, ref int most, ref float bodySlack)
     {

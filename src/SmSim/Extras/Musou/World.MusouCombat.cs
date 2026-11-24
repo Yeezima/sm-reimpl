@@ -124,6 +124,17 @@ public sealed partial class World
     /// <summary>Warfront: whether a retainer gets the human-only scales. No-op without Warfront's retainers.</summary>
     partial void WarfrontScalesPlayer(int playerId, ref bool scales);
 
+    /// <summary>Whether <paramref name="attacker"/>'s melee takes the war's human cleave trim (<c>PlayerCleaveReachScale</c>): a human's (<see cref="MusouScalesPlayer"/>), or one Warfront answers for (its retainers' melee reach is a human's exactly).</summary>
+    bool MusouCleaveTrim(int attacker)
+    {
+        bool trim = MusouScalesPlayer(attacker);
+        WarfrontCleaveTrim(attacker, ref trim);   // WARFRONT-HOOK: Warfront's retainers reach as a human (owner 2026-11-25; Warfront/Battle/World.WarfrontRetainers.cs)
+        return trim;
+    }
+
+    /// <summary>Warfront: whether a retainer's melee takes the human cleave trim. No-op without Warfront's retainers.</summary>
+    partial void WarfrontCleaveTrim(int attacker, ref bool trim);
+
     /// <summary>
     /// A hit-scan shot's damage on an enemy or a contraption <paramref name="distance"/> metres away: its charged stage's (which has no fall-off of its own), else the weapon's damage times
     /// <see cref="MusouRangeFallOff"/> (in the 5-wave run exactly <see cref="Combat.DamageAt(float, WeaponSpec)"/>). The 5-wave run's rays, the war's piercing rays and the contraptions' shots read it.
@@ -318,7 +329,7 @@ public sealed partial class World
         bool dreadnought = Extras.Musou.DreadnoughtRules.IsDreadnought(Config, state.Class);
         if (dreadnought) most = MusouSim.Capacity;   // the buff (owner 2026-11-15: "cleave infinitely"): no cap for him in the 5-wave run either (its CleaveTargets is 8)
         ArsenalCleave(attacker, state, step, ref range, ref minCos, ref most, ref damage);   // Arsenal/World.Arsenal.cs: a weapon's own cleave (W3: the power spear's sweeps, Arsenal/World.Spear.cs)
-        if (musou.War is { } trim && MusouScalesPlayer(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
+        if (musou.War is { } trim && MusouCleaveTrim(attacker)) range *= trim.PlayerCleaveReachScale;   // owner 2026-11-11: "reduce melee attack cleave range by 40%", humans only (after each weapon's shape; MusouCleaveShape draws the same)
         if (dreadnought) range *= Extras.Musou.DreadnoughtRules.CleaveReachScale;   // owner 2026-11-17: his cleave radius +50 % (MusouCleaveShape.Of draws the same)
         float bodySlack = 0f;   // > 0: Warfront counts an Ork whose collision (radius) reaches into the volume
         WarfrontCleave(attacker, state, ref range, ref most, ref bodySlack);   // WARFRONT-HOOK: Warfront's reach scales, no target cap, and an Ork whose collision overlaps the volume is struck (Warfront/Battle/World.WarfrontCleave.cs)

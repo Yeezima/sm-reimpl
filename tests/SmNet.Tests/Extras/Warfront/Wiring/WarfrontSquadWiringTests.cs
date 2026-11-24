@@ -184,7 +184,7 @@ public class WarfrontSquadWiringTests
         var point = r.Where(1) + new Vector3(5f, 5f, 0f);
         Assert.True(r.W.TfwOrderMarines(1, new TfwCommandRecord(3, TfwCommand.Hold, 0, point)) is false);   // Warfront takes the order (the Musou retainer path returns false)
         Assert.Equal(SquadOrder.Hold, r.Ret.OrderOf(1));
-        Assert.All(new[] { 0, 1 }, s => Assert.Equal(point, r.W.Tfw!.MarineOf(r.IdOf(1, s))!.HoldAt));
+        Assert.All(new[] { 0, 1 }, s => Assert.Equal(WarfrontRetainers.HoldPlace(point, s, 2), r.W.Tfw!.MarineOf(r.IdOf(1, s))!.HoldAt));   // each its own ring place (T2 review fix)
         Assert.True(r.Ret.Order(1, new TfwCommandRecord(4, TfwCommand.Attack, 0, point)));
         Assert.Equal(SquadOrder.Attack, r.Ret.OrderOf(1));
         Assert.Equal(point, r.W.Tfw!.MarineOf(r.IdOf(1, 0))!.AttackAt);
@@ -210,10 +210,10 @@ public class WarfrontSquadWiringTests
     public void A_retainer_deals_base_player_damage_without_the_human_only_scales_and_its_kill_pays_the_owner_once_and_never_the_ledgers_kills()
     {
         Assert.False(WarfrontRetainerRules.HumanOnlyScales);   // owner 2026-11-25: "Base player damage only"
-        Assert.False(WarfrontRetainerRules.CleaveBonus);   // nor Warfront's wider cleave (lead 38, series-37 plan "Lead notes on T2")
+        Assert.True(WarfrontRetainerRules.CleaveBonus);   // but a human's melee reach exactly (owner 2026-11-25 via lead 39, T2 review)
         var r = Rig.Make(marines: 2);
         int id = r.IdOf(1, 0);
-        Assert.False(r.W.WarfrontCleaveBonus(id));   // a retainer swings with the class's own reach
+        Assert.True(r.W.WarfrontCleaveBonus(id));    // a retainer swings with its owner's reach
         Assert.True(r.W.WarfrontCleaveBonus(1));     // its owner keeps the x1.2
         int points = r.W.Musou!.Rules.Of(MusouEnemyType.Boy).Points;
         long xp = r.Xp(1);

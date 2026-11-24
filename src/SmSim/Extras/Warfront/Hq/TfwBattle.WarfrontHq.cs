@@ -194,14 +194,11 @@ public sealed partial class TfwBattle
             float r2 = radius * radius;
             foreach (var p in Capturers(players))
                 if (MathF.Abs(p.Z - at.Z) <= reach && new Vector2(p.X - at.X, p.Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.HumanWeight;
+            // Phase B: the retainers are World players left out of the capturers (they never capture); on the hold each weighs as a Marine, by its World id (review fix 2026-11-25; the SquadTargets seam is retired)
+            if (_wfRetainerIds.Count > 0 && _stormIds.Count == players.Length)
+                for (int i = 0; i < players.Length; i++)
+                    if (_wfRetainerIds.Contains(_stormIds[i]) && MathF.Abs(players[i].Z - at.Z) <= reach && new Vector2(players[i].X - at.X, players[i].Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.MarineWeight;
             defenders += (_guards.CountInside(at, radius) * WarfrontHqBattleRules.GuardsmanWeight + WarfrontGuardRules.NumberScale - 1) / WarfrontGuardRules.NumberScale;   // rounded up (review 2026-11-20: an odd count kept its half man). Guardsmen depth (owner 2026-11-20): twice the men at half the strength each weigh what the old squads did, so the hold is no easier than before
-            if (_enemies.Warfront?.SquadTargets is { } source)
-            {
-                Span<MusouTarget> marines = stackalloc MusouTarget[WarfrontBattleRules.MaxSquadTargets];
-                int m = Math.Clamp(source(marines), 0, marines.Length);
-                for (int i = 0; i < m; i++)
-                    if (MathF.Abs(marines[i].Position.Z - at.Z) <= reach && new Vector2(marines[i].Position.X - at.X, marines[i].Position.Y - at.Y).LengthSquared() <= r2) defenders += WarfrontHqBattleRules.MarineWeight;
-            }
         }
         HqWeights = (orks, defenders);
         if (orks > defenders) _hqHold -= Dt / WarfrontHqBattleRules.HoldDrainSeconds;

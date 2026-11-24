@@ -103,7 +103,12 @@ public sealed class WarfrontRetainers
     public int IndexOf(int player, int slot) => Of(player, slot)?.Index ?? -1;
 
     /// <summary>The squad order of <paramref name="player"/>'s retainers.</summary>
-    public SquadOrder OrderOf(int player) => (SquadOrder)(byte)Orders.Of(player);
+    public SquadOrder OrderOf(int player) => (SquadOrder)(byte)OrderNow(player);
+
+    /// <summary>The order in force for <paramref name="player"/>'s retainers: the server's own (<see cref="ServerOrder"/>) until his next order, else his newest (Follow before any).</summary>
+    public MarineOrder OrderNow(int player) => _serverOrders.TryGetValue(player, out var o) ? o : Orders.Of(player);
+
+    readonly Dictionary<int, MarineOrder> _serverOrders = [];
 
     /// <summary>The card and level scales of a key: damage dealt (applied as the attacker's scale on the Orks), health (as 1 / it on the damage taken while unshielded), armour (while shielded).</summary>
     public void SetScale(ulong key, float damage, float health, float armour = 1f) => _scale[key] = (damage, health, armour);
@@ -116,6 +121,7 @@ public sealed class WarfrontRetainers
     {
         _all.Clear(); _hits.Clear(); _kills.Clear(); _revives.Clear(); _downs.Clear();
         Array.Clear(_ownerUsed);
+        Orders.Clear(); _serverOrders.Clear();   // every battle lands on Follow (review fix 2026-11-25: a Hold of the last battle, or a leaver's, does not carry over)
     }
 
     /// <summary>The battle ended: every standing Marine survived it (one more in its record). The World's puppets were dismissed with the field already.</summary>
@@ -170,15 +176,44 @@ public sealed class WarfrontRetainers
     public bool Order(int player, TfwCommandRecord command)
     {
         if (!Orders.Apply(player, command)) return false;
-        var order = Orders.Of(player);
-        bool place = command.Point != default;
+        _serverOrders.Remove(player);   // his own order replaces the server's
+        Place(player, Orders.Of(player), command.Point);
+        return true;
+    }
+
+    /// <summary>
+    /// The server's own order for <paramref name="player"/>'s retainers (a leaver's squad holds, a returner's follows): in force until his next order, outside his sequence numbers (review fix 2026-11-25: a server
+    /// sequence of its own was refused by the wrapping compare against a client's small counter). Always true.
+    /// </summary>
+    public bool ServerOrder(int player, MarineOrder order, Vector3 point = default)
+    {
+        _serverOrders[player] = order;
+        Place(player, order, point);
+        return true;
+    }
+
+    /// <summary>The order's places: a Hold with a point gives each retainer its own place on a ring round it (the old squad sim's rule), without one each holds where it stands; an Attack goes for its point.</summary>
+    void Place(int player, MarineOrder order, Vector3 point)
+    {
+        bool place = point != default;
+        int count = 0;
+        foreach (var r in _all) if (r.Owner == player && r.WorldId != 0) count++;
+        int k = 0;
         foreach (var r in _all)
         {
             if (r.Owner != player || r.WorldId == 0 || _world.Tfw?.MarineOf(r.WorldId) is not { } marine || !_world.Players.TryGetValue(r.WorldId, out var p)) continue;
-            if (order == MarineOrder.Hold) marine.HoldAt = place ? command.Point : p.Position;
-            marine.AttackAt = order == MarineOrder.Attack && place ? command.Point : null;
+            if (order == MarineOrder.Hold) marine.HoldAt = place ? HoldPlace(point, k, count) : p.Position;
+            marine.AttackAt = order == MarineOrder.Attack && place ? point : null;
+            k++;
         }
-        return true;
+    }
+
+    /// <summary>Retainer <paramref name="k"/> of <paramref name="count"/>'s hold place round <paramref name="point"/>: a ring of radius <see cref="WarfrontRetainerRules.LandRadius"/> (one alone holds the point itself).</summary>
+    public static Vector3 HoldPlace(Vector3 point, int k, int count)
+    {
+        if (count <= 1) return point;
+        float angle = MathF.Tau * k / count;
+        return point + new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f) * WarfrontRetainerRules.LandRadius;
     }
 
     /// <summary>
@@ -192,7 +227,7 @@ public sealed class WarfrontRetainers
         foreach (var r in _all)
         {
             if (r.WorldId == 0) { if (r.State != SquadState.Out) r.State = SquadState.Out; continue; }
-            if (!_world.Players.TryGetValue(r.WorldId, out var p)) { r.State = SquadState.Out; r.WorldId = 0; continue; }   // dismissed by someone else
+            if (!_world.Players.TryGetValue(r.WorldId, out var p)) { _world.Tfw?.Battle?.WarfrontRetainerOut(r.WorldId); r.State = SquadState.Out; r.WorldId = 0; continue; }   // dismissed by someone else
             if (r.State == SquadState.Out) continue;   // waits for the puppets' step to leave the World (TakeOut)
             switch (r.State)
             {
@@ -217,6 +252,7 @@ public sealed class WarfrontRetainers
     {
         if (ByWorldId(worldId) is not { State: SquadState.Out } r) return false;
         _world.TfwDismissMarine(worldId);
+        _world.Tfw?.Battle?.WarfrontRetainerOut(worldId);
         r.WorldId = 0;
         return true;
     }

@@ -12,16 +12,22 @@ public static class WarfrontRetainerRules
 {
     /// <summary>
     /// Owner 2026-11-25 (a), "Base player damage only": a retainer deals full BASE player damage (the squad's 0.40 retired) but none of the war's human-only scales (the x1.2 ranged damage, no range
-    /// fall-off, a pierce that loses nothing, the x0.6 cleave trim): <see cref="SmSim.Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/> stays false for it. True gives a retainer those scales as a human's.
+    /// fall-off, a pierce that loses nothing; the x0.6 cleave trim is <see cref="HumanMeleeReach"/>'s): <see cref="SmSim.Extras.Musou.Campaign.TfwCombatRules.ScalesPlayer"/> stays false for it. True gives a retainer those scales as a human's.
     /// The level curve and the 1/3 card share apply either way. Kind: owner; confidence: stated.
     /// </summary>
     public const bool HumanOnlyScales = false;
 
     /// <summary>
-    /// Owner 2026-11-25 (a), "Base player damage only", which lists "wider cleave" among the human-only bonuses: a retainer gets none of Warfront's own cleave bonus (the x1.2 reach, x1.4 for a Dreadnought, the uncapped
-    /// targets and the body slack of <c>World.WarfrontCleave</c>), superseding the 2026-11-18 "players and their retainers" rule for retainers only (lead 38, series-37 plan "Lead notes on T2"). True restores it. Kind: owner; confidence: stated.
+    /// Owner (lead 39 relay, 2026-11-25, T2 review): a retainer's melee reach is EXACTLY a human's, Warfront's own cleave bonus included (the x1.2 reach, x1.4 for a Dreadnought, the uncapped targets and the body slack of
+    /// <c>World.WarfrontCleave</c>; the 2026-11-18 "players and their retainers" rule). This reverses T2's first reading of "Base player damage only" (no cleave bonus). False takes it away. Kind: owner; confidence: stated.
     /// </summary>
-    public const bool CleaveBonus = false;
+    public const bool CleaveBonus = true;
+
+    /// <summary>
+    /// Owner (same answer): a retainer's melee takes the human cleave trim (<c>PlayerCleaveReachScale</c>, "reduce melee attack cleave range by 40%", humans only), so its reach matches a human's swing for swing; the
+    /// damage scales of <see cref="HumanOnlyScales"/> stay off. False gives it the AI Marines' untrimmed reach. Kind: owner; confidence: stated.
+    /// </summary>
+    public const bool HumanMeleeReach = true;
 
     /// <summary>Owner 2026-11-25 (b): a retainer's melee stuns a boss as a human's does (an AI Marine's never does). False restores the AI Marines' rule. Kind: owner (our reading of "retainers ARE stunned by bosses").</summary>
     public const bool StunsBosses = true;
