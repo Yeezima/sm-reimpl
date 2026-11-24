@@ -63,16 +63,17 @@ public sealed partial class WeatherField : MultiMeshInstance3D
 
     float _keepSent = float.NaN, _keepSoftSent = float.NaN;
 
-    /// <summary>The keep share in drops, the soft edge centred on it (repair 2: the edge ran from the share to a soft edge past it, drawing about 0.77 for 0.72); a full share sends no cut at all.</summary>
+    /// <summary>The keep cut in drops (<see cref="WeatherFieldWrap.KeepCut"/>): the soft edge centred on the share (repair 2), sliding up by half an edge over the last soft / amount of share so it is continuous through share 1 (repair 3).</summary>
     void SetKeep()
     {
-        float keep = _keep >= 1f ? 1e9f : _keep * Amount, soft = KeepSoft;
+        float soft = KeepSoft, keep = WeatherFieldWrap.KeepCut(_keep, Amount, soft);   // repair 3: continuous through share 1 (at 1 every drop is full)
         if (keep != _keepSent) { _material.SetShaderParameter(PKeep, keep); _keepSent = keep; }
         if (soft != _keepSoftSent) { _material.SetShaderParameter(PKeepSoft, soft); _keepSoftSent = soft; }
     }
 
     // repair 2: the shader parameters' names, made once (a string key allocates a StringName per call)
-    static readonly StringName PKeep = "keep", PKeepSoft = "keep_soft", PDrifts = "drifts", PFade = "fade", PHole = "hole", PRing = "ring";
+    static readonly StringName PKeep = "keep", PKeepSoft = "keep_soft", PFade = "fade", PHole = "hole", PRing = "ring";
+    static readonly StringName[] PDrift = { "drift0", "drift1", "drift2", "drift3" };   // repair 3: one vec3 a group (no array marshalled each frame)
 
     /// <summary>For the engine only (a node type needs a parameterless constructor); the rig always uses the full one.</summary>
     public WeatherField() : this("WeatherField", Kind.Streak, 1, 0, Vector3.One, Vector2.One, 1f, 1f, 1f, 0f, 0) { }
@@ -147,7 +148,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
         }
         Visible = _level > 0f;
         if (!Visible) return;   // repair 2: a hidden field sets nothing (its drift still moves, so it comes back where it would be)
-        _material.SetShaderParameter(PDrifts, _driftUniform);
+        for (int g = 0; g < (_grouped ? WeatherFieldWrap.Groups : 1); g++) _material.SetShaderParameter(PDrift[g], _driftUniform[g]);
         if (_level != _fadeSent) { _material.SetShaderParameter(PFade, _level); _fadeSent = _level; }
         if (_holeNow != _holeSent) { _material.SetShaderParameter(PHole, _holeNow); _holeSent = _holeNow; }
         if (_ringNow != _ringSent) { _material.SetShaderParameter(PRing, _ringNow); _ringSent = _ringNow; }
@@ -195,14 +196,15 @@ public sealed partial class WeatherField : MultiMeshInstance3D
         var centre = new System.Numerics.Vector3(c.X, c.Y, c.Z);
         var box = new System.Numerics.Vector3(Box.X, Box.Y, Box.Z);
         var p = new System.Numerics.Vector3(at.X, at.Y, at.Z);
-        int n = 0, shown = _keep >= 1f ? Amount : Math.Min(Amount, (int)Math.Ceiling(_keep * Amount));   // the soft edge is centred on the keep share: half above it shows, half below it fades
+        int n = 0, shown = Amount;
+        float cut = WeatherFieldWrap.KeepCut(_keep, Amount, KeepSoft), soft = KeepSoft;
         float r2 = radius * radius;
         for (int i = 0; i < shown; i++)
         {
             var dg = _drift[_group[i]];
             var w = WeatherFieldWrap.Place(new System.Numerics.Vector3(_seeds[i].X, _seeds[i].Y, _seeds[i].Z), box, new System.Numerics.Vector3(dg.X, dg.Y, dg.Z), centre);
             if (System.Numerics.Vector3.DistanceSquared(w, p) > r2) continue;
-            if (WeatherFieldWrap.EdgeFade(w, centre, box) * WeatherFieldWrap.HoleFade(w, centre, _holeNow, _ringNow) < 0.5f) continue;
+            if (WeatherFieldWrap.EdgeFade(w, centre, box) * WeatherFieldWrap.HoleFade(w, centre, _holeNow, _ringNow) * WeatherFieldWrap.KeepAlpha(i, cut, soft) < 0.5f) continue;
             n++;
         }
         return n;
@@ -225,7 +227,10 @@ public sealed partial class WeatherField : MultiMeshInstance3D
         uniform vec4 tint : source_color = vec4(0.74, 0.80, 0.90, 0.3);
         uniform vec3 fall_dir = vec3(0.0, -1.0, 0.0);
         uniform vec3 box = vec3(24.0);
-        uniform vec3 drifts[4];
+        uniform vec3 drift0;
+        uniform vec3 drift1;
+        uniform vec3 drift2;
+        uniform vec3 drift3;
         uniform float fade = 1.0;
         uniform float keep = 1e9;
         uniform float keep_soft = 8.0;
@@ -245,7 +250,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
             vec3 seed = INSTANCE_CUSTOM.xyz;
             float grp = floor(INSTANCE_CUSTOM.w / 10.0);
             float sc = INSTANCE_CUSTOM.w - grp * 10.0;
-            vec3 drift = drifts[int(clamp(grp, 0.0, 3.0))];
+            vec3 drift = grp < 0.5 ? drift0 : (grp < 1.5 ? drift1 : (grp < 2.5 ? drift2 : drift3));
             vec3 rel = mod(seed * box + drift - lo, box);
             vec3 c = lo + rel;
             vec3 d = c - centre;

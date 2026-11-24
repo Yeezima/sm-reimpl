@@ -57,7 +57,7 @@ public sealed partial class WeatherRig
             {
                 float speed = 2.5f + 4f * wind;
                 _embers.Velocity = (windDir + Vector3.Up * 0.25f).Normalized() * speed + Vector3.Up * 0.5f;   // the old emitter's direction and speed, and half a second of its 0.25 m/s2 lift
-                _emberMaterial?.SetShaderParameter("tint", new Color(1f, 0.62f, 0.25f, (0.55f + 0.45f * ember) * near));
+                _emberMaterial?.SetShaderParameter(PTint, new Color(1f, 0.62f, 0.25f, (0.55f + 0.45f * ember) * near));
             }
         }
 
@@ -213,7 +213,7 @@ public sealed partial class WeatherRig
         if (!on) return;
         float speed = 4f + 8f * wind;
         _ashWarn.Velocity = new Vector3(windDir.X, -0.02f, windDir.Z).Normalized() * (speed * 0.925f) - new Vector3(0f, 0.5f, 0f);   // the old emitter's mean speed (0.7 to 1.15 of it) and its slow sink
-        _ashWarnMaterial?.SetShaderParameter("tint", new Color(AshR, AshG, AshB, (0.5f + 0.35f * Math.Clamp(share, 0f, 1f)) * nearAlpha));
+        _ashWarnMaterial?.SetShaderParameter(PTint, new Color(AshR, AshG, AshB, (0.5f + 0.35f * Math.Clamp(share, 0f, 1f)) * nearAlpha));
         _ashWarn.Keep = WeatherFieldWrap.EmitterShare(FlakeBox.X, speed * 0.925f, FlakeLifeSeconds);   // repair: the old emitter's near density at any wind (its 3 s flakes left the 24 m box at high wind; the field shows every drop)
     }
 

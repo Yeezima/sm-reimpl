@@ -458,11 +458,14 @@ public sealed partial class WeatherRig : Node3D
     /// <summary>The streak colour: the rain's own cool grey moved a third of the way to the scene's haze, so it sits in the map's light instead of over it.</summary>
     static Color RainTint(Color own, Color haze) => own.Lerp(new Color(Math.Clamp(haze.R, 0.2f, 1f), Math.Clamp(haze.G, 0.2f, 1f), Math.Clamp(haze.B, 0.2f, 1f)), 0.33f);
 
+    /// <summary>Rain motion repair 3: the per-frame shader parameters' names, made once (a string key allocates a StringName per call).</summary>
+    static readonly StringName PTint = "tint", PFallDir = "fall_dir";
+
     static void SetStreak(ShaderMaterial? m, Vector3 fall, Color tint, float alpha)
     {
         if (m is null) return;
-        m.SetShaderParameter("fall_dir", fall);
-        m.SetShaderParameter("tint", new Color(tint.R, tint.G, tint.B, Math.Clamp(alpha, 0f, 1f)));
+        m.SetShaderParameter(PFallDir, fall);
+        m.SetShaderParameter(PTint, new Color(tint.R, tint.G, tint.B, Math.Clamp(alpha, 0f, 1f)));
     }
 
     /// <summary>The near streaks' alpha now (selftest).</summary>

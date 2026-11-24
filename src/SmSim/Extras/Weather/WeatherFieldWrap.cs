@@ -87,6 +87,23 @@ public static class WeatherFieldWrap
     /// </summary>
     public static float EmitterShare(float boxM, float speed, float lifeSeconds) => speed * lifeSeconds > boxM && speed > 0 ? boxM / (speed * lifeSeconds) : 1f;
 
+    /// <summary>
+    /// The keep cut (repair 3), in drops, that the shader fades the drawn drops by: drop i's alpha is <see cref="KeepAlpha"/>. The soft edge is centred on share x amount, and over the last soft / amount of share the cut slides up by half
+    /// an edge so that at share 1 every drop is full: the cut is continuous through 1 (no drop jumps when the share crosses it).
+    /// </summary>
+    public static float KeepCut(float share, int amount, float soft)
+    {
+        share = Math.Clamp(float.IsFinite(share) ? share : 1f, 0f, 1f);
+        if (amount <= 0 || !(soft > 0)) return amount;
+        float top = Math.Min(1f, soft / amount);   // the share span the half edge blends in over
+        float blend = Math.Clamp((share - (1f - top)) / top, 0f, 1f);
+        return share * amount + 0.5f * soft * blend;
+    }
+
+    /// <summary>Drop <paramref name="index"/>'s alpha under the keep cut (the shader's formula): 1 well below the cut, 0 above it, a ramp of <paramref name="soft"/> drops centred on it.</summary>
+    public static float KeepAlpha(int index, float cut, float soft) => Math.Clamp((cut + 0.5f * soft - index) / soft, 0f, 1f);
+
+
     static float Mod(double v, float size) => size > 0 ? (float)(v - Math.Floor(v / size) * size) : 0f;
 
     static float SmoothStep(float a, float b, float x)

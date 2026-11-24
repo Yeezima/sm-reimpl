@@ -169,6 +169,45 @@ public class WeatherFieldWrapTests
     }
 
     [Fact]
+    public void The_keep_cut_is_continuous_through_share_one_and_full_at_one()
+    {
+        const int amount = 576; float soft = Math.Max(8f, 0.1f * amount);
+        static float Shown(float cut, float soft) { float s = 0; for (int i = 0; i < amount; i++) s += WeatherFieldWrap.KeepAlpha(i, cut, soft); return s; }
+        for (int i = 0; i < amount; i++) Assert.Equal(1f, WeatherFieldWrap.KeepAlpha(i, WeatherFieldWrap.KeepCut(1f, amount, soft), soft));   // at 1 every drop is full
+        float prevCut = WeatherFieldWrap.KeepCut(0.5f, amount, soft);
+        var prevAlpha = new float[amount];
+        for (int i = 0; i < amount; i++) prevAlpha[i] = WeatherFieldWrap.KeepAlpha(i, prevCut, soft);
+        for (float share = 0.5f; share <= 1.00001f; share += 0.001f)   // a gust's crossing, in small steps
+        {
+            float cut = WeatherFieldWrap.KeepCut(Math.Min(share, 1f), amount, soft);
+            for (int i = 0; i < amount; i++)
+            {
+                float a = WeatherFieldWrap.KeepAlpha(i, cut, soft);
+                Assert.True(Math.Abs(a - prevAlpha[i]) < 0.12f, $"drop {i} jumped {prevAlpha[i]} -> {a} at share {share}");
+                prevAlpha[i] = a;
+            }
+        }
+        Assert.Equal(0.72f * amount, Shown(WeatherFieldWrap.KeepCut(0.72f, amount, soft), soft), 1.0);   // the centred edge draws the share
+    }
+
+    [Fact]
+    public void A_fade_or_a_hole_reversed_half_way_turns_back_from_where_it_is()
+    {
+        float level = 1f;
+        for (int i = 0; i < 3; i++) level = WeatherFieldWrap.Ease(level, 0f, 1f, 0.05);   // switched off: 0.3 of the way
+        Assert.Equal(0.7f, level, 4);
+        level = WeatherFieldWrap.Ease(level, 1f, 1f, 0.05);   // switched back on mid-fade: no jump, it climbs from 0.7
+        Assert.Equal(0.8f, level, 4);
+        float hole = 0f;
+        for (int i = 0; i < 6; i++) hole = WeatherFieldWrap.Ease(hole, 16f, 16f, 0.05);   // under cover: opening
+        Assert.Equal(9.6f, hole, 3);
+        hole = WeatherFieldWrap.Ease(hole, 0f, 16f, 0.05);   // back in the open half way: closes from 9.6
+        Assert.Equal(8f, hole, 3);
+        var c = Vector3.Zero;
+        Assert.Equal(1f, WeatherFieldWrap.HoleFade(new Vector3(9f, 0f, 0f), c, 0f, 60f));   // a closed hole keeps the drops round the player
+    }
+
+    [Fact]
     public void The_far_ring_under_cover_keeps_the_middle_dry()
     {
         var c = new Vector3(5f, 0f, 5f);
