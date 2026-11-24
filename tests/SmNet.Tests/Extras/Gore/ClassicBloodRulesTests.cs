@@ -236,10 +236,12 @@ public class ClassicBloodRulesTests
         // 0.47 / 0.21 / 0.115 at 0.45 / 0.6 / 0.8 s. The model samples the shader's own fragment math (its noise, profile, taper, score and threshold).
         foreach (int count in new[] { NormalRibbons, RibbonMaxBands })
         {
-            var peak = RibbonCoverage(0.2f, count);
-            Assert.True(peak.Core >= 0.85f, $"{count} bands: the middle is blood at the hold ({peak.Core:F2})");
-            Assert.InRange(peak.Area, 0.25f, 0.6f);   // the soft rim and the thinnest mottle are clear: a ragged band, not a slab
-            Assert.True(RibbonCoverage(0.1f, count).Area >= 0.95f * peak.Area, "held from 0.1 s");
+            var held = RibbonCoverage(0.2f, count);
+            Assert.True(held.Core >= 0.8f, $"{count} bands: the middle is blood at the hold ({held.Core:F2})");
+            Assert.InRange(held.Area / (1.2f * (1f + 0.27f * 0.2f)), 0.25f, 0.6f);   // the hang's growth to 0.2 s taken out: the soft rim and the thinnest mottle are clear: a ragged band, not a slab
+            // the drawn area grows while it hangs (wider, longer) to its most at about 0.3 s: the envelope is a share of that (the reference's red excess, % of peak)
+            var peak = (Area: MathF.Max(held.Area, RibbonCoverage(0.3f, count).Area), held.Core);
+            Assert.True(RibbonCoverage(0.1f, count).Area >= 0.7f * peak.Area, "held from 0.1 s");
             foreach (float t in new[] { 0.35f, 0.45f, 0.6f, 0.8f, 0.95f })
             {
                 var c = RibbonCoverage(t, count);

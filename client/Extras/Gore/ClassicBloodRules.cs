@@ -84,10 +84,10 @@ public static class ClassicBloodRules
     public const float RibbonErodeFloor = 0.35f;
     /// <summary>
     /// The power the envelope is raised to for the erosion threshold (ours; repair 3, finding 1; 1 before): the score's spread is narrower than its range, so a threshold straight on the
-    /// envelope cleared the band too late in the middle and too early in the tail; 0.55 makes the covered area follow the envelope (0.47 / 0.21 / 0.115 at 0.45 / 0.6 / 0.8 s).
+    /// envelope cleared the band too late in the middle and too early in the tail; 0.7 makes the drawn area (the hang's growth included) follow the envelope (0.47 / 0.21 / 0.115 at 0.45 / 0.6 / 0.8 s; 0.55 left the measured screen red about 0.1 above it).
     /// The early break-up term of the repair of review 5 (+0.1 x envelope from 0.22 to 0.45 s) is gone: the held band is already mottled.
     /// </summary>
-    public const float RibbonErodeCurve = 0.55f;
+    public const float RibbonErodeCurve = 0.7f;
 
     /// <summary>The erosion threshold at <paramref name="age"/> s (the shader's <c>thr</c>): 1 before contact and after the life (nothing shows), <see cref="RibbonErodeFloor"/> at the hold.</summary>
     public static float RibbonThreshold(float age) => 1f - (1f - RibbonErodeFloor) * MathF.Pow(RibbonEnvelope(age), RibbonErodeCurve);
@@ -170,9 +170,9 @@ public static class ClassicBloodRules
 
     /// <summary>
     /// The engine-free model of a spray's covered area (repair 3, finding 1; the shader's fragment math with its value noise, sampled over a grid of every band's length and width,
-    /// weighted by the band's width there): the share of the bands' geometric area that is blood at <paramref name="age"/> s, and the share of their middles (the inner 35 % across, the
+    /// weighted by the band's width there): the bands' blood area at <paramref name="age"/> s as a share of their geometric area at contact (so including the hang's growth: x(1 + hold) wide, x(1 + 0.27 hold) long, hold = min(age, 0.6)), and the share of their middles (the inner 35 % across, the
     /// inner 35 % of each band's reach) that is. <paramref name="seeds"/> sprays of <paramref name="count"/> sweep bands are averaged. Used by the tests to hold the covered area to the
-    /// envelope; it ignores the anti-aliased rim (a pixel wide) and the hang's growth (which scales the whole band).
+    /// envelope; it ignores the anti-aliased rim (a pixel wide) and the view.
     /// </summary>
     public static (float Area, float Core) RibbonCoverage(float age, int count = NormalRibbons, int seeds = 6, int along = 60, int across = 24)
     {
@@ -208,7 +208,8 @@ public static class ClassicBloodRules
                 }
             }
         }
-        return ((float)(cov / Math.Max(tot, 1e-9)), (float)(ccov / Math.Max(ctot, 1e-9)));
+        float hold = Math.Clamp(age, 0f, 0.6f);
+        return ((float)(cov / Math.Max(tot, 1e-9) * (1f + hold) * (1f + 0.27f * hold)), (float)(ccov / Math.Max(ctot, 1e-9)));
     }
 
     /// <summary>The shader's <c>vnoise</c> (its sine hash, in double precision: the same field up to rounding).</summary>
