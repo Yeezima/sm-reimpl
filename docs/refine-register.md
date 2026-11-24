@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4041 spec table rows: **2980 tagged**, 697 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 839 rows of the changes document.
+Scanned 4042 spec table rows: **2981 tagged**, 697 not tagged (read from data with high confidence), 364 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 839 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 4041 spec table rows: **2980 tagged**, 697 not tagged (read from data wi
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
 | HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
-| Effects (critical) | 111 | 100 | 94 | 44 | 0 |
+| Effects (critical) | 112 | 101 | 95 | 44 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
@@ -53,15 +53,15 @@ Scanned 4041 spec table rows: **2980 tagged**, 697 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 140 | 139 | 54 | 54 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **2980** | 2673 | 2208 | 892 | 37 |
+| **All areas** | **2981** | 2674 | 2209 | 892 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1790 |
+| kind: ours | 1791 |
 | confidence: low | 1068 |
-| confidence: medium | 1029 |
+| confidence: medium | 1030 |
 | notes: ours | 474 |
 | kind: interpretation | 456 |
 | notes: estimate | 286 |
@@ -2339,7 +2339,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B769F750` | On the point | a squad within the point's radius **plus 14 m** counts as on its point (the rows reach past the ring), so it is not sent again (m) | kind: ours; notes: estimate | ours | On the point: compare with SM1 by listening A/B at the same distance and state. Ours: a squad within the point's radius plus 14 m counts as on its point… | ☐ |
 | `R-0EC1CBD6` | Cost of the doubled Guardsmen | `smtool warfront-guards --slot wf_a1 --seconds 60` (Release, real map and graph, the first 60 s after A, B, C are secured, 30 ticks a second, an idle machine): before (`SM_WF_GUARD_OLD=1`) mean **3.05 ms** a tick, p95 3.72, 107 Guardsmen and 960 Orks on… (ms) | kind: ours | measured 2026-11-20 | Cost of the doubled Guardsmen: compare with SM1 by listening A/B at the same distance and state. Ours: smtool warfront-guards --slot wf_a1 --seconds 60 (Release, real map… | ☐ |
 
-### Effects (gameplay-critical) (111)
+### Effects (gameplay-critical) (112)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -2490,16 +2490,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-CDF6E87C` | Trigger | one effect per confirmed damage on another player: a change of his damage mark (protocol 71). A mark on a player a drawn shot hit (own: within 0.8 s, the own prediction runs a round trip ahead; remote: within 0.35 s) is that shot's (gunfire); without one, the… (s) | kind: ours; confidence: medium | brief; windows ours | Trigger: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one effect per confirmed damage on another player: a change of his… | ☐ |
+| `R-CDF6E87C` | Trigger | one effect per confirmed damage on another player: a change of his damage mark (protocol 71). A mark on a player a drawn shot hit (own: within 0.8 s, the own prediction runs a round trip ahead; remote: within 0.35 s) is that shot's (gunfire): each victim… (s) | kind: ours; confidence: medium | brief; windows ours | Trigger: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one effect per confirmed damage on another player: a change of his… | ☐ |
 | `R-AF99DFED` | Remote melee attacker pairing | the mark carries no attacker: among living enemies whose weapon melee attack (not a stomp) was seen active within the window (own 0.8 s, remote 0.35 s), within 3.6 m horizontally and facing within 100 degrees of the victim, the lowest score (distance + 1.5 x… (m, s) | kind: ours; confidence: medium | owner 2026-11-23 (no attacker on the wire); numbers ours | Remote melee attacker pairing: compare with SM1 with side-by-side video of the same action. Ours: the mark carries no attacker: among living enemies whose weapon melee… | ☐ |
 | `R-F6F9A311` | Bull-rush charge connect | a damage mark with an enemy in his bull rush or its collision stop within 2.5 m (or a charge connect this view drew on him within 0.4 s) is that charge's: the directional sparks or spray thrown straight along the charger's velocity during the rush (over 1… (m, s, rad) | confidence: medium; notes: ours | owner 2026-11-24, question card ("Yes, spray charges too"); numbers ours | Bull-rush charge connect: compare with SM1 with side-by-side video of the same action. Ours: a damage mark with an enemy in his bull rush or its collision stop… | ☐ |
 | `R-E3E7339C` | Visual class | armour only (the last armour point broken without health loss included): sparks; health lost with armour left (a weapon whose armour multiplier is 0): blood and sparks; health on bare armour, or armour broken and health hit in the same blow: blood. From the… | kind: ours; confidence: medium | brief | Visual class: compare with SM1 with side-by-side video of the same action. Ours: armour only (the last armour point broken without health loss… | ☐ |
+| `R-A4ADBEDC` | Gunfire sparks by the confirmed class | with the directional look, a shot on another player this view resolved leaves its sparks to its damage mark: yellow-white armour sparks for armour only and for health lost with armour left; none for a bare-armour health hit or a break with health damage… | kind: ours; confidence: medium | brief (armour rule; review of 2b89de15, finding 6); Faithful's red for a break: ours (the brief's blood class in a profile without blood) | Gunfire sparks by the confirmed class: compare with SM1 with side-by-side video of the same action. Ours: with the directional look, a shot on another player this view… | ☐ |
 | `R-4F168B41` | Melee direction and contact | the weapon's head as drawn (60 % from its mesh's centre to the end of its longest side away from the grip; the right hand without one) is recorded every frame from an attack until 0.9 s after; the contact is its closest approach to the victim's body axis (0.9… (m, s) | kind: ours; confidence: medium | brief; numbers ours | Melee direction and contact: compare with SM1 with side-by-side video of the same action. Ours: the weapon's head as drawn (60 % from its mesh's centre to the end of… | ☐ |
-| `R-CC1B7393` | Spray motion | Blood (Extended): 13 soft ribbons and droplets for a normal hit, released from just behind the weapon over 0.2 s of its path after contact (the path fed as the weapon is drawn), each thrown along the weapon's motion there at 0.6 x its speed (3 to 9 m/s) with… (s, m/s, rad) | kind: ours; confidence: low | the reference clip (contact to the plume mostly gone in about 0.8 s); numbers ours | Spray motion: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Blood (Extended): 13 soft ribbons and droplets for a normal hit… | ☐ |
-| `R-C3966E64` | Spray amount | 13 ribbons and droplets for a normal hit, x1.5 heavy, x2.1 lethal (at most 64), slightly larger (x1.08 heavy, x1.15 lethal); sparks 22 (count) | kind: ours; confidence: low | brief ("noticeably bloodier", not an opaque cloud); numbers ours | Spray amount: compare with SM1 with side-by-side video of the same action. Ours: 13 ribbons and droplets for a normal hit, x1.5 heavy, x2.1 lethal (at… | ☐ |
+| `R-CC1B7393` | Spray motion | Blood (Extended; third design, owner answer 4 of 2026-11-24 "Redesign it"): soft ribbons LAID along a curve through the contact and HANGING there, not thrown. The curve: 4 points each side of the contact, each part starting along the weapon's motion at the… (s, m, m/s, rad) | kind: ours; confidence: low | the reference clip measured frame by frame (review of 2b89de15: laid at full reach in a frame, hanging, brightest 0.07 to 0.37 s, strong to about 0.6 s, faint… | Spray motion: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Blood (Extended; third design, owner answer 4 of 2026-11-24 "Redesign… | ☐ |
+| `R-C3966E64` | Spray amount | blood: 7 ribbons for a normal hit, x1.5 heavy (11), x2.1 lethal (15; at most 16), x(1 + 0.12 (amount - 1)) wider and x(1 + 0.1 (amount - 1)) longer; additive, so denser without an opaque cloud. Sparks 22 (count) | kind: ours; confidence: low | brief ("noticeably bloodier", not an opaque cloud); numbers ours | Spray amount: compare with SM1 with side-by-side video of the same action. Ours: blood: 7 ribbons for a normal hit, x1.5 heavy (11), x2.1 lethal (15… | ☐ |
 | `R-DB0C708D` | Colours | blood: today's Classic health-hit red (1, 0.12, 0.08), additive like the red sparks it replaces (Extended); sparks: yellow-white (1, 0.82, 0.5), additive (rgb) | kind: ours; confidence: medium | brief (keep the current blood colour); spark colour ours | Colours: compare with SM1 with side-by-side video of the same action. Ours: blood: today's Classic health-hit red (1, 0.12, 0.08), additive like… | ☐ |
-| `R-04C4FB06` | Fatal headshot wall decal (Extended) | a lethal gunfire head hit (the mark kills, the paired shot was a head hit) paired with the server's headshot kill (within 1 s, either order): the shot's line extended from the head contact; the first surface within 6.5 m (the level, or another living player's… (m) | kind: ours; confidence: medium | brief (5 m); wall slope and search margin ours | Fatal headshot wall decal (Extended): compare with SM1 by measuring on a flat spot of the same map. Ours: a lethal gunfire head hit (the mark kills, the paired shot was a head… | ☐ |
-| `R-AF1DBAA8` | Decal look (Extended) | a code-made splash (never a texture from the reference): a large ragged near-black core of 4 to 7 blobs, 3 to 9 long tapered lobes reaching 0.2 to 0.45 of the square and bending a little, 20 to 45 satellite droplets of mixed sizes stretched along their… (m, s) | kind: ours; confidence: low | the reference image (shape only); numbers ours | Decal look (Extended): compare with SM1 with side-by-side video of the same action. Ours: a code-made splash (never a texture from the reference): a large… | ☐ |
+| `R-04C4FB06` | Fatal headshot wall decal (Extended) | a lethal gunfire head hit (the mark kills, the paired shot was a head hit) paired with the server's headshot kill (within 1 s, either order; when the lethal mark found no head shot of its own, the killer's latest drawn head hit on the victim within 1 s gives… (m) | kind: ours; confidence: medium | brief (5 m); wall slope and search margin ours | Fatal headshot wall decal (Extended): compare with SM1 by measuring on a flat spot of the same map. Ours: a lethal gunfire head hit (the mark kills, the paired shot was a head… | ☐ |
+| `R-AF1DBAA8` | Decal look (Extended) | a code-made splash (never a texture from the reference; third design after the review of 2b89de15): the outline is a noise field, not round blobs: a core of radius 0.14 to 0.18 of the square whose radius follows 4 to 9 uneven lobes (one or two long, 0.14 to… (m, s) | kind: ours; confidence: low | the reference image (shape only); numbers ours | Decal look (Extended): compare with SM1 with side-by-side video of the same action. Ours: a code-made splash (never a texture from the reference; third design… | ☐ |
 | `R-E7FDDB11` | Cost | CPU: the trail recording and pairing, timed per frame (the effects log line `hit dir: ... cpu`, printed with `--frame-profile` or a bot); GPU: one draw call per live spray (pool of 32, 64 quads each), no particles. The pool and its shader are made on the… (ms) | confidence: medium; notes: estimate | live measurement (rough: shared PC) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: CPU: the trail recording and pairing, timed per frame (the effects… | ☐ |
 
 ### Game modes (46)
