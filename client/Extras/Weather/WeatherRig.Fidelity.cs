@@ -46,7 +46,8 @@ public sealed partial class WeatherRig
     /// <summary>Once a frame, after the layers took their colours: the sprites (when they arrive or a layer is new), the shader tier, the light.</summary>
     void ApplyFidelity()
     {
-        bool high = WeatherField.HighTier;
+        bool old = WeatherSprites.Procedural;   // --weather-procedural: the rain-motion look whole (no sprite, no tier, no light)
+        bool high = !old && WeatherField.HighTier;
         int version = WeatherSprites.Procedural ? -2 : WeatherSprites.Version;
         bool fresh = version != _spriteVersion || high != _tier || _layersSeen != LayerMask();
         if (fresh)
@@ -63,7 +64,7 @@ public sealed partial class WeatherRig
             Sprite(_dustMaterial, _dust, WeatherSprites.Role.Volume, FogPuff(), angle: 0f);
             UsesSprites = ash is not null || WeatherSprites.Of(WeatherSprites.Role.Volume) is not null;
         }
-        float light = LightNow(), rainLight = 1f + (light - 1f) * RainLightShare;
+        float light = old ? 1f : LightNow(), rainLight = 1f + (light - 1f) * RainLightShare;
         Scale(_rainMaterial, rainLight); Scale(_rainFarMaterial, rainLight);
         Scale(_ashMainMaterial, light); Scale(_ashWarnMaterial, light);
         Scale(_splashMaterial, rainLight); Scale(_mistMaterial, light); Scale(_fogMaterial, light); Scale(_dustMaterial, light);
