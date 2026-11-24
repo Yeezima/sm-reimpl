@@ -43,13 +43,49 @@ public static class WeatherFieldWrap
         }
     }
 
-    /// <summary>The far rain's ring under cover: 0 within <paramref name="holeM"/> of the centre (horizontally), 1 from 2 m further, and 0 again beyond <paramref name="ringM"/>; a hole of 0 or less keeps every drop.</summary>
+    /// <summary>
+    /// The far rain's ring under cover: 0 within 2 m short of <paramref name="holeM"/> of the centre (horizontally), 1 from <paramref name="holeM"/>, and 0 again beyond <paramref name="ringM"/> (from 2 m short of it). A hole of 0 and a ring
+    /// past the box's corners keep every drop, so the rig eases both radii (<see cref="Ease"/>) instead of switching the ring on and off.
+    /// </summary>
     public static float HoleFade(Vector3 at, Vector3 centre, float holeM, float ringM)
     {
-        if (!(holeM > 0)) return 1f;
         float r = MathF.Sqrt((at.X - centre.X) * (at.X - centre.X) + (at.Z - centre.Z) * (at.Z - centre.Z));
-        return SmoothStep(holeM, holeM + 2f, r) * (1f - SmoothStep(ringM - 2f, ringM, r));
+        return SmoothStep(holeM - 2f, holeM, r) * (1f - SmoothStep(ringM - 2f, ringM, r));
     }
+
+    /// <summary>The seconds a field takes to fade fully in or out when it is switched, and a hole or ring radius to move from one value to the other (repair: no layer or ring pops).</summary>
+    public const double FadeSeconds = 0.5;
+
+    /// <summary><paramref name="now"/> moved toward <paramref name="target"/> by at most <paramref name="span"/> x dt / <see cref="FadeSeconds"/> (a full change takes <see cref="FadeSeconds"/>).</summary>
+    public static float Ease(float now, float target, float span, double dt)
+    {
+        if (!(dt > 0) || !double.IsFinite(dt)) return now;
+        float step = (float)(Math.Abs(span) * Math.Min(dt, 0.25) / FadeSeconds);
+        if (Math.Abs(target - now) <= step + 1e-5f) return target;   // lands exactly (no float residue keeps a fade alive)
+        return now < target ? Math.Min(target, now + step) : Math.Max(target, now - step);
+    }
+
+    /// <summary>
+    /// Repair: drift groups for the soft flakes and the embers (a field moving as one reads as a rigid sheet). A drop's group scales the layer's velocity by <see cref="GroupSpeed"/> and turns it about the vertical by <see cref="GroupYawDeg"/>;
+    /// each group has its own drift, so the wrap stays exact. The speeds average 1.
+    /// </summary>
+    public static readonly float[] GroupSpeed = { 0.82f, 0.94f, 1.06f, 1.18f };
+    public static readonly float[] GroupYawDeg = { -8f, 5f, -3f, 9f };
+    public const int Groups = 4;
+
+    /// <summary>The velocity of group <paramref name="g"/> for the layer's <paramref name="v"/>.</summary>
+    public static Vector3 GroupVelocity(Vector3 v, int g)
+    {
+        g = Math.Clamp(g, 0, Groups - 1);
+        float a = GroupYawDeg[g] * MathF.PI / 180f, c = MathF.Cos(a), s = MathF.Sin(a);
+        return new Vector3(v.X * c - v.Z * s, v.Y, v.X * s + v.Z * c) * GroupSpeed[g];
+    }
+
+    /// <summary>
+    /// The soft flakes' near-density share (repair): the old emitter put a drop's 3 s life into a 24 m box, so at wind speeds over 8 m/s only part of a life's flakes were round the player at once; the field shows every drop, so it
+    /// draws this share of them to keep the old density: min(1, box / (speed x life)).
+    /// </summary>
+    public static float EmitterShare(float boxM, float speed, float lifeSeconds) => speed * lifeSeconds > boxM && speed > 0 ? boxM / (speed * lifeSeconds) : 1f;
 
     static float Mod(double v, float size) => size > 0 ? (float)(v - Math.Floor(v / size) * size) : 0f;
 

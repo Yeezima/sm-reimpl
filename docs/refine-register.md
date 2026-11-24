@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4094 spec table rows: **3025 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4099 spec table rows: **3031 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 422 | 363 | 359 | 116 | 12 |
+| Movement (critical) | 423 | 363 | 360 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -51,20 +51,20 @@ Scanned 4094 spec table rows: **3025 tagged**, 701 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 175 | 174 | 57 | 78 | 0 |
+| General game design | 180 | 179 | 57 | 82 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3025** | 2717 | 2216 | 918 | 37 |
+| **All areas** | **3031** | 2722 | 2217 | 922 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1833 |
+| kind: ours | 1838 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
+| confidence: medium | 1038 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
-| notes: estimate | 311 |
+| notes: estimate | 315 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (422)
+### Movement (gameplay-critical) (423)
 
 *Spec section: Extracted parameters*
 
@@ -850,6 +850,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-788A9538` | Wrapped precipitation field (supersedes "Rain coverage at speed" for the rain, and the emitters of… | each layer is a fixed set of drops (seeded, uniform in its box) at world points that repeat every box on each axis; each frame the field moves by its velocity times the real frame (at most 0.25 s), and each drop is drawn at its copy inside the box centred on… (m, s) | kind: ours; notes: estimate | the owner's report; the method ours | Wrapped precipitation field (supersedes "Rain coverage at…: compare with SM1 by feel or video. Ours: each layer is a fixed set of drops (seeded, uniform in its box) at… | ☐ |
+| `R-85EC4E06` | Density after (same map, aid and script; computed, not read back from the renderer) | near drops within 8 m: standing about 160; 20 m/s sideways 141 to 175; 15 m/s up 133 to 157; 15 m/s down 158 to 177; 30 m/s down 178 to 191; jump-pack path 138 to 185; Ash Squall grit about 480 standing (446 to 512), 454 to 506 in every motion (before: 7 to… (count) | confidence: medium | this branch's runs | Density after (same map, aid and script; computed, not read…: compare with SM1 by timing a run over a known distance. Ours: near drops within 8 m: standing about 160; 20 m/s sideways 141 to… | ☐ |
 
 ### Combat core (gameplay-critical) (24)
 
@@ -4322,7 +4323,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (175)
+### General game design (180)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4535,10 +4536,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-EFB43871` | Rain fields | near: box 24 x 24 x 24 m centred 1 m over the camera (13 m over to 11 m under, the column the old near drops fell through), falling at 25 m/s along the wind's lean; far: 80 x 28 x 80 m centred 2 m over (16 m over to 12 m under), 23 m/s (the means of the old… (m, m/s) | kind: ours; notes: estimate | the old emitters' columns | Rain fields: compare with SM1 by timing a run over a known distance. Ours: near: box 24 x 24 x 24 m centred 1 m over the camera (13 m over to 11… | ☐ |
-| `R-A6C1EDCB` | Far ring under cover | the W4 ring (no far drop within 14 m of the player, none beyond 44 m) is the far field's own fade in the shader (a 2 m soft edge each side) instead of a ring emitter (m) | kind: ours; notes: estimate | W4 values kept | Far ring under cover: compare with SM1 by measuring on a flat spot of the same map. Ours: the W4 ring (no far drop within 14 m of the player, none beyond 44 m)… | ☐ |
+| `R-A6C1EDCB` | Far ring under cover | the W4 ring (no far drop within 14 m of the player, none beyond 44 m) is the far field's own fade in the shader (a 2 m soft edge each side) instead of a ring emitter; its radii ease (row "Repair: far ring eases") (m) | kind: ours; notes: estimate | W4 values kept | Far ring under cover: compare with SM1 by measuring on a flat spot of the same map. Ours: the W4 ring (no far drop within 14 m of the player, none beyond 44 m)… | ☐ |
 | `R-4B922451` | Ash Squall grit field (supersedes the band of "Repair 2: Ash Squall grit") | box 27 x 4.4 x 27 m centred 0.2 m under the camera (the old band was 22 m wide, but only about 0.6 of a life's grains were beside the player at once; (22 / 27)^2 = 0.66 keeps that density with every grain shown), moving along the wind at (8 + 10 x wind) m/s… (m, m/s) | kind: ours; notes: estimate | repair 2's look kept | Ash Squall grit field (supersedes the band of "Repair 2:…: compare with SM1 by timing a run over a known distance. Ours: box 27 x 4.4 x 27 m centred 0.2 m under the camera (the old band was… | ☐ |
-| `R-BEDCF48B` | Soft flakes and embers | flakes: the old 24 x 6 x 24 m box centred 0.5 m over the camera, along the wind at 0.93 x (4 + 8 x wind) m/s and sinking 0.5 m/s; embers: the old 44 x 10 x 44 m box centred 1.5 m over, at (2.5 + 4 x wind) m/s along the wind leaned up 0.25 plus 0.5 m/s lift… (m, m/s, s) | kind: ours; notes: estimate | the old emitters | Soft flakes and embers: compare with SM1 by timing a run over a known distance. Ours: flakes: the old 24 x 6 x 24 m box centred 0.5 m over the camera… | ☐ |
+| `R-BEDCF48B` | Soft flakes and embers | flakes: the old 24 x 6 x 24 m box centred 0.5 m over the camera, along the wind at 0.925 x (4 + 8 x wind) m/s (the old emitter's mean) and sinking 0.5 m/s; embers: the old 44 x 10 x 44 m box centred 1.5 m over, at (2.5 + 4 x wind) m/s along the wind leaned up… (m, m/s, s) | kind: ours; notes: estimate | the old emitters | Soft flakes and embers: compare with SM1 by timing a run over a known distance. Ours: flakes: the old 24 x 6 x 24 m box centred 0.5 m over the camera… | ☐ |
 | `R-38CAC2DB` | Splashes and mist | unchanged CPU emitters on the ground under the player (the splashes keep their 0.15 s lead on the camera's ground velocity; the series 36 velocity tracking now serves only them) | kind: ours | - | Splashes and mist: compare with SM1 by feel or video. Ours: unchanged CPU emitters on the ground under the player (the splashes… | ☐ |
+| `R-2C60214D` | Repair: no popping on a switch | a field switched on or off (a preset change, cover, the grit's or embers' on/off) fades all its drops in or out over 0.5 s of real time while it keeps moving, and the node hides only at 0; the rig stays alive while a field fades (s) | kind: ours; notes: estimate | lead review of 74f3de76 (owner's "no popping") | Repair: no popping on a switch: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a field switched on or off (a preset change, cover, the grit's or… | ☐ |
+| `R-F2C63988` | Repair: far ring eases | the far field's hole (0 to 14 m) and ring (60 m, beyond the box's corners, to 44 m) radii move over 0.5 s instead of switching; a drop fades over the 2 m inside the hole's radius and the 2 m inside the ring's (m, s) | kind: ours; notes: estimate | same review | Repair: far ring eases: compare with SM1 by feel or video. Ours: the far field's hole (0 to 14 m) and ring (60 m, beyond the box's… | ☐ |
+| `R-0A44DFC6` | Repair: field time | the fields move on microsecond frame time (`Time.GetTicksUsec`, a step at most 0.25 s), not the millisecond clock the bed fades use (16 and 17 ms steps alternating at 60 fps) (s) | kind: ours | same review | Repair: field time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the fields move on microsecond frame time (Time.GetTicksUsec, a step… | ☐ |
+| `R-269CFEA9` | Repair: flake and ember drift groups | the soft flakes and the embers move in 4 groups (every 4th drop): speed x 0.82, 0.94, 1.06, 1.18 and turned -8, +5, -3, +9 degrees about the vertical, each group with its own drift, so the wrap stays exact and the layer no longer moves as one sheet (-, degrees) | kind: ours; notes: estimate | same review | Repair: flake and ember drift groups: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the soft flakes and the embers move in 4 groups (every 4th drop):… | ☐ |
+| `R-DF84E265` | Repair: flake near density | the flakes show min(1, 24 / (speed x 3)) of their drops, speed = 0.925 x (4 + 8 x wind) m/s (the old emitter's 3 s flakes left its 24 m box at high wind, so it kept that share near the player; about 0.72 at full wind, 1 at the lull); the rest fade over a soft… (share) | kind: ours; notes: estimate | same review (the repair 2 "blurred orb" complaint) | Repair: flake near density: compare with SM1 by feel or video. Ours: the flakes show min(1, 24 / (speed x 3)) of their drops, speed =… | ☐ |
 
 *Spec section: Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22)*
 

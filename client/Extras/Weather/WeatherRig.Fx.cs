@@ -57,7 +57,6 @@ public sealed partial class WeatherRig
             {
                 float speed = 2.5f + 4f * wind;
                 _embers.Velocity = (windDir + Vector3.Up * 0.25f).Normalized() * speed + Vector3.Up * 0.5f;   // the old emitter's direction and speed, and half a second of its 0.25 m/s2 lift
-                _embers.Advance(RealDt);
                 _emberMaterial?.SetShaderParameter("tint", new Color(1f, 0.62f, 0.25f, (0.55f + 0.45f * ember) * near));
             }
         }
@@ -186,7 +185,6 @@ public sealed partial class WeatherRig
         float speed = 8f + 10f * wind;   // a squall's grit outruns the flakes
         var dir = new Vector3(windDir.X, -0.04f, windDir.Z);
         _ashMain.Velocity = dir.Normalized() * speed - new Vector3(0f, 0.5f, 0f);   // along the wind, sinking a little (the old emitter's 0.5 m/s2 over its life)
-        _ashMain.Advance(RealDt);
         SetStreak(_ashMainMaterial, dir, new Color(AshR, AshG, AshB), (0.38f + 0.37f * Math.Clamp(share, 0f, 1f)) * nearAlpha);
     }
 
@@ -196,10 +194,12 @@ public sealed partial class WeatherRig
     /// <summary>Rain motion (series 37): the soft flakes' and the embers' wrapped boxes round the camera (m, full size; the old emitters' boxes) and their middles' heights over the camera (m).</summary>
     public static readonly Vector3 FlakeBox = new(24f, 6f, 24f), EmberBox = new(44f, 10f, 44f);
     public const float FlakeMidM = 0.5f, EmberMidM = 1.5f;
+    /// <summary>Repair: the old flake emitter's life (s), which sets the share of flakes it kept near the player (<see cref="WeatherFieldWrap.EmitterShare"/>).</summary>
+    public const float FlakeLifeSeconds = 3f;
 
     WeatherField BuildFlakes(int amount)
     {
-        var p = new WeatherField("AshWarning", WeatherField.Kind.Dot, Capacity(AshCount / 5, AshWarnFloor), amount, FlakeBox, new Vector2(AshFleckM, AshFleckM), 0.5f, 1.5f, AshNearFadeM, AshNearFullM, 0x6A12)
+        var p = new WeatherField("AshWarning", WeatherField.Kind.Dot, Capacity(AshCount / 5, AshWarnFloor), amount, FlakeBox, new Vector2(AshFleckM, AshFleckM), 0.5f, 1.5f, AshNearFadeM, AshNearFullM, 0x6A12, grouped: true)
         { Position = new Vector3(0f, FlakeMidM, 0f) };
         p.Material.SetShaderParameter("tint", new Color(AshR, AshG, AshB, 0.7f));
         AddChild(p);
@@ -212,14 +212,14 @@ public sealed partial class WeatherRig
         _ashWarn.Emitting = on;
         if (!on) return;
         float speed = 4f + 8f * wind;
-        _ashWarn.Velocity = new Vector3(windDir.X, -0.02f, windDir.Z).Normalized() * (speed * 0.93f) - new Vector3(0f, 0.5f, 0f);   // the old emitter's mean speed (0.7 to 1.15 of it) and its slow sink
-        _ashWarn.Advance(RealDt);
+        _ashWarn.Velocity = new Vector3(windDir.X, -0.02f, windDir.Z).Normalized() * (speed * 0.925f) - new Vector3(0f, 0.5f, 0f);   // the old emitter's mean speed (0.7 to 1.15 of it) and its slow sink
         _ashWarnMaterial?.SetShaderParameter("tint", new Color(AshR, AshG, AshB, (0.5f + 0.35f * Math.Clamp(share, 0f, 1f)) * nearAlpha));
+        _ashWarn.Keep = WeatherFieldWrap.EmitterShare(FlakeBox.X, speed * 0.925f, FlakeLifeSeconds);   // repair: the old emitter's near density at any wind (its 3 s flakes left the 24 m box at high wind; the field shows every drop)
     }
 
     WeatherField BuildEmbers()
     {
-        var p = new WeatherField("Embers", WeatherField.Kind.Ember, Capacity(EmberCount, EmberFloor), Count(EmberCount, EmberFloor), EmberBox, new Vector2(0.16f, 0.16f), 0.5f, 1.4f, 0.01f, 0f, 0x6A13)   // sparse on purpose: about 4 in 100 m3 at High
+        var p = new WeatherField("Embers", WeatherField.Kind.Ember, Capacity(EmberCount, EmberFloor), Count(EmberCount, EmberFloor), EmberBox, new Vector2(0.16f, 0.16f), 0.5f, 1.4f, 0.01f, 0f, 0x6A13, grouped: true)   // sparse on purpose: about 4 in 100 m3 at High
         { Position = new Vector3(0f, EmberMidM, 0f) };
         p.Material.SetShaderParameter("tint", new Color(1f, 0.62f, 0.25f, 0.8f));
         AddChild(p);

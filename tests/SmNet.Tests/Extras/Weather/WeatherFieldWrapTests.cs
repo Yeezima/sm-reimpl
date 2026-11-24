@@ -114,6 +114,61 @@ public class WeatherFieldWrapTests
     }
 
     [Fact]
+    public void A_switch_or_a_ring_change_eases_over_half_a_second_never_at_once()
+    {
+        float level = 1f;
+        level = WeatherFieldWrap.Ease(level, 0f, 1f, 0.1);
+        Assert.Equal(0.8f, level, 4);
+        for (int i = 0; i < 4; i++) level = WeatherFieldWrap.Ease(level, 0f, 1f, 0.1);
+        Assert.Equal(0f, level);
+        float hole = WeatherFieldWrap.Ease(0f, 14f, 14f, 1.0 / 60);
+        Assert.InRange(hole, 0.4f, 0.5f);   // 28 m/s
+        Assert.Equal(14f, WeatherFieldWrap.Ease(13.9f, 14f, 14f, 0.1));   // never past the target
+        Assert.Equal(3f, WeatherFieldWrap.Ease(3f, 14f, 14f, double.NaN));
+        Assert.Equal(1f - 0.25f / 0.5f, WeatherFieldWrap.Ease(1f, 0f, 1f, 10.0), 4);   // a stall moves it at most a quarter second's worth
+    }
+
+    [Fact]
+    public void Drift_groups_differ_average_the_layers_speed_and_keep_the_density_round_a_moving_camera()
+    {
+        var v = new Vector3(10f, -0.5f, 0f);
+        var sum = Vector3.Zero;
+        for (int g = 0; g < WeatherFieldWrap.Groups; g++)
+        {
+            var gv = WeatherFieldWrap.GroupVelocity(v, g);
+            Assert.NotEqual(v, gv);
+            sum += gv;
+        }
+        Assert.InRange((sum / WeatherFieldWrap.Groups - v).Length(), 0f, 0.3f);   // the mean motion is the layer's within 3 % (the yaw spread of at most 9 degrees)
+
+        var box = new Vector3(24f, 6f, 24f);
+        var seeds = Seeds(1200, 11);
+        var drifts = new Vector3[WeatherFieldWrap.Groups];
+        var camera = Vector3.Zero;
+        float expected = seeds.Length * (4f / 3f * MathF.PI * 27f) / (box.X * box.Y * box.Z);   // a 3 m sphere
+        for (int f = 0; f < 120; f++)
+        {
+            for (int g = 0; g < drifts.Length; g++) drifts[g] = WeatherFieldWrap.Advance(drifts[g], WeatherFieldWrap.GroupVelocity(v, g), 1.0 / 60, box);
+            camera += new Vector3(0.3f, -0.5f, 0.1f);   // 18 m/s sideways, 30 m/s down
+            int n = 0;
+            for (int i = 0; i < seeds.Length; i++)
+            {
+                var at = WeatherFieldWrap.Place(seeds[i], box, drifts[i % WeatherFieldWrap.Groups], camera);
+                if (Vector3.Distance(at, camera) <= 3f) n++;
+            }
+            Assert.InRange(n, expected * 0.5f, expected * 1.6f);
+        }
+    }
+
+    [Fact]
+    public void The_flakes_keep_the_old_emitters_share_at_high_wind()
+    {
+        Assert.Equal(1f, WeatherFieldWrap.EmitterShare(24f, 7.4f, 3f));            // a lull's wind: the old flakes stayed in the box
+        Assert.Equal(24f / (12f * 0.925f * 3f), WeatherFieldWrap.EmitterShare(24f, 12f * 0.925f, 3f), 4);   // full wind: about 0.72
+        Assert.Equal(1f, WeatherFieldWrap.EmitterShare(24f, 0f, 3f));
+    }
+
+    [Fact]
     public void The_far_ring_under_cover_keeps_the_middle_dry()
     {
         var c = new Vector3(5f, 0f, 5f);

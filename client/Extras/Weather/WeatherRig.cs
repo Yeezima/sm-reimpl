@@ -7,15 +7,15 @@ namespace SmClient.Extras.Weather;
 /// <summary>
 /// The weather's own things in the world (weather W1 and W2; client only, presentation only, **ours**): falling rain around the camera (Rain and the Thunderstorm), drifting ash (Ash Squall), sparse embers (Ember Wind), a
 /// faint sky-only glow for thunder (reduced flash by default; the full-flash setting adds a brighter pulse), and their sounds, all made in code (filtered noise: no sample, no original file; the install's own sounds are posted by the
-/// networked view). Particles are CPU particles in every renderer, cut to a third in the Compatibility renderer and in safe mode, to a quarter with the lighting preset off. Loudness is capped (spec "Weather (W2)"): rain at most -22 dB,
+/// networked view). Rain, grit, flakes and embers are world fields wrapped round the camera (<see cref="WeatherField"/>, series 37), splashes, mist, fog cards and dust CPU particles; all counts scale with the graphics preset (a third in safe mode, a quarter with the lighting preset off). Loudness is capped (spec "Weather (W2)"): rain at most -22 dB,
 /// wind at most <see cref="WindLoudestDb"/>, thunder at most <see cref="NearThunderDb"/>, so gunfire, Waaagh, rockets and the beacon stay audible. Built when a look needs it and freed when it ends: no weather leaves a node or a sound behind (the weather bus goes with the last rig).
 /// <para>W4: <see cref="SetShelter"/> (the view's upward rays, smoothed by <see cref="WeatherShelter"/>) fades the near layers out under cover and keeps the far layer only outside a hole round the player, and slides the weather bus's low-pass to the muffled indoor mix (<see cref="WeatherShelterMix"/>); <see cref="StepTrim"/> (<see cref="WeatherTrim"/>) quietly lowers the particle counts when frames run long.</para>
 /// <para>Rain is four layers (W2 pass 2, the owner: "thicker and more believable"): a dense near layer, a farther thinner layer, splashes on the ground round the player and a little low mist. Counts at the High preset:
-/// <see cref="RainNearCount"/> + <see cref="RainFarCount"/> + <see cref="SplashCount"/> + <see cref="MistCount"/> CPU particles; all of them scale by <see cref="QualityScale"/>.</para>
+/// <see cref="RainNearCount"/> + <see cref="RainFarCount"/> drops in the two rain fields and <see cref="SplashCount"/> + <see cref="MistCount"/> CPU particles; all of them scale by <see cref="QualityScale"/>.</para>
 /// </summary>
 public sealed partial class WeatherRig : Node3D
 {
-    /// <summary>Rain streaks in the near layer (a 24 m box, falling 22 to 28 m/s), in the far layer (an 80 m box, thinner and fainter), ground splashes and mist puffs, each at the High lighting preset; the others scale them.</summary>
+    /// <summary>Rain streaks in the near field (a 24 m box, falling 25 m/s), in the far field (an 80 m box, 23 m/s, thinner and fainter), ground splashes and mist puffs, each at the High lighting preset; the others scale them.</summary>
     public const int RainNearCount = 1300, RainFarCount = 600, SplashCount = 260, MistCount = 28;
     /// <summary>The loudest the rain hiss gets, in dB, at the peak of Rain.</summary>
     public const float LoudestDb = -22f, SilentDb = -60f;
@@ -120,6 +120,9 @@ public sealed partial class WeatherRig : Node3D
     {
         GlobalPosition = cameraAt;
         _realDt = _frameDt.Step((long)Time.GetTicksMsec());   // repair 3 (review): sampled every update, fade or not
+        ulong usec = Time.GetTicksUsec();   // rain motion repair: the fields move on microsecond time (the millisecond clock alternates 16 and 17 ms steps at 60 fps)
+        _fieldDt = _fieldUsec == 0 || usec < _fieldUsec ? 0 : Math.Min(0.25, (usec - _fieldUsec) / 1e6);
+        _fieldUsec = usec;
         TrackVelocity(leadFrom ?? cameraAt);   // repair 3 (review): the player's own place when the view gives it, so a third-person camera whip does not shift the emission; the camera otherwise
         float i = Math.Clamp(float.IsFinite(intensity) ? intensity : 0f, 0f, 1f);
         float wind = WeatherPlan.Wind(st.Id, i, st.Elapsed);
@@ -136,11 +139,11 @@ public sealed partial class WeatherRig : Node3D
             var dir = new Vector3(MathF.Cos(yaw) * slant, -1f, MathF.Sin(yaw) * slant);
             // rain motion (series 37): the drops are fixed world points of a field wrapped round the camera (WeatherField); it falls at the drops' speed along the wind's lean, so no camera speed or direction outruns it
             var fall = dir.Normalized();
-            _rain.Emitting = nearOn; _rain.Velocity = fall * NearFallSpeed; _rain.Advance(RealDt);
+            _rain.Emitting = nearOn; _rain.Velocity = fall * NearFallSpeed;
             var lead = LeadVelocity;   // the splashes' lead only
             if (_rainFar is not null)
             {
-                _rainFar.Emitting = rain; _rainFar.Velocity = fall * FarFallSpeed; _rainFar.Advance(RealDt); FarHole();
+                _rainFar.Emitting = rain; _rainFar.Velocity = fall * FarFallSpeed; FarHole();
             }
             // the streaks' strength follows the phase; a heavier fall draws a little brighter; the colour leans toward the scene's own haze so the rain belongs to the map's light
             var haze = SceneHaze();
@@ -180,10 +183,26 @@ public sealed partial class WeatherRig : Node3D
         UpdateFog(st, i, cameraAt, groundY);
         UpdateDust(st, i, wind, cameraAt, groundY);
         UpdateSky(st, i, wind);
+        foreach (var f in Fields()) f?.Advance(_fieldDt);   // every field every frame: its motion, its switch's fade, the far ring's radii
+    }
+
+    ulong _fieldUsec;
+    double _fieldDt;
+
+    /// <summary>The precipitation fields (any not built yet are null).</summary>
+    WeatherField?[] Fields() => new[] { _rain, _rainFar, _ashMain, _ashWarn, _embers };
+
+    /// <summary>Test seam (selftest): every field's fade and ease ends at once.</summary>
+    public void SettleFields() { foreach (var f in Fields()) f?.Settle(); }
+
+    /// <summary>A field is still fading in or out (the rig stays until its drops have faded).</summary>
+    public bool FieldsFading
+    {
+        get { foreach (var f in Fields()) if (f is { Fading: true }) return true; return false; }
     }
 
     /// <summary>Anything of the rig is showing or sounding (the view keeps the rig while this holds).</summary>
-    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing || BedsFading;
+    public bool Active => Raining || FxActive || Fogging || Dusting || SkyShowing || BedsFading || FieldsFading;
 
     // ---- repair 2: the beds' fades and the level aid ----
 
@@ -207,7 +226,7 @@ public sealed partial class WeatherRig : Node3D
         bool hole = _farHole ? Shelter > 0.2f : Shelter > WeatherShelterMix.HoleAbove;
         if (hole == _farHole) return;
         _farHole = hole;
-        _rainFar.SetHole(hole ? WeatherShelterMix.FarHoleRadiusM : 0f, FarRingM);   // rain motion: the ring is the field's own dry middle, drawn in the shader (the same 14 m hole, out to 44 m)
+        _rainFar.SetHole(hole ? WeatherShelterMix.FarHoleRadiusM : 0f, hole ? FarRingM : WeatherField.RingOff);   // rain motion: the ring is the field's own dry middle, drawn in the shader (the same 14 m hole, out to 44 m), its radii easing over 0.5 s
     }
 
     /// <summary>The far layer's ring under cover reaches this far (m) from the player, as the W4 ring emitter did.</summary>

@@ -244,6 +244,9 @@ public sealed partial class WeatherSelfTest : Node
             var fast = new WeatherRig(); anchor.AddChild(fast);
             var rainAt = WeatherClock.At(WeatherId.Rain, 130);
             fast.Update(rainAt, 1f, Vector3.Zero);
+            var nfield = fast.GetNodeOrNull<WeatherField>("Rain");
+            Check("rain motion repair: a field switched on fades in (hidden at first, not popped in)", nfield is { Emitting: true, Visible: false, Level: 0f });
+            fast.SettleFields();
             int rest = fast.DensityAround().Near, lo = int.MaxValue, hi = 0;
             foreach (var at in new[] { new Vector3(3.3f, 0f, 0f), new Vector3(9.1f, -5.5f, 0.4f), new Vector3(9.1f, -17f, 2f), new Vector3(30f, 12f, -7f), new Vector3(-41f, 18f, 63f), new Vector3(-41.5f, 1.2f, 63f) })   // sideways at 20 m/s, a fall at 33 m/s, a jump-pack lift-off, far jumps
             {
@@ -253,6 +256,14 @@ public sealed partial class WeatherSelfTest : Node
             }
             Check("rain motion: the near drops within 8 m of the camera stay as many wherever and however fast it moves (within 30 % of standing)", rest > 40 && lo >= rest * 0.7f && hi <= rest * 1.3f, $"{rest}: {lo}..{hi}");
             Check("rain motion: the rain field sits round the camera (13 m over it, 11 m under it), not ahead of it", fast.GetNodeOrNull<WeatherField>("Rain") is { } nf && nf.Position.IsEqualApprox(new Vector3(0f, WeatherRig.NearCentreM, 0f)) && Math.Abs(nf.Box.Y * 0.5f + WeatherRig.NearCentreM - 13f) < 0.01f);
+            if (nfield is not null)
+            {
+                nfield.Emitting = false; nfield.Advance(0.1);
+                bool fadingOut = nfield.Visible && nfield.Level > 0.7f && nfield.Level < 0.9f && fast.FieldsFading && fast.Active;
+                nfield.Advance(0.25); nfield.Advance(0.25);
+                Check("rain motion repair: a field switched off fades over 0.5 s (still drawn, the rig kept), then hides", fadingOut && !nfield.Visible && nfield.Level == 0f, $"{nfield.Level}");
+                nfield.Emitting = true; nfield.Settle();
+            }
             fast.Update(rainAt, 1f, Vector3.Zero);
             float alphaFull = fast.RainAlpha;
             var rainLull = WeatherClock.At(WeatherId.Rain, 45);   // the opening's end: the lull
@@ -301,7 +312,7 @@ public sealed partial class WeatherSelfTest : Node
         sh.SetShelter(1f, false);
         sh.Update(shStorm, 1f, Vector3.Zero);
         Check("sheltered: the near rain, splashes and mist have stopped", shRain is { Emitting: false } && shSplash is { Emitting: false } && shMist is { Emitting: false } && !sh.Splashing);
-        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true } && sh.FarHoleOn && Math.Abs(shFar.HoleM - WeatherShelterMix.FarHoleRadiusM) < 0.01f);
+        Check("sheltered: the far layer keeps raining outside a hole round the player, fainter", shFar is { Emitting: true } && sh.FarHoleOn && Math.Abs(shFar.HoleM - WeatherShelterMix.FarHoleRadiusM) < 0.01f && shFar.HoleNowM < WeatherShelterMix.FarHoleRadiusM - 1f, $"hole now {shFar?.HoleNowM}");   // repair: the hole eases open over 0.5 s (not yet, in the same frame)
         Check("sheltered: the weather bus is low-passed to the muffled cutoff", Math.Abs(sh.BusCutoffHz - WeatherShelterMix.MuffledHz) < 30f && AudioServer.GetBusIndex(WeatherRig.BusName) >= 0, $"{sh.BusCutoffHz}");
         Check("sheltered: rain and wind are quieter than in the open, never above their caps; the hiss and wind play on the weather bus",
             shHiss is { Playing: true } && shHiss.VolumeDb < hissOpen - 1f && shHiss.VolumeDb <= WeatherRig.LoudestDb && shHiss.Bus == WeatherRig.BusName && shWind is { Playing: true } && shWind.VolumeDb < windOpen - 1f && shWind.VolumeDb <= WeatherRig.WindLoudestDb && shWind.Bus == WeatherRig.BusName, $"{hissOpen}->{shHiss?.VolumeDb} {windOpen}->{shWind?.VolumeDb}");

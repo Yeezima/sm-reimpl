@@ -250,7 +250,7 @@ public partial class NetworkView
 
     /// <summary>
     /// Rain motion (series 37) test aid, <c>--weather-density</c> (F6 developer-tools session only, like the W5 aids): every 0.1 s a <c>weather density:</c> line with the session time, the camera's place and velocity (m/s, Godot axes, y up)
-    /// and the live drops of the near rain, far rain and ash grit within <see cref="WeatherRig.DensityRadiusM"/> m of the camera, read from the renderer's instance buffers.
+    /// and the live drops of the near rain, far rain and ash grit within <see cref="WeatherRig.DensityRadiusM"/> m of the camera, computed by the fields' reference arithmetic (`WeatherField.CountWithin`, the shader's placement mirrored in C#; not read back from the GPU: rendering is confirmed by stills).
     /// </summary>
     void WeatherDensityLog(double delta)
     {
