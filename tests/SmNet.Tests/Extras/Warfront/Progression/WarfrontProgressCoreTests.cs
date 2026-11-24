@@ -212,10 +212,11 @@ public class WarfrontProgressCoreTests
     {
         var c = new WarfrontCampaign(5);
         c.Join(1, out _);
-        string json = c.ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":6");
-        Assert.Contains("\"Version\":6", json);
+        int newer = WarfrontCampaign.SaveVersion + 1;   // one above this build's (6 until Chaos Warfront C1 took the save to 7)
+        string json = c.ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":" + newer);
+        Assert.Contains("\"Version\":" + newer, json);
         var ex = Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson(json));
-        Assert.Equal(6, ex.FoundVersion);
+        Assert.Equal(newer, ex.FoundVersion);
         // a newer file need not even fit this build's fields
         Assert.Throws<WarfrontSaveNewerException>(() => WarfrontSave.FromJson("{\"Version\":9,\"Phase\":\"Mystery\",\"Fronts\":\"x\"}"));
         Assert.Throws<InvalidDataException>(() => WarfrontSave.FromJson(c.ToJson().Replace("\"Version\":" + WarfrontCampaign.SaveVersion, "\"Version\":0")));

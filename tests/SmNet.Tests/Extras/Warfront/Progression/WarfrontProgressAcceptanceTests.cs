@@ -285,7 +285,7 @@ public class WarfrontProgressAcceptanceTests : IDisposable
         first.Server.GetType();
         first.Tick(35);   // an autosave goes by
         for (int i = 0; i < 50 && !File.Exists(Path.Combine(_dir, "squads.json")); i++) Thread.Sleep(50);
-        Assert.Equal(5, System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_dir, "run.json")))!["Version"]!.GetValue<int>());
+        Assert.Equal(WarfrontCampaign.SaveVersion, System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(_dir, "run.json")))!["Version"]!.GetValue<int>());   // 5 when this test was written; the current format (7 since Chaos Warfront C1)
 
         var s = StartStage(1);
         Assert.Equal(5200, s.Campaign.Player(KeyA)!.Xp);
