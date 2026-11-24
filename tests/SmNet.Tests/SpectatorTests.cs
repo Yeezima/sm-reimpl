@@ -225,7 +225,7 @@ public class SpectatorTests
     [Fact]
     public void The_scoreboard_with_the_most_players_a_long_seize_layout_and_every_spectator_fits_one_packet()
     {
-        var rows = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new ScoreEntry(i, i % 2 == 0 ? Team.Chaos : Team.SpaceMarines, 0, 99, 99, 9, 1, new string('N', PlayerNames.MaxLength))).ToArray();
+        var rows = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new ScoreEntry(i, i % 2 == 0 ? Team.Chaos : Team.SpaceMarines, 0, 99, 99, 9, 1, new string('N', PlayerNames.MaxLength))).ToArray();
         var points = Enumerable.Range(0, World.MaxControlPoints).Select(i => new ControlPointInfo(new string('p', Protocol.MaxMapName), new Vector3(i, i, i), 5f, 3f)).ToArray();
         var spectators = Enumerable.Range(1, Protocol.MaxSpectators).Select(i => new SpectatorEntry(i, new string('S', PlayerNames.MaxLength))).ToArray();
         var board = new Scoreboard(9, true, 50, 10f, true, rows, new SeizeGroundInfo(10f, 5f, 1, 1f, points), spectators);

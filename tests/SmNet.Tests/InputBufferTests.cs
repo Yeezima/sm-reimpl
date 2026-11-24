@@ -552,7 +552,7 @@ public class InputBufferTests(ITestOutputHelper output)
     [Fact]
     public void The_own_record_carries_the_buffer_and_a_full_snapshot_stays_at_1200_bytes()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         foreach (var action in Enum.GetValues<BufferedAction>())
             foreach (int ticks in action == BufferedAction.None ? new[] { 0 } : new[] { 0, 1, 4, 9, 15 })
             {
@@ -563,7 +563,7 @@ public class InputBufferTests(ITestOutputHelper output)
                 Assert.Equal((BufferedAction.None, 0), (Protocol.Slim(me).Buffered, Protocol.Slim(me).BufferTicks));   // others never see it
             }
         // The fullest snapshot (16 players with the buffer set, every block full) is still exactly the budget.
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(id => new PlayerState(id, new Vector3(1e4f), new Vector3(100f), 3f, true)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(id => new PlayerState(id, new Vector3(1e4f), new Vector3(100f), 3f, true)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Clip = 65535, Reserve = 65535, Grenades = 255, Equipment = 254,
             Buffered = BufferedAction.Reload, BufferTicks = InputBuffer.MaxTicks, RaiseTicks = Combat.MaxRaiseTicks, ReadyTicks = 300, GrenadeHeld = true,

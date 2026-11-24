@@ -16,10 +16,10 @@ public class TfwCoopTests
     public void Musou_caps_a_match_at_4_players_and_every_other_profile_keeps_the_server_s_cap()
     {
         Assert.Equal(4, TfwCoop.MaxHumans);
-        Assert.Equal(4, TfwCoop.PlayerCap(ContentExtras.Musou, Protocol.MaxPlayers));
+        Assert.Equal(4, TfwCoop.PlayerCap(ContentExtras.Musou, Protocol.MaxMatchPlayers));
         Assert.Equal(2, TfwCoop.PlayerCap(ContentExtras.Musou, 2));                     // a lower cap of the host stands
-        Assert.Equal(Protocol.MaxPlayers, TfwCoop.PlayerCap(ContentExtras.None, Protocol.MaxPlayers));
-        Assert.Equal(Protocol.MaxPlayers, TfwCoop.PlayerCap(ContentExtras.All, Protocol.MaxPlayers));
+        Assert.Equal(Protocol.MaxMatchPlayers, TfwCoop.PlayerCap(ContentExtras.None, Protocol.MaxMatchPlayers));
+        Assert.Equal(Protocol.MaxMatchPlayers, TfwCoop.PlayerCap(ContentExtras.All, Protocol.MaxMatchPlayers));
         Assert.Equal(TfwCoop.MaxHumans, MusouLocal.MaxPlayers);                          // the front end's texts say the server's number
         Assert.Contains($"{MusouLocal.MaxPlayers} players", MusouLocal.CoopNote);
         Assert.True(TfwShip.Spawns.Length >= TfwCoop.MaxHumans, "the Stormbird has a spawn place for each human");
@@ -53,7 +53,7 @@ public class TfwCoopTests
     public void A_classic_server_keeps_its_cap_of_16()
     {
         var h = new Harness(Link, seed: 1, clients: 5);
-        Assert.Equal(Protocol.MaxPlayers, h.Server.PlayerCap);
+        Assert.Equal(Protocol.MaxMatchPlayers, h.Server.PlayerCap);
         h.Run(TimeSpan.FromSeconds(1));
         Assert.All(h.Clients, c => Assert.Equal(ClientStatus.Connected, c.Status));
         Assert.Equal(5, h.Server.Players.Count);

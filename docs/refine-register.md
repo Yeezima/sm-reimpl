@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4109 spec table rows: **3035 tagged**, 704 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data wi
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
+| HUD and hit feedback (critical) | 89 | 84 | 68 | 12 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 47 | 43 | 45 | 19 | 1 |
@@ -49,19 +49,19 @@ Scanned 4101 spec table rows: **3030 tagged**, 703 not tagged (read from data wi
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 879 | 833 | 656 | 241 | 1 |
+| Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
+| Core simulation (provisional values) | 882 | 836 | 656 | 241 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3030** | 2722 | 2223 | 915 | 37 |
+| **All areas** | **3035** | 2727 | 2224 | 915 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1835 |
+| kind: ours | 1840 |
 | confidence: low | 1071 |
-| confidence: medium | 1041 |
+| confidence: medium | 1042 |
 | notes: ours | 477 |
 | kind: interpretation | 457 |
 | notes: estimate | 306 |
@@ -1792,7 +1792,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (88)
+### HUD and hit feedback (gameplay-critical) (89)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1939,6 +1939,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
+
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-54D64E1A` | Scoreboard | rows sort by rank (a Warfront pod Marine last), then id; the writer leaves out the last rows past one 1200-byte packet (32 rows of 24-letter names: 24 rows; four humans, eight retainers and four pods with their names: 29 of 32) (rows) | kind: ours; confidence: medium | ours | Scoreboard: compare with SM1 with side-by-side screenshots in the same spot. Ours: rows sort by rank (a Warfront pod Marine last), then id; the writer… | ☐ |
 
 *Spec section: Added content: Warfront: card picker and XP HUD (W8: `WarfrontProgressionWire`, client `Extras/Warfront/Progression`; `WarfrontRules.Version` 3; added content, Warfront only)*
 
@@ -2861,7 +2867,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (48)
+### Networking and render smoothing (49)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2944,6 +2950,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F1D7318D` | Snapshot records | at most 32 (was 16); a match still admits 16 players (records) | kind: ours | Phase B T2b | Snapshot records: compare with SM1 by feel or video. Ours: at most 32 (was 16); a match still admits 16 players. | ☐ |
+
 *Spec section: Cancel table: the live animation cancel matrix editor (cancel-editor; owner 2026-11-17; protocol 80, extended in place; test aid, ours, never on a public server)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2961,7 +2973,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (879)
+### Core simulation (provisional values) (882)
 
 *Spec section: Provisional values in use*
 
@@ -4326,13 +4338,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B17C2E9A` | Landing ring | Marine k at 1.5 + 0.35 k m round the owner, snapped to the walking graph within 2.5 m (m) | kind: estimate; confidence: low | the squad's numbers (W9) | Landing ring: compare with SM1 by measuring on a flat spot of the same map. Ours: Marine k at 1.5 + 0.35 k m round the owner, snapped to the walking… | ☐ |
-| `R-2B0007F0` | Player count | solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four humans 4 + 8 = 12 World players, inside the snapshot's 16 and the 12 puppet ids (players) | kind: ours | Phase B design Q1 | Player count: compare with SM1 by feel or video. Ours: solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four… | ☐ |
+| `R-2B0007F0` | Player count | solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four humans 4 + 8 = 12 World players, inside the 12 puppet ids (and the snapshot's 32 records since protocol 94, the drop pods' 20 besides) (players) | kind: ours | Phase B design Q1 | Player count: compare with SM1 by feel or video. Ours: solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four… | ☐ |
 | `R-770E28DD` | Downed | a fallen retainer stays down (its respawn held) for 20 s; revived by anyone (a human or a standing retainer holding Use within 2 m for 2 s, the nearer target, a tie to the human) with half its health and armour where it fell; not revived: out for the battle… (s, m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-17 (20 s, out for that battle); reach and hold ours (W9) | Downed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a fallen retainer stays down (its respawn held) for 20 s; revived by… | ☐ |
 | `R-78AA543F` | Records | kills (elite, boss), assists (a retainer that hit the Ork within 5 s before another's kill), times downed, revives given, objectives (standing or downed inside a secured point's radius), battles survived (standing at the battle's end); a retainer's kill pays… | kind: ours; confidence: medium | W9/W9b's rules kept | Records: compare with SM1 by feel or video. Ours: kills (elite, boss), assists (a retainer that hit the Ork within 5 s… | ☐ |
 | `R-CA8A40E9` | Orders | Follow, Hold, Attack per owner (a resend or older sequence refused); a Hold holds the named point (else where each stands), an Attack goes for its point; a leaver's squad holds and counts as standing; a returning player re-binds it | kind: ours; confidence: medium | W9's semantics kept | Orders: compare with SM1 by feel or video. Ours: Follow, Hold, Attack per owner (a resend or older sequence refused)… | ☐ |
 | `R-B030D90A` | AI-Marine rules | a retainer's melee stuns a boss as a human's; a scrap trap hurts it as a human (a share of its full health and armour), not the AI Marines' outright kill; no pickups (the puppets' exclusion stays) | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-25 (b) (the boss stun: our reading of "retainers ARE stunned by bosses") | AI-Marine rules: compare with SM1 by feel or video. Ours: a retainer's melee stuns a boss as a human's; a scrap trap hurts it… | ☐ |
 | `R-EB1F0D4A` | Brain | the retainer's input comes from `WarfrontRetainers.Brain` (Phase B T4's Classic bot brain), ahead of Musou's puppet brain; none: it stands still keeping its heading | kind: ours | Phase B design Q1 | Brain: compare with SM1 by feel or video. Ours: the retainer's input comes from WarfrontRetainers.Brain (Phase B T4's… | ☐ |
-| `R-A07D71CD` | Drop pod at four humans | unchanged: a pod needs 5 free puppet ids, so with 4 humans and 8 retainers it is refused (the owner's answer of 2026-11-25, "drop pod marines don't count towards the limit", is a follow-up) (ids) | kind: ours | owner 2026-11-25 (c), pending its design | Drop pod at four humans: compare with SM1 by feel or video. Ours: unchanged: a pod needs 5 free puppet ids, so with 4 humans and 8… | ☐ |
+
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3898BD63` | Pod ids | 65490 to 65509 (20: four pods of five), below the puppet ids (65516 to 65527) with a gap of six; joiners skip them as the puppet range; they count as AI Marines (`TfwContracts.IsPuppet`) (ids) | kind: ours | Phase B T2 proposal, lead 38 approval | Pod ids: compare with SM1 by feel or video. Ours: 65490 to 65509 (20: four pods of five), below the puppet ids (65516… | ☐ |
+| `R-D96005F9` | Pod refusal | a Warfront call is refused (at no cooldown, as before) only when fewer than 5 pod ids are free after the called pods' reservations: a fifth pod while four are out (ids) | kind: ours | the 2026-11-14 rule on the pods' own range | Pod refusal: compare with SM1 by feel or video. Ours: a Warfront call is refused (at no cooldown, as before) only when… | ☐ |
+| `R-16715EDB` | Lean record | 33 bytes for a Warfront AI Marine (retainers, the pair, pod Marines) when a snapshot names more than 16 players: id u16, position 3 x i24 in 1/64 m, velocity 3 x i16 in 1/64 m/s, yaw and pitch i16 in pi/32767 rad, then the slim record's last 12 bytes; a human… (bytes) | kind: ours | measured (below) | Lean record: compare with SM1 by feel or video. Ours: 33 bytes for a Warfront AI Marine (retainers, the pair, pod Marines)… | ☐ |
+| `R-E073F91B` | Shot index | 5 bits: bit 4 in the third byte's bit 7 for a miss or world hit, and as surface field 14 (15 under 16) for a player hit (bits) | kind: ours | Phase B T2b | Shot index: compare with SM1 by feel or video. Ours: 5 bits: bit 4 in the third byte's bit 7 for a miss or world hit, and… | ☐ |
 
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
 
@@ -6640,6 +6660,8 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-D059B1AC` | Search budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-02FD7B05` | Budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-90D6C1E5` | Wire | Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3) |
+| `R-FF465398` | Budget measure | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration) |
+| `R-32D20F15` | Over the budget | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |

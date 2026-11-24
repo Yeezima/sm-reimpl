@@ -730,9 +730,9 @@ public class BraceVentTests(ITestOutputHelper output)
     [Fact]
     public void A_sixteen_player_snapshot_with_the_brace_and_the_vent_stays_at_the_1200_byte_budget()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
             Cooldown = 1, ReloadLeft = 1, SinceDamage = 1, RespawnLeft = 1, SwitchLeft = 1, Pitch = 1, MeleeStep = Protocol.MaxMeleeStep, MeleeTime = 1,
