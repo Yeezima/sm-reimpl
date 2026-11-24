@@ -30,7 +30,8 @@ public partial class NetworkView
     /// <summary>A frame on which the player is not evading (<see cref="TrackEvade"/>): remember the stance, drop the latch.</summary>
     void DashGround(PlayerState s)
     {
-        _dashLatch.Ground(s.PlayerId, _config is null ? null : DashStanceAlias(s));
+        // A take-off frame (the ground tap's press tick) has the weapon already lowered: keep the stance from before the press (DashFamilyLatch.Ground).
+        _dashLatch.Ground(s.PlayerId, _config is null ? null : DashStanceAlias(s), takingOff: s.Jump == JumpPhase.TakeOff);
         _dashLandLogged.Remove(s.PlayerId);
     }
 

@@ -49,8 +49,9 @@ public static class DashClipChoice
 }
 
 /// <summary>
-/// Which family a player's dash keeps (engine-free, tested). An evading tick lowers the weapon in the simulation, so the stance is read on the player's last frame that was not evading
-/// (<see cref="Ground"/>: the hammer stance's aliased wargear, or null with the pistol up or another weapon), and latched when the dash is first posed (<see cref="During"/>). It is never
+/// Which family a player's dash keeps (engine-free, tested). An evading tick and the take-off tick before it both lower the weapon in the simulation, so the stance is read on the
+/// player's last frame that was neither evading nor taking off (<see cref="Ground"/>: the hammer stance's aliased wargear, or null with the pistol up or another weapon), and latched when
+/// the dash is first posed (<see cref="During"/>). It is never
 /// re-read during the flight, at the landing (where the simulation restarts the evade's tick count) or across a chained dash; it clears when the evade ends (the next <see cref="Ground"/>)
 /// and when the player leaves (<see cref="Forget"/>).
 /// </summary>
@@ -59,10 +60,14 @@ public sealed class DashFamilyLatch
     readonly Dictionary<int, string?> _stance = new();
     readonly Dictionary<int, DashFamily> _latched = new();
 
-    /// <summary>A frame on which the player is not evading: remember its stance (<paramref name="hammerStanceAlias"/>) and drop any latch.</summary>
-    public void Ground(int playerId, string? hammerStanceAlias)
+    /// <summary>
+    /// A frame on which the player is not evading: drop any latch and remember its stance (<paramref name="hammerStanceAlias"/>), except on a jump-pack take-off frame
+    /// (<paramref name="takingOff"/>). The press tick of a ground tap starts the take-off and already lowers the weapon in the simulation (<c>jump.Started</c>; the dash itself
+    /// begins a tick later), so that frame would read the hammer stance whatever was up; the stance from before the press is kept instead.
+    /// </summary>
+    public void Ground(int playerId, string? hammerStanceAlias, bool takingOff = false)
     {
-        _stance[playerId] = hammerStanceAlias;
+        if (!takingOff) _stance[playerId] = hammerStanceAlias;
         _latched.Remove(playerId);
     }
 
