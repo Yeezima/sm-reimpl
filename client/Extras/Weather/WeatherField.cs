@@ -18,6 +18,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
     readonly Vector3[] _seeds;
     readonly int[] _group;
     readonly ShaderMaterial _material;
+    readonly Kind _kind;
     readonly bool _grouped;
     readonly Vector3[] _drift = new Vector3[WeatherFieldWrap.Groups];
     readonly Vector3[] _driftUniform = new Vector3[WeatherFieldWrap.Groups];
@@ -86,6 +87,7 @@ public sealed partial class WeatherField : MultiMeshInstance3D
     {
         Name = name;
         Box = box;
+        _kind = kind;
         _grouped = grouped;
         _material = new ShaderMaterial { Shader = ShaderFor(kind) };
         _material.SetShaderParameter("box", box);
@@ -157,6 +159,32 @@ public sealed partial class WeatherField : MultiMeshInstance3D
 
     float _fadeSent = 0f, _holeSent = 0f, _ringSent = RingOff;
 
+    /// <summary>Weather fidelity: the install's sprite this field draws (null: the procedural profile), and the shader tier (High: the depth soft fade over <paramref name="softM"/> m). Not for the embers (kept as they were).</summary>
+    public void UseSprite(WeatherSprites.Sprite? sprite)
+    {
+        if (_kind == Kind.Ember) return;
+        _material.SetShaderParameter("use_sprite", sprite is null ? 0f : 1f);
+        if (sprite is null) return;
+        _material.SetShaderParameter("sprite", sprite.Texture);
+        _material.SetShaderParameter("tiles", new Vector2(sprite.TilesX, sprite.TilesY));
+    }
+
+    /// <summary>Whether the field draws the High tier's shader now.</summary>
+    public bool High { get; private set; }
+    /// <summary>Whether the field draws an install sprite now.</summary>
+    public bool Sprited => _material.GetShaderParameter("use_sprite").AsSingle() > 0.5f;
+
+    public void SetTier(bool high, float softM)
+    {
+        if (_kind == Kind.Ember || (high == High && _material.Shader is not null && _tierSet)) return;
+        _tierSet = true;
+        High = high;
+        _material.Shader = ShaderFor(_kind, high);
+        _material.SetShaderParameter("soft_m", softM);
+    }
+
+    bool _tierSet;
+
     /// <summary>Test seam (selftest): ends the switch's fade and the radii's eases at once.</summary>
     public void Settle()
     {
@@ -212,14 +240,53 @@ public sealed partial class WeatherField : MultiMeshInstance3D
 
     // ---- the shaders: the arithmetic of WeatherFieldWrap.Place, EdgeFade and HoleFade per vertex ----
 
-    static Shader? _streak, _dot, _ember;
+    static Shader? _streak, _dot, _ember, _streakHigh, _dotHigh;
 
-    static Shader ShaderFor(Kind kind) => kind switch
+    static Shader ShaderFor(Kind kind, bool high = false) => kind switch
     {
-        Kind.Streak => _streak ??= new Shader { Code = Code(StreakRender, StreakVertex, StreakFragment) },
-        Kind.Dot => _dot ??= new Shader { Code = Code(DotRender, DotVertex, DotFragment) },
+        Kind.Streak => high ? _streakHigh ??= new Shader { Code = TexCode(StreakRender, StreakVertex, StreakTexFragment, true) } : _streak ??= new Shader { Code = TexCode(StreakRender, StreakVertex, StreakTexFragment, false) },
+        Kind.Dot => high ? _dotHigh ??= new Shader { Code = TexCode(DotRender, DotVertex, DotTexFragment, true) } : _dot ??= new Shader { Code = TexCode(DotRender, DotVertex, DotTexFragment, false) },
         _ => _ember ??= new Shader { Code = Code(EmberRender, DotVertex, EmberFragment) },
     };
+
+    /// <summary>Test seam (selftest): the shader source a kind compiles (the ember's is pinned unchanged by WeatherEmberPinTests).</summary>
+    public static string ShaderCode(Kind kind, bool high = false) => ShaderFor(kind, high).Code;
+
+    /// <summary>
+    /// Weather fidelity (owner 2026-11-25): the rain's and the ash's shader is the rain-motion template (<see cref="Code"/>, kept as it was for the embers) plus the install's own sprite (<see cref="WeatherSprites"/>; <c>use_sprite</c> 0
+    /// keeps the procedural profile) and, on the High preset outside the Compatibility renderer, a soft-particle fade against the depth buffer, so a drop or a flake meeting a wall, the ground or a body fades over <c>soft_m</c> instead
+    /// of cutting a line. The same placement, fades and keep cut as <see cref="Code"/>.
+    /// </summary>
+    static string TexCode(string render, string vertexTail, string fragment, bool high)
+    {
+        const string Extra = """
+            uniform sampler2D sprite : source_color, filter_linear_mipmap, repeat_disable;
+            uniform float use_sprite = 0.0;
+            uniform vec2 tiles = vec2(1.0);
+            uniform float soft_m = 0.5;
+
+            """;
+        const string HighExtra = """
+            uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
+            float soft_fade(vec2 suv, float fz, mat4 inv_proj) {
+                float scene = texture(depth_tex, suv).r;
+                vec4 p = inv_proj * vec4(suv * 2.0 - 1.0, scene, 1.0);
+                vec4 q = inv_proj * vec4(suv * 2.0 - 1.0, fz, 1.0);
+                return clamp(((-p.z / p.w) - (-q.z / q.w)) / soft_m, 0.0, 1.0);
+            }
+
+            """;
+        const string LowExtra = """
+            float soft_fade(vec2 suv, float fz, mat4 inv_proj) { return 1.0; }
+
+            """;
+        string code = Code(render, vertexTail, fragment);
+        const string At = "void vertex() {";
+        return code.Replace(At, Extra + (high ? HighExtra : LowExtra) + At);
+    }
+
+    /// <summary>The shader tier a field uses: High (the depth soft fade) on the High preset outside the Compatibility renderer and safe mode; everything else stays at the rain-motion cost.</summary>
+    public static bool HighTier => !SafeMode.Active && MapLightingView.Preset == MapLightingView.LightingPreset.High && RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility";
 
     static string Code(string render, string vertexTail, string fragment) => $$"""
         shader_type spatial;
@@ -282,24 +349,57 @@ public sealed partial class WeatherField : MultiMeshInstance3D
             side = sl > 1e-3 ? side / sl : vec3(1.0, 0.0, 0.0);
             vec3 world = c + side * (VERTEX.x * sc) - axis * (VERTEX.y * sc);
         """;
-    const string StreakFragment = """
+    /// <summary>
+    /// The streak (weather fidelity: with the install's sprite). The procedural soft profile stays the envelope (soft across, tapered along: no hard sprite edge); the sprite (a cell picked per drop) breaks it up across and along
+    /// (the rain's drops beam: a run of droplets smeared by the shutter; the ash: a flake smeared along the wind) and shades it a little; <c>soft_fade</c> softens it against geometry on High. Without a sprite: the rain-motion streak.
+    /// </summary>
+    const string StreakTexFragment = """
             float x = (UV.x - 0.5) * 2.0;
             float across = exp(-x * x * 3.5);
             float along = mix(0.25, 1.0, smoothstep(0.0, 0.85, UV.y)) * (1.0 - smoothstep(0.9, 1.0, UV.y)) * smoothstep(0.0, 0.08, UV.y);
-            ALBEDO = tint.rgb;
-            ALPHA = clamp(tint.a * across * along * v_fade, 0.0, 1.0);
+            float shade = 1.0;
+            if (use_sprite > 0.5) {
+                float n = tiles.x * tiles.y;
+                float cell = floor(fract(v_hash * 7.13) * n);
+                vec2 cuv = (vec2(mod(cell, tiles.x), floor(cell / tiles.x)) + clamp(UV, vec2(0.02), vec2(0.98))) / tiles;
+                vec4 t = texture(sprite, cuv);
+                float lum = clamp(dot(t.rgb, vec3(0.3333)), 0.0, 1.0);
+                across *= mix(0.35, 1.0, clamp(t.a * 1.4, 0.0, 1.0));
+                shade = mix(0.85, 1.12, lum);
+            }
+            ALBEDO = tint.rgb * shade;
+            ALPHA = clamp(tint.a * across * along * v_fade * soft_fade(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX), 0.0, 1.0);
         """;
 
     /// <summary>A camera-facing quad (the old particle billboard).</summary>
     const string DotVertex = """
             vec3 world = c + (INV_VIEW_MATRIX[0].xyz * VERTEX.x + INV_VIEW_MATRIX[1].xyz * VERTEX.y) * sc;
         """;
-    /// <summary>The soft round dot of the old SoftDot texture: a solid core (1 to 0.9 at half the radius), a soft rim to 0.</summary>
-    const string DotFragment = """
+    /// <summary>
+    /// The flake (weather fidelity: with the install's ash sprite): a cell of the sheet per flake, turning slowly in the view plane and tumbling (its width breathing with a slow cosine: a flat flake seen edge-on), its own shading
+    /// kept a little; the quad's rim fades so no sprite edge shows; <c>soft_fade</c> on High. Without a sprite: the soft round dot of the old SoftDot texture (a solid core, 1 to 0.9 at half the radius, a soft rim to 0).
+    /// </summary>
+    const string DotTexFragment = """
             float r = length(UV - vec2(0.5)) * 2.0;
             float prof = r < 0.5 ? mix(1.0, 0.9, r / 0.5) : mix(0.9, 0.0, clamp((r - 0.5) / 0.5, 0.0, 1.0));
-            ALBEDO = tint.rgb;
-            ALPHA = clamp(tint.a * prof * v_fade, 0.0, 1.0);
+            float shade = 1.0;
+            if (use_sprite > 0.5) {
+                float rate = (0.5 + 1.2 * fract(v_hash * 3.71)) * (fract(v_hash * 11.3) < 0.5 ? -1.0 : 1.0);
+                float ang = v_hash * 6.2832 + TIME * rate;
+                float flip = max(0.3, abs(cos(TIME * (0.9 + fract(v_hash * 5.17)) + v_hash * 17.0)));
+                vec2 q = mat2(vec2(cos(ang), sin(ang)), vec2(-sin(ang), cos(ang))) * (UV - vec2(0.5));
+                q.x /= flip;
+                q += vec2(0.5);
+                float inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);
+                float n = tiles.x * tiles.y;
+                float cell = floor(fract(v_hash * 7.13) * n);
+                vec2 cuv = (vec2(mod(cell, tiles.x), floor(cell / tiles.x)) + clamp(q, vec2(0.02), vec2(0.98))) / tiles;
+                vec4 t = texture(sprite, cuv);
+                prof = inside * t.a * (1.0 - smoothstep(0.8, 1.0, r)) * mix(0.6, 1.0, flip);
+                shade = mix(0.8, 1.15, clamp(dot(t.rgb, vec3(0.3333)), 0.0, 1.0));
+            }
+            ALBEDO = tint.rgb * shade;
+            ALPHA = clamp(tint.a * prof * v_fade * soft_fade(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX), 0.0, 1.0);
         """;
     /// <summary>Embers: the old life ramp (pale yellow to deep red, fading) run as a slow per-ember cycle (about 4 s, the old life), faded in at its start so an ember never pops.</summary>
     const string EmberFragment = """

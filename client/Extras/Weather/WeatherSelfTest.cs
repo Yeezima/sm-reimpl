@@ -225,6 +225,16 @@ public sealed partial class WeatherSelfTest : Node
         embers.Update(ew, ew.Intensity, Vector3.Zero);
         var em = embers.GetNodeOrNull<WeatherField>("Embers");
         Check("ember wind: sparse embers rise on the wind (at most the sparse count), nothing else", embers.Embering && em is { Amount: <= WeatherRig.EmberCount * 2 } && !embers.Raining && !embers.AshFalling && embers.GlowAlpha == 0f, em?.Amount.ToString() ?? "");
+        // weather fidelity (owner 2026-11-25): the embers keep their rain-motion shader and look (no sprite, no tier, no light factor); the others take the sprite and tier shaders, which compile in every renderer
+        string emberCode = WeatherField.ShaderCode(WeatherField.Kind.Ember);
+        em?.UseSprite(null); em?.SetTier(true, 1f);
+        Check("fidelity: the ember shader is the rain-motion one (no sprite, no depth read) and the ember layer takes no tier", !emberCode.Contains("sprite") && !emberCode.Contains("depth_tex") && em is { High: false }, "");
+        Check("fidelity: the ember tint is the rain-motion tint (1, 0.62, 0.25), not lit by the grade", em is not null && em.Material.GetShaderParameter("tint").AsColor() is var et && Mathf.IsEqualApprox(et.R, 1f) && Mathf.IsEqualApprox(et.G, 0.62f) && Mathf.IsEqualApprox(et.B, 0.25f), em?.Material.GetShaderParameter("tint").AsColor().ToString() ?? "");
+        string streakLow = WeatherField.ShaderCode(WeatherField.Kind.Streak), streakHigh = WeatherField.ShaderCode(WeatherField.Kind.Streak, true), dotHigh = WeatherField.ShaderCode(WeatherField.Kind.Dot, true);
+        Check("fidelity: the Medium/Compatibility streak reads no depth; the High streak and flake do", !streakLow.Contains("hint_depth_texture") && streakHigh.Contains("hint_depth_texture") && dotHigh.Contains("hint_depth_texture") && streakLow.Contains("uniform sampler2D sprite"), "");
+        Check("fidelity: the grade's light stays within its bounds and is 1 with no weather", Mathf.IsEqualApprox(WeatherRig.GradeLight(SmClient.Customizer.Model.LightingGrade.Identity), 1f)
+            && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)) is >= WeatherRig.LightMin and < 1f
+            && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)) is >= WeatherRig.LightMin and < 1f, $"storm {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)):F2} ash {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)):F2}");
         embers.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         squall.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         storm.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);

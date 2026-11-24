@@ -192,6 +192,7 @@ public sealed partial class WeatherRig : Node3D
         UpdateFog(st, i, cameraAt, groundY);
         UpdateDust(st, i, wind, cameraAt, groundY);
         UpdateSky(st, i, wind);
+        ApplyFidelity();   // weather fidelity: the install's sprites, the High tier's soft fade, the grade's light on every layer but the embers
         StepField(_rain); StepField(_rainFar); StepField(_ashMain); StepField(_ashWarn); StepField(_embers);   // every field every frame: its motion, its switch's fade, the far ring's radii (no per-frame array)
     }
 

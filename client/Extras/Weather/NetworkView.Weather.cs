@@ -130,6 +130,17 @@ public partial class NetworkView
         _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0;
     }
 
+    bool _wxSpritesDumped;
+
+    /// <summary>Weather fidelity: once the effects are in, the weather's original sprites are read on a worker (<see cref="WeatherSprites"/>); a bot never draws, so never reads them.</summary>
+    void WeatherSpritesFrame()
+    {
+        if (_bot) return;
+        if (!_wxSpritesDumped) { _wxSpritesDumped = true; WeatherSprites.DumpDir = CmdArg("weather-sprites-dump"); }
+        if (_fx is { IsReady: true } fx) WeatherSprites.Request(fx.Library);
+        WeatherSprites.Pump();
+    }
+
     void WeatherFrame(PlayerState me, double delta)
     {
         long wxT0 = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -196,6 +207,7 @@ public partial class NetworkView
             WeatherStormRestore();
             return;
         }
+        WeatherSpritesFrame();
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
         WeatherClientLink.TestMove = WeatherTestMoveWord;   // assigned each frame like Send (review: never a stale view's delegate)
