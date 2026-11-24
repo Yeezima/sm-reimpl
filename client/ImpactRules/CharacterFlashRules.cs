@@ -67,6 +67,12 @@ public sealed class ArmourFlashTracker
         e.RegenAt = now + Math.Max(0f, regenDelay);
     }
 
+    /// <summary>
+    /// classic-hit-effects (review of 2b89de15, finding 7): a confirmed health damage on another player whose glow the dedupe left out: his armour is down now (no flash; the next hit
+    /// reads it, so a health-only melee mark after a suppressed break is blood, not mixed).
+    /// </summary>
+    public void Down(int id) => Of(id).Armour = 2;
+
     /// <summary>The own hit report says another player's armour is gone after this hit (owner, 2026-11-02: the red glow the instant it breaks): the break flash now, once, not on the next hit.</summary>
     public void Broke(int id, double now, float regenDelay)
     {
@@ -78,6 +84,17 @@ public sealed class ArmourFlashTracker
 
     /// <summary>Whether the armour's break flash runs now: red in the recharge glow's ring (owner, 2026-11-02), rather than the engulfing glow of later hits on bare armour.</summary>
     public bool BreakRing(int id, double now) => Ring && _byId.TryGetValue(id, out var e) && now - e.BreakAt >= 0.0 && now - e.BreakAt < BreakSeconds;
+
+    /// <summary>
+    /// classic-hit-effects: whether another player's armour is up as this tracker knows it (the shot records' armour bit, the own hit reports' breaks and the class's recharge delay):
+    /// true up, false down, null never seen hit (read as up by the caller). Approximate for a damage no shot record carried (a remote melee hit).
+    /// </summary>
+    public bool? ArmourUp(int id, double now)
+    {
+        if (!_byId.TryGetValue(id, out var e) || e.Armour == 0) return null;
+        if (now >= e.RegenAt) return true;
+        return e.Armour == 1;
+    }
 
     /// <summary>The player died or respawned: no flash, no pending glow.</summary>
     public void Reset(int id) => _byId.Remove(id);

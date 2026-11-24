@@ -32,10 +32,14 @@ public partial class NetworkView
     int _damageGlows;
 
     /// <summary>The glow and sparks of one confirmed damage on <paramref name="victim"/> (another player): <paramref name="armourUp"/> null reads as armour up (yellow).</summary>
-    void PlayerDamageGlow(Num.Vector3 attackerAt, int victim, Num.Vector3 victimAt, bool? armourUp, DamageKind kind, string source)
+    void PlayerDamageGlow(Num.Vector3 attackerAt, int victim, Num.Vector3 victimAt, bool? armourUp, DamageKind kind, string source, bool directional = false)
     {
         if (NoDamageGlow || _client is null || _config is null || _fx is null || !ShowsOnModel(victim, _client.PlayerId)) return;
-        if (_damageGlowAt.TryGetValue(victim, out double last) && !DedupePasses(_connectedFor, last)) return;
+        if (_damageGlowAt.TryGetValue(victim, out double last) && !DedupePasses(_connectedFor, last))
+        {
+            if (armourUp == false && HitDirLook != ClassicHitDirRules.DirLook.None) _armourFlash.Down(victim);   // classic-hit-effects: the class of his next hit still knows (review of 2b89de15, finding 7)
+            return;
+        }
         var toward = new Num.Vector3(attackerAt.X - victimAt.X, attackerAt.Y - victimAt.Y, 0f);
         toward = toward.LengthSquared() > 1e-6f ? Num.Vector3.Normalize(toward) : new Num.Vector3(0f, 0f, 1f);
         var at = ToGodot(victimAt + new Num.Vector3(0f, 0f, 1.3f) + toward * 0.3f);
@@ -46,7 +50,11 @@ public partial class NetworkView
         if (look.HasFlag(HitLook.Sparks))
         {
             FxArmourHit(up, at, dir, victim, 0.0);   // the data's own armour-hit glows (red variants when the armour is gone)
-            if (up) ArmourSparks(at, dir, 0.0, victim); else RedSparks(at, dir, 0.0);
+            // classic-hit-effects: a weapon melee damage paired with its attacker draws the directional sparks (both Classic profiles) and, in Extended, the blood spray instead of the fans
+            var dirLook = HitDirLook;
+            bool dirSparks = directional && dirLook.HasFlag(ClassicHitDirRules.DirLook.MeleeSparks), dirBlood = directional && dirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray);
+            if (up) { if (!dirSparks) ArmourSparks(at, dir, 0.0, victim); }
+            else if (!dirBlood) RedSparks(at, dir, 0.0);
         }
         _damageGlows++;
         if (LogHitFx) GD.Print($"HITFX damage {kind} ({source}) on P{victim} armour {(armourUp is null ? "unknown (up)" : armourUp.Value ? "up" : "down")} at {at.X:F1},{at.Y:F1},{at.Z:F1} (total {_damageGlows}, t {_connectedFor:F2})");
@@ -55,6 +63,7 @@ public partial class NetworkView
     /// <summary>The own hit report (<see cref="UpdateHits"/>): a melee or splash damage the server confirmed on the report's last victim shows its glow, yellow when armour took some, red when only health did.</summary>
     void OwnHitReportGlow(HitReport hits)
     {
+        NoteOwnMeleeReport(hits);   // classic-hit-effects: the own strike's exact armour after it
         if (_client is null || !ReportNeedsGlow(hits.LastMelee, hits.LastSplash, hits.Hits)) return;
         bool? up = ArmourUpOfDamage(hits.ShieldDamage, hits.HealthDamage);
         if (up is null && !hits.LastKilled) return;
@@ -62,7 +71,7 @@ public partial class NetworkView
         {
             if (victim.PlayerId != hits.LastVictim || hits.LastVictim <= 0) continue;
             PlayerDamageGlow(_client.Predicted.Position, victim.PlayerId, victim.Position, up,
-                hits.LastMelee ? DamageKind.Melee : DamageKind.Blast, hits.LastMelee ? "own melee report" : "own splash report");
+                hits.LastMelee ? DamageKind.Melee : DamageKind.Blast, hits.LastMelee ? "own melee report" : "own splash report", hits.LastMelee && OwnMeleeWillPair(victim));   // classic-hit-effects: decided at the report with the attack its mark will take (review of 2b89de15, finding 1)
             break;
         }
     }
@@ -83,11 +92,12 @@ public partial class NetworkView
         {
             bool known = _damageMarkSeen.TryGetValue(o.PlayerId, out var seen);
             _damageMarkSeen[o.PlayerId] = (o.DamageCount, o.Alive);
+            bool paired = known && seen.Alive && DamageMarkChanged(seen.Count, o.DamageCount) && ClassicHitDirMark(o, o.DamageShield, o.DamageHealth, o.Alive, (o.DamageCount - seen.Count) & 7);   // classic-hit-effects: the directional look of a confirmed damage (NetworkView.ClassicHitDir.cs)
             if (!MarkShowsGlow(known, seen.Alive, o.Alive, seen.Count, o.DamageCount)) continue;
             if (LogHitFx) GD.Print($"HITFX mark P{o.PlayerId} counter {seen.Count}->{o.DamageCount} shield {o.DamageShield} health {o.DamageHealth} (t {_connectedFor:F2})");
             var up = ArmourUpOfMark(o.DamageShield, o.DamageHealth);
             if (up is null) continue;   // a mark with neither bit names no damage taken: no glow
-            PlayerDamageGlow(me, o.PlayerId, o.Position, up, DamageKind.Melee, "damage mark");
+            PlayerDamageGlow(me, o.PlayerId, o.Position, up, DamageKind.Melee, "damage mark", paired);
         }
         if (_damageMarkSeen.Count <= _lastOthers.Count) return;   // every frame: a player who left is forgotten at once, so a rejoin with his id starts as a first sight
         _damageMarkGone.Clear();

@@ -61,6 +61,11 @@
     <Compile Include="..\..\client\Extras\Weather\WeatherSettings.cs" Link="ClientWeather\WeatherSettings.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <!-- classic-hit-effects: the Extended profile's blood rules (the fatal headshot's wall decal trace and shape), engine-free. -->
+    <Compile Include="..\..\client\Extras\Gore\ClassicBloodRules.cs" Link="ClientGore\ClassicBloodRules.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
     <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />
