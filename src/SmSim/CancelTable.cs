@@ -49,9 +49,9 @@ public readonly record struct CancelChange(CancelScope Scope, int Row, int Col, 
 /// <summary>The row and column ids, in matrix order, and the names the panel and smtool show (read from the baseline file; the layout is data).</summary>
 public static class CancelLayout
 {
-    /// <summary>Action-in-progress ids, in matrix order (37).</summary>
+    /// <summary>Action-in-progress ids, in matrix order (38; the Power Sword Stab row last, sim/stab-key-only).</summary>
     public static IReadOnlyList<string> Rows => CancelData.Baseline.RowIds;
-    /// <summary>Input ids, in matrix order (16).</summary>
+    /// <summary>Input ids, in matrix order (17; the Sword Stab key last).</summary>
     public static IReadOnlyList<string> Cols => CancelData.Baseline.ColIds;
     public static int RowCount => Rows.Count;
     public static int ColCount => Cols.Count;
@@ -293,6 +293,9 @@ public sealed class CancelData
         return t;
     }
 
+    /// <summary>sim/stab-key-only (owner 2026-11-23): the Power Sword Stab section's row (the stab in progress) and column (the Sword Stab key), the last of each; files without them still read.</summary>
+    public const string StabRowId = "melee_stab", StabColId = "stab";
+
     // ---- file ----
     internal static string? StateName(CancelState s) => s switch { CancelState.Yes => "yes", CancelState.No => "no", CancelState.Window => "window", CancelState.Queued => "queued", CancelState.NotApplicable => "na", CancelState.Inherit => "inherit", _ => null };
     public static CancelState? ParseState(string? s) => s?.ToLowerInvariant() switch { "yes" => CancelState.Yes, "no" => CancelState.No, "window" => CancelState.Window, "queued" or "buffer" => CancelState.Queued, "na" or "n/a" => CancelState.NotApplicable, _ => null };
@@ -315,6 +318,11 @@ public sealed class CancelData
             foreach (var r in rowsEl.EnumerateArray()) { rowIds.Add(Str(r, "id")); rowLabels.Add(Str(r, "label")); rowNotes.Add(Str(r, "note")); }
             foreach (var c in colsEl.EnumerateArray()) { colIds.Add(Str(c, "id")); colLabels.Add(Str(c, "label")); }
             var b = Baseline;
+            // sim/stab-key-only (2026-11-23): a file from before the Power Sword Stab section (no melee_stab row, no stab column, each the last of its list) still reads: the missing cells are the code's own (the baseline).
+            bool oldRows = !rowIds.Contains(StabRowId) && b.RowIds.Count > 0 && b.RowIds[^1] == StabRowId, oldCols = !colIds.Contains(StabColId) && b.ColIds.Count > 0 && b.ColIds[^1] == StabColId;
+            if (oldRows) { rowIds.Add(StabRowId); rowLabels.Add(""); rowNotes.Add(""); }
+            if (oldCols) { colIds.Add(StabColId); colLabels.Add(""); }
+            bool Missing(int r, int c) => (oldRows && r == rowIds.Count - 1) || (oldCols && c == colIds.Count - 1);
             if (!rowIds.SequenceEqual(b.RowIds) || !colIds.SequenceEqual(b.ColIds)) { error = $"a different matrix layout ({rowIds.Count} rows x {colIds.Count} columns; this build has {b.RowIds.Count} x {b.ColIds.Count}, or the ids differ)"; return null; }
             var cells = new CancelCell[rowIds.Count * colIds.Count];
             var notes = new string[cells.Length]; var srcs = new string[cells.Length];
@@ -323,6 +331,7 @@ public sealed class CancelData
                 for (int c = 0; c < colIds.Count; c++)
                 {
                     string key = rowIds[r] + "|" + colIds[c];
+                    if (Missing(r, c)) { cells[r * colIds.Count + c] = b.Base(r, c); notes[r * colIds.Count + c] = ""; srcs[r * colIds.Count + c] = ""; continue; }
                     if (!cellsEl.TryGetProperty(key, out var cell)) { error = $"cell {key} missing"; return null; }
                     if (!ReadCell(cell, out var parsed, out error)) { error = $"cell {key}: {error}"; return null; }
                     cells[r * colIds.Count + c] = parsed; notes[r * colIds.Count + c] = Str(cell, "note"); srcs[r * colIds.Count + c] = Str(cell, "src");

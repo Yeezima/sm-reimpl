@@ -25,8 +25,17 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
     static PlayerState StepOut(PlayerState s, SimConfig c, InputButtons b, float mx, float my, out SelfEvents e) =>
         Combat.StepPlayer(s, new PlayerInput(0, mx, my, 0f, b), c, out e);
 
-    static readonly SimConfig Pack = CancelGateTests.Plays(MeleeCancelTests.Pack, null);
-    static readonly SimConfig Heavy = CancelGateTests.Plays(MeleeCancelTests.Heavy with { InputBufferWindow = 0.3f }, null);
+    /// <summary>sim/stab-key-only: every class with heavy strikes gets a stab strike after them (a copy of its first, marked <see cref="MeleeStep.Stab"/>, chained from nothing), as the power sword's content read appends one.</summary>
+    /// <summary>The pack class of <see cref="JumpPackTests"/> has no heavy strikes: it gets one (RushTests' synthetic stun strike) so the stab, which only pack classes hold, is probed on the jump-pack rows too (review F2).</summary>
+    static readonly MeleeStep ProbeHeavy = new(1.2f, 0.3f, 0f, 0f, 0.8f, 0.9f, 20f, 5f, 3.5f) { PrimaryReaction = new(0f, ReactionKind.Stun) };
+
+    static SimConfig WithStab(SimConfig c) => c with
+    {
+        Classes = [.. c.Classes.Select(k => (k.MeleeHeavy is { Count: > 0 } h ? h : [ProbeHeavy]) is var heavy ? k with { MeleeHeavy = [.. heavy, heavy[0] with { Stab = true, YNext = 0, YComboOpen = 0f, YComboClose = 0f }] } : k)],
+    };
+
+    static readonly SimConfig Pack = CancelGateTests.Plays(WithStab(MeleeCancelTests.Pack), null);
+    static readonly SimConfig Heavy = CancelGateTests.Plays(WithStab(MeleeCancelTests.Heavy with { InputBufferWindow = 0.3f }), null);
 
     static List<Entry> Entries() =>
     [
@@ -41,6 +50,8 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         new("jp_takeoff", Pack, 0, c => Step(MeleeCancelTests.Fresh(c, 0), c, InputButtons.Jump)),
         new("reload", Heavy, 0, c => Step(MeleeCancelTests.Fresh(c, 0) with { Clip = 5 }, c, InputButtons.Reload)),
         new("reload", Pack, 0, c => Step(MeleeCancelTests.Fresh(c, 0) with { Clip = 5 }, c, InputButtons.Reload)),
+        new("melee_stab", Heavy, 0, c => Step(MeleeCancelTests.Fresh(c, 0), c, InputButtons.Stab)),   // sim/stab-key-only: the Power Sword Stab section's row
+        new("melee_stab", Pack, 0, c => Step(MeleeCancelTests.Fresh(c, 0), c, InputButtons.Stab)),    // with the pack (only pack classes hold the sword)
     ];
 
     /// <summary>The press of an input column (the way it is made), or null for a column that is not a press.</summary>
@@ -55,6 +66,7 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
         "switch" => Loadouts.Holstered(c, s) is not null ? (InputButtons.Switch, 0f, 0f) : null,
         "grenade" => Loadouts.Equipment(c, s) is not null ? (InputButtons.Grenade, 0f, 0f) : null,
         "back" => (InputButtons.None, 0f, -1f),
+        "stab" => Combat.StabIndex(Loadouts.MeleeHeavy(c, s)) > 0 ? (InputButtons.Stab, 0f, 0f) : null,   // sim/stab-key-only: the Sword Stab key's column
         _ => null,
     };
 
@@ -64,7 +76,7 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
     /// <summary>Whether the action of <paramref name="row"/> is still going in <paramref name="s"/> (its own state, not "the first row that applies").</summary>
     static bool Live(string row, PlayerState s) => row switch
     {
-        "melee_light" or "melee_light_last" or "melee_heavy" or "melee_stomp" => s.MeleeStep > 0,
+        "melee_light" or "melee_light_last" or "melee_heavy" or "melee_stomp" or "melee_stab" => s.MeleeStep > 0,
         "charge" or "charge_air" => s.Rush == RushPhase.Rush,
         "evade_roll" or "evade_hop" or "jp_hop" => s.EvadeTicks > 0,
         "jp_takeoff" => s.Jump == JumpPhase.TakeOff,
@@ -96,7 +108,7 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
     [Fact]
     public void Every_reachable_default_cell_matches_what_the_simulation_does()
     {
-        var times = new[] { 1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 24, 28, 32, 36 };
+        var times = new[] { 1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72 };   // to 72 ticks since review F2: the jump-pack hop's landing part (after its 1.3 s flight) is probed too
         var table = CancelData.Baseline;
         var mismatches = new List<string>();
         int probed = 0, unprobed = 0, na = 0;
@@ -129,48 +141,49 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The matrix the owner reviewed (Y yes, . no, W window, Q queued, - not applicable; 37 rows of 16 inputs, in matrix order), with the seven cells <see cref="Every_reachable_default_cell_matches_what_the_simulation_does"/>
+    /// The matrix the owner reviewed (Y yes, . no, W window, Q queued, - not applicable; 38 rows of 17 inputs, in matrix order; the Power Sword Stab row and column last), with the seven cells <see cref="Every_reachable_default_cell_matches_what_the_simulation_does"/>
     /// found the code to disagree with (the charge rows' heavy and charge inputs: queued, not no; a charge press ends a reload) corrected. Written out here so a change to the data file is a visible change to a test.
     /// </summary>
     static readonly string[] Reviewed =
     [
-        "QQWWYW.QQQ...-Y.",   // melee_light
-        "WWWWYW.QQQ...-Y.",   // melee_light_last
-        "QWWWYW.QQQ...-Y.",   // melee_heavy
-        "WWWW-WWWWWWWW-W.",   // melee_stomp
-        "YQQWY..QQQ..Y-W.",   // charge
-        "YQQWY..QQQ..Y-W.",   // charge_sprint
-        "YQQ.Y..QQQ...-W.",   // charge_air
-        "WWWWY..QQQ.WW-Y.",   // charge_stop
-        "WW.-Y..QQQ.WW-Y.",   // dash_attack
-        "WWQW-.WQWW.WW-W.",   // evade_roll
-        "WWQW-WWQQW.WW-W.",   // evade_hop
-        "QQQ-W........-Y.",   // jp_takeoff
-        "YQQ-WWWQQW.WW-W.",   // jp_hop
-        "YQQ-W........-..",   // jp_flight
-        "QQQ-Q..QQQ...-..",   // jp_dive
-        "QQQ-Y..QQQ...-Y.",   // jp_recover
-        "YYQ-Y.....WWW-Y.",   // jp_landed
-        "YYYYW-.YYYY..-Y.",   // hip_fire
-        "YYYYW--YYY...-Y.",   // aim_fire
-        "YYYYWY.YYYY..-Y.",   // charged_shot
-        "..Y.....Y....-..",   // reload
-        ".......QYQ...-..",   // switch
-        "YYYYY-.QYYY..-Y.",   // raise
-        "QQQWY..QQQ...-Y.",   // grenade
-        "QQQWY..QQQ...-..",   // stim
-        "YYYYY.Y...-YY-Y.",   // sprint
-        "YYYYYYY....YY-Y.",   // sprint_stop
-        "QQQQ-..QQQ...-..",   // brace_enter
-        "....-..Y.....-..",   // braced
-        "QQQY-..QQQ...-..",   // brace_exit
-        "YYYYYY..YY...-Y.",   // vent
-        "----------------",   // exec_doing
-        "----------------",   // exec_victim
-        "YYYYYYYYYYYYY-W.",   // react_interrupt
-        "...WY..QQQ...-..",   // react_stun
-        "....Y..QQQ...-..",   // react_stagger
-        "--------------..",   // flinch
+        "QQWWYW.QQQ...-Y..",   // melee_light
+        "WWWWYW.QQQ...-Y..",   // melee_light_last
+        "QWWWYW.QQQ...-Y..",   // melee_heavy
+        "WWWW-WWWWWWWW-W.-",   // melee_stomp
+        "YQQWY..QQQ..Y-W..",   // charge
+        "YQQWY..QQQ..Y-W..",   // charge_sprint
+        "YQQ.Y..QQQ...-W..",   // charge_air
+        "WWWWY..QQQ.WW-Y..",   // charge_stop
+        "WW.-Y..QQQ.WW-Y..",   // dash_attack
+        "WWQW-.WQWW.WW-W.-",   // evade_roll
+        "WWQW-WWQQW.WW-W.-",   // evade_hop
+        "QQQ-W........-Y..",   // jp_takeoff
+        "YQQ-WWWQQW.WW-W.W",   // jp_hop
+        "YQQ-W........-...",   // jp_flight
+        "QQQ-Q..QQQ...-...",   // jp_dive
+        "QQQ-Y..QQQ...-Y..",   // jp_recover
+        "YYQ-Y.....WWW-Y.Y",   // jp_landed
+        "YYYYW-.YYYY..-Y.Y",   // hip_fire
+        "YYYYW--YYY...-Y.Y",   // aim_fire
+        "YYYYWY.YYYY..-Y.Y",   // charged_shot
+        "..Y.....Y....-...",   // reload
+        ".......QYQ...-...",   // switch
+        "YYYYY-.QYYY..-Y.Y",   // raise
+        "QQQWY..QQQ...-Y..",   // grenade
+        "QQQWY..QQQ...-...",   // stim
+        "YYYYY.Y...-YY-Y.Y",   // sprint
+        "YYYYYYY....YY-Y.Y",   // sprint_stop
+        "QQQQ-..QQQ...-..-",   // brace_enter
+        "....-..Y.....-..-",   // braced
+        "QQQY-..QQQ...-..-",   // brace_exit
+        "YYYYYY..YY...-Y.Y",   // vent
+        "-----------------",   // exec_doing
+        "-----------------",   // exec_victim
+        "YYYYYYYYYYYYY-W.Y",   // react_interrupt
+        "...WY..QQQ...-...",   // react_stun
+        "....Y..QQQ...-...",   // react_stagger
+        "--------------..-",   // flinch
+        "QQW-YW.QQQ...-Y..",   // melee_stab (sim/stab-key-only, owner 2026-11-23: the Power Sword Stab section; its column is the last character of every row)
     ];
 
     [Fact]
@@ -185,6 +198,6 @@ public class CancelMatrixProbeTests(ITestOutputHelper output)
                 if (!CancelDefaultTests.IsExportCell(r, c)) Assert.True(want == CancelData.Shipped.Base(r, c).State, $"shipped {CancelLayout.Number(r, c)} {CancelLayout.Rows[r]} x {CancelLayout.Cols[c]}");   // the exported cells (4 since the 11-23 export) are checked in CancelDefaultTests
                 if (!CancelDefaultTests.IsExportCell(r, c)) Assert.False(CancelData.Shipped.Base(r, c).HasTimes);
             }
-        Assert.Equal(37 * 16, CancelLayout.RowCount * CancelLayout.ColCount);
+        Assert.Equal(38 * 17, CancelLayout.RowCount * CancelLayout.ColCount);   // sim/stab-key-only: the stab row and column appended (37 x 16 before)
     }
 }

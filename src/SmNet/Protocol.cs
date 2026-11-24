@@ -553,7 +553,10 @@ public static partial class Protocol
     // 90 (sim/ledge-charge-air; the owner 2026-11-23, brief 2026-11-23-series-36-ledge-charge, answer 2): no layout change. Classic PvP only: a bull rush held in the air after running off a ledge falls under
     //     4 x gravity at its unchanged horizontal speed (LedgeChargeAir.GravityScale in Rush.Move; Rush.EndsOnLanding reads the fallen height), so its travel from the ledge to the first landing is halved; Musou Mode
     //     and Warfront unchanged. Client prediction must agree, hence the bump. Restore switch (config hash): --old-ledge-charge-air.
-    public const ushort Version = 90;
+    // 91 (sim/stab-key-only; the owner 2026-11-23): no layout change. Classic PvP's power sword: F + F (and every chain into the Y,Y finisher) is the data's stomp again; the stab is a heavy strike of its own after
+    //     the finishers that only the Sword Stab key (input bit 15) starts. The cancel matrix gains the Power Sword Stab row (melee_stab) and column (stab), appended last (DevCancel row/column ranges grow by one).
+    //     Prediction must agree, hence the bump; the Classic config hash changes too.
+    public const ushort Version = 91;
     /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
     public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>

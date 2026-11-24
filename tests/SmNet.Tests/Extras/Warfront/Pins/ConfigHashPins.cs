@@ -29,8 +29,8 @@ public class ConfigHashPins(ITestOutputHelper output)
     static readonly ContentExtras[] Profiles = [ContentExtras.None, ContentExtras.All, ContentExtras.Musou, ContentExtras.Orks, ContentExtras.Autocannon];
 
     // Captured on 5428594e and recaptured on 2026-11-19 on main 1809fa31 (main's own changes moved them; the same five values come out of this tree and of an untouched main, which is the proof that Warfront changes no Classic or Musou hash): index order None, All, Musou, Orks, Autocannon.
-    static readonly ulong[] DefaultHashes = [0xAA40C2EE9AE0EE1DUL, 0x060CA7F5E6F22ADAUL, 0x4F982DFE8D7DFB35UL, 0xA10EA8713099B3ACUL, 0xF191506BEDCC889AUL];
-    static readonly ulong[] GoldenHashes = [0x3BFCC79FC8AFA398UL, 0xE5E891D63F520B73UL, 0x34C7A7A7F47F1EBCUL, 0xD738DD13CE0294F0UL, 0x0150161B1A80E701UL];
+    static readonly ulong[] DefaultHashes = [0x6F2F6B2B1A7A41F0UL, 0xD3D3D5F4E244F644UL, 0x4F982DFE8D7DFB35UL, 0x7D67C86AF2876E46UL, 0x78B229870916C651UL];   // sim/stab-key-only (2026-11-23): the Classic profiles move with the cancel table's stab section (was 0xAA40C2EE9AE0EE1DUL, 0x060CA7F5E6F22ADAUL, -, 0xA10EA8713099B3ACUL, 0xF191506BEDCC889AUL); Musou unchanged
+    static readonly ulong[] GoldenHashes = [0x97D7B66E9373C943UL, 0xE4DA81CF210372A5UL, 0x34C7A7A7F47F1EBCUL, 0x0FA1B3FD7ACCB8FFUL, 0x32F6578236623CB6UL];   // sim/stab-key-only (2026-11-23; was 0x3BFCC79FC8AFA398UL, 0xE5E891D63F520B73UL, -, 0xD738DD13CE0294F0UL, 0x0150161B1A80E701UL); Musou unchanged
 
     static ulong[] HashesOf(SimConfig config) => [.. Profiles.Select(p => (config with { Extras = p }).Hash())];
 

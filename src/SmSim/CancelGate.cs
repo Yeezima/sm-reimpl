@@ -11,7 +11,8 @@ static class CancelRow
         JpTakeoff = R("jp_takeoff"), JpHop = R("jp_hop"), JpFlight = R("jp_flight"), JpDive = R("jp_dive"), JpRecover = R("jp_recover"), JpLanded = R("jp_landed"),
         HipFire = R("hip_fire"), AimFire = R("aim_fire"), ChargedShot = R("charged_shot"), Reload = R("reload"), Switch = R("switch"), Raise = R("raise"), Grenade = R("grenade"),
         Stim = R("stim"), Sprint = R("sprint"), SprintStop = R("sprint_stop"), BraceEnter = R("brace_enter"), Braced = R("braced"), BraceExit = R("brace_exit"), Vent = R("vent"),
-        ReactInterrupt = R("react_interrupt"), ReactStun = R("react_stun"), ReactStagger = R("react_stagger");
+        ReactInterrupt = R("react_interrupt"), ReactStun = R("react_stun"), ReactStagger = R("react_stagger"),
+        MeleeStab = R(CancelData.StabRowId);   // sim/stab-key-only (owner 2026-11-23): the Power Sword Stab section's row
 }
 
 /// <summary>Column indices of the cancel matrix (inputs), by id.</summary>
@@ -19,7 +20,8 @@ static class CancelCol
 {
     static int C(string id) { int i = CancelLayout.ColIndex(id); return i >= 0 ? i : throw new InvalidOperationException("cancel matrix column missing: " + id); }
     public static readonly int Light = C("light"), Heavy = C("heavy"), Charge = C("charge"), Roll = C("roll"), Pack = C("pack"), Fire = C("fire"), Aim = C("aim"), Reload = C("reload"),
-        Switch = C("switch"), Grenade = C("grenade"), Sprint = C("sprint"), Stick = C("stick"), Back = C("back"), HitReact = C("hit_react"), HitPlain = C("hit_plain");
+        Switch = C("switch"), Grenade = C("grenade"), Sprint = C("sprint"), Stick = C("stick"), Back = C("back"), HitReact = C("hit_react"), HitPlain = C("hit_plain"),
+        Stab = C(CancelData.StabColId);   // sim/stab-key-only: the Power Sword Stab section's column (the Sword Stab key)
 }
 
 /// <summary>
@@ -123,6 +125,9 @@ public static class CancelGate
         if (Edge(InputButtons.Grenade, s.GrenadeHeld)) Consider(CancelCol.Grenade, InputButtons.Grenade, BufferedAction.Grenade);
         var switchButtons = InputButtons.Switch | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond;
         if (InputBuffer.Pressed(s, b & switchButtons, c) == BufferedAction.Switch) Consider(CancelCol.Switch, switchButtons, BufferedAction.Switch);
+        // sim/stab-key-only (owner 2026-11-23): the Sword Stab key. The client sends its bit as a short pulse (StabPulse), so it is weighed every tick it is set, like a held input; it never enters the
+        // input buffer, so Queued acts as No. Only a weapon with a stab has a press to weigh.
+        if ((b & InputButtons.Stab) != 0 && Combat.StabIndex(Loadouts.MeleeHeavy(c, s)) > 0) Consider(CancelCol.Stab, InputButtons.Stab, BufferedAction.None);
         if ((b & InputButtons.Fire) != 0) Consider(CancelCol.Fire, InputButtons.Fire, BufferedAction.None);
         if ((b & InputButtons.Aim) != 0) Consider(CancelCol.Aim, InputButtons.Aim, BufferedAction.None);
         if ((b & InputButtons.Sprint) != 0) Consider(CancelCol.Sprint, InputButtons.Sprint, BufferedAction.None);
@@ -135,7 +140,7 @@ public static class CancelGate
     }
 
     /// <summary>
-    /// The matrix row of the action the player is in at the start of a tick (the first that applies, in this order: a hit reaction, a charge phase, a jump-pack phase, an evade, a melee attack, a brace,
+    /// The matrix row of the action the player is in at the start of a tick (the first that applies, in this order: a hit reaction, a charge phase, a jump-pack phase, an evade, a melee attack (the power sword's stab its own row), a brace,
     /// a throw, a vent, a switch, a reload, a charged shot, a raise, a sprint stop, the trigger held, a sprint), or -1 for none (nothing is in progress, so every input is free).
     /// </summary>
     public static int ActiveRow(SimConfig c, PlayerState s, PlayerInput input)
@@ -158,7 +163,7 @@ public static class CancelGate
         if (s.EvadeTicks > 0) return Loadouts.Evade(c, s) is { Dash: true } ? CancelRow.JpHop : Combat.IsRoll(Loadouts.Evade(c, s)) ? CancelRow.EvadeRoll : CancelRow.EvadeHop;
         if (s.MeleeStep > 0)
         {
-            if (Combat.MeleeStepOf(c, s) is { } m) return m.InPlace ? CancelRow.MeleeStomp : s.MeleeHeavy ? CancelRow.MeleeHeavy : m.StringEnd ? CancelRow.MeleeLightLast : CancelRow.MeleeLight;
+            if (Combat.MeleeStepOf(c, s) is { } m) return m.InPlace ? CancelRow.MeleeStomp : s.MeleeHeavy && m.Stab ? CancelRow.MeleeStab : s.MeleeHeavy ? CancelRow.MeleeHeavy : m.StringEnd ? CancelRow.MeleeLightLast : CancelRow.MeleeLight;
             return CancelRow.MeleeLight;
         }
         switch (s.Brace)
@@ -185,7 +190,7 @@ public static class CancelGate
         float dt = c.TickSeconds;
         float seconds = row switch
         {
-            _ when row == CancelRow.MeleeLight || row == CancelRow.MeleeLightLast || row == CancelRow.MeleeHeavy || row == CancelRow.MeleeStomp => s.MeleeTime,
+            _ when row == CancelRow.MeleeLight || row == CancelRow.MeleeLightLast || row == CancelRow.MeleeHeavy || row == CancelRow.MeleeStomp || row == CancelRow.MeleeStab => s.MeleeTime,
             _ when row == CancelRow.Charge || row == CancelRow.ChargeAir || row == CancelRow.ChargeStop || row == CancelRow.DashAttack => s.RushTicks * dt,
             _ when row == CancelRow.EvadeRoll || row == CancelRow.EvadeHop || row == CancelRow.JpHop => s.EvadeTicks * dt,
             _ when row == CancelRow.JpTakeoff || row == CancelRow.JpFlight || row == CancelRow.JpDive || row == CancelRow.JpRecover || row == CancelRow.JpLanded => s.JumpTicks * dt,
@@ -227,7 +232,7 @@ public static class CancelGate
     /// <summary>The state with the action in <paramref name="row"/> ended (the way the data's own cancels end it): nothing of it is left to wait for, and the next action may start this tick.</summary>
     public static PlayerState EndAction(PlayerState s, SimConfig c, int row)
     {
-        if (row == CancelRow.MeleeLight || row == CancelRow.MeleeLightLast || row == CancelRow.MeleeHeavy || row == CancelRow.MeleeStomp)
+        if (row == CancelRow.MeleeLight || row == CancelRow.MeleeLightLast || row == CancelRow.MeleeHeavy || row == CancelRow.MeleeStomp || row == CancelRow.MeleeStab)
             return s with { MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false, MeleeLock = 0f, MeleeDirection = EvadeDirection.Forward };
         if (row == CancelRow.Charge || row == CancelRow.ChargeAir || row == CancelRow.ChargeStop || row == CancelRow.DashAttack)
             return Rush.Cleared(s) with { RushLock = 0 };

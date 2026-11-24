@@ -83,17 +83,24 @@ public partial class CancelEditorPanel : CanvasLayer
 
         var body = new HBoxContainer(); body.AddThemeConstantOverride("separation", 14); outer.AddChild(body);
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(1010, 700), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto }; body.AddChild(scroll);
+        _scroll = scroll;
         var grid = new GridContainer { Columns = CancelLayout.ColCount + 1 };
         grid.AddThemeConstantOverride("h_separation", 2); grid.AddThemeConstantOverride("v_separation", 2);
         scroll.AddChild(grid);
         var doc = CancelData.Doc;
         grid.AddChild(new Label { Text = "" });
         for (int c = 0; c < CancelLayout.ColCount; c++)
-            grid.AddChild(new Label { Text = $"{c + 1} {ColName(c)}", CustomMinimumSize = new Vector2(44, 0), ClipText = true, TooltipText = doc.ColLabel(c), Modulate = Blue, MouseFilter = Control.MouseFilterEnum.Pass });
+            grid.AddChild(new Label { Text = $"{c + 1} {ColName(c)}", CustomMinimumSize = new Vector2(44, 0), ClipText = true, TooltipText = doc.ColLabel(c), Modulate = IsStabCol(c) ? StabTint : Blue, MouseFilter = Control.MouseFilterEnum.Pass });
         _cells = new Godot.Button[CancelLayout.RowCount, CancelLayout.ColCount];
         for (int r = 0; r < CancelLayout.RowCount; r++)
         {
-            grid.AddChild(new Label { Text = $"{r + 1} {Short(doc.RowLabel(r))}", CustomMinimumSize = new Vector2(250, 0), ClipText = true, TooltipText = doc.RowLabel(r), MouseFilter = Control.MouseFilterEnum.Pass });
+            // sim/stab-key-only (owner 2026-11-23): the Power Sword Stab section, its own heading above its row; its column (the Sword Stab key) is tinted the same way.
+            if (IsStabRow(r))
+            {
+                grid.AddChild(new Label { Text = "POWER SWORD STAB", CustomMinimumSize = new Vector2(250, 0), ClipText = true, TooltipText = "Power Sword Stab section: this row is the stab in progress (Sword Stab key only); the Stab column is that key pressed during any action.", Modulate = StabTint, MouseFilter = Control.MouseFilterEnum.Pass });
+                for (int c = 0; c < CancelLayout.ColCount; c++) grid.AddChild(new Control { MouseFilter = Control.MouseFilterEnum.Ignore });
+            }
+            grid.AddChild(new Label { Text = $"{r + 1} {Short(doc.RowLabel(r))}", CustomMinimumSize = new Vector2(250, 0), ClipText = true, TooltipText = doc.RowLabel(r), Modulate = IsStabRow(r) ? StabTint : Colors.White, MouseFilter = Control.MouseFilterEnum.Pass });
             for (int c = 0; c < CancelLayout.ColCount; c++)
             {
                 int rr = r, cc = c;
@@ -125,7 +132,11 @@ public partial class CancelEditorPanel : CanvasLayer
         RefreshImports();
     }
 
-    string ColName(int c) => CancelLayout.Cols[c] switch { "light" => "Lt", "heavy" => "Hv", "charge" => "Chg", "roll" => "Roll", "pack" => "Pack", "fire" => "Fire", "aim" => "Aim", "reload" => "Rld", "switch" => "Swt", "grenade" => "Gren", "sprint" => "Spr", "stick" => "WAD", "back" => "S", "exec" => "Exe", "hit_react" => "Stun", "hit_plain" => "Hit", var o => o };
+    static readonly Color StabTint = new(1f, 0.55f, 0.85f);
+    static bool IsStabRow(int r) => CancelLayout.Rows[r] == CancelData.StabRowId;
+    static bool IsStabCol(int c) => CancelLayout.Cols[c] == CancelData.StabColId;
+
+    string ColName(int c) => CancelLayout.Cols[c] switch { "stab" => "Stab","light" => "Lt", "heavy" => "Hv", "charge" => "Chg", "roll" => "Roll", "pack" => "Pack", "fire" => "Fire", "aim" => "Aim", "reload" => "Rld", "switch" => "Swt", "grenade" => "Gren", "sprint" => "Spr", "stick" => "WAD", "back" => "S", "exec" => "Exe", "hit_react" => "Stun", "hit_plain" => "Hit", var o => o };
 
     (SpinBox, CheckBox) TimeRow(VBoxContainer into, string label)
     {
@@ -167,6 +178,10 @@ public partial class CancelEditorPanel : CanvasLayer
     }
 
     void Select(int row, int col) { _selRow = row; _selCol = col; Redraw(true); }
+
+    ScrollContainer? _scroll;
+    /// <summary>sim/stab-key-only: the grid scrolls the selected cell into view (the Power Sword Stab section is the last row and column, past the first screen).</summary>
+    void ShowSelected() { if (_scroll is not null && _cells is not null && _selRow >= 0 && _selCol >= 0) Callable.From(() => _scroll.EnsureControlVisible(_cells[_selRow, _selCol])).CallDeferred(); }
 
     /// <summary>The cell the grid shows at the current scope: the scope's own override, else what a player of that scope gets.</summary>
     CancelCell Shown(CancelData t, int r, int c) => t.At(_scope, r, c);
@@ -292,6 +307,7 @@ public partial class CancelEditorPanel : CanvasLayer
         if (rc.Length != 2 || !int.TryParse(rc[0], out int row) || !int.TryParse(rc[1], out int col) || row < 1 || col < 1 || row > CancelLayout.RowCount || col > CancelLayout.ColCount || parts.Length < 2) return false;
         row--; col--;
         _selRow = row; _selCol = col;   // the inspector shows the cell the script touched
+        ShowSelected();
         if (parts[1] == "reset") { client.SendCancelEdit(DevCancelOp.ResetCell, [new CancelChange(_scope, row, col, new CancelCell(CancelState.Yes))]); Say($"reset {CancelLayout.Number(row, col)}"); return true; }
         var state = CancelData.ParseState(parts[1]);
         if (state is null || state == CancelState.NotApplicable) return false;
