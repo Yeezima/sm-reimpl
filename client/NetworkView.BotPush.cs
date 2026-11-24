@@ -42,7 +42,7 @@ public partial class NetworkView
     int _approachFor = -1, _approachIndex;
     V3 _approachEnemyAt;
     double _approachAt = double.NegativeInfinity;
-    int _pushLogged;
+    int _pushLogged, _approachJobs;
     /// <summary>Whether the latest approach plan for the push under way is safe (false while it is pending).</summary>
     bool _approachSafe;
 
@@ -127,7 +127,7 @@ public partial class NetworkView
             if (enemy.PlayerId != _approachFor) _approach = null;
             _approachFor = enemy.PlayerId; _approachEnemyAt = enemy.Position; _approachAt = _connectedFor;
             var from = me.Position; var at = enemy.Position; float eye = config.EyeHeight; var cancel = _navCancel.Token;
-            _approachTask = Task.Run(() => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
+            _approachTask = _botWork.Run($"bot|{_navGeneration}|approach {++_approachJobs}", () => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
         }
         if (_approach is not { } plan || !_approachSafe) return null;
         while (_approachIndex < plan.Waypoints.Count && new Vector2(plan.Waypoints[_approachIndex].X - me.Position.X, plan.Waypoints[_approachIndex].Y - me.Position.Y).Length() <= ApproachPass) _approachIndex++;

@@ -216,6 +216,7 @@ public partial class NetworkView
     /// <summary>A hit report of this bot's own shots: ranged hits (not melee or blast) count toward the distance band of the target it was aiming at.</summary>
     void BotNoteHits(HitReport hits)
     {
+        if (_bot) BotBrainNoteHits(hits);   // T1 transition: the moved brain and the shadow (NetworkView.BotBrain.cs)
         if (_bot) BotNoteTacticsHits(hits);   // stream C measurements
         if (!_bot || hits.LastMelee || hits.LastSplash || hits.Hits <= 0) return;
         _botBandHits[Band(_botAimDistance)] += hits.Hits;

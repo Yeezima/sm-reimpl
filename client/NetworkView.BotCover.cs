@@ -38,7 +38,7 @@ public partial class NetworkView
     V3? _cover;
     bool _coverNone;
     double _coverAt = double.NegativeInfinity, _retreatSince;
-    int _coverLogged;
+    int _coverLogged, _coverJobs;
 
     /// <summary>Whether the bot is retreating to cover now.</summary>
     bool BotRetreating => _botRetreat is { Active: true };
@@ -95,7 +95,7 @@ public partial class NetworkView
             _coverAt = _connectedFor;
             var from = me.Position; var cancel = _navCancel.Token; var plan = Plan;
             Func<V3, bool>? excluded = plan is null ? null : plan.InNoLoiterZone;
-            _coverTask = Task.Run(() => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
+            _coverTask = _botWork.Run($"bot|{_navGeneration}|cover {++_coverJobs}", () => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
         }
         if (_cover is not { } cover) return target is null ? new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f) : null;   // planning (standing), or none: fight
 

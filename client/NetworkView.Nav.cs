@@ -72,7 +72,7 @@ public partial class NetworkView
                 }
                 return best;
             };
-        return new NavAgent(graph) { Background = true, EscapeOffGraph = rules, ExcludeStuckDrops = rules, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
+        return new NavAgent(graph) { Background = !BotShadowSync, EscapeOffGraph = rules, ExcludeStuckDrops = rules, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
     }
 
     const double NavLogEvery = 5.0;              // seconds between the bot's "nav:" log lines
@@ -156,7 +156,7 @@ public partial class NetworkView
                     // bots/new-maps: on a Classic PvP map a jump-pack bot walks on the plain graph at once and takes the jump links when they are ready (a first build on a big map takes
                     // minutes, and the old order left the bot on its straight walk for all of them); Manufactorum, Musou Mode's maps and --bot-old-jump-build keep the old one-step build (BotNavigation.NewMapRules).
                     bool walkFirst = pack != "" && !BotOldJumpBuild && BotNavigation.NewMapRules(map.Name);
-                    slot.Task = Task.Run(() =>
+                    slot.Task = _botWork.Run($"bot|{_navGeneration}|nav {slot.Team} {slot.Pack}", () =>
                     {
                         string walkNote;
                         var graph = walkFirst
@@ -183,7 +183,7 @@ public partial class NetworkView
                     var jumpCancel = _navCancel.Token;
                     var walk = slot.Graph;
                     int jumpThreads = BotJumpBuildThreads;   // read here, not on the build's thread
-                    slot.JumpTask = Task.Run(() =>
+                    slot.JumpTask = _botWork.Run($"bot|{_navGeneration}|jump {slot.Team} {slot.Pack}", () =>
                     {
                         var g = BotNavigation.WithJumpLinks(walk, js.Map, js.World, js.Config, js.Team, js.PlayerClass, BotNavigation.CacheDirectory, out string jumpNote, jumpThreads, jumpCancel);
                         return ((NavGraph?)g, jumpNote);
@@ -234,6 +234,7 @@ public partial class NetworkView
         ++_navGeneration;
         _navMap = _bot ? map : null; _navWorld = _bot ? world : null;
         _navNote = "waiting for the side";
+        if (_bot) BotBrainPrepareNavigation(map, world);   // T1 transition: the moved brain and the shadow (NetworkView.BotBrain.cs)
     }
 
     /// <summary>

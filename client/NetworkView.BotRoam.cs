@@ -50,7 +50,7 @@ public partial class NetworkView
                 var cancel = _navCancel.Token;
                 string mapName = client.MapName;
                 float eye = _config?.EyeHeight ?? 1.7f;
-                slot.PlanTask = Task.Run(() =>
+                slot.PlanTask = _botWork.Run($"bot|{_navGeneration}|plan {slot.Team} {slot.Pack}", () =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);

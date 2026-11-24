@@ -690,7 +690,7 @@ public partial class NetworkView : Node3D
             _attackSeen = others.Where(o => o.Alive).Append(me).Any(p => Loadouts.Melee(_config, p) is var steps
                 && p.MeleeStep >= 1 && p.MeleeStep <= steps.Count && p.MeleeTime >= steps[p.MeleeStep - 1].HitTime);
         // Other players' health, shield and ammunition are not sent (slim records); only what is drawn is logged for them.
-        if (_bot) { if (!me.Alive) _navAgent?.Reset(); LogNav(me); }
+        if (_bot) BotBrainFrame(me);   // the bot brain: a death resets its path; its "nav:", stuck, wait and "aim:" log lines (NetworkView.BotBrain.cs)
         if (_bot && (int)(_connectedFor / 2.0) != (int)((_connectedFor - delta) / 2.0))
             GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
                      $"{(me.Alive ? "alive" : "dead")} hp {me.Health:F0} sh {me.Shield:F0} {AmmoText(me)}{HeatText(me)}{ChargeText(me)} bot [{_botNote}] melee {me.MeleeStep} ({MeleeLabel(me)}) swings {_meleeSwings} switches {_switches} overheats {_overheats} releases {_releases}; " +
@@ -743,7 +743,7 @@ public partial class NetworkView : Node3D
         // Dead (M23): no control until the respawn - neither movement, look, fire nor abilities are sent.
         if (OwnDead || PickerBusy)
         {
-            if (_bot && OwnDead) BotNoteDead();   // 2026-11-08: BotInput is not called while dead, so the lives and the push learn of the death here (NetworkView.BotRoam.cs)
+            if (_bot && OwnDead) BotBrainNoteDead();   // 2026-11-08: BotInput is not called while dead, so the lives and the push learn of the death here (NetworkView.BotRoam.cs)
             _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
@@ -758,10 +758,10 @@ public partial class NetworkView : Node3D
         if (_bot)
         {
             // --aim-test: hold aim mode every other 5 s so the screenshots show both cameras (test aid).
-            var scripted = BotPickupInput(BotApplyAim(BotInput(tick)), tick);   // M44a: aim error on ranged shots at enemies (NetworkView.BotAim.cs); fidelity gap 1: E in reach of a pickup; --bot-pickups walks to one
+            var scripted = BotPickupInput(BotBrainStep(tick), tick);   // M44a: aim error on ranged shots at enemies (NetworkView.BotAim.cs); fidelity gap 1: E in reach of a pickup; --bot-pickups walks to one
             scripted = BotBraceVentInput(scripted);   // fidelity gap 7 test aid (--bot-brace): brace and vent with Reload
             scripted = BotTurnLimit(scripted);   // anim/melee-flow test aid (--bot-turn-rate): the view turns like a hand on a mouse, not in one tick (NetworkView.MeleeFlow.cs)
-            scripted = BotGrenadeHold(scripted);   // bot-grenade-safety (Classic PvP): no move, jump or charge into its own live grenade; out of it when inside (NetworkView.BotGrenades.cs)
+            scripted = BotBrainHold(scripted);   // bot-grenade-safety (Classic PvP): no move, jump or charge into its own live grenade; out of it when inside (NetworkView.BotGrenades.cs)
             if (AimTest) LogConvergence(scripted);
             // --bot-slot pistol|primary (test aid): one press of that slot key (protocol 14) a few seconds after joining.
             if (BotSlot is { Length: > 0 } && _connectedFor is >= 3.0 and < 3.2)
@@ -1413,7 +1413,7 @@ public partial class NetworkView : Node3D
         {
             _throwsReleased += p.Grenades - me.Grenades;
             if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} releases a grenade ({ThrowText(me)} released {_throwsReleased}; predicted)");
-            if (_bot) BotNoteOwnRelease(me);   // bot-grenade-safety: its grenade is a hazard until it goes off (NetworkView.BotGrenades.cs)
+            if (_bot) BotBrainNoteOwnRelease(me);   // bot-grenade-safety: its grenade is a hazard until it goes off (NetworkView.BotGrenades.cs)
         }
         // A recharged round that arrives and is fired within one frame leaves the clip unchanged but the reserve lower.
         bool shot = me.Clip < p.Clip || (me.Reserve < p.Reserve && me.Clip <= p.Clip);

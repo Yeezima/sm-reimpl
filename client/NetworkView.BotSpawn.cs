@@ -46,7 +46,7 @@ public partial class NetworkView
             {
                 var team = client.Predicted.Team;
                 var cancel = _navCancel.Token;
-                slot.WatchTask = Task.Run(() =>
+                slot.WatchTask = _botWork.Run($"bot|{_navGeneration}|watch {slot.Team} {slot.Pack}", () =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);
