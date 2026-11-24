@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4089 spec table rows: **3020 tagged**, 702 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
+| Movement (critical) | 422 | 363 | 360 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,7 +53,7 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3020** | 2712 | 2217 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,9 +61,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1827 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
-| notes: ours | 475 |
-| kind: interpretation | 456 |
+| confidence: medium | 1038 |
+| notes: ours | 476 |
+| kind: interpretation | 457 |
 | notes: estimate | 306 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (421)
+### Movement (gameplay-critical) (422)
 
 *Spec section: Extracted parameters*
 
@@ -621,6 +621,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-3F0980AA` | Which weapon is "in hand" for the fall | The graphs choose on `BOOL_Thunderhammer` / `BOOL_Chainsword` (a flag of the equipped melee weapon). Ours: the marine's melee wargear: the thunder hammer and the daemon maul (and Musou's spear through its animation alias) fall as the hammer, the chainsword as… | kind: interpretation; confidence: medium; notes: ours | ours (the flag stands for the wargear) | Which weapon is "in hand" for the fall: compare with SM1 by timing a run over a known distance. Ours: The graphs choose on BOOL_Thunderhammer / BOOL_Chainsword (a flag of… | ☐ |
+
+*Spec section: Install transitions, pass 2 batch 2 (2026-11-25; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-97655FBB` | Who dashes as the hammer | the thunder hammer and the daemon maul (no Chaos graph exists: the install's 46 graphs are the marine rig's, the maul plays the hammer's), and Musou's spear through its animation alias, in the hammer stance (`HammerStance`: the pistol not up) when the dash… | kind: interpretation; confidence: medium; notes: ours | graph (the hammer graph is the active melee state) + ours (the latch) | Who dashes as the hammer: compare with SM1 by feel or video. Ours: the thunder hammer and the daemon maul (no Chaos graph exists: the… | ☐ |
 
 *Spec section: The hammer's swings and air slash (anim/hammer-swing; the step is simulated, the legs and the air slash clip are client presentation)*
 
@@ -6046,6 +6052,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D6C8E863` | Melee distance validation and player collision | The `AttackDistanceValidation` window is read (graph dump) but not used; lunges pass through players other than the locked target (no player-to-player collision) | Melee distance validation and player collision: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E7695864` | Install transitions not wired (2026-11-12) | Hit reactions from the other attackers (`SM_REC_Light_Itrpt_FHR_01`, `_BHL_01`, `_FLL_01`, `SM_REC_Hvy_Itrpt_FHL_01`: the Bloodletter's second attack, the Nob's, the counter; the marine's own reactions state holds only FHL and BHR, the entry edges into the others have no decoded trigger and the attacker kind is not on… | Install transitions not wired (2026-11-12): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F9247491` | Install transitions, pass 2 batch 1: what is wired and what is not (2026-11-12) | Wired: the thunder hammer's and the chainsword's whole-body drop and landing (`SM_2HM_NAV_TH_Dropdown` / `_Landing`, `SM_NAV_CS_Dropdown` / `_Landing`: from 1 m above the ground, the landing from 0.5 m whatever the speed, as the heavy bolter's) and the hammer's jump-pack landings (`SM_JMP_TH_Landing_Low` / `_LowRun`).… | Install transitions, pass 2 batch 1: what is wired and what…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-4738595D` | Install transitions, pass 2 batch 2: the hammer's dash clips (2026-11-25) | A thunder hammer or daemon maul marine in the hammer stance now shows `MP_SM_MEL_ThunderHammer`'s own dash clips (`SM_JMP_TH_Dash_*`, `SM_JMP_TH_Dash_Landing_*`). Ours: the dash's motion, flight end and ground check stay the plain set's (the hammer graph's flight has no `Falling` modifier and opens its fast ground… | Install transitions, pass 2 batch 2: the hammer's dash…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6FB7303A` | 180 degree attacks, the displace kick-to-stomp tap-to-hold switch, the power sword's knee follow-up | Not simulated (the heavy classes' kick and stomp are simulated since Weapons C). Flinches are drawn (animation pass 2, hit reactions 2026-11-11) and, by the owner's rule, not simulated beyond the light melee's aim spread | 180 degree attacks, the displace kick-to-stomp tap-to-hold…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-7DE442CE` | Jump-pack dash attacks and hammer pound clips | Not simulated. The air melee below 8 m above ground is the graph's `MeleeDash`, not a pound (`FLT_Distance_Above_Ground` in [8, 1000] picks the pound): we always pound (M44 found it; not changed) | Jump-pack dash attacks and hammer pound clips: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6E338ECD` | The 2.5 m rush variant | Open (M29); the charger's hyper armour is applied since M32 (owner's knowledge) | The 2.5 m rush variant: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
