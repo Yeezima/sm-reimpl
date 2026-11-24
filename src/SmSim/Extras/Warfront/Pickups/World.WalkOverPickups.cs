@@ -8,7 +8,7 @@ namespace SmSim;
 /// <summary>
 /// Warfront's walk-over pickups in the World (owner 2026-11-25; <see cref="WarfrontPickupRules"/>). From Musou's drop step, before the presses: each living human (never an AI Marine or a retainer) takes
 /// every own live drop that is not a weapon (a powerup starts its buff) and the ammunition and equipment boxes that lie under his feet. A crate is walked over only when taking it fills a free slot or refills a
-/// weapon already owned (the lead's decision, 2026-11-25, after the owner's "weapons stay on E": never a swap by accident); a crate that would replace a weapon stays and needs E. A box that would add nothing stays
+/// weapon already owned (the lead's decision, 2026-11-25, after the owner's "weapons stay on E": never a swap by accident); a crate that would replace a weapon stays and needs E. A press skips only the powerups: E takes any crate in reach. A box that would add nothing stays
 /// on the floor, as does a crate that cannot be given now; both are taken on a later tick when they can be. Each returns at once unless the run's Warfront object is set, so Musou Mode and Classic keep the press and the hold.
 /// </summary>
 public sealed partial class World
@@ -20,7 +20,7 @@ public sealed partial class World
 
     partial void WarfrontWalksOver(in MusouDrop drop, ref bool walks)
     {
-        if (_tfw?.Warfront is not null && WalksOverNow(drop)) walks = true;
+        if (_tfw?.Warfront is not null && !drop.Crate && WarfrontPickupRules.WalksOver(drop)) walks = true;   // only a powerup: E takes any crate in reach (the client prompts for every crate)
     }
 
     /// <summary>Whether <paramref name="drop"/> goes by walking over it now: a powerup always, a crate unless it would replace a weapon of its player's.</summary>

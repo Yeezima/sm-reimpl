@@ -15,6 +15,18 @@ namespace SmClient;
 public partial class NetworkView
 {
     readonly HashSet<ushort> _wfDropsHeard = new();
+    object? _wfDropsHeardClient;
+    string? _wfDropsHeardMap;
+
+    /// <summary>Drop ids start again at 1 on a new stage or map (a new server process or a rejoin): the heard ids are forgotten when the connection or its map changes.</summary>
+    void WarfrontDropsHeardFresh()
+    {
+        string? map = _client?.MapName;
+        if (ReferenceEquals(_wfDropsHeardClient, _client) && _wfDropsHeardMap == map) return;
+        _wfDropsHeard.Clear();
+        _wfDropsHeardClient = _client;
+        _wfDropsHeardMap = map;
+    }
 
     partial void WarfrontDropWalksOver(in MusouDropRecord drop, ref bool walks)
     {
@@ -28,12 +40,16 @@ public partial class NetworkView
 
     partial void WarfrontDropPicked(in MusouDropRecord drop, bool heard, PlayerState me)
     {
-        if (!WarfrontOn || !_wfDropsHeard.Add(drop.Id) || heard) return;   // the list is resent while the drop is listed: once per id
+        if (!WarfrontOn) return;
+        WarfrontDropsHeardFresh();
+        if (!_wfDropsHeard.Add(drop.Id) || heard) return;   // the list is resent while the drop is listed: once per id
         MusouDropSound(drop.Position, me);
     }
 
     partial void WarfrontDropLive(ushort id)
     {
-        if (WarfrontOn) _wfDropsHeard.Remove(id);
+        if (!WarfrontOn) return;
+        WarfrontDropsHeardFresh();
+        _wfDropsHeard.Remove(id);
     }
 }

@@ -133,6 +133,19 @@ public class WarfrontWalkOverTests
     }
 
     [Fact]
+    public void In_Warfront_E_takes_a_crate_that_fills_a_slot_in_reach_but_not_underfoot()
+    {
+        var w = Battle(warfront: true, spares: true);
+        var kit = w.Tfw!.Rewards.Kit(Human, w.Players[Human].Class);
+        var crate = w.MusouSpawnDrop(Human, Feet(w) + new Vector3(1.3f, 0f, 0f), 3, crate: true)!.Value;   // within the 1.5 m press reach, outside the 1 m walk-over
+        TfwRig.Steps(w, 5);
+        Assert.Equal(MusouDropState.Live, StateOf(w, crate.Id));
+        w.Step(_ => Press);
+        Assert.Equal(MusouDropState.Picked, StateOf(w, crate.Id));
+        Assert.Contains(3, kit.Weapons);
+    }
+
+    [Fact]
     public void In_Warfront_a_crate_that_cannot_be_given_stays()
     {
         var w = Battle(warfront: true);
