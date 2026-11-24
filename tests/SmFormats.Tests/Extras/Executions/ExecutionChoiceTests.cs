@@ -68,7 +68,19 @@ public class ExecutionChoiceTests
         Assert.Equal(ExecutionWeapons.PowerAxe, ExecutionWeapons.FamilyOf("mp_melee_chain_axe"));
         Assert.Equal(ExecutionWeapons.PowerAxe, ExecutionWeapons.FamilyOf("sm_mp_melee_power_axe"));
         Assert.Equal(ExecutionWeapons.ThunderHammer, ExecutionWeapons.FamilyOf("thunder_hammer"));
-        Assert.Equal(ExecutionWeapons.ThunderHammer, ExecutionWeapons.FamilyOf("csm_mp_melee_daemon_maul"));
+        Assert.Equal(ExecutionWeapons.ThunderHammer, ExecutionWeapons.FamilyOf("csm_mp_melee_2hand_power_mace"));   // the daemon maul's real wargear
+        // Every melee wargear the simulation knows (MpClasses.MeleeMaps suffixes) with both race prefixes: the owner's families (power sword on the chainsword's rows).
+        var maps = new (string Suffix, string Family)[]
+        {
+            ("_mp_melee_combat_knife", ExecutionWeapons.CombatKnife), ("_mp_melee_chainsword_gold", ExecutionWeapons.Chainsword),
+            ("_mp_melee_chainsword", ExecutionWeapons.Chainsword), ("_mp_melee_powersword", ExecutionWeapons.Chainsword),
+            ("_mp_melee_power_axe", ExecutionWeapons.PowerAxe), ("_mp_melee_chain_axe", ExecutionWeapons.PowerAxe),
+            ("_mp_melee_2hand_thunder_hammer", ExecutionWeapons.ThunderHammer), ("_mp_melee_2hand_power_mace", ExecutionWeapons.ThunderHammer),
+        };
+        foreach (var (suffix, family) in maps)
+            foreach (var race in new[] { "sm", "csm" })
+                Assert.Equal(family, ExecutionWeapons.FamilyOf(race + suffix));
+        Assert.Null(ExecutionWeapons.FamilyOf("sm_mp_core_abil_heavy_evade"));   // the heavies' kick and stomp
         Assert.Equal(ExecutionWeapons.CombatKnife, ExecutionWeapons.FamilyOf("sm_mp_melee_combat_knife"));
         foreach (var none in new[] { "displace_kick", "lightning_claw", "power_spear", "bolter", "", null })
             Assert.Null(ExecutionWeapons.FamilyOf(none));
@@ -123,7 +135,7 @@ public class ExecutionChoiceTests
         Assert.Equal(2, ExecutionChoice.ChooseOrk(e, 0f, "c", Sword, [Ork(1, MusouEnemyType.BombSquig, At(1f, 0f)), Ork(2, MusouEnemyType.Boy, At(2f, 0f))], rows, Config, null));
         // Rows for the hammer only: a chainsword has nothing; the daemon maul plays the hammer's; the kick has no family.
         Assert.Equal(0, ExecutionChoice.ChooseOrk(e, 0f, "c", Sword, [Ork(1, MusouEnemyType.Boy, At(1f, 0f))], OrkRows(ExecutionWeapons.ThunderHammer), Config, null));
-        Assert.Equal(1, ExecutionChoice.ChooseOrk(e, 0f, "c", "daemon_maul", [Ork(1, MusouEnemyType.Boy, At(1f, 0f))], OrkRows(ExecutionWeapons.ThunderHammer), Config, null));
+        Assert.Equal(1, ExecutionChoice.ChooseOrk(e, 0f, "c", "csm_mp_melee_2hand_power_mace", [Ork(1, MusouEnemyType.Boy, At(1f, 0f))], OrkRows(ExecutionWeapons.ThunderHammer), Config, null));
         Assert.Equal(0, ExecutionChoice.ChooseOrk(e, 0f, "c", "displace_kick", [Ork(1, MusouEnemyType.Boy, At(1f, 0f))], rows, Config, null));
         // A wall between: not seen.
         var v = new List<Vector3>(); var idx = new List<int>();
@@ -184,10 +196,44 @@ public class ExecutionChoiceTests
         // The knife and the kick have no Classic row; the power sword plays the chainsword's.
         Assert.False(ExecutionChoice.ChooseClassic(marine, "tactical", "sm_mp_melee_combat_knife", chaosCorpse, rows[1..], Config, null, null).Ok);
         Assert.Equal("c1", ExecutionChoice.ChooseClassic(marine, "assault", "sm_mp_melee_powersword", chaosCorpse, rows, Config, null, null).Row!.Id);
+        // By race, not team (an Ork Boy player sits on either team): an Ork victim takes the Ork Boy rows; an Ork killer cannot execute.
+        var orkConfig = Config with { Classes = [new ClassLoadout("tactical", 0, -1, []), new ClassLoadout("ork_boy", 0, -1, []) { Race = Race.Orks }] };
+        var orkRows = rows.Append(R("o3", ExecutionTargets.OrkBoy, ExecutionWeapons.Chainsword)).ToArray();
+        var orkCorpse = chaosCorpse with { Class = 1, Team = Team.Chaos };
+        var onOrk = ExecutionChoice.ChooseClassic(marine, "tactical", Sword, orkCorpse, orkRows, orkConfig, null, null);
+        Assert.True(onOrk.Ok);
+        Assert.Equal("o3", onOrk.Row!.Id);
+        Assert.False(onOrk.RaceSwapped);
+        Assert.Equal([(ExecutionTargets.OrkBoy, false)], ExecutionTargets.Classic(Race.Orks));
+        Assert.False(ExecutionChoice.ChooseClassic(marine with { Class = 1 }, "ork_boy", Sword, chaosCorpse, orkRows, orkConfig, null, null).Ok);
+        Assert.False(ExecutionTargets.CanExecute(Race.Orks));
+        Assert.Equal(0, ExecutionChoice.ChooseOrk(Executor() with { Class = 1 }, 0f, "ork_boy", Sword, [Ork(1, MusouEnemyType.Boy, At(1f, 0f))], OrkRows(), orkConfig, null));
         // Too far for every row's band and slide: a clean failure.
         var far = ExecutionChoice.ChooseClassic(marine, "assault", Sword, chaosCorpse with { Position = new Vector3(0f, 9f, 0f) }, rows, Config, null, null);
         Assert.False(far.Ok);
         Assert.Equal(ExecutionAlignFailure.TooFar, far.Failure);
+    }
+
+    [Fact]
+    public void The_aligned_pick_skips_an_ork_whose_move_does_not_fit()
+    {
+        var rows = OrkRows(ExecutionWeapons.Chainsword);
+        var e = Executor();
+        // Ork 2 is the better ranked (0 degrees) but stands behind a thin screen only weapons hit; Ork 5 is clear.
+        var v = new List<Vector3>(); var idx = new List<int>();
+        void Quad(List<Vector3> vs, List<int> ix, Vector3 a, Vector3 b, Vector3 c, Vector3 d) { int i = vs.Count; vs.AddRange([a, b, c, d]); ix.AddRange([i, i + 1, i + 2, i, i + 2, i + 3]); }
+        Quad(v, idx, new(-20, -20, 0), new(20, -20, 0), new(20, 20, 0), new(-20, 20, 0));
+        var floor = new StaticMesh(v.ToArray(), idx.ToArray());
+        // The victim of Ork 2 is thrown back 1.3 m into a wall behind it.
+        Quad(v, idx, new(-0.5f, 2.6f, 0), new(0.5f, 2.6f, 0), new(0.5f, 2.6f, 3), new(-0.5f, 2.6f, 3));
+        var level = new CollisionWorld(new StaticMesh(v.ToArray(), idx.ToArray()), floor);
+        var thrown = rows.Select(r => r with { VictimRoot = [Vector4.Zero, new Vector4(0f, -1.3f, 0f, 0f)] }).ToArray();
+        MusouEnemy[] orks = [Ork(2, MusouEnemyType.Boy, At(1.5f, 0f)), Ork(5, MusouEnemyType.Boy, At(1.5f, 50f))];
+        Assert.Equal(2, ExecutionChoice.ChooseOrk(e, 0f, "c", Sword, orks, thrown, Config, level));
+        var (id, result) = ExecutionChoice.ChooseAlignedOrk(e, 0f, "c", Sword, orks, thrown, Config, level);
+        Assert.Equal(5, id);
+        Assert.True(result.Ok);
+        Assert.Equal((ushort)0, ExecutionChoice.ChooseAlignedOrk(e, 0f, "c", Sword, [orks[0]], thrown, Config, level).Id);
     }
 
     [Fact]

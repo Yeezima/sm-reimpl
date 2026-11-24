@@ -41,6 +41,8 @@ public sealed record ExecutionRow(string Id, string AttackerClass, string Weapon
     public IReadOnlyList<Vector4> VictimRoot { get; init; } = [];
     /// <summary>The original's conduit priority for the weapon (higher first in the fallback order; 0 unknown).</summary>
     public int Priority { get; init; }
+    /// <summary>The victim's sequencer (its graph state, e.g. the boy's "Slam Sequencer"), whose playback speed gives <see cref="VictimSeconds"/>; null: speed 1.</summary>
+    public string? VictimSequencer { get; init; }
     /// <summary>A note on the row's provenance (e.g. "ours: races swapped"); not played.</summary>
     public string? Note { get; init; }
 
@@ -58,14 +60,25 @@ public sealed record ExecutionRow(string Id, string AttackerClass, string Weapon
     /// <summary>The kill frame: its kill event, else its contact or sync event, else the end (seconds).</summary>
     public float KillSeconds => At(ExecutionEventKind.Kill) ?? At(ExecutionEventKind.Contact) ?? At(ExecutionEventKind.Sync) ?? Seconds;
 
-    /// <summary>The forward distances the attacker's blend covers (metres): its shortest and longest variant, else the offset's forward distance alone.</summary>
+    /// <summary>
+    /// The forward distance variant <paramref name="index"/> plays at (metres): the reference clip's (<see cref="AttackerClip"/>) is the row's authored gap
+    /// <see cref="Offset"/>.Y, so at that gap the reference clip plays pure (the victim halves are authored at 3.37 to 4.00 m, not at the name's 3.5 m: inventory 1.7);
+    /// the others their <see cref="ExecutionVariant.Distance"/> (<c>ExecutionClipReader.Fill</c> derives them from the clips' root travel).
+    /// </summary>
+    public float DistanceOf(int index)
+    {
+        var v = AttackerVariants[index];
+        return string.Equals(v.Clip, AttackerClip, StringComparison.OrdinalIgnoreCase) ? Offset.Y : v.Distance;
+    }
+
+    /// <summary>The forward distances the attacker's blend covers (metres): its shortest and longest variant (<see cref="DistanceOf"/>), else the offset's forward distance alone.</summary>
     public (float Min, float Max) DistanceBand
     {
         get
         {
             if (AttackerVariants.Count == 0) return (Offset.Y, Offset.Y);
             float lo = float.PositiveInfinity, hi = float.NegativeInfinity;
-            foreach (var v in AttackerVariants) { lo = MathF.Min(lo, v.Distance); hi = MathF.Max(hi, v.Distance); }
+            for (int i = 0; i < AttackerVariants.Count; i++) { float d = DistanceOf(i); lo = MathF.Min(lo, d); hi = MathF.Max(hi, d); }
             return (lo, hi);
         }
     }
@@ -120,13 +133,13 @@ public sealed record ExecutionRow(string Id, string AttackerClass, string Weapon
         int near = -1, far = -1;
         for (int i = 0; i < AttackerVariants.Count; i++)
         {
-            float d = AttackerVariants[i].Distance;
-            if (d <= distance && (near < 0 || d > AttackerVariants[near].Distance)) near = i;
-            if (d >= distance && (far < 0 || d < AttackerVariants[far].Distance)) far = i;
+            float d = DistanceOf(i);
+            if (d <= distance && (near < 0 || d > DistanceOf(near))) near = i;
+            if (d >= distance && (far < 0 || d < DistanceOf(far))) far = i;
         }
         if (near < 0) return (far, far, 0f);
         if (far < 0) return (near, near, 0f);
-        float a = AttackerVariants[near].Distance, b = AttackerVariants[far].Distance;
+        float a = DistanceOf(near), b = DistanceOf(far);
         return (near, far, b - a > 1e-6f ? Math.Clamp((distance - a) / (b - a), 0f, 1f) : 0f);
     }
 
@@ -194,8 +207,14 @@ public static class ExecutionTargets
         Never.Contains(rosterName) ? null : map.TryGetValue(rosterName, out var kind) ? kind : null;
 
     /// <summary>A Warfront Ork's kind, or null: never an elite (<see cref="MusouPowerupRules.Elite"/>), a boss (<see cref="MusouPowerupRules.Boss"/>) or one in <see cref="Never"/>.</summary>
-    public static string? Of(MusouEnemyType type) =>
-        MusouPowerupRules.Elite(type) || MusouPowerupRules.Boss(type) ? null : Of(type.ToString(), Warfront);
+    public static string? Of(MusouEnemyType type) => OrkKinds[(byte)type];
+
+    /// <summary><see cref="Of(MusouEnemyType)"/> for every byte, resolved once from <see cref="Warfront"/> (no string per call).</summary>
+    static readonly string?[] OrkKinds = Enumerable.Range(0, 256).Select(i =>
+    {
+        var t = (MusouEnemyType)(byte)i;
+        return !Enum.IsDefined(t) || MusouPowerupRules.Elite(t) || MusouPowerupRules.Boss(t) ? null : Of(t.ToString(), Warfront);
+    }).ToArray();
 
     /// <summary>
     /// Whether Classic plays the Chaos Marine rows with the races swapped on a loyalist victim (owner 2026-11-25, "Yes, swap races"; <b>ours</b>: the original has
@@ -204,11 +223,23 @@ public static class ExecutionTargets
     public const bool ClassicRaceSwap = true;
 
     /// <summary>
-    /// Classic: the kinds a victim on <paramref name="side"/> takes rows of, in try order: a Chaos victim the Chaos Marine's; a loyalist (or sideless) victim the
-    /// loyalist's own (none exist today), then the Chaos Marine's with the races swapped (<see cref="ClassicRaceSwap"/>).
+    /// Classic: the kinds a victim of <paramref name="race"/> (<see cref="Races.Of"/>: by race, not team; an Ork Boy player sits on either team) takes rows of, in
+    /// try order. A Chaos victim gets the Chaos Marine's. A loyalist (or unknown) victim gets the loyalist's own (none exist today), then the Chaos Marine's with the
+    /// races swapped (<see cref="ClassicRaceSwap"/>). An Ork victim gets the Ork Boy's (lead 38, 2026-11-25, within the owner's "all with originals": the same rig
+    /// as the original victim clips).
     /// </summary>
-    public static IReadOnlyList<(string Kind, bool RaceSwapped)> Classic(Team side) =>
-        side == Team.Chaos ? [(ChaosMarine, false)] : ClassicRaceSwap ? [(SpaceMarine, false), (ChaosMarine, true)] : [(SpaceMarine, false)];
+    public static IReadOnlyList<(string Kind, bool RaceSwapped)> Classic(Race race) => race switch
+    {
+        Race.Chaos => [(ChaosMarine, false)],
+        Race.Orks => [(OrkBoy, false)],
+        _ => ClassicRaceSwap ? [(SpaceMarine, false), (ChaosMarine, true)] : [(SpaceMarine, false)],
+    };
+
+    /// <summary>As <see cref="Classic(Race)"/> for a side's own race (<see cref="Races.OfSide"/>); kept for callers without the class. Prefer the race.</summary>
+    public static IReadOnlyList<(string Kind, bool RaceSwapped)> Classic(Team side) => Classic(Races.OfSide(side));
+
+    /// <summary>Whether a player of <paramref name="race"/> can perform an execution: not an Ork (no Ork attacker clips exist; lead 38, 2026-11-25).</summary>
+    public static bool CanExecute(Race race) => race != Race.Orks;
 }
 
 /// <summary>
@@ -221,14 +252,14 @@ public static class ExecutionWeapons
 
     /// <summary>
     /// In match order. The power sword plays the chainsword's moves in every mode with executions (owner override of "no lookalike substitutes", this weapon
-    /// only); the chain axe is the power axe's Chaos twin (same graph since the original MP); the daemon maul the hammer's. Anything else (the kick, the claw,
-    /// the spear, guns) has no family and no execution.
+    /// only); the chain axe is the power axe's Chaos twin (same graph since the original MP); the daemon maul (wargear <c>csm_mp_melee_2hand_power_mace</c>,
+    /// <c>MpClasses.MeleeMaps</c>) the hammer's. Anything else (the kick, the claw, the spear, guns) has no family and no execution.
     /// </summary>
     public static readonly IReadOnlyList<(string Contains, string Family)> Aliases =
     [
         ("powersword", Chainsword), ("chainsword", Chainsword),
         ("chainaxe", PowerAxe), ("poweraxe", PowerAxe),
-        ("thunderhammer", ThunderHammer), ("daemonmaul", ThunderHammer), ("demonmaul", ThunderHammer),
+        ("thunderhammer", ThunderHammer), ("powermace", ThunderHammer), ("daemonmaul", ThunderHammer), ("demonmaul", ThunderHammer),
         ("combatknife", CombatKnife),
     ];
 
@@ -295,28 +326,72 @@ public static class ExecutionChoice
     public static IReadOnlyList<ushort> RankOrks(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey, IReadOnlyList<MusouEnemy> enemies,
         IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null)
     {
-        var ranked = new List<(int Band, int Angle, ushort Id)>();
-        if (ExecutionWeapons.FamilyOf(weaponKey) is not { } family) return [];
+        if (ExecutionWeapons.FamilyOf(weaponKey) is not { } family || !ExecutionTargets.CanExecute(Races.Of(c, executor.Class, executor.Team))) return [];
+        // Which Ork types have a playable row, resolved once per call (a handful of kinds), never per enemy.
+        Span<bool> playable = stackalloc bool[256];
+        Span<bool> known = stackalloc bool[256];
+        List<(int Band, int Angle, ushort Id)>? ranked = null;
         var forward = MeleeLock.Forward(facingYaw);
-        float vertical = c.MeleeLock.Vertical;
-        foreach (var e in enemies)
+        float vertical = c.MeleeLock.Vertical, range2 = WarfrontRange * WarfrontRange;
+        for (int k = 0; k < enemies.Count; k++)
         {
-            if (e.Id == 0 || reserved is not null && reserved.Contains(e.Id) || !Eligible(e, rows)) continue;
-            if (Rows(rows, attackerClass, family, ExecutionTargets.Of(e.Type)!).Count == 0) continue;
-            var flat = new Vector2(e.Position.X - executor.Position.X, e.Position.Y - executor.Position.Y);
-            float distance = flat.Length();
-            if (!float.IsFinite(distance) || distance > WarfrontRange || MathF.Abs(e.Position.Z - executor.Position.Z) > vertical) continue;
-            float angle = distance < 1e-4f ? 0f : MathF.Acos(Math.Clamp(Vector2.Dot(flat / distance, forward), -1f, 1f)) * 180f / MathF.PI;
+            var e = enemies[k];
+            // The cheap culls first: id, distance, height, state, reservation.
+            if (e.Id == 0) continue;
+            float dx = e.Position.X - executor.Position.X, dy = e.Position.Y - executor.Position.Y;
+            float d2 = dx * dx + dy * dy;
+            if (!(d2 <= range2) || MathF.Abs(e.Position.Z - executor.Position.Z) > vertical) continue;
+            if (!e.Alive || e.State is MusouEnemyState.Spawning or MusouEnemyState.Airborne) continue;
+            if (reserved is not null && reserved.Contains(e.Id)) continue;
+            byte t = (byte)e.Type;
+            if (!known[t])
+            {
+                known[t] = true;
+                playable[t] = ExecutionTargets.Of(e.Type) is { } kind && HasRow(rows, attackerClass, family, kind);
+            }
+            if (!playable[t]) continue;
+            float distance = MathF.Sqrt(d2);
+            float angle = distance < 1e-4f ? 0f : MathF.Acos(Math.Clamp((dx * forward.X + dy * forward.Y) / distance, -1f, 1f)) * 180f / MathF.PI;
             if (!MeleeLock.Sees(executor, StandIn(executor, e), c, world)) continue;
-            ranked.Add(((int)(distance / DistanceBand), (int)(angle / AngleBand), e.Id));
+            (ranked ??= []).Add(((int)(distance / DistanceBand), (int)(angle / AngleBand), e.Id));
         }
+        if (ranked is null) return [];
         ranked.Sort((a, b) => a.Band != b.Band ? a.Band.CompareTo(b.Band) : a.Angle != b.Angle ? a.Angle.CompareTo(b.Angle) : a.Id.CompareTo(b.Id));
-        var ids = new List<ushort>(ranked.Count);
-        foreach (var r in ranked) if (!ids.Contains(r.Id)) ids.Add(r.Id);
+        var ids = new ushort[ranked.Count];
+        for (int i = 0; i < ids.Length; i++) ids[i] = ranked[i].Id;
         return ids;
     }
 
-    /// <summary>The best of <see cref="RankOrks"/> (the target the HUD prompt shows), or 0.</summary>
+    static bool HasRow(IReadOnlyList<ExecutionRow> rows, string attackerClass, string family, string kind)
+    {
+        foreach (var r in rows)
+            if (r is not null && string.Equals(r.Target, kind, StringComparison.OrdinalIgnoreCase) && r.PlayedBy(attackerClass, family) && r.IsValid) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// The first Ork of <see cref="RankOrks"/> whose move also aligns (<see cref="ChooseWarfront"/>), and that result; (0, a failed result) when none does.
+    /// Use this for the HUD prompt as well as the press, so the prompt shows the Ork the press takes. The pick among that Ork's moves is seeded by
+    /// <paramref name="seedFor"/>(id) (null: the first that fits; the prompt does not depend on the pick, only on whether one fits).
+    /// </summary>
+    public static (ushort Id, ExecutionAlignResult Result) ChooseAlignedOrk(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey,
+        IReadOnlyList<MusouEnemy> enemies, IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null,
+        Func<ushort, ulong?>? seedFor = null)
+    {
+        ExecutionAlignResult? first = null;
+        foreach (ushort id in RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved))
+            for (int k = 0; k < enemies.Count; k++)
+            {
+                if (enemies[k].Id != id) continue;
+                var r = ChooseWarfront(executor, attackerClass, weaponKey, enemies[k], rows, c, world, seedFor?.Invoke(id));
+                if (r.Ok) return (id, r);
+                first ??= r;
+                break;
+            }
+        return (0, first ?? ExecutionAlign.Align(executor, executor, [], c, world));
+    }
+
+    /// <summary>The best of <see cref="RankOrks"/>, or 0. It does not align: <see cref="ChooseAlignedOrk"/> gives the Ork whose move fits (use that for the prompt).</summary>
     public static ushort ChooseOrk(in PlayerState executor, float facingYaw, string attackerClass, string weaponKey, IReadOnlyList<MusouEnemy> enemies,
         IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, IReadOnlySet<ushort>? reserved = null) =>
         RankOrks(executor, facingYaw, attackerClass, weaponKey, enemies, rows, c, world, reserved) is { Count: > 0 } r ? r[0] : (ushort)0;
@@ -371,21 +446,22 @@ public static class ExecutionChoice
     {
         var family = ExecutionWeapons.FamilyOf(weaponKey);
         var kind = ExecutionTargets.Of(e.Type);
-        var variants = family is null || kind is null ? [] : Rows(rows, attackerClass, family, kind);
+        var variants = family is null || kind is null || !ExecutionTargets.CanExecute(Races.Of(c, executor.Class, executor.Team)) ? [] : Rows(rows, attackerClass, family, kind);
         return ExecutionAlign.Align(executor, StandIn(executor, e), variants, c, world, seed);
     }
 
     /// <summary>
     /// Classic: the finisher <paramref name="attacker"/> plays on the corpse of <paramref name="victim"/> with a weapon <paramref name="weaponKey"/>: for each kind the
-    /// victim takes (<see cref="ExecutionTargets.Classic"/>, in order) a seeded pick among the rows that align; <see cref="ExecutionAlignResult.RaceSwapped"/> when
-    /// the Chaos Marine rows play on a loyalist. A failed result (the normal kill stands) when no row fits.
+    /// victim's race takes (<see cref="ExecutionTargets.Classic(Race)"/> of <see cref="Races.Of"/>, in order) a seeded pick among the rows that align;
+    /// <see cref="ExecutionAlignResult.RaceSwapped"/> when the Chaos Marine rows play on a loyalist. A failed result (the normal kill stands) when no row fits or
+    /// the attacker is an Ork (<see cref="ExecutionTargets.CanExecute"/>).
     /// </summary>
     public static ExecutionAlignResult ChooseClassic(in PlayerState attacker, string attackerClass, string weaponKey, in PlayerState victim,
         IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed)
     {
         ExecutionAlignResult? first = null;
-        if (ExecutionWeapons.FamilyOf(weaponKey) is { } family)
-            foreach (var (kind, swapped) in ExecutionTargets.Classic(victim.Team))
+        if (ExecutionWeapons.FamilyOf(weaponKey) is { } family && ExecutionTargets.CanExecute(Races.Of(c, attacker.Class, attacker.Team)))
+            foreach (var (kind, swapped) in ExecutionTargets.Classic(Races.Of(c, victim.Class, victim.Team)))
             {
                 var variants = Rows(rows, attackerClass, family, kind);
                 if (variants.Count == 0) continue;

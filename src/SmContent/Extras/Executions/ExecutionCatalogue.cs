@@ -76,7 +76,8 @@ public sealed class ExecutionCatalogue
         {
             w.Write(r.Id); w.Write(r.AttackerClass); w.Write(r.Weapon); w.Write(r.Target);
             w.Write(r.AttackerClip); w.Write(r.VictimClip); w.Write(r.Graph); w.Write(r.Sequencer);
-            w.Write(r.AttackerSeconds); w.Write(r.VictimSeconds);
+            w.Write(r.AttackerSeconds); w.Write(r.VictimSeconds); w.Write(r.VictimSequencer ?? "");
+            for (int i = 0; i < r.AttackerVariants.Count; i++) w.Write(r.DistanceOf(i));
             w.Write(r.Offset.X); w.Write(r.Offset.Y); w.Write(r.Offset.Z); w.Write(r.RelativeYaw); w.Write(r.Priority);
             w.Write(r.AttackerVariants.Count);
             foreach (var v in r.AttackerVariants) { w.Write(v.Clip); w.Write(v.Distance); w.Write(v.Root.Count); }

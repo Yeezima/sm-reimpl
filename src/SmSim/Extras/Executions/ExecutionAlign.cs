@@ -24,6 +24,10 @@ public enum ExecutionAlignFailure : byte
     NoSight = 8,
     /// <summary>A spawn-room blocker that stops the character's side stands on the slide or a root path.</summary>
     SpawnBlocker = 9,
+    /// <summary>The attacker is not on the ground (in a jump, a fall or a hop).</summary>
+    NotGrounded = 10,
+    /// <summary>Another character stands on the slide (the slide never pushes through or past a bystander).</summary>
+    Bystander = 11,
 }
 
 /// <summary>
@@ -48,7 +52,8 @@ public sealed record ExecutionAlignResult(bool Ok, ExecutionAlignFailure Failure
 /// lies outside the band does the attacker slide along that line by <see cref="Movement.Glide"/> (the capsule controller, against the level), at most
 /// <see cref="MaxSlide"/>. Then the slide and both clips' root paths (the attacker's blended at the distance and placed from the aligned attacker, the victim's
 /// from the victim) are probed every <see cref="ProbeSpacing"/>: downward for ground (a miss is a gap; a rise or drop above the step height between probes is a
-/// step; ground steeper than the walkable slope fails), a sphere swept at the waist between probes for walls and props, the kill volumes along the path and the
+/// step; ground steeper than the walkable slope fails), two capsule-radius spheres swept between probes (just above the step height and just under the capsule's
+/// top, so together they cover the body from the step height up) for walls, low walls and overhangs, the kill volumes along the path and the
 /// spawn-room blockers of the character's side; and the attacker must see the victim (<see cref="MeleeLock.Sees"/>). Every variant is checked in the order
 /// given; among those that pass a seeded pick (<see cref="ExecutionChoice.Seed"/>) chooses, else the first; none: a clean failure and nothing moves. Pure.
 /// </summary>
@@ -64,24 +69,36 @@ public static class ExecutionAlign
     public const float ProbeSpacing = 0.25f;
     /// <summary>The downward probe starts this far above the previous ground (metres; ours: above the step height, so a rise up to it is seen as ground).</summary>
     public const float ProbeLift = 1f;
-    /// <summary>The wall sweep: a sphere of this radius at this height above the probed ground (metres; ours: clear of a step-height riser, inside the capsule).</summary>
-    public const float SweepRadius = 0.3f, SweepHeight = 1f;
+    /// <summary>
+    /// The wall sweeps: spheres of the capsule radius (<see cref="SimConfig.CapsuleRadius"/>, 0.45 m) centred <see cref="SimConfig.StepHeight"/> + r and
+    /// <see cref="SimConfig.CapsuleHeight"/> − r above the probed ground (0.85 and 1.45 m: from 0.4 m to the capsule's 1.9 m top; ours, review of 476eb485).
+    /// </summary>
+    public static (float Radius, float Low, float High) Sweeps(SimConfig c)
+    {
+        float r = MathF.Max(c.CapsuleRadius, 0.05f);
+        float low = c.StepHeight + r, high = MathF.Max(low, c.CapsuleHeight - r);
+        return (r, low, high);
+    }
     /// <summary>Most probes along one path (a bound for corrupt root paths; 1 m of slide and a few metres of root motion need far fewer).</summary>
     public const int MaxProbes = 512;
 
     /// <summary>
     /// Checks <paramref name="variants"/> in order for <paramref name="attacker"/> executing <paramref name="victim"/> (a player or a corpse; an Ork through
     /// <see cref="ExecutionChoice.StandIn"/>) against <paramref name="world"/> (null: no level, the slide limit and the height check alone), and picks among those
-    /// that fit with <paramref name="seed"/> (<see cref="ExecutionChoice.Seed"/>; null: the first that fits).
+    /// that fit with <paramref name="seed"/> (<see cref="ExecutionChoice.Seed"/>; null: the first that fits). <paramref name="bystanders"/>: the feet of every
+    /// other living character (not the pair); the slide fails when it would come within two capsule radii of one (null: none checked). The attacker must be
+    /// grounded. <see cref="PlayerCollision.LastPush"/> is left as it was.
     /// </summary>
     public static ExecutionAlignResult Align(in PlayerState attacker, in PlayerState victim, IReadOnlyList<ExecutionRow> variants, SimConfig c, CollisionWorld? world,
-        ulong? seed = null)
+        ulong? seed = null, IReadOnlyList<Vector3>? bystanders = null)
     {
         var tried = new ExecutionAlignFailure[variants.Count];
         var passed = new List<ExecutionAlignResult>();
+        var push = PlayerCollision.LastPush;
         for (int i = 0; i < variants.Count; i++)
         {
-            var r = Try(attacker, victim, variants[i], c, world);
+            var r = Try(attacker, victim, variants[i], c, world, bystanders);
+            PlayerCollision.LastPush = push;
             tried[i] = r.Failure;
             if (r.Ok) passed.Add(r with { Variant = i });
         }
@@ -115,9 +132,10 @@ public static class ExecutionAlign
     static ExecutionAlignResult Fail(ExecutionAlignFailure why, in PlayerState attacker, in PlayerState victim) =>
         new(false, why, -1, null, attacker, victim.Position, victim.Yaw, 0f, 0f, 0, []);
 
-    static ExecutionAlignResult Try(in PlayerState attacker, in PlayerState victim, ExecutionRow row, SimConfig c, CollisionWorld? world)
+    static ExecutionAlignResult Try(in PlayerState attacker, in PlayerState victim, ExecutionRow row, SimConfig c, CollisionWorld? world, IReadOnlyList<Vector3>? bystanders)
     {
         if (!row.IsValid) return Fail(ExecutionAlignFailure.NoVariant, attacker, victim);
+        if (!attacker.Grounded) return Fail(ExecutionAlignFailure.NotGrounded, attacker, victim);
         // The forward distance the pair stands at once the attacker faces along the row's offset, clamped to the band its variants cover.
         float side = row.Offset.X;
         float gap = new Vector2(victim.Position.X - attacker.Position.X, victim.Position.Y - attacker.Position.Y).Length();
@@ -150,6 +168,22 @@ public static class ExecutionAlign
             }
         if (Vector2.Distance(new Vector2(s.Position.X, s.Position.Y), place) > SlideTolerance) return Fail(ExecutionAlignFailure.Blocked, attacker, victim);
         s = s with { Yaw = yaw };
+        if (MathF.Abs(victim.Position.Z - s.Position.Z) > c.StepHeight + 1e-3f) return Fail(ExecutionAlignFailure.Step, attacker, victim);   // the pair once slid
+        if (bystanders is not null && ticks > 0)
+        {
+            float clear = 2f * MathF.Max(c.CapsuleRadius, 0.05f);
+            var a = new Vector2(attacker.Position.X, attacker.Position.Y);
+            var ab = new Vector2(s.Position.X, s.Position.Y) - a;
+            float len2 = ab.LengthSquared();
+            foreach (var b in bystanders)
+            {
+                if (MathF.Abs(b.Z - s.Position.Z) > c.CapsuleHeight) continue;
+                var p = new Vector2(b.X, b.Y);
+                float t = len2 > 1e-8f ? Math.Clamp(Vector2.Dot(p - a, ab) / len2, 0f, 1f) : 0f;
+                float nearest = Vector2.Distance(a + ab * t, p);   // a bystander the slide closes on (one already beside the start and left behind does not count)
+                if (nearest < clear && nearest < Vector2.Distance(a, p) - 1e-4f) return Fail(ExecutionAlignFailure.Bystander, attacker, victim);
+            }
+        }
 
         float victimYaw = Wrap(yaw + row.RelativeYaw);
         if (world is not null)
@@ -186,6 +220,8 @@ public static class ExecutionAlign
         if (path.Count == 0) return ExecutionAlignFailure.None;
         var mesh = world.CharacterFor(side);
         float minNormalZ = MathF.Cos(Math.Clamp(c.MaxWalkableSlope, 0f, 90f) * MathF.PI / 180f) - 1e-4f;
+        var sweep = Sweeps(c);
+        Span<float> sweepHeights = [sweep.Low, sweep.High];
         float ground = path[0].Z;
         Vector3? last = null;
         int probes = 0;
@@ -207,10 +243,13 @@ public static class ExecutionAlign
                 var feet = new Vector3(p.X, p.Y, z);
                 if (last is { } prev)
                 {
-                    var w0 = prev + new Vector3(0f, 0f, SweepHeight);
-                    var d = feet + new Vector3(0f, 0f, SweepHeight) - w0;
-                    float len = d.Length();
-                    if (len > 1e-4f && mesh.SweepSphere(w0, d / len, SweepRadius, len) is { } wall && wall.Distance < len) return ExecutionAlignFailure.Blocked;
+                    foreach (float h in sweepHeights)
+                    {
+                        var w0 = prev + new Vector3(0f, 0f, h);
+                        var d = feet + new Vector3(0f, 0f, h) - w0;
+                        float len = d.Length();
+                        if (len > 1e-4f && mesh.SweepSphere(w0, d / len, sweep.Radius, len) is { } wall && wall.Distance < len) return ExecutionAlignFailure.Blocked;
+                    }
                     if (world.KillsPlayer(prev, feet, c.CapsuleHeight)) return ExecutionAlignFailure.KillVolume;
                 }
                 else if (world.KillsPlayer(feet, feet, c.CapsuleHeight)) return ExecutionAlignFailure.KillVolume;

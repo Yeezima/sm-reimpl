@@ -74,13 +74,20 @@ public class ExecutionContentTests(ITestOutputHelper output)
         var v = ExecutionClipReader.Read(rig, "SM_SYNC_Victim", Graphs());
         var row = new ExecutionRow("cs", "*", ExecutionWeapons.Chainsword, ExecutionTargets.ChaosMarine, a.Clip, v.Clip, 0f, 0f, [], new Vector3(0, 1.2f, 0), MathF.PI, "SM_Base_MP", "Sync Kill Chainsword");
         Assert.False(row.IsValid);
-        var filled = ExecutionClipReader.Fill(row, a, v, [(a with { Clip = "SM_SYNC_Attack_3.5m" }, null), (v, 7f)]);
+        var longer = a with { Clip = "SM_SYNC_Attack_7m", Root = [Vector4.Zero, new Vector4(0f, 2f, 0f, 0f)] };   // 1 m more travel than the reference
+        var filled = ExecutionClipReader.Fill(row, a, v, [(a, null), (longer, null), (v, 7f)]);
         Assert.True(filled.IsValid);
         Assert.Equal((1f, 1.5f), (filled.AttackerSeconds, filled.VictimSeconds));   // the attacker's sequencer plays it at speed 2
         Assert.Equal(a.Root, filled.AttackerRoot);
         Assert.Equal(v.Root, filled.VictimRoot);
-        Assert.Equal([3.5f, 7f], filled.AttackerVariants.Select(x => x.Distance));   // from the name, else as given
-        Assert.Equal((3.5f, 7f), filled.DistanceBand);
+        // The reference clip at the authored gap (1.2 m), another from its extra root travel (+1 m), a given one as given.
+        Assert.Equal([1.2f, 2.2f, 7f], filled.AttackerVariants.Select(x => MathF.Round(x.Distance, 4)));
+        Assert.Equal(1.2f, filled.DistanceOf(0));
+        Assert.Equal((1.2f, 7f), filled.DistanceBand);
+        Assert.Equal((0, 0, 0f), filled.Blend(1.2f));   // the reference clip plays pure at the authored gap
+        // The victim's sequencer gives its playback speed when it plays the clip; one that does not leaves speed 1. The attacker's at speed 2 as its own.
+        Assert.Equal(1.5f, ExecutionClipReader.Fill(row with { VictimSequencer = "Other" }, a, v).VictimSeconds);
+        Assert.Equal(1f, ExecutionClipReader.Fill(row, v, a, victimSequencer: "Sync Kill Chainsword").VictimSeconds);
         Assert.Equal(ExecutionEventKind.Kill, ExecutionClipReader.Guess("BRANCH_Boy_Dead"));
         Assert.Equal(0f, ExecutionClipReader.Yaw(Quaternion.Identity), 5);
         Assert.Equal(MathF.PI / 2f, ExecutionClipReader.Yaw(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f)), 4);
@@ -172,7 +179,10 @@ public class ExecutionContentTests(ITestOutputHelper output)
             byName["SM_SYN_ATT_F_ORKSLAM_3.5M"], byName["BOY_SYN_ATT_F_ORKSLAM_3.5M"],
             [(byName["SM_SYN_ATT_F_ORKSLAM_1M"], null), (byName["SM_SYN_ATT_F_ORKSLAM_3.5M"], null), (byName["SM_SYN_ATT_F_ORKSLAM_7M"], null)]);
         Assert.True(row.IsValid);
-        Assert.Equal((1f, 7f), row.DistanceBand);
+        // Distances from root travel around the authored 3.50 m gap: about 1.0 and 7.0 m, as the names say.
+        Assert.Equal(1f, row.DistanceBand.Min, 1);
+        Assert.Equal(7f, row.DistanceBand.Max, 1);
+        Assert.Equal(3.5f, row.DistanceOf(1), 4);
         output.WriteLine($"O3 blended at 2 m: root end {row.AttackerRootAt(2f)[^1]}");
         // The MP marine's hit volumes posed by a campaign clip (the same 50-bone skeleton: inventory 1.4).
         var notes = new List<string>();

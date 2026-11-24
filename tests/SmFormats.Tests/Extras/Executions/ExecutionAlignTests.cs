@@ -175,9 +175,59 @@ public class ExecutionAlignTests
         var v = Body(2, new Vector3(0f, 1.2f, 3f));
         Assert.Equal(ExecutionAlignFailure.Gap, ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f, victimRoot: Forward(-1.2f))], Config, ledge).Failure);
         Assert.True(ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f, victimRoot: Forward(-0.5f))], Config, ledge).Ok);
-        // The attacker pushed back off the platform's other edge (it starts at y = -20: far away) is fine; sliding toward the drop is not.
-        var edge = Body(1, new Vector3(0f, 1.5f, 3f));
-        Assert.False(ExecutionAlign.Align(edge, Body(2, new Vector3(0f, 2.9f, 0f)), [Row("x", forward: 0.6f)], Config, ledge).Ok);
+    }
+
+    [Fact]
+    public void The_slide_never_crosses_a_gap_between_two_platforms()
+    {
+        // Two 3 m platforms, y below 2.0 and y above 2.6, with the ground between them; the pair on the same height.
+        var split = World(new Mesh().Floor(-20, -20, 20, 2.0f, 3f).Floor(-20, 2.6f, 20, 20, 3f).Floor(-20, 2.0f, 20, 2.6f, 0f)
+            .Quad(new(-20, 2.0f, 0), new(20, 2.0f, 0), new(20, 2.0f, 3), new(-20, 2.0f, 3)).Quad(new(-20, 2.6f, 0), new(20, 2.6f, 0), new(20, 2.6f, 3), new(-20, 2.6f, 3)));
+        var a = Body(1, new Vector3(0f, 1.5f, 3f));
+        var v = Body(2, new Vector3(0f, 3.2f, 3f));
+        // The place 0.8 m short of the victim is y = 2.4, over the gap: the slide (0.9 m, inside the limit) must not be taken.
+        var r = ExecutionAlign.Align(a, v, [Row("x", forward: 0.8f)], Config, split);
+        Assert.False(r.Ok);
+        Assert.Equal(ExecutionAlignFailure.Gap, r.Failure);
+        Assert.Equal(a, r.Attacker);
+    }
+
+    [Fact]
+    public void Low_walls_and_overhangs_on_a_path_block_and_a_victim_behind_turns_the_pair()
+    {
+        var a = Body(1, Vector3.Zero);
+        var v = Body(2, new Vector3(0f, 1.2f, 0f));
+        var row = Row("x", forward: 1.2f, victimRoot: Forward(-1f));
+        // A thin wall 0.6 m high (above the step height, under the old waist sweep) behind the victim.
+        var low = World(new Mesh().Floor(-20, -20, 20, 20).Box(new(-3, 1.85f, 0), new(3, 1.87f, 0.6f)));
+        Assert.Equal(ExecutionAlignFailure.Blocked, ExecutionAlign.Align(a, v, [row], Config, low).Failure);
+        // A beam from 1.5 to 1.8 m above the ground on the same path.
+        var beam = World(new Mesh().Floor(-20, -20, 20, 20).Box(new(-3, 1.85f, 1.5f), new(3, 1.95f, 1.8f)));
+        Assert.Equal(ExecutionAlignFailure.Blocked, ExecutionAlign.Align(a, v, [row], Config, beam).Failure);
+        // A beam above the capsule's top (2.0 m and up) is clear.
+        var high = World(new Mesh().Floor(-20, -20, 20, 20).Box(new(-3, 1.85f, 2.0f), new(3, 1.95f, 2.3f)));
+        Assert.True(ExecutionAlign.Align(a, v, [row], Config, high).Ok);
+        // The victim behind the attacker: the attacker turns to face it, nobody moves.
+        var behind = ExecutionAlign.Align(Body(1, Vector3.Zero, yaw: 0f), Body(2, new Vector3(0f, -1.2f, 0f)), [Row("x", forward: 1.2f)], Config, Open());
+        Assert.True(behind.Ok);
+        Assert.Equal(0f, behind.Slide, 3);
+        Assert.Equal(MathF.PI, MathF.Abs(behind.Attacker.Yaw), 3);
+        Assert.Equal(0f, ExecutionAlign.Wrap(behind.VictimYaw), 3);
+    }
+
+    [Fact]
+    public void An_airborne_attacker_and_a_bystander_on_the_slide_fail_and_the_push_is_kept()
+    {
+        var a = Body(1, Vector3.Zero);
+        var v = Body(2, new Vector3(0f, 2.0f, 0f));
+        Assert.Equal(ExecutionAlignFailure.NotGrounded, ExecutionAlign.Align(a with { Grounded = false }, v, [Row("x", forward: 1.2f)], Config, Open()).Failure);
+        // Someone standing where the attacker would slide to.
+        Assert.Equal(ExecutionAlignFailure.Bystander,
+            ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open(), bystanders: [new Vector3(0.3f, 0.7f, 0f)]).Failure);
+        Assert.True(ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open(), bystanders: [new Vector3(3f, 0.7f, 0f), new Vector3(0f, -0.5f, 0f)]).Ok);
+        var push = PlayerCollision.LastPush;
+        Assert.True(ExecutionAlign.Align(a, v, [Row("x", forward: 1.2f)], Config, Open()).Ok);
+        Assert.Equal(push, PlayerCollision.LastPush);
     }
 
     [Fact]

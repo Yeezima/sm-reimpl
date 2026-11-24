@@ -35,7 +35,11 @@ public static class ExecutionClipReader
         var anim = bound.Animation;
         IReadOnlyList<Vector4> root;
         string source;
-        if (character.LoadExtractedMotion(clip) is { Samples.Count: > 0 } motion)
+        var motion = character.LoadExtractedMotion(clip);
+        // As EvadeTuning: the samples are read in the character's frame only when the reference frame is +Z up, +Y forward.
+        if (motion is { Samples.Count: > 0 } && (Vector3.Dot(Vector3.Normalize(motion.Up), Vector3.UnitZ) < 0.999f || Vector3.Dot(Vector3.Normalize(motion.Forward), Vector3.UnitY) < 0.999f))
+            throw new NotSupportedException($"'{clip}': the extracted motion's frame is not +Z up, +Y forward.");
+        if (motion is { Samples.Count: > 0 })
         {
             root = motion.Samples.ToArray();
             source = "extracted motion";
@@ -114,17 +118,28 @@ public static class ExecutionClipReader
 
     /// <summary>
     /// <paramref name="row"/> with its lengths and root paths from the clips read (<paramref name="attacker"/>, <paramref name="victim"/>), the lengths over the
-    /// playback speed of the row's own sequencer when the clip names it, and the attacker's distance variants from <paramref name="variants"/> (each clip read with
-    /// its distance: the name's <c>…_3.5m</c> by <see cref="MeleeMotion.DistanceOf"/> unless given); the row's events, offset, yaw and source unchanged.
+    /// playback speed of the row's own sequencer when the clip names it (the victim's: of <paramref name="victimSequencer"/> when given, else 1), and the
+    /// attacker's distance variants from <paramref name="variants"/>. A variant's distance, unless given: the reference clip's is the row's authored gap
+    /// <see cref="ExecutionRow.Offset"/>.Y; another's is that gap plus the difference of its forward root travel from the reference clip's (each variant covers the
+    /// extra gap with its own travel: the slam's 4.39 / 6.89 / 10.40 m give 1.0 / 3.5 / 7.0 m); without root travel the name's <c>…_3.5m</c>
+    /// (<see cref="MeleeMotion.DistanceOf"/>). The row's events, offset, yaw and source are unchanged.
     /// </summary>
-    public static ExecutionRow Fill(ExecutionRow row, ExecutionClip attacker, ExecutionClip victim, IEnumerable<(ExecutionClip Clip, float? Distance)>? variants = null)
+    public static ExecutionRow Fill(ExecutionRow row, ExecutionClip attacker, ExecutionClip victim, IEnumerable<(ExecutionClip Clip, float? Distance)>? variants = null,
+        string? victimSequencer = null)
     {
-        float Length(ExecutionClip clip) =>
-            clip.Seconds / (clip.Uses.FirstOrDefault(u => string.Equals(u.Sequencer, row.Sequencer, StringComparison.OrdinalIgnoreCase)) is { } use ? use.PlaybackSpeed : 1f);
-        var list = variants?.Select(v => new ExecutionVariant(v.Clip.Clip, v.Distance ?? MeleeMotion.DistanceOf(v.Clip.Clip), v.Clip.Root)).ToArray();
+        float Length(ExecutionClip clip, string? sequencer) =>
+            clip.Seconds / (sequencer is not null && clip.Uses.FirstOrDefault(u => string.Equals(u.Sequencer, sequencer, StringComparison.OrdinalIgnoreCase)) is { } use ? use.PlaybackSpeed : 1f);
+        float? Travel(ExecutionClip clip) => clip.Root.Count > 1 ? clip.Root[^1].Y - clip.Root[0].Y : null;
+        float? reference = Travel(attacker);
+        float DistanceOf(ExecutionClip v)
+        {
+            if (string.Equals(v.Clip, row.AttackerClip, StringComparison.OrdinalIgnoreCase)) return row.Offset.Y;
+            return reference is { } r && Travel(v) is { } t ? row.Offset.Y + (t - r) : MeleeMotion.DistanceOf(v.Clip);
+        }
+        var list = variants?.Select(v => new ExecutionVariant(v.Clip.Clip, v.Distance ?? DistanceOf(v.Clip), v.Clip.Root)).ToArray();
         return row with
         {
-            AttackerSeconds = Length(attacker), VictimSeconds = Length(victim),
+            AttackerSeconds = Length(attacker, row.Sequencer), VictimSeconds = Length(victim, victimSequencer ?? row.VictimSequencer),
             AttackerRoot = attacker.Root, VictimRoot = victim.Root,
             AttackerVariants = list ?? row.AttackerVariants,
         };
