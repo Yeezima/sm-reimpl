@@ -29,7 +29,7 @@ public class SquadAimParityTests
     [Fact]
     public void The_Classic_accuracy_is_the_clients_default()
     {
-        string src = File.ReadAllText(Path.Combine(RepoRoot(), "client", "NetworkView.BotAim.cs"));
+        string src = File.ReadAllText(Path.Combine(RepoRoot(), "src", "SmBots", "ClassicBotBrain.BotAim.cs"));   // T1: the Classic bot brain moved to src/SmBots
         var m = Regex.Match(src, @"DefaultBotAccuracy\s*=\s*([0-9.]+)f");
         Assert.True(m.Success);
         Assert.Equal(float.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), SquadAim.ClassicAccuracy);

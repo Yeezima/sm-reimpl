@@ -569,18 +569,18 @@ public class WarfrontSquadWiringTests
     [Fact]
     public void Export_and_Import_give_the_same_rosters_records_and_class_book()
     {
-        var r = Rig.Make(marines: 4, deploy: false);
-        r.Wi.Rosters.Marine(1, 2)!.Record.Kills = 5;
-        r.Wi.Rosters.Marine(1, 2)!.Record.Revives = 2;
-        r.Wi.Rosters.Rename(1, 3, "Valeria");
+        var r = Rig.Make(marines: 2, deploy: false);   // Import conforms every roster to the run's two (owner 2026-11-23, card 2)
+        r.Wi.Rosters.Marine(1, 1)!.Record.Kills = 5;
+        r.Wi.Rosters.Marine(1, 1)!.Record.Revives = 2;
+        r.Wi.Rosters.Rename(1, 1, "Valeria");
         var save = r.Wi.Export();
         var json = System.Text.Json.JsonSerializer.Serialize(save);
         Assert.NotEmpty(json);
         var r2 = Rig.Make(deploy: false);
         r2.Wi.Import(save);
         Assert.Equal(save.Rosters.Owners.Select(o => (o.Key, o.Held, o.Marines.Count)), r2.Wi.Export().Rosters.Owners.Select(o => (o.Key, o.Held, o.Marines.Count)));
-        Assert.Equal(5, r2.Wi.Rosters.Marine(1, 2)!.Record.Kills);
-        Assert.Equal("Valeria", r2.Wi.Rosters.Marine(1, 3)!.Name);
+        Assert.Equal(5, r2.Wi.Rosters.Marine(1, 1)!.Record.Kills);
+        Assert.Equal("Valeria", r2.Wi.Rosters.Marine(1, 1)!.Name);
         Assert.Equal(r.Wi.ClassBook.Export().Keys.Count, r2.Wi.ClassBook.Export().Keys.Count);
         Assert.Equal(r.Wi.RecordsOf(1), r2.Wi.RecordsOf(1));
         r2.Wi.Import(null);   // a missing file is an empty value
