@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4087 spec table rows: **3020 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
+| Core simulation (provisional values) | 872 | 826 | 652 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3020** | 2712 | 2217 | 913 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
+| kind: ours | 1828 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
+| confidence: medium | 1038 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
@@ -2943,7 +2943,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (871)
+### Core simulation (provisional values) (872)
 
 *Spec section: Provisional values in use*
 
@@ -3045,6 +3045,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
 | `R-59691005` | Musou powerups: our parts | which types are elites (Nob, Big Shoota Nob, Weirdboy, the 5-wave run's Chaos Marine); every living player (not the AI Marines) gets a drop of its own from the KO, its kind rolled per player (uniform over the four, a hash of tick, enemy and player); the same… (m, s, x, ticks) | kind: ours; confidence: low | ours; the owner's "Double damage + wider cleave" and "twice as fast and consume no ammunition similar to a stim"; the resend the review's (2026-11-10) | Musou powerups: our parts: compare with SM1 by feel or video. Ours: which types are elites (Nob, Big Shoota Nob, Weirdboy, the 5-wave… | ☐ |
 | `R-A704A4E8` | Musou powerups: the hold | a powerup is taken by holding the use key **0.5** s (**15** ticks at 30 per second, the press's tick the first) within 1.5 m of it; a release, a death, leaving its reach or the drop ending stops the hold, and only a new press starts one (the key kept down… (s, ticks) | kind: estimate; confidence: low; notes: ours | the owner's "Hold the use key"; the lead's "about half a second"; the value ours, to check in a playtest | Musou powerups: the hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a powerup is taken by holding the use key 0.5 s (15 ticks at 30 per… | ☐ |
+| `R-B5870107` | Warfront walk-over pickups (owner 2026-11-25; Warfront only, `WarfrontRules.Version` 23) | a living human takes his own powerups and crates and any ammunition or equipment box by walking over it: the pickup within **1.0** m of his feet on the flat and **1.0** m up or down; no press, no hold; once a tick on the server, before the presses; a weapon… (m) | kind: ours; confidence: medium | the owner, 2026-11-25: "make a change so that pickups are picked up just by walking over them"; cards "Warfront only", "Weapons stay on E"; the radius, the… | Warfront walk-over pickups (owner 2026-11-25; Warfront…: compare with SM1 by timing a run over a known distance. Ours: a living human takes his own powerups and crates and any ammunition… | ☐ |
 | `R-B45E5F45` | Musou powerups: look (client) | the drop: a 0.45 m black tile facing the camera with a thin white frame and the powerup's white line icon, its name above in small white capitals, a thin white floor ring 0.6 m round, a faint white line 7 m up (seen only from 8 m out, full at 25 m); no light… (m, px) | kind: ours; confidence: low | the owner ("much more minimalistic and match the black and white theme"); the lead's "icon and timer, near your own bar"; the values ours | Musou powerups: look (client): compare with SM1 by feel or video. Ours: the drop: a 0.45 m black tile facing the camera with a thin white… | ☐ |
 
 *Spec section: Added content: Musou Mode (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*

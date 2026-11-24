@@ -225,6 +225,12 @@ public partial class NetworkView
                 }
             }
         }
+        if (prompt is not null)
+        {
+            bool walked = false;
+            ExtrasPickupWalkOver(ref walked);   // EXTRAS-HOOK: added content that collects the boxes by walking over them shows no press prompt (Warfront, owner 2026-11-25); nothing in a faithful build
+            if (walked) prompt = null;
+        }
         _hudPrompt = prompt ?? "";   // ui/hud-fidelity: the HUD draws the prompt from the movie (Hud.DrawMoviePrompt); the label only without it
         if (_pickupPrompt is not null)
         {
@@ -237,6 +243,8 @@ public partial class NetworkView
             GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} pickups: {live.Count} lying, seen {_pickupsSeen}, collected {_pickupsCollectedSeen} (own {_ownCollections}), expired {_pickupsExpiredSeen}; messages {_client.PickupMessages}{(prompt is null ? "" : $"; prompt '{prompt}'")}");
         }
     }
+
+    partial void ExtrasPickupWalkOver(ref bool walks);
 
     void RemovePickupView(PickupView view)
     {

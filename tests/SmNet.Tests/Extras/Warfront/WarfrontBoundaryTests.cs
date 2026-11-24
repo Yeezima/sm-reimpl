@@ -92,6 +92,11 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontCleaveScaleFor"),
         // W13e: the stranded failsafe's "near" (an Ork inside its goal's ring has arrived)
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "WarfrontHeadwayNear"),
+        // 2026-11-25: walk-over pickups (Warfront only; weapons stay on E)
+        ("src/SmSim/Extras/Musou/World.MusouDrops.cs", "WarfrontWalkOver"),
+        ("src/SmSim/Extras/Musou/World.MusouDrops.cs", "WarfrontWalksOver"),
+        ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropWalksOver"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontPickupWalkOver"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

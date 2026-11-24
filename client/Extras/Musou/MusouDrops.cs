@@ -120,6 +120,9 @@ public partial class NetworkView
             foreach (var (id, view) in _musouDropViews)
             {
                 if (!_musouDropLive.TryGetValue(id, out var d) || !World.MusouInReach(d.Position, me.Position)) continue;
+                bool walked = false;
+                WarfrontDropWalksOver(in d, ref walked);   // WARFRONT-HOOK: Warfront takes it by walking over it (owner 2026-11-25): no prompt, no press, no hold; the server's list plays the take sound
+                if (walked) continue;
                 float d2 = System.Numerics.Vector3.DistanceSquared(d.Position, me.Position);
                 if (d2 < best) { best = d2; near = view; }
             }
@@ -165,6 +168,9 @@ public partial class NetworkView
         }
         MusouDropPromptShow(near is null ? null : _musouDropPromptText, near is { Minimal: true } ? MathF.Max(0f, hold) : -1f);
     }
+
+    /// <summary>Warfront: true for a drop the server takes by walking over it (a powerup, a crate), which shows no prompt here.</summary>
+    partial void WarfrontDropWalksOver(in MusouDropRecord drop, ref bool walks);
 
     /// <summary>The powerup drop the own Use is held on (0: none), and when the hold began (seconds, the frame clock).</summary>
     ushort _musouHoldFor;
