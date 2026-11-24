@@ -131,15 +131,16 @@ void fragment() {
     // Only a pixel-wide anti-aliased rim is in between, and the strip pass makes even that red.
     float score = prof * taper * mix({{F(ClassicBloodRules.RibbonMottleFloor)}}, 1.0, smoothstep(0.15, 0.85, 0.75 * n + 0.25 * grain));
     float thr = mix(1.0, {{F(ClassicBloodRules.RibbonErodeFloor)}}, env) + 0.1 * smoothstep(0.22, 0.45, age) * env;
-    float cov = clamp((score - thr) / max(fwidth(score), 1e-4) + 0.5, 0.0, 1.0);
-    float a = opacity * cov;
+    float cov = clamp((score - thr) / max(1.5 * fwidth(score), 1e-4) + 0.5, 0.0, 1.0);
+    // inside a patch the blood is mottled in density too: where it is thinner, the ground shows through as its own red only (the strip pass), so it reads as darker red, never pink
+    float a = opacity * cov * mix({{F(ClassicBloodRules.RibbonDensityFloor)}}, 1.0, smoothstep(0.1, 0.9, 0.5 * n + 0.5 * grain));
     //PASS
 }
 """;
 
     /// <summary>The blood pass: the tint mixed over the scene, darker in the dense mottled patches, never brighter than the tint.</summary>
     static readonly string MixOut = $$"""
-    ALBEDO = tint.rgb * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, 1.0, smoothstep(0.15, 0.85, n));
+    ALBEDO = tint.rgb * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, n));
     ALPHA = a;
 """;
 

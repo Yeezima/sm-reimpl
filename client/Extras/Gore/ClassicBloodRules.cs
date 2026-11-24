@@ -46,8 +46,13 @@ public static class ClassicBloodRules
     /// staggered ends) times this to 1 by the mottle noise; it decides which texels stay blood as the band erodes.
     /// </summary>
     public const float RibbonMottleFloor = 0.6f;
-    /// <summary>The darkest a mottled patch's colour gets, as a share of the blood tint (ours; new in the visibility pass): same hue, a darker blood red in the dense patches.</summary>
-    public const float RibbonShadeFloor = 0.8f;
+    /// <summary>
+    /// The darkest and the brightest a band's colour gets by its mottle, as shares of the blood tint (ours; 0.8 to 1 at 3570b719, 0.55 to 0.92 since the repair of review 5): the same hue,
+    /// a deeper blood red in the dense patches; an evenly opaque tint read as a flat orange-red sticker once the bands eroded instead of fading.
+    /// </summary>
+    public const float RibbonShadeFloor = 0.55f, RibbonShadeTop = 0.92f;
+    /// <summary>The thinnest the blood gets inside a patch, as a share of <see cref="RibbonOpacity"/> (ours; repair of review 5): mottled in density as well as shade; the strip pass keeps it red.</summary>
+    public const float RibbonDensityFloor = 0.7f;
     /// <summary>A band's half width at the body for a normal hit (m; ours; was 0.075): before the per-band x0.8 to x1.3, the narrowing to 0.6 at the ends and the growth while it hangs.</summary>
     public const float RibbonHalfWidth = 0.12f;
     /// <summary>How tall the stack of bands is across the stroke for a sweep (m; ours; was 0.3), scaled by the spread.</summary>
@@ -109,7 +114,7 @@ public static class ClassicBloodRules
     /// <summary>A ribbon texel's colour (the shader's <c>ALBEDO</c>) for its mottle noise <paramref name="n"/> (0..1): the blood red, darker in the dense patches, never brighter.</summary>
     public static (float R, float G, float B) RibbonColour(float n)
     {
-        float k = RibbonShadeFloor + (1f - RibbonShadeFloor) * Smooth(0.15f, 0.85f, n);
+        float k = RibbonShadeFloor + (RibbonShadeTop - RibbonShadeFloor) * Smooth(0.15f, 0.85f, n);
         return (BloodRgb.R * k, BloodRgb.G * k, BloodRgb.B * k);
     }
 
