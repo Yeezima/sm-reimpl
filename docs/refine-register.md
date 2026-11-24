@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4093 spec table rows: **3022 tagged**, 704 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 421 | 362 | 359 | 115 | 12 |
+| Movement (critical) | 424 | 365 | 361 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,19 +53,19 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3022** | 2714 | 2218 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
+| kind: ours | 1828 |
 | confidence: low | 1068 |
-| confidence: medium | 1037 |
-| notes: ours | 475 |
-| kind: interpretation | 456 |
+| confidence: medium | 1039 |
+| notes: ours | 476 |
+| kind: interpretation | 457 |
 | notes: estimate | 306 |
-| kind: estimate | 270 |
+| kind: estimate | 271 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (421)
+### Movement (gameplay-critical) (424)
 
 *Spec section: Extracted parameters*
 
@@ -647,6 +647,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7656C38F` | **SUPERSEDED by sim/stab-key-only (owner, 2026-11-23): F + F is the stomp again and the stab comes… | the owner's request (verbatim): "currently the power sword F + F heavy attack stun strike combo results in a stomp action by assault marine/raptor. i want you to make a change that results in the F + F heavy attack stun strike combo result in the stab move… (s, damage) | confidence: medium | owner's request; wargear `ability_bullrush_01` perk entry; graph `MP_SM_MEL_PowerSword` | SUPERSEDED by sim/stab-key-only (owner, 2026-11-23): F + F…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner's request (verbatim): "currently the power sword F + F… | ☐ |
 | `R-7797EFA8` | **Partly superseded by sim/stab-key-only (2026-11-23): no combo reaches the stab any more (F + F… | the owner's request (verbatim): "make the sword stab performed by F + F or rmb + F instead be activated on its own with no precursor move by pressing T. disable the T voice call feature to make space on that keybind for this action." Pressing T… (1 key) | kind: ours; confidence: low | owner's request | Partly superseded by sim/stab-key-only (2026-11-23): no…: compare with SM1 by feel or video. Ours: the owner's request (verbatim): "make the sword stab performed by F +… | ☐ |
 | `R-8F337F3A` | Axe combo windows read from `BRANCH_Melee_Combo_MISS` | the axe's attacks carry only the MISS-named combo branch (the graph also names `BRANCH_Melee_Combo_HIT` and cleave-through branches no sequencer carries); taken as the combo window whether the attack hit or missed | kind: interpretation; confidence: medium | graph | Axe combo windows read from BRANCH_Melee_Combo_MISS: compare with SM1 by feel or video. Ours: the axe's attacks carry only the MISS-named combo branch (the graph… | ☐ |
+| `R-B7573384` | Thunder hammer Dir 180: facing and motion | the 180s are struck along the character's facing turned half round (the latched direction's opposite) for the whole strike; their clips' root moves backwards along the press-time facing (the 180: 3.95 m, the Left Side 5.08 m) and turns the half turn in one… (m, s) | kind: interpretation; confidence: medium; notes: ours | rig extracted motion; the facing rule is our reading | Thunder hammer Dir 180: facing and motion: compare with SM1 by feel or video. Ours: the 180s are struck along the character's facing turned half round… | ☐ |
+| `R-CD947A81` | Thunder hammer Dir 180: string ends | lights 6 and 7 end the string; their new string frees 1 s before the clip's end (1.333 s; the data's `BRANCH_Melee_String_Reset` 1.5 and 1.544 s), as the owner's 1 s for X3 (sim/string-reset) (s) | kind: estimate; confidence: medium | owner 2026-11-06, applied to the 180 strings by us | Thunder hammer Dir 180: string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: lights 6 and 7 end the string; their new string frees 1 s before the… | ☐ |
+| `R-1DFA571F` | Thunder hammer Dir 180: scope and switch | Classic PvP only: Musou Mode and Warfront read no Dir 180 strikes (the read under `MeleeTuning.WithoutSwordStab`; Musou's random swing never draws one); a hop's or a charge's cancel swing stays X1 with the stick back (sim/hop-swing). `SM_OLD_HAMMER_180=1`… | kind: ours | owner 2026-11-25 ("Add it for the hammer") | Thunder hammer Dir 180: scope and switch: compare with SM1 by feel or video. Ours: Classic PvP only: Musou Mode and Warfront read no Dir 180 strikes… | ☐ |
 | `R-F47076E4` | Hammer light-to-heavy window | read from `BRANCH_Melee_Combo` (0.35–0.72 of "TH Default 1"); the graph's transition to X,Y uses `BRANCH_To_Slam` (0.34–0.70) (s) | kind: ours; confidence: medium | graph | Hammer light-to-heavy window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: read from BRANCH_Melee_Combo (0.35–0.72 of "TH Default 1"); the… | ☐ |
 | `R-BF6EB26D` | Which displace graph | `MP_SM_MEL_TB_Displace` (the heavy-weapon kick) with any weapon in hand; `MP_SM_MEL_Displace` (chainsword kick clip, no kick-to-stomp transition) is not used | kind: ours; confidence: low | graph | Which displace graph: compare with SM1 by feel or video. Ours: MP_SM_MEL_TB_Displace (the heavy-weapon kick) with any weapon in… | ☐ |
 | `R-A3005B21` | Slam and stomp reaction immunity | `ability_displace_slam` applies `mp_reaction_immunity` when it starts (heavy evade, hammer): the striker cannot be put in a reaction for the whole strike (the upgrade is removed when the ability ends; that it ends with the strike is ours) (s) | kind: interpretation; confidence: medium | wargear `start_actions/start_sim` | Slam and stomp reaction immunity: compare with SM1 by watching the reaction and timing it frame by frame. Ours: ability_displace_slam applies mp_reaction_immunity when it starts… | ☐ |
@@ -1117,7 +1120,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6EBA2E79` | Ledge charge: the fall's legs from their first frame | The fall's leg layer ramps from the frame the locomotion is placed again, not by the time since it was last placed (a charge going off a ledge falls while its clip still shows; the stale gap brought the legs in whole in one frame: the root turned 90 degrees… (s) | kind: ours | ours (a fix) | Ledge charge: the fall's legs from their first frame: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The fall's leg layer ramps from the frame the locomotion is placed… | ☐ |
 | `R-E3EE8ED4` | Air slash: the early landing's catch-up eased | A slash that lands before its wind-up's end catches up with the strike over 0.1 s on the smooth curve instead of the graph's 1/30 s linear ('Blend Slo-mo'): the 1/30 s catch-up played up to 0.2 s of the clip in two frames. The hit time (0.133 s after the… (s) | kind: ours; confidence: medium | the graph's 1/30 s (data); the 0.1 s and the curve: ours | Air slash: the early landing's catch-up eased: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A slash that lands before its wind-up's end catches up with the… | ☐ |
 | `R-0DADF3DA` | Transition probe: the worst ten (by the sum of their jerk), `--no-melee-flow` / this build, all… | n, jerk median / p90 / max (cm/f²): jump → melee (the air slash's landing) 49, 129.9 / 275.8 / 314.7 → 49, 104.9 / 192.7 / 210.2; move → sprint 133 → 185 (the hammer's sprint adds switches), 36.4 / 48.8 / 208.8 → 32.4 / 49.3 / 208.8; sprint → charge 68 → 72… (cm/f²) | confidence: medium | measured | Transition probe: the worst ten (by the sum of their jerk)…: compare with SM1 by feel or video. Ours: n, jerk median / p90 / max (cm/f²): jump → melee (the air slash's… | ☐ |
-| `R-961DF4BF` | Not done | The graphs' 180-degree strikes (`Dir 180`), the knee follow-up, the sprint's "180 Idle to Sprint" and the hammer sprint's own start and stop clips, the landing clips' and the weapon-switch clips' gaps listed in animation passes 1 to 3; the power sword clips'… | kind: gap (not reproduced) | - | Not done: compare with SM1 by feel or video. Ours: The graphs' 180-degree strikes (Dir 180), the knee follow-up, the… | ☐ |
+| `R-961DF4BF` | Not done | The graphs' 180-degree strikes (`Dir 180`) of the other weapons (the thunder hammer's and the daemon maul's are done: sim/hammer-180, rows "Thunder hammer Dir 180"), the knee follow-up, the sprint's "180 Idle to Sprint" and the hammer sprint's own start and… | kind: gap (not reproduced) | - | Not done: compare with SM1 by feel or video. Ours: The graphs' 180-degree strikes (Dir 180) of the other weapons (the… | ☐ |
 
 *Spec section: Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32)*
 
@@ -5469,6 +5472,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8F7E5DFD` | Predicted own plasma ball (stream B; client only) | The original's client prediction of projectiles is not known | The own plasma ball is drawn from the release frame by a client prediction of the server's flight, standing in for the server's ball until that is gone | Owner's request 2026-11-06 ("fire out of the barrel instantly"); ours (spec "Stream B timing fixes") | Predicted own plasma ball (stream B; client only): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-17510220` | Hammer and maul: new string after the light combo (stream B) | Not measured in the original; the data's swings carry `BRANCH_Melee_String_Reset` (X3 at 1.544 s of 2.333 s) | After X3 a melee press starts a new string from 1.333 s, 1 s before its end (before: only at the end); X1 and X2 from their tags; only the hammer map, the sword's and axe's string ends unchanged | Owner's request 2026-11-06 ("1 second" sooner, an estimate; the data's tag would give 0.79 s); the tag's meaning an interpretation (spec "Stream B timing fixes") | Hammer and maul: new string after the light combo (stream B): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4D8C707E` | Hammer and maul: swing anywhere in the hop (sim/hop-swing) | The data sends a melee press in the hop from its `BRANCH_Dash_Attack` (0.333 s) to the dash attack; the owner: the original swings the hammer at any point of the hop | With the thunder hammer and the daemon maul a melee press anywhere in the hop cancels it into swing 1; other weapons keep the dash attack | the owner's report 2026-11-07; spec "Hammer and maul: hop swing, slam recovery and the steered slam" | Hammer and maul: swing anywhere in the hop (sim/hop-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-752062C8` | Hammer and maul: the Dir 180 strikes, our readings (sim/hammer-180) | The graph enters "TH Default Dir 180" on a press with `FLT_LStick_Angle_Char` beyond 135 degrees and plays clips that turn the root half round partway | Read on the press tick from rest and on the chain tick in a combo window (not at the press of a buffered press); the character's facing is the latched attack direction (the view at rest); the strike is struck along the turned facing for the whole clip and the clip's backward root motion is taken along it; a strike… | spec "Thunder hammer Dir 180: facing and motion", "... string ends", "... scope and switch" | Hammer and maul: the Dir 180 strikes, our readings…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-A36A5CA1` | Hammer and maul: shorter recovery after F,F (sim/slam-recovery) | Not measured in the original (the recording shows no follow-up press); the slam's clip runs 3.0 s (hit 1.1 s) | A new swing or stun strike from 0.633 s after the slam's hit (1.733 s), the light combo's own hit-to-reset gap; buffered presses fire on that tick | the owner's request 2026-11-07 ("match the cooldown between ... light attack combo[s]"); same spec section | Hammer and maul: shorter recovery after F,F…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-1B0FED57` | Hammer and maul: the slam steered like a turret (sim/slam-steer) | The owner: steerable up to 185 degrees as the hammer comes down; the recording shows about 280–300 degrees a second | Turns toward the view at 300 degrees a second from 0.483 s to its hit (1.1 s), 185 degrees at most; holds before and after; the lock-on's alignment does not act on it | the owner's report and recording 2026-11-07; same spec section | Hammer and maul: the slam steered like a turret…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-88653021` | Dash attack ends on landing (feel/melee-charge-2) | As we read it (protocol 30): a dash attack's lunge that reaches its end in the air is held there until it lands, then plays its run-out (the "Dash to Idle" clip, `SM_NAV_Sprint_to_Idle_F`, 0.9 s) | The landing ends the dash attack on that tick: no run-out; the normal movement follows (speed kept up to sprint speed); the landing tick's contact still counts. A lunge begun in the air that lands before its end goes on as before | Owner's request 2026-10-29 for the ledge charge, applied to the dash attack alike at the lead's instruction ("the dash attack's equivalent must behave the same way"); spec "Melee and charge, second pass" | Dash attack ends on landing (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

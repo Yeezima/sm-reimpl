@@ -165,6 +165,28 @@ public readonly record struct MeleeStep(
     /// </summary>
     public float ChainLeadIn { get; init; }
 
+    /// <summary>
+    /// sim/hammer-180 (protocol 93; the owner 2026-11-25: "Add it for the hammer"): the strike belongs to the thunder hammer's and the daemon maul's Dir 180 family (the graph's "TH Default Dir 180" states and
+    /// their follow-ups), appended to the light list after the weapon's own light strikes. Never drawn by Musou's random swing (<see cref="MeleeChain.MusouSwing"/>). Hashed only when set.
+    /// </summary>
+    public bool Dir180 { get; init; }
+    /// <summary>
+    /// sim/hammer-180: the strike turns the body round (the graph's "Dir 180" states, clips <c>SM_MEL_TH_XATK_180_*</c>): it is struck facing away from where the character faced at the press
+    /// (<see cref="MeleeChain.Opposite"/>), and its clip's backward root motion carries the body that way. Hashed only when set.
+    /// </summary>
+    public bool TurnsBack { get; init; }
+    /// <summary>
+    /// sim/hammer-180, presentation: seconds into a <see cref="TurnsBack"/> strike at which its clip's extracted root turns the half turn (read from the rig; the client draws the body facing the press-time
+    /// way before it and the strike's heading after it). NaN (the default): not read. Hashed only when set.
+    /// </summary>
+    public float TurnAt { get; init; } = float.NaN;
+    /// <summary>sim/hammer-180: on a light strike, the light strike (1-based) a light press with the stick held back from the character (<see cref="MeleeChain.StickBack"/>) chains to; 0 (the default): none.</summary>
+    public int BackNext { get; init; }
+    /// <summary>sim/hammer-180: on a light strike, the light strike (1-based) a plain light press chains to; 0 (the default): the old rule (strike n + 1, the last to 1).</summary>
+    public int LightNext { get; init; }
+    /// <summary>sim/hammer-180: a light press from rest with the stick held back starts this strike (the graph's entry "on BTN_Melee_Attack if FLT_LStick_Angle_Char" into "TH Default Dir 180"). Hashed only when set.</summary>
+    public bool BackStart { get; init; }
+
     /// <summary>Writes the fields added in M28 (and M43, Weapons C) for a config hash.</summary>
     internal void WriteExtras(BinaryWriter w)
     {
@@ -192,6 +214,11 @@ public readonly record struct MeleeStep(
         if (Stab) w.Write((byte)0xA9);   // sim/stab-key: only when set
         if (ThrustRelease) w.Write((byte)0xAB);   // sim/stab-release (Musou, Warfront): only when set
         if (ChainLeadIn > 0f) { w.Write((byte)0xAA); w.Write(ChainLeadIn); }   // musou/chain-lead-in: only when set
+        if (Dir180 || TurnsBack || float.IsFinite(TurnAt) || BackNext != 0 || LightNext != 0 || BackStart)   // sim/hammer-180: only when set
+        {
+            w.Write((byte)0xAC);
+            w.Write(Dir180); w.Write(TurnsBack); w.Write(float.IsFinite(TurnAt) ? TurnAt : -1f); w.Write(BackNext); w.Write(LightNext); w.Write(BackStart);
+        }
     }
 }
 
@@ -231,13 +258,64 @@ public static class MeleeChain
     public static int MusouSwing(IReadOnlyList<MeleeStep> light, int previous, uint tick, int player)
     {
         int choices = 0;
-        for (int i = 0; i < light.Count; i++) if (i + 1 != previous && !light[i].InPlace) choices++;
+        for (int i = 0; i < light.Count; i++) if (i + 1 != previous && !light[i].InPlace && !light[i].Dir180) choices++;
         if (choices == 0) return Math.Clamp(previous, 1, light.Count);
         uint mixed = (tick * 2654435761u) ^ ((uint)player * 40503u);
         int pick = (int)((mixed ^ (mixed >> 15)) % (uint)choices);
         for (int i = 0; i < light.Count; i++)
-            if (i + 1 != previous && !light[i].InPlace && pick-- == 0) return i + 1;
+            if (i + 1 != previous && !light[i].InPlace && !light[i].Dir180 && pick-- == 0) return i + 1;
         return 1;
+    }
+
+    /// <summary>
+    /// sim/hammer-180: the graph's <c>FLT_LStick_Angle_Char</c> outside [-135, 135] degrees: the stick (<paramref name="moveX"/> right, <paramref name="moveY"/> forward, in the view's frame) pushed beyond the dead zone
+    /// more than <see cref="StickBackDegrees"/> away from where the character faces, <paramref name="characterOffset"/> radians off the view (yaw convention: positive turns left). On a keyboard: S alone (180);
+    /// S with A or D is exactly 135 and does not count.
+    /// </summary>
+    public static bool StickBack(float moveX, float moveY, float characterOffset)
+    {
+        if (!float.IsFinite(moveX) || !float.IsFinite(moveY) || !float.IsFinite(characterOffset) || moveX * moveX + moveY * moveY < Evade.DeadZone * Evade.DeadZone) return false;
+        float stick = -MathF.Atan2(moveX, moveY);   // yaw convention: the stick's way, positive to the left
+        float off = stick - characterOffset;
+        off = MathF.IEEERemainder(off, 2f * MathF.PI);
+        return MathF.Abs(off) > StickBackDegrees * MathF.PI / 180f + 1e-3f;
+    }
+
+    /// <summary>sim/hammer-180: the graph's threshold (the "Dir 180" transitions' <c>FLT_LStick_Angle_Char</c> range, the evade chooser's back sector too), degrees.</summary>
+    public const float StickBackDegrees = 135f;
+
+    /// <summary>sim/hammer-180: the latched attack direction turned half round (forward to back, forward-left to back-right ...).</summary>
+    public static EvadeDirection Opposite(EvadeDirection d) => d switch
+    {
+        EvadeDirection.Forward => EvadeDirection.Back,
+        EvadeDirection.Back => EvadeDirection.Forward,
+        EvadeDirection.Left => EvadeDirection.Right,
+        EvadeDirection.Right => EvadeDirection.Left,
+        EvadeDirection.ForwardLeft => EvadeDirection.BackRight,
+        EvadeDirection.BackRight => EvadeDirection.ForwardLeft,
+        EvadeDirection.ForwardRight => EvadeDirection.BackLeft,
+        EvadeDirection.BackLeft => EvadeDirection.ForwardRight,
+        _ => EvadeDirection.Back,
+    };
+
+    /// <summary>sim/hammer-180: the light strike (1-based) a light press from rest with the stick back starts (<see cref="MeleeStep.BackStart"/>), or 0 when the weapon has none.</summary>
+    public static int BackStartIndex(IReadOnlyList<MeleeStep> light)
+    {
+        for (int i = 0; i < light.Count; i++) if (light[i].BackStart) return i + 1;
+        return 0;
+    }
+
+    /// <summary>
+    /// The light strike (1-based) a buffered light press chains to from strike <paramref name="step"/> (<paramref name="heavy"/>: a heavy strike, then light strike 1). sim/hammer-180: with the stick back the strike's
+    /// <see cref="MeleeStep.BackNext"/> when it has one, else its <see cref="MeleeStep.LightNext"/>, else the old rule (n + 1, the last to 1).
+    /// </summary>
+    public static int LightNext(IReadOnlyList<MeleeStep> light, int step, bool heavy, bool back)
+    {
+        if (heavy || step < 1 || step > light.Count) return 1;
+        var m = light[step - 1];
+        if (back && m.BackNext >= 1 && m.BackNext <= light.Count) return m.BackNext;
+        if (m.LightNext >= 1 && m.LightNext <= light.Count) return m.LightNext;
+        return step % light.Count + 1;
     }
 
     /// <summary>The window in which a buffered press of the given kind moves on from step <paramref name="m"/>: the Y-chain window for a heavy press during a heavy strike, else the combo window.</summary>

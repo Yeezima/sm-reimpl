@@ -34,6 +34,8 @@ static class MeleeStepsCommand
         {
             var m = steps[i];
             Console.WriteLine($"{kind} {i + 1}: {(i < animations.Count ? animations[i] : "?")}  duration {m.Duration:0.###} s, hit {m.HitTime:0.###}, moveAt {m.MoveAt:0.###}, rangedAt {m.RangedAt:0.###}, combo {m.ComboOpen:0.###}..{m.ComboClose:0.###}, inPlace {m.InPlace}, yNext {m.YNext} y {m.YComboOpen:0.###}..{m.YComboClose:0.###}");
+            // sim/hammer-180: the chain fields, damage and string reset.
+            Console.WriteLine($"    damage {m.Damage:0.#} / {m.SecondaryDamage:0.#} (shield {m.ShieldDamage:0.#}), stringReset {m.StringResetAt:0.###}, stringEnd {m.StringEnd}, heavyNext {m.HeavyNext}, lightNext {m.LightNext}, backNext {m.BackNext}, dir180 {m.Dir180}, turnsBack {m.TurnsBack}, turnAt {m.TurnAt:0.###}, backStart {m.BackStart}, lunge x{m.LungeFactorApplied:0.###}, evadeAt {m.EvadeAt:0.###}, reacts {m.PrimaryReaction.Kind}");
             if (m.Reach is not { } r) { Console.WriteLine("    no reach data"); continue; }
             Console.WriteLine($"    align {r.AlignFrom:0.###}..{r.AlignTo:0.###}, distance window {r.DistanceFrom:0.###}..{r.DistanceTo:0.###} = {r.Distance:0.###}, default blend {r.DefaultDistance:0.###}");
             foreach (var v in r.Variants)

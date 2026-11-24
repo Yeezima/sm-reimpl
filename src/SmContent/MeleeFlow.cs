@@ -79,7 +79,7 @@ public sealed class MeleeFlowBlends
         }
         float Seconds(BehaviorTransition t) => g.EffectAt(t.Transition) is { } e && float.IsFinite(e.Duration) && e.Duration >= 0f ? e.Duration : 0f;
 
-        var lightStates = weapon.Sequencers.Select(StateOf).ToList();
+        var lightStates = weapon.Sequencers.Concat(weapon.Dir180.Select(d => d.Sequencer)).Select(StateOf).ToList();   // sim/hammer-180: the Dir 180 strikes are light strikes after the weapon's own
         var heavyStates = weapon.HeavySequencers.Concat(weapon.FinisherSequencers).Select(StateOf).ToList();
         var all = lightStates.Select((s, i) => (Key: Key(false, i), S: s)).Concat(heavyStates.Select((s, i) => (Key: Key(true, i), S: s))).ToList();
         foreach (var (key, s) in all) if (s is null) notes.Add($"{weapon.Graph}: no state found for strike {key}");

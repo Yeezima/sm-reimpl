@@ -61,7 +61,7 @@ change, or an owner decision), **out of scope** (singleplayer, Exterminatus or e
 | Clip(s) | Graph / state | Condition | Client | Status |
 |---|---|---|---|---|
 | each weapon's entry, chain and exit blends | the melee graphs | strikes | `MeleeFlowBlends` (anim/melee-flow) | wired |
-| `SM_MEL_TH_XATK180_to_XATK2` (2.333 s) | `MP_SM_MEL_ThunderHammer` "TH Default 2 (X, X) From 180 MP" | the hammer's second X strike after the 180 sweep | the plain second strike | **gap, client only** if the previous step is on the wire (batch 4; to check) |
+| `SM_MEL_TH_XATK_180_MP`, `SM_MEL_TH_XATK_180_combo2` (3 s), `SM_MEL_TH_XATK180_to_XATK2` (2.333 s), `SM_MEL_TH_HeavyATK01` (2.333 s) | `MP_SM_MEL_ThunderHammer` "TH Default Dir 180 ( LSback + X )", "... Left Side MP", "TH Default 2 (X, X) From 180 MP", "TH Default 3 ... From 180 ( x , X ) MP" | a press with the stick held back from the character (`FLT_LStick_Angle_Char` beyond 135 degrees) from rest, X1, X2 or the 180; a plain press after the two 180s | light strikes 4 to 7 of the thunder hammer and the daemon maul, through the attack clip path and `MeleeFlowBlends` (`NetworkView.Hammer180`: the body turns with the clip's root) | **wired now** (sim/hammer-180, protocol 93: a simulation change; Classic PvP only) |
 | `SM_MEL_CS_XATK_Draw2_*` | the claw / sword Y backhand (`..._3.5m`) | Musou's claw | `ClawSpearClips` | wired (Musou) |
 | `SM_JMP_TH_DashAtk_F` | the hammer's jump dash attack state | the lunge | the air slash clip is used instead | known gap (`NetworkView.DashAttack`), owner's hammer-swing pass |
 
@@ -90,7 +90,7 @@ a use-object action the multiplayer content does not call).
 1. **Brace turn (heavy bolter)** (client only): a braced Devastator turning its aim sees the body slide round rigidly; the original plays a 1.467 s turn on the legs. Needs the braced marine inside the planted-body
    machinery (`BodyYawFor`) with the brace graph's turn thresholds (-60 / +77 degrees). Batch 3.
 2. **The hammer's air dash and its landing** (client only): Assault with the thunder hammer dashes with the plain dash clips. Batch 2.
-3. **The hammer's second strike after the 180 sweep** (client only, if the step's history is available). Batch 4.
+3. **The hammer's second strike after the 180 sweep**: done with the whole Dir 180 family (sim/hammer-180, protocol 93; the owner chose "Add it for the hammer"). The other weapons' 180 strikes are not included.
 4. **Blocked, for the owner**: the plasma, lascannon and plasma-pistol fire-mode change clips (need a fire-mode input and rules in the simulation and the protocol); the sprinter's wall stop (needs the simulation to brake).
 5. Not worth wiring: the other hit directions (enemy states), the incapacitated clips (no downed state).
 
