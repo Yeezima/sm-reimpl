@@ -51,15 +51,15 @@ public static class GoreStreakRules
     [
         new(0.00f, 1.36f, 0.52f,    4f, 0.060f, 0.55f, 1.00f, 0.05f, 1.3f, 0.00f),
         new(0.05f, 1.60f, 0.80f,   17f, 0.120f, 0.55f, 1.00f, 0.08f, 3.0f, 0.00f),
-        new(0.10f, 1.92f, 0.84f,   22f, 0.140f, 0.52f, 0.95f, 0.12f, 3.0f, 0.00f),
-        new(0.18f, 1.92f, 0.92f,   21f, 0.165f, 0.44f, 0.85f, 0.20f, 3.0f, 0.30f),
-        new(0.27f, 1.98f, 1.02f,   29f, 0.200f, 0.46f, 0.75f, 0.28f, 3.0f, 0.20f),
-        new(0.37f, 2.08f, 1.12f,   28f, 0.215f, 0.40f, 0.65f, 0.36f, 3.0f, 0.18f),
-        new(0.48f, 2.20f, 1.28f,   26f, 0.225f, 0.35f, 0.50f, 0.44f, 3.0f, 0.12f),
-        new(0.60f, 2.25f, 1.32f,   26f, 0.230f, 0.28f, 0.40f, 0.52f, 3.0f, 0.08f),
-        new(0.72f, 2.35f, 1.28f,   24f, 0.240f, 0.25f, 0.25f, 0.60f, 3.0f, 0.05f),
-        new(0.85f, 2.35f, 0.45f,   22f, 0.240f, 0.19f, 0.12f, 0.66f, 3.0f, 0.05f),
-        new(0.98f, 2.35f, 0.45f,   20f, 0.240f, 0.07f, 0.05f, 0.70f, 3.0f, 0.05f),
+        new(0.10f, 1.92f, 0.84f,   22f, 0.140f, 0.52f, 0.97f, 0.12f, 3.0f, 0.00f),
+        new(0.18f, 1.92f, 0.92f,   21f, 0.165f, 0.44f, 0.93f, 0.20f, 3.0f, 0.30f),
+        new(0.27f, 1.98f, 1.02f,   29f, 0.200f, 0.46f, 0.90f, 0.28f, 3.0f, 0.20f),
+        new(0.37f, 2.08f, 1.12f,   28f, 0.215f, 0.40f, 0.87f, 0.36f, 3.0f, 0.18f),
+        new(0.48f, 2.20f, 1.28f,   26f, 0.225f, 0.35f, 0.84f, 0.44f, 3.0f, 0.12f),
+        new(0.60f, 2.25f, 1.32f,   26f, 0.230f, 0.28f, 0.80f, 0.52f, 3.0f, 0.08f),
+        new(0.72f, 2.35f, 1.28f,   24f, 0.240f, 0.25f, 0.76f, 0.60f, 3.0f, 0.05f),
+        new(0.85f, 2.35f, 0.45f,   22f, 0.240f, 0.19f, 0.72f, 0.66f, 3.0f, 0.05f),
+        new(0.98f, 2.35f, 0.45f,   20f, 0.240f, 0.07f, 0.60f, 0.70f, 3.0f, 0.05f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -142,7 +142,7 @@ public static class GoreStreakRules
         bool Has(string s) => w.Contains(s, StringComparison.OrdinalIgnoreCase);
         if (source == Source.Gunfire)
         {
-            if (Has("lascannon") || Has("heavy_bolter") || Has("heavybolter") || Has("autocannon") || Has("missile") || Has("rocket")) return Weight.Heavy;
+            if (Has("lascannon") || Has("heavy_bolter") || Has("heavybolter") || Has("autocannon") || Has("missile") || Has("rocket") || Has("sniper")) return Weight.Heavy;   // sniper rifles heavy: lead 41 decision (ours, provisional)
             if (Has("pistol")) return Weight.Light;
             return Weight.Normal;
         }

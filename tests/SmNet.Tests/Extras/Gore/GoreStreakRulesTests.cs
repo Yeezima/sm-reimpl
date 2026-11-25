@@ -49,7 +49,10 @@ public class GoreStreakRulesTests
             Assert.True(Keys[i + 1].Fill <= Keys[i].Fill, $"fill falls after {i}");
             Assert.True(Keys[i + 1].Grit >= Keys[i].Grit, $"pinholes grow after {i}");
         }
-        Assert.True(Keys[^1].Opacity <= 0.06f);
+        // it fades by erosion (fill, the covered area), not by translucency: a covered texel stays opaque enough to read red on every renderer
+        // (Compatibility blends in gamma space: a faint texel over the stripped ground read near black and dropped out of the red mask)
+        Assert.True(Keys[^1].Fill <= 0.1f);
+        Assert.True(Keys.All(k => k.Opacity >= 0.6f));
     }
 
     [Fact]
@@ -154,6 +157,8 @@ public class GoreStreakRulesTests
     [InlineData(Source.Gunfire, "autocannon", false, 0, Weight.Heavy)]
     [InlineData(Source.Gunfire, "sm_mp_pistol_bolt_pistol", false, 0, Weight.Light)]
     [InlineData(Source.Gunfire, "sm_mp_ranged_bolter", false, 0, Weight.Normal)]
+    [InlineData(Source.Gunfire, "csm_mp_ranged_sniper_rifle", false, 0, Weight.Heavy)]
+    [InlineData(Source.Gunfire, "sm_mp_ranged_sniper_rifle", false, 0, Weight.Heavy)]
     [InlineData(Source.Explosion, null, false, 0, Weight.Heavy)]
     [InlineData(Source.Charge, null, false, 0, Weight.Heavy)]
     [InlineData(Source.Sweep, "sm_mp_melee_thunder_hammer", false, 2, Weight.Heavy)]
