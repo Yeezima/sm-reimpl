@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4094 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 375 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
+Scanned 4095 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 376 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -6486,6 +6486,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-06366810` | Route per life | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
 | `R-B6B57D50` | Route chase | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
 | `R-84685B00` | Route stall | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
+| `R-ED04852D` | Arrival on the floor of the goal | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
 | `R-8688A494` | Flankers | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
 | `R-9FF58364` | Vantages | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
 | `R-FB31538E` | Vantage holders | Classic PvP bots: routes, vantages, flanks and higher drops (bots A2, owner 2026-11-23; client test aid, no protocol or config-hash change) |
