@@ -114,20 +114,21 @@ public class ChaosWireTests : IDisposable
     }
 
     /// <summary>A Warfront stage of <paramref name="config"/> on the test arena, one identified client, a battle landed in the stage's own world; every tag-51 section the client got.</summary>
-    static (List<byte[]> Sections, GameServer Server, Action<double> Run) Stage(SimConfig config, double seconds)
+    static (List<byte[]> Sections, GameServer Server, Action<double> Run, List<uint> Ticks) Stage(SimConfig config, double seconds)
     {
         var map = GameServer.TfwGameMap(TfwTestArena.Data, "wf_b1");
         var h = new Harness(LinkConditions.Perfect, 5, 1, config, new ServerOptions { Match = new MatchRules { CountdownTime = 1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map,
             clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
         var got = new List<byte[]>();
-        void Run(double s) => h.Run(TimeSpan.FromSeconds(s), after: () => { foreach (var x in h.Clients[0].TakeExtras()) if (x.Tag == WarfrontChaosWire.Tag) got.Add(x.Payload); });
+        var ticks = new List<uint>();   // the server tick of each section in got
+        void Run(double s) => h.Run(TimeSpan.FromSeconds(s), after: () => { foreach (var x in h.Clients[0].TakeExtras()) if (x.Tag == WarfrontChaosWire.Tag) { got.Add(x.Payload); ticks.Add(x.ServerTick); } });
         Run(2);
         Assert.True(h.Clients[0].SendExtrasCommand(WarfrontWire.CommandTag, WarfrontWire.Encode(new WarfrontClientCommand(WarfrontClientCommandKind.Identify, Key: 0xC4C4C4C4C4C4C4C4, Name: "Alpha"))));
         Run(1);
         int id = h.Clients[0].PlayerId;
         Assert.True(h.Server.World.Tfw!.Enqueue(id, new TfwCommandRecord(1, TfwCommand.Deploy, 0)));
         Run(seconds);
-        return (got, h.Server, Run);
+        return (got, h.Server, Run, ticks);
     }
 
     static SimConfig StageConfig(SimConfig c) => c with { Extras = c.Extras | ContentExtras.Musou | ContentExtras.Warfront };
@@ -135,7 +136,7 @@ public class ChaosWireTests : IDisposable
     [Fact]
     public void A_chaos_stage_sends_the_breach_list()
     {
-        var (got, server, _) = Stage(StageConfig(BreachRig.Chaos()), 14);
+        var (got, server, _, _) = Stage(StageConfig(BreachRig.Chaos()), 14);
         var battle = server.World.Tfw!.Battle;
         Assert.NotNull(battle);
         Assert.NotNull(battle.ChaosBreaches);
@@ -148,24 +149,40 @@ public class ChaosWireTests : IDisposable
     [Fact]
     public void A_closure_is_sent_three_times_three_ticks_apart()
     {
-        var (got, server, run) = Stage(StageConfig(BreachRig.Chaos()), 8);
+        var (got, server, run, ticks) = Stage(StageConfig(BreachRig.Chaos()), 8);
         var breaches = server.World.WarfrontChaosBreaches!;
         var breach = breaches.All[0];
         uint tick = server.World.Tick;
         Assert.Equal(breach.Id, breaches.TryClose(breach.Centre, 7, tick));
-        got.Clear();
+        got.Clear(); ticks.Clear();
         run(1);
         var sections = got.Select(b => WarfrontChaosWire.TryDecode(b, out var s) ? s : default).ToList();
-        var closures = sections.Where(s => s.Kind == WarfrontChaosWire.KindClosure).Select(s => s.Closed).ToList();
-        Assert.Equal(WarfrontChaosWire.ClosureRepeats, closures.Count);
-        Assert.All(closures, c => Assert.Equal(new WarfrontChaosWire.Closure(tick, breach.Id, 7), c));
+        var at = Enumerable.Range(0, sections.Count).Where(i => sections[i].Kind == WarfrontChaosWire.KindClosure).ToList();
+        Assert.Equal(WarfrontChaosWire.ClosureRepeats, at.Count);
+        Assert.All(at, i => Assert.Equal(new WarfrontChaosWire.Closure(tick, breach.Id, 7), sections[i].Closed));
+        for (int n = 1; n < at.Count; n++) Assert.Equal((uint)WarfrontChaosWire.ClosureRepeatTicks, ticks[at[n]] - ticks[at[n - 1]]);   // three ticks apart
         Assert.Contains(sections, s => s.Kind == WarfrontChaosWire.KindBreaches && s.Breaches!.Single(x => x.Id == breach.Id).State == WarfrontBreachState.Closed);
+    }
+
+    [Fact]
+    public void The_battles_end_sends_the_empty_list_three_times_three_ticks_apart()
+    {
+        var (got, server, run, ticks) = Stage(StageConfig(BreachRig.Chaos()), 8);
+        Assert.NotNull(server.World.WarfrontChaosBreaches);
+        server.World.Tfw!.PickupForTests(server.World);   // the battle ends (as won): its breaches go
+        got.Clear(); ticks.Clear();
+        run(2);
+        Assert.Null(server.World.WarfrontChaosBreaches);
+        var empty = Enumerable.Range(0, got.Count).Where(i => WarfrontChaosWire.TryDecode(got[i], out var s) && s.Kind == WarfrontChaosWire.KindBreaches && s.Breaches!.Length == 0).ToList();
+        Assert.Equal(WarfrontChaosWire.ClosureRepeats, empty.Count);
+        for (int n = 1; n < empty.Count; n++) Assert.Equal((uint)WarfrontChaosWire.ClosureRepeatTicks, ticks[empty[n]] - ticks[empty[n - 1]]);
+        Assert.Equal(empty.Count, got.Count(b => WarfrontChaosWire.TryDecode(b, out var s) && s.Kind == WarfrontChaosWire.KindBreaches));   // no list with breaches after the end
     }
 
     [Fact]
     public void OrkStageNeverSendsTag51()
     {
-        var (got, server, _) = Stage(StageConfig(BreachRig.Orks()), 9);
+        var (got, server, _, _) = Stage(StageConfig(BreachRig.Orks()), 9);
         Assert.NotNull(server.World.Tfw!.Battle);
         Assert.Null(server.World.WarfrontChaosBreaches);
         Assert.Empty(got);

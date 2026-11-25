@@ -198,7 +198,7 @@ public sealed partial class MusouSim
         height = type switch
         {
             MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,
-            MusouEnemyType.Gretchin => MathF.Max(1.5f, height),   // the Gretchin drawn 1.5 m over its 1.2 m row; a taller row (Warfront Chaos C4's Daemon, 2.2 m) is its own height
+            MusouEnemyType.Gretchin => MathF.Max(1.5f, height),   // the Gretchin drawn 1.5 m over its 1.2 m row; a taller row (Warfront Chaos's Daemon, 2.6 m since C3) is its own height
             MusouEnemyType.Nob => 3f,
             _ => height,
         };

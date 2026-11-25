@@ -57,12 +57,27 @@ public class BreachReviewTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_source_off_the_graph_takes_no_breach_on_its_own_spot()
+    {
+        var nav = Floor(wall: false);
+        var off = new Vector3(0f, 75f, 0f);   // past the floor's north edge
+        Assert.True(nav.Nearest(off, 2f, WarfrontBreachRules.RingVertical) < 0);
+        var layout = new TfwLayout(new Vector3(0f, -45f, 0f), [new(-55f, -55f, 0f), new(-50f, -50f, 0f), new(-45f, -55f, 0f)], new Vector3(-50f, -58f, 0f), [off]);
+        for (uint seed = 1; seed <= 4; seed++)
+            Assert.All(WarfrontBreaches.Place(layout, nav, BreachRig.Roll(seed), new WarfrontBreachSite(WarfrontBreachBattle.Lane, 1), Rate).All, x => Assert.NotEqual(off, x.Position));
+        // without a graph (the tests' flat arena) the layout's spot stands as given
+        Assert.Equal(off, Assert.Single(WarfrontBreaches.Place(layout, null, BreachRig.Roll(1), new WarfrontBreachSite(WarfrontBreachBattle.Lane, 1), Rate).All).Position);
+    }
+
+    [Fact]
     public void A_fortress_plaza_source_never_takes_a_breach()
     {
         var layout = BreachRig.Layout(new Vector3(-90f, 60f, 0f), new Vector3(90f, 60f, 0f));
         var site = new WarfrontBreachSite(WarfrontBreachBattle.Fortress, 0, default, 0f, [2, 0], 2);
-        Assert.False(site.SourceAllowed(0));
-        Assert.True(site.SourceAllowed(1));
+        Assert.False(site.SourceAllowed(0, layout.Sources[0]));
+        Assert.True(site.SourceAllowed(1, layout.Sources[1]));
+        var circle = new WarfrontBreachSite(WarfrontBreachBattle.Fortress, 0, new Vector3(90f, 60f, 0f), 10f);
+        Assert.False(circle.SourceAllowed(1, layout.Sources[1]));   // a source standing in the plaza's circle, whatever its stage
         for (uint seed = 1; seed <= 10; seed++)
         {
             var b = WarfrontBreaches.Place(layout, null, BreachRig.Roll(seed), site, Rate);
@@ -72,7 +87,7 @@ public class BreachReviewTests(ITestOutputHelper output)
         var (w, battle) = WarfrontChaosOrkPins.Fortress(BreachRig.Chaos());
         TfwRig.Steps(w, 1);
         var plan = w.Tfw!.Warfront!.Fortress!.Plan;
-        var plaza = Enumerable.Range(0, plan.Layout.Sources.Length).Where(k => plan.SourceStage[k] >= plan.MaxStage).Select(k => plan.Layout.Sources[k]).ToList();
+        var plaza = Enumerable.Range(0, plan.Layout.Sources.Length).Where(k => plan.SourceStage[k] >= WarfrontBreachRules.FortressPlazaStage).Select(k => plan.Layout.Sources[k]).ToList();
         foreach (var x in battle.ChaosBreaches!.All)
             foreach (var s in plaza) Assert.True(new Vector2(x.Position.X - s.X, x.Position.Y - s.Y).Length() > WarfrontBreachRules.RingStep * WarfrontBreachRules.Rings + 0.01f, $"#{x.Id} by a plaza source");
     }
@@ -107,7 +122,7 @@ public class BreachReviewTests(ITestOutputHelper output)
         var near = new List<Vector3>();
         int k = 0;
         w.Tfw!.PuppetBrain = (id, p) => new PlayerInput(w.Tick, 0f, 0f, 0f, id == puppet && k is >= 1 and < 3 ? InputButtons.Grenade : InputButtons.None);   // the AI Marines' input seam: this puppet throws straight at the breach
-        for (; k < 45; k++)
+        for (; k < 7 * Rate; k++)   // long enough for the round to go off (its 5 s life, or the arena's wall)
         {
             TfwRig.KillAll(w);
             w.Step(_ => default);
@@ -115,6 +130,7 @@ public class BreachReviewTests(ITestOutputHelper output)
             near.AddRange(w.LastDetonations.Where(d => d.Owner == puppet).Select(d => d.Position));
         }
         Assert.True(seen, "the puppet threw");
+        Assert.NotEmpty(near);   // it went off somewhere (else the check below would pass on nothing)
         Assert.All(near, p => Assert.True(Vector3.Distance(p, breach.Centre) > WarfrontBreachRules.CloseRadius, $"went off at {p}"));
         Assert.True(breach.Standing);
         Assert.False(new WarfrontBreachFilter().Classify(puppet, 0, true, w.Config).Counts);
@@ -150,6 +166,7 @@ public class BreachReviewTests(ITestOutputHelper output)
         Assert.True(w.TfwRespawnAt(other, breach.Position + new Vector3(0f, 2.5f, 0f), MathF.PI));
         TfwRig.KillAll(w);
         var ticks = new List<uint>();
+        bool both = false;
         for (int k = 0; k < 30; k++)
         {
             TfwRig.KillAll(w);
@@ -157,8 +174,9 @@ public class BreachReviewTests(ITestOutputHelper output)
             w.Step(id => new PlayerInput(w.Tick, 0f, 0f, id == other ? MathF.PI : 0f, id is BreachRig.Human or other ? buttons : InputButtons.None, Pitch: -1.2f));
             int mine = w.LastDetonations.Count(d => d.Owner is BreachRig.Human or other);
             if (mine > 0) ticks.Add(w.Tick);
-            if (mine == 2) output.WriteLine($"two at tick {w.Tick}");
+            if (mine == 2) { both = true; output.WriteLine($"two at tick {w.Tick}"); }
         }
+        Assert.True(both, $"both grenades went off in one tick (ticks with any: {string.Join(", ", ticks)})");
         Assert.Equal(WarfrontBreachState.Closed, breach.State);
         var closure = Assert.Single(battle.ChaosBreaches.Closures);
         Assert.True(closure.Closer is BreachRig.Human or other);

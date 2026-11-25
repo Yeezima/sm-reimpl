@@ -5,12 +5,17 @@ namespace SmSim.Extras.Warfront.Chaos;
 
 /// <summary>
 /// The battle the breaches are placed for: its kind, its node (lane battles, the run's 1 to 3) and, for the fortress, the plaza no breach stands in (radius 0: none) and the stage of each layout
-/// source (<paramref name="SourceStage"/>, the plan's; a source of the last stage, <paramref name="MaxStage"/>, is the plaza's and never takes a breach; null: every source may).
+/// source (<paramref name="SourceStage"/>, the plan's); a source of the plaza's stage (<paramref name="PlazaStage"/>, <see cref="WarfrontBreachRules.FortressPlazaStage"/> at the fortress; 0: no such rule)
+/// or standing in the plaza's circle is the plaza's and never takes a breach, nor a ring round it.
 /// </summary>
-public readonly record struct WarfrontBreachSite(WarfrontBreachBattle Battle, int Node, Vector3 PlazaCentre = default, float PlazaRadius = 0f, IReadOnlyList<int>? SourceStage = null, int MaxStage = 0)
+public readonly record struct WarfrontBreachSite(WarfrontBreachBattle Battle, int Node, Vector3 PlazaCentre = default, float PlazaRadius = 0f, IReadOnlyList<int>? SourceStage = null, int PlazaStage = 0)
 {
-    /// <summary>Whether layout source <paramref name="k"/> may take a breach (Fable review 3: no plaza source, so no ring falls just past the plaza circle inside the arena shell).</summary>
-    public bool SourceAllowed(int k) => SourceStage is not { } stages || MaxStage <= 0 || k >= stages.Count || stages[k] < MaxStage;
+    /// <summary>Whether layout source <paramref name="k"/> at <paramref name="at"/> may take a breach (Fable review 3 and its follow-up: no plaza source, by its stage or by where it stands).</summary>
+    public bool SourceAllowed(int k, Vector3 at)
+    {
+        if (PlazaStage > 0 && SourceStage is { } stages && k < stages.Count && stages[k] >= PlazaStage) return false;
+        return !(PlazaRadius > 0f && new Vector2(at.X - PlazaCentre.X, at.Y - PlazaCentre.Y).Length() <= PlazaRadius);
+    }
 }
 
 /// <summary>
@@ -66,12 +71,13 @@ public sealed class WarfrontBreaches
         foreach (int k in order)
         {
             if (b._breaches.Count >= want) break;
-            if (!site.SourceAllowed(k)) continue;
+            if (!site.SourceAllowed(k, sources[k])) continue;
             float turn = roll(WarfrontBreachRules.PlacementSalt + 0x100u + (uint)k) * MathF.Tau;
-            // the source's own foot on the graph (a source off the graph keeps its own spot, as the layout gave it)
+            // the source's own foot on the graph; with a graph, a source off it gets no breach on its own spot (an off-graph fortress arena source), only on a ring spot that is on the graph
             var foot = sources[k];
-            if (graph && nav!.Nearest(foot, 2f, WarfrontBreachRules.RingVertical) is var own and >= 0) foot = nav.Position(own);
-            for (int ring = 0; ring <= WarfrontBreachRules.Rings; ring++)
+            bool onGraph = !graph;
+            if (graph && nav!.Nearest(foot, 2f, WarfrontBreachRules.RingVertical) is var own and >= 0) { foot = nav.Position(own); onGraph = true; }
+            for (int ring = onGraph ? 0 : 1; ring <= WarfrontBreachRules.Rings; ring++)
             {
                 bool placed = false;
                 int spots = ring == 0 ? 1 : WarfrontBreachRules.RingSpots;
@@ -79,8 +85,9 @@ public sealed class WarfrontBreaches
                 {
                     float angle = turn + s * MathF.Tau / spots, r = ring * WarfrontBreachRules.RingStep;
                     var spot = foot + new Vector3(MathF.Cos(angle) * r, MathF.Sin(angle) * r, 0f);
-                    if (graph && ring > 0 && !RingSpotWalkable(nav!, foot, r, ref spot)) continue;   // Fable review 3: same floor, room round it, a whole walk from the source
-                    if (!Fits(spot, layout.LandingZone, points, site, b._breaches)) continue;
+                    if (graph && ring > 0 && !SnapRing(nav!, foot, ref spot)) continue;   // Fable review 3: on a node of the source's floor
+                    if (!Fits(spot, layout.LandingZone, points, site, b._breaches)) continue;   // the cheap distances first (Fable follow-up: Place took up to 247 ms with the walk first)
+                    if (graph && ring > 0 && !RingReachable(nav!, foot, r, spot)) continue;   // then room round it and a whole walk from the source
                     b._breaches.Add(new WarfrontBreach((byte)(b._breaches.Count + 1), spot, openAt, firstAt));
                     placed = true;
                 }
@@ -112,17 +119,22 @@ public sealed class WarfrontBreaches
     /// <see cref="WarfrontBreachRules.RingVertical"/> of the foot), has <see cref="WarfrontBreachRules.RingRadius"/> of walkable ground in eight directions (the squads' ring), and a whole walk from the
     /// source to it no longer than <see cref="WarfrontBreachRules.RingDetour"/> times the ring's radius (no spot across a wall or on another part of the graph).
     /// </summary>
-    static bool RingSpotWalkable(NavGraph nav, Vector3 foot, float radius, ref Vector3 spot)
+    static bool SnapRing(NavGraph nav, Vector3 foot, ref Vector3 spot)
     {
         int node = nav.Nearest(spot, 2f, WarfrontBreachRules.RingVertical);
         if (node < 0) return false;   // in a wall, off the graph, or only another floor near
         var at = nav.Position(node);
         if (MathF.Abs(at.Z - foot.Z) > WarfrontBreachRules.RingVertical) return false;
-        for (int k = 0; k < 8; k++)
-            if (!nav.CanWalk(at, new Vector2(MathF.Cos(k * MathF.PI / 4f), MathF.Sin(k * MathF.PI / 4f)) * WarfrontBreachRules.RingRadius)) return false;
-        if (nav.FindPath(foot, at, 2f, WarfrontBreachRules.RingPathExpandedMost) is not { Partial: false } path || path.Length > radius * WarfrontBreachRules.RingDetour) return false;
         spot = at;
         return true;
+    }
+
+    /// <summary>The expensive half of the ring rule, after the distances passed: room round the snapped spot and a whole walk to it from the source's foot.</summary>
+    static bool RingReachable(NavGraph nav, Vector3 foot, float radius, Vector3 at)
+    {
+        for (int k = 0; k < 8; k++)
+            if (!nav.CanWalk(at, new Vector2(MathF.Cos(k * MathF.PI / 4f), MathF.Sin(k * MathF.PI / 4f)) * WarfrontBreachRules.RingRadius)) return false;
+        return nav.FindPath(foot, at, 2f, WarfrontBreachRules.RingPathExpandedMost) is { Partial: false } path && path.Length <= radius * WarfrontBreachRules.RingDetour;
     }
 
     static bool Fits(Vector3 spot, Vector3 landing, List<Vector3> points, in WarfrontBreachSite site, List<WarfrontBreach> placed)
