@@ -98,6 +98,8 @@ public class WarfrontBoundaryTests
         // Chaos Warfront C0 seams (2026-11-25; no-op until the Chaos faction's bodies in Extras/Warfront/): the sim's kind, damage gate, numbers and Ork-only spawners (the Squigs keep WarfrontSquigs)
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontKind"),
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontDamageGate"),
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontStaggerGate"),
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontRuleKind"),   // Chaos Warfront C2 review R3: the 'Ard slot's Chaos Marine follows the 'Ard Boy's rule rows   // Chaos Warfront C2 (C0 review finding 4): the gate covers the staggers, the bosses' melee stun and the fodder throw too
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontEnemyScale"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontOrkKind"),
         // ... and the client's: the Host panel's faction row and the presentation tables (looks, sounds, gore, flinch)

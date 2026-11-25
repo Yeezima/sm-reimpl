@@ -265,6 +265,12 @@ public sealed partial class TfwBattle
     /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the multiplier of the enemy's numbers (Chaos: pressure, not headcount); 1 outside it. Not applied yet: C2 wires it into the crowds.</summary>
     partial void WarfrontEnemyScale(ref float scale);
     public float EnemyScale { get { float s = 1f; WarfrontEnemyScale(ref s); return s; } }   // WARFRONT-HOOK
+    /// <summary>A cap of enemies alive under <see cref="EnemyScale"/>: <paramref name="count"/> itself at 1 (every battle but a Chaos one), else rounded, at least 1.</summary>
+    int Scaled(int count) { float s = EnemyScale; return s == 1f ? count : Math.Max(1, (int)MathF.Round(count * s)); }
+    /// <summary>The crowds' and swarms' cap of this battle now (<see cref="TfwBattleRules.AliveCap"/> under <see cref="EnemyScale"/>).</summary>
+    public int AliveCapNow => Scaled(TfwBattleRules.AliveCap(_humansNow));
+    /// <summary>The armies' real units at most (<see cref="TfwArmyRules.NearOrksMost"/> under <see cref="EnemyScale"/>).</summary>
+    public int NearOrksMostNow => Scaled(TfwArmyRules.NearOrksMost);
     /// <summary>Warfront's Chaos faction (C0 seam): whether the Ork-only spawners of <paramref name="kind"/> (the Weirdboyz, the Scrap Meks) run in this battle; the Squigs keep <c>World.WarfrontSquigs</c>. Always on outside it.</summary>
     partial void WarfrontOrkKind(MusouEnemyType kind, ref bool on);
     bool OrkKindOn(MusouEnemyType kind) { bool on = true; WarfrontOrkKind(kind, ref on); return on; }   // WARFRONT-HOOK
@@ -590,7 +596,7 @@ public sealed partial class TfwBattle
             for (int k = 0; k < n; k++)
             {
                 var e = _roomBuffer[k];
-                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(e.Type) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
+                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(_enemies.RuleKind(e.Type)) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
                 float d = Vector3.DistanceSquared(e.Position, near);
                 if (d > far) { far = d; best = k; }
             }
@@ -944,7 +950,7 @@ public sealed partial class TfwBattle
     /// </summary>
     void StepArrivals()
     {
-        int cap = TfwBattleRules.AliveCap(_humansNow);
+        int cap = AliveCapNow;   // EnemyScale: the Chaos army's share (1 otherwise)
         _trickled.RemoveAll(_notTrickling);
         int counted = Counted() - _trickled.Count;   // the crowds' cap counts the crowds and swarms; the trickle has its own
         for (int k = 0; k <= Positions; k++)
@@ -977,13 +983,13 @@ public sealed partial class TfwBattle
     void StepTrickle()
     {
         if (!Trickle) return;
-        int cap = TfwBattleRules.TrickleCap(_humansNow);
+        int cap = Scaled(TfwBattleRules.TrickleCap(_humansNow)), total = Scaled(TfwBattleRules.TrickleTotalMax);   // EnemyScale (1 but against Chaos)
         for (int k = 0; k <= Positions; k++)
         {
             if (!SourceActive(k)) { _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds); continue; }
             if (--_trickleTicks[k] > 0) continue;
             _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds);
-            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || PoolUsed >= TfwBattleRules.CrowdPoolRoom) continue;
+            if (_trickled.Count >= cap || Counted() >= total || PoolUsed >= TfwBattleRules.CrowdPoolRoom) continue;
             var type = Fodder(_picked++);
             var at = SourceSpot(k);
             ushort id = _enemies.SpawnLeashed(type, at, FaceCentre(at), Health(type), MusterGroupFirst + k, TfwBattleRules.CrowdAggro);

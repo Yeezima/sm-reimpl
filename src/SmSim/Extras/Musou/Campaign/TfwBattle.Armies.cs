@@ -69,7 +69,8 @@ public sealed partial class TfwBattle
     /// <summary>An Ork stronghold: a position the Orks hold (Held: not under capture) or the HQ's source.</summary>
     bool Stronghold(int place) => place == HqPlace || (place is >= 0 and < Positions && _objectives[place].State == TfwPositionState.Held && !_final);
 
-    static bool Leader(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.ArdBoy or MusouEnemyType.BigShootaNob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
+    // The Chaos Marine: the 'Ard Boy slot's unit in a Warfront Chaos battle (the slot's kind and the spawned kind both lead, so promote, fold-back and tidy agree; C2 review R1). No Orks battle fields one.
+    static bool Leader(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.ArdBoy or MusouEnemyType.ChaosMarine or MusouEnemyType.BigShootaNob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
     static readonly Func<MusouEnemyType, bool> IsLeader = Leader;
 
     static float YawOf(Vector2 way) => way.LengthSquared() > 1e-8f ? MathF.Atan2(-way.X, way.Y) : 0f;
@@ -307,13 +308,13 @@ public sealed partial class TfwBattle
         PromoteOrks(a, ref budget);
         if (a.Far < 1f) return;
         int pool = Math.Max(0, Math.Min(ArmySlots - ArmyOrksAlive, MusouSim.Capacity - TfwBattleRules.PoolReserve - _enemies.Alive));   // the armies' own slots (review fix 2026-11-10)
-        int room = Math.Max(0, Math.Min(TfwArmyRules.NearOrksMost - ArmyCapped, pool));
+        int room = Math.Max(0, Math.Min(NearOrksMostNow - ArmyCapped, pool));
         if (a.FarCount <= room) return;
         int keep = room;
         if (TfwBattleRules.BigOutsideCaps)   // 2026-11-10: the queue's big Orks take no room under the real cap (only the pool's, twice over); it keeps men down its slots until the room's worth of the others
         {
             int capped = 0, bodies = 0;
-            room = Math.Max(0, TfwArmyRules.NearOrksMost - ArmyCapped);
+            room = Math.Max(0, NearOrksMostNow - ArmyCapped);
             for (keep = 0; keep < a.FarCount && capped < room && bodies < pool; keep++)
             {
                 bool big = TfwBattleRules.Big(TfwArmyLayout.OrkType(a.SlotBase + keep, a.FarEliteShare));
@@ -339,7 +340,7 @@ public sealed partial class TfwBattle
         foreach (var (d, a) in _byDistance)
         {
             if (!a.Near || a.FarCount < 1) continue;
-            if (a.Side == TfwArmySide.Ork && OrkAggregates && float.IsNaN(orkWant) && ArmyCapped > TfwArmyRules.NearOrksMost - TfwArmyRules.PromotePerTick) orkWant = d;
+            if (a.Side == TfwArmySide.Ork && OrkAggregates && float.IsNaN(orkWant) && ArmyCapped > NearOrksMostNow - TfwArmyRules.PromotePerTick) orkWant = d;
             if (a.Side == TfwArmySide.Guard && float.IsNaN(squadWant) && ArmySquads >= NearSquadsCap) squadWant = d;
         }
         if (float.IsNaN(orkWant) && float.IsNaN(squadWant)) return;
@@ -357,7 +358,7 @@ public sealed partial class TfwBattle
     void PromoteOrks(TfwArmy a, ref int budget)
     {
         float aggro = a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat ? TfwArmyRules.MarchAggro : TfwArmyRules.AttackAggro;
-        while (budget > 0 && a.FarCount >= 1 && ArmyCapped < TfwArmyRules.NearOrksMost && _enemies.Alive < MusouSim.Capacity - TfwBattleRules.PoolReserve)
+        while (budget > 0 && a.FarCount >= 1 && ArmyCapped < NearOrksMostNow && _enemies.Alive < MusouSim.Capacity - TfwBattleRules.PoolReserve)
         {
             int slot = a.SlotBase;
             var type = TfwArmyLayout.OrkType(slot, a.FarEliteShare);

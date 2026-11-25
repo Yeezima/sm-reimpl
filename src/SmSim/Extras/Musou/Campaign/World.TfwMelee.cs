@@ -142,6 +142,7 @@ public sealed partial class World
         var splash = own is null ? Combat.ScaledReach(war.BoltBlast(), MusouCombatRules.WeaponAoeScale) : Combat.ScaledReach(own, MusouCombatRules.AutocannonAoeScale);
         int frag = -1;
         for (int i = 0; i < Config.Thrown.Count && frag < 0; i++) if (TfwCombatRules.IsFrag(Config.Thrown[i])) frag = i;
+        if (_musou is { } fodderBlast) fodderBlast.FodderBlast = own is not null;   // the weapon's own blast kills any fodder in one (owner 2026-11-11), Chaos fodder by kind (Warfront C2 review R4)
         foreach (float distance in distances)
         {
             var point = origin + direction * distance;
@@ -149,6 +150,7 @@ public sealed partial class World
             TfwBoltBlastsOut++;
             _tfw?.Fire.BoltBlast(Tick, point, frag, splash.Radius);
         }
+        if (_musou is { } after) after.FodderBlast = false;
     }
 
     /// <summary>

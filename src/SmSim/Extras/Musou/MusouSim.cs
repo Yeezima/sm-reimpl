@@ -143,6 +143,22 @@ public sealed partial class MusouSim
     partial void WarfrontDamageGate(ushort enemy, int attacker, MusouDeathKind cause, ref float amount, ref bool barred);
 
     /// <summary>
+    /// The kind whose rules an enemy of <paramref name="type"/> follows in the tables keyed by kind (target preference, powerup and weapon drops, the Librarian's tiers, the crowds' big-Ork test): the kind
+    /// itself, except in a Warfront Chaos battle, where the Chaos Marine of the 'Ard Boy slot follows the 'Ard Boy's rows (Chaos Warfront C2 review R3). Musou Mode and Orks battles: always the kind.
+    /// </summary>
+    public MusouEnemyType RuleKind(MusouEnemyType type) { WarfrontRuleKind(ref type); return type; }   // WARFRONT-HOOK
+    partial void WarfrontRuleKind(ref MusouEnemyType type);
+
+    /// <summary>
+    /// Set by the World while a weapon's own blast (the autocannon's, the Dreadnought cannon's) is dealt: the owner's rule that it kills any fodder in one blast (2026-11-11). Warfront's Chaos gate reads it so the
+    /// tougher Chaos fodder (Cultists, Traitor Guardsmen) still die to one blast, by kind not by health (C2 review R4). Nothing else reads it.
+    /// </summary>
+    public bool FodderBlast { get; set; }
+
+    /// <summary>Warfront's Chaos faction (C2, the C0 review): a stagger, a boss's melee stun or a fodder throw of <paramref name="enemy"/> by <paramref name="attacker"/> (0: unknown) before it lands; <paramref name="barred"/> refuses it (nothing changes). No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontStaggerGate(ushort enemy, int attacker, ref bool barred);
+
+    /// <summary>
     /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
     /// (flat), goes back when none is, and is free for good once any member of <paramref name="group"/> (above 0) is hurt or <see cref="ReleaseGroup"/> is called. Its id, or 0 as
     /// <see cref="Spawn"/>, or for a group that is not above 0 or an aggro that is not 0 or more. A plain <see cref="Spawn"/> has no leash (aggro infinite), so the 5-wave run is unchanged.
@@ -204,6 +220,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
         bool barred = false; WarfrontDamageGate(id, attacker, cause, ref amount, ref barred); if (barred) return false;   // WARFRONT-HOOK
+        if (!(amount > 0f) || !float.IsFinite(amount)) return false;   // after the scales and the gate (C0 review: a scale or gate of 0, or one not finite, lands nothing)
         WarfrontDamaged(id, attacker);   // WARFRONT-HOOK
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
         if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)
