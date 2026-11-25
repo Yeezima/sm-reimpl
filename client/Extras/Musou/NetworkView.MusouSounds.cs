@@ -59,6 +59,8 @@ public partial class NetworkView
     readonly Dictionary<ushort, int> _musouRank = new();
     Task<SoundTriggers>? _musouSoundLoad;
     MusouSoundSet?[]? _musouSets;
+    /// <summary>Chaos Warfront C3: a Chaos battle (set by the Warfront view): only the Chaos Marine's set of <c>MusouSoundSet.Files</c> is built.</summary>
+    bool _musouOnlyChaosSounds;
     bool _musouSoundFailed;
     double _musouChooseAt, _musouSoundLogAt;
     float _musouNearestSq = float.PositiveInfinity;
@@ -95,6 +97,7 @@ public partial class NetworkView
         var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var files in MusouSoundSet.Files)
         {
+            if (_musouOnlyChaosSounds && files.Type != MusouEnemyType.ChaosMarine) continue;   // Chaos Warfront C3: a Chaos battle builds no Ork sound set (its marine kinds use the Chaos Marine's)
             var set = sets[(int)files.Type] = MusouSoundSet.Build(files, triggers, _audio.HasEvent);
             foreach (var (_, cue) in set.Cues) foreach (var o in cue.Options) foreach (var b in o.Events) events.Add(b.StartEvent);
             string missing = set.Missing.Count == 0 ? "" : $"; not in the banks: {string.Join(", ", set.Missing)}";

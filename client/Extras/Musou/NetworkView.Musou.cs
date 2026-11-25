@@ -194,7 +194,7 @@ public partial class NetworkView
     void MusouRagdollsBuild()
     {
         if (_musouRagdolls is { } dolls) { dolls.BuildStep(); MusouRagdollsPrewarm(dolls); return; }
-        if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;
+        if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks is { WarfrontOwnsLooks: true } || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;   // Chaos Warfront C3: never the Ork boy's pool while Warfront owns the looks (a Chaos battle, or a Warfront battle whose army is not told yet)
         _musouRagdollsTried = true;
         if (OrkRagdollDefinition(boy.Assets) is not { } def || boy.Clips[MusouLooks.Run] is not { } clip) { GD.Print("musou: no ragdolls (no Ork ragdoll to be had); blast deaths tumble"); return; }
         EnsureRagdollWorld();

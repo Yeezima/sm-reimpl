@@ -43,6 +43,8 @@ public partial class NetworkView
     readonly MusouGunBursts _musouBursts = new();
     readonly List<MusouEvent> _musouRoundsNow = new();
     static readonly MusouRules MusouSpecs = new();
+    /// <summary>Chaos Warfront C3: the enemy table the client's guns, volleys and crowd read in place of the Orks' default (the Chaos army's, latched per connection by the Warfront view); null: the Orks' as before.</summary>
+    MusouRules? _musouRulesOver;
     long _musouBurstsStarted, _musouRoundsBuilt;
 
     /// <summary>Starts the bursts this frame's cues announce, and gathers the frame's rounds: the server's own Tracer events (a server that still sends them) and those built from the running bursts.</summary>
@@ -69,7 +71,7 @@ public partial class NetworkView
             }
             else
             {
-                var spec = MusouSpecs.Of(type);
+                var spec = (_musouRulesOver ?? MusouSpecs).Of(type);
                 rounds = spec.RangedRounds; interval = spec.RangedRoundInterval;
                 chance = spec.RangedHitNear + (spec.RangedHitFar - spec.RangedHitNear) * Math.Clamp((distance - spec.RangedMin) / Math.Max(1e-3f, spec.RangedMax - spec.RangedMin), 0f, 1f);
             }

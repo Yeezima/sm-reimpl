@@ -130,6 +130,12 @@ public sealed record MusouRules
     /// <summary>The Warboss's body and model scale: 4.5 (owner, 2026-11-01: "always a large orc, never small", 1.6; 2026-11-02: 3; late batch 2026-11-06: 1.5x that; kind: ours). The client draws his model as tall as the Nob body at this scale.</summary>
     public float BossScale { get; init; } = 4.5f;   // the owner, 2026-11-02: "3x larger in scale than original" (was 1.6); late batch 2026-11-06: the Warboss model 1.5x its size (3 to 4.5)
 
+    /// <summary>
+    /// The shot bodies' heights are the type table's own (Chaos Warfront C3: the Chaos table, whose bodies are the drawn Chaos models', not the Ork models'); false (every Ork table, Musou Mode and
+    /// Classic): the Ork models' drawn heights (<see cref="MusouCombat.ShotBodyOf"/>: 2.15 m for the Boyz, 1.5 for the Gretchin, 3 for the Nob) as before.
+    /// </summary>
+    public bool ShotHeightsFromTable { get; init; }
+
     /// <summary>The players' attacks on the enemies (MU3: the cleave, the staggers, the knockbacks; <see cref="MusouCombatRules"/>).</summary>
     public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
     /// <summary>The Warboss's abilities (MU3; <see cref="MusouBossRules"/>).</summary>

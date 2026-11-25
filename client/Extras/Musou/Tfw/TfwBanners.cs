@@ -21,6 +21,8 @@ public partial class TfwBanners : Node3D
 
     public static readonly MekModels.Part ImperialBanner = new("ebp_sets__mp_versus_set", "sm_banner");
     public static readonly MekModels.Part OrkBanner = new("ebp_sets__mp_versus_set", "waaaghbanner");
+    /// <summary>Chaos Warfront C3: whether the enemy-held banner (the Ork totem) is left out (a Chaos battle: no Chaos banner model is read yet); set once by the Warfront view, it asks the live view (a freed one: false). Null: always shown.</summary>
+    public static Func<bool>? HideEnemyBanner;
 
     /// <summary>The banner's height above its point (m; readable from afar, ours), the flip's cloud (opaque, gone, its scale on the class change's player-sized cloud) and when the banner changes under it (s).</summary>
     public const float BannerHeight = 8f, SmokeOpaque = 1.1f, SmokeTotal = 3.6f, SmokeScale = 3.8f, SwapAt = 0.35f;
@@ -99,7 +101,7 @@ public partial class TfwBanners : Node3D
             s.Imperial.Position = at;
             s.Ork.Position = at;
             s.Imperial.Visible = s.Shown;
-            s.Ork.Visible = !s.Shown;
+            s.Ork.Visible = !s.Shown && HideEnemyBanner?.Invoke() != true;
         }
     }
 

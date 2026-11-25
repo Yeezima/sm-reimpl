@@ -63,13 +63,13 @@ public sealed class WarfrontStageModel
         Phase = w.Phase, Fronts = w.Fronts.ToArray(), Advanced = w.Advanced.ToArray(), HqMandatory = w.HqMandatory, Deployments = w.Deployments,
         Targets = w.Targets.ToArray(), CurrentTarget = w.CurrentTarget, ViewerKey = w.ViewerKey, LeaderKey = w.LeaderKey,
         Players = w.Players.Select(p => new HubPlayer(p.Key, p.Name, p.Connected)).ToArray(),
-        Last = w.Last.Select(b => (HubLastKind)b).ToArray(), Forecast = w.Forecast?.ToArray(),
+        Last = w.Last.Select(b => (HubLastKind)b).ToArray(), Forecast = w.Forecast?.ToArray(), Faction = w.Faction,
     };
 
     /// <summary>The inverse of <see cref="ToView"/> (the model tests prove the bytes round-trip with the server's encoder).</summary>
     public static WarfrontHubWire ToWire(WarfrontHubView v) => new(
         v.Phase, v.Fronts.ToArray(), v.Advanced.ToArray(), v.HqMandatory, v.Deployments, v.Targets.ToArray(), v.CurrentTarget, v.ViewerKey, v.LeaderKey,
-        v.Players.Select(p => new WarfrontHubWirePlayer(p.Key, p.Name, p.Connected)).ToArray(), v.Last.Select(k => (byte)k).ToArray(), v.Forecast?.ToArray());
+        v.Players.Select(p => new WarfrontHubWirePlayer(p.Key, p.Name, p.Connected)).ToArray(), v.Last.Select(k => (byte)k).ToArray(), v.Forecast?.ToArray(), v.Faction);
 
     // ---- identify, deploy, new run: the commands ------------------------------------------------------------------------------------------
 
@@ -279,7 +279,7 @@ public sealed class WarfrontStageModel
             return s.Kind switch
             {
                 WarfrontTargetKind.Hq => "TO THE IMPERIAL HQ",
-                WarfrontTargetKind.Fortress when s.Lane >= 0 => "TO THE ORK FORTRESS, THROUGH " + WarfrontHubModel.LaneName(s.Lane),
+                WarfrontTargetKind.Fortress when s.Lane >= 0 => $"TO THE {Hub.FortressName}, THROUGH " + WarfrontHubModel.LaneName(s.Lane),
                 _ when s.Lane is >= 0 and < 3 && fronts[s.Lane] is >= 1 and <= 3 && Hub.View.Phase != WarfrontPhase.Travel => $"TO {WarfrontHubModel.LaneName(s.Lane)}, {WarfrontHubModel.NodeText(fronts[s.Lane])}",
                 _ => Hub.TravelDestination,
             };

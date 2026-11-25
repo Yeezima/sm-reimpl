@@ -84,13 +84,20 @@ public sealed class WarfrontHubModel
     /// <summary>Rows 0 to 3 stand while the war goes on; the fortress row (4) only while the fortress is locked.</summary>
     public bool RowVisible(int row) => !IsOver && (row < 4 || !_view.FortressUnlocked);
 
+    /// <summary>Chaos Warfront C3: the run fights Chaos (the Hub's faction byte), so the labels name the Chaos stronghold, its Lord and the Chaos-held nodes (design "Faction": the labels).</summary>
+    public bool Chaos => _view.Faction == SmSim.Extras.Warfront.Faction.WarfrontFaction.Chaos;
+    /// <summary>The enemy's last stand: "ORK FORTRESS", or "CHAOS STRONGHOLD" in a Chaos run.</summary>
+    public string FortressName => Chaos ? "CHAOS STRONGHOLD" : "ORK FORTRESS";
+    /// <summary>The enemy commander's box on the war map: "WARBOSS", or "CHAOS LORD".</summary>
+    public string CommanderName => Chaos ? "CHAOS LORD" : "WARBOSS";
+
     public string DeployRowText(int row)
     {
-        if (row == 4) return "ORK FORTRESS: LOCKED";
+        if (row == 4) return $"{FortressName}: LOCKED";
         if (!RowOpen(row)) return row == 3 ? "IMPERIAL HQ DEFENSE: NOT AVAILABLE" : $"{LaneName(row)}: NOT AVAILABLE";
         if (row == 3) return "DEPLOY: IMPERIAL HQ DEFENSE";
         int f = _view.Fronts[row];
-        return f == 4 ? $"DEPLOY: ORK FORTRESS, THROUGH {LaneName(row)}" : $"DEPLOY: {LaneName(row)}, {NodeText(f)}";
+        return f == 4 ? $"DEPLOY: {FortressName}, THROUGH {LaneName(row)}" : $"DEPLOY: {LaneName(row)}, {NodeText(f)}";
     }
 
     /// <summary>The text in lane <paramref name="lane"/>'s node box <paramref name="node"/> (1 to 3): its name and its state.</summary>
@@ -105,7 +112,7 @@ public sealed class WarfrontHubModel
     public string NodeStateText(int lane, int node)
     {
         int f = _view.Fronts[lane];
-        return node < f ? "CLEARED" : node == f ? "FRONT" : "ORK-HELD";
+        return node < f ? "CLEARED" : node == f ? "FRONT" : Chaos ? "CHAOS-HELD" : "ORK-HELD";
     }
 
     public string LaneStatus(int lane) => _view.Fronts[lane] switch
@@ -129,7 +136,7 @@ public sealed class WarfrontHubModel
     /// <summary>The floor: a lane that was never advanced cannot fall below node 1.</summary>
     public string FloorText(int lane) => !IsOver && _view.Fronts[lane] == 1 && !_view.Advanced[lane] ? "FLOOR: NODE 1 CANNOT FALL" : "";
 
-    public string FortressState => _view.Phase == WarfrontPhase.Won ? "WARBOSS SLAIN" : _view.FortressUnlocked ? "UNLOCKED" : "LOCKED";
+    public string FortressState => _view.Phase == WarfrontPhase.Won ? (Chaos ? "CHAOS LORD SLAIN" : "WARBOSS SLAIN") : _view.FortressUnlocked ? "UNLOCKED" : "LOCKED";
     public string HqState => _view.Phase == WarfrontPhase.Lost ? "FALLEN" : _view.Phase == WarfrontPhase.Won ? "HELD" : _view.HqMandatory ? "MUST BE HELD" : _view.Fronts.Any(f => f == 0) ? "BROKEN THROUGH" : "SECURE";
 
     public string Header => _view.Phase switch
@@ -147,7 +154,7 @@ public sealed class WarfrontHubModel
     {
         get
         {
-            if (IsOver) return _view.Phase == WarfrontPhase.Won ? "THE ORK WARBOSS IS DEAD" : "THE IMPERIAL HQ HAS FALLEN";
+            if (IsOver) return _view.Phase == WarfrontPhase.Won ? (Chaos ? "THE CHAOS LORD IS DEAD" : "THE ORK WARBOSS IS DEAD") : "THE IMPERIAL HQ HAS FALLEN";
             if (!InShip) return "";
             if (_view.Leader is null) return "NO LEADER IS CONNECTED";
             if (!_view.ViewerIsLeader) return $"{LeaderName} IS CHOOSING THE DEPLOYMENT";
@@ -184,7 +191,7 @@ public sealed class WarfrontHubModel
             return t.Kind switch
             {
                 WarfrontTargetKind.Hq => "TO THE IMPERIAL HQ",
-                WarfrontTargetKind.Fortress => "TO THE ORK FORTRESS, THROUGH " + LaneName(t.Lane),
+                WarfrontTargetKind.Fortress => $"TO THE {FortressName}, THROUGH " + LaneName(t.Lane),
                 _ => $"TO {LaneName(t.Lane)}, {NodeText(_view.Fronts[t.Lane])}",
             };
         }

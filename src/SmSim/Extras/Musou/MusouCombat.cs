@@ -194,6 +194,7 @@ public sealed partial class MusouSim
         var spec = rules.Of(type);
         float scale = type == MusouEnemyType.Warboss ? rules.BossScale : 1f;
         float radius = spec.Radius * scale, height = spec.Height * scale;
+        if (rules.ShotHeightsFromTable) return (radius * ShotRadiusScale, height);   // Chaos Warfront C3: the Chaos table's bodies are its drawn models' (the Chosen at their row's height too, before the Boss Orks' 3x)
         if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBodyOf(rules, MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
         height = type switch
         {
