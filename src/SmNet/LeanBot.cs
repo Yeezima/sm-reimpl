@@ -115,6 +115,7 @@ public static class LeanBot
         "no-jump-death",
         // series-37 integration (2026-11-25): aids of branches made before T1's flag scan: the hammer dash clips' capture and log (transitions batch 2), the drawn Dir 180 strike log (sim/hammer-180), the melee camera's mode log and demos (camera/melee-orbit)
         "dash-dirs-test", "log-dash", "log-hammer-180", "log-melee-mode", "melee-orbit-demo", "melee-orbit-demo-point",
+        "execution-demo", "execution-selftest", "execution-test", "executions-x6-demo", "executions-x6-test",   // executions X5/X6: the paired clips' viewer, the presenter's self-test and demo rows, the marker and overshield demos
     };
 
     /// <summary>

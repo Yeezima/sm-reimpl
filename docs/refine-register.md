@@ -28,19 +28,19 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4146 spec table rows: **3067 tagged**, 709 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 853 rows of the changes document.
+Scanned 4259 spec table rows: **3156 tagged**, 725 not tagged (read from data with high confidence), 378 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 853 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 435 | 374 | 369 | 122 | 12 |
-| Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
+| Movement (critical) | 436 | 374 | 370 | 122 | 12 |
+| Combat core (critical) | 27 | 18 | 24 | 18 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 175 | 154 | 127 | 60 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
+| HUD and hit feedback (critical) | 108 | 102 | 75 | 16 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 122 | 110 | 96 | 50 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
@@ -49,34 +49,34 @@ Scanned 4146 spec table rows: **3067 tagged**, 709 not tagged (read from data wi
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
+| Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 180 | 179 | 57 | 82 | 0 |
-| Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3067** | 2756 | 2237 | 936 | 37 |
+| General game design | 242 | 241 | 91 | 88 | 0 |
+| Ork faction | 300 | 280 | 180 | 73 | 0 |
+| **All areas** | **3156** | 2843 | 2284 | 947 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1863 |
-| confidence: low | 1071 |
-| confidence: medium | 1055 |
-| notes: ours | 481 |
-| kind: interpretation | 461 |
-| notes: estimate | 321 |
-| kind: estimate | 272 |
+| kind: ours | 1943 |
+| confidence: medium | 1097 |
+| confidence: low | 1076 |
+| notes: ours | 484 |
+| kind: interpretation | 466 |
+| notes: estimate | 328 |
+| kind: estimate | 274 |
 | confidence: none (low) | 111 |
-| kind: provisional | 106 |
+| kind: provisional | 108 |
 | kind: user's knowledge | 53 |
+| notes: provisional | 46 |
 | kind: choice | 45 |
-| notes: provisional | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: interpretation | 30 |
 | notes: user's knowledge | 30 |
-| kind: approximation | 27 |
-| kind: placeholder | 23 |
+| kind: approximation | 28 |
+| kind: placeholder | 24 |
 | notes: open question | 21 |
 | kind: gap (not reproduced) | 20 |
 | notes: placeholder | 20 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (435)
+### Movement (gameplay-critical) (436)
 
 *Spec section: Extracted parameters*
 
@@ -874,7 +874,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-788A9538` | Wrapped precipitation field (supersedes "Rain coverage at speed" for the rain, and the emitters of… | each layer is a fixed set of drops (seeded, uniform in its box) at world points that repeat every box on each axis; each frame the field moves by its velocity times the real frame (at most 0.25 s), and each drop is drawn at its copy inside the box centred on… (m, s) | kind: ours; notes: estimate | the owner's report; the method ours | Wrapped precipitation field (supersedes "Rain coverage at…: compare with SM1 by feel or video. Ours: each layer is a fixed set of drops (seeded, uniform in its box) at… | ☐ |
 | `R-85EC4E06` | Density after (same map, aid and script; computed, not read back from the renderer) | near drops within 8 m: standing about 160; 20 m/s sideways 141 to 175; 15 m/s up 133 to 157; 15 m/s down 158 to 177; 30 m/s down 178 to 191; jump-pack path 138 to 185; Ash Squall grit about 480 standing (446 to 512), 454 to 506 in every motion (before: 7 to… (count) | confidence: medium | this branch's runs | Density after (same map, aid and script; computed, not read…: compare with SM1 by timing a run over a known distance. Ours: near drops within 8 m: standing about 160; 20 m/s sideways 141 to… | ☐ |
 
-### Combat core (gameplay-critical) (24)
+*Spec section: Added content: Executions: client presentation (executions X5, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0C521317` | Sequencer speed | each clip's raw time is the same fraction of its own length as the row's clock is of the row's length (the row's lengths are after the sequencer's playback speed), so a sequencer faster or slower than 1 plays as the original graph does | confidence: medium | X7 rows (lengths after the speed) | Sequencer speed: compare with SM1 by feel or video. Ours: each clip's raw time is the same fraction of its own length as the… | ☐ |
+
+### Combat core (gameplay-critical) (27)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -964,6 +970,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B6869371` | Cards: damage | x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into any power-up's scale (melee and other), and the owner's x2 melee cap (power-ups and stims) is raised by the same factor, so the cards multiply on top of the cap (`WarfrontMeleeCap`)… (multiplier) | kind: interpretation; confidence: medium; notes: ours | owner; the stacking with power-ups ours | Cards: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: x(1 + 0.10 per card) on every hit he deals to Orks, multiplied into… | ☐ |
+
+*Spec section: Added content: Executions: alignment and choice (executions X2, 2026-11-25, repaired after the review of 476eb485; added content, Warfront and Classic PvP Extended only; engine-free rules, not yet wired: no simulation, wire, hash or rules-version change until X1/X3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-06CECD05` | Posed hit volumes | an executor is hit with the MP marine's hit volumes posed by the playing attacker clip, one set per tick (at most 301 a clip), as the flight volumes; the campaign attacker clips pose on the MP ragdoll (same 50-bone skeleton) (s) | kind: interpretation; confidence: medium | the flight hit volumes' interpretation; install check 2026-11-25 (O3: 111 sets of 22 volumes) | Posed hit volumes: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: an executor is hit with the MP marine's hit volumes posed by the… | ☐ |
+
+*Spec section: Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F965ACA3` | Executor hit volumes | the normal standing volumes, not the clip's pose (posed volumes deferred to X3h, lead decision 2) | kind: provisional; kind: approximation; confidence: low; notes: ours | ours | Executor hit volumes: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: the normal standing volumes, not the clip's pose (posed volumes… | ☐ |
+
+*Spec section: Added content: Executions: client presentation (executions X5, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-08D81401` | Proxy claim after respawn | a Classic victim alive again without a live proxy loses its claim on every client, its own included, so its next death is its own | kind: ours | X5 review X5-2 | Proxy claim after respawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Classic victim alive again without a live proxy loses its claim on… | ☐ |
 
 ### Weapons (gameplay-critical) (121)
 
@@ -1823,7 +1847,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (88)
+### HUD and hit feedback (gameplay-critical) (108)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1987,6 +2011,31 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1D18E8DA` | Progression sender | the server sends Progress (tag 44) per identified human when its bytes change and every 2 s, and Offer (tag 45) on every send while an offer stands; the picker stays hidden on a live server until W5c's `PickerBusy` hook flips `NetworkView.WarfrontPickerLive`… (s) | kind: ours; confidence: medium | review of W8, finding 1 | Progression sender: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server sends Progress (tag 44) per identified human when its… | ☐ |
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
+
+*Spec section: Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D607521D` | Orbit | while the own player executes: free 360 degrees of yaw, elevation 0.05 to 1.3 rad (`DeathOrbit`'s limits), round the executor's chest (1.2 m over the drawn feet), the distance of the last camera kept within 2.5 to 5 m; started from the camera as it was and… (rad, m, s) | kind: ours | owner brief ("free 360-degree orbit above ground, as the respawn-wait camera, collision kept, no forced cut"); design | Orbit: compare with SM1 with side-by-side screenshots in the same spot. Ours: while the own player executes: free 360 degrees of yaw, elevation… | ☐ |
+| `R-D7DF38C2` | Exit | at the End the view takes the orbit camera's heading (and its pitch within the rig's range), the rig camera is placed fresh and the camera blends into it (0.35 s) | kind: ours; notes: estimate | design | Exit: compare with SM1 with side-by-side screenshots in the same spot. Ours: at the End the view takes the orbit camera's heading (and its pitch… | ☐ |
+| `R-60F5C123` | Death during the move | the death camera takes over at once (it is checked before the execution camera in `FollowCamera`); nothing of the orbit carries over | kind: ours | design | Death during the move: compare with SM1 by timing a run over a known distance. Ours: the death camera takes over at once (it is checked before the… | ☐ |
+| `R-5F3901D1` | Prediction | the own player's ticks StartTick + 1 to the run's end tick (the track's, or the End's once heard) are predicted with no stick and no buttons (`MatchFlow.Locked`, the Execute bit with them; the view kept) and pinned to `ExecutionTrack.Pose` (feet, yaw, no… | kind: ours | design (X3's pin and lock) | Prediction: compare with SM1 with side-by-side screenshots in the same spot. Ours: the own player's ticks StartTick + 1 to the run's end tick (the… | ☐ |
+| `R-5A7E6E85` | Marker rate | Warfront's pick recomputed at most 10 times a second, after the cheap refusals (Hz) | kind: ours; notes: estimate | review note 6; 10 Hz ours | Marker rate: compare with SM1 with side-by-side screenshots in the same spot. Ours: Warfront's pick recomputed at most 10 times a second, after the cheap… | ☐ |
+| `R-BE44849F` | Marker look | a view-facing quad 0.55 m wide (the stim cross's side, `CharacterViewer.StimCrossSize`) and 0.8 m tall: an opaque red disc 0.30 m across (RGB 1.0, 0.06, 0.04) with a hotter centre, a soft red glow out to the quad's width, a rim that fizzles (animated noise… (m, s) | kind: ours; confidence: medium | owner ("a solid at the center, opaque glowing red dot ... fizzle and drip color down a bit like a melting icicle. About the height of a stim overhead icon")… | Marker look: compare with SM1 with side-by-side screenshots in the same spot. Ours: a view-facing quad 0.55 m wide (the stim cross's side… | ☐ |
+| `R-0C52BB93` | Marker place | the dot's centre 2.45 m over a Warfront Ork's feet (not yet checked per Ork kind against a capture); over a Classic corpse where the stim cross floats, 1.55 m over the drawn body's lower spine bone (`RIG_SpineA`), so it follows the held death pose down; 1.3 m… (m) | kind: interpretation; confidence: medium | owner ("about the height of a stim overhead icon": read as the stim cross's size and place) | Marker place: compare with SM1 by measuring on a flat spot of the same map. Ours: the dot's centre 2.45 m over a Warfront Ork's feet (not yet checked… | ☐ |
+| `R-E9561439` | Marker lag | the marker reads the crowd as drawn (the interpolation delay behind the server), so at the edge of range the marked Ork can differ from the one the press takes; the press is the server's | kind: ours | plan risk, accepted | Marker lag: compare with SM1 with side-by-side screenshots in the same spot. Ours: the marker reads the crowd as drawn (the interpolation delay behind… | ☐ |
+| `R-036B5F3F` | Overshield look strength | 0.6 from a full overshield down to half (0.5 of the cap), rising smoothly (smoothstep) to 1.0 at 0.15 of the cap and 1.0 below; it multiplies the shell's alpha and the armour tint's share, which already follow the fraction (the fractions are the comparison… (factor) | notes: ours | owner 2026-11-25 (decisions/2026-11-25-executions-x6-prompt-dot.md, picked from the 3 x 3 grid: full 0.6, half 0.6, low 1.0); the smooth ramp between half and… | Overshield look strength: compare with SM1 with side-by-side screenshots in the same spot. Ours: 0.6 from a full overshield down to half (0.5 of the cap), rising… | ☐ |
+| `R-E3526A95` | Armour tint | while the own armour is above its bar: the armour bar modulated from white toward RGB (0.36, 0.56, 1.0) by the overshield's fraction of its cap times the look strength (clamped to 1), so full, half and low read differently and it fades back as the overshield… (RGB) | kind: ours; confidence: medium | owner brief ("deeper blue armour HUD"); media review (scale with the overshield); values ours | Armour tint: compare with SM1 by counting hits to kill and by video of the health bar. Ours: while the own armour is above its bar: the armour bar modulated from… | ☐ |
+| `R-67CDCFC5` | Shell | a second mesh on every covered mesh (see Shell coverage), skinned pieces sharing their skin and skeleton and rigid pieces (worn backpack and jump pack) as their children, excluded surfaces drawn as nothing; pushed 0.05 m along the normals (in model units: the… (m) | kind: ours; confidence: medium | owner brief ("a soft blue shield about 5 cm off the model"); media review of a18ed908 (pads and backpack, scaling) | Shell: compare with SM1 by measuring on a flat spot of the same map. Ours: a second mesh on every covered mesh (see Shell coverage), skinned… | ☐ |
+| `R-435EE13C` | Shell coverage | every part of the player's model but the weapons (owner 2026-11-25): every armour mesh under the skeleton (torso, arms, legs, shoulder pads, helmet, backpack, DLC and campaign pieces) and the worn items (`Worn_*`: the jump pack, the Devastator's pack); not… | kind: interpretation; kind: provisional; confidence: medium; notes: ours | owner 2026-11-25 ("ensure it covers all parts of a player's model except their weapons ... tabards, ornaments ... are not covered"); the name split ours | Shell coverage: compare with SM1 with side-by-side screenshots in the same spot. Ours: every part of the player's model but the weapons (owner 2026-11-25):… | ☐ |
+| `R-EB5C6308` | Marker timing (Classic) | the dot shows only once the client's view tick has reached the kill tick and until kill tick + window (X3 refuses an earlier press as NoOffer and spends its edge); never for a dead killer (ticks) | kind: ours | X3 (lead 40) | Marker timing (Classic): compare with SM1 with side-by-side screenshots in the same spot. Ours: the dot shows only once the client's view tick has reached the kill… | ☐ |
+| `R-9DA8E2B5` | Row this install lacks | the own run is still locked and pinned, to the Start's origin and yaw (X3: the server's run plays), until its End or at most 12 s (s) | kind: ours; confidence: medium | X3 (lead 40); 12 s ours | Row this install lacks: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own run is still locked and pinned, to the Start's origin and yaw… | ☐ |
+| `R-5F3D84A3` | Lost Ends | a run whose three Ends were all lost is over at its own end tick (`ExecutionTrack.EndTick`): the prediction frees the input, the orbit hands back the camera and the marker may show again (ticks) | kind: ours | X3 (lead 40) | Lost Ends: compare with SM1 with side-by-side screenshots in the same spot. Ours: a run whose three Ends were all lost is over at its own end tick… | ☐ |
+| `R-4379D09D` | Shell on the Compatibility renderer | one material per character with plain uniforms (no instance uniform, which the Compatibility renderer does not draw), plain GLSL with no screen or depth texture: the same look in old-GPU mode | kind: ours; confidence: medium | the repo's Compatibility rule (`ClawCrackle`) | Shell on the Compatibility renderer: compare with SM1 with side-by-side screenshots in the same spot. Ours: one material per character with plain uniforms (no instance uniform… | ☐ |
+| `R-3780183D` | Marker after a press | a press of Execute while the dot shows takes that offer (the server spends it, a move fitting or not: one try per corpse), so the dot goes at once; a press before the view tick reaches the kill leaves it (the server refuses it NoOffer and spends only the… | kind: ours | X6 review X6-10; X3's one try per corpse | Marker after a press: compare with SM1 with side-by-side screenshots in the same spot. Ours: a press of Execute while the dot shows takes that offer (the server… | ☐ |
+| `R-FB9A0F98` | Offer kept | of two offers heard, the one with the later kill tick, and of equal kill ticks the lower victim id, is shown (the server's press takes exactly that one); a spent offer is not taken again | kind: ours | X6 review X6-10; `World.ExecutionsClassicPick` | Offer kept: compare with SM1 with side-by-side screenshots in the same spot. Ours: of two offers heard, the one with the later kill tick, and of equal… | ☐ |
+| `R-4AB8907B` | Warfront marker's bystanders | X4's rule itself (`ExecutionBystanders.Warfront`: the other living players, then the player-solid enemies, within the server's bystander reach, the longest slide + two capsule radii + 7 m, 3D) on the crowd as drawn (m) | kind: ours | X6 review X6-12; X4 | Warfront marker's bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: X4's rule itself (ExecutionBystanders.Warfront: the other living… | ☐ |
+| `R-BCE19019` | Marker in a Chaos run | never (the prompt treats every Warfront run as an Ork run until C2's faction is on the client: `ExecutionsChaosRun` false; the server's Chaos refusal reads `SimConfig.WarfrontFaction`, which also arrives with C2) | kind: ours; confidence: medium | X6 review X6-12, lead 40 | Marker in a Chaos run: compare with SM1 by timing a run over a known distance. Ours: never (the prompt treats every Warfront run as an Ork run until C2's… | ☐ |
 
 ### Sound mix (gameplay-critical) (254)
 
@@ -2901,7 +2950,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (48)
+### Networking and render smoothing (49)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -3000,6 +3049,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-162331D1` | Added content | the gate does nothing with any added content (`SimConfig.Extras` not none): Musou Mode and the Ork's extras are untouched | kind: ours | the owner ("Classic PvP only") | Added content: compare with SM1 by feel or video. Ours: the gate does nothing with any added content (SimConfig.Extras not… | ☐ |
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
+
+*Spec section: Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E4D234E8` | Prediction's speculative tick | `GameClient.Ahead()` steps the own player one tick ahead with `ExtrasPredictInput` and `ExtrasPin` at `Tick + 1`, as the prediction does | kind: ours | X1 review (lead 39) | Prediction's speculative tick: compare with SM1 by feel or video. Ours: GameClient.Ahead() steps the own player one tick ahead with… | ☐ |
 
 ### Core simulation (provisional values) (871)
 
@@ -4374,7 +4429,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (180)
+### General game design (242)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4625,6 +4680,93 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-39BBFD43` | NEW CAMPAIGN on an unusable run.json | `--warfront-new` with a damaged run.json sets it aside under records (the loader's code) and starts the new run with the notice; a newer or locked run.json is left untouched and the server refuses (exit 1) with the notice, even on NEW CAMPAIGN | kind: ours | review of codebase fix 1 | NEW CAMPAIGN on an unusable run.json: compare with SM1 by timing a run over a known distance. Ours: --warfront-new with a damaged run.json sets it aside under records… | ☐ |
 | `R-8947DC6E` | Autosave writer busy | a synchronous save whose flush of the asynchronous writer times out (10 s) does not write; it sets SavePending (retried) so run.json.tmp is never raced (s) | kind: ours | review of codebase fix 1 | Autosave writer busy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a synchronous save whose flush of the asynchronous writer times out… | ☐ |
 | `R-4243CFC1` | Projectile hits test the current pose (codebase fix 6, 2026-11-22; Musou Mode and Warfront) | a flying projectile (the Rokkit Boy's rocket, a launcher or plasma round, any per-step projectile sweep against the Orks) tests each Ork's body at its CURRENT position only; an instant (hit-scan) shot, including the piercing bolt and lascannon rays, keeps the… (ticks, m) | kind: ours; notes: estimate | Codex review 2026-11-21; owner 2026-11-22 ("current position only") | Projectile hits test the current pose (codebase fix 6…: compare with SM1 by feel or video. Ours: a flying projectile (the Rokkit Boy's rocket, a launcher or plasma… | ☐ |
+
+*Spec section: Added content: Executions (executions X1, the contract and the switch; owner-approved brief 2026-11-25; added content, Classic PvP Extended and Warfront only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-67E4308B` | Content flag | `ContentExtras.Executions` = 128 (`--content executions` alone); in `extended` (`ContentExtras.All`) and in the Warfront profile (`Musou`, `Warfront`, `Executions`); never in `musou` or `faithful` | kind: ours | owner-approved brief 2026-11-25 | Content flag: compare with SM1 by feel or video. Ours: ContentExtras.Executions = 128 (--content executions alone); in… | ☐ |
+| `R-940A7435` | Execute input | `InputButtons.Execute`, input bit 6 (unmasked on the wire); the server drops it from every input of a match without the flag, and the client sends it only in such a match | kind: ours | owner-approved brief 2026-11-25 (one dedicated rebindable action, not a melee input) | Execute input: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: InputButtons.Execute, input bit 6 (unmasked on the wire); the server… | ☐ |
+| `R-5E26F58A` | Execute default keys | keyboard Q; gamepad unbound (D-pad left is Warfront's orbital strike); listed on the controls screen in the Extended profiles only; an old `controls.json` loads unchanged (Execute takes Q only where the file left it free) | kind: ours | owner 2026-11-25 ("Q, gamepad unbound (Recommended)") | Execute default keys: compare with SM1 by feel or video. Ours: keyboard Q; gamepad unbound (D-pad left is Warfront's orbital… | ☐ |
+| `R-731E5966` | Classic finisher window | 0.8 (24 ticks at 30 Hz): a press counts at its view tick, clamped to at most `MaxRewindTicks` (15) back, and is in the window when kill tick <= press tick <= kill tick + 24 (s) | kind: ours; kind: estimate; confidence: low | architect's recommendation, uncontested by the owner 2026-11-25 | Classic finisher window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.8 (24 ticks at 30 Hz): a press counts at its view tick, clamped to… | ☐ |
+| `R-839D5E38` | Classic death-pose hold | equal to the window (0.8 s): the melee-killed victim's death pose is held before the ragdoll in Extended; presentation only, the respawn timer is never delayed (s) | kind: ours; confidence: medium | owner 2026-11-25 ("Hold the death pose briefly") | Classic death-pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: equal to the window (0.8 s): the melee-killed victim's death pose is… | ☐ |
+| `R-35C80DA9` | Warfront cooldown | 10, counted from the execution's completion; an interrupted execution starts none (s) | kind: ours | owner-approved brief 2026-11-25 (recommended start: animation completion) | Warfront cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 10, counted from the execution's completion; an interrupted execution… | ☐ |
+| `R-59DA402F` | Warfront overshield cap | one armour bar (`ShieldMax` x 1) above the full bar: 200 % armour in all, never 300 %; refreshed to the cap, never stacked; no decay (`SimConfig.KeepsOvershield`, filled by X4) (armour points) | kind: ours | owner-approved brief 2026-11-25 | Warfront overshield cap: compare with SM1 by feel or video. Ours: one armour bar (ShieldMax x 1) above the full bar: 200 % armour in… | ☐ |
+
+*Spec section: Added content: Executions: alignment and choice (executions X2, 2026-11-25, repaired after the review of 476eb485; added content, Warfront and Classic PvP Extended only; engine-free rules, not yet wired: no simulation, wire, hash or rules-version change until X1/X3)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0E0BD7C6` | Victim placement | the victim's feet never move; only its yaw turns to the pair's (attacker yaw + the row's relative yaw, π for every original pair) | kind: interpretation; confidence: medium | inventory 1.7 (supported by evidence for the original's clips; the rule an interpretation) | Victim placement: compare with SM1 by feel or video. Ours: the victim's feet never move; only its yaw turns to the pair's… | ☐ |
+| `R-E6967C18` | Distance band | the attacker turns so the row's victim offset (lateral X kept) points at the victim; the forward distance is clamped to the row's band, its shortest to longest attacker variant (about 1 to 7 m; a single-variant row: its offset's forward distance alone); the… (m) | kind: ours; confidence: medium | inventory 1.7 and 3.1 (the graph blends on `FLT_MeleeTargetDistance`); review of 476eb485 (reference distance); linear blend ours | Distance band: compare with SM1 by measuring on a flat spot of the same map. Ours: the attacker turns so the row's victim offset (lateral X kept) points… | ☐ |
+| `R-2D355C60` | Slide | the attacker must be grounded; only outside the band: along the pair's line by `Movement.Glide` (the capsule controller, other players ignored by the motor; `PlayerCollision.LastPush` restored), at most 1 m, 6 m/s (5 ticks for 1 m at 30 Hz), ending within… (m, m/s) | kind: ours; notes: estimate | design ("at most 1 m") | Slide: compare with SM1 by timing a run over a known distance. Ours: the attacker must be grounded; only outside the band: along the… | ☐ |
+| `R-C0627ABC` | Backward slide | when the victim is nearer than the row's shortest variant gap, the attacker slides away from it (along the pair's line) by up to 2.5 m (the row's needed gap less the current one; a forward slide stays at most 1 m), with the same glide, grounding, step… (m) | kind: ours; confidence: medium | lead decision 2026-11-25 (review of the X7 rows) | Backward slide: compare with SM1 by measuring on a flat spot of the same map. Ours: when the victim is nearer than the row's shortest variant gap, the… | ☐ |
+| `R-244F2069` | Height between the pair | the two feet at most the step height (0.4 m) apart (m) | kind: ours; confidence: medium | ours | Height between the pair: compare with SM1 by measuring on a flat spot of the same map. Ours: the two feet at most the step height (0.4 m) apart. | ☐ |
+| `R-B149ACD6` | Terrain probes | every 0.25 m along the slide, the attacker's blended root path (from where it stands, at the pair's yaw) and the victim's root path (from its feet, at its yaw): a downward ray from 1 m above the previous ground, at most the step height below it (a miss: gap)… (m) | kind: ours; confidence: low; notes: estimate | design ("every 0.25 m"; "never pulls a character through terrain or across a gap"); heights and radius ours | Terrain probes: compare with SM1 by measuring on a flat spot of the same map. Ours: every 0.25 m along the slide, the attacker's blended root path (from… | ☐ |
+| `R-3A77C581` | Line of sight | the aligned attacker must see the victim through weapon collision and past spawn-room blockers (`MeleeLock.Sees`) | kind: ours | design | Line of sight: compare with SM1 by feel or video. Ours: the aligned attacker must see the victim through weapon collision and… | ☐ |
+| `R-8A3ACA9D` | Move choice | every row for the attacker's class, weapon family and the victim's kind is checked (rows with fewer "*" keys first, then the original's conduit priority, higher first, then catalogue order); among those that fit, a pick seeded by the start tick and the… | kind: ours; confidence: medium | inventory 3.1 (recommends a random pick among moves that pass the terrain check); lead 38 2026-11-25 (deterministic seed) | Move choice: compare with SM1 by timing a run over a known distance. Ours: every row for the attacker's class, weapon family and the victim's… | ☐ |
+| `R-7D9999FB` | Warfront target | non-elite, non-boss Orks in play (not spawning, dying or in a Stormboy's hop) within 2.5 m horizontally and the melee lock's vertical reach (1.5 m), seen (`MeleeLock.Sees`), not reserved, with a row the executor's weapon plays on its kind; any direction… (m, °) | kind: ours; notes: estimate | design (about 2.5 m; the melee lock's ranking) | Warfront target: compare with SM1 with an overlaid screenshot taken from the same position. Ours: non-elite, non-boss Orks in play (not spawning, dying or in a… | ☐ |
+| `R-2DE0DE21` | Classic race swap | by the victim's race (`Races.Of`, not its team: an Ork Boy player sits on either team): a Chaos killer on a loyalist victim plays the Chaos Marine rows (C1 to C3) with the races swapped: the killer the attacker half, the loyalist the victim half (the shared… | kind: ours; confidence: medium | owner 2026-11-25 ("Yes, swap races"); lead 38 2026-11-25 (Ork players, within "all with originals") | Classic race swap: compare with SM1 by feel or video. Ours: by the victim's race (Races.Of, not its team: an Ork Boy player sits… | ☐ |
+
+*Spec section: Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-40404034` | Refusals (before any choice, in this order) | no rows at all, dead, puppet (retainer / AI Marine), already executing, airborne, in a reaction (interrupt, stun or stagger; a light hit's flinch does not refuse: lead 40), charging / evading / in a jump-pack phase, a melee weapon without an execution family… | kind: ours; confidence: medium | owner brief and answers (retainers cannot execute); airborne: review note 4; a reaction: lead decision 8 (2026-11-25) | Refusals (before any choice, in this order): compare with SM1 by feel or video. Ours: no rows at all, dead, puppet (retainer / AI Marine), already… | ☐ |
+| `R-5AA17E3F` | Classic window | 0.8 s (24 ticks at 30 Hz), `SimConfig.ExecutionWindowSeconds`, hashed (X1's row) (s) | kind: ours; kind: estimate; confidence: low | architect recommendation, uncontested | Classic window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.8 s (24 ticks at 30 Hz), SimConfig.ExecutionWindowSeconds, hashed… | ☐ |
+| `R-94E310B9` | One finisher per corpse | an offer is spent by its first press inside the window, whether a move aligns or not; a refused press (airborne, a reaction) does not spend it | kind: ours; confidence: medium | brief ("no second kill"); one try ours | One finisher per corpse: compare with SM1 by feel or video. Ours: an offer is spent by its first press inside the window, whether a… | ☐ |
+| `R-4332CACD` | Classic choice | `ExecutionChoice.ChooseClassic` on the corpse (its state at death, alive for the checks only), seeded by (tick, executor, victim); the wire carries the row's wire index (`ExecutionRowSet.WireIndexOf`), never a filtered list's index | kind: ours | X2; lead 39 (wire identity) | Classic choice: compare with SM1 by feel or video. Ours: ExecutionChoice.ChooseClassic on the corpse (its state at death… | ☐ |
+| `R-394902D4` | Classic forward slide | up to 2.5 m onto the corpse (Warfront keeps 1 m), at 6 m/s: a 2.5 m glide takes about 13 ticks (0.42 s); the whole slide passes the same terrain checks (capsule glide, wall sweeps, gaps, steps, slopes, kill volumes, spawn blockers, bystanders); hashed.… (m, m/s) | kind: ours; confidence: low; notes: provisional | lead 40 (2026-11-25), from the live check's NoFit counts | Classic forward slide: compare with SM1 by timing a run over a known distance. Ours: up to 2.5 m onto the corpse (Warfront keeps 1 m), at 6 m/s: a 2.5 m… | ☐ |
+| `R-59F0B89B` | Classic bystanders | the other living players (not the executor, not the corpse's player) within 2.5 m slide + 0.9 m + 7 m of the executor; a slide that closes within 0.9 m of one is refused (m) | kind: ours; confidence: medium | ours (Classic players are solid) | Classic bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: the other living players (not the executor, not the corpse's player)… | ☐ |
+| `R-3E0A3399` | Lock | input replaced by `MatchFlow.Locked` (no stick, no buttons; the view's yaw and pitch kept); locked ticks are `StartTick + 1` to the end tick inclusive (the run starts in the step, after that tick's pin) (ticks) | kind: ours; confidence: medium | design | Lock: compare with SM1 by feel or video. Ours: input replaced by MatchFlow.Locked (no stick, no buttons; the view's… | ☐ |
+| `R-339B58E1` | Disarm at the start | the run's start clears any melee attack in progress or buffered (light or heavy), a held charge, a released charge shot still waiting, a throw under way (its item is spent only at the release), a weapon raise or burst round waiting (`RaiseTicks`, `BurstLeft`)… | kind: ours | lead 40 (review) | Disarm at the start: compare with SM1 by feel or video. Ours: the run's start clears any melee attack in progress or buffered… | ☐ |
+| `R-FC8E256A` | Pin | position, yaw, zero velocity, grounded, and disarmed (as at the start), from `ExecutionTrack.Pin` after the player's step, and again in the step after the tick's contacts and pushes (a shove is pinned back) | kind: ours; confidence: medium | design; re-pin: lead 39 (X1 review item 7) | Pin: compare with SM1 by feel or video. Ours: position, yaw, zero velocity, grounded, and disarmed (as at the… | ☐ |
+| `R-D36045D3` | Slide timing | the slide plays first (`SlideTicks` from `ExecutionAlign`, linear by tick from the slide's start to the origin), then the clip from the aligned origin (ticks) | kind: ours; notes: estimate | ours (design: glide at most 1 m forward, 2.5 m back) | Slide timing: compare with SM1 by feel or video. Ours: the slide plays first (SlideTicks from ExecutionAlign, linear by tick… | ☐ |
+| `R-DB503D7E` | Event ticks | clip time 0 at start + slide ticks; the kill event (`KillSeconds`) and the end (`Seconds`, never before the kill) rounded to the nearest tick (s, ticks) | kind: ours; confidence: medium | X7 rows (supported by evidence); rounding ours | Event ticks: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: clip time 0 at start + slide ticks; the kill event (KillSeconds) and… | ☐ |
+| `R-8C6C7CEE` | End checks | Disconnect (executor gone), Killed (executor dead), MatchEnd (counting down, ended, or a new round), Invalid (more than 1 m off the pin, teleported between ticks, the row gone, Warfront's target invalid), Done (end tick) (m) | kind: ours; confidence: medium | design; 1 m ours (lead 39: re-pin small pushes; the plan's 0.05 m would end a move on a shove) | End checks: compare with SM1 by measuring on a flat spot of the same map. Ours: Disconnect (executor gone), Killed (executor dead), MatchEnd… | ☐ |
+| `R-EFE596BA` | Players on the path after the press (known) | the slide and the root path are checked against the other players at the press only; a player who steps onto them afterwards may overlap the pinned executor (it is never pushed through walls, and the overlapped player walks out freely) | kind: ours; confidence: medium | lead 40 (review); kept as known | Players on the path after the press (known): compare with SM1 by feel or video. Ours: the slide and the root path are checked against the other players at… | ☐ |
+| `R-7A8CDCEC` | Log | the server logs each offer, Start and End, and each press that reached the choice and found nothing (NoFit with the gap, height and each row's failure; NoWire); earlier refusals are only counted | kind: ours | lead 40 | Log: compare with SM1 by feel or video. Ours: the server logs each offer, Start and End, and each press that… | ☐ |
+| `R-313963F2` | Start (tag 50, X3's extension) | 36 B: X1's 26 B, then distance (u16 mm, 1..20000), slide ticks (u8), flags (u8, bit 0 races swapped; other bits refused), slide offset (3 x i16 mm, at most 4000 each) (bytes) | kind: ours | plan (30 B) + the slide offset, ours (the client pins and draws the slide without guessing its start) | Start (tag 50, X3's extension): compare with SM1 by feel or video. Ours: 36 B: X1's 26 B, then distance (u16 mm, 1..20000), slide ticks (u8)… | ☐ |
+| `R-F137A9B7` | Start and End repeats | each Start and each End in 3 consecutive messages to every client; the live runs resent at 2 Hz (messages, Hz) | kind: ours; confidence: medium | design (Start); End repeats ours | Start and End repeats: compare with SM1 by feel or video. Ours: each Start and each End in 3 consecutive messages to every client… | ☐ |
+| `R-9FE92C2A` | Classic offer message | to the killer alone, once, with the window (`min(255, WindowTicks)`) (ticks) | kind: ours; confidence: medium | design | Classic offer message: compare with SM1 by feel or video. Ours: to the killer alone, once, with the window (min(255, WindowTicks)). | ☐ |
+| `R-D0C598E2` | Overshield list | Warfront only (never encoded or sent in Classic); on a change, and at 1 Hz while not empty; every living non-puppet player above its armour maximum, by id, at most 16 (Hz) | kind: ours; confidence: medium | design; Classic none: lead 40 | Overshield list: compare with SM1 by feel or video. Ours: Warfront only (never encoded or sent in Classic); on a change, and at… | ☐ |
+| `R-177E17E9` | Rows on the config | `SimConfig.Executions` (an `ExecutionRowSet`: the rows and their wire order) from `ExecutionCatalogueLoader.Load` on the player's own install; empty without one (every press refused NoRows) | kind: ours | plan; lead 39 | Rows on the config: compare with SM1 by feel or video. Ours: SimConfig.Executions (an ExecutionRowSet: the rows and their wire… | ☐ |
+| `R-D3D7FA51` | Execute held during a reaction | holding Execute never counts as "any input" that ends a reaction's tail | kind: ours | X1 review (lead 39) | Execute held during a reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: holding Execute never counts as "any input" that ends a reaction's… | ☐ |
+
+*Spec section: Added content: Executions: client presentation (executions X5, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-6065DAE8` | Attacker blend | the two variants either side of the run's distance (`ExecutionRow.Blend`, the reference clip at the authored gap `Offset.Y`), the far one laid over the near at the blend weight; no variants: the reference clip (m) | kind: ours; confidence: medium | inventory 1.7 (the original blends on distance); linear ours | Attacker blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the two variants either side of the run's distance… | ☐ |
+| `R-3B79071E` | Clip clock | the server's tick clock: clip time 0 at start + slide ticks (the clip holds its first pose through the slide); remote executors at the interpolated render tick, the own player at the drawn predicted tick (tick - 1 + the draw fraction) (s) | kind: ours; confidence: medium | ours | Clip clock: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server's tick clock: clip time 0 at start + slide ticks (the clip… | ☐ |
+| `R-289150DD` | Executor placement | feet and yaw from X3's `ExecutionTrack` (the server pin's function) at the ticks either side of the drawn tick, interpolated; a clip with extracted motion plays in place and the node follows the track; a clip whose root bone travels is placed at the aligned… (m, rad) | kind: ours | design (one shared pose function) | Executor placement: compare with SM1 by feel or video. Ours: feet and yaw from X3's ExecutionTrack (the server pin's function) at… | ☐ |
+| `R-BD9FA3FF` | Executor's weapon | a live executor's melee weapon is in hand for the whole move (`ExtrasExecutionMeleeShown` in `SyncWeapons`), whatever its swing state | kind: ours | lead 39 | Executor's weapon: compare with SM1 by feel or video. Ours: a live executor's melee weapon is in hand for the whole move… | ☐ |
+| `R-4D0E7E8F` | Clip source | the attacker clips from the campaign player rig, the victim clips from the victim kind's rig, decoded once on a worker thread at the first executions frame, added to a character's rig under `exec:<clip>` names (O8's knife clip name also exists on the MP rig)… | kind: ours | X7 loader; lead 39 (AtWire, O8) | Clip source: compare with SM1 by feel or video. Ours: the attacker clips from the campaign player rig, the victim clips… | ☐ |
+| `R-FD1530D8` | Victim proxy | a separate character (pooled per look, at most live runs + 2 kept) at the victim's place: the aligned origin plus the row's offset (lateral X, the run's distance) turned by the yaw, at the victim's own feet height when known, facing the pair's yaw; plays the… | kind: ours; confidence: medium | design; X2 alignment (the victim never moves) | Victim proxy: compare with SM1 by feel or video. Ours: a separate character (pooled per look, at most live runs + 2 kept) at… | ☐ |
+| `R-C0DB71A0` | Classic proxy look | the victim player's own character look; while it has none, the default marine (the co-op Ork Boy for the Ork Boy rows); a race-swapped row plays the Chaos Marine victim half on that body (same skeleton) | kind: ours; confidence: medium | owner 2026-11-25 (swap races) | Classic proxy look: compare with SM1 by feel or video. Ours: the victim player's own character look; while it has none, the… | ☐ |
+| `R-18CC1926` | Classic tap hand-over | the proxy is built at the Start from a copy of the victim's body pose (its held death pose, else its ragdoll's), then the ragdoll or held pose is removed (`RemoveRagdolls`, death state kept) and the proxy blends from that copy into the victim clip over 0.2 s (s) | kind: ours; notes: estimate | architect recommendation 1 | Classic tap hand-over: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the proxy is built at the Start from a copy of the victim's body pose… | ☐ |
+| `R-1305DD89` | Classic death-pose hold | in Extended, a remote victim of a hostile melee kill holds its death pose for the window (0.8 s, `DeathPoseHoldSeconds`) from the kill before the ragdoll: the death clip plays as the marine (or Ork) death hold plays it, then its pose at the powered-ragdoll… (s) | kind: interpretation; confidence: medium | owner 2026-11-25 ("Hold the death pose briefly"); the held pose an interpretation | Classic death-pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in Extended, a remote victim of a hostile melee kill holds its death… | ☐ |
+| `R-020341F2` | Warfront crowd hide | the executed crowd Ork is skipped by the crowd from the Start (one frame later: its last drawn type, feet and yaw dress the proxy) and makes no crowd corpse; the proxy lies and sinks on the crowd's own corpse timing (lie `MusouCrowd.SinkAfter`, sink 1.5 s… (s) | kind: ours; confidence: medium | design | Warfront crowd hide: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the executed crowd Ork is skipped by the crowd from the Start (one… | ☐ |
+| `R-C46C3B34` | Proxy after the move | a completed move (End Done): the proxy holds the victim clip's last pose, lies (Classic 10 s, ours, accepted by lead 39; Warfront the crowd's lie time), sinks 1.2 m over 1.5 s and is freed; Classic End Killed (the executor died mid-move): the victim's death… (s) | kind: ours; confidence: medium | design (clean-up); lead 39 (the victim stays as a corpse); lie times ours | Proxy after the move: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a completed move (End Done): the proxy holds the victim clip's last… | ☐ |
+| `R-864EEE41` | Stand-in | only when a catalogue row cannot be shown with its own clips on that rig: the character's own heavy strike timed to end on the row's kill event, the victim's own death clip from the kill event; logged once per row as placeholder demonstration; never another… | kind: placeholder | brief (coverage matrix; no lookalikes) | Stand-in: compare with SM1 by feel or video. Ours: only when a catalogue row cannot be shown with its own clips on that… | ☐ |
+| `R-D7B57C02` | Clean-up | an End (as above), an executor no longer in the match, the view leaving (proxies are children of the view); a disconnected client keeps no frame | kind: ours | design | Clean-up: compare with SM1 by feel or video. Ours: an End (as above), an executor no longer in the match, the view… | ☐ |
+| `R-E5F258E6` | Lost End | a live run the server's 2 Hz live list stops announcing for 1.5 s (while the view tick moved on 1.5 s too, so a stall is not silence), or one 1.0 s past its own last tick (`ExecutionTrack.EndTick`, or 12 s for a row this install lacks), ends Invalid on the… (s) | kind: ours; confidence: medium | X5 review X5-1; 1.5 s = three live-list periods (ours) | Lost End: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a live run the server's 2 Hz live list stops announcing for 1.5 s… | ☐ |
+| `R-BF81CD77` | Offer and run clock for the prune | the view tick (the remote players' render tick, the one the marker and the server's press check use) (tick) | kind: ours | X5 review X5-5 | Offer and run clock for the prune: compare with SM1 by timing a run over a known distance. Ours: the view tick (the remote players' render tick, the one the marker… | ☐ |
+| `R-109D0102` | Death-pose hold conditions | held only when a finisher could follow: the match has rows, the killer is a living player who can execute (not an Ork Boy player) with a melee family, and the victim died on the ground (an airborne body falls and ragdolls as usual)… | kind: ours; confidence: medium | X5 review X5-6 | Death-pose hold conditions: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: held only when a finisher could follow: the match has rows, the… | ☐ |
+| `R-7C5599F2` | Executor's charge glow | off while the paired clip places the executor | kind: ours | X5 review X5-6 | Executor's charge glow: compare with SM1 by feel or video. Ours: off while the paired clip places the executor. | ☐ |
+
+*Spec section: Added content: Executions: Warfront (X4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-15760CB0` | Candidate gather | `MusouSim.Query` within 3.0 m (the 2.5 m range + 0.5 m) and the melee lock's vertical reach (1.5 m), at most the 64 nearest; never a walk over the pool by the executions code; the choice is `ChooseAlignedOrk` (seeded by tick, executor and Ork) with the other… (m) | kind: ours; confidence: medium | ours (cost) | Candidate gather: compare with SM1 by measuring on a flat spot of the same map. Ours: MusouSim.Query within 3.0 m (the 2.5 m range + 0.5 m) and the melee… | ☐ |
+| `R-2BA37455` | Horde bystanders | the other living players (humans and AI Marines) and the player-solid enemies (`MusouSolids.Blocks`: the Warboss and the Boss Orks) within the bystander reach (10.4 m; the nearest 256 enemies read); regular Orks never block the slide (m) | kind: ours; confidence: medium | Musou "who is solid" rule (MusouSim v31) applied; lead 40 | Horde bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: the other living players (humans and AI Marines) and the player-solid… | ☐ |
+| `R-05E619F3` | Warfront slide | 1 m forward (X2's `ExecutionAlign.MaxSlide`; Classic's 2.5 m is X3's) (m) | kind: ours; confidence: medium | lead 40 | Warfront slide: compare with SM1 by measuring on a flat spot of the same map. Ours: 1 m forward (X2's ExecutionAlign.MaxSlide; Classic's 2.5 m is X3's). | ☐ |
+| `R-D9F6F734` | Refusal reasons | the cooldown, not in a battle and a Chaos stage are X3's `Refused` (the reason in `ExecutionsWarfrontRefusedLast`); no eligible Ork in range `NoTarget`; an eligible Ork whose moves do not fit `NoFit` | kind: ours | ours | Refusal reasons: compare with SM1 by feel or video. Ours: the cooldown, not in a battle and a Chaos stage are X3's Refused (the… | ☐ |
+| `R-A7745148` | Slot reuse | a hold is dropped when its slot is taken by a new spawn or the pool is cleared; a run whose Ork's slot was freed before its kill frame ends Invalid | kind: ours | design | Slot reuse: compare with SM1 by feel or video. Ours: a hold is dropped when its slot is taken by a new spawn or the pool… | ☐ |
+| `R-64B0E367` | Kill frame | `MusouSim.Damage` with max(health x 8, 10 000) hp, no push, marker 3, cause Melee, through the normal kill, XP, assist and drop path; a kill frame that does not kill ends the move Invalid (no reward, no cooldown; X4 review). The server logs each reward and… (hp) | kind: ours | design; amount ours | Kill frame: compare with SM1 by feel or video. Ours: MusouSim.Damage with max(health x 8, 10 000) hp, no push, marker 3… | ☐ |
+| `R-96924975` | Chaos stages (until X4b) | no executions: refused `ChaosStage` (wired to `SimConfig.WarfrontFaction` in phase 2, after C2; until then only a test aid sets it) | kind: ours | ours (Ork rows would play on another rig) | Chaos stages (until X4b): compare with SM1 by feel or video. Ours: no executions: refused ChaosStage (wired to SimConfig.WarfrontFaction… | ☐ |
+| `R-F7C0DEE5` | Executions version | `ExecutionRules.Version` 3 (X4); `MusouSim.Version`, `TfwRules` and `WarfrontRules` unchanged | kind: ours | ours | Executions version: compare with SM1 by feel or video. Ours: ExecutionRules.Version 3 (X4); MusouSim.Version, TfwRules and… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5232,6 +5374,13 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-8313560C` | Ork scaling with the highest level | unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) where L is the highest player level, so a fresh run with a high-level player starts harder | kind: ours | owner decision 2026-11-22 (answer 7) | Ork scaling with the highest level: compare with SM1 by feel or video. Ours: unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1)))… | ☐ |
+
+*Spec section: Added content: Executions: Warfront (X4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9AD96F68` | Held Ork | from the start to the end of the run: no movement, push-apart, wind-up, strike, burst, charge, drive or attack token; stands at the pair's yaw in the existing `Seek` state (no new state, no wire change); others still push away from it; released on every end | kind: ours; confidence: medium | design | Held Ork: compare with SM1 by feel or video. Ours: from the start to the end of the run: no movement, push-apart… | ☐ |
+| `R-DDCFABB4` | Held Ork's immunity | every other hit, stagger and knockdown refused until its kill frame: **phase 2, not yet wired** (until then another hit can kill it and the run ends Invalid with no reward) | kind: ours; confidence: medium | design | Held Ork's immunity: compare with SM1 by feel or video. Ours: every other hit, stagger and knockdown refused until its kill frame:… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -6700,4 +6849,12 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-03B07849` | Test aid | Weather fidelity (owner 2026-11-25: "Make the ash squall have a more realistic looking ash texture without killing performance. Same for rain."; scope extended the same day to every weather effect except Ember Wind; presentation only, client only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
+| `R-69F0E3B7` | Version and hash | Added content: Executions (executions X1, the contract and the switch; owner-approved brief 2026-11-25; added content, Classic PvP Extended and Warfront only) |
+| `R-D8183D91` | Wire (tag 50) | Added content: Executions (executions X1, the contract and the switch; owner-approved brief 2026-11-25; added content, Classic PvP Extended and Warfront only) |
+| `R-D3703D5C` | Wire precision | Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills) |
+| `R-63A2DBA2` | Executions hash | Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills) |
+| `R-589FFA21` | Wire order | Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills) |
+| `R-956FC1BA` | Test aids | Added content: Executions: client presentation (executions X5, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only) |
+| `R-CF2299B9` | Row lookup | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
+| `R-43364C35` | Test aids | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
 
