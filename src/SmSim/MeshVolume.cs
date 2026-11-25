@@ -54,7 +54,8 @@ public sealed class MeshVolume
         if (area < 0) { (bx, cx) = (cx, bx); (by, cy) = (cy, by); (bz, cz) = (cz, bz); area = -area; }
         double w0 = Edge(bx, by, cx, cy, px, py), w1 = Edge(cx, cy, ax, ay, px, py), w2 = Edge(ax, ay, bx, by, px, py);
         if (!Inside(w0, bx, by, cx, cy) || !Inside(w1, cx, cy, ax, ay) || !Inside(w2, ax, ay, bx, by)) return false;
-        z = (w0 * az + w1 * bz + w2 * cz) / area;
+        // the height as the first corner's plus the weighted rises to the other two: exactly az on a flat (horizontal) triangle, so a point on a flat bottom or top is judged by the rule, not by rounding
+        z = az + (w1 * (bz - az) + w2 * (cz - az)) / area;
         return true;
     }
 
@@ -71,7 +72,8 @@ public sealed class MeshVolume
 
     /// <summary>
     /// Whether the segment from <paramref name="a"/> to <paramref name="b"/> meets the volume (the mesh equivalent of <see cref="KillVolume.Crosses"/>, so a fast mover cannot pass a thin volume
-    /// between ticks): an end inside, or the segment touching any triangle (faces and edges included). A non-finite end never crosses.
+    /// between ticks): an end inside, or the segment touching any triangle (faces and edges included). A non-finite end never crosses. One difference from <see cref="KillVolume.Crosses"/>: a
+    /// zero-length segment (a = b) is exactly <see cref="Contains"/>, so it follows the half-open rule (a point on the top or a +X / -Y face does not cross), where the box test counts every face.
     /// </summary>
     public bool Crosses(Vector3 a, Vector3 b)
     {
@@ -131,19 +133,32 @@ public sealed class MeshVolume
     }
 
     /// <summary>
-    /// The volume stretched up so its top reaches at least <paramref name="top"/>, its lowest point staying (the mesh equivalent of <see cref="SpawnBlocker.ReachingAbove"/>): every vertex keeps its
-    /// X and Y and its height above the bottom is scaled by the same factor. Unchanged when the top is already that high or <paramref name="top"/> is not finite.
+    /// The volume reaching up to at least <paramref name="top"/> (the mesh equivalent of <see cref="SpawnBlocker.ReachingAbove"/>): the authored shape is kept exactly, and every upward-facing
+    /// triangle gets a closed vertical prism from it up to the flat height <paramref name="top"/>, so everything straight above the shape is inside (a leaning or uneven-topped door keeps its own
+    /// shape below its top and blocks all the way up above every part of it). The prisms overlap the shape and each other; the non-zero winding of <see cref="Contains"/> makes the union. Unchanged
+    /// when the top is already that high or <paramref name="top"/> is not finite.
     /// </summary>
     public MeshVolume ReachingAbove(float top)
     {
-        if (!float.IsFinite(top) || top <= Max.Z || Max.Z <= Min.Z) return this;
-        double bottom = Min.Z, f = (top - bottom) / ((double)Max.Z - bottom);
-        return new MeshVolume(Name, Vertices.Select(v => v with { Z = v.Z == Max.Z ? top : (float)(bottom + (v.Z - bottom) * f) }).ToArray(), Indices);
+        if (!float.IsFinite(top) || top <= Max.Z) return this;
+        var v = new List<Vector3>(Vertices);
+        var idx = new List<int>(Indices);
+        for (int t = 0; t + 2 < Indices.Length; t += 3)
+        {
+            Vector3 a = Vertices[Indices[t]], b = Vertices[Indices[t + 1]], c = Vertices[Indices[t + 2]];
+            double area = ((double)b.X - a.X) * ((double)c.Y - a.Y) - ((double)b.Y - a.Y) * ((double)c.X - a.X);
+            if (area <= 0) continue;   // facing down or vertical: nothing of the shape is below the space above it
+            int i = v.Count;
+            v.AddRange([a, b, c, a with { Z = top }, b with { Z = top }, c with { Z = top }]);
+            // bottom (the triangle, facing down), top (facing up), three sides (outward: the triangle is counter-clockwise in plan)
+            idx.AddRange([i, i + 2, i + 1, i + 3, i + 4, i + 5, i, i + 1, i + 4, i, i + 4, i + 3, i + 1, i + 2, i + 5, i + 1, i + 5, i + 4, i + 2, i, i + 3, i + 2, i + 3, i + 5]);
+        }
+        return new MeshVolume(Name, [.. v], [.. idx]);
     }
 
     /// <summary>
     /// A capsule (feet <paramref name="feet"/>, <paramref name="radius"/>, <paramref name="height"/>) whose axis meets the volume is moved out horizontally (the mesh equivalent of
-    /// <see cref="SpawnBlocker.PushOut"/>): across the nearest edge of the shape seen from above, to <paramref name="radius"/> + 1 cm beyond it, the first such place (nearest first, ties in triangle
+    /// <see cref="SpawnBlocker.PushOut"/>): across the nearest outline edge (<see cref="FeatureEdges"/>) of the shape seen from above, to <paramref name="radius"/> + 1 cm beyond it, the first such place (nearest first, ties in triangle
     /// order) where the axis no longer meets the volume; if none clears, out of the bounding box across its nearest side (ties: X sides, then the positive side). Otherwise <paramref name="feet"/>
     /// is returned unchanged. Provisional approximation (ours).
     /// </summary>
@@ -155,10 +170,9 @@ public sealed class MeshVolume
         double px = feet.X, py = feet.Y, beyond = Math.Max(radius, 0f) + 0.01;
         var candidates = new List<(double D, int Order, double Qx, double Qy)>();
         int order = 0;
-        for (int t = 0; t + 2 < Indices.Length; t += 3)
-            for (int k = 0; k < 3; k++, order++)
+        foreach (var (ia, ib) in FeatureEdges())   // the shape's outline only: a cap's fan diagonals lie inside it and would push too short
             {
-                var a = Vertices[Indices[t + k]]; var b = Vertices[Indices[t + (k + 1) % 3]];
+                var a = Vertices[ia]; var b = Vertices[ib]; order++;
                 double ex = (double)b.X - a.X, ey = (double)b.Y - a.Y, len2 = ex * ex + ey * ey;
                 double s = len2 == 0 ? 0 : Math.Clamp(((px - a.X) * ex + (py - a.Y) * ey) / len2, 0, 1);
                 double qx = a.X + ex * s, qy = a.Y + ey * s, ddx = qx - px, ddy = qy - py;

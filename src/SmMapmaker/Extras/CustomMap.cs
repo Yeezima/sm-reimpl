@@ -112,11 +112,11 @@ public sealed class CustomMap
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
     /// <summary>
-    /// Whether an edited marker's record carries its exact shape into the simulation (plan M2; docs/mapmaker.md "Edit mode in play"). <b>False for now</b> (lead 39, 2026-11-25: the
-    /// contract v2 review found <c>MeshVolume</c> issues a v3 will fix; until then the records keep the mesh's box and the shapes stay in <see cref="Volumes"/> only). The simulation's
-    /// shape rules are in place and tested (tests compile with <c>volumesInPlay: true</c>); switching this on is the one change that wires them in (it changes the play of edited maps, not their hash).
+    /// Whether an edited marker's record carries its exact shape into the simulation (plan M2; docs/mapmaker.md "Edit mode in play"): on since contract v3 (it was held off on v2,
+    /// lead 39, 2026-11-25). Off, the records keep only the mesh's box and the shapes stay in <see cref="Volumes"/>: the one switch that restores the M0 play of edited maps (their
+    /// hash is the same either way). Unedited markers never carry a shape.
     /// </summary>
-    public const bool VolumesInPlay = false;
+    public const bool VolumesInPlay = true;
     /// <summary>The surface id a cover piece's triangles give a shot that hits them (the id of Classic's crate metal, <c>CrateSurface</c> in the prop tests; ours).</summary>
     public const int CoverSurface = 4;
     /// <summary><see cref="MapWall.Group"/> of a movement wall: ALL (every player is stopped; the group Classic's own walls have).</summary>
@@ -142,6 +142,8 @@ public sealed class CustomMap
     /// boxes still sees the edited extent, and the record also carries the shape (<c>Volume</c>) into the simulation, which then uses it exactly (plan M2). Unedited markers have no entry and behave exactly as before.
     /// </summary>
     public IReadOnlyDictionary<string, MeshVolume> Volumes { get; init; } = new Dictionary<string, MeshVolume>();
+    /// <summary>The object id of each marker record (spawn areas, doors, capture points, kill zones), by the record's name: pairs a compiled record with its piece without relying on order.</summary>
+    public IReadOnlyDictionary<string, string> RecordIds { get; init; } = new Dictionary<string, string>();
 
     public CollisionWorld ToCollisionWorld() => Content.ToCollisionWorld();
 
@@ -192,6 +194,7 @@ public sealed class CustomMap
         var walls = new List<MapWall>();
         var props = new List<MapProp>();
         var volumes = new Dictionary<string, MeshVolume>(StringComparer.Ordinal);
+        var recordIds = new Dictionary<string, string>(StringComparer.Ordinal);
         Bounds? solid = null;
         int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
         foreach (var o in doc.Objects)
@@ -259,6 +262,10 @@ public sealed class CustomMap
                     var (cx, cy, cz) = DetMath.Transform(uc.X, uc.Y, uc.Z, worldD);
                     centre = DetMath.Grid(cx, cy, cz);
                     size *= ub.Max - ub.Min;
+                    // the vertical extent from the gridded world vertices themselves, so the record's bottom (Position.Z - Scale.Z / 2, where spawns stand) is exactly the volume's lowest point
+                    float zMin = edited.Min(v => v.Z), zMax = edited.Max(v => v.Z);
+                    centre.Z = (zMin + zMax) / 2f;
+                    size.Z = zMax - zMin;
                 }
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             }
@@ -266,10 +273,11 @@ public sealed class CustomMap
             // Unedited markers get none, so their records and every rule that reads them are exactly as before.
             MeshVolume? Exact(string recordName)
             {
+                recordIds[recordName] = o.Id;   // every marker record, edited or not (CustomMap.RecordIds)
                 if (edited is null) return null;
                 var volume = new MeshVolume(recordName, edited, editedTri!);
                 volumes[recordName] = volume;
-                return volumesInPlay ? volume : null;   // held back in play until contract v3 (VolumesInPlay)
+                return volumesInPlay ? volume : null;   // VolumesInPlay: the switch back to M0 play
             }
             switch (piece.Kind)
             {
@@ -356,7 +364,7 @@ public sealed class CustomMap
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
-        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes };
+        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes, RecordIds = recordIds };
     }
 
     /// <summary>An edited shape's unit-space triangles (faces fanned from their first vertex).</summary>

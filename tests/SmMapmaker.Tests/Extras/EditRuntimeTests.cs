@@ -71,19 +71,22 @@ public sealed class EditRuntimeTests
 
     // ---- helpers ----
 
-    /// <summary>The compile with edited volumes carried into the simulation (<see cref="CustomMap.VolumesInPlay"/> is held off in play until contract v3; these tests exercise the wiring).</summary>
+    /// <summary>The compile with edited volumes carried into the simulation (what play does: <see cref="CustomMap.VolumesInPlay"/>).</summary>
     static CustomMap Play(MapDocument doc) => CustomMap.Compile(doc, null, volumesInPlay: true);
 
     [Fact]
-    public void In_play_edited_volumes_stay_held_back_until_contract_v3_and_their_shapes_are_still_compiled()
+    public void Edited_volumes_are_in_play_and_the_switch_back_keeps_the_hash_and_the_shapes()
     {
-        Assert.False(CustomMap.VolumesInPlay);
+        Assert.True(CustomMap.VolumesInPlay);
         using var lab = new Lab();
         var s = Map(lab, Floor, """{"op":"place","piece":{"kind":"capture-point"},"transform":{"position":[0,0,0],"scale":[8,8,4]}}""",
             """{"op":"place","piece":{"kind":"spawn-area","side":"marines"},"transform":{"position":[20,0,0],"scale":[12,12,3]}}""");
         Run(s, """{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[0,16],"move":[4,0,0]}""");
         Run(s, """{"op":"edit-mesh","id":"o3","mode":"vertex","ids":[3,7],"move":[-11,0,0]}""");
-        var held = CustomMap.Compile(s.Document);
+        Assert.NotNull(CustomMap.Compile(s.Document).Content.ControlPoints[0].Volume);   // the default compile is play's
+        var held = CustomMap.Compile(s.Document, null, volumesInPlay: false);
+        Assert.Equal("o2", held.RecordIds["mkr_objective_1"]);
+        Assert.Equal(held.Content.StartAreas[0].Position.Z - held.Content.StartAreas[0].Scale.Z / 2f, held.Volumes["cm_start_marines_1"].Min.Z);   // v3: the record's bottom is the shape's
         Assert.Equal(2, held.Volumes.Count);
         Assert.All(held.Content.ControlPoints, p => Assert.Null(p.Volume));
         Assert.All(held.Content.StartAreas, a => Assert.Null(a.Volume));

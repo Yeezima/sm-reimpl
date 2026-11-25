@@ -301,8 +301,10 @@ public sealed class EditContractV2Tests
     }
 
     /// <summary>
-    /// The unedited path's collision world and a Seize Ground run on it, pinned. Captured with this branch, whose simulation and content code is main d4db1299's (the only SmSim change is the new,
-    /// unused <see cref="MeshVolume"/> file) and whose unedited custom-map compile is bit-identical to main's (<c>EditContractTests</c>): M2 must keep these values.
+    /// The unedited path's collision world and a Seize Ground run on it, pinned for M2 (which must keep these values). Tied to game main d4db1299: captured on the contract branch, whose
+    /// simulation, content, net and server code is d4db1299's (the only SmSim change is the new, unused <see cref="MeshVolume"/> file) and whose unedited custom-map compile is bit-identical to
+    /// it (<c>EditContractTests</c>). To re-capture (only when a deliberate, reviewed change moves them): check out d4db1299 or the reviewed commit, copy this test there, set
+    /// <see cref="GoldenValues"/> to "PENDING", run it (the failure message prints "golden: ..."), and paste the printed value.
     /// </summary>
     [Fact]
     public void Golden_collision_hash_and_seize_ground_run_of_an_unedited_map()
