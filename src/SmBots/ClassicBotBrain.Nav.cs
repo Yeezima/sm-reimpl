@@ -146,6 +146,7 @@ public sealed partial class ClassicBotBrain
                 slot = new NavSlot(me.Team, pack) { Class = me.Class };
                 _navSlots[(me.Team, pack)] = slot;
                 var map = _navMap; var world = _navWorld; var config = _config; var team = me.Team; int playerClass = me.Class;
+                BotNavigation.OldDrops = CmdFlag("bot-old-drops");   // bots A2: --bot-old-drops keeps the 8 m drop limit (BotNavigation.ClassicMaxDrop)
                 if (BotNavigation.Setup(map, config) is null) slot.Note = "no spawns or points to build around";
                 else
                 {

@@ -23,12 +23,24 @@ public static class BotNavigation
         (map.StartsWith("mp_", StringComparison.OrdinalIgnoreCase) && !map.Equals("mp_tdm_09", StringComparison.OrdinalIgnoreCase))
         || map.StartsWith("cm_", StringComparison.Ordinal);   // Mapmaker maps (docs/mapmaker.md): the new-map rules too
 
+    /// <summary>
+    /// Bots A2 (2026-11-25; ours): the highest drop (m) a Classic PvP bot's drop link may fall on an <c>mp_*</c> map under the new-map rules (<see cref="NewMapRules"/>; not Manufactorum,
+    /// whose graph and cache keys stay as they were), so the bots drop off the higher open ledges (balconies, bridges, walkways of 8 to 12 m) instead of walking round to the stairs.
+    /// No fall damage exists; a drop still needs standable ground under the landing and a fall clear of kill volumes. <see cref="NavSettings.MaxDrop"/> (8 m) elsewhere.
+    /// </summary>
+    public const float ClassicMaxDrop = 12f;
+
+    /// <summary><c>--bot-old-drops</c> (the bot client sets it before its first build): the 8 m drop limit on every map, the graph and cache keys from before bots A2.</summary>
+    public static bool OldDrops { get; set; }
+
     /// <summary>The graph's settings and area for <paramref name="map"/>; null when it has no spawns, points or start areas to build around.</summary>
     public static (NavSettings Settings, NavArea Area)? Setup(MapContent map, SimConfig config)
     {
         var seeds = map.Spawns.Select(s => s.Position).Concat(map.ControlPoints.Select(p => p.Position)).Concat(map.StartAreas.Select(a => a.Position)).ToList();
         if (seeds.Count == 0) return null;
-        return (NavSettings.From(config) with { PruneTraps = NewMapRules(map.Name), StrictDrops = NewMapRules(map.Name) }, NavArea.Around(seeds, Margin));
+        var settings = NavSettings.From(config) with { PruneTraps = NewMapRules(map.Name), StrictDrops = NewMapRules(map.Name) };
+        if (!OldDrops && NewMapRules(map.Name) && map.Name.StartsWith("mp_", StringComparison.OrdinalIgnoreCase)) settings = settings with { MaxDrop = ClassicMaxDrop };
+        return (settings, NavArea.Around(seeds, Margin));
     }
 
     /// <summary>The private cache folder (outside the repo).</summary>

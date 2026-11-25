@@ -55,7 +55,7 @@ public sealed partial class ClassicBotBrain
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);
                     var theirs = map.StartAreas.FirstOrDefault(a => a.Side == MatchRules.Other(team));
                     if (team == Team.None || own is null || theirs is null) return ((BotMapPlan?)null, "no start area for both sides");
-                    var plan = BotMapPlan.Build(graph, own.Position, theirs.Position, door, centre, world, cancel);
+                    var plan = BotMapPlan.Build(graph, own.Position, theirs.Position, door, centre, world, cancel, eye);
                     // 2026-11-08: the ramp and balcony posts (ClassicBotBrain.BotPosts.cs).
                     if (plan is not null) plan.Posts = BotPosts.Build(mapName, graph, world, own.Position, theirs.Position, map.ControlPoints.Select(p => p.Position).ToList(), eye, cancel);
                     return (plan, $"{System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms");
@@ -71,7 +71,7 @@ public sealed partial class ClassicBotBrain
                     static string P(V3 p) => $"{p.X:F0},{p.Y:F0},{p.Z:F0}";
                     GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} map plan ({task.Result.Item2}): {slot.Plan?.Note ?? task.Result.Item2}");
                     if (slot.Plan is { } p)
-                        GD.Print($"  holds [{string.Join(" ", p.CentreHolds.Select(P))}] roam [{string.Join(" ", p.RoamPoints.Select(P))}] lanes [{string.Join(" ", p.Lanes.Select(P))}] posts [{string.Join(" ", p.Posts.Select(kv => $"{kv.Key} {kv.Value.Name} {P(kv.Value.Spot)}"))}]");
+                        GD.Print($"  holds [{string.Join(" ", p.CentreHolds.Select(P))}] roam [{string.Join(" ", p.RoamPoints.Select(P))}] lanes [{string.Join(" ", p.Lanes.Select(P))}] routes [{string.Join(" | ", p.Routes.Select(r => $"{r.Count} pts via {P(r[r.Count / 2])}"))}] vantages [{string.Join(" ", p.Vantages.Select(v => $"{P(v.Spot)} r{v.Rise:F0} s{v.Sight}"))}] posts [{string.Join(" ", p.Posts.Select(kv => $"{kv.Key} {kv.Value.Name} {P(kv.Value.Spot)}"))}]");
                 }
                 else GD.PrintErr($"map plan failed: {task.Exception?.GetBaseException().Message}");
             }
@@ -111,6 +111,8 @@ public sealed partial class ClassicBotBrain
         _botRoamer?.EndLane();
         _botRoamer?.Reset();
         _viaFor = -1;
+        _routeLegDone = true;   // bots A2: the route leg ends too
+        _lastFightAt = _connectedFor;   // bots A2: a vantage holder that fights stays (VantageQuiet)
     }
 
     void NoteIdle(string note)
@@ -121,13 +123,14 @@ public sealed partial class ClassicBotBrain
     }
 
     /// <summary>A walk input toward <paramref name="goal"/> along the graph, sprinting while far (as the chase does).</summary>
-    PlayerInput BotWalkTo(PlayerState me, uint tick, V3 goal, string purpose)
+    PlayerInput BotWalkTo(PlayerState me, uint tick, V3 goal, string purpose, float alsoAfter = 0f)
     {
         var (to, speed, _, dropAhead) = BotSteer(me, goal, purpose);
         if (to.LengthSquared() < 1e-6f) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);
         _yaw = MathF.Atan2(-to.X, to.Y);
         _pitch = 0f;
-        float remaining = _navAgent is { Path: not null } agent ? agent.Remaining : new Vector2(me.Position.X, me.Position.Y).DistanceTo(new Vector2(goal.X, goal.Y));
+        // alsoAfter (bots A2): metres the walk goes on past this goal (the rest of a route), so a route walked point by point still sprints like a chase.
+        float remaining = (_navAgent is { Path: not null } agent ? agent.Remaining : new Vector2(me.Position.X, me.Position.Y).DistanceTo(new Vector2(goal.X, goal.Y))) + alsoAfter;
         return BotMoveInput(tick, to * speed, (remaining > BotChaseSprint && !dropAhead && _navAgent is not { OnJumpLink: true } ? InputButtons.Sprint : InputButtons.None) | _navJump);
     }
 
@@ -165,6 +168,7 @@ public sealed partial class ClassicBotBrain
     PlayerInput? BotLaneInput(PlayerState me, uint tick, PlayerState? chased)
     {
         if (SeizeGround || !me.Alive || me.Team == Team.None || Plan is not { } plan) return null;
+        if (RoutesOn(plan)) return BotRouteLegInput(me, tick, chased, plan);   // bots A2: the life's route leg instead (ClassicBotBrain.BotRoutes.cs)
         _botRoamer ??= new BotRoamer(Math.Max(_client?.PlayerId ?? 0, 0) * 7919 + 17);
         if (chased is { } c && V3.Distance(c.Position, me.Position) < 30f) { _botRoamer.EndLane(); return null; }
         if (_botRoamer.LaneGoal(plan, BotRank(me), _botLife, me.Position, _connectedFor) is not { } lane) return null;

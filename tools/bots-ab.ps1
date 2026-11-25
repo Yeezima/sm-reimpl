@@ -10,22 +10,27 @@
   the working set of the server and of each bot process tree. Writes under %LOCALAPPDATA%\sm-reimpl\perf\bots-a1\<tag>\<map>-<mode>\: server.log, bot logs,
   samples.csv and result.txt (per-bot mean CPU cores and peak working set, the server's, then the last BOTSTATS and every BOTCOMBAT line).
   -DataDir <dir>: SM_DATA_DIR for the server and the bots, a private data root with its own nav cache (never the owner's cache).
+  -Port <p>: the server's UDP port (else the first free one from -PortBase, default 27801, 60 ports). -OutRoot <dir>: write <dir>\<tag>\<map>-<mode>\ instead.
+  -Classes tactical,devastator: the class order per side (default tactical, assault, devastator, repeated).
+  -Trace: each bot also writes --bot-trace trace-<side>-<n>.csv into the run folder (the bots A2 coverage method).
+  Bots A2 (2026-11-25): the stop is per PID and tolerant (Windows PowerShell 5.1 turned taskkill's stderr into a terminating error under -ErrorAction Stop, so a
+  bot already gone aborted the stop and left the other bots running): each bot tree and the server are stopped by PID, every failure ignored.
   Bot matches are not bit-repeatable (real time, the network), so base and candidate are compared on totals and rates over equal runs.
 #>
 param([Parameter(Mandatory)][string]$Map, [string]$Mode = 'annihilation', [string]$Tag = 'base', [string]$Root = '', [int]$Marines = 4, [int]$Chaos = 4,
-    [int]$Seconds = 300, [int]$Port = 0, [int]$NameSeed = 7, [string]$Client = '', [string]$DataDir = '')
+    [int]$Seconds = 300, [int]$Port = 0, [int]$NameSeed = 7, [string]$Client = '', [string]$DataDir = '', [string]$OutRoot = '', [int]$PortBase = 27801, [switch]$Trace, [string]$Classes = 'tactical,assault,devastator')
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $PSScriptRoot
 if (-not $Root) { $Root = $Here }
 . (Join-Path $Here 'tools\quiet-launch.ps1')
-$out = Join-Path $env:LOCALAPPDATA "sm-reimpl\perf\bots-a1\$Tag\$Map-$Mode"
+$out = if ($OutRoot) { Join-Path $OutRoot "$Tag\$Map-$Mode" } else { Join-Path $env:LOCALAPPDATA "sm-reimpl\perf\bots-a1\$Tag\$Map-$Mode" }
 if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 if ($Port -eq 0) {
-    foreach ($try in 27801..27860) {
+    foreach ($try in $PortBase..($PortBase + 59)) {
         try { $l = [Net.Sockets.UdpClient]::new([Net.IPEndPoint]::new([Net.IPAddress]::Loopback, $try)); $l.Close(); $Port = $try; break } catch { }
     }
-    if ($Port -eq 0) { throw 'no free UDP port in 27801..27860' }
+    if ($Port -eq 0) { throw "no free UDP port in $PortBase..$($PortBase + 59)" }
 }
 
 function Get-Tree([int]$id) {
@@ -34,6 +39,13 @@ function Get-Tree([int]$id) {
     $ids = [Collections.Generic.List[int]]::new(); $ids.Add($id)
     for ($k = 0; $k -lt $ids.Count; $k++) { foreach ($p in $all) { if ($p.ParentProcessId -eq $ids[$k] -and -not $ids.Contains([int]$p.ProcessId)) { $ids.Add([int]$p.ProcessId) } } }
     return $ids
+}
+function Stop-RunTree([int]$id) {
+    # per PID, children first, every failure ignored (the process may be gone already)
+    $ErrorActionPreference = 'Continue'
+    try { $tree = @(Get-Tree $id) } catch { $tree = @($id) }
+    [array]::Reverse($tree)
+    foreach ($t in $tree) { try { Stop-Process -Id $t -Force -ErrorAction SilentlyContinue } catch { } }
 }
 function Get-Usage([int]$id) {
     $cpu = 0.0; $ws = 0L
@@ -63,14 +75,15 @@ try {
     }
     if ($server.HasExited) { throw 'server did not start' }
     Start-Sleep -Seconds 2
-    $classes = @('tactical', 'assault', 'devastator')
+    $classList = [string[]]@($Classes -split '[,\s]+' | Where-Object { $_ })   # not $classes: PowerShell names are case-insensitive (the [string] parameter would take it back)
     foreach ($side in @(@('marines', $Marines), @('chaos', $Chaos))) {
         for ($i = 0; $i -lt $side[1]; $i++) {
             $log = Join-Path $out ("bot-{0}-{1}.log" -f $side[0], $i)
-            $ga = @('--background', '--log', $log, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--side', $side[0], '--class', $classes[$i % 3], '--quit-after', "$($Seconds + 400)")
+            $ga = @('--background', '--log', $log, '--'); $ca = @('--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--side', $side[0], '--class', $classList[$i % $classList.Count], '--quit-after', "$($Seconds + 400)")
+            if ($Trace) { $ca += @('--bot-trace', (Join-Path $out ("trace-{0}-{1}.csv" -f $side[0], $i))) }
             if ($Client) { $ca += @($Client -split ' ' | Where-Object { $_ }) }
             $txt = & (Join-Path $Root 'tools\godot.ps1') @ga @ca *>&1 | Out-String
-            if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; "bot $($Matches[1]) $($side[0]) $($classes[$i % 3])" | Add-Content (Join-Path $out 'pids.txt') }
+            if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; "bot $($Matches[1]) $($side[0]) $($classList[$i % $classList.Count])" | Add-Content (Join-Path $out 'pids.txt') }
             else { throw "a bot did not report its pid: $txt" }
             Start-Sleep -Milliseconds 1200
         }
@@ -101,8 +114,8 @@ try {
 }
 finally {
     Restore-RunEnv 'SM_DATA_DIR' $prevDataDir
-    foreach ($p in $pids) { & taskkill.exe /PID $p /T /F 2>$null | Out-Null }
-    if (-not $server.HasExited) { & taskkill.exe /PID $server.Id /T /F | Out-Null }
+    foreach ($p in $pids) { Stop-RunTree $p }
+    if ($server -and -not $server.HasExited) { Stop-RunTree $server.Id }
 }
 $samples | Set-Content (Join-Path $out 'samples.csv')
 $lines = [Collections.Generic.List[string]]::new()
@@ -121,6 +134,6 @@ $lines.Add($lastStats)
 $all = @(Get-Content -LiteralPath (Join-Path $out 'server.log'))
 $cut = -1; for ($k = 0; $k -lt $all.Count; $k++) { if ($all[$k] -match '^BOTSTATS') { $cut = $k } }
 if ($cut -ge 0) { for ($k = $cut + 1; $k -lt $all.Count; $k++) { if ($all[$k] -match '^BOT(PLAYER|COMBAT) ') { $lines.Add($all[$k]) } } }
-$lines.Insert(0, "$Map $Mode tag $Tag root $Root, $Marines v $Chaos, $Seconds s, name seed $NameSeed")
+$lines.Insert(0, "$Map $Mode tag $Tag root $Root, $Marines v $Chaos ($Classes), $Seconds s, name seed $NameSeed, client '$Client'")
 $lines | Set-Content (Join-Path $out 'result.txt')
 $lines | Write-Host
