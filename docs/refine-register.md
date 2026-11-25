@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4151 spec table rows: **3074 tagged**, 707 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4152 spec table rows: **3075 tagged**, 707 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4151 spec table rows: **3074 tagged**, 707 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 222 | 221 | 64 | 107 | 0 |
+| General game design | 223 | 222 | 64 | 108 | 0 |
 | Ork faction | 299 | 279 | 178 | 74 | 0 |
-| **All areas** | **3074** | 2766 | 2223 | 949 | 37 |
+| **All areas** | **3075** | 2767 | 2223 | 950 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1880 |
+| kind: ours | 1881 |
 | confidence: low | 1068 |
 | confidence: medium | 1044 |
 | notes: ours | 475 |
@@ -68,7 +68,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
-| notes: provisional | 64 |
+| notes: provisional | 65 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
 | section: provisional | 37 |
@@ -4328,7 +4328,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (222)
+### General game design (223)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4640,6 +4640,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B18BCBFE` | Lord bolt | beyond 12 m (flat), a volley of the Chaos Marine bolter row (3 rounds every 1.8 s; each hits by its near 0.4 to far 0.2 chance over 8 to 25 m, a hash roll), each round 5 x 1.5 (the bosses' danger) = 7.5, a ranged hit without stagger (landed by the World the… (m, s) | kind: ours; notes: estimate | design (hybrid bolt beyond 12 m); the row is the Musou Chaos Marine's (ours), its use ours | Lord bolt: compare with SM1 by feel or video. Ours: beyond 12 m (flat), a volley of the Chaos Marine bolter row (3 rounds… | ☐ |
 | `R-2D44DBEA` | Warp leap | the duelist beyond 18 m (flat) for 4 s: a marker at his feet for 1.0 s (the Lord winds up in place), then the Lord lands there with a slam of 4 m (the slam's damage, 90) and recovers as from a slam; 8 s before another (counted from the landing) (m, s) | kind: ours; notes: estimate; notes: provisional | design (18 m, 4 s; lead: accepted as starting values, provisional); marker, radius, cooldown ours | Warp leap: compare with SM1 by feel or video. Ours: the duelist beyond 18 m (flat) for 4 s: a marker at his feet for 1.0… | ☐ |
 | `R-D896A78F` | Handoff | the Lord's health never written (carried bit for bit, `DuelHandoffTests`); his burns, stun, script, drive, ability under way and cooldowns (back to the first 2 s and 3 s) cleared; put back on his spot (teleported, no heal; ours: the pause hides it) and held… (s) | kind: ours | brief + design; the teleport ours | Handoff: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the Lord's health never written (carried bit for bit… | ☐ |
+| `R-183434F4` | Chosen and Lord bodies | in the Chaos table the four Chosen rows (the Boss Ork slots) take a body of 0.6 m x 2.76 m (a marine's 0.5 m x 2.3 m x1.2, as C3 draws them) and a reach of 2.2 m; the Lord's row a marine's body scaled by a Chaos-only `BossScale` 1.35 (0.675 m x 3.105 m for… (m) | kind: ours; notes: provisional | C3's drawn scales (lead 40, 2026-11-25); the reaches ours | Chosen and Lord bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: in the Chaos table the four Chosen rows (the Boss Ork slots) take a… | ☐ |
 | `R-44B06A9F` | Left for later | the spectator HUD and the telegraph rings are C5c's (client); a stage crash mid-duel replays the battle (design accepts it; the queue is not saved); the `SM_WF_FINALE` test aid is not in this branch | kind: ours; notes: provisional | plan | Left for later: compare with SM1 by feel or video. Ours: the spectator HUD and the telegraph rings are C5c's (client); a stage… | ☐ |
 
 ## Part B: Ork faction

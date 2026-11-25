@@ -10,7 +10,7 @@ namespace SmContent.Extras.Warfront;
 /// value is ours (kind: ours, confidence: provisional, to tune in playtest), guided by the relative durability of the original co-op blueprints (docs/warfront-chaos-roster.md: renegade 60, Bloodletter
 /// 200, Havoc 100 + 500 armour, Tactical 500 + 400, elite 1000 + 1000) and the brief's "fewer but tougher". Bodies (radius, height) are the Ork rows' so the clients' shot and contact tests, which read
 /// the Orks' table, still agree with the server's (the Daemon alone is bigger: a Bloodletter is a man-sized daemon, not a Gretchin; C3/C4 take the Chaos table on the client for it).
-/// The Chosen (the four Boss Ork rows), the Chaos Lord (the Warboss row; C5 owns his duel) and the Ork-only rows (Weirdboy, Bomb Squig, Scrap Mek: never spawned against Chaos) are kept as they are.
+/// The Chosen (the four Boss Ork rows) and the Chaos Lord (the Warboss row) keep the Orks' numbers but take marine-sized bodies (C5, below); the Ork-only rows (Weirdboy, Bomb Squig, Scrap Mek: never spawned against Chaos) are kept as they are.
 /// </summary>
 public static class WarfrontChaosTuning
 {
@@ -26,7 +26,7 @@ public static class WarfrontChaosTuning
     {
         var types = orks.Types.ToArray();
         foreach (var row in Rows(orks)) types[(int)row.Type] = row;
-        return orks with { Types = types };
+        return orks with { Types = types, BossScale = LordBossScale };   // Chaos Warfront C5: the Lord's body is a marine's x1.35 (the Orks' table keeps its Warboss x4.5)
     }
 
     /// <summary>The replaced rows, each built on the Orks' row of its slot (so its body and any field not named here stay the Orks').</summary>
@@ -57,7 +57,20 @@ public static class WarfrontChaosTuning
             Health = DaemonHealth, Speed = 6.0f, Radius = 0.45f, Height = 2.2f, Points = 30,
             MeleeDamage = 15f, MeleePeriod = 1.2f, MeleeRange = 1.8f,
         };
+        // Chaos Warfront C5: the Chosen (the four Boss Ork rows) and the Chaos Lord (the Warboss row) get bodies as C3 draws them, marine-rig units at x1.2 and x1.35 of a marine (0.5 m x 2.3 m), not the
+        // Boss Orks' x3 and the Warboss's x4.5 (C3 review note: shots hit invisible bodies); their reach follows the body (a marine's 1.3 m past it). Their health, damage and kit are the Orks' rows' still.
+        foreach (var kind in MusouBossOrks.Kinds)
+            yield return Of(kind) with { Radius = ChosenRadius, Height = ChosenHeight, MeleeRange = ChosenReach };
+        yield return Of(MusouEnemyType.Warboss) with { Radius = MarineRadius, Height = MarineBodyHeight, MeleeRange = LordReach };
     }
+
+    /// <summary>
+    /// The Chosen's and the Lord's bodies (C5; ours, provisional): a marine's 0.5 m x 2.3 m (C3's drawn marine height); the Chosen x1.2 (0.6 m x 2.76 m, reach 2.2 m); the Lord's row the marine's, scaled by
+    /// <see cref="LordBossScale"/> x1.35 through <see cref="MusouRules.BossScale"/> (0.675 m x 3.105 m, as <c>MusouSim.Body</c>, the shot body and the solids scale the Warboss), reach 2.7 m (his 1.15 m past the
+    /// players' ring of the Orks' tuning, kept: 0.675 + 2.0).
+    /// </summary>
+    public const float MarineRadius = 0.5f, MarineBodyHeight = 2.3f, ChosenScale = 1.2f, LordBossScale = 1.35f;
+    public const float ChosenRadius = MarineRadius * ChosenScale, ChosenHeight = MarineBodyHeight * ChosenScale, ChosenReach = 2.2f, LordReach = 2.7f;
 
     /// <summary>The Chaos rows' health (ours, provisional; "fewer but tougher") against the row of each slot: Cultist and Traitor 1.3x the Boyz' 85; Chaos Marine 1.4x Musou's Chaos Marine 250 (2.1x the 'Ard Boy whose slot it takes); Champion 1.25x the Nob's 600; heavy-bolter Havoc 1.17x the Big Shoota Nob's 600; missile Havoc 2.4x the Rokkit Boy's 85; Raptor 1.8x the Stormboy's 120; Daemon 6.7x the Gretchin's 30 (the data's 200).</summary>
     public const float CultistHealth = 110f, TraitorHealth = 110f, MarineHealth = 350f, ChampionHealth = 750f, HavocBolterHealth = 700f, HavocMissileHealth = 200f, RaptorHealth = 220f, DaemonHealth = 200f;
