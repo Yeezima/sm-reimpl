@@ -272,7 +272,7 @@ public static class BuiltMaskOverrides
         .. Each(["sm_armour_basic_upres_helmet", "sm_armour_basic_upres_torso", "sm_armour_basic_upres_arml", "sm_armour_basic_upres_armr", "sm_armour_basic_upres_legl",
                  "sm_armour_basic_upres_legr", "sm_armour_basic_upres_backpack"],
             [Whole(MaskRegion.Tertiary, DarkGold, from: null)], "Titus: gold trim and aquila tertiary; specks joined", minIsland: 60),
-        new("sm_armour_basic_upres_backpack", null, null, [], "Titus backpack: rust patches flattened", Flatten: 0.8f),
+        new("sm_armour_basic_upres_backpack", null, null, Harden(0f, 0f, 1f, 1f), "Titus backpack: rust patches flattened, regions crisp (a primary + tertiary blend drew purple in test_rgb)", Flatten: 0.8f),
         new("sm_armour_basic_upres_backpack", null, null,
         [
             // The large brass top plate: secondary, as the upper box of the regular Mk 7 backpack (test_rgb: green); its dark grille slots stay baked.
