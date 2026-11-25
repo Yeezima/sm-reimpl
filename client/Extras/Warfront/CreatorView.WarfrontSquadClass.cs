@@ -33,6 +33,32 @@ public sealed partial class CreatorView
         Refresh(focusList: false);
     }
 
+    /// <summary>
+    /// The default Armoury layout's slot cards for the Librarian (2026-11-25): a RETAINERS card after SUPPORT ABILITY that says what the old layout's fixed row says (TWO RETAINERS, RANDOM CLASSES), so both layouts show the
+    /// retainers. A press opens the SUPPORT step with the RETAINERS row focused, so the item card shows its text.
+    /// </summary>
+    partial void WarfrontArmourySlots(List<ArmSlot> slots)
+    {
+        if (!WarfrontProfile) return;
+        slots.Add(new ArmSlot(WarfrontSquadClassOption.Heading, WarfrontSquadClassOption.RolledTitle, null, () => WarfrontOpenRetainers(late: false)));
+    }
+
+    /// <summary>The Librarian's SUPPORT step with the RETAINERS row focused (the slot card's press, and <c>--step retainers</c> with <paramref name="late"/>).</summary>
+    void WarfrontOpenRetainers(bool late)
+    {
+        _step = (Step)MusouCustomizer.SupportStep; _armPicking = true;
+        Refresh(focusList: true);
+        FocusArmouryRow(WarfrontSquadClassOption.RolledTitle, late);
+    }
+
+    partial void ExtrasOpenStep(string name, ref bool handled)
+    {
+        if (!WarfrontProfile || !MusouLayout || !WarfrontSquadClassOption.IsRetainersStep(name)) return;
+        if (_musouEntry != MusouCustomizerEntry.Librarian) ChooseMusouEntry(MusouCustomizerEntry.Librarian);   // only his page has the row
+        handled = true;
+        WarfrontOpenRetainers(late: true);
+    }
+
     /// <summary>Test aid (<c>--warfront-hooks-test</c>): the Librarian's page on its SUPPORT ABILITIES step.</summary>
     internal void WarfrontTestShowLibrarianSupport()
     {
