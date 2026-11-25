@@ -112,6 +112,11 @@ public partial class NetworkView
     partial void WarfrontPickerBusy(ref bool busy);
     partial void WarfrontSpectateView(PlayerState me, ref (Godot.Vector3 Eye, Godot.Vector3 Target)? view);
 
+    partial void WarfrontPickupWalkOver(ref bool walks);
+
+    /// <summary>Added content whose boxes are collected by walking over them (Warfront, owner 2026-11-25): the press prompt is not shown.</summary>
+    partial void ExtrasPickupWalkOver(ref bool walks) => WarfrontPickupWalkOver(ref walks);   // WARFRONT-HOOK
+
     /// <summary>A panel of added content that takes the game's input (Warfront's card picker and squad panel).</summary>
     partial void ExtrasPickerBusy(ref bool busy) => WarfrontPickerBusy(ref busy);   // WARFRONT-HOOK
 

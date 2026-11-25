@@ -113,6 +113,13 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/MusouCrowd.cs", "WarfrontFlinchSize"),
         // Chaos Warfront C3: the crowd test stage with the Chaos army's looks (test aid --warfront-chaos)
         ("client/Extras/Musou/MusouCrowdTestView.cs", "WarfrontCrowdTest"),
+        // 2026-11-25: walk-over pickups (Warfront only; weapons stay on E)
+        ("src/SmSim/Extras/Musou/World.MusouDrops.cs", "WarfrontWalkOver"),
+        ("src/SmSim/Extras/Musou/World.MusouDrops.cs", "WarfrontWalksOver"),
+        ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropWalksOver"),
+        ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropPicked"),
+        ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropLive"),
+        ("client/Extras/NetworkView.Extras.cs", "WarfrontPickupWalkOver"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

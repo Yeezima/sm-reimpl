@@ -161,6 +161,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasRefresh"),      // CreatorView.ExtrasRefresh(bool, ref bool), at the start of Refresh: the Librarian's and the Heretic's pages
         ("client/Customizer/CreatorView.cs", "ExtrasRoleLabel"),    // CreatorView.ExtrasRoleLabel(string, ref string), the class tabs and rows: the Space Marine name alone
         ("client/Customizer/CreatorView.cs", "ExtrasOwnPage"),      // CreatorView.ExtrasOwnPage(ref bool), AddedPage: the Librarian's / Heretic's page hides the slot (no rename, copy, reset, clear; step keys work)
+        ("client/NetworkView.Pickups.cs", "ExtrasPickupWalkOver"),   // the box prompt: added content that collects boxes by walking over them shows none (Warfront walk-over pickups, owner 2026-11-25)
         ("client/NetworkView.Loadout.cs", "ExtrasPickerBusy"),       // PickerBusy ors in an added content's own panel that takes the game's input (Warfront W5c: the card picker, the squad panel)
         ("client/NetworkView.cs", "ExtrasExit"),                    // NetworkView.ExtrasExit(), first in _ExitTree: weather clears its static link (WeatherClientLink) so no later view keeps the grade or the F6 section
         ("client/LightingGradeView.cs", "ExtrasGrade"),             // LightingGradeView.ExtrasGrade(ref LightingGrade), once a frame before the identity check: added content's weather look is multiplied into the player's lighting preset (weather W1)
