@@ -83,6 +83,7 @@ const float B_BEND[4] = { {{BandArray(b => b.Bend)}} };
 
 varying vec3 v_uvs;            // along 0..1, across (1 at the nominal edge), along in table units
 varying float v_depth;
+varying flat float v_hw;       // the band's half width (table units)
 varying flat vec4 v_k;         // opacity x band share x shown, fill, grit, outer
 varying flat vec4 v_r;         // root, texture offset u, texture offset v, how far the side bands have grown
 
@@ -97,7 +98,7 @@ void vertex() {
     float uu = VERTEX.x, vv = VERTEX.y;
     v_uvs = vec3(uu, vv * {{F(GoreStreakRules.EdgePad)}}, 0.0);
     v_k = vec4(0.0); v_r = vec4(0.0);
-    v_depth = 0.0;
+    v_depth = 0.0; v_hw = 0.0;
     // clipped: not born yet, gone, or retired (COLOR.b 0: a spent slot or a band this streak does not draw)
     if (COLOR.b < 0.5 || age < 0.0 || age >= {{F(GoreStreakRules.LifeSeconds)}}) {
         POSITION = vec4(2.0, 2.0, 2.0, 1.0);
@@ -136,7 +137,7 @@ void vertex() {
         vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
         v_depth = -view.z;
         POSITION = PROJECTION_MATRIX * view;   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
-        v_uvs.z = s;
+        v_uvs.z = s; v_hw = w;
         v_k = vec4(mix(K_OPAC[i], K_OPAC[b], u) * fade * alpha * COLOR.a, mix(K_FILL[i], K_FILL[b], u) * fade, mix(K_GRIT[i], K_GRIT[b], u), mix(K_OUT[i], K_OUT[b], u));
         v_r = vec4(mix(K_ROOT[i], K_ROOT[b], u), h01(seed, 50.0 + float(band)), h01(seed, 54.0 + float(band)), clamp(br - 1.0, 0.0, 1.0));
     }
@@ -167,8 +168,9 @@ void fragment() {
     float nearf = smoothstep(near_from, near_to, v_depth);
     float solid = {{F(GoreStreakRules.SwipeSolid)}} * (1.0 - v_r.w);   // frame 0: one solid swipe
     float flo = {{F(GoreStreakRules.FilFloor)}} + solid, bf = {{F(GoreStreakRules.BlotFloor)}} + solid;
-    float a = min(1.0, v_k.x * edge * along * outer * cov * (flo + (1.0 - flo) * fl) * (bf + (1.0 - bf) * 2.0 * blot) * core_alpha) * nearf;
-    if (a <= 0.004) discard;
+    float speck = texture(fil, vec2(s * {{F(GoreStreakRules.SpeckleTiles)}} + o.x * 5.0, v * v_hw * {{F(GoreStreakRules.SpeckleTiles)}} + o.y * 5.0)).b;   // isotropic grain on the plane
+    float a = min(1.0, v_k.x * edge * along * outer * cov * (flo + (1.0 - flo) * fl) * (bf + (1.0 - bf) * 2.0 * blot) * ({{F(1f - GoreStreakRules.SpeckleDepth)}} + {{F(2f * GoreStreakRules.SpeckleDepth)}} * speck) * core_alpha) * nearf;
+    if (a <= {{F(GoreStreakRules.MinAlpha)}}) discard;   // GoreStreakRules.MinAlpha: no faint pink fringe
 {{(strip ? $$"""
     float st = clamp(strip_per_alpha * a, 0.0, strip_max);   // GoreStreakRules.Strip: green and blue only, never the red
 {{(compat ? StripCompat : StripMul)}}

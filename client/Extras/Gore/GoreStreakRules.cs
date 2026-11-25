@@ -53,17 +53,17 @@ public static class GoreStreakRules
     public static readonly Key[] Keys =
     [
         //   T      Exit   Entry  Fan   Width   Fill   Opac   Grit   Br    Outer  Root
-        new(0.00f, 1.50f, 0.45f,  6f, 0.030f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f),
-        new(0.05f, 1.75f, 0.65f, 12f, 0.063f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f),
-        new(0.10f, 2.02f, 0.72f, 17f, 0.076f, 1.00f, 0.85f, 0.10f, 2.0f, 0.00f, 1.00f),
-        new(0.18f, 2.04f, 0.78f, 17f, 0.078f, 0.95f, 0.75f, 0.15f, 2.0f, 0.75f, 0.90f),
-        new(0.27f, 2.22f, 0.86f, 20f, 0.090f, 0.92f, 0.66f, 0.20f, 2.0f, 0.30f, 0.70f),
-        new(0.37f, 2.32f, 0.92f, 20f, 0.092f, 0.80f, 0.58f, 0.28f, 2.0f, 0.20f, 0.40f),
-        new(0.48f, 2.45f, 0.92f, 19f, 0.092f, 0.62f, 0.50f, 0.36f, 2.0f, 0.10f, 0.00f),
-        new(0.60f, 2.52f, 0.88f, 19f, 0.092f, 0.45f, 0.42f, 0.44f, 2.0f, 0.10f, 0.00f),
-        new(0.72f, 2.60f, 0.84f, 19f, 0.092f, 0.35f, 0.36f, 0.50f, 2.0f, 0.10f, 0.00f),
-        new(0.85f, 2.62f, 0.20f, 19f, 0.090f, 0.22f, 0.30f, 0.56f, 2.0f, 0.12f, 0.00f),
-        new(0.98f, 2.62f, 0.10f, 19f, 0.085f, 0.05f, 0.18f, 0.60f, 2.0f, 0.15f, 0.00f),
+        new(0.00f, 1.58f, 0.45f,  6f, 0.030f, 1.00f, 0.95f, 0.00f, 1.0f, 0.00f, 1.00f),
+        new(0.05f, 1.95f, 0.65f, 12f, 0.063f, 1.00f, 0.90f, 0.05f, 1.7f, 0.00f, 1.00f),
+        new(0.10f, 2.26f, 0.74f, 17f, 0.076f, 1.00f, 0.85f, 0.10f, 2.0f, 0.00f, 1.00f),
+        new(0.18f, 2.28f, 0.80f, 17f, 0.078f, 0.95f, 0.75f, 0.15f, 2.0f, 0.75f, 0.90f),
+        new(0.27f, 2.48f, 0.88f, 20f, 0.090f, 0.92f, 0.66f, 0.20f, 2.0f, 0.30f, 0.70f),
+        new(0.37f, 2.60f, 0.94f, 21f, 0.092f, 0.80f, 0.58f, 0.28f, 2.0f, 0.20f, 0.40f),
+        new(0.48f, 2.74f, 0.94f, 23f, 0.092f, 0.62f, 0.50f, 0.36f, 2.0f, 0.10f, 0.00f),
+        new(0.60f, 2.82f, 0.90f, 25f, 0.092f, 0.45f, 0.42f, 0.44f, 2.0f, 0.10f, 0.00f),
+        new(0.72f, 2.90f, 0.86f, 26f, 0.092f, 0.35f, 0.36f, 0.50f, 2.0f, 0.10f, 0.00f),
+        new(0.85f, 2.92f, 0.20f, 27f, 0.090f, 0.22f, 0.30f, 0.56f, 2.0f, 0.12f, 0.00f),
+        new(0.98f, 2.92f, 0.10f, 27f, 0.085f, 0.05f, 0.18f, 0.60f, 2.0f, 0.15f, 0.00f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -323,9 +323,9 @@ public static class GoreStreakRules
     /// <summary>The four bands' layouts: main, upper (+Fan, about 0.6 of the main), entry (behind the wound, a touch below the line), lower (killing and heavy hits only).</summary>
     public static readonly BandShape[] Bands =
     [
-        new(-0.12f, 1.00f, 1.00f, 0.00f, 2f, 0.06f, 0.3f),
+        new(-0.18f, 1.00f, 1.00f, 0.00f, 1.5f, 0.06f, 0.3f),
         new( 1.00f, 0.60f, 0.80f, 0.10f, 2f, 0.06f, 0.2f),
-        new( 2.00f, 1.00f, 0.78f, 0.00f, 4f, 0.08f, 0.15f),
+        new( 0.50f, 1.00f, 0.78f, 0.00f, 1.5f, 0.08f, 0.15f),
         new(-0.70f, 0.50f, 0.66f, 0.06f, 2f, 0.06f, 0.2f),
     ];
 
@@ -464,14 +464,18 @@ public static class GoreStreakRules
 
     /// <summary>The opacity floor of a texel between the filaments (the filaments add the rest).</summary>
     public const float FilFloor = 0.2f;
+    /// <summary>A texel fainter than this is not drawn (a faint translucent fringe over a light ground read pink).</summary>
+    public const float MinAlpha = 0.045f;
     /// <summary>The ragged edge: a texel fades out between these shares of the nominal half width (plus the fine grain and the gaps between the filaments).</summary>
-    public const float EdgeFrom = 0.7f, EdgeTo = 1.05f;
+    public const float EdgeFrom = 0.6f, EdgeTo = 1.05f;
     /// <summary>The lumpy outline: each edge moves in and out by up to <see cref="LumpDepth"/> of the half width over about 1 / <see cref="LumpAlong"/> body heights.</summary>
     public const float LumpDepth = 0.45f, LumpAlong = 0.9f;
     /// <summary>The density blotches along a band: the opacity times floor + gain x blotch (lighter and darker clumps, mean about 1).</summary>
     public const float BlotFloor = 0.5f, BlotGain = 1.0f;
     /// <summary>How much more solid the swipe is before the side bands grow (frame 0 reads as one solid thin line).</summary>
     public const float SwipeSolid = 0.45f;
+    /// <summary>The grain on top (isotropic on the plane, not stretched): <see cref="SpeckleTiles"/> tiles a body height, the opacity times 1 - depth + 2 x depth x grain.</summary>
+    public const float SpeckleTiles = 1.6f, SpeckleDepth = 0.3f;
     /// <summary>The soft step of the patch erosion (half width).</summary>
     public const float ErodeSoft = 0.07f;
     /// <summary>The root (frames 0 to 4): the first <see cref="RootShare"/> of every band is held whole by the key's root strength, so the bands leave the wound as one mass.</summary>
@@ -505,7 +509,8 @@ public static class GoreStreakRules
         cov *= 1f - Smooth(hole - 0.04f, hole + 0.04f, fine) * (1f - rootHeld);
         float solid = SwipeSolid * (1f - Grow(k));   // frame 0: one solid swipe
         float floor = FilFloor + solid, bf = BlotFloor + solid;
-        float a = k.Opacity * b.Alpha * edge * along * outer * cov * (floor + (1f - floor) * fil) * (bf + (1f - bf) * 2f * blotA);
+        float speck = TexSample(tex, size, s * SpeckleTiles + ou * 5f, v * b.HalfWidth * SpeckleTiles + ov * 5f).Fine;   // isotropic grain on the plane
+        float a = k.Opacity * b.Alpha * edge * along * outer * cov * (floor + (1f - floor) * fil) * (bf + (1f - bf) * 2f * blotA) * (1f - SpeckleDepth + 2f * SpeckleDepth * speck);
         return new Texel(a, cov, fil * (1f - 0.45f * MathF.Min(av, 1f)));
     }
 
@@ -581,14 +586,14 @@ public static class GoreStreakRules
     /// The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (ribbon rebuild: the strip takes only green and blue from the ground under the blood, never red, so a
     /// translucent band over a light ground reads red and never near black; the strength follows the opacity so a faint texel stays translucent).
     /// </summary>
-    public const float StripPerAlpha = 6f, CompatibilityStripPerAlpha = 4f;
+    public const float StripPerAlpha = 14f, CompatibilityStripPerAlpha = 8f;
     /// <summary>The strip's largest strength (a translucent band keeps part of the ground's green and blue, as the reference's translucent red does; a faint texel is stripped as much as a dense one, so it never reads pink).</summary>
-    public const float StripMax = 0.6f, CompatibilityStripMax = 0.45f;
+    public const float StripMax = 0.62f, CompatibilityStripMax = 0.45f;
     /// <summary>Compatibility's strip: its multiply blend blackened the ground (captures, ribbon rebuild), so it mixes the ground toward this blood red (display space) at the strip's strength instead: green and blue fall, the red level stays near a mid-grey's.</summary>
-    public const float CompatibilityStripRed = 0.3f;
+    public const float CompatibilityStripRed = 0.4f;
 
     /// <summary>The core's opacity share per renderer (Compatibility blends in display space: its faint texels wash out sooner, so it takes a little more).</summary>
-    public const float CoreAlpha = 0.48f, CompatibilityCoreAlpha = 0.6f;
+    public const float CoreAlpha = 0.42f, CompatibilityCoreAlpha = 0.55f;
 
     /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red: the filament cores lighter) at the renderer's <paramref name="shade"/>.</summary>
     public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)
