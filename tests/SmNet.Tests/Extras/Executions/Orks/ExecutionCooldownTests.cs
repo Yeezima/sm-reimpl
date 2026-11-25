@@ -55,6 +55,37 @@ public class ExecutionCooldownTests
         Assert.Equal(boy, (ushort)Assert.Single(w.ExecutionsStartedThisTick).Target);   // straight away: no cooldown
     }
 
+    /// <summary>Lead 40: a death that the match never counts (a test aid's kill between ticks) still clears the cooldown at the next step, as the player is seen dead.</summary>
+    [Fact]
+    public void AnUncountedDeathClearsCooldownAtTheNextStep()
+    {
+        var (w, _) = ExecutionRewardTests.Executed();
+        Assert.NotEqual(0u, w.ExecutionsReadyAt(1));
+        Assert.True(w.TfwKillForTests(1));
+        ExecutionOrkKit.Idle(w);
+        Assert.Equal(0u, w.ExecutionsReadyAt(1));
+    }
+
+    /// <summary>Lead 40: Warfront's own respawn (downed, the revive window, the spectator time, then the landing zone with another human standing) always comes back without a cooldown.</summary>
+    [Fact]
+    public void RespawnInWarfrontAlwaysClearsCooldown()
+    {
+        var w = ExecutionOrkKit.Rig(humans: 2);
+        ExecutionOrkKit.Place(w, 2, w.Players[1].Position + new System.Numerics.Vector3(6f, 0f, 0f));   // the second human stands clear of the move
+        Assert.Equal(ExecutionEndReason.Done, ExecutionRewardTests.Executed(world: w).End.Reason);
+        Assert.NotEqual(0u, w.ExecutionsReadyAt(1));
+        Assert.True(w.TfwKillForTests(1));
+        bool respawned = false;
+        for (int k = 0; k < 120 * w.Config.TickRate && !respawned; k++)
+        {
+            ExecutionOrkKit.KillOthers(w);
+            ExecutionOrkKit.Idle(w);
+            respawned = w.Players[1].Alive;
+        }
+        Assert.True(respawned, "the human never came back");
+        Assert.Equal(0u, w.ExecutionsReadyAt(1));   // back without a cooldown
+    }
+
     [Fact]
     public void DeathClearsCooldown()
     {

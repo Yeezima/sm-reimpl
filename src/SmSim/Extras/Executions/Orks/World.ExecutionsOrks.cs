@@ -99,6 +99,17 @@ public sealed partial class World
         _executionWarfrontRefused[id] = (Tick, w);
     }
 
+    /// <summary>
+    /// Death clears the cooldown (owner: lost on death): every step, a player that is dead, gone or respawned in this step loses its entry (the death count check at the press stays as a second
+    /// guard). Every respawn in play (Warfront's landing-zone respawn, the revive, a round's spawn) happens inside the step, so it is seen here. Nothing to do while no cooldown runs.
+    /// </summary>
+    partial void ExecutionsWarfrontStep()
+    {
+        if (_executionReadyAt.Count == 0) return;
+        foreach (int id in _executionReadyAt.Keys.ToArray())
+            if (!_players.TryGetValue(id, out var p) || !p.Alive || LastRespawns.Contains(id)) _executionReadyAt.Remove(id);
+    }
+
     partial void ExecutionsWarfrontPick(int id, in PlayerState executor, uint pressTick, ref ExecutionPick? pick, ref bool handled)
     {
         handled = true;
