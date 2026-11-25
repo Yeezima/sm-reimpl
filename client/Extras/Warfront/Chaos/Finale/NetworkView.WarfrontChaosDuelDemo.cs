@@ -50,11 +50,19 @@ public partial class NetworkView
         if (_ddShotAt > 0 && now >= _ddShotAt && DuelDemoShots is { Length: > 0 } dir && GetViewport()?.GetTexture()?.GetImage() is { } image)
         {
             System.IO.Directory.CreateDirectory(dir);
-            string file = System.IO.Path.Combine(dir, $"duel-{_ddShots++:D2}-{steps[Math.Max(0, _ddStep - 1)].Name}.png");
-            image.SavePng(file);
-            GD.Print($"t {now:F1} s: WFDUELDEMO still {file}");
+            string file = System.IO.Path.Combine(dir, $"duel-{_ddShots++:D2}-{SafeName(steps[Math.Max(0, _ddStep - 1)].Name)}.png");
+            var saved = image.SavePng(file);
+            GD.Print($"t {now:F1} s: WFDUELDEMO still {file}{(saved == Error.Ok ? "" : $" NOT SAVED ({saved})")}");
             _ddShotAt = -1;
         }
+    }
+
+    /// <summary>A step name as a file name: no colons, slashes, percent or other characters Windows refuses.</summary>
+    static string SafeName(string name)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (char ch in name) sb.Append(char.IsLetterOrDigit(ch) || ch is ' ' or '-' or '.' ? ch : '-');
+        return sb.ToString().Trim();
     }
 
     Godot.Vector3 _ddLordAt, _ddAhead;
