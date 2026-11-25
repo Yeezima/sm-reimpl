@@ -54,7 +54,6 @@ uniform float now = 0.0;                 // the view clock modulo {{F((float)Clo
 uniform float age_override = -1.0;       // >= 0: every streak at this age (the capture aid)
 uniform sampler2D fil : filter_linear_mipmap_anisotropic, repeat_enable;   // GoreStreakRules.FilamentTexels: R filaments, G blotches, B fine grain
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
-uniform float strip_per_alpha = 6.0;     // GoreStreakRules.StripPerAlpha / CompatibilityStripPerAlpha
 uniform float strip_max = 0.65;          // GoreStreakRules.StripMax / CompatibilityStripMax
 uniform float shade = 1.0;               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
 uniform float core_alpha = 0.85;         // GoreStreakRules.CoreAlpha / CompatibilityCoreAlpha
@@ -160,19 +159,28 @@ void fragment() {
     // the patch erosion against 1 - Fill, the root held whole, the pinholes
     float e = texture(fil, vec2(u * {{F(GoreStreakRules.ErodeAlong)}} + o.x * 3.1, v * {{F(GoreStreakRules.ErodeAcross)}} + o.y * 2.3)).g;
     float thr = 1.0 - v_k.y;
-    float cov = smoothstep(thr - {{F(GoreStreakRules.ErodeSoft)}}, thr + {{F(GoreStreakRules.ErodeSoft)}}, 0.8 * e + 0.2 * fl);
+    float er = 0.8 * e + 0.2 * fl;
+    float cov = smoothstep(thr - {{F(GoreStreakRules.ErodeSoft)}}, thr + {{F(GoreStreakRules.ErodeSoft)}}, er);
     float held = v_r.x * (1.0 - smoothstep({{F(0.6f * GoreStreakRules.RootShare)}}, {{F(GoreStreakRules.RootShare)}}, u));
     cov = max(cov, held);
     float hole = 1.0 - 0.45 * v_k.z;
-    cov *= 1.0 - smoothstep(hole - 0.04, hole + 0.04, fine) * (1.0 - held);
+    float holes = smoothstep(hole - 0.04, hole + 0.04, fine) * (1.0 - held);
+    cov *= 1.0 - holes;
     float nearf = smoothstep(near_from, near_to, v_depth);
     float solid = {{F(GoreStreakRules.SwipeSolid)}} * (1.0 - v_r.w);   // frame 0: one solid swipe
     float flo = {{F(GoreStreakRules.FilFloor)}} + solid, bf = {{F(GoreStreakRules.BlotFloor)}} + solid;
     float speck = texture(fil, vec2(s * {{F(GoreStreakRules.SpeckleTiles)}} + o.x * 5.0, v * v_hw * {{F(GoreStreakRules.SpeckleTiles)}} + o.y * 5.0)).b;   // isotropic grain on the plane
-    float a = min(1.0, v_k.x * edge * along * outer * cov * (flo + (1.0 - flo) * fl) * (bf + (1.0 - bf) * 2.0 * blot) * ({{F(1f - GoreStreakRules.SpeckleDepth)}} + {{F(2f * GoreStreakRules.SpeckleDepth)}} * speck) * core_alpha) * nearf;
-    if (a <= {{F(GoreStreakRules.MinAlpha)}}) discard;   // GoreStreakRules.MinAlpha: no faint pink fringe
+    float grain = {{F(1f - GoreStreakRules.SpeckleDepth)}} + {{F(2f * GoreStreakRules.SpeckleDepth)}} * speck;
+    float band0 = v_k.x * along * outer;
+    float core = band0 * edge * cov * (flo + (1.0 - flo) * fl) * (bf + (1.0 - bf) * 2.0 * blot) * grain;
+    // the soft halo under the band: mist round brighter cores (GoreStreakRules.HaloAlpha)
+    float halo = band0 * {{F(GoreStreakRules.HaloAlpha)}} * (1.0 - smoothstep({{F(GoreStreakRules.HaloFrom)}}, {{F(GoreStreakRules.HaloTo)}}, av + 0.35 * (lump - 0.5))) * smoothstep(thr - 0.05, thr + 0.12, er) * (1.0 - holes) * grain;
+    float shp = max(core, halo) * nearf;
+    float cut = {{F(GoreStreakRules.ShapeCut)}} * ({{F(GoreStreakRules.CutFrom)}} + {{F(GoreStreakRules.CutSpan)}} * speck);   // GoreStreakRules.ShapeCut, dithered by the grain: a fuzzy rim
+    if (shp <= cut) discard;   // no faint, half-stripped (pink) fringe
+    float a = min(1.0, core * core_alpha) * nearf;
 {{(strip ? $$"""
-    float st = clamp(strip_per_alpha * a, 0.0, strip_max);   // GoreStreakRules.Strip: green and blue only, never the red
+    float st = strip_max * smoothstep(cut, cut + {{F(GoreStreakRules.StripRamp)}}, shp);   // GoreStreakRules.Strip: green and blue only, never the red, at full strength once drawn
 {{(compat ? StripCompat : StripMul)}}
 """ : $$"""
     float dens = fl * (1.0 - 0.45 * min(av, 1.0));   // lighter in the filaments' core
@@ -185,7 +193,7 @@ void fragment() {
     static Shader? _shader, _stripShader;
     static ImageTexture? _tex;
     static ArrayMesh? _strip;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PTint = "tint", PShade = "shade", PStripPerAlpha = "strip_per_alpha", PCoreAlpha = "core_alpha", PStripMax = "strip_max",
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PFil = "fil", PTint = "tint", PShade = "shade", PCoreAlpha = "core_alpha", PStripMax = "strip_max",
         PNearFrom = "near_from", PNearTo = "near_to";
 
     MultiMesh _mm = null!;
@@ -291,11 +299,10 @@ void fragment() {
         // the same darker red on both renderers (gate repair 8): Forward+ draws linear HDR through the tonemapper, Compatibility straight in display space
         bool compat = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
         float shade = compat ? GoreStreakRules.CompatibilityShade : GoreStreakRules.ForwardShade;
-        float perAlpha = compat ? GoreStreakRules.CompatibilityStripPerAlpha : GoreStreakRules.StripPerAlpha;
         foreach (var m in new[] { _mat, _stripMat })
         {
             m.SetShaderParameter(PFil, Filament()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade);
-            m.SetShaderParameter(PStripPerAlpha, perAlpha); m.SetShaderParameter(PStripMax, compat ? GoreStreakRules.CompatibilityStripMax : GoreStreakRules.StripMax); m.SetShaderParameter(PCoreAlpha, compat ? GoreStreakRules.CompatibilityCoreAlpha : GoreStreakRules.CoreAlpha);
+            m.SetShaderParameter(PStripMax, compat ? GoreStreakRules.CompatibilityStripMax : GoreStreakRules.StripMax); m.SetShaderParameter(PCoreAlpha, compat ? GoreStreakRules.CompatibilityCoreAlpha : GoreStreakRules.CoreAlpha);
             m.SetShaderParameter(PNearFrom, _nearFrom); m.SetShaderParameter(PNearTo, _nearTo);
         }
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = StripMesh() };
