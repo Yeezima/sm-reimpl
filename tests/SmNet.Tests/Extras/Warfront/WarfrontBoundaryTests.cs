@@ -87,6 +87,7 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/NetworkView.MusouPowerups.cs", "WarfrontCarry"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontRowAction"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontLibrarianRows"),
+        ("client/Extras/Musou/Customizer/CreatorView.Musou.Armoury.cs", "WarfrontArmourySlots"),   // 2026-11-25: the Librarian's RETAINERS slot card (default Armoury layout)
         // 2026-11-18: Warfront melee cleave (server and the client's drawn arc)
         ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleave"),
         ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontCleaveScaleFor"),

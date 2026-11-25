@@ -147,6 +147,7 @@ public class ExtrasBoundaryTests
         ("client/DevToolsPanel.cs", "ExtrasPanelSync"),             // DevToolsPanel.ExtrasPanelSync(), once per Sync: added content's section follows the server
         ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),      // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
+        ("client/Customizer/CreatorView.cs", "ExtrasOpenStep"),     // CreatorView.ExtrasOpenStep(string, ref bool), OpenStep (the --step aid): an added page's own step names (Warfront: retainers)
         ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
