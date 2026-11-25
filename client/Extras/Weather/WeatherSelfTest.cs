@@ -239,6 +239,8 @@ public sealed partial class WeatherSelfTest : Node
         float street = WeatherRig.MapLight(0.25f, 1f, 1.16f, 1f), interior = WeatherRig.MapLight(0.21f, 1.2f, 1.16f, 0f), half = WeatherRig.MapLight(0.25f, 1f, 1.16f, 0.5f);
         Check("fidelity tune: the map's light is lower in a covered, dim place than on an open street, and in bounds", interior < half && half < street && interior >= WeatherRig.MapLightMin && street <= WeatherRig.MapLightMax
             && WeatherRig.MapLight(float.NaN, float.PositiveInfinity, 1f, float.NaN) is >= WeatherRig.MapLightMin and <= WeatherRig.MapLightMax, $"street {street:F2} half {half:F2} interior {interior:F2}");
+        Check("fidelity tune 2: the grit is darker in shade than in sun but never under its floor", WeatherRig.GritLight(0.5f) >= WeatherRig.GritLightFloor && WeatherRig.GritLight(0.5f) < WeatherRig.GritLight(0.86f) && WeatherRig.GritLight(0.86f) < 1f,
+            $"shade {WeatherRig.GritLight(0.5f):F2} sun {WeatherRig.GritLight(0.86f):F2}");
         {
             string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
             string install = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-fake-install");

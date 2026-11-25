@@ -100,13 +100,14 @@ public partial class NetworkView
             if (_wxPerfLive) { double ms = System.Diagnostics.Stopwatch.GetElapsedTime(rayT0).TotalMilliseconds; _wxPerfRayMs += ms; _wxPerfRayMax = Math.Max(_wxPerfRayMax, ms); _wxPerfRays++; }
             bool was = _wxShelter.Covered;
             _wxShelter.Sample(cover, ceiling);
-            if (LogSound("weather") && ++_wxShelterSamples % 18 == 0) GD.Print($"weather shelter sample: level {_wxShelter.Level:F2} covered share {cover:F2} ceiling {ceiling:F1} m at ({me.Position.X:F0}, {me.Position.Y:F0}, {me.Position.Z:F1}){(_wxBedShelter ? $"; Warfront wind bed {_musouWind.LiveDb:F1} dB, low-pass +{_musouWind.LiveLpf:F1} units" : "")}");   // every 3 s, a test aid
+            if (LogSound("weather") && ++_wxShelterSamples % 18 == 0) GD.Print($"weather shelter sample: level {_wxShelter.Level:F2} covered share {cover:F2} ceiling {ceiling:F1} m at ({me.Position.X:F0}, {me.Position.Y:F0}, {me.Position.Z:F1}); sun seen {_wxSunSeen:F2} toward ({_wxToSun.X:F2}, {_wxToSun.Y:F2}, {_wxToSun.Z:F2}){(_wxBedShelter ? $"; Warfront wind bed {_musouWind.LiveDb:F1} dB, low-pass +{_musouWind.LiveLpf:F1} units" : "")}");   // every 3 s, a test aid
             if (was != _wxShelter.Covered && LogSound("weather")) GD.Print($"weather shelter: {(_wxShelter.Covered ? "under cover" + (_wxShelter.Tunnel ? " (tunnel)" : "") : "in the open")} (covered share {cover:F2}, ceiling {ceiling:F1} m)");
         }
         _wxShelter.Step(delta);
     }
 
     float _wxSunSeen = 1f;
+    Vector3 _wxToSun;   // the last sun ray direction (game space; the shelter sample log)
 
     /// <summary>
     /// Weather fidelity tune (review: the ash grit read as near-white sleet in Waste Management's shade): with the shelter's rays, five rays toward the map's sun (from the camera and 2.5 m to either side and ahead and behind
@@ -117,6 +118,7 @@ public partial class NetworkView
     {
         if (_sun is null || !_sun.Visible || _gameSpace is null) return 1f;
         var toSun = (_gameSpace.GlobalTransform.Basis.Inverse() * _sun.GlobalTransform.Basis.Z).Normalized();
+        _wxToSun = toSun;
         if (toSun.Z <= 0.02f) return 0f;   // the sun at or under the horizon lights no air
         var dir = new System.Numerics.Vector3(toSun.X, toSun.Y, toSun.Z);
         int seen = 0;

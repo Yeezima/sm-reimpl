@@ -21,6 +21,15 @@ public sealed partial class WeatherRig
     public const float RainSoftM = 0.35f, RainFarSoftM = 1.0f, GritSoftM = 0.5f, FlakeSoftM = 0.3f;
     /// <summary>The share of the grade's light the rain follows (the streaks stay a little brighter than the street they cross, as rain does against a dark wall); the ash, dust, fog and mist follow it fully.</summary>
     public const float RainLightShare = 0.5f;
+    /// <summary>
+    /// Tune 2 (media check of the tune: "On Waste Management the darkened ash grit is now hard to see at all in the shade"): the grit follows <see cref="GritLightShare"/> of the light's change and never drops under
+    /// <see cref="GritLightFloor"/>, so in shade it is darker than in sun but still reads as thin streaks (a 3.5 cm streak lit fully by a shade's light vanished against the dark wall). At Waste Management's shaded spawn
+    /// (light 0.50) the grit takes 0.70, at Manufactorum's spawn (0.67) 0.80; the review's grit took 0.89 on both.
+    /// </summary>
+    public const float GritLightShare = 0.6f, GritLightFloor = 0.65f;
+
+    /// <summary>The grit's light factor for a layer light factor <paramref name="light"/>. Pure.</summary>
+    public static float GritLight(float light) => Math.Max(GritLightFloor, 1f + (light - 1f) * GritLightShare);
     /// <summary>The volume puff sprite covers less of its card than the procedural puff did (a cloud with gaps, not a filled disc): the dust sheets' and fog cards' alpha times this keeps the squall's and the fog's density.</summary>
     public const float VolumeAlphaGain = 1.8f;
     /// <summary>The bounds of the light factor.</summary>
@@ -135,7 +144,7 @@ public sealed partial class WeatherRig
         }
         float light = old ? 1f : LightNow(), rainLight = 1f + (light - 1f) * RainLightShare;
         Scale(_rainMaterial, rainLight); Scale(_rainFarMaterial, rainLight);
-        Scale(_ashMainMaterial, light); Scale(_ashWarnMaterial, light);   // tune (review: grit read as near-white sleet): the grit follows the light fully, as the flakes do
+        Scale(_ashMainMaterial, GritLight(light)); Scale(_ashWarnMaterial, light);   // tune (review: grit read as near-white sleet), tune 2 (then too dark to see in shade): most of the light's change, with a floor
         float volumeGain = WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : VolumeAlphaGain;
         Scale(_splashMaterial, rainLight); Scale(_mistMaterial, light); Scale(_fogMaterial, light, WeatherSprites.Of(WeatherSprites.Role.Volume) is null ? 1f : FogSpriteAlphaGain); Scale(_dustMaterial, light, volumeGain);
         LightFactor = light;
