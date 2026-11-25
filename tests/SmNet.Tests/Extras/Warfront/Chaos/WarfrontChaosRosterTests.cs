@@ -227,10 +227,13 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
         var human = w.Players[TfwRig.Human].Position;
         ushort id = musou.Spawn(MusouEnemyType.Stormboy, human + new Vector3(20f, 20f, 0f), 0f, WarfrontChaosTuning.RaptorHealth);
         TfwRig.Steps(w, 20);   // past the stand
+        Assert.True(musou.RaptorGrounded(id), "C3: a Raptor on the ground reads grounded (executions may take him)");
         Assert.True(musou.Hop(id, human + new Vector3(4f, 4f, 0f)), "the jump pack's gap-closer");
-        bool airborne = false, landed = false;
-        for (int t = 0; t < 8 * 30 && !landed; t++) { Tick(w); if (musou.IsAirborne(id)) airborne = true; else if (airborne) landed = true; }
+        bool airborne = false, landed = false, groundedInAir = false;
+        for (int t = 0; t < 8 * 30 && !landed; t++) { Tick(w); if (musou.IsAirborne(id)) { airborne = true; groundedInAir |= musou.RaptorGrounded(id); } else if (airborne) landed = true; }
         Assert.True(airborne && landed);
+        Assert.False(groundedInAir, "C3: never grounded in the air");
+        Assert.True(musou.RaptorGrounded(id), "C3: grounded again once landed");
         Assert.True(musou.TryGet(id, out var raptor));
         Assert.True(Vector2.Distance(new Vector2(raptor.Position.X, raptor.Position.Y), new Vector2(human.X, human.Y)) < 12f, "it landed by the human");
     }

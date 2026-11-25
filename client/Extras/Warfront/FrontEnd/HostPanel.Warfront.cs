@@ -15,6 +15,6 @@ public sealed partial class HostPanel
 
     partial void ExtrasHostNote(ref string note)
     {
-        if (Warfront) note = WarfrontLocal.HostExplainer + " " + ReachText();
+        if (Warfront) note = WarfrontLocal.HostExplainerFor(_faction) + " " + ReachText();   // Chaos Warfront C3: the enemy of the FACTION row's choice
     }
 }

@@ -65,7 +65,7 @@ public sealed record WarfrontRunInfo(WarfrontRunKind Kind, string Line, Warfront
 public static class WarfrontLocal
 {
     public const string RowText = "Warfront";
-    public const string RowTooltip = "A campaign of three fronts: your squad against the Ork fortress, alone on this PC or with up to 4 friends";
+    public const string RowTooltip = "A campaign of three fronts: your squad against the Orks or Chaos, alone on this PC or with up to 4 friends";
     public const string PageTitle = "Warfront";
     /// <summary>The strip under the page's title (where the page is).</summary>
     public const string PageHeading = "Campaign alone or together";
@@ -75,6 +75,21 @@ public static class WarfrontLocal
     public const string StopServerRowText = "Stop Warfront server";
     /// <summary>The Host panel's explainer on the Warfront profile (replaces the Classic mode and bot talk): what hosting a Warfront campaign is, and how friends get in.</summary>
     public const string HostExplainer = "Host a Warfront campaign for you and up to 3 friends: you fight the three fronts together as Space Marines with your squads. Friends join by address; there are no bots to add, and no mode or map to pick.";
+
+    /// <summary>
+    /// The Host panel's explainer for the FACTION row's choice (Chaos Warfront C3): the players are always Space Marines; the enemy is the Orks, Chaos, or the two by turns. Ours.
+    /// </summary>
+    public static string HostExplainerFor(WarfrontFactionSetting faction) =>
+        "Host a Warfront campaign for you and up to 3 friends: you fight the three fronts together as Space Marines with your squads, " + faction switch
+        {
+            WarfrontFactionSetting.Orks => "against the Orks.",
+            WarfrontFactionSetting.Chaos => "against the forces of Chaos.",
+            _ => "against the Orks or Chaos, by turns with each new campaign.",
+        } + " Friends join by address; there are no bots to add, and no mode or map to pick.";
+
+    /// <summary>The local page's FACTION plate (Chaos Warfront C3, owner 2026-11-25: "Add a fraction row"): its words for each choice, the setting's order.</summary>
+    public static readonly string[] FactionPlateTexts = ["Faction: Alternate", "Faction: Orks", "Faction: Chaos"];
+    public const string FactionPlateTooltip = "The enemy of your next new campaign on this PC: ALTERNATE switches between the Orks and Chaos with each new campaign, starting with the Orks. A campaign keeps its enemy to the end.";
     public const string CoopNote = "Up to 4 players fight together as Space Marines and their squads. New campaign and Continue play on this PC alone; host for friends (LAN / Internet) and they join by address.";
 
     public const string ConfirmTitle = "START A NEW CAMPAIGN?";

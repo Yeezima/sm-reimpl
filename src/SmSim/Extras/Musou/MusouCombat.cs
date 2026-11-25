@@ -195,6 +195,7 @@ public sealed partial class MusouSim
         float scale = type == MusouEnemyType.Warboss ? rules.BossScale : 1f;
         float radius = spec.Radius * scale, height = spec.Height * scale;
         if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBodyOf(rules, MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
+        if (rules.ShotHeightsFromTable) return (radius * ShotRadiusScale, height);   // Chaos Warfront C3: the Chaos table's bodies are its drawn models'
         height = type switch
         {
             MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,

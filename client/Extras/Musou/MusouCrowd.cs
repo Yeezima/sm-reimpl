@@ -250,7 +250,8 @@ public partial class MusouCrowd : CrowdView
         // The charge (2026-11-09): a melee Ork drawn near his sprint speed plays his own sprint clip at its stride's rate (no byte on the wire: the speed tells)
         if (look is not null && SmSim.Extras.Musou.MusouChargeRules.Charges(e.Type) && !ReferenceEquals(look.Clips[MusouLooks.Sprint], look.Clips[MusouLooks.Run]))
         {
-            float speed = (int)e.Type < Rules.Types.Count ? Rules.Of(e.Type).Speed : 5f;
+            var rules = RulesOver ?? Rules;   // Chaos Warfront C3: the Chaos army's speeds
+            float speed = (int)e.Type < rules.Types.Count ? rules.Of(e.Type).Speed : 5f;
             track.Sprinting = MusouGaitRules.Sprinting(track.Speed, speed * SmSim.Extras.Musou.MusouChargeRules.PaceScale, SmSim.Extras.Musou.MusouChargeRules.SprintSpeed(speed), track.Sprinting);
             _gait[e.Id] = track;
             if (track.Sprinting) return (MusouLooks.Sprint, MusouGaitRules.Rate(track.Speed, ClipSpeed(look, MusouLooks.Sprint)));
@@ -258,6 +259,8 @@ public partial class MusouCrowd : CrowdView
         return (MusouLooks.Run, MusouGaitRules.Rate(track.Speed, ClipSpeed(look)));
     }
     static readonly SmSim.Extras.Musou.MusouRules Rules = new();
+    /// <summary>Chaos Warfront C3: the enemy table in place of the Orks' default (the Chaos army's speeds); null: the Orks' as before.</summary>
+    public SmSim.Extras.Musou.MusouRules? RulesOver;
 
     /// <summary>A look's run clip's planted-foot speed at its scale (m/s; measured once, <c>ClipGait</c> on the Ork boy's feet, else the Marine's; 0: not measured).</summary>
     float ClipSpeed(MusouLooks.Look? look, int clip = MusouLooks.Run)

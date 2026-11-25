@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4113 spec table rows: **3045 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4132 spec table rows: **3064 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,24 +51,24 @@ Scanned 4113 spec table rows: **3045 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 194 | 193 | 59 | 90 | 0 |
+| General game design | 213 | 212 | 61 | 99 | 0 |
 | Ork faction | 299 | 279 | 178 | 74 | 0 |
-| **All areas** | **3045** | 2737 | 2218 | 931 | 37 |
+| **All areas** | **3064** | 2756 | 2220 | 940 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1853 |
+| kind: ours | 1872 |
 | confidence: low | 1068 |
-| confidence: medium | 1039 |
+| confidence: medium | 1041 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
-| notes: provisional | 61 |
+| notes: provisional | 70 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
 | section: provisional | 37 |
@@ -4322,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (194)
+### General game design (213)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4597,6 +4597,30 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5328717B` | The 'Ard slot's rule rows | in a Chaos battle the Chaos Marine follows the 'Ard Boy's rows in the tables keyed by kind: target class Elite (weight as the 'Ard Boy's), powerup drops at the 'Ard Boy's rate (not an elite's), no golden weapon drop, the Librarian's Elite tier, the crowds'… | kind: ours; notes: provisional | the lead's decision (C2 review R3) | The 'Ard slot's rule rows: compare with SM1 by feel or video. Ours: in a Chaos battle the Chaos Marine follows the 'Ard Boy's rows in the… | ☐ |
 | `R-11F003C6` | Autocannon blast on Chaos fodder | a weapon's own blast (the autocannon's, the Dreadnought cannon's) kills a Cultist or a Traitor Guardsman in one, by kind (their 110 health is over the blast's 85.2), as the owner's rule kills the Ork fodder | kind: ours; notes: provisional | the owner, 2026-11-11 ("1 shot any fodder ork"), kept for Chaos by the lead (C2 review R4) | Autocannon blast on Chaos fodder: compare with SM1 by measuring on a flat spot of the same map. Ours: a weapon's own blast (the autocannon's, the Dreadnought cannon's)… | ☐ |
 | `R-2CA7ECEB` | Left for playtest | the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss and Stormboy squads' sizes, the HQ waves' sizes under their cap); the fodder throw (`KnockDown`) keeps its Ork rule (Cultists and Traitor Guardsmen fall, the Chaos Marine staggers); the hit… | kind: ours; notes: provisional | the C2 review (R4) | Left for playtest: compare with SM1 by feel or video. Ours: the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss… | ☐ |
+
+*Spec section: Warfront Chaos presentation (Chaos Warfront C3, branch `claude/chaos-client-1125`, 2026-11-25; client only; added content, Warfront only; no wire, protocol, rules or hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-58EDEF69` | Army on the client | the Hub view's `Faction`; until the first Hub section of a Warfront connection the crowd draws no enemy (never an Ork in a Chaos battle); then Chaos or the Orks' looks | kind: ours; confidence: medium | the design ("one faction byte tells clients to draw Chaos") | Army on the client: compare with SM1 by feel or video. Ours: the Hub view's Faction; until the first Hub section of a Warfront… | ☐ |
+| `R-32479D61` | Client enemy table | in a Chaos battle the client's config takes the Chaos type table (`WarfrontChaosTuning.Apply`), so the shot and contact bodies (the Daemon's 0.45 m / 2.2 m) are the server's | kind: ours | C2's note (the client read the Orks' table) | Client enemy table: compare with SM1 by feel or video. Ours: in a Chaos battle the client's config takes the Chaos type table… | ☐ |
+| `R-A5786CB2` | Cultist look | `renegade_guard` on the Guardsman's co-op rig `havok_guardsman_a_coop` (co-op set), unarmed, its albedo multiplied by (0.85, 0.32, 0.30); clips `IG_NAV_Run_F_01`, `IG_NAV_Idle_01`, `IG_MEL_Attack_F_01`, `IG_REC_Light_Front_Hi_Left`, `IG_DIE_Basic_01` (+… (rgb multiply) | kind: ours; notes: provisional | the owner's decision ("Recoloured renegade guards"); the paint and clip picks ours | Cultist look: compare with SM1 by feel or video. Ours: renegade_guard on the Guardsman's co-op rig havok_guardsman_a_coop… | ☐ |
+| `R-5D6946FD` | Traitor Guardsman look | the same body with the renegade's lasgun (`chaos_coop_lasgun`, else the Guardsman's `ig_coop_lasgun`) on its wield mount; the aim run, aim idle, `IG_RNG_Fire_S_01`, the same reaction and deaths | kind: ours; notes: provisional | inventory (renegade, rig, lasgun); clip picks ours | Traitor Guardsman look: compare with SM1 by feel or video. Ours: the same body with the renegade's lasgun (chaos_coop_lasgun, else the… | ☐ |
+| `R-3557A720` | Daemon look | `bloodletter` on its own rig `havok_bloodletter_coop`; clips `BL_NAV_Run_F_01`, `BL_NAV_CombatIdle_01`, `BL_MEL_Att_F_3_2M`, `BL_REC_Lt_F_High_L_01`, `BL_DIE_Base_01` (+ `_04`, `_05`), sprint `BL_NAV_Sprint_F_01`; drawn as modelled | kind: ours; notes: provisional | inventory; clip picks ours | Daemon look: compare with SM1 by feel or video. Ours: bloodletter on its own rig havok_bloodletter_coop; clips… | ☐ |
+| `R-381F79BC` | Marine-rig looks | PvP Chaos class looks built as a player's: Tactical Marine the tactical class (bolter `chaos_coop_bolter` in hand); Aspiring Champion a predefined Chaos set x1.1 (chain axe); Havocs the Havoc class (heavy bolter or missile launcher, the config's PvP weapon… (x) | kind: ours; notes: provisional | the owner's decision (Lord = elite hammer marine); the inventory (co-op weapons, the berserker elite); sets and scales ours | Marine-rig looks: compare with SM1 by feel or video. Ours: PvP Chaos class looks built as a player's: Tactical Marine the… | ☐ |
+| `R-82E25B23` | Chosen and Lord drawn size | drawn at x1.2 and x1.35 of a marine, while their sim rows keep the Boss Ork body (3x) and the Warboss's boss scale (4.5): shots and contact use the sim's bigger bodies until C5 gives them their own (x) | kind: ours; notes: provisional | ours; C5 to settle | Chosen and Lord drawn size: compare with SM1 by measuring on a flat spot of the same map. Ours: drawn at x1.2 and x1.35 of a marine, while their sim rows keep the… | ☐ |
+| `R-1A9E7050` | Sounds | Cultist and Traitor Guardsman: `chaos_coop_renegade_ig` (steps, death) with `chaos_coop_lasgun`; Daemon: `chaos_coop_bloodletter` with `chaos_coop_hellblade`; every marine-rig kind Musou Mode's Chaos Marine set (the PvP Chaos blueprint, `chaos_coop_chainaxe`… | kind: ours; notes: provisional | inventory; which file stands for which unit ours | Sounds: compare with SM1 by feel or video. Ours: Cultist and Traitor Guardsman: chaos_coop_renegade_ig (steps, death)… | ☐ |
+| `R-3B6CE0BB` | Gore and hits | no Chaos unit bleeds as an Ork (`GoreOrk` false): the shot and own-contact hits play the PvP marine's impact (C0 review finding 1), no Ork blood or dark Ork gore on death; marines and Daemons are never gibbed (the body stays); gore chest heights 1.3 m x the… (m) | kind: ours; notes: provisional | ours (the marine's death binds no gore, docs "Death effects") | Gore and hits: compare with SM1 by measuring on a flat spot of the same map. Ours: no Chaos unit bleeds as an Ork (GoreOrk false): the shot and… | ☐ |
+| `R-0CBF7D26` | Gore plan order | the rules' plan then Warfront's table, before the register decides gib and queue, on the legacy dark-gore path and the default Ork-blood path alike (a veto there keeps the body); the frame spawns from the same plan | kind: ours | the C0 review (finding 2) | Gore plan order: compare with SM1 by feel or video. Ours: the rules' plan then Warfront's table, before the register decides… | ☐ |
+| `R-D477DAA6` | Flinch | the marine-rig Chaos units do not flinch at a hit; the men and the Daemon keep the crowd's kick | kind: ours; notes: provisional | ours (Musou Mode's Chaos Marine draws no bone pose) | Flinch: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the marine-rig Chaos units do not flinch at a hit; the men and the… | ☐ |
+| `R-CC27F02D` | Ragdolls | no ragdoll pool in a Chaos battle (the pool is the Ork boy's ragdoll); blast deaths tumble | kind: ours; confidence: medium | ours | Ragdolls: compare with SM1 by feel or video. Ours: no ragdoll pool in a Chaos battle (the pool is the Ork boy's… | ☐ |
+| `R-858046AD` | Labels | war map: CHAOS-HELD, CHAOS STRONGHOLD, CHAOS LORD (SLAIN), "THE CHAOS LORD IS DEAD", the fortress's loading caption; HUD: ORK WARBOSS / WARBOSS as CHAOS LORD, BOSS ORK and the BOSS kinds as CHOSEN, THE HORDE PREVAILS as CHAOS PREVAILS | kind: ours | the design ("Faction": the labels) | Labels: compare with SM1 by feel or video. Ours: war map: CHAOS-HELD, CHAOS STRONGHOLD, CHAOS LORD (SLAIN), "THE CHAOS… | ☐ |
+| `R-F6C1B3CE` | Raptor grounded | `MusouSim.RaptorGrounded(id)`: a Raptor of a Chaos battle alive on the ground (not spawning, dying, mid-hop or falling); false for every other kind and in Orks battles; read only, for the later executions | kind: ours | the owner's card "Raptors" ("Yes, when grounded") | Raptor grounded: compare with SM1 by feel or video. Ours: MusouSim.RaptorGrounded(id): a Raptor of a Chaos battle alive on the… | ☐ |
+| `R-8C590470` | Host panel explainer | "... as Space Marines with your squads, against the Orks." / "... against the forces of Chaos." / "... against the Orks or Chaos, by turns with each new campaign." by the FACTION row's choice, redrawn when it changes | kind: ours | lead's routing (the text said only "as Space Marines" with CHAOS picked) | Host panel explainer: compare with SM1 by feel or video. Ours: "... as Space Marines with your squads, against the Orks." / "...… | ☐ |
+| `R-04650434` | Local page FACTION plate | a plate of the WARFRONT page's column (while no server runs): FACTION: ALTERNATE / ORKS / CHAOS, one step a press, for the session (not saved); the next supervisor it starts gets `--warfront-faction orks` or `chaos` (ALTERNATE nothing) | kind: ours | the owner (2026-11-25: "Add a fraction row") | Local page FACTION plate: compare with SM1 by feel or video. Ours: a plate of the WARFRONT page's column (while no server runs):… | ☐ |
+| `R-4053490E` | Chaos shot bodies | the Chaos table sets `MusouRules.ShotHeightsFromTable`, so a shot's body (and its head sphere at the top) is the table's height, not the Ork models' drawn 2.15 m (Boyz) / 1.5 m (Gretchin) / 3 m (Nob): Cultist and Traitor Guardsman 1.85 m, Chaos Marine, Havocs… (m) | kind: ours; notes: provisional | the C2 review (the guardsman's head would not line up); heights ours from the models' bounds | Chaos shot bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: the Chaos table sets MusouRules.ShotHeightsFromTable, so a shot's… | ☐ |
+| `R-9287DB47` | Client tables in a Chaos battle | the guns' synthesized bursts, the client volleys and the crowd's drawn speeds read the latched Chaos table (`_musouRulesOver`, `MusouCrowd.RulesOver`), the solid view is rebuilt from it; the far-army impostors' ArdBoy byte draws the Chaos Marine… | kind: ours | the C2 review | Client tables in a Chaos battle: compare with SM1 by feel or video. Ours: the guns' synthesized bursts, the client volleys and the crowd's… | ☐ |
+| `R-260030DB` | Elite bars and bodies | the 'Ard slot's Chaos Marine wears the 'Ard Boy's elite health bar (`TfwBars.IsElite(sim.RuleKind(type))`, the bar's full health its own row's); every marine-rig Chaos unit and the Daemon keep their body (never gibbed: the gore table's plan), as the 'Ard… | kind: ours | the C2 review | Elite bars and bodies: compare with SM1 by feel or video. Ours: the 'Ard slot's Chaos Marine wears the 'Ard Boy's elite health bar… | ☐ |
 
 ## Part B: Ork faction
 

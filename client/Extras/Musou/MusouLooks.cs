@@ -111,7 +111,7 @@ public sealed partial class MusouLooks
     public const float SquigPlaceholderScale = 0.4f;
     readonly StormboyLooks? _stormboy;
     /// <summary>Whether the Stormboy is drawn with his own campaign model (false: a Boy, with the placeholder jump pack the view adds).</summary>
-    public bool StormboyOwnLook => _looks[(int)MusouEnemyType.Stormboy]?.Name.StartsWith("Stormboy:", StringComparison.Ordinal) == true;
+    public bool StormboyOwnLook => WarfrontOwnsLooks || _looks[(int)MusouEnemyType.Stormboy]?.Name.StartsWith("Stormboy:", StringComparison.Ordinal) == true;
     int _next;
     bool _chaosTried;
 
@@ -136,10 +136,16 @@ public sealed partial class MusouLooks
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) { Look? over = null; WarfrontLookFor(type, ref over); return over ?? OrkLookFor(type); }   // WARFRONT-HOOK
+    public Look? For(MusouEnemyType type) { Look? over = null; WarfrontLookFor(type, ref over); return WarfrontOwnsLooks ? over : over ?? OrkLookFor(type); }   // WARFRONT-HOOK
 
     /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the look a kind is drawn with in place of the Ork one (null keeps it). No-op without Warfront and the Chaos faction.</summary>
     partial void WarfrontLookFor(MusouEnemyType type, ref Look? look);
+
+    /// <summary>
+    /// Chaos Warfront C3: Warfront's table alone decides the looks (a Chaos battle, or a Warfront battle whose army the Hub has not told yet): a null from <see cref="WarfrontLookFor"/> draws nothing,
+    /// never an Ork. False everywhere else (Musou Mode, an Orks battle): the Ork looks as before. Set each frame by the Warfront view (client/Extras/Warfront/Chaos/).
+    /// </summary>
+    public bool WarfrontOwnsLooks;
 
     Look? OrkLookFor(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 

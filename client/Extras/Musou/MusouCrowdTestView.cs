@@ -93,6 +93,9 @@ public partial class MusouCrowdTestView : Node3D
             _looks.StopWaiting();
             foreach (var n in _looks.Notes) GD.Print("  note: " + n);
             _looks.Notes.Clear();
+            bool chaosWaiting = false;
+            WarfrontCrowdTest(ref chaosWaiting);   // WARFRONT-HOOK: --warfront-chaos, the Chaos army's looks on this stage (client/Extras/Warfront/Chaos/MusouCrowdTestView.WarfrontChaos.cs)
+            if (chaosWaiting) return;
             _crowd.Frame(_shown, Vector3.Zero, dt);   // bakes the looks
             if (!_kinds.All(k => _looks.For(k) is { } l && (l.Vat is not null || l.BakeFailed || _crowd.NoVat))) return;
             _kind = 0; Start();
@@ -137,6 +140,9 @@ public partial class MusouCrowdTestView : Node3D
     }
 
     void Start() { _t = 0f; _nextShot = 0f; _shot = 0; _dead = false; _id++; }
+
+    /// <summary>Chaos Warfront C3 (test aid <c>--warfront-chaos</c>): the Chaos army's looks in place of the Orks'; <paramref name="waiting"/> while they are still being built. No-op without Warfront.</summary>
+    partial void WarfrontCrowdTest(ref bool waiting);
 
     static float LookHeight(MusouLooks.Look look)
     {
