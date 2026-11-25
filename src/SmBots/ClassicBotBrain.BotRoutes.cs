@@ -65,11 +65,10 @@ public sealed partial class ClassicBotBrain
     /// ends, a chase takes another route or goes straight (ours; Hab Center's floors stood bots still on route points of another floor).</summary>
     public const float RouteStallGain = 1f;
     public const double RouteStallSeconds = 3;
+    /// <summary>On the maps under the new-map rules (not with <c>--bot-old-drops</c>) a path's end counts as reached only within this many metres of height (<see cref="NavAgent.ArriveMaxDz"/>; ours).</summary>
+    public const float ArriveMaxDz = 1.5f;
     readonly HashSet<int> _routeDropped = new();
     BotMapPlan? _routePlan;
-    double _stallSince, _stallSeen = double.MinValue;
-    float _stallBest;
-    V3 _stallGoal;
     int _vantage = -1, _vantageLast = -1;
     bool _vantageArrived;
     double _vantageSince, _vantageUntil, _vantageNext, _vantageArrivedAt, _lastFightAt = double.MinValue;
@@ -261,17 +260,36 @@ public sealed partial class ClassicBotBrain
     /// Whether the walk toward <paramref name="goal"/> (a route point) has made no progress: the 3D distance has not fallen by <see cref="RouteStallGain"/> m in
     /// <see cref="RouteStallSeconds"/> s of route walking. A new goal, or a gap of more than half a second between calls (a fight, a vantage), starts the watch again.
     /// </summary>
-    bool RouteStalled(V3 goal)
-    {
-        var here = _client!.Predicted.Position;
-        float d = V3.Distance(here, goal);
-        if (V3.DistanceSquared(goal, _stallGoal) > 0.25f || _connectedFor - _stallSeen > 0.5) { _stallGoal = goal; _stallBest = d; _stallSince = _connectedFor; }
-        _stallSeen = _connectedFor;
-        if (d < _stallBest - RouteStallGain) { _stallBest = d; _stallSince = _connectedFor; }
-        if (_connectedFor - _stallSince < RouteStallSeconds) return false;
-        _stallSince = _connectedFor; _stallBest = d;
-        return true;
-    }
+    bool RouteStalled(V3 goal) =>
+        // 4v4 rerun 2026-11-25: a jump-pack bot standing at a take-off cell waiting for power (or in the jump) is not stalled; Hab Center dropped 30 of 61 routes, 17 of them Assault.
+        _stallWatch.Step(_connectedFor, goal, _client!.Predicted.Position, paused: _navAgent is { } agent && (agent.OnJumpLink || agent.JumpInProgress));
+
+    readonly RouteStallWatch _stallWatch = new();
 
     static float Flat(V3 a, V3 b) => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+}
+
+/// <summary>
+/// Bots A2's route stall watch (engine-free, tested): a walk toward a route point is stalled when its 3D distance has not fallen by <see cref="ClassicBotBrain.RouteStallGain"/> m
+/// in <see cref="ClassicBotBrain.RouteStallSeconds"/> s of route walking. A new goal, or a gap of more than half a second between steps (a fight, a vantage), starts the watch again;
+/// so does a paused step (the bot waits at a jump take-off for power, or is in the jump), which never counts toward a stall.
+/// </summary>
+public sealed class RouteStallWatch
+{
+    double _since, _seen = double.MinValue;
+    float _best;
+    V3 _goal;
+
+    /// <summary>One step at <paramref name="now"/> (s) of the walk from <paramref name="here"/> toward <paramref name="goal"/>; true once when the walk has stalled (the watch then starts again).</summary>
+    public bool Step(double now, V3 goal, V3 here, bool paused = false)
+    {
+        float d = V3.Distance(here, goal);
+        if (paused || V3.DistanceSquared(goal, _goal) > 0.25f || now - _seen > 0.5) { _goal = goal; _best = d; _since = now; }
+        _seen = now;
+        if (paused) return false;
+        if (d < _best - ClassicBotBrain.RouteStallGain) { _best = d; _since = now; }
+        if (now - _since < ClassicBotBrain.RouteStallSeconds) return false;
+        _since = now; _best = d;
+        return true;
+    }
 }

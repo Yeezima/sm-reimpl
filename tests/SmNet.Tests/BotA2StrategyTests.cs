@@ -52,6 +52,53 @@ public class BotA2StrategyTests
     }
 
     [Fact]
+    public void The_stall_watch_does_not_count_a_wait_at_a_jump_take_off()
+    {
+        var w = new RouteStallWatch();
+        var goal = new Vector3(0, 20, -9); var here = new Vector3(0, 19, 0);   // a point on the floor below, the bot not moving
+        double t = 0;
+        // Waiting for jump power (paused) for longer than the stall time: never a stall.
+        for (; t < 2 * ClassicBotBrain.RouteStallSeconds; t += 0.1) Assert.False(w.Step(t, goal, here, paused: true));
+        // Then standing still unpaused: a stall after RouteStallSeconds, not at once.
+        double from = t; bool stalled = false;
+        for (; t < from + ClassicBotBrain.RouteStallSeconds + 0.5 && !stalled; t += 0.1) stalled = w.Step(t, goal, here);
+        Assert.True(stalled);
+        Assert.InRange(t - from, ClassicBotBrain.RouteStallSeconds, ClassicBotBrain.RouteStallSeconds + 0.25);
+        // Progress (1 m closer) keeps it going.
+        var moving = new RouteStallWatch(); var p = new Vector3(0, 0, 0);
+        for (double u = 0; u < 10; u += 0.1) { p.Y += 0.05f; Assert.False(moving.Step(u, goal, p)); }
+    }
+
+    [Fact]
+    public void A_path_ending_in_a_drop_is_not_reached_from_the_ledge_above_its_landing()
+    {
+        var level = new NavigationTests.Level().Floor(-20, -10, 30, 10).Box(new Vector3(-20, -10, 0), new Vector3(0, 10, 5));   // a 5 m block, an open edge at x = 0
+        var g = NavGraph.Build(level.Mesh(), null, NavSettings.From(Config));
+        // The shortest drop link off the edge (take-off on the block, landing on the ground 5 m down); the arrival radius is set just past its flat length, so the landing is
+        // "within reach" by flat distance from the ledge (as the Hab Center route points were).
+        Vector3 ledge = default, below = default; float shortest = float.MaxValue;
+        for (int n = 0; n < g.NodeCount; n++)
+        {
+            var p = g.Position(n);
+            if (p.Z < 4f || MathF.Abs(p.Y) > 3f) continue;
+            foreach (var (to, _, kind) in g.Links(n))
+            {
+                var q = g.Position(to);
+                float flat = new System.Numerics.Vector2(q.X - p.X, q.Y - p.Y).Length();
+                if (kind != NavLinkKind.Drop || q.Z > 1f || flat >= shortest) continue;
+                ledge = p; below = q; shortest = flat;
+            }
+        }
+        Assert.True(shortest < 3f, "the 5 m edge has drop links");
+        float radius = shortest + 0.3f;
+        NavSteer Last(NavAgent a) { NavSteer s = default; for (int k = 0; k < 30; k++) s = a.Steer(ledge, true, below, k * 0.033); return s; }
+        Assert.True(Last(new NavAgent(g) { ArriveRadius = radius }).Arrived);   // the old flat arrival: "there" while still on the ledge
+        var steer = Last(new NavAgent(g) { ArriveRadius = radius, ArriveMaxDz = ClassicBotBrain.ArriveMaxDz });
+        Assert.False(steer.Arrived);                  // A2: walk on, off the edge
+        Assert.True(steer.Direction.X > 0.5f, $"walks toward the edge: {steer.Direction}");
+    }
+
+    [Fact]
     public void The_A2_strategy_runs_only_in_Annihilation_on_the_imported_Classic_maps()
     {
         Assert.True(ClassicBotBrain.RoutesAllowed("mp_tdm_01", seizeGround: false, oldRoutes: false, routes: 4));

@@ -139,6 +139,11 @@ public sealed class NavAgent(NavGraph graph)
     public float JumpMissDistance { get; init; } = 3f;
     /// <summary>Height difference (metres) within which the bot counts as on a waypoint's level.</summary>
     public float LevelTolerance { get; init; } = 0.25f;
+    /// <summary>
+    /// Bots A2 (2026-11-25; ours; default off, so other users keep the flat arrival): the most metres of height between the bot and the path's last waypoint at which it counts as
+    /// arrived. Without it a path ending in a drop counted as reached at the ledge (the landing 1 m away flat, 9 m down) and the bot stood on the edge (Hab Center, the 12 m drops).
+    /// </summary>
+    public float ArriveMaxDz { get; init; } = float.PositiveInfinity;
 
     /// <summary>The current path (null before the first plan or when none was found).</summary>
     public NavPath? Path { get; private set; }
@@ -379,7 +384,7 @@ public sealed class NavAgent(NavGraph graph)
         // Stuck: little movement over the window while steering.
         if (now - _checkAt >= StuckWindow)
         {
-            bool arrivedNow = Flat(position, goal) <= ArriveRadius || _resting;
+            bool arrivedNow = (Flat(position, goal) <= ArriveRadius && MathF.Abs(position.Z - goal.Z) <= ArriveMaxDz) || _resting;
             if (!arrivedNow && Flat(position, _checkPos) < StuckDistance)
             {
                 StuckCount++;
@@ -533,9 +538,10 @@ public sealed class NavAgent(NavGraph graph)
         float remaining = toTarget;
         for (int k = Waypoint + 1; k <= last; k++) remaining += Vector3.Distance(wps[k - 1].Position, wps[k].Position);
         Remaining = remaining;
-        if (Waypoint == last && !path.Partial && toTarget <= ArriveRadius)
+        bool onLevel = MathF.Abs(position.Z - target.Z) <= ArriveMaxDz;   // a drop's landing below is not reached from the ledge above it
+        if (Waypoint == last && !path.Partial && toTarget <= ArriveRadius && onLevel)
             return new NavSteer(Vector2.Zero, 0f, true, true, false, false);
-        if (Waypoint == last && path.Partial && toTarget <= ArriveRadius)
+        if (Waypoint == last && path.Partial && toTarget <= ArriveRadius && onLevel)
         {
             // As near as the graph gets to a goal it does not reach: stop here.
             Unreachable = Flat(position, goal) > ArriveRadius;

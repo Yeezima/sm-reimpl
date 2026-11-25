@@ -71,7 +71,7 @@ public sealed partial class ClassicBotBrain
                 }
                 return best;
             };
-        return new NavAgent(graph) { Background = !_options.SyncPlans, EscapeOffGraph = rules, ExcludeStuckDrops = rules, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
+        return new NavAgent(graph) { Background = !_options.SyncPlans, EscapeOffGraph = rules, ExcludeStuckDrops = rules, ArriveMaxDz = rules && !BotOldDrops ? ArriveMaxDz : float.PositiveInfinity, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
     }
 
     const double NavLogEvery = 5.0;              // seconds between the bot's "nav:" log lines
