@@ -279,7 +279,14 @@ public partial class MapmakerDock
     int _viewCacheVersion;
 
     /// <summary>Releases the 3D view's material handles (on the way out; see <see cref="MaterialBuild.Cache"/>). The next <see cref="ApplyMaterialsToView"/> builds them again.</summary>
-    void ReleaseMaterialViews() { _viewCache?.Dispose(); _viewCache = null; _viewCacheKey = ""; }
+    void ReleaseMaterialViews() { _viewCache?.Dispose(); _viewCache = null; _viewCacheKey = ""; _materialEditor?.ReleasePreview(); }
+
+    /// <summary>A material's part of the view cache key: its id and what it resolves to (the surface drawn), or its unresolvable text (the error note shows).</summary>
+    static string ResolvedKey(MaterialGraph m)
+    {
+        try { return m.Id + "=" + m.Resolve(); }
+        catch (MapException) { return m.Id + "!" + m.ToNode().ToJsonString(); }
+    }
 
     /// <summary>
     /// Draws every drawn piece of the open map with its material (<see cref="PieceViews.ApplySurface"/>, the game's builder) after each change, undo, redo and open; a piece whose content
@@ -289,8 +296,16 @@ public partial class MapmakerDock
     {
         if (_plugin.Session is not { } s) return;
         var doc = s.Document;
-        string key = $"{s.Path}|{MapHost.Library.Root}|" + string.Join(",", doc.Materials.Select(m => m.ToNode().ToJsonString())) + "|" + string.Join(",", doc.Images.Select(i => i.Id));
-        if (key != _viewCacheKey || _viewCache is null) { _viewCache = new MaterialBuild.Cache(doc, s.Path, MapHost.Library); _viewCacheKey = key; _viewCacheVersion++; }
+        // keyed on what each material resolves to (moving a graph node or renaming the material changes nothing drawn) and on the images listed; the old cache's handles are
+        // released, and its decoded pictures are taken over (an image id is its SHA-256: the same id is the same picture)
+        string key = $"{s.Path}|{MapHost.Library.Root}|" + string.Join(",", doc.Materials.Select(ResolvedKey)) + "|" + string.Join(",", doc.Images.Select(i => i.Id));
+        if (key != _viewCacheKey || _viewCache is null)
+        {
+            var old = _viewCache;
+            _viewCache = new MaterialBuild.Cache(doc, s.Path, MapHost.Library, old);
+            old?.Dispose();
+            _viewCacheKey = key; _viewCacheVersion++;
+        }
         var preview = _plugin.ActiveDrag?.Preview;
         foreach (var o in doc.Objects)
         {

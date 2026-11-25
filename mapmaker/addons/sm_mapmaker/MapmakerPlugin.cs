@@ -92,12 +92,14 @@ public partial class MapmakerPlugin : EditorPlugin
         SceneSaved -= OnSceneSaved;
         FreeDetachedNodes(); _nodes.Clear(); _stash.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
-        if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
+        // the gizmo plugin's handle is released here, on the main thread: left to the finalizer thread (any later GC, e.g. the material test's) its release removes the
+        // gizmos from the scene's nodes off the main thread (Godot's thread guard: "can't call remove_gizmo()", M5 review)
+        if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo.Dispose(); _gizmo = null; }
         Thumbs?.QueueFree(); Thumbs = null;
         MapHost.Shutdown();
         if (MapHost.Plugin == this) MapHost.Plugin = null;
-        // Let the finalizers of handles nothing holds any more run now, while the engine is whole, instead of racing Godot .NET's shutdown sweep (MaterialBuild.Cache).
-        GC.Collect(); GC.WaitForPendingFinalizers();
+        // No forced GC here (M5 review): it handed the gizmo plugin's teardown to the finalizer thread (16 thread-guard errors at exit). The material handles are released
+        // explicitly instead (MapmakerDock._ExitTree -> ReleaseMaterialViews); MaterialTest keeps its own collection.
     }
 
     static ISm1Source? SafeInstalled()

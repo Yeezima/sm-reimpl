@@ -28,10 +28,29 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     bool _failed;
     int _step;
 
-    void Say(string line)
+    /// <summary>Logs a line: the result file first (it survives a stuck engine), then the console unless <paramref name="print"/> is false (the watchdog's thread never calls into Godot).</summary>
+    void Say(string line, bool print = true)
     {
-        GD.Print("FLOW " + line);
         lock (_log) { _log.Add(line); try { File.WriteAllLines(Path.Combine(_out, "flow-result.txt"), _log); } catch (IOException) { } }
+        if (print) GD.Print("FLOW " + line);
+    }
+
+    /// <summary>
+    /// Awaits work that is not a frame (a background load, a plugin call that awaits its own frames) as progress: the watchdog does not count the time it takes as a stall, and its
+    /// end counts as a frame.
+    /// </summary>
+    async Task<T> Busy<T>(Task<T> work)
+    {
+        System.Threading.Interlocked.Increment(ref _busy);
+        try { return await work; }
+        finally { System.Threading.Interlocked.Decrement(ref _busy); System.Threading.Interlocked.Exchange(ref _lastFrame, System.Environment.TickCount64); }
+    }
+
+    async Task Busy(Task work)
+    {
+        System.Threading.Interlocked.Increment(ref _busy);
+        try { await work; }
+        finally { System.Threading.Interlocked.Decrement(ref _busy); System.Threading.Interlocked.Exchange(ref _lastFrame, System.Environment.TickCount64); }
     }
 
     // ---- stall watchdog -------------------------------------------------------------------------------------------------------------------------------------
@@ -42,6 +61,8 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     long _lastFrame = System.Environment.TickCount64;
     System.Threading.Timer? _watchdog;
     int _stalled;
+    /// <summary>Non-frame awaits in flight (<see cref="Busy{T}"/>): progress, not a stall.</summary>
+    int _busy;
 
     void StartWatchdog()
     {
@@ -49,13 +70,15 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         _lastFrame = System.Environment.TickCount64;
         _watchdog = new System.Threading.Timer(_ =>
         {
+            if (System.Threading.Volatile.Read(ref _busy) > 0) { System.Threading.Interlocked.Exchange(ref _lastFrame, System.Environment.TickCount64); return; }
             long idle = System.Environment.TickCount64 - System.Threading.Interlocked.Read(ref _lastFrame);
             if (idle < seconds * 1000 || System.Threading.Interlocked.Exchange(ref _stalled, 1) == 1) return;
             string last; lock (_log) last = _log.Count > 0 ? _log[^1] : "(nothing)";
             long mb = System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / (1024 * 1024);
-            Say($"FAIL stalled: the editor processed no frame for {idle / 1000} s after \"{last}\" (process private memory {mb} MB; a log full of \"VkResult error -2\" means the GPU or the system ran out of memory)");
-            Say("FLOW RESULT FAIL");
-            System.Console.Out.Flush();
+            // the file is written and the process ends without calling into Godot from this thread (a stuck engine could block GD.Print)
+            Say($"FAIL stalled: the editor processed no frame for {idle / 1000} s after \"{last}\" (process private memory {mb} MB; a log full of \"VkResult error -2\" means the GPU or the system ran out of memory)", print: false);
+            Say("FLOW RESULT FAIL", print: false);
+            try { System.Console.Error.WriteLine("FLOW FAIL stalled; see flow-result.txt"); } catch (Exception) { }
             ExitProcess(3);
         }, null, 5000, 5000);
     }
@@ -265,7 +288,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
             EditorInterface.Singleton.OpenSceneFromPath(path);
             for (int i = 0; i < 120 && EditorInterface.Singleton.GetEditedSceneRoot()?.SceneFilePath != path; i++) await Frames(3);
             await Frames(15);
-            await plugin.AddMapToCurrentScene();
+            await Busy(plugin.AddMapToCurrentScene());
             for (int i = 0; i < copies; i++) plugin.PlaceAt(cover, new Godot.Vector3(6 * i, 0, 0));
             EditorInterface.Singleton.SaveScene(); await Frames(20);
         }
@@ -402,7 +425,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         string tab2 = "res://Maps/FlowTab2.tscn";
         Say("two tabs: start");
         Sm1Source? source = null;
-        try { if (!Flag("--mm-no-sm1")) source = await Task.Run(() => Sm1Source.Load("mp_tdm_09")); }
+        try { if (!Flag("--mm-no-sm1")) source = await Busy(Task.Run(() => Sm1Source.Load("mp_tdm_09"))); }
         catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { Say("two tabs: SM1 map not available here (" + e.Message + "); using a prefab made from two blocks instead"); }
         var root1 = MapHost.Root!;
         if (source is not null)
@@ -446,7 +469,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         Check(!plugin.ReadyToPlace() && EditorInterface.Singleton.GetEditedSceneRoot()?.SceneFilePath == tab2, "placing there asks to add a map and does not jump back to tab 1");
         await Frames(10);
         foreach (var d in dock.GetChildren().OfType<ConfirmationDialog>().Where(d => d.Title == "Not a Mapmaker map" && d.Visible)) { Check(d.DialogText.Contains("Add one here"), "the dialog offers to add a Mapmaker map to this tab"); d.Hide(); }
-        Check(await plugin.AddMapToCurrentScene() && plugin.EditedHasMap && plugin.Session is { } s2 && s2.Document.Objects.Count == 0 && Doc() != doc1, "Add a Mapmaker map here: tab 2 has its own empty map");
+        Check(await Busy(plugin.AddMapToCurrentScene()) && plugin.EditedHasMap && plugin.Session is { } s2 && s2.Document.Objects.Count == 0 && Doc() != doc1, "Add a Mapmaker map here: tab 2 has its own empty map");
         MapHost.Armed = new LibraryItem(LibraryKind.Prefab, "flow-piece", "Flow piece"); MapHost.Tool = Tool.Place;
         await Frames(20);
         Move(WinGame(0, 0, 0)); await Frames(10);
@@ -510,7 +533,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
 
             // 1. A new map from a layout: one press.
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await dock.TestNewFromLayout("Flow Arena", "arena");
+            await Busy(dock.TestNewFromLayout("Flow Arena", "arena"));
             await Frames(60);
             Check(plugin.Session is { } s && s.Document.Objects.Count > 20, $"New map from the arena layout made {plugin.Session?.Document.Objects.Count} pieces in {watch.ElapsedMilliseconds} ms");
             Check(plugin.Session?.Path is { } p && File.Exists(p), $"the new map was saved at once ({plugin.Session?.Path})");

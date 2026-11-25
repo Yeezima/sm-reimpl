@@ -269,6 +269,13 @@ public sealed class CustomMap
                 }
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             }
+            // A marker with no inside (a hostile or damaged file's flat mesh, or a scale far below the 1/4096 m grid) is left out with a note: the simulation refuses an empty record shape
+            // (SpawnBlocker.Checked, the start area and control point setters), and one bad marker must not take the whole map down in smtool, the server or the editor's check.
+            if (EmptyShape(size, centre, edited))
+            {
+                notes.Add($"'{o.Name}' ({o.Id}) is left out: its shape has no inside (thinner than the 1/4096 m grid along one of its axes).");
+                continue;
+            }
             // An edited marker's exact shape: kept in Volumes under the record's name and carried by the record into the simulation (plan M2: inside the shape counts, inside only its box does not).
             // Unedited markers get none, so their records and every rule that reads them are exactly as before.
             MeshVolume? Exact(string recordName)
@@ -365,6 +372,20 @@ public sealed class CustomMap
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
         return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes, RecordIds = recordIds };
+    }
+
+    /// <summary>
+    /// True when a marker's record box (<paramref name="size"/> at <paramref name="centre"/>) is not finite or has a zero size, or its edited world vertices (<paramref name="edited"/>, on the
+    /// 1/4096 m grid) span nothing along an axis: such a marker has no inside and is left out of the compiled map.
+    /// </summary>
+    internal static bool EmptyShape(Vector3 size, Vector3 centre, Vector3[]? edited)
+    {
+        static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
+        if (!Finite(size) || !Finite(centre) || !(size.X > 0f && size.Y > 0f && size.Z > 0f)) return true;
+        if (edited is null) return false;
+        var lo = edited.Aggregate(Vector3.Min);
+        var hi = edited.Aggregate(Vector3.Max);
+        return !(hi.X > lo.X && hi.Y > lo.Y && hi.Z > lo.Z);
     }
 
     /// <summary>An edited shape's unit-space triangles (faces fanned from their first vertex).</summary>

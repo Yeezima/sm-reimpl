@@ -101,7 +101,7 @@ internal sealed partial class Batch
             : ["The map file is nearly full, so the spawn areas, doors and capture points were not added; the check will ask for them."];
         // The 8 MB file limit: drop the placements Classic hides first, then the visible ones (last first); the gameplay pieces always stay.
         int bySize = 0, hiddenBySize = 0;
-        while ((shownObjs.Count > 0 || hiddenObjs.Count > 0) && Doc.ToJson().Length > MapDocument.MaxChars)
+        while ((shownObjs.Count > 0 || hiddenObjs.Count > 0) && MapDocument.FileBytes(Doc.ToJson()) > MapDocument.MaxChars)
         {
             var from = hiddenObjs.Count > 0 ? hiddenObjs : shownObjs;
             int drop = Math.Max(1, (shownObjs.Count + hiddenObjs.Count) / 20);

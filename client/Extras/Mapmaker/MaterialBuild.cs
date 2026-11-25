@@ -89,7 +89,7 @@ public static class MaterialBuild
     /// <summary>A texture from a decoded picture: a copy with the green channel flipped when asked, mipmaps generated.</summary>
     public static ImageTexture Texture(Image picture, bool flipGreen)
     {
-        var image = (Image)picture.Duplicate();
+        using var image = (Image)picture.Duplicate();   // the texture keeps its own copy of the pixels: the working copy's handle is released at once
         if (flipGreen) FlipGreen(image);
         if (!image.HasMipmaps()) image.GenerateMipmaps();
         return ImageTexture.CreateFromImage(image);
@@ -136,8 +136,11 @@ public static class MaterialBuild
     /// <see cref="Dispose"/> releases the C# handles of everything it built (the engine keeps what a mesh still uses). Callers that live until the engine quits (the editor's 3D view)
     /// dispose it on the way out, so no handle is left for Godot .NET's shutdown sweep (an editor test once crashed at exit there: 0xC0000005 in
     /// <c>DisposablesTracker.OnGodotShuttingDown</c>, M4 verification 2026-11-25; our reading: the sweep and the finalizer thread releasing the same handle).
+    /// <para><paramref name="reuse"/> (a cache this one replaces): its decoded pictures and their textures for the images <paramref name="doc"/> still lists are taken over, not decoded
+    /// again. An image id is the SHA-256 of its bytes, so the same id is the same picture wherever it is read from. The caller still disposes <paramref name="reuse"/>, which then releases
+    /// only what was not taken over.</para>
     /// </remarks>
-    public sealed class Cache(MapDocument doc, string? mapPath, MapLibrary library) : IDisposable
+    public sealed class Cache(MapDocument doc, string? mapPath, MapLibrary library, Cache? reuse = null) : IDisposable
     {
         public void Dispose()
         {
@@ -148,9 +151,28 @@ public static class MaterialBuild
         }
 
         readonly Dictionary<string, StandardMaterial3D?> _built = new();
-        readonly Dictionary<(string, bool), Texture2D?> _textures = new();
-        readonly Dictionary<string, Image?> _pictures = new();
+        readonly Dictionary<(string, bool), Texture2D?> _textures = reuse?.HandOverTextures(doc) ?? new();
+        readonly Dictionary<string, Image?> _pictures = reuse?.HandOverPictures(doc) ?? new();
         public List<string> Notes { get; } = new();
+
+        /// <summary>Moves the decoded pictures of the images <paramref name="next"/> lists out of this cache (a missing one is not carried: the next cache looks again).</summary>
+        Dictionary<string, Image?> HandOverPictures(MapDocument next)
+        {
+            var keep = new Dictionary<string, Image?>();
+            foreach (var img in next.Images)
+                if (_pictures.Remove(img.Id, out var p) && p is not null) keep[img.Id] = p;
+            return keep;
+        }
+
+        /// <summary>Moves the textures made from the images <paramref name="next"/> lists out of this cache (keyed by image id and green flip, so content-addressed too).</summary>
+        Dictionary<(string, bool), Texture2D?> HandOverTextures(MapDocument next)
+        {
+            var ids = next.Images.Select(i => i.Id).ToHashSet(StringComparer.Ordinal);
+            var keep = new Dictionary<(string, bool), Texture2D?>();
+            foreach (var key in _textures.Keys.Where(k => ids.Contains(k.Item1)).ToList())
+                if (_textures.Remove(key, out var t) && t is not null) keep[key] = t;
+            return keep;
+        }
 
         public StandardMaterial3D? For(string? materialId)
         {

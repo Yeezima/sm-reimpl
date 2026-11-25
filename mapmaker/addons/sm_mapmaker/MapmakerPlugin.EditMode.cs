@@ -21,6 +21,8 @@ public partial class MapmakerPlugin
     public bool EditMode { get; private set; }
     public ComponentMode ComponentMode { get; private set; } = ComponentMode.Face;
     readonly List<string> _editIds = new();
+    /// <summary>The pieces whose <c>_edit_lock_</c> Edit mode set (they had none): only these lose it when Edit mode ends, so a lock the maker set stays.</summary>
+    readonly HashSet<string> _editLocked = new();
     readonly Dictionary<string, SortedSet<int>> _compSel = new();
     string? _activeEdit;
     (string? Path, string Name) _editDoc;
@@ -79,7 +81,8 @@ public partial class MapmakerPlugin
             _editNodes.Clear();
             foreach (var id in pieces) if (NodeOf(id) is { } en) _editNodes[id] = en.GetInstanceId();
             EditMode = true;
-            foreach (var id in _editIds) if (NodeOf(id) is { } n) { n.SetMeta("_edit_lock_", true); n.UpdateGizmos(); }   // Godot's move gizmo leaves them alone while their shape is edited
+            _editLocked.Clear();
+            foreach (var id in _editIds) if (NodeOf(id) is { } n) { LockForEdit(id, n); n.UpdateGizmos(); }   // Godot's move gizmo leaves them alone while their shape is edited
             int skipped = picked.Count - pieces.Count;
             SetStatus($"Edit mode on {pieces.Count} piece(s){(skipped > 0 ? $" ({skipped} selected object(s) without an editable shape left out)" : "")}: 1 / 2 / 3 vertex, edge, face; click to select; G / R / S then X / Y / Z and a number; Tab back to Object mode.");
         }
@@ -87,7 +90,8 @@ public partial class MapmakerPlugin
         {
             if (_drag is not null) CancelEdit();
             EditMode = false;
-            foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n)) { if (n.HasMeta("_edit_lock_")) n.RemoveMeta("_edit_lock_"); n.UpdateGizmos(); }
+            foreach (var id in _editIds) if (NodeOf(id) is { } n && GodotObject.IsInstanceValid(n)) { if (_editLocked.Contains(id) && n.HasMeta("_edit_lock_")) n.RemoveMeta("_edit_lock_"); n.UpdateGizmos(); }
+            _editLocked.Clear();
             _editIds.Clear(); _compSel.Clear(); _activeEdit = null;
             SetStatus("Object mode.");
         }
@@ -95,6 +99,14 @@ public partial class MapmakerPlugin
         RefreshEditViews();
         EditChanged?.Invoke();
         return true;
+    }
+
+    /// <summary>Locks <paramref name="n"/> against Godot's move gizmo for the edit, remembering that Edit mode set it (a node that already had the lock keeps it afterwards).</summary>
+    void LockForEdit(string id, Node n)
+    {
+        if (n.HasMeta("_edit_lock_")) return;
+        n.SetMeta("_edit_lock_", true);
+        _editLocked.Add(id);
     }
 
     /// <summary>1 / 2 / 3. The selection converts the way Blender's does: what the selected vertices fully cover in the new mode.</summary>
@@ -583,7 +595,7 @@ public partial class MapmakerPlugin
             int count = ComponentMode switch { ComponentMode.Vertex => mesh.Vertices.Count, ComponentMode.Edge => mesh.Edges.Count, _ => mesh.Faces.Count };
             _compSel[id].RemoveWhere(c => c >= count);
         }
-        foreach (var id in _editIds) if (NodeOf(id) is { } n && !n.HasMeta("_edit_lock_")) n.SetMeta("_edit_lock_", true);
+        foreach (var id in _editIds) if (NodeOf(id) is { } n) LockForEdit(id, n);
         RefreshEditViews();
         EditChanged?.Invoke();
     }
@@ -679,7 +691,7 @@ public partial class MapmakerPlugin
         bool hovered = EditKeysAnywhere || ViewportHovered(_mouse);
         if (!EditMode)
         {
-            if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false } && hovered && EditedHasMap)
+            if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab, CtrlPressed: false, AltPressed: false, ShiftPressed: false } && hovered && EditedHasMap && !TextHasFocus())
             {
                 SetEditMode(true);
                 GetViewport().SetInputAsHandled();
@@ -710,11 +722,20 @@ public partial class MapmakerPlugin
                 return true;
             case InputEventKey { Pressed: true } k:
                 if (!hovered && _drag is null) return false;
+                if (_drag is null && TextHasFocus()) return false;   // typing in a field (a name, a number, a search) is the field's, Tab included; a drag keeps its keys
                 if (_drag is null && Input.IsMouseButtonPressed(MouseButton.Right)) return false;   // right mouse held: WASD / QE fly the camera
                 if (HandleEditKey(k)) { GetViewport().SetInputAsHandled(); return true; }
                 return false;
         }
         return false;
+    }
+
+    /// <summary>True when keyboard focus is in a text field (LineEdit, including a SpinBox's, or TextEdit) of the editor or the Mapmaker dock's window.</summary>
+    bool TextHasFocus()
+    {
+        static bool IsText(Control? c) => c is LineEdit or TextEdit;
+        if (IsText(GetViewport()?.GuiGetFocusOwner())) return true;
+        return _dock is { } d && GodotObject.IsInstanceValid(d) && d.GetViewport() is { } dv && dv != GetViewport() && IsText(dv.GuiGetFocusOwner());
     }
 
     /// <summary>Test aid: an input event through Edit mode's handler, as the 3D view would pass it.</summary>

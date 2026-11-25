@@ -124,12 +124,15 @@ public sealed class MapSession
         batch.Doc.PruneGroups();
         // The document a batch leaves must still be one every build reads back: its file as Save writes it (UTF-8, with the prefabs Save embeds) within the limit.
         string after = batch.Doc.ToJson();
-        long bytes = Encoding.UTF8.GetByteCount(after);
-        if (batch.Doc.Objects.Any(o => o.Prefab is not null))
+        long bytes = MapDocument.FileBytes(after);
+        // The exact pass (the whole file re-serialised with the prefabs Save would embed) runs only when an upper bound says the file could be near the limit: the document as it is plus
+        // every used prefab's own text with the indentation it gets inside the map (cached per definition). An ordinary edit on a map with prefabs serialises the document once.
+        List<Prefab>? used = batch.Doc.Objects.Any(o => o.Prefab is not null) ? UsedPrefabs(batch.Doc, id => { try { return batch.GetPrefab(id); } catch (MapException) { return null; } }) : null;
+        if (used is not null && bytes + used.Sum(EmbeddedBytesBound) + 32 > MapDocument.MaxChars)
         {
             var saved = batch.Doc.Clone();
-            saved.EmbeddedPrefabs = UsedPrefabs(saved, id => { try { return batch.GetPrefab(id); } catch (MapException) { return null; } });
-            bytes = Encoding.UTF8.GetByteCount(saved.ToJson());
+            saved.EmbeddedPrefabs = used;
+            bytes = MapDocument.FileBytes(saved.ToJson());
         }
         if (bytes > MapDocument.MaxChars)
             return Failure(new OpError("too-big", $"The map would be larger than {MapDocument.MaxChars / 1_000_000} MB.", "commit"), dryRun);
@@ -437,6 +440,19 @@ public sealed class MapSession
     }
 
     void EmbedUsedPrefabs() => Document.EmbeddedPrefabs = UsedPrefabs(Document, id => { try { return Library.GetPrefab(id); } catch (MapException) { return null; } });
+
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Prefab, System.Runtime.CompilerServices.StrongBox<long>> EmbeddedBytes = new();
+
+    /// <summary>
+    /// At least the bytes <paramref name="p"/> adds to a saved map file: its canonical text at depth 0, plus the 4 spaces per line it is indented by inside the map's <c>prefabs</c> list,
+    /// plus a separator. Cached per definition (prefabs are immutable records).
+    /// </summary>
+    static long EmbeddedBytesBound(Prefab p) => EmbeddedBytes.GetValue(p, x =>
+    {
+        string text = CanonicalJson.Write(x.ToNode());
+        long lines = text.Count(c => c == '\n') + 1;
+        return new System.Runtime.CompilerServices.StrongBox<long>(MapDocument.FileBytes(text) + 4 * lines + 8);
+    }).Value;
 
     /// <summary>The prefabs <paramref name="doc"/>'s objects use (and the prefabs those use): from <paramref name="lookup"/> first, else the ones the document already embeds.</summary>
     static List<Prefab> UsedPrefabs(MapDocument doc, Func<string, Prefab?> lookup)

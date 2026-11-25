@@ -204,7 +204,7 @@ internal sealed partial class Batch
             }
             // the 8 MB file limit: drop what this run added, hidden placements first, last first (what is dropped is listed under skipped and comes back as "added" next time)
             var drop = new List<(MapObject Obj, JsonObject Row, bool Hidden)>();
-            while (made.Count > 0 && Doc.ToJson().Length > MapDocument.MaxChars)
+            while (made.Count > 0 && MapDocument.FileBytes(Doc.ToJson()) > MapDocument.MaxChars)
             {
                 var pool = made.Any(m => m.Hidden) ? made.Where(m => m.Hidden).ToList() : made;
                 int n = Math.Min(Math.Max(1, made.Count / 20), pool.Count);

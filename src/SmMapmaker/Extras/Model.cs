@@ -244,6 +244,8 @@ public sealed record MapObject(
         {
             if (piece is null) throw new MapException("bad-file", $"{what}: only a piece has an editable mesh.");
             mesh = EditMesh.FromNode(meshNode, piece, what + ".mesh", "bad-file");
+            // a flat stored shape has no inside (a hostile or damaged file; the editor never writes one). A thin but not flat one (a scale far below the grid) is the compiler's to leave out.
+            if (mesh.IsFlat) throw new MapException("bad-file", $"{what}.mesh: the shape is flat (it spans nothing along one of its axes).");
             if (mesh.IsStock) mesh = null;   // the stock shape is written as no mesh: one way to write it
         }
         var material = Json.Str(o["material"], what + ".material", nullable: true);
@@ -467,9 +469,12 @@ public sealed class MapDocument
     public const int MaxChars = 8_000_000, MaxObjects = 20_000, MaxPieces = 5_000, MaxNameLength = 200, MaxGroups = 5_000;
     public const float MaxPosition = 100_000f, MaxScale = 10_000f;
 
+    /// <summary>The size of a document's text as a saved file (UTF-8 bytes, no BOM): what every size limit compares with <see cref="MaxChars"/> (bytes, despite the name).</summary>
+    public static long FileBytes(string json) => System.Text.Encoding.UTF8.GetByteCount(json);
+
     public static MapDocument Parse(string json)
     {
-        if (json.Length > MaxChars) throw new MapException("too-big", $"The map file is larger than {MaxChars / 1_000_000} MB.");
+        if (json.Length > MaxChars || FileBytes(json) > MaxChars) throw new MapException("too-big", $"The map file is larger than {MaxChars / 1_000_000} MB.");
         var o = Json.Obj(Json.ParseText(json, "The map"), "The map");
         if (Json.Str(o["format"], "format", nullable: true) != FormatName) throw new MapException("bad-file", "Not a .smmap document (format must be \"smmap\").");
         if (o["formatVersion"] is null) throw new MapException("bad-file", "The map has no formatVersion.");

@@ -94,6 +94,15 @@ public sealed class EditMesh
         catch (MapException e) { throw new MapException(code, $"{what}: {e.Message}"); }
     }
 
+    /// <summary>
+    /// True when the unit-space vertices span nothing along an axis (all on one plane, line or point): no inside. No edit makes one (<see cref="MeshOps"/> keeps
+    /// <see cref="MeshOps.MinExtent"/> in sized space), so only a damaged or hostile file carries it.
+    /// </summary>
+    public bool IsFlat
+    {
+        get { var b = UnitBounds(); return !(b.Max.X > b.Min.X && b.Max.Y > b.Min.Y && b.Max.Z > b.Min.Z); }
+    }
+
     public bool SameAs(EditMesh? other) =>
         other is not null && other.Topology == Topology && other.Vertices.SequenceEqual(Vertices) && (other.FaceSlots ?? []).SequenceEqual(FaceSlots ?? []);
 }

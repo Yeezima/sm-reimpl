@@ -341,6 +341,14 @@ public partial class MaterialEditor : Window
     // ---- preview: a 2 m block lit from an angle, drawn by the game's builder ----
 
     MeshInstance3D? _previewMesh;
+    MaterialBuild.Cache? _previewCache;
+
+    /// <summary>Releases the preview's material handles (on the way out, with the dock's view cache; see <see cref="MaterialBuild.Cache"/>).</summary>
+    public void ReleasePreview()
+    {
+        if (_previewMesh is not null && GodotObject.IsInstanceValid(_previewMesh)) _previewMesh.MaterialOverride = null;
+        _previewCache?.Dispose(); _previewCache = null;
+    }
 
     void BuildPreviewScene()
     {
@@ -363,8 +371,11 @@ public partial class MaterialEditor : Window
     void UpdatePreview(MaterialGraph g)
     {
         if (_previewMesh is null || _plugin.Session is not { } s) return;
-        var cache = new MaterialBuild.Cache(s.Document, s.Path, MapHost.Library);
+        // the previous preview's cache is released once its material is off the sphere; its decoded pictures are taken over (content-addressed), so a slider drag does not decode again
+        var old = _previewCache;
+        var cache = _previewCache = new MaterialBuild.Cache(s.Document, s.Path, MapHost.Library, old);
         _previewMesh.MaterialOverride = cache.For(g.Id);
+        old?.Dispose();
         _previewNote.Text = cache.Notes.Count == 0 ? DescribeResolved(g) : string.Join("\n", cache.Notes);
     }
 
