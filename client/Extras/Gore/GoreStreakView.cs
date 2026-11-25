@@ -153,6 +153,7 @@ void fragment() {
     float hole = 1.0 - 0.45 * v_grit;                                           // GoreStreakRules.HoleThreshold
     cov *= 1.0 - clamp((g.g - hole) / max(1.5 * fwidth(g.g), 1e-4) + 0.5, 0.0, 1.0);
     cov *= v_on;
+    if (cov <= 0.002) discard;   // nothing outside the blood: the Compatibility renderer's multiply pass darkened the whole quad where it should have multiplied by 1
     float dens = 0.55 + 0.45 * g.r;                                            // GoreStreakRules.Density
 {{(strip ? $$"""
     float s3 = cov * cov * cov;
