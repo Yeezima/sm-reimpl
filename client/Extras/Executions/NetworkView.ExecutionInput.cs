@@ -96,6 +96,7 @@ public partial class NetworkView
         _hudView.ExecutionPrompt = null;
         var rows = ExecutionRowsOf(config).Rows;
         var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out _), rows);
+        if (hidden == ExecutionPromptHidden.None && client.Match.State is MatchState.Countdown or MatchState.Ended) hidden = ExecutionPromptHidden.NotInPlay;   // X3: a press outside play is refused
         Vector3? anchor = null;
         if (hidden == ExecutionPromptHidden.None)
         {

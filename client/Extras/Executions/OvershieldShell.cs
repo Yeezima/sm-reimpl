@@ -38,9 +38,9 @@ public sealed class OvershieldShell
         }
         void fragment() {
             float facing = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
-            float rim = pow(1.0 - facing, 2.0);
+            float rim = pow(1.0 - facing, 3.0);
             ALBEDO = tint.rgb;
-            ALPHA = clamp((0.10 + 0.9 * rim) * strength, 0.0, 1.0);
+            ALPHA = clamp((0.04 + 0.6 * rim) * strength, 0.0, 1.0);   // soft: a faint film with a brighter rim (the owner's "soft blue shield")
         }
         """;
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using SmNet.Extras.Musou;
@@ -13,7 +13,7 @@ namespace SmClient;
 public enum ExecutionPromptHidden : byte
 {
     None, NotAlive, Spectating, Executing, Puppet, Airborne, Busy, NoFamily, OrkPlayer, NoRows,
-    NotInBattle, ChaosRun, Cooldown, NoEnemyNear, NoFit, NoOffer, Throttled,
+    NotInBattle, ChaosRun, Cooldown, NoEnemyNear, NoFit, NoOffer, Throttled, Reaction, NotInPlay,
 }
 
 /// <summary>
@@ -57,7 +57,7 @@ public static class ExecutionPromptRules
         return choice >= 0 && choice < loadout.MeleeChoices.Count ? loadout.MeleeChoices[choice].Wargear : null;
     }
 
-    /// <summary>The refusals every mode shares, cheapest first (the X3 order): alive, a human, not executing, grounded, not charging, evading or in a jump, a melee family, not an Ork, rows.</summary>
+    /// <summary>The refusals every mode shares, cheapest first (X3's <c>ExecutionsRefusal</c>): alive, a human, not executing, grounded, not in a reaction or flinch, not charging, evading or in a jump, a melee family, not an Ork, rows.</summary>
     public static ExecutionPromptHidden Common(SimConfig c, in PlayerState me, bool spectating, bool executing, IReadOnlyList<ExecutionRow> rows)
     {
         if (!me.Alive) return ExecutionPromptHidden.NotAlive;
@@ -65,6 +65,7 @@ public static class ExecutionPromptRules
         if (executing) return ExecutionPromptHidden.Executing;
         if (TfwContracts.IsPuppet(me.PlayerId)) return ExecutionPromptHidden.Puppet;   // retainers and AI Marines never execute (owner)
         if (!me.Grounded || me.Jump != JumpPhase.None) return ExecutionPromptHidden.Airborne;
+        if (me.Reaction != ReactionKind.None || me.ReactionTicks > 0 || me.FlinchTicks > 0) return ExecutionPromptHidden.Reaction;   // X3 refuses a press in a reaction or a flinch
         if (me.Rush != RushPhase.None || me.EvadeTicks > 0) return ExecutionPromptHidden.Busy;
         if (ExecutionWeapons.FamilyOf(MeleeKey(c, me)) is null) return ExecutionPromptHidden.NoFamily;
         if (!ExecutionTargets.CanExecute(Races.Of(c, me.Class, me.Team))) return ExecutionPromptHidden.OrkPlayer;

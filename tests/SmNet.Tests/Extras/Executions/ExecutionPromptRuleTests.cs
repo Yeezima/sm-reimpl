@@ -63,6 +63,7 @@ public class ExecutionPromptRuleTests
         Frame(Me() with { Alive = false }, true, null, 100, [boy]);
         Frame(Me() with { Grounded = false }, true, null, 100, [boy]);
         Frame(Me() with { Rush = RushPhase.Rush }, true, null, 100, [boy]);
+        Frame(Me() with { FlinchTicks = 3 }, true, null, 100, [boy]);       // X3 refuses a press in a flinch or reaction
         Frame(Me(), false, null, 100, [boy]);                                 // the hub or the travel
         Frame(Me(), true, 90, 100, [boy]);                                    // on cooldown
         Frame(Me(), true, null, 100, [Shown(5, new Vector3(0f, 3.2f, 0f))]); // nobody within 3 m
