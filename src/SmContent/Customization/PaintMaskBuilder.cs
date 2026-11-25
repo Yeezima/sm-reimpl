@@ -222,12 +222,10 @@ public static class PaintMaskBuilder
     }
 
     /// <summary>
-    /// <paramref name="m"/> with its primary region moved into <paramref name="plateChannel"/> (1 secondary, 2 tertiary) and that region into the primary channel,
-    /// medians and shares with them; <paramref name="m"/> itself for channel 0.
-    /// </summary>
-    /// <summary>
     /// <paramref name="m"/> with each source channel c moved to channel <paramref name="to"/>[c] (two sources may share a destination: their weights add, and the
-    /// destination keeps the median of the larger source); <paramref name="m"/> itself for the identity.
+    /// destination keeps the median of the larger source); <paramref name="m"/> itself for the identity. Round 4 (finding 3 of the round-3 re-gate): the merged
+    /// channel's single median shaded the smaller source against the larger one's brightness; <see cref="WithRegionStats"/> now gives each source its own median
+    /// (the medians kept here are only the fallback, and what <c>--old-region-stats</c> uses).
     /// </summary>
     public static MaskOnly Permute(MaskOnly m, IReadOnlyList<int> to)
     {
@@ -255,6 +253,10 @@ public static class PaintMaskBuilder
         return m with { Mask = mask, PlateMedian = outMed[0], SecondaryMedian = outMed[1], OrnamentMedian = outMed[2], Primary = outShare[0], Secondary = outShare[1], Tertiary = outShare[2] };
     }
 
+    /// <summary>
+    /// <paramref name="m"/> with its primary region moved into <paramref name="plateChannel"/> (1 secondary, 2 tertiary) and that region into the primary channel,
+    /// medians and shares with them; <paramref name="m"/> itself for channel 0.
+    /// </summary>
     public static MaskOnly Remap(MaskOnly m, int plateChannel)
     {
         if (plateChannel is not (1 or 2)) return m;
@@ -266,7 +268,78 @@ public static class PaintMaskBuilder
     }
 
     /// <summary>A built mask without its grey diffuse (what the cache keeps: <see cref="BakedArmourPaint.CacheDirectory"/>).</summary>
-    public sealed record MaskOnly(int Width, int Height, byte[] Mask, float PlateMedian, float SecondaryMedian, float OrnamentMedian, float Primary, float Secondary, float Tertiary);
+    /// <remarks>Round 4: <see cref="Group"/> and <see cref="GroupMedians"/> (set by <see cref="WithRegionStats"/>, never cached) give each texel the median of the
+    /// texels that came into its channel the same way, which <see cref="WithGrey(DdsImage, MaskOnly, Targets)"/> shades it against.</remarks>
+    public sealed record MaskOnly(int Width, int Height, byte[] Mask, float PlateMedian, float SecondaryMedian, float OrnamentMedian, float Primary, float Secondary, float Tertiary)
+    {
+        /// <summary>Per texel: how it came into the final mask (<see cref="StatGroups"/>; 0..2 kept from the builder's region of that index, 4..7 moved by region data
+        /// from the builder's region <see cref="MaskRegion"/> 0..3), or null (every texel shaded against its channel's median).</summary>
+        public byte[]? Group { get; init; }
+        /// <summary>Median luminance per channel and group (index channel x <see cref="StatGroups"/> + group); NaN where too few texels (the channel median is used).</summary>
+        public float[]? GroupMedians { get; init; }
+    }
+
+    /// <summary>The number of shading groups per channel (<see cref="MaskOnly.Group"/>).</summary>
+    public const int StatGroups = 8;
+
+    /// <summary>The fewest texels a shading group needs for its own median (ours; fewer: the channel's median).</summary>
+    public const int MinGroupTexels = 64;
+
+    /// <summary>
+    /// Round 4 (finding 1 of the round-3 re-gate, ours): the region statistics of the FINAL mask. Region data (<see cref="BuiltMaskOverrides"/>) moves texels between
+    /// regions after the builder, but the medians and shares stayed the builder's, so a moved texel was shaded against the brightness of texels it does not resemble:
+    /// bone dome texels put in a black plate's primary hit the dark-plate clamp and drew flat at 1.5 x the target, black rim texels put in a bone secondary drew
+    /// near-black. Each texel now belongs to a group (<see cref="MaskOnly.Group"/>): texels the data left alone are grouped by the builder region they came from (so
+    /// two builder regions merged into one channel by <see cref="Permute"/>, finding 3, keep their own brightness), texels the data moved are grouped by the builder
+    /// region they were moved from. Each channel and group gets the median luminance of its texels (mostly in that channel, 0.6 and more), and the shares are counted
+    /// on the final mask (finding 4: the "paints nothing" check and the logs read them).
+    /// </summary>
+    /// <param name="builder">The builder's own mask (before the channel map and the region data).</param>
+    /// <param name="permuted">The mask after the channel map, before the region data (texels that differ from it in <paramref name="final"/> were moved).</param>
+    /// <param name="covered">The texels the mesh covers (the shares' denominator), or null (every texel painted in either mask).</param>
+    public static MaskOnly WithRegionStats(MaskOnly builder, MaskOnly permuted, MaskOnly final, DdsImage diffuse, bool[]? covered = null)
+    {
+        int n = final.Width * final.Height;
+        if (builder.Mask.Length != n * 4 || permuted.Mask.Length != n * 4 || diffuse.Width != final.Width || diffuse.Height != final.Height)
+            throw new ArgumentException("the masks and the diffuse differ in size");
+        if (covered is not null && covered.Length != n) covered = null;
+        var group = new byte[n];
+        var lists = new List<float>[3 * StatGroups];
+        var channel = new List<float>[] { [], [], [] };
+        for (int k = 0; k < lists.Length; k++) lists[k] = [];
+        double sp = 0, ss = 0, st = 0;
+        int coveredCount = 0;
+        for (int i = 0; i < n; i++)
+        {
+            int o = i * 4;
+            byte b0 = builder.Mask[o], b1 = builder.Mask[o + 1], b2 = builder.Mask[o + 2];
+            byte f0 = final.Mask[o], f1 = final.Mask[o + 1], f2 = final.Mask[o + 2];
+            bool moved = f0 != permuted.Mask[o] || f1 != permuted.Mask[o + 1] || f2 != permuted.Mask[o + 2];
+            int g = moved ? 4 + (int)BuiltMaskOverrides.RegionOf(b0, b1, b2) : b0 >= b1 && b0 >= b2 ? 0 : b1 >= b2 ? 1 : 2;
+            group[i] = (byte)g;
+            bool isCovered = covered is not null ? covered[i] : f0 + f1 + f2 > 0 || b0 + b1 + b2 > 0;
+            if (!isCovered) continue;
+            coveredCount++;
+            float p = f0 / 255f, s = f1 / 255f, t = f2 / 255f, total = p + s + t;
+            if (total > 1f) { p /= total; s /= total; t /= total; }
+            sp += p; ss += s; st += t;
+            float lum = 0.2126f * diffuse.Rgba[o] + 0.7152f * diffuse.Rgba[o + 1] + 0.0722f * diffuse.Rgba[o + 2];
+            for (int c = 0; c < 3; c++)
+                if (final.Mask[o + c] >= 153) { channel[c].Add(lum); lists[c * StatGroups + g].Add(lum); }
+        }
+        float[] fallback = [final.PlateMedian, final.SecondaryMedian, final.OrnamentMedian];
+        var medians = new float[3];
+        for (int c = 0; c < 3; c++) medians[c] = Median(channel[c], fallback[c]);
+        var groupMedians = new float[3 * StatGroups];
+        for (int k = 0; k < groupMedians.Length; k++) groupMedians[k] = lists[k].Count >= MinGroupTexels ? Median(lists[k], float.NaN) : float.NaN;
+        float cov = Math.Max(1, coveredCount);
+        return final with
+        {
+            PlateMedian = medians[0], SecondaryMedian = medians[1], OrnamentMedian = medians[2],
+            Primary = (float)(sp / cov), Secondary = (float)(ss / cov), Tertiary = (float)(st / cov),
+            Group = group, GroupMedians = groupMedians,
+        };
+    }
 
     /// <summary>
     /// The grey paint diffuse of <paramref name="m"/> over <paramref name="diffuse"/>: a painted texel's luminance normalised by its region's median
@@ -283,7 +356,37 @@ public static class PaintMaskBuilder
     public readonly record struct Targets(float Primary, float Secondary, float Tertiary)
     {
         public static readonly Targets Default = new(RegularPlateLuminance, RegularPlateLuminance, RegularOrnamentLuminance);
+
+        /// <summary>
+        /// Round 4 (finding 2, ours): the highlight ceiling per channel (sRGB 0..255; 0 = none): the regular piece's 99th percentile, which the grey of a built texel
+        /// approaches softly instead of reaching up to 3 x its target (<see cref="Shoulder"/>). The regular armour's grey diffuse is narrow (99th percentile 1.2 to 1.35 x
+        /// its median on the plates), so a built dome shaded by ratio up to 3 x clipped white in light schemes (Ultramarines Champion right pad).
+        /// </summary>
+        public float PrimaryCeiling { get; init; }
+        public float SecondaryCeiling { get; init; }
+        public float TertiaryCeiling { get; init; }
+
+        /// <summary>These targets and ceilings times <paramref name="k"/> (a per-piece brightness scale).</summary>
+        public Targets Scaled(float k) => new(Primary * k, Secondary * k, Tertiary * k)
+            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k };
+
+        internal float Target(int c) => c == 0 ? Primary : c == 1 ? Secondary : Tertiary;
+        internal float Ceiling(int c) => c == 0 ? PrimaryCeiling : c == 1 ? SecondaryCeiling : TertiaryCeiling;
     }
+
+    /// <summary>
+    /// The soft highlight shoulder (round 4, ours): values up to the knee (the target plus <see cref="ShoulderKnee"/> of the way to the ceiling) are unchanged; above
+    /// it they approach the ceiling exponentially (continuous, slope 1 at the knee, never past the ceiling). No ceiling, or one at or below the target: unchanged.
+    /// </summary>
+    public static float Shoulder(float v, float target, float ceiling)
+    {
+        if (ceiling <= target || ceiling <= 0f) return v;
+        float knee = target + (ceiling - target) * ShoulderKnee, room = ceiling - knee;
+        return v <= knee ? v : knee + room * (1f - MathF.Exp(-(v - knee) / room));
+    }
+
+    /// <summary>Where the shoulder starts, as a share of the way from the target to the ceiling (ours).</summary>
+    public const float ShoulderKnee = 0.4f;
 
     /// <summary><see cref="WithGrey(DdsImage, MaskOnly)"/> with each paint channel's median mapped onto <paramref name="targets"/>.</summary>
     public static BuiltPaintMask WithGrey(DdsImage diffuse, MaskOnly m, Targets targets)
@@ -291,6 +394,14 @@ public static class PaintMaskBuilder
         int n = m.Width * m.Height;
         if (diffuse.Width != m.Width || diffuse.Height != m.Height) throw new ArgumentException("the mask and the diffuse differ in size", nameof(m));
         var outDif = new byte[n * 4];
+        float[] channelMedian = [m.PlateMedian, m.SecondaryMedian, m.OrnamentMedian];
+        bool groups = m.Group is { } gr && gr.Length == n && m.GroupMedians is { Length: 3 * StatGroups };
+        float Shade(float lum, int c, int i)
+        {
+            float med = channelMedian[c];
+            if (groups && m.GroupMedians![c * StatGroups + m.Group![i]] is var gm && !float.IsNaN(gm)) med = gm;
+            return Shoulder(Grey(lum, med, targets.Target(c)), targets.Target(c), targets.Ceiling(c));
+        }
         for (int i = 0; i < n; i++)
         {
             byte r = diffuse.Rgba[i * 4], g = diffuse.Rgba[i * 4 + 1], b = diffuse.Rgba[i * 4 + 2];
@@ -299,7 +410,7 @@ public static class PaintMaskBuilder
             if (total <= 0f) { outDif[i * 4] = r; outDif[i * 4 + 1] = g; outDif[i * 4 + 2] = b; continue; }
             if (total > 1f) { p /= total; s /= total; t /= total; total = 1f; }
             float lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-            float grey = (Grey(lum, m.PlateMedian, targets.Primary) * p + Grey(lum, m.SecondaryMedian, targets.Secondary) * s + Grey(lum, m.OrnamentMedian, targets.Tertiary) * t) / total;
+            float grey = ((p > 0f ? Shade(lum, 0, i) * p : 0f) + (s > 0f ? Shade(lum, 1, i) * s : 0f) + (t > 0f ? Shade(lum, 2, i) * t : 0f)) / total;
             outDif[i * 4] = ToByte((r + (grey - r) * total) / 255f);
             outDif[i * 4 + 1] = ToByte((g + (grey - g) * total) / 255f);
             outDif[i * 4 + 2] = ToByte((b + (grey - b) * total) / 255f);

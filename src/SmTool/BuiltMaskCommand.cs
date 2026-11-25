@@ -114,7 +114,13 @@ static class BuiltMaskCommand
                                 int dx = Math.Min(di.Width - 1, i % mi.Width * di.Width / mi.Width), dy = Math.Min(di.Height - 1, i / mi.Width * di.Height / mi.Height), d2 = (dy * di.Width + dx) * 4;
                                 lums[c].Add(0.2126f * di.Rgba[d2] + 0.7152f * di.Rgba[d2 + 1] + 0.0722f * di.Rgba[d2 + 2]);
                             }
-                            string Med(List<float> l) { if (l.Count == 0) return "-"; l.Sort(); return $"{l[l.Count / 2]:0} (p25 {l[l.Count / 4]:0}, p75 {l[l.Count * 3 / 4]:0})"; }
+                            // Round 4: the upper percentiles too (the highlight ceilings, BakedArmourPaint.LuminanceTargets) and the share of clipped texels (250+).
+                            string Med(List<float> l)
+                            {
+                                if (l.Count == 0) return "-";
+                                l.Sort();
+                                return $"{l[l.Count / 2]:0} (p25 {l[l.Count / 4]:0}, p75 {l[l.Count * 3 / 4]:0}, p95 {l[l.Count * 95 / 100]:0}, p99 {l[l.Count * 99 / 100]:0}, 250+ {l.Count(v => v >= 250f) * 100.0 / l.Count:0.0}%)";
+                            }
                             meds = $"; diffuse luminance P {Med(lums[0])} S {Med(lums[1])} T {Med(lums[2])}";
                         }
                         Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels{meds}");

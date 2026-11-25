@@ -41,9 +41,10 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// The version of what <see cref="PaintMaskBuilder"/> makes: part of every cache key, so raising it (with any change to the builder's output) rebuilds every
-    /// cached mask. 2: armour-pieces-1125 repair attempt 1; 3: repair attempt 2; 4: round 3.
+    /// cached mask. 2: armour-pieces-1125 repair attempt 1; 3: repair attempt 2; 4: round 3; 5: round 4 (the built pieces' output changes: region statistics of
+    /// the final mask and highlight ceilings, both applied after the cache; raised so a cache never mixes the rounds).
     /// </summary>
-    public const int BuilderVersion = 4;
+    public const int BuilderVersion = 5;
 
     /// <summary>
     /// Where built masks are kept between runs, or null (the default: nothing is written). The client sets it to its private cache folder
@@ -246,32 +247,50 @@ public static class BakedArmourPaint
     /// built-mask-bench --mask-shares). One value for every piece (83, ornaments 62) drew the built Chaos torsos, arms and backpacks paler than the regular armour
     /// beside them (regular Chaos torso plate 50, arms 61, backpack 60: gate "washed pale") and the built Space Marine pieces a little darker (regular 84 to 98).
     /// Channels the regular piece hardly uses (under 5 %) keep the old value. <see cref="OldBrightness"/> restores the single value.
+    /// <para>Round 4 (finding 2 of the round-3 re-gate, ours, measured 2026-11-25 the same way): each channel's highlight ceiling is the regular piece's 99th
+    /// percentile (<see cref="PaintMaskBuilder.Targets.PrimaryCeiling"/>, a soft shoulder): built domes shaded up to 3 x their target clipped white (Ultramarines
+    /// Champion right pad) and read pale (the Chaos left pads, Dark Angels pads). The Space Marine pad rim (secondary) ceiling is 137 (p99 141 / 133), the tertiary
+    /// ceiling of Space Marine slots, which the regular pieces hardly use, 139 (the torso's). The Chaos left pad's primary target is 106 (round 3: 109), the mean of
+    /// the regular left pad's primary and secondary medians (109 / 103), which draw in one colour in every scheme without a pattern.</para>
     /// </summary>
     public static PaintMaskBuilder.Targets LuminanceTargets(string? package)
     {
         if (package is null || OldBrightness) return PaintMaskBuilder.Targets.Default;
         bool chaos = package.StartsWith("csm_", StringComparison.OrdinalIgnoreCase);
         const float t0 = PaintMaskBuilder.RegularOrnamentLuminance;
+        static PaintMaskBuilder.Targets T(float p, float s, float t, float pc, float sc, float tc) =>
+            new(p, s, t) { PrimaryCeiling = pc, SecondaryCeiling = sc, TertiaryCeiling = tc };
         return (chaos, PaintSchemes.SlotOf(package)) switch
         {
-            (false, "head") => new(94f, 96f, t0),
-            (false, "torso") => new(84f, 84f, 77f),
-            (false, "leftshoulder" or "rightshoulder") => new(98f, 55f, t0),
-            (false, "leftarm" or "rightarm") => new(92f, 90f, t0),
-            (false, "leftleg" or "rightleg") => new(92f, 100f, t0),
-            (false, "backpack") => new(91f, 89f, t0),
-            (true, "head") => new(83f, 58f, 77f),
-            (true, "torso") => new(50f, 72f, 62f),
-            (true, "leftshoulder") => new(109f, 103f, 56f),
-            (true, "rightshoulder") => new(83f, 80f, 69f),
-            (true, "leftarm") => new(61f, 74f, 61f),
-            (true, "rightarm") => new(61f, 72f, 59f),
-            (true, "leftleg") => new(77f, 74f, 83f),
-            (true, "rightleg") => new(89f, 72f, 80f),
-            (true, "backpack") => new(60f, 63f, 67f),
+            (false, "head") => T(94f, 96f, t0, 114f, 113f, 139f),
+            (false, "torso") => T(84f, 84f, 77f, 119f, 121f, 139f),
+            (false, "leftshoulder" or "rightshoulder") => T(98f, 55f, t0, 121f, 137f, 139f),
+            (false, "leftarm" or "rightarm") => T(92f, 90f, t0, 116f, 116f, 139f),
+            (false, "leftleg" or "rightleg") => T(92f, 100f, t0, 117f, 122f, 139f),
+            (false, "backpack") => T(91f, 89f, t0, 122f, 122f, 133f),
+            (true, "head") => T(83f, 58f, 77f, 122f, 108f, 190f),
+            (true, "torso") => T(50f, 72f, 62f, 105f, 114f, 159f),
+            (true, "leftshoulder") => T(106f, 103f, 56f, 133f, 123f, 146f),
+            (true, "rightshoulder") => T(83f, 80f, 69f, 116f, 119f, 163f),
+            (true, "leftarm") => T(61f, 74f, 61f, 118f, 124f, 149f),
+            (true, "rightarm") => T(61f, 72f, 59f, 113f, 116f, 154f),
+            (true, "leftleg") => T(77f, 74f, 83f, 127f, 126f, 174f),
+            (true, "rightleg") => T(89f, 72f, 80f, 124f, 124f, 182f),
+            (true, "backpack") => T(60f, 63f, 67f, 126f, 117f, 130f),
             _ => PaintMaskBuilder.Targets.Default,
         };
     }
+
+    /// <summary>
+    /// Restore switch (round 4): true shades built pieces against the builder's region medians (as round 3) instead of <see cref="PaintMaskBuilder.WithRegionStats"/>,
+    /// and keeps the builder's shares. A look only (client; <c>--old-region-stats</c> or SM_OLD_REGION_STATS=1); not part of the mask cache.
+    /// </summary>
+    public static bool OldRegionStats
+    {
+        get => _oldRegionStats ?? (Environment.GetEnvironmentVariable("SM_OLD_REGION_STATS") == "1" || Array.IndexOf(Environment.GetCommandLineArgs(), "--old-region-stats") >= 0);
+        set => _oldRegionStats = value;
+    }
+    static bool? _oldRegionStats;
 
     /// <summary>
     /// Restore switch: true shades every built piece to the single first-build brightness (plates 83, ornaments 62) instead of <see cref="LuminanceTargets"/>.
@@ -323,11 +342,14 @@ public static class BakedArmourPaint
             // Round 3: per-piece data (BuiltMaskOverrides) may set the plate channel and place regions by hand, after the rules; never under --old-mask-rules.
             var overrides = PaintMaskBuilder.OldMaskRules ? [] : BuiltMaskOverrides.For(package, m.Name).ToList();
             var map = overrides.LastOrDefault(o => o.Channels is not null)?.Channels ?? channels ?? [0, 1, 2];
-            var remapped = PaintMaskBuilder.Permute(maskOnly, map);
+            var permuted = PaintMaskBuilder.Permute(maskOnly, map);
+            var remapped = permuted;
             foreach (var o in overrides) remapped = BuiltMaskOverrides.Apply(remapped, diffuse, o.Regions, used);
+            // Round 4 (findings 1, 3 and 4): medians and shares from the final mask, each texel shaded against the texels that came into its channel the same way.
+            if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats) remapped = PaintMaskBuilder.WithRegionStats(maskOnly, permuted, remapped, diffuse, used);
             var targets = PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package);
             float scale = OldBrightness ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Brightness);
-            if (scale != 1f) targets = new(targets.Primary * scale, targets.Secondary * scale, targets.Tertiary * scale);
+            if (scale != 1f) targets = targets.Scaled(scale);
             var result = PaintMaskBuilder.WithGrey(diffuse, remapped, targets);
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)
             {

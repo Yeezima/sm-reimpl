@@ -12,9 +12,17 @@ public sealed record TexelFilter(float? MinLum = null, float? MaxLum = null, flo
 {
     public static readonly TexelFilter Any = new();
 
+    /// <remarks>A hue band with both bounds wraps through pi when <see cref="MinHue"/> is above <see cref="MaxHue"/>; with one bound only (round 4, finding 5: it
+    /// was ignored) it is a plain lower or upper bound on the hue (-pi..pi).</remarks>
     public bool Matches(float lum, float hue, float chroma) =>
         (MinLum is not { } a || lum >= a) && (MaxLum is not { } b || lum <= b) && (MinChroma is not { } c || chroma >= c) && (MaxChroma is not { } d || chroma <= d)
-        && (MinHue is not { } h0 || MaxHue is not { } h1 || (h0 <= h1 ? hue >= h0 && hue <= h1 : hue >= h0 || hue <= h1));
+        && (MinHue, MaxHue) switch
+        {
+            ({ } h0, { } h1) => h0 <= h1 ? hue >= h0 && hue <= h1 : hue >= h0 || hue <= h1,
+            ({ } h0, null) => hue >= h0,
+            (null, { } h1) => hue <= h1,
+            _ => true,
+        };
 }
 
 /// <summary>
@@ -282,8 +290,7 @@ public static class BuiltMaskOverrides
 
         // dlc2_set3 / dlc3_set2 helmet (byte-identical textures): its baked plate is a light, even grey, so the shaded crown drew flat and brighter than the regular
         // pieces beside it ("helmet crown flat / over-bright"); its targets are scaled down. Partial: the texture has little shading to keep.
-        .. Each(["csm_armour_mp_dlc2_set1_helmet", "csm_armour_mp_dlc3_set1_helmet"], [], "dlc2_set3 / dlc3_set2 helmet: as bright as the body") is var h
-            ? h.Select(o => o with { Brightness = 0.82f }) : [],
+        .. Each(["csm_armour_mp_dlc2_set1_helmet", "csm_armour_mp_dlc3_set1_helmet"], [], "dlc2_set3 / dlc3_set2 helmet: as bright as the body", brightness: 0.82f),
     ];
 
     /// <summary>Alpha Legion blue and teal plate paint (hue from 2.6 round through pi to -1.0 rad).</summary>
@@ -307,8 +314,16 @@ public static class BuiltMaskOverrides
     /// <summary>The whole texture: the texels the mask so far leaves unpainted (by default) that pass <paramref name="f"/> go to <paramref name="to"/>.</summary>
     static MaskRegionOverride Whole(MaskRegion to, TexelFilter? f = null, MaskRegion? from = MaskRegion.Baked) => new(0f, 0f, 1f, 1f, to, f, From: from);
 
-    static IEnumerable<BuiltMaskOverride> Each(string[] packages, MaskRegionOverride[] regions, string why) =>
-        packages.Select(p => new BuiltMaskOverride(p, null, null, regions, why));
+    /// <summary>The same regions (and brightness scale) for each of <paramref name="packages"/>.</summary>
+    static IEnumerable<BuiltMaskOverride> Each(string[] packages, MaskRegionOverride[] regions, string why, float brightness = 1f) =>
+        packages.Select(p => new BuiltMaskOverride(p, null, null, regions, why, brightness));
+
+    /// <summary>
+    /// Round 4 (finding 6 of the round-3 re-gate): the packages the table names that <paramref name="exists"/> says are not in the install (a misspelt or missing
+    /// package's entry would silently never apply). The catalogue load and <c>smtool built-mask-bench</c> report them as notes.
+    /// </summary>
+    public static IReadOnlyList<string> MissingPackages(Func<string, bool> exists) =>
+        All.Select(o => o.Package).Distinct(StringComparer.OrdinalIgnoreCase).Where(p => !exists(p)).ToList();
 
     /// <summary>The overrides for a package's material (package-wide ones first).</summary>
     public static IEnumerable<BuiltMaskOverride> For(string? package, string? material) =>

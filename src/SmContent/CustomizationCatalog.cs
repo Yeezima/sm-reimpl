@@ -287,6 +287,9 @@ public sealed class CustomizationCatalog
         names.UnionWith(Customization.ExtraArmourPieces.WargearNames);
         var wargear = CatalogData.ReadWargear(gameDir, names, notes);
         var locale = CatalogData.ReadLocale(gameDir, language, notes);
+        // Round 4 of armour-pieces-1125 (finding 6): region data naming a package the install lacks never applies; say so.
+        foreach (var missing in Customization.BuiltMaskOverrides.MissingPackages(InstallPackage(gameDir)))
+            notes.Add($"armour: built-mask region data names package {missing}, which is not in the install; that entry is unused");
         return Build(global, sets, wargear.GetValueOrDefault, paint ?? PaintSchemes.Load(gameDir, notes), locale, notes, InstallPackage(gameDir))
             .WithInstallItems(CatalogData.ReadWargearSlots(gameDir));
     }
