@@ -125,6 +125,13 @@ public partial class NetworkView
         if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !testTarget) return ExecutionPromptHidden.NoOffer;
         var feet = testTarget ? client.Predicted.Position : corpse.Position;
         anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + (testTarget ? MarkerOverOrk : MarkerOverCorpse));
+        // X6 review X6-11 (capture 2026-11-25, dot_real_corpse_*: at 1.3 m over the feet the dot sat inside the held, still upright body): over the body as it is drawn, where the stim cross
+        // would float (its spine bone + CharacterViewer.StimCrossHeight), so it follows the death pose down; the feet's height only when no body is drawn.
+        if (!testTarget && ExecVictimBody(offer.Victim) is { } body && GodotObject.IsInstanceValid(body) && body.Skeleton is { } skeleton)
+        {
+            int spine = skeleton.FindBone("RIG_SpineA");
+            if (spine >= 0) anchor = skeleton.ToGlobal(skeleton.GetBoneGlobalPose(spine).Origin) + Vector3.Up * CharacterViewer.StimCrossHeight;
+        }
         return ExecutionPromptHidden.None;
     }
 
