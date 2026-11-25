@@ -78,6 +78,8 @@ public partial class NetworkView
         _execPrediction = new ExecutionPrediction(ExecutionsState, () => _config is { } c ? ExecutionRowsOf(c) : ExecutionRowSet.Empty,
             () => client.Status == ClientStatus.Connected ? client.PlayerId : -1, config.TickRate);
         ExecutionPrediction.Install(client, config, _execPrediction);
+        _execPressesSeen = 0;   // the new prediction counts from 0 (re-review 1: a reconnect must not read as a press)
+        _execClassicShown = false;
         ExecutionCameraReset();
         foreach (var shell in _execShells.Values) shell.Free();
         _execShells.Clear();
@@ -89,6 +91,9 @@ public partial class NetworkView
     {
         if (_execMarker is null || !GodotObject.IsInstanceValid(_execMarker)) AddChild(_execMarker = new ExecutionMarker());
         if (_hudView is not null) _hudView.ExecutionPrompt = null;   // no text (owner 2026-11-25): the marker replaces the X5a text prompt
+        // A new press while the Classic dot showed (the previous frame) took that offer on the server (one try per corpse, a move fitting or not; X6 review X6-10), so the dot goes with it.
+        // Synced every frame, whatever hides the dot now: a press refused before the offer (rolling, staggered, airborne, no offer, during a move) never spends a later offer (re-review 1, 4).
+        if (ExecutionPromptRules.PressSpendsOffer(_execPrediction?.Presses ?? 0, ref _execPressesSeen, _execClassicShown)) ExecutionsState.SpendOffer();
         var rows = ExecutionRowsOf(config).Rows;
         var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out var ownRun) && _execPrediction?.Playing(ownRun, client.Tick) != false, rows);
         if (hidden == ExecutionPromptHidden.None && client.Match.State is MatchState.Countdown or MatchState.Ended) hidden = ExecutionPromptHidden.NotInPlay;   // X3: a press outside play is refused
@@ -100,26 +105,20 @@ public partial class NetworkView
         }
         else _execPickedOrk = 0;
         _execPromptHidden = hidden;
+        _execClassicShown = hidden == ExecutionPromptHidden.None && !config.Extras.HasFlag(ContentExtras.Warfront);
         _execMarker.Place(hidden == ExecutionPromptHidden.None ? anchor : null);   // whatever the bindings (owner: no text, pad bound or not); visibility changes only when it flips
     }
 
     int _execPressesSeen;
+    bool _execClassicShown;
 
     /// <summary>Classic PvP Extended: the corpse of the own open offer (the server sends it to the killer alone), while its window is open at the view tick.</summary>
     ExecutionPromptHidden ClassicPrompt(GameClient client, out Vector3? anchor)
     {
         anchor = null;
         if (ExecutionsState.Offer is not { } offer) return ExecutionPromptHidden.NoOffer;
-        double viewTick = client.RemotePlayers().Tick;
+        double viewTick = _othersTick;   // the frame's remote render tick (no second interpolation)
         bool open = viewTick > 0 && ExecutionPromptRules.ClassicOpen(offer, viewTick);
-        // A press while the dot shows takes this offer on the server (one try per corpse, a move fitting or not; X6 review X6-10): the dot goes with it. A press before the view tick reaches
-        // the kill is refused NoOffer there and spends only the edge, so it leaves the offer (and the dot to come) alone.
-        int presses = _execPrediction?.Presses ?? 0;
-        if (presses != _execPressesSeen)
-        {
-            _execPressesSeen = presses;
-            if (open) { ExecutionsState.SpendOffer(); return ExecutionPromptHidden.NoOffer; }
-        }
         if (!open) return ExecutionPromptHidden.NoOffer;   // X3: a press before the view tick reaches the kill is refused (NoOffer) and spends the edge, so no dot until then
         bool testTarget = offer.Victim >= X6TestTarget && (ExecutionX6Test || ExecutionX6Demo is not null);   // the test aids' non-player victim: the dot over the own standing player
         if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !testTarget) return ExecutionPromptHidden.NoOffer;

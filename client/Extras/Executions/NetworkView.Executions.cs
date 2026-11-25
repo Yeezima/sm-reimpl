@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using SmNet;
 using SmNet.Extras.Executions;
@@ -45,17 +46,23 @@ public partial class NetworkView
 
     /// <summary>
     /// The state's prune at the view tick (the remote players' render tick: the tick the marker shows the offer at and the server checks a press at; X5 review X5-5), with each live run's own
-    /// last tick (<see cref="ExecutionPrediction.LastTick"/>: the track's end, 12 s for a row this install lacks), so a run whose End was lost ends (X5 review X5-1).
+    /// last tick (<see cref="ExecutionPrediction.LastTick"/>: the track's end, 12 s for a row this install lacks), so a run whose End was lost ends (X5 review X5-1). The live list's silence is
+    /// measured on the newest snapshot's tick, which stands still through a receive stall (the view tick runs on with the wall clock; X5 re-review 2). The view tick is the frame's
+    /// <c>_othersTick</c> (set by the frame before the extras run), so no second interpolation of the remote players.
     /// </summary>
     void ExecutionsPrune()
     {
-        if (_client is not { } client) { ExecutionsState.Prune(_connectedFor, 0); return; }
-        double viewTick = client.RemotePlayers().Tick;
-        if (!(viewTick > 0)) viewTick = client.LatestSnapshotTick;
-        int rate = _config?.TickRate ?? 30;
-        var rows = _config is { } c ? ExecutionRowsOf(c) : null;
-        ExecutionsState.Prune(_connectedFor, viewTick, run => ExecutionPrediction.LastTick(run, rows?.AtWire(run.Wire), rate), rate);
+        if (_client is not { } client) { ExecutionsState.Prune(_connectedFor, 0, 0); return; }
+        double snapshotTick = client.LatestSnapshotTick;
+        double viewTick = _othersTick > 0 ? _othersTick : snapshotTick;
+        _execLastTick ??= ExecRunLastTick;
+        ExecutionsState.Prune(_connectedFor, viewTick, snapshotTick, _execLastTick, _config?.TickRate ?? 30);
     }
+
+    Func<SmSim.Extras.Executions.ExecutionRun, uint>? _execLastTick;
+
+    uint ExecRunLastTick(SmSim.Extras.Executions.ExecutionRun run) =>
+        ExecutionPrediction.LastTick(run, _config is { } c ? ExecutionRowsOf(c).AtWire(run.Wire) : null, _config?.TickRate ?? 30);
 
     partial void ExtrasExecutionPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled)
     {

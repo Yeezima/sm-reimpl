@@ -383,6 +383,8 @@ public sealed partial class WeaponRig
     /// <summary>The model nodes drawn (weapons held or stowed, worn models) for the info line.</summary>
     public int WeaponCount => _items.Count;
     public int WornCount => _worn.Count;
+    /// <summary>The meta set on each attachment node of the worn wargear (the jump pack), not on a weapon's own worn part.</summary>
+    public const string WornPackMeta = "worn_pack";
     public IEnumerable<string> Description => _items.Select(i => $"{i.Role}:{i.Attachment.VisualName}({(i.Mode == 1 ? "hand" : i.Mode == 0 ? "stowed" : i.Mode == 3 ? "thigh" : "hidden")})");
 
     public WeaponRig(Skeleton3D skeleton, WeaponAssets assets) { _skeleton = skeleton; _assets = assets; }
@@ -421,6 +423,7 @@ public sealed partial class WeaponRig
                 foreach (var (bone, mesh) in asset.Worn)
                 {
                     var node = new BoneAttachment3D { Name = "Worn_" + attachment.VisualName + "_" + bone };
+                    if (pack) node.SetMeta(WornPackMeta, true);   // the worn wargear (the jump pack): readers such as the executions overshield shell treat it as armour
                     _skeleton.AddChild(node);
                     node.BoneName = bone;
                     var instance = new MeshInstance3D { Name = "Mesh", Mesh = mesh };

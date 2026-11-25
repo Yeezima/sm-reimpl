@@ -117,6 +117,33 @@ public class ExecutionPromptRuleTests
         Assert.False(OvershieldCoverage.Weapon("Worn_sm_jumppack"));
     }
 
+    /// <summary>X6 re-review 7: the client's bystander reach is the server's <c>World.ExecutionsBystanderReach</c>.</summary>
+    [Fact]
+    public void BystanderReachIsTheServers()
+    {
+        var c = Config();
+        var w = new World(c, null, [new SpawnPoint(Vector3.Zero, 0f)]);
+        Assert.Equal(w.ExecutionsBystanderReach, ExecutionPromptRules.BystanderReach(c));
+    }
+
+    /// <summary>
+    /// X6 re-review 1 and 4: the press counter is synced every frame; only a new press on a frame after one that showed the Classic dot spends the offer. A press while the dot was hidden
+    /// (refused before the offer on the server: rolling, staggered, airborne, no offer, during a move, before the window), a held key, or a counter reset (a new prediction) spends nothing.
+    /// </summary>
+    [Fact]
+    public void OnlyANewPressAfterAShownDotSpendsTheOffer()
+    {
+        int seen = 0;
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(1, ref seen, shownLastFrame: false));   // pressed while rolling: no dot
+        Assert.Equal(1, seen);
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(1, ref seen, shownLastFrame: true));    // the dot appears later: the old press is not new
+        Assert.True(ExecutionPromptRules.PressSpendsOffer(2, ref seen, shownLastFrame: true));     // a press while it showed
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(2, ref seen, shownLastFrame: true));
+        seen = 0;                                                                                    // reconnect: the new prediction counts from 0
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(0, ref seen, shownLastFrame: true));
+        Assert.False(ExecutionPromptRules.PressSpendsOffer(1, ref seen, shownLastFrame: false));   // the window opens this frame (one-frame race): not spent
+    }
+
     /// <summary>X6 review X6-8 (owner: every armour piece is covered): the name exclusion applies only to what is not an armour piece; a weapon is never covered.</summary>
     [Fact]
     public void ArmourPiecesAreCoveredWhateverTheirName()

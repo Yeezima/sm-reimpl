@@ -125,8 +125,16 @@ public sealed class OvershieldShell
     /// <summary>The meta <c>CharacterViewer.AddPieces</c> sets on every armour piece of the look (its <c>ArmourMeta</c>, "armour_piece"; read here, not written).</summary>
     const string ArmourPieceMeta = "armour_piece";
 
-    /// <summary>Whether <paramref name="node"/> is one of the look's armour pieces (always covered: the name exclusion is for worn items and attachments only).</summary>
-    static bool IsArmourPiece(Node node) => node.HasMeta(ArmourPieceMeta);
+    /// <summary>
+    /// Whether <paramref name="node"/> is armour, always covered whatever its name (the name exclusion is for the other worn items and attachments only): one of the look's armour pieces, or the
+    /// worn wargear (the jump pack: <see cref="WeaponRig.WornPackMeta"/> on its attachment nodes) or a mesh under it (X6 re-review 6, owner: the jump pack and the iron halo are covered).
+    /// </summary>
+    static bool IsArmourPiece(Node node)
+    {
+        for (Node? n = node; n is not null && n is not Skeleton3D; n = n.GetParent())
+            if (n.HasMeta(ArmourPieceMeta) || n.HasMeta(WeaponRig.WornPackMeta)) return true;
+        return false;
+    }
 
     /// <summary>
     /// The meshes the shell covers under the skeleton: every armour piece of the look (whatever its name), and every other mesh but the weapons' (<c>Weapon_*</c> subtrees), the bone lines, earlier
@@ -183,7 +191,7 @@ public sealed class OvershieldShell
         if (!GodotObject.IsInstanceValid(_root) || character.Skeleton != _skeleton) return false;
         // The cheap check every frame (X6 review X6-9): the same look, the skeleton's child count unchanged (a new worn item or a look swap's pieces change it) and every source piece alive
         // under its parent (a look swap frees the old pieces at once, a worn item swap frees its node). Only when that changed is the skeleton walked again.
-        if (ReferenceEquals(character.Assets, _stampAssets) && _skeleton.GetChildCount() == _stampChildren && SourcesAlive()) return true;
+        if (ReferenceEquals(character.Assets, _stampAssets) && _skeleton.GetChildCount() == _stampChildren && ChildIds() == _stampIds && SourcesAlive()) return true;
         bool same = Walk();
         if (same) Stamp(character);
         return same;
@@ -191,6 +199,16 @@ public sealed class OvershieldShell
 
     MarineAssets? _stampAssets;
     int _stampChildren = -1;
+    ulong _stampIds;
+
+    /// <summary>A cheap order-sensitive hash of the skeleton's direct children's instance ids: a swap that keeps the child count still changes it (X6 re-review 5).</summary>
+    ulong ChildIds()
+    {
+        ulong h = 1469598103934665603UL;
+        int n = _skeleton.GetChildCount();
+        for (int i = 0; i < n; i++) h = (h ^ _skeleton.GetChild(i).GetInstanceId()) * 1099511628211UL;
+        return h;
+    }
 
     /// <summary>Full walks of the skeleton (<see cref="Matches"/> after a change; the self-test's counter).</summary>
     public static int Walks { get; private set; }
@@ -199,6 +217,7 @@ public sealed class OvershieldShell
     {
         _stampAssets = character.Assets;
         _stampChildren = _skeleton.GetChildCount();
+        _stampIds = ChildIds();
     }
 
     bool SourcesAlive()
