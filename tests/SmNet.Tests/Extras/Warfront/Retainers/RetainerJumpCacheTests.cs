@@ -70,13 +70,13 @@ public class RetainerJumpCacheTests
         var work = new BotWork();
         int runs = 0;
         var first = work.Run<int>("wf jump test", () => { runs++; throw new InvalidOperationException("build failed"); }, CancellationToken.None);
-        for (int k = 0; k < 50 && !first.IsCompleted; k++) { work.Poll(); Thread.Sleep(10); }
+        for (int k = 0; k < 1000 && !first.IsCompleted; k++) { work.Poll(); Thread.Sleep(10); }   // up to 10 s: a loaded thread pool can take longer than 0.5 s to start the job (series-37 integration)
         Assert.True(first.IsFaulted);
         Assert.Same(first, work.Run<int>("wf jump test", () => 1, CancellationToken.None));   // the same faulted task while the key is known
         work.Forget(first);
         var second = work.Run<int>("wf jump test", () => { runs++; return 7; }, CancellationToken.None);
         Assert.NotSame(first, second);
-        for (int k = 0; k < 50 && !second.IsCompleted; k++) { work.Poll(); Thread.Sleep(10); }
+        for (int k = 0; k < 1000 && !second.IsCompleted; k++) { work.Poll(); Thread.Sleep(10); }
         Assert.Equal(7, second.Result);
         Assert.Equal(2, runs);
     }
