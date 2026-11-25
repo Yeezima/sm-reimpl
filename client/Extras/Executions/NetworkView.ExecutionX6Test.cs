@@ -60,8 +60,36 @@ public partial class NetworkView
         GD.Print($"EXECX6 {(ok ? "PASS" : "FAIL")} {name}{(detail.Length > 0 ? ": " + detail : "")}");
     }
 
+    /// <summary><c>--executions-x6-real-shot &lt;dir&gt;</c> (windowed test aid, X6 review X6-11): stills of the marker over a real Classic corpse (a real offer, not a test target), up to three kills.</summary>
+    static readonly string? ExecutionX6RealShot = CmdArg("executions-x6-real-shot");
+    int _execX6RealShots;
+    (int Victim, uint Tick) _execX6RealLast;
+    double _execX6RealAt = -1;
+
+    void ExecutionX6RealShotFrame(GameClient client)
+    {
+        if (ExecutionX6RealShot is not { } dir || _execX6RealShots >= 3 || !ExecutionMarkerShown || ExecutionsState.Offer is not { } offer || offer.Victim >= X6TestTarget) return;
+        if (_execX6RealLast == (offer.Victim, offer.KillTick))
+        {
+            if (_execX6RealAt >= 0 && _connectedFor - _execX6RealAt > 0.25)
+            {
+                // A quarter second into the window: the held death pose, then the marker over it.
+                var corpse = _execOthers.TryGetValue(offer.Victim, out var c) ? c.Position : default;
+                var body = ExecVictimBody(offer.Victim);
+                GD.Print($"EXECX6 real corpse P{offer.Victim} kill tick {offer.KillTick}: feet {corpse.X:F2},{corpse.Y:F2},{corpse.Z:F2}, marker {_execMarker?.GlobalPosition}, body {(body is null ? "none" : body.Name + (body.Visible ? " shown" : " hidden"))}, held {_pendingDeaths.Exists(d => d.Id == offer.Victim)}");
+                ExecutionX6Shot(dir, $"dot_real_corpse_{_execX6RealShots}");
+                _execX6RealShots++;
+                _execX6RealAt = -1;
+            }
+            return;
+        }
+        _execX6RealLast = (offer.Victim, offer.KillTick);
+        _execX6RealAt = _connectedFor;
+    }
+
     void ExecutionX6TestFrame(PlayerState me, double delta)
     {
+        if (_client is { Status: ClientStatus.Connected } realClient) ExecutionX6RealShotFrame(realClient);
         if (!ExecutionX6Test && ExecutionX6Demo is null) return;
         if (_client is not { Status: ClientStatus.Connected } client || _config is not { } config || _hudView is null) return;
         if (_execX6At < 0)
@@ -108,6 +136,12 @@ public partial class NetworkView
                 ExecutionX6ShellOverride = 1f;
                 _execX6Step++; _execX6At = 0; break;
             case 5 when t > 0.3:
+                // The survey again once the worn items (jump pack, Devastator pack) have attached, with the shell's own pieces (X6 review X6-8).
+                if (CmdFlag("executions-x6-survey") && _local is not null)
+                {
+                    foreach (var line in OvershieldShell.Describe(_local)) GD.Print("EXECX6 mesh (worn attached) " + line);
+                    if (_execShells.Values.FirstOrDefault() is { } surveyed) GD.Print($"EXECX6 shell pieces {surveyed.Pieces}, look walks so far {OvershieldShell.Walks}");
+                }
                 ExecutionX6Check("the armour tint turns deeper blue with an overshield", Hud.ArmourTintFor(200f, 100f) != Colors.White && (!_hudView.ExecutionsTintCalled || _hudView.ExecutionArmourTintLast != Colors.White),
                     _hudView.ExecutionsTintCalled ? $"tint {_hudView.ExecutionArmourTintLast}" : "the armour bar is not drawn in this run (headless); the rule checked");
                 var shell = _execShells.Values.FirstOrDefault();
