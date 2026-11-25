@@ -336,6 +336,27 @@ public sealed partial class OptionsView : UiKit.MenuPage
         _grid.AddChild(row);
     }
 
+    /// <summary>
+    /// Adds a row that stands directly under <paramref name="anchor"/> in its column, whatever the column count (owner 2026-11-25: RESET PROGRESSION "below screen flashes"): the grid fills row by row,
+    /// so the row goes <c>Columns</c> places after the anchor (<see cref="PlaceUnder"/>, again whenever the column count is decided).
+    /// </summary>
+    void AddUnder(Control row, Control anchor) { Add(row); _under[row] = anchor; PlaceUnder(_grid.Columns); }
+
+    readonly Dictionary<Control, Control> _under = new();
+    UiKit.MenuSlider? _screenFlashesRow;
+
+    /// <summary>Moves each <see cref="AddUnder"/> row to its anchor's index plus <paramref name="columns"/> (the cell under the anchor), or last when the anchor is last.</summary>
+    void PlaceUnder(int columns)
+    {
+        foreach (var (row, anchor) in _under.ToList())
+        {
+            if (!IsInstanceValid(row) || !IsInstanceValid(anchor) || row.GetParent() != _grid || anchor.GetParent() != _grid) { _under.Remove(row); continue; }
+            _grid.MoveChild(row, _grid.GetChildCount() - 1);
+            int want = Math.Min(anchor.GetIndex() + Math.Max(1, columns), _grid.GetChildCount() - 1);
+            _grid.MoveChild(row, want);
+        }
+    }
+
     /// <summary>Adds a row that takes the page's whole width, under the two columns (the renderer note, KEYBINDS).</summary>
     void AddWide(Control row) { row.SizeFlagsHorizontal = SizeFlags.ExpandFill; _wide.AddChild(row); }
 
@@ -358,6 +379,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
         float footH = _foot is { Visible: true } f ? f.GetCombinedMinimumSize().Y + 14f : 0f;
         float frameW = Mathf.Clamp(w - 2f * 150f, 700f, FrameMaxWidth);
         _grid.Columns = frameW < 1120f ? 1 : 2;
+        PlaceUnder(_grid.Columns);
         var style = (Steel.SteelStyle)_frame.GetThemeStylebox("panel");
         float chrome = _inner.GetCombinedMinimumSize().Y - _list.CustomMinimumSize.Y + style.GetMargin(Side.Top) + style.GetMargin(Side.Bottom);
         float rowsH = _grid.GetCombinedMinimumSize().Y + _wide.GetCombinedMinimumSize().Y + 10f + 8f;
@@ -457,8 +479,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
 
     /// <summary>
     /// INTERFACE (owner 2026-11-15: "create a new interface tab"): the options that are about how the screen behaves rather than how it renders, moved here from GRAPHICS unchanged (same rows, defaults,
-    /// handlers and saves): REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES, SHOW OTHERS' EMBLEMS. No setting was added. Added content may add rows after them (<see cref="ExtrasInterfaceRows"/>: Warfront's
-    /// RESET PROGRESSION, owner 2026-11-25, in the left column directly under SCREEN FLASHES when the rows stand in two columns).
+    /// handlers and saves): REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES, SHOW OTHERS' EMBLEMS. No setting was added. Added content may add rows (<see cref="ExtrasInterfaceRows"/>: Warfront's
+    /// RESET PROGRESSION, owner 2026-11-25, directly under SCREEN FLASHES in one column and in two, through <see cref="AddUnder"/>).
     /// </summary>
     void BuildInterface()
     {
@@ -466,10 +488,10 @@ public sealed partial class OptionsView : UiKit.MenuPage
         // combat feel (owner's brief, 2026-11-09): accessibility controls for the shake and the flashes; 100% is the game as before. The game has no controller vibration, so there is none to control.
         Add(new UiKit.MenuSlider("Camera shake", 0, 1, GameOptions.AccessibilityStep, O.CameraShake, Percent, v => Set(x => x with { CameraShake = (float)v }), "CameraShakeSlider",
             "How much the camera shakes and kicks at blasts, hits, landings and heavy shots. 100% is the game's own; 0% turns it off."));
-        Add(new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
+        Add(_screenFlashesRow = new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
             "How strong the flashes over the whole screen are (a krak grenade close by, Warfront's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
         Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
-        ExtrasInterfaceRows();   // EXTRAS-HOOK: added content's own interface rows (Warfront: RESET PROGRESSION, under SCREEN FLASHES in the two-column layout)
+        ExtrasInterfaceRows();   // EXTRAS-HOOK: added content's own interface rows (Warfront: RESET PROGRESSION, directly under SCREEN FLASHES; AddUnder)
     }
 
     void BuildSound()

@@ -29,9 +29,12 @@ public sealed partial class OptionsView
         var row = new UiKit.MenuChoice(WarfrontProgressReset.Row, [WarfrontProgressReset.Value], 0, null, blocked ?? WarfrontProgressReset.Hint) { Name = "WarfrontResetRow" };
         row.Pressed += WarfrontResetPress;   // one value: the row's own step does nothing, the press asks
         row.SetDisabled(blocked is not null);
-        Add(row);
+        if (_screenFlashesRow is { } flashes) AddUnder(row, flashes); else Add(row);   // directly under SCREEN FLASHES in one column and in two
         WarfrontResetRowForTest = row;
     }
+
+    /// <summary>Self-test: places the under-rows as for <paramref name="columns"/> columns (the one-column order cannot be had at every window size).</summary>
+    internal void PlaceUnderForTest(int columns) => PlaceUnder(columns);
 
     /// <summary>The row's press: the confirmation card naming what is cleared (No is the default answer).</summary>
     internal void WarfrontResetPress()

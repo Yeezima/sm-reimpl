@@ -163,7 +163,16 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Frames(3);
         var interfaceRows = options.Grid.GetChildren().OfType<Control>().Select(c => c is UiKit.MenuChoice mc ? mc.Text : c is UiKit.MenuSlider ms ? ms.LabelText.ToUpperInvariant() : c.Name.ToString()).ToList();
         int flashesAt = interfaceRows.IndexOf("SCREEN FLASHES"), resetAt = interfaceRows.IndexOf("RESET PROGRESSION");
-        Check("options: INTERFACE lists RESET PROGRESSION after the other rows, under SCREEN FLASHES in two columns", flashesAt >= 0 && resetAt == interfaceRows.Count - 1 && (options.Grid is not GridContainer g || g.Columns != 2 || resetAt == flashesAt + 2), string.Join(", ", interfaceRows));
+        int columns = options.Grid is GridContainer g ? g.Columns : 1;
+        Check($"options: RESET PROGRESSION stands directly under SCREEN FLASHES ({columns} column(s))", flashesAt >= 0 && resetAt == flashesAt + columns, string.Join(", ", interfaceRows));
+        List<string> Order() => options.Grid.GetChildren().OfType<Control>().Select(c => c is UiKit.MenuChoice mc ? mc.Text : c is UiKit.MenuSlider ms ? ms.LabelText.ToUpperInvariant() : c.Name.ToString()).ToList();
+        foreach (int cols in new[] { 1, 2 })
+        {
+            options.PlaceUnderForTest(cols);
+            var order = Order();
+            Check($"options: laid out in {cols} column(s), RESET PROGRESSION is the cell under SCREEN FLASHES", order.IndexOf("RESET PROGRESSION") == order.IndexOf("SCREEN FLASHES") + cols, string.Join(", ", order));
+        }
+        options.PlaceUnderForTest(columns);
         Check("options: the row is an option row like its neighbours (label and pill)", resetRow is { IsSteel: true, Value: "RESET" } && resetRow.ThemeTypeVariation == options.Grid.GetChildren().OfType<UiKit.MenuChoice>().First().ThemeTypeVariation);
         Check("progress: no key on this PC: the reset row is listed and greyed, saying why", resetRow is { Disabled: true } && resetRow.TooltipText == WarfrontProgressReset.NoKeyHint, resetRow?.TooltipText ?? "null");
         string wfKeyDir = SmClient.Extras.Warfront.Stage.WarfrontClientKey.Folder();
