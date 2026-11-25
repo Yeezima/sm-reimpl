@@ -19,6 +19,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- The material builder's engine-free half (client/Extras/Mapmaker/MaterialPlan.cs): channels, green flip, wiring pictures by name. -->
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <Compile Include="..\..\client\Extras\Mapmaker\MaterialPlan.cs" Link="ClientMapmaker\MaterialPlan.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmMapmaker\SmMapmaker.csproj" />
     <ProjectReference Include="..\..\src\SmContent\SmContent.csproj" />

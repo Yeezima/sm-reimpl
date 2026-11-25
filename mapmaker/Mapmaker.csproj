@@ -22,6 +22,9 @@
     <Compile Include="..\client\MapSky.cs" Link="Client\MapSky.cs" />
     <Compile Include="..\client\MapDecalView.cs" Link="Client\MapDecalView.cs" />
     <Compile Include="..\client\MapOrthoLightView.cs" Link="Client\MapOrthoLightView.cs" />
+    <!-- Materials (docs/mapmaker.md "Materials (editor)"): the one surface builder the game uses, so the editor preview is the in-game surface. -->
+    <Compile Include="..\client\Extras\Mapmaker\MaterialBuild.cs" Link="Client\MaterialBuild.cs" />
+    <Compile Include="..\client\Extras\Mapmaker\MaterialPlan.cs" Link="Client\MaterialPlan.cs" />
   </ItemGroup>
 
 </Project>

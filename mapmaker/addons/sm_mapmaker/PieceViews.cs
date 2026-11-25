@@ -66,15 +66,7 @@ public static class PieceViews
         var colour = ColourOf(piece);
         var info = piece.Info;
         var drawn = Flat(tv, ti);
-        StandardMaterial3D material;
-        if (info.Solid && piece.Kind != PieceKind.CollisionBox)
-            material = new StandardMaterial3D { AlbedoColor = colour, Roughness = 0.9f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
-        else
-            material = new StandardMaterial3D
-            {
-                AlbedoColor = new Color(colour, piece.Kind == PieceKind.CollisionBox ? 0.18f : piece.Kind is PieceKind.MoveWall or PieceKind.Cover ? 0.24f : 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            };
+        var material = DefaultMaterial(piece);
         root.AddChild(new MeshInstance3D { Name = "Shape", Mesh = drawn, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
         // Markers and ramps show which way they face (+Y) with a green arrow; the outline of a marker is a wire box in its colour.
         bool arrow = piece.Kind is PieceKind.SpawnArea or PieceKind.Blocker or PieceKind.Ramp;
@@ -108,6 +100,38 @@ public static class PieceViews
             }
         }
         return root;
+    }
+
+    /// <summary>The editor's own look of a piece with no map material: grey solid pieces, tinted see-through markers.</summary>
+    static StandardMaterial3D DefaultMaterial(PieceSpec piece)
+    {
+        var colour = ColourOf(piece);
+        if (piece.Info.Solid && piece.Kind != PieceKind.CollisionBox)
+            return new StandardMaterial3D { AlbedoColor = colour, Roughness = 0.9f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+        return new StandardMaterial3D
+        {
+            AlbedoColor = new Color(colour, piece.Kind == PieceKind.CollisionBox ? 0.18f : piece.Kind is PieceKind.MoveWall or PieceKind.Cover ? 0.24f : 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+    }
+
+    /// <summary>
+    /// The material hook (docs/mapmaker.md "Materials (editor)"): draws the piece's "Shape" with a map material's surface built by the game's own builder (<see cref="SmClient.MaterialBuild"/>:
+    /// the mesh with normals, tangents and UVs in metres from <see cref="RenderMesh"/>, UVs sized by <paramref name="scale"/>, positions left in unit space for the node's scale as the stock
+    /// drawing is), or, with <paramref name="surface"/> null, puts the default look back. Preview = saved = in game.
+    /// </summary>
+    public static void ApplySurface(MeshInstance3D shape, PieceSpec piece, EditMesh? mesh, System.Numerics.Vector3 scale, StandardMaterial3D? surface)
+    {
+        var m = mesh ?? EditMesh.Stock(piece);
+        if (surface is null)
+        {
+            var (tv, ti, _) = m.Triangulate();
+            shape.Mesh = Flat(tv, ti);
+            shape.MaterialOverride = DefaultMaterial(piece);
+            return;
+        }
+        shape.Mesh = SmClient.MaterialBuild.Mesh(RenderMesh.Build(m, scale, System.Numerics.Matrix4x4.Identity));
+        shape.MaterialOverride = surface;
     }
 
     static ArrayMesh Flat(System.Numerics.Vector3[] v, int[] tri)
