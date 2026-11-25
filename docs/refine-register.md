@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4114 spec table rows: **3039 tagged**, 707 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4137 spec table rows: **3057 tagged**, 711 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 423 | 364 | 361 | 115 | 12 |
+| Movement (critical) | 424 | 365 | 362 | 115 | 12 |
 | Combat core (critical) | 25 | 16 | 23 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -40,8 +40,8 @@ Scanned 4114 spec table rows: **3039 tagged**, 707 not tagged (read from data wi
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
-| Sound mix (critical) | 253 | 235 | 199 | 40 | 0 |
+| HUD and hit feedback (critical) | 89 | 84 | 68 | 12 | 0 |
+| Sound mix (critical) | 256 | 238 | 200 | 40 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 47 | 43 | 45 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
@@ -49,23 +49,23 @@ Scanned 4114 spec table rows: **3039 tagged**, 707 not tagged (read from data wi
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 886 | 839 | 662 | 241 | 1 |
+| Networking and render smoothing | 50 | 40 | 22 | 12 | 7 |
+| Core simulation (provisional values) | 899 | 852 | 669 | 242 | 1 |
 | General game design | 169 | 168 | 57 | 74 | 0 |
 | Ork faction | 299 | 278 | 179 | 73 | 0 |
-| **All areas** | **3039** | 2729 | 2232 | 915 | 37 |
+| **All areas** | **3057** | 2747 | 2240 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1843 |
-| confidence: low | 1078 |
-| confidence: medium | 1043 |
-| notes: ours | 477 |
+| kind: ours | 1862 |
+| confidence: low | 1079 |
+| confidence: medium | 1050 |
+| notes: ours | 476 |
 | kind: interpretation | 457 |
 | notes: estimate | 306 |
-| kind: estimate | 271 |
+| kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (423)
+### Movement (gameplay-critical) (424)
 
 *Spec section: Extracted parameters*
 
@@ -837,6 +837,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-8155BABE` | Jump-pound | a jump-pack retainer faces its landing, presses the full jump (the pack's longest hold), steers at it in the air and presses melee within the Classic pound distance (6 m flat, 2.5 m above); after the landing the order in force applies again; a class without a… (m, ticks) | kind: ours; confidence: medium | the squad's W11 rule ("max jump, then a ground pound round the marked point"); the Classic pound numbers | Jump-pound: compare with SM1 by feel or video. Ours: a jump-pack retainer faces its landing, presses the full jump (the… | ☐ |
+| `R-F63467F7` | Jump-pound order end | a retainer's jump-pound mark is dropped when it is downed or out, on any new Follow, Hold or Attack of its owner (his or the server's), and **6** s after the order (review F3) (s) | kind: ours; confidence: low | review F3 2026-11-25 | Jump-pound order end: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a retainer's jump-pound mark is dropped when it is downed or out, on… | ☐ |
 
 *Spec section: Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map")*
 
@@ -1969,7 +1970,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
 
-### Sound mix (gameplay-critical) (253)
+### Sound mix (gameplay-critical) (256)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -2244,6 +2245,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E23D9C2C` | Downed marker | a downed retainer (its World player fallen) shows "NAME DOWN s" 1.5 m over the body, always; "REVIVING" while the own hold runs; the seconds count from the Downed event (or from when the client first saw it down) over the 20 s window (m, s) | kind: ours; confidence: medium | the crowd's downed line kept; the height ours | Downed marker: compare with SM1 by listening A/B at the same distance and state. Ours: a downed retainer (its World player fallen) shows "NAME DOWN s" 1.5 m… | ☐ |
 | `R-A6EB6542` | Revive prompt | "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a progress ring 0.6 m over the body; the ring fills from the own Use hold on that Marine over `SquadRules.PlayerReviveSeconds` (a client-side reading of the server's per-reviver progress, which… (m, s) | kind: ours; confidence: medium | `SquadRules.PlayerReviveReach`; the revive itself is the server's | Revive prompt: compare with SM1 by listening A/B at the same distance and state. Ours: "Hold [Use] to revive NAME" within 2 m of a downed Marine, with a… | ☐ |
 | `R-8C4A215B` | Panel state | FIGHTING (in the World, alive), DOWN (fallen), OUT (in this battle, no World id: out, or never landed), READY (not in this battle), ON HOLD (held roster) | kind: ours; confidence: medium | Phase B T5 (OUT is new: the retired state record never reached the panel) | Panel state: compare with SM1 by listening A/B at the same distance and state. Ours: FIGHTING (in the World, alive), DOWN (fallen), OUT (in this battle… | ☐ |
+| `R-2369CD8A` | Revive ring (client guess) | the HOLD [E] TO REVIVE prompt and ring name the nearest downed retainer within 2 m only while the own player is alive and no fallen human lies at least as near (the server revives the nearer, a tie to the human); the share is still the own hold's reading, no… (m) | kind: ours; confidence: medium | T5 review 2026-11-25 | Revive ring (client guess): compare with SM1 by listening A/B at the same distance and state. Ours: the HOLD [E] TO REVIVE prompt and ring name the nearest downed… | ☐ |
+| `R-D771F6B9` | Squad HUD on Out | an Out event (tag 34) takes the Marine out of the HUD's standing count at once, before the roster section (tag 33) drops its World id (T5 review F4: it counted standing in between) | kind: ours | T5 review 2026-11-25 | Squad HUD on Out: compare with SM1 by listening A/B at the same distance and state. Ours: an Out event (tag 34) takes the Marine out of the HUD's standing… | ☐ |
+| `R-676D64F3` | Roster sender by key | the roster's World ids and the revive events find a landed Marine by its owner's campaign key and slot, so a leaver's squad (and a returner's before the re-bind) keeps its World ids on the wire (T5 review F2) | kind: ours | T5 review 2026-11-25 | Roster sender by key: compare with SM1 by listening A/B at the same distance and state. Ours: the roster's World ids and the revive events find a landed Marine by… | ☐ |
 | `R-EBBC8DAD` | Retainer hit-event rank | a retainer's Hit event ranks 3 in Musou's event window, with a human's (after deaths, telegraphs and strikes, before the AI Marines' hits at 4 and the tracers at 5), so a full window drops it no sooner than a human's; Musou Mode and every server without the… (rank) | kind: ours | Phase B design T5 (retainers rank as humans) | Retainer hit-event rank: compare with SM1 by listening A/B at the same distance and state. Ours: a retainer's Hit event ranks 3 in Musou's event window, with a… | ☐ |
 | `R-DC9456FC` | Feed lines and prompts | five kept, five seconds each, in capitals as the other Warfront HUD with the Marines' names as typed: "Brother X IS DOWN", "REVIVED BY NAME", "IS OUT", "JOINS THE SQUAD"; "HOLD [E] TO REVIVE NAME"; text size 20 (W8's body size) (s) | kind: ours; confidence: medium | the brief; review 1 | Feed lines and prompts: compare with SM1 by listening A/B at the same distance and state. Ours: five kept, five seconds each, in capitals as the other Warfront HUD… | ☐ |
 | `R-68B3D32A` | Squad HUD line | "SQUAD standing/roster", "N DOWN" while any is downed; under the XP HUD | kind: ours; confidence: medium | the brief | Squad HUD line: compare with SM1 by listening A/B at the same distance and state. Ours: "SQUAD standing/roster", "N DOWN" while any is downed; under the XP… | ☐ |
@@ -2872,7 +2876,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (49)
+### Networking and render smoothing (50)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2955,11 +2959,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F1D7318D` | Snapshot records | at most 32 (was 16); a match still admits 16 players (records) | kind: ours | Phase B T2b | Snapshot records: compare with SM1 by feel or video. Ours: at most 32 (was 16); a match still admits 16 players. | ☐ |
+
 *Spec section: Added content: Warfront: the retainers' brain (Phase B T4: `src/SmBots/Extras/Warfront`, `src/SmServer/Extras/Warfront/Retainers`; added content, Warfront only; no wire or protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-391B55E0` | Tick order and determinism | at the first retainer's input of a tick the host polls the brains' background work, builds every view (serially) and steps every brain in parallel; each plans its paths inside its steering call, so the inputs do not depend on the threads (a test runs parallel… | kind: ours | Phase B design ("inputs computed in parallel at tick start") | Tick order and determinism: compare with SM1 by feel or video. Ours: at the first retainer's input of a tick the host polls the brains'… | ☐ |
+| `R-391B55E0` | Tick order and determinism | at the first retainer's input of a tick the host builds every view (serially, players in id order, no LINQ) and steps every brain in parallel; each plans its paths inside its steering call and runs its cover and approach searches inside its step… | kind: ours | Phase B design ("inputs computed in parallel at tick start"); review F1/F2 2026-11-25 | Tick order and determinism: compare with SM1 by feel or video. Ours: at the first retainer's input of a tick the host builds every view… | ☐ |
 
 *Spec section: Cancel table: the live animation cancel matrix editor (cancel-editor; owner 2026-11-17; protocol 80, extended in place; test aid, ours, never on a public server)*
 
@@ -2978,7 +2988,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (886)
+### Core simulation (provisional values) (899)
 
 *Spec section: Provisional values in use*
 
@@ -4343,13 +4353,26 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-B17C2E9A` | Landing ring | Marine k at 1.5 + 0.35 k m round the owner, snapped to the walking graph within 2.5 m; no graph floor there: the owner's own place (review fix 2026-11-25, as the human landing falls back) (m) | kind: estimate; confidence: low | the squad's numbers (W9) | Landing ring: compare with SM1 by measuring on a flat spot of the same map. Ours: Marine k at 1.5 + 0.35 k m round the owner, snapped to the walking… | ☐ |
-| `R-2B0007F0` | Player count | solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four humans 4 + 8 = 12 World players, inside the snapshot's 16 and the 12 puppet ids (players) | kind: ours | Phase B design Q1 | Player count: compare with SM1 by feel or video. Ours: solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four… | ☐ |
+| `R-2B0007F0` | Player count | solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four humans 4 + 8 = 12 World players, inside the 12 puppet ids (and the snapshot's 32 records since protocol 94, the drop pods' 20 besides) (players) | kind: ours | Phase B design Q1 | Player count: compare with SM1 by feel or video. Ours: solo 1 + 2 retainers (+ the pair's 2 in a lane battle) = 5; four… | ☐ |
 | `R-770E28DD` | Downed | a fallen retainer stays down (its respawn held) for 20 s; revived by anyone (a human or a standing retainer holding Use within 2 m for 2 s, the nearer target, a tie to the human) with half its health and armour where it fell; not revived: out for the battle… (s, m) | kind: estimate; confidence: low; notes: ours | owner 2026-11-17 (20 s, out for that battle); reach and hold ours (W9) | Downed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a fallen retainer stays down (its respawn held) for 20 s; revived by… | ☐ |
 | `R-78AA543F` | Records | kills (elite, boss), assists (a retainer that hit the Ork within 5 s before another's kill), times downed, revives given, objectives (standing or downed inside a secured point's radius), battles survived (standing at the battle's end); a retainer's kill pays… | kind: ours; confidence: medium | W9/W9b's rules kept | Records: compare with SM1 by feel or video. Ours: kills (elite, boss), assists (a retainer that hit the Ork within 5 s… | ☐ |
 | `R-CA8A40E9` | Orders | Follow, Hold, Attack per owner (a resend or older sequence refused); a Hold holds the named point, each retainer on its own place of a 1.5 m ring round it (one alone: the point; review fix 2026-11-25), else where each stands, an Attack goes for its point; a… | kind: ours; confidence: medium | W9's semantics kept | Orders: compare with SM1 by feel or video. Ours: Follow, Hold, Attack per owner (a resend or older sequence refused)… | ☐ |
 | `R-B030D90A` | AI-Marine rules | a retainer's melee stuns a boss as a human's; a scrap trap hurts it as a human (a share of its full health and armour), not the AI Marines' outright kill; no pickups (the puppets' exclusion stays) | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-25 (b) (the boss stun: our reading of "retainers ARE stunned by bosses") | AI-Marine rules: compare with SM1 by feel or video. Ours: a retainer's melee stuns a boss as a human's; a scrap trap hurts it… | ☐ |
 | `R-EB1F0D4A` | Brain | **Phase B T4: the Classic bot brain (see "the retainers' brain")**; the retainer's input comes from `WarfrontRetainers.Brain` (Phase B T4's Classic bot brain), ahead of Musou's puppet brain; none: it stands still keeping its heading | kind: ours | Phase B design Q1 | Brain: compare with SM1 by feel or video. Ours: Phase B T4: the Classic bot brain (see "the retainers' brain"); the… | ☐ |
-| `R-A07D71CD` | Drop pod at four humans | unchanged: a pod needs 5 free puppet ids, so with 4 humans and 8 retainers it is refused (the owner's answer of 2026-11-25, "drop pod marines don't count towards the limit", is a follow-up) (ids) | kind: ours | owner 2026-11-25 (c), pending its design | Drop pod at four humans: compare with SM1 by feel or video. Ours: unchanged: a pod needs 5 free puppet ids, so with 4 humans and 8… | ☐ |
+
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3898BD63` | Pod ids | 65490 to 65509 (20: four pods of five), below the puppet ids (65516 to 65527) with a gap of six; joiners skip them as the puppet range; they count as AI Marines (`TfwContracts.IsPuppet`) (ids) | kind: ours | Phase B T2 proposal, lead 38 approval | Pod ids: compare with SM1 by feel or video. Ours: 65490 to 65509 (20: four pods of five), below the puppet ids (65516… | ☐ |
+| `R-D96005F9` | Pod refusal | a Warfront call is refused (at no cooldown, as before) only when fewer than 5 pod ids are free after the called pods' reservations: a fifth pod while four are out (ids) | kind: ours | the 2026-11-14 rule on the pods' own range | Pod refusal: compare with SM1 by feel or video. Ours: a Warfront call is refused (at no cooldown, as before) only when… | ☐ |
+| `R-16715EDB` | Lean record | 33 bytes for a Warfront AI Marine (retainers, the pair, pod Marines) when a snapshot names more than 16 players: id u16, position 3 x i24 in 1/64 m, velocity 3 x i16 in 1/64 m/s, yaw and pitch i16 in pi/32767 rad, then the slim record's last 12 bytes; a human… (bytes) | kind: ours | measured (below) | Lean record: compare with SM1 by feel or video. Ours: 33 bytes for a Warfront AI Marine (retainers, the pair, pod Marines)… | ☐ |
+| `R-3AD52869` | Stable cut | a crowded Warfront snapshot carries only the lean records that fit with every other block at its most (`LeanSchedule.Capacity`): at four humans 18 (17 with 8 control points; a spectator of four humans 22), 1198 bytes at the worst case and 958 quiet, so the… (records) | kind: ours | review fix 2026-11-25 (lead decision a) | Stable cut: compare with SM1 by feel or video. Ours: a crowded Warfront snapshot carries only the lean records that fit… | ☐ |
+| `R-753F842F` | Pod Marine sweep | when the lean records exceed the stable cut, the retainers and the pair always go and the pod Marines (by id) take turns: a window of the room left that moves on by its width each snapshot, so each is sent at least every ceil(pod Marines / window) snapshots… (snapshots) | kind: ours | review fix 2026-11-25 (lead decision c; owner rule: a pod always brings its Marines, on screen too) | Pod Marine sweep: compare with SM1 by feel or video. Ours: when the lean records exceed the stable cut, the retainers and the… | ☐ |
+| `R-E65484DB` | Lean hold | the client keeps a Warfront AI Marine that arrived as a lean record and is missing from a later snapshot for up to 1 s after its last record, put back into each snapshot it misses (its model and pose kept, never freed and rebuilt on a miss); a record sent… (s) | kind: ours; confidence: medium | review fix 2026-11-25 (lead decision b) | Lean hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the client keeps a Warfront AI Marine that arrived as a lean record… | ☐ |
+| `R-8D40B73E` | Lean hold carry | a held record that was alive and grounded moves along its last horizontal velocity for at most 0.2 s, then stands; one in the air or dead stands where it was (s) | kind: estimate; confidence: low; notes: ours | ours (the sweep's 0.1 s gap with room) | Lean hold carry: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a held record that was alive and grounded moves along its last… | ☐ |
+| `R-D58707CA` | Pod battle cry | its five slots are timed from the pod's record alone (step-out plus `TfwDropPodRules.ShoutDelay`), and each slot's speaker is the lowest-id pod Marine within 8 m in sight that has not cried, chosen when the slot begins; a slot with none in sight is cried from… | kind: ours; confidence: medium | review fix 2026-11-25 | Pod battle cry: compare with SM1 by feel or video. Ours: its five slots are timed from the pod's record alone (step-out plus… | ☐ |
+| `R-E073F91B` | Shot index | 5 bits: bit 4 in the third byte's bit 7 for a miss or world hit, and as surface field 14 (15 under 16) for a player hit (bits) | kind: ours | Phase B T2b | Shot index: compare with SM1 by feel or video. Ours: 5 bits: bit 4 in the third byte's bit 7 for a miss or world hit, and… | ☐ |
 
 *Spec section: Added content: Warfront: the retainers' brain (Phase B T4: `src/SmBots/Extras/Warfront`, `src/SmServer/Extras/Warfront/Retainers`; added content, Warfront only; no wire or protocol change)*
 
@@ -4361,6 +4384,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C37A37CA` | Follow spot | 3.5 m behind the owner, the retainers spread over a quarter circle across his back; walks there when more than 3 m off it, sprints beyond 30 m of path; with an enemy last seen within 30 m inside the circle it runs the Classic chase instead (m) | kind: ours; confidence: low | ours (the Classic chase's 30 m sprint) | Follow spot: compare with SM1 by measuring on a flat spot of the same map. Ours: 3.5 m behind the owner, the retainers spread over a quarter circle… | ☐ |
 | `R-644D5039` | Revive | a downed retainer or fallen human within 15 m, allowed by the order (Follow: inside the circle; Hold: within 12 m of its place), with no enemy in sight within 8 m: it walks there and holds Use within 1.5 m (the squad's 2 m, 2 s revive) (m) | kind: ours; confidence: low | owner 2026-11-25 (revive like a human); distances ours | Revive: compare with SM1 by measuring on a flat spot of the same map. Ours: a downed retainer or fallen human within 15 m, allowed by the order… | ☐ |
 | `R-45724E29` | What the brain sees | the players as they stood at the tick's start (humans, retainers, the pair, pod Marines; its own side allies) and the 8 nearest living Orks within 80 m flat and 30 m up, each as a hostile player of the other side with its own class index (an Ork has no… (Orks, m) | kind: ours; confidence: low | Phase B design (T4, Q4: 8 candidates); ranges ours | What the brain sees: compare with SM1 by feel or video. Ours: the players as they stood at the tick's start (humans, retainers, the… | ☐ |
+| `R-5E645A34` | Retainer brain lifetime | a fresh brain (and leash) for each battle's retainer record and for each new life (a revive after a fall), review L1 | kind: ours; confidence: medium | review L1 2026-11-25 | Retainer brain lifetime: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a fresh brain (and leash) for each battle's retainer record and for… | ☐ |
+| `R-6BA563F9` | Retainer view: all World players allies | in a retainer's view every World player (humans, retainers, the allied pair, pod Marines) is on its side whatever its raw team; only Orks are enemies (review L2) | kind: ours | review L2 2026-11-25 | Retainer view: all World players allies: compare with SM1 by feel or video. Ours: in a retainer's view every World player (humans, retainers, the… | ☐ |
+| `R-0DCF4EFA` | Retainer follow heading | the follow spot behind the owner and the idle facing go by the owner's movement heading, which turns only after he has walked **2** m from where it was last set (his view yaw until his first such walk), so panning the camera does not shuffle the retainers… (m) | kind: ours; confidence: low | review L4 2026-11-25 | Retainer follow heading: compare with SM1 by measuring on a flat spot of the same map. Ours: the follow spot behind the owner and the idle facing go by the… | ☐ |
+| `R-51E1475F` | Retainer hold and pound places on the graph | a Hold ring place and a jump-pound landing are moved onto the nearest walking-graph cell within **4** m (2.5 m up or down); unchanged without a cell near or a graph (review L8) (m) | kind: ours; confidence: low | review L8 2026-11-25 | Retainer hold and pound places on the graph: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Hold ring place and a jump-pound landing are moved onto the nearest… | ☐ |
+| `R-F512CA07` | Leash grace: who left the circle | on leaving the 40 m circle the leash compares the owner's and the retainer's flat displacement since the last tick inside: the owner moved farther (he walked away) gives an engaged retainer the 3 s grace even in the middle of a swing, roll or jump (the move… (m) | kind: ours; confidence: medium | approved brief 2026-11-23; review F6 2026-11-25 | Leash grace: who left the circle: compare with SM1 by measuring on a flat spot of the same map. Ours: on leaving the 40 m circle the leash compares the owner's and the… | ☐ |
 | `R-D2D3EF39` | Graph | the stage map's own walking graph (the bots' `NavSettings.From`); a jump-pack class's jump links are built or read from the private nav cache once per pack and map (`<map>-wf-retainer`), on a quarter of the cores, in the background; the retainers walk until… | kind: ours; confidence: medium | Phase B design (T4; the bots' A1 walk-first rule) | Graph: compare with SM1 by feel or video. Ours: the stage map's own walking graph (the bots' NavSettings.From); a… | ☐ |
 
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*

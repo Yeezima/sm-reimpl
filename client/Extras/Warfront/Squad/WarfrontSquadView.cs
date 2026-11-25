@@ -125,7 +125,7 @@ public sealed partial class WarfrontSquadView : Node
     }
 
     /// <summary>The frame: the downed markers, the HUD line, the jump hint, the revive prompt and ring, the feed, the open panel.</summary>
-    public void Frame(double now, Camera3D? camera, Node3D? gameSpace, Num.Vector3 player)
+    public void Frame(double now, Camera3D? camera, Node3D? gameSpace, Num.Vector3 player, bool selfAlive = true, float fallenHuman = float.MaxValue)
     {
         Model.Frame(now);
         Markers.Frame(Model, now);
@@ -133,7 +133,7 @@ public sealed partial class WarfrontSquadView : Node
         string? line = Model.HudLine(now);
         Hud.SetLine(line, alert: downed > 0);
         Hud.SetJumpHint(line is not null && OwnHasJumpPack() ? $"[{JumpKey}] JUMP ASSAULT" : null);
-        var revive = Aboard ? null : Model.ReviveCandidate(player, now, UseHeld());
+        var revive = Aboard ? null : Model.ReviveCandidate(player, now, UseHeld(), selfAlive, fallenHuman);
         if (revive is { } r)
         {
             Vector2? ring = null;

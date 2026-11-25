@@ -35,6 +35,8 @@ public sealed class WarfrontSquadModel
     readonly Dictionary<ulong, SquadRosterSection> _rosters = new();
     readonly Dictionary<int, (ulong Owner, SquadRosterWire Marine)> _byIndex = new();
     readonly Dictionary<int, int> _indexOfWorld = new();
+    /// <summary>Battle indices an Out event (tag 34) has taken out before the roster section says so (T5 review F4: the HUD counted them standing in between).</summary>
+    readonly HashSet<int> _out = new();
     readonly Dictionary<int, double> _downedAt = new();
     int _holdTarget = -1;
     double _holdSince;
@@ -55,6 +57,7 @@ public sealed class WarfrontSquadModel
     /// <summary>One owner's roster section: it replaces that owner's earlier one and no other.</summary>
     public void ApplyRoster(SquadRosterSection section)
     {
+        if (section is null || section.Marines is null) return;   // T5 review F5: a malformed section changes nothing
         if (_rosters.TryGetValue(section.Handle, out var old))
             foreach (var m in old.Marines)
             {
@@ -65,13 +68,20 @@ public sealed class WarfrontSquadModel
         foreach (var m in section.Marines)
         {
             if (m.Index == SquadRosterWire.NotInBattle) continue;
+            if (m.WorldId == SquadRosterWire.NoWorldId) _out.Remove(m.Index);   // the roster has caught up with the Out event
+            // T5 review F5: an index another owner's section held goes to this one; that owner's World id mapping goes with it
+            if (_byIndex.TryGetValue(m.Index, out var held) && held.Owner != section.Handle && _indexOfWorld.TryGetValue(held.Marine.WorldId, out int heldAt) && heldAt == m.Index) _indexOfWorld.Remove(held.Marine.WorldId);
             _byIndex[m.Index] = (section.Handle, m);
             if (m.WorldId != SquadRosterWire.NoWorldId) _indexOfWorld[m.WorldId] = m.Index;
         }
         if (_rosters.Count > 64)   // a server never sends more than four owners; a hostile one does not grow this
         {
             var drop = _rosters.Keys.First(k => k != section.Handle);
-            foreach (var m in _rosters[drop].Marines) { if (_byIndex.TryGetValue(m.Index, out var at) && at.Owner == drop) _byIndex.Remove(m.Index); _indexOfWorld.Remove(m.WorldId); }
+            foreach (var m in _rosters[drop].Marines)
+            {
+                if (_byIndex.TryGetValue(m.Index, out var at) && at.Owner == drop) _byIndex.Remove(m.Index);
+                if (_indexOfWorld.TryGetValue(m.WorldId, out int was) && was == m.Index && !(_byIndex.TryGetValue(m.Index, out var now) && now.Owner != drop)) _indexOfWorld.Remove(m.WorldId);   // T5 review F5: only its own mapping
+            }
             _rosters.Remove(drop);
         }
     }
@@ -85,6 +95,8 @@ public sealed class WarfrontSquadModel
             if (e.Kind == SquadEventKind.Pound) { pounds?.Add(e.Point); continue; }
             if (e.Kind == SquadEventKind.Downed) _downedAt[e.Index] = now;
             else if (e.Kind is SquadEventKind.Revived or SquadEventKind.Out) _downedAt.Remove(e.Index);
+            if (e.Kind == SquadEventKind.Out) _out.Add(e.Index);
+            else if (e.Kind == SquadEventKind.Revived) _out.Remove(e.Index);
             string name = NameOfIndex(e.Index);
             string by = e.By switch
             {
@@ -124,7 +136,10 @@ public sealed class WarfrontSquadModel
     }
 
     /// <summary>Forgets everything (a new map or battle).</summary>
-    public void Clear() { _rosters.Clear(); _byIndex.Clear(); _indexOfWorld.Clear(); _downedAt.Clear(); _holdTarget = -1; }
+    public void Clear() { _rosters.Clear(); _byIndex.Clear(); _indexOfWorld.Clear(); _downedAt.Clear(); _out.Clear(); _holdTarget = -1; }
+
+    /// <summary>Whether battle index <paramref name="index"/> is out by an Out event the roster has not yet caught up with.</summary>
+    public bool IsOut(int index) => _out.Contains(index);
 
     // ---- output
 
@@ -175,7 +190,7 @@ public sealed class WarfrontSquadModel
             roster += sec.Marines.Count;
             foreach (var m in sec.Marines)
             {
-                if (m.Index == SquadRosterWire.NotInBattle || m.WorldId == SquadRosterWire.NoWorldId) continue;
+                if (m.Index == SquadRosterWire.NotInBattle || m.WorldId == SquadRosterWire.NoWorldId || _out.Contains(m.Index)) continue;   // out by its event: not standing while the roster catches up (F4)
                 if (World(m.WorldId) is { Alive: false }) downed++; else standing++;   // not yet in the snapshot: it has just landed, standing
             }
         }
@@ -193,10 +208,13 @@ public sealed class WarfrontSquadModel
     /// <summary>
     /// The downed Marine the player at <paramref name="player"/> can revive: the nearest within <see cref="ReviveReach"/> (flat); null when none. <paramref name="useHeld"/>: whether the own Use is held now; the
     /// share is the own hold's on that Marine (the server's rule: per reviver, dropped when Use is released or the target changes), a client-side reading of the server's progress, which no wire carries.
+    /// T5 review F3: none while the own player is not alive (<paramref name="selfAlive"/>), and none when a fallen human lies at least as near (<paramref name="fallenHuman"/>, flat metres): the server revives the
+    /// nearer of the two, a tie going to the human (<c>WarfrontSquadWiring</c>), so the ring would show a revive that is not under way.
     /// </summary>
-    public (int Index, string Name, float Share)? ReviveCandidate(Vector3 player, double now, bool useHeld = false)
+    public (int Index, string Name, float Share)? ReviveCandidate(Vector3 player, double now, bool useHeld = false, bool selfAlive = true, float fallenHuman = float.MaxValue)
     {
         int best = -1; float bestD = ReviveReach + 1f;
+        if (!selfAlive) { _holdTarget = -1; return null; }
         foreach (int i in Indices)
         {
             if (!TrySample(i, now, out var s) || !s.Downed) continue;
@@ -204,6 +222,7 @@ public sealed class WarfrontSquadModel
             float d = MathF.Sqrt(dx * dx + dy * dy);
             if (d <= ReviveReach && d < bestD) { best = i; bestD = d; }
         }
+        if (best >= 0 && fallenHuman <= bestD) best = -1;   // the human is the server's target
         if (best < 0 || !useHeld) _holdTarget = -1;
         else if (_holdTarget != best) { _holdTarget = best; _holdSince = now; }
         if (best < 0) return null;
@@ -244,8 +263,15 @@ public sealed class WarfrontSquadModel
     public static AppearanceCode LookCode(AppearanceCode owner, bool ownPieces) => SmSim.Extras.Warfront.Retainers.RetainerLook.CodeOf(owner, ownPieces);
 
     /// <summary>
-    /// Whether the drawn melee arc of <paramref name="player"/> takes Warfront's cleave reach (x1.2, x1.4 a Dreadnought), as the server's <c>World.WarfrontCleaveBonus</c>: a human always, a retainer only while
-    /// <c>WarfrontRetainerRules.CleaveBonus</c> is on (today off: "Base player damage only", owner 2026-11-25), any other puppet (the allied pair, a pod's Marines) never. Pure, so the choice is tested.
+    /// Whether the drawn melee arc of <paramref name="player"/> takes Warfront's cleave reach (x1.2, x1.4 a Dreadnought), as the server's <c>World.WarfrontCleaveBonus</c>: a human always, a retainer while
+    /// <c>WarfrontRetainerRules.CleaveBonus</c> is on (on: "Exactly a human", owner 2026-11-25, T2 review), any other puppet (the allied pair, a pod's Marines) never. Pure, so the choice is tested.
     /// </summary>
     public static bool CleaveBonus(bool puppet, bool retainer) => !puppet || (retainer && SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus);
+
+    /// <summary>
+    /// Whether a retainer's drawn arc takes the human-only x0.6 cleave trim, as the server strikes it (<c>World.WarfrontCleaveTrim</c>): while the server gives it a human's melee reach
+    /// (<c>WarfrontRetainerRules.HumanMeleeReach</c>, on: "Exactly a human") or the human-only scales (<c>HumanOnlyScales</c>, off: base damage). Other puppets never. Pure, so the choice is tested
+    /// (T5 review F1: the arc read only <c>HumanOnlyScales</c> and so drew a retainer's untrimmed AI reach).
+    /// </summary>
+    public static bool ArcHuman(bool retainer) => retainer && (SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.HumanOnlyScales || SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.HumanMeleeReach);
 }

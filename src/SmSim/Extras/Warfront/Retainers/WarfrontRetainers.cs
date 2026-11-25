@@ -112,6 +112,16 @@ public sealed class WarfrontRetainers
         return null;
     }
 
+    /// <summary>
+    /// The retainer of campaign key <paramref name="key"/>'s roster slot <paramref name="slot"/> this battle (null: none). By key, not by player id: a squad whose owner left (or has not yet been re-bound after
+    /// his return) is still found (T5 review F2).
+    /// </summary>
+    public WarfrontRetainer? OfKey(ulong key, int slot)
+    {
+        foreach (var r in _all) if (r.Key == key && r.Slot == slot) return r;
+        return null;
+    }
+
     /// <summary>The battle index of <paramref name="player"/>'s Marine <paramref name="slot"/> (-1: not landed).</summary>
     public int IndexOf(int player, int slot) => Of(player, slot)?.Index ?? -1;
 

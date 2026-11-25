@@ -71,12 +71,25 @@ public partial class NetworkView
         if (_wfSquad is null) return;
         _wfSquad.Aboard = WarfrontSquadAboard;
         _wfSquad.Model.OwnPlayer = _client?.PlayerId ?? -1;
-        _wfSquad.Frame(_connectedFor, _camera, _gameSpace, me.Position);
+        _wfSquad.Frame(_connectedFor, _camera, _gameSpace, me.Position, me.Alive, WarfrontNearestFallenHuman(me.Position));
         WarfrontRetainerShotsFrame(me);
     }
 
     /// <summary>The squad's keys (panel, jump-pound); true when used. Called from the networked view's key handling by W5b's hook.</summary>
     internal bool WarfrontSquadKey(InputEventKey key) => _wfSquad?.HandleKey(key) == true;
+
+    /// <summary>The flat distance to the nearest fallen human (not a puppet, not alive) in this frame's remote players; MaxValue when none (T5 review F3).</summary>
+    float WarfrontNearestFallenHuman(System.Numerics.Vector3 at)
+    {
+        float best = float.MaxValue;
+        foreach (var o in _lastOthers)
+        {
+            if (o.Alive || SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(o.PlayerId) || o.PlayerId <= 0) continue;
+            float dx = o.Position.X - at.X, dy = o.Position.Y - at.Y;
+            best = MathF.Min(best, MathF.Sqrt(dx * dx + dy * dy));
+        }
+        return best;
+    }
 
     /// <summary>A retainer's World player as this frame draws it (the frame's remote players, the same states the characters are posed from), sampled once a frame; null when it is not in the snapshot.</summary>
     WarfrontWorldBody? WarfrontBodyOf(int id)

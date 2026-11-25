@@ -118,6 +118,27 @@ public class SquadSenderTests(ITestOutputHelper output)
         _ = host;
     }
 
+    /// <summary>T5 review F2: a leaver's landed Marines (his key no longer has a player id; or he is back but not yet re-bound) keep their World ids in the roster the others see.</summary>
+    [Fact]
+    public void A_leavers_landed_Marines_keep_their_World_ids_on_the_wire_until_and_after_he_returns()
+    {
+        var (w, retainers, _, sender, host) = Battle(owners: 2, marines: 2);
+        var ids = retainers.All.Where(x => x.Key == 1000).Select(x => (ushort)x.WorldId).Order().ToList();
+        host.ClientList.RemoveAll(c => c.Key == 1000);   // player 1 leaves; his squad fights on
+        sender.ClientJoined(2);
+        var gone = sender.Step(3).Where(x => x.Tag == SquadWire.RosterTag && x.Player == 2).Select(x => SquadWire.TryDecodeRoster(x.Payload, out var r) ? r : null).First(r => r is not null && r.Marines.Count == 2 && r.Marines.Any(m => ids.Contains(m.WorldId)))!;
+        Assert.Equal(ids, gone.Marines.Select(m => m.WorldId).Order());
+        Assert.All(gone.Marines, m => Assert.NotEqual(SquadRosterWire.NotInBattle, m.Index));
+        // he identifies again as player 5 (the Identify) before the squad is re-bound (the Rebind): still found by key
+        host.ClientList.Add((5, 1000));
+        sender.ClientJoined(5);
+        var back = sender.Step(6).Where(x => x.Tag == SquadWire.RosterTag && x.Player == 5).Select(x => SquadWire.TryDecodeRoster(x.Payload, out var r) ? r : null).First(r => r is not null && r.Handle == 1000)!;
+        Assert.Equal(ids, back.Marines.Select(m => m.WorldId).Order());
+        Assert.True(retainers.Rebind(1000, 5));
+        Assert.Same(retainers.OfKey(1000, 0), retainers.Of(5, 0));
+        _ = w;
+    }
+
     [Fact]
     public void Downed_and_revived_are_events_with_the_reviver()
     {

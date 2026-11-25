@@ -118,7 +118,7 @@ public sealed class WarfrontSquadSender
     byte ReviverOf(int index)
     {
         foreach (var r in _sim.Revives)
-            if (r.Slot >= 0 && _sim.IndexOf(_host.PlayerOf(r.Key), r.Slot) == index) return r.ByHuman >= 0 ? (byte)Math.Min(r.ByHuman, 199) : r.ByMarine >= 0 ? (byte)Math.Min(200 + r.ByMarine, 254) : (byte)255;
+            if (r.Slot >= 0 && _sim.OfKey(r.Key, r.Slot)?.Index == index) return r.ByHuman >= 0 ? (byte)Math.Min(r.ByHuman, 199) : r.ByMarine >= 0 ? (byte)Math.Min(200 + r.ByMarine, 254) : (byte)255;
         return 255;
     }
 
@@ -153,8 +153,7 @@ public sealed class WarfrontSquadSender
         {
             var m = owner.Marines[slot];
             var (cls, p, s, melee) = IdsOf(m.Loadout);
-            int player = _host.PlayerOf(owner.Key);
-            var landed = player >= 0 && _host.InBattle ? _sim.Of(player, slot) : null;
+            var landed = _host.InBattle ? _sim.OfKey(owner.Key, slot) : null;   // T5 review F2: by key and slot, so a leaver's landed Marines keep their World ids on the wire
             byte inBattle = landed is { State: not SquadState.Free } ? (byte)landed.Index : SquadRosterWire.NotInBattle;
             ushort worldId = landed is { WorldId: > 0 and <= ushort.MaxValue, State: SquadState.Standing or SquadState.Downed } ? (ushort)landed.WorldId : SquadRosterWire.NoWorldId;
             marines.Add(new SquadRosterWire((byte)slot, inBattle, m.Name, cls, p, s, melee, OwnPieces(m.Loadout), RecordOf(m.Record), worldId));

@@ -10,7 +10,7 @@ namespace SmClient;
 /// <summary>
 /// Test aid (Phase B T5): <c>--warfront-retainer-shots &lt;dir&gt;</c> on a windowed human client in a Warfront battle (a server with <c>SM_WF_ROSTERS</c> so the squad lands): once the squad's World players are
 /// in the snapshot it prints one <c>WFRET</c> line per retainer (World id, class, weapons, alive, whether the view draws it as a character and with which look), turns the camera to each in turn and saves a still
-/// (<c>retainer-&lt;index&gt;-&lt;class&gt;</c>), then a still of the squad HUD. Retainers stand until Phase B T4's brain; nothing here moves or fires them. Never shipped behaviour: it acts only with the flag.
+/// (<c>retainer-&lt;index&gt;-&lt;class&gt;</c>), then a still of the squad HUD. The retainers are driven by the server's brain (Phase B T4); nothing here moves or fires them. Never shipped behaviour: it acts only with the flag.
 /// </summary>
 public partial class NetworkView
 {

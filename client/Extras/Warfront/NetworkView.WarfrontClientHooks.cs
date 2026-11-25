@@ -21,8 +21,8 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>
-    /// Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it. Humans only since the owner's "Base player
-    /// damage only" (2026-11-25): the server's <c>WarfrontCleaveBonus</c> gives a retainer (<c>MarineRole.Squad</c>) the bonus only while <c>WarfrontRetainerRules.CleaveBonus</c> is on (today off), and the arc follows
+    /// Warfront's melee reach (owner 2026-11-18): x1.2, the Dreadnought x1.4, as the server's <c>World.WarfrontCleave</c>; the drawn arc and the predicted targets use it. Humans and retainers ("Exactly a human",
+    /// owner 2026-11-25, T2 review): the server's <c>WarfrontCleaveBonus</c> gives a retainer (<c>MarineRole.Squad</c>) the bonus while <c>WarfrontRetainerRules.CleaveBonus</c> is on (on), and the arc follows
     /// the same switch (<see cref="SmClient.Extras.Warfront.Squad.WarfrontSquadModel.CleaveBonus"/>), so a retainer's arc is drawn at the reach it strikes; the allied pair and a pod's Marines keep Musou Mode's reach.
     /// </summary>
     partial void WarfrontCleaveScaleFor(int player, ref float scale)
@@ -32,10 +32,10 @@ public partial class NetworkView
         scale = WarfrontBattleRules.CleaveScale(ClassOf(player) is int c && DreadnoughtRules.IsDreadnought(_config, c));
     }
 
-    /// <summary>A retainer's arc takes the human-only x0.6 only when the server gives it the human-only scales (<c>WarfrontRetainerRules.HumanOnlyScales</c>; today never: base player damage only, owner 2026-11-25).</summary>
+    /// <summary>A retainer's arc takes the human-only x0.6 trim as the server strikes it (<see cref="SmClient.Extras.Warfront.Squad.WarfrontSquadModel.ArcHuman"/>: a human's melee reach, or the human-only scales).</summary>
     partial void WarfrontArcHuman(int player, ref bool human)
     {
-        if (!human && SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.HumanOnlyScales && WarfrontOn && WarfrontIsRetainer(player)) human = true;
+        if (!human && WarfrontOn && SmClient.Extras.Warfront.Squad.WarfrontSquadModel.ArcHuman(WarfrontIsRetainer(player))) human = true;
     }
 
     /// <summary>A retainer standing by a landing drop pod is not one of the pod's Marines: it does not give their battle cry (a human player would not).</summary>

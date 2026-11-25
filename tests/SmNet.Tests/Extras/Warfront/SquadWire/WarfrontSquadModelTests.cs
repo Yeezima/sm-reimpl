@@ -138,6 +138,47 @@ public class WarfrontSquadModelTests
         Assert.Null(m.ReviveCandidate(new Vector3(0, WarfrontSquadModel.ReviveReach + 2.5f, 0), 1.0));
     }
 
+    /// <summary>T5 review F4: an Out event takes the Marine out of the HUD's counts at once (its World player leaves before the roster section says so); the roster catching up keeps it out.</summary>
+    [Fact]
+    public void An_out_event_drops_the_marine_from_the_hud_counts_before_the_roster_catches_up()
+    {
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(), [22] = Fallen(), [23] = Up() };
+        var m = Model(bodies);
+        Assert.Equal((2, 3, 1), m.OwnCounts(1.0));
+        bodies.Remove(22);   // the out World player left the snapshot: before F4 it counted standing ("just landed")
+        m.ApplyEvents([new SquadEventWire(SquadEventKind.Out, 1, 255)], _ => null, null, 1.1);
+        Assert.True(m.IsOut(1));
+        Assert.Equal((2, 3, 0), m.OwnCounts(1.1));
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Castor", world: 21), R(1, 1, "Pollux"), R(2, 2, "Brother Remus", world: 23)]));
+        Assert.False(m.IsOut(1));
+        Assert.Equal((2, 3, 0), m.OwnCounts(1.2));
+    }
+
+    /// <summary>T5 review F5: a section that takes an index another owner held drops that owner's World id mapping; a null section changes nothing.</summary>
+    [Fact]
+    public void A_roster_taking_another_owners_index_drops_its_world_mapping_and_a_null_section_is_ignored()
+    {
+        var m = Model([]);
+        Assert.True(m.IsRetainer(30));
+        m.ApplyRoster(new SquadRosterSection(300, 5, false, [R(0, 9, "Gaius", world: 40)]));   // index 9 now owner 300's
+        Assert.False(m.IsRetainer(30));
+        Assert.True(m.IsRetainer(40));
+        m.ApplyRoster(null!);
+        Assert.True(m.IsRetainer(40));
+    }
+
+    /// <summary>T5 review F3: no revive ring while the own player is down, nor when a fallen human lies at least as near (the server revives the nearer, a tie to the human).</summary>
+    [Fact]
+    public void The_revive_ring_needs_the_own_player_alive_and_no_fallen_human_as_near()
+    {
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(10, 0), [22] = Fallen(1.5f, 0), [23] = Fallen(1f, 1f) };
+        var m = Model(bodies);
+        Assert.Null(m.ReviveCandidate(Vector3.Zero, 1.0, useHeld: true, selfAlive: false));
+        Assert.Null(m.ReviveCandidate(Vector3.Zero, 1.0, useHeld: true, fallenHuman: 1.0f));     // the human nearer than 1.41 m
+        Assert.Null(m.ReviveCandidate(Vector3.Zero, 1.0, useHeld: true, fallenHuman: MathF.Sqrt(2f)));   // a tie: the human
+        Assert.Equal(2, m.ReviveCandidate(Vector3.Zero, 1.0, useHeld: true, fallenHuman: 1.8f)!.Value.Index);   // the human farther: the retainer
+    }
+
     [Fact]
     public void A_lost_recruit_event_changes_nothing_the_roster_section_adds_the_marine()
     {
@@ -183,5 +224,16 @@ public class WarfrontSquadModelTests
         Assert.True(WarfrontSquadModel.CleaveBonus(puppet: false, retainer: false));   // a human: unchanged
         Assert.Equal(SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus, WarfrontSquadModel.CleaveBonus(puppet: true, retainer: true));   // a retainer: the server's switch, not a constant of the client
         Assert.False(WarfrontSquadModel.CleaveBonus(puppet: true, retainer: false));   // the allied pair, a pod's Marines: Musou's reach
+        Assert.True(WarfrontSquadModel.CleaveBonus(puppet: true, retainer: true));   // on: "Exactly a human" (owner 2026-11-25)
+    }
+
+    /// <summary>T5 review F1: a retainer's drawn arc takes the human x0.6 trim while the server gives it a human's melee reach (or the human-only scales), as <c>World.WarfrontCleaveTrim</c> strikes it.</summary>
+    [Fact]
+    public void A_retainers_arc_takes_the_human_trim_while_the_server_gives_it_a_humans_reach()
+    {
+        bool expected = SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.HumanMeleeReach || SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.HumanOnlyScales;
+        Assert.Equal(expected, WarfrontSquadModel.ArcHuman(retainer: true));
+        Assert.True(WarfrontSquadModel.ArcHuman(retainer: true));   // today: HumanMeleeReach on, HumanOnlyScales off
+        Assert.False(WarfrontSquadModel.ArcHuman(retainer: false));   // the pair, a pod's Marines: the AI reach
     }
 }
