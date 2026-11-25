@@ -135,7 +135,7 @@ void fragment() {
     float rad = 3.14159265 / 180.0;
     for (int k = 0; k < 4; k++) {
         if (float(k) >= v_inst.w) break;
-        float weight = clamp(v_br - float(k), 0.0, 1.0);
+        float weight = clamp(v_br - float(min(k, 2)), 0.0, 1.0);   // the heavy fourth comes and goes with the third (GoreStreakRules.Field)
         if (weight <= 0.0) continue;
         float ja = 0.85 + 0.3 * h01(seed, 20.0 + float(k));
         float jr = 0.9 + 0.1 * h01(seed, 30.0 + float(k));

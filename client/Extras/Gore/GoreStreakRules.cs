@@ -277,7 +277,7 @@ public static class GoreStreakRules
     public const float GritTiles = 1f, GritStretch = 4f;
 
     /// <summary>A branch's angle share of the half-fan, reach share, width share (seeded jitter added by <see cref="Branch"/>): upper, middle, lower, the heavy fourth.</summary>
-    public static readonly (float Angle, float Reach, float Width)[] BranchShares = [(1f, 1f, 1f), (0.35f, 0.88f, 0.8f), (-0.25f, 0.78f, 0.66f), (0.68f, 0.68f, 0.55f)];
+    public static readonly (float Angle, float Reach, float Width)[] BranchShares = [(1f, 1f, 1f), (0.35f, 0.88f, 0.8f), (-0.25f, 0.78f, 0.66f), (-0.75f, 0.7f, 0.6f)];
 
     /// <summary>Exit branch <paramref name="k"/>'s angle (radians from the exit axis), reach and width shares for <paramref name="seed"/>.</summary>
     public static (float Angle, float Reach, float Width) Branch(int k, int seed, float fanDeg, float bias)
@@ -300,7 +300,7 @@ public static class GoreStreakRules
         int n = Math.Min(maxBranches, MaxBranches);
         for (int i = 0; i < n; i++)
         {
-            float weight = Math.Clamp(k.Branches - i, 0f, 1f);
+            float weight = Math.Clamp(k.Branches - Math.Min(i, 2), 0f, 1f);   // the heavy fourth comes and goes with the third
             if (weight <= 0f) continue;
             var (ang, reach, wid) = Branch(i, seed, k.Fan, bias);
             float L = k.Exit * reach;
