@@ -34,8 +34,8 @@ public sealed partial class ExecutionMarker : MeshInstance3D
             MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
         }
 
-        float hash(float n) { return fract(sin(n) * 43758.5453); }
-        float noise1(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(hash(i), hash(i + 1.0), f); }
+        float vhash(float n) { return fract(sin(n) * 43758.5453); }
+        float vnoise(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(vhash(i), vhash(i + 1.0), f); }
 
         // One drip: a thin streak from the dot's lower edge at x, growing over its cycle and narrowing toward its tip, with a bead at the end; it fades as it lets go.
         float drip(vec2 m, float x, float phase, float speed, float c_y) {
@@ -56,11 +56,11 @@ public sealed partial class ExecutionMarker : MeshInstance3D
             vec2 d = m - c;
             float r = length(d);
             float ang = atan(d.y, d.x);
-            float fizz = (noise1(ang * 5.0 + TIME * 7.0) - 0.5) * 0.020 + (noise1(ang * 13.0 - TIME * 11.0) - 0.5) * 0.010;
+            float fizz = (vnoise(ang * 5.0 + TIME * 7.0) - 0.5) * 0.020 + (vnoise(ang * 13.0 - TIME * 11.0) - 0.5) * 0.010;
             float edge = r - radius - fizz;
             float core = 1.0 - smoothstep(-0.004, 0.004, edge);            // solid and opaque
             float glow = exp(-max(edge, 0.0) * 22.0) * (1.0 - core);         // the soft red halo
-            float sparks = step(0.0, edge) * step(edge, 0.05) * step(0.93, noise1(ang * 40.0 + TIME * 23.0)) * (1.0 - edge / 0.05);
+            float sparks = step(0.0, edge) * step(edge, 0.05) * step(0.93, vnoise(ang * 40.0 + TIME * 23.0)) * (1.0 - edge / 0.05);
             float drips = max(drip(m, -0.075, 0.00, 0.45, c.y), max(drip(m, 0.010, 0.37, 0.38, c.y), drip(m, 0.085, 0.71, 0.52, c.y)));
             float hot = 1.0 - smoothstep(0.0, radius * 0.75, r);             // the hot centre
             vec3 col = red * (1.0 + 0.6 * hot) + vec3(0.35, 0.10, 0.05) * hot;

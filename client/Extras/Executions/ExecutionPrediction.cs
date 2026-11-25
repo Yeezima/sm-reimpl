@@ -97,24 +97,39 @@ public sealed class ExecutionPrediction
     /// <summary>The server's lock: <see cref="MatchFlow.Locked"/> (no stick, no buttons: the Execute bit with them; yaw and pitch kept).</summary>
     public static PlayerInput Lock(PlayerInput input) => MatchFlow.Locked(input) with { Buttons = InputButtons.None };
 
-    /// <summary><see cref="GameClient.ExtrasPin"/>: a held tick's predicted state pinned to the track.</summary>
+    /// <summary>
+    /// <see cref="GameClient.ExtrasPin"/>: a held tick's predicted state pinned to the track (<see cref="ExecutionTrack.Pin"/>, disarmed), and the start tick's state disarmed
+    /// (<see cref="ExecutionTrack.Disarm"/>: the server disarms the executor when the run starts, so the swing under way never lands on the first locked tick).
+    /// </summary>
     public PlayerState Pin(PlayerState state, uint tick)
     {
-        if (!state.Alive || !Holds(tick, out var run, out var row)) return state;
-        Pins++;
-        return PinTo(state, run, row, tick, _tickRate);
+        if (!state.Alive) return state;
+        if (Holds(tick, out var run, out var row)) { Pins++; return PinTo(state, run, row, tick, _tickRate); }
+        if (StartsAt(tick)) { Disarms++; return ExecutionTrack.Disarm(state); }
+        return state;
+    }
+
+    /// <summary>Start ticks disarmed (the first prediction and the replays).</summary>
+    public int Disarms { get; private set; }
+
+    /// <summary>Whether an own run (live, or ended lately) started at <paramref name="tick"/>.</summary>
+    bool StartsAt(uint tick)
+    {
+        int id = _ownId();
+        if (id < 0) return false;
+        if (_state.TryLive(id, out var live) && live.StartTick == tick) return true;
+        foreach (var e in _state.Ended) if (e.Run.Executor == id && e.Run.StartTick == tick) return true;
+        return false;
     }
 
     /// <summary>
-    /// The server's pin: the track's feet and yaw at <paramref name="tick"/>, no velocity, grounded; nothing else touched. A row this install lacks (null; X3: the server's run still plays) pins to the
-    /// Start's origin and yaw, so the prediction stays where the server holds the executor instead of walking off.
+    /// The server's pin: <see cref="ExecutionTrack.Pin"/> (the track's feet and yaw at <paramref name="tick"/>, no velocity, grounded, disarmed; nothing else touched). A row this install lacks
+    /// (null; X3: the server's run still plays) pins to the Start's origin and yaw, disarmed, so the prediction stays where the server holds the executor instead of walking off.
     /// </summary>
-    public static PlayerState PinTo(PlayerState state, in ExecutionRun run, ExecutionRow? row, uint tick, int tickRate)
-    {
-        if (row is null) return state with { Position = run.Origin, Yaw = run.Yaw, Velocity = Vector3.Zero, Grounded = true };
-        var pose = ExecutionTrack.Pose(run, row, tick, tickRate);
-        return state with { Position = pose.Feet, Yaw = pose.Yaw, Velocity = Vector3.Zero, Grounded = true };
-    }
+    public static PlayerState PinTo(PlayerState state, in ExecutionRun run, ExecutionRow? row, uint tick, int tickRate) =>
+        row is null
+            ? ExecutionTrack.Disarm(state) with { Position = run.Origin, Yaw = run.Yaw, Velocity = Vector3.Zero, Grounded = true }
+            : ExecutionTrack.Pin(state, run, row, tick, tickRate);
 
     /// <summary>
     /// Sets the client's prediction delegates to <paramref name="prediction"/> when <paramref name="config"/> carries <see cref="ContentExtras.Executions"/>; otherwise clears them (the faithful game

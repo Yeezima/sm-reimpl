@@ -195,6 +195,24 @@ public class ExecutionPredictionTests
     }
 
     [Fact]
+    public void StartTickIsDisarmedAndHeldTicksPinnedDisarmed()
+    {
+        var state = new ExecutionClientState();
+        var p = new ExecutionPrediction(state, () => Set, () => 4, 30);
+        var run = Run(4, 100, Vector3.Zero);
+        state.Start(run, 0);
+        var swinging = new PlayerState(4, new Vector3(9f, 9f, 0f), Vector3.One, 0f, true) { Alive = true, MeleeStep = 2, MeleeTime = 0.3f, MeleeQueued = true, Charging = true, ChargeTime = 1f };
+        var atStart = p.Pin(swinging, 100);   // as the server: disarmed when the run starts, not moved (the first pinned tick is the next)
+        Assert.Equal(swinging.Position, atStart.Position);
+        Assert.Equal(ExecutionTrack.Disarm(swinging), atStart);
+        Assert.Equal(0, atStart.MeleeStep);
+        Assert.False(atStart.Charging);
+        Assert.Equal(ExecutionTrack.Pin(swinging, run, Row, 101, 30), p.Pin(swinging, 101));   // the shared pin: track and disarm
+        Assert.Equal(1, p.Disarms);
+        Assert.Equal(swinging, p.Pin(swinging, 99));
+    }
+
+    [Fact]
     public void RunExpiresAtItsOwnEndTickWhenEveryEndIsLost()
     {
         var state = new ExecutionClientState();

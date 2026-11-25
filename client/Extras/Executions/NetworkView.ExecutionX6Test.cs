@@ -184,7 +184,7 @@ public partial class NetworkView
         {
             case 0 when t > 4.0: _execRowsOverride = ExecutionX6Rows(2f); GD.Print($"EXECX6 dot over player {victim} ({(victim == client.PlayerId ? "own, no other player" : $"{best:F1} m away")})"); ExecutionX6Next(); break;
             case 1 when t > 0.5: _execX6Camera = ExecutionX6CameraAt(dot, 2.2f, 0.5f); ExecutionX6Next(); break;
-            case 2 when t > 0.6: ExecutionX6Shot(dir, "dot_classic_close"); _execX6Camera = ExecutionX6CameraAt(dot, 7f, 0.5f); ExecutionX6Next(); break;
+            case 2 when t > 0.6: GD.Print($"EXECX6 marker {(ExecutionMarkerShown ? "shown" : "hidden")} at {_execMarker?.GlobalPosition}, camera {_camera?.GlobalPosition}, hidden {_execPromptHidden}"); ExecutionX6Shot(dir, "dot_classic_close"); _execX6Camera = ExecutionX6CameraAt(dot, 7f, 0.5f); ExecutionX6Next(); break;
             case 3 when t > 0.6: ExecutionX6Shot(dir, "dot_classic_mid"); _execX6Camera = null; ExecutionX6Next(); break;
             case 4 when t > 0.6: ExecutionX6Shot(dir, "dot_classic_play_view"); ExecutionX6Next(); break;
             case 5: ExecutionX6Done(dir, "Classic marker"); break;

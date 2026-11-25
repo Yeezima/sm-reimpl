@@ -15,9 +15,9 @@ namespace SmServer;
 /// (ours: a lost datagram must not leave a client playing a dead run; the client deduplicates by tick and executor).</item>
 /// <item>Each Classic offer goes to its killer alone, once (the HUD prompt; the server decides on its own clock).</item>
 /// <item>The live Starts are resent at <see cref="ExecutionWire.LiveListHz"/> (2 Hz) for late joiners.</item>
-/// <item>The overshield list on a change and at <see cref="ExecutionWire.OvershieldHz"/> (1 Hz): every living non-puppet player above its armour maximum (empty in Classic; X4 fills it).</item>
+/// <item>Warfront only, the overshield list on a change and at <see cref="ExecutionWire.OvershieldHz"/> (1 Hz) while not empty: every living non-puppet player above its armour maximum (X4 fills it).</item>
 /// </list>
-/// A log line for every Start, End and refused press (the live check and the operators).
+/// A log line for every Start, End, offer and press that reached the choice and found nothing (NoFit with its numbers, NoWire); earlier refusals are counted (<see cref="ExecutionRefusalsCounted"/>).
 /// </summary>
 public sealed partial class GameServer
 {
@@ -31,6 +31,8 @@ public sealed partial class GameServer
     public int ExecutionStartsSent { get; private set; }
     public int ExecutionEndsSent { get; private set; }
     public int ExecutionOffersSent { get; private set; }
+    /// <summary>Presses refused before the choice (counted, not logged).</summary>
+    public int ExecutionRefusalsCounted { get; private set; }
 
     partial void ExecutionsCreated()
     {
@@ -56,7 +58,12 @@ public sealed partial class GameServer
             ExecutionEndsSent++;
             Log?.Invoke($"executions: end player {end.Run.Executor} {end.Reason} at tick {end.Tick}{(end.Run.KillDone ? " (kill event passed)" : "")}");
         }
-        foreach (var (id, why) in w.ExecutionsRefusedThisTick) Log?.Invoke($"executions: press of player {id} at tick {tick} did nothing ({why})");
+        // A refusal before the choice is counted, not logged (a mashing client would write a line every few ticks); a press that reached the choice and found nothing is logged.
+        foreach (var (id, why) in w.ExecutionsRefusedThisTick)
+        {
+            if (why is ExecutionRefusal.NoFit or ExecutionRefusal.NoWire) Log?.Invoke($"executions: press of player {id} at tick {tick} did nothing ({why})");
+            else ExecutionRefusalsCounted++;
+        }
         foreach (var n in w.ExecutionsNoFitThisTick) Log?.Invoke($"executions: no move fits player {n.Executor} on the corpse of {n.Victim}: gap {n.Gap:0.00} m, height {n.Height:0.00} m, first {n.First}, tried {string.Join(",", n.Tried)}");
 
         // Offers: to the killer alone.
@@ -86,21 +93,36 @@ public sealed partial class GameServer
                 if (run.StartTick < tick) sections.Add((ExecutionWire.Tag, ExecutionWire.Encode(ExecutionStart.Of(run))));   // this tick's own Starts are already in the repeats
         }
 
-        // The overshield list (on a change and at 1 Hz).
-        var shields = ExecutionsOvershields(w);
-        var list = ExecutionWire.Encode(shields);
-        bool changed = _executionOvershieldLast is null || !list.AsSpan().SequenceEqual(_executionOvershieldLast);
-        if (changed || tick >= _executionOvershieldNext)
+        // The overshield list: Warfront only (Classic never has one); on a change, and at 1 Hz while it is not empty (a late joiner, a lost datagram); never encoded in Classic.
+        if (w.Config.Extras.HasFlag(ContentExtras.Warfront))
         {
-            _executionOvershieldLast = list;
-            _executionOvershieldNext = tick + (uint)Math.Max(1, (int)Math.Round(rate / ExecutionWire.OvershieldHz));
-            sections.Add((ExecutionWire.Tag, list));
+            var shields = ExecutionsOvershields(w);
+            var list = ExecutionWire.Encode(shields);
+            bool changed = _executionOvershieldLast is null || !list.AsSpan().SequenceEqual(_executionOvershieldLast);
+            if (changed || (shields.Length > 0 && tick >= _executionOvershieldNext))
+            {
+                _executionOvershieldLast = list;
+                _executionOvershieldNext = tick + (uint)Math.Max(1, (int)Math.Round(rate / ExecutionWire.OvershieldHz));
+                sections.Add((ExecutionWire.Tag, list));
+            }
         }
 
-        // One message per tick at most for the shared sections, split if it would grow past the envelope's size.
-        const int perMessage = 32;
-        for (int i = 0; i < sections.Count; i += perMessage)
-            if (SendExtras(new ExtrasUpdate(tick, sections.Skip(i).Take(perMessage).ToArray()))) ExecutionMessagesSent++;
+        // The shared sections in as few messages as fit the envelope (Protocol.MaxExtrasMessageBytes, with its header and each section's).
+        var chunk = new List<(byte Tag, byte[] Payload)>();
+        int size = Protocol.ExtrasHeaderBytes;
+        foreach (var s in sections)
+        {
+            int need = Protocol.ExtrasSectionHeaderBytes + s.Payload.Length;
+            if (chunk.Count > 0 && size + need > Protocol.MaxExtrasMessageBytes)
+            {
+                if (SendExtras(new ExtrasUpdate(tick, chunk.ToArray()))) ExecutionMessagesSent++;
+                chunk.Clear();
+                size = Protocol.ExtrasHeaderBytes;
+            }
+            chunk.Add(s);
+            size += need;
+        }
+        if (chunk.Count > 0 && SendExtras(new ExtrasUpdate(tick, chunk.ToArray()))) ExecutionMessagesSent++;
     }
 
     /// <summary>Every living non-puppet player with armour above its maximum, as a fraction of the overshield's cap, by id, at most <see cref="ExecutionWire.MaxOvershieldEntries"/>.</summary>

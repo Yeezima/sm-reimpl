@@ -63,6 +63,37 @@ public class ExecutionHashTests
         Assert.Equal(pinned, ids.Take(pinned.Length));
     }
 
+    [Fact]
+    public void Each_shared_version_and_the_wire_order_move_the_hash()
+    {
+        var c = new SimConfig { Extras = ContentExtras.All };
+        string[] ids = ExecutionRows.All.Select(r => r.Id).ToArray();
+        byte[] Block(int choice, int align, int data, string[] wire)
+        {
+            using var m = new MemoryStream();
+            using (var w = new BinaryWriter(m)) ExecutionRules.WriteBlock(w, c, choice, align, data, wire);
+            return m.ToArray();
+        }
+        var real = Block(ExecutionChoice.RulesVersion, ExecutionAlign.RulesVersion, ExecutionRows.DataVersion, ids);
+        using (var m = new MemoryStream())
+        {
+            using (var w = new BinaryWriter(m)) ExecutionRules.Hash(w, c);
+            Assert.Equal(real, m.ToArray());   // Hash writes exactly these
+        }
+        Assert.NotEqual(real, Block(ExecutionChoice.RulesVersion + 1, ExecutionAlign.RulesVersion, ExecutionRows.DataVersion, ids));
+        Assert.NotEqual(real, Block(ExecutionChoice.RulesVersion, ExecutionAlign.RulesVersion + 1, ExecutionRows.DataVersion, ids));
+        Assert.NotEqual(real, Block(ExecutionChoice.RulesVersion, ExecutionAlign.RulesVersion, ExecutionRows.DataVersion + 1, ids));
+        Assert.NotEqual(real, Block(ExecutionChoice.RulesVersion, ExecutionAlign.RulesVersion, ExecutionRows.DataVersion, [.. ids.Reverse()]));
+        Assert.NotEqual(real, Block(ExecutionChoice.RulesVersion, ExecutionAlign.RulesVersion, ExecutionRows.DataVersion, [.. ids, "Z1.chainsword"]));
+    }
+
+    [Fact]
+    public void A_press_without_a_view_tick_counts_now()
+    {
+        var c = new SimConfig();
+        Assert.Equal(1000u, ExecutionRules.PressTick(c, 1000, 0));
+        Assert.Equal(1000u - (uint)c.MaxRewindTicks, ExecutionRules.PressTick(c, 1000, 10));
+    }
     static byte[] Content(ExecutionRowSet set)
     {
         using var m = new MemoryStream();

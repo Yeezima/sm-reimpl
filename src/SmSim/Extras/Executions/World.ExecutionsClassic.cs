@@ -36,6 +36,7 @@ public sealed partial class World
         {
             if (k.Cause != KillCause.Melee || k.Killer == 0 || k.Killer == k.Victim || TfwContracts.IsPuppet(k.Killer)) continue;
             if (!_players.TryGetValue(k.Killer, out var killer) || !_players.TryGetValue(k.Victim, out var victim)) continue;
+            if (!killer.Alive) continue;   // a trade kill: the killer died in the same tick and cannot finish it
             if (Rules is not null && !Hostile(killer.Team, victim.Team)) continue;   // a teamkill never offers
             // The corpse as it fell: its feet, yaw, class and team; alive for the alignment's checks only (MeleeLock.Sees and the probes read a living body).
             var offer = new ExecutionClassicOffer(k.Killer, k.Victim, k.Tick, victim with { Alive = true, Velocity = Vector3.Zero });
