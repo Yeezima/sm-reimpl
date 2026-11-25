@@ -85,7 +85,7 @@ public partial class NetworkView
         if (kind is "gun" or "headshot" or "wallshot" or "farshot")
         {
             var from = camera.GlobalPosition;
-            if (ObserveSide > 0f && kind == "gun") from = chest - right * 8f + Vector3.Up * 0.3f;   // the fixed side camera: the shot comes from the frame's left, across the view
+            if (ObserveSide > 0f && kind is "gun" or "headshot") from = (kind == "gun" ? chest : head) - right * 8f + Vector3.Up * 0.3f;   // the fixed side camera: the shot comes from the frame's left, across the view (the headshot too since repair 4: along the camera's line its spray went away from the camera, hidden behind the head)
             var target = kind == "gun" ? chest + toCam * BodySurface : head;
             var dir = (target - from).Normalized();
             NoteHitDirFocus(target, dir);
