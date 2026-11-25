@@ -52,8 +52,19 @@ public sealed partial class World
     /// <summary>Test aid: treat the stage as a Chaos one without a Chaos config. Never set outside tests.</summary>
     internal bool ExecutionsChaosStageForTests { get; set; }
 
-    /// <summary>Whether the stage's enemies are Chaos (no executions until X4b): the stage's army (Chaos C2's <see cref="SimConfig.WarfrontFaction"/>; X4 phase 2, wired at the series-37 integration).</summary>
-    bool ExecutionsChaosStage => ExecutionsChaosStageForTests || Config.WarfrontChaosArmy;
+    /// <summary>Whether the stage's enemies are Chaos (no executions until X4b): the stage's army (Chaos C2's <c>SimConfig.WarfrontFaction</c>, read by Warfront's <see cref="WarfrontChaosArmy"/>; X4 phase 2, wired at the series-37 integration).</summary>
+    bool ExecutionsChaosStage
+    {
+        get
+        {
+            bool chaos = ExecutionsChaosStageForTests;
+            WarfrontChaosArmy(ref chaos);   // WARFRONT-HOOK: the stage's army (Extras/Warfront/Chaos/Roster/World.WarfrontChaosArmy.cs); without Warfront compiled, never Chaos
+            return chaos;
+        }
+    }
+
+    /// <summary>Hook for Warfront (Chaos C2): sets <paramref name="chaos"/> when this stage's army is Chaos.</summary>
+    partial void WarfrontChaosArmy(ref bool chaos);
 
     /// <summary>Whether the war is in a battle (node, HQ or fortress) with its enemies in play.</summary>
     bool ExecutionsInBattle => _musou is not null && _tfw is { Battle: not null } run && run.Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup;   // the fight goes on through the extraction countdown (X4 review)

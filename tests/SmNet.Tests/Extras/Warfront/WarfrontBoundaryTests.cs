@@ -120,6 +120,9 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropPicked"),
         ("client/Extras/Musou/MusouDrops.cs", "WarfrontDropLive"),
         ("client/Extras/NetworkView.Extras.cs", "WarfrontPickupWalkOver"),
+        // series-37 integration: executions X4 phase 2 asks Warfront for the army (no executions on a Chaos stage; the marker hides in a Chaos run)
+        ("src/SmSim/Extras/Executions/Orks/World.ExecutionsOrks.cs", "WarfrontChaosArmy"),
+        ("client/Extras/Executions/NetworkView.ExecutionInput.cs", "WarfrontChaosArmyShown"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

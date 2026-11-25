@@ -165,7 +165,15 @@ public partial class NetworkView
     /// <c>SimConfig.WarfrontFaction</c> (X4 phase 2); the client's config carries the army once the Hub names it (C3's latch, <c>WarfrontChaosTuning.Apply</c>), so the dot never promises a press the
     /// server refuses (X6 review X6-12, lead 40; wired at the series-37 integration).
     /// </summary>
-    bool ExecutionsChaosRun() => _config?.WarfrontChaosArmy == true;
+    bool ExecutionsChaosRun()
+    {
+        bool chaos = false;
+        WarfrontChaosArmyShown(ref chaos);   // WARFRONT-HOOK: the latched army (client/Extras/Warfront/Chaos/NetworkView.WarfrontChaosArmy.cs); without Warfront compiled, never Chaos
+        return chaos;
+    }
+
+    /// <summary>Hook for Warfront (Chaos C3's latch): sets <paramref name="chaos"/> when the client's config names the Chaos army.</summary>
+    partial void WarfrontChaosArmyShown(ref bool chaos);
 
     // ---- the overshield shell ----
 
