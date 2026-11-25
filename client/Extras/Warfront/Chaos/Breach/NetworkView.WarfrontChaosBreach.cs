@@ -92,6 +92,30 @@ public partial class NetworkView
         _gameSpace.AddChild(_wfBreachDriver);
     }
 
+    System.Threading.Tasks.Task<(Dictionary<string, CSystem> Systems, Dictionary<string, byte[]> Decals, List<string> Failed)>? _wfBreachFxLoad;
+    FxPlayer? _wfBreachFxFor;
+    bool _wfBreachFxReady, _wfBreachNoFxLogged;
+
+    /// <summary>The breach's effects are in no catalogue the client preloads: compiled once per effect player on a worker from master_fx (as Musou's Mek effects are).</summary>
+    void WarfrontBreachFxLoad()
+    {
+        if (_fx is not { IsReady: true, Library: { } library } fx) return;
+        if (!ReferenceEquals(_wfBreachFxFor, fx)) { _wfBreachFxFor = fx; _wfBreachFxReady = false; _wfBreachFxLoad = null; }
+        if (_wfBreachFxReady) return;
+        _wfBreachFxLoad ??= System.Threading.Tasks.Task.Run(() =>
+        {
+            var failures = new List<string>();
+            var systems = CompileSystems(library, [ChaosBreachLook.Effect, ChaosBreachLook.FallbackEffect], failures);
+            return (new Dictionary<string, CSystem>(systems), new Dictionary<string, byte[]>(library.Textures(FxPlayer.DecalNames(systems.Values))), failures);
+        });
+        if (!_wfBreachFxLoad.IsCompleted) return;
+        _wfBreachFxReady = true;
+        if (_wfBreachFxLoad.IsFaulted) { GD.PrintErr("warfront chaos: breach effects: " + _wfBreachFxLoad.Exception?.GetBaseException().Message); return; }
+        var (systems, decals, failed) = _wfBreachFxLoad.Result;
+        fx.Preload(systems, decals);
+        GD.Print($"warfront chaos: {systems.Count} breach effect(s) compiled ({string.Join(", ", systems.Keys)}){(failed.Count > 0 ? "; failed: " + string.Join(", ", failed) : "")}");
+    }
+
     /// <summary>Once a frame while a breach section has come this map.</summary>
     void WarfrontBreachFrame(double dt)
     {
@@ -99,6 +123,7 @@ public partial class NetworkView
         if (_wfBreach.Tick(now)) { GD.Print($"t {now:F1} s: warfront chaos: no breach list for {ChaosBreachLook.StaleSeconds:F0} s; breaches cleared"); _wfBreachLogged = ""; }
         WarfrontBreachDemoFrame(now);
         if (!WarfrontBreachDraws) return;
+        WarfrontBreachFxLoad();
         var viewer = _client?.Predicted.Position ?? default;
         var live = new HashSet<byte>();
         foreach (var b in _wfBreach.Breaches)
@@ -118,12 +143,13 @@ public partial class NetworkView
         var foot = b.Position;
         var centre = b.Centre;
         // the install's effect, looping while the breach stands
-        if (standing && show.Loop is null && _fx is not null && FxActive)
+        if (standing && show.Loop is null && _fx is not null && FxActive && _wfBreachFxReady)
         {
             var at = ToGodot(foot + new Num.Vector3(0f, 0f, ChaosBreachLook.EffectHeight));
             show.Loop = _fx.Play(ChaosBreachLook.Effect, at, Basis.Identity, 1f, repeat: true, priority: 2)
                         ?? _fx.Play(ChaosBreachLook.FallbackEffect, at, Basis.Identity, ChaosBreachLook.FallbackScale, repeat: true, priority: 2);
-            GD.Print($"t {now:F1} s: warfront chaos: breach {b.Id} effect {(show.Loop is null ? "none (neither the portal nor the gate in the effect library)" : show.Loop.Name)}");
+            if (show.Loop is not null) GD.Print($"t {now:F1} s: warfront chaos: breach {b.Id} effect {show.Loop.Name}");
+            else if (!_wfBreachNoFxLogged) { _wfBreachNoFxLogged = true; GD.Print($"t {now:F1} s: warfront chaos: breach {b.Id} effect none (neither the portal nor the gate in the effect library)"); }
         }
         if (!standing && show.Loop is { } loop) { loop.Repeat = false; loop.Life = Math.Min(loop.Life, loop.Age + 0.25); show.Loop = null; }
         // the hum while it is open; the crackle at random
