@@ -511,6 +511,7 @@ public partial class NetworkView : Node3D
         LooksBeginFrame(me);   // customizer T7: arrivals, the acknowledged setup, the own look at the respawn
         LeanFrame();   // perf/lean-bots: a lean bot drains the queues the looks would have read (NetworkView.Lean.cs)
         var shown = OwnShownState(me, delta);   // M36: position between ticks and view pitch for the model and the camera (NetworkView.Turning.cs)
+        MeleeOrbitFrame(me, (float)delta);   // camera/melee-orbit: the drawn body's heading in melee mode and back (NetworkView.MeleeOrbit.cs)
         // On (re)spawn the server places the player at a spawn point facing its yaw; take that facing as the view.
         if (me.Alive && !_wasAlive) { _yaw = me.Yaw; _pitch = 0f; }
         TfwSpawnFacingFrame(me);   // musou/spawn-facing: the landing and a redeploy take the server's yaw (NetworkView.TfwSpawnFacing.cs)
@@ -730,6 +731,7 @@ public partial class NetworkView : Node3D
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
         if (_demoPlayback is null) ExtrasInputGate(ref input);   // EXTRAS-HOOK: added content's limits on a live input (Musou: the Dreadnought's sprint, the same rule as the server's)
+        if (_client is not null) StepMeleeMode(_client.Predicted, input);   // camera/melee-orbit: the shared melee mode for bots, the dead and demos (a human's live input stepped it already, NetworkView.MeleeOrbit.cs)
         DemoRecordInput(input);
         _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
         NoteSentInput(input);   // feel/bullets: the shot of this tick is drawn on the ray this input carries (NetworkView.Bullets.cs)
@@ -775,6 +777,7 @@ public partial class NetworkView : Node3D
             var botInput = AimTest && (int)(_connectedFor / 5.0) % 2 == 1 ? scripted with { Buttons = scripted.Buttons | InputButtons.Aim } : scripted;
             return BulletProbe ? Converged(botInput) : botInput;   // feel/bullets --bullet-probe: a bot with --aim-test sends the converged shot of a human (offsets and origin)
         }
+        if (MeleeOrbitDemo) return MeleeOrbitDemoSample(tick);   // camera/melee-orbit test aid (NetworkView.MeleeOrbit.cs): scripted keys through the human path
         if (_pad is not null && PadHost.Active) return SamplePad(tick);   // controller: the last device used wins (NetworkView.Gamepad.cs)
         // ui/keybinds (ours, an added option): the keyboard and mouse bindings are the player's (ControlsInput, controls.json); the defaults are the old keys. Fire, Aim, Melee, the stun strike,
         // the grenade and the weapon switch act only while the mouse is captured (a click on a released mouse recaptures it). The melee strike and the stun strike are the same bits as ever,
@@ -787,8 +790,8 @@ public partial class NetworkView : Node3D
         buttons |= InteractButton();
         buttons = LatchButtons(buttons);   // feel/controls: a tap since the last sample is held for this one (NetworkView.Controls.cs)
         _switchPending = false;
-        // The shot goes where the screen-centre crosshair is (NetworkView.Camera.cs).
-        return Converged(new PlayerInput(tick, x, y, _yaw, buttons, _pitch));
+        // The shot goes where the screen-centre crosshair is (NetworkView.Camera.cs). camera/melee-orbit: in melee mode the input carries the body's yaw (NetworkView.MeleeOrbit.cs).
+        return Converged(MeleeOrbitInput(new PlayerInput(tick, x, y, _yaw, buttons, _pitch)));
     }
 
     /// <summary>

@@ -51,7 +51,11 @@ public partial class NetworkView
     System.Numerics.Vector3 _simPosition;   // the simulation's own position this frame: the camera's wall casts fall back to it (feel/controls; --sim-camera-cast: always)
 
     /// <summary>The yaw to draw the own model at: the view's while the simulation's follows the input, else the predicted state's (<see cref="ViewSmoothing.FollowAngle"/>).</summary>
-    float DisplayYaw(PlayerState state) =>
+    /// <remarks>camera/melee-orbit: in melee mode (and while turning back after it) the body's smoothed heading instead (<see cref="MeleeOrbitFrame"/>).</remarks>
+    float DisplayYaw(PlayerState state) => _meleeDrawn && state.Alive && !OwnDead ? _meleeDrawnYaw : DisplayYawLocked(state);
+
+    /// <summary>The yaw the own model is drawn at outside melee mode (M36).</summary>
+    float DisplayYawLocked(PlayerState state) =>
         !state.Alive || OwnDead || SteeredStrike(state) ? state.Yaw : ViewSmoothing.FollowAngle(state.Yaw, _sampledYaw, _yaw);
 
     /// <summary>sim/slam-steer: the own body in a steered strike (the hammer's and the maul's slam) shows the simulation's heading, which turns at most 300 degrees a second and 185 in all, not the view.</summary>
