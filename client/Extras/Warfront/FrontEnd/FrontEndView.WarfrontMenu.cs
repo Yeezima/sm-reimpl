@@ -146,8 +146,7 @@ public sealed partial class FrontEndView
         if (WarfrontOnline.Enabled) { var online = Plate(WarfrontOnline.Row, WarfrontJoinOnline, WarfrontOnline.RowTooltip); column.Add(online); Add(online); }
         var customizer = Plate("Customizer", WarfrontCustomizer, "Your Warfront loadouts: Standard Marines, the Librarian, the Heretic (not yet)");
         column.Add(customizer); Add(customizer);
-        var reset = WarfrontResetPlate(running, progress);
-        column.Add(reset); Add(reset);
+        // RESET PROGRESSION moved to OPTIONS, INTERFACE under SCREEN FLASHES (owner 2026-11-25): the column ends with the customizer, BACK below it as before.
         Add(UiKit.MenuButton("Back", WarfrontBackToMain));
         page.SetStatus(run.CanContinue ? run.Cells : null, honor);
         if (_wfNotice.Length > 0) page.SetNote(_wfNotice, "refusal");
