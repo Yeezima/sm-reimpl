@@ -222,6 +222,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Frames(4);
         page = _front.WarfrontPage;
         Check("online: forced on, the page lists it after Join a friend", Rows(page).SequenceEqual(["NEW CAMPAIGN", "FACTION: ALTERNATE", "HOST FOR FRIENDS", "JOIN A FRIEND", "ONLINE WARFRONT", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        await Still("page-online");   // the page as players see it (ONLINE WARFRONT is on by default; the other stills hide it for the row lists)
         Check("online: the row takes focus (keyboard and pad)", Find(page!, "ONLINE WARFRONT") is { Disabled: false, FocusMode: not Control.FocusModeEnum.None });
         joined = null;
         for (int i = 0; i < 300 && joined is null; i++) await Press(page!, "ONLINE WARFRONT");   // the game data's plan loads in the background: press until it is ready
