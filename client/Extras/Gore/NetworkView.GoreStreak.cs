@@ -31,6 +31,9 @@ public partial class NetworkView
     static Num.Vector3 GsN(Vector3 v) => new(v.X, v.Y, v.Z);
     static Vector3 GsG(Num.Vector3 v) => new(v.X, v.Y, v.Z);
 
+    /// <summary>The body's radius as a share of its height (ours: about 0.44 m for a 2 m marine).</summary>
+    const float BodyRadiusShare = 0.22f;
+
     /// <summary>The next streak seed (from 1).</summary>
     int NextStreakSeed() => ++_streakSeed;
 
@@ -43,7 +46,13 @@ public partial class NetworkView
         if (axis.LengthSquared() < 1e-8f) return;
         var ax = Num.Vector3.Normalize(GsN(axis));
         var n = GsN(normal);
-        if (_camera is { } cam && GodotObject.IsInstanceValid(cam)) n = GoreStreakRules.CameraBias(n, ax, GsN(cam.GlobalPosition - origin));
+        if (_camera is { } cam && GodotObject.IsInstanceValid(cam))
+        {
+            // the wound's side toward the camera (gate repair 3): pushed out by the body's radius, so the root is not buried inside the body that is drawn over it
+            var toCam = cam.GlobalPosition - origin; toCam.Y = 0f;
+            if (toCam.LengthSquared() > 1e-4f) origin += toCam.Normalized() * (BodyRadiusShare * bodyHeight);
+            n = GoreStreakRules.CameraBias(n, ax, GsN(cam.GlobalPosition - origin));
+        }
         float bias = (GoreStreakRules.Hash01(seed, 60) - 0.5f) * 0.2f;
         _lastStreakOrigin = origin; _lastStreakAxis = GsG(ax); _lastStreakUnit = bodyHeight * scale;   // for the capture aid's capture.json
         GoreStreaks().Spawn(new GoreStreakRules.Streak(GsN(origin), ax, n, bodyHeight, scale, seed, preAge, Math.Clamp(bend, -0.4f, 0.4f), lethal, heavy), bias);

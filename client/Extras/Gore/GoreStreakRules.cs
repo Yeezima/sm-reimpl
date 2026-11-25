@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Numerics;
 using SmSim;
 
@@ -39,7 +40,8 @@ public static class GoreStreakRules
     /// <param name="Grit">Pinhole amount (0 none, 1 most): it grows as the spray fades.</param>
     /// <param name="Branches">Exit branches drawn (fractional: the last one thinner).</param>
     /// <param name="Outer">How much the outer part of every branch has faded (0 none).</param>
-    public readonly record struct Key(float T, float Exit, float Entry, float Fan, float Width, float Fill, float Opacity, float Grit, float Branches, float Outer);
+    /// <param name="Root">How solid the first third of every branch is held (1 frames 0-4: one mass leaving the wound; 0 once it breaks up).</param>
+    public readonly record struct Key(float T, float Exit, float Entry, float Fan, float Width, float Fill, float Opacity, float Grit, float Branches, float Outer, float Root);
 
     /// <summary>
     /// The per-frame table (interpretation of reference frames 0..10, provisional; design state/design-gore-streak-1125.md), calibrated (lead 40, 2026-11-25) so the drawn shape's measured
@@ -49,17 +51,17 @@ public static class GoreStreakRules
     /// </summary>
     public static readonly Key[] Keys =
     [
-        new(0.00f, 1.36f, 0.52f,    4f, 0.060f, 0.55f, 1.00f, 0.05f, 1.3f, 0.00f),
-        new(0.05f, 1.60f, 0.80f,   17f, 0.120f, 0.55f, 1.00f, 0.08f, 3.0f, 0.00f),
-        new(0.10f, 1.92f, 0.84f,   22f, 0.140f, 0.52f, 0.97f, 0.12f, 3.0f, 0.00f),
-        new(0.18f, 1.92f, 0.92f,   21f, 0.165f, 0.44f, 0.93f, 0.20f, 3.0f, 0.30f),
-        new(0.27f, 1.98f, 1.02f,   29f, 0.200f, 0.46f, 0.90f, 0.28f, 3.0f, 0.20f),
-        new(0.37f, 2.08f, 1.12f,   28f, 0.215f, 0.40f, 0.87f, 0.36f, 3.0f, 0.18f),
-        new(0.48f, 2.20f, 1.28f,   26f, 0.225f, 0.35f, 0.84f, 0.44f, 3.0f, 0.12f),
-        new(0.60f, 2.25f, 1.32f,   26f, 0.230f, 0.28f, 0.80f, 0.52f, 3.0f, 0.08f),
-        new(0.72f, 2.35f, 1.28f,   24f, 0.240f, 0.25f, 0.76f, 0.60f, 3.0f, 0.05f),
-        new(0.85f, 2.35f, 0.45f,   22f, 0.240f, 0.19f, 0.72f, 0.66f, 3.0f, 0.05f),
-        new(0.98f, 2.35f, 0.45f,   20f, 0.240f, 0.07f, 0.60f, 0.70f, 3.0f, 0.05f),
+        new(0.00f, 1.30f, 0.50f,    6f, 0.028f, 0.60f, 1.00f, 0.05f, 1.3f, 0.00f, 1.00f),
+        new(0.05f, 1.60f, 0.70f,   22f, 0.078f, 0.62f, 1.00f, 0.08f, 3.0f, 0.00f, 1.00f),
+        new(0.10f, 1.85f, 0.80f,   28f, 0.090f, 0.58f, 0.95f, 0.12f, 3.0f, 0.00f, 1.00f),
+        new(0.18f, 1.85f, 0.82f,   27f, 0.100f, 0.48f, 0.85f, 0.20f, 3.0f, 0.30f, 1.00f),
+        new(0.27f, 1.95f, 0.85f,   34f, 0.114f, 0.52f, 0.75f, 0.28f, 3.0f, 0.20f, 0.90f),
+        new(0.37f, 2.00f, 0.86f,   32f, 0.120f, 0.46f, 0.65f, 0.36f, 3.0f, 0.18f, 0.60f),
+        new(0.48f, 2.05f, 0.86f,   30f, 0.123f, 0.40f, 0.50f, 0.44f, 3.0f, 0.12f, 0.30f),
+        new(0.60f, 2.05f, 0.85f,   30f, 0.126f, 0.35f, 0.40f, 0.52f, 3.0f, 0.08f, 0.10f),
+        new(0.72f, 2.10f, 0.80f,   28f, 0.129f, 0.32f, 0.25f, 0.60f, 3.0f, 0.05f, 0.00f),
+        new(0.85f, 2.10f, 0.50f,   26f, 0.129f, 0.26f, 0.12f, 0.66f, 3.0f, 0.05f, 0.00f),
+        new(0.98f, 2.10f, 0.35f,   24f, 0.129f, 0.13f, 0.05f, 0.70f, 3.0f, 0.05f, 0.00f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -80,7 +82,7 @@ public static class GoreStreakRules
         var a = Keys[i]; var b = Keys[i + 1];
         float u = (age - a.T) / (b.T - a.T);
         return new Key(age, L(a.Exit, b.Exit, u), L(a.Entry, b.Entry, u), L(a.Fan, b.Fan, u), L(a.Width, b.Width, u), L(a.Fill, b.Fill, u), L(a.Opacity, b.Opacity, u),
-            L(a.Grit, b.Grit, u), L(a.Branches, b.Branches, u), L(a.Outer, b.Outer, u));
+            L(a.Grit, b.Grit, u), L(a.Branches, b.Branches, u), L(a.Outer, b.Outer, u), L(a.Root, b.Root, u));
         static float L(float x, float y, float t) => x + (y - x) * t;
     }
 
@@ -161,8 +163,8 @@ public static class GoreStreakRules
     /// <param name="Bend">The melee arc's curvature (-0.4..0.4; 0 straight).</param>
     public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false)
     {
-        /// <summary>The metres per table unit (H x scale).</summary>
-        public float Unit => BodyHeight * Scale;
+        /// <summary>The metres per table unit (H x scale, at most <see cref="MaxUnitMetres"/>).</summary>
+        public float Unit => MathF.Min(BodyHeight * Scale, MaxUnitMetres);
         /// <summary>The plane's second axis (across the exit axis, in the plane).</summary>
         public Vector3 Across => Vector3.Normalize(Vector3.Cross(Normal, Axis));
     }
@@ -271,13 +273,21 @@ public static class GoreStreakRules
 
     /// <summary>The most exit branches (the fourth only on a heavy or killing hit).</summary>
     public const int MaxBranches = 4;
-    /// <summary>The quad's extent in table units: behind the wound, ahead of it, and to each side (holds every branch at <see cref="MaxBranches"/> and the widest fan).</summary>
-    public const float QuadBack = 1.5f, QuadFwd = 2.7f, QuadSide = 1.6f;
-    /// <summary>The grit noise's tiles per table unit across a branch, and its stretch along the branch (4:1, the speckle smeared along the spray; ours).</summary>
-    public const float GritTiles = 1f, GritStretch = 4f;
+    /// <summary>The grit noise's tiles per table unit across a branch, its stretch along the branch (4:1, the speckle smeared along the spray), and the second octave's scale (ours; gate repair: fine streaky speckle, not blocky notches).</summary>
+    public const float GritTiles = 3f, GritStretch = 4f, GritOctave = 2.37f;
 
-    /// <summary>A branch's angle share of the half-fan, reach share, width share (seeded jitter added by <see cref="Branch"/>): upper, middle, lower, the heavy fourth.</summary>
-    public static readonly (float Angle, float Reach, float Width)[] BranchShares = [(1f, 1f, 1f), (0.35f, 0.88f, 0.8f), (-0.25f, 0.78f, 0.66f), (-0.75f, 0.7f, 0.6f)];
+    /// <summary>A branch's angle share of the half-fan, reach share, width share (seeded jitter added by <see cref="Branch"/>): upper, middle, lower, the heavy fourth (gate repair: visibly diverging, one upward).</summary>
+    public static readonly (float Angle, float Reach, float Width)[] BranchShares = [(1.25f, 1f, 1f), (0.45f, 0.9f, 0.85f), (-0.3f, 0.8f, 0.72f), (-0.85f, 0.7f, 0.6f)];
+
+    /// <summary>The soft layer under the cores: its width as a multiple of the core's, its opacity share, and the core's edge feather (table units; gate repair: a wide un-eroded low-alpha halo, edges feathered at least 0.03 H).</summary>
+    public const float HaloWidth = 1.6f, HaloAlpha = 0.22f, Feather = 0.035f;
+    /// <summary>The root (gate repair 1): the first <see cref="RootShare"/> of every branch is held solid by <see cref="RootBoost"/> x the key's root strength, so the branches and the entry stub leave the wound as one mass.</summary>
+    public const float RootShare = 0.35f, RootBoost = 0.6f;
+
+    /// <summary>The quad's extent in table units (gate repair, finding M2: tightened to the shape's bounds at the widest key, halo included): behind the wound, ahead of it, and to each side.</summary>
+    public static readonly float QuadBack = Keys.Max(k => k.Entry) * 1.12f + 0.12f;
+    public static readonly float QuadFwd = Keys.Max(k => k.Exit) * 1.12f + 0.05f;
+    public static readonly float QuadSide = Keys.Max(k => MathF.Sin((BranchShares.Max(b => MathF.Abs(b.Angle)) * 1.15f + 0.1f) * k.Fan * MathF.PI / 180f) * k.Exit + k.Width * HaloWidth + Feather) + 0.03f;
 
     /// <summary>Exit branch <paramref name="k"/>'s angle (radians from the exit axis), reach and width shares for <paramref name="seed"/>.</summary>
     public static (float Angle, float Reach, float Width) Branch(int k, int seed, float fanDeg, float bias)
@@ -287,31 +297,33 @@ public static class GoreStreakRules
         return ((b.Angle * ja + bias) * fanDeg * MathF.PI / 180f, b.Reach * jr, b.Width);
     }
 
-    /// <summary>Along-branch width profile at share <paramref name="u"/> of its reach: narrow at the wound, widest past the middle, tapering to a ragged tip.</summary>
-    public static float Profile(float u) => (0.45f + 0.55f * Smooth(0f, 0.4f, u)) * (1f - Smooth(0.78f, 1.06f, u));
+    /// <summary>Along-branch width profile at share <paramref name="u"/> of its reach: already broad at the wound (the root), widest past the middle, tapering to a tip.</summary>
+    public static float Profile(float u) => (0.7f + 0.3f * Smooth(0f, 0.4f, u)) * (1f - Smooth(0.78f, 1.06f, u));
+
+    /// <summary>One sampled point of the shape: the core field (1 on a branch's middle line, 0 at its edge, feathered), the halo field, the root term, and the nearest branch's coordinates (s along, c across) for the grit.</summary>
+    public readonly record struct ShapePoint(float Field, float Halo, float Root, float S, float C, float U);
 
     /// <summary>
-    /// The shape field at plane point (<paramref name="x"/> along the exit axis, <paramref name="y"/> across; table units) for key <paramref name="k"/>: 1 on a branch's middle line to 0 at
-    /// its edge; with the branch coordinates (s along, c across) of the nearest branch for the grit, and that branch's reach share u.
+    /// The shape at plane point (<paramref name="x"/> along the exit axis, <paramref name="y"/> across; table units) for key <paramref name="k"/>: the exit branches fanned by the half-fan,
+    /// the entry stub behind the wound (its near end at the wound), each a feathered tapered stroke; the halo is the same strokes <see cref="HaloWidth"/> wide.
     /// </summary>
-    public static (float Field, float S, float C, float U) Field(Key k, float x, float y, int seed, float bend, float bias, int maxBranches)
+    public static ShapePoint Field(Key k, float x, float y, int seed, float bend, float bias, int maxBranches)
     {
-        float best = 0f, bs = 0f, bc = 0f, bu = 0f;
+        float best = 0f, halo = 0f, root = 0f, bs = 0f, bc = 0f, bu = 0f;
         int n = Math.Min(maxBranches, MaxBranches);
         for (int i = 0; i < n; i++)
         {
             float weight = Math.Clamp(k.Branches - Math.Min(i, 2), 0f, 1f);   // the heavy fourth comes and goes with the third
             if (weight <= 0f) continue;
             var (ang, reach, wid) = Branch(i, seed, k.Fan, bias);
-            float L = k.Exit * reach;
-            Eval(ang, L, k.Width * wid * MathF.Sqrt(weight));
+            Eval(ang, k.Exit * reach, k.Width * wid * MathF.Sqrt(weight));
         }
         if (k.Entry > 0.01f)
         {
             float ang = MathF.PI + (ShaderHash(seed, 40) - 0.5f) * 0.3f * k.Fan * MathF.PI / 180f;
-            Eval(ang, k.Entry, k.Width * 0.75f);
+            Eval(ang, k.Entry, k.Width * 0.8f);
         }
-        return (best, bs, bc, bu);
+        return new ShapePoint(best, halo, root, bs, bc, bu);
 
         void Eval(float ang, float L, float w0)
         {
@@ -320,57 +332,76 @@ public static class GoreStreakRules
             float c = -x * sn + y * cs;
             c -= bend * s * s / MathF.Max(L, 0.05f);
             float u = s / MathF.Max(L, 1e-3f);
-            if (u < -0.05f || u > 1.12f) return;
+            if (u < -0.08f || u > 1.12f) return;
             float w = MathF.Max(w0 * Profile(u), 1e-4f);
-            float f = Math.Clamp(1f - MathF.Abs(c) / w, 0f, 1f) * Smooth(-0.05f, 0.02f, u);
+            float along = Smooth(-0.08f, 0.0f, u);
+            float f = (1f - Smooth(w - Feather, w + Feather, MathF.Abs(c))) * along;
+            f *= 1f - MathF.Abs(c) / (w + Feather) * 0.5f;   // densest on the middle line
             f *= 1f - k.Outer * Smooth(0.55f, 1.0f, u);
+            float h = (1f - Smooth(0f, w * HaloWidth + Feather, MathF.Abs(c))) * along * (1f - Smooth(0.85f, 1.12f, u));
+            float r = (1f - Smooth(0.7f * RootShare, 1.15f * RootShare, u)) * (1f - Smooth(w - Feather, w + Feather, MathF.Abs(c))) * along;
+            if (h > halo) halo = h;
+            if (r > root) root = r;
             if (f > best) { best = f; bs = s; bc = c; bu = u; }
         }
     }
 
     /// <summary>
-    /// A texel's coverage and density at plane point (x, y) and key <paramref name="k"/> (the shader's fragment math without the pixel-wide anti-aliasing): the field scaled by the coarse
-    /// blotch noise and the along-branch smear, covered where it beats the erosion threshold 1 - Fill, with pinholes where the fine grain beats the grit threshold.
+    /// A texel's core coverage (0..1, a soft step: no derivative of a discontinuous score, gate repair 7) and density at plane point (x, y) and key <paramref name="k"/> (the shader's
+    /// fragment math): the score of the field, the two octaves of blotch and smear, and the root, against the erosion threshold 1 - Fill; pinholes where the fine grain beats the grit threshold.
     /// </summary>
-    public static (float Cov, float Density) Coverage(Key k, float x, float y, int seed, float bend, float bias, int maxBranches, byte[] grit, int size)
+    public static (float Cov, float Density, float Halo) Coverage(Key k, float x, float y, int seed, float bend, float bias, int maxBranches, byte[] grit, int size)
     {
-        if (k.Opacity <= 0f || k.Fill <= 0f) return (0f, 0f);
-        var (f, s, c, _) = Field(k, x, y, seed, bend, bias, maxBranches);
-        if (f <= 0f) return (0f, 0f);
-        var (gu, gv) = GritUv(s, c, seed);
-        var (coarse, fine, smear) = GritSample(grit, size, gu, gv);
-        float score = Score(f, coarse, smear);
-        if (score <= 1f - k.Fill) return (0f, 0f);
-        if (fine > HoleThreshold(k.Grit)) return (0f, 0f);
-        return (1f, Density(coarse));
+        if (k.Opacity <= 0f || k.Fill <= 0f) return (0f, 0f, 0f);
+        var p = Field(k, x, y, seed, bend, bias, maxBranches);
+        if (p.Halo <= 0f && p.Field <= 0f) return (0f, 0f, 0f);
+        var (coarse, fine, smear) = GritAt(grit, size, p.S, p.C, seed);
+        float score = Score(p.Field, coarse, smear) + RootBoost * p.Root * k.Root;
+        float cov = Smooth(1f - k.Fill - CovSoft, 1f - k.Fill + CovSoft, score);
+        float holes = Smooth(HoleThreshold(k.Grit) - 0.04f, HoleThreshold(k.Grit) + 0.04f, fine) * (1f - p.Root * k.Root);
+        cov *= 1f - holes;
+        return (cov, Density(coarse), p.Halo);
     }
 
-    /// <summary>The grit texture coordinate of branch point (s, c): stretched <see cref="GritStretch"/> along the branch, offset by the seed.</summary>
+    /// <summary>The two-octave grit at branch point (s, c): stretched <see cref="GritStretch"/> along the branch, offset by the seed; the second octave <see cref="GritOctave"/> finer.</summary>
+    public static (float Coarse, float Fine, float Smear) GritAt(byte[] grit, int size, float s, float c, int seed)
+    {
+        var (u, v) = GritUv(s, c, seed);
+        var a = GritSample(grit, size, u, v);
+        var b = GritSample(grit, size, u * GritOctave + 0.37f, v * GritOctave + 0.61f);
+        return (0.62f * a.Coarse + 0.38f * b.Coarse, 0.5f * a.Fine + 0.5f * b.Fine, 0.6f * a.Smear + 0.4f * b.Smear);
+    }
+
+    /// <summary>The grit texture coordinate of branch point (s, c).</summary>
     public static (float U, float V) GritUv(float s, float c, int seed) => (s * GritTiles / GritStretch + ShaderHash(seed, 50), c * GritTiles + ShaderHash(seed, 51));
-    /// <summary>The erosion score of a texel: the field times the coarse blotches, plus the along-branch smear (the shader's <c>score</c>).</summary>
-    public static float Score(float field, float coarse, float smear) => field <= ShapeEdge ? 0f : ScoreField * field + ScoreCoarse * coarse + ScoreSmear * smear;
-    /// <summary>The score's weights (ours): the erosion is mostly the blotch noise, so a fading spray keeps its reach and breaks into patches along its whole length (the reference); the field below <see cref="ShapeEdge"/> is outside the shape.</summary>
-    public const float ScoreField = 0.3f, ScoreCoarse = 0.55f, ScoreSmear = 0.15f, ShapeEdge = 0.02f;
+    /// <summary>The erosion score of a texel: continuous in the field (it fades in over the field's first fifth), the blotches and the smear (the shader's <c>score</c>).</summary>
+    public static float Score(float field, float coarse, float smear) => (ScoreField * field + ScoreCoarse * coarse + ScoreSmear * smear) * Smooth(0f, 0.2f, field);
+    /// <summary>The score's weights and the soft step's half width (ours).</summary>
+    public const float ScoreField = 0.3f, ScoreCoarse = 0.55f, ScoreSmear = 0.15f, CovSoft = 0.05f;
     /// <summary>The fine-grain value above which a texel is a pinhole for <paramref name="grit"/> (0..1).</summary>
     public static float HoleThreshold(float grit) => 1f - 0.45f * grit;
-    /// <summary>A covered texel's density (its opacity share) from the coarse blotch noise.</summary>
-    public static float Density(float coarse) => 0.55f + 0.45f * coarse;
+    /// <summary>A covered texel's density (its opacity share) from the coarse blotch noise: brighter cores, thinner rims.</summary>
+    public static float Density(float coarse) => 0.45f + 0.55f * coarse;
 
-    /// <summary>The covered area (table units squared) and the farthest covered reach ahead of and behind the wound at <paramref name="age"/>, on a grid of <paramref name="step"/> (for tests and the capture's metrics).</summary>
-    public static (float Area, float ExitReach, float EntryReach) Measure(float age, int seed, float bend, float bias, int maxBranches, byte[] grit, int size, float step = 0.02f)
+    /// <summary>A texel's blood opacity: the core at opacity x coverage x density over the halo at <see cref="HaloAlpha"/> x opacity (the shader's ALPHA).</summary>
+    public static float Alpha(Key k, float cov, float density, float halo) => k.Opacity * MathF.Max(cov * density, HaloAlpha * halo);
+
+    /// <summary>The covered core area (table units squared), the area with any visible blood (halo included, alpha over 0.05), and the farthest covered reach ahead of and behind the wound at <paramref name="age"/>, on a grid of <paramref name="step"/>.</summary>
+    public static (float Area, float ExitReach, float EntryReach, float VisibleArea) Measure(float age, int seed, float bend, float bias, int maxBranches, byte[] grit, int size, float step = 0.02f)
     {
         var k = Sample(age);
-        float area = 0f, fwd = 0f, back = 0f;
+        float area = 0f, vis = 0f, fwd = 0f, back = 0f;
         for (float y = -QuadSide; y <= QuadSide; y += step)
             for (float x = -QuadBack; x <= QuadFwd; x += step)
             {
-                var (cov, _) = Coverage(k, x, y, seed, bend, bias, maxBranches, grit, size);
-                if (cov <= 0f) continue;
+                var (cov, dens, halo) = Coverage(k, x, y, seed, bend, bias, maxBranches, grit, size);
+                if (Alpha(k, cov, dens, halo) > 0.05f) vis += step * step;
+                if (cov <= 0.5f) continue;
                 area += step * step;
                 if (x > fwd) fwd = x;
                 if (-x > back) back = -x;
             }
-        return (area, fwd, back);
+        return (area, fwd, back, vis);
     }
 
     // ---- grit ----
@@ -430,26 +461,40 @@ public static class GoreStreakRules
 
     // ---- colour ----
 
-    /// <summary>The blood's shade range over its density (the shader's ALBEDO = blood red x shade; repair 4's darker red: <see cref="ClassicBloodRules.RibbonShadeFloor"/> to <see cref="ClassicBloodRules.RibbonShadeTop"/>).</summary>
-    public static (float R, float G, float B) Colour(float density)
+    /// <summary>
+    /// The shade scale per renderer (gate repair 8, owner: keep our darker red): Forward+ draws in linear HDR with the tonemapper, Compatibility straight in display space, so the same
+    /// albedo read about (229, 20, 0) on Forward+ and about (150, 0, 0) on Compatibility; Forward+ takes <see cref="ForwardShade"/> of it so both show about (150, 0, 0).
+    /// </summary>
+    public const float ForwardShade = 0.42f, CompatibilityShade = 1f;
+    /// <summary>The strip pass's strength per unit of blood opacity (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
+    public const float StripPerAlpha = 5f;
+
+    /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red) at the renderer's <paramref name="shade"/>.</summary>
+    public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)
     {
-        float k = ClassicBloodRules.RibbonShadeFloor + (ClassicBloodRules.RibbonShadeTop - ClassicBloodRules.RibbonShadeFloor) * Smooth(0.15f, 0.85f, density);
+        float k = shade * (ClassicBloodRules.RibbonShadeFloor + (ClassicBloodRules.RibbonShadeTop - ClassicBloodRules.RibbonShadeFloor) * Smooth(0.15f, 0.85f, density));
         var b = ClassicBloodRules.BloodRgb;
         return (b.R * k, b.G * k, b.B * k);
     }
 
+    /// <summary>The strip pass's strength for a texel of blood opacity <paramref name="alpha"/> and core coverage <paramref name="cov"/>.</summary>
+    public static float Strip(float alpha, float cov) => Math.Clamp(StripPerAlpha * alpha, 0f, 1f) * (0.75f + 0.25f * Math.Clamp(cov, 0f, 1f));
+
     /// <summary>
-    /// The colour of a pixel <paramref name="under"/> beneath a streak texel of coverage <paramref name="cov"/> and density <paramref name="density"/> after both passes: the strip
-    /// (blend_mul: the red under it kept at <see cref="ClassicBloodRules.RibbonStripRed"/>, green and blue removed, feathered by cov^3) then the blood mixed over it at opacity x cov x density.
+    /// The colour of a pixel <paramref name="under"/> beneath a streak texel of blood opacity <paramref name="alpha"/>, core coverage <paramref name="cov"/> and density after both passes:
+    /// the strip (blend_mul: the red under it kept at <see cref="ClassicBloodRules.RibbonStripRed"/>, green and blue removed, at <see cref="Strip"/>) then the blood mixed over it.
     /// </summary>
-    public static (float R, float G, float B) Composite((float R, float G, float B) under, float cov, float density, float opacity = 1f)
+    public static (float R, float G, float B) Composite((float R, float G, float B) under, float alpha, float cov, float density, float shade = CompatibilityShade)
     {
-        float c = Math.Clamp(cov, 0f, 1f), s = c * c * c;
-        float a = opacity * c * Math.Clamp(density, 0f, 1f);
+        float s = Strip(alpha, cov);
         var u = (R: under.R * (1f - s + s * ClassicBloodRules.RibbonStripRed), G: under.G * (1f - s), B: under.B * (1f - s));
-        var col = Colour(density);
+        var col = Colour(density, shade);
+        float a = Math.Clamp(alpha, 0f, 1f);
         return (a * col.R + (1f - a) * u.R, a * col.G + (1f - a) * u.G, a * col.B + (1f - a) * u.B);
     }
+
+    /// <summary>Linear to display (sRGB) for one channel.</summary>
+    public static float ToSrgb(float l) => l <= 0.0031308f ? 12.92f * l : 1.055f * MathF.Pow(l, 1f / 2.4f) - 0.055f;
 
     // ---- pool and budget ----
 
@@ -459,10 +504,40 @@ public static class GoreStreakRules
     public static int PoolSlot(long spawned, int pool = PoolSize) => (int)(spawned % pool);
     /// <summary>Whether a streak started at <paramref name="start"/> (s on the view's clock, pre-age applied) still shows at <paramref name="now"/>.</summary>
     public static bool Live(double start, double now) => now - start < LifeSeconds && now - start > -2.0;
+    /// <summary>Whether a slot started at <paramref name="start"/> is spent at <paramref name="now"/> and is retired (its instance switched off: finding M1, no replay when the shader's clock wraps).</summary>
+    public static bool Spent(double start, double now) => !double.IsNegativeInfinity(start) && now - start >= LifeSeconds;
 
-    /// <summary>Warfront's budget (ours): streaks started a frame at most, farthest hit drawn (m), and the least projected body height drawn (px).</summary>
-    public const int WarfrontPerFrame = 24;
+    /// <summary>The largest metres per table unit (gate repair 9 and finding M2: a heavy lethal streak on a tall body stays within about 3 m a unit).</summary>
+    public const float MaxUnitMetres = 3f;
+
+    /// <summary>
+    /// Warfront's budget (lead decision, gate repair 9; ours): a per-second token bucket for other players' hits (<see cref="WarfrontPerSecond"/>, burst <see cref="WarfrontBurst"/>), at most
+    /// one streak per enemy every <see cref="WarfrontEnemySeconds"/>, at most <see cref="WarfrontLiveMax"/> showing (the own hits always, first), within <see cref="WarfrontMetres"/>, none for a body
+    /// under <see cref="MinBodyPixels"/> on screen.
+    /// </summary>
+    public const float WarfrontPerSecond = 60f, WarfrontBurst = 24f, WarfrontEnemySeconds = 0.15f;
+    public const int WarfrontLiveMax = 150;
     public const float WarfrontMetres = 45f, MinBodyPixels = 12f;
+    /// <summary>A streak closer to the camera than this fades out (m; ours: Warfront's near hits filled the screen with wedges).</summary>
+    public const float NearFadeFrom = 1.2f, NearFadeTo = 3.5f;
+
+    /// <summary>A token bucket (engine-free): <see cref="Take"/> spends one token when there is one; tokens refill at the rate up to the burst.</summary>
+    public sealed class Bucket(float perSecond, float burst)
+    {
+        double _tokens = burst, _at = double.NaN;
+        public bool Take(double now)
+        {
+            if (double.IsNaN(_at)) _at = now;
+            _tokens = Math.Min(burst, _tokens + Math.Max(0.0, now - _at) * perSecond);
+            _at = now;
+            if (_tokens < 1.0) return false;
+            _tokens -= 1.0;
+            return true;
+        }
+    }
+
+    /// <summary>Whether an enemy last streaked at <paramref name="last"/> may streak again at <paramref name="now"/>.</summary>
+    public static bool EnemyReady(double last, double now) => now - last >= WarfrontEnemySeconds;
 
     /// <summary>A body <paramref name="height"/> m tall at <paramref name="distance"/> m, seen with a vertical field of view <paramref name="fovYDegrees"/> on a <paramref name="screenHeight"/>-pixel view: its height in pixels.</summary>
     public static float ProjectedPixels(float height, float distance, float fovYDegrees, float screenHeight) =>

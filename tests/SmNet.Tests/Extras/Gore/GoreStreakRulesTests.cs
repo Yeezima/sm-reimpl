@@ -49,10 +49,58 @@ public class GoreStreakRulesTests
             Assert.True(Keys[i + 1].Fill <= Keys[i].Fill, $"fill falls after {i}");
             Assert.True(Keys[i + 1].Grit >= Keys[i].Grit, $"pinholes grow after {i}");
         }
-        // it fades by erosion (fill, the covered area), not by translucency: a covered texel stays opaque enough to read red on every renderer
-        // (Compatibility blends in gamma space: a faint texel over the stripped ground read near black and dropped out of the red mask)
-        Assert.True(Keys[^1].Fill <= 0.1f);
-        Assert.True(Keys.All(k => k.Opacity >= 0.6f));
+        // the gate repair's fade (lead 41): opacity about 0.65 / 0.5 / 0.4 / 0.25 / 0.12 / 0.05 over frames 5 to 10, the area eroding with it
+        float[] fade = [0.65f, 0.5f, 0.4f, 0.25f, 0.12f, 0.05f];
+        for (int i = 0; i < fade.Length; i++) Assert.Equal(fade[i], Keys[5 + i].Opacity, 2);
+        Assert.True(Keys[^1].Fill <= 0.15f);
+    }
+
+    [Fact]
+    public void The_entry_stub_stays_under_about_half_the_exit_and_hangs_in_place()
+    {
+        for (int i = 0; i < Keys.Length; i++) Assert.True(Keys[i].Entry <= 0.56f * Keys[i].Exit, $"frame {i}: entry {Keys[i].Entry} vs exit {Keys[i].Exit}");
+        for (int i = 3; i < 8; i++) Assert.True(MathF.Abs(Keys[i].Entry - Keys[2].Entry) <= 0.1f, $"frame {i}: the stub does not slide outward");
+    }
+
+    [Fact]
+    public void Frames_one_to_five_fan_out_widely_with_an_upward_branch_and_the_root_holds_through_frame_four()
+    {
+        for (int i = 1; i <= 5; i++) Assert.InRange(Keys[i].Fan * BranchShares[0].Angle, 17f, 45f);
+        Assert.True(BranchShares[0].Angle > 0f && BranchShares[2].Angle < 0f, "branches on both sides of the axis");
+        for (int i = 0; i <= 3; i++) Assert.Equal(1f, Keys[i].Root);
+        Assert.True(Keys[^1].Root == 0f);
+    }
+
+    [Fact]
+    public void Every_branch_leaves_the_wound_as_one_solid_mass_in_frames_zero_to_four()
+    {
+        // along each exit branch and the stub, the first fifth of its reach is covered (the root term), whatever the grit
+        for (int f = 0; f <= 4; f++)
+            for (int seed = 1; seed <= 4; seed++)
+            {
+                var k = Keys[f];
+                for (int b = 0; b < 3; b++)
+                {
+                    if (Math.Clamp(k.Branches - b, 0f, 1f) < 0.99f) continue;
+                    var (ang, reach, _) = Branch(b, seed, k.Fan, 0f);
+                    for (float u = 0.03f; u <= 0.2f; u += 0.04f)
+                    {
+                        float s = u * k.Exit * reach;
+                        var (cov, _, _) = Coverage(k, s * MathF.Cos(ang), s * MathF.Sin(ang), seed, 0f, 0f, 3, GritTex, GritSize);
+                        Assert.True(cov > 0.8f, $"frame {f} seed {seed} branch {b} at {u:F2}: cov {cov:F2}");
+                    }
+                }
+            }
+    }
+
+    [Fact]
+    public void Edges_are_feathered_and_a_soft_halo_lies_under_the_cores()
+    {
+        Assert.True(Feather >= 0.03f);
+        var k = Keys[2];
+        var p = Field(k, 0.8f, 0.8f * MathF.Tan(Branch(0, 1, k.Fan, 0f).Angle) + k.Width * 1.2f, 1, 0f, 0f, 3);
+        Assert.True(p.Halo > 0f, "the halo reaches past the core's edge");
+        Assert.True(HaloAlpha * k.Opacity < 0.3f, "the halo is low alpha");
     }
 
     [Fact]
@@ -102,11 +150,18 @@ public class GoreStreakRulesTests
     [Fact]
     public void The_shape_stays_inside_the_quad()
     {
-        var k = Keys.OrderByDescending(x => x.Exit).First();
-        float maxFan = Keys.Max(x => x.Fan) * 1.15f * MathF.PI / 180f;
-        Assert.True(k.Exit * 1.12f <= QuadFwd + 1e-3f);
-        Assert.True(Keys.Max(x => x.Entry) * 1.12f <= QuadBack + 1e-3f);
-        Assert.True(MathF.Sin(maxFan) * k.Exit + k.Width * 1.2f <= QuadSide);
+        // no covered or halo texel outside the quad at any key (sampled just outside its edges), and the quad no larger than it needs (finding M2)
+        foreach (var k in Keys)
+            for (int seed = 1; seed <= 3; seed++)
+                for (float t = -1f; t <= 1f; t += 0.05f)
+                {
+                    foreach (var (x, y) in new[] { (QuadFwd + 0.01f, t * QuadSide), (-QuadBack - 0.01f, t * QuadSide), (t * QuadFwd, QuadSide + 0.01f), (t * QuadFwd, -QuadSide - 0.01f) })
+                    {
+                        var p = Field(k, x, y, seed, 0f, 0f, 4);
+                        Assert.True(p.Field <= 0f && p.Halo <= 0.01f, $"key {k.T}: blood at ({x:F2},{y:F2})");
+                    }
+                }
+        Assert.True((QuadFwd + QuadBack) * 2f * QuadSide < 13f, $"quad {QuadFwd + QuadBack:F2} x {2f * QuadSide:F2}");
     }
 
     // ---- who draws it ----
@@ -272,20 +327,33 @@ public class GoreStreakRulesTests
     [InlineData(0.05f, 0.05f, 0.05f)] // dark
     public void Inside_a_streak_the_colour_is_red_or_darker_never_white_or_pink(float r, float g, float b)
     {
-        foreach (float dens in new[] { 0.55f, 0.8f, 1f })
-            foreach (float op in new[] { 0.05f, 0.5f, 1f })
+        foreach (float shade in new[] { CompatibilityShade, ForwardShade })
+            foreach (float dens in new[] { 0.45f, 0.8f, 1f })
             {
-                if (op < 0.9f) continue;   // the rule is for covered texels of the dense spray; faint texels blend with the stripped ground
-                var c = Composite((r, g, b), 1f, dens, op);
+                // a dense covered texel: only the blood's own green and blue
+                var c = Composite((r, g, b), 0.95f, 1f, dens, shade);
                 Assert.True(c.G <= 0.15f * c.R + 1e-4f && c.B <= 0.15f * c.R + 1e-4f, $"({c.R:F3},{c.G:F3},{c.B:F3}) over ({r},{g},{b}) dens {dens}");
-                Assert.True(c.R <= MathF.Max(ClassicBloodRules.BloodRgb.R * ClassicBloodRules.RibbonShadeTop, r * ClassicBloodRules.RibbonStripRed) + 1e-4f);
+                // a soft texel (the halo, a fading core, 0.3 opacity and up): stripped toward red, never pink (the scoring tools' pink: min(G,B)/R over 0.7)
+                foreach (float alpha in new[] { 0.3f, 0.5f })
+                {
+                    var f = Composite((r, g, b), alpha, 0.2f, dens, shade);
+                    Assert.True(MathF.Min(f.G, f.B) <= 0.7f * f.R + 1e-4f || f.R < 0.02f, $"alpha {alpha}: ({f.R:F3},{f.G:F3},{f.B:F3}) over ({r},{g},{b})");
+                }
             }
-        var faint = Composite((r, g, b), 1f, 0.55f, 0.05f);   // a fading texel: the ground stripped of green and blue shows through, still no pink
-        Assert.True(faint.G <= 0.15f * faint.R + 1e-4f || faint.R < 0.02f);
     }
 
     [Fact]
-    public void The_blood_colour_is_the_darker_red()
+    public void The_strip_fades_with_the_opacity_so_a_faint_texel_never_goes_near_black()
+    {
+        Assert.Equal(0f, Strip(0f, 1f));
+        Assert.Equal(1f, Strip(0.5f, 1f));
+        Assert.True(Strip(0.1f, 1f) < 0.55f);
+        var grey = Composite((0.5f, 0.5f, 0.5f), 0.1f, 1f, 0.8f);
+        Assert.True(grey.R > 0.25f, $"a faint texel over grey keeps most of the grey's level: {grey.R:F3}");
+    }
+
+    [Fact]
+    public void The_blood_colour_is_our_darker_red_at_the_same_level_on_both_renderers()
     {
         foreach (float d in new[] { 0f, 0.5f, 1f })
         {
@@ -293,6 +361,12 @@ public class GoreStreakRulesTests
             Assert.True(ClassicBloodRules.IsBloodOnly(c, ClassicBloodRules.BloodRgb.R));
             Assert.True(c.R <= 0.56f);
         }
+        // the absolute level (gate repair 8, owner: keep our darker red, about (150, 0, 0) on screen): Compatibility shows the albedo as is, Forward+ through linear-to-display
+        // (its tonemapper and exposure lifted the earlier albedo to about (229, 20, 0); ForwardShade brings it back)
+        float compat = Colour(0.6f, CompatibilityShade).R * 255f, forward = ToSrgb(Colour(0.6f, ForwardShade).R) * 255f;
+        Assert.InRange(compat, 90f, 170f);
+        Assert.InRange(forward, 90f, 170f);
+        Assert.True(MathF.Abs(compat - forward) < 40f, $"compat {compat:F0} vs forward {forward:F0}");
     }
 
     // ---- pool and budget ----
@@ -307,5 +381,34 @@ public class GoreStreakRulesTests
         Assert.False(Live(10.0, 10.0 + LifeSeconds));
         Assert.True(Live(10.2, 10.0));   // waiting for a tracer: still pending
         Assert.Equal(108f, ProjectedPixels(1.8f, 10f, 2f * MathF.Atan(0.5f) * 180f / MathF.PI, 600f), 1);
+    }
+
+    [Fact]
+    public void A_spent_slot_is_retired_and_the_unit_is_capped()
+    {
+        Assert.False(Spent(double.NegativeInfinity, 100.0));
+        Assert.False(Spent(10.0, 10.5));
+        Assert.True(Spent(10.0, 10.0 + LifeSeconds));
+        var big = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2.33f, Scale(Weight.Heavy, true), 1, 0f, 0f, true);
+        Assert.Equal(MaxUnitMetres, big.Unit);
+        var normal = new Streak(Vector3.Zero, Vector3.UnitX, Vector3.UnitZ, 2f, 1f, 1, 0f, 0f, false);
+        Assert.Equal(2f, normal.Unit);
+    }
+
+    [Fact]
+    public void Warfronts_bucket_refills_per_second_up_to_its_burst_and_an_enemy_waits_between_streaks()
+    {
+        var b = new Bucket(WarfrontPerSecond, WarfrontBurst);
+        int taken = 0;
+        for (int i = 0; i < 100; i++) if (b.Take(0.0)) taken++;
+        Assert.Equal((int)WarfrontBurst, taken);
+        Assert.False(b.Take(0.0));
+        Assert.True(b.Take(1.0 / WarfrontPerSecond + 1e-6));
+        int second = 0;
+        for (double t = 2.0; t < 3.0; t += 1.0 / 240.0) if (b.Take(t)) second++;
+        Assert.InRange(second, (int)WarfrontPerSecond - 2, (int)(WarfrontPerSecond + WarfrontBurst) + 1);
+        Assert.False(EnemyReady(1.0, 1.1));
+        Assert.True(EnemyReady(1.0, 1.0 + WarfrontEnemySeconds));
+        Assert.True(WarfrontLiveMax <= 150);
     }
 }

@@ -51,6 +51,7 @@ uniform float now = 0.0;                 // the view clock modulo {{F((float)Clo
 uniform float age_override = -1.0;       // >= 0: every streak at this age (the capture aid)
 uniform sampler2D grit : filter_linear_mipmap, repeat_enable;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
+uniform float shade = 1.0;               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
 
 const int NK = {{GoreStreakRules.Keys.Length}};
 const float K_T[NK] = { {{KeyArray(k => k.T)}} };
@@ -63,11 +64,13 @@ const float K_OPAC[NK] = { {{KeyArray(k => k.Opacity)}} };
 const float K_GRIT[NK] = { {{KeyArray(k => k.Grit)}} };
 const float K_BR[NK] = { {{KeyArray(k => k.Branches)}} };
 const float K_OUT[NK] = { {{KeyArray(k => k.Outer)}} };
+const float K_ROOT[NK] = { {{KeyArray(k => k.Root)}} };
 const float B_ANG[4] = { {{BranchArray(0)}} };
 const float B_REACH[4] = { {{BranchArray(1)}} };
 const float B_WID[4] = { {{BranchArray(2)}} };
 
 varying vec2 v_p;
+varying float v_depth;
 varying flat float v_exit;
 varying flat float v_entry;
 varying flat float v_fan;
@@ -77,23 +80,24 @@ varying flat float v_opac;
 varying flat float v_grit;
 varying flat float v_br;
 varying flat float v_out;
+varying flat float v_root;
 varying flat vec4 v_inst;     // seed, bend, bias, max branches
-varying flat float v_on;
 
-// the same hash as GoreStreakRules.Hash01 is not needed bit for bit: the seeded jitter only has to be stable per streak
-float h01(float seed, float salt) { return fract(sin(seed * 12.9898 + salt * 78.233) * 43758.5453); }
+float h01(float seed, float salt) { return fract(sin(seed * 12.9898 + salt * 78.233) * 43758.5453); }   // GoreStreakRules.ShaderHash
 
 void vertex() {
     float start = INSTANCE_CUSTOM.x;
     float age = age_override >= 0.0 ? age_override : mod(now - start + {{F((float)ClockPeriod)}}, {{F((float)ClockPeriod)}});
     v_p = VERTEX.xy;
     v_inst = vec4(INSTANCE_CUSTOM.y, INSTANCE_CUSTOM.z, INSTANCE_CUSTOM.w, COLOR.r > 0.5 ? 4.0 : 3.0);
-    v_on = COLOR.b;
-    if (age < 0.0 || age >= {{F(GoreStreakRules.LifeSeconds)}}) {
-        POSITION = vec4(2.0, 2.0, 2.0, 1.0);   // clipped: not born yet or gone
-        v_exit = 0.0; v_entry = 0.0; v_fan = 0.0; v_width = 0.0; v_fill = 0.0; v_opac = 0.0; v_grit = 0.0; v_br = 0.0; v_out = 0.0;
+    vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
+    v_depth = -view.z;
+    // clipped: not born yet, gone, or retired (COLOR.b 0: a spent slot, finding M1, or the prewarm)
+    if (COLOR.b < 0.5 || age < 0.0 || age >= {{F(GoreStreakRules.LifeSeconds)}}) {
+        POSITION = vec4(2.0, 2.0, 2.0, 1.0);
+        v_exit = 0.0; v_entry = 0.0; v_fan = 0.0; v_width = 0.0; v_fill = 0.0; v_opac = 0.0; v_grit = 0.0; v_br = 0.0; v_out = 0.0; v_root = 0.0;
     } else {
-        POSITION = PROJECTION_MATRIX * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
+        POSITION = PROJECTION_MATRIX * view;   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
         int i = 0;
         for (int j = 0; j < NK - 2; j++) { if (age >= K_T[j + 1]) i = j + 1; }
         float fade = 1.0;
@@ -110,58 +114,71 @@ void vertex() {
         v_grit = mix(K_GRIT[i], K_GRIT[b], u);
         v_br = mix(K_BR[i], K_BR[b], u);
         v_out = mix(K_OUT[i], K_OUT[b], u);
+        v_root = mix(K_ROOT[i], K_ROOT[b], u);
     }
 }
 
-float prof(float u) { return (0.45 + 0.55 * smoothstep(0.0, 0.4, u)) * (1.0 - smoothstep(0.78, 1.06, u)); }
+float prof(float u) { return (0.7 + 0.3 * smoothstep(0.0, 0.4, u)) * (1.0 - smoothstep(0.78, 1.06, u)); }   // GoreStreakRules.Profile
 
-// one branch: keeps the best field and that branch's coordinates (GoreStreakRules.Field)
-void branch(vec2 p, float ang, float L, float w0, float bend, float outer, inout float best, inout vec2 sc) {
+// one stroke (GoreStreakRules.Field): the best core field and its branch coordinates, the halo, the root
+void stroke(vec2 p, float ang, float L, float w0, float bend, float outer, inout float best, inout vec2 sc, inout float halo, inout float root) {
     float cs = cos(ang), sn = sin(ang);
     float s = p.x * cs + p.y * sn;
     float c = -p.x * sn + p.y * cs;
     c -= bend * s * s / max(L, 0.05);
     float u = s / max(L, 1e-3);
-    if (u < -0.05 || u > 1.12) return;
+    if (u < -0.08 || u > 1.12) return;
     float w = max(w0 * prof(u), 1e-4);
-    float f = clamp(1.0 - abs(c) / w, 0.0, 1.0) * smoothstep(-0.05, 0.02, u);
-    f *= 1.0 - outer * smoothstep(0.55, 1.0, u);
+    float ac = abs(c);
+    float along = smoothstep(-0.08, 0.0, u);
+    float edge = 1.0 - smoothstep(w - {{F(GoreStreakRules.Feather)}}, w + {{F(GoreStreakRules.Feather)}}, ac);
+    float f = edge * along * (1.0 - ac / (w + {{F(GoreStreakRules.Feather)}}) * 0.5) * (1.0 - outer * smoothstep(0.55, 1.0, u));
+    float h = (1.0 - smoothstep(0.0, w * {{F(GoreStreakRules.HaloWidth)}} + {{F(GoreStreakRules.Feather)}}, ac)) * along * (1.0 - smoothstep(0.85, 1.12, u));
+    float r = (1.0 - smoothstep({{F(0.7f * GoreStreakRules.RootShare)}}, {{F(1.15f * GoreStreakRules.RootShare)}}, u)) * edge * along;
+    halo = max(halo, h);
+    root = max(root, r);
     if (f > best) { best = f; sc = vec2(s, c); }
 }
 
 void fragment() {
     float seed = v_inst.x, bend = v_inst.y, bias = v_inst.z;
-    float best = 0.0;
+    float best = 0.0, halo = 0.0, root = 0.0;
     vec2 sc = vec2(0.0);
     float rad = 3.14159265 / 180.0;
     for (int k = 0; k < 4; k++) {
         if (float(k) >= v_inst.w) break;
-        float weight = clamp(v_br - float(min(k, 2)), 0.0, 1.0);   // the heavy fourth comes and goes with the third (GoreStreakRules.Field)
+        float weight = clamp(v_br - float(min(k, 2)), 0.0, 1.0);   // the heavy fourth comes and goes with the third
         if (weight <= 0.0) continue;
         float ja = 0.85 + 0.3 * h01(seed, 20.0 + float(k));
         float jr = 0.9 + 0.1 * h01(seed, 30.0 + float(k));
-        branch(v_p, (B_ANG[k] * ja + bias) * v_fan * rad, v_exit * B_REACH[k] * jr, v_width * B_WID[k] * sqrt(weight), bend, v_out, best, sc);
+        stroke(v_p, (B_ANG[k] * ja + bias) * v_fan * rad, v_exit * B_REACH[k] * jr, v_width * B_WID[k] * sqrt(weight), bend, v_out, best, sc, halo, root);
     }
-    if (v_entry > 0.01) branch(v_p, 3.14159265 + (h01(seed, 40.0) - 0.5) * 0.3 * v_fan * rad, v_entry, v_width * 0.75, bend, v_out, best, sc);
-    // the grit: stretched {{F(GoreStreakRules.GritStretch)}}:1 along the branch (GoreStreakRules.GritUv)
+    if (v_entry > 0.01) stroke(v_p, 3.14159265 + (h01(seed, 40.0) - 0.5) * 0.3 * v_fan * rad, v_entry, v_width * 0.8, bend, v_out, best, sc, halo, root);
+    if (halo <= 0.0 && best <= 0.0) discard;
+    // two octaves of grit, stretched {{F(GoreStreakRules.GritStretch)}}:1 along the branch (GoreStreakRules.GritAt)
     vec2 guv = vec2(sc.x * {{F(GoreStreakRules.GritTiles / GoreStreakRules.GritStretch)}} + h01(seed, 50.0), sc.y * {{F(GoreStreakRules.GritTiles)}} + h01(seed, 51.0));
-    vec3 g = texture(grit, guv).rgb;
-    float score = best <= {{F(GoreStreakRules.ShapeEdge)}} ? 0.0 : {{F(GoreStreakRules.ScoreField)}} * best + {{F(GoreStreakRules.ScoreCoarse)}} * g.r + {{F(GoreStreakRules.ScoreSmear)}} * g.b;     // GoreStreakRules.Score
+    vec3 g1 = texture(grit, guv).rgb;
+    vec3 g2 = texture(grit, guv * {{F(GoreStreakRules.GritOctave)}} + vec2(0.37, 0.61)).rgb;
+    float coarse = 0.62 * g1.r + 0.38 * g2.r, fine = 0.5 * g1.g + 0.5 * g2.g, smear = 0.6 * g1.b + 0.4 * g2.b;
+    // continuous score and a soft step (no derivative of a discontinuous score: no hairlines; GoreStreakRules.Score, Coverage)
+    float score = ({{F(GoreStreakRules.ScoreField)}} * best + {{F(GoreStreakRules.ScoreCoarse)}} * coarse + {{F(GoreStreakRules.ScoreSmear)}} * smear) * smoothstep(0.0, 0.2, best)
+                + {{F(GoreStreakRules.RootBoost)}} * root * v_root;
     float thr = 1.0 - v_fill;
-    float aa = max(1.5 * fwidth(score), 1e-4);
-    float cov = clamp((score - thr) / aa + 0.5, 0.0, 1.0) * step(1e-4, best);
-    float hole = 1.0 - 0.45 * v_grit;                                           // GoreStreakRules.HoleThreshold
-    cov *= 1.0 - clamp((g.g - hole) / max(1.5 * fwidth(g.g), 1e-4) + 0.5, 0.0, 1.0);
-    cov *= v_on;
-    if (cov <= 0.002) discard;   // nothing outside the blood: the Compatibility renderer's multiply pass darkened the whole quad where it should have multiplied by 1
-    float dens = 0.55 + 0.45 * g.r;                                            // GoreStreakRules.Density
+    float cov = smoothstep(thr - {{F(GoreStreakRules.CovSoft)}}, thr + {{F(GoreStreakRules.CovSoft)}}, score);
+    float hole = 1.0 - 0.45 * v_grit;
+    cov *= 1.0 - smoothstep(hole - 0.04, hole + 0.04, fine) * (1.0 - root * v_root);
+    float dens = {{F(0.45f)}} + {{F(0.55f)}} * coarse;                                                    // GoreStreakRules.Density
+    // the near fade (Warfront's near hits filled the screen) and the blood opacity: the core over the soft halo (GoreStreakRules.Alpha)
+    float nearf = smoothstep({{F(GoreStreakRules.NearFadeFrom)}}, {{F(GoreStreakRules.NearFadeTo)}}, v_depth);
+    float a = v_opac * max(cov * dens, {{F(GoreStreakRules.HaloAlpha)}} * halo) * nearf;
+    if (a <= 0.003) discard;
 {{(strip ? $$"""
-    float s3 = cov * cov * cov;
-    ALBEDO = mix(vec3(1.0), vec3({{F(ClassicBloodRules.RibbonStripRed)}}, 0.0, 0.0), s3);
+    float st = clamp({{F(GoreStreakRules.StripPerAlpha)}} * a, 0.0, 1.0) * (0.75 + 0.25 * cov);    // GoreStreakRules.Strip: fades with the opacity
+    ALBEDO = mix(vec3(1.0), vec3({{F(ClassicBloodRules.RibbonStripRed)}}, 0.0, 0.0), st);
     ALPHA = 1.0;
 """ : $$"""
-    ALBEDO = tint.rgb * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, dens));
-    ALPHA = v_opac * cov * dens;
+    ALBEDO = tint.rgb * shade * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, dens));
+    ALPHA = a;
 """)}}
 }
 """;
@@ -169,7 +186,7 @@ void fragment() {
     static Shader? _shader, _stripShader;
     static ImageTexture? _grit;
     static ArrayMesh? _quad;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint";
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
@@ -239,7 +256,9 @@ void fragment() {
         var tint = new Color(ClassicBloodRules.BloodRgb.R, ClassicBloodRules.BloodRgb.G, ClassicBloodRules.BloodRgb.B);
         _mat = new ShaderMaterial { Shader = _shader, RenderPriority = ClassicBloodRules.RibbonRenderPriority + 1 };
         _strip = new ShaderMaterial { Shader = _stripShader, RenderPriority = ClassicBloodRules.RibbonRenderPriority, NextPass = _mat };
-        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); }
+        // the same darker red on both renderers (gate repair 8): Forward+ draws linear HDR through the tonemapper, Compatibility straight in display space
+        float shade = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility" ? GoreStreakRules.CompatibilityShade : GoreStreakRules.ForwardShade;
+        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); }
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = Quad() };
         _mm.InstanceCount = GoreStreakRules.PoolSize;
         _mm.VisibleInstanceCount = 0;
@@ -267,6 +286,7 @@ void fragment() {
         var z = new Vector3(normal.X, normal.Y, normal.Z);
         z = (z - x * z.Dot(x)).Normalized();
         var y = z.Cross(x).Normalized();
+        if (y.Y < 0f) { y = -y; z = -z; }   // the plane's +across leans up: the upper branch fans upward (gate repair 4)
         return new Transform3D(new Basis(x * unit, y * unit, z * unit), new Vector3(origin.X, origin.Y, origin.Z));
     }
 
@@ -279,7 +299,7 @@ void fragment() {
         double start = _clock - s.PreAge;
         _starts[slot] = start;
         _mm.SetInstanceTransform(slot, Placement(s.Origin, s.Axis, s.Normal, s.Unit));
-        _mm.SetInstanceColor(slot, new Color(s.Lethal || s.Heavy ? 1f : 0f, s.Lethal ? 1f : 0f, 1f, 1f));
+        _mm.SetInstanceColor(slot, new Color(s.Lethal || s.Heavy ? 1f : 0f, 0f, 1f, 1f));   // r: the fourth branch; b: on (0 retires the slot)
         _mm.SetInstanceCustomData(slot, new Color((float)(((start % ClockPeriod) + ClockPeriod) % ClockPeriod), GoreStreakRules.ShaderSeed(s.Seed), s.Bend, branchBias));
         Spawned++;
         _cpuMs += _watch.Elapsed.TotalMilliseconds;
@@ -319,6 +339,13 @@ void fragment() {
                     _mm.SetInstanceTransform(_prewarmSlot, new Transform3D(cam.GlobalTransform.Basis.Orthonormalized().Scaled(new Vector3(0.5f, 0.5f, 0.5f)),cam.GlobalPosition - cam.GlobalTransform.Basis.Z * 3f));
             }
         }
+        // retire spent slots (finding M1): switched off and forgotten, so none replays when the shader's clock wraps after 4096 s; a few slots a frame, round the pool
+        if (_ageOverride is null)
+            for (int n = 0; n < 16 && _high > 0; n++)
+            {
+                _retire = (_retire + 1) % _high;
+                if (_retire != _prewarmSlot && GoreStreakRules.Spent(_starts[_retire], _clock)) { _starts[_retire] = double.NegativeInfinity; _mm.SetInstanceColor(_retire, new Color(0f, 0f, 0f, 1f)); }
+            }
         _cpuMs += _watch.Elapsed.TotalMilliseconds;
         if (_clock >= _logAt)
         {
@@ -330,6 +357,7 @@ void fragment() {
     }
     double _logAt = 10.0;
     long _logSpawned;
+    int _retire;
 
     /// <summary>The counters line (the <c>gore streak:</c> log line's body).</summary>
     public string Counters() => $"live {Live}, spawned {Spawned}, dropped {Dropped}, evicted {Evicted}";

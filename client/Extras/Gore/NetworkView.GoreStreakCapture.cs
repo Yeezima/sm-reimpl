@@ -106,12 +106,18 @@ public partial class NetworkView
     double _streakStressStart, _streakStressOwed;
     readonly System.Collections.Generic.List<float> _streakStressMs = new();
     int _streakStressLivePeak;
+    bool _streakStressGpuOn;
+    readonly System.Collections.Generic.List<float> _streakStressGpu = new(), _streakStressGpuBase = new();
 
     void StreakStressTick()
     {
         if (GetViewport().GetCamera3D() is not { } camera) return;
         double t = _connectedFor - _streakStressStart;
-        if (t < 3.0) return;
+        // the GPU's render time of the view (finding M2: measured, not guessed): its baseline in the settle's last second, then under the streaks
+        var vp = GetViewport().GetViewportRid();
+        if (!_streakStressGpuOn) { RenderingServer.ViewportSetMeasureRenderTime(vp, true); _streakStressGpuOn = true; }
+        double gpu = RenderingServer.ViewportGetMeasuredRenderTimeGpu(vp);
+        if (t < 3.0) { if (t >= 2.0 && gpu > 0) _streakStressGpuBase.Add((float)gpu); return; }
         float dt = (float)GetProcessDeltaTime();
         if (t >= 3.0 + StreakStressSeconds)
         {
@@ -119,13 +125,18 @@ public partial class NetworkView
             int n = _streakStressMs.Count;
             float mean = 0f; foreach (var m in _streakStressMs) mean += m; mean /= Math.Max(1, n);
             float P(float q) => n == 0 ? 0f : _streakStressMs[Math.Clamp((int)(q * (n - 1)), 0, n - 1)];
+            static float Mean(System.Collections.Generic.List<float> l) { float s = 0f; foreach (var x in l) s += x; return l.Count == 0 ? 0f : s / l.Count; }
+            _streakStressGpu.Sort();
+            float gp95 = _streakStressGpu.Count == 0 ? 0f : _streakStressGpu[(int)(0.95f * (_streakStressGpu.Count - 1))];
             var v = GoreStreaks();
-            GD.Print($"GORESTRESS {StreakStressRate:F0}/s for {StreakStressSeconds:F0} s ({RenderingServer.GetCurrentRenderingMethod()}): frames {n}, frame ms mean {mean:F2} p95 {P(0.95f):F2} p99 {P(0.99f):F2} worst {P(1f):F2}; live peak {_streakStressLivePeak}; {v.Counters()}; view cpu {v.TakeCpuMs():F2} ms");
+            GD.Print($"GORESTRESS {StreakStressRate:F0}/s for {StreakStressSeconds:F0} s ({RenderingServer.GetCurrentRenderingMethod()}): frames {n}, frame ms mean {mean:F2} p95 {P(0.95f):F2} p99 {P(0.99f):F2} worst {P(1f):F2}; " +
+                     $"GPU ms baseline {Mean(_streakStressGpuBase):F2}, under streaks mean {Mean(_streakStressGpu):F2} p95 {gp95:F2}; live peak {_streakStressLivePeak}; {v.Counters()}; view cpu {v.TakeCpuMs():F2} ms");
             GetTree().Quit();
             _streakStressStart = double.PositiveInfinity;
             return;
         }
         _streakStressMs.Add(dt * 1000f);
+        if (gpu > 0 && t >= 6.0) _streakStressGpu.Add((float)gpu);   // after the pool has filled
         _streakStressOwed += StreakStressRate * dt;
         var fwd = -camera.GlobalTransform.Basis.Z; fwd.Y = 0f; fwd = fwd.LengthSquared() > 1e-4f ? fwd.Normalized() : Vector3.Forward;
         var centre = camera.GlobalPosition + fwd * 8f;
