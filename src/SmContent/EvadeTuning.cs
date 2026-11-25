@@ -144,6 +144,13 @@ public static class EvadeTuning
     public const string DashLandingPrefix = "SM_JMP_Dash_Landing_Shallow_";
     /// <summary>Tags of the dash sequencers: the hold that turns the press into a jump, the flight's end (a falling state), the landing's end.</summary>
     public const string ToJumpBranch = "BRANCH_Evade_to_Jump", FallingModifier = "Falling", EndBranch = "BRANCH_Evade_End";
+    /// <summary>
+    /// Install transitions, pass 2 batch 2 (2026-11-25): the thunder hammer's own dash. <c>MP_SM_MEL_ThunderHammer</c>'s "Thunderhammer Jumppack Evade" plays <c>SM_JMP_TH_Dash_</c> + F, B, L or R
+    /// (4.333 s, as the plain clips) and its "Jump TH Dash Land" <c>SM_JMP_TH_Dash_Landing_</c> + F, B, L or R (1.133 s, <see cref="EndBranch"/> at 0.9259, as the plain landings). The daemon maul has
+    /// no graph of its own (the install's 46 graphs are all the marine rig's; the maul plays the hammer's graph, <c>RaceParity</c>). The simulation's dash stays the plain one read above from
+    /// <see cref="Graph"/>; the client only shows the hammer's clips at the same times (<see cref="DashClipChoice"/>).
+    /// </summary>
+    public const string HammerGraph = "MP_SM_MEL_ThunderHammer", HammerDashClipPrefix = "SM_JMP_TH_Dash_", HammerDashLandingPrefix = "SM_JMP_TH_Dash_Landing_";
     /// <summary>Protocol 30: the dash flight's branch from which a melee press starts the dash attack (<see cref="EvadeMove.DashAttackAt"/>).</summary>
     public const string DashAttackBranch = "BRANCH_Dash_Attack";
 

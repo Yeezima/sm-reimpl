@@ -609,6 +609,7 @@ public partial class NetworkView : Node3D
             Hammer180Forget(gone);   // sim/hammer-180: the log's and the turn drawing's per-player state
             _jumpTracks.Remove(gone);
             _evadeTracks.Remove(gone);
+            DashForget(gone);   // install transitions batch 2 (NetworkView.HammerDash.cs)
             _aimMoving.Remove(gone);
             HipFireForget(gone);
             ReloadForget(gone);   // M35
@@ -826,6 +827,7 @@ public partial class NetworkView : Node3D
         if (FireTestInput(me, tick) is { } fireTest) return fireTest;   // fx/weapon-visuals capture aid --fire-test (NetworkView.PowerGlow.cs)
         if (CarryTestInput(me, tick) is { } carry) return carry;   // anim/relic-bolter-idle test aid --carry-test (NetworkView.CarryTest.cs)
         if (DashWallTestInput(me, tick) is { } dashWall) return dashWall;   // feel/jump-pack-2 test aid --dash-wall-test (NetworkView.DashAttack.cs)
+        if (DashDirsTestInput(me, tick) is { } dashDirs) return dashDirs;   // install transitions batch 2 capture aid --dash-dirs-test (NetworkView.HammerDash.cs)
         // A navigation jump in flight keeps its checked controls (NetworkView.Nav.cs).
         if (BotNavFlightInput(me, tick) is { } flightInput) return flightInput;
         BotTrackLife(me);   // 2026-11-07: lives for the lane legs and the idle cycle (NetworkView.BotRoam.cs)

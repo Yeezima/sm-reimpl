@@ -60,6 +60,7 @@ public partial class NetworkView
                 GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} evade ended after {t.Time:F2} s; corrections during it: {errors.Count - from} sampled, max {(errors.Count > from ? errors.Skip(from).Max() : 0f):F3} m");
             }
             t.Active = false;
+            DashGround(s, own);   // install transitions batch 2: the stance before the next dash; the dash's latch ends (NetworkView.HammerDash.cs)
             return;
         }
         float target = Evade.Time(s, _config!);

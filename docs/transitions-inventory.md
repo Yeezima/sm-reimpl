@@ -37,7 +37,7 @@ change, or an owner decision), **out of scope** (singleplayer, Exterminatus or e
 | `SM_JMP_TH_Landing_Low` (1.2 s), `SM_JMP_TH_Landing_LowRun` (1.133 s) | `MP_SM_NAV_JP_Sim` "Hammer Idle Land", "Hammer Run Land" (`BOOL_Thunderhammer`) | a hammer marine's jump-pack landing | the plain pair (0.9 s run landing) | **wired now** |
 | `SM_JMP_TH_Landing_MedRun`, `SM_JMP_TH_GP_ReturnToIdle`, `SM_JMP_TH_GP_Impact_01`, `SM_JMP_TH_GP_Loop_01` | `MP_SM_NAV_JP_Sim` "Hammer GP" | the hammer's ground pound | Classic: the hammer's jump attack is the air slash (`HammerSlash`), not a pound; Musou's spear dive reads the dive loop and the impact | n/a in Classic (the slash replaces the pound), the spear's are wired |
 | `SM_JMP_Dash_B/F/L/R`, `SM_JMP_Dash_Landing_Shallow_*` | every jump-pack melee graph, "Jumppack Evade", "Jump Dash Land" | the air dash | `EvadeTuning` | wired |
-| `SM_JMP_TH_Dash_B/F/L/R` (and `SM_JMP_TH_Dash_Landing_B/F/L/R`, 1.133 s) | `MP_SM_MEL_ThunderHammer` "Thunderhammer Jumppack Evade", "Jump TH Dash Land" | a hammer marine's air dash and its landing | the plain dash clips for the hammer | **gap, client only** (batch 2: `EvadeTuning` reads one graph per family) |
+| `SM_JMP_TH_Dash_B/F/L/R` (and `SM_JMP_TH_Dash_Landing_B/F/L/R`, 1.133 s) | `MP_SM_MEL_ThunderHammer` "Thunderhammer Jumppack Evade", "Jump TH Dash Land" | a hammer (or daemon maul) marine's air dash and its landing, in the hammer stance (pistol not up) | `NetworkView.HammerDash` (`DashClipChoice`: the family latched at the dash's start; same lengths and landing branch times as the plain set, posed unstretched at the sim's times); the maul has no graph of its own and plays this one | **wired now** (batch 2) |
 | `SM_JMP_DashAtk_F`, `SM_MEL_PA_XATK_Combo3FIN`, `SM_JMP_TH_DashAtk_F` | the jump dash attack (lunge) | the lunge | `DashAttack` (the hammer's own clip is a known gap there) | wired (the hammer's lunge clip: gap, noted in `NetworkView.DashAttack`) |
 | `SM_ACT_B_button_drop_fall_01`, `_land_01` | `SM_Bolter_NAV` "Fall Behaviors" | a fall | `NetworkView.Fall` | wired |
 | `SM_NAV_TB_Dropdown`, `SM_NAV_TB_Landing` | `SM_TB_NAV` "Heavy Drop Down" | the heavy bolter's fall from 1 m | `NetworkView.Fall` | wired |
@@ -89,9 +89,9 @@ a use-object action the multiplayer content does not call).
 
 1. **Brace turn (heavy bolter)** (client only): a braced Devastator turning its aim sees the body slide round rigidly; the original plays a 1.467 s turn on the legs. Needs the braced marine inside the planted-body
    machinery (`BodyYawFor`) with the brace graph's turn thresholds (-60 / +77 degrees). Batch 3.
-2. **The hammer's air dash and its landing** (client only): Assault with the thunder hammer dashes with the plain dash clips. Batch 2.
-3. **The hammer's second strike after the 180 sweep**: done with the whole Dir 180 family (sim/hammer-180, protocol 93; the owner chose "Add it for the hammer"). The other weapons' 180 strikes are not included.
-4. **Blocked, for the owner**: the plasma, lascannon and plasma-pistol fire-mode change clips (need a fire-mode input and rules in the simulation and the protocol); the sprinter's wall stop (needs the simulation to brake).
-5. Not worth wiring: the other hit directions (enemy states), the incapacitated clips (no downed state).
+2. **The hammer's second strike after the 180 sweep**: done with the whole Dir 180 family (sim/hammer-180, protocol 93; the owner chose "Add it for the hammer"). The other weapons' 180 strikes are not included.
+3. **Blocked, for the owner**: the plasma, lascannon and plasma-pistol fire-mode change clips (need a fire-mode input and rules in the simulation and the protocol); the sprinter's wall stop (needs the simulation to brake).
+4. Not worth wiring: the other hit directions (enemy states), the incapacitated clips (no downed state).
 
 Done in this pass (batch 1): the hammer's and the chainsword's drop and landing, the hammer's jump-pack landings. See `docs/milestones.md` "Install transitions, pass 2 batch 1".
+Done in batch 2 (2026-11-25): the hammer's air dash and its landing (`SM_JMP_TH_Dash_B/F/L/R`, `SM_JMP_TH_Dash_Landing_B/F/L/R`). See `docs/milestones.md` "Install transitions, pass 2 batch 2".

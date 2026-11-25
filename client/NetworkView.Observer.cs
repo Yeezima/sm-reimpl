@@ -227,6 +227,7 @@ public partial class NetworkView
             Hammer180Forget(gone);   // sim/hammer-180: the log's and the turn drawing's per-player state
             _jumpTracks.Remove(gone);
             _evadeTracks.Remove(gone);
+            DashForget(gone);   // install transitions batch 2 (NetworkView.HammerDash.cs)
             _aimMoving.Remove(gone);
             HipFireForget(gone);
             ReloadForget(gone);
