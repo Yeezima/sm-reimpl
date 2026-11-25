@@ -736,6 +736,7 @@ public partial class NetworkView : Node3D
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
         if (_demoPlayback is null) ExtrasInputGate(ref input);   // EXTRAS-HOOK: added content's limits on a live input (Musou: the Dreadnought's sprint, the same rule as the server's)
+        if (_demoPlayback is null) ExtrasExecutionTestPress(ref input);   // EXTRAS-HOOK: executions (X5 test aid --execution-bot-press): a bot taps Execute on its own Classic offer
         DemoRecordInput(input);
         _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
         NoteSentInput(input);   // feel/bullets: the shot of this tick is drawn on the ray this input carries (NetworkView.Bullets.cs)
@@ -1566,6 +1567,8 @@ public partial class NetworkView : Node3D
     partial void ExtrasExecutionOrbitLook(float yaw, float pitch, ref bool used);
     /// <summary>Hook for added content (executions X6): the right stick while alive; <paramref name="used"/> set when a locked executor's camera orbit took it (the view does not turn).</summary>
     partial void ExtrasExecutionPadLook(double delta, ref bool used);
+    /// <summary>Hook for added content (executions X5 test aid): may set the Execute bit on a live input (only with <c>--execution-bot-press</c>).</summary>
+    partial void ExtrasExecutionTestPress(ref PlayerInput input);
 
     /// <summary>
     /// Hook for added content: called by <see cref="TrackDeath"/> for a player who is not alive; <paramref name="keep"/> set when the added content poses and shows the dead character itself (Musou: the Dreadnought's

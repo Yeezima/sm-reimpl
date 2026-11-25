@@ -28,6 +28,26 @@ public partial class NetworkView
     int _execTestIndex, _execTestFails;
     bool _execTestChecked, _execTestDone;
 
+    /// <summary><c>--execution-bot-press</c>: the client taps Execute once, 0.2 s after it hears each own Classic offer (a test aid for the real server path).</summary>
+    static readonly bool ExecBotPress = CmdFlag("execution-bot-press");
+    uint _execPressedKill = uint.MaxValue;
+    double _execOfferHeardAt = -1;
+    bool _execPressHeld;
+
+    partial void ExtrasExecutionTestPress(ref PlayerInput input)
+    {
+        if (!ExecBotPress || !ExecutionsOn) return;
+        if (_execPressHeld) { _execPressHeld = false; return; }   // one tick down, then up: a tap
+        if (ExecutionsState.Offer is not { } offer || offer.KillTick == _execPressedKill) { _execOfferHeardAt = -1; return; }
+        if (_execOfferHeardAt < 0) { _execOfferHeardAt = _connectedFor; return; }
+        if (_connectedFor - _execOfferHeardAt < 0.2) return;
+        _execPressedKill = offer.KillTick;
+        _execOfferHeardAt = -1;
+        _execPressHeld = true;
+        input = input with { Buttons = input.Buttons | InputButtons.Execute };
+        GD.Print($"EXECPRESS t {_connectedFor:F2} s: Execute tapped at tick {input.Tick} for the offer on P{offer.Victim} (kill tick {offer.KillTick}, window {offer.WindowTicks})");
+    }
+
     void ExecutionSelfTestFrame(PlayerState me, System.Collections.Generic.IReadOnlyList<PlayerState> others)
     {
         if (!ExecSelfTest && ExecDemoRows.Length == 0) return;
