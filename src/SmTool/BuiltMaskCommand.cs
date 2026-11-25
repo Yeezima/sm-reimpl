@@ -26,6 +26,13 @@ static class BuiltMaskCommand
 
         var notes = new List<string>();
         var catalog = CustomizationCatalog.Load(gameDir, notes);
+        if (Opt("--scheme-dump") is { } sd)
+        {
+            foreach (var slot in PaintSchemes.Slots)
+                if (catalog.Paint.Scheme(sd)?.For(slot) is { } ps)
+                    Console.WriteLine($"{sd} {slot}: P {string.Join(",", ps.Primary.Diffuse.Select(v => v.ToString("0.00")))} S {string.Join(",", ps.Secondary.Diffuse.Select(v => v.ToString("0.00")))} T {string.Join(",", ps.Tertiary.Diffuse.Select(v => v.ToString("0.00")))} pattern {ps.PatternEnabled}");
+            return 0;
+        }
         var wanted = new List<(string Package, string Slot, string Race)>();
         if (Opt("--packages") is { } list)
             foreach (var p in list.Split(',', StringSplitOptions.RemoveEmptyEntries)) wanted.Add((p, PaintSchemes.SlotOf(p) ?? "torso", p.StartsWith("csm", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine));

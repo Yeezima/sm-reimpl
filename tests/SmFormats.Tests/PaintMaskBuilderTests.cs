@@ -187,10 +187,10 @@ public sealed class PaintMaskBuilderTests
     [Fact]
     public void Built_chaos_legs_and_pads_put_their_plates_in_the_regular_armours_channel()
     {
-        // Repair attempt 2, measured on the install's masks: Chaos legs mostly secondary, Chaos pads mostly tertiary, everything else primary.
+        // Repair attempt 2, measured on the install's masks and the rendered regular armour: Chaos legs secondary, everything else primary.
         Assert.Equal(1, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc3_set3_legl"));
         Assert.Equal(1, BakedArmourPaint.PlateChannel("csm_armour_basic_legr"));
-        Assert.Equal(2, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_shldrl"));
+        Assert.Equal(0, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_shldrl"));   // pads draw in their primary colour
         Assert.Equal(0, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_torso"));
         Assert.Equal(0, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_arml"));
         Assert.Equal(0, BakedArmourPaint.PlateChannel("sm_armour_mp_dlc1_set1_legl"));

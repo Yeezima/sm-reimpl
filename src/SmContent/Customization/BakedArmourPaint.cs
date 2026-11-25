@@ -219,8 +219,9 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// The paint channel that carries the plates of the regular (masked) armour of a race and slot (repair attempt 2, measured on the install's own masks: share of
-    /// R / G / B over the painted texels): Chaos legs are mostly secondary (<c>csm_armour_mp_basic_legl</c> 20 / 62 / 17 %, <c>_legr</c> 16 / 72 / 12 %) and Chaos pads
-    /// mostly tertiary (<c>_shldrl</c> 18 / 16 / 66 %, <c>_shldrr</c> 16 / 9 / 75 %); Chaos head, torso and backpack (61 / 48 % R) and every Space Marine slot (basic,
+    /// R / G / B over the painted texels, and confirmed in the rendered regular armour): Chaos legs are mostly secondary (<c>csm_armour_mp_basic_legl</c> 20 / 62 / 17 %,
+    /// <c>_legr</c> 16 / 72 / 12 %; the regular Chaos legs draw in the scheme's leg secondary). Chaos pads measure mostly blue (<c>_shldrl</c> 18 / 16 / 66 %) but draw in
+    /// the pad's primary colour (Alpha Legion: blue plate, silver trim), so they stay primary. Chaos head, torso and backpack (61 / 48 % R) and every Space Marine slot (basic,
     /// Mk IV, Mk VI: R 38 to 100 %, G up to 62 % on pads, helmets and torsos where the schemes mostly give both one colour) are primary, and Chaos arms are mixed
     /// (R 28 / 41 %, G 44 / 43 %: primary kept). A built mask puts its plate region in that channel, so a built piece takes the colour the regular piece of its slot
     /// shows (the Death Guard and dlc2_set3 / dlc3_set2 legs and pads looked like another colour than the regular armour beside them). Key: the package's race
@@ -229,7 +230,7 @@ public static class BakedArmourPaint
     public static int PlateChannel(string? package)
     {
         if (package is null || PaintMaskBuilder.OldMaskRules || !package.StartsWith("csm_", StringComparison.OrdinalIgnoreCase)) return 0;
-        return PaintSchemes.SlotOf(package) switch { "leftleg" or "rightleg" => 1, "leftshoulder" or "rightshoulder" => 2, _ => 0 };
+        return PaintSchemes.SlotOf(package) switch { "leftleg" or "rightleg" => 1, _ => 0 };
     }
 
     static (string Mask, string Grey)? Build(BmatMaterial m, Sources src, string stem, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added,
