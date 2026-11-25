@@ -98,7 +98,9 @@ public class BreachCloseTests(ITestOutputHelper output)
         Assert.Equal(float.PositiveInfinity, b.SphereEntry(Up + new Vector3(0f, -10f, 0f), Vector3.UnitY, 5f));   // not within this step
         Assert.Equal(float.PositiveInfinity, b.SphereEntry(Up + new Vector3(0f, -10f, 0f), -Vector3.UnitY, 20f));   // going away
         Assert.Equal(float.PositiveInfinity, b.SphereEntry(Up + new Vector3(2f, -10f, 0f), Vector3.UnitY, 20f));   // passes beside it
-        Assert.Equal(0f, b.SphereEntry(Up, Vector3.UnitY, 1f));
+        Assert.Equal(float.PositiveInfinity, b.SphereEntry(Up, Vector3.UnitY, 1f));   // fired from inside: no stop at the muzzle (Fable review 2)
+        var two = WarfrontBreaches.At(Rate, new Vector3(0f, 0f, 0f), new Vector3(0f, 10f, 0f));
+        Assert.Equal(10f - WarfrontBreachRules.SphereRadius, two.SphereEntry(Up, Vector3.UnitY, 20f), 3);   // from inside the first, it still meets the next
     }
 
     // ---- in the World ----------------------------------------------------------------------------------------------------------------------

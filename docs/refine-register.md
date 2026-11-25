@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4133 spec table rows: **3062 tagged**, 702 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4138 spec table rows: **3067 tagged**, 702 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 4133 spec table rows: **3062 tagged**, 702 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 211 | 210 | 63 | 101 | 0 |
+| General game design | 216 | 215 | 63 | 105 | 0 |
 | Ork faction | 299 | 279 | 178 | 74 | 0 |
-| **All areas** | **3062** | 2754 | 2222 | 942 | 37 |
+| **All areas** | **3067** | 2759 | 2222 | 946 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1868 |
+| kind: ours | 1872 |
 | confidence: low | 1068 |
 | confidence: medium | 1043 |
 | notes: ours | 476 |
-| kind: interpretation | 458 |
-| notes: estimate | 315 |
+| kind: interpretation | 459 |
+| notes: estimate | 318 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -73,7 +73,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
-| notes: user's knowledge | 30 |
+| notes: user's knowledge | 31 |
 | notes: interpretation | 29 |
 | kind: approximation | 27 |
 | kind: placeholder | 23 |
@@ -4322,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (211)
+### General game design (216)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4614,10 +4614,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-468ECC75` | Daemons in the alive cap | a breach Daemon is an ordinary enemy of the pool, so `TfwBattle.Counted()` counts it against the crowds' cap already (no hook in TfwBattle.cs; `BreachSpawnTests.DaemonsCountAgainstAliveCap`) | kind: ours | design ("Breach Daemons count against the alive cap") | Daemons in the alive cap: compare with SM1 by feel or video. Ours: a breach Daemon is an ordinary enemy of the pool, so… | ☐ |
 | `R-0EA210CF` | Daemon unit | C2's Gretchin-slot row (200 hp, 0.45 m radius, 2.2 m tall, 15 per strike every 1.2 s, reach 1.8 m) through `MusouSim.SpawnDaemon`, with the battle's health scales at the spawn (the level's and the humans'); unleashed, hunting the nearest target with the… (hp, m, s) | kind: ours; notes: estimate | roster doc (200 hp data) + ours | Daemon unit: compare with SM1 by feel or video. Ours: C2's Gretchin-slot row (200 hp, 0.45 m radius, 2.2 m tall, 15 per… | ☐ |
 | `R-1752D12E` | Close rule | one qualifying detonation of a connected human (not a retainer or an AI Marine) whose position is within 3 m horizontally and 3 m vertically of a standing breach's centre (1.5 m over its foot; the blast radius not added) closes the nearest such breach; one… (m) | kind: ours; confidence: medium | owner ("humans only"); design (3 m); vertical and centre height ours | Close rule: compare with SM1 by measuring on a flat spot of the same map. Ours: one qualifying detonation of a connected human (not a retainer or an… | ☐ |
-| `R-0E247EE2` | Breach body | a sphere of 1.5 m round the centre: a qualifying projectile of a connected human whose step enters it (or starts in it) detonates on its surface, short of any wall or player behind it, so a rocket or plasma ball flying through closes it; every other… (m) | kind: ours; notes: estimate; notes: open question | lead 2026-11-25 (open question 1: "a rocket or plasma shot flying through a breach closes it") | Breach body: compare with SM1 by measuring on a flat spot of the same map. Ours: a sphere of 1.5 m round the centre: a qualifying projectile of a… | ☐ |
+| `R-0E247EE2` | Breach body | a sphere of 1.5 m round the centre: a qualifying projectile of a connected human whose step enters it from outside detonates on its surface, short of any wall or player behind it, so a rocket or plasma ball flying through closes it; every other projectile (a… (m) | kind: ours; notes: estimate; notes: open question | lead 2026-11-25 (open question 1: "a rocket or plasma shot flying through a breach closes it") | Breach body: compare with SM1 by measuring on a flat spot of the same map. Ours: a sphere of 1.5 m round the centre: a qualifying projectile of a… | ☐ |
 | `R-27BF9237` | Silent close (C5) | `CloseAll(silent)` closes every standing breach with no closure event (no sound or banner); the list shows them closed | kind: ours | plan (C5 isolation) | Silent close (C5): compare with SM1 by feel or video. Ours: CloseAll(silent) closes every standing breach with no closure event… | ☐ |
 | `R-B658B128` | Closure look (C4c) | on the first copy of a closure: the install's `chaos_portal_no_psyker` played once from age 0.85 s for 1.6 s (its "buildup energy" flash at 0.94-1 s of the core, the lightning and the smoke after it: the data's flash and explode elements, an interpretation)… (s, m) | kind: ours; notes: estimate | roster doc (no closing effect in the data); install effect and event (original asset loaded); sphere and ring ours | Closure look (C4c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: on the first copy of a closure: the install's chaos_portal_no_psyker… | ☐ |
 | `R-C37B4886` | Daemon as a kind (C2 review notes) | the breach Daemon is the Gretchin row to every kind rule, decided per rule for Chaos battles: it is fodder (a melee hit or charge throws it and may kill it outright with the war's death roll, as a Cultist; ours: a breach squad is a swarm); the autocannon's… (m) | kind: ours; notes: provisional | C2 review (lead 39); decisions ours | Daemon as a kind (C2 review notes): compare with SM1 by measuring on a flat spot of the same map. Ours: the breach Daemon is the Gretchin row to every kind rule, decided per… | ☐ |
+| `R-5A3DA18E` | Krak (the blind grenade) never closes a breach | the MP `*_eq_krak_grenade` file is the blind grenade (its blasts only blind), so the filter excludes it by its blast and it never closes a breach; a krak that dealt damage would count | kind: interpretation; notes: user's knowledge | M37 (the owner's knowledge of the original, 2026-10-28: the files' krak is the blind grenade) + lead (C4 review) | Krak (the blind grenade) never closes a breach: compare with SM1 by feel or video. Ours: the MP *_eq_krak_grenade file is the blind grenade (its blasts only… | ☐ |
+| `R-AA3159D7` | Squad timer after a kill at the cap | at its cap a breach's due squad waits; the first slot that frees (one Daemon killed) brings what fits at once and starts the 20 s again from that tick, so killing one Daemon at the cap restarts the breach's squad timer (s) | kind: ours; notes: estimate | ours (Fable review 5: tune in playtest) | Squad timer after a kill at the cap: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at its cap a breach's due squad waits; the first slot that frees (one… | ☐ |
+| `R-3BA8532B` | No line of sight on closure | the close rule measures only the distance from the detonation to the breach's centre: a frag that goes off behind a wall within 3 m still closes it (m) | kind: ours; notes: estimate | ours (Fable review 5: tune in playtest) | No line of sight on closure: compare with SM1 by measuring on a flat spot of the same map. Ours: the close rule measures only the distance from the detonation to the… | ☐ |
+| `R-EDC7BCF3` | Ring spots and the fortress's sources | a ring spot must snap to a node on the source's own floor (within 1.5 m of its foot), have 2 m of walkable ground in eight directions, and a whole walk from the source within 2.5 times the ring's radius (bounded search, 20 000 nodes; as the courtyard pick)… (m) | kind: ours; notes: estimate | Fable review 3; numbers ours | Ring spots and the fortress's sources: compare with SM1 by measuring on a flat spot of the same map. Ours: a ring spot must snap to a node on the source's own floor (within 1.5… | ☐ |
+| `R-D5F08EF0` | Shot from inside a breach | a qualifying projectile that starts inside a breach's sphere does not stop on it (no detonation at the muzzle); it may still meet another breach's sphere, and where it goes off the close rule judges | kind: ours | Fable review 2 | Shot from inside a breach: compare with SM1 by feel or video. Ours: a qualifying projectile that starts inside a breach's sphere does not… | ☐ |
 | `R-1FABCA02` | Server cost | at most 30 more enemies (in a 2560-slot pool) and one sphere test per human explosive step; measured: a Chaos lane tick p99 with breaches 8.5 ms against an Orks lane's 33.4 ms (`BreachIsolationTests`, a loaded dev machine, best of two 10 s runs) (ms) | kind: ours; confidence: medium | measured | Server cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at most 30 more enemies (in a 2560-slot pool) and one sphere test per… | ☐ |
 
 ## Part B: Ork faction

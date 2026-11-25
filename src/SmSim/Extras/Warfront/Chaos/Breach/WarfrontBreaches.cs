@@ -3,8 +3,15 @@ using SmSim.Extras.Musou.Campaign;
 
 namespace SmSim.Extras.Warfront.Chaos;
 
-/// <summary>The battle the breaches are placed for: its kind, its node (lane battles, the run's 1 to 3) and, for the fortress, the plaza no breach stands in (radius 0: none).</summary>
-public readonly record struct WarfrontBreachSite(WarfrontBreachBattle Battle, int Node, Vector3 PlazaCentre = default, float PlazaRadius = 0f);
+/// <summary>
+/// The battle the breaches are placed for: its kind, its node (lane battles, the run's 1 to 3) and, for the fortress, the plaza no breach stands in (radius 0: none) and the stage of each layout
+/// source (<paramref name="SourceStage"/>, the plan's; a source of the last stage, <paramref name="MaxStage"/>, is the plaza's and never takes a breach; null: every source may).
+/// </summary>
+public readonly record struct WarfrontBreachSite(WarfrontBreachBattle Battle, int Node, Vector3 PlazaCentre = default, float PlazaRadius = 0f, IReadOnlyList<int>? SourceStage = null, int MaxStage = 0)
+{
+    /// <summary>Whether layout source <paramref name="k"/> may take a breach (Fable review 3: no plaza source, so no ring falls just past the plaza circle inside the arena shell).</summary>
+    public bool SourceAllowed(int k) => SourceStage is not { } stages || MaxStage <= 0 || k >= stages.Count || stages[k] < MaxStage;
+}
 
 /// <summary>
 /// The warp breaches of one Chaos battle (Chaos Warfront C4; design "Warp breaches"; every number <see cref="WarfrontBreachRules"/>): placed once at the battle's start from its seed, each opens,
@@ -55,10 +62,15 @@ public sealed class WarfrontBreaches
         }
         int openAt = WarfrontBreachRules.Ticks(WarfrontBreachRules.OpenDelaySeconds, rate);
         int firstAt = openAt + WarfrontBreachRules.Ticks(WarfrontBreachRules.BuildUpSeconds, rate);
+        bool graph = nav is { NodeCount: > 0 };
         foreach (int k in order)
         {
             if (b._breaches.Count >= want) break;
+            if (!site.SourceAllowed(k)) continue;
             float turn = roll(WarfrontBreachRules.PlacementSalt + 0x100u + (uint)k) * MathF.Tau;
+            // the source's own foot on the graph (a source off the graph keeps its own spot, as the layout gave it)
+            var foot = sources[k];
+            if (graph && nav!.Nearest(foot, 2f, WarfrontBreachRules.RingVertical) is var own and >= 0) foot = nav.Position(own);
             for (int ring = 0; ring <= WarfrontBreachRules.Rings; ring++)
             {
                 bool placed = false;
@@ -66,13 +78,8 @@ public sealed class WarfrontBreaches
                 for (int s = 0; s < spots && !placed; s++)
                 {
                     float angle = turn + s * MathF.Tau / spots, r = ring * WarfrontBreachRules.RingStep;
-                    var spot = sources[k] + new Vector3(MathF.Cos(angle) * r, MathF.Sin(angle) * r, 0f);
-                    if (nav is { NodeCount: > 0 })
-                    {
-                        int node = nav.Nearest(spot, 2f, 4f);
-                        if (node < 0) continue;   // in a wall or off the graph
-                        spot = nav.Position(node);
-                    }
+                    var spot = foot + new Vector3(MathF.Cos(angle) * r, MathF.Sin(angle) * r, 0f);
+                    if (graph && ring > 0 && !RingSpotWalkable(nav!, foot, r, ref spot)) continue;   // Fable review 3: same floor, room round it, a whole walk from the source
                     if (!Fits(spot, layout.LandingZone, points, site, b._breaches)) continue;
                     b._breaches.Add(new WarfrontBreach((byte)(b._breaches.Count + 1), spot, openAt, firstAt));
                     placed = true;
@@ -99,6 +106,24 @@ public sealed class WarfrontBreaches
     }
 
     static float Flat(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Y - b.Y).Length();
+
+    /// <summary>
+    /// A ring spot round a source's foot is usable (Fable review 3; as <c>TfwSites.Courtyard</c> picks the boss's courtyard): it snaps to a node on the source's own floor (within
+    /// <see cref="WarfrontBreachRules.RingVertical"/> of the foot), has <see cref="WarfrontBreachRules.RingRadius"/> of walkable ground in eight directions (the squads' ring), and a whole walk from the
+    /// source to it no longer than <see cref="WarfrontBreachRules.RingDetour"/> times the ring's radius (no spot across a wall or on another part of the graph).
+    /// </summary>
+    static bool RingSpotWalkable(NavGraph nav, Vector3 foot, float radius, ref Vector3 spot)
+    {
+        int node = nav.Nearest(spot, 2f, WarfrontBreachRules.RingVertical);
+        if (node < 0) return false;   // in a wall, off the graph, or only another floor near
+        var at = nav.Position(node);
+        if (MathF.Abs(at.Z - foot.Z) > WarfrontBreachRules.RingVertical) return false;
+        for (int k = 0; k < 8; k++)
+            if (!nav.CanWalk(at, new Vector2(MathF.Cos(k * MathF.PI / 4f), MathF.Sin(k * MathF.PI / 4f)) * WarfrontBreachRules.RingRadius)) return false;
+        if (nav.FindPath(foot, at, 2f, WarfrontBreachRules.RingPathExpandedMost) is not { Partial: false } path || path.Length > radius * WarfrontBreachRules.RingDetour) return false;
+        spot = at;
+        return true;
+    }
 
     static bool Fits(Vector3 spot, Vector3 landing, List<Vector3> points, in WarfrontBreachSite site, List<WarfrontBreach> placed)
     {
@@ -204,7 +229,8 @@ public sealed class WarfrontBreaches
 
     /// <summary>
     /// Where along the segment from <paramref name="from"/> (direction <paramref name="direction"/>, unit, length <paramref name="max"/>) a projectile first meets a standing breach's sphere
-    /// (<see cref="WarfrontBreachRules.SphereRadius"/> round its centre): 0 when it starts inside one; +infinity when it meets none within the segment.
+    /// (<see cref="WarfrontBreachRules.SphereRadius"/> round its centre); a sphere it starts inside is not met (a shot fired from within a breach does not go off at the muzzle);
+    /// +infinity when it meets none within the segment.
     /// </summary>
     public float SphereEntry(Vector3 from, Vector3 direction, float max)
     {
@@ -215,7 +241,7 @@ public sealed class WarfrontBreaches
             if (!b.Standing) continue;
             var m = from - b.Centre;
             float c = Vector3.Dot(m, m) - r2;
-            if (c <= 0f) return 0f;
+            if (c <= 0f) continue;   // Fable review 2: it starts inside this sphere (fired from within it): no detonation at the muzzle; the close rule still judges where it goes off
             float h = Vector3.Dot(m, direction);
             if (h > 0f) continue;   // going away
             float disc = h * h - c;
