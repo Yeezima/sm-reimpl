@@ -418,8 +418,13 @@ public sealed class CustomizationCatalog
                 var extra = sets.Where(s => !s.Customizable && s.Items.ContainsKey(slot) && !known.Contains(s.Items[slot]))
                     .GroupBy(s => s.Items[slot], StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.Ordinal);
                 foreach (var g in extra)
-                    if (Piece(g.Key, race, g.Select(s => s.Name).Order(StringComparer.Ordinal).ToList()) is { } piece)
+                {
+                    var setNames = g.Select(s => s.Name).Order(StringComparer.Ordinal).ToList();
+                    if (Piece(g.Key, race, setNames) is { } piece)
                         pieces[slot].Add(piece with { FromPredefinedSet = true, BuiltMasks = true });   // its baked materials get built masks when worn alone
+                    else   // round 3 (gate finding): a missing wargear file keeps the piece's place, so later indices mean the same on every install
+                        pieces[slot].Add(new ArmourPiece(g.Key, race, slot, [], g.Key, "", 1, "no_override", null, setNames) { FromPredefinedSet = true, Reserved = true });
+                }
                 // armour-pieces-1125 Series A (owner's pick of 2026-11-25; ours): the further pieces, appended in ExtraArmourPieces' order (only ever appended).
                 if (!ExtraPiecesOffered) continue;
                 known.UnionWith(pieces[slot].Select(p => p.Name));

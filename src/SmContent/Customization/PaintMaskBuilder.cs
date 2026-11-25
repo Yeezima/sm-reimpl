@@ -87,7 +87,7 @@ public static class PaintMaskBuilder
         for (int i = 0; i < n; i++) if (covered[i] && spec[i] > 10f * k && lpB[i] < 8f) candidates.Add(i);
         if (candidates.Count < 16) for (int i = 0; i < n; i++) if (covered[i]) candidates.Add(i);
         var (c1, c2, has2) = PlateClusters(candidates, L, A, B, spec);
-        if (Environment.GetEnvironmentVariable("SM_MASK_DEBUG") == "1")
+        if (MaskDebug)
             Console.WriteLine($"mask debug {w}x{h}: spec scale {k:0.00}, covered {coveredCount}, candidates {candidates.Count}, c1 L{c1.L:0} a{c1.A:0} b{c1.B:0}, c2 {(has2 ? $"L{c2.L:0} a{c2.A:0} b{c2.B:0}" : "-")}");
 
         // Warm, light ornaments (bone, gold, brass) when the plates are not themselves warm and light.
@@ -126,7 +126,7 @@ public static class PaintMaskBuilder
             float rest = MathF.Max(0f, 1f - t);
             p *= rest; s *= rest;
             prim[i] = p; sec[i] = s; tert[i] = t;
-            if (DebugTexel == i) Console.WriteLine($"mask debug texel {i % w},{i / w}: L{L[i]:0} a{A[i]:0} b{B[i]:0} hue {hue:0.00} chroma {chroma:0} spec {spec[i]:0} lpB {lpB[i]:0} warm {warm} p {p:0.00} s {s:0.00} t {t:0.00}");
+            if (DebugPx is { } dp && i == dp.Y * w + dp.X) Console.WriteLine($"mask debug texel {i % w},{i / w}: L{L[i]:0} a{A[i]:0} b{B[i]:0} hue {hue:0.00} chroma {chroma:0} spec {spec[i]:0} lpB {lpB[i]:0} warm {warm} p {p:0.00} s {s:0.00} t {t:0.00}");
             if (p > 0.6f) plateLum.Add(lum[i]);
             else if (s > 0.6f) secLum.Add(lum[i]);
             else if (t > 0.6f) ornLum.Add(lum[i]);
@@ -135,11 +135,14 @@ public static class PaintMaskBuilder
         // Repair attempt 2 (ours): on a dark plate, compact light areas (bone discs, silver rims: L* 30+ above the plate, chroma under 25, at least 60 % of their 7x7
         // neighbourhood light) are ornaments as a whole; they were split between the primary and tertiary regions (the Black Templars knee disc). Isolated light
         // texels (scratches) are left to the dark-plate rules.
-        if (!OldMaskRules && c1.L < 32f && plateChroma < 9f)
+        // Round 3: the same on a chromatic plate (chroma 12+): white insignia (Iron Hands, Leandros, Sidonus pads) left a baked white fringe round the painted part.
+        bool darkPlate = c1.L < 32f && plateChroma < 9f, chromaticPlate = plateChroma >= 12f && c1.L < 60f;
+        if (!OldMaskRules && (darkPlate || chromaticPlate))
         {
             var bright = new float[n];
+            float brightChroma = darkPlate ? 625f : 324f;   // chroma under 25 (dark plate) or 18 (chromatic plate: a light tint of the plate stays plate)
             for (int i = 0; i < n; i++)
-                if (covered[i] && A[i] * A[i] + B[i] * B[i] < 625f) bright[i] = Smooth(c1.L + 30f, c1.L + 40f, L[i]);
+                if (covered[i] && A[i] * A[i] + B[i] * B[i] < brightChroma) bright[i] = Smooth(c1.L + 30f, c1.L + 40f, L[i]);
             var near = Box(bright, w, h, 3);
             for (int i = 0; i < n; i++)
             {
@@ -222,6 +225,36 @@ public static class PaintMaskBuilder
     /// <paramref name="m"/> with its primary region moved into <paramref name="plateChannel"/> (1 secondary, 2 tertiary) and that region into the primary channel,
     /// medians and shares with them; <paramref name="m"/> itself for channel 0.
     /// </summary>
+    /// <summary>
+    /// <paramref name="m"/> with each source channel c moved to channel <paramref name="to"/>[c] (two sources may share a destination: their weights add, and the
+    /// destination keeps the median of the larger source); <paramref name="m"/> itself for the identity.
+    /// </summary>
+    public static MaskOnly Permute(MaskOnly m, IReadOnlyList<int> to)
+    {
+        if (to.Count != 3 || (to[0] == 0 && to[1] == 1 && to[2] == 2)) return m;
+        var mask = new byte[m.Mask.Length];
+        for (int i = 0; i < m.Width * m.Height; i++)
+        {
+            int o = i * 4;
+            int a = 0, b = 0, c = 0;
+            for (int s = 0; s < 3; s++)
+            {
+                int v = m.Mask[o + s];
+                if (to[s] == 0) a += v; else if (to[s] == 1) b += v; else c += v;
+            }
+            mask[o] = (byte)Math.Min(255, a); mask[o + 1] = (byte)Math.Min(255, b); mask[o + 2] = (byte)Math.Min(255, c);
+        }
+        float[] med = [m.PlateMedian, m.SecondaryMedian, m.OrnamentMedian], share = [m.Primary, m.Secondary, m.Tertiary];
+        float[] outMed = [m.PlateMedian, m.SecondaryMedian, m.OrnamentMedian], outShare = [0f, 0f, 0f], best = [-1f, -1f, -1f];
+        for (int s = 0; s < 3; s++)
+        {
+            int d = to[s];
+            outShare[d] += share[s];
+            if (share[s] > best[d]) { best[d] = share[s]; outMed[d] = med[s]; }
+        }
+        return m with { Mask = mask, PlateMedian = outMed[0], SecondaryMedian = outMed[1], OrnamentMedian = outMed[2], Primary = outShare[0], Secondary = outShare[1], Tertiary = outShare[2] };
+    }
+
     public static MaskOnly Remap(MaskOnly m, int plateChannel)
     {
         if (plateChannel is not (1 or 2)) return m;
@@ -399,6 +432,20 @@ public static class PaintMaskBuilder
             if (!distinctHue && !lighter) second = null;
         }
         if (second is null && forcedSecond is { } fs) second = fs;
+        // Round 3 (ours): a nearly grey plate colour (chroma 4 to 12) with a second colour that is a stronger version of its own hue at about its lightness (Alpha Legion
+        // Champion: dull blue-grey and saturated blue) is one paint: the stronger one is the plate and there is no second colour (the saturated blue was a second
+        // region and showed through the scheme's colours).
+        if (!OldMaskRules && second is { } sm)
+        {
+            float fc = MathF.Sqrt(first.A * first.A + first.B * first.B), sc2 = MathF.Sqrt(sm.A * sm.A + sm.B * sm.B);
+            if (fc is >= 4f and < 12f && sc2 >= 15f && MathF.Abs(sm.L - first.L) < 14f && first.A * sm.A + first.B * sm.B > 0f && HueGap(sm, first) < 0.6f)
+                (first, second) = (sm, null);
+        }
+        // Round 3 (ours): gold, brass or bone is ornament, never the plate colour, when a real paint colour is beside it (the Blood Angels Vet left pad: the gilded
+        // wings were the largest cluster, so the red field took the secondary region, the reverse of the regular pad).
+        if (!OldMaskRules && second is { } s3 && WarmLight(first.L, first.A, first.B) && MathF.Sqrt(first.A * first.A + first.B * first.B) >= 15f
+            && !WarmLight(s3.L, s3.A, s3.B) && MathF.Sqrt(s3.A * s3.A + s3.B * s3.B) >= 15f)
+            (first, second) = (s3, first);
         return (first, second ?? first, second is not null);
     }
 
@@ -506,7 +553,10 @@ public static class PaintMaskBuilder
         return values[values.Count / 2];
     }
 
-    static int DebugTexel => Environment.GetEnvironmentVariable("SM_MASK_DEBUG_PX") is { } v && v.Split(',') is [var x, var y] && int.TryParse(x, out int xi) && int.TryParse(y, out int yi) ? yi * 256 + xi : -1;
+    /// <summary>Test aid: SM_MASK_DEBUG_PX=x,y prints one texel's features (read once per process).</summary>
+    static readonly (int X, int Y)? DebugPx = Environment.GetEnvironmentVariable("SM_MASK_DEBUG_PX") is { } v && v.Split(',') is [var x, var y]
+        && int.TryParse(x, out int xi) && int.TryParse(y, out int yi) ? (xi, yi) : null;
+    static readonly bool MaskDebug = Environment.GetEnvironmentVariable("SM_MASK_DEBUG") == "1";
 
     static float[] Box(float[] v, int w, int h, int radius = 1)
     {
@@ -547,6 +597,9 @@ public static class PaintMaskBuilder
         float v = c / 255f;
         return v <= 0.04045f ? v / 12.92f : MathF.Pow((v + 0.055f) / 1.055f, 2.4f);
     }
+
+    /// <summary>CIELAB (D65) of an sRGB colour (for <see cref="BuiltMaskOverrides"/> filters).</summary>
+    public static (float L, float A, float B) LabOf(byte r, byte g, byte b) => Lab(r, g, b);
 
     static (float L, float A, float B) Lab(byte r8, byte g8, byte b8)
     {

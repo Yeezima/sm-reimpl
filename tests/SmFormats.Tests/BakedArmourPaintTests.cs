@@ -8,10 +8,15 @@ using Xunit;
 
 namespace SmFormats.Tests;
 
+/// <summary>The tests that set the built-mask builder's process-wide switches and hooks (old-mask rules, old dark plates, the cache folder, the build hook) run one at a time.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class BuiltMaskStatics { public const string Name = "built-mask statics"; }
+
 /// <summary>
 /// armour-pieces-1125 repair attempt 1 (the 92 % gate's code findings): built masks per shared texture set, the decal rule, the fallback to the baked look,
 /// the build bound and the built-mask cache. Synthetic models and textures only (no original bytes).
 /// </summary>
+[Collection(BuiltMaskStatics.Name)]
 public sealed class BakedArmourPaintTests : IDisposable
 {
     const int W = 32, H = 32;

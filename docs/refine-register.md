@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4109 spec table rows: **3040 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4112 spec table rows: **3043 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 442 | 383 | 372 | 117 | 12 |
+| Movement (critical) | 445 | 386 | 375 | 118 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,17 +53,17 @@ Scanned 4109 spec table rows: **3040 tagged**, 701 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3040** | 2732 | 2229 | 915 | 37 |
+| **All areas** | **3043** | 2735 | 2232 | 916 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1846 |
-| confidence: low | 1075 |
-| confidence: medium | 1043 |
-| notes: ours | 476 |
-| kind: interpretation | 458 |
+| kind: ours | 1848 |
+| confidence: low | 1076 |
+| confidence: medium | 1045 |
+| notes: ours | 477 |
+| kind: interpretation | 459 |
 | notes: estimate | 306 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (442)
+### Movement (gameplay-critical) (445)
 
 *Spec section: Extracted parameters*
 
@@ -429,6 +429,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-37F9D08D` | Built mask: plate channel by race and slot (repair attempt 2, 2026-11-25) | a built mask's plate region goes into the channel the regular armour of that race and slot paints its plates with: Chaos legs secondary (measured `csm_armour_mp_basic_legl` R/G/B 20/62/17 %, `_legr` 16/72/12 %; the regular legs draw in the leg secondary)… | kind: interpretation; confidence: medium; notes: ours | measured on the install (masks of the regular armour); the rule ours | Built mask: plate channel by race and slot (repair attempt…: compare with SM1 by feel or video. Ours: a built mask's plate region goes into the channel the regular armour… | ☐ |
 | `R-B479C3D8` | Built mask: strong colour on a dark plate (repair attempt 2; owner 2026-11-25 for Legion of the… | in a dark texture (largest colour L* under 32, chroma under 9) the dark field stays primary when its median specular is 0.7 x or more the coloured texels' (glossy black plate, not undersuit), and a strong colour (chroma 20+, or 30+ if warm and light; a 25th… (rad, CIELAB) | kind: ours; confidence: medium | owner (LotD flames); rule ours | Built mask: strong colour on a dark plate (repair attempt…: compare with SM1 by feel or video. Ours: in a dark texture (largest colour L* under 32, chroma under 9) the… | ☐ |
 | `R-4660AC94` | Built mask: ornament rules (repair attempt 2) | on a light plate (L* above 35) only chroma 18+ is a warm ornament; strong warm colours (chroma 30+) count up to hue 1.95 rad and need 8 to 18 L* above the plate instead of 18 to 32; on a dark plate, compact light areas (L* 30 to 40 above the plate, chroma… (rad, CIELAB) | kind: ours; confidence: low | ours | Built mask: ornament rules (repair attempt 2): compare with SM1 by feel or video. Ours: on a light plate (L* above 35) only chroma 18+ is a warm ornament… | ☐ |
+| `R-159C5A0E` | Built mask: channel map (round 3, 2026-11-25) | where the builder's primary, secondary and tertiary regions go: Chaos legs [secondary, tertiary, tertiary], other Chaos slots [primary, tertiary, tertiary] (the regular Chaos trims, rims and ornaments are all tertiary: test_rgb still), Space Marine pieces… | kind: interpretation; confidence: medium; notes: ours | seen on the install's regular armour (test_rgb still); rule ours | Built mask: channel map (round 3, 2026-11-25): compare with SM1 by feel or video. Ours: where the builder's primary, secondary and tertiary regions go: Chaos… | ☐ |
+| `R-A154E3F4` | Built mask: per-piece region data (round 3; owner: "3rd round, no stopgap") | hand-placed regions in texture space (rectangle or ellipse, optional colour filter) put covered texels wholly in a region, applied after the channel map; the Mk 7 pad layout list (23 Space Marine DLC and campaign pads) puts the rims below V 0.31 in the… (UV 0..1) | kind: ours; confidence: medium | ours (data) | Built mask: per-piece region data (round 3; owner: "3rd…: compare with SM1 by feel or video. Ours: hand-placed regions in texture space (rectangle or ellipse, optional… | ☐ |
+| `R-54319476` | Built mask: plate colour rules (round 3) | gold, brass or bone (warm and light, chroma 15+) is never the plate colour when a real paint colour (chroma 15+) is the second cluster: they swap; a nearly grey plate colour (chroma 4 to 12) whose second colour is a stronger version of its hue (hue gap under… (rad, CIELAB) | kind: ours; confidence: low | ours | Built mask: plate colour rules (round 3): compare with SM1 by feel or video. Ours: gold, brass or bone (warm and light, chroma 15+) is never the plate… | ☐ |
 | `R-44CCF72E` | Built mask: restore switch | `--old-mask-rules` (client) or SM_OLD_MASK_RULES=1: the 1257b950 builder (no specular scale, no same-hue growth, no warm-light rule, coverage needs luminance or specular above 4, cloth materials painted) | kind: ours | ours | Built mask: restore switch: compare with SM1 by feel or video. Ours: --old-mask-rules (client) or SM_OLD_MASK_RULES=1: the 1257b950… | ☐ |
 | `R-1D747B8D` | Built mask: decals (repair attempt 1) | a surface takes the scheme's shoulder decal only with the game's own paint mask and a decal layout; a built-mask (or baked) pad never does | kind: interpretation; confidence: medium | original (the predefined pads carry no customizable decal) | Built mask: decals (repair attempt 1): compare with SM1 by feel or video. Ours: a surface takes the scheme's shoulder decal only with the game's own… | ☐ |
 | `R-12006B27` | Reserved piece places (repair attempt 1) | a Series A piece this install lacks (wargear file or a package missing) keeps its index as a reserved entry (no packages, never offered); a code naming it draws the class's default piece and keeps the index | kind: ours | ours | Reserved piece places (repair attempt 1): compare with SM1 by feel or video. Ours: a Series A piece this install lacks (wargear file or a package… | ☐ |

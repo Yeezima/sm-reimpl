@@ -131,13 +131,15 @@ public sealed class PieceCache
         var notes = new List<string>();
         try
         {
+            bool masks = _builtMasks.ContainsKey(package);
             string? path = CharacterModel.PackagePath(_gameDir, package);
             if (path is null || !System.IO.File.Exists(path))
                 return new Loaded(null, [$"armour package '{package}' is not in the install; not drawn"], watch.Elapsed.TotalMilliseconds, true, false);
             var piece = CharacterModel.LoadPiece(_rig.BoneNames, path, notes, CharacterModel.ChaosTexturePackages, objectTreePlacement: true, _bonePositions,
-                buildPaintMasks: _builtMasks.ContainsKey(package));   // armour-pieces-1125
+                buildPaintMasks: masks);   // armour-pieces-1125
             bool takes = SmContent.Customization.BakedArmourPaint.PieceTakesDecal(piece);
-            _takesDecal[package] = takes;
+            // Round 3 (gate finding): a read started before RequireBuiltMasks must not leave its (mask-less) answer behind.
+            if (_builtMasks.ContainsKey(package) == masks) _takesDecal[package] = takes;
             return new Loaded(piece, notes, watch.Elapsed.TotalMilliseconds, true, takes);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)

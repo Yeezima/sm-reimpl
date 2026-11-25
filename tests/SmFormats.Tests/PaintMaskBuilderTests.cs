@@ -5,6 +5,7 @@ using Xunit;
 namespace SmFormats.Tests;
 
 /// <summary>armour-pieces-1125: the built paint masks for baked armour, on synthetic textures only (no original bytes).</summary>
+[Collection(BuiltMaskStatics.Name)]
 public sealed class PaintMaskBuilderTests
 {
     const int W = 64, H = 64;
@@ -205,6 +206,86 @@ public sealed class PaintMaskBuilderTests
         // The grey diffuse is the same whichever channel carries the plate.
         Assert.Equal(PaintMaskBuilder.WithGrey(dif, mask).Diffuse, PaintMaskBuilder.WithGrey(dif, legs).Diffuse);
         Assert.Same(mask, PaintMaskBuilder.Remap(mask, 0));
+        // Round 3 (test_rgb still): a built Chaos piece's second colour goes to tertiary like the regular trims; legs keep their plates in secondary.
+        Assert.Equal([1, 2, 2], BakedArmourPaint.ChannelMap("csm_armour_mp_dlc3_set3_legl"));
+        Assert.Equal([0, 2, 2], BakedArmourPaint.ChannelMap("csm_armour_mp_dlc3_set3_torso"));
+        Assert.Equal([0, 1, 2], BakedArmourPaint.ChannelMap("sm_armour_mp_dlc2_set1_torso"));
+        var chaos = PaintMaskBuilder.Permute(mask, [0, 2, 2]);
+        for (int i = 0; i < W * H; i++)
+        {
+            Assert.Equal(mask.Mask[i * 4], chaos.Mask[i * 4]);
+            Assert.Equal(0, chaos.Mask[i * 4 + 1]);
+            Assert.Equal(Math.Min(255, mask.Mask[i * 4 + 1] + mask.Mask[i * 4 + 2]), chaos.Mask[i * 4 + 2]);
+        }
+    }
+
+    /// <summary>A plate of one colour with a block of another at x 20..44, y 20..44, both specular 60; returns the built mask.</summary>
+    static BuiltPaintMask Patch((byte R, byte G, byte B) plate, (byte R, byte G, byte B) patch, int noise = 4, int lo = 20, int hi = 44)
+    {
+        var dif = new byte[W * H * 4]; var spc = new byte[W * H * 4];
+        for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            int i = (y * W + x) * 4;
+            var c = x >= lo && x < hi && y >= lo && y < hi ? patch : plate;
+            int n = (x * 7 + y * 3) % noise;
+            dif[i] = (byte)Math.Min(255, c.R + n); dif[i + 1] = (byte)Math.Min(255, c.G + n); dif[i + 2] = (byte)Math.Min(255, c.B + n); dif[i + 3] = 255;
+            spc[i] = spc[i + 1] = spc[i + 2] = 60; spc[i + 3] = 255;
+        }
+        return PaintMaskBuilder.Build(new DdsImage(W, H, dif), new DdsImage(W, H, spc), null);
+    }
+
+    [Fact]
+    public void On_a_light_plate_only_real_gold_is_ornament()
+    {
+        // Repair 2: a bone plate's warmer, lighter texels (chroma under 18) stay plate; real gold (chroma 18+) is still ornament.
+        var bone = Patch((150, 145, 135), (235, 222, 196));
+        Assert.True(M(bone, 30, 30, 2) < 60, "a slightly warmer, lighter bone patch is not tertiary");
+        var gold = Patch((150, 145, 135), (240, 200, 70));
+        Assert.True(M(gold, 30, 30, 2) > 200, "gold on a light plate is tertiary");
+    }
+
+    [Fact]
+    public void Compact_light_areas_on_a_black_plate_are_wholly_tertiary()
+    {
+        // Repair 2: a bone disc on a black plate was split between primary and tertiary.
+        var m = Patch((14, 14, 15), (205, 200, 190));
+        Assert.True(M(m, 32, 32, 2) > 200, "the middle of a compact light area is tertiary");
+        Assert.True(M(m, 22, 22, 2) > 150, "and its edge");
+        Assert.True(M(m, 5, 5, 0) > 200, "the black plate stays primary");
+    }
+
+    [Fact]
+    public void Strong_greenish_yellow_counts_as_a_warm_colour()
+    {
+        // Repair 2: a strong yellow at hue about 1.8 rad (just past the old 1.75) on a grey plate is ornament (or, when it covers much of the piece, the secondary).
+        // A small patch (no second plate colour): the ornament rule alone decides.
+        var m = Patch((60, 64, 68), (190, 190, 40), lo: 28, hi: 36);
+        Assert.True(M(m, 32, 32, 2) > 200, "the greenish yellow is tertiary (ornament)");
+        BuiltPaintMask old;
+        try { PaintMaskBuilder.OldMaskRules = true; old = Patch((60, 64, 68), (190, 190, 40), lo: 28, hi: 36); }
+        finally { PaintMaskBuilder.OldMaskRules = false; }
+        Assert.True(M(old, 32, 32, 2) < 100, "before (old-mask-rules): not an ornament");
+    }
+
+    [Fact]
+    public void Region_overrides_put_filtered_texels_wholly_in_their_region()
+    {
+        // Round 3: per-piece region data applied to a built mask.
+        var (dif, spc) = Synthetic();
+        var mask = PaintMaskBuilder.BuildMask(dif, spc, null);
+        var regions = new[]
+        {
+            new MaskRegionOverride(0f, 0.5f, 0.5f, 0.8f, MaskRegion.Secondary),
+            new MaskRegionOverride(0.35f, 0.3f, 0.65f, 0.6f, MaskRegion.Baked, new TexelFilter(MinLum: 150f)),
+        };
+        var o = BuiltMaskOverrides.Apply(mask, dif, regions);
+        int plate = (40 * W + 10) * 4, bone = (28 * W + 32) * 4, top = (1 * W + 10) * 4;
+        Assert.Equal((0, 255, 0), (o.Mask[plate], o.Mask[plate + 1], o.Mask[plate + 2]));
+        Assert.Equal((0, 0, 0), (o.Mask[bone], o.Mask[bone + 1], o.Mask[bone + 2]));   // the light ornament: baked
+        Assert.Equal((mask.Mask[top], mask.Mask[top + 1]), (o.Mask[top], o.Mask[top + 1]));   // outside every region: unchanged
+        Assert.NotSame(mask.Mask, o.Mask);
+        Assert.All(BuiltMaskOverrides.All, e => Assert.False(string.IsNullOrWhiteSpace(e.Why)));
     }
 
     [Fact]

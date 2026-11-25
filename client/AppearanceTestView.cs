@@ -85,7 +85,7 @@ public partial class AppearanceTestView : Node3D
             else if (!set.Customizable) look = look with { PredefinedSet = set.Name };
             else look = look with { PredefinedSet = null, Pieces = new Dictionary<string, string>(set.Items.Where(kv => CustomizationCatalog.ArmourSlots.Contains(kv.Key))) };
         }
-        if (_args.GetValueOrDefault("preset") is { } presetName)
+        if (_args.GetValueOrDefault("preset") is { } presetName && !presetName.Equals(TestRgbPreset, StringComparison.OrdinalIgnoreCase))
         {
             if (raceCatalog.Presets.FirstOrDefault(p => p.Name.Equals(presetName, StringComparison.OrdinalIgnoreCase)) is { } preset) look = ProfileWire.ApplyPreset(look, preset, catalog);
             else notes.Add($"--preset '{presetName}' is not a {race} preset");
@@ -126,6 +126,7 @@ public partial class AppearanceTestView : Node3D
             string race = Field(1).StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine;
             string classKey = ClassKey(_batchCatalog!, race, _args.GetValueOrDefault("class"));
             var look = AppearanceResolver.Resolve(ProfileLook(_batchCatalog!, race, notes), classKey, _batchCatalog!, _batchAssets!.ResolveOptionsExact(null));
+            if (string.Equals(_args.GetValueOrDefault("preset"), TestRgbPreset, StringComparison.OrdinalIgnoreCase)) look = TestRgb(look);
             GD.Print($"batch look {_name}: [{string.Join(", ", look.Pieces.Select(p => p.Slot + "=" + p.Name))}], predefined {look.PredefinedSet ?? "-"}");
             _batchAssets.Prefetch(look);
             var model = _batchAssets.Build(look);
@@ -138,6 +139,20 @@ public partial class AppearanceTestView : Node3D
         foreach (var n in notes.Distinct()) GD.Print("  note: " + n);
         _waitFrames = 8;
         return true;
+    }
+
+    /// <summary>
+    /// armour-pieces-1125 round 3 test aid: the batch preset "test_rgb" paints every slot primary pure red, secondary pure green, tertiary pure blue (pattern on),
+    /// so a still shows directly which region of each piece (regular or built mask) carries which channel.
+    /// </summary>
+    const string TestRgbPreset = "test_rgb";
+
+    static ResolvedAppearance TestRgb(ResolvedAppearance look)
+    {
+        float[] spec = [0.5f, 0.5f, 0.5f];
+        var paint = CustomizationCatalog.ArmourSlots.ToDictionary(s => s, _ => new ResolvedPaint(new ResolvedColour("test_red", [1f, 0f, 0f], spec),
+            new ResolvedColour("test_green", [0f, 1f, 0f], spec), new ResolvedColour("test_blue", [0f, 0f, 1f], spec), true), StringComparer.Ordinal);
+        return look with { Paint = paint };
     }
 
     public override void _Ready()
