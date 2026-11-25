@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4125 spec table rows: **3056 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4126 spec table rows: **3057 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 458 | 399 | 385 | 118 | 12 |
+| Movement (critical) | 459 | 400 | 386 | 118 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,15 +53,15 @@ Scanned 4125 spec table rows: **3056 tagged**, 701 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3056** | 2748 | 2242 | 916 | 37 |
+| **All areas** | **3057** | 2749 | 2243 | 916 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1861 |
+| kind: ours | 1862 |
 | confidence: low | 1078 |
-| confidence: medium | 1053 |
+| confidence: medium | 1054 |
 | notes: ours | 477 |
 | kind: interpretation | 459 |
 | notes: estimate | 306 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (458)
+### Movement (gameplay-critical) (459)
 
 *Spec section: Extracted parameters*
 
@@ -442,6 +442,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-35B7EF71` | Built mask: region data (round 5) | gilded disc pads (campaign basic, berserker, raptor left pads; campaign basic right pad): the disc is primary, a rim ring 0.045 wide and the silver skull emblem tertiary (the raptor's own pad was 65 % tertiary under the gold filter); campaign havoc pads: the… (texture space 0..1) | kind: ours; confidence: medium | ours (coordinates read on `--grid` previews, colours measured on the install's textures) | Built mask: region data (round 5): compare with SM1 by feel or video. Ours: gilded disc pads (campaign basic, berserker, raptor left pads… | ☐ |
 | `R-80FECA36` | Built mask: shading speckle clamp per piece (round 6) | region data may set `Speckle` (a share of the 3 x 3 median luminance; 0 = the general 0.2, floor 6 levels scaled with it): before a texel is shaded its luminance is held within that share of its 3 x 3 neighbourhood's median, so thin pale crackle lines one or… (share of the 3 x 3 median) | kind: ours; confidence: medium | ours | Built mask: shading speckle clamp per piece (round 6): compare with SM1 by feel or video. Ours: region data may set Speckle (a share of the 3 x 3 median luminance; 0… | ☐ |
 | `R-C6CF5769` | Built mask: region data (round 6) | Black Templars torso (DLC and campaign): both pelvis plates wholly plate (the silver belt clip excepted); Black Templars backpack: crisp, targets x 1.08 (plate median 84 to the regular pack's 91), contrast 0.7 x 0.65; Salamanders backpack and right pad:… (texture space 0..1) | kind: ours; confidence: medium | ours (coordinates read on bench previews, colours measured on the install's textures) | Built mask: region data (round 6): compare with SM1 by feel or video. Ours: Black Templars torso (DLC and campaign): both pelvis plates wholly… | ☐ |
+| `R-28660786` | Built mask: region data (round 7) | Black Templars torso (DLC and campaign): the rear shoulder-blade plates (the upper back, texture U 0.575 to 0.685, V 0.045 to 0.165, and U 0.76 to 0.815, V 0.065 to 0.135) crisp and without tertiary, the rest of the upper back (U 0.47 to 1, V 0 to 0.30) and… (texture space 0..1) | kind: ours; confidence: medium | ours (coordinates read on bench previews and on the meshes' UV positions, colours measured on the install's textures) | Built mask: region data (round 7): compare with SM1 by feel or video. Ours: Black Templars torso (DLC and campaign): the rear shoulder-blade… | ☐ |
 | `R-552E7E68` | Built mask: round-5 restore switch | `--old-round4-look` (client) or SM_OLD_ROUND4_LOOK=1: placeholder normal maps kept, no island pass, no broad-shading removal (region data stays) | kind: ours | ours | Built mask: round-5 restore switch: compare with SM1 by feel or video. Ours: --old-round4-look (client) or SM_OLD_ROUND4_LOOK=1: placeholder… | ☐ |
 | `R-54319476` | Built mask: plate colour rules (round 3) | gold, brass or bone (warm and light, chroma 15+) is never the plate colour when a real paint colour (chroma 15+) is the second cluster: they swap; a nearly grey plate colour (chroma 4 to 12) whose second colour is a stronger version of its hue (hue gap under… (rad, CIELAB) | kind: ours; confidence: low | ours | Built mask: plate colour rules (round 3): compare with SM1 by feel or video. Ours: gold, brass or bone (warm and light, chroma 15+) is never the plate… | ☐ |
 | `R-44CCF72E` | Built mask: restore switch | `--old-mask-rules` (client) or SM_OLD_MASK_RULES=1: the 1257b950 builder (no specular scale, no same-hue growth, no warm-light rule, coverage needs luminance or specular above 4, cloth materials painted) | kind: ours | ours | Built mask: restore switch: compare with SM1 by feel or video. Ours: --old-mask-rules (client) or SM_OLD_MASK_RULES=1: the 1257b950… | ☐ |
