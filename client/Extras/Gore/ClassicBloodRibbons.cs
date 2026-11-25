@@ -265,7 +265,7 @@ void fragment() {
     {
         if (_made == 0) return;
         var s = Take();
-        s.On = true; s.Age = ClassicBloodRules.RibbonSeconds - 0.25;
+        s.On = true; s.Age = ClassicBloodRules.RibbonSeconds - 1.0;   // drawn (empty) for a second: both passes' pipelines are built in the background meanwhile (repair 4, finding N6)
         s.Node.GlobalTransform = new Transform3D(Basis.Identity, at);
         s.Set(PCount, 0f);
         s.Set(PAge, (float)s.Age);

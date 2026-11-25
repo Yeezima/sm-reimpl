@@ -460,7 +460,9 @@ public partial class NetworkView
         if (HitDirLook == DirLook.None) { _meleePending.Clear(); _shotContacts.Clear(); _serverHits.Clear(); return; }
         // the spray pool (32 meshes) and its shader are made on the first effects frame after the join, not on the first hit mid-fight (live 8v8 check 2026-11-24: made lazily
         // on the first hit, it cost one frame of about 176 ms); left out of the per-frame cost below
-        if (_hitSpray is null) { HitSpray().Prewarm(ToGodot(me.Position)); ExtrasClassicPrewarm(ToGodot(me.Position)); }   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+        // repair 4, finding N6: in front of the camera (an observer's own position can be anywhere, and a spray outside the view is culled, so its pipeline was first built on the first hit and
+        // the first spray drew its first frames late)
+        if (_hitSpray is null) { var warm = _camera is { } cam ? cam.GlobalPosition - cam.GlobalTransform.Basis.Z * 3f : ToGodot(me.Position); HitSpray().Prewarm(warm); ExtrasClassicPrewarm(warm); }   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         _hitDirWatch.Restart();
         Record(me, own: true);
         foreach (var p in _lastOthers) Record(p, own: false);
