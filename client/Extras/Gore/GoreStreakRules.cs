@@ -51,17 +51,17 @@ public static class GoreStreakRules
     /// </summary>
     public static readonly Key[] Keys =
     [
-        new(0.00f, 1.30f, 0.50f,    6f, 0.028f, 0.60f, 1.00f, 0.05f, 1.3f, 0.00f, 1.00f),
-        new(0.05f, 1.60f, 0.70f,   22f, 0.078f, 0.62f, 1.00f, 0.08f, 3.0f, 0.00f, 1.00f),
-        new(0.10f, 1.85f, 0.80f,   28f, 0.090f, 0.58f, 0.95f, 0.12f, 3.0f, 0.00f, 1.00f),
-        new(0.18f, 1.85f, 0.82f,   27f, 0.100f, 0.48f, 0.85f, 0.20f, 3.0f, 0.30f, 1.00f),
-        new(0.27f, 1.95f, 0.85f,   34f, 0.114f, 0.52f, 0.75f, 0.28f, 3.0f, 0.20f, 0.90f),
-        new(0.37f, 2.00f, 0.86f,   32f, 0.120f, 0.46f, 0.65f, 0.36f, 3.0f, 0.18f, 0.60f),
-        new(0.48f, 2.05f, 0.86f,   30f, 0.123f, 0.40f, 0.50f, 0.44f, 3.0f, 0.12f, 0.30f),
-        new(0.60f, 2.05f, 0.85f,   30f, 0.126f, 0.36f, 0.40f, 0.52f, 3.0f, 0.08f, 0.10f),
-        new(0.72f, 2.10f, 0.80f,   28f, 0.129f, 0.34f, 0.30f, 0.60f, 3.0f, 0.05f, 0.00f),
-        new(0.85f, 2.10f, 0.50f,   26f, 0.129f, 0.32f, 0.22f, 0.66f, 3.0f, 0.05f, 0.00f),
-        new(0.98f, 2.10f, 0.35f,   24f, 0.129f, 0.22f, 0.14f, 0.70f, 3.0f, 0.05f, 0.00f),
+        new(0.00f, 1.30f, 0.50f,    6f, 0.043f, 0.60f, 1.00f, 0.05f, 1.3f, 0.00f, 1.00f),
+        new(0.05f, 1.60f, 0.70f,   22f, 0.121f, 0.62f, 1.00f, 0.08f, 3.0f, 0.00f, 1.00f),
+        new(0.10f, 1.85f, 0.80f,   28f, 0.140f, 0.58f, 0.95f, 0.12f, 3.0f, 0.00f, 1.00f),
+        new(0.18f, 1.85f, 0.82f,   27f, 0.155f, 0.48f, 0.85f, 0.20f, 3.0f, 0.30f, 1.00f),
+        new(0.27f, 1.95f, 0.85f,   34f, 0.177f, 0.52f, 0.75f, 0.28f, 3.0f, 0.20f, 0.90f),
+        new(0.37f, 2.00f, 0.86f,   32f, 0.186f, 0.47f, 0.65f, 0.36f, 3.0f, 0.18f, 0.60f),
+        new(0.48f, 2.05f, 0.86f,   30f, 0.191f, 0.45f, 0.50f, 0.44f, 3.0f, 0.12f, 0.30f),
+        new(0.60f, 2.05f, 0.85f,   30f, 0.195f, 0.43f, 0.45f, 0.52f, 3.0f, 0.08f, 0.10f),
+        new(0.72f, 2.10f, 0.80f,   28f, 0.200f, 0.42f, 0.40f, 0.60f, 3.0f, 0.05f, 0.00f),
+        new(0.85f, 2.10f, 0.50f,   26f, 0.200f, 0.40f, 0.32f, 0.66f, 3.0f, 0.05f, 0.00f),
+        new(0.98f, 2.10f, 0.35f,   24f, 0.200f, 0.30f, 0.22f, 0.70f, 3.0f, 0.05f, 0.00f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -179,15 +179,18 @@ public static class GoreStreakRules
     /// the facing rule shrank it to about 0.6 of the reference), an explosion takes <see cref="ExplosionWidth"/> of the facing share (its heavy scale and face-on radial plane gave 1.7 times
     /// the reference's area), the others the facing share (ours).
     /// </summary>
-    public static float WidthShareOf(Source source, float facing) => source switch
+    public static float WidthShareOf(Source source, float facing, bool heavy = false) => source switch
     {
         Source.Sweep => SweepWidth,
         Source.Explosion => FacingWidth(facing) * ExplosionWidth,
+        Source.Gunfire when heavy => FacingWidth(facing) * HeavyGunfireWidth,
         _ => FacingWidth(facing),
     };
+    /// <summary>Heavy gunfire's width share (iteration 4: the lascannon's heavy scale gave about 1.8 times the reference's area).</summary>
+    public const float HeavyGunfireWidth = 0.65f;
     public const float ExplosionWidth = 0.75f;
     /// <summary>A sweep's width share (iteration 3: with the translucent cores the oblique sweep fell to about half the reference's area on screen).</summary>
-    public const float SweepWidth = 1.45f;
+    public const float SweepWidth = 1.9f;
     public const float MinFacingWidth = 0.55f;
     /// <summary>The entry stub's share for a source (a sweep's stub measured 0.6 to 0.74 of its exit on screen, the oblique plane foreshortening the exit more: 0.72 for sweeps; ours).</summary>
     public static float EntryShareOf(Source source) => source switch { Source.Sweep => 0.72f, Source.Explosion => 0.8f, _ => 1f };
@@ -304,6 +307,10 @@ public static class GoreStreakRules
 
     /// <summary>The soft layer under the cores: its width as a multiple of the core's, its opacity share, and the core's edge feather (table units; gate repair: a wide un-eroded low-alpha halo, edges feathered at least 0.03 H).</summary>
     public const float HaloWidth = 1.6f, HaloAlpha = 0.22f, Feather = 0.035f;
+    /// <summary>Compatibility's halo opacity (0.6 of Forward+'s: its reddish halo registered as blood and showed pink edges).</summary>
+    public const float CompatibilityHaloAlpha = 0.13f;
+    /// <summary>The halo's reach shortens with the fill (the late halo kept its full length while the cores eroded, so Compatibility's exit did not follow the reference): it reaches <see cref="HaloReachFloor"/> + (1 - floor) x min(1, fill / 0.7) of each stroke, and its strength follows min(1, fill / 0.3).</summary>
+    public const float HaloReachFloor = 0.45f;
     /// <summary>The root (gate repair 1): the first <see cref="RootShare"/> of every branch is held solid by <see cref="RootBoost"/> x the key's root strength, so the branches and the entry stub leave the wound as one mass.</summary>
     public const float RootShare = 0.35f, RootBoost = 0.6f;
 
@@ -361,7 +368,8 @@ public static class GoreStreakRules
             float f = (1f - Smooth(w - Feather, w + Feather, MathF.Abs(c))) * along;
             f *= 1f - MathF.Abs(c) / (w + Feather) * 0.5f;   // densest on the middle line
             f *= 1f - k.Outer * Smooth(0.55f, 1.0f, u);
-            float h = (1f - Smooth(0f, w * HaloWidth + Feather, MathF.Abs(c))) * along * (1f - Smooth(0.85f, 1.12f, u));
+            float hr = HaloReachFloor + (1f - HaloReachFloor) * MathF.Min(1f, k.Fill / 0.7f);
+            float h = (1f - Smooth(0f, w * HaloWidth + Feather, MathF.Abs(c))) * along * (1f - Smooth(hr - 0.25f, hr + 0.12f, u)) * MathF.Min(1f, k.Fill / 0.3f);
             float r = (1f - Smooth(0.7f * RootShare, 1.15f * RootShare, u)) * (1f - Smooth(w - Feather, w + Feather, MathF.Abs(c))) * along;
             if (h > halo) halo = h;
             if (r > root) root = r;
@@ -404,14 +412,14 @@ public static class GoreStreakRules
     /// <summary>The fine-grain value above which a texel is a pinhole for <paramref name="grit"/> (0..1).</summary>
     public static float HoleThreshold(float grit) => 1f - 0.45f * grit;
     /// <summary>A covered texel's density (its opacity share) from the coarse blotch noise: brighter cores, thinner rims.</summary>
-    public static float Density(float coarse) => 0.2f + 0.8f * coarse * coarse;
+    public static float Density(float coarse) => 0.12f + 0.88f * coarse * coarse * coarse;
     /// <summary>The core's opacity share (iteration 1: the cores read as solid patches, opacity proxy 0.3 to 0.5 against the reference mist's 0.14 to 0.2): with <see cref="Density"/> about half the earlier core opacity, the densest blotches brightest.</summary>
-    public const float CoreAlpha = 0.6f;
+    public const float CoreAlpha = 0.62f;
     /// <summary>Compatibility's core opacity share (it blends in display space, with no linear lift: at Forward+'s share its cores washed out to grey and left the red mask).</summary>
-    public const float CompatibilityCoreAlpha = 1.2f;
+    public const float CompatibilityCoreAlpha = 1.5f;
 
     /// <summary>A texel's blood opacity: the core at opacity x coverage x density over the halo at <see cref="HaloAlpha"/> x opacity (the shader's ALPHA).</summary>
-    public static float Alpha(Key k, float cov, float density, float halo, float coreAlpha = CoreAlpha) => k.Opacity * MathF.Min(1f, MathF.Max(cov * density * coreAlpha, HaloAlpha * halo));
+    public static float Alpha(Key k, float cov, float density, float halo, float coreAlpha = CoreAlpha, float haloAlpha = HaloAlpha) => k.Opacity * MathF.Min(1f, MathF.Max(cov * density * coreAlpha, haloAlpha * halo));
 
     /// <summary>The covered core area (table units squared), the area with any visible blood (halo included, alpha over 0.05), and the farthest covered reach ahead of and behind the wound at <paramref name="age"/>, on a grid of <paramref name="step"/>.</summary>
     public static (float Area, float ExitReach, float EntryReach, float VisibleArea) Measure(float age, int seed, float bend, float bias, int maxBranches, byte[] grit, int size, float step = 0.02f)
@@ -496,7 +504,7 @@ public static class GoreStreakRules
     /// <summary>The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (Compatibility blends in display space, where a fully stripped ground under a faint texel read near black and left the red mask) (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
     public const float StripPerAlpha = 7f, CompatibilityStripPerAlpha = 4.5f;
     /// <summary>Compatibility's strip: a blend_mix toward this dark blood red (display space) at the strip's strength, not a multiply (its multiply blend darkened even where it multiplied by 1).</summary>
-    public const float CompatibilityStripRed = 0.25f;
+    public const float CompatibilityStripRed = 0.12f;
 
     /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red) at the renderer's <paramref name="shade"/>.</summary>
     public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)

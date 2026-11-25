@@ -58,7 +58,7 @@ public partial class NetworkView
         }
         float bias = (GoreStreakRules.Hash01(seed, 60) - 0.5f) * 0.2f;
         _lastStreakOrigin = origin; _lastStreakAxis = GsG(ax); _lastStreakUnit = bodyHeight * scale;   // for the capture aid's capture.json
-        GoreStreaks().Spawn(new GoreStreakRules.Streak(GsN(origin), ax, n, bodyHeight, scale, seed, preAge, Math.Clamp(bend, -0.4f, 0.4f), lethal, heavy, GoreStreakRules.WidthShareOf(source, facing), GoreStreakRules.EntryShareOf(source)), bias);
+        GoreStreaks().Spawn(new GoreStreakRules.Streak(GsN(origin), ax, n, bodyHeight, scale, seed, preAge, Math.Clamp(bend, -0.4f, 0.4f), lethal, heavy, GoreStreakRules.WidthShareOf(source, facing, heavy && !lethal), GoreStreakRules.EntryShareOf(source)), bias);
     }
 
     /// <summary>The plane normal for a streak along <paramref name="axis"/> (Godot world; <see cref="GoreStreakRules.Plane"/> with Y up).</summary>

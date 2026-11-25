@@ -53,7 +53,8 @@ uniform sampler2D grit : filter_linear_mipmap, repeat_enable;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
 uniform float strip_per_alpha = 5.0;   // GoreStreakRules.StripPerAlpha / CompatibilityStripPerAlpha
 uniform float shade = 1.0;
-uniform float core_alpha = 0.6;        // GoreStreakRules.CoreAlpha / CompatibilityCoreAlpha               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
+uniform float core_alpha = 0.6;
+uniform float halo_alpha = 0.22;        // GoreStreakRules.HaloAlpha / CompatibilityHaloAlpha        // GoreStreakRules.CoreAlpha / CompatibilityCoreAlpha               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
 
 const int NK = {{GoreStreakRules.Keys.Length}};
 const float K_T[NK] = { {{KeyArray(k => k.T)}} };
@@ -125,7 +126,7 @@ void vertex() {
 float prof(float u) { return (0.7 + 0.3 * smoothstep(0.0, 0.4, u)) * (1.0 - smoothstep(0.78, 1.06, u)); }   // GoreStreakRules.Profile
 
 // one stroke (GoreStreakRules.Field): the best core field and its branch coordinates, the halo, the root
-void stroke(vec2 p, float ang, float L, float w0, float bend, float outer, inout float best, inout vec2 sc, inout float halo, inout float root) {
+void stroke(vec2 p, float ang, float L, float w0, float bend, float outer, float fill, inout float best, inout vec2 sc, inout float halo, inout float root) {
     float cs = cos(ang), sn = sin(ang);
     float s = p.x * cs + p.y * sn;
     float c = -p.x * sn + p.y * cs;
@@ -137,7 +138,8 @@ void stroke(vec2 p, float ang, float L, float w0, float bend, float outer, inout
     float along = smoothstep(-0.08, 0.0, u);
     float edge = 1.0 - smoothstep(w - {{F(GoreStreakRules.Feather)}}, w + {{F(GoreStreakRules.Feather)}}, ac);
     float f = edge * along * (1.0 - ac / (w + {{F(GoreStreakRules.Feather)}}) * 0.5) * (1.0 - outer * smoothstep(0.55, 1.0, u));
-    float h = (1.0 - smoothstep(0.0, w * {{F(GoreStreakRules.HaloWidth)}} + {{F(GoreStreakRules.Feather)}}, ac)) * along * (1.0 - smoothstep(0.85, 1.12, u));
+    float hr = {{F(GoreStreakRules.HaloReachFloor)}} + {{F(1f - GoreStreakRules.HaloReachFloor)}} * min(1.0, fill / 0.7);   // GoreStreakRules.HaloReachFloor: the halo shortens with the fill
+    float h = (1.0 - smoothstep(0.0, w * {{F(GoreStreakRules.HaloWidth)}} + {{F(GoreStreakRules.Feather)}}, ac)) * along * (1.0 - smoothstep(hr - 0.25, hr + 0.12, u)) * min(1.0, fill / 0.3);
     float r = (1.0 - smoothstep({{F(0.7f * GoreStreakRules.RootShare)}}, {{F(1.15f * GoreStreakRules.RootShare)}}, u)) * edge * along;
     halo = max(halo, h);
     root = max(root, r);
@@ -155,9 +157,9 @@ void fragment() {
         if (weight <= 0.0) continue;
         float ja = 0.85 + 0.3 * h01(seed, 20.0 + float(k));
         float jr = 0.9 + 0.1 * h01(seed, 30.0 + float(k));
-        stroke(v_p, (B_ANG[k] * ja + bias) * v_fan * rad, v_exit * B_REACH[k] * jr, v_width * B_WID[k] * sqrt(weight), bend, v_out, best, sc, halo, root);
+        stroke(v_p, (B_ANG[k] * ja + bias) * v_fan * rad, v_exit * B_REACH[k] * jr, v_width * B_WID[k] * sqrt(weight), bend, v_out, v_fill, best, sc, halo, root);
     }
-    if (v_entry > 0.01) stroke(v_p, 3.14159265 + (h01(seed, 40.0) - 0.5) * 0.3 * v_fan * rad, v_entry, v_width * 0.8, bend, v_out, best, sc, halo, root);
+    if (v_entry > 0.01) stroke(v_p, 3.14159265 + (h01(seed, 40.0) - 0.5) * 0.3 * v_fan * rad, v_entry, v_width * 0.8, bend, v_out, v_fill, best, sc, halo, root);
     if (halo <= 0.0 && best <= 0.0) discard;
     // two octaves of grit, stretched {{F(GoreStreakRules.GritStretch)}}:1 along the branch (GoreStreakRules.GritAt)
     vec2 guv = vec2(sc.x * {{F(GoreStreakRules.GritTiles / GoreStreakRules.GritStretch)}} + h01(seed, 50.0), sc.y * {{F(GoreStreakRules.GritTiles)}} + h01(seed, 51.0));
@@ -171,10 +173,10 @@ void fragment() {
     float cov = smoothstep(thr - {{F(GoreStreakRules.CovSoft)}}, thr + {{F(GoreStreakRules.CovSoft)}}, score);
     float hole = 1.0 - 0.45 * v_grit;
     cov *= 1.0 - smoothstep(hole - 0.04, hole + 0.04, fine) * (1.0 - root * v_root);
-    float dens = {{F(0.2f)}} + {{F(0.8f)}} * coarse * coarse;                                             // GoreStreakRules.Density
+    float dens = {{F(0.12f)}} + {{F(0.88f)}} * coarse * coarse * coarse;                                  // GoreStreakRules.Density
     // the near fade (Warfront's near hits filled the screen) and the blood opacity: the core over the soft halo (GoreStreakRules.Alpha)
     float nearf = smoothstep({{F(GoreStreakRules.NearFadeFrom)}}, {{F(GoreStreakRules.NearFadeTo)}}, v_depth);
-    float a = v_opac * min(1.0, max(cov * dens * core_alpha, {{F(GoreStreakRules.HaloAlpha)}} * halo)) * nearf;
+    float a = v_opac * min(1.0, max(cov * dens * core_alpha, halo_alpha * halo)) * nearf;
     if (a <= 0.003) discard;
 {{(strip ? $$"""
     float st = clamp(strip_per_alpha * a, 0.0, 1.0) * (0.75 + 0.25 * cov);    // GoreStreakRules.Strip: fades with the opacity
@@ -196,7 +198,7 @@ void fragment() {
     static Shader? _shader, _stripShader;
     static ImageTexture? _grit;
     static ArrayMesh? _quad;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade", PStripPerAlpha = "strip_per_alpha", PCoreAlpha = "core_alpha";
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade", PStripPerAlpha = "strip_per_alpha", PCoreAlpha = "core_alpha", PHaloAlpha = "halo_alpha";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
@@ -270,7 +272,7 @@ void fragment() {
         bool compat = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
         float shade = compat ? GoreStreakRules.CompatibilityShade : GoreStreakRules.ForwardShade;
         float perAlpha = compat ? GoreStreakRules.CompatibilityStripPerAlpha : GoreStreakRules.StripPerAlpha;
-        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); m.SetShaderParameter(PStripPerAlpha, perAlpha); m.SetShaderParameter(PCoreAlpha, compat ? GoreStreakRules.CompatibilityCoreAlpha : GoreStreakRules.CoreAlpha); }
+        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); m.SetShaderParameter(PStripPerAlpha, perAlpha); m.SetShaderParameter(PCoreAlpha, compat ? GoreStreakRules.CompatibilityCoreAlpha : GoreStreakRules.CoreAlpha); m.SetShaderParameter(PHaloAlpha, compat ? GoreStreakRules.CompatibilityHaloAlpha : GoreStreakRules.HaloAlpha); }
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = Quad() };
         _mm.InstanceCount = GoreStreakRules.PoolSize;
         _mm.VisibleInstanceCount = 0;
