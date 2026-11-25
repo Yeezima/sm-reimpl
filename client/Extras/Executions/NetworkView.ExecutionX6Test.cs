@@ -79,10 +79,11 @@ public partial class NetworkView
         {
             case 0 when t > 2.0:
                 _execRowsOverride = ExecutionX6Rows(2f);
-                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick), (byte)ExecutionRules.WindowTicks(config))), _connectedFor, client.PlayerId);
+                // The kill a few ticks before the view tick (a loaded machine's render tick moves in steps), the window the match's.
+                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick - 3), (byte)ExecutionRules.WindowTicks(config))), _connectedFor, client.PlayerId);
                 _execX6Step++; _execX6At = 0; break;
-            case 1 when t > 0.25:
-                ExecutionX6Check("the marker shows for an open offer", ExecutionMarkerShown, $"hidden {_execPromptHidden}");
+            case 1 when t > 0.1:
+                ExecutionX6Check("the marker shows for an open offer", ExecutionMarkerShown, $"hidden {_execPromptHidden}, offer {ExecutionsState.Offer?.KillTick}+{ExecutionsState.Offer?.WindowTicks}, view tick {client.RemotePlayers().Tick:F1}");
                 ExecutionX6Check("no text prompt is set", _hudView.ExecutionPrompt is null);
                 _execX6Step++; _execX6At = 0; break;
             case 2 when t > 1.2:
