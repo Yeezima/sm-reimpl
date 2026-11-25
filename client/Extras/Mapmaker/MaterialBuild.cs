@@ -132,8 +132,21 @@ public static class MaterialBuild
     /// The surfaces of one map: every material resolved and built once, every picture decoded once (by image id and flip), read from beside the map file first, then the library
     /// (<see cref="MapImages.Read"/>: only verified copies). <see cref="For"/> returns null for an object with no material (the caller's default look).
     /// </summary>
-    public sealed class Cache(MapDocument doc, string? mapPath, MapLibrary library)
+    /// <remarks>
+    /// <see cref="Dispose"/> releases the C# handles of everything it built (the engine keeps what a mesh still uses). Callers that live until the engine quits (the editor's 3D view)
+    /// dispose it on the way out, so no handle is left for Godot .NET's shutdown sweep (an editor test once crashed at exit there: 0xC0000005 in
+    /// <c>DisposablesTracker.OnGodotShuttingDown</c>, M4 verification 2026-11-25; our reading: the sweep and the finalizer thread releasing the same handle).
+    /// </remarks>
+    public sealed class Cache(MapDocument doc, string? mapPath, MapLibrary library) : IDisposable
     {
+        public void Dispose()
+        {
+            foreach (var m in _built.Values) m?.Dispose();
+            foreach (var t in _textures.Values) t?.Dispose();
+            foreach (var p in _pictures.Values) p?.Dispose();
+            _built.Clear(); _textures.Clear(); _pictures.Clear();
+        }
+
         readonly Dictionary<string, StandardMaterial3D?> _built = new();
         readonly Dictionary<(string, bool), Texture2D?> _textures = new();
         readonly Dictionary<string, Image?> _pictures = new();

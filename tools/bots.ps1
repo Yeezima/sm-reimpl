@@ -4,7 +4,7 @@
   against the game install. Never starts a server: start one yourself with server.cmd (see below).
 .DESCRIPTION
   bots.cmd --connect <host:port> [--marines N] [--chaos M] [--classes tactical,assault,devastator] [--accuracy 0..1] [--range <m>]
-           [--stagger <s>] [--for <seconds>] [--log-dir <dir>] [--trace-dir <dir>] [--no-build] [--allow-remote] [--extra "<more client args>"]
+           [--stagger <s>] [--for <seconds>] [--content <profile>] [--log-dir <dir>] [--trace-dir <dir>] [--no-build] [--allow-remote] [--extra "<more client args>"]
   bots.cmd --stop            stops only the bots this script started, each with the Godot process it started (the Windows console build starts the
                              real Godot as a child, so the whole process tree is stopped); their PIDs and start times are kept in
                              %LOCALAPPDATA%\sm-reimpl\tmp-build\bots\bots.pids and a PID is stopped only while it is still the same process
@@ -14,7 +14,8 @@
   all three roles; the names are tactical, assault, devastator, or the Chaos names raptor and havoc: assault and raptor are the jump
   pack role, devastator and havoc the heavy role); the Chaos side gets the Chaos class of the role. --accuracy is the fraction
   of shots meant to hit at medium range (default 0.03 with a trigger discipline, ours: bots miss most shots; 1 = perfect aim), --range the farthest distance in metres at
-  which a bot opens fire on an enemy it sees (default: its weapon's range).
+  which a bot opens fire on an enemy it sees (default: its weapon's range). --content <profile> is passed to every bot as the client's --content (use the server's:
+  a bot whose content profile differs from the server's is refused with ConfigMismatch, e.g. --content faithful against server.cmd --content faithful).
 
   The server must keep uneven or full sides as asked, so start it with --honor-side-requests (otherwise its balance moves a bot
   that asks for the larger side):
@@ -38,7 +39,7 @@ $MaxPerSide = 6
 function Show-Usage { (Get-Help $PSCommandPath).Description.Text | Write-Host }
 
 # --- argument parsing ($args as typed: --name value) ---
-$opt = @{ allowremote = $false; tracedir = $null; connect = $null; marines = 0; chaos = 0; classes = $null; accuracy = $null; range = $null; stagger = 1.5; for = 0; logdir = $null; nobuild = $false; extra = ''; stop = $false; status = $false; help = $false }
+$opt = @{ allowremote = $false; tracedir = $null; connect = $null; marines = 0; chaos = 0; classes = $null; accuracy = $null; range = $null; stagger = 1.5; for = 0; logdir = $null; content = $null; nobuild = $false; extra = ''; stop = $false; status = $false; help = $false }
 $all = @($args)
 $inv = [Globalization.CultureInfo]::InvariantCulture
 for ($i = 0; $i -lt $all.Count; $i++) {
@@ -58,6 +59,7 @@ for ($i = 0; $i -lt $all.Count; $i++) {
         '^(--stagger|-stagger)$'   { $opt.stagger = [double]::Parse($next, $inv) }
         '^(--for|-for)$'           { $opt.for = [int]$next }
         '^(--log-dir|-logdir)$'    { $opt.logdir = $next }
+        '^(--content|-content)$'   { $opt.content = $next }
         '^(--extra|-extra)$'       { $opt.extra = $next }
         '^(--trace-dir|-tracedir)$' { $opt.tracedir = $next }
         '^(--no-build|-nobuild)$'  { $opt.nobuild = $true }
@@ -210,6 +212,7 @@ foreach ($b in $order) {
     $cargs = @('--headless', '--path', $client, '--', '--connect', $opt.connect, '--bot', '--no-sound', '--no-hud', '--class', $cls, '--side', $b.Side)
     if ($null -ne $opt.accuracy) { $cargs += @('--bot-accuracy', $opt.accuracy.ToString([Globalization.CultureInfo]::InvariantCulture)) }
     if ($null -ne $opt.range)    { $cargs += @('--bot-range', $opt.range.ToString([Globalization.CultureInfo]::InvariantCulture)) }
+    if ($opt.content)  { $cargs += @('--content', $opt.content) }
     if ($opt.tracedir) { New-Item -ItemType Directory -Force -Path $opt.tracedir | Out-Null; $cargs += @('--bot-trace', (Join-Path $opt.tracedir ("$label.csv"))) }
     $cargs += $extra
     # No console window at all (CREATE_NO_WINDOW; the real Godot child inherits the window-less console) and no focus change.

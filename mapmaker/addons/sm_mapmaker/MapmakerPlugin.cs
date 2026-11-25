@@ -96,6 +96,8 @@ public partial class MapmakerPlugin : EditorPlugin
         Thumbs?.QueueFree(); Thumbs = null;
         MapHost.Shutdown();
         if (MapHost.Plugin == this) MapHost.Plugin = null;
+        // Let the finalizers of handles nothing holds any more run now, while the engine is whole, instead of racing Godot .NET's shutdown sweep (MaterialBuild.Cache).
+        GC.Collect(); GC.WaitForPendingFinalizers();
     }
 
     static ISm1Source? SafeInstalled()
