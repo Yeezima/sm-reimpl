@@ -51,7 +51,7 @@ public sealed partial class ClassicBotBrain
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);
                     var theirs = map.StartAreas.FirstOrDefault(a => a.Side == MatchRules.Other(team));
                     if (own is null || theirs is null) return ((SpawnRoomWatch?)null, "the map has no start area for both sides");
-                    var enemyGraph = BotNavigation.LoadOrBuildWalk(map, world, config, MatchRules.Other(team), BotNavigation.CacheDirectory, out _);
+                    var enemyGraph = BotNavigation.LoadOrBuildWalk(map, world, config, MatchRules.Other(team), BotNavigation.CacheDirectory, out _, BotOldDrops);   // bots A2: the same drop limit as the bot's own graph
                     var w = SpawnRoomWatch.Build(graph, enemyGraph, team, own.Position, theirs.Position, world, config.EyeHeight, cancel);
                     return (w, $"{System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms");
                 }, cancel);

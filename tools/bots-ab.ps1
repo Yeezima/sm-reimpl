@@ -40,9 +40,13 @@ function Get-Tree([int]$id) {
     for ($k = 0; $k -lt $ids.Count; $k++) { foreach ($p in $all) { if ($p.ParentProcessId -eq $ids[$k] -and -not $ids.Contains([int]$p.ProcessId)) { $ids.Add([int]$p.ProcessId) } } }
     return $ids
 }
+$started = @{}   # PID -> start time at launch: a PID the system reused for another process is never stopped
 function Stop-RunTree([int]$id) {
-    # per PID, children first, every failure ignored (the process may be gone already)
+    # per PID, children first, every failure ignored (the process may be gone already); only when the PID is still the process this run started
     $ErrorActionPreference = 'Continue'
+    $root = Get-Process -Id $id -ErrorAction SilentlyContinue
+    if (-not $root) { return }
+    if ($started.ContainsKey($id)) { try { if ($root.StartTime -ne $started[$id]) { return } } catch { return } }
     try { $tree = @(Get-Tree $id) } catch { $tree = @($id) }
     [array]::Reverse($tree)
     foreach ($t in $tree) { try { Stop-Process -Id $t -Force -ErrorAction SilentlyContinue } catch { } }
@@ -66,6 +70,7 @@ $env:SM_BOT_STATS = '30'
 try { $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--map', $Map, '--mode', $Mode, '--honor-side-requests', '--name-seed', "$NameSeed") -WorkingDirectory $Root -StdOut (Join-Path $out 'server.log') -StdErr (Join-Path $out 'server.err.log') }
 catch { Restore-RunEnv 'SM_DATA_DIR' $prevDataDir; throw }
 finally { Restore-RunEnv 'SM_BOT_STATS' $prevBotStats }
+try { $started[$server.Id] = $server.StartTime } catch { }
 $samples = [Collections.Generic.List[string]]::new(); $samples.Add('t,who,pid,cpu_s,ws_mb')
 try {
     $deadline = (Get-Date).AddSeconds(120)
@@ -83,7 +88,7 @@ try {
             if ($Trace) { $ca += @('--bot-trace', (Join-Path $out ("trace-{0}-{1}.csv" -f $side[0], $i))) }
             if ($Client) { $ca += @($Client -split ' ' | Where-Object { $_ }) }
             $txt = & (Join-Path $Root 'tools\godot.ps1') @ga @ca *>&1 | Out-String
-            if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; "bot $($Matches[1]) $($side[0]) $($classList[$i % $classList.Count])" | Add-Content (Join-Path $out 'pids.txt') }
+            if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; try { $started[[int]$Matches[1]] = (Get-Process -Id ([int]$Matches[1]) -ErrorAction Stop).StartTime } catch { }; "bot $($Matches[1]) $($side[0]) $($classList[$i % $classList.Count])" | Add-Content (Join-Path $out 'pids.txt') }
             else { throw "a bot did not report its pid: $txt" }
             Start-Sleep -Milliseconds 1200
         }

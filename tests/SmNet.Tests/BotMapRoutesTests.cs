@@ -56,6 +56,23 @@ public class BotMapRoutesTests
     }
 
     [Fact]
+    public void A_route_leg_ends_near_the_middle_never_at_the_enemy_spawn()
+    {
+        var plan = Plan();
+        Assert.Equal(plan.Routes.Count, plan.RouteLegEnds.Count);
+        float step = BotMapPlan.RouteStep / (MarinesStart.X - ChaosStart.X);
+        for (int r = 0; r < plan.Routes.Count; r++)
+        {
+            var end = plan.Routes[r][plan.RouteLegEnds[r]];
+            Assert.InRange(plan.Along(end), BotMapPlan.RouteLegTo, BotMapPlan.RouteLegTo + 2.5f * step);   // the first point past 55 % (a side route bends, so a little slack)
+            Assert.True(plan.RouteLegEnds[r] == 0 || plan.Along(plan.Routes[r][plan.RouteLegEnds[r] - 1]) < BotMapPlan.RouteLegTo);
+            Assert.False(plan.InNoLoiterZone(end));
+        }
+        Assert.Equal(0f, plan.Along(MarinesStart), 3);
+        Assert.Equal(1f, plan.Along(ChaosStart), 3);
+    }
+
+    [Fact]
     public void Routes_are_ordered_across_the_map()
     {
         var plan = Plan();
@@ -78,7 +95,7 @@ public class BotMapRoutesTests
         }
         for (int i = 0; i < plan.Vantages.Count; i++)
             for (int j = i + 1; j < plan.Vantages.Count; j++)
-                Assert.True(Flat(plan.Vantages[i].Spot, plan.Vantages[j].Spot) >= BotMapPlan.VantageSpacing - 1e-3f);
+                Assert.True(BotMapPlan.Near(plan.Vantages[i].Spot, plan.Vantages[j].Spot) >= BotMapPlan.VantageSpacing - 1e-3f);   // stacked floors count as apart (Near)
         Assert.Contains(plan.Vantages, v => v.Spot.Z > 2f && v.Rise > 2f);   // high ground: the deck
         Assert.True(plan.Vantages[0].Spot.Z > 2f, $"best vantage {plan.Vantages[0]}");
     }

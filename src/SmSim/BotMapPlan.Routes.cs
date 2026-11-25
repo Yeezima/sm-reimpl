@@ -28,6 +28,11 @@ public sealed partial class BotMapPlan
     /// <summary>Most vantages, their band along the line between the starts (fractions from the own start), spacing (m), least sight count and the sight samples (ours).</summary>
     public const int MaxVantages = 8, VantageSamples = 8, VantageMinSight = 3;
     public const float VantageFrom = 0.2f, VantageTo = 0.7f, VantageSpacing = 15f;
+    /// <summary>A life's route leg ends at the first route point at least this fraction of the way from the own start toward the enemy's (ours; review 2026-11-25: the owner's
+    /// 2026-11-07 rule, hold the centre and never wait outside the enemy's spawn; the old lane leg ended 25 to 45 % of the way).</summary>
+    public const float RouteLegTo = 0.55f;
+    /// <summary>Metres of height a vantage candidate's floor band spans (one candidate per 4 m square and band, so stacked floors each get theirs; ours).</summary>
+    public const float VantageFloorBand = 3f;
 
     /// <summary>The spawn-to-spawn routes (waypoints from the own side toward the enemy's), ordered from one side of the map to the other; empty before a build or without a route.</summary>
     public IReadOnlyList<IReadOnlyList<Vector3>> Routes { get; private set; } = [];
@@ -37,10 +42,57 @@ public sealed partial class BotMapPlan
     public IReadOnlyList<BotVantage> Vantages { get; private set; } = [];
     /// <summary>The graph's median floor height (m), the high-ground reference.</summary>
     public float MedianFloor { get; private set; }
+    /// <summary>Per route: the index of the point where a life's route leg ends (<see cref="RouteLegTo"/>; the last point when none is that far).</summary>
+    public IReadOnlyList<int> RouteLegEnds { get; private set; } = [];
+    /// <summary>The own start area's centre the plan was built from.</summary>
+    public Vector3 OwnStart { get; private set; }
+
+    /// <summary>The fraction of the way from <see cref="OwnStart"/> toward <see cref="EnemyStart"/> that <paramref name="p"/> lies at (flat, along the line between them).</summary>
+    public float Along(Vector3 p)
+    {
+        var axis = new Vector2(EnemyStart.X - OwnStart.X, EnemyStart.Y - OwnStart.Y);
+        float l2 = axis.LengthSquared();
+        return l2 < 1e-6f ? 0f : Vector2.Dot(new Vector2(p.X - OwnStart.X, p.Y - OwnStart.Y), axis) / l2;
+    }
+
+    /// <summary>
+    /// A distance that tells stacked floors apart (review 2026-11-25): the flat distance plus 3 times the height difference beyond 1 m, so a point on the floor above or below is
+    /// far even when it is straight overhead.
+    /// </summary>
+    public static float Near(Vector3 a, Vector3 b) => Flat(a, b) + 3f * MathF.Max(0f, MathF.Abs(a.Z - b.Z) - 1f);
+
+    /// <summary>
+    /// A chase along <paramref name="route"/> from <paramref name="me"/> to <paramref name="enemy"/>: its cost (the distance to the route's nearest point, along the route to the
+    /// point nearest the enemy, then on to the enemy; every distance by <see cref="Near"/>), the next route point to walk to (the first more than <paramref name="pass"/> m away
+    /// toward that point) and that point's index. Infinite cost and no next point when the nearest point is the one nearest the enemy, or for an empty route.
+    /// </summary>
+    public static (float Cost, Vector3? Next, int Target) RouteChase(IReadOnlyList<Vector3> route, Vector3 me, Vector3 enemy, float pass)
+    {
+        if (route.Count == 0) return (float.PositiveInfinity, null, -1);
+        int near = 0, target = 0;
+        for (int i = 1; i < route.Count; i++)
+        {
+            if (Near(route[i], me) < Near(route[near], me)) near = i;
+            if (Near(route[i], enemy) < Near(route[target], enemy)) target = i;
+        }
+        if (near == target) return (float.PositiveInfinity, null, target);
+        int step = target > near ? 1 : -1;
+        float cost = Near(me, route[near]);
+        Vector3? next = null;
+        for (int i = near; i != target; i += step)
+        {
+            cost += Near(route[i], route[i + step]);
+            if (next is null && Near(route[i + step], me) > pass) next = route[i + step];
+        }
+        if (next is null && Near(route[near], me) > pass) next = route[near];
+        cost += Near(route[target], enemy);
+        return (cost, next, target);
+    }
 
     /// <summary>Builds <see cref="Routes"/> and <see cref="Vantages"/> (called from <see cref="Build"/>).</summary>
     void BuildRoutesAndVantages(NavGraph graph, bool[] reach, int start, Vector3 ownStart, CollisionWorld? world, float eye, CancellationToken cancel)
     {
+        OwnStart = ownStart;
         BuildRoutes(graph, reach, start, ownStart, cancel);
         BuildVantages(graph, reach, ownStart, world, eye, cancel);
     }
@@ -118,6 +170,7 @@ public sealed partial class BotMapPlan
         routes.Sort((a, b) => a.Across.CompareTo(b.Across));
         Routes = routes.Select(r => (IReadOnlyList<Vector3>)r.Points).ToList();
         DirectRoute = routes.FindIndex(r => r.Direct);
+        RouteLegEnds = routes.Select(r => r.Points.FindIndex(q => Along(q) >= RouteLegTo) is var i and >= 0 ? i : r.Points.Count - 1).ToList();
     }
 
     /// <summary>Marks every reachable cell within <see cref="RouteWidth"/> m (flat; 4 m of height) of <paramref name="cells"/>: sets <paramref name="near"/> and/or raises <paramref name="penalty"/> by one.</summary>
@@ -206,8 +259,8 @@ public sealed partial class BotMapPlan
             if (bestNode >= 0) samples.Add(graph.Position(bestNode) + new Vector3(0, 0, eye));
         }
         if (samples.Count < VantageMinSight) return;
-        // Candidates: the highest reachable cell of each 4 m square in the band.
-        var squares = new Dictionary<(int, int), Vector3>();
+        // Candidates: the highest reachable cell of each 4 m square and floor band (VantageFloorBand) in the band along the line, so each of stacked floors has its own.
+        var squares = new Dictionary<(int, int, int), Vector3>();
         for (int n = 0; n < reach.Length; n++)
         {
             if (!reach[n]) continue;
@@ -216,7 +269,7 @@ public sealed partial class BotMapPlan
             var rel = new Vector2(p.X - ownStart.X, p.Y - ownStart.Y);
             float along = Vector2.Dot(rel, axis) / length;
             if (along < VantageFrom || along > VantageTo || InNoLoiterZone(p) || Flat(p, ownStart) < OwnStartClearance) continue;
-            var key = ((int)MathF.Floor(p.X / 4f), (int)MathF.Floor(p.Y / 4f));
+            var key = ((int)MathF.Floor(p.X / 4f), (int)MathF.Floor(p.Y / 4f), (int)MathF.Floor(p.Z / VantageFloorBand));
             if (!squares.TryGetValue(key, out var old) || p.Z > old.Z) squares[key] = p;
         }
         var scored = new List<BotVantage>();
@@ -243,7 +296,7 @@ public sealed partial class BotMapPlan
         foreach (var v in scored)
         {
             if (chosen.Count >= MaxVantages) break;
-            if (chosen.All(c => Flat(c.Spot, v.Spot) >= VantageSpacing)) chosen.Add(v);
+            if (chosen.All(c => Near(c.Spot, v.Spot) >= VantageSpacing)) chosen.Add(v);
         }
         Vantages = chosen;
     }

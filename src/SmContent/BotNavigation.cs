@@ -30,16 +30,19 @@ public static class BotNavigation
     /// </summary>
     public const float ClassicMaxDrop = 12f;
 
-    /// <summary><c>--bot-old-drops</c> (the bot client sets it before its first build): the 8 m drop limit on every map, the graph and cache keys from before bots A2.</summary>
-    public static bool OldDrops { get; set; }
+    /// <summary>Whether <paramref name="map"/> gets <see cref="ClassicMaxDrop"/>: an <c>mp_*</c> map under the new-map rules (both modes: Annihilation and Seize Ground use the same graph).</summary>
+    public static bool HigherDrops(string map) => NewMapRules(map) && map.StartsWith("mp_", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The graph's settings and area for <paramref name="map"/>; null when it has no spawns, points or start areas to build around.</summary>
-    public static (NavSettings Settings, NavArea Area)? Setup(MapContent map, SimConfig config)
+    /// <summary>
+    /// The graph's settings and area for <paramref name="map"/>; null when it has no spawns, points or start areas to build around. <paramref name="oldDrops"/> (<c>--bot-old-drops</c>):
+    /// the 8 m drop limit on every map, the graph and cache keys from before bots A2.
+    /// </summary>
+    public static (NavSettings Settings, NavArea Area)? Setup(MapContent map, SimConfig config, bool oldDrops = false)
     {
         var seeds = map.Spawns.Select(s => s.Position).Concat(map.ControlPoints.Select(p => p.Position)).Concat(map.StartAreas.Select(a => a.Position)).ToList();
         if (seeds.Count == 0) return null;
         var settings = NavSettings.From(config) with { PruneTraps = NewMapRules(map.Name), StrictDrops = NewMapRules(map.Name) };
-        if (!OldDrops && NewMapRules(map.Name) && map.Name.StartsWith("mp_", StringComparison.OrdinalIgnoreCase)) settings = settings with { MaxDrop = ClassicMaxDrop };
+        if (!oldDrops && HigherDrops(map.Name)) settings = settings with { MaxDrop = ClassicMaxDrop };
         return (settings, NavArea.Around(seeds, Margin));
     }
 
@@ -51,9 +54,9 @@ public static class BotNavigation
     /// same graph a bot of that side without a jump pack uses. M44a: the bots read the other side's to find where its players leave their
     /// spawn room (<c>NetworkView.BotSpawn.cs</c>).
     /// </summary>
-    public static NavGraph LoadOrBuildWalk(MapContent map, CollisionWorld world, SimConfig config, Team side, string cacheDirectory, out string note)
+    public static NavGraph LoadOrBuildWalk(MapContent map, CollisionWorld world, SimConfig config, Team side, string cacheDirectory, out string note, bool oldDrops = false)
     {
-        var (settings, area) = Setup(map, config) ?? throw new InvalidOperationException("no spawns or points to build around");
+        var (settings, area) = Setup(map, config, oldDrops) ?? throw new InvalidOperationException("no spawns or points to build around");
         var mesh = world.CharacterFor(side);
         ulong key = NavGraph.KeyFor(mesh, world.KillVolumes, settings, area);
         return NavCache.LoadOrBuild(cacheDirectory, map.Name, key, settings, () => NavGraph.Build(mesh, world.KillVolumes, settings, area), out note);
@@ -65,9 +68,9 @@ public static class BotNavigation
     /// Throws when the map has nothing to build around (see <see cref="Setup"/>), or <see cref="OperationCanceledException"/> when
     /// <paramref name="cancel"/> is cancelled during the jump-link build (a graph build is short and runs to its end).
     /// </summary>
-    public static NavGraph LoadOrBuild(MapContent map, CollisionWorld world, SimConfig config, Team side, int playerClass, string cacheDirectory, out string note, CancellationToken cancel = default)
+    public static NavGraph LoadOrBuild(MapContent map, CollisionWorld world, SimConfig config, Team side, int playerClass, string cacheDirectory, out string note, CancellationToken cancel = default, bool oldDrops = false)
     {
-        var graph = LoadOrBuildWalk(map, world, config, side, cacheDirectory, out note);
+        var graph = LoadOrBuildWalk(map, world, config, side, cacheDirectory, out note, oldDrops);
         if (Loadouts.JumpPack(config, playerClass) is not null)
         {
             graph = WithJumpLinks(graph, map, world, config, side, playerClass, cacheDirectory, out string jumpNote, cancel: cancel, lockPerKey: true);   // bots/a1-perf: the one-step build keeps per-key exclusion

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SmContent;
 using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
@@ -10,10 +11,10 @@ namespace SmBots;
 /// Bots A2, Classic strategy (owner 2026-11-23; test script, **ours**, not the original AI; engine-free parts in BotMapPlan.Routes.cs): "make the bots fan out more. on maps
 /// that aren't manufactorum they need to be able to navigate all around the map, not just walk in a straight line down the center. / tacticals and devastators look for covered
 /// defensive positons and high ground, assault marines and tactical sometimes flank the enemy via alternate routes. / bots also need to be aware that they can drop off open
-/// ledges." Annihilation (Seize Ground keeps its point logic), on every Classic map with a plan:
+/// ledges." Annihilation (Seize Ground keeps its point logic), on the Classic maps under the new-map rules (not Manufactorum, which keeps its lanes, via points and posts):
 /// <list type="bullet">
 /// <item><b>a route per life</b>: each life the bot takes one of the plan's spawn-to-spawn routes (<see cref="BotMapPlan.Routes"/>), spread by team rank and life, so a side's
-/// bots leave by different routes; its first leg walks that route (in place of the old lane leg) until an enemy is fought or comes within <see cref="RouteBreak"/> m;</item>
+/// bots leave by different routes; its first leg walks that route (in place of the old lane leg) to the middle of the map (<see cref="BotMapPlan.RouteLegTo"/>), or until an enemy is fought or comes within <see cref="RouteBreak"/> m; a route without progress is dropped for the life;</item>
 /// <item><b>route chases</b>: a chase of an enemy farther than <see cref="BotMapPlan.ViaMinDistance"/> m goes along a route (its own one preferred, the most direct one
 /// avoided) toward the route point nearest the enemy, when that is at most <see cref="RouteDetour"/> (a flanker: <see cref="FlankDetour"/>) times the straight distance
 /// (in place of the old via point);</item>
@@ -31,12 +32,14 @@ namespace SmBots;
 public sealed partial class ClassicBotBrain
 {
     bool BotOldRoutes => CmdFlag("bot-old-routes");
+    /// <summary><c>--bot-old-drops</c>: the 8 m drop limit on every map (the graph and cache keys from before bots A2; <see cref="BotNavigation.Setup"/>).</summary>
+    bool BotOldDrops => CmdFlag("bot-old-drops");
 
     /// <summary>A route leg ends when the chased enemy is within this many metres (as the lane leg; ours).</summary>
     public const float RouteBreak = 30f;
     /// <summary>Metres within which a route point counts as passed, and seconds a route point may take before it is skipped (ours).</summary>
     public const float RoutePass = 5f;
-    public const double RoutePointTimeout = 20, RouteLegTimeout = 120;
+    public const double RoutePointTimeout = 20, RouteLegTimeout = 60;
     /// <summary>A route chase is taken when its length (to the route, along it, then straight to the enemy) is at most this times the straight distance (ours).</summary>
     public const float RouteDetour = 1.6f, FlankDetour = 2.0f;
     /// <summary>Route chase cost weights (ours): the bot's own route, a flanker's own route, the most direct route.</summary>
@@ -56,12 +59,13 @@ public sealed partial class ClassicBotBrain
     double _routeViaAt = -1;
     /// <summary>Metres of a route chase left past the route point walked to now (the chase's sprint counts them).</summary>
     float _routeViaRemaining;
-    /// <summary>A route walk with no progress (<see cref="RouteStallGain"/> m in <see cref="RouteStallSeconds"/> s) skips the point (the second in a leg ends the leg); a stalled
-    /// route chase gives way to the straight chase for <see cref="RouteViaBlock"/> s (ours; Hab Center's floors stood bots still on route points of another floor).</summary>
+    /// <summary>A route walk (leg or chase) with no progress (<see cref="RouteStallGain"/> m in <see cref="RouteStallSeconds"/> s) drops that route for the rest of the life: a leg
+    /// ends, a chase takes another route or goes straight (ours; Hab Center's floors stood bots still on route points of another floor).</summary>
     public const float RouteStallGain = 1f;
-    public const double RouteStallSeconds = 3, RouteViaBlock = 10;
-    int _routeStalls;
-    double _routeViaBlockedUntil, _stallSince, _stallSeen = double.MinValue;
+    public const double RouteStallSeconds = 3;
+    readonly HashSet<int> _routeDropped = new();
+    BotMapPlan? _routePlan;
+    double _stallSince, _stallSeen = double.MinValue;
     float _stallBest;
     V3 _stallGoal;
     int _vantage = -1, _vantageLast = -1;
@@ -69,25 +73,28 @@ public sealed partial class ClassicBotBrain
     double _vantageSince, _vantageUntil, _vantageNext, _vantageArrivedAt, _lastFightAt = double.MinValue;
     readonly HashSet<int> _vantageBad = new();
 
-    /// <summary>Whether bots A2's routes run (Annihilation, a plan with routes, not <c>--bot-old-routes</c>).</summary>
-    bool RoutesOn(BotMapPlan plan) => !BotOldRoutes && !SeizeGround && plan.Routes.Count > 0;
+    /// <summary>
+    /// Whether bots A2's routes, flanks and vantages run: Annihilation, on a map under the new-map rules (the owner: "on maps that aren't manufactorum"; Manufactorum keeps its
+    /// lanes, via points and posts), a plan with routes, not <c>--bot-old-routes</c>. The 12 m drops are the graph's and apply in both modes (<see cref="BotNavigation.HigherDrops"/>).
+    /// </summary>
+    bool RoutesOn(BotMapPlan plan) => !BotOldRoutes && !SeizeGround && plan.Routes.Count > 0 && BotNavigation.NewMapRules(_client?.MapName ?? "");
 
     string BotRole(PlayerState me) => _config is { } c ? Loadouts.ClassOf(c, me.Class)?.Role ?? "" : "";
 
     /// <summary>A new life: picks its route, whether it flanks and whether it takes vantages (seeded by player id and life).</summary>
     void BotRouteLife(PlayerState me, BotMapPlan plan)
     {
-        if (_routeLife == _botLife) return;
-        _routeLife = _botLife;
+        if (_routeLife == _botLife && ReferenceEquals(_routePlan, plan)) return;   // a new plan (another class's graph) starts the life's choices again
+        _routeLife = _botLife; _routePlan = plan;
         int id = Math.Max(_client?.PlayerId ?? 0, 0);
         double roll = new Random(id * 7919 + Math.Max(_botLife, 0) * 104723 + 11).NextDouble();
         string role = BotRole(me);
         _routeFlank = role == "assault" ? roll < AssaultFlankChance : role == "tactical" && roll < TacticalFlankChance;
         _routeVantages = (role == "heavy" && roll >= 1 - DevastatorVantageChance) || (role == "tactical" && !_routeFlank && roll < TacticalFlankChance + TacticalVantageChance);
         int n = plan.Routes.Count, rank = BotRank(me), life = Math.Max(_botLife, 0);
-        _routeOfLife = _routeFlank && n >= 2 ? ((rank + life) % 2 == 0 ? 0 : n - 1) : (BotMapPlan.Spread(rank, n) + life) % n;
-        _routePoint = 0; _routePointSince = _routeLegSince = _connectedFor; _routeLegDone = false; _routeStalls = 0; _routeViaBlockedUntil = 0;
-        _routeViaFor = -1;
+        _routeOfLife = n == 0 ? -1 : _routeFlank && n >= 2 ? ((rank + life) % 2 == 0 ? 0 : n - 1) : (BotMapPlan.Spread(rank, n) + life) % n;
+        _routePoint = 0; _routePointSince = _routeLegSince = _connectedFor; _routeLegDone = n == 0; _routeDropped.Clear();
+        _routeViaFor = -1; _routeViaRoute = -1;
         _vantage = -1; _vantageNext = 0; _vantageBad.Clear();
         GD.Print($"t {_connectedFor:F1} s: id {id} life {_botLife}: route {_routeOfLife + 1} of {n}{(_routeOfLife == plan.DirectRoute ? " (direct)" : "")}{(_routeFlank ? ", flanker" : "")}{(_routeVantages ? ", vantages" : "")} ({role}, rank {rank})");
     }
@@ -96,29 +103,32 @@ public sealed partial class ClassicBotBrain
     PlayerInput? BotRouteLegInput(PlayerState me, uint tick, PlayerState? chased, BotMapPlan plan)
     {
         BotRouteLife(me, plan);
-        if (_routeLegDone || _routeOfLife < 0 || _routeOfLife >= plan.Routes.Count) return null;
+        if (_routeLegDone || _routeOfLife < 0 || _routeOfLife >= plan.Routes.Count || _routeOfLife >= plan.RouteLegEnds.Count) { _routeLegDone = true; return null; }
         if (chased is { } c && Flat(c.Position, me.Position) < RouteBreak) { _routeLegDone = true; return null; }
         var route = plan.Routes[_routeOfLife];
-        // Skip ahead to a later point that is already nearer (a drop or a jump passed several).
-        for (int k = _routePoint + 1; k < route.Count && k <= _routePoint + 3; k++)
-            if (Flat(route[k], me.Position) < Flat(route[_routePoint], me.Position)) { _routePoint = k; _routePointSince = _connectedFor; }
-        if (Flat(route[_routePoint], me.Position) <= RoutePass && MathF.Abs(route[_routePoint].Z - me.Position.Z) < 3f || _connectedFor - _routePointSince > RoutePointTimeout)
+        // The leg ends near the middle (BotMapPlan.RouteLegTo): beyond it the chase (along a route) or the idle hold at the centre takes over, never a walk to the enemy's spawn.
+        int end = Math.Min(plan.RouteLegEnds[_routeOfLife], route.Count - 1);
+        if (_routePoint > end) { _routeLegDone = true; return null; }
+        // Skip ahead to a later point that is already nearer (a drop or a jump passed several); distances tell stacked floors apart (BotMapPlan.Near).
+        for (int k = _routePoint + 1; k <= end && k <= _routePoint + 3; k++)
+            if (BotMapPlan.Near(route[k], me.Position) < BotMapPlan.Near(route[_routePoint], me.Position)) { _routePoint = k; _routePointSince = _connectedFor; }
+        if (BotMapPlan.Near(route[_routePoint], me.Position) <= RoutePass || _connectedFor - _routePointSince > RoutePointTimeout)
         {
             _routePoint++; _routePointSince = _connectedFor;
         }
-        if (_routePoint < route.Count && RouteStalled(route[_routePoint]))
+        if (_routePoint <= end && RouteStalled(route[_routePoint]))
         {
-            // No progress toward the point (a point on another floor, a spot the bot cannot reach): skip it; the second stall in a leg ends the leg.
-            GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} route {_routeOfLife + 1} point {_routePoint + 1} stalled{(_routeStalls > 0 ? ", leg ends" : ", skipped")}");
-            if (++_routeStalls >= 2) { _routeLegDone = true; return null; }
-            _routePoint++; _routePointSince = _connectedFor;
+            // No progress toward the point (a point on another floor, a spot the bot cannot reach): the route is dropped for this life and the leg ends.
+            GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} route {_routeOfLife + 1} point {_routePoint + 1} stalled: route dropped for this life, leg ends");
+            _routeDropped.Add(_routeOfLife);
+            _routeLegDone = true; return null;
         }
-        if (_routePoint >= route.Count || _connectedFor - _routeLegSince > RouteLegTimeout) { _routeLegDone = true; return null; }
+        if (_routePoint > end || _connectedFor - _routeLegSince > RouteLegTimeout) { _routeLegDone = true; return null; }
         var goal = route[_routePoint];
         _botNote = $"route {_routeOfLife + 1} leg, point {_routePoint + 1}/{route.Count}";
         NoteIdle($"life {_botLife}: route {_routeOfLife + 1} leg, point {_routePoint + 1}/{route.Count} {goal.X:F0},{goal.Y:F0},{goal.Z:F0}");
         float after = 0f;
-        for (int k = _routePoint + 1; k < route.Count; k++) after += Flat(route[k - 1], route[k]);
+        for (int k = _routePoint + 1; k <= end; k++) after += Flat(route[k - 1], route[k]);
         return BotWalkTo(me, tick, goal, "route", after);
     }
 
@@ -138,7 +148,8 @@ public sealed partial class ClassicBotBrain
             float best = (_routeFlank ? FlankDetour : RouteDetour) * direct;
             for (int r = 0; r < plan.Routes.Count; r++)
             {
-                var (cost, _, _) = RouteChase(plan.Routes[r], me.Position, enemy.Position);
+                if (_routeDropped.Contains(r)) continue;
+                var (cost, _, _) = BotMapPlan.RouteChase(plan.Routes[r], me.Position, enemy.Position, RoutePass);
                 if (float.IsInfinity(cost)) continue;
                 float weight = r == _routeOfLife ? (_routeFlank ? FlankRouteWeight : OwnRouteWeight) : r == plan.DirectRoute ? DirectRouteWeight : 1f;
                 if (cost * weight < best && cost <= (_routeFlank ? FlankDetour : RouteDetour) * direct) { best = cost * weight; _routeViaRoute = r; }
@@ -146,42 +157,17 @@ public sealed partial class ClassicBotBrain
             if (_routeViaRoute != before && _routeViaRoute >= 0)
                 NoteIdle($"chase P{enemy.PlayerId} along route {_routeViaRoute + 1}{(_routeViaRoute == _routeOfLife ? " (own)" : "")}{(_routeFlank ? " flanking" : "")}");
         }
-        if (_routeViaRoute < 0 || _routeViaRoute >= plan.Routes.Count || _connectedFor < _routeViaBlockedUntil) return null;
-        var (along, next, _) = RouteChase(plan.Routes[_routeViaRoute], me.Position, enemy.Position);
+        if (_routeViaRoute < 0 || _routeViaRoute >= plan.Routes.Count || _routeDropped.Contains(_routeViaRoute)) return null;
+        var (along, next, _) = BotMapPlan.RouteChase(plan.Routes[_routeViaRoute], me.Position, enemy.Position, RoutePass);
         if (next is { } stalledAt && RouteStalled(stalledAt))
         {
-            GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} route chase stalled at {stalledAt.X:F0},{stalledAt.Y:F0},{stalledAt.Z:F0}: straight chase for {RouteViaBlock:F0} s");
-            _routeViaBlockedUntil = _connectedFor + RouteViaBlock;
+            GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} route chase stalled at {stalledAt.X:F0},{stalledAt.Y:F0},{stalledAt.Z:F0}: route {_routeViaRoute + 1} dropped for this life");
+            _routeDropped.Add(_routeViaRoute);
+            _routeViaFor = -1;   // choose again next tick
             return null;
         }
         _routeViaRemaining = next is { } n ? MathF.Max(0f, along - Flat(me.Position, n)) : 0f;
         return next;
-    }
-
-    /// <summary>
-    /// A chase along <paramref name="route"/>: its cost (flat metres to the nearest route point, along the route to the point nearest the enemy, then straight on), the next
-    /// route point to walk to (the first at least <see cref="RoutePass"/> m away toward that point) and that point's index; infinite cost when the bot is already at it.
-    /// </summary>
-    static (float Cost, V3? Next, int Target) RouteChase(IReadOnlyList<V3> route, V3 me, V3 enemy)
-    {
-        int near = 0, target = 0;
-        for (int i = 1; i < route.Count; i++)
-        {
-            if (Flat(route[i], me) < Flat(route[near], me)) near = i;
-            if (Flat(route[i], enemy) < Flat(route[target], enemy)) target = i;
-        }
-        if (near == target) return (float.PositiveInfinity, null, target);
-        int step = target > near ? 1 : -1;
-        float cost = Flat(me, route[near]);
-        V3? next = null;
-        for (int i = near; i != target; i += step)
-        {
-            cost += Flat(route[i], route[i + step]);
-            if (next is null && Flat(route[i + step], me) > RoutePass) next = route[i + step];
-        }
-        if (next is null && Flat(route[near], me) > RoutePass) next = route[near];
-        cost += Flat(route[target], enemy);
-        return (cost, next, target);
     }
 
     /// <summary>
@@ -203,8 +189,9 @@ public sealed partial class ClassicBotBrain
             {
                 var v = plan.Vantages[i];
                 float vEnemy = Flat(v.Spot, enemy.Position);
-                if (i == _vantageLast || _vantageBad.Contains(i) || Flat(v.Spot, me.Position) > VantageReach || vEnemy < VantageBreak + 2f || vEnemy > toEnemy + 5f) continue;
-                options.Add((i, v.Score - 0.03f * Flat(v.Spot, me.Position)));
+                float vMe = BotMapPlan.Near(v.Spot, me.Position);   // a vantage on another floor is far (review 2026-11-25)
+                if (i == _vantageLast || _vantageBad.Contains(i) || vMe > VantageReach || vEnemy < VantageBreak + 2f || vEnemy > toEnemy + 5f) continue;
+                options.Add((i, v.Score - 0.03f * vMe));
             }
             if (options.Count == 0) { _vantageNext = _connectedFor + 5; return null; }
             options.Sort((a, b) => b.Score.CompareTo(a.Score));
@@ -213,6 +200,7 @@ public sealed partial class ClassicBotBrain
             var chosen = plan.Vantages[pick];
             GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} vantage {pick + 1} {chosen.Spot.X:F0},{chosen.Spot.Y:F0},{chosen.Spot.Z:F0} (rise {chosen.Rise:F1} m{(chosen.Covered ? ", cover" : "")}, sight {chosen.Sight})");
         }
+        if (_vantage >= plan.Vantages.Count) { _vantage = -1; return null; }   // the plan changed under it
         var spot = plan.Vantages[_vantage].Spot;
         if (Flat(enemy.Position, me.Position) < VantageBreak) { EndVantage("enemy close"); return null; }
         float away = Flat(spot, me.Position);
