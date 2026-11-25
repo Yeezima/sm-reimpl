@@ -466,8 +466,8 @@ public static class GoreStreakRules
     /// albedo read about (229, 20, 0) on Forward+ and about (150, 0, 0) on Compatibility; Forward+ takes <see cref="ForwardShade"/> of it so both show about (150, 0, 0).
     /// </summary>
     public const float ForwardShade = 0.42f, CompatibilityShade = 1f;
-    /// <summary>The strip pass's strength per unit of blood opacity (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
-    public const float StripPerAlpha = 5f;
+    /// <summary>The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (Compatibility blends in display space, where a fully stripped ground under a faint texel read near black and left the red mask) (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
+    public const float StripPerAlpha = 5f, CompatibilityStripPerAlpha = 2.5f;
 
     /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red) at the renderer's <paramref name="shade"/>.</summary>
     public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)
@@ -478,15 +478,15 @@ public static class GoreStreakRules
     }
 
     /// <summary>The strip pass's strength for a texel of blood opacity <paramref name="alpha"/> and core coverage <paramref name="cov"/>.</summary>
-    public static float Strip(float alpha, float cov) => Math.Clamp(StripPerAlpha * alpha, 0f, 1f) * (0.75f + 0.25f * Math.Clamp(cov, 0f, 1f));
+    public static float Strip(float alpha, float cov, float perAlpha = StripPerAlpha) => Math.Clamp(perAlpha * alpha, 0f, 1f) * (0.75f + 0.25f * Math.Clamp(cov, 0f, 1f));
 
     /// <summary>
     /// The colour of a pixel <paramref name="under"/> beneath a streak texel of blood opacity <paramref name="alpha"/>, core coverage <paramref name="cov"/> and density after both passes:
     /// the strip (blend_mul: the red under it kept at <see cref="ClassicBloodRules.RibbonStripRed"/>, green and blue removed, at <see cref="Strip"/>) then the blood mixed over it.
     /// </summary>
-    public static (float R, float G, float B) Composite((float R, float G, float B) under, float alpha, float cov, float density, float shade = CompatibilityShade)
+    public static (float R, float G, float B) Composite((float R, float G, float B) under, float alpha, float cov, float density, float shade = CompatibilityShade, float perAlpha = StripPerAlpha)
     {
-        float s = Strip(alpha, cov);
+        float s = Strip(alpha, cov, perAlpha);
         var u = (R: under.R * (1f - s + s * ClassicBloodRules.RibbonStripRed), G: under.G * (1f - s), B: under.B * (1f - s));
         var col = Colour(density, shade);
         float a = Math.Clamp(alpha, 0f, 1f);

@@ -327,16 +327,16 @@ public class GoreStreakRulesTests
     [InlineData(0.05f, 0.05f, 0.05f)] // dark
     public void Inside_a_streak_the_colour_is_red_or_darker_never_white_or_pink(float r, float g, float b)
     {
-        foreach (float shade in new[] { CompatibilityShade, ForwardShade })
+        foreach (var (shade, perAlpha) in new[] { (CompatibilityShade, CompatibilityStripPerAlpha), (ForwardShade, StripPerAlpha) })
             foreach (float dens in new[] { 0.45f, 0.8f, 1f })
             {
                 // a dense covered texel: only the blood's own green and blue
-                var c = Composite((r, g, b), 0.95f, 1f, dens, shade);
+                var c = Composite((r, g, b), 0.95f, 1f, dens, shade, perAlpha);
                 Assert.True(c.G <= 0.15f * c.R + 1e-4f && c.B <= 0.15f * c.R + 1e-4f, $"({c.R:F3},{c.G:F3},{c.B:F3}) over ({r},{g},{b}) dens {dens}");
                 // a soft texel (the halo, a fading core, 0.3 opacity and up): stripped toward red, never pink (the scoring tools' pink: min(G,B)/R over 0.7)
                 foreach (float alpha in new[] { 0.3f, 0.5f })
                 {
-                    var f = Composite((r, g, b), alpha, 0.2f, dens, shade);
+                    var f = Composite((r, g, b), alpha, 0.2f, dens, shade, perAlpha);
                     Assert.True(MathF.Min(f.G, f.B) <= 0.7f * f.R + 1e-4f || f.R < 0.02f, $"alpha {alpha}: ({f.R:F3},{f.G:F3},{f.B:F3}) over ({r},{g},{b})");
                 }
             }
@@ -350,6 +350,12 @@ public class GoreStreakRulesTests
         Assert.True(Strip(0.1f, 1f) < 0.55f);
         var grey = Composite((0.5f, 0.5f, 0.5f), 0.1f, 1f, 0.8f);
         Assert.True(grey.R > 0.25f, $"a faint texel over grey keeps most of the grey's level: {grey.R:F3}");
+        // Compatibility's late frames (opacity 0.4 and 0.25 over the grey) stay visibly red: above the scoring tools' value floor, red-dominant
+        foreach (float alpha in new[] { 0.4f, 0.25f })
+        {
+            var late = Composite((0.5f, 0.5f, 0.5f), alpha, 0.5f, 0.7f, CompatibilityShade, CompatibilityStripPerAlpha);
+            Assert.True(late.R > 0.22f && late.R - MathF.Max(late.G, late.B) > 0.1f, $"alpha {alpha}: ({late.R:F3},{late.G:F3},{late.B:F3})");
+        }
     }
 
     [Fact]

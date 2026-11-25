@@ -51,6 +51,7 @@ uniform float now = 0.0;                 // the view clock modulo {{F((float)Clo
 uniform float age_override = -1.0;       // >= 0: every streak at this age (the capture aid)
 uniform sampler2D grit : filter_linear_mipmap, repeat_enable;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
+uniform float strip_per_alpha = 5.0;   // GoreStreakRules.StripPerAlpha / CompatibilityStripPerAlpha
 uniform float shade = 1.0;               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
 
 const int NK = {{GoreStreakRules.Keys.Length}};
@@ -173,7 +174,7 @@ void fragment() {
     float a = v_opac * max(cov * dens, {{F(GoreStreakRules.HaloAlpha)}} * halo) * nearf;
     if (a <= 0.003) discard;
 {{(strip ? $$"""
-    float st = clamp({{F(GoreStreakRules.StripPerAlpha)}} * a, 0.0, 1.0) * (0.75 + 0.25 * cov);    // GoreStreakRules.Strip: fades with the opacity
+    float st = clamp(strip_per_alpha * a, 0.0, 1.0) * (0.75 + 0.25 * cov);    // GoreStreakRules.Strip: fades with the opacity
     ALBEDO = mix(vec3(1.0), vec3({{F(ClassicBloodRules.RibbonStripRed)}}, 0.0, 0.0), st);
     ALPHA = 1.0;
 """ : $$"""
@@ -186,7 +187,7 @@ void fragment() {
     static Shader? _shader, _stripShader;
     static ImageTexture? _grit;
     static ArrayMesh? _quad;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade";
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade", PStripPerAlpha = "strip_per_alpha";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
@@ -257,8 +258,10 @@ void fragment() {
         _mat = new ShaderMaterial { Shader = _shader, RenderPriority = ClassicBloodRules.RibbonRenderPriority + 1 };
         _strip = new ShaderMaterial { Shader = _stripShader, RenderPriority = ClassicBloodRules.RibbonRenderPriority, NextPass = _mat };
         // the same darker red on both renderers (gate repair 8): Forward+ draws linear HDR through the tonemapper, Compatibility straight in display space
-        float shade = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility" ? GoreStreakRules.CompatibilityShade : GoreStreakRules.ForwardShade;
-        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); }
+        bool compat = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
+        float shade = compat ? GoreStreakRules.CompatibilityShade : GoreStreakRules.ForwardShade;
+        float perAlpha = compat ? GoreStreakRules.CompatibilityStripPerAlpha : GoreStreakRules.StripPerAlpha;
+        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); m.SetShaderParameter(PStripPerAlpha, perAlpha); }
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = Quad() };
         _mm.InstanceCount = GoreStreakRules.PoolSize;
         _mm.VisibleInstanceCount = 0;
