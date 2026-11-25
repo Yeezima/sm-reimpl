@@ -77,14 +77,14 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
             Assert.True(c.Health > o.Health, $"{WarfrontChaosRoster.Unit(kind)}: {c.Health} over the Ork row's {o.Health}");
             if (kind == MusouEnemyType.Gretchin) continue;   // the Daemon: a man-sized body (the client takes it from the Chaos table, C3/C4)
             Assert.Equal(o.Radius, c.Radius);
-            Assert.Equal(o.Height, c.Height);
+            Assert.True(c.Height is WarfrontChaosTuning.ManHeight or WarfrontChaosTuning.MarineHeight or WarfrontChaosTuning.ChampionHeight, $"{kind}: the drawn Chaos body's height (C3)");
         }
         Assert.True(chaos.Of(MusouEnemyType.Gretchin).Height > orks.Of(MusouEnemyType.Gretchin).Height);
         // the Chosen, the Lord and the Ork-only rows are kept
         foreach (var kind in new[] { MusouEnemyType.Warboss, MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob, MusouEnemyType.Weirdboy, MusouEnemyType.BombSquig, MusouEnemyType.ScrapMek, MusouEnemyType.ArdBoy })
             Assert.Equal(orks.Of(kind), chaos.Of(kind));
         // every other Musou rule is the Orks'
-        Assert.Equal(orks with { Types = chaos.Types }, chaos);
+        Assert.Equal(orks with { Types = chaos.Types, ShotHeightsFromTable = true }, chaos);   // C3: the shot bodies from the table (the drawn Chaos heights)
     }
 
     [Fact]

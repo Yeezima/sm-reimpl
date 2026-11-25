@@ -97,7 +97,7 @@ public class WarfrontChaosPresentationTests
         Assert.Equal(WarfrontChaosTuning.ManHeight, MusouSim.ShotBodyOf(chaos, MusouEnemyType.Boy).Height);
         Assert.Equal(WarfrontChaosTuning.ManHeight, MusouSim.ShotBodyOf(chaos, MusouEnemyType.ShootaBoy).Height);
         Assert.Equal(WarfrontChaosTuning.MarineHeight, MusouSim.ShotBodyOf(chaos, MusouEnemyType.ChaosMarine).Height);
-        Assert.Equal(2.2f, MusouSim.ShotBodyOf(chaos, MusouEnemyType.Gretchin).Height);   // the Daemon
+        Assert.Equal(WarfrontChaosTuning.DaemonHeight, MusouSim.ShotBodyOf(chaos, MusouEnemyType.Gretchin).Height);   // the Daemon
         Assert.Equal(orks.Of(MusouEnemyType.Boy).Radius, chaos.Of(MusouEnemyType.Boy).Radius);
     }
 

@@ -44,7 +44,7 @@ public static class WarfrontChaosTuning
         // Chaos Tactical Marine (the Chaos Marine row; the 'Ard Boy slot spawns it): the bolter's band 15-50 m in the data, ours 15-40 m in the lanes; tougher than Musou Mode's 250.
         yield return Of(MusouEnemyType.ChaosMarine) with { Height = MarineHeight, Health = MarineHealth, Points = 60, RangedMin = 15f, RangedMax = 40f };
         // Aspiring Champion (the Nob slot): the army's leader, a heavy staggering swing.
-        yield return Of(MusouEnemyType.Nob) with { Health = ChampionHealth, Points = 120, MeleeDamage = 28f, MeleePeriod = 2.0f, MeleeStaggers = true };
+        yield return Of(MusouEnemyType.Nob) with { Height = ChampionHeight, Health = ChampionHealth, Points = 120, MeleeDamage = 28f, MeleePeriod = 2.0f, MeleeStaggers = true };
         // Havoc, heavy bolter (the Big Shoota Nob slot: the burst and the overheat are its code's).
         yield return Of(MusouEnemyType.BigShootaNob) with { Height = MarineHeight, Health = HavocBolterHealth, Points = 160 };
         // Havoc, missile launcher (the Rokkit Boy slot: real rockets, its code's).
@@ -54,7 +54,7 @@ public static class WarfrontChaosTuning
         // Daemon, Bloodletter (the Gretchin slot, breach-spawned only): 200 in the data (chaos_coop_bloodletter), the hellblade 15 light / 25 heavy at 1-3 m; ours: 15 a strike every 1.2 s, reach 1.8 m.
         yield return Of(MusouEnemyType.Gretchin) with
         {
-            Health = DaemonHealth, Speed = 6.0f, Radius = 0.45f, Height = 2.2f, Points = 30,
+            Health = DaemonHealth, Speed = 6.0f, Radius = 0.45f, Height = DaemonHeight, Points = 30,
             MeleeDamage = 15f, MeleePeriod = 1.2f, MeleeRange = 1.8f,
         };
     }
@@ -63,10 +63,11 @@ public static class WarfrontChaosTuning
     public const float CultistHealth = 110f, TraitorHealth = 110f, MarineHealth = 350f, ChampionHealth = 750f, HavocBolterHealth = 700f, HavocMissileHealth = 200f, RaptorHealth = 220f, DaemonHealth = 200f;
 
     /// <summary>
-    /// The drawn heights of the Chaos bodies (C3, the C2 review: the shot body's head sphere at the top must meet the drawn head): a renegade guard (Cultist, Traitor Guardsman) 1.85 m, a Chaos
-    /// Space Marine 2.1 m (Musou Mode's Chaos Marine row); the Champion keeps the Nob row's 2.3 m (drawn x1.1), the Daemon its 2.2 m. Ours, from the models' bounds (provisional).
+    /// The drawn heights of the Chaos bodies (C3, the C2 review: the shot body's head sphere at the top must meet the drawn head): a renegade guard (Cultist, Traitor Guardsman) 2.0 m, a Chaos
+    /// Space Marine (Tactical, Havocs, Raptor) 2.3 m, the Champion 2.5 m (drawn x1.1), the Daemon 2.6 m (the Bloodletter hunched; 3.0 m to its horns). Ours, from the models' bounds measured on the
+    /// crowd test stage (`--musou-crowd-test --warfront-chaos`, 2026-11-25; provisional).
     /// </summary>
-    public const float ManHeight = 1.85f, MarineHeight = 2.1f;
+    public const float ManHeight = 2.0f, MarineHeight = 2.3f, ChampionHeight = 2.5f, DaemonHeight = 2.6f;
 
     /// <summary>The startup log's line for a Chaos stage.</summary>
     public static string Note(MusouRules chaos) =>
