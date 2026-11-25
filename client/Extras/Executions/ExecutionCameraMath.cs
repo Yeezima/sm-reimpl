@@ -14,7 +14,7 @@ namespace SmClient;
 /// </summary>
 public static class OvershieldCoverage
 {
-    /// <summary>Name parts that mark cloth, leather or ornaments (lower case; ours, from the owner's list).</summary>
+    /// <summary>Name parts that mark cloth, leather or ornaments (lower case; ours, from the owner's list). Includes every word of the armour-pieces paint mask's cloth list (<c>BakedArmourPaint.ClothWords</c>: cloth, cape, cloak, tabard, fur, scroll, parchment, purity, robe, pelt), so both features agree.</summary>
     public static readonly string[] ExcludedWords =
     [
         "tabard", "cloth", "robe", "cape", "cloak", "loincloth", "skirt", "sash", "banner", "flag", "ribbon", "tassel", "rope", "cord",

@@ -110,6 +110,9 @@ public class ExecutionPromptRuleTests
         // Cloth, leather and ornaments by name are not.
         foreach (var name in new[] { "bt_tabard", "csm_loincloth_01", "sm_purity_seal_l", "csm_chains_torso", "leather_pouch_r", "Belt_Pouches", "sm_robe_lower", "Scroll_01" })
             Assert.True(OvershieldCoverage.Excluded(name), name);
+        // The armour-pieces paint mask's cloth list (BakedArmourPaint.ClothWords on claude/armour-pieces-1125): every word is left out here too, so both features agree.
+        foreach (var word in new[] { "cloth", "cape", "cloak", "tabard", "fur", "scroll", "parchment", "purity", "robe", "pelt" })
+            Assert.Contains(word, OvershieldCoverage.ExcludedWords);
         Assert.True(OvershieldCoverage.Weapon("Weapon_melee_sm_mp_melee_chainsword"));
         Assert.False(OvershieldCoverage.Weapon("Worn_sm_jumppack"));
     }
