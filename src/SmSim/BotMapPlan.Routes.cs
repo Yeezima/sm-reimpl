@@ -31,6 +31,8 @@ public sealed partial class BotMapPlan
     /// <summary>A life's route leg ends at the first route point at least this fraction of the way from the own start toward the enemy's (ours; review 2026-11-25: the owner's
     /// 2026-11-07 rule, hold the centre and never wait outside the enemy's spawn; the old lane leg ended 25 to 45 % of the way).</summary>
     public const float RouteLegTo = 0.55f;
+    /// <summary>A route leg also ends at the first point within this many metres of the no-loiter zone's edge (re-review 2026-11-25: on a small map 55 % can already be next to the enemy's spawn; ours).</summary>
+    public const float RouteLegZoneMargin = 15f;
     /// <summary>Metres of height a vantage candidate's floor band spans (one candidate per 4 m square and band, so stacked floors each get theirs; ours).</summary>
     public const float VantageFloorBand = 3f;
 
@@ -61,6 +63,12 @@ public sealed partial class BotMapPlan
     /// </summary>
     public static float Near(Vector3 a, Vector3 b) => Flat(a, b) + 3f * MathF.Max(0f, MathF.Abs(a.Z - b.Z) - 1f);
 
+    /// <summary><see cref="Near"/> with its height term capped at <paramref name="maxHeightTerm"/> metres.</summary>
+    public static float Near(Vector3 a, Vector3 b, float maxHeightTerm) => Flat(a, b) + MathF.Min(maxHeightTerm, 3f * MathF.Max(0f, MathF.Abs(a.Z - b.Z) - 1f));
+
+    /// <summary>Whether <paramref name="p"/> lies within <paramref name="margin"/> m (flat) of the no-loiter zone's edge or inside it.</summary>
+    public bool NearNoLoiterZone(Vector3 p, float margin) => Flat(p, EnemyStart) < NoLoiterRadius + margin || EnemyDoor is { } d && Flat(p, d) < NoLoiterRadius + margin;
+
     /// <summary>
     /// A chase along <paramref name="route"/> from <paramref name="me"/> to <paramref name="enemy"/>: its cost (the distance to the route's nearest point, along the route to the
     /// point nearest the enemy, then on to the enemy; every distance by <see cref="Near"/>), the next route point to walk to (the first more than <paramref name="pass"/> m away
@@ -81,7 +89,7 @@ public sealed partial class BotMapPlan
         Vector3? next = null;
         for (int i = near; i != target; i += step)
         {
-            cost += Near(route[i], route[i + step]);
+            cost += Vector3.Distance(route[i], route[i + step]);   // along the route: the real 3D length (a ramp or bridge is not a floor change)
             if (next is null && Near(route[i + step], me) > pass) next = route[i + step];
         }
         if (next is null && Near(route[near], me) > pass) next = route[near];
@@ -170,7 +178,7 @@ public sealed partial class BotMapPlan
         routes.Sort((a, b) => a.Across.CompareTo(b.Across));
         Routes = routes.Select(r => (IReadOnlyList<Vector3>)r.Points).ToList();
         DirectRoute = routes.FindIndex(r => r.Direct);
-        RouteLegEnds = routes.Select(r => r.Points.FindIndex(q => Along(q) >= RouteLegTo) is var i and >= 0 ? i : r.Points.Count - 1).ToList();
+        RouteLegEnds = routes.Select(r => r.Points.FindIndex(q => Along(q) >= RouteLegTo || NearNoLoiterZone(q, RouteLegZoneMargin)) is var i and >= 0 ? i : r.Points.Count - 1).ToList();
     }
 
     /// <summary>Marks every reachable cell within <see cref="RouteWidth"/> m (flat; 4 m of height) of <paramref name="cells"/>: sets <paramref name="near"/> and/or raises <paramref name="penalty"/> by one.</summary>

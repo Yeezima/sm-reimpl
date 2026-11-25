@@ -40,16 +40,32 @@ function Get-Tree([int]$id) {
     for ($k = 0; $k -lt $ids.Count; $k++) { foreach ($p in $all) { if ($p.ParentProcessId -eq $ids[$k] -and -not $ids.Contains([int]$p.ProcessId)) { $ids.Add([int]$p.ProcessId) } } }
     return $ids
 }
-$started = @{}   # PID -> start time at launch: a PID the system reused for another process is never stopped
-function Stop-RunTree([int]$id) {
-    # per PID, children first, every failure ignored (the process may be gone already); only when the PID is still the process this run started
-    $ErrorActionPreference = 'Continue'
-    $root = Get-Process -Id $id -ErrorAction SilentlyContinue
-    if (-not $root) { return }
-    if ($started.ContainsKey($id)) { try { if ($root.StartTime -ne $started[$id]) { return } } catch { return } }
+$started = @{}   # PID -> start time captured while this run watched it: a PID the system reused for another process is never stopped
+$members = @{}   # root PID (a bot's wrapper, the server) -> every PID seen in its tree, so a Godot child that outlives its wrapper is still found
+function Note-Tree([int]$id) {
+    # capture the start time of each process in the tree now (called at launch and at every sample)
+    if (-not $members.ContainsKey($id)) { $members[$id] = [Collections.Generic.List[int]]::new() }
     try { $tree = @(Get-Tree $id) } catch { $tree = @($id) }
-    [array]::Reverse($tree)
-    foreach ($t in $tree) { try { Stop-Process -Id $t -Force -ErrorAction SilentlyContinue } catch { } }
+    foreach ($t in $tree) {
+        if (-not $started.ContainsKey($t)) { try { $started[$t] = (Get-Process -Id $t -ErrorAction Stop).StartTime } catch { continue } }
+        if (-not $members[$id].Contains($t)) { $members[$id].Add($t) }
+    }
+}
+function Stop-RunTree([int]$id) {
+    # per PID, children first (the root last), every failure ignored (the process may be gone already). Only processes this run started: a PID is stopped only when its
+    # start time was captured during the run and still matches; a PID without a captured start time is never stopped. Never by name.
+    $ErrorActionPreference = 'Continue'
+    Note-Tree $id
+    $list = [Collections.Generic.List[int]]::new()
+    foreach ($t in @($members[$id])) { if ($t -ne $id -and -not $list.Contains($t)) { $list.Add($t) } }
+    $list.Reverse(); $list.Add($id)
+    foreach ($t in $list) {
+        if (-not $started.ContainsKey($t)) { continue }
+        $p = Get-Process -Id $t -ErrorAction SilentlyContinue
+        if (-not $p) { continue }
+        try { if ($p.StartTime -ne $started[$t]) { continue } } catch { continue }
+        try { Stop-Process -Id $t -Force -ErrorAction SilentlyContinue } catch { }
+    }
 }
 function Get-Usage([int]$id) {
     $cpu = 0.0; $ws = 0L
@@ -70,7 +86,7 @@ $env:SM_BOT_STATS = '30'
 try { $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList @($serverDll, '--bind', '127.0.0.1', '--port', "$Port", '--map', $Map, '--mode', $Mode, '--honor-side-requests', '--name-seed', "$NameSeed") -WorkingDirectory $Root -StdOut (Join-Path $out 'server.log') -StdErr (Join-Path $out 'server.err.log') }
 catch { Restore-RunEnv 'SM_DATA_DIR' $prevDataDir; throw }
 finally { Restore-RunEnv 'SM_BOT_STATS' $prevBotStats }
-try { $started[$server.Id] = $server.StartTime } catch { }
+Note-Tree $server.Id
 $samples = [Collections.Generic.List[string]]::new(); $samples.Add('t,who,pid,cpu_s,ws_mb')
 try {
     $deadline = (Get-Date).AddSeconds(120)
@@ -88,7 +104,7 @@ try {
             if ($Trace) { $ca += @('--bot-trace', (Join-Path $out ("trace-{0}-{1}.csv" -f $side[0], $i))) }
             if ($Client) { $ca += @($Client -split ' ' | Where-Object { $_ }) }
             $txt = & (Join-Path $Root 'tools\godot.ps1') @ga @ca *>&1 | Out-String
-            if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; try { $started[[int]$Matches[1]] = (Get-Process -Id ([int]$Matches[1]) -ErrorAction Stop).StartTime } catch { }; "bot $($Matches[1]) $($side[0]) $($classList[$i % $classList.Count])" | Add-Content (Join-Path $out 'pids.txt') }
+            if ($txt -match 'started pid (\d+)') { $pids += [int]$Matches[1]; Note-Tree ([int]$Matches[1]); "bot $($Matches[1]) $($side[0]) $($classList[$i % $classList.Count])" | Add-Content (Join-Path $out 'pids.txt') }
             else { throw "a bot did not report its pid: $txt" }
             Start-Sleep -Milliseconds 1200
         }
@@ -108,6 +124,7 @@ try {
     while (((Get-Date) - $t0).TotalSeconds -lt $Seconds -and -not $server.HasExited) {
         $t = [int]((Get-Date) - $t0).TotalSeconds
         foreach ($w in $who) {
+            Note-Tree $w[1]   # a wrapper's Godot child gets its start time captured as soon as it appears
             $u = Get-Usage $w[1]
             if (-not $first.ContainsKey($w[1])) { $first[$w[1]] = @($t, $u[0]) }
             $peak[$w[1]] = [Math]::Max([double]($peak[$w[1]]), $u[1] / 1MB)

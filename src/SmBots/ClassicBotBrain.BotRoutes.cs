@@ -50,6 +50,8 @@ public sealed partial class ClassicBotBrain
     public const double VantageHoldMin = 8, VantageHoldMax = 14, VantageQuiet = 5, VantageCooldown = 30, VantageWalkTimeout = 15;
     /// <summary>A vantage is given up for the life when its path is partial or longer than this times the straight distance plus <see cref="VantagePathSlack"/> m (ours).</summary>
     public const float VantagePathStretch = 1.6f, VantagePathSlack = 10f;
+    /// <summary>Most metres the height term of <see cref="BotMapPlan.Near"/> adds to a vantage's distance (re-review 2026-11-25: a vantage up a tall ramp is still in reach; ours).</summary>
+    public const float VantageHeightCap = 15f;
     public const float VantageReach = 35f, VantageEnemyMin = 25f, VantageEnemyMax = 75f, VantageBreak = 18f, VantageArrived = 1.5f, VantageStray = 2.5f;
 
     int _routeLife = -1, _routeOfLife = -1, _routePoint;
@@ -77,12 +79,21 @@ public sealed partial class ClassicBotBrain
     /// Whether bots A2's routes, flanks and vantages run: Annihilation, on a map under the new-map rules (the owner: "on maps that aren't manufactorum"; Manufactorum keeps its
     /// lanes, via points and posts), a plan with routes, not <c>--bot-old-routes</c>. The 12 m drops are the graph's and apply in both modes (<see cref="BotNavigation.HigherDrops"/>).
     /// </summary>
-    bool RoutesOn(BotMapPlan plan) => !BotOldRoutes && !SeizeGround && plan.Routes.Count > 0 && BotNavigation.NewMapRules(_client?.MapName ?? "");
+    bool RoutesOn(BotMapPlan plan) => RoutesAllowed(_navMap?.Name ?? "", SeizeGround, BotOldRoutes, plan.Routes.Count);
+
+    /// <summary>The <see cref="RoutesOn"/> rule as a pure predicate (tested): a map under the new-map rules, Annihilation, not <c>--bot-old-routes</c>, at least one route.</summary>
+    internal static bool RoutesAllowed(string map, bool seizeGround, bool oldRoutes, int routes) =>
+        !oldRoutes && !seizeGround && routes > 0 && BotNavigation.NewMapRules(map);
+
+    /// <summary>Test view: the life's route, whether its leg is over, and the routes dropped this life.</summary>
+    internal int RouteOfLife => _routeOfLife;
+    internal bool RouteLegDone => _routeLegDone;
+    internal IReadOnlyCollection<int> RoutesDropped => _routeDropped;
 
     string BotRole(PlayerState me) => _config is { } c ? Loadouts.ClassOf(c, me.Class)?.Role ?? "" : "";
 
     /// <summary>A new life: picks its route, whether it flanks and whether it takes vantages (seeded by player id and life).</summary>
-    void BotRouteLife(PlayerState me, BotMapPlan plan)
+    internal void BotRouteLife(PlayerState me, BotMapPlan plan)
     {
         if (_routeLife == _botLife && ReferenceEquals(_routePlan, plan)) return;   // a new plan (another class's graph) starts the life's choices again
         _routeLife = _botLife; _routePlan = plan;
@@ -100,7 +111,7 @@ public sealed partial class ClassicBotBrain
     }
 
     /// <summary>The life's first leg along its route (see the class); null when it is over, in Seize Ground, without routes or with <c>--bot-old-routes</c>.</summary>
-    PlayerInput? BotRouteLegInput(PlayerState me, uint tick, PlayerState? chased, BotMapPlan plan)
+    internal PlayerInput? BotRouteLegInput(PlayerState me, uint tick, PlayerState? chased, BotMapPlan plan)
     {
         BotRouteLife(me, plan);
         if (_routeLegDone || _routeOfLife < 0 || _routeOfLife >= plan.Routes.Count || _routeOfLife >= plan.RouteLegEnds.Count) { _routeLegDone = true; return null; }
@@ -128,7 +139,7 @@ public sealed partial class ClassicBotBrain
         _botNote = $"route {_routeOfLife + 1} leg, point {_routePoint + 1}/{route.Count}";
         NoteIdle($"life {_botLife}: route {_routeOfLife + 1} leg, point {_routePoint + 1}/{route.Count} {goal.X:F0},{goal.Y:F0},{goal.Z:F0}");
         float after = 0f;
-        for (int k = _routePoint + 1; k <= end; k++) after += Flat(route[k - 1], route[k]);
+        for (int k = _routePoint + 1; k <= end; k++) after += V3.Distance(route[k - 1], route[k]);
         return BotWalkTo(me, tick, goal, "route", after);
     }
 
@@ -189,7 +200,7 @@ public sealed partial class ClassicBotBrain
             {
                 var v = plan.Vantages[i];
                 float vEnemy = Flat(v.Spot, enemy.Position);
-                float vMe = BotMapPlan.Near(v.Spot, me.Position);   // a vantage on another floor is far (review 2026-11-25)
+                float vMe = BotMapPlan.Near(v.Spot, me.Position, VantageHeightCap);   // a vantage on another floor is far (review 2026-11-25), the height term capped
                 if (i == _vantageLast || _vantageBad.Contains(i) || vMe > VantageReach || vEnemy < VantageBreak + 2f || vEnemy > toEnemy + 5f) continue;
                 options.Add((i, v.Score - 0.03f * vMe));
             }

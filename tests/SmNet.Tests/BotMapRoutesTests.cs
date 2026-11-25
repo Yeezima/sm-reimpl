@@ -67,6 +67,7 @@ public class BotMapRoutesTests
             Assert.InRange(plan.Along(end), BotMapPlan.RouteLegTo, BotMapPlan.RouteLegTo + 2.5f * step);   // the first point past 55 % (a side route bends, so a little slack)
             Assert.True(plan.RouteLegEnds[r] == 0 || plan.Along(plan.Routes[r][plan.RouteLegEnds[r] - 1]) < BotMapPlan.RouteLegTo);
             Assert.False(plan.InNoLoiterZone(end));
+            for (int k = 0; k < plan.RouteLegEnds[r]; k++) Assert.False(plan.NearNoLoiterZone(plan.Routes[r][k], BotMapPlan.RouteLegZoneMargin));   // no earlier point is near the zone
         }
         Assert.Equal(0f, plan.Along(MarinesStart), 3);
         Assert.Equal(1f, plan.Along(ChaosStart), 3);
