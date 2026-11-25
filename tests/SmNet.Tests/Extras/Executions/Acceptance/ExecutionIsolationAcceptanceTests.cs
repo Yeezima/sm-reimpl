@@ -99,7 +99,7 @@ public class ExecutionIsolationAcceptanceTests(ITestOutputHelper output)
     {
         // the same run on a server with the flag: its overshield list and refusals prove the pipe is live (so the two "never" tests above are not vacuous)
         var sent = new List<byte[]>();
-        var h = new Harness(LinkConditions.Perfect, 7, 2, Config(), wrapServer: inner => new Recording(inner, sent));
+        var h = new Harness(LinkConditions.Perfect, 7, 2, Config(extras: ContentProfiles.WarfrontProfile), wrapServer: inner => new Recording(inner, sent));   // X3 repair: the overshield list (sent from the first tick) is Warfront-only, so the control is the Warfront profile
         bool sawRefusal = false;
         h.Run(TimeSpan.FromSeconds(3), (i, t) => new PlayerInput(t, 0, 0, 0, t % 4 == 0 ? InputButtons.Execute | InputButtons.Melee : InputButtons.None), () => sawRefusal |= h.Server.World.ExecutionsRefusedThisTick.Count > 0);
         var sections = sent.Select(p => Protocol.Read(p)).OfType<ExtrasUpdate>().SelectMany(e => e.Sections).Where(s => s.Tag == ExecutionWire.Tag).ToList();
