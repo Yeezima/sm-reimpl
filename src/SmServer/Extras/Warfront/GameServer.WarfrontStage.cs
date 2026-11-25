@@ -264,7 +264,8 @@ public sealed partial class GameServer
             WfLog("the battle was left with nobody connected: no result, back on the ship, nothing rolled");
             return;
         }
-        var outcome = (forced ?? result == TfwMapResult.Won) ? WarfrontOutcome.Win : WarfrontOutcome.Wipe;
+        bool finaleLost = false; WarfrontChaosFinaleLost(ref finaleLost);   // WARFRONT-HOOK Chaos Warfront C5: the duel relay ran out (Chaos/GameServer.WarfrontChaosDuel.cs; false anywhere else)
+        var outcome = (forced ?? result == TfwMapResult.Won) ? WarfrontOutcome.Win : finaleLost ? WarfrontOutcome.FinaleLost : WarfrontOutcome.Wipe;
         int dep = c.Deployments + 1;
         c.Resolve(outcome);
         string rolls = string.Join(", ", c.Rolls.Where(r => r.Deployment == dep).Select(r => $"lane {(char)('A' + r.Lane)} {(r.Lost ? (r.HeldAtFloor ? "lost, held at the floor" : "lost") : "held")} ({r.Before}->{r.After})"));

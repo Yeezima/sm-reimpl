@@ -102,6 +102,9 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontRuleKind"),   // Chaos Warfront C2 review R3: the 'Ard slot's Chaos Marine follows the 'Ard Boy's rule rows   // Chaos Warfront C2 (C0 review finding 4): the gate covers the staggers, the bosses' melee stun and the fodder throw too
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontEnemyScale"),
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontOrkKind"),
+        // Chaos Warfront C5 (2026-11-25): the Chaos Lord on the Warboss's boss code (his rules, his duel kit; no-ops outside a Chaos fortress's duel)
+        ("src/SmSim/Extras/Musou/MusouBoss.cs", "WarfrontBossRules"),
+        ("src/SmSim/Extras/Musou/MusouBoss.cs", "WarfrontBossStep"),
         // ... and the client's: the Host panel's faction row and the presentation tables (looks, sounds, gore, flinch)
         ("client/Extras/HostPanel.Extras.cs", "WarfrontHostFactionRow"),
         ("client/Extras/Musou/MusouLooks.cs", "WarfrontLookFor"),

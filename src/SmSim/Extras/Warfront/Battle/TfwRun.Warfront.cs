@@ -108,6 +108,7 @@ public sealed partial class TfwRun
     partial void WarfrontDowned(World w, int rate, ref bool handled)
     {
         if (Warfront is not { } rules || Battle is not { } battle) return;
+        bool duel = false; WarfrontDuelDowned(w, rate, ref duel); if (duel) { handled = true; return; }   // WARFRONT-HOOK Chaos Warfront C5: the duel relay's rules replace these (Chaos/Finale/TfwRun.WarfrontDuel.cs; a no-op outside it)
         handled = true;
         if (battle.HqLost) { _spectating.Clear(); Leave(w, left: false, TfwMapResult.Lost); return; }   // V fell: the HQ defence is lost
         _warfrontRate = Math.Max(1, rate);

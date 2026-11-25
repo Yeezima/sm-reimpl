@@ -61,7 +61,9 @@ public sealed partial class TfwBattle
         Secured = Positions;
         _commander = true;
         for (int k = 0; k <= Positions; k++) _tideTicks[k] = Ticks(TfwBattleRules.CrowdFillSeconds);
-        SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale * _bonus.BossHealthFactor, leashed: true);   // the one Warboss of the run, leashed to the plaza until a human enters it
+        float bossHealth = _enemies.Rules.BossHealth * _scale * _bonus.BossHealthFactor;
+        WarfrontChaosLordHealth(ref bossHealth);   // WARFRONT-HOOK Chaos Warfront C5: the Chaos Lord is level-scaled only (Chaos/Finale/; a no-op in an Orks fortress)
+        SpawnBoss(MusouEnemyType.Warboss, bossHealth, leashed: true);   // the one Warboss of the run, leashed to the plaza until a human enters it
         if (BossId != 0 && _enemies.TryGet(BossId, out var boss)) BossMaxHealth = boss.Health;   // the level and human scaling were applied at the spawn: the bar's full is what he stands with
         FortressPlace(setup.Plan);
         FortressSay(WarfrontFortressBattleRules.MessageBreach);
@@ -108,10 +110,11 @@ public sealed partial class TfwBattle
         if (FortressMessage != 0 && --_fortressMessageTicks <= 0) FortressMessage = 0;
         if (state.Observe(humans))
         {
-            _enemies.ReleaseGroup(CommanderGroup);
+            if (ChaosArmy) WarfrontChaosPlazaEntered();   // WARFRONT-HOOK Chaos Warfront C5: the plaza frees the Chosen; the Lord waits for the duel (Chaos/Finale/)
+            else _enemies.ReleaseGroup(CommanderGroup);
             FortressSay(WarfrontFortressBattleRules.MessageWarbossInArena);
         }
-        FortressWarbossHome(state, humans);
+        if (!ChaosArmy) FortressWarbossHome(state, humans);   // the Chaos Lord's place is the duel's (C5)
         if (BossId != 0 && _enemies.TryGet(BossId, out var seen) && seen.Alive && BossMaxHealth > 0f) { _tripBossId = BossId; _tripPercent = seen.Health / BossMaxHealth * 100f; _tripSeen = true; }
     }
 
@@ -181,7 +184,7 @@ public sealed partial class TfwBattle
     /// <summary>Whether source <paramref name="index"/> sends now (<see cref="WarfrontFortressState.SourceOpen"/>); the first three also check their crowd's anchor at the waypoint.</summary>
     bool FortressSourceActive(int index)
     {
-        if (_fortress is not { } state || Won) return false;
+        if (_fortress is not { } state || Won || ChaosDuelHold) return false;   // ChaosDuelHold: Chaos Warfront C5, nothing sends during the duel relay
         if ((uint)index >= (uint)_layout.Sources.Length) return false;
         return state.SourceOpen(index, _layout.Sources[index], index < Positions ? _layout.Positions[index] : null);
     }
