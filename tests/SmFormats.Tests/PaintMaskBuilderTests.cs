@@ -166,6 +166,48 @@ public sealed class PaintMaskBuilderTests
     }
 
     [Fact]
+    public void A_glossy_black_field_stays_primary_and_strong_flames_on_it_are_secondary()
+    {
+        // Repair attempt 2 (owner: Legion of the Damned flames "Paint them secondary"): black field (glossy as the flames) primary, orange flames secondary.
+        var dif = new byte[W * H * 4]; var spc = new byte[W * H * 4];
+        for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            int i = (y * W + x) * 4;
+            bool flame = y > 36 && (x % 10) < 6 + (y - 36) / 6;
+            (byte r, byte g, byte b) = flame ? ((byte)(220 + x % 8), (byte)(110 + y % 12), (byte)30) : ((byte)(14 + (x + y) % 4), (byte)14, (byte)15);
+            dif[i] = r; dif[i + 1] = g; dif[i + 2] = b; dif[i + 3] = 255;
+            spc[i] = spc[i + 1] = spc[i + 2] = 60; spc[i + 3] = 255;
+        }
+        var m = PaintMaskBuilder.Build(new DdsImage(W, H, dif), new DdsImage(W, H, spc), null);
+        Assert.True(M(m, 30, 10, 0) > 200, "the black field is primary");
+        Assert.True(M(m, 2, 60, 1) > 200, "a flame is secondary");
+    }
+
+    [Fact]
+    public void Built_chaos_legs_and_pads_put_their_plates_in_the_regular_armours_channel()
+    {
+        // Repair attempt 2, measured on the install's masks: Chaos legs mostly secondary, Chaos pads mostly tertiary, everything else primary.
+        Assert.Equal(1, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc3_set3_legl"));
+        Assert.Equal(1, BakedArmourPaint.PlateChannel("csm_armour_basic_legr"));
+        Assert.Equal(2, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_shldrl"));
+        Assert.Equal(0, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_torso"));
+        Assert.Equal(0, BakedArmourPaint.PlateChannel("csm_armour_mp_dlc2_set1_arml"));
+        Assert.Equal(0, BakedArmourPaint.PlateChannel("sm_armour_mp_dlc1_set1_legl"));
+        Assert.Equal(0, BakedArmourPaint.PlateChannel(null));
+        var (dif, spc) = Synthetic();
+        var mask = PaintMaskBuilder.BuildMask(dif, spc, null);
+        var legs = PaintMaskBuilder.Remap(mask, 1);
+        int plate = (40 * W + 10) * 4;
+        Assert.Equal(mask.Mask[plate], legs.Mask[plate + 1]);
+        Assert.Equal(mask.Mask[plate + 1], legs.Mask[plate]);
+        Assert.Equal((mask.PlateMedian, mask.Primary), (legs.SecondaryMedian, legs.Secondary));
+        // The grey diffuse is the same whichever channel carries the plate.
+        Assert.Equal(PaintMaskBuilder.WithGrey(dif, mask).Diffuse, PaintMaskBuilder.WithGrey(dif, legs).Diffuse);
+        Assert.Same(mask, PaintMaskBuilder.Remap(mask, 0));
+    }
+
+    [Fact]
     public void Dds_round_trip_keeps_the_first_level_and_writes_a_full_mip_chain()
     {
         var (dif, _) = Synthetic();

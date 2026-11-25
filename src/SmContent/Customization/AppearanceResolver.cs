@@ -130,7 +130,7 @@ public static partial class AppearanceResolver
             if (piece is { Reserved: true }) { notes.Add($"{slot}: piece {piece.Name} is not in this install; the default piece is drawn"); piece = null; }
             if (piece is null && defaultSet is not null && defaultSet.Items.TryGetValue(slot, out wanted))
             {
-                piece = race.PiecesFor(slot).FirstOrDefault(p => p.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase))
+                piece = race.OfferedPiecesFor(slot).FirstOrDefault(p => p.Name.Equals(wanted, StringComparison.OrdinalIgnoreCase))
                     ?? defaultSet.Pieces.GetValueOrDefault(slot) ?? options.PieceLookup?.Invoke(wanted);
                 if (piece is null)
                 {

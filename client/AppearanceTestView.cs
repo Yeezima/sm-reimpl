@@ -181,7 +181,7 @@ public partial class AppearanceTestView : Node3D
             // --list-heads: every head piece of the catalogue with its helmet packages and whether the lens recolour has rectangles for them (check every helmet one by one with --piece head=<name>).
             if (_args.ContainsKey("list-heads"))
                 foreach (var race0 in new[] { CustomizationCatalog.SpaceMarine, CustomizationCatalog.Chaos })
-                    foreach (var head in catalog.Race(race0)!.PiecesFor("head"))
+                    foreach (var head in catalog.Race(race0)!.OfferedPiecesFor("head"))
                         GD.Print($"head piece: {race0} {head.Name}: packages [{string.Join(", ", head.Packages)}]; lens rectangles {string.Join("+", head.Packages.Select(p => LensRegions.For(p).Count))}");
             string race = _args.GetValueOrDefault("race") is { } r ? (r.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine)
                 : _args.GetValueOrDefault("class") is { } cl && cl.StartsWith("csm", StringComparison.OrdinalIgnoreCase) || _args.GetValueOrDefault("class") is "raptor" or "havoc" ? CustomizationCatalog.Chaos

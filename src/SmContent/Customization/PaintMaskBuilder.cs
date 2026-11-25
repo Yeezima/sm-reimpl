@@ -43,7 +43,11 @@ public static class PaintMaskBuilder
     /// </summary>
     /// <param name="used">Optional: which texels the mesh's UVs cover (width x height, row-major); others are ignored when the colours are clustered (an
     /// unused grey texture background must not become the "plate" colour).</param>
-    public static BuiltPaintMask Build(DdsImage diffuse, DdsImage? specular, DdsImage? lightProp, bool[]? used = null)
+    public static BuiltPaintMask Build(DdsImage diffuse, DdsImage? specular, DdsImage? lightProp, bool[]? used = null) =>
+        WithGrey(diffuse, BuildMask(diffuse, specular, lightProp, used));
+
+    /// <summary>The mask and region medians of <see cref="Build"/> without the grey diffuse (what the cache keeps; <see cref="WithGrey"/> adds the diffuse).</summary>
+    public static MaskOnly BuildMask(DdsImage diffuse, DdsImage? specular, DdsImage? lightProp, bool[]? used = null)
     {
         int w = diffuse.Width, h = diffuse.Height, n = w * h;
         var L = new float[n]; var A = new float[n]; var B = new float[n]; var spec = new float[n]; var lpB = new float[n]; var lum = new float[n];
@@ -82,35 +86,70 @@ public static class PaintMaskBuilder
         }
         for (int i = 0; i < n; i++) if (covered[i] && spec[i] > 10f * k && lpB[i] < 8f) candidates.Add(i);
         if (candidates.Count < 16) for (int i = 0; i < n; i++) if (covered[i]) candidates.Add(i);
-        var (c1, c2, has2) = PlateClusters(candidates, L, A, B);
+        var (c1, c2, has2) = PlateClusters(candidates, L, A, B, spec);
         if (Environment.GetEnvironmentVariable("SM_MASK_DEBUG") == "1")
             Console.WriteLine($"mask debug {w}x{h}: spec scale {k:0.00}, covered {coveredCount}, candidates {candidates.Count}, c1 L{c1.L:0} a{c1.A:0} b{c1.B:0}, c2 {(has2 ? $"L{c2.L:0} a{c2.A:0} b{c2.B:0}" : "-")}");
 
         // Warm, light ornaments (bone, gold, brass) when the plates are not themselves warm and light.
         float plateHue = MathF.Atan2(c1.B, c1.A), plateChroma = MathF.Sqrt(c1.A * c1.A + c1.B * c1.B);
+        float c2Hue = MathF.Atan2(c2.B, c2.A), c2Chroma = MathF.Sqrt(c2.A * c2.A + c2.B * c2.B);
 
         var tert = new float[n]; var prim = new float[n]; var sec = new float[n];
+        // Repair attempt 2: a strong colour within 0.8 rad of a chromatic secondary's hue (Legion of the Damned flames, their yellow cores included) is secondary
+        // paint, not ornament; beyond that (the Space Wolves pad's yellow beside its red, 0.9 rad) the ornament rules apply.
+        bool SecondaryHue(float hue, float chroma) => !OldMaskRules && has2 && c2Chroma >= 20f && HueGap(hue, c2Hue) <= 0.8f && chroma >= c2Chroma * 0.5f;
         var plateLum = new List<float>(); var secLum = new List<float>(); var ornLum = new List<float>(); var warmOnly = new float[n];
         for (int i = 0; i < n; i++)
         {
             if (!covered[i]) continue;
             float chroma = MathF.Sqrt(A[i] * A[i] + B[i] * B[i]), hue = MathF.Atan2(B[i], A[i]);
             float t = Smooth(6f, 30f, lpB[i]);
-            bool warm = chroma > 8f && hue is > 0.75f and < 1.75f && (plateChroma < 12f || HueGap(hue, plateHue) > 0.45f);
-            if (warm && L[i] > c1.L + 18f) { float wt = Smooth(c1.L + 18f, c1.L + 32f, L[i]); if (wt > t) { warmOnly[i] = wt - t; t = wt; } }
+            // Repair attempt 2: strong yellows reach 1.95 rad (the Space Wolves pad's slightly green yellow fell just outside 1.75 and stayed baked).
+            bool warm = chroma > 8f && hue > 0.75f && (hue < 1.75f || !OldMaskRules && chroma >= 30f && hue < 1.95f) && (plateChroma < 12f || HueGap(hue, plateHue) > 0.45f)
+                // Repair attempt 2: a strong colour of the secondary's hue (Legion of the Damned flames, yellow cores included) is secondary paint, not ornament.
+                && !SecondaryHue(hue, chroma)
+                // Repair attempt 2: on a light plate (bone, white: L* above 35) only real gold or brass (chroma 18+) is ornament; the plate's own warmer texels
+                // were scattered into the tertiary region (the Black Templars bone pad's speckle).
+                && (OldMaskRules || c1.L <= 35f || chroma >= 18f);
+            // Repair attempt 2: a strong warm colour (chroma 30+: heraldic yellow) needs only 8 to 18 L* above the plate, not 18 to 32 (the Space Wolves chevrons were 0.4 tertiary).
+            float warmLo = !OldMaskRules && chroma >= 30f ? 8f : 18f, warmHi = !OldMaskRules && chroma >= 30f ? 18f : 32f;
+            if (warm && L[i] > c1.L + warmLo) { float wt = Smooth(c1.L + warmLo, c1.L + warmHi, L[i]); if (wt > t) { warmOnly[i] = wt - t; t = wt; } }
             float d1 = Distance(L[i], A[i], B[i], c1), d2 = has2 ? Distance(L[i], A[i], B[i], c2) : float.MaxValue;
+            bool secondaryHue = SecondaryHue(hue, chroma);
             float specGate = Smooth(3f * k, 12f * k, spec[i]);
             float p = Smooth(26f, 12f, d1) * specGate, s = has2 ? Smooth(22f, 10f, d2) * specGate : 0f;
             // Chromatic plates: darker, lighter or duller texels of the same hue (shadowed or worn paint) are the same plate whatever their lightness.
             p = MathF.Max(p, HueMatch(hue, chroma, L[i], c1) * Smooth(1f * k, 6f * k, spec[i]));
             if (has2) s = MathF.Max(s, HueMatch(hue, chroma, L[i], c2) * Smooth(1f * k, 6f * k, spec[i]));
+            if (secondaryHue) { s = MathF.Max(s, Smooth(1f * k, 6f * k, spec[i])); p = MathF.Min(p, 1f - s); }
             if (has2 && s > 0f && p > 0f) { if (d2 < d1) p *= Math.Clamp(d2 / MathF.Max(d1, 1e-3f), 0f, 1f); else s *= Math.Clamp(d1 / MathF.Max(d2, 1e-3f), 0f, 1f); }
             float rest = MathF.Max(0f, 1f - t);
             p *= rest; s *= rest;
             prim[i] = p; sec[i] = s; tert[i] = t;
+            if (DebugTexel == i) Console.WriteLine($"mask debug texel {i % w},{i / w}: L{L[i]:0} a{A[i]:0} b{B[i]:0} hue {hue:0.00} chroma {chroma:0} spec {spec[i]:0} lpB {lpB[i]:0} warm {warm} p {p:0.00} s {s:0.00} t {t:0.00}");
             if (p > 0.6f) plateLum.Add(lum[i]);
             else if (s > 0.6f) secLum.Add(lum[i]);
             else if (t > 0.6f) ornLum.Add(lum[i]);
+        }
+
+        // Repair attempt 2 (ours): on a dark plate, compact light areas (bone discs, silver rims: L* 30+ above the plate, chroma under 25, at least 60 % of their 7x7
+        // neighbourhood light) are ornaments as a whole; they were split between the primary and tertiary regions (the Black Templars knee disc). Isolated light
+        // texels (scratches) are left to the dark-plate rules.
+        if (!OldMaskRules && c1.L < 32f && plateChroma < 9f)
+        {
+            var bright = new float[n];
+            for (int i = 0; i < n; i++)
+                if (covered[i] && A[i] * A[i] + B[i] * B[i] < 625f) bright[i] = Smooth(c1.L + 30f, c1.L + 40f, L[i]);
+            var near = Box(bright, w, h, 3);
+            for (int i = 0; i < n; i++)
+            {
+                float move = bright[i] * Smooth(0.45f, 0.6f, near[i]);
+                if (move <= 0f || tert[i] >= move) continue;
+                float keep = 1f - move;
+                prim[i] *= keep; sec[i] *= keep;
+                tert[i] = MathF.Max(tert[i], move);
+                if (tert[i] > 0.6f) ornLum.Add(lum[i]);
+            }
         }
 
         // A light warm colour covering much of the piece (a bone or white shoulder pad) is a plate colour, not ornaments: it becomes the secondary region.
@@ -176,7 +215,21 @@ public static class PaintMaskBuilder
             sp += p; ss += s; st += t;
         }
         float cov = Math.Max(1, coveredCount);
-        return WithGrey(diffuse, new MaskOnly(w, h, mask, plateMedian, secMedian, ornMedian, (float)(sp / cov), (float)(ss / cov), (float)(st / cov)));
+        return new MaskOnly(w, h, mask, plateMedian, secMedian, ornMedian, (float)(sp / cov), (float)(ss / cov), (float)(st / cov));
+    }
+
+    /// <summary>
+    /// <paramref name="m"/> with its primary region moved into <paramref name="plateChannel"/> (1 secondary, 2 tertiary) and that region into the primary channel,
+    /// medians and shares with them; <paramref name="m"/> itself for channel 0.
+    /// </summary>
+    public static MaskOnly Remap(MaskOnly m, int plateChannel)
+    {
+        if (plateChannel is not (1 or 2)) return m;
+        var mask = (byte[])m.Mask.Clone();
+        for (int i = 0; i < m.Width * m.Height; i++) (mask[i * 4], mask[i * 4 + plateChannel]) = (mask[i * 4 + plateChannel], mask[i * 4]);
+        return plateChannel == 1
+            ? m with { Mask = mask, PlateMedian = m.SecondaryMedian, SecondaryMedian = m.PlateMedian, Primary = m.Secondary, Secondary = m.Primary }
+            : m with { Mask = mask, PlateMedian = m.OrnamentMedian, OrnamentMedian = m.PlateMedian, Primary = m.Tertiary, Tertiary = m.Primary };
     }
 
     /// <summary>A built mask without its grey diffuse (what the cache keeps: <see cref="BakedArmourPaint.CacheDirectory"/>).</summary>
@@ -261,7 +314,7 @@ public static class PaintMaskBuilder
 
     readonly record struct Centre(float L, float A, float B);
 
-    static (Centre First, Centre Second, bool HasSecond) PlateClusters(List<int> pixels, float[] L, float[] A, float[] B)
+    static (Centre First, Centre Second, bool HasSecond) PlateClusters(List<int> pixels, float[] L, float[] A, float[] B, float[]? spec = null)
     {
         // Histogram mode in (a, b, L/3) bins of 6 units: deterministic seeds.
         var bins = new Dictionary<(int, int, int), int>();
@@ -281,15 +334,36 @@ public static class PaintMaskBuilder
         // Repair attempt 1: gold, brass and bone (warm and light: ornaments, emblems) never stand in for a dark plate (the Salamanders, Titus and Blood Ravens
         // backpacks: their dark plates stayed baked while the emblem took the primary colour).
         static bool WarmLight(float l, float a, float b) => !OldMaskRules && l > 38f && MathF.Atan2(b, a) is > 0.75f and < 1.75f;
+        // Repair attempt 2 (ours): a strong colour beside a dark plate. When the dark texels are as glossy as the coloured ones (0.7 x their median specular or
+        // more) the dark field is painted plate, not undersuit: it stays the primary colour and the strong colour (chroma 20 and more, a 25th of the texels or more:
+        // Legion of the Damned flames) is the secondary; when they are duller (undersuit, rubber beside red plates on an arm) the colour is the plate, as before.
+        Centre? forcedSecond = null;
+        Centre? StrongColour(int minShare)
+        {
+            double l = 0, a = 0, b = 0; int count = 0;
+            foreach (int i in pixels)
+                if (A[i] * A[i] + B[i] * B[i] >= 400f && !WarmLight(L[i], A[i], B[i]) || A[i] * A[i] + B[i] * B[i] >= 900f) { l += L[i]; a += A[i]; b += B[i]; count++; }
+            return count > 0 && count * minShare >= pixels.Count ? new Centre((float)(l / count), (float)(a / count), (float)(b / count)) : null;
+        }
+        float MedianSpec(Func<int, bool> which)
+        {
+            if (spec is null) return 0f;
+            var v = new List<float>();
+            foreach (int i in pixels) if (which(i)) v.Add(spec[i]);
+            return Median(v, 0f);
+        }
+        bool IsDark(int i) => L[i] < 32f && A[i] * A[i] + B[i] * B[i] < 81f;
         if (DarkGrey(first))
         {
             int coloured = pixels.Count(i => A[i] * A[i] + B[i] * B[i] >= 144f && !WarmLight(L[i], A[i], B[i]));
-            if (coloured * 4 >= pixels.Count)
+            bool darkIsPlate = !OldMaskRules && spec is not null && MedianSpec(IsDark) >= 0.7f * MedianSpec(i => A[i] * A[i] + B[i] * B[i] >= 144f);
+            if (coloured * 4 >= pixels.Count && !darkIsPlate)
                 foreach (var (k, _) in ordered.Skip(1))
                 {
                     var c = FromBin(k);
                     if (MathF.Sqrt(c.A * c.A + c.B * c.B) >= 12f && !WarmLight(c.L, c.A, c.B)) { first = c; break; }
                 }
+            if (!OldMaskRules && DarkGrey(first)) forcedSecond = StrongColour(25);
         }
         Centre? second = null;
         foreach (var (k, count) in ordered.Skip(1))
@@ -324,6 +398,7 @@ public static class PaintMaskBuilder
             bool lighter = s2.L > 35f && MathF.Abs(s2.L - first.L) > 25f;
             if (!distinctHue && !lighter) second = null;
         }
+        if (second is null && forcedSecond is { } fs) second = fs;
         return (first, second ?? first, second is not null);
     }
 
@@ -430,6 +505,8 @@ public static class PaintMaskBuilder
         values.Sort();
         return values[values.Count / 2];
     }
+
+    static int DebugTexel => Environment.GetEnvironmentVariable("SM_MASK_DEBUG_PX") is { } v && v.Split(',') is [var x, var y] && int.TryParse(x, out int xi) && int.TryParse(y, out int yi) ? yi * 256 + xi : -1;
 
     static float[] Box(float[] v, int w, int h, int radius = 1)
     {

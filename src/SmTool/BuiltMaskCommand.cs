@@ -69,7 +69,7 @@ static class BuiltMaskCommand
             try
             {
                 var piece = CharacterModel.LoadPiece(bones, CharacterModel.PackagePath(gameDir, w.Package)!, n, CharacterModel.ChaosTexturePackages, objectTreePlacement: true, positions, buildPaintMasks: true);
-                if (previews is not null) pieces[w.Package] = piece;
+                if (previews is not null || rest.Contains("--mask-shares")) pieces[w.Package] = piece;
             }
             catch (Exception ex) when (ex is not OutOfMemoryException) { n.Add($"{w.Package}: {ex.GetType().Name}: {ex.Message}"); }
             times[w.Package] = watch.Elapsed.TotalMilliseconds;
@@ -85,6 +85,16 @@ static class BuiltMaskCommand
         foreach (var (p, ms) in times.OrderBy(kv => kv.Key, StringComparer.Ordinal)) Console.WriteLine($"  {p}: {ms:0} ms");
         foreach (var n in notes.Where(n => n.Contains("mask", StringComparison.OrdinalIgnoreCase) || n.Contains("Exception", StringComparison.Ordinal)).Distinct()) Console.WriteLine("  note: " + n);
 
+        if (rest.Contains("--mask-shares"))
+            foreach (var (pkg, piece) in pieces.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                foreach (var surf in piece.Model.Surfaces)
+                    if (surf.Material is { } mm && mm.Textures.TryGetValue("PaintMask", out var mn) && piece.Model.Textures.TryGetValue(mn, out var mb) && DdsImage.TryDecode(mb) is { } mi)
+                    {
+                        double r = 0, g = 0, b = 0; int n = 0;
+                        for (int i = 0; i < mi.Width * mi.Height; i++) { int o2 = i * 4; if (mi.Rgba[o2] + mi.Rgba[o2 + 1] + mi.Rgba[o2 + 2] < 60) continue; r += mi.Rgba[o2]; g += mi.Rgba[o2 + 1]; b += mi.Rgba[o2 + 2]; n++; }
+                        double t = Math.Max(1, r + g + b);
+                        Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels");
+                    }
         if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"), int.TryParse(Opt("--cell"), out var cell) ? cell : 192, rest.Contains("--full"));
         return 0;
     }

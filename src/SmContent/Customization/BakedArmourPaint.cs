@@ -41,9 +41,9 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// The version of what <see cref="PaintMaskBuilder"/> makes: part of every cache key, so raising it (with any change to the builder's output) rebuilds every
-    /// cached mask. 2: armour-pieces-1125 repair attempt 1.
+    /// cached mask. 2: armour-pieces-1125 repair attempt 1; 3: repair attempt 2.
     /// </summary>
-    public const int BuilderVersion = 2;
+    public const int BuilderVersion = 3;
 
     /// <summary>
     /// Where built masks are kept between runs, or null (the default: nothing is written). The client sets it to its private cache folder
@@ -133,8 +133,9 @@ public static class BakedArmourPaint
     /// stored by diffuse name, a second material overwrote the first's mask with one that left the first's texels unpainted). A material whose build fails is
     /// drawn baked, with a note; the rest of the package is unaffected (finding 5).
     /// </summary>
-    public static StaticModel Apply(StaticModel model, List<string>? notes = null)
+    public static StaticModel Apply(StaticModel model, List<string>? notes = null, string? package = null)
     {
+        int plateChannel = PlateChannel(package);
         var added = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         var built = new Dictionary<Sources, (string Mask, string Grey)?>();
         var surfaces = new List<StaticModelSurface>(model.Surfaces.Count);
@@ -148,7 +149,7 @@ public static class BakedArmourPaint
                 var users = model.Surfaces.Where(o => o.Material is { } om && NeedsMask(om) && SourcesOf(om) == key).ToList();
                 // Two different source sets with one diffuse (other specular maps) get distinct names.
                 string stem = key.Diffuse + (built.Keys.Any(k => k.Diffuse.Equals(key.Diffuse, StringComparison.OrdinalIgnoreCase)) ? "__" + built.Count : "");
-                names = Build(m, key, stem, model.Textures, added, notes, (w, h) => Coverage(model, users, w, h));
+                names = Build(m, key, stem, model.Textures, added, notes, (w, h) => Coverage(model, users, w, h), plateChannel);
                 built[key] = names;
             }
             if (names is not { } n) { surfaces.Add(s); continue; }
@@ -216,8 +217,23 @@ public static class BakedArmourPaint
         return any;
     }
 
+    /// <summary>
+    /// The paint channel that carries the plates of the regular (masked) armour of a race and slot (repair attempt 2, measured on the install's own masks: share of
+    /// R / G / B over the painted texels): Chaos legs are mostly secondary (<c>csm_armour_mp_basic_legl</c> 20 / 62 / 17 %, <c>_legr</c> 16 / 72 / 12 %) and Chaos pads
+    /// mostly tertiary (<c>_shldrl</c> 18 / 16 / 66 %, <c>_shldrr</c> 16 / 9 / 75 %); Chaos head, torso and backpack (61 / 48 % R) and every Space Marine slot (basic,
+    /// Mk IV, Mk VI: R 38 to 100 %, G up to 62 % on pads, helmets and torsos where the schemes mostly give both one colour) are primary, and Chaos arms are mixed
+    /// (R 28 / 41 %, G 44 / 43 %: primary kept). A built mask puts its plate region in that channel, so a built piece takes the colour the regular piece of its slot
+    /// shows (the Death Guard and dlc2_set3 / dlc3_set2 legs and pads looked like another colour than the regular armour beside them). Key: the package's race
+    /// prefix and slot suffix.
+    /// </summary>
+    public static int PlateChannel(string? package)
+    {
+        if (package is null || PaintMaskBuilder.OldMaskRules || !package.StartsWith("csm_", StringComparison.OrdinalIgnoreCase)) return 0;
+        return PaintSchemes.SlotOf(package) switch { "leftleg" or "rightleg" => 1, "leftshoulder" or "rightshoulder" => 2, _ => 0 };
+    }
+
     static (string Mask, string Grey)? Build(BmatMaterial m, Sources src, string stem, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added,
-        List<string>? notes, Func<int, int, bool[]?> coverage)
+        List<string>? notes, Func<int, int, bool[]?> coverage, int plateChannel = 0)
     {
         if (!textures.TryGetValue(src.Diffuse, out var difBytes))
         {
@@ -239,19 +255,20 @@ public static class BakedArmourPaint
             var used = coverage(diffuse.Width, diffuse.Height);
             byte[]? specBytes = Bytes(src.Specular), lpBytes = Bytes(src.LightProp);
             string? key = CacheDirectory is null ? null : CacheKey(difBytes, specBytes, lpBytes, used);
-            BuiltPaintMask result;
+            PaintMaskBuilder.MaskOnly maskOnly;
             if (key is not null && ReadCache(key, diffuse.Width, diffuse.Height) is { } cached)
             {
-                result = PaintMaskBuilder.WithGrey(diffuse, cached);
+                maskOnly = cached;
                 Interlocked.Increment(ref _hits);
             }
             else
             {
                 DdsImage? Opt(byte[]? b) => b is null ? null : DdsImage.TryDecode(b);
-                result = PaintMaskBuilder.Build(diffuse, Opt(specBytes), Opt(lpBytes), used);
+                maskOnly = PaintMaskBuilder.BuildMask(diffuse, Opt(specBytes), Opt(lpBytes), used);
                 Interlocked.Increment(ref _built);
-                if (key is not null) WriteCache(key, result);
+                if (key is not null) WriteCache(key, maskOnly);
             }
+            var result = PaintMaskBuilder.WithGrey(diffuse, PaintMaskBuilder.Remap(maskOnly, plateChannel));
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)
             {
                 notes?.Add($"material '{m.Name}': the built mask paints nothing; drawn as baked");
@@ -285,7 +302,7 @@ public static class BakedArmourPaint
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> head = stackalloc byte[8];
-        BitConverter.TryWriteBytes(head, BuilderVersion);
+        BitConverter.TryWriteBytes(head, BuilderVersion);   // the channel remap is applied after the cache, so it is not part of the key
         BitConverter.TryWriteBytes(head[4..], (PaintMaskBuilder.OldDarkPlates ? 1 : 0) | (PaintMaskBuilder.OldMaskRules ? 2 : 0));
         h.AppendData(head);
         foreach (var part in new[] { diffuse, specular ?? [], lightProp ?? [] })
@@ -327,7 +344,7 @@ public static class BakedArmourPaint
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or EndOfStreamException or InvalidDataException) { return null; }
     }
 
-    static void WriteCache(string key, BuiltPaintMask built)
+    static void WriteCache(string key, PaintMaskBuilder.MaskOnly built)
     {
         try
         {
