@@ -92,11 +92,7 @@ public sealed partial class ClassicBotBrain
     /// <summary>The accuracy this bot uses: <c>--bot-accuracy</c>, else 1 with a probe flag (<see cref="ProbeFlags"/>), else <see cref="DefaultBotAccuracy"/>.</summary>
     float BotAccuracy => _botAccuracyFlag ?? (ProbeFlags.Any(CmdFlag) ? 1f : DefaultBotAccuracy);
 
-    float? FloatArg(string name)
-    {
-        var a = CmdArgs(name, 1);
-        return a.Length == 1 && float.TryParse(a[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float v) && float.IsFinite(v) ? v : null;
-    }
+    float? FloatArg(string name) => _args.FiniteFloat(name);
 
     void ReadBotAimFlags()
     {
@@ -128,7 +124,7 @@ public sealed partial class ClassicBotBrain
     {
         ReadBotAimFlags();
         BotTrace(input);
-        BotNoteMove(input);   // stream C measurements (NetworkView.BotTactics.cs)
+        BotNoteMove(input);   // stream C measurements (ClassicBotBrain.BotTactics.cs)
         bool aimed = _botAimNow;
         int? aimTarget = _botAimTarget;
         _botAimNow = false; _botAimTarget = null;
@@ -173,6 +169,7 @@ public sealed partial class ClassicBotBrain
     /// </summary>
     void BotTrace(PlayerInput input)
     {
+        if (!_options.Primary) return;   // the host's primary brain alone writes the trace (not the --bot-shadow brain)
         if (!_botTraceTried)
         {
             _botTraceTried = true;

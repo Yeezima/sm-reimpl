@@ -99,7 +99,7 @@ public partial class NetworkView
         }
     }
 
-    static string PointLetter(int index) => index < 26 ? ((char)('A' + index)).ToString() : index.ToString();
+    static string PointLetter(int index) => SmBots.BotLabels.PointLetter(index);
 
     static Color SideColour(Team t) => t switch { Team.SpaceMarines => MarineSideColour, Team.Chaos => ChaosSideColour, _ => NeutralPointColour };
 

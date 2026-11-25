@@ -28,7 +28,7 @@ public sealed partial class ClassicBotBrain
     string _botSeizeNote = "";
 
     /// <summary>The letter of control point <paramref name="index"/> (A, B, C in the layout's order), as the client's HUD names it.</summary>
-    static string PointLetter(int index) => index < 26 ? ((char)('A' + index)).ToString() : index.ToString();
+    static string PointLetter(int index) => BotLabels.PointLetter(index);
 
     /// <summary>
     /// Seize Ground bot input, or null to play as in Annihilation (not Seize Ground, dead, no layout, or every point held

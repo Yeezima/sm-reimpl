@@ -1156,24 +1156,6 @@ public partial class NetworkView : Node3D
         }
     }
 
-    /// <summary>
-    /// The nearest living remote enemy as last shown (interpolated), or null: with teams (the own player has a side)
-    /// allies are skipped (M15); without teams everyone is a target.
-    /// </summary>
-    PlayerState? NearestLivingTarget(PlayerState me)
-    {
-        PlayerState? best = null;
-        float bestDistance = float.MaxValue;
-        foreach (var other in _lastOthers)
-        {
-            if (!other.Alive) continue;
-            if (me.Team != Team.None && !World.Hostile(me.Team, other.Team)) continue;
-            float distance = System.Numerics.Vector3.DistanceSquared(other.Position, me.Position);
-            if (distance < bestDistance) { bestDistance = distance; best = other; }
-        }
-        return best;
-    }
-
     /// <summary>A character wearing <paramref name="assets"/> (a built look, or the default marine as the placeholder: <see cref="Looks.LookKeys.Placeholder"/>); <paramref name="lookKey"/> names it for <see cref="EnsureModel"/>.</summary>
     CharacterViewer Spawn(int playerId, bool local, MarineAssets assets, string lookKey)
     {
@@ -1558,26 +1540,11 @@ public partial class NetworkView : Node3D
         return best;
     }
 
-    /// <summary>A wargear name without its race and category prefix: "sm_mp_pistol_bolt_pistol" gives "bolt pistol".</summary>
-    static string WeaponLabel(string wargear)
-    {
-        // Ork O5 review: the Ork wargear's own names (the AI files carry no MP display name; ours) instead of "ork coop boy 2hand shoota rapid".
-        if (wargear.Equals(OrkClass.Shoota, StringComparison.OrdinalIgnoreCase)) return "shoota";
-        if (wargear.Equals(OrkClass.Slugga, StringComparison.OrdinalIgnoreCase)) return "slugga";
-        if (wargear.Equals(OrkClass.Choppa, StringComparison.OrdinalIgnoreCase)) return "choppa";
-        if (wargear.Equals(OrkClass.Stikkbomb, StringComparison.OrdinalIgnoreCase)) return "stikkbomb";
-        // Weapons C: the Devastator's and the Havoc's melee is their core ability's kick and stomp.
-        if (wargear.EndsWith("_core_abil_heavy_evade", StringComparison.OrdinalIgnoreCase)) return "kick / stomp";
-        string label = wargear;
-        int mp = label.IndexOf("_mp_", StringComparison.OrdinalIgnoreCase);
-        if (mp >= 0) label = label[(mp + 4)..];
-        foreach (var category in new[] { "ranged_", "pistol_", "exotic_", "melee_", "eq_" })
-            if (label.StartsWith(category, StringComparison.OrdinalIgnoreCase)) { label = label[category.Length..]; break; }
-        return label.Replace('_', ' ');
-    }
+    /// <summary>A wargear name without its race and category prefix: "sm_mp_pistol_bolt_pistol" gives "bolt pistol" (one copy, shared with the bot's log: <see cref="SmBots.BotLabels"/>).</summary>
+    static string WeaponLabel(string wargear) => SmBots.BotLabels.Weapon(wargear);
 
     /// <summary>The HUD name of a weapon; the single-weapon fallback ("default") is the bolter's values.</summary>
-    static string WeaponLabel(WeaponSpec? weapon) => weapon is null ? "no weapon" : weapon.Name == "default" ? "bolter" : WeaponLabel(weapon.Name);
+    static string WeaponLabel(WeaponSpec? weapon) => SmBots.BotLabels.Weapon(weapon);
 
     string ClassLabel(int playerClass) => playerClass >= 0 && playerClass < _classLabels.Length ? _classLabels[playerClass] : $"class {playerClass}";
 

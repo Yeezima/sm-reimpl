@@ -49,14 +49,14 @@ public sealed partial class ClassicBotBrain
                 var cancel = _navCancel.Token;
                 string mapName = client.MapName;
                 float eye = _config?.EyeHeight ?? 1.7f;
-                slot.PlanTask = Job($"plan {slot.Team} {slot.Pack}", () =>
+                slot.PlanTask = MapJob($"plan {slot.Key}", () =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);
                     var theirs = map.StartAreas.FirstOrDefault(a => a.Side == MatchRules.Other(team));
                     if (team == Team.None || own is null || theirs is null) return ((BotMapPlan?)null, "no start area for both sides");
                     var plan = BotMapPlan.Build(graph, own.Position, theirs.Position, door, centre, world, cancel);
-                    // 2026-11-08: the ramp and balcony posts (NetworkView.BotPosts.cs).
+                    // 2026-11-08: the ramp and balcony posts (ClassicBotBrain.BotPosts.cs).
                     if (plan is not null) plan.Posts = BotPosts.Build(mapName, graph, world, own.Position, theirs.Position, map.ControlPoints.Select(p => p.Position).ToList(), eye, cancel);
                     return (plan, $"{System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms");
                 }, cancel);

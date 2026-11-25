@@ -35,10 +35,14 @@ public sealed record ClassicBotOptions
     /// </summary>
     public bool InlineSearches { get; init; }
     /// <summary>
-    /// The key prefix of this brain's background jobs (<see cref="BotWork"/>): one per bot in a process; the shadow brain uses its live brain's, so the two share
-    /// each job.
+    /// The key prefix of this brain's own background searches (cover, approach; <see cref="BotWork"/>): null (the default) gives every brain a lane of its own; the
+    /// client's shadow brain is given its live brain's, so the two share each search. Map jobs (graph, jump links, watch, plan) are keyed by the map, not the lane.
     /// </summary>
-    public string WorkLane { get; init; } = "bot";
+    public string? WorkLane { get; init; }
+    /// <summary>
+    /// The brain the host plays (true, the default): it alone writes <c>--bot-trace</c>. The client's shadow brain (<c>--bot-shadow</c>) is not primary.
+    /// </summary>
+    public bool Primary { get; init; } = true;
     /// <summary>
     /// The seed of the Classic PvP preset draw (<see cref="ClassicBotBrain.BotPresetOnMap"/>); null: <see cref="System.Random.Shared"/>, as the client always drew it
     /// (one draw per match from the process's shared generator).

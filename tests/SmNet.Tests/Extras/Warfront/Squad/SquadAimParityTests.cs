@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using SmSim.Extras.Warfront.Squad;
 
 namespace SmNet.Tests.Extras.Warfront.Squad;
@@ -29,10 +28,8 @@ public class SquadAimParityTests
     [Fact]
     public void The_Classic_accuracy_is_the_clients_default()
     {
-        string src = File.ReadAllText(Path.Combine(RepoRoot(), "src", "SmBots", "ClassicBotBrain.BotAim.cs"));   // T1: the Classic bot brain moved to src/SmBots
-        var m = Regex.Match(src, @"DefaultBotAccuracy\s*=\s*([0-9.]+)f");
-        Assert.True(m.Success);
-        Assert.Equal(float.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), SquadAim.ClassicAccuracy);
+        // T1 (2026-11-25): the constant moved with the bot brain to src/SmBots (ClassicBotBrain.BotAim.cs); the client's NetworkView.DefaultBotAccuracy forwards to it.
+        Assert.Equal(SmBots.ClassicBotBrain.DefaultBotAccuracy, SquadAim.ClassicAccuracy);
     }
 
     [Fact]
@@ -53,12 +50,5 @@ public class SquadAimParityTests
     public void A_blow_keeps_the_weapons_own_chance()
     {
         Assert.Equal(0.7f, SquadAim.HitChance(0.7f, melee: true, 2f));
-    }
-
-    static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "SmReimpl.slnx"))) dir = dir.Parent;
-        return dir?.FullName ?? throw new InvalidOperationException("repository root not found");
     }
 }

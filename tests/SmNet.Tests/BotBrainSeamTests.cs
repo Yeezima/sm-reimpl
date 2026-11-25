@@ -63,6 +63,37 @@ public class BotBrainSeamTests
         Assert.NotSame(task, work.Run("lane|1|nav", () => 7, CancellationToken.None));   // a new map forgets the keys
     }
 
+    [Fact]
+    public void BotWork_scopes_map_jobs_by_the_loaded_map_and_forgets_a_taken_search()
+    {
+        var work = new BotWork();
+        object map = new(), collision = new(), config = new(), otherLoad = new();
+        Assert.Equal(work.MapScope("mp_m09", map, collision, config), work.MapScope("mp_m09", map, collision, config));   // every brain on the loaded map: one scope
+        Assert.NotEqual(work.MapScope("mp_m09", map, collision, config), work.MapScope("mp_m09", otherLoad, collision, config));   // another load of the map: another
+        var search = work.Run("brain lane 1|1|cover 1", () => 1, CancellationToken.None);
+        var kept = work.Run("map x|nav", () => 2, CancellationToken.None);
+        Assert.Equal(2, work.Keys);
+        work.Forget(search);                               // taken: the key goes, the holder keeps its task
+        Assert.Equal(1, work.Keys);
+        work.Forget("map x|nav");
+        Assert.Equal(0, work.Keys);
+        for (int i = 0; i < 200 && !(search.IsCompleted && kept.IsCompleted); i++) { work.Poll(); Thread.Sleep(10); }
+        Assert.Equal(1, search.Result);                    // a forgotten job still finishes at a poll
+        Assert.Equal(0, work.Running);
+    }
+
+    [Fact]
+    public void BotArgs_flags_are_taken_once_and_values_parse_finite()
+    {
+        var a = new BotArgs(["--bot-accuracy", "0.5", "--bot-range", "Infinity", "--BOT"]);
+        Assert.True(a.Flag("bot-accuracy"));
+        Assert.False(a.Flag("bot"));                       // ordinal, as Array.IndexOf was
+        Assert.Equal(0.5f, a.FiniteFloat("bot-accuracy"));
+        Assert.Null(a.FiniteFloat("bot-range"));           // infinity is not a value
+        Assert.Null(a.FiniteFloat("missing"));
+        Assert.Null(BotArgs.FiniteFloat(["1", "2"]));
+    }
+
     /// <summary>A flat-ground world (no collision): the bot (player 1, Space Marines) and the given others; its own view.</summary>
     sealed class FlatWorld : IBotWorldView
     {
@@ -74,7 +105,7 @@ public class BotBrainSeamTests
         public PlayerState Predicted => Me;
         public IReadOnlyList<PlayerState> Others => OthersList;
         public double ConnectedFor => Now;
-        public SimConfig? Config { get; } = new SimConfig();
+        public SimConfig? Config { get; init; } = new SimConfig();
         public CollisionWorld? Collision => null;
         public MatchView Match => new(MatchState.Playing, Team.None, 1000, 0, 0);
         public IReadOnlyList<ControlPointView> Points => [];
@@ -191,5 +222,30 @@ public class BotBrainSeamTests
         Assert.Null(brain.Preset);
         Assert.False(brain.CommittedMove(world.Me));
         Assert.Equal("", brain.Note);
+
+        // The draw itself: on a Classic PvP map the same seed gives the same preset match after match; a different seed walks the presets differently.
+        string Picks(int seed, byte playerClass)
+        {
+            var w = new FlatWorld { Config = BotLoadoutsTests.Make() };
+            var b = new ClassicBotBrain(w, BotArgs.None, new ClassicBotOptions { PresetSeed = seed }, BotLog.None);
+            var picks = new List<string>();
+            for (int match = 0; match < 12; match++)
+            {
+                var revised = b.BotPresetOnMap("mp_test", new ClientOptions { RequestedClass = playerClass });
+                Assert.NotNull(b.Preset);
+                Assert.NotEqual(Protocol.DefaultChoice, revised.RequestedPrimary);   // the preset's weapons are asked for
+                picks.Add($"{revised.RequestedPrimary}/{revised.RequestedPistol}/{revised.RequestedMelee}/{revised.RequestedEquipment}/{revised.RequestedPerk1}/{revised.RequestedPerk2}");
+            }
+            return string.Join(" ", picks);
+        }
+        Assert.Equal(Picks(5, 0), Picks(5, 0));
+        Assert.True(Picks(5, 0).Split(' ').Distinct().Count() > 1);   // the 12 draws are not all the same preset (3 tactical presets)
+        Assert.NotEqual(Picks(5, 0), Picks(6, 0));
+        // Not on a non-Classic map: the options are kept and no preset is drawn.
+        var flat = new FlatWorld { Config = BotLoadoutsTests.Make() };
+        var none = new ClassicBotBrain(flat, BotArgs.None, new ClassicBotOptions { PresetSeed = 5 }, BotLog.None);
+        var kept = new ClientOptions { RequestedClass = 0 };
+        Assert.Same(kept, none.BotPresetOnMap("tfw_war", kept));
+        Assert.Null(none.Preset);
     }
 }

@@ -96,7 +96,7 @@ public sealed class WarfrontRetainerBrains
         var players = _world.WarfrontTickStartPlayers;
         var nav = _nav();
         string map = _mapName();
-        if (!ReferenceEquals(nav, _jumpWalk)) { _jumpWalk = nav; _jumpGraphs.Clear(); _jumpBuilds.Clear(); }
+        if (!ReferenceEquals(nav, _jumpWalk)) { _jumpWalk = nav; _jumpGraphs.Clear(); _jumpBuilds.Clear(); _work.Clear(); }   // a new stage map: its jobs start afresh (T1: map jobs are shared per loaded map with the first asker's token)
         if (_registry.Battles != _battleSeen) { _battleSeen = _registry.Battles; AdoptJumpGraphs(); }
         _sorted.Clear();
         foreach (var p in players.Values) _sorted.Add(p);

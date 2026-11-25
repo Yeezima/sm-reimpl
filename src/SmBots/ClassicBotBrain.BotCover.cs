@@ -78,7 +78,7 @@ public sealed partial class ClassicBotBrain
 
         if (_coverTask is { IsCompleted: true } task)
         {
-            _coverTask = null;
+            _coverTask = null; ForgetJob(task);
             if (task.IsCompletedSuccessfully)
             {
                 _cover = task.Result; _coverNone = _cover is null;
