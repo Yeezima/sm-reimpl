@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4099 spec table rows: **3031 tagged**, 701 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4106 spec table rows: **3037 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 433 | 374 | 365 | 116 | 12 |
+| Movement (critical) | 439 | 380 | 369 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,17 +53,17 @@ Scanned 4099 spec table rows: **3031 tagged**, 701 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3031** | 2723 | 2222 | 914 | 37 |
+| **All areas** | **3037** | 2729 | 2226 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1839 |
-| confidence: low | 1071 |
-| confidence: medium | 1040 |
+| kind: ours | 1844 |
+| confidence: low | 1074 |
+| confidence: medium | 1041 |
 | notes: ours | 475 |
-| kind: interpretation | 456 |
+| kind: interpretation | 457 |
 | notes: estimate | 306 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (433)
+### Movement (gameplay-critical) (439)
 
 *Spec section: Extracted parameters*
 
@@ -419,10 +419,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-E125804B` | Offered pieces per slot | the customizable sets' pieces (ordinal by name), then the predefined sets' other pieces (ordinal by name), each once; a full predefined set stays a quick pick | kind: ours | owner 2026-11-25; order ours (keeps old piece indices) | Offered pieces per slot: compare with SM1 by feel or video. Ours: the customizable sets' pieces (ordinal by name), then the predefined… | ☐ |
 | `R-D23578FB` | Switch | `CustomizationCatalog.PredefinedPiecesOffered` true (false: the original library); server and client must agree | kind: ours | ours | Switch: compare with SM1 by feel or video. Ours: CustomizationCatalog.PredefinedPiecesOffered true (false: the… | ☐ |
-| `R-691388C7` | Built mask: which materials | a registered predefined-set piece's material with no usable `PaintMask` (absent or "None") that is normal-mapped; cloth, fur and tabards (`diff_spec_lp`) stay baked | kind: ours; confidence: medium | ours (judgement call) | Built mask: which materials: compare with SM1 by feel or video. Ours: a registered predefined-set piece's material with no usable PaintMask… | ☐ |
+| `R-691388C7` | Built mask: which materials | a material of a piece with `ArmourPiece.BuiltMasks` (the resolved look asks the piece cache; no process-wide registry since repair attempt 1) with no usable `PaintMask` (absent or "None") that is normal-mapped; cloth, fur and tabards (`diff_spec_lp`) stay… | kind: ours; confidence: medium | ours (judgement call) | Built mask: which materials: compare with SM1 by feel or video. Ours: a material of a piece with ArmourPiece.BuiltMasks (the resolved look… | ☐ |
 | `R-9C2F1AEA` | Built mask: black plates (third step, 2026-11-25) | when the plate median luminance is under 25: undersuit, rubber and cables (specular under 0.35 to 0.6 x the plates' median specular, floor 8) leave the plate; texels 18 to 34 above the plate median are light: trim (specular 1 to 1.5 x the plates' and 35 to 60… | kind: ours; confidence: low | ours | Built mask: black plates (third step, 2026-11-25): compare with SM1 by feel or video. Ours: when the plate median luminance is under 25: undersuit, rubber and… | ☐ |
 | `R-116B119E` | Built mask: regions | CIELAB clusters of the UV-covered, specular-bearing texels (histogram mode in a*, b*, L*/3 bins of 6, then 6 k-means passes, distance a*/b* plus 0.35 x L*): largest = primary (R), a second cluster of a distinct hue (chroma > 10, hue gap > 0.35 rad) or clearly… | kind: ours; confidence: low | ours | Built mask: regions: compare with SM1 by feel or video. Ours: CIELAB clusters of the UV-covered, specular-bearing texels (histogram… | ☐ |
 | `R-2806B6EE` | Built mask: grey paint diffuse | a painted texel's luminance over its region's median, mapped onto 83 (plates) / 62 (ornaments) of 255, the medians measured on nine masked basic, veteran and havoc pieces; black regions (median under 25) keep the difference to the median instead, as if the… (sRGB 0..255) | kind: ours; confidence: low | measured on the install; mapping ours | Built mask: grey paint diffuse: compare with SM1 by feel or video. Ours: a painted texel's luminance over its region's median, mapped onto 83… | ☐ |
+| `R-B8DEF13A` | Built mask: specular scale (repair attempt 1, 2026-11-25) | k = the covered texels' median specular / 25, clamped 0.2 to 1, scales the specular gates (candidates above 10 k, plate gate 3 k to 12 k, hue gate 1 k to 6 k, closing 4 k); a specular map with median under 5 is read as absent (every texel 40, k = 1); with k… (specular 0..255) | kind: ours; confidence: low | ours | Built mask: specular scale (repair attempt 1, 2026-11-25): compare with SM1 by feel or video. Ours: k = the covered texels' median specular / 25, clamped 0.2 to 1… | ☐ |
+| `R-B113FDB0` | Built mask: same-hue growth (repair attempt 1) | relative saturation chroma / (L* + 12) at 0.25 to 0.5 x the plate colour's also passes the hue match; texels four-connected to a region's core (membership above 0.6) within 0.7 rad of its hue, chroma 4+ and relative saturation 0.2 x the plate's, specular 2+… (rad, CIELAB) | kind: ours; confidence: low | ours | Built mask: same-hue growth (repair attempt 1): compare with SM1 by feel or video. Ours: relative saturation chroma / (L* + 12) at 0.25 to 0.5 x the plate… | ☐ |
+| `R-2825940D` | Built mask: dark plate colour | the dark-grey largest bin is replaced by a coloured bin only when that bin (and the coloured texels counted) is not warm and light (hue 0.75 to 1.75 rad and L* above 38: gold, brass, bone) | kind: ours; confidence: low | ours | Built mask: dark plate colour: compare with SM1 by feel or video. Ours: the dark-grey largest bin is replaced by a coloured bin only when… | ☐ |
+| `R-44CCF72E` | Built mask: restore switch | `--old-mask-rules` (client) or SM_OLD_MASK_RULES=1: the 1257b950 builder (no specular scale, no same-hue growth, no warm-light rule, coverage needs luminance or specular above 4, cloth materials painted) | kind: ours | ours | Built mask: restore switch: compare with SM1 by feel or video. Ours: --old-mask-rules (client) or SM_OLD_MASK_RULES=1: the 1257b950… | ☐ |
+| `R-1D747B8D` | Built mask: decals (repair attempt 1) | a surface takes the scheme's shoulder decal only with the game's own paint mask and a decal layout; a built-mask (or baked) pad never does | kind: interpretation; confidence: medium | original (the predefined pads carry no customizable decal) | Built mask: decals (repair attempt 1): compare with SM1 by feel or video. Ours: a surface takes the scheme's shoulder decal only with the game's own… | ☐ |
+| `R-12006B27` | Reserved piece places (repair attempt 1) | a Series A piece this install lacks (wargear file or a package missing) keeps its index as a reserved entry (no packages, never offered); a code naming it draws the class's default piece and keeps the index | kind: ours | ours | Reserved piece places (repair attempt 1): compare with SM1 by feel or video. Ours: a Series A piece this install lacks (wargear file or a package… | ☐ |
 | `R-57602BA9` | Series A pieces and order | appended per slot after the predefined sets' pieces, in `ExtraArmourPieces.All` order (later additions only appended): (1) `sm_dlc_bloodravens_arm_left/right`; `csm_armour_mp_raptor_01_head`, `_leg_left`, `_leg_right` (the Chaos list is the race's, so every… | kind: ours | owner 2026-11-25 (groups); order ours | Series A pieces and order: compare with SM1 by feel or video. Ours: appended per slot after the predefined sets' pieces, in… | ☐ |
 | `R-7482AA31` | Series A switch | `CustomizationCatalog.ExtraPiecesOffered` true (false: only the customizable and predefined sets' pieces); only with `PredefinedPiecesOffered`; server and clients must agree | kind: ours | ours | Series A switch: compare with SM1 by feel or video. Ours: CustomizationCatalog.ExtraPiecesOffered true (false: only the… | ☐ |
 | `R-F3F88877` | Campaign piece identity | name = its package (the campaign wargear files all share generic names such as `arm_left`); offered only when every package is in the install; Titus's pads (`sm_armour_basic_upres_shldrl/_shldrr`) never (mesh layout not read); unlock level 1 | kind: ours | ours | Campaign piece identity: compare with SM1 by feel or video. Ours: name = its package (the campaign wargear files all share generic… | ☐ |
@@ -6343,6 +6349,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-E5F597B6` | Model key | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-D7E578E8` | Building never waits | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-DE2A0D0F` | Test aids (client only) | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
+| `R-530FB622` | Built mask: load bound and cache (repair attempt 1) | Armour pieces from the predefined sets (armour-pieces-1125; catalogue and client only, no wire format change) |
 | `R-D680D0E8` | Wire | Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change) |
 | `R-B3B0DB48` | Perk kills (protocol 23) | Perks (M43; protocol 23) |
 | `R-6A78E096` | Protocol 44 | Perks without data (protocol 44; owner's decisions of 2026-10-30) |

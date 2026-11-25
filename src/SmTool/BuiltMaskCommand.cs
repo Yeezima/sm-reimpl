@@ -85,14 +85,15 @@ static class BuiltMaskCommand
         foreach (var (p, ms) in times.OrderBy(kv => kv.Key, StringComparer.Ordinal)) Console.WriteLine($"  {p}: {ms:0} ms");
         foreach (var n in notes.Where(n => n.Contains("mask", StringComparison.OrdinalIgnoreCase) || n.Contains("Exception", StringComparison.Ordinal)).Distinct()) Console.WriteLine("  note: " + n);
 
-        if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"));
+        if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"), int.TryParse(Opt("--cell"), out var cell) ? cell : 192, rest.Contains("--full"));
         return 0;
     }
 
     static void WritePreviews(string gameDir, CustomizationCatalog catalog, List<(string Package, string Slot, string Race)> wanted, IReadOnlyDictionary<string, CharacterPiece> pieces,
-        string dir, string? schemeList)
+        string dir, string? schemeList, int cell, bool full)
     {
         Directory.CreateDirectory(dir);
+        var rows = new List<(string Label, List<(int W, int H, byte[] Rgba)> Cells)>();
         foreach (var (package, slot, race) in wanted)
         {
             if (!pieces.TryGetValue(package, out var piece)) continue;
@@ -105,17 +106,42 @@ static class BuiltMaskCommand
                 if (DdsImage.TryDecode(tex[m.Textures["DiffuseMap"]]) is not { } baked || DdsImage.TryDecode(tex[m.Textures["PaintMask"]]) is not { } mask
                     || DdsImage.TryDecode(tex[m.Textures[BakedArmourPaint.PaintDiffuseKey]]) is not { } grey) continue;
                 string stem = Path.Combine(dir, $"{package}__{Safe(m.Name ?? "m")}");
-                GfxDumpCommand.WritePng(stem + "_0baked.png", baked.Width, baked.Height, Opaque(baked.Rgba));
-                GfxDumpCommand.WritePng(stem + "_1mask.png", mask.Width, mask.Height, Opaque(mask.Rgba));
+                var cells = new List<(int, int, byte[])> { (baked.Width, baked.Height, Opaque(baked.Rgba)), (mask.Width, mask.Height, Opaque(mask.Rgba)) };
                 foreach (var scheme in schemes)
                 {
                     var set = catalog.Paint.Scheme(scheme)?.For(slot);
                     if (set is null) continue;
-                    GfxDumpCommand.WritePng(stem + $"_2{scheme}.png", grey.Width, grey.Height, Painted(grey, mask, set.Primary.Diffuse, set.Secondary.Diffuse, set.Tertiary.Diffuse));
+                    cells.Add((grey.Width, grey.Height, Painted(grey, mask, set.Primary.Diffuse, set.Secondary.Diffuse, set.Tertiary.Diffuse)));
                 }
+                if (full) for (int c = 0; c < cells.Count; c++) GfxDumpCommand.WritePng($"{stem}_{c}.png", cells[c].Item1, cells[c].Item2, cells[c].Item3);
+                rows.Add(($"{package}/{m.Name}", cells));
             }
         }
-        Console.WriteLine($"previews -> {dir}");
+        // One sheet: a row per built material (baked, mask, painted per scheme), each cell box-scaled to cell x cell.
+        int cols = rows.Count == 0 ? 0 : rows.Max(r => r.Cells.Count);
+        if (rows.Count > 0)
+        {
+            int sw = cols * cell, sh = rows.Count * cell;
+            var sheet = new byte[sw * sh * 4];
+            for (int i = 3; i < sheet.Length; i += 4) sheet[i] = 255;
+            for (int r = 0; r < rows.Count; r++)
+                for (int c = 0; c < rows[r].Cells.Count; c++)
+                {
+                    var (w, h, px) = rows[r].Cells[c];
+                    for (int y = 0; y < cell; y++)
+                    for (int x = 0; x < cell; x++)
+                    {
+                        int x0 = x * w / cell, x1 = Math.Max(x0 + 1, (x + 1) * w / cell), y0 = y * h / cell, y1 = Math.Max(y0 + 1, (y + 1) * h / cell);
+                        int sr = 0, sg = 0, sb = 0, n = 0;
+                        for (int yy = y0; yy < y1; yy++) for (int xx = x0; xx < x1; xx++) { int o = (yy * w + xx) * 4; sr += px[o]; sg += px[o + 1]; sb += px[o + 2]; n++; }
+                        int d = ((r * cell + y) * sw + c * cell + x) * 4;
+                        sheet[d] = (byte)(sr / n); sheet[d + 1] = (byte)(sg / n); sheet[d + 2] = (byte)(sb / n);
+                    }
+                }
+            GfxDumpCommand.WritePng(Path.Combine(dir, "sheet.png"), sw, sh, sheet);
+            File.WriteAllLines(Path.Combine(dir, "sheet.txt"), rows.Select((r, i) => $"{i}: {r.Label}"));
+        }
+        Console.WriteLine($"previews -> {dir} ({rows.Count} materials)");
     }
 
     static string Safe(string s) => string.Concat(s.Select(c => char.IsLetterOrDigit(c) || c is '_' or '-' ? c : '_'));

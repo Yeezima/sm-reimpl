@@ -126,6 +126,46 @@ public sealed class PaintMaskBuilderTests
     }
 
     [Fact]
+    public void Matte_black_plates_with_an_empty_specular_map_are_painted_where_the_mesh_covers_them()
+    {
+        // Repair attempt 1: luminance and specular under 4 read as unused background, and the specular gates dropped matte plates as undersuit.
+        var dif = new byte[W * H * 4]; var spc = new byte[W * H * 4]; var used = new bool[W * H];
+        for (int i = 0; i < W * H; i++)
+        {
+            byte v = (byte)(3 + i % 3);
+            dif[i * 4] = dif[i * 4 + 1] = dif[i * 4 + 2] = v; dif[i * 4 + 3] = 255;
+            spc[i * 4] = spc[i * 4 + 1] = spc[i * 4 + 2] = 1; spc[i * 4 + 3] = 255;
+            used[i] = i % W < 48;
+        }
+        var m = PaintMaskBuilder.Build(new DdsImage(W, H, dif), new DdsImage(W, H, spc), null, used);
+        Assert.True(M(m, 20, 30, 0) > 200, "a covered matte black plate texel is primary");
+        Assert.Equal(0, M(m, 60, 30, 0));   // not covered by the mesh: left alone
+        BuiltPaintMask old;
+        try { PaintMaskBuilder.OldMaskRules = true; old = PaintMaskBuilder.Build(new DdsImage(W, H, dif), new DdsImage(W, H, spc), null, used); }
+        finally { PaintMaskBuilder.OldMaskRules = false; }
+        Assert.True(M(old, 20, 30, 0) < 50, "before (old-mask-rules): left baked");
+    }
+
+    [Fact]
+    public void Darker_paint_of_the_plates_hue_joins_the_plate()
+    {
+        // Repair attempt 1: shadowed, dark-edged paint of the plate's hue kept its baked colour and showed through the new paint as blotches.
+        var dif = new byte[W * H * 4]; var spc = new byte[W * H * 4];
+        for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            int i = (y * W + x) * 4;
+            bool dark = x is >= 20 and < 30 && y is >= 20 and < 44;   // a large darker band of the same green, connected to the plate
+            (byte r, byte g, byte b) = dark ? ((byte)12, (byte)44, (byte)16) : ((byte)40, (byte)(140 + (x + y) % 9), (byte)50);
+            dif[i] = r; dif[i + 1] = g; dif[i + 2] = b; dif[i + 3] = 255;
+            spc[i] = spc[i + 1] = spc[i + 2] = 60; spc[i + 3] = 255;
+        }
+        var m = PaintMaskBuilder.Build(new DdsImage(W, H, dif), new DdsImage(W, H, spc), null);
+        Assert.True(M(m, 25, 32, 0) > 200, "the darker band of the plate's green is primary");
+        Assert.True(M(m, 5, 5, 0) > 200);
+    }
+
+    [Fact]
     public void Dds_round_trip_keeps_the_first_level_and_writes_a_full_mip_chain()
     {
         var (dif, _) = Synthetic();

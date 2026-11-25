@@ -109,8 +109,18 @@ public static class BakedArmourPaint
     public static bool NeedsMask(BmatMaterial material) =>
         (!material.Textures.TryGetValue("PaintMask", out var mask) || mask.Length == 0 || mask.Equals("None", StringComparison.OrdinalIgnoreCase))
         && material.Textures.ContainsKey("DiffuseMap")
+        && (PaintMaskBuilder.OldMaskRules || !IsCloth(material))
         && (material.Textures.ContainsKey("NormalMap") || material.ShaderName?.Contains("norm", StringComparison.OrdinalIgnoreCase) == true
             || string.Equals(material.ShaderName, "character_wargear", StringComparison.OrdinalIgnoreCase));
+
+    static readonly string[] ClothWords = ["cloth", "cape", "cloak", "tabard", "fur", "scroll", "parchment", "purity", "robe", "pelt"];
+
+    /// <summary>
+    /// A normal-mapped material that is cloth, fur or parchment by its name (repair attempt 1: the Salamanders' drake-scale cloak, named "cloth", has a normal map
+    /// and was painted as plate). Cloth keeps its baked look, as the regular armour's cloth (no paint mask) does.
+    /// </summary>
+    public static bool IsCloth(BmatMaterial material) =>
+        material.Name is { } name && ClothWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The textures a built mask is made from: materials naming the same three share one mask (and one coverage: all their surfaces).</summary>
     readonly record struct Sources(string Diffuse, string? Specular, string? LightProp);
@@ -276,7 +286,7 @@ public static class BakedArmourPaint
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> head = stackalloc byte[8];
         BitConverter.TryWriteBytes(head, BuilderVersion);
-        BitConverter.TryWriteBytes(head[4..], PaintMaskBuilder.OldDarkPlates ? 1 : 0);
+        BitConverter.TryWriteBytes(head[4..], (PaintMaskBuilder.OldDarkPlates ? 1 : 0) | (PaintMaskBuilder.OldMaskRules ? 2 : 0));
         h.AppendData(head);
         foreach (var part in new[] { diffuse, specular ?? [], lightProp ?? [] })
         {

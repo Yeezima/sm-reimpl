@@ -61,13 +61,30 @@ public static class PaintMaskBuilder
         var covered = new bool[n];
         int coveredCount = 0;
         if (used is not null && used.Length != n) used = null;
-        for (int i = 0; i < n; i++) if ((used is null || used[i]) && (lum[i] > 4f || spec[i] > 4f)) { covered[i] = true; coveredCount++; }
+        // With the mesh's UV coverage known, a covered texel counts whatever its colour (repair attempt 1: matte black plates under 4 levels of luminance and
+        // specular were taken for unused black background and stayed baked); without it, black, non-specular texels are taken as background.
+        for (int i = 0; i < n; i++)
+            if (used is not null && !OldMaskRules ? used[i] : (used is null || used[i]) && (lum[i] > 4f || spec[i] > 4f)) { covered[i] = true; coveredCount++; }
 
         // Plate clusters: specular-bearing, not ornament-marked pixels.
         var candidates = new List<int>();
-        for (int i = 0; i < n; i++) if (covered[i] && spec[i] > 10f && lpB[i] < 8f) candidates.Add(i);
+        // Repair attempt 1 (ours): the specular gates scale with the texture's own median specular (k = median / 25, 0.2 to 1), so a matte black plate (the Salamanders
+        // backpack: median specular about 6) is not dropped as undersuit by gates set for glossy paint.
+        float k = 1f;
+        if (!OldMaskRules)
+        {
+            var specs = new List<float>();
+            for (int i = 0; i < n; i++) if (covered[i] && lum[i] > 4f) specs.Add(spec[i]);
+            float median = Median(specs, 25f);
+            k = Math.Clamp(median / 25f, 0.2f, 1f);
+            // A specular map that is nearly empty (median under 5 of 255) says nothing about plate and undersuit: it is read as absent (as with no map).
+            if (median < 5f) { for (int i = 0; i < n; i++) spec[i] = 40f; k = 1f; }
+        }
+        for (int i = 0; i < n; i++) if (covered[i] && spec[i] > 10f * k && lpB[i] < 8f) candidates.Add(i);
         if (candidates.Count < 16) for (int i = 0; i < n; i++) if (covered[i]) candidates.Add(i);
         var (c1, c2, has2) = PlateClusters(candidates, L, A, B);
+        if (Environment.GetEnvironmentVariable("SM_MASK_DEBUG") == "1")
+            Console.WriteLine($"mask debug {w}x{h}: spec scale {k:0.00}, covered {coveredCount}, candidates {candidates.Count}, c1 L{c1.L:0} a{c1.A:0} b{c1.B:0}, c2 {(has2 ? $"L{c2.L:0} a{c2.A:0} b{c2.B:0}" : "-")}");
 
         // Warm, light ornaments (bone, gold, brass) when the plates are not themselves warm and light.
         float plateHue = MathF.Atan2(c1.B, c1.A), plateChroma = MathF.Sqrt(c1.A * c1.A + c1.B * c1.B);
@@ -82,11 +99,11 @@ public static class PaintMaskBuilder
             bool warm = chroma > 8f && hue is > 0.75f and < 1.75f && (plateChroma < 12f || HueGap(hue, plateHue) > 0.45f);
             if (warm && L[i] > c1.L + 18f) { float wt = Smooth(c1.L + 18f, c1.L + 32f, L[i]); if (wt > t) { warmOnly[i] = wt - t; t = wt; } }
             float d1 = Distance(L[i], A[i], B[i], c1), d2 = has2 ? Distance(L[i], A[i], B[i], c2) : float.MaxValue;
-            float specGate = Smooth(3f, 12f, spec[i]);
+            float specGate = Smooth(3f * k, 12f * k, spec[i]);
             float p = Smooth(26f, 12f, d1) * specGate, s = has2 ? Smooth(22f, 10f, d2) * specGate : 0f;
             // Chromatic plates: darker, lighter or duller texels of the same hue (shadowed or worn paint) are the same plate whatever their lightness.
-            p = MathF.Max(p, HueMatch(hue, chroma, c1) * Smooth(1f, 6f, spec[i]));
-            if (has2) s = MathF.Max(s, HueMatch(hue, chroma, c2) * Smooth(1f, 6f, spec[i]));
+            p = MathF.Max(p, HueMatch(hue, chroma, L[i], c1) * Smooth(1f * k, 6f * k, spec[i]));
+            if (has2) s = MathF.Max(s, HueMatch(hue, chroma, L[i], c2) * Smooth(1f * k, 6f * k, spec[i]));
             if (has2 && s > 0f && p > 0f) { if (d2 < d1) p *= Math.Clamp(d2 / MathF.Max(d1, 1e-3f), 0f, 1f); else s *= Math.Clamp(d1 / MathF.Max(d2, 1e-3f), 0f, 1f); }
             float rest = MathF.Max(0f, 1f - t);
             p *= rest; s *= rest;
@@ -115,15 +132,23 @@ public static class PaintMaskBuilder
         var nearP = Box(prim, w, h, 4); var nearS = Box(sec, w, h, 4);
         for (int i = 0; i < n; i++)
         {
-            if (!covered[i] || tert[i] > 0.3f || spec[i] < 4f) continue;
+            if (!covered[i] || tert[i] > 0.3f || spec[i] < 4f * k) continue;
             if (nearP[i] > 0.6f && prim[i] < nearP[i]) { float add = nearP[i] - prim[i]; prim[i] = nearP[i]; if (add > 0.6f) plateLum.Add(lum[i]); }
             else if (nearS[i] > 0.6f && sec[i] < nearS[i]) { float add = nearS[i] - sec[i]; sec[i] = nearS[i]; if (add > 0.6f) secLum.Add(lum[i]); }
             float sum = prim[i] + sec[i] + tert[i];
             if (sum > 1f) { prim[i] /= sum; sec[i] /= sum; tert[i] /= sum; }
         }
 
+        // Same-hue growth (repair attempt 1, ours): shadowed, worn or darker-edged paint of a plate's hue that the colour distance left out (it kept its baked
+        // colour and showed through the new paint as blotches) joins the plate when it is connected to the plate's core.
+        if (!OldMaskRules)
+        {
+            GrowSameHue(prim, sec, tert, covered, L, A, B, spec, w, h, c1, has2 ? c2 : null, plateLum, lum);
+            if (has2) GrowSameHue(sec, prim, tert, covered, L, A, B, spec, w, h, c2, c1, secLum, lum);
+        }
+
         float plateMedian = Median(plateLum, 60f);
-        if (plateMedian < DarkPlateLuminance && !OldDarkPlates) SeparateDarkPlates(prim, tert, covered, lum, spec, w, h, plateMedian, ornLum);
+        if (plateMedian < DarkPlateLuminance && !OldDarkPlates) SeparateDarkPlates(prim, tert, covered, lum, spec, w, h, plateMedian, ornLum, k);
         else if (plateMedian < DarkPlateLuminance)
         {
             // Before 2026-11-25 (old-dark-plates): light texels of a black plate are worn bare metal and stay baked. The median is floored at 1: a plate of pure
@@ -209,7 +234,9 @@ public static class PaintMaskBuilder
     /// regular armour's trim; scratches and chips (isolated light texels: under 35 to 60 % of the neighbourhood light) stay baked, as worn bare metal, and wide
     /// light patches that are not trim stay plate (lighter shading, <see cref="Grey"/>), so the wear is kept without blotches.
     /// </summary>
-    static void SeparateDarkPlates(float[] prim, float[] tert, bool[] covered, float[] lum, float[] spec, int w, int h, float plateMedian, List<float> ornLum)
+    /// <param name="specScale">The texture's specular scale (median / 25, 0.2 to 1): on a matte texture (under 0.5) undersuit and plate cannot be told apart by
+    /// specular, so the undersuit cut is skipped (repair attempt 1: the Salamanders backpack's matte black plates were all cut as undersuit and stayed baked).</param>
+    static void SeparateDarkPlates(float[] prim, float[] tert, bool[] covered, float[] lum, float[] spec, int w, int h, float plateMedian, List<float> ornLum, float specScale = 1f)
     {
         int n = w * h;
         var specs = new List<float>();
@@ -221,7 +248,7 @@ public static class PaintMaskBuilder
         for (int i = 0; i < n; i++)
         {
             if (prim[i] <= 0f) continue;
-            prim[i] *= 1f - Smooth(plateSpec * 0.6f, plateSpec * 0.35f, spec[i]);
+            if (specScale >= 0.5f || OldMaskRules) prim[i] *= 1f - Smooth(plateSpec * 0.6f, plateSpec * 0.35f, spec[i]);
             if (light[i] <= 0f) continue;
             float trim = light[i] * Smooth(0.35f, 0.6f, nearLight[i]) * Smooth(plateSpec, plateSpec * 1.5f, spec[i]);
             float move = prim[i] * trim;
@@ -251,14 +278,17 @@ public static class PaintMaskBuilder
         // Dark undersuit, rubber and cables can outnumber the plates on a texture (arms): when the largest bin is dark and colourless and a coloured bin
         // has at least a quarter of its texels, the coloured one is the plate colour (black-schemed sets have no such bin and keep the dark one).
         static bool DarkGrey(Centre c) => c.L < 32f && MathF.Sqrt(c.A * c.A + c.B * c.B) < 9f;
+        // Repair attempt 1: gold, brass and bone (warm and light: ornaments, emblems) never stand in for a dark plate (the Salamanders, Titus and Blood Ravens
+        // backpacks: their dark plates stayed baked while the emblem took the primary colour).
+        static bool WarmLight(float l, float a, float b) => !OldMaskRules && l > 38f && MathF.Atan2(b, a) is > 0.75f and < 1.75f;
         if (DarkGrey(first))
         {
-            int coloured = pixels.Count(i => A[i] * A[i] + B[i] * B[i] >= 144f);
+            int coloured = pixels.Count(i => A[i] * A[i] + B[i] * B[i] >= 144f && !WarmLight(L[i], A[i], B[i]));
             if (coloured * 4 >= pixels.Count)
                 foreach (var (k, _) in ordered.Skip(1))
                 {
                     var c = FromBin(k);
-                    if (MathF.Sqrt(c.A * c.A + c.B * c.B) >= 12f) { first = c; break; }
+                    if (MathF.Sqrt(c.A * c.A + c.B * c.B) >= 12f && !WarmLight(c.L, c.A, c.B)) { first = c; break; }
                 }
         }
         Centre? second = null;
@@ -297,13 +327,75 @@ public static class PaintMaskBuilder
         return (first, second ?? first, second is not null);
     }
 
-    /// <summary>How far a texel of <paramref name="hue"/> and <paramref name="chroma"/> is the plate colour <paramref name="c"/> by hue alone (0 for an achromatic plate colour).</summary>
-    static float HueMatch(float hue, float chroma, Centre c)
+    /// <summary>
+    /// How far a texel of <paramref name="hue"/> and <paramref name="chroma"/> is the plate colour <paramref name="c"/> by hue alone (0 for an achromatic plate colour).
+    /// The texel must be saturated enough: by absolute chroma, or (repair attempt 1) by its chroma relative to its lightness, so a shadowed or dark-edged texel of the
+    /// plate's paint, whose chroma falls with its lightness, still counts.
+    /// </summary>
+    static float HueMatch(float hue, float chroma, float l, Centre c)
     {
         float cc = MathF.Sqrt(c.A * c.A + c.B * c.B);
         if (cc < 12f) return 0f;
-        return Smooth(0.55f, 0.3f, HueGap(hue, MathF.Atan2(c.B, c.A))) * Smooth(cc * 0.22f, cc * 0.45f, chroma);
+        float gate = Smooth(cc * 0.22f, cc * 0.45f, chroma);
+        if (!OldMaskRules)
+        {
+            float sat = chroma / (l + 12f), plateSat = cc / (c.L + 12f);
+            gate = MathF.Max(gate, Smooth(plateSat * 0.25f, plateSat * 0.5f, sat) * Smooth(3f, 6f, chroma));
+        }
+        return Smooth(0.55f, 0.3f, HueGap(hue, MathF.Atan2(c.B, c.A))) * gate;
     }
+
+    /// <summary>
+    /// Grows a chromatic region <paramref name="mine"/> over the texels connected to its core (membership over 0.6) that have its hue (within 0.7 rad, some
+    /// saturation), carry specular and are not ornaments, and are nearer its hue than <paramref name="other"/>'s. Such texels take full membership (less the
+    /// ornament share), so no baked tint of the plate's own colour is left under the paint. Four-connected flood fill; deterministic.
+    /// </summary>
+    static void GrowSameHue(float[] mine, float[] theirs, float[] tert, bool[] covered, float[] L, float[] A, float[] B, float[] spec, int w, int h, Centre c, Centre? other,
+        List<float> lumList, float[] lum)
+    {
+        float cc = MathF.Sqrt(c.A * c.A + c.B * c.B);
+        if (cc < 12f) return;
+        float plateHue = MathF.Atan2(c.B, c.A), plateSat = cc / (c.L + 12f);
+        float? otherHue = other is { } o && MathF.Sqrt(o.A * o.A + o.B * o.B) >= 12f ? MathF.Atan2(o.B, o.A) : null;
+        int n = w * h;
+        bool Candidate(int i)
+        {
+            if (!covered[i] || tert[i] > 0.3f || spec[i] < 2f) return false;
+            float chroma = MathF.Sqrt(A[i] * A[i] + B[i] * B[i]);
+            if (chroma < 4f || chroma / (L[i] + 12f) < plateSat * 0.2f) return false;
+            float hue = MathF.Atan2(B[i], A[i]), gap = HueGap(hue, plateHue);
+            return gap < 0.7f && (otherHue is not { } oh || gap < HueGap(hue, oh));
+        }
+        var seen = new bool[n];
+        var queue = new Queue<int>();
+        for (int i = 0; i < n; i++) if (mine[i] > 0.6f && Candidate(i)) { seen[i] = true; queue.Enqueue(i); }
+        while (queue.Count > 0)
+        {
+            int i = queue.Dequeue();
+            float full = MathF.Max(0f, 1f - tert[i]);
+            if (mine[i] < full)
+            {
+                if (mine[i] <= 0.6f) lumList.Add(lum[i]);
+                mine[i] = full; theirs[i] = 0f;
+            }
+            int x = i % w, y = i / w;
+            if (x > 0 && !seen[i - 1] && Candidate(i - 1)) { seen[i - 1] = true; queue.Enqueue(i - 1); }
+            if (x < w - 1 && !seen[i + 1] && Candidate(i + 1)) { seen[i + 1] = true; queue.Enqueue(i + 1); }
+            if (y > 0 && !seen[i - w] && Candidate(i - w)) { seen[i - w] = true; queue.Enqueue(i - w); }
+            if (y < h - 1 && !seen[i + w] && Candidate(i + w)) { seen[i + w] = true; queue.Enqueue(i + w); }
+        }
+    }
+
+    /// <summary>
+    /// Restore switch (old-mask-rules, repair attempt 1): true builds masks as at 1257b950: no relative-saturation hue match, no same-hue growth, cloth materials
+    /// painted. Test and comparison aid (<c>--old-mask-rules</c> or SM_OLD_MASK_RULES=1).
+    /// </summary>
+    public static bool OldMaskRules
+    {
+        get => _oldMaskRules ?? (Environment.GetEnvironmentVariable("SM_OLD_MASK_RULES") == "1" || Array.IndexOf(Environment.GetCommandLineArgs(), "--old-mask-rules") >= 0);
+        set => _oldMaskRules = value;
+    }
+    static bool? _oldMaskRules;
 
     /// <summary>The angle between two colours' hues in the (a*, b*) plane, 0..pi.</summary>
     static float HueGap(Centre x, Centre y) => HueGap(MathF.Atan2(x.B, x.A), MathF.Atan2(y.B, y.A));
