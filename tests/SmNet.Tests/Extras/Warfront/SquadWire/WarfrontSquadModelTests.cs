@@ -6,118 +6,78 @@ using Xunit;
 
 namespace SmNet.Tests.Extras.Warfront.SquadWireTests;
 
-/// <summary>Warfront W10: the client's squad model (engine-free): interpolation, dropping, roster replacement, feed lines, the HUD line, the revive candidate, the look code.</summary>
+/// <summary>
+/// Warfront W10 and Phase B T5: the client's squad model (engine-free). The retainers are World players: the roster names each one's World id, the model reads that player's place and life from the frame's
+/// players (a table here), and the HUD line, the panel, the revive candidate and the countdown come from there. Roster replacement, feed lines, the look code.
+/// </summary>
 public class WarfrontSquadModelTests
 {
-    static SquadMarineWire M(int i, Vector3 at, byte state = 1, byte aux = 0, bool revive = false, float yaw = 0f) =>
-        new((byte)i, state, false, false, revive, 0, false, at, yaw, 255, aux, SquadMarineWire.NoTarget);
+    static SquadRosterWire R(int slot, int index, string name, byte cls = 1, bool own = true, ushort world = 0) =>
+        new((byte)slot, (byte)index, name, cls, 10, 11, 12, own, new ushort[] { 5, 1, 0, 2, 3, 1, 4, 2 }, world);
 
-    static SquadStateSection S(params SquadMarineWire[] m) => new(0, m.Length > 0 ? m[0].Index : (byte)0, m);
-
-    static SquadRosterWire R(int slot, int index, string name, byte cls = 1, bool own = true) =>
-        new((byte)slot, (byte)index, name, cls, 10, 11, 12, own, new ushort[] { 5, 1, 0, 2, 3, 1, 4, 2 });
-
-    static WarfrontSquadModel Model()
+    /// <summary>Owner 3's squad (World ids 21, 22, 23) and owner 4's Titus (World id 30); the frame's players in <paramref name="bodies"/>.</summary>
+    static WarfrontSquadModel Model(Dictionary<int, WarfrontWorldBody> bodies)
     {
-        var m = new WarfrontSquadModel { OwnPlayer = 3 };
-        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Castor"), R(1, 1, "Pollux"), R(2, 2, "Brother Remus")]));
-        m.ApplyRoster(new SquadRosterSection(200, 4, false, [R(0, 9, "Titus", 0, own: false)]));
+        var m = new WarfrontSquadModel { OwnPlayer = 3, World = id => bodies.TryGetValue(id, out var b) ? b : null };
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Castor", world: 21), R(1, 1, "Pollux", world: 22), R(2, 2, "Brother Remus", world: 23)]));
+        m.ApplyRoster(new SquadRosterSection(200, 4, false, [R(0, 9, "Titus", 0, own: false, world: 30)]));
         return m;
     }
 
+    static WarfrontWorldBody Up(float x = 0, float y = 0) => new(new Vector3(x, y, 0), 0.5f, true);
+    static WarfrontWorldBody Fallen(float x = 0, float y = 0) => new(new Vector3(x, y, 0), 0.5f, false);
+
     [Fact]
-    public void A_marine_is_drawn_between_its_last_two_records_a_tenth_of_a_second_behind()
+    public void A_marine_stands_where_its_world_player_stands()
     {
-        var m = Model();
-        m.ApplyState(S(M(0, new Vector3(0, 0, 0))), 10.0);
-        m.ApplyState(S(M(0, new Vector3(1, 0, 0))), 10.1);
-        Assert.True(m.TrySample(0, 10.15, out var half));   // render time 10.05: halfway
-        Assert.Equal(0.5f, half.Position.X, 0.01f);
-        Assert.True(m.TrySample(0, 10.2, out var end));   // render time 10.1: at the newest record
-        Assert.Equal(1f, end.Position.X, 0.01f);
-        Assert.True(end.Speed > 9f && end.Speed < 11f, "10 m/s from the position delta");
-        Assert.True(m.TrySample(0, 10.1, out var start));   // render time 10.0: the older record
-        Assert.Equal(0f, start.Position.X, 0.01f);
-        Assert.True(m.TrySample(0, 12.0, out var held));   // a long gap: held a little past the newest, never further
-        Assert.True(held.Position.X <= 1.0f + 0.25f * 10f + 0.01f);
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(4, 5), [30] = Up(9, 9) };
+        var m = Model(bodies);
+        Assert.True(m.TrySample(0, 1.0, out var s));
+        Assert.Equal(new Vector3(4, 5, 0), s.Position); Assert.Equal(0.5f, s.Yaw); Assert.Equal(21, s.WorldId); Assert.False(s.Downed);
+        Assert.True(s.Own); Assert.Equal("Castor", s.Name);
+        Assert.False(m.TrySample(1, 1.0, out _));   // not in the snapshot yet
+        Assert.True(m.TrySample(9, 1.0, out var other));
+        Assert.False(other.Own); Assert.Equal(0, other.Class); Assert.Equal(4, other.OwnerPlayer);
     }
 
     [Fact]
-    public void Yaw_turns_the_short_way_and_a_far_move_snaps()
+    public void World_ids_map_to_battle_indices_and_owners_and_follow_a_new_roster()
     {
-        var m = Model();
-        m.ApplyState(S(M(0, Vector3.Zero, yaw: 6.2f)), 1.0);
-        m.ApplyState(S(M(0, Vector3.Zero, yaw: 0.2f)), 1.1);
-        m.TrySample(0, 1.15, out var s);
-        Assert.True(MathF.Abs(MathF.IEEERemainder(s.Yaw - 6.3f, MathF.PI * 2)) < 0.15f, $"yaw {s.Yaw}");
-        m.ApplyState(S(M(1, Vector3.Zero)), 2.0);
-        m.ApplyState(S(M(1, new Vector3(40, 0, 0))), 2.1);
-        m.TrySample(1, 2.15, out var far);
-        Assert.Equal(40f, far.Position.X, 0.01f);
-    }
-
-    [Fact]
-    public void An_index_not_seen_for_a_second_is_dropped_and_the_others_stay()
-    {
-        var m = Model();
-        m.ApplyState(S(M(0, Vector3.Zero), M(1, Vector3.One)), 5.0);
-        m.ApplyState(S(M(1, Vector3.One)), 5.8);
-        m.Prune(5.9);
-        Assert.Equal(2, m.Known);
-        m.ApplyState(S(M(1, Vector3.One)), 6.3);
-        m.Prune(6.3);
-        Assert.Equal([1], m.Indices);
-        Assert.Equal(1, m.Dropped);
-    }
-
-    [Fact]
-    public void The_two_halves_of_a_split_list_make_all_of_them_known()
-    {
-        var m = new WarfrontSquadModel();
-        m.ApplyState(S(Enumerable.Range(0, 18).Select(i => M(i, new Vector3(i, 0, 0))).ToArray()), 1.0);
-        m.ApplyState(S(Enumerable.Range(18, 18).Select(i => M(i, new Vector3(i, 0, 0))).ToArray()), 1.1);
-        m.Prune(1.15);
-        Assert.Equal(36, m.Known);
+        var m = Model([]);
+        Assert.True(m.IsRetainer(22)); Assert.Equal(1, m.IndexOfWorld(22)); Assert.Equal(22, m.WorldIdOf(1)); Assert.Equal(3, m.OwnerPlayerOf(22));
+        Assert.False(m.IsRetainer(5)); Assert.Equal(-1, m.IndexOfWorld(5)); Assert.False(m.IsRetainer(0));
+        Assert.Equal([0, 1, 2, 9], m.Indices);
+        // Pollux is out (no World id); the owner came back as player 6 (the server re-bound the squad)
+        m.ApplyRoster(new SquadRosterSection(100, 6, false, [R(0, 0, "Castor", world: 21), R(1, 1, "Pollux"), R(2, 2, "Brother Remus", world: 23)]));
+        Assert.False(m.IsRetainer(22)); Assert.Equal(0, m.WorldIdOf(1));
+        Assert.Equal(6, m.OwnerPlayerOf(21));
+        Assert.Equal([0, 2, 9], m.Indices);
     }
 
     [Fact]
     public void A_roster_section_replaces_only_its_owners()
     {
-        var m = Model();
-        m.ApplyState(S(M(0, Vector3.Zero), M(1, Vector3.One), M(9, new Vector3(5, 5, 0))), 1.0);
-        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Cato"), R(1, 1, "Pollux"), R(2, 2, "Brother Remus")]));
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(), [30] = Up() };
+        var m = Model(bodies);
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Cato", world: 21), R(1, 1, "Pollux", world: 22), R(2, 2, "Brother Remus", world: 23)]));
         m.TrySample(0, 1.2, out var renamed);
         Assert.Equal("Cato", renamed.Name);
         m.TrySample(9, 1.2, out var other);
         Assert.Equal("Titus", other.Name);
-        Assert.False(other.Own);
-        Assert.True(renamed.Own);
         Assert.Equal(2, m.Rosters.Count);
-        Assert.Equal(12, other.Melee0);
-        Assert.Equal(0, other.Class);
-    }
-
-    [Fact]
-    public void An_unrostered_marine_still_draws_with_a_placeholder_name()
-    {
-        var m = new WarfrontSquadModel();
-        m.ApplyState(S(M(7, Vector3.Zero)), 1.0);
-        Assert.True(m.TrySample(7, 1.0, out var s));
-        Assert.Equal("Marine 8", s.Name);
-        Assert.Equal(255, s.Class);
+        Assert.True(m.IsRetainer(30));
     }
 
     [Fact]
     public void Events_become_feed_lines_and_pounds_are_returned_separately()
     {
-        var m = Model();
+        var m = Model([]);
         var pounds = new List<Vector3>();
         var lines = m.ApplyEvents(
         [
             new SquadEventWire(SquadEventKind.Downed, 0, 255), new SquadEventWire(SquadEventKind.Revived, 0, 3), new SquadEventWire(SquadEventKind.Revived, 1, 202),
             new SquadEventWire(SquadEventKind.Out, 2, 255), new SquadEventWire(SquadEventKind.Recruited, 1, 255), new SquadEventWire(SquadEventKind.Pound, 0, 255, new Vector3(1, 2, 3)),
         ], id => id == 3 ? "Ash" : null, pounds, now: 10.0);
-        Assert.True(m.RecentEvent(0, 11.9)); Assert.False(m.RecentEvent(0, 12.1)); Assert.False(m.RecentEvent(5, 10.5));
         Assert.Equal(["Brother Castor IS DOWN", "Brother Castor REVIVED BY Ash", "Brother Pollux REVIVED BY Brother Remus", "Brother Remus IS OUT", "Brother Pollux JOINS THE SQUAD"], lines);
         Assert.Equal([new Vector3(1, 2, 3)], pounds);
     }
@@ -125,52 +85,57 @@ public class WarfrontSquadModelTests
     [Fact]
     public void The_hud_line_counts_standing_and_turns_to_down()
     {
-        var m = Model();
+        var bodies = new Dictionary<int, WarfrontWorldBody>();
+        var m = new WarfrontSquadModel { OwnPlayer = 3, World = id => bodies.TryGetValue(id, out var b) ? b : null };
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 255, "Castor"), R(1, 255, "Pollux"), R(2, 255, "Brother Remus")]));
         Assert.Null(m.HudLine(1.0));   // the squad is not in a battle yet
-        m.ApplyState(S(M(0, Vector3.Zero), M(1, Vector3.Zero), M(2, Vector3.Zero), M(9, Vector3.Zero)), 1.0);
+        m = Model(bodies);
+        bodies[21] = Up(); bodies[22] = Up(); bodies[23] = Up(); bodies[30] = Fallen();
         Assert.Equal("SQUAD 3/3", m.HudLine(1.0));   // another squad's Marine is not the viewer's
-        m.ApplyState(S(M(0, Vector3.Zero), M(1, Vector3.Zero, state: 2, aux: 150), M(2, Vector3.Zero, state: 2, aux: 100)), 1.1);
+        bodies[22] = Fallen(); bodies[23] = Fallen();
         Assert.Equal("2 DOWN", m.HudLine(1.1));
-        m.ApplyState(S(M(0, Vector3.Zero), M(1, Vector3.Zero), M(2, Vector3.Zero)), 1.2);
+        bodies[22] = Up(); bodies[23] = Up();
         Assert.Equal("SQUAD 3/3", m.HudLine(1.2));
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Castor", world: 21), R(1, 1, "Pollux"), R(2, 2, "Brother Remus", world: 23)]));   // Pollux is out
+        Assert.Equal("SQUAD 2/3", m.HudLine(1.3));
     }
 
     [Fact]
-    public void A_downed_marine_counts_its_window_down_and_a_revive_shows_its_share()
+    public void A_downed_marine_counts_its_window_down_from_the_event_or_from_when_it_was_first_seen_down()
     {
-        var m = Model();
-        m.ApplyState(S(M(1, new Vector3(1, 0, 0), state: 2, aux: 150)), 1.0);
-        m.TrySample(1, 1.0, out var a);
-        Assert.True(a.Downed); Assert.Equal(15f, a.DownedLeft, 0.01f);
-        m.TrySample(1, 3.0, out var b);
-        Assert.Equal(13f, b.DownedLeft, 0.01f);
-        m.ApplyState(S(M(1, new Vector3(1, 0, 0), state: 2, aux: 100, revive: true)), 3.1);
-        m.TrySample(1, 3.2, out var c);
-        Assert.True(c.BeingRevived); Assert.Equal(0.5f, c.ReviveShare, 0.01f);
-        Assert.Equal(12.9f, c.DownedLeft, 0.2f);   // the countdown keeps running while a revive is under way
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(), [22] = Fallen(1, 0), [23] = Up() };
+        var m = Model(bodies);
+        m.ApplyEvents([new SquadEventWire(SquadEventKind.Downed, 1, 255)], _ => null, now: 1.0);
+        m.Frame(3.0);
+        m.TrySample(1, 3.0, out var a);
+        Assert.True(a.Downed); Assert.Equal(WarfrontSquadModel.DownedSeconds - 2f, a.DownedLeft, 0.01f);
+        bodies[23] = Fallen();   // no event seen (a client that joined late): counted from now
+        m.Frame(5.0);
+        m.TrySample(2, 6.0, out var b);
+        Assert.Equal(WarfrontSquadModel.DownedSeconds - 1f, b.DownedLeft, 0.01f);
+        bodies[22] = Up();   // revived
+        m.Frame(7.0);
+        m.TrySample(1, 7.0, out var c);
+        Assert.False(c.Downed); Assert.Equal(0f, c.DownedLeft);
     }
 
     [Fact]
-    public void The_revive_prompt_names_the_nearest_downed_marine_within_two_metres_only()
+    public void The_revive_prompt_names_the_nearest_downed_marine_within_reach_and_the_own_hold_fills_its_ring()
     {
-        var m = Model();
-        m.ApplyState(S(M(0, new Vector3(10, 0, 0)), M(1, new Vector3(1.5f, 0, 0), state: 2, aux: 150), M(2, new Vector3(1f, 1f, 0), state: 2, aux: 100, revive: true)), 1.0);
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(10, 0), [22] = Fallen(1.5f, 0), [23] = Fallen(1f, 1f) };
+        var m = Model(bodies);
         var c = m.ReviveCandidate(Vector3.Zero, 1.0);
         Assert.NotNull(c);
         Assert.Equal(2, c!.Value.Index);   // 1.41 m beats 1.5 m
         Assert.Equal("Brother Remus", c.Value.Name);
-        Assert.Equal(0.5f, c.Value.Share, 0.01f);
+        Assert.Equal(0f, c.Value.Share);   // not held
+        m.ReviveCandidate(Vector3.Zero, 2.0, useHeld: true);
+        var held = m.ReviveCandidate(Vector3.Zero, 2.0 + WarfrontSquadModel.ReviveSeconds / 2, useHeld: true);
+        Assert.Equal(0.5f, held!.Value.Share, 0.01f);
+        Assert.Equal(0f, m.ReviveCandidate(Vector3.Zero, 3.0, useHeld: false)!.Value.Share);   // released: the hold starts again
+        Assert.Equal(0f, m.ReviveCandidate(Vector3.Zero, 3.1, useHeld: true)!.Value.Share, 0.01f);
         Assert.Null(m.ReviveCandidate(new Vector3(30, 0, 0), 1.0));
-        Assert.Null(m.ReviveCandidate(new Vector3(0, 3.5f, 0), 1.0));
-    }
-
-    [Fact]
-    public void Name_and_detail_rules_are_the_planned_ones()
-    {
-        Assert.True(WarfrontSquadModel.NameVisible(true, false, 25f)); Assert.False(WarfrontSquadModel.NameVisible(true, false, 25.1f));
-        Assert.False(WarfrontSquadModel.NameVisible(false, false, 5f));   // standing, not under the crosshair, no event: no name
-        Assert.True(WarfrontSquadModel.NameVisible(false, true, 60f));   // an event a moment ago
-        Assert.True(WarfrontSquadModel.FullDetail(40f)); Assert.False(WarfrontSquadModel.FullDetail(40.1f));
+        Assert.Null(m.ReviveCandidate(new Vector3(0, WarfrontSquadModel.ReviveReach + 2.5f, 0), 1.0));
     }
 
     [Fact]
@@ -186,11 +151,12 @@ public class WarfrontSquadModelTests
     [Fact]
     public void The_panel_lists_the_own_roster_and_the_others_apart_with_their_state()
     {
-        var m = Model();
-        m.ApplyState(S(M(0, Vector3.Zero), M(1, Vector3.Zero, state: 2, aux: 80)), 1.0);
+        var bodies = new Dictionary<int, WarfrontWorldBody> { [21] = Up(), [22] = Fallen() };
+        var m = Model(bodies);
+        m.ApplyRoster(new SquadRosterSection(100, 3, false, [R(0, 0, "Castor", world: 21), R(1, 1, "Pollux", world: 22), R(2, 2, "Brother Remus"), R(3, 255, "Cato")]));
         var own = m.PanelRows(own: true);
-        Assert.Equal(["Castor", "Pollux", "Brother Remus"], own.Select(r => r.Name));
-        Assert.Equal(["FIGHTING", "DOWN", "READY"], own.Select(r => r.State));
+        Assert.Equal(["Castor", "Pollux", "Brother Remus", "Cato"], own.Select(r => r.Name));
+        Assert.Equal(["FIGHTING", "DOWN", "OUT", "READY"], own.Select(r => r.State));
         Assert.Equal(8, own[0].Record.Count);
         Assert.Single(m.PanelRows(own: false));
         m.ApplyRoster(new SquadRosterSection(100, 3, true, [R(0, 255, "Castor")]));
@@ -207,17 +173,15 @@ public class WarfrontSquadModelTests
         Assert.False(coloursOnly.HasPredefinedSet);
         Assert.Equal((byte)10, coloursOnly.Palette(ArmourSlot.Torso, 0)); Assert.Equal((byte)30, coloursOnly.Palette(ArmourSlot.Torso, 2));
         Assert.True(coloursOnly.PatternOn(ArmourSlot.Torso));
+        Assert.Equal(SmSim.Extras.Warfront.Retainers.RetainerLook.CodeOf(owner, false), coloursOnly);   // the server's look path applies the same rule
     }
 
+    /// <summary>T5 follow-up: the drawn arc follows the server's <c>WarfrontCleaveBonus</c> through the same switch: a human keeps Warfront's x1.2, a retainer gets it exactly when <c>WarfrontRetainerRules.CleaveBonus</c> is on, other puppets never.</summary>
     [Fact]
-    public void A_retainers_jump_pack_takes_the_owners_backpack_paint_not_the_sides_default()
+    public void The_drawn_arc_gives_Warfronts_cleave_reach_as_the_servers_switch_says()
     {
-        // 2026-11-19: the squad crowd never gave the rig the look's pack paint, so the pack kept the default scheme. The crowd now passes WarfrontSquadModel.PackPaintFor(pack, model.PackPaint).
-        SmContent.Customization.ResolvedColour C(string n) => new(n, [0.1f, 0.2f, 0.3f], [0f, 0f, 0f]);
-        var backpack = new SmContent.Customization.ResolvedPaint(C("Red"), C("Gold"), null, true);
-        Assert.Same(backpack, WarfrontSquadModel.PackPaintFor("sm_mp_abil_jumppack", backpack));
-        Assert.Null(WarfrontSquadModel.PackPaintFor(null, backpack));   // no pack worn: nothing to paint
-        Assert.Null(WarfrontSquadModel.PackPaintFor("", backpack));
-        Assert.Null(WarfrontSquadModel.PackPaintFor("sm_mp_abil_jumppack", null));   // a look without backpack paint keeps the default
+        Assert.True(WarfrontSquadModel.CleaveBonus(puppet: false, retainer: false));   // a human: unchanged
+        Assert.Equal(SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.CleaveBonus, WarfrontSquadModel.CleaveBonus(puppet: true, retainer: true));   // a retainer: the server's switch, not a constant of the client
+        Assert.False(WarfrontSquadModel.CleaveBonus(puppet: true, retainer: false));   // the allied pair, a pod's Marines: Musou's reach
     }
 }

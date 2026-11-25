@@ -102,6 +102,13 @@ public class WarfrontBoundaryTests
         // T2 review fixes (2026-11-25): retainers never capture; their melee reach is a human's (the cleave trim)
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture"),
         ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleaveTrim"),
+        // Phase B T5 (2026-11-25): the client's presentation of the retainers as players: the arc's human-only trim follows the server's switch, and a retainer by a landing pod is not the pod's (no battle cry)
+        ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontArcHuman"),
+        ("client/Extras/Musou/Tfw/NetworkView.TfwDropPod.cs", "WarfrontNotPodMarine"),
+        // Phase B T5 follow-up (2026-11-25): a retainer's hit event ranks with a human's; a retainer wears its current owner's look, a Librarian's squad only his colours
+        ("src/SmNet/Extras/Musou/MusouSend.cs", "WarfrontHitRank"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontColoursOnly"),
     ];
 
     /// <summary>
@@ -119,6 +126,11 @@ public class WarfrontBoundaryTests
     [InlineData("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage(attack.Enemy, attack.Player, ref damage);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture(ref noCapture);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleaveTrim(attacker, ref trim);   // WARFRONT-HOOK")]
+    [InlineData("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontArcHuman(player, ref human); return human; }   // WARFRONT-HOOK")]
+    [InlineData("client/Extras/Musou/Tfw/NetworkView.TfwDropPod.cs", "WarfrontNotPodMarine(id, ref not); return not; }   // WARFRONT-HOOK")]
+    [InlineData("src/SmNet/Extras/Musou/MusouSend.cs", "if (e.Kind == MusouEventKind.Hit && rank == 4) WarfrontHitRank(e.Player, ref rank);   // WARFRONT-HOOK")]
+    [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer(playerId, ref wearer, ref ownPieces);   // WARFRONT-HOOK")]
+    [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "if (!ownPieces) WarfrontColoursOnly(ref code);   // WARFRONT-HOOK")]
     public void The_retainer_spines_Musou_lines_are_marked_Warfront_hooks(string file, string line)
     {
         var lines = Sources().First(s => s.Path == file).Lines;
