@@ -94,6 +94,7 @@ public partial class NetworkView
                 if (world.Weapons.Raycast(head, new System.Numerics.Vector3(0f, 0f, -1f), WeatherShelter.RayReachM) is { } floor)
                     _wxGroundY = (_gameSpace.GlobalTransform * new Vector3(head.X, head.Y, head.Z - floor.Distance)).Y;
                 else _wxGroundY = null;
+                _wxSunSeen = WeatherSunRays(world, cam);
             }
             if (_wxForceCover > 0) { bool covered = (long)(_connectedFor / _wxForceCover) % 2 == 1; cover = covered ? 1f : 0f; ceiling = covered ? 12f : WeatherShelter.RayReachM; }   // test aid --weather-shelter-test <s>: alternating cover and open, s seconds each, whatever the rays found
             if (_wxPerfLive) { double ms = System.Diagnostics.Stopwatch.GetElapsedTime(rayT0).TotalMilliseconds; _wxPerfRayMs += ms; _wxPerfRayMax = Math.Max(_wxPerfRayMax, ms); _wxPerfRays++; }
@@ -103,6 +104,28 @@ public partial class NetworkView
             if (was != _wxShelter.Covered && LogSound("weather")) GD.Print($"weather shelter: {(_wxShelter.Covered ? "under cover" + (_wxShelter.Tunnel ? " (tunnel)" : "") : "in the open")} (covered share {cover:F2}, ceiling {ceiling:F1} m)");
         }
         _wxShelter.Step(delta);
+    }
+
+    float _wxSunSeen = 1f;
+
+    /// <summary>
+    /// Weather fidelity tune (review: the ash grit read as near-white sleet in Waste Management's shade): with the shelter's rays, five rays toward the map's sun (from the camera and 2.5 m to either side and ahead and behind
+    /// it, <see cref="WeatherRig.SunRayReachM"/> reach) give the share of the air round the camera the sun reaches (1 with no sun to read). The rig dims the layers' sun share by it, so drifting ash in a street's shade is as
+    /// dark as the shade. Five more struct casts at the shelter's 6 Hz.
+    /// </summary>
+    float WeatherSunRays(SmSim.CollisionWorld world, Vector3 cam)
+    {
+        if (_sun is null || !_sun.Visible || _gameSpace is null) return 1f;
+        var toSun = (_gameSpace.GlobalTransform.Basis.Inverse() * _sun.GlobalTransform.Basis.Z).Normalized();
+        if (toSun.Z <= 0.02f) return 0f;   // the sun at or under the horizon lights no air
+        var dir = new System.Numerics.Vector3(toSun.X, toSun.Y, toSun.Z);
+        int seen = 0;
+        for (int k = 0; k < 5; k++)
+        {
+            var o = k switch { 1 => new Vector3(2.5f, 0f, 0f), 2 => new Vector3(-2.5f, 0f, 0f), 3 => new Vector3(0f, 2.5f, 0f), 4 => new Vector3(0f, -2.5f, 0f), _ => Vector3.Zero };
+            if (world.Weapons.Raycast(new System.Numerics.Vector3(cam.X + o.X, cam.Y + o.Y, cam.Z + o.Z), dir, WeatherRig.SunRayReachM) is null) seen++;
+        }
+        return seen / 5f;
     }
 
     /// <summary>Once a frame: the clock, the link the grade hook and the F6 panel read, the rig.</summary>
@@ -130,14 +153,31 @@ public partial class NetworkView
         _wxPerfFrames.Clear(); _wxPerfScriptMs = 0; _wxPerfRayMs = 0; _wxPerfRayMax = 0; _wxPerfRays = 0;
     }
 
-    bool _wxSpritesDumped;
+    bool _wxSpritesDumpDecided;
+    double _wxSpriteWait;
 
-    /// <summary>Weather fidelity: once the effects are in, the weather's original sprites are read on a worker (<see cref="WeatherSprites"/>); a bot never draws, so never reads them.</summary>
-    void WeatherSpritesFrame()
+    /// <summary>The longest the first weather waits for a sprite read under way (s) before it draws with the procedural look.</summary>
+    const double WeatherSpriteWaitSeconds = 3.0;
+
+    /// <summary>
+    /// Weather fidelity: the weather's original sprites are read on a worker (<see cref="WeatherSprites"/>) as soon as the match's effects package is read (tune: from the match load's background read, before the effect player
+    /// is built or the client is connected, so the first weather does not pop in); a bot never draws, so never reads them. The <c>--weather-sprites-dump</c> test aid acts only in an F6 developer-tools session and never into the
+    /// repository or the game install; while it is asked for, the read waits for the session's gate.
+    /// </summary>
+    void WeatherSpritesFrame(bool connected)
     {
-        if (_bot) return;
-        if (!_wxSpritesDumped) { _wxSpritesDumped = true; WeatherSprites.DumpDir = CmdArg("weather-sprites-dump"); }
-        if (_fx is { IsReady: true } fx) WeatherSprites.Request(fx.Library);
+        if (_bot || WeatherSprites.Procedural) return;
+        if (!_wxSpritesDumpDecided && CmdArg("weather-sprites-dump") is { } dump)
+        {
+            if (!connected || _connectedFor < 1.0) return;   // the gate is known once connected
+            _wxSpritesDumpDecided = true;
+            string repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+            if (_client?.Dev is null) GD.Print("weather sprites dump ignored: this server has no developer tools");
+            else if (WeatherSprites.TrySetDump(dump, repoRoot, _gameDir) is { } refusal) GD.Print(refusal);
+        }
+        _wxSpritesDumpDecided = true;
+        var library = _fx?.Library ?? (_fxLoad is { IsCompletedSuccessfully: true } load ? load.Result.Library : null);
+        WeatherSprites.Request(library);
         WeatherSprites.Pump();
     }
 
@@ -194,6 +234,7 @@ public partial class NetworkView
             }
         }
         bool connected = WeatherOn && _client is { Status: ClientStatus.Connected };
+        if (WeatherOn) WeatherSpritesFrame(connected);   // tune: from the match load on, connected or not
         if (!connected)
         {
             _musouWind.LiveDb = 0f; _musouWind.LiveLpf = 0f; _wxBedShelter = false;
@@ -207,7 +248,6 @@ public partial class NetworkView
             WeatherStormRestore();
             return;
         }
-        WeatherSpritesFrame();
         WeatherClientLink.Model = _wxModel;
         WeatherClientLink.Send = payload => _client?.SendExtrasCommand(WeatherWire.CommandTag, payload) == true;
         WeatherClientLink.TestMove = WeatherTestMoveWord;   // assigned each frame like Send (review: never a stale view's delegate)
@@ -218,13 +258,14 @@ public partial class NetworkView
         var st = _wxModel.State;
         float intensity = _wxModel.EffectiveIntensity;
         var now = (st.Id, st.Phase, _wxModel.Overridden);   // (the rig below is drawn for this state)
-        if (LogSound("weather") && (_wxLevelLogAt += delta) >= 2.0) { _wxLevelLogAt = 0; GD.Print($"weather level: {WeatherCatalog.Of(st.Id).Key} {st.Phase} intensity {intensity:F2}{(_wxModel.Pinned ? " (pinned)" : "")}{(_wxRig is { } r ? $" hiss {r.HissDb:F1} dB wind {r.WindDb:F1} dB" : "")}"); }   // repair 2 test aid: the drawn level and the beds' gains every 2 s
+        if (LogSound("weather") && (_wxLevelLogAt += delta) >= 2.0) { _wxLevelLogAt = 0; GD.Print($"weather level: {WeatherCatalog.Of(st.Id).Key} {st.Phase} intensity {intensity:F2}{(_wxModel.Pinned ? " (pinned)" : "")}{(_wxRig is { } r ? $" hiss {r.HissDb:F1} dB wind {r.WindDb:F1} dB light {r.LightFactor:F2} (ambient {r.MapLevelsNow.Ambient:F2} sun {r.MapLevelsNow.Sun:F2} exposure {r.MapLevelsNow.Exposure:F2} sun seen {r.SunSeen:F2} shelter {r.Shelter:F2})" : "")}"); }   // repair 2 test aid: the drawn level and the beds' gains every 2 s
         if (!_bot && (!_wxLoggedAny || now != _wxLogged))
         {
             _wxLoggedAny = true; _wxLogged = now;
             GD.Print($"weather: {WeatherCatalog.Of(st.Id).Key} {st.Phase}{(now.Item3 ? " (dev tools)" : "")}{(WeatherCatalog.Of(st.Id).Real ? "" : " (not built: default look)")}");
         }
         bool wantRig = !_bot && WeatherNeedsRig(st.Id, intensity) && _camera is not null;   // a bot client draws and hears nothing
+        if (wantRig && _wxRig is null && WeatherSprites.Pending && (_wxSpriteWait += delta) < WeatherSpriteWaitSeconds) wantRig = false;   // tune: the first weather waits briefly for a read under way (no procedural-to-sprite pop)
         if (wantRig && _wxRig is null)
         {
             AddChild(_wxRig = new WeatherRig { Name = "WeatherRig" });
@@ -239,6 +280,7 @@ public partial class NetworkView
             {
                 shelterRan = true;
                 _wxRig.FullFlash = _wxModel.FullFlash;
+                _wxRig.MapSun = _sun; _wxRig.MapEnvironment = _camera?.Environment ?? _environment; _wxRig.SunSeen = _wxForceCover > 0 ? 1f - _wxShelter.Level : _wxSunSeen;   // weather fidelity tune: the layers follow the map's light at the camera
                 WeatherShelterFrame(me, delta);
                 _wxRig.SetShelter(_wxShelter.Level, _wxShelter.Tunnel);
                 _wxRig.StepTrim(delta);

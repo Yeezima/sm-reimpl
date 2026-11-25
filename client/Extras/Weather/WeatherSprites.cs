@@ -44,6 +44,7 @@ public static class WeatherSprites
     static readonly Dictionary<Role, Sprite> _sprites = new();
     static Task<List<(Role Role, Image Image, int Tx, int Ty, string Material, string Effect)>>? _load;
     static bool _done;
+    static FxLibrary? _failedFor, _loadFor;   // tune (review): a read that faulted is not retried for the same library (this match), but a new match's library reads again
     /// <summary>Bumped when the sprites arrive, so a rig built before then swaps its textures in.</summary>
     public static int Version { get; private set; }
     /// <summary>What the read found (the log line and the selftest).</summary>
@@ -55,9 +56,13 @@ public static class WeatherSprites
     /// <summary>Starts the read from the effects library (once per run); call each frame until <see cref="Pump"/> says it is done.</summary>
     public static void Request(FxLibrary? library)
     {
-        if (_done || _load is not null || library is null || Procedural) return;
+        if (_done || _load is not null || library is null || Procedural || ReferenceEquals(library, _failedFor)) return;
+        _loadFor = library;
         _load = Task.Run(() => Read(library));
     }
+
+    /// <summary>A read is under way (requested, not yet turned into textures): the rig waits briefly for it so the first weather does not pop from the procedural look to the sprites.</summary>
+    public static bool Pending => _load is not null && !_done;
 
     /// <summary>On the main thread: turns a finished read into textures. True once the sprites are in (or the read failed).</summary>
     public static bool Pump()
@@ -65,8 +70,14 @@ public static class WeatherSprites
         if (_done) return true;
         if (_load is not { IsCompleted: true } task) return false;
         _load = null;
-        _done = true;
-        if (task.IsFaulted) { Status = "weather sprites: " + task.Exception?.GetBaseException().Message; GD.Print(Status); return true; }
+        if (task.IsFaulted || task.IsCanceled)
+        {
+            // tune (review): a faulted read leaves the run not done, so the next match (a new library) tries again; this match keeps the procedural look
+            _failedFor = _loadFor; _loadFor = null;
+            Status = "weather sprites: " + (task.Exception?.GetBaseException().Message ?? "cancelled") + " (the procedural look stays; the next match reads again)"; GD.Print(Status);
+            return true;
+        }
+        _done = true; _loadFor = null;
         foreach (var (role, image, tx, ty, material, effect) in task.Result)
             _sprites[role] = new Sprite(ImageTexture.CreateFromImage(image), tx, ty, material, effect);
         Version++;
@@ -108,6 +119,23 @@ public static class WeatherSprites
         return result;
     }
 
-    /// <summary>Test aid (<c>--weather-sprites-dump &lt;dir&gt;</c>, set before the read): the worker also writes the cut sprites as PNGs into that private folder (never the repository or the install) for a look at what the weather uses.</summary>
-    public static string? DumpDir { get; set; }
+    /// <summary>
+    /// Test aid (<c>--weather-sprites-dump &lt;dir&gt;</c>, set before the read, developer-tools sessions only): the worker also writes the cut sprites as PNGs into that private folder for a look at what the weather uses.
+    /// Set through <see cref="TrySetDump"/>, which refuses a folder inside the repository or the game install (hard rule: the install is read-only and no original bytes enter the repository).
+    /// </summary>
+    public static string? DumpDir { get; private set; }
+
+    /// <summary>Sets <see cref="DumpDir"/> unless <paramref name="dir"/> lies inside <paramref name="repoRoot"/> or <paramref name="gameDir"/>; returns the refusal (null when accepted or nothing was asked).</summary>
+    public static string? TrySetDump(string? dir, string repoRoot, string gameDir)
+    {
+        DumpDir = null;
+        if (string.IsNullOrWhiteSpace(dir)) return null;
+        string full;
+        try { full = System.IO.Path.GetFullPath(dir); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.IO.PathTooLongException or System.Security.SecurityException) { return "--weather-sprites-dump: not a usable folder"; }
+        if ((repoRoot.Length > 0 && SmFormats.InstallPaths.IsWithin(full, repoRoot)) || (gameDir.Length > 0 && SmFormats.InstallPaths.IsWithin(full, gameDir)))
+            return "--weather-sprites-dump must not be inside the repository or the game install; nothing is written";
+        DumpDir = full;
+        return null;
+    }
 }

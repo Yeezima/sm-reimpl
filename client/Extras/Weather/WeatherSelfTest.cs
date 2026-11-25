@@ -235,6 +235,19 @@ public sealed partial class WeatherSelfTest : Node
         Check("fidelity: the grade's light stays within its bounds and is 1 with no weather", Mathf.IsEqualApprox(WeatherRig.GradeLight(SmClient.Customizer.Model.LightingGrade.Identity), 1f)
             && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)) is >= WeatherRig.LightMin and < 1f
             && WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)) is >= WeatherRig.LightMin and < 1f, $"storm {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.Thunderstorm, 1f)):F2} ash {WeatherRig.GradeLight(WeatherGrade.For(WeatherId.AshSquall, 1f)):F2}");
+        // tune (review): the layers follow the map's light at the camera: a dark interior (dim ambient, the sun shut out) is darker than an open street, the sun counts only under open sky, and the factor stays in bounds
+        float street = WeatherRig.MapLight(0.25f, 1f, 1.16f, 1f), interior = WeatherRig.MapLight(0.21f, 1.2f, 1.16f, 0f), half = WeatherRig.MapLight(0.25f, 1f, 1.16f, 0.5f);
+        Check("fidelity tune: the map's light is lower in a covered, dim place than on an open street, and in bounds", interior < half && half < street && interior >= WeatherRig.MapLightMin && street <= WeatherRig.MapLightMax
+            && WeatherRig.MapLight(float.NaN, float.PositiveInfinity, 1f, float.NaN) is >= WeatherRig.MapLightMin and <= WeatherRig.MapLightMax, $"street {street:F2} half {half:F2} interior {interior:F2}");
+        {
+            string repo = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+            string install = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-fake-install");
+            bool refusedRepo = WeatherSprites.TrySetDump(System.IO.Path.Combine(repo, "dump"), repo, install) is not null && WeatherSprites.DumpDir is null;
+            bool refusedInstall = WeatherSprites.TrySetDump(System.IO.Path.Combine(install, "data", "x"), repo, install) is not null && WeatherSprites.DumpDir is null;
+            bool accepted = WeatherSprites.TrySetDump(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-dump"), repo, install) is null && WeatherSprites.DumpDir is not null;
+            WeatherSprites.TrySetDump(null, repo, install);
+            Check("fidelity tune: the sprite dump refuses the repository and the game install, accepts a private folder", refusedRepo && refusedInstall && accepted && WeatherSprites.DumpDir is null, $"{refusedRepo} {refusedInstall} {accepted}");
+        }
         embers.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         squall.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
         storm.Update(WeatherClock.At(WeatherId.None, 0), 0f, Vector3.Zero);
