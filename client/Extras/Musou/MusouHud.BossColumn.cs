@@ -32,7 +32,7 @@ public sealed partial class MusouHud
         _bossRows.Clear();
         if (d is { } dir && dir.Phase is not (MusouPhase.Won or MusouPhase.Lost))
         {
-            if (dir.BossId != 0 && dir.BossMaxHealth > 0f && _bossShown >= 0f) _bossRows.Add(new MusouBossBar(dir.BossId, Relabel(Data.BossName), _bossShown, true));
+            if (dir.BossId != 0 && dir.BossMaxHealth > 0f && _bossShown >= 0f && !WarfrontHideCommander) _bossRows.Add(new MusouBossBar(dir.BossId, Relabel(Data.BossName), _bossShown, true));
             foreach (var b in Data.BossOrks) if (b.Id != dir.BossId) _bossRows.Add(new MusouBossBar(b.Id, Relabel(b.Name), Math.Clamp(b.Health, 0f, 1f), false));
         }
         _hitOf ??= id => Data.HitAt.TryGetValue(id, out double t) ? t : double.NegativeInfinity;

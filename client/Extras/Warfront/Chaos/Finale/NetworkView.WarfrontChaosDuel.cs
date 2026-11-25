@@ -29,6 +29,7 @@ public partial class NetworkView
     partial void WarfrontChaosDuelSpectate(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view, ref bool taken);
 
     double _wfFortressSeenAt = -100;
+    ushort _wfDuelWatching;
     bool _wfDuelSeenThisBattle, _wfLordShieldedShown;
 
     /// <summary>The Battle section's kind (the line in <c>NetworkView.WarfrontBattle.cs</c>, pinned): a fortress battle, on the Battle HUD's clock (real seconds).</summary>
@@ -47,6 +48,18 @@ public partial class NetworkView
     void WarfrontChaosDuelFrame()
     {
         double now = _connectedFor;
+        // lead 41: Musou's slam ring fills over the client's boss rules' wind-up; in a Chaos battle the only boss is the Lord, whose slam winds up x1.5 (the server's WarfrontLordRules), so the client's
+        // latched Chaos config carries his wind-up (Musou's own code and timing untouched: the Orks' and Musou Mode's configs never get it; C3's latch undo restores the Orks' config)
+        if (_config?.MusouRules is { } rules)
+        {
+            float lordSlam = (_wfOrksConfig?.MusouRules ?? MusouRules.Default).Boss.SlamWindUp * WarfrontDuelRules.SlamWindUpScale;
+            if (rules.Boss.SlamWindUp != lordSlam)
+            {
+                _config = _config with { MusouRules = rules with { Boss = rules.Boss with { SlamWindUp = lordSlam } } };
+                _musouRulesOver = _config.MusouRules;
+                GD.Print($"t {now:F1} s: warfront chaos: the slam telegraph fills over the Lord's {lordSlam:0.##} s wind-up");
+            }
+        }
         bool fortress = WarfrontFortressBattle;
         if (!fortress) _wfDuelSeenThisBattle = false;
         if (_wfDuel.State is not null) _wfDuelSeenThisBattle = true;
@@ -58,7 +71,12 @@ public partial class NetworkView
         }
         bool shielded = fortress && !_wfDuelSeenThisBattle;
         if (shielded != _wfLordShieldedShown) { _wfLordShieldedShown = shielded; GD.Print($"t {now:F1} s: warfront chaos: the Lord's bar {(shielded ? "reads SHIELDED" : "plain")}"); }
-        if (shielded && _musouHud is { } hud) hud.WarfrontRelabel = ChaosDuelLook.ShieldedRelabel;
+        if (_musouHud is { } hud)
+        {
+            if (shielded) hud.WarfrontRelabel = ChaosDuelLook.ShieldedRelabel;
+            bool hide = _wfDuel.Running(now) || _wfDuel.Lines(0, _ => "", now).Shown;   // lead 41: the duel strip carries the Lord's bar; the boss column's commander bar steps aside
+            if (hide != hud.WarfrontHideCommander) { hud.WarfrontHideCommander = hide; GD.Print($"t {now:F1} s: warfront chaos: the boss column's Lord bar {(hide ? "hidden (the duel strip has it)" : "back")}"); }
+        }
     }
 
     /// <summary>The duel model, for the tests and the capture aid.</summary>
@@ -141,6 +159,7 @@ public partial class NetworkView
     {
         GD.Print($"t {now:F1} s: warfront chaos: the duel HUD cleared ({why})");
         _wfBreach.SilentCloses = false;
+        if (_musouHud is { } musouHud) musouHud.WarfrontHideCommander = false;
         _wfDuelFx?.ClearAll();
         if (_wfDuelHud is { } hud && IsInstanceValid(hud)) hud.Show(default, false);
         if (_wfSpectateHud is { } spectate && IsInstanceValid(spectate)) spectate.Modulate = Colors.White;
@@ -165,6 +184,12 @@ public partial class NetworkView
         double now = _connectedFor;
         if (!_wfDuel.Watching((ushort)c.PlayerId, now) || _wfDuel.State is not { } s) return;
         foreach (var p in c.RemotePlayers().Players)
-            if (p.PlayerId == s.Champion && p.Alive) { view = WarfrontSpectatePose(SpectateG(p.Position), p.Yaw); taken = true; return; }
+            if (p.PlayerId == s.Champion && p.Alive)
+            {
+                view = WarfrontSpectatePose(SpectateG(p.Position), p.Yaw);
+                taken = true;
+                if (_wfDuelWatching != s.Champion) { _wfDuelWatching = s.Champion; GD.Print($"t {now:F1} s: warfront chaos: spectating the champion P{s.Champion} (the duel camera)"); }
+                return;
+            }
     }
 }

@@ -129,6 +129,8 @@ public sealed partial class MusouHud : Control
 
     /// <summary>Chaos Warfront C3: the words of the boss bars, call-outs and end panel in a Chaos battle (the Ork names as the Chaos units'); null everywhere else (the Ork words as before).</summary>
     public Func<string, string>? WarfrontRelabel;
+    /// <summary>WARFRONT-HOOK (Chaos Warfront C5c): the commander's bar of the boss column is not drawn (the duel strip carries the Chaos Lord's bar during the relay). Never set outside a Warfront Chaos finale.</summary>
+    public bool WarfrontHideCommander;
     string Relabel(string text)
     {
         if (WarfrontRelabel is not { } r) return text;
