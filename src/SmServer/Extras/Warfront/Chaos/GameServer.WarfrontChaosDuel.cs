@@ -1,6 +1,7 @@
 using SmNet;
 using SmNet.Extras.Warfront;
 using SmSim.Extras.Musou;
+using SmSim.Extras.Musou.Campaign;
 using SmSim.Extras.Warfront.Chaos.Finale;
 
 namespace SmServer;
@@ -16,14 +17,20 @@ public sealed partial class GameServer
     WarfrontDuel? _wfDuelSeen;
     int _wfDuelVersion = -1, _wfTelegraphsTaken;
     WarfrontDuelPhase _wfDuelPhaseSeen;
+    uint _wfDuelEndedAt;
     readonly List<(byte[] Bytes, int Left, uint Next)> _wfTelegraphSends = new();
 
-    /// <summary>C5's seam in the battle's end (<c>WarfrontNodeEnded</c>): a loss of the battle is the campaign's <c>FinaleLost</c> when the relay ran out.</summary>
-    partial void WarfrontChaosFinaleLost(ref bool lost);
+    /// <summary>
+    /// C5's seam in the battle's end (<c>WarfrontNodeEnded</c>): the battle's loss is the campaign's <c>FinaleLost</c> when the relay ran out; and the battle left by its last human while the relay was on is
+    /// <c>FinaleLost</c> too (lead 40, 2026-11-25: quitting never dodges the owner's one-attempt rule), not the "nobody connected, no result" path.
+    /// </summary>
+    partial void WarfrontChaosFinaleLost(TfwMapResult result, ref bool lost);
 
-    partial void WarfrontChaosFinaleLost(ref bool lost)
+    partial void WarfrontChaosFinaleLost(TfwMapResult result, ref bool lost)
     {
-        if (WarfrontChaosStage && World.WarfrontFinaleLost) lost = true;
+        if (!WarfrontChaosStage || result == TfwMapResult.Won) return;
+        if (World.WarfrontFinaleLost) { lost = true; WfLog("chaos finale: the relay ran out: FinaleLost"); return; }
+        if (result == TfwMapResult.Left && World.WarfrontDuelActive) { lost = true; WfLog("chaos finale: the last human left during the duel relay: FinaleLost"); }
     }
 
     partial void WarfrontChaosDuelCreated()
@@ -52,10 +59,13 @@ public sealed partial class GameServer
         {
             WfLog($"chaos finale: phase {_wfDuelPhaseSeen} -> {duel.Phase}");
             _wfDuelPhaseSeen = duel.Phase;
+            if (duel.Phase is WarfrontDuelPhase.Won or WarfrontDuelPhase.Lost) _wfDuelEndedAt = tick;
         }
         bool changed = duel.Version != _wfDuelVersion;
         int every = Math.Max(1, WarfrontRate / WarfrontDuelRules.StateHz);
-        if (duel.Phase != WarfrontDuelPhase.Bodyguard && (changed || tick % (uint)every == 0))
+        bool ended = duel.Phase is WarfrontDuelPhase.Won or WarfrontDuelPhase.Lost;
+        bool resend = !ended || tick - _wfDuelEndedAt < (uint)(WarfrontDuelRules.EndResendSeconds * WarfrontRate);   // the end is repeated a few seconds, then only a change is sent (Fable review C5s, finding 2)
+        if (duel.Phase != WarfrontDuelPhase.Bodyguard && (changed || resend && tick % (uint)every == 0))
         {
             _wfDuelVersion = duel.Version;
             byte[] state = WarfrontChaosDuelWire.Encode(DuelState(duel));

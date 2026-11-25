@@ -12,7 +12,7 @@ namespace SmSim;
 /// Chaos fortress; an Orks stage, Musou Mode and Classic never reach it.
 /// <list type="bullet">
 /// <item><b>Bodyguard:</b> the Lord is shielded and kept at home; the Chosen fight the full squad, retainers included; a wipe is the normal fortress-wipe rule.</item>
-/// <item><b>Snapshot:</b> the tick the last Chosen is gone, the living (alive, not downed), connected, deployed humans are ranked (<see cref="WarfrontDuelRanking"/>); nobody living: no snapshot, the wipe rule decides.</item>
+/// <item><b>Snapshot:</b> the tick the last Chosen is gone, the connected humans of the battle, the downed included (lead 40), are ranked (<see cref="WarfrontDuelRanking"/>); nobody: no snapshot, the wipe rule decides.</item>
 /// <item><b>Isolation</b>, at the start and every tick of the relay: every other human aboard and held (no input, no damage); retainers benched; Guardsmen withdrawn; the sources and trickle stopped;
 /// the breaches closed silently; every other enemy removed without credit; every projectile, lingering area and pending blast not the duelist's removed, and every burn not his; barrages and drop pods
 /// called off (support is outside help); drops and buffs cleared; every open card offer withdrawn (its picks wait); executions aborted (the X3 seam); only the duelist's hits, staggers and throws land on the Lord.</item>
@@ -29,17 +29,38 @@ public sealed partial class World
     uint _handoffEnds;
     Vector3 _duelEntry;
     float _duelEntryYaw;
-    bool _duelEmptyLogged, _heldWrapped, _squadWrapped;
+    bool _duelEmptyLogged;
+    WarfrontBattleRules? _heldWrappedFor, _squadWrappedFor;   // the rules object each wrap was put on (a new run object is wrapped afresh)
     MusouEnemy[]? _duelBuffer;
 
-    /// <summary>The finale of the Chaos fortress under way (null: none yet, or not a Chaos fortress). Kept after the battle ends until the next one, so the server reads its end.</summary>
-    public WarfrontDuel? WarfrontChaosDuel => _duel;
+    /// <summary>The finale of the Chaos fortress under way (null: none yet, or not a Chaos fortress). Kept after the battle ends until the next one, so the server reads its end; a reading settles a win the
+    /// battle saw after the duel step (<see cref="DuelSettle"/>).</summary>
+    public WarfrontDuel? WarfrontChaosDuel { get { DuelSettle(); return _duel; } }
     /// <summary>The current challenger's player id (0: none).</summary>
     public int WarfrontDuelist => _duelist;
     /// <summary>The tick the handoff's pause ends (tests).</summary>
     public uint WarfrontDuelHandoffEnds => _handoffEnds;
     /// <summary>Whether the relay ran out of challengers with the Lord alive (the server maps the battle's loss to <c>WarfrontOutcome.FinaleLost</c>).</summary>
-    public bool WarfrontFinaleLost => _duel?.Phase == WarfrontDuelPhase.Lost;
+    public bool WarfrontFinaleLost => DuelCurrent && _duel!.Phase == WarfrontDuelPhase.Lost;
+    /// <summary>Whether the relay is under way (a challenger on the plaza or the pause between two) in the battle under way or the one that just ended: the last human leaving now loses the campaign (lead 40).</summary>
+    public bool WarfrontDuelActive { get { DuelSettle(); return DuelCurrent && _duel!.Active; } }
+    /// <summary>Whether support calls (the orbital strike, the drop pod) are refused now: the relay is on (outside help; Fable review C5s, finding 10).</summary>
+    public bool WarfrontDuelRefusesSupport => DuelHolding;
+
+    /// <summary>The finale state belongs to the battle under way, or to the last battle when none is (a later battle's state is never this one's).</summary>
+    bool DuelCurrent => _duel is not null && _duelBattle is not null && (_tfw?.Battle is null || ReferenceEquals(_tfw.Battle, _duelBattle));
+
+    /// <summary>
+    /// A kill of the Lord that landed after the duel step of its tick (a plasma burn's tick, a strike's credit) wins the battle and leaves it in the same tick, so the step never runs again: the win is taken
+    /// here, from the battle's own flag (Fable review C5s, finding 2).
+    /// </summary>
+    void DuelSettle()
+    {
+        if (_duel is not { Phase: WarfrontDuelPhase.Duel } d || _duelBattle is not { Won: true }) return;
+        d.Win();
+        if (_musou is { } m) { m.LordDuelist = 0; m.LordDuelId = 0; }
+        DuelLog("WON: the Chaos Lord is dead (the battle saw it)");
+    }
     /// <summary>Whether <paramref name="battle"/> is the one the finale state belongs to.</summary>
     public bool WarfrontDuelOwns(TfwBattle? battle) => battle is not null && ReferenceEquals(battle, _duelBattle);
 
@@ -47,6 +68,9 @@ public sealed partial class World
     public Action? WarfrontDuelBenchRetainers { get; set; }
     /// <summary>The server's: a key's retainers' service records, for the snapshot's squad score (default none).</summary>
     public Func<ulong, IReadOnlyList<WarfrontRetainerStats>>? WarfrontDuelSquadOf { get; set; }
+
+    /// <summary>Whether the relay holds the squads now (the hook T2's wiring should read; see <see cref="DuelIsolate"/>).</summary>
+    public bool WarfrontDuelHoldsSquads => DuelHolding;
 
     /// <summary>Whether the relay holds the battle under way now.</summary>
     bool DuelHolding => _duel is { Active: true } && _tfw?.Battle is { } b && ReferenceEquals(b, _duelBattle);
@@ -66,10 +90,15 @@ public sealed partial class World
             if (rt.TryKey(id, out ulong key) && rt.Picker.Protected(key)) rt.Picker.Leave(key);
     }
 
+    /// <summary>Test aid: a plasma burn of <paramref name="owner"/> on <paramref name="enemy"/> whose one tick of <paramref name="damage"/> lands in the next tick's burn step (after its Warfront step).</summary>
+    public void WarfrontDuelBurnForTests(ushort enemy, int owner, float damage) =>
+        _tfwBurns[enemy] = new TfwBurn { Owner = owner, Tick = damage, Left = 1, Next = Tick + 1, Told = Tick };
+
     void DuelLog(string line) => _chaosLog?.Invoke("chaos finale: " + line);
 
     partial void WarfrontChaosDuelStep()
     {
+        DuelSettle();
         if (_tfw is not { Warfront: { ChaosRoster: { } roster } rules, Battle: { } battle } run || !battle.ChaosFortress) return;
         var musou = _musou!;
         if (!ReferenceEquals(battle, _duelBattle))
@@ -94,13 +123,12 @@ public sealed partial class World
                 var queue = WarfrontDuelRanking.Queue(rules.Progression.Campaign, key => DuelLiving(rules, run, key), WarfrontDuelSquadOf);
                 if (!duel.Snapshot(queue, lord))
                 {
-                    if (!_duelEmptyLogged) DuelLog("the last Chosen fell with nobody living: no duel yet, the fortress-wipe rule decides");
+                    if (!_duelEmptyLogged) DuelLog("the last Chosen fell with nobody in the battle: no duel yet, the fortress-wipe rule decides");
                     _duelEmptyLogged = true;
                     return;
                 }
                 DuelLog($"snapshot: the last Chosen fell; queue {string.Join(", ", queue.Select(k => DuelName(rules, k)))}; the Lord at {LordHealthText(lord)}");
-                DuelIsolate(rules, run, battle, start: true);
-                DuelBegin(rules, run, battle, roster);
+                DuelBegin(rules, run, battle, roster, first: true);
                 return;
             }
             case WarfrontDuelPhase.Duel:
@@ -109,6 +137,7 @@ public sealed partial class World
                 {
                     duel.Win();
                     musou.LordDuelist = 0;
+                    musou.LordDuelId = 0;
                     DuelLog($"WON: {DuelName(rules, duel.Current)} killed the Chaos Lord");
                     return;
                 }
@@ -117,7 +146,8 @@ public sealed partial class World
                 if (!p.Alive) { DuelEnd(rules, run, battle, roster, WarfrontDuelEnd.Defeated); return; }
                 DuelBounds(battle, lord, p);
                 foreach (var b in musou.LordBolts)
-                    if (b.Player == _duelist && _players.TryGetValue(b.Player, out var target) && target.Alive) MusouHit(new MusouAttack(b.Lord, b.Player, b.Damage, Melee: false, Staggers: false, b.From));
+                    if (b.Player == _duelist && _players.TryGetValue(b.Player, out var target) && target.Alive && DuelBoltSees(b.From, target.Position))
+                        MusouHit(new MusouAttack(b.Lord, b.Player, b.Damage, Melee: false, Staggers: false, b.From));
                 musou.LordBolts.Clear();
                 return;
             }
@@ -131,10 +161,23 @@ public sealed partial class World
         }
     }
 
-    /// <summary>The snapshot's "living": a human of the battle, alive (not downed), connected, not held by the co-op rules.</summary>
+    /// <summary>
+    /// The snapshot's queue (lead 40, 2026-11-25: the downed are in it, each gets a fresh life at his turn): a human of the battle (landed, standing, downed or waiting to respawn), connected, not held by the
+    /// co-op rules (a spectating joiner).
+    /// </summary>
     bool DuelLiving(WarfrontBattleRules rules, TfwRun run, ulong key) =>
-        rules.Progression.TryId(key, out int id) && !TfwContracts.IsPuppet(id) && _players.TryGetValue(id, out var p) && p.Alive && run.InField.Contains(id)
+        rules.Progression.TryId(key, out int id) && !TfwContracts.IsPuppet(id) && _players.ContainsKey(id) && run.InField.Contains(id)
         && rules.Progression.Campaign.IsConnected(key) && rules.CoopHeld?.Invoke(id) != true;
+
+    /// <summary>Whether the Lord's bolt from <paramref name="from"/> reaches the duelist's chest: no wall of the weapons' collision between (no collision: it does; Fable review C5s, finding 7).</summary>
+    bool DuelBoltSees(Vector3 from, Vector3 feet)
+    {
+        if (Collision is not { } world) return true;
+        var to = feet + new Vector3(0f, 0f, 1.2f);
+        var ray = to - from;
+        float length = ray.Length();
+        return length < 1e-3f || !(world.Weapons.Raycast(from, ray / length, length) is { } wall && wall.Distance < length - 0.1f);
+    }
 
     /// <summary>A challenger's turn may begin: connected now (a dead one is fine: he gets a fresh life).</summary>
     bool DuelPresent(WarfrontBattleRules rules, ulong key) =>
@@ -157,7 +200,7 @@ public sealed partial class World
     }
 
     /// <summary>The next challenger enters, or the relay is lost.</summary>
-    void DuelBegin(WarfrontBattleRules rules, TfwRun run, TfwBattle battle, SmSim.Extras.Warfront.Chaos.WarfrontChaosRoster roster)
+    void DuelBegin(WarfrontBattleRules rules, TfwRun run, TfwBattle battle, SmSim.Extras.Warfront.Chaos.WarfrontChaosRoster roster, bool first = false)
     {
         var duel = _duel!;
         var musou = _musou!;
@@ -169,11 +212,17 @@ public sealed partial class World
         {
             _duelist = 0;
             musou.LordDuelist = 0;
+            DuelIsolate(rules, run, battle, start: first);
             DuelLog($"LOST: no challenger left; the Chaos Lord stands at {LordHealthText(lord)}");
             return;
         }
         _duelist = id;
-        DuelIsolate(rules, run, battle, start: false);
+        DuelIsolate(rules, run, battle, start: first);   // the challenger is not put aboard: one fresh life, at the entry (Fable review C5s, finding 9)
+        // The Lord settled on his spot before every entry, the first one too: a charge or a stray under way at the snapshot is gone (Fable review C5s, finding 1).
+        var spot = battle.FortressPlan?.BossSpot ?? battle.Layout.BossSpot;
+        musou.Relocate(lord, spot);
+        musou.WarfrontLordSlate(lord);
+        if (_musouBoss is { } boss && boss.Id == lord) boss.WarfrontLordSlate();
         if (battle.ChaosDuelEntry is { } entry) { _duelEntry = entry.At; _duelEntryYaw = entry.Yaw; }
         TfwRespawnAt(id, _duelEntry, _duelEntryYaw, faceCentre: false);
         if (_players.TryGetValue(id, out var p) && p.FireBoostLeft > 0f) _players[id] = p with { FireBoostLeft = 0f };
@@ -231,15 +280,17 @@ public sealed partial class World
         var musou = _musou!;
         battle.ChaosDuelHold = true;
         battle.Trickle = false;
-        if (!_heldWrapped)
+        if (!ReferenceEquals(_heldWrappedFor, rules))
         {
-            _heldWrapped = true;
+            _heldWrappedFor = rules;
             var before = rules.CoopHeld;
             rules.CoopHeld = id => (before?.Invoke(id) ?? false) || (DuelHolding && id != _duelist && !TfwContracts.IsPuppet(id) && id > 0);
         }
-        if (!_squadWrapped)
+        // T2 integration note (Fable review C5s, finding 8): these two wraps stand in for a hold the squad wiring should read itself (WarfrontSquadWiring's SquadStep and SquadTargets answering
+        // "nothing" while World.WarfrontDuelHoldsSquads); the wiring is T2's, so the wrap stays until that hook lands.
+        if (!ReferenceEquals(_squadWrappedFor, rules))
         {
-            _squadWrapped = true;
+            _squadWrappedFor = rules;
             var step = rules.SquadStep;
             var targets = rules.SquadTargets;
             rules.SquadStep = () => { if (!DuelHolding) step?.Invoke(); };

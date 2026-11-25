@@ -136,6 +136,56 @@ public class LordAiTests(ITestOutputHelper output)
         Assert.True(hit, "the Lord reached the kiter within 8 s");
     }
 
+    [Theory]
+    [InlineData(4f)]
+    [InlineData(12f)]
+    public void The_lord_does_nothing_in_the_bodyguard_fight(float distance)
+    {
+        var (w, b) = FinaleRig.Fortress();
+        var spot = b.FortressPlan!.BossSpot;
+        var at = spot + new Vector3(0f, -distance, 0f);
+        ushort lord = b.BossId;
+        int strikes = 0;
+        for (int t = 0; t < 30 * 10; t++)
+        {
+            if (FinaleRig.Flat(w.Players[1].Position, at) > 0.5f || !w.Players[1].Alive) w.TfwRespawnAt(1, at, 0f, faceCentre: false);
+            w.Step(_ => default);
+            if (w.MusouBoss is { } boss && boss.Id == lord) Assert.Equal(MusouBossAction.None, boss.Action);
+            strikes += w.Musou!.Events.Count(e => e.Enemy == lord && e.Kind is MusouEventKind.Strike or MusouEventKind.Telegraph);
+        }
+        Assert.Equal(0, strikes);
+        Assert.True(FinaleRig.Flat(FinaleRig.Lord(w, b).Position, spot) < 2f);   // at home
+        Assert.Equal(SmSim.Extras.Warfront.Chaos.Finale.WarfrontDuelPhase.Bodyguard, w.WarfrontChaosDuel!.Phase);
+    }
+
+    [Fact]
+    public void A_charge_running_at_the_snapshot_is_cleared_before_the_first_entry()
+    {
+        var (w, b) = FinaleRig.Fortress();
+        ushort lord = b.BossId;
+        w.Musou!.Script(lord, true, MusouEnemyState.Strike);
+        w.Musou.Drive(lord, new Vector2(12f, 0f), 60);   // as a charge under way
+        FinaleRig.Steps(w, 5);
+        Assert.True(FinaleRig.Flat(FinaleRig.Lord(w, b).Position, b.FortressPlan!.BossSpot) > 1.5f);
+        FinaleRig.KillChosen(w, b, ticks: 1);
+        Assert.Equal(SmSim.Extras.Warfront.Chaos.Finale.WarfrontDuelPhase.Duel, w.WarfrontChaosDuel!.Phase);
+        var l = FinaleRig.Lord(w, b);
+        Assert.True(FinaleRig.Flat(l.Position, b.FortressPlan.BossSpot) < 1.5f, $"{l.Position}");
+        Assert.NotEqual(MusouEnemyState.Strike, l.State);
+    }
+
+    [Fact]
+    public void A_stun_cancels_the_leap()
+    {
+        var (w, b, d) = FinaleRig.Duel();
+        Hold(w, b, 22f, 30 * 6, _ => w.MusouBoss?.Leaping == true);
+        var boss = w.MusouBoss!;
+        Assert.True(boss.Leaping);
+        w.Musou!.Script(b.BossId, false);   // his wind-up taken off, as a melee stun takes it (MusouSim.BossStun.cs)
+        FinaleRig.Steps(w, 1);
+        Assert.False(boss.Leaping);
+    }
+
     [Fact]
     public void ChargeClosesGap()
     {

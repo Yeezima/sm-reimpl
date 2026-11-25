@@ -38,6 +38,8 @@ public static class WarfrontDuelRules
 
     /// <summary>The duel state goes on every change and this often a second (ours).</summary>
     public const int StateHz = 2;
+    /// <summary>After the win or the loss the state is still sent at <see cref="StateHz"/> for this long, then only on a change (ours).</summary>
+    public const float EndResendSeconds = 3f;
     /// <summary>Each of the Lord's telegraphs is sent this many times, this many ticks apart (as the breach closures).</summary>
     public const int TelegraphRepeats = 3, TelegraphRepeatTicks = 3;
 }
