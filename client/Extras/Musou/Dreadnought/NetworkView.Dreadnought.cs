@@ -453,6 +453,9 @@ public partial class NetworkView
     /// <summary>camera/melee-fov-widen (owner 2026-11-15: "No"): the Dreadnought keeps his normal field of view in melee.</summary>
     partial void ExtrasMeleeFovExcluded(PlayerState me, ref bool excluded) => excluded = IsDreadnoughtClass(me.Class);
 
+    /// <summary>camera/melee-orbit (owner 2026-11-25): the Dreadnought has no melee mode (his camera never orbits free).</summary>
+    partial void ExtrasMeleeModeExcluded(PlayerState me, ref bool excluded) => excluded = IsDreadnoughtClass(me.Class);
+
     /// <summary>A Dreadnought's death is his clip, held where it ends; no ragdoll (design section 3.2: "no ragdoll").</summary>
     partial void ExtrasDeath(CharacterViewer character, ref bool handled)
     {

@@ -1,4 +1,5 @@
 using SmClient.Customizer.Model;
+using SmSim;
 using Xunit;
 
 namespace SmFormats.Tests;
@@ -159,4 +160,16 @@ public class MeleeFovTests
         Assert.Equal(MeleeFov.Change.Excluded, f.Step(In(excluded: true), Dt));
         Assert.False(f.Wide);
     }
+
+    // camera/melee-orbit (owner 2026-11-25: "keep the old widen rules"): every move that widened before still widens, independent of the camera's melee mode.
+    [Theory]
+    [InlineData(1, RushPhase.None, JumpPhase.None)]         // a swing: knife, kick or melee weapon alike
+    [InlineData(0, RushPhase.Rush, JumpPhase.None)]         // the charge
+    [InlineData(0, RushPhase.DashAttack, JumpPhase.None)]   // the dash attack's lunge
+    [InlineData(0, RushPhase.None, JumpPhase.Dive)]         // the ground pound
+    [InlineData(0, RushPhase.None, JumpPhase.Recover)]
+    public void TheOldMovesStillWiden(int step, RushPhase rush, JumpPhase jump) => Assert.True(MeleeFov.Widens(step, rush, jump));
+
+    [Fact]
+    public void NoMoveNoWidening() => Assert.False(MeleeFov.Widens(0, RushPhase.None, JumpPhase.None));
 }
