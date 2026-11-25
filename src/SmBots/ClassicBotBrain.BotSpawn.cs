@@ -19,7 +19,7 @@ namespace SmBots;
 /// <list type="bullet">
 /// <item>an enemy standing in the room (<see cref="InEnemyRoom"/>) is neither chased nor shot (no spawn killing through the blockers, which shots pass);</item>
 /// <item>with no other enemy to go for, the bot walks to a hold point (its id picks one, so a side's bots spread) and stands there facing the door; since 2026-11-07 only
-/// with <c>--bot-door-wait</c>: by default it roams and holds the map centre instead (NetworkView.BotRoam.cs);</item>
+/// with <c>--bot-door-wait</c>: by default it roams and holds the map centre instead (ClassicBotBrain.BotRoam.cs);</item>
 /// <item>when the enemy walks out (its cell is no longer in the room) the normal fight and chase resume.</item>
 /// </list>
 /// The watch is built once per side and graph on the thread pool; until ready, or without teams, blockers or a graph, the bot behaves as before.
@@ -31,7 +31,7 @@ public sealed partial class ClassicBotBrain
     bool BotNoSpawnWait => CmdFlag("bot-no-spawn-wait");
     /// <summary>
     /// <c>--bot-door-wait</c> (test aid, before/after): the M44a wait at a hold point 8 to 15 m from the other side's spawn door. Off by default since 2026-11-07 (owner:
-    /// "the bot should never wait directly outside the spawn area of the enemy"); the bots roam and hold the centre instead (NetworkView.BotRoam.cs).
+    /// "the bot should never wait directly outside the spawn area of the enemy"); the bots roam and hold the centre instead (ClassicBotBrain.BotRoam.cs).
     /// </summary>
     bool BotDoorWait => CmdFlag("bot-door-wait");
 
@@ -45,7 +45,7 @@ public sealed partial class ClassicBotBrain
             {
                 var team = client.Predicted.Team;
                 var cancel = _navCancel.Token;
-                slot.WatchTask = Job($"watch {slot.Team} {slot.Pack}", () =>
+                slot.WatchTask = MapJob($"watch {slot.Key}", () =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
                     var own = map.StartAreas.FirstOrDefault(a => a.Side == team);

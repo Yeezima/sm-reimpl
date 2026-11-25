@@ -29,7 +29,7 @@ public sealed partial class ClassicBotBrain
         double phase = t % 10.0;
         var me = _client!.Predicted;
         _botExtrasTick = false;
-        BotHazards(me);   // bot-grenade-safety: the bot's own live grenades and waiting rounds this tick (NetworkView.BotGrenades.cs)
+        BotHazards(me);   // bot-grenade-safety: the bot's own live grenades and waiting rounds this tick (ClassicBotBrain.BotGrenades.cs)
         // The client's test aids that script the whole input (--jump-test, --slash-test, --hop-rules-test, --stab-recovery-test, --swing-test, --stomp-move-test,
         // --camera-test, --fire-test, --carry-test, --dash-wall-test; the client's NetworkView.*Test.cs files), in that order; none on a server.
         if (_hooks.TestAidInput(me, tick) is { } testAid) return testAid;
@@ -39,38 +39,38 @@ public sealed partial class ClassicBotBrain
         // M44a: during the match's "MATCH BEGINS" countdown (attacks do not work yet) the bot holds still in its spawn room: no wasted shots, no stale path.
         if (_client.Match.Effective() == MatchState.Countdown) { _botNote = "countdown: holding"; _navAgent?.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
         _botNote = "";
-        // EXTRAS-HOOK (the client's ExtrasBotInput): added content's own bot (Musou Mode co-op: deploy with the team, fight the Orks).
-        if (_hooks.ExtrasBotInput(me, tick) is { } extrasInput) { _botExtrasTick = true; return extrasInput; }   // bot-grenade-safety: the hold leaves added content's bot alone
+        // Added content's own bot (the client's ExtrasBotInput hook, through IBotHooks.AddedContentInput; Musou Mode co-op: deploy with the team, fight the Orks).
+        if (_hooks.AddedContentInput(me, tick) is { } extrasInput) { _botExtrasTick = true; return extrasInput; }   // EXTRAS-HOOK (via the client's adapter). bot-grenade-safety: the hold leaves added content's bot alone
         // The strategy ahead of the fight: at low health cover first, then back into the fight; Seize Ground (M16): go to a point not held, fight on the way and hold it.
         if (_strategy.BeforeFight(this, me, tick, phase) is { } strategyInput) return strategyInput;
-        // M19: on a map it fights only an enemy it sees within BotFightRange; otherwise it chases (NetworkView.Bot.cs).
+        // M19: on a map it fights only an enemy it sees within BotFightRange; otherwise it chases (ClassicBotBrain.Bot.cs).
         if (me.Alive && BotFightTarget(me, out _) is { } target)
         {
             float dx = target.Position.X - me.Position.X, dy = target.Position.Y - me.Position.Y;
             float dz = target.Position.Z + AimHeightOf(target) - (me.Position.Z + _config.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);   // direction (-sin yaw, cos yaw)
             _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
-            _botTickEnemy = target;   // stream C: the strafing and straight-run measurements (NetworkView.BotTactics.cs)
+            _botTickEnemy = target;   // stream C: the strafing and straight-run measurements (ClassicBotBrain.BotTactics.cs)
             _strategy.NoteFight(this, me, target);   // 2026-11-07: the lane leg ends; afterwards the idle cycle starts at the hold again (ClassicBotBrain.BotRoam.cs)
-            // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (NetworkView.Jump.cs).
-            if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (NetworkView.DashAttack.cs)
+            // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (ClassicBotBrain.Jump.cs).
+            if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (ClassicBotBrain.DashAttack.cs)
             if (BotJumpInput(me, target, tick) is { } jumpInput) return jumpInput;
-            // 2026-11-08: a melee push keeps closing in sight instead of strafing until the jump, charge or melee range (NetworkView.BotPush.cs).
+            // 2026-11-08: a melee push keeps closing in sight instead of strafing until the jump, charge or melee range (ClassicBotBrain.BotPush.cs).
             if (_strategy.FightMove(this, me, target, tick, MathF.Sqrt(dx * dx + dy * dy)) is { } pushInput) return pushInput;
-            // Evade roll (Tactical / Devastator classes): sideways every ~6 s (NetworkView.Evade.cs).
+            // Evade roll (Tactical / Devastator classes): sideways every ~6 s (ClassicBotBrain.Evade.cs).
             if (_strategy.Post(this, me) is null && BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;   // 2026-11-08: no rolls off a post's edge
             bool hasMelee = Loadouts.Melee(_config, me).Count > 0;
             // perks/inert-2: a bot carrying combat stims uses them once it has a target within 20 m (melee bots too; ours, test script).
             if (StimOf(me) is not null && BotThrow(me, target, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
                 return new PlayerInput(tick, 0f, 1f, _yaw, stimPress, _pitch);
-            // The charge (M29): sometimes, at 4-9 m, run at the target and press F once moving fast enough (NetworkView.Reactions.cs).
+            // The charge (M29): sometimes, at 4-9 m, run at the target and press F once moving fast enough (ClassicBotBrain.Reactions.cs).
             // Same floor only: a target more than BotMeleeHeight above or below is not in reach (QA 2026-10-28: bots swung at an
             // enemy 5 m below a ledge for 40 s).
             bool sameFloor = MathF.Abs(target.Position.Z - me.Position.Z) <= BotMeleeHeight;
-            // Night batch 2026-11-06: a reaction time before the first melee action or charge on an enemy in reach (NetworkView.BotAim.cs), also before answering its attack; an action under way goes on.
+            // Night batch 2026-11-06: a reaction time before the first melee action or charge on an enemy in reach (ClassicBotBrain.BotAim.cs), also before answering its attack; an action under way goes on.
             bool meleeActive = me.MeleeStep > 0 || me.MeleeHeld || me.MeleeHeavyHeld || me.MeleeQueued;
             bool meleeReady = BotMeleeReady(target, sameFloor && dx * dx + dy * dy <= 81f, MathF.Sqrt(dx * dx + dy * dy));
-            // bot-grenade-safety: no charge into the bot's own live grenade (the target inside its blast, or the run through it; NetworkView.BotGrenades.cs).
+            // bot-grenade-safety: no charge into the bot's own live grenade (the target inside its blast, or the run through it; ClassicBotBrain.BotGrenades.cs).
             bool chargeHeld = me.Rush == RushPhase.None && BotChargeIntoOwnBlast(me, target);
             if (!chargeHeld && (meleeReady || me.Rush != RushPhase.None || _botChargeRunSince >= 0) && BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
             if (hasMelee && sameFloor && dx * dx + dy * dy <= BotMeleeDistance * BotMeleeDistance)
@@ -87,17 +87,17 @@ public sealed partial class ClassicBotBrain
                     || (me.MeleeStep == 2 && !me.MeleeHeavy && heavies >= 3)
                     || (me.MeleeStep == 1 && !me.MeleeHeavy && Loadouts.Melee(_config, me).Count == 1 && heavies >= 1)
                     || (me.MeleeHeavy && Combat.MeleeStepOf(_config, me) is { YNext: > 0 });
-                // Stream C: some swings are deliberately missed (the view turned off the target for that attack; NetworkView.BotTactics.cs).
+                // Stream C: some swings are deliberately missed (the view turned off the target for that attack; ClassicBotBrain.BotTactics.cs).
                 return new PlayerInput(tick, 0f, 0f, BotSwingYaw(me, press, MathF.Sqrt(dx * dx + dy * dy)), press ? heavy ? InputButtons.MeleeHeavy : InputButtons.Melee : InputButtons.None, _pitch);
             }
             if (_botMelee) return new PlayerInput(tick, 0f, 1f, _yaw, dx * dx + dy * dy > 36f ? InputButtons.Sprint : InputButtons.None, _pitch);
-            // Strafe only onto walkable ground (navigation graph, NetworkView.Nav.cs): the other side or none otherwise.
-            // Stream C: left and right in legs, toward a flank while an ally engages the same enemy (NetworkView.BotTactics.cs); --bot-old-tactics: one side, standing 2 s of every 10.
+            // Strafe only onto walkable ground (navigation graph, ClassicBotBrain.Nav.cs): the other side or none otherwise.
+            // Stream C: left and right in legs, toward a flank while an ally engages the same enemy (ClassicBotBrain.BotTactics.cs); --bot-old-tactics: one side, standing 2 s of every 10.
             float strafe = BotOldTactics ? BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f) : BotStrafe(me, target);
             float horizontal = MathF.Sqrt(dx * dx + dy * dy);
             var grenade = BotThrow(me, target, horizontal);
             // Throwing (pressed now or under way until the release). bot-grenade-safety (Classic PvP, a damaging item): at the predicted landing point, under way never nearer than
-            // the one checked at the press (NetworkView.BotGrenades.cs); else (--old-bot-throws, stims, the blind grenade) at the ground BotThrowShort m short of the target, from
+            // the one checked at the press (ClassicBotBrain.BotGrenades.cs); else (--old-bot-throws, stims, the blind grenade) at the ground BotThrowShort m short of the target, from
             // before the 2026-10-29 bounce rule (test script heuristic).
             if (grenade != InputButtons.None || (me.Throwing && me.ThrowTime <= _config.ThrowRelease + 0.05f))
             {
@@ -115,11 +115,11 @@ public sealed partial class ClassicBotBrain
             if (grenade == InputButtons.None && !me.Throwing) weaponButtons |= BotAimButton(me, horizontal);
             // M44a: a ranged shot at an enemy gets the aim error (BotApplyAim); a throw keeps the exact aim.
             _botAimNow = grenade == InputButtons.None && !me.Throwing;
-            _botAimTarget = target.PlayerId;   // the trigger discipline's reaction delay (NetworkView.BotAim.cs)
+            _botAimTarget = target.PlayerId;   // the trigger discipline's reaction delay (ClassicBotBrain.BotAim.cs)
             BotNoteEngagement(horizontal);
             // M44a: far from the target (more than BotAdvanceBeyond m) the bot keeps firing and walks toward it along its path, so that long-range
             // fights close up (no sprint: it would stop the fire). Without a graph, or at the end of the path, it strafes as before.
-            // 2026-11-08: a bot with a post (ramp top, balcony) fights from there, stepping back onto it while firing (NetworkView.BotPosts.cs).
+            // 2026-11-08: a bot with a post (ramp top, balcony) fights from there, stepping back onto it while firing (ClassicBotBrain.BotPosts.cs).
             if (_strategy.PostReturn(this, me) is { } postSpot && Nav is not null)
             {
                 var (back, backSpeed, _, _) = BotSteer(me, postSpot, "back to post");
@@ -169,7 +169,7 @@ public sealed partial class ClassicBotBrain
     public InputButtons BotWeaponButtons(PlayerState me, uint tick, PlayerState? target)
     {
         var c = _config!;
-        // bot-grenade-safety (Classic PvP): a splash weapon held at close range gives way to a loaded pistol, back when the range allows (NetworkView.BotGrenades.cs); else the old rule.
+        // bot-grenade-safety (Classic PvP): a splash weapon held at close range gives way to a loaded pistol, back when the range allows (ClassicBotBrain.BotGrenades.cs); else the old rule.
         var splashSwitch = BotSplashSwitch(me, target);
         if (splashSwitch == true || (splashSwitch is null && BotWantsSwitch(me))) return me.SwitchHeld ? InputButtons.None : InputButtons.Switch;   // press edge; released on the next tick
         if (Loadouts.InHand(c, me) is not { } weapon) return InputButtons.None;
@@ -200,7 +200,7 @@ public sealed partial class ClassicBotBrain
             }
             if (me.FireHeld || me.Overheated) return buttons;   // release first: a charge starts on a press edge
             bool chargeNow = BotChargeAll || (tick * (double)c.TickSeconds + Math.Max(_client?.PlayerId ?? 0, 0) * 1.3) % BotChargeCycle >= BotChargeCycle - BotChargeWindow;
-            // bot-grenade-safety (Classic PvP; NetworkView.BotGrenades.cs): a charged shot that would burst within its own blast of the bot is not charged (the tap's basic shot instead),
+            // bot-grenade-safety (Classic PvP; ClassicBotBrain.BotGrenades.cs): a charged shot that would burst within its own blast of the bot is not charged (the tap's basic shot instead),
             // and a basic shot that would is not fired.
             if (chargeNow && lastFiring > 0 && BotSplashShotHeld(me, weapon, lastFiring, target, note: false)) chargeNow = false;
             if (BotSplashShotHeld(me, weapon, 0, target)) return buttons;
@@ -258,7 +258,7 @@ public sealed partial class ClassicBotBrain
     /// <summary>Why the bot's grenades should go off now (see <see cref="BotWeaponButtons"/>), or null.</summary>
     string? BotWantsDetonation(PlayerState me, WeaponSpec weapon, PlayerState? target)
     {
-        // bot-grenade-safety: never with the bot's chest inside a waiting round's blast reach (NetworkView.BotGrenades.cs).
+        // bot-grenade-safety: never with the bot's chest inside a waiting round's blast reach (ClassicBotBrain.BotGrenades.cs).
         if (BotDetonationHeld(me, weapon) is { } near)
         {
             if (_connectedFor - _botLastDetonationHold >= 1.0) { _detonationsHeld++; _botLastDetonationHold = _connectedFor; BotSafetyLog($"no detonation: a waiting round {near:F1} m from the chest"); }

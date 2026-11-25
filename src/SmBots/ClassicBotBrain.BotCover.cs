@@ -78,7 +78,7 @@ public sealed partial class ClassicBotBrain
 
         if (_coverTask is { IsCompleted: true } task)
         {
-            _coverTask = null;
+            _coverTask = null; ForgetJob(task);
             if (task.IsCompletedSuccessfully)
             {
                 _cover = task.Result; _coverNone = _cover is null;
@@ -94,7 +94,7 @@ public sealed partial class ClassicBotBrain
             _coverAt = _connectedFor;
             var from = me.Position; var cancel = _navCancel.Token; var plan = Plan;
             Func<V3, bool>? excluded = plan is null ? null : plan.InNoLoiterZone;
-            _coverTask = Job($"cover {++_coverJobs}", () => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
+            _coverTask = BrainJob($"cover {++_coverJobs}", () => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
         }
         if (_cover is not { } cover) return target is null ? new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f) : null;   // planning (standing), or none: fight
 
@@ -103,7 +103,7 @@ public sealed partial class ClassicBotBrain
         {
             // Seen: fire back while going (no sprint: it would stop the fire), or standing in a cover that is no longer hidden until the next one is planned.
             float dx = enemy.Position.X - me.Position.X, dy = enemy.Position.Y - me.Position.Y;
-            float dz = enemy.Position.Z + BotTargetHeight - (me.Position.Z + _config.EyeHeight);
+            float dz = enemy.Position.Z + AimHeightOf(enemy) - (me.Position.Z + _config.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);
             _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
             var weapon = BotWeaponButtons(me, tick, enemy);

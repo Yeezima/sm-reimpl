@@ -5,7 +5,7 @@ using SmSim;
 namespace SmBots;
 
 /// <summary>
-/// Classic strategy, M19: the Annihilation bot's chase when it has nothing to fight (moved from the client's NetworkView.Bot.cs; the sight and walking it uses stay in
+/// Classic strategy, M19: the Annihilation bot's chase when it has nothing to fight (moved from the client's old NetworkView.Bot.cs; the sight and walking it uses stay in
 /// ClassicBotBrain.Bot.cs): the push, the post, the chase or hunt, the lane leg, the idle cycle and the walk to the map centre. Test script, not the original AI.
 /// </summary>
 public sealed partial class ClassicBotBrain
@@ -24,21 +24,21 @@ public sealed partial class ClassicBotBrain
         float distance;
         string purpose;
         // M44a: an enemy in its spawn room cannot be reached (the blockers) and is not chased; since 2026-11-07 neither is one in the no-loiter zone around it, and with
-        // only such enemies (or none alive) the bot holds its centre spot and roams (NetworkView.BotRoam.cs; the old wait at the door only with --bot-door-wait).
-        // 2026-11-08: a melee push goes first, through its concealed approach (NetworkView.BotPush.cs).
+        // only such enemies (or none alive) the bot holds its centre spot and roams (ClassicBotBrain.BotRoam.cs; the old wait at the door only with --bot-door-wait).
+        // 2026-11-08: a melee push goes first, through its concealed approach (ClassicBotBrain.BotPush.cs).
         if (BotPushChaseInput(me, tick) is { } pushInput) return pushInput;
-        // 2026-11-08: a ramp or balcony holder goes to its post and holds it instead of chasing (NetworkView.BotPosts.cs).
+        // 2026-11-08: a ramp or balcony holder goes to its post and holds it instead of chasing (ClassicBotBrain.BotPosts.cs).
         if (BotPostInput(me, tick) is { } postInput) return postInput;
         var chased = BotChaseTarget(me);
-        chased ??= BotHuntTarget(me);   // 2026-11-16: nobody to chase: hunt an enemy outside its spawn room instead of patrolling (NetworkView.BotHunt.cs)
+        chased ??= BotHuntTarget(me);   // 2026-11-16: nobody to chase: hunt an enemy outside its spawn room instead of patrolling (ClassicBotBrain.BotHunt.cs)
         if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
-        // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (NetworkView.BotRoam.cs).
+        // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (ClassicBotBrain.BotRoam.cs).
         if (BotLaneInput(me, tick, chased) is { } laneInput) return laneInput;
         if (chased is null && BotIdleInput(me, tick) is { } idleInput) return idleInput;
         if (chased is { } enemy)
         {
-            // Stream C: with an ally already engaging it, come in from the side (a flank point; NetworkView.BotTactics.cs). 2026-11-07: else a long chase bends
-            // through a via point by rank (Annihilation; NetworkView.BotRoam.cs).
+            // Stream C: with an ally already engaging it, come in from the side (a flank point; ClassicBotBrain.BotTactics.cs). 2026-11-07: else a long chase bends
+            // through a via point by rank (Annihilation; ClassicBotBrain.BotRoam.cs).
             var flank = BotFlankGoal(me, enemy);
             var via = flank is null ? BotChaseVia(me, enemy) : null;
             goal = flank ?? via ?? BotPathGoal(enemy.Position);
@@ -55,7 +55,7 @@ public sealed partial class ClassicBotBrain
             purpose = "map centre";
         }
         else return null;
-        // Path following on the navigation graph (NetworkView.Nav.cs); the straight walk with detours until it is built.
+        // Path following on the navigation graph (ClassicBotBrain.Nav.cs); the straight walk with detours until it is built.
         var (to, speed, _, dropAhead) = BotSteer(me, goal, purpose);
         if (Nav is null && _connectedFor < _botDetourUntil) _botNote += " detour";
         if (to.LengthSquared() < 1e-6f) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);

@@ -42,11 +42,13 @@ public partial class NetworkView
     BotWorld? _botWorld;
     ShadowWorld? _botShadowWorld;
     int _botTickStamp;
+    bool _botStepping;
     /// <summary>The map's mean spawn point (game space), set at the map load for every client: the overview camera uses it (NetworkView.MapLoad.cs).</summary>
     V3? _mapCentre3;
 
     /// <summary>The bot brain (created on first use; bots only).</summary>
-    Brain BotBrainOf() => _botBrain ??= NewBotBrain(_botWorld ??= new BotWorld(this), GD.Print);
+    Brain BotBrainOf() => _botBrain ??= NewBotBrain(_botWorld ??= new BotWorld(this), GD.Print, _botHooks ??= new BotHooks(this), primary: true);
+    BotHooks? _botHooks;
 
     /// <summary>The shadow brain and its world (own yaw and pitch), or null without <c>--bot-shadow</c>.</summary>
     Brain? BotShadowOf()
@@ -54,18 +56,19 @@ public partial class NetworkView
         if (!BotShadow) return null;
         _botWorld ??= new BotWorld(this);
         _botShadowWorld ??= new ShadowWorld(_botWorld);
-        return _botShadowBrain ??= NewBotBrain(_botShadowWorld, null);
+        // The client's hooks run once a tick, for the live brain; the shadow is handed the live brain's answers of this tick (no test aid or added content's bot runs twice).
+        return _botShadowBrain ??= NewBotBrain(_botShadowWorld, null, new ShadowHooks(_botHooks ??= new BotHooks(this)), primary: false);
     }
 
-    Brain NewBotBrain(SmBots.IBotWorldView world, Action<string>? print) =>
+    Brain NewBotBrain(SmBots.IBotWorldView world, Action<string>? print, SmBots.IBotHooks hooks, bool primary) =>
         new(world, new SmBots.BotArgs(OS.GetCmdlineUserArgs()),
             new SmBots.ClassicBotOptions
             {
                 GameDir = _gameDir, Melee = _botMelee, Fire = _botFire, FireWalls = BotFireWalls, ThrowMax = _botThrowMax, JumpFree = _botJumpFree,
-                Goal = BotGoal, Route = BotRoute, Lean = Lean, SyncPlans = BotShadowSync, WorkLane = "bot",
+                Goal = BotGoal, Route = BotRoute, Lean = Lean, SyncPlans = BotShadowSync, WorkLane = "bot", Primary = primary,
             },
             print is null ? SmBots.BotLog.None : new SmBots.BotLog(s => print(s), s => GD.PrintErr(s)),
-            new BotHooks(this));
+            hooks);
 
     // ---- the host's calls (from the input sampling and the frame) ----
 
@@ -75,14 +78,19 @@ public partial class NetworkView
         _botTickStamp++;
         _botWork.Poll();
         float yaw0 = _yaw, pitch0 = _pitch;
-        var live = BotBrainOf().Step(tick);
-        if (BotShadowOf() is { } shadow)
+        _botStepping = true;   // the projectile list is taken once for this step (both brains); outside a step it is read fresh
+        try
         {
-            float liveYaw = _yaw, livePitch = _pitch;
-            _botShadowWorld!.Yaw = yaw0; _botShadowWorld.Pitch = pitch0;
-            ShadowCompare("step", live, shadow.Step(tick), liveYaw, livePitch, BotBrainOf().Note, shadow.Note);
+            var live = BotBrainOf().Step(tick);
+            if (BotShadowOf() is { } shadow)
+            {
+                float liveYaw = _yaw, livePitch = _pitch;
+                _botShadowWorld!.Yaw = yaw0; _botShadowWorld.Pitch = pitch0;
+                ShadowCompare("step", live, shadow.Step(tick), liveYaw, livePitch, BotBrainOf().Note, shadow.Note);
+            }
+            return live;
         }
-        return live;
+        finally { _botStepping = false; }
     }
 
     /// <summary>The grenade safety's hold on the final input (the old <c>BotGrenadeHold</c>), with the shadow comparison.</summary>
@@ -148,11 +156,7 @@ public partial class NetworkView
     public const float DefaultBotAccuracy = Brain.DefaultBotAccuracy;
 
     /// <summary>The number after <c>--name</c> (a finite float, invariant culture), or null: the client's test aids read their values with it (it lived beside the bot's aim flags).</summary>
-    static float? FloatArg(string name)
-    {
-        var a = CmdArgs(name, 1);
-        return a.Length == 1 && float.TryParse(a[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) && float.IsFinite(v) ? v : null;
-    }
+    static float? FloatArg(string name) => SmBots.BotArgs.FiniteFloat(CmdArgs(name, 1));
 
     /// <summary>The bot's last decision, for its log (and set by <c>--bot-pickups</c>).</summary>
     string _botNote { get => _bot ? BotBrainOf().Note : ""; set { if (_bot) BotBrainOf().Note = value; } }
@@ -235,9 +239,13 @@ public partial class NetworkView
         public TimeSpan CurrentInterpolationDelay => view._client?.CurrentInterpolationDelay ?? TimeSpan.Zero;
         public IEnumerable<ProjectileView> NewestProjectiles() => view._client?.NewestProjectiles() ?? [];
 
-        /// <summary>The interpolated projectiles, computed once per bot tick (the render clock moves within a tick; the shadow brain sees the live one's list).</summary>
+        /// <summary>
+        /// The interpolated projectiles: within a brain step computed once (the render clock moves within a tick; the shadow brain sees the live one's list); any other
+        /// call (outside a step: the client's own code through the forwarders) reads them fresh, as before the move.
+        /// </summary>
         public IReadOnlyList<ProjectileView> Projectiles()
         {
+            if (!view._botStepping) return view._client?.Projectiles() ?? [];
             if (_projectilesStamp != view._botTickStamp) { _projectilesStamp = view._botTickStamp; _projectiles = view._client?.Projectiles() ?? []; }
             return _projectiles;
         }
@@ -282,7 +290,17 @@ public partial class NetworkView
     /// <summary>The client's test aids and added content's bot, as the brain asks for them (in the old BotInput's order).</summary>
     sealed class BotHooks(NetworkView view) : SmBots.IBotHooks
     {
+        /// <summary>This tick's answers, which the shadow brain is handed (<see cref="ShadowHooks"/>).</summary>
+        public (uint Tick, PlayerInput? Input)? LastTestAid, LastAdded;
+
         public PlayerInput? TestAidInput(PlayerState me, uint tick)
+        {
+            var input = TestAid(me, tick);
+            LastTestAid = (tick, input);
+            return input;
+        }
+
+        PlayerInput? TestAid(PlayerState me, uint tick)
         {
             if (view.JumpTest && view.JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
             if (view.SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
@@ -297,14 +315,25 @@ public partial class NetworkView
             return null;
         }
 
-        public PlayerInput? ExtrasBotInput(PlayerState me, uint tick)
+        public PlayerInput? AddedContentInput(PlayerState me, uint tick)
         {
             PlayerInput? input = null;
             view.ExtrasBotInput(me, tick, ref input);   // EXTRAS-HOOK: added content's own bot (Musou Mode co-op: deploy with the team, fight the Orks)
+            LastAdded = (tick, input);
             return input;
         }
 
         public void NotePress(float viewYaw, string keys, float speed) => view.NotePress(viewYaw, keys, speed);
         public void Phase(string phase) => view.Ph(phase);
+    }
+
+    /// <summary>
+    /// The shadow brain's hooks (<c>--bot-shadow</c>): the live brain's answers of the same tick (null when the live brain did not ask this tick), no press log, no
+    /// phase marks; so a test aid, added content's bot and the charge-direction log run once a tick.
+    /// </summary>
+    sealed class ShadowHooks(BotHooks live) : SmBots.IBotHooks
+    {
+        public PlayerInput? TestAidInput(PlayerState me, uint tick) => live.LastTestAid is { } a && a.Tick == tick ? a.Input : null;
+        public PlayerInput? AddedContentInput(PlayerState me, uint tick) => live.LastAdded is { } a && a.Tick == tick ? a.Input : null;
     }
 }

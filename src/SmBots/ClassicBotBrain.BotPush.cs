@@ -22,7 +22,7 @@ namespace SmBots;
 /// Owner, 2026-11-08 (second pass): "only approach for melee if there is safe way to do it out of sight" and "not push when they are being actively shot at": the
 /// bot does nothing different until the approach is planned, and drops the push when the plan is not <see cref="ApproachPlan.Safe"/> (also on a replan before it has
 /// closed in); no push starts within 4 s of being hurt, and a hit ends one that has not closed in yet (<see cref="BotPush.UnderFireStart"/>). Bots on a post
-/// (NetworkView.BotPosts.cs) and retreating bots (NetworkView.BotCover.cs) do not push.
+/// (ClassicBotBrain.BotPosts.cs) and retreating bots (ClassicBotBrain.BotCover.cs) do not push.
 /// Annihilation only (Seize Ground keeps its point logic; Musou bots return earlier, <c>ExtrasBotInput</c>). <c>--bot-no-push</c> turns it off.
 /// </summary>
 public sealed partial class ClassicBotBrain
@@ -109,7 +109,7 @@ public sealed partial class ClassicBotBrain
     {
         if (_approachTask is { IsCompleted: true } task)
         {
-            _approachTask = null;
+            _approachTask = null; ForgetJob(task);
             if (task.IsCompletedSuccessfully)
             {
                 _approach = task.Result; _approachIndex = 0;
@@ -126,7 +126,7 @@ public sealed partial class ClassicBotBrain
             if (enemy.PlayerId != _approachFor) _approach = null;
             _approachFor = enemy.PlayerId; _approachEnemyAt = enemy.Position; _approachAt = _connectedFor;
             var from = me.Position; var at = enemy.Position; float eye = config.EyeHeight; var cancel = _navCancel.Token;
-            _approachTask = Job($"approach {++_approachJobs}", () => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
+            _approachTask = BrainJob($"approach {++_approachJobs}", () => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
         }
         if (_approach is not { } plan || !_approachSafe) return null;
         while (_approachIndex < plan.Waypoints.Count && new Vector2(plan.Waypoints[_approachIndex].X - me.Position.X, plan.Waypoints[_approachIndex].Y - me.Position.Y).Length() <= ApproachPass) _approachIndex++;

@@ -32,8 +32,8 @@ public sealed partial class ClassicBotBrain
     bool BotJumpClear(PlayerState me, PlayerState target)
     {
         if (_client?.Collision is not { } world) return true;
-        var from = me.Position + new System.Numerics.Vector3(0, 0, BotTargetHeight);
-        var to = target.Position + new System.Numerics.Vector3(0, 0, BotTargetHeight);
+        var from = me.Position + new System.Numerics.Vector3(0, 0, AimHeightOf(me));
+        var to = target.Position + new System.Numerics.Vector3(0, 0, AimHeightOf(target));
         var line = to - from;
         float length = line.Length();
         if (length > 1e-3f && world.Character.Raycast(from, line / length, length) is not null) return false;

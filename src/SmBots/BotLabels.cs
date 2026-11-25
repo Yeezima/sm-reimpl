@@ -3,9 +3,12 @@ using SmSim;
 
 namespace SmBots;
 
-/// <summary>The names the bot's log gives weapons: the Godot client's HUD weapon labels (NetworkView.WeaponLabel), copied so the brain's log lines stay the same.</summary>
+/// <summary>The names the bot's log and the Godot client's HUD give weapons and points (one copy: the client's NetworkView.WeaponLabel and PointLetter call these).</summary>
 public static class BotLabels
 {
+    /// <summary>A control point's letter: A, B, C, ... (the index from 26 on).</summary>
+    public static string PointLetter(int index) => index < 26 ? ((char)('A' + index)).ToString() : index.ToString();
+
     /// <summary>A wargear name without its race and category prefix: "sm_mp_pistol_bolt_pistol" gives "bolt pistol".</summary>
     public static string Weapon(string wargear)
     {

@@ -61,6 +61,7 @@ public sealed partial class ClassicBotBrain
         _log = log;
         _hooks = hooks ?? IBotHooks.None;
         _strategy = strategy ?? ClassicBotStrategy.Instance;
+        _workLane = options.WorkLane ?? $"lane {System.Threading.Interlocked.Increment(ref s_lanes)}";
     }
 
     /// <summary>The world under the moved code's old name (it was NetworkView's GameClient).</summary>
@@ -96,12 +97,31 @@ public sealed partial class ClassicBotBrain
 
     int _coverJobs, _approachJobs;
 
+    static int s_lanes;
+    /// <summary>This brain's lane for its own searches: the host's (<see cref="ClassicBotOptions.WorkLane"/>), else one of its own.</summary>
+    readonly string _workLane;
+
     /// <summary>
-    /// A job off the frame loop (was <c>Task.Run(work, cancel)</c>): run through the world's <see cref="BotWork"/> under this brain's lane, this map's generation and
-    /// <paramref name="what"/>, so it finishes at a tick boundary and a shadow brain asking the same shares it.
+    /// A map job off the frame loop (was <c>Task.Run(work, cancel)</c>; the graph, its jump links, the spawn watch, the map plan): run through the world's
+    /// <see cref="BotWork"/> under the map's identity (<see cref="BotWork.MapScope"/>), so every brain on the loaded map shares one build and its result lands at a tick
+    /// boundary. <paramref name="what"/> names the job and its side, pack and class.
     /// </summary>
-    System.Threading.Tasks.Task<T> Job<T>(string what, Func<T> work, System.Threading.CancellationToken cancel) =>
-        _world.Work.Run($"{_options.WorkLane}|{_navGeneration}|{what}", work, cancel);
+    System.Threading.Tasks.Task<T> MapJob<T>(string what, Func<T> work, System.Threading.CancellationToken cancel) =>
+        _world.Work.Run(MapJobKey(what), work, cancel);
+
+    string MapJobKey(string what) => $"{_world.Work.MapScope(_navMap?.Name ?? "", (object?)_navMap ?? this, (object?)_navWorld ?? this, (object?)_config ?? this)}|{what}";
+
+    /// <summary>
+    /// A brain's own search off the frame loop (cover, approach): under this brain's lane, this map's generation and <paramref name="what"/> (unique per brain; the
+    /// client's shadow shares its live brain's lane). The brain forgets the key (<see cref="ForgetJob"/>) once it has taken the result.
+    /// </summary>
+    System.Threading.Tasks.Task<T> BrainJob<T>(string what, Func<T> work, System.Threading.CancellationToken cancel) =>
+        _world.Work.Run(BrainJobKey(what), work, cancel);
+
+    string BrainJobKey(string what) => $"brain {_workLane}|{_navGeneration}|{what}";
+
+    /// <summary>Forgets a brain search's key once its result is taken (bounded memory; the shadow holds its own task).</summary>
+    void ForgetJob(System.Threading.Tasks.Task task) => _world.Work.Forget(task);
 
     bool CmdFlag(string name) => _args.Flag(name);
     string? CmdArg(string name) => _args.Arg(name);
@@ -136,7 +156,7 @@ public sealed partial class ClassicBotBrain
 
     /// <summary>
     /// The nearest living enemy as last shown, or null: with teams (the own player has a side) allies are skipped; without teams everyone is a target
-    /// (a copy of the client's NearestLivingTarget, for <c>--bot-fire-walls</c>).
+    /// (moved from the client's NetworkView, which no longer has a copy; for <c>--bot-fire-walls</c>).
     /// </summary>
     PlayerState? NearestLivingTarget(PlayerState me)
     {

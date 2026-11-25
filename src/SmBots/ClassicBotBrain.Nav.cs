@@ -84,6 +84,9 @@ public sealed partial class ClassicBotBrain
     {
         public readonly Team Team = team;
         public readonly string Pack = pack;
+        /// <summary>The class the slot was first built for (its jump links are that class's); with the side and pack it names the slot's map jobs (<see cref="Key"/>).</summary>
+        public int Class;
+        public string Key => $"{Team} {Pack} c{Class}";
         public Task<(NavGraph? Graph, string Note)>? Task;
         public NavGraph? Graph;
         public NavAgent? Agent;
@@ -91,11 +94,11 @@ public sealed partial class ClassicBotBrain
         public Task<(NavGraph? Graph, string Note)>? JumpTask;
         public (MapContent Map, CollisionWorld World, SimConfig Config, Team Team, int PlayerClass)? JumpStart;
         public string Note = "building";
-        /// <summary>M44a: the other side's spawn room as this side's bots see it (NetworkView.BotSpawn.cs).</summary>
+        /// <summary>M44a: the other side's spawn room as this side's bots see it (ClassicBotBrain.BotSpawn.cs).</summary>
         public SpawnRoomWatch? Watch;
         public Task<(SpawnRoomWatch?, string)>? WatchTask;
         public bool WatchDone;
-        /// <summary>2026-11-07: the centre holds, roam points, lanes and no-loiter zone of this side's bots (NetworkView.BotRoam.cs).</summary>
+        /// <summary>2026-11-07: the centre holds, roam points, lanes and no-loiter zone of this side's bots (ClassicBotBrain.BotRoam.cs).</summary>
         public BotMapPlan? Plan;
         public Task<(BotMapPlan?, string)>? PlanTask;
         public bool PlanDone;
@@ -140,7 +143,7 @@ public sealed partial class ClassicBotBrain
             string pack = Loadouts.JumpPack(_config, me)?.Name ?? "";
             if (!_navSlots.TryGetValue((me.Team, pack), out var slot))
             {
-                slot = new NavSlot(me.Team, pack);
+                slot = new NavSlot(me.Team, pack) { Class = me.Class };
                 _navSlots[(me.Team, pack)] = slot;
                 var map = _navMap; var world = _navWorld; var config = _config; var team = me.Team; int playerClass = me.Class;
                 if (BotNavigation.Setup(map, config) is null) slot.Note = "no spawns or points to build around";
@@ -150,7 +153,7 @@ public sealed partial class ClassicBotBrain
                     // bots/new-maps: on a Classic PvP map a jump-pack bot walks on the plain graph at once and takes the jump links when they are ready (a first build on a big map takes
                     // minutes, and the old order left the bot on its straight walk for all of them); Manufactorum, Musou Mode's maps and --bot-old-jump-build keep the old one-step build (BotNavigation.NewMapRules).
                     bool walkFirst = pack != "" && !BotOldJumpBuild && BotNavigation.NewMapRules(map.Name);
-                    slot.Task = Job($"nav {slot.Team} {slot.Pack}", () =>
+                    slot.Task = MapJob($"nav {slot.Key}", () =>
                     {
                         string walkNote;
                         var graph = walkFirst
@@ -177,7 +180,7 @@ public sealed partial class ClassicBotBrain
                     var jumpCancel = _navCancel.Token;
                     var walk = slot.Graph;
                     int jumpThreads = BotJumpBuildThreads;   // read here, not on the build's thread
-                    slot.JumpTask = Job($"jump {slot.Team} {slot.Pack}", () =>
+                    slot.JumpTask = MapJob($"jump {slot.Key}", () =>
                     {
                         var g = BotNavigation.WithJumpLinks(walk, js.Map, js.World, js.Config, js.Team, js.PlayerClass, BotNavigation.CacheDirectory, out string jumpNote, jumpThreads, jumpCancel);
                         return ((NavGraph?)g, jumpNote);
@@ -192,6 +195,7 @@ public sealed partial class ClassicBotBrain
                 {
                     slot.Graph = withJumps;
                     slot.Agent = NewNavAgent(withJumps);
+                    _world.Work.Forget(MapJobKey($"nav {slot.Key}"));   // the walking graph is released, as before the move (a brain asking later reads it again from the cache)
                     slot.Note += "; " + jump.Result.Note;
                     _navNote = slot.Note;
                     if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} nav graph (map {_navGeneration}) jump links ready: {jump.Result.Note}");

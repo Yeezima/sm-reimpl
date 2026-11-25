@@ -17,7 +17,7 @@ public class BotLoadoutsTests
     static readonly string[] HeavyPerks = ["mp_perk_melee_damage_resistance", "mp_perk_iron_halo", "mp_perk_shield_regen_delay"];
 
     /// <summary>Classes: 0 sm tactical, 1 sm assault, 2 sm devastator, 3 csm tactical, 4 csm raptor, 5 csm havoc.</summary>
-    static SimConfig Make(bool withMelta = true)
+    internal static SimConfig Make(bool withMelta = true)
     {
         var weapons = new List<WeaponSpec>();
         var perks = TacticalPerks.Concat(AssaultPerks).Concat(HeavyPerks).Select(Perk).ToList();

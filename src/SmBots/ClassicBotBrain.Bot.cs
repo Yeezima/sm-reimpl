@@ -10,7 +10,7 @@ namespace SmBots;
 /// Seize Ground bot (<see cref="BotSeizeInput"/>). On a map the bot only fires at an enemy it can see within
 /// <see cref="BotFightRange"/> (a ray from its eye to the enemy's chest against the shot collision); otherwise it walks
 /// toward the nearest living enemy's last shown position, and with no enemy alive toward the map's centre, along A* paths
-/// on the navigation graph (NetworkView.Nav.cs; until the graph is built: straight, detouring when stuck). Without map
+/// on the navigation graph (ClassicBotBrain.Nav.cs; until the graph is built: straight, detouring when stuck). Without map
 /// collision (flat ground) nothing changes: every living enemy is a target at any range. Test script, not the original AI.
 /// </summary>
 public sealed partial class ClassicBotBrain
@@ -31,7 +31,7 @@ public sealed partial class ClassicBotBrain
     {
         if (_client?.Collision is not { } world) return true;
         var from = me.Position + new System.Numerics.Vector3(0, 0, _config!.EyeHeight);
-        var to = target.Position + new System.Numerics.Vector3(0, 0, BotTargetHeight);
+        var to = target.Position + new System.Numerics.Vector3(0, 0, AimHeightOf(target));
         var line = to - from;
         float length = line.Length();
         return length <= 0.3f || world.Weapons.Raycast(from, line / length, length - 0.15f) is null;
