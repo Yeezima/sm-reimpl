@@ -95,6 +95,16 @@ public class BotA2StrategyTests
         for (; t < from + ClassicBotBrain.RouteStallSeconds + 0.5 && !stalled; t += 0.1) stalled = w.Step(t, goal, here);
         Assert.True(stalled);
         Assert.InRange(t - from, ClassicBotBrain.RouteStallSeconds, ClassicBotBrain.RouteStallSeconds + 0.25);
+        // Short unpaused stretches between pauses add up (the pause freezes the watch, it does not restart it): 1 s walking, 1 s waiting, and so on.
+        var frozen = new RouteStallWatch(); bool hit = false; double walked = 0, u0 = 0;
+        for (double u = u0; u < 20 && !hit; u += 0.1)
+        {
+            bool waiting = ((int)Math.Floor(u)) % 2 == 1;
+            hit = frozen.Step(u, goal, here, paused: waiting);
+            if (!waiting) walked += 0.1;
+        }
+        Assert.True(hit, "the unpaused seconds add up to a stall");
+        Assert.InRange(walked, ClassicBotBrain.RouteStallSeconds - 0.25, ClassicBotBrain.RouteStallSeconds + 0.35);
         // Progress (1 m closer) keeps it going.
         var moving = new RouteStallWatch(); var p = new Vector3(0, 0, 0);
         for (double u = 0; u < 10; u += 0.1) { p.Y += 0.05f; Assert.False(moving.Step(u, goal, p)); }

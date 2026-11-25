@@ -76,6 +76,8 @@ public sealed partial class ClassicBotBrain
     /// <summary>Test view: stalls per route on this plan.</summary>
     internal IReadOnlyDictionary<int, int> RouteStalls => _routeStalls;
     bool RouteAvoided(int r) => _routeStalls.GetValueOrDefault(r) >= RouteAvoidAfterStalls;
+    /// <summary>The match is starting (its countdown): the stall memory of the last match goes (a same-map rematch may keep the plan).</summary>
+    internal void ForgetRouteStalls() => _routeStalls.Clear();
     void NoteRouteStall(int r) { _routeDropped.Add(r); _routeStalls[r] = _routeStalls.GetValueOrDefault(r) + 1; }
     int _vantage = -1, _vantageLast = -1;
     bool _vantageArrived;
@@ -118,7 +120,7 @@ public sealed partial class ClassicBotBrain
         foreach (var kv in _routeStalls) if (kv.Value >= RouteAvoidAfterStalls) _routeDropped.Add(kv.Key);   // nor for route chases
         _routeViaFor = -1; _routeViaRoute = -1;
         _vantage = -1; _vantageNext = 0; _vantageBad.Clear();
-        GD.Print($"t {_connectedFor:F1} s: id {id} life {_botLife}: route {_routeOfLife + 1} of {n}{(_routeOfLife == plan.DirectRoute ? " (direct)" : "")}{(_routeFlank ? ", flanker" : "")}{(_routeVantages ? ", vantages" : "")} ({role}, rank {rank})");
+        GD.Print($"t {_connectedFor:F1} s: id {id} life {_botLife}: {(_routeOfLife < 0 ? "no route" : $"route {_routeOfLife + 1}")} of {n}{(_routeOfLife == plan.DirectRoute ? " (direct)" : "")}{(_routeFlank ? ", flanker" : "")}{(_routeVantages ? ", vantages" : "")} ({role}, rank {rank})");
     }
 
     /// <summary>The life's first leg along its route (see the class); null when it is over, in Seize Ground, without routes or with <c>--bot-old-routes</c>.</summary>
@@ -274,7 +276,7 @@ public sealed partial class ClassicBotBrain
     /// </summary>
     bool RouteStalled(V3 goal) =>
         // 4v4 rerun 2026-11-25: a jump-pack bot standing at a take-off cell waiting for power (or in the jump) is not stalled; Hab Center dropped 30 of 61 routes, 17 of them Assault.
-        _stallWatch.Step(_connectedFor, goal, _client!.Predicted.Position, paused: _navAgent is { } agent && (agent.OnJumpLink || agent.JumpInProgress));
+        _stallWatch.Step(_connectedFor, goal, _client!.Predicted.Position, paused: _navAgent is { } agent && (agent.WaitingAtTakeOff || agent.JumpInProgress));   // not the walk to the take-off (OnJumpLink covers that too)
 
     readonly RouteStallWatch _stallWatch = new();
 
@@ -284,7 +286,7 @@ public sealed partial class ClassicBotBrain
 /// <summary>
 /// Bots A2's route stall watch (engine-free, tested): a walk toward a route point is stalled when its 3D distance has not fallen by <see cref="ClassicBotBrain.RouteStallGain"/> m
 /// in <see cref="ClassicBotBrain.RouteStallSeconds"/> s of route walking. A new goal, or a gap of more than half a second between steps (a fight, a vantage), starts the watch again;
-/// so does a paused step (the bot waits at a jump take-off for power, or is in the jump), which never counts toward a stall.
+/// a paused step (the bot waits at a jump take-off for power, or is in the jump) freezes the watch: its time never counts toward a stall, the time before and after it does.
 /// </summary>
 public sealed class RouteStallWatch
 {
@@ -296,7 +298,8 @@ public sealed class RouteStallWatch
     public bool Step(double now, V3 goal, V3 here, bool paused = false)
     {
         float d = V3.Distance(here, goal);
-        if (paused || V3.DistanceSquared(goal, _goal) > 0.25f || now - _seen > 0.5) { _goal = goal; _best = d; _since = now; }
+        if (V3.DistanceSquared(goal, _goal) > 0.25f || now - _seen > 0.5) { _goal = goal; _best = d; _since = now; }
+        else if (paused) _since += now - _seen;   // frozen, not reset: short unpaused stretches still add up
         _seen = now;
         if (paused) return false;
         if (d < _best - ClassicBotBrain.RouteStallGain) { _best = d; _since = now; }

@@ -178,6 +178,8 @@ public sealed class NavAgent(NavGraph graph)
     public Vector3 FlightTarget => _flyTo;
     /// <summary>A jump-pack link is being flown (from the press to the landing).</summary>
     public bool JumpInProgress => _flying;
+    /// <summary>Whether the bot stands on a jump link's take-off cell waiting to press (power, stillness), as opposed to walking toward the take-off (bots A2's stall pause).</summary>
+    public bool WaitingAtTakeOff => OnJumpLink && !double.IsNaN(_waitStart);
     /// <summary>Jump links started (the press), landed within <see cref="JumpMissDistance"/> of their landing cell, and missed.</summary>
     public int JumpsStarted { get; private set; }
     public int JumpsLanded { get; private set; }
