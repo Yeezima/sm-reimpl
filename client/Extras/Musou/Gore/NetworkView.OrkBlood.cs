@@ -152,7 +152,7 @@ public partial class NetworkView
     {
         played = false;
         if (OrkBloodData() is not { } data || _fx is null || _gameSpace is null) return false;
-        if (d.Type == MusouEnemyType.ChaosMarine) return false;   // no Ork: the Ork's table and blood are not his (the marine's death binds none, docs "Death effects")
+        if (!GoreOrk(d.Type)) return false;   // no Ork (the Chaos Marine; GoreOrk, NetworkView.MusouGore.cs): the Ork's table and blood are not his (the marine's death binds none, docs "Death effects")
         if (Engine.GetProcessFrames() is var frame && (uint)frame != _orkBloodFrame) { _orkBloodFrame = (uint)frame; _orkBloodFrameKills = 0; }
         string type = OrkBloodType(data, d);
         uint seed = (uint)(d.Id * 2654435761u) ^ (d.Tick * 40503u);

@@ -45,7 +45,7 @@ public sealed partial class TfwBattle
     {
         for (int k = _weirdboyz.Count - 1; k >= 0; k--)
             if (!_enemies.TryGet(_weirdboyz[k], out var e) || !e.Alive || e.Type != MusouEnemyType.Weirdboy) _weirdboyz.RemoveAt(k);
-        if (_final || !WeirdboyzOn) return;
+        if (_final || !WeirdboyzOn || !OrkKindOn(MusouEnemyType.Weirdboy)) return;   // OrkKindOn: Warfront's Chaos faction has none (TfwBattle.cs)
         if (_weirdboyDue < 0) _weirdboyDue = _now + Ticks(TfwWeirdboyRules.FirstSeconds + TfwWeirdboyRules.FirstSpread * Roll(0x3E1D_0001u));
         if (_now < _weirdboyDue || _weirdboyz.Count >= TfwWeirdboyRules.MaxAlive || players.IsEmpty) return;
         if (PoolUsed + 1 > TfwBattleRules.CrowdPoolRoom || !SpawnWeirdboy(players))

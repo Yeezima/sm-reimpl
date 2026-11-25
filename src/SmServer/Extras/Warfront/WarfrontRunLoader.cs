@@ -110,6 +110,9 @@ public static class WarfrontRunLoader
         }
         if (campaign is not null)
         {
+            // Chaos Warfront C1: run.json is the army's record; faction.json follows it (a crash between a new run's two writes left it a run behind, or the run predates the file).
+            if (SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile(dir, campaign.Faction, campaign.RunSeed))
+                log($"faction.json brought in line with run.json ({campaign.Faction}, seed {campaign.RunSeed:X})");
             try
             {
                 io.Write(dir, campaign);
@@ -185,11 +188,12 @@ public static class WarfrontRunLoader
         try
         {
             var c = io.NewRun(dir);
-            return new WarfrontRunLoad(c, state, notice, $"{how} (seed {c.RunSeed:X})");
+            return new WarfrontRunLoad(c, state, notice, $"{how} (seed {c.RunSeed:X}, {c.Faction})");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            var c = WarfrontRunFiles.BuildNewRun();   // the folder cannot be written now: play on in memory, the server retries the write
+            // the folder cannot be written now: play on in memory, the server retries the write (the army as the setting and the rotation say; faction.json follows once run.json is written and loaded)
+            var c = WarfrontRunFiles.BuildNewRun(null, SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Next(dir, WarfrontRunFiles.FactionSetting));
             return new WarfrontRunLoad(c, state, notice, $"{how} (seed {c.RunSeed:X}; not yet written: {e.Message})", WriteFailed: true);
         }
     }

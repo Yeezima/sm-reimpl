@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SmSim.Extras.Musou.Campaign;
+using SmSim.Extras.Warfront.Faction;
 using SmSim.Extras.Warfront.Progression;
 
 namespace SmSim.Extras.Warfront.Campaign;
@@ -18,7 +19,8 @@ public enum WarfrontPhase { Lobby, Ship, Travel, Battle, Won, Lost }
 
 public enum WarfrontTargetKind { Node, Hq, Fortress }
 
-public enum WarfrontOutcome { Win, Wipe }
+/// <summary>How a battle ended. FinaleLost (Chaos Warfront C1, for C5's finale): the duel relay against the Chaos Lord ran out of challengers; the campaign is lost (in place of the fortress-wipe rule).</summary>
+public enum WarfrontOutcome { Win, Wipe, FinaleLost }
 
 /// <summary>Where a deployment goes. For <see cref="WarfrontTargetKind.Node"/> the lane's current node is fought; for the fortress <see cref="Lane"/> names the cleared lane it is entered through (the lane that drops back on a wipe); the HQ has no lane (-1).</summary>
 public readonly record struct WarfrontTarget(WarfrontTargetKind Kind, int Lane)
@@ -108,7 +110,7 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 5;   // 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
+    public const int SaveVersion = 7;   // 7: the run's Faction (Chaos Warfront C1; older saves load as Orks; 6 is left to the retainer rules, T0, and renumbered at integration); 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
     /// <summary>The first format (no stats ledger); still loads, with an empty ledger. Version 2 (no co-op fields) loads too, every key with <c>ClassConfirmed</c> true.</summary>
     public const int OldestLoadableVersion = 1;
     public const int Lanes = 3;
@@ -123,9 +125,11 @@ public sealed class WarfrontCampaign
     readonly List<WarfrontRollRecord> _rolls = new();
     readonly List<WarfrontHistoryEntry> _history = new();
 
-    public WarfrontCampaign(ulong runSeed, IWarfrontRollSource? rolls = null)
+    public WarfrontCampaign(ulong runSeed, IWarfrontRollSource? rolls = null, WarfrontFaction faction = WarfrontFaction.Orks)
     {
+        if (!WarfrontFactionPolicy.IsKnown((int)faction)) throw new ArgumentOutOfRangeException(nameof(faction));
         RunSeed = runSeed;
+        Faction = faction;
         RollSource = rolls ?? HashedRolls.Instance;
         _forecast = Weather.WarfrontForecast.Draw(runSeed);
         ForecastPool = Weather.WarfrontForecast.PoolVersion;
@@ -143,6 +147,8 @@ public sealed class WarfrontCampaign
     public int ForecastPool { get; private set; }
 
     public ulong RunSeed { get; }
+    /// <summary>The enemy army of this run (Chaos Warfront C1): chosen once when the run is built (<c>WarfrontRunFiles.BuildNewRun</c>), saved, never changed; a save older than version 7 loads as Orks.</summary>
+    public WarfrontFaction Faction { get; }
     /// <summary>Per-player run stats (W4b), saved in run.json.</summary>
     public WarfrontStatsLedger Stats { get; private set; } = new();
     public IWarfrontRollSource RollSource { get; set; }
@@ -360,6 +366,7 @@ public sealed class WarfrontCampaign
 
             case WarfrontTargetKind.Fortress:
                 if (outcome == WarfrontOutcome.Win) { Phase = WarfrontPhase.Won; return; }
+                if (outcome == WarfrontOutcome.FinaleLost && Faction == WarfrontFaction.Chaos) { Phase = WarfrontPhase.Lost; return; }   // Chaos Warfront C5: the duel relay ran out of challengers (a Chaos run's alone; anywhere else it is a wipe, C1 review)
                 _front[t.Lane] = 3; // the fortress locks until a lane is cleared again
                 break;
 
@@ -427,6 +434,8 @@ public sealed class WarfrontCampaign
         /// <summary>Version 5: the weather forecast (one preset id per lane slot) and the pool it came from.</summary>
         public List<int>? Forecast { get; set; }
         public int ForecastPool { get; set; }
+        /// <summary>Version 7: the run's army (Chaos Warfront C1); absent in older saves (Orks).</summary>
+        public WarfrontFaction? Faction { get; set; }
     }
 
     internal static readonly JsonSerializerOptions Json = new()
@@ -441,7 +450,7 @@ public sealed class WarfrontCampaign
         RunSeed = RunSeed, Phase = Phase, Fronts = (int[])_front.Clone(), Advanced = (bool[])_advanced.Clone(), HqMandatory = HqMandatory,
         Deployments = Deployments, PlaySeconds = PlaySeconds, CurrentTarget = CurrentTarget, JoinOrder = new(_joinOrder),
         Players = _joinOrder.Select(k => _players[k]).ToList(), Rolls = new(_rolls), History = new(_history), Stats = Stats.ToState(),
-        Forecast = _forecast.Select(b => (int)b).ToList(), ForecastPool = ForecastPool,
+        Forecast = _forecast.Select(b => (int)b).ToList(), ForecastPool = ForecastPool, Faction = Faction,
     };
 
     internal static WarfrontCampaign FromSnapshot(Snapshot s, IWarfrontRollSource? rolls)
@@ -449,7 +458,10 @@ public sealed class WarfrontCampaign
         if (s.Version > SaveVersion) throw new WarfrontSaveNewerException(s.Version);
         if (s.Version < OldestLoadableVersion) throw new InvalidDataException("unsupported warfront save version " + s.Version);
         if (s.Fronts.Length != Lanes || s.Advanced.Length != Lanes) throw new InvalidDataException("bad lane arrays");
-        var c = new WarfrontCampaign(s.RunSeed, rolls) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
+        // Chaos Warfront C1: a save that names its army keeps it; one without the field (every save before 7) is an Orks run (keyed on the field, not the version: C1 review, so T0's 6 can be reconciled). An unknown army is a damaged file.
+        var faction = s.Faction is { } sf ? sf : WarfrontFaction.Orks;
+        if (!WarfrontFactionPolicy.IsKnown((int)faction)) throw new InvalidDataException("unknown warfront faction " + (int)faction);
+        var c = new WarfrontCampaign(s.RunSeed, rolls, faction) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
         for (int l = 0; l < Lanes; l++) { c._front[l] = s.Fronts[l]; c._advanced[l] = s.Advanced[l]; }
         foreach (var k in s.JoinOrder) c._joinOrder.Add(k);
         foreach (var p in s.Players)

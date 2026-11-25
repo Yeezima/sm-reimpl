@@ -8,11 +8,12 @@ namespace SmContent;
 /// <param name="DevTools">dev-tools (protocol 80): the server gets <c>--dev-tools</c> (and the executable and project its tools' bots run); only with "This PC only" (<paramref name="LocalOnly"/>), since the server ignores it on any other address.</param>
 /// <param name="ExtraArgs">Extra server arguments appended last, verbatim (added content that starts its own kind of server, e.g. the local Warfront campaign); null: none, the list is unchanged.</param>
 /// <param name="Weather">Weather W3 (added content, the extended profile only): the Classic PvP weather the server runs (<c>--weather</c>: a preset key such as <c>rain</c>, or <c>random</c>); null: none given, the server shows None. The Host panel (client/Extras/Weather) sets it; a null is the launch of every earlier build.</param>
+/// <param name="WarfrontFaction">Chaos Warfront C1 (added content, the Warfront profile only): the enemy of the next new campaign (<c>--warfront-faction</c>: <c>orks</c> or <c>chaos</c>); null: none given, the server alternates (Orks first). The Host panel (client/Extras/Warfront/Chaos) sets it; a null is the launch of every earlier build.</param>
 /// <param name="Difficulty">Easy: the server scales the damage bots deal (<c>--bot-damage-scale</c> <see cref="HostBots.EasyDamageScale"/>); Normal: unscaled.</param>
 public sealed record HostOptions(string Mode, int Port, bool LocalOnly, string GameDir, bool AllowCustomEmblems = false, string? Content = null,
     int Bots = HostBots.DefaultCount, BotDifficulty Difficulty = BotDifficulty.Easy, string? Map = null, string? Maps = null,
     bool DevTools = false, string? DevBotExe = null, string? DevBotProject = null,
-    IReadOnlyList<string>? ExtraArgs = null, string? Weather = null);
+    IReadOnlyList<string>? ExtraArgs = null, string? Weather = null, string? WarfrontFaction = null);
 
 /// <summary>
 /// The pure parts of starting the bundled dedicated server from the client (the process handling is in the client): where the executable is looked for,
@@ -125,6 +126,7 @@ public static class ServerLaunch
         if (!string.IsNullOrWhiteSpace(options.Map)) { args.Add("--map"); args.Add(options.Map); }   // draft 11: the client's --ashfall-layout field hosts tfw_war_field
         else if (!string.IsNullOrWhiteSpace(options.Maps)) { args.Add("--maps"); args.Add(options.Maps); }   // classic-maps-all: the lobby's ROTATION
         if (!string.IsNullOrWhiteSpace(options.Weather)) { args.Add("--weather"); args.Add(options.Weather); }   // weather W3: the Host panel's choice reaches the real server launch (the extended profile only; the server ignores it elsewhere)
+        if (!string.IsNullOrWhiteSpace(options.WarfrontFaction)) { args.Add("--warfront-faction"); args.Add(options.WarfrontFaction); }   // Chaos Warfront C1: the Host panel's FACTION row (the Warfront profile only)
         args.AddRange(HostBots.ServerArguments(options.Bots, options.Difficulty));   // bots: keep requested sides, Easy scales their damage
         if (options.DevTools && options.LocalOnly)   // dev-tools: the in-game developer tools; never on a LAN / Internet host (the server would ignore it there anyway)
         {

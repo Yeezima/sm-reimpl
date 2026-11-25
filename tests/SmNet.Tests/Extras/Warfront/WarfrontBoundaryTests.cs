@@ -59,6 +59,7 @@ public class WarfrontBoundaryTests
         ("client/Extras/FrontEndView.Extras.cs", "WarfrontShowEntry"),   // 2026-11-19: opens the WARFRONT page (dispatched from ExtrasShowEntry)
         ("client/Extras/FrontEndView.Extras.cs", "WarfrontMenuRows"),   // W16: the main menu's row (dispatched from ExtrasMenuRows)
         ("client/Extras/HostPanel.Extras.cs", "WarfrontHostRowShown"),   // weather W3: Warfront's Host rows, dispatched from ExtrasHostRowShown
+        ("client/Extras/HostPanel.Extras.cs", "WarfrontFactionRowShown"),   // Chaos Warfront C1: the FACTION row only on the Warfront profile, dispatched from ExtrasHostRowShown
         ("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontSquadHit"),
         ("src/SmSim/Extras/Musou/Campaign/TfwFire.cs", "WarfrontCooldown"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontCooldown"),
@@ -94,6 +95,20 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "WarfrontHeadwayNear"),
         // 2026-11-25: no Squigs in Warfront (owner: "temporarily remove squigs from warfront mode"; WarfrontRules.NoSquigs)
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSquigs.cs", "WarfrontSquigs"),
+        // Chaos Warfront C0 seams (2026-11-25; no-op until the Chaos faction's bodies in Extras/Warfront/): the sim's kind, damage gate, numbers and Ork-only spawners (the Squigs keep WarfrontSquigs)
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontKind"),
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "WarfrontDamageGate"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontEnemyScale"),
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontOrkKind"),
+        // ... and the client's: the Host panel's faction row and the presentation tables (looks, sounds, gore, flinch)
+        ("client/Extras/HostPanel.Extras.cs", "WarfrontHostFactionRow"),
+        ("client/Extras/Musou/MusouLooks.cs", "WarfrontLookFor"),
+        ("client/Extras/Musou/NetworkView.MusouSounds.cs", "WarfrontSoundSetOf"),
+        ("client/Extras/Musou/Gore/NetworkView.MusouGore.cs", "WarfrontGoreChest"),
+        ("client/Extras/Musou/Gore/NetworkView.MusouGore.cs", "WarfrontGoreOrk"),
+        ("client/Extras/Musou/Gore/NetworkView.MusouGore.cs", "WarfrontGorePlan"),
+        ("client/Extras/Musou/MusouCrowd.cs", "WarfrontFlinchReacts"),
+        ("client/Extras/Musou/MusouCrowd.cs", "WarfrontFlinchSize"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

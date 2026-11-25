@@ -151,7 +151,10 @@ public partial class NetworkView
         if (now >= _musouSoundLogAt) { _musouSoundLogAt = now + 10.0; MusouSoundLog(shown.Count); _musouSoundMs = _musouSoundMaxMs = 0.0; _musouSoundFrames = 0; }
     }
 
-    MusouSoundSet? MusouSetOf(MusouEnemyType type) => (int)type < _musouSets!.Length ? _musouSets[(int)type] : null;
+    MusouSoundSet? MusouSetOf(MusouEnemyType type) { MusouSoundSet? over = null; WarfrontSoundSetOf(type, ref over); return over ?? ((int)type < _musouSets!.Length ? _musouSets[(int)type] : null); }   // WARFRONT-HOOK
+
+    /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the sound set a kind plays in place of its row of <c>MusouSoundSet.Files</c> (null keeps it). No-op without Warfront and the Chaos faction.</summary>
+    partial void WarfrontSoundSetOf(MusouEnemyType type, ref MusouSoundSet? set);
 
     MusouSoundSlot? MusouSlotOf(ushort enemy)
     {
