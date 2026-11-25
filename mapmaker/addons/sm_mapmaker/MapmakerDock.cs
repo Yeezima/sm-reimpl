@@ -81,6 +81,10 @@ public partial class MapmakerDock : VBoxContainer
     readonly SpinBox[] _pos = Spins(-100000, 100000, 0.001, 0.01), _rot = Spins(-360, 360, 0.001, 0.1), _scl = Spins(0.001, 1000, 0.001, 0.01);
     OptionButton _space = new();
     Label _objInfo = new();
+    readonly Label _dims = new() { Name = DimsName, SizeFlagsHorizontal = SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart };
+    public const string DimsName = "MapmakerDimensions";
+    /// <summary>Test aid: the Object tab's Dimensions text.</summary>
+    public string DimensionsText => _dims.Text;
 
     // prefab
     OptionButton _prefab = new();
@@ -128,6 +132,7 @@ public partial class MapmakerDock : VBoxContainer
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new Vector2(280, 0);
         AddChild(_status);
         _plugin.DocChanged += Refresh;
+        _plugin.EditChanged += RefreshEditBar;
         SetProcess(true);
         _plugin.StatusChanged += s => _status.Text = s;
         MapHost.Sm1Changed += () => { RebuildLibrary(); Refresh(); };
@@ -870,14 +875,19 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Row(Field("Name"), _name));
         _name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _name.TextSubmitted += t => { foreach (var id in _plugin.SelectedIds().Take(1)) _plugin.Do("Rename", MapmakerPlugin.Op("rename", ("id", id), ("name", t))); };
-        Section(v, "Transform", "Rotation is Euler degrees about X, Y, Z of the SM1 frame (Z up). Gizmo moves are stored on release.");
+        Section(v, "Transform", "Rotation is Euler degrees about X, Y, Z of the SM1 frame (Z up). Scale is the object's scale; Dimensions is the size of its shape (Tab: Edit mode reshapes it). Gizmo moves are stored on release.");
         _space.AddItem("Local (document values)"); _space.AddItem("World");
         _space.ItemSelected += _ => Refresh();
         v.AddChild(Row(Field("Space"), _space));
         _space.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(VecRow("Position", _pos)); v.AddChild(VecRow("Rotation", _rot)); v.AddChild(VecRow("Scale", _scl));
+        foreach (var x in _scl) x.TooltipText = "The object's scale (Blender's object scale): it multiplies the piece's shape. Edit mode changes the shape, not these.";
         foreach (var (spins, prop) in new[] { (_pos, TransformProp.Position), (_rot, TransformProp.Rotation), (_scl, TransformProp.Scale) })
             for (int axis = 0; axis < 3; axis++) { int ax = axis; var pr = prop; spins[axis].ValueChanged += v => ApplyTransform(pr, ax, (float)v); }
+        // Dimensions (owner-approved brief 2026-11-25): the resulting shape's size along the active object's own axes, scale applied; live during an Edit mode edit.
+        var dimsLabel = Field("Dimensions", 80);
+        dimsLabel.TooltipText = "Size of the resulting shape in metres along the object's own axes (scale applied, also after an Edit mode edit). Read only.";
+        v.AddChild(Row(dimsLabel, _dims));
         WallShapeSection(v);
         Section(v, "Actions");
         var dup = Btn("Duplicate", () => _plugin.DuplicateSelected(), "Ctrl+D over the 3D view");
@@ -1169,7 +1179,60 @@ public partial class MapmakerDock : VBoxContainer
         }
         else _objInfo.Text = "Nothing selected (click an object in the 3D view).";
         RefreshWallShape(s is not null && sel.Count > 0 ? s.Document.Get(sel[0]) : null);
+        RefreshEditBar();
         _refreshing = false;
+    }
+
+    // ---- Object / Edit mode bar (on the 3D view's menu row, immediately left of Transform) and the Dimensions row ----
+
+    OptionButton? _modeSelect;
+    readonly Button[] _compButtons = new Button[3];
+    HBoxContainer? _modeBar;
+
+    /// <summary>The bar the plugin puts on the 3D editor's menu row: [Object/Edit] [Vertex] [Edge] [Face] (docs/mapmaker.md "Edit mode (editor)").</summary>
+    public Control ModeBar
+    {
+        get
+        {
+            if (_modeBar is not null && GodotObject.IsInstanceValid(_modeBar)) return _modeBar;
+            _modeBar = new HBoxContainer { Name = "MapmakerModeBar" };
+            _modeSelect = new OptionButton { Name = "MapmakerModeSelect", TooltipText = "Object mode moves whole objects; Edit mode reshapes the selected pieces (Tab)." };
+            _modeSelect.AddItem("Object"); _modeSelect.AddItem("Edit");
+            _modeSelect.ItemSelected += i => { if (!_plugin.SetEditMode(i == 1)) _modeSelect.Select(_plugin.EditMode ? 1 : 0); };
+            _modeBar.AddChild(_modeSelect);
+            var group = new ButtonGroup();
+            string[] names = ["Vertex", "Edge", "Face"];
+            for (int i = 0; i < 3; i++)
+            {
+                int m = i;
+                var b = new Button { Name = "MapmakerComp" + names[i], Text = names[i], ToggleMode = true, ButtonGroup = group, TooltipText = $"{names[i]} select ({i + 1})" };
+                b.Pressed += () => _plugin.SetComponentMode((ComponentMode)m);
+                _compButtons[i] = b;
+                _modeBar.AddChild(b);
+            }
+            RefreshEditBar();
+            return _modeBar;
+        }
+    }
+
+    /// <summary>The mode bar's state and the Dimensions row (cheap: runs on every live edit update).</summary>
+    public void RefreshEditBar()
+    {
+        if (_modeSelect is not null && GodotObject.IsInstanceValid(_modeSelect))
+        {
+            _modeSelect.Select(_plugin.EditMode ? 1 : 0);
+            for (int i = 0; i < 3; i++)
+            {
+                _compButtons[i].Disabled = !_plugin.EditMode;
+                _compButtons[i].SetPressedNoSignal(_plugin.EditMode && (int)_plugin.ComponentMode == i);
+            }
+        }
+        var s = _plugin.Session;
+        var sel = s is null ? new List<string>() : _plugin.EditMode ? _plugin.EditIds.ToList() : _plugin.SelectedIds().ToList();
+        string? active = _plugin.EditMode ? _plugin.ActiveEditId : sel.FirstOrDefault();
+        if (s is null || active is null || s.Document.Find(active) is not { } o) { _dims.Text = "-"; return; }
+        if (_plugin.DimsOf(active) is not { } d) { _dims.Text = "- (only pieces have a shape to measure)"; return; }
+        _dims.Text = (sel.Count > 1 ? o.Name + " · " : "") + MeshDims.Label(d);
     }
 
     public int TestTabCount => _tabs?.GetTabCount() ?? 0;

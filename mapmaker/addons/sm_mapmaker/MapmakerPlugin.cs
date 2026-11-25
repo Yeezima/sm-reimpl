@@ -117,6 +117,7 @@ public partial class MapmakerPlugin : EditorPlugin
         else if (GroupsTest.Wanted) _ = new GroupsTest(this).Run();
         else if (GridTest.Wanted) _ = new GridTest(this).Run();
         else if (ClassicTest.Wanted) _ = new ClassicTest(this).Run();
+        else if (EditModeTest.Wanted) _ = new EditModeTest(this).Run();
         else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
     }
 
@@ -593,7 +594,7 @@ public partial class MapmakerPlugin : EditorPlugin
             _nodes[o.Id] = node;
             _contentKeys.Remove(o.Id);
         }
-        string key = $"{o.Asset}|{o.Prefab}|{o.Piece}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}";
+        string key = $"{o.Asset}|{o.Prefab}|{o.Piece}|{string.Join(",", o.Overrides.Select(x => $"{x.Part}:{x.Visible}:{x.Transform}"))}|{(o.Prefab is null ? 0 : _lastPrefabStamp)}|{MeshKey(o.Mesh)}";
         node.Name = Sanitize($"{o.Name}_{o.Id}");
         if (node.GetParent() != parentNode)
         {
@@ -608,7 +609,7 @@ public partial class MapmakerPlugin : EditorPlugin
         {
             var notes = new List<string>();
             Node3D? content; Aabb bounds;
-            if (o.Piece is { } piece) content = PieceViews.Build(piece, out bounds);
+            if (o.Piece is { } piece) content = PieceViews.Build(piece, o.Mesh, out bounds);   // the edited shape, or the stock one (Edit mode, docs/mapmaker.md)
             else
             {
                 var objParts = parts.GetValueOrDefault(o.Id) ?? new List<ResolvedPart>();
@@ -787,6 +788,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
             && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
+        if (EditModeInput(@event)) return;   // Edit mode (Tab) takes the view's clicks and keys first: components, G / R / S, the component gizmo
         GroupDoubleClick(@event);
         if (GhostWheelInput(@event) || BoxSelectInput(@event)) return;
         if (@event is InputEventKey { Pressed: true } key)
