@@ -152,6 +152,7 @@ public class ExtrasBoundaryTests
         ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears
+        ("client/Customizer/CreatorView.cs", "ExtrasOpenStep"),     // CreatorView.ExtrasOpenStep(string, ref bool), OpenStep: an added page's own step names (Warfront: --step retainers)
         ("client/Customizer/CreatorView.cs", "ExtrasDeploy"),       // CreatorView.ExtrasDeploy(ref bool), DEPLOY: PLAY AS LIBRARIAN on his page
         ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryClasses"),   // the Armoury's class list: the Librarian's row first
         ("client/Customizer/CreatorView.Armoury.cs", "ExtrasArmouryDetail"),    // the Armoury's weapon row, tiles and slot cards on the Librarian's page
