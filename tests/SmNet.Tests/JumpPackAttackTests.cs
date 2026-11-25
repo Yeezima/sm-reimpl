@@ -787,7 +787,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {
@@ -805,7 +805,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         var orphan = (byte[])slim.Clone(); orphan[^31] |= 128;   // the slash bit without the pounding flag
         Assert.Null(Protocol.Read(orphan));
         // Sixteen players at their largest with the new values: the budget holds.
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, false)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
             Cooldown = 1, ReloadLeft = 1, SinceDamage = 1, RespawnLeft = 1, SwitchLeft = 1, Pitch = 1, Rush = RushPhase.DashCollision, RushTicks = 255, RushLock = 255,

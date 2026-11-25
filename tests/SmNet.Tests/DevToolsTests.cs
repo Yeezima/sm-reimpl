@@ -52,7 +52,7 @@ public class DevToolsTests
 
     static DevToolsSetup Setup(IPAddress? bind = null, IDevBotLauncher? launcher = null) => new(bind ?? IPAddress.Loopback, launcher);
 
-    static (Harness H, List<string> Log) Make(DevToolsSetup? setup, int clients = 1, MatchRules? match = null, IPEndPoint? remote = null, int maxPlayers = Protocol.MaxPlayers)
+    static (Harness H, List<string> Log) Make(DevToolsSetup? setup, int clients = 1, MatchRules? match = null, IPEndPoint? remote = null, int maxPlayers = Protocol.MaxMatchPlayers)
     {
         var options = new ServerOptions { DevTools = setup, Match = match, MaxPlayers = maxPlayers };
         var h = new Harness(Link, seed: 5, clients, serverOptions: options, wrapServer: remote is null ? null : t => new AddressedTransport(t, remote));
@@ -68,7 +68,7 @@ public class DevToolsTests
     [Fact]
     public void The_protocol_is_80_and_the_two_messages_round_trip_and_refuse_nonsense()
     {
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         var command = Assert.IsType<DevCommand>(Protocol.Read(Protocol.Write(new DevCommand(77u, DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteAmmo, true))));
         Assert.Equal((77u, DevCommandKind.SetFlag, (byte)DevToolsFlags.InfiniteAmmo, true), (command.Session, command.Kind, command.Argument, command.Value));
         Assert.Equal(Protocol.DevCommandBytes, Protocol.Write(command).Length);

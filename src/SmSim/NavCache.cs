@@ -208,6 +208,22 @@ public static class NavCache
         }
     }
 
+    /// <summary>
+    /// The cached jump links of <paramref name="key"/>, read only: null when the file is missing, damaged or unreadable. Never builds, takes no build lock, writes and deletes nothing
+    /// (a caller on a game tick, Warfront's retainers: review 2026-11-25, a damaged file made <see cref="LoadOrBuildJumps"/> build on the tick).
+    /// </summary>
+    public static NavJumpSet? TryLoadJumps(string dir, string mapName, ulong key, int nodes)
+    {
+        string file = JumpFileFor(dir, mapName, key);
+        if (!File.Exists(file)) return null;
+        try
+        {
+            using var stream = new BufferedStream(File.OpenRead(file), 1 << 16);
+            return NavJumpSet.Read(stream, nodes, key);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException) { return null; }
+    }
+
     static NavJumpSet? TryReadJumps(string file, int nodes, ulong key)
     {
         if (!File.Exists(file)) return null;

@@ -12,6 +12,23 @@ public sealed partial class TfwBattle
     /// <summary>Whether this battle is a Warfront node (set before <see cref="Start"/>).</summary>
     public bool WarfrontNode { get; internal set; }
 
+    readonly HashSet<int> _wfRetainerIds = new();
+
+    /// <summary>The World ids of this battle's retainers (Phase B; <c>World.WarfrontSpawnRetainer</c> adds, <c>WarfrontRetainers.TakeOut</c> removes).</summary>
+    public IReadOnlySet<int> WarfrontRetainerIds => _wfRetainerIds;
+
+    /// <summary>A retainer landed in World id <paramref name="id"/>: it never captures, and weighs as a Marine on the HQ hold (owner 2026-11-25, "retainers NEVER capture").</summary>
+    public void WarfrontRetainerIn(int id) => _wfRetainerIds.Add(id);
+
+    /// <summary>A retainer's World id left the battle (its id may be reused by a pod Marine or a later puppet).</summary>
+    public void WarfrontRetainerOut(int id) => _wfRetainerIds.Remove(id);
+
+    /// <summary>Owner 2026-11-25: retainers never capture A, B, C, D or an HQ position (they are left out of <c>Capturers</c> as the allied pair is).</summary>
+    partial void WarfrontNoCapture(ref IReadOnlySet<int>? ids)
+    {
+        if (_wfRetainerIds.Count > 0) ids = _wfRetainerIds;
+    }
+
     partial void WarfrontPlayerScale(int humans, ref float scale)
     {
         if (_enemies.Warfront is not { } rules) return;

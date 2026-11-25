@@ -10,7 +10,7 @@ namespace SmNet.Extras.Musou;
 /// boss's telegraphs, strikes, tracers and hits; within a kind the events sent the fewest times first (so an overflow rotates instead of starving), then the
 /// newest. An event leaves after its 3 copies, or unsent after <see cref="MusouSendRules.MaxEventAgeTicks"/> ticks (counted). Engine-free and deterministic.
 /// </summary>
-public sealed class MusouEventWindow
+public sealed partial class MusouEventWindow
 {
     sealed class Entry { public MusouEvent Event; public int Copies; }
     readonly List<Entry> _window = new();
@@ -54,7 +54,7 @@ public sealed class MusouEventWindow
         {
             int c = telegraphFirst ? First(b).CompareTo(First(a)) : 0;   // a telegraph's first copy before everything: a grenade's 60 deaths held a near wind-up's back up to 4 ticks
             if (c != 0) return c;
-            c = (OldHitRank ? Rank(a.Event.Kind) : Rank(a.Event)).CompareTo(OldHitRank ? Rank(b.Event.Kind) : Rank(b.Event));
+            c = (OldHitRank ? Rank(a.Event.Kind) : RankOf(a.Event)).CompareTo(OldHitRank ? Rank(b.Event.Kind) : RankOf(b.Event));
             if (c != 0) return c;
             c = a.Copies.CompareTo(b.Copies);
             if (c != 0) return c;
@@ -86,6 +86,17 @@ public sealed class MusouEventWindow
         MusouEventKind.Tracer => 5,
         _ => 6,
     };
+
+    /// <summary>The rank this window gives <paramref name="e"/>: <see cref="Rank(in MusouEvent)"/>, and added content may lift an AI Marine's hit (Warfront: a retainer, a World player, ranks with a human's).</summary>
+    int RankOf(in MusouEvent e)
+    {
+        int rank = Rank(e);
+        if (e.Kind == MusouEventKind.Hit && rank == 4) WarfrontHitRank(e.Player, ref rank);   // WARFRONT-HOOK
+        return rank;
+    }
+
+    /// <summary>Hook for Warfront (Phase B T5 follow-up): the rank of an AI Marine's hit by <paramref name="player"/> (4); a retainer's becomes a human's (3). Implemented in <c>Extras/Warfront/</c>; a no-op elsewhere.</summary>
+    partial void WarfrontHitRank(int player, ref int rank);
 
     static int Rank(MusouEventKind kind) => kind switch
     {

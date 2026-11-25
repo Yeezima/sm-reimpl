@@ -60,12 +60,12 @@ public sealed partial class GameServer
             if (!_wfRosterRefused) { _wfRosterRefused = true; WfLog("test aid SM_WF_ROSTERS refused: the server is not bound to 127.0.0.1 (--bind 127.0.0.1)"); }
             return;
         }
-        want = Math.Min(want, 9);
+        want = Math.Min(want, SmSim.Extras.Warfront.Squad.SquadRules.RetainersPerPlayer);   // T0 review (2026-11-25): every player has the run's two; the aid no longer grows a roster past them (it would fight Rosters.Conform)
         foreach (var key in s.KeyOf.Values.Distinct().ToArray())
         {
             if (!_wfWiring.Rosters.Has(key)) continue;
             int before = _wfWiring.Rosters.Count(key);
-            while (_wfWiring.Rosters.Count(key) < want && _wfWiring.Rosters.Recruit(key)) { }
+            if (_wfWiring.Rosters.Count(key) < want) _wfWiring.Rosters.Conform(key, want);
             int after = _wfWiring.Rosters.Count(key);
             if (after != before) WfLog($"test aid SM_WF_ROSTERS: {KeyTail(key)} roster {before} -> {after}");
         }

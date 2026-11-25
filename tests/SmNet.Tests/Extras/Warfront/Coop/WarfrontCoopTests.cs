@@ -442,7 +442,7 @@ public class WarfrontCoopTests
         var r2 = new Rig(loaded, r.H);
         r2.Join(A); r2.Join(B);
         Assert.Equal("Waiting for P1 (2 cards), P2 (1 card)", r2.Co.DeployRefusal());
-        // the picker's timeout takes card 1 every 20 s: at most 40 s for two picks
+        // the picker's timeout takes card 1 every 40 s (owner 2026-11-23, card 2; was 20): at most 80 s for two picks
         var picker = new WarfrontPicker(loaded);
         double now = 0;
         for (int i = 0; i < 2; i++)
@@ -453,7 +453,7 @@ public class WarfrontCoopTests
             picker.Tick(now);
             r2.Co.PicksChanged(A); r2.Co.PicksChanged(B);
         }
-        Assert.Equal(40, now);
+        Assert.Equal(2 * WarfrontProgressionRules.PickTimeoutSeconds, now);
         Assert.Null(r2.Co.DeployRefusal());
     }
 

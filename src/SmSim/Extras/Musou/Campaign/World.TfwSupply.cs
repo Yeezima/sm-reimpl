@@ -30,6 +30,9 @@ namespace SmSim
         /// </summary>
         void TfwDamageTaken(int target, ref float scale)
         {
+            bool own = false;
+            WarfrontSquadDamage(target, ref own);   // WARFRONT-HOOK: a Warfront retainer takes the squad's share instead (Warfront/Battle/World.WarfrontRetainers.cs)
+            if (own) return;
             if (TfwContracts.IsPuppet(target) || IsBotClient(target)) scale *= TfwSupplyRules.BotDamageTaken;
         }
 
@@ -85,6 +88,9 @@ namespace SmSim
             }
             if (_tfwGrenadeTicks.Count > _players.Count) foreach (int id in _tfwGrenadeTicks.Keys.Where(id => !_players.ContainsKey(id)).ToList()) _tfwGrenadeTicks.Remove(id);
         }
+
+        /// <summary>Warfront: whether <paramref name="target"/> is a retainer with its own damage-taken share (<paramref name="own"/>). No-op without Warfront's retainers.</summary>
+        partial void WarfrontSquadDamage(int target, ref bool own);
 
         /// <summary>Warfront: the refill period's seconds, scaled by the player's cooldown cards.</summary>
         partial void WarfrontCooldown(int player, ref float seconds);

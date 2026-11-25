@@ -94,6 +94,8 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Simulation.cs", "ExtrasPlayerInput"),          // World.ExtrasPlayerInput(int, ref PlayerInput, ref bool handled), before Step asks for a player's input (the AI Marines have no client)
         ("src/SmServer/GameServer.cs", "ExtrasGeneratedMap"),      // static GameServer.ExtrasGeneratedMap(ContentExtras, string, ref string?, ref GameMap?, ref string?), in GeneratedMap, which Program.cs calls (tfw_war, composed from the install)
         ("src/SmServer/GameServer.cs", "ExtrasPlayerName"),        // GameServer.ExtrasPlayerName(int, ref string), in ScoreboardOf (the AI Marines' names)
+        ("src/SmServer/GameServer.cs", "ExtrasSnapshotRecords"),   // GameServer.ExtrasSnapshotRecords(int, Vector3, ref PlayerState[], ref int), in SendSnapshotTo (protocol 94): Warfront orders a crowded snapshot and sends its AI Marines lean
+        ("src/SmServer/GameServer.cs", "ExtrasScoreRank"),         // GameServer.ExtrasScoreRank(int, ref int), in ScoreboardOf (protocol 94): Warfront's drop pod Marines' rows last
         ("src/SmServer/GameServer.cs", "ExtrasCustomMap"),         // static GameServer.ExtrasCustomMap(string, ref string?, ref GameMap?, ref string?), a Mapmaker .smmap loaded for --custom-map or a cm_ map name (SmMapmaker, Extras only)
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasCommand"),  // GameServer.ExtrasCommand(int, byte, byte[]), a client's command (message kind 17), only under ContentExtras.CommandUsers
         ("client/NetworkView.cs", "ExtrasMapFile"),                // NetworkView.ExtrasMapFile(ref string), the install's map behind a map name (tfw_war_m09: Manufactorum; tfw_war: none), in LoadMap and for the map's effects and sounds
@@ -172,6 +174,7 @@ public class ExtrasBoundaryTests
         ("client/DevToolsPanel.cs", "ExtrasPanelSync"),             // DevToolsPanel.ExtrasPanelSync(), once per Sync: added content's section follows the server
         ("client/NetworkView.Seize.cs", "ExtrasSpectateView"),      // SpectateCamera asks added content for its own spectator view first (Warfront W5c: a fallen player, a held joiner)
         ("client/Customizer/CreatorView.cs", "ExtrasStepCount"),    // CreatorView.ExtrasStepCount(ref int), the Librarian's five steps
+        ("client/Customizer/CreatorView.cs", "ExtrasOpenStep"),     // CreatorView.ExtrasOpenStep(string, ref bool), OpenStep (the --step aid): an added page's own step names (Warfront: retainers)
         ("client/Customizer/CreatorView.cs", "ExtrasStepShown"),    // CreatorView.ExtrasStepShown(int, ref bool), StepShown: the marines' page adds SUPPORT after PERKS (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasSupportRows"),  // CreatorView.ExtrasSupportRows(...), the SUPPORT step's rows (Musou Mode)
         ("client/Customizer/CreatorView.cs", "ExtrasOpenAppearance"),   // CreatorView.ExtrasOpenAppearance(ref bool), APPEARANCE...: the look the Librarian wears

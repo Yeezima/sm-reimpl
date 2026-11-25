@@ -48,7 +48,7 @@ public class ScoreboardPingTests(ITestOutputHelper output)
     [Fact]
     public void The_ping_round_trips_in_the_scoreboard_row_and_the_reader_refuses_values_above_999()
     {
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         Assert.Equal(19, Protocol.ScoreRowBytes);   // protocol 64: + headshots and assists; protocol 58: + the row flags
         var board = new Scoreboard(9, true, 41, 600f, false,
         [
@@ -85,7 +85,7 @@ public class ScoreboardPingTests(ITestOutputHelper output)
     {
         var seize = new SeizeGroundInfo(20f, 10f, 2, 5f, [.. Enumerable.Range(0, World.MaxControlPoints).Select(i => new ControlPointInfo(new string('p', Protocol.MaxMapName), new System.Numerics.Vector3(i, 2, 3), 5f, 2f))]);
         var full = new Scoreboard(1, true, 1, 1f, true,
-            [.. Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, 65535, 65535, 65535, 3, ("Name" + i).PadRight(PlayerNames.MaxLength, 'x'), 999))], seize,
+            [.. Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, 65535, 65535, 65535, 3, ("Name" + i).PadRight(PlayerNames.MaxLength, 'x'), 999))], seize,
             [.. Enumerable.Range(100, Protocol.MaxSpectators).Select(i => new SpectatorEntry(i, ("Spec" + i).PadRight(PlayerNames.MaxLength, 'y')))]);
         int size = Protocol.Write(full).Length;
         output.WriteLine($"fullest scoreboard (16 rows with pings and 24-character names, {World.MaxControlPoints} points, {Protocol.MaxSpectators} spectators): {size} bytes (budget {Protocol.SnapshotBudget})");

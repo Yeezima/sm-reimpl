@@ -237,6 +237,37 @@ public sealed partial class ClassicBotBrain
     }
 
     /// <summary>
+    /// Seam (review F4, ours; no Classic use): a graph the host already has, for this brain's <paramref name="team"/> and jump <paramref name="pack"/> ("" for none) on <paramref name="map"/>: the brain plans,
+    /// strafes and rolls on it as on a graph of its own build (no build, spawn watch or map plan of its own). A different map or collision forgets the old map's graphs (as <see cref="PrepareNavigation"/>);
+    /// the same slot with a new graph (a pack's jump links) gets a fresh path follower, but not while a flight is under way (the next call then). True when the graph is the brain's now.
+    /// </summary>
+    public bool UseGraph(MapContent map, CollisionWorld world, NavGraph graph, Team team, string pack)
+    {
+        if (_navMap is null || _navMap.Name != map.Name || !ReferenceEquals(_navWorld, world))
+        {
+            _navCancel.Cancel();
+            _navCancel = new System.Threading.CancellationTokenSource();
+            _navSlots.Clear(); _navCurrent = null;
+            ++_navGeneration;
+            _navMap = map;
+            _navWorld = world;
+        }
+        if (_navSlots.TryGetValue((team, pack), out var was))
+        {
+            if (ReferenceEquals(was.Graph, graph)) return true;
+            if (was.Agent is { JumpInProgress: true }) return false;
+            was.Graph = graph;
+            was.Agent = NewNavAgent(graph);
+            return true;
+        }
+        var slot = new NavSlot(team, pack) { Graph = graph, Note = $"host graph {graph.NodeCount:N0} cells", WatchDone = true, PlanDone = true };
+        slot.Agent = NewNavAgent(graph);
+        _navSlots[(team, pack)] = slot;
+        _navNote = slot.Note;
+        return true;
+    }
+
+    /// <summary>
     /// Route points: items separated by commas (or semicolons); x/y/z is a point at that height; two numbers in a row are an x,y point (the height comes
     /// from the graph near the bot's own), anything else a name from the map (A, B, C, marines, chaos, centre, spawnN).
     /// Unknown names are dropped with a note.

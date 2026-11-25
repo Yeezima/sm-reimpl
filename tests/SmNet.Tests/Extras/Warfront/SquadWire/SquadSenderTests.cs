@@ -1,6 +1,10 @@
 using System.Numerics;
 using SmNet.Extras.Warfront;
+using SmNet.Tests.Extras.Musou.Campaign;
 using SmNet.Tests.Extras.Warfront.Squad;
+using SmNet.Tests.Extras.Warfront.Wiring;
+using SmSim.Extras.Musou.Campaign;
+using SmSim.Extras.Warfront.Retainers;
 using SmServer;
 using SmSim;
 using SmSim.Extras.Warfront.Squad;
@@ -38,64 +42,50 @@ sealed class FakeCommandHost : IWarfrontSquadCommandHost
     public void SetSquadClass(ulong key, byte option) => Option = option;
 }
 
-/// <summary>Warfront W10: the squad sender (SquadState, roster signature and rotation, events) and the command handler (Rename, JumpPound, SquadClass) over fakes.</summary>
+/// <summary>Warfront W10 and Phase B T2: the squad sender (roster signature, rotation and World ids, events; SquadState retired) over real retainers, and the command handler (Rename, JumpPound, SquadClass) over fakes.</summary>
 public class SquadSenderTests(ITestOutputHelper output)
 {
-    static (WarfrontSquadSim Sim, WarfrontSquadSender Sender, FakeSquadHost Host) Battle(int owners = 4, int marines = 9)
+    /// <summary><paramref name="owners"/> humans (ids 1 up) on a Warfront World, each with a roster of <paramref name="marines"/> landed as World players.</summary>
+    static (World W, WarfrontRetainers Retainers, SquadRosters Rosters, WarfrontSquadSender Sender, FakeSquadHost Host) Battle(int owners = 4, int marines = 2)
     {
+        var w = TfwRig.War(null, WarfrontSquadWiringTests.Cfg());
+        w.Tfw!.Guardsmen = false; w.Tfw.Allies = false;
+        for (int id = 2; id <= owners; id++) w.Spawn(id, w.AssignClass(0));
+        TfwRig.Steps(w, 5);
         var rosters = new SquadRosters();
         var host = new FakeSquadHost();
         for (int o = 1; o <= owners; o++) { rosters.AddOwner((ulong)o * 1000, marines); host.ClientList.Add((o, (ulong)o * 1000)); }
-        var sim = new WarfrontSquadSim(rosters, new FakeArena());
-        sim.BeginBattle(host.ClientList.Select((c, i) => (c.Key, c.Player, new Vector3(i * 20f, 0, 0))).ToArray());
-        return (sim, new WarfrontSquadSender(sim, new SimConfig(), host), host);
+        var retainers = new WarfrontRetainers(w, rosters);
+        w.Tfw.Warfront!.Retainers = retainers;
+        retainers.BeginBattle();
+        for (int o = 1; o <= owners; o++) Assert.Equal(marines, retainers.Land((ulong)o * 1000, o, w.Players[o].Position));
+        return (w, retainers, rosters, new WarfrontSquadSender(retainers, rosters, w.Config, host), host);
     }
 
-    static List<SquadStateSection> States(IEnumerable<WarfrontSquadOutgoing> o) => o.Where(x => x.Tag == SquadWire.StateTag).Select(x => { Assert.True(SquadWire.TryDecodeState(x.Payload, out var s)); return s; }).ToList();
-
     [Fact]
-    public void Thirty_six_marines_go_out_at_ten_hertz_and_a_client_reads_all_of_them()
+    public void SquadState_is_no_longer_sent_the_retainers_are_World_players()
     {
-        var (sim, sender, host) = Battle();
+        var (w, retainers, _, sender, _) = Battle();
         var sent = new List<WarfrontSquadOutgoing>();
         for (uint t = 1; t <= 30; t++) sent.AddRange(sender.Step(t));
-        var states = States(sent);
-        Assert.Equal(10, states.Count);
-        Assert.All(states, s => Assert.Equal(36, s.Marines.Count));
-        Assert.Equal(10, sent.Count(x => x.Tag == SquadWire.StateTag && x.Player == -1));
-        output.WriteLine($"state section {sent.First(x => x.Tag == SquadWire.StateTag).Payload.Length} bytes; whole {sender.WholesSent}, halves {sender.HalvesSent}");
-    }
-
-    [Fact]
-    public void In_the_hub_nothing_is_in_the_state_and_a_short_room_sends_halves()
-    {
-        var (sim, sender, host) = Battle();
-        host.InBattle = false;
-        var hub = new List<WarfrontSquadOutgoing>();
-        for (uint t = 1; t <= 30; t++) hub.AddRange(sender.Step(t));
-        Assert.Empty(States(hub));
-        host.InBattle = true;
-        sender.StateRoom = SquadWire.StateHeaderBytes + 20 * SquadWire.MarineBytes;
-        var seen = new HashSet<int>();
-        for (uint t = 31; t <= 60; t++) foreach (var s in States(sender.Step(t))) foreach (var m in s.Marines) seen.Add(m.Index);
-        Assert.Equal(36, seen.Count);
-        Assert.True(sender.HalvesSent > 0);
+        Assert.DoesNotContain(sent, x => x.Tag == SquadWire.StateTag);
+        Assert.Equal(8, retainers.All.Count(r => r.WorldId > 0 && w.Players.ContainsKey(r.WorldId)));
     }
 
     [Fact]
     public void Rosters_go_out_once_per_owner_per_client_and_again_only_on_change_or_rotation()
     {
-        var (sim, sender, host) = Battle(owners: 2, marines: 3);
+        var (_, _, rosters, sender, _) = Battle(owners: 2, marines: 2);
         var first = sender.Step(3);   // tick 3: the 10 Hz step
-        var rosters = first.Where(x => x.Tag == SquadWire.RosterTag).ToList();
-        Assert.Equal(2 * 2, rosters.Count);   // two owners to two clients
-        Assert.True(SquadWire.TryDecodeRoster(rosters.First(r => r.Player == 1).Payload, out var own));
+        var sections = first.Where(x => x.Tag == SquadWire.RosterTag).ToList();
+        Assert.Equal(2 * 2, sections.Count);   // two owners to two clients
+        Assert.True(SquadWire.TryDecodeRoster(sections.First(r => r.Player == 1).Payload, out var own));
         Assert.Equal(1000UL, own.Handle);   // own roster: the viewer's key
-        Assert.Equal(3, own.Marines.Count);
-        Assert.True(SquadWire.TryDecodeRoster(rosters.First(r => r.Player == 2 && r.Payload.Length > 0 && SquadWire.TryDecodeRoster(r.Payload, out var o2) && o2.OwnerPlayer == 1).Payload, out var other));
+        Assert.Equal(2, own.Marines.Count);
+        Assert.True(SquadWire.TryDecodeRoster(sections.First(r => r.Player == 2 && SquadWire.TryDecodeRoster(r.Payload, out var o2) && o2.OwnerPlayer == 1).Payload, out var other));
         Assert.NotEqual(1000UL, other.Handle);   // another's: the pseudonym, never the key
         Assert.Empty(sender.Step(6).Where(x => x.Tag == SquadWire.RosterTag));   // nothing changed
-        Assert.True(sim.Rosters.Rename(1000, 0, "Castor"));
+        Assert.True(rosters.Rename(1000, 0, "Castor"));
         var changed = sender.Step(18).Where(x => x.Tag == SquadWire.RosterTag).ToList();
         Assert.Equal(2, changed.Count);   // one owner, to both clients
         Assert.True(SquadWire.TryDecodeRoster(changed[0].Payload, out var renamed));
@@ -106,32 +96,63 @@ public class SquadSenderTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Roster_marks_the_marines_in_the_battle_and_a_joining_client_gets_everything_again()
+    public void The_roster_carries_each_Marines_World_id_and_drops_it_once_out_and_a_joining_client_gets_everything_again()
     {
-        var (sim, sender, host) = Battle(owners: 1, marines: 4);
+        var (w, retainers, _, sender, host) = Battle(owners: 1, marines: 2);
         var sections = sender.Step(3).Where(x => x.Tag == SquadWire.RosterTag).ToList();
         Assert.True(SquadWire.TryDecodeRoster(sections[0].Payload, out var r));
         Assert.All(r.Marines, m => Assert.NotEqual(SquadRosterWire.NotInBattle, m.Index));
+        Assert.Equal(retainers.All.Select(x => (ushort)x.WorldId).Order(), r.Marines.Select(m => m.WorldId).Order());
+        Assert.All(r.Marines, m => Assert.True(TfwContracts.IsPuppet(m.WorldId) && w.Players.ContainsKey(m.WorldId)));
         Assert.Empty(sender.Step(6).Where(x => x.Tag == SquadWire.RosterTag));
         sender.ClientJoined(9);
         Assert.NotEmpty(sender.Step(9).Where(x => x.Tag == SquadWire.RosterTag));
+        // out: the downed window runs to its end, the World player goes and the roster says so
+        var first = retainers.All[0];
+        Assert.True(w.TfwKillForTests(first.WorldId));
+        for (int k = 0; k < (int)(WarfrontRetainerRules.DownedSeconds * w.Config.TickRate) + 2; k++) retainers.Step();
+        Assert.Equal(SquadState.Out, first.State);
+        sender.ClientJoined(9);
+        Assert.True(SquadWire.TryDecodeRoster(sender.Step(12).First(x => x.Tag == SquadWire.RosterTag && x.Player == 1).Payload, out var after));
+        Assert.Equal(SquadRosterWire.NoWorldId, after.Marines[0].WorldId);
+        _ = host;
+    }
+
+    /// <summary>T5 review F2: a leaver's landed Marines (his key no longer has a player id; or he is back but not yet re-bound) keep their World ids in the roster the others see.</summary>
+    [Fact]
+    public void A_leavers_landed_Marines_keep_their_World_ids_on_the_wire_until_and_after_he_returns()
+    {
+        var (w, retainers, _, sender, host) = Battle(owners: 2, marines: 2);
+        var ids = retainers.All.Where(x => x.Key == 1000).Select(x => (ushort)x.WorldId).Order().ToList();
+        host.ClientList.RemoveAll(c => c.Key == 1000);   // player 1 leaves; his squad fights on
+        sender.ClientJoined(2);
+        var gone = sender.Step(3).Where(x => x.Tag == SquadWire.RosterTag && x.Player == 2).Select(x => SquadWire.TryDecodeRoster(x.Payload, out var r) ? r : null).First(r => r is not null && r.Marines.Count == 2 && r.Marines.Any(m => ids.Contains(m.WorldId)))!;
+        Assert.Equal(ids, gone.Marines.Select(m => m.WorldId).Order());
+        Assert.All(gone.Marines, m => Assert.NotEqual(SquadRosterWire.NotInBattle, m.Index));
+        // he identifies again as player 5 (the Identify) before the squad is re-bound (the Rebind): still found by key
+        host.ClientList.Add((5, 1000));
+        sender.ClientJoined(5);
+        var back = sender.Step(6).Where(x => x.Tag == SquadWire.RosterTag && x.Player == 5).Select(x => SquadWire.TryDecodeRoster(x.Payload, out var r) ? r : null).First(r => r is not null && r.Handle == 1000)!;
+        Assert.Equal(ids, back.Marines.Select(m => m.WorldId).Order());
+        Assert.True(retainers.Rebind(1000, 5));
+        Assert.Same(retainers.OfKey(1000, 0), retainers.Of(5, 0));
+        _ = w;
     }
 
     [Fact]
-    public void Downed_revived_and_out_are_events_and_a_downed_marine_stays_in_the_state()
+    public void Downed_and_revived_are_events_with_the_reviver()
     {
-        var (sim, sender, host) = Battle(owners: 1, marines: 3);
+        var (w, retainers, _, sender, _) = Battle(owners: 1, marines: 2);
         sender.Step(3);
-        Assert.True(sim.Hit(SquadRules.TargetId(0), 100000f, Vector3.Zero));
-        sim.Step(4, []);
+        var first = retainers.All[0];
+        Assert.True(w.TfwKillForTests(first.WorldId));
+        retainers.Step();
         var downed = sender.Step(6);
         Assert.True(SquadWire.TryDecodeEvents(downed.First(x => x.Tag == SquadWire.EventsTag).Payload, out var ev));
         Assert.Equal(SquadEventKind.Downed, ev[0].Kind);
-        var st = States(downed)[0];
-        Assert.Equal(2, st.Marines.First(m => m.Index == 0).State);
-        Assert.True(st.Marines.First(m => m.Index == 0).Aux > 150, "about 20 s on the clock");
-        Assert.True(sim.Revive(0, byHuman: 1));
-        sender.Step(7); sim.Step(8, []);
+        Assert.True(retainers.View(first.Index)!.Value.DownedLeft > 19f, "about 20 s on the clock");
+        Assert.True(retainers.Revive(first, byHuman: 1));
+        sender.Step(7); retainers.Step();
         var revived = sender.Step(9);
         Assert.True(SquadWire.TryDecodeEvents(revived.First(x => x.Tag == SquadWire.EventsTag).Payload, out var ev2));
         Assert.Equal(SquadEventKind.Revived, ev2[0].Kind);
@@ -139,30 +160,31 @@ public class SquadSenderTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void The_sender_keeps_36_marines_under_the_budget_with_all_rosters()
+    public void The_sender_keeps_every_roster_under_the_budget()
     {
-        var (sim, sender, host) = Battle();
+        var (_, _, rosters, sender, _) = Battle();
+        for (int o = 1; o <= 4; o++) while (rosters.Count((ulong)o * 1000) < SquadRules.MaxPerPlayer) Assert.True(rosters.Recruit((ulong)o * 1000));
         var all = new List<WarfrontSquadOutgoing>();
         for (uint t = 3; t <= 9; t += 3) all.AddRange(sender.Step(t));
         int biggest = all.Where(x => x.Player == 1 || x.Player == -1).Max(x => x.Payload.Length);
         Assert.True(biggest < Protocol.MaxExtrasPayloadBytes);
-        output.WriteLine($"largest section {biggest} bytes (limit {Protocol.MaxExtrasPayloadBytes}); the state {SquadWire.MaxStateBytes}");
+        Assert.True(SquadWire.MaxRosterBytes < Protocol.MaxExtrasPayloadBytes);
+        output.WriteLine($"largest section {biggest} bytes (limit {Protocol.MaxExtrasPayloadBytes}); a full roster {SquadWire.MaxRosterBytes}");
     }
 
     [Fact]
-    public void A_pound_is_an_event_with_its_point_and_the_roster_is_looked_at_twice_a_second()
+    public void The_roster_is_looked_at_twice_a_second_and_a_recruit_forces_it()
     {
-        var (sim, sender, host) = Battle(owners: 1, marines: 4);
+        var (_, _, rosters, sender, _) = Battle(owners: 1, marines: 2);
         sender.Step(3);
-        // The pound events come from the sim's impacts; none have happened, so none are sent.
         Assert.DoesNotContain(sender.Step(6), x => x.Tag == SquadWire.EventsTag);
         // A rename is seen at the next check (15 ticks at 30 Hz), not at every 10 Hz send.
-        Assert.True(sim.Rosters.Rename(1000, 0, "Cato"));
+        Assert.True(rosters.Rename(1000, 0, "Cato"));
         Assert.Empty(sender.Step(9).Where(x => x.Tag == SquadWire.RosterTag));
         Assert.NotEmpty(sender.Step(21).Where(x => x.Tag == SquadWire.RosterTag));
         // A recruit forces the next check and is an event.
-        Assert.True(sim.Rosters.Recruit(1000));
-        sender.NoteRecruited(4);
+        Assert.True(rosters.Recruit(1000));
+        sender.NoteRecruited(2);
         var recruited = sender.Step(24);
         Assert.NotEmpty(recruited.Where(x => x.Tag == SquadWire.RosterTag));
         Assert.True(SquadWire.TryDecodeEvents(recruited.First(x => x.Tag == SquadWire.EventsTag).Payload, out var ev));

@@ -48,8 +48,12 @@ public sealed partial class CreatorView
             new("LOOK", "YOUR ACTIVE LOADOUT", null, () => Pick(4)),
             new("SUPPORT ABILITY", "ARTILLERY OR DROP POD", null, () => Pick(5)),
         };
+        WarfrontArmourySlots(slots);   // WARFRONT-HOOK: the RETAINERS card
         detail = new ArmDetail(weapon, WeaponIcon(weapon), () => Go(1), tiles, slots);
     }
+
+    /// <summary>WARFRONT-HOOK: Warfront's own slot cards after the Librarian's (the RETAINERS card).</summary>
+    partial void WarfrontArmourySlots(List<ArmSlot> slots);
 
     partial void ExtrasArmouryBadge(ref string text)
     {

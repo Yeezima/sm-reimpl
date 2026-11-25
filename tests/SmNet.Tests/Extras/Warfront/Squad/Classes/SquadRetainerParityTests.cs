@@ -22,29 +22,37 @@ public class SquadRetainerParityTests(ITestOutputHelper output)
         var r = new SquadRosters();
         var book = new SquadClassBook(SquadClassesTests.Make(), r, runSeed);
         book.OnOwnerLoadout(key, owner);
-        for (int k = 0; k < recruits; k++) Assert.True(book.Recruit(key));
+        Fill(r, key, 1 + recruits);
         var arena = new ClassArena();
         return (r, book, new WarfrontSquadSim(r, arena), arena);
     }
 
+    /// <summary>A bench fills the roster's capacity with Marines in slot 0's loadout (a run holds exactly two since owner 2026-11-23, card 2).</summary>
+    static void Fill(SquadRosters r, ulong key, int count)
+    {
+        r.Conform(key, count);
+        for (int s = 1; s < count; s++) r.SetLoadout(key, s, r.Marine(key, 0)!.Loadout);
+    }
+
     [Fact]
-    public void Every_retainer_copies_the_owners_class_weapons_pistol_blade_and_pack_exactly()
+    public void Every_retainer_is_the_owners_class_with_a_bot_loadout_its_pistol_blade_and_pack()
     {
         var c = SquadClassesTests.Make();
         // the owner: an assault marine with the second pistol and the power sword
+        // the retainer brief (2026-11-23): a valid Classic bot loadout of the owner's class (was an exact copy of his own loadout); his look stays
         var choice = new LoadoutChoice(1, Pistol: 1, Melee: 1);
-        var (r, _, _, _) = Setup(SquadOwnerLoadout.Standard(choice), 8);
-        var want = SquadLoadoutBuilder.FromChoice(c, choice, AppearanceCode.Default)!;
-        Assert.Equal(9, r.Count(Key));
-        for (int s = 0; s < 9; s++)
+        var r = new SquadRosters();
+        new SquadClassBook(c, r, 12345UL).OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(choice));
+        var own = SquadLoadoutBuilder.FromChoice(c, choice, AppearanceCode.Default)!;
+        Assert.Equal(2, r.Count(Key));
+        for (int s = 0; s < 2; s++)
         {
             var l = r.Marine(Key, s)!.Loadout;
-            Assert.Equal(want.Weapon, l.Weapon); Assert.Equal(want.Sidearm, l.Sidearm); Assert.Equal(want.Jump, l.Jump);
-            Assert.Equal(want.HealthMax, l.HealthMax); Assert.Equal(want.ArmourMax, l.ArmourMax);
-            Assert.Equal(want.Perks, l.Perks); Assert.Equal(want.Armour, l.Armour); Assert.Equal(want.Colours, l.Colours);
+            Assert.Equal(own.Jump, l.Jump);
+            Assert.Equal(own.Armour, l.Armour); Assert.Equal(own.Colours, l.Colours);
             Assert.Equal("sm - assault marine", l.ClassId);
-            Assert.Equal("sm_mp_pistol_plasma_pistol", l.Secondary);
-            Assert.Equal("sm_mp_melee_powersword", l.Melee);
+            Assert.Contains(l.Secondary, new[] { "sm_mp_pistol_bolt_pistol", "sm_mp_pistol_plasma_pistol" });
+            Assert.StartsWith("sm_mp_melee_", l.Melee);
             Assert.NotNull(l.Jump);                 // the real pack
             Assert.NotNull(l.Sidearm);              // the pistol that shoots
             Assert.False(l.Sidearm!.Melee); Assert.True(l.Weapon.Melee);
@@ -54,28 +62,29 @@ public class SquadRetainerParityTests(ITestOutputHelper output)
     [Fact]
     public void A_class_change_swaps_the_whole_roster_in_place_without_respawning_names_or_records()
     {
-        var (r, book, _, _) = Setup(SquadOwnerLoadout.Standard(new LoadoutChoice(0)), 3);
-        r.Rename(Key, 2, "Keeper"); r.Marine(Key, 2)!.Record.Kills = 5;
+        var (r, book, _, _) = Setup(SquadOwnerLoadout.Standard(new LoadoutChoice(0)), 1);   // the run's two
+        r.Rename(Key, 1, "Keeper"); r.Marine(Key, 1)!.Record.Kills = 5;
         var change = book.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(1)));
-        Assert.Equal(4, change.Changed);
-        for (int s = 0; s < 4; s++) Assert.Equal("sm - assault marine", r.Marine(Key, s)!.Loadout.ClassId);
-        Assert.Equal("Keeper", r.Marine(Key, 2)!.Name); Assert.Equal(5, r.Marine(Key, 2)!.Record.Kills);
+        Assert.Equal(2, change.Changed);
+        for (int s = 0; s < 2; s++) Assert.Equal("sm - assault marine", r.Marine(Key, s)!.Loadout.ClassId);
+        Assert.Equal("Keeper", r.Marine(Key, 1)!.Name); Assert.Equal(5, r.Marine(Key, 1)!.Record.Kills);
     }
 
     [Fact]
-    public void A_librarian_group_is_one_uniform_random_loadout_fixed_by_the_run_seed_and_key()
+    public void A_librarians_retainers_roll_their_own_classes_fixed_by_the_run_seed_and_key()
     {
+        // the retainer brief (2026-11-23): each retainer rolls Tactical, Assault or Devastator on its own (was one uniform roll for the group)
         string Group(ulong seed, ulong key, SquadClass cls)
         {
-            var (r, _, _, _) = Setup(SquadOwnerLoadout.ForLibrarian(cls), 8, seed, key);
-            var set = Enumerable.Range(0, 9).Select(s => { var l = r.Marine(key, s)!.Loadout; return $"{l.ClassId}/{l.Primary}/{l.Secondary}/{l.Melee}/{string.Join(",", l.Perks)}/{l.Sidearm is not null}"; }).Distinct().ToList();
-            Assert.Single(set);   // uniform: one class and one loadout for all nine
-            return set[0];
+            var r = new SquadRosters();
+            new SquadClassBook(SquadClassesTests.Make(), r, seed).OnOwnerLoadout(key, SquadOwnerLoadout.ForLibrarian(cls));
+            return string.Join("+", Enumerable.Range(0, 2).Select(s => { var l = r.Marine(key, s)!.Loadout; return $"{l.ClassId}/{l.Primary}/{l.Secondary}/{l.Melee}/{string.Join(",", l.Perks)}/{l.Sidearm is not null}"; }));
         }
         Assert.Equal(Group(1, Key, SquadClass.Tactical), Group(1, Key, SquadClass.Tactical));   // deterministic
         var tactical = Enumerable.Range(1, 40).Select(seed => Group((ulong)seed, Key, SquadClass.Tactical)).Distinct().Count();
         Assert.True(tactical > 1, "the pick is random across seeds");
-        Assert.All(new[] { SquadClass.Assault, SquadClass.Tactical, SquadClass.Devastator }, cls => Assert.Contains(cls == SquadClass.Assault ? "assault" : cls == SquadClass.Tactical ? "tactical" : "devastator", Group(3, Key, cls)));
+        var all = string.Join(" ", Enumerable.Range(1, 40).Select(seed => Group((ulong)seed, Key, SquadClass.Tactical)));
+        Assert.All(new[] { "assault", "tactical", "devastator" }, name => Assert.Contains(name, all));   // every class turns up, whatever the option
     }
 
     [Fact]
@@ -89,7 +98,7 @@ public class SquadRetainerParityTests(ITestOutputHelper output)
         Assert.Equal(0, sim.StandingOf(1)); Assert.False(sim.AnyStanding);
         book.OnOwnerLoadout(Key, SquadOwnerLoadout.Standard(new LoadoutChoice(2)));
         Assert.False(r.IsHeld(Key));
-        Assert.Equal(3, sim.Land(Key, 1, Vector3.Zero));
+        Assert.Equal(2, sim.Land(Key, 1, Vector3.Zero));   // two: the class book conforms the bench's three to the run's rule
         Assert.Equal("sm - devastator", r.Marine(Key, 0)!.Loadout.ClassId);
     }
 
@@ -189,7 +198,7 @@ public class SquadRetainerParityTests(ITestOutputHelper output)
         {
             ulong key = (ulong)(100 + o);
             book.OnOwnerLoadout(key, SquadOwnerLoadout.Standard(new LoadoutChoice(1)));
-            for (int k = 0; k < 8; k++) book.Recruit(key);
+            Fill(r, key, 9);   // the capacity a bench fills (a run holds two)
             Assert.Equal(9, sim.Land(key, o + 1, new Vector3(o * 30f, 0f, 0f)));
             humans.Add(new SquadHuman(o + 1, new Vector3(o * 30f, 0f, 0f), true));
         }

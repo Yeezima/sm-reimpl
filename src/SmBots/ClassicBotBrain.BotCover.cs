@@ -94,7 +94,7 @@ public sealed partial class ClassicBotBrain
             _coverAt = _connectedFor;
             var from = me.Position; var cancel = _navCancel.Token; var plan = Plan;
             Func<V3, bool>? excluded = plan is null ? null : plan.InNoLoiterZone;
-            _coverTask = BrainJob($"cover {++_coverJobs}", () => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
+            _coverTask = Search($"cover {++_coverJobs}", () => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
         }
         if (_cover is not { } cover) return target is null ? new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f) : null;   // planning (standing), or none: fight
 

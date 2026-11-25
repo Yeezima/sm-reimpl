@@ -185,14 +185,13 @@ public class WarfrontCleaveTests
         for (int pick = 0; pick < 20; pick++)
         {
             var squad = WarfrontOffers.Roll(7, 42, pick, true);
-            Assert.Equal([.. AllStats, WarfrontCard.Retainer], squad);   // squad-capable with room: everything, +1 Retainer last
+            Assert.Equal(AllStats, squad);   // since 2026-11-23 no +1 Retainer card (owner card 2): the stats alone for everyone
             Assert.Equal(AllStats, WarfrontOffers.Roll(7, 42, pick, false));   // no squad (the Dreadnought, a full roster): the stats alone
         }
-        Assert.Equal(WarfrontProgressionRules.OfferSize, WarfrontOffers.Roll(1, 1, 0, true).Length);
-        Assert.Equal(WarfrontProgressionRules.RetainerSlot, WarfrontOffers.Roll(1, 1, 0, true).ToList().IndexOf(WarfrontCard.Retainer));
+        Assert.Equal(AllStats.Length, WarfrontOffers.Roll(1, 1, 0, true).Length);
         Assert.False(WarfrontOffers.RetainerEligible(1, true));    // the Dreadnought has no squad
         Assert.False(WarfrontOffers.RetainerEligible(9, false));   // a full roster
-        Assert.True(WarfrontOffers.RetainerEligible(0, false));
+        Assert.False(WarfrontOffers.RetainerEligible(0, false));   // and nobody else since 2026-11-23
     }
 
     [Fact]

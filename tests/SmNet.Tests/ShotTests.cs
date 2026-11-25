@@ -29,7 +29,7 @@ public class ShotTests(ITestOutputHelper output)
     [Fact]
     public void Shot_records_round_trip_relative_to_their_shooter()
     {
-        Assert.Equal(93, Protocol.Version);   // protocol 16 brought the shot records; 17 (M28) left them as they are
+        Assert.Equal(94, Protocol.Version);   // protocol 16 brought the shot records; 17 (M28) left them as they are
         Assert.Equal(9, Protocol.ShotBytes);
         PlayerState[] players = [Player(3, new Vector3(100.3f, -812.7f, 4.1f)), Player(65535, new Vector3(-5f, 7f, 0f))];
         ShotView[] shots =
@@ -92,7 +92,7 @@ public class ShotTests(ITestOutputHelper output)
     [Fact]
     public void Shot_records_fill_the_packet_up_to_the_budget_and_never_beyond()
     {
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => Player(i, new Vector3(i, -i, 2f)) with { Class = 63 }).ToArray();
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => Player(i, new Vector3(i, -i, 2f)) with { Class = 63 }).ToArray();
         var shots = ManyShots(players, 40);
         // The fullest snapshot of every other block still carries the guaranteed shot records, 6 bytes under the budget (a fifth would not fit).
         var projectiles = Enumerable.Range(0, Protocol.MaxSnapshotProjectiles).Select(k => new ProjectileView(60000 + k, 254, 255, new Vector3(k), ProjectileFlags.Detonated)).ToArray();

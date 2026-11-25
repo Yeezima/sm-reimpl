@@ -738,6 +738,7 @@ public sealed partial class FrontEndView : Control
             GetTree().CreateTimer(0.2).Timeout += () => { var tipControl = FindChild(tipName, true, false) as Control; if (tipControl is not null) UiTooltip.ShowNow(tipControl); };
         if (args.ContainsKey("arm-back-prompt")) GetTree().CreateTimer(0.1).Timeout += () => _creator?.ShowBackPromptDemo();   // screenshot aid: BACK with an unsaved edit, so the KEEP CHANGES / DISCARD prompt shows
         if (args.GetValueOrDefault("arm-tab") is { } armTab) _creator?.ShowArmTab(armTab.StartsWith("s", StringComparison.OrdinalIgnoreCase));   // screenshot aid: the Armoury's CLASS or SLOTS tab
+        if (args.GetValueOrDefault("armoury-focus") is { Length: > 0 } focusRow) _creator?.FocusArmouryRow(focusRow);   // screenshot aid: focus a row of the step's list (the item card shows it)
         if (args.GetValueOrDefault("preview-side") is { } side) _creator?.SetPreviewRace(side.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine);
         if (_appearance?.Visible == true)
         {

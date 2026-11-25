@@ -5,6 +5,7 @@ using SmSim.Extras.Musou;
 using SmSim.Extras.Warfront;
 using SmSim.Extras.Warfront.Campaign;
 using SmSim.Extras.Warfront.Progression;
+using SmSim.Extras.Warfront.Retainers;
 using SmSim.Extras.Warfront.Squad;
 using Rig = SmNet.Tests.Extras.Warfront.Wiring.WarfrontSquadWiringTests.Rig;
 
@@ -143,19 +144,11 @@ public class WarfrontSquadWiringSecondPassTests
         foreach (var c in cards) Assert.True(r.Campaign.TryTakePick(1, (int)c));
     }
 
-    /// <summary>The first Marine pull's damage against a tough frozen Ork, over the Marine's own damage.</summary>
+    /// <summary>Phase B T2: the scale the Orks take the first retainer's hits at (its card third and level curve on its base player damage).</summary>
     static float DamageRatio(Rig r)
     {
-        var at = r.Sim.View(r.IndexOf(1, 0))!.Value.Position;
-        ushort ork = r.W.Musou!.SpawnLeashed(MusouEnemyType.Nob, at + new Vector3(8f, 0f, 0f), 0f, 2e4f, 1, 10f);
-        r.W.Musou.Frozen = true;
-        r.W.Musou.TryGet(ork, out var o0);
-        for (int t = 0; t < 120; t++)
-        {
-            r.Stand(1);
-            if (r.W.Musou.TryGet(ork, out var e) && e.Health < o0.Health) return (o0.Health - e.Health) / (r.Wi.Rosters.Marine(1, 0)!.Loadout.Weapon.Damage * SquadRules.DamageDealt);
-        }
-        return 0f;
+        r.Stand(1);
+        return r.W.Musou!.MeleeScaleOf(r.IdOf(1, 0));
     }
 
     [Theory]
@@ -169,9 +162,7 @@ public class WarfrontSquadWiringSecondPassTests
         var b = WarfrontStatBonuses.ForRetainer(r.Campaign.Player(1)!.Cards);
         r.Deploy();
         float expected = (card == WarfrontCard.CooldownReduction ? 1f : b.Damage * b.AttackSpeed) * WarfrontSquadWiring.SquadLevelScale(4).Damage;   // S1 (owner 2026-11-19): three cards = level 4, and the level scales damage too
-        float ratio = DamageRatio(r);
-        Assert.True(ratio > 0f);
-        Assert.Equal(expected, ratio, 2);
+        Assert.Equal(expected, DamageRatio(r), 3);
     }
 
     [Fact]
@@ -180,25 +171,28 @@ public class WarfrontSquadWiringSecondPassTests
         var hp = Rig.Make(marines: 1, deploy: false);
         Cards(hp, WarfrontCard.MaxHp, WarfrontCard.MaxHp);
         hp.Deploy();
-        var l = hp.Wi.Rosters.Marine(1, 0)!.Loadout;
         var b = WarfrontStatBonuses.ForRetainer(hp.Campaign.Player(1)!.Cards);
-        var body = hp.Sim.BodyOf(hp.IndexOf(1, 0));
-        Assert.Equal(l.HealthMax * b.MaxHp * WarfrontSquadWiring.SquadLevelScale(3).Health, body.Health, 1);   // S1: two cards = level 3
-        Assert.Equal(l.ArmourMax, body.Armour, 1);   // the health card gives the armour nothing
+        float health = b.MaxHp * WarfrontSquadWiring.SquadLevelScale(3).Health;   // S1: two cards = level 3
+        var (_, hpHealth, hpArmour) = hp.Ret.ScaleOf(1);
+        Assert.Equal(health, hpHealth, 3);
+        Assert.Equal(1f, hpArmour, 3);   // the health card gives the armour nothing
+        Assert.True(hp.Body(1, 0).Shield > 0f);
+        Assert.Equal(WarfrontRetainerRules.DamageTaken, hp.W.DamageTakenScale(hp.IdOf(1, 0)), 3);   // shielded: the armour's scale (1)
 
         var ar = Rig.Make(marines: 1, deploy: false);
         Cards(ar, WarfrontCard.MaxArmor, WarfrontCard.MaxArmor);
         ar.Deploy();
         var b2 = WarfrontStatBonuses.ForRetainer(ar.Campaign.Player(1)!.Cards);
-        var body2 = ar.Sim.BodyOf(ar.IndexOf(1, 0));
-        Assert.Equal(l.HealthMax * WarfrontSquadWiring.SquadLevelScale(3).Health, body2.Health, 1);   // S1: the level part still applies
-        Assert.Equal(l.ArmourMax * b2.MaxArmor, body2.Armour, 1);
+        var (_, arHealth, arArmour) = ar.Ret.ScaleOf(1);
+        Assert.Equal(WarfrontSquadWiring.SquadLevelScale(3).Health, arHealth, 3);   // S1: the level part still applies
+        Assert.Equal(b2.MaxArmor, arArmour, 3);
+        Assert.Equal(WarfrontRetainerRules.DamageTaken / b2.MaxArmor, ar.W.DamageTakenScale(ar.IdOf(1, 0)), 3);
     }
 
     // ---- finding 4: the first retainer through the class book --------------------------------------------------------------------------
 
     [Fact]
-    public void A_Dreadnought_first_joiner_held_by_W12_has_no_Marine_and_exactly_one_after_the_switch()
+    public void A_Dreadnought_first_joiner_held_by_W12_has_two_held_Marines_and_two_after_the_switch()
     {
         var r = Rig.Make(deploy: false);
         r.Wi.Reset();
@@ -208,11 +202,13 @@ public class WarfrontSquadWiringSecondPassTests
         r.Wi.StepAboard();
         Assert.False(r.Wi.HasRoster(1));   // held: the book has seen nothing yet
         Assert.True(r.Wi.AddStartingRetainer(1));   // W12's path: through the book, as a Dreadnought
-        Assert.Equal(0, r.Wi.Rosters.Count(1));
+        Assert.Equal(2, r.Wi.Rosters.Count(1));      // two, held (owner 2026-11-23, card 2: none in the field for a Dreadnought)
+        Assert.True(r.Wi.Rosters.IsHeld(1));
         held = false;
         r.W.Spawn(1, 0);
         r.Wi.StepAboard();
-        Assert.Equal(1, r.Wi.Rosters.Count(1));   // the free one, once, not two
+        Assert.Equal(2, r.Wi.Rosters.Count(1));      // still two after the switch (the free retainer is retired)
+        Assert.False(r.Wi.Rosters.IsHeld(1));
     }
 
     // ---- finding 5, StepAboard seam, T3 ---------------------------------------------------------------------------------------------------
@@ -238,16 +234,17 @@ public class WarfrontSquadWiringSecondPassTests
     {
         var r = Rig.Make(marines: 3);
         r.Stand(2);
-        int hurt = r.IndexOf(1, 0), downed = r.IndexOf(1, 1);
-        Assert.True(r.Sim.Hit(SquadRules.TargetId(hurt), 100f / SquadRules.DamageTaken, Vector3.Zero));
-        float before = r.Sim.BodyOf(hurt).Health + r.Sim.BodyOf(hurt).Armour;
+        int hurt = r.IdOf(1, 0);
+        Assert.True(r.W.TfwKillForTests(hurt) && r.W.TfwRevive(hurt));   // back with half of each
+        var body = Loadouts.Body(r.W.Config, r.W.Players[hurt]);
+        float before = r.W.Players[hurt].Health + r.W.Players[hurt].Shield;
+        Assert.True(before < body.HealthMax + body.ShieldMax);
         r.DownMarine(1, 1);
         r.Rt.Xp.Kill(1, 1_000_000, WarfrontKillClass.Ordinary, 0);   // a level-up (or more)
         r.Stand(1);
-        var l = r.Wi.Rosters.Marine(1, 0)!.Loadout;
-        Assert.Equal(l.HealthMax + l.ArmourMax, r.Sim.BodyOf(hurt).Health + r.Sim.BodyOf(hurt).Armour, 1);
-        Assert.True(before < l.HealthMax + l.ArmourMax);
-        Assert.Equal(SquadState.Downed, r.Sim.StateOf(downed));
+        Assert.Equal(body.HealthMax + body.ShieldMax, r.W.Players[hurt].Health + r.W.Players[hurt].Shield, 1);
+        Assert.Equal(SquadState.Downed, r.Of(1, 1).State);
+        Assert.False(r.Body(1, 1).Alive);
     }
 
     // ---- T1: the Orks' level damage does not reach the squad -------------------------------------------------------------------------------
@@ -255,23 +252,24 @@ public class WarfrontSquadWiringSecondPassTests
     [Fact]
     public void A_Marine_takes_none_of_the_Orks_level_damage()
     {
-        Assert.Equal(0f, SquadRules.OrkLevelDamageShare);
+        Assert.Equal(0f, WarfrontRetainerRules.OrkLevelDamageShare);
         float Lost(float damageScale)
         {
             var r = Rig.Make(marines: 1, deploy: false);
-            r.Wi.Rosters.Mirror(1, r.Wi.Rosters.Marine(1, 0)!.Loadout with { Weapon = new SquadWeapon(30f, 0.0001f, 1f, 0f) });   // a Marine that cannot hurt back (it would knock the Boy off)
             r.Deploy();
             r.Rules.OrkLevelScale = () => (1f, damageScale);
-            var at = r.Sim.View(r.IndexOf(1, 0))!.Value.Position;
-            Assert.True(r.W.TfwKillForTests(1));   // the human is down: the Orks go for the Marine (and it does not revive him with an Ork on the body)
+            int id = r.IdOf(1, 0);
+            var at = r.Body(1, 0).Position;
+            Assert.True(r.W.TfwKillForTests(1));   // the human is down: the Orks go for the Marine
             r.W.Musou!.Spawn(MusouEnemyType.Boy, at + new Vector3(1.2f, 0f, 0f), 0f, 1e6f);
             r.Stand(60);
-            var b = r.Sim.BodyOf(r.IndexOf(1, 0));
-            var l = r.Wi.Rosters.Marine(1, 0)!.Loadout;
-            return l.HealthMax + l.ArmourMax - b.Health - b.Armour;
+            var p = r.W.Players[id];
+            var body = Loadouts.Body(r.W.Config, p);
+            return body.HealthMax + body.ShieldMax - p.Health - p.Shield;
         }
         float plain = Lost(1f), scaled = Lost(3f);
         Assert.True(plain > 0f, $"plain {plain}");
         Assert.Equal(plain, scaled, 1);
     }
+
 }

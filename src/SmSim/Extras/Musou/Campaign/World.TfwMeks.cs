@@ -95,7 +95,9 @@ public sealed partial class World
             var d = p.Position - t.Point;
             if (d.X * d.X + d.Y * d.Y > r2 || MathF.Abs(d.Z) > MusouMekRules.TrapVertical) continue;
             var body = Loadouts.Body(Config, p);
-            float damage = TfwContracts.IsPuppet(id) ? MusouMekRules.TrapAiMarineDamage : (body.HealthMax + body.ShieldMax) * MusouMekRules.TrapShare;   // an AI Marine dies outright (owner, 2026-11-08)
+            bool aiMarine = TfwContracts.IsPuppet(id);
+            WarfrontTrapAiMarine(id, ref aiMarine);   // WARFRONT-HOOK: a Warfront retainer is hurt as a human (owner 2026-11-25; Warfront/Battle/World.WarfrontRetainers.cs)
+            float damage = aiMarine ? MusouMekRules.TrapAiMarineDamage : (body.HealthMax + body.ShieldMax) * MusouMekRules.TrapShare;   // an AI Marine dies outright (owner, 2026-11-08)
             MusouHit(new MusouAttack(t.Mek, id, damage, Melee: false, Staggers: false, t.Point));
         }
         TfwGuards?.Blast(t.Point, MusouMekRules.TrapRadius, _ => 1f, TfwTrapFlatDamage, out _);
@@ -197,7 +199,7 @@ public sealed partial class World
         if (!(damage > 0f)) return;
         float range = musou.Rules.Combat.CleaveRange(Config.MeleeRange);
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * musou.Rules.Combat.CleaveConeScale) * MathF.PI / 180f);
-        if (musou.War is { } volume) { range *= volume.CleaveReachScale * (TfwCombatRules.ScalesPlayer(attacker) ? volume.PlayerCleaveReachScale : 1f); minCos = volume.CleaveMinCos; }   // as the Orks' cleave (owner 2026-11-09; x0.6 for a human, owner 2026-11-11)
+        if (musou.War is { } volume) { range *= volume.CleaveReachScale * (MusouCleaveTrim(attacker) ? volume.PlayerCleaveReachScale : 1f); minCos = volume.CleaveMinCos; }   // as the Orks' cleave (owner 2026-11-09; x0.6 for a human, owner 2026-11-11)
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         meks.Near(state.Position, range + 2f, _mekNear);
         foreach (var (id, _) in _mekNear)
@@ -250,4 +252,8 @@ public sealed partial class World
             _mekDemoMoved.Add(id);
         }
     }
+
+    /// <summary>Warfront: whether a trap's victim counts as an AI Marine (killed outright). No-op without Warfront's retainers.</summary>
+    partial void WarfrontTrapAiMarine(int id, ref bool aiMarine);
 }
+

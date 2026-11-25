@@ -704,7 +704,7 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_9_carries_the_jump_state_in_full_and_flags_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
@@ -713,7 +713,7 @@ public class JumpPackTests(ITestOutputHelper output)
             MeleeQueued = true, MeleeHeld = true, FireHeld = true, SwitchHeld = true, Overheated = true, OtherOverheated = true,
             ReloadHeld = true, DetonateHeld = true, Charging = true, Throwing = true, GrenadeHeld = true,
         };
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(Loaded).ToArray();
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(Loaded).ToArray();
         var projectiles = Enumerable.Range(0, Protocol.MaxSnapshotProjectiles).Select(k => new ProjectileView(60000 + k, 254, 255, new Vector3(k), ProjectileFlags.Detonated)).ToArray();
         var bytes = Protocol.Write(new Snapshot(1, 1, 1, players, Self: 7, Projectiles: projectiles, Match: new MatchView(MatchState.Playing, Team.None, uint.MaxValue, 65535, 65535), Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(65535 - k, 65535, 1, KillCause.Thrown, 254))],
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));

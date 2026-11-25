@@ -297,7 +297,7 @@ public class LoadoutTests(ITestOutputHelper output)
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2);
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal(Protocol.ServerDefaultClass, new Hello(Protocol.Version, 1, 2, 3).RequestedClass);
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- per-recipient snapshots
@@ -352,7 +352,7 @@ public class LoadoutTests(ITestOutputHelper output)
     [Fact]
     public void A_sixteen_player_snapshot_stays_within_1200_bytes()
     {
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
             Cooldown = 1, ReloadLeft = 1, SinceDamage = 1, RespawnLeft = 1, SwitchLeft = 1, Pitch = 1, MeleeStep = Protocol.MaxMeleeStep, MeleeTime = 1,

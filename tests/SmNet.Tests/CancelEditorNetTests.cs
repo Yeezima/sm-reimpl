@@ -52,7 +52,7 @@ public class CancelEditorNetTests
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelEdit(1u, DevCancelOp.ResetAll, entries))));
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelSync(1u, 3, 3, []))));
         Assert.Null(Protocol.Read(Protocol.Write(new DevCancelSync(1u, 0, 0, entries))));
-        Assert.Equal(93, Protocol.Version);   // 80 was the unreleased dev-tools protocol; classic-stab-on-t made it 81
+        Assert.Equal(94, Protocol.Version);   // 80 was the unreleased dev-tools protocol; classic-stab-on-t made it 81
     }
 
     // ---- the gate ----

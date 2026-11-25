@@ -15,7 +15,7 @@ public partial class NetworkView
 {
     /// <summary>
     /// Whether a human sees the card picker on a live server: <b>true</b> (flipped by W5c once <c>PickerBusy</c> kept the weapon keys and the fire button out of the game under the open picker; pinned in
-    /// <c>WarfrontBoundaryTests</c>). The HUD, the banner and the bot's picks never depended on it: a hidden picker would leave the server's 20 s timeout to take card 1.
+    /// <c>WarfrontBoundaryTests</c>). The HUD, the banner and the bot's picks never depended on it: a hidden picker would leave the server's pick timeout (40 s) to take card 1.
     /// </summary>
     internal static bool WarfrontPickerLive = true;
 

@@ -110,9 +110,11 @@ public enum WarfrontJoinKind { New, Returning }
 public sealed class WarfrontCampaign
 {
     /// <summary>Local save-format version (W1's WarfrontRules.Version is separate).</summary>
-    public const int SaveVersion = 7;   // 7: the run's Faction (Chaos Warfront C1; older saves load as Orks; 6 is left to the retainer rules, T0, and renumbered at integration); 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
+    public const int SaveVersion = 7;   // 7: the run's Faction (Chaos Warfront C1; older saves load as Orks); 6: retired Retainer cards (owner 2026-11-23, card 2; older saves load with each player's Retainer cards and extra retainer records dropped, each dropped Retainer card giving its pick back, XP and other cards kept; the conversion runs on every load and is idempotent); 5: the weather forecast (weather W1; older saves load with the legacy forecast: the current look on every slot); 4: co-op fields (W12); 3: PlaySeconds (W5a; older saves load with 0)
     /// <summary>The first format (no stats ledger); still loads, with an empty ledger. Version 2 (no co-op fields) loads too, every key with <c>ClassConfirmed</c> true.</summary>
     public const int OldestLoadableVersion = 1;
+    /// <summary>The save version that retired the Retainer cards: a run file below it is copied to <c>records\&lt;utc&gt;-before-v6.json</c> (with its squads file) before its first rewrite.</summary>
+    public const int RetainerCardsRetiredVersion = 6;
     public const int Lanes = 3;
     /// <summary>Same cap as Musou's co-op (a test holds them equal).</summary>
     public const int MaxHumans = TfwCoop.MaxHumans;
@@ -464,9 +466,11 @@ public sealed class WarfrontCampaign
         var c = new WarfrontCampaign(s.RunSeed, rolls, faction) { Phase = s.Phase, HqMandatory = s.HqMandatory, Deployments = s.Deployments, CurrentTarget = s.CurrentTarget };
         for (int l = 0; l < Lanes; l++) { c._front[l] = s.Fronts[l]; c._advanced[l] = s.Advanced[l]; }
         foreach (var k in s.JoinOrder) c._joinOrder.Add(k);
-        foreach (var p in s.Players)
+        foreach (var p in s.Players ?? new())
         {
+            if (p is null) throw new InvalidDataException("a null player entry");   // a damaged file is set aside by the loader, never a crash
             if (s.Version < 4) p.ClassConfirmed = true;   // saves before version 4 know no gate: nobody is asked again
+            ConvertRetainerCards(p);   // owner 2026-11-23, card 2: on every load, idempotent (a save without Retainer cards loads exactly as written; a later SaveVersion of another branch still converts)
             c._players[p.Key] = p;
         }
         c._rolls.AddRange(s.Rolls);
@@ -478,6 +482,23 @@ public sealed class WarfrontCampaign
         else { c._forecast = Weather.WarfrontForecast.Legacy(); c.ForecastPool = 0; }
         c.PlaySeconds = s.Version >= 3 && double.IsFinite(s.PlaySeconds) && s.PlaySeconds > 0 ? s.PlaySeconds : 0;
         return c;
+    }
+
+    /// <summary>
+    /// Save version 6 (owner 2026-11-23, card 2: retainer cards removed, every player always has two retainers, "runs convert"; owner "Give picks back"): the player's retired +1 Retainer cards are dropped from his
+    /// cards, each giving its pick back (picks taken minus the cards dropped, so they are pending again), and his extra retainer records (<see cref="WarfrontPlayerState.Squad"/>) cleared; his XP, level and other cards
+    /// are unchanged. Idempotent (the refund counts the cards still held, so a second pass finds none): it runs on every load. A missing list (a damaged file's null) becomes empty. The squads file conforms each roster
+    /// to two when the squad wiring imports it (<c>WarfrontSquadWiring.Import</c>). True when anything was dropped.
+    /// </summary>
+    internal static bool ConvertRetainerCards(WarfrontPlayerState p)
+    {
+        p.Cards ??= new List<int>();
+        p.Squad ??= new List<WarfrontRetainerRecord>();
+        int cards = p.Cards.RemoveAll(c => c == (int)WarfrontCard.Retainer);
+        if (cards > 0) p.PicksTaken = Math.Max(0, p.PicksTaken - cards);   // owner: "Give picks back"
+        int extras = p.Squad.Count;
+        if (extras > 0) p.Squad = new List<WarfrontRetainerRecord>();
+        return cards > 0 || extras > 0;
     }
 
     /// <summary>The save JSON. Connection state is not part of it (a restart has nobody connected).</summary>

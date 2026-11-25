@@ -39,7 +39,7 @@ public class RobustnessTests
     [Fact]
     public void Largest_snapshot_and_input_batch_fit_one_udp_packet()
     {
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, Vector3.One, Vector3.One, 1f, true) { Alive = true, Health = 1, Shield = 1, Clip = 1, Reserve = 1, MeleeStep = 3, MeleeTime = 1, MeleeQueued = true, MeleeHeld = true }).ToArray();
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, Vector3.One, Vector3.One, 1f, true) { Alive = true, Health = 1, Shield = 1, Clip = 1, Reserve = 1, MeleeStep = 3, MeleeTime = 1, MeleeQueued = true, MeleeHeld = true }).ToArray();
         Assert.True(Protocol.Write(new Snapshot(1, 1, 1, players)).Length <= UdpServerTransport.MaxPacket);
         var inputs = Enumerable.Range(1, Protocol.MaxInputsPerBatch).Select(i => new PlayerInput((uint)i, 1, 1, 1, InputButtons.Fire, 1, 1)).ToArray();
         Assert.True(Protocol.Write(new InputBatch(inputs, 1, 1)).Length <= UdpServerTransport.MaxPacket);

@@ -20,7 +20,6 @@ public class WarfrontSaveTests : IDisposable
         c.Embark();
         c.AddXp(11, 6000); c.AddXp(12, 2000);
         c.TryTakePick(11, 3); c.TryTakePick(11, 1);
-        c.Player(12)!.Squad.Add(new WarfrontRetainerRecord { Id = "r1", ClassName = "Tactical", Name = "Brother Aurelian" });
         c.TryDeploy(11, WarfrontTarget.Node(1), out _);
         c.BeginBattle();
         c.Resolve(WarfrontOutcome.Win);
@@ -53,7 +52,7 @@ public class WarfrontSaveTests : IDisposable
         WarfrontSave.Write(_dir, c);
         var back = WarfrontSave.Load(_dir)!;
         Assert.Equal(c.Player(11)!.Cards, back.Player(11)!.Cards);
-        Assert.Equal("Brother Aurelian", back.Player(12)!.Squad.Single().Name);
+        Assert.Empty(back.Player(12)!.Squad);   // no earned retainer records since save version 6 (they are dropped on every load)
 
         back.Join(13, out var kind);
         Assert.Equal(WarfrontJoinKind.Returning, kind);

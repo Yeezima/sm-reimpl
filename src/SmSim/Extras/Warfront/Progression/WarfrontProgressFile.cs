@@ -6,7 +6,7 @@ using SmSim.Extras.Warfront.Squad;
 
 namespace SmSim.Extras.Warfront.Progression;
 
-/// <summary>One retainer a player owns beyond the first (his +1 Retainer cards): class and name only.</summary>
+/// <summary>One retainer a player owned beyond the first (his retired +1 Retainer cards; record version 1 only, dropped on load since version 2): class and name only.</summary>
 public sealed class WarfrontExtraRetainer
 {
     [JsonPropertyName("className")] public string ClassName { get; set; } = "";
@@ -17,13 +17,15 @@ public sealed class WarfrontExtraRetainer
 public enum WarfrontProgressParse { Ok, Newer, Damaged }
 
 /// <summary>
-/// A player's persistent Warfront progression, stored on his own PC (<c>progress.json</c>, record version 1; owner 2026-11-22) and mirrored by the host: XP (the level is derived), picks taken, the cards
-/// (Retainer cards included) and the retainers beyond the first. Pure data and pure rules: <see cref="Sanitize"/> (the host's sanity checks), <see cref="Compare"/>/<see cref="Better"/> (which copy wins) and the JSON
+/// A player's persistent Warfront progression, stored on his own PC (<c>progress.json</c>, record version <see cref="CurrentVersion"/>; owner 2026-11-22) and mirrored by the host: XP (the level is derived), picks taken
+/// and the stat cards (the retainers beyond the first are an empty list since version 2: owner 2026-11-23, card 2). Pure data and pure rules: <see cref="Sanitize"/> (the host's sanity checks), <see cref="Compare"/>/<see cref="Better"/> (which copy wins) and the JSON
 /// helpers the client and the tests share; no file IO. The same type is the wire's payload (<c>WarfrontProgressSaveWire</c>), where <see cref="Key"/>, <see cref="Version"/> and <see cref="ResetAt"/> are not carried.
 /// </summary>
 public sealed class WarfrontProgressFile
 {
-    public const int CurrentVersion = 1;
+    /// <summary>2 (owner 2026-11-23, card 2): Retainer cards are retired and dropped with their extras, each giving its pick back (a version 1 file loads and converts through <see cref="Sanitize"/>; an older build
+    /// reads a version 2 file as newer and leaves it alone). 1: the first record (codebase fix 1).</summary>
+    public const int CurrentVersion = 2;
     /// <summary>Owner 2026-11-22: the highest level a stored progression can hold.</summary>
     public const int MaxLevel = 50;
     /// <summary>The most XP a stored progression holds: the last XP of level <see cref="MaxLevel"/>.</summary>
@@ -63,9 +65,9 @@ public sealed class WarfrontProgressFile
     // ---- the host's sanity checks ----------------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// A sanitized copy (never throws, idempotent): XP clamped to 0..<see cref="MaxXp"/>; unknown card ids dropped; picks taken at most the level minus 1, the cards' count and the card list cut to equal it;
-    /// Retainer cards cut to <see cref="MaxExtras"/>; extra retainers cut to the Retainer cards, their strings cleaned and byte-capped. Each repair is a line in <paramref name="notes"/> (for the host's log).
-    /// Fewer extras than Retainer cards is allowed (the host names the missing ones); more is never.
+    /// A sanitized copy (never throws, idempotent): XP clamped to 0..<see cref="MaxXp"/>; unknown card ids dropped; picks taken at most the level minus 1, and the card list cut to one card per pick taken.
+    /// Since record version 2 (owner 2026-11-23, card 2) the retired +1 Retainer cards are dropped and each gives its pick back (owner, "Give picks back"): <see cref="PicksTaken"/> is cut to the cards held, so a
+    /// refunded pick is pending again and a damaged file's surplus picks cannot win <see cref="Compare"/>; <see cref="ExtraRetainers"/> is always empty (every player has exactly two retainers; none is earned). A version 1 file converts by this alone. Each repair is a line in <paramref name="notes"/> (for the host's log).
     /// </summary>
     public static WarfrontProgressFile Sanitize(WarfrontProgressFile? f, List<string>? notes = null)
     {
@@ -77,30 +79,23 @@ public sealed class WarfrontProgressFile
         if (known.Count != (f.Cards?.Count ?? 0)) notes?.Add("unknown card ids dropped");
         int picks = Math.Clamp(f.PicksTaken, 0, Math.Min(o.Level - 1, MaxCards));
         if (picks != f.PicksTaken) notes?.Add($"picksTaken {f.PicksTaken} reduced to {picks} (level {o.Level})");
-        int retainers = 0;
+        // the cards in pick order, at most one per pick taken; a retired +1 Retainer card (owner 2026-11-23, card 2) is dropped and its pick comes back (the picks taken are the cards held)
+        int held = 0, retired = 0;
         var cards = new List<int>();
         foreach (var c in known)
         {
-            if (cards.Count >= picks) break;
-            if (c == (int)WarfrontCard.Retainer) { if (retainers >= MaxExtras) continue; retainers++; }
+            if (held >= picks) break;
+            held++;
+            if (c == (int)WarfrontCard.Retainer) { retired++; continue; }
             cards.Add(c);
         }
-        if (cards.Count < picks) { notes?.Add($"picksTaken {picks} reduced to the {cards.Count} cards held"); picks = cards.Count; }
-        else if (known.Count > cards.Count) notes?.Add("surplus cards dropped");
-        o.PicksTaken = picks;
+        if (retired > 0) notes?.Add($"{retired} retired Retainer card(s) dropped (every player has {SquadRules.RetainersPerPlayer} retainers)");
+        if (known.Count > held) notes?.Add("surplus cards dropped");
+        if (cards.Count < picks) notes?.Add($"picksTaken {picks} cut to the {cards.Count} card(s) held ({retired} given back for retired Retainer cards)");
+        o.PicksTaken = cards.Count;
         o.Cards = cards;
-        var extras = f.ExtraRetainers ?? new List<WarfrontExtraRetainer>();
-        if (extras.Count > retainers) notes?.Add($"{extras.Count} extra retainers cut to {retainers} (Retainer cards)");
-        int n = 0;
-        foreach (var e in extras.Take(retainers))
-        {
-            n++;
-            var cls = CleanText(e?.ClassName, MaxClassBytes);
-            if (cls.Length == 0) cls = "Tactical";
-            var name = CleanText(e?.Name, MaxNameBytes);
-            if (name.Length == 0) name = "Retainer " + n;
-            o.ExtraRetainers.Add(new WarfrontExtraRetainer { ClassName = cls, Name = name });
-        }
+        // no retainer is earned any more: every player has exactly two, named by the run (the extras of an older file are dropped with its Retainer cards)
+        if ((f.ExtraRetainers?.Count ?? 0) > 0) notes?.Add($"{f.ExtraRetainers!.Count} extra retainer(s) dropped (no Retainer cards)");
         return o;
     }
 

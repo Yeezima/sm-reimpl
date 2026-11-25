@@ -697,7 +697,7 @@ public class EvadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_13_carries_the_exact_evade_in_the_own_record_and_direction_and_ticks_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
@@ -705,7 +705,7 @@ public class EvadeTests(ITestOutputHelper output)
             Jump = JumpPhase.Recover, JumpTicks = 65535, JumpMark = 65534, JumpPower = 55.25f, JumpHeld = true, Aiming = true,
             EvadeTicks = id * 16, EvadeDirection = (EvadeDirection)(id % 4), EvadeLock = 255,
         };
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(Loaded).ToArray();
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(Loaded).ToArray();
         var projectiles = Enumerable.Range(0, 40).Select(k => new ProjectileView(60000 + k, 254, 255, new Vector3(k), ProjectileFlags.Detonated)).ToArray();
         var bytes = Protocol.Write(new Snapshot(1, 1, 1, players, Self: 7, Projectiles: projectiles, Match: new MatchView(MatchState.Playing, Team.None, uint.MaxValue, 65535, 65535),
             Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(65535 - k, 65535, 1, KillCause.Thrown, 254))],

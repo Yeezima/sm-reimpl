@@ -15,8 +15,8 @@ public static class WarfrontProgressReset
     public const string Row = "Reset progression";
     public const string Value = "RESET";
     public const string Title = "RESET PROGRESSION?";
-    public const string Body = "THIS CLEARS YOUR LEVEL, XP, CARDS AND EXTRA RETAINERS: BACK TO LEVEL 1 WITH ONE RETAINER. THE RUN AND YOUR STATS STAY. THE OLD PROGRESS IS KEPT AS ONE SAFETY COPY.";
-    public const string Hint = "Clears your Warfront level, XP, cards and extra retainers on this PC: back to level 1 with one retainer. The run and your stats stay.";
+    public const string Body = "THIS CLEARS YOUR LEVEL, XP AND CARDS: BACK TO LEVEL 1. THE RUN, YOUR STATS AND YOUR TWO RETAINERS STAY. THE OLD PROGRESS IS KEPT AS ONE SAFETY COPY.";   // T0 retainer rules (every player has two retainers), moved here by the front-end tidy
+    public const string Hint = "Clears your Warfront level, XP and cards on this PC: back to level 1. The run, your stats and your two retainers stay.";
     public const string RunningHint = "A server of this game is running. Stop it first.";
     public const string NoKeyHint = "Nothing to reset yet: this PC has not played Warfront.";
     public const string NewerHint = "Your progression needs a newer build.";

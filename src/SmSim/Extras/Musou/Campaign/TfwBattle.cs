@@ -367,6 +367,7 @@ public sealed partial class TfwBattle
 
     /// <summary>Warfront: the battle's own opening (the defence); <paramref name="handled"/> true skips <see cref="Start"/>'s.</summary>
     partial void WarfrontStart(ref bool handled);
+    partial void WarfrontNoCapture(ref IReadOnlySet<int>? ids);
 
     /// <summary>The secured positions as places for the Orks to retake (<see cref="MusouTarget.Goal"/>), written from <paramref name="into"/>'s start; the number written.</summary>
     public int AppendGoals(Span<MusouTarget> into)
@@ -738,10 +739,12 @@ public sealed partial class TfwBattle
     /// <summary>The feet that can capture: every one of <paramref name="players"/> but the allied pair (by <see cref="SetPlayerIds"/>' ids; without them, all).</summary>
     ReadOnlySpan<Vector3> Capturers(ReadOnlySpan<Vector3> players)
     {
-        if (_allyIds.Count == 0 || _stormIds.Count != players.Length) return players;
+        IReadOnlySet<int>? noCapture = null;
+        WarfrontNoCapture(ref noCapture);   // WARFRONT-HOOK: Warfront's retainers never capture (owner 2026-11-25; Warfront/Battle/TfwBattle.Warfront.cs)
+        if ((_allyIds.Count == 0 && noCapture is not { Count: > 0 }) || _stormIds.Count != players.Length) return players;
         if (_capturerFeet.Length < players.Length) _capturerFeet = new Vector3[players.Length * 2];
         int n = 0;
-        for (int k = 0; k < players.Length; k++) if (!_allyIds.Contains(_stormIds[k])) _capturerFeet[n++] = players[k];
+        for (int k = 0; k < players.Length; k++) if (!_allyIds.Contains(_stormIds[k]) && noCapture?.Contains(_stormIds[k]) != true) _capturerFeet[n++] = players[k];
         return _capturerFeet.AsSpan(0, n);
     }
 

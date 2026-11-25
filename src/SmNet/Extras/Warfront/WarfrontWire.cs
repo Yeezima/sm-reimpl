@@ -46,7 +46,7 @@ public sealed record WarfrontClientCommand(WarfrontClientCommandKind Kind, ulong
 public static class WarfrontWire
 {
     /// <summary>The Warfront wire's own number; raised with <see cref="SmSim.Extras.Warfront.WarfrontRules.Version"/>.</summary>
-    public const int Format = 3;   // 3: the Hub's trailing faction byte (Chaos Warfront C1); 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
+    public const int Format = 4;   // 4: Phase B T2 (roster tag 33 carries each Marine's World id; state tag 32 is no longer sent); 3: the Hub's trailing faction byte (Chaos Warfront C1); 2: the Progress command and the ProgressSave section (tag 49); 1: the first wire
     /// <summary>
     /// Envelope tags (gore 1, barks 2, Musou 3 to 18). Reserved for later slices: 32 to 34 the squad wire (W10), 44 and 45 progression (W8), 46 coop (W12); 35 to 39 stay free; 47 is the Battle section, 48 the weather state and 49 ProgressSave (<see cref="WarfrontProgressSaveWire"/>).
     /// </summary>

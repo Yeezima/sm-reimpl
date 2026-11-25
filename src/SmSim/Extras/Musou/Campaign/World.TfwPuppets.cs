@@ -64,10 +64,11 @@ public sealed partial class World
     }
 
     /// <summary>A puppet of class <paramref name="role"/> in the first free puppet id, registered with the run; its id, null with no free id.</summary>
-    int? TfwSpawnPuppet(TfwRun run, string role, Vector3 at, float yaw, Func<int, Marine> make, bool reserved = false)
+    int? TfwSpawnPuppet(TfwRun run, string role, Vector3 at, float yaw, Func<int, Marine> make, bool reserved = false, bool podIds = false)
     {
-        if (!reserved && TfwFreePuppetIds() <= run.PodIdsReserved) return null;   // ids a called pod's Marines will need (World.TfwDropPod.cs) are not taken by others
-        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
+        if (!reserved && TfwFreePuppetIds() <= (TfwPodsOwnIds() ? 0 : run.PodIdsReserved)) return null;   // ids a called pod's Marines will need (World.TfwDropPod.cs) are not taken by others (Warfront's pods have their own)
+        int first = podIds ? TfwContracts.PodIdFirst : TfwContracts.PuppetIdFirst, last = podIds ? TfwContracts.PodIdLast : TfwContracts.PuppetIdLast;
+        for (int id = first; id <= last; id++)
         {
             if (_players.ContainsKey(id)) continue;
             int playerClass = TfwMarineClass(role);
@@ -143,6 +144,9 @@ public sealed partial class World
         return true;
     }
 
+    /// <summary>Warfront: a retainer's tick (Warfront/Battle/World.WarfrontRetainers.cs); only Warfront spawns <see cref="MarineRole.Squad"/>.</summary>
+    partial void WarfrontSquadMarineStep(Marine m, in PlayerState p);
+
     /// <summary>Warfront: an order goes to the squad seam instead of a retainer (<paramref name="handled"/>).</summary>
     partial void WarfrontOrder(int player, TfwCommandRecord command, ref bool handled);
 
@@ -196,6 +200,7 @@ public sealed partial class World
             if (!_players.TryGetValue(m.Id, out var p)) { run.RemoveMarine(m); continue; }
             if (m.Role == MarineRole.Retainer) { TfwRetainerStep(run, m, p); continue; }
             if (m.Role == MarineRole.Pod) { TfwPodMarineStep(run, m, p); continue; }   // World.TfwDropPod.cs
+            if (m.Role == MarineRole.Squad) { WarfrontSquadMarineStep(m, p); continue; }   // WARFRONT-HOOK: a Warfront retainer (only Warfront spawns the role)
             if (!p.Alive) TfwMarineDown(run, m);
             else m.Down = false;
         }

@@ -361,7 +361,7 @@ public class HeatTests(ITestOutputHelper output)
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal((Protocol.DefaultChoice, Protocol.DefaultChoice, Protocol.DefaultChoice), (new Hello(Protocol.Version, 1, 2, 3).RequestedPrimary,
             new Hello(Protocol.Version, 1, 2, 3).RequestedPistol, new Hello(Protocol.Version, 1, 2, 3).RequestedMelee));
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
 
         var joined = new List<PlayerState>();
         var link = new LinkConditions(TimeSpan.FromMilliseconds(10), TimeSpan.Zero, 0);
@@ -422,7 +422,7 @@ public class HeatTests(ITestOutputHelper output)
     [Fact]
     public void A_sixteen_player_snapshot_with_heat_stays_within_1200_bytes()
     {
-        var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
+        var players = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
             Cooldown = 1, ReloadLeft = 1, SinceDamage = 1, RespawnLeft = 1, SwitchLeft = 1, Pitch = 1, MeleeStep = Protocol.MaxMeleeStep, MeleeTime = 1,

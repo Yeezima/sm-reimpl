@@ -35,6 +35,8 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontCommand"),
         ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontPlayerCap"),
         ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontRestartDue"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontSnapshotRecords"),   // Phase B T2b (protocol 94): a crowded snapshot's order, the AI Marines lean
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontScoreRank"),         // Phase B T2b: the pod Marines' scoreboard rows last
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
         ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
@@ -88,6 +90,7 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/NetworkView.MusouPowerups.cs", "WarfrontCarry"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontRowAction"),
         ("client/Extras/Musou/Customizer/CreatorView.Musou.cs", "WarfrontLibrarianRows"),
+        ("client/Extras/Musou/Customizer/CreatorView.Musou.Armoury.cs", "WarfrontArmourySlots"),   // the armoury RETAINERS card of a Librarian (armoury-retainers-row, 2026-11-25)
         // 2026-11-18: Warfront melee cleave (server and the client's drawn arc)
         ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleave"),
         ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontCleaveScaleFor"),
@@ -126,7 +129,66 @@ public class WarfrontBoundaryTests
         // series-37 integration: executions X4 phase 2 asks Warfront for the army (no executions on a Chaos stage; the marker hides in a Chaos run)
         ("src/SmSim/Extras/Executions/Orks/World.ExecutionsOrks.cs", "WarfrontChaosArmy"),
         ("client/Extras/Executions/NetworkView.ExecutionInput.cs", "WarfrontChaosArmyShown"),
+        // Phase B T2 (2026-11-25): the retainers as World players (MarineRole.Squad, which only Warfront spawns): their brain, their tick, their damage taken, the owner's answers on the human-only scales, traps and boss stuns
+        ("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontPuppetInput"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "WarfrontSquadMarineStep"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontSquadDamage"),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontScalesPlayer"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwDropPod.cs", "WarfrontPodIds"),   // Phase B T2b: Warfront's pods take the pod id range
+        ("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner"),
+        // T2 review fixes (2026-11-25): retainers never capture; their melee reach is a human's (the cleave trim)
+        ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture"),
+        ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleaveTrim"),
+        // Phase B T5 (2026-11-25): the client's presentation of the retainers as players: the arc's human-only trim follows the server's switch, and a retainer by a landing pod is not the pod's (no battle cry)
+        ("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontArcHuman"),
+        ("client/Extras/Musou/Tfw/NetworkView.TfwDropPod.cs", "WarfrontNotPodMarine"),
+        // Phase B T5 follow-up (2026-11-25): a retainer's hit event ranks with a human's; a retainer wears its current owner's look, a Librarian's squad only his colours
+        ("src/SmNet/Extras/Musou/MusouSend.cs", "WarfrontHitRank"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer"),
+        ("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontColoursOnly"),
     ];
+
+    /// <summary>
+    /// Phase B T2: every change the retainer spine made in a Musou file is a marked Warfront line (a hook call, its declaration, or the one enum value only Warfront spawns), pinned by its text so a later edit that
+    /// drops the marker or adds an unmarked Warfront use fails here. Musou Mode never spawns <c>MarineRole.Squad</c> and the hooks return at once without Warfront's retainers.
+    /// </summary>
+    [Theory]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/MarineBrain.cs", "Squad = 3 }   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/World.Tfw.cs", "WarfrontPuppetInput(id, puppet, ref input, ref handled);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwPuppets.cs", "if (m.Role == MarineRole.Squad) { WarfrontSquadMarineStep(m, p); continue; }   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontSquadDamage(target, ref own);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontScalesPlayer(playerId, ref scales);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine(id, ref aiMarine);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwDropPod.cs", "WarfrontPodIds(ref own);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner(attacker, ref aiMarine);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage(attack.Enemy, attack.Player, ref damage);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture(ref noCapture);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontCleaveTrim(attacker, ref trim);   // WARFRONT-HOOK")]
+    [InlineData("client/Extras/Musou/NetworkView.MusouSlashArc.cs", "WarfrontArcHuman(player, ref human); return human; }   // WARFRONT-HOOK")]
+    [InlineData("client/Extras/Musou/Tfw/NetworkView.TfwDropPod.cs", "WarfrontNotPodMarine(id, ref not); return not; }   // WARFRONT-HOOK")]
+    [InlineData("src/SmNet/Extras/Musou/MusouSend.cs", "if (e.Kind == MusouEventKind.Hit && rank == 4) WarfrontHitRank(e.Player, ref rank);   // WARFRONT-HOOK")]
+    [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "WarfrontPuppetWearer(playerId, ref wearer, ref ownPieces);   // WARFRONT-HOOK")]
+    [InlineData("src/SmServer/Extras/Musou/Campaign/GameServer.TfwLook.cs", "if (!ownPieces) WarfrontColoursOnly(ref code);   // WARFRONT-HOOK")]
+    public void The_retainer_spines_Musou_lines_are_marked_Warfront_hooks(string file, string line)
+    {
+        var lines = Sources().First(s => s.Path == file).Lines;
+        Assert.Contains(lines, l => l.Contains(line, StringComparison.Ordinal));
+    }
+
+    /// <summary>Phase B T2: the war's human-only scales still ask <c>TfwCombatRules.ScalesPlayer</c> only through the World's one wrapper (<c>MusouScalesPlayer</c>), so Warfront's answer reaches every use.</summary>
+    [Fact]
+    public void The_human_only_scales_ask_through_the_one_wrapper()
+    {
+        var direct = new List<string>();
+        foreach (var (path, lines) in Sources())
+        {
+            if (!path.StartsWith("src/SmSim/", StringComparison.Ordinal)) continue;
+            for (int i = 0; i < lines.Length; i++)
+                if (!IsComment(lines[i]) && lines[i].Contains("TfwCombatRules.ScalesPlayer(", StringComparison.Ordinal) && !lines[i].Contains("bool scales = ", StringComparison.Ordinal)) direct.Add($"{path}:{i + 1}");
+        }
+        Assert.True(direct.Count == 0, "direct ScalesPlayer uses: " + string.Join(", ", direct));
+    }
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>
     static readonly HashSet<string> NamespaceUsers = ["src/SmSim/Extras/SimConfig.Extras.cs"];

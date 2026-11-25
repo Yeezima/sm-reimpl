@@ -37,7 +37,7 @@ public class SetupProtocolTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_22_bumps_the_version_and_keeps_snapshots_as_they_were()
     {
-        Assert.Equal(93, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // protocol 21's worst case: no snapshot change
         Assert.Equal((48, 180), (Protocol.SlimRecordBytes, Protocol.FullRecordBytes));   // protocol 62: + the holstered cooldowns; protocol 53: + the melee lock; protocol 52: + the flinch byte; protocol 44: + 14 (the third weapon), 45: + 8 (the holstered reloads)   // protocol 23: + the perk word
         Assert.Equal((178, 141, 14, 68, 22, 21), (Protocol.HelloBytes, Protocol.SetupBytes, Protocol.SetupAckBytes, Protocol.AppearanceBytes,   // protocol 28: + the Ork look
@@ -160,8 +160,8 @@ public class SetupProtocolTests(ITestOutputHelper output)
         Assert.Equal(board.Players, back.Players);
         Assert.Equal((ushort)65535, back.Players[0].AppearanceVersion);
         // A full board of 16 rows stays small.
-        var full = board with { Players = [.. Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, i, i, (ushort)i))] };
-        Assert.Equal(13 + Protocol.MaxPlayers * Protocol.ScoreRowBytes, Protocol.Write(full).Length);   // protocol 40: 13-byte rows
+        var full = board with { Players = [.. Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, i, i, (ushort)i))] };
+        Assert.Equal(13 + Protocol.MaxMatchPlayers * Protocol.ScoreRowBytes, Protocol.Write(full).Length);   // protocol 40: 13-byte rows
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public class SetupProtocolTests(ITestOutputHelper output)
             new Appearance(1, 1, Race.Chaos, Busy),
             new BlobRequest(1, SomeHash, 0),
             new BlobChunk(SomeHash, 0, 16, new byte[BlobTransfer.ChunkBytes]),
-            new Scoreboard(1, true, 1, 1f, true, [.. Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, 1, 1, 1))]),
+            new Scoreboard(1, true, 1, 1f, true, [.. Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new ScoreEntry(i, Team.Chaos, 1, 1, 1, 1))]),
         ];
         foreach (var m in largest)
         {

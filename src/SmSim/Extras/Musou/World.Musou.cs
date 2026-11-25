@@ -124,7 +124,7 @@ public sealed partial class World
     }
 
     /// <summary>Warfront: that Ork's remembered damage multiplier is applied to <paramref name="damage"/>, only when it is not 1.</summary>
-    partial void WarfrontOrkDamage(ushort enemy, ref float damage);
+    partial void WarfrontOrkDamage(ushort enemy, int target, ref float damage);
 
     /// <summary>Warfront: an attack on a squad Marine's id is taken by the squad (<paramref name="handled"/>), never by the Guardsmen.</summary>
     partial void WarfrontSquadHit(in MusouAttack attack, ref bool handled);
@@ -150,7 +150,7 @@ public sealed partial class World
         if (_tfw is { } run && run.InRange.Contains(attack.Player)) return;   // the owner, 2026-11-02: at the Firing Range the Orks deal no damage
         var type = attack.Melee ? DamageType.Melee : DamageType.Ranged;
         float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type) * DamageTakenScale(attack.Player);   // Musou Mode: an AI Marine takes a tenth
-        WarfrontOrkDamage(attack.Enemy, ref damage);   // WARFRONT-HOOK
+        WarfrontOrkDamage(attack.Enemy, attack.Player, ref damage);   // WARFRONT-HOOK
         if (!(damage > 0f)) return;
         // Owner, 2026-11-12: the bosses hit harder "but not 1 shotting the player": one boss hit takes at most MaxHitShare of the target's full health plus armour, after every multiplier above.
         if (attack.Enemy != 0 && _musou.TryGet(attack.Enemy, out var striker) && MusouPowerupRules.Boss(striker.Type))

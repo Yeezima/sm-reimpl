@@ -23,8 +23,19 @@ public static class TfwContracts
     /// <summary>How many puppet ids there are.</summary>
     public const int PuppetIds = PuppetIdLast - PuppetIdFirst + 1;
 
-    /// <summary>Whether <paramref name="id"/> is one of the AI Marines' ids. Means nothing outside a war (<see cref="World.Tfw"/> null): a human may hold such an id there.</summary>
-    public static bool IsPuppet(int id) => id is >= PuppetIdFirst and <= PuppetIdLast;
+    /// <summary>
+    /// Warfront's drop pod Marines' player ids (Phase B T2b; owner 2026-11-24: "Drop pod marines don't count towards the limit"): 20 ids, four pods of five, below the puppet range with a gap of six so
+    /// <c>PuppetIdFirst - 1</c> stays no puppet's. Only a Warfront run spawns here (<c>World.WarfrontPodIds</c>); Musou Mode's pods keep the puppet ids.
+    /// </summary>
+    public const int PodIdFirst = 65490, PodIdLast = 65509;
+    /// <summary>How many pod ids there are.</summary>
+    public const int PodIds = PodIdLast - PodIdFirst + 1;
+
+    /// <summary>Whether <paramref name="id"/> is in Warfront's drop pod range (<see cref="PodIdFirst"/>).</summary>
+    public static bool IsPodId(int id) => id is >= PodIdFirst and <= PodIdLast;
+
+    /// <summary>Whether <paramref name="id"/> is one of the AI Marines' ids (the puppet range, and since T2b Warfront's pod range). Means nothing outside a war (<see cref="World.Tfw"/> null): a human may hold such an id there.</summary>
+    public static bool IsPuppet(int id) => id is >= PuppetIdFirst and <= PuppetIdLast || IsPodId(id);
 
     /// <summary>The <see cref="MusouTarget.Id"/> of a secured position as the place the Orks go to retake (<see cref="MusouTarget.Goal"/>): over the AI Marines' ids, under 16 bits.</summary>
     public static int PointTargetId(int position) => PuppetIdLast + 3 + position;

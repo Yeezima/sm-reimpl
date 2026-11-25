@@ -385,7 +385,7 @@ public partial class DevToolsPanel : CanvasLayer
         }
         if (s is not null)
         {
-            if (_bots is not null) _bots.Text = $"Loyalists: {s.PlayersLoyalists} players ({s.ToolBotsLoyalists} added here)    Chaos: {s.PlayersChaos} ({s.ToolBotsChaos} added here)    cap {Protocol.MaxPlayers}";
+            if (_bots is not null) _bots.Text = $"Loyalists: {s.PlayersLoyalists} players ({s.ToolBotsLoyalists} added here)    Chaos: {s.PlayersChaos} ({s.ToolBotsChaos} added here)    cap {Protocol.MaxMatchPlayers}";
             for (int i = 0; i < _scaleButtons.Count; i++)
                 _scaleButtons[i].AddThemeColorOverride("font_color", i == s.TimeScale ? new Color(0.55f, 1f, 0.55f) : new Color(0.85f, 0.85f, 0.85f));
             // Sliders show what the server holds, unless one is being dragged (its own value is then the user's).

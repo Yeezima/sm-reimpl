@@ -22,7 +22,7 @@ public sealed record WarfrontOfferWire(bool Open, int PickIndex, IReadOnlyList<W
 /// <list type="bullet">
 /// <item>Tag <see cref="ProgressTag"/>, <see cref="ProgressLength"/> bytes: <c>[u8 level][u32 xp][u32 xp at this level][u32 xp at next level][u8 pending picks][u8 x5 card counts in WarfrontCard order, AttackSpeed to MaxArmor][u8 retainer cards][u16 attack-speed bonus, 1/1000]</c>.
 /// Sent on a change and every 2 s.</item>
-/// <item>Tag <see cref="OfferTag"/>, <see cref="OfferLength"/> bytes: <c>[u8 open][u8 pick index][u8 x6 cards, the last 0 when no Retainer is offered][u8 tenths of a second left][u8 aboard]</c>. Sent every tick group while an offer stands, and with
+/// <item>Tag <see cref="OfferTag"/>, <see cref="OfferLength"/> bytes: <c>[u8 open][u8 pick index][u8 x6 cards, the last always 0 since the Retainer card was retired (owner 2026-11-23, card 2)][u16 tenths of a second left][u8 aboard]</c> (the time is a u16 since the 40 s limit of 2026-11-23; it was a u8, at most 25.5 s, in a 10-byte section). Sent every tick group while an offer stands, and with
 /// <c>open = 0</c> (cards and time zero) when it closes: the sender repeats the close record in three consecutive sends (the datagram is unreliable), and the client closes itself after
 /// <c>WarfrontProgressModel.SelfCloseSeconds</c> without an open record or when Progress shows fewer pending picks than when the offer opened.</item>
 /// </list>
@@ -31,7 +31,7 @@ public static class WarfrontProgressionWire
 {
     /// <summary>Envelope tags (W5a has 40 to 43, the squad 32 to 39, W12 46).</summary>
     public const byte ProgressTag = 44, OfferTag = 45;
-    public const int ProgressLength = 22, OfferLength = 10, StatCardTypes = 5, OfferSize = 6;
+    public const int ProgressLength = 22, OfferLength = 11, StatCardTypes = 5, OfferSize = 6;
 
     public static byte[] Encode(WarfrontProgressWire p)
     {
@@ -52,8 +52,9 @@ public static class WarfrontProgressionWire
         b[0] = (byte)(o.Open ? 1 : 0);
         b[1] = (byte)o.PickIndex;
         for (int i = 0; i < OfferSize; i++) b[2 + i] = i < o.Cards.Count ? (byte)o.Cards[i] : (byte)0;
-        b[2 + OfferSize] = (byte)Math.Clamp(o.TenthsLeft, 0, 255);
-        b[3 + OfferSize] = (byte)(o.Aboard ? 1 : 0);
+        int tenths = Math.Clamp(o.TenthsLeft, 0, ushort.MaxValue);
+        b[2 + OfferSize] = (byte)tenths; b[3 + OfferSize] = (byte)(tenths >> 8);
+        b[4 + OfferSize] = (byte)(o.Aboard ? 1 : 0);
         return b;
     }
 
@@ -75,7 +76,7 @@ public static class WarfrontProgressionWire
     public static bool TryDecode(ReadOnlySpan<byte> d, out WarfrontOfferWire offer)
     {
         offer = null!;
-        if (d.Length != OfferLength || d[0] > 1 || d[3 + OfferSize] > 1) return false;
+        if (d.Length != OfferLength || d[0] > 1 || d[4 + OfferSize] > 1) return false;
         var cards = new WarfrontCard[OfferSize];
         for (int i = 0; i < OfferSize; i++)
         {
@@ -92,7 +93,7 @@ public static class WarfrontProgressionWire
                 for (int j = 0; j < i; j++) if (cards[j] == cards[i]) return false;
             }
         }
-        offer = new WarfrontOfferWire(d[0] == 1, d[1], cards, d[2 + OfferSize], d[3 + OfferSize] == 1);
+        offer = new WarfrontOfferWire(d[0] == 1, d[1], cards, d[2 + OfferSize] | d[3 + OfferSize] << 8, d[4 + OfferSize] == 1);
         return true;
     }
 

@@ -95,7 +95,7 @@ public class ArmourHitTests
         Assert.Equal((int)(HitFlags.Head | HitFlags.Armoured), bytes[flags]);
         Assert.Null(Protocol.Read(Patch(bytes, flags, 32)));
         // The fullest snapshot with every guaranteed shot record armoured is still the worst case.
-        var many = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => Player(i, new Vector3(i, -i, 2f)) with { Class = 63 }).ToArray();
+        var many = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => Player(i, new Vector3(i, -i, 2f)) with { Class = 63 }).ToArray();
         var full = Protocol.Write(new Snapshot(1, 1, 1, many, Self: 7,
             Projectiles: [.. Enumerable.Range(0, Protocol.MaxSnapshotProjectiles).Select(k => new ProjectileView(60000 + k, 254, 255, new Vector3(k), ProjectileFlags.Detonated))],
             Match: new MatchView(MatchState.Playing, Team.None, 1, 2, 3),

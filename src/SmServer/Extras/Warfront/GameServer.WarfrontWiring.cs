@@ -28,7 +28,6 @@ public sealed partial class GameServer
     WarfrontSquadWiring? _wfWiring;
     internal WarfrontSquadWiring? WarfrontWiringForTests => _wfWiring;   // a test aid (W14b): the real wipe knocks the retainers out first
     WarfrontSquadSender? _wfSender;
-    WarfrontSquadSim? _wfSenderSim;
     WarfrontSquadCommands? _wfSquadCommands;
     NavGraph? _wfNav;
     WfHost? _wfHost;
@@ -75,6 +74,7 @@ public sealed partial class GameServer
             SaveCallback = () => WfSave(s),
         };
         _wfWiring = wiring;
+        _musouEvents.WarfrontRetainer = wiring.Retainers.IsRetainer;   // Phase B T5 follow-up: a retainer's hit event ranks with a human's (SmNet MusouEventWindow.WarfrontRetainers.cs)
         try
         {
             string path = Path.Combine(s.Dir, WarfrontSquadsFile);
@@ -87,6 +87,7 @@ public sealed partial class GameServer
             wiring.Import(null);
         }
         _wfSquadCommands = new WarfrontSquadCommands(wiring.Rosters, _wfHost);
+        WarfrontAttachRetainerBrains(wiring);   // Phase B T4: the retainers' brain (Retainers/GameServer.WarfrontRetainerBrains.cs)
 
         var coop = new WarfrontCoop(s.Campaign, _wfHost) { HumanCap = s.MaxHumans };
         WarfrontCoopRules = coop;
@@ -123,45 +124,22 @@ public sealed partial class GameServer
 
     // ---- the extra retainers of a persistent progression (codebase fix 1) ---------------------------------------------------------------------
 
-    /// <summary>The retainers beyond the first of a key's roster as progress records (class and name), or null when the roster does not exist.</summary>
-    List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>? WarfrontRosterExtras(ulong key)
-    {
-        if (_wfWiring is not { } w || !w.Rosters.Has(key)) return null;
-        var list = new List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>();
-        for (int slot = 1; slot < w.Rosters.Count(key) && list.Count < SmSim.Extras.Warfront.Progression.WarfrontProgressFile.MaxExtras; slot++)
-            if (w.Rosters.Marine(key, slot) is { } m)
-                list.Add(new SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer { ClassName = m.Loadout.ClassId, Name = m.Name });
-        return list;
-    }
+    /// <summary>
+    /// The earned retainers of a key as progress records: none since record version 2 (owner 2026-11-23, card 2: every player has the run's two, none is earned, so a progress copy never carries one and the
+    /// host's copy wins no tie by its roster). An empty list, or null when the roster does not exist.
+    /// </summary>
+    List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>? WarfrontRosterExtras(ulong key) =>
+        _wfWiring is { } w && w.Rosters.Has(key) ? new List<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer>() : null;
 
     /// <summary>
-    /// Makes a key's roster hold its first retainer plus <paramref name="extras"/> (a progress record applied at the ship): surplus Marines are dropped, missing ones added with the first Marine's loadout, the names set.
-    /// Service records of the kept Marines stay. No roster yet: the extras wait (<see cref="WarfrontServerState.PendingExtras"/>) for it.
+    /// Makes a key's roster hold the run's two retainers (<see cref="SquadRules.RetainersPerPlayer"/>, owner 2026-11-23 card 2) through <see cref="SquadRosters.Conform(ulong, int)"/> when a progress record is applied at the ship;
+    /// the first two Marines are kept with their names and service records (an old record's <paramref name="extras"/>, the retired +1 Retainer cards' Marines, are ignored: a sanitized record carries none).
+    /// No roster yet: nothing to size (the class book's first roster is the run's two, and the squad wiring's import conforms every roster).
     /// </summary>
     void WarfrontRosterSync(WarfrontServerState s, ulong key, IReadOnlyList<SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer> extras)
     {
-        if (_wfWiring is not { } w || !w.Rosters.Has(key))
-        {
-            if (extras.Count > 0) s.PendingExtras[key] = extras.Select(e => new SmSim.Extras.Warfront.Progression.WarfrontExtraRetainer { ClassName = e.ClassName, Name = e.Name }).ToList();
-            else s.PendingExtras.Remove(key);
-            return;
-        }
-        var save = w.Rosters.Export();
-        var owners = save.Owners.ToList();
-        int at = owners.FindIndex(o => o.Key == key);
-        var marines = owners[at].Marines.ToList();
-        int first = marines.Count > 0 ? 1 : 0;
-        int want = Math.Min(SquadRules.MaxPerPlayer, first + extras.Count);
-        if (marines.Count > want) marines.RemoveRange(want, marines.Count - want);
-        var template = marines.Count > 0 ? marines[0].Loadout : new SquadLoadout();
-        while (marines.Count < want) marines.Add(new SquadMarineSave("", template, new ServiceRecord()));
-        for (int i = first; i < marines.Count && i - first < extras.Count; i++)
-        {
-            string name = extras[i - first].Name;
-            if (!string.IsNullOrWhiteSpace(name)) marines[i] = marines[i] with { Name = name };
-        }
-        owners[at] = owners[at] with { Marines = marines };
-        w.Rosters.Import(new SquadRosterSave(save.NextName, owners));
+        _ = extras;
+        if (_wfWiring is { } w && w.Rosters.Has(key)) w.Rosters.Conform(key, SquadRules.RetainersPerPlayer);
     }
 
     // ---- the tick, the sections, the commands ---------------------------------------------------------------------------------------------------
@@ -209,11 +187,7 @@ public sealed partial class GameServer
     partial void WarfrontSendSquad()
     {
         if (_wf is not { } s || _wfWiring is not { } wiring || _wfHost is null) return;
-        if (_wfSender is null || !ReferenceEquals(_wfSenderSim, wiring.Sim))
-        {
-            _wfSender = new WarfrontSquadSender(wiring.Sim, World.Config, _wfHost);   // a new sim per battle: read wiring.Sim, never keep it past its battle
-            _wfSenderSim = wiring.Sim;
-        }
+        _wfSender ??= new WarfrontSquadSender(wiring.Retainers, wiring.Rosters, World.Config, _wfHost);   // Phase B T2: one registry for the whole run
         foreach (var o in _wfSender.Step(World.Tick))
             SendExtras(new ExtrasUpdate(World.Tick, [(o.Tag, o.Payload)]), o.Player < 0 ? null : o.Player);
     }
@@ -254,7 +228,7 @@ public sealed partial class GameServer
         var humans = s.KeyOf.Where(kv => World.Players.TryGetValue(kv.Key, out var p) && p.Alive && WarfrontCoopRules?.RoleOf(kv.Value) == WarfrontCoopRole.Player).Select(kv => kv.Key);
         var marines = new List<int>();
         if (_wfWiring is { } w)
-            for (int i = 0; i < SquadRules.MaxTotal; i++) if (w.Sim.View(i) is { State: SquadState.Standing }) marines.Add(i);
+            foreach (var r in w.Retainers.All) if (r.State == SquadState.Standing) marines.Add(r.Index);
         return WarfrontCoop.Candidates(humans, marines);
     }
 
@@ -265,6 +239,6 @@ public sealed partial class GameServer
         if (coop.RoleOf(key) != WarfrontCoopRole.SpectatingJoiner && s.Campaign.Phase != WarfrontPhase.Battle) return;
         var watch = coop.WatchOf(key);
         if (watch.Kind == WarfrontWatchKind.Player && World.Players.TryGetValue(watch.Id, out var target)) centre = target.Position;
-        else if (watch.Kind == WarfrontWatchKind.Marine && _wfWiring is { } w && w.Sim.View(watch.Id) is { } marine) centre = marine.Position;
+        else if (watch.Kind == WarfrontWatchKind.Marine && _wfWiring is { } w && w.Retainers.View(watch.Id) is { } marine && w.Retainers.ByIndex(watch.Id) is { WorldId: > 0 }) centre = marine.Position;
     }
 }

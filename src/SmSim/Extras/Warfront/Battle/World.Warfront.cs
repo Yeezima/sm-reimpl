@@ -20,10 +20,11 @@ public sealed partial class World
     /// <summary>Whether a Warfront run gets Musou's two allied AI Marines (W13d part 3; owner 2026-11-17: "Two extra machines only for local singleplayer"; an interpretation): only when the server's human cap is one (the local campaign starts its server with <c>--warfront-max-humans 1</c>, as does a server started by hand with it); co-op and hosted runs get none.</summary>
     public static bool WarfrontAlliedPair(int maxHumans, bool laneBattle) => maxHumans == 1 && laneBattle;   // owner 2026-11-17: "Keep them as the free pair, but only in lane battles, not in the HQ defence or the fortress"
 
-    partial void WarfrontOrkDamage(ushort enemy, ref float damage)
+    partial void WarfrontOrkDamage(ushort enemy, int target, ref float damage)
     {
         if (_tfw?.Warfront is not { } rules || enemy == 0 || enemy >= rules.DamageScale.Length) return;
         float scale = rules.DamageScale[enemy];
+        if (rules.Retainers is not null && WarfrontIsRetainer(target)) scale = 1f + (scale - 1f) * SmSim.Extras.Warfront.Retainers.WarfrontRetainerRules.OrkLevelDamageShare;   // Phase B T2: a retainer takes none of the Orks' level damage
         if (scale != 1f) damage *= scale;
     }
 
