@@ -247,6 +247,11 @@ public sealed partial class WeatherSelfTest : Node
             bool refusedRepo = WeatherSprites.TrySetDump(System.IO.Path.Combine(repo, "dump"), repo, install) is not null && WeatherSprites.DumpDir is null;
             bool refusedInstall = WeatherSprites.TrySetDump(System.IO.Path.Combine(install, "data", "x"), repo, install) is not null && WeatherSprites.DumpDir is null;
             bool accepted = WeatherSprites.TrySetDump(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-dump"), repo, install) is null && WeatherSprites.DumpDir is not null;
+            string gitTree = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-wx-gittree-" + System.Environment.ProcessId);
+            System.IO.Directory.CreateDirectory(System.IO.Path.Combine(gitTree, ".git"));
+            bool refusedGit = WeatherSprites.TrySetDump(System.IO.Path.Combine(gitTree, "sub", "dump"), repo, install) is not null && WeatherSprites.DumpDir is null;
+            try { System.IO.Directory.Delete(gitTree, true); } catch (System.IO.IOException) { } catch (System.UnauthorizedAccessException) { }
+            Check("fidelity tune 3: the sprite dump refuses a folder inside any Git work tree outside the repository too", refusedGit, gitTree);
             WeatherSprites.TrySetDump(null, repo, install);
             Check("fidelity tune: the sprite dump refuses the repository and the game install, accepts a private folder", refusedRepo && refusedInstall && accepted && WeatherSprites.DumpDir is null, $"{refusedRepo} {refusedInstall} {accepted}");
         }

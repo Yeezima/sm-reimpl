@@ -38,8 +38,11 @@ public static class WeatherSprites
         (Role.Splash, "alpha_spike_hard", "liquid_sludge_splashes_small"),
     ];
 
-    /// <summary>The old procedural look throughout (test aid and restore switch).</summary>
-    public static bool Procedural { get; set; } = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--weather-procedural");
+    /// <summary>
+    /// The old procedural look throughout (test aid and restore switch), and always in the Compatibility renderer (tune 4, lead decision on the Fable re-review of 610eb3dd: there the sprite path cut the grit's streaks
+    /// to about half the rain-motion brightness, with a third of the counts and no soft fade, so the Ash Squall and Low Fog barely read; the rain-motion look was measured to read there).
+    /// </summary>
+    public static bool Procedural { get; set; } = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--weather-procedural") || RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
 
     static readonly Dictionary<Role, Sprite> _sprites = new();
     static Task<List<(Role Role, Image Image, int Tx, int Ty, string Material, string Effect)>>? _load;
