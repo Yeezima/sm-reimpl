@@ -62,6 +62,7 @@ public sealed partial class World
             }
             rt.Picker.TryOpen(key, now, aboard, lull, rt.RosterSizeOf(key), DreadnoughtRules.IsDreadnought(Config, p.Class));
         }
+        WarfrontChaosStep();   // WARFRONT-HOOK Chaos Warfront C4: the warp breaches (Chaos/Breach/World.WarfrontChaosBreach.cs; a no-op outside a Chaos battle)
     }
 
     /// <summary>Each level-up since the last call refills that living player's health and shield to full (owner: "On level-up, refill HP and armor").</summary>

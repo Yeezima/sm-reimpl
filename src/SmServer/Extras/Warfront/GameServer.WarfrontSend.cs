@@ -53,6 +53,7 @@ public sealed partial class GameServer
         WarfrontSendSquad();
         WarfrontSendCoop();
         WarfrontSendBattle();   // W13b (routed: the lead's fan-out line)
+        WarfrontChaosSend();   // Chaos Warfront C4: tag 51, the breaches (Chaos/GameServer.WarfrontChaos.cs; nothing unless the stage's army is Chaos)
     }
 
     /// <summary>A player's own notice (a refused Identify) as a Stage None section, or null.</summary>

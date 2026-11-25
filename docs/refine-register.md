@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4113 spec table rows: **3045 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4130 spec table rows: **3059 tagged**, 702 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,24 +51,24 @@ Scanned 4113 spec table rows: **3045 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 194 | 193 | 59 | 90 | 0 |
+| General game design | 208 | 207 | 63 | 98 | 0 |
 | Ork faction | 299 | 279 | 178 | 74 | 0 |
-| **All areas** | **3045** | 2737 | 2218 | 931 | 37 |
+| **All areas** | **3059** | 2751 | 2222 | 939 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1853 |
+| kind: ours | 1866 |
 | confidence: low | 1068 |
-| confidence: medium | 1039 |
+| confidence: medium | 1043 |
 | notes: ours | 475 |
-| kind: interpretation | 456 |
-| notes: estimate | 306 |
+| kind: interpretation | 457 |
+| notes: estimate | 313 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
-| notes: provisional | 61 |
+| notes: provisional | 62 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
 | section: provisional | 37 |
@@ -77,7 +77,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 29 |
 | kind: approximation | 27 |
 | kind: placeholder | 23 |
-| notes: open question | 21 |
+| notes: open question | 22 |
 | notes: placeholder | 20 |
 | kind: gap (not reproduced) | 18 |
 | notes: not reproduced (gap) | 13 |
@@ -4322,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (194)
+### General game design (208)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4597,6 +4597,25 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5328717B` | The 'Ard slot's rule rows | in a Chaos battle the Chaos Marine follows the 'Ard Boy's rows in the tables keyed by kind: target class Elite (weight as the 'Ard Boy's), powerup drops at the 'Ard Boy's rate (not an elite's), no golden weapon drop, the Librarian's Elite tier, the crowds'… | kind: ours; notes: provisional | the lead's decision (C2 review R3) | The 'Ard slot's rule rows: compare with SM1 by feel or video. Ours: in a Chaos battle the Chaos Marine follows the 'Ard Boy's rows in the… | ☐ |
 | `R-11F003C6` | Autocannon blast on Chaos fodder | a weapon's own blast (the autocannon's, the Dreadnought cannon's) kills a Cultist or a Traitor Guardsman in one, by kind (their 110 health is over the blast's 85.2), as the owner's rule kills the Ork fodder | kind: ours; notes: provisional | the owner, 2026-11-11 ("1 shot any fodder ork"), kept for Chaos by the lead (C2 review R4) | Autocannon blast on Chaos fodder: compare with SM1 by measuring on a flat spot of the same map. Ours: a weapon's own blast (the autocannon's, the Dreadnought cannon's)… | ☐ |
 | `R-2CA7ECEB` | Left for playtest | the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss and Stormboy squads' sizes, the HQ waves' sizes under their cap); the fodder throw (`KnockDown`) keeps its Ork rule (Cultists and Traitor Guardsmen fall, the Chaos Marine staggers); the hit… | kind: ours; notes: provisional | the C2 review (R4) | Left for playtest: compare with SM1 by feel or video. Ours: the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss… | ☐ |
+
+*Spec section: Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E779272E` | Breach look | `chaos_portal_no_psyker` looping (fallback `chaos_warp_gate_open`); hum `play_chaos_portal_no_psyker`; arcs `play_chaos_portal_arcs` every 2-5 s (drawn by the C4c client worker; not in this branch) (s) | kind: ours; confidence: medium | install (roster doc; original asset loaded); arcs cadence ours | Breach look: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: chaos_portal_no_psyker looping (fallback chaos_warp_gate_open); hum… | ☐ |
+| `R-D09F8E66` | Opening | opens 1 s after the landing; first squad after a 5 s build-up (6 s after the landing) (s) | kind: interpretation; confidence: medium | data (`chaos_portal` delay to open, build-up) applied to a spawner: interpretation | Opening: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: opens 1 s after the landing; first squad after a 5 s build-up (6 s… | ☐ |
+| `R-5367B146` | Count | lane node 1/2/3 (the run's node numbers): 1/2/3; fortress approach: 2; HQ defence: 0; none in the fortress plaza (breaches) | kind: ours; notes: estimate | design ("1-3 per node; none in the plaza"); per-node split and HQ none: lead decision 2026-11-25 | Count: compare with SM1 by feel or video. Ours: lane node 1/2/3 (the run's node numbers): 1/2/3; fortress approach:… | ☐ |
+| `R-612B1990` | Placement | on the layout's enemy sources (each at most one breach, the sources in an order the battle's own roll sets), snapped to the walking graph; when a source's own spot fails a rule, the first spot of the rings 10 m and 20 m round it (8 spots each) that passes; >=… (m) | kind: ours; notes: estimate | design (40, 25); 30 m apart and the rings ours | Placement: compare with SM1 by measuring on a flat spot of the same map. Ours: on the layout's enemy sources (each at most one breach, the sources… | ☐ |
+| `R-D3F4DAF7` | Squad | 5 Daemons every 20 s per open breach, on a 2 m ring round its foot (snapped to the walking graph); a squad due when there is no room waits and comes as soon as one slot frees (what fits), and the 20 s start again from it (Daemons, s, m) | kind: ours; notes: estimate | design | Squad: compare with SM1 by feel or video. Ours: 5 Daemons every 20 s per open breach, on a 2 m ring round its foot… | ☐ |
+| `R-4BE82C8B` | Caps | at most 10 alive per breach and 30 across all; also within the battle's room: its crowds' alive cap (`AliveCapNow`, the Chaos 0.6 share) less what counts against it, and the pool's room less the reserve; refill as slots free (Daemons) | kind: ours; notes: estimate | design + brief | Caps: compare with SM1 by feel or video. Ours: at most 10 alive per breach and 30 across all; also within the… | ☐ |
+| `R-468ECC75` | Daemons in the alive cap | a breach Daemon is an ordinary enemy of the pool, so `TfwBattle.Counted()` counts it against the crowds' cap already (no hook in TfwBattle.cs; `BreachSpawnTests.DaemonsCountAgainstAliveCap`) | kind: ours | design ("Breach Daemons count against the alive cap") | Daemons in the alive cap: compare with SM1 by feel or video. Ours: a breach Daemon is an ordinary enemy of the pool, so… | ☐ |
+| `R-0EA210CF` | Daemon unit | C2's Gretchin-slot row (200 hp, 0.45 m radius, 2.2 m tall, 15 per strike every 1.2 s, reach 1.8 m) through `MusouSim.SpawnDaemon`, with the battle's health scales at the spawn (the level's and the humans'); unleashed, hunting the nearest target with the… (hp, m, s) | kind: ours; notes: estimate | roster doc (200 hp data) + ours | Daemon unit: compare with SM1 by feel or video. Ours: C2's Gretchin-slot row (200 hp, 0.45 m radius, 2.2 m tall, 15 per… | ☐ |
+| `R-1752D12E` | Close rule | one qualifying detonation of a connected human (not a retainer or an AI Marine) whose position is within 3 m horizontally and 3 m vertically of a standing breach's centre (1.5 m over its foot; the blast radius not added) closes the nearest such breach; one… (m) | kind: ours; confidence: medium | owner ("humans only"); design (3 m); vertical and centre height ours | Close rule: compare with SM1 by measuring on a flat spot of the same map. Ours: one qualifying detonation of a connected human (not a retainer or an… | ☐ |
+| `R-0E247EE2` | Breach body | a sphere of 1.5 m round the centre: a qualifying projectile of a connected human whose step enters it (or starts in it) detonates on its surface, short of any wall or player behind it, so a rocket or plasma ball flying through closes it; every other… (m) | kind: ours; notes: estimate; notes: open question | lead 2026-11-25 (open question 1: "a rocket or plasma shot flying through a breach closes it") | Breach body: compare with SM1 by measuring on a flat spot of the same map. Ours: a sphere of 1.5 m round the centre: a qualifying projectile of a… | ☐ |
+| `R-27BF9237` | Silent close (C5) | `CloseAll(silent)` closes every standing breach with no closure event (no sound or banner); the list shows them closed | kind: ours | plan (C5 isolation) | Silent close (C5): compare with SM1 by feel or video. Ours: CloseAll(silent) closes every standing breach with no closure event… | ☐ |
+| `R-9657D0FC` | Closure look | flash and explode elements of `chaos_portal`, an implosion (0.4 s) then a shockwave ring to 8 m (0.5 s), `play_chaos_portal_explode`; the marker shows `BREACH CLOSED` for 3 s (C4c; not in this branch) (s, m) | kind: ours; notes: estimate | roster doc (no closing effect in the data; ours) | Closure look: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: flash and explode elements of chaos_portal, an implosion (0.4 s) then… | ☐ |
+| `R-C37B4886` | Daemon as a kind (C2 review notes) | the breach Daemon is the Gretchin row to every kind rule, decided per rule for Chaos battles: it is fodder (a melee hit or charge throws it and may kill it outright with the war's death roll, as a Cultist; ours: a breach squad is a swarm); the autocannon's… (m) | kind: ours; notes: provisional | C2 review (lead 39); decisions ours | Daemon as a kind (C2 review notes): compare with SM1 by measuring on a flat spot of the same map. Ours: the breach Daemon is the Gretchin row to every kind rule, decided per… | ☐ |
+| `R-1FABCA02` | Server cost | at most 30 more enemies (in a 2560-slot pool) and one sphere test per human explosive step; measured: a Chaos lane tick p99 with breaches 8.5 ms against an Orks lane's 33.4 ms (`BreachIsolationTests`, a loaded dev machine, best of two 10 s runs) (ms) | kind: ours; confidence: medium | measured | Server cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at most 30 more enemies (in a 2560-slot pool) and one sphere test per… | ☐ |
 
 ## Part B: Ork faction
 
@@ -6672,4 +6691,5 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
 | `R-F62A3D5F` | Wire | Warfront faction (Chaos Warfront C1; added content; owner brief 2026-11-24 rev 1, decision 2026-11-25) |
+| `R-1B6BA160` | Wire | Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51) |
 

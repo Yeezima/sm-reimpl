@@ -313,6 +313,7 @@ public sealed partial class GameServer
         }
         if (campaign.IsOver) { WfLog("the loaded run is over: its end was not archived; finishing it now"); WarfrontFinishRun(state); }
         WarfrontWeatherBind(state);   // weather W1: this slot's forecast (GameServer.WarfrontWeather.cs)
+        WarfrontChaosCreated();   // Chaos Warfront C4: the breaches' log and the filter's census (Chaos/GameServer.WarfrontChaos.cs; nothing unless the stage's army is Chaos)
         Stepped += _ => WarfrontStep();
     }
 

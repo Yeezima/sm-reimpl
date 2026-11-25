@@ -24,8 +24,9 @@ public class VersionPins
     [Fact]
     public void The_Warfront_rules_version_and_wire_format_are_pinned()
     {
-        Assert.Equal(25u, SmSim.Extras.Warfront.WarfrontRules.Version);   // Chaos Warfront C2 (2026-11-25): the Chaos roster (24: the Chaos base, C1 the run's faction (23: no Squigs in Warfront, WarfrontRules.NoSquigs (22: the weather finish (2026-11-23): the active weather lifecycle (21: codebase fix 6 (2026-11-22): projectiles test the current pose (20: codebase fix 1, the progress file, the Progress command and the ProgressSave section)
+        Assert.Equal(26u, SmSim.Extras.Warfront.WarfrontRules.Version);   // Chaos Warfront C4 (2026-11-25): the warp breaches, tag 51 (25: Chaos Warfront C2, the Chaos roster (24: the Chaos base, C1 the run's faction (23: no Squigs in Warfront, WarfrontRules.NoSquigs (22: the weather finish (2026-11-23): the active weather lifecycle (21: codebase fix 6 (2026-11-22): projectiles test the current pose (20: codebase fix 1, the progress file, the Progress command and the ProgressSave section)
         Assert.Equal(3, SmNet.Extras.Warfront.WarfrontWire.Format);   // 3: the Hub's faction byte (Chaos Warfront C1)
         Assert.Equal(49, SmNet.Extras.Warfront.WarfrontProgressSaveWire.EnvelopeTag);
+        Assert.Equal(51, SmNet.Extras.Warfront.WarfrontChaosWire.Tag);   // Chaos Warfront C4: the Chaos section (kinds 1-15 the breaches, 16-31 C5's finale); 50 is executions X1's
     }
 }
