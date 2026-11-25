@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4130 spec table rows: **3059 tagged**, 702 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4133 spec table rows: **3062 tagged**, 702 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,20 +51,20 @@ Scanned 4130 spec table rows: **3059 tagged**, 702 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 208 | 207 | 63 | 98 | 0 |
+| General game design | 211 | 210 | 63 | 101 | 0 |
 | Ork faction | 299 | 279 | 178 | 74 | 0 |
-| **All areas** | **3059** | 2751 | 2222 | 939 | 37 |
+| **All areas** | **3062** | 2754 | 2222 | 942 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1866 |
+| kind: ours | 1868 |
 | confidence: low | 1068 |
 | confidence: medium | 1043 |
-| notes: ours | 475 |
-| kind: interpretation | 457 |
-| notes: estimate | 313 |
+| notes: ours | 476 |
+| kind: interpretation | 458 |
+| notes: estimate | 315 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
@@ -4322,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (208)
+### General game design (211)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4602,7 +4602,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-E779272E` | Breach look | `chaos_portal_no_psyker` looping (fallback `chaos_warp_gate_open`); hum `play_chaos_portal_no_psyker`; arcs `play_chaos_portal_arcs` every 2-5 s (drawn by the C4c client worker; not in this branch) (s) | kind: ours; confidence: medium | install (roster doc; original asset loaded); arcs cadence ours | Breach look: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: chaos_portal_no_psyker looping (fallback chaos_warp_gate_open); hum… | ☐ |
+| `R-08DB111E` | Breach look (C4c) | the install's `chaos_portal_no_psyker` (looping in the data: its 5 s core repeats with its build-up flash and lightning) at scale 1, its origin 2 m over the breach's foot, from the list's first sight of the breach until it closes; fallback when the effect… (m, s) | kind: interpretation; confidence: medium; notes: ours | install (roster doc; original asset loaded); the 2 m origin an interpretation of the data's 2 m-down rings; fallback scale ours | Breach look (C4c): compare with SM1 by feel or video. Ours: the install's chaos_portal_no_psyker (looping in the data: its 5 s… | ☐ |
+| `R-7B9383F3` | Breach sound (C4c) | hum: the install's `play_chaos_portal_no_psyker` (the data posts it from the effect's "center energy" element, which the effect player does not sound) posted once at the centre when the list says Open, stopped at the close; crackle: `play_chaos_portal_arcs`… (s) | kind: ours; notes: estimate | install events (original asset loaded); the cadence ours | Breach sound (C4c): compare with SM1 by listening A/B at the same distance and state. Ours: hum: the install's play_chaos_portal_no_psyker (the data posts it… | ☐ |
+| `R-5CBD9734` | Breach marker (C4c) | a billboard label 3.5 m over the centre, seen through walls like the battle's capture letters (font 30, fixed size), `WARP BREACH <m> m` (the distance from the own feet to the centre, rounded) in red-violet (0.86, 0.18, 0.62) while the breach stands; after… (m, s) | kind: ours; notes: estimate | plan (objective marker style; colours ours) | Breach marker (C4c): compare with SM1 by feel or video. Ours: a billboard label 3.5 m over the centre, seen through walls like the… | ☐ |
+| `R-2E5DF353` | Breach list staleness (C4c) | with no breach list for 3 s (it comes once a second) the client drops its breaches (a lost end of battle, a rejoin) (s) | kind: ours | ours | Breach list staleness (C4c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with no breach list for 3 s (it comes once a second) the client drops… | ☐ |
 | `R-D09F8E66` | Opening | opens 1 s after the landing; first squad after a 5 s build-up (6 s after the landing) (s) | kind: interpretation; confidence: medium | data (`chaos_portal` delay to open, build-up) applied to a spawner: interpretation | Opening: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: opens 1 s after the landing; first squad after a 5 s build-up (6 s… | ☐ |
 | `R-5367B146` | Count | lane node 1/2/3 (the run's node numbers): 1/2/3; fortress approach: 2; HQ defence: 0; none in the fortress plaza (breaches) | kind: ours; notes: estimate | design ("1-3 per node; none in the plaza"); per-node split and HQ none: lead decision 2026-11-25 | Count: compare with SM1 by feel or video. Ours: lane node 1/2/3 (the run's node numbers): 1/2/3; fortress approach:… | ☐ |
 | `R-612B1990` | Placement | on the layout's enemy sources (each at most one breach, the sources in an order the battle's own roll sets), snapped to the walking graph; when a source's own spot fails a rule, the first spot of the rings 10 m and 20 m round it (8 spots each) that passes; >=… (m) | kind: ours; notes: estimate | design (40, 25); 30 m apart and the rings ours | Placement: compare with SM1 by measuring on a flat spot of the same map. Ours: on the layout's enemy sources (each at most one breach, the sources… | ☐ |
@@ -4613,7 +4616,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1752D12E` | Close rule | one qualifying detonation of a connected human (not a retainer or an AI Marine) whose position is within 3 m horizontally and 3 m vertically of a standing breach's centre (1.5 m over its foot; the blast radius not added) closes the nearest such breach; one… (m) | kind: ours; confidence: medium | owner ("humans only"); design (3 m); vertical and centre height ours | Close rule: compare with SM1 by measuring on a flat spot of the same map. Ours: one qualifying detonation of a connected human (not a retainer or an… | ☐ |
 | `R-0E247EE2` | Breach body | a sphere of 1.5 m round the centre: a qualifying projectile of a connected human whose step enters it (or starts in it) detonates on its surface, short of any wall or player behind it, so a rocket or plasma ball flying through closes it; every other… (m) | kind: ours; notes: estimate; notes: open question | lead 2026-11-25 (open question 1: "a rocket or plasma shot flying through a breach closes it") | Breach body: compare with SM1 by measuring on a flat spot of the same map. Ours: a sphere of 1.5 m round the centre: a qualifying projectile of a… | ☐ |
 | `R-27BF9237` | Silent close (C5) | `CloseAll(silent)` closes every standing breach with no closure event (no sound or banner); the list shows them closed | kind: ours | plan (C5 isolation) | Silent close (C5): compare with SM1 by feel or video. Ours: CloseAll(silent) closes every standing breach with no closure event… | ☐ |
-| `R-9657D0FC` | Closure look | flash and explode elements of `chaos_portal`, an implosion (0.4 s) then a shockwave ring to 8 m (0.5 s), `play_chaos_portal_explode`; the marker shows `BREACH CLOSED` for 3 s (C4c; not in this branch) (s, m) | kind: ours; notes: estimate | roster doc (no closing effect in the data; ours) | Closure look: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: flash and explode elements of chaos_portal, an implosion (0.4 s) then… | ☐ |
+| `R-B658B128` | Closure look (C4c) | on the first copy of a closure: the install's `chaos_portal_no_psyker` played once from age 0.85 s for 1.6 s (its "buildup energy" flash at 0.94-1 s of the core, the lightning and the smoke after it: the data's flash and explode elements, an interpretation)… (s, m) | kind: ours; notes: estimate | roster doc (no closing effect in the data); install effect and event (original asset loaded); sphere and ring ours | Closure look (C4c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: on the first copy of a closure: the install's chaos_portal_no_psyker… | ☐ |
 | `R-C37B4886` | Daemon as a kind (C2 review notes) | the breach Daemon is the Gretchin row to every kind rule, decided per rule for Chaos battles: it is fodder (a melee hit or charge throws it and may kill it outright with the war's death roll, as a Cultist; ours: a breach squad is a swarm); the autocannon's… (m) | kind: ours; notes: provisional | C2 review (lead 39); decisions ours | Daemon as a kind (C2 review notes): compare with SM1 by measuring on a flat spot of the same map. Ours: the breach Daemon is the Gretchin row to every kind rule, decided per… | ☐ |
 | `R-1FABCA02` | Server cost | at most 30 more enemies (in a 2560-slot pool) and one sphere test per human explosive step; measured: a Chaos lane tick p99 with breaches 8.5 ms against an Orks lane's 33.4 ms (`BreachIsolationTests`, a loaded dev machine, best of two 10 s runs) (ms) | kind: ours; confidence: medium | measured | Server cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at most 30 more enemies (in a 2560-slot pool) and one sphere test per… | ☐ |
 

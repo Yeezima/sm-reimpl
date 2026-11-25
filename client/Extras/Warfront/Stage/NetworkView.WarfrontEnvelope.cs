@@ -28,6 +28,7 @@ public partial class NetworkView
     partial void WarfrontSquadFrame(PlayerState me, double dt);
     partial void WarfrontCoopSection(byte tag, ReadOnlySpan<byte> payload, ref bool handled);
     partial void WarfrontCoopFrame(PlayerState me, double dt);
+    partial void WarfrontChaosSection(byte tag, ReadOnlySpan<byte> payload, ref bool handled);   // Chaos Warfront C4c: tag 51 (Chaos/Breach/; kinds 16 to 31 on to C5c)
 
     /// <summary>Warfront's tags, before Musou's. Sections of a tag nobody here owns are left to the dispatcher's unknown count.</summary>
     partial void WarfrontEnvelope(byte tag, ReadOnlySpan<byte> payload, ref bool handled)
@@ -75,6 +76,9 @@ public partial class NetworkView
                 return;
             case SmNet.Extras.Warfront.WarfrontBattleWire.EnvelopeTag:   // W13b (routed: the lead's fan-out line)
                 handled = WarfrontBattleReceive(tag, payload);
+                return;
+            case SmNet.Extras.Warfront.WarfrontChaosWire.Tag:   // Chaos Warfront C4c (routed: the breaches, and C5's finale kinds)
+                WarfrontChaosSection(tag, payload, ref handled);
                 return;
         }
     }
