@@ -563,26 +563,33 @@ public sealed partial class CreatorView
         ArmLabel(_banner, 8.8f, s, new Color(0.97f, 0.82f, 0.4f));
         ArmLabel(_summary, 8.8f, s, new Color(0.97f, 0.82f, 0.4f)); ArmLabel(_status, 8.8f, s, ArmLight);
         _summary.ClipText = true;
-        // The faction / mode pills above the preview stay inside their row (296 to 542 concept px): the row's width is shared by what each label needs (stretch ratios) and the pills share one text size, stepped down when the
-        // labels do not fit. Four pills (Warfront's STANDARD MARINES, LIBRARIAN, HERETIC (NOT YET), DREADNOUGHT) at their natural width ran past the row into the right column's title (LOADOUT, SUPPORT ABILITIES); that was on main
-        // before the RETAINERS card (2026-11-25).
+        // The faction / mode pills above the preview (row 296 to 542 concept px). While every label fits an equal share they keep the equal layout they always had (Classic's two faction pills, unchanged). Only when an equal
+        // share would overflow (Warfront's four: STANDARD MARINES, LIBRARIAN, HERETIC (NOT YET), DREADNOUGHT ran past the row into the right column's title, LOADOUT / SUPPORT ABILITIES; on main before the RETAINERS card,
+        // 2026-11-25) is the row shared by what each label needs (stretch ratios), with one text size for all, stepped down when needed.
         var sidePills = _sideToggle.GetChildren().OfType<Button>().Where(b => b.Visible).ToList();
         var sideNeed = new List<(Button B, float Text, float Margin)>();
         foreach (var b in sidePills)
         {
-            b.CustomMinimumSize = new Vector2(0, 18f * s); b.SizeFlagsHorizontal = SizeFlags.ExpandFill; b.ClipText = true;
+            b.CustomMinimumSize = new Vector2(0, 18f * s); b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             PaintedButtons.Apply(b, "opt-plate-blank", "opt-plate-gold-blank", new PaintedButtons.Pad(1, 1, 1, 1), new PaintedButtons.Pad(1, 1, 1, 1), s * 0.45f, true, paintedText: false, noGlow: true, cpx: s);
             ArmText(b, ArmPlateSize, s, ArmLight, ArmDark);
             sideNeed.Add((b, PaintedButtons.Width(b.GetThemeFont("font"), b.Text, ArmUnit(ArmPlateSize)), b.GetThemeStylebox("normal").GetMinimumSize().X));
         }
-        float sideRoom = _armTopRow!.Size.X - _sideToggle.GetThemeConstant("separation") * Mathf.Max(0, sidePills.Count - 1), sideSum = sideNeed.Sum(n => n.Text + n.Margin);
-        var sideFit = new List<(Control, string, float)>();
-        foreach (var (b, text, margin) in sideNeed)
+        float sideRoom = _armTopRow!.Size.X - _sideToggle.GetThemeConstant("separation") * Mathf.Max(0, sidePills.Count - 1);
+        var sideShares = PillShares.Shares(sideNeed.Select(n => n.Text + n.Margin).ToList(), sideRoom);
+        if (sideShares is null)
+            foreach (var (b, _, _) in sideNeed) { b.ClipText = false; b.SizeFlagsStretchRatio = 1f; }   // the equal layout (Godot's defaults, as before)
+        else
         {
-            b.SizeFlagsStretchRatio = Mathf.Max(1f, text + margin);   // the share each label needs
-            sideFit.Add((b, b.Text, sideSum > 0f ? sideRoom * (text + margin) / sideSum - margin : sideRoom));
+            var sideFit = new List<(Control, string, float)>();
+            for (int i = 0; i < sideNeed.Count; i++)
+            {
+                var (b, text, margin) = sideNeed[i];
+                b.ClipText = true; b.SizeFlagsStretchRatio = Mathf.Max(1f, text + margin);   // the share each label needs
+                sideFit.Add((b, b.Text, sideShares[i] - margin));
+            }
+            PaintedButtons.FitGroup(sideFit, ArmUnit(ArmPlateSize));   // the pills share the size the tightest needs
         }
-        PaintedButtons.FitGroup(sideFit, ArmUnit(ArmPlateSize));   // the pills share the size the tightest needs
         StyleArmCards(s);
         if (_armSlotScroll!.Visible) _armColumnTitle!.Text = "LOADOUT";
     }
