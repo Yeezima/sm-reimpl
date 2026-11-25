@@ -405,8 +405,10 @@ public sealed class MapSession
         var missing = Document.Images.Count == 0 ? [] : MapImages.CarryBeside(Document, path, Library, Path, copyFailures);
         // A file on disk in an older format than this save writes is kept beside it first (name.smmap.bak-v<n>, never replaced), so a build that reads only that format still has its copy.
         LastBackup = null;
-        // One backup per source version: a map flipped between format 3 and 4 again and again keeps its first .bak-v3 (the open-time upgrade of a format 1 or 2 file always keeps a new one).
-        if (File.Exists(path) && MapUpgrade.VersionOfFile(path) is var onDisk and > 0 && onDisk < Document.WriteVersion && (everyBackup || !File.Exists(path + ".bak-v" + onDisk)))
+        // One backup per distinct older file: a map flipped between format 3 and 4 again and again keeps one .bak-v3, but a format-3 file that changed since its last backup (format-3 work between
+        // the flips) gets a new one beside it (.bak-v3-2, ...), so the copy a format-3 build can open is never stale; nothing is ever replaced. The open-time upgrade of a format 1 or 2 file always
+        // keeps a new one.
+        if (File.Exists(path) && MapUpgrade.VersionOfFile(path) is var onDisk and > 0 && onDisk < Document.WriteVersion && (everyBackup || !SameAsABackup(path, onDisk)))
             LastBackup = MapUpgrade.Backup(path, onDisk);
         MapLibrary.WriteAtomic(path, Encoding.UTF8.GetBytes(Document.ToJson()));
         SaveNotes = [.. missing.Count == 0 ? [] : new[] { $"{missing.Count} image(s) of this map are neither in the library nor beside the map; the game will refuse the map until they are added again." }, .. copyFailures];
@@ -418,6 +420,22 @@ public sealed class MapSession
     /// Puts the definition of every prefab the objects use (and the prefabs those use) into the document, so the saved file brings them along (a map sent to another PC no longer has
     /// "unknown prefab" instances). A prefab the library lacks but an earlier save embedded stays embedded.
     /// </summary>
+    /// <summary>Whether <paramref name="path"/>'s bytes equal one of its existing <c>.bak-v&lt;version&gt;</c> backups.</summary>
+    static bool SameAsABackup(string path, int version)
+    {
+        var dir = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path))!;
+        var name = System.IO.Path.GetFileName(path) + ".bak-v" + version;
+        var current = File.ReadAllBytes(path);
+        foreach (var f in Directory.EnumerateFiles(dir, name + "*"))
+        {
+            var rest = System.IO.Path.GetFileName(f)[name.Length..];
+            if (rest.Length > 0 && !(rest[0] == '-' && rest.Skip(1).All(char.IsAsciiDigit))) continue;
+            try { if (new FileInfo(f).Length == current.LongLength && File.ReadAllBytes(f).AsSpan().SequenceEqual(current)) return true; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return false;
+    }
+
     void EmbedUsedPrefabs() => Document.EmbeddedPrefabs = UsedPrefabs(Document, id => { try { return Library.GetPrefab(id); } catch (MapException) { return null; } });
 
     /// <summary>The prefabs <paramref name="doc"/>'s objects use (and the prefabs those use): from <paramref name="lookup"/> first, else the ones the document already embeds.</summary>
