@@ -1961,7 +1961,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-E18568FD` | Duel HUD (C5c) | for everyone while the relay runs: the dark steel strip across the top of the 1920 x 1080 space (y 70, or 190 under the Battle HUD's line; 152 tall), `CHAMPION: NAME` (heading level, gold), `NEXT: NAME` or `LAST CHALLENGER` with `CHALLENGERS WAITING: n` (body… (px) | kind: ours; notes: provisional | plan (C5c); layout and wording ours; owner 2026-11-15 (one style per level) | Duel HUD (C5c): compare with SM1 with side-by-side screenshots in the same spot. Ours: for everyone while the relay runs: the dark steel strip across the… | ☐ |
+| `R-E18568FD` | Duel HUD (C5c) | for everyone while the relay runs: the dark steel strip across the top of the 1920 x 1080 space (y 70, or 190 under the Battle HUD's line; 152 tall), `CHAMPION: NAME` (heading level, gold), `NEXT: NAME` or `LAST CHALLENGER` with `CHALLENGERS WAITING: n` (none… (px) | kind: ours; notes: provisional | plan (C5c); layout and wording ours; owner 2026-11-15 (one style per level) | Duel HUD (C5c): compare with SM1 with side-by-side screenshots in the same spot. Ours: for everyone while the relay runs: the dark steel strip across the… | ☐ |
 
 ### Sound mix (gameplay-critical) (254)
 

@@ -46,8 +46,8 @@ public class ChaosBreachModelTests
         Assert.Empty(m.Breaches);
         Assert.Null(m.ClosureOf(1));
         Assert.True(m.Apply(Closure(900, 1, 3), 21.0, out var later));
-        Assert.NotNull(later);
-        Assert.Null(later!.Value.Centre);   // a closure of a breach no list named: no place for its show
+        Assert.Null(later);   // lead 40 (C4c review): a closure of a breach no list shows (here: none at all) is ignored, no show
+        Assert.Equal(1, m.Ignored);
     }
 
     [Fact]

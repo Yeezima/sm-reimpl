@@ -172,8 +172,12 @@ public sealed class ChaosDuelModel
     /// <summary>The Lord's bar: the permille as a fraction, 0 to 1.</summary>
     public static float BarFraction(ushort permille) => Math.Clamp(permille / 1000f, 0f, 1f);
 
-    /// <summary>The bar's percent, rounded up (a living Lord never shows 0 %, as the permille is).</summary>
-    public static string Percent(ushort permille) => $"{(int)Math.Ceiling(Math.Clamp(permille, (ushort)0, (ushort)1000) / 10.0)}%";
+    /// <summary>The bar's percent: the permille rounded to the nearest whole percent, at least 1 % while the Lord lives (the permille is already rounded up, so a living Lord never shows 0 %).</summary>
+    public static string Percent(ushort permille)
+    {
+        int p = Math.Clamp((int)permille, 0, 1000);
+        return $"{(p == 0 ? 0 : Math.Max(1, (int)Math.Round(p / 10.0, MidpointRounding.AwayFromZero)))}%";
+    }
 
     /// <summary>
     /// The HUD's lines for the viewer <paramref name="own"/> (his player id) at <paramref name="now"/>; <paramref name="name"/> gives a player's HUD name (upper-cased here: one style per level).
@@ -221,7 +225,7 @@ public sealed class ChaosDuelModel
     }
 
     /// <summary>The queue count: the queued players still to come (the wire's remaining; an absent one counts until his turn is skipped).</summary>
-    static string QueueLine(byte remaining) => $"CHALLENGERS WAITING: {remaining}";
+    static string QueueLine(byte remaining) => remaining == 0 ? "" : $"CHALLENGERS WAITING: {remaining}";   // none: LAST CHALLENGER says it
 
     static string Upper(string? name, ushort id) => string.IsNullOrWhiteSpace(name) ? $"P{id}" : name.Trim().ToUpperInvariant();
 

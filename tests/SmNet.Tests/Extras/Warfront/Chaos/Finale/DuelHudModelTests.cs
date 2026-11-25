@@ -58,6 +58,8 @@ public class DuelHudModelTests
     [InlineData(1, 0.001f, "1%")]   // a living Lord never shows 0 %
     [InlineData(0, 0f, "0%")]
     [InlineData(999, 0.999f, "100%")]
+    [InlineData(621, 0.621f, "62%")]   // 62.0 % of the Lord: the permille rounds up to 621, the percent to the nearest
+    [InlineData(4, 0.004f, "1%")]
     public void Bar_fraction_from_permille(int permille, float fraction, string percent)
     {
         Assert.Equal(fraction, ChaosDuelModel.BarFraction((ushort)permille), 5);
