@@ -135,7 +135,7 @@ public static class MapImages
     /// Copies every image the document uses beside <paramref name="mapPath"/> (from the library or an earlier folder), so the map file and its <c>images</c> folder are the whole map.
     /// Returns the ids it could not find anywhere (Save warns; play would refuse).
     /// </summary>
-    public static IReadOnlyList<string> CarryBeside(MapDocument doc, string mapPath, MapLibrary lib, string? previousPath = null)
+    public static IReadOnlyList<string> CarryBeside(MapDocument doc, string mapPath, MapLibrary lib, string? previousPath = null, List<string>? failures = null)
     {
         var missing = new List<string>();
         var dir = BesideDir(mapPath);
@@ -143,7 +143,9 @@ public static class MapImages
         {
             var data = Read(img, mapPath, lib) ?? (previousPath is not null ? Read(img, previousPath, lib) : null);
             if (data is null) { missing.Add(img.Id); continue; }
-            Store(dir, img, data);
+            // one picture that cannot be copied (a full disk, a locked file) is reported, never the reason the map itself is not saved
+            try { Store(dir, img, data); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { failures?.Add($"The image '{img.Name}' could not be copied beside the map: {e.Message}"); }
         }
         return missing;
     }
@@ -161,6 +163,7 @@ public static class MapPack
     public static void Pack(string mapPath, string outPath, MapLibrary lib)
     {
         var text = File.ReadAllText(mapPath);
+        var entryName = EntryName(Path.GetFileName(mapPath));   // the name Unpack accepts (a file called "Nick's arena #1.smmap" packs as "Nick_s arena _1.smmap")
         var doc = MapDocument.Parse(text);
         var tmp = outPath + ".tmp-" + Guid.NewGuid().ToString("N");
         try
@@ -168,7 +171,7 @@ public static class MapPack
             using (var fs = new FileStream(tmp, FileMode.CreateNew))
             using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
             {
-                var e = zip.CreateEntry(Path.GetFileName(mapPath), CompressionLevel.Optimal);
+                var e = zip.CreateEntry(entryName, CompressionLevel.Optimal);
                 using (var w = e.Open()) w.Write(new System.Text.UTF8Encoding(false).GetBytes(text));
                 foreach (var img in doc.Images)
                 {
@@ -203,9 +206,27 @@ public static class MapPack
         }
     }
 
-    static bool IsPlainMapName(string name) =>
-        name.Length is > 6 and <= 120 && name.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase) && !name.StartsWith('.') && !name.Contains("..")
-        && name.All(c => char.IsAsciiLetterOrDigit(c) || c is ' ' or '_' or '.' or '-' or '(' or ')');
+    static readonly string[] DeviceNames = ["CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"];
+
+    /// <summary>The map entry name rule (Pack writes only such names, Unpack accepts only such names): letters, digits, space, <c>_ . - ( )</c>, ending <c>.smmap</c>, at most 120 characters, not a Windows device name.</summary>
+    public static bool IsPlainMapName(string name) =>
+        name.Length is > 6 and <= 120 && name.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase) && !name.StartsWith('.') && !name.StartsWith(' ') && !name.Contains("..")
+        && name.All(c => char.IsAsciiLetterOrDigit(c) || c is ' ' or '_' or '.' or '-' or '(' or ')')
+        && !DeviceNames.Contains(name.Split('.')[0].TrimEnd(' '), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A map file name made plain for a pack: other characters become '_', a device name or an empty stem gets "map", long names are cut.</summary>
+    public static string EntryName(string fileName)
+    {
+        var stem = fileName.EndsWith(".smmap", StringComparison.OrdinalIgnoreCase) ? fileName[..^6] : fileName;
+        var clean = new string(stem.Select(c => char.IsAsciiLetterOrDigit(c) || c is ' ' or '_' or '-' or '(' or ')' ? c : '_').ToArray()).Trim(' ');
+        if (clean.Length > 100) clean = clean[..100].TrimEnd(' ');
+        if (clean.Length == 0 || DeviceNames.Contains(clean, StringComparer.OrdinalIgnoreCase)) clean += "map";
+        var name = clean + ".smmap";
+        return IsPlainMapName(name) ? name : "map.smmap";
+    }
+
+    /// <summary>The most bytes one unpack reads in all (map and images).</summary>
+    public const long MaxUnpacked = 1_000_000_000;
 
     static string UnpackFrom(ZipArchive zip, string intoDir)
     {
@@ -232,15 +253,27 @@ public static class MapPack
         var dir = Path.GetFullPath(intoDir);
         var target = Path.Combine(dir, mapEntry.FullName);
         if (File.Exists(target)) throw new MapException("file-exists", $"'{target}' already exists; unpack into another folder or remove it first.");
-        foreach (var img in doc.Images)   // only the images the map lists; one in memory at a time
+        long total = mapBytes.LongLength + doc.Images.Sum(i => Math.Max(images[i.FileName].Length, 0));
+        if (total > MaxUnpacked) throw new MapException("too-big", $"The pack holds more than {MaxUnpacked / 1_000_000} MB.");
+        var written = new List<string>();   // images this unpack added: removed again if it fails, so a refused pack leaves nothing behind
+        try
         {
-            var data = ReadEntry(images[img.FileName], MapImage.MaxBytes);
-            var info = MapImage.Inspect(data, img.FileName);
-            if (info.FileName != img.FileName || info.Width != img.Width || info.Height != img.Height)
-                throw new MapException("bad-pack", $"'images/{img.FileName}' is not the image the map lists (its SHA-256, format or size differs).");
-            MapImages.Store(Path.Combine(dir, "images"), img, data);
+            foreach (var img in doc.Images)   // only the images the map lists; one in memory at a time
+            {
+                var data = ReadEntry(images[img.FileName], MapImage.MaxBytes);
+                var info = MapImage.Inspect(data, img.FileName);
+                if (info.FileName != img.FileName || info.Width != img.Width || info.Height != img.Height)
+                    throw new MapException("bad-pack", $"'images/{img.FileName}' is not the image the map lists (its SHA-256, format or size differs).");
+                if (MapImages.Store(Path.Combine(dir, "images"), img, data)) written.Add(Path.Combine(dir, "images", img.FileName));
+            }
+            MapLibrary.WriteAtomic(target, mapBytes);
         }
-        MapLibrary.WriteAtomic(target, mapBytes);
+        catch
+        {
+            foreach (var f in written) try { File.Delete(f); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            try { var imgDir = Path.Combine(dir, "images"); if (Directory.Exists(imgDir) && !Directory.EnumerateFileSystemEntries(imgDir).Any()) Directory.Delete(imgDir); } catch (IOException) { }
+            throw;
+        }
         return target;
     }
 

@@ -136,6 +136,8 @@ public sealed class CustomMap
     /// boxes still sees the edited extent; the runtime makes the volume exact (plan M2). Unedited markers have no entry and behave exactly as before.
     /// </summary>
     public IReadOnlyDictionary<string, MeshVolume> Volumes { get; init; } = new Dictionary<string, MeshVolume>();
+    /// <summary>The object id of each marker record (spawn areas, doors, capture points, kill zones), by the record's name: pairs a compiled record with its piece without relying on order.</summary>
+    public IReadOnlyDictionary<string, string> RecordIds { get; init; } = new Dictionary<string, string>();
 
     public CollisionWorld ToCollisionWorld() => Content.ToCollisionWorld();
 
@@ -183,6 +185,7 @@ public sealed class CustomMap
         var walls = new List<MapWall>();
         var props = new List<MapProp>();
         var volumes = new Dictionary<string, MeshVolume>(StringComparer.Ordinal);
+        var recordIds = new Dictionary<string, string>(StringComparer.Ordinal);
         Bounds? solid = null;
         int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
         foreach (var o in doc.Objects)
@@ -250,6 +253,10 @@ public sealed class CustomMap
                     var (cx, cy, cz) = DetMath.Transform(uc.X, uc.Y, uc.Z, worldD);
                     centre = DetMath.Grid(cx, cy, cz);
                     size *= ub.Max - ub.Min;
+                    // the vertical extent from the gridded world vertices themselves, so the record's bottom (Position.Z - Scale.Z / 2, where spawns stand) is exactly the volume's lowest point
+                    float zMin = edited.Min(v => v.Z), zMax = edited.Max(v => v.Z);
+                    centre.Z = (zMin + zMax) / 2f;
+                    size.Z = zMax - zMin;
                 }
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             }
@@ -290,6 +297,7 @@ public sealed class CustomMap
                     kills.Add(new MapKillRegion(volumeName, centre, yaw, size, 0));
                     break;
             }
+            if (volumeName is not null) recordIds[volumeName] = o.Id;
             if (edited is not null && volumeName is not null) volumes[volumeName] = new MeshVolume(volumeName, edited, editedTri!);
         }
         if (areaMarines > 1 || areaChaos > 1) notes.Add("Only the first spawn area of each side is used by the match; the others are ignored.");
@@ -333,7 +341,7 @@ public sealed class CustomMap
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
-        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes };
+        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes, RecordIds = recordIds };
     }
 
     /// <summary>An edited shape's unit-space triangles (faces fanned from their first vertex).</summary>
