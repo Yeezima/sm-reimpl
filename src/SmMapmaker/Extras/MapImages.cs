@@ -256,6 +256,7 @@ public static class MapPack
         long total = mapBytes.LongLength + doc.Images.Sum(i => Math.Max(images[i.FileName].Length, 0));
         if (total > MaxUnpacked) throw new MapException("too-big", $"The pack holds more than {MaxUnpacked / 1_000_000} MB.");
         var written = new List<string>();   // images this unpack added: removed again if it fails, so a refused pack leaves nothing behind
+        bool dirExisted = Directory.Exists(dir), imagesExisted = Directory.Exists(Path.Combine(dir, "images"));
         try
         {
             foreach (var img in doc.Images)   // only the images the map lists; one in memory at a time
@@ -268,10 +269,19 @@ public static class MapPack
             }
             MapLibrary.WriteAtomic(target, mapBytes);
         }
-        catch
+        catch (Exception failure)
         {
             foreach (var f in written) try { File.Delete(f); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-            try { var imgDir = Path.Combine(dir, "images"); if (Directory.Exists(imgDir) && !Directory.EnumerateFileSystemEntries(imgDir).Any()) Directory.Delete(imgDir); } catch (IOException) { }
+            // folders this unpack created go too, when they are empty
+            try
+            {
+                var imgDir = Path.Combine(dir, "images");
+                if (!imagesExisted && Directory.Exists(imgDir) && !Directory.EnumerateFileSystemEntries(imgDir).Any()) Directory.Delete(imgDir);
+                if (!dirExisted && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any()) Directory.Delete(dir);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            // a disk or permission problem is a plain refusal like every other (callers handle MapException)
+            if (failure is IOException or UnauthorizedAccessException) throw new MapException("bad-pack", $"The pack could not be unpacked into '{dir}': {failure.Message}");
             throw;
         }
         return target;
