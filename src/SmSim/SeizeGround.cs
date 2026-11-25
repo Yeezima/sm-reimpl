@@ -15,8 +15,15 @@ public enum GameMode : byte { Annihilation = 0, SeizeGround = 1 }
 /// </summary>
 public sealed record ControlPoint(string Name, Vector3 Center, float Radius, float HalfHeight)
 {
+    /// <summary>
+    /// The point's exact shape when the map gives one (a Mapmaker capture point whose shape was edited, docs/mapmaker.md "Edit mode in play"): then a player stands on it when
+    /// the shape holds the feet (its bottom surface counts as inside), and the cylinder is only what the views draw. Null for every Classic point and every unedited one.
+    /// </summary>
+    public MeshVolume? Volume { get; init; }
+
     public bool Contains(Vector3 feet)
     {
+        if (Volume is { } shape) return shape.Contains(feet);
         float dx = feet.X - Center.X, dy = feet.Y - Center.Y;
         return dx * dx + dy * dy <= Radius * Radius && MathF.Abs(feet.Z - Center.Z) <= HalfHeight;
     }
@@ -29,7 +36,33 @@ public enum AreaShape : byte { Box = 0, Cylinder = 1 }
 /// A side's start area (<c>mkr_start_marine</c>, <c>mkr_start_ork</c> for Chaos): centre, full size (marker scale, metres),
 /// rotation about Z (radians, also the facing given to players spawned in it) and shape.
 /// </summary>
-public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Yaw, AreaShape Shape = AreaShape.Box);
+public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Yaw, AreaShape Shape = AreaShape.Box)
+{
+    /// <summary>
+    /// The area's exact shape when the map gives one (a Mapmaker spawn area whose shape was edited, docs/mapmaker.md "Edit mode in play"): <see cref="Center"/>, <see cref="Size"/> and
+    /// <see cref="Yaw"/> are then its box, the spawn grid is laid over that box and only the spots the shape holds are kept (<see cref="HoldsSpot"/>). Null for every Classic, Musou and
+    /// Warfront area and every unedited one: the grid as before.
+    /// </summary>
+    public MeshVolume? Volume { get; init; }
+
+    /// <summary>
+    /// Whether a spawn spot is inside the edited shape with room round it (contract v4's settled rule, docs/mapmaker.md "Edit mode contract"): the vertical column at its XY from the
+    /// record's bottom less <see cref="SpotColumnBelow"/> up to the record's top crosses the shape (<see cref="MeshVolume.Crosses"/>), at the spot and at the four points
+    /// <paramref name="margin"/> from it along the area's own axes (the inset the grid's 1 m margin gives the box). True without a shape.
+    /// </summary>
+    public bool HoldsSpot(Vector3 spot, float margin = 1f)
+    {
+        if (Volume is not { } shape) return true;
+        float bottom = Center.Z - Size.Z / 2f - SpotColumnBelow, top = Center.Z + Size.Z / 2f;
+        float c = MathF.Cos(Yaw), s = MathF.Sin(Yaw);
+        bool At(float x, float y) => shape.Crosses(new Vector3(x, y, bottom), new Vector3(x, y, top));
+        return At(spot.X, spot.Y) && At(spot.X + c * margin, spot.Y + s * margin) && At(spot.X - c * margin, spot.Y - s * margin)
+            && At(spot.X - s * margin, spot.Y + c * margin) && At(spot.X + s * margin, spot.Y - c * margin);
+    }
+
+    /// <summary>How far under the record's bottom a spot's column starts (metres): the 1 m the spawn grid looks for floor under an area.</summary>
+    public const float SpotColumnBelow = 1f;
+}
 
 /// <summary>
 /// A control point's state: <paramref name="Owner"/> (None: neutral); <paramref name="Side"/>, whose progress
@@ -272,10 +305,22 @@ public sealed partial class World
         foreach (var (_, _, local) in grid)
         {
             var at = new Vector3(area.Center.X + local.X * c - local.Y * s, area.Center.Y + local.X * s + local.Y * c, area.Center.Z);
-            if (Collision is null) { spots.Add(at); continue; }
-            if (LowestStandable(at.X, at.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } ground) spots.Add(ground);
+            if (Collision is null)
+            {
+                // an edited area without a level: the spot at the box's middle height, inside the shape (no lift: it is not on a floor)
+                if (area.Volume is null || area.Volume.Contains(at)) spots.Add(at);
+                continue;
+            }
+            if (LowestStandable(at.X, at.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } ground && area.HoldsSpot(ground, margin)) spots.Add(ground);
         }
-        if (spots.Count == 0) spots.Add(area.Center);
+        if (spots.Count == 0)
+        {
+            // an edited area with no spot: InsidePoint's XY (the box centre may lie outside the shape) with the ground found under it as above; none: the centre, as before
+            var fallback = area.Center;
+            if (area.Volume?.InsidePoint() is { } inside)
+                fallback = Collision is not null && LowestStandable(inside.X, inside.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } g ? g : inside;
+            spots.Add(fallback);
+        }
         _areaSpots[areaIndex] = spots;
         return spots;
     }

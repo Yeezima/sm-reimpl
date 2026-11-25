@@ -111,6 +111,12 @@ public sealed class CustomMap
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
+    /// <summary>
+    /// Whether an edited marker's record carries its exact shape into the simulation (plan M2; docs/mapmaker.md "Edit mode in play"): on since contract v3 (it was held off on v2,
+    /// lead 39, 2026-11-25). Off, the records keep only the mesh's box and the shapes stay in <see cref="Volumes"/>: the one switch that restores the M0 play of edited maps (their
+    /// hash is the same either way). Unedited markers never carry a shape.
+    /// </summary>
+    public const bool VolumesInPlay = true;
     /// <summary>The surface id a cover piece's triangles give a shot that hits them (the id of Classic's crate metal, <c>CrateSurface</c> in the prop tests; ours).</summary>
     public const int CoverSurface = 4;
     /// <summary><see cref="MapWall.Group"/> of a movement wall: ALL (every player is stopped; the group Classic's own walls have).</summary>
@@ -133,7 +139,7 @@ public sealed class CustomMap
     /// <summary>
     /// The exact shapes of edited markers, by the compiled name of their record (<c>cm_start_marines_1</c>, <c>marines_blocker_1</c>, <c>mkr_objective_1</c>, <c>cm_kill_1</c>): world-space
     /// closed meshes built with the deterministic maths (<see cref="MeshVolume.Contains"/> is the point-in-shape test). The record itself carries the mesh's box, so a consumer that only knows
-    /// boxes still sees the edited extent; the runtime makes the volume exact (plan M2). Unedited markers have no entry and behave exactly as before.
+    /// boxes still sees the edited extent, and the record also carries the shape (<c>Volume</c>) into the simulation, which then uses it exactly (plan M2). Unedited markers have no entry and behave exactly as before.
     /// </summary>
     public IReadOnlyDictionary<string, MeshVolume> Volumes { get; init; } = new Dictionary<string, MeshVolume>();
     /// <summary>The object id of each marker record (spawn areas, doors, capture points, kill zones), by the record's name: pairs a compiled record with its piece without relying on order.</summary>
@@ -172,7 +178,10 @@ public sealed class CustomMap
     /// placements, prefabs and imported models get their meshes; without it they are not compiled. With <see cref="CompileOptions.Strict"/> a placement whose content this PC lacks throws a
     /// <see cref="MapException"/> (<c>missing-install</c>, <c>unknown-map</c>, <c>missing-sm1-definition</c>, <c>missing-asset</c>, <c>missing-prefab</c>, <c>bad-asset</c>).
     /// </summary>
-    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null)
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null) => Compile(doc, options, VolumesInPlay);
+
+    /// <summary>As <see cref="Compile(MapDocument, CompileOptions?)"/>, choosing whether edited markers' records carry their exact shape (<see cref="VolumesInPlay"/>; tests).</summary>
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options, bool volumesInPlay)
     {
         var notes = new List<string>();
         var vertices = new List<Vector3>();
@@ -260,31 +269,42 @@ public sealed class CustomMap
                 }
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             }
-            string? volumeName = null;
+            // An edited marker's exact shape: kept in Volumes under the record's name and carried by the record into the simulation (plan M2: inside the shape counts, inside only its box does not).
+            // Unedited markers get none, so their records and every rule that reads them are exactly as before.
+            MeshVolume? Exact(string recordName)
+            {
+                recordIds[recordName] = o.Id;   // every marker record, edited or not (CustomMap.RecordIds)
+                if (edited is null) return null;
+                var volume = new MeshVolume(recordName, edited, editedTri!);
+                volumes[recordName] = volume;
+                return volumesInPlay ? volume : null;   // VolumesInPlay: the switch back to M0 play
+            }
             switch (piece.Kind)
             {
                 case PieceKind.SpawnArea:
                 {
                     var side = piece.Side == PieceSpec.Marines ? Team.SpaceMarines : Team.Chaos;
                     int n = side == Team.SpaceMarines ? ++areaMarines : ++areaChaos;
-                    volumeName = $"cm_start_{piece.Side}_{n}";
-                    areas.Add(new MapStartArea(volumeName, side, centre, yaw, size, 1));
+                    string rec = $"cm_start_{piece.Side}_{n}";
+                    areas.Add(new MapStartArea(rec, side, centre, yaw, size, 1) { Volume = Exact(rec) });
                     break;
                 }
                 case PieceKind.Blocker:
                 {
                     var side = piece.Side == PieceSpec.Marines ? Team.SpaceMarines : Team.Chaos;
                     int n = side == Team.SpaceMarines ? ++blockerMarines : ++blockerChaos;
-                    volumeName = $"{piece.Side}_blocker_{n}";
-                    blockers.Add(new MapBlocker(volumeName, side, centre, yaw, size));
+                    string rec = $"{piece.Side}_blocker_{n}";
+                    blockers.Add(new MapBlocker(rec, side, centre, yaw, size) { Volume = Exact(rec) });
                     break;
                 }
                 case PieceKind.CapturePoint:
+                {
                     pointNumber++;
-                    volumeName = $"mkr_objective_{pointNumber}";
-                    // unedited: X for both horizontal sizes, as before (a round point); edited: the mesh's box, and the exact shape in Volumes
-                    points.Add(new MapControlPoint(volumeName, centre, yaw, edited is null ? new Vector3(size.X, size.X, size.Z) : size, 3));
+                    string rec = $"mkr_objective_{pointNumber}";
+                    // unedited: X for both horizontal sizes, as before (a round point); edited: the mesh's box, and the exact shape
+                    points.Add(new MapControlPoint(rec, centre, yaw, edited is null ? new Vector3(size.X, size.X, size.Z) : size, 3) { Volume = Exact(rec) });
                     break;
+                }
                 case PieceKind.MoveWall:
                     // a movement-only wall (MapWall -> CollisionWorld.Walls): position = the centre, rotation about Z in degrees, scale = the full size
                     wallNumber++;
@@ -292,13 +312,13 @@ public sealed class CustomMap
                     walls.Add(new MapWall($"cm_wall_{wallNumber}", centre, new Vector3(0, 0, (float)YawDegreesOf(doc, o)), size, piece.IsCylinder ? 3 : 1, WallGroup, 1) { Vertices = wv, Indices = wi });
                     break;
                 case PieceKind.KillZone:
+                {
                     killNumber++;
-                    volumeName = $"cm_kill_{killNumber}";
-                    kills.Add(new MapKillRegion(volumeName, centre, yaw, size, 0));
+                    string rec = $"cm_kill_{killNumber}";
+                    kills.Add(new MapKillRegion(rec, centre, yaw, size, 0) { Volume = Exact(rec) });
                     break;
+                }
             }
-            if (volumeName is not null) recordIds[volumeName] = o.Id;
-            if (edited is not null && volumeName is not null) volumes[volumeName] = new MeshVolume(volumeName, edited, editedTri!);
         }
         if (areaMarines > 1 || areaChaos > 1) notes.Add("Only the first spawn area of each side is used by the match; the others are ignored.");
         // SM1 placements, prefab instances and imported models: drawn by the client and solid here, the same triangles on every machine (DecorGeometry).
@@ -336,7 +356,10 @@ public sealed class CustomMap
         string name = WireName(doc.Name);
         ulong hash = HashOf(doc, decor is { Placements.Count: > 0 } ? decor.Digest() : null);
         // MapContent.Spawns: one per start area, on the area's floor (World.Spawns is never empty for a team map).
-        var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", a.Position - new Vector3(0, 0, a.Scale.Z / 2f), a.Yaw)).ToList();
+        // an edited area: the spawn under a point inside its shape (its box centre may be outside the shape), on the box's floor
+        static Vector3 SpawnAt(MapStartArea a, IReadOnlyDictionary<string, MeshVolume> v) => v.TryGetValue(a.Name, out var shape) && shape.InsidePoint() is { } inside
+            ? new Vector3(inside.X, inside.Y, a.Position.Z - a.Scale.Z / 2f) : a.Position - new Vector3(0, 0, a.Scale.Z / 2f);
+        var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", SpawnAt(a, volumes), a.Yaw)).ToList();
         var content = new MapContent(name, "custom", layers, spawns, hash)
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,

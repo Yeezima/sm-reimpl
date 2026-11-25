@@ -78,7 +78,7 @@ public partial class NetworkView
         if (!CustomMap.IsCustomName(name) || _customMap is null || _gameSpace is null) return;
         try
         {
-            var view = CustomMapView.Build(_customMap);
+            var view = CustomMapView.Build(_customMap, CustomMapFile ?? CustomMaps.Locate(name));
             _gameSpace.AddChild(view);
             if (_lookScene is null && _sun is not null && _environment is not null) CustomMapView.ApplyLook(_sun, _environment);
             drawn = true;
@@ -126,21 +126,35 @@ public partial class NetworkView
     }
 }
 
-/// <summary>The drawing of a custom map: its solid pieces as flat-shaded meshes in game space (Z up) with a world grid texture so the shapes read, and a light look.</summary>
+/// <summary>
+/// The drawing of a custom map: its solid pieces as flat-shaded meshes in game space (Z up) with a world grid texture so the shapes read, and a light look. A piece whose shape was
+/// edited, or that has a material, is drawn from the core's <see cref="DrawPiece.Render"/> (its edited shape, normals, tangents and UVs: what the editor shows is what plays;
+/// docs/mapmaker.md "Edit mode in play"); an unedited piece without a material keeps the stock path, which draws the same shape.
+/// </summary>
 public static class CustomMapView
 {
-    public static Node3D Build(CustomMap map)
+    /// <summary>The map's view; <paramref name="file"/> is the map file (a material's pictures are read from beside it first, then the library).</summary>
+    public static Node3D Build(CustomMap map, string? file = null)
     {
         var view = new Node3D { Name = "MapVisuals" };
         var material = Material();
+        var mats = new MaterialBuild.Cache(map.Document, file, new MapLibrary(null));   // each material and picture built once (M3's shared builder: preview = saved = in game)
         foreach (var p in map.Pieces)
         {
             if (!p.Visible || p.Piece.Info.Solid is false || p.Piece.Kind == PieceKind.CollisionBox) continue;
+            if (p.Mesh is not null || p.Material is not null)
+            {
+                // an edited shape or a material: the core's render mesh (edited shape, normals, tangents, UVs) with the material's surface, or the grid look
+                Godot.Material surface = (p.Material is null ? null : (Godot.Material?)mats.For(p.Material)) ?? material;
+                view.AddChild(new MeshInstance3D { Name = $"{p.Id}", Mesh = MaterialBuild.Mesh(p.Render()), MaterialOverride = surface });
+                continue;
+            }
             var (v, tri) = PieceMesh.Unit(p.Piece.Kind)!.Value;
             var corners = new System.Numerics.Vector3[tri.Length];
             for (int i = 0; i < tri.Length; i++) corners[i] = System.Numerics.Vector3.Transform(v[tri[i]], p.World);
             view.AddChild(new MeshInstance3D { Name = $"{p.Id}", Mesh = Flat(corners), MaterialOverride = material });
         }
+        foreach (var note in mats.Notes) GD.Print("custom map material: " + note);
         return view;
     }
 

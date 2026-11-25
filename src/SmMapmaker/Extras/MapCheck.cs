@@ -97,15 +97,49 @@ public static class MapCheck
         float halfHeight = MathF.Max(half.Z, 1f);
         int nu = (int)MathF.Floor(MathF.Max(0f, half.X - margin) / step), nv = (int)MathF.Floor(MathF.Max(0f, half.Y - margin) / step);
         float c = MathF.Cos(area.Yaw), s = MathF.Sin(area.Yaw);
+        var sim = area.ToSim();   // an edited area keeps only the spots its shape holds (StartArea.HoldsSpot, the simulation's own rule); an unedited one keeps every spot, as before
         var spots = new List<Vector3>();
         for (int u = -nu; u <= nu; u++)
             for (int v = -nv; v <= nv; v++)
             {
                 var local = new Vector2(u * step, v * step);
                 float x = area.Position.X + local.X * c - local.Y * s, y = area.Position.Y + local.X * s + local.Y * c;
-                if (Standable(character, x, y, area.Position.Z + halfHeight, area.Position.Z - halfHeight - 1f) is { } ground) spots.Add(ground);
+                if (Standable(character, x, y, area.Position.Z + halfHeight, area.Position.Z - halfHeight - 1f) is { } ground && sim.HoldsSpot(ground, margin)) spots.Add(ground);
             }
         return spots;
+    }
+
+    /// <summary>
+    /// Where a player stands on capture point <paramref name="p"/>: unedited, the floor in its middle (as before); edited, the first floor point (a grid over the shape's box, at most
+    /// 64 x 64 samples, row by row from its -X -Y corner) whose lifted feet the shape holds. Null: nobody can stand on it.
+    /// </summary>
+    public static Vector3? PointFloor(MapControlPoint p, StaticMesh mesh)
+    {
+        if (p.Volume is not { } shape) return Standable(mesh, p.Position.X, p.Position.Y, p.Position.Z + p.Scale.Z / 2f, p.Position.Z - p.Scale.Z / 2f - 1f);
+        var sim = p.ToSim();
+        float sx = MathF.Max(0.5f, (shape.Max.X - shape.Min.X) / 64f), sy = MathF.Max(0.5f, (shape.Max.Y - shape.Min.Y) / 64f);
+        for (int j = 0; j <= 64; j++)
+        {
+            float y = shape.Min.Y + (j + 0.5f) * sy;
+            if (y > shape.Max.Y) break;
+            for (int i = 0; i <= 64; i++)
+            {
+                float x = shape.Min.X + (i + 0.5f) * sx;
+                if (x > shape.Max.X) break;
+                if (Standable(mesh, x, y, shape.Max.Z, shape.Min.Z - 1f) is { } ground && sim.Contains(ground)) return ground;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Whether a floor spot is inside start area <paramref name="a"/>: its exact shape when edited (lifted feet), else its box.</summary>
+    static bool InArea(MapStartArea a, Vector3 spot)
+    {
+        if (a.Volume is not null) return a.ToSim().HoldsSpot(spot, 0f);   // the spot's column through the area's height (contract v4 rule)
+        var d = spot - a.Position;
+        float c = MathF.Cos(-a.Yaw), s = MathF.Sin(-a.Yaw);
+        float lx = d.X * c - d.Y * s, ly = d.X * s + d.Y * c;
+        return MathF.Abs(lx) <= a.Scale.X / 2f && MathF.Abs(ly) <= a.Scale.Y / 2f && MathF.Abs(d.Z) <= a.Scale.Z / 2f;
     }
 
     static Vector3? Standable(StaticMesh mesh, float x, float y, float top, float bottom)
@@ -166,7 +200,9 @@ public static class MapCheck
         // Spawn area overlap between the sides.
         foreach (var m in marinesAreas)
             foreach (var c in chaosAreas)
-                if (BoxesOverlap(m.Position, m.Scale, m.Yaw, c.Position, c.Scale, c.Yaw))
+                if (BoxesOverlap(m.Position, m.Scale, m.Yaw, c.Position, c.Scale, c.Yaw)
+                    // an edited area overlaps by its shape: some spawn spot of one side lies inside the other's area (the boxes alone may overlap where the shapes do not)
+                    && (m.Volume is null && c.Volume is null || SpotsIn(m, mesh).Any(q => InArea(c, q)) || SpotsIn(c, mesh).Any(q => InArea(m, q))))
                     r.Issues.Add(new Issue(Severity.Error, "spawn-overlap", "The Marine and Chaos spawn areas overlap: the sides would spawn on each other.", "Move one spawn area away from the other.", ids(areaPieces)));
 
         // Doors.
@@ -187,7 +223,7 @@ public static class MapCheck
         {
             var p = content.ControlPoints[i];
             var piece = map.RecordIds.TryGetValue(p.Name, out var pid) ? map.Pieces.FirstOrDefault(x => x.Id == pid) : null;   // paired by id, not by order
-            var floor = Standable(mesh, p.Position.X, p.Position.Y, p.Position.Z + p.Scale.Z / 2f, p.Position.Z - p.Scale.Z / 2f - 1f);
+            var floor = PointFloor(p, mesh);
             if (floor is null)
                 r.Issues.Add(new Issue(Severity.Warning, "point-no-floor", $"Capture point {Letter(i)} has no floor in its middle, so nobody can stand on it.", "Move it onto the floor, or lower it.", piece is null ? null : [piece.Id], CheckMode.Seize));
             if (piece is { Mesh: null } && MathF.Abs(piece.Scale.X) != MathF.Abs(piece.Scale.Y))   // an unedited point plays as a circle of the X size (the old rule, kept)
@@ -201,10 +237,17 @@ public static class MapCheck
         foreach (var kz in content.KillRegions.Where(k => k.Name != "cm_kill_floor"))
         {
             var kv = kz.ToSim();
-            foreach (var (what, at) in content.StartAreas.Select(a => ($"The {SideName(a.Side)} spawn area", a.Position))
-                .Concat(content.ControlPoints.Select((p, i) => ($"Capture point {Letter(i)}", p.Position))))
+            foreach (var (what, at) in content.StartAreas.Where(a => a.Volume is null).Select(a => ($"The {SideName(a.Side)} spawn area", a.Position))
+                .Concat(content.ControlPoints.Select((p, i) => ($"Capture point {Letter(i)}", p)).Where(x => x.p.Volume is null).Select(x => (x.Item1, x.p.Position))))
                 if (kv.Contains(at))
                     r.Issues.Add(new Issue(Severity.Error, "in-kill-zone", $"{what} is inside a kill zone: players there would die at once.", "Move the kill zone or the piece.", null));
+            // an edited spawn area or point: its box's middle may lie outside its shape, so what counts is where players stand (its spawn spots, the point's floor in its shape)
+            foreach (var a in content.StartAreas.Where(a => a.Volume is not null))
+                if (SpotsIn(a, mesh).Any(q => kv.Crosses(q, q + new Vector3(0, 0, CapsuleHeight))))
+                    r.Issues.Add(new Issue(Severity.Error, "in-kill-zone", $"The {SideName(a.Side)} spawn area is inside a kill zone: players there would die at once.", "Move the kill zone or the piece.", null));
+            for (int i = 0; i < content.ControlPoints.Count; i++)
+                if (content.ControlPoints[i].Volume is not null && PointFloor(content.ControlPoints[i], mesh) is { } q && kv.Crosses(q, q + new Vector3(0, 0, CapsuleHeight)))
+                    r.Issues.Add(new Issue(Severity.Error, "in-kill-zone", $"Capture point {Letter(i)} is inside a kill zone: players there would die at once.", "Move the kill zone or the piece.", null));
         }
 
         // Size and sanity.
@@ -250,7 +293,9 @@ public static class MapCheck
                         "Add a ramp or open a gap between the sides."));
                 for (int i = 0; i < map.Content.ControlPoints.Count; i++)
                 {
-                    var p = map.Content.ControlPoints[i].Position - new Vector3(0, 0, map.Content.ControlPoints[i].Scale.Z / 2f);
+                    var cp = map.Content.ControlPoints[i];
+                    // an edited point: a floor spot inside its shape (its box's middle may be outside it); none: the box's bottom middle, as before
+                    var p = (cp.Volume is null ? null : PointFloor(cp, world.Character)) ?? cp.Position - new Vector3(0, 0, cp.Scale.Z / 2f);
                     if (graph.FindPath(from, p) is null)
                         r.Issues.Add(new Issue(Severity.Warning, "point-unreachable", $"Bots of the {SideName(side)} cannot walk to capture point {Letter(i)}.", "Add a ramp or step up to it, or move it onto reachable floor.", null, CheckMode.Seize));
                 }

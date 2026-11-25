@@ -19,13 +19,19 @@ public readonly record struct MapSpawn(string Name, Vector3 Position, float Yaw)
 /// </summary>
 public sealed record MapControlPoint(string Name, Vector3 Position, float Yaw, Vector3 Scale, int Shape)
 {
-    public ControlPoint ToSim() => new(Name, Position, Scale.X / 2f, Scale.Z / 2f);
+    /// <summary>The exact shape (a Mapmaker point whose shape was edited; added content sets it, docs/mapmaker.md "Edit mode in play"); null for every install map and every unedited point.</summary>
+    public MeshVolume? Volume { get; init; }
+
+    public ControlPoint ToSim() => new(Name, Position, Scale.X / 2f, Scale.Z / 2f) { Volume = Volume };
 }
 
 /// <summary>A team start area marker (<c>mkr_start_marine</c>, <c>mkr_start_ork</c> = Chaos; matched ignoring case): shape 1 box, 3 cylinder.</summary>
 public sealed record MapStartArea(string Name, Team Side, Vector3 Position, float Yaw, Vector3 Scale, int Shape)
 {
-    public StartArea ToSim() => new(Side, Position, Scale, Yaw, Shape == 3 ? AreaShape.Cylinder : AreaShape.Box);
+    /// <summary>The exact shape (a Mapmaker spawn area whose shape was edited); null for every install map and every unedited area.</summary>
+    public MeshVolume? Volume { get; init; }
+
+    public StartArea ToSim() => new(Side, Position, Scale, Yaw, Shape == 3 ? AreaShape.Cylinder : AreaShape.Box) { Volume = Volume };
 }
 
 /// <summary>
@@ -35,7 +41,10 @@ public sealed record MapStartArea(string Name, Team Side, Vector3 Position, floa
 /// </summary>
 public sealed record MapBlocker(string Name, Team Side, Vector3 Position, float Yaw, Vector3 Scale)
 {
-    public SpawnBlocker ToSim() => new(Side, Position, Scale, Yaw);
+    /// <summary>The exact shape (a Mapmaker spawn door whose shape was edited); null for every install map and every unedited door.</summary>
+    public MeshVolume? Volume { get; init; }
+
+    public SpawnBlocker ToSim() => new(Side, Position, Scale, Yaw) { Volume = Volume };
 }
 
 /// <summary>
@@ -66,7 +75,10 @@ public sealed record MapWall(string Name, Vector3 Position, Vector3 RotationDegr
 /// </summary>
 public sealed record MapKillRegion(string Name, Vector3 Position, float Yaw, Vector3 Scale, int Shape)
 {
-    public KillVolume ToSim() => new(Position, Scale / 2f, Yaw);
+    /// <summary>The exact shape (a Mapmaker kill zone whose shape was edited); null for every install map and every unedited zone.</summary>
+    public MeshVolume? Volume { get; init; }
+
+    public KillVolume ToSim() => new(Position, Scale / 2f, Yaw) { Shape = Volume };
 }
 
 /// <summary>
