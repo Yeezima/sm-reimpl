@@ -290,7 +290,7 @@ public sealed partial class World
             rules.CoopHeld = id => (before?.Invoke(id) ?? false) || (DuelHolding && id != _duelist && !TfwContracts.IsPuppet(id) && id > 0);
         }
         // The squads' step reads World.WarfrontDuelHoldsSquads itself (WarfrontSquadWiring.OnSquadStep, the series-37 integration: C5s's wraps of SquadStep and SquadTargets are gone; T2 retired SquadTargets).
-        if (rules.AnyRetainerStanding()) { WarfrontDuelBenchRetainers?.Invoke(); if (start) DuelLog("retainers benched"); }
+        if (rules.Retainers is { All.Count: > 0 } || rules.AnyRetainerStanding()) { WarfrontDuelBenchRetainers?.Invoke(); if (start) DuelLog("retainers benched"); }   // any landed retainer, downed ones too (their World players go with TfwDismissMarines below; review of 8f885525)
         if (TfwGuards is { Count: > 0 } guards) { guards.Clear(); if (start) DuelLog("Guardsmen withdrawn"); }
         if (WarfrontChaosBreaches is { AnyStanding: true } breaches) breaches.CloseAll(silent: true, Tick);
         ushort lord = _duel!.LordId;

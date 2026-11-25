@@ -24,7 +24,7 @@ public sealed record SquadStateSection(byte Phase, byte FirstIndex, IReadOnlyLis
 
 /// <summary>
 /// One roster Marine as it travels (tag 33): slot, the battle index (255: not in this battle), name, class, the three weapon ids, whether it wears the owner's own armour pieces, the service record, and (Phase B T2,
-/// WarfrontWire.Format 3) the World player id it fights as (<see cref="NoWorldId"/>: not in the World: out, or not in this battle): the client draws it as that player.
+/// WarfrontWire.Format 4) the World player id it fights as (<see cref="NoWorldId"/>: not in the World: out, or not in this battle): the client draws it as that player.
 /// </summary>
 public sealed record SquadRosterWire(byte Slot, byte Index, string Name, byte Class, ushort Primary, ushort Secondary, ushort Melee, bool OwnPieces, IReadOnlyList<ushort> Record, ushort WorldId = SquadRosterWire.NoWorldId)
 {
@@ -51,7 +51,7 @@ public readonly record struct SquadCommandWire(SquadCommandKind Kind, byte Slot,
 /// <item>Tag 32 (retired by Phase B T2: the server no longer sends it, the retainers are World players in the snapshot; the codec stays for the client's crowd until T5 retires it): <c>[u8 phase][u8 first index][u8 count]</c> then <see cref="MarineBytes"/> bytes a Marine <c>[u8 index 0..35][u8 flags: bits 0-1 state, 2 firing, 3 melee, 4 being revived, 5-6 order, 7 airborne]
 /// [i16 x][i16 y at 5 cm][i16 z at 2 cm][u8 yaw][u8 health][u8 aux][u16 target or 0xFFFF]</c>; positions reach 1638 m (x, y) and 655 m (z) from the origin, yaw is 1.4 degrees a step, health a 255th.</item>
 /// <item>Tag 33: <c>[u64 handle][u8 owner player or 255][u8 held][u8 count]</c> then per Marine <c>[u8 slot][u8 index or 255][u8 len][name, UTF-8, at most 24 bytes][u8 class][u16 primary][u16 secondary][u16 melee]
-/// [u8 flags: bit 0 own pieces][u16 x 8 record][u16 World id or 0]</c> (the World id since WarfrontWire.Format 3).</item>
+/// [u8 flags: bit 0 own pieces][u16 x 8 record][u16 World id or 0]</c> (the World id since WarfrontWire.Format 4).</item>
 /// <item>Tag 34: <c>[u8 count]</c> then <c>[u8 kind][u8 index][u8 by]</c>, a pound then <c>[i16 x][i16 y][i16 z]</c> in decimetres.</item>
 /// <item>Tag 41 (command): <c>[u8 kind]</c>, Rename <c>[u8 slot][u8 len][name]</c>, JumpPound <c>[i16 x][i16 y][i16 z]</c> in decimetres, SquadClass <c>[u8]</c>.</item>
 /// </list>
