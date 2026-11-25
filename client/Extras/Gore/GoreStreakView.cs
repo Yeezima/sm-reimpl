@@ -93,6 +93,7 @@ void vertex() {
         POSITION = vec4(2.0, 2.0, 2.0, 1.0);   // clipped: not born yet or gone
         v_exit = 0.0; v_entry = 0.0; v_fan = 0.0; v_width = 0.0; v_fill = 0.0; v_opac = 0.0; v_grit = 0.0; v_br = 0.0; v_out = 0.0;
     } else {
+        POSITION = PROJECTION_MATRIX * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));   // written in both branches: once a shader writes POSITION, Godot takes it for every vertex
         int i = 0;
         for (int j = 0; j < NK - 2; j++) { if (age >= K_T[j + 1]) i = j + 1; }
         float fade = 1.0;
