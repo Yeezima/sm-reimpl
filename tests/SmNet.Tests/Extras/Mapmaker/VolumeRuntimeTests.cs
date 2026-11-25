@@ -191,4 +191,53 @@ public class VolumeRuntimeTests
         var flat = new World(Config) { StartAreas = [area] }.StartAreaSpots(0);
         Assert.All(flat, s => Assert.True(shape.Contains(s)));
     }
+
+    /// <summary>A door slab x -10..10, y -0.5..0.5, z 0..3 whose top face is shifted by <paramref name="lean"/> along Y (a leaning door), as a closed mesh wound counter-clockwise from outside.</summary>
+    static MeshVolume Slab(float lean)
+    {
+        Vector3[] v = new Vector3[8];
+        for (int i = 0; i < 8; i++) v[i] = new Vector3((i & 1) == 0 ? -10 : 10, ((i & 2) == 0 ? -0.5f : 0.5f) + ((i & 4) == 0 ? 0 : lean), (i & 4) == 0 ? 0 : 3);
+        int[] t = [0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5];
+        return new MeshVolume("door", v, t);
+    }
+
+    /// <summary>A Chaos player (blocked by the Marine door) starts at (-8, -4) and walks diagonally (+X +Y) into the door for 4 s; returns where it ended and the slowest second's travel.</summary>
+    static (Vector3 End, float SlowestSecond) WalkIntoDoor(SpawnBlocker door)
+    {
+        var level = new CollisionWorld(Level(), Level(), null, [door]);
+        var world = new World(TeamConfig, level, [new SpawnPoint(new Vector3(-8, -4, 0), 0f)])
+        {
+            Rules = MatchRules.For(GameMode.Annihilation) with { TimeLimit = 0f },
+            StartAreas = [new StartArea(Team.Chaos, new Vector3(-8, -4, 1), new Vector3(1, 1, 2), 0f), new StartArea(Team.SpaceMarines, new Vector3(-25, 25, 1), new Vector3(1, 1, 2), 0f)],
+        };
+        world.Spawn(1, 1);
+        world.Spawn(2, 0);
+        Assert.Equal(Team.Chaos, world.Players[1].Team);
+        float yaw = -MathF.PI / 4f, slowest = float.MaxValue;
+        var last = world.Players[1].Position;
+        for (int t = 1; t <= 120; t++)
+        {
+            world.Step(_ => new PlayerInput(0, 0, 1, yaw, InputButtons.None));
+            if (t % 30 == 0) { var p = world.Players[1].Position; slowest = MathF.Min(slowest, Vector2.Distance(new(p.X, p.Y), new(last.X, last.Y))); last = p; }
+        }
+        return (world.Players[1].Position, slowest);
+    }
+
+    [Theory]
+    [InlineData(0f)]     // upright
+    [InlineData(-0.8f)]  // leaning toward the player (an overhang)
+    [InlineData(0.8f)]   // leaning away
+    public void A_player_walking_along_and_into_an_edited_door_slides_without_snagging(float lean)
+    {
+        var door = new SpawnBlocker(Team.SpaceMarines, new Vector3(0, lean / 2f, 1.5f), new Vector3(20, 1 + MathF.Abs(lean), 3), 0f) { Volume = Slab(lean) };
+        var (end, slowest) = WalkIntoDoor(door);
+        var box = WalkIntoDoor(new SpawnBlocker(Team.SpaceMarines, new Vector3(0, 0, 1.5f), new Vector3(20, 1, 3), 0f));
+        float face = MathF.Min(-0.5f, -0.5f + lean);   // the door's nearest face to the player
+        Assert.True(end.Y < face, $"passed the door: {end}");
+        Assert.True(end.X > 2f, $"stuck against the door: {end} (stock box door: {box.End})");   // it slid along it, as along the stock box door
+        Assert.True(slowest > 1f, $"snagged: {slowest:F2} m in its slowest second (stock box door {box.SlowestSecond:F2})");
+        // the door is still raised above the level (the walk above used the authored triangles plus the outline walls and cap, SpawnBlocker.DoorCollider)
+        var raised = new CollisionWorld(Level(), Level(), null, [door]).Blockers[0].Volume!;
+        Assert.True(raised.Max.Z > Level().Max.Z + SpawnBlocker.AboveLevel - 0.01f);
+    }
 }

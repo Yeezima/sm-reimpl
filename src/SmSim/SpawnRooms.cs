@@ -141,9 +141,10 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             int first = vertices.Count;
             if (b.Volume is { } shape)
             {
-                // an edited door collides by its own shape (as raised), not by its box
-                vertices.AddRange(shape.Vertices);
-                foreach (int i in shape.Indices) indices.Add(first + i);
+                // an edited door collides by its own shape and the column above it (DoorCollider), not by its box
+                var (dv, di) = DoorCollider(shape);
+                vertices.AddRange(dv);
+                foreach (int i in di) indices.Add(first + i);
                 continue;
             }
             vertices.AddRange(b.Corners());
@@ -179,6 +180,51 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             }
         }
         return wv.Count == 0 ? mesh : mesh.With([.. wv], [.. wi], addedWallCentres: [.. wc], addedNoStandFlags: [.. wf]);
+    }
+
+    /// <summary>
+    /// The other side's collider of an edited door (contract v4.1 note, docs/mapmaker.md): the authored triangles, and above them, when the door is raised (<see cref="ReachingAbove"/>),
+    /// vertical walls up from the boundary of the authored shape's upper surface (each edge of an upward-facing triangle that no other upward-facing triangle shares) to the raised top, closed
+    /// by a flat cap (every upward-facing triangle copied at the top). Everything lies on the surface of "the shape and everything above it", so the capsule controller meets no wall inside
+    /// the solid (the raised volume's own prism soup has interior walls and caps that can snag it). Chosen over the raised record box: the box is wider than an edited door's footprint, so
+    /// its upper part would block players who walk beside the shape and jump. Deterministic (IEEE float only, triangle order).
+    /// </summary>
+    internal static (Vector3[] Vertices, int[] Indices) DoorCollider(MeshVolume shape)
+    {
+        var a = shape.Authored;
+        var v = new List<Vector3>(a.Vertices);
+        var idx = new List<int>(a.Indices);
+        if (ReferenceEquals(a, shape) || !(shape.Max.Z > a.Max.Z || shape.Vertices.Length > a.Vertices.Length)) return ([.. v], [.. idx]);
+        float top = shape.Max.Z;
+        // upward-facing authored triangles (right way out since contract v4: positive area in plan faces up)
+        var up = new List<(Vector3 A, Vector3 B, Vector3 C)>();
+        for (int t = 0; t + 2 < a.Indices.Length; t += 3)
+        {
+            Vector3 p = a.Vertices[a.Indices[t]], q = a.Vertices[a.Indices[t + 1]], r = a.Vertices[a.Indices[t + 2]];
+            double area = ((double)q.X - p.X) * ((double)r.Y - p.Y) - ((double)q.Y - p.Y) * ((double)r.X - p.X);
+            if (area > 0) up.Add((p, q, r));
+        }
+        // edge use count among the upward triangles, by position (an edge used once is the upper surface's boundary)
+        var count = new Dictionary<(Vector3, Vector3), int>();
+        static (Vector3, Vector3) Key(Vector3 x, Vector3 y) => (x.X, x.Y, x.Z).CompareTo((y.X, y.Y, y.Z)) <= 0 ? (x, y) : (y, x);
+        foreach (var (p, q, r) in up)
+            foreach (var (x, y) in new[] { (p, q), (q, r), (r, p) }) { var k = Key(x, y); count[k] = count.GetValueOrDefault(k) + 1; }
+        foreach (var (p, q, r) in up)
+        {
+            // the cap: the triangle at the top, still counter-clockwise in plan (facing up)
+            int c0 = v.Count;
+            v.AddRange([p with { Z = top }, q with { Z = top }, r with { Z = top }]);
+            idx.AddRange([c0, c0 + 1, c0 + 2]);
+            foreach (var (x, y) in new[] { (p, q), (q, r), (r, p) })
+            {
+                if (count[Key(x, y)] != 1 || (x.Z >= top && y.Z >= top)) continue;
+                // a wall from the boundary edge straight up (outward: the edge runs counter-clockwise round the upper surface)
+                int w = v.Count;
+                v.AddRange([x, y, y with { Z = top }, x with { Z = top }]);
+                idx.AddRange([w, w + 1, w + 2, w, w + 2, w + 3]);
+            }
+        }
+        return ([.. v], [.. idx]);
     }
 
     /// <summary>FNV-1a 64 of <paramref name="h"/> and each blocker's side and floats (centre, size, yaw); none: <paramref name="h"/>.</summary>
