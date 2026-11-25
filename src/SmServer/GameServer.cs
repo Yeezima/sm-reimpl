@@ -795,7 +795,7 @@ public sealed partial class GameServer
         peer.SlackMs = int.MaxValue;
         var records = players;
         int lean = 0;
-        ExtrasSnapshotRecords(peer.PlayerId, viewer, ref records, ref lean);   // EXTRAS-HOOK (protocol 94): Warfront orders its players for this recipient and sends its AI Marines lean
+        ExtrasSnapshotRecords(peer.PlayerId, viewer, points.Length, ref records, ref lean);   // EXTRAS-HOOK (protocol 94): Warfront picks and orders its players for this recipient and sends its AI Marines lean
         _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, records, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
             Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack, Lean: lean)));
@@ -803,10 +803,10 @@ public sealed partial class GameServer
 
     /// <summary>
     /// Hook for added content (protocol 94): may reorder <paramref name="records"/> (a new array; the one passed is every recipient's) for the recipient <paramref name="self"/> seeing from
-    /// <paramref name="viewer"/>, and send the last <paramref name="lean"/> of them as lean records (<see cref="Snapshot.Lean"/>). The snapshot writer leaves out the last records past its budget, so
-    /// the order is the priority. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// <paramref name="viewer"/> (the snapshot carries <paramref name="points"/> control points), leave some out, and send the last <paramref name="lean"/> of them as lean records
+    /// (<see cref="Snapshot.Lean"/>). The snapshot writer still leaves out the last records past its budget. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
     /// </summary>
-    partial void ExtrasSnapshotRecords(int self, Vector3 viewer, ref PlayerState[] records, ref int lean);
+    partial void ExtrasSnapshotRecords(int self, Vector3 viewer, int points, ref PlayerState[] records, ref int lean);
 
     /// <summary>Hook for added content (protocol 94): the scoreboard rank of player <paramref name="id"/> (0, the default, first; rows sort by rank, then id, and the writer leaves out the last rows past one packet). Returns at once unless its feature runs.</summary>
     partial void ExtrasScoreRank(int id, ref int rank);

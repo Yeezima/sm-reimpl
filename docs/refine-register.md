@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4109 spec table rows: **3035 tagged**, 704 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4113 spec table rows: **3040 tagged**, 704 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 4109 spec table rows: **3035 tagged**, 704 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 882 | 836 | 656 | 241 | 1 |
+| Core simulation (provisional values) | 887 | 841 | 659 | 242 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3035** | 2727 | 2224 | 915 | 37 |
+| **All areas** | **3040** | 2732 | 2227 | 916 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1840 |
-| confidence: low | 1071 |
-| confidence: medium | 1042 |
-| notes: ours | 477 |
+| kind: ours | 1844 |
+| confidence: low | 1072 |
+| confidence: medium | 1044 |
+| notes: ours | 478 |
 | kind: interpretation | 457 |
 | notes: estimate | 306 |
-| kind: estimate | 272 |
+| kind: estimate | 273 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
@@ -2973,7 +2973,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (882)
+### Core simulation (provisional values) (887)
 
 *Spec section: Provisional values in use*
 
@@ -4352,6 +4352,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3898BD63` | Pod ids | 65490 to 65509 (20: four pods of five), below the puppet ids (65516 to 65527) with a gap of six; joiners skip them as the puppet range; they count as AI Marines (`TfwContracts.IsPuppet`) (ids) | kind: ours | Phase B T2 proposal, lead 38 approval | Pod ids: compare with SM1 by feel or video. Ours: 65490 to 65509 (20: four pods of five), below the puppet ids (65516… | ☐ |
 | `R-D96005F9` | Pod refusal | a Warfront call is refused (at no cooldown, as before) only when fewer than 5 pod ids are free after the called pods' reservations: a fifth pod while four are out (ids) | kind: ours | the 2026-11-14 rule on the pods' own range | Pod refusal: compare with SM1 by feel or video. Ours: a Warfront call is refused (at no cooldown, as before) only when… | ☐ |
 | `R-16715EDB` | Lean record | 33 bytes for a Warfront AI Marine (retainers, the pair, pod Marines) when a snapshot names more than 16 players: id u16, position 3 x i24 in 1/64 m, velocity 3 x i16 in 1/64 m/s, yaw and pitch i16 in pi/32767 rad, then the slim record's last 12 bytes; a human… (bytes) | kind: ours | measured (below) | Lean record: compare with SM1 by feel or video. Ours: 33 bytes for a Warfront AI Marine (retainers, the pair, pod Marines)… | ☐ |
+| `R-3AD52869` | Stable cut | a crowded Warfront snapshot carries only the lean records that fit with every other block at its most (`LeanSchedule.Capacity`): at four humans 18 (17 with 8 control points; a spectator of four humans 22), 1198 bytes at the worst case and 958 quiet, so the… (records) | kind: ours | review fix 2026-11-25 (lead decision a) | Stable cut: compare with SM1 by feel or video. Ours: a crowded Warfront snapshot carries only the lean records that fit… | ☐ |
+| `R-753F842F` | Pod Marine sweep | when the lean records exceed the stable cut, the retainers and the pair always go and the pod Marines (by id) take turns: a window of the room left that moves on by its width each snapshot, so each is sent at least every ceil(pod Marines / window) snapshots… (snapshots) | kind: ours | review fix 2026-11-25 (lead decision c; owner rule: a pod always brings its Marines, on screen too) | Pod Marine sweep: compare with SM1 by feel or video. Ours: when the lean records exceed the stable cut, the retainers and the… | ☐ |
+| `R-E65484DB` | Lean hold | the client keeps a Warfront AI Marine that arrived as a lean record and is missing from a later snapshot for up to 1 s after its last record, put back into each snapshot it misses (its model and pose kept, never freed and rebuilt on a miss); a record sent… (s) | kind: ours; confidence: medium | review fix 2026-11-25 (lead decision b) | Lean hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the client keeps a Warfront AI Marine that arrived as a lean record… | ☐ |
+| `R-8D40B73E` | Lean hold carry | a held record that was alive and grounded moves along its last horizontal velocity for at most 0.2 s, then stands; one in the air or dead stands where it was (s) | kind: estimate; confidence: low; notes: ours | ours (the sweep's 0.1 s gap with room) | Lean hold carry: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a held record that was alive and grounded moves along its last… | ☐ |
+| `R-D58707CA` | Pod battle cry | its five slots are timed from the pod's record alone (step-out plus `TfwDropPodRules.ShoutDelay`), and each slot's speaker is the lowest-id pod Marine within 8 m in sight that has not cried, chosen when the slot begins; a slot with none in sight is cried from… | kind: ours; confidence: medium | review fix 2026-11-25 | Pod battle cry: compare with SM1 by feel or video. Ours: its five slots are timed from the pod's record alone (step-out plus… | ☐ |
 | `R-E073F91B` | Shot index | 5 bits: bit 4 in the third byte's bit 7 for a miss or world hit, and as surface field 14 (15 under 16) for a player hit (bits) | kind: ours | Phase B T2b | Shot index: compare with SM1 by feel or video. Ours: 5 bits: bit 4 in the third byte's bit 7 for a miss or world hit, and… | ☐ |
 
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
@@ -6661,7 +6666,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-02FD7B05` | Budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-90D6C1E5` | Wire | Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3) |
 | `R-FF465398` | Budget measure | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration) |
-| `R-32D20F15` | Over the budget | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
