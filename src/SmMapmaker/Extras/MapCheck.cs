@@ -217,8 +217,9 @@ public static class MapCheck
             r.Issues.Add(new Issue(Severity.Error, "no-points", "There are no capture points, so Seize Ground cannot be played on this map (Annihilation can).", "Add a Capture point (three is the classic A, B, C).", null, CheckMode.Seize, "add-capture-point"));
         else if (content.ControlPoints.Count is > 0 and < 3)
             r.Issues.Add(new Issue(Severity.Info, "few-points", $"Only {content.ControlPoints.Count} capture point{(content.ControlPoints.Count == 1 ? "" : "s")}: Seize Ground plays best with 3.", null, null, CheckMode.Seize));
-        if (content.ControlPoints.Count > World.MaxControlPoints)
-            r.Issues.Add(new Issue(Severity.Error, "too-many-points", $"{content.ControlPoints.Count} capture points: a match takes at most {World.MaxControlPoints}.", "Delete the extra capture points.", null, CheckMode.Seize));
+        int placedPoints = Math.Max(content.ControlPoints.Count, map.CapturePointsPlaced);   // the compile leaves out points past the limit; the map still places them
+        if (placedPoints > World.MaxControlPoints)
+            r.Issues.Add(new Issue(Severity.Error, "too-many-points", $"{placedPoints} capture points: a match takes at most {World.MaxControlPoints}.", "Delete the extra capture points.", null, CheckMode.Seize));
         for (int i = 0; i < content.ControlPoints.Count; i++)
         {
             var p = content.ControlPoints[i];

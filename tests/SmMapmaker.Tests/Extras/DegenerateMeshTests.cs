@@ -107,22 +107,78 @@ public sealed class DegenerateMeshTests
         Assert.Equal(CustomMap.Compile(doc).Hash, game!.Hash);
     }
 
+    /// <summary>Every kind at two tiny scales: 1e-5 m (kept: a positive size), and 1e-45 (a float denormal whose half is 0: a capture point's radius would be 0).</summary>
+    public static TheoryData<string, string, string> TinyScales()
+    {
+        var d = new TheoryData<string, string, string>();
+        foreach (var row in Kinds)
+        {
+            d.Add((string)row[0], (string)row[1], "[6,4,0.00001]");
+            d.Add((string)row[0], (string)row[1], "[1e-45,4,1e-45]");
+        }
+        return d;
+    }
+
+    /// <summary>The match world the server makes from a compiled map (its initialisers run the simulation's record checks).</summary>
+    static World MatchWorld(CustomMap map)
+    {
+        var c = map.Content;
+        return new World(new SimConfig(), map.ToCollisionWorld(), c.SpawnPoints()) { BoundBodies = true, ControlPoints = c.SimControlPoints(), StartAreas = c.SimStartAreas(), SpawnBlockers = c.SimBlockers() };
+    }
+
     [Theory]
-    [MemberData(nameof(Kinds))]
-    public void A_stock_marker_scaled_far_below_a_centimetre_compiles_checks_and_plays(string kind, string piece)
+    [MemberData(nameof(TinyScales))]
+    public void A_stock_marker_scaled_far_below_a_centimetre_compiles_checks_and_plays(string kind, string piece, string scale)
     {
         using var lab = new Lab();
         var s = lab.Session(withSm1: false);
-        foreach (var op in new[] { Floor, "{\"op\":\"place\",\"piece\":" + piece + ",\"name\":\"bad\",\"transform\":{\"position\":[0,0,0],\"scale\":[6,4,0.00001]}}" })
+        foreach (var op in new[] { Floor, "{\"op\":\"place\",\"piece\":" + piece + ",\"name\":\"bad\",\"transform\":{\"position\":[0,0,0],\"scale\":" + scale + "}}" })
             Assert.True(s.Apply(op).Ok);
         var map = CustomMap.Compile(s.Document);
-        _ = kind;   // an unedited marker's record keeps its (tiny, positive) size: the simulation accepts it
+        if (scale.Contains("e-45") && kind is not ("box" or "cover")) Assert.Contains(map.Notes, n => n.Contains("'bad'") && n.Contains("no inside"));
         _ = MapCheck.Run(map).ToText();
+        Assert.NotNull(MatchWorld(map));
         string file = Path.Combine(lab.Dir, kind + ".smmap");
         File.WriteAllText(file, s.Document.ToJson());
         string? name = null;
         Assert.NotNull(SmServer.GameServer.CustomMap(file, ref name, out var error));
         Assert.Null(error);
+    }
+
+    [Fact]
+    public void Capture_points_past_the_match_limit_are_left_out_reported_and_the_server_plays_the_rest()
+    {
+        using var lab = new Lab();
+        var s = lab.Session(withSm1: false);
+        Assert.True(s.Apply(Floor).Ok);
+        for (int i = 0; i < World.MaxControlPoints + 1; i++)
+            Assert.True(s.Apply("{\"op\":\"place\",\"piece\":{\"kind\":\"capture-point\"},\"name\":\"p" + i + "\",\"transform\":{\"position\":[" + (i * 6 - 24) + ",0,0],\"scale\":[4,4,3]}}").Ok);
+        var map = CustomMap.Compile(s.Document);
+        Assert.Equal(World.MaxControlPoints, map.Content.ControlPoints.Count);
+        Assert.Equal(World.MaxControlPoints + 1, map.CapturePointsPlaced);
+        Assert.Contains(map.Notes, n => n.Contains($"'p{World.MaxControlPoints}'") && n.Contains("at most"));
+        Assert.Contains(MapCheck.Run(map).Issues, i => i.Code == "too-many-points");
+        Assert.Equal(World.MaxControlPoints, MatchWorld(map).ControlPoints.Count);
+        string file = Path.Combine(lab.Dir, "nine.smmap");
+        File.WriteAllText(file, s.Document.ToJson());
+        string? name = null;
+        var game = SmServer.GameServer.CustomMap(file, ref name, out var error);
+        Assert.Null(error);
+        Assert.Equal(World.MaxControlPoints, game!.ControlPoints!.Count);
+    }
+
+    [Theory]
+    [InlineData("""{"kind":"blocker","side":"marines"}""")]
+    [InlineData("""{"kind":"capture-point"}""")]
+    [InlineData("""{"kind":"kill-zone"}""")]
+    public void A_shape_on_one_slanted_plane_is_kept_with_a_note_that_it_does_nothing(string piece)
+    {
+        // every vertex on the plane z = 0.5 + 0.4 x + 0.3 y: it spans all three axes (not flat by IsFlat) but encloses nothing
+        string text = FileWith(piece, v => v with { Z = 0.5f + 0.4f * v.X + 0.3f * v.Y });
+        var map = CustomMap.Compile(MapDocument.Parse(text));
+        Assert.Contains(map.Notes, n => n.Contains("'bad'") && n.Contains("encloses almost no space"));
+        Assert.NotNull(MatchWorld(map));
+        Assert.DoesNotContain(CustomMap.Compile(MapDocument.Parse(FileWith(piece, v => v with { X = v.X * 1.5f }))).Notes, n => n.Contains("encloses"));
     }
 
     [Fact]

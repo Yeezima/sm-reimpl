@@ -14,12 +14,16 @@ public sealed partial class GameServer
         GameMap built;
         var sw = System.Diagnostics.Stopwatch.StartNew();
         // SM1 placements, prefabs and imported models are solid here (docs/mapmaker.md "SM1 pieces in play"): meshes only, from this server's install and library; a PC that lacks one refuses.
-        // The simulation's world is built inside the same refusal: its constructors check every record (a spawn door with no inside throws), and a bad file must never crash the server.
+        // The collision world and a throwaway match world are built inside the same refusal: their constructors check every record (a spawn door with no inside, too many
+        // capture points throw), and a bad file must never crash the server.
         try
         {
             compiled = CustomMaps.Load(file, CompileOptions.ForPlay(install, textures: false));
             var cc = compiled.Content;
             built = new GameMap(compiled.Name, compiled.ToCollisionWorld(), cc.SpawnPoints(), compiled.Hash, cc.SimControlPoints(), cc.SimStartAreas(), cc.SimBlockers()) { AddedContent = compiled };
+            // the match world's initialisers run the simulation's own record checks (control point count and sizes, start areas, doors); a throwaway world here turns their
+            // ArgumentException into this refusal, where the real one (GameServer's constructor, after the hook returns) would crash the server at start
+            _ = WorldFor(new SimConfig(), built, new ServerOptions());
         }
         catch (MapException e) { error = $"cannot play '{file}': {e.Message}"; return; }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or InvalidProgramException))

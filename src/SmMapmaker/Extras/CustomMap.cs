@@ -144,6 +144,11 @@ public sealed class CustomMap
     public IReadOnlyDictionary<string, MeshVolume> Volumes { get; init; } = new Dictionary<string, MeshVolume>();
     /// <summary>The object id of each marker record (spawn areas, doors, capture points, kill zones), by the record's name: pairs a compiled record with its piece without relying on order.</summary>
     public IReadOnlyDictionary<string, string> RecordIds { get; init; } = new Dictionary<string, string>();
+    /// <summary>
+    /// How many capture points the map places (those with an inside), including the ones past <see cref="World.MaxControlPoints"/> that the compile leaves out (a match refuses more):
+    /// <see cref="MapCheck"/> reports <c>too-many-points</c> from it.
+    /// </summary>
+    public int CapturePointsPlaced { get; init; }
 
     public CollisionWorld ToCollisionWorld() => Content.ToCollisionWorld();
 
@@ -196,7 +201,7 @@ public sealed class CustomMap
         var volumes = new Dictionary<string, MeshVolume>(StringComparer.Ordinal);
         var recordIds = new Dictionary<string, string>(StringComparer.Ordinal);
         Bounds? solid = null;
-        int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
+        int solidCount = 0, pointNumber = 0, capturePlaced = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
         foreach (var o in doc.Objects)
         {
             if (o.Piece is not { } piece) continue;
@@ -276,6 +281,9 @@ public sealed class CustomMap
                 notes.Add($"'{o.Name}' ({o.Id}) is left out: its shape has no inside (thinner than the 1/4096 m grid along one of its axes).");
                 continue;
             }
+            // a shape that spans every axis but encloses (almost) nothing, e.g. every vertex on one slanted plane: kept (the simulation accepts it), but nobody can be inside it
+            if (edited is not null && EnclosesNothing(edited, editedTri!))
+                notes.Add($"'{o.Name}' ({o.Id}) encloses almost no space (on average thinner than the 1/4096 m grid): nothing can be inside it, so it does nothing in play.");
             // An edited marker's exact shape: kept in Volumes under the record's name and carried by the record into the simulation (plan M2: inside the shape counts, inside only its box does not).
             // Unedited markers get none, so their records and every rule that reads them are exactly as before.
             MeshVolume? Exact(string recordName)
@@ -306,6 +314,13 @@ public sealed class CustomMap
                 }
                 case PieceKind.CapturePoint:
                 {
+                    capturePlaced++;
+                    if (pointNumber >= World.MaxControlPoints)
+                    {
+                        // the simulation takes at most this many (SeizeGround's setter throws): the extra points are left out so the map still plays; MapCheck reports too-many-points
+                        notes.Add($"'{o.Name}' ({o.Id}) is left out: a match takes at most {World.MaxControlPoints} capture points.");
+                        break;
+                    }
                     pointNumber++;
                     string rec = $"mkr_objective_{pointNumber}";
                     // unedited: X for both horizontal sizes, as before (a round point); edited: the mesh's box, and the exact shape
@@ -371,7 +386,7 @@ public sealed class CustomMap
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
-        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes, RecordIds = recordIds };
+        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes, RecordIds = recordIds, CapturePointsPlaced = capturePlaced };
     }
 
     /// <summary>
@@ -381,11 +396,34 @@ public sealed class CustomMap
     internal static bool EmptyShape(Vector3 size, Vector3 centre, Vector3[]? edited)
     {
         static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
-        if (!Finite(size) || !Finite(centre) || !(size.X > 0f && size.Y > 0f && size.Z > 0f)) return true;
+        // half the size too: a capture point's sim radius and half height are Scale / 2, which rounds to 0 for a size of a few float denormals (~1e-45)
+        var half = size / 2f;
+        if (!Finite(size) || !Finite(centre) || !(half.X > 0f && half.Y > 0f && half.Z > 0f)) return true;
         if (edited is null) return false;
         var lo = edited.Aggregate(Vector3.Min);
         var hi = edited.Aggregate(Vector3.Max);
         return !(hi.X > lo.X && hi.Y > lo.Y && hi.Z > lo.Z);
+    }
+
+    /// <summary>
+    /// True when a closed triangle mesh (world space, on the grid) encloses less than its surface area times one grid step (1/4096 m): on average thinner than the grid, e.g. every vertex
+    /// on one slanted plane (the grid's rounding alone gives such a shape a sliver of volume). A 1 cm slab is far above it. Used for a note only (ours); the marker is kept.
+    /// </summary>
+    internal static bool EnclosesNothing(Vector3[] v, int[] tri)
+    {
+        if (v.Length == 0) return true;
+        double ox = v[0].X, oy = v[0].Y, oz = v[0].Z;   // measured from the first vertex: no cancellation far from the origin
+        double volume = 0, area = 0;
+        for (int i = 0; i + 2 < tri.Length; i += 3)
+        {
+            Vector3 p = v[tri[i]], q = v[tri[i + 1]], r = v[tri[i + 2]];
+            double ax = p.X - ox, ay = p.Y - oy, az = p.Z - oz, bx = q.X - ox, by = q.Y - oy, bz = q.Z - oz, cx = r.X - ox, cy = r.Y - oy, cz = r.Z - oz;
+            volume += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
+            double ux = bx - ax, uy = by - ay, uz = bz - az, wx = cx - ax, wy = cy - ay, wz = cz - az;
+            double nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+            area += Math.Sqrt(nx * nx + ny * ny + nz * nz) / 2.0;
+        }
+        return Math.Abs(volume / 6.0) < area / 4096.0;
     }
 
     /// <summary>An edited shape's unit-space triangles (faces fanned from their first vertex).</summary>

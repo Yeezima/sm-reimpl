@@ -41,14 +41,14 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     /// </summary>
     async Task<T> Busy<T>(Task<T> work)
     {
-        System.Threading.Interlocked.Increment(ref _busy);
+        BusyStart();
         try { return await work; }
         finally { System.Threading.Interlocked.Decrement(ref _busy); System.Threading.Interlocked.Exchange(ref _lastFrame, System.Environment.TickCount64); }
     }
 
     async Task Busy(Task work)
     {
-        System.Threading.Interlocked.Increment(ref _busy);
+        BusyStart();
         try { await work; }
         finally { System.Threading.Interlocked.Decrement(ref _busy); System.Threading.Interlocked.Exchange(ref _lastFrame, System.Environment.TickCount64); }
     }
@@ -61,8 +61,17 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     long _lastFrame = System.Environment.TickCount64;
     System.Threading.Timer? _watchdog;
     int _stalled;
-    /// <summary>Non-frame awaits in flight (<see cref="Busy{T}"/>): progress, not a stall.</summary>
+    /// <summary>Non-frame awaits in flight (<see cref="Busy{T}"/>): progress, not a stall, for at most <see cref="BusyFactor"/> times the stall limit.</summary>
     int _busy;
+    /// <summary>When the outermost non-frame await began (TickCount64).</summary>
+    long _busySince;
+    /// <summary>A non-frame await may run this many times the stall limit before the watchdog ends the run anyway (an await that never ends is a stall too).</summary>
+    const int BusyFactor = 10;
+
+    void BusyStart()
+    {
+        if (System.Threading.Interlocked.Increment(ref _busy) == 1) System.Threading.Interlocked.Exchange(ref _busySince, System.Environment.TickCount64);
+    }
 
     void StartWatchdog()
     {
@@ -70,13 +79,15 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         _lastFrame = System.Environment.TickCount64;
         _watchdog = new System.Threading.Timer(_ =>
         {
-            if (System.Threading.Volatile.Read(ref _busy) > 0) { System.Threading.Interlocked.Exchange(ref _lastFrame, System.Environment.TickCount64); return; }
-            long idle = System.Environment.TickCount64 - System.Threading.Interlocked.Read(ref _lastFrame);
+            long now = System.Environment.TickCount64;
+            bool busy = System.Threading.Volatile.Read(ref _busy) > 0;
+            if (busy && now - System.Threading.Interlocked.Read(ref _busySince) < BusyFactor * seconds * 1000) { System.Threading.Interlocked.Exchange(ref _lastFrame, now); return; }
+            long idle = now - System.Threading.Interlocked.Read(ref _lastFrame);
             if (idle < seconds * 1000 || System.Threading.Interlocked.Exchange(ref _stalled, 1) == 1) return;
             string last; lock (_log) last = _log.Count > 0 ? _log[^1] : "(nothing)";
             long mb = System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / (1024 * 1024);
             // the file is written and the process ends without calling into Godot from this thread (a stuck engine could block GD.Print)
-            Say($"FAIL stalled: the editor processed no frame for {idle / 1000} s after \"{last}\" (process private memory {mb} MB; a log full of \"VkResult error -2\" means the GPU or the system ran out of memory)", print: false);
+            Say($"FAIL stalled: {(busy ? $"a non-frame step ran for over {BusyFactor} x {seconds:0} s; " : "")}the editor processed no frame for {idle / 1000} s after \"{last}\" (process private memory {mb} MB; a log full of \"VkResult error -2\" means the GPU or the system ran out of memory)", print: false);
             Say("FLOW RESULT FAIL", print: false);
             try { System.Console.Error.WriteLine("FLOW FAIL stalled; see flow-result.txt"); } catch (Exception) { }
             ExitProcess(3);
