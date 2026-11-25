@@ -1,3 +1,4 @@
+using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
 
@@ -28,6 +29,7 @@ public sealed partial class ClassicBotBrain
     internal void ClassicBegin(PlayerState me)
     {
         BotTrackLife(me);   // 2026-11-07: lives for the lane legs and the idle cycle (ClassicBotBrain.BotRoam.cs)
+        if (_client?.Match.Effective() == MatchState.Countdown) ForgetRouteStalls();   // bots A2: a new match forgets the routes avoided in the last one
         if (!SeizeGround) BotPushStep(me);   // 2026-11-08: the periodic melee push, Annihilation (ClassicBotBrain.BotPush.cs)
     }
 

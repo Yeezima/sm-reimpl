@@ -71,7 +71,7 @@ public sealed partial class ClassicBotBrain
                 }
                 return best;
             };
-        return new NavAgent(graph) { Background = !_options.SyncPlans, EscapeOffGraph = rules, ExcludeStuckDrops = rules, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
+        return new NavAgent(graph) { Background = !_options.SyncPlans, EscapeOffGraph = rules, ExcludeStuckDrops = rules, ArriveMaxDz = rules && !BotOldDrops ? ArriveMaxDz : float.PositiveInfinity, PitJump = pit is null ? null : f => pit(f) is { } h ? (h.Item1, h.Item2, h.Item3, h.Item4) : null };
     }
 
     const double NavLogEvery = 5.0;              // seconds between the bot's "nav:" log lines
@@ -146,7 +146,8 @@ public sealed partial class ClassicBotBrain
                 slot = new NavSlot(me.Team, pack) { Class = me.Class };
                 _navSlots[(me.Team, pack)] = slot;
                 var map = _navMap; var world = _navWorld; var config = _config; var team = me.Team; int playerClass = me.Class;
-                if (BotNavigation.Setup(map, config) is null) slot.Note = "no spawns or points to build around";
+                bool oldDrops = BotOldDrops;   // bots A2: --bot-old-drops keeps the 8 m drop limit (BotNavigation.ClassicMaxDrop)
+                if (BotNavigation.Setup(map, config, oldDrops) is null) slot.Note = "no spawns or points to build around";
                 else
                 {
                     var cancel = _navCancel.Token;
@@ -157,8 +158,8 @@ public sealed partial class ClassicBotBrain
                     {
                         string walkNote;
                         var graph = walkFirst
-                            ? BotNavigation.LoadOrBuildWalk(map, world, config, team, BotNavigation.CacheDirectory, out walkNote)
-                            : BotNavigation.LoadOrBuild(map, world, config, team, playerClass, BotNavigation.CacheDirectory, out walkNote, cancel);
+                            ? BotNavigation.LoadOrBuildWalk(map, world, config, team, BotNavigation.CacheDirectory, out walkNote, oldDrops)
+                            : BotNavigation.LoadOrBuild(map, world, config, team, playerClass, BotNavigation.CacheDirectory, out walkNote, cancel, oldDrops);
                         return ((NavGraph?)graph, $"side {team}{(pack == "" ? "" : ", pack " + pack)}: {walkNote}{(walkFirst ? "; jump links follow" : "")}");
                     }, cancel);
                     if (walkFirst) slot.JumpStart = (map, world, config, team, playerClass);
