@@ -848,7 +848,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-48398FB1` | Movement | walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to shoot; every step (walking and the push between Marines closer than 0.9 m) is taken only if it stays on the walking graph, the height taken from the floor, sliding along a wall on one axis… (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | Movement: compare with SM1 by timing a run over a known distance. Ours: walks 5.5 m/s, sprints 8 m/s when far from its place with nobody to… | ☐ |
 
-*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 29, `WarfrontWire.Format` 4)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -978,7 +978,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-00D02E43` | Damage taken | a Marine takes **0.35** of an Ork hit (strength ruling of 2026-11-17; it was 0.10, Musou's puppet Marines' share): five Boyz down a lone Marine in about 20 / 14 / 10 s at player level 1 / 10 / 20, one Nob in about 46 / 31 / 23 s (the ruling's estimate; the… (x) | kind: ours; confidence: low; notes: estimate | the designer's ruling (a playtest value to refine) | Damage taken: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine takes 0.35 of an Ork hit (strength ruling of 2026-11-17; it… | ☐ |
 | `R-04B119F6` | Armour and health recovery | a Marine's armour comes back after the class's delay with no hit (unchanged); its health does not regenerate in a battle (ruling of 2026-11-17, `SquadClassRules.HealthRegen = false`): it comes back by a revive (full, the owner's rule) and at the next battle… | kind: ours; confidence: low; notes: estimate | designer review 1; the ruling | Armour and health recovery: compare with SM1 by counting hits to kill and by video of the health bar. Ours: a Marine's armour comes back after the class's delay with no hit… | ☐ |
 
-*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 29, `WarfrontWire.Format` 4)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -1014,7 +1014,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-7A5A00A2` | Damage and stagger gate | in a Chaos battle an enemy may refuse every hit, stagger, boss melee stun and fodder throw (`WarfrontChaosRoster.Shield`) or accept them from one attacker alone (`AcceptOnly`); a hit whose amount after the powerups' scale and the gate is not above 0 and… | kind: ours; notes: provisional | the design ("Finale": the leashed, immune Lord; the duelist's damage only); the C0 review | Damage and stagger gate: compare with SM1 by watching the reaction and timing it frame by frame. Ours: in a Chaos battle an enemy may refuse every hit, stagger, boss melee… | ☐ |
 
-*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 27, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
+*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 28; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -2026,7 +2026,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
 
-*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -2074,7 +2074,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4AB8907B` | Warfront marker's bystanders | X4's rule itself (`ExecutionBystanders.Warfront`: the other living players, then the player-solid enemies, within the server's bystander reach, the longest slide + two capsule radii + 7 m, 3D) on the crowd as drawn (m) | kind: ours | X6 review X6-12; X4 | Warfront marker's bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: X4's rule itself (ExecutionBystanders.Warfront: the other living… | ☐ |
 | `R-BCE19019` | Marker in a Chaos run | none: the dot is hidden in a Chaos run (`ExecutionsChaosRun`: the client config's `WarfrontFaction`, latched from the Hub's faction byte by C3), as the server refuses there (`SimConfig.WarfrontFaction`); wired at the series-37 integration | kind: ours; confidence: medium | X6 review X6-12, lead 40 | Marker in a Chaos run: compare with SM1 by timing a run over a known distance. Ours: none: the dot is hidden in a Chaos run (ExecutionsChaosRun: the… | ☐ |
 
-*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 27, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
+*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 28; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -2754,7 +2754,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-51E9F716` | Classic autocannon: ammunition boxes | each death drop gives the autocannon what it gives the Space Marine heavy bolter (its amount at the heavy bolter's index), into the clip as for every weapon without a reserve, capped at the 120; one amount for both sides (the Space Marine heavy bolter's, also… (rounds) | kind: ours; confidence: medium | the lead's brief 2026-11-11 ("refilled by ammo boxes"); the heavy bolter's amount ours | Classic autocannon: ammunition boxes: compare with SM1 by feel or video. Ours: each death drop gives the autocannon what it gives the Space Marine… | ☐ |
 | `R-E67DC240` | Classic autocannon: customizer | the profile is read with the data's catalogue plus the Classic autocannon's row (so a slot saved under extended keeps it whichever profile the front end opens with); a page shows its own profile's catalogue; a Join on an extended page is planned with the… | kind: ours; confidence: medium | 2026-11-11 | Classic autocannon: customizer: compare with SM1 by feel or video. Ours: the profile is read with the data's catalogue plus the Classic… | ☐ |
 
-*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 29, `WarfrontWire.Format` 4)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -3085,7 +3085,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-61F47DDE` | Bot difficulty | accuracy 0 to 100 % (the bots' `--bot-accuracy`), damage dealt 0 to 100 % (`World.SetDamageScale`, which only lowers; 100 % also removes the server's `--bot-damage-scale`; the panel starts at that option's value), fire range 5 to 1000 m (`--bot-range`); each… (% , m) | kind: ours | the owner | Bot difficulty: compare with SM1 by feel or video. Ours: accuracy 0 to 100 % (the bots' --bot-accuracy), damage dealt 0 to 100… | ☐ |
 | `R-010FCD37` | Time scale | 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every client's clock (prediction, interpolation, timeouts) and Godot's `Engine.TimeScale` (animation, effects, deltas) run at that fraction together, on the local client and on bots; sound is not… (factor) | kind: ours; confidence: medium | the owner | Time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1, 1/2, 1/4, 1/10 or paused: the server's tick clock and every… | ☐ |
 
-*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -3223,7 +3223,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
 | `R-59691005` | Musou powerups: our parts | which types are elites (Nob, Big Shoota Nob, Weirdboy, the 5-wave run's Chaos Marine); every living player (not the AI Marines) gets a drop of its own from the KO, its kind rolled per player (uniform over the four, a hash of tick, enemy and player); the same… (m, s, x, ticks) | kind: ours; confidence: low | ours; the owner's "Double damage + wider cleave" and "twice as fast and consume no ammunition similar to a stim"; the resend the review's (2026-11-10) | Musou powerups: our parts: compare with SM1 by feel or video. Ours: which types are elites (Nob, Big Shoota Nob, Weirdboy, the 5-wave… | ☐ |
 | `R-A704A4E8` | Musou powerups: the hold | a powerup is taken by holding the use key **0.5** s (**15** ticks at 30 per second, the press's tick the first) within 1.5 m of it; a release, a death, leaving its reach or the drop ending stops the hold, and only a new press starts one (the key kept down… (s, ticks) | kind: estimate; confidence: low; notes: ours | the owner's "Hold the use key"; the lead's "about half a second"; the value ours, to check in a playtest | Musou powerups: the hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a powerup is taken by holding the use key 0.5 s (15 ticks at 30 per… | ☐ |
-| `R-B5870107` | Warfront walk-over pickups (owner 2026-11-25; Warfront only, `WarfrontRules.Version` 23) | a living human takes his own powerups, a crate that replaces nothing (it fills a free extra slot or refills a weapon owned; one that would replace a weapon or change the melee stays and needs E, the lead's decision 2026-11-25), and any ammunition or equipment… (m) | kind: ours; confidence: medium | the owner, 2026-11-25: "make a change so that pickups are picked up just by walking over them"; cards "Warfront only", "Weapons stay on E"; the radius, the… | Warfront walk-over pickups (owner 2026-11-25; Warfront…: compare with SM1 by timing a run over a known distance. Ours: a living human takes his own powerups, a crate that replaces nothing… | ☐ |
+| `R-1D88C204` | Warfront walk-over pickups (owner 2026-11-25; Warfront only, `WarfrontRules.Version` 27) | a living human takes his own powerups, a crate that replaces nothing (it fills a free extra slot or refills a weapon owned; one that would replace a weapon or change the melee stays and needs E, the lead's decision 2026-11-25), and any ammunition or equipment… (m) | kind: ours; confidence: medium | the owner, 2026-11-25: "make a change so that pickups are picked up just by walking over them"; cards "Warfront only", "Weapons stay on E"; the radius, the… | Warfront walk-over pickups (owner 2026-11-25; Warfront…: compare with SM1 by timing a run over a known distance. Ours: a living human takes his own powerups, a crate that replaces nothing… | ☐ |
 | `R-B45E5F45` | Musou powerups: look (client) | the drop: a 0.45 m black tile facing the camera with a thin white frame and the powerup's white line icon, its name above in small white capitals, a thin white floor ring 0.6 m round, a faint white line 7 m up (seen only from 8 m out, full at 25 m); no light… (m, px) | kind: ours; confidence: low | the owner ("much more minimalistic and match the black and white theme"); the lead's "icon and timer, near your own bar"; the values ours | Musou powerups: look (client): compare with SM1 by feel or video. Ours: the drop: a 0.45 m black tile facing the camera with a thin white… | ☐ |
 
 *Spec section: Added content: Musou Mode (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
@@ -4482,7 +4482,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-530246C7` | Seam rule (W9b) | the notifying seams (`BattleBegan`, `BattleEnded`, `ObjectiveSecured`, `AboardStep`, `OwnerLevelUp`, `StuckSink`, `NodeEnded`, `NodeResolved`, and the runtime's `Assisted`, `HumanKill`, `Picked`) are subscribed with `+=`; the answering seams (`SquadTargets`… | kind: ours | review 1 finding 5 | Seam rule (W9b): compare with SM1 by feel or video. Ours: the notifying seams (BattleBegan, BattleEnded, ObjectiveSecured… | ☐ |
 | `R-79FF6AC2` | Absent owner and the leaver's squad | an owner not connected is paid none of his held squad's ordinary kills; a leaver's squad is on Hold and counts as standing | kind: ours; confidence: medium | review 1 finding 8 | Absent owner and the leaver's squad: compare with SM1 by feel or video. Ours: an owner not connected is paid none of his held squad's ordinary… | ☐ |
 
-*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3)*
+*Spec section: Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 29, `WarfrontWire.Format` 4)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4494,7 +4494,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B030D90A` | AI-Marine rules | a retainer's melee stuns a boss as a human's; a scrap trap hurts it as a human (a share of its full health and armour), not the AI Marines' outright kill; no pickups (the puppets' exclusion stays) | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-25 (b) (the boss stun: our reading of "retainers ARE stunned by bosses") | AI-Marine rules: compare with SM1 by feel or video. Ours: a retainer's melee stuns a boss as a human's; a scrap trap hurts it… | ☐ |
 | `R-EB1F0D4A` | Brain | **Phase B T4: the Classic bot brain (see "the retainers' brain")**; the retainer's input comes from `WarfrontRetainers.Brain` (Phase B T4's Classic bot brain), ahead of Musou's puppet brain; none: it stands still keeping its heading | kind: ours | Phase B design Q1 | Brain: compare with SM1 by feel or video. Ours: Phase B T4: the Classic bot brain (see "the retainers' brain"); the… | ☐ |
 
-*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4921,7 +4921,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-11F003C6` | Autocannon blast on Chaos fodder | a weapon's own blast (the autocannon's, the Dreadnought cannon's) kills a Cultist or a Traitor Guardsman in one, by kind (their 110 health is over the blast's 85.2), as the owner's rule kills the Ork fodder | kind: ours; notes: provisional | the owner, 2026-11-11 ("1 shot any fodder ork"), kept for Chaos by the lead (C2 review R4) | Autocannon blast on Chaos fodder: compare with SM1 by measuring on a flat spot of the same map. Ours: a weapon's own blast (the autocannon's, the Dreadnought cannon's)… | ☐ |
 | `R-2CA7ECEB` | Left for playtest | the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss and Stormboy squads' sizes, the HQ waves' sizes under their cap); the fodder throw (`KnockDown`) keeps its Ork rule (Cultists and Traitor Guardsmen fall, the Chaos Marine staggers); the hit… | kind: ours; notes: provisional | the C2 review (R4) | Left for playtest: compare with SM1 by feel or video. Ours: the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss… | ☐ |
 
-*Spec section: Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51)*
+*Spec section: Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, shared with C3's body rule; added content, Warfront only; the Chaos section, envelope tag 51)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4948,7 +4948,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D5F08EF0` | Shot from inside a breach | a qualifying projectile that starts inside a breach's sphere does not stop on it (no detonation at the muzzle); it may still meet another breach's sphere, and where it goes off the close rule judges | kind: ours | Fable review 2 | Shot from inside a breach: compare with SM1 by feel or video. Ours: a qualifying projectile that starts inside a breach's sphere does not… | ☐ |
 | `R-1FABCA02` | Server cost | at most 30 more enemies (in a 2560-slot pool) and one sphere test per human explosive step; measured: a Chaos lane tick p99 with breaches 8.5 ms against an Orks lane's 33.4 ms (`BreachIsolationTests`, a loaded dev machine, best of two 10 s runs) (ms) | kind: ours; confidence: medium | measured | Server cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: at most 30 more enemies (in a 2560-slot pool) and one sphere test per… | ☐ |
 
-*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 27, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
+*Spec section: Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 28; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -4971,7 +4971,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3401B79D` | Boss column during the relay (C5c) | while the duel strip shows (the relay and its outcome), Musou's bottom-left boss column draws no commander bar, nor the old layout's top bar (`MusouHud.WarfrontHideCommander`, set only by the Chaos finale client); the Chosen rows are gone by then; a changed… | kind: ours | lead 41 (one bar for the Lord) | Boss column during the relay (C5c): compare with SM1 by feel or video. Ours: while the duel strip shows (the relay and its outcome), Musou's… | ☐ |
 | `R-B92556F8` | Finale test aid (C5c) | `SM_WF_FINALE=won\|lost` on a `--dev-tools` loopback server with a private run folder (`SM_WF_DIR` set; refused with one line otherwise, so it can never end the owner's campaign): the Lord logged every 2 s in the bodyguard phase, the Chosen removed without… (s) | kind: ours | lead 41 | Finale test aid (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: SM_WF_FINALE=won\|lost on a --dev-tools loopback server with a private… | ☐ |
 
-*Spec section: Warfront Chaos presentation (Chaos Warfront C3, branch `claude/chaos-client-1125`, 2026-11-25; client presentation plus one sim rule: the Chaos table's bodies (`MusouRules.ShotHeightsFromTable`, `WarfrontRules.Version` 26, the lead renumbers at integration); no wire, protocol or config-hash change; added content, Warfront only)*
+*Spec section: Warfront Chaos presentation (Chaos Warfront C3, branch `claude/chaos-client-1125`, 2026-11-25; client presentation plus one sim rule: the Chaos table's bodies (`MusouRules.ShotHeightsFromTable`, `WarfrontRules.Version` 26, shared with C4); no wire, protocol or config-hash change; added content, Warfront only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -5622,7 +5622,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-EB08F43D` | Ork-only spawners | the Weirdboyz and the Scrap Meks do not run in a Chaos battle (the Squigs are off in every Warfront battle) | kind: ours; notes: provisional | the design | Ork-only spawners: compare with SM1 by feel or video. Ours: the Weirdboyz and the Scrap Meks do not run in a Chaos battle (the… | ☐ |
 
-*Spec section: Warfront Chaos presentation (Chaos Warfront C3, branch `claude/chaos-client-1125`, 2026-11-25; client presentation plus one sim rule: the Chaos table's bodies (`MusouRules.ShotHeightsFromTable`, `WarfrontRules.Version` 26, the lead renumbers at integration); no wire, protocol or config-hash change; added content, Warfront only)*
+*Spec section: Warfront Chaos presentation (Chaos Warfront C3, branch `claude/chaos-client-1125`, 2026-11-25; client presentation plus one sim rule: the Chaos table's bodies (`MusouRules.ShotHeightsFromTable`, `WarfrontRules.Version` 26, shared with C4); no wire, protocol or config-hash change; added content, Warfront only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -7092,8 +7092,8 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-5669C607` | Budget | Added content: Warfront: squads (W9: `WarfrontSquadSim`, `SquadRosters`; pure sim, not yet connected to World, the wire or the loadouts) |
 | `R-D059B1AC` | Search budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-02FD7B05` | Budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
-| `R-90D6C1E5` | Wire | Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3) |
-| `R-FF465398` | Budget measure | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration) |
+| `R-90D6C1E5` | Wire | Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 29, `WarfrontWire.Format` 4) |
+| `R-FF465398` | Budget measure | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |
@@ -7118,6 +7118,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-CF2299B9` | Row lookup | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
 | `R-43364C35` | Test aids | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
 | `R-F62A3D5F` | Wire | Warfront faction (Chaos Warfront C1; added content; owner brief 2026-11-24 rev 1, decision 2026-11-25) |
-| `R-1B6BA160` | Wire | Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51) |
-| `R-86C8D220` | Wire | Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 27, renumbered at integration; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17) |
+| `R-1B6BA160` | Wire | Added content: Warfront Chaos: warp breaches (C4) (branch `claude/chaos-breach-1125`, 2026-11-25; `WarfrontRules.Version` 26, shared with C3's body rule; added content, Warfront only; the Chaos section, envelope tag 51) |
+| `R-86C8D220` | Wire | Added content: Warfront Chaos: the finale (C5) (branch `claude/chaos-finale-1125`, 2026-11-25; `WarfrontRules.Version` 28; added content, Warfront only; the Chaos section, envelope tag 51, kinds 16 and 17) |
 

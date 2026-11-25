@@ -59,7 +59,7 @@ public sealed class WarfrontRetainerBrains
     /// <summary>A search radius and height for snapping a Hold place or a pound landing onto the graph (review L8). Kind: ours; confidence: low.</summary>
     public const float SnapRadius = 4f, SnapHeight = 2.5f;
 
-    /// <summary>Whether jump-pack classes get their jump links (off in tests that do not want a background build; env <c>SM_WF_RETAINER_JUMPS=0</c> turns it off).</summary>
+    /// <summary>Whether jump-pack classes get their jump links: off by default; env <c>SM_WF_RETAINER_JUMPS=1</c> turns them on (see the remarks).</summary>
     /// <remarks>
     /// Off by default since the review of 2026-11-25: the jump-link path has not run on a real stage (no headless real-stage run yet); <c>SM_WF_RETAINER_JUMPS=1</c> turns it on. Off, a jump-pack
     /// retainer walks the stage's walking graph (it still jumps and pounds in its fights and on the jump-pound order).

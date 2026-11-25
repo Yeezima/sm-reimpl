@@ -4,7 +4,7 @@ using SmSim;
 namespace SmNet;
 
 /// <summary>
-/// Protocol 94 (placeholder number; Phase B T2b review fix): which lean records a crowded snapshot carries, decided so the same ones stay in from snapshot to snapshot. The room is reserved against the
+/// Protocol 94 (Phase B T2b review fix): which lean records a crowded snapshot carries, decided so the same ones stay in from snapshot to snapshot. The room is reserved against the
 /// worst case of every other block (<see cref="WorstOtherBytes"/>: 12 projectiles, 4 kills, the guaranteed shots), so a burst of projectiles, kills or shots never pushes a record out; when the lean
 /// records still do not all fit, the fixed head (the retainers and the allied pair) stays and the tail (the pod Marines) is swept across snapshots in a window, so every one of them is sent at least
 /// once every <see cref="SweepSnapshots"/> snapshots and the client's hold (<see cref="LeanHold"/>) draws it in between. Pure and engine-free; only snapshots with lean records use it (Classic never).
@@ -60,7 +60,7 @@ public static class LeanSchedule
 }
 
 /// <summary>
-/// Protocol 94 (placeholder number; Phase B T2b review fix): the client's hold for a Warfront AI Marine that arrived as a lean record and is missing from a later snapshot (the server sweeps the pod
+/// Protocol 94 (Phase B T2b review fix): the client's hold for a Warfront AI Marine that arrived as a lean record and is missing from a later snapshot (the server sweeps the pod
 /// Marines across snapshots when they do not all fit, <see cref="LeanSchedule"/>). For up to <see cref="HoldSeconds"/> after its last record the Marine is put back into each snapshot it is missing from,
 /// at its last pose (carried along its last ground velocity for at most <see cref="CarrySeconds"/>), so the interpolation never sees it leave and its model is never freed and rebuilt on a single miss.
 /// A record sent slim (a human, or every record of a snapshot of 16 or fewer) ends the hold of its id. Classic snapshots carry no lean records, so this never acts there. Pure and engine-free.

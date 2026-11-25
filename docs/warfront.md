@@ -36,7 +36,7 @@ something only on a standalone server; no host migration is claimed). A returnin
 first-time joiner during a battle spectates (Classic's spectator camera) until the next ship stop; then the customizer must be opened and closed and the
 player may deploy. Since codebase fix 1 (2026-11-22) a first-time joiner with no progress file starts at level 1 (the median-XP catch-up and its cards are removed); a player who
 brings a progress file from their own PC joins with that level (the host sanitizes it, max level 50, and the better of the two copies wins). Warfront needs this build on both sides:
-`WarfrontRules.Version` 21 and `WarfrontWire.Format` 2, so older builds cannot join.
+`WarfrontRules.Version` 29 and `WarfrontWire.Format` 4 (since the series-37 integration; 21 and 2 at codebase fix 1), so older builds cannot join.
 
 **ONLINE WARFRONT row (slice S5, owner 2026-11-19; shown since the 2026-11-20 ship).** The project's VM is to host one shared, always-on Warfront campaign on UDP 27016 (up to 4 players drop in and out). The
 Warfront page gets a row ONLINE WARFRONT after JOIN A FRIEND: it sets the Warfront profile (as the friend join does) and joins the public Classic server's host (`JoinTargets.PublicServer`, never a second
@@ -127,7 +127,7 @@ dotnet run -c Debug --project src/SmTool -- warfront-maps --prebuild   # what th
 
 Four players: `.\server.cmd --content warfront --bind 127.0.0.1 --port 27200 --warfront-max-humans 4 --warfront-new` and one
 `.\client.cmd --connect 127.0.0.1:27200 --content warfront --warfront-key-file <own file>` per player. Switch and build property: `--content warfront`;
-`-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 17.
+`-p:SmWarfront=false` removes `**/Extras/Warfront/**` from the build (the build then refuses `--content warfront`). `WarfrontRules.Version` is 29 (series-37 integration).
 
 ## Dedicated mode (`--warfront-dedicated`, slices S1 and S2)
 

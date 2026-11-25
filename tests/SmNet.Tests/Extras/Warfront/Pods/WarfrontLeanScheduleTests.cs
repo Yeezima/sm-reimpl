@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Warfront.Pods;
 
 /// <summary>
-/// Phase B T2b review fix (protocol 94, a placeholder number): a crowded Warfront snapshot's lean records are cut against the worst case of every other block, so the same ones stay in from snapshot to
+/// Phase B T2b review fix (protocol 94): a crowded Warfront snapshot's lean records are cut against the worst case of every other block, so the same ones stay in from snapshot to
 /// snapshot (<see cref="LeanSchedule.Capacity"/>); when the pod Marines still do not all fit they take turns (<see cref="LeanSchedule.Pick"/>), and the client holds a missing lean record for a second
 /// (<see cref="LeanHold"/>), so every pod Marine is drawn. The pod's battle cry is timed from the pod alone (<see cref="TfwPodCry"/>).
 /// </summary>

@@ -4,7 +4,7 @@ using SmSim;
 namespace SmNet.Tests;
 
 /// <summary>
-/// Phase B T2b review fix (protocol 94, a placeholder number): a Classic snapshot of at most 16 records and a Classic scoreboard write the same bytes as protocol 91 did. The expected hex was written once
+/// Phase B T2b review fix (protocol 94): a Classic snapshot of at most 16 records and a Classic scoreboard write the same bytes as protocol 91 did. The expected hex was written once
 /// by protocol 91's own serializer (origin/main d4db1299, <c>Protocol.Write</c>) from exactly the synthetic data below (no original bytes) and is pinned here as a literal: a later change to the Classic
 /// wire, however small, fails this test.
 /// </summary>

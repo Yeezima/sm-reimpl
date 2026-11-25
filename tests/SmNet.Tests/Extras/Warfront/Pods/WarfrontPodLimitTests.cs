@@ -9,7 +9,7 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Warfront.Pods;
 
 /// <summary>
-/// Phase B T2b (owner 2026-11-24: "Drop pod marines don't count towards the limit"; protocol 94, a placeholder number): Warfront's drop pod Marines take their own 20 ids, so a pod lands its five at 1, 2
+/// Phase B T2b (owner 2026-11-24: "Drop pod marines don't count towards the limit"; protocol 94): Warfront's drop pod Marines take their own 20 ids, so a pod lands its five at 1, 2
 /// and 4 humans with full squads; the snapshot carries up to 32 records (the AI Marines as lean records), its shot index has five bits, and the writer keeps every snapshot and scoreboard within the
 /// 1200-byte budget. Musou Mode's pods keep the puppet ids.
 /// </summary>

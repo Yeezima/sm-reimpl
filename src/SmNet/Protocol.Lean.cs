@@ -4,7 +4,7 @@ using SmSim;
 namespace SmNet;
 
 /// <summary>
-/// Protocol 94 (PLACEHOLDER NUMBER; claude/drop-pod-limit-1125, Phase B T2b): room for Warfront's drop pod Marines, which are World players besides the humans and their retainers (owner 2026-11-24:
+/// Protocol 94 (claude/drop-pod-limit-1125, Phase B T2b; the number at the series-37 integration): room for Warfront's drop pod Marines, which are World players besides the humans and their retainers (owner 2026-11-24:
 /// "Drop pod marines don't count towards the limit"). A snapshot carries at most <see cref="Protocol.MaxPlayers"/> (32) records: the slim and full ones as before, then, when the player count byte's bit 7
 /// (<see cref="Protocol.LeanBlockFlag"/>) is set, a count byte and that many lean records of <see cref="Protocol.LeanRecordBytes"/> bytes (the server sends a Warfront run's AI Marines so,
 /// <see cref="Snapshot.Lean"/>). A lean record is a slim one with its id in 16 bits, the position in 1/64 m (the projectiles' 24-bit form), the velocity in 1/64 m/s and the yaw and pitch in 16 bits; the
