@@ -178,8 +178,13 @@ public sealed class MeshVolume
     /// </summary>
     public MeshVolume ReachingAbove(float top)
     {
-        if (!float.IsFinite(top) || top <= Max.Z) return this;
+        if (!float.IsFinite(top)) return this;
+        if (!ReferenceEquals(Authored, this) && top <= Max.Z) return this;   // already raised at least that high
         var src = Authored;
+        // nothing to raise when every part of the shape already reaches the height (all of its upper surface at or above it); a shape whose highest point reaches it but whose other parts are
+        // lower is raised too, up to its own highest point where that is above the height (the prisms share one flat top)
+        if (top <= src.Min.Z || !src.NeedsRaising(top)) return this;
+        top = MathF.Max(top, src.Max.Z);
         var v = new List<Vector3>(src.Vertices);
         var idx = new List<int>();
         for (int t = 0; t + 2 < src.Indices.Length; t += 3)
@@ -196,18 +201,32 @@ public sealed class MeshVolume
         return idx.Count == 0 ? this : new MeshVolume(Name, [.. v], [.. idx], src);
     }
 
+    /// <summary>Whether some upward-facing triangle has a corner below <paramref name="top"/> (so something straight above the shape is lower than the height).</summary>
+    bool NeedsRaising(float top)
+    {
+        for (int t = 0; t + 2 < Indices.Length; t += 3)
+        {
+            Vector3 a = Vertices[Indices[t]], b = Vertices[Indices[t + 1]], c = Vertices[Indices[t + 2]];
+            double area = ((double)b.X - a.X) * ((double)c.Y - a.Y) - ((double)b.Y - a.Y) * ((double)c.X - a.X);
+            if (area > 0 && (a.Z < top || b.Z < top || c.Z < top)) return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// A capsule (feet <paramref name="feet"/>, <paramref name="radius"/>, <paramref name="height"/>) whose axis meets the volume is moved out horizontally (the mesh equivalent of
     /// <see cref="SpawnBlocker.PushOut"/>; call it on the raised volume the world keeps): across the nearest outline edge of the authored shape (<see cref="FeatureEdges"/>) seen from above, to <paramref name="radius"/> + 1 cm beyond it, the first such place (nearest first, ties in triangle
-    /// order) where the axis no longer meets the volume; if none clears, out of the bounding box across its nearest side (ties: X sides, then the positive side). Otherwise <paramref name="feet"/>
+    /// order) where the axis no longer meets the volume there nor 1 cm past the edge point (so the capsule clears the shape by its radius, also beside a leaning face); if none clears, out of the bounding box across its nearest side (ties: X sides, then the positive side). Otherwise <paramref name="feet"/>
     /// is returned unchanged. Provisional approximation (ours).
     /// </summary>
     public Vector3 PushOut(Vector3 feet, float radius, float height)
     {
+        if (!float.IsFinite(radius) || radius < 0) radius = 0;   // a NaN or negative radius or height is read as none (Math.Max would carry a NaN through)
+        if (!float.IsFinite(height) || height < 0) height = 0;
         if (!Geometry.Finite(feet) || !(feet.Z < Max.Z && feet.Z + height > Min.Z)) return feet;
-        var up = new Vector3(0, 0, MathF.Max(height, 0f));
+        var up = new Vector3(0, 0, height);
         if (!Crosses(feet, feet + up)) return feet;
-        double px = feet.X, py = feet.Y, beyond = Math.Max(radius, 0f) + 0.01;
+        double px = feet.X, py = feet.Y, beyond = radius + 0.01;
         var candidates = new List<(double D, int Order, double Qx, double Qy)>();
         int order = 0;
         foreach (var (ia, ib) in FeatureEdges())   // the authored outline only (a cap's fan diagonals and a raised volume's prism edges lie inside it and would push too short)
@@ -224,7 +243,9 @@ public sealed class MeshVolume
             if (d == 0) continue;   // on the edge itself: no direction
             double n = Math.Sqrt(d), ox = qx + (qx - px) / n * beyond, oy = qy + (qy - py) / n * beyond;
             var to = new Vector3((float)ox, (float)oy, feet.Z);
-            if (!Crosses(to, to + up)) return to;
+            // the column just past the edge point must be clear too: a leaning shape reaches beyond an edge of its foot, and the capsule would end up less than its radius from it
+            var past = new Vector3((float)(qx + (qx - px) / n * 0.01), (float)(qy + (qy - py) / n * 0.01), feet.Z);
+            if (!Crosses(to, to + up) && !Crosses(past, past + up)) return to;
         }
         double dxMin = px - Min.X, dxMax = Max.X - px, dyMin = py - Min.Y, dyMax = Max.Y - py;
         double best = Math.Min(Math.Min(dxMin, dxMax), Math.Min(dyMin, dyMax));
@@ -237,7 +258,7 @@ public sealed class MeshVolume
     /// <summary>
     /// The authored shape's outline for drawing (a door's shield, a point's ring) and for <see cref="PushOut"/>: every edge whose two triangles are not coplanar, or that has only one triangle, as
     /// vertex index pairs (lower first), in the order the triangles first walk them. Two same-facing triangles count as coplanar when each one's far corner lies within
-    /// <see cref="CoplanarTolerance"/> of the other's plane (the 1/4096 m grid bends a flat face a little), so diagonals inside flat faces are left out. A raised volume returns its authored
+    /// <see cref="CoplanarTolerance"/> of one plane (the tetrahedron of the edge and both far corners is that thin over the larger triangle; the 1/4096 m grid bends a flat face a little), so diagonals inside flat faces are left out. A raised volume returns its authored
     /// shape's outline (its indices are valid in the raised volume too); draw a raised door's shield from that outline up to <see cref="Max"/>.Z.
     /// </summary>
     public IReadOnlyList<(int A, int B)> FeatureEdges() => ReferenceEquals(Authored, this) ? Outline() : Authored.FeatureEdges();
@@ -271,7 +292,7 @@ public sealed class MeshVolume
             if (list.Count != 2) { result.Add(key); continue; }
             var (n1, n2) = (normals[list[0]], normals[list[1]]);
             double dot = n1.X * n2.X + n1.Y * n2.Y + n1.Z * n2.Z;
-            if (dot <= 0 || PlaneDistance(list[0], Far(list[1], key)) > CoplanarTolerance || PlaneDistance(list[1], Far(list[0], key)) > CoplanarTolerance) result.Add(key);
+            if (dot <= 0 || Thickness(list[0], list[1], key) > CoplanarTolerance) result.Add(key);
         }
         return result;
 
@@ -281,14 +302,17 @@ public sealed class MeshVolume
             for (int k = 0; k < 3; k++) { int i = Indices[3 * t + k]; if (i != edge.A && i != edge.B) return Vertices[i]; }
             return Vertices[Indices[3 * t]];
         }
-        // distance (metres) of p from triangle t's plane
-        double PlaneDistance(int t, Vector3 p)
+        // how far the two triangles on an edge are from one plane (metres): the height of the tetrahedron of the edge and both far corners over the larger triangle, 6V / (2 A_max). Measured
+        // over the larger triangle, so a thin sliver (a tilted cap's fan triangle, whose own normal grid noise turns) does not make a flat face look bent
+        double Thickness(int t1, int t2, (int A, int B) edge)
         {
-            var n = normals[t];
-            double len = Math.Sqrt(n.X * n.X + n.Y * n.Y + n.Z * n.Z);
-            if (len == 0) return double.MaxValue;
-            var a = Vertices[Indices[3 * t]];
-            return Math.Abs(n.X * ((double)p.X - a.X) + n.Y * ((double)p.Y - a.Y) + n.Z * ((double)p.Z - a.Z)) / len;
+            Vector3 a = Vertices[edge.A], b = Vertices[edge.B], c = Far(t1, edge), d = Far(t2, edge);
+            double ux = (double)b.X - a.X, uy = (double)b.Y - a.Y, uz = (double)b.Z - a.Z, vx = (double)c.X - a.X, vy = (double)c.Y - a.Y, vz = (double)c.Z - a.Z;
+            double wx = (double)d.X - a.X, wy = (double)d.Y - a.Y, wz = (double)d.Z - a.Z;
+            double sixV = Math.Abs(ux * (vy * wz - vz * wy) - uy * (vx * wz - vz * wx) + uz * (vx * wy - vy * wx));
+            var (n1, n2) = (normals[t1], normals[t2]);
+            double twoA = Math.Max(Math.Sqrt(n1.X * n1.X + n1.Y * n1.Y + n1.Z * n1.Z), Math.Sqrt(n2.X * n2.X + n2.Y * n2.Y + n2.Z * n2.Z));
+            return twoA == 0 ? double.MaxValue : sixV / twoA;
         }
     }
 
