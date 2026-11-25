@@ -9,7 +9,7 @@ namespace SmClient;
 /// camera/melee-orbit (owner 2026-11-25: "After a melee attack the player should be in melee mode and able to orbit his camera fully around him until his next ranged
 /// weapon shot puts him back in the default locked camera state"; decision melee-camera-orbit). Client only: no protocol, wire or simulation change.
 /// <para>
-/// The state: <see cref="MeleeMode"/>, stepped once per input tick (<see cref="StepMeleeMode"/>) and shared with the field-of-view widening (NetworkView.MeleeFov.cs).
+/// The state: <see cref="MeleeMode"/>, stepped once per input tick (<see cref="StepMeleeMode"/>). The field-of-view widening (NetworkView.MeleeFov.cs) keeps its own rules.
 /// </para>
 /// <para>
 /// The yaw split while in melee mode (a human's keyboard and mouse or pad input, <see cref="MeleeOrbitInput"/>, before the converged shot is added): <c>_yaw</c> is the
@@ -28,7 +28,7 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    /// <summary><c>--old-melee-camera</c> (restore switch, camera/melee-orbit): the camera stays locked to the body in melee mode (no orbit); the widening keeps its own switch.</summary>
+    /// <summary><c>--old-melee-camera</c> (restore switch, camera/melee-orbit): the camera stays locked to the body (no orbit); the widening keeps its own switch.</summary>
     static readonly bool OldMeleeCamera = CmdFlag("old-melee-camera");
     /// <summary><c>--melee-orbit-demo</c> (test aid, human client): a scripted strike, a standing 360 degree orbit, a 360 degree orbit while running, a shot, then further strikes with a throw and a reload.</summary>
     static readonly bool MeleeOrbitDemo = CmdFlag("melee-orbit-demo");
@@ -40,7 +40,6 @@ public partial class NetworkView
 
     readonly MeleeMode _meleeMode = new();
     readonly MeleeOrbitSteer _meleeSteer = new();
-    MeleeMode.Change _meleeModeLast;
     uint _meleeModeTick;
     bool _meleeModeStepped;
     InputButtons _meleeOrbitPrevButtons;
@@ -51,8 +50,8 @@ public partial class NetworkView
     /// <summary>Hook for added content: a body with no melee mode, so no field-of-view widening and no camera orbit (Musou: the Dreadnought).</summary>
     partial void ExtrasMeleeModeExcluded(PlayerState me, ref bool excluded);
 
-    /// <summary>A strike with a melee weapon (not the combat knife) is in progress (<see cref="MeleeMode.EntersMeleeMode"/>).</summary>
-    bool MeleeWeaponStrike(PlayerState me) => _config is not null && me.MeleeStep > 0 && MeleeMode.EntersMeleeMode(MeleeWargear(me));
+    /// <summary>A move that frees the camera is in progress: a knife or melee-weapon strike (<see cref="MeleeMode.EntersMeleeMode"/>) or the dash attack's lunge.</summary>
+    bool MeleeWeaponStrike(PlayerState me) => _config is not null && MeleeMode.FreesCamera(me.MeleeStep, MeleeWargear(me), me.Rush);
 
     /// <summary>The camera orbits freely now (a human's own view in melee mode).</summary>
     bool MeleeOrbiting => !OldMeleeCamera && !_bot && _meleeMode.Active;
@@ -69,7 +68,6 @@ public partial class NetworkView
             (b & InputButtons.Reload) != 0, excluded));
         if (change != MeleeMode.Change.None)
         {
-            _meleeModeLast = change;
             if (LogMeleeMode) GD.Print($"MELEEMODE t {_connectedFor:F2} s: {change} active {_meleeMode.Active} camera yaw {Deg(_yaw):F1} body yaw {Deg(me.Yaw):F1} melee step {me.MeleeStep} weapon {MeleeWargear(me) ?? "-"}{(OldMeleeCamera ? " (--old-melee-camera: no orbit)" : "")}");
         }
         return change;

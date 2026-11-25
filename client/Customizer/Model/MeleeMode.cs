@@ -1,14 +1,14 @@
 using System;
+using SmSim;
 
 namespace SmClient.Customizer.Model;
 
 /// <summary>
-/// camera/melee-orbit (owner 2026-11-25; decision melee-camera-orbit): the own player's melee mode, one state shared by the melee field-of-view widening
-/// (<see cref="MeleeFov"/>) and the free camera orbit (<see cref="MeleeOrbitSteer"/>), so the two can never disagree.
+/// camera/melee-orbit (owner 2026-11-25; decision melee-camera-orbit): the own player's melee mode, in which the camera orbits free (<see cref="MeleeOrbitSteer"/>).
+/// The field-of-view widening (<see cref="MeleeFov"/>) keeps its own rules of 2026-11-15 (owner 2026-11-25: "keep the old widen rules but only those moves free the camera").
 /// <para>
-/// Enter: a strike with a melee weapon (a swing or heavy strike with the chainsword, axe, sword, hammer, mace, claw...; the original's behaviour graph sends
-/// exactly these to its melee navigation stance <c>FROM Melee Nav</c>). The combat knife does not enter it (the graph returns the knife to the ranged stance);
-/// neither do the charge, the dash attack's lunge or the ground pound (not strikes). Leave: a ranged shot (a fire press, or fire held once the strike is over),
+/// Enter (owner 2026-11-25: "knife, melee weapon strike, lunge also free the camera"): a swing or heavy strike with a melee weapon or the combat knife, or the
+/// jump pack's dash attack lunge; not the charge (bull rush), the ground pound or the Devastator's and Havoc's kick and stomp. Leave: a ranged shot (a fire press, or fire held once the strike is over),
 /// aiming, a reload press (the graph's exits of melee nav), death and respawn. A grenade throw and sprinting keep it (the graph returns them to melee nav).
 /// No timer: the mode lasts until one of those (owner; the data's camera <c>melee_mode_timeout</c> 3 s is not used).
 /// </para>
@@ -18,7 +18,7 @@ public sealed class MeleeMode
 {
     /// <summary>What this tick says.</summary>
     /// <param name="Alive">The player is alive (death ends the mode, the first tick alive again is a respawn).</param>
-    /// <param name="Strike">A melee-weapon strike is in progress (not the combat knife's).</param>
+    /// <param name="Strike">A move that frees the camera is in progress: a knife or melee-weapon strike, or the dash attack's lunge.</param>
     /// <param name="Fire">The fire button is held in this tick's input.</param>
     /// <param name="Aim">The aim button is held in this tick's input.</param>
     /// <param name="Reload">The reload button is held in this tick's input (a press edge leaves the mode).</param>
@@ -59,11 +59,19 @@ public sealed class MeleeMode
     }
 
     /// <summary>
-    /// Whether this melee wargear enters melee mode: a melee weapon (a wargear named <c>..._melee_...</c>, or the Ork boy's choppa) but the combat knife; not the
-    /// Devastator's and Havoc's kick and stomp (their melee is the heavy evade ability, no weapon) nor a class without a melee choice (null).
+    /// Whether this predicted state is a move that frees the camera (owner 2026-11-25): a knife or melee-weapon strike (<paramref name="meleeStep"/> above 0 with
+    /// <see cref="EntersMeleeMode"/>'s wargear) or the jump pack's dash attack lunge (<see cref="Rush.IsDash"/>). The charge (bull rush), the ground pound and the
+    /// kick / stomp do not.
+    /// </summary>
+    public static bool FreesCamera(int meleeStep, string? meleeWargear, RushPhase rush) =>
+        (meleeStep > 0 && EntersMeleeMode(meleeWargear)) || Rush.IsDash(rush);
+
+    /// <summary>
+    /// Whether a strike with this melee wargear enters melee mode: a melee weapon or the combat knife (a wargear named <c>..._melee_...</c>, or the Ork boy's
+    /// choppa); not the Devastator's and Havoc's kick and stomp (their melee is the heavy evade ability, no weapon) nor a class without a melee choice (null).
     /// </summary>
     public static bool EntersMeleeMode(string? meleeWargear) =>
-        !string.IsNullOrEmpty(meleeWargear) && !meleeWargear.Contains("knife", StringComparison.OrdinalIgnoreCase)
+        !string.IsNullOrEmpty(meleeWargear)
         && (meleeWargear.Contains("melee", StringComparison.OrdinalIgnoreCase) || meleeWargear.Contains("choppa", StringComparison.OrdinalIgnoreCase));
 }
 

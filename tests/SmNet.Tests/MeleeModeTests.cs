@@ -35,12 +35,31 @@ public class MeleeModeTests
     [InlineData("mp_melee_powersword", true)]
     [InlineData("mp_melee_2hand_thunder_hammer", true)]
     [InlineData("mp_melee_2hand_power_mace", true)]
-    [InlineData("mp_melee_combat_knife", false)]
-    [InlineData("csm_mp_melee_combat_knife", false)]
+    [InlineData("mp_melee_combat_knife", true)]   // owner 2026-11-25: the knife frees the camera too
+    [InlineData("csm_mp_melee_combat_knife", true)]
     [InlineData("sm_mp_core_abil_heavy_evade", false)]   // the Devastator's kick / stomp: no melee weapon
     [InlineData("ork_coop_boy_choppa", true)]
     [InlineData(null, false)]
-    public void OnlyMeleeWeaponsEnterNotTheKnife(string? wargear, bool enters) => Assert.Equal(enters, MeleeMode.EntersMeleeMode(wargear));
+    public void KnifeAndMeleeWeaponsEnterNotTheKick(string? wargear, bool enters) => Assert.Equal(enters, MeleeMode.EntersMeleeMode(wargear));
+
+    [Fact]
+    public void TheKnifeAndTheMeleeWeaponsStrikesAndTheLungeFreeTheCamera()
+    {
+        Assert.True(MeleeMode.FreesCamera(1, "mp_melee_combat_knife", RushPhase.None));
+        Assert.True(MeleeMode.FreesCamera(2, "mp_melee_chainsword", RushPhase.None));
+        foreach (var dash in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
+            Assert.True(MeleeMode.FreesCamera(0, null, dash));   // the dash attack's lunge, whatever the class's melee
+    }
+
+    [Fact]
+    public void TheChargeThePoundTheKickAndNoMoveDoNot()
+    {
+        foreach (var phase in Enum.GetValues<RushPhase>())
+            if (!Rush.IsDash(phase)) Assert.False(MeleeMode.FreesCamera(0, "mp_melee_chainsword", phase));   // the bull rush (charge) in every phase
+        Assert.False(MeleeMode.FreesCamera(0, "mp_melee_2hand_thunder_hammer", RushPhase.None));   // a ground pound is a jump phase, no strike: nothing here frees it
+        Assert.False(MeleeMode.FreesCamera(1, "sm_mp_core_abil_heavy_evade", RushPhase.None));     // the Devastator's kick / stomp
+        Assert.False(MeleeMode.FreesCamera(1, null, RushPhase.None));
+    }
 
     [Fact]
     public void AStrikeEntersAndItLastsWithoutATimer()

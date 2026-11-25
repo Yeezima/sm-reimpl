@@ -5,9 +5,9 @@ using SmSim;
 namespace SmClient;
 
 /// <summary>
-/// camera/melee-fov-widen (owner 2026-11-15): the own camera's field of view widens by <see cref="MeleeFov.Widen"/> degrees while in melee mode (camera/melee-orbit, owner 2026-11-25: the one
-/// <see cref="MeleeMode"/> state the camera orbit uses too: a melee-weapon strike enters it; a shot, aiming, a reload, death or respawn ends it; NetworkView.MeleeOrbit.cs). The blend: <see cref="MeleeFov"/>.
-/// The camera shift of the fov option stays on the configured value (no sideways jump). <c>--old-melee-fov</c> restores the plain view; <c>--log-fov</c> logs the changes.
+/// camera/melee-fov-widen (owner 2026-11-15): the own camera's field of view widens by <see cref="MeleeFov.Widen"/> degrees during melee and stays wide until a shot, aiming, a throw, death or
+/// respawn (the rules and blend: <see cref="MeleeFov"/>). Melee is read from the predicted own state: a swing or heavy strike (<c>MeleeStep</c>), the bull rush and the dash attack's lunge (<c>Rush</c>),
+/// the ground pound's dive (<c>Jump</c>). The camera shift of the fov option stays on the configured value (no sideways jump). <c>--old-melee-fov</c> restores the plain view; <c>--log-fov</c> logs the changes.
 /// </summary>
 public partial class NetworkView
 {
@@ -35,25 +35,30 @@ public partial class NetworkView
     readonly MeleeFov _meleeFov = new();
     float _meleeFovLogT;
 
+    /// <summary>Hook for added content: a body that keeps its normal field of view in melee (Musou: the Dreadnought).</summary>
+    partial void ExtrasMeleeFovExcluded(PlayerState me, ref bool excluded);
+
+    static bool InMelee(PlayerState me) => MeleeFov.Widens(me.MeleeStep, me.Rush, me.Jump);   // the 2026-11-15 rules, independent of the camera's melee mode (NetworkView.MeleeOrbit.cs)
+
     /// <summary>The factor on the data's fields of view for this frame (the option's scale, widened in melee).</summary>
     float MeleeFovScale(float configured, float aspect) => OldMeleeFov ? FovMath.Scale(configured, aspect) : _meleeFov.Scale(configured, aspect);
 
-    /// <summary>Once per frame, before the camera is placed: moves the widening's blend toward the shared melee mode (<see cref="MeleeMode"/>, NetworkView.MeleeOrbit.cs).</summary>
+    /// <summary>Once per frame, before the camera is placed: feeds the predicted own state to the widening.</summary>
     void MeleeFovUpdate(PlayerState me, float delta)
     {
         if (OldMeleeFov) return;
-        bool wasWide = _meleeFov.Wide;
-        _meleeFov.Advance(_meleeMode.Active && me.Alive, delta);
+        bool excluded = false;
+        ExtrasMeleeFovExcluded(me, ref excluded);   // EXTRAS-HOOK: the Dreadnought keeps his normal field of view
+        var change = _meleeFov.Step(new MeleeFov.Inputs(me.Alive, InMelee(me), me.FireHeld, me.Aiming, me.Throwing, excluded), delta);
         if (!LogFov) return;
         var size = GetViewport().GetVisibleRect().Size;
         float aspect = FovMath.Aspect(size.X, size.Y);
         float h = _meleeFov.Horizontal(FovOverride ?? FovMath.Selected, aspect);
         _meleeFovLogT += delta;
-        bool changed = wasWide != _meleeFov.Wide;
-        if (changed || (_meleeFov.Progress > 0f && _meleeFov.Progress < 1f && _meleeFovLogT > 0.1f))
+        if (change != MeleeFov.Change.None || (_meleeFov.Progress > 0f && _meleeFov.Progress < 1f && _meleeFovLogT > 0.1f))
         {
             _meleeFovLogT = 0f;
-            GD.Print($"FOV t {_connectedFor:F2} s: {(changed ? (_meleeFov.Wide ? "Widened" : _meleeModeLast.ToString()) : "blend")} wide {_meleeFov.Wide} horizontal {h:F1} (configured {FovMath.Clamp(FovOverride ?? FovMath.Selected, aspect):F1}) melee step {me.MeleeStep} rush {me.Rush} jump {me.Jump} fire {me.FireHeld} aim {me.Aiming}");
+            GD.Print($"FOV t {_connectedFor:F2} s: {(change != MeleeFov.Change.None ? change.ToString() : "blend")} wide {_meleeFov.Wide} horizontal {h:F1} (configured {FovMath.Clamp(FovOverride ?? FovMath.Selected, aspect):F1}) melee step {me.MeleeStep} rush {me.Rush} jump {me.Jump} fire {me.FireHeld} aim {me.Aiming}");
         }
     }
 }
