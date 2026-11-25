@@ -87,37 +87,43 @@ public partial class NetworkView
         var me = _client.Predicted;
         StepMeleeMode(me, input);
         var b = input.Buttons;
-        bool Press(InputButtons x) => (b & x) != 0 && (_meleeOrbitPrevButtons & x) == 0;
+        var prev = _meleeOrbitPrevButtons;   // read before it is replaced: Press compares with the last tick's buttons
         _meleeOrbitPrevButtons = b;
+        bool Press(InputButtons x) => (b & x) != 0 && (prev & x) == 0;
         if (!MeleeOrbiting || !me.Alive) { _meleeSteer.Reset(); return input; }
-        if (OrbitSuspended(me, Press(InputButtons.Grenade), Press(InputButtons.Jump))) { _meleeSteer.Reset(); return input; }
         bool strike = Press(InputButtons.Melee) || Press(InputButtons.MeleeHeavy);
+        if (OrbitSuspended(me, Press(InputButtons.Grenade), Press(InputButtons.Jump), strike)) { _meleeSteer.Reset(); return input; }
         var r = _meleeSteer.Step(_yaw, me.Yaw, input.MoveX, input.MoveY, snap: strike || Press(InputButtons.Jump), strikePress: strike, _config.TickSeconds);
         return input with { Yaw = r.Yaw, MoveX = r.MoveX, MoveY = r.MoveY };
     }
 
     /// <summary>
     /// The ticks that send the camera's yaw and the plain stick although in melee mode: a grenade press and the throw (it goes along the crosshair), a jump-pack jump's
-    /// press and its whole flight (the take-off, the steering and the ground pound's aim follow the view; the pound's landing mark is drawn from it).
+    /// press and its whole flight (the take-off, the steering and the ground pound's aim follow the view; the pound's landing mark is drawn from it); and a strike string
+    /// latched to a side or back (<see cref="PlayerState.MeleeDirection"/>, the directional melee of a strike begun with a side key outside melee mode, normally the one
+    /// that entered it): the simulation faces that string along the view turned by its direction, so it keeps the camera's frame (the same world direction) until it ends
+    /// or a strike press starts a forward one along the keys.
     /// </summary>
-    bool OrbitSuspended(PlayerState me, bool grenadePress, bool jumpPress) =>
-        grenadePress || me.Throwing || me.Jump != JumpPhase.None || (jumpPress && Loadouts.JumpPack(_config!, me) is not null);
+    bool OrbitSuspended(PlayerState me, bool grenadePress, bool jumpPress, bool strikePress) =>
+        grenadePress || me.Throwing || me.Jump != JumpPhase.None || (jumpPress && Loadouts.JumpPack(_config!, me) is not null)
+        || (me.MeleeStep > 0 && me.MeleeDirection != EvadeDirection.Forward && !strikePress);
 
     /// <summary><c>--melee-orbit-demo</c>: the scripted input through the human path (<see cref="MeleeOrbitInput"/>, then the converged shot) with a log line every 0.5 s.</summary>
     PlayerInput MeleeOrbitDemoSample(uint tick)
     {
-        var sent = MeleeOrbitInput(MeleeOrbitDemoInput(tick));
-        if (_client is not null) MeleeOrbitLog(_client.Predicted, sent);
+        var raw = MeleeOrbitDemoInput(tick);
+        var sent = MeleeOrbitInput(raw);
+        if (_client is not null) MeleeOrbitLog(_client.Predicted, raw, sent);
         return Converged(sent);
     }
 
-    void MeleeOrbitLog(PlayerState me, PlayerInput sent)
+    void MeleeOrbitLog(PlayerState me, PlayerInput raw, PlayerInput sent)
     {
-        if (!MeleeOrbitDemo || _connectedFor - _meleeLogAt < 0.5) return;
+        if (!MeleeOrbitDemo || (_connectedFor - _meleeLogAt < 0.5 && !(me.MeleeStep > 0 && _meleeMode.Active))) return;   // every tick of a strike in melee mode
         _meleeLogAt = _connectedFor;
         float speed = new System.Numerics.Vector2(me.Velocity.X, me.Velocity.Y).Length();
         float heading = speed > 0.5f ? Deg(MathF.Atan2(-me.Velocity.X, me.Velocity.Y)) : float.NaN;
-        GD.Print($"MELEEORBIT t {_connectedFor:F2} s: melee mode {_meleeMode.Active} camera yaw {Deg(_yaw):F1} sent yaw {Deg(sent.Yaw):F1} body yaw {Deg(me.Yaw):F1} stick {sent.MoveX:F2},{sent.MoveY:F2} speed {speed:F2} m/s run heading {(float.IsNaN(heading) ? "-" : heading.ToString("F1"))}");
+        GD.Print($"MELEEORBIT t {_connectedFor:F2} s: melee mode {_meleeMode.Active} camera yaw {Deg(_yaw):F1} sent yaw {Deg(sent.Yaw):F1} body yaw {Deg(me.Yaw):F1} keys {raw.MoveX:F0},{raw.MoveY:F0} sent stick {sent.MoveX:F2},{sent.MoveY:F2} melee step {me.MeleeStep} buttons {sent.Buttons} speed {speed:F2} m/s run heading {(float.IsNaN(heading) ? "-" : heading.ToString("F1"))}");
     }
 
     /// <summary>
@@ -166,9 +172,9 @@ public partial class NetworkView
         if (t is >= 0.0 and < 0.1 or >= 16.0 and < 16.1 or >= 19.0 and < 19.1 or >= 20.5 and < 20.6) b |= InputButtons.Melee;
         if (t is >= 12.0 and < 12.1) { b |= InputButtons.Melee; x = 1f; }
         if (t is >= 11.9 and < 12.6) x = 1f;
-        if (t is >= 10.5 and < 10.6 or >= 22.0 and < 22.1) b |= InputButtons.Fire;
-        if (t is >= 13.0 and < 13.1) b |= InputButtons.Grenade;
-        if (t is >= 14.5 and < 14.6) b |= InputButtons.Reload;
+        if (t is >= 10.5 and < 10.8 or >= 22.0 and < 22.3) b |= InputButtons.Fire;   // 0.3 s: a frame hitch must not skip the press
+        if (t is >= 13.0 and < 13.2) b |= InputButtons.Grenade;
+        if (t is >= 14.5 and < 14.75) b |= InputButtons.Reload;
         if (t is >= 17.0 and < 17.5) b |= InputButtons.Aim;
         return new PlayerInput(tick, x, y, _yaw, b, _pitch);
     }

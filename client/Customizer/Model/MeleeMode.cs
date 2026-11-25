@@ -58,9 +58,13 @@ public sealed class MeleeMode
         return was ? why : Change.None;
     }
 
-    /// <summary>Whether this melee wargear enters melee mode: any named melee weapon but the combat knife (null: the class's default, the knife).</summary>
+    /// <summary>
+    /// Whether this melee wargear enters melee mode: a melee weapon (a wargear named <c>..._melee_...</c>, or the Ork boy's choppa) but the combat knife; not the
+    /// Devastator's and Havoc's kick and stomp (their melee is the heavy evade ability, no weapon) nor a class without a melee choice (null).
+    /// </summary>
     public static bool EntersMeleeMode(string? meleeWargear) =>
-        !string.IsNullOrEmpty(meleeWargear) && !meleeWargear.Contains("knife", StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrEmpty(meleeWargear) && !meleeWargear.Contains("knife", StringComparison.OrdinalIgnoreCase)
+        && (meleeWargear.Contains("melee", StringComparison.OrdinalIgnoreCase) || meleeWargear.Contains("choppa", StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>

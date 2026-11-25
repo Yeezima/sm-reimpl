@@ -36,6 +36,9 @@ public class MeleeModeTests
     [InlineData("mp_melee_2hand_thunder_hammer", true)]
     [InlineData("mp_melee_2hand_power_mace", true)]
     [InlineData("mp_melee_combat_knife", false)]
+    [InlineData("csm_mp_melee_combat_knife", false)]
+    [InlineData("sm_mp_core_abil_heavy_evade", false)]   // the Devastator's kick / stomp: no melee weapon
+    [InlineData("ork_coop_boy_choppa", true)]
     [InlineData(null, false)]
     public void OnlyMeleeWeaponsEnterNotTheKnife(string? wargear, bool enters) => Assert.Equal(enters, MeleeMode.EntersMeleeMode(wargear));
 
