@@ -43,9 +43,9 @@ public partial class GoreStreakView : Node3D
         return sb.ToString();
     }
 
-    static string ShaderCode(bool strip) => $$"""
+    static string ShaderCode(bool strip, bool compat = false) => $$"""
 shader_type spatial;
-render_mode {{(strip ? "blend_mul" : "blend_mix")}}, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
+render_mode {{(strip && !compat ? "blend_mul" : "blend_mix")}}, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
 
 uniform float now = 0.0;                 // the view clock modulo {{F((float)ClockPeriod)}} s
 uniform float age_override = -1.0;       // >= 0: every streak at this age (the capture aid)
@@ -175,8 +175,14 @@ void fragment() {
     if (a <= 0.003) discard;
 {{(strip ? $$"""
     float st = clamp(strip_per_alpha * a, 0.0, 1.0) * (0.75 + 0.25 * cov);    // GoreStreakRules.Strip: fades with the opacity
+{{(compat ? $$"""
+    // Compatibility: its multiply blend darkened wherever the pass drew (even a multiply by 1), so the strip mixes the ground toward a dark blood red instead (GoreStreakRules.Composite)
+    ALBEDO = vec3({{F(GoreStreakRules.CompatibilityStripRed)}}, 0.0, 0.0);
+    ALPHA = st;
+""" : $$"""
     ALBEDO = mix(vec3(1.0), vec3({{F(ClassicBloodRules.RibbonStripRed)}}, 0.0, 0.0), st);
     ALPHA = 1.0;
+""")}}
 """ : $$"""
     ALBEDO = tint.rgb * shade * mix({{F(ClassicBloodRules.RibbonShadeFloor)}}, {{F(ClassicBloodRules.RibbonShadeTop)}}, smoothstep(0.15, 0.85, dens));
     ALPHA = a;
@@ -224,7 +230,7 @@ void fragment() {
     public int Live { get { int n = 0; for (int i = 0; i < _high; i++) if (i != _prewarmSlot && GoreStreakRules.Live(_starts[i], _clock)) n++; return n; } }
 
     /// <summary>The shader source (for tests and the log): the blood pass, or the strip pass.</summary>
-    public static string Source(bool strip) => ShaderCode(strip);
+    public static string Source(bool strip, bool compat = false) => ShaderCode(strip, compat);
 
     static ArrayMesh Quad()
     {
@@ -253,7 +259,7 @@ void fragment() {
     public override void _Ready()
     {
         _shader ??= new Shader { Code = ShaderCode(strip: false) };
-        _stripShader ??= new Shader { Code = ShaderCode(strip: true) };
+        _stripShader ??= new Shader { Code = ShaderCode(strip: true, compat: RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility") };
         var tint = new Color(ClassicBloodRules.BloodRgb.R, ClassicBloodRules.BloodRgb.G, ClassicBloodRules.BloodRgb.B);
         _mat = new ShaderMaterial { Shader = _shader, RenderPriority = ClassicBloodRules.RibbonRenderPriority + 1 };
         _strip = new ShaderMaterial { Shader = _stripShader, RenderPriority = ClassicBloodRules.RibbonRenderPriority, NextPass = _mat };
