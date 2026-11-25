@@ -75,7 +75,7 @@ public sealed partial class World
     /// <summary>Whether the relay holds the battle under way now.</summary>
     bool DuelHolding => _duel is { Active: true } && _tfw?.Battle is { } b && ReferenceEquals(b, _duelBattle);
 
-    /// <summary>The Executions X3 seam (abort every execution under way, and at an entry the overshield goes): a no-op until executions land.</summary>
+    /// <summary>The executions seam (abort every execution under way, and at an entry the overshield goes): an intentional no-op in the series-37 candidate (lead 41): executions are refused on every Chaos stage (X4 phase 2), so none runs in a duel; wiring it needs a pinned cross-extra hook (follow-up).</summary>
     partial void WarfrontDuelExecutions(int duelist);
 
     /// <summary>

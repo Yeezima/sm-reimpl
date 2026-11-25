@@ -204,6 +204,6 @@ public class DuelIsolationTests(ITestOutputHelper output)
         Assert.True(FinaleRig.Flat(q.Position, b.FortressPlan!.BossSpot) <= b.FortressPlan.ArenaRadius);   // on the plaza
     }
 
-    [Fact(Skip = "Executions X3 is not on this base: the WarfrontDuelExecutions seam is a no-op until it lands (the lead wires ExecutionsAbortAll and the overshield there)")]
+    [Fact(Skip = "Intentional no-op for the series-37 candidate (lead 41): WarfrontDuelExecutions stays empty because executions are refused on every Chaos stage (X4 phase 2), so none can run in a duel; wiring ExecutionsAbortAll and the overshield needs a pinned cross-extra hook (follow-up)")]
     public void Duel_aborts_executions_and_entry_clears_overshield() { }   // renamed at the series-37 integration: the executions boundary scan reads Executions*( as a hook call
 }

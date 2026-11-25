@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4372 spec table rows: **3250 tagged**, 732 not tagged (read from data with high confidence), 390 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 856 rows of the changes document.
+Scanned 4373 spec table rows: **3251 tagged**, 732 not tagged (read from data with high confidence), 390 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 856 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4372 spec table rows: **3250 tagged**, 732 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 872 | 826 | 652 | 239 | 1 |
-| General game design | 329 | 328 | 103 | 139 | 0 |
+| General game design | 330 | 329 | 103 | 139 | 0 |
 | Ork faction | 302 | 282 | 181 | 74 | 0 |
-| **All areas** | **3250** | 2937 | 2299 | 1002 | 37 |
+| **All areas** | **3251** | 2938 | 2299 | 1002 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2034 |
+| kind: ours | 2035 |
 | confidence: medium | 1111 |
 | confidence: low | 1077 |
 | notes: ours | 485 |
@@ -4449,7 +4449,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (329)
+### General game design (330)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4872,6 +4872,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D896A78F` | Handoff | the Lord's health never written (carried bit for bit, `DuelHandoffTests`); his burns, stun, script, drive, ability under way and cooldowns (back to the first 2 s and 3 s) cleared; put back on his spot (teleported, no heal; ours: the pause hides it) and held… (s) | kind: ours | brief + design; the teleport ours | Handoff: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the Lord's health never written (carried bit for bit… | ☐ |
 | `R-183434F4` | Chosen and Lord bodies | in the Chaos table the four Chosen rows (the Boss Ork slots) take a body of 0.6 m x 2.76 m (a marine's 0.5 m x 2.3 m x1.2, as C3 draws them) and a reach of 2.2 m; the Lord's row a marine's body scaled by a Chaos-only `BossScale` 1.35 (0.675 m x 3.105 m for… (m) | kind: ours; notes: provisional | C3's drawn scales (lead 40, 2026-11-25); the reaches ours | Chosen and Lord bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: in the Chaos table the four Chosen rows (the Boss Ork slots) take a… | ☐ |
 | `R-44B06A9F` | Left for later | a stage crash mid-duel replays the battle (design accepts it; the queue is not saved); the `SM_WF_FINALE` test aid is written (C5c second round: dev tools and a private `SM_WF_DIR` only; row "Finale test aid (C5c)"); the synthetic-section client aid… | kind: ours; notes: provisional | plan | Left for later: compare with SM1 by feel or video. Ours: a stage crash mid-duel replays the battle (design accepts it; the… | ☐ |
+| `R-ADAC19D2` | Executions in the duel | none can run: executions are refused on every Chaos stage (executions X4 phase 2), so the duel's executions seam `WarfrontDuelExecutions` (abort any run under way; at an entry the overshield goes) is an intentional no-op in the series-37 candidate; wiring it… | kind: ours | lead 41, series-37 integration | Executions in the duel: compare with SM1 by feel or video. Ours: none can run: executions are refused on every Chaos stage (executions… | ☐ |
 | `R-524EE827` | Send order (C5c) | on every server tick of a Chaos stage the finale's state and telegraphs (kinds 16, 17) go out before the breach list and closures (kinds 1, 2), so on the snapshot tick a client reads the duel state before the list that shows the silent close's breaches Closed | kind: ours | lead 40 (C5c: C4c's silent-close contract) | Send order (C5c): compare with SM1 by feel or video. Ours: on every server tick of a Chaos stage the finale's state and… | ☐ |
 | `R-9E9548DF` | Silent close on the client (C5c) | the first duel state past the bodyguard sets `ChaosBreachModel.SilentCloses`: a breach the list shows closed with no kind 2 plays no closure (no flash, implosion, ring, sound or BREACH CLOSED marker); a kind 2 still shows; the switch clears when no duel state… (s) | kind: ours | C4c's contract | Silent close on the client (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first duel state past the bodyguard sets… | ☐ |
 | `R-D8F5B6B3` | Duel centre line (C5c) | one banner-level line at y 380: the duelist's `DUEL: YOU ALONE AGAINST THE CHAOS LORD` for 3 s from each entry (alert red); in the handoff `THE NEXT CHALLENGER ENTERS IN 3, 2, 1` (the next one: `YOUR DUEL BEGINS IN n`, red) with `NAME HAS FALLEN` (or `YOU`… (s) | kind: ours; notes: provisional | plan (3 s entry line, 3 s handoff); wording and timings ours | Duel centre line (C5c): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one banner-level line at y 380: the duelist's DUEL: YOU ALONE AGAINST… | ☐ |
