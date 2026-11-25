@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using SmClient.Customizer.Model;
+using SmNet;
 using SmSim;
 
 namespace SmClient;
@@ -121,6 +122,8 @@ public partial class NetworkView
     // ---- --melee-orbit-demo (test aid) ----
     double _orbitDemoStart = -1;
     float _orbitDemoYaw;
+    double _orbitDemoThrowAt = -1;
+    bool _orbitDemoTeleported;
 
     /// <summary>
     /// The scripted input of <c>--melee-orbit-demo</c> (time from 3 s after joining): 0.0 strike (no key); 1.5-5.5 the camera orbits 360 degrees standing (the body
@@ -130,6 +133,13 @@ public partial class NetworkView
     /// </summary>
     PlayerInput MeleeOrbitDemoInput(uint tick)
     {
+        // --melee-orbit-demo-point <i> (capture aid, a loopback server with --dev-tools in Seize Ground): once, 1.5 s after joining, the developer tools' teleport to
+        // control point i (an open area of the map; the strike, orbits and runs then happen there, not against the spawn room's walls).
+        if (!_orbitDemoTeleported && _connectedFor > 1.5 && int.TryParse(CmdArg("melee-orbit-demo-point"), out int point))
+        {
+            _orbitDemoTeleported = _client?.SendDevCommand(DevCommandKind.Teleport, (byte)DevTeleportKind.ControlPoint, false, point) == true;
+            GD.Print($"MELEEORBIT demo: teleport to control point {point} sent {_orbitDemoTeleported}");
+        }
         if (_orbitDemoStart < 0) { _orbitDemoStart = _connectedFor + 3.0; _orbitDemoYaw = _yaw; }
         double t = _connectedFor - _orbitDemoStart;
         if (t >= 24.0) { _orbitDemoStart += 24.0; t -= 24.0; _orbitDemoYaw = _yaw; }
@@ -147,7 +157,10 @@ public partial class NetworkView
         if (t is >= 12.0 and < 12.1) { b |= InputButtons.Melee; x = 1f; }
         if (t is >= 11.9 and < 12.6) x = 1f;
         if (t is >= 10.5 and < 10.8 or >= 22.0 and < 22.3) b |= InputButtons.Fire;   // 0.3 s: a frame hitch must not skip the press
-        if (t is >= 13.0 and < 13.2) b |= InputButtons.Grenade;
+        // The throw once the strike is over (a press during a strike is not a throw): 0.2 s from the first tick after 13.0 with no strike running.
+        if (t is >= 13.0 and < 14.4 && _client is { } c && _orbitDemoThrowAt < 0 && c.Predicted.MeleeStep == 0) _orbitDemoThrowAt = t;
+        if (t < 13.0) _orbitDemoThrowAt = -1;
+        if (_orbitDemoThrowAt >= 0 && t >= _orbitDemoThrowAt && t < _orbitDemoThrowAt + 0.2) b |= InputButtons.Grenade;
         if (t is >= 14.5 and < 14.75) b |= InputButtons.Reload;
         if (t is >= 17.0 and < 17.5) b |= InputButtons.Aim;
         return new PlayerInput(tick, x, y, _yaw, b, _pitch);
