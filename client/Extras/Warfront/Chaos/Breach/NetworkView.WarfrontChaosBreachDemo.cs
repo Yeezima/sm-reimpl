@@ -19,7 +19,24 @@ public partial class NetworkView
     enum BreachDemoStep : byte { Idle, Walk, Wait, Thrown, Done }
     BreachDemoStep _bdStep;
     byte _bdTarget;
-    double _bdSince, _bdReleaseAt = -1;
+    double _bdSince, _bdReleaseAt = -1, _bdDoneAt = -1, _bdNextShot;
+    int _bdShots;
+    static readonly string? BreachDemoFrames = CmdArg("wf-breach-demo-frames");
+
+    /// <summary><c>--wf-breach-demo-frames &lt;dir&gt;</c>: a JPG of the view every 1/12 s of wall time from the walk until 6 s after the last step (<c>f00000.jpg</c> up; ffmpeg <c>-framerate 12</c> joins them). Real time, unlike <c>--write-movie</c>, whose fixed clock slows a networked client on a loaded machine.</summary>
+    void BreachDemoShoot()
+    {
+        if (BreachDemoFrames is not { Length: > 0 } dir || _bdStep == BreachDemoStep.Idle) return;
+        double wall = Time.GetTicksMsec() / 1000.0;
+        if (_bdDoneAt >= 0 && wall > _bdDoneAt + 6.0) return;
+        if (wall < _bdNextShot) return;
+        _bdNextShot = Math.Max(_bdNextShot + 1.0 / 12.0, wall - 0.2);
+        if (GetViewport()?.GetTexture()?.GetImage() is not { } image) return;
+        System.IO.Directory.CreateDirectory(dir);
+        image.SaveJpg(System.IO.Path.Combine(dir, $"f{_bdShots++:D5}.jpg"), 0.85f);
+    }
+
+    void BreachDemoDone(double now, string what) { BreachDemoSay(now, what + $" ({_bdShots} frames so far)"); _bdStep = BreachDemoStep.Done; _bdDoneAt = Time.GetTicksMsec() / 1000.0; }
 
     void BreachDemoSay(double now, string what) => GD.Print($"t {now:F1} s (frame {Engine.GetFramesDrawn()}): WFBREACHDEMO {what}");   // the frame number places the step in a --write-movie recording
 
@@ -27,12 +44,13 @@ public partial class NetworkView
     {
         if (!BreachDemoOn || _bot || _client?.Predicted is not { } me || _config is null) return;
         if (_bdReleaseAt >= 0 && now >= _bdReleaseAt) { Input.ActionRelease(ControlsInput.Name(GameAction.Grenade)); _bdReleaseAt = -1; }
+        BreachDemoShoot();
         if (_bdStep == BreachDemoStep.Done) return;
         WarfrontChaosWire.Breach? target = null;
         foreach (var b in _wfBreach.Breaches)
             if (_bdStep == BreachDemoStep.Idle ? b.State == WarfrontBreachState.Open && _wfBreach.Standing(b) : b.Id == _bdTarget) target = target is { } t && Dist(t) <= Dist(b) ? t : b;
         float Dist(in WarfrontChaosWire.Breach b) => new System.Numerics.Vector2(b.Centre.X - me.Position.X, b.Centre.Y - me.Position.Y).Length();
-        if (target is not { } breach) { if (_bdStep != BreachDemoStep.Idle) { Release(); BreachDemoSay(now, "the breach is gone"); _bdStep = BreachDemoStep.Done; } return; }
+        if (target is not { } breach) { if (_bdStep != BreachDemoStep.Idle) { Release(); BreachDemoDone(now, "the breach is gone"); } return; }
         float range = FloatArg("wf-breach-demo-range") ?? 9f, lift = FloatArg("wf-breach-demo-lift") ?? 0f;
         int daemons = (int)(FloatArg("wf-breach-demo-daemons") ?? 3f);
         var c = breach.Centre;
@@ -60,8 +78,8 @@ public partial class NetworkView
                 BreachDemoSay(now, $"throws at breach {breach.Id} from {flat:F1} m, pitch {_pitch:F2} rad; {breach.Alive} Daemons out; grenades {me.Grenades}");
                 break;
             case BreachDemoStep.Thrown:
-                if (!_wfBreach.Standing(breach)) { BreachDemoSay(now, $"breach {breach.Id} closed {now - _bdSince:F1} s after the throw"); _bdStep = BreachDemoStep.Done; }
-                else if (now - _bdSince > 6.0) { BreachDemoSay(now, $"breach {breach.Id} still open 6 s after the throw"); _bdStep = BreachDemoStep.Done; }
+                if (!_wfBreach.Standing(breach)) { BreachDemoDone(now, $"breach {breach.Id} closed {now - _bdSince:F1} s after the throw"); }
+                else if (now - _bdSince > 6.0) { BreachDemoDone(now, $"breach {breach.Id} still open 6 s after the throw"); }
                 break;
         }
 

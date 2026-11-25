@@ -69,6 +69,33 @@ public class ChaosBreachModelTests
         Assert.False(silent.Standing(silent.Breaches[0]));
     }
 
+    /// <summary>Lead 40 (C4s review): a lost closure burst still plays: the list's open-to-closed change is a closure; the late kind 2 is then a repeat. C5c's silent close shows nothing.</summary>
+    [Fact]
+    public void ListChangeClosesWhenTheClosureIsLost()
+    {
+        var m = new ChaosBreachModel();
+        m.Apply(List(B(1, WarfrontBreachState.Open, 3), B(2, WarfrontBreachState.Open)), 0.0, out _);
+        Assert.True(m.Apply(List(B(1, WarfrontBreachState.Closed, 3), B(2, WarfrontBreachState.Open)), 1.0, out var derived));
+        Assert.NotNull(derived);
+        Assert.Single(m.NewClosures);
+        Assert.Equal((byte)1, derived!.Value.Breach);
+        Assert.Equal(m.Breaches[0].Centre, derived.Value.Centre);
+        Assert.Equal(ChaosBreachMarkerKind.Closed, m.Marker(m.Breaches[0], 1.5));
+        Assert.True(m.Apply(Closure(77, 1, 4), 1.1, out var late));   // the burst arrives after all: no second show
+        Assert.Null(late);
+        Assert.Empty(m.NewClosures);
+        Assert.True(m.Apply(List(B(1, WarfrontBreachState.Closed, 3), B(2, WarfrontBreachState.Open)), 2.0, out var again));
+        Assert.Null(again);   // a closed breach closes once
+        Assert.Equal(1, m.ClosuresTaken);
+
+        var finale = new ChaosBreachModel { SilentCloses = true };
+        finale.Apply(List(B(1, WarfrontBreachState.Open)), 0.0, out _);
+        finale.Apply(List(B(1, WarfrontBreachState.Closed)), 1.0, out var quiet);
+        Assert.Null(quiet);
+        Assert.Equal(ChaosBreachMarkerKind.Hidden, finale.Marker(finale.Breaches[0], 1.0));
+        Assert.False(finale.Standing(finale.Breaches[0]));
+    }
+
     [Fact]
     public void DuelKindsForwarded()
     {

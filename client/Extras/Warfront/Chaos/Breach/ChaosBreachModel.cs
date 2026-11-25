@@ -85,30 +85,59 @@ public sealed class ChaosBreachModel
         return payload[0] is WarfrontChaosWire.KindBreaches or WarfrontChaosWire.KindClosure ? ChaosSectionRoute.Breach : ChaosSectionRoute.Refused;
     }
 
+    readonly List<ChaosBreachClosureShown> _new = new();
+    readonly Dictionary<byte, WarfrontBreachState> _lastState = new();
+
+    /// <summary>The closures the last <see cref="Apply"/> took (first copies only): from a kind 2 section, or from the list when a breach it showed standing is now Closed and no kind 2 came for it (a lost closure burst).</summary>
+    public IReadOnlyList<ChaosBreachClosureShown> NewClosures => _new;
+
     /// <summary>
-    /// A breach section (kind 1 or 2) at <paramref name="now"/>: false (and nothing changed) when it does not decode. <paramref name="closure"/> is set for the first copy of a closure only.
+    /// C5c's switch: while set, a breach the list shows closed with no kind 2 is taken as the finale's silent close (no closure show, no marker) instead of a lost closure burst. Off: every
+    /// open-to-closed change of the list shows a closure.
+    /// </summary>
+    public bool SilentCloses { get; set; }
+
+    /// <summary>
+    /// A breach section (kind 1 or 2) at <paramref name="now"/>: false (and nothing changed) when it does not decode. <paramref name="closure"/> is the first of <see cref="NewClosures"/> (null: none).
+    /// A breach closes once per battle (its id), so the kind 2 repeats and a kind 2 arriving after the list's change are dropped as repeats.
     /// </summary>
     public bool Apply(ReadOnlySpan<byte> payload, double now, out ChaosBreachClosureShown? closure)
     {
         closure = null;
+        _new.Clear();
         if (!WarfrontChaosWire.TryDecode(payload, out var s)) { Dropped++; return false; }
         if (s.Kind == WarfrontChaosWire.KindBreaches)
         {
             _breaches.Clear();
             if (s.Breaches is { } list) _breaches.AddRange(list);
             ListAt = now;
-            if (_breaches.Count == 0) { _seen.Clear(); _closed.Clear(); _centres.Clear(); return true; }   // the battle's end: the next battle's ids start again
-            foreach (var b in _breaches) _centres[b.Id] = b.Centre;
+            if (_breaches.Count == 0) { ForgetBattle(); return true; }   // the battle's end: the next battle's ids start again
+            foreach (var b in _breaches)
+            {
+                _centres[b.Id] = b.Centre;
+                bool wasStanding = _lastState.TryGetValue(b.Id, out var before) && before != WarfrontBreachState.Closed;
+                _lastState[b.Id] = b.State;
+                if (b.State != WarfrontBreachState.Closed || !wasStanding || _closed.ContainsKey(b.Id) || SilentCloses) continue;
+                var derived = new ChaosBreachClosureShown(b.Id, 0, 0, b.Centre, now);   // the closer and tick are unknown without kind 2
+                _closed[b.Id] = derived;
+                ClosuresTaken++;
+                _new.Add(derived);
+            }
+            closure = _new.Count > 0 ? _new[0] : null;
             return true;
         }
         var c = s.Closed;
-        if (!_seen.Add((c.Tick, c.Breach))) { Repeats++; return true; }
+        if (!_seen.Add((c.Tick, c.Breach)) || _closed.ContainsKey(c.Breach)) { Repeats++; return true; }
         var shown = new ChaosBreachClosureShown(c.Breach, c.Closer, c.Tick, _centres.TryGetValue(c.Breach, out var at) ? at : null, now);
         _closed[c.Breach] = shown;
+        _lastState[c.Breach] = WarfrontBreachState.Closed;
         ClosuresTaken++;
+        _new.Add(shown);
         closure = shown;
         return true;
     }
+
+    void ForgetBattle() { _seen.Clear(); _closed.Clear(); _centres.Clear(); _lastState.Clear(); }
 
     /// <summary>Whether no list came for <see cref="ChaosBreachLook.StaleSeconds"/> while breaches were shown.</summary>
     public bool Stale(double now) => _breaches.Count > 0 && now - ListAt > ChaosBreachLook.StaleSeconds;
@@ -125,9 +154,8 @@ public sealed class ChaosBreachModel
     public void Clear()
     {
         _breaches.Clear();
-        _seen.Clear();
-        _closed.Clear();
-        _centres.Clear();
+        _new.Clear();
+        ForgetBattle();
         ListAt = double.NegativeInfinity;
     }
 

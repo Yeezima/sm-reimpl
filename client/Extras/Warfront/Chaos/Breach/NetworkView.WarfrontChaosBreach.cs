@@ -56,14 +56,16 @@ public partial class NetworkView
                 return;
         }
         double now = _connectedFor;
-        if (!_wfBreach.Apply(payload, now, out var closure)) { WarfrontDroppedChaos++; return; }
+        if (_wfBreach.Tick(now)) WarfrontBreachDropShows();   // a list that went stale while no frame ran (the old map's driver went with it)
+        if (!_wfBreach.Apply(payload, now, out _)) { WarfrontDroppedChaos++; return; }
         WarfrontBreachLog(now);
-        if (closure is { } c)
+        WarfrontBreachEnsureDriver();
+        foreach (var c in _wfBreach.NewClosures)
         {
-            GD.Print($"t {now:F1} s: warfront chaos: breach {c.Breach} closed by P{c.Closer} (tick {c.Tick}){(c.Centre is { } at ? $" at {at.X:F0},{at.Y:F0},{at.Z:F0}" : ", not in the list")}");
+            string who = c.Tick == 0 && c.Closer == 0 ? "(the list's change; its closure section was lost)" : $"by P{c.Closer} (tick {c.Tick})";
+            GD.Print($"t {now:F1} s: warfront chaos: breach {c.Breach} closed {who}{(c.Centre is { } at ? $" at {at.X:F0},{at.Y:F0},{at.Z:F0}" : ", not in the list")}");
             WarfrontBreachClosure(c);
         }
-        WarfrontBreachEnsureDriver();
     }
 
     /// <summary>Tag 51 sections refused (malformed or an unknown kind).</summary>
@@ -88,7 +90,7 @@ public partial class NetworkView
         if (_gameSpace is null) return;
         if (_wfBreachDriver is { } d && IsInstanceValid(d) && d.IsInsideTree()) return;
         WarfrontBreachDropShows();   // the old map's nodes went with it
-        _wfBreachDriver = new ChaosBreachDriver { Name = "WarfrontChaosBreaches", Step = WarfrontBreachFrame };
+        _wfBreachDriver = new ChaosBreachDriver { Name = "WarfrontChaosBreaches", Step = WarfrontBreachFrame, Gone = WarfrontBreachGone };
         _gameSpace.AddChild(_wfBreachDriver);
     }
 
@@ -225,6 +227,15 @@ public partial class NetworkView
         if (marker) show.Marker = null;
     }
 
+    /// <summary>The frame node went with its map (a stage change, a leave): no hum or marker outlives it, and an end-of-battle list that never came is not waited for.</summary>
+    void WarfrontBreachGone()
+    {
+        WarfrontBreachDropShows();
+        if (_wfBreach.Breaches.Count > 0) GD.Print($"t {_connectedFor:F1} s: warfront chaos: the map went; breaches cleared");
+        _wfBreach.Clear();
+        _wfBreachLogged = "";
+    }
+
     void WarfrontBreachDropShows()
     {
         foreach (var s in _wfBreachShows.Values) WarfrontBreachStop(s, true);
@@ -236,5 +247,8 @@ public partial class NetworkView
 public sealed partial class ChaosBreachDriver : Node3D
 {
     public Action<double>? Step;
+    /// <summary>Called when the node leaves the tree (the map or the view went): the breaches' sounds stop and the model forgets the battle.</summary>
+    public Action? Gone;
     public override void _Process(double delta) => Step?.Invoke(delta);
+    public override void _ExitTree() => Gone?.Invoke();
 }
