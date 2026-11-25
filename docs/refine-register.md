@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4330 spec table rows: **3223 tagged**, 727 not tagged (read from data with high confidence), 380 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 853 rows of the changes document.
+Scanned 4335 spec table rows: **3228 tagged**, 727 not tagged (read from data with high confidence), 380 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 855 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +43,7 @@ Scanned 4330 spec table rows: **3223 tagged**, 727 not tagged (read from data wi
 | HUD and hit feedback (critical) | 108 | 102 | 75 | 16 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 122 | 110 | 96 | 50 | 0 |
-| Game modes | 46 | 42 | 44 | 19 | 1 |
+| Game modes | 47 | 43 | 45 | 19 | 1 |
 | Perks | 52 | 43 | 30 | 24 | 0 |
 | Death and ragdoll | 13 | 10 | 12 | 9 | 0 |
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
@@ -51,20 +51,20 @@ Scanned 4330 spec table rows: **3223 tagged**, 727 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 872 | 826 | 652 | 239 | 1 |
-| General game design | 305 | 304 | 98 | 125 | 0 |
+| General game design | 309 | 308 | 102 | 127 | 0 |
 | Ork faction | 302 | 282 | 181 | 74 | 0 |
-| **All areas** | **3223** | 2910 | 2293 | 986 | 37 |
+| **All areas** | **3228** | 2915 | 2298 | 988 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 2008 |
-| confidence: medium | 1106 |
-| confidence: low | 1076 |
+| kind: ours | 2013 |
+| confidence: medium | 1110 |
+| confidence: low | 1077 |
 | notes: ours | 484 |
 | kind: interpretation | 468 |
-| notes: estimate | 338 |
+| notes: estimate | 339 |
 | kind: estimate | 274 |
 | confidence: none (low) | 111 |
 | kind: provisional | 108 |
@@ -73,8 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
+| notes: interpretation | 31 |
 | notes: user's knowledge | 31 |
-| notes: interpretation | 30 |
 | kind: approximation | 28 |
 | kind: placeholder | 24 |
 | notes: open question | 22 |
@@ -2633,7 +2633,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AF1DBAA8` | Decal look (Extended) | a code-made splash (never a texture from the reference; third design after the review of 2b89de15): the outline is a noise field, not round blobs: a core of radius 0.14 to 0.18 of the square whose radius follows 4 to 9 uneven lobes (one or two long, 0.2 to… (m, s) | kind: ours; confidence: low | the reference image (shape only); numbers ours | Decal look (Extended): compare with SM1 with side-by-side video of the same action. Ours: a code-made splash (never a texture from the reference; third design… | ☐ |
 | `R-E7FDDB11` | Cost | CPU: the trail recording and pairing, timed per frame (the effects log line `hit dir: ... cpu`, printed with `--frame-profile` or a bot); GPU: one draw call per live spray (pool of 32, 64 quads each), no particles. The pool and its shader are made on the… (ms) | confidence: medium; notes: estimate | live measurement (rough: shared PC) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: CPU: the trail recording and pairing, timed per frame (the effects… | ☐ |
 
-### Game modes (46)
+### Game modes (47)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -2720,6 +2720,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0024C0C2` | Spawn spots | the simulation's own grid (2 m apart, 1 m in from the edge) over the area; the check counts them with the same rule (metres) | kind: ours; confidence: medium | `World.StartAreaSpots` | Spawn spots: compare with SM1 by feel or video. Ours: the simulation's own grid (2 m apart, 1 m in from the edge) over the… | ☐ |
+| `R-C2FC23E9` | Spawn spot room in an edited area | a grid spot (2 m grid, 1 m in from the box's edge, as before) is kept only when the vertical column at it from the record bottom - 1 m to the record top crosses the shape (`MeshVolume.Crosses`), and the same at the four points 1 m from it along the area's own… (metres) | kind: ours; confidence: medium | ours (keeps the stock 1 m margin from the edited boundary too) | Spawn spot room in an edited area: compare with SM1 by feel or video. Ours: a grid spot (2 m grid, 1 m in from the box's edge, as before) is kept… | ☐ |
 
 ### Perks (52)
 
@@ -4436,7 +4437,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (305)
+### General game design (309)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4460,6 +4461,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0CDD6CF8` | Cover piece surface id | the surface id a shot that hits a custom cover piece's triangles reports: 4 (the id of Classic's crate metal in the prop tests); the piece is the unit box carried by its world matrix, solid for movement and shots, pierce-capable shots pass it (surface id) | kind: ours; confidence: low | the Classic crate surface id used in the prop tests | Cover piece surface id: compare with SM1 by feel or video. Ours: the surface id a shot that hits a custom cover piece's triangles… | ☐ |
 | `R-6CD6E8E6` | Custom wall cylinder shape | a 16-sided prism whose corners lie on a circle of radius 0.5 / cos(pi/16) (circumscribes the cylinder), as Classic's `WorldBlocker.Cylinder`; built in double with the deterministic ring and yaw maths (`DetMath`, no libm) so the bits are the same on every OS… (sides, metres) | kind: ours; confidence: medium | `SmSim.WorldBlocker.Cylinder` (shape); determinism rule of `CompilerVersion` 4/5 | Custom wall cylinder shape: compare with SM1 by feel or video. Ours: a 16-sided prism whose corners lie on a circle of radius 0.5 /… | ☐ |
 | `R-011AA592` | Declared modes | a document lists the modes it is made for (default annihilation and seize; any combination, unknown names kept for future modes); a declared mode is playable only when no error of that mode remains: Seize Ground needs at least one capture point (at most 8)… (modes) | kind: ours | owner's words 2026-11-17 | Declared modes: compare with SM1 by feel or video. Ours: a document lists the modes it is made for (default annihilation and… | ☐ |
+| `R-176ECB5D` | Edited piece shape (edit mode contract, 2026-11-25) | a stored mesh replaces the stock unit shape (same deterministic placement); round pieces edit as prisms inscribed in the unit circle: 12 sides (column), 16 (capture point, round players-only wall); an edit may not leave the shape under 0.01 m along one of its… (metres, sides) | kind: ours; confidence: medium; notes: interpretation | the owner-approved brief "Blender-style controls" (interpretation of "every Build category") | Edited piece shape (edit mode contract, 2026-11-25): compare with SM1 by feel or video. Ours: a stored mesh replaces the stock unit shape (same deterministic… | ☐ |
+| `R-73A41A03` | Edited marker volume (edit mode contract v2) | an edited spawn area, door, capture point or kill zone: record = the mesh's box along the object's own axes (centre, full size); exact shape = the closed world mesh, inside by the non-zero winding of a ray straight up (top-left tie rule in plan, crossings… (metres) | kind: ours; confidence: medium | the brief's "Gameplay volumes" row; the M0 review | Edited marker volume (edit mode contract v2): compare with SM1 by listening A/B at the same distance and state. Ours: an edited spawn area, door, capture point or kill zone: record = the… | ☐ |
+| `R-F2A25800` | Edited volumes in play (plan M2, 2026-11-25) | the record carries the exact shape (`SmSim.MeshVolume`, core since contract v2) into the simulation: a capture point is held, a kill zone kills (point and swept segment: `MeshVolume.Crosses`), a spawn door blocks the other side by its authored triangles plus… (rule) | kind: ours; confidence: medium | the brief's "Gameplay volumes" row | Edited volumes in play (plan M2, 2026-11-25): compare with SM1 by feel or video. Ours: the record carries the exact shape (SmSim.MeshVolume, core since… | ☐ |
+| `R-AD9ECA69` | Check: floor of an edited point | the first standable floor point in a grid over the shape's box (at most 64 x 64 samples, at least 0.5 m apart, row by row from -X -Y) that the shape holds; also the point the check's kill-zone and bot-route tests use; an unedited point keeps the middle of its… (metres) | kind: ours; confidence: low; notes: estimate | ours (an estimate of where a player stands) | Check: floor of an edited point: compare with SM1 by feel or video. Ours: the first standable floor point in a grid over the shape's box (at… | ☐ |
 | `R-3DAFFBD3` | Bots on custom maps | the new-map bot rules (stuck escape, strict drops, walk-first jump build) apply to `cm_` maps (rule) | kind: ours; confidence: low | bots/new-maps rules | Bots on custom maps: compare with SM1 by feel or video. Ours: the new-map bot rules (stuck escape, strict drops, walk-first jump… | ☐ |
 
 *Spec section: Added content: Warfront, progression in the node battle (W3b; `WarfrontRules.Version` 3; added content, Warfront only; the W7 library wired in)*
@@ -5743,6 +5748,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `C-054A87CE` | Mapmaker edited volumes in play (plan M2 of the same brief, 2026-11-25; added content; no protocol, config-hash or compiler-version change) | The original had no map editor | Ours (switch back: `CustomMap.VolumesInPlay`): an edited capture point, spawn area, spawn door or kill zone acts by its exact shape (inside the shape counts, inside only its box does not); spawn spots keep 1 m of shape round them along world X and Y; an edited door collides by its own triangles and is raised above the… | docs/mapmaker.md "Edit mode in play"; spec "Mapmaker custom maps" | Mapmaker edited volumes in play (plan M2 of the same brief…: compare with SM1 by feel or video. Ours: The original had no map editor. | ☐ |
+| `C-B3481C28` | Mapmaker edit mode contract (owner-approved brief 2026-11-25 "Blender-style controls"; added content; format 4, `CompilerVersion` 7, no protocol change) | The original had no map editor | Ours: a piece's shape is editable by vertex, edge and face (frozen topologies; round pieces are 16- or 12-sided prisms inscribed in the circle, where Classic-style round walls circumscribe); edits are in the object's own axes and the dimensions are the resulting geometry's; an edited piece collides by its mesh and an… | docs/mapmaker.md "Edit mode contract"; spec "Mapmaker custom maps" | Mapmaker edit mode contract (owner-approved brief…: compare with SM1 by feel or video. Ours: The original had no map editor. | ☐ |
 | `C-8619F81F` | Mapmaker SM1 pieces in play (owner 2026-11-19; added content; protocol and config hash unchanged, `CompilerVersion` 5) | Maps are the original's baked collision; there is no tester-placed decoration | Ours (the owner's decision "drawn means solid"): in a custom map every SM1 placement, prefab part and imported model is both drawn and solid, with collision built from the drawn meshes (so cables, cards and other thin decoration collide), each machine from its own install; `original-cut` prefabs take the original… | docs/mapmaker.md "SM1 pieces in play"; the owner's decision of 2026-11-19 | Mapmaker SM1 pieces in play (owner 2026-11-19; added…: compare with SM1 by feel or video. Ours: Maps are the original's baked collision; there is no tester-placed… | ☐ |
 
 ### Deliberate changes (owner's decisions)
