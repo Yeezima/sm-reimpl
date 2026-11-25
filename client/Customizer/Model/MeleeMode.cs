@@ -163,6 +163,8 @@ public sealed class MeleeOrbitClient
     bool _stepped;
     float _strikeYaw;
     int _lastStep;
+    bool _lastHeavy;
+    float _lastTime;
 
     public MeleeMode Mode { get; } = new();
 
@@ -182,8 +184,10 @@ public sealed class MeleeOrbitClient
         if (_stepped && _tick == input.Tick) return MeleeMode.Change.None;
         _stepped = true; _tick = input.Tick;
         var b = input.Buttons;
-        bool newStrike = me.MeleeStep > 0 && me.MeleeStep != _lastStep;   // the next step of a string, or a strike out of the dash attack (step 0 during the lunge)
-        _lastStep = me.MeleeStep;
+        // A new strike while one runs: the next step of a string, a strike out of the dash attack (step 0 during the lunge), a switch between the light and heavy
+        // lists, or the same step started again (its clock drops: a chain that keeps the step number, a one-step light list).
+        bool newStrike = me.MeleeStep > 0 && (me.MeleeStep != _lastStep || me.MeleeHeavy != _lastHeavy || me.MeleeTime < _lastTime);
+        _lastStep = me.MeleeStep; _lastHeavy = me.MeleeHeavy; _lastTime = me.MeleeTime;
         return Mode.Step(new MeleeMode.Inputs(alive, MeleeMode.FreesCamera(me.MeleeStep, MeleeWargear(c, me), me.Rush),
             (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0, (b & InputButtons.Reload) != 0, excluded, newStrike));
     }
@@ -197,22 +201,26 @@ public sealed class MeleeOrbitClient
         _prev = b;
         bool Press(InputButtons x) => (b & x) != 0 && (prev & x) == 0;
         if (!orbit || !Mode.Active || !alive || !me.Alive) { _steer.Reset(); return input; }
-        bool strike = Press(InputButtons.Melee) || Press(InputButtons.MeleeHeavy) || Press(InputButtons.Stab);
+        // The stab key is a strike press only when it starts something: the weapon has a stab strike and no strike is running.
+        bool stab = Press(InputButtons.Stab) && me.MeleeStep == 0 && Combat.StabIndex(Loadouts.MeleeHeavy(c, me)) > 0;
+        bool strike = Press(InputButtons.Melee) || Press(InputButtons.MeleeHeavy) || stab;
         // Every strike press records its heading (the keys' world direction, else the camera's look) before any rule below returns, so a press made on a plain tick
         // or during a charge never leaves an older heading for its queued replay.
         float m = MathF.Min(1f, MathF.Sqrt(input.MoveX * input.MoveX + input.MoveY * input.MoveY));
         bool keys = m >= MeleeOrbitSteer.IdleStick;
         if (strike) _strikeYaw = MeleeOrbitSteer.Wrap(keys ? MeleeOrbitSteer.StickYaw(cameraYaw, input.MoveX, input.MoveY) : cameraYaw);
         bool pack = Loadouts.JumpPack(c, me) is not null;
-        bool plain = Press(InputButtons.Grenade) || me.Throwing || me.Jump != JumpPhase.None
-            || (Press(InputButtons.Jump) && pack)
-            || (pack && me.Buffered is BufferedAction.Jump or BufferedAction.JumpLong)   // the jump pack's dash reads its direction at the replay
+        bool rushing = me.Rush != RushPhase.None;
+        // A grenade press or a jump-pack jump during a charge stays on the charge's rules below (the plain camera-frame stick could read as S and cancel it).
+        bool plain = (Press(InputButtons.Grenade) && !rushing) || me.Throwing || me.Jump != JumpPhase.None
+            || (Press(InputButtons.Jump) && pack && !rushing)
+            || (pack && !rushing && me.Buffered is BufferedAction.Jump or BufferedAction.JumpLong)   // the jump pack's dash reads its direction at the replay
             || (b & InputButtons.Fire) != 0
             || SteeredStrike(c, me)
             || (me.MeleeStep > 0 && me.MeleeDirection != EvadeDirection.Forward);
         if (plain) { _steer.Reset(); return input; }
         bool queued = me.MeleeQueued || me.Buffered is BufferedAction.Melee or BufferedAction.MeleeHeavy;
-        if (me.Rush != RushPhase.None)
+        if (rushing)
         {
             _steer.Reset();
             // A strike press during a charge (a light press that ends it) goes out as a snap along its heading, the keys as forward, so the simulation latches a forward
@@ -220,13 +228,21 @@ public sealed class MeleeOrbitClient
             // same way (the keys' world direction now, else the camera's look), so the replay finds the keys forward. Every other tick sends the body's heading and
             // the stick in its frame (S still cancels).
             if (strike) return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = keys ? m : 0f };
-            if (queued)
+            var (x, y) = BodyFrameStick(cameraYaw, me.Yaw, input.MoveX, input.MoveY);
+            var bodyFrame = input with { Yaw = me.Yaw, MoveX = x, MoveY = y };
+            // The buffered strike's snap holds within its 0.3 s window (BufferTicks > 0); a press held past it keeps the snap only until a key points back from the
+            // body, which then cancels the charge as always (the spec's bound on the chaining exception).
+            bool buffered = me.Buffered is BufferedAction.Melee or BufferedAction.MeleeHeavy;
+            if (buffered && (me.BufferTicks > 0 || !ChargeCancel.BackHeld(bodyFrame.Sanitized())))
             {
                 _strikeYaw = MeleeOrbitSteer.Wrap(keys ? MeleeOrbitSteer.StickYaw(cameraYaw, input.MoveX, input.MoveY) : cameraYaw);
                 return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = keys ? m : 0f };
             }
-            var (x, y) = BodyFrameStick(cameraYaw, me.Yaw, input.MoveX, input.MoveY);
-            return input with { Yaw = me.Yaw, MoveX = x, MoveY = y };
+            // A rolling or hopping class's evade press (or its buffered replay) during a charge: the keys' world direction as forward, so the roll goes the way of the keys.
+            if (!pack && (Press(InputButtons.Jump) || me.Buffered == BufferedAction.Jump))
+                return keys ? input with { Yaw = MeleeOrbitSteer.Wrap(MeleeOrbitSteer.StickYaw(cameraYaw, input.MoveX, input.MoveY)), MoveX = 0f, MoveY = m }
+                            : input with { Yaw = me.Yaw, MoveX = 0f, MoveY = 0f };
+            return bodyFrame;
         }
         if (queued && !strike && me.MeleeStep > 0)
         {

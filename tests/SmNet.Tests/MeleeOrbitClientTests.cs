@@ -326,4 +326,101 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
         output.WriteLine($"strike 2 starts at {atStart / Deg:F1} (the press looked at 90, the strike before it at 0)");
         Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(atStart - 90f * Deg)) / Deg, 0f, 2f);
     }
+
+    // ---- re-review 2 of 563ad336 (lows) ----
+
+    /// <summary>A charge along camera 0, then the camera turned round to 180: S relative to that camera points along the charge (forward in the body's frame).</summary>
+    static (PlayerState, uint, Client) ChargeThenTurnRound(SimConfig c)
+    {
+        var client = new Client(true, c);
+        var (s, t) = ChargeAlong(client, c, 0f);
+        client.Cam = 180f * Deg;
+        return (s, t, client);
+    }
+
+    [Fact]
+    public void A_grenade_press_during_a_charge_does_not_cancel_it()
+    {
+        var (s, t, client) = ChargeThenTurnRound(Buffered);
+        int rushTicks = 1;
+        for (int i = 0; i < 60 && s.Rush == RushPhase.Rush; i++)
+        {
+            var b = s.RushTicks == 10 ? InputButtons.Grenade : InputButtons.None;
+            s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, -1f, b), Buffered, out _);   // S held: along the charge
+            if (s.Rush == RushPhase.Rush) rushTicks++;
+        }
+        Assert.True(rushTicks > 21, $"the charge ran {rushTicks} ticks");
+    }
+
+    [Fact]
+    public void A_jump_pack_jump_press_during_a_charge_keeps_the_body_frame_stick()
+    {
+        var k = Armed(Buffered with { JumpPacks = [JumpPackTests.Pack], Classes = [.. Buffered.Classes.Select(x => x with { JumpPack = 0 })] });
+        var (s, t, client) = ChargeThenTurnRound(k);
+        var sent = client.Sample(s, t, 0f, -1f, InputButtons.Jump);
+        Assert.Equal(s.Yaw, sent.Yaw, 4);
+        Assert.True(sent.MoveY > 0.9f, $"sent stick {sent.MoveX:F2},{sent.MoveY:F2}");   // S along the charge is forward for the body
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Past_the_buffer_window_a_back_key_cancels_the_charge_even_with_F_held(bool hold)
+    {
+        var client = new Client(true, Buffered);
+        var (s, t) = ChargeAlong(client, Buffered, 0f);
+        client.Cam = 90f * Deg;   // A relative to this camera points straight back from the charge
+        int rushTicks = 1;
+        for (int i = 0; i < 60 && s.Rush == RushPhase.Rush; i++)
+        {
+            var b = InputButtons.None;
+            if (hold ? s.RushTicks >= 5 : s.RushTicks is 5 or 6) b |= InputButtons.MeleeHeavy;   // F tapped, or pressed and held, early in the charge
+            float x = s.RushTicks >= 20 ? -1f : 0f;
+            s = Combat.StepPlayer(s, client.Sample(s, t++, x, 0f, b), Buffered, out _);
+            if (s.Rush == RushPhase.Rush) rushTicks++;
+        }
+        output.WriteLine($"hold {hold}: rush ticks {rushTicks}");
+        Assert.InRange(rushTicks, 20, 21);
+    }
+
+    [Fact]
+    public void The_stab_key_turns_the_body_only_when_the_weapon_has_a_stab()
+    {
+        var stab = C.Classes[0].MeleeHeavy[0] with { Stab = true };
+        var withStab = C with { Classes = [.. C.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo("mp_melee_power_sword", k.Melee) { Rush = k.MeleeRush, Heavy = [stab] }] })] };
+        foreach (var (cfg, turns) in new[] { (C, false), (withStab, true) })
+        {
+            var client = new Client(true, cfg);
+            var (s, t) = StrikeAndSettle(client, Fresh(cfg), cfg);
+            Assert.True(client.Active);
+            client.Cam = 90f * Deg;
+            var sent = client.Sample(s, t, 0f, 0f, InputButtons.Stab);
+            Assert.Equal(turns ? 90f * Deg : s.Yaw, MeleeOrbitSteer.Wrap(sent.Yaw), 3);
+        }
+    }
+
+    [Fact]
+    public void A_rolling_class_evade_during_a_charge_goes_the_way_of_the_keys()
+    {
+        var (s, t, client) = ChargeThenTurnRound(Buffered);
+        client.Cam = 0f;
+        var sent = client.Sample(s, t, 1f, 0f, InputButtons.Jump);   // D: the camera's right
+        Assert.Equal(-90f * Deg, MeleeOrbitSteer.Wrap(sent.Yaw), 3);
+        Assert.Equal((0f, 1f), (sent.MoveX, MathF.Round(sent.MoveY, 4)));
+    }
+
+    [Fact]
+    public void A_chain_that_keeps_its_step_number_enters_again_after_a_fire_press()
+    {
+        var orbit = new MeleeOrbitClient();
+        var me = Fresh(C) with { MeleeStep = 1, MeleeTime = 0.05f };
+        PlayerInput In(uint tick, InputButtons b = InputButtons.None) => new(tick, 0f, 0f, 0f, b, 0f);
+        orbit.StepMode(me with { MeleeStep = 0 }, In(0), C, true, false);   // alive, no strike (the first tick alive counts as a respawn)
+        Assert.Equal(MeleeMode.Change.Entered, orbit.StepMode(me, In(1), C, true, false));
+        Assert.Equal(MeleeMode.Change.Shot, orbit.StepMode(me with { MeleeTime = 0.2f }, In(2, InputButtons.Fire), C, true, false));
+        Assert.Equal(MeleeMode.Change.None, orbit.StepMode(me with { MeleeTime = 0.25f }, In(3), C, true, false));
+        Assert.Equal(MeleeMode.Change.Entered, orbit.StepMode(me with { MeleeTime = 0.02f }, In(4), C, true, false));   // the same step started again
+        Assert.Equal(MeleeMode.Change.Shot, orbit.StepMode(me with { MeleeTime = 0.1f }, In(5, InputButtons.Fire), C, true, false));
+        Assert.Equal(MeleeMode.Change.Entered, orbit.StepMode(me with { MeleeTime = 0.15f, MeleeHeavy = true }, In(6), C, true, false));   // light to heavy
+    }
 }
