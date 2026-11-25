@@ -162,6 +162,16 @@ public static class BakedArmourPaint
     }
 
     /// <summary>
+    /// Round 4 (ours, measured 2026-11-25 with <c>smtool built-mask-bench --mask-shares</c>): whether a material is painted with the specular strength of the regular
+    /// masked armour, which names no <c>SpecularColor</c> (the client's default: 0.4 with a specular map), instead of its own: true for every built material. The
+    /// campaign Chaos materials name SpecularColor (1, 1, 1), which the client reads as the strongest specular (0.6, half again the regular 0.4): the campaign raptor
+    /// and berserker legs read washed pale though their grey paint diffuse (raptor right leg median 72, 67 to 76) is no brighter than the regular leg's (72, 53 to 94)
+    /// and their specular maps (median 63) match the regular leg's (68). The plain (baked) material keeps its own specular, so a full set draws as before. Off under
+    /// <see cref="OldRegionStats"/>.
+    /// </summary>
+    public static bool UsesRegularSpecular(BmatMaterial m) => IsBuilt(m) && !OldRegionStats && !PaintMaskBuilder.OldMaskRules;
+
+    /// <summary>
     /// The texels the surfaces' UV triangles cover (UVs wrapped into 0..1, V down as the textures are stored), grown by two texels so filtering at seams reads
     /// painted texels; null when nothing is covered (then every texel counts).
     /// </summary>
@@ -353,6 +363,8 @@ public static class BakedArmourPaint
             var targets = PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package);
             float scale = OldBrightness ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Brightness);
             if (scale != 1f) targets = targets.Scaled(scale);
+            float contrast = OldBrightness || OldRegionStats ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Contrast);
+            if (contrast != 1f) targets = targets with { Contrast = contrast };
             var result = PaintMaskBuilder.WithGrey(diffuse, remapped, targets);
             if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats) result = PaintMaskBuilder.PadOutside(result, used);
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)

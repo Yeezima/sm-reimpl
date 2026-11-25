@@ -126,6 +126,22 @@ static class BuiltMaskCommand
                             }
                             meds = $"; diffuse luminance P {Med(lums[0])} S {Med(lums[1])} T {Med(lums[2])}";
                         }
+                        // Round 4: what else shapes the painted look besides the grey diffuse (the specular map's median and spread over the painted texels, the material's
+                        // SpecularPower and SpecularColor), and the baked diffuse's own spread (a flat developer texture has almost none).
+                        string Pct(List<float> l) { if (l.Count == 0) return "-"; l.Sort(); return $"{l[l.Count / 20]:0}/{l[l.Count / 2]:0}/{l[l.Count * 19 / 20]:0}"; }
+                        var spec = new List<float>(); var baked = new List<float>();
+                        DdsImage? sm = mm.Textures.TryGetValue("SpecularMap", out var sn) && piece.Model.Textures.TryGetValue(sn, out var sb) ? DdsImage.TryDecode(sb) : null;
+                        DdsImage? bd = mm.Textures.TryGetValue("DiffuseMap", out var bn) && piece.Model.Textures.TryGetValue(bn, out var bb) ? DdsImage.TryDecode(bb) : null;
+                        for (int i = 0; i < mi.Width * mi.Height; i++)
+                        {
+                            int o2 = i * 4;
+                            if (mi.Rgba[o2] + mi.Rgba[o2 + 1] + mi.Rgba[o2 + 2] < 150) continue;
+                            if (sm is not null) { int sx = Math.Min(sm.Width - 1, i % mi.Width * sm.Width / mi.Width), sy = Math.Min(sm.Height - 1, i / mi.Width * sm.Height / mi.Height), s4 = (sy * sm.Width + sx) * 4; spec.Add((sm.Rgba[s4] + sm.Rgba[s4 + 1] + sm.Rgba[s4 + 2]) / 3f); }
+                            if (bd is not null) { int bx = Math.Min(bd.Width - 1, i % mi.Width * bd.Width / mi.Width), by = Math.Min(bd.Height - 1, i / mi.Width * bd.Height / mi.Height), b4 = (by * bd.Width + bx) * 4; baked.Add(0.2126f * bd.Rgba[b4] + 0.7152f * bd.Rgba[b4 + 1] + 0.0722f * bd.Rgba[b4 + 2]); }
+                        }
+                        string sp = mm.Floats.TryGetValue("SpecularPower", out var pw) ? pw.ToString("0.#") : "-";
+                        string sc = mm.Vectors.TryGetValue("SpecularColor", out var cv) && cv.Length >= 3 ? $"{cv[0]:0.##},{cv[1]:0.##},{cv[2]:0.##}" : "-";
+                        meds += $"; specular map p5/p50/p95 {Pct(spec)}, SpecularPower {sp}, SpecularColor {sc}; baked diffuse p5/p50/p95 {Pct(baked)}";
                         Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels{meds}");
                     }
         if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"), int.TryParse(Opt("--cell"), out var cell) ? cell : 192, rest.Contains("--full"), rest.Contains("--grid"));

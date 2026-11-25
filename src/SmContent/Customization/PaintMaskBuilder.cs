@@ -458,9 +458,12 @@ public static class PaintMaskBuilder
         public float SecondaryCeiling { get; init; }
         public float TertiaryCeiling { get; init; }
 
+        /// <summary>Round 4: scale on the grey's distance from the target before the shoulder (1 = unchanged; <see cref="BuiltMaskOverride.Contrast"/>).</summary>
+        public float Contrast { get; init; } = 1f;
+
         /// <summary>These targets and ceilings times <paramref name="k"/> (a per-piece brightness scale).</summary>
         public Targets Scaled(float k) => new(Primary * k, Secondary * k, Tertiary * k)
-            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k };
+            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k, Contrast = Contrast };
 
         internal float Target(int c) => c == 0 ? Primary : c == 1 ? Secondary : Tertiary;
         internal float Ceiling(int c) => c == 0 ? PrimaryCeiling : c == 1 ? SecondaryCeiling : TertiaryCeiling;
@@ -492,7 +495,9 @@ public static class PaintMaskBuilder
         {
             float med = channelMedian[c];
             if (groups && m.GroupMedians![c * StatGroups + m.Group![i]] is var gm && !float.IsNaN(gm)) med = gm;
-            return Shoulder(Grey(lum, med, targets.Target(c), groups ? DarkSpanRound4 : DarkSpan), targets.Target(c), targets.Ceiling(c));
+            float v = Grey(lum, med, targets.Target(c), groups ? DarkSpanRound4 : DarkSpan);
+            if (targets.Contrast != 1f) v = targets.Target(c) + (v - targets.Target(c)) * targets.Contrast;
+            return Shoulder(v, targets.Target(c), targets.Ceiling(c));
         }
         // Round 4 (with region statistics only, ours): single-texel speckle of the shading (scratches, chips and block noise one or two texels across, the re-gate's
         // "speckled legs", "brass speckle", "rivet speckle") is held to within SpeckleLuminance of its 3 x 3 neighbourhood's median; edges and larger shading stay.

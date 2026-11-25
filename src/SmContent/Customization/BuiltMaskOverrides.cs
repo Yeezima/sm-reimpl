@@ -39,7 +39,9 @@ public sealed record MaskRegionOverride(float U0, float V0, float U1, float V1, 
 /// <param name="Channels">Where the builder's primary, secondary and tertiary regions go (paint channel per region), or null for the rule's map.</param>
 /// <param name="Brightness">Scale on the piece's luminance targets (<see cref="BakedArmourPaint.LuminanceTargets"/>), for a piece whose baked texture reads lighter or
 /// darker than its neighbours after the per-slot targets (round 3, second worker); 1 = the slot's targets.</param>
-public sealed record BuiltMaskOverride(string Package, string? Material, int[]? Channels, IReadOnlyList<MaskRegionOverride> Regions, string Why, float Brightness = 1f);
+/// <param name="Contrast">Round 4: scale on the shading's distance from each channel's target (1 = as shaded; 0.5 halves it), for a piece whose baked wear (light
+/// scratches and rubbed paint on a black plate) reads as blotches under the paint where the regular armour's grey diffuse is even.</param>
+public sealed record BuiltMaskOverride(string Package, string? Material, int[]? Channels, IReadOnlyList<MaskRegionOverride> Regions, string Why, float Brightness = 1f, float Contrast = 1f);
 
 /// <summary>
 /// The per-piece table (armour-pieces-1125 round 3). Every entry names its package and why (the gate's defect it answers); see docs/changes-from-original.md.
@@ -140,6 +142,71 @@ public static class BuiltMaskOverrides
         new("csm_armour_havoc_torso", null, null, [new MaskRegionOverride(0.42f, 0.61f, 1f, 0.71f, MaskRegion.Primary, From: MaskRegion.Baked)],
             "Campaign havoc torso: the back waist band is plate"),
 
+        // Round 4, second pass (lead 41's list after the first round-4 capture).
+        // Black Templars legs and backpack (DLC sm_armour_blacktemp, campaign sm_armour_black_temp: the same textures): the black plates' light wear drew as
+        // blotches under the paint ("leg wear blotches"); their shading keeps half its distance from the target.
+        .. Each(["sm_armour_blacktemp_legl", "sm_armour_blacktemp_legr", "sm_armour_blacktemp_backpack", "sm_armour_black_temp_legl", "sm_armour_black_temp_legr",
+                 "sm_armour_black_temp_backpack"], [], "Black Templars legs and backpack: wear blotches softened", contrast: 0.5f),
+        // Salamanders left pad: the dragon's dark shadow outline shaded as a dark halo on the dome; the dome's shading keeps 60 % of its distance from the target.
+        new("sm_armour_mp_dlc2_set2_shldrl", null, null, [], "Salamanders left pad: softer dome shading (dragon halo)", Contrast: 0.6f),
+        // Sidonus left pad: the white omega on the dome was ragged (part plate): white texels in its ellipse are tertiary, the blue field round it primary.
+        new("sm_armour_sidonus_shldrl", null, null,
+        [
+            new MaskRegionOverride(0.37f, 0.07f, 0.59f, 0.24f, MaskRegion.Primary, Hue(-2.3f, -1.0f, 6f, 6f), Ellipse: true),
+            new MaskRegionOverride(0.37f, 0.07f, 0.59f, 0.24f, MaskRegion.Tertiary, new TexelFilter(MinLum: 70f, MaxChroma: 22f), Ellipse: true),
+        ], "Sidonus left pad: omega tertiary, the field round it primary"),
+        // Blood Ravens DLC torso: the silver chest aquila was plate ("chest aquila primary"); it is tertiary (its red drop stays plate).
+        new("sm_armour_mp_bloodravens_torso", null, null,
+            [new MaskRegionOverride(0.58f, 0.35f, 0.85f, 0.52f, MaskRegion.Tertiary, new TexelFilter(MinLum: 15f, MaxChroma: 16f))],
+            "Blood Ravens torso: silver chest aquila tertiary"),
+        // Alpha Legion Champion left pad (chaos dlc1_set1): the dome's blue field was split between plate and ornament, leaving baked blue blotches; the blue field
+        // and the dome's baked holes are plate (primary), the green serpents ornament (tertiary).
+        new("csm_armour_mp_dlc1_set1_shldrl", null, null,
+        [
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, AlBlueTeal),
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Tertiary, Hue(1.6f, 2.6f, 10f)),
+            new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, new TexelFilter(MinLum: 4f), From: MaskRegion.Baked),
+        ], "Alpha Legion left pad: blue field primary, serpents tertiary"),
+        // Iron Warriors pads: the frame ring was half primary, half tertiary (a mixed colour: "trims half-painted") and the field flat; the ring is tertiary like the
+        // regular Chaos trims, the dark field primary, the silver emblem (left) and the gold star (right) tertiary.
+        new("csm_armour_mp_ironwarr_shldrl", null, null,
+        [
+            new MaskRegionOverride(0f, 0.01f, 0.91f, 0.85f, MaskRegion.Tertiary, Ellipse: true),
+            new MaskRegionOverride(0.23f, 0.16f, 0.73f, 0.73f, MaskRegion.Primary, Ellipse: true),
+            new MaskRegionOverride(0.23f, 0.16f, 0.73f, 0.73f, MaskRegion.Tertiary, new TexelFilter(MinLum: 80f, MaxChroma: 20f), Ellipse: true),
+        ], "Iron Warriors left pad: frame tertiary, field primary, emblem tertiary"),
+        new("csm_armour_mp_ironwarr_shldrr", null, null,
+        [
+            new MaskRegionOverride(0f, 0.02f, 0.97f, 0.80f, MaskRegion.Tertiary, Ellipse: true),
+            new MaskRegionOverride(0.19f, 0.12f, 0.80f, 0.69f, MaskRegion.Primary, Ellipse: true),
+            new MaskRegionOverride(0.19f, 0.12f, 0.80f, 0.69f, MaskRegion.Tertiary, DarkGold, Ellipse: true),
+        ], "Iron Warriors right pad: frame tertiary, field primary, star tertiary"),
+        // Death Guard Champion pads (chaos dlc3_set2): rust spots and the bare metal patch mottled the dome; inside the rust band the dome is plate, the grey metal patch
+        // tertiary.
+        .. Each(["csm_armour_mp_dlc3_set2_shldrl", "csm_armour_mp_dlc3_set2_shldrr"],
+        [
+            new MaskRegionOverride(0.06f, 0.03f, 0.94f, 0.57f, MaskRegion.Primary, new TexelFilter(MinLum: 4f), Ellipse: true),
+            new MaskRegionOverride(0.28f, 0.03f, 0.70f, 0.24f, MaskRegion.Tertiary, new TexelFilter(MinLum: 40f, MaxChroma: 10f), Ellipse: true),
+        ], "Death Guard pads: dome plate, metal patch tertiary"),
+        // Campaign Chaos left pads (basic, berserker, raptor): the whole pad, gold frame and emblem included, was one plate region ("left pad flat and pale"); the gold
+        // frame and the silver emblem are tertiary like the regular Chaos trims, the field primary.
+        .. Each(["csm_armour_basic_shldrl", "csm_armour_berserker_shldrl", "csm_armour_raptor_shldrl"],
+        [
+            new MaskRegionOverride(0f, 0.01f, 0.98f, 0.85f, MaskRegion.Tertiary, DarkGold, Ellipse: true),
+            new MaskRegionOverride(0.18f, 0.21f, 0.76f, 0.73f, MaskRegion.Tertiary, new TexelFilter(MinLum: 60f, MaxChroma: 14f), Ellipse: true),
+        ], "Campaign Chaos left pad: gold frame and silver emblem tertiary"),
+        // Campaign raptor and basic torsos: the ribbed belt strip at the texture's right edge (round the back of the waist, under the pack) stayed baked grey on the
+        // raptor ("back waist grey"); it is trim (tertiary), as the berserker torso's builder mask already makes it.
+        .. Each(["csm_armour_raptor_torso", "csm_armour_basic_torso"], [new MaskRegionOverride(0.91f, 0f, 1f, 1f, MaskRegion.Tertiary, new TexelFilter(MinLum: 6f))],
+            "Campaign raptor and basic torsos: the back belt strip is tertiary trim"),
+        // Legion of the Damned legs (dlc1_set1): the boot toe caps' light ridges were split between plate and ornament ("boot toes half-painted"): the toe cap is plate.
+        new("sm_armour_mp_dlc1_set1_legl", null, null, [new MaskRegionOverride(0.25f, 0.18f, 0.55f, 0.32f, MaskRegion.Primary)], "Legion of the Damned left boot toe: plate"),
+        new("sm_armour_mp_dlc1_set1_legr", null, null, [new MaskRegionOverride(0.45f, 0.18f, 0.75f, 0.32f, MaskRegion.Primary)], "Legion of the Damned right boot toe: plate"),
+        // Campaign havoc legs: the dark plates of the shin stayed partly baked ("shin speckle"); they are the leg plate (secondary).
+        .. Each(["csm_armour_havoc_legl", "csm_armour_havoc_legr"],
+            [new MaskRegionOverride(0f, 0.40f, 0.48f, 0.64f, MaskRegion.Secondary, new TexelFilter(MinLum: 6f), From: MaskRegion.Baked)],
+            "Campaign havoc legs: shin plates secondary"),
+
         // Titus (campaign, sm_armour_basic_upres). The largest colour cluster is the near-black joints, so the black-plate rules ran and took the lit blue plates
         // (L* 26 to 33, chroma 16: "light compact areas") for ornaments: the arms were mostly tertiary and the backpack mottled. Blue is the plate.
         .. Each(["sm_armour_basic_upres_helmet", "sm_armour_basic_upres_torso", "sm_armour_basic_upres_arml", "sm_armour_basic_upres_armr", "sm_armour_basic_upres_legl",
@@ -178,7 +245,7 @@ public static class BuiltMaskOverrides
         // purple body beside it after shading, so its targets are scaled down.
         new("csm_armour_mp_children_shldrl", null, null,
             [new MaskRegionOverride(0f, 0f, 1f, 0.66f, MaskRegion.Tertiary, From: MaskRegion.Primary)], "Emperor's Children left pad: skull and grille tertiary"),
-        new("csm_armour_mp_children_helmet", null, null, [], "Emperor's Children helmet: as bright as the body", Brightness: 0.8f),
+        new("csm_armour_mp_children_helmet", null, null, [], "Emperor's Children helmet: as bright as the body", Brightness: 0.75f),
         // Both pads' domes (lower third): the grey vent grilles beside the purple field were plate; they are trim (tertiary).
         .. Each(["csm_armour_mp_children_shldrl", "csm_armour_mp_children_shldrr"],
             [new MaskRegionOverride(0f, 0.66f, 1f, 1f, MaskRegion.Tertiary, new TexelFilter(MaxChroma: 9f), From: MaskRegion.Primary)],
@@ -313,7 +380,7 @@ public static class BuiltMaskOverrides
 
         // dlc2_set3 / dlc3_set2 helmet (byte-identical textures): its baked plate is a light, even grey, so the shaded crown drew flat and brighter than the regular
         // pieces beside it ("helmet crown flat / over-bright"); its targets are scaled down. Partial: the texture has little shading to keep.
-        .. Each(["csm_armour_mp_dlc2_set1_helmet", "csm_armour_mp_dlc3_set1_helmet"], [], "dlc2_set3 / dlc3_set2 helmet: as bright as the body", brightness: 0.82f),
+        .. Each(["csm_armour_mp_dlc2_set1_helmet", "csm_armour_mp_dlc3_set1_helmet"], [], "dlc2_set3 / dlc3_set2 helmet: as bright as the body (round 4: 0.72, was 0.82)", brightness: 0.72f),
     ];
 
     /// <summary>Alpha Legion blue and teal plate paint (hue from 2.6 round through pi to -1.0 rad).</summary>
@@ -338,8 +405,8 @@ public static class BuiltMaskOverrides
     static MaskRegionOverride Whole(MaskRegion to, TexelFilter? f = null, MaskRegion? from = MaskRegion.Baked) => new(0f, 0f, 1f, 1f, to, f, From: from);
 
     /// <summary>The same regions (and brightness scale) for each of <paramref name="packages"/>.</summary>
-    static IEnumerable<BuiltMaskOverride> Each(string[] packages, MaskRegionOverride[] regions, string why, float brightness = 1f) =>
-        packages.Select(p => new BuiltMaskOverride(p, null, null, regions, why, brightness));
+    static IEnumerable<BuiltMaskOverride> Each(string[] packages, MaskRegionOverride[] regions, string why, float brightness = 1f, float contrast = 1f) =>
+        packages.Select(p => new BuiltMaskOverride(p, null, null, regions, why, brightness, contrast));
 
     /// <summary>
     /// Round 4 (finding 6 of the round-3 re-gate): the packages the table names that <paramref name="exists"/> says are not in the install (a misspelt or missing

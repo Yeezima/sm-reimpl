@@ -187,6 +187,21 @@ public sealed class BuiltMaskRound4Tests
     }
 
     [Fact]
+    public void A_contrast_scale_brings_the_shading_toward_the_target()
+    {
+        var dif = new byte[W * H * 4]; var m = new byte[W * H * 4];
+        for (int i = 0; i < W * H; i++) { byte v = (byte)(60 + i % 40); dif[i * 4] = dif[i * 4 + 1] = dif[i * 4 + 2] = v; dif[i * 4 + 3] = 255; m[i * 4] = 255; }
+        var mask = new PaintMaskBuilder.MaskOnly(W, H, m, 80f, 80f, 62f, 1f, 0f, 0f);
+        var full = PaintMaskBuilder.WithGrey(new DdsImage(W, H, dif), mask, new PaintMaskBuilder.Targets(80f, 80f, 62f));
+        var half = PaintMaskBuilder.WithGrey(new DdsImage(W, H, dif), mask, new PaintMaskBuilder.Targets(80f, 80f, 62f) { Contrast = 0.5f });
+        int i0 = 0;   // luminance 60: grey 60 before, 70 at half contrast
+        Assert.InRange((int)full.Diffuse[i0 * 4], 59, 61);
+        Assert.InRange((int)half.Diffuse[i0 * 4], 69, 71);
+        Assert.All(BuiltMaskOverrides.All, e => Assert.InRange(e.Contrast, 0.3f, 1f));
+        Assert.Equal(0.5f, BuiltMaskOverrides.For("sm_armour_blacktemp_legl", null).Aggregate(1f, (a, o) => a * o.Contrast));
+    }
+
+    [Fact]
     public void A_hue_filter_with_one_bound_is_a_plain_bound()
     {
         // Finding 5: one of MinHue / MaxHue alone was ignored.
@@ -211,6 +226,11 @@ public sealed class BuiltMaskRound4Tests
     [Fact]
     public void The_region_stats_switch_reads_the_command_line_or_the_environment()
     {
+        // Round 4: built materials are painted with the regular armour's specular strength; a full set's plain material keeps its own.
+        var builtMat = new SmFormats.Bod.BmatMaterial("m", "character_wargear", new Dictionary<string, string> { ["DiffuseMap"] = "d", ["PaintMask"] = "p", [BakedArmourPaint.PaintDiffuseKey] = "g" });
+        var plainMat = builtMat with { Textures = new Dictionary<string, string> { ["DiffuseMap"] = "d" } };
+        Assert.True(BakedArmourPaint.UsesRegularSpecular(builtMat));
+        Assert.False(BakedArmourPaint.UsesRegularSpecular(plainMat));
         try
         {
             BakedArmourPaint.OldRegionStats = true;
