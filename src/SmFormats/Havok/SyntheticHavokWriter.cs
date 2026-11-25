@@ -16,7 +16,10 @@ public static class SyntheticHavokWriter
     /// <param name="Motion">Extracted motion samples (X, Y, Z, W), written as an hkaDefaultAnimatedReferenceFrame (up +Z, forward +Y); null: none.</param>
     /// <param name="Additive">Written as the binding's blend hint (byte @40: 1 additive, 0 normal).</param>
     /// <param name="BlendHint">Overrides the blend hint byte (to build broken files).</param>
-    public sealed record Clip(string Name, float Duration, int Frames, Track[] Tracks, Vector4[]? Motion = null, bool Additive = false, byte? BlendHint = null);
+    /// <param name="MotionUp">The extracted motion's up axis (null: +Z), to build an unusual or broken reference frame.</param>
+    /// <param name="MotionForward">The extracted motion's forward axis (null: +Y).</param>
+    public sealed record Clip(string Name, float Duration, int Frames, Track[] Tracks, Vector4[]? Motion = null, bool Additive = false, byte? BlendHint = null,
+        Vector3? MotionUp = null, Vector3? MotionForward = null);
     public sealed record Bone(string Name, short Parent, Vector3 Translation, Quaternion Rotation);
 
     public static byte[] Build(IReadOnlyList<Bone> bones, IReadOnlyList<Clip> clips)
@@ -124,8 +127,10 @@ public static class SyntheticHavokWriter
         if (clip.Motion is { } motion)
         {
             int frame = d.Object("hkaDefaultAnimatedReferenceFrame", 64);
-            d.F32(frame + 24, 1f);   // up (0, 0, 1, 0) @16
-            d.F32(frame + 36, 1f);   // forward (0, 1, 0, 0) @32
+            var up = clip.MotionUp ?? Vector3.UnitZ;
+            var forward = clip.MotionForward ?? Vector3.UnitY;
+            d.F32(frame + 16, up.X); d.F32(frame + 20, up.Y); d.F32(frame + 24, up.Z);   // up (0, 0, 1, 0) @16
+            d.F32(frame + 32, forward.X); d.F32(frame + 36, forward.Y); d.F32(frame + 40, forward.Z);   // forward (0, 1, 0, 0) @32
             d.F32(frame + 48, clip.Duration);
             d.Array(frame + 52, motion.Length, 16, 16, (at, i) => { d.F32(at, motion[i].X); d.F32(at + 4, motion[i].Y); d.F32(at + 8, motion[i].Z); d.F32(at + 12, motion[i].W); });
             d.Pointer(anim + 24, frame);
@@ -227,6 +232,8 @@ public static class SyntheticHavokWriter
     public sealed record ModifierValue(string Class, string Name);
     /// <summary>An EntityProperty tag's data: an object of <paramref name="Class"/> with the mode @28.</summary>
     public sealed record PropertyValue(string Class, int Mode);
+    /// <summary>executions-inventory: an Interaction tag's payload, an <c>hkbInteractionRequestPayload</c> (@56 of the tag) with this event index @12.</summary>
+    public sealed record InteractionValue(int EventId);
     /// <param name="Animations">One clip, or several blended children.</param>
     /// <param name="SelfReferencingBlend">The blend also lists itself as a child, twice (a corrupt file).</param>
     public sealed record Sequencer(string Name, string[] Animations, Tag[] Tags, float PlaybackSpeed = 1f, bool SelfReferencingBlend = false);
@@ -439,6 +446,12 @@ public static class SyntheticHavokWriter
                                 int modifier = Obj(mv.Class, 64);
                                 d.String(modifier + 32, mv.Name);
                                 d.Pointer(tag + 52, modifier);
+                            }
+                            else if (t.Value is InteractionValue iv)
+                            {
+                                int payload = Obj("hkbInteractionRequestPayload", 32);
+                                d.I32(payload + 12, iv.EventId);
+                                d.Pointer(tag + 56, payload);
                             }
                             return tag;
                         }).ToArray();

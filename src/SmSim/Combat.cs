@@ -448,7 +448,7 @@ public static class Combat
         bool jumpEscape = jumpDown && !s.JumpHeld && JumpEscape.Eligible(c, s);
         s = JumpEscape.Apply(s, c, jumpEscape);
         var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress || stabPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
-            anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
+            anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || (input.Buttons & ~InputButtons.Execute) != InputButtons.None);   // executions X3 (X1 review): holding Execute never ends a reaction's tail
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).
@@ -853,6 +853,7 @@ public static class Combat
         // regeneration (the normal rate, or Larraman's Blessing's) starts on the next tick. Both modes share this step.
         bool regenWaived = s.HealthRegenWaived || (threw && item!.Stim is not null);   // the armour keeps SinceDamage and its own delay (owner: health only)
         float shield = s.SinceDamage >= body.ShieldRegenDelay ? MathF.Min(body.ShieldMax, s.Shield + body.ShieldRegenRate * dt) : s.Shield;
+        if (s.Shield > body.ShieldMax && c.KeepsOvershield) shield = s.Shield;   // executions X1 (Warfront): the overshield above the maximum never decays; damage alone takes it
         float health = s.SinceDamage >= body.HealthRegenDelay || s.HealthRegenWaived ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
         // A burst under way (M43, Burst Fire): lost with the weapon in hand changing or being lowered, or without a burst weapon.
         int burstLeft = weapon is { Bursts: true } && !lowering && !switched ? s.BurstLeft : 0;

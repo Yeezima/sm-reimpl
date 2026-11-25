@@ -49,6 +49,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Scoreboard.cs", "ExtrasScoreboard"),  // NetworkView.ExtrasScoreboard(ref single, ref score, ref assists), the Tab scoreboard (Musou: one column, run points, no assists)
         ("client/ModelViewer.cs", "ExtrasStart"),                  // ModelViewer.ExtrasStart(args), first in _Ready on every path (remove-spear-claw 2026-11-23: --old-arsenal-spear-claw before any config or catalogue)
         ("client/ModelViewer.cs", "ExtrasTestAid"),                // ModelViewer.ExtrasTestAid(args, ref bool), before the game install is located (Ashfall kit gallery: a test view that needs no install)
+        ("client/ModelViewer.cs", "ExtrasExecutionTest"),          // ModelViewer.ExtrasExecutionTest(gameDir, args, ref bool), once the install is located (executions X7: --execution-test, the raw-clip test view)
         // Musou (MU0): each returns at once unless World._musou is set (World.StartMusou, only under ContentExtras.Musou).
         ("src/SmSim/Simulation.cs", "ExtrasStep"),                 // World.ExtrasStep(), once a tick after ApplyPerkBlasts, before CountProjectilesOut (Musou: the enemies)
         ("src/SmSim/Simulation.cs", "ExtrasMelee"),                // World.ExtrasMelee(int, PlayerState, MeleeStep), at the end of ResolveMelee (Musou: the cleave)
@@ -64,6 +65,24 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Stims.cs", "ExtrasEndlessClip"),              // SimConfig.ExtrasEndlessClip(WeaponSpec, ref bool), read by SimConfig.EndlessClip in the shot step: Musou's autocannon spends no round (owner 2026-11-11: "No clip in Musou mode")
         ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(in ProjectileState, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome or a contraption stops a projectile)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
+        // Executions X1 (2026-11-25; docs/added-content.md section 13): each implemented once in Extras/Executions/ (World.ExecutionsHooks.cs, SimConfig.Executions.cs), gated on ContentExtras.Executions.
+        ("src/SmSim/Simulation.cs", "ExtrasExecutionInput"),       // World.ExtrasExecutionInput(int, ref PlayerInput), after ExtrasInputFilter: the Execute press; a locked executor's input
+        ("src/SmSim/Simulation.cs", "ExtrasExecutionPin"),         // World.ExtrasExecutionPin(int, PlayerState before, ref PlayerState next), before the stepped state is stored: the alignment pin
+        ("src/SmSim/Simulation.cs", "ExtrasExecutionStep"),        // World.ExtrasExecutionStep(), after ResolveDeaths and the pickups, before StepMatch: the state machine and the Classic offers
+        ("src/SmSim/DamageScale.cs", "ExtrasExecutionDamage"),     // World.ExtrasExecutionDamage(int target, ref float scale), in DamageTakenScale after ExtrasDamageTaken (Warfront: the executor takes nothing during the move)
+        ("src/SmSim/ReactionWorld.cs", "ExtrasReactionBlocked"),   // World.ExtrasReactionBlocked(int target, ref bool), in TryReact: a locked executor does not react
+        ("src/SmSim/ContentExtras.cs", "ExtrasKeepsOvershield"),   // SimConfig.ExtrasKeepsOvershield(ref bool), read by SimConfig.KeepsOvershield (Combat.StepPlayer's armour regeneration: Warfront's overshield never decays)
+        // Executions X5a (2026-11-25): the client seams X5 and X6 fill (client/Extras/Executions/NetworkView.Executions.cs, Hud.ExecutionsHooks.cs), each a no-op without ContentExtras.Executions.
+        ("client/NetworkView.cs", "ExtrasExecutionPlace"),          // NetworkView.ExtrasExecutionPlace(CharacterViewer, PlayerState, bool, ref bool), after ExtrasPlace: a live executor plays its paired clip (X5)
+        ("client/NetworkView.cs", "ExtrasExecutionOrbitLook"),      // NetworkView.ExtrasExecutionOrbitLook(float, float, ref bool), the alive mouse look: a locked executor orbits its camera (X6)
+        ("client/NetworkView.cs", "ExtrasExecutionPadLook"),        // NetworkView.ExtrasExecutionPadLook(double, ref bool), before PadLook while alive: the right stick orbits instead (X6)
+        ("client/NetworkView.Spectate.cs", "ExtrasExecutionCamera"),   // NetworkView.ExtrasExecutionCamera(PlayerState, float, ref bool), in FollowCamera after DeathCamera: the own executor's orbit (X6)
+        ("client/NetworkView.Death.cs", "ExtrasDeathHold"),          // NetworkView.ExtrasDeathHold(int, CharacterViewer, PlayerState, bool, ref bool), in ProcessDeaths: Classic Extended holds a melee victim's death pose (X5)
+        ("client/NetworkView.Observer.cs", "ExtrasObserverFrame"),   // NetworkView.ExtrasObserverFrame(IReadOnlyList<PlayerState>, double), in ObserverFrame before ProcessDeaths: an observer draws executions (X5)
+        ("client/Hud/Hud.Vitals.cs", "ExtrasArmourTint"),            // Hud.ExtrasArmourTint(ref Color), the armour bar's modulate: Warfront's overshield blue (X6)
+        ("client/Hud.cs", "ExtrasHudDraw"),                          // Hud.ExtrasHudDraw(Vector2), in _Draw after DrawCentre: the Execute prompt (X6)
+        ("client/NetworkView.cs", "ExtrasExecutionTestPress"),     // NetworkView.ExtrasExecutionTestPress(ref PlayerInput), in SampleInput after ExtrasInputGate: test aid --execution-bot-press taps Execute on the own Classic offer (X5)
+        ("client/NetworkView.Weapons.cs", "ExtrasExecutionMeleeShown"),   // NetworkView.ExtrasExecutionMeleeShown(PlayerState, ref bool), in SyncWeapons before rig.Update: a live executor holds its melee weapon (X5)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)
@@ -250,8 +269,19 @@ public class ExtrasBoundaryTests
     [
         ("src/SmNet/GameClient.Bodies.cs", "public Func<PlayerState, uint, PlayerState>? ExtrasCarry { get; set; }", false),   // the Musou powerups (2026-11-10): Rapid Fire's PlayerState.FireBoostLeft at a reconcile
         ("src/SmNet/GameClient.cs", "if (ExtrasCarry is { } carry) mine = carry(mine, s.ServerTick);", true),                   // in the reconcile, after Stims.Carry, before the replay
+        // Executions X1 (2026-11-25): the own prediction's locked input and alignment pin, in the first prediction and in every replay (X3/X6 set them; null without the executions flag).
+        ("src/SmNet/GameClient.Bodies.cs", "public Func<PlayerInput, uint, PlayerInput>? ExtrasPredictInput { get; set; }", false),
+        ("src/SmNet/GameClient.Bodies.cs", "public Func<PlayerState, uint, PlayerState>? ExtrasPin { get; set; }", false),
+        ("src/SmNet/GameClient.cs", "if (ExtrasPredictInput is { } executionInput) predictedInput = executionInput(predictedInput, Tick);", true),
+        ("src/SmNet/GameClient.cs", "if (ExtrasPin is { } executionPin) Predicted = executionPin(Predicted, Tick);", true),
+        ("src/SmNet/GameClient.cs", "if (ExtrasPredictInput is { } replayExecutionInput) replayInput = replayExecutionInput(replayInput, tick);", true),
+        ("src/SmNet/GameClient.cs", "if (ExtrasPin is { } replayPin) state = replayPin(state, tick);", true),
+        ("src/SmNet/GameClient.Responsive.cs", "if (ExtrasPredictInput is { } aheadExecutionInput) aheadInput = aheadExecutionInput(aheadInput, Tick + 1);", true),   // executions X3 (X1 review): the speculative tick locks as the prediction
+        ("src/SmNet/GameClient.Responsive.cs", "if (ExtrasPin is { } aheadPin) next = aheadPin(next, Tick + 1);", true),
         ("client/NetworkView.Seize.cs", "bool ExtrasSpectateWanted(PlayerState me) {", true),   // Warfront W5c: asks the spectator-view hook whether it set a view (null without added content)
         ("client/NetworkView.Spectate.cs", "if (ExtrasSpectateWanted(me) && SpectateFollow(", true),   // FollowCamera: the added content's spectator view before the death camera (a no-op without added content)
+        // Executions X6 (2026-11-25): each piece mesh surface named after its install material, so the overshield shell (client/Extras/Executions/OvershieldShell.cs, OvershieldCoverage) can leave cloth out.
+        ("client/PieceCache.cs", "mesh.SurfaceSetName(index, surface.Material?.Name ?? \"\");", true),
     ];
 
     /// <summary>

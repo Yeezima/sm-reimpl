@@ -180,6 +180,9 @@ public partial class NetworkView
     /// <summary>Hook for added content: <paramref name="handled"/> set when the character's death is its own (no ragdoll is made).</summary>
     partial void ExtrasDeath(CharacterViewer character, ref bool handled);
 
+    /// <summary>Hook for added content (executions X5): <paramref name="hold"/> set while the death waits (queued again, as the Ork and marine death holds); the respawn is never delayed.</summary>
+    partial void ExtrasDeathHold(int id, CharacterViewer character, PlayerState state, bool own, ref bool hold);
+
     /// <summary>Turns this frame's deaths into ragdolls (their kill events have been noted by now).</summary>
     void ProcessDeaths()
     {
@@ -200,6 +203,9 @@ public partial class NetworkView
             bool extraDeath = false;
             ExtrasDeath(character, ref extraDeath);   // EXTRAS-HOOK: added content's own death (Musou: the Dreadnought plays his clip and gets no ragdoll)
             if (extraDeath) continue;
+            bool executionHold = false;
+            ExtrasDeathHold(id, character, state, own, ref executionHold);   // EXTRAS-HOOK: executions (X5): Classic Extended holds a melee-killed victim's death pose for the finisher window (queued again meanwhile)
+            if (executionHold) { _pendingDeaths.Add(_deathBatch[index]); continue; }
             // Ork O7c (NetworkView.OrkActions.cs): an Ork plays its death clip until the graph hands the body to the ragdoll; the death waits (queued again) meanwhile.
             if (IsInstanceValid(character) && IsOrkCharacter(character) && OrkDeathHold(id, character, state, own)) { _pendingDeaths.Add(_deathBatch[index]); continue; }
             // Animation pass 2 (NetworkView.UpperBody.cs): a marine plays the graph's death clip for the blow until the clip's powered-ragdoll tag; the ragdoll starts from that pose.

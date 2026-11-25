@@ -288,6 +288,7 @@ public sealed class PieceCache
                              ?? ModelViewer.MaterialFor(surface, textures, notes);
             int index = mesh.GetSurfaceCount() - 1;
             mesh.SurfaceSetMaterial(index, plain);
+            mesh.SurfaceSetName(index, surface.Material?.Name ?? "");   // EXTRAS-HOOK: executions X6: the install's material name, so the overshield shell can tell armour from cloth, leather and ornaments (OvershieldCoverage)
             surfaces.Add(new PieceSurface
             {
                 Plain = plain, Painted = painted, DecalUv = painted is not null && PaintSchemes.HasDecalUv(block.Uv1),

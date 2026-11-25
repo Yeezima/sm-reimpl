@@ -23,6 +23,8 @@ public enum GameAction
     Scoreboard, Shout,
     /// <summary>The direct stab (classic-stab-on-t, owner 2026-11-17). Appended last so saved files and the enum's numbers stay; the screen orders it by <see cref="ControlActions.All"/>.</summary>
     Stab,
+    /// <summary>The Execute action (executions X1, owner-approved brief 2026-11-25): the finisher in Classic PvP Extended and Warfront. Appended last so saved files and the enum's numbers stay; an old controls.json without it loads with its default (Q, gamepad unbound).</summary>
+    Execute,
 }
 
 /// <summary>One action's row: its label, group, the sim button it presses (None for the movement actions and the client-only ones) and where it applies.</summary>
@@ -48,6 +50,7 @@ public static class ControlActions
         new(GameAction.Melee, "Melee strike", "Combat", InputButtons.Melee, true, true, false, true),
         new(GameAction.StunStrike, "Stun strike (charge: Sprint + forward + this)", "Combat", InputButtons.MeleeHeavy, true, true, false, true),
         new(GameAction.Stab, "Sword stab (on its own)", "Combat", InputButtons.Stab, true, true, false, true),
+        new(GameAction.Execute, "Execute (Extended and Warfront)", "Combat", InputButtons.Execute, true, true, true, true),
         new(GameAction.Grenade, "Grenade", "Combat", InputButtons.Grenade, true, true, false, true),
         new(GameAction.Reload, "Reload / vent", "Combat", InputButtons.Reload, true, true, false, false),
         new(GameAction.Use, "Use / pick up", "Combat", InputButtons.Interact, true, true, false, true),
@@ -104,7 +107,7 @@ public sealed class BindingSet
 
     /// <summary>
     /// Today's bindings. Keyboard (the project's documented ones): WASD, Shift sprint, left mouse fire, Left Ctrl aim, right mouse or V melee, F stun strike, Space evade / jump pack, G grenade,
-    /// R reload / vent, E use, 1 2 3 weapons, X or the mouse wheel next weapon, Tab scoreboard, T the sword stab (classic-stab-on-t, 2026-11-17; the T voice call is off in Classic PvP and Musou Mode reads T for its shout). Controller: the original's Xbox 360 layout (<see cref="GamepadRules.Bindings"/>).
+    /// R reload / vent, E use, 1 2 3 weapons, X or the mouse wheel next weapon, Tab scoreboard, Q Execute (executions X1, owner 2026-11-25; the gamepad has none: D-pad left is Warfront's orbital strike), T the sword stab (classic-stab-on-t, 2026-11-17; the T voice call is off in Classic PvP and Musou Mode reads T for its shout). Controller: the original's Xbox 360 layout (<see cref="GamepadRules.Bindings"/>).
     /// </summary>
     public static BindingSet Defaults()
     {
@@ -116,13 +119,13 @@ public sealed class BindingSet
         K(GameAction.Melee, "Mouse:Right", "Key:V"); K(GameAction.StunStrike, "Key:F"); K(GameAction.Jump, "Key:Space");
         K(GameAction.Grenade, "Key:G"); K(GameAction.Reload, "Key:R"); K(GameAction.Use, "Key:E");
         K(GameAction.Weapon1, "Key:Key1"); K(GameAction.Weapon2, "Key:Key2"); K(GameAction.Weapon3, "Key:Key3");
-        K(GameAction.NextWeapon, "Key:X", "Mouse:Wheel"); K(GameAction.ZoomCycle, null); K(GameAction.Scoreboard, "Key:Tab"); K(GameAction.Shout, null); K(GameAction.Stab, "Key:T");
+        K(GameAction.NextWeapon, "Key:X", "Mouse:Wheel"); K(GameAction.ZoomCycle, null); K(GameAction.Scoreboard, "Key:Tab"); K(GameAction.Shout, null); K(GameAction.Stab, "Key:T"); K(GameAction.Execute, "Key:Q");
         P(GameAction.MoveForward, null); P(GameAction.MoveBack, null); P(GameAction.MoveLeft, null); P(GameAction.MoveRight, null);
         P(GameAction.Sprint, "Pad:LeftStick"); P(GameAction.Fire, "Pad:RT"); P(GameAction.Aim, "Pad:LT");
         P(GameAction.Melee, "Pad:X"); P(GameAction.StunStrike, "Pad:Y"); P(GameAction.Jump, "Pad:A");
         P(GameAction.Grenade, "Pad:LeftShoulder"); P(GameAction.Reload, "Pad:RightShoulder"); P(GameAction.Use, "Pad:B");
         P(GameAction.Weapon1, "Pad:DpadUp"); P(GameAction.Weapon2, "Pad:DpadRight"); P(GameAction.Weapon3, "Pad:DpadDown");
-        P(GameAction.NextWeapon, null); P(GameAction.ZoomCycle, "Pad:RightStick"); P(GameAction.Scoreboard, "Pad:Back"); P(GameAction.Shout, null); P(GameAction.Stab, null);
+        P(GameAction.NextWeapon, null); P(GameAction.ZoomCycle, "Pad:RightStick"); P(GameAction.Scoreboard, "Pad:Back"); P(GameAction.Shout, null); P(GameAction.Stab, null); P(GameAction.Execute, null);
         return s;
     }
 
@@ -305,9 +308,11 @@ public sealed class BindingSet
             string key = device == BindDevice.Keyboard ? "keyboard" : "controller";
             if (obj[key] is not JsonObject saved) continue;
             var table = set.Table(device);
+            var fromFile = new HashSet<GameAction>();
             foreach (var info in ControlActions.All)
             {
                 if (!table.TryGetValue(info.Action, out var slots) || saved[info.Action.ToString()] is not JsonArray arr) continue;
+                fromFile.Add(info.Action);
                 for (int i = 0; i < slots.Length; i++)
                 {
                     if (i >= arr.Count) { slots[i] = null; continue; }
@@ -316,6 +321,12 @@ public sealed class BindingSet
                     slots[i] = value;
                 }
             }
+            // An action the file does not name (added after it was saved: Execute, executions X1) keeps its default only where the file's own bindings leave it free, so an old file loads unchanged.
+            var savedInputs = fromFile.SelectMany(a => table[a]).Where(i => i is not null).ToHashSet();
+            foreach (var info in ControlActions.All)
+                if (!fromFile.Contains(info.Action) && table.TryGetValue(info.Action, out var defaulted))
+                    for (int i = 0; i < defaulted.Length; i++)
+                        if (defaulted[i] is { } input && savedInputs.Contains(input)) { notes.Add($"{info.Label}: {Display(input)} is already bound in the saved controls; left unbound."); defaulted[i] = null; }
             // An input twice in one device: the first (in the screen's order) keeps it.
             var seen = new HashSet<string>();
             foreach (var info in ControlActions.All)

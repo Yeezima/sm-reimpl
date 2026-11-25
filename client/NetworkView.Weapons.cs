@@ -94,6 +94,7 @@ public partial class NetworkView
             if (hasLoco && state.MeleeStep == 0) loco!.MeleeWeight = 1f;   // the handed-over swing's fade ends with it: the next swing never starts hidden
             bool meleeShown = state.Alive && state.MeleeStep > 0 && (hasLoco ? loco!.MeleeWeight : 1f) > MeleeVisibleWeight;
             if (HoldMeleeDemo && state.Alive && ReferenceEquals(character, _local)) meleeShown = true;   // fx/weapon-visuals capture aid: --hold-melee
+            ExtrasExecutionMeleeShown(state, ref meleeShown);   // EXTRAS-HOOK: executions (X5): an executor holds its melee weapon through the move
             rig.Update(state.Slot, meleeShown, state.Alive, delta, _config.WeaponSwitchTime, release, take);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
@@ -170,4 +171,7 @@ public partial class NetworkView
         (_weaponAssets is null ? $" ({_weaponNote})" : "") +
         (_wFrames > 0 ? $"; frame {_wFrameSum / _wFrames * 1000:F1} ms avg" : "") +
         (MuzzleWorld(_client?.PlayerId ?? -1) is { } m ? $"; own muzzle at {m.Position.X:F1}, {m.Position.Y:F1}, {m.Position.Z:F1}" : "");
+
+    /// <summary>Hook for added content (executions X5): <paramref name="shown"/> set when this player's melee weapon is in hand regardless of its swing (a live executor).</summary>
+    partial void ExtrasExecutionMeleeShown(PlayerState state, ref bool shown);
 }

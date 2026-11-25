@@ -600,9 +600,10 @@ public static partial class Protocol
     /// <summary>
     /// Input buttons this protocol knows (bits 0..11 since protocol 17, without bit 6 since protocol 20, bit 12 Interact since 26; bit 13
     /// <see cref="InputButtons.ExtraAction"/>, added content's action key, since extras wire 2: the faithful simulation never reads it); others are
-    /// dropped when an input batch is read.
+    /// dropped when an input batch is read. Bit 6 is <see cref="InputButtons.Execute"/> again since executions X1 (no layout change: the faithful simulation never reads it and
+    /// <c>GameServer</c> drops it unless the match runs <see cref="ContentExtras.Executions"/>).
     /// </summary>
-    const ushort KnownButtons = 0xFFFF & ~64;   // protocol 44: bit 14 SlotSecond; protocol 81: bit 15 Stab
+    const ushort KnownButtons = 0xFFFF;   // protocol 44: bit 14 SlotSecond; protocol 81: bit 15 Stab; executions X1: bit 6 InputButtons.Execute (the server drops it without ContentExtras.Executions)
     /// <summary>Most control point records in one snapshot (every point travels).</summary>
     public const int MaxSnapshotPoints = World.MaxControlPoints;
     /// <summary>

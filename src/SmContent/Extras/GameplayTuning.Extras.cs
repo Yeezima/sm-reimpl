@@ -27,5 +27,9 @@ public sealed partial record GameplayTuning
             config = MusouLoadout.Prepare(config with { MusouRules = MusouTuning.Load(gameDir, notes), LibrarianVariant = librarian });
         }
         else if (config.Extras.HasFlag(ContentExtras.Autocannon)) config = ClassicAutocannon.Append(config, gameDir, notes);   // Classic PvP's autocannon (owner 2026-11-11); Musou is never combined with it
+        if (config.Extras.HasFlag(ContentExtras.Executions)) ExecutionsLoad(ref config, gameDir, notes);   // EXECUTIONS-HOOK: executions X2/X3 (the catalogue on the config), after every other load so it sees the final classes and weapons
     }
+
+    /// <summary>Executions (docs/added-content.md section 13): the catalogue and its tuning on the match config, implemented in <c>Extras/Executions/</c> (X2, X3); only under the executions flag.</summary>
+    static partial void ExecutionsLoad(ref SimConfig config, string gameDir, List<string> notes);
 }

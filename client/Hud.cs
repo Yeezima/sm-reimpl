@@ -428,6 +428,9 @@ public sealed partial class Hud : Control
 
     // ---------------------------------------------------------------- draw
 
+    /// <summary>Hook for added content (executions X6): drawn after the centre messages, before the pick-up prompt (virtual units, <paramref name="vs"/> the virtual size).</summary>
+    partial void ExtrasHudDraw(Vector2 vs);
+
     public override void _Draw()
     {
         _adds.Clear();
@@ -451,6 +454,7 @@ public sealed partial class Hud : Control
         DrawWeaponBox(vs);
         DrawObjectives(vs);
         DrawCentre(vs);
+        ExtrasHudDraw(vs);   // EXTRAS-HOOK: executions (X6): the Execute prompt over the server's would-be pick
         if (d.Alive && !d.Spectating) DrawMoviePrompt(vs);   // ui/hud-fidelity: the pick-up prompt
         DrawHint();
         FlushAdditive();   // ui/hud-fidelity: the movies' added pieces, this frame

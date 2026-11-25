@@ -384,7 +384,11 @@ public partial class NetworkView : Node3D
         if (SpawnChoiceInput(e)) return;   // fix/pvp-deploy-spawn: the death screen's respawn choice (NetworkView.SpawnChoice.cs)
         LatencyProbeEvent(e);   // feel/controls test aid (--latency-probe): the delivery frame
         ControlEvent(e);   // feel/controls: presses and releases for the tap latch and the early tick (NetworkView.Controls.cs)
-        if (e is InputEventMouseMotion deadMotion && MouseCaptured && OwnDead)
+        bool executionLook = false;
+        if (e is InputEventMouseMotion executionMotion && MouseCaptured && !OwnDead)
+            ExtrasExecutionOrbitLook(-executionMotion.Relative.X * MouseYawPerPixel * MouseLook, -executionMotion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, ref executionLook);   // EXTRAS-HOOK: executions (X5a/X6): a locked executor's mouse orbits its camera; the view does not turn
+        if (executionLook) { }
+        else if (e is InputEventMouseMotion deadMotion && MouseCaptured && OwnDead)
             DeathOrbitLook(-deadMotion.Relative.X * MouseYawPerPixel * MouseLook, -deadMotion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook);   // late-g: dead, the mouse orbits the death camera (NetworkView.Death.cs); the view itself stays frozen (M23)
         else if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
         {
@@ -443,7 +447,9 @@ public partial class NetworkView : Node3D
             _yaw += turn * KeyYawRate * (float)delta;
             _yaw %= 2 * MathF.PI;
             PanView(delta);   // M36 test aid (--pan-rate)
-            PadLook(delta);   // controller: the right stick turns the view (NetworkView.Gamepad.cs)
+            bool executionPad = false;
+            ExtrasExecutionPadLook(delta, ref executionPad);   // EXTRAS-HOOK: executions (X5a/X6): a locked executor's right stick orbits its camera
+            if (!executionPad) PadLook(delta);   // controller: the right stick turns the view (NetworkView.Gamepad.cs)
         }
         else if (!_bot && OwnDead && !PickerBusy && _demoPlayback is null) PadLook(delta, deathOrbit: true);   // late-g: dead, the right stick orbits the death camera
 
@@ -718,6 +724,7 @@ public partial class NetworkView : Node3D
         var input = _demoPlayback is not null ? DemoSampleInput(tick) : SampleInputCore(tick);   // M40 T0: replayed demos answer from the recording
         if (_demoPlayback is null) ExtrasInput(ref input);   // EXTRAS-HOOK: added content's keys on a live input (loyalist barks: the FOR THE EMPEROR key)
         if (_demoPlayback is null) ExtrasInputGate(ref input);   // EXTRAS-HOOK: added content's limits on a live input (Musou: the Dreadnought's sprint, the same rule as the server's)
+        if (_demoPlayback is null) ExtrasExecutionTestPress(ref input);   // EXTRAS-HOOK: executions (X5 test aid --execution-bot-press): a bot taps Execute on its own Classic offer
         if (_client is not null) StepMeleeMode(_client.Predicted, input);   // camera/melee-orbit: the shared melee mode for bots, the dead and demos (a human's live input stepped it already, NetworkView.MeleeOrbit.cs)
         DemoRecordInput(input);
         _ownStickHeld = input.MoveX != 0f || input.MoveY != 0f;   // anim/jump-pack-blend: the sim's landing is the run landing when the stick is held at the touchdown
@@ -1208,6 +1215,15 @@ public partial class NetworkView : Node3D
     /// <summary>Hook for added content: <paramref name="handled"/> set when the character was posed by it (Musou: the Dreadnought's rig).</summary>
     partial void ExtrasPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
 
+    /// <summary>Hook for added content (executions X5): <paramref name="handled"/> set when the character is a live executor posed by its paired clip (locomotion, upper-body and turn layers skipped).</summary>
+    partial void ExtrasExecutionPlace(CharacterViewer character, PlayerState state, bool own, ref bool handled);
+    /// <summary>Hook for added content (executions X6): the mouse's yaw and pitch (radians) while alive; <paramref name="used"/> set when a locked executor's camera orbit took them.</summary>
+    partial void ExtrasExecutionOrbitLook(float yaw, float pitch, ref bool used);
+    /// <summary>Hook for added content (executions X6): the right stick while alive; <paramref name="used"/> set when a locked executor's camera orbit took it (the view does not turn).</summary>
+    partial void ExtrasExecutionPadLook(double delta, ref bool used);
+    /// <summary>Hook for added content (executions X5 test aid): may set the Execute bit on a live input (only with <c>--execution-bot-press</c>).</summary>
+    partial void ExtrasExecutionTestPress(ref PlayerInput input);
+
     /// <summary>
     /// Hook for added content: called by <see cref="TrackDeath"/> for a player who is not alive; <paramref name="keep"/> set when the added content poses and shows the dead character itself (Musou: the Dreadnought's
     /// death clip and corpse), so it stays visible instead of being hidden for a ragdoll.
@@ -1232,6 +1248,9 @@ public partial class NetworkView : Node3D
         bool extraPlaced = false;
         ExtrasPlace(character, state, own, ref extraPlaced);   // EXTRAS-HOOK: added content poses its own rigs (Musou: the Dreadnought)
         if (extraPlaced) return;
+        bool executionPlaced = false;
+        ExtrasExecutionPlace(character, state, own, ref executionPlaced);   // EXTRAS-HOOK: executions (X5): an executor plays its paired clip where ExecutionTrack puts it
+        if (executionPlaced) return;
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
         character.ClearTurnPose();    // M40-T5: so are the turn layer and the spine twist
