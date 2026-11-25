@@ -50,6 +50,8 @@ public sealed class WarfrontHubView
     public IReadOnlyList<HubLastKind> Last { get; init; } = new[] { HubLastKind.None, HubLastKind.None, HubLastKind.None };
     /// <summary>Weather W1: the forecast of the nine lane slots (one weather id each, lane A nodes 1 to 3 first), or null when the server sent none. Every node shows it, the unavailable ones too.</summary>
     public IReadOnlyList<byte>? Forecast { get; init; }
+    /// <summary>Chaos Warfront C1/C3: the run's army (the Hub's trailing faction byte; Orks for a Format 2 payload). The client draws and labels the enemy by it.</summary>
+    public SmSim.Extras.Warfront.Faction.WarfrontFaction Faction { get; init; } = SmSim.Extras.Warfront.Faction.WarfrontFaction.Orks;
 
     /// <summary>The weather id forecast for a lane's node (1 to 3), or null when there is no forecast.</summary>
     public byte? ForecastOf(int lane, int node) => Forecast is { Count: SmSim.Extras.Warfront.Weather.WarfrontForecast.Slots } f && lane is >= 0 and < 3 && node is >= 1 and <= 3 ? f[lane * 3 + node - 1] : null;

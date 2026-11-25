@@ -114,6 +114,8 @@ public class WarfrontBoundaryTests
         ("client/Extras/Musou/Gore/NetworkView.MusouGore.cs", "WarfrontGorePlan"),
         ("client/Extras/Musou/MusouCrowd.cs", "WarfrontFlinchReacts"),
         ("client/Extras/Musou/MusouCrowd.cs", "WarfrontFlinchSize"),
+        // Chaos Warfront C3: the crowd test stage with the Chaos army's looks (test aid --warfront-chaos)
+        ("client/Extras/Musou/MusouCrowdTestView.cs", "WarfrontCrowdTest"),
     ];
 
     /// <summary>Files outside the Warfront folders that may name the namespace.</summary>

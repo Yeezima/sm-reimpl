@@ -25,7 +25,7 @@ public sealed partial class HostPanel
     partial void WarfrontHostFactionRow(ref Control? row)
     {
         if (!WarfrontFactionPolicy.TryParse(_args.GetValueOrDefault("host-warfront-faction"), out _faction)) _faction = WarfrontFactionSetting.Alternate;
-        _factionRow = new UiKit.MenuChoice("Faction", FactionChoices, (int)_faction, i => { _faction = (WarfrontFactionSetting)i; }, FactionTooltip) { Name = "ChoiceWarfrontFaction" };
+        _factionRow = new UiKit.MenuChoice("Faction", FactionChoices, (int)_faction, i => { _faction = (WarfrontFactionSetting)i; RefreshNote(); }, FactionTooltip) { Name = "ChoiceWarfrontFaction" };
         row = _factionRow;
     }
 
@@ -49,6 +49,7 @@ public sealed partial class HostPanel
         if (_factionRow is null || !WarfrontFactionPolicy.TryParse(key, out var s)) return;
         _factionRow.SetIndex((int)s);
         _faction = s;
+        RefreshNote();
     }
 
     /// <summary>The <c>--warfront-faction</c> the next hosted campaign would be given (null: alternate, or a profile without Warfront); what <c>StartHosting</c> puts in <c>HostOptions.WarfrontFaction</c>.</summary>

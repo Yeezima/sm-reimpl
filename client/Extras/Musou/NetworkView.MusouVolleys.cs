@@ -54,7 +54,7 @@ public partial class NetworkView
             var way = to - from;
             float length = way.Length();
             return length < 0.5f || world.Weapons.Raycast(from, way / length, length) is not { } h || h.Distance >= length - 0.5f;
-        });
+        }, _musouRulesOver);   // Chaos Warfront C3: the Chaos army's cadence and band (null: the Orks' default)
         uint tick = (uint)(_connectedFor * System.Math.Max(1, _config?.TickRate ?? 30));
         foreach (var r in rounds) _musouRoundsNow.Add(new MusouEvent(MusouEventKind.Tracer, tick, r.Enemy, 0, 0, r.End));
         if (_connectedFor >= _volleyLogAt)

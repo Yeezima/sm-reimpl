@@ -77,7 +77,7 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
             Assert.True(c.Health > o.Health, $"{WarfrontChaosRoster.Unit(kind)}: {c.Health} over the Ork row's {o.Health}");
             if (kind == MusouEnemyType.Gretchin) continue;   // the Daemon: a man-sized body (the client takes it from the Chaos table, C3/C4)
             Assert.Equal(o.Radius, c.Radius);
-            Assert.Equal(o.Height, c.Height);
+            Assert.True(c.Height is WarfrontChaosTuning.ManHeight or WarfrontChaosTuning.MarineHeight or WarfrontChaosTuning.ChampionHeight, $"{kind}: the drawn Chaos body's height (C3)");
         }
         Assert.True(chaos.Of(MusouEnemyType.Gretchin).Height > orks.Of(MusouEnemyType.Gretchin).Height);
         // the Ork-only rows are kept; the Chosen and the Lord keep every number but their bodies and reach (C5: marine-sized, ChaosBodyTests)
@@ -85,8 +85,8 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
             Assert.Equal(orks.Of(kind), chaos.Of(kind));
         foreach (var kind in new[] { MusouEnemyType.Warboss, MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob })
             Assert.Equal(orks.Of(kind), chaos.Of(kind) with { Radius = orks.Of(kind).Radius, Height = orks.Of(kind).Height, MeleeRange = orks.Of(kind).MeleeRange });
-        // every other Musou rule is the Orks' (C5: the Lord's BossScale is the Chaos table's own)
-        Assert.Equal(orks with { Types = chaos.Types, BossScale = chaos.BossScale }, chaos);
+        // every other Musou rule is the Orks' (C5: the Lord's BossScale is the Chaos table's own; C3: the shot bodies from the table, the drawn Chaos heights)
+        Assert.Equal(orks with { Types = chaos.Types, BossScale = chaos.BossScale, ShotHeightsFromTable = true }, chaos);
     }
 
     [Fact]
@@ -229,10 +229,13 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
         var human = w.Players[TfwRig.Human].Position;
         ushort id = musou.Spawn(MusouEnemyType.Stormboy, human + new Vector3(20f, 20f, 0f), 0f, WarfrontChaosTuning.RaptorHealth);
         TfwRig.Steps(w, 20);   // past the stand
+        Assert.True(musou.RaptorGrounded(id), "C3: a Raptor on the ground reads grounded (executions may take him)");
         Assert.True(musou.Hop(id, human + new Vector3(4f, 4f, 0f)), "the jump pack's gap-closer");
-        bool airborne = false, landed = false;
-        for (int t = 0; t < 8 * 30 && !landed; t++) { Tick(w); if (musou.IsAirborne(id)) airborne = true; else if (airborne) landed = true; }
+        bool airborne = false, landed = false, groundedInAir = false;
+        for (int t = 0; t < 8 * 30 && !landed; t++) { Tick(w); if (musou.IsAirborne(id)) { airborne = true; groundedInAir |= musou.RaptorGrounded(id); } else if (airborne) landed = true; }
         Assert.True(airborne && landed);
+        Assert.False(groundedInAir, "C3: never grounded in the air");
+        Assert.True(musou.RaptorGrounded(id), "C3: grounded again once landed");
         Assert.True(musou.TryGet(id, out var raptor));
         Assert.True(Vector2.Distance(new Vector2(raptor.Position.X, raptor.Position.Y), new Vector2(human.X, human.Y)) < 12f, "it landed by the human");
     }

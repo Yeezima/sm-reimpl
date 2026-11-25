@@ -45,7 +45,7 @@ public sealed partial class GameServer
         for (int i = 0; i < n; i++)
         {
             ref readonly var e = ref _tfwBarPool[i];
-            if (!e.Alive || !TfwBars.IsElite(e.Type)) continue;
+            if (!e.Alive || !TfwBars.IsElite(sim.RuleKind(e.Type))) continue;   // Chaos Warfront C3 (C2 review): the 'Ard slot's Chaos Marine wears the 'Ard Boy's bar (RuleKind: itself outside a Chaos battle)
             float max = e.Id == boss && bossMax > 0f ? bossMax : run.Battle?.BossOrkMaxHealth(e.Id) ?? sim.Rules.Of(e.Type).Health;
             _tfwElites.Add(new TfwElite(e.Id, e.Position, TfwBars.Quantise(e.Health, max), Pinned: e.Id == boss || MusouBossOrks.Is(e.Type)));   // the bosses' bars always go (the HUD's boss bars)
         }
