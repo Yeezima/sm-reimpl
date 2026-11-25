@@ -24,7 +24,7 @@ public class ExecutionHashTests
         var extended = new SimConfig { Extras = ContentExtras.All };
         var without = new SimConfig { Extras = ContentExtras.All & ~ContentExtras.Executions };
         Assert.NotEqual(extended.Hash(), without.Hash());
-        Assert.Equal(2, ExecutionRules.Version);
+        Assert.Equal(3, ExecutionRules.Version);   // 3: X4 (Warfront on Orks)
         Assert.Equal(2, ExecutionChoice.RulesVersion);
     }
 

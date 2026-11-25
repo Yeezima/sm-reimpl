@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4137 spec table rows: **3059 tagged**, 706 not tagged (read from data with high confidence), 372 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4155 spec table rows: **3069 tagged**, 714 not tagged (read from data with high confidence), 372 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 4137 spec table rows: **3059 tagged**, 706 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 207 | 206 | 79 | 79 | 0 |
-| Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3059** | 2751 | 2240 | 919 | 37 |
+| General game design | 215 | 214 | 82 | 79 | 0 |
+| Ork faction | 300 | 280 | 180 | 73 | 0 |
+| **All areas** | **3069** | 2761 | 2245 | 919 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1864 |
+| kind: ours | 1874 |
 | confidence: low | 1073 |
-| confidence: medium | 1056 |
+| confidence: medium | 1061 |
 | notes: ours | 476 |
 | kind: interpretation | 458 |
 | notes: estimate | 310 |
@@ -4334,7 +4334,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (207)
+### General game design (215)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4622,6 +4622,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D0C598E2` | Overshield list | Warfront only (never encoded or sent in Classic); on a change, and at 1 Hz while not empty; every living non-puppet player above its armour maximum, by id, at most 16 (Hz) | kind: ours; confidence: medium | design; Classic none: lead 40 | Overshield list: compare with SM1 by feel or video. Ours: Warfront only (never encoded or sent in Classic); on a change, and at… | ☐ |
 | `R-177E17E9` | Rows on the config | `SimConfig.Executions` (an `ExecutionRowSet`: the rows and their wire order) from `ExecutionCatalogueLoader.Load` on the player's own install; empty without one (every press refused NoRows) | kind: ours | plan; lead 39 | Rows on the config: compare with SM1 by feel or video. Ours: SimConfig.Executions (an ExecutionRowSet: the rows and their wire… | ☐ |
 | `R-D3D7FA51` | Execute held during a reaction | holding Execute never counts as "any input" that ends a reaction's tail | kind: ours | X1 review (lead 39) | Execute held during a reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: holding Execute never counts as "any input" that ends a reaction's… | ☐ |
+
+*Spec section: Added content: Executions: Warfront (X4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-15760CB0` | Candidate gather | `MusouSim.Query` within 3.0 m (the 2.5 m range + 0.5 m) and the melee lock's vertical reach (1.5 m), at most the 64 nearest; never a walk over the pool by the executions code; the choice is `ChooseAlignedOrk` (seeded by tick, executor and Ork) with the other… (m) | kind: ours; confidence: medium | ours (cost) | Candidate gather: compare with SM1 by measuring on a flat spot of the same map. Ours: MusouSim.Query within 3.0 m (the 2.5 m range + 0.5 m) and the melee… | ☐ |
+| `R-2BA37455` | Horde bystanders | the other living players (humans and AI Marines) and the player-solid enemies (`MusouSolids.Blocks`: the Warboss and the Boss Orks) within the bystander reach (10.4 m; the nearest 256 enemies read); regular Orks never block the slide (m) | kind: ours; confidence: medium | Musou "who is solid" rule (MusouSim v31) applied; lead 40 | Horde bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: the other living players (humans and AI Marines) and the player-solid… | ☐ |
+| `R-05E619F3` | Warfront slide | 1 m forward (X2's `ExecutionAlign.MaxSlide`; Classic's 2.5 m is X3's) (m) | kind: ours; confidence: medium | lead 40 | Warfront slide: compare with SM1 by measuring on a flat spot of the same map. Ours: 1 m forward (X2's ExecutionAlign.MaxSlide; Classic's 2.5 m is X3's). | ☐ |
+| `R-D9F6F734` | Refusal reasons | the cooldown, not in a battle and a Chaos stage are X3's `Refused` (the reason in `ExecutionsWarfrontRefusedLast`); no eligible Ork in range `NoTarget`; an eligible Ork whose moves do not fit `NoFit` | kind: ours | ours | Refusal reasons: compare with SM1 by feel or video. Ours: the cooldown, not in a battle and a Chaos stage are X3's Refused (the… | ☐ |
+| `R-A7745148` | Slot reuse | a hold is dropped when its slot is taken by a new spawn or the pool is cleared; a run whose Ork's slot was freed before its kill frame ends Invalid | kind: ours | design | Slot reuse: compare with SM1 by feel or video. Ours: a hold is dropped when its slot is taken by a new spawn or the pool… | ☐ |
+| `R-64B0E367` | Kill frame | `MusouSim.Damage` with max(health x 8, 10 000) hp, no push, marker 3, cause Melee, through the normal kill, XP, assist and drop path (hp) | kind: ours | design; amount ours | Kill frame: compare with SM1 by feel or video. Ours: MusouSim.Damage with max(health x 8, 10 000) hp, no push, marker 3… | ☐ |
+| `R-96924975` | Chaos stages (until X4b) | no executions: refused `ChaosStage` (wired to `SimConfig.WarfrontFaction` in phase 2, after C2; until then only a test aid sets it) | kind: ours | ours (Ork rows would play on another rig) | Chaos stages (until X4b): compare with SM1 by feel or video. Ours: no executions: refused ChaosStage (wired to SimConfig.WarfrontFaction… | ☐ |
+| `R-F7C0DEE5` | Executions version | `ExecutionRules.Version` 3 (X4); `MusouSim.Version`, `TfwRules` and `WarfrontRules` unchanged | kind: ours | ours | Executions version: compare with SM1 by feel or video. Ours: ExecutionRules.Version 3 (X4); MusouSim.Version, TfwRules and… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5229,6 +5242,13 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-8313560C` | Ork scaling with the highest level | unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1))) where L is the highest player level, so a fresh run with a high-level player starts harder | kind: ours | owner decision 2026-11-22 (answer 7) | Ork scaling with the highest level: compare with SM1 by feel or video. Ours: unchanged formulas (HP x (1 + 0.08 (L-1)), damage x (1 + 0.05 (L-1)))… | ☐ |
+
+*Spec section: Added content: Executions: Warfront (X4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9AD96F68` | Held Ork | from the start to the end of the run: no movement, push-apart, wind-up, strike, burst, charge, drive or attack token; stands at the pair's yaw in the existing `Seek` state (no new state, no wire change); others still push away from it; released on every end | kind: ours; confidence: medium | design | Held Ork: compare with SM1 by feel or video. Ours: from the start to the end of the run: no movement, push-apart… | ☐ |
+| `R-DDCFABB4` | Held Ork's immunity | every other hit, stagger and knockdown refused until its kill frame: **phase 2, not yet wired** (until then another hit can kill it and the run ends Invalid with no reward) | kind: ours; confidence: medium | design | Held Ork's immunity: compare with SM1 by feel or video. Ours: every other hit, stagger and knockdown refused until its kill frame:… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
