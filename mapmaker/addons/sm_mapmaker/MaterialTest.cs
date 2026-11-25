@@ -41,6 +41,8 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Say(_failed ? "RESULT FAIL" : "RESULT PASS");
         GD.Print(_failed ? "MATERIALS RESULT FAIL" : "MATERIALS RESULT PASS");
         try { File.WriteAllLines(Path.Combine(_out, "materials-result.txt"), _log); } catch (Exception) { }
+        // the handles this test made and dropped are finalized now, while the engine is whole (see MaterialBuild.Cache)
+        GC.Collect(); GC.WaitForPendingFinalizers();
         Tree.Quit(_failed ? 1 : 0);
     }
 
@@ -59,7 +61,7 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
 
     static string Save(string dir, string file, Func<int, int, Color> pixel)
     {
-        var img = Image.CreateEmpty(Px, Px, false, Image.Format.Rgba8);
+        using var img = Image.CreateEmpty(Px, Px, false, Image.Format.Rgba8);
         for (int y = 0; y < Px; y++) for (int x = 0; x < Px; x++) img.SetPixel(x, y, pixel(x, y));
         string path = Path.Combine(dir, file);
         img.SavePng(path);
@@ -92,7 +94,7 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
 
     static bool Same(StandardMaterial3D x, StandardMaterial3D y)
     {
-        static string Pic(Texture2D? t) => t is null ? "-" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(t.GetImage().GetData()));
+        static string Pic(Texture2D? t) { if (t is null) return "-"; using var image = t.GetImage(); return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image.GetData())); }
         return Pic(x.AlbedoTexture) == Pic(y.AlbedoTexture) && Pic(x.NormalTexture) == Pic(y.NormalTexture) && Pic(x.RoughnessTexture) == Pic(y.RoughnessTexture)
             && Pic(x.MetallicTexture) == Pic(y.MetallicTexture) && Pic(x.AOTexture) == Pic(y.AOTexture)
             && x.RoughnessTextureChannel == y.RoughnessTextureChannel && x.MetallicTextureChannel == y.MetallicTextureChannel && x.AOTextureChannel == y.AOTextureChannel
@@ -180,7 +182,7 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(ed.Graph.GetConnectionList().Count == doc().FindMaterial(id!)!.Links.Count, "the graph view follows the document after the steps");
 
         // the surface the game builds
-        var cache = new MaterialBuild.Cache(doc(), plugin.Session!.Path, MapHost.Library);
+        using var cache = new MaterialBuild.Cache(doc(), plugin.Session!.Path, MapHost.Library);
         var mat = cache.For(id);
         Check(mat is not null && cache.Notes.Count == 0, $"the game's builder makes the surface ({string.Join("; ", cache.Notes)})");
         if (mat is not null)
@@ -191,8 +193,8 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
             Check(mat.AOEnabled && mat.AOTexture is not null && mat.AOTextureChannel == BaseMaterial3D.TextureChannel.Red, "AO: the picture's red channel");
             Check(mat.NormalEnabled && mat.NormalTexture is not null && Mathf.IsEqualApprox(mat.NormalScale, 1.5f), "normal map on, strength 1.5");
             Check(mat.Uv1Scale.IsEqualApprox(new Vector3(0.5f, 0.5f, 1f)), $"uv1 scale {mat.Uv1Scale}");
-            var built = mat.NormalTexture!.GetImage();
-            var source = Image.LoadFromFile(pics[1]);
+            using var built = mat.NormalTexture!.GetImage();
+            using var source = Image.LoadFromFile(pics[1]);
             int probeX = 20, probeY = 35;   // on a horizontal bevel: the green channel is far from 0.5
             float gotG = built.GetPixel(probeX, probeY).G, srcG = source.GetPixel(probeX, probeY).G;
             Check(Math.Abs(gotG - (1f - srcG)) < 0.01f && Math.Abs(srcG - 0.5f) > 0.05f, $"DirectX green flipped: picture {srcG:0.000}, built {gotG:0.000}");
@@ -204,7 +206,7 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         var rm = RenderMesh.Build(EditMesh.Of(wall), wall.Transform.Scale, SysNum.Matrix4x4.CreateScale(wall.Transform.Scale));
         var ours = MaterialBuild.Mesh(rm);
         var arrays = ours.SurfaceGetArrays(0);
-        var st = new SurfaceTool();
+        using var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
         var verts = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array(); var nors = arrays[(int)Mesh.ArrayType.Normal].AsVector3Array(); var uvs = arrays[(int)Mesh.ArrayType.TexUV].AsVector2Array();
         for (int i = 0; i < verts.Length; i++) { st.SetNormal(nors[i]); st.SetUV(uvs[i]); st.AddVertex(verts[i]); }
@@ -285,7 +287,8 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(MapImages.Missing(doc(), mapPath, MapHost.Library).Count == 0, "every picture resolves");
         // preview = saved = in game: the surface the client builds from the saved file (MaterialBuild.Cache, as CustomMapView would) equals the one the editor draws
         var savedDoc = MapDocument.Parse(File.ReadAllText(mapPath));
-        var game = new MaterialBuild.Cache(savedDoc, mapPath, new MapLibrary(Path.Combine(lib, "empty-library"))).For(savedDoc.Objects.First(o => o.Name == "Wall A").Material);
+        using var gameCache = new MaterialBuild.Cache(savedDoc, mapPath, new MapLibrary(Path.Combine(lib, "empty-library")));
+        var game = gameCache.For(savedDoc.Objects.First(o => o.Name == "Wall A").Material);
         var view = plugin.NodeOf(a)?.GetNodeOrNull<MeshInstance3D>("Content/Shape")?.MaterialOverride as StandardMaterial3D;
         Check(game is not null && view is not null && Same(game, view), "the saved map builds the surface the editor shows (same pictures, channels, values), from beside the map alone");
 
@@ -305,7 +308,7 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
             Check(d2.Materials.Count == 1 && d2.Objects.First(o => o.Name == "Wall A").Material == id && d2.Objects.First(o => o.Name == "Wall B").Material is null, "the material and its assignment came along");
             Check(MapImages.Missing(d2, plugin.Session.Path, cleanLib).Count == 0, "every picture resolves in the clean library");
             Check(Directory.Exists(MapImages.LibraryDir(cleanLib)) && Directory.GetFiles(MapImages.LibraryDir(cleanLib)).Length == 5, "the clean library now holds the five pictures");
-            var cache2 = new MaterialBuild.Cache(d2, plugin.Session.Path, cleanLib);
+            using var cache2 = new MaterialBuild.Cache(d2, plugin.Session.Path, cleanLib);
             var mat2 = cache2.For(id);
             Check(mat2 is not null && cache2.Notes.Count == 0 && mat2.NormalTexture is not null && mat2.AlbedoTexture is not null, "the same surface builds on the second PC");
             Check(CustomMap.HashOf(d2) == CustomMap.HashOf(MapDocument.Parse(File.ReadAllText(mapPath))), "the opened map hashes as the saved one (server and clients agree)");

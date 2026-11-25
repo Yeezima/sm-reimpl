@@ -278,6 +278,9 @@ public partial class MapmakerDock
     string _viewCacheKey = "";
     int _viewCacheVersion;
 
+    /// <summary>Releases the 3D view's material handles (on the way out; see <see cref="MaterialBuild.Cache"/>). The next <see cref="ApplyMaterialsToView"/> builds them again.</summary>
+    void ReleaseMaterialViews() { _viewCache?.Dispose(); _viewCache = null; _viewCacheKey = ""; }
+
     /// <summary>
     /// Draws every drawn piece of the open map with its material (<see cref="PieceViews.ApplySurface"/>, the game's builder) after each change, undo, redo and open; a piece whose content
     /// was rebuilt, or whose material, shape or size changed, is drawn again (in Edit mode also the drag's preview shape, on <c>EditChanged</c>); one without a material keeps (or gets back) the default look. Pictures are decoded once per set of materials.

@@ -22,13 +22,51 @@ public sealed class FlowTest(MapmakerPlugin plugin)
     static bool Flag(string name) => OS.GetCmdlineUserArgs().Contains(name);
 
     SceneTree Tree => (SceneTree)Engine.GetMainLoop();
-    async Task Frames(int n) { for (int i = 0; i < n; i++) await plugin.ToSignal(Tree, SceneTree.SignalName.ProcessFrame); }
+    async Task Frames(int n) { for (int i = 0; i < n; i++) { await plugin.ToSignal(Tree, SceneTree.SignalName.ProcessFrame); _lastFrame = System.Environment.TickCount64; } }
     string _out = "";
     readonly List<string> _log = [];
     bool _failed;
     int _step;
 
-    void Say(string line) { GD.Print("FLOW " + line); _log.Add(line); try { File.WriteAllLines(Path.Combine(_out, "flow-result.txt"), _log); } catch (IOException) { } }
+    void Say(string line)
+    {
+        GD.Print("FLOW " + line);
+        lock (_log) { _log.Add(line); try { File.WriteAllLines(Path.Combine(_out, "flow-result.txt"), _log); } catch (IOException) { } }
+    }
+
+    // ---- stall watchdog -------------------------------------------------------------------------------------------------------------------------------------
+    // M4 verification (2026-11-25): with the machine short of memory, Vulkan failed every allocation (VkResult -2) right after the reopen and the editor processed no
+    // frame for 7+ minutes, so the run never ended. A thread outside the main loop turns "no frame for --mm-stall seconds" (default 180) into a written FAIL and ends
+    // the process (exit code 3), so a starved run is reported instead of hanging. Frames are counted only while the test awaits them; every step awaits frames.
+
+    long _lastFrame = System.Environment.TickCount64;
+    System.Threading.Timer? _watchdog;
+    int _stalled;
+
+    void StartWatchdog()
+    {
+        double seconds = double.TryParse(Arg("--mm-stall", "180"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) && s > 0 ? s : 180;
+        _lastFrame = System.Environment.TickCount64;
+        _watchdog = new System.Threading.Timer(_ =>
+        {
+            long idle = System.Environment.TickCount64 - System.Threading.Interlocked.Read(ref _lastFrame);
+            if (idle < seconds * 1000 || System.Threading.Interlocked.Exchange(ref _stalled, 1) == 1) return;
+            string last; lock (_log) last = _log.Count > 0 ? _log[^1] : "(nothing)";
+            long mb = System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / (1024 * 1024);
+            Say($"FAIL stalled: the editor processed no frame for {idle / 1000} s after \"{last}\" (process private memory {mb} MB; a log full of \"VkResult error -2\" means the GPU or the system ran out of memory)");
+            Say("FLOW RESULT FAIL");
+            System.Console.Out.Flush();
+            ExitProcess(3);
+        }, null, 5000, 5000);
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern bool TerminateProcess(IntPtr process, uint exitCode);
+    static void ExitProcess(uint code)
+    {
+        if (OperatingSystem.IsWindows()) TerminateProcess(GetCurrentProcess(), code);
+        System.Diagnostics.Process.GetCurrentProcess().Kill();
+    }
     void Check(bool ok, string what) { Say($"{(ok ? "ok  " : "FAIL")} {what}"); if (!ok) _failed = true; }
 
     async Task Shot(string name)
@@ -458,6 +496,7 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         {
             _out = Arg("--mm-out", Path.Combine(Path.GetTempPath(), "mm-flow-" + System.Environment.ProcessId));
             Directory.CreateDirectory(_out);
+            StartWatchdog();
             Say("flow test started");
             await Frames(30);
             for (int wait = 0; MapHost.Root is null; wait++) { if (wait % 5 == 0) Say($"waiting for the Mapmaker scene ({wait})"); plugin.EnsureSceneRoot(); await Frames(20); }
@@ -599,6 +638,8 @@ public sealed class FlowTest(MapmakerPlugin plugin)
         {
             Check(false, "exception: " + e);
         }
+        _watchdog?.Dispose(); _watchdog = null;
+        if (System.Threading.Volatile.Read(ref _stalled) == 1) return;   // the watchdog already reported and ends the process
         Say(_failed ? "FLOW RESULT FAIL" : "FLOW RESULT PASS");
         Tree.Quit(_failed ? 1 : 0);
     }

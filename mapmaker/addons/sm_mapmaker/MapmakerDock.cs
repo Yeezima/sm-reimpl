@@ -599,6 +599,7 @@ public partial class MapmakerDock : VBoxContainer
         if (_dockDrop is not null && _dockWindow is not null && GodotObject.IsInstanceValid(_dockWindow)) _dockWindow.FilesDropped -= _dockDrop;
         if (_mainDrop is not null && _mainWindow is not null && GodotObject.IsInstanceValid(_mainWindow)) _mainWindow.FilesDropped -= _mainDrop;
         _dockDrop = _mainDrop = null;
+        ReleaseMaterialViews();
         base._ExitTree();
     }
 
