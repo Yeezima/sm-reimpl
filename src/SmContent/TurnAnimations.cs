@@ -32,7 +32,17 @@ public sealed record TurnClip(string Clip, float Length, float YawDegrees, float
 /// </summary>
 /// <param name="TurnBlend">The blend into a turn and from turn to turn, seconds (the transition effect of <paramref name="IdleState"/> to the turn state; 0.1 s).</param>
 /// <param name="StopBlend">The blend from the posture's run to its idle when the marine stops, seconds (0.333 relaxed, 0.15 for the rifle's ready run, 0.333 for the pistol and the heavy bolter; <see cref="TurnAnimations.DefaultStopBlend"/> when the graph has none).</param>
-public sealed record TurnPosture(string Name, string Graph, string IdleState, float EnterDegrees, IdleAimSet Idle, TurnClip? Left, TurnClip? Right, float TurnBlend, float StopBlend);
+public sealed record TurnPosture(string Name, string Graph, string IdleState, float EnterDegrees, IdleAimSet Idle, TurnClip? Left, TurnClip? Right, float TurnBlend, float StopBlend)
+{
+    /// <summary>The aim-to-body angle (degrees, aim to the left) beyond which the left turn starts, when the graph's two sides differ (install transitions batch 3: the brace's 60); null: <see cref="EnterDegrees"/>.</summary>
+    public float? EnterLeftDegrees { get; init; }
+    /// <summary>As <see cref="EnterLeftDegrees"/> for the right turn (the brace's 77).</summary>
+    public float? EnterRightDegrees { get; init; }
+    /// <summary>The left turn's threshold, degrees.</summary>
+    public float LeftEnter => EnterLeftDegrees ?? EnterDegrees;
+    /// <summary>The right turn's threshold, degrees.</summary>
+    public float RightEnter => EnterRightDegrees ?? EnterDegrees;
+}
 
 /// <summary>
 /// The clip that starts a run from standing (<c>SM_TRN_BO_IdleAim_to_RunF</c>, the graphs' "Idle Relaxed To Run Relaxed" / "Idle Ready To Run Ready" states).
@@ -95,6 +105,22 @@ public sealed record TurnSet(HipFireWeaponClass Class, TurnPosture? Relaxed, Tur
 /// </summary>
 public sealed record TurnAnimations(IReadOnlyList<TurnSet> Sets, IReadOnlyList<string> Notes)
 {
+    /// <summary>
+    /// Install transitions batch 3: the braced heavy bolter's standing pose and turn (<c>MP_SM_HB_Brace</c> "Brace Idle Behavior"): the idle's 3 x 3 grid (left at -60, ahead,
+    /// right at +77 degrees, each by pitch), <c>SM_RNG_TB_Brace_TurnLeft</c> / <c>_Right</c> (1.467 s, the root turns 112.6 degrees) on the pelvis and legs when the aim is
+    /// 60 degrees left or 77 right of the body (<see cref="TurnPosture.LeftEnter"/>, <see cref="TurnPosture.RightEnter"/>), ended (or repeated) at <c>BRANCH_TurnComplete</c>
+    /// (0.9773 of the clip). Null when the graph cannot be read. The Chaos rig is the same file, so the Havoc's heavy bolter has it too.
+    /// </summary>
+    public TurnPosture? Brace { get; init; }
+
+    /// <summary>Where the brace's standing states sit (<see cref="Brace"/>).</summary>
+    public static readonly PostureMap DefaultBrace = new(HipFireWeaponClass.Heavy, true, BraceTuning.BraceGraph, "Idle", "Turn Left", "Turn Right");
+
+    /// <summary>The branch that ends a turn clip in the navigation graphs.</summary>
+    public const string TurnEndBranch = "BRANCH_Turn_End";
+    /// <summary>The branch that ends the brace's turn clip.</summary>
+    public const string BraceTurnEndBranch = "BRANCH_TurnComplete";
+
     /// <summary>Where a posture's states sit in a navigation graph.</summary>
     /// <param name="RunState">The posture's run state and <paramref name="IdleParent"/> the state that holds the idle (the run leaves for it when the marine stops); null: no stop blend is read.</param>
     public sealed record PostureMap(HipFireWeaponClass Class, bool Ready, string Graph, string IdleState, string LeftState, string RightState, string? RunState = null, string? IdleParent = null);
@@ -138,27 +164,28 @@ public sealed record TurnAnimations(IReadOnlyList<TurnSet> Sets, IReadOnlyList<s
 
     /// <summary>The data from already-read graphs (testable without an install).</summary>
     public static TurnAnimations From(IReadOnlyList<BehaviorGraphDetail> graphs, IReadOnlyList<string> boneNames, Func<string, float> animationLength,
-        Func<string, HavokExtractedMotion?> motion, IEnumerable<PostureMap>? postureMaps = null, IEnumerable<StartMap>? startMaps = null)
+        Func<string, HavokExtractedMotion?> motion, IEnumerable<PostureMap>? postureMaps = null, IEnumerable<StartMap>? startMaps = null, PostureMap? braceMap = null)
     {
         var notes = new List<string>();
         BehaviorGraphDetail? Graph(string name) => graphs.FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         var postures = new Dictionary<(HipFireWeaponClass, bool), TurnPosture>();
-        foreach (var map in postureMaps ?? DefaultPostures)
+        TurnPosture? ReadPosture(PostureMap map, string name, string endBranch, bool stateSequencer)
         {
-            if (Graph(map.Graph) is not { } g) { notes.Add($"graph {map.Graph} not found"); continue; }
+            if (Graph(map.Graph) is not { } g) { notes.Add($"graph {map.Graph} not found"); return null; }
             var idle = g.AllStates.FirstOrDefault(x => x.State.Name == map.IdleState);
-            if (idle.State is null) { notes.Add($"{map.Graph}: no state '{map.IdleState}'"); continue; }
+            if (idle.State is null) { notes.Add($"{map.Graph}: no state '{map.IdleState}'"); return null; }
             var aim = ReadIdle(g, idle.State, animationLength, notes, $"{map.Graph}/{map.IdleState}");
-            if (aim is null) continue;
+            if (aim is null) return null;
             var left = g.AllStates.FirstOrDefault(x => x.State.Name == map.LeftState).State;
             var right = g.AllStates.FirstOrDefault(x => x.State.Name == map.RightState).State;
-            TurnClip? leftClip = left is null ? null : ReadTurn(g, left, boneNames, animationLength, motion, notes, $"{map.Graph}/{map.LeftState}");
-            TurnClip? rightClip = right is null ? null : ReadTurn(g, right, boneNames, animationLength, motion, notes, $"{map.Graph}/{map.RightState}");
+            TurnClip? leftClip = left is null ? null : ReadTurn(g, left, boneNames, animationLength, motion, notes, $"{map.Graph}/{map.LeftState}", endBranch, stateSequencer);
+            TurnClip? rightClip = right is null ? null : ReadTurn(g, right, boneNames, animationLength, motion, notes, $"{map.Graph}/{map.RightState}", endBranch, stateSequencer);
             if (left is null || right is null) notes.Add($"{map.Graph}: no turn states '{map.LeftState}' / '{map.RightState}'");
             // The twist modifier of the pistol and the heavy bolter sits in the idle state or in the turn states' upper-body blend.
             bool twist = aim.ProceduralTwist || (left is not null && Walk(g, left.Generator).Any(at => IsTwist(g, at)));
             if (twist != aim.ProceduralTwist) aim = aim with { ProceduralTwist = twist };
             float enter = EnterDegrees(g, idle.Machine, idle.State, left, right, notes, $"{map.Graph}/{map.IdleState}");
+            var (enterLeft, enterRight) = SideDegrees(idle.State, left, right);
             float blend = idle.State.Transitions.Where(t => left is not null && t.ToStateId == left.Id).Select(t => g.EffectAt(t.Transition)?.Duration).FirstOrDefault(d => d is not null) ?? DefaultBlend;
             float stop = DefaultStopBlend;
             if (map.RunState is not null && map.IdleParent is not null)
@@ -168,8 +195,15 @@ public sealed record TurnAnimations(IReadOnlyList<TurnSet> Sets, IReadOnlyList<s
                 if (run.State is not null && parent is not null && run.State.Transitions.FirstOrDefault(t => t.ToStateId == parent.Id) is { } leave && g.EffectAt(leave.Transition) is { } effect) stop = effect.Duration;
                 else notes.Add($"{map.Graph}: no stop transition '{map.RunState}' -> '{map.IdleParent}'; {DefaultStopBlend} s");
             }
-            postures[(map.Class, map.Ready)] = new TurnPosture(map.Ready ? "ready" : "relaxed", map.Graph, map.IdleState, enter, aim, leftClip, rightClip, blend, stop);
+            var posture = new TurnPosture(name, map.Graph, map.IdleState, enter, aim, leftClip, rightClip, blend, stop);
+            // Install transitions batch 3: a graph whose two sides differ (the brace: -60 / +77) keeps both; the others keep the one threshold, as before.
+            return enterLeft is { } l && enterRight is { } r && MathF.Abs(l - r) > 0.01f ? posture with { EnterLeftDegrees = l, EnterRightDegrees = r } : posture;
         }
+        foreach (var map in postureMaps ?? DefaultPostures)
+            if (ReadPosture(map, map.Ready ? "ready" : "relaxed", TurnEndBranch, stateSequencer: false) is { } posture) postures[(map.Class, map.Ready)] = posture;
+        // The brace (batch 3): read with the install's maps, or when a test names it.
+        var braceAt = braceMap ?? (postureMaps is null ? DefaultBrace : null);
+        TurnPosture? brace = braceAt is null ? null : ReadPosture(braceAt, "braced", BraceTurnEndBranch, stateSequencer: true);
 
         var starts = new Dictionary<(HipFireWeaponClass, bool), StartClip>();
         foreach (var map in startMaps ?? DefaultStarts)
@@ -203,7 +237,7 @@ public sealed record TurnAnimations(IReadOnlyList<TurnSet> Sets, IReadOnlyList<s
         foreach (var family in postures.Keys.Select(k => k.Item1).Concat(starts.Keys.Select(k => k.Item1)).Distinct())
             sets.Add(new TurnSet(family, postures.GetValueOrDefault((family, false)), postures.GetValueOrDefault((family, true)),
                 starts.GetValueOrDefault((family, false)), starts.GetValueOrDefault((family, true))));
-        return new TurnAnimations(sets, notes);
+        return new TurnAnimations(sets, notes) { Brace = brace };
     }
 
     static IdleAimSet? ReadIdle(BehaviorGraphDetail g, BehaviorState state, Func<string, float> length, List<string> notes, string where)
@@ -234,21 +268,38 @@ public sealed record TurnAnimations(IReadOnlyList<TurnSet> Sets, IReadOnlyList<s
         return clips;
     }
 
+    /// <param name="endBranch">The branch whose window ends the turn (<see cref="TurnEndBranch"/>; the brace's <see cref="BraceTurnEndBranch"/>).</param>
+    /// <param name="stateSequencer">The turn clip may sit directly in the blend with the state's own sequencer above it holding the tags (the brace's "Turn Left Sequence" over
+    /// "Turn Left Blend"); without it the clip's child must hold its sequencer (the navigation graphs).</param>
     static TurnClip? ReadTurn(BehaviorGraphDetail g, BehaviorState state, IReadOnlyList<string> boneNames, Func<string, float> length, Func<string, HavokExtractedMotion?> motion,
-        List<string> notes, string where)
+        List<string> notes, string where, string endBranch = TurnEndBranch, bool stateSequencer = false)
     {
         foreach (var at in Walk(g, state.Generator))
         {
             if (g.BlenderAt(at) is not { } blend) continue;
             foreach (var child in blend.Children)
             {
-                if (SequencerUnder(g, child.Generator) is not { } seq || seq.Animations.Count == 0 || !seq.Animations[0].Contains("Turn", StringComparison.OrdinalIgnoreCase)) continue;
-                string clip = seq.Animations[0];
-                float speed = seq.PlaybackSpeeds.Count > 0 && seq.PlaybackSpeeds[0] > 0f ? seq.PlaybackSpeeds[0] : 1f;
+                string? clip = null;
+                float speed = 1f;
+                var seq = SequencerUnder(g, child.Generator);
+                if (seq is { Animations.Count: > 0 } && seq.Animations[0].Contains("Turn", StringComparison.OrdinalIgnoreCase))
+                {
+                    clip = seq.Animations[0];
+                    speed = seq.PlaybackSpeeds.Count > 0 && seq.PlaybackSpeeds[0] > 0f ? seq.PlaybackSpeeds[0] : 1f;
+                }
+                else if (stateSequencer && seq is null && HipFireAnimations.FirstClip(g, child.Generator) is { } direct && direct.Animation.Contains("Turn", StringComparison.OrdinalIgnoreCase)
+                         && SequencerUnder(g, state.Generator) is { } outer)
+                {
+                    seq = outer;
+                    clip = direct.Animation;
+                    int i = outer.Animations.ToList().IndexOf(clip);
+                    speed = i >= 0 && i < outer.PlaybackSpeeds.Count && outer.PlaybackSpeeds[i] > 0f ? outer.PlaybackSpeeds[i] : 1f;
+                }
+                if (clip is null || seq is null) continue;
                 var m = motion(clip);
                 float yaw = m is { Samples.Count: > 0 } ? m.Samples[^1].W * 180f / MathF.PI : 0f;
                 if (m is null || MathF.Abs(yaw) < 1f || m.Duration <= 0f) { notes.Add($"{where}: turn clip {clip} has no root rotation"); return null; }
-                float end = seq.Tags.Where(t => t.Kind == "Branch" && t.Name == "BRANCH_Turn_End").Select(t => t.Start).DefaultIfEmpty(1f).Min();
+                float end = seq.Tags.Where(t => t.Kind == "Branch" && t.Name == endBranch).Select(t => t.Start).DefaultIfEmpty(1f).Min();
                 IReadOnlyDictionary<string, float>? mask = null;
                 if (g.BoneWeightsAt(child.BoneWeights) is { } weights)
                 {
@@ -271,6 +322,22 @@ public sealed record TurnAnimations(IReadOnlyList<TurnSet> Sets, IReadOnlyList<s
             if (t.ConditionText is { } text && HorizontalRange(text) is { } r) bounds.Add(r.Lo < 0f && r.Hi < 0f ? -r.Hi : r.Lo > 0f ? r.Lo : MathF.Min(MathF.Abs(r.Lo), MathF.Abs(r.Hi)));
         if (bounds.Count == 0) { notes.Add($"{where}: no turn threshold in the transitions; using {DefaultEnterDegrees} degrees"); return DefaultEnterDegrees; }
         return bounds.Min();
+    }
+
+    /// <summary>
+    /// Install transitions batch 3: each side's threshold (degrees, positive) from the idle's transitions into the left and the right turn state, null for a side whose condition
+    /// cannot be read. The brace: left <c>[-180, -60]</c> 60, right <c>[77, 180]</c> 77.
+    /// </summary>
+    internal static (float? Left, float? Right) SideDegrees(BehaviorState idle, BehaviorState? left, BehaviorState? right)
+    {
+        float? Bound(BehaviorState? to)
+        {
+            if (to is null) return null;
+            foreach (var t in idle.Transitions.Where(t => t.ToStateId == to.Id))
+                if (t.ConditionText is { } text && HorizontalRange(text) is { } r) return r.Lo < 0f && r.Hi < 0f ? -r.Hi : r.Lo > 0f ? r.Lo : MathF.Min(MathF.Abs(r.Lo), MathF.Abs(r.Hi));
+            return null;
+        }
+        return (Bound(left), Bound(right));
     }
 
     /// <summary>Used when the graph's condition cannot be read.</summary>

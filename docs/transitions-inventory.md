@@ -19,7 +19,7 @@ change, or an owner decision), **out of scope** (singleplayer, Exterminatus or e
 | `SM_TRN_BO_IdleAim_to_RunF` (0.7 s) | `SM_Bolter_NAV` "Idle Relaxed/Ready To Run" | standing, requested speed 3 or more, forward | `NetworkView.RunStart` (M40-T5) | wired |
 | `SM_NAV_AimTurn_Left/_Right` (0.833 s) | `SM_Bolter_NAV`, `SM_Pistol_NAV` "Idle Turn Left/Right" | aim more than 90 (75 pistol) degrees off the standing body | `NetworkView.TurnInPlace` | wired |
 | `SM_NAV_TB_AimTurn_Left/_Right` (0.833 s) | `SM_TB_NAV` "Idle Turn Left/Right" | heavy bolter, aim more than 75 degrees off | `TurnAnimations` (heavy posture), same machinery | wired |
-| `SM_RNG_TB_Brace_TurnLeft/_Right` (1.467 s, pelvis and legs) | `MP_SM_HB_Brace` "Turn Left/Right" (Brace Idle Behavior) | braced and `FLT_Aim_Horizontal_Deg_DAMPED` in [-180, -60] / [77, 180]; repeats at `BRANCH_TurnComplete` 0.977 while the aim stays out | no: the brace pose's horizontal aim blends and turn clips are "not used" (`BraceTuning` doc) | **gap, client only** (batch 3) |
+| `SM_RNG_TB_Brace_TurnLeft/_Right` (1.467 s, pelvis and legs) | `MP_SM_HB_Brace` "Turn Left/Right" (Brace Idle Behavior) | braced and `FLT_Aim_Horizontal_Deg_DAMPED` in [-180, -60] / [77, 180]; repeats at `BRANCH_TurnComplete` 0.977 while the aim stays out | `TurnAnimations.Brace`, `NetworkView.BraceTurnPosture` / `BraceStandPlace` (the brace graph's -60 / 0 / +77 idle grid by pitch, the turn clip on the legs, the body turned by its root rotation, 110 degrees to the branch; the Havoc's heavy bolter too: same rig; `--no-brace-turn`) | wired (batch 3, 2026-11-25) |
 | `SM_NAV_Bullrush_Start_F_01`, `SM_NAV_Bullrush2Idle_F_01` | sprint graphs, start and "Sprint to Idle" | sprint begin / stop | `SprintEdges` | wired |
 | `SM_NAV_Bullrush2Idle_F_HalfSpeed_01` | every sprint graph "Transition To Idle on Interrupt" | stop inside the start's window | `NetworkView.SprintEdges` (item 10) | wired |
 | `SM_NAV_Bullrush2Idle_F_Collision_01` | sprint graph "Knocked Back"; chainsword/power-weapon dash attack "Knocked Back" | the charge's wall stop | `NetworkView.DashAttack` | wired |
@@ -87,7 +87,7 @@ a use-object action the multiplayer content does not call).
 
 ## Ranking of the remaining gaps (visible first)
 
-1. **Brace turn (heavy bolter)** (client only): a braced Devastator turning its aim sees the body slide round rigidly; the original plays a 1.467 s turn on the legs. Needs the braced marine inside the planted-body
+1. ~~**Brace turn (heavy bolter)**~~ wired in batch 3 (2026-11-25; `docs/milestones.md` "Install transitions, pass 2 batch 3"; no other braced weapon: only the heavy bolters brace, and `MP_SM_HB_Brace` is the only brace graph). Was (client only): a braced Devastator turning its aim sees the body slide round rigidly; the original plays a 1.467 s turn on the legs. Needs the braced marine inside the planted-body
    machinery (`BodyYawFor`) with the brace graph's turn thresholds (-60 / +77 degrees). Batch 3.
 2. **The hammer's second strike after the 180 sweep**: done with the whole Dir 180 family (sim/hammer-180, protocol 93; the owner chose "Add it for the hammer"). The other weapons' 180 strikes are not included.
 3. **Blocked, for the owner**: the plasma, lascannon and plasma-pistol fire-mode change clips (need a fire-mode input and rules in the simulation and the protocol); the sprinter's wall stop (needs the simulation to brake).
