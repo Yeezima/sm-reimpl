@@ -7,7 +7,13 @@ namespace SmContent.Customization;
 /// A dirt = 0) and a matching diffuse whose painted regions are neutral grey shading (the original pixels elsewhere), both RGBA8 at the diffuse's size.
 /// </summary>
 /// <param name="Primary">Share of the texture's covered pixels in each region (0..1), for logs and tests.</param>
-public sealed record BuiltPaintMask(int Width, int Height, byte[] Mask, byte[] Diffuse, float Primary, float Secondary, float Tertiary);
+/// <remarks>PlateMedian, SecondaryMedian and OrnamentMedian: the regions' median luminances (sRGB 0..255) the grey diffuse is normalised by (kept with a cached mask).</remarks>
+public sealed record BuiltPaintMask(int Width, int Height, byte[] Mask, byte[] Diffuse, float Primary, float Secondary, float Tertiary)
+{
+    public float PlateMedian { get; init; }
+    public float SecondaryMedian { get; init; }
+    public float OrnamentMedian { get; init; }
+}
 
 /// <summary>
 /// Builds a paint mask for an armour piece whose textures have none (armour-pieces-1125: the DLC and campaign-reward sets bake their colours into the
@@ -119,37 +125,63 @@ public static class PaintMaskBuilder
         float plateMedian = Median(plateLum, 60f);
         if (plateMedian < DarkPlateLuminance && !OldDarkPlates) SeparateDarkPlates(prim, tert, covered, lum, spec, w, h, plateMedian, ornLum);
         else if (plateMedian < DarkPlateLuminance)
-            // Before 2026-11-25 (old-dark-plates): light texels of a black plate are worn bare metal and stay baked.
+        {
+            // Before 2026-11-25 (old-dark-plates): light texels of a black plate are worn bare metal and stay baked. The median is floored at 1: a plate of pure
+            // black texels made Smooth divide 0 by 0 (finding 7).
+            float med = MathF.Max(plateMedian, 1f);
             for (int i = 0; i < n; i++)
-                if (prim[i] > 0f && lum[i] > plateMedian * 2.5f)
+                if (prim[i] > 0f && lum[i] > med * 2.5f)
                 {
-                    float keep = Smooth(plateMedian * 4.5f, plateMedian * 2.5f, lum[i]);
+                    float keep = Smooth(med * 4.5f, med * 2.5f, lum[i]);
                     prim[i] *= keep;
                 }
+        }
         float secMedian = Median(secLum, plateMedian), ornMedian = Median(ornLum, 90f);
 
         // Light denoising of the regions (3x3 average) so DXT1 block noise does not speckle the edges.
         prim = Box(prim, w, h); sec = Box(sec, w, h); tert = Box(tert, w, h);
-        var mask = new byte[n * 4]; var outDif = new byte[n * 4];
+        var mask = new byte[n * 4];
         double sp = 0, ss = 0, st = 0;
         for (int i = 0; i < n; i++)
         {
             float p = prim[i], s = sec[i], t = tert[i], total = p + s + t;
-            if (total > 1f) { p /= total; s /= total; t /= total; total = 1f; }
-            if (!covered[i]) { p = s = t = 0f; total = 0f; }
+            if (total > 1f) { p /= total; s /= total; t /= total; }
+            if (!covered[i]) p = s = t = 0f;
             mask[i * 4] = ToByte(p); mask[i * 4 + 1] = ToByte(s); mask[i * 4 + 2] = ToByte(t); mask[i * 4 + 3] = 0;
             sp += p; ss += s; st += t;
+        }
+        float cov = Math.Max(1, coveredCount);
+        return WithGrey(diffuse, new MaskOnly(w, h, mask, plateMedian, secMedian, ornMedian, (float)(sp / cov), (float)(ss / cov), (float)(st / cov)));
+    }
+
+    /// <summary>A built mask without its grey diffuse (what the cache keeps: <see cref="BakedArmourPaint.CacheDirectory"/>).</summary>
+    public sealed record MaskOnly(int Width, int Height, byte[] Mask, float PlateMedian, float SecondaryMedian, float OrnamentMedian, float Primary, float Secondary, float Tertiary);
+
+    /// <summary>
+    /// The grey paint diffuse of <paramref name="m"/> over <paramref name="diffuse"/>: a painted texel's luminance normalised by its region's median
+    /// (<see cref="Grey"/>), mixed with the original pixel by the mask's coverage. Computed from the stored (8-bit) mask, so a built and a cached mask give the
+    /// same bytes.
+    /// </summary>
+    public static BuiltPaintMask WithGrey(DdsImage diffuse, MaskOnly m)
+    {
+        int n = m.Width * m.Height;
+        if (diffuse.Width != m.Width || diffuse.Height != m.Height) throw new ArgumentException("the mask and the diffuse differ in size", nameof(m));
+        var outDif = new byte[n * 4];
+        for (int i = 0; i < n; i++)
+        {
             byte r = diffuse.Rgba[i * 4], g = diffuse.Rgba[i * 4 + 1], b = diffuse.Rgba[i * 4 + 2];
-            if (total <= 0f) { outDif[i * 4] = r; outDif[i * 4 + 1] = g; outDif[i * 4 + 2] = b; outDif[i * 4 + 3] = 255; continue; }
-            float plateGrey = Grey(lum[i], plateMedian, RegularPlateLuminance), secGrey = Grey(lum[i], secMedian, RegularPlateLuminance), ornGrey = Grey(lum[i], ornMedian, RegularOrnamentLuminance);
-            float grey = (plateGrey * p + secGrey * s + ornGrey * t) / total;
+            float p = m.Mask[i * 4] / 255f, s = m.Mask[i * 4 + 1] / 255f, t = m.Mask[i * 4 + 2] / 255f, total = p + s + t;
+            outDif[i * 4 + 3] = 255;
+            if (total <= 0f) { outDif[i * 4] = r; outDif[i * 4 + 1] = g; outDif[i * 4 + 2] = b; continue; }
+            if (total > 1f) { p /= total; s /= total; t /= total; total = 1f; }
+            float lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+            float grey = (Grey(lum, m.PlateMedian, RegularPlateLuminance) * p + Grey(lum, m.SecondaryMedian, RegularPlateLuminance) * s + Grey(lum, m.OrnamentMedian, RegularOrnamentLuminance) * t) / total;
             outDif[i * 4] = ToByte((r + (grey - r) * total) / 255f);
             outDif[i * 4 + 1] = ToByte((g + (grey - g) * total) / 255f);
             outDif[i * 4 + 2] = ToByte((b + (grey - b) * total) / 255f);
-            outDif[i * 4 + 3] = 255;
         }
-        float cov = Math.Max(1, coveredCount);
-        return new BuiltPaintMask(w, h, mask, outDif, (float)(sp / cov), (float)(ss / cov), (float)(st / cov));
+        return new BuiltPaintMask(m.Width, m.Height, m.Mask, outDif, m.Primary, m.Secondary, m.Tertiary)
+            { PlateMedian = m.PlateMedian, SecondaryMedian = m.SecondaryMedian, OrnamentMedian = m.OrnamentMedian };
     }
 
     /// <summary>Plate median luminance (sRGB 0..255) below which a piece counts as black-schemed (Black Templars, Legion of the Damned, Iron Hands, campaign Titus).</summary>
@@ -159,7 +191,15 @@ public static class PaintMaskBuilder
     /// Restore switch (old-dark-plates): true builds black plates' masks as before 2026-11-25 (every texel 2.5 x the plate median kept baked; shading by luminance
     /// ratio). Test and comparison aid; process-wide, set before pieces load.
     /// </summary>
-    public static bool OldDarkPlates { get; set; }
+    public static bool OldDarkPlates
+    {
+        get => _oldDarkPlates ?? (Environment.GetEnvironmentVariable("SM_OLD_DARK_PLATES") == "1" || Array.IndexOf(Environment.GetCommandLineArgs(), OldDarkPlatesSwitch) >= 0);
+        set => _oldDarkPlates = value;
+    }
+    static bool? _oldDarkPlates;
+
+    /// <summary>The client's command-line form of <see cref="OldDarkPlates"/> (or SM_OLD_DARK_PLATES=1); a look only, so the server needs nothing.</summary>
+    public const string OldDarkPlatesSwitch = "--old-dark-plates";
 
     /// <summary>
     /// Black plates (armour-pieces-1125, third step; ours). In a black texture the plate, its trim and the undersuit differ by lightness and specular, not colour, so
@@ -204,6 +244,8 @@ public static class PaintMaskBuilder
             bins[k] = bins.GetValueOrDefault(k) + 1;
         }
         var ordered = bins.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key.Item1).ThenBy(kv => kv.Key.Item2).ThenBy(kv => kv.Key.Item3).ToList();
+        // No covered texel (finding 5: a material whose UVs miss its texture, or a black texture): no plate colour, and the mask paints nothing.
+        if (ordered.Count == 0) return (new Centre(50f, 0f, 0f), new Centre(50f, 0f, 0f), false);
         Centre FromBin((int, int, int) k) => new(k.Item3 * 18f + 9f, k.Item1 * 6f + 3f, k.Item2 * 6f + 3f);
         var first = FromBin(ordered[0].Key);
         // Dark undersuit, rubber and cables can outnumber the plates on a texture (arms): when the largest bin is dark and colourless and a coloured bin

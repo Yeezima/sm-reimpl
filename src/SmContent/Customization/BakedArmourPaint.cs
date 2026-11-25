@@ -1,4 +1,5 @@
-using System.Collections.Concurrent;
+using System.IO.Compression;
+using System.Security.Cryptography;
 using SmFormats.Bod;
 using SmFormats.Dds;
 
@@ -8,7 +9,14 @@ namespace SmContent.Customization;
 /// Makes the baked armour of the predefined sets paintable (armour-pieces-1125, ours): for each material of such a piece that has no paint mask, a mask
 /// and a grey "paint diffuse" are built at load time by <see cref="PaintMaskBuilder"/> from the piece's own diffuse, specular and light property maps, and
 /// named in the material as <c>PaintMask</c> and <see cref="PaintDiffuseKey"/>. The material's own <c>DiffuseMap</c> stays, so the unpainted (baked) look is
-/// unchanged: a renderer draws a built mask only when the piece is worn on its own, not as part of its full predefined set. Nothing is written to disk.
+/// unchanged: a renderer draws a built mask only when the piece is worn on its own, not as part of its full predefined set.
+/// <para>
+/// Which packages get masks is the caller's choice (<see cref="CharacterModel.LoadPiece"/>'s <c>buildPaintMasks</c>, from <see cref="ArmourPiece.BuiltMasks"/>
+/// through the resolved look); nothing process-wide is registered. Load cost (the 92 % gate's finding 3): at most <see cref="MaxConcurrentBuilds"/> masks are
+/// built at once whatever the number of packages read in parallel, and with <see cref="CacheDirectory"/> set (the client: the private cache folder, never
+/// the repository or the install) each built mask is kept on disk, keyed by <see cref="BuilderVersion"/> and a hash of the very texture bytes and UV coverage it
+/// was built from, so a changed install or builder builds it again.
+/// </para>
 /// </summary>
 public static class BakedArmourPaint
 {
@@ -16,13 +24,37 @@ public static class BakedArmourPaint
     public const string PaintDiffuseKey = "PaintDiffuse";
     const string MaskSuffix = "__built_pnt", GreySuffix = "__built_grey";
 
-    static readonly ConcurrentDictionary<string, byte> Packages = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The most masks built at the same time in the process (ours: a build holds about 100 MB of working arrays for a 1024 x 1024 texture).</summary>
+    public const int MaxConcurrentBuilds = 2;
+    static readonly SemaphoreSlim Gate = new(MaxConcurrentBuilds, MaxConcurrentBuilds);
+    static int _running, _peak, _built, _hits, _failed;
 
-    /// <summary>Registers the visual packages whose baked materials get built masks (the catalogue does this for every predefined-set piece it offers).</summary>
-    public static void Register(IEnumerable<string> packages) { foreach (var p in packages) Packages.TryAdd(p, 0); }
+    /// <summary>The most builds running at once since <see cref="ResetStatistics"/> (tests, <c>smtool built-mask-bench</c>).</summary>
+    public static int PeakConcurrentBuilds => Volatile.Read(ref _peak);
+    /// <summary>Masks built since <see cref="ResetStatistics"/>.</summary>
+    public static int Built => Volatile.Read(ref _built);
+    /// <summary>Masks read from the cache since <see cref="ResetStatistics"/>.</summary>
+    public static int CacheHits => Volatile.Read(ref _hits);
+    /// <summary>Materials whose build failed (drawn baked) since <see cref="ResetStatistics"/>.</summary>
+    public static int Failed => Volatile.Read(ref _failed);
+    public static void ResetStatistics() { _peak = 0; _built = 0; _hits = 0; _failed = 0; }
 
-    /// <summary>Whether <paramref name="package"/> is registered (<see cref="Register"/>).</summary>
-    public static bool Wanted(string package) => Packages.ContainsKey(package);
+    /// <summary>
+    /// The version of what <see cref="PaintMaskBuilder"/> makes: part of every cache key, so raising it (with any change to the builder's output) rebuilds every
+    /// cached mask. 2: armour-pieces-1125 repair attempt 1.
+    /// </summary>
+    public const int BuilderVersion = 2;
+
+    /// <summary>
+    /// Where built masks are kept between runs, or null (the default: nothing is written). The client sets it to its private cache folder
+    /// (<c>built-masks</c> under the data root's cache). Past <see cref="CacheBudgetBytes"/> the oldest entries are removed.
+    /// </summary>
+    public static string? CacheDirectory { get; set; }
+    /// <summary>The built-mask cache's size bound (ours).</summary>
+    public const long CacheBudgetBytes = 256L * 1024 * 1024;
+
+    /// <summary>Test aid: called inside the build gate (a test holds builds open there to check the bound).</summary>
+    internal static Action? BuildHook { get; set; }
 
     /// <summary>
     /// Developer materials that name none of their package's textures (armour-pieces-1125 Series A, ours): the co-op elite Khorne Berserker's helmet
@@ -59,6 +91,18 @@ public static class BakedArmourPaint
     public static bool IsBuilt(BmatMaterial? material) => material?.Textures.ContainsKey(PaintDiffuseKey) == true;
 
     /// <summary>
+    /// Whether a surface carries the scheme's shoulder decal (finding 1 of the gate): it has the game's own paint mask (not a built one) and a decal layout on
+    /// its second UV set (<see cref="PaintSchemes.HasDecalUv"/>). A pad with a built mask never takes the chapter decal: in the original its baked insignia is
+    /// the pad's own, and no customizable decal is laid over it.
+    /// </summary>
+    public static bool SurfaceTakesDecal(BmatMaterial? material, IReadOnlyList<System.Numerics.Vector2> uv1) =>
+        material?.Textures.ContainsKey("PaintMask") == true && !IsBuilt(material) && PaintSchemes.HasDecalUv(uv1);
+
+    /// <summary>Whether any drawn surface of <paramref name="piece"/> takes the decal (<see cref="SurfaceTakesDecal"/>).</summary>
+    public static bool PieceTakesDecal(CharacterPiece piece) =>
+        piece.Model.Surfaces.Any(s => piece.Hidden?.Contains(s.BlockIndex) != true && SurfaceTakesDecal(s.Material, piece.Model.Mesh.Blocks[s.BlockIndex].Uv1));
+
+    /// <summary>
     /// Whether a material needs a built mask: it has no usable paint mask (none, or the literal "None" two DLC pads name) and is armour plate, i.e. normal-mapped
     /// (cloth, fur and tabards use the <c>diff_spec_lp</c> shaders without a normal map and keep their baked look: judgement call, docs/changes-from-original.md).
     /// </summary>
@@ -68,25 +112,38 @@ public static class BakedArmourPaint
         && (material.Textures.ContainsKey("NormalMap") || material.ShaderName?.Contains("norm", StringComparison.OrdinalIgnoreCase) == true
             || string.Equals(material.ShaderName, "character_wargear", StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The model with built masks for every material that <see cref="NeedsMask"/> and whose diffuse decodes; unchanged when there is none.</summary>
+    /// <summary>The textures a built mask is made from: materials naming the same three share one mask (and one coverage: all their surfaces).</summary>
+    readonly record struct Sources(string Diffuse, string? Specular, string? LightProp);
+
+    static Sources SourcesOf(BmatMaterial m) => new(m.Textures["DiffuseMap"], m.Textures.GetValueOrDefault("SpecularMap"), m.Textures.GetValueOrDefault("LightPropMap"));
+
+    /// <summary>
+    /// The model with built masks for every material that <see cref="NeedsMask"/> and whose diffuse decodes; unchanged when there is none. Materials that name
+    /// the same diffuse, specular and light property maps share one mask built over all their surfaces' UVs (finding 2 of the gate: built per material name but
+    /// stored by diffuse name, a second material overwrote the first's mask with one that left the first's texels unpainted). A material whose build fails is
+    /// drawn baked, with a note; the rest of the package is unaffected (finding 5).
+    /// </summary>
     public static StaticModel Apply(StaticModel model, List<string>? notes = null)
     {
         var added = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        var built = new Dictionary<string, BmatMaterial?>(StringComparer.OrdinalIgnoreCase);
+        var built = new Dictionary<Sources, (string Mask, string Grey)?>();
         var surfaces = new List<StaticModelSurface>(model.Surfaces.Count);
         bool changed = false;
         foreach (var s in model.Surfaces)
         {
             if (s.Material is not { } m || !NeedsMask(m)) { surfaces.Add(s); continue; }
-            string key = m.Name ?? m.Textures["DiffuseMap"];
-            if (!built.TryGetValue(key, out var replaced))
+            var key = SourcesOf(m);
+            if (!built.TryGetValue(key, out var names))
             {
-                var users = model.Surfaces.Where(o => o.Material is { } om && (om.Name ?? om.Textures.GetValueOrDefault("DiffuseMap")) == key).ToList();
-                replaced = Build(m, model.Textures, added, notes, (w, h) => Coverage(model, users, w, h));
-                built[key] = replaced;
+                var users = model.Surfaces.Where(o => o.Material is { } om && NeedsMask(om) && SourcesOf(om) == key).ToList();
+                // Two different source sets with one diffuse (other specular maps) get distinct names.
+                string stem = key.Diffuse + (built.Keys.Any(k => k.Diffuse.Equals(key.Diffuse, StringComparison.OrdinalIgnoreCase)) ? "__" + built.Count : "");
+                names = Build(m, key, stem, model.Textures, added, notes, (w, h) => Coverage(model, users, w, h));
+                built[key] = names;
             }
-            if (replaced is null) { surfaces.Add(s); continue; }
-            surfaces.Add(s with { Material = replaced });
+            if (names is not { } n) { surfaces.Add(s); continue; }
+            var tex = new Dictionary<string, string>(m.Textures, StringComparer.Ordinal) { ["PaintMask"] = n.Mask, [PaintDiffuseKey] = n.Grey };
+            surfaces.Add(s with { Material = m with { Textures = tex } });
             changed = true;
         }
         return changed ? model.WithSurfaces(surfaces, added) : model;
@@ -149,20 +206,149 @@ public static class BakedArmourPaint
         return any;
     }
 
-    static BmatMaterial? Build(BmatMaterial m, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added, List<string>? notes, Func<int, int, bool[]?> coverage)
+    static (string Mask, string Grey)? Build(BmatMaterial m, Sources src, string stem, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added,
+        List<string>? notes, Func<int, int, bool[]?> coverage)
     {
-        string diffuseName = m.Textures["DiffuseMap"];
-        if (!textures.TryGetValue(diffuseName, out var difBytes) || DdsImage.TryDecode(difBytes) is not { } diffuse)
+        if (!textures.TryGetValue(src.Diffuse, out var difBytes))
         {
-            notes?.Add($"material '{m.Name}': diffuse '{diffuseName}' missing or undecodable; no paint mask built (drawn as baked)");
+            notes?.Add($"material '{m.Name}': diffuse '{src.Diffuse}' missing; no paint mask built (drawn as baked)");
             return null;
         }
-        DdsImage? Opt(string param) => m.Textures.TryGetValue(param, out var n) && textures.TryGetValue(n, out var b) ? DdsImage.TryDecode(b) : null;
-        var result = PaintMaskBuilder.Build(diffuse, Opt("SpecularMap"), Opt("LightPropMap"), coverage(diffuse.Width, diffuse.Height));
-        string maskName = diffuseName + MaskSuffix, greyName = diffuseName + GreySuffix;
-        added[maskName] = DdsImage.EncodeRgba8WithMips(result.Width, result.Height, result.Mask);
-        added[greyName] = DdsImage.EncodeRgba8WithMips(result.Width, result.Height, result.Diffuse);
-        var tex = new Dictionary<string, string>(m.Textures, StringComparer.Ordinal) { ["PaintMask"] = maskName, [PaintDiffuseKey] = greyName };
-        return m with { Textures = tex };
+        byte[]? Bytes(string? name) => name is not null && textures.TryGetValue(name, out var b) ? b : null;
+        Gate.Wait();
+        int running = Interlocked.Increment(ref _running);
+        try
+        {
+            for (int peak = Volatile.Read(ref _peak); running > peak && Interlocked.CompareExchange(ref _peak, running, peak) != peak; peak = Volatile.Read(ref _peak)) { }
+            BuildHook?.Invoke();
+            if (DdsImage.TryDecode(difBytes) is not { } diffuse)
+            {
+                notes?.Add($"material '{m.Name}': diffuse '{src.Diffuse}' undecodable; no paint mask built (drawn as baked)");
+                return null;
+            }
+            var used = coverage(diffuse.Width, diffuse.Height);
+            byte[]? specBytes = Bytes(src.Specular), lpBytes = Bytes(src.LightProp);
+            string? key = CacheDirectory is null ? null : CacheKey(difBytes, specBytes, lpBytes, used);
+            BuiltPaintMask result;
+            if (key is not null && ReadCache(key, diffuse.Width, diffuse.Height) is { } cached)
+            {
+                result = PaintMaskBuilder.WithGrey(diffuse, cached);
+                Interlocked.Increment(ref _hits);
+            }
+            else
+            {
+                DdsImage? Opt(byte[]? b) => b is null ? null : DdsImage.TryDecode(b);
+                result = PaintMaskBuilder.Build(diffuse, Opt(specBytes), Opt(lpBytes), used);
+                Interlocked.Increment(ref _built);
+                if (key is not null) WriteCache(key, result);
+            }
+            if (result.Primary + result.Secondary + result.Tertiary < 0.005f)
+            {
+                notes?.Add($"material '{m.Name}': the built mask paints nothing; drawn as baked");
+                return null;
+            }
+            string maskName = stem + MaskSuffix, greyName = stem + GreySuffix;
+            added[maskName] = DdsImage.EncodeRgba8WithMips(result.Width, result.Height, result.Mask);
+            added[greyName] = DdsImage.EncodeRgba8WithMips(result.Width, result.Height, result.Diffuse);
+            return (maskName, greyName);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Finding 5: one material the builder cannot handle is drawn baked; the package and its other materials are drawn as usual.
+            Interlocked.Increment(ref _failed);
+            notes?.Add($"material '{m.Name}': paint mask build failed ({ex.GetType().Name}: {ex.Message}); drawn as baked");
+            return null;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _running);
+            Gate.Release();
+        }
+    }
+
+    // ---- the built-mask cache ----
+
+    const uint CacheMagic = 0x4D42_4D53;   // "SMBM"
+
+    /// <summary>The cache key: SHA-256 over the builder version, the restore switch, and the source bytes and coverage (hex, 40 characters).</summary>
+    internal static string CacheKey(byte[] diffuse, byte[]? specular, byte[]? lightProp, bool[]? used)
+    {
+        using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Span<byte> head = stackalloc byte[8];
+        BitConverter.TryWriteBytes(head, BuilderVersion);
+        BitConverter.TryWriteBytes(head[4..], PaintMaskBuilder.OldDarkPlates ? 1 : 0);
+        h.AppendData(head);
+        foreach (var part in new[] { diffuse, specular ?? [], lightProp ?? [] })
+        {
+            Span<byte> len = stackalloc byte[4];
+            BitConverter.TryWriteBytes(len, part.Length);
+            h.AppendData(len);
+            h.AppendData(part);
+        }
+        if (used is not null)
+        {
+            var bits = new byte[(used.Length + 7) / 8];
+            for (int i = 0; i < used.Length; i++) if (used[i]) bits[i >> 3] |= (byte)(1 << (i & 7));
+            h.AppendData(bits);
+        }
+        return Convert.ToHexString(h.GetHashAndReset())[..40];
+    }
+
+    static string CachePath(string key) => Path.Combine(CacheDirectory!, key + ".bm");
+
+    /// <summary>The cached mask for <paramref name="key"/> (null when absent, of another size, or unreadable: then it is built again).</summary>
+    static PaintMaskBuilder.MaskOnly? ReadCache(string key, int w, int h)
+    {
+        try
+        {
+            string path = CachePath(key);
+            if (!File.Exists(path)) return null;
+            using var fs = File.OpenRead(path);
+            using var r = new BinaryReader(fs);
+            if (r.ReadUInt32() != CacheMagic || r.ReadInt32() != BuilderVersion || r.ReadInt32() != w || r.ReadInt32() != h) return null;
+            float pm = r.ReadSingle(), sm = r.ReadSingle(), om = r.ReadSingle(), sp = r.ReadSingle(), ss = r.ReadSingle(), st = r.ReadSingle();
+            var rgb = new byte[w * h * 3];
+            using (var z = new ZLibStream(fs, CompressionMode.Decompress, leaveOpen: true)) z.ReadExactly(rgb);
+            var mask = new byte[w * h * 4];
+            for (int i = 0; i < w * h; i++) { mask[i * 4] = rgb[i * 3]; mask[i * 4 + 1] = rgb[i * 3 + 1]; mask[i * 4 + 2] = rgb[i * 3 + 2]; }
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);   // recently used: pruned last
+            return new PaintMaskBuilder.MaskOnly(w, h, mask, pm, sm, om, sp, ss, st);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or EndOfStreamException or InvalidDataException) { return null; }
+    }
+
+    static void WriteCache(string key, BuiltPaintMask built)
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheDirectory!);
+            string path = CachePath(key), tmp = path + "." + Environment.CurrentManagedThreadId + ".tmp";
+            using (var fs = File.Create(tmp))
+            using (var w = new BinaryWriter(fs))
+            {
+                w.Write(CacheMagic); w.Write(BuilderVersion); w.Write(built.Width); w.Write(built.Height);
+                w.Write(built.PlateMedian); w.Write(built.SecondaryMedian); w.Write(built.OrnamentMedian); w.Write(built.Primary); w.Write(built.Secondary); w.Write(built.Tertiary);
+                w.Flush();
+                var rgb = new byte[built.Width * built.Height * 3];
+                for (int i = 0; i < built.Width * built.Height; i++) { rgb[i * 3] = built.Mask[i * 4]; rgb[i * 3 + 1] = built.Mask[i * 4 + 1]; rgb[i * 3 + 2] = built.Mask[i * 4 + 2]; }
+                using var z = new ZLibStream(fs, CompressionLevel.Fastest, leaveOpen: true);
+                z.Write(rgb);
+            }
+            File.Move(tmp, path, overwrite: true);
+            Prune();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }   // a cache that cannot be written only costs the next start a build
+    }
+
+    /// <summary>Keeps the cache under <see cref="CacheBudgetBytes"/>: the least recently used entries go first.</summary>
+    internal static void Prune()
+    {
+        var files = new DirectoryInfo(CacheDirectory!).GetFiles("*.bm").OrderByDescending(f => f.LastWriteTimeUtc).ToList();
+        long total = 0;
+        foreach (var f in files)
+        {
+            total += f.Length;
+            if (total > CacheBudgetBytes) try { f.Delete(); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 }

@@ -30,6 +30,8 @@ if (ServerWeather.KeyError(cli.Weather) is { } weatherError)
 }
 // remove-spear-claw (owner 2026-11-23): --old-arsenal-spear-claw brings the lightning claw and the power spear back; set as the environment variable before any supervisor starts a child, so stages and rotations inherit it.
 ServerArsenal.Apply(cli.OldArsenalSpearClaw);
+// armour-pieces-1125 repair (finding 4): the piece-library restore switches, set as environment variables so stages and rotation children inherit them.
+if (SmContent.CustomizationCatalog.ApplyPieceSwitches(cli.NoPredefinedPieces, cli.NoExtraPieces) is { } piecesNote) Console.WriteLine(piecesNote);
 #endif
 if (cli.Maps is not null)
 {

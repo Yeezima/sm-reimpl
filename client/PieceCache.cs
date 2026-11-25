@@ -63,6 +63,8 @@ public sealed class PieceCache
     const int MaxTransientTries = 3, MaxNotes = 400;
     readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _takesDecal = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, int> _transientFailures = new(StringComparer.OrdinalIgnoreCase);
+    // armour-pieces-1125: packages whose baked materials get built paint masks (RequireBuiltMasks); read by the worker threads.
+    readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _builtMasks = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _noteSet = new(StringComparer.Ordinal);
 
     /// <summary>The painted-material parts and textures of every built piece; replaced by <see cref="Clear"/> (the old one is freed with its last user).</summary>
@@ -86,6 +88,22 @@ public sealed class PieceCache
         _modelSpace = rig.Rig.Skeleton.ModelSpace(rig.Rig.Skeleton.ReferencePose);
         _bonePositions = CharacterModel.BindPositions(rig.Rig.Skeleton);
     }
+
+    /// <summary>
+    /// armour-pieces-1125: <paramref name="package"/>'s baked materials get built paint masks from now on (a resolved piece with <c>BuiltMasks</c> asks for it before
+    /// its files are read). When the package was already read or built without them (its full predefined set was worn first), that copy is dropped and the
+    /// next read builds the masks; characters wearing the old copy keep it until they are dressed again. Main thread.
+    /// </summary>
+    public void RequireBuiltMasks(string package)
+    {
+        if (!_builtMasks.TryAdd(package, 0)) return;
+        lock (_lock) _reading.Remove(package);
+        _built.Remove(package);
+        _takesDecal.TryRemove(package, out _);
+    }
+
+    /// <summary>Whether <paramref name="package"/>'s baked materials get built masks (<see cref="RequireBuiltMasks"/>).</summary>
+    public bool BuildsMasks(string package) => _builtMasks.ContainsKey(package);
 
     /// <summary>Starts reading a package's file on a worker thread (no effect when it is built or already being read).</summary>
     public void Prefetch(string package)
@@ -117,8 +135,8 @@ public sealed class PieceCache
             if (path is null || !System.IO.File.Exists(path))
                 return new Loaded(null, [$"armour package '{package}' is not in the install; not drawn"], watch.Elapsed.TotalMilliseconds, true, false);
             var piece = CharacterModel.LoadPiece(_rig.BoneNames, path, notes, CharacterModel.ChaosTexturePackages, objectTreePlacement: true, _bonePositions,
-                buildPaintMasks: SmContent.Customization.BakedArmourPaint.Wanted(package));   // armour-pieces-1125
-            bool takes = ComputeTakesDecal(piece);
+                buildPaintMasks: _builtMasks.ContainsKey(package));   // armour-pieces-1125
+            bool takes = SmContent.Customization.BakedArmourPaint.PieceTakesDecal(piece);
             _takesDecal[package] = takes;
             return new Loaded(piece, notes, watch.Elapsed.TotalMilliseconds, true, takes);
         }
@@ -129,11 +147,6 @@ public sealed class PieceCache
             return new Loaded(null, notes, watch.Elapsed.TotalMilliseconds, definite, false);
         }
     }
-
-    /// <summary>Whether any paintable surface of the piece has a decal layout (<see cref="PaintSchemes.HasDecalUv"/>): the same rule <see cref="Build"/> applies per surface.</summary>
-    static bool ComputeTakesDecal(CharacterPiece piece) =>
-        piece.Model.Surfaces.Any(s => piece.Hidden?.Contains(s.BlockIndex) != true && s.Material?.Textures.ContainsKey("PaintMask") == true
-                                      && PaintSchemes.HasDecalUv(piece.Model.Mesh.Blocks[s.BlockIndex].Uv1));
 
     /// <summary>
     /// Whether the package's piece has a pad decal layout, when that is known without waiting (built, or its read has finished); null otherwise (and its read is started).
@@ -293,7 +306,8 @@ public sealed class PieceCache
             mesh.SurfaceSetMaterial(index, plain);
             surfaces.Add(new PieceSurface
             {
-                Plain = plain, Painted = painted, DecalUv = painted is not null && PaintSchemes.HasDecalUv(block.Uv1),
+                // armour-pieces-1125 repair (finding 1): a surface with a built mask never takes the chapter decal (BakedArmourPaint.SurfaceTakesDecal).
+                Plain = plain, Painted = painted, DecalUv = painted is not null && SmContent.Customization.BakedArmourPaint.SurfaceTakesDecal(surface.Material, block.Uv1),
                 BuiltMask = painted is not null && SmContent.Customization.BakedArmourPaint.IsBuilt(surface.Material),
                 Key = $"{package}#{index}:{surface.Material?.Name}", HasDiffuse = surface.DiffuseDds is not null,
             });

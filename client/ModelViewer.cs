@@ -132,6 +132,10 @@ public partial class ModelViewer : Node3D
         GD.Print(RenderQuality.Apply(GetViewport()));   // M40-T7 / M42: anti-aliasing (--aa) for every view, not only the networked one
         if (VisualOverhaul.ApplyViewport(GetViewport()) is { } overhaulNote) GD.Print(overhaulNote);   // visual-overhaul proposal (--visual-overhaul on; default off)
         MarineAssets.PaintOverride = args.GetValueOrDefault("paint");
+        // armour-pieces-1125 repair (finding 3): built paint masks are kept in the private cache between runs (never the repository or the install);
+        // --no-built-mask-cache builds them every start, as before.
+        if (!args.ContainsKey("no-built-mask-cache"))
+            SmContent.Customization.BakedArmourPaint.CacheDirectory = System.IO.Path.Combine(GameInstall.DataRoot, "cache", "built-masks");
         EmblemFile = args.GetValueOrDefault("emblem-file");
         _screenshot = args.GetValueOrDefault("screenshot");
         if (args.ContainsKey("ui-compare-panel")) { var ao = (args.GetValueOrDefault("alpha-origin") ?? "44,20").Split(","); GetTree().Quit(SmClient.Customizer.UiComparePanel.Run(args["ui-compare-panel"], args.GetValueOrDefault("ours"), args.GetValueOrDefault("screen") ?? "options", args.GetValueOrDefault("alpha"), args.GetValueOrDefault("out"), args.GetValueOrDefault("tag"), new Godot.Vector2I(int.Parse(ao[0]), int.Parse(ao[1])), int.Parse(args.GetValueOrDefault("alpha-scale") ?? "4"))); return; }   // dev tool: a redesigned screen against its concept panel (UiComparePanel)

@@ -75,7 +75,8 @@ public partial class CustomizationCatalogTests
         var sid = sm.PiecesFor("torso").Single(p => p.Name == "sm_armour_sidonus_torso");
         Assert.Equal(("campaign", "Sidonus Torso", 1), (sid.ExtraGroup, sid.DisplayName, sid.Level));
         Assert.Equal(["sm_armour_sidonus_torso"], sid.Packages);
-        Assert.DoesNotContain(sm.PiecesFor("torso"), p => p.Name == "sm_armour_leandros_torso");
+        Assert.DoesNotContain(sm.OfferedPiecesFor("torso"), p => p.Name == "sm_armour_leandros_torso");
+        Assert.True(sm.PiecesFor("torso").Single(p => p.Name == "sm_armour_leandros_torso").Reserved);   // its place is kept (finding 6)
         Assert.Contains(sm.PiecesFor("head"), p => p.Name == "sm_armour_corvus_helmet" && p.HelmetOverride == "helmet");
         Assert.Contains(csm.PiecesFor("leftleg"), p => p.Name == "csm_armour_havoc_legl" && p.DisplayName == "Havoc (campaign) Left Leg");
         Assert.DoesNotContain(sm.PiecesFor("leftshoulder"), p => p.Name == "sm_armour_basic_upres_shldrl");   // unreadable mesh: never offered
@@ -86,11 +87,12 @@ public partial class CustomizationCatalogTests
     {
         var notes = new List<string>();
         var c = LoadSeriesA(campaignPackages: false, notes);
-        Assert.DoesNotContain(c.SpaceMarines.PiecesFor("torso"), p => p.ExtraGroup == "campaign");
+        Assert.DoesNotContain(c.SpaceMarines.OfferedPiecesFor("torso"), p => p.ExtraGroup == "campaign");
+        Assert.All(c.SpaceMarines.PiecesFor("torso").Where(p => p.ExtraGroup == "campaign"), p => Assert.True(p.Reserved && p.Packages.Count == 0));
         Assert.DoesNotContain(notes, n => n.Contains("sm_armour_", StringComparison.Ordinal) || n.Contains("csm_armour_basic", StringComparison.Ordinal));
         // The plain install (no Series A wargear): nothing added, nothing noted.
         var plain = Load(notes);
-        Assert.DoesNotContain(plain.SpaceMarines.PiecesFor("torso"), p => p.ExtraGroup is not null);
+        Assert.DoesNotContain(plain.SpaceMarines.OfferedPiecesFor("torso"), p => p.ExtraGroup is not null);
         Assert.DoesNotContain(notes, n => n.Contains("librarian", StringComparison.Ordinal) || n.Contains("bloodravens", StringComparison.Ordinal));
     }
 
@@ -98,11 +100,11 @@ public partial class CustomizationCatalogTests
     public void The_Librarian_pieces_keep_the_games_masks_and_Musou_dresses_the_Librarian_as_before()
     {
         var c = LoadSeriesA();
-        foreach (var (_, _, packages) in LibrarianLook.Pieces)
-            foreach (var p in packages) Assert.False(BakedArmourPaint.Wanted(p), $"{p} must load exactly as before (no built mask)");
-        Assert.True(BakedArmourPaint.Wanted("sm_armour_mp_bloodravens_arml"));
-        Assert.True(BakedArmourPaint.Wanted("csm_armor_berserk_001_helmet"));
-        Assert.False(BakedArmourPaint.Wanted("csm_armour_mp_raptor_01_helmet"));   // masked by the game
+        foreach (var (slot, name, _) in LibrarianLook.Pieces)
+            Assert.False(c.SpaceMarines.PiecesFor(slot).Single(p => p.Name == name).BuiltMasks, $"{name} must load exactly as before (no built mask)");
+        Assert.True(c.SpaceMarines.PiecesFor("leftarm").Single(p => p.Name == "sm_dlc_bloodravens_arm_left").BuiltMasks);
+        Assert.True(c.ChaosMarines.PiecesFor("head").Single(p => p.Name == "csm_berserker_helmet").BuiltMasks);
+        Assert.False(c.ChaosMarines.PiecesFor("head").Single(p => p.Name == "csm_armour_mp_raptor_01_head").BuiltMasks);   // masked by the game
         // Musou's Librarian: the same three pieces, names and packages, over a look that now may also offer them.
         var look = AppearanceResolver.Resolve(AppearanceProfile.Empty("t", CustomizationCatalog.SpaceMarine, "t"), "sm - tactical", c, null);
         var dressed = LibrarianLook.Dress(look);
@@ -131,5 +133,32 @@ public partial class CustomizationCatalogTests
         var normal = new BmatMaterial("m", "diff_norm_spec_lp", new Dictionary<string, string> { ["DiffuseMap"] = "d" });
         Assert.Same(normal, fix(normal));
         Assert.Null(BakedArmourPaint.FixMaterial("sm_armour_mp_bloodravens_arml"));
+    }
+}
+
+public partial class CustomizationCatalogTests
+{
+    [Fact]
+    public void A_piece_the_install_lacks_keeps_its_index_so_codes_mean_the_same_on_every_install()
+    {
+        // Finding 6: a missing package used to shift every later index, and a server without the campaign packages reset those pieces.
+        var lacking = LoadSeriesA(campaignPackages: false);   // first: the full load writes the package files
+        var full = LoadSeriesA();
+        foreach (var race in new[] { CustomizationCatalog.SpaceMarine, CustomizationCatalog.Chaos })
+            foreach (var slot in CustomizationCatalog.ArmourSlots)
+                Assert.Equal(full.Race(race)!.PiecesFor(slot).Select(p => p.Name), lacking.Race(race)!.PiecesFor(slot).Select(p => p.Name));
+        Assert.Equal(full.LimitsFor(CustomizationCatalog.SpaceMarine).PiecesPerSlot, lacking.LimitsFor(CustomizationCatalog.SpaceMarine).PiecesPerSlot);
+        // A code naming a campaign torso: the lacking install keeps the index (not sanitised away) and draws the class's default torso.
+        var torsos = full.SpaceMarines.PiecesFor("torso");
+        int index = torsos.ToList().FindIndex(p => p.Name == "sm_armour_sidonus_torso");
+        var code = SmSim.AppearanceCode.Default.WithPiece(SmSim.ArmourSlot.Torso, (byte)index);
+        Assert.Equal(code, code.Sanitized(lacking.LimitsFor(CustomizationCatalog.SpaceMarine)));
+        var drawn = AppearanceResolver.Resolve(code, "sm - tactical", lacking);
+        Assert.NotEqual("sm_armour_sidonus_torso", drawn.Piece("torso")!.Name);
+        Assert.NotEmpty(drawn.Piece("torso")!.Packages);
+        Assert.Equal("sm_armour_sidonus_torso", AppearanceResolver.Resolve(code, "sm - tactical", full).Piece("torso")!.Name);
+        Assert.True(AppearanceResolver.Resolve(code, "sm - tactical", full).Piece("torso")!.BuiltMasks);
+        // The name survives a round trip through the wire on both.
+        Assert.Equal("sm_armour_sidonus_torso", ProfileWire.FromCode(code, CustomizationCatalog.SpaceMarine, lacking).Pieces["torso"]);
     }
 }

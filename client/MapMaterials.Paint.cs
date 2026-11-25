@@ -94,7 +94,8 @@ public sealed partial class MapMaterials
     public sealed class PaintedSurface
     {
         internal Texture2D Diffuse = null!, Mask = null!;
-        internal Texture2D? Normal, Gloss, LightProp;
+        internal Texture2D? Normal, Gloss, LightProp, Emissive;
+        internal Color EmissiveColour = Colors.White;
         internal Color Dirt;
         internal float DirtAmount, Rough, Spec;
         internal bool CutOut, TwoSided;
@@ -104,7 +105,8 @@ public sealed partial class MapMaterials
     /// <summary>
     /// The textures and constants of a wargear <paramref name="bmat"/> that names a <c>PaintMask</c> (null when the mask or diffuse is missing). Cut-out and
     /// two-sided materials as in <see cref="Build"/> (none of the 316 paint-mask materials in the install sets them: BlendMode and CullMode are 255, the
-    /// default). EmissiveMap is not supported by the painted shader (none names one): noted if it ever occurs.
+    /// default). EmissiveMap (none of the game's masked materials names one; baked pieces with a built mask may) is drawn as the plain material draws it:
+    /// emissive map x EmissiveColor x 1.5 (armour-pieces-1125 repair, finding 7).
     /// </summary>
     public PaintedSurface? PreparePainted(BmatMaterial bmat, IReadOnlyDictionary<string, byte[]> dds, List<string> notes, bool normalMaps = true)
     {
@@ -112,7 +114,6 @@ public sealed partial class MapMaterials
         if (!(bmat.Textures.TryGetValue(SmContent.Customization.BakedArmourPaint.PaintDiffuseKey, out var diffuseName) || bmat.Textures.TryGetValue("DiffuseMap", out diffuseName))
             || Load(diffuseName, dds, notes) is not { } diffuse) return null;
         if (!bmat.Textures.TryGetValue("PaintMask", out var maskName) || Load(maskName, dds, notes) is not { } mask) return null;
-        if (bmat.Textures.ContainsKey("EmissiveMap")) notes.Add($"material '{bmat.Name}': EmissiveMap is not drawn on painted materials");
         var s = new PaintedSurface
         {
             MaterialName = bmat.Name ?? "", Diffuse = diffuse, Mask = mask, CutOut = bmat.BlendMode == 8, TwoSided = bmat.CullMode == 0,
@@ -131,6 +132,11 @@ public sealed partial class MapMaterials
         }
         s.Rough = roughness; s.Spec = specular;
         if (!LpOff && bmat.Textures.TryGetValue("LightPropMap", out var lpName) && Load(lpName, dds, notes) is { } lp) { s.LightProp = lp; LightProps++; }
+        if (bmat.Textures.TryGetValue("EmissiveMap", out var emName) && Load(emName, dds, notes) is { } em)
+        {
+            s.Emissive = em;
+            s.EmissiveColour = bmat.Vectors.TryGetValue("EmissiveColor", out var ec) && ec.Length >= 3 ? new Color(ec[0], ec[1], ec[2]) : Colors.White;
+        }
         return s;
     }
 
@@ -191,6 +197,12 @@ public sealed partial class MapMaterials
             material.SetShaderParameter("lp_ref", LpPlateR);
             material.SetShaderParameter("glow_gain", LpGlowGain);
             material.SetShaderParameter("reflect_metal", LpMetal);
+        }
+        if (s.Emissive is not null)
+        {
+            material.SetShaderParameter("emissive_tex", s.Emissive);
+            material.SetShaderParameter("use_emissive", true);
+            material.SetShaderParameter("emissive_colour", s.EmissiveColour);
         }
         if (lens is not null && lens.Rects.Length > 0)
         {
@@ -317,6 +329,9 @@ public sealed partial class MapMaterials
         // Eye lens colour (ours; discovery.md "Helmet eye lenses"): inside the helmet's lens rectangles (0..1 over the diffuse, rows from the top), texels
         // that are saturated, not dark and outside the paint mask are the lens; they take lens_colour at the texel's own brightness. The lens is recoloured,
         // it does not glow: inside the rectangles the light property map's self-illumination is switched off while a lens colour is chosen.
+        uniform sampler2D emissive_tex : source_color, hint_default_black, filter_linear_mipmap_anisotropic, repeat_enable;
+        uniform bool use_emissive = false;
+        uniform vec3 emissive_colour = vec3(1.0);
         uniform bool use_lens = false;
         uniform vec3 lens_colour : source_color = vec3(1.0, 0.0, 0.0);
         uniform float lens_gain = 1.0;
@@ -372,6 +387,7 @@ public sealed partial class MapMaterials
                 METALLIC = lp.b * reflect_metal;
                 EMISSION = albedo * lp.g * glow_gain * (1.0 - lens_zone);
             }
+            if (use_emissive) EMISSION += texture(emissive_tex, UV).rgb * emissive_colour * 1.5;   // as the plain material (MapMaterials.Build)
             ROUGHNESS = clamp(roughness, 0.04, 1.0);
             float paint_s = (paint_spec.x * m.r + paint_spec.y * m.g + paint_spec.z * m.b) / max(m.r + m.g + m.b, 0.001);
             SPECULAR = mix(spec, paint_s, w);

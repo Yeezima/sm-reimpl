@@ -252,19 +252,19 @@ public partial class CustomizationCatalogTests : IDisposable
         var notes = new List<string>();
         var sm = Load(notes).SpaceMarines;
         Assert.Equal(CustomizationCatalog.ArmourSlots.Order(), sm.Pieces.Keys.Order());
-        Assert.Equal(["sm_a_head", "sm_b_head", "sm_bt_head"], sm.PiecesFor("head").Select(p => p.Name));   // armour-pieces-1125: the predefined set's piece follows the customizable ones
-        Assert.Equal(["sm_a_torso", "sm_b_torso", "sm_bt_torso"], sm.PiecesFor("torso").Select(p => p.Name));
-        Assert.Equal(["sm_a_leg_left", "sm_b_leg_left"], sm.PiecesFor("leftleg").Select(p => p.Name));
-        Assert.Equal(["sm_a_leg_right", "sm_b_leg_right"], sm.PiecesFor("rightleg").Select(p => p.Name));
-        Assert.Equal(["sm_a_arm_left"], sm.PiecesFor("leftarm").Select(p => p.Name));              // shared by both sets: listed once
-        Assert.Equal(["sm_a_backpack"], sm.PiecesFor("backpack").Select(p => p.Name));
+        Assert.Equal(["sm_a_head", "sm_b_head", "sm_bt_head"], sm.OfferedPiecesFor("head").Select(p => p.Name));   // armour-pieces-1125: the predefined set's piece follows the customizable ones
+        Assert.Equal(["sm_a_torso", "sm_b_torso", "sm_bt_torso"], sm.OfferedPiecesFor("torso").Select(p => p.Name));
+        Assert.Equal(["sm_a_leg_left", "sm_b_leg_left"], sm.OfferedPiecesFor("leftleg").Select(p => p.Name));
+        Assert.Equal(["sm_a_leg_right", "sm_b_leg_right"], sm.OfferedPiecesFor("rightleg").Select(p => p.Name));
+        Assert.Equal(["sm_a_arm_left"], sm.OfferedPiecesFor("leftarm").Select(p => p.Name));              // shared by both sets: listed once
+        Assert.Equal(["sm_a_backpack"], sm.OfferedPiecesFor("backpack").Select(p => p.Name));
         Assert.Empty(sm.PiecesFor("belt"));
         Assert.Empty(sm.PiecesFor("nonsense"));
         Assert.Contains(notes, n => n.Contains("sm_b_belt") && n.Contains("not an armour slot"));
         // Chaos has its own, smaller lists; slots without any piece are empty lists.
         var chaos = Load().ChaosMarines;
-        Assert.Equal(["csm_basic_head"], chaos.PiecesFor("head").Select(p => p.Name));
-        Assert.Empty(chaos.PiecesFor("leftleg"));
+        Assert.Equal(["csm_basic_head"], chaos.OfferedPiecesFor("head").Select(p => p.Name));
+        Assert.Empty(chaos.OfferedPiecesFor("leftleg"));
     }
 
     [Fact]
@@ -282,8 +282,8 @@ public partial class CustomizationCatalogTests : IDisposable
         }
         var bt = sm.PiecesFor("head").Single(p => p.Name == "sm_bt_head");
         Assert.Equal(["black_templars"], bt.SetNames);
-        Assert.True(SmContent.Customization.BakedArmourPaint.Wanted("pkg_bt_helmet"));
-        Assert.False(SmContent.Customization.BakedArmourPaint.Wanted("pkg_a_helmet"));
+        Assert.True(bt.BuiltMasks);   // its baked materials get built masks when worn alone
+        Assert.All(sm.PiecesFor("head").Where(p => !p.FromPredefinedSet), p => Assert.False(p.BuiltMasks));
     }
 
     [Fact]
@@ -320,7 +320,7 @@ public partial class CustomizationCatalogTests : IDisposable
         Assert.Equal(["pkg_a_torso", "pkg_a_belt"], torso.Packages);                // the belt rides on the torso
         Assert.Equal(("torso", "space_marine"), (torso.Slot, torso.Race));
         Assert.Equal(["mk_7_aquila"], torso.SetNames);
-        Assert.Equal(["mk_7_aquila", "mk_8_errant"], sm.PiecesFor("leftarm").Single().SetNames);   // shared piece names both sets, ordinal
+        Assert.Equal(["mk_7_aquila", "mk_8_errant"], sm.OfferedPiecesFor("leftarm").Single().SetNames);   // shared piece names both sets, ordinal
         Assert.Equal("helmet", sm.PiecesFor("head").Single(p => p.Name == "sm_a_head").HelmetOverride);
     }
 
@@ -457,7 +457,7 @@ public partial class CustomizationCatalogTests : IDisposable
         var c = Load();
         var head = c.SpaceMarines.PiecesFor("head").Single(p => p.Name == "sm_a_head");
         Assert.Equal(("Aquila Helm", "A helmet."), (head.DisplayName, head.Description));
-        var noName = c.SpaceMarines.PiecesFor("leftarm").Single();
+        var noName = c.SpaceMarines.OfferedPiecesFor("leftarm").Single();
         Assert.Equal(("sm_a_arm_left", ""), (noName.DisplayName, noName.Description));          // text id 0: the file name, no description
         Assert.Equal("Mk8 Errant", c.SpaceMarines.Set("mk_8_errant")!.DisplayName);
         Assert.Equal("Tactical Marine", c.Perks.Class("sm - tactical")!.DisplayName);
@@ -632,7 +632,7 @@ public partial class CustomizationCatalogTests : IDisposable
         WritePackage("global", Entry("global", GlobalBaf()));
         var notes = new List<string>();
         var c = CustomizationCatalog.Load(_dir, notes);
-        Assert.Empty(c.SpaceMarines.PiecesFor("head"));
+        Assert.Empty(c.SpaceMarines.OfferedPiecesFor("head"));
         Assert.Empty(c.Palette);
         Assert.Empty(c.SpaceMarines.Decals);
         Assert.Null(c.SpaceMarines.DefaultSet);
