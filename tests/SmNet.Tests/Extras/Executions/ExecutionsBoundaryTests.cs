@@ -19,6 +19,10 @@ public class ExecutionsBoundaryTests
         ("client/Extras/NetworkView.Extras.cs", "ExecutionsEnvelope"),
         ("client/Extras/NetworkView.Extras.cs", "ExecutionsFrame"),
         ("src/SmContent/Extras/GameplayTuning.Extras.cs", "ExecutionsLoad"),
+        // X4 (Warfront on Orks): the held Ork's AI step and the slot's spawn and reset (Extras/Executions/Orks/MusouSim.Executions.cs).
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsHeldStep"),
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsSpawned"),
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsReset"),
     ];
 
     /// <summary>Files outside the executions folders that may name the namespace: the config hash's dispatcher.</summary>
