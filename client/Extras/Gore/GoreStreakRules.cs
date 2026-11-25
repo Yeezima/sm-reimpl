@@ -467,7 +467,7 @@ public static class GoreStreakRules
     /// </summary>
     public const float ForwardShade = 0.42f, CompatibilityShade = 1f;
     /// <summary>The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (Compatibility blends in display space, where a fully stripped ground under a faint texel read near black and left the red mask) (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
-    public const float StripPerAlpha = 5f, CompatibilityStripPerAlpha = 2.5f;
+    public const float StripPerAlpha = 5f, CompatibilityStripPerAlpha = 3.2f;
     /// <summary>Compatibility's strip: a blend_mix toward this dark blood red (display space) at the strip's strength, not a multiply (its multiply blend darkened even where it multiplied by 1).</summary>
     public const float CompatibilityStripRed = 0.0625f;
 
