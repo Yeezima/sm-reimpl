@@ -28,7 +28,9 @@ public partial class NetworkView
     double _swingStart = -1, _swingCycleStart = double.NaN, _swingShotLast = double.NegativeInfinity;
     float _swingYaw;
     int _swingCycle = -1, _swingPressedStep = -1, _swingShotSet;
-    bool _swingPressedFirst, _swingHopped;
+    bool _swingPressedFirst, _swingHopped, _swingChainBack;
+    int _swingChainPress, _swingChainLogged = -1;
+    uint _swingChainPressTick;   // sim/hammer-180 review: back180-chain's next press and the step last logged
     float _swingSteered;
     static readonly float SwingHopAt = CmdFloat("--swing-hop-at", 0.5f), SwingSteerRate = CmdFloat("--swing-steer-rate", 360f), SwingSteer = CmdFloat("--swing-steer", 150f);
 
@@ -43,7 +45,7 @@ public partial class NetworkView
         if (cycle != _swingCycle)
         {
             if (_swingCycle >= 0) _swingYaw = ViewSmoothing.WrapPi(_swingYaw + MathF.PI);   // back the way it came
-            _swingCycle = cycle; _swingPressedStep = -1; _swingPressedFirst = false; _swingHopped = false; _swingSteered = 0f;
+            _swingCycle = cycle; _swingPressedStep = -1; _swingPressedFirst = false; _swingHopped = false; _swingSteered = 0f; _swingChainPress = 0; _swingChainBack = false;
         }
         _yaw = _swingYaw; _pitch = SwingPitch;
         if (SwingTestMode!.StartsWith("hop", StringComparison.OrdinalIgnoreCase))
@@ -78,6 +80,69 @@ public partial class NetworkView
                 if (_swingSteered >= SwingSteer) GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: view turned {_swingSteered:F0} degrees by slam time {me.MeleeTime:F2}; body yaw {me.Yaw:F2}");
             }
             return new PlayerInput(tick, 0f, 0f, _swingYaw, b, SwingPitch);
+        }
+        if (SwingTestMode.StartsWith("back180-chain", StringComparison.OrdinalIgnoreCase))
+        {
+            // sim/hammer-180 review (--swing-test back180-chain): every strike of the family live, three chains in turn (cycle % 3), each press as the strike's combo window opens, the stick held back
+            // from where the character faces (its latched direction; the view at rest) from a "back" press until the strike changes:
+            //   0: X, back -> 5 (X1 + back: the Left Side 180), X -> 7;   1: X, X, back -> 4 (X2 + back: the 180), X -> 6;   2: back -> 4 (from rest), back -> 5 ('180 to 180'), X -> 7.
+            bool[] plan = (cycle % 3) switch { 0 => [false, true, false], 1 => [false, false, true, false], _ => [true, true, false] };
+            var b = InputButtons.None;
+            int at = _swingChainPress;
+            bool press = false;
+            if (at == 0 && phase >= 0.3 && me.MeleeStep == 0 && !me.MeleeHeld && !me.MeleeHeavy) press = true;
+            else if (at > 0 && at < plan.Length && me.MeleeStep > 0 && !me.MeleeHeavy && me.MeleeStep != _swingPressedStep && !me.MeleeHeld && !me.MeleeQueued
+                && Combat.MeleeStepOf(_config, me) is { } now && me.MeleeTime >= now.ComboOpen + 0.03f)
+                press = true;
+            // The re-review: a press that did not take (the strike did not change and nothing is queued 4 ticks on, still in its window) is pressed again, so one lost press does not stall the chain.
+            if (!press && at > 0 && me.MeleeStep == _swingPressedStep && !me.MeleeQueued && !me.MeleeHeld && tick - _swingChainPressTick >= 4
+                && (me.MeleeStep == 0 || Combat.MeleeStepOf(_config, me) is { } still && me.MeleeTime < still.ComboClose - 0.05f))
+            {
+                at = --_swingChainPress;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: press {at + 1} did not take (step {me.MeleeStep} at {me.MeleeTime:F2}); pressing again");
+                press = true;
+            }
+            if (press)
+            {
+                b = InputButtons.Melee; _swingChainBack = plan[at]; _swingPressedStep = me.MeleeStep; _swingChainPress = at + 1; _swingChainPressTick = tick;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: press {at + 1}{(plan[at] ? " stick back" : "")} after step {me.MeleeStep} at strike time {me.MeleeTime:F2} (yaw {me.Yaw:F2}, facing {me.MeleeDirection})");
+            }
+            else if (_swingChainBack && me.MeleeStep != _swingPressedStep) _swingChainBack = false;   // the strike changed: let the stick go
+            if (me.MeleeStep != _swingChainLogged)
+            {
+                if (me.MeleeStep > 0) GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: step {me.MeleeStep}{(me.MeleeHeavy ? " (heavy)" : "")} began, yaw {me.Yaw:F2}, facing {me.MeleeDirection}");
+                _swingChainLogged = me.MeleeStep;
+            }
+            float mx = 0f, my = 0f;
+            if (_swingChainBack)
+            {
+                float facing = me.MeleeStep > 0 ? Rush.DashOffset(me.MeleeDirection) : 0f;
+                float stick = facing + MathF.PI;   // the stick's way, yaw convention (positive to the left): MeleeChain.StickBack's -atan2(x, y)
+                mx = -MathF.Sin(stick); my = MathF.Cos(stick);
+                if (MathF.Abs(mx) < 1e-4f) mx = 0f;
+                if (MathF.Abs(my) < 1e-4f) my = 0f;
+            }
+            return new PlayerInput(tick, mx, my, _swingYaw, b, SwingPitch);
+        }
+        if (SwingTestMode.StartsWith("back", StringComparison.OrdinalIgnoreCase))
+        {
+            // sim/hammer-180 capture (--swing-test back180): S + melee from rest (the Dir 180 strike), then a plain press as its combo window opens (the second strike from 180).
+            var b = InputButtons.None;
+            float back = 0f;
+            if (!_swingPressedFirst && phase >= 0.3 && me.MeleeStep == 0 && !me.MeleeHeld)
+            {
+                b = InputButtons.Melee; back = -1f; _swingPressedFirst = true;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: S + melee at ({me.Position.X:F1}, {me.Position.Y:F1}) yaw {_swingYaw:F2}");
+            }
+            else if (_swingPressedFirst && me.MeleeStep > 0 && !me.MeleeHeavy && me.MeleeStep != _swingPressedStep && !me.MeleeHeld && !me.MeleeQueued
+                && Combat.MeleeStepOf(_config, me) is { TurnsBack: true } turn && me.MeleeTime >= turn.ComboOpen + 0.03f)
+            {
+                b = InputButtons.Melee; _swingPressedStep = me.MeleeStep;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: press after step {me.MeleeStep} at strike time {me.MeleeTime:F2} (yaw {me.Yaw:F2})");
+            }
+            if (me.MeleeStep > 0 && _swingPressedStep != -2 && Combat.MeleeStepOf(_config, me) is { Dir180: true, TurnsBack: false })
+            { _swingPressedStep = -2; GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: step {me.MeleeStep} (from 180) began, yaw {me.Yaw:F2}"); }
+            return new PlayerInput(tick, 0f, back, _swingYaw, b, SwingPitch);
         }
         bool walk = SwingTestMode.StartsWith("w", StringComparison.OrdinalIgnoreCase);
         float forward = walk && phase >= 0.05 ? 1f : 0f;

@@ -383,7 +383,7 @@ public static class MeleeLock
     /// <list type="bullet">
     /// <item>an attack's start: within the melee range and the melee cone along the stick (or the view: <see cref="SearchDirection"/>);</item>
     /// <item>an attack under way: within the range plus the leash and in the melee cone along the attack's heading or along the stick / view (a
-    /// switch to another enemy must lie there too);</item>
+    /// switch to another enemy must lie there too; sim/hammer-180: during a Dir 180 turn strike along the heading only, <see cref="HeadingOnly"/>);</item>
     /// <item>the charge's first tick: within the charge's range and cone along the view; under way: its range plus the leash and its cone along its heading.</item>
     /// </list>
     /// feel/melee-charge-2 (protocol 42): every cone but the charge's first tick is widened by <see cref="MeleeLockSpec.Hysteresis"/> (a lock the client
@@ -403,7 +403,7 @@ public static class MeleeLock
         {
             Phase.MeleeStart => distance <= spec.Range && InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _),
             Phase.Melee => distance <= spec.Range + spec.Leash && (InCone(self, other.Position, Forward(self.Yaw), spec.HalfAngle + keep, c, out _)
-                || InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _)),
+                || (!HeadingOnly(self, c) && InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _))),
             Phase.RushStart => distance <= spec.RushRange && InCone(self, other.Position, Forward(input.Sanitized().Yaw), spec.RushHalfAngle, c, out _),
             _ => distance <= spec.RushRange + spec.Leash && InCone(self, other.Position, Forward(self.Yaw), spec.RushHalfAngle + keep, c, out _),
         };
@@ -448,9 +448,15 @@ public static class MeleeLock
         {
             Phase.RushStart => Acquire(s, Forward(input.Sanitized().Yaw), others, c, world, spec.RushRange, spec.RushHalfAngle),
             Phase.Rush => Acquire(s, Forward(s.Yaw), others, c, world, spec.RushRange, spec.RushHalfAngle),
-            _ => Acquire(s, SearchDirection(input), others, c, world, spec.Range, spec.HalfAngle),
+            _ => Acquire(s, phase == Phase.Melee && HeadingOnly(s, c) ? Forward(s.Yaw) : SearchDirection(input), others, c, world, spec.Range, spec.HalfAngle),
         };
     }
+
+    /// <summary>
+    /// sim/hammer-180 (the re-review, the lead's decision 2026-11-25; ours): a Dir 180 turn strike under way (the thunder hammer's and the daemon maul's lights 4 and 5, <see cref="MeleeStep.TurnsBack"/>) keeps and
+    /// acquires a lock only along its own heading, not along the stick or the view (that alternative turned a 180 started away from an enemy straight back to it once S was let go). The press tick is unchanged.
+    /// </summary>
+    public static bool HeadingOnly(in PlayerState s, SimConfig c) => s.MeleeStep > 0 && !s.MeleeHeavy && Combat.MeleeStepOf(c, s) is { TurnsBack: true };
 
     /// <summary>The flat offset from <paramref name="self"/> to <paramref name="target"/>.</summary>
     public static Vector2 Offset(in PlayerState self, in PlayerState target) => new(target.Position.X - self.Position.X, target.Position.Y - self.Position.Y);
@@ -536,7 +542,7 @@ public static class MeleeLock
     public static float MotionTime(MeleeStep m, float time, SimConfig c)
     {
         float early = c.MeleeLock.StepEarly, hit = m.HitTime, duration = m.Duration;
-        if (!(early > 1f) || !(hit > 0f) || !(duration > hit)) return time;
+        if (!(early > 1f) || !(hit > 0f) || !(duration > hit) || m.TurnsBack) return time;   // sim/hammer-180 review (lead: faithful): a Dir 180 strike moves at its clip's own pace
         float knot = hit / early;
         return time <= knot ? time * early : MathF.Min(duration, hit + (time - knot) * (duration - hit) / (duration - knot));
     }
@@ -551,7 +557,7 @@ public static class MeleeLock
     {
         float clip = v.At(MotionTime(m, time, c), m.Duration);
         float front = c.MeleeLock.StepFrontApplied, end = c.LockTime(m.MoveAt);
-        if (front <= 0f || m.InPlace || !float.IsFinite(end) || !(end > 1e-3f) || time >= end) return clip;
+        if (front <= 0f || m.InPlace || m.TurnsBack || !float.IsFinite(end) || !(end > 1e-3f) || time >= end) return clip;   // sim/hammer-180 review: not a Dir 180 strike (its clip's backward motion, as the clip)
         float total = v.At(MotionTime(m, end, c), m.Duration);
         if (!(total > 0f)) return clip;
         float u = MathF.Max(0f, time) / end;
@@ -567,6 +573,12 @@ public static class MeleeLock
         m.Reach is { } r ? r.StartDistance(v => Profile(m, v, time, c), distanceNow) : 0f;
 
     /// <summary>
+    /// The factor a strike's forward motion is scaled by: <see cref="SimConfig.LungeScale"/> x the strike's own <see cref="MeleeStep.LungeFactorApplied"/>. sim/hammer-180 review (the lead's decision: faithful):
+    /// 1 for a Dir 180 strike (<see cref="MeleeStep.TurnsBack"/>): its motion is the clip's backward root motion taken along the turned facing, and backward motion is unscaled.
+    /// </summary>
+    public static float LungeFactorOf(MeleeStep m, SimConfig c) => m.TurnsBack ? 1f : c.LungeScale * m.LungeFactorApplied;
+
+    /// <summary>
     /// The lunge: metres the attack moves the body along <paramref name="heading"/> over the tick (<paramref name="from"/>, <paramref name="to"/>]
     /// of step <paramref name="m"/> (negative: back), see the class summary. <paramref name="toTarget"/>: the flat offset to the locked target, or null.
     /// feel/melee-charge-2: forward motion × <see cref="SimConfig.MeleeLungeScale"/> (backward motion as the clip), still never nearer the target than the separation.
@@ -576,7 +588,7 @@ public static class MeleeLock
         if (m.Reach is not { } reach || reach.Variants.Count == 0 || !(to > from)) return 0f;
         float duration = m.Duration;
         var (low, high) = reach.Range;
-        float k = c.LungeScale * m.LungeFactorApplied;   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request); anim/hammer-swing: × the strike's own factor (the hammer's light strikes)
+        float k = LungeFactorOf(m, c);   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request); anim/hammer-swing: × the strike's own factor (the hammer's light strikes)
         if (toTarget is not { } offset)
         {
             float d0 = Math.Clamp(reach.DefaultDistance, low, high);

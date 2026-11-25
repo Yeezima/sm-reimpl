@@ -51,7 +51,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         {
             int i = step - 1;
             if (i < 0) return "";
-            if (!heavy) return i < Abilities.Length ? Abilities[i] : "";
+            if (!heavy) return i < Abilities.Length ? Abilities[i] : i - Abilities.Length < Dir180.Length ? Dir180[i - Abilities.Length].Ability : "";   // sim/hammer-180: the appended Dir 180 strikes
             if (i < HeavySequencers.Length) return i < HeavyAbilities.Length ? HeavyAbilities[i] : "";
             int f = i - HeavySequencers.Length;
             return f < FinisherSequencers.Length && f < FinisherAbilities.Length ? FinisherAbilities[f] : "";
@@ -135,7 +135,21 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// its co-op AI graph starts at 7, which would lunge a player Ork 5 m at nothing; 1 is the knife's and the lowest variant).
         /// </summary>
         public float? DefaultTargetDistance { get; init; }
+        /// <summary>
+        /// sim/hammer-180 (the owner 2026-11-25: "Add it for the hammer"): the graph's Dir 180 strikes and their follow-ups, appended to the light list after <see cref="Sequencers"/> in this order (light
+        /// strikes <see cref="Sequencers"/>.Length + 1 ...). Read only for Classic PvP (not under <see cref="WithoutSwordStab"/>: Musou and Warfront), and only whole: a strike that cannot be read drops the family.
+        /// </summary>
+        public Dir180Strike[] Dir180 { get; init; } = [];
+        /// <summary>sim/hammer-180: per light strike of <see cref="Sequencers"/>, the light strike (1-based) a stick-back press in its combo window chains to; 0: none.</summary>
+        public int[] LightBackNext { get; init; } = [];
     }
+
+    /// <summary>
+    /// sim/hammer-180: one strike of a weapon's Dir 180 family. <paramref name="Turn"/>: a "Dir 180" state (it turns the body half round, <see cref="MeleeStep.TurnsBack"/>; the first one is the entry from rest);
+    /// <paramref name="Next"/>, <paramref name="BackNext"/>: the light strike (1-based, the whole light list) a plain or stick-back light press chains to, 0 none (no light chain at all: <see cref="MeleeStep.StringEnd"/>);
+    /// <paramref name="HeavyNext"/>: the heavy strike a heavy press chains to, -1 none.
+    /// </summary>
+    public sealed record Dir180Strike(string Sequencer, string Ability, bool Turn, int Next, int BackNext, int HeavyNext);
 
     /// <summary>
     /// A playback speed a perk sets on a clip through its graph (Weapons C, Fast Stomp): a <c>hkbSetFloatModifier</c> enabled by
@@ -288,7 +302,20 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         FinisherRecoveryAsLight = true,   // sim/slam-recovery (owner, 2026-11-07): the slam frees a new string 0.633 s after its hit, as X3 after its own
         SteerFinishers = true,   // sim/slam-steer (owner, 2026-11-07): the slam turns like a turret, up to 185 degrees
         HopSwing = true,   // sim/hop-swing (owner, 2026-11-07): a press anywhere in the hop swings the hammer, never the dash attack
+        // sim/hammer-180 (owner 2026-11-25), 'TH Attack Behavior': light 4 "TH Default Dir 180 ( LSback + X )" (Sequencer08a, Ability_Melee_180) from rest and from X2, light 5 "TH Default Dir 180 ( x , X ) Left Side MP"
+        // (Sequencer10, its 'CS Dir 183' modifier: Ability_Melee_X2) from X1 and from light 4, light 6 "TH Default 2 ( X , X ) From 180 MP" (SequencerGenerator13, Ability_Melee_X2) after light 4, light 7 "TH Default 3
+        // ( X , X , X ) From 180 ( x , X ) MP" (SequencerGenerator17, Ability_Melee_X3) after light 5; lights 6 and 7 have no transition out. Y from light 4 (BRANCH_To_Slam) is "Combo End 2 ( X , Y )" (heavy 2), from light 5 "Combo End 3" (heavy 3).
+        Dir180 =
+        [
+            new("Sequencer08a", "ability_melee_180", Turn: true, Next: 6, BackNext: 5, HeavyNext: 2),
+            new("Sequencer10", "ability_melee_x2", Turn: true, Next: 7, BackNext: 0, HeavyNext: 3),
+            new("SequencerGenerator13", "ability_melee_x2", Turn: false, Next: 0, BackNext: 0, HeavyNext: -1),
+            new("SequencerGenerator17", "ability_melee_x3", Turn: false, Next: 0, BackNext: 0, HeavyNext: -1),
+        ],
+        LightBackNext = [5, 4, 0],   // X1 + back: the Left Side 180; X2 + back: the 180; X3: no light transition
     };
+    /// <summary>Test aid: <c>SM_OLD_HAMMER_180=1</c> (server and client alike; config hash) reads no Dir 180 strikes (before sim/hammer-180: a stick-back press swings the plain combo backwards).</summary>
+    static readonly bool OldHammer180 = Environment.GetEnvironmentVariable("SM_OLD_HAMMER_180") == "1";
 
     /// <summary>
     /// sim/slam-steer (the owner, 2026-11-07: "steered 185 degrees around in a circle from the original point of aim"): the most the Y,Y slam turns from the facing it begins its steering with,
@@ -518,10 +545,80 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         }
         if (stabStep is { } own) { heavy.Add(own.Step); heavyAnimations.Add(own.Animation); }   // sim/stab-key-only: after the finisher rules, so none of them touches the stab
         if (weapon.HopSwing && !OldHopSwing && steps.Count > 0) steps[0] = steps[0] with { HopSwing = true };   // sim/hop-swing
+        if (weapon.Dir180.Length > 0 && !OldHammer180 && !_noStab && steps.Count == weapon.Sequencers.Length) Dir180Family();   // sim/hammer-180: Classic PvP's read only
         if (range <= 0f) { notes.Add("no ability max_range; using 4"); range = 4f; }
         return new MeleeTuning(weapon.Wargear, steps, animations, range, notes) { Heavy = heavy, HeavyAnimations = heavyAnimations };
 
         BehaviorSequencer seqOf(string sequencer) => graph.Sequencers.First(s => s.Name == sequencer);
+
+        // sim/hammer-180 (owner 2026-11-25): the Dir 180 strikes and their follow-ups, appended to the light list with the light strikes' rules (the owner's lunge factors, the string reset and its
+        // 1 s cut on a string's last strike, the track to the hit). All or none: chains name light strikes by number.
+        void Dir180Family()
+        {
+            int first = steps.Count;
+            var family = new List<(MeleeStep Step, string Animation)>();
+            foreach (var d in weapon.Dir180)
+            {
+                try { family.Add(Step(d.Sequencer, d.Ability)); }
+                catch (InvalidDataException e) { notes.Add($"Dir 180 strike {d.Sequencer}: {e.Message}; no Dir 180 strikes"); return; }
+            }
+            int count = first + family.Count;
+            bool Valid(int n) => n >= 1 && n <= count;
+            float lunge = (OldHammerLunge ? 1f : weapon.LightLungeFactor) * (OldSwingStep ? 1f : weapon.SwingStepFactor) * (OldStepBoost ? 1f : weapon.StepBoost);
+            bool entry = false;
+            for (int j = 0; j < family.Count; j++)
+            {
+                var d = weapon.Dir180[j];
+                var (step, animation) = family[j];
+                bool end = !Valid(d.Next) && !Valid(d.BackNext);
+                step = step with
+                {
+                    Dir180 = true, TurnsBack = d.Turn, BackStart = d.Turn && !entry,
+                    LightNext = Valid(d.Next) ? d.Next : 0, BackNext = Valid(d.BackNext) ? d.BackNext : 0,
+                    HeavyNext = d.HeavyNext > 0 && d.HeavyNext <= heavy.Count ? d.HeavyNext : -1,
+                    StringEnd = end, LungeFactor = d.Turn ? 1f : lunge, TrackToHit = weapon.TrackToHit,   // review (lead: faithful): a turn strike's motion is the clip's own (MeleeLock.LungeFactorOf)
+                };
+                entry |= d.Turn;
+                if (weapon.StringReset && !OldStringReset)
+                {
+                    var resetTag = seqOf(d.Sequencer).Tags.Where(t => t.Kind == "Branch" && t.Name == StringResetBranch).OrderBy(t => t.Start).FirstOrDefault();
+                    float at = resetTag is null ? float.NaN : resetTag.Start * step.Duration;
+                    if (end && weapon.StringEndRecoveryCut > 0f) at = MathF.Max(step.HitTime, step.Duration - weapon.StringEndRecoveryCut);   // the owner's 1 s on a string's last strike (estimate)
+                    if (float.IsFinite(at) && at >= step.HitTime && at < step.Duration) step = step with { StringResetAt = at };
+                    else notes.Add($"{d.Sequencer}: no usable {StringResetBranch}; the string ends with the clip");
+                }
+                if (d.Turn) step = TurnStrike(step, animation, d.Sequencer);
+                steps.Add(step);
+                animations.Add(animation);
+            }
+            // The weapon's own light strikes: their stick-back chains into the family.
+            for (int i = 0; i < first && i < weapon.LightBackNext.Length; i++)
+                if (Valid(weapon.LightBackNext[i]) && weapon.LightBackNext[i] > first) steps[i] = steps[i] with { BackNext = weapon.LightBackNext[i] };
+        }
+
+        // A Dir 180 strike's clip moves its root backwards along the facing it starts with and turns it half round partway (SM_MEL_TH_XATK_180_MP: 3.95 m back, the turn at 0.7 s): the simulation strikes
+        // along the turned facing, so the motion is taken along that facing (negated) and the turn's time is kept for the view. Backward motion as the clip: no lunge scale, no front-loading, no early step
+        // (MeleeLock.LungeFactorOf, Profile, MotionTime: the review, the lead's decision "faithful"; the 180 3.95 m, the Left Side 5.08 m at the clip's pace).
+        MeleeStep TurnStrike(MeleeStep step, string animation, string sequencer)
+        {
+            if (step.Reach is { } r)
+            {
+                var variants = r.Variants.Select(v => v.Forward.Count > 0 && v.Forward[^1] < 0f ? v with { Forward = v.Forward.Select(f => -f).ToArray() } : v).ToArray();
+                if (r.Variants.Any(v => v.Forward.Count > 0 && v.Forward[^1] >= 0f)) notes.Add($"{sequencer}: a variant does not move backwards; kept as read");
+                step = step with { Reach = r with { Variants = variants } };
+            }
+            HavokExtractedMotion? motion = null;
+            try { motion = reach?.Motion(animation); }
+            catch (Exception e) when (e is InvalidDataException or NotSupportedException or KeyNotFoundException) { notes.Add($"{sequencer}: {e.Message}; no root turn"); }
+            if (motion is { Samples.Count: > 1 } m)
+            {
+                float w0 = m.Samples[0].W;
+                int k = Enumerable.Range(1, m.Samples.Count - 1).FirstOrDefault(i => MathF.Abs(MathF.IEEERemainder(m.Samples[i].W - w0, 2f * MathF.PI)) > MathF.PI / 2f);
+                if (k > 0) step = step with { TurnAt = step.Duration * k / (m.Samples.Count - 1) };
+                else notes.Add($"{sequencer}: {animation} has no half turn in its root motion");
+            }
+            return step;
+        }
 
         (MeleeStep Step, string Animation) Step(string sequencer, string abilityName)
         {

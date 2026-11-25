@@ -6,7 +6,8 @@ using Xunit.Abstractions;
 namespace SmNet.Tests;
 
 /// <summary>
-/// sim/ledge-charge-air (protocol 90; the owner 2026-11-23, brief <c>2026-11-23-series-36-ledge-charge</c>): in Classic PvP a bull rush that runs off a ledge travels half as far from the ledge to its first landing.
+/// sim/ledge-charge-air (protocol 90; the owner 2026-11-23, brief <c>2026-11-23-series-36-ledge-charge</c>; 2 x gravity since protocol 92, the owner 2026-11-24 "2x (halve the gravity)"): in Classic PvP a bull rush
+/// that runs off a ledge falls under <see cref="LedgeChargeAir.Gravity"/> x gravity, so it travels 1/√(k) (2 x: about 0.71) as far from the ledge to its first landing.
 /// Synthetic level (a floor at z = 0 and a plateau whose edge is the line y = 0) and synthetic specs (<see cref="JumpPackAttackTests.Config"/>'s marine with RushTests' 10 m/s, 1.2 s rush; the Assault of
 /// <see cref="MeleeCancelTests.Pack"/> for the hop). Before = <see cref="SimConfig.LedgeChargeHalfAir"/> false (the restore switch, protocol 89's rule), after = the default. Same start, heading, inputs and loadout; no
 /// steering and no Space after the departure in the distance runs.
@@ -88,7 +89,7 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
     [InlineData(2.5f)]
     [InlineData(1.5f)]
     [InlineData(0.8f)]
-    public void A_classic_ledge_charge_travels_half_as_far_from_departure_to_its_first_landing(float height)
+    public void A_classic_ledge_charge_travels_one_over_root_k_as_far_from_departure_to_its_first_landing(float height)
     {
         var world = Ledge(height);
         var start = new Vector3(0f, -9f, height);
@@ -100,13 +101,16 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
         Assert.Equal(before.Departure.Velocity, after.Departure.Velocity);
         Assert.Equal(before.Landing.Position.Z, after.Landing.Position.Z, 3);
         // The simulation's departure (the end of the tick that left the ground) to the first landing. The held speed is the same, so the distance is (air ticks) x one tick's travel, and
-        // 4 x gravity halves the air time: half the distance to within one 30 Hz tick's travel (the landing tick is whole; the departure tick's own vertical speed, from normal gravity, is the same in both).
+        // k x gravity (k = LedgeChargeAir.Gravity, 2) scales the air time from rest by 1/√k (h = k g t² / 2): 1/√2 = 0.707 of the distance to within one 30 Hz tick's travel (the landing tick is whole; the
+        // departure tick's own vertical speed, from normal gravity, is the same in both). Protocol 90-91's 4 x gave half.
+        Assert.Equal(2f, LedgeChargeAir.Gravity);
+        float r = 1f / MathF.Sqrt(LedgeChargeAir.Gravity);
         float b1 = Flat2(before.Departure.Position, before.Landing.Position), a1 = Flat2(after.Departure.Position, after.Landing.Position);
         float tick = new Vector2(before.Departure.Velocity.X, before.Departure.Velocity.Y).Length() / 30f;
         output.WriteLine($"{height} m ledge: air ticks before {before.AirTicks}, after {after.AirTicks}; departure -> landing before {b1:F3} m, after {a1:F3} m, ratio {a1 / b1:F4} "
             + $"(tolerance +/- one tick {tick:F3} m = +/- {tick / b1:F4}); landing-tick vertical speed before {before.Landing.Velocity.Z:F2}, after {after.Landing.Velocity.Z:F2} m/s");
-        Assert.InRange(a1, 0.5f * b1 - tick - 1e-3f, 0.5f * b1 + tick + 1e-3f);
-        Assert.InRange(after.AirTicks, before.AirTicks / 2 - 1, (before.AirTicks + 1) / 2 + 1);
+        Assert.InRange(a1, r * b1 - tick - 1e-3f, r * b1 + tick + 1e-3f);
+        Assert.InRange(after.AirTicks, (int)MathF.Floor(r * before.AirTicks) - 1, (int)MathF.Ceiling(r * before.AirTicks) + 1);
         // A real fall still ends the charge on the landing (the landing rule keeps its drop height).
         Assert.Equal(before.Landing.Rush, after.Landing.Rush);
     }
@@ -315,7 +319,7 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
     [InlineData(2f)]   // 20 m/s (about the install's 20.6 m/s ledge charge): the ledge hop's carried excess easing down
     public void The_hop_out_of_a_ledge_charge_keeps_the_protocol_89_speed_momentum_and_distance(float rushScale)
     {
-        // Owner answer 2 (2026-11-23): "the hop is normal speed, unchanged." The press comes lower (the charge fell faster for 4 ticks), so the hop lands at most one tick sooner; its horizontal
+        // Owner answer 2 (2026-11-23): "the hop is normal speed, unchanged." The press comes lower (the charge fell faster for 4 ticks, under 2 x gravity), so the hop lands at most one tick sooner; its horizontal
         // speeds tick by tick and its distance from the press are protocol 89's.
         var pack = MeleeCancelTests.Pack;
         var before = After_(pack with { LedgeChargeHalfAir = false }, Assault, InputButtons.Jump, rushScale: rushScale);
@@ -339,7 +343,7 @@ public class LedgeChargeAirTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_space_press_by_a_class_without_a_jump_pack_does_not_leave_the_charge_so_its_travel_stays_halved()
+    public void A_space_press_by_a_class_without_a_jump_pack_does_not_leave_the_charge_so_its_travel_stays_shortened()
     {
         // The Tactical's Space in a held charge is no hop: the charge goes on in the air (as at protocol 89) and falls as the faster charge.
         var before = After_(After with { LedgeChargeHalfAir = false }, Marine, InputButtons.Jump);

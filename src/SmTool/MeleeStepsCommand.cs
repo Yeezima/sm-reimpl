@@ -34,12 +34,14 @@ static class MeleeStepsCommand
         {
             var m = steps[i];
             Console.WriteLine($"{kind} {i + 1}: {(i < animations.Count ? animations[i] : "?")}  duration {m.Duration:0.###} s, hit {m.HitTime:0.###}, moveAt {m.MoveAt:0.###}, rangedAt {m.RangedAt:0.###}, combo {m.ComboOpen:0.###}..{m.ComboClose:0.###}, inPlace {m.InPlace}, yNext {m.YNext} y {m.YComboOpen:0.###}..{m.YComboClose:0.###}");
+            // sim/hammer-180: the chain fields, damage and string reset.
+            Console.WriteLine($"    damage {m.Damage:0.#} / {m.SecondaryDamage:0.#} (shield {m.ShieldDamage:0.#}), stringReset {m.StringResetAt:0.###}, stringEnd {m.StringEnd}, heavyNext {m.HeavyNext}, lightNext {m.LightNext}, backNext {m.BackNext}, dir180 {m.Dir180}, turnsBack {m.TurnsBack}, turnAt {m.TurnAt:0.###}, backStart {m.BackStart}, lunge x{m.LungeFactorApplied:0.###}, evadeAt {m.EvadeAt:0.###}, reacts {m.PrimaryReaction.Kind}");
             if (m.Reach is not { } r) { Console.WriteLine("    no reach data"); continue; }
             Console.WriteLine($"    align {r.AlignFrom:0.###}..{r.AlignTo:0.###}, distance window {r.DistanceFrom:0.###}..{r.DistanceTo:0.###} = {r.Distance:0.###}, default blend {r.DefaultDistance:0.###}");
             foreach (var v in r.Variants)
                 Console.WriteLine($"    variant {v.Distance,5:0.##} m {v.Clip,-40} forward at moveAt {v.At(m.MoveAt, m.Duration),6:0.00}, at hit {v.At(m.HitTime, m.Duration),6:0.00}, at end {v.At(m.Duration, m.Duration),6:0.00}, min {v.Forward.Min():0.00}, max {v.Forward.Max():0.00}");
             // The step with no target, summed the way the simulation does it (30 Hz ticks over the whole strike), and with a target at each variant's distance.
-            Console.WriteLine($"    simulated total, no target: {Sum(m, null, config):0.00} m (the clip's motion x{config.LungeScale * m.LungeFactorApplied:0.###})");
+            Console.WriteLine($"    simulated total, no target: {Sum(m, null, config):0.00} m (the clip's motion x{MeleeLock.LungeFactorOf(m, config):0.###})");
             Console.WriteLine($"    free step timeline: {Timeline(m, config)}");
             foreach (float d in new[] { 2f, 4f, 7f })
                 Console.WriteLine($"    simulated total, target {d:0.#} m ahead: {Sum(m, d, config):0.00} m (the target is {Math.Max(0f, d - Sum(m, d, config)):0.00} m away at the end)");

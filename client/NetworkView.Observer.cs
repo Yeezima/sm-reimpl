@@ -224,6 +224,7 @@ public partial class NetworkView
             _remoteCharging.Remove(gone);
             _remoteThrowStart.Remove(gone);
             _clipClocks.Remove(gone); _clipStats.Remove(gone);
+            Hammer180Forget(gone);   // sim/hammer-180: the log's and the turn drawing's per-player state
             _jumpTracks.Remove(gone);
             _evadeTracks.Remove(gone);
             _aimMoving.Remove(gone);

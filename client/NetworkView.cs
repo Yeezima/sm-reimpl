@@ -606,6 +606,7 @@ public partial class NetworkView : Node3D
             _remoteCharging.Remove(gone);
             _remoteThrowStart.Remove(gone);
             _clipClocks.Remove(gone); _clipStats.Remove(gone);
+            Hammer180Forget(gone);   // sim/hammer-180: the log's and the turn drawing's per-player state
             _jumpTracks.Remove(gone);
             _evadeTracks.Remove(gone);
             _aimMoving.Remove(gone);
@@ -1590,6 +1591,7 @@ public partial class NetworkView : Node3D
         // The own model turns with the view at the frame rate, not with the 30 Hz predicted state (M36, NetworkView.Turning.cs).
         float aimYaw = own ? DisplayYaw(state) : state.Yaw;
         float yaw = BodyYawFor(character, state, own, aimYaw, throwTime);   // M40-T5 (NetworkView.TurnInPlace.cs): the body is planted while the aim moves; else the aim's yaw
+        yaw = Hammer180Yaw(state, aimYaw, yaw, smooth);   // sim/hammer-180 (NetworkView.Hammer180.cs): before the clip's root turn
         if (TurnProbe.Enabled) character.SetMeta("aim_yaw", aimYaw);   // the probe compares the chest with the aim
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z - hop));
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers && !HasDataChargeFx(state);   // fix/plasma-visuals: the plasma weapons play their own charge build
@@ -1623,6 +1625,7 @@ public partial class NetworkView : Node3D
             float attackTime = MathF.Max(0f, (smooth is { Kind: ClipKind.Attack } sa ? sa.Time : state.MeleeTime) - HitStopHold(state.PlayerId));
             float drawnTime = attackTime;   // the clip time drawn; attackTime stays the simulation's for the hand-over and foot-lock gates
             ExtrasAttackTime(state, own, ref drawnTime);   // EXTRAS-HOOK: added content's drawn strike time (Musou: the weight pass retimes the wind-up and strike and holds the own pose; the power spear shows its strike clip at the drawn time)
+            drawnTime = Hammer180PoseTime(state, drawnTime);   // sim/hammer-180 (NetworkView.Hammer180.cs): no bone spin across the clip's root-turn sample
             var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, drawnTime);
             character.ClipRootSpeed = NoMeleeFlow ? float.NaN : MeleeRootSpeed(state, attackTime, ClipLength(baseClip, 0f));   // anim/melee-flow: the clip foot lock's still-foot test
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.

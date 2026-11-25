@@ -610,6 +610,22 @@ public static class Combat
         bool rollNoFire = roll && (evading || rollCut);
         bool fireHeldThroughSprint = (sprintNoFire || rollNoFire) && fireDown;
         if (sprintNoFire || rollNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
+        // sim/hammer-180 (protocol 93; the owner 2026-11-25, "Add it for the hammer"): the graph's FLT_LStick_Angle_Char test, the stick against where the character faces (the latched attack
+        // direction during an attack, the view at rest), read on the tick a press starts or chains a strike. Classic only (Musou reads no Dir 180 strikes and draws its own swings).
+        // Review fix: once the strike in progress no longer holds its facing (past max(MoveAt, hit + dt), the rule at the body's facing below), the stick walks the body in the view's frame (Movement.Step faces
+        // the view) or an idle stick keeps the heading it glided on: the character then faces where the body faces, so the offset is the body's own (its yaw against the view, to the nearest of eight
+        // for the facing a Dir 180 strike turns from or a strike chained from one keeps).
+        var characterFacing = s.MeleeStep > 0 ? s.MeleeDirection : EvadeDirection.Forward;
+        float characterOffset = s.MeleeStep > 0 ? Rush.DashOffset(s.MeleeDirection) : 0f;
+        if (step > 0 && steps[step - 1] is var held && s.MeleeTime + TimeEpsilon >= MathF.Max(MoveAtOf(held, c), held.HitTime + dt + TimeEpsilon) && float.IsFinite(s.Yaw))
+        {
+            // Quantised to the way of eight for the stick test too (re-review): a walking body faces the previous tick's view, so the raw offset is the view's turn over one tick, and keyboard S + A /
+            // S + D (exactly 135 degrees) would flip to stick-back on any mouse pan.
+            characterFacing = MeleeChain.DirectionOfOffset(MathF.IEEERemainder(s.Yaw - sanitized.Yaw, 2f * MathF.PI));
+            characterOffset = Rush.DashOffset(characterFacing);
+        }
+        bool stickBack = !musou && MeleeChain.StickBack(sanitized.MoveX, sanitized.MoveY, characterOffset);
+        bool keepDirection = false;   // a strike chained from a Dir 180 one keeps the facing that strike left (the graph has no directional strike there)
         bool stompReleased = false;   // sim/stomp-release: the stomp ended this tick (the weapon comes up with it, below)
         bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
@@ -678,8 +694,9 @@ public static class Combat
             var (open, close) = MeleeChain.Window(m, heavy, queuedHeavy);
             if (queued && time >= m.HitTime && ((spam && !queuedHeavy) || (time >= open && before < close)))
             {
+                keepDirection = !heavy && m.Dir180;   // sim/hammer-180
                 if (queuedHeavy) { step = heavyTarget; heavy = true; }
-                else { step = musou ? MeleeChain.MusouSwing(lightSteps, heavy ? 0 : step, input.Tick, s.PlayerId) : heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
+                else { step = musou ? MeleeChain.MusouSwing(lightSteps, heavy ? 0 : step, input.Tick, s.PlayerId) : MeleeChain.LightNext(lightSteps, step, heavy, stickBack); heavy = false; }   // after a heavy strike, light attack 1; sim/hammer-180: the stick-back chains
                 steps = heavy ? heavySteps : lightSteps;
                 time = heavy ? 0f : ChainLead(steps[step - 1]); queued = false; queuedHeavy = false; startedNow = true;
                 if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
@@ -694,7 +711,9 @@ public static class Combat
             heavy = stabStart || (heavyPress && heavySteps.Count > 0);
             if (!stabStart) used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
             steps = heavy ? heavySteps : lightSteps;
-            step = stabStart ? StabIndex(heavySteps) : musou && !heavy ? MeleeChain.MusouSwing(lightSteps, 0, input.Tick, s.PlayerId) : 1;
+            // sim/hammer-180: a light press from rest with the stick back starts the Dir 180 strike (not a cancel's swing: the hop's and the charge's swing stay attack 1, sim/hop-swing).
+            int backStart = !heavy && !stabStart && stickBack && !cancelStart ? MeleeChain.BackStartIndex(lightSteps) : 0;
+            step = stabStart ? StabIndex(heavySteps) : musou && !heavy ? MeleeChain.MusouSwing(lightSteps, 0, input.Tick, s.PlayerId) : backStart > 0 ? backStart : 1;
             time = 0f; queued = false; queuedHeavy = false; startedNow = true;
             if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
         }
@@ -1025,7 +1044,11 @@ public static class Combat
         // no key forwards. Latched for the attack (PlayerState.MeleeDirection; it follows the view's turns), re-read by each combo attack. A lock the start's cone
         // accepts (the search already goes along the stick) still turns the body to the stick's continuous direction, then to the target.
         bool newAttack = step > 0 && startedNow;
-        var meleeDirection = step == 0 ? EvadeDirection.Forward : newAttack ? Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true) : s.MeleeDirection;
+        // sim/hammer-180: a Dir 180 strike turns the character half round from the facing it had (the latched direction, the view at rest); a strike chained from one keeps that facing.
+        var meleeDirection = step == 0 ? EvadeDirection.Forward : !newAttack ? s.MeleeDirection
+            : steps[step - 1].TurnsBack ? MeleeChain.Opposite(characterFacing)
+            : keepDirection ? characterFacing
+            : Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true);
         float meleeTurn = Rush.DashOffset(meleeDirection);
         // sim/slam-steer (the owner, 2026-11-07): a steered strike (the hammer's and the maul's Y,Y slam) begins along its strike facing, holds it until its steering window, turns
         // toward the view there at its rate (MeleeSteer; at most 185 degrees in all) and keeps the facing it reached; no locked target's alignment acts on it.
