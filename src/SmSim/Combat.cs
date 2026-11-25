@@ -448,7 +448,7 @@ public static class Combat
         bool jumpEscape = jumpDown && !s.JumpHeld && JumpEscape.Eligible(c, s);
         s = JumpEscape.Apply(s, c, jumpEscape);
         var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress || stabPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
-            anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
+            anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || (input.Buttons & ~InputButtons.Execute) != InputButtons.None);   // executions X3 (X1 review): holding Execute never ends a reaction's tail
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).

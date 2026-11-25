@@ -14,6 +14,15 @@ public sealed partial record SimConfig
     /// </summary>
     public float ExecutionWindowSeconds { get; init; } = ExecutionRules.ClassicWindowSeconds;
 
+    /// <summary>
+    /// Executions X3: the playable rows and their wire identity (<see cref="ExecutionRowSet"/>), filled by <c>GameplayTuning.ExecutionsLoad</c> from the install
+    /// (<c>ExecutionCatalogueLoader.Load</c>); empty by default (nothing can be executed). Not hashed (lead 39: the server's rows are authoritative; <see cref="ExecutionRules.Hash"/>).
+    /// </summary>
+    public ExecutionRowSet Executions { get; init; } = ExecutionRowSet.Empty;
+
+    /// <summary>The rows of <see cref="Executions"/> (the list the choosers take).</summary>
+    public IReadOnlyList<ExecutionRow> ExecutionRows => Executions.Rows;
+
     // executions X1: the overshield's no-decay rule (Combat.StepPlayer's regeneration line). X4 (Warfront) fills ExecutionsKeepsOvershield; until then nothing keeps armour above its maximum.
     partial void ExtrasKeepsOvershield(ref bool keeps)
     {

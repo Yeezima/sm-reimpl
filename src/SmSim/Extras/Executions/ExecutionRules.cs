@@ -60,7 +60,10 @@ public static class ExecutionRules
     /// <summary>The overshield part of <paramref name="shield"/> (0 at or under <paramref name="shieldMax"/>), clamped to the cap.</summary>
     public static float Overshield(float shield, float shieldMax) => Math.Clamp(shield - shieldMax, 0f, OvershieldCap(shieldMax));
 
-    /// <summary>Writes the executions block of the config hash (only under <see cref="ContentExtras.Executions"/>; <c>SimConfig.Extras.cs</c> calls it).</summary>
+    /// <summary>
+    /// Writes the executions block of the config hash (only under <see cref="ContentExtras.Executions"/>; <c>SimConfig.Extras.cs</c> calls it): the rules here, then (X3) the
+    /// choice, alignment and row-data versions and the wire order (<see cref="ExecutionRows.All"/> ids). The install's rows (<see cref="SimConfig.Executions"/>) are not hashed.
+    /// </summary>
     public static void Hash(BinaryWriter w, SimConfig c)
     {
         w.Write("executions");

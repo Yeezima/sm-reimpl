@@ -56,6 +56,19 @@ public static class ExecutionTrack
     public static uint EndTick(in ExecutionRun run, ExecutionRow row, int tickRate) =>
         Math.Max(EventTick(run, row.Seconds, tickRate), EventTick(run, row.KillSeconds, tickRate));
 
+    /// <summary>
+    /// <paramref name="s"/> pinned at <paramref name="tick"/> of <paramref name="run"/>: the feet and yaw of <see cref="Pose"/>, no velocity, grounded, and no melee attack in progress or buffered (the
+    /// locked executor's swing never carries on into the move). Nothing else is touched (health, armour, ammunition). The server's pin (X3) and the own prediction pin (X6) both call this.
+    /// </summary>
+    public static PlayerState Pin(in PlayerState s, in ExecutionRun run, ExecutionRow row, uint tick, int tickRate)
+    {
+        var pose = Pose(run, row, tick, tickRate);
+        return s with { Position = pose.Feet, Yaw = pose.Yaw, Velocity = Vector3.Zero, Grounded = true, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false };
+    }
+
+    /// <summary>Whether <paramref name="tick"/> is a locked tick of <paramref name="run"/> (<c>StartTick + 1</c> to the end tick, inclusive).</summary>
+    public static bool LockedAt(in ExecutionRun run, ExecutionRow row, uint tick, int tickRate) => tick > run.StartTick && tick <= EndTick(run, row, tickRate);
+
     // ---- the wire's precision (ExecutionWire's Start, tag 50) ----
 
     /// <summary>Largest distance the Start carries (millimetres; a u16, and the decoder refuses 0 and anything above).</summary>
