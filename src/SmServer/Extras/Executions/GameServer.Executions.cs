@@ -63,8 +63,16 @@ public sealed partial class GameServer
         foreach (var (id, why) in w.ExecutionsRefusedThisTick)
         {
             if (why is ExecutionRefusal.NoFit or ExecutionRefusal.NoWire) Log?.Invoke($"executions: press of player {id} at tick {tick} did nothing ({why})");
+            else if (why == ExecutionRefusal.Refused && w.ExecutionsWarfrontRefusedLast(id) is { } warfront)
+            {
+                // X4: Warfront's own reasons are logged, one line per press (a press is a 0-to-1 edge, so a held key writes nothing more).
+                uint ready = w.ExecutionsReadyAt(id);
+                Log?.Invoke($"executions: press of player {id} at tick {tick} refused by Warfront ({warfront}{(warfront == ExecutionWarfrontRefusal.Cooldown ? $", ready at tick {ready}, {(ready - tick) / (float)Math.Max(1, w.Config.TickRate):0.0} s left" : "")})");
+            }
             else ExecutionRefusalsCounted++;
         }
+        foreach (var r in w.ExecutionsRewardedThisTick)
+            Log?.Invoke($"executions: reward player {r.Player} for Ork {r.Ork} at tick {r.Tick}: health {r.Health:0}, armour {r.Shield:0}, ready again at tick {r.ReadyAt}");
         foreach (var n in w.ExecutionsNoFitThisTick) Log?.Invoke($"executions: no move fits player {n.Executor} on the corpse of {n.Victim}: gap {n.Gap:0.00} m, height {n.Height:0.00} m, first {n.First}, tried {string.Join(",", n.Tried)}");
 
         // Offers: to the killer alone.

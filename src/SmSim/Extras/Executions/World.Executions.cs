@@ -258,6 +258,7 @@ public sealed partial class World
             run = run with { KillDone = true };
             if (warfront) ExecutionsWarfrontKill(ref run);
             _executionRuns[id] = run;
+            if (warfront && !run.KillDone) { EndExecution(run, ExecutionEndReason.Invalid, _executionEnds); return; }   // X4 review: a kill frame that did not kill ends the move (no reward, no cooldown), never a later Done
         }
         if (Tick >= ExecutionTrack.EndTick(run, row, Config.TickRate)) EndExecution(run, ExecutionEndReason.Done, _executionEnds);
     }

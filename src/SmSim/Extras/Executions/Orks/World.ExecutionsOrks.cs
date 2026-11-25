@@ -59,7 +59,7 @@ public sealed partial class World
     bool ExecutionsChaosStage => ExecutionsChaosStageForTests;
 
     /// <summary>Whether the war is in a battle (node, HQ or fortress) with its enemies in play.</summary>
-    bool ExecutionsInBattle => _musou is not null && _tfw is { Battle: not null } run && run.Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault;
+    bool ExecutionsInBattle => _musou is not null && _tfw is { Battle: not null } run && run.Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup;   // the fight goes on through the extraction countdown (X4 review)
 
     /// <summary>The tick player <paramref name="id"/> may execute again (0: now; cleared by its death).</summary>
     public uint ExecutionsReadyAt(int id) => _executionReadyAt.TryGetValue(id, out var r) && !ExecutionsDiedSince(id, r.Deaths) ? r.ReadyAt : 0u;
@@ -101,7 +101,8 @@ public sealed partial class World
 
     /// <summary>
     /// Death clears the cooldown (owner: lost on death): every step, a player that is dead, gone or respawned in this step loses its entry (the death count check at the press stays as a second
-    /// guard). Every respawn in play (Warfront's landing-zone respawn, the revive, a round's spawn) happens inside the step, so it is seen here. Nothing to do while no cooldown runs.
+    /// guard). Warfront's landing-zone respawn and the revive happen inside the step, so they are seen here in the same step; a round's spawn (<c>BeginRound</c>) runs outside it and is seen in
+    /// the next step (the player dead before it, or the death count). Nothing to do while no cooldown runs.
     /// </summary>
     partial void ExecutionsWarfrontStep()
     {

@@ -35,6 +35,7 @@ public sealed partial class MusouSim
         if (!_execHeld[i]) _execHeldCount++;
         _execHeld[i] = true;
         _execYaw[i] = yaw;
+        _token[i] = 0;   // X4 review: an attack token it held is given back now, before the next step's tally counts it for its target
         return true;
     }
 
