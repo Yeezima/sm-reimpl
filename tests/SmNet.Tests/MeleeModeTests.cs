@@ -211,42 +211,5 @@ public class MeleeModeTests
         Assert.Equal(36f, (b - prev) / Deg, 1);
     }
 
-    // ---- the simulation steps the sent input: the server and the prediction agree, the marine runs where he steers ----
-
-    static readonly SimConfig Data = new()
-    {
-        Weapons = [new WeaponSpec("rifle", WeaponSlot.Ranged, TriggerKind.FullAuto, 1f, 0.1f, 30, 270, 1.0f, 250f, 45f, 70f, 0.8f, 2.5f, 1f, 0.5f, 0.5f)],
-        Classes = [new ClassLoadout("assault", 0, -1, SimConfig.PlaceholderMeleeSteps)],
-        RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f,
-    };
-
-    [Fact]
-    public void TheServerAndThePredictionStepTheSameSentInput()
-    {
-        var server = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true), Data);
-        var client = server;
-        var steer = new MeleeOrbitSteer();
-        float cam = 0f;
-        for (uint tick = 1; tick <= 180; tick++)
-        {
-            cam += 90f * Deg * Data.TickSeconds;   // the camera orbits a full turn in 4 s
-            float stickX = tick > 120 ? 1f : 0f, stickY = tick > 120 ? 0f : 1f;   // W, then D
-            var r = steer.Step(cam, client.Yaw, stickX, stickY, false, false, Data.TickSeconds);
-            var input = new PlayerInput(tick, r.MoveX, r.MoveY, r.Yaw, InputButtons.None, 0f);
-            server = Combat.StepSelf(server, input, Data, out _);
-            client = Combat.StepSelf(client, input, Data, out _);
-            Assert.Equal(server.Position, client.Position);
-            Assert.Equal(server.Yaw, client.Yaw);
-            if (tick is > 30 and <= 120)
-            {
-                // Running forward along the camera's look (it turns at 90 degrees a second, well under the body's rate): the body faces its run.
-                Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(server.Yaw - cam)) / Deg, 0f, 4f);
-                var v = new Vector2(server.Velocity.X, server.Velocity.Y);
-                Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(MathF.Atan2(-v.X, v.Y) - server.Yaw)) / Deg, 0f, 15f);
-            }
-        }
-        // D held for 2 s: running to the camera's right at the forward run speed (not the strafe speed), facing it.
-        Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(server.Yaw - (cam - MathF.PI / 2f))) / Deg, 0f, 4f);
-        Assert.True(new Vector2(server.Velocity.X, server.Velocity.Y).Length() > 6.2f);
-    }
+    // The simulation side (server and prediction stepping the same input, and the review cases): MeleeOrbitClientTests.
 }

@@ -132,3 +132,95 @@ public sealed class MeleeOrbitSteer
         return a <= -MathF.PI ? a + 2f * MathF.PI : a;
     }
 }
+
+/// <summary>
+/// camera/melee-orbit: the own client's whole melee-mode input rule, engine-free so it can be stepped against <see cref="Combat.StepPlayer"/> in tests. Once per input
+/// tick: <see cref="StepMode"/> (every client) steps the <see cref="MeleeMode"/>; <see cref="Apply"/> (a human's live input, before the converged shot) also rewrites the
+/// input while the camera orbits.
+/// <list type="bullet">
+/// <item>Orbit off, mode off, dead, or the tick that leaves the mode: the input as sampled (the camera's yaw).</item>
+/// <item>Plain input (the camera's yaw and the camera-frame stick) while: a grenade press or a throw; a jump-pack jump's press, its flight, or a buffered jump
+/// (<see cref="BufferedAction.Jump"/>, <see cref="BufferedAction.JumpLong"/>: the dash's direction is read at the replay); fire held in this input (the shot leaves along
+/// the crosshair, whatever cancels the swing); a steered strike (the hammer's and the maul's slam turn toward the view: the mouse steers it, owner 2026-11-07); a strike
+/// string latched to a side or back (<see cref="PlayerState.MeleeDirection"/>).</item>
+/// <item>A charge or lunge (<see cref="PlayerState.Rush"/>): the body's heading and the camera-relative stick turned into the body's frame, so S still cancels the rush
+/// (owner 2026-11-11) and A / D still turn a ledge charge in the air.</item>
+/// <item>A queued or buffered strike (<see cref="PlayerState.MeleeQueued"/>, <see cref="BufferedAction.Melee"/>, <see cref="BufferedAction.MeleeHeavy"/>): the heading its
+/// press took, until it starts.</item>
+/// <item>Otherwise <see cref="MeleeOrbitSteer"/>: run where you steer; a strike press (light, heavy or the stab key) turns the body to the keys (none: the camera's look).</item>
+/// </list>
+/// </summary>
+public sealed class MeleeOrbitClient
+{
+    readonly MeleeOrbitSteer _steer = new();
+    InputButtons _prev;
+    uint _tick;
+    bool _stepped;
+    float _strikeYaw;
+
+    public MeleeMode Mode { get; } = new();
+
+    /// <summary>The wargear of the player's chosen melee weapon (null: none, the class's default).</summary>
+    public static string? MeleeWargear(SimConfig c, PlayerState s)
+    {
+        int choice = Loadouts.MeleeChoiceOf(c, s);
+        return choice >= 0 && Loadouts.ClassOf(c, s.Class) is { } loadout ? loadout.MeleeChoices[choice].Wargear : null;
+    }
+
+    /// <summary>A steered strike (sim/slam-steer) is in progress.</summary>
+    public static bool SteeredStrike(SimConfig c, PlayerState s) => s.MeleeStep > 0 && Combat.MeleeStepOf(c, s) is { Steers: true };
+
+    /// <summary>Steps the mode once for this tick's input (a repeat call in the same tick does nothing and returns <see cref="MeleeMode.Change.None"/>).</summary>
+    public MeleeMode.Change StepMode(PlayerState me, PlayerInput input, SimConfig c, bool alive, bool excluded)
+    {
+        if (_stepped && _tick == input.Tick) return MeleeMode.Change.None;
+        _stepped = true; _tick = input.Tick;
+        var b = input.Buttons;
+        return Mode.Step(new MeleeMode.Inputs(alive, MeleeMode.FreesCamera(me.MeleeStep, MeleeWargear(c, me), me.Rush),
+            (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0, (b & InputButtons.Reload) != 0, excluded));
+    }
+
+    /// <summary>A human's live input: steps the mode, then (with <paramref name="orbit"/>, in melee mode) the yaw split; see the class summary.</summary>
+    public PlayerInput Apply(PlayerState me, PlayerInput input, float cameraYaw, SimConfig c, bool orbit, bool alive, bool excluded, out MeleeMode.Change change)
+    {
+        change = StepMode(me, input, c, alive, excluded);
+        var b = input.Buttons;
+        var prev = _prev;
+        _prev = b;
+        bool Press(InputButtons x) => (b & x) != 0 && (prev & x) == 0;
+        if (!orbit || !Mode.Active || !alive || !me.Alive) { _steer.Reset(); return input; }
+        bool strike = Press(InputButtons.Melee) || Press(InputButtons.MeleeHeavy) || Press(InputButtons.Stab);
+        bool plain = Press(InputButtons.Grenade) || me.Throwing || me.Jump != JumpPhase.None
+            || (Press(InputButtons.Jump) && Loadouts.JumpPack(c, me) is not null)
+            || me.Buffered is BufferedAction.Jump or BufferedAction.JumpLong
+            || (b & InputButtons.Fire) != 0
+            || SteeredStrike(c, me)
+            || (me.MeleeStep > 0 && me.MeleeDirection != EvadeDirection.Forward);
+        if (plain) { _steer.Reset(); return input; }
+        if (me.Rush != RushPhase.None)
+        {
+            _steer.Reset();
+            var (x, y) = BodyFrameStick(cameraYaw, me.Yaw, input.MoveX, input.MoveY);
+            return input with { Yaw = me.Yaw, MoveX = x, MoveY = y };
+        }
+        bool queued = me.MeleeQueued || me.Buffered is BufferedAction.Melee or BufferedAction.MeleeHeavy;
+        if (queued && !strike)
+        {
+            _steer.Reset();
+            float m = MathF.Min(1f, MathF.Sqrt(input.MoveX * input.MoveX + input.MoveY * input.MoveY));
+            return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = m >= MeleeOrbitSteer.IdleStick ? m : 0f };
+        }
+        var r = _steer.Step(cameraYaw, me.Yaw, input.MoveX, input.MoveY, snap: strike || Press(InputButtons.Jump), strikePress: strike, c.TickSeconds);
+        if (strike) _strikeYaw = r.Yaw;
+        return input with { Yaw = r.Yaw, MoveX = r.MoveX, MoveY = r.MoveY };
+    }
+
+    /// <summary>The camera-relative stick turned into the frame of a body facing <paramref name="bodyYaw"/> (same world direction and length).</summary>
+    public static (float X, float Y) BodyFrameStick(float cameraYaw, float bodyYaw, float moveX, float moveY)
+    {
+        float m = MathF.Sqrt(moveX * moveX + moveY * moveY);
+        if (!(m >= MeleeOrbitSteer.IdleStick)) return (0f, 0f);
+        float a = MeleeOrbitSteer.Wrap(MeleeOrbitSteer.StickYaw(cameraYaw, moveX, moveY) - bodyYaw);
+        return (-MathF.Sin(a) * m, MathF.Cos(a) * m);
+    }
+}

@@ -21,8 +21,8 @@ namespace SmClient;
 /// Which yaw each consumer takes (audit): the camera placement, the rig's yaw rate, the aim direction, <c>NoteCameraPlaced</c>/<c>FreshCenterRay</c>, the crosshair
 /// target and the converged shot ray all take the camera's <c>_yaw</c> (NetworkView.Camera.cs, NetworkView.Controls.cs); the simulation's movement, the melee lock's
 /// search, the attack and evade direction and the charge's start take the input's yaw, the body's (so they go along the run, or the camera's look for a strike with no
-/// key); the grenade throw and a jump-pack jump and its flight (and the ground pound's aim) send the camera's yaw and the plain stick (<see cref="OrbitSuspended"/>), so
-/// they go where the crosshair is, as before; the own drawn model takes <see cref="DisplayYaw"/> (the body's, smoothed); bots, demos and test aids are unchanged;
+/// key); the grenade throw, a jump-pack jump and its flight (and the ground pound's aim), held fire and the steered slam send the camera's yaw and the plain stick
+/// (<see cref="MeleeOrbitClient"/>), so they go where the crosshair is, as before; a charge sends the body's heading with the stick in its frame; the own drawn model takes <see cref="DisplayYaw"/> (the body's, smoothed); bots, demos and test aids are unchanged;
 /// spectators and other players draw the body as sent (<see cref="PlayerState.Yaw"/>). <c>--old-melee-camera</c> restores the locked camera (no orbit);
 /// <c>--log-melee-mode</c> logs the mode; <c>--melee-orbit-demo</c> is the scripted proof.
 /// </summary>
@@ -38,73 +38,49 @@ public partial class NetworkView
     /// <summary>Presentation, ours: how fast the drawn own body chases the simulation's heading in melee mode and turns back to the view after it (degrees a second).</summary>
     const float MeleeDrawTurnDegreesPerSecond = 1440f;
 
-    readonly MeleeMode _meleeMode = new();
-    readonly MeleeOrbitSteer _meleeSteer = new();
-    uint _meleeModeTick;
-    bool _meleeModeStepped;
-    InputButtons _meleeOrbitPrevButtons;
+    readonly MeleeOrbitClient _meleeOrbit = new();
+    MeleeMode _meleeMode => _meleeOrbit.Mode;
     bool _meleeDrawn;           // the own model draws _meleeDrawnYaw (melee mode, or turning back after it)
     float _meleeDrawnYaw;
     double _meleeLogAt;
 
-    /// <summary>Hook for added content: a body with no melee mode, so no field-of-view widening and no camera orbit (Musou: the Dreadnought).</summary>
+    /// <summary>Hook for added content: a body with no melee mode, so no free camera orbit (Musou: the Dreadnought).</summary>
     partial void ExtrasMeleeModeExcluded(PlayerState me, ref bool excluded);
 
-    /// <summary>A move that frees the camera is in progress: a knife or melee-weapon strike (<see cref="MeleeMode.EntersMeleeMode"/>) or the dash attack's lunge.</summary>
-    bool MeleeWeaponStrike(PlayerState me) => _config is not null && MeleeMode.FreesCamera(me.MeleeStep, MeleeWargear(me), me.Rush);
-
-    /// <summary>The camera orbits freely now (a human's own view in melee mode).</summary>
-    bool MeleeOrbiting => !OldMeleeCamera && !_bot && _meleeMode.Active;
-
-    /// <summary>Steps the shared melee mode once for this tick's input (repeat calls in the same tick do nothing).</summary>
-    MeleeMode.Change StepMeleeMode(PlayerState me, PlayerInput input)
+    bool MeleeModeExcluded(PlayerState me)
     {
-        if (_meleeModeStepped && _meleeModeTick == input.Tick) return MeleeMode.Change.None;
-        _meleeModeStepped = true; _meleeModeTick = input.Tick;
         bool excluded = false;
         ExtrasMeleeModeExcluded(me, ref excluded);   // EXTRAS-HOOK: the Dreadnought has no melee mode
-        var b = input.Buttons;
-        var change = _meleeMode.Step(new MeleeMode.Inputs(me.Alive && !OwnDead, MeleeWeaponStrike(me), (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0,
-            (b & InputButtons.Reload) != 0, excluded));
-        if (change != MeleeMode.Change.None)
-        {
-            if (LogMeleeMode) GD.Print($"MELEEMODE t {_connectedFor:F2} s: {change} active {_meleeMode.Active} camera yaw {Deg(_yaw):F1} body yaw {Deg(me.Yaw):F1} melee step {me.MeleeStep} weapon {MeleeWargear(me) ?? "-"}{(OldMeleeCamera ? " (--old-melee-camera: no orbit)" : "")}");
-        }
-        return change;
+        return excluded;
+    }
+
+    /// <summary>Steps the melee mode once for this tick's input (bots, the dead and demos; a human's live input steps it in <see cref="MeleeOrbitInput"/>).</summary>
+    void StepMeleeMode(PlayerState me, PlayerInput input)
+    {
+        if (_config is null) return;
+        LogMeleeChange(me, _meleeOrbit.StepMode(me, input, _config, me.Alive && !OwnDead, MeleeModeExcluded(me)));
+    }
+
+    void LogMeleeChange(PlayerState me, MeleeMode.Change change)
+    {
+        if (change == MeleeMode.Change.None || !LogMeleeMode) return;
+        GD.Print($"MELEEMODE t {_connectedFor:F2} s: {change} active {_meleeMode.Active} camera yaw {Deg(_yaw):F1} body yaw {Deg(me.Yaw):F1} melee step {me.MeleeStep} rush {me.Rush} weapon {MeleeWargear(me) ?? "-"}{(OldMeleeCamera ? " (--old-melee-camera: no orbit)" : "")}");
     }
 
     static float Deg(float radians) => MeleeOrbitSteer.Wrap(radians) * 180f / MathF.PI;
 
     /// <summary>
-    /// A human's live input (keyboard and mouse, or pad) before the converged shot: steps the melee mode and, while it is on, sends the body's yaw and the stick as forward
-    /// (<see cref="MeleeOrbitSteer"/>). Off, leaving it this tick, dead, or with <c>--old-melee-camera</c>: the input as it was (the camera's yaw).
+    /// A human's live input (keyboard and mouse, or pad) before the converged shot: <see cref="MeleeOrbitClient.Apply"/> (the rules and the yaw split, engine-free).
+    /// Bots keep the locked camera; <c>--old-melee-camera</c> too.
     /// </summary>
     PlayerInput MeleeOrbitInput(PlayerInput input)
     {
         if (_client is null || _config is null) return input;
         var me = _client.Predicted;
-        StepMeleeMode(me, input);
-        var b = input.Buttons;
-        var prev = _meleeOrbitPrevButtons;   // read before it is replaced: Press compares with the last tick's buttons
-        _meleeOrbitPrevButtons = b;
-        bool Press(InputButtons x) => (b & x) != 0 && (prev & x) == 0;
-        if (!MeleeOrbiting || !me.Alive) { _meleeSteer.Reset(); return input; }
-        bool strike = Press(InputButtons.Melee) || Press(InputButtons.MeleeHeavy);
-        if (OrbitSuspended(me, Press(InputButtons.Grenade), Press(InputButtons.Jump), strike)) { _meleeSteer.Reset(); return input; }
-        var r = _meleeSteer.Step(_yaw, me.Yaw, input.MoveX, input.MoveY, snap: strike || Press(InputButtons.Jump), strikePress: strike, _config.TickSeconds);
-        return input with { Yaw = r.Yaw, MoveX = r.MoveX, MoveY = r.MoveY };
+        var sent = _meleeOrbit.Apply(me, input, _yaw, _config, orbit: !OldMeleeCamera && !_bot, me.Alive && !OwnDead, MeleeModeExcluded(me), out var change);
+        LogMeleeChange(me, change);
+        return sent;
     }
-
-    /// <summary>
-    /// The ticks that send the camera's yaw and the plain stick although in melee mode: a grenade press and the throw (it goes along the crosshair), a jump-pack jump's
-    /// press and its whole flight (the take-off, the steering and the ground pound's aim follow the view; the pound's landing mark is drawn from it); and a strike string
-    /// latched to a side or back (<see cref="PlayerState.MeleeDirection"/>, the directional melee of a strike begun with a side key outside melee mode, normally the one
-    /// that entered it): the simulation faces that string along the view turned by its direction, so it keeps the camera's frame (the same world direction) until it ends
-    /// or a strike press starts a forward one along the keys.
-    /// </summary>
-    bool OrbitSuspended(PlayerState me, bool grenadePress, bool jumpPress, bool strikePress) =>
-        grenadePress || me.Throwing || me.Jump != JumpPhase.None || (jumpPress && Loadouts.JumpPack(_config!, me) is not null)
-        || (me.MeleeStep > 0 && me.MeleeDirection != EvadeDirection.Forward && !strikePress);
 
     /// <summary><c>--melee-orbit-demo</c>: the scripted input through the human path (<see cref="MeleeOrbitInput"/>, then the converged shot) with a log line every 0.5 s.</summary>
     PlayerInput MeleeOrbitDemoSample(uint tick)
