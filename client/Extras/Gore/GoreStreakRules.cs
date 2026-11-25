@@ -61,9 +61,9 @@ public static class GoreStreakRules
         new(0.37f, 2.60f, 0.94f, 31f, 0.064f, 0.80f, 0.58f, 0.28f, 2.0f, 0.20f, 0.40f),
         new(0.48f, 2.74f, 0.94f, 32f, 0.066f, 0.68f, 0.55f, 0.36f, 2.0f, 0.10f, 0.00f),
         new(0.60f, 2.82f, 0.90f, 33f, 0.066f, 0.55f, 0.48f, 0.44f, 2.0f, 0.10f, 0.00f),
-        new(0.72f, 2.90f, 0.86f, 34f, 0.066f, 0.45f, 0.42f, 0.50f, 2.0f, 0.30f, 0.00f),
-        new(0.85f, 2.92f, 0.20f, 35f, 0.064f, 0.30f, 0.34f, 0.56f, 2.0f, 0.45f, 0.00f),
-        new(0.98f, 2.92f, 0.10f, 35f, 0.061f, 0.08f, 0.26f, 0.60f, 2.0f, 0.85f, 0.00f),
+        new(0.72f, 2.90f, 0.86f, 34f, 0.066f, 0.50f, 0.42f, 0.50f, 2.0f, 0.15f, 0.00f),
+        new(0.85f, 2.92f, 0.20f, 35f, 0.064f, 0.33f, 0.34f, 0.56f, 2.0f, 0.35f, 0.00f),
+        new(0.98f, 2.92f, 0.10f, 35f, 0.061f, 0.06f, 0.22f, 0.60f, 2.0f, 0.85f, 0.00f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -466,7 +466,7 @@ public static class GoreStreakRules
     public readonly record struct Texel(float Alpha, float Core, float Cov, float Density, float Cut = ShapeCut);
 
     /// <summary>The opacity floor of a texel between the filaments (the filaments add the rest).</summary>
-    public const float FilFloor = 0.1f;
+    public const float FilFloor = 0f;
     /// <summary>
     /// A texel whose shape opacity is under this is not drawn, and over it the strip is at full strength at once (<see cref="StripRamp"/>): a faint, half-stripped fringe over a light
     /// ground read pink, a fully stripped one reads as a light translucent red.
@@ -479,7 +479,7 @@ public static class GoreStreakRules
     /// <summary>The lumpy outline: each edge moves in and out by up to <see cref="LumpDepth"/> of the half width over about 1 / <see cref="LumpAlong"/> body heights.</summary>
     public const float LumpDepth = 0.45f, LumpAlong = 0.9f;
     /// <summary>The density blotches along a band: the opacity times floor + gain x blotch (lighter and darker clumps, mean about 1).</summary>
-    public const float BlotFloor = 0.5f, BlotGain = 1.0f;
+    public const float BlotFloor = 0.35f, BlotGain = 1.0f;
     /// <summary>How much more solid the swipe is before the side bands grow (frame 0 reads as one solid thin line).</summary>
     public const float SwipeSolid = 0.45f;
     /// <summary>The grain on top (isotropic on the plane, not stretched): <see cref="SpeckleTiles"/> tiles a body height, the opacity times 1 - depth + 2 x depth x grain.</summary>
@@ -608,12 +608,12 @@ public static class GoreStreakRules
     /// ground (a light translucent red, about G / R 0.6 over a mid grey) and never reads pink; the blood red mixed over it is only the core's (<see cref="CoreAlpha"/>), brighter in the
     /// filaments. Forward+ blends in linear (a 0.62 strip reads about 0.66 on screen), Compatibility in display space.
     /// </summary>
-    public const float StripMax = 0.62f, CompatibilityStripMax = 0.65f;
+    public const float StripMax = 0.56f, CompatibilityStripMax = 0.65f;
     /// <summary>Compatibility's strip: its multiply blend blackened the ground (captures, ribbon rebuild), so it mixes the ground toward this blood red (display space) at the strip's strength instead: green and blue fall, the red level stays near a mid-grey's.</summary>
     public const float CompatibilityStripRed = 0.31f;
 
     /// <summary>The core's blood opacity share per renderer (iteration 7: the mist is the strip, the blood red only deepens the cores; Compatibility blends in display space and takes a little more).</summary>
-    public const float CoreAlpha = 0.16f, CompatibilityCoreAlpha = 0.22f;
+    public const float CoreAlpha = 0.3f, CompatibilityCoreAlpha = 0.3f;
 
     /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red: the filament cores lighter) at the renderer's <paramref name="shade"/>.</summary>
     public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)
