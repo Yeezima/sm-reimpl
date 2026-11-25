@@ -77,10 +77,10 @@ public static class WarfrontChaosTuning
 
     /// <summary>
     /// The drawn heights of the Chaos bodies (C3, the C2 review: the shot body's head sphere at the top must meet the drawn head): a renegade guard (Cultist, Traitor Guardsman) 2.0 m, a Chaos
-    /// Space Marine (Tactical, Havocs, Raptor) 2.3 m, the Champion 2.5 m (drawn x1.1), the Daemon 2.6 m (the Bloodletter hunched; 3.0 m to its horns). Ours, from the models' bounds measured on the
+    /// Space Marine (Tactical, Havocs, Raptor) 2.3 m, the Champion a marine x1.1 = 2.53 m (as drawn; 2.6 m measured with the set's crest), the Daemon 2.6 m (the Bloodletter hunched; 3.0 m to its horns). Ours, from the models' bounds measured on the
     /// crowd test stage (`--musou-crowd-test --warfront-chaos`, 2026-11-25; provisional).
     /// </summary>
-    public const float ManHeight = 2.0f, MarineHeight = 2.3f, ChampionHeight = 2.5f, DaemonHeight = 2.6f;
+    public const float ManHeight = 2.0f, MarineHeight = 2.3f, ChampionHeight = MarineHeight * 1.1f, DaemonHeight = 2.6f;
 
     /// <summary>The startup log's line for a Chaos stage.</summary>
     public static string Note(MusouRules chaos) =>

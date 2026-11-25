@@ -39,6 +39,15 @@ public partial class NetworkView
     Task<SoundTriggers>? _wfChaosSoundLoad;
     bool _wfChaosSoundFailed;
 
+    /// <summary>The config before the Chaos latch (restored if the Hub turns to the Orks).</summary>
+    SimConfig? _wfOrksConfig;
+
+    /// <summary>The last army a Hub section named, kept across the rejoin to the next stage process (null: none yet this session).</summary>
+    static WarfrontFaction? s_wfLastArmy;
+
+    /// <summary>The fortress map's loading caption: the CHAOS STRONGHOLD when the run fights Chaos (this connection's Hub, else the last one before the rejoin).</summary>
+    string WarfrontFortressCaption => (_wfModel is { HubSections: > 0 } m ? m.Hub.View.Faction : s_wfLastArmy) == WarfrontFaction.Chaos ? "BUILDING THE CHAOS STRONGHOLD" : "BUILDING THE ORK FORTRESS";
+
     /// <summary>The view whose battle is drawn as Chaos (the gore table's hooks are static).</summary>
     static NetworkView? s_wfChaosView;
 
@@ -55,17 +64,35 @@ public partial class NetworkView
             GD.Print($"t {_connectedFor:F1} s: warfront army: {(known ? (chaos ? "Chaos (the Chaos army's looks, sounds and gore)" : "Orks") : "not told yet (enemies hidden)")}");
         _wfChaosKnown = known;
         _wfChaosOn = chaos;
+        if (known) s_wfLastArmy = m.Hub.View.Faction;   // survives the rejoin: the next stage's loading caption (WarfrontFortressClient.cs) reads it before any Hub of the new connection
         if (chaos) s_wfChaosView = this;
         if (_musouLooks is { } looks)
         {
             looks.WarfrontOwnsLooks = !known || chaos;
             looks.WarfrontChaos = chaos ? _wfChaos : null;
+            looks.WarfrontSkipOrks = chaos;   // no Ork mesh, gun or rig is built in a Chaos battle
         }
+        _musouOnlyChaosSounds = chaos;   // the Ork sound sets are not built in a Chaos battle (the Chaos Marine's is)
+        TfwBanners.HideEnemyBanner ??= () => WarfrontChaosDrawn;   // the capture points' Ork totem (waaaghbanner) is not shown to a Chaos army; the Imperial banner still goes up when a point is secured
         if (_musouHud is { } hud) hud.WarfrontRelabel = chaos ? WarfrontChaosLooksPlan.HudLabel : null;
-        if (!chaos) return;
+        if (_wfBattle is { } battle) battle.Relabel = chaos ? WarfrontChaosLooksPlan.HudLabel : null;   // the fortress strip and banners: KILL THE CHAOS LORD, THE CHAOS LORD IS DEAD
+        if (!chaos)
+        {
+            if (_wfChaosConfigSet && _wfOrksConfig is { } orks)   // the Hub turned to the Orks (a new run): the latch is undone
+            {
+                _wfChaosConfigSet = false;
+                _config = orks;
+                _musouRulesOver = null;
+                if (_musouCrowd is { } c) c.RulesOver = null;
+                if (_client is { } cl) cl.ExtrasSolids = null;
+                GD.Print("warfront chaos: the Hub turned to the Orks; the client's enemy table is the Orks' again");
+            }
+            return;
+        }
         if (!_wfChaosConfigSet && _config is { } config)
         {
             _wfChaosConfigSet = true;
+            _wfOrksConfig = config;
             _config = WarfrontChaosTuning.Apply(config, WarfrontFaction.Chaos);   // the clients' shot and contact bodies read the same table as the server's (not in the config hash)
             GD.Print("warfront chaos: the client's enemy table is the Chaos army's (" + WarfrontChaosTuning.Note(_config.MusouRules!) + ")");
             if (_client is { } client) client.ExtrasSolids = null;   // rebuilt next frame from the Chaos config (NetworkView.Musou.cs)

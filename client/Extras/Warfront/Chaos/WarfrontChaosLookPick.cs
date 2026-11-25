@@ -31,7 +31,7 @@ static class WarfrontChaosLookPick
         foreach (var word in plan.SetWords)
         {
             int at = sets.FindIndex(s => s.Name.Contains(word, StringComparison.OrdinalIgnoreCase));
-            if (at < 0 || at >= AppearanceCode.DefaultIndex) continue;
+            if (at < 0 || at >= AppearanceCode.DefaultIndex || !WarfrontChaosLooksPlan.SetAllowed(sets[at].Name)) continue;   // only the crimson Khorne sets: a set's own paint wins
             set = sets[at].Name;
             return AppearanceCode.Default.WithPredefinedSet((byte)at);
         }

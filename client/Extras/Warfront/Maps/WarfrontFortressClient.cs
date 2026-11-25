@@ -16,7 +16,7 @@ public partial class NetworkView
     void WarfrontFortressContent(ref MapContent? map)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        SetLoadingCaption("BUILDING THE " + (_wfModel?.Hub.FortressName ?? "ORK FORTRESS"));   // Chaos Warfront C3: the CHAOS STRONGHOLD in a Chaos run (the Hub of the stage before)
+        SetLoadingCaption(WarfrontFortressCaption);   // Chaos Warfront C3: the CHAOS STRONGHOLD in a Chaos run (the last Hub, kept across the rejoin; NetworkView.WarfrontChaos.cs)
         if (WarfrontSlots.Fortress is not WarfrontFortressBuild build) return;
         map = AshfallContent.ToMapContent(build.Level);
         GD.Print($"warfront: the Ork fortress built in {watch.ElapsedMilliseconds} ms, level hash {build.Level.Hash:X16}; nothing read from the install");

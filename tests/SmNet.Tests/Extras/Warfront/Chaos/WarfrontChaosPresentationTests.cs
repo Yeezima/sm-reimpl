@@ -87,6 +87,20 @@ public class WarfrontChaosPresentationTests
     }
 
     [Fact]
+    public void Every_marine_look_wears_the_default_scheme_or_an_allowed_crimson_set()
+    {
+        foreach (var kind in Enum.GetValues<MusouEnemyType>())
+            if (WarfrontChaosLooksPlan.MarineLook(kind) is { } look)
+                foreach (var word in look.SetWords) Assert.True(WarfrontChaosLooksPlan.SetAllowed(word), $"{kind}: set word '{word}' is not an allowed crimson set");
+        Assert.Empty(WarfrontChaosLooksPlan.MarineLook(MusouEnemyType.Nob)!.SetWords);   // the Champion: the race's default scheme
+        // the install's predefined Chaos sets (names from the C3 capture log): only the Khorne ones pass
+        Assert.True(WarfrontChaosLooksPlan.SetAllowed("khornate_berserker_1"));
+        Assert.True(WarfrontChaosLooksPlan.SetAllowed("khorne_berserker_berserker_3"));
+        foreach (var other in new[] { "dlc1_set2", "emperors_children_dlc", "iron_warriors_dlc", "black_crusader_havoc_1", "raptor_1", "chaos_default" })
+            Assert.False(WarfrontChaosLooksPlan.SetAllowed(other), other);
+    }
+
+    [Fact]
     public void The_chaos_shot_bodies_are_the_drawn_models_and_the_orks_keep_theirs()
     {
         var orks = MusouRules.Default;
@@ -99,6 +113,8 @@ public class WarfrontChaosPresentationTests
         Assert.Equal(WarfrontChaosTuning.MarineHeight, MusouSim.ShotBodyOf(chaos, MusouEnemyType.ChaosMarine).Height);
         Assert.Equal(WarfrontChaosTuning.DaemonHeight, MusouSim.ShotBodyOf(chaos, MusouEnemyType.Gretchin).Height);   // the Daemon
         Assert.Equal(orks.Of(MusouEnemyType.Boy).Radius, chaos.Of(MusouEnemyType.Boy).Radius);
+        Assert.Equal(chaos.Of(MusouEnemyType.BossNob).Height, MusouSim.ShotBodyOf(chaos, MusouEnemyType.BossNob).Height);   // the Chosen at their row's height, not the Boss Orks' 3x
+        Assert.Equal(WarfrontChaosTuning.MarineHeight * 1.1f, WarfrontChaosTuning.ChampionHeight, 3);
     }
 
     [Theory]
@@ -108,6 +124,10 @@ public class WarfrontChaosPresentationTests
     [InlineData("BOSS ORK INCOMING", "CHOSEN INCOMING")]
     [InlineData("BOSS ORK SLAIN", "CHOSEN SLAIN")]
     [InlineData("THE WARBOSS IS DEAD", "THE CHAOS LORD IS DEAD")]
+    [InlineData("KILL THE WARBOSS  40%", "KILL THE CHAOS LORD  40%")]
+    [InlineData("THE WARBOSS IS IN THE ARENA", "THE CHAOS LORD IS IN THE ARENA")]
+    [InlineData("BREACH THE FORTRESS", "BREACH THE STRONGHOLD")]
+    [InlineData("FIGHT THROUGH TO THE ARENA", "FIGHT THROUGH TO THE ARENA")]
     [InlineData("OBJECTIVE CAPTURED", "OBJECTIVE CAPTURED")]
     public void The_hud_words_become_the_chaos_units(string ork, string chaos) => Assert.Equal(chaos, WarfrontChaosLooksPlan.HudLabel(ork));
 
