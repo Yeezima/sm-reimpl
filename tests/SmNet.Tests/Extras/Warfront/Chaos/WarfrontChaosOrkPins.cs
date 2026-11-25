@@ -1,3 +1,4 @@
+using System.Numerics;
 using SmContent.Extras.Warfront;
 using SmNet.Tests.Extras.Musou.Campaign;
 using SmNet.Tests.Extras.Warfront.Battle;
@@ -108,6 +109,49 @@ public class WarfrontChaosOrkPins(ITestOutputHelper output)
         Assert.Equal(FortressPin, d);
     }
 
+    /// <summary>The armies' level state (each army's far count and elites, real count and elites, slots) and the battle's promote and fold-back totals, into <paramref name="h"/>.</summary>
+    internal static ulong ArmyDigest(TfwBattle b, ulong h)
+    {
+        void Mix(long v) { for (int k = 0; k < 8; k++) { h ^= (byte)(v >> (8 * k)); h *= 1099511628211UL; } }
+        Mix(b.Promoted); Mix(b.Demoted); Mix(b.ArmyList.Count);
+        foreach (var a in b.ArmyList)
+        {
+            Mix(a.Id); Mix((long)a.Side); Mix((long)a.Order);
+            Mix((long)MathF.Round(a.Far * 1000f)); Mix((long)MathF.Round(a.FarElites * 1000f)); Mix(a.Real); Mix(a.RealElites); Mix(a.Orks.Count); Mix(a.SlotBase);
+        }
+        return h;
+    }
+
+    /// <summary>
+    /// The longer pin (C2 review R6): an Orks lane battle of 60 s with the Guardsmen, the patrols, the trickle, the Stormboys and the Meks on, the human moving between the landing zone and the three
+    /// points every 15 s (the armies promote near him and fold back behind him), digesting the pool and the armies' level state.
+    /// </summary>
+    [Fact]
+    public void An_orks_lane_battle_with_patrols_trickle_stormboys_and_army_levels_is_as_it_was()
+    {
+        var w = TfwRig.War(config: WarfrontBattleTests.WarfrontConfig);
+        w.Tfw!.Guardsmen = true;
+        w.Tfw.Patrols = true;
+        w.TfwMeksOn = true;
+        var b = TfwRig.Deploy(w);
+        b.Trickle = true;
+        b.StormboysOn = true;
+        Assert.NotNull(b.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 120, new Vector3(80f, -60f, 0f), 0.3f, eliteShare: 0.3f));   // promotes by the human
+        Assert.NotNull(b.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.March, 1, 120, new Vector3(400f, 400f, 0f), 0f, eliteShare: 0.3f));   // far: marches in from beyond the levels' reach
+        int stormboys = 0;
+        Vector3[] stops = [b.Layout.Positions[0], b.Layout.LandingZone, b.Layout.Positions[2], b.Layout.Positions[1]];
+        for (int leg = 0; leg < stops.Length; leg++)
+        {
+            TfwRig.Teleport(w, stops[leg]);
+            for (int t = 0; t < 15 * 30; t++) { w.Step(_ => default); stormboys = Math.Max(stormboys, w.Musou!.CountAlive(MusouEnemyType.Stormboy)); }
+        }
+        ulong d = ArmyDigest(b, Digest(w));
+        output.WriteLine($"long lane 0x{d:X16}: promoted {b.Promoted}, folded back {b.Demoted}, armies {b.ArmyList.Count}, most Stormboys alive {stormboys}, alive {w.Musou!.Alive}");
+        Assert.True(b.Promoted > 0, "the armies promoted");
+        Assert.Equal(LongLanePin, d);
+    }
+
     // Pinned from the Chaos base (before C2), by this file's own digest of the same seeded battles.
+    const ulong LongLanePin = 0x42DEF7F440B34736UL;   // claude/chaos-base-1125 @ 6f1cfe8c, before C2
     const ulong LanePin = 0x3920808E3E1C112DUL, HqPin = 0xA0BAD633A482EE15UL, FortressPin = 0xB14E5D60A2AF5BE5UL;   // claude/chaos-base-1125 @ 6f1cfe8c, before C2
 }

@@ -59,7 +59,7 @@ public static class WarfrontChaosTuning
         };
     }
 
-    /// <summary>The Chaos rows' health (ours, provisional): about 1.3 to 1.8 times the Ork row each replaces ("fewer but tougher").</summary>
+    /// <summary>The Chaos rows' health (ours, provisional; "fewer but tougher") against the row of each slot: Cultist and Traitor 1.3x the Boyz' 85; Chaos Marine 1.4x Musou's Chaos Marine 250 (2.1x the 'Ard Boy whose slot it takes); Champion 1.25x the Nob's 600; heavy-bolter Havoc 1.17x the Big Shoota Nob's 600; missile Havoc 2.4x the Rokkit Boy's 85; Raptor 1.8x the Stormboy's 120; Daemon 6.7x the Gretchin's 30 (the data's 200).</summary>
     public const float CultistHealth = 110f, TraitorHealth = 110f, MarineHealth = 350f, ChampionHealth = 750f, HavocBolterHealth = 700f, HavocMissileHealth = 200f, RaptorHealth = 220f, DaemonHealth = 200f;
 
     /// <summary>The startup log's line for a Chaos stage.</summary>

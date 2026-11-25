@@ -27,7 +27,16 @@ public sealed partial class MusouSim
 
     partial void WarfrontDamageGate(ushort enemy, int attacker, MusouDeathKind cause, ref float amount, ref bool barred)
     {
-        if (ChaosRoster is { } chaos && !chaos.Admits(enemy, attacker)) barred = true;
+        if (ChaosRoster is not { } chaos) return;
+        if (!chaos.Admits(enemy, attacker)) { barred = true; return; }
+        // the owner's autocannon rule (2026-11-11: its blast kills any fodder in one), by kind: the Chaos fodder is tougher than the Ork fodder the blast's damage was set for (C2 review R4)
+        int i = enemy - 1;
+        if (FodderBlast && i >= 0 && i < Capacity && WarfrontChaosRoster.BlastFodder(_type[i])) amount = MathF.Max(amount, _health[i]);
+    }
+
+    partial void WarfrontRuleKind(ref MusouEnemyType type)
+    {
+        if (ChaosRoster is not null) type = WarfrontChaosRoster.RuleKind(type);
     }
 
     partial void WarfrontStaggerGate(ushort enemy, int attacker, ref bool barred)

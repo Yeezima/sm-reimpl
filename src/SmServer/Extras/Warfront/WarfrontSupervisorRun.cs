@@ -110,6 +110,9 @@ static class WarfrontSupervisor
     public static bool EndsSupervisor(int code) => code is 0 or 1 or 2 or 3;
 
     /// <summary>One log line with a UTC ISO timestamp, the form the server's own lines use.</summary>
+    /// <summary>The UTC time stamp alone, for a line that is not a menu status line (<c>[ts] Warfront faction: ...</c>).</summary>
+    public static string TimeStamp(string message) => $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] {message}";
+
     public static string Stamp(string message) => $"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] warfront: {message}";
 
     /// <summary>The warm-up child's arguments: the supervisor's own without <c>--warfront-new</c>, <c>--warfront-stage</c> and <c>--map</c>, plus <c>--warfront-prebuild</c>.</summary>
@@ -290,7 +293,7 @@ static class WarfrontSupervisor
             {
                 var fresh = WarfrontRunFiles.NewRun(dir, setting);
                 log(Stamp($"a new run (seed {fresh.RunSeed:X}) on the ship"));
-                log($"Warfront faction: the new run fights {fresh.Faction}; --warfront-faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(setting)}");   // not a status line (C1 review)
+                log(TimeStamp($"Warfront faction: the new run fights {fresh.Faction}; --warfront-faction {SmSim.Extras.Warfront.Faction.WarfrontFactionPolicy.Key(setting)}"));   // timestamped, not a "warfront:" status line (C1 review)
             }
             return 0;
         }
@@ -305,7 +308,7 @@ static class WarfrontSupervisor
     static void ReconcileFaction(string dir, WarfrontCampaign run, Action<string> log)
     {
         if (SmSim.Extras.Warfront.Faction.WarfrontFactionRotation.Reconcile(dir, run.Faction, run.RunSeed))
-            log($"Warfront faction: faction.json brought in line with run.json ({run.Faction}, seed {run.RunSeed:X})");   // not a status line (C1 review)
+            log(TimeStamp($"Warfront faction: faction.json brought in line with run.json ({run.Faction}, seed {run.RunSeed:X})"));   // timestamped, not a "warfront:" status line (C1 review)
     }
 
     /// <summary>The supervisor's loop: injectable launcher, stop event and log, so the tests run it with a fake child and a short timing.</summary>

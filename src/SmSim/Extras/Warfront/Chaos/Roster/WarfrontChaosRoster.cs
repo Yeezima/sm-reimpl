@@ -43,6 +43,12 @@ public sealed class WarfrontChaosRoster
     /// <summary>Whether a battle's own spawner of <paramref name="kind"/> runs against Chaos: the Weirdboyz and the Scrap Meks do not (Ork-only units; no Chaos alias).</summary>
     public static bool OrkSpawnerOn(MusouEnemyType kind) => kind is not (MusouEnemyType.Weirdboy or MusouEnemyType.ScrapMek or MusouEnemyType.BombSquig);
 
+    /// <summary>The kind whose rule rows a Chaos unit follows in the tables keyed by kind (target class, powerup and weapon drops, Librarian tier, the crowds' big test): the Chaos Marine of the 'Ard Boy slot follows the 'Ard Boy's (C2 review R3; ours); every other kind its own.</summary>
+    public static MusouEnemyType RuleKind(MusouEnemyType kind) => kind == MusouEnemyType.ChaosMarine ? MusouEnemyType.ArdBoy : kind;
+
+    /// <summary>The Chaos fodder a weapon's own blast (the autocannon's) kills in one, as it kills the Ork fodder in those slots (the owner's rule, 2026-11-11; by kind, C2 review R4): Cultists and Traitor Guardsmen (and the Gretchin row, a Daemon, is not fodder).</summary>
+    public static bool BlastFodder(MusouEnemyType kind) => kind is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy;
+
     /// <summary>The Chaos unit a kind's row stands for (the log, the tests and C3's labels); "-" for an Ork-only kind.</summary>
     public static string Unit(MusouEnemyType kind) => kind switch
     {

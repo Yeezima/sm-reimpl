@@ -596,7 +596,7 @@ public sealed partial class TfwBattle
             for (int k = 0; k < n; k++)
             {
                 var e = _roomBuffer[k];
-                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(e.Type) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
+                if (e.Id == 0 || !e.Alive || TfwBattleRules.Big(e.Type) || MusouTargetRules.ClassOf(_enemies.RuleKind(e.Type)) != MusouTargetClass.Ordinary || _armyIds.Contains(e.Id)) continue;
                 float d = Vector3.DistanceSquared(e.Position, near);
                 if (d > far) { far = d; best = k; }
             }

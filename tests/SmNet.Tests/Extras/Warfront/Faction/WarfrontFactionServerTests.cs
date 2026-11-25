@@ -89,7 +89,7 @@ public sealed class WarfrontFactionServerTests : IDisposable
         var log = new List<string>();
         Assert.Equal(0, WarfrontSupervisor.PrepareRun(_dir, Parse("--content", "warfront", "--warfront-faction", "CHAOS"), log.Add, log.Add));   // a fresh folder
         Assert.Equal(WarfrontFaction.Chaos, WarfrontSave.Load(_dir)!.Faction);
-        Assert.Contains(log, l => l.StartsWith("Warfront faction: the new run fights Chaos", StringComparison.Ordinal));
+        Assert.Contains(log, l => l.StartsWith("[", StringComparison.Ordinal) && l.Contains("] Warfront faction: the new run fights Chaos", StringComparison.Ordinal));   // time-stamped, not a status line
         Assert.DoesNotContain(log, l => l.Contains("faction", StringComparison.OrdinalIgnoreCase) && l.Contains("warfront:", StringComparison.Ordinal));   // never a menu status line
 
         // an Orks run on disk, then --warfront-new --warfront-faction orks: Orks again (forced), the Orks run archived

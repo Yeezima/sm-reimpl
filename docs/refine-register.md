@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4109 spec table rows: **3041 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4113 spec table rows: **3045 tagged**, 700 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4109 spec table rows: **3041 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 190 | 189 | 59 | 86 | 0 |
+| General game design | 194 | 193 | 59 | 90 | 0 |
 | Ork faction | 299 | 279 | 178 | 74 | 0 |
-| **All areas** | **3041** | 2733 | 2218 | 927 | 37 |
+| **All areas** | **3045** | 2737 | 2218 | 931 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1849 |
+| kind: ours | 1853 |
 | confidence: low | 1068 |
 | confidence: medium | 1039 |
 | notes: ours | 475 |
@@ -68,7 +68,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
-| notes: provisional | 57 |
+| notes: provisional | 61 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
 | section: provisional | 37 |
@@ -4322,7 +4322,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (190)
+### General game design (194)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4593,6 +4593,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-BB599774` | Raptor (Stormboy row) | 220 health, melee 14 every 1.4 s; the Stormboy's hop and squad Hunt order are the jump-pack gap-closer; 40 points (hp, s) | kind: ours; notes: provisional | the owner's decision (Raptors on the Stormboy code); numbers ours | Raptor (Stormboy row): compare with SM1 by feel or video. Ours: 220 health, melee 14 every 1.4 s; the Stormboy's hop and squad Hunt… | ☐ |
 | `R-48915077` | Daemon, Bloodletter (Gretchin row, breach-spawned only) | 200 health, 6.0 m/s, melee 15 every 1.2 s at 1.8 m; body radius 0.45 m, height 2.2 m (the one Chaos row whose body differs from the Ork row's); 30 points (hp, m/s, s, m) | kind: ours; notes: provisional | 200 health from `chaos_coop_bloodletter` (inventory); the rest ours | Daemon, Bloodletter (Gretchin row, breach-spawned only): compare with SM1 by timing a run over a known distance. Ours: 200 health, 6.0 m/s, melee 15 every 1.2 s at 1.8 m; body radius 0.45… | ☐ |
 | `R-FC5896B1` | Chosen and Chaos Lord | the four Boss Ork rows and the Warboss row are kept as they are (C5 owns the Lord's duel and health) | kind: ours; notes: provisional | the design | Chosen and Chaos Lord: compare with SM1 by feel or video. Ours: the four Boss Ork rows and the Warboss row are kept as they are (C5… | ☐ |
+| `R-4E7EFD49` | Army leaders | the Chaos Marine leads an army as the 'Ard Boy whose slot it takes (promotion, fold-back and the tidy count agree; an army with one stays led and does not retreat at half strength as leaderless) | kind: ours; notes: provisional | the C2 review (R1) | Army leaders: compare with SM1 by feel or video. Ours: the Chaos Marine leads an army as the 'Ard Boy whose slot it takes… | ☐ |
+| `R-5328717B` | The 'Ard slot's rule rows | in a Chaos battle the Chaos Marine follows the 'Ard Boy's rows in the tables keyed by kind: target class Elite (weight as the 'Ard Boy's), powerup drops at the 'Ard Boy's rate (not an elite's), no golden weapon drop, the Librarian's Elite tier, the crowds'… | kind: ours; notes: provisional | the lead's decision (C2 review R3) | The 'Ard slot's rule rows: compare with SM1 by feel or video. Ours: in a Chaos battle the Chaos Marine follows the 'Ard Boy's rows in the… | ☐ |
+| `R-11F003C6` | Autocannon blast on Chaos fodder | a weapon's own blast (the autocannon's, the Dreadnought cannon's) kills a Cultist or a Traitor Guardsman in one, by kind (their 110 health is over the blast's 85.2), as the owner's rule kills the Ork fodder | kind: ours; notes: provisional | the owner, 2026-11-11 ("1 shot any fodder ork"), kept for Chaos by the lead (C2 review R4) | Autocannon blast on Chaos fodder: compare with SM1 by measuring on a flat spot of the same map. Ours: a weapon's own blast (the autocannon's, the Dreadnought cannon's)… | ☐ |
+| `R-2CA7ECEB` | Left for playtest | the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss and Stormboy squads' sizes, the HQ waves' sizes under their cap); the fodder throw (`KnockDown`) keeps its Ork rule (Cultists and Traitor Guardsmen fall, the Chaos Marine staggers); the hit… | kind: ours; notes: provisional | the C2 review (R4) | Left for playtest: compare with SM1 by feel or video. Ours: the fixed counts are not scaled by 0.6 (garrisons, escorts, the Boss… | ☐ |
 
 ## Part B: Ork faction
 

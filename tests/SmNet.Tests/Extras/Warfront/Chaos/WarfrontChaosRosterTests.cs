@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Numerics;
 using SmContent.Extras.Warfront;
 using SmNet.Tests.Extras.Musou.Campaign;
@@ -306,6 +306,74 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
         Assert.True(nc < no, $"Chaos {nc} alive, Orks {no}");
     }
 
+    // ---------------------------------------------------------------- the armies' leaders (C2 review R1)
+
+    [Fact]
+    public void A_chaos_army_promotes_folds_back_and_promotes_again_with_its_elites_kept_and_its_chaos_marines_leading()
+    {
+        var (w, b) = Lane(ChaosConfig);
+        w.Musou!.Frozen = true;
+        b.Trickle = false; b.Patrols = false; b.StormboysOn = false; b.BigShootasOn = false; b.WeirdboyzOn = false; b.RokkitsOn = false; b.BossOrksOn = false;
+        b.OrkAggregates = true;   // no twins: each slot one body, so the elites' count is exact
+        var anchor = new Vector3(80f, -60f, 0f);
+        var army = b.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 60, anchor, 0.3f, eliteShare: 0.5f)!;
+        Vector3[] near = [anchor + new Vector3(0f, 40f, 0f)], far = [new(-400f, 400f, 0f)];
+        float elites = army.FarElites;
+        Assert.True(elites > 5f);
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            for (int t = 0; t < 20; t++) b.Step(near);
+            Assert.Equal(0, army.FarCount);
+            int marines = army.Orks.Count(id => w.Musou.TryGet(id, out var e) && e.Type == MusouEnemyType.ChaosMarine);
+            Assert.True(marines > 0, "the 'Ard slots came as Chaos Marines");
+            Assert.Equal(elites, army.RealElites + army.FarElites, 3);   // each promoted leader moved from the far count to the real one
+            Assert.True(army.Led, "Chaos Marines lead the army");
+            for (int t = 0; t < 20; t++) b.Step(far);
+            Assert.Equal(0, army.Real);
+            Assert.Equal(elites, army.FarElites, 3);   // the fold-back gave them all back: no leak
+        }
+    }
+
+    // ---------------------------------------------------------------- the 'Ard slot's rule rows and the autocannon (C2 review R3, R4)
+
+    [Fact]
+    public void The_chaos_marine_follows_the_ard_boys_rule_rows_only_in_a_chaos_battle()
+    {
+        var chaos = Idle(ChaosConfig).Musou!;
+        var orks = Idle(WarfrontBattleTests.WarfrontConfig).Musou!;
+        Assert.Equal(MusouEnemyType.ArdBoy, chaos.RuleKind(MusouEnemyType.ChaosMarine));
+        Assert.Equal(MusouEnemyType.ChaosMarine, orks.RuleKind(MusouEnemyType.ChaosMarine));
+        foreach (var kind in Enum.GetValues<MusouEnemyType>().Where(k => k != MusouEnemyType.ChaosMarine))
+            Assert.Equal(kind, chaos.RuleKind(kind));
+        Assert.Equal(MusouTargetClass.Elite, MusouTargetRules.ClassOf(chaos.RuleKind(MusouEnemyType.ChaosMarine)));
+        Assert.False(MusouPowerupRules.Elite(chaos.RuleKind(MusouEnemyType.ChaosMarine)));   // the 'Ard Boy's drop rate, not an elite's
+        Assert.Equal(LibrarianRules.Tier.Elite, LibrarianRules.TierOf(chaos.RuleKind(MusouEnemyType.ChaosMarine)));
+    }
+
+    [Theory]
+    [InlineData(MusouEnemyType.Boy)]
+    [InlineData(MusouEnemyType.ShootaBoy)]
+    public void A_weapons_own_blast_still_kills_chaos_fodder_in_one(MusouEnemyType kind)
+    {
+        var w = Idle(ChaosConfig);
+        var musou = w.Musou!;
+        float blast = SmSim.AutocannonRules.BlastDamage * 1.2f;
+        ushort id = musou.Spawn(kind, new Vector3(0f, -40f, 0f), 0f, musou.Rules.Of(kind).Health);
+        Assert.True(musou.Rules.Of(kind).Health > blast, "the Chaos fodder outlasts the blast's damage by health");
+        musou.FodderBlast = true;
+        Assert.True(musou.Damage(id, TfwRig.Human, blast, Vector3.Zero, out bool killed, cause: MusouDeathKind.BoltBlast));
+        musou.FodderBlast = false;
+        Assert.True(killed, $"{WarfrontChaosRoster.Unit(kind)} dies to one blast");
+        ushort marine = musou.Spawn(MusouEnemyType.ArdBoy, new Vector3(0f, -40f, 0f), 0f, 1000f);
+        musou.FodderBlast = true;
+        musou.Damage(marine, TfwRig.Human, blast, Vector3.Zero, out bool marineKilled, cause: MusouDeathKind.BoltBlast);
+        musou.FodderBlast = false;
+        Assert.False(marineKilled, "not the elites");
+        ushort plain = musou.Spawn(kind, new Vector3(0f, -40f, 0f), 0f, musou.Rules.Of(kind).Health);
+        musou.Damage(plain, TfwRig.Human, blast, Vector3.Zero, out bool plainKilled, cause: MusouDeathKind.BoltBlast);
+        Assert.False(plainKilled, "only a weapon's own blast");
+    }
+
     // ---------------------------------------------------------------- the gate (C0 review finding 4)
 
     [Fact]
@@ -386,7 +454,8 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
         return ms[(int)(ms.Count * 0.99)];
     }
 
-    [Fact]
+    [Fact(Skip = "Wall-clock bench (C2 review R5): out of the default suite; the live-test queue runs it on a quiet PC (remove the Skip, run with the console logger)")]
+    [Trait("Speed", "Slow")]
     public void A_chaos_lane_tick_p99_is_bounded_by_the_orks()
     {
         // short and bounded: 2 x (10 s fill + 10 s measured) a side, the sides interleaved; the best of two a side (a loaded machine's spikes are the machine's)

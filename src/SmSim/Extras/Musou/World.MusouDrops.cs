@@ -97,8 +97,9 @@ public sealed partial class World
     void MusouDropFor(MusouKill kill)
     {
         if (kill.Cause == MusouDeathKind.World) return;   // a stranded enemy removed by the failsafe drops nothing
-        bool weapons = MusouWeaponDrops && MusouDropRules.Drops(kill.Type);
-        if (!weapons && !(MusouPowerupDrops && (MusouPowerupRules.Boss(kill.Type) || MusouPowerupRules.Elite(kill.Type)))) return;
+        var kind = _musou!.RuleKind(kill.Type);   // a Warfront Chaos battle's 'Ard-slot Chaos Marine drops as the 'Ard Boy (C2 review R3)
+        bool weapons = MusouWeaponDrops && MusouDropRules.Drops(kind);
+        if (!weapons && !(MusouPowerupDrops && (MusouPowerupRules.Boss(kind) || MusouPowerupRules.Elite(kind)))) return;
         if (!_musou!.TryGet(kill.Enemy, out var enemy)) return;
         var at = enemy.Position;
         // On the floor: the height of the enemy's walking-graph node (the flat ground without a graph).

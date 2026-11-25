@@ -69,7 +69,8 @@ public sealed partial class TfwBattle
     /// <summary>An Ork stronghold: a position the Orks hold (Held: not under capture) or the HQ's source.</summary>
     bool Stronghold(int place) => place == HqPlace || (place is >= 0 and < Positions && _objectives[place].State == TfwPositionState.Held && !_final);
 
-    static bool Leader(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.ArdBoy or MusouEnemyType.BigShootaNob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
+    // The Chaos Marine: the 'Ard Boy slot's unit in a Warfront Chaos battle (the slot's kind and the spawned kind both lead, so promote, fold-back and tidy agree; C2 review R1). No Orks battle fields one.
+    static bool Leader(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.ArdBoy or MusouEnemyType.ChaosMarine or MusouEnemyType.BigShootaNob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
     static readonly Func<MusouEnemyType, bool> IsLeader = Leader;
 
     static float YawOf(Vector2 way) => way.LengthSquared() > 1e-8f ? MathF.Atan2(-way.X, way.Y) : 0f;

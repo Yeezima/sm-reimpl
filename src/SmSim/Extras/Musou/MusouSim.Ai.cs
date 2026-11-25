@@ -391,7 +391,7 @@ public sealed partial class MusouSim
             _target[i] = TargetKey(targets[flank].Id);
             return flank;
         }
-        if (War is not null && MusouTargetRules.Choose(_type[i], _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
+        if (War is not null && MusouTargetRules.Choose(RuleKind(_type[i]), _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
         {
             if (preferred != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
             _prefer[i] = preferred != best;   // a choice other than the nearest is walked to directly (Approach); the nearest keeps the flow field
