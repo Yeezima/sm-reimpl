@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4099 spec table rows: **3032 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
+Scanned 4100 spec table rows: **3033 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 421 | 362 | 359 | 115 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
-| Melee (critical) | 174 | 153 | 126 | 59 | 5 |
+| Melee (critical) | 175 | 154 | 127 | 60 | 5 |
 | Jump pack (critical) | 81 | 73 | 67 | 17 | 0 |
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
@@ -53,14 +53,14 @@ Scanned 4099 spec table rows: **3032 tagged**, 700 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3032** | 2723 | 2225 | 914 | 37 |
+| **All areas** | **3033** | 2724 | 2226 | 915 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1837 |
-| confidence: low | 1069 |
+| kind: ours | 1838 |
+| confidence: low | 1070 |
 | confidence: medium | 1045 |
 | notes: ours | 475 |
 | kind: interpretation | 457 |
@@ -70,7 +70,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
-| notes: provisional | 44 |
+| notes: provisional | 45 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
@@ -1094,7 +1094,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (174)
+### Melee (gameplay-critical) (175)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1400,10 +1400,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-33F709E1` | Melee mode: camera orbit | the mouse and right stick turn the camera's yaw (`_yaw`) all the way round the marine; pitch range, distance, rig curve and blend as outside melee mode (the data's `melee_default_mp` set, 7.9 m back, 1 s blend, pitch 45-110, is not used: owner "Today's… (radians) | kind: ours | `NetworkView.MeleeOrbit`, `NetworkView.RigCamera` | Melee mode: camera orbit: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the mouse and right stick turn the camera's yaw (_yaw) all the way… | ☐ |
 | `R-384F0BFA` | Melee mode: body steering ("run where you steer") | the movement keys/left stick read relative to the camera give the run direction (`MeleeOrbitSteer.StickYaw`: camera yaw + atan2(-x, y)); sent as the input yaw with the stick as pure forward (magnitude kept, so the forward run 6.5 / sprint speeds apply in… (radians) | kind: ours; confidence: medium | `MeleeOrbitSteer`, `NetworkView.MeleeOrbitInput` | Melee mode: body steering ("run where you steer"): compare with SM1 by timing a run over a known distance. Ours: the movement keys/left stick read relative to the camera give the run… | ☐ |
 | `R-66AAD9CC` | Melee mode: body turn rate | **1080** degrees a second, reached over **0.15** s from the start of a turn (read as a linear ramp; restarts when the heading is reached) (deg/s; s) | kind: interpretation; confidence: medium | `MeleeOrbitSteer.MaxTurnDegreesPerSecond`, `RampSeconds` | Melee mode: body turn rate: compare with SM1 by feel or video. Ours: 1080 degrees a second, reached over 0.15 s from the start of a turn… | ☐ |
-| `R-EF112840` | Melee mode: ticks that send the camera's yaw | the camera's yaw and the plain stick, as outside melee mode (the mode stays on): a grenade press and the whole throw; a jump-pack jump's press, the whole flight (take-off, steering, the ground pound's aim and its landing mark) and a buffered jump… | kind: ours; confidence: medium | `MeleeOrbitClient.Apply` | Melee mode: ticks that send the camera's yaw: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the camera's yaw and the plain stick, as outside melee mode (the mode… | ☐ |
+| `R-EF112840` | Melee mode: ticks that send the camera's yaw | the camera's yaw and the plain stick, as outside melee mode (the mode stays on): a grenade press and the whole throw; a jump-pack jump's press, the whole flight (take-off, steering, the ground pound's aim and its landing mark) and a jump-pack class's buffered… | kind: ours; confidence: medium | `MeleeOrbitClient.Apply` | Melee mode: ticks that send the camera's yaw: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the camera's yaw and the plain stick, as outside melee mode (the mode… | ☐ |
 | `R-461E9C98` | Melee mode: charge and lunge | while `PlayerState.Rush` is set: the body's heading and the camera-relative stick turned into the body's frame (`MeleeOrbitClient.BodyFrameStick`), so a key pointing back from the body still ends a charge (charge-cancel, owner 2026-11-11) and A / D still turn… | kind: ours; confidence: medium | `MeleeOrbitClient.Apply` | Melee mode: charge and lunge: compare with SM1 by feel or video. Ours: while PlayerState.Rush is set: the body's heading and the… | ☐ |
-| `R-B513E777` | Melee mode: charge start in any direction | in melee mode Shift + any movement key + the heavy button starts the charge toward the camera-relative keys (the keys are sent as forward, so the data's forward-stick rule `Rush.WHeld` passes in every direction); outside melee mode the charge still needs W | kind: ours; confidence: medium | `MeleeOrbitClient.Apply`, `Rush.WHeld` | Melee mode: charge start in any direction: compare with SM1 by feel or video. Ours: in melee mode Shift + any movement key + the heavy button starts the… | ☐ |
-| `R-748C8457` | Melee mode: queued strike | a strike press queued or buffered during a strike (`MeleeQueued`, `BufferedAction.Melee`/`MeleeHeavy`) keeps the heading its press took (the keys', else the camera's look at the press) until it starts | kind: ours; confidence: medium | `MeleeOrbitClient.Apply` | Melee mode: queued strike: compare with SM1 by feel or video. Ours: a strike press queued or buffered during a strike (MeleeQueued… | ☐ |
+| `R-36ED2631` | Melee mode: charge cancel with the body-frame stick | because the camera-relative keys are turned into the charging body's frame, the cancel follows the body, not the camera: turning the camera more than about 112 degrees from the charge with W held cancels the charge, and S pointing along the charge (camera… (degrees) | kind: ours; confidence: low; notes: provisional | `MeleeOrbitClient.BodyFrameStick`, `ChargeCancel.BackHeld` | Melee mode: charge cancel with the body-frame stick: compare with SM1 with an overlaid screenshot taken from the same position. Ours: because the camera-relative keys are turned into the charging body's… | ☐ |
+| `R-B513E777` | Melee mode: charge start in any direction | in melee mode Shift + any movement key + the heavy button starts the charge toward the camera-relative keys (the keys are sent as forward, so the data's forward-stick rule `Rush.WHeld` passes in every direction); in Classic a light press with Shift + any key… | kind: ours; confidence: medium | `MeleeOrbitClient.Apply`, `Rush.WHeld` | Melee mode: charge start in any direction: compare with SM1 by feel or video. Ours: in melee mode Shift + any movement key + the heavy button starts the… | ☐ |
+| `R-748C8457` | Melee mode: queued strike | every strike press (light, heavy, stab) records its heading at the press (the keys' world direction, else the camera's look), also on a plain tick or during a charge; while a strike runs, a queued or buffered strike (`MeleeQueued`… | kind: ours; confidence: medium | `MeleeOrbitClient.Apply` | Melee mode: queued strike: compare with SM1 by feel or video. Ours: every strike press (light, heavy, stab) records its heading at the… | ☐ |
 | `R-8BDEB622` | Melee mode: server rules that read the facing | in melee mode, blinding uses the body facing, not the camera: the server's `PlayerState.Yaw` is the body's heading, not the camera's, so rules that read it as the view use the body: a blind grenade's blinding by facing (`ReactionWorld`) blinds by where the… | kind: ours; confidence: low; notes: provisional | `ReactionWorld`, `MeleeOrbitClient` | Melee mode: server rules that read the facing: compare with SM1 by feel or video. Ours: in melee mode, blinding uses the body facing, not the camera: the… | ☐ |
 | `R-D98A3EED` | Melee mode: drawn own body | follows the simulation's heading at **1440** degrees a second (not the camera); after the mode, turns back to the view at the same rate, then the usual M36 drawing; other players and spectators draw the sent heading (`PlayerState.Yaw`) (deg/s) | kind: ours; confidence: medium | `NetworkView.MeleeOrbitFrame`, `DisplayYaw` | Melee mode: drawn own body: compare with SM1 by feel or video. Ours: follows the simulation's heading at 1440 degrees a second (not the… | ☐ |
 | `R-8614E5F8` | Melee mode: switches and aids | `--old-melee-camera`: the locked camera (no orbit; the widening keeps `--old-melee-fov`); `--log-melee-mode`: a `MELEEMODE` line per change; `--melee-orbit-demo` (human client): scripted strike, 360 degree orbit standing, 360 degree orbit running, shot, then… | kind: ours | `NetworkView.MeleeOrbit` | Melee mode: switches and aids: compare with SM1 by feel or video. Ours: --old-melee-camera: the locked camera (no orbit; the widening keeps… | ☐ |

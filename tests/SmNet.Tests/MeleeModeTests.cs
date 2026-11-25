@@ -133,6 +133,18 @@ public class MeleeModeTests
     }
 
     [Fact]
+    public void TheNextStrikeOfAStringEntersAgainAfterAFirePressThatEndedTheMode()
+    {
+        var m = Entered();
+        m.Step(In(strike: true));
+        Assert.Equal(MeleeMode.Change.Shot, m.Step(new MeleeMode.Inputs(true, true, true, false, false, false)));   // a fire press during the string (it fires nothing)
+        Assert.False(m.Active);
+        m.Step(In(strike: true));                                                                                  // the same strike runs on: no re-entry
+        Assert.False(m.Active);
+        Assert.Equal(MeleeMode.Change.Entered, m.Step(new MeleeMode.Inputs(true, true, false, false, false, false, NewStrike: true)));   // the next step of the string
+    }
+
+    [Fact]
     public void ANewStrikeAfterAShotEntersAgain()
     {
         var m = Entered();

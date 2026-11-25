@@ -16,7 +16,7 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
     static readonly SimConfig C = Armed(RushTests.Config);
 
     /// <summary>The config with every class carrying a chainsword (a melee weapon frees the camera); its steps are the class's own.</summary>
-    static SimConfig Armed(SimConfig c) => c with { Classes = [.. c.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo("mp_melee_chainsword", k.Melee) { Rush = k.MeleeRush }] })] };
+    static SimConfig Armed(SimConfig c) => c with { Classes = [.. c.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo("mp_melee_chainsword", k.Melee) { Rush = k.MeleeRush, Heavy = k.MeleeHeavy }] })] };
 
     sealed class Client(bool orbit, SimConfig cfg)
     {
@@ -214,5 +214,112 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
         Assert.Equal(-1f, y, 4);
         (x, y) = MeleeOrbitClient.BodyFrameStick(0f, 0f, 0.6f, 0.8f);
         Assert.Equal((0.6f, 0.8f), (MathF.Round(x, 4), MathF.Round(y, 4)));
+    }
+
+    // ---- re-review of b9b1a059 ----
+
+    static readonly SimConfig Buffered = C with { InputBufferWindow = 0.3f };
+
+    /// <summary>Strike, settle, then a charge along the camera's yaw <paramref name="camDeg"/> (Shift + W + heavy); returns the state on the charge's first tick.</summary>
+    static (PlayerState, uint) ChargeAlong(Client client, SimConfig c, float camDeg)
+    {
+        var (s, t) = StrikeAndSettle(client, Fresh(c), c);
+        client.Cam = camDeg * Deg;
+        for (int i = 0; i < 3; i++) s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 1f, InputButtons.Sprint), c, out _);
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 1f, InputButtons.Sprint | InputButtons.MeleeHeavy), c, out _);
+        Assert.Equal(RushPhase.Rush, s.Rush);
+        return (s, t);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_heavy_press_buffered_during_a_charge_charges_again_the_way_of_the_keys(bool orbit)
+    {
+        var client = new Client(orbit, Buffered);
+        var (s, t) = ChargeAlong(client, Buffered, 90f);
+        float first = s.Yaw;
+        client.Cam = 150f * Deg;   // the camera turns 60 degrees; W held: the next charge should go to 150
+        bool pressed = false; float second = float.NaN; var lastRush = s.Rush; int ticksOut = 0;
+        for (int i = 0; i < 120 && float.IsNaN(second); i++)
+        {
+            var b = InputButtons.Sprint;
+            if (!pressed && s.Rush == RushPhase.Rush && s.RushTicks >= 22) { b |= InputButtons.MeleeHeavy; pressed = true; }
+            s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 1f, b), Buffered, out _);
+            if (s.Rush != RushPhase.Rush) ticksOut++;
+            if (lastRush != RushPhase.Rush && s.Rush == RushPhase.Rush) second = s.Yaw;
+            lastRush = s.Rush;
+        }
+        output.WriteLine($"orbit {orbit}: charge 1 at {first / Deg:F1}, charge 2 at {second / Deg:F1}");
+        Assert.False(float.IsNaN(second), "no second charge");
+        Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(second - 150f * Deg)) / Deg, 0f, 5f);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_light_press_that_ends_a_charge_swings_the_way_of_the_keys(bool orbit)
+    {
+        var client = new Client(orbit, Buffered);
+        var (s, t) = ChargeAlong(client, Buffered, 0f);
+        client.Cam = 60f * Deg;   // W relative to the camera: 60 degrees left of the charge
+        for (int i = 0; i < 8; i++) s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 1f, InputButtons.None), Buffered, out _);
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 1f, InputButtons.Melee), Buffered, out _);
+        var headings = new List<float>();
+        for (int i = 0; i < 30; i++)
+        {
+            s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 1f, InputButtons.None), Buffered, out _);
+            if (s.MeleeStep > 0) headings.Add(s.Yaw);
+        }
+        output.WriteLine($"orbit {orbit}: swing headings {string.Join(", ", headings.Take(10).Select(h => (h / Deg).ToString("F0")))}");
+        Assert.NotEmpty(headings);
+        foreach (var h in headings) Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(h - 60f * Deg)) / Deg, 0f, 5f);
+    }
+
+    [Fact]
+    public void Space_buffered_mid_swing_by_a_rolling_class_does_not_turn_the_swing_to_the_camera()
+    {
+        var client = new Client(true, Buffered);
+        var (s, t) = StrikeAndSettle(client, Fresh(Buffered), Buffered);
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee), Buffered, out _);   // a swing straight ahead (camera 0)
+        Assert.True(s.MeleeStep > 0);
+        float swing = s.Yaw;
+        client.Cam = 120f * Deg;
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Jump), Buffered, out _);   // Space mid-swing, no key: buffered
+        float worst = 0f;
+        for (int i = 0; i < 20 && s.MeleeStep > 0; i++)
+        {
+            s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), Buffered, out _);
+            if (s.MeleeStep > 0) worst = MathF.Max(worst, MathF.Abs(MeleeOrbitSteer.Wrap(s.Yaw - swing)) / Deg);
+        }
+        output.WriteLine($"the swing turned at most {worst:F1} degrees (camera 120 away)");
+        Assert.InRange(worst, 0f, 2f);
+    }
+
+    [Fact]
+    public void A_press_made_while_fire_is_held_gives_its_own_heading_to_the_queued_strike()
+    {
+        float dur = 1f, hit = 0.2f;
+        var variant = new MeleeVariant(0f, Enumerable.Range(0, 61).Select(i => { float tt = dur * i / 60f; return 2f * Math.Clamp(tt / hit, 0f, 1f); }).ToArray());
+        var swing = C.Classes[0].Melee[0] with { Reach = new MeleeReach(0f, 0.1f, 0f, hit, 3.5f, 1f, [variant]) };
+        var chain = Armed(C with { Classes = [.. C.Classes.Select(k => k with { Melee = [swing, swing] })] });
+        var s = Fresh(chain);
+        var client = new Client(true, chain);
+        uint t = 1;
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee), chain, out _);   // strike 1 at camera 0: enters
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), chain, out _);
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), chain, out _);   // a second strike press at 0 recorded first
+        client.Cam = 90f * Deg;
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee | InputButtons.Fire), chain, out _);   // the press on a plain tick (fire held)
+        if (!client.Active) return;   // the fire press ended melee mode: nothing to check
+        float atStart = float.NaN;
+        for (int i = 0; i < 40 && float.IsNaN(atStart); i++)
+        {
+            int before = s.MeleeStep;
+            s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), chain, out _);
+            if (before == 1 && s.MeleeStep == 2) atStart = s.Yaw;
+        }
+        if (float.IsNaN(atStart)) return;
+        Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(atStart - 90f * Deg)) / Deg, 0f, 2f);
     }
 }

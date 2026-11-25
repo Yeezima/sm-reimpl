@@ -23,7 +23,9 @@ public sealed class MeleeMode
     /// <param name="Aim">The aim button is held in this tick's input.</param>
     /// <param name="Reload">The reload button is held in this tick's input (a press edge leaves the mode).</param>
     /// <param name="Excluded">Added content's body that has no melee mode (Musou: the Dreadnought).</param>
-    public readonly record struct Inputs(bool Alive, bool Strike, bool Fire, bool Aim, bool Reload, bool Excluded);
+    /// <param name="NewStrike">A new strike began this tick while one was already running (the next step of a string, a strike out of the dash attack): a strike start even
+    /// though <paramref name="Strike"/> did not go from false to true, so a string chained after a fire press that fired nothing enters the mode again.</param>
+    public readonly record struct Inputs(bool Alive, bool Strike, bool Fire, bool Aim, bool Reload, bool Excluded, bool NewStrike = false);
 
     public enum Change { None, Entered, Shot, Aimed, Reloaded, Died, Respawned, Excluded }
 
@@ -36,7 +38,7 @@ public sealed class MeleeMode
     public Change Step(Inputs i)
     {
         var change = Change.None;
-        bool strikeStart = i.Strike && !_wasStrike;
+        bool strikeStart = i.Strike && (!_wasStrike || i.NewStrike);
         bool fireEdge = i.Fire && !_wasFire;
         bool reloadEdge = i.Reload && !_wasReload;
         bool respawn = i.Alive && !_wasAlive;
@@ -139,15 +141,18 @@ public sealed class MeleeOrbitSteer
 /// input while the camera orbits.
 /// <list type="bullet">
 /// <item>Orbit off, mode off, dead, or the tick that leaves the mode: the input as sampled (the camera's yaw).</item>
-/// <item>Plain input (the camera's yaw and the camera-frame stick) while: a grenade press or a throw; a jump-pack jump's press, its flight, or a buffered jump
-/// (<see cref="BufferedAction.Jump"/>, <see cref="BufferedAction.JumpLong"/>: the dash's direction is read at the replay); fire held in this input (the shot leaves along
-/// the crosshair, whatever cancels the swing); a steered strike (the hammer's and the maul's slam turn toward the view: the mouse steers it, owner 2026-11-07); a strike
-/// string latched to a side or back (<see cref="PlayerState.MeleeDirection"/>).</item>
+/// <item>Plain input (the camera's yaw and the camera-frame stick) while: a grenade press or a throw; a jump-pack jump's press, its flight, or a jump-pack class's
+/// buffered jump (<see cref="BufferedAction.Jump"/>, <see cref="BufferedAction.JumpLong"/>: the dash's direction is read at the replay); fire held in this input (the shot
+/// leaves along the crosshair, whatever cancels the swing); a steered strike (the hammer's and the maul's slam turn toward the view: the mouse steers it, owner
+/// 2026-11-07); a strike string latched to a side or back (<see cref="PlayerState.MeleeDirection"/>).</item>
+/// <item>Every strike press (light, heavy, stab) records its heading first: the keys' world direction, else the camera's look.</item>
 /// <item>A charge or lunge (<see cref="PlayerState.Rush"/>): the body's heading and the camera-relative stick turned into the body's frame, so S still cancels the rush
-/// (owner 2026-11-11) and A / D still turn a ledge charge in the air.</item>
-/// <item>A queued or buffered strike (<see cref="PlayerState.MeleeQueued"/>, <see cref="BufferedAction.Melee"/>, <see cref="BufferedAction.MeleeHeavy"/>): the heading its
-/// press took, until it starts.</item>
-/// <item>Otherwise <see cref="MeleeOrbitSteer"/>: run where you steer; a strike press (light, heavy or the stab key) turns the body to the keys (none: the camera's look).</item>
+/// (owner 2026-11-11) and A / D still turn a ledge charge in the air; a strike press during it, and every tick while a strike press is buffered, goes out as a snap
+/// along its heading (the keys as forward).</item>
+/// <item>A queued or buffered strike while a strike runs (<see cref="PlayerState.MeleeQueued"/>, <see cref="BufferedAction.Melee"/>, <see cref="BufferedAction.MeleeHeavy"/>):
+/// the heading its press took, until it starts. With no strike running (after a charge or an evade) it takes the live snap, like a press.</item>
+/// <item>Otherwise <see cref="MeleeOrbitSteer"/>: run where you steer; a strike press, a jump press and a rolling class's buffered evade turn the body to the keys at once
+/// (a strike with no key: the camera's look; an evade with no key: the body holds).</item>
 /// </list>
 /// </summary>
 public sealed class MeleeOrbitClient
@@ -157,6 +162,7 @@ public sealed class MeleeOrbitClient
     uint _tick;
     bool _stepped;
     float _strikeYaw;
+    int _lastStep;
 
     public MeleeMode Mode { get; } = new();
 
@@ -176,8 +182,10 @@ public sealed class MeleeOrbitClient
         if (_stepped && _tick == input.Tick) return MeleeMode.Change.None;
         _stepped = true; _tick = input.Tick;
         var b = input.Buttons;
+        bool newStrike = me.MeleeStep > 0 && me.MeleeStep != _lastStep;   // the next step of a string, or a strike out of the dash attack (step 0 during the lunge)
+        _lastStep = me.MeleeStep;
         return Mode.Step(new MeleeMode.Inputs(alive, MeleeMode.FreesCamera(me.MeleeStep, MeleeWargear(c, me), me.Rush),
-            (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0, (b & InputButtons.Reload) != 0, excluded));
+            (b & InputButtons.Fire) != 0, (b & InputButtons.Aim) != 0, (b & InputButtons.Reload) != 0, excluded, newStrike));
     }
 
     /// <summary>A human's live input: steps the mode, then (with <paramref name="orbit"/>, in melee mode) the yaw split; see the class summary.</summary>
@@ -190,28 +198,47 @@ public sealed class MeleeOrbitClient
         bool Press(InputButtons x) => (b & x) != 0 && (prev & x) == 0;
         if (!orbit || !Mode.Active || !alive || !me.Alive) { _steer.Reset(); return input; }
         bool strike = Press(InputButtons.Melee) || Press(InputButtons.MeleeHeavy) || Press(InputButtons.Stab);
+        // Every strike press records its heading (the keys' world direction, else the camera's look) before any rule below returns, so a press made on a plain tick
+        // or during a charge never leaves an older heading for its queued replay.
+        float m = MathF.Min(1f, MathF.Sqrt(input.MoveX * input.MoveX + input.MoveY * input.MoveY));
+        bool keys = m >= MeleeOrbitSteer.IdleStick;
+        if (strike) _strikeYaw = MeleeOrbitSteer.Wrap(keys ? MeleeOrbitSteer.StickYaw(cameraYaw, input.MoveX, input.MoveY) : cameraYaw);
+        bool pack = Loadouts.JumpPack(c, me) is not null;
         bool plain = Press(InputButtons.Grenade) || me.Throwing || me.Jump != JumpPhase.None
-            || (Press(InputButtons.Jump) && Loadouts.JumpPack(c, me) is not null)
-            || me.Buffered is BufferedAction.Jump or BufferedAction.JumpLong
+            || (Press(InputButtons.Jump) && pack)
+            || (pack && me.Buffered is BufferedAction.Jump or BufferedAction.JumpLong)   // the jump pack's dash reads its direction at the replay
             || (b & InputButtons.Fire) != 0
             || SteeredStrike(c, me)
             || (me.MeleeStep > 0 && me.MeleeDirection != EvadeDirection.Forward);
         if (plain) { _steer.Reset(); return input; }
+        bool queued = me.MeleeQueued || me.Buffered is BufferedAction.Melee or BufferedAction.MeleeHeavy;
         if (me.Rush != RushPhase.None)
         {
             _steer.Reset();
+            // A strike press during a charge (a light press that ends it) goes out as a snap along its heading, the keys as forward, so the simulation latches a forward
+            // strike; while a strike press is buffered (a heavy press for the next charge, replayed on whichever tick the charge lets go) the live snap goes out the
+            // same way (the keys' world direction now, else the camera's look), so the replay finds the keys forward. Every other tick sends the body's heading and
+            // the stick in its frame (S still cancels).
+            if (strike) return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = keys ? m : 0f };
+            if (queued)
+            {
+                _strikeYaw = MeleeOrbitSteer.Wrap(keys ? MeleeOrbitSteer.StickYaw(cameraYaw, input.MoveX, input.MoveY) : cameraYaw);
+                return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = keys ? m : 0f };
+            }
             var (x, y) = BodyFrameStick(cameraYaw, me.Yaw, input.MoveX, input.MoveY);
             return input with { Yaw = me.Yaw, MoveX = x, MoveY = y };
         }
-        bool queued = me.MeleeQueued || me.Buffered is BufferedAction.Melee or BufferedAction.MeleeHeavy;
-        if (queued && !strike)
+        if (queued && !strike && me.MeleeStep > 0)
         {
-            _steer.Reset();
-            float m = MathF.Min(1f, MathF.Sqrt(input.MoveX * input.MoveX + input.MoveY * input.MoveY));
-            return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = m >= MeleeOrbitSteer.IdleStick ? m : 0f };
+            _steer.Reset();   // a strike waits for the running one: the heading its press took
+            return input with { Yaw = _strikeYaw, MoveX = 0f, MoveY = keys ? m : 0f };
         }
-        var r = _steer.Step(cameraYaw, me.Yaw, input.MoveX, input.MoveY, snap: strike || Press(InputButtons.Jump), strikePress: strike, c.TickSeconds);
-        if (strike) _strikeYaw = r.Yaw;
+        // A buffered strike with no strike running (after a charge or an evade) and a buffered roll or hop replay take the live snap, like their press.
+        bool bufferedStrike = queued && !strike;
+        bool bufferedEvade = !pack && me.Buffered == BufferedAction.Jump;
+        var r = _steer.Step(cameraYaw, me.Yaw, input.MoveX, input.MoveY, snap: strike || bufferedStrike || bufferedEvade || Press(InputButtons.Jump),
+            strikePress: strike || bufferedStrike, c.TickSeconds);
+        if (strike || bufferedStrike) _strikeYaw = r.Yaw;
         return input with { Yaw = r.Yaw, MoveX = r.MoveX, MoveY = r.MoveY };
     }
 
