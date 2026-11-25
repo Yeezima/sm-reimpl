@@ -20,12 +20,49 @@ public sealed class MeshVolume
     public Vector3 Min { get; }
     public Vector3 Max { get; }
 
+    /// <summary>
+    /// The shape as authored (this volume itself, unless it was made by <see cref="ReachingAbove"/>: then the shape it was raised from, whose vertices are the first
+    /// <c>Authored.Vertices.Length</c> of this one's, in the same order). <see cref="FeatureEdges"/> and <see cref="PushOut"/>'s outline come from it.
+    /// </summary>
+    public MeshVolume Authored { get; }
+
+    /// <summary>
+    /// A volume of the closed mesh. An inside-out mesh (negative signed volume: a mirrored placement, or a face pulled through the opposite one) is turned the right way out here (every triangle's
+    /// winding reversed, in a copy of <paramref name="indices"/>), so the tests do not depend on how the shape was wound.
+    /// </summary>
     public MeshVolume(string name, Vector3[] vertices, int[] indices)
     {
         if (vertices.Length == 0 || indices.Length == 0 || indices.Length % 3 != 0 || indices.Any(i => i < 0 || i >= vertices.Length)) throw new ArgumentException("A volume needs vertices and whole triangles over them.");
         if (vertices.Any(v => !Geometry.Finite(v))) throw new ArgumentException("A volume's vertices must be finite.");
+        Name = name; Vertices = vertices; Indices = SignedVolume(vertices, indices) < 0 ? Reversed(indices) : indices;
+        Min = vertices.Aggregate(Vector3.Min); Max = vertices.Aggregate(Vector3.Max);
+        Authored = this;
+    }
+
+    MeshVolume(string name, Vector3[] vertices, int[] indices, MeshVolume authored)
+    {
         Name = name; Vertices = vertices; Indices = indices;
         Min = vertices.Aggregate(Vector3.Min); Max = vertices.Aggregate(Vector3.Max);
+        Authored = authored;
+    }
+
+    /// <summary>Six times the signed volume (positive when the triangles are wound counter-clockwise seen from outside), in double.</summary>
+    static double SignedVolume(Vector3[] v, int[] idx)
+    {
+        double sum = 0;
+        for (int t = 0; t + 2 < idx.Length; t += 3)
+        {
+            Vector3 a = v[idx[t]], b = v[idx[t + 1]], c = v[idx[t + 2]];
+            sum += a.X * ((double)b.Y * c.Z - (double)b.Z * c.Y) - (double)a.Y * ((double)b.X * c.Z - (double)b.Z * c.X) + (double)a.Z * ((double)b.X * c.Y - (double)b.Y * c.X);
+        }
+        return sum;
+    }
+
+    static int[] Reversed(int[] idx)
+    {
+        var r = (int[])idx.Clone();
+        for (int t = 0; t + 2 < r.Length; t += 3) (r[t + 1], r[t + 2]) = (r[t + 2], r[t + 1]);
+        return r;
     }
 
     /// <summary>The centre of the bounding box (may lie outside a non-convex shape: use <see cref="InsidePoint"/> for a point that is inside).</summary>
@@ -133,32 +170,35 @@ public sealed class MeshVolume
     }
 
     /// <summary>
-    /// The volume reaching up to at least <paramref name="top"/> (the mesh equivalent of <see cref="SpawnBlocker.ReachingAbove"/>): the authored shape is kept exactly, and every upward-facing
-    /// triangle gets a closed vertical prism from it up to the flat height <paramref name="top"/>, so everything straight above the shape is inside (a leaning or uneven-topped door keeps its own
-    /// shape below its top and blocks all the way up above every part of it). The prisms overlap the shape and each other; the non-zero winding of <see cref="Contains"/> makes the union. Unchanged
-    /// when the top is already that high or <paramref name="top"/> is not finite.
+    /// The volume reaching up to at least <paramref name="top"/> (the mesh equivalent of <see cref="SpawnBlocker.ReachingAbove"/>): everything at or above any point of the authored shape, up to the
+    /// flat height <paramref name="top"/>, is inside, built as the union of closed vertical prisms, one from every non-vertical triangle of the authored shape (each wound counter-clockwise in plan, so
+    /// the result does not depend on the mesh's winding) up to <paramref name="top"/>. The authored shape is inside it unchanged (every point of it lies above its own bottom surface), a leaning or
+    /// uneven-topped door blocks all the way up above every part of it and nothing beside it. The raised volume keeps the authored vertices first and <see cref="Authored"/> for the outline. Build it
+    /// once (when the world is made) and keep it. Unchanged when the top is already that high or <paramref name="top"/> is not finite; raising a raised volume raises its authored shape again.
     /// </summary>
     public MeshVolume ReachingAbove(float top)
     {
         if (!float.IsFinite(top) || top <= Max.Z) return this;
-        var v = new List<Vector3>(Vertices);
-        var idx = new List<int>(Indices);
-        for (int t = 0; t + 2 < Indices.Length; t += 3)
+        var src = Authored;
+        var v = new List<Vector3>(src.Vertices);
+        var idx = new List<int>();
+        for (int t = 0; t + 2 < src.Indices.Length; t += 3)
         {
-            Vector3 a = Vertices[Indices[t]], b = Vertices[Indices[t + 1]], c = Vertices[Indices[t + 2]];
+            Vector3 a = src.Vertices[src.Indices[t]], b = src.Vertices[src.Indices[t + 1]], c = src.Vertices[src.Indices[t + 2]];
             double area = ((double)b.X - a.X) * ((double)c.Y - a.Y) - ((double)b.Y - a.Y) * ((double)c.X - a.X);
-            if (area <= 0) continue;   // facing down or vertical: nothing of the shape is below the space above it
+            if (area == 0) continue;   // vertical: its column is covered by its neighbours' prisms
+            if (area < 0) (b, c) = (c, b);
             int i = v.Count;
             v.AddRange([a, b, c, a with { Z = top }, b with { Z = top }, c with { Z = top }]);
             // bottom (the triangle, facing down), top (facing up), three sides (outward: the triangle is counter-clockwise in plan)
             idx.AddRange([i, i + 2, i + 1, i + 3, i + 4, i + 5, i, i + 1, i + 4, i, i + 4, i + 3, i + 1, i + 2, i + 5, i + 1, i + 5, i + 4, i + 2, i, i + 3, i + 2, i + 3, i + 5]);
         }
-        return new MeshVolume(Name, [.. v], [.. idx]);
+        return idx.Count == 0 ? this : new MeshVolume(Name, [.. v], [.. idx], src);
     }
 
     /// <summary>
     /// A capsule (feet <paramref name="feet"/>, <paramref name="radius"/>, <paramref name="height"/>) whose axis meets the volume is moved out horizontally (the mesh equivalent of
-    /// <see cref="SpawnBlocker.PushOut"/>): across the nearest outline edge (<see cref="FeatureEdges"/>) of the shape seen from above, to <paramref name="radius"/> + 1 cm beyond it, the first such place (nearest first, ties in triangle
+    /// <see cref="SpawnBlocker.PushOut"/>; call it on the raised volume the world keeps): across the nearest outline edge of the authored shape (<see cref="FeatureEdges"/>) seen from above, to <paramref name="radius"/> + 1 cm beyond it, the first such place (nearest first, ties in triangle
     /// order) where the axis no longer meets the volume; if none clears, out of the bounding box across its nearest side (ties: X sides, then the positive side). Otherwise <paramref name="feet"/>
     /// is returned unchanged. Provisional approximation (ours).
     /// </summary>
@@ -170,9 +210,9 @@ public sealed class MeshVolume
         double px = feet.X, py = feet.Y, beyond = Math.Max(radius, 0f) + 0.01;
         var candidates = new List<(double D, int Order, double Qx, double Qy)>();
         int order = 0;
-        foreach (var (ia, ib) in FeatureEdges())   // the shape's outline only: a cap's fan diagonals lie inside it and would push too short
+        foreach (var (ia, ib) in FeatureEdges())   // the authored outline only (a cap's fan diagonals and a raised volume's prism edges lie inside it and would push too short)
             {
-                var a = Vertices[ia]; var b = Vertices[ib]; order++;
+                var a = Vertices[ia]; var b = Vertices[ib]; order++;   // the authored vertices are this volume's first ones
                 double ex = (double)b.X - a.X, ey = (double)b.Y - a.Y, len2 = ex * ex + ey * ey;
                 double s = len2 == 0 ? 0 : Math.Clamp(((px - a.X) * ex + (py - a.Y) * ey) / len2, 0, 1);
                 double qx = a.X + ex * s, qy = a.Y + ey * s, ddx = qx - px, ddy = qy - py;
@@ -195,10 +235,17 @@ public sealed class MeshVolume
     }
 
     /// <summary>
-    /// The shape's outline for drawing (a door's shield, a point's ring): every edge whose two triangles are not coplanar, or that has only one triangle, as vertex index pairs (lower first), in the
-    /// order the triangles first walk them. Diagonals inside flat faces are left out.
+    /// The authored shape's outline for drawing (a door's shield, a point's ring) and for <see cref="PushOut"/>: every edge whose two triangles are not coplanar, or that has only one triangle, as
+    /// vertex index pairs (lower first), in the order the triangles first walk them. Two same-facing triangles count as coplanar when each one's far corner lies within
+    /// <see cref="CoplanarTolerance"/> of the other's plane (the 1/4096 m grid bends a flat face a little), so diagonals inside flat faces are left out. A raised volume returns its authored
+    /// shape's outline (its indices are valid in the raised volume too); draw a raised door's shield from that outline up to <see cref="Max"/>.Z.
     /// </summary>
-    public IReadOnlyList<(int A, int B)> FeatureEdges()
+    public IReadOnlyList<(int A, int B)> FeatureEdges() => ReferenceEquals(Authored, this) ? Outline() : Authored.FeatureEdges();
+
+    /// <summary>Metres: two same-facing triangles whose far corners lie this close to each other's plane are one flat face (half a millimetre; the vertex grid is 1/4096 m).</summary>
+    public const double CoplanarTolerance = 0.0005;
+
+    IReadOnlyList<(int A, int B)> Outline()
     {
         var normals = new (double X, double Y, double Z)[Indices.Length / 3];
         for (int t = 0; t < normals.Length; t++)
@@ -223,11 +270,26 @@ public sealed class MeshVolume
             var list = faces[key];
             if (list.Count != 2) { result.Add(key); continue; }
             var (n1, n2) = (normals[list[0]], normals[list[1]]);
-            double cx = n1.Y * n2.Z - n1.Z * n2.Y, cy = n1.Z * n2.X - n1.X * n2.Z, cz = n1.X * n2.Y - n1.Y * n2.X;
-            double l1 = n1.X * n1.X + n1.Y * n1.Y + n1.Z * n1.Z, l2 = n2.X * n2.X + n2.Y * n2.Y + n2.Z * n2.Z, dot = n1.X * n2.X + n1.Y * n2.Y + n1.Z * n2.Z;
-            if (dot <= 0 || cx * cx + cy * cy + cz * cz > 1e-12 * l1 * l2) result.Add(key);
+            double dot = n1.X * n2.X + n1.Y * n2.Y + n1.Z * n2.Z;
+            if (dot <= 0 || PlaneDistance(list[0], Far(list[1], key)) > CoplanarTolerance || PlaneDistance(list[1], Far(list[0], key)) > CoplanarTolerance) result.Add(key);
         }
         return result;
+
+        // the corner of triangle t that is not on the edge
+        Vector3 Far(int t, (int A, int B) edge)
+        {
+            for (int k = 0; k < 3; k++) { int i = Indices[3 * t + k]; if (i != edge.A && i != edge.B) return Vertices[i]; }
+            return Vertices[Indices[3 * t]];
+        }
+        // distance (metres) of p from triangle t's plane
+        double PlaneDistance(int t, Vector3 p)
+        {
+            var n = normals[t];
+            double len = Math.Sqrt(n.X * n.X + n.Y * n.Y + n.Z * n.Z);
+            if (len == 0) return double.MaxValue;
+            var a = Vertices[Indices[3 * t]];
+            return Math.Abs(n.X * ((double)p.X - a.X) + n.Y * ((double)p.Y - a.Y) + n.Z * ((double)p.Z - a.Z)) / len;
+        }
     }
 
     /// <summary>FNV-1a 64 of <paramref name="h"/> and the volume's vertices (float bits) and indices: for a world's content hash.</summary>

@@ -46,20 +46,22 @@ public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Ya
     public MeshVolume? Volume { get; init; }
 
     /// <summary>
-    /// Whether a spawn spot (a point on the floor) is inside the edited shape with room round it: the vertical column from the spot up <see cref="SpotColumn"/> meets the shape (the grid
-    /// takes floor up to 1 m under the area, so the shape may start above the spot), at the spot and at the same point <paramref name="margin"/> along world +X, -X, +Y and -Y (the
-    /// grid's margin from the edge, kept from the edited boundary too; ours). True without a shape.
+    /// Whether a spawn spot is inside the edited shape with room round it (contract v4's settled rule, docs/mapmaker.md "Edit mode contract"): the vertical column at its XY from the
+    /// record's bottom less <see cref="SpotColumnBelow"/> up to the record's top crosses the shape (<see cref="MeshVolume.Crosses"/>), at the spot and at the four points
+    /// <paramref name="margin"/> from it along the area's own axes (the inset the grid's 1 m margin gives the box). True without a shape.
     /// </summary>
     public bool HoldsSpot(Vector3 spot, float margin = 1f)
     {
         if (Volume is not { } shape) return true;
-        var up = new Vector3(0f, 0f, SpotColumn);
-        bool At(Vector3 p) => shape.Crosses(p, p + up);
-        return At(spot) && At(spot + new Vector3(margin, 0f, 0f)) && At(spot - new Vector3(margin, 0f, 0f)) && At(spot + new Vector3(0f, margin, 0f)) && At(spot - new Vector3(0f, margin, 0f));
+        float bottom = Center.Z - Size.Z / 2f - SpotColumnBelow, top = Center.Z + Size.Z / 2f;
+        float c = MathF.Cos(Yaw), s = MathF.Sin(Yaw);
+        bool At(float x, float y) => shape.Crosses(new Vector3(x, y, bottom), new Vector3(x, y, top));
+        return At(spot.X, spot.Y) && At(spot.X + c * margin, spot.Y + s * margin) && At(spot.X - c * margin, spot.Y - s * margin)
+            && At(spot.X - s * margin, spot.Y + c * margin) && At(spot.X + s * margin, spot.Y - c * margin);
     }
 
-    /// <summary>The column a spawn spot is tested with (metres up from the floor; the 1 m the spawn grid looks under an area, plus 5 cm; ours).</summary>
-    public const float SpotColumn = 1.05f;
+    /// <summary>How far under the record's bottom a spot's column starts (metres): the 1 m the spawn grid looks for floor under an area.</summary>
+    public const float SpotColumnBelow = 1f;
 }
 
 /// <summary>
@@ -311,7 +313,14 @@ public sealed partial class World
             }
             if (LowestStandable(at.X, at.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } ground && area.HoldsSpot(ground, margin)) spots.Add(ground);
         }
-        if (spots.Count == 0) spots.Add(area.Volume?.InsidePoint() ?? area.Center);   // an edited area with no spot: a point inside its shape
+        if (spots.Count == 0)
+        {
+            // an edited area with no spot: InsidePoint's XY (the box centre may lie outside the shape) with the ground found under it as above; none: the centre, as before
+            var fallback = area.Center;
+            if (area.Volume?.InsidePoint() is { } inside)
+                fallback = Collision is not null && LowestStandable(inside.X, inside.Y, area.Center.Z + halfHeight, area.Center.Z - halfHeight - 1f) is { } g ? g : inside;
+            spots.Add(fallback);
+        }
         _areaSpots[areaIndex] = spots;
         return spots;
     }
