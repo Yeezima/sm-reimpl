@@ -38,10 +38,11 @@ public static class ExecutionRules
 
     /// <summary>
     /// The tick a press counts at: its <paramref name="viewTick"/> (what the killer saw), never further back than <see cref="SimConfig.MaxRewindTicks"/> from <paramref name="tick"/> (the lag
-    /// compensation's cap) and never after it. A press is inside the window of a kill at <c>killTick</c> when <c>killTick &lt;= PressTick &lt;= killTick + WindowTicks</c>.
+    /// compensation's cap) and never after it; a view tick of 0 (none) counts as <paramref name="tick"/>. A press is inside the window of a kill at <c>killTick</c> when <c>killTick &lt;= PressTick &lt;= killTick + WindowTicks</c>.
     /// </summary>
     public static uint PressTick(SimConfig c, uint tick, uint viewTick)
     {
+        if (viewTick == 0) return tick;   // X3 (lead 40): an input without a view tick (a bot, a test) counts at the current tick, not the oldest one the rewind allows
         uint floor = tick > (uint)Math.Max(0, c.MaxRewindTicks) ? tick - (uint)Math.Max(0, c.MaxRewindTicks) : 0u;
         return Math.Clamp(viewTick, floor, tick);
     }
@@ -71,7 +72,14 @@ public static class ExecutionRules
     /// Writes the executions block of the config hash (only under <see cref="ContentExtras.Executions"/>; <c>SimConfig.Extras.cs</c> calls it): the rules here, then (X3) the
     /// choice, alignment and row-data versions and the wire order (<see cref="ExecutionRows.All"/> ids). The install's rows (<see cref="SimConfig.Executions"/>) are not hashed.
     /// </summary>
-    public static void Hash(BinaryWriter w, SimConfig c)
+    public static void Hash(BinaryWriter w, SimConfig c) =>
+        WriteBlock(w, c, ExecutionChoice.RulesVersion, ExecutionAlign.RulesVersion, ExecutionRows.DataVersion, ExecutionRows.All.Select(r => r.Id).ToArray());
+
+    /// <summary>
+    /// The executions block with the code's shared versions and the wire order given (<see cref="Hash"/> passes the real ones; the tests pass others to show each one moves the hash): this
+    /// class's rules, then the choice's, the alignment's and the rows' data versions and the ids of the rows in wire order.
+    /// </summary>
+    public static void WriteBlock(BinaryWriter w, SimConfig c, int choiceVersion, int alignVersion, int dataVersion, IReadOnlyList<string> wireIds)
     {
         w.Write("executions");
         w.Write(Version);
@@ -79,5 +87,8 @@ public static class ExecutionRules
         w.Write(WarfrontCooldownSeconds);
         w.Write(OvershieldBars);
         w.Write(ClassicMaxSlide);
+        w.Write(choiceVersion); w.Write(alignVersion); w.Write(dataVersion);
+        w.Write(wireIds.Count);
+        foreach (var id in wireIds) w.Write(id);
     }
 }

@@ -104,11 +104,21 @@ public class ExecutionServerSendTests
     [Fact]
     public void OvershieldListEmptyInClassic()
     {
+        // Lead 40: Classic never encodes or sends the list (Warfront only, X4).
         var h = Connected();
-        h.Run(TimeSpan.FromMilliseconds(1200));
-        var lists = Take(h.Clients[0]).Where(x => x.Kind == ExecutionWire.OvershieldKind).ToList();
-        Assert.NotEmpty(lists);   // the 1 Hz list
-        Assert.All(lists, l => Assert.Empty(l.Shields));
+        h.Run(TimeSpan.FromMilliseconds(1500));
+        Assert.DoesNotContain(Take(h.Clients[0]), x => x.Kind == ExecutionWire.OvershieldKind);
+    }
+
+    [Fact]
+    public void Refusals_before_the_choice_are_counted_not_logged()
+    {
+        var h = Connected();
+        var log = new List<string>();
+        h.Server.Log += log.Add;
+        h.Run(TimeSpan.FromSeconds(1), (index, t) => new PlayerInput(t, 0, 0, 0, index == 0 && t % 2 == 0 ? InputButtons.Execute : InputButtons.None));
+        Assert.True(h.Server.ExecutionRefusalsCounted > 5);
+        Assert.DoesNotContain(log, l => l.Contains("did nothing"));
     }
 
     [Fact]

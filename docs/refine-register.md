@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4134 spec table rows: **3056 tagged**, 706 not tagged (read from data with high confidence), 372 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4137 spec table rows: **3059 tagged**, 706 not tagged (read from data with high confidence), 372 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,17 +51,17 @@ Scanned 4134 spec table rows: **3056 tagged**, 706 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 204 | 203 | 78 | 79 | 0 |
+| General game design | 207 | 206 | 79 | 79 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3056** | 2748 | 2239 | 919 | 37 |
+| **All areas** | **3059** | 2751 | 2240 | 919 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1861 |
+| kind: ours | 1864 |
 | confidence: low | 1073 |
-| confidence: medium | 1055 |
+| confidence: medium | 1056 |
 | notes: ours | 476 |
 | kind: interpretation | 458 |
 | notes: estimate | 310 |
@@ -4334,7 +4334,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (204)
+### General game design (207)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4609,14 +4609,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-394902D4` | Classic forward slide | up to 2.5 m onto the corpse (Warfront keeps 1 m), at 6 m/s: a 2.5 m glide takes about 13 ticks (0.42 s); the whole slide passes the same terrain checks (capsule glide, wall sweeps, gaps, steps, slopes, kill volumes, spawn blockers, bystanders); hashed.… (m, m/s) | kind: ours; confidence: low; notes: provisional | lead 40 (2026-11-25), from the live check's NoFit counts | Classic forward slide: compare with SM1 by timing a run over a known distance. Ours: up to 2.5 m onto the corpse (Warfront keeps 1 m), at 6 m/s: a 2.5 m… | ☐ |
 | `R-59F0B89B` | Classic bystanders | the other living players (not the executor, not the corpse's player) within 2.5 m slide + 0.9 m + 7 m of the executor; a slide that closes within 0.9 m of one is refused (m) | kind: ours; confidence: medium | ours (Classic players are solid) | Classic bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: the other living players (not the executor, not the corpse's player)… | ☐ |
 | `R-3E0A3399` | Lock | input replaced by `MatchFlow.Locked` (no stick, no buttons; the view's yaw and pitch kept); locked ticks are `StartTick + 1` to the end tick inclusive (the run starts in the step, after that tick's pin) (ticks) | kind: ours; confidence: medium | design | Lock: compare with SM1 by feel or video. Ours: input replaced by MatchFlow.Locked (no stick, no buttons; the view's… | ☐ |
-| `R-FC8E256A` | Pin | position, yaw, zero velocity, grounded, and no melee attack in progress or buffered, from `ExecutionTrack.Pin` after the player's step, and again in the step after the tick's contacts and pushes (a shove is pinned back) | kind: ours; confidence: medium | design; re-pin: lead 39 (X1 review item 7) | Pin: compare with SM1 by feel or video. Ours: position, yaw, zero velocity, grounded, and no melee attack in… | ☐ |
+| `R-339B58E1` | Disarm at the start | the run's start clears any melee attack in progress or buffered (light or heavy), a held charge, a released charge shot still waiting and a throw under way (its item is spent only at the release): the swing under way never lands on the first locked tick | kind: ours | lead 40 (review) | Disarm at the start: compare with SM1 by feel or video. Ours: the run's start clears any melee attack in progress or buffered… | ☐ |
+| `R-FC8E256A` | Pin | position, yaw, zero velocity, grounded, and disarmed (as at the start), from `ExecutionTrack.Pin` after the player's step, and again in the step after the tick's contacts and pushes (a shove is pinned back) | kind: ours; confidence: medium | design; re-pin: lead 39 (X1 review item 7) | Pin: compare with SM1 by feel or video. Ours: position, yaw, zero velocity, grounded, and disarmed (as at the… | ☐ |
 | `R-D36045D3` | Slide timing | the slide plays first (`SlideTicks` from `ExecutionAlign`, linear by tick from the slide's start to the origin), then the clip from the aligned origin (ticks) | kind: ours; notes: estimate | ours (design: glide at most 1 m forward, 2.5 m back) | Slide timing: compare with SM1 by feel or video. Ours: the slide plays first (SlideTicks from ExecutionAlign, linear by tick… | ☐ |
 | `R-DB503D7E` | Event ticks | clip time 0 at start + slide ticks; the kill event (`KillSeconds`) and the end (`Seconds`, never before the kill) rounded to the nearest tick (s, ticks) | kind: ours; confidence: medium | X7 rows (supported by evidence); rounding ours | Event ticks: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: clip time 0 at start + slide ticks; the kill event (KillSeconds) and… | ☐ |
 | `R-8C6C7CEE` | End checks | Disconnect (executor gone), Killed (executor dead), MatchEnd (counting down, ended, or a new round), Invalid (more than 1 m off the pin, teleported between ticks, the row gone, Warfront's target invalid), Done (end tick) (m) | kind: ours; confidence: medium | design; 1 m ours (lead 39: re-pin small pushes; the plan's 0.05 m would end a move on a shove) | End checks: compare with SM1 by measuring on a flat spot of the same map. Ours: Disconnect (executor gone), Killed (executor dead), MatchEnd… | ☐ |
+| `R-EFE596BA` | Players on the path after the press (known) | the slide and the root path are checked against the other players at the press only; a player who steps onto them afterwards may overlap the pinned executor (it is never pushed through walls, and the overlapped player walks out freely) | kind: ours; confidence: medium | lead 40 (review); kept as known | Players on the path after the press (known): compare with SM1 by feel or video. Ours: the slide and the root path are checked against the other players at… | ☐ |
+| `R-7A8CDCEC` | Log | the server logs each offer, Start and End, and each press that reached the choice and found nothing (NoFit with the gap, height and each row's failure; NoWire); earlier refusals are only counted | kind: ours | lead 40 | Log: compare with SM1 by feel or video. Ours: the server logs each offer, Start and End, and each press that… | ☐ |
 | `R-313963F2` | Start (tag 50, X3's extension) | 36 B: X1's 26 B, then distance (u16 mm, 1..20000), slide ticks (u8), flags (u8, bit 0 races swapped; other bits refused), slide offset (3 x i16 mm, at most 4000 each) (bytes) | kind: ours | plan (30 B) + the slide offset, ours (the client pins and draws the slide without guessing its start) | Start (tag 50, X3's extension): compare with SM1 by feel or video. Ours: 36 B: X1's 26 B, then distance (u16 mm, 1..20000), slide ticks (u8)… | ☐ |
 | `R-F137A9B7` | Start and End repeats | each Start and each End in 3 consecutive messages to every client; the live runs resent at 2 Hz (messages, Hz) | kind: ours; confidence: medium | design (Start); End repeats ours | Start and End repeats: compare with SM1 by feel or video. Ours: each Start and each End in 3 consecutive messages to every client… | ☐ |
 | `R-9FE92C2A` | Classic offer message | to the killer alone, once, with the window (`min(255, WindowTicks)`) (ticks) | kind: ours; confidence: medium | design | Classic offer message: compare with SM1 by feel or video. Ours: to the killer alone, once, with the window (min(255, WindowTicks)). | ☐ |
-| `R-D0C598E2` | Overshield list | on a change and at 1 Hz; every living non-puppet player above its armour maximum, by id, at most 16; empty in Classic (Hz) | kind: ours; confidence: medium | design | Overshield list: compare with SM1 by feel or video. Ours: on a change and at 1 Hz; every living non-puppet player above its… | ☐ |
+| `R-D0C598E2` | Overshield list | Warfront only (never encoded or sent in Classic); on a change, and at 1 Hz while not empty; every living non-puppet player above its armour maximum, by id, at most 16 (Hz) | kind: ours; confidence: medium | design; Classic none: lead 40 | Overshield list: compare with SM1 by feel or video. Ours: Warfront only (never encoded or sent in Classic); on a change, and at… | ☐ |
 | `R-177E17E9` | Rows on the config | `SimConfig.Executions` (an `ExecutionRowSet`: the rows and their wire order) from `ExecutionCatalogueLoader.Load` on the player's own install; empty without one (every press refused NoRows) | kind: ours | plan; lead 39 | Rows on the config: compare with SM1 by feel or video. Ours: SimConfig.Executions (an ExecutionRowSet: the rows and their wire… | ☐ |
 | `R-D3D7FA51` | Execute held during a reaction | holding Execute never counts as "any input" that ends a reaction's tail | kind: ours | X1 review (lead 39) | Execute held during a reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: holding Execute never counts as "any input" that ends a reaction's… | ☐ |
 

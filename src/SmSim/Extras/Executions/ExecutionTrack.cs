@@ -57,14 +57,26 @@ public static class ExecutionTrack
         Math.Max(EventTick(run, row.Seconds, tickRate), EventTick(run, row.KillSeconds, tickRate));
 
     /// <summary>
-    /// <paramref name="s"/> pinned at <paramref name="tick"/> of <paramref name="run"/>: the feet and yaw of <see cref="Pose"/>, no velocity, grounded, and no melee attack in progress or buffered (the
+    /// <paramref name="s"/> pinned at <paramref name="tick"/> of <paramref name="run"/>: the feet and yaw of <see cref="Pose"/>, no velocity, grounded, and <see cref="Disarm"/>ed (the
     /// locked executor's swing never carries on into the move). Nothing else is touched (health, armour, ammunition). The server's pin (X3) and the own prediction pin (X6) both call this.
     /// </summary>
     public static PlayerState Pin(in PlayerState s, in ExecutionRun run, ExecutionRow row, uint tick, int tickRate)
     {
         var pose = Pose(run, row, tick, tickRate);
-        return s with { Position = pose.Feet, Yaw = pose.Yaw, Velocity = Vector3.Zero, Grounded = true, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false };
+        return Disarm(s) with { Position = pose.Feet, Yaw = pose.Yaw, Velocity = Vector3.Zero, Grounded = true };
     }
+
+    /// <summary>
+    /// <paramref name="s"/> with no action that could land or fire during the lock: no melee attack in progress or buffered (light or heavy), no charge held and no released charge shot waiting,
+    /// no throw in progress (its item is spent only at the release, so nothing is lost). The server applies it when a run starts (so the swing under way never lands on the first locked tick)
+    /// and in every pin; the own prediction pin (X6) applies it at the start tick and in every pin as well.
+    /// </summary>
+    public static PlayerState Disarm(in PlayerState s) => s with
+    {
+        MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false,
+        Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f,
+        Throwing = false, ThrowTime = 0f,
+    };
 
     /// <summary>Whether <paramref name="tick"/> is a locked tick of <paramref name="run"/> (<c>StartTick + 1</c> to the end tick, inclusive).</summary>
     public static bool LockedAt(in ExecutionRun run, ExecutionRow row, uint tick, int tickRate) => tick > run.StartTick && tick <= EndTick(run, row, tickRate);

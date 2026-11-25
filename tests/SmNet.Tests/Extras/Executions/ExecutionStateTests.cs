@@ -279,6 +279,33 @@ public class ExecutionStateTests
     }
 
     [Fact]
+    public void The_start_disarms_the_executor()
+    {
+        // The swing that killed (still under way at the tap) never lands on the first locked tick; a held charge, a pending charge shot or a throw under way neither.
+        var (w, kill) = Killed();
+        Assert.True(w.Players[1].MeleeStep > 0 || w.Players[1].MeleeTime > 0f);
+        Started(w, kill);
+        var p = w.Players[1];
+        Assert.Equal((0, 0f, false, false, false), (p.MeleeStep, p.MeleeTime, p.MeleeQueued, p.MeleeHeavy, p.MeleeQueuedHeavy));
+        var armed = p with { Charging = true, ChargeTime = 1f, PendingShot = 2, PendingLeft = 0.1f, Throwing = true, ThrowTime = 0.2f, MeleeStep = 2, MeleeQueuedHeavy = true };
+        var d = ExecutionTrack.Disarm(armed);
+        Assert.Equal((false, 0f, 0, 0f, false, 0f, 0, false), (d.Charging, d.ChargeTime, d.PendingShot, d.PendingLeft, d.Throwing, d.ThrowTime, d.MeleeStep, d.MeleeQueuedHeavy));
+        Assert.Equal(armed.Grenades, d.Grenades);   // nothing spent or refunded
+    }
+
+    [Fact]
+    public void A_player_on_the_slide_path_can_walk_out()
+    {
+        // Known (spec): a player who steps onto the path after the press is not checked again; the pinned executor may overlap it. It is never trapped: it walks out.
+        var w = Arena(Config(), Flat(), (Tactical, Vector3.Zero), (Chaos, new Vector3(0f, 2.0f, 0f)), (Tactical, new Vector3(6f, 0f, 0f)));
+        uint kill = KillByMelee(w);
+        Started(w, kill);
+        Idle(w, 2);
+        w.ExecutionsPlaceForTests(3, w.Players[1].Position + new Vector3(0.2f, 0.3f, 0f), 0f);
+        for (int k = 0; k < 30; k++) Step(w, _ => InputButtons.None, stick: id => id == 3 ? (1f, 0f) : (0f, 0f));
+        Assert.True(Vector3.Distance(w.Players[3].Position, w.Players[1].Position) > 0.9f);
+    }
+    [Fact]
     public void NoFlagNoState()
     {
         var (w, kill) = Killed(Config(extras: ContentExtras.None));
