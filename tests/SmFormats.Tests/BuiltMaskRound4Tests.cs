@@ -197,7 +197,8 @@ public sealed class BuiltMaskRound4Tests
         int i0 = 0;   // luminance 60: grey 60 before, 70 at half contrast
         Assert.InRange((int)full.Diffuse[i0 * 4], 59, 61);
         Assert.InRange((int)half.Diffuse[i0 * 4], 69, 71);
-        Assert.All(BuiltMaskOverrides.All, e => Assert.InRange(e.Contrast, 0.3f, 1f));
+        // Round 6: one entry lifts contrast (the Iron Warriors right leg's washed hazard stripes, 1.3).
+        Assert.All(BuiltMaskOverrides.All, e => Assert.InRange(e.Contrast, 0.3f, 1.3f));
         // Round 5: the Black Templars legs keep 0.7 (with the broad-shading removal; was 0.5 alone).
         Assert.Equal(0.7f, BuiltMaskOverrides.For("sm_armour_blacktemp_legl", null).Aggregate(1f, (a, o) => a * o.Contrast), 3);
     }

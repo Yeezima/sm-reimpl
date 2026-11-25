@@ -181,7 +181,7 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// Round 5 (ours, measured 2026-11-26 with <c>smtool built-mask-bench --mask-shares</c>): whether a built material is painted without its normal map because that map
-    /// is a placeholder (<see cref="IsPlaceholderNormal"/>). Every campaign raptor and berserker material (<c>csm_armour_raptor_*</c>, <c>csm_armour_berserker_*</c>) names
+    /// is a placeholder (<see cref="IsPlaceholderNormal"/>). The campaign raptor pieces (<c>csm_armour_raptor_*</c>) and the berserker arms, legs, torso and backpack (<c>csm_armour_berserker_*</c>; the berserker helmet and pads have real maps) name
     /// a normal map that is one DXT1 colour throughout (sRGB 200, 200, 200 on every texel), which a renderer reads as a normal tilted about 55 degrees off the surface:
     /// lit from one side the whole piece drew washed pale (the round-4 gate's "right pad and right leg washed pale pink", "berserker shin and thigh washed pale and flat"),
     /// and the mirrored piece dark. The campaign basic pieces' normal maps are real (byte-identical to the MP basic ones). The plain (baked) material keeps its own normal map,
@@ -422,6 +422,9 @@ public static class BakedArmourPaint
             // Round 5: per-piece broad-shading removal (BuiltMaskOverride.Flatten).
             float flatten = OldBrightness || OldRegionStats || OldRound4Look ? 0f : overrides.Select(o => o.Flatten).DefaultIfEmpty(0f).Max();
             if (flatten > 0f) targets = targets with { Flatten = Math.Clamp(flatten, 0f, 1f) };
+            // Round 6: per-piece shading speckle clamp (BuiltMaskOverride.Speckle; the smallest share given applies).
+            float speckle = OldBrightness || OldRegionStats || OldRound4Look ? 0f : overrides.Where(o => o.Speckle > 0f).Select(o => o.Speckle).DefaultIfEmpty(0f).Min();
+            if (speckle > 0f) targets = targets with { Speckle = speckle };
             var result = PaintMaskBuilder.WithGrey(diffuse, remapped, targets);
             if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats) result = PaintMaskBuilder.PadOutside(result, used);
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)

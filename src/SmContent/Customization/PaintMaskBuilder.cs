@@ -527,9 +527,13 @@ public static class PaintMaskBuilder
         /// <summary>Round 5: share (0..1) of the broad shading removed before the grey is made (<see cref="BuiltMaskOverride.Flatten"/>, <see cref="FlattenRadius"/>); 0 = none.</summary>
         public float Flatten { get; init; }
 
+        /// <summary>Round 6: the shading speckle clamp's share of the 3 x 3 median for this piece (<see cref="BuiltMaskOverride.Speckle"/>; 0 = <see cref="SpeckleLuminance"/>):
+        /// a smaller share holds thin pale crackle lines (Salamanders' chipped paint) closer to their surroundings while broad shading stays.</summary>
+        public float Speckle { get; init; }
+
         /// <summary>These targets and ceilings times <paramref name="k"/> (a per-piece brightness scale).</summary>
         public Targets Scaled(float k) => new(Primary * k, Secondary * k, Tertiary * k)
-            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k, Contrast = Contrast, Flatten = Flatten };
+            { PrimaryCeiling = PrimaryCeiling * k, SecondaryCeiling = SecondaryCeiling * k, TertiaryCeiling = TertiaryCeiling * k, Contrast = Contrast, Flatten = Flatten, Speckle = Speckle };
 
         internal float Target(int c) => c == 0 ? Primary : c == 1 ? Secondary : Tertiary;
         internal float Ceiling(int c) => c == 0 ? PrimaryCeiling : c == 1 ? SecondaryCeiling : TertiaryCeiling;
@@ -578,6 +582,8 @@ public static class PaintMaskBuilder
             for (int i = 0; i < n; i++) lumOf[i] = 0.2126f * diffuse.Rgba[i * 4] + 0.7152f * diffuse.Rgba[i * 4 + 1] + 0.0722f * diffuse.Rgba[i * 4 + 2];
         }
         Span<float> window = stackalloc float[9];
+        float speckleShare = targets.Speckle > 0f ? targets.Speckle : SpeckleLuminance;
+        float speckleFloor = targets.Speckle > 0f ? SpeckleLuminanceFloor * MathF.Min(1f, targets.Speckle / SpeckleLuminance) : SpeckleLuminanceFloor;
         for (int i = 0; i < n; i++)
         {
             byte r = diffuse.Rgba[i * 4], g = diffuse.Rgba[i * 4 + 1], b = diffuse.Rgba[i * 4 + 2];
@@ -596,7 +602,7 @@ public static class PaintMaskBuilder
                     window[k++] = lumOf[yy * m.Width + xx];
                 }
                 window.Sort();
-                float med3 = window[4], d = MathF.Max(SpeckleLuminanceFloor, med3 * SpeckleLuminance);
+                float med3 = window[4], d = MathF.Max(speckleFloor, med3 * speckleShare);
                 lum = Math.Clamp(lum, med3 - d, med3 + d);
             }
             float grey = ((p > 0f ? Shade(lum, 0, i) * p : 0f) + (s > 0f ? Shade(lum, 1, i) * s : 0f) + (t > 0f ? Shade(lum, 2, i) * t : 0f)) / total;
