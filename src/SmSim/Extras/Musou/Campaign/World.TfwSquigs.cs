@@ -29,7 +29,10 @@ public sealed partial class World
     uint _s2DemoNext;
     ushort _s2DemoRokkit;
 
-    void TfwS2Demo(MusouSim musou)
+    /// <summary>Warfront (owner 2026-11-25, <c>WarfrontRules.NoSquigs</c>): clears <paramref name="on"/> in a Warfront run so no Squig spawns. No-op without the Warfront object.</summary>
+    partial void WarfrontSquigs(ref bool on);
+
+    void TfwS2Demo(MusouSim musou, bool squigs)
     {
         if (!(TfwS2DemoSeconds > 0f) || _tfw?.Battle is null || Tick < _s2DemoNext) return;
         _s2DemoNext = Tick + (uint)Math.Max(1, (int)(TfwS2DemoSeconds * Config.TickRate));
@@ -41,7 +44,7 @@ public sealed partial class World
             var side = new Vector3(ahead.Y, -ahead.X, 0f);
             int node = musou.Walk?.Nearest(p.Position + ahead * 11f, 3f, 6f) ?? -1;
             var at = node >= 0 ? musou.Walk!.Position(node) : p.Position + ahead * 11f;
-            ushort squig = musou.Spawn(MusouEnemyType.BombSquig, at, p.Yaw + MathF.PI, musou.Rules.Of(MusouEnemyType.BombSquig).Health, node);
+            ushort squig = squigs ? musou.Spawn(MusouEnemyType.BombSquig, at, p.Yaw + MathF.PI, musou.Rules.Of(MusouEnemyType.BombSquig).Health, node) : (ushort)0;
             if (squig != 0) musou.AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, squig, (ushort)id, MusouSquigRules.DropCue, at));
             var from = p.Position + ahead * 30f + side * 6f;
             int rnode = musou.Walk?.Nearest(from, 3f, 6f) ?? -1;
@@ -60,8 +63,10 @@ public sealed partial class World
         _musouIds.Clear();
         foreach (int id in _players.Keys) _musouIds.Add(id);
         _musouIds.Sort();
-        TfwS2Demo(musou);
-        TfwSquigDrops(musou);
+        bool squigs = true;
+        WarfrontSquigs(ref squigs);   // WARFRONT-HOOK
+        TfwS2Demo(musou, squigs);
+        TfwSquigDrops(musou, squigs);
         TfwSquigKicks(musou);
         _rocketQueue.Clear();
         musou.TakeRocketBlasts(_rocketQueue);
@@ -79,11 +84,11 @@ public sealed partial class World
     /// to <see cref="MusouSquigRules.DropMaxSeconds"/> (a roll of his id and the drop); when due one lands <see cref="MusouSquigRules.DropMin"/> to <see cref="MusouSquigRules.DropMax"/> from him,
     /// behind his view first (off-screen), on the graph where one is.
     /// </summary>
-    void TfwSquigDrops(MusouSim musou)
+    void TfwSquigDrops(MusouSim musou, bool squigs)
     {
         var battle = _tfw?.Battle;
         if (!ReferenceEquals(battle, _squigBattle)) { _squigBattle = battle; _squigDue.Clear(); }
-        if (battle is null || battle.Won || !TfwSquigDropsOn) return;
+        if (battle is null || battle.Won || !TfwSquigDropsOn || !squigs) return;
         int alive = -1;   // counted when a drop is due
         foreach (int id in _musouIds)
         {
