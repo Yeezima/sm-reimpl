@@ -40,7 +40,7 @@ Scanned 4157 spec table rows: **3075 tagged**, 708 not tagged (read from data wi
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 104 | 99 | 75 | 15 | 0 |
+| HUD and hit feedback (critical) | 104 | 98 | 74 | 16 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
@@ -53,16 +53,16 @@ Scanned 4157 spec table rows: **3075 tagged**, 708 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 207 | 206 | 79 | 79 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3075** | 2767 | 2248 | 922 | 37 |
+| **All areas** | **3075** | 2766 | 2247 | 923 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1878 |
-| confidence: low | 1074 |
+| kind: ours | 1877 |
+| confidence: low | 1073 |
 | confidence: medium | 1063 |
-| notes: ours | 477 |
+| notes: ours | 478 |
 | kind: interpretation | 460 |
 | notes: estimate | 312 |
 | kind: estimate | 272 |
@@ -1969,7 +1969,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-BE44849F` | Marker look | a view-facing quad 0.55 m wide (the stim cross's side, `CharacterViewer.StimCrossSize`) and 0.8 m tall: an opaque red disc 0.30 m across (RGB 1.0, 0.06, 0.04) with a hotter centre, a soft red glow out to the quad's width, a rim that fizzles (animated noise… (m, s) | kind: ours; confidence: medium | owner ("a solid at the center, opaque glowing red dot ... fizzle and drip color down a bit like a melting icicle. About the height of a stim overhead icon")… | Marker look: compare with SM1 with side-by-side screenshots in the same spot. Ours: a view-facing quad 0.55 m wide (the stim cross's side… | ☐ |
 | `R-0C52BB93` | Marker place | the dot's centre 2.45 m over a Warfront Ork's feet and 1.3 m over a Classic corpse's feet (about where the stim cross floats over a standing marine's head: 1.55 m over the lower spine, lower over a body on the ground) (m) | kind: interpretation; confidence: medium | owner ("about the height of a stim overhead icon": read as the stim cross's size and place) | Marker place: compare with SM1 by measuring on a flat spot of the same map. Ours: the dot's centre 2.45 m over a Warfront Ork's feet and 1.3 m over a… | ☐ |
 | `R-E9561439` | Marker lag | the marker reads the crowd as drawn (the interpolation delay behind the server), so at the edge of range the marked Ork can differ from the one the press takes; the press is the server's | kind: ours | plan risk, accepted | Marker lag: compare with SM1 with side-by-side screenshots in the same spot. Ours: the marker reads the crowd as drawn (the interpolation delay behind… | ☐ |
-| `R-036B5F3F` | Overshield look strength | 1 (one value shared by the shell and the armour tint; the owner picks from the comparison of 0.6, 1 and 1.4) (factor) | kind: ours; confidence: low | owner 2026-11-25 (comparison requested) | Overshield look strength: compare with SM1 with side-by-side screenshots in the same spot. Ours: 1 (one value shared by the shell and the armour tint; the owner picks… | ☐ |
+| `R-036B5F3F` | Overshield look strength | 0.6 from a full overshield down to half (0.5 of the cap), rising smoothly (smoothstep) to 1.0 at 0.15 of the cap and 1.0 below; it multiplies the shell's alpha and the armour tint's share, which already follow the fraction (the fractions are the comparison… (factor) | notes: ours | owner 2026-11-25 (decisions/2026-11-25-executions-x6-prompt-dot.md, picked from the 3 x 3 grid: full 0.6, half 0.6, low 1.0); the smooth ramp between half and… | Overshield look strength: compare with SM1 with side-by-side screenshots in the same spot. Ours: 0.6 from a full overshield down to half (0.5 of the cap), rising… | ☐ |
 | `R-E3526A95` | Armour tint | while the own armour is above its bar: the armour bar modulated from white toward RGB (0.36, 0.56, 1.0) by the overshield's fraction of its cap times the look strength (clamped to 1), so full, half and low read differently and it fades back as the overshield… (RGB) | kind: ours; confidence: medium | owner brief ("deeper blue armour HUD"); media review (scale with the overshield); values ours | Armour tint: compare with SM1 by counting hits to kill and by video of the health bar. Ours: while the own armour is above its bar: the armour bar modulated from… | ☐ |
 | `R-67CDCFC5` | Shell | a second mesh on every covered mesh (see Shell coverage), skinned pieces sharing their skin and skeleton and rigid pieces (worn backpack and jump pack) as their children, excluded surfaces drawn as nothing; pushed 0.05 m along the normals (in model units: the… (m) | kind: ours; confidence: medium | owner brief ("a soft blue shield about 5 cm off the model"); media review of a18ed908 (pads and backpack, scaling) | Shell: compare with SM1 by measuring on a flat spot of the same map. Ours: a second mesh on every covered mesh (see Shell coverage), skinned… | ☐ |
 | `R-435EE13C` | Shell coverage | every part of the player's model but the weapons (owner 2026-11-25): every armour mesh under the skeleton (torso, arms, legs, shoulder pads, helmet, backpack, DLC and campaign pieces) and the worn items (`Worn_*`: the jump pack, the Devastator's pack); not… | kind: interpretation; kind: provisional; confidence: medium; notes: ours | owner 2026-11-25 ("ensure it covers all parts of a player's model except their weapons ... tabards, ornaments ... are not covered"); the name split ours | Shell coverage: compare with SM1 with side-by-side screenshots in the same spot. Ours: every part of the player's model but the weapons (owner 2026-11-25):… | ☐ |

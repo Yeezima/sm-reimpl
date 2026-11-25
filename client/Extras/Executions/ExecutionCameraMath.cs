@@ -35,6 +35,29 @@ public static class OvershieldCoverage
     public static bool Weapon(string name) => name.StartsWith("Weapon_", StringComparison.Ordinal);
 }
 
+/// <summary>
+/// Executions X6: the overshield look's strength by how full the overshield is (owner 2026-11-25, decisions/2026-11-25-executions-x6-prompt-dot.md, picked from the 3 x 3 comparison grid:
+/// full 0.6, half 0.6, low 1.0). It multiplies the shell's alpha and the armour tint's share, which already follow the fraction; engine-free, tested in <c>ExecutionPromptRuleTests</c>.
+/// </summary>
+public static class OvershieldLook
+{
+    /// <summary>The grid's fractions of the cap: half (0.5) and low (0.15).</summary>
+    public const float HalfFraction = 0.5f, LowFraction = 0.15f;
+    /// <summary>The owner's strengths: from full down to half, and at low and below.</summary>
+    public const float HighStrength = 0.6f, LowStrength = 1.0f;
+
+    /// <summary>0.6 from full down to half, rising smoothly (smoothstep) to 1.0 at the low fraction, 1.0 below it.</summary>
+    public static float StrengthAt(float fraction)
+    {
+        float f = float.IsFinite(fraction) ? Math.Clamp(fraction, 0f, 1f) : 0f;
+        if (f >= HalfFraction) return HighStrength;
+        if (f <= LowFraction) return LowStrength;
+        float t = (HalfFraction - f) / (HalfFraction - LowFraction);   // 0 at half, 1 at low
+        t = t * t * (3f - 2f * t);
+        return HighStrength + (LowStrength - HighStrength) * t;
+    }
+}
+
 /// <summary>Executions X6: the camera's engine-free maths (tested in <c>ExecutionPromptRuleTests</c>).</summary>
 public static class ExecutionCameraMath
 {

@@ -7,7 +7,7 @@ namespace SmClient;
 /// <summary>
 /// Executions X6 on the HUD (forwards in <c>Hud.ExecutionsHooks.cs</c>, only with <see cref="SmSim.ContentExtras.Executions"/>): the armour tint (<see cref="ExecutionsArmourTint"/>). While the own
 /// armour is above its bar (Warfront's overshield) the armour bar is modulated toward <see cref="OvershieldTint"/> in proportion to the overshield's fraction of its cap times the overshield look's
-/// strength (<see cref="OvershieldShell.Strength"/>, the one tunable shared with the shell), so it fades back as the overshield goes; White (the movie's own colours) otherwise, and always in Classic PvP.
+/// strength (<see cref="OvershieldShell.StrengthAt"/>: the owner's curve, shared with the shell), so it fades back as the overshield goes; White (the movie's own colours) otherwise, and always in Classic PvP.
 /// No Execute text is drawn (owner 2026-11-25: the world-space red dot, <see cref="ExecutionMarker"/>, replaced the text prompt), so the X5a prompt seam (<c>ExecutionsHud</c>) stays empty.
 /// </summary>
 public sealed partial class Hud
@@ -26,7 +26,7 @@ public sealed partial class Hud
     public static Color ArmourTintFor(float shield, float shieldMax)
     {
         float f = ExecutionCameraMath.OvershieldFraction(shield, shieldMax);
-        return f > 0f ? White.Lerp(OvershieldTint, Math.Clamp(f * OvershieldShell.Strength, 0f, 1f)) : White;
+        return f > 0f ? White.Lerp(OvershieldTint, Math.Clamp(f * OvershieldShell.StrengthAt(f), 0f, 1f)) : White;
     }
 
     partial void ExecutionsArmourTint(ref Color tint)

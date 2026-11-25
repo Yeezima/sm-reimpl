@@ -153,14 +153,14 @@ public partial class NetworkView
         {
             case "dot": ExecutionX6DotDemo(client, config, me, dir); break;
             case "ork": ExecutionX6OrkDemo(client, me, dir); break;
-            case "shell": ExecutionX6ShellDemo(client, config, me, dir); break;
+            case "shell" or "shellfinal": ExecutionX6ShellDemo(client, config, me, dir); break;
             default: ExecutionX6OrbitDemo(client, me, dir); break;
         }
     }
 
     void ExecutionX6Done(string dir, string what)
     {
-        _execRowsOverride = null; _execX6Camera = null; ExecutionX6ShellOverride = null; Hud.ExecutionsTestOvershield = null; OvershieldShell.Strength = OvershieldShell.DefaultStrength;
+        _execRowsOverride = null; _execX6Camera = null; ExecutionX6ShellOverride = null; Hud.ExecutionsTestOvershield = null; OvershieldShell.Strength = null;
         GD.Print($"EXECX6 demo done: {what} in {dir}");
         _execX6Step = 1000;
         GetTree().Quit();
@@ -231,13 +231,20 @@ public partial class NetworkView
             return;
         }
         int index = _execX6Step - 1;
-        if (index >= X6Strengths.Length * X6Fractions.Length) { ExecutionX6Done(dir, $"shell comparison ({paint})"); return; }
+        bool final = ExecutionX6Shots == "shellfinal";   // the owner's curve (no fixed strength): one full / half / low strip
+        int passes = final ? 1 : X6Strengths.Length;
+        if (index >= passes * X6Fractions.Length) { ExecutionX6Done(dir, $"shell {(final ? "final strip" : "comparison")} ({paint})"); return; }
         var (name, fraction) = X6Fractions[index % X6Fractions.Length];
-        float strength = X6Strengths[index / X6Fractions.Length];
+        float? strength = final ? null : X6Strengths[index / X6Fractions.Length];
         OvershieldShell.Strength = strength;
         ExecutionX6ShellOverride = fraction;
         Hud.ExecutionsTestOvershield = fraction;
-        if (t > 0.7) { ExecutionX6Shot(dir, $"shell_{paint}_s{(int)MathF.Round(strength * 100):000}_{name}"); ExecutionX6Next(); }
+        if (t > 0.7)
+        {
+            ExecutionX6Shot(dir, final ? $"shell_final_{paint}_{name}" : $"shell_{paint}_s{(int)MathF.Round(strength!.Value * 100):000}_{name}");
+            if (final) GD.Print($"EXECX6 final {paint} {name}: strength {OvershieldShell.StrengthAt(fraction):F2}");
+            ExecutionX6Next();
+        }
     }
 
     /// <summary>The orbit at three yaws during a synthetic own run, then camera frames of a sweep and the End's blend back (for an MP4).</summary>

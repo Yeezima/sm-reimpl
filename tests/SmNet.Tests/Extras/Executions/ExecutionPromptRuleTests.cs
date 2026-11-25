@@ -118,6 +118,22 @@ public class ExecutionPromptRuleTests
     }
 
     [Fact]
+    public void OvershieldStrengthFollowsTheOwnersPicks()
+    {
+        // Owner 2026-11-25 (from the 3 x 3 grid): full 0.6, half 0.6, low (0.15 of the cap) 1.0; smooth between half and low, 1.0 below low.
+        Assert.Equal(0.6f, OvershieldLook.StrengthAt(1f), 5);
+        Assert.Equal(0.6f, OvershieldLook.StrengthAt(0.75f), 5);
+        Assert.Equal(0.6f, OvershieldLook.StrengthAt(0.5f), 5);
+        Assert.Equal(1.0f, OvershieldLook.StrengthAt(0.15f), 5);
+        Assert.Equal(1.0f, OvershieldLook.StrengthAt(0.05f), 5);
+        Assert.Equal(0.8f, OvershieldLook.StrengthAt(0.325f), 4);   // the midpoint of the smoothstep
+        float last = 0f;
+        for (float f = 0.5f; f >= 0.15f; f -= 0.01f) { float s = OvershieldLook.StrengthAt(f); Assert.True(s >= last - 1e-5f, $"{f}: {s} < {last}"); last = s; }   // rises as the overshield falls
+        Assert.Equal(1.0f, OvershieldLook.StrengthAt(0f), 5);
+        Assert.Equal(1.0f, OvershieldLook.StrengthAt(float.NaN), 5);   // not finite: read as empty (the shell is off at 0 anyway)
+    }
+
+    [Fact]
     public void FlinchNeverHidesButReactionsDo()
     {
         var c = Config();

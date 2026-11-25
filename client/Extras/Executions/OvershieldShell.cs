@@ -29,7 +29,11 @@ public sealed class OvershieldShell
     /// one-line change. The X6 demo's <c>--executions-x6-shell-strength</c> sets it for a capture.
     /// </summary>
     public const float DefaultStrength = 1f;
-    public static float Strength { get; set; } = DefaultStrength;
+    /// <summary>A fixed strength the test aids' comparison sets (null: the owner's curve by the overshield's fraction, <see cref="OvershieldLook.StrengthAt"/>).</summary>
+    public static float? Strength { get; set; }
+
+    /// <summary>The look's strength for an overshield at <paramref name="fraction"/> of its cap: the test override, else the owner's curve (0.6 from full to half, 1.0 at low).</summary>
+    public static float StrengthAt(float fraction) => Strength ?? OvershieldLook.StrengthAt(fraction);
     /// <summary>The share of the strength a barely-there overshield still shows (so a low overshield stays visible; ours).</summary>
     public const float Floor = 0.12f;
 
@@ -80,11 +84,11 @@ public sealed class OvershieldShell
     /// <summary>Shell meshes on the character (skinned and rigid).</summary>
     public int Pieces => _pieces.Count;
 
-    /// <summary>The shader strength for an overshield at <paramref name="fraction"/> of its cap: in proportion to it (a floor for a barely-there one) times <see cref="Strength"/>; 0 without one.</summary>
+    /// <summary>The shader strength for an overshield at <paramref name="fraction"/> of its cap: in proportion to it (a floor for a barely-there one) times the look's strength (<see cref="StrengthAt"/>); 0 without one.</summary>
     public static float StrengthFor(float fraction)
     {
         float f = Math.Clamp(float.IsFinite(fraction) ? fraction : 0f, 0f, 1f);
-        return f <= 0f ? 0f : Strength * MathF.Max(f, Floor);
+        return f <= 0f ? 0f : StrengthAt(f) * MathF.Max(f, Floor);
     }
 
     /// <summary>A shell on <paramref name="character"/>'s armour, or null when it has no skeleton or no piece yet.</summary>
