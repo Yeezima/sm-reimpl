@@ -7,6 +7,7 @@ namespace SmMapmaker.Tests;
 /// Owner's pass 3 (items 1 and 13): a play test plays exactly the chosen file, and an older or shared map file (a tester's "My Map": SM1 placements and prefab instances, a few pieces,
 /// prefabs only in its maker's library) opens in the current Mapmaker. Synthetic documents only; the shape is that of the tester's file.
 /// </summary>
+[Collection(MapsDirCollection.Name)]   // both set SM_MAPS_DIR, a process-wide variable: never in parallel
 public sealed class PlaytestIdentityTests : IDisposable
 {
     readonly Lab _lab = new();
