@@ -325,7 +325,7 @@ public static class ServerCommandLine
                     if (value == "all") a = a with { Unlocks = UnlockMode.All }; else bad = "'all' (no progression yet)";
                     break;
                 case "--max-per-ip":
-                    if (Int(value) is { } cap && cap is >= 0 and <= Protocol.MaxPlayers) a = a with { MaxPerIp = cap }; else bad = $"a whole number from 0 (no cap) to {Protocol.MaxPlayers}";
+                    if (Int(value) is { } cap && cap is >= 0 and <= Protocol.MaxMatchPlayers) a = a with { MaxPerIp = cap }; else bad = $"a whole number from 0 (no cap) to {Protocol.MaxMatchPlayers}";
                     break;
                 case "--max-spectators":
                     if (Int(value) is { } spectators && spectators is >= 0 and <= Protocol.MaxSpectators) a = a with { MaxSpectators = spectators }; else bad = $"a whole number from 0 (none) to {Protocol.MaxSpectators}";

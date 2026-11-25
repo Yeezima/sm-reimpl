@@ -172,6 +172,12 @@ public sealed partial class GameClient
     readonly uint _nonce;
     readonly SortedDictionary<uint, (PlayerInput Input, PlayerState State)> _history = new();
     readonly List<(uint Tick, Dictionary<int, PlayerState> Players, Dictionary<int, ProjectileView> Projectiles)> _snapshots = new();
+    /// <summary>Protocol 94: the lean records held through the snapshots they are missing from (<see cref="LeanHold"/>).</summary>
+    readonly LeanHold _leanHold = new();
+    /// <summary>Protocol 94: the held lean records put back into the newest snapshot (diagnostics and tests; 0 outside a crowded Warfront snapshot).</summary>
+    public int LeanHeldIn { get; private set; }
+    /// <summary>Protocol 94: whether any snapshot of this connection carried lean records (a crowded Warfront snapshot; never in Classic or Musou Mode).</summary>
+    public bool LeanSeen { get; private set; }
     /// <summary>Detonations received and not yet handed out by <see cref="TakeDetonations"/>, with the server tick they arrived at.</summary>
     readonly List<(uint Tick, ProjectileView Blast)> _pendingDetonations = new();
     /// <summary>Projectile ids whose detonation was already queued (a detonation stays in a few snapshots), oldest first.</summary>
@@ -582,7 +588,10 @@ public sealed partial class GameClient
         _latestSnapshotAt = _clock.Now;
         NoteInterpolation(s.ServerTick, _latestSnapshotAt);   // net/responsive: the adaptive interpolation delay
         NoteSnapshotLoss(s.ServerTick, _latestSnapshotAt);   // net/responsive: the lead's loss term
-        _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));
+        var players = s.Players.ToDictionary(p => p.PlayerId);
+        LeanSeen |= s.Lean > 0;
+        LeanHeldIn = _leanHold.Apply(s.ServerTick, s.Players, s.Lean, players, _config.TickRate);   // protocol 94: a Warfront AI Marine missing from this snapshot keeps its last record a while (LeanHold); Classic sends no lean records, so nothing
+        _snapshots.Add((s.ServerTick, players, projectiles.ToDictionary(q => q.Id)));
         if (_snapshots.Count > 64) _snapshots.RemoveAt(0);
         var matchBefore = Match;
         Match = s.Match ?? default;

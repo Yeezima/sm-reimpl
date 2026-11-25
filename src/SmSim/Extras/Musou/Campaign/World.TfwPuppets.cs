@@ -64,10 +64,11 @@ public sealed partial class World
     }
 
     /// <summary>A puppet of class <paramref name="role"/> in the first free puppet id, registered with the run; its id, null with no free id.</summary>
-    int? TfwSpawnPuppet(TfwRun run, string role, Vector3 at, float yaw, Func<int, Marine> make, bool reserved = false)
+    int? TfwSpawnPuppet(TfwRun run, string role, Vector3 at, float yaw, Func<int, Marine> make, bool reserved = false, bool podIds = false)
     {
-        if (!reserved && TfwFreePuppetIds() <= run.PodIdsReserved) return null;   // ids a called pod's Marines will need (World.TfwDropPod.cs) are not taken by others
-        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++)
+        if (!reserved && TfwFreePuppetIds() <= (TfwPodsOwnIds() ? 0 : run.PodIdsReserved)) return null;   // ids a called pod's Marines will need (World.TfwDropPod.cs) are not taken by others (Warfront's pods have their own)
+        int first = podIds ? TfwContracts.PodIdFirst : TfwContracts.PuppetIdFirst, last = podIds ? TfwContracts.PodIdLast : TfwContracts.PuppetIdLast;
+        for (int id = first; id <= last; id++)
         {
             if (_players.ContainsKey(id)) continue;
             int playerClass = TfwMarineClass(role);

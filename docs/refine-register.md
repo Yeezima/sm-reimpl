@@ -1798,7 +1798,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (88)
+### HUD and hit feedback (gameplay-critical) (89)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1945,6 +1945,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D69BECA2` | Dreadnought: the camera and HUD (D6) | the rig camera's offset and pivot x **2.2** (the marine's data curves x the model's size ratio; the data's `dn_*` curves were not found) with the data's fields of view: 42 exploring, 20 aimed, 55 sprinting (blended in 0.5 s); the autocannon reticle and the… (fov degrees, ratio) | kind: estimate; confidence: low | camera tuning; wargear `ui_data` | Dreadnought: the camera and HUD (D6): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the rig camera's offset and pivot x 2.2 (the marine's data curves x… | ☐ |
+
+*Spec section: Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-54D64E1A` | Scoreboard | rows sort by rank (a Warfront pod Marine last), then id; the writer leaves out the last rows past one 1200-byte packet (32 rows of 24-letter names: 24 rows; four humans, eight retainers and four pods with their names: 29 of 32) (rows) | kind: ours; confidence: medium | ours | Scoreboard: compare with SM1 with side-by-side screenshots in the same spot. Ours: rows sort by rank (a Warfront pod Marine last), then id; the writer… | ☐ |
 
 *Spec section: Added content: Warfront: card picker and XP HUD (W8: `WarfrontProgressionWire`, client `Extras/Warfront/Progression`; `WarfrontRules.Version` 3; added content, Warfront only)*
 
@@ -6668,6 +6674,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-D059B1AC` | Search budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-02FD7B05` | Budget | Added content: Warfront: the squad wiring (W9b: `WarfrontSquadWiring`, `WarfrontLedgerFeed`, `World.WarfrontSquad`; connects the squad sim to the node battle, the XP and the stats ledger) |
 | `R-90D6C1E5` | Wire | Added content: Warfront: retainers as World players (Phase B T2, the retainer spine: `Extras/Warfront/Retainers`, `World.WarfrontRetainers`; `WarfrontRules.Version` 23, `WarfrontWire.Format` 3) |
+| `R-FF465398` | Budget measure | Added content: Warfront: drop pod Marines outside the player limit (Phase B T2b: `World.WarfrontPods`, `GameServer.WarfrontSnapshot`, `Protocol.Lean`; protocol 94, a placeholder number the lead renumbers at integration) |
 | `R-E82906C6` | Custom map wire name | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-60F33AA0` | Custom map hash | Mapmaker custom maps (added content; ours, docs/mapmaker.md "Playing a map") |
 | `R-257C0C84` | Wire | Added content: Warfront, end of run (W15: `Extras/Warfront/Results`; pure, not yet wired to a server) |

@@ -148,7 +148,7 @@ public class HeadshotScoreTests
     [Fact]
     public void The_kill_feed_carries_the_headshot_as_cause_code_six_and_only_for_a_weapon_kill()
     {
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
         KillView[] kills =
         [
             new(1, 1, 2, KillCause.Weapon, 3, Vector3.UnitX, Headshot: true),
@@ -178,7 +178,7 @@ public class HeadshotScoreTests
     public void The_fullest_scoreboard_stays_within_one_datagram()
     {
         string name = new('W', PlayerNames.MaxLength);
-        var rows = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new ScoreEntry(i, i % 2 == 0 ? Team.Chaos : Team.SpaceMarines, 0, 65535, 65535, 65535, 0, name, 999, true, 255, 255)).ToArray();
+        var rows = Enumerable.Range(1, Protocol.MaxMatchPlayers).Select(i => new ScoreEntry(i, i % 2 == 0 ? Team.Chaos : Team.SpaceMarines, 0, 65535, 65535, 65535, 0, name, 999, true, 255, 255)).ToArray();
         var seize = new SeizeGroundInfo(10f, 5f, 1, 1f, [.. Enumerable.Range(0, Protocol.MaxSnapshotPoints).Select(k => new ControlPointInfo(new string('p', Protocol.MaxMapName), Vector3.One, 5f, 2f))]);
         var spectators = Enumerable.Range(100, Protocol.MaxSpectators).Select(i => new SpectatorEntry(i, name)).ToArray();
         var bytes = Protocol.Write(new Scoreboard(1, true, 41, 600f, false, rows, seize, spectators));

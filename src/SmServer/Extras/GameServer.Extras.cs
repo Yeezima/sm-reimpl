@@ -66,6 +66,14 @@ public sealed partial class GameServer
     partial void WarfrontCommand(int player, byte tag, byte[] payload, ref bool handled);
     partial void WarfrontPlayerCap(ref int cap);
     partial void WarfrontRestartDue(ref bool due, ref int code);
+    partial void WarfrontSnapshotRecords(int self, System.Numerics.Vector3 viewer, int points, ref PlayerState[] records, ref int lean);
+    partial void WarfrontScoreRank(int id, ref int rank);
+
+    /// <summary>A recipient's snapshot records (protocol 94): Warfront orders them and sends its AI Marines lean.</summary>
+    partial void ExtrasSnapshotRecords(int self, System.Numerics.Vector3 viewer, int points, ref PlayerState[] records, ref int lean) => WarfrontSnapshotRecords(self, viewer, points, ref records, ref lean);   // WARFRONT-HOOK
+
+    /// <summary>A scoreboard row's rank (protocol 94): Warfront's drop pod Marines last.</summary>
+    partial void ExtrasScoreRank(int id, ref int rank) => WarfrontScoreRank(id, ref rank);   // WARFRONT-HOOK
 
         partial void ExtrasRestartDue(ref bool due, ref int code) => WarfrontRestartDue(ref due, ref code);   // WARFRONT-HOOK
 }

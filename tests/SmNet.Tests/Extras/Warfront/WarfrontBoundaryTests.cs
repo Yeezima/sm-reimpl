@@ -35,6 +35,8 @@ public class WarfrontBoundaryTests
         ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontCommand"),
         ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontPlayerCap"),
         ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontRestartDue"),
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontSnapshotRecords"),   // Phase B T2b (protocol 94): a crowded snapshot's order, the AI Marines lean
+        ("src/SmServer/Extras/GameServer.Extras.cs", "WarfrontScoreRank"),         // Phase B T2b: the pod Marines' scoreboard rows last
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontGeneratedMap"),
         ("src/SmServer/Extras/Musou/Campaign/GameServer.Tfw.cs", "WarfrontMapNote"),
         ("src/SmServer/Extras/Musou/GameServer.TfwMap.cs", "WarfrontNav"),
@@ -98,6 +100,7 @@ public class WarfrontBoundaryTests
         ("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontSquadDamage"),
         ("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontScalesPlayer"),
         ("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine"),
+        ("src/SmSim/Extras/Musou/Campaign/World.TfwDropPod.cs", "WarfrontPodIds"),   // Phase B T2b: Warfront's pods take the pod id range
         ("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner"),
         // T2 review fixes (2026-11-25): retainers never capture; their melee reach is a human's (the cleave trim)
         ("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture"),
@@ -122,6 +125,7 @@ public class WarfrontBoundaryTests
     [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwSupply.cs", "WarfrontSquadDamage(target, ref own);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/World.MusouCombat.cs", "WarfrontScalesPlayer(playerId, ref scales);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwMeks.cs", "WarfrontTrapAiMarine(id, ref aiMarine);   // WARFRONT-HOOK")]
+    [InlineData("src/SmSim/Extras/Musou/Campaign/World.TfwDropPod.cs", "WarfrontPodIds(ref own);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/MusouSim.BossStun.cs", "WarfrontBossStunner(attacker, ref aiMarine);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/World.Musou.cs", "WarfrontOrkDamage(attack.Enemy, attack.Player, ref damage);   // WARFRONT-HOOK")]
     [InlineData("src/SmSim/Extras/Musou/Campaign/TfwBattle.cs", "WarfrontNoCapture(ref noCapture);   // WARFRONT-HOOK")]

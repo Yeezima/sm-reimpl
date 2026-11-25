@@ -137,7 +137,7 @@ public class StabKeyTests
     public void The_stab_bit_survives_the_wire()
     {
         Assert.Equal(InputButtons.Stab, Protocol.Quantize(new PlayerInput(1, 0, 0, 0, InputButtons.Stab)).Buttons);
-        Assert.Equal(91, Protocol.Version);
+        Assert.Equal(94, Protocol.Version);
     }
 
     [Fact]

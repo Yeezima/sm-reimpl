@@ -31,7 +31,7 @@ public sealed partial class World
         point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
         if (MarineBrain.Flat(p.Position, point) < TfwDropPodRules.MinCallerDistance) return false;
-        if (TfwFreePuppetIds() - run.PodIdsReserved < TfwDropPodRules.Marines) return false;   // the ids other pods have called count as taken; fewer than a squad's five free: refused at no cooldown, the player may retry (review 2026-11-14)
+        if ((TfwPodsOwnIds() ? TfwFreeIds(TfwContracts.PodIdFirst, TfwContracts.PodIdLast) : TfwFreePuppetIds()) - run.PodIdsReserved < TfwDropPodRules.Marines) return false;   // the ids other pods have called count as taken; fewer than a squad's five free: refused at no cooldown, the player may retry (review 2026-11-14). Warfront: the pods' own range (T2b)
         int rate = Math.Max(1, Config.TickRate);
         uint land = Tick + (uint)MathF.Round(TfwDropPodRules.LandSeconds * rate);
         uint spawn = land + (uint)MathF.Round((TfwDropPodRules.DoorSeconds + TfwDropPodRules.StepOutSeconds) * rate);
@@ -43,12 +43,26 @@ public sealed partial class World
     }
 
     /// <summary>Puppet ids not in use.</summary>
-    int TfwFreePuppetIds()
+    int TfwFreePuppetIds() => TfwFreeIds(TfwContracts.PuppetIdFirst, TfwContracts.PuppetIdLast);
+
+    /// <summary>Ids from <paramref name="first"/> to <paramref name="last"/> not in use.</summary>
+    int TfwFreeIds(int first, int last)
     {
         int free = 0;
-        for (int id = TfwContracts.PuppetIdFirst; id <= TfwContracts.PuppetIdLast; id++) if (!_players.ContainsKey(id)) free++;
+        for (int id = first; id <= last; id++) if (!_players.ContainsKey(id)) free++;
         return free;
     }
+
+    /// <summary>Whether the pods' Marines take their own id range (<see cref="TfwContracts.PodIdFirst"/>) and not the puppet ids: in Warfront only (T2b; owner 2026-11-24: "Drop pod marines don't count towards the limit").</summary>
+    bool TfwPodsOwnIds()
+    {
+        bool own = false;
+        WarfrontPodIds(ref own);   // WARFRONT-HOOK: Warfront's pods take the pod id range (Warfront/Battle/World.WarfrontPods.cs)
+        return own;
+    }
+
+    /// <summary>Warfront: the pods' Marines take the pod id range. Returns at once outside Warfront (Musou Mode's pods keep the puppet ids).</summary>
+    partial void WarfrontPodIds(ref bool own);
 
     /// <summary>The pods end with the field (the battle, or the last player leaving the Firing Range): their Marines go, the pods are forgotten.</summary>
     void TfwPodsEnd(TfwRun run)
@@ -129,6 +143,7 @@ public sealed partial class World
     /// <summary>The Marines step out, at the doors round the pod (<see cref="TfwDropPodRules.DoorRing"/>), each to hold the place he stands on.</summary>
     void TfwPodSpawn(TfwRun run, TfwPod pod)
     {
+        bool podIds = TfwPodsOwnIds();
         for (int k = 0; k < TfwDropPodRules.Marines; k++)
         {
             float angle = MathF.Tau * (k + 0.5f) / TfwDropPodRules.Marines;
@@ -136,7 +151,7 @@ public sealed partial class World
             if (Musou?.Nav is { } nav && nav.Nearest(at, 1.5f, 2.5f) is var node and >= 0) at = nav.Position(node);
             else at.Z = TfwGroundBelow(at, pod.At.Z + 1f);
             string name = TfwDropPodRules.Names[k % TfwDropPodRules.Names.Length];
-            if (TfwSpawnPuppet(run, "tactical", at, angle, id => new Marine(id, -1, name, MarineRole.Pod, pod.Caller) { HoldAt = at, Pod = pod }, reserved: true) is { } id) pod.MarineIds.Add(id);
+            if (TfwSpawnPuppet(run, "tactical", at, angle, id => new Marine(id, -1, name, MarineRole.Pod, pod.Caller) { HoldAt = at, Pod = pod }, reserved: true, podIds: podIds) is { } id) pod.MarineIds.Add(id);
         }
     }
 

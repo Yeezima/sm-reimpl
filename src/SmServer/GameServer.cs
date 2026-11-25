@@ -24,7 +24,7 @@ public sealed partial record ServerOptions
     /// protocol 37) is scaled by this (<see cref="World.SetDamageScale"/>); 1 (default): off.
     /// </summary>
     public float BotDamageScale { get; init; } = 1f;
-    public int MaxPlayers { get; init; } = Protocol.MaxPlayers;
+    public int MaxPlayers { get; init; } = Protocol.MaxMatchPlayers;   // protocol 94: the 16 a match admits (Protocol.MaxPlayers is the records a snapshot may carry)
     /// <summary>
     /// Protocol 46 (ours; observer tooling): spectators admitted besides the <see cref="MaxPlayers"/> players (0 admits none; <c>--max-spectators</c>), at most
     /// <see cref="Protocol.MaxSpectators"/> so the Scoreboard lists all of them. They never count toward <see cref="MaxPlayers"/>, teams, scores or balance.
@@ -505,12 +505,14 @@ public sealed partial class GameServer
     /// core cannot name). A plain range, not a hook: skipping 12 of 65535 ids changes nothing a faithful match can see (8 until Musou expansion S6 widened the range down; the allied pair of 2026-11-08 needs two).
     /// </summary>
     internal const int ReservedPlayerIdFirst = 65516, ReservedPlayerIdLast = 65527;
+    /// <summary>Protocol 94 (Phase B T2b): Warfront's drop pod Marines' ids (TfwContracts.PodIdFirst..PodIdLast, pinned by a test), skipped by joiners as the range above.</summary>
+    internal const int ReservedPodIdFirst = 65490, ReservedPodIdLast = 65509;
 
     int NextPlayerId()
     {
         var used = _peers.Values.Select(p => p.PlayerId).ToHashSet();
         used.UnionWith(World.Players.Keys);   // players without a peer (added content's AI Marines) hold their ids too
-        while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue or (>= ReservedPlayerIdFirst and <= ReservedPlayerIdLast))
+        while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue or (>= ReservedPlayerIdFirst and <= ReservedPlayerIdLast) or (>= ReservedPodIdFirst and <= ReservedPodIdLast))
             _nextPlayerId = _nextPlayerId is < 1 or >= ushort.MaxValue ? 1 : _nextPlayerId + 1;
         int id = _nextPlayerId;
         _nextPlayerId = id >= ushort.MaxValue ? 1 : id + 1;
@@ -791,9 +793,29 @@ public sealed partial class GameServer
         NoteSnapshotSent(peer, World.Tick);   // protocol 50: the ping's send time
         int slack = peer.SlackMs == int.MaxValue ? Protocol.NoSlack : peer.SlackMs;   // protocol 65
         peer.SlackMs = int.MaxValue;
-        _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
+        var records = players;
+        int lean = 0;
+        ExtrasSnapshotRecords(peer.PlayerId, viewer, points.Length, ref records, ref lean);   // EXTRAS-HOOK (protocol 94): Warfront picks and orders its players for this recipient and sends its AI Marines lean
+        _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, records, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
-            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack)));
+            Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick), InputSlack: slack, Lean: lean)));
+    }
+
+    /// <summary>
+    /// Hook for added content (protocol 94): may reorder <paramref name="records"/> (a new array; the one passed is every recipient's) for the recipient <paramref name="self"/> seeing from
+    /// <paramref name="viewer"/> (the snapshot carries <paramref name="points"/> control points), leave some out, and send the last <paramref name="lean"/> of them as lean records
+    /// (<see cref="Snapshot.Lean"/>). The snapshot writer still leaves out the last records past its budget. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasSnapshotRecords(int self, Vector3 viewer, int points, ref PlayerState[] records, ref int lean);
+
+    /// <summary>Hook for added content (protocol 94): the scoreboard rank of player <paramref name="id"/> (0, the default, first; rows sort by rank, then id, and the writer leaves out the last rows past one packet). Returns at once unless its feature runs.</summary>
+    partial void ExtrasScoreRank(int id, ref int rank);
+
+    int ScoreRank(int id)
+    {
+        int rank = 0;
+        ExtrasScoreRank(id, ref rank);   // EXTRAS-HOOK (protocol 94): Warfront's drop pod Marines last
+        return rank;
     }
 
     /// <summary>The match block every snapshot carries.</summary>
@@ -822,7 +844,7 @@ public sealed partial class GameServer
 
     /// <summary>The scoreboard every client gets: the rules and each player's side, class, kills and deaths (by id), and its ping (protocol 50).</summary>
     public Scoreboard ScoreboardOf() => new(World.Tick, World.Rules is not null, World.Rules?.ScoreLimit ?? 0, World.Rules?.TimeLimit ?? 0f, World.Rules?.FriendlyFire ?? true,
-        World.Players.Values.OrderBy(p => p.PlayerId).Select(p =>
+        World.Players.Values.OrderBy(p => ScoreRank(p.PlayerId)).ThenBy(p => p.PlayerId).Select(p =>
         {
             var s = World.Scores.GetValueOrDefault(p.PlayerId);
             var peer = PeerOf(p.PlayerId);
