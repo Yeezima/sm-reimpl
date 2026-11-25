@@ -30,7 +30,7 @@ public sealed partial class World
     Vector3 _duelEntry;
     float _duelEntryYaw;
     bool _duelEmptyLogged;
-    WarfrontBattleRules? _heldWrappedFor, _squadWrappedFor;   // the rules object each wrap was put on (a new run object is wrapped afresh)
+    WarfrontBattleRules? _heldWrappedFor;   // the rules object the CoopHeld wrap was put on (a new run object is wrapped afresh)
     MusouEnemy[]? _duelBuffer;
 
     /// <summary>The finale of the Chaos fortress under way (null: none yet, or not a Chaos fortress). Kept after the battle ends until the next one, so the server reads its end; a reading settles a win the
@@ -289,16 +289,7 @@ public sealed partial class World
             var before = rules.CoopHeld;
             rules.CoopHeld = id => (before?.Invoke(id) ?? false) || (DuelHolding && id != _duelist && !TfwContracts.IsPuppet(id) && id > 0);
         }
-        // T2 integration note (Fable review C5s, finding 8): these two wraps stand in for a hold the squad wiring should read itself (WarfrontSquadWiring's SquadStep and SquadTargets answering
-        // "nothing" while World.WarfrontDuelHoldsSquads); the wiring is T2's, so the wrap stays until that hook lands.
-        if (!ReferenceEquals(_squadWrappedFor, rules))
-        {
-            _squadWrappedFor = rules;
-            var step = rules.SquadStep;
-            var targets = rules.SquadTargets;
-            rules.SquadStep = () => { if (!DuelHolding) step?.Invoke(); };
-            rules.SquadTargets = into => DuelHolding ? 0 : targets?.Invoke(into) ?? 0;
-        }
+        // The squads' step reads World.WarfrontDuelHoldsSquads itself (WarfrontSquadWiring.OnSquadStep, the series-37 integration: C5s's wraps of SquadStep and SquadTargets are gone; T2 retired SquadTargets).
         if (rules.AnyRetainerStanding()) { WarfrontDuelBenchRetainers?.Invoke(); if (start) DuelLog("retainers benched"); }
         if (TfwGuards is { Count: > 0 } guards) { guards.Clear(); if (start) DuelLog("Guardsmen withdrawn"); }
         if (WarfrontChaosBreaches is { AnyStanding: true } breaches) breaches.CloseAll(silent: true, Tick);

@@ -85,24 +85,22 @@ public class DuelIsolationTests(ITestOutputHelper output)
     [Fact]
     public void RetainersBenched()
     {
+        // Since the series-37 integration the squads' step reads World.WarfrontDuelHoldsSquads itself (WarfrontSquadWiring.OnSquadStep; T2 retired SquadTargets), so the relay no longer wraps the seams.
         var (w, b) = FinaleRig.Fortress();
         var rules = w.Tfw!.Warfront!;
         bool standing = true;
-        int benched = 0, steps = 0, asked = 0;
+        int benched = 0;
         rules.AnyRetainerStanding = () => standing;
-        rules.SquadStep = () => steps++;
-        rules.SquadTargets = into => { asked++; return 0; };
         w.WarfrontDuelBenchRetainers = () => { benched++; standing = false; };
         FinaleRig.Steps(w, 10);
-        Assert.True(steps > 0);   // they fight in the bodyguard fight
+        Assert.False(w.WarfrontDuelHoldsSquads);   // they fight in the bodyguard fight
         FinaleRig.KillChosen(w, b, ticks: 1);
         Assert.Equal(1, benched);
-        int s0 = steps, a0 = asked;
+        Assert.True(w.WarfrontDuelHoldsSquads);   // no squad tick in the duel
         standing = true;   // one comes back (a reconnect's squad): benched again
         FinaleRig.Steps(w, 30);
         Assert.Equal(2, benched);
-        Assert.Equal(s0, steps);   // no squad tick in the duel
-        Assert.Equal(a0, asked);   // and no squad Marine is the Lord's target
+        Assert.True(w.WarfrontDuelHoldsSquads);
     }
 
     [Fact]

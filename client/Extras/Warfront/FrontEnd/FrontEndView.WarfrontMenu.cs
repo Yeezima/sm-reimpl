@@ -163,7 +163,6 @@ public sealed partial class FrontEndView
         WarfrontHidePages();
         ShowPage(page);
         _page = null;   // the watcher takes this page's Esc and B (the front end's own step back leads to PLAYER VERSUS PLAYER)
-        if (_args.ContainsKey("warfront-reset-dialog") && !reset.Disabled) Callable.From(WarfrontResetPress).CallDeferred();   // screenshot aid: the RESET PROGRESSION card open (it only opens; nothing is reset)
     }
     /// <summary>Self-test: opens the page again (it is rebuilt from the run folder each time).</summary>
     internal void ShowWarfrontPageForTest() => ShowWarfrontPage();

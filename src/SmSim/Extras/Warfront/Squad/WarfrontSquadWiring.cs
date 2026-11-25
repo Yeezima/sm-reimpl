@@ -295,7 +295,7 @@ public sealed class WarfrontSquadWiring
 
     void OnSquadStep()
     {
-        if (_world.Tfw is not { Battle: not null } run || !_began) return;
+        if (_world.Tfw is not { Battle: not null } run || !_began || _world.WarfrontDuelHoldsSquads) return;   // Chaos C5's duel relay holds the squads (read here since the series-37 integration; C5s wrapped this step before)
         var rt = _rules.Progression;
         uint tick = (uint)_world.Tick;
         _field.Clear(); _field.AddRange(run.InField); _field.Sort();

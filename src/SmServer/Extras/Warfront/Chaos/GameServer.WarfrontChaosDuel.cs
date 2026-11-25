@@ -40,7 +40,7 @@ public sealed partial class GameServer
 
     partial void WarfrontChaosDuelCreated()
     {
-        World.WarfrontDuelBenchRetainers = () => _wfWiring?.Sim.EndBattle();
+        World.WarfrontDuelBenchRetainers = () => _wfWiring?.Retainers.EndBattle();   // Phase B T2 (series-37 integration): the retainers are World players; DuelIsolate dismisses them (TfwDismissMarines) and this clears their battle records, so none stands or re-lands
         World.WarfrontDuelSquadOf = key => _wfWiring?.RecordsOf(key) ?? [];
         WfLog($"chaos stage: the finale on (rules {WarfrontDuelRules.Version}): the bodyguard, then the duel relay; state on tag {WarfrontChaosWire.Tag} kinds {WarfrontChaosDuelWire.KindState}/{WarfrontChaosDuelWire.KindTelegraph}");
     }
