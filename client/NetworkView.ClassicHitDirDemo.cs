@@ -41,7 +41,13 @@ public partial class NetworkView
             else if (d < next) { next = d; second = pid; }
         }
         if (first == 0) return;
+        // repair 4, re-review of 06ef6bc2 finding N6: the first stroke went out on the first frame a victim was seen, before the fixed side camera (--observe-side, placed by the
+        // observer's update) had moved, so it was laid across the old camera's view and recorded end-on and small (about 1/4 of the later bursts' red). Now it waits for that
+        // camera and then one second (the first frames after the join).
+        if (ObserveSide > 0f && _sideCamera is null) return;
+        if (double.IsNegativeInfinity(_hitDirDemoAt)) { _hitDirDemoAt = _connectedFor - every + 1.0; return; }
         _hitDirDemoAt = _connectedFor;
+        if (LogHitDir) GD.Print($"HITDIRDEMO turn (t {_connectedFor:F2}): camera at {camera.GlobalPosition.X:F2},{camera.GlobalPosition.Y:F2},{camera.GlobalPosition.Z:F2}");
         string kind = _hitDirDemo switch
         {
             "cycle" => HitDirDemoCycle[_hitDirDemoStep++ % HitDirDemoCycle.Length],
