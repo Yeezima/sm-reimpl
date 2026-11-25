@@ -84,7 +84,7 @@ public class ExecutionOrkHoldTests
         Assert.False(w.Musou.ExecutionsBlocksHit(boy));
     }
 
-    [Fact(Skip = "X4 phase 2: the Damage, Stagger and KnockDown gates of a held Ork wait for Chaos C2 (MusouSim.cs, MusouCombat.cs, Campaign/MusouSim.Knock.cs)")]
+    [Fact]   // X4 phase 2 (wired at the series-37 integration): the Damage, Stagger and KnockDown gates (MusouSim.cs, MusouCombat.cs, Campaign/MusouSim.Knock.cs)
     public void BulletBlastBurnLightningStaggerKnockAllRefused()
     {
         var (w, boy, _) = Started();
@@ -95,7 +95,7 @@ public class ExecutionOrkHoldTests
         Assert.True(w.Musou.TryGet(boy, out var e) && e.Health == 100f);
     }
 
-    [Fact(Skip = "X4 phase 2: until the Damage gate lands, any hit still lands on a held Ork; the kill frame's own hit is covered by AllEligibleTypesDieAtKillFrame")]
+    [Fact]   // X4 phase 2 (wired at the series-37 integration): only the kill frame's own hit lands on a held Ork
     public void OnlyKillFrameDamageLands()
     {
         var (w, boy, _) = Started();

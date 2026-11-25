@@ -49,14 +49,11 @@ public sealed partial class World
     /// <summary>Test aid: how many candidate gathers (<see cref="MusouSim.Query"/> calls) the presses made.</summary>
     public int ExecutionsGathers { get; private set; }
 
-    /// <summary>
-    /// Test aid until Chaos C2's <c>SimConfig.WarfrontFaction</c> lands (X4 phase 2 adds <c>|| Config.WarfrontFaction == WarfrontFaction.Chaos</c> to <see cref="ExecutionsChaosStage"/>): treat
-    /// the stage as a Chaos one. Never set outside tests.
-    /// </summary>
+    /// <summary>Test aid: treat the stage as a Chaos one without a Chaos config. Never set outside tests.</summary>
     internal bool ExecutionsChaosStageForTests { get; set; }
 
-    /// <summary>Whether the stage's enemies are Chaos (no executions until X4b).</summary>
-    bool ExecutionsChaosStage => ExecutionsChaosStageForTests;
+    /// <summary>Whether the stage's enemies are Chaos (no executions until X4b): the stage's army (Chaos C2's <see cref="SimConfig.WarfrontFaction"/>; X4 phase 2, wired at the series-37 integration).</summary>
+    bool ExecutionsChaosStage => ExecutionsChaosStageForTests || Config.WarfrontChaosArmy;
 
     /// <summary>Whether the war is in a battle (node, HQ or fortress) with its enemies in play.</summary>
     bool ExecutionsInBattle => _musou is not null && _tfw is { Battle: not null } run && run.Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup;   // the fight goes on through the extraction countdown (X4 review)

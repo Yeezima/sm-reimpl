@@ -26,6 +26,10 @@ public class ExecutionsBoundaryTests
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsHeldStep"),
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsSpawned"),
         ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsReset"),
+        // X4 phase 2 (series-37 integration, after Chaos C2): a held Ork takes no other hit, stagger or knockdown.
+        ("src/SmSim/Extras/Musou/MusouSim.cs", "ExecutionsDamageHeld"),
+        ("src/SmSim/Extras/Musou/MusouCombat.cs", "ExecutionsStaggerHeld"),
+        ("src/SmSim/Extras/Musou/Campaign/MusouSim.Knock.cs", "ExecutionsKnockHeld"),
     ];
 
     /// <summary>Files outside the executions folders that may name the namespace: the config hash's dispatcher.</summary>

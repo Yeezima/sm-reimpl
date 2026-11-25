@@ -105,6 +105,17 @@ public sealed partial class MusouSim
         _execHeldCount--;
     }
 
+    // ---- X4 phase 2 (series-37 integration): the hit gates (MusouSim.cs Damage, MusouCombat.cs Stagger, Campaign/MusouSim.Knock.cs KnockDown; // EXECUTIONS-HOOK) ----
+
+    /// <summary>A hit on a held Ork is refused (its own kill frame excepted).</summary>
+    partial void ExecutionsDamageHeld(ushort id, ref bool held) { if (ExecutionsBlocksHit(id)) held = true; }
+
+    /// <summary>A held Ork is not staggered.</summary>
+    partial void ExecutionsStaggerHeld(ushort id, ref bool held) { if (ExecutionsBlocksHit(id)) held = true; }
+
+    /// <summary>A held Ork is not knocked down.</summary>
+    partial void ExecutionsKnockHeld(ushort id, ref bool held) { if (ExecutionsBlocksHit(id)) held = true; }
+
     /// <summary>The pool was cleared (a new round): every hold is dropped.</summary>
     partial void ExecutionsReset()
     {

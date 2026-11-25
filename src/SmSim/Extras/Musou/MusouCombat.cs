@@ -121,11 +121,15 @@ public sealed partial class MusouSim
     /// </summary>
     public bool Stagger(ushort id, Vector2 push, float distance) => Stagger(id, push, distance, 0);
 
+    /// <summary>Executions X4 phase 2 (Extras/Executions/Orks/MusouSim.Executions.cs): sets <paramref name="held"/> when enemy <paramref name="id"/> is held for a Warfront execution. No-op while none is held.</summary>
+    partial void ExecutionsStaggerHeld(ushort id, ref bool held);
+
     /// <summary><see cref="Stagger(ushort, Vector2, float)"/> by <paramref name="attacker"/> (0: unknown), through Warfront's stagger gate.</summary>
     internal bool Stagger(ushort id, Vector2 push, float distance, int attacker)
     {
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne || _type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) return false;   // in a hop he cannot be staggered (S3); a Boss Ork too (owner, 2026-11-06: hyper armour)
+        bool execHeld = false; ExecutionsStaggerHeld(id, ref execHeld); if (execHeld) return false;   // EXECUTIONS-HOOK: an Ork held for a Warfront execution is not staggered (X4 phase 2)
         bool barred = false; WarfrontStaggerGate(id, attacker, ref barred); if (barred) return false;   // WARFRONT-HOOK: Warfront's Chaos gate (MusouSim.cs)
         if (_state[i] is not (MusouEnemyState.Knocked or MusouEnemyState.Stunned)) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs); a stunned Weirdboy stays stunned
         _token[i] = 0; _burst[i] = 0;

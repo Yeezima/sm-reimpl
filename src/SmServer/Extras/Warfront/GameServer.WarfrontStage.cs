@@ -30,7 +30,9 @@ public sealed partial class GameServer
         if (refusal is not null) { WfLog($"deploy from P{player} refused: {refusal}"); s.GateRefusal = refusal; s.GateRefusalTick = World.Tick; return; }
 
         string map = WarfrontStagePlan.MapOf(c, target);
-        if (map == s.Map && World.Tfw is not null)
+        bool landHere = WarfrontStagePlan.CanLandHere(map, s.Map, c.Faction, WarfrontRunFiles.StageFaction);   // Chaos Warfront C1 (wired at the series-37 integration): a stage built for the other army restages
+        if (map == s.Map && !landHere) WfLog($"deploy {target.Kind} lane {target.Lane} on this map ({map}): this stage was built for {WarfrontRunFiles.StageFaction}, the run's army is {c.Faction}: restaging");
+        if (landHere && World.Tfw is not null)
         {
             if (!c.TryDeploy(key, target, out string? error)) { WfLog($"deploy refused: {error}"); return; }
             WfSave(s);

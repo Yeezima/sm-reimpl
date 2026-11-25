@@ -499,7 +499,7 @@ public class WarfrontExecutionAcceptanceTests
 
     // ---- known phase-1 gaps: the brief's expectation, skipped until the phase lands ----
 
-    [Fact(Skip = "X4 phase 2: a held Ork must be immune to every other hit, stagger and knockdown (MusouSim.Damage / Stagger / KnockDown hooks) until its kill frame; today MusouSim.Damage still lands")]
+    [Fact]   // X4 phase 2 (wired at the series-37 integration): a held Ork is immune to every other hit, stagger and knockdown until its kill frame
     public void HeldOrk_ImmuneToOtherDamage_UntilTheKillFrame()
     {
         var w = ExecutionOrkKit.Rig();

@@ -11,4 +11,7 @@ public sealed partial record SimConfig
 {
     /// <summary>The army this stage's enemy sim fields (Orks: unchanged; Chaos: the Chaos roster, <c>Extras/Warfront/Chaos/Roster/</c>).</summary>
     public WarfrontFaction WarfrontFaction { get; init; }
+
+    /// <summary>Whether this config's army is Chaos (<see cref="WarfrontFaction"/>): for added content outside Warfront's folders, which must not name its namespace (executions X4 phase 2, the series-37 integration).</summary>
+    public bool WarfrontChaosArmy => WarfrontFaction == WarfrontFaction.Chaos;
 }

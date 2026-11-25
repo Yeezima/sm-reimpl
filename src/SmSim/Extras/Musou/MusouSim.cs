@@ -136,6 +136,9 @@ public sealed partial class MusouSim
     /// <summary>Warfront: a hit by <paramref name="attacker"/> (a player id; 0 for none) on the enemy <paramref name="enemy"/>, before it is applied (the assists' record).</summary>
     partial void WarfrontDamaged(ushort enemy, int attacker);
 
+    /// <summary>Executions X4 phase 2 (Extras/Executions/Orks/MusouSim.Executions.cs): sets <paramref name="held"/> when enemy <paramref name="id"/> is held for a Warfront execution and this hit is not its kill frame. No-op while none is held.</summary>
+    partial void ExecutionsDamageHeld(ushort id, ref bool held);
+
     /// <summary>Warfront's Chaos faction (C0 seam, 2026-11-25): the kind an enemy spawns as, and its health, at the one spawn chokepoint (the 'Ard Boy slot as a Chaos kind). No-op without Warfront and the Chaos faction.</summary>
     partial void WarfrontKind(ref MusouEnemyType type, ref float health);
 
@@ -221,6 +224,7 @@ public sealed partial class MusouSim
         amount *= AttackerScale(attacker, cause);   // the powerups' damage (Double Damage, Supercharged Melee; MusouSim.Powerups.cs)
         bool barred = false; WarfrontDamageGate(id, attacker, cause, ref amount, ref barred); if (barred) return false;   // WARFRONT-HOOK
         if (!(amount > 0f) || !float.IsFinite(amount)) return false;   // after the scales and the gate (C0 review: a scale or gate of 0, or one not finite, lands nothing)
+        bool execHeld = false; ExecutionsDamageHeld(id, ref execHeld); if (execHeld) return false;   // EXECUTIONS-HOOK: an Ork held for a Warfront execution takes only its kill frame (X4 phase 2)
         WarfrontDamaged(id, attacker);   // WARFRONT-HOOK
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
         if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)

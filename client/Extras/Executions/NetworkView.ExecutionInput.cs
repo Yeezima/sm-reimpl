@@ -162,11 +162,11 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// Whether this Warfront run fights Chaos (Chaos C2's renegade roster on the Ork type bytes): executions are refused there until X4b. The server's refusal reads
-    /// <c>SimConfig.WarfrontFaction</c>, which arrives with C2 (X4 phase 2 wires it; until then only a sim test aid sets a Chaos stage), so with neither on this base this stays false and the dot can
-    /// never promise a press the server refuses here. When C2 lands: <c>_config?.WarfrontFaction == Chaos</c> (one line; X6 review X6-12, lead 40).
+    /// Whether this Warfront run fights Chaos (Chaos C2's renegade roster on the Ork type bytes): executions are refused there until X4b. The server's refusal reads the stage's
+    /// <c>SimConfig.WarfrontFaction</c> (X4 phase 2); the client's config carries the army once the Hub names it (C3's latch, <c>WarfrontChaosTuning.Apply</c>), so the dot never promises a press the
+    /// server refuses (X6 review X6-12, lead 40; wired at the series-37 integration).
     /// </summary>
-    static bool ExecutionsChaosRun() => false;
+    bool ExecutionsChaosRun() => _config?.WarfrontChaosArmy == true;
 
     // ---- the overshield shell ----
 
