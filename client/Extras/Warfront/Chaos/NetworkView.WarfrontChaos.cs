@@ -99,6 +99,7 @@ public partial class NetworkView
         }
         _musouRulesOver = _config?.MusouRules;   // the guns' bursts, the volleys and the crowd's speeds read the Chaos table
         if (_musouCrowd is { } crowd) crowd.RulesOver = _musouRulesOver;
+        WarfrontChaosDuelFrame();   // C5c: the fortress's silent breach closes and the shielded Lord's bar (after the relabels above)
         if (_musouRagdolls is null) _musouRagdollsTried = true;   // the pool is the Ork boy's ragdoll: never built for a Chaos army
         _wfChaos ??= new WarfrontChaosLooks(_gameDir, WarfrontChaosHeldFromConfig);
         if (_musouLooks is { } l) l.WarfrontChaos = _wfChaos;

@@ -248,5 +248,56 @@ public class DuelHudModelTests
         Assert.Contains("partial void WarfrontChaosDuelSpectate(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view, ref bool taken);", duel);
         Assert.Contains("partial void WarfrontChaosDuelSection(byte tag, ReadOnlySpan<byte> payload, ref bool handled)", duel);
         Assert.Contains("_wfBreach.SilentCloses = true;", duel);
+        // lead 40: the fortress flag from the Battle section, the per-frame call from C3's Chaos frame (after its relabels)
+        var battle = File.ReadAllLines(Path.Combine(root, "client/Extras/Warfront/Battle/NetworkView.WarfrontBattle.cs"));
+        Assert.Equal(1, battle.Count(l => l.Contains("WarfrontDuelBattleSeen(section.IsFortress, _wfBattleAt);   // WARFRONT-HOOK", StringComparison.Ordinal)));
+        var chaos = File.ReadAllLines(Path.Combine(root, "client/Extras/Warfront/Chaos/NetworkView.WarfrontChaos.cs"));
+        int frame = Array.FindIndex(chaos, l => l.Contains("WarfrontChaosDuelFrame();", StringComparison.Ordinal));
+        int relabel = Array.FindIndex(chaos, l => l.Contains("hud.WarfrontRelabel = chaos ?", StringComparison.Ordinal));
+        Assert.True(frame > relabel && relabel >= 0, "the duel frame runs after C3's relabel, so the shielded word wins");
+        Assert.Equal(1, chaos.Count(l => l.Contains("WarfrontChaosDuelFrame()", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void The_shielded_lord_reads_shielded_and_the_other_words_stay_chaos()
+    {
+        Assert.Equal("CHAOS LORD: SHIELDED", ChaosDuelLook.ShieldedRelabel("ORK WARBOSS"));
+        Assert.Equal("CHAOS LORD: SHIELDED", ChaosDuelLook.ShieldedRelabel("WARBOSS"));
+        Assert.Equal("CHOSEN", ChaosDuelLook.ShieldedRelabel("BOSS NOB"));
+        Assert.Equal("CHAOS PREVAILS", ChaosDuelLook.ShieldedRelabel("THE HORDE PREVAILS"));
+    }
+
+    [Fact]
+    public void Clear_resets_silent_closes_and_a_closure_of_no_listed_breach_is_ignored()
+    {
+        var m = new ChaosBreachModel { SilentCloses = true };
+        m.Clear();
+        Assert.False(m.SilentCloses);
+        Assert.True(m.Apply(WarfrontChaosWire.EncodeClosure(new WarfrontChaosWire.Closure(9, 1, 2)), 0.0, out var none));   // no list yet
+        Assert.Null(none);
+        Assert.Equal(1, m.Ignored);
+        m.Apply(WarfrontChaosWire.EncodeBreaches([new WarfrontChaosWire.Breach(1, 0, 0, 0, WarfrontBreachState.Open, 0)]), 1.0, out _);
+        Assert.True(m.Apply(WarfrontChaosWire.EncodeClosure(new WarfrontChaosWire.Closure(9, 7, 2)), 1.1, out var unknown));   // an id the list does not show
+        Assert.Null(unknown);
+        Assert.Equal(2, m.Ignored);
+        Assert.True(m.Apply(WarfrontChaosWire.EncodeClosure(new WarfrontChaosWire.Closure(9, 1, 2)), 1.2, out var real));
+        Assert.NotNull(real);
+    }
+
+    [Fact]
+    public void A_lost_finale_is_not_the_hq_falling()
+    {
+        var finale = new SmClient.Extras.Warfront.Hub.WarfrontHubModel();
+        finale.Apply(new SmClient.Extras.Warfront.Hub.WarfrontHubView { Phase = SmSim.Extras.Warfront.Campaign.WarfrontPhase.Lost, Fronts = [4, 4, 4], Faction = SmSim.Extras.Warfront.Faction.WarfrontFaction.Chaos });
+        Assert.True(finale.LostAtFinale);
+        Assert.Equal("STANDING", finale.HqState);
+        Assert.Equal("THE CHAOS LORD STANDS: NO CHALLENGER LEFT", finale.Note);
+        var hq = new SmClient.Extras.Warfront.Hub.WarfrontHubModel();
+        hq.Apply(new SmClient.Extras.Warfront.Hub.WarfrontHubView { Phase = SmSim.Extras.Warfront.Campaign.WarfrontPhase.Lost, Fronts = [0, 4, 4], Faction = SmSim.Extras.Warfront.Faction.WarfrontFaction.Chaos });
+        Assert.False(hq.LostAtFinale);
+        Assert.Equal("FALLEN", hq.HqState);
+        Assert.Equal("THE IMPERIAL HQ HAS FALLEN", hq.Note);
+        Assert.Equal("Finale lost (no challenger left)", SmSim.Extras.Warfront.Results.WarfrontResults.OutcomeText(SmSim.Extras.Warfront.Campaign.WarfrontOutcome.FinaleLost));
+        Assert.Equal("Win", SmSim.Extras.Warfront.Results.WarfrontResults.OutcomeText(SmSim.Extras.Warfront.Campaign.WarfrontOutcome.Win));
     }
 }

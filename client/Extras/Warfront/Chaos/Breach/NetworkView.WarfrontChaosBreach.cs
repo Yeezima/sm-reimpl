@@ -230,6 +230,7 @@ public partial class NetworkView
     /// <summary>The frame node went with its map (a stage change, a leave): no hum or marker outlives it, and an end-of-battle list that never came is not waited for.</summary>
     void WarfrontBreachGone()
     {
+        WarfrontBreachDemoGone();
         WarfrontBreachDropShows();
         if (_wfBreach.Breaches.Count > 0) GD.Print($"t {_connectedFor:F1} s: warfront chaos: the map went; breaches cleared");
         _wfBreach.Clear();

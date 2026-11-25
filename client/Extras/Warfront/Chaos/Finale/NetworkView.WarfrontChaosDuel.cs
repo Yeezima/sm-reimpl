@@ -28,6 +28,39 @@ public partial class NetworkView
     /// <summary>C5c's seam at the top of Warfront's spectator view (<c>NetworkView.WarfrontClientHooks.cs</c>, pinned by <c>DuelHudModelTests.SpectateForwardIsPinned</c>).</summary>
     partial void WarfrontChaosDuelSpectate(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view, ref bool taken);
 
+    double _wfFortressSeenAt = -100;
+    bool _wfDuelSeenThisBattle, _wfLordShieldedShown;
+
+    /// <summary>The Battle section's kind (the line in <c>NetworkView.WarfrontBattle.cs</c>, pinned): a fortress battle, on the Battle HUD's clock (real seconds).</summary>
+    void WarfrontDuelBattleSeen(bool fortress, double at)
+    {
+        if (fortress) _wfFortressSeenAt = at;
+    }
+
+    /// <summary>Whether this is a fortress battle (its Battle section within the Battle HUD's 3 s).</summary>
+    bool WarfrontFortressBattle => Time.GetTicksMsec() / 1000.0 - _wfFortressSeenAt <= 3.0;
+
+    /// <summary>
+    /// Every frame of a Chaos battle (the line in C3's <c>WarfrontChaosFrame</c>): in a Chaos fortress battle the breach model's silent closes are on for the whole battle (lead 40: a kind 2 closure still
+    /// shows; only the list's lost-burst fallback is off, so the duel's silent close never plays), and until the relay starts the Lord's bar reads <c>CHAOS LORD: SHIELDED</c>.
+    /// </summary>
+    void WarfrontChaosDuelFrame()
+    {
+        double now = _connectedFor;
+        bool fortress = WarfrontFortressBattle;
+        if (!fortress) _wfDuelSeenThisBattle = false;
+        if (_wfDuel.State is not null) _wfDuelSeenThisBattle = true;
+        bool silent = fortress || _wfDuel.Running(now);
+        if (silent != _wfBreach.SilentCloses)
+        {
+            _wfBreach.SilentCloses = silent;
+            GD.Print($"t {now:F1} s: warfront chaos: breach closures without a closure section are {(silent ? "silent (a Chaos fortress battle)" : "shown again")}");
+        }
+        bool shielded = fortress && !_wfDuelSeenThisBattle;
+        if (shielded != _wfLordShieldedShown) { _wfLordShieldedShown = shielded; GD.Print($"t {now:F1} s: warfront chaos: the Lord's bar {(shielded ? "reads SHIELDED" : "plain")}"); }
+        if (shielded && _musouHud is { } hud) hud.WarfrontRelabel = ChaosDuelLook.ShieldedRelabel;
+    }
+
     /// <summary>The duel model, for the tests and the capture aid.</summary>
     internal ChaosDuelModel WarfrontDuelModel => _wfDuel;
 

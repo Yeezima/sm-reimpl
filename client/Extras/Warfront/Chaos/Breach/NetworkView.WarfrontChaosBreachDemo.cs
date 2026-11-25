@@ -40,6 +40,14 @@ public partial class NetworkView
 
     void BreachDemoSay(double now, string what) => GD.Print($"t {now:F1} s (frame {Engine.GetFramesDrawn()}): WFBREACHDEMO {what}");   // the frame number places the step in a --write-movie recording
 
+    /// <summary>The map went (C4c's frame node left): a walk in progress lets go of Move Forward (lead 40, C4c review), so the next map does not start with the key held.</summary>
+    void WarfrontBreachDemoGone()
+    {
+        if (!BreachDemoOn || _bdStep is not (BreachDemoStep.Walk or BreachDemoStep.Wait)) return;
+        Input.ActionRelease(ControlsInput.Name(GameAction.MoveForward));
+        BreachDemoDone(_connectedFor, "the map went mid-walk; Move Forward released");
+    }
+
     void WarfrontBreachDemoFrame(double now)
     {
         if (!BreachDemoOn || _bot || _client?.Predicted is not { } me || _config is null) return;

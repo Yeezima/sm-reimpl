@@ -76,6 +76,8 @@ public sealed class ChaosBreachModel
     public int Dropped { get; private set; }
     public int Repeats { get; private set; }
     public int ClosuresTaken { get; private set; }
+    /// <summary>Closures of a breach the latest list does not show (or with no list), ignored.</summary>
+    public int Ignored { get; private set; }
 
     /// <summary>Where a section of tag 51 goes (never throws).</summary>
     public static ChaosSectionRoute Route(ReadOnlySpan<byte> payload)
@@ -127,6 +129,7 @@ public sealed class ChaosBreachModel
             return true;
         }
         var c = s.Closed;
+        if (_breaches.Count == 0 || !_breaches.Exists(b => b.Id == c.Breach)) { Ignored++; return true; }   // lead 40 (C4c review): a closure of no breach the list shows (none yet, a battle gone, an unknown id) shows nothing
         if (!_seen.Add((c.Tick, c.Breach)) || _closed.ContainsKey(c.Breach)) { Repeats++; return true; }
         var shown = new ChaosBreachClosureShown(c.Breach, c.Closer, c.Tick, _centres.TryGetValue(c.Breach, out var at) ? at : null, now);
         _closed[c.Breach] = shown;
@@ -156,6 +159,7 @@ public sealed class ChaosBreachModel
         _breaches.Clear();
         _new.Clear();
         ForgetBattle();
+        SilentCloses = false;   // lead 40: never sticky past the battle (C5c sets it again for a Chaos fortress)
         ListAt = double.NegativeInfinity;
     }
 

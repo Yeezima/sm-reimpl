@@ -27,6 +27,7 @@ public partial class NetworkView
             WarfrontFitRoot(_hudView).AddChild(_wfBattle);   // the 1920 by 1080 design space fitted to the window, like the spectator overlay that sits under its line (fallen-watch fix)
         }
         _wfBattleAt = Time.GetTicksMsec() / 1000.0;
+        WarfrontDuelBattleSeen(section.IsFortress, _wfBattleAt);   // WARFRONT-HOOK: Chaos Warfront C5c, a Chaos fortress battle's silent closes and the shielded Lord
         _wfBattle.Apply(section, _wfBattleAt);
         return true;
     }

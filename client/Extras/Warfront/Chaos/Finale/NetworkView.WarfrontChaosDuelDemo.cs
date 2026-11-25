@@ -80,7 +80,7 @@ public partial class NetworkView
         [
             new(0.0, "entry: you are the champion", (o, _) => One(DdState(WarfrontDuelPhase.Duel, o, (ushort)(o + 1), 1, 0, full)), true),
             new(2.5, "the Lord at 85 %", (o, _) => One(DdState(WarfrontDuelPhase.Duel, o, (ushort)(o + 1), 1, 0, full * 0.85f)), false),
-            new(4.0, "leap marker 6 m ahead (1.0 s)", (o, _) => [DdTold(WarfrontLordTelegraph.Leap, _ddAhead, WarfrontDuelRules.LeapMarkerSeconds), DdTold(WarfrontLordTelegraph.Leap, _ddAhead, WarfrontDuelRules.LeapMarkerSeconds)], true),
+            new(4.0, "leap marker 6 m ahead (1.0 s)", (o, _) => { var leap = DdTold(WarfrontLordTelegraph.Leap, _ddAhead, WarfrontDuelRules.LeapMarkerSeconds); return [leap, leap]; }, true),
             new(6.0, "bolt 1", (o, _) => One(DdTold(WarfrontLordTelegraph.Bolt, _ddLordAt + new Godot.Vector3(0f, 0f, 1.9f), 0f)), true),
             new(6.6, "bolt 2", (o, _) => One(DdTold(WarfrontLordTelegraph.Bolt, _ddLordAt + new Godot.Vector3(0f, 0f, 1.9f), 0f)), false),
             new(7.2, "bolt 3, the Lord at 62 %", (o, _) => [DdTold(WarfrontLordTelegraph.Bolt, _ddLordAt + new Godot.Vector3(0f, 0f, 1.9f), 0f), DdState(WarfrontDuelPhase.Duel, o, (ushort)(o + 1), 1, 0, carried)], false),

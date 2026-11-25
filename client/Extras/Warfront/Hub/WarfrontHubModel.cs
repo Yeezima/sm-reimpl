@@ -137,7 +137,10 @@ public sealed class WarfrontHubModel
     public string FloorText(int lane) => !IsOver && _view.Fronts[lane] == 1 && !_view.Advanced[lane] ? "FLOOR: NODE 1 CANNOT FALL" : "";
 
     public string FortressState => _view.Phase == WarfrontPhase.Won ? (Chaos ? "CHAOS LORD SLAIN" : "WARBOSS SLAIN") : _view.FortressUnlocked ? "UNLOCKED" : "LOCKED";
-    public string HqState => _view.Phase == WarfrontPhase.Lost ? "FALLEN" : _view.Phase == WarfrontPhase.Won ? "HELD" : _view.HqMandatory ? "MUST BE HELD" : _view.Fronts.Any(f => f == 0) ? "BROKEN THROUGH" : "SECURE";
+    /// <summary>Chaos Warfront C5c (lead 40): the campaign was lost at the fortress's duel relay (FinaleLost), not at the HQ: lost with no lane broken through (the HQ falls only through a broken lane's mandatory defence).</summary>
+    public bool LostAtFinale => _view.Phase == WarfrontPhase.Lost && !_view.Fronts.Any(f => f == 0);
+
+    public string HqState => _view.Phase == WarfrontPhase.Lost ? (LostAtFinale ? "STANDING" : "FALLEN") : _view.Phase == WarfrontPhase.Won ? "HELD" : _view.HqMandatory ? "MUST BE HELD" : _view.Fronts.Any(f => f == 0) ? "BROKEN THROUGH" : "SECURE";
 
     public string Header => _view.Phase switch
     {
@@ -154,7 +157,7 @@ public sealed class WarfrontHubModel
     {
         get
         {
-            if (IsOver) return _view.Phase == WarfrontPhase.Won ? (Chaos ? "THE CHAOS LORD IS DEAD" : "THE ORK WARBOSS IS DEAD") : "THE IMPERIAL HQ HAS FALLEN";
+            if (IsOver) return _view.Phase == WarfrontPhase.Won ? (Chaos ? "THE CHAOS LORD IS DEAD" : "THE ORK WARBOSS IS DEAD") : LostAtFinale ? (Chaos ? "THE CHAOS LORD STANDS: NO CHALLENGER LEFT" : "THE WARBOSS STANDS: NO CHALLENGER LEFT") : "THE IMPERIAL HQ HAS FALLEN";
             if (!InShip) return "";
             if (_view.Leader is null) return "NO LEADER IS CONNECTED";
             if (!_view.ViewerIsLeader) return $"{LeaderName} IS CHOOSING THE DEPLOYMENT";

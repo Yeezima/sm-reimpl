@@ -24,6 +24,14 @@ public static class ChaosDuelLook
     public const string LordLabel = "CHAOS LORD";
     public const string LastChallenger = "LAST CHALLENGER";
     public const string EntryLine = "DUEL: YOU ALONE AGAINST THE CHAOS LORD";
+    public const string ShieldedLord = "CHAOS LORD: SHIELDED";
+
+    /// <summary>The HUD's words in a Chaos fortress before the relay (lead 40: a shielded cue on the Lord's bar): C3's Chaos words, the Lord's bar <see cref="ShieldedLord"/>.</summary>
+    public static string ShieldedRelabel(string text)
+    {
+        string chaos = SmContent.Extras.Warfront.WarfrontChaosLooksPlan.HudLabel(text);
+        return chaos == LordLabel ? ShieldedLord : chaos;
+    }
 
     /// <summary>The leap marker's red-violet (ours; the breach marker's colour, the warp's).</summary>
     public static readonly (float R, float G, float B) LeapColour = (0.86f, 0.18f, 0.62f);
