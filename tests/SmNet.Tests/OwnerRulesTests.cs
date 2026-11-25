@@ -520,9 +520,9 @@ public class OwnerRulesTests(ITestOutputHelper output)
         Assert.Equal(slim, Protocol.Slim(other));
         Assert.Equal(0, Protocol.Slim(other with { ReadyTicks = 0, RaiseTicks = 0 }).ReadyTicks);
         Assert.Equal(1, Protocol.Slim(other with { ReadyTicks = 0, RaiseTicks = 2 }).ReadyTicks);
-        // The AltFire bit (64) is dropped when an input batch is read.
+        // The old AltFire bit (64) is InputButtons.Execute since executions X1: carried by an input batch (the faithful simulation never reads it, the server drops it without ContentExtras.Executions).
         var batch = Protocol.Write(new InputBatch([new PlayerInput(1, 0, 0, 0, InputButtons.Fire | (InputButtons)64)], 1, 0));
-        Assert.Equal(InputButtons.Fire, Assert.IsType<InputBatch>(Protocol.Read(batch)).Inputs[0].Buttons);
+        Assert.Equal(InputButtons.Fire | InputButtons.Execute, Assert.IsType<InputBatch>(Protocol.Read(batch)).Inputs[0].Buttons);
     }
 
     [Theory]

@@ -322,9 +322,10 @@ public sealed class BindingSet
                 }
             }
             // An action the file does not name (added after it was saved: Execute, executions X1) keeps its default only where the file's own bindings leave it free, so an old file loads unchanged.
+            // Not the stab: T is the stab (classic-stab-on-t, owner 2026-11-17), so a file from before it that gave T to the shout loses the shout in the duplicate pass below (series-37 integration).
             var savedInputs = fromFile.SelectMany(a => table[a]).Where(i => i is not null).ToHashSet();
             foreach (var info in ControlActions.All)
-                if (!fromFile.Contains(info.Action) && table.TryGetValue(info.Action, out var defaulted))
+                if (info.Action != GameAction.Stab && !fromFile.Contains(info.Action) && table.TryGetValue(info.Action, out var defaulted))
                     for (int i = 0; i < defaulted.Length; i++)
                         if (defaulted[i] is { } input && savedInputs.Contains(input)) { notes.Add($"{info.Label}: {Display(input)} is already bound in the saved controls; left unbound."); defaulted[i] = null; }
             // An input twice in one device: the first (in the screen's order) keeps it.

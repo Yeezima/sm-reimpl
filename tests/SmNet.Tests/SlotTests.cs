@@ -289,7 +289,7 @@ public class SlotTests(ITestOutputHelper output)
         var input = new PlayerInput(9, 0f, 1f, 0.5f, InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.Switch);
         Assert.Equal(input, Protocol.Quantize(input));
         Assert.Equal(input, Assert.IsType<InputBatch>(Protocol.Read(Protocol.Write(new InputBatch([input], 1, 2)))).Inputs[0]);
-        Assert.Equal(InputButtons.Fire, Protocol.Quantize(input with { Buttons = InputButtons.Fire | (InputButtons)64 }).Buttons);   // bit 6 unknown since protocol 20 (bit 15 is Stab since protocol 81, 14 SlotSecond since 44; 11 is MeleeHeavy since protocol 17, 12 Interact since 24, 13 added content's ExtraAction since extras wire 2)
+        Assert.Equal(InputButtons.Fire | InputButtons.Execute, Protocol.Quantize(input with { Buttons = InputButtons.Fire | (InputButtons)64 }).Buttons);   // bit 6: AltFire until protocol 20, then unknown, InputButtons.Execute since executions X1 (carried; the faithful simulation never reads it and the server drops it without ContentExtras.Executions) (bit 15 is Stab since protocol 81, 14 SlotSecond since 44; 11 is MeleeHeavy since protocol 17, 12 Interact since 24, 13 added content's ExtraAction since extras wire 2)
 
         foreach (var (pistolHeld, primaryHeld, grenadeHeld) in new[] { (true, false, false), (false, true, true), (true, true, true), (false, false, false) })
         {
