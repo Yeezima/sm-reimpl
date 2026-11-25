@@ -123,7 +123,8 @@ public sealed record CharacterModel(HavokCharacterFile Rig, IReadOnlyList<Charac
         bool buildPaintMasks = false)
     {
         string name = MeshNameOf(path);
-        var model = StaticModel.Load(path, name, notes, texturePackages?.Invoke(path), allLightProps: buildPaintMasks);
+        var model = StaticModel.Load(path, name, notes, texturePackages?.Invoke(path), allLightProps: buildPaintMasks,
+            fixMaterial: buildPaintMasks ? Customization.BakedArmourPaint.FixMaterial(Path.GetFileNameWithoutExtension(path)) : null);
         if (buildPaintMasks) model = Customization.BakedArmourPaint.Apply(model, notes);   // armour-pieces-1125: masks for baked DLC armour
         string? rigidBone = null;
         Dictionary<int, RigidBlock>? rigid = null;

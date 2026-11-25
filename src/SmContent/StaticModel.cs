@@ -40,7 +40,10 @@ public sealed record StaticModel(string Archive, string MeshName, DcmMesh Mesh, 
     /// <param name="textureArchives">Further archives searched, in order, for diffuse textures the main archive lacks (the Chaos
     /// multiplayer armour keeps them in separate "_wg" / "_tt1" / "_tt2" packages).</param>
     /// <param name="allLightProps">Also read the <c>LightPropMap</c> of materials without a paint mask (armour-pieces-1125: the baked DLC armour, whose built mask uses it).</param>
-    public static StaticModel Load(string archivePath, string meshName, List<string>? notes = null, IEnumerable<string>? textureArchives = null, bool allLightProps = false)
+    /// <param name="fixMaterial">Optional: rewrites a material as read, before its textures are looked up (armour-pieces-1125: the co-op elite berserker's
+    /// developer materials, which name none of their package's textures; <see cref="Customization.BakedArmourPaint.FixMaterial"/>).</param>
+    public static StaticModel Load(string archivePath, string meshName, List<string>? notes = null, IEnumerable<string>? textureArchives = null, bool allLightProps = false,
+        Func<BmatMaterial, BmatMaterial>? fixMaterial = null)
     {
         using var archive = ObpkArchive.Open(archivePath);
         DcmMesh? mesh = null;
@@ -57,6 +60,7 @@ public sealed record StaticModel(string Archive, string MeshName, DcmMesh Mesh, 
                 }
             });
         if (mesh is null) throw new FileNotFoundException($"Mesh '{meshName}.dcm' not found in {Path.GetFileName(archivePath)}.");
+        if (fixMaterial is not null) foreach (var key in materials.Keys.ToList()) materials[key] = fixMaterial(materials[key]);
 
         var ranges = mesh.Blocks.SelectMany((b, bi) => b.Materials.Select(r => (bi, r))).ToList();
         var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

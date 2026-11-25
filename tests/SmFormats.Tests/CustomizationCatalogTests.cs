@@ -131,10 +131,10 @@ public partial class CustomizationCatalogTests : IDisposable
     static readonly string[] SmAquila = ["sm_a_head", "sm_a_torso", "sm_a_shoulder_left", "sm_a_shoulder_right", "sm_a_arm_left", "sm_a_arm_right", "sm_a_leg_left", "sm_a_leg_right", "sm_a_backpack"];
 
     /// <summary>Writes a complete synthetic install (the locale unless <paramref name="locale"/> is false).</summary>
-    void WriteInstall(bool locale = true, bool progression = true)
+    void WriteInstall(bool locale = true, bool progression = true, params SyntheticObpkWriter.File[] extraWargear)
     {
         WritePackage("global", Entry("global", GlobalBaf(progression)));
-        WritePackage("wargear",
+        WritePackage("wargear", [
             // weapons and equipment
             Entry("sm_mp_ranged_bolter", Gear("ranged", 1, 1100, 1101)),
             Entry("sm_mp_ranged_plasma_gun", Gear("ranged", 8, 0)),
@@ -176,7 +176,8 @@ public partial class CustomizationCatalogTests : IDisposable
             Entry("csm_basic_head", Gear("head", packages: ["pkg_c_helmet"])),
             Entry("csm_basic_torso", Gear("torso", packages: ["pkg_c_torso"])),
             Entry("csm_raptor_head", Gear("head", 1, 1320, packages: ["pkg_r_helmet"], helmet: "helmet")),
-            Entry("sm_backpack_heavy_bolter", Gear("backpack", packages: ["pkg_hb_bp"])));
+            Entry("sm_backpack_heavy_bolter", Gear("backpack", packages: ["pkg_hb_bp"])),
+            .. extraWargear]);
         WritePackage("mp_armor_set",
             Entry("mk_8_errant", ArmourSet("space_marine", "customizable", "", 1401, null,
                 "sm_b_leg_right", "sm_b_head", "sm_b_torso", "sm_b_leg_left", "sm_a_shoulder_left", "sm_a_shoulder_right", "sm_a_arm_left", "sm_a_arm_right", "sm_a_backpack", "sm_b_belt")),

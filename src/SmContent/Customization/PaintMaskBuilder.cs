@@ -116,15 +116,17 @@ public static class PaintMaskBuilder
             if (sum > 1f) { prim[i] /= sum; sec[i] /= sum; tert[i] /= sum; }
         }
 
-        float plateMedian = Median(plateLum, 60f), secMedian = Median(secLum, plateMedian), ornMedian = Median(ornLum, 90f);
-        // Dark (black) plates: their light scratches are worn bare metal, not paint; keep them as baked so a painted plate does not blotch.
-        if (plateMedian < 25f)
+        float plateMedian = Median(plateLum, 60f);
+        if (plateMedian < DarkPlateLuminance && !OldDarkPlates) SeparateDarkPlates(prim, tert, covered, lum, spec, w, h, plateMedian, ornLum);
+        else if (plateMedian < DarkPlateLuminance)
+            // Before 2026-11-25 (old-dark-plates): light texels of a black plate are worn bare metal and stay baked.
             for (int i = 0; i < n; i++)
                 if (prim[i] > 0f && lum[i] > plateMedian * 2.5f)
                 {
                     float keep = Smooth(plateMedian * 4.5f, plateMedian * 2.5f, lum[i]);
                     prim[i] *= keep;
                 }
+        float secMedian = Median(secLum, plateMedian), ornMedian = Median(ornLum, 90f);
 
         // Light denoising of the regions (3x3 average) so DXT1 block noise does not speckle the edges.
         prim = Box(prim, w, h); sec = Box(sec, w, h); tert = Box(tert, w, h);
@@ -148,6 +150,46 @@ public static class PaintMaskBuilder
         }
         float cov = Math.Max(1, coveredCount);
         return new BuiltPaintMask(w, h, mask, outDif, (float)(sp / cov), (float)(ss / cov), (float)(st / cov));
+    }
+
+    /// <summary>Plate median luminance (sRGB 0..255) below which a piece counts as black-schemed (Black Templars, Legion of the Damned, Iron Hands, campaign Titus).</summary>
+    public const float DarkPlateLuminance = 25f;
+
+    /// <summary>
+    /// Restore switch (old-dark-plates): true builds black plates' masks as before 2026-11-25 (every texel 2.5 x the plate median kept baked; shading by luminance
+    /// ratio). Test and comparison aid; process-wide, set before pieces load.
+    /// </summary>
+    public static bool OldDarkPlates { get; set; }
+
+    /// <summary>
+    /// Black plates (armour-pieces-1125, third step; ours). In a black texture the plate, its trim and the undersuit differ by lightness and specular, not colour, so
+    /// the colour clusters take them all as one plate. Undersuit, rubber and cables (specular well below the plates': under 0.35 to 0.6 of the plates' median) leave
+    /// the plate. Texels clearly lighter than the plate (18 to 34 above its median luminance) are either trim or wear: trim when they are as specular as the plate
+    /// or more (1 to 1.5 x) and lie in a light band (35 to 60 % of their 7x7 neighbourhood light), then they become the tertiary region and are painted like
+    /// regular armour's trim; scratches and chips (isolated light texels: under 35 to 60 % of the neighbourhood light) stay baked, as worn bare metal, and wide
+    /// light patches that are not trim stay plate (lighter shading, <see cref="Grey"/>), so the wear is kept without blotches.
+    /// </summary>
+    static void SeparateDarkPlates(float[] prim, float[] tert, bool[] covered, float[] lum, float[] spec, int w, int h, float plateMedian, List<float> ornLum)
+    {
+        int n = w * h;
+        var specs = new List<float>();
+        for (int i = 0; i < n; i++) if (covered[i] && prim[i] > 0.6f) specs.Add(spec[i]);
+        float plateSpec = MathF.Max(8f, Median(specs, 20f));
+        var light = new float[n];
+        for (int i = 0; i < n; i++) if (covered[i] && prim[i] > 0f) light[i] = Smooth(plateMedian + 18f, plateMedian + 34f, lum[i]);
+        var nearLight = Box(light, w, h, 3);
+        for (int i = 0; i < n; i++)
+        {
+            if (prim[i] <= 0f) continue;
+            prim[i] *= 1f - Smooth(plateSpec * 0.6f, plateSpec * 0.35f, spec[i]);
+            if (light[i] <= 0f) continue;
+            float trim = light[i] * Smooth(0.35f, 0.6f, nearLight[i]) * Smooth(plateSpec, plateSpec * 1.5f, spec[i]);
+            float move = prim[i] * trim;
+            prim[i] -= move; tert[i] += move;
+            if (tert[i] > 0.6f) ornLum.Add(lum[i]);
+            // Isolated light texels (scratches, chips) stay baked; wide light patches that are not trim (rubbed, dusty paint) stay plate, lighter shaded.
+            prim[i] *= 1f - light[i] * (1f - trim) * Smooth(0.6f, 0.35f, nearLight[i]);
+        }
     }
 
     readonly record struct Centre(float L, float A, float B);
@@ -237,6 +279,9 @@ public static class PaintMaskBuilder
 
     static float Grey(float lum, float regionMedian, float target)
     {
+        // Black regions (armour-pieces-1125 third step): their detail is a few levels of a near-black texture, so a ratio to the median turns block noise into
+        // blotches; the difference to the median is kept instead, as if the plate were 40 levels bright (dirt and scratches stay visible, noise stays small).
+        if (regionMedian < DarkPlateLuminance && !OldDarkPlates) return Math.Clamp(target * (1f + (lum - regionMedian) / 40f), target * 0.6f, target * 1.5f);
         float ratio = lum / MathF.Max(regionMedian, 1f);
         // Dark regions carry more compression noise relative to their signal: compress the ratio toward 1.
         float gamma = regionMedian < 25f ? 0.3f : regionMedian < 40f ? 0.7f : 1f;

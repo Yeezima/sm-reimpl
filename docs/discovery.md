@@ -2709,3 +2709,32 @@ Dependency note (singleplayer content, accepted by the owner, "Yes, use 05 for b
 - **Waste Management metal materials (classic-maps-all, 2026-11-19; `smtool map-emissive auto --map mp_tdm_01 --vertex-colours` and `--material`).** The map'"'"'s metal is drawn by the layered shaders (`dif2_advvtxbld_vtxtint_norm2_drvspec` for `Factory_Metl`, `Metal_Dark`, `Pipes_Metl`; `diff2_mskblenduv10_vtxtint_norm_drvspec` for `Pipes_1m_red_LODH`) and single-layer ones (`diff_vtxtint_norm_drvspec`: `Metl_agedpanel`, `Pipes_Rivets`); every one has `TileU = TileV = 1`, so layer 2 and the noise are at the base scale; the per-vertex alpha (mean 0.1 to 0.9) carries the rust or damage layer and is read by `MapMaterials`. The vertex RGB of `vtxtint` materials is far from white (mean 0.3 to 0.5, `Metl_agedpanel` 0.42/0.34/0.26 on 95% of its vertices): switching the tint off (`SM_NO_TINT=1`) brightens the whole level, so it works as baked darkening and stays. The meshes carry a second UV set (`Uv1`) spanning a coarser, different range (Outerwall: first set u -18..18, second -5..7; `Giant_pipe` all zero). Test: reading layer 2 and the noise through it (shader branch tried 2026-11-19) turned the rust junk pile into a wood-like pattern and left the metal unchanged, so it was **not** kept: the shader names carry no `uv1` suffix (the `diffuv1_*` family, which does, is already read through it). The cause of the repeating metal texture is therefore **not settled by the data**; the metal materials of this map use the layers `MapMaterials` already reads. Salmon in the spawns: the console papers (`acc_seal_*`, `acc_scroll_*`, vertex colour 0.62/0/0 on `acc_skull_small_grey`) and the pink `Metl_agedpanel` plates, whose colour is in the texture (unchanged with the tint off).
 
 - **Waste Management camouflage walls: solved (classic-maps-all, 2026-11-19).** The blotch pattern in the owner's views is the dif2_advvtxbld* blend mask (`mask_rusty_noise_msk`, a rust-patch texture) tiled at UV x `VtxBlendParams.z` (Metal_Dark: 5 per metre, contrast 10.2, so hard-edged); found by painting layer 2 green. Now read as UV / z on the new classic maps (an interpretation: z as a patch size in metres; changes-from-original). The metal materials' other layers are unchanged. The earlier 'repeating metal' entry above is superseded.
+
+## Campaign armour as customizer pieces (armour-pieces-1125 Series A, 2026-11-25; singleplayer-content dependency)
+
+The owner's pick of 2026-11-25 (agent-coordination decisions/2026-11-25-dlc-armour-pieces.md, group 3) offers the campaign armour in the customizer. **Dependency:** these are
+singleplayer packages (`data/packages/sm_armour_<name>_<part>.oppc`, `csm_armour_<set>_<part>.oppc`); multiplayer now reads them for the customizer. Read-only, at run time,
+nothing extracted. Verified-local (`wargear.oppc` read through `PerkCatalog.ReadWargear`'s reader; packages through `StaticModel`):
+
+- **Wargear files:** every campaign armour wargear file has a generic name and an empty folder (`arm_left`, `torso`, `head`, `shldr_right`, `basic_powerpack_upres`, ...;
+  eleven files are named `arm_left`), so a name cannot identify one; the campaign pieces are named by their visual package instead (`ExtraArmourPieces`). Their `ui_data/name`
+  is 0 except `sm_armour_basic_001` ("Basic Power Armour ..."), so the display names are ours. Head `helmet_override`: "helmet" (Space Marines), "no_override" (Chaos).
+- **Sets:** Titus `sm_armour_basic_upres_*` (diffuse 512 x 1024 and 1024 x 1024), Sidonus, Leandros, Dark Angels, Black Templars (`sm_armour_black_temp_*`), Blood Ravens
+  (`sm_armour_blood_ravens_*`), Corvus (`sm_armour_corvus_helmet`, `_shldrr` only), `sm_armour_basic_001_*`; Chaos `csm_armour_basic_*`, `_berserker_*`, `_havoc_*`, `_raptor_*`.
+  No torso has a belt package. All are baked (shaders `diff_norm_spec[_reflect|_emis]_lp[_lgchar]`, no `PaintMask`), so all get built masks.
+- **Gaps:** `sm_armour_sidonus_helmet` is named by its wargear file but is not in `data/packages`. Titus's pads `sm_armour_basic_upres_shldrl/_shldrr` hold static mesh blocks
+  of stride 19 and 100 bytes that `DcmMesh` does not read ("expected 60"), so they are not offered. The campaign meshes bind to the multiplayer rig by bone name like the
+  multiplayer pieces (checked in the appearance-test stills: every offered campaign piece draws in place).
+- **MP and co-op extras (groups 1 and 2), wargear with unique names:** `sm_dlc_bloodravens_arm_left/right` (`sm_armour_mp_bloodravens_arml/_armr`, baked; the Blood Ravens
+  DLC set itself wears the Mk7 arms), `csm_armour_mp_raptor_01_head/_leg_left/_leg_right` (masked, `mp_custompaint`), `csm_berserker_helmet/_backpack` ("DEV Khorne
+  Berserker"; packages `csm_armor_berserk_001_helmet/_backpack`), `sm_librarian_torso/_shoulder_right/_backpack` (masked `character_wargear`; the very packages Musou's
+  `LibrarianLook` puts on). `sm_armour_mp_librarian_001_*` (a second Librarian set with text "Librarian Torso" and so on) and the iron halos (`csm_acc_iron_halo*`) were not part of
+  this step (the halos are Series B).
+- **The co-op berserker's developer materials:** the helmet's only material is shader "pink" with no parameters (no textures named); its package holds one diffuse, misnamed
+  `csm_armour_mp_basic_helmet_dif` but not the basic helmet's (a grey berserker helmet layout with red eyes): the helmet's UVs cover 86 % of its lit texels and fall under 10 %
+  on its black background (18 to 32 % on every MP helmet's diffuse). The backpack's material is `character_wargear` with no parameters; its packages hold a 64 x 64 `gray_dif`
+  (128 grey), `blank_nrm` and a 64 x 64 `csm_armour_mp_basic_backpack_pnt` that is all primary in RGB but all dirt in alpha. How the original drew them is not known
+  (interpretation: their package's own textures, `BakedArmourPaint.FixMaterial`).
+- **`dlc2_set3` and `dlc3_set2` (Chaos DLC sets):** their packages (`csm_armour_mp_dlc2_set1_*` and `csm_armour_mp_dlc3_set1_*`) hold byte-identical meshes and diffuse,
+  normal, light property and specular maps (SHA-256 of every entry, main and `_wg`/`_tt1`/`_tt2` packages); only the material, object-tree and manifest entries differ, by
+  their internal names (and the right pad's mesh by its name). So the two sets look the same worn whole and as pieces: the identical stills are the data, not a loader fault.

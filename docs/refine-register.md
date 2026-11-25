@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4092 spec table rows: **3024 tagged**, 701 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4099 spec table rows: **3031 tagged**, 701 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 426 | 367 | 362 | 115 | 12 |
+| Movement (critical) | 433 | 374 | 365 | 116 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,15 +53,15 @@ Scanned 4092 spec table rows: **3024 tagged**, 701 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3024** | 2716 | 2219 | 913 | 37 |
+| **All areas** | **3031** | 2723 | 2222 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1832 |
-| confidence: low | 1070 |
-| confidence: medium | 1038 |
+| kind: ours | 1839 |
+| confidence: low | 1071 |
+| confidence: medium | 1040 |
 | notes: ours | 475 |
 | kind: interpretation | 456 |
 | notes: estimate | 306 |
@@ -73,8 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: provisional | 43 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
+| notes: interpretation | 30 |
 | notes: user's knowledge | 30 |
-| notes: interpretation | 29 |
 | kind: approximation | 27 |
 | kind: placeholder | 23 |
 | notes: open question | 21 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (426)
+### Movement (gameplay-critical) (433)
 
 *Spec section: Extracted parameters*
 
@@ -420,8 +420,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E125804B` | Offered pieces per slot | the customizable sets' pieces (ordinal by name), then the predefined sets' other pieces (ordinal by name), each once; a full predefined set stays a quick pick | kind: ours | owner 2026-11-25; order ours (keeps old piece indices) | Offered pieces per slot: compare with SM1 by feel or video. Ours: the customizable sets' pieces (ordinal by name), then the predefined… | ☐ |
 | `R-D23578FB` | Switch | `CustomizationCatalog.PredefinedPiecesOffered` true (false: the original library); server and client must agree | kind: ours | ours | Switch: compare with SM1 by feel or video. Ours: CustomizationCatalog.PredefinedPiecesOffered true (false: the… | ☐ |
 | `R-691388C7` | Built mask: which materials | a registered predefined-set piece's material with no usable `PaintMask` (absent or "None") that is normal-mapped; cloth, fur and tabards (`diff_spec_lp`) stay baked | kind: ours; confidence: medium | ours (judgement call) | Built mask: which materials: compare with SM1 by feel or video. Ours: a registered predefined-set piece's material with no usable PaintMask… | ☐ |
+| `R-9C2F1AEA` | Built mask: black plates (third step, 2026-11-25) | when the plate median luminance is under 25: undersuit, rubber and cables (specular under 0.35 to 0.6 x the plates' median specular, floor 8) leave the plate; texels 18 to 34 above the plate median are light: trim (specular 1 to 1.5 x the plates' and 35 to 60… | kind: ours; confidence: low | ours | Built mask: black plates (third step, 2026-11-25): compare with SM1 by feel or video. Ours: when the plate median luminance is under 25: undersuit, rubber and… | ☐ |
 | `R-116B119E` | Built mask: regions | CIELAB clusters of the UV-covered, specular-bearing texels (histogram mode in a*, b*, L*/3 bins of 6, then 6 k-means passes, distance a*/b* plus 0.35 x L*): largest = primary (R), a second cluster of a distinct hue (chroma > 10, hue gap > 0.35 rad) or clearly… | kind: ours; confidence: low | ours | Built mask: regions: compare with SM1 by feel or video. Ours: CIELAB clusters of the UV-covered, specular-bearing texels (histogram… | ☐ |
-| `R-2806B6EE` | Built mask: grey paint diffuse | a painted texel's luminance over its region's median, mapped onto 83 (plates) / 62 (ornaments) of 255, the medians measured on nine masked basic, veteran and havoc pieces; dark regions compress the ratio (gamma 0.3 below median 25, 0.7 below 40; clamp 0.55 to… (sRGB 0..255) | kind: ours; confidence: low | measured on the install; mapping ours | Built mask: grey paint diffuse: compare with SM1 by feel or video. Ours: a painted texel's luminance over its region's median, mapped onto 83… | ☐ |
+| `R-2806B6EE` | Built mask: grey paint diffuse | a painted texel's luminance over its region's median, mapped onto 83 (plates) / 62 (ornaments) of 255, the medians measured on nine masked basic, veteran and havoc pieces; black regions (median under 25) keep the difference to the median instead, as if the… (sRGB 0..255) | kind: ours; confidence: low | measured on the install; mapping ours | Built mask: grey paint diffuse: compare with SM1 by feel or video. Ours: a painted texel's luminance over its region's median, mapped onto 83… | ☐ |
+| `R-57602BA9` | Series A pieces and order | appended per slot after the predefined sets' pieces, in `ExtraArmourPieces.All` order (later additions only appended): (1) `sm_dlc_bloodravens_arm_left/right`; `csm_armour_mp_raptor_01_head`, `_leg_left`, `_leg_right` (the Chaos list is the race's, so every… | kind: ours | owner 2026-11-25 (groups); order ours | Series A pieces and order: compare with SM1 by feel or video. Ours: appended per slot after the predefined sets' pieces, in… | ☐ |
+| `R-7482AA31` | Series A switch | `CustomizationCatalog.ExtraPiecesOffered` true (false: only the customizable and predefined sets' pieces); only with `PredefinedPiecesOffered`; server and clients must agree | kind: ours | ours | Series A switch: compare with SM1 by feel or video. Ours: CustomizationCatalog.ExtraPiecesOffered true (false: only the… | ☐ |
+| `R-F3F88877` | Campaign piece identity | name = its package (the campaign wargear files all share generic names such as `arm_left`); offered only when every package is in the install; Titus's pads (`sm_armour_basic_upres_shldrl/_shldrr`) never (mesh layout not read); unlock level 1 | kind: ours | ours | Campaign piece identity: compare with SM1 by feel or video. Ours: name = its package (the campaign wargear files all share generic… | ☐ |
+| `R-D4751707` | Display names | the campaign pieces "<armour> <part>" ("Sidonus Torso", "Havoc (campaign) Left Leg"); the wargear pieces whose own text is a developer label or the set's name get ours ("Khorne Berserker Elite Helmet", "Librarian Psychic Hood", "Chosen Raptor Helmet", "Blood… | kind: ours; confidence: medium | ours | Display names: compare with SM1 by feel or video. Ours: the campaign pieces "<armour> <part>" ("Sidonus Torso", "Havoc… | ☐ |
+| `R-36943976` | Built masks for Series A | every Series A piece's baked materials get built masks, except the Librarian's and the Chosen raptor's (the game's own masks; not registered, so they load exactly as before and Musou's Librarian is unchanged) | kind: ours | ours | Built masks for Series A: compare with SM1 by feel or video. Ours: every Series A piece's baked materials get built masks, except the… | ☐ |
+| `R-F67A069B` | Co-op berserker developer materials | `csm_armor_berserk_001_helmet` (shader "pink", no parameters) is drawn as `character_wargear` on its package's only diffuse (misnamed `csm_armour_mp_basic_helmet_dif`; the helmet's UVs fit it: 86 % of its lit texels covered, under 10 % of the helmet on its… | kind: ours; confidence: medium; notes: interpretation | interpretation (the data names no texture) | Co-op berserker developer materials: compare with SM1 by feel or video. Ours: csm_armor_berserk_001_helmet (shader "pink", no parameters) is drawn… | ☐ |
 
 *Spec section: Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)*
 

@@ -24,6 +24,37 @@ public static class BakedArmourPaint
     /// <summary>Whether <paramref name="package"/> is registered (<see cref="Register"/>).</summary>
     public static bool Wanted(string package) => Packages.ContainsKey(package);
 
+    /// <summary>
+    /// Developer materials that name none of their package's textures (armour-pieces-1125 Series A, ours): the co-op elite Khorne Berserker's helmet
+    /// (<c>csm_armor_berserk_001_helmet</c>: shader "pink", the engine's missing-material placeholder, no parameters; its package holds one diffuse, misnamed
+    /// <c>csm_armour_mp_basic_helmet_dif</c>, that the helmet's UVs fit: 86 % of its lit texels are covered and under 10 % of the helmet's texels fall on its black
+    /// background, against 18 to 32 % on every MP helmet's own diffuse) and backpack (<c>csm_armor_berserk_001_backpack</c>: <c>character_wargear</c> without
+    /// parameters; its packages hold a flat grey diffuse, a flat normal map and a 64 x 64 paint mask that is all primary but all dirt in alpha, which draws the
+    /// pack in the dirt colour). Both become <c>character_wargear</c> materials on their package's diffuse (and the backpack's flat normal map); a mask is then
+    /// built (the backpack's comes out all primary, dirt 0). Key: package name.
+    /// </summary>
+    static readonly Dictionary<string, Dictionary<string, string>> DeveloperMaterials = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["csm_armor_berserk_001_helmet"] = new(StringComparer.Ordinal) { ["DiffuseMap"] = "csm_armour_mp_basic_helmet_dif" },
+        ["csm_armor_berserk_001_backpack"] = new(StringComparer.Ordinal)
+        {
+            ["DiffuseMap"] = "gray_dif", ["NormalMap"] = "blank_nrm",
+        },
+    };
+
+    /// <summary>The material rewrite for <paramref name="package"/> (<see cref="DeveloperMaterials"/>), or null when it needs none.</summary>
+    public static Func<BmatMaterial, BmatMaterial>? FixMaterial(string package) =>
+        DeveloperMaterials.TryGetValue(package, out var textures) ? m => Fix(m, textures) : null;
+
+    /// <summary>A developer material (one with no diffuse) given <paramref name="textures"/> as a <c>character_wargear</c> material; any other unchanged.</summary>
+    public static BmatMaterial Fix(BmatMaterial m, IReadOnlyDictionary<string, string> textures)
+    {
+        if (m.Textures.ContainsKey("DiffuseMap")) return m;
+        var tex = new Dictionary<string, string>(m.Textures, StringComparer.Ordinal);
+        foreach (var (k, v) in textures) tex[k] = v;
+        return m with { ShaderName = "character_wargear", Textures = tex };
+    }
+
     /// <summary>Whether <paramref name="material"/> is drawn with a built mask (it names <see cref="PaintDiffuseKey"/>).</summary>
     public static bool IsBuilt(BmatMaterial? material) => material?.Textures.ContainsKey(PaintDiffuseKey) == true;
 

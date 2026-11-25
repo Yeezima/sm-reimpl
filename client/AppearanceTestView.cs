@@ -292,6 +292,8 @@ public partial class AppearanceTestView : Node3D
             "shoulder-r" => (new Vector3(0.5f, 1.8f, 0), 1.1f, 30f, new Vector3(1f, 0.1f, -0.35f)),
             "shoulder-l" => (new Vector3(-0.5f, 1.8f, 0), 1.1f, 30f, new Vector3(-1f, 0.1f, -0.35f)),
             "torso" => (new Vector3(0, 1.2f, 0), 2.0f, 35f, front),
+            // armour-pieces-1125: the batch's full-body framing sits higher and further back so tall helmets, horns and backpacks are not cut at the top.
+            _ when _args.ContainsKey("batch") => (new Vector3(0, 1.05f, 0), 5.0f, 35f, front),
             _ => (new Vector3(0, 0.95f, 0), 4.2f, 35f, front),
         };
         // --cam-target x,y,z and --cam-dir x,y,z (Godot space, from the target towards the camera) override the framing.

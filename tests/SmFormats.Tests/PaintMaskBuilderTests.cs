@@ -71,6 +71,60 @@ public sealed class PaintMaskBuilderTests
         Assert.True(M(m, 3, 30, 0) < 40);
     }
 
+    /// <summary>
+    /// A synthetic black-schemed piece: near-black plates (specular 60) with faint noise, a near-black rubber band at the bottom (specular 10), a light grey trim
+    /// band (rows 20 to 25, specular 120) and 3 x 3 light scratches (specular 40) spread over the plate.
+    /// </summary>
+    static (DdsImage Diffuse, DdsImage Specular) SyntheticBlack()
+    {
+        var dif = new byte[W * H * 4]; var spc = new byte[W * H * 4];
+        for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            int i = (y * W + x) * 4;
+            bool scratch = y < 48 && (x % 12) is >= 4 and < 7 && (y % 12) is >= 4 and < 7 && !(y is >= 18 and < 28);
+            (byte v, byte s) = y >= 52 ? ((byte)7, (byte)10)
+                : y is >= 20 and < 26 ? ((byte)95, (byte)120)
+                : scratch ? ((byte)90, (byte)40)
+                : ((byte)(5 + (x * 7 + y * 3) % 4), (byte)60);
+            dif[i] = dif[i + 1] = v; dif[i + 2] = (byte)(v + 1); dif[i + 3] = 255;
+            spc[i] = spc[i + 1] = spc[i + 2] = s; spc[i + 3] = 255;
+        }
+        return (new DdsImage(W, H, dif), new DdsImage(W, H, spc));
+    }
+
+    [Fact]
+    public void Black_plates_paint_their_plate_and_trim_keep_scratches_and_leave_rubber_baked()
+    {
+        var (dif, spc) = SyntheticBlack();
+        var m = PaintMaskBuilder.Build(dif, spc, null);
+        Assert.True(M(m, 34, 46, 0) > 200, "black plate is primary");
+        Assert.True(M(m, 30, 22, 2) > 150, "light specular trim band is tertiary (painted like regular trim)");
+        Assert.True(M(m, 5, 5, 0) < 90, "centre of a scratch stays baked");
+        Assert.True(M(m, 30, 58, 0) + M(m, 30, 58, 1) + M(m, 30, 58, 2) < 40, "low-specular rubber stays baked");
+        // The plate's grey shading follows the texture's small differences without blotches: within the regular plate brightness band.
+        for (int x = 8; x < 60; x += 5) Assert.InRange((int)m.Diffuse[(46 * W + x) * 4], 60, 110);
+        Assert.Equal(m.Mask, PaintMaskBuilder.Build(dif, spc, null).Mask);   // deterministic
+        Assert.Equal(m.Diffuse, PaintMaskBuilder.Build(dif, spc, null).Diffuse);
+    }
+
+    [Fact]
+    public void The_old_dark_plates_switch_restores_the_earlier_masks()
+    {
+        var (dif, spc) = SyntheticBlack();
+        var now = PaintMaskBuilder.Build(dif, spc, null);
+        BuiltPaintMask old;
+        try { PaintMaskBuilder.OldDarkPlates = true; old = PaintMaskBuilder.Build(dif, spc, null); }
+        finally { PaintMaskBuilder.OldDarkPlates = false; }
+        Assert.True(M(old, 30, 22, 2) < 60, "before: the trim was not tertiary");
+        Assert.NotEqual(now.Mask, old.Mask);
+        // Coloured plates are not affected by the dark-plate rules.
+        var (red, redSpc) = Synthetic();
+        var a = PaintMaskBuilder.Build(red, redSpc, null);
+        try { PaintMaskBuilder.OldDarkPlates = true; Assert.Equal(a.Mask, PaintMaskBuilder.Build(red, redSpc, null).Mask); }
+        finally { PaintMaskBuilder.OldDarkPlates = false; }
+    }
+
     [Fact]
     public void Dds_round_trip_keeps_the_first_level_and_writes_a_full_mip_chain()
     {
