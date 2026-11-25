@@ -110,7 +110,7 @@ public partial class NetworkView
         axis = axis.Normalized();
         var normal = StreakPlane(src == Source.Sweep ? Source.Thrust : src, axis, seed);   // no weapon path in Warfront: the swing's plane is rolled like a thrust's
         float scale = GoreStreakRules.Scale(weight, lethal);
-        SpawnStreak(chest, axis, normal, h, scale, 0f, 0f, lethal, weight == Weight.Heavy, seed);
+        SpawnStreak(chest, axis, normal, h, scale, 0f, 0f, lethal, weight == Weight.Heavy, seed, src);
         _wfEnemyLast[e.Enemy] = _connectedFor;
         if (_wfEnemyLast.Count > 2048) _wfEnemyLast.Clear();
     }

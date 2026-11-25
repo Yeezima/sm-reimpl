@@ -58,10 +58,10 @@ public static class GoreStreakRules
         new(0.27f, 1.95f, 0.85f,   34f, 0.114f, 0.52f, 0.75f, 0.28f, 3.0f, 0.20f, 0.90f),
         new(0.37f, 2.00f, 0.86f,   32f, 0.120f, 0.46f, 0.65f, 0.36f, 3.0f, 0.18f, 0.60f),
         new(0.48f, 2.05f, 0.86f,   30f, 0.123f, 0.40f, 0.50f, 0.44f, 3.0f, 0.12f, 0.30f),
-        new(0.60f, 2.05f, 0.85f,   30f, 0.126f, 0.35f, 0.40f, 0.52f, 3.0f, 0.08f, 0.10f),
-        new(0.72f, 2.10f, 0.80f,   28f, 0.129f, 0.32f, 0.25f, 0.60f, 3.0f, 0.05f, 0.00f),
-        new(0.85f, 2.10f, 0.50f,   26f, 0.129f, 0.26f, 0.12f, 0.66f, 3.0f, 0.05f, 0.00f),
-        new(0.98f, 2.10f, 0.35f,   24f, 0.129f, 0.13f, 0.05f, 0.70f, 3.0f, 0.05f, 0.00f),
+        new(0.60f, 2.05f, 0.85f,   30f, 0.126f, 0.36f, 0.40f, 0.52f, 3.0f, 0.08f, 0.10f),
+        new(0.72f, 2.10f, 0.80f,   28f, 0.129f, 0.34f, 0.30f, 0.60f, 3.0f, 0.05f, 0.00f),
+        new(0.85f, 2.10f, 0.50f,   26f, 0.129f, 0.32f, 0.22f, 0.66f, 3.0f, 0.05f, 0.00f),
+        new(0.98f, 2.10f, 0.35f,   24f, 0.129f, 0.22f, 0.14f, 0.70f, 3.0f, 0.05f, 0.00f),
     ];
 
     /// <summary>A streak's whole life (s): after the last key it fades to nothing by this age (ours).</summary>
@@ -161,13 +161,36 @@ public static class GoreStreakRules
     /// <summary>One streak to draw (Godot world, Y up): the wound, the exit axis and the plane's normal (unit, perpendicular), the body height, scale, seed, how aged it starts, the bend and whether it killed.</summary>
     /// <param name="PreAge">Seconds it starts already aged (negative: it waits that long, a tracer in flight).</param>
     /// <param name="Bend">The melee arc's curvature (-0.4..0.4; 0 straight).</param>
-    public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false)
+    public readonly record struct Streak(Vector3 Origin, Vector3 Axis, Vector3 Normal, float BodyHeight, float Scale, int Seed, float PreAge, float Bend, bool Lethal, bool Heavy = false, float WidthShare = 1f, float EntryShare = 1f)
     {
         /// <summary>The metres per table unit (H x scale, at most <see cref="MaxUnitMetres"/>).</summary>
         public float Unit => MathF.Min(BodyHeight * Scale, MaxUnitMetres);
         /// <summary>The plane's second axis (across the exit axis, in the plane).</summary>
         public Vector3 Across => Vector3.Normalize(Vector3.Cross(Normal, Axis));
     }
+
+    /// <summary>
+    /// The width share of a streak whose plane faces the camera by <paramref name="facing"/> (|normal . toward camera|, 0..1; iteration 1 after the gate repair: a plane seen face-on showed
+    /// two to three times the reference's area, an oblique one, as a sweep's, matched): full width when oblique, down to <see cref="MinFacingWidth"/> face-on (ours).
+    /// </summary>
+    public static float FacingWidth(float facing) => Math.Clamp(1.25f - 0.75f * Math.Clamp(facing, 0f, 1f), MinFacingWidth, 1f);
+    /// <summary>
+    /// A streak's width share for its <paramref name="source"/> and plane facing (iteration 2): a sweep keeps its full width (its swing plane is oblique and its area matched the reference;
+    /// the facing rule shrank it to about 0.6 of the reference), an explosion takes <see cref="ExplosionWidth"/> of the facing share (its heavy scale and face-on radial plane gave 1.7 times
+    /// the reference's area), the others the facing share (ours).
+    /// </summary>
+    public static float WidthShareOf(Source source, float facing) => source switch
+    {
+        Source.Sweep => SweepWidth,
+        Source.Explosion => FacingWidth(facing) * ExplosionWidth,
+        _ => FacingWidth(facing),
+    };
+    public const float ExplosionWidth = 0.75f;
+    /// <summary>A sweep's width share (iteration 3: with the translucent cores the oblique sweep fell to about half the reference's area on screen).</summary>
+    public const float SweepWidth = 1.45f;
+    public const float MinFacingWidth = 0.55f;
+    /// <summary>The entry stub's share for a source (a sweep's stub measured 0.6 to 0.74 of its exit on screen, the oblique plane foreshortening the exit more: 0.72 for sweeps; ours).</summary>
+    public static float EntryShareOf(Source source) => source switch { Source.Sweep => 0.72f, Source.Explosion => 0.8f, _ => 1f };
 
     /// <summary>A seeded hash in [0, 1) (stable across platforms).</summary>
     public static float Hash01(int seed, int salt)
@@ -381,10 +404,14 @@ public static class GoreStreakRules
     /// <summary>The fine-grain value above which a texel is a pinhole for <paramref name="grit"/> (0..1).</summary>
     public static float HoleThreshold(float grit) => 1f - 0.45f * grit;
     /// <summary>A covered texel's density (its opacity share) from the coarse blotch noise: brighter cores, thinner rims.</summary>
-    public static float Density(float coarse) => 0.45f + 0.55f * coarse;
+    public static float Density(float coarse) => 0.2f + 0.8f * coarse * coarse;
+    /// <summary>The core's opacity share (iteration 1: the cores read as solid patches, opacity proxy 0.3 to 0.5 against the reference mist's 0.14 to 0.2): with <see cref="Density"/> about half the earlier core opacity, the densest blotches brightest.</summary>
+    public const float CoreAlpha = 0.6f;
+    /// <summary>Compatibility's core opacity share (it blends in display space, with no linear lift: at Forward+'s share its cores washed out to grey and left the red mask).</summary>
+    public const float CompatibilityCoreAlpha = 1.2f;
 
     /// <summary>A texel's blood opacity: the core at opacity x coverage x density over the halo at <see cref="HaloAlpha"/> x opacity (the shader's ALPHA).</summary>
-    public static float Alpha(Key k, float cov, float density, float halo) => k.Opacity * MathF.Max(cov * density, HaloAlpha * halo);
+    public static float Alpha(Key k, float cov, float density, float halo, float coreAlpha = CoreAlpha) => k.Opacity * MathF.Min(1f, MathF.Max(cov * density * coreAlpha, HaloAlpha * halo));
 
     /// <summary>The covered core area (table units squared), the area with any visible blood (halo included, alpha over 0.05), and the farthest covered reach ahead of and behind the wound at <paramref name="age"/>, on a grid of <paramref name="step"/>.</summary>
     public static (float Area, float ExitReach, float EntryReach, float VisibleArea) Measure(float age, int seed, float bend, float bias, int maxBranches, byte[] grit, int size, float step = 0.02f)
@@ -467,9 +494,9 @@ public static class GoreStreakRules
     /// </summary>
     public const float ForwardShade = 0.42f, CompatibilityShade = 1f;
     /// <summary>The strip pass's strength per unit of blood opacity, Forward+ and Compatibility (Compatibility blends in display space, where a fully stripped ground under a faint texel read near black and left the red mask) (gate repair 6: the strip fades with the opacity, so a faint texel keeps the ground's own tone, stripped toward red, and never goes near black on Compatibility).</summary>
-    public const float StripPerAlpha = 5f, CompatibilityStripPerAlpha = 3.2f;
+    public const float StripPerAlpha = 7f, CompatibilityStripPerAlpha = 4.5f;
     /// <summary>Compatibility's strip: a blend_mix toward this dark blood red (display space) at the strip's strength, not a multiply (its multiply blend darkened even where it multiplied by 1).</summary>
-    public const float CompatibilityStripRed = 0.0625f;
+    public const float CompatibilityStripRed = 0.25f;
 
     /// <summary>The blood's albedo for <paramref name="density"/> (repair 4's darker red, 0.3 to 0.55 of the blood red) at the renderer's <paramref name="shade"/>.</summary>
     public static (float R, float G, float B) Colour(float density, float shade = CompatibilityShade)

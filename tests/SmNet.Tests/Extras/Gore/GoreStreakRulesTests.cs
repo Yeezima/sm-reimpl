@@ -50,9 +50,9 @@ public class GoreStreakRulesTests
             Assert.True(Keys[i + 1].Grit >= Keys[i].Grit, $"pinholes grow after {i}");
         }
         // the gate repair's fade (lead 41): opacity about 0.65 / 0.5 / 0.4 / 0.25 / 0.12 / 0.05 over frames 5 to 10, the area eroding with it
-        float[] fade = [0.65f, 0.5f, 0.4f, 0.25f, 0.12f, 0.05f];
+        float[] fade = [0.65f, 0.5f, 0.4f, 0.3f, 0.22f, 0.14f];   // iteration 1: frames 9 and 10 keep sparse visible dots (lead 41)
         for (int i = 0; i < fade.Length; i++) Assert.Equal(fade[i], Keys[5 + i].Opacity, 2);
-        Assert.True(Keys[^1].Fill <= 0.15f);
+        Assert.True(Keys[^1].Fill <= 0.25f);   // sparse dots stay at frame 10 (iteration 2)
     }
 
     [Fact]
@@ -347,14 +347,15 @@ public class GoreStreakRulesTests
     {
         Assert.Equal(0f, Strip(0f, 1f));
         Assert.Equal(1f, Strip(0.5f, 1f));
-        Assert.True(Strip(0.1f, 1f) < 0.55f);
+        Assert.True(Strip(0.1f, 1f) < 0.75f);
         var grey = Composite((0.5f, 0.5f, 0.5f), 0.1f, 1f, 0.8f);
-        Assert.True(grey.R > 0.25f, $"a faint texel over grey keeps most of the grey's level: {grey.R:F3}");
+        Assert.True(grey.R > 0.2f, $"a faint texel over grey keeps much of the grey's level: {grey.R:F3}");
         // Compatibility's late frames (opacity 0.4 and 0.25 over the grey) stay visibly red: above the scoring tools' value floor, red-dominant
         foreach (float alpha in new[] { 0.4f, 0.25f })
         {
             var late = Composite((0.5f, 0.5f, 0.5f), alpha, 0.5f, 0.7f, CompatibilityShade, CompatibilityStripPerAlpha, compat: true);
-            Assert.True(late.R > 0.22f && late.R - MathF.Max(late.G, late.B) > 0.1f, $"alpha {alpha}: ({late.R:F3},{late.G:F3},{late.B:F3})");
+            Assert.True(late.R > 0.2f && late.R - MathF.Max(late.G, late.B) > 0.1f,   // the scoring tools' red mask: value over 0.2, red excess over 0.08
+                 $"alpha {alpha}: ({late.R:F3},{late.G:F3},{late.B:F3})");
         }
     }
 

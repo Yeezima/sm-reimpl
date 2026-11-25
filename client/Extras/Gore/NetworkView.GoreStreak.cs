@@ -41,21 +41,24 @@ public partial class NetworkView
     /// Starts one streak at <paramref name="origin"/> (Godot world) along <paramref name="axis"/> on the plane of <paramref name="normal"/> (turned toward the camera,
     /// <see cref="GoreStreakRules.CameraBias"/>), <paramref name="bodyHeight"/> m tall victim, <paramref name="scale"/>.
     /// </summary>
-    void SpawnStreak(Vector3 origin, Vector3 axis, Vector3 normal, float bodyHeight, float scale, float preAge, float bend, bool lethal, bool heavy, int seed)
+    void SpawnStreak(Vector3 origin, Vector3 axis, Vector3 normal, float bodyHeight, float scale, float preAge, float bend, bool lethal, bool heavy, int seed, GoreStreakRules.Source source = GoreStreakRules.Source.Gunfire)
     {
         if (axis.LengthSquared() < 1e-8f) return;
         var ax = Num.Vector3.Normalize(GsN(axis));
         var n = GsN(normal);
+        float facing = 0.5f;
         if (_camera is { } cam && GodotObject.IsInstanceValid(cam))
         {
             // the wound's side toward the camera (gate repair 3): pushed out by the body's radius, so the root is not buried inside the body that is drawn over it
             var toCam = cam.GlobalPosition - origin; toCam.Y = 0f;
             if (toCam.LengthSquared() > 1e-4f) origin += toCam.Normalized() * (BodyRadiusShare * bodyHeight);
             n = GoreStreakRules.CameraBias(n, ax, GsN(cam.GlobalPosition - origin));
+            var tc = cam.GlobalPosition - origin;
+            if (tc.LengthSquared() > 1e-6f) facing = MathF.Abs(Num.Vector3.Dot(Num.Vector3.Normalize(n), Num.Vector3.Normalize(GsN(tc))));
         }
         float bias = (GoreStreakRules.Hash01(seed, 60) - 0.5f) * 0.2f;
         _lastStreakOrigin = origin; _lastStreakAxis = GsG(ax); _lastStreakUnit = bodyHeight * scale;   // for the capture aid's capture.json
-        GoreStreaks().Spawn(new GoreStreakRules.Streak(GsN(origin), ax, n, bodyHeight, scale, seed, preAge, Math.Clamp(bend, -0.4f, 0.4f), lethal, heavy), bias);
+        GoreStreaks().Spawn(new GoreStreakRules.Streak(GsN(origin), ax, n, bodyHeight, scale, seed, preAge, Math.Clamp(bend, -0.4f, 0.4f), lethal, heavy, GoreStreakRules.WidthShareOf(source, facing), GoreStreakRules.EntryShareOf(source)), bias);
     }
 
     /// <summary>The plane normal for a streak along <paramref name="axis"/> (Godot world; <see cref="GoreStreakRules.Plane"/> with Y up).</summary>

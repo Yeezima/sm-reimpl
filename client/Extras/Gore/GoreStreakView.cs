@@ -52,7 +52,8 @@ uniform float age_override = -1.0;       // >= 0: every streak at this age (the 
 uniform sampler2D grit : filter_linear_mipmap, repeat_enable;
 uniform vec4 tint : source_color = vec4(1.0, 0.12, 0.08, 1.0);
 uniform float strip_per_alpha = 5.0;   // GoreStreakRules.StripPerAlpha / CompatibilityStripPerAlpha
-uniform float shade = 1.0;               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
+uniform float shade = 1.0;
+uniform float core_alpha = 0.6;        // GoreStreakRules.CoreAlpha / CompatibilityCoreAlpha               // GoreStreakRules.ForwardShade on Forward+, CompatibilityShade on Compatibility (the same darker red on both)
 
 const int NK = {{GoreStreakRules.Keys.Length}};
 const float K_T[NK] = { {{KeyArray(k => k.T)}} };
@@ -83,6 +84,7 @@ varying flat float v_br;
 varying flat float v_out;
 varying flat float v_root;
 varying flat vec4 v_inst;     // seed, bend, bias, max branches
+varying flat vec2 v_share;    // width share (the plane's facing), entry share (COLOR.g, COLOR.a)
 
 float h01(float seed, float salt) { return fract(sin(seed * 12.9898 + salt * 78.233) * 43758.5453); }   // GoreStreakRules.ShaderHash
 
@@ -91,6 +93,7 @@ void vertex() {
     float age = age_override >= 0.0 ? age_override : mod(now - start + {{F((float)ClockPeriod)}}, {{F((float)ClockPeriod)}});
     v_p = VERTEX.xy;
     v_inst = vec4(INSTANCE_CUSTOM.y, INSTANCE_CUSTOM.z, INSTANCE_CUSTOM.w, COLOR.r > 0.5 ? 4.0 : 3.0);
+    v_share = vec2(COLOR.g, COLOR.a);
     vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
     v_depth = -view.z;
     // clipped: not born yet, gone, or retired (COLOR.b 0: a spent slot, finding M1, or the prewarm)
@@ -107,9 +110,9 @@ void vertex() {
         if (age >= K_T[NK - 1]) { i = NK - 1; b = NK - 1; u = 0.0; fade = 1.0 - (age - K_T[NK - 1]) / ({{F(GoreStreakRules.LifeSeconds)}} - K_T[NK - 1]); }
         else u = (age - K_T[i]) / (K_T[b] - K_T[i]);
         v_exit = mix(K_EXIT[i], K_EXIT[b], u);
-        v_entry = mix(K_ENTRY[i], K_ENTRY[b], u);
+        v_entry = mix(K_ENTRY[i], K_ENTRY[b], u) * v_share.y;
         v_fan = mix(K_FAN[i], K_FAN[b], u);
-        v_width = mix(K_WIDTH[i], K_WIDTH[b], u);
+        v_width = mix(K_WIDTH[i], K_WIDTH[b], u) * v_share.x;
         v_fill = mix(K_FILL[i], K_FILL[b], u) * fade;
         v_opac = mix(K_OPAC[i], K_OPAC[b], u) * fade;
         v_grit = mix(K_GRIT[i], K_GRIT[b], u);
@@ -168,10 +171,10 @@ void fragment() {
     float cov = smoothstep(thr - {{F(GoreStreakRules.CovSoft)}}, thr + {{F(GoreStreakRules.CovSoft)}}, score);
     float hole = 1.0 - 0.45 * v_grit;
     cov *= 1.0 - smoothstep(hole - 0.04, hole + 0.04, fine) * (1.0 - root * v_root);
-    float dens = {{F(0.45f)}} + {{F(0.55f)}} * coarse;                                                    // GoreStreakRules.Density
+    float dens = {{F(0.2f)}} + {{F(0.8f)}} * coarse * coarse;                                             // GoreStreakRules.Density
     // the near fade (Warfront's near hits filled the screen) and the blood opacity: the core over the soft halo (GoreStreakRules.Alpha)
     float nearf = smoothstep({{F(GoreStreakRules.NearFadeFrom)}}, {{F(GoreStreakRules.NearFadeTo)}}, v_depth);
-    float a = v_opac * max(cov * dens, {{F(GoreStreakRules.HaloAlpha)}} * halo) * nearf;
+    float a = v_opac * min(1.0, max(cov * dens * core_alpha, {{F(GoreStreakRules.HaloAlpha)}} * halo)) * nearf;
     if (a <= 0.003) discard;
 {{(strip ? $$"""
     float st = clamp(strip_per_alpha * a, 0.0, 1.0) * (0.75 + 0.25 * cov);    // GoreStreakRules.Strip: fades with the opacity
@@ -193,7 +196,7 @@ void fragment() {
     static Shader? _shader, _stripShader;
     static ImageTexture? _grit;
     static ArrayMesh? _quad;
-    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade", PStripPerAlpha = "strip_per_alpha";
+    static readonly StringName PNow = "now", PAgeOverride = "age_override", PGrit = "grit", PTint = "tint", PShade = "shade", PStripPerAlpha = "strip_per_alpha", PCoreAlpha = "core_alpha";
 
     MultiMesh _mm = null!;
     MultiMeshInstance3D _node = null!;
@@ -267,7 +270,7 @@ void fragment() {
         bool compat = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
         float shade = compat ? GoreStreakRules.CompatibilityShade : GoreStreakRules.ForwardShade;
         float perAlpha = compat ? GoreStreakRules.CompatibilityStripPerAlpha : GoreStreakRules.StripPerAlpha;
-        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); m.SetShaderParameter(PStripPerAlpha, perAlpha); }
+        foreach (var m in new[] { _mat, _strip }) { m.SetShaderParameter(PGrit, Grit()); m.SetShaderParameter(PTint, tint); m.SetShaderParameter(PAgeOverride, _ageOverride ?? -1f); m.SetShaderParameter(PShade, shade); m.SetShaderParameter(PStripPerAlpha, perAlpha); m.SetShaderParameter(PCoreAlpha, compat ? GoreStreakRules.CompatibilityCoreAlpha : GoreStreakRules.CoreAlpha); }
         _mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = Quad() };
         _mm.InstanceCount = GoreStreakRules.PoolSize;
         _mm.VisibleInstanceCount = 0;
@@ -308,7 +311,7 @@ void fragment() {
         double start = _clock - s.PreAge;
         _starts[slot] = start;
         _mm.SetInstanceTransform(slot, Placement(s.Origin, s.Axis, s.Normal, s.Unit));
-        _mm.SetInstanceColor(slot, new Color(s.Lethal || s.Heavy ? 1f : 0f, 0f, 1f, 1f));   // r: the fourth branch; b: on (0 retires the slot)
+        _mm.SetInstanceColor(slot, new Color(s.Lethal || s.Heavy ? 1f : 0f, s.WidthShare, 1f, s.EntryShare));   // r: the fourth branch; g: width share; b: on (0 retires the slot); a: entry share
         _mm.SetInstanceCustomData(slot, new Color((float)(((start % ClockPeriod) + ClockPeriod) % ClockPeriod), GoreStreakRules.ShaderSeed(s.Seed), s.Bend, branchBias));
         Spawned++;
         _cpuMs += _watch.Elapsed.TotalMilliseconds;
