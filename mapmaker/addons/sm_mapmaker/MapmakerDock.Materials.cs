@@ -31,6 +31,7 @@ public partial class MapmakerDock
         AddPackButtons();
         _plugin.DocChanged += RefreshMaterials;
         _plugin.DocChanged += ApplyMaterialsToView;
+        _plugin.EditChanged += ApplyMaterialsToView;   // Edit mode: a drag's preview shape (and cancel) are drawn with the material too
         RefreshMaterials();
         if (MaterialTest.Wanted) GetTree().CreateTimer(3.0).Timeout += () => _ = new MaterialTest(_plugin, this).Run();
     }
@@ -279,7 +280,7 @@ public partial class MapmakerDock
 
     /// <summary>
     /// Draws every drawn piece of the open map with its material (<see cref="PieceViews.ApplySurface"/>, the game's builder) after each change, undo, redo and open; a piece whose content
-    /// was rebuilt, or whose material, shape or size changed, is drawn again; one without a material keeps (or gets back) the default look. Pictures are decoded once per set of materials.
+    /// was rebuilt, or whose material, shape or size changed, is drawn again (in Edit mode also the drag's preview shape, on <c>EditChanged</c>); one without a material keeps (or gets back) the default look. Pictures are decoded once per set of materials.
     /// </summary>
     public void ApplyMaterialsToView()
     {
@@ -287,14 +288,16 @@ public partial class MapmakerDock
         var doc = s.Document;
         string key = $"{s.Path}|{MapHost.Library.Root}|" + string.Join(",", doc.Materials.Select(m => m.ToNode().ToJsonString())) + "|" + string.Join(",", doc.Images.Select(i => i.Id));
         if (key != _viewCacheKey || _viewCache is null) { _viewCache = new MaterialBuild.Cache(doc, s.Path, MapHost.Library); _viewCacheKey = key; _viewCacheVersion++; }
+        var preview = _plugin.ActiveDrag?.Preview;
         foreach (var o in doc.Objects)
         {
             if (o.Piece is not { } piece || !PieceKind.IsDrawn(piece.Kind)) continue;
+            var mesh = preview is not null && preview.TryGetValue(o.Id, out var p) ? p : o.Mesh;
             if (_plugin.NodeOf(o.Id)?.GetNodeOrNull<MeshInstance3D>("Content/Shape") is not { } shape) continue;
-            string sig = o.Material is null ? "" : $"{o.Material}|{_viewCacheVersion}|{o.Mesh?.ToNode().ToJsonString()}|{o.Transform.Scale}";
+            string sig = o.Material is null ? "" : $"{o.Material}|{_viewCacheVersion}|{mesh?.ToNode().ToJsonString()}|{o.Transform.Scale}";
             string have = shape.HasMeta("mm_surface") ? shape.GetMeta("mm_surface").AsString() : "";
             if (sig == have) continue;
-            PieceViews.ApplySurface(shape, piece, o.Mesh, o.Transform.Scale, o.Material is null ? null : _viewCache.For(o.Material));
+            PieceViews.ApplySurface(shape, piece, mesh, o.Transform.Scale, o.Material is null ? null : _viewCache.For(o.Material));
             shape.SetMeta("mm_surface", sig);
         }
         foreach (var note in _viewCache.Notes.Distinct().Take(3)) GD.PushWarning("Mapmaker material: " + note);

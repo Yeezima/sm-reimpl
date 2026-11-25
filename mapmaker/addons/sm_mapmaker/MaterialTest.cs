@@ -235,6 +235,24 @@ public sealed class MaterialTest(MapmakerPlugin plugin, MapmakerDock dock)
         Check(shapeA?.MaterialOverride is StandardMaterial3D { NormalTexture: not null, AlbedoTexture: not null } && shapeA.Mesh is ArrayMesh am && am.SurfaceGetFormat(0).HasFlag(Mesh.ArrayFormat.FormatTangent),
             "the editor draws Wall A with the material (the game's builder: textures, tangents)");
         Check(shapeB?.MaterialOverride is StandardMaterial3D { AlbedoTexture: null }, "Wall B keeps the default look");
+        // Edit mode: while a face drag previews, the piece is drawn with its material on the preview shape; cancel keeps it textured
+        plugin.Select([a]);
+        await Frames(2);
+        if (plugin.SetEditMode(true) && plugin.SelectComponent(a, MeshTopology.Box.FaceNamed("+x")) && plugin.BeginEdit(MeshEditKind.Move, 0))
+        {
+            plugin.SetEditAmount(new SysNum.Vector3(1, 0, 0));
+            await Frames(2);
+            var dragged = plugin.NodeOf(a)?.GetNodeOrNull<MeshInstance3D>("Content/Shape");
+            var aabb = dragged?.Mesh?.GetAabb() ?? new Aabb();
+            Check(dragged?.MaterialOverride is StandardMaterial3D { AlbedoTexture: not null } && aabb.Size.X > 1.2f, $"during a drag the preview shape is drawn with the material (unit width {aabb.Size.X:0.00})");
+            plugin.CancelEdit();
+            await Frames(2);
+            Check(plugin.NodeOf(a)?.GetNodeOrNull<MeshInstance3D>("Content/Shape")?.MaterialOverride is StandardMaterial3D { AlbedoTexture: not null } && doc().Find(a)!.Mesh is null,
+                "after cancel the stored shape is drawn with the material again");
+            plugin.SetEditMode(false);
+            await Frames(2);
+        }
+        else Check(false, "could not start an Edit-mode drag on Wall A");
         var notDrawn = plugin.Do("Spawn", MapmakerPlugin.Op("place", ("piece", new JsonObject { ["kind"] = "spawn-area", ["side"] = "marines" }), ("name", "Spawn"),
             ("transform", new JsonObject { ["position"] = MapmakerPlugin.Vec(new SysNum.Vector3(40, 0, 0)) })));
         var refused = dock.AssignSelected(id, notDrawn.Created);
