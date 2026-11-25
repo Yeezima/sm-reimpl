@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4148 spec table rows: **3069 tagged**, 706 not tagged (read from data with high confidence), 373 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4149 spec table rows: **3070 tagged**, 706 not tagged (read from data with high confidence), 373 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,16 +51,16 @@ Scanned 4148 spec table rows: **3069 tagged**, 706 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 49 | 39 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 216 | 215 | 84 | 79 | 0 |
+| General game design | 217 | 216 | 85 | 80 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3069** | 2760 | 2246 | 919 | 37 |
+| **All areas** | **3070** | 2761 | 2247 | 920 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1871 |
-| confidence: low | 1072 |
+| kind: ours | 1872 |
+| confidence: low | 1073 |
 | confidence: medium | 1063 |
 | notes: ours | 476 |
 | kind: interpretation | 459 |
@@ -70,7 +70,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 107 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
-| notes: provisional | 43 |
+| notes: provisional | 44 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
@@ -4340,7 +4340,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (216)
+### General game design (217)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4608,10 +4608,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-40404034` | Refusals (before any choice, in this order) | no rows at all, dead, puppet (retainer / AI Marine), already executing, airborne, in a reaction or a flinch, charging / evading / in a jump-pack phase, a melee weapon without an execution family, an Ork player, the match counting down or ended, another… | kind: ours; confidence: medium | owner brief and answers (retainers cannot execute); airborne: review note 4; a reaction: lead decision 8 (2026-11-25) | Refusals (before any choice, in this order): compare with SM1 by feel or video. Ours: no rows at all, dead, puppet (retainer / AI Marine), already… | ☐ |
+| `R-40404034` | Refusals (before any choice, in this order) | no rows at all, dead, puppet (retainer / AI Marine), already executing, airborne, in a reaction (interrupt, stun or stagger; a light hit's flinch does not refuse: lead 40), charging / evading / in a jump-pack phase, a melee weapon without an execution family… | kind: ours; confidence: medium | owner brief and answers (retainers cannot execute); airborne: review note 4; a reaction: lead decision 8 (2026-11-25) | Refusals (before any choice, in this order): compare with SM1 by feel or video. Ours: no rows at all, dead, puppet (retainer / AI Marine), already… | ☐ |
 | `R-5AA17E3F` | Classic window | 0.8 s (24 ticks at 30 Hz), `SimConfig.ExecutionWindowSeconds`, hashed (X1's row) (s) | kind: ours; kind: estimate; confidence: low | architect recommendation, uncontested | Classic window: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.8 s (24 ticks at 30 Hz), SimConfig.ExecutionWindowSeconds, hashed… | ☐ |
 | `R-94E310B9` | One finisher per corpse | an offer is spent by its first press inside the window, whether a move aligns or not; a refused press (airborne, a reaction) does not spend it | kind: ours; confidence: medium | brief ("no second kill"); one try ours | One finisher per corpse: compare with SM1 by feel or video. Ours: an offer is spent by its first press inside the window, whether a… | ☐ |
 | `R-4332CACD` | Classic choice | `ExecutionChoice.ChooseClassic` on the corpse (its state at death, alive for the checks only), seeded by (tick, executor, victim); the wire carries the row's wire index (`ExecutionRowSet.WireIndexOf`), never a filtered list's index | kind: ours | X2; lead 39 (wire identity) | Classic choice: compare with SM1 by feel or video. Ours: ExecutionChoice.ChooseClassic on the corpse (its state at death… | ☐ |
+| `R-394902D4` | Classic forward slide | up to 2.5 m onto the corpse (Warfront keeps 1 m), at 6 m/s: a 2.5 m glide takes about 13 ticks (0.42 s); the whole slide passes the same terrain checks (capsule glide, wall sweeps, gaps, steps, slopes, kill volumes, spawn blockers, bystanders); hashed.… (m, m/s) | kind: ours; confidence: low; notes: provisional | lead 40 (2026-11-25), from the live check's NoFit counts | Classic forward slide: compare with SM1 by timing a run over a known distance. Ours: up to 2.5 m onto the corpse (Warfront keeps 1 m), at 6 m/s: a 2.5 m… | ☐ |
 | `R-59F0B89B` | Classic bystanders | the other living players (not the executor, not the corpse's player) within 2.5 m slide + 0.9 m + 7 m of the executor; a slide that closes within 0.9 m of one is refused (m) | kind: ours; confidence: medium | ours (Classic players are solid) | Classic bystanders: compare with SM1 by measuring on a flat spot of the same map. Ours: the other living players (not the executor, not the corpse's player)… | ☐ |
 | `R-3E0A3399` | Lock | input replaced by `MatchFlow.Locked` (no stick, no buttons; the view's yaw and pitch kept); locked ticks are `StartTick + 1` to the end tick inclusive (the run starts in the step, after that tick's pin) (ticks) | kind: ours; confidence: medium | design | Lock: compare with SM1 by feel or video. Ours: input replaced by MatchFlow.Locked (no stick, no buttons; the view's… | ☐ |
 | `R-FC8E256A` | Pin | position, yaw, zero velocity, grounded, and no melee attack in progress or buffered, from `ExecutionTrack.Pin` after the player's step, and again in the step after the tick's contacts and pushes (a shove is pinned back) | kind: ours; confidence: medium | design; re-pin: lead 39 (X1 review item 7) | Pin: compare with SM1 by feel or video. Ours: position, yaw, zero velocity, grounded, and no melee attack in… | ☐ |
