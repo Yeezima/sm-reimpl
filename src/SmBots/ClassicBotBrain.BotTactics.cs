@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Godot;
 using SmNet;
 using SmSim;
 using V2 = System.Numerics.Vector2;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// Stream C (owner's batch 2026-11-06 late; Classic PvP test bots, **ours**, not the original AI; values in <see cref="BotTactics"/>, spec/behavior.md
@@ -25,7 +24,7 @@ namespace SmClient;
 /// <c>--bot-old-tactics</c> restores the old behaviour (for before/after measurements). Musou Mode's bot (the Extras hook) is unchanged.
 /// A "tactics:" line every 10 s gives the measurements (shots and hits on the ground and in the air, per weapon, melee swings and hits, strafing share).
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
     BotTactics? _botTacticsModel;
     bool? _botOldTactics;

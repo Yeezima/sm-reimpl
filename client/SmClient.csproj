@@ -10,6 +10,8 @@
   <ItemGroup>
     <ProjectReference Include="..\src\SmContent\SmContent.csproj" />
     <ProjectReference Include="..\src\SmNet\SmNet.csproj" />
+    <!-- T1 (Phase B): the Classic bot brain, engine-free (NetworkView.BotBrain.cs is the adapter). -->
+    <ProjectReference Include="..\src\SmBots\SmBots.csproj" />
     <!-- Added content: custom maps from the Mapmaker (docs/mapmaker.md), reached through Extras/ hooks only. -->
     <ProjectReference Include="..\src\SmMapmaker\SmMapmaker.csproj" Condition="'$(SmExtras)' == 'true'" />
   </ItemGroup>

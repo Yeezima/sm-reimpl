@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Godot;
 using SmNet;
 using SmSim;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// The owner's hunt (2026-11-16; Classic PvP, Annihilation and Seize Ground; test script, **ours**, not the original AI; engine-free choice in <see cref="BotHunt"/>): "make
@@ -16,11 +15,11 @@ namespace SmClient;
 /// What a bot knows: the snapshots give every client every player's state and the chase has always used it, so the hunt adds no channel and no tracking beyond that.
 /// Musou bots return earlier (<c>ExtrasBotInput</c>). <c>--bot-no-hunt</c> turns off Seize Ground's surplus hunt and the zone hunt.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
-    static readonly bool BotNoHunt = CmdFlag("bot-no-hunt");
+    bool BotNoHunt => CmdFlag("bot-no-hunt");
     /// <summary><c>--bot-hunt-zone</c> (default off): the hunt also takes enemies in the no-loiter zone round their spawn (outside the room), as the first version did.</summary>
-    static readonly bool BotHuntZone = CmdFlag("bot-hunt-zone");
+    bool BotHuntZone => CmdFlag("bot-hunt-zone");
     readonly List<HuntCandidate> _huntList = new();
     readonly BotHunt _botHunt = new();
     int _huntLogged, _huntLastTarget = -1;

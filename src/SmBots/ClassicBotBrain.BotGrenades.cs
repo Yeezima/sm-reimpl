@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using Godot;
 using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
 using V2 = System.Numerics.Vector2;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// bot-grenade-safety (owner, 2026-11-11; Classic PvP bots; rules engine-free in <see cref="BotGrenadeSafety"/>, **ours**): the bots no longer blow themselves up with their own
@@ -19,7 +18,7 @@ namespace SmClient;
 /// are left out until it is out of them). A splash weapon held at close range for <see cref="BotGrenadeSafety.PistolAfterSeconds"/> s gives way to a loaded pistol.
 /// <c>--old-bot-throws</c> restores the old throws (6 m horizontal minimum, the aim 8 m short of the target) and drops every hold.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
     bool? _oldBotThrows;
     /// <summary><c>--old-bot-throws</c>: the throws, aim and detonations as before bot-grenade-safety, no holds.</summary>

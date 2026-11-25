@@ -18,6 +18,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SmNet\SmNet.csproj" />
     <ProjectReference Include="..\SmContent\SmContent.csproj" />
+    <!-- T1 (Phase B): the Classic bot brain, engine-free, for the Warfront retainers (T4). -->
+    <ProjectReference Include="..\SmBots\SmBots.csproj" />
     <!-- Added content: custom maps from the Mapmaker (docs/mapmaker.md), reached through Extras/ hooks only. -->
     <ProjectReference Include="..\SmMapmaker\SmMapmaker.csproj" Condition="'$(SmExtras)' == 'true'" />
   </ItemGroup>

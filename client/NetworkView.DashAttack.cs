@@ -30,13 +30,9 @@ public partial class NetworkView
     const float DashWallShake = 0.04f;
     readonly Dictionary<int, RushPhase> _remoteDash = new();
 
-    /// <summary><c>--bot-dash-attack</c> (test aid with <c>--bot</c>; not original behaviour).</summary>
-    bool BotDashAttack => _botDashAttack ??= OS.GetCmdlineUserArgs().Contains("--bot-dash-attack");
-    bool? _botDashAttack;
     /// <summary><c>--log-falls</c> (test aid): log the own walk-off drops and airborne charges.</summary>
     bool LogFalls => _logFalls ??= OS.GetCmdlineUserArgs().Contains("--log-falls");
     bool? _logFalls;
-    double _botDashNext = 4.0;
 
     /// <summary>The dash attack's and the slash's clips, checked against the rig (from <see cref="SetUpReactions"/>; missing ones are noted).</summary>
     void SetUpDashAttack()
@@ -188,32 +184,6 @@ public partial class NetworkView
             GD.Print($"t {_connectedFor:F2} s: falls: {_fallKind} landed at {me.Position.X:F2},{me.Position.Y:F2},{me.Position.Z:F2} after a {_fallFrom.Z - me.Position.Z:F2} m drop, " +
                      $"{across:F2} m from where it left (left at {_fallSpeed:F2} m/s; fastest horizontal while falling {_fallMaxHorizontal:F2} m/s; {(me.Rush != RushPhase.None ? $"now {me.Rush} at {Rush.Time(me, _config!):F2} s" : "no charge")}; falls logged {_fallsLogged})");
         }
-    }
-
-    /// <summary>
-    /// <c>--bot-dash-attack</c>: on the ground with a target 5 to 14 m away, free and the dash attack's spacing over, the bot taps Jump with the stick forward
-    /// (the dash) every few seconds; during the dash's flight it presses melee as soon as the simulation's window allows (<see cref="Rush.CanDashAttack"/>) and then
-    /// lets the attack play without input. Null otherwise (the bot's other behaviour).
-    /// </summary>
-    PlayerInput? BotDashAttackInput(PlayerState me, PlayerState target, uint tick)
-    {
-        if (!BotDashAttack || Loadouts.JumpPack(_config!, me)?.DashAttack is null || !me.Alive) return null;
-        if (Rush.IsDash(me.Rush)) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
-        if (Evade.Evading(me) && !me.EvadeLanded)
-        {
-            bool press = Rush.CanDashAttack(me, _config!, _client!.Collision) && me.RushLock == 0 && !me.MeleeHeld;
-            // feel/charge-directions: --bot-dash-dirs holds the stick in each of the eight directions in turn at the press (the lunge goes that way).
-            var (sx, sy, keys) = press && BotDashDirs ? DashDirs[_botDashDir++ % DashDirs.Length] : (0f, 0f, "none");
-            if (press) NotePress(_yaw, keys, me.Velocity.X * -MathF.Sin(_yaw) + me.Velocity.Y * MathF.Cos(_yaw));
-            return new PlayerInput(tick, sx, sy, _yaw, press ? InputButtons.Melee : InputButtons.None, _pitch);
-        }
-        if (me.Jump == JumpPhase.TakeOff) return new PlayerInput(tick, 0f, 1f, _yaw, InputButtons.None, _pitch);   // released: the tap is the dash
-        float dx = target.Position.X - me.Position.X, dy = target.Position.Y - me.Position.Y, distance = MathF.Sqrt(dx * dx + dy * dy);
-        if (_connectedFor < _botDashNext || !me.Grounded || me.Jump != JumpPhase.None || Evade.Evading(me) || me.EvadeLock > 0 || me.RushLock > 0
-            || me.MeleeStep > 0 || me.Throwing || me.JumpHeld || distance is < 5f or > 14f) return null;
-        _botDashNext = _connectedFor + 3.0;
-        if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot dashes at P{target.PlayerId} {distance:F1} m away to dash attack");
-        return new PlayerInput(tick, 0f, 1f, _yaw, InputButtons.Jump, _pitch);
     }
 
     // ---- --dash-wall-test (feel/jump-pack-2 test aid with --bot): the dash attack into a wall ----

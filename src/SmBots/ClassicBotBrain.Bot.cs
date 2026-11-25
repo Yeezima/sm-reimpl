@@ -1,20 +1,19 @@
 using System;
 using System.Linq;
-using Godot;
 using SmNet;
 using SmSim;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// M19: the test bot's line of sight, walking and chasing, shared by the Annihilation bot (<see cref="BotInput"/>) and the
 /// Seize Ground bot (<see cref="BotSeizeInput"/>). On a map the bot only fires at an enemy it can see within
 /// <see cref="BotFightRange"/> (a ray from its eye to the enemy's chest against the shot collision); otherwise it walks
 /// toward the nearest living enemy's last shown position, and with no enemy alive toward the map's centre, along A* paths
-/// on the navigation graph (NetworkView.Nav.cs; until the graph is built: straight, detouring when stuck). Without map
+/// on the navigation graph (ClassicBotBrain.Nav.cs; until the graph is built: straight, detouring when stuck). Without map
 /// collision (flat ground) nothing changes: every living enemy is a target at any range. Test script, not the original AI.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
     const float BotChaseSprint = 30f;           // metres beyond which a chasing bot sprints (test script)
     const float BotCentreArrived = 8f;          // metres from the map centre at which the idle bot stops walking to it (test script)
@@ -32,7 +31,7 @@ public partial class NetworkView
     {
         if (_client?.Collision is not { } world) return true;
         var from = me.Position + new System.Numerics.Vector3(0, 0, _config!.EyeHeight);
-        var to = target.Position + new System.Numerics.Vector3(0, 0, BotTargetHeight);
+        var to = target.Position + new System.Numerics.Vector3(0, 0, AimHeightOf(target));
         var line = to - from;
         float length = line.Length();
         return length <= 0.3f || world.Weapons.Raycast(from, line / length, length - 0.15f) is null;
@@ -57,7 +56,7 @@ public partial class NetworkView
     /// The enemy to fight: the nearest living enemy that passes <see cref="BotCanFight"/> (so a visible enemy is not passed
     /// over for a nearer one behind a wall), its horizontal distance in <paramref name="distance"/>; null when none does.
     /// </summary>
-    PlayerState? BotFightTarget(PlayerState me, out float distance)
+    public PlayerState? BotFightTarget(PlayerState me, out float distance)
     {
         distance = float.MaxValue;
         foreach (var other in _lastOthers.Where(o => o.Alive && (me.Team == Team.None || World.Hostile(me.Team, o.Team)))
@@ -73,7 +72,7 @@ public partial class NetworkView
     /// 1 m in 1.5 s of walking it detours for 1.5 s at one of <see cref="BotDetourAngles"/> off the direct line (a different
     /// one each time, offset by player id). Time spent not walking (fighting, holding a point) does not count as being stuck.
     /// </summary>
-    Vector2 BotWalkDirection(PlayerState me, Vector2 goal)
+    public Vector2 BotWalkDirection(PlayerState me, Vector2 goal)
     {
         var here = new Vector2(me.Position.X, me.Position.Y);
         var to = goal - here;
@@ -97,72 +96,17 @@ public partial class NetworkView
     /// M44a: the point a path to an enemy at <paramref name="p"/> is planned to: <paramref name="p"/> itself, or the floor under it when it is in the
     /// air (a jump pack: the graph has no floor within 3 m of it, so a plan to it failed and the bot walked straight at it, into walls).
     /// </summary>
-    System.Numerics.Vector3 BotPathGoal(System.Numerics.Vector3 p)
+    public System.Numerics.Vector3 BotPathGoal(System.Numerics.Vector3 p)
     {
         if (_nav is not { } graph || _client?.Collision is not { } world || graph.Nearest(p, 2f, 3f) >= 0) return p;
         return world.Character.Raycast(p + new System.Numerics.Vector3(0, 0, 0.3f), -System.Numerics.Vector3.UnitZ, 80f) is { } hit ? hit.Point : p;
     }
 
     /// <summary>An input moving in the ground-plane direction <paramref name="to"/> (unit, game space) while facing the current yaw.</summary>
-    PlayerInput BotMoveInput(uint tick, Vector2 to, InputButtons buttons)
+    public PlayerInput BotMoveInput(uint tick, Vector2 to, InputButtons buttons)
     {
         var forward = new Vector2(-MathF.Sin(_yaw), MathF.Cos(_yaw));
         var right = new Vector2(forward.Y, -forward.X);
         return new PlayerInput(tick, to.Dot(right), to.Dot(forward), _yaw, buttons, _pitch);
-    }
-
-    /// <summary>
-    /// Annihilation bot, when there is nothing to fight (<see cref="BotCanFight"/> said no): on a map, follow a path (<see cref="BotSteer"/>)
-    /// toward the nearest living enemy's last shown position, sprinting while more than <see cref="BotChaseSprint"/> m of
-    /// path remain (not toward a drop), facing the way it walks and not firing; with no enemy alive, toward the map's centre
-    /// until within <see cref="BotCentreArrived"/> m. Null (the bot runs its old circle) on flat ground, when dead, or with
-    /// no enemy and no known centre.
-    /// </summary>
-    PlayerInput? BotChaseInput(PlayerState me, uint tick)
-    {
-        if (_client?.Collision is null || !me.Alive) return null;
-        System.Numerics.Vector3 goal;
-        float distance;
-        string purpose;
-        // M44a: an enemy in its spawn room cannot be reached (the blockers) and is not chased; since 2026-11-07 neither is one in the no-loiter zone around it, and with
-        // only such enemies (or none alive) the bot holds its centre spot and roams (NetworkView.BotRoam.cs; the old wait at the door only with --bot-door-wait).
-        // 2026-11-08: a melee push goes first, through its concealed approach (NetworkView.BotPush.cs).
-        if (BotPushChaseInput(me, tick) is { } pushInput) return pushInput;
-        // 2026-11-08: a ramp or balcony holder goes to its post and holds it instead of chasing (NetworkView.BotPosts.cs).
-        if (BotPostInput(me, tick) is { } postInput) return postInput;
-        var chased = BotChaseTarget(me);
-        chased ??= BotHuntTarget(me);   // 2026-11-16: nobody to chase: hunt an enemy outside its spawn room instead of patrolling (NetworkView.BotHunt.cs)
-        if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
-        // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (NetworkView.BotRoam.cs).
-        if (BotLaneInput(me, tick, chased) is { } laneInput) return laneInput;
-        if (chased is null && BotIdleInput(me, tick) is { } idleInput) return idleInput;
-        if (chased is { } enemy)
-        {
-            // Stream C: with an ally already engaging it, come in from the side (a flank point; NetworkView.BotTactics.cs). 2026-11-07: else a long chase bends
-            // through a via point by rank (Annihilation; NetworkView.BotRoam.cs).
-            var flank = BotFlankGoal(me, enemy);
-            var via = flank is null ? BotChaseVia(me, enemy) : null;
-            goal = flank ?? via ?? BotPathGoal(enemy.Position);
-            distance = new Vector2(me.Position.X, me.Position.Y).DistanceTo(new Vector2(goal.X, goal.Y));
-            _botNote = $"chasing P{enemy.PlayerId} at {distance:F0} m{(distance <= BotFightRange ? " (not visible)" : "")}{(flank is null ? "" : " flank")}";
-            if (via is not null) _botNote += " via";
-            purpose = flank is not null ? $"flank P{enemy.PlayerId}" : via is not null ? $"chase P{enemy.PlayerId} via" : $"chase P{enemy.PlayerId}";
-        }
-        else if (_mapCentre is { } centre && new Vector2(me.Position.X, me.Position.Y).DistanceTo(centre) is var toCentre && toCentre > BotCentreArrived)
-        {
-            goal = _mapCentre3 ?? new System.Numerics.Vector3(centre.X, centre.Y, me.Position.Z);
-            distance = toCentre;
-            _botNote = $"no enemy alive, walking to the map centre {distance:F0} m";
-            purpose = "map centre";
-        }
-        else return null;
-        // Path following on the navigation graph (NetworkView.Nav.cs); the straight walk with detours until it is built.
-        var (to, speed, _, dropAhead) = BotSteer(me, goal, purpose);
-        if (Nav is null && _connectedFor < _botDetourUntil) _botNote += " detour";
-        if (to.LengthSquared() < 1e-6f) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);
-        _yaw = MathF.Atan2(-to.X, to.Y);
-        _pitch = 0f;
-        float remaining = Nav is not null && _navAgent is { Path: not null } agent ? agent.Remaining : distance;
-        return BotMoveInput(tick, to * speed, (remaining > BotChaseSprint && !dropAhead && _navAgent is not { OnJumpLink: true } ? InputButtons.Sprint : InputButtons.None) | _navJump);
     }
 }

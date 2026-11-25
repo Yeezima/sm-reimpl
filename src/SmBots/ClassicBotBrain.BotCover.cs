@@ -2,12 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Godot;
 using SmNet;
 using SmSim;
 using V3 = System.Numerics.Vector3;
 
-namespace SmClient;
+namespace SmBots;
 
 /// <summary>
 /// The owner's low-health rule (2026-11-08; test script, **ours**, not the original AI; engine-free parts in <see cref="BotRetreat"/> and <see cref="BotCover"/>): "they
@@ -16,12 +15,12 @@ namespace SmClient;
 /// for the sim's regeneration (firing only at an enemy that shows itself) and rejoins at 90 % health and armour, but not before 5 s and at the latest after 15 s (owner 2026-11-16; 35 s before, no minimum). An enemy within melee reach is fought
 /// instead. Musou bots return earlier (<c>ExtrasBotInput</c>). <c>--bot-no-retreat</c> turns it off.
 /// </summary>
-public partial class NetworkView
+public sealed partial class ClassicBotBrain
 {
-    static readonly bool BotNoRetreat = CmdFlag("bot-no-retreat");
+    bool BotNoRetreat => CmdFlag("bot-no-retreat");
     /// <summary><c>--bot-no-annihilation-retreat</c>: Annihilation bots do not retreat (the 2026-11-08 rollback); the owner's order of 2026-11-16 gives them the retreat again.</summary>
-    static readonly bool BotNoAnnihilationRetreat = CmdFlag("bot-no-annihilation-retreat");
-    static readonly bool BotRecentAiAlways = CmdFlag("bot-recent-ai");
+    bool BotNoAnnihilationRetreat => CmdFlag("bot-no-annihilation-retreat");
+    bool BotRecentAiAlways => CmdFlag("bot-recent-ai");
     /// <summary>
     /// The 2026-11-08 pass of the Classic PvP bot AI (safe pushes only, cover at low health, ramp and balcony posts) runs in Seize Ground only. Owner, 2026-11-08: "in
     /// annihilation classic pvp only, roll back the most recent ai changes. for seize ground keep them." Annihilation bots behave as after the 2026-11-07/08 melee push
@@ -79,7 +78,7 @@ public partial class NetworkView
 
         if (_coverTask is { IsCompleted: true } task)
         {
-            _coverTask = null;
+            _coverTask = null; ForgetJob(task);
             if (task.IsCompletedSuccessfully)
             {
                 _cover = task.Result; _coverNone = _cover is null;
@@ -95,7 +94,7 @@ public partial class NetworkView
             _coverAt = _connectedFor;
             var from = me.Position; var cancel = _navCancel.Token; var plan = Plan;
             Func<V3, bool>? excluded = plan is null ? null : plan.InNoLoiterZone;
-            _coverTask = Task.Run(() => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
+            _coverTask = BrainJob($"cover {++_coverJobs}", () => BotCover.Find(graph, world, from, eyes, excluded, cancel), cancel);
         }
         if (_cover is not { } cover) return target is null ? new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f) : null;   // planning (standing), or none: fight
 
@@ -104,7 +103,7 @@ public partial class NetworkView
         {
             // Seen: fire back while going (no sprint: it would stop the fire), or standing in a cover that is no longer hidden until the next one is planned.
             float dx = enemy.Position.X - me.Position.X, dy = enemy.Position.Y - me.Position.Y;
-            float dz = enemy.Position.Z + BotTargetHeight - (me.Position.Z + _config.EyeHeight);
+            float dz = enemy.Position.Z + AimHeightOf(enemy) - (me.Position.Z + _config.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);
             _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
             var weapon = BotWeaponButtons(me, tick, enemy);

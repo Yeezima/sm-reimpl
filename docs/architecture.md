@@ -55,6 +55,33 @@ original install (read-only) ──► SmFormats ──► SmContent ──► p
 `SmFormats`, `SmContent`, `SmSim`, `SmNet`, `SmServer` and the Godot client (`client/`) exist. The Godot client does not
 use the network yet; `SmNet.GameClient` is the engine-free client it will drive.
 
+### SmBots: the Classic bot brain (T1 of the Phase B design, 2026-11-25)
+`src/SmBots` holds the Classic PvP test bot's brain, engine-free: `ClassicBotBrain`, one per bot, moved without a behaviour change out of the
+client's NetworkView (its partial files keep their old names: Bot, BotAim, BotCover, BotGrenades, BotHunt, BotLoadout, BotPosts, BotPush, BotRoam,
+BotSpawn, BotTactics, Nav, and the bot parts of Jump, Seize, Evade, Reactions and DashAttack). It references SmNet and SmContent; SmServer, SmTool
+and the client reference it. Its seams:
+- `IBotWorldView`: what the brain reads (own predicted state, the others as shown, the clock, config, collision, match, points, projectiles) and the
+  view it turns (yaw, pitch); `AimHeightOf(target)` (Classic: the 1.2 m chest) and `Work` (`BotWork`: thread-pool jobs handed on at a tick boundary,
+  shared by key). The client's `BotWorld` (client/NetworkView.BotBrain.cs) answers from its GameClient; a server view (Warfront retainers, T4) from its World.
+- `IBotStrategy`: what the bot does around its fight, called by the fight layer at fixed points (`Begin`, `BeforeFight`, `NoteFight`, `FightMove`,
+  `Post`, `PostReturn`, `Idle`, and `ClampGoal` on every path goal). `ClassicBotStrategy` is the chase, roam, hunt, posts, push, cover and Seize
+  Ground code (files Chase, BotRoam, BotHunt, BotPosts, BotPush, BotCover, Seize and the route of Nav); the fight layer is ClassicBotBrain.cs,
+  Jump, Evade, Reactions, DashAttack, BotAim, BotTactics and BotGrenades. `CommittedMove(me)` says when a move must not be interrupted (no Classic use).
+- `IBotHooks`: the client's test aids that script the whole input, added content's bot (`AddedContentInput`, which the client's adapter answers with its pinned `ExtrasBotInput` hook: Musou Mode's co-op bot), the charge-direction
+  press log and the frame-profile phase; none on a server. `BotArgs` carries the `--bot-*` flags (none on a server), `ClassicBotOptions` the client's
+  constructor settings, `BotLog` the log (the client: `GD.Print`, so bot logs read as before). `GodotMath.cs` copies Godot's Vector2 formulas
+  (checked bit for bit against GodotSharp 4.7.2).
+- `BotWork` keys: map jobs (graph, jump links, spawn watch, map plan) are keyed by the loaded map's identity (`BotWork.MapScope`: the map name and
+  the map, collision and configuration objects) and the slot's side, pack and class, so every brain on that map shares one build; a brain's own
+  searches (cover, approach) by its lane (`ClassicBotOptions.WorkLane`; null gives each brain its own, the client's shadow shares its live brain's)
+  and a running number, and are forgotten once taken. The walking graph's key is forgotten once its jump links are in use. A host calls `Clear` at a
+  map change (the client does in `PrepareNavigation`).
+- For T3 and T4, what `ClampGoal` does not see: it is applied in `BotSteer` (every path goal), but these moves steer the stick directly and bypass
+  it: the jump-pack script (`BotJumpInput`, at the target), the charge (`BotRushInput`), the evade roll (`BotEvadeInput`), the fight's sideways
+  strafe (`BotStrafe`, `BotWalkableStrafe`), the melta's cone run (straight at the target beyond its cone, `BotWeave`), and the `--bot-melee` run.
+  A leash that must hold through a fight has to check them (or `CommittedMove`) as well. `BotFlankGoal` (BotTactics.cs, used by the chase) is a
+  strategy concern that sits in a fight-layer file; T3 may move it into the strategy.
+
 ### Content boundary
 - Readers open files `FileAccess.Read` and `FileShare.ReadWrite`, and nothing ever writes under the game folder.
 - Converted data goes only to the private cache outside the repo. It is never packaged.
