@@ -119,6 +119,8 @@ public sealed partial class World
     {
         if (!next.Alive || !_executionRuns.TryGetValue(id, out var run) || run.StartTick >= Tick) return;
         if (Config.Executions.AtWire(run.Wire) is not { } row) return;   // the step ends it Invalid
+        // Moved off last tick's pin between ticks (a respawn, a round reset, a developer tool): left where it is, so the step ends the run Invalid.
+        if (Vector3.Distance(before.Position, ExecutionTrack.Pose(run, row, Tick - 1, Config.TickRate).Feet) > PinTolerance) return;
         next = ExecutionTrack.Pin(next, run, row, Tick, Config.TickRate);
     }
 

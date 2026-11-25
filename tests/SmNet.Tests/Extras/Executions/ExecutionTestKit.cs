@@ -39,8 +39,8 @@ static class ExecutionTestKit
 
     /// <summary>A lethal light attack: hit at tick 4, over at 21 (5000 damage on a 100 hp body; none to the others in the cone).</summary>
     public static readonly MeleeStep Lethal = new(T(20.5f), T(3.5f), T(10.5f), T(15.5f), T(12.5f), T(18.5f), 5000f, 0f, 3.5f);
-    /// <summary>A nonlethal light attack (10 damage).</summary>
-    public static readonly MeleeStep Light = new(T(20.5f), T(3.5f), T(10.5f), T(15.5f), T(12.5f), T(18.5f), 10f, 10f, 3.5f);
+    /// <summary>A nonlethal light attack (10 damage) that interrupts.</summary>
+    public static readonly MeleeStep Light = new(T(20.5f), T(3.5f), T(10.5f), T(15.5f), T(12.5f), T(18.5f), 10f, 10f, 3.5f) { PrimaryReaction = new ReactionEntry(0f, ReactionKind.Interrupt) };
 
     public const int Tactical = 0, Chaos = 1, Kicker = 2, Ork = 3, Tapper = 4;
 
@@ -68,9 +68,12 @@ static class ExecutionTestKit
     };
 
     /// <summary>A world with players 1.. of the given classes at the given places (player 1 faces +Y, the others -Y).</summary>
-    public static World Arena(SimConfig c, params (int Class, Vector3 At)[] players)
+    public static World Arena(SimConfig c, params (int Class, Vector3 At)[] players) => Arena(c, null, players);
+
+    /// <summary>As <see cref="Arena(SimConfig, (int, Vector3)[])"/> on <paramref name="level"/> (null: none).</summary>
+    public static World Arena(SimConfig c, CollisionWorld? level, params (int Class, Vector3 At)[] players)
     {
-        var w = new World(c, null, players.Select((p, i) => new SpawnPoint(p.At, i == 0 ? 0f : MathF.PI)).ToArray());
+        var w = new World(c, level, players.Select((p, i) => new SpawnPoint(p.At, i == 0 ? 0f : MathF.PI)).ToArray());
         for (int i = 0; i < players.Length; i++) w.Spawn(i + 1, players[i].Class);
         for (int i = 0; i < players.Length; i++) w.ExecutionsPlaceForTests(i + 1, players[i].At, i == 0 ? 0f : MathF.PI);   // the spawn choice need not follow the list's order
         return w;
@@ -95,5 +98,13 @@ static class ExecutionTestKit
     public static void Tap(World w, int id, uint? view = null)
     {
         Step(w, p => p == id ? InputButtons.Execute : InputButtons.None, view);
+    }
+
+    /// <summary>A flat floor (its top at z 0), 200 m square.</summary>
+    public static CollisionWorld Flat()
+    {
+        Vector3[] v = [new(-100, -100, 0), new(100, -100, 0), new(100, 100, 0), new(-100, 100, 0)];
+        var m = new StaticMesh(v, [0, 1, 2, 0, 2, 3]);
+        return new CollisionWorld(m, m);
     }
 }
