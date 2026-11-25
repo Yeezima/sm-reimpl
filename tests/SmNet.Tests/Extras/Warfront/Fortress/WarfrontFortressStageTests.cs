@@ -400,31 +400,60 @@ public class WarfrontFortressStageTests : IDisposable
     }
 
     /// <summary>
-    /// Review F5 (measurement, output only beyond the counts): the tick cost on the real fortress stage with its walking graph, four humans with two driven retainers each, 20 s of the battle after 12 s to land.
-    /// The whole server step (h.Step) and the brains' own step (<c>WarfrontRetainerBrains.LastMilliseconds</c>), p50 and p99.
+    /// Review F5 (measurement; the review of 2026-11-25 (2)): the server tick cost on the real fortress stage with its walking graph, four humans with two retainers each, 20 s of the battle
+    /// after 12 s to land, with Boyz kept within 8 to 14 m of every human (the retainers fight them): the retainers driven by their brains against the same retainers standing (no brain).
+    /// Per server tick: the harness step in which the server's World ticked (the server's whole tick and the clients' updates of that millisecond), and the brains' own step.
     /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void F5_tick_cost_on_the_fortress_with_its_graph_four_humans_and_eight_driven_retainers()
+    public void F5_tick_cost_on_the_fortress_with_its_graph_four_humans_and_eight_retainers_fighting_brains_on_against_off()
     {
-        var h = Start(out var server, brains: true, humans: 4);
-        h.Run(TimeSpan.FromSeconds(12));
-        var brains = server.WarfrontBrainsForTests!;
-        var wiring = server.WarfrontWiringForTests!;
-        output.WriteLine($"retainers driven: {wiring.Retainers.All.Count(r => r.WorldId != 0)}; graph {(brains.BrainOf(wiring.Retainers.All.First(r => r.WorldId != 0).WorldId)?.Graph is { } g ? g.NodeCount + " cells" : "none")}");
-        var step = new List<double>(); var own = new List<double>();
-        long seen = brains.Steps;
-        for (int t = 0; t < 600; t++)
-        {
-            long s0 = Stopwatch.GetTimestamp();
-            h.Step();
-            step.Add(Stopwatch.GetElapsedTime(s0).TotalMilliseconds);
-            if (brains.Steps != seen) { seen = brains.Steps; own.Add(brains.LastMilliseconds); }
-        }
         static double Q(List<double> v, double q) { var c = v.OrderBy(x => x).ToList(); return c.Count == 0 ? 0 : c[Math.Min(c.Count - 1, (int)(c.Count * q))]; }
-        output.WriteLine(FormattableString.Invariant($"fortress, 4 humans x 2 driven retainers: harness step p50 {Q(step, 0.5):0.00} ms, p99 {Q(step, 0.99):0.00} ms over {step.Count}; the brains' own step p50 {Q(own, 0.5):0.00} ms, p99 {Q(own, 0.99):0.00} ms over {own.Count}"));
-        Assert.Equal(8, wiring.Retainers.All.Count(r => r.WorldId != 0));
-        Assert.True(own.Count > 0);
+        (List<double> Tick, List<double> Own, int Fighting, int Ticks) Measure(bool brains)
+        {
+            var h = Start(out var server, brains: brains, humans: 4);
+            h.Run(TimeSpan.FromSeconds(12));
+            var sim = server.World.Musou!;
+            var wiring = server.WarfrontWiringForTests!;
+            Assert.Equal(8, wiring.Retainers.All.Count(r => r.WorldId != 0));
+            var humans = server.World.Players.Keys.Where(id => !TfwContracts.IsPuppet(id)).Order().ToList();
+            var tick = new List<double>(); var own = new List<double>();
+            int fighting = 0;
+            long worldTick = server.World.Tick, brainSteps = server.WarfrontBrainsForTests?.Steps ?? 0;
+            var all = new MusouEnemy[MusouSim.Capacity];
+            for (int t = 0; t < 20_000; t++)
+            {
+                if (t % 1000 == 0)   // once a second: each human has 4 Boyz within 8 to 14 m (topped up)
+                    foreach (int id in humans)
+                    {
+                        if (!server.World.Players.TryGetValue(id, out var p)) continue;
+                        int n = sim.CopyTo(all), near = 0;
+                        for (int k = 0; k < n; k++) if (all[k].Alive && Flat(all[k].Position, p.Position) <= 20f) near++;
+                        for (int k = near; k < 4; k++) sim.Spawn(MusouEnemyType.Boy, p.Position + new System.Numerics.Vector3(MathF.Cos(k * 1.6f + t) * (8f + k * 2f), MathF.Sin(k * 1.6f + t) * (8f + k * 2f), 0f), 0f, 400f);
+                    }
+                long s0 = Stopwatch.GetTimestamp();
+                h.Step();
+                double ms = Stopwatch.GetElapsedTime(s0).TotalMilliseconds;
+                if (server.World.Tick == worldTick) continue;
+                worldTick = server.World.Tick;
+                tick.Add(ms);
+                if (server.WarfrontBrainsForTests is { } b && b.Steps != brainSteps)
+                {
+                    brainSteps = b.Steps; own.Add(b.LastMilliseconds);
+                    if (wiring.Retainers.All.Any(r => r.WorldId != 0 && b.StrategyOf(r.WorldId)?.Decision == "fight")) fighting++;
+                }
+            }
+            return (tick, own, fighting, tick.Count);
+        }
+        var warm = Measure(brains: true);   // a first run pays the JIT and the cold caches: measured, then both again in the order off, on
+        output.WriteLine(FormattableString.Invariant($"warm-up run (brains on, cold): server tick p50 {Q(warm.Tick, 0.5):0.00} ms, p99 {Q(warm.Tick, 0.99):0.00} ms"));
+        var off = Measure(brains: false);
+        var on = Measure(brains: true);
+        output.WriteLine(FormattableString.Invariant($"fortress, 4 humans x 2 retainers, Boyz kept near, 20 s: brains ON server tick p50 {Q(on.Tick, 0.5):0.00} ms, p99 {Q(on.Tick, 0.99):0.00} ms, max {on.Tick.Max():0.00} ms over {on.Ticks} ticks; the brains' own step p50 {Q(on.Own, 0.5):0.00} ms, p99 {Q(on.Own, 0.99):0.00} ms; ticks with a retainer fighting {on.Fighting}"));
+        output.WriteLine(FormattableString.Invariant($"brains OFF (the same retainers standing): server tick p50 {Q(off.Tick, 0.5):0.00} ms, p99 {Q(off.Tick, 0.99):0.00} ms, max {off.Tick.Max():0.00} ms over {off.Ticks} ticks"));
+        Assert.True(on.Ticks >= 500 && off.Ticks >= 500);
+        Assert.True(on.Own.Count >= 500);
+        Assert.True(on.Fighting > 0, "the retainers fought");
     }
 
     /// <summary>Case 5: a second Warboss, never leashed (a plain Spawn, no fortress rule, no boss script), on the fortress's open outer yard (no wall within 30 m) 30 m from the human; the fortress's own Warboss stays leashed in the plaza. Unchanged by the lean: he closes the 30 m.</summary>

@@ -60,7 +60,18 @@ public sealed class WarfrontRetainerBrains
     public const float SnapRadius = 4f, SnapHeight = 2.5f;
 
     /// <summary>Whether jump-pack classes get their jump links (off in tests that do not want a background build; env <c>SM_WF_RETAINER_JUMPS=0</c> turns it off).</summary>
-    public bool JumpLinks { get; init; } = Environment.GetEnvironmentVariable("SM_WF_RETAINER_JUMPS") != "0";
+    /// <remarks>
+    /// Off by default since the review of 2026-11-25: the jump-link path has not run on a real stage (no headless real-stage run yet); <c>SM_WF_RETAINER_JUMPS=1</c> turns it on. Off, a jump-pack
+    /// retainer walks the stage's walking graph (it still jumps and pounds in its fights and on the jump-pound order).
+    /// </remarks>
+    public bool JumpLinks { get; init; } = Environment.GetEnvironmentVariable("SM_WF_RETAINER_JUMPS") == "1";
+    /// <summary>The nav cache folder the jump links are read from and built into (tests: a private folder).</summary>
+    public string CacheDirectory { get; init; } = BotNavigation.CacheDirectory;
+    /// <summary>Forwards the brains' own log lines (the Classic bot's chatty lines; review 2026-11-25: off by default, <c>SM_WF_RETAINER_LOG=1</c>); the host's event lines always go out.</summary>
+    public bool VerboseLog { get; init; } = Environment.GetEnvironmentVariable("SM_WF_RETAINER_LOG") == "1";
+    /// <summary>Jump-link cache reads on the tick and background builds started (tests).</summary>
+    public int JumpReads { get; private set; }
+    public int JumpBuildsStarted { get; private set; }
     /// <summary>Steps the brains on the thread pool (false: one after the other; the same inputs either way).</summary>
     public bool Parallel { get; init; } = true;
     /// <summary>Ticks stepped and the milliseconds the last one took (the whole compute: views, brains, logs).</summary>
@@ -106,8 +117,9 @@ public sealed class WarfrontRetainerBrains
         foreach (var r in _registry.All)
         {
             if (r.WorldId == 0 || r.State == SquadState.Out || !players.TryGetValue(r.WorldId, out var me)) continue;
-            // review L1: a fresh brain for each battle's record (compared by reference) and for each new life (a revive after a fall)
-            if (!_brains.TryGetValue(r.WorldId, out var b) || !ReferenceEquals(b.Record, r) || (me.Alive && b.Fell)) _brains[r.WorldId] = b = NewRetainer(r, me);
+            // review L1: a fresh brain for each battle's record (compared by reference) and for each new life (a revive after a fall); review 2026-11-25 (4): also for a brain not stepped on the
+            // last tick (every retainer was down, so nothing asked for an input and its fall was never seen)
+            if (!_brains.TryGetValue(r.WorldId, out var b) || !ReferenceEquals(b.Record, r) || (me.Alive && b.Fell) || b.Seen != _computedTick - 1) _brains[r.WorldId] = b = NewRetainer(r, me);
             b.Seen = _computedTick;
             b.Record = r;
             _stepping.Add(b);
@@ -130,7 +142,7 @@ public sealed class WarfrontRetainerBrains
                 b.Error = null;
             }
             if (b.Strategy.Situation.PoundDone) { b.Strategy.Situation.PoundDone = false; _registry.PoundDone(b.Id); }
-            foreach (string line in b.Lines) _log?.Invoke(line);
+            if (VerboseLog) foreach (string line in b.Lines) _log?.Invoke(line);
             b.Lines.Clear();
             NoteEvents(b);
         }
@@ -144,7 +156,7 @@ public sealed class WarfrontRetainerBrains
         var strategy = new WarfrontRetainerStrategy();
         var retainer = new Retainer(r.WorldId, r.Index, view, strategy, _world.Tick) { Record = r, WasAlive = me.Alive };
         var options = new ClassicBotOptions { SyncPlans = true, InlineSearches = true, WorkLane = $"wf-retainer-{r.WorldId}" };
-        retainer.Brain = new ClassicBotBrain(view, BotArgs.None, options, new BotLog(retainer.Lines.Add, retainer.Lines.Add), IBotHooks.None, strategy);
+        retainer.Brain = new ClassicBotBrain(view, BotArgs.None, options, VerboseLog ? new BotLog(retainer.Lines.Add, retainer.Lines.Add) : BotLog.None, IBotHooks.None, strategy);
         _log?.Invoke($"warfront retainer P{r.WorldId} (owner P{r.Owner}, slot {r.Slot}): brain on ({_world.Config.Classes[Math.Clamp(me.Class, 0, _world.Config.Classes.Count - 1)].Name})");
         return retainer;
     }
@@ -291,23 +303,21 @@ public sealed class WarfrontRetainerBrains
         var team = me.Team;
         int playerClass = me.Class;
         var content = new MapContent(map + "-wf-retainer", "warfront", [], [], 0UL);
-        string dir = BotNavigation.CacheDirectory;
+        string dir = CacheDirectory;
         ulong key = NavJumpSet.KeyFor(walk, config, playerClass, new NavJumpOptions());
-        if (File.Exists(NavCache.JumpFileFor(dir, content.Name, key)))
+        // the tick path only reads (review 2026-11-25 (1)): no build, no build lock, no write; a missing or damaged file goes to the background build below
+        JumpReads++;
+        if (NavCache.TryLoadJumps(dir, content.Name, key, walk.NodeCount) is { } cached)
         {
-            try
-            {
-                var g = BotNavigation.WithJumpLinks(walk, content, collision, config, team, playerClass, dir, out string note, 1);
-                _jumpGraphs[pack] = g;
-                _log?.Invoke($"warfront retainers: jump links for pack {pack} on {map} read from the cache: {note}");
-                return;
-            }
-            catch (Exception e) { _log?.Invoke($"warfront retainers: jump links for pack {pack} could not be read ({e.GetBaseException().Message}); building them"); }
+            _jumpGraphs[pack] = walk.WithJumps(cached);
+            _log?.Invoke($"warfront retainers: jump links for pack {pack} on {map} read from the cache: {cached.LinkCount:N0} links");
+            return;
         }
         _jumpGraphs[pack] = null;   // none this battle
         if (_jumpBuilds.ContainsKey(pack)) return;
         int threads = Math.Max(1, Environment.ProcessorCount / 4);
         _log?.Invoke($"warfront retainers: jump links for pack {pack} on {map}: building in the background ({threads} thread(s)); the retainers walk until the next battle");
+        JumpBuildsStarted++;
         _jumpBuilds[pack] = _work.Run<(NavGraph?, string)>($"wf jump {map} {pack} {key:X16}", () =>
         {
             var g = BotNavigation.WithJumpLinks(walk, content, collision, config, team, playerClass, dir, out string note, threads);
@@ -323,8 +333,12 @@ public sealed class WarfrontRetainerBrains
         {
             if (!task.IsCompleted) continue;
             _jumpBuilds.Remove(pack);
-            if (task.IsCompletedSuccessfully && task.Result.Graph is { } g) { _jumpGraphs[pack] = g; _log?.Invoke($"warfront retainers: jump links for pack {pack} ready at the battle's start: {task.Result.Note}"); }
-            else _log?.Invoke($"warfront retainers: jump links for pack {pack} failed ({task.Exception?.GetBaseException().Message}); the retainers walk");
+            if (task.IsCompletedSuccessfully && task.Result.Graph is { } g) { _work.Forget(task); _jumpGraphs[pack] = g; _log?.Invoke($"warfront retainers: jump links for pack {pack} ready at the battle's start: {task.Result.Note}"); }
+            else
+            {
+                _work.Forget(task);   // review 2026-11-25 (1): a failed build's key is forgotten, so a later battle can start it again (BotWork hands a known key's task back)
+                _log?.Invoke($"warfront retainers: jump links for pack {pack} failed ({task.Exception?.GetBaseException().Message}); the retainers walk");
+            }
         }
     }
 

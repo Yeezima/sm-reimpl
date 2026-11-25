@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4137 spec table rows: **3057 tagged**, 711 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4140 spec table rows: **3060 tagged**, 711 not tagged (read from data with high confidence), 369 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,19 +49,19 @@ Scanned 4137 spec table rows: **3057 tagged**, 711 not tagged (read from data wi
 | Customizer and paint | 64 | 56 | 42 | 22 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
-| Networking and render smoothing | 50 | 40 | 22 | 12 | 7 |
-| Core simulation (provisional values) | 899 | 852 | 669 | 242 | 1 |
+| Networking and render smoothing | 51 | 40 | 23 | 12 | 7 |
+| Core simulation (provisional values) | 901 | 854 | 669 | 242 | 1 |
 | General game design | 169 | 168 | 57 | 74 | 0 |
 | Ork faction | 299 | 278 | 179 | 73 | 0 |
-| **All areas** | **3057** | 2747 | 2240 | 914 | 37 |
+| **All areas** | **3060** | 2749 | 2241 | 914 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1862 |
+| kind: ours | 1864 |
 | confidence: low | 1079 |
-| confidence: medium | 1050 |
+| confidence: medium | 1051 |
 | notes: ours | 476 |
 | kind: interpretation | 457 |
 | notes: estimate | 306 |
@@ -2876,7 +2876,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (50)
+### Networking and render smoothing (51)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2970,6 +2970,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-391B55E0` | Tick order and determinism | at the first retainer's input of a tick the host builds every view (serially, players in id order, no LINQ) and steps every brain in parallel; each plans its paths inside its steering call and runs its cover and approach searches inside its step… | kind: ours | Phase B design ("inputs computed in parallel at tick start"); review F1/F2 2026-11-25 | Tick order and determinism: compare with SM1 by feel or video. Ours: at the first retainer's input of a tick the host builds every view… | ☐ |
+| `R-85714CEE` | Tick cost (real stage, measured 2026-11-25) | `wf_fortress` with its 246,711-cell walking graph, 4 humans x 2 retainers, Boyz kept within 8 to 14 m of every human (a retainer fought on every one of the 600 ticks), 20 s per run, in-process (the harness step in which the server ticked: the server's whole… (ms) | confidence: medium | measured (review 2026-11-25 (2)) | Tick cost (real stage, measured 2026-11-25): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: wf_fortress with its 246,711-cell walking graph, 4 humans x 2… | ☐ |
 
 *Spec section: Cancel table: the live animation cancel matrix editor (cancel-editor; owner 2026-11-17; protocol 80, extended in place; test aid, ours, never on a public server)*
 
@@ -2988,7 +2989,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5B955167` | Panel | F8 shows or hides the grid (Esc closes) when the server has the tools; numbered "row.column" cells coloured by state, a bright border where the cell differs from the release default; the inspector (state, from, until, "data timing", the code's own value, note… (key) | kind: ours | the owner (F8 chosen: free in Classic PvP; Musou's Ashfall look keeps it there) | Panel: compare with SM1 by feel or video. Ours: F8 shows or hides the grid (Esc closes) when the server has the… | ☐ |
 | `R-BE15241E` | Export | writes `cancel-table-YYYYMMDD-HHMMSS.json` (the shipped file's format: every cell with note and source, then the overrides) to `%LOCALAPPDATA%\sm-reimpl\cancel-configs\`, never overwriting; import reads one back and applies it live; `smtool cancel-config diff`… | kind: ours | the owner ("hands changes over as an export file") | Export: compare with SM1 by feel or video. Ours: writes cancel-table-YYYYMMDD-HHMMSS.json (the shipped file's format:… | ☐ |
 
-### Core simulation (provisional values) (899)
+### Core simulation (provisional values) (901)
 
 *Spec section: Provisional values in use*
 
@@ -4389,7 +4390,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0DCF4EFA` | Retainer follow heading | the follow spot behind the owner and the idle facing go by the owner's movement heading, which turns only after he has walked **2** m from where it was last set (his view yaw until his first such walk), so panning the camera does not shuffle the retainers… (m) | kind: ours; confidence: low | review L4 2026-11-25 | Retainer follow heading: compare with SM1 by measuring on a flat spot of the same map. Ours: the follow spot behind the owner and the idle facing go by the… | ☐ |
 | `R-51E1475F` | Retainer hold and pound places on the graph | a Hold ring place and a jump-pound landing are moved onto the nearest walking-graph cell within **4** m (2.5 m up or down); unchanged without a cell near or a graph (review L8) (m) | kind: ours; confidence: low | review L8 2026-11-25 | Retainer hold and pound places on the graph: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Hold ring place and a jump-pound landing are moved onto the nearest… | ☐ |
 | `R-F512CA07` | Leash grace: who left the circle | on leaving the 40 m circle the leash compares the owner's and the retainer's flat displacement since the last tick inside: the owner moved farther (he walked away) gives an engaged retainer the 3 s grace even in the middle of a swing, roll or jump (the move… (m) | kind: ours; confidence: medium | approved brief 2026-11-23; review F6 2026-11-25 | Leash grace: who left the circle: compare with SM1 by measuring on a flat spot of the same map. Ours: on leaving the 40 m circle the leash compares the owner's and the… | ☐ |
-| `R-D2D3EF39` | Graph | the stage map's own walking graph (the bots' `NavSettings.From`); a jump-pack class's jump links are built or read from the private nav cache once per pack and map (`<map>-wf-retainer`), on a quarter of the cores, in the background; the retainers walk until… | kind: ours; confidence: medium | Phase B design (T4; the bots' A1 walk-first rule) | Graph: compare with SM1 by feel or video. Ours: the stage map's own walking graph (the bots' NavSettings.From); a… | ☐ |
+| `R-D2D3EF39` | Graph | the stage map's own walking graph (the bots' `NavSettings.From`). A jump-pack class's jump links (**off by default** since the review of 2026-11-25: not yet run on a real stage; env `SM_WF_RETAINER_JUMPS=1` turns them on): read only from the private nav cache… | kind: ours; confidence: medium | Phase B design (T4; the bots' A1 walk-first rule); review 2026-11-25 | Graph: compare with SM1 by feel or video. Ours: the stage map's own walking graph (the bots' NavSettings.From). A… | ☐ |
+| `R-DF14EDDF` | Retainer brain log | the brains' own Classic bot log lines are dropped unless env `SM_WF_RETAINER_LOG=1`; the host's event lines (decision and leash changes, at most one a second per retainer) and its fault lines always go out | kind: ours | review 2026-11-25 | Retainer brain log: compare with SM1 by feel or video. Ours: the brains' own Classic bot log lines are dropped unless env… | ☐ |
+| `R-15916385` | Known gap: retainers see no projectiles | a retainer's view has no projectiles (`IBotWorldView.Projectiles` empty), so the Classic grenade safety (step away from a live frag, its own included) never acts for it | kind: ours | review 2026-11-25 (recorded, not fixed) | Known gap: retainers see no projectiles: compare with SM1 by feel or video. Ours: a retainer's view has no projectiles (IBotWorldView.Projectiles… | ☐ |
 
 *Spec section: Added content: Warfront, progression (W7: `Extras/Warfront/Progression`; server rules, pure; not yet wired into a World)*
 

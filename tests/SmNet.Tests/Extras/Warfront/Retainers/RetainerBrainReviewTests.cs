@@ -231,4 +231,22 @@ public class RetainerBrainReviewTests(ITestOutputHelper output)
         Assert.NotNull(second);
         Assert.NotSame(first, second);
     }
+
+    /// <summary>Review 2026-11-25 (4): with every retainer down nothing asks for an input, so the falls go unseen; a revived one still gets a fresh brain (renewed when not stepped on the last tick).</summary>
+    [Fact]
+    public void A_retainer_revived_after_every_retainer_was_down_gets_a_fresh_brain()
+    {
+        var (r, brains, _) = Driven(graph: false);
+        r.Stand(2);
+        int id = r.IdOf(1, 0);
+        var first = brains.BrainOf(id);
+        Assert.NotNull(first);
+        r.DownMarine(1, 0);
+        r.DownMarine(1, 1);
+        r.Stand(30);
+        Assert.True(r.Ret.Revive(r.Of(1, 0)));
+        r.Stand(3);
+        Assert.NotNull(brains.BrainOf(id));
+        Assert.NotSame(first, brains.BrainOf(id));
+    }
 }
