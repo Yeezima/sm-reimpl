@@ -150,7 +150,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Press(main, "WARFRONT");
         var page = _front.WarfrontPage;
         Check("page: opens and the main menu is hidden", page is { Visible: true } && !_front.ShowsMainMenu);
-        Check("page: no run gives New campaign, Host for friends, Join a friend, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: no run gives New campaign, Host for friends, Join a friend, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "FACTION: ALTERNATE", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: no run, the status strip shows dashes", page is WarfrontPage { } none && none.Cells.Select(c => c.Value).SequenceEqual(["-", "-", "-"]) && none.Cells.Select(c => c.Label).SequenceEqual(["DEPLOYMENTS", "FRONTS", "LEVEL"]));
         Check("page: the first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "NEW CAMPAIGN" });
         Check("page: text audit, no explainer text", SmClient.FrontEnd.UiSelfTest.AuditText(page!).Count == 0, string.Join(" | ", SmClient.FrontEnd.UiSelfTest.AuditText(page!)));
@@ -212,7 +212,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(4);
         page = _front.WarfrontPage;
-        Check("online: forced on, the page lists it after Join a friend", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "ONLINE WARFRONT", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("online: forced on, the page lists it after Join a friend", Rows(page).SequenceEqual(["NEW CAMPAIGN", "FACTION: ALTERNATE", "HOST FOR FRIENDS", "JOIN A FRIEND", "ONLINE WARFRONT", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("online: the row takes focus (keyboard and pad)", Find(page!, "ONLINE WARFRONT") is { Disabled: false, FocusMode: not Control.FocusModeEnum.None });
         joined = null;
         for (int i = 0; i < 300 && joined is null; i++) await Press(page!, "ONLINE WARFRONT");   // the game data's plan loads in the background: press until it is ready
@@ -241,7 +241,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         var before = File.ReadAllBytes(runFile);
         await Press(main, "WARFRONT");
         page = _front.WarfrontPage;
-        Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "FACTION: ALTERNATE", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: the run's three figures are in the status strip", page is WarfrontPage { } cells && cells.Cells.Select(c => c.Value).SequenceEqual(["0", "1 / 1 / 1", "1"]), string.Join(" | ", Texts(page)));
         Check("page: Continue has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "CONTINUE CAMPAIGN" });
         await Still("page-with-run");
@@ -328,7 +328,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("page: a finished run gives only New campaign", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: a finished run gives only New campaign", Rows(page).SequenceEqual(["NEW CAMPAIGN", "FACTION: ALTERNATE", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: the honor roll line", Texts(page).Contains("RUNS 1, VICTORIES 1, FASTEST 41:20"), string.Join(" | ", Texts(page)));
         await Still("page-finished");
         await Press(page!, "NEW CAMPAIGN");
