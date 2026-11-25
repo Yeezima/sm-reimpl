@@ -113,6 +113,8 @@ public static class LeanBot
         "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots", "jump-test-pound", "old-pack-idle", "old-air-legs", "log-air-legs", "jump-test-air-melee",
         // jump-pack death (2026-11-11): the mid-air death's before (the ragdoll at once)
         "no-jump-death",
+        // series-37 integration (2026-11-25): aids of branches made before T1's flag scan: the hammer dash clips' capture and log (transitions batch 2), the drawn Dir 180 strike log (sim/hammer-180), the melee camera's mode log and demos (camera/melee-orbit)
+        "dash-dirs-test", "log-dash", "log-hammer-180", "log-melee-mode", "melee-orbit-demo", "melee-orbit-demo-point",
     };
 
     /// <summary>
