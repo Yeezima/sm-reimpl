@@ -67,7 +67,7 @@ public sealed partial class World
     /// <summary>The battle the breaches are placed for: the fortress (its plaza kept clear), the HQ defence (none), or a lane node.</summary>
     static WarfrontBreachSite BreachSite(WarfrontBattleRules rules, TfwBattle battle)
     {
-        if (rules.Fortress is { } f) return new(WarfrontBreachBattle.Fortress, rules.Node, f.Plan.BossSpot, f.Plan.ArenaRadius);
+        if (rules.Fortress is { } f) return new(WarfrontBreachBattle.Fortress, rules.Node, f.Plan.BossSpot, f.Plan.ArenaRadius, f.Plan.SourceStage, f.Plan.MaxStage);
         if (battle.WarfrontHq || rules.Target == WarfrontTargetKind.Hq) return new(WarfrontBreachBattle.Hq, rules.Node);
         return new(WarfrontBreachBattle.Lane, rules.Node);
     }

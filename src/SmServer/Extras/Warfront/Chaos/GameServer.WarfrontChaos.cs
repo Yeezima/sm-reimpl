@@ -6,7 +6,7 @@ namespace SmServer;
 
 /// <summary>
 /// The Chaos section on the server (Chaos Warfront C4; tag 51, <see cref="WarfrontChaosWire"/>): only on a Warfront stage whose army is Chaos. The breach list goes to every identified client on a
-/// change of the breaches and once a second (an empty list once when a battle's breaches go); each closure three times, three ticks apart. The breaches' lines (placement, squads, caps,
+/// change of the breaches and once a second (an empty list three times, three ticks apart, when a battle's breaches go); each closure three times, three ticks apart. The breaches' lines (placement, squads, caps,
 /// closures, unknown wargear keys) go to the Warfront log. C5's finale hangs off the two sub-partials declared here.
 /// </summary>
 public sealed partial class GameServer
@@ -64,8 +64,8 @@ public sealed partial class GameServer
         }
         else if (_wfBreachListOut)
         {
-            byte[] empty = WarfrontChaosWire.EncodeBreaches((WarfrontBreaches?)null);
-            foreach (int id in ids) SendExtras(new ExtrasUpdate(tick, [(WarfrontChaosWire.Tag, empty)]), id);
+            // the battle's end: the empty list, three times as a closure is (Fable review 4: a lost datagram must not leave a client drawing breaches)
+            _wfClosureSends.Add((WarfrontChaosWire.EncodeBreaches((WarfrontBreaches?)null), WarfrontChaosWire.ClosureRepeats, tick));
             _wfBreachListOut = false;
         }
         for (int k = _wfClosureSends.Count - 1; k >= 0; k--)

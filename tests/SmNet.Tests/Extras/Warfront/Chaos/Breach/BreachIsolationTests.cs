@@ -105,7 +105,8 @@ public class BreachIsolationTests(ITestOutputHelper output)
         return ms[(int)(ms.Count * 0.99)];
     }
 
-    [Fact]
+    [Fact(Skip = "Wall-clock bench (Fable review 1, as C2's twin): out of the default suite; the live-test queue runs it on a quiet PC (remove the Skip, run with the console logger)")]
+    [Trait("Speed", "Slow")]
     public void A_chaos_lane_tick_with_breaches_p99_is_bounded_by_the_orks()
     {
         double orks = double.MaxValue, chaos = double.MaxValue;
