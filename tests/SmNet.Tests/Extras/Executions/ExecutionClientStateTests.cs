@@ -203,6 +203,26 @@ public class ExecutionClientStateTests
         Assert.Equal(0, s.Expired);
     }
 
+    /// <summary>
+    /// X5 re-review N1: after a 3 s receive stall, the first snapshot jumps the snapshot tick by 90 one prune before the live list's repeat arrives; the silence clock only advanced by that frame,
+    /// so the run is not closed (and not revived later).
+    /// </summary>
+    [Fact]
+    public void FirstSnapshotAfterAStallIsNotSilence()
+    {
+        var s = new ExecutionClientState();
+        s.Prune(0.0, 97, 100);
+        s.Apply(Start(100, 4), 0.0, 1);
+        for (int f = 1; f <= 90; f++) s.Prune(f / 30.0, 97 + f, 100);   // 3 s, no snapshot
+        s.Prune(3.0 + 1 / 30.0, 188, 190);                              // the first snapshot after the stall, without the live list
+        Assert.True(s.TryLive(4, out _));
+        s.Apply(Start(100, 4), 3.1, 1);                                 // the live list next
+        s.Prune(3.1, 190, 192);
+        Assert.True(s.TryLive(4, out _));
+        Assert.Equal(0, s.Expired);
+        Assert.Equal(0, s.Revived);
+    }
+
     /// <summary>X5 review X5-1 / re-review 3: a run is over a second past its own last tick, even if announced, for good; the own run's last tick then starts the cooldown. A synthetic run (announced: false) expires only that way.</summary>
     [Fact]
     public void RunPastItsEndTickExpiresAndStartsTheOwnCooldown()

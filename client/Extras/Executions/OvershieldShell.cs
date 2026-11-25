@@ -127,7 +127,7 @@ public sealed class OvershieldShell
 
     /// <summary>
     /// Whether <paramref name="node"/> is armour, always covered whatever its name (the name exclusion is for the other worn items and attachments only): one of the look's armour pieces, or the
-    /// worn wargear (the jump pack: <see cref="WeaponRig.WornPackMeta"/> on its attachment nodes) or a mesh under it (X6 re-review 6, owner: the jump pack and the iron halo are covered).
+    /// worn wargear (the jump pack: <see cref="WeaponRig.WornPackMeta"/> on its attachment nodes) or a mesh under it (X6 re-review 6, owner: the jump pack is covered; the iron halo would be too, but the client has no Iron Halo world model: the perk shows on the HUD only).
     /// </summary>
     static bool IsArmourPiece(Node node)
     {

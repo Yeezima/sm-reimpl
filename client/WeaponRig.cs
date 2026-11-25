@@ -423,7 +423,7 @@ public sealed partial class WeaponRig
                 foreach (var (bone, mesh) in asset.Worn)
                 {
                     var node = new BoneAttachment3D { Name = "Worn_" + attachment.VisualName + "_" + bone };
-                    if (pack) node.SetMeta(WornPackMeta, true);   // the worn wargear (the jump pack): readers such as the executions overshield shell treat it as armour
+                    if (pack) node.SetMeta(WornPackMeta, true);   // EXTRAS-HOOK: executions (overshield shell): the worn wargear (the jump pack) is armour, covered whole
                     _skeleton.AddChild(node);
                     node.BoneName = bone;
                     var instance = new MeshInstance3D { Name = "Mesh", Mesh = mesh };

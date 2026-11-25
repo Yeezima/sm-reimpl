@@ -42,9 +42,19 @@ public sealed class ExecutionClientState
     readonly List<ExecutionEndedView> _ended = new();
     readonly Dictionary<int, (uint EndTick, double At)> _lastEnd = new();
     readonly Dictionary<ushort, byte> _overshield = new();
-    /// <summary>When (client time and the prune tick) each live run was last announced; synthetic runs (the test aids) are not listed and only expire by their end tick.</summary>
-    readonly Dictionary<int, (double At, double Tick)> _announced = new();
-    double _pruneTick;
+    /// <summary>The silence clock's reading when each live run was last announced; synthetic runs (the test aids) are not listed and only expire by their end tick.</summary>
+    readonly Dictionary<int, double> _announced = new();
+
+    /// <summary>
+    /// The silence clock now, between prunes: the last prune's reading plus the client time since it (prunes run every frame, so this adds at most a frame; a stall adds nothing to the clock
+    /// itself, only this frame's share).
+    /// </summary>
+    double SilenceNow(double now) => double.IsFinite(_prevNow) ? _silenceClock + Math.Max(0.0, now - _prevNow) : _silenceClock;
+    /// <summary>
+    /// The silence clock (seconds): it advances by min(the client time, the snapshot ticks over the rate) between prunes, so only while snapshots flow; a receive stall stops it, and the first
+    /// snapshot after one adds a frame's time, not the stall's (X5 re-review N1).
+    /// </summary>
+    double _silenceClock, _prevNow = double.NaN, _prevSnapshot = double.NaN;
     /// <summary>Executors whose run this client ended for silence alone (their start tick): a same-start live-list repeat revives it.</summary>
     readonly Dictionary<int, uint> _silenced = new();
     readonly List<(ExecutionRun Run, bool Past, uint Last)> _lost = new();
@@ -131,7 +141,7 @@ public sealed class ExecutionClientState
     {
         if (_live.TryGetValue(run.Executor, out var held) && held.StartTick >= run.StartTick)
         {
-            if (held.StartTick == run.StartTick && _announced.ContainsKey(run.Executor)) _announced[run.Executor] = (now, _pruneTick);   // the live list: still playing
+            if (held.StartTick == run.StartTick && _announced.ContainsKey(run.Executor)) _announced[run.Executor] = SilenceNow(now);   // the live list: still playing
             Repeats++;
             return;   // a repeat, or older than the move playing
         }
@@ -147,7 +157,7 @@ public sealed class ExecutionClientState
         else if (_lastEnd.TryGetValue(run.Executor, out var last) && now - last.At <= EndMemorySeconds && run.StartTick <= last.EndTick) { Repeats++; return; }   // a late repeat of an ended move
         if (_live.ContainsKey(run.Executor)) Close(held, ExecutionEndReason.Invalid, run.StartTick, now);   // a newer move replaces one whose End was lost
         _live[run.Executor] = run;
-        if (announced) _announced[run.Executor] = (now, _pruneTick);
+        if (announced) _announced[run.Executor] = SilenceNow(now);
         if (Offer is { } o && run.TargetKind == ExecutionTargetKind.Player && run.Target == o.Victim) Offer = null;   // the offer is taken
         Version++;
     }
@@ -188,7 +198,7 @@ public sealed class ExecutionClientState
     {
         _live.Clear(); _ended.Clear(); _lastEnd.Clear(); _overshield.Clear(); _announced.Clear(); _silenced.Clear();
         _overshieldAt = double.NegativeInfinity;
-        _pruneTick = 0;
+        _silenceClock = 0; _prevNow = double.NaN; _prevSnapshot = double.NaN;
         Offer = null; _spentOffer = null; OwnLastDoneTick = null;
         Version++;
     }
@@ -205,16 +215,19 @@ public sealed class ExecutionClientState
     /// </summary>
     public void Prune(double now, double viewTick, double snapshotTick, Func<ExecutionRun, uint>? lastTick = null, int tickRate = 30)
     {
-        _pruneTick = snapshotTick;
+        double clockRate = Math.Max(1, tickRate);
+        if (double.IsFinite(_prevNow) && double.IsFinite(_prevSnapshot))
+            _silenceClock += Math.Max(0.0, Math.Min(now - _prevNow, (snapshotTick - _prevSnapshot) / clockRate));
+        _prevNow = now; _prevSnapshot = snapshotTick;
         if (_live.Count > 0)
         {
-            double rate = Math.Max(1, tickRate), silenceTicks = LiveSilenceSeconds * rate, pastTicks = PastEndSeconds * rate;
+            double rate = Math.Max(1, tickRate), pastTicks = PastEndSeconds * rate;
             _lost.Clear();
             foreach (var (id, run) in _live)
             {
                 uint last = lastTick is null ? uint.MaxValue : lastTick(run);
                 bool past = lastTick is not null && viewTick > last + pastTicks;
-                bool silent = !past && _announced.TryGetValue(id, out var a) && now - a.At > LiveSilenceSeconds && snapshotTick - a.Tick > silenceTicks;
+                bool silent = !past && _announced.TryGetValue(id, out var a) && _silenceClock - a > LiveSilenceSeconds;
                 if (silent || past) _lost.Add((run, past, last));
             }
             foreach (var (run, past, last) in _lost)
