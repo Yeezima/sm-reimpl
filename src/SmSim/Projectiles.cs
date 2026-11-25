@@ -320,6 +320,7 @@ public sealed partial class World
         }
         float stop = float.PositiveInfinity;
         ExtrasProjectileStop(p, direction, MathF.Min(best, length), ref stop);   // EXTRAS-HOOK added content (Musou Mode): a shield dome or a contraption stops it
+        ExtrasProjectileBreach(p, direction, MathF.Min(best, length), ref stop);   // EXTRAS-HOOK added content (Warfront Chaos C4): a warp breach's sphere stops a human's qualifying explosive
         if (stop <= length && stop <= best)   // a tie with a player: the contraption (already struck by the hook) stops it
         {
             var at = p.Position + direction * MathF.Max(0f, stop - 0.05f);
@@ -504,6 +505,8 @@ public sealed partial class World
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee);
     /// <summary>Added content: how far along a projectile's step (from its place, unit <paramref name="direction"/>, at most <paramref name="max"/>) something stops it; it detonates there.</summary>
     partial void ExtrasProjectileStop(in ProjectileState p, Vector3 direction, float max, ref float stop);
+    /// <summary>Added content (Warfront Chaos C4): as <see cref="ExtrasProjectileStop"/>, for a warp breach's sphere; returns at once unless a Chaos battle's breach stands.</summary>
+    partial void ExtrasProjectileBreach(in ProjectileState p, Vector3 direction, float max, ref float stop);
 
     /// <summary>
     /// A blast's push on a player (M23, for the ragdoll; ours): from the blast point to the player's body centre; when they

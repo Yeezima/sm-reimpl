@@ -415,7 +415,7 @@ WarfrontRunFiles.ApplyFactionSetting(cli.WarfrontFaction);   // Chaos Warfront C
 // Chaos Warfront C1: a stage records its run's army before the World exists; C2 builds the stage's rules from it (a Chaos stage's type table and faction; an Orks stage's config is unchanged).
 if (cli.WarfrontStage && contentExtras.HasFlag(ContentExtras.Warfront))
 {
-    Console.WriteLine(WarfrontRunFiles.RecordStageFaction(WarfrontRunFiles.Dir));
+    Console.WriteLine(WarfrontSupervisor.TimeStamp(WarfrontRunFiles.RecordStageFaction(WarfrontRunFiles.Dir)));   // timestamped like the supervisor's faction lines (C2 review, lead 39)
     config = WarfrontStageArmy.Apply(config, out string? armyNote);
     if (armyNote is not null) Console.WriteLine(armyNote);
 }

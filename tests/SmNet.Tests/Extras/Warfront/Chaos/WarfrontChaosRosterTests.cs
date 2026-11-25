@@ -240,9 +240,13 @@ public class WarfrontChaosRosterTests(ITestOutputHelper output)
     static void AssertNoOrkKind(World w, string battle)
     {
         var roster = Roster(w);
-        foreach (var e in Alive(w)) Assert.True(WarfrontChaosRoster.Fields(e.Type) && e.Type != MusouEnemyType.Gretchin, $"{battle}: a {e.Type} in a Chaos battle");
-        foreach (var kind in new[] { MusouEnemyType.ArdBoy, MusouEnemyType.Weirdboy, MusouEnemyType.ScrapMek, MusouEnemyType.BombSquig, MusouEnemyType.Gretchin })
+        // C4: the Gretchin row is the breach's Daemon; every one alive came out of a breach (WarfrontBreaches), none from another spawner
+        var daemons = w.WarfrontChaosBreaches?.All.SelectMany(b => b.Alive).ToHashSet() ?? [];
+        int sent = w.WarfrontChaosBreaches?.All.Sum(b => b.Spawned) ?? 0;
+        foreach (var e in Alive(w)) Assert.True(WarfrontChaosRoster.Fields(e.Type) && (e.Type != MusouEnemyType.Gretchin || daemons.Contains(e.Id)), $"{battle}: a {e.Type} in a Chaos battle");
+        foreach (var kind in new[] { MusouEnemyType.ArdBoy, MusouEnemyType.Weirdboy, MusouEnemyType.ScrapMek, MusouEnemyType.BombSquig })
             Assert.Equal(0, roster.Spawned(kind));
+        Assert.Equal(sent, roster.Spawned(MusouEnemyType.Gretchin));
     }
 
     [Fact]
