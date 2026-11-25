@@ -279,6 +279,98 @@ public static class PaintMaskBuilder
         public float[]? GroupMedians { get; init; }
     }
 
+    /// <summary>
+    /// Round 4 (ours): isolated specks of one region inside another (rust spots, rivets, scratches and dirt the rules or the region data split off a plate: the
+    /// re-gate's "speckle" and "mottled" defects on legs, backpacks, domes and trims) join the region around them. A covered texel whose region (<see
+    /// cref="BuiltMaskOverrides.RegionOf"/>) holds under <see cref="SpeckShare"/> of its 5 x 5 neighbourhood while one other region holds <see cref="SpeckMajority"/>
+    /// or more is put wholly in that region (baked included). Thin lines (a 2-texel trim fills 40 % of the window) and areas larger than about five texels are kept.
+    /// Deterministic: decided on the input's regions, applied to a copy. <paramref name="radius"/> 4 with <paramref name="holesOnly"/> is the second pass: baked holes
+    /// up to about 16 texels inside a painted region (the scratches a black plate kept baked as bare metal: the Black Templars legs' "speckle") join it.
+    /// </summary>
+    public static MaskOnly Despeckle(MaskOnly m, bool[]? covered = null, int radius = 2, bool holesOnly = false)
+    {
+        int w = m.Width, h = m.Height, n = w * h;
+        if (covered is not null && covered.Length != n) covered = null;
+        var region = new byte[n];
+        var inside = new bool[n];
+        for (int i = 0; i < n; i++)
+        {
+            int o = i * 4;
+            region[i] = (byte)BuiltMaskOverrides.RegionOf(m.Mask[o], m.Mask[o + 1], m.Mask[o + 2]);
+            inside[i] = covered is not null ? covered[i] : m.Mask[o] + m.Mask[o + 1] + m.Mask[o + 2] > 0;
+        }
+        var mask = (byte[])m.Mask.Clone();
+        Span<int> count = stackalloc int[4];
+        bool changed = false;
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            int i = y * w + x;
+            if (!inside[i]) continue;
+            count.Clear();
+            int total = 0;
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                int yy = y + dy;
+                if (yy < 0 || yy >= h) continue;
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    int xx = x + dx;
+                    if (xx < 0 || xx >= w || !inside[yy * w + xx]) continue;
+                    count[region[yy * w + xx]]++; total++;
+                }
+            }
+            if (total < (2 * radius + 1) * (2 * radius + 1) / 2 || holesOnly && region[i] != (byte)MaskRegion.Baked || count[region[i]] >= SpeckShare * total) continue;
+            int best = 0;
+            for (int r = 1; r < 4; r++) if (count[r] > count[best]) best = r;
+            if (best == region[i] || count[best] < SpeckMajority * total) continue;
+            int o = i * 4;
+            mask[o] = mask[o + 1] = mask[o + 2] = 0;
+            if (best < 3) mask[o + best] = 255;
+            changed = true;
+        }
+        return changed ? m with { Mask = mask } : m;
+    }
+
+    /// <summary>
+    /// Round 4 (ours): the texels outside the mesh's UV islands take the mask and grey diffuse of the nearest covered texel, <paramref name="passes"/> texels out. The
+    /// textures carry their baked colour as padding past each island (the campaign raptor's yellow), which the mipmaps mixed back into the painted edges as a
+    /// baked-colour seam at a distance. Covered texels never change.
+    /// </summary>
+    public static BuiltPaintMask PadOutside(BuiltPaintMask m, bool[]? covered, int passes = PadTexels)
+    {
+        int w = m.Width, h = m.Height, n = w * h;
+        if (covered is null || covered.Length != n || passes <= 0) return m;
+        var mask = (byte[])m.Mask.Clone(); var dif = (byte[])m.Diffuse.Clone();
+        var done = (bool[])covered.Clone();
+        var next = new List<int>();
+        for (int pass = 0; pass < passes; pass++)
+        {
+            next.Clear();
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                if (done[i]) continue;
+                int src = x > 0 && done[i - 1] ? i - 1 : x < w - 1 && done[i + 1] ? i + 1 : y > 0 && done[i - w] ? i - w : y < h - 1 && done[i + w] ? i + w : -1;
+                if (src < 0) continue;
+                for (int c = 0; c < 4; c++) { mask[i * 4 + c] = mask[src * 4 + c]; dif[i * 4 + c] = dif[src * 4 + c]; }
+                next.Add(i);
+            }
+            if (next.Count == 0) break;
+            foreach (int i in next) done[i] = true;
+        }
+        return m with { Mask = mask, Diffuse = dif };
+    }
+
+    /// <summary>How far past the UV islands <see cref="PadOutside"/> reaches (texels; ours: covers the mipmaps down to about 1/16 size).</summary>
+    public const int PadTexels = 8;
+
+    /// <summary>A texel's own region below this share of its 5 x 5 neighbourhood is a speck (<see cref="Despeckle"/>; ours).</summary>
+    public const float SpeckShare = 0.2f;
+    /// <summary>The share of the 5 x 5 neighbourhood the surrounding region needs to take a speck (<see cref="Despeckle"/>; ours).</summary>
+    public const float SpeckMajority = 0.8f;
+
     /// <summary>The number of shading groups per channel (<see cref="MaskOnly.Group"/>).</summary>
     public const int StatGroups = 8;
 
@@ -400,8 +492,17 @@ public static class PaintMaskBuilder
         {
             float med = channelMedian[c];
             if (groups && m.GroupMedians![c * StatGroups + m.Group![i]] is var gm && !float.IsNaN(gm)) med = gm;
-            return Shoulder(Grey(lum, med, targets.Target(c)), targets.Target(c), targets.Ceiling(c));
+            return Shoulder(Grey(lum, med, targets.Target(c), groups ? DarkSpanRound4 : DarkSpan), targets.Target(c), targets.Ceiling(c));
         }
+        // Round 4 (with region statistics only, ours): single-texel speckle of the shading (scratches, chips and block noise one or two texels across, the re-gate's
+        // "speckled legs", "brass speckle", "rivet speckle") is held to within SpeckleLuminance of its 3 x 3 neighbourhood's median; edges and larger shading stay.
+        float[]? lumOf = null;
+        if (groups)
+        {
+            lumOf = new float[n];
+            for (int i = 0; i < n; i++) lumOf[i] = 0.2126f * diffuse.Rgba[i * 4] + 0.7152f * diffuse.Rgba[i * 4 + 1] + 0.0722f * diffuse.Rgba[i * 4 + 2];
+        }
+        Span<float> window = stackalloc float[9];
         for (int i = 0; i < n; i++)
         {
             byte r = diffuse.Rgba[i * 4], g = diffuse.Rgba[i * 4 + 1], b = diffuse.Rgba[i * 4 + 2];
@@ -410,6 +511,19 @@ public static class PaintMaskBuilder
             if (total <= 0f) { outDif[i * 4] = r; outDif[i * 4 + 1] = g; outDif[i * 4 + 2] = b; continue; }
             if (total > 1f) { p /= total; s /= total; t /= total; total = 1f; }
             float lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+            if (lumOf is not null)
+            {
+                int x = i % m.Width, y = i / m.Width, k = 0;
+                for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int xx = Math.Clamp(x + dx, 0, m.Width - 1), yy = Math.Clamp(y + dy, 0, m.Height - 1);
+                    window[k++] = lumOf[yy * m.Width + xx];
+                }
+                window.Sort();
+                float med3 = window[4], d = MathF.Max(SpeckleLuminanceFloor, med3 * SpeckleLuminance);
+                lum = Math.Clamp(lum, med3 - d, med3 + d);
+            }
             float grey = ((p > 0f ? Shade(lum, 0, i) * p : 0f) + (s > 0f ? Shade(lum, 1, i) * s : 0f) + (t > 0f ? Shade(lum, 2, i) * t : 0f)) / total;
             outDif[i * 4] = ToByte((r + (grey - r) * total) / 255f);
             outDif[i * 4 + 1] = ToByte((g + (grey - g) * total) / 255f);
@@ -418,6 +532,11 @@ public static class PaintMaskBuilder
         return new BuiltPaintMask(m.Width, m.Height, m.Mask, outDif, m.Primary, m.Secondary, m.Tertiary)
             { PlateMedian = m.PlateMedian, SecondaryMedian = m.SecondaryMedian, OrnamentMedian = m.OrnamentMedian };
     }
+
+    /// <summary>How far a painted texel's luminance may stand from its 3 x 3 median before the grey is made (share of the median; ours, round 4).</summary>
+    public const float SpeckleLuminance = 0.2f;
+    /// <summary>The least such distance in sRGB levels (dark plates; ours, round 4).</summary>
+    public const float SpeckleLuminanceFloor = 6f;
 
     /// <summary>Plate median luminance (sRGB 0..255) below which a piece counts as black-schemed (Black Templars, Legion of the Damned, Iron Hands, campaign Titus).</summary>
     public const float DarkPlateLuminance = 25f;
@@ -657,11 +776,19 @@ public static class PaintMaskBuilder
         return MathF.Sqrt(dl * dl + da * da + db * db);
     }
 
-    static float Grey(float lum, float regionMedian, float target)
+    /// <summary>The brightness a black region's shading differences are read against (<see cref="Grey"/>): 40 levels before round 4.</summary>
+    const float DarkSpan = 40f;
+    /// <summary>
+    /// Round 4 (ours, with region statistics): 60 levels, so the wear and scratches of a black texture (lighter by 10 to 20 levels: the re-gate's "speckled" Black
+    /// Templars legs and backpack) shade 17 to 33 % above the target instead of 25 to 50 %, nearer the regular grey diffuse's spread (75th percentile 1.1 x).
+    /// </summary>
+    const float DarkSpanRound4 = 60f;
+
+    static float Grey(float lum, float regionMedian, float target, float darkSpan = DarkSpan)
     {
         // Black regions (armour-pieces-1125 third step): their detail is a few levels of a near-black texture, so a ratio to the median turns block noise into
         // blotches; the difference to the median is kept instead, as if the plate were 40 levels bright (dirt and scratches stay visible, noise stays small).
-        if (regionMedian < DarkPlateLuminance && !OldDarkPlates) return Math.Clamp(target * (1f + (lum - regionMedian) / 40f), target * 0.6f, target * 1.5f);
+        if (regionMedian < DarkPlateLuminance && !OldDarkPlates) return Math.Clamp(target * (1f + (lum - regionMedian) / darkSpan), target * 0.6f, target * 1.5f);
         float ratio = lum / MathF.Max(regionMedian, 1f);
         // Dark regions carry more compression noise relative to their signal: compress the ratio toward 1.
         float gamma = regionMedian < 25f ? 0.3f : regionMedian < 40f ? 0.7f : 1f;

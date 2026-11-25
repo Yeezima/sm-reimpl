@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4113 spec table rows: **3044 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4116 spec table rows: **3047 tagged**, 701 not tagged (read from data with high confidence), 368 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 446 | 387 | 376 | 118 | 12 |
+| Movement (critical) | 449 | 390 | 379 | 118 | 12 |
 | Combat core (critical) | 24 | 15 | 22 | 17 | 8 |
 | Weapons (critical) | 121 | 75 | 107 | 53 | 3 |
 | Melee (critical) | 161 | 141 | 117 | 58 | 5 |
@@ -53,15 +53,15 @@ Scanned 4113 spec table rows: **3044 tagged**, 701 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 170 | 169 | 57 | 74 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3044** | 2736 | 2233 | 916 | 37 |
+| **All areas** | **3047** | 2739 | 2236 | 916 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1849 |
-| confidence: low | 1076 |
-| confidence: medium | 1046 |
+| kind: ours | 1852 |
+| confidence: low | 1077 |
+| confidence: medium | 1048 |
 | notes: ours | 477 |
 | kind: interpretation | 459 |
 | notes: estimate | 306 |
@@ -92,7 +92,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (446)
+### Movement (gameplay-critical) (449)
 
 *Spec section: Extracted parameters*
 
@@ -432,6 +432,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-159C5A0E` | Built mask: channel map (round 3, 2026-11-25) | where the builder's primary, secondary and tertiary regions go: Chaos legs [secondary, tertiary, tertiary], other Chaos slots [primary, tertiary, tertiary] (the regular Chaos trims, rims and ornaments are all tertiary: test_rgb still), Space Marine pieces… | kind: interpretation; confidence: medium; notes: ours | seen on the install's regular armour (test_rgb still); rule ours | Built mask: channel map (round 3, 2026-11-25): compare with SM1 by feel or video. Ours: where the builder's primary, secondary and tertiary regions go: Chaos… | ☐ |
 | `R-A154E3F4` | Built mask: per-piece region data (round 3; owner: "3rd round, no stopgap") | hand-placed regions in texture space (rectangle or ellipse, optional colour filter) put covered texels wholly in a region, applied after the channel map; the Mk 7 pad layout list (23 Space Marine DLC and campaign pads) puts the rims below V 0.31 in the… (UV 0..1) | kind: ours; confidence: medium | ours (data) | Built mask: per-piece region data (round 3; owner: "3rd…: compare with SM1 by feel or video. Ours: hand-placed regions in texture space (rectangle or ellipse, optional… | ☐ |
 | `R-632C6E0F` | Built mask: brightness per race and slot (round 3, second worker, 2026-11-25) | each paint channel's median in the grey paint diffuse is mapped to the regular masked piece's median diffuse luminance over that channel (sRGB 0..255; SM head 94/96, torso 84/84/77, pads 98/55, arms 92/90, legs 92/100, backpack 91/89; Chaos head 83/58/77… (sRGB luminance 0..255) | kind: ours; confidence: medium | measured on the install's regular armour (`smtool built-mask-bench --mask-shares`); rule ours | Built mask: brightness per race and slot (round 3, second…: compare with SM1 by feel or video. Ours: each paint channel's median in the grey paint diffuse is mapped to… | ☐ |
+| `R-752D739E` | Built mask: region statistics of the final mask (round 4, 2026-11-25) | after the channel map, the region data and the speck pass, each texel is grouped by how it came into its channel (kept from the builder region 0..2, or moved by data from the builder region 0..3: 8 groups) and shaded against the median luminance of its… (sRGB luminance 0..255; texels) | kind: ours; confidence: medium | ours (re-gate finding 1, 3, 4) | Built mask: region statistics of the final mask (round 4…: compare with SM1 by feel or video. Ours: after the channel map, the region data and the speck pass, each texel… | ☐ |
+| `R-6AC9D7F4` | Built mask: highlight ceilings (round 4) | each channel's grey approaches the regular piece's 99th-percentile luminance softly: unchanged up to the knee (target + 0.4 x (ceiling - target)), then knee + room x (1 - e^(-(v - knee) / room)); ceilings P/S/T: SM head 114/113/139, torso 119/121/139, pads… (sRGB luminance 0..255) | kind: ours; confidence: medium | measured 2026-11-25 on the regular masked armour (`smtool built-mask-bench --mask-shares`, p99); shoulder ours | Built mask: highlight ceilings (round 4): compare with SM1 by feel or video. Ours: each channel's grey approaches the regular piece's 99th-percentile… | ☐ |
+| `R-B242A3F4` | Built mask: specks, shading speckle, padding (round 4) | a covered texel whose region holds under 20 % of its 5 x 5 neighbourhood while one other region holds 80 % or more joins that region; then baked holes under 20 % of a 9 x 9 neighbourhood with 80 % one painted region join it; a painted texel's luminance is… (share; texels; sRGB levels) | kind: ours; confidence: low | ours (re-gate "speckle", "mottled", baked-colour seams) | Built mask: specks, shading speckle, padding (round 4): compare with SM1 by feel or video. Ours: a covered texel whose region holds under 20 % of its 5 x 5… | ☐ |
 | `R-54319476` | Built mask: plate colour rules (round 3) | gold, brass or bone (warm and light, chroma 15+) is never the plate colour when a real paint colour (chroma 15+) is the second cluster: they swap; a nearly grey plate colour (chroma 4 to 12) whose second colour is a stronger version of its hue (hue gap under… (rad, CIELAB) | kind: ours; confidence: low | ours | Built mask: plate colour rules (round 3): compare with SM1 by feel or video. Ours: gold, brass or bone (warm and light, chroma 15+) is never the plate… | ☐ |
 | `R-44CCF72E` | Built mask: restore switch | `--old-mask-rules` (client) or SM_OLD_MASK_RULES=1: the 1257b950 builder (no specular scale, no same-hue growth, no warm-light rule, coverage needs luminance or specular above 4, cloth materials painted) | kind: ours | ours | Built mask: restore switch: compare with SM1 by feel or video. Ours: --old-mask-rules (client) or SM_OLD_MASK_RULES=1: the 1257b950… | ☐ |
 | `R-1D747B8D` | Built mask: decals (repair attempt 1) | a surface takes the scheme's shoulder decal only with the game's own paint mask and a decal layout; a built-mask (or baked) pad never does | kind: interpretation; confidence: medium | original (the predefined pads carry no customizable decal) | Built mask: decals (repair attempt 1): compare with SM1 by feel or video. Ours: a surface takes the scheme's shoulder decal only with the game's own… | ☐ |

@@ -283,7 +283,7 @@ public static class BakedArmourPaint
 
     /// <summary>
     /// Restore switch (round 4): true shades built pieces against the builder's region medians (as round 3) instead of <see cref="PaintMaskBuilder.WithRegionStats"/>,
-    /// and keeps the builder's shares. A look only (client; <c>--old-region-stats</c> or SM_OLD_REGION_STATS=1); not part of the mask cache.
+    /// keeps the builder's shares and leaves specks alone (<see cref="PaintMaskBuilder.Despeckle"/>). The highlight ceilings go with <see cref="OldBrightness"/>. A look only (client; <c>--old-region-stats</c> or SM_OLD_REGION_STATS=1); not part of the mask cache.
     /// </summary>
     public static bool OldRegionStats
     {
@@ -346,11 +346,15 @@ public static class BakedArmourPaint
             var remapped = permuted;
             foreach (var o in overrides) remapped = BuiltMaskOverrides.Apply(remapped, diffuse, o.Regions, used);
             // Round 4 (findings 1, 3 and 4): medians and shares from the final mask, each texel shaded against the texels that came into its channel the same way.
-            if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats) remapped = PaintMaskBuilder.WithRegionStats(maskOnly, permuted, remapped, diffuse, used);
+            // Specks of one region inside another join it first (PaintMaskBuilder.Despeckle).
+            if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats)
+                remapped = PaintMaskBuilder.WithRegionStats(maskOnly, permuted,
+                    PaintMaskBuilder.Despeckle(PaintMaskBuilder.Despeckle(remapped, used), used, radius: 4, holesOnly: true), diffuse, used);
             var targets = PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package);
             float scale = OldBrightness ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Brightness);
             if (scale != 1f) targets = targets.Scaled(scale);
             var result = PaintMaskBuilder.WithGrey(diffuse, remapped, targets);
+            if (!PaintMaskBuilder.OldMaskRules && !OldRegionStats) result = PaintMaskBuilder.PadOutside(result, used);
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)
             {
                 notes?.Add($"material '{m.Name}': the built mask paints nothing; drawn as baked");

@@ -139,6 +139,54 @@ public sealed class BuiltMaskRound4Tests
     }
 
     [Fact]
+    public void Specks_join_the_region_around_them_and_thin_trims_stay()
+    {
+        // A primary plate with a 2 x 2 tertiary speck, a single baked hole, and a 2-texel secondary trim line across it.
+        var m = new byte[W * H * 4];
+        for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++)
+        {
+            int o = (y * W + x) * 4;
+            if (y is 20 or 21) m[o + 1] = 255;                              // trim
+            else if (x is 8 or 9 && y is 8 or 9) m[o + 2] = 255;            // speck
+            else if (x == 24 && y == 6) { }                                 // hole (baked)
+            else m[o] = 255;
+        }
+        var mask = new PaintMaskBuilder.MaskOnly(W, H, m, 80f, 80f, 60f, 0.9f, 0.06f, 0.004f);
+        var d = PaintMaskBuilder.Despeckle(mask, All);
+        byte At(int x, int y, int c) => d.Mask[(y * W + x) * 4 + c];
+        Assert.Equal((255, 0, 0), (At(8, 8, 0), At(8, 8, 1), At(8, 8, 2)));
+        Assert.Equal(255, At(24, 6, 0));
+        Assert.Equal((0, 255), (At(5, 20, 0), At(5, 20, 1)));            // the trim is kept
+        Assert.Equal(255, At(5, 5, 0));
+        Assert.Same(d, PaintMaskBuilder.Despeckle(d, All));                // nothing left to change
+    }
+
+    [Fact]
+    public void The_padding_past_the_uv_islands_takes_the_nearest_covered_texel()
+    {
+        // A covered island x < 10 painted primary with grey 90; outside it the baked yellow padding.
+        var mask = new byte[W * H * 4]; var dif = new byte[W * H * 4];
+        var covered = new bool[W * H];
+        for (int i = 0; i < W * H; i++)
+        {
+            bool inside = i % W < 10;
+            covered[i] = inside;
+            if (inside) { mask[i * 4] = 255; dif[i * 4] = dif[i * 4 + 1] = dif[i * 4 + 2] = 90; }
+            else { dif[i * 4] = 230; dif[i * 4 + 1] = 190; dif[i * 4 + 2] = 20; }
+            dif[i * 4 + 3] = 255;
+        }
+        var built = new BuiltPaintMask(W, H, mask, dif, 0.3f, 0f, 0f);
+        var padded = PaintMaskBuilder.PadOutside(built, covered);
+        int Px(int x, int c) => padded.Diffuse[(5 * W + x) * 4 + c];
+        int last = 10 + PaintMaskBuilder.PadTexels - 1;
+        Assert.Equal((90, 90), (Px(last, 0), Px(last, 2)));
+        Assert.Equal(255, padded.Mask[(5 * W + last) * 4]);
+        Assert.Equal(230, Px(10 + PaintMaskBuilder.PadTexels, 0));                   // past the padding: unchanged
+        Assert.Equal(built.Diffuse, PaintMaskBuilder.PadOutside(built, null).Diffuse); // no coverage known: unchanged
+    }
+
+    [Fact]
     public void A_hue_filter_with_one_bound_is_a_plain_bound()
     {
         // Finding 5: one of MinHue / MaxHue alone was ignored.

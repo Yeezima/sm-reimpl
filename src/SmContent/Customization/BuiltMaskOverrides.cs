@@ -117,6 +117,29 @@ public static class BuiltMaskOverrides
             new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, From: MaskRegion.Baked),
         ], "Salamanders left pad: emblem tertiary, dome holes plate"),
 
+        // ---- Round 4 (re-gate 2ec46b20 per-piece defects; coordinates read on built-mask-bench --grid previews) ----
+
+        // Salamanders Veteran (dlc2_set2) helmet: its bright and its shadowed green are two clusters, so most of the helmet was secondary and drew another colour
+        // than the plate ("helmet mostly secondary"); both greens are the plate (each keeps its own brightness, PaintMaskBuilder.WithRegionStats).
+        new("sm_armour_mp_dlc2_set2_helmet", null, [0, 0, 2], [new MaskRegionOverride(0.6f, 0.55f, 1f, 1f, MaskRegion.Primary, new TexelFilter(MinLum: 4f), From: MaskRegion.Baked)],
+            "Salamanders helmet: both greens are the plate (primary); the dark baked patches of the back plate too"),
+        // Salamanders right pad: the dome's dark baked patches are plate, as on the left pad.
+        new("sm_armour_mp_dlc2_set2_shldrr", null, null, [new MaskRegionOverride(0f, 0f, 1f, 0.31f, MaskRegion.Primary, From: MaskRegion.Baked)],
+            "Salamanders right pad: dome holes plate"),
+        // Salamanders backpack: the gold dragon emblem was split between plate and ornament ("emblem mottled"): its gold is wholly tertiary.
+        new("sm_armour_mp_dlc2_set2_bp", null, null,
+            [new MaskRegionOverride(0.03f, 0.45f, 0.31f, 0.71f, MaskRegion.Tertiary, new TexelFilter(MinLum: 20f, MinHue: 0.9f, MaxHue: 1.95f, MinChroma: 10f))],
+            "Salamanders backpack: gold emblem tertiary"),
+        // Blood Angels Veteran (dlc2_set1) helmet: a gilded helmet, so the warm-ornament rule made it wholly tertiary ("helmet never takes the plate colour"); its gold
+        // is the plate (primary) and the few red texels the builder took as plate go to tertiary.
+        new("sm_armour_mp_dlc2_set1_helmet", null, [2, 1, 0], [], "Blood Angels Vet helmet: the gold is the plate (primary)"),
+        // Campaign Chaos torsos (basic, berserker, raptor; havoc on its own layout): the ribbed armour band round the back of the waist stayed baked ("back waist grey
+        // unpainted"); it is plate, as the regular Chaos torso's waist (test_rgb: painted).
+        .. Each(["csm_armour_basic_torso", "csm_armour_berserker_torso", "csm_armour_raptor_torso"],
+            [new MaskRegionOverride(0f, 0.89f, 0.84f, 1f, MaskRegion.Primary, From: MaskRegion.Baked)], "Campaign Chaos torso: the back waist band is plate"),
+        new("csm_armour_havoc_torso", null, null, [new MaskRegionOverride(0.42f, 0.61f, 1f, 0.71f, MaskRegion.Primary, From: MaskRegion.Baked)],
+            "Campaign havoc torso: the back waist band is plate"),
+
         // Titus (campaign, sm_armour_basic_upres). The largest colour cluster is the near-black joints, so the black-plate rules ran and took the lit blue plates
         // (L* 26 to 33, chroma 16: "light compact areas") for ornaments: the arms were mostly tertiary and the backpack mottled. Blue is the plate.
         .. Each(["sm_armour_basic_upres_helmet", "sm_armour_basic_upres_torso", "sm_armour_basic_upres_arml", "sm_armour_basic_upres_armr", "sm_armour_basic_upres_legl",
@@ -320,7 +343,8 @@ public static class BuiltMaskOverrides
 
     /// <summary>
     /// Round 4 (finding 6 of the round-3 re-gate): the packages the table names that <paramref name="exists"/> says are not in the install (a misspelt or missing
-    /// package's entry would silently never apply). The catalogue load and <c>smtool built-mask-bench</c> report them as notes.
+    /// package's entry would silently never apply). <c>smtool built-mask-bench</c> prints them as warnings (not the catalogue load: an install without the campaign
+    /// packages lacks them by design).
     /// </summary>
     public static IReadOnlyList<string> MissingPackages(Func<string, bool> exists) =>
         All.Select(o => o.Package).Distinct(StringComparer.OrdinalIgnoreCase).Where(p => !exists(p)).ToList();

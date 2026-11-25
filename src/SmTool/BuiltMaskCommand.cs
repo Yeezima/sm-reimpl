@@ -26,6 +26,9 @@ static class BuiltMaskCommand
 
         var notes = new List<string>();
         var catalog = CustomizationCatalog.Load(gameDir, notes);
+        // Round 4 (finding 6 of the round-3 re-gate): region data naming a package this install lacks never applies (a misspelt name would go unseen); say so.
+        foreach (var missing in BuiltMaskOverrides.MissingPackages(p => CharacterModel.PackagePath(gameDir, p) is { } path && File.Exists(path)))
+            Console.WriteLine($"  warning: built-mask region data names package {missing}, which is not in this install; that entry is unused");
         if (Opt("--scheme-dump") is { } sd)
         {
             foreach (var slot in PaintSchemes.Slots)
