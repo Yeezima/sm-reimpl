@@ -53,6 +53,10 @@
     <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontFortressDressPlan.cs" Link="ClientWarfront\WarfrontFortressDressPlan.cs" />
     <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontHqDressPlan.cs" Link="ClientWarfront\WarfrontHqDressPlan.cs" />
     <Compile Include="..\..\client\Extras\Warfront\Maps\Dress\WarfrontFarMassingPlan.cs" Link="ClientWarfront\WarfrontFarMassingPlan.cs" />
+    <!-- Chaos Warfront C4c: the breach model (tag 51), Godot-free. -->
+    <Compile Include="..\..\client\Extras\Warfront\Chaos\Breach\ChaosBreachModel.cs" Link="ClientWarfront\ChaosBreachModel.cs" />
+    <!-- Chaos Warfront C5c: the duel HUD's model (tag 51 kinds 16 and 17), Godot-free. -->
+    <Compile Include="..\..\client\Extras\Warfront\Chaos\Finale\ChaosDuelModel.cs" Link="ClientWarfront\ChaosDuelModel.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(SmExtras)' == 'true'">

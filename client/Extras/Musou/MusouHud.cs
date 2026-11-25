@@ -129,14 +129,18 @@ public sealed partial class MusouHud : Control
 
     /// <summary>Chaos Warfront C3: the words of the boss bars, call-outs and end panel in a Chaos battle (the Ork names as the Chaos units'); null everywhere else (the Ork words as before).</summary>
     public Func<string, string>? WarfrontRelabel;
+    /// <summary>WARFRONT-HOOK (Chaos Warfront C5c): the commander's bar of the boss column is not drawn (the duel strip carries the Chaos Lord's bar during the relay). Never set outside a Warfront Chaos finale.</summary>
+    public bool WarfrontHideCommander;
     string Relabel(string text)
     {
         if (WarfrontRelabel is not { } r) return text;
+        if (!r.Equals(_relabelFor)) { _relabelled.Clear(); _relabelFor = r; }   // Chaos Warfront C5c review: a different relabel (the shielded Lord's words) is never served from the old one's cache
         if (_relabelled.TryGetValue(text, out var known)) return known;   // the HUD's words are a few fixed strings: relabelled once each, no garbage a frame
         if (_relabelled.Count > 64) _relabelled.Clear();
         return _relabelled[text] = r(text);
     }
     readonly System.Collections.Generic.Dictionary<string, string> _relabelled = new(System.StringComparer.Ordinal);
+    Func<string, string>? _relabelFor;
 
     /// <summary>A call-out in the centre (the newest replaces an older one of the same text); <paramref name="flash"/> tints the screen for a moment.</summary>
     public void CallOut(string text, Color colour, double seconds = 2.2, Color? flash = null)
@@ -217,7 +221,7 @@ public sealed partial class MusouHud : Control
         DrawFlash(vs);
         if (Data.Director is not { } d) return;
         if (d.Phase != MusouPhase.Campaign) DrawRunPanel(d);
-        if (MusouHudLayout.Old) { DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // MusouHud.BossOrks.cs
+        if (MusouHudLayout.Old) { if (!WarfrontHideCommander) DrawBossBar(vs, d); DrawBossOrkBars(vs, d); }   // WARFRONT-HOOK: the old layout honours the C5c hide too   // MusouHud.BossOrks.cs
         else DrawBossColumn(vs, d);   // the column over the own bar, bottom left (MusouHud.BossColumn.cs)
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);

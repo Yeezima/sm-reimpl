@@ -93,10 +93,10 @@ public static class WarfrontChaosLooksPlan
         _ => null,
     };
 
-    /// <summary>The Chosen's drawn scale (ours, provisional): a head above a marine. The sim still gives their rows the Boss Ork body (3x) until C5 sets the Chosen rows.</summary>
-    public const float ChosenScale = 1.2f;
-    /// <summary>The Lord's drawn scale (ours, provisional; owner 2026-11-25: "a modest scale-up"). The Warboss row's sim body is the boss scale (4.5) until C5's duel gives him his own.</summary>
-    public const float LordScale = 1.35f;
+    /// <summary>The Chosen's drawn scale (ours, provisional): a head above a marine; the sim's Chosen rows are the same marine body x1.2 (C5, <see cref="WarfrontChaosTuning.ChosenScale"/>), so what is drawn is what is shot.</summary>
+    public const float ChosenScale = WarfrontChaosTuning.ChosenScale;
+    /// <summary>The Lord's drawn scale (ours, provisional; owner 2026-11-25: "a modest scale-up"): the Chaos table's own boss scale (C5, <see cref="WarfrontChaosTuning.LordBossScale"/>, x1.35 of a marine), never the Orks' Warboss x4.5, so what is drawn is what is shot.</summary>
+    public const float LordScale = WarfrontChaosTuning.LordBossScale;
 
     /// <summary>The Cultist's paint over the renegade's own textures (ours): a dark crimson multiply, so the zealot reads apart from the drab Traitor Guardsman.</summary>
     public static readonly (float R, float G, float B) CultistTint = (0.85f, 0.32f, 0.30f);

@@ -162,6 +162,7 @@ public partial class NetworkView
 
     partial void WarfrontSpectateView(PlayerState me, ref (Vector3 Eye, Vector3 Target)? view)
     {
+        bool duel = false; WarfrontChaosDuelSpectate(me, ref view, ref duel); if (duel) return;   // WARFRONT-HOOK: Chaos Warfront C5c, the duel's spectators watch the champion
         if (!WarfrontOn || !WarfrontSpectating || _client is not { } c || _gameSpace is null) return;
         var s = WarfrontCoop.Section;
         Num.Vector3? at = null;

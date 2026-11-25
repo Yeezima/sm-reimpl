@@ -82,7 +82,7 @@ public readonly record struct MusouBossStrike(int Player, float Damage, Vector3 
 /// </list>
 /// Outside play (<c>fight</c> false) nothing starts and an ability under way stops.
 /// </summary>
-public sealed class MusouBoss
+public sealed partial class MusouBoss
 {
     readonly MusouSim _sim;
     readonly MusouDirector? _director;
@@ -103,7 +103,9 @@ public sealed class MusouBoss
     {
         _sim = sim;
         _director = director;
-        _rules = sim.Rules.Boss;
+        var rules = sim.Rules.Boss;
+        WarfrontBossRules(id, ref rules);   // WARFRONT-HOOK Chaos Warfront C5: the Chaos Lord's rules (no Waaagh!, longer telegraph and recoveries); a no-op outside a Chaos fortress
+        _rules = rules;
         Id = id;
         MaxHealth = MathF.Max(1f, maxHealth);
         _playerRadius = MathF.Max(0f, playerRadius);
@@ -149,6 +151,9 @@ public sealed class MusouBoss
         // A melee stun (MusouSim.BossStun.cs, owner 2026-11-12) drops the ability under way (the sim already took the script and the drive off); nothing starts while it lasts.
         if (_sim.BossStunned(Id)) { Action = MusouBossAction.None; ActionTicks = 0; _charged.Clear(); return; }
         ActionTicks++;
+        bool handled = false;
+        WarfrontBossStep(boss, targets, strikes, ref handled);   // WARFRONT-HOOK Chaos Warfront C5: the Chaos Lord's duel kit (the leap, the bolt, the telegraphs); a no-op outside the duel
+        if (handled) return;
         switch (Action)
         {
             case MusouBossAction.None:
@@ -277,4 +282,10 @@ public sealed class MusouBoss
     }
 
     static ushort Clamp(int id) => (ushort)Math.Clamp(id, 0, ushort.MaxValue);
+
+    /// <summary>Warfront (Chaos C5): the boss rules this boss fights by (default: the pool's).</summary>
+    partial void WarfrontBossRules(ushort id, ref MusouBossRules rules);
+
+    /// <summary>Warfront (Chaos C5): the duel's own abilities before the Warboss's; <paramref name="handled"/> true ends the tick's abilities there.</summary>
+    partial void WarfrontBossStep(MusouEnemy boss, ReadOnlySpan<MusouTarget> targets, List<MusouBossStrike> strikes, ref bool handled);
 }
