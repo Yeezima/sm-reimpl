@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Godot;
 
 namespace SmClient.Extras.Weather;
@@ -49,11 +49,12 @@ public sealed partial class WeatherRig
 
     /// <summary>
     /// Tune (review: "ash grit reads as near-white sleet" on Waste Management): the light a particle at the camera receives, read from the map's own lighting as the frame draws it (the sun and environment after the region blend
-    /// and the weather's grade): the ambient (the sky's hemisphere colours, or the ambient colour) times its energy, plus <see cref="MapSunShare"/> of the sun (a drifting particle faces it about half the time) times the share of
-    /// the air round the camera the sun reaches (<see cref="SunSeen"/>: rays toward the sun through the collision world; in a street's shade or under a roof none), times the exposure; divided by <see cref="MapLightRef"/> (so a
-    /// sunlit Manufactorum street under the Ash Squall's grade gives about 0.8, the old grade light there) and bounded. Shade and dark interiors give dark grit; the storm's dim sun dims it too.
+    /// and the weather's grade): the ambient (the sky's hemisphere colours, or the ambient colour) times its energy times <see cref="MapAmbientGain"/> (the sky, the haze's in-scatter and the bounce that light drifting ash in
+    /// shade), plus <see cref="MapSunGain"/> of the sun times the share of the air round the camera the sun reaches (<see cref="SunSeen"/>: rays toward the sun through the collision world; in a street's shade or under a roof
+    /// none), times the exposure, bounded. Calibrated on the Ash Squall at full: about 0.66 at Manufactorum's spawn 1 (a fifth of its air sunlit), 0.86 in its full sun, 0.51 in Waste Management's shade (the old grade light
+    /// was 0.78 everywhere, and the grit took only half of it). Shade and dark interiors give dark grit; the storm's dim sun dims it too.
     /// </summary>
-    public const float MapSunShare = 0.5f, MapLightRef = 1.1f, MapLightMin = 0.35f, MapLightMax = 1.15f;
+    public const float MapAmbientGain = 2.1f, MapSunGain = 0.22f, MapLightMin = 0.45f, MapLightMax = 1.15f;
     /// <summary>The sun rays' reach (m): an occluder farther than this does not shade the camera's air.</summary>
     public const float SunRayReachM = 80f;
 
@@ -66,7 +67,7 @@ public sealed partial class WeatherRig
     public static float MapLight(float ambient, float sun, float exposure, float sunSeen)
     {
         float open = Math.Clamp(float.IsFinite(sunSeen) ? sunSeen : 1f, 0f, 1f);
-        float v = (Math.Max(ambient, 0f) + MapSunShare * Math.Max(sun, 0f) * open) * Math.Max(exposure, 0f) / MapLightRef;
+        float v = (MapAmbientGain * Math.Max(ambient, 0f) + MapSunGain * Math.Max(sun, 0f) * open) * Math.Max(exposure, 0f);
         return Math.Clamp(float.IsFinite(v) ? v : 1f, MapLightMin, MapLightMax);
     }
 
@@ -166,7 +167,7 @@ public sealed partial class WeatherRig
     /// procedural puff's 16 x 2.4 m, which stretched the puff's detail into bands), it fades over a deeper soft line where it meets the ground or a wall, and its alpha is <see cref="FogSpriteAlphaGain"/> times the card's
     /// (in place of the dust sheets' <see cref="VolumeAlphaGain"/>), so many soft overlapping clouds read as one low layer.
     /// </summary>
-    public const float FogSpriteWidthM = 9f, FogSpriteHeightM = 3.2f, FogSpriteSoftM = 4.5f, FogSpriteAlphaGain = 1.5f;
+    public const float FogSpriteWidthM = 9f, FogSpriteHeightM = 3.2f, FogSpriteSoftM = 4.5f, FogSpriteAlphaGain = 1.8f;
 
     static void FogShape(CpuParticles3D? p, StandardMaterial3D? m, bool sprite)
     {
