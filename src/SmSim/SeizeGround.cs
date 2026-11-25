@@ -46,16 +46,20 @@ public sealed record StartArea(Team Side, Vector3 Center, Vector3 Size, float Ya
     public MeshVolume? Volume { get; init; }
 
     /// <summary>
-    /// Whether a spawn spot (a point on the floor) is inside the edited shape with room round it: the shape holds the spot (its bottom surface counts) and the
-    /// same point <paramref name="margin"/> along world +X, -X, +Y and -Y (the grid's margin from the edge, kept from the edited boundary too; ours). True without a shape.
+    /// Whether a spawn spot (a point on the floor) is inside the edited shape with room round it: the vertical column from the spot up <see cref="SpotColumn"/> meets the shape (the grid
+    /// takes floor up to 1 m under the area, so the shape may start above the spot), at the spot and at the same point <paramref name="margin"/> along world +X, -X, +Y and -Y (the
+    /// grid's margin from the edge, kept from the edited boundary too; ours). True without a shape.
     /// </summary>
     public bool HoldsSpot(Vector3 spot, float margin = 1f)
     {
         if (Volume is not { } shape) return true;
-        var p = spot;
-        return shape.Contains(p) && shape.Contains(p + new Vector3(margin, 0f, 0f)) && shape.Contains(p - new Vector3(margin, 0f, 0f))
-            && shape.Contains(p + new Vector3(0f, margin, 0f)) && shape.Contains(p - new Vector3(0f, margin, 0f));
+        var up = new Vector3(0f, 0f, SpotColumn);
+        bool At(Vector3 p) => shape.Crosses(p, p + up);
+        return At(spot) && At(spot + new Vector3(margin, 0f, 0f)) && At(spot - new Vector3(margin, 0f, 0f)) && At(spot + new Vector3(0f, margin, 0f)) && At(spot - new Vector3(0f, margin, 0f));
     }
+
+    /// <summary>The column a spawn spot is tested with (metres up from the floor; the 1 m the spawn grid looks under an area, plus 5 cm; ours).</summary>
+    public const float SpotColumn = 1.05f;
 }
 
 /// <summary>

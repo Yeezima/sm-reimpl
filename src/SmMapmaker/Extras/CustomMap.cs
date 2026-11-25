@@ -111,6 +111,12 @@ public sealed class CustomMap
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
+    /// <summary>
+    /// Whether an edited marker's record carries its exact shape into the simulation (plan M2; docs/mapmaker.md "Edit mode in play"). <b>False for now</b> (lead 39, 2026-11-25: the
+    /// contract v2 review found <c>MeshVolume</c> issues a v3 will fix; until then the records keep the mesh's box and the shapes stay in <see cref="Volumes"/> only). The simulation's
+    /// shape rules are in place and tested (tests compile with <c>volumesInPlay: true</c>); switching this on is the one change that wires them in (it changes the play of edited maps, not their hash).
+    /// </summary>
+    public const bool VolumesInPlay = false;
     /// <summary>The surface id a cover piece's triangles give a shot that hits them (the id of Classic's crate metal, <c>CrateSurface</c> in the prop tests; ours).</summary>
     public const int CoverSurface = 4;
     /// <summary><see cref="MapWall.Group"/> of a movement wall: ALL (every player is stopped; the group Classic's own walls have).</summary>
@@ -170,7 +176,10 @@ public sealed class CustomMap
     /// placements, prefabs and imported models get their meshes; without it they are not compiled. With <see cref="CompileOptions.Strict"/> a placement whose content this PC lacks throws a
     /// <see cref="MapException"/> (<c>missing-install</c>, <c>unknown-map</c>, <c>missing-sm1-definition</c>, <c>missing-asset</c>, <c>missing-prefab</c>, <c>bad-asset</c>).
     /// </summary>
-    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null)
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null) => Compile(doc, options, VolumesInPlay);
+
+    /// <summary>As <see cref="Compile(MapDocument, CompileOptions?)"/>, choosing whether edited markers' records carry their exact shape (<see cref="VolumesInPlay"/>; tests).</summary>
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options, bool volumesInPlay)
     {
         var notes = new List<string>();
         var vertices = new List<Vector3>();
@@ -260,7 +269,7 @@ public sealed class CustomMap
                 if (edited is null) return null;
                 var volume = new MeshVolume(recordName, edited, editedTri!);
                 volumes[recordName] = volume;
-                return volume;
+                return volumesInPlay ? volume : null;   // held back in play until contract v3 (VolumesInPlay)
             }
             switch (piece.Kind)
             {
@@ -339,7 +348,10 @@ public sealed class CustomMap
         string name = WireName(doc.Name);
         ulong hash = HashOf(doc, decor is { Placements.Count: > 0 } ? decor.Digest() : null);
         // MapContent.Spawns: one per start area, on the area's floor (World.Spawns is never empty for a team map).
-        var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", a.Position - new Vector3(0, 0, a.Scale.Z / 2f), a.Yaw)).ToList();
+        // an edited area: the spawn under a point inside its shape (its box centre may be outside the shape), on the box's floor
+        static Vector3 SpawnAt(MapStartArea a, IReadOnlyDictionary<string, MeshVolume> v) => v.TryGetValue(a.Name, out var shape) && shape.InsidePoint() is { } inside
+            ? new Vector3(inside.X, inside.Y, a.Position.Z - a.Scale.Z / 2f) : a.Position - new Vector3(0, 0, a.Scale.Z / 2f);
+        var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", SpawnAt(a, volumes), a.Yaw)).ToList();
         var content = new MapContent(name, "custom", layers, spawns, hash)
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,

@@ -71,6 +71,30 @@ public sealed class EditRuntimeTests
 
     // ---- helpers ----
 
+    /// <summary>The compile with edited volumes carried into the simulation (<see cref="CustomMap.VolumesInPlay"/> is held off in play until contract v3; these tests exercise the wiring).</summary>
+    static CustomMap Play(MapDocument doc) => CustomMap.Compile(doc, null, volumesInPlay: true);
+
+    [Fact]
+    public void In_play_edited_volumes_stay_held_back_until_contract_v3_and_their_shapes_are_still_compiled()
+    {
+        Assert.False(CustomMap.VolumesInPlay);
+        using var lab = new Lab();
+        var s = Map(lab, Floor, """{"op":"place","piece":{"kind":"capture-point"},"transform":{"position":[0,0,0],"scale":[8,8,4]}}""",
+            """{"op":"place","piece":{"kind":"spawn-area","side":"marines"},"transform":{"position":[20,0,0],"scale":[12,12,3]}}""");
+        Run(s, """{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[0,16],"move":[4,0,0]}""");
+        Run(s, """{"op":"edit-mesh","id":"o3","mode":"vertex","ids":[3,7],"move":[-11,0,0]}""");
+        var held = CustomMap.Compile(s.Document);
+        Assert.Equal(2, held.Volumes.Count);
+        Assert.All(held.Content.ControlPoints, p => Assert.Null(p.Volume));
+        Assert.All(held.Content.StartAreas, a => Assert.Null(a.Volume));
+        var wired = Play(s.Document);
+        Assert.Equal(held.Hash, wired.Hash);   // the switch changes play, not the map's identity
+        Assert.NotNull(wired.Content.ControlPoints[0].Volume);
+        // the edited area's spawn marker stands under a point inside its shape, in both (the box centre of this wedge is near its cut edge)
+        var spawn = held.Content.Spawns[0].Position;
+        Assert.True(held.Volumes["cm_start_marines_1"].Crosses(spawn, spawn + new Vector3(0, 0, 1)), $"{spawn}");
+    }
+
     const string Floor = """{"op":"place","piece":{"kind":"box"},"name":"floor","transform":{"position":[0,0,-1],"scale":[80,80,1]}}""";
 
     static OpResult Run(MapSession s, string json)
@@ -135,9 +159,9 @@ public sealed class EditRuntimeTests
             string shapeJson = pid.EndsWith("-cylinder") ? ",\"shape\":\"cylinder\"" : "";
             string scale = string.Join(",", new[] { size.X, size.Y, size.Z }.Select(f => f.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             var s = Map(lab, "{\"op\":\"place\",\"piece\":{\"kind\":\"" + kind + "\"" + sideJson + shapeJson + "},\"transform\":{\"position\":[0,0,0],\"scale\":[" + scale + "]}}");
-            var stock = CustomMap.Compile(s.Document);
+            var stock = Play(s.Document);
             PullPlusX(s, "o1");
-            var map = CustomMap.Compile(s.Document);
+            var map = Play(s.Document);
             Assert.DoesNotContain(map.Notes, n => n.Contains("left out"));
             float end = size.X / 2f + 1f, mid = size.Z / 2f;
             var beyond = new Vector3(size.X / 2f + 0.5f, 0, mid);   // in the pulled-out part only
@@ -204,7 +228,7 @@ public sealed class EditRuntimeTests
             var ids = EditMesh.Of(s.Document.Get("o2")).Vertices.Select((v, i) => (v, i)).Where(x => x.v.Y > 0.25f).Select(x => x.i);
             Run(s, $$"""{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[{{string.Join(",", ids)}}],"move":[0,4,0]}""");
         }
-        var map = CustomMap.Compile(s.Document);
+        var map = Play(s.Document);
         var collision = map.ToCollisionWorld();
         var world = new World(TeamConfig, collision, [new SpawnPoint(new Vector3(-5, 4, 0), -MathF.PI / 2f)]);
         world.Spawn(1, 0);
@@ -253,7 +277,7 @@ public sealed class EditRuntimeTests
         using var lab = new Lab();
         var s = Map(lab, Floor, """{"op":"place","piece":{"kind":"capture-point"},"transform":{"position":[0,0,0],"scale":[8,8,4]}}""");
         Run(s, """{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[0,16],"move":[4,0,0]}""");   // a thin spike toward +X (x up to 8)
-        var map = CustomMap.Compile(s.Document);
+        var map = Play(s.Document);
         var point = Assert.Single(map.Content.SimControlPoints());
         Assert.NotNull(point.Volume);
         foreach (var (spot, captures) in new[] { (new Vector3(6, 0, 0), true), (new Vector3(6, 3.5f, 0), false), (new Vector3(-3.5f, -3.5f, 0), false) })
@@ -273,7 +297,7 @@ public sealed class EditRuntimeTests
         using var lab = new Lab();
         var s = Map(lab, Floor, """{"op":"place","piece":{"kind":"kill-zone"},"transform":{"position":[0,0,0],"scale":[10,10,4]}}""");
         Run(s, """{"op":"edit-mesh","id":"o2","mode":"face","ids":[1],"scale":0.2}""");   // a pyramid frustum: top 2 x 2 m
-        var world = CustomMap.Compile(s.Document).ToCollisionWorld();
+        var world = Play(s.Document).ToCollisionWorld();
         float h = TeamConfig.CapsuleHeight;
         Assert.True(world.KillsPlayer(new Vector3(0, 0, 0.1f), new Vector3(0, 0, 0.1f), h));
         Assert.False(world.KillsPlayer(new Vector3(4.5f, 4.5f, 3.5f), new Vector3(4.5f, 4.5f, 3.5f), 0.2f));   // a top corner of the box, beside the frustum
@@ -286,7 +310,7 @@ public sealed class EditRuntimeTests
         using var lab = new Lab();
         var s = Map(lab, Floor, """{"op":"place","piece":{"kind":"spawn-area","side":"marines"},"transform":{"position":[0,0,0],"scale":[12,12,3]}}""");
         Run(s, """{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[3,7],"move":[-11,0,0]}""");   // the +X +Y corner pulled back to x = -5: a wedge
-        var map = CustomMap.Compile(s.Document);
+        var map = Play(s.Document);
         var area = Assert.Single(map.Content.SimStartAreas());
         var world = new World(TeamConfig, map.ToCollisionWorld(), map.Content.SpawnPoints()) { StartAreas = [area] };
         var spots = world.StartAreaSpots(0);
@@ -308,7 +332,7 @@ public sealed class EditRuntimeTests
         using var lab = new Lab();
         var s = Map(lab, Floor, """{"op":"place","piece":{"kind":"blocker","side":"marines"},"transform":{"position":[0,0,0],"scale":[12,4,6]}}""");
         Run(s, """{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[3,7],"move":[-8,0,0]}""");   // +Y edge now x -6..-2, the slope from (6,-2) to (-2,2)
-        var map = CustomMap.Compile(s.Document);
+        var map = Play(s.Document);
         var world = map.ToCollisionWorld();
         var down = -Vector3.UnitY;
         var from = new Vector3(4, 10, 1);
@@ -330,14 +354,14 @@ public sealed class EditRuntimeTests
             """{"op":"place","piece":{"kind":"capture-point"},"transform":{"position":[0,0,0],"scale":[8,8,4]}}""",
             """{"op":"place","piece":{"kind":"kill-zone"},"transform":{"position":[0,0,0],"scale":[10,10,2]}}""");
         Run(s, """{"op":"edit-mesh","id":"o2","mode":"vertex","ids":[0,16],"move":[20,0,0]}""");
-        var map = CustomMap.Compile(s.Document);
+        var map = Play(s.Document);
         Assert.True(map.Content.ControlPoints[0].Position.X > 5f);   // its box's middle is off the floor (and outside the kill zone)
         var report = MapCheck.Run(map);
         Assert.DoesNotContain(report.Issues, i => i.Code == "point-no-floor");   // the shape has floor under it near the origin
         Assert.Contains(report.Issues, i => i.Code == "in-kill-zone");           // and that floor is inside the kill zone
         // the same layout unedited: the middle of the point is on the floor and in the kill zone, as before
         Run(s, """{"op":"reset-mesh","ids":["o2"]}""");
-        var plain = MapCheck.Run(CustomMap.Compile(s.Document));
+        var plain = MapCheck.Run(Play(s.Document));
         Assert.DoesNotContain(plain.Issues, i => i.Code == "point-no-floor");
         Assert.Contains(plain.Issues, i => i.Code == "in-kill-zone");
     }
@@ -352,7 +376,7 @@ public sealed class EditRuntimeTests
     {
         using var lab = new Lab();
         var s = Map(lab, """{"op":"place","piece":{"kind":"@K@"},"transform":{"position":[3,-2,1],"rotation":[0,0,30],"scale":[4,6,2]}}""".Replace("@K@", kind));
-        var p = CustomMap.Compile(s.Document).Pieces[0];
+        var p = Play(s.Document).Pieces[0];
         var r = p.Render();
         var (v, tri) = PieceMesh.Unit(kind)!.Value;
         var old = tri.Select(i => Vector3.Transform(v[i], p.World)).ToArray();
