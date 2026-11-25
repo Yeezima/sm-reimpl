@@ -535,12 +535,15 @@ public static class BuiltMaskOverrides
         // tertiary and primary + tertiary blended texels ("rear pelvis tertiary / blended", purple in test_rgb); they are wholly plate.
         // Round 7 (re-gate cee3ef6a: "a ragged tertiary patch on the rear shoulder-blade plate beside the pack"): the upper back is the texture's top right island
         // (mesh: Y -0.2 to -0.3, behind); the patch is a primary + tertiary blend over the light wear at U 0.586 to 0.672, V 0.055 to 0.152 (the model's right
-        // shoulder blade, X +0.15), with a fainter one on the left blade (U 0.768 to 0.807): both wholly plate, as the baked set's plain black plate there.
+        // shoulder blade, X +0.15), with a fainter one on the left blade (U 0.768 to 0.807): both wholly plate, as the baked set's plain black plate there. The rest
+        // of the upper back (U 0.47 to 1, V 0 to 0.30) and the rear belt strips (U 0 to 0.46, V 0 to 0.16) go crisp: their faint primary + tertiary blends drew
+        // magenta specks in test_rgb (the belt behind the tabard).
         .. Each(["sm_armour_blacktemp_torso", "sm_armour_black_temp_torso"],
             [.. Harden(0f, 0.44f, 0.46f, 1f), new MaskRegionOverride(0f, 0.44f, 0.375f, 0.72f, MaskRegion.Primary, From: MaskRegion.Tertiary),
              new MaskRegionOverride(0f, 0.72f, 0.46f, 1f, MaskRegion.Primary, From: MaskRegion.Tertiary),
-             .. Harden(0.575f, 0.045f, 0.685f, 0.165f), new MaskRegionOverride(0.575f, 0.045f, 0.685f, 0.165f, MaskRegion.Primary, From: MaskRegion.Tertiary),
-             .. Harden(0.76f, 0.065f, 0.815f, 0.135f), new MaskRegionOverride(0.76f, 0.065f, 0.815f, 0.135f, MaskRegion.Primary, From: MaskRegion.Tertiary)],
+             .. Harden(0.47f, 0f, 1f, 0.30f), .. Harden(0f, 0f, 0.46f, 0.16f),
+             new MaskRegionOverride(0.575f, 0.045f, 0.685f, 0.165f, MaskRegion.Primary, From: MaskRegion.Tertiary),
+             new MaskRegionOverride(0.76f, 0.065f, 0.815f, 0.135f, MaskRegion.Primary, From: MaskRegion.Tertiary)],
             "Black Templars torso: pelvis plates and the rear shoulder-blade plates wholly plate"),
         // Black Templars backpack: mottled and dingier than the regular pack ("primary/tertiary blend at panel edges; median below the regular pack's"): every texel wholly
         // in its region (as the legs), the plate's painted median (84 at contrast 0.7 and flatten 0.85) raised to the regular pack's 91, and the fine wear grain softened
@@ -564,8 +567,9 @@ public static class BuiltMaskOverrides
         // Campaign raptor and basic left pads, round 7 (re-gate cee3ef6a: basic "the rim is a ragged partial crescent at the dome's top-rear"; raptor "the clearing
         // rectangle misses the grey fragment" and "skull emblem holes"). Read on the mesh: the dome's top (next to the head, Z highest) is the texture's right edge,
         // so the UV ellipse ring drew only there, as a crescent, and the raptor's dome runs past the ellipse at U 0.84 to 0.98, V 0.20 to 0.47 (its fragment). No
-        // ring any more: the dome is wholly plate apart from the skull emblem, which is solid by shape (each skull's rayed disc wholly within 0.8 of its radius, the
-        // ray tips by colour; the blade wholly), as the Iron Warriors emblem; fragments under 30 texels join. The round-6 top clearing rectangle stays.
+        // ring any more: the dome is wholly plate apart from the two skulls, which are solid by shape (each rayed disc wholly within 0.8 of its radius, the ray tips by
+        // colour), as the Iron Warriors emblem; the silver blade over the crest is plate (see ChaosLeftPadPlate); fragments under 30 texels join. The round-6 top
+        // clearing rectangle stays.
         .. Each(["csm_armour_raptor_shldrl", "csm_armour_basic_shldrl"], ChaosLeftPadPlate(), "Campaign raptor and basic left pads: dome wholly plate, skull emblem solid",
             minIsland: 30),
         // Campaign basic left pad: brighter and flatter than the body (plate 106, the regular Chaos left pad's, beside a torso at 49 and arms at 58): targets x 0.82.
@@ -705,7 +709,9 @@ public static class BuiltMaskOverrides
     /// crest (U 0.80 to 1, V 0.15 to 0.62), the outer edge left of it (U 0 to 0.12, V 0.05 to 0.72) and the round-6 top strip lose any tertiary (the spikes, separate
     /// pieces above V 0.15 and below V 0.68 at the right and below V 0.74 at the left, are left alone). The emblem: two rayed skulls (upper centre U 0.394, V 0.396;
     /// lower U 0.368, V 0.478; radii about 0.12 x 0.058) wholly tertiary within 0.8 of the radius, their light ray tips (luminance 45+, chroma under 14) out to the full
-    /// radius; the silver blade (U 0.512 to 0.808, V 0.398 to 0.462, measured) and its tip wholly.
+    /// radius. The silver blade beside them (U 0.512 to 0.808, V 0.398 to 0.462) is plate: on the mesh it runs over the pad's crest (Z 2.05, the highest part), where
+    /// the stretched UVs drew it as the broad "crescent at the dome's top-rear" the round-6 gate saw on both pads (a capture with the blade wholly tertiary,
+    /// recapture-9aeda844, still showed it); its relief stays as shading.
     /// </summary>
     static MaskRegionOverride[] ChaosLeftPadPlate() =>
     [
@@ -717,8 +723,6 @@ public static class BuiltMaskOverrides
         new(0.248f, 0.420f, 0.488f, 0.536f, MaskRegion.Tertiary, new TexelFilter(MinLum: 45f, MaxChroma: 14f), Ellipse: true),
         new(0.300f, 0.349f, 0.488f, 0.443f, MaskRegion.Tertiary, Ellipse: true),
         new(0.272f, 0.432f, 0.464f, 0.524f, MaskRegion.Tertiary, Ellipse: true),
-        new(0.512f, 0.398f, 0.808f, 0.462f, MaskRegion.Tertiary),
-        new(0.488f, 0.408f, 0.515f, 0.452f, MaskRegion.Tertiary),
     ];
 
     /// <summary>Alpha Legion blue and teal plate paint (hue from 2.6 round through pi to -1.0 rad).</summary>

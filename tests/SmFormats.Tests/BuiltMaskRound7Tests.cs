@@ -37,7 +37,9 @@ public sealed class BuiltMaskRound7Tests
         var applied = BuiltMaskOverrides.Apply(Blend(512, 512), Grey(30, 512, 512), Regions(package));
         Assert.Equal(((byte)255, (byte)0, (byte)0), At(applied, 0.63f, 0.10f));   // the right blade's patch
         Assert.Equal(((byte)255, (byte)0, (byte)0), At(applied, 0.78f, 0.10f));   // the left blade's
-        Assert.Equal(((byte)60, (byte)0, (byte)190), At(applied, 0.72f, 0.20f));  // elsewhere on the back: untouched
+        Assert.Equal(((byte)0, (byte)0, (byte)255), At(applied, 0.72f, 0.20f));   // elsewhere on the upper back: crisp (mostly tertiary stays tertiary)
+        Assert.Equal(((byte)0, (byte)0, (byte)255), At(applied, 0.20f, 0.10f));   // the rear belt strips: crisp
+        Assert.Equal(((byte)60, (byte)0, (byte)190), At(applied, 0.70f, 0.40f));  // the chest: untouched
     }
 
     [Fact]
@@ -65,7 +67,7 @@ public sealed class BuiltMaskRound7Tests
         Assert.Equal(((byte)255, (byte)0, (byte)0), At(applied, 0.60f, 0.20f));   // the dome
         Assert.Equal(((byte)0, (byte)0, (byte)255), At(applied, 0.394f, 0.396f)); // the upper skull, its dark sockets included
         Assert.Equal(((byte)0, (byte)0, (byte)255), At(applied, 0.368f, 0.478f)); // the lower skull
-        Assert.Equal(((byte)0, (byte)0, (byte)255), At(applied, 0.70f, 0.43f));   // the blade
+        Assert.Equal(((byte)255, (byte)0, (byte)0), At(applied, 0.70f, 0.43f));   // the blade over the crest: plate
         Assert.Equal(((byte)60, (byte)0, (byte)190), At(applied, 0.90f, 0.05f));  // a spike above the dome (a separate piece): untouched
     }
 
