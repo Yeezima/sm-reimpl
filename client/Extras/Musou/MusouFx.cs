@@ -260,6 +260,7 @@ public partial class NetworkView
             MusouStalkerConfirm(gun.Name, material == true);   // sound/stalker-hit-confirm: the stalker's confirm on the shooter
             MusouBolterFirstHit(gun.Name, emitter.Position);   // musou/audio-pass: a bolter rifle's wet smack, then the explosion, on the first Ork the shot hits (once a shot, as the hit sound)
         }
+        StreakWarfrontHit(e, at, own, me, shown, camera);   // gore-streak: Warfront's blood streak on every health hit (Extras/Gore/NetworkView.WarfrontStreak.cs; nothing in Musou Mode alone)
         if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
         var source = MusouGoreSourceOf(e.Player);
         _musouGoreHits[(int)source]++;

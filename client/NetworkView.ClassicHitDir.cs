@@ -48,10 +48,10 @@ public partial class NetworkView
     }
 
     /// <summary>One contact for a spray: where (world), which way, how wide, how much, how aged, and the weapon's path (world points, seconds from the contact) and live position for melee.</summary>
-    /// <remarks>History holds the weapon's drawn points on both sides of the contact (times from it, before it negative; third design, owner answer 4); Exit: a thrust that starts on the
+    /// <remarks>Wargear: the hitting weapon's data name when known (gore-streak: its size and the plasma / melta exclusion). History holds the weapon's drawn points on both sides of the contact (times from it, before it negative; third design, owner answer 4); Exit: a thrust that starts on the
     /// exit side; Charge: a bull-rush connect.</remarks>
     public readonly record struct ClassicContact(int Victim, int Attacker, Vector3 Contact, Vector3 Dir, HitVisual Visual, bool Gunfire, bool Head, bool Lethal, bool Heavy,
-        float Spread, float Amount, double PreAge, (double T, Vector3 P)[]? History, int HistoryCount, Func<Vector3?>? Weapon, bool Exit = false, bool Charge = false);
+        float Spread, float Amount, double PreAge, (double T, Vector3 P)[]? History, int HistoryCount, Func<Vector3?>? Weapon, bool Exit = false, bool Charge = false, string? Wargear = null);
 
     /// <summary>Added content (the Extended profile's blood, Extras/Gore): the red directional spray for a contact; <paramref name="drawn"/> set when it was.</summary>
     partial void ExtrasClassicBlood(ClassicContact c, ref bool drawn);
@@ -63,6 +63,10 @@ public partial class NetworkView
     partial void ExtrasClassicPrewarm(Vector3 at);
     /// <summary>Added content: a head hit drawn on a player (the decal's shot when the lethal mark pairs with none).</summary>
     partial void ExtrasClassicHeadContact(int victim, int shooter, Vector3 contact, Vector3 dir);
+    /// <summary>Added content (gore-streak, Extras/Gore): a detonation drawn at <paramref name="at"/> (world) by <paramref name="wargear"/>'s projectile, for pairing a later unpaired health mark as an explosion.</summary>
+    partial void ExtrasClassicBlast(Vector3 at, string wargear);
+    /// <summary>Added content (gore-streak, Extras/Gore): a confirmed damage that paired with no shot, weapon melee or charge (a blast, a stomp, a landing); <paramref name="drawn"/> set when a streak was drawn for it.</summary>
+    partial void ExtrasClassicUnpaired(PlayerState o, bool shield, bool health, bool lethal, ref bool drawn);
 
     // ---- weapon paths ----
 
@@ -192,7 +196,7 @@ public partial class NetworkView
 
     // ---- contacts in flight ----
 
-    sealed class ShotContact { public double At, Delay; public Vector3 Contact; public Vector3 Dir; public bool Head; public int Shooter; public bool ArmourUp; public bool Own; public bool SparksDrawn; }
+    sealed class ShotContact { public double At, Delay; public Vector3 Contact; public Vector3 Dir; public bool Head; public int Shooter; public bool ArmourUp; public bool Own; public bool SparksDrawn; public string? Wargear; }
     /// <summary>Per victim, the shots drawn on him, oldest first (at most <see cref="ShotQueueMax"/>): a mark takes the oldest fresh one (review of 2b89de15, finding 3).</summary>
     readonly Dictionary<int, List<ShotContact>> _shotContacts = new();
     const int ShotQueueMax = 8;
@@ -235,19 +239,19 @@ public partial class NetworkView
     readonly System.Diagnostics.Stopwatch _hitDirWatch = new();
 
     /// <summary>A shot drawn on a player (FxImpact): remembered for the confirmation of its damage. Own shots wait for the server's mark; another player's arrives with it.</summary>
-    void NoteShotContact(int victim, int shooter, Vector3 contact, Vector3 dir, bool head, bool? armourUp, bool own, double delay)
+    void NoteShotContact(int victim, int shooter, Vector3 contact, Vector3 dir, bool head, bool? armourUp, bool own, double delay, string? wargear = null)
     {
         var look = HitDirLook;
         if (look == DirLook.None) return;
         if (victim > 0)
         {
             var c = new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own,
-                                      SparksDrawn = !SparksWaitForMark(look, victim, _client?.PlayerId ?? 0, own) };   // owner answer 5: the own shots' sparks at the impact
+                                      SparksDrawn = !SparksWaitForMark(look, victim, _client?.PlayerId ?? 0, own), Wargear = wargear };   // owner answer 5: the own shots' sparks at the impact
             QueueShot(victim, c);
             NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, c, victim);
             if (head) ExtrasClassicHeadContact(victim, shooter, contact, dir);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         }
-        else NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, null, 0);
+        else NoteServerHit(shooter, contact, ToGame(contact), dir, head, armourUp, own, delay, null, 0, wargear);
     }
 
     /// <summary>
@@ -309,12 +313,12 @@ public partial class NetworkView
     readonly List<ServerHit> _serverHits = new();
     int _hitDirLooseShots;
 
-    void NoteServerHit(int shooter, Vector3 contact, Num.Vector3 end, Vector3 dir, bool head, bool? armourUp, bool own, double delay, ShotContact? resolved, int resolvedTo)
+    void NoteServerHit(int shooter, Vector3 contact, Num.Vector3 end, Vector3 dir, bool head, bool? armourUp, bool own, double delay, ShotContact? resolved, int resolvedTo, string? wargear = null)
     {
         if (HitDirLook == DirLook.None) return;
         for (int i = _serverHits.Count - 1; i >= 0; i--) if (_connectedFor - _serverHits[i].Contact.At > OwnWindow) _serverHits.RemoveAt(i);
         if (_serverHits.Count >= 64) _serverHits.RemoveAt(0);
-        var c = resolved ?? new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own, SparksDrawn = true };
+        var c = resolved ?? new ShotContact { At = _connectedFor, Delay = delay, Contact = contact, Dir = dir, Head = head, Shooter = shooter, ArmourUp = armourUp ?? true, Own = own, SparksDrawn = true, Wargear = wargear };
         var gd = _gameSpace is null ? new Vector3(dir.X, -dir.Z, dir.Y) : _gameSpace.Basis.Inverse() * dir;
         _serverHits.Add(new ServerHit { Contact = c, End = end, DirGame = new Num.Vector3(gd.X, gd.Y, gd.Z), ResolvedTo = resolvedTo });
     }
@@ -347,7 +351,7 @@ public partial class NetworkView
         float height = Math.Clamp(best.End.Z - o.Position.Z, 0.9f, 1.8f);
         var back = -c.Dir; back.Y = 0f;
         back = back.LengthSquared() > 1e-6f ? back.Normalized() : Vector3.Forward;
-        return new ShotContact { At = c.At, Delay = c.Delay, Contact = feet + Vector3.Up * height + back * BodySurface, Dir = c.Dir, Head = c.Head, Shooter = c.Shooter, ArmourUp = c.ArmourUp, Own = c.Own, SparksDrawn = c.SparksDrawn };
+        return new ShotContact { At = c.At, Delay = c.Delay, Contact = feet + Vector3.Up * height + back * BodySurface, Dir = c.Dir, Head = c.Head, Shooter = c.Shooter, ArmourUp = c.ArmourUp, Own = c.Own, SparksDrawn = c.SparksDrawn, Wargear = c.Wargear };
     }
 
     /// <summary>The own hit report (UpdateHits): the victim's armour after the own melee strike, exact for the own view's mixed-or-blood choice.</summary>
@@ -392,7 +396,7 @@ public partial class NetworkView
                 if (HasBlood(visual))
                 {
                     var exit = ShotExit(o, shot);   // the spray starts where the shot leaves him, along it (lead decision 7)
-                    var c = new ClassicContact(o.PlayerId, shot.Shooter, exit, shot.Dir, visual, true, shot.Head, lethal, false, 0.3f, BloodAmount(false, lethal), -wait, null, 0, null);   // the spray waits for the tracer's arrival
+                    var c = new ClassicContact(o.PlayerId, shot.Shooter, exit, shot.Dir, visual, true, shot.Head, lethal, false, 0.3f, BloodAmount(false, lethal), -wait, null, 0, null, Wargear: shot.Wargear);   // the spray waits for the tracer's arrival
                     ExtrasClassicBlood(c, ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
                     if (drawn) _hitDirBlood++;
                 }
@@ -433,6 +437,9 @@ public partial class NetworkView
             if (attacker == 0 && ClassicChargeMark(o, shield, health, lethal)) return true;
             if (attacker == 0)
             {
+                bool streak = false;
+                if (health) ExtrasClassicUnpaired(o, shield, health, lethal, ref streak);   // EXTRAS-HOOK: gore-streak, a blast's or a stomp's streak (Extras/Gore)
+                if (streak) _hitDirBlood++;
                 _hitDirUnpaired++;
                 if (LogHitDir) HitDirPrint($"HITDIR mark P{o.PlayerId} shield {shield} health {health}: no shot and no weapon melee attacker in reach (left to the existing look; t {_connectedFor:F2}); why: {UnpairedReason(o)}{(noSpan is null ? "" : "; " + noSpan)}");
                 return false;
@@ -631,7 +638,7 @@ public partial class NetworkView
         NoteHitDirFocus(contact, dir);
         bool drawn = false;
         if (HasBlood(visual))
-            ExtrasClassicBlood(new ClassicContact(m.Victim, m.Attacker, contact, dir, visual, false, false, m.Lethal, m.Heavy, spread, BloodAmount(m.Heavy, m.Lethal), preAge, hist, histCount, weapon, Exit: exitSide), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
+            ExtrasClassicBlood(new ClassicContact(m.Victim, m.Attacker, contact, dir, visual, false, false, m.Lethal, m.Heavy, spread, BloodAmount(m.Heavy, m.Lethal), preAge, hist, histCount, weapon, Exit: exitSide, Wargear: MeleeWargear(attacker)), ref drawn);   // EXTRAS-HOOK: classic-hit-effects, the Extended blood (Extras/Gore)
         if (drawn) _hitDirBlood++;
         _hitDirMelee++;
         if (LogHitDir) HitDirPrint($"HITDIR melee P{m.Attacker}->P{m.Victim} {visual}{(m.Heavy ? " heavy" : "")}{(m.Lethal ? " lethal" : "")} contact {contact.X:F2},{contact.Y:F2},{contact.Z:F2} dir {dir.X:F2},{dir.Y:F2},{dir.Z:F2} " +

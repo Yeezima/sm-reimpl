@@ -606,7 +606,7 @@ public partial class NetworkView
         if (hit != ShotHit.World || plays.Count > 0) _probeImpactAny = true;   // fx/tracers-impact: --tracer-probe (armour glows, sparks, flashes and the hit container all count)
         // classic-no-player-hit-fx (owner, 2026-11-11): in Classic PvP a hit on a player draws none of the on-hit effects below, only the model's own flash (PlayerHitFxRules; --player-hit-fx restores)
         bool hitFx = HitFxDrawn(hit, w.Wargear, victim);
-        if (hit is ShotHit.Body or ShotHit.Head) NoteShotContact(victim, shooter, end, dir, hit == ShotHit.Head, armourUp, own, delay);   // classic-hit-effects: the confirmed damage's gunfire contact (NetworkView.ClassicHitDir.cs)
+        if (hit is ShotHit.Body or ShotHit.Head) NoteShotContact(victim, shooter, end, dir, hit == ShotHit.Head, armourUp, own, delay, w.Wargear);   // classic-hit-effects: the confirmed damage's gunfire contact (NetworkView.ClassicHitDir.cs)
         if (hit != ShotHit.World && hitFx) FxArmourHit(up, end, dir, victim, delay);
         bool sparksAtMark = hit != ShotHit.World && SmClient.ImpactRules.ClassicHitDirRules.SparksWaitForMark(HitDirLook, victim, _client?.PlayerId ?? 0, own);   // classic-hit-effects: the confirmed class decides (review of 2b89de15, finding 6; drawn by the mark, NetworkView.ClassicHitDir.cs)
         if (hit != ShotHit.World && up && hitFx && !sparksAtMark) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
@@ -756,6 +756,7 @@ public partial class NetworkView
     {
         if (!FxActive || _config is null) return false;
         NoteBlastSeen(d.Position);   // classic-hit-effects: --log-hit-dir's reason for an unpaired mark
+        if (!pictureOnly) ExtrasClassicBlast(ToGodot(d.Position), ProjectileWargear(d));   // EXTRAS-HOOK: gore-streak, an explosion's streak on the health marks it causes (Extras/Gore)
         var fx = FxProjectileOf(d);
         if (fx is null) return false;
         var pos = ToGodot(d.Position);

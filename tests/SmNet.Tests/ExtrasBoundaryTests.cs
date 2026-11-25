@@ -45,6 +45,8 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicKill"),           // classic-hit-effects: a kill-feed entry, paired with its headshot for the decal (Extras/Gore)
         ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicPrewarm"),        // classic-hit-effects: the Extended blood shader prepared at the join (Extras/Gore)
         ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicHeadContact"),    // classic-hit-effects: a drawn head hit, the decal's shot when the lethal mark pairs with none (Extras/Gore)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicBlast"),          // gore-streak: a drawn detonation (called from NetworkView.Fx.cs FxDetonation), paired with the health marks it causes (Extras/Gore)
+        ("client/NetworkView.ClassicHitDir.cs", "ExtrasClassicUnpaired"),       // gore-streak: a health mark no shot, melee or charge explains, drawn as a blast's or a stomp's streak (Extras/Gore)
         ("client/NetworkView.Scoreboard.cs", "ExtrasScoreboard"),  // NetworkView.ExtrasScoreboard(ref single, ref score, ref assists), the Tab scoreboard (Musou: one column, run points, no assists)
         ("client/ModelViewer.cs", "ExtrasStart"),                  // ModelViewer.ExtrasStart(args), first in _Ready on every path (remove-spear-claw 2026-11-23: --old-arsenal-spear-claw before any config or catalogue)
         ("client/ModelViewer.cs", "ExtrasTestAid"),                // ModelViewer.ExtrasTestAid(args, ref bool), before the game install is located (Ashfall kit gallery: a test view that needs no install)

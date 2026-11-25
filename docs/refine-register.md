@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data with high confidence), 367 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4101 spec table rows: **3029 tagged**, 702 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 850 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,26 +51,26 @@ Scanned 4086 spec table rows: **3019 tagged**, 700 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 170 | 169 | 57 | 74 | 0 |
+| General game design | 180 | 178 | 65 | 76 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3019** | 2711 | 2216 | 913 | 37 |
+| **All areas** | **3029** | 2720 | 2224 | 915 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1827 |
-| confidence: low | 1068 |
-| confidence: medium | 1037 |
-| notes: ours | 475 |
-| kind: interpretation | 456 |
+| kind: ours | 1835 |
+| confidence: low | 1070 |
+| confidence: medium | 1043 |
+| notes: ours | 476 |
+| kind: interpretation | 457 |
 | notes: estimate | 306 |
 | kind: estimate | 270 |
 | confidence: none (low) | 111 |
 | kind: provisional | 106 |
 | kind: user's knowledge | 53 |
 | kind: choice | 45 |
-| notes: provisional | 43 |
+| notes: provisional | 44 |
 | section: provisional | 37 |
 | section: placeholder | 34 |
 | notes: user's knowledge | 30 |
@@ -4316,7 +4316,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (170)
+### General game design (180)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4552,6 +4552,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-39BBFD43` | NEW CAMPAIGN on an unusable run.json | `--warfront-new` with a damaged run.json sets it aside under records (the loader's code) and starts the new run with the notice; a newer or locked run.json is left untouched and the server refuses (exit 1) with the notice, even on NEW CAMPAIGN | kind: ours | review of codebase fix 1 | NEW CAMPAIGN on an unusable run.json: compare with SM1 by timing a run over a known distance. Ours: --warfront-new with a damaged run.json sets it aside under records… | ☐ |
 | `R-8947DC6E` | Autosave writer busy | a synchronous save whose flush of the asynchronous writer times out (10 s) does not write; it sets SavePending (retried) so run.json.tmp is never raced (s) | kind: ours | review of codebase fix 1 | Autosave writer busy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a synchronous save whose flush of the asynchronous writer times out… | ☐ |
 | `R-4243CFC1` | Projectile hits test the current pose (codebase fix 6, 2026-11-22; Musou Mode and Warfront) | a flying projectile (the Rokkit Boy's rocket, a launcher or plasma round, any per-step projectile sweep against the Orks) tests each Ork's body at its CURRENT position only; an instant (hit-scan) shot, including the piercing bolt and lascannon rays, keeps the… (ticks, m) | kind: ours; notes: estimate | Codex review 2026-11-21; owner 2026-11-22 ("current position only") | Projectile hits test the current pose (codebase fix 6…: compare with SM1 by feel or video. Ours: a flying projectile (the Rokkit Boy's rocket, a launcher or plasma… | ☐ |
+
+*Spec section: Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0C7738DA` | Per-frame table (frame: s, exit reach H, entry reach H, half-fan deg, half width H, fill, opacity) | 0: 0, 1.36, 0.52, 4, 0.024, 0.95, 1.0; 1: 0.05, 1.60, 0.80, 17, 0.050, 0.90, 1.0; 2: 0.10, 1.92, 0.84, 22, 0.058, 0.85, 0.95; 3: 0.18, 1.92, 0.92, 21, 0.070, 0.66, 0.85 (outer fade 0.3); 4: 0.27, 1.98, 1.02, 29, 0.085, 0.70, 0.75; 5: 0.37, 2.08, 1.12, 28… (s, H (victim body heights), deg, share) | kind: interpretation; notes: provisional | the owner's reference frames (interpretation), the scoring tools' measured curves | Per-frame table (frame: s, exit reach H, entry reach H…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0: 0, 1.36, 0.52, 4, 0.024, 0.95, 1.0; 1: 0.05, 1.60, 0.80, 17… | ☐ |
+| `R-3203B820` | Shape | one flat quad per hit on the streak's plane; up to 3 exit branches fanned by the half-fan (upper +1, middle +0.35, lower -0.25 of it, seeded +-15 %), a fourth on a heavy or killing hit; one entry stub behind the wound; each branch narrow at the wound, widest… | kind: ours; confidence: medium | ours | Shape: compare with SM1 by feel or video. Ours: one flat quad per hit on the streak's plane; up to 3 exit branches… | ☐ |
+| `R-83AB040B` | Grit | 256 x 256 tileable noise made in code (coarse blotches, fine grain, a smear stretched along U), sampled 4:1 along each branch; a texel is blood where 0.3 field + 0.55 blotch + 0.15 smear beats 1 - fill, with pinholes where the grain beats 1 - 0.45 grit; a… | kind: ours; confidence: medium | ours | Grit: compare with SM1 by feel or video. Ours: 256 x 256 tileable noise made in code (coarse blotches, fine grain, a… | ☐ |
+| `R-1ED6EC7C` | Colour | repair 4's two passes: a strip (blend_mul: the red under a covered texel kept at 0.125, green and blue removed, feathered by coverage cubed), then the blood red (1, 0.12, 0.08) x 0.3 to 0.55 by density mixed over it at opacity x coverage x density (0.55 to… (linear RGB) | notes: ours | owner card "Keep our darker red"; values ours (repair 4) | Colour: compare with SM1 by feel or video. Ours: repair 4's two passes: a strip (blend_mul: the red under a covered… | ☐ |
+| `R-21291506` | Size by weapon | light 0.75 (pistols, knife, a light first melee step), normal 1 (bolter, standard sweeps), heavy 1.35 (lascannon, heavy bolter, autocannon, missiles, hammers, mauls, power axes, heavy or charged steps, charges, explosions; a chain axe is normal); a kill x1.4… (share) | kind: ours; confidence: medium | owner card ("Same shape, scaled by weapon"; "bigger on death"); the values ours | Size by weapon: compare with SM1 by measuring on a flat spot of the same map. Ours: light 0.75 (pistols, knife, a light first melee step), normal 1… | ☐ |
+| `R-BE0A0331` | Body height | Classic 2.0 m; Warfront the enemy type's chest height / 0.6 (Boy 1.83 m, Gretchin 1.17 m, Nob 2.33 m) (m) | kind: ours; confidence: medium | ours | Body height: compare with SM1 by measuring on a flat spot of the same map. Ours: Classic 2.0 m; Warfront the enemy type's chest height / 0.6 (Boy 1.83… | ☐ |
+| `R-E03817BA` | Plane | a sweep: the swing plane from the weapon's drawn path 0.08 s either side of the contact (else the vertical plane through the axis); a thrust, a shot, a charge and an explosion: the vertical plane rolled round the axis by a seeded 13 to 40 deg; an explosion's… (deg) | kind: ours; confidence: medium | ours (design state/design-gore-streak-1125.md) | Plane: compare with SM1 by feel or video. Ours: a sweep: the swing plane from the weapon's drawn path 0.08 s either… | ☐ |
+| `R-F573517B` | Where it starts | gunfire: where the shot leaves the victim (the entry stub behind it), after the tracer's flight; melee: the weapon's contact on the body (a thrust: the exit side); explosion: the chest's surface away from the blast; Warfront: the hit point raised to the… (m) | kind: ours; confidence: medium | ours | Where it starts: compare with SM1 by measuring on a flat spot of the same map. Ours: gunfire: where the shot leaves the victim (the entry stub behind it)… | ☐ |
+| `R-5EE0DCCC` | Classic explosion pairing | a health mark no shot, weapon melee or charge explains pairs with a detonation drawn within 0.4 s plus the draw lag and 6 m of his chest (a plasma one draws none), else with an enemy within 4.5 m who is stomping, air-slashing or landing a jump (s, m) | kind: ours; confidence: low | ours | Classic explosion pairing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a health mark no shot, weapon melee or charge explains pairs with a… | ☐ |
+| `R-6811BB4F` | Warfront sources | hit marker 3: melee along attacker to enemy (plane rolled; the attacker's melee weapon sizes it); marker 0 with no player: fire support, an explosion; markers 1 and 2: a detonation within 0.25 s and 6 m of the hit is an explosion, else the shooter's last… (s, m) | kind: ours; confidence: low | ours (design) | Warfront sources: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: hit marker 3: melee along attacker to enemy (plane rolled; the… | ☐ |
 
 ## Part B: Ork faction
 
@@ -5559,6 +5574,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-67627CBB` | Hit effects at range, 30 % stronger (onhit-range-intensity; client only) | The original's on-hit effects on a player (as we understand it) | The yellow hit glow, the red break and bare-armour glow and the particle effects on a hit player keep their size on screen at range (grown with distance and field of view, up to 6x the spot, 3x particles, 1.5x the glow card) and are 30 % stronger, for every weapon in Classic PvP and Musou Mode. Ours: the rule and the… | **Owner 2026-11-13**; spec "Hit effects at range and 30 % stronger" | Hit effects at range, 30 % stronger (onhit-range-intensity…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-C033DE86` | Spark reach 4 m, hit flashes 40 % stronger (hit-sparks-flashes; client only) | Sparks and the model's yellow and red flashes on a shot player as the data and the 2026-11-13 rows draw them | Particles of the on-hit effects on a player end within 4 m of the hit point; the yellow and red model flashes are x1.4 as bright and x1.4 as large (duration unchanged). Switches `--old-hit-spark-reach`, `--old-hit-flash-magnitude` | **Owner 2026-11-14**; spec "Spark reach and flash magnitude" | Spark reach 4 m, hit flashes 40 % stronger…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-FFF4AD42` | Directional hit effects in Classic PvP (classic-hit-effects, brief 2026-11-23-series-36 rev 1; client only, no wire, protocol or server change; the jump pack's air slash counts as weapon melee: owner 2026-11-24, question card "Yes, spray it"; the bull-rush charge connect sprays too, along the charge: owner 2026-11-24… | The original's on-hit effects on a player (as we understand it); the 2026-11-13/14 rows: a spark fan pointed back at the attacker or shooter, red sparks for a health hit | Every confirmed damage (the damage mark) draws one effect, along the real weapon path through the hit (melee) or the incoming shot (gunfire). **Both Classic profiles:** a paired weapon melee hit on armour (armour only, the break without health loss, or health lost with armour left) draws yellow-white sparks along the… | **Owner 2026-11-23** (brief and question card); every number ours; spec "Classic hit effects" | Directional hit effects in Classic PvP…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-AAF3B258` | Gore streak on every health hit (gore-streak, 2026-11-25; added content: gore; Warfront and Classic Extended, off in Faithful; client only, no wire, protocol or server change) | SM1's blood on a hit player: a red health-hit glow and spark fan (and repair 4's ribbons in our Extended since 2026-11-24) | The owner's reference sequence (decision 2026-11-25): every health hit on an enemy (all melee, bolt weapons, the lascannon and other gunfire, charges, explosions, stomps and landings) plays one procedural blood streak on a tilted plane through the wound: a small swipe short on the entry side and long on the exit side… | "Added content: Gore streak" | Gore streak on every health hit (gore-streak, 2026-11-25…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-EDEE58B3` | Sparks back, no large burst on a hit player in Classic PvP (onhit-range-intensity; client only; supersedes the row below) | The original's on-hit effects on a player (as we understand it) | The yellow and red sparks and glows on a hit player are back in Classic PvP (owner 2026-11-13, reversing the removal of 2026-11-11), but not the large health-hit burst, smoke or the weapon's hit container (the owner: only yellow and red sparks and glows in Classic; large explosive effects on ranged hits only in Musou… | **Owner 2026-11-13**; spec "Large burst on a hit player" | Sparks back, no large burst on a hit player in Classic PvP…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4DDA1E52` | Glow and sparks for every damage on a player (onhit-range-intensity; protocol 71, a one-byte damage mark in every snapshot record; config hash unchanged) | The original's on-hit effects on a player (as we understand it) | Every damage a player takes (any weapon, light combo, F stun, kicks, charge, ground pound, jump landing, air slash, grenade and other blasts, Musou enemy hits) shows the yellow glow and sparks when shield took it and red when only health did, on his model in every other player's view, from a damage counter the server… | **Owner 2026-11-13**; spec "Glow and sparks for every damage on a player" | Glow and sparks for every damage on a player…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-BF8F7EE7` | No on-hit effects on shot players (claude/classic-no-player-hit-fx; Classic PvP only, client only) (SUPERSEDED 2026-11-13 by the two rows above: sparks and glows are back, no large burst) | A ranged hit on a player plays the weapon's hit container and the player blueprint's armour-hit effects at him (impact flashes, sparks, glows, the break effect `sm_armor_break_shoulders`) | In Classic PvP a ranged hit on a player draws none of them, nor our own additions (the spark fans, the health-hit burst that read as the "stalker bolter explosion cloud", the melta's whole-body burn); the victim model's own flash and glow, the sounds, the HUD, the tracer and the map's impacts stay; ours: the model's… | **Owner's request 2026-11-11** ("simply remove instances of weapon on hit visual effects like the stalker bolter explosion cloud on the player target you shot and hit - classic pvp only"); spec "No on-hit effects on shot players in Classic PvP" | No on-hit effects on shot players…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
@@ -6620,4 +6636,7 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-39A6A17F` | Versions | Weather finish (series 36: Clear, Low Fog, the active lifecycle, Rain; added content; owner brief 2026-11-23; presentation only) |
 | `R-C3C80F10` | Versions | Added content: Warfront save safety and persistent progression (codebase fix 1; added content; owner 2026-11-22) |
 | `R-A5302E01` | Capture aid | Classic hit effects (classic-hit-effects, brief 2026-11-23-series-36-classic-hit-effects rev 1; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
+| `R-0D99C328` | Pool and budget | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
+| `R-370B07DC` | `gore streak:` log line | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
+| `R-E57CA83A` | Capture aid `--gore-streak-capture <case>` | Added content: Gore streak (gore-streak, 2026-11-25; owner decision "gore must match the reference sequence"; client only, presentation only, not simulated; no wire, protocol, config-hash or server change) |
 

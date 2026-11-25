@@ -11,7 +11,9 @@ namespace SmClient;
 /// <summary>
 /// classic-hit-effects, the Extended profile's blood (added content: gore; owner 2026-11-23, question card "Extended only"; removable with this folder, the core hooks stay empty):
 /// <list type="bullet">
-/// <item><see cref="ExtrasClassicBlood"/>: the red spray (<see cref="ClassicBloodRibbons"/>, third design after owner answer 4, 2026-11-24: soft ribbons laid along the weapon's path
+/// <item>gore-streak (owner 2026-11-25): every health hit's blood is the reference sequence's streak (<see cref="GoreStreakView"/>, NetworkView.ClassicStreak.cs), the gunfire, melee
+/// and charge contacts through <see cref="ExtrasClassicBlood"/>, blasts, stomps and landings through <see cref="ExtrasClassicUnpaired"/>; <c>--old-gore-streak</c> restores repair 4's ribbons below.</item>
+/// <item><see cref="ExtrasClassicBlood"/> with <c>--old-gore-streak</c>: the red spray (<see cref="ClassicBloodRibbons"/>, third design after owner answer 4, 2026-11-24: soft ribbons laid along the weapon's path
 /// through the contact, or along the shot or the charge, that hang in place and fade over about a second; today's Classic health-hit red); heavier and lethal hits lay more ribbons, a
 /// little wider and longer, without filling the shape in.</item>
 /// <item>The fatal gunfire headshot's wall decal: the server's headshot kill (<see cref="ExtrasClassicKill"/>) and the head shot that killed (the confirmed lethal head shot,
@@ -45,6 +47,8 @@ public partial class NetworkView
     partial void ExtrasClassicBlood(ClassicContact c, ref bool drawn)
     {
         if (!HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray)) return;
+        if (StreakDraws) { drawn = ClassicStreak(c); return; }   // gore-streak (owner 2026-11-25): the reference sequence's streak
+        if (!OldGoreStreakFlag) return;                           // --no-gore-streak: no spray
         var kind = c.Gunfire ? ClassicBloodRules.RibbonKind.Gunfire : c.Charge ? ClassicBloodRules.RibbonKind.Charge : c.Exit ? ClassicBloodRules.RibbonKind.Thrust : ClassicBloodRules.RibbonKind.Sweep;
         var path = c.History is null ? ReadOnlySpan<(double, Vector3)>.Empty : new ReadOnlySpan<(double, Vector3)>(c.History, 0, c.HistoryCount);
         BloodRibbons().Spawn(c.Contact, path, c.Dir, kind, c.Spread, c.Amount, c.PreAge);
@@ -53,7 +57,9 @@ public partial class NetworkView
 
     partial void ExtrasClassicPrewarm(Vector3 at)
     {
-        if (HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray)) BloodRibbons().Prewarm(at);
+        if (!HitDirLook.HasFlag(ClassicHitDirRules.DirLook.BloodSpray)) return;
+        if (StreakDraws) { GoreStreaks().Prewarm(at); StreakCaptureStart(); }   // the capture aid starts here when asked (NetworkView.GoreStreakCapture.cs)
+        else if (OldGoreStreakFlag) BloodRibbons().Prewarm(at);
     }
 
     partial void ExtrasClassicHeadContact(int victim, int shooter, Vector3 contact, Vector3 dir)

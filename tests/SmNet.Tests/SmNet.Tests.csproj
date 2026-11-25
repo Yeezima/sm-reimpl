@@ -64,6 +64,8 @@
   <ItemGroup Condition="'$(SmExtras)' == 'true'">
     <!-- classic-hit-effects: the Extended profile's blood rules (the fatal headshot's wall decal trace and shape), engine-free. -->
     <Compile Include="..\..\client\Extras\Gore\ClassicBloodRules.cs" Link="ClientGore\ClassicBloodRules.cs" />
+    <!-- gore-streak: the blood streak rules (table, plane, size, grit, colour), engine-free. -->
+    <Compile Include="..\..\client\Extras\Gore\GoreStreakRules.cs" Link="ClientGore\GoreStreakRules.cs" />
   </ItemGroup>
 
   <ItemGroup>
