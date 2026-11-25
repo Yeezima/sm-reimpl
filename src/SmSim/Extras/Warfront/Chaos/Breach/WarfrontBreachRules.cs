@@ -47,6 +47,8 @@ public static class WarfrontBreachRules
     /// <summary>A ring spot (Fable review 3; ours): on the source's floor, within this height of its foot; reached on foot from the source within this many times the ring's radius; the walk's search is bounded by this many nodes.</summary>
     public const float RingVertical = 1.5f, RingDetour = 2.5f;
     public const int RingPathExpandedMost = 20_000;
+    /// <summary>The fortress stage whose sources are the plaza's (<c>WarfrontFortressState</c>: stage 2 when a human first enters the plaza): they never take a breach.</summary>
+    public const int FortressPlazaStage = 2;
     /// <summary>The most breaches a battle has (the wire's limit, <c>WarfrontChaosWire.MaxBreaches</c>).</summary>
     public const int MaxBreaches = 8;
     /// <summary>The salt of the placement rolls (the battle's own <c>TfwBattle.Roll</c> mixing).</summary>
