@@ -93,11 +93,35 @@ public class ExecutionRewardTests
         Assert.Equal(2f * body.ShieldMax, w.Players[1].Shield);   // 200 %, never 300 %
     }
 
-    [Fact(Skip = "X4 phase 3: World.MusouCombat.cs MusouRestore keeps the overshield after Phase B T2 merges")]
-    public void MeleeHealKeepsOvershield() { }
+    /// <summary>X4 phase 3 (series-37 integration): a melee strike's heal (<c>World.MusouRestore</c>, private: called by reflection) gives health back and never trims the overshield.</summary>
+    [Fact]
+    public void MeleeHealKeepsOvershield()
+    {
+        var (w, _) = Executed();
+        var body = Body(w);
+        w.ExecutionsSetVitalsForTests(1, body.HealthMax * 0.5f, body.ShieldMax * 1.5f);
+        var restore = typeof(World).GetMethod("MusouRestore", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        restore.Invoke(w, [1, 0.25f, 0.2f]);
+        Assert.Equal(body.HealthMax * 0.75f, w.Players[1].Health, 3);
+        Assert.Equal(body.ShieldMax * 1.5f, w.Players[1].Shield, 3);   // kept, not cut to the bar
+        w.ExecutionsSetVitalsForTests(1, body.HealthMax * 0.5f, body.ShieldMax * 0.5f);
+        restore.Invoke(w, [1, 0.25f, 0.2f]);
+        Assert.Equal(body.ShieldMax * 0.7f, w.Players[1].Shield, 3);   // under the bar the heal adds as before
+    }
 
-    [Fact(Skip = "X4 phase 3: World.WarfrontProgression.cs WarfrontRefill keeps the overshield after Phase B T2 merges")]
-    public void LevelUpRefillKeepsOvershield() { }
+    /// <summary>X4 phase 3 (series-37 integration): a level-up refill (<c>World.WarfrontRefill</c>) fills health and keeps an overshield: max(shield, the bar).</summary>
+    [Fact]
+    public void LevelUpRefillKeepsOvershield()
+    {
+        var (w, _) = Executed();
+        var body = Body(w);
+        w.ExecutionsSetVitalsForTests(1, 30f, body.ShieldMax * 1.5f);
+        var rt = w.Tfw!.Warfront!.Progression;
+        Assert.NotEmpty(rt.Xp.Capture(100000, eventKey: 0x7E57));   // a level-up for every connected player
+        ExecutionOrkKit.Idle(w);
+        Assert.Equal(body.HealthMax, w.Players[1].Health);
+        Assert.Equal(body.ShieldMax * 1.5f, w.Players[1].Shield, 3);
+    }
 
     [Fact]
     public void DeathClearsOvershield()

@@ -390,7 +390,7 @@ public sealed partial class World
         _players[attacker] = p with
         {
             Health = MathF.Min(body.HealthMax, p.Health + body.HealthMax * healthShare),
-            Shield = MathF.Min(body.ShieldMax, p.Shield + body.ShieldMax * armourShare),
+            Shield = p.Shield > body.ShieldMax && Config.KeepsOvershield ? p.Shield : MathF.Min(body.ShieldMax, p.Shield + body.ShieldMax * armourShare),   // executions X4 phase 3: a Warfront overshield is never trimmed (KeepsOvershield is false in Musou Mode)
         };
     }
 

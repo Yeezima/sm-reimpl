@@ -74,7 +74,7 @@ public sealed partial class World
             rules?.OwnerLevelUp?.Invoke(up.Key);   // W9b: the owner's standing Marines refill too
             if (!rt.TryId(up.Key, out int id) || !_players.TryGetValue(id, out var p) || !p.Alive) continue;
             var body = Loadouts.Body(Config, p);
-            _players[id] = p with { Health = body.HealthMax, Shield = body.ShieldMax };
+            _players[id] = p with { Health = body.HealthMax, Shield = Config.KeepsOvershield ? MathF.Max(p.Shield, body.ShieldMax) : body.ShieldMax };   // executions X4 phase 3: a level-up keeps an overshield
         }
     }
 

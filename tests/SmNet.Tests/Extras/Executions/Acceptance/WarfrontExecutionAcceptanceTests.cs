@@ -516,9 +516,9 @@ public class WarfrontExecutionAcceptanceTests
         Assert.NotEqual(MusouEnemyState.Dying, after.State);
     }
 
-    [Fact(Skip = "X4 phase 3: a melee heal (World.MusouCombat.cs MusouRestore) must never trim the overshield: after a melee strike that heals, Shield >= its value before the strike while it is above ShieldMax")]
-    public void MeleeHeal_KeepsOvershield() { }
+    [Fact]   // X4 phase 3 (series-37 integration): a melee heal never trims the overshield
+    public void MeleeHeal_KeepsOvershield() => new SmNet.Tests.Extras.Executions.Orks.ExecutionRewardTests().MeleeHealKeepsOvershield();
 
-    [Fact(Skip = "X4 phase 3: a level-up refill (World.WarfrontProgression.cs WarfrontRefill) must keep the overshield: after a level-up, Shield == max(Shield before, ShieldMax)")]
-    public void LevelUpRefill_KeepsOvershield() { }
+    [Fact]   // X4 phase 3 (series-37 integration): a level-up refill keeps the overshield: max(shield, the bar)
+    public void LevelUpRefill_KeepsOvershield() => new SmNet.Tests.Extras.Executions.Orks.ExecutionRewardTests().LevelUpRefillKeepsOvershield();
 }

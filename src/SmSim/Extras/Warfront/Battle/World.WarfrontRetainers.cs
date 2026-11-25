@@ -53,7 +53,7 @@ public sealed partial class World
     {
         if (!_players.TryGetValue(id, out var p) || !p.Alive) return false;
         var body = Loadouts.Body(Config, p);
-        _players[id] = p with { Health = body.HealthMax, Shield = body.ShieldMax };
+        _players[id] = p with { Health = body.HealthMax, Shield = Config.KeepsOvershield ? MathF.Max(p.Shield, body.ShieldMax) : body.ShieldMax };   // executions X4 phase 3: as the level-up refill
         return true;
     }
 
