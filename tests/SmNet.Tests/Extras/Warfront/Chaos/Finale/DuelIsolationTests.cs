@@ -205,5 +205,5 @@ public class DuelIsolationTests(ITestOutputHelper output)
     }
 
     [Fact(Skip = "Executions X3 is not on this base: the WarfrontDuelExecutions seam is a no-op until it lands (the lead wires ExecutionsAbortAll and the overshield there)")]
-    public void ExecutionsAborted_and_EntryClearsOvershield() { }
+    public void Duel_aborts_executions_and_entry_clears_overshield() { }   // renamed at the series-37 integration: the executions boundary scan reads Executions*( as a hook call
 }
