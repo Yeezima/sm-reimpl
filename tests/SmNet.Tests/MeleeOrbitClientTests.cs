@@ -297,7 +297,7 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_press_made_while_fire_is_held_gives_its_own_heading_to_the_queued_strike()
+    public void A_press_made_on_a_plain_tick_gives_its_own_heading_to_the_queued_strike()
     {
         float dur = 1f, hit = 0.2f;
         var variant = new MeleeVariant(0f, Enumerable.Range(0, 61).Select(i => { float tt = dur * i / 60f; return 2f * Math.Clamp(tt / hit, 0f, 1f); }).ToArray());
@@ -306,12 +306,15 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
         var s = Fresh(chain);
         var client = new Client(true, chain);
         uint t = 1;
-        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee), chain, out _);   // strike 1 at camera 0: enters
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee), chain, out _);   // strike 1 at camera 0: its press records heading 0
         s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), chain, out _);
-        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), chain, out _);   // a second strike press at 0 recorded first
+        Assert.True(client.Active);
+        Assert.Equal(1, s.MeleeStep);
         client.Cam = 90f * Deg;
-        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee | InputButtons.Fire), chain, out _);   // the press on a plain tick (fire held)
-        if (!client.Active) return;   // the fire press ended melee mode: nothing to check
+        // The next press lands on a plain tick (a grenade press on the same tick sends the plain input), with the camera at 90 and no key held.
+        s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.Melee | InputButtons.Grenade), chain, out _);
+        Assert.True(client.Active);
+        Assert.True(s.MeleeQueued || s.Buffered is BufferedAction.Melee, $"the press was not queued (step {s.MeleeStep}, buffered {s.Buffered})");
         float atStart = float.NaN;
         for (int i = 0; i < 40 && float.IsNaN(atStart); i++)
         {
@@ -319,7 +322,8 @@ public class MeleeOrbitClientTests(ITestOutputHelper output)
             s = Combat.StepPlayer(s, client.Sample(s, t++, 0f, 0f, InputButtons.None), chain, out _);
             if (before == 1 && s.MeleeStep == 2) atStart = s.Yaw;
         }
-        if (float.IsNaN(atStart)) return;
+        Assert.False(float.IsNaN(atStart), "strike 2 never started");
+        output.WriteLine($"strike 2 starts at {atStart / Deg:F1} (the press looked at 90, the strike before it at 0)");
         Assert.InRange(MathF.Abs(MeleeOrbitSteer.Wrap(atStart - 90f * Deg)) / Deg, 0f, 2f);
     }
 }
