@@ -147,12 +147,15 @@ public sealed partial class MusouLooks
     /// </summary>
     public bool WarfrontOwnsLooks;
 
+    /// <summary>Chaos Warfront C3: a Chaos battle: no Ork look is built (<see cref="Step"/> waits; the reads already started stay unused). False everywhere else.</summary>
+    public bool WarfrontSkipOrks;
+
     Look? OrkLookFor(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
     {
-        if (Done) return null;
+        if (Done || WarfrontSkipOrks) return null;
         if (_next < Plan.Length)
         {
             var w = Plan[_next];

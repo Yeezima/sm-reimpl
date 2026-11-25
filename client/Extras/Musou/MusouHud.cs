@@ -129,7 +129,14 @@ public sealed partial class MusouHud : Control
 
     /// <summary>Chaos Warfront C3: the words of the boss bars, call-outs and end panel in a Chaos battle (the Ork names as the Chaos units'); null everywhere else (the Ork words as before).</summary>
     public Func<string, string>? WarfrontRelabel;
-    string Relabel(string text) => WarfrontRelabel is { } r ? r(text) : text;
+    string Relabel(string text)
+    {
+        if (WarfrontRelabel is not { } r) return text;
+        if (_relabelled.TryGetValue(text, out var known)) return known;   // the HUD's words are a few fixed strings: relabelled once each, no garbage a frame
+        if (_relabelled.Count > 64) _relabelled.Clear();
+        return _relabelled[text] = r(text);
+    }
+    readonly System.Collections.Generic.Dictionary<string, string> _relabelled = new(System.StringComparer.Ordinal);
 
     /// <summary>A call-out in the centre (the newest replaces an older one of the same text); <paramref name="flash"/> tints the screen for a moment.</summary>
     public void CallOut(string text, Color colour, double seconds = 2.2, Color? flash = null)

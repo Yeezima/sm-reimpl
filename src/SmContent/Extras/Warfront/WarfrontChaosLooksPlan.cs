@@ -62,7 +62,16 @@ public static class WarfrontChaosLooksPlan
     public static bool IsMarine(MusouEnemyType kind) => BodyOf(kind) == WarfrontChaosBody.Marine;
 
     /// <summary>The Chosen's set and the Lord's (owner 2026-11-25: "Elite marine, hammer"): the co-op elite's berserker helmet, then any berserker or Khorne set.</summary>
-    static readonly string[] ChosenSets = ["berserk", "khorne"], LordSets = ["berserk_03", "berserker_3", "khorne", "berserk", "dlc"];
+    static readonly string[] ChosenSets = ["berserk", "khorne"], LordSets = ["berserk_03", "berserker_3", "khorne", "berserk"];
+
+    /// <summary>
+    /// The predefined Chaos sets a look may wear (Fable review, 2026-11-25): a predefined set brings its own paint scheme, which wins over the race's crimson default (<c>AppearanceResolver</c>); only the
+    /// Khorne berserker sets, painted the army's crimson, are allowed. Every other marine look wears its class's default armour in the race's default scheme.
+    /// </summary>
+    public static readonly IReadOnlyList<string> AllowedSetWords = ["berserk", "khorne"];
+
+    /// <summary>Whether a predefined set's name may be worn (<see cref="AllowedSetWords"/>).</summary>
+    public static bool SetAllowed(string setName) => AllowedSetWords.Any(w => setName.Contains(w, StringComparison.OrdinalIgnoreCase));
     static readonly string[] Hammer = ["chaos_coop_thunderhammer", "csm_mp_thunderhammer", "thunder_hammer", "thunderhammer"];
 
     /// <summary>The marine-rig units' looks (<see cref="BodyOf"/> Marine). The Chosen and the Lord are drawn at a marine's size scaled up a little, not at their rows' sim bodies (the Boss Ork rows' 3x, the Warboss row's boss scale): their bodies are C5's to set.</summary>
@@ -70,8 +79,8 @@ public static class WarfrontChaosLooksPlan
     {
         // Chaos Tactical Marine: the PvP Chaos Marine (the co-op chaos_coop_marine_bolter wears the basic armour), bolter in hand.
         MusouEnemyType.ChaosMarine or MusouEnemyType.ArdBoy => new("tactical", [], 1f, ["chaos_coop_bolter"]),
-        // Aspiring Champion: the army's leader in a full predefined set, a little taller (ours), the chain axe (chaos_coop_chainaxe).
-        MusouEnemyType.Nob => new("tactical", ["champion", "aspiring", "black_legion", "set"], 1.1f, ["chaos_coop_chainaxe"]),
+        // Aspiring Champion: the army's leader, a little taller (ours), in the tactical's default armour and the race's crimson scheme (a catch-all set picked dlc1_set2, painted blue and green: Fable review), the chain axe.
+        MusouEnemyType.Nob => new("tactical", [], 1.1f, ["chaos_coop_chainaxe"]),
         // Havocs: the PvP Havoc class (its own armour), with the heavy bolter or the missile launcher as primary (the co-op Havocs carry a lascannon and a plasma cannon: ours, the kinds' code fires those).
         MusouEnemyType.BigShootaNob => new("havoc", [], 1f, ["csm_mp_heavy_bolter", "heavy_bolter"]),
         MusouEnemyType.RokkitBoy => new("havoc", [], 1f, ["csm_mp_missile_launcher", "missile_launcher"]),
@@ -127,7 +136,7 @@ public static class WarfrontChaosLooksPlan
     static readonly (string Ork, string Chaos)[] HudWords =
     [
         ("BOSS SHOOTA BOY", "CHOSEN"), ("BOSS 'ARD BOY", "CHOSEN"), ("ORK WARBOSS", "CHAOS LORD"), ("BOSS BOY", "CHOSEN"), ("BOSS NOB", "CHOSEN"), ("BOSS ORK", "CHOSEN"),
-        ("WARBOSS", "CHAOS LORD"), ("THE HORDE PREVAILS", "CHAOS PREVAILS"),
+        ("WARBOSS", "CHAOS LORD"), ("THE HORDE PREVAILS", "CHAOS PREVAILS"), ("BREACH THE FORTRESS", "BREACH THE STRONGHOLD"),
     ];
 
     /// <summary>A HUD text of a Chaos battle: its Ork words as the Chaos units (<c>WarfrontChaosRoster.Unit</c>: Chosen, Chaos Lord); any other text unchanged.</summary>
