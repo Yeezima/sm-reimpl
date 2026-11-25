@@ -325,7 +325,10 @@ public static class BakedArmourPaint
             var map = overrides.LastOrDefault(o => o.Channels is not null)?.Channels ?? channels ?? [0, 1, 2];
             var remapped = PaintMaskBuilder.Permute(maskOnly, map);
             foreach (var o in overrides) remapped = BuiltMaskOverrides.Apply(remapped, diffuse, o.Regions, used);
-            var result = PaintMaskBuilder.WithGrey(diffuse, remapped, PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package));
+            var targets = PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package);
+            float scale = OldBrightness ? 1f : overrides.Aggregate(1f, (a, o) => a * o.Brightness);
+            if (scale != 1f) targets = new(targets.Primary * scale, targets.Secondary * scale, targets.Tertiary * scale);
+            var result = PaintMaskBuilder.WithGrey(diffuse, remapped, targets);
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)
             {
                 notes?.Add($"material '{m.Name}': the built mask paints nothing; drawn as baked");
