@@ -121,8 +121,8 @@ public class ExecutionClassicTests
         Tap(w, 1, kill + 1);
         Assert.Single(w.ExecutionsStartedThisTick);
         Assert.Empty(w.ExecutionsOffersOpen);
-        // A failed try spends it too: a corpse no move fits (3.4 m away, a band of [1.25, 1.3]: over the 1 m slide).
-        var far = Arena(Config(ExecutionRowSet.OfAll([Row("C1.chainsword", gap: 1.3f, near: 1.25f)])), (Tactical, Vector3.Zero), (Chaos, new Vector3(0f, 3.4f, 0f)));
+        // A failed try spends it too: a corpse no move fits (4.2 m away, a band of [1.25, 1.3]: over the 2.5 m Classic slide).
+        var far = Arena(Config(ExecutionRowSet.OfAll([Row("C1.chainsword", gap: 1.3f, near: 1.25f)])) with { MeleeRange = 5f }, (Tactical, Vector3.Zero), (Chaos, new Vector3(0f, 4.2f, 0f)));
         uint k3 = KillByMelee(far);
         Tap(far, 1, k3 + 1);
         Assert.Empty(far.ExecutionsStartedThisTick);
@@ -240,9 +240,9 @@ public class ExecutionClassicTests
     [Fact]
     public void BlockedSlideMeansNormalKillStands()
     {
-        // The only row needs 1.25 to 1.3 m: a corpse 3.4 m away needs a 2.1 m slide (over the 1 m cap): the normal kill stands, nothing moves.
-        var c = Config(ExecutionRowSet.OfAll([Row("C1.chainsword", gap: 1.3f, near: 1.25f)]));
-        var w = Arena(c, (Tactical, Vector3.Zero), (Chaos, new Vector3(0f, 3.4f, 0f)));
+        // The only row needs 1.25 to 1.3 m: a corpse 4.2 m away needs a 2.9 m slide (over the 2.5 m Classic cap): the normal kill stands, nothing moves.
+        var c = Config(ExecutionRowSet.OfAll([Row("C1.chainsword", gap: 1.3f, near: 1.25f)])) with { MeleeRange = 5f };
+        var w = Arena(c, (Tactical, Vector3.Zero), (Chaos, new Vector3(0f, 4.2f, 0f)));
         uint kill = KillByMelee(w);
         var before = w.Players[1].Position;
         Tap(w, 1, kill + 1);
@@ -292,5 +292,60 @@ public class ExecutionClassicTests
             Step(b, _ => InputButtons.None);
             Assert.Equal(a.Players[1], b.Players[1]);
         }
+    }
+
+    // ---- lead 40: Classic's 2.5 m forward slide, through the same terrain checks ----
+
+    static readonly ExecutionRowSet Single = ExecutionRowSet.OfAll([Row("C1.chainsword", gap: 1.3f, near: 1.3f)]);   // a single-clip row, as the real C1 to C3
+
+    static (PlayerState Attacker, PlayerState Corpse) Pair(float gap) =>
+        (new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Alive = true, Team = Team.SpaceMarines },
+         new PlayerState(2, new Vector3(0f, gap, 0f), Vector3.Zero, MathF.PI, true) { Alive = true, Team = Team.Chaos, Class = Chaos });
+
+    [Fact]
+    public void A_2p4_m_slide_down_a_corridor_fits()
+    {
+        // A 2 m wide corridor (walls at x = +-1): the corpse 3.7 m ahead, a 2.4 m slide along it.
+        var corridor = Boxes((new(-1.5f, -5f, 0f), new(-1f, 10f, 3f)), (new(1f, -5f, 0f), new(1.5f, 10f, 3f)));
+        var c = Config(Single);
+        var (a, v) = Pair(3.7f);
+        var r = ExecutionChoice.ChooseClassic(a, "tactical", "sm_mp_melee_chainsword", v, Single.Rows, c, corridor, 1, null, ExecutionRules.ClassicMaxSlide);
+        Assert.True(r.Ok, r.Failure.ToString());
+        Assert.InRange(r.Slide, 2.35f, 2.45f);
+        Assert.InRange(r.SlideTicks, 12, 14);   // 6 m/s: about 0.4 s
+        // Warfront's default cap refuses the same gap.
+        Assert.Equal(ExecutionAlignFailure.TooFar, ExecutionChoice.ChooseClassic(a, "tactical", "sm_mp_melee_chainsword", v, Single.Rows, c, corridor, 1).Failure);
+    }
+
+    [Fact]
+    public void A_wall_in_the_slide_path_refuses()
+    {
+        // A waist-high crate across the corridor 1.2 m ahead: the slide is never pulled through it.
+        var blocked = Boxes((new(-1.5f, -5f, 0f), new(-1f, 10f, 3f)), (new(1f, -5f, 0f), new(1.5f, 10f, 3f)), (new(-1f, 1.1f, 0f), new(1f, 1.4f, 1.0f)));
+        var (a, v) = Pair(3.7f);
+        var r = ExecutionChoice.ChooseClassic(a, "tactical", "sm_mp_melee_chainsword", v, Single.Rows, Config(Single), blocked, 1, null, ExecutionRules.ClassicMaxSlide);
+        Assert.False(r.Ok);
+        Assert.Contains(r.Failure, new[] { ExecutionAlignFailure.Blocked, ExecutionAlignFailure.Step, ExecutionAlignFailure.NoSight });
+        // A gap in the floor on the path refuses too (the floor is cut between 1.5 and 2.5 m ahead).
+        var gapped = GappedFloor(1.5f, 2.5f);
+        Assert.False(ExecutionChoice.ChooseClassic(a, "tactical", "sm_mp_melee_chainsword", v, Single.Rows, Config(Single), gapped, 1, null, ExecutionRules.ClassicMaxSlide).Ok);
+    }
+
+    [Fact]
+    public void A_live_kill_at_a_normal_melee_distance_plays_with_the_classic_slide()
+    {
+        // The corpse 3.0 m away (a lunge-range kill): a 1.7 m slide, then the clip.
+        var w = Arena(Config(Single), Flat(), (Tactical, Vector3.Zero), (Chaos, new Vector3(0f, 3.0f, 0f)));
+        uint kill = KillByMelee(w);
+        Tap(w, 1, kill + 1);
+        var run = Assert.Single(w.ExecutionsStartedThisTick);
+        Assert.InRange(Vector3.Distance(run.SlideFrom, run.Origin), 1.0f, 2.5f);
+    }
+
+    static CollisionWorld GappedFloor(float from, float to)
+    {
+        Vector3[] v = [new(-100, -100, 0), new(100, -100, 0), new(100, from, 0), new(-100, from, 0), new(-100, to, 0), new(100, to, 0), new(100, 100, 0), new(-100, 100, 0)];
+        var m = new StaticMesh(v, [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+        return new CollisionWorld(m, m);
     }
 }

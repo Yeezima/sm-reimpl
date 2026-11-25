@@ -57,6 +57,7 @@ public sealed partial class GameServer
             Log?.Invoke($"executions: end player {end.Run.Executor} {end.Reason} at tick {end.Tick}{(end.Run.KillDone ? " (kill event passed)" : "")}");
         }
         foreach (var (id, why) in w.ExecutionsRefusedThisTick) Log?.Invoke($"executions: press of player {id} at tick {tick} did nothing ({why})");
+        foreach (var n in w.ExecutionsNoFitThisTick) Log?.Invoke($"executions: no move fits player {n.Executor} on the corpse of {n.Victim}: gap {n.Gap:0.00} m, height {n.Height:0.00} m, first {n.First}, tried {string.Join(",", n.Tried)}");
 
         // Offers: to the killer alone.
         byte window = (byte)Math.Min(255, ExecutionRules.WindowTicks(w.Config));

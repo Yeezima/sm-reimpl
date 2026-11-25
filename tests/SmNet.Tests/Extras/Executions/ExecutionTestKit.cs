@@ -44,8 +44,8 @@ static class ExecutionTestKit
 
     public const int Tactical = 0, Chaos = 1, Kicker = 2, Ork = 3, Tapper = 4;
 
-    static ClassLoadout Class(string name, string wargear, Team side, MeleeStep step, Race race = Race.None) =>
-        new(name, 0, 0, [step]) { MeleeChoices = [new MeleeCombo(wargear, [step])], Side = side, Race = race };
+    static ClassLoadout Class(string name, string wargear, Team side, MeleeStep step, Race race = Race.None, MeleeStep? heavy = null) =>
+        new(name, 0, 0, [step]) { MeleeChoices = [new MeleeCombo(wargear, [step]) { Heavy = heavy is { } h ? [h] : [] }], MeleeHeavy = heavy is { } hh ? [hh] : [], Side = side, Race = race };
 
     static readonly WeaponSpec Pistol = new("pistol", WeaponSlot.Pistol, TriggerKind.SemiAuto, 20f, 0.2f, 10, 50, 1.3f, 100f, 100f, 100f, 1f, 2.5f, 1f, 0.5f, 0.5f);
 
@@ -61,7 +61,7 @@ static class ExecutionTestKit
             Class("chaos", "csm_mp_melee_chainsword", Team.Chaos, Lethal),
             Class("kicker", "sm_mp_melee_kick", Team.SpaceMarines, Lethal),
             Class("ork", "sm_mp_melee_chainsword", Team.None, Lethal, Race.Orks),
-            Class("tapper", "csm_mp_melee_chainsword", Team.Chaos, Light),
+            Class("tapper", "csm_mp_melee_chainsword", Team.Chaos, Light, heavy: Light with { Damage = 5f, PrimaryReaction = new ReactionEntry(0f, ReactionKind.Stagger, Backward: 0.3f, Duration: 0.5f) }),
         ],
         MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
         HealthMax = 100f, ShieldMax = 0f, HealthRegenDelay = 1e6f,
@@ -105,6 +105,23 @@ static class ExecutionTestKit
     {
         Vector3[] v = [new(-100, -100, 0), new(100, -100, 0), new(100, 100, 0), new(-100, 100, 0)];
         var m = new StaticMesh(v, [0, 1, 2, 0, 2, 3]);
+        return new CollisionWorld(m, m);
+    }
+
+    /// <summary>A level of boxes (min, max corners) on the flat floor (its top at z 0).</summary>
+    public static CollisionWorld Boxes(params (Vector3 Min, Vector3 Max)[] boxes)
+    {
+        var v = new List<Vector3> { new(-100, -100, 0), new(100, -100, 0), new(100, 100, 0), new(-100, 100, 0) };
+        var i = new List<int> { 0, 1, 2, 0, 2, 3 };
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d) { int n = v.Count; v.AddRange([a, b, c, d]); i.AddRange([n, n + 1, n + 2, n, n + 2, n + 3]); }
+        foreach (var (min, max) in boxes)
+        {
+            Vector3 P(int x, int y, int z) => new(x == 0 ? min.X : max.X, y == 0 ? min.Y : max.Y, z == 0 ? min.Z : max.Z);
+            Quad(P(0, 0, 0), P(1, 0, 0), P(1, 1, 0), P(0, 1, 0)); Quad(P(0, 0, 1), P(0, 1, 1), P(1, 1, 1), P(1, 0, 1));
+            Quad(P(0, 0, 0), P(0, 0, 1), P(1, 0, 1), P(1, 0, 0)); Quad(P(0, 1, 0), P(1, 1, 0), P(1, 1, 1), P(0, 1, 1));
+            Quad(P(0, 0, 0), P(0, 1, 0), P(0, 1, 1), P(0, 0, 1)); Quad(P(1, 0, 0), P(1, 0, 1), P(1, 1, 1), P(1, 1, 0));
+        }
+        var m = new StaticMesh(v.ToArray(), i.ToArray());
         return new CollisionWorld(m, m);
     }
 }

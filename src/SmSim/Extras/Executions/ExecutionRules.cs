@@ -26,6 +26,13 @@ public static class ExecutionRules
     /// </summary>
     public const float OvershieldBars = 1f;
 
+    /// <summary>
+    /// Classic PvP Extended: the longest forward slide of the killer onto the corpse (metres; <b>ours</b>, lead 40 2026-11-25, provisional, the owner tunes the feel). Classic plays only the
+    /// Chaos Marine rows, each a single clip (gaps 1.15 to 1.46 m, no distance variants), so with Warfront's 1 m (<see cref="ExecutionAlign.MaxSlide"/>) a corpse beyond about 2.3 m, most melee kills, could
+    /// never be finished. The slide moves at <see cref="ExecutionAlign.SlideSpeed"/> (6 m/s: 2.5 m in about 13 ticks, 0.42 s) and passes the same terrain checks. Hashed.
+    /// </summary>
+    public const float ClassicMaxSlide = 2.5f;
+
     /// <summary>The window in simulation ticks (rounded; at least 1) for <paramref name="c"/>'s tick rate and <see cref="SimConfig.ExecutionWindowSeconds"/>.</summary>
     public static int WindowTicks(SimConfig c) => Math.Max(1, (int)MathF.Round(c.ExecutionWindowSeconds * c.TickRate));
 
@@ -71,5 +78,6 @@ public static class ExecutionRules
         w.Write(c.ExecutionWindowSeconds);
         w.Write(WarfrontCooldownSeconds);
         w.Write(OvershieldBars);
+        w.Write(ClassicMaxSlide);
     }
 }

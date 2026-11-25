@@ -471,10 +471,10 @@ public static class ExecutionChoice
     /// victim's race takes (<see cref="ExecutionTargets.Classic(Race)"/> of <see cref="Races.Of"/>, in order) a seeded pick among the rows that align;
     /// <see cref="ExecutionAlignResult.RaceSwapped"/> when the Chaos Marine rows play on a loyalist. A failed result (the normal kill stands) when no row fits or
     /// the attacker is an Ork (<see cref="ExecutionTargets.CanExecute"/>). <paramref name="bystanders"/>: as <see cref="ExecutionAlign.Align"/> (the feet of
-    /// the other living players, not the pair; null: none checked).
+    /// the other living players, not the pair; null: none checked). <paramref name="maxSlide"/>: the forward slide's cap (null: <see cref="ExecutionAlign.MaxSlide"/>; X3's Classic press passes <see cref="ExecutionRules.ClassicMaxSlide"/>).
     /// </summary>
     public static ExecutionAlignResult ChooseClassic(in PlayerState attacker, string attackerClass, string weaponKey, in PlayerState victim,
-        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders = null)
+        IReadOnlyList<ExecutionRow> rows, SimConfig c, CollisionWorld? world, ulong? seed, IReadOnlyList<Vector3>? bystanders = null, float? maxSlide = null)
     {
         ExecutionAlignResult? first = null;
         if (ExecutionWeapons.FamilyOf(weaponKey) is { } family && ExecutionTargets.CanExecute(Races.Of(c, attacker.Class, attacker.Team)))
@@ -482,7 +482,7 @@ public static class ExecutionChoice
             {
                 var variants = Rows(rows, attackerClass, family, kind);
                 if (variants.Count == 0) continue;
-                var r = ExecutionAlign.Align(attacker, victim, variants, c, world, seed, bystanders);
+                var r = ExecutionAlign.Align(attacker, victim, variants, c, world, seed, bystanders, maxSlide);
                 if (r.Ok) return r with { RaceSwapped = swapped };
                 first ??= r;
             }

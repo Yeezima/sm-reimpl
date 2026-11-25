@@ -16,7 +16,7 @@ public enum ExecutionRefusal : byte
     Locked = 4,
     /// <summary>In a jump, a fall or a hop (review note 4).</summary>
     Airborne = 5,
-    /// <summary>In a stagger, stun, interrupt or flinch (lead decision 8).</summary>
+    /// <summary>In an interrupt, a stun or a stagger (lead decision 8); never for a flinch (lead 40).</summary>
     Reaction = 6,
     /// <summary>Mid-charge, mid-evade or in a jump-pack phase.</summary>
     Moving = 7,
@@ -134,6 +134,7 @@ public sealed partial class World
         _executionStarts.Clear();
         _executionEnds.Clear();
         _executionRefusals.Clear();
+        _executionNoFits.Clear();
         _executionEnds.AddRange(_executionEndsPending);
         _executionEndsPending.Clear();
         _executionStarts.AddRange(_pendingTestStarts);
@@ -194,7 +195,7 @@ public sealed partial class World
         if (TfwContracts.IsPuppet(id)) return ExecutionRefusal.Puppet;
         if (_executionRuns.ContainsKey(id)) return ExecutionRefusal.Locked;
         if (!s.Grounded) return ExecutionRefusal.Airborne;
-        if (s.Reaction != ReactionKind.None || s.ReactionTicks > 0 || s.FlinchTicks > 0) return ExecutionRefusal.Reaction;
+        if (s.Reaction != ReactionKind.None) return ExecutionRefusal.Reaction;   // an interrupt, stun or stagger (lead decision 8); a light hit's flinch (aim sway only) does not refuse (lead 40)
         if (s.Rush != RushPhase.None || s.EvadeTicks > 0 || s.Jump != JumpPhase.None) return ExecutionRefusal.Moving;
         if (ExecutionWeapons.FamilyOf(ExecutionsMeleeWargear(s)) is null) return ExecutionRefusal.NoFamily;
         if (!ExecutionTargets.CanExecute(Races.Of(Config, s.Class, s.Team))) return ExecutionRefusal.Race;

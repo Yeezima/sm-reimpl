@@ -48,6 +48,7 @@ public class ExecutionLiveCheckTests(ITestOutputHelper output)
             if (sword && c.Side == Team.Chaos && chaos < 0) chaos = i;
         }
         Assert.True(assault >= 0 && chaos >= 0, "no chainsword classes");
+        lines.Add($"melee: range {config.MeleeRange:0.00} m; the chainsword combo's lunges {string.Join(", ", config.Classes[assault].MeleeChoices.SelectMany(m => m.Steps).Select(s => s.Lunge.ToString("0.00")).Distinct())} m; Chaos Marine row gaps {string.Join(", ", config.Executions.Rows.Where(r => r.Target == ExecutionTargets.ChaosMarine).Select(r => $"{r.Id} {r.DistanceBand.Min:0.00}-{r.DistanceBand.Max:0.00}"))} m");
         int swordChoice = config.Classes[assault].MeleeChoices.Select((m, i) => (m, i)).First(x => ExecutionWeapons.FamilyOf(x.m.Wargear) == ExecutionWeapons.Chainsword).i;
 
         const int port = 27391;
@@ -64,33 +65,41 @@ public class ExecutionLiveCheckTests(ITestOutputHelper output)
         var w = server.World;
         float yaw = 0f;
         bool swing = false, execute = false, placed = false;
+        float gap = 0f, forward = 0f;
         uint? killTick = null, pressTick = null;
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
         int heardStarts = 0;
+        uint lastNote = 0;
         while (DateTime.UtcNow < deadline)
         {
             server.Update();
-            killer.Update(t => new PlayerInput(t, 0, 0, yaw, (swing ? InputButtons.Melee : InputButtons.None) | (execute ? InputButtons.Execute : InputButtons.None)));
+            killer.Update(t => new PlayerInput(t, 0, forward, yaw, (swing ? InputButtons.Melee : InputButtons.None) | (execute ? InputButtons.Execute : InputButtons.None)));
             victim.Update(t => new PlayerInput(t, 0, 0, yaw + MathF.PI, InputButtons.None));
             foreach (var s in killer.TakeExtras()) if (s.Tag == ExecutionWire.Tag && ExecutionWire.KindOf(s.Payload) == ExecutionWire.StartKind) heardStarts++;
             victim.TakeExtras();
             Thread.Sleep(2);
-            if (killer.Status != ClientStatus.Connected || victim.Status != ClientStatus.Connected || w.State != MatchState.Playing) continue;
+            if (w.Tick % 60 == 0 && w.Tick != lastNote) { lastNote = w.Tick; lock (lines) lines.Add($"status tick {w.Tick}: {killer.Status}/{victim.Status} state {w.State} players {string.Join("; ", w.Players.Select(p => $"{p.Key} c{p.Value.Class} {p.Value.Team} alive {p.Value.Alive} hp {p.Value.Health:0} sh {p.Value.Shield:0} at {p.Value.Position}"))}"); }
+            if (killer.Status != ClientStatus.Connected || victim.Status != ClientStatus.Connected || w.State is not (MatchState.Playing or MatchState.None or MatchState.Warmup)) continue;
             int k = killer.PlayerId, v = victim.PlayerId;
             if (!w.Players.TryGetValue(k, out var kp) || !w.Players.TryGetValue(v, out var vp)) continue;
             if (killTick is null)
             {
                 if (!kp.Alive) continue;
-                // Place the victim 1.3 m in front of the killer (on the killer's own floor), facing it; re-placed each second until the kill.
-                if (!placed || w.Tick % 30 == 0)
+                // A normal melee approach (lead 40: not a staged 1.3 m): the victim is put 4 m ahead once (again only if it ends up over 6 m away), the killer walks up to it
+                // and swings from inside 2.8 m; the corpse lies wherever the swing (and its lunge) left it.
+                var d = new System.Numerics.Vector2(vp.Position.X - kp.Position.X, vp.Position.Y - kp.Position.Y);
+                if (!placed || (vp.Alive && d.Length() > 6f))
                 {
-                    yaw = kp.Yaw;
-                    if (vp.Alive) w.ExecutionsPlaceForTests(v, kp.Position + new System.Numerics.Vector3(-MathF.Sin(yaw), MathF.Cos(yaw), 0f) * 1.3f, yaw + MathF.PI);
+                    if (vp.Alive) w.ExecutionsPlaceForTests(v, kp.Position + new System.Numerics.Vector3(-MathF.Sin(kp.Yaw), MathF.Cos(kp.Yaw), 0f) * 4f, kp.Yaw + MathF.PI);
                     placed = vp.Alive;
+                    continue;
                 }
-                swing = placed && w.Tick % 12 < 2;   // a press every 0.4 s
+                yaw = MathF.Atan2(-d.X, d.Y);
+                gap = d.Length();
+                forward = gap > 2.6f ? 1f : 0f;
+                swing = placed && gap <= 2.8f && w.Tick % 12 < 2;   // a press every 0.4 s
                 var kill = w.KillLog.LastOrDefault(e => e.Killer == k && e.Victim == v && e.Cause == KillCause.Melee);
-                if (kill.Sequence != 0) { killTick = kill.Tick; swing = false; lock (lines) lines.Add($"kill: player {k} on {v} by melee at tick {kill.Tick}"); }
+                if (kill.Sequence != 0) { killTick = kill.Tick; swing = false; forward = 0f; lock (lines) lines.Add($"kill: player {k} on {v} by melee at tick {kill.Tick}, gap {gap:0.00} m"); }
                 continue;
             }
             if (pressTick is null && w.Tick >= killTick + 6)   // 0.2 s after the kill: the tap
@@ -109,7 +118,7 @@ public class ExecutionLiveCheckTests(ITestOutputHelper output)
         string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "tmp");
         Directory.CreateDirectory(dir);
         File.WriteAllLines(Path.Combine(dir, "x3-live.log"), lines);
-        foreach (var l in lines.Where(l => l.Contains("executions") || l.StartsWith("kill") || l.StartsWith("press") || l.StartsWith("client"))) output.WriteLine(l);
+        foreach (var l in lines.Where(l => l.Contains("executions") || l.StartsWith("kill") || l.StartsWith("press") || l.StartsWith("client") || l.StartsWith("status") || l.StartsWith("melee"))) output.WriteLine(l);
         Assert.NotNull(killTick);
         Assert.Contains(lines, l => l.Contains("executions: offer to player"));
         Assert.Contains(lines, l => l.Contains("executions: start player"));

@@ -47,3 +47,6 @@ public readonly record struct ExecutionEnded(ExecutionRun Run, ExecutionEndReaso
 
 /// <summary>What a press chose (X3/X4): the target, the alignment result (its row, distance, slide and the aligned attacker) and the victim at the start.</summary>
 public readonly record struct ExecutionPick(ExecutionTargetKind Kind, int Target, ExecutionAlignResult Result, Vector3 VictimAt, float VictimYaw, int VictimClass, Team VictimTeam);
+
+/// <summary>A Classic press whose corpse no move fitted (X3 diagnostics): the first row's reason, the horizontal gap and the height difference (metres) and every row's reason in try order.</summary>
+public readonly record struct ExecutionNoFit(int Executor, int Victim, ExecutionAlignFailure First, float Gap, float Height, ExecutionAlignFailure[] Tried);

@@ -14,6 +14,10 @@ public sealed partial class World
     /// <summary>The open offers, by victim (a later kill of the same victim replaces its offer).</summary>
     readonly SortedDictionary<int, ExecutionClassicOffer> _executionOffers = new();
     readonly List<ExecutionClassicOffer> _executionOffersNew = new();
+    readonly List<ExecutionNoFit> _executionNoFits = new();
+
+    /// <summary>The Classic presses of the last step whose corpse no move fitted, with the alignment's reasons (the server's log: why a finisher did not play).</summary>
+    public IReadOnlyList<ExecutionNoFit> ExecutionsNoFitThisTick => _executionNoFits;
 
     /// <summary>The Classic offers this tick's kills opened (the server sends each to its killer alone).</summary>
     public IReadOnlyList<ExecutionClassicOffer> ExecutionsOfferedThisTick => _executionOffersNew;
@@ -22,7 +26,7 @@ public sealed partial class World
     public IReadOnlyCollection<ExecutionClassicOffer> ExecutionsOffersOpen => _executionOffers.Values;
 
     /// <summary>Bystanders are gathered within this distance of the executor (metres; ours): the longest slide, two capsule radii and 7 m of margin.</summary>
-    public float ExecutionsBystanderReach => MathF.Max(ExecutionAlign.MaxSlide, ExecutionAlign.MaxBackSlide) + 2f * MathF.Max(Config.CapsuleRadius, 0.05f) + 7f;
+    public float ExecutionsBystanderReach => MathF.Max(ExecutionRules.ClassicMaxSlide, ExecutionAlign.MaxBackSlide) + 2f * MathF.Max(Config.CapsuleRadius, 0.05f) + 7f;
 
     void ExecutionsClassicOffers()
     {
@@ -63,8 +67,14 @@ public sealed partial class World
         _executionOffers.Remove(chosen.Victim);   // one try per corpse
         var corpse = chosen.Corpse;
         var result = ExecutionChoice.ChooseClassic(executor, ExecutionsClassName(executor), ExecutionsMeleeWargear(executor) ?? "", corpse, Config.ExecutionRows, Config, Collision,
-            ExecutionChoice.Seed(Tick, id, chosen.Victim), ExecutionsBystanders(id, chosen.Victim, executor.Position));
-        if (!result.Ok) { _executionRefusals.Add((id, ExecutionRefusal.NoFit)); return false; }
+            ExecutionChoice.Seed(Tick, id, chosen.Victim), ExecutionsBystanders(id, chosen.Victim, executor.Position), ExecutionRules.ClassicMaxSlide);   // Classic's longer forward slide (lead 40)
+        if (!result.Ok)
+        {
+            _executionRefusals.Add((id, ExecutionRefusal.NoFit));
+            float gap = new Vector2(corpse.Position.X - executor.Position.X, corpse.Position.Y - executor.Position.Y).Length();
+            _executionNoFits.Add(new ExecutionNoFit(id, chosen.Victim, result.Failure, gap, corpse.Position.Z - executor.Position.Z, result.Tried.ToArray()));
+            return false;
+        }
         pick = new ExecutionPick(ExecutionTargetKind.Player, chosen.Victim, result, result.VictimAt, result.VictimYaw, corpse.Class, corpse.Team);
         return true;
     }

@@ -94,18 +94,18 @@ public static class ExecutionAlign
     /// <see cref="ExecutionChoice.StandIn"/>) against <paramref name="world"/> (null: no level, the slide limit and the height check alone), and picks among those
     /// that fit with <paramref name="seed"/> (<see cref="ExecutionChoice.Seed"/>; null: the first that fits). <paramref name="bystanders"/>: the feet of every
     /// other living character (not the pair); the slide fails when it would come within two capsule radii of one (null: none checked). The attacker must be
-    /// grounded. <see cref="PlayerCollision.LastPush"/> is left as it was.
+    /// grounded. <see cref="PlayerCollision.LastPush"/> is left as it was. <paramref name="maxSlide"/>: the forward slide's cap (null: <see cref="MaxSlide"/>; Classic passes <see cref="ExecutionRules.ClassicMaxSlide"/>, X3).
     /// </summary>
     public static ExecutionAlignResult Align(in PlayerState attacker, in PlayerState victim, IReadOnlyList<ExecutionRow> variants, SimConfig c, CollisionWorld? world,
-        ulong? seed = null, IReadOnlyList<Vector3>? bystanders = null) =>
-        Check(attacker, victim, variants, c, world, seed, bystanders, firstFit: false);
+        ulong? seed = null, IReadOnlyList<Vector3>? bystanders = null, float? maxSlide = null) =>
+        Check(attacker, victim, variants, c, world, seed, bystanders, firstFit: false, maxSlide);
 
     /// <summary>
     /// <see cref="Align"/>; with <paramref name="firstFit"/> (and no seed) it stops at the first variant that fits: the same result, with
     /// <see cref="ExecutionAlignResult.Tried"/> cut after it (the prompt's mode, <see cref="ExecutionChoice.ChooseAlignedOrk"/>).
     /// </summary>
     internal static ExecutionAlignResult Check(in PlayerState attacker, in PlayerState victim, IReadOnlyList<ExecutionRow> variants, SimConfig c, CollisionWorld? world,
-        ulong? seed, IReadOnlyList<Vector3>? bystanders, bool firstFit)
+        ulong? seed, IReadOnlyList<Vector3>? bystanders, bool firstFit, float? maxSlide = null)
     {
         firstFit &= seed is null;
         var tried = new ExecutionAlignFailure[variants.Count];
@@ -113,7 +113,7 @@ public static class ExecutionAlign
         var push = PlayerCollision.LastPush;
         for (int i = 0; i < variants.Count; i++)
         {
-            var r = Try(attacker, victim, variants[i], c, world, bystanders);
+            var r = Try(attacker, victim, variants[i], c, world, bystanders, maxSlide ?? MaxSlide);
             PlayerCollision.LastPush = push;
             tried[i] = r.Failure;
             if (r.Ok)
@@ -152,7 +152,7 @@ public static class ExecutionAlign
     static ExecutionAlignResult Fail(ExecutionAlignFailure why, in PlayerState attacker, in PlayerState victim) =>
         new(false, why, -1, null, attacker, victim.Position, victim.Yaw, 0f, 0f, 0, []);
 
-    static ExecutionAlignResult Try(in PlayerState attacker, in PlayerState victim, ExecutionRow row, SimConfig c, CollisionWorld? world, IReadOnlyList<Vector3>? bystanders)
+    static ExecutionAlignResult Try(in PlayerState attacker, in PlayerState victim, ExecutionRow row, SimConfig c, CollisionWorld? world, IReadOnlyList<Vector3>? bystanders, float maxSlide)
     {
         if (!row.IsValid) return Fail(ExecutionAlignFailure.NoVariant, attacker, victim);
         if (!attacker.Grounded) return Fail(ExecutionAlignFailure.NotGrounded, attacker, victim);
@@ -167,12 +167,12 @@ public static class ExecutionAlign
         var start = new Vector2(attacker.Position.X, attacker.Position.Y);
         float slide = Vector2.Distance(place, start);
         bool back = local.Length() > gap;   // the attacker steps away from a victim nearer than the band
-        if (!float.IsFinite(slide) || slide > (back ? MaxBackSlide : MaxSlide) + 1e-4f) return Fail(ExecutionAlignFailure.TooFar, attacker, victim);
+        if (!float.IsFinite(slide) || slide > (back ? MaxBackSlide : maxSlide) + 1e-4f) return Fail(ExecutionAlignFailure.TooFar, attacker, victim);
         if (MathF.Abs(victim.Position.Z - attacker.Position.Z) > c.StepHeight + 1e-3f) return Fail(ExecutionAlignFailure.Step, attacker, victim);
 
         // The slide, tick by tick, with the capsule controller (other players ignored, as the charge lock's glide).
         var s = attacker with { Yaw = yaw, Velocity = Vector3.Zero };
-        int ticks = 0, most = (int)MathF.Ceiling(MathF.Max(MaxSlide, MaxBackSlide) / (SlideSpeed * c.TickSeconds)) + 2;
+        int ticks = 0, most = (int)MathF.Ceiling(MathF.Max(maxSlide, MaxBackSlide) / (SlideSpeed * c.TickSeconds)) + 2;
         using (PlayerCollision.Use(null))
             while (Vector2.Distance(new Vector2(s.Position.X, s.Position.Y), place) > SlideTolerance && ticks < most)
             {

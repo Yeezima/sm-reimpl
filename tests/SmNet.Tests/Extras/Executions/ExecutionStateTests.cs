@@ -92,15 +92,27 @@ public class ExecutionStateTests
     [Fact]
     public void A_reaction_refuses_the_press()
     {
-        // Lead decision 8: a tap while the killer is interrupted (or staggered, stunned, flinching) does nothing; the offer stays for a later tap inside the window.
+        // Lead decision 8: a tap while the killer is staggered (an interrupt or a stun alike) does nothing; the offer stays for a later tap inside the window.
         var w = Arena(Config(), (Tactical, Vector3.Zero), (Chaos, Near), (Tapper, new Vector3(0.9f, 1.6f, 0f)));
-        uint kill = KillByMelee(w);
-        for (int k = 0; k < 8 && w.Players[1].FlinchTicks == 0 && w.Players[1].Reaction == ReactionKind.None; k++) Step(w, id => id == 3 && k == 0 ? InputButtons.Melee : InputButtons.None);
-        Assert.True(w.Players[1].FlinchTicks > 0 || w.Players[1].Reaction != ReactionKind.None);
-        Tap(w, 1, w.Tick + 1);
+        KillByMelee(w);
+        for (int k = 0; k < 10 && w.Players[1].Reaction == ReactionKind.None; k++) Step(w, id => id == 3 && k == 0 ? InputButtons.MeleeHeavy : InputButtons.None);
+        Assert.NotEqual(ReactionKind.None, w.Players[1].Reaction);
+        Tap(w, 1, w.Tick);
         Assert.Equal([(1, ExecutionRefusal.Reaction)], w.ExecutionsRefusedThisTick);
         Assert.Single(w.ExecutionsOffersOpen);
-        _ = kill;
+    }
+
+    [Fact]
+    public void A_flinch_does_not_refuse_the_press()
+    {
+        // Lead 40: a light hit's flinch (aim sway) is no reaction: the tap plays.
+        var w = Arena(Config(), (Tactical, Vector3.Zero), (Chaos, Near), (Tapper, new Vector3(0.9f, 1.6f, 0f)));
+        KillByMelee(w);
+        for (int k = 0; k < 8 && w.Players[1].FlinchTicks == 0; k++) Step(w, id => id == 3 && k == 0 ? InputButtons.Melee : InputButtons.None);
+        Assert.True(w.Players[1].FlinchTicks > 0);
+        Assert.Equal(ReactionKind.None, w.Players[1].Reaction);
+        Tap(w, 1, w.Tick);
+        Assert.Single(w.ExecutionsStartedThisTick);
     }
 
     [Fact]
