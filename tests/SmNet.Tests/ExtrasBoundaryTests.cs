@@ -279,6 +279,8 @@ public class ExtrasBoundaryTests
         ("src/SmNet/GameClient.Responsive.cs", "if (ExtrasPin is { } aheadPin) next = aheadPin(next, Tick + 1);", true),
         ("client/NetworkView.Seize.cs", "bool ExtrasSpectateWanted(PlayerState me) {", true),   // Warfront W5c: asks the spectator-view hook whether it set a view (null without added content)
         ("client/NetworkView.Spectate.cs", "if (ExtrasSpectateWanted(me) && SpectateFollow(", true),   // FollowCamera: the added content's spectator view before the death camera (a no-op without added content)
+        // Executions X6 (2026-11-25): each piece mesh surface named after its install material, so the overshield shell (client/Extras/Executions/OvershieldShell.cs, OvershieldCoverage) can leave cloth out.
+        ("client/PieceCache.cs", "mesh.SurfaceSetName(index, surface.Material?.Name ?? \"\");", true),
     ];
 
     /// <summary>
