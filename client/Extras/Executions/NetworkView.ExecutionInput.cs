@@ -45,23 +45,11 @@ public partial class NetworkView
     /// <summary>A row set the test aids put in place of the match's (null: the match's).</summary>
     ExecutionRowSet? _execRowsOverride;
 
-    static System.Reflection.PropertyInfo? _execRowsProperty;
-    static bool _execRowsLooked;
-
     /// <summary>
-    /// The match's row set: <c>SimConfig.Executions</c> (X3 puts the install's catalogue there through <c>GameplayTuning.ExecutionsLoad</c>). Read by reflection until X3's property is integrated, so this
-    /// file builds on both sides of that merge; the integration replaces it with the property (one line). Empty without it: no execution is predicted or prompted.
+    /// The match's row set: <see cref="SimConfig.Executions"/> (X3 puts the install's catalogue there through <c>GameplayTuning.ExecutionsLoad</c>; the server's rows are authoritative and a row
+    /// this install lacks resolves to null). Empty: no execution is predicted or prompted.
     /// </summary>
-    ExecutionRowSet ExecutionRowsOf(SimConfig c)
-    {
-        if (_execRowsOverride is { } test) return test;
-        if (!_execRowsLooked)
-        {
-            _execRowsLooked = true;
-            _execRowsProperty = typeof(SimConfig).GetProperty("Executions", typeof(ExecutionRowSet));
-        }
-        return _execRowsProperty?.GetValue(c) as ExecutionRowSet ?? ExecutionRowSet.Empty;
-    }
+    ExecutionRowSet ExecutionRowsOf(SimConfig c) => _execRowsOverride ?? c.Executions;
 
     partial void ExecutionsViewFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
@@ -96,6 +84,7 @@ public partial class NetworkView
         _hudView.ExecutionPrompt = null;
         var rows = ExecutionRowsOf(config).Rows;
         var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out _), rows);
+        if (hidden == ExecutionPromptHidden.None && client.Match.State is MatchState.Countdown or MatchState.Ended) hidden = ExecutionPromptHidden.NotInPlay;   // X3: a press outside play is refused
         Vector3? anchor = null;
         if (hidden == ExecutionPromptHidden.None)
         {

@@ -38,6 +38,9 @@ public sealed partial class World
     /// <summary>sim/light-melee-flinch: <paramref name="target"/> flinched by <paramref name="source"/>'s light hit (<see cref="Spread.Flinch"/>); recorded when it took.</summary>
     void Flinch(int source, int target)
     {
+        bool flinchBlocked = false;
+        ExtrasReactionBlocked(target, ref flinchBlocked);   // EXTRAS-HOOK: executions (X3, X1 review): a locked executor does not flinch either
+        if (flinchBlocked) return;
         var before = _players[target];
         var after = Spread.Flinch(before, Config);
         if (after.FlinchTicks == before.FlinchTicks) return;

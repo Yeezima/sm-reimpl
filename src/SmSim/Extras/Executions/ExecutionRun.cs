@@ -44,3 +44,6 @@ public readonly record struct ExecutionClassicOffer(int Killer, int Victim, uint
 
 /// <summary>An execution that ended at <see cref="Tick"/>, and why (X3; the server sends an End for each).</summary>
 public readonly record struct ExecutionEnded(ExecutionRun Run, ExecutionEndReason Reason, uint Tick);
+
+/// <summary>What a press chose (X3/X4): the target, the alignment result (its row, distance, slide and the aligned attacker) and the victim at the start.</summary>
+public readonly record struct ExecutionPick(ExecutionTargetKind Kind, int Target, ExecutionAlignResult Result, Vector3 VictimAt, float VictimYaw, int VictimClass, Team VictimTeam);

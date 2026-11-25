@@ -299,8 +299,8 @@ public sealed record ExecutionPose(string Clip, float StepSeconds, IReadOnlyList
 /// </summary>
 public static class ExecutionChoice
 {
-    /// <summary>Raised when the rules below change (for X1's hashed Executions block).</summary>
-    public const int RulesVersion = 1;
+    /// <summary>Raised when the rules below change (for X1's hashed Executions block). 2: the Chaos run's map gained the grounded Raptor (X7 review; lead 39).</summary>
+    public const int RulesVersion = 2;
 
     /// <summary>Warfront: furthest a target's feet may be from the executor's (metres, horizontal; ours, the design's "about 2.5 m").</summary>
     public const float WarfrontRange = 2.5f;

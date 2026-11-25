@@ -373,6 +373,8 @@ public static class ServerCommandLine
             // Without --content: the Warfront profile (ContentProfiles.WarfrontProfile), the one the client's ONLINE WARFRONT row joins with. Before 2026-11-20 this
             // added Warfront to the default (extended) profile, so the VM's config hash never matched a client and every join was refused (ConfigMismatch).
             // executions X1: a given --content (musou) gains the whole Warfront profile, executions included, so it still matches the clients' profile.
+            // executions X3 (X1 review): only musou or warfront may be given; any other content (extended, a flag list) would make a superset profile no client joins with.
+            if (contentGiven && (a.Content & ~ContentProfiles.WarfrontProfile) != ContentExtras.None) { error = "--warfront-dedicated takes --content musou or warfront only (or none)"; return false; }
             a = a with { Content = contentGiven ? a.Content | ContentProfiles.WarfrontProfile : ContentProfiles.WarfrontProfile, WarfrontMaxHumans = a.WarfrontMaxHumans ?? 4 };
         }
         if (a.WarfrontPrebuild && (!a.WarfrontDedicated || a.WarfrontStage)) { error = "--warfront-prebuild is the dedicated supervisor's warm-up child: it needs --warfront-dedicated and is not a stage"; return false; }

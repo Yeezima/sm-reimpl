@@ -273,6 +273,8 @@ public class ExtrasBoundaryTests
         ("src/SmNet/GameClient.cs", "if (ExtrasPin is { } executionPin) Predicted = executionPin(Predicted, Tick);", true),
         ("src/SmNet/GameClient.cs", "if (ExtrasPredictInput is { } replayExecutionInput) replayInput = replayExecutionInput(replayInput, tick);", true),
         ("src/SmNet/GameClient.cs", "if (ExtrasPin is { } replayPin) state = replayPin(state, tick);", true),
+        ("src/SmNet/GameClient.Responsive.cs", "if (ExtrasPredictInput is { } aheadExecutionInput) aheadInput = aheadExecutionInput(aheadInput, Tick + 1);", true),   // executions X3 (X1 review): the speculative tick locks as the prediction
+        ("src/SmNet/GameClient.Responsive.cs", "if (ExtrasPin is { } aheadPin) next = aheadPin(next, Tick + 1);", true),
         ("client/NetworkView.Seize.cs", "bool ExtrasSpectateWanted(PlayerState me) {", true),   // Warfront W5c: asks the spectator-view hook whether it set a view (null without added content)
         ("client/NetworkView.Spectate.cs", "if (ExtrasSpectateWanted(me) && SpectateFollow(", true),   // FollowCamera: the added content's spectator view before the death camera (a no-op without added content)
     ];
