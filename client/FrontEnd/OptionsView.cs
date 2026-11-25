@@ -340,6 +340,10 @@ public sealed partial class OptionsView : UiKit.MenuPage
     void AddWide(Control row) { row.SizeFlagsHorizontal = SizeFlags.ExpandFill; _wide.AddChild(row); }
 
     partial void ExtrasGraphicsRows();
+    partial void ExtrasInterfaceRows();
+
+    /// <summary>The page is the in-match menu's OPTIONS (not the main menu's): rows that only make sense between matches rest there (Warfront's RESET PROGRESSION).</summary>
+    public bool InMatch { get; init; }
 
     void Choice(string label, string[] values, int index, Action<int> changed, string? tip = null) => Add(new UiKit.MenuChoice(label, values, index, changed, tip));
 
@@ -453,17 +457,19 @@ public sealed partial class OptionsView : UiKit.MenuPage
 
     /// <summary>
     /// INTERFACE (owner 2026-11-15: "create a new interface tab"): the options that are about how the screen behaves rather than how it renders, moved here from GRAPHICS unchanged (same rows, defaults,
-    /// handlers and saves): REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES, SHOW OTHERS' EMBLEMS. No setting was added.
+    /// handlers and saves): REDUCE MOTION, CAMERA SHAKE, SCREEN FLASHES, SHOW OTHERS' EMBLEMS. No setting was added. Added content may add rows after them (<see cref="ExtrasInterfaceRows"/>: Warfront's
+    /// RESET PROGRESSION, owner 2026-11-25, in the left column directly under SCREEN FLASHES when the rows stand in two columns).
     /// </summary>
     void BuildInterface()
     {
-        Choice("Reduce motion", OffOn, _services.Settings.ReduceMotion ? 1 : 0, i => _services.UpdateSettings(x => x with { ReduceMotion = i == 1 }), "No camera moves, turntable or fades in the customizer; no artillery shake in Musou Mode.");
+        Choice("Reduce motion", OffOn, _services.Settings.ReduceMotion ? 1 : 0, i => _services.UpdateSettings(x => x with { ReduceMotion = i == 1 }), "No camera moves, turntable or fades in the customizer; no artillery shake in Warfront.");
         // combat feel (owner's brief, 2026-11-09): accessibility controls for the shake and the flashes; 100% is the game as before. The game has no controller vibration, so there is none to control.
         Add(new UiKit.MenuSlider("Camera shake", 0, 1, GameOptions.AccessibilityStep, O.CameraShake, Percent, v => Set(x => x with { CameraShake = (float)v }), "CameraShakeSlider",
             "How much the camera shakes and kicks at blasts, hits, landings and heavy shots. 100% is the game's own; 0% turns it off."));
         Add(new UiKit.MenuSlider("Screen flashes", 0, 1, GameOptions.AccessibilityStep, O.ScreenFlashes, Percent, v => Set(x => x with { ScreenFlashes = (float)v }), "ScreenFlashesSlider",
             "How strong the flashes over the whole screen are (a krak grenade close by, Warfront's call-outs) and the bursts of power weapon hits. 100% is the game's own; 0% turns them off."));
         Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
+        ExtrasInterfaceRows();   // EXTRAS-HOOK: added content's own interface rows (Warfront: RESET PROGRESSION, under SCREEN FLASHES in the two-column layout)
     }
 
     void BuildSound()

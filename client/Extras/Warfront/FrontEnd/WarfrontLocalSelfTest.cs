@@ -150,12 +150,22 @@ public sealed partial class WarfrontLocalSelfTest : Node
         await Press(main, "WARFRONT");
         var page = _front.WarfrontPage;
         Check("page: opens and the main menu is hidden", page is { Visible: true } && !_front.ShowsMainMenu);
-        Check("page: no run gives New campaign, Host for friends, Join a friend, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "RESET PROGRESSION", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: no run gives New campaign, Host for friends, Join a friend, Customizer, Back", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: no run, the status strip shows dashes", page is WarfrontPage { } none && none.Cells.Select(c => c.Value).SequenceEqual(["-", "-", "-"]) && none.Cells.Select(c => c.Label).SequenceEqual(["DEPLOYMENTS", "FRONTS", "LEVEL"]));
         Check("page: the first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "NEW CAMPAIGN" });
         Check("page: text audit, no explainer text", SmClient.FrontEnd.UiSelfTest.AuditText(page!).Count == 0, string.Join(" | ", SmClient.FrontEnd.UiSelfTest.AuditText(page!)));
         // ---- codebase fix 1: RESET PROGRESSION and the loader's notice (SM_WF_DIR names a temp folder in this run) ----
-        Check("progress: no key on this PC: the reset plate is listed and greyed", Find(page!, "RESET PROGRESSION") is { Disabled: true });
+        // RESET PROGRESSION lives in OPTIONS, INTERFACE since 2026-11-25 (owner: "below screen flashes"); the page has no reset plate.
+        Check("progress: the page has no reset plate (it moved to Options, Interface)", Find(page!, "RESET PROGRESSION") is null);
+        var options = _front.Options!;
+        UiKit.MenuChoice? ResetRow() { _front.ShowOptions(OptionsView.Interface); return options.WarfrontResetRowForTest; }
+        var resetRow = ResetRow();
+        await Frames(3);
+        var interfaceRows = options.Grid.GetChildren().OfType<Control>().Select(c => c is UiKit.MenuChoice mc ? mc.Text : c is UiKit.MenuSlider ms ? ms.LabelText.ToUpperInvariant() : c.Name.ToString()).ToList();
+        int flashesAt = interfaceRows.IndexOf("SCREEN FLASHES"), resetAt = interfaceRows.IndexOf("RESET PROGRESSION");
+        Check("options: INTERFACE lists RESET PROGRESSION after the other rows, under SCREEN FLASHES in two columns", flashesAt >= 0 && resetAt == interfaceRows.Count - 1 && (options.Grid is not GridContainer g || g.Columns != 2 || resetAt == flashesAt + 2), string.Join(", ", interfaceRows));
+        Check("options: the row is an option row like its neighbours (label and pill)", resetRow is { IsSteel: true, Value: "RESET" } && resetRow.ThemeTypeVariation == options.Grid.GetChildren().OfType<UiKit.MenuChoice>().First().ThemeTypeVariation);
+        Check("progress: no key on this PC: the reset row is listed and greyed, saying why", resetRow is { Disabled: true } && resetRow.TooltipText == WarfrontProgressReset.NoKeyHint, resetRow?.TooltipText ?? "null");
         string wfKeyDir = SmClient.Extras.Warfront.Stage.WarfrontClientKey.Folder();
         Check("progress: the self-test runs in a temp folder (SM_WF_DIR), never the owner's", System.Environment.GetEnvironmentVariable("SM_WF_DIR") is { Length: > 0 }, wfKeyDir);
         if (System.Environment.GetEnvironmentVariable("SM_WF_DIR") is { Length: > 0 })
@@ -166,17 +176,31 @@ public sealed partial class WarfrontLocalSelfTest : Node
             await Frames(3);
             page = _front.WarfrontPage;
             Check("progress: the notice shows as one upper-case line and its file is deleted", Texts(page).Contains("YOUR CAMPAIGN FILE WAS DAMAGED AND KEPT. A NEW CAMPAIGN STARTED.") && !System.IO.File.Exists(System.IO.Path.Combine(dir, "notice.json")), string.Join(" | ", Texts(page)));
-            Check("progress: with a key the reset plate is enabled", Find(page!, "RESET PROGRESSION") is { Disabled: false });
-            await Press(page!, "RESET PROGRESSION");
+            resetRow = ResetRow();
             await Frames(3);
-            Check("progress: the plate opens a confirmation that names what is cleared", _front.WarfrontConfirmOpen);
+            Check("progress: with a key the reset row is enabled", resetRow is { Disabled: false } && resetRow.TooltipText == WarfrontProgressReset.Hint);
+            WarfrontProgressReset.ServerRunningForTest = true;
+            resetRow = ResetRow();
+            Check("progress: a server of this game running greys the row", resetRow is { Disabled: true } && resetRow.TooltipText == WarfrontProgressReset.RunningHint, resetRow?.TooltipText ?? "null");
+            WarfrontProgressReset.ServerRunningForTest = null;
+            resetRow = ResetRow();
+            await Frames(3);
+            resetRow!.EmitSignal(BaseButton.SignalName.Pressed);
+            await Frames(4);
+            Check("progress: the row opens a confirmation that names what is cleared", options.WarfrontResetConfirmOpen);
+            Check("progress: the confirmation's default answer is No", GetViewport().GuiGetFocusOwner() is Button { Text: var focusText } && focusText.Equals("No", StringComparison.OrdinalIgnoreCase), (GetViewport().GuiGetFocusOwner() as Button)?.Text ?? "none");
             Check("progress: nothing is written before Yes", _front.WarfrontStoreForTest is { State: SmClient.Extras.Warfront.Stage.WarfrontProgressLoad.Absent });
+            await Still("options-reset-confirm");
             await Press(_front, "No");
             await Frames(3);
-            Check("progress: reset writes a level-1 file", _front.WarfrontResetNow() && _front.WarfrontStoreForTest is { State: SmClient.Extras.Warfront.Stage.WarfrontProgressLoad.Ok, Current.Level: 1 });
+            Check("progress: No closes it and writes nothing", !options.WarfrontResetConfirmOpen && _front.WarfrontStoreForTest is { State: SmClient.Extras.Warfront.Stage.WarfrontProgressLoad.Absent });
+            Check("progress: reset writes a level-1 file and says so", options.WarfrontResetYes() && _front.WarfrontStoreForTest is { State: SmClient.Extras.Warfront.Stage.WarfrontProgressLoad.Ok, Current.Level: 1 } && options.Toast.Text == WarfrontProgressReset.Done, options.Toast.Text);
             await Frames(3);
-            page = _front.WarfrontPage;
+            await Still("options-interface");
         }
+        _front.ShowWarfrontPageForTest();   // back to the page for the checks below
+        await Frames(3);
+        page = _front.WarfrontPage;
         await Still("page-no-run");
         await Press(page!, "NEW CAMPAIGN");
         Check("new without a run starts at once (no question)", started == true && !_front.WarfrontConfirmOpen, $"started {started}");
@@ -188,7 +212,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(4);
         page = _front.WarfrontPage;
-        Check("online: forced on, the page lists it after Join a friend", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "ONLINE WARFRONT", "CUSTOMIZER", "RESET PROGRESSION", "BACK"]), string.Join(", ", Rows(page)));
+        Check("online: forced on, the page lists it after Join a friend", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "ONLINE WARFRONT", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("online: the row takes focus (keyboard and pad)", Find(page!, "ONLINE WARFRONT") is { Disabled: false, FocusMode: not Control.FocusModeEnum.None });
         joined = null;
         for (int i = 0; i < 300 && joined is null; i++) await Press(page!, "ONLINE WARFRONT");   // the game data's plan loads in the background: press until it is ready
@@ -217,7 +241,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         var before = File.ReadAllBytes(runFile);
         await Press(main, "WARFRONT");
         page = _front.WarfrontPage;
-        Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "RESET PROGRESSION", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: a run gives Continue, New, Customizer, Back", Rows(page).SequenceEqual(["CONTINUE CAMPAIGN", "NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: the run's three figures are in the status strip", page is WarfrontPage { } cells && cells.Cells.Select(c => c.Value).SequenceEqual(["0", "1 / 1 / 1", "1"]), string.Join(" | ", Texts(page)));
         Check("page: Continue has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "CONTINUE CAMPAIGN" });
         await Still("page-with-run");
@@ -248,12 +272,12 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("another server running: the page says so and offers Stop server alone", Rows(page).SequenceEqual(["STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "RESET PROGRESSION", "BACK"]) && Texts(page).Contains("A SERVER IS RUNNING. STOP IT FIRST."), string.Join(" | ", Rows(page)) + " / " + string.Join(" | ", Texts(page)));
+        Check("another server running: the page says so and offers Stop server alone", Rows(page).SequenceEqual(["STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) && Texts(page).Contains("A SERVER IS RUNNING. STOP IT FIRST."), string.Join(" | ", Rows(page)) + " / " + string.Join(" | ", Texts(page)));
         _front.WarfrontStateForTest = (true, true, true);
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("this game's Warfront server running: only Rejoin and Stop (no New, no Continue)", Rows(page).SequenceEqual(["REJOIN CAMPAIGN", "STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "RESET PROGRESSION", "BACK"]) && Find(page!, "NEW CAMPAIGN") is null && Find(page!, "CONTINUE CAMPAIGN") is null, string.Join(", ", Rows(page)));
+        Check("this game's Warfront server running: only Rejoin and Stop (no New, no Continue)", Rows(page).SequenceEqual(["REJOIN CAMPAIGN", "STOP SERVER", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]) && Find(page!, "NEW CAMPAIGN") is null && Find(page!, "CONTINUE CAMPAIGN") is null, string.Join(", ", Rows(page)));
         Check("this game's Warfront server running: the page says so", page is WarfrontPage { } running && running.NoteLabel.Text == "THE WARFRONT SERVER IS RUNNING.", string.Join(" | ", Texts(page)));
         await Press(page!, "REJOIN CAMPAIGN");   // sets the Warfront profile; its configuration is read in the background (as while a real server starts)
         for (int i = 0; i < 1200 && !_front.ServicesReadyForTest; i++) await Frames(1);
@@ -304,7 +328,7 @@ public sealed partial class WarfrontLocalSelfTest : Node
         _front.ShowWarfrontPageForTest();
         await Frames(3);
         page = _front.WarfrontPage;
-        Check("page: a finished run gives only New campaign", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "RESET PROGRESSION", "BACK"]), string.Join(", ", Rows(page)));
+        Check("page: a finished run gives only New campaign", Rows(page).SequenceEqual(["NEW CAMPAIGN", "HOST FOR FRIENDS", "JOIN A FRIEND", "CUSTOMIZER", "BACK"]), string.Join(", ", Rows(page)));
         Check("page: the honor roll line", Texts(page).Contains("RUNS 1, VICTORIES 1, FASTEST 41:20"), string.Join(" | ", Texts(page)));
         await Still("page-finished");
         await Press(page!, "NEW CAMPAIGN");
