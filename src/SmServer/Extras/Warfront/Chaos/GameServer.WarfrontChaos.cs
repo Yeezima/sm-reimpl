@@ -40,6 +40,8 @@ public sealed partial class GameServer
     partial void WarfrontChaosSend()
     {
         if (_wf is not { } s || !WarfrontChaosStage) return;
+        // C5c (lead 40): the finale's state first, so on the snapshot tick a client reads kind 16 (and sets ChaosBreachModel.SilentCloses) before the list that shows the silent CloseAll's breaches Closed
+        WarfrontChaosDuelSend();
         uint tick = World.Tick;
         var breaches = World.WarfrontChaosBreaches;
         if (!ReferenceEquals(breaches, _wfBreachesSeen))
@@ -76,6 +78,5 @@ public sealed partial class GameServer
             if (c.Left <= 1) _wfClosureSends.RemoveAt(k);
             else _wfClosureSends[k] = (c.Bytes, c.Left - 1, tick + WarfrontChaosWire.ClosureRepeatTicks);
         }
-        WarfrontChaosDuelSend();
     }
 }
