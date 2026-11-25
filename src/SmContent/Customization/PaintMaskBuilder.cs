@@ -273,7 +273,20 @@ public static class PaintMaskBuilder
     /// (<see cref="Grey"/>), mixed with the original pixel by the mask's coverage. Computed from the stored (8-bit) mask, so a built and a cached mask give the
     /// same bytes.
     /// </summary>
-    public static BuiltPaintMask WithGrey(DdsImage diffuse, MaskOnly m)
+    public static BuiltPaintMask WithGrey(DdsImage diffuse, MaskOnly m) => WithGrey(diffuse, m, Targets.Default);
+
+    /// <summary>
+    /// The luminance (sRGB 0..255) each final paint channel's median is mapped onto in the grey paint diffuse (<see cref="WithGrey(DdsImage, MaskOnly, Targets)"/>).
+    /// <see cref="Default"/> is the single measured value of the first builds (plates 83, ornaments 62); <see cref="BakedArmourPaint.LuminanceTargets"/> gives
+    /// the regular piece's own medians per race and slot (round 3: built pieces drawn as bright as the regular armour beside them).
+    /// </summary>
+    public readonly record struct Targets(float Primary, float Secondary, float Tertiary)
+    {
+        public static readonly Targets Default = new(RegularPlateLuminance, RegularPlateLuminance, RegularOrnamentLuminance);
+    }
+
+    /// <summary><see cref="WithGrey(DdsImage, MaskOnly)"/> with each paint channel's median mapped onto <paramref name="targets"/>.</summary>
+    public static BuiltPaintMask WithGrey(DdsImage diffuse, MaskOnly m, Targets targets)
     {
         int n = m.Width * m.Height;
         if (diffuse.Width != m.Width || diffuse.Height != m.Height) throw new ArgumentException("the mask and the diffuse differ in size", nameof(m));
@@ -286,7 +299,7 @@ public static class PaintMaskBuilder
             if (total <= 0f) { outDif[i * 4] = r; outDif[i * 4 + 1] = g; outDif[i * 4 + 2] = b; continue; }
             if (total > 1f) { p /= total; s /= total; t /= total; total = 1f; }
             float lum = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-            float grey = (Grey(lum, m.PlateMedian, RegularPlateLuminance) * p + Grey(lum, m.SecondaryMedian, RegularPlateLuminance) * s + Grey(lum, m.OrnamentMedian, RegularOrnamentLuminance) * t) / total;
+            float grey = (Grey(lum, m.PlateMedian, targets.Primary) * p + Grey(lum, m.SecondaryMedian, targets.Secondary) * s + Grey(lum, m.OrnamentMedian, targets.Tertiary) * t) / total;
             outDif[i * 4] = ToByte((r + (grey - r) * total) / 255f);
             outDif[i * 4 + 1] = ToByte((g + (grey - g) * total) / 255f);
             outDif[i * 4 + 2] = ToByte((b + (grey - b) * total) / 255f);

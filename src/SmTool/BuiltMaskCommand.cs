@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using SmContent;
 using SmContent.Customization;
 using SmFormats.Dds;
@@ -100,14 +100,31 @@ static class BuiltMaskCommand
                         double r = 0, g = 0, b = 0; int n = 0;
                         for (int i = 0; i < mi.Width * mi.Height; i++) { int o2 = i * 4; if (mi.Rgba[o2] + mi.Rgba[o2 + 1] + mi.Rgba[o2 + 2] < 60) continue; r += mi.Rgba[o2]; g += mi.Rgba[o2 + 1]; b += mi.Rgba[o2 + 2]; n++; }
                         double t = Math.Max(1, r + g + b);
-                        Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels");
+                        // Brightness check (round 3): the median luminance (sRGB 0..255) of the diffuse the paint shader reads (the grey paint diffuse of a built mask,
+                        // the regular piece's own diffuse otherwise) over the texels mostly in each region, to compare a built piece with the regular piece beside it.
+                        string dk = BakedArmourPaint.IsBuilt(mm) ? BakedArmourPaint.PaintDiffuseKey : "DiffuseMap";
+                        string meds = "";
+                        if (mm.Textures.TryGetValue(dk, out var dn) && piece.Model.Textures.TryGetValue(dn, out var db) && DdsImage.TryDecode(db) is { } di)
+                        {
+                            var lums = new List<float>[] { [], [], [] };
+                            for (int i = 0; i < mi.Width * mi.Height; i++)
+                            {
+                                int o2 = i * 4, c = mi.Rgba[o2] >= 150 ? 0 : mi.Rgba[o2 + 1] >= 150 ? 1 : mi.Rgba[o2 + 2] >= 150 ? 2 : -1;
+                                if (c < 0) continue;
+                                int dx = Math.Min(di.Width - 1, i % mi.Width * di.Width / mi.Width), dy = Math.Min(di.Height - 1, i / mi.Width * di.Height / mi.Height), d2 = (dy * di.Width + dx) * 4;
+                                lums[c].Add(0.2126f * di.Rgba[d2] + 0.7152f * di.Rgba[d2 + 1] + 0.0722f * di.Rgba[d2 + 2]);
+                            }
+                            string Med(List<float> l) { if (l.Count == 0) return "-"; l.Sort(); return $"{l[l.Count / 2]:0} (p25 {l[l.Count / 4]:0}, p75 {l[l.Count * 3 / 4]:0})"; }
+                            meds = $"; diffuse luminance P {Med(lums[0])} S {Med(lums[1])} T {Med(lums[2])}";
+                        }
+                        Console.WriteLine($"mask shares {pkg}/{mm.Name} ({mn}{(BakedArmourPaint.IsBuilt(mm) ? ", built" : "")}): R {r / t:P0} G {g / t:P0} B {b / t:P0} over {n} painted texels{meds}");
                     }
-        if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"), int.TryParse(Opt("--cell"), out var cell) ? cell : 192, rest.Contains("--full"));
+        if (previews is not null) WritePreviews(gameDir, catalog, wanted, pieces, previews, Opt("--schemes"), int.TryParse(Opt("--cell"), out var cell) ? cell : 192, rest.Contains("--full"), rest.Contains("--grid"));
         return 0;
     }
 
     static void WritePreviews(string gameDir, CustomizationCatalog catalog, List<(string Package, string Slot, string Race)> wanted, IReadOnlyDictionary<string, CharacterPiece> pieces,
-        string dir, string? schemeList, int cell, bool full)
+        string dir, string? schemeList, int cell, bool full, bool grid = false)
     {
         Directory.CreateDirectory(dir);
         var rows = new List<(string Label, List<(int W, int H, byte[] Rgba)> Cells)>();
@@ -153,6 +170,12 @@ static class BuiltMaskCommand
                         for (int yy = y0; yy < y1; yy++) for (int xx = x0; xx < x1; xx++) { int o = (yy * w + xx) * 4; sr += px[o]; sg += px[o + 1]; sb += px[o + 2]; n++; }
                         int d = ((r * cell + y) * sw + c * cell + x) * 4;
                         sheet[d] = (byte)(sr / n); sheet[d + 1] = (byte)(sg / n); sheet[d + 2] = (byte)(sb / n);
+                        // --grid: a line every 0.1 of U and V (yellow, white at 0.5) to read texture coordinates for BuiltMaskOverrides.
+                        if (grid && ((x * 10 / cell != (x + 1) * 10 / cell) || (y * 10 / cell != (y + 1) * 10 / cell)))
+                        {
+                            bool half = x * 2 / cell != (x + 1) * 2 / cell || y * 2 / cell != (y + 1) * 2 / cell;
+                            sheet[d] = 255; sheet[d + 1] = 255; sheet[d + 2] = (byte)(half ? 255 : 0);
+                        }
                     }
                 }
             GfxDumpCommand.WritePng(Path.Combine(dir, "sheet.png"), sw, sh, sheet);

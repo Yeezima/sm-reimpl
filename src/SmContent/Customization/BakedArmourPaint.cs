@@ -240,6 +240,50 @@ public static class BakedArmourPaint
         return PaintSchemes.SlotOf(package) is "leftleg" or "rightleg" ? [1, 2, 2] : [0, 2, 2];
     }
 
+    /// <summary>
+    /// The luminance each paint channel of a built piece is shaded to (round 3, ours, measured 2026-11-25): the median diffuse luminance (sRGB 0..255) of the regular
+    /// masked piece of the same race and slot (<c>sm_armour_mp_basic_*</c>, <c>csm_armour_mp_basic_*</c>) over its texels mostly in that channel (smtool
+    /// built-mask-bench --mask-shares). One value for every piece (83, ornaments 62) drew the built Chaos torsos, arms and backpacks paler than the regular armour
+    /// beside them (regular Chaos torso plate 50, arms 61, backpack 60: gate "washed pale") and the built Space Marine pieces a little darker (regular 84 to 98).
+    /// Channels the regular piece hardly uses (under 5 %) keep the old value. <see cref="OldBrightness"/> restores the single value.
+    /// </summary>
+    public static PaintMaskBuilder.Targets LuminanceTargets(string? package)
+    {
+        if (package is null || OldBrightness) return PaintMaskBuilder.Targets.Default;
+        bool chaos = package.StartsWith("csm_", StringComparison.OrdinalIgnoreCase);
+        const float t0 = PaintMaskBuilder.RegularOrnamentLuminance;
+        return (chaos, PaintSchemes.SlotOf(package)) switch
+        {
+            (false, "head") => new(94f, 96f, t0),
+            (false, "torso") => new(84f, 84f, 77f),
+            (false, "leftshoulder" or "rightshoulder") => new(98f, 55f, t0),
+            (false, "leftarm" or "rightarm") => new(92f, 90f, t0),
+            (false, "leftleg" or "rightleg") => new(92f, 100f, t0),
+            (false, "backpack") => new(91f, 89f, t0),
+            (true, "head") => new(83f, 58f, 77f),
+            (true, "torso") => new(50f, 72f, 62f),
+            (true, "leftshoulder") => new(109f, 103f, 56f),
+            (true, "rightshoulder") => new(83f, 80f, 69f),
+            (true, "leftarm") => new(61f, 74f, 61f),
+            (true, "rightarm") => new(61f, 72f, 59f),
+            (true, "leftleg") => new(77f, 74f, 83f),
+            (true, "rightleg") => new(89f, 72f, 80f),
+            (true, "backpack") => new(60f, 63f, 67f),
+            _ => PaintMaskBuilder.Targets.Default,
+        };
+    }
+
+    /// <summary>
+    /// Restore switch: true shades every built piece to the single first-build brightness (plates 83, ornaments 62) instead of <see cref="LuminanceTargets"/>.
+    /// A look only (client; <c>--old-built-brightness</c> or SM_OLD_BUILT_BRIGHTNESS=1); not part of the mask cache.
+    /// </summary>
+    public static bool OldBrightness
+    {
+        get => _oldBrightness ?? (Environment.GetEnvironmentVariable("SM_OLD_BUILT_BRIGHTNESS") == "1" || Array.IndexOf(Environment.GetCommandLineArgs(), "--old-built-brightness") >= 0);
+        set => _oldBrightness = value;
+    }
+    static bool? _oldBrightness;
+
     static (string Mask, string Grey)? Build(BmatMaterial m, Sources src, string stem, IReadOnlyDictionary<string, byte[]> textures, Dictionary<string, byte[]> added,
         List<string>? notes, Func<int, int, bool[]?> coverage, int[]? channels = null, string? package = null)
     {
@@ -281,7 +325,7 @@ public static class BakedArmourPaint
             var map = overrides.LastOrDefault(o => o.Channels is not null)?.Channels ?? channels ?? [0, 1, 2];
             var remapped = PaintMaskBuilder.Permute(maskOnly, map);
             foreach (var o in overrides) remapped = BuiltMaskOverrides.Apply(remapped, diffuse, o.Regions, used);
-            var result = PaintMaskBuilder.WithGrey(diffuse, remapped);
+            var result = PaintMaskBuilder.WithGrey(diffuse, remapped, PaintMaskBuilder.OldMaskRules ? PaintMaskBuilder.Targets.Default : LuminanceTargets(package));
             if (result.Primary + result.Secondary + result.Tertiary < 0.005f)
             {
                 notes?.Add($"material '{m.Name}': the built mask paints nothing; drawn as baked");
