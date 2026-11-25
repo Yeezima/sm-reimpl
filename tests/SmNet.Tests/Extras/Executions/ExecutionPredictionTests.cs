@@ -167,7 +167,7 @@ public class ExecutionPredictionTests
     }
 
     [Fact]
-    public void EndedRunPinsUpToItsEndAndMissingRowPredictsNothing()
+    public void EndedRunPinsUpToItsEndAndMissingRowPinsToTheOrigin()
     {
         var state = new ExecutionClientState();
         var p = new ExecutionPrediction(state, () => Set, () => 4, 30);
@@ -179,10 +179,34 @@ public class ExecutionPredictionTests
         Assert.Equal(ExecutionTrack.Pose(run, Row, 120, 30).Feet, p.Pin(s, 120).Position);
         Assert.Equal(s, p.Pin(s, 121));                                                          // after the End: free
         Assert.Equal(s with { Alive = false }, p.Pin(s with { Alive = false }, 110));             // a dead state is never pinned
-        // A row this install lacks: nothing predicted (the server's snapshots carry the place).
+        // A row this install lacks (X3: the server's run still plays): locked and pinned to the Start's origin and yaw, until the End or at most 12 s.
         var lacking = new ExecutionPrediction(state, () => ExecutionRowSet.Empty, () => 4, 30);
-        state.Start(run with { StartTick = 200 }, 1.0);
-        Assert.Equal(s, lacking.Pin(s, 205));
-        Assert.Equal(ExecutionTrack.Pose(run with { StartTick = 200 }, Row, 205, 30).Feet, p.Pin(s, 205).Position);   // with the row: pinned
+        var later = run with { StartTick = 200 };
+        state.Start(later, 1.0);
+        var pinned = lacking.Pin(s, 205);
+        Assert.Equal(later.Origin, pinned.Position);
+        Assert.Equal(later.Yaw, pinned.Yaw);
+        Assert.Equal(Vector3.Zero, pinned.Velocity);
+        Assert.Equal(InputButtons.None, lacking.Input(new PlayerInput(205, 1f, 1f, 0f, InputButtons.Fire), 205).Buttons);
+        uint cap = 200 + (uint)(ExecutionPrediction.UnknownRowSeconds * 30);
+        Assert.Equal(later.Origin, lacking.Pin(s, cap).Position);
+        Assert.Equal(s, lacking.Pin(s, cap + 1));                                                 // no End heard: over at the cap
+        Assert.Equal(ExecutionTrack.Pose(later, Row, 205, 30).Feet, p.Pin(s, 205).Position);      // with the row: the track
+    }
+
+    [Fact]
+    public void RunExpiresAtItsOwnEndTickWhenEveryEndIsLost()
+    {
+        var state = new ExecutionClientState();
+        var p = new ExecutionPrediction(state, () => Set, () => 4, 30);
+        var run = Run(4, 100, Vector3.Zero);
+        state.Start(run, 0);
+        uint end = ExecutionTrack.EndTick(run, Row, 30);
+        Assert.True(state.TryLive(4, out _));   // no End came
+        Assert.True(p.Playing(run, end));
+        Assert.False(p.Playing(run, end + 1));
+        var s = new PlayerState(4, new Vector3(9f, 9f, 0f), Vector3.One, 0f, false) { Alive = true };
+        Assert.Equal(s, p.Pin(s, end + 1));
+        Assert.Equal(InputButtons.Fire, p.Input(new PlayerInput(end + 1, 0f, 0f, 0f, InputButtons.Fire), end + 1).Buttons);
     }
 }

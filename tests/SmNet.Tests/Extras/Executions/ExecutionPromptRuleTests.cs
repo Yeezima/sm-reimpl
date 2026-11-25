@@ -101,6 +101,20 @@ public class ExecutionPromptRuleTests
     }
 
     [Fact]
+    public void OvershieldCoversArmourNotClothLeatherOrnamentsOrWeapons()
+    {
+        // The install's names (survey 2026-11-25): armour pieces, worn items and generic composite materials are covered.
+        foreach (var name in new[] { "csm_armour_mp_raptor_01_legr", "csm_armour_mp_basic_torso", "csm_armour_mp_basic_shldrl", "sm_mk7aquila_helmet", "Worn_csm_jumpack_mp_basic_RIG_SpineD",
+                     "Standard_2", "raptor_helmet_realtime_composite", "sm_ironhalo_backpack", "", null })
+            Assert.False(OvershieldCoverage.Excluded(name), name);
+        // Cloth, leather and ornaments by name are not.
+        foreach (var name in new[] { "bt_tabard", "csm_loincloth_01", "sm_purity_seal_l", "csm_chains_torso", "leather_pouch_r", "Belt_Pouches", "sm_robe_lower", "Scroll_01" })
+            Assert.True(OvershieldCoverage.Excluded(name), name);
+        Assert.True(OvershieldCoverage.Weapon("Weapon_melee_sm_mp_melee_chainsword"));
+        Assert.False(OvershieldCoverage.Weapon("Worn_sm_jumppack"));
+    }
+
+    [Fact]
     public void FlinchNeverHidesButReactionsDo()
     {
         var c = Config();

@@ -91,7 +91,7 @@ public partial class NetworkView
         _execMarker.Hide();
         if (_hudView is not null) _hudView.ExecutionPrompt = null;   // no text (owner 2026-11-25): the marker replaces the X5a text prompt
         var rows = ExecutionRowsOf(config).Rows;
-        var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out _), rows);
+        var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out var ownRun) && _execPrediction?.Playing(ownRun, client.Tick) != false, rows);
         if (hidden == ExecutionPromptHidden.None && client.Match.State is MatchState.Countdown or MatchState.Ended) hidden = ExecutionPromptHidden.NotInPlay;   // X3: a press outside play is refused
         Vector3? anchor = null;
         if (hidden == ExecutionPromptHidden.None)
@@ -110,7 +110,7 @@ public partial class NetworkView
         anchor = null;
         if (ExecutionsState.Offer is not { } offer) return ExecutionPromptHidden.NoOffer;
         double viewTick = client.RemotePlayers().Tick;
-        if (!ExecutionPromptRules.ClassicOpen(offer, viewTick > 0 ? viewTick : client.LatestSnapshotTick)) return ExecutionPromptHidden.NoOffer;
+        if (!(viewTick > 0) || !ExecutionPromptRules.ClassicOpen(offer, viewTick)) return ExecutionPromptHidden.NoOffer;   // X3: a press before the view tick reaches the kill is refused (NoOffer) and spends the edge, so no dot until then
         if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !(offer.Victim == client.PlayerId && (ExecutionX6Test || ExecutionX6Demo is not null))) return ExecutionPromptHidden.NoOffer;
         var feet = offer.Victim == client.PlayerId ? client.Predicted.Position : corpse.Position;   // the own id only under the test aid
         anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + MarkerOverCorpse);

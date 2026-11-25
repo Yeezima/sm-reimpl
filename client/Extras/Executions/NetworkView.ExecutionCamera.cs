@@ -54,7 +54,8 @@ public partial class NetworkView
     bool OwnExecuting(out ExecutionRun run)
     {
         run = default;
-        return _client is { Status: ClientStatus.Connected } c && c.Predicted.Alive && Spectate is null && ExecutionsState.TryLive(c.PlayerId, out run);
+        return _client is { Status: ClientStatus.Connected } c && c.Predicted.Alive && Spectate is null && ExecutionsState.TryLive(c.PlayerId, out run)
+            && _execPrediction?.Playing(run, c.Tick) != false;   // X3: a run whose three Ends were all lost is over at its own end tick
     }
 
     partial void ExecutionsCameraWanted(PlayerState me, float delta, ref bool handled)

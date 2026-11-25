@@ -55,6 +55,13 @@ public sealed class OvershieldShell
         """;
 
     static Shader? _shader;
+    static ShaderMaterial? _nothing;
+
+    /// <summary>A material that draws nothing (an excluded surface of a covered mesh).</summary>
+    static ShaderMaterial Nothing() => _nothing ??= new ShaderMaterial
+    {
+        Shader = new Shader { Code = "shader_type spatial;\nrender_mode unshaded, depth_draw_never, shadows_disabled;\nvoid fragment() { discard; }\n" },
+    };
 
     readonly Node3D _root;
     readonly ShaderMaterial _material;
@@ -94,8 +101,11 @@ public sealed class OvershieldShell
         {
             var mesh = new MeshInstance3D
             {
-                Name = source.Name + "_shell", Mesh = source.Mesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = source.Visible,
+                Name = source.Name + "_shell", Mesh = source.Mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = source.Visible,
             };
+            // Per surface: the shell on armour, nothing on a surface named as cloth, leather or an ornament (OvershieldCoverage).
+            for (int i = 0; i < source.Mesh.GetSurfaceCount(); i++)
+                mesh.SetSurfaceOverrideMaterial(i, OvershieldCoverage.Excluded(source.Mesh is ArrayMesh am ? am.SurfaceGetName(i) : null) ? Nothing() : material);
             if (source.Skin is not null && source.GetParent() == skeleton)
             {
                 mesh.Skin = source.Skin;
@@ -119,9 +129,22 @@ public sealed class OvershieldShell
         {
             var node = stack.Pop();
             string name = node.Name;
-            if (name.StartsWith("Weapon_", StringComparison.Ordinal) || name == NodeName || name == "Bones" || name.EndsWith("_shell", StringComparison.Ordinal)) continue;
+            // Never a weapon, the bone lines or a shell; never a mesh (or a worn item) named as cloth, leather or an ornament (OvershieldCoverage).
+            if (OvershieldCoverage.Weapon(name) || name == NodeName || name == "Bones" || name.EndsWith("_shell", StringComparison.Ordinal) || OvershieldCoverage.Excluded(name)) continue;
             if (node is MeshInstance3D found && found.Mesh is not null && !IsEffect(found)) yield return found;
             foreach (var child in node.GetChildren()) stack.Push(child);
+        }
+    }
+
+    /// <summary>Every mesh the shell would look at on <paramref name="character"/> with its surfaces' material names (the self-test's survey of the install's naming).</summary>
+    public static IEnumerable<string> Describe(CharacterViewer character)
+    {
+        if (character.Skeleton is not { } skeleton) yield break;
+        foreach (var mesh in ArmourMeshes(skeleton))
+        {
+            var names = new List<string>();
+            for (int i = 0; i < mesh.Mesh.GetSurfaceCount(); i++) names.Add(mesh.Mesh is ArrayMesh am ? am.SurfaceGetName(i) : "?");
+            yield return $"{mesh.GetParent()?.Name}/{mesh.Name} skin {(mesh.Skin is null ? "no" : "yes")}: {string.Join(", ", names)}";
         }
     }
 

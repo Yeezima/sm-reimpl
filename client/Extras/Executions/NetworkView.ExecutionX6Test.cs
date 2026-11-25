@@ -17,7 +17,7 @@ namespace SmClient;
 /// <item><c>--executions-x6-test</c> (headless): the marker for a synthetic offer shows and hides after the window; the camera seam is taken during a synthetic own run and released after its End; the
 /// prediction pins it; the armour tint follows a synthetic overshield; the shell is made and freed. <c>EXECX6</c> lines, then <c>EXECX6 RESULT PASS|FAIL</c>, then the client quits.</item>
 /// <item><c>--executions-x6-demo &lt;dir&gt; --executions-x6-shots dot|ork|shell|orbit</c> (windowed, <c>godot.cmd --windowed</c>): <c>dot</c> the marker over a synthetic Classic offer's player at close
-/// and mid range; <c>ork</c> waits (up to 4 min) for the real Warfront pick and shoots it close and mid; <c>shell</c> the shell and the tint at strengths 0.6, 1 and 1.4 times full, half and low
+/// and mid range; <c>ork</c> waits (up to 7 min) for the real Warfront pick and shoots it close and mid; <c>shell</c> the shell and the tint at strengths 0.6, 1 and 1.4 times full, half and low
 /// overshield from one fixed camera (with <c>--executions-x6-paint &lt;scheme&gt;</c> for the armour's paint); <c>orbit</c> the orbit at three yaws and camera frames for an MP4. Then it quits.</item>
 /// </list>
 /// </summary>
@@ -70,6 +70,7 @@ public partial class NetworkView
             if (!me.Alive || _local is null) return;
             _execX6At = 0;
             GD.Print($"EXECX6 start: player {client.PlayerId}, class {Loadouts.ClassOf(config, me.Class)?.Name}, melee {ExecutionPromptRules.MeleeKey(config, me)}, rows {config.Executions.Rows.Count}, paint {ExecutionX6Paint ?? "default"}");
+            if (CmdFlag("executions-x6-survey")) foreach (var line in OvershieldShell.Describe(_local)) GD.Print("EXECX6 mesh " + line);
         }
         _execX6At += delta;
         if (_execX6Camera is { } fixedCamera && _camera is not null) _camera.GlobalTransform = fixedCamera;
@@ -79,14 +80,16 @@ public partial class NetworkView
         {
             case 0 when t > 2.0:
                 _execRowsOverride = ExecutionX6Rows(2f);
-                // The kill a few ticks before the view tick (a loaded machine's render tick moves in steps), the window the match's.
-                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick - 3), (byte)ExecutionRules.WindowTicks(config))), _connectedFor, client.PlayerId);
+                // The kill a few ticks before the view tick and the longest window the wire carries: a loaded machine's frames can be long, and this checks the marker, not the window's length.
+                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick - 3), 255)), _connectedFor, client.PlayerId);
                 _execX6Step++; _execX6At = 0; break;
             case 1 when t > 0.1:
                 ExecutionX6Check("the marker shows for an open offer", ExecutionMarkerShown, $"hidden {_execPromptHidden}, offer {ExecutionsState.Offer?.KillTick}+{ExecutionsState.Offer?.WindowTicks}, view tick {client.RemotePlayers().Tick:F1}");
                 ExecutionX6Check("no text prompt is set", _hudView.ExecutionPrompt is null);
+                // An offer whose window (the match's) ended before the view tick: hidden.
+                ExecutionsState.Apply(ExecutionWire.Encode(new ExecutionOffer((ushort)client.PlayerId, (uint)Math.Max(0, client.RemotePlayers().Tick - 100), (byte)ExecutionRules.WindowTicks(config))), _connectedFor, client.PlayerId);
                 _execX6Step++; _execX6At = 0; break;
-            case 2 when t > 1.2:
+            case 2 when t > 0.3:
                 ExecutionX6Check("the marker hides after the window", !ExecutionMarkerShown, $"hidden {_execPromptHidden}");
                 _execX6RunTick = client.Tick;
                 ExecutionsState.Start(new ExecutionRun(client.PlayerId, ExecutionTargetKind.Player, client.PlayerId, 0, 1.3f, me.Position, me.Position, me.Yaw, 0, _execX6RunTick, false), _connectedFor);
@@ -204,7 +207,7 @@ public partial class NetworkView
         switch (_execX6Step)
         {
             case 0 when dot is not null: GD.Print($"EXECX6 Warfront pick: Ork {ork} after {t:F0} s"); ExecutionX6Shot(dir, "dot_warfront_play_view"); ExecutionX6Next(); break;
-            case 0 when t > 240: GD.Print($"EXECX6 no Warfront pick in 4 min (hidden {_execPromptHidden}, choices {_execChoices})"); ExecutionX6Done(dir, "no Warfront marker"); break;
+            case 0 when t > 420: GD.Print($"EXECX6 no Warfront pick in 7 min (hidden {_execPromptHidden}, choices {_execChoices})"); ExecutionX6Done(dir, "no Warfront marker"); break;
             case 1 when dot is { } a: _execX6Camera = ExecutionX6CameraAt(a, 2.4f, 0.4f); ExecutionX6Next(); break;
             case 2 when t > 0.15: ExecutionX6Shot(dir, "dot_warfront_close"); _execX6Camera = null; ExecutionX6Next(); break;
             case 3 when dot is { } b: _execX6Camera = ExecutionX6CameraAt(b, 7f, 0.4f); ExecutionX6Next(); break;

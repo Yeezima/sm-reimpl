@@ -17,7 +17,7 @@ namespace SmClient;
 /// that run Killed).</item>
 /// <item>No speculative pin before the Start arrives: the reconcile after it replays the history with the pin (<c>GameClient.ProcessSnapshot</c>), so the correction is a replay, not a snap.</item>
 /// </list>
-/// A row this install lacks (<see cref="ExecutionRowSet.AtWire"/> null) predicts nothing: the server's snapshots carry the pinned place and the prediction follows them.
+/// A row this install lacks (<see cref="ExecutionRowSet.AtWire"/> null) is still locked and pinned, to the Start's origin (X3: the server's run plays whatever this install has), for at most <see cref="UnknownRowSeconds"/> without an End.
 /// </summary>
 public sealed class ExecutionPrediction
 {
@@ -44,29 +44,44 @@ public sealed class ExecutionPrediction
     public int Pins { get; private set; }
 
     /// <summary>The own run holding <paramref name="tick"/> (live, or ended at or after it), with its row; false when the tick is free.</summary>
-    public bool Holds(uint tick, out ExecutionRun run, out ExecutionRow row)
+    public bool Holds(uint tick, out ExecutionRun run, out ExecutionRow? row)
     {
         int id = _ownId();
-        row = null!;
+        row = null;
         if (id < 0) { run = default; return false; }
         var rows = _rows();
-        if (_state.TryLive(id, out run) && rows.AtWire(run.Wire) is { } liveRow)
+        if (_state.TryLive(id, out run))
         {
-            row = liveRow;
-            if (HoldsTick(run, ExecutionTrack.EndTick(run, row, _tickRate), tick)) return true;
+            row = rows.AtWire(run.Wire);
+            if (HoldsTick(run, LastTick(run, row, _tickRate), tick)) return true;
         }
         // A run the server ended lately: the ticks up to its end were pinned on the server too (a replay of an unacknowledged tick must agree).
         var ended = _state.Ended;
         for (int i = ended.Count - 1; i >= 0; i--)
         {
             var e = ended[i];
-            if (e.Run.Executor != id || rows.AtWire(e.Run.Wire) is not { } endedRow) continue;
-            uint end = Math.Min(e.EndTick, ExecutionTrack.EndTick(e.Run, endedRow, _tickRate));
+            if (e.Run.Executor != id) continue;
+            var endedRow = rows.AtWire(e.Run.Wire);
+            uint end = Math.Min(e.EndTick, LastTick(e.Run, endedRow, _tickRate));
             if (HoldsTick(e.Run, end, tick)) { run = e.Run; row = endedRow; return true; }
         }
         run = default;
+        row = null;
         return false;
     }
+
+    /// <summary>The longest a run of a row this install lacks is held without its End (seconds; ours: longer than any original pair, so a lost End cannot lock the player for good).</summary>
+    public const float UnknownRowSeconds = 12f;
+
+    /// <summary>
+    /// The last tick <paramref name="run"/> holds when no End is heard: the track's end tick (<see cref="ExecutionTrack.EndTick"/>; X3: a run whose three Ends are all lost still expires there), or
+    /// <see cref="UnknownRowSeconds"/> after its start for a row this install lacks.
+    /// </summary>
+    public static uint LastTick(in ExecutionRun run, ExecutionRow? row, int tickRate) =>
+        row is not null ? ExecutionTrack.EndTick(run, row, tickRate) : run.StartTick + (uint)MathF.Round(UnknownRowSeconds * Math.Max(1, tickRate));
+
+    /// <summary>Whether <paramref name="run"/> is still playing at <paramref name="tick"/> by its own clock (the camera and the marker treat a run past its end as over even if no End came).</summary>
+    public bool Playing(in ExecutionRun run, uint tick) => tick <= LastTick(run, _rows().AtWire(run.Wire), _tickRate);
 
     /// <summary>Whether a run that started at its start tick and ended at <paramref name="endTick"/> holds <paramref name="tick"/> (<c>StartTick &lt; tick &lt;= endTick</c>).</summary>
     public static bool HoldsTick(in ExecutionRun run, uint endTick, uint tick) => tick > run.StartTick && tick <= endTick;
@@ -90,9 +105,13 @@ public sealed class ExecutionPrediction
         return PinTo(state, run, row, tick, _tickRate);
     }
 
-    /// <summary>The server's pin: the track's feet and yaw at <paramref name="tick"/>, no velocity, grounded; nothing else touched.</summary>
-    public static PlayerState PinTo(PlayerState state, in ExecutionRun run, ExecutionRow row, uint tick, int tickRate)
+    /// <summary>
+    /// The server's pin: the track's feet and yaw at <paramref name="tick"/>, no velocity, grounded; nothing else touched. A row this install lacks (null; X3: the server's run still plays) pins to the
+    /// Start's origin and yaw, so the prediction stays where the server holds the executor instead of walking off.
+    /// </summary>
+    public static PlayerState PinTo(PlayerState state, in ExecutionRun run, ExecutionRow? row, uint tick, int tickRate)
     {
+        if (row is null) return state with { Position = run.Origin, Yaw = run.Yaw, Velocity = Vector3.Zero, Grounded = true };
         var pose = ExecutionTrack.Pose(run, row, tick, tickRate);
         return state with { Position = pose.Feet, Yaw = pose.Yaw, Velocity = Vector3.Zero, Grounded = true };
     }

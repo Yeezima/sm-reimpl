@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4150 spec table rows: **3068 tagged**, 708 not tagged (read from data with high confidence), 374 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4154 spec table rows: **3072 tagged**, 708 not tagged (read from data with high confidence), 374 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 4150 spec table rows: **3068 tagged**, 708 not tagged (read from data wi
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 100 | 95 | 73 | 14 | 0 |
+| HUD and hit feedback (critical) | 104 | 99 | 75 | 15 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
@@ -53,17 +53,17 @@ Scanned 4150 spec table rows: **3068 tagged**, 708 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 204 | 203 | 78 | 79 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3068** | 2760 | 2245 | 921 | 37 |
+| **All areas** | **3072** | 2764 | 2247 | 922 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1872 |
+| kind: ours | 1875 |
 | confidence: low | 1074 |
-| confidence: medium | 1060 |
-| notes: ours | 476 |
-| kind: interpretation | 459 |
+| confidence: medium | 1062 |
+| notes: ours | 477 |
+| kind: interpretation | 460 |
 | notes: estimate | 312 |
 | kind: estimate | 272 |
 | confidence: none (low) | 111 |
@@ -1792,7 +1792,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (100)
+### HUD and hit feedback (gameplay-critical) (104)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1971,7 +1971,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E9561439` | Marker lag | the marker reads the crowd as drawn (the interpolation delay behind the server), so at the edge of range the marked Ork can differ from the one the press takes; the press is the server's | kind: ours | plan risk, accepted | Marker lag: compare with SM1 with side-by-side screenshots in the same spot. Ours: the marker reads the crowd as drawn (the interpolation delay behind… | ☐ |
 | `R-036B5F3F` | Overshield look strength | 1 (one value shared by the shell and the armour tint; the owner picks from the comparison of 0.6, 1 and 1.4) (factor) | kind: ours; confidence: low | owner 2026-11-25 (comparison requested) | Overshield look strength: compare with SM1 with side-by-side screenshots in the same spot. Ours: 1 (one value shared by the shell and the armour tint; the owner picks… | ☐ |
 | `R-E3526A95` | Armour tint | while the own armour is above its bar: the armour bar modulated from white toward RGB (0.36, 0.56, 1.0) by the overshield's fraction of its cap times the look strength (clamped to 1), so full, half and low read differently and it fades back as the overshield… (RGB) | kind: ours; confidence: medium | owner brief ("deeper blue armour HUD"); media review (scale with the overshield); values ours | Armour tint: compare with SM1 by counting hits to kill and by video of the health bar. Ours: while the own armour is above its bar: the armour bar modulated from… | ☐ |
-| `R-67CDCFC5` | Shell | a second mesh on every armour mesh under the skeleton, skinned pieces sharing their skin and skeleton and rigid pieces (shoulder pads, helmet, worn backpack and jump pack) as their children, never the weapons; pushed 0.05 m along the normals (in model units:… (m) | kind: ours; confidence: medium | owner brief ("a soft blue shield about 5 cm off the model"); media review of a18ed908 (pads and backpack, scaling) | Shell: compare with SM1 by measuring on a flat spot of the same map. Ours: a second mesh on every armour mesh under the skeleton, skinned pieces… | ☐ |
+| `R-67CDCFC5` | Shell | a second mesh on every covered mesh (see Shell coverage), skinned pieces sharing their skin and skeleton and rigid pieces (worn backpack and jump pack) as their children, excluded surfaces drawn as nothing; pushed 0.05 m along the normals (in model units: the… (m) | kind: ours; confidence: medium | owner brief ("a soft blue shield about 5 cm off the model"); media review of a18ed908 (pads and backpack, scaling) | Shell: compare with SM1 by measuring on a flat spot of the same map. Ours: a second mesh on every covered mesh (see Shell coverage), skinned… | ☐ |
+| `R-435EE13C` | Shell coverage | every part of the player's model but the weapons (owner 2026-11-25): every armour mesh under the skeleton (torso, arms, legs, shoulder pads, helmet, backpack, DLC and campaign pieces) and the worn items (`Worn_*`: the jump pack, the Devastator's pack); not… | kind: interpretation; confidence: medium; notes: ours | owner 2026-11-25 ("ensure it covers all parts of a player's model except their weapons ... tabards, ornaments ... are not covered"); the name split ours | Shell coverage: compare with SM1 with side-by-side screenshots in the same spot. Ours: every part of the player's model but the weapons (owner 2026-11-25):… | ☐ |
+| `R-EB5C6308` | Marker timing (Classic) | the dot shows only once the client's view tick has reached the kill tick and until kill tick + window (X3 refuses an earlier press as NoOffer and spends its edge); never for a dead killer (ticks) | kind: ours | X3 (lead 40) | Marker timing (Classic): compare with SM1 with side-by-side screenshots in the same spot. Ours: the dot shows only once the client's view tick has reached the kill… | ☐ |
+| `R-9DA8E2B5` | Row this install lacks | the own run is still locked and pinned, to the Start's origin and yaw (X3: the server's run plays), until its End or at most 12 s (s) | kind: ours; confidence: medium | X3 (lead 40); 12 s ours | Row this install lacks: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own run is still locked and pinned, to the Start's origin and yaw… | ☐ |
+| `R-5F3D84A3` | Lost Ends | a run whose three Ends were all lost is over at its own end tick (`ExecutionTrack.EndTick`): the prediction frees the input, the orbit hands back the camera and the marker may show again (ticks) | kind: ours | X3 (lead 40) | Lost Ends: compare with SM1 with side-by-side screenshots in the same spot. Ours: a run whose three Ends were all lost is over at its own end tick… | ☐ |
 | `R-4379D09D` | Shell on the Compatibility renderer | one material per character with plain uniforms (no instance uniform, which the Compatibility renderer does not draw), plain GLSL with no screen or depth texture: the same look in old-GPU mode | kind: ours; confidence: medium | the repo's Compatibility rule (`ClawCrackle`) | Shell on the Compatibility renderer: compare with SM1 with side-by-side screenshots in the same spot. Ours: one material per character with plain uniforms (no instance uniform… | ☐ |
 
 ### Sound mix (gameplay-critical) (254)
