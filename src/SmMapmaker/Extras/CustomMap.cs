@@ -81,8 +81,22 @@ public static class PieceMesh
     }
 }
 
-/// <summary>One piece as the views draw it: id, kind, side, name and its world matrix (document frame, Z up).</summary>
-public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x4 World, bool Visible);
+/// <summary>One piece as the views draw it: id, kind, side, name and its world matrix (document frame, Z up; includes the object's scale).</summary>
+public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x4 World, bool Visible)
+{
+    /// <summary>The edited shape (unit space; null: the stock shape). Draw <see cref="Shape"/>.</summary>
+    public EditMesh? Mesh { get; init; }
+    /// <summary>The object's own scale (sized space = unit space times this; UVs are in metres of sized space).</summary>
+    public Vector3 Scale { get; init; } = Vector3.One;
+    /// <summary>The material id (<see cref="MapDocument.Materials"/>); null: the default grid look.</summary>
+    public string? Material { get; init; }
+
+    /// <summary>The shape to draw, unit space: the edited mesh or the piece's stock shape.</summary>
+    public EditMesh Shape => Mesh ?? EditMesh.Stock(Piece);
+
+    /// <summary>Triangles with normals, tangents and UVs in the document frame (<see cref="RenderMesh"/>).</summary>
+    public RenderMesh Render() => RenderMesh.Build(Shape, Scale, World);
+}
 
 /// <summary>
 /// A <c>.smmap</c> compiled for play (docs/mapmaker.md "Playing a map"): the collision of its solid pieces, its spawn areas, doors, capture points and
@@ -93,10 +107,16 @@ public sealed record DrawPiece(string Id, string Name, PieceSpec Piece, Matrix4x
 public sealed class CustomMap
 {
     /// <summary>Bump when the way pieces become collision, areas or points changes (it is part of the hash).</summary>
-    public const int CompilerVersion = 6;   // 6: the new piece kinds move-wall and cover fill MapContent.Walls and MapContent.Props, and the document gained look (so every custom map's hash changes: the server and every client must run the same build); 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
+    public const int CompilerVersion = 7;   // 7: an edited piece (stored mesh, docs/mapmaker.md "Edit mode contract") collides, walls and covers by its mesh, and an edited marker's box is its mesh's box (plus an exact volume in Volumes); 6: the new piece kinds move-wall and cover fill MapContent.Walls and MapContent.Props, and the document gained look (so every custom map's hash changes: the server and every client must run the same build); 5: the solid pieces, cylinders, marker positions and yaw and the SM1 node transforms go through the deterministic path too (the whole custom-map collision is bit-identical on every OS); 4: placement maths in double with a deterministic sin/cos, rotation snapped to 1/1000 degree (bit-identical collision on Linux and Windows); 3: decoration positions are quantised to 1/4096 m and the digest covers the source data (cross-OS); 2: SM1 placements, prefab instances and imported models are solid (docs/mapmaker.md "SM1 pieces in play"); the hash covers their triangles
     public const string Prefix = "cm_";
     /// <summary>Metres below the lowest solid piece's underside at which the map kills a falling player (ours; the pit under every custom map).</summary>
     public const float KillFloorDepth = 6f;
+    /// <summary>
+    /// Whether an edited marker's record carries its exact shape into the simulation (plan M2; docs/mapmaker.md "Edit mode in play"): on since contract v3 (it was held off on v2,
+    /// lead 39, 2026-11-25). Off, the records keep only the mesh's box and the shapes stay in <see cref="Volumes"/>: the one switch that restores the M0 play of edited maps (their
+    /// hash is the same either way). Unedited markers never carry a shape.
+    /// </summary>
+    public const bool VolumesInPlay = true;
     /// <summary>The surface id a cover piece's triangles give a shot that hits them (the id of Classic's crate metal, <c>CrateSurface</c> in the prop tests; ours).</summary>
     public const int CoverSurface = 4;
     /// <summary><see cref="MapWall.Group"/> of a movement wall: ALL (every player is stopped; the group Classic's own walls have).</summary>
@@ -116,6 +136,19 @@ public sealed class CustomMap
     public int SolidCount { get; init; }
     /// <summary>The SM1 placements, prefab instances and imported models: what the client draws and the triangles they added to the collision (null: compiled without a content source).</summary>
     public DecorResult? Decor { get; init; }
+    /// <summary>
+    /// The exact shapes of edited markers, by the compiled name of their record (<c>cm_start_marines_1</c>, <c>marines_blocker_1</c>, <c>mkr_objective_1</c>, <c>cm_kill_1</c>): world-space
+    /// closed meshes built with the deterministic maths (<see cref="MeshVolume.Contains"/> is the point-in-shape test). The record itself carries the mesh's box, so a consumer that only knows
+    /// boxes still sees the edited extent, and the record also carries the shape (<c>Volume</c>) into the simulation, which then uses it exactly (plan M2). Unedited markers have no entry and behave exactly as before.
+    /// </summary>
+    public IReadOnlyDictionary<string, MeshVolume> Volumes { get; init; } = new Dictionary<string, MeshVolume>();
+    /// <summary>The object id of each marker record (spawn areas, doors, capture points, kill zones), by the record's name: pairs a compiled record with its piece without relying on order.</summary>
+    public IReadOnlyDictionary<string, string> RecordIds { get; init; } = new Dictionary<string, string>();
+    /// <summary>
+    /// How many capture points the map places (those with an inside), including the ones past <see cref="World.MaxControlPoints"/> that the compile leaves out (a match refuses more):
+    /// <see cref="MapCheck"/> reports <c>too-many-points</c> from it.
+    /// </summary>
+    public int CapturePointsPlaced { get; init; }
 
     public CollisionWorld ToCollisionWorld() => Content.ToCollisionWorld();
 
@@ -150,7 +183,10 @@ public sealed class CustomMap
     /// placements, prefabs and imported models get their meshes; without it they are not compiled. With <see cref="CompileOptions.Strict"/> a placement whose content this PC lacks throws a
     /// <see cref="MapException"/> (<c>missing-install</c>, <c>unknown-map</c>, <c>missing-sm1-definition</c>, <c>missing-asset</c>, <c>missing-prefab</c>, <c>bad-asset</c>).
     /// </summary>
-    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null)
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options = null) => Compile(doc, options, VolumesInPlay);
+
+    /// <summary>As <see cref="Compile(MapDocument, CompileOptions?)"/>, choosing whether edited markers' records carry their exact shape (<see cref="VolumesInPlay"/>; tests).</summary>
+    public static CustomMap Compile(MapDocument doc, CompileOptions? options, bool volumesInPlay)
     {
         var notes = new List<string>();
         var vertices = new List<Vector3>();
@@ -162,8 +198,10 @@ public sealed class CustomMap
         var kills = new List<MapKillRegion>();
         var walls = new List<MapWall>();
         var props = new List<MapProp>();
+        var volumes = new Dictionary<string, MeshVolume>(StringComparer.Ordinal);
+        var recordIds = new Dictionary<string, string>(StringComparer.Ordinal);
         Bounds? solid = null;
-        int solidCount = 0, pointNumber = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
+        int solidCount = 0, pointNumber = 0, capturePlaced = 0, blockerMarines = 0, blockerChaos = 0, areaMarines = 0, areaChaos = 0, killNumber = 0, wallNumber = 0, coverNumber = 0;
         foreach (var o in doc.Objects)
         {
             if (o.Piece is not { } piece) continue;
@@ -171,11 +209,11 @@ public sealed class CustomMap
             double[] worldD;
             try { worldD = DecorGeometry.WorldOf(doc, o); world = DetMath.ToFloat(worldD); }   // the same deterministic path as the decoration: pieces are placed in double, bit-identical on every OS
             catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
-            pieces.Add(new DrawPiece(o.Id, o.Name, piece, world, o.Visible && IsVisibleChain(doc, o)));
+            pieces.Add(new DrawPiece(o.Id, o.Name, piece, world, o.Visible && IsVisibleChain(doc, o)) { Mesh = o.Mesh, Scale = o.Transform.Scale, Material = o.Material });
             var info = piece.Info;
             if (info.Solid)
             {
-                var (v, tri) = PieceMesh.Unit(piece.Kind)!.Value;
+                var (v, tri) = o.Mesh is { } sm ? Unit(sm) : PieceMesh.Unit(piece.Kind)!.Value;
                 int first = vertices.Count;
                 Vector3[] moved;
                 try { moved = v.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray(); }
@@ -190,7 +228,7 @@ public sealed class CustomMap
             if (piece.Kind == PieceKind.Cover)
             {
                 // Cover: the unit box carried to the world, a prop (solid for movement and shots; pierce-capable shots pass it, as Classic's BakedProps).
-                var (cv, ctri) = PieceMesh.MarkerBox();
+                var (cv, ctri) = o.Mesh is { } cmesh ? Unit(cmesh) : PieceMesh.MarkerBox();
                 Vector3[] cmoved;
                 try { cmoved = cv.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray(); }
                 catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
@@ -214,36 +252,94 @@ public sealed class CustomMap
             }
             catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
             var centre = at + new Vector3(0, 0, size.Z / 2f);
+            Vector3[]? edited = null;
+            int[]? editedTri = null;
+            if (o.Mesh is { } mm)
+            {
+                // An edited marker: its record is the box of its mesh along the object's own axes (centre and full size), and its exact shape goes to Volumes (the same deterministic path).
+                try
+                {
+                    var (uv, ut) = Unit(mm);
+                    edited = uv.Select(p => { var (x, y, z) = DetMath.Transform(p.X, p.Y, p.Z, worldD); return DetMath.Grid(x, y, z); }).ToArray();
+                    editedTri = ut;
+                    var ub = mm.UnitBounds();
+                    var uc = (ub.Min + ub.Max) * 0.5f;
+                    var (cx, cy, cz) = DetMath.Transform(uc.X, uc.Y, uc.Z, worldD);
+                    centre = DetMath.Grid(cx, cy, cz);
+                    size *= ub.Max - ub.Min;
+                    // the vertical extent from the gridded world vertices themselves, so the record's bottom (Position.Z - Scale.Z / 2, where spawns stand) is exactly the volume's lowest point
+                    float zMin = edited.Min(v => v.Z), zMax = edited.Max(v => v.Z);
+                    centre.Z = (zMin + zMax) / 2f;
+                    size.Z = zMax - zMin;
+                }
+                catch (MapException e) { notes.Add($"'{o.Name}' ({o.Id}) is left out: {e.Message}"); continue; }
+            }
+            // A marker with no inside (a hostile or damaged file's flat mesh, or a scale far below the 1/4096 m grid) is left out with a note: the simulation refuses an empty record shape
+            // (SpawnBlocker.Checked, the start area and control point setters), and one bad marker must not take the whole map down in smtool, the server or the editor's check.
+            if (EmptyShape(size, centre, edited))
+            {
+                notes.Add($"'{o.Name}' ({o.Id}) is left out: its shape has no inside (thinner than the 1/4096 m grid along one of its axes).");
+                continue;
+            }
+            // a shape that spans every axis but encloses (almost) nothing, e.g. every vertex on one slanted plane: kept (the simulation accepts it), but nobody can be inside it
+            if (edited is not null && EnclosesNothing(edited, editedTri!))
+                notes.Add($"'{o.Name}' ({o.Id}) encloses almost no space (on average thinner than the 1/4096 m grid): nothing can be inside it, so it does nothing in play.");
+            // An edited marker's exact shape: kept in Volumes under the record's name and carried by the record into the simulation (plan M2: inside the shape counts, inside only its box does not).
+            // Unedited markers get none, so their records and every rule that reads them are exactly as before.
+            MeshVolume? Exact(string recordName)
+            {
+                recordIds[recordName] = o.Id;   // every marker record, edited or not (CustomMap.RecordIds)
+                if (edited is null) return null;
+                var volume = new MeshVolume(recordName, edited, editedTri!);
+                volumes[recordName] = volume;
+                return volumesInPlay ? volume : null;   // VolumesInPlay: the switch back to M0 play
+            }
             switch (piece.Kind)
             {
                 case PieceKind.SpawnArea:
                 {
                     var side = piece.Side == PieceSpec.Marines ? Team.SpaceMarines : Team.Chaos;
                     int n = side == Team.SpaceMarines ? ++areaMarines : ++areaChaos;
-                    areas.Add(new MapStartArea($"cm_start_{piece.Side}_{n}", side, centre, yaw, size, 1));
+                    string rec = $"cm_start_{piece.Side}_{n}";
+                    areas.Add(new MapStartArea(rec, side, centre, yaw, size, 1) { Volume = Exact(rec) });
                     break;
                 }
                 case PieceKind.Blocker:
                 {
                     var side = piece.Side == PieceSpec.Marines ? Team.SpaceMarines : Team.Chaos;
                     int n = side == Team.SpaceMarines ? ++blockerMarines : ++blockerChaos;
-                    blockers.Add(new MapBlocker($"{piece.Side}_blocker_{n}", side, centre, yaw, size));
+                    string rec = $"{piece.Side}_blocker_{n}";
+                    blockers.Add(new MapBlocker(rec, side, centre, yaw, size) { Volume = Exact(rec) });
                     break;
                 }
                 case PieceKind.CapturePoint:
+                {
+                    capturePlaced++;
+                    if (pointNumber >= World.MaxControlPoints)
+                    {
+                        // the simulation takes at most this many (SeizeGround's setter throws): the extra points are left out so the map still plays; MapCheck reports too-many-points
+                        notes.Add($"'{o.Name}' ({o.Id}) is left out: a match takes at most {World.MaxControlPoints} capture points.");
+                        break;
+                    }
                     pointNumber++;
-                    points.Add(new MapControlPoint($"mkr_objective_{pointNumber}", centre, yaw, new Vector3(size.X, size.X, size.Z), 3));
+                    string rec = $"mkr_objective_{pointNumber}";
+                    // unedited: X for both horizontal sizes, as before (a round point); edited: the mesh's box, and the exact shape
+                    points.Add(new MapControlPoint(rec, centre, yaw, edited is null ? new Vector3(size.X, size.X, size.Z) : size, 3) { Volume = Exact(rec) });
                     break;
+                }
                 case PieceKind.MoveWall:
                     // a movement-only wall (MapWall -> CollisionWorld.Walls): position = the centre, rotation about Z in degrees, scale = the full size
                     wallNumber++;
-                    var (wv, wi) = WallMesh(centre, size, YawDegreesOf(doc, o), piece.IsCylinder);
+                    var (wv, wi) = edited is not null ? (edited, editedTri!) : WallMesh(centre, size, YawDegreesOf(doc, o), piece.IsCylinder);
                     walls.Add(new MapWall($"cm_wall_{wallNumber}", centre, new Vector3(0, 0, (float)YawDegreesOf(doc, o)), size, piece.IsCylinder ? 3 : 1, WallGroup, 1) { Vertices = wv, Indices = wi });
                     break;
                 case PieceKind.KillZone:
+                {
                     killNumber++;
-                    kills.Add(new MapKillRegion($"cm_kill_{killNumber}", centre, yaw, size, 0));
+                    string rec = $"cm_kill_{killNumber}";
+                    kills.Add(new MapKillRegion(rec, centre, yaw, size, 0) { Volume = Exact(rec) });
                     break;
+                }
             }
         }
         if (areaMarines > 1 || areaChaos > 1) notes.Add("Only the first spawn area of each side is used by the match; the others are ignored.");
@@ -282,12 +378,59 @@ public sealed class CustomMap
         string name = WireName(doc.Name);
         ulong hash = HashOf(doc, decor is { Placements.Count: > 0 } ? decor.Digest() : null);
         // MapContent.Spawns: one per start area, on the area's floor (World.Spawns is never empty for a team map).
-        var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", a.Position - new Vector3(0, 0, a.Scale.Z / 2f), a.Yaw)).ToList();
+        // an edited area: the spawn under a point inside its shape (its box centre may be outside the shape), on the box's floor
+        static Vector3 SpawnAt(MapStartArea a, IReadOnlyDictionary<string, MeshVolume> v) => v.TryGetValue(a.Name, out var shape) && shape.InsidePoint() is { } inside
+            ? new Vector3(inside.X, inside.Y, a.Position.Z - a.Scale.Z / 2f) : a.Position - new Vector3(0, 0, a.Scale.Z / 2f);
+        var spawns = areas.Select(a => new MapSpawn($"cm_spawn_{a.Name}", SpawnAt(a, volumes), a.Yaw)).ToList();
         var content = new MapContent(name, "custom", layers, spawns, hash)
         {
             ControlPoints = points, StartAreas = areas, Blockers = blockers, KillRegions = kills, Walls = walls, Props = props, Notes = notes,
         };
-        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor };
+        return new CustomMap { Document = doc, Name = name, Content = content, Hash = hash, Pieces = pieces, SolidBounds = solid, Notes = notes, SolidCount = solidCount, Decor = decor, Volumes = volumes, RecordIds = recordIds, CapturePointsPlaced = capturePlaced };
+    }
+
+    /// <summary>
+    /// True when a marker's record box (<paramref name="size"/> at <paramref name="centre"/>) is not finite or has a zero size, or its edited world vertices (<paramref name="edited"/>, on the
+    /// 1/4096 m grid) span nothing along an axis: such a marker has no inside and is left out of the compiled map.
+    /// </summary>
+    internal static bool EmptyShape(Vector3 size, Vector3 centre, Vector3[]? edited)
+    {
+        static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
+        // half the size too: a capture point's sim radius and half height are Scale / 2, which rounds to 0 for a size of a few float denormals (~1e-45)
+        var half = size / 2f;
+        if (!Finite(size) || !Finite(centre) || !(half.X > 0f && half.Y > 0f && half.Z > 0f)) return true;
+        if (edited is null) return false;
+        var lo = edited.Aggregate(Vector3.Min);
+        var hi = edited.Aggregate(Vector3.Max);
+        return !(hi.X > lo.X && hi.Y > lo.Y && hi.Z > lo.Z);
+    }
+
+    /// <summary>
+    /// True when a closed triangle mesh (world space, on the grid) encloses less than its surface area times one grid step (1/4096 m): on average thinner than the grid, e.g. every vertex
+    /// on one slanted plane (the grid's rounding alone gives such a shape a sliver of volume). A 1 cm slab is far above it. Used for a note only (ours); the marker is kept.
+    /// </summary>
+    internal static bool EnclosesNothing(Vector3[] v, int[] tri)
+    {
+        if (v.Length == 0) return true;
+        double ox = v[0].X, oy = v[0].Y, oz = v[0].Z;   // measured from the first vertex: no cancellation far from the origin
+        double volume = 0, area = 0;
+        for (int i = 0; i + 2 < tri.Length; i += 3)
+        {
+            Vector3 p = v[tri[i]], q = v[tri[i + 1]], r = v[tri[i + 2]];
+            double ax = p.X - ox, ay = p.Y - oy, az = p.Z - oz, bx = q.X - ox, by = q.Y - oy, bz = q.Z - oz, cx = r.X - ox, cy = r.Y - oy, cz = r.Z - oz;
+            volume += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
+            double ux = bx - ax, uy = by - ay, uz = bz - az, wx = cx - ax, wy = cy - ay, wz = cz - az;
+            double nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+            area += Math.Sqrt(nx * nx + ny * ny + nz * nz) / 2.0;
+        }
+        return Math.Abs(volume / 6.0) < area / 4096.0;
+    }
+
+    /// <summary>An edited shape's unit-space triangles (faces fanned from their first vertex).</summary>
+    static (Vector3[] Vertices, int[] Indices) Unit(EditMesh mesh)
+    {
+        var (v, i, _) = mesh.Triangulate();
+        return (v, i);
     }
 
     /// <summary>cos(pi / 16) as a literal (no libm): the circumscribed 16-sided prism's corner radius is 0.5 / this, as <see cref="WorldBlocker.Cylinder"/>.</summary>

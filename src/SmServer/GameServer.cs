@@ -229,11 +229,18 @@ public sealed partial class GameServer
             throw new ArgumentException("Seize Ground needs a map with control points.");
         foreach (var p in map?.ControlPoints ?? [])
             if (!Protocol.IsMapName(p.Name)) throw new ArgumentException($"Control point name '{p.Name}' cannot travel (letters, digits, '_'; at most {Protocol.MaxMapName}).");
-        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, SolidGuard = _options.BodyGuard, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
+        World = WorldFor(config, map, _options);
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
         _contentFingerprint = contentFingerprint; _transport = Counted(CoreCounted(transport)); _clock = clock;
         if (config.Extras != ContentExtras.None) ExtrasCreated();   // EXTRAS-HOOK: added content's set-up of this server's match (Musou: the nav graph, the mode)
     }
+
+    /// <summary>
+    /// The match world for <paramref name="map"/>, as the constructor makes it. Its initialisers check every record (at most <see cref="World.MaxControlPoints"/> control points, positive
+    /// sizes) and throw <see cref="ArgumentException"/>; the custom-map hook builds one inside its refusal so a bad map file is refused instead of crashing the server.
+    /// </summary>
+    internal static World WorldFor(SimConfig config, GameMap? map, ServerOptions options) =>
+        new(config, map?.Collision, map?.Spawns) { BoundBodies = true, SolidGuard = options.BodyGuard, Rules = options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
 
     /// <summary>
     /// Hook for added content (docs/added-content.md): at the end of the constructor, only when <see cref="SimConfig.Extras"/> is not None (<see cref="World"/>

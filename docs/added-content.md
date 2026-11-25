@@ -126,6 +126,15 @@ The Mapmaker (`docs/mapmaker.md`) is added content: its core `src/SmMapmaker` co
 Godot plugin is its own project (`mapmaker/`) that no game build references. A faithful build carries none of it; no runtime flag is needed
 because nothing in a match uses it yet (custom maps in a match will take a flag when they arrive).
 
+**Exception: the neutral `MeshVolume` branches in the core simulation (lead 39 decision, 2026-11-25).** Edit mode's exact gameplay shapes use
+`SmSim.MeshVolume` (`src/SmSim/MeshVolume.cs`), which lives in the core simulation, not under `Extras/`, together with an optional `Volume` /
+`Shape` on the core records and sim types (`MapControlPoint`, `MapStartArea`, `MapBlocker`, `MapKillRegion`, `KillVolume`) and the branches that use it
+when it is set (capture, kill, spawn door collider and push-out, start-area spots, content hash). They are not behind an `Extras*` hook because a
+core file must compile them in a build without added content. They are neutral: only `CustomMap.Compile` (added content) ever sets a volume, so with
+no volume every rule takes its old box path bit for bit (pinned by `EditRuntimeTests.An_unedited_layout_plays_exactly_as_before` and
+`VolumeRuntimeTests.Stock_*`), and Classic maps and a faithful build never reach a volume branch. Splitting the added content off keeps these files;
+removing them is a later choice, not something the split needs.
+
 ## 6. State (E1) and what is left
 
 Done in E1: the flags and profiles, the config-hash block, the Ork runtime gate, `--content` on the server and the networked client, the Host

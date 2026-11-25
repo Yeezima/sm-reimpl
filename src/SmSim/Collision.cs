@@ -763,6 +763,12 @@ public sealed partial class CollisionWorld
 /// </summary>
 public readonly record struct KillVolume(Vector3 Center, Vector3 HalfExtents, float Yaw)
 {
+    /// <summary>
+    /// The exact shape when the map gives one (a Mapmaker kill zone whose shape was edited, docs/mapmaker.md "Edit mode in play"; only the Mapmaker compiler builds one): then
+    /// <see cref="Contains"/> and <see cref="Crosses"/> test that shape, not the box. Null for every Classic, Musou and Warfront volume and every unedited one: the box, as before.
+    /// </summary>
+    public MeshVolume? Shape { get; init; }
+
     Vector3 Local(Vector3 p)
     {
         var d = p - Center;
@@ -773,14 +779,16 @@ public readonly record struct KillVolume(Vector3 Center, Vector3 HalfExtents, fl
     /// <summary>Whether the point is inside the box (faces included).</summary>
     public bool Contains(Vector3 p)
     {
+        if (Shape is { } shape) return shape.Contains(p);
         var l = Local(p);
         return MathF.Abs(l.X) <= HalfExtents.X && MathF.Abs(l.Y) <= HalfExtents.Y && MathF.Abs(l.Z) <= HalfExtents.Z;
     }
 
-    /// <summary>Whether the segment from <paramref name="a"/> to <paramref name="b"/> meets the box (slab test; a point segment is <see cref="Contains"/>).</summary>
+    /// <summary>Whether the segment from <paramref name="a"/> to <paramref name="b"/> meets the box (slab test; a point segment is <see cref="Contains"/>), or the <see cref="Shape"/> when there is one.</summary>
     public bool Crosses(Vector3 a, Vector3 b)
     {
         if (!Geometry.Finite(a) || !Geometry.Finite(b)) return false;
+        if (Shape is { } shape) return shape.Crosses(a, b);
         Vector3 la = Local(a), d = Local(b) - la;
         float t0 = 0f, t1 = 1f;
         for (int axis = 0; axis < 3; axis++)
@@ -800,8 +808,11 @@ public readonly record struct KillVolume(Vector3 Center, Vector3 HalfExtents, fl
     {
         if (volumes is null) return h;
         foreach (var k in volumes)
+        {
             foreach (float f in new[] { k.Center.X, k.Center.Y, k.Center.Z, k.HalfExtents.X, k.HalfExtents.Y, k.HalfExtents.Z, k.Yaw })
                 h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(f));
+            if (k.Shape is { } shape) h = shape.Hash(Geometry.Fnv(h, 0x56454D58u));   // "XMEV" and the shape; nothing without one: a box-only list hashes as before
+        }
         return h;
     }
 }

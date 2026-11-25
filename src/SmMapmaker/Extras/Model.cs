@@ -197,6 +197,11 @@ public sealed record MapObject(
     string Id, string Name, string? Parent, string Layer, bool Visible, MapTransform Transform, AssetRef? Asset, string? Prefab,
     IReadOnlyList<PartOverride> Overrides, PieceSpec? Piece = null, MapObjectSrc? Src = null)
 {
+    /// <summary>The piece's edited shape (docs/mapmaker.md "Edit mode contract"); null: its stock shape from the scale. Only pieces carry one; game-visible (in the hash).</summary>
+    public EditMesh? Mesh { get; init; }
+    /// <summary>The map material (<see cref="MapDocument.Materials"/> id, <c>m&lt;N&gt;</c>) the piece is drawn with; null: the default grid look. Only drawn pieces (<see cref="PieceKind.IsDrawn"/>).</summary>
+    public string? Material { get; init; }
+
     /// <summary><paramref name="editorOnly"/> false leaves out the Classic link (<see cref="Src"/>), which is what the map's hash covers.</summary>
     public JsonObject ToNode(bool editorOnly = true)
     {
@@ -206,6 +211,8 @@ public sealed record MapObject(
         };
         if (Asset is not null) o["asset"] = Asset.ToNode();
         if (Piece is not null) o["piece"] = Piece.ToNode();
+        if (Mesh is not null) o["mesh"] = Mesh.ToNode();
+        if (Material is not null) o["material"] = Material;
         if (editorOnly && Src is not null) o["src"] = Src.ToNode();
         if (Prefab is not null) { o["prefab"] = Prefab; o["overrides"] = new JsonArray(Overrides.Select(x => (JsonNode)x.ToNode()).ToArray()); }
         return o;
@@ -232,9 +239,21 @@ public sealed record MapObject(
                 overrides.Add(new PartOverride(Json.ReqStr(io, "part", $"{what}.overrides[{i}]"), vis, tr));
             }
         if (prefab is null && overrides.Count > 0) throw new MapException("bad-file", $"{what}: overrides without a prefab.");
+        EditMesh? mesh = null;
+        if (o["mesh"] is { } meshNode)
+        {
+            if (piece is null) throw new MapException("bad-file", $"{what}: only a piece has an editable mesh.");
+            mesh = EditMesh.FromNode(meshNode, piece, what + ".mesh", "bad-file");
+            // a flat stored shape has no inside (a hostile or damaged file; the editor never writes one). A thin but not flat one (a scale far below the grid) is the compiler's to leave out.
+            if (mesh.IsFlat) throw new MapException("bad-file", $"{what}.mesh: the shape is flat (it spans nothing along one of its axes).");
+            if (mesh.IsStock) mesh = null;   // the stock shape is written as no mesh: one way to write it
+        }
+        var material = Json.Str(o["material"], what + ".material", nullable: true);
+        if (material is not null && !MaterialGraph.IsMaterialId(material)) throw new MapException("bad-file", $"{what}.material '{material}' is not a material id (m<N>).");
+        if (material is not null && (piece is null || !PieceKind.IsDrawn(piece.Kind))) throw new MapException("bad-file", $"{what}: only a drawn piece (block, ramp, column) takes a material.");
         return new MapObject(id, Json.Str(o["name"], what + ".name") ?? "", Json.Str(o["parent"], what + ".parent", nullable: true),
             Json.Str(o["layer"], what + ".layer", nullable: true) ?? "default", Json.Bool(o["visible"], what + ".visible", "bad-file", true),
-            MapTransform.FromNode(o["transform"], MapTransform.Identity, what + ".transform"), asset, prefab, overrides, piece, MapObjectSrc.FromNode(o["src"]));
+            MapTransform.FromNode(o["transform"], MapTransform.Identity, what + ".transform"), asset, prefab, overrides, piece, MapObjectSrc.FromNode(o["src"])) { Mesh = mesh, Material = material };
     }
 }
 
@@ -262,7 +281,16 @@ public sealed record MapGroup(string Id, string Name, IReadOnlyList<string> Memb
 public sealed class MapDocument
 {
     public const string FormatName = "smmap";
-    public const int FormatVersion = 3;
+    /// <summary>The newest format this build reads and writes.</summary>
+    public const int FormatVersion = 4;
+    /// <summary>The format every document is written at unless it needs more (format 3 is what the shipped builds read).</summary>
+    public const int BaseFormatVersion = 3;
+
+    /// <summary>
+    /// The lowest format that represents this document (lead 39 decision, 2026-11-25): 4 only when a piece carries an edited shape or a material, or the map has materials or images; else 3, so an
+    /// unedited map is never rewritten on open and stays openable by a build that reads format 3. Part of the canonical text (and so of the hash).
+    /// </summary>
+    public int WriteVersion => Materials.Count > 0 || Images.Count > 0 || Objects.Any(o => o.Mesh is not null || o.Material is not null) ? 4 : BaseFormatVersion;
 
     /// <summary>The format version the file declared when it was parsed (older than <see cref="FormatVersion"/>: the editor backs the file up before it writes the upgrade).</summary>
     public int LoadedVersion { get; private set; } = FormatVersion;
@@ -287,6 +315,15 @@ public sealed class MapDocument
     public MapLook? Look { get; set; }
     /// <summary>Classic items the owner deleted (editor only, not in the hash; written only when not empty). See <see cref="SrcKey"/>.</summary>
     public List<SrcKey> RemovedSrc { get; set; } = [];
+    /// <summary>The map's materials (format 4; game-visible, in the hash; written only when there are any). See <see cref="MaterialGraph"/>.</summary>
+    public List<MaterialGraph> Materials { get; set; } = [];
+    /// <summary>The images the materials use, by SHA-256 (format 4; game-visible; the bytes live beside the map and in the library, <see cref="MapImages"/>).</summary>
+    public List<MapImage> Images { get; set; } = [];
+    public const int MaxMaterials = 256;
+
+    public MaterialGraph? FindMaterial(string id) => Materials.FirstOrDefault(m => m.Id == id);
+
+    public string NewMaterialId() => "m" + (Materials.Select(m => int.TryParse(m.Id.AsSpan(1), out var n) ? n : 0).DefaultIfEmpty(0).Max() + 1);
 
     public MapGroup? FindGroup(string id) => Groups.FirstOrDefault(g => g.Id == id);
 
@@ -402,10 +439,12 @@ public sealed class MapDocument
     /// <summary><paramref name="editorOnly"/> false leaves out what only the editor uses (the grid and every object's Classic link), which is what the map's hash covers.</summary>
     public JsonObject ToNode(bool editorOnly = true)
     {
-        var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = FormatVersion, ["name"] = Name, ["nextId"] = NextId };
+        var o = new JsonObject { ["format"] = FormatName, ["formatVersion"] = WriteVersion, ["name"] = Name, ["nextId"] = NextId };
         if (!Modes.SequenceEqual(DefaultModes)) o["modes"] = new JsonArray(Modes.Select(m => (JsonNode)JsonValue.Create(m)!).ToArray());
         o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)x.ToNode(editorOnly)).ToArray());
         if (Look is not null) o["look"] = Look.ToNode();
+        if (Materials.Count > 0) o["materials"] = new JsonArray(Materials.Select(m => (JsonNode)m.ToNode()).ToArray());
+        if (Images.Count > 0) o["images"] = new JsonArray(Images.OrderBy(i => i.Id, StringComparer.Ordinal).Select(i => (JsonNode)i.ToNode()).ToArray());
         if (EmbeddedPrefabs.Count > 0) o["prefabs"] = new JsonArray(EmbeddedPrefabs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => (JsonNode)p.ToNode()).ToArray());
         if (Groups.Count > 0) o["groups"] = new JsonArray(Groups.Select(x => (JsonNode)x.ToNode()).ToArray());
         if (editorOnly && Grid != MapGrid.Default) o["grid"] = Grid.ToNode();
@@ -420,7 +459,7 @@ public sealed class MapDocument
 
     public MapDocument Clone()
     {
-        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid, Look = Look, RemovedSrc = [..RemovedSrc] };
+        var d = new MapDocument { Name = Name, NextId = NextId, Modes = [..Modes], EmbeddedPrefabs = [..EmbeddedPrefabs], Grid = Grid, Look = Look, RemovedSrc = [..RemovedSrc], Materials = [..Materials], Images = [..Images] };
         d.Objects.AddRange(Objects);
         d.Groups.AddRange(Groups);
         return d;
@@ -430,9 +469,12 @@ public sealed class MapDocument
     public const int MaxChars = 8_000_000, MaxObjects = 20_000, MaxPieces = 5_000, MaxNameLength = 200, MaxGroups = 5_000;
     public const float MaxPosition = 100_000f, MaxScale = 10_000f;
 
+    /// <summary>The size of a document's text as a saved file (UTF-8 bytes, no BOM): what every size limit compares with <see cref="MaxChars"/> (bytes, despite the name).</summary>
+    public static long FileBytes(string json) => System.Text.Encoding.UTF8.GetByteCount(json);
+
     public static MapDocument Parse(string json)
     {
-        if (json.Length > MaxChars) throw new MapException("too-big", $"The map file is larger than {MaxChars / 1_000_000} MB.");
+        if (json.Length > MaxChars || FileBytes(json) > MaxChars) throw new MapException("too-big", $"The map file is larger than {MaxChars / 1_000_000} MB.");
         var o = Json.Obj(Json.ParseText(json, "The map"), "The map");
         if (Json.Str(o["format"], "format", nullable: true) != FormatName) throw new MapException("bad-file", "Not a .smmap document (format must be \"smmap\").");
         if (o["formatVersion"] is null) throw new MapException("bad-file", "The map has no formatVersion.");
@@ -472,6 +514,33 @@ public sealed class MapDocument
         if (o["groups"] is { } groupsNode) ParseGroups(d, Json.Arr(groupsNode, "groups"));
         d.Grid = MapGrid.FromNode(o["grid"]);
         if (o["look"] is { } lookNode) d.Look = MapLook.FromNode(lookNode);
+        if (o["images"] is { } imageNodes)
+        {
+            var list = Json.Arr(imageNodes, "images");
+            if (list.Count > MapImage.MaxImages) throw new MapException("too-big", $"The map uses more than {MapImage.MaxImages} images.");
+            foreach (var (n, i) in list.Select((x, i) => (x, i)))
+            {
+                var img = MapImage.FromNode(n, $"images[{i}]");
+                if (d.Images.Any(x => x.Id == img.Id)) throw new MapException("bad-file", $"Image {img.Id} is listed twice.");
+                d.Images.Add(img);
+            }
+        }
+        if (d.Images.Sum(i => (long)i.Width * i.Height) > MapImage.MaxTotalPixels)
+            throw new MapException("too-big", $"The map's images hold more than {MapImage.MaxTotalPixels / 1_000_000} million pixels in all.");
+        if (o["materials"] is { } materialNodes)
+        {
+            var list = Json.Arr(materialNodes, "materials");
+            if (list.Count > MaxMaterials) throw new MapException("too-big", $"The map has more than {MaxMaterials} materials.");
+            foreach (var (n, i) in list.Select((x, i) => (x, i)))
+            {
+                var m = MaterialGraph.FromNode(n, $"materials[{i}]");
+                if (d.Materials.Any(x => x.Id == m.Id)) throw new MapException("bad-file", $"Duplicate material id '{m.Id}'.");
+                foreach (var img in m.ImageIds()) if (d.Images.All(x => x.Id != img)) throw new MapException("bad-file", $"Material '{m.Name}' uses image {img}, which the map does not list.");
+                d.Materials.Add(m);
+            }
+        }
+        foreach (var obj in d.Objects)
+            if (obj.Material is { } mid && d.FindMaterial(mid) is null) throw new MapException("bad-file", $"Object {obj.Id} uses material '{mid}', which the map does not have.", obj.Id);
         if (o["removedSrc"] is JsonArray removed)   // editor-only data is repaired, never refused: bad entries are dropped
         {
             var have = new HashSet<SrcKey>();

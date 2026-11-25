@@ -7,6 +7,7 @@ using SmSim;
 namespace SmMapmaker.Tests;
 
 /// <summary>Custom maps (docs/mapmaker.md "Playing a map"): pieces, layouts, the compiler, the check, the hash and the file lookup. Synthetic documents only.</summary>
+[Collection(MapsDirCollection.Name)]   // both set SM_MAPS_DIR, a process-wide variable: never in parallel
 public sealed class CustomMapTests : IDisposable
 {
     readonly Lab _lab = new();

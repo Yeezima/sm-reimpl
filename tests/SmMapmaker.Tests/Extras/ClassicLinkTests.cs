@@ -186,7 +186,7 @@ public sealed class ClassicLinkTests
         Assert.NotEqual(looked, CustomMap.Compile(s.Document).Hash);
         Assert.True(Run(s, """{"op":"set-look","sm1Map":null}""").Ok);
         Assert.Equal(plain, CustomMap.Compile(s.Document).Hash);
-        Assert.Equal(6, CustomMap.CompilerVersion);
+        Assert.Equal(7, CustomMap.CompilerVersion);
     }
 
     [Fact]
@@ -210,8 +210,8 @@ public sealed class ClassicLinkTests
         using var lab = new Lab();
         var s = Map(lab, Wall);
         var node = JsonNode.Parse(s.Document.ToJson())!.AsObject();
-        Assert.Equal(3, MapDocument.FormatVersion);
-        Assert.Equal(3, (int)node["formatVersion"]!);
+        Assert.Equal(4, MapDocument.FormatVersion);
+        Assert.Equal(3, (int)node["formatVersion"]!);   // the lowest format that holds it (no mesh, material or image)
         node["formatVersion"] = 2;
         var up = MapDocument.Parse(node.ToJsonString());
         Assert.Equal(2, up.LoadedVersion);

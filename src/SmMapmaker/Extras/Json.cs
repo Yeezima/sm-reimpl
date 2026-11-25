@@ -126,7 +126,8 @@ public static class Json
         {
             if (n is JsonValue v && v.GetValueKind() == JsonValueKind.Number)
             {
-                float f = (float)v.GetValue<double>();
+                // parsed text holds a JsonElement (any number type reads); a node built in memory holds the CLR value it was made from (a float stays a float: read it as one)
+                float f = v.TryGetValue<float>(out var fv) ? fv : v.TryGetValue<int>(out var iv) ? iv : (float)v.GetValue<double>();
                 if (float.IsFinite(f)) return f;
             }
         }

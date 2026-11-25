@@ -20,6 +20,13 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     public const float AboveLevel = 25f;
 
     /// <summary>
+    /// The blocker's exact shape when the map gives one (a Mapmaker spawn door whose shape was edited, docs/mapmaker.md "Edit mode in play"): <see cref="Center"/>, <see cref="Size"/>
+    /// and <see cref="Yaw"/> are then its box; the other side collides with the shape's own triangles (<see cref="MeshFor"/>, like a <see cref="WorldBlocker"/>), <see cref="Contains"/>
+    /// tests the shape, and <see cref="ReachingAbove"/> stretches it upward with the box. Null for every Classic blocker and every unedited door: the box, as before.
+    /// </summary>
+    public MeshVolume? Volume { get; init; }
+
+    /// <summary>
     /// This blocker reaching up to at least <paramref name="top"/> (M31; **change from the original**, owner's decision 2026-10-28:
     /// in the original jump packs could fly over the spawn-room blockers, here no jump, flight or ground pound arc passes over
     /// them): the bottom stays, the top rises to <paramref name="top"/> when lower (centre and height move with it; footprint and
@@ -29,12 +36,13 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     {
         float bottom = Center.Z - Size.Z / 2f, own = Center.Z + Size.Z / 2f;
         if (!float.IsFinite(top) || top <= own) return this;
-        return this with { Center = Center with { Z = (bottom + top) / 2f }, Size = Size with { Z = top - bottom } };
+        return this with { Center = Center with { Z = (bottom + top) / 2f }, Size = Size with { Z = top - bottom }, Volume = Volume?.ReachingAbove(top) };
     }
 
-    /// <summary>Whether <paramref name="p"/> lies inside the box.</summary>
+    /// <summary>Whether <paramref name="p"/> lies inside the box (the <see cref="Volume"/> when there is one).</summary>
     public bool Contains(Vector3 p)
     {
+        if (Volume is { } shape) return shape.Contains(p);
         var d = p - Center;
         float c = MathF.Cos(-Yaw), s = MathF.Sin(-Yaw);
         float lx = d.X * c - d.Y * s, ly = d.X * s + d.Y * c;
@@ -62,6 +70,7 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
     /// </summary>
     public Vector3 PushOut(Vector3 feet, float radius, float height)
     {
+        if (Volume is { } shape) return shape.PushOut(feet, radius, height);   // an edited door: out across the nearest edge of its own shape (MeshVolume.PushOut)
         if (!(feet.Z < Center.Z + Size.Z / 2f && feet.Z + height > Center.Z - Size.Z / 2f)) return feet;
         var d = feet - Center;
         float c = MathF.Cos(Yaw), s = MathF.Sin(Yaw);
@@ -130,6 +139,14 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
         {
             if (!b.Blocks(side)) continue;
             int first = vertices.Count;
+            if (b.Volume is { } shape)
+            {
+                // an edited door collides by its own shape and the column above it (DoorCollider), not by its box
+                var (dv, di) = DoorCollider(shape);
+                vertices.AddRange(dv);
+                foreach (int i in di) indices.Add(first + i);
+                continue;
+            }
             vertices.AddRange(b.Corners());
             foreach (int i in BoxIndices) indices.Add(first + i);
         }
@@ -165,6 +182,51 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
         return wv.Count == 0 ? mesh : mesh.With([.. wv], [.. wi], addedWallCentres: [.. wc], addedNoStandFlags: [.. wf]);
     }
 
+    /// <summary>
+    /// The other side's collider of an edited door (contract v4.1 note, docs/mapmaker.md): the authored triangles, and above them, when the door is raised (<see cref="ReachingAbove"/>),
+    /// vertical walls up from the boundary of the authored shape's upper surface (each edge of an upward-facing triangle that no other upward-facing triangle shares) to the raised top, closed
+    /// by a flat cap (every upward-facing triangle copied at the top). Everything lies on the surface of "the shape and everything above it", so the capsule controller meets no wall inside
+    /// the solid (the raised volume's own prism soup has interior walls and caps that can snag it). Chosen over the raised record box: the box is wider than an edited door's footprint, so
+    /// its upper part would block players who walk beside the shape and jump. Deterministic (IEEE float only, triangle order).
+    /// </summary>
+    internal static (Vector3[] Vertices, int[] Indices) DoorCollider(MeshVolume shape)
+    {
+        var a = shape.Authored;
+        var v = new List<Vector3>(a.Vertices);
+        var idx = new List<int>(a.Indices);
+        if (ReferenceEquals(a, shape) || !(shape.Max.Z > a.Max.Z || shape.Vertices.Length > a.Vertices.Length)) return ([.. v], [.. idx]);
+        float top = shape.Max.Z;
+        // upward-facing authored triangles (right way out since contract v4: positive area in plan faces up)
+        var up = new List<(Vector3 A, Vector3 B, Vector3 C)>();
+        for (int t = 0; t + 2 < a.Indices.Length; t += 3)
+        {
+            Vector3 p = a.Vertices[a.Indices[t]], q = a.Vertices[a.Indices[t + 1]], r = a.Vertices[a.Indices[t + 2]];
+            double area = ((double)q.X - p.X) * ((double)r.Y - p.Y) - ((double)q.Y - p.Y) * ((double)r.X - p.X);
+            if (area > 0) up.Add((p, q, r));
+        }
+        // edge use count among the upward triangles, by position (an edge used once is the upper surface's boundary)
+        var count = new Dictionary<(Vector3, Vector3), int>();
+        static (Vector3, Vector3) Key(Vector3 x, Vector3 y) => (x.X, x.Y, x.Z).CompareTo((y.X, y.Y, y.Z)) <= 0 ? (x, y) : (y, x);
+        foreach (var (p, q, r) in up)
+            foreach (var (x, y) in new[] { (p, q), (q, r), (r, p) }) { var k = Key(x, y); count[k] = count.GetValueOrDefault(k) + 1; }
+        foreach (var (p, q, r) in up)
+        {
+            // the cap: the triangle at the top, still counter-clockwise in plan (facing up)
+            int c0 = v.Count;
+            v.AddRange([p with { Z = top }, q with { Z = top }, r with { Z = top }]);
+            idx.AddRange([c0, c0 + 1, c0 + 2]);
+            foreach (var (x, y) in new[] { (p, q), (q, r), (r, p) })
+            {
+                if (count[Key(x, y)] != 1 || (x.Z >= top && y.Z >= top)) continue;
+                // a wall from the boundary edge straight up (outward: the edge runs counter-clockwise round the upper surface)
+                int w = v.Count;
+                v.AddRange([x, y, y with { Z = top }, x with { Z = top }]);
+                idx.AddRange([w, w + 1, w + 2, w, w + 2, w + 3]);
+            }
+        }
+        return ([.. v], [.. idx]);
+    }
+
     /// <summary>FNV-1a 64 of <paramref name="h"/> and each blocker's side and floats (centre, size, yaw); none: <paramref name="h"/>.</summary>
     internal static ulong Hash(ulong h, IReadOnlyList<SpawnBlocker>? blockers)
     {
@@ -173,6 +235,7 @@ public sealed record SpawnBlocker(Team Side, Vector3 Center, Vector3 Size, float
             h = Geometry.Fnv(h, (uint)b.Side);
             foreach (float f in new[] { b.Center.X, b.Center.Y, b.Center.Z, b.Size.X, b.Size.Y, b.Size.Z, b.Yaw })
                 h = Geometry.Fnv(h, BitConverter.SingleToUInt32Bits(f));
+            if (b.Volume is { } shape) h = shape.Hash(Geometry.Fnv(h, 0x56454D58u));   // "XMEV" and the shape; nothing without one: box-only blockers hash as before
         }
         return h;
     }
