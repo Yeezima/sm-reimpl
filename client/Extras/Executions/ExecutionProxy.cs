@@ -39,6 +39,18 @@ public partial class NetworkView
         public bool Done;
         public double CreatedAt;
         public double LastTick;
+        public PlayerState? VictimState;
+        public bool PoseCopied, Gibbed;
+        /// <summary>Classic: the executor died mid-move; the proxy's pose has been handed to a ragdoll (waits for it, then the proxy goes).</summary>
+        public bool RagdollHanded;
+    }
+
+    /// <summary>The body showing a Classic victim now: its held character while the death waits, else its ragdoll's character.</summary>
+    CharacterViewer? ExecVictimBody(int id)
+    {
+        foreach (var rd in _ragdolls) if (rd.PlayerId == id && !rd.Orphan && rd.Character is { } c) return c;
+        var live = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
+        return live is not null && live.Visible ? live : null;
     }
 
     readonly Dictionary<(int Executor, uint Start), ExecProxy> _execProxies = new();
@@ -64,8 +76,17 @@ public partial class NetworkView
             else
             {
                 _execProxiedVictims.Add(run.Target);
-                RemoveRagdolls(run.Target, keepDeathState: true);   // the held death pose or the ragdoll hands over to the proxy
                 if (_motion.TryGetValue(run.Target, out var m)) p.GroundZ = m.Position.Z;
+                foreach (var o in others) if (o.PlayerId == run.Target) { p.VictimState = o; break; }
+                // Built now, before the ragdoll goes: the proxy starts from a copy of the body's pose (the held death pose, else the ragdoll's) and blends into the victim clip.
+                var holder = ExecVictimBody(run.Target);
+                if (ExecProxyBuild(p) && holder is not null && IsInstanceValid(holder) && p.Viewer is { } built)
+                {
+                    built.Pose(CharacterViewer.DefaultAnimation, 0f, 0f);   // so the victim clip's first pose is an entry, faded from the copy
+                    built.CopyPoseFrom(holder);
+                    p.PoseCopied = true;
+                }
+                RemoveRagdolls(run.Target, keepDeathState: true);   // the held death pose or the ragdoll hands over to the proxy
             }
             if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: start P{run.Executor} {row.Id} on {(p.Warfront ? "enemy" : "P")}{run.Target} (wire {run.Wire}, tick {run.StartTick}, slide {run.SlideTicks}, distance {run.Distance:F3} m{(run.RaceSwapped ? ", races swapped" : "")})");
         }
@@ -74,7 +95,20 @@ public partial class NetworkView
             {
                 p.EndedAt = _connectedFor;
                 p.Done = ended.Reason == ExecutionEndReason.Done;
+                if (!p.Warfront && ended.Reason == ExecutionEndReason.Killed) ExecHandToRagdoll(p);   // the executor died mid-move: the victim stays, as a ragdoll from the proxy's pose
                 if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: end P{p.Run.Executor} {p.Row.Id} {ended.Reason} at tick {ended.EndTick}");
+            }
+        if (warfront && _musouCrowd is { } gibCrowd && _execHidden.Count > 0)
+            foreach (var d in _musouDeathsHanded)
+            {
+                // A death of an executed Ork that left no crowd corpse (MusouCrowd.AddBody never asked): gibbed or thrown, so the proxy steps aside for the crowd's own remains.
+                if (!_execHidden.Contains(d.Id) || gibCrowd.ExecutionCorpseClaimed.Contains(d.Id)) continue;
+                foreach (var p in _execProxies.Values)
+                    if (p.Warfront && p.Run.Target == d.Id && !p.Gibbed)
+                    {
+                        p.Gibbed = true;
+                        if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: enemy {d.Id} gibbed or thrown by the crowd; its proxy is hidden");
+                    }
             }
         _execDrop.Clear();
         foreach (var (key, p) in _execProxies)
@@ -88,6 +122,15 @@ public partial class NetworkView
             }
             float lie = p.Warfront ? MusouCrowd.SinkAfter : ClassicProxyLieSeconds;
             float sink = p.Warfront ? MusouCrowd.SinkSeconds : ProxySinkSeconds;
+            if (p.Gibbed) { _execDrop.Add(key); continue; }   // Warfront: the crowd tore the Ork apart or threw it; its gore or thrown body is the corpse
+            if (p.RagdollHanded)
+            {
+                // The ragdoll exists (or the death was dropped: the victim respawned, or 6 s passed): the proxy goes.
+                bool ragdoll = false;
+                foreach (var rd in _ragdolls) if (rd.PlayerId == p.Run.Target) { ragdoll = true; break; }
+                if (ragdoll || _connectedFor - (p.EndedAt ?? _connectedFor) > 6.0 || _aliveSeen.TryGetValue(p.Run.Target, out bool alive) && alive) _execDrop.Add(key);
+                continue;   // the proxy holds its pose until the ragdoll takes it
+            }
             if (p.EndedAt is { } end && _connectedFor - end > ExecutionPresentMath.AfterEnd(p.Done, lie, sink)) { _execDrop.Add(key); continue; }
             ExecProxyPose(p, lie, sink);
         }
@@ -107,7 +150,26 @@ public partial class NetworkView
         {
             crowd.ExecutionHidden = _execHidden.Count > 0 ? _execHidden : null;
             if (_execHidden.Count == 0 && crowd.ExecutionSeen.Count > 0) crowd.ExecutionSeen.Clear();
+            if (_execHidden.Count == 0 && crowd.ExecutionCorpseClaimed.Count > 0) crowd.ExecutionCorpseClaimed.Clear();
         }
+    }
+
+    /// <summary>
+    /// Classic: the executor died mid-move (End Killed). The victim is not removed: its death is queued again with the proxy as the body, so the core's
+    /// <c>ProcessDeaths</c> starts a ragdoll from the proxy's pose; the proxy holds until that ragdoll exists, then goes. A victim already alive again keeps nothing.
+    /// </summary>
+    void ExecHandToRagdoll(ExecProxy p)
+    {
+        int id = p.Run.Target;
+        if (p.Viewer is not { } v || !IsInstanceValid(v) || _aliveSeen.TryGetValue(id, out bool alive) && alive) return;
+        _execProxiedVictims.Remove(id);
+        var (feet, yaw) = ExecutionPresentMath.VictimPlace(p.Run, p.Row, p.GroundZ);
+        var state = p.VictimState ?? new PlayerState(id, feet, System.Numerics.Vector3.Zero, yaw, true);
+        _pendingDeaths.RemoveAll(d => d.Id == id);
+        MarineDeathForget(id); OrkDeathForget(id);   // a fresh death from the proxy's pose (the death clip, then the ragdoll)
+        _pendingDeaths.Add((id, v, state, _client is not null && id == _client.PlayerId, Vector3.Zero));
+        p.RagdollHanded = true;
+        if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: executor P{p.Run.Executor} killed mid-move; P{id} goes to a ragdoll from the proxy's pose");
     }
 
     bool AnyProxyOn(int victim)

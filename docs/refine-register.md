@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4122 spec table rows: **3050 tagged**, 702 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4123 spec table rows: **3051 tagged**, 702 not tagged (read from data with high confidence), 370 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,15 +51,15 @@ Scanned 4122 spec table rows: **3050 tagged**, 702 not tagged (read from data wi
 | Lighting and rendering | 29 | 22 | 11 | 20 | 0 |
 | Networking and render smoothing | 48 | 38 | 22 | 12 | 7 |
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
-| General game design | 199 | 198 | 73 | 78 | 0 |
+| General game design | 200 | 199 | 73 | 78 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3050** | 2741 | 2234 | 917 | 37 |
+| **All areas** | **3051** | 2742 | 2234 | 917 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1853 |
+| kind: ours | 1854 |
 | confidence: low | 1070 |
 | confidence: medium | 1053 |
 | notes: ours | 475 |
@@ -4328,7 +4328,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-98A893CB` | Picker protection | while an offer stands the player is invulnerable and their input is dropped, others play on; it ends on a valid pick, after 20 s (the server takes card 1) or when the player leaves (the pick stays pending and re-opens with the same cards) (s) | kind: estimate; confidence: medium; notes: ours | owner (protection); the 20 s ours | Picker protection: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while an offer stands the player is invulnerable and their input is… | ☐ |
 | `R-2024CBEF` | Hard base | `OrkHealthBase` and `OrkDamageBase`, 1.0: the one knob for "hard" (owner answer 8) (multiplier) | kind: estimate; confidence: low; notes: ours | owner (hard, solo must play well, a squad needs teamwork); the value ours | Hard base: compare with SM1 by feel or video. Ours: OrkHealthBase and OrkDamageBase, 1.0: the one knob for "hard" (owner… | ☐ |
 
-### General game design (199)
+### General game design (200)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -4599,13 +4599,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6065DAE8` | Attacker blend | the two variants either side of the run's distance (`ExecutionRow.Blend`, the reference clip at the authored gap `Offset.Y`), the far one laid over the near at the blend weight; no variants: the reference clip (m) | kind: ours; confidence: medium | inventory 1.7 (the original blends on distance); linear ours | Attacker blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the two variants either side of the run's distance… | ☐ |
 | `R-3B79071E` | Clip clock | the server's tick clock: clip time 0 at start + slide ticks (the clip holds its first pose through the slide); remote executors at the interpolated render tick, the own player at the drawn predicted tick (tick - 1 + the draw fraction) (s) | kind: ours; confidence: medium | ours | Clip clock: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server's tick clock: clip time 0 at start + slide ticks (the clip… | ☐ |
 | `R-289150DD` | Executor placement | feet and yaw from X3's `ExecutionTrack` (the server pin's function) at the ticks either side of the drawn tick, interpolated; a clip with extracted motion plays in place and the node follows the track; a clip whose root bone travels is placed at the aligned… (m, rad) | kind: ours | design (one shared pose function) | Executor placement: compare with SM1 by feel or video. Ours: feet and yaw from X3's ExecutionTrack (the server pin's function) at… | ☐ |
+| `R-BD9FA3FF` | Executor's weapon | a live executor's melee weapon is in hand for the whole move (`ExtrasExecutionMeleeShown` in `SyncWeapons`), whatever its swing state | kind: ours | lead 39 | Executor's weapon: compare with SM1 by feel or video. Ours: a live executor's melee weapon is in hand for the whole move… | ☐ |
 | `R-4D0E7E8F` | Clip source | the attacker clips from the campaign player rig, the victim clips from the victim kind's rig, decoded once on a worker thread at the first executions frame, added to a character's rig under `exec:<clip>` names (O8's knife clip name also exists on the MP rig)… | kind: ours | X7 loader; lead 39 (AtWire, O8) | Clip source: compare with SM1 by feel or video. Ours: the attacker clips from the campaign player rig, the victim clips… | ☐ |
 | `R-FD1530D8` | Victim proxy | a separate character (pooled per look, at most live runs + 2 kept) at the victim's place: the aligned origin plus the row's offset (lateral X, the run's distance) turned by the yaw, at the victim's own feet height when known, facing the pair's yaw; plays the… | kind: ours; confidence: medium | design; X2 alignment (the victim never moves) | Victim proxy: compare with SM1 by feel or video. Ours: a separate character (pooled per look, at most live runs + 2 kept) at… | ☐ |
 | `R-C0DB71A0` | Classic proxy look | the victim player's own character look; while it has none, the default marine (the co-op Ork Boy for the Ork Boy rows); a race-swapped row plays the Chaos Marine victim half on that body (same skeleton) | kind: ours; confidence: medium | owner 2026-11-25 (swap races) | Classic proxy look: compare with SM1 by feel or video. Ours: the victim player's own character look; while it has none, the… | ☐ |
-| `R-18CC1926` | Classic tap hand-over | the ragdoll or held death pose is removed at the Start (`RemoveRagdolls`, death state kept) and the proxy fades in from its first pose over 0.2 s (s) | kind: ours; notes: estimate | architect recommendation 1 | Classic tap hand-over: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the ragdoll or held death pose is removed at the Start… | ☐ |
+| `R-18CC1926` | Classic tap hand-over | the proxy is built at the Start from a copy of the victim's body pose (its held death pose, else its ragdoll's), then the ragdoll or held pose is removed (`RemoveRagdolls`, death state kept) and the proxy blends from that copy into the victim clip over 0.2 s (s) | kind: ours; notes: estimate | architect recommendation 1 | Classic tap hand-over: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the proxy is built at the Start from a copy of the victim's body pose… | ☐ |
 | `R-1305DD89` | Classic death-pose hold | in Extended, a remote victim of a hostile melee kill holds its death pose for the window (0.8 s, `DeathPoseHoldSeconds`) from the kill before the ragdoll: the death clip plays as the marine (or Ork) death hold plays it, then its pose at the powered-ragdoll… (s) | kind: interpretation; confidence: medium | owner 2026-11-25 ("Hold the death pose briefly"); the held pose an interpretation | Classic death-pose hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in Extended, a remote victim of a hostile melee kill holds its death… | ☐ |
 | `R-020341F2` | Warfront crowd hide | the executed crowd Ork is skipped by the crowd from the Start (one frame later: its last drawn type, feet and yaw dress the proxy) and makes no crowd corpse; the proxy lies and sinks on the crowd's own corpse timing (lie `MusouCrowd.SinkAfter`, sink 1.5 s… (s) | kind: ours; confidence: medium | design | Warfront crowd hide: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the executed crowd Ork is skipped by the crowd from the Start (one… | ☐ |
-| `R-C46C3B34` | Proxy after the move | a completed move (End Done): the proxy holds the victim clip's last pose, lies (Classic 10 s, ours; Warfront the crowd's lie time), sinks 1.2 m over 1.5 s and is freed; any other end (Killed, Invalid, Disconnect, MatchEnd) or an executor who left: freed after… (s) | kind: ours; confidence: medium | design (clean-up); lie times ours | Proxy after the move: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a completed move (End Done): the proxy holds the victim clip's last… | ☐ |
+| `R-C46C3B34` | Proxy after the move | a completed move (End Done): the proxy holds the victim clip's last pose, lies (Classic 10 s, ours, accepted by lead 39; Warfront the crowd's lie time), sinks 1.2 m over 1.5 s and is freed; Classic End Killed (the executor died mid-move): the victim's death… (s) | kind: ours; confidence: medium | design (clean-up); lead 39 (the victim stays as a corpse); lie times ours | Proxy after the move: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a completed move (End Done): the proxy holds the victim clip's last… | ☐ |
 | `R-864EEE41` | Stand-in | only when a catalogue row cannot be shown with its own clips on that rig: the character's own heavy strike timed to end on the row's kill event, the victim's own death clip from the kill event; logged once per row as placeholder demonstration; never another… | kind: placeholder | brief (coverage matrix; no lookalikes) | Stand-in: compare with SM1 by feel or video. Ours: only when a catalogue row cannot be shown with its own clips on that… | ☐ |
 | `R-D7B57C02` | Clean-up | an End (as above), an executor no longer in the match, the view leaving (proxies are children of the view); a disconnected client keeps no frame | kind: ours | design | Clean-up: compare with SM1 by feel or video. Ours: an End (as above), an executor no longer in the match, the view… | ☐ |
 

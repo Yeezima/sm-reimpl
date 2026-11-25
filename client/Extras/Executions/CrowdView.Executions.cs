@@ -17,6 +17,9 @@ public abstract partial class CrowdView
     /// <summary>The last drawn type, feet (game space) and yaw of each hidden member.</summary>
     public readonly Dictionary<int, (int Type, Vector3 Position, float Yaw)> ExecutionSeen = new();
 
+    /// <summary>Hidden members whose death asked for a crowd corpse (the proxy is that corpse); a hidden member's death without one was gibbed or thrown.</summary>
+    public readonly HashSet<int> ExecutionCorpseClaimed = new();
+
     partial void ExecutionsHideEnemy(int id, int type, Vector3 position, float yaw, ref bool hide)
     {
         if (ExecutionHidden is not { Count: > 0 } set || !set.Contains(id)) return;
@@ -29,6 +32,6 @@ public partial class MusouCrowd
 {
     partial void ExecutionsCorpseProxied(int id, ref bool proxied)
     {
-        if (ExecutionHidden is { Count: > 0 } set && set.Contains(id)) proxied = true;
+        if (ExecutionHidden is { Count: > 0 } set && set.Contains(id)) { proxied = true; ExecutionCorpseClaimed.Add(id); }
     }
 }

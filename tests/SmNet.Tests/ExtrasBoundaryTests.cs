@@ -80,6 +80,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Observer.cs", "ExtrasObserverFrame"),   // NetworkView.ExtrasObserverFrame(IReadOnlyList<PlayerState>, double), in ObserverFrame before ProcessDeaths: an observer draws executions (X5)
         ("client/Hud/Hud.Vitals.cs", "ExtrasArmourTint"),            // Hud.ExtrasArmourTint(ref Color), the armour bar's modulate: Warfront's overshield blue (X6)
         ("client/Hud.cs", "ExtrasHudDraw"),                          // Hud.ExtrasHudDraw(Vector2), in _Draw after DrawCentre: the Execute prompt (X6)
+        ("client/NetworkView.Weapons.cs", "ExtrasExecutionMeleeShown"),   // NetworkView.ExtrasExecutionMeleeShown(PlayerState, ref bool), in SyncWeapons before rig.Update: a live executor holds its melee weapon (X5)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)

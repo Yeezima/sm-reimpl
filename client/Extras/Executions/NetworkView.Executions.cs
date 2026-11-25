@@ -48,6 +48,11 @@ public partial class NetworkView
         if (ExecutionsOn) ExecutionsPlace(character, state, own, ref handled);
     }
 
+    partial void ExtrasExecutionMeleeShown(PlayerState state, ref bool shown)
+    {
+        if (ExecutionsOn && state.Alive && ExecutionsState.TryLive(state.PlayerId, out _)) shown = true;   // X5: the executor's melee weapon in hand through the move
+    }
+
     partial void ExtrasDeathHold(int id, CharacterViewer character, PlayerState state, bool own, ref bool hold)
     {
         if (ExecutionsOn) ExecutionsDeathHold(id, character, state, own, ref hold);
