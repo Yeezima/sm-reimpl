@@ -159,6 +159,7 @@ public sealed partial class World
         if (_executionPress.Count > _players.Count)
             foreach (int gone in _executionPress.Keys.Where(k => !_players.ContainsKey(k)).ToArray()) _executionPress.Remove(gone);
         ExecutionsClassicExpire();
+        if (Config.Extras.HasFlag(ContentExtras.Warfront)) ExecutionsWarfrontStep();
     }
 
     // ---- the press ----
@@ -257,6 +258,7 @@ public sealed partial class World
             run = run with { KillDone = true };
             if (warfront) ExecutionsWarfrontKill(ref run);
             _executionRuns[id] = run;
+            if (warfront && !run.KillDone) { EndExecution(run, ExecutionEndReason.Invalid, _executionEnds); return; }   // X4 review: a kill frame that did not kill ends the move (no reward, no cooldown), never a later Done
         }
         if (Tick >= ExecutionTrack.EndTick(run, row, Config.TickRate)) EndExecution(run, ExecutionEndReason.Done, _executionEnds);
     }
@@ -281,6 +283,8 @@ public sealed partial class World
     partial void ExecutionsWarfrontKill(ref ExecutionRun run);
     /// <summary>Warfront: the run ended (release the Ork; Done with the kill: the reward and the cooldown).</summary>
     partial void ExecutionsWarfrontEnded(in ExecutionRun run, ExecutionEndReason why);
+    /// <summary>Warfront: once a step, after the runs' checks (X4: a player dead or respawned this step loses its cooldown).</summary>
+    partial void ExecutionsWarfrontStep();
     /// <summary>The checks of other features (X4: the cooldown and the retainer rules); set <paramref name="refused"/> to refuse the press.</summary>
     partial void ExecutionsRefused(int id, ref bool refused);
 }

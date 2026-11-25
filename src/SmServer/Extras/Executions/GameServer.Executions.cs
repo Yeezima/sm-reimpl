@@ -24,6 +24,7 @@ public sealed partial class GameServer
     readonly List<(byte[] Bytes, int Left)> _executionRepeats = new();
     uint _executionLiveNext, _executionOvershieldNext;
     byte[]? _executionOvershieldLast;
+    int _executionOvershieldEmptyLeft;   // repeats of the list's change to empty still to send
 
     /// <summary>Tag-50 messages sent (tests and the log).</summary>
     public int ExecutionMessagesSent { get; private set; }
@@ -62,8 +63,16 @@ public sealed partial class GameServer
         foreach (var (id, why) in w.ExecutionsRefusedThisTick)
         {
             if (why is ExecutionRefusal.NoFit or ExecutionRefusal.NoWire) Log?.Invoke($"executions: press of player {id} at tick {tick} did nothing ({why})");
+            else if (why == ExecutionRefusal.Refused && w.ExecutionsWarfrontRefusedLast(id) is { } warfront)
+            {
+                // X4: Warfront's own reasons are logged, one line per press (a press is a 0-to-1 edge, so a held key writes nothing more).
+                uint ready = w.ExecutionsReadyAt(id);
+                Log?.Invoke($"executions: press of player {id} at tick {tick} refused by Warfront ({warfront}{(warfront == ExecutionWarfrontRefusal.Cooldown ? $", ready at tick {ready}, {(ready - tick) / (float)Math.Max(1, w.Config.TickRate):0.0} s left" : "")})");
+            }
             else ExecutionRefusalsCounted++;
         }
+        foreach (var r in w.ExecutionsRewardedThisTick)
+            Log?.Invoke($"executions: reward player {r.Player} for Ork {r.Ork} at tick {r.Tick}: health {r.Health:0}, armour {r.Shield:0}, ready again at tick {r.ReadyAt}");
         foreach (var n in w.ExecutionsNoFitThisTick) Log?.Invoke($"executions: no move fits player {n.Executor} on the corpse of {n.Victim}: gap {n.Gap:0.00} m, height {n.Height:0.00} m, first {n.First}, tried {string.Join(",", n.Tried)}");
 
         // Offers: to the killer alone.
@@ -99,8 +108,10 @@ public sealed partial class GameServer
             var shields = ExecutionsOvershields(w);
             var list = ExecutionWire.Encode(shields);
             bool changed = _executionOvershieldLast is null || !list.AsSpan().SequenceEqual(_executionOvershieldLast);
-            if (changed || (shields.Length > 0 && tick >= _executionOvershieldNext))
+            if (changed) _executionOvershieldEmptyLeft = shields.Length == 0 ? ExecutionWire.StartRepeats : 0;   // the change to an empty list goes out StartRepeats times (a lost datagram would leave a stale overshield drawn)
+            if (changed || (shields.Length > 0 && tick >= _executionOvershieldNext) || _executionOvershieldEmptyLeft > 0)
             {
+                if (_executionOvershieldEmptyLeft > 0) _executionOvershieldEmptyLeft--;
                 _executionOvershieldLast = list;
                 _executionOvershieldNext = tick + (uint)Math.Max(1, (int)Math.Round(rate / ExecutionWire.OvershieldHz));
                 sections.Add((ExecutionWire.Tag, list));

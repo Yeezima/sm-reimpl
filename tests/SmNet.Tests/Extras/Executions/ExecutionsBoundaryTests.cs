@@ -21,6 +21,10 @@ public class ExecutionsBoundaryTests
         ("src/SmContent/Extras/GameplayTuning.Extras.cs", "ExecutionsLoad"),
         ("client/Extras/Musou/CrowdView.cs", "ExecutionsHideEnemy"),        // X5a: a Warfront Ork playing an execution is drawn by its proxy, not the crowd
         ("client/Extras/Musou/MusouCrowd.cs", "ExecutionsCorpseProxied"),   // X5a: the executed Ork leaves no crowd corpse (its proxy lies and sinks)
+        // X4 (Warfront on Orks): the held Ork's AI step and the slot's spawn and reset (Extras/Executions/Orks/MusouSim.Executions.cs).
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsHeldStep"),
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsSpawned"),
+        ("src/SmSim/Extras/Musou/MusouSim.Ai.cs", "ExecutionsReset"),
     ];
 
     /// <summary>Files outside the executions folders that may name the namespace: the config hash's dispatcher.</summary>

@@ -291,6 +291,16 @@ public class ExecutionStateTests
         var d = ExecutionTrack.Disarm(armed);
         Assert.Equal((false, 0f, 0, 0f, false, 0f, 0, false), (d.Charging, d.ChargeTime, d.PendingShot, d.PendingLeft, d.Throwing, d.ThrowTime, d.MeleeStep, d.MeleeQueuedHeavy));
         Assert.Equal(armed.Grenades, d.Grenades);   // nothing spent or refunded
+
+        // X3 re-review (lead 40): a waiting raise or burst round and the input buffer (a buffered melee, Space, grenade, switch or reload) are cleared too, so one step under the lock fires and swings nothing.
+        var buffered = p with { RaiseTicks = 3, BurstLeft = 2, Buffered = BufferedAction.Melee, BufferTicks = 5, BufferedCharge = true };
+        var cleared = ExecutionTrack.Disarm(buffered);
+        Assert.Equal((0, 0, BufferedAction.None, 0, false), (cleared.RaiseTicks, cleared.BurstLeft, cleared.Buffered, cleared.BufferTicks, cleared.BufferedCharge));
+        var locked = MatchFlow.Locked(new PlayerInput(w.Tick + 1, 0f, 0f, cleared.Yaw, InputButtons.None));
+        var after = Combat.StepPlayer(cleared, locked, w.Config, out var events);
+        Assert.False(events.Fired);
+        Assert.Equal(0, events.MeleeHitStep);
+        Assert.Equal(0, after.MeleeStep);
     }
 
     [Fact]
@@ -304,6 +314,7 @@ public class ExecutionStateTests
         w.ExecutionsPlaceForTests(3, w.Players[1].Position + new Vector3(0.2f, 0.3f, 0f), 0f);
         for (int k = 0; k < 30; k++) Step(w, _ => InputButtons.None, stick: id => id == 3 ? (1f, 0f) : (0f, 0f));
         Assert.True(Vector3.Distance(w.Players[3].Position, w.Players[1].Position) > 0.9f);
+        Assert.True(w.ExecutionsLocked(1));   // the overlap never ended the run (lead 40 re-review)
     }
     [Fact]
     public void NoFlagNoState()

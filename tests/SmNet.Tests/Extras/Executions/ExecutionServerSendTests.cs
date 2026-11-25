@@ -102,12 +102,52 @@ public class ExecutionServerSendTests
     }
 
     [Fact]
-    public void OvershieldListEmptyInClassic()
+    public void OvershieldListNeverSentInClassic()
     {
         // Lead 40: Classic never encodes or sends the list (Warfront only, X4).
         var h = Connected();
         h.Run(TimeSpan.FromMilliseconds(1500));
         Assert.DoesNotContain(Take(h.Clients[0]), x => x.Kind == ExecutionWire.OvershieldKind);
+    }
+
+    /// <summary>Lead 40 re-review: the list's change to empty (an overshield spent or lost) goes out in <see cref="ExecutionWire.StartRepeats"/> consecutive messages, so one lost datagram cannot leave it drawn.</summary>
+    [Fact]
+    public void OvershieldListChangeToEmptyRepeated()
+    {
+        var h = Connected(c: ExecutionTestKit.Config(extras: ContentExtras.Executions | ContentExtras.Warfront) with { ShieldMax = 100f });
+        var w = h.Server.World;
+        int id = h.Clients[0].PlayerId;
+        w.ExecutionsSetVitalsForTests(id, w.Players[id].Health, 150f);   // half a bar of overshield (kept: Warfront keeps it)
+        h.Run(TimeSpan.FromMilliseconds(300));
+        var full = Take(h.Clients[1]).Where(x => x.Kind == ExecutionWire.OvershieldKind).ToList();
+        Assert.Contains(full, x => x.Shields.Any(s => s.Player == id));
+        w.ExecutionsSetVitalsForTests(id, w.Players[id].Health, 0f);
+        h.Run(TimeSpan.FromMilliseconds(400));   // 12 ticks: three repeats, then nothing while the list stays empty
+        var empty = Take(h.Clients[1]).Where(x => x.Kind == ExecutionWire.OvershieldKind).ToList();
+        Assert.Equal(ExecutionWire.StartRepeats, empty.Count);
+        Assert.All(empty, x => Assert.Empty(x.Shields));
+        var ticks = empty.Select(x => x.ServerTick).Order().ToArray();
+        Assert.Equal(Enumerable.Range(0, ticks.Length).Select(k => ticks[0] + (uint)k), ticks);
+    }
+
+    /// <summary>Lead 40 re-review: more sections in one tick than one message holds (32 Starts) are split over several envelope messages, none over the cap, and every section arrives.</summary>
+    [Fact]
+    public void ManySectionsInOneTickSplitAcrossMessages()
+    {
+        var h = Connected();
+        var w = h.Server.World;
+        var p = w.Players[h.Clients[0].PlayerId];
+        int wire = w.Config.Executions.WireIndexOf("C1.chainsword");
+        const int Runs = 32;
+        for (int k = 0; k < Runs; k++)
+            w.ExecutionsStartForTests(new ExecutionRun(200 + k, ExecutionTargetKind.Player, h.Clients[1].PlayerId, wire, 1.3f, p.Position, p.Position, p.Yaw, 0, w.Tick + 1, false));
+        h.Run(TimeSpan.FromMilliseconds(200));
+        Assert.InRange(h.Server.LargestExtrasMessage, 1, Protocol.MaxExtrasMessageBytes);
+        foreach (var c in h.Clients)
+        {
+            var starts = Take(c).Where(x => x.Kind == ExecutionWire.StartKind).Select(x => (int)x.Start.Executor).Distinct().ToHashSet();
+            for (int k = 0; k < Runs; k++) Assert.Contains(200 + k, starts);
+        }
     }
 
     [Fact]

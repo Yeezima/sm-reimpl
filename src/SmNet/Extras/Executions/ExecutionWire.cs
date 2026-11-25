@@ -48,7 +48,7 @@ public readonly record struct OvershieldEntry(ushort Player, byte Fraction);
 /// three consecutive messages and repeats the live ones twice a second for late joiners (X3).</item>
 /// <item>End (kind 2, <see cref="EndBytes"/> = 8): <c>[u8 2][u32 tick][u16 executor][u8 reason]</c>.</item>
 /// <item>Classic offer (kind 3, <see cref="OfferBytes"/> = 8), to the killer only: <c>[u8 3][u16 victim][u32 kill tick][u8 window ticks]</c>.</item>
-/// <item>Warfront overshield list (kind 4, 2 + 3 n bytes, at most <see cref="MaxOvershieldEntries"/>): <c>[u8 4][u8 n]{[u16 player][u8 fraction]}</c>, on a change and once a second. The own
+/// <item>Warfront overshield list (kind 4, 2 + 3 n bytes, at most <see cref="MaxOvershieldEntries"/>): <c>[u8 4][u8 n]{[u16 player][u8 fraction]}</c>, Warfront only: on a change, once a second while it is not empty, and its change to empty in <see cref="StartRepeats"/> consecutive messages. The own
 /// HUD needs none of it (the own record carries <c>Shield</c> as f32).</item>
 /// </list>
 /// </summary>
