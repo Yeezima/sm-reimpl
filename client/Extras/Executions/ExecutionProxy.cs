@@ -1,0 +1,200 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+using SmSim;
+using SmSim.Extras.Executions;
+using SmSim.Extras.Musou;
+
+namespace SmClient;
+
+/// <summary>
+/// Executions X5: the victim's half. Each run gets one proxy character (a <see cref="CharacterViewer"/> of its own, never the victim's live character) at the victim's place
+/// (<see cref="ExecutionPresentMath.VictimPlace"/>: its feet never move) playing the row's victim clip on the run's clock.
+/// <list type="bullet">
+/// <item>Classic: the victim player's own look (its character's assets; the default marine while none is built). Its ragdoll, or its held death pose, is removed at the Start
+/// (<c>RemoveRagdolls(victim, keepDeathState: true)</c>). Race-swapped rows play the Chaos Marine's victim half on the loyalist's body (the same 50-bone PvP skeleton; owner);
+/// an Ork Boy player plays the campaign boy's clip on the Ork rig.</item>
+/// <item>Warfront: the crowd Ork's look (<c>MusouLooks.For</c>, the Chaos look where the stage supplies one) at its scale; the crowd skips that member and makes no corpse
+/// (<see cref="CrowdView.ExecutionHidden"/>) until the proxy has lain and sunk on the crowd's own corpse timing.</item>
+/// <item>After a completed move the proxy lies in its last pose (Classic 10 s, ours; Warfront the crowd's lie time), then sinks and is freed; any other end frees it after
+/// <see cref="ExecutionClientState.EndedKeepSeconds"/>. Freed proxies are pooled per look (at most live runs + 2 kept).</item>
+/// </list>
+/// </summary>
+public partial class NetworkView
+{
+    /// <summary>A Classic proxy corpse lies this long after a completed move before it sinks (seconds, ours: the PvP ragdolls lie until the cap).</summary>
+    const float ClassicProxyLieSeconds = 10f;
+    const float ProxySinkSeconds = 1.5f, ProxySinkDepth = 1.2f;
+
+    sealed class ExecProxy
+    {
+        public required ExecutionRun Run;
+        public required ExecutionRow Row;
+        public CharacterViewer? Viewer;
+        public MarineAssets? Assets;
+        public float Scale = 1f;
+        public float? GroundZ;
+        public bool Warfront, StandIn, Gave;
+        public double? EndedAt;
+        public bool Done;
+        public double CreatedAt;
+        public double LastTick;
+    }
+
+    readonly Dictionary<(int Executor, uint Start), ExecProxy> _execProxies = new();
+    readonly List<CharacterViewer> _execPool = new();
+    readonly HashSet<int> _execProxiedVictims = new();
+    readonly HashSet<int> _execHidden = new();
+    readonly List<(int, uint)> _execDrop = new();
+
+    /// <summary>Live proxies (the headless self-test reads it).</summary>
+    internal int ExecutionProxyCount => _execProxies.Count;
+
+    void ExecutionProxiesFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
+    {
+        if (_execLib.Catalogue is not { } catalogue || _gameSpace is null) return;
+        bool warfront = _config?.Extras.HasFlag(ContentExtras.Musou) ?? false;
+        foreach (var run in ExecutionsState.Live.Values)
+        {
+            var key = (run.Executor, run.StartTick);
+            if (_execProxies.ContainsKey(key) || catalogue.AtWire(run.Wire) is not { } row) continue;
+            var p = new ExecProxy { Run = run, Row = row, Warfront = run.TargetKind == ExecutionTargetKind.Enemy, CreatedAt = _connectedFor };
+            _execProxies[key] = p;
+            if (p.Warfront) _execHidden.Add(run.Target);
+            else
+            {
+                _execProxiedVictims.Add(run.Target);
+                RemoveRagdolls(run.Target, keepDeathState: true);   // the held death pose or the ragdoll hands over to the proxy
+                if (_motion.TryGetValue(run.Target, out var m)) p.GroundZ = m.Position.Z;
+            }
+            if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: start P{run.Executor} {row.Id} on {(p.Warfront ? "enemy" : "P")}{run.Target} (wire {run.Wire}, tick {run.StartTick}, slide {run.SlideTicks}, distance {run.Distance:F3} m{(run.RaceSwapped ? ", races swapped" : "")})");
+        }
+        foreach (var ended in ExecutionsState.Ended)
+            if (_execProxies.TryGetValue((ended.Run.Executor, ended.Run.StartTick), out var p) && p.EndedAt is null)
+            {
+                p.EndedAt = _connectedFor;
+                p.Done = ended.Reason == ExecutionEndReason.Done;
+                if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: end P{p.Run.Executor} {p.Row.Id} {ended.Reason} at tick {ended.EndTick}");
+            }
+        _execDrop.Clear();
+        foreach (var (key, p) in _execProxies)
+        {
+            // A run that left the state without an End we saw (a Clear): ended now.
+            if (p.EndedAt is null && (!ExecutionsState.TryLive(p.Run.Executor, out var live) || live.StartTick != p.Run.StartTick))
+            {
+                bool ended = false;
+                foreach (var e in ExecutionsState.Ended) if (e.Run.Executor == p.Run.Executor && e.Run.StartTick == p.Run.StartTick) { ended = true; break; }
+                if (!ended) p.EndedAt = _connectedFor;
+            }
+            float lie = p.Warfront ? MusouCrowd.SinkAfter : ClassicProxyLieSeconds;
+            float sink = p.Warfront ? MusouCrowd.SinkSeconds : ProxySinkSeconds;
+            if (p.EndedAt is { } end && _connectedFor - end > ExecutionPresentMath.AfterEnd(p.Done, lie, sink)) { _execDrop.Add(key); continue; }
+            ExecProxyPose(p, lie, sink);
+        }
+        foreach (var key in _execDrop)
+        {
+            var p = _execProxies[key];
+            _execProxies.Remove(key);
+            ExecProxyFree(p);
+            if (p.Warfront) _execHidden.Remove(p.Run.Target);
+            else _execProxiedVictims.Remove(p.Run.Target);
+            if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: proxy of P{p.Run.Executor} {p.Row.Id} freed ({_execProxies.Count} left)");
+        }
+        // A Classic victim alive again keeps no proxy claim (its next death is its own).
+        if (_execProxiedVictims.Count > 0)
+            foreach (var o in others) if (o.Alive && _execProxiedVictims.Contains(o.PlayerId) && !AnyProxyOn(o.PlayerId)) _execProxiedVictims.Remove(o.PlayerId);
+        if (warfront && _musouCrowd is { } crowd)
+        {
+            crowd.ExecutionHidden = _execHidden.Count > 0 ? _execHidden : null;
+            if (_execHidden.Count == 0 && crowd.ExecutionSeen.Count > 0) crowd.ExecutionSeen.Clear();
+        }
+    }
+
+    bool AnyProxyOn(int victim)
+    {
+        foreach (var p in _execProxies.Values) if (!p.Warfront && p.Run.Target == victim && p.EndedAt is null) return true;
+        return false;
+    }
+
+    void ExecProxyPose(ExecProxy p, float lie, float sink)
+    {
+        if (p.Viewer is null && !ExecProxyBuild(p)) return;
+        var viewer = p.Viewer!;
+        var row = p.Row;
+        // The clock: the executor's while the move lives; after its end the last pose holds.
+        double tick = p.EndedAt is null ? ExecDrawTick(p.Run.Executor) : p.LastTick;
+        if (p.EndedAt is null) p.LastTick = tick;
+        float clip = ExecutionPresentMath.ClipSeconds(p.Run, tick, ExecTickRate);
+        if (p.EndedAt is not null && p.Done) clip = MathF.Max(clip, row.VictimSeconds);
+        var (feet, yaw) = ExecutionPresentMath.VictimPlace(p.Run, row, p.GroundZ);
+        var vclip = _execLib.Victim(row.Target, row.VictimClip);
+        if (!p.StandIn && vclip is not null)
+        {
+            viewer.Pose(ExecutionClipLibrary.Alias(row.VictimClip), ExecutionPresentMath.RawTime(clip, row.VictimSeconds, vclip.Animation.Animation.Duration), 0.2f);   // 0.2 s from the held death pose (architect recommendation 1)
+            if (vclip.InPlace) (feet, yaw) = ExecutionPresentMath.RootPlace(feet, yaw, row.VictimRoot, row.VictimSeconds > 0f ? clip / row.VictimSeconds : 1f);
+        }
+        else ExecutionStandIns.Victim(viewer, row, clip, _notes);
+        float down = p.EndedAt is { } end && p.Done ? ExecutionPresentMath.Sink(_connectedFor - end, lie, sink, ProxySinkDepth) : 0f;
+        viewer.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw).Scaled(Vector3.One * p.Scale), new Vector3(feet.X, feet.Y, feet.Z - down));
+        viewer.Visible = true;
+    }
+
+    bool ExecProxyBuild(ExecProxy p)
+    {
+        if (_gameSpace is null) return false;
+        MarineAssets? assets;
+        if (p.Warfront)
+        {
+            if (_musouCrowd is not { } crowd || !crowd.ExecutionSeen.TryGetValue(p.Run.Target, out var seen))
+            {
+                if (_connectedFor - p.CreatedAt > 1.0 && !p.Gave) { p.Gave = true; _execHidden.Remove(p.Run.Target); GD.Print($"EXECPRESENT: enemy {p.Run.Target} never drawn by the crowd; no proxy (the crowd keeps it)"); }
+                return false;
+            }
+            var look = _musouLooks?.For((MusouEnemyType)seen.Type);
+            if (look is null) return false;
+            assets = look.Assets;
+            p.Scale = look.Scale;
+            p.GroundZ ??= seen.Position.Z;
+        }
+        else
+        {
+            var source = _client is not null && p.Run.Target == _client.PlayerId ? _local : _remotes.GetValueOrDefault(p.Run.Target);
+            assets = source?.Assets ?? ExecPlaceholderVictim(p.Row);
+        }
+        if (assets is null) return false;
+        var vclip = _execLib.Victim(p.Row.Target, p.Row.VictimClip);
+        p.StandIn = !_execLib.Prepare(assets.Rig, vclip, p.Row.VictimClip);
+        string first = p.StandIn ? ExecutionStandIns.VictimClip(assets) ?? CharacterViewer.DefaultAnimation : ExecutionClipLibrary.Alias(p.Row.VictimClip);
+        CharacterViewer? viewer = null;
+        for (int i = 0; i < _execPool.Count; i++)
+            if (ReferenceEquals(_execPool[i].Assets, assets) && IsInstanceValid(_execPool[i])) { viewer = _execPool[i]; _execPool.RemoveAt(i); break; }
+        if (viewer is null)
+        {
+            viewer = new CharacterViewer(assets, first, gameSpaceRoot: false) { Name = $"ExecutionVictim{p.Run.Target}" };
+            _gameSpace.AddChild(viewer);
+        }
+        if (!p.Warfront && (_client is not null && p.Run.Target == _client.PlayerId ? _local : _remotes.GetValueOrDefault(p.Run.Target)) is { } live && live.Overlay is { } overlay) viewer.SetOverlay(overlay);   // the side's look (team colour overlay) as the victim wore it
+        p.Viewer = viewer;
+        p.Assets = assets;
+        if (ExecLog) GD.Print($"EXECPRESENT t {_connectedFor:F2} s: proxy for {(p.Warfront ? "enemy " : "P")}{p.Run.Target}: {p.Row.VictimClip} on rig {assets.Rig.RigKey}{(p.StandIn ? " (stand-in: placeholder demonstration)" : " (original asset loaded)")} scale {p.Scale:F2}");
+        return true;
+    }
+
+    void ExecProxyFree(ExecProxy p)
+    {
+        if (p.Viewer is not { } v || !IsInstanceValid(v)) return;
+        v.Visible = false;
+        v.ClearPoseLayers();
+        if (_execPool.Count < ExecutionsState.Live.Count + 2) _execPool.Add(v);
+        else v.QueueFree();
+        p.Viewer = null;
+    }
+
+    /// <summary>The look a Classic victim proxy wears while the victim has no built character (the side's placeholder): the co-op Ork Boy for the Ork Boy rows, else the default marine.</summary>
+    MarineAssets? ExecPlaceholderVictim(ExecutionRow row)
+    {
+        if (!string.Equals(row.Target, ExecutionTargets.OrkBoy, StringComparison.OrdinalIgnoreCase)) return _assets;
+        try { return (_orks ?? OrkAssets.Shared(_gameDir, _notes)).Build("boy_melee"); }
+        catch (Exception e) when (e is not OutOfMemoryException) { _notes.Add($"executions: no Ork look for the proxy ({e.Message})"); return _assets; }
+    }
+}

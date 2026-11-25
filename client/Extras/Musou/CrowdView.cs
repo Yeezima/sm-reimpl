@@ -283,7 +283,7 @@ public abstract partial class CrowdView : Node3D
         {
             var it = Items[i];
             var look = LookOf(it.Type);
-            if (it.Key > 0) { bool hidden = false; ExecutionsHideEnemy(it.Key, ref hidden); if (hidden) { left++; continue; } }   // EXECUTIONS-HOOK: a Warfront Ork playing an execution is drawn by its proxy (client/Extras/Executions)
+            if (it.Key > 0) { bool hidden = false; ExecutionsHideEnemy(it.Key, it.Type, it.Position, it.Yaw, ref hidden); if (hidden) { left++; continue; } }   // EXECUTIONS-HOOK: a Warfront Ork playing an execution is drawn by its proxy (client/Extras/Executions)
             // The corpse floor (2026-11-09): a body (a negative key) is drawn whatever the members' count; Visible counts the living (and the dying) alone. --musou-old-corpses: every item counts.
             bool body = it.Key < 0 && !OldCorpses;
             if (look is null || (body ? false : (OldCorpses ? i : members++) >= visible)) { left++; continue; }
@@ -486,5 +486,5 @@ public abstract partial class CrowdView : Node3D
     }
 
     /// <summary>Executions X5 (client/Extras/Executions/CrowdView.Executions.cs): <paramref name="hide"/> set for a member whose execution proxy draws it.</summary>
-    partial void ExecutionsHideEnemy(int id, ref bool hide);
+    partial void ExecutionsHideEnemy(int id, int type, Vector3 position, float yaw, ref bool hide);
 }

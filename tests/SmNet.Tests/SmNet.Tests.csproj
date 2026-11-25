@@ -69,6 +69,7 @@
   <ItemGroup Condition="'$(SmExtras)' == 'true'">
     <!-- Executions X5a/X5: the client's engine-free execution state and presentation maths. -->
     <Compile Include="..\..\client\Extras\Executions\ExecutionClientState.cs" Link="ClientExecutions\ExecutionClientState.cs" />
+    <Compile Include="..\..\client\Extras\Executions\ExecutionPresentMath.cs" Link="ClientExecutions\ExecutionPresentMath.cs" />
   </ItemGroup>
 
   <ItemGroup>
