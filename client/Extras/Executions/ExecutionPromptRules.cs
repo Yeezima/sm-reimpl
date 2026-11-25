@@ -34,21 +34,6 @@ public static class ExecutionPromptRules
     /// </summary>
     public const bool ChaosKindsIn = false;
 
-    /// <summary>The prompt's text: <c>[Q] EXECUTE</c> with the bound key's display name, or <c>EXECUTE (unbound: Controls)</c> when the device in use has no binding (lead 39: the pad's default).</summary>
-    public static string Text(string? boundKey) =>
-        string.IsNullOrWhiteSpace(boundKey) || boundKey is "?" or "-" ? UnboundText : $"[{boundKey.Trim().ToUpperInvariant()}] {Label}";
-
-    public const string Label = "EXECUTE";
-    public const string UnboundText = "EXECUTE (unbound: Controls)";
-
-    /// <summary>The key and the label of a prompt text (<see cref="Text"/>): the key boxed, the label beside it; a text without a key gives a null key.</summary>
-    public static (string? Key, string Label) Split(string text)
-    {
-        if (text.Length > 2 && text[0] == '[' && text.IndexOf("] ", StringComparison.Ordinal) is var close and > 1)
-            return (text[1..close], text[(close + 2)..]);
-        return (null, text);
-    }
-
     /// <summary>The melee wargear the executor carries (the X3 rule: the class's melee choice), or null.</summary>
     public static string? MeleeKey(SimConfig c, in PlayerState s)
     {
@@ -57,7 +42,7 @@ public static class ExecutionPromptRules
         return choice >= 0 && choice < loadout.MeleeChoices.Count ? loadout.MeleeChoices[choice].Wargear : null;
     }
 
-    /// <summary>The refusals every mode shares, cheapest first (X3's <c>ExecutionsRefusal</c>): alive, a human, not executing, grounded, not in a reaction or flinch, not charging, evading or in a jump, a melee family, not an Ork, rows.</summary>
+    /// <summary>The refusals every mode shares, cheapest first (X3's <c>ExecutionsRefusal</c>): alive, a human, not executing, grounded, not in an interrupt, stun or stagger (a flinch does not count), not charging, evading or in a jump, a melee family, not an Ork, rows.</summary>
     public static ExecutionPromptHidden Common(SimConfig c, in PlayerState me, bool spectating, bool executing, IReadOnlyList<ExecutionRow> rows)
     {
         if (!me.Alive) return ExecutionPromptHidden.NotAlive;
@@ -65,7 +50,7 @@ public static class ExecutionPromptRules
         if (executing) return ExecutionPromptHidden.Executing;
         if (TfwContracts.IsPuppet(me.PlayerId)) return ExecutionPromptHidden.Puppet;   // retainers and AI Marines never execute (owner)
         if (!me.Grounded || me.Jump != JumpPhase.None) return ExecutionPromptHidden.Airborne;
-        if (me.Reaction != ReactionKind.None || me.ReactionTicks > 0 || me.FlinchTicks > 0) return ExecutionPromptHidden.Reaction;   // X3 refuses a press in a reaction or a flinch
+        if (me.Reaction != ReactionKind.None) return ExecutionPromptHidden.Reaction;   // X3 refuses a press in an interrupt, stun or stagger; a light hit's flinch does not refuse (lead 40)
         if (me.Rush != RushPhase.None || me.EvadeTicks > 0) return ExecutionPromptHidden.Busy;
         if (ExecutionWeapons.FamilyOf(MeleeKey(c, me)) is null) return ExecutionPromptHidden.NoFamily;
         if (!ExecutionTargets.CanExecute(Races.Of(c, me.Class, me.Team))) return ExecutionPromptHidden.OrkPlayer;

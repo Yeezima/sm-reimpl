@@ -63,7 +63,7 @@ public class ExecutionPromptRuleTests
         Frame(Me() with { Alive = false }, true, null, 100, [boy]);
         Frame(Me() with { Grounded = false }, true, null, 100, [boy]);
         Frame(Me() with { Rush = RushPhase.Rush }, true, null, 100, [boy]);
-        Frame(Me() with { FlinchTicks = 3 }, true, null, 100, [boy]);       // X3 refuses a press in a flinch or reaction
+        Frame(Me() with { Reaction = ReactionKind.Stagger }, true, null, 100, [boy]);   // X3 refuses a press in an interrupt, stun or stagger
         Frame(Me(), false, null, 100, [boy]);                                 // the hub or the travel
         Frame(Me(), true, 90, 100, [boy]);                                    // on cooldown
         Frame(Me(), true, null, 100, [Shown(5, new Vector3(0f, 3.2f, 0f))]); // nobody within 3 m
@@ -101,14 +101,13 @@ public class ExecutionPromptRuleTests
     }
 
     [Fact]
-    public void UnboundShowsHint()
+    public void FlinchNeverHidesButReactionsDo()
     {
-        Assert.Equal("[Q] EXECUTE", ExecutionPromptRules.Text("Q"));
-        Assert.Equal("[MOUSE 4] EXECUTE", ExecutionPromptRules.Text("Mouse 4"));
-        Assert.Equal("EXECUTE (unbound: Controls)", ExecutionPromptRules.Text(null));
-        Assert.Equal("EXECUTE (unbound: Controls)", ExecutionPromptRules.Text("?"));   // ControlsInput.Prompt's "nothing bound on the device in use" (the pad's default)
-        Assert.Equal(("Q", "EXECUTE"), ExecutionPromptRules.Split("[Q] EXECUTE"));
-        Assert.Equal(((string?)null, "EXECUTE (unbound: Controls)"), ExecutionPromptRules.Split(ExecutionPromptRules.UnboundText));
+        var c = Config();
+        // A light hit's flinch (aim sway only) does not refuse a press on the server (X3, lead 40), so it does not hide the marker either.
+        Assert.Equal(ExecutionPromptHidden.None, ExecutionPromptRules.Common(c, Me() with { FlinchTicks = 5 }, false, false, Rows));
+        foreach (var kind in new[] { ReactionKind.Interrupt, ReactionKind.Stun, ReactionKind.Stagger })
+            Assert.Equal(ExecutionPromptHidden.Reaction, ExecutionPromptRules.Common(c, Me() with { Reaction = kind, ReactionTicks = 4 }, false, false, Rows));
     }
 
     [Fact]

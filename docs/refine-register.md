@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 4134 spec table rows: **3056 tagged**, 706 not tagged (read from data with high confidence), 372 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
+Scanned 4150 spec table rows: **3068 tagged**, 708 not tagged (read from data with high confidence), 374 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 849 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 4134 spec table rows: **3056 tagged**, 706 not tagged (read from data wi
 | Charge (critical) | 71 | 59 | 52 | 28 | 0 |
 | Reactions (critical) | 25 | 22 | 23 | 13 | 0 |
 | Camera (critical) | 63 | 56 | 52 | 22 | 0 |
-| HUD and hit feedback (critical) | 88 | 83 | 67 | 12 | 0 |
+| HUD and hit feedback (critical) | 100 | 95 | 73 | 14 | 0 |
 | Sound mix (critical) | 254 | 236 | 201 | 42 | 0 |
 | Effects (critical) | 112 | 100 | 95 | 44 | 0 |
 | Game modes | 46 | 42 | 44 | 19 | 1 |
@@ -53,18 +53,18 @@ Scanned 4134 spec table rows: **3056 tagged**, 706 not tagged (read from data wi
 | Core simulation (provisional values) | 871 | 825 | 651 | 239 | 1 |
 | General game design | 204 | 203 | 78 | 79 | 0 |
 | Ork faction | 298 | 278 | 178 | 73 | 0 |
-| **All areas** | **3056** | 2748 | 2239 | 919 | 37 |
+| **All areas** | **3068** | 2760 | 2245 | 921 | 37 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1861 |
-| confidence: low | 1073 |
-| confidence: medium | 1055 |
+| kind: ours | 1872 |
+| confidence: low | 1074 |
+| confidence: medium | 1060 |
 | notes: ours | 476 |
-| kind: interpretation | 458 |
-| notes: estimate | 310 |
+| kind: interpretation | 459 |
+| notes: estimate | 312 |
 | kind: estimate | 272 |
 | confidence: none (low) | 111 |
 | kind: provisional | 107 |
@@ -1792,7 +1792,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-76328A88` | Perk texts that no perk file uses | locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture points faster in Domination, your kills in TDM count as two for scoring purposes, +20% Score in Co-Op"), 111542 "Super Kick" ("15% to instantly explode enemies with a kick"), 111544… | confidence: medium | `ucs.pc` locale, `wargear.oppc` | Perk texts that no perk file uses: compare with SM1 with side-by-side screenshots in the same spot. Ours: locale 111538 "Quicker Stomp", 111540 "Mission Specialist" ("Capture… | ☐ |
 | `R-A93496E7` | Painting: `pattern_enabled` | in the 80 preset schemes (`custom_paint_scheme`), `pattern_enabled` appears 599 times (True 161, False 438; 519 piece entries with three colours each) beside a `decals` list per scheme: a per-piece flag of a preset, with the data's meaning not stated (the… | confidence: medium | `custom_paint_scheme.oppc` | Painting: pattern_enabled: compare with SM1 with side-by-side screenshots in the same spot. Ours: in the 80 preset schemes (custom_paint_scheme), pattern_enabled… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (88)
+### HUD and hit feedback (gameplay-critical) (100)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1956,6 +1956,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1D18E8DA` | Progression sender | the server sends Progress (tag 44) per identified human when its bytes change and every 2 s, and Offer (tag 45) on every send while an offer stands; the picker stays hidden on a live server until W5c's `PickerBusy` hook flips `NetworkView.WarfrontPickerLive`… (s) | kind: ours; confidence: medium | review of W8, finding 1 | Progression sender: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server sends Progress (tag 44) per identified human when its… | ☐ |
 | `R-6BCFDD9D` | Effect line and banner | the effect line shows the total after the pick ("NOW +20 %, THEN +30 %", the cooldown at its 40 % floor, "SQUAD 3 OF 9"); the LEVEL N banner is not drawn while an offer stands (a banner cut short shows its remaining time after the close); text sizes 28… | kind: ours; confidence: low | review of W8 | Effect line and banner: compare with SM1 with side-by-side screenshots in the same spot. Ours: the effect line shows the total after the pick ("NOW +20 %, THEN +30… | ☐ |
 | `R-EF8CD15C` | Bot pick | a `--warfront-bot` client picks slot (pick index mod 4) after 1 s (s) | kind: ours | brief behaviour 7 (proofs only) | Bot pick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a --warfront-bot client picks slot (pick index mod 4) after 1 s. | ☐ |
+
+*Spec section: Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D607521D` | Orbit | while the own player executes: free 360 degrees of yaw, elevation 0.05 to 1.3 rad (`DeathOrbit`'s limits), round the executor's chest (1.2 m over the drawn feet), the distance of the last camera kept within 2.5 to 5 m; started from the camera as it was and… (rad, m, s) | kind: ours | owner brief ("free 360-degree orbit above ground, as the respawn-wait camera, collision kept, no forced cut"); design | Orbit: compare with SM1 with side-by-side screenshots in the same spot. Ours: while the own player executes: free 360 degrees of yaw, elevation… | ☐ |
+| `R-D7DF38C2` | Exit | at the End the view takes the orbit camera's heading (and its pitch within the rig's range), the rig camera is placed fresh and the camera blends into it (0.35 s) | kind: ours; notes: estimate | design | Exit: compare with SM1 with side-by-side screenshots in the same spot. Ours: at the End the view takes the orbit camera's heading (and its pitch… | ☐ |
+| `R-60F5C123` | Death during the move | the death camera takes over at once (it is checked before the execution camera in `FollowCamera`); nothing of the orbit carries over | kind: ours | design | Death during the move: compare with SM1 by timing a run over a known distance. Ours: the death camera takes over at once (it is checked before the… | ☐ |
+| `R-5F3901D1` | Prediction | the own player's ticks StartTick + 1 to the run's end tick (the track's, or the End's once heard) are predicted with no stick and no buttons (`MatchFlow.Locked`, the Execute bit with them; the view kept) and pinned to `ExecutionTrack.Pose` (feet, yaw, no… | kind: ours | design (X3's pin and lock) | Prediction: compare with SM1 with side-by-side screenshots in the same spot. Ours: the own player's ticks StartTick + 1 to the run's end tick (the… | ☐ |
+| `R-5A7E6E85` | Marker rate | Warfront's pick recomputed at most 10 times a second, after the cheap refusals (Hz) | kind: ours; notes: estimate | review note 6; 10 Hz ours | Marker rate: compare with SM1 with side-by-side screenshots in the same spot. Ours: Warfront's pick recomputed at most 10 times a second, after the cheap… | ☐ |
+| `R-BE44849F` | Marker look | a view-facing quad 0.55 m wide (the stim cross's side, `CharacterViewer.StimCrossSize`) and 0.8 m tall: an opaque red disc 0.30 m across (RGB 1.0, 0.06, 0.04) with a hotter centre, a soft red glow out to the quad's width, a rim that fizzles (animated noise… (m, s) | kind: ours; confidence: medium | owner ("a solid at the center, opaque glowing red dot ... fizzle and drip color down a bit like a melting icicle. About the height of a stim overhead icon")… | Marker look: compare with SM1 with side-by-side screenshots in the same spot. Ours: a view-facing quad 0.55 m wide (the stim cross's side… | ☐ |
+| `R-0C52BB93` | Marker place | the dot's centre 2.45 m over a Warfront Ork's feet and 1.3 m over a Classic corpse's feet (about where the stim cross floats over a standing marine's head: 1.55 m over the lower spine, lower over a body on the ground) (m) | kind: interpretation; confidence: medium | owner ("about the height of a stim overhead icon": read as the stim cross's size and place) | Marker place: compare with SM1 by measuring on a flat spot of the same map. Ours: the dot's centre 2.45 m over a Warfront Ork's feet and 1.3 m over a… | ☐ |
+| `R-E9561439` | Marker lag | the marker reads the crowd as drawn (the interpolation delay behind the server), so at the edge of range the marked Ork can differ from the one the press takes; the press is the server's | kind: ours | plan risk, accepted | Marker lag: compare with SM1 with side-by-side screenshots in the same spot. Ours: the marker reads the crowd as drawn (the interpolation delay behind… | ☐ |
+| `R-036B5F3F` | Overshield look strength | 1 (one value shared by the shell and the armour tint; the owner picks from the comparison of 0.6, 1 and 1.4) (factor) | kind: ours; confidence: low | owner 2026-11-25 (comparison requested) | Overshield look strength: compare with SM1 with side-by-side screenshots in the same spot. Ours: 1 (one value shared by the shell and the armour tint; the owner picks… | ☐ |
+| `R-E3526A95` | Armour tint | while the own armour is above its bar: the armour bar modulated from white toward RGB (0.36, 0.56, 1.0) by the overshield's fraction of its cap times the look strength (clamped to 1), so full, half and low read differently and it fades back as the overshield… (RGB) | kind: ours; confidence: medium | owner brief ("deeper blue armour HUD"); media review (scale with the overshield); values ours | Armour tint: compare with SM1 by counting hits to kill and by video of the health bar. Ours: while the own armour is above its bar: the armour bar modulated from… | ☐ |
+| `R-67CDCFC5` | Shell | a second mesh on every armour mesh under the skeleton, skinned pieces sharing their skin and skeleton and rigid pieces (shoulder pads, helmet, worn backpack and jump pack) as their children, never the weapons; pushed 0.05 m along the normals (in model units:… (m) | kind: ours; confidence: medium | owner brief ("a soft blue shield about 5 cm off the model"); media review of a18ed908 (pads and backpack, scaling) | Shell: compare with SM1 by measuring on a flat spot of the same map. Ours: a second mesh on every armour mesh under the skeleton, skinned pieces… | ☐ |
+| `R-4379D09D` | Shell on the Compatibility renderer | one material per character with plain uniforms (no instance uniform, which the Compatibility renderer does not draw), plain GLSL with no screen or depth texture: the same look in old-GPU mode | kind: ours; confidence: medium | the repo's Compatibility rule (`ClawCrackle`) | Shell on the Compatibility renderer: compare with SM1 with side-by-side screenshots in the same spot. Ours: one material per character with plain uniforms (no instance uniform… | ☐ |
 
 ### Sound mix (gameplay-critical) (254)
 
@@ -6692,4 +6709,6 @@ Test aids, probes, demo and capture tooling, engineering decisions (protocol, wi
 | `R-D3703D5C` | Wire precision | Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills) |
 | `R-63A2DBA2` | Executions hash | Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills) |
 | `R-589FFA21` | Wire order | Added content: Executions: the state machine and Classic (executions X3, 2026-11-25; added content, Classic PvP Extended, with the Warfront hooks X4 fills) |
+| `R-CF2299B9` | Row lookup | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
+| `R-43364C35` | Test aids | Added content: Executions: camera, input, HUD and shield (executions X6, 2026-11-25; added content, Classic PvP Extended and Warfront only; client only, no wire, hash or rules-version change) |
 

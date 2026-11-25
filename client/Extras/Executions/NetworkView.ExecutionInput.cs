@@ -15,7 +15,7 @@ namespace SmClient;
 /// <list type="bullet">
 /// <item><b>Prediction</b>: <see cref="ExecutionPrediction"/> set on the client's <c>ExtrasPredictInput</c> and <c>ExtrasPin</c> once per connection (the own locked ticks stepped with no stick and no
 /// buttons, the state pinned by <see cref="ExecutionTrack"/> as the server pins it); cleared with the flag off.</item>
-/// <item><b>The prompt</b>: shown only where the server would act: Classic PvP Extended, over the corpse while the own offer's window is open at the view tick; Warfront, over the Ork the press would take
+/// <item><b>The Execute marker</b> (<see cref="ExecutionMarker"/>, owner 2026-11-25: a red dot, no text) over the one target the press would take: Classic PvP Extended, over the corpse while the own offer's window is open at the view tick; Warfront, over the Ork the press would take
 /// (<see cref="ExecutionPromptRules.WarfrontPick"/>, recomputed at most <see cref="ExecutionPromptRules.PromptHz"/> times a second after the cheap refusals). Nothing on cooldown (the prompt hides; no
 /// cooldown indicator, lead 39), airborne, without a melee family, in a Chaos run before X4b, for a puppet, or while executing.</item>
 /// <item><b>The shell</b>: <see cref="OvershieldShell"/> on every living character with an overshield (the own from its Shield, the others from the server's overshield list), freed at 0, on death and
@@ -45,23 +45,18 @@ public partial class NetworkView
     /// <summary>A row set the test aids put in place of the match's (null: the match's).</summary>
     ExecutionRowSet? _execRowsOverride;
 
-    static System.Reflection.PropertyInfo? _execRowsProperty;
-    static bool _execRowsLooked;
-
     /// <summary>
-    /// The match's row set: <c>SimConfig.Executions</c> (X3 puts the install's catalogue there through <c>GameplayTuning.ExecutionsLoad</c>). Read by reflection until X3's property is integrated, so this
-    /// file builds on both sides of that merge; the integration replaces it with the property (one line). Empty without it: no execution is predicted or prompted.
+    /// The match's row set: <see cref="SimConfig.Executions"/> (X3 puts the install's catalogue there through <c>GameplayTuning.ExecutionsLoad</c>; the server's rows are authoritative and a row
+    /// this install lacks resolves to null). Empty: no execution is predicted or marked.
     /// </summary>
-    ExecutionRowSet ExecutionRowsOf(SimConfig c)
-    {
-        if (_execRowsOverride is { } test) return test;
-        if (!_execRowsLooked)
-        {
-            _execRowsLooked = true;
-            _execRowsProperty = typeof(SimConfig).GetProperty("Executions", typeof(ExecutionRowSet));
-        }
-        return _execRowsProperty?.GetValue(c) as ExecutionRowSet ?? ExecutionRowSet.Empty;
-    }
+    ExecutionRowSet ExecutionRowsOf(SimConfig c) => _execRowsOverride ?? c.Executions;
+
+    /// <summary>The dot's centre over a Classic corpse's feet and over a Warfront Ork's feet (metres; ours: about the stim cross's place over a standing marine's head, lower over a body on the ground).</summary>
+    public const float MarkerOverCorpse = 1.3f, MarkerOverOrk = 2.45f;
+
+    ExecutionMarker? _execMarker;
+    /// <summary>Whether the Execute marker shows this frame (the self-test and the log).</summary>
+    internal bool ExecutionMarkerShown => _execMarker is { } m && GodotObject.IsInstanceValid(m) && m.Visible;
 
     partial void ExecutionsViewFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
     {
@@ -92,8 +87,9 @@ public partial class NetworkView
 
     void ExecutionsPromptFrame(GameClient client, SimConfig config, PlayerState me, IReadOnlyList<PlayerState> others)
     {
-        if (_hudView is null) return;
-        _hudView.ExecutionPrompt = null;
+        if (_execMarker is null || !GodotObject.IsInstanceValid(_execMarker)) AddChild(_execMarker = new ExecutionMarker());
+        _execMarker.Hide();
+        if (_hudView is not null) _hudView.ExecutionPrompt = null;   // no text (owner 2026-11-25): the marker replaces the X5a text prompt
         var rows = ExecutionRowsOf(config).Rows;
         var hidden = ExecutionPromptRules.Common(config, me, Spectate is not null, ExecutionsState.TryLive(client.PlayerId, out _), rows);
         if (hidden == ExecutionPromptHidden.None && client.Match.State is MatchState.Countdown or MatchState.Ended) hidden = ExecutionPromptHidden.NotInPlay;   // X3: a press outside play is refused
@@ -105,9 +101,7 @@ public partial class NetworkView
         }
         else _execPickedOrk = 0;
         _execPromptHidden = hidden;
-        if (anchor is not { } at || _camera is null || _camera.IsPositionBehind(at)) return;
-        string text = ExecutionPromptRules.Text(_execX6PadShot ? null : ControlsInput.Prompt(GameAction.Execute));   // the bound key of the device in use; "?" (unbound): the hint (the demo's pad shot: unbound, the pad's default)
-        _hudView.ExecutionPrompt = (text, _hudView.ScreenToVirtual(_camera.UnprojectPosition(at)));
+        if (anchor is { } at) _execMarker.Show(at);   // whatever the bindings (owner: no text, pad bound or not)
     }
 
     /// <summary>Classic PvP Extended: the corpse of the own open offer (the server sends it to the killer alone), while its window is open at the view tick.</summary>
@@ -119,7 +113,7 @@ public partial class NetworkView
         if (!ExecutionPromptRules.ClassicOpen(offer, viewTick > 0 ? viewTick : client.LatestSnapshotTick)) return ExecutionPromptHidden.NoOffer;
         if (!_execOthers.TryGetValue(offer.Victim, out var corpse) && !(offer.Victim == client.PlayerId && (ExecutionX6Test || ExecutionX6Demo is not null))) return ExecutionPromptHidden.NoOffer;
         var feet = offer.Victim == client.PlayerId ? client.Predicted.Position : corpse.Position;   // the own id only under the test aid
-        anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + 1.0f);
+        anchor = _gameSpace!.Transform * new Vector3(feet.X, feet.Y, feet.Z + MarkerOverCorpse);
         return ExecutionPromptHidden.None;
     }
 
@@ -142,7 +136,7 @@ public partial class NetworkView
         foreach (var e in _tfwShown)
             if (e.Id == _execPickedOrk && e.State != MusouEnemyState.Dying)
             {
-                anchor = _gameSpace!.Transform * new Vector3(e.Position.X, e.Position.Y, e.Position.Z + 2.0f);
+                anchor = _gameSpace!.Transform * new Vector3(e.Position.X, e.Position.Y, e.Position.Z + MarkerOverOrk);
                 return ExecutionPromptHidden.None;
             }
         _execPickedOrk = 0;
