@@ -48,6 +48,13 @@ public sealed partial class MusouSim
         return ChaosRoster is not null && id != 0 && id == LordDuelId && duelist > 0;
     }
 
+    /// <summary>Whether <paramref name="id"/> is the Chaos Lord: the Warboss of a Chaos fortress (his duel kit and his idleness before it).</summary>
+    internal bool WarfrontIsChaosLord(ushort id)
+    {
+        int i = id - 1;
+        return Warfront is { ChaosRoster: not null, Fortress: not null } && i >= 0 && i < Capacity && _used[i] && _type[i] == MusouEnemyType.Warboss;
+    }
+
     /// <summary>The leashed enemy stays at home whoever comes (aggro 0; his group's leash kept): the Lord before the duel.</summary>
     internal void WarfrontHoldHome(ushort id)
     {
@@ -92,7 +99,7 @@ public sealed partial class MusouSim
     internal void WarfrontLordRules(ushort id, ref MusouBossRules rules)
     {
         int i = id - 1;
-        if (Warfront is not { ChaosRoster: not null, Fortress: not null } || i < 0 || i >= Capacity || !_used[i] || _type[i] != MusouEnemyType.Warboss) return;
+        if (!WarfrontIsChaosLord(id)) return;
         rules = rules with
         {
             WaaaghAt = [],

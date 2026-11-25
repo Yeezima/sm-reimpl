@@ -44,6 +44,9 @@ public sealed partial class TfwRun
             case TfwCommand.RequestPickup or TfwCommand.CancelPickup or TfwCommand.Redeploy or TfwCommand.ReturnToShip:
                 handled = true;   // no pickup, no redeploy for supplies, no recall in Warfront
                 break;
+            case TfwCommand.Orbital or TfwCommand.DropPod when w.WarfrontDuelRefusesSupport:
+                handled = true;   // WARFRONT-HOOK Chaos Warfront C5: no support during the duel relay, whoever calls it (outside help; Chaos/Finale/)
+                break;
         }
     }
 

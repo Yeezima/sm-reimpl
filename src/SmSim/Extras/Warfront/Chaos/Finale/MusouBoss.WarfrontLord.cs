@@ -30,11 +30,19 @@ public sealed partial class MusouBoss
 
     partial void WarfrontBossRules(ushort id, ref MusouBossRules rules) => _sim.WarfrontLordRules(id, ref rules);
 
+    /// <summary>The ability under way dropped: no script, no drive, no action (his cooldowns kept).</summary>
+    void WarfrontLordIdle()
+    {
+        _sim.Script(Id, false);
+        _sim.Drive(Id, Vector2.Zero, 0);
+        Action = MusouBossAction.None; ActionTicks = 0;
+        _charged.Clear();
+    }
+
     /// <summary>The handoff's clean slate (C5): the ability under way dropped, every cooldown back to its first, the leap and bolt forgotten. Health is not the boss code's to touch.</summary>
     public void WarfrontLordSlate()
     {
-        Action = MusouBossAction.None; ActionTicks = 0;
-        _charged.Clear();
+        WarfrontLordIdle();
         SlamCooldown = Ticks(_rules.SlamFirst);
         ChargeCooldown = Ticks(_rules.ChargeFirst);
         _leaping = false; _leapTicks = 0; _farTicks = 0; _leapCooldown = 0; _boltCooldown = 0;
@@ -44,7 +52,20 @@ public sealed partial class MusouBoss
 
     partial void WarfrontBossStep(MusouEnemy boss, ReadOnlySpan<MusouTarget> targets, List<MusouBossStrike> strikes, ref bool handled)
     {
-        if (!_sim.WarfrontLordDuelOn(Id, out int duelist)) { _leaping = false; _farTicks = 0; _toldAction = Action; return; }
+        if (!_sim.WarfrontLordDuelOn(Id, out int duelist))
+        {
+            _leaping = false; _farTicks = 0;
+            if (_sim.WarfrontIsChaosLord(Id))
+            {
+                // Before the duel (the bodyguard fight, a handoff's pause) the Lord does nothing: no slam, no charge (he is shielded; Fable review C5s, finding 1). One under way is dropped.
+                if (Action != MusouBossAction.None) WarfrontLordIdle();
+                handled = true;
+            }
+            _toldAction = Action;
+            return;
+        }
+        // A stun (MusouSim.BossStun.cs, which returns before this hook) or anything else that took his wind-up off ends the leap: it never lands late (Fable review C5s, finding 6).
+        if (_leaping && boss.State != MusouEnemyState.WindUp) { _leaping = false; _leapTicks = 0; }
         if (_leapCooldown > 0) _leapCooldown--;
         if (_boltCooldown > 0) _boltCooldown--;
         int t = -1;
