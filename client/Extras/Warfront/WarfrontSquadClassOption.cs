@@ -71,11 +71,20 @@ public static class WarfrontSquadClassOption
     /// </summary>
     public static IReadOnlyList<MusouSection> Rows(SquadClass chosen) =>
     [
-        new("RETAINERS",
+        new(Heading,
         [
             new MusouRow(RolledTitle, RolledText, MusouRowKind.Fixed),
         ]),
     ];
+
+    /// <summary>The section's heading, and the caption of the Librarian's RETAINERS slot card in the default Armoury layout (the card's value is <see cref="RolledTitle"/>, upper case as every card).</summary>
+    public const string Heading = "RETAINERS";
+
+    /// <summary>The <c>--step</c> name that opens the SUPPORT step with the RETAINERS row focused (test aid).</summary>
+    public const string StepAlias = "retainers";
+
+    /// <summary>Whether <paramref name="stepName"/> (a <c>--step</c> value) names the retainers' row.</summary>
+    public static bool IsRetainersStep(string? stepName) => stepName is not null && stepName.Trim().Equals(StepAlias, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The fixed row's words.</summary>
     public const string RolledTitle = "Two retainers, random classes",

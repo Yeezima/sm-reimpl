@@ -233,7 +233,34 @@ public sealed partial class CreatorView : Control
 
     public void OpenStep(string name)
     {
-        for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase) && StepShown(i)) { _step = (Step)i; _armPicking = true; Refresh(false); return; }   // only a step the page shows: Classic never reaches SUPPORT
+        bool handled = false;
+        ExtrasOpenStep(name, ref handled);   // EXTRAS-HOOK: an added page's own step names (Warfront: retainers)
+        if (handled) return;
+        int i = Model.ArmouryFocus.StepIndex(StepNames, name, StepShown);   // the whole name or its first word (support); only a step the page shows: Classic never reaches SUPPORT
+        if (i >= 0) { _step = (Step)i; _armPicking = true; Refresh(false); }
+    }
+
+    /// <summary>EXTRAS-HOOK: a <c>--step</c> name an added page knows (sets <paramref name="handled"/> when it opened it).</summary>
+    partial void ExtrasOpenStep(string name, ref bool handled);
+
+    /// <summary>
+    /// Test aid (<c>--armoury-focus &lt;row&gt;</c>, both layouts): focuses the row of the shown step's list that <paramref name="wanted"/> names (<see cref="Model.ArmouryFocus.RowIndex"/>: the title, part of it or a
+    /// 1-based number), so the item card shows that row's text. Applied after the list's own deferred focus and, with <paramref name="late"/> (the launch aids), again a little later in case the page was rebuilt.
+    /// </summary>
+    public void FocusArmouryRow(string wanted, bool late = true)
+    {
+        void Apply()
+        {
+            if (!IsInsideTree()) return;
+            var rows = _list.GetChildren().OfType<UiKit.Row>().Where(r => r.Visible).ToList();
+            int i = Model.ArmouryFocus.RowIndex(rows.Select(r => r.Text).ToList(), wanted);
+            if (i < 0) { GD.Print($"ARMFOCUS no row matches '{wanted}' ({rows.Count} rows)"); return; }
+            if (rows[i].HasFocus()) return;
+            rows[i].GrabFocus(); rows[i].Focused?.Invoke(); _scroll.EnsureControlVisible(rows[i]);
+            GD.Print($"ARMFOCUS row {i + 1}: {rows[i].Text}");
+        }
+        Callable.From(() => Callable.From(Apply).CallDeferred()).CallDeferred();
+        if (late && IsInsideTree()) foreach (double t in new[] { 0.3, 0.8 }) GetTree().CreateTimer(t).Timeout += Apply;
     }
 
     /// <summary>The step shown now (test aid).</summary>
